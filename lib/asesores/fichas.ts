@@ -24,6 +24,17 @@ import { FICHA_TINO_MOSSU } from './ficha-tino-mossu';
 import { FICHA_EMILIO_PUIGRREDON } from './ficha-emilio-puigrredon';
 import { FICHA_JULIAN_ALBORNA } from './ficha-julian-alborna';
 import { FICHA_JORDI_SEGUES } from './ficha-jordi-segues';
+// Cuarta tanda (4/11/2026): los diez que esperaban su cara.
+import { FICHA_JUAN_CARRIZO } from './ficha-juan-carrizo';
+import { FICHA_VILMA_NUNEZ } from './ficha-vilma-nunez';
+import { FICHA_SAMUEL_ALBAA } from './ficha-samuel-albaa';
+import { FICHA_ALVARO_LUQUE } from './ficha-alvaro-luque';
+import { FICHA_SERGIO_BEGUERIA } from './ficha-sergio-begueria';
+import { FICHA_ROMUALD_FONS } from './ficha-romuald-fons';
+import { FICHA_MATEO_MAFFIA } from './ficha-mateo-maffia';
+import { FICHA_FRANCISCO_DOGLIO } from './ficha-francisco-doglio';
+import { FICHA_ANDY_LANDA } from './ficha-andy-landa';
+import { FICHA_GONZALO_SERE } from './ficha-gonzalo-sere';
 import type { IdAsesor } from './catalogo';
 
 export const FICHAS: Readonly<Record<IdAsesor, string>> = {
@@ -49,4 +60,14 @@ export const FICHAS: Readonly<Record<IdAsesor, string>> = {
   'emilio-puigrredon': FICHA_EMILIO_PUIGRREDON,
   'julian-alborna': FICHA_JULIAN_ALBORNA,
   'jordi-segues': FICHA_JORDI_SEGUES,
+  'juan-carrizo': FICHA_JUAN_CARRIZO,
+  'vilma-nunez': FICHA_VILMA_NUNEZ,
+  'samuel-albaa': FICHA_SAMUEL_ALBAA,
+  'alvaro-luque': FICHA_ALVARO_LUQUE,
+  'sergio-begueria': FICHA_SERGIO_BEGUERIA,
+  'romuald-fons': FICHA_ROMUALD_FONS,
+  'mateo-maffia': FICHA_MATEO_MAFFIA,
+  'francisco-doglio': FICHA_FRANCISCO_DOGLIO,
+  'andy-landa': FICHA_ANDY_LANDA,
+  'gonzalo-sere': FICHA_GONZALO_SERE,
 };

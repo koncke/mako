@@ -80,12 +80,46 @@
 .gr-titulo-boton { display: flex; align-items: center; gap: 10px; min-width: 0; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .gr-titulo-boton__ver { font-size: var(--fs-meta); font-weight: 400; color: var(--dim); }
 .gr-participantes { display: inline-flex; align-items: center; gap: 6px; }
+/* Invitar y Participantes, a la derecha del todo de la barra, como «Second Brain de …» en los otros chats (4/11/2026, Martín: «"Participantes"
+   debería estar al final a la derecha»). */
+.co-cab .gr-cab-acciones { flex: none; margin-left: auto; display: flex; align-items: center; gap: 8px; }
+/* En una ventana angosta, sólo el ícono: el nombre del grupo no puede quedar en «MaK…». */
+@media (max-width: 720px) { .co-cab .gr-cab-rotulo { display: none; } .co-cab .gr-cab-acciones .gr-participantes { padding-inline: 10px; } }
+/* El teléfono: el nombre y quiénes están se tocan para abrir los participantes; el «+» invita. */
+.gr-titulo-m-fila { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+.gr-titulo-m-fila > .gr-titulo-boton { flex: 1; width: auto; }
+.gr-titulo-boton__ver { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.gr-invitar-m {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0;
+  border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--ink); cursor: pointer;
+}
+.gr-invitar-m:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
-/* Participantes. */
-.gr-miembros { display: flex; flex-direction: column; gap: 14px; }
+/* El hilo del grupo (`display: contents`: no cambia el armado). Lo que lo hace un grupo de WhatsApp: */
+.gr-hilo { display: contents; }
+/* lo tuyo, sin tu foto (la foto es de los demás); */
+.gr-hilo .co-yo, [data-m] .m-operaciones-hilo .gr-hilo .co-yo { padding-right: 0; }
+.gr-hilo .co-yo > .co-wa__mas { right: 4px; }
+/* la reacción montada sobre el borde de abajo del globo, no colgando debajo (4/11/2026); */
+.gr-hilo .co-yo > .co-wa__reaccion--de-mako, .gr-hilo .co-otro > .co-wa__reaccion--de-mako { margin-top: -16px; }
+/* En lo tuyo, del lado izquierdo del globo: a la derecha tapaba la hora. */
+.gr-hilo .co-yo > .co-wa__reaccion--de-mako { align-self: flex-start; margin-left: 10px; margin-right: 0; }
+/* «Reportar» (lo exige Play en lo que genera la IA) chico y a la izquierda, no centrado en medio del globo; */
+.gr-hilo button[data-soporte] { text-align: left; }
+/* el día y lo que pasó en el grupo, en su píldora sobre el fondo. */
+.gr-hilo .co-dia:not(.co-dia--sin-leer) { padding: 4px 12px; background: var(--surface); color: var(--dim); box-shadow: 0 1px .5px rgba(11, 20, 26, .13); }
+
+/* Participantes. La hoja tiene el alto de su Modal (fijo): lo único que scrollea es la lista, y nada salta al invitar (4/11/2026). */
+.gr-miembros { display: flex; flex-direction: column; gap: 12px; }
+/* Sólo en el Modal: en la hoja del teléfono scrollea la hoja entera (con su «‹» arriba), como la info de un grupo de WhatsApp. */
+.mk-modal__cuerpo .gr-miembros { height: 100%; min-height: 0; }
+.mk-modal__cuerpo .gr-miembros > .gr-lista { flex: 1; min-height: 0; overflow-y: auto; }
+.gr-resultado { flex: none; min-height: 20px; }
+.gr-resultado:empty { min-height: 0; margin-top: -12px; }
+.gr-cuantos { flex: none; margin: 0; font-size: var(--fs-meta); font-weight: 600; color: var(--dim); }
 .gr-miembros__nota { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--dim); }
 .gr-miembros__nota--bien { color: var(--good); font-weight: 600; }
-.gr-invitar { display: flex; flex-direction: column; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.gr-invitar { flex: none; display: flex; flex-direction: column; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
 .gr-invitar__rotulo { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
 .gr-invitar__fila { display: flex; align-items: center; gap: 8px; }
 .gr-invitar__fila > .mk-input, .gr-invitar__fila > .mk-inputwrap { flex: 1; min-width: 0; }
@@ -97,4 +131,4 @@
 .gr-miembro__nombre { font-size: var(--fs-md); font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
 .gr-miembro__tu { font-weight: 400; color: var(--dim); }
 .gr-miembro__rotulo { font-size: var(--fs-meta); color: var(--faint); }
-.gr-salir { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
+.gr-salir { flex: none; display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); }

@@ -97,7 +97,8 @@ test('B: las fotos van adentro de la burbuja, arriba del texto, y se recuerdan a
 test('2: mantener apretado con el dedo abre la hoja de WhatsApp, que el dedo que la abrió no cierra', () => {
   const wa = codigo('app/admin/operaciones/MensajeWA.tsx');
   assert.match(wa, /wa\.abrirMenu\(m, x, y, tactil\)/, 'el gesto dice que fue un dedo');
-  assert.match(wa, /if \(abierto\.tactil\) return <HojaMensajeWA /, 'con el dedo, la hoja (no el menú de la casa)');
+  // Con el aviso de «Reportar» al lado desde el 4/11/2026 (ticket #57): sigue siendo la hoja, ahora en un fragmento.
+  assert.match(wa, /if \(abierto\.tactil\) (?:\{\s*)?return (?:<>\s*)?<HojaMensajeWA /, 'con el dedo, la hoja (no el menú de la casa)');
   const hoja = wa.slice(wa.indexOf('export function HojaMensajeWA'), wa.indexOf('export function InfoMensaje'));
   assert.match(hoja, /onPointerDownCapture=\{\(\) => \{ listo\.current = true; \}\}/, 'sólo cuenta un toque que empezó con la hoja abierta');
   assert.match(hoja, /useAtrasCierra\(true, onCerrar\)/, 'el «atrás» la cierra a ella');

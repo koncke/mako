@@ -40,6 +40,8 @@ export type CabeceraChat = {
   onRenombrar?: (nombre: string) => Promise<string | null>;
   /** Lo que va al lado del título, en la misma barra (la lista de tickets de Soporte, 23/10/2026). */
   acciones?: ReactNode;
+  /** El renglón chico debajo del nombre: en un grupo, quiénes están (4/11/2026, como WhatsApp). */
+  subtitulo?: ReactNode;
   /** Lo que va ANTES de la criatura, en cualquier ancho (la «←» a la lista de automatizaciones, 23/10/2026): el «volver» de
    *  la ventana angosta es otra cosa y sólo se ve ahí. */
   antes?: ReactNode;
@@ -56,7 +58,7 @@ export type CabeceraChat = {
  */
 export const PlegarChatCtx = createContext<(() => void) | null>(null);
 
-export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, aspecto, animo, espera = 0, onMuneco, onRenombrar, acciones, antes, onVolver }: CabeceraChat) {
+export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, aspecto, animo, espera = 0, onMuneco, onRenombrar, acciones, subtitulo, antes, onVolver }: CabeceraChat) {
   // El título se renombra en el lugar: `editando` es lo que se está escribiendo.
   const [editando, setEditando] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   useEffect(() => { setEditando(null); }, [clave]);
@@ -98,6 +100,7 @@ export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, a
           ) : titulo}
         </h1>
         {editando?.error && <span className="co-cab__error" role="alert">{editando.error}<ReportarASoporte /></span>}
+        {subtitulo && !editando && <span className="co-cab__sub">{subtitulo}</span>}
       </div>
       {acciones}
       {plegar && (

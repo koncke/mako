@@ -36,6 +36,7 @@ import {
   type Cita, type IdMensaje, type MarcasChat, type MensajeWA, type OpcionMensaje,
 } from '@/lib/centro-mensajes';
 import { transcripcionAbierta } from './voces-enviadas';
+import { useReportarRespuesta } from '@/app/_chat/ReportarRespuesta';
 
 export type { MensajeWA } from '@/lib/centro-mensajes';
 
@@ -250,32 +251,49 @@ export function BarraFijados({ marcas, lineas, titulo, onSoltar, verTodo, mensaj
 export type MenuAbiertoWA = { m: MensajeWA; x: number; y: number; tactil?: boolean };
 
 /** El menú de un mensaje, con la fila de reacciones arriba. Elegir algo lo cierra. Abierto con el dedo, la hoja de WhatsApp. */
-export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [], sinReacciones = false }: {
+export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [], sinReacciones = false, reportable, queSeReporta }: {
   abierto: MenuAbiertoWA | null;
   marcas: MarcasChat;
   onCerrar: () => void;
-  /** `reaccion:<emoji>` o una opción de `opcionesDelMensaje`. */
+  /** `reaccion:<emoji>` o una opción de `opcionesDelMensaje`. «Reportar» no llega: lo resuelve el menú (`reportable`). */
   onElegir: (m: MensajeWA, id: string) => void;
   /** Lo que este chat no tiene: el Ops Center de un cliente no reenvía a otro chat (21/10/2026). */
   sin?: readonly OpcionMensaje['id'][];
   /** Sin la fila de reacciones: las de un chat se guardan por persona, y en un grupo nadie más las vería (3/11/2026). */
   sinReacciones?: boolean;
+  /** Qué mensaje se puede reportar (una respuesta de MaKo, ticket #57). Sin esto, ninguno: un chat de Claude Code no se
+   *  reporta a Soporte. El reporte lo manda el menú, y dice «Lo mandamos al equipo» (app/_chat/ReportarRespuesta.tsx). */
+  reportable?: (m: MensajeWA) => boolean;
+  /** Qué se reporta, en el ticket: «una respuesta de MaKo» (por defecto) o «un mensaje del grupo». */
+  queSeReporta?: string;
 }) {
   const [confirmar, setConfirmar] = useState<{ m: MensajeWA; x: number; y: number } | null>(null);
+  const rep = useReportarRespuesta(queSeReporta);
+  // «Reportar» se resuelve acá, así ningún chat tiene que sumarlo a su `elegirEnMenu`: cierra el menú y manda.
+  const elegir = (m: MensajeWA, id: string) => {
+    if (id === 'reportar') { onCerrar(); void rep.reportar(m.texto); return; }
+    onElegir(m, id);
+  };
   if (confirmar) {
     // WhatsApp pregunta antes de eliminar: acá, en el mismo lugar del menú.
-    return (
+    return <>
       <MenuContextual punto={{ x: confirmar.x, y: confirmar.y }} titulo="¿Eliminar el mensaje? Sólo para ti" onCerrar={() => setConfirmar(null)}
         onElegir={(id) => { const m = confirmar.m; setConfirmar(null); if (id === 'si') onElegir(m, 'eliminar'); }}
         items={[{ id: 'si', label: 'Eliminar para mí', icono: 'borrar', peligro: true }, { id: 'no', label: 'Cancelar', icono: 'cerrar' }]} />
-    );
+      {rep.aviso}
+    </>;
   }
-  if (!abierto) return null;
-  if (abierto.tactil) return <HojaMensajeWA m={abierto.m} marcas={marcas} onCerrar={onCerrar} onElegir={onElegir} sin={sin} sinReacciones={sinReacciones} />;
+  if (!abierto) return rep.aviso;
+  if (abierto.tactil) {
+    return <>
+      <HojaMensajeWA m={abierto.m} marcas={marcas} onCerrar={onCerrar} onElegir={elegir} sin={sin} sinReacciones={sinReacciones} reportable={!!reportable?.(abierto.m)} />
+      {rep.aviso}
+    </>;
+  }
   const { m } = abierto;
   const actual = marcas.reacciones[m.id] ?? null;
   const iconos: Record<string, ItemMenuContextual['icono']> = {
-    responder: 'cita', reenviar: 'enviar', copiar: 'copiar', info: 'ver', fijar: 'fijar', eliminar: 'borrar', transcripcion: 'texto',
+    responder: 'cita', reenviar: 'enviar', copiar: 'copiar', info: 'ver', fijar: 'fijar', eliminar: 'borrar', transcripcion: 'texto', reportar: 'bandera',
     destacar: <EstrellaWA llena={marcas.destacados.includes(m.id)} size={17} />,
   };
   const items: EntradaMenuContextual[] = [
@@ -283,19 +301,20 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [], s
       id: 'reacciones', label: 'Reaccionar',
       enLinea: REACCIONES.map((e) => ({ id: `reaccion:${e}`, label: actual === e ? `Quitar ${e}` : `Reaccionar con ${e}`, icono: <span className="co-wa__emoji" data-actual={actual === e ? 'true' : undefined}>{e}</span> })),
     }, null]),
-    ...opcionesDelMensaje(m, marcas, transcripcionAbierta(m.trabajo?.id ?? '')).filter((o) => !sin.includes(o.id)).flatMap((o): EntradaMenuContextual[] => [
+    ...opcionesDelMensaje(m, marcas, transcripcionAbierta(m.trabajo?.id ?? ''), !!reportable?.(m)).filter((o) => !sin.includes(o.id)).flatMap((o): EntradaMenuContextual[] => [
       ...(o.id === 'eliminar' ? [null] : []),
       { id: o.id, label: o.label, icono: iconos[o.id], peligro: o.id === 'eliminar' },
     ]),
   ];
-  return (
+  return <>
     <MenuContextual punto={{ x: abierto.x, y: abierto.y }} titulo={renglonDeCita(m.texto, 60)} etiqueta="Opciones del mensaje" onCerrar={onCerrar}
       onElegir={(id) => {
         if (id === 'eliminar') { setConfirmar(abierto); onCerrar(); return; }
-        onElegir(m, id);
+        elegir(m, id);
       }}
       items={items} />
-  );
+    {rep.aviso}
+  </>;
 }
 
 /**
@@ -309,8 +328,10 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [], s
  * abría y se cerraba en el mismo gesto. Esta hoja sólo se cierra con un toque que EMPIEZA afuera después de abrirla, con
  * Escape, con el «atrás» (atras.ts) o eligiendo algo; levantar el dedo que la abrió no elige nada.
  */
-export function HojaMensajeWA({ m, marcas, onCerrar, onElegir, sin = [], sinReacciones = false }: {
+export function HojaMensajeWA({ m, marcas, onCerrar, onElegir, sin = [], sinReacciones = false, reportable = false }: {
   m: MensajeWA; marcas: MarcasChat; onCerrar: () => void; onElegir: (m: MensajeWA, id: string) => void; sin?: readonly OpcionMensaje['id'][]; sinReacciones?: boolean;
+  /** Este mensaje se puede reportar: «Reportar» llega a `onElegir`, que lo resuelve (MenuMensajeWA). */
+  reportable?: boolean;
 }) {
   // Un toque cuenta sólo si su dedo bajó con la hoja ya abierta: el que la abrió todavía está apoyado.
   const listo = useRef(false);
@@ -332,7 +353,7 @@ export function HojaMensajeWA({ m, marcas, onCerrar, onElegir, sin = [], sinReac
   const iconos: Record<string, ReactNode> = {
     responder: <IconoMenu nombre="cita" />, reenviar: <IconoMenu nombre="enviar" />, copiar: <IconoMenu nombre="copiar" />,
     info: <IconoMenu nombre="ver" />, fijar: <IconoMenu nombre="fijar" />, eliminar: <IconoMenu nombre="borrar" />,
-    transcripcion: <IconoMenu nombre="texto" />,
+    transcripcion: <IconoMenu nombre="texto" />, reportar: <IconoMenu nombre="bandera" />,
     destacar: <EstrellaWA llena={marcas.destacados.includes(m.id)} size={17} />,
   };
   return createPortal(
@@ -359,7 +380,7 @@ export function HojaMensajeWA({ m, marcas, onCerrar, onElegir, sin = [], sinReac
               </button>
               <button type="button" role="menuitem" className="co-wa-hoja__accion" onClick={(e) => { if (vale(e)) setConfirmar(false); }}><span>Cancelar</span></button>
             </>
-          ) : opcionesDelMensaje(m, marcas, transcripcionAbierta(m.trabajo?.id ?? '')).filter((o) => !sin.includes(o.id)).map((o) => (
+          ) : opcionesDelMensaje(m, marcas, transcripcionAbierta(m.trabajo?.id ?? ''), reportable).filter((o) => !sin.includes(o.id)).map((o) => (
             <button key={o.id} type="button" role="menuitem" className={`co-wa-hoja__accion${o.id === 'eliminar' ? ' co-wa-hoja__accion--peligro' : ''}`} onClick={elegir(o.id)}>
               <span>{o.label}</span>{iconos[o.id]}
             </button>

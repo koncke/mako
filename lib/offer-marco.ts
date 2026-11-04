@@ -441,6 +441,29 @@ export type ConclusionOferta = {
   provisional?: { partes: Array<'precio' | 'bonos'>; motivo: string } | null;
 };
 
+const esObjetoConclusion = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * Las versiones de la conclusión guardadas en `offer_sesiones.conclusiones`. Las escribe sólo lib/offer-sesiones.ts, así que se
+ * mira la forma, no cada campo. Vive acá (puro) desde el 4/11/2026 para que el coach la lea igual (`ofertaArmadaDe`).
+ */
+export function sanearConclusiones(raw: unknown): ConclusionOferta[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((c): c is ConclusionOferta =>
+    esObjetoConclusion(c) && esObjetoConclusion(c.diagnostico) && esObjetoConclusion(c.calculo) && esObjetoConclusion(c.propuesta) && typeof c.version === 'number');
+}
+
+/**
+ * La oferta ARMADA en una conversación: la última versión, si trae su cálculo (como `totalDe` de lib/offer-sesiones.ts), con el
+ * nombre que le puso la propuesta ('' si no tiene). null = no se armó ninguna. Lo usa el coach para decir con cuál abre (ticket #57).
+ */
+export function ofertaArmadaDe(raw: unknown): { nombre: string } | null {
+  const conc = sanearConclusiones(raw);
+  const ult = conc.length ? conc[conc.length - 1] : null;
+  if (!ult || typeof ult.calculo?.total !== 'number') return null;
+  return { nombre: typeof ult.propuesta?.nombre === 'string' ? ult.propuesta.nombre.trim() : '' };
+}
+
 // ── Lo que ve la pantalla de una sesión ──────────────────────────────────────
 
 export type EstadoSesion = 'conversando' | 'concluida';
