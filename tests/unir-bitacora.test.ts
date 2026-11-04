@@ -195,19 +195,31 @@ test('punta.yml configura el driver copiándolo de main, ANTES de la primera mez
   assert.ok(paso > 0 && mezcla > 0, 'los dos pasos existen');
   assert.ok(paso < mezcla, 'el driver se configura antes de mezclar');
 
-  // Un clon donde la punta NO tiene el script y main sí: el paso lo toma de origin/main.
+  // Un clon donde la punta NO tiene el script ni las reglas de mezcla y main sí: el paso los toma de origin/main.
   const r = repoConChoque(archivo(hito('Uno'), hito('Dos'), hito('De la punta')), archivo(hito('Uno'), hito('Dos'), hito('De main')));
+  const indice = (...l: string[]) => ['# Hallazgos', '', ...l, ''].join('\n');
   r.g('checkout', '-q', 'main');
   mkdirSync(join(r.dir, 'scripts'), { recursive: true });
   writeFileSync(join(r.dir, 'scripts', 'unir-bitacora.mjs'), readFileSync(DRIVER, 'utf8'));
-  r.g('add', 'scripts'); r.g('commit', '-qm', 'el driver en main');
+  mkdirSync(join(r.dir, 'docs'), { recursive: true });
+  writeFileSync(join(r.dir, 'docs', 'hallazgos.md'), indice('- uno'));
+  r.g('add', 'scripts', 'docs'); r.g('commit', '-qm', 'el driver y el índice en main');
+  r.g('checkout', '-q', 'punta'); r.g('merge', '-q', '--no-edit', '-X', 'theirs', 'main'); // la punta ya tenía el índice
+  writeFileSync(join(r.dir, 'docs', 'hallazgos.md'), indice('- uno', '- de la punta')); r.g('commit', '-qam', 'la punta suma una fila');
+  r.g('checkout', '-q', 'main');
+  writeFileSync(join(r.dir, 'docs', 'hallazgos.md'), indice('- uno', '- de main'));
+  writeFileSync(join(r.dir, '.gitattributes'), 'docs/hallazgos*.md merge=union\n');
+  writeFileSync(join(r.dir, RUTA), archivo(hito('Uno'), hito('Dos'), hito('De main'), hito('Más de main')));
+  r.g('add', '.'); r.g('commit', '-qm', 'main suma su fila, la regla de mezcla y otro hito');
   r.g('update-ref', 'refs/remotes/origin/main', 'main');
   r.g('checkout', '-q', 'punta');
+  writeFileSync(join(r.dir, RUTA), archivo(hito('Uno'), hito('Dos'), hito('De main'), hito('Más de la punta'))); r.g('commit', '-qam', 'otro hito de la punta');
   const p = correrPaso(yml, 'Las bitácoras se unen solas al mezclar', { cwd: r.dir, env: { GIT_CONFIG_NOSYSTEM: '1' } });
   assert.equal(p.codigo, 0, p.salida);
   const m = r.g('merge', '--no-edit', 'origin/main');
-  assert.equal(m.status, 0, `con el driver de main, la punta vieja mezcla limpio: ${m.stdout}${m.stderr}`);
-  assert.deepEqual(titulosDe(r.leer()), ['Uno', 'Dos', 'De main', 'De la punta']);
+  assert.equal(m.status, 0, `con el driver y las reglas de main, la punta vieja mezcla limpio: ${m.stdout}${m.stderr}`);
+  assert.deepEqual(titulosDe(r.leer()), ['Uno', 'Dos', 'De main', 'Más de main', 'Más de la punta']);
+  assert.match(readFileSync(join(r.dir, 'docs', 'hallazgos.md'), 'utf8'), /- de la punta[\s\S]*- de main|- de main[\s\S]*- de la punta/, 'el índice se unió con la regla de main');
 });
 
 test('.gitattributes nombra el driver para las bitácoras, y dice cómo configurarlo en la PC', () => {
