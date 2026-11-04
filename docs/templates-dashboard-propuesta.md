@@ -232,7 +232,7 @@ Todas las referencias están medidas (capturas a 1440 y 390, `valores.json`, los
 | **Marketing** | Kestrel · Ondra | **Kestrel: se ofrece** desde el 4/11, en producción (copia y adaptación: `docs/diseno/mockups-dashboard/marketing-kestrel/`; el componente, `app/dashboard/disenos/HojaMarketing.tsx`). Ondra: por copiar |
 | **Anuncio ganador** | Vitrea · Prism | Por copiar (pide la confianza de un A/B, §7.4) |
 | **Hooks y retención** | Vitrea · Murmura | Por copiar (pide la retención por segundo, §7.4) |
-| **Landing** | Corbel · Kestrel | Por copiar |
+| **Landing** | Corbel · Kestrel | **Corbel: se ofrece** desde el 4/11, en `punta/dash-landing` (copia y adaptación: `docs/diseno/mockups-dashboard/landing-corbel/`; el componente, `app/dashboard/disenos/HojaLanding.tsx`). Kestrel: por copiar |
 | **VSL y YouTube** | la forma de Hooks, otra fuente | Por copiar (sin referencia propia: la de Hooks) |
 | **Instagram y redes** | Murmura · Kestrel | Por copiar |
 | **Chat Analyst** | Parley · Tend | Por copiar |

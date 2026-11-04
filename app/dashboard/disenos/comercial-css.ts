@@ -184,7 +184,7 @@ export const CSS_COMERCIAL = `
 .cm .cm-today .cm-card__h { margin-bottom: 14px; }
 .cm .cm-ag { list-style: none; margin: 0; padding: 0; }
 .cm .cm-ag__row { display: grid; grid-template-columns: 74px 4px minmax(0, 1fr) 24px; align-items: center; gap: 12px; height: 54px; }
-.cm .cm-ag__row.is-past { opacity: .55; }
+.cm .cm-ag__row.cm-is-past { opacity: .55; }
 .cm .cm-ag__t { font-size: 14px; font-weight: 600; line-height: 18.2px; }
 .cm .cm-ag__t small, .cm .cm-ag__w small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); line-height: 15.6px; }
 .cm .cm-ag__bar { height: 34px; border-radius: 2px; background: var(--c, var(--c-slate)); }
@@ -222,8 +222,8 @@ export const CSS_COMERCIAL = `
 .cm .cm-vacio { padding: 14px 2px 4px; color: var(--muted); font-size: 13.5px; font-weight: 500; line-height: 19.575px; }
 .cm .cm-fila { cursor: pointer; border-radius: 10px; transition: background-color .15s; }
 .cm .cm-fila:hover { background: var(--card-2); }
-.cm .cm-dl__row.fila { margin-left: -8px; margin-right: -8px; padding-left: 8px; padding-right: 8px; }
-.cm .cm-rc__row.fila { margin-left: -8px; margin-right: -8px; padding-left: 8px; padding-right: 8px; }
+.cm .cm-dl__row.cm-fila { margin-left: -8px; margin-right: -8px; padding-left: 8px; padding-right: 8px; }
+.cm .cm-rc__row.cm-fila { margin-left: -8px; margin-right: -8px; padding-left: 8px; padding-right: 8px; }
 .cm .cm-hero p a { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
 .cm .cm-hero p b { color: var(--text); font-weight: 600; }
 .cm .cm-fila:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

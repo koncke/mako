@@ -257,15 +257,18 @@ const LANDING: PlantillaHoja = {
       // 4/11/2026 — CORBEL · KESTREL (docs/templates-dashboard-propuesta.md §7.3): «¿hasta dónde bajan y dónde hacen clic?». Abre con la
       // frase de cuánta gente entró y si son más o menos que antes (Kestrel); el ancla es «Llegan a la mitad», que es lo que la hoja
       // pregunta, y cada número lleva a donde se arregla la página (Corbel).
+      // 4/11/2026 (tarde) — EL DISEÑO DE CORBEL (`diseno`, abajo; docs/diseno/mockups-dashboard/landing-corbel/): mirando, la hoja la
+      // dibuja app/dashboard/disenos/HojaLanding.tsx con estas piezas. Los tres números llevan su cambio (`comparar`) y se suma
+      // «Cuándo entran» (el «Visits by time» de Corbel: la franja horaria por día de la semana, en la zona del negocio).
       {
         id: id('la-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'visitas', metricas: ['visitas', 'visitantes'], comparar: true,
         titulo: 'Tu página', frase: 'Entraron {visitas} visitas de {visitantes} personas · {visitas:cambio} que el período anterior',
         ir: 'web-generator', x: 0, y: 0, w: 12, h: 3,
       },
       // Las visitas y las personas ya las dice la frase: los números son lo que pasa ADENTRO de la página.
-      kpi(id('la-mitad-pagina'), 'scroll', 'pct_50', 'Llegan a la mitad', '', 0, 3, { tipo: 'numero_tendencia', invertida: true, ir: 'web-generator' }),
-      kpi(id('la-final'), 'scroll', 'pct_100', 'Llegan al final', '', 3, 3, { tipo: 'numero_tendencia' }),
-      kpi(id('la-tocan'), 'clics', 'personas', 'Tocan un botón', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('la-mitad-pagina'), 'scroll', 'pct_50', 'Llegan a la mitad', '', 0, 3, { tipo: 'numero_tendencia', invertida: true, comparar: true, ir: 'web-generator' }),
+      kpi(id('la-final'), 'scroll', 'pct_100', 'Llegan al final', '', 3, 3, { tipo: 'numero_tendencia', comparar: true }),
+      kpi(id('la-tocan'), 'clics', 'personas', 'Tocan un botón', '', 6, 3, { tipo: 'numero_tendencia', comparar: true }),
       kpi(id('la-puntaje'), 'landing_analisis', 'puntaje', 'Puntaje de la página', '', 9, 3, { fecha: 'actual', ir: 'web-generator' }),
       { id: id('la-mapa-mapa'), clase: 'grafico', tipo: 'mapa_calor', fuente: 'toques', metricas: ['toques'], titulo: 'Mapa de calor', x: 0, y: 7, w: 12, h: 24 },
       {
@@ -278,7 +281,19 @@ const LANDING: PlantillaHoja = {
       { id: id('la-grab-pagina'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'replays', dimension: 'pagina', metricas: ['grabaciones', 'duracion', 'visitantes'], barra: 'grabaciones', titulo: 'Grabaciones por página', x: 0, y: 51, w: 12, h: 8 },
       // El diagnóstico que MaKo guardó de cada página (analizar es una tarea: vive en Landing Generator).
       { id: id('la-diagnostico'), clase: 'grafico', tipo: 'barras', fuente: 'landing_analisis', fecha: 'actual', dimension: 'pagina', metricas: ['puntaje'], ordenMetrica: 'puntaje', titulo: 'Diagnóstico de cada página', ir: 'web-generator', x: 0, y: 59, w: 12, h: 8 },
+      // «Cuándo entran» (el «Visits by time» de Corbel): las visitas por franja horaria y día de la semana, con su orden fijo.
+      {
+        id: id('la-cuando'), clase: 'grafico', tipo: 'dinamica_calor', fuente: 'visitas', dimension: 'franja', desglose: 'dia_semana', metricas: ['visitas'],
+        titulo: 'Cuándo entran', subtitulo: 'Las visitas por franja horaria y día de la semana', x: 0, y: 67, w: 12, h: 8,
+      },
     ],
+    diseno: {
+      id: 'landing',
+      piezas: {
+        apertura: id('la-apertura'), mitad: id('la-mitad-pagina'), final: id('la-final'), tocan: id('la-tocan'), puntaje: id('la-puntaje'),
+        diagnostico: id('la-diagnostico'), visitas: id('la-visitas-dia'), cuando: id('la-cuando'), origen: id('la-origen'), scroll: id('la-scroll'),
+      },
+    },
   }),
 };
 

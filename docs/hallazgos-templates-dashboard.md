@@ -414,6 +414,28 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **Los conteos chicos dan líneas en serrucho** en una tendencia de a 7 días (1 o 2 agendas por día). Con datos reales va a pasar; el
   modelo no los suaviza (sería inventar), la muestra sí es pareja.
 
+## 22. Landing (Corbel): el armador que no prefijaba dos clases juntas, la hora del negocio y el día a medias (4/11/2026, chat en la nube)
+
+- **El armador de las hojas copiadas no le ponía el prefijo a una clase pegada a otra** (`.col.is-now`, `.delta.is-down`): el patrón exigía
+  que antes del punto no hubiera una letra, y en una clase encadenada siempre la hay. La regla quedaba escrita y no aplicaba nunca, sin un
+  error: la columna de hoy de Landing salía rayada como las demás. **Y el mismo armador ya había dejado tres reglas muertas en Comercial, en
+  producción:** las llamadas que ya pasaron no se apagaban y las filas que se tocan perdían su margen. Se arregló el patrón (toda clase que no
+  sigue a un dígito) y las tres reglas de `comercial-css.ts`. Se busca con `grep -nE '\.[a-z]{2}-[a-z0-9_-]+\.[a-z]'` en cada hoja: lo que
+  aparece sin su prefijo después del segundo punto no aplica. **Vive en:** app/dashboard/disenos/comercial-css.ts y landing-css.ts.
+- **La hora de una visita es la del negocio, no la de la app.** El lector de datos fecha todo con `fechaTj` (Tijuana); la franja horaria de
+  «Cuándo entran» con esa zona le corre las franjas a un negocio de Buenos Aires cinco horas. El día y la franja salen con `tzActual()` (la
+  zona del negocio, que nunca tira); la FECHA sigue con la de siempre, que es otra decisión. **Vive en:** lib/visitas-momento.ts y
+  `filasVisitas` (lib/graficos-datos.ts).
+- **El día de hoy está a medias, y contra uno entero el cambio miente.** La burbuja de Corbel compara el mes con el del año anterior; la
+  nuestra comparaba hoy (23 visitas a media tarde) con ayer entero: «−45%». Para la columna de ahora dice «en curso». **Vive en:**
+  app/dashboard/disenos/HojaLanding.tsx.
+- **Un anillo que repite el número de al lado no dice nada.** El de Corbel es el avance contra una meta, que MaKo no tiene; el de «Llegan al
+  final» es una proporción medida: de los que llegan a la mitad, cuántos siguen hasta el final (llegaron_100 ÷ llegaron_50).
+- **Un desglose con valores fijos llega en el orden del agregador, con las claves en su forma de clave:** «Cuándo entran» ubica cada día por
+  su nombre normalizado, nunca por la posición (un día sin visitas no viene donde uno espera).
+- **El lienzo de MaKo al lado de la barra lateral mide ~1100-1200 px**, que no es ni la captura de 1440 ni la de 390: los cuatro números de
+  Corbel ahí se apretaban («2.3 pt» en dos renglones). Hace falta un corte propio (1240) además del medio de 1040.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

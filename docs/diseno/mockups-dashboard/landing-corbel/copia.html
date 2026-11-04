@@ -1,0 +1,178 @@
+<!doctype html>
+<!-- LANDING (CORBEL) · PASO 1: LA COPIA EXACTA de la página «Dashboard» de Corbel Supply Co. (4/11/2026), con los textos del demo.
+     Escrita desde lo MEDIDO (demos/corbel/captura/valores.json, las capturas, los estados de los controles y el INFORME); nada del
+     código de la tienda. Sin el cartel «BUY THIS TEMPLATE». La adaptación a MaKo (mako.html) usa la MISMA hoja. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Corbel · Dashboard (copia)</title>
+<link rel="stylesheet" href="corbel.css">
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M5 5h14v4.5h-4.5V14H10v5H5z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5zM10 20.5h4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-cols" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="M9.5 5v14M14.5 5v14M4 10h16"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6L18 18M6 18l1.4-1.4M16.6 7.4L18 6"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9.8 9.6a2.3 2.3 0 0 1 4.4.9c0 1.6-2.2 2-2.2 3.3M12 16.5v.1"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 4l1.6 4.4L18 10l-4.4 1.6L12 16l-1.6-4.4L6 10l4.4-1.6zM18 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19 14.5A7 7 0 0 1 9.5 5 7 7 0 1 0 19 14.5z"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4.5 19.5h15M7.5 16.5v-5M12 16.5V7.5M16.5 16.5v-3"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4.5v11M7.5 11l4.5 4.5 4.5-4.5M5 19.5h14"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5.5M6.5 11L12 5.5l5.5 5.5"/></symbol>
+</svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="cb-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#14202a" stop-opacity=".18"/><stop offset="1" stop-color="#14202a" stop-opacity="0"/></linearGradient>
+  <linearGradient id="cb-gauge" gradientUnits="userSpaceOnUse" x1="41" x2="259" y1="0" y2="0"><stop offset="0" stop-color="#8e8e89"/><stop offset=".5" stop-color="#f4f4f4"/><stop offset=".62" stop-color="#f8f8f7"/><stop offset=".75" stop-color="#eaeae8"/><stop offset=".86" stop-color="#e0e0dd"/><stop offset="1" stop-color="#d0d0cc"/></linearGradient>
+</defs></svg>
+<div class="mesh" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<nav class="dock" aria-label="Workspace">
+  <button class="dock__btn" type="button" aria-label="Search ⌘K"><svg class="i"><use href="#i-search"/></svg></button>
+  <span class="dock__sep"></span>
+  <a class="dock__btn" href="#" aria-label="Workspace"><svg class="i"><use href="#i-cols"/></svg><span class="dock__badge">11</span></a>
+  <a class="dock__btn" href="#" aria-label="Settings"><svg class="i"><use href="#i-gear"/></svg></a>
+  <a class="dock__btn" href="#" aria-label="Help"><svg class="i"><use href="#i-help"/></svg></a>
+  <span class="dock__sep"></span>
+  <a class="dock__btn" href="#" aria-label="Upgrade to Corbel Plus"><svg class="i"><use href="#i-spark"/></svg></a>
+  <button class="dock__btn" type="button" aria-label="Dark mode"><svg class="i"><use href="#i-moon"/></svg></button>
+</nav>
+
+<div class="app">
+  <header class="top">
+    <a class="brand" href="#"><span class="brand__logo"><svg class="i"><use href="#i-logo"/></svg></span><span><span class="brand__name">Corbel Supply Co.</span><span class="brand__sub">Pro trial, 9 days left</span></span></a>
+    <nav class="tabs" aria-label="Pages">
+      <a class="tab" href="#" aria-current="page">Dashboard</a>
+      <a class="tab" href="#">Orders <span class="tab__n">14</span></a>
+      <a class="tab" href="#">Products</a>
+      <a class="tab" href="#">Customers</a>
+      <a class="tab" href="#">Messages <span class="tab__n">3</span></a>
+      <a class="tab" href="#">Analytics</a>
+      <a class="tab" href="#">Automations</a>
+    </nav>
+    <div class="tools">
+      <button class="ibtn" type="button" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg><span class="ibtn__dot"></span></button>
+      <span class="faces"><span class="face">MR</span><span class="face">JO</span><span class="face">AP</span><span class="face face--more">+2</span></span>
+      <a class="me" href="#">MR</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="head">
+      <h1>Dashboard</h1>
+      <span class="live"><span class="live__dot"></span><span class="live__n" data-odo="1290"></span><span class="sr">shoppers</span><span class="live__w">live now</span></span>
+    </div>
+    <div class="bar">
+      <div class="seg" role="group" aria-label="Channel"><button type="button" aria-pressed="true">Overview</button><button type="button" aria-pressed="false">Online</button><button type="button" aria-pressed="false">In store</button></div>
+      <span class="bar__fecha"><svg class="i"><use href="#i-clock"/></svg>November 2026, month to date</span>
+      <div class="bar__acc"><a class="btn" href="#"><svg class="i"><use href="#i-chart"/></svg>Full analytics</a><button class="btn btn--dark" type="button"><svg class="i"><use href="#i-down"/></svg>Export</button></div>
+    </div>
+
+    <div class="board">
+      <article class="tile tile--1" data-lift>
+        <div class="tile__head">Active sales <svg class="i info"><use href="#i-info"/></svg></div>
+        <div class="tile__body">
+          <div><b class="tile__val" data-count="48320" data-fmt="usd">$48,320</b>
+            <div class="tile__dif"><em class="delta"><svg class="i"><use href="#i-up"/></svg>14.2%</em><span>vs last month</span></div></div>
+          <span class="tile__vis minibars" aria-hidden="true"><i><b style="height:78%"></b></i><i><b style="height:86%"></b></i><i><b style="height:93%"></b></i></span>
+        </div>
+        <div class="tile__foot"><a class="link" href="#">See orders</a></div>
+      </article>
+      <article class="tile tile--2" data-lift>
+        <div class="tile__head">Revenue <svg class="i info"><use href="#i-info"/></svg></div>
+        <div class="tile__body">
+          <div><b class="tile__val" data-count="42300" data-fmt="usd">$42,300</b>
+            <div class="tile__dif"><em class="delta"><svg class="i"><use href="#i-up"/></svg>7.1%</em><span>vs last month</span></div></div>
+          <svg class="tile__vis spark" viewBox="0 0 80 40" aria-hidden="true"><path class="spark__area" d="M4 33 L14.9 26 L25.7 15.5 L36.6 18 L47.4 22 L58.3 17 L69.1 12 L80 6 L80 40 L4 40 Z"/><path class="spark__line" pathLength="100" d="M4 33 L14.9 26 L25.7 15.5 L36.6 18 L47.4 22 L58.3 17 L69.1 12 L80 6"/><circle class="spark__dot" cx="80" cy="6" r="3.2"/></svg>
+        </div>
+        <div class="tile__foot"><a class="link" href="#">See analytics</a></div>
+      </article>
+      <article class="tile tile--3" data-lift>
+        <div class="tile__head">Units sold <svg class="i info"><use href="#i-info"/></svg></div>
+        <div class="tile__body">
+          <div><b class="tile__val" data-count="3842" data-fmt="int">3,842</b>
+            <div class="tile__dif"><em class="delta"><svg class="i"><use href="#i-up"/></svg>6.4%</em><span>vs last month</span></div></div>
+          <span class="tile__vis ring" aria-hidden="true"><svg viewBox="0 0 40 40"><circle class="ring__track" cx="20" cy="20" r="17.75"/><circle class="ring__fill" cx="20" cy="20" r="17.75" pathLength="100" stroke-dasharray="77 100"/></svg><span class="ring__pct" data-count="77" data-fmt="pct0">77%</span></span>
+        </div>
+        <div class="tile__foot"><a class="link" href="#">See products</a></div>
+      </article>
+      <article class="tile tile--4" data-lift>
+        <div class="tile__head">Conversion rate <svg class="i info"><use href="#i-info"/></svg></div>
+        <div class="tile__body">
+          <div><b class="tile__val" data-count="4.8" data-fmt="pct1">4.8%</b>
+            <div class="tile__dif"><em class="delta is-down"><svg class="i"><use href="#i-up"/></svg>−0.2 pt</em><span>vs last month</span></div></div>
+          <span class="tile__vis thin" aria-hidden="true"><i><b style="height:43%"></b></i><i><b style="height:55%"></b></i><i><b style="height:50%"></b></i><i><b style="height:67%"></b></i><i><b style="height:60%"></b></i><i><b style="height:74%"></b></i><i><b style="height:57%"></b></i><i><b style="height:81%"></b></i><i><b style="height:69%"></b></i><i><b style="height:90%"></b></i></span>
+        </div>
+        <div class="tile__foot"><a class="link" href="#">See funnel</a></div>
+      </article>
+
+      <section class="card card--dark score">
+        <div class="card__head"><h2>Sales performance</h2><svg class="i info"><use href="#i-info"/></svg></div>
+        <div class="gauge" data-score="86"><svg viewBox="0 0 300 160" aria-hidden="true"></svg>
+          <div class="gauge__mid"><span class="gauge__num"><b data-count="86" data-fmt="int">86</b><em class="delta"><svg class="i"><use href="#i-up"/></svg>+3</em></span><span class="gauge__of">of 100 points</span></div>
+        </div>
+        <div class="note"><h3>Ahead of plan</h3><p>Both channels beat last month. Online did most of the lifting.</p></div>
+        <a class="link" href="#">Improve your score</a>
+      </section>
+
+      <section class="card rev">
+        <div class="card__head"><h2>Revenue</h2><svg class="i info"><use href="#i-info"/></svg><span class="card__sub">$342,300 so far this year</span>
+          <div class="seg seg--sm" role="group" aria-label="Year"><button type="button" aria-pressed="false">2025</button><button type="button" aria-pressed="true">2026</button></div></div>
+        <div class="chart" data-max="60000" data-now="10" data-avg="31100">
+          <div class="chart__y"><span style="top:0%">$60k</span><span style="top:25%">$45k</span><span style="top:50%">$30k</span><span style="top:75%">$15k</span><span style="top:100%">$0</span></div>
+          <div class="chart__plot">
+            <i class="chart__gl" style="top:0%"></i><i class="chart__gl" style="top:25%"></i><i class="chart__gl" style="top:50%"></i><i class="chart__gl" style="top:75%"></i><i class="chart__gl" style="top:100%"></i>
+            <div class="chart__cols">
+              <div class="col" data-v="18400" data-o="262" data-y="-4.1"><b></b></div>
+              <div class="col" data-v="21200" data-o="301" data-y="2.4"><b></b></div>
+              <div class="col" data-v="26000" data-o="368" data-y="9.8"><b></b></div>
+              <div class="col" data-v="23700" data-o="337" data-y="6.3"><b></b></div>
+              <div class="col" data-v="28700" data-o="401" data-y="11.2"><b></b></div>
+              <div class="col" data-v="38100" data-o="529" data-y="18.6"><b></b></div>
+              <div class="col" data-v="34000" data-o="478" data-y="14.9"><b></b></div>
+              <div class="col" data-v="30500" data-o="431" data-y="12.7"><b></b></div>
+              <div class="col" data-v="36300" data-o="507" data-y="17.0"><b></b></div>
+              <div class="col" data-v="43100" data-o="604" data-y="23.5"><b></b></div>
+              <div class="col is-now" data-v="42300" data-o="596" data-y="21.2"><b></b></div>
+              <div class="col is-fore" data-v="31100" data-o="440"><b></b></div>
+            </div>
+            <div class="avg"><span>avg $31.1k</span></div>
+            <div class="tip" aria-hidden="true"><div class="tip__t">Nov 2026</div><div class="tip__r"><span>Revenue</span><b>$42,300</b></div><div class="tip__r"><span>Orders</span><b>596</b></div><div class="tip__r"><span>vs last year</span><b class="is-up">+21.2%</b></div></div>
+          </div>
+          <div class="chart__x"><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span class="is-now">Nov</span><span>Dec</span></div>
+        </div>
+      </section>
+
+      <section class="card heat">
+        <div class="card__head"><h2>Visits by time</h2><svg class="i info"><use href="#i-info"/></svg>
+          <span class="heat__ley" aria-hidden="true"><span>0</span><i style="background:var(--heat-0)"></i><i style="background:var(--heat-1)"></i><i style="background:var(--heat-2)"></i><i style="background:var(--heat-3)"></i><i style="background:var(--heat-4)"></i><span>11k+</span></span></div>
+        <div class="heat__g">
+          <span class="heat__d"></span><span class="heat__d">Mon</span><span class="heat__d">Tue</span><span class="heat__d">Wed</span><span class="heat__d">Thu</span><span class="heat__d">Fri</span><span class="heat__d">Sat</span><span class="heat__d">Sun</span>
+          <span class="heat__r"><span class="l">12 AM – 8 AM</span><span class="s">12–8a</span></span><i class="heat__c" data-n="1"></i><i class="heat__c" data-n="1"></i><i class="heat__c" data-n="1"></i><i class="heat__c" data-n="1"></i><i class="heat__c" data-n="1"></i><i class="heat__c" data-n="1"></i><i class="heat__c" data-n="1"></i>
+          <span class="heat__r"><span class="l">8 AM – 12 PM</span><span class="s">8a–12p</span></span><i class="heat__c" data-n="3"></i><i class="heat__c" data-n="2"></i><i class="heat__c" data-n="3"></i><i class="heat__c" data-n="3"></i><i class="heat__c" data-n="2"></i><i class="heat__c" data-n="4"></i><i class="heat__c" data-n="4"></i>
+          <span class="heat__r"><span class="l">12 PM – 4 PM</span><span class="s">12–4p</span></span><i class="heat__c" data-n="3"></i><i class="heat__c" data-n="3"></i><i class="heat__c" data-n="3"></i><i class="heat__c" data-n="3"></i><i class="heat__c" data-n="3"></i><i class="heat__c" data-n="4"></i><i class="heat__c" data-n="4"></i>
+          <span class="heat__r"><span class="l">4 PM – 12 AM</span><span class="s">4p–12a</span></span><i class="heat__c" data-n="4"></i><i class="heat__c" data-n="4"></i><i class="heat__c" data-n="4"></i><i class="heat__c" data-n="4"></i><i class="heat__c" data-n="4"></i><i class="heat__c" data-n="3"></i><i class="heat__c" data-n="4"></i>
+        </div>
+      </section>
+
+      <section class="card visits">
+        <div class="card__head"><h2>Total visits</h2><svg class="i info"><use href="#i-info"/></svg></div>
+        <div class="visits__body">
+          <div>
+            <b class="visits__n" data-count="214860" data-fmt="int">214,860</b>
+            <div class="visits__dif">vs last month <em class="delta"><svg class="i"><use href="#i-up"/></svg>8.5%</em></div>
+            <ul class="visits__ley">
+              <li><i style="background:var(--c1)"></i>Website<b data-count="162400" data-fmt="int">162,400</b></li>
+              <li><i style="background:var(--c2)"></i>In store<b data-count="41440" data-fmt="int">41,440</b></li>
+              <li><i style="background:var(--c3)"></i>Click &amp; collect<b data-count="11020" data-fmt="int">11,020</b></li>
+            </ul>
+          </div>
+          <div class="donut" data-parts="162400,41440,11020"><svg viewBox="0 0 152 152" aria-hidden="true"></svg><div class="donut__mid"><b data-count="76" data-fmt="pct0">76%</b><span>Website</span></div></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+<script src="corbel.js"></script>
+</body></html>
