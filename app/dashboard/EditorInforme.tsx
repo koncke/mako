@@ -173,6 +173,7 @@ import { EVENTO_PREGUNTA_GRAFICO, entidadDeHoja, preguntaDelEvento, textoDePregu
 const FocusVivo = dynamic(() => import('./disenos/FocusVivo'));
 const MiDiaVivo = dynamic(() => import('./disenos/MiDiaVivo'));
 const GeneralVivo = dynamic(() => import('./disenos/GeneralVivo'));
+const OperacionVivo = dynamic(() => import('./disenos/OperacionVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -1595,6 +1596,10 @@ export function EditorInforme({
               // La hoja General con su DISEÑO PROPIO (la copia de Orvel, ./disenos/HojaGeneral.tsx): los datos de los bloques de
               // General y los de dos de sus componentes (lo de cada mes y lo que te deben).
               <GeneralVivo hoja={hoja} hoy={hoy} datos={datos} compartido={!!compartido} onGrilla={() => setEnGrilla(true)} />
+            ) : hoja.diseno?.id === 'operacion' && general?.datos && !enGrilla && !editando && !dueno ? (
+              // «Operación diaria» con su DISEÑO PROPIO (la copia de Moorly, ./disenos/HojaOperacion.tsx): los datos de los bloques de
+              // General y los de seis de sus componentes (los cuatro números, los meses y lo que te deben).
+              <OperacionVivo hoja={hoja} hoy={hoy} datos={datos} compartido={!!compartido} onGrilla={() => setEnGrilla(true)} />
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
                 <p>{dueno ? 'Este pop-up está vacío.' : 'Esta hoja no tiene gráficos.'}</p>
