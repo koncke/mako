@@ -6,6 +6,44 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## Lo leído para replicar se perdía al volver: ahora queda como borrador (ticket #54, 4/11/2026, nube)
+
+**Síntoma:** Leandro (ws 10), por el chat de soporte: «quise volver para atrás […] se me borró completamente la página analizada
+[…] no me quedó ni siquiera en formato borrador. […] lo que haría no sería que se borre, sino de que quede en estado borrador».
+
+**Causa:** la lectura de «Replicar» (estructura, ángulos y diseño de la página de afuera, que paga IA) vivía SÓLO en la pantalla
+(`useLeerParaReplicar`), y la ruta de lectura lo decía: «No escribe nada». Cualquier cosa que desmontara la vista se la llevaba.
+En el editor la más probable es el botón de MaKo de la lista de landings: vuelve al chat con `setPanelIzq('agente')`, eso
+cierra «Nueva landing» (`creando = nueva && panelIzq === 'landings'`) y desmonta el Panel embebido. Lo mismo ir a otra landing,
+el «atrás» del navegador o recargar. Y la copia todavía no existía, así que no quedaba nada.
+
+**El diagnóstico obvio era el equivocado:** «mantener la vista montada» arreglaba el chat de ida y vuelta y nada más (ni el
+«atrás» ni recargar). Además dejaba a «Nueva landing» trabada en la réplica vieja, sin camino de vuelta al cuadro.
+
+**Lo que se hizo:**
+- **La ruta de lectura guarda lo leído como borrador del negocio**, por la dirección PEDIDA (no la de la lectura: puede redirigir),
+  en `app_settings` (sin migración), con lo elegido y lo leído en el navegador o pegado (la réplica no tiene que volver a abrir
+  la ventana).
+- **La pantalla retoma en vez de leer** si esa dirección tiene borrador: no paga IA otra vez y cierra la ventana del clic. «Leer
+  de nuevo» sobre lo que está a la vista lee de verdad (`esRelectura`).
+- **Lo elegido se guarda con un respiro**, y lo último sale con `keepalive` al cerrar.
+- **«Sin terminar» en la lista de landings del editor** retoma en «Nueva landing» (`retomarReplica` → `derechaPedida`, sin
+  remontar el Panel: hay un test que lo prohíbe porque tira lo escrito en el cuadro).
+- **La copia creada borra su borrador**, en las dos ramas de la ruta de replicar.
+- **Tope de 8 por negocio, y 30 días.**
+
+**Trampas:** `_` es comodín de LIKE (el prefijo `landing.replica_borrador:` se vuelve a mirar con `startsWith`); el `target` es
+ES2017, sin literales BigInt (la huella son dos FNV de 32 bits); un color guardado se pinta con `style.background`, así que
+sólo pasa hex, rgb o hsl, nunca `url(...)`. Dos guardas fijaban la LÍNEA de la llamada a `leer` y se pusieron rojas al sumar
+`eleccion`: se reescribieron para afirmar lo que cuidan (la lectura vuelve a leer, sin ángulos con la copia idéntica).
+
+**Sin hacer:** el defecto visual «de cómo se interactúa con el chat» del mismo ticket no se pudo ver sin la captura
+(docs/relevo/nube-tickets.md dice qué mirar). Tampoco se miró en pantalla: la nube no levanta la app.
+
+**Vive en:** lib/editor-landing/replica-borrador.ts · lib/editor-landing/replica-borrador-server.ts ·
+app/api/landing-generator/replicar/borrador/route.ts · app/web-generator/crear/Replicar.tsx ·
+app/web-generator/editor/paneles/PanelLandings.tsx · tests/replica-borrador.test.ts.
+
 ## La réplica editable: lo que se mide, lo que se arregló sin la copia y lo que no se pudo ver (29/10 y 4/11/2026)
 
 **Vive en:** `lib/editor-landing/diseno-elemento-acciones.ts` (`ponerColor`, `ponerImagenDeFondo`, `capaEncima`) ·

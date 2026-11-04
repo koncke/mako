@@ -489,7 +489,10 @@ test('10d. los enchufes de la revisión: la API no paga ángulos que no usa, Pre
   const pantalla = fuente('app/web-generator/crear/Replicar.tsx');
   // (la copia idéntica: desde el 28/10/2026 la pantalla arranca siempre con las cuatro partes y lee sin ángulos con ellas)
   assert.match(pantalla, /useState<PartesReplica>\(\(\) => \(adaptarInicial \? PARTES_ADAPTAR : PARTES_TODAS\)\)/);
-  assert.match(pantalla, /void leer\(u, \{ ventana, \.\.\.\(sonTodas\(partesVivas\.current\) \? \{ sinAngulos: true \} : \{\}\) \}\)/);
+  // La línea que lee (no la literal: el 4/11/2026, ticket #54, sumó lo elegido para el borrador): con la ventana del clic y,
+  // con las cuatro partes, sin pagar los ángulos.
+  const leePagina = pantalla.split('\n').find((l) => l.includes('void leer(u, { ventana')) ?? '';
+  assert.match(leePagina, /\.\.\.\(sonTodas\(partesVivas\.current\) \? \{ sinAngulos: true \} : \{\}\)/, 'la copia idéntica lee sin pagar los ángulos');
   assert.match(pantalla, /\.\.\.\(sinAngulos \? \{ angulos: false \} : \{\}\)/);
   assert.match(fuente('lib/editor-landing/replicar-lectura.ts'), /p\.conAngulos === false \? Promise\.resolve\(\{ angulos: null \}\) : angulosDePagina\(esq, t\.url\)/);
 });
