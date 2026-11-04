@@ -56,7 +56,7 @@ test('3. el renderizador lo dibuja con el ícono sólo si se le pide, y los chat
   assert.doesNotMatch(sin, /data-boton-nombrado/, 'sin `iconos`, el texto sigue igual (otros usos de Markdown)');
   // También adentro de una negrita, una lista o con links.
   assert.match(renderToStaticMarkup(createElement(Markdown, { text: '- Abre **«CRM»** y busca el lead', iconos: true, enlaces: true })), /data-boton-nombrado/);
-  assert.match(fuente('app/_chat/HiloMako.tsx'), /<Markdown text=\{x\.texto\} iconos \/>/, 'los mensajes de MaKo del hilo compartido no piden los íconos');
+  assert.match(fuente('app/_chat/HiloMako.tsx'), /<Markdown text=\{x\.texto\} iconos(?: enlaces=\{!!x\.grupo\})? \/>/, 'los mensajes de MaKo del hilo compartido no piden los íconos');
   assert.match(fuente('app/m/offer/HiloOfferM.tsx'), /<Markdown text=\{m\.texto\} compacto iconos \/>/);
 });
 

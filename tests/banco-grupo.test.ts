@@ -148,7 +148,7 @@ test('3. F1: el contexto del negocio sólo si piensa o consulta sus números, su
   }
   assert.match(ctx, /grupo \? '' : getFaseInstruccion\(chartKey\)/, 'la fase de la SECCIÓN del dashboard volvió al grupo');
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  assert.match(doer, /buildSystemPrompt\(\{ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: consultaDelTurno\(texto, conHilo\.hilo\), canal: 'grupo', conElNegocio: negocio \}\)/);
+  assert.match(doer, /\{ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: consultaDelTurno\(texto, conHilo\.hilo\), canal: 'grupo', conElNegocio: negocio \}\)\)/);
   assert.match(doer, /buildSystemPrompt\(\{ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: '', lean: true, canal: 'grupo' \}\)/, 'la red de la plataforma volvió al system del dashboard');
 });
 

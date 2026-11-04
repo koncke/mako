@@ -250,7 +250,7 @@ export function BarraFijados({ marcas, lineas, titulo, onSoltar, verTodo, mensaj
 export type MenuAbiertoWA = { m: MensajeWA; x: number; y: number; tactil?: boolean };
 
 /** El menú de un mensaje, con la fila de reacciones arriba. Elegir algo lo cierra. Abierto con el dedo, la hoja de WhatsApp. */
-export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [] }: {
+export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [], sinReacciones = false }: {
   abierto: MenuAbiertoWA | null;
   marcas: MarcasChat;
   onCerrar: () => void;
@@ -258,6 +258,8 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [] }:
   onElegir: (m: MensajeWA, id: string) => void;
   /** Lo que este chat no tiene: el Ops Center de un cliente no reenvía a otro chat (21/10/2026). */
   sin?: readonly OpcionMensaje['id'][];
+  /** Sin la fila de reacciones: las de un chat se guardan por persona, y en un grupo nadie más las vería (3/11/2026). */
+  sinReacciones?: boolean;
 }) {
   const [confirmar, setConfirmar] = useState<{ m: MensajeWA; x: number; y: number } | null>(null);
   if (confirmar) {
@@ -269,7 +271,7 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [] }:
     );
   }
   if (!abierto) return null;
-  if (abierto.tactil) return <HojaMensajeWA m={abierto.m} marcas={marcas} onCerrar={onCerrar} onElegir={onElegir} sin={sin} />;
+  if (abierto.tactil) return <HojaMensajeWA m={abierto.m} marcas={marcas} onCerrar={onCerrar} onElegir={onElegir} sin={sin} sinReacciones={sinReacciones} />;
   const { m } = abierto;
   const actual = marcas.reacciones[m.id] ?? null;
   const iconos: Record<string, ItemMenuContextual['icono']> = {
@@ -277,11 +279,10 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [] }:
     destacar: <EstrellaWA llena={marcas.destacados.includes(m.id)} size={17} />,
   };
   const items: EntradaMenuContextual[] = [
-    {
+    ...(sinReacciones ? [] : [{
       id: 'reacciones', label: 'Reaccionar',
       enLinea: REACCIONES.map((e) => ({ id: `reaccion:${e}`, label: actual === e ? `Quitar ${e}` : `Reaccionar con ${e}`, icono: <span className="co-wa__emoji" data-actual={actual === e ? 'true' : undefined}>{e}</span> })),
-    },
-    null,
+    }, null]),
     ...opcionesDelMensaje(m, marcas, transcripcionAbierta(m.trabajo?.id ?? '')).filter((o) => !sin.includes(o.id)).flatMap((o): EntradaMenuContextual[] => [
       ...(o.id === 'eliminar' ? [null] : []),
       { id: o.id, label: o.label, icono: iconos[o.id], peligro: o.id === 'eliminar' },
@@ -308,8 +309,8 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [] }:
  * abría y se cerraba en el mismo gesto. Esta hoja sólo se cierra con un toque que EMPIEZA afuera después de abrirla, con
  * Escape, con el «atrás» (atras.ts) o eligiendo algo; levantar el dedo que la abrió no elige nada.
  */
-export function HojaMensajeWA({ m, marcas, onCerrar, onElegir, sin = [] }: {
-  m: MensajeWA; marcas: MarcasChat; onCerrar: () => void; onElegir: (m: MensajeWA, id: string) => void; sin?: readonly OpcionMensaje['id'][];
+export function HojaMensajeWA({ m, marcas, onCerrar, onElegir, sin = [], sinReacciones = false }: {
+  m: MensajeWA; marcas: MarcasChat; onCerrar: () => void; onElegir: (m: MensajeWA, id: string) => void; sin?: readonly OpcionMensaje['id'][]; sinReacciones?: boolean;
 }) {
   // Un toque cuenta sólo si su dedo bajó con la hoja ya abierta: el que la abrió todavía está apoyado.
   const listo = useRef(false);
@@ -340,12 +341,14 @@ export function HojaMensajeWA({ m, marcas, onCerrar, onElegir, sin = [] }: {
       onContextMenu={(e) => e.preventDefault()}
       onClick={(e) => { if (e.target === e.currentTarget && vale(e)) onCerrar(); }}>
       <div className="co-wa-hoja__col">
-        <div className="co-wa-hoja__reacciones" role="group" aria-label="Reaccionar">
-          {REACCIONES.map((e) => (
-            <button key={e} type="button" className="co-wa-hoja__emoji" data-actual={actual === e ? 'true' : undefined}
-              aria-label={actual === e ? `Quitar ${e}` : `Reaccionar con ${e}`} onClick={elegir(`reaccion:${e}`)}>{e}</button>
-          ))}
-        </div>
+        {!sinReacciones && (
+          <div className="co-wa-hoja__reacciones" role="group" aria-label="Reaccionar">
+            {REACCIONES.map((e) => (
+              <button key={e} type="button" className="co-wa-hoja__emoji" data-actual={actual === e ? 'true' : undefined}
+                aria-label={actual === e ? `Quitar ${e}` : `Reaccionar con ${e}`} onClick={elegir(`reaccion:${e}`)}>{e}</button>
+            ))}
+          </div>
+        )}
         <div className="co-wa-hoja__msg">{renglonDeCita(m.texto, 280)}</div>
         <div className="co-wa-hoja__acciones" role="menu">
           {confirmar ? (
@@ -438,7 +441,7 @@ function EstrellaWA({ llena, size = 12 }: { llena: boolean; size?: number }) {
     </svg>
   );
 }
-function AlfilerWA({ size = 12 }: { size?: number }) {
+export function AlfilerWA({ size = 12 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden style={{ flex: 'none' }} fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 3.5h6l-.8 5.3 3.3 3.2H6.5l3.3-3.2L9 3.5Z" /><path d="M12 12v8.5" />

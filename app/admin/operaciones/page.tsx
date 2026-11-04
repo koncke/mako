@@ -37,8 +37,10 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
   // «estas cruzando workspace»). Va al Ops Center de ese cliente, el mismo criterio que `quienOpera`. Con el ?ws= de la
   // plataforma (el teléfono lo lleva siempre) no es mirar a otro, y se queda.
   const ws = await getWorkspaceActual();
-  if (ws != null && ws !== (await wsSuperAdmin())) redirect(await rutaConWs(RUTA_OPS_CENTER_NEGOCIO));
   const q = await searchParams;
+  // `?grupo=` viaja: es lo que abre el grupo de ese cliente (app/second-brain/ChatSecondBrain.tsx).
+  if (ws != null && ws !== (await wsSuperAdmin()) && q.grupo && /^\d{1,15}$/.test(q.grupo)) redirect(await rutaConWs(`${RUTA_OPS_CENTER_NEGOCIO}?grupo=${q.grupo}`));
+  if (ws != null && ws !== (await wsSuperAdmin())) redirect(await rutaConWs(RUTA_OPS_CENTER_NEGOCIO));
   const [centro, veMapa] = await Promise.all([datosDelCentroSiOpera(), esAdminDeTab('second-brain')]);
 
   let mapa: ReactNode = null;

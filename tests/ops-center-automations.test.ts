@@ -88,7 +88,7 @@ test('3. en la lista, «Automations › <nombre>», agrupada; el hilo con las op
 test('4. se lee acá y se sigue en el lienzo: «Seguir en el lienzo», y lo que se escribe no sale', () => {
   assert.equal(rutaDelLienzo(289), '/automations?sec=289&mako=1');
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
-  assert.match(motor, /if \(esGrupo \|\| esAutomatizacion \|\| (?:esEditor \|\| )?\(!t && !archivos\.length\)/, 'enviar no manda nada');
+  assert.match(motor, /if \(esAutomatizacion \|\| (?:esEditor \|\| )?\(!t && !archivos\.length\)/, 'enviar no manda nada');
   assert.match(motor, /pedir<\{ mensajes: MensajeChat\[\] \}>\(`\$\{RUTA\}\?automatizacionId=\$\{idAutomatizacion\}`\)/);
   assert.match(motor, /const hrefLienzo = idAutomatizacion != null \? conWs\(rutaDelLienzo\(idAutomatizacion\), ws\) : null;/, 'el lienzo, en este negocio');
   const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));

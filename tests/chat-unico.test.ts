@@ -37,6 +37,8 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   'app/m/operaciones/ChatsMovil.tsx': 'caja única',
   // El chat del cliente (22/10/2026): su caja vive en PiezasCliente.tsx y la montan la computadora y el teléfono.
   'app/second-brain/PiezasCliente.tsx': 'caja única',
+  // El grupo de un negocio (3/11/2026): la caja única con su motor, en la computadora y en el teléfono.
+  'app/_chat/grupo/CajaDelGrupo.tsx': 'caja única',
   // Offer, la tab y el onboarding, y Offer en el teléfono (22/10/2026, OF4): con el hilo del Ops Center (HiloMako) en la tab.
   'app/offer/ChatOffer.tsx': 'caja única',
   'app/m/offer/ComposerOfferM.tsx': 'caja única',
@@ -161,6 +163,8 @@ test('5. la nota de voz y la línea de estado (lo que pidió el onboarding)', ()
 const PANEL: Record<string, 'panel único' | `pieza de ${string}` | `pendiente, ${string}`> = {
   'app/crm/lead-view/MakoAnalystLead.tsx': 'panel único',
   'app/second-brain/PiezasCliente.tsx': 'pieza de app/second-brain/ChatSecondBrain.tsx',
+  // El grupo de un negocio (3/11/2026): el hilo único con el autor de cada mensaje. El teléfono lo monta en su hoja.
+  'app/_chat/grupo/HiloDelGrupo.tsx': 'pieza de app/second-brain/ChatDelGrupo.tsx',
   // La apertura (29/10/2026, MaKo habla primero): sus mensajes van en el hilo del Cerebro, adentro de su panel.
   'app/_chat/AperturaMako.tsx': 'pieza de app/second-brain/ChatSecondBrain.tsx',
   'app/tickets/soporte/PiezasSoporte.tsx': 'pieza de app/tickets/soporte/ChatSoporte.tsx',

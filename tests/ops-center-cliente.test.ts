@@ -165,7 +165,7 @@ test('6. el clic derecho, la cita y las marcas del super admin, en cada mensaje 
   assert.deepEqual([m.de, m.propio, m.texto], ['Tú', true, 'hola']);
   const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   // El grupo de WhatsApp de MaKo, sin el menú (OC3, 22/10/2026: se lee, no se responde; tests/ops-center-grupo-mako.test.ts).
-  assert.match(piezas, /<ContextoWA\.Provider value=\{k\.esGrupo \|\| k\.esAutomatizacion(?: \|\| k\.esEditor)? \? null : k\.accionesWA\}>/, 'el hilo con lo de WhatsApp');
+  assert.match(piezas, /<ContextoWA\.Provider value=\{k\.esAutomatizacion(?: \|\| k\.esEditor)? \? null : k\.accionesWA\}>/, 'el hilo con lo de WhatsApp');
   assert.match(piezas, /\{k\.cita && <CitaCaja cita=\{k\.cita\} onQuitar=\{\(\) => k\.setCita\(null\)\} \/>\}/, 'la cita arriba de la caja');
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/m/second-brain/ChatClienteM.tsx']) {
     assert.match(sinComentarios(leer(f)), /<MenuMensajeWA abierto=\{k\.menuWA\} marcas=\{k\.marcas\} onCerrar=\{\(\) => k\.setMenuWA\(null\)\} onElegir=\{k\.elegirEnMenu\} sin=\{\['reenviar'\]\} \/>/, f);

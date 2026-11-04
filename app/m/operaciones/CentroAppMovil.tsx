@@ -27,7 +27,7 @@ import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { hace } from '@/lib/progreso-reglas';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 
-export function CentroAppMovil(datos: DatosCentro) {
+export function CentroAppMovil({ grupoInicial = null, ...datos }: DatosCentro & { grupoInicial?: number | null }) {
   const toast = useToastM();
   const k = useCentro(datos, (t) => toast(t));
   const { carteros, ahora, estado, firma } = k;
@@ -56,7 +56,7 @@ export function CentroAppMovil(datos: DatosCentro) {
         <FilaM icono="config" titulo="Uso" segunda={[principal ? `Semana ${principal.pct}%${principal.viejo && principal.medido != null ? ` · ${hace(principal.medido, ahora)}` : ''} · ${nombreCuenta(principal.cuenta)}` : null, `${activos} de ${carteros.length} midiendo ahora`].filter(Boolean).join(' · ')}
           onClick={() => setRunners(true)} navegacion />
       </ListaM>
-      <ChatsMDelCentro centro={k} />
+      <ChatsMDelCentro centro={k} grupoInicial={grupoInicial} />
       {/* En «alto» (17/10/2026, Martín: «esa sección se traba y no se puede scrollear hasta el final»): en «medio» la hoja
           está corrida hacia abajo y lo último del cuerpo queda DEBAJO de la pantalla aunque se scrollee hasta el fondo
           (SheetM mide el cuerpo con el alto de «alto»; docs/hallazgos-mobile.md). */}
@@ -70,8 +70,9 @@ export function CentroAppMovil(datos: DatosCentro) {
 }
 
 /** ChatsMovil.tsx enchufado al motor del Centro: lo usan este Centro y el Second Brain del teléfono (por partes). */
-export function ChatsMDelCentro({ centro: k, parte, tituloChats, abierto, onAbierto }: {
+export function ChatsMDelCentro({ centro: k, parte, tituloChats, abierto, onAbierto, grupoInicial = null }: {
   centro: Centro;
+  grupoInicial?: number | null;
   parte?: 'lista' | 'hoja';
   tituloChats?: string;
   abierto?: string | null;
@@ -79,7 +80,7 @@ export function ChatsMDelCentro({ centro: k, parte, tituloChats, abierto, onAbie
 }) {
   return (
     <ChatsM
-      parte={parte} tituloChats={tituloChats} abierto={abierto} onAbierto={onAbierto}
+      parte={parte} tituloChats={tituloChats} abierto={abierto} onAbierto={onAbierto} grupoInicial={grupoInicial}
       decisiones={k.decisiones} responder={k.responderAca}
       chats={k.chats} carteros={k.carteros} pedidos={k.pedidos} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       esperas={k.esperas} firma={k.firma} onEnviado={k.anotarEnviado}

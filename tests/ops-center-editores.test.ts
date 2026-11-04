@@ -75,7 +75,7 @@ test('2. por persona y con la puerta de cada tab: el admin ve los del negocio; l
 
 test('3. se leen acá y se siguen en el editor; lo que se escribe no sale', () => {
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
-  assert.match(motor, /if \(esGrupo \|\| esAutomatizacion \|\| esEditor \|\| \(!t && !archivos\.length\)/);
+  assert.match(motor, /if \(esAutomatizacion \|\| esEditor \|\| \(!t && !archivos\.length\)/);
   assert.match(motor, /const hrefEditor = deEditor && idDelEditor && editorPropio \? conWs\(EDITORES\[deEditor\.editor\]\.ruta\(idDelEditor\), ws\) : null;/);
   const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   assert.match(piezas, /if \(k\.esEditor\) \{\n\s*return k\.hrefEditor\n\s*\? <p className="co-solo-lectura" role="note">\{AVISO_EDITOR\} <a className="ch-enlace" href=\{k\.hrefEditor\}>Seguir en el editor<\/a><\/p>/);

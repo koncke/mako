@@ -40,6 +40,7 @@ import { AdjuntosDeLaApp, AdjuntosEnBurbuja } from './FotosEnviadas';
 import { VozEnviada } from './VozEnviada';
 import { descartarEnvio, reintentarEnvio } from './envios-en-curso';
 import { MiFoto } from './MiFoto';
+import { iniciales } from '@/lib/unicode-seguro';
 import { ConLinks } from './ConLinks';
 import { memo, useState, type ReactNode } from 'react';
 import { idDeLinea, leerCita, leerReenvio, mensajeDeLinea, sinOcultos, type MarcasChat, type MensajeWA } from '@/lib/centro-mensajes';
@@ -193,6 +194,23 @@ export function FilaMia({ m, marcas, foto, children, despues }: {
       {children}
       {foto ?? <MiFoto />}
       <ReaccionWA id={m?.id ?? null} marcas={marcas} />
+      {despues}
+    </Deslizable>
+  );
+}
+
+/**
+ * UN mensaje de OTRA persona, en un grupo (3/11/2026; Martín: «tipo grupos de WhatsApp»): su globo a la izquierda, con su inicial al lado
+ * de la colita y su nombre adentro. El nombre lo pone quien la monta, porque va adentro del globo. `sigue`: otro del mismo autor,
+ * sin repetir la inicial.
+ */
+export function FilaDeOtro({ m, nombre, sigue = false, children, despues }: {
+  m: MensajeWA | null; nombre: string; sigue?: boolean; children: ReactNode; despues?: ReactNode;
+}) {
+  return (
+    <Deslizable m={m} className={`co-otro${sigue ? ' co-otro--sigue' : ''}`}>
+      {!sigue && <span className="co-mifoto co-mifoto--otro" aria-hidden>{iniciales(nombre, 1, '?')}</span>}
+      {children}
       {despues}
     </Deslizable>
   );

@@ -31,6 +31,9 @@ import { aspectoDeChat } from '@/lib/centro-munecos';
 import { asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
 import { GaleriaDeGurus } from '@/app/second-brain/GaleriaDeGurus';
 import { HojaDelGuru } from './HojaDelGuru';
+import { HojaDelGrupo } from './HojaDelGrupo';
+import { FilasDelGrupoM } from './FilasDelGrupoM';
+import { useGrupos } from '@/app/_chat/grupo/useGrupos';
 import { useMisTickets } from '@/app/tickets/usarMisTickets';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -38,7 +41,7 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 /** Cuántos chats se ven antes de «Ver todos» (los de ChatsMovil.tsx). */
 const VISIBLES = 10;
 
-export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar = '', chatInicial = null, offerInicial = null, masChats }: {
+export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar = '', chatInicial = null, offerInicial = null, grupoInicial = null, masChats }: {
   sesionesIniciales: SesionChat[];
   /** El grafo (sólo el admin de la tab, lo decide el servidor): «Second Brain» arriba de los chats. */
   hrefMapa?: string | null;
@@ -47,6 +50,8 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   /** `?chat=` y `?offer=`: la conversación que se abre al entrar. */
   chatInicial?: number | null;
   offerInicial?: number | null;
+  /** `?grupo=`: el grupo que se abre al entrar (el push de un aviso). */
+  grupoInicial?: number | null;
   /** Otros chats debajo de los suyos: los de Claude Code del super admin que mira un cliente. */
   masChats?: () => ReactNode;
 }) {
@@ -77,8 +82,12 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   // El chat con un gurú: su propia hoja, con su motor (HojaDelGuru.tsx). Una sola a la vez: abrirla cierra la de la conversación.
   const [guru, setGuru] = useState<IdAsesor | null>(null);
   const delGuru = asesorPorId(guru);
-  const abrirGuru = (id: IdAsesor) => { setAbierta(false); setGuru(id); };
-  const abrir = (e: ElegidoChat) => { if (k.elegir(e)) { setGuru(null); setAbierta(true); } };
+  // El grupo del negocio (3/11/2026): su hoja, con su motor (HojaDelGrupo.tsx). Lo mismo: una hoja por vez.
+  const grupos = useGrupos();
+  const [grupo, setGrupo] = useState<number | null>(grupoInicial);
+  const abrirGuru = (id: IdAsesor) => { setAbierta(false); setGrupo(null); setGuru(id); };
+  const abrirGrupo = (ws: number) => { setAbierta(false); setGuru(null); setGrupo(ws); };
+  const abrir = (e: ElegidoChat) => { if (k.elegir(e)) { setGuru(null); setGrupo(null); setAbierta(true); } };
   const cerrar = () => { setAbierta(false); k.setInfoWA(null); k.setConectando(false); k.setMenuWA(null); };
   /** Lo que se abre ADENTRO de la hoja, con su «‹» (una sola hoja): la Info de un mensaje o «Tus cuentas de IA». */
   const panel = k.conectando ? 'conectar' : k.infoWA ? 'info' : null;
@@ -113,6 +122,8 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
       <SeccionM titulo="Chats">
         <ListaM etiqueta="Chats">
           <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => abrir({ virtual: 'nuevo' })} navegacion />
+          {/* Fijado, el primero de los chats (Martín: «que esté posicionado arriba»). */}
+          <FilasDelGrupoM g={grupos} abierto={grupo} onAbrir={abrirGrupo} />
           {cerebro && fila(cerebro)}
           {/* Agrupados por su origen (22/10/2026), con el agrupado del super admin: cada grupo con su fila JEFE (la suya, o la de
               `jefeDelGrupo` si no tiene chat propio: «Offer», «Dashboard») y los suyos debajo, sin títulos de sección. */}
@@ -170,6 +181,10 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
         )}
       </SheetM>
       {delGuru && <HojaDelGuru key={delGuru.id} referente={delGuru} onCerrar={() => setGuru(null)} />}
+      {grupo != null && (
+        <HojaDelGrupo key={grupo} ws={grupo} grupo={grupos.grupos?.find((f) => f.ws === grupo) ?? null} onCerrar={() => { setGrupo(null); grupos.recargar(); }} onLeido={grupos.anotarLeido}
+          onCambio={grupos.recargar} onSalio={() => { setGrupo(null); grupos.recargar(); }} />
+      )}
       <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
     </>
   );

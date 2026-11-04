@@ -23,7 +23,7 @@ import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { FranjaApp, useBloqueoApp } from '@/app/_chat/AppPrimero';
 import { caracteres, nombrePegado } from '@/lib/chat-pegado';
-import { ARRANQUES_SECOND_BRAIN, AVISO_EDITOR, AVISO_EDITOR_AJENO, AVISO_GRUPO, AVISO_LIENZO } from '@/lib/chat-mako-reglas';
+import { ARRANQUES_SECOND_BRAIN, AVISO_EDITOR, AVISO_EDITOR_AJENO, AVISO_LIENZO } from '@/lib/chat-mako-reglas';
 import { NOMBRE_MODELO_IA, type CuentaIA } from '@/lib/chat-ia-reglas';
 import type { ChatCliente } from './useChatCliente';
 
@@ -113,21 +113,13 @@ export function HiloDelCliente({ k, apertura = null }: {
    *  botones andan); con historia, después del último mensaje. Nunca se guarda. */
   apertura?: ReactNode | null;
 }) {
-  // El grupo de WhatsApp se lee: sin el menú de un mensaje (no se responde, no se reacciona; se contesta en el grupo).
   // Sin la app de escritorio (23/10/2026) la conversación se sigue viendo: el cartel va en el lugar de la caja (CajaDelCliente,
   // 24/10/2026). Vacía, sin la portada: «¿En qué te ayudo?» y sus arranques invitarían a escribir lo que no se puede mandar. La
   // apertura sí (29/10/2026): sus botones no escriben nada.
   // ⚠️ LAS RESPUESTAS RÁPIDAS DEL HILO SIN LA APP (29/10/2026): mandan un mensaje al turno, que sin la app no sale; tocarlas no
   // hacía nada y no lo decía. Ahora lo dicen (`sinMandar`) y no se tocan.
   return (
-    <ContextoWA.Provider value={k.esGrupo || k.esAutomatizacion || k.esEditor ? null : k.accionesWA}>
-      {k.esGrupo && k.hayMasDelGrupo && k.cargado && (
-        <div className="co-anteriores">
-          <button type="button" className="co-chip" onClick={() => void k.verAnteriores()} disabled={k.trayendoAnteriores}>
-            {k.trayendoAnteriores ? 'Trayendo…' : 'Ver anteriores'}
-          </button>
-        </div>
-      )}
+    <ContextoWA.Provider value={k.esAutomatizacion || k.esEditor ? null : k.accionesWA}>
       {!k.cargado ? null : k.errorCarga ? (
         <div className="co-portada">
           <p className="co-portada__dato">{k.errorCarga}</p>
@@ -136,8 +128,8 @@ export function HiloDelCliente({ k, apertura = null }: {
       ) : !k.items.length && !k.trabajo ? (apertura ?? (k.app === 'bloquea' ? null : (
         <div className="co-portada">
           <Muneco titulo={k.nombreMuneco} aspecto={k.aspectoMuneco} animo="despierto" size={76} />
-          <p className="co-portada__nombre">{k.esGrupo ? 'Todavía no hay mensajes en el grupo.' : k.esAutomatizacion || k.esEditor ? 'Todavía no hay mensajes en esta charla.' : '¿En qué te ayudo?'}</p>
-          {(k.esJefe || k.idTurno == null) && k.idOffer == null && !k.esGrupo && !k.esAutomatizacion && !k.esEditor && <div className="ch-arranques">
+          <p className="co-portada__nombre">{k.esAutomatizacion || k.esEditor ? 'Todavía no hay mensajes en esta charla.' : '¿En qué te ayudo?'}</p>
+          {(k.esJefe || k.idTurno == null) && k.idOffer == null && !k.esAutomatizacion && !k.esEditor && <div className="ch-arranques">
             {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => k.enviar(a)}>{a}</button>)}
           </div>}
         </div>
@@ -161,8 +153,6 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
 }) {
   // Antes de cualquier `return`: es un hook (su estado es «ya lo descargó»).
   const bloqueoApp = useBloqueoApp(() => k.setConectando(true));
-  // El grupo de WhatsApp de MaKo no se sigue desde acá: en lugar de la caja, dónde se contesta.
-  if (k.esGrupo) return <p className="co-solo-lectura" role="note">{AVISO_GRUPO}</p>;
   // Una charla del lienzo de Automations (OC5): se lee acá y se sigue en el lienzo, que es el que sabe editar la automatización.
   // Un chat de un editor (OC8): se lee acá y se sigue en el editor, que es el que aplica lo que propone.
   if (k.esEditor) {

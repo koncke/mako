@@ -31,6 +31,7 @@ export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
     chat: 'Ops Center, el chat nuevo (el primer mensaje decide dónde va; los archivos van con él, y a un chat nuevo los baja el cartero 1.22.0)',
   },
   { archivo: 'app/second-brain/PiezasCliente.tsx', chat: 'MaKo de cada tab y el Cerebro del cliente (CajaDelCliente)' },
+  { archivo: 'app/_chat/grupo/CajaDelGrupo.tsx', chat: 'El grupo de un negocio, computadora y teléfono (3/11/2026)' },
   { archivo: 'app/crm/lead-view/MakoAnalystLead.tsx', chat: 'CRM, MaKo Analyst del lead' },
   { archivo: 'app/automations/ChatMakoVista.tsx', props: 'app/automations/ChatMako.tsx', chat: 'Automations' },
   {

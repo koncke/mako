@@ -31,8 +31,19 @@ Martín, tras el ban de la línea de MaKo: un grupo por negocio adentro del Ops 
 
 **Tres pruebas verdes que no probaban nada, y salieron a la luz sólo rompiendo.** El PostgREST de mentira del arnés deja pasar un NULL en `neq` suelto (el de verdad no): sacarle el `or(usuario_id.is.null,…)` al conteo de no leídos daba verde, y por eso se afirma sobre el fuente. El push corta en la primera frase, y un link se corta en su propio punto: «no dice el dominio» era una aserción vacía; se afirma con un texto donde el link queda antes del corte. «@MaKo sí» ya confirmaba por `confirmacionPura` sin que se sacara la mención: lo que cambia sacándola es el clasificador, así que se prueba en las reglas. La regla que queda: una rotura que no da rojo es un dato sobre el TEST, no sobre el código.
 
+**La burbuja de otra persona, con una cita, se iba por la izquierda (a 390 px, no en la computadora).** La cita va en un renglón (`nowrap`): sin tope, la burbuja toma el ancho de la frase entera. Es el bug del 18/10 de `.co-yo`, y una fila nueva lo vuelve a tener: `.co-otro .co-burbuja, .ch-plegable { max-width: 100% }` (app/_chat/grupo/grupo.css). **Regla:** toda fila nueva del hilo con burbuja lleva ese tope. Sólo se vio en una foto a 390: ni los tipos ni los tests lo agarran.
+
+**`ReaccionWA` es un botón que quita la reacción.** Para la de MaKo en un grupo sería mentira (no es de quien la toca), así que la de MaKo es un `span` con `co-wa__reaccion--de-mako`. Y el menú mínimo de `HiloMako` (`MenuDelMensaje`) no abre con el dedo: en el teléfono no había ni Copiar. El grupo monta el de la casa (`MenuMensajeWA`) con `sinReacciones`.
+
+**`ChatsM` corta con «Conecta un Runner» si no hay chats de Claude Code**, ANTES de la lista: el grupo no se dibujaba. No depende de un Runner, así que va también en esa rama.
+
+**El `Reintentar` quedaba tapado por la caja:** va debajo del globo y aparece después de bajar. `useSeguirElHilo` también baja cuando sube `conError`.
+
 **Lo que quedó sin hacer**, con el archivo donde vive:
-- Las PANTALLAS: la fila fijada, el hilo, la caja, Participantes y los links de `app/m/second-brain/page.tsx` y `app/m/operaciones/page.tsx`. La fila vieja `{grupo:true}` (`useChatCliente`, `PiezasCliente`, `grupoDeMaKo`, `hiloDelGrupoMaKo`) sigue: hay que sacarla junto con la nueva, o sale doble. El contrato de lo que espera el servidor está en la cabecera de `lib/grupo-app.ts` (`leerHilo`).
+- SIN MIRAR EN LA APP DE VERDAD: las pantallas se vieron en el arnés, con sesión y base de mentira. Faltan la sesión de un invitado real (`requireMovil`, y Joan y Juanfran: si comparten fila en `usuarios` no se puede invitar a los dos), el push tocado en un Android y el `?ws=` de `WsFetch` contra las rutas del grupo. La migración 0372 sin aplicar da «No pude abrir el grupo», no un error.
+- La foto del autor: `MensajeDelHilo` no la trae, así que lo de otra persona va con su inicial (`FilaDeOtro`). Participantes sí la dibuja.
+- Reacciones, fijar, destacar y eliminar en un grupo: se guardan por persona y nadie más las vería. Fuera de esta versión (`SIN_EN_EL_MENU`, app/_chat/grupo/HiloDelGrupo.tsx).
+- Los sondeos (4 s el hilo, 15 s la lista) son criterio, sin medir con carga (`MS_HILO_DEL_GRUPO`, `MS_LISTA_DE_GRUPOS`).
 - La memoria no se muda: si un negocio sin grupo crea uno, la clave pasa de `app<ws>@g.us` al jid y la memoria y las pendientes quedan atrás (`claveDeConversacion`). El hilo visible no se pierde.
 - `misTickets` filtra por ws + email: el ticket de un invitado no aparece en SU /tickets (`lib/tickets-db.ts`).
 - «vino por WhatsApp» en Pendientes: `canalDeClave` da whatsapp para la clave de la app, y eso es lo que mantiene las confirmaciones.
