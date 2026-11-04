@@ -82,7 +82,7 @@
     let actual = barras.find((b) => b.dataset.tip === '1') || barras[0];
     const lugar = (b, anim) => {
       const fill = $('.bar__fill', b);
-      tip.textContent = (b.classList.contains('bar--plan') ? 'Forecast ' : '') + b.dataset.v;
+      tip.textContent = b.dataset.v;
       // Con offsetLeft/offsetTop, que no ven los transform: la etiqueta se ubica sobre la barra YA crecida
       // aunque la barra y la tarjeta todavía estén entrando.
       const x = caja.offsetLeft + fill.offsetLeft + fill.offsetWidth / 2 - tip.offsetWidth / 2;
@@ -97,16 +97,20 @@
     return { lugar: () => lugar(actual, false), tip };
   }
 
-  // ── el reloj de la sesión: cada dígito es una columna 0-9 que rueda (sc: yPercent −10·n · .55s power3.out) ──
+  // ── el reloj: cada dígito es una columna 0-9 que rueda (sc: yPercent −10·n · .55s power3.out) ──
+  // Al entrar, Halden pone los dígitos en 0 (K.set(oc,{yPercent:0})) y el primer tic del reloj, al segundo, los hace
+  // rodar hasta la hora. La copia corre como el demo ([data-corre]); la adaptación muestra un número quieto
+  // ([data-rueda]) y rueda una sola vez, en ese mismo segundo.
   function reloj() {
     const cols = $$('.dg__col');
     if (!cols.length) return;
-    let s = +(cols[0].closest('[data-segundos]')?.dataset.segundos || 0);
-    const pinta = (anim) => {
+    const caja = cols[0].closest('.dialer__clock');
+    let s = +(caja?.dataset.segundos || 0);
+    const pinta = (anim, cero) => {
       const h = String(Math.floor(s / 3600)).padStart(2, '0');
       const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
       const ss = String(s % 60).padStart(2, '0');
-      const dig = (h + m + ss).split('').map(Number);
+      const dig = cero ? [0, 0, 0, 0, 0, 0] : (h + m + ss).split('').map(Number);
       cols.forEach((c, i) => {
         const y = `translateY(${-10 * dig[i]}%)`;
         if (c.style.transform === y) return;
@@ -114,10 +118,12 @@
         c.style.transform = y;
       });
     };
-    pinta(false);
-    // ?captura detiene el reloj: la comparación contra la captura de Halden se hace en el mismo segundo.
-    const corre = cols[0].closest('[data-corre]') && !new URLSearchParams(location.search).has('captura');
-    if (corre) setInterval(() => { s += 1; pinta(true); }, 1000);
+    // ?captura: el número final, sin esperar (la comparación contra la captura de Halden se hace en el mismo segundo)
+    const captura = new URLSearchParams(location.search).has('captura');
+    if (captura || quieto) { pinta(false); return; }
+    pinta(false, true);
+    if (caja.hasAttribute('data-corre')) setInterval(() => { s += 1; pinta(true); }, 1000);
+    else setTimeout(() => pinta(true), 1000);
   }
 
   // ── la píldora de las pestañas: se corre y se estira en el medio (Dd: .55s power3.inOut) ──

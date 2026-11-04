@@ -25,40 +25,87 @@ todo. Esa era la idea.»*
 5. **Una hoja por vez**, empezando por Closing, con la copia al lado del original captura contra captura. Nunca en cadena.
 6. Las 20 actuales se quedan hasta que cada una tenga su reemplazo, y una hoja que alguien ya creó no cambia sola.
 
-### ⛔ BLOQUEADO EN LA NUBE: el entorno no deja entrar a `demo.codeandchill.store`
+## Closing: la copia de Halden y su adaptación (4/11/2026, 11:45 UTC)
 
-Medido el 4/11/2026 a las 10:31 UTC: el proxy de esta sesión contesta **403 al CONNECT** a `demo.codeandchill.store:443`
-(denegado por la política de red del entorno). Sin eso no se puede ver, medir ni capturar ningún demo, así que **Closing no se
-empezó**: una copia sin mirar el original sería inventarla, que es justo lo que se rechazó.
+Las medidas las tomó la PC (`punta/dash-demos-closing`, `690eb4cdb`, ya en `main`): `docs/diseno/mockups-dashboard/demos/
+<demo>/` con el INFORME de la entrada, las capturas a 1440 y 390, `valores.json` y los estados de cada control. **Sin código de
+la tienda en el repo**: lo nuestro está escrito desde esos valores, esas capturas y esas recetas.
 
-**Dos formas de destrabarlo:**
-- **Desde la nube:** agregar `demo.codeandchill.store` en *Allowed domains* del acceso de red del entorno (menú del entorno en
-  la barra del título de la sesión → Edit). Con eso, esta sesión mide y captura sola.
-- **Desde la PC:** correr lo de abajo y commitear lo que sale en `docs/diseno/mockups-dashboard/demos/<demo>/`.
+### La referencia: Halden (la raíz «Dashboard»)
 
-**Para elegir la referencia de Closing** hay que mirar los candidatos lado a lado: Halden (Dashboard y Reports, las páginas que
-informan), Tandem, Moorly y Selvar (las cuotas y los vendedores). La elección se hace con las capturas, no con la descripción.
+Mirando las cuatro capturas lado a lado (`demos/<demo>/captura/pagina-1440.png`):
+- **Halden** es un tablero de ventas y cada bloque tiene su par en Closing: lo ganado con su meta → la tasa de cierre; el
+  pipeline en tramos → cómo terminaron las llamadas; las barras de la semana con lo que viene rayado → las llamadas hechas y las
+  agendadas; los «hot deals» → las últimas llamadas; «Next up» → la próxima llamada; la cuota de cada vendedor → la tasa de cada
+  closer; «Assist» → lo que ve MaKo en las que no cerraron; el reloj de la sesión → la duración promedio. **Es la elegida.**
+- **Tandem** es la ficha de UN lead (su puntaje en anillo, su contacto, su secuencia): sirve para la ficha, no para un tablero.
+- **Moorly** es un portal de seguros: su forma (cuatro números con gráfico chico, una curva grande, listas) no habla de llamadas.
+- **Selvar** queda para Cobranza y las cuotas, como proponía el Cerebro: su barra de la cuota con «el ritmo de hoy» y su carrera
+  de vendedores calzan ahí.
 
-```bash
-cd docs/diseno/mockups-dashboard/medidor
-# La entrada (GSAP, leída del bundle): el orden, los delays y los selectores de cada página.
-python -I medir-demo.py halden dashboard
-python -I medir-demo.py halden reports
-python -I medir-demo.py tandem dashboard
-python -I medir-demo.py moorly dashboard
-python -I medir-demo.py selvar dashboard
-# Lo quieto, el hover y el clic: la captura a 1440 y a 390, las variables, la letra, cada panel, y cada control en
-# reposo, al pasar el cursor y al apretar (con su transición declarada). Playwright va fuera del repo:
-#   (en una carpeta aparte) npm i playwright && npx playwright install chromium
-NODE_PATH=<esa carpeta>/node_modules node capturar.mjs https://demo.codeandchill.store/halden/ ../demos/halden/captura --telefono
-NODE_PATH=<esa carpeta>/node_modules node capturar.mjs https://demo.codeandchill.store/tandem/ ../demos/tandem/captura --telefono
-NODE_PATH=<esa carpeta>/node_modules node capturar.mjs https://demo.codeandchill.store/moorly/ ../demos/moorly/captura --telefono
-NODE_PATH=<esa carpeta>/node_modules node capturar.mjs https://demo.codeandchill.store/selvar/ ../demos/selvar/captura --telefono
-```
+### Paso 1: la copia exacta, sin adaptar
 
-⚠️ Si la página de un demo no es la raíz (Halden tiene Dashboard y Reports), `capturar.mjs` recibe la URL de esa página.
-`capturar.mjs` se probó sobre la maqueta de Focus servida en local (9 paneles, 31 estilos de letra, 35 variables, el hover de
-un botón con su transición); contra un demo real no se pudo probar desde acá.
+`docs/diseno/mockups-dashboard/closing/copia.html` (con `closing.css` y `closing.js`), con los textos del demo a propósito, para
+compararla. Para verla: servir `docs/diseno/mockups-dashboard` (`python -m http.server 4900`) y abrir `closing/copia.html`.
+
+**La comparación, captura contra captura:**
+
+| | El original | La copia |
+|---|---|---|
+| Computadora | `demos/halden/captura/pagina-1440.png` (1440×959) | `closing/captura/copia-1440.png` (1440×959) |
+| Teléfono | `demos/halden/captura/pagina-390.png` (390×2627) | `closing/captura/copia-390.png` (390×2627) |
+
+- **Las páginas miden lo mismo**, y cada bloque cae a 0-2 px del original. Se midió por franjas de tinta dentro de cada
+  tarjeta (dónde empieza y termina cada renglón), no a ojo: el título, las cifras, la barra de la meta, los tres números de
+  la derecha, el embudo y su leyenda, las barras con su etiqueta, cada fila de las listas, la cuota, el asistente y el reloj.
+- **La grilla es la de Halden:** 12 columnas con gap 14 (7+5 arriba, 5+4+3 abajo) y margen 22; tarjetas de radio 18 con un
+  filete de 1 px por dentro; Manrope.
+- **El bloque oscuro**, medido pixel a pixel: el resplandor arriba a la derecha (un óvalo de 420×205 que va de `#156d77` a
+  `#0a3338`) y la cuadrícula de 28 px, que se ve más hacia la derecha.
+- **En el teléfono**, el orden de Halden (lo ganado, el embudo, la próxima, las barras, la lista, el asistente, la cuota, el
+  reloj), la lista con 5 filas y el asistente con 3 (en la computadora no entran) y la barra de abajo.
+
+**El movimiento, de la receta del INFORME** (en `closing.js`, con sus tiempos y curvas): las tarjetas entran juntas
+escalonadas, las cifras cuentan desde cero, la meta y el embudo crecen, las barras suben una por una y su etiqueta aparece
+después con un rebote, la leyenda, las filas y el asistente entran escalonados. Al pasar el cursor: la flecha del bloque oscuro
+gira 45° y se llena, las barras se aclaran, los botones cambian de fondo; la etiqueta sigue a la barra que se señala; el reloj
+rueda sus dígitos.
+
+**Lo que NO se pudo copiar, y no se inventó:**
+- **Cómo entra el título:** la función que lo hace (`bo`) no está en el INFORME. Entra letra por letra con `io`, el único
+  helper de título de la librería de Halden. Es una inferencia hasta medir `bo`.
+- **Lo que pasa después de los 0,75 s:** el INFORME corta la línea de tiempo ahí. La cuota y el reloj no tienen una entrada
+  medida (el reloj arranca en 00:00:00 y rueda al primer segundo, como el demo).
+- **A qué se le aplica el hover que sube 4 px** (`[data-lift]`): está la receta, no los elementos. No se aplicó a nada.
+- **El cambio de tema y los menús** de la barra de arriba: no son de la hoja.
+- La entrada de la barra de arriba (`yd`) también está cortada en el INFORME.
+
+### Paso 2: la adaptación a MaKo
+
+`docs/diseno/mockups-dashboard/closing/closing.html`, con la MISMA hoja y el mismo movimiento. Capturas:
+`closing/captura/mako-1440.png` y `mako-390.png`. Los números y los nombres son de ejemplo. Sin la barra de arriba: en MaKo la
+pone el Dashboard.
+
+| Halden | Closing | De dónde sale en MaKo |
+|---|---|---|
+| Revenue won + meta + win rate, avg deal, deals won | **Tasa de cierre este mes** (el ancla), su diferencia con el mes anterior, «11 de 29 llamadas terminaron en venta» y a la derecha analizadas, score y duración | `llamadas_venta`: `tasa_cierre` (comparada), `ganadas`, `llamadas`, `puntaje`, `duracion` |
+| Open pipeline en tramos | **Cómo terminaron:** cerró en la 1.ª, cerró en la 2.ª, sin decisión, perdida | `ganadas − ganadas_r2`, `ganadas_r2`, el resto, `perdidas` |
+| Revenue this week (cerrado y rayado lo que viene) | **Llamadas de esta semana:** hechas por día y, rayadas, las agendadas | `llamadas_venta` por día · `leads`: agendas por fecha de agenda |
+| Hot deals | **Últimas llamadas:** el lead, 1.ª o 2.ª, cómo terminó, el closer, el score y cuánto duró | `llamadas_venta` por llamada |
+| Next up + Join call | **Próxima llamada** con «Entrar a la llamada» | la agenda (el link de la reunión) |
+| Quota this quarter (con «You») | **Tasa de cierre por closer**, «5 de 11» y «Tú» para quien mira | `llamadas_venta` por closer |
+| Assist | **Qué decide tus cierres:** lo que se repite en las que no cerraron | la caja de IA `cl-factores-ia` (el closer la lee por ese id) |
+| Call session (el reloj y tres botones) | **Duración promedio** con el mismo reloj; los botones se cambian por la duración de las ganadas contra la de las perdidas | `duracion`, partida por desenlace |
+
+Se sacó: la barra de arriba de Halden, el buscador, las pestañas y los tres botones de la sesión. Se agregó: el tramo rosa de
+«Perdida» (Halden no tiene uno: sus tramos son todos abiertos).
+
+### Lo que falta para que esté en producción
+
+La copia y la adaptación son maquetas: **producción todavía muestra la hoja Closing de antes** (la del rechazo). Falta llevar
+este diseño al Dashboard con los datos reales: que una hoja nacida de la plantilla Closing se dibuje con su propio diseño (su
+CSS y su movimiento, sólo de ella) leyendo los mismos componentes de siempre, y sumar las dos lecturas que hoy no existen en
+la hoja (las agendadas de la semana y la próxima llamada). Va en su propia punta.
 
 ---
 

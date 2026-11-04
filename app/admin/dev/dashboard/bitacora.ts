@@ -857,4 +857,22 @@ export const BITACORA: Hito[] = [
       'Desde la nube no se llega a los demos de la referencia: lo que hay que correr para medirlos está en docs/relevo/nube-dashboards.md.',
     ],
   },
+  {
+    fecha: '4 nov', hora: '11:43', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Closing, copiado de Halden: primero la copia exacta, después con lo de MaKo',
+    puntos: [
+      '**La referencia de Closing es Halden:** cada bloque suyo tiene su par en las llamadas (lo ganado → la tasa de cierre, los vendedores → los closers).',
+      '**La copia exacta** mide lo mismo que el original en la compu y en el teléfono, con cada bloque a 0-2 px, y entra con sus mismos tiempos.',
+      '**La adaptación** cambia los datos y saca lo que no sirve: la tasa de cierre arriba, cómo terminaron, las llamadas de la semana, las últimas, la próxima, cada closer, lo que ve MaKo y la duración.',
+      '**Todavía es una maqueta:** en producción sigue la hoja de antes hasta llevar este diseño al Dashboard con los datos reales.',
+    ],
+    archivos: [
+      'docs/diseno/mockups-dashboard/closing/copia.html — la copia exacta',
+      'docs/diseno/mockups-dashboard/closing/closing.html — la adaptación',
+      'docs/diseno/mockups-dashboard/closing/closing.css · closing.js — la hoja y el movimiento, sólo de Closing',
+      'docs/relevo/nube-dashboards.md — la comparación con el original',
+    ],
+    revisar: '/dashboard',
+  },
 ];
