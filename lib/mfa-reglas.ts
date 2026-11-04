@@ -16,51 +16,7 @@ export type Amr = Factor | 'dispositivo' | 'dev' | 'revision';
 export const AMRS: readonly Amr[] = ['totp', 'passkey', 'whatsapp', 'email', 'recuperacion', 'dispositivo', 'dev', 'revision'];
 
 // ── La cuenta de revisión de las tiendas ─────────────────────────────────────
-
-/**
- * La ÚNICA cuenta que entra sin segundo factor (3/11/2026, docs/tiendas-play-appstore.md, paso 5). Google Play exige «reusable login
- * credentials that can bypass» el OTP (support.google.com/googleplay/android-developer/answer/15748846), y los códigos de recuperación
- * son de un solo uso. Apple también pide una cuenta que el revisor pueda usar sin nada más.
- *
- * ⚠️ EN POSITIVO Y ATADA A LO QUE DICE LA FILA: ESE correo, EL NEGOCIO DE PRUEBA, un usuario común y CLOSER adentro del negocio. Cambiar cualquiera de
- * esas cosas apaga la excepción en el pedido siguiente (lib/auth.ts). El correo no es de una persona: nadie recibe nada en él, y la contraseña
- * sale de scripts/tiendas-cuenta-revision.mts.
- * ⚠️ CLOSER Y NO ADMIN: esta contraseña se la damos a terceros. Con admin invitaba gente, creaba tokens, renombraba el negocio y mandaba mails de MaKo
- * (revisión de seguridad del 3/11/2026). `rol_ws` nulo vale como admin (lib/workspace.ts), así que tampoco entra.
- * ⚠️ NO HAY VARIABLE DE ENTORNO QUE LA PRENDA, a propósito: sumar otra cuenta es un cambio de código que pasa por esta revisión.
- */
-export const CUENTA_DE_REVISION = { email: 'revision-tiendas@hola-mako.com', ws: 3, rolWs: 'closer' } as const;
-
-export function esCuentaDeRevision(u: { email?: string | null; workspace_id?: number | null; rol?: string | null; rol_ws?: string | null } | null | undefined): boolean {
-  if (!u) return false;
-  return String(u.email ?? '').trim().toLowerCase() === CUENTA_DE_REVISION.email
-    && u.workspace_id === CUENTA_DE_REVISION.ws
-    && u.rol === 'usuario'
-    && u.rol_ws === CUENTA_DE_REVISION.rolWs;
-}
-
-/** Una semana: el revisor vuelve a entrar con la misma contraseña, y una cookie copiada se muere sola. */
-export const DIAS_SESION_REVISION = 7;
-
-/**
- * La sesión vale si es posterior al último cambio de contraseña: rotarla tiene que cerrar lo que estaba abierto. Sin fecha que comparar, no vale: esta
- * es la única sesión sin segundo factor, y un «no sé» acá no puede ser un sí.
- */
-export function sesionDeRevisionVigente(iatSegundos: number | null | undefined, cambiadaAt: string | null | undefined): boolean {
-  const cambio = Date.parse(String(cambiadaAt ?? ''));
-  return typeof iatSegundos === 'number' && Number.isFinite(cambio) && iatSegundos * 1000 >= cambio - 1000;
-}
-
-/**
- * Lo que esta sesión no escribe, aunque el rol la dejara: tomarse la cuenta (su seguridad) y lo que le escribe a un tercero o le abre una puerta a otro.
- * Leer sí: el revisor mira esas pantallas. Lo corta el proxy, que es por donde pasa todo.
- */
-export const SIN_ESCRITURA_EN_REVISION = ['/api/perfil/seguridad', '/api/onboarding', '/api/equipo', '/api/perfil/destinatarios', '/api/agente/token', '/api/chat-agent/onboarding'] as const;
-
-export function revisionNoPuede(pathname: string, metodo: string): boolean {
-  if (['GET', 'HEAD', 'OPTIONS'].includes(metodo.toUpperCase())) return false;
-  return SIN_ESCRITURA_EN_REVISION.some((r) => pathname === r || pathname.startsWith(`${r}/`));
-}
+// Su marca `revision` está en AMRS (arriba); todo lo demás —quién es, qué escribe, qué manda— vive en lib/cuenta-revision-reglas.ts.
 
 // ── La política ──────────────────────────────────────────────────────────────
 

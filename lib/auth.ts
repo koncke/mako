@@ -20,7 +20,8 @@ import {
   gateConfigurado, verificarToken, sinLoginPermitido, type Rol, type Sesion,
 } from './auth-session';
 import { buscarUsuarioPorEmail } from './usuarios';
-import { esCuentaDeRevision, requiereSegundoFactor, sesionDeRevisionVigente } from './mfa-reglas';
+import { requiereSegundoFactor } from './mfa-reglas';
+import { esCuentaDeRevision, sesionDeRevisionVigente } from './cuenta-revision-reglas';
 import { obligatorioDesdeDe } from './mfa-obligatorio';
 // La sesión se lee UNA vez por pedido, también en una ruta /api (23/10/2026): ver lib/sesion-por-pedido.ts.
 import { enElPedido } from './sesion-por-pedido';
@@ -61,7 +62,7 @@ async function leerSesion(token: string | undefined): Promise<Sesion | null> {
         // desde esa hora, su sesión sin segundo factor deja de valer y el login le pide enrolar uno.
         // La fecha se lee sólo si la sesión NO trae `mfa`: con `mfa` no hay nada que decidir.
         if (!firmada.mfa && requiereSegundoFactor(u.rol, !!u.mfa_activo, await obligatorioDesdeDe(u.workspace_id))) return null;
-        // La cuenta de revisión de las tiendas: su sesión vale sólo mientras la FILA siga siendo esa (lib/mfa-reglas.ts). Una cookie vieja no
+        // La cuenta de revisión de las tiendas: su sesión vale sólo mientras la FILA siga siendo esa (lib/cuenta-revision-reglas.ts). Una cookie vieja no
         // sobrevive a mudarla de negocio, cambiarle el correo o subirla a admin.
         if (firmada.mfa === 'revision') {
           if (!esCuentaDeRevision(u)) return null;

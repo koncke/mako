@@ -25,6 +25,7 @@ import { guardarContrasena } from '@/lib/contrasena';
 import { crearLinkDeRestablecer, leerLinkDeRestablecer, sumarIntentoAlLink, gastarLink } from '@/lib/contrasena-restablecer';
 import { estadoMfa, cantidadFactores, intentar, intentoOk, verificarTotpLogin, usarCodigoRecuperacion, registrarEvento, MENSAJE_FRENADO } from '@/lib/mfa';
 import { avisarPedidoDeRestablecer } from '@/lib/restablecer-aviso';
+import { esCorreoDeRevision } from '@/lib/cuenta-revision-reglas';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,7 +65,9 @@ export async function POST(req: NextRequest) {
     const email = correoNormalizado(body.email);
     try {
       const u = email && !frenadoPedir ? await buscarUsuarioPorEmail(email) : null;
-      if (u && u.id > 0 && u.estado !== 'suspendido') {
+      // La cuenta de revisión de las tiendas no cambia su contraseña por correo: la rota el script, y la que tienen Play y Apple tiene que
+      // seguir valiendo (lib/cuenta-revision-reglas.ts). Contesta lo mismo que siempre: no cuenta qué correos existen.
+      if (u && u.id > 0 && u.estado !== 'suspendido' && !esCorreoDeRevision(u.email)) {
         const r = await crearLinkDeRestablecer(u.id);
         if (r && 'link' in r) {
           const uid = u.id;

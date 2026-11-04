@@ -15,6 +15,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { personaDelRequest } from '@/lib/mako-turno-app';
+import { getUsuarioActual } from '@/lib/auth';
 import { crearCodigo, estadoDelCodigo } from '@/lib/ia-pc';
 import { CODIGO_MS, iaDelConsentimiento } from '@/lib/ia-pc-reglas';
 import { CHATGPT_EN_LA_PC } from '@/lib/conectar-ia-reglas';
@@ -24,6 +25,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function POST(req: NextRequest) {
+  // La cuenta de revisión de las tiendas no conecta una computadora (4/11/2026): el token de la PC no se entera de que la contraseña
+  // rotó, así que quien la tuvo una vez seguiría adentro. El proxy ya lo corta (lib/cuenta-revision-reglas.ts); esto es por si cambia.
+  if ((await getUsuarioActual())?.mfa === 'revision') return NextResponse.json({ ok: false, error: 'La cuenta de demostración no puede conectar una computadora.' }, { status: 403 });
   const persona = await personaDelRequest();
   if ('error' in persona) return NextResponse.json({ ok: false, error: persona.error }, { status: persona.status });
   const frenado = limitePorClave('ia-pc-codigo', `${persona.ws}:${persona.actor}`, 10, 10 * 60_000);

@@ -9,8 +9,8 @@
 //      · la persona: `estado = 'suspendido'`, que corta su sesión en el próximo pedido (lib/auth.ts).
 //   3. Los dos mails: a la persona con la fecha, y a equipo@ para que el plazo no dependa de abrir una pantalla.
 //
-// ⚠️ EL NEGOCIO DE PRUEBA NO APAGA NADA: la cuenta de revisión de las tiendas vive ahí (docs/tiendas-play-appstore.md, paso 5), y
-//    el revisor puede tocar este botón. Si lo suspendiera, el próximo revisor no entra y la app se rechaza por 2.1(a). El
+// ⚠️ EL NEGOCIO DE PRUEBA Y EL DE LA CUENTA DE REVISIÓN (`WS_REVISION`) NO APAGAN NADA: el revisor de las tiendas puede tocar este
+//    botón (docs/tiendas-play-appstore.md, paso 5). Si lo suspendiera, el próximo revisor no entra y la app se rechaza por 2.1(a). El
 //    pedido se anota con `prueba` y la pantalla dice lo mismo.
 // ⚠️ LO QUE SE BORRA SE ELIGE CON LA FILA DE LA PERSONA, nunca con la pestaña: `?ws=` no decide nada acá.
 // =============================================================================
@@ -22,6 +22,7 @@ import { estaImpersonando, wsSuperAdmin } from './workspace';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO } from './app-url';
 import { WS_PRUEBAS } from './auth-session';
+import { WS_REVISION } from './cuenta-revision-reglas';
 import { darDeBajaMiPlan } from './cobros';
 import {
   PLAZO_BAJA_DIAS, alcanceDeLaBaja, fechaDeLaBaja, motivoSinBaja, textoDeLaBaja, venceDe, type AlcanceBaja,
@@ -108,7 +109,10 @@ export async function pedirBajaDe(usuarioId: number | null, impersonando: boolea
   const { alcance, negocio } = await alcanceYNegocio(u);
   if (alcanceVisto && alcanceVisto !== alcance) return { ok: false, error: 'Cambió lo que se borra. Léelo de nuevo antes de confirmar.', status: 409 };
   const ws = u.workspace_id;
-  const prueba = ws != null && (WS_PRUEBAS as readonly number[]).includes(ws);
+  // El negocio de la cuenta de revisión de las tiendas también se anota y no se borra: el revisor tiene que poder probar «Eliminar mi
+  // cuenta», y el siguiente tiene que poder entrar (lib/cuenta-revision-reglas.ts). Va aparte de WS_PRUEBAS a propósito: ése no es un
+  // negocio de prueba donde se pueda romper.
+  const prueba = ws != null && ((WS_PRUEBAS as readonly number[]).includes(ws) || ws === WS_REVISION);
   const ahora = Date.now();
   const hasta = venceDe(ahora);
 

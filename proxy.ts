@@ -28,7 +28,7 @@ import { decidirLEnApp, decidirLandings, redireccionEnElHost } from './lib/edito
 import { MOVIL_ACTIVO, pedidoMovil } from './lib/movil-desvio';
 import { VISTA_COOKIE, tipoDeDispositivo, vaAMovil } from './lib/movil-dispositivo';
 import { esAppIos, esRutaDeVenta } from './lib/tienda';
-import { revisionNoPuede } from './lib/mfa-reglas';
+import { revisionPuedeEscribir } from './lib/cuenta-revision-reglas';
 
 // La lista de rutas públicas vive en lib/rutas-publicas.ts, no acá: es la condición
 // que decide qué entra sin sesión, y adentro de un middleware ningún test la puede
@@ -455,8 +455,9 @@ export function proxy(req: NextRequest) {
   const sesion = verificarToken(req.cookies.get(SESSION_COOKIE)?.value);
   if (sesion) {
     if (esAdminRoute && sesion.rol !== 'admin') return denegarRol(req, pathname);
-    // La cuenta de revisión de las tiendas: esa contraseña la tienen terceros (lib/mfa-reglas.ts).
-    if (sesion.mfa === 'revision' && revisionNoPuede(pathname, req.method)) return NextResponse.json({ ok: false, error: 'Esta cuenta no puede hacer esto.' }, { status: 403 });
+    // La cuenta de revisión de las tiendas: esa contraseña la tienen terceros. Lee todo; escribe SÓLO lo de la lista de lo permitido,
+    // páginas incluidas (un POST a una página es una server action: lib/cuenta-revision-reglas.ts, `PERMITIDO_EN_REVISION`).
+    if (sesion.mfa === 'revision' && !revisionPuedeEscribir(pathname, req.method, req.headers.has('next-action'))) return NextResponse.json({ ok: false, error: 'La cuenta de demostración no puede cambiar esto.' }, { status: 403 });
     return seguirOMovil(req, pathname, sesion.rol === 'admin');
   }
 

@@ -23,6 +23,7 @@ import { elegirLinea, esLineaDelWorkspace, instanceNameDeWs, nombreLineaNueva, l
 import { lineaDeMaKoPara, ETIQUETA_LINEA_MAKO } from './linea-plataforma';
 import { queryDeWebhook } from './evolution-firma';
 import { numeroParaWhatsApp, motivoConPista } from './numero-whatsapp';
+import { bloqueoDeEnvioEnRevision } from './revision-guarda';
 import { topeParaLineaNueva, type TopeLineaNueva } from './tope-lineas';
 import type { FotoLinea } from './lineas-de-mako';
 
@@ -927,6 +928,8 @@ async function lineaDeEnvio(linea?: string | null): Promise<{ ok: true; instance
 // `sinVistaPrevia` (17/10/2026, #869): los links salen como texto, sin la tarjeta que Evolution arma sola
 // (`linkPreview: false` de /message/sendText). Sin la opción, lo de siempre (con tarjeta).
 export async function enviarTexto(telefono: string, texto: string, linea?: string | null, opts: { sinVistaPrevia?: boolean } = {}): Promise<EnvioResult> {
+  const enRevision = await bloqueoDeEnvioEnRevision('whatsapp', telefono); // la cuenta de revisión no le escribe a nadie
+  if (enRevision) return { ok: false, error: enRevision };
   const l = await lineaDeEnvio(linea);
   if (!l.ok) return l;
   const instance = l.instance;
@@ -954,6 +957,8 @@ export async function enviarMedia(
   caption?: string,
   linea?: string | null,
 ): Promise<EnvioResult> {
+  const enRevision = await bloqueoDeEnvioEnRevision('whatsapp', telefono); // la cuenta de revisión no le escribe a nadie
+  if (enRevision) return { ok: false, error: enRevision };
   const l = await lineaDeEnvio(linea);
   if (!l.ok) return l;
   const instance = l.instance;
@@ -977,6 +982,8 @@ export async function enviarMedia(
 // Envía una NOTA DE VOZ (PTT) por el no oficial. sendWhatsAppAudio (no sendMedia)
 // para que salga como nota de voz; el delay muestra "grabando audio…" nativo.
 export async function enviarAudio(telefono: string, base64: string, linea?: string | null): Promise<EnvioResult> {
+  const enRevision = await bloqueoDeEnvioEnRevision('whatsapp', telefono); // la cuenta de revisión no le escribe a nadie
+  if (enRevision) return { ok: false, error: enRevision };
   const l = await lineaDeEnvio(linea);
   if (!l.ok) return l;
   const instance = l.instance;

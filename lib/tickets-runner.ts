@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import type { ChatCartero } from './operaciones-reglas';
 import { leerTriage } from './tickets-reglas';
+import { WS_REVISION } from './cuenta-revision-reglas';
 import {
   CEREBRO_SIN_ENTREGAR, ENTREGA_MAX_INTENTOS, ENTREGA_TOMADO_VENCE_MS, ESTADOS_NUEVOS, TICKETS_POR_VUELTA, VERSION_CARTERO_TICKETS, VERSION_CARTERO_TICKETS_NUEVOS,
   esElCerebro, necesitaAvisoDeNuevo, necesitaEntrega, versionAlMenos, type FilaEntrega, type FilaNuevo,
@@ -41,6 +42,7 @@ export async function ticketsParaElCartero(
   const { data: filas, error } = await db.from(T)
     .select('id, estado, despacho, aviso_id, aviso_estado, aviso_at, aviso_intentos, triage, contexto')
     .eq('despacho', 'runner').eq('estado', 'en_curso').lt('aviso_intentos', ENTREGA_MAX_INTENTOS)
+    .neq('workspace_id', WS_REVISION) // la cuenta de revisión de las tiendas no se despacha (lib/tickets-db.ts)
     .order('created_at', { ascending: true }).limit(50);
   if (error) throw new Error(error.message);
   const ahora = Date.parse(ahoraIso);
@@ -73,6 +75,7 @@ export async function ticketsSinEntregar(ahora = Date.now()): Promise<number> {
   const vence = new Date(ahora - ENTREGA_TOMADO_VENCE_MS).toISOString();
   const { count, error } = await getSupabaseServer().from(T).select('id', { count: 'exact', head: true })
     .eq('despacho', 'runner').eq('estado', 'en_curso').lt('aviso_intentos', ENTREGA_MAX_INTENTOS)
+    .neq('workspace_id', WS_REVISION)
     .or(`aviso_estado.is.null,aviso_estado.in.(no_entregado,incierto),and(aviso_estado.eq.tomado,aviso_at.lt.${vence})`);
   if (error) throw new Error(error.message);
   return count ?? 0;
@@ -105,6 +108,7 @@ async function nuevosSinEntregar(): Promise<Array<Record<string, unknown>>> {
   const { data, error } = await getSupabaseServer().from(T)
     .select('id, estado, despacho, cerebro_id, cerebro_estado, cerebro_at, cerebro_intentos')
     .is('despacho', null).in('estado', [...ESTADOS_NUEVOS]).in('cerebro_estado', [...CEREBRO_SIN_ENTREGAR])
+    .neq('workspace_id', WS_REVISION) // la cuenta de revisión de las tiendas no le llega al Cerebro (lib/tickets-db.ts)
     .lt('cerebro_intentos', ENTREGA_MAX_INTENTOS).order('created_at', { ascending: true }).limit(50);
   if (error) throw new Error(error.message);
   return data ?? [];
