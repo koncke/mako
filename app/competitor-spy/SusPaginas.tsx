@@ -329,7 +329,7 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
           confirmLabel={ext === 'vieja' ? 'Actualizar' : 'Instalar'}
           message={ext === 'vieja'
             ? lineaDeVersion(VERSION_CAPTURA, 'Tu extensión es de antes y no sabe capturar páginas. Actualízala y la captura empieza sola.')
-            : 'Para capturar una página que no se puede mostrar acá, MaKo la abre en tu navegador con su extensión. Instálala y la captura empieza sola.'}
+            : 'Para capturar una página que no se puede mostrar aquí, MaKo la abre en tu navegador con su extensión. Instálala y la captura empieza sola.'}
           onConfirm={irAInstalar} onCancel={() => setPideExt(null)} />
       )}
     </section>
