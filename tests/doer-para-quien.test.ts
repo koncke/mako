@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type ParaQuien } from '../lib/doer-para-quien';
+import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, preguntaAMaKo, quienesMencionados, sinElLlamadoAMaKo, type ParaQuien } from '../lib/doer-para-quien';
 import { confirmacionPura } from '../lib/confirmacion-pura';
 import { clasificarIntencion } from '../lib/mako-intencion';
 
@@ -287,4 +287,17 @@ test('13. el eco de MaKo en SU línea se saltea aunque su id no esté en el anil
   const buffer = doer.slice(doer.indexOf('async function bufferearYResponder('));
   const iEco = buffer.indexOf('if (await esEcoDeMaKoAhora(instance, jid, data.key))');
   assert.ok(iEco > 0 && iEco < buffer.indexOf('await encolar(jid,') && iEco < buffer.indexOf('reaccionarMensaje(jid, data.key, EMOJI_RECIBIDO)'), 'el eco se encola o lleva 👍');
+});
+
+// La pregunta a MaKo (4/11/2026): una charla que le habla a MaKo y pregunta no se queda en el 👍. El turno real, en
+// tests/grupos-ops-turno.test.ts; acá la regla sola.
+test('preguntaAMaKo: le habla y pregunta; el «gracias» y lo que es para otro, no', () => {
+  const p = (texto: string, leHabla: boolean, reglasConsultan = false) => preguntaAMaKo({ texto, leHabla, reglasConsultan });
+  assert.equal(p('mako estas vivo?', true), true);
+  assert.equal(p('MaKo, ¿estás vivo? Es una prueba.', true), true, 'el «¿» del medio también pregunta');
+  assert.equal(p('mako cuantos leads entraron hoy', true, true), true, 'sin signo, si las reglas leen una consulta');
+  assert.equal(p('MaKo, gracias', true), false);
+  assert.equal(p('bien ahí', false), false);
+  assert.equal(p('Juan, ¿venís?', false), false, 'pregunta, pero no a MaKo');
+  assert.equal(p('Juan, ¿venís?', false, true), false, 'ni con las reglas leyendo una consulta');
 });
