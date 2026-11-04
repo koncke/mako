@@ -324,7 +324,7 @@ export type RespuestaEv = { ok: boolean; status: number; body: unknown };
 export type EvFn = (path: string, init?: { method?: string; body?: string }) => Promise<RespuestaEv>;
 
 /** Cuántas salieron, sus ids de WhatsApp y, si una falló, por qué. */
-export type EnvioPartes = { ok: boolean; salieron: number; ids: string[]; error?: string; /** El negocio no tiene grupo de MaKo (leído, no supuesto). */ sinGrupo?: true };
+export type EnvioPartes = { ok: boolean; salieron: number; ids: string[]; error?: string; /** Se intentó y WhatsApp no lo tomó: de esto cuelga el mail de `emitirAviso`. */ fallaElEnvio?: true; /** El negocio no tiene grupo de MaKo (leído, no supuesto). */ sinGrupo?: true };
 
 /** El mensaje útil del cuerpo de un error de Evolution (viene anidado y variado). */
 export function detalleEvolution(body: unknown): string {
