@@ -43,7 +43,7 @@ function pc() {
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
       env: {
-        PATH: process.env.PATH ?? '', CARTERO_DIR: dir, CARTERO_APP_DIR: app, RUNNER_SESIONES_DIR: sesiones, CUENTA_MARCADOR: marcador,
+        NODE_ENV: 'test', PATH: process.env.PATH ?? '', CARTERO_DIR: dir, CARTERO_APP_DIR: app, RUNNER_SESIONES_DIR: sesiones, CUENTA_MARCADOR: marcador,
         CLAUDE_CODE_ACCOUNT_UUID: UUID_5, CLAUDE_CODE_ORGANIZATION_UUID: ORG, ...env,
       },
     });
@@ -101,7 +101,7 @@ function porElHook(origen: string) {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     input: JSON.stringify({ session_id: 'prueba', source: origen }),
-    env: { PATH: process.env.PATH ?? '', HOME: casa, USERPROFILE: casa, APPDATA: join(casa, 'AppData'), BITACORA_SESIONES: join(casa, 'bitacora.tsv'), CLAUDE_CODE_ACCOUNT_UUID: UUID_5 },
+    env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', HOME: casa, USERPROFILE: casa, APPDATA: join(casa, 'AppData'), BITACORA_SESIONES: join(casa, 'bitacora.tsv'), CLAUDE_CODE_ACCOUNT_UUID: UUID_5 },
   });
   assert.equal(r.status, 0, r.stderr);
   return {
