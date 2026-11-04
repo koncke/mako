@@ -178,7 +178,8 @@ test('reemplaza la conversación: el grafo ocupa su lugar y el chat queda montad
   const panel = (reemplazo?: string) => renderToStaticMarkup(createElement(PanelDeChat, {
     cabecera: { clave: 'k', titulo: 'Hormozi', animo: 'despierto' }, hilo: { current: null }, caja: createElement('textarea'), estado: '',
     reemplazo: reemplazo ? createElement('div', { id: 'el-grafo' }, reemplazo) : undefined,
-  }, createElement('p', { id: 'la-charla' }, 'Hola')));
+    children: createElement('p', { id: 'la-charla' }, 'Hola'),
+  }));
   const con = panel('grafo');
   assert.match(con, /<div class="co-reemplazo"><div id="el-grafo">grafo<\/div><\/div>/);
   assert.match(con, /<div class="co-conv" style="display:none">/, 'la conversación queda montada: al volver sigue donde estaba');
