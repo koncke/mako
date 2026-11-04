@@ -66,7 +66,7 @@ frenaba a todas las puntas del tren.
 | 1 | `punta/sin-nombra-20` | sin la regla «nombra 20+»; el tiempo por archivo de test en el resumen | en main |
 | 2 | `punta/filtro-punta` | el filtro chico del pre-push | en main |
 | 3+4 | `punta/despues-del-deploy` | deploy fallido = corrida roja; prueba de humo de 9 GET; vigía cada 8 h | en main |
-| 5 | `punta/sobre-main` | la mezcla sin probar se chequea sola; `ci-rojo/main` y `espera-main/<punta>` se relanzan | subida por cuarta vez con main mezclado en la máquina (4085a32d8), después de tres rojos: el `maxBuffer` de un hijo, un choque en el índice y un workflow que el token de Actions no podía subir (ver abajo). Si su `ci-rojo/sobre-main` sigue en 4085a32d8, no entró |
+| 5 | `punta/sobre-main` | la mezcla sin probar se chequea sola; `ci-rojo/main` y `espera-main/<punta>` se relanzan | en main a la cuarta (4085a32d8), después de tres rojos: el `maxBuffer` de un hijo, un choque en el índice y un workflow que el token de Actions no podía subir (ver abajo) |
 | 6 | `punta/redes-de-noche` | suite completa y tsc sin tandas cada noche si entró algo; 36 h sin veredicto = rojo | en main |
 | 7a | `punta/sin-integracion` | el hook rechaza `integracion`, `integracion-retirada.yml`, AGENTS.md sin el tren; el selector ve el hook | en main |
 | 7b+8 | `punta/metodologia` | borra `integracion.yml`; esta regla arriba en AGENTS.md; este relevo | en main |
@@ -94,8 +94,9 @@ workflows no les pasa.
   Si pasa, se ve en el primer run.
 - **El filtro en la PC con 8 chats:** el tope de 90 s se midió en la nube (4 CPU, 15 GB libres); en la notebook compartida
   va a entrar menos. No espera RAM: si no hay, avisa y deja subir.
-- **`sobre-main.yml` en el runner:** todavía no corrió ninguno. La estimación (tipos ~4-8 min + barredoras ~2 min + instalar)
-  sale de las piezas, no de una corrida.
+- ✔ **`sobre-main.yml` en el runner, medido:** la primera (run 41805916695, 4/11 09:15 UTC) la lanzó `punta.yml` solo,
+  porque main se movió durante los tests de `punta/sobre-main`, y dio verde en 12,9 min (instalar, tipos enteros y las
+  barredoras compartidas).
 - **El driver de las bitácoras en un choque real de CI:** se probó con git de verdad en los tests y sobre 24 pares reales de
   hitos de la historia de main (24 de 24 bien), no todavía en una corrida.
 
