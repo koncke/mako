@@ -837,3 +837,26 @@ medidas el 3/11).
 app/api/competitor-spy/analizar/route.ts · app/api/competitor-spy/redes/route.ts · lib/spy-otras-redes.ts ·
 lib/spy-otras-redes-reglas.ts · lib/spy-foto-hash.ts · app/competitor-spy/redes-recordar.ts ·
 app/competitor-spy/OrdenSpy.tsx · app/competitor-spy/SpyApp.tsx · tests/spy-analisis.test.ts · tests/spy-otras-redes.test.ts
+
+## «No me hizo la caricatura»: no fallaba la generación, nadie la pedía (4/11/2026)
+
+> Martín (por el Cerebro): «me traje a @den.borgg y no me hizo la caricatura como habíamos quedado».
+
+**El diagnóstico obvio era el equivocado:** «falla Flow». `pedirCaricatura` (lib/spy-caricatura-flow.ts) estaba escrita
+desde el 3/11 con su prompt aprobado, y **no tenía un solo llamador**: compilaba, tenía sus comentarios y nunca corría. Le
+faltaban dos cosas que nadie tenía: los `rasgos` que el prompt exige y quién la disparara.
+
+**Y debajo había otro que tampoco daba error:** el pedido iba con una ruta propia (`spy/caricaturas/…`) para guardarla en
+el bucket de Spy, pero la cola sólo le firma la subida al puente si la ruta pasa `RUTA_SUBIDA` (`firmarSubidas`,
+lib/flow-cola.ts). Con la propia, el puente no subía nada y lo único que volvía era la url de Flow, que vence en una
+hora. Ahora va con `rutaDeSubida` y el servidor la copia al bucket de Spy.
+
+**Regla:** una función que hace algo caro y lo hace bien no está terminada hasta que alguien la llama; antes de dar por
+«ya existe» una pieza, `grep` de sus llamadores.
+
+**Sin probar contra el servicio de verdad:** la caricatura entera (la IA mirando la foto, el puente de Flow tomando el
+pedido). La nube no llega a ninguno de los dos.
+
+**Vive en:** lib/spy-caricatura-auto.ts · lib/spy-caricatura-reglas.ts · lib/spy-caricatura-flow.ts ·
+app/api/competitor-spy/caricatura/route.ts · lib/spy.ts (`listarCompetidores`) · app/competitor-spy/SpyApp.tsx ·
+tests/spy-caricatura-auto.test.ts

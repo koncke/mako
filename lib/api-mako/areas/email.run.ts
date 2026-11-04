@@ -50,6 +50,11 @@ import type { MotivoSinRemitente } from '@/lib/email-remitente';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
 import { zonaDelNegocio } from '@/lib/timezone';
 import {
+  anclaDeLaProxima, asegurarCrmNewsletter, conteoPorEtapa, crearEdicion, crmDelNewsletter, guardarConfigNewsletter,
+  leerConfigNewsletter, listarEdiciones, suscriptosDe,
+} from '@/lib/newsletter';
+import { ETAPAS_NEWSLETTER, FRECUENCIAS, proximaEdicion, type EtapaNewsletter, type Frecuencia } from '@/lib/newsletter-reglas';
+import {
   estadoEmail, alcanceEnvioReal, dominioIdDelWorkspace,
   secuenciasArchivadas, leadDelWorkspace, historialEmailLead, bajasEmail,
 } from './email.helpers';
@@ -330,6 +335,35 @@ export const RUNNERS: Runners = {
     },
   },
 
+  ver_newsletter: {
+    leer: async () => {
+      const cfg = await leerConfigNewsletter();
+      const crm = await crmDelNewsletter(cfg);
+      const envio_real = await envioEmailHabilitado();
+      if (!crm) {
+        return json({
+          configurado: false, frecuencia: cfg.frecuencia, tema: cfg.tema, envio_real,
+          nota: 'Este negocio todavía no armó su newsletter: se configura con configurar_newsletter (frecuencia y tema) o en la tab Newsletters.',
+        });
+      }
+      const [subs, eds] = await Promise.all([suscriptosDe(crm.id), listarEdiciones(crm.id)]);
+      const conteo = conteoPorEtapa(subs);
+      return json({
+        configurado: true, frecuencia: cfg.frecuencia, tema: cfg.tema, dormido_tras: cfg.dormidoTras, envio_real,
+        crm: { id: crm.id, nombre: crm.nombre },
+        suscriptos: Object.fromEntries(ETAPAS_NEWSLETTER.map((e) => [e.label, conteo[e.key] ?? 0])),
+        proxima_edicion: proximaEdicion(cfg.frecuencia, anclaDeLaProxima(eds)),
+        ediciones: eds.map((e) => ({
+          id: e.id, asunto: e.asunto, estado: e.estado, etapa: e.etapa,
+          programado_at: e.estado === 'programado' ? e.programado_at : null, enviado_at: e.enviado_at,
+          enviados: e.metricas.enviados, simulados: e.metricas.simulados, abiertos: e.metricas.abiertos, clics: e.metricas.clics, bajas: e.metricas.bajas,
+          en_el_copywriter: !!e.copy_doc_id,
+        })),
+        nota: 'Dado de baja cuenta también a quien se dio de baja del email aunque su tarjeta no se haya movido todavía. Aperturas, clics y bajas cuentan sólo lo enviado de verdad: con el envío apagado las ediciones quedan «simulado».',
+      });
+    },
+  },
+
   estado_email: {
     leer: async () => {
       const e = await estadoEmail();
@@ -398,6 +432,63 @@ export const RUNNERS: Runners = {
   },
 
   // ── acciones por chat ──────────────────────────────────────────────────────
+
+  configurar_newsletter: {
+    preparar: async (input) => {
+      const frecuencia = str(input, 'frecuencia');
+      const tema = str(input, 'tema');
+      const dormido = num(input, 'dormido_tras');
+      if (frecuencia === undefined && tema === undefined && dormido == null) return { error: 'No hay nada que cambiar: manda frecuencia, tema o dormido_tras.', faltan: ['frecuencia', 'tema'] };
+      if (frecuencia !== undefined && !FRECUENCIAS.some((f) => f.id === frecuencia)) return { error: `La frecuencia «${frecuencia}» no existe.`, disponibles: FRECUENCIAS.map((f) => f.id) };
+      const partes = [
+        frecuencia ? `sale ${FRECUENCIAS.find((f) => f.id === frecuencia)!.label.toLowerCase()}` : null,
+        tema ? `trata de «${tema}»` : null,
+        dormido != null ? `pasa a «Dormido» quien no abre ${dormido} seguidas` : null,
+      ].filter(Boolean);
+      return {
+        payload: { ...(frecuencia ? { frecuencia } : {}), ...(tema !== undefined ? { tema } : {}), ...(dormido != null ? { dormido_tras: dormido } : {}) },
+        resumen: `Configurar el newsletter: ${partes.join(', ')}. Con la frecuencia y el tema, se crea el CRM «Newsletter» si no existe. No manda nada.`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const cfg = await guardarConfigNewsletter({
+        ...(typeof payload.frecuencia === 'string' ? { frecuencia: payload.frecuencia as Frecuencia } : {}),
+        ...(typeof payload.tema === 'string' ? { tema: payload.tema } : {}),
+        ...(typeof payload.dormido_tras === 'number' ? { dormidoTras: payload.dormido_tras } : {}),
+      });
+      const crm = cfg.frecuencia && cfg.tema ? await asegurarCrmNewsletter() : null;
+      return {
+        ok: true,
+        resumen: crm ? `Newsletter configurado. Los suscriptos están en el CRM «${crm.nombre}».` : 'Newsletter configurado. Falta la frecuencia o el tema para crear su CRM.',
+        datos: { frecuencia: cfg.frecuencia, tema: cfg.tema, dormido_tras: cfg.dormidoTras, crm_id: crm?.id ?? null },
+      };
+    },
+  },
+
+  crear_edicion_newsletter: {
+    preparar: async (input) => {
+      const crm = await crmDelNewsletter();
+      if (!crm) return { error: 'Este negocio todavía no armó su newsletter: primero configurar_newsletter (frecuencia y tema).' };
+      const asunto = str(input, 'asunto');
+      const cuerpo = str(input, 'cuerpo');
+      if (!asunto || !cuerpo) return { error: 'Una edición necesita asunto y cuerpo.', faltan: [...(!asunto ? ['asunto'] : []), ...(!cuerpo ? ['cuerpo'] : [])] };
+      const etapa = str(input, 'etapa');
+      const label = etapa ? ETAPAS_NEWSLETTER.find((e) => e.key === etapa)?.label : null;
+      return {
+        payload: { asunto, preheader: str(input, 'preheader') ?? null, cuerpo, etapa: etapa ?? null },
+        resumen: `Crear la edición «${asunto}» del newsletter en borrador, para ${label ? `los de «${label}»` : `todo el CRM «${crm.nombre}» (menos las bajas)`}. No manda nada.`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const crm = await crmDelNewsletter();
+      if (!crm) return { ok: false, resumen: 'El CRM del newsletter ya no está (lo archivaron): no creé la edición.' };
+      const id = await crearEdicion(crm.id, {
+        asunto: String(payload.asunto ?? ''), preheader: typeof payload.preheader === 'string' ? payload.preheader : null,
+        cuerpo: String(payload.cuerpo ?? ''), etapa: typeof payload.etapa === 'string' ? (payload.etapa as EtapaNewsletter) : null,
+      });
+      return { ok: true, resumen: `Edición #${id} del newsletter creada en borrador. Se prueba con enviar_prueba_broadcast y se programa con programar_broadcast.`, datos: { id } };
+    },
+  },
 
   crear_secuencia_email: {
     preparar: async (input) => {

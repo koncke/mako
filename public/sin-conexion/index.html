@@ -1,0 +1,21 @@
+<!doctype html>
+<!--
+  El cascarón de MaKo sin conexión (28/10/2026, docs/diseno-mako-desktop-sin-conexion.md). Es IGUAL para todos y no trae un
+  dato de nadie: public/sw.js lo devuelve cuando el servidor no contesta, con el motivo en `mako-motivo`. Lo de cada persona
+  está cifrado en su navegador y abre con la clave de esta computadora. Sin scripts en línea: la CSP sólo deja 'self'.
+-->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="mako-motivo" content="">
+  <meta name="referrer" content="no-referrer">
+  <title>MaKo sin conexión</title>
+  <link rel="icon" href="/icon-192.png">
+  <link rel="stylesheet" href="/sin-conexion/estilos.css">
+</head>
+<body>
+  <div id="mako-sin-conexion"><p class="cargando">Abriendo MaKo sin conexión…</p></div>
+  <script src="/sin-conexion/app.js" defer></script>
+</body>
+</html>
