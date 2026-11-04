@@ -114,51 +114,59 @@ const MARKETING: PlantillaHoja = {
 };
 
 const COMERCIAL: PlantillaHoja = {
-  id: 'comercial', nombre: 'Comercial', emoji: '💼',
-  linea: 'Lo vendido y lo cobrado, a quién cobrarle, el funnel de las reuniones y las cohortes.',
+  id: 'comercial', nombre: 'Comercial', emoji: '💼', buscar: 'CRM y pipeline Ventas del mes',
+  linea: 'Si convierte y a qué costo: de agenda a cierre, por qué no se cerró, quién cierra y por oferta.',
   armar: (id) => {
-    // COMPOSICIÓN DEL 31/10/2026 (18 piezas → 9): cuatro números iguales, la barra con su tendencia, el embudo y dos listas.
-    // Lo que se sacó era el mismo dato dos veces (el no-show, el ratio y los cierres maduros son escalones del embudo; las
-    // cohortes por semana son las mensuales con otro corte) o un diagnóstico de trimestre (el ciclo de venta). MRR se fue:
-    // su única fecha es `actual`, y en una fila que se lee por período no tiene período.
-    // Lo que DEFINE el funnel: las cohortes maduras, en todo el histórico (Martín, 11/10/2026: «Que muestre todas y para eso
-    // tenemos filtros dentro de un elemento»). Con los 30 días de la hoja quedaban 1-2 cohortes maduras.
+    // 4/11/2026 — COFFER · CORBEL · PRISM · ORVEL · PELAGO · SELVAR (docs/templates-dashboard-propuesta.md §6 y §7.3): «¿convierte,
+    // y a qué costo?». Comercial mira una TASA (CRM mira una persona, Cobranza una cuota), y absorbe a «CRM y pipeline» y
+    // «Ventas del mes», que decían la misma frase. Mockup: docs/diseno/mockups-dashboard/comercial.html.
+    // La plata cobrada y «A quién cobrarle» se mudaron a la hoja Cobranza: allá es la pregunta.
+    // ⚠️ Los ids de la FIRMA que quedan (co-funnel-embudo, co-tendencia) no cambian: reconocen la hoja guardada de antes.
+    // Lo que DEFINE el funnel: las cohortes maduras, en todo el histórico (Martín, 11/10/2026).
     const maduras = (local: string) => [periodoFijo(id(`${local}-fecha`), 'todo'), fijo(id(`${local}-f1`), 'leads.madurez_semana', ['Madura'])];
     const numero = { tipo: 'numero_tendencia', h: 4 };
     return {
-      id: id('comercial'), nombre: 'Comercial', emoji: '💼', subtitulo: 'Revenue, cobranza, funnel y cohortes.',
+      id: id('comercial'), nombre: 'Comercial', emoji: '💼', subtitulo: 'Si convierte, y a qué costo.',
       controles: [{ id: id('co-periodo'), tipo: 'periodo', preset: 'ult30' }],
       componentes: [
-        { id: id('co-revenue-barra'), clase: 'grafico', tipo: 'barra_proporcion', fuente: 'revenue', metricas: ['cobrado', 'pendiente'], titulo: 'Revenue', x: 0, y: 4, w: 12, h: 3 },
-        // LA INVERTIDA de esta fila: Comercial pregunta «¿cuánta plata entró?», y es el Cash Collected (no el vendido, que está
-        // comprometido pero no cobrado). El Outstanding mira hacia ADELANTE con su período a la vista: este mes completo.
-        kpi(id('co-revenue-cobrado'), 'revenue', 'cobrado', 'Cash Collected', '', 0, 0, { ...numero, comparar: true, invertida: true }),
-        kpi(id('co-revenue-vendido'), 'revenue', 'vendido', 'Sold Revenue', '', 3, 0, numero),
-        kpi(id('co-revenue-pendiente'), 'revenue', 'pendiente', 'Outstanding', '', 6, 0, { ...numero, controles: [periodoVisible(id('co-revenue-pendiente-fecha'), 'este_mes_completo')] }),
-        kpi(id('co-revenue-cierres'), 'revenue', 'cierres', 'Cierres', '', 9, 0, numero),
-        // Dos métricas del mismo formato: un gráfico, no cuatro paneles.
+        {
+          id: id('co-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'leads', fecha: 'agenda', metricas: ['agendas', 'cierres', 'tasa_cierre', 'vendido'],
+          titulo: 'De agenda a cierre', frase: 'De {agendas} agendas salieron {cierres} cierres · cerraste el {tasa_cierre} de las que vinieron · vendiste {vendido}',
+          ir: 'crm', x: 0, y: 0, w: 12, h: 3,
+        },
+        // LA INVERTIDA: la tasa de cierre, que es lo que la hoja pregunta.
+        kpi(id('co-tasa'), 'leads', 'tasa_cierre', 'Tasa de cierre', '', 0, 3, { ...numero, fecha: 'agenda', comparar: true, invertida: true, ir: 'closing' }),
+        kpi(id('co-ticket'), 'leads', 'ticket', 'Ticket promedio', '', 3, 3, { ...numero, fecha: 'cierre', ir: 'crm' }),
+        kpi(id('co-costo-cierre'), 'negocio', 'cac', 'Costo por cierre', '', 6, 3, { ...numero, comparar: true, ir: 'marketing' }),
+        kpi(id('co-ciclo'), 'leads', 'ciclo_cierre', 'Días hasta el cierre', '', 9, 3, { ...numero, fecha: 'cierre', ir: 'crm' }),
         {
           id: id('co-tendencia'), clase: 'grafico', tipo: 'serie', fuente: 'negocio', dimension: 'mes', metricas: ['vendido', 'cobrado'],
-          titulo: 'Tendencia', x: 0, y: 7, w: 12, h: 8, controles: [periodoFijo(id('co-tendencia-fecha'), 'ult12m')],
+          titulo: 'Tendencia', subtitulo: 'Vendido y cobrado, mes a mes', x: 0, y: 7, w: 12, h: 8, controles: [periodoFijo(id('co-tendencia-fecha'), 'ult12m')],
         },
         {
           id: id('co-funnel-embudo'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'leads', fecha: 'agenda', metricas: ['agendas', 'asistencias', 'limpias', 'cierres'],
-          titulo: 'Salud del funnel comercial', subtitulo: 'Cohortes maduras', x: 0, y: 15, w: 12, h: 10, controles: maduras('co-funnel-embudo'),
+          titulo: 'De agenda a plata', subtitulo: 'Cohortes maduras: las que ya tuvieron tiempo de cerrar', x: 0, y: 15, w: 12, h: 10, controles: maduras('co-funnel-embudo'),
         },
-        // A quién cobrarle: desplegada, porque es lo que hay que hacer. «Marcar cobrada» en cada fila.
         {
-          id: id('co-cobranza-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'cobranza', dimension: 'cliente', titulo: 'A quién cobrarle', limite: 50,
-          metricas: ['pendiente', 'proxima_monto', 'dias'], ordenMetrica: 'dias', ordenAsc: true,
-          tabla: { acciones: true, columnas: ['urgencia'] },
-          controles: [periodoVisible(id('co-cobranza-tabla-fecha'), 'este_mes_completo')],
-          x: 0, y: 25, w: 12, h: 10,
+          id: id('co-closers'), clase: 'grafico', tipo: 'tabla', fuente: 'leads', fecha: 'agenda', dimension: 'closer', metricas: ['asistencias', 'cierres', 'tasa_cierre', 'vendido'],
+          ordenMetrica: 'vendido', titulo: 'Quién cierra', subtitulo: 'Las que vinieron, las que cerró y lo que entró', ir: 'closing', x: 0, y: 25, w: 12, h: 10,
+        },
+        { id: id('co-motivos'), clase: 'grafico', tipo: 'barras', fuente: 'leads', dimension: 'motivo', metricas: ['leads'], limite: 8, titulo: 'Por qué no se cerró', subtitulo: 'Lo que se marcó al perder, contado', ir: 'crm', x: 0, y: 35, w: 4, h: 7 },
+        {
+          id: id('co-por-oferta'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'leads', fecha: 'cierre', dimension: 'producto', metricas: ['vendido', 'cierres', 'ticket'], barra: 'vendido',
+          titulo: 'Lo vendido por oferta', subtitulo: 'Cada funnel, con su ticket', x: 4, y: 35, w: 4, h: 7,
+        },
+        {
+          id: id('co-origen'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'leads', fecha: 'agenda', dimension: 'origen', metricas: ['agendas', 'cierres', 'tasa_cierre'], barra: 'cierres',
+          titulo: 'De dónde vienen los que cierran', subtitulo: 'Por origen del lead', ir: 'crm', x: 8, y: 35, w: 4, h: 7,
         },
         {
           id: id('co-cohortes-mes-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'leads', fecha: 'agenda', dimension: 'mes', titulo: 'Cohortes mensuales', limite: 6,
+          subtitulo: 'Cada mes de agendas, hasta dónde llegó',
           metricas: ['agendas', 'asistencias', 'cierres', 'tasa_cierre_calificadas', 'vendido'],
           tabla: { columnas: ['madurez_mes'], sinVacios: true, descendente: true },
           controles: [periodoFijo(id('co-cohortes-mes-tabla-fecha'), 'todo')],
-          x: 0, y: 35, w: 12, h: 12,
+          x: 0, y: 42, w: 12, h: 12,
         },
       ],
     };
@@ -183,7 +191,11 @@ export const PLANTILLAS_HOJA: readonly PlantillaHoja[] = [MARKETING, COMERCIAL, 
  * «Customer Success» es CS Analyst. AGENTS.md, «Sacar algo de un catálogo no es borrarlo»: un link, un agente de
  * la API o un marcador que nombre la vieja llega a la nueva, y el salto se resuelve ACÁ, por donde pasan todos.
  */
-const PLANTILLAS_REEMPLAZADAS: ReadonlyMap<string, string> = new Map([['whatsapp', 'chat-analyst'], ['customer-success', 'cs-analyst']]);
+const PLANTILLAS_REEMPLAZADAS: ReadonlyMap<string, string> = new Map([
+  ['whatsapp', 'chat-analyst'], ['customer-success', 'cs-analyst'],
+  // 4/11/2026 (docs/templates-dashboard-propuesta.md §7.3): las absorbe Comercial, que contesta la misma pregunta.
+  ['crm', 'comercial'], ['ventas', 'comercial'],
+]);
 
 export const plantillaHojaDe = (id: string) => {
   const vigente = PLANTILLAS_REEMPLAZADAS.get(id) ?? id;
@@ -244,7 +256,8 @@ export function popupDeEntidad(tipo: string | null | undefined): { titulo: strin
 export type FirmaHoja = { ids: readonly string[] };
 const FIRMAS: Readonly<Record<string, FirmaHoja>> = {
   marketing: { ids: ['marketing', 'mk-spend', 'mk-funnel', 'mk-tendencias', 'mk-anuncios'] },
-  comercial: { ids: ['comercial', 'co-revenue-barra', 'co-cobranza-tabla', 'co-funnel-embudo', 'co-tendencia'] },
+  // 4/11/2026: la Comercial nueva ya no trae la barra ni la cobranza (se mudaron a Cobranza); la reconocen las que quedan.
+  comercial: { ids: ['comercial', 'co-funnel-embudo', 'co-tendencia', 'co-cohortes-mes-tabla'] },
 };
 /** La firma de una plantilla, para los tests. */
 export const firmaDe = (plantillaId: string): FirmaHoja | undefined => FIRMAS[plantillaId];
