@@ -23,7 +23,7 @@
 //    viaja firmado con el mensaje: a un chat que ya existe, como desde su caja (`mandarTextoA`); a uno nuevo, en el trabajo que
 //    lo abre, y la PC los baja antes de abrirlo (cartero 1.22.0, `abrirChat`). Sin un Runner 1.22.0 la caja no ofrece adjuntar.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { AdjuntoCaja, Centro } from './useCentro';
 import type { AdjuntosDeCaja } from './AdjuntosCaja';
@@ -192,7 +192,11 @@ export function useChatNuevo(k: Centro, onAbrir: (clave: string) => void) {
 }
 
 /** El chat nuevo de la computadora: un panel como el de cualquier chat, con su cabecera, su conversación y su caja. */
-export function ChatNuevoCentro({ centro: k, onAbrir, onVolver }: { centro: Centro; onAbrir: (clave: string) => void; onVolver: () => void }) {
+export function ChatNuevoCentro({ centro: k, onAbrir, onVolver, gurus }: {
+  centro: Centro; onAbrir: (clave: string) => void; onVolver: () => void;
+  /** Los gurús (3/11/2026), debajo de la portada: abren un chat con MaKo y no uno de Claude Code. */
+  gurus?: ReactNode;
+}) {
   const n = useChatNuevo(k, onAbrir);
   return (
     <section className="co-panel" aria-label="Nuevo chat">
@@ -205,7 +209,7 @@ export function ChatNuevoCentro({ centro: k, onAbrir, onVolver }: { centro: Cent
       </header>
       <div className="co-cuerpo">
         <div className="co-conv">
-          <div className="co-hilo"><div className="co-hilo__col"><CuerpoChatNuevo n={n} /></div></div>
+          <div className="co-hilo"><div className="co-hilo__col"><CuerpoChatNuevo n={n} alPie={gurus} /></div></div>
           <CajaChatNuevo n={n} />
         </div>
       </div>

@@ -483,9 +483,9 @@ mío.
 | 13 | **Spy compartido entre usuarios** | **EMPEZADO: la base está** | migración `0363` **ya aplicada en producción** (tabla global `spy_lecturas_canal`, sin `workspace_id` a propósito, RLS prendida sin políticas como las otras de Spy) + `lib/spy-compartido.ts` con la regla, probada rompiéndola. ⚠️ **FALTA EL CABLEADO**: que `mirarCompetidor` la consulte antes de llamar a Apify/YouTube y la refresque después. Ver abajo |
 | 14 | **Los 12 referentes** (fichas + caricaturas) | **2 de 12** | Puigrredón y Alborna hechos. La receta, abajo |
 | 15 | **El diseño de la tab principal de gurús** (no el detalle) | pendiente | |
-| 16 | **Elegir un gurú desde «nuevo chat»** | pendiente | hoy sólo `funnel` y `offer` |
-| 17 | **Base de conocimiento por gurú** | pendiente | |
-| 18 | **Botón de Second Brain por gurú** | pendiente | las piezas ya existen |
+| 16 | **Elegir un gurú desde «nuevo chat»** | **HECHO** (rama `gurus-0311`) | los gurús a la vista en Nuevo chat (`GaleriaDeGurus.tsx`), en la computadora y el teléfono, cliente y super admin; tocar uno abre su chat ahí mismo. Una conversación por persona y gurú, y el servidor saca al gurú de la CLAVE |
+| 17 | **Base de conocimiento por gurú** | **HECHO, los 22** (rama `gurus-0311`) | el turno trae los TRAMOS del curso que hablan de la pregunta (`cursoParaElTurno`); antes no viajaba ni una palabra, y el mapa tenía 3 de 22. Leído del CDN. Ver `docs/hallazgos-ops-center.md` y `docs/hallazgos-second-brain.md` |
+| 18 | **Botón de Second Brain por gurú** | **HECHO** (rama `gurus-0311`) | «Su Second Brain» en el chat del gurú, el Funnel Coach y una conversación de Offer, y adentro de la hoja en el teléfono: el grafo de su curso (`?cerebroDe=`) |
 | 19 | **Modal de «mensaje de difusión» del CRM** con formato por red | **HECHO, esperando el tren** | rama `difusion-modal-0211`, punta `6bf0a40a8`, ya en el remoto. ⚠️ **Vive en `app/automations/difusion/HojaDifusion.tsx`**, NO en `app/crm/AccionesLoteLeads.tsx` ni `app/crm/seleccion-difusion.ts` — esos dos sólo ponen la selección, y el ítem los nombraba mal. No trae selector de número/cuenta: la difusión no lo guarda y mentiría |
 | 20 | **Instalar extensión: sacar la descarga** | **TRABADO, no es código** | el zip YA está detrás de un flag; falta PUBLICAR en la tienda. Ver abajo |
 | 21 | **Probar punta a punta la clave de Apify de ws 9** | pendiente | |

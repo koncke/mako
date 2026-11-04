@@ -91,3 +91,66 @@ test('cada clase dice de qué archivo salió', () => {
   const n = g.nodos.find((x) => x.id === idDeClase(ALBORNA.id, 'v1'));
   assert.equal(n?.fuente, 'public/cono-tx/v1.json');
 });
+
+// ── Lo que viaja en el TURNO (3/11/2026) ─────────────────────────────────────────────────────────
+// ⚠️ EL CUERPO DE UNA CLASE NO VIAJABA NUNCA: `recuperar` sólo lo pone pedido por id. Estos tests
+// miran el bloque que lo reemplaza, `cursoParaElTurno`: trae el TRAMO donde el gurú habla de lo que
+// se preguntó, siempre la lista de clases con su id, y nunca pasa del presupuesto.
+//
+// PROBADO ROMPIÉNDOLO (3/11/2026), con el archivo en 13 / 0, una rotura por vez y restaurada:
+//   · `cursoParaElTurno` sin tramos (ningún puntaje alcanza)                  → 12 / 1
+//   · el presupuesto ignorado (sin el `continue`)                             → 12 / 1
+//   · `tramosDe` que salta 5 letras en cada corte                             → 12 / 1
+//   · `referentesDeIds` sin exigir el `ref:` al principio                     → 12 / 1
+// ⚠️ La primera versión de la rotura de `tramosDe` saltaba UNA letra y quedó en verde: ese carácter
+// era el espacio después del punto, que el `join(' ')` repone. No era una rotura: era un falso rojo
+// que no llegó a serlo. Una rotura tiene que perder algo que el test pueda ver.
+import { armarReferente as armar, cursoParaElTurno, referentesDeIds, tramosDe, LARGO_TRAMO } from '../lib/cerebro-referente';
+
+const conTexto = (orden: number, titulo: string, texto: string): ClaseDeCurso => ({ videoId: `v${orden}`, titulo, orden, texto });
+const relleno = (n: number) => 'Esto es relleno de la clase sin nada que ver. '.repeat(Math.ceil(n / 47)).slice(0, n);
+
+test('el turno trae el TRAMO donde el gurú habla de lo que se preguntó, con sus palabras', () => {
+  const capa = armar(ALBORNA, [
+    conTexto(1, 'Ideas', relleno(9_000)),
+    conTexto(2, 'Retención', `${relleno(20_000)} El gancho tiene que romper el patrón en el primer segundo, sin saludar. ${relleno(20_000)}`),
+    conTexto(3, 'Algoritmo', relleno(9_000)),
+  ]);
+  const b = cursoParaElTurno(capa, ALBORNA, '¿Cómo armo el gancho de un reel?');
+  assert.match(b, /El gancho tiene que romper el patrón en el primer segundo/, 'no trajo el tramo que habla del gancho');
+  assert.match(b, /### Clase 2 · «Retención» \[ref:julian-alborna:v2\] \(tramo \d+ de \d+\)/, 'el tramo no dice de qué clase sale');
+  // Una clase de 40 mil NO entra entera: entra su pedazo.
+  assert.ok(b.length < 12_000, `el bloque pesa ${b.length}: entró la clase entera, no el tramo`);
+});
+
+test('la lista de clases va SIEMPRE, con su id para pedir una entera; sin coincidencias, sólo la lista', () => {
+  const capa = armar(ALBORNA, CURSO);
+  const b = cursoParaElTurno(capa, ALBORNA, 'hola, ¿qué tal?');
+  for (const c of CURSO) assert.ok(b.includes(`[${idDeClase(ALBORNA.id, c.videoId)}]`), `falta ${c.videoId} en la lista`);
+  assert.doesNotMatch(b, /x{200}/, 'sin una palabra de la pregunta en el curso, no se rellena con texto de una clase');
+  assert.match(b, /recuperar_del_segundo_cerebro/, 'no dice cómo pedir una clase entera');
+});
+
+test('nunca pasa del presupuesto, aunque todo el curso hable de la pregunta', () => {
+  const todo = 'Los anuncios se escalan de a poco y se miden por costo por lead. '.repeat(1_000);
+  const capa = armar(ALBORNA, [conTexto(1, 'Anuncios', todo), conTexto(2, 'Más anuncios', todo)]);
+  const b = cursoParaElTurno(capa, ALBORNA, '¿cómo escalo mis anuncios?', 10_000);
+  const tramos = b.slice(b.indexOf('LO QUE DICE SOBRE ESTA PREGUNTA'));
+  assert.ok(tramos.length < 10_000 + 600, `los tramos pesan ${tramos.length} con un presupuesto de 10.000`);
+});
+
+test('los tramos no pierden texto al cortar, y ninguno pasa del largo', () => {
+  const texto = Array.from({ length: 400 }, (_, i) => `Frase número ${i} del curso.`).join(' ');
+  const ts = tramosDe(texto);
+  assert.equal(ts.join(' '), texto, 'al cortar en tramos se perdió o se cambió texto');
+  for (const t of ts) assert.ok(t.length <= LARGO_TRAMO, `un tramo de ${t.length}`);
+});
+
+test('un id `ref:` dice de qué gurú es; cualquier otro no', () => {
+  assert.deepEqual(referentesDeIds(['ref:julian-alborna:abc123', 'ref:julian-alborna', 'kn:offer', 'n1:ref:hormozi', 'ref:emilio-puigrredon:x9']),
+    ['julian-alborna', 'emilio-puigrredon']);
+});
+
+test('una capa sin clases no arma bloque: sin curso, el chat sigue con su ficha', () => {
+  assert.equal(cursoParaElTurno(armar(ALBORNA, []), ALBORNA, '¿cómo armo el gancho?'), '');
+});
