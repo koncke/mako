@@ -251,7 +251,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
 export const PORTADAS_GENERAL: Readonly<Record<string, DefinicionPortada>> = {
   general: { sube: 'cabecera', vecino: 'cabecera', par: ['por-mes', 'semaforo'], molde: 'ledge' },
   foco: { sube: 'objetivos', vecino: 'objetivos', par: ['agenda', 'llamadas', 'tareas', 'deadlines'], molde: 'moorly' },
-  'mi-dia': { sube: 'agenda', vecino: 'agenda', par: ['deadlines', 'funnel', 'cobranza'], molde: 'moorly' },
+  'mi-dia': { sube: 'agenda', vecino: 'agenda', par: ['deadlines', 'funnel', 'cobranza'], molde: 'tilvo' },
   operacion: { sube: 'prioridades', cambios: { texto: 'Lo primero de hoy' }, vecino: 'prioridades', par: ['cobranza', 'llamadas', 'agenda', 'deadlines', 'funnel'], molde: 'tilvo' },
   servicio: { sube: 'etapas', vecino: 'etapas', par: ['por-producto', 'contacto'], molde: 'prism' },
   curso: { sube: 'tendencia', vecino: 'tendencia', par: ['avance', 'por-area', 'por-estado', 'por-semana'], molde: 'corbel' },
