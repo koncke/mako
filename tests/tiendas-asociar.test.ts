@@ -11,7 +11,6 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-// @ts-expect-error: un script .mjs sin tipos
 import { SIN_APP, aasaCon, assetlinksCon, huellaValida, teamValido } from '../scripts/tiendas-asociar.mjs';
 import { RUTAS_DE_VENTA, esRutaDeVenta } from '../lib/tienda';
 

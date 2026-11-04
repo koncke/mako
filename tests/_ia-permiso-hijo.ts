@@ -58,7 +58,7 @@ async function main() {
       rootParams: {}, prerenderResumeDataCache: null, renderResumeDataCache: null, hmrRefreshHash: undefined, devFallbackParams: null,
     };
     const work = { route: '/api/mako/chat', page: '/api/mako/chat', isStaticGeneration: false, forceStatic: false, dynamicShouldError: false, afterContext: { after() {} }, incrementalCache: undefined, invalidDynamicUsageError: undefined };
-    return workAsyncStorage.run(work, () => workUnitAsyncStorage.run(store, fn));
+    return workAsyncStorage.run(work as never, () => workUnitAsyncStorage.run(store as never, fn));
   };
 
   const { exigirPermisoIa } = await imp('lib/ia-permiso.ts');
