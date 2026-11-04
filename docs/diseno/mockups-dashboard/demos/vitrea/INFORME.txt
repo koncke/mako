@@ -1,0 +1,97 @@
+##############################################################################
+#  VITREA   bundle 167kB - 27 helpers - 10 chunks - ARQ VANILLA - 21 fromTo crudos
+##############################################################################
+
+CHUNKS: apps-CZgB3v8W.js, audience-BwYDLp8F.js, charts-BBG1TSni.js, growth-Ds7Z6ztO.js, overview-YKRgkqFK.js, payouts-CA9XrvxV.js, releases-Dwzx3yHY.js, reviews-Dsrvw1n7.js, settings-Ds9MxjjA.js, team-DpQ7avpN.js
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[o -> export (no exp)]  (t,a,o,s){var l;typeof a==`number`&&(o.duration=a,a=o,o=null),l=r.call(this,s?a:Pe(a))||this;var u=l.vars,d=u.duration,f=u.delay,p=u.immediateRender,m=u.stagger,h=u.overwrite,g=u.keyframes,v=u.defaults,x=u.scrollTrigger,T=a.parent||N,E=(w(t)||C(t)?_(t[0]):`length`in a)?[t]:mt(t),D,O,k,A,j,M,ee,P;if(l._targets=E.length?_e(E):ne(`GSAP target `+t+` not found. https://gsap.com`,!n.nullTargetWarn)||[],l._ptLookup=[],l._overwrite=h,g||m||S(d)||S(f)){a=l.vars;var F=a.easeReverse||a.yoyoEase;if(D=l.timeline=new sn({data:`nested`,defaults:v||{},targets:T&&T.data=...
+
+[to -> export (no exp)]  (e,t=0){if(!e)return G.timeline();let n=eo(e);return G.fromTo(n,{yPercent:115,rotation:6},{yPercent:0,rotation:0,duration:q(.85),ease:`power4.out`,stagger:q(.022),delay:q(t),clearProps:`transform`})}
+
+[ro -> export It]  (e,{y:t=22,stagger:n=.06,delay:r=0,from:i=.3,kids:a=!0}={}){let o=G.timeline({delay:q(r)});return e.forEach((e,r)=>{let s=r*q(n);o.fromTo(e,{y:t,scale:.975,clipPath:no(e,i)},{y:0,scale:1,clipPath:no(e,0,60),duration:q(.75),ease:`expo.out`,clearProps:`transform,clipPath`},s);let c=a?[...e.children].filter(e=>!e.hidden):[];c.length&&o.fromTo(c,{opacity:0,y:8},{opacity:1,y:0,duration:q(.4),ease:`power3.out`,stagger:q(.03),clearProps:`transform,opacity`},s+q(.05))}),o}
+
+[io -> export (no exp)]  (e,t,{duration:n=.2}={}){if(!e.length||Ya.matches){t?.();return}G.fromTo(e,{clipPath:(e,t)=>no(t,0,60)},{clipPath:(e,t)=>no(t,.1),scale:.97,y:-6,duration:n,ease:`power2.in`,onComplete:()=>{G.set(e,{clearProps:`transform,clipPath`}),t?.()}})}
+
+[ao -> export (no exp)]  (e,{origin:t=`50% 0%`,from:n=.86,duration:r=.42}={}){return G.killTweensOf(e),G.fromTo(e,{scale:n,clipPath:`inset(0% 0% 100% 0% round 28px)`,transformOrigin:t},{scale:1,clipPath:`inset(-60px -60px -60px -60px round 28px)`,duration:q(r),ease:`back.out(1.5)`,clearProps:`clipPath`})}
+
+[oo -> export (no exp)]  (e,t,{duration:n=.18}={}){if(G.killTweensOf(e),Ya.matches){t();return}G.to(e,{scale:.94,clipPath:`inset(0% 0% 100% 0% round 28px)`,duration:n,ease:`power2.in`,onComplete:()=>{G.set(e,{clearProps:`transform,clipPath`}),t()}})}
+
+[co -> export Pt]  (e,{x:t=0,y:n=12,stagger:r=.045,delay:i=0}={}){return e.length?G.fromTo(e,{opacity:0,x:t,y:n},{opacity:1,x:0,y:0,duration:q(.55),ease:`power3.out`,stagger:q(r),delay:q(i),clearProps:`transform,opacity`}):G.timeline()}
+
+[lo -> export jt]  (e,{delay:t=0,stagger:n=.06}={}){return e.length?G.fromTo(e,{opacity:0,y:40,rotation:e=>e%2?3:-3,scale:.94},{opacity:1,y:0,rotation:0,scale:1,duration:q(.8),ease:`back.out(1.4)`,stagger:q(n),delay:q(t),clearProps:`transform,opacity`}):G.timeline()}
+
+[uo -> export Bt]  (e,{from:t=.6,delay:n=0,stagger:r=.05}={}){!e||Ya.matches||G.fromTo(e,{scale:t,opacity:0},{scale:1,opacity:1,duration:.6,ease:`back.out(3)`,delay:n,stagger:r,overwrite:`auto`,clearProps:`transform,opacity`})}
+
+[fo -> export kt]  (e){e&&(e.classList.remove(`is-flash`),e.offsetWidth,e.classList.add(`is-flash`),!Ya.matches&&G.fromTo(e,{y:-4,scale:1.06},{y:0,scale:1,duration:.55,ease:`back.out(2.4)`,overwrite:`auto`,clearProps:`transform`}))}
+
+[po -> export Ft]  (e,t){if(!e||Ya.matches)return;let n=e.getBoundingClientRect(),r=Object.assign(document.createElement(`span`),{className:`float-up`,textContent:t});r.setAttribute(`aria-hidden`,`true`),Object.assign(r.style,{left:`${n.left+n.width/2}px`,top:`${n.top}px`}),document.body.append(r),G.fromTo(r,{opacity:0,y:6,xPercent:-50,scale:.9},{keyframes:[{opacity:1,y:-12,scale:1,duration:.35,ease:`back.out(2)`},{opacity:0,y:-40,duration:.8,ease:`power2.in`,delay:.6}],onComplete:()=>r.remove()})}
+
+[ho -> export At]  (e,t,n,{duration:r=1.2,delay:i=0,from:a}={}){if(!e)return;let o=mo.get(e);if(o||mo.set(e,o={v:a??0}),a!==void 0&&(o.v=a),G.killTweensOf(o),Ya.matches||!r||o.v===t){o.v=t,e.textContent=n(t);return}let s=o;e.textContent=n(s.v),G.to(s,{v:t,duration:r,delay:i,ease:`power3.out`,onUpdate:()=>{e.textContent=n(s.v)},onComplete:()=>{e.textContent=n(t)}})}
+
+[go -> export Ut]  (e){if(Ya.matches)return;let t=e.querySelector(`svg`)??e;G.fromTo(t,{scale:.72},{scale:1,duration:.55,ease:`back.out(3)`,overwrite:!0})}
+
+[yo -> export Lt]  (e=document,t=-4){Za.matches&&Y(`[data-lift]`,e).forEach(e=>{e.__lift||(e.__lift=!0,e.addEventListener(`pointerenter`,()=>{!Ya.matches&&vo.v&&G.to(e,{y:t,duration:.45,ease:`power3.out`,overwrite:`auto`})}),e.addEventListener(`pointerleave`,()=>{vo.v&&G.to(e,{y:0,duration:.5,ease:`power3.out`,overwrite:`auto`,clearProps:`transform`})}))})}
+
+[Qo -> export (no exp)]  (e,t,n,r){let i=e.getBoundingClientRect();getComputedStyle(e).position===`static`&&(e.style.position=`relative`);let a=document.createElement(`span`);a.className=`ripple-wrap`,a.setAttribute(`aria-hidden`,`true`);let o=document.createElement(`span`);o.className=`ripple`,a.append(o),e.append(a);let s=Math.hypot(Math.max(t-i.left,i.right-t),Math.max(n-i.top,i.bottom-n))*2.2/20;G.set(o,{x:t-i.left,y:n-i.top}),G.fromTo(o,{scale:.2,opacity:r?.55:.9},{scale:Math.min(s,r?60:30),opacity:0,duration:r?1.1:.75,ease:`power2.out`,onComplete:()=>a.remove()})}
+
+[$o -> export (no exp)]  (e){G.fromTo(e,{scaleX:1,scaleY:1},{keyframes:[{scaleX:1.07,scaleY:.9,duration:.11,ease:`power2.out`},{scaleX:1,scaleY:1,duration:.7,ease:`elastic.out(1.15, 0.32)`}],overwrite:!1})}
+
+[Ic -> export v]  (e,t=0){let n=G.timeline({delay:q(t)});n.add(to($a(`.head__title`,e)),0);let r=$a(`.head__back`,e);return r&&n.fromTo(r,{opacity:0,x:-14},{opacity:1,x:0,duration:q(.6),ease:`power3.out`,clearProps:`transform,opacity`},0),n.add(co(Y(`.head .stat, .head__actions > *`,e),{y:14,stagger:.08}),.12),n.add(()=>Pc(J(`.head`,e)),.15),n}
+
+[Rc -> export (no exp)]  (e,t,n,r=!0){if(!n||!n.offsetWidth){G.set(e,{opacity:0});return}let i=t.scrollWidth,a=t.offsetHeight,o=n.offsetLeft,s=i-(n.offsetLeft+n.offsetWidth),c=n.offsetTop,l=a-(n.offsetTop+n.offsetHeight),u=(e,t)=>`inset(${c}px ${t}px ${l}px ${e}px round 999px)`,d=e.__lr;if(e.__lr=[o,s],!r||Xa()||!d||Number(G.getProperty(e,`opacity`))===0){G.set(e,{clipPath:u(o,s),opacity:1});return}let f={l:d[0],r:d[1]},p=o>d[0];G.killTweensOf(f),G.to(f,{l:o,duration:p?.55:.36,ease:p?`power3.inOut`:`power3.out`,onUpdate:()=>G.set(e,{clipPath:u(f.l,f.r)})}),G.to(f,{r:s,duration:p...
+
+[Gc -> export (no exp)]  (e,t){e.showModal();let{opacity:n,...r}=t;G.fromTo(e,{...r,clipPath:`inset(8% 8% 8% 8% round 34px)`},{x:0,y:0,scale:1,clipPath:`inset(-80px -80px -80px -80px round 34px)`,duration:q(.5),ease:`back.out(1.4)`,clearProps:`transform,clipPath`}),co([...e.children],{y:10,stagger:.03,delay:.06})}
+
+[Kc -> export (no exp)]  (e,t,n){!e.open||e.dataset.closing||(e.dataset.closing=`1`,G.to(e,{...t,clipPath:`inset(10% 10% 10% 10% round 34px)`,duration:q(.22),ease:`power2.in`,onComplete:()=>{delete e.dataset.closing,e.close(),G.set(e,{clearProps:`all`}),n?.()}}))}
+
+[$c -> export J]  (e,{undo:t,ico:n=`check`}={}){let r=J(`.toast`),i=J(`.toast__undo`,r);J(`.toast__ico`,r).innerHTML=Sc(n),J(`.toast__msg`,r).textContent=e,Qc=t??null,i.hidden=!t,G.killTweensOf(r),G.timeline().fromTo(r,{y:26,scaleX:.6,scaleY:.8,visibility:`visible`},{y:0,scaleX:1,scaleY:1,duration:q(.6),ease:`elastic.out(1, 0.6)`}).to(r,{y:90,scaleX:.8,duration:q(.32),ease:`power2.in`,onComplete:()=>{Qc=null,i.hidden=!0,G.set(r,{visibility:`hidden`,clearProps:`transform`})}},t?`+=5`:`+=2.6`)}
+
+[el -> export (no exp)]  (){let e=J(`.toast`);J(`.toast__undo`,e).addEventListener(`click`,()=>{let t=Qc;Qc=null,G.killTweensOf(e),G.to(e,{y:90,duration:q(.25),ease:`power2.in`,onComplete:()=>{G.set(e,{visibility:`hidden`,clearProps:`transform`})}}),t?.()})}
+
+[nl -> export (no exp)]  (e,t){if(tl&&tl!==e&&rl(),e.classList.contains(`is-focus`)){rl();return}let n=[...e.children],r=document.createElement(`div`);r.className=`card-ph`;let i=getComputedStyle(e);Object.assign(r.style,{gridArea:i.gridArea,gridColumn:i.gridColumn,gridRow:i.gridRow,height:`${e.offsetHeight}px`}),e.before(r);let a=Ja.getState(e);e.classList.add(`is-focus`),document.documentElement.classList.add(`has-focus`),tl=e,t?.setAttribute(`aria-label`,`Collapse`),G.set(n,{opacity:0}),G.to(J(`.scrim`),{autoAlpha:1,duration:q(.35)}),Ja.from(a,{duration:q(.6),ease:`power3.inO...
+
+[rl -> export (no exp)]  (){let e=tl;if(!e)return;tl=null;let t=e.previousElementSibling,n=[...e.children];G.to(J(`.scrim`),{autoAlpha:0,duration:q(.3)}),G.to(n,{opacity:0,duration:q(.14),onComplete:()=>{let r=Ja.getState(e);e.classList.remove(`is-focus`),document.documentElement.classList.remove(`has-focus`),t?.classList.contains(`card-ph`)&&t.remove(),$a(`[data-expand]`,e)?.setAttribute(`aria-label`,`Expand`),e.dispatchEvent(new CustomEvent(`card:resize`)),Ja.from(r,{duration:q(.5),ease:`power3.inOut`,scale:!0,onComplete:()=>G.set(e,{clearProps:`transform`})}),G.to(n,{opacity:...
+
+[ol -> export x]  (e,t){let n=new Map;Y(`[data-key]`,e).forEach(e=>n.set(e.dataset.key,e.getBoundingClientRect())),t(),Y(`[data-key]`,e).forEach(e=>{let t=n.get(e.dataset.key);if(!t){G.fromTo(e,{opacity:0,y:12,scale:.97},{opacity:1,y:0,scale:1,duration:q(.45),ease:`power3.out`,clearProps:`transform,opacity`});return}let r=e.getBoundingClientRect(),i=t.left-r.left,a=t.top-r.top;(i||a)&&G.fromTo(e,{x:i,y:a},{x:0,y:0,duration:q(.55),ease:`power3.inOut`,clearProps:`transform`})})}
+
+[sl -> export y]  (e,t){G.to(e,{opacity:0,scale:.94,y:-6,duration:q(.25),ease:`power2.in`,onComplete:t})}
+
+[mu -> export (no exp)]  (){document.documentElement.classList.add(`is-ready`),G.timeline().fromTo([J(`.brand`),J(`.tabs`),J(`.top__tools`)],{y:-70},{y:0,duration:q(.9),ease:`back.out(1.3)`,stagger:q(.07),clearProps:`transform`},.02).fromTo(au,{x:-90},{x:0,duration:q(.9),ease:`power3.out`,clearProps:`transform`},.1).add(co(Y(`.dock__btn`,au),{y:10,stagger:.035}),.3).add(()=>Hl(!0),.12).add(()=>{vo.v=!0},1.6),!$.settings.signedIn&&!ss&&(cu.hidden=!1)}
+
+========================== TIMELINE DEL ARMAZON ==========================
+(this)},e}(),qa=function(){function e(e){this.id=e,this.actions=[],this._kill=[],this._final=[],this._abs=[],this._run=[],this.data={},this.state=new Wa,this.timeline=Gi.timeline()}var t=e.prototype;return t.add=function(e){var t=this.actions.filter(function(t){return t.vars===e});return t.length?t[0]:(t=new Ka(typeof e==`function`?{animate:e}:e,this),this.actions.push(t),t)},t.remove=function(e){var t=this.actions.indexOf(e);return t>=0&&this.actions.splice(t,1),this},t.getState=function(e){var t=this,n=K,r=Ki;return K=this,this.state.clear(),this._kill.length=0,this.actions.forEach(function(n){n.vars.getState&&(n.states.length=0,Ki=n,n.state=n.vars.getState(n)),e&&n.states.forEach(function(e){return t.state.add(e)})}),Ki=r,K=n,this.killConflicts(),this},t.animate=function(){var e=this,t=K,n=this.timeline,r=this.actions.length,i,a;for(K=this,n.clear(),this._abs.length=this._final.length=this._run.length=0,this.actions.forEach(function(e){e.vars.animate&&e.vars.animate(e);var t=e.vars.onEnter,n=e.vars.onLeave,r=e.targets,i,a;r&&r.length&&(t||n)&&(i=new Wa,e.states.forEach(function(e){return i.add(e)}),a=i.compare(Ja.getState(r)),a.enter.length&&t&&t(a.enter),a.leave.length&&n&&n(a.leave))}),wa(this._abs),this._run.forEach(function(e){return e()}),a=n.duration(),i=this._final.slice(0),n.add(function(){a<=n.time()&&(i.forEach(function(e){return e()}),Xi(e,`onComplete`))}),K=t;r--;)this.actions[r].vars.once&&this.actions[r].kill();return Xi(this,`onStart`),n.restart(),this},t.loadState=function(e){e||=function(){return 0};var t=[];return this.actions.forEach(function(n){if(n.vars.loadState){var r,i=function i(a){a&&(n.targets=a),r=t.indexOf(i),~r&&(t.splice(r,1),t.length||e())};t.push(i),n.vars.loadState(i)}}),t.length||e(),this},t.setState=function(){return this.actions.forEach(function(e){return e.targets=e.vars.setState&&e.vars.setState(e
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2px solid var(--accent-text);outline-offset:2px }
+  .tab:hover { background:var(--well) }
+  .tab[aria-current=page]:hover { background:0 0 }
+  .top__tools .ibtn:hover { background:var(--well) }
+  .dock__btn:hover,.dock__btn:focus-visible,.dock__btn[aria-expanded=true] { background:var(--well) }
+  .dock__btn--new:hover,.dock__btn--new[aria-expanded=true] { background:var(--accent);filter:brightness(1.08) }
+  .dock__btn:hover .dock__tip,.dock__btn:focus-visible .dock__tip { opacity:1 }
+  .ibtn:hover { background:var(--well) }
+  .btn--accent:hover { filter:brightness(1.08) }
+  .btn--ghost:hover { background:var(--well) }
+  .link:hover { text-underline-offset:3px;text-decoration:underline }
+  .input:focus,.search:focus-within { border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent) }
+  .table tbody tr:hover { background:var(--well) }
+  .chart:focus-visible { outline:2px solid var(--accent-text);outline-offset:4px;border-radius:12px }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--well);outline:none }
+  .pop__row:hover,.pop__row:focus-visible { background:var(--well);outline:none }
+  .tab:hover,.ibtn:hover,.btn--ghost:hover,.table tbody tr:hover,.menu__item:hover,.pop__row:hover,.top__tools .ibtn:hover,.dock__btn:hover { background:0 0 }
+  .btn--ghost:hover { background:var(--surface-2) }
+  .btn--accent:hover { filter:none }
+  .tab:active,.ibtn:active,.pop__row:active,.menu__item:active,.dock__btn:active { background:var(--well) }
+
+  -- keyframes --
+  @keyframes flash {0%{color:var(--accent-text)}to{color:inherit}}
+  @keyframes fade {0%{opacity:0}}
+
+  -- transitions --
+  transition:background-color .15s
+  transition:background-color .25s var(--ease)
+  transition:opacity .15s
+  transition:opacity .18s var(--ease)
+  transition:transform .32s cubic-bezier(.3,1.4,.5,1)

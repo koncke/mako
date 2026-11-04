@@ -1,0 +1,2667 @@
+{
+  "medido": "2026-11-04T11:14:17.140Z",
+  "url": "https://demo.codeandchill.store/pelago/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/pelago/#/overview",
+      "ancho": 390,
+      "alto": 5010,
+      "fondo": "rgb(238, 235, 228)",
+      "letra": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Manrope\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+        "--fs-2xs": ".75rem",
+        "--fs-xs": ".8125rem",
+        "--fs-sm": ".875rem",
+        "--fs-md": ".9375rem",
+        "--fs-base": "1rem",
+        "--fs-lg": "1.0625rem",
+        "--fs-xl": "1.125rem",
+        "--bg": "#eeebe4",
+        "--glow-a": "#dcebe6",
+        "--glow-b": "#f5e7cc",
+        "--surface": "#fcfbf8",
+        "--surface-2": "#f4f2ed",
+        "--raised": "#fffefb",
+        "--well": "#201c160f",
+        "--line": "#201c1617",
+        "--line-2": "#201c162b",
+        "--shadow": "0 1px 1px #201c160a, 0 10px 26px -18px #201c1647",
+        "--shadow-pop": "0 24px 60px -18px #201c164d, 0 2px 6px #201c1614",
+        "--text": "#1b1a17",
+        "--muted": "#5d5a53",
+        "--faint": "#7a766e",
+        "--primary": "#136469",
+        "--on-primary": "#f2faf8",
+        "--glaze-a": "#1a7a7d",
+        "--glaze-b": "#0e4448",
+        "--side": "#f8f6f1",
+        "--on-side": "#2a2823",
+        "--side-dim": "#6c685f",
+        "--pill": "#e3ece9",
+        "--petrol": "#136469",
+        "--ochre": "#c88e1c",
+        "--clay": "#b85a36",
+        "--rose": "#c4425a",
+        "--sand": "#9a7b4f",
+        "--moss": "#5a8a2c",
+        "--sky": "#2b78b0",
+        "--slate": "#6c737c",
+        "--ink": "#1b1a17",
+        "--good": "#156b41",
+        "--warn": "#7a5103",
+        "--bad": "#b8344c",
+        "--soft": "14%",
+        "--bisque-a": ".16",
+        "--dot-a": ".62",
+        "--r-card": "22px",
+        "--r-tile": "14px",
+        "--gap": "12px",
+        "--side-w": "256px",
+        "--gutter": "clamp(16px, 1.8vw, 30px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 24,
+          "ejemplo": "Pebble espresso set"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 21,
+          "ejemplo": "Busiest so far: 9 AM with 4 orders. Hove"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "28px",
+          "peso": "800",
+          "interlineado": "30.24px",
+          "espaciado": "-1.12px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 16,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "750",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 15,
+          "ejemplo": "21 to pack"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 14,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "650",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(42, 40, 35)",
+          "veces": 9,
+          "ejemplo": "Demand"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 9,
+          "ejemplo": "Tuesday, October 20 · Fernhill Ceramics"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 7,
+          "ejemplo": "30 days"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "800",
+          "interlineado": "27px",
+          "espaciado": "-0.36px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 7,
+          "ejemplo": "Today, by the hour"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "16.25px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 7,
+          "ejemplo": "$689k · 12 mo"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 7,
+          "ejemplo": "Clay & glaze"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 6,
+          "ejemplo": "Online shop"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "18.75px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 6,
+          "ejemplo": "Mugs & cups$296k · 43%"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "800",
+          "interlineado": "18px",
+          "espaciado": "0.12px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 6,
+          "ejemplo": "HD"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "13.8px",
+          "peso": "700",
+          "interlineado": "20.7px",
+          "espaciado": "-0.138px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 6,
+          "ejemplo": "PG-10791"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.0895686 0.252863 0.257412)",
+          "veces": 6,
+          "ejemplo": "Paid"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 6,
+          "ejemplo": "1"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 6,
+          "ejemplo": "144 pieces · Oat"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "650",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 6,
+          "ejemplo": "Hana Doyle ordered $184.00 (online shop)"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 4,
+          "ejemplo": "12a"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "750",
+          "interlineado": "19.5px",
+          "espaciado": "0.91px",
+          "color": "rgb(93, 90, 83)",
+          "veces": 4,
+          "ejemplo": "Booked"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "750",
+          "interlineado": "19.5px",
+          "espaciado": "1.17px",
+          "color": "rgb(108, 104, 95)",
+          "veces": 3,
+          "ejemplo": "Sell"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgba(243, 245, 255, 0.82)",
+          "veces": 3,
+          "ejemplo": "Online shop"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 3,
+          "ejemplo": "47%"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgba(243, 245, 255, 0.72)",
+          "veces": 3,
+          "ejemplo": "Orders"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "800",
+          "interlineado": "27px",
+          "espaciado": "-0.54px",
+          "color": "rgb(242, 250, 248)",
+          "veces": 3,
+          "ejemplo": "395"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "650",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 3,
+          "ejemplo": "Online shop"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "750",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(184, 52, 76)",
+          "veces": 2,
+          "ejemplo": "7"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(108, 104, 95)",
+          "veces": 2,
+          "ejemplo": "$34k of $62k · pace $54k"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 2,
+          "ejemplo": "NH"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 2,
+          "ejemplo": "7 days"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgba(243, 245, 255, 0.76)",
+          "veces": 2,
+          "ejemplo": "Last 30 days"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(242, 250, 248)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "800",
+          "interlineado": "33px",
+          "espaciado": "-0.66px",
+          "color": "rgb(42, 40, 35)",
+          "veces": 1,
+          "ejemplo": "PelagoFernhill Ceramics"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(108, 104, 95)",
+          "veces": 1,
+          "ejemplo": "Fernhill Ceramics"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "650",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(19, 100, 105)",
+          "veces": 1,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "750",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(242, 250, 248)",
+          "veces": 1,
+          "ejemplo": "29"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(42, 40, 35)",
+          "veces": 1,
+          "ejemplo": "October goal"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(19, 100, 105)",
+          "veces": 1,
+          "ejemplo": "55%"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(42, 40, 35)",
+          "veces": 1,
+          "ejemplo": "Noor Haddad"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "800",
+          "interlineado": "30px",
+          "espaciado": "-0.6px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Pelago"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "700",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Export"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 1,
+          "ejemplo": "14 orders so far today ($2,219), 8 more "
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "750",
+          "interlineado": "25.5px",
+          "espaciado": "-0.34px",
+          "color": "rgb(242, 250, 248)",
+          "veces": 1,
+          "ejemplo": "Revenue"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "44px",
+          "peso": "800",
+          "interlineado": "41.8px",
+          "espaciado": "-2.42px",
+          "color": "rgb(242, 250, 248)",
+          "veces": 1,
+          "ejemplo": "$55,239"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(29, 107, 69)",
+          "veces": 1,
+          "ejemplo": "+4.8%"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "36px",
+          "peso": "800",
+          "interlineado": "36px",
+          "espaciado": "-1.44px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "14"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "18.75px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "All categories$689k · 12 mo"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "800",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Oct"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "900",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(238, 235, 228)",
+          "veces": 1,
+          "ejemplo": "$34k"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "October 2026: $33,973."
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "750",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(21, 107, 65)",
+          "veces": 1,
+          "ejemplo": "so far"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "40px",
+          "peso": "800",
+          "interlineado": "40px",
+          "espaciado": "-1.8px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "$33,973"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(19, 100, 105)",
+          "veces": 1,
+          "ejemplo": "Pack 21 paid"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "40px",
+          "peso": "800",
+          "interlineado": "40px",
+          "espaciado": "-2px",
+          "color": "rgb(21, 107, 65)",
+          "veces": 1,
+          "ejemplo": "$20"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "20.25px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 1,
+          "ejemplo": "of every $100 sold this month stays with"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": -325,
+          "y": 0,
+          "w": 310,
+          "h": 900,
+          "fondo": "rgb(248, 246, 241)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "0px 26px 26px 0px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "16px 12px 12px",
+          "gap": "4px",
+          "grilla": null,
+          "texto": "PelagoFernhill Ceramics Sell Overview Demand Orders29 All or"
+        },
+        {
+          "etiqueta": "span.nav__pill",
+          "x": -312,
+          "y": 92,
+          "w": 284,
+          "h": 577,
+          "fondo": "rgb(227, 236, 233)",
+          "borde": "0px none rgb(42, 40, 35)",
+          "radio": "0px",
+          "sombra": "color(srgb 0.0745098 0.392157 0.411765 / 0.18) 0px 0px 0px 1px inset",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "a.goal",
+          "x": -312,
+          "y": 731,
+          "w": 284,
+          "h": 91,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "12px 13px",
+          "gap": "8px",
+          "grilla": "256px",
+          "texto": "October goal55% $34k of $62k · pace $54k"
+        },
+        {
+          "etiqueta": "section.card.glazed.ov-rev",
+          "x": 14,
+          "y": 344,
+          "w": 362,
+          "h": 394,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "20px",
+          "sombra": "rgba(255, 255, 255, 0.18) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.16) 0px -3px 0px 0px inset, rgb(14, 68, 72) 0px 22px 40px -24px",
+          "padding": "16px",
+          "gap": "6px",
+          "grilla": null,
+          "texto": "RevenueLast 30 days $55,239+4.8% vs the 30 days before Onlin"
+        },
+        {
+          "etiqueta": "section.card.ov-today",
+          "x": 14,
+          "y": 750,
+          "w": 362,
+          "h": 376,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Today, by the hour Orders 12a6a12p6p 14orders · $2,219Busies"
+        },
+        {
+          "etiqueta": "section.card.ov-kiln",
+          "x": 14,
+          "y": 2174,
+          "w": 362,
+          "h": 498,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "From the kiln Stock BookedPebble espresso set36 pcs · Oct 22"
+        },
+        {
+          "etiqueta": "section.card.ov-demand",
+          "x": 14,
+          "y": 1138,
+          "w": 362,
+          "h": 1024,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Demand by category Online shopStudio shopWholesaleLast year "
+        },
+        {
+          "etiqueta": "aside.ov-demand__panel.mp",
+          "x": 31,
+          "y": 1680,
+          "w": 328,
+          "h": 465,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "16px 0px 0px",
+          "gap": "14px",
+          "grilla": "328px",
+          "texto": "October 2026 so farAll categories $33,973−2% vs Oct 1–20 ’25"
+        },
+        {
+          "etiqueta": "div.mp__stub",
+          "x": 31,
+          "y": 1943,
+          "w": 328,
+          "h": 97,
+          "fondo": "rgb(244, 242, 237)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "8px",
+          "grilla": "298px",
+          "texto": "Top buyerANAtelier Nord$1,180 in the month"
+        },
+        {
+          "etiqueta": "div.mp__stub",
+          "x": 31,
+          "y": 2048,
+          "w": 328,
+          "h": 97,
+          "fondo": "rgb(244, 242, 237)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "8px",
+          "grilla": "298px",
+          "texto": "Best sellerMorning mugOat glaze · $32"
+        },
+        {
+          "etiqueta": "section.card.ov-orders",
+          "x": 14,
+          "y": 2684,
+          "w": 362,
+          "h": 731,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Latest orders Pack 21 paidAll OrderCustomerChannelStatusTota"
+        },
+        {
+          "etiqueta": "section.card.ov-best",
+          "x": 14,
+          "y": 3427,
+          "w": 362,
+          "h": 510,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Best sellers October 1Morning mug$3,355144 pieces · Oat2Harb"
+        },
+        {
+          "etiqueta": "section.card.ov-margin",
+          "x": 14,
+          "y": 3949,
+          "w": 362,
+          "h": 394,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Where each $100 goes Costs $20of every $100 sold this month "
+        },
+        {
+          "etiqueta": "section.card.ov-feed",
+          "x": 14,
+          "y": 4355,
+          "w": 362,
+          "h": 615,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Activity Hana Doyle ordered $184.00 (online shop)Online shop"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/pelago/#/overview",
+      "ancho": 1440,
+      "alto": 2436,
+      "fondo": "rgb(238, 235, 228)",
+      "letra": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Manrope\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+        "--fs-2xs": ".75rem",
+        "--fs-xs": ".8125rem",
+        "--fs-sm": ".875rem",
+        "--fs-md": ".9375rem",
+        "--fs-base": "1rem",
+        "--fs-lg": "1.0625rem",
+        "--fs-xl": "1.125rem",
+        "--bg": "#eeebe4",
+        "--glow-a": "#dcebe6",
+        "--glow-b": "#f5e7cc",
+        "--surface": "#fcfbf8",
+        "--surface-2": "#f4f2ed",
+        "--raised": "#fffefb",
+        "--well": "#201c160f",
+        "--line": "#201c1617",
+        "--line-2": "#201c162b",
+        "--shadow": "0 1px 1px #201c160a, 0 10px 26px -18px #201c1647",
+        "--shadow-pop": "0 24px 60px -18px #201c164d, 0 2px 6px #201c1614",
+        "--text": "#1b1a17",
+        "--muted": "#5d5a53",
+        "--faint": "#7a766e",
+        "--primary": "#136469",
+        "--on-primary": "#f2faf8",
+        "--glaze-a": "#1a7a7d",
+        "--glaze-b": "#0e4448",
+        "--side": "#f8f6f1",
+        "--on-side": "#2a2823",
+        "--side-dim": "#6c685f",
+        "--pill": "#e3ece9",
+        "--petrol": "#136469",
+        "--ochre": "#c88e1c",
+        "--clay": "#b85a36",
+        "--rose": "#c4425a",
+        "--sand": "#9a7b4f",
+        "--moss": "#5a8a2c",
+        "--sky": "#2b78b0",
+        "--slate": "#6c737c",
+        "--ink": "#1b1a17",
+        "--good": "#156b41",
+        "--warn": "#7a5103",
+        "--bad": "#b8344c",
+        "--soft": "14%",
+        "--bisque-a": ".16",
+        "--dot-a": ".62",
+        "--r-card": "22px",
+        "--r-tile": "14px",
+        "--gap": "16px",
+        "--side-w": "256px",
+        "--gutter": "clamp(16px, 1.8vw, 30px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 25,
+          "ejemplo": "14 today"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 21,
+          "ejemplo": "Busiest so far: 9 AM with 4 orders. Hove"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "37.44px",
+          "peso": "800",
+          "interlineado": "40.4352px",
+          "espaciado": "-1.4976px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 16,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 14,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "750",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 13,
+          "ejemplo": "October 2026 so farAll categories"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "650",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 12,
+          "ejemplo": "Hana Doyle"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "650",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(42, 40, 35)",
+          "veces": 9,
+          "ejemplo": "Demand"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 8,
+          "ejemplo": "orders · $2,219"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 7,
+          "ejemplo": "$2.2k"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 7,
+          "ejemplo": "30 days"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "800",
+          "interlineado": "27px",
+          "espaciado": "-0.36px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 7,
+          "ejemplo": "Today, by the hour"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "16.25px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 7,
+          "ejemplo": "$689k · 12 mo"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 7,
+          "ejemplo": "Clay & glaze"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "18.75px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 6,
+          "ejemplo": "Mugs & cups$296k · 43%"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "800",
+          "interlineado": "18px",
+          "espaciado": "0.12px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 6,
+          "ejemplo": "HD"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "13.8px",
+          "peso": "700",
+          "interlineado": "20.7px",
+          "espaciado": "-0.138px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 6,
+          "ejemplo": "PG-10791"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.0895686 0.252863 0.257412)",
+          "veces": 6,
+          "ejemplo": "Paid"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 6,
+          "ejemplo": "1"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 6,
+          "ejemplo": "144 pieces · Oat"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "750",
+          "interlineado": "19.5px",
+          "espaciado": "0.78px",
+          "color": "rgb(93, 90, 83)",
+          "veces": 5,
+          "ejemplo": "Order"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "650",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 4,
+          "ejemplo": "Tuesday, October 20 · Fernhill Ceramics"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 4,
+          "ejemplo": "12a"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "750",
+          "interlineado": "19.5px",
+          "espaciado": "0.91px",
+          "color": "rgb(93, 90, 83)",
+          "veces": 4,
+          "ejemplo": "Booked"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "750",
+          "interlineado": "19.5px",
+          "espaciado": "1.17px",
+          "color": "rgb(108, 104, 95)",
+          "veces": 3,
+          "ejemplo": "Sell"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgba(243, 245, 255, 0.82)",
+          "veces": 3,
+          "ejemplo": "Online shop"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 3,
+          "ejemplo": "47%"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgba(243, 245, 255, 0.72)",
+          "veces": 3,
+          "ejemplo": "Orders"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "800",
+          "interlineado": "33px",
+          "espaciado": "-0.66px",
+          "color": "rgb(242, 250, 248)",
+          "veces": 3,
+          "ejemplo": "395"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "750",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(184, 52, 76)",
+          "veces": 2,
+          "ejemplo": "7"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(108, 104, 95)",
+          "veces": 2,
+          "ejemplo": "$34k of $62k · pace $54k"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 2,
+          "ejemplo": "NH"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 2,
+          "ejemplo": "7 days"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "750",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 2,
+          "ejemplo": "21 to pack"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgba(243, 245, 255, 0.76)",
+          "veces": 2,
+          "ejemplo": "Last 30 days"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(242, 250, 248)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "800",
+          "interlineado": "33px",
+          "espaciado": "-0.66px",
+          "color": "rgb(42, 40, 35)",
+          "veces": 1,
+          "ejemplo": "PelagoFernhill Ceramics"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(108, 104, 95)",
+          "veces": 1,
+          "ejemplo": "Fernhill Ceramics"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "650",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(19, 100, 105)",
+          "veces": 1,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "750",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(242, 250, 248)",
+          "veces": 1,
+          "ejemplo": "29"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(42, 40, 35)",
+          "veces": 1,
+          "ejemplo": "October goal"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(19, 100, 105)",
+          "veces": 1,
+          "ejemplo": "55%"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(42, 40, 35)",
+          "veces": 1,
+          "ejemplo": "Noor Haddad"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 1,
+          "ejemplo": "Search orders, products, customers…"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 1,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "700",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(242, 250, 248)",
+          "veces": 1,
+          "ejemplo": "New"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "700",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Export"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "500",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 1,
+          "ejemplo": "14 orders so far today ($2,219), 8 more "
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "750",
+          "interlineado": "25.5px",
+          "espaciado": "-0.34px",
+          "color": "rgb(242, 250, 248)",
+          "veces": 1,
+          "ejemplo": "Revenue"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "63.36px",
+          "peso": "800",
+          "interlineado": "60.192px",
+          "espaciado": "-3.4848px",
+          "color": "rgb(242, 250, 248)",
+          "veces": 1,
+          "ejemplo": "$55,239"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(29, 107, 69)",
+          "veces": 1,
+          "ejemplo": "+4.8%"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "36px",
+          "peso": "800",
+          "interlineado": "36px",
+          "espaciado": "-1.44px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "14"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "18.75px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "All categories$689k · 12 mo"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "800",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Oct"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "900",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(238, 235, 228)",
+          "veces": 1,
+          "ejemplo": "$34k"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "October 2026: $33,973."
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "750",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(21, 107, 65)",
+          "veces": 1,
+          "ejemplo": "so far"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "40px",
+          "peso": "800",
+          "interlineado": "40px",
+          "espaciado": "-1.8px",
+          "color": "rgb(27, 26, 23)",
+          "veces": 1,
+          "ejemplo": "$33,973"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(19, 100, 105)",
+          "veces": 1,
+          "ejemplo": "Pack 21 paid"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "40px",
+          "peso": "800",
+          "interlineado": "40px",
+          "espaciado": "-2px",
+          "color": "rgb(21, 107, 65)",
+          "veces": 1,
+          "ejemplo": "$20"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "20.25px",
+          "espaciado": "normal",
+          "color": "rgb(93, 90, 83)",
+          "veces": 1,
+          "ejemplo": "of every $100 sold this month stays with"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": 12,
+          "y": 12,
+          "w": 244,
+          "h": 876,
+          "fondo": "rgb(248, 246, 241)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "26px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "16px 12px 12px",
+          "gap": "4px",
+          "grilla": null,
+          "texto": "PelagoFernhill Ceramics Sell Overview Demand Orders29 All or"
+        },
+        {
+          "etiqueta": "span.nav__pill",
+          "x": 25,
+          "y": 104,
+          "w": 218,
+          "h": 577,
+          "fondo": "rgb(227, 236, 233)",
+          "borde": "0px none rgb(42, 40, 35)",
+          "radio": "0px",
+          "sombra": "color(srgb 0.0745098 0.392157 0.411765 / 0.18) 0px 0px 0px 1px inset",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "a.goal",
+          "x": 25,
+          "y": 719,
+          "w": 218,
+          "h": 91,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "12px 13px",
+          "gap": "8px",
+          "grilla": "190px",
+          "texto": "October goal55% $34k of $62k · pace $54k"
+        },
+        {
+          "etiqueta": "section.card.glazed.ov-rev",
+          "x": 282,
+          "y": 239,
+          "w": 462,
+          "h": 506,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.18) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.16) 0px -3px 0px 0px inset, rgb(14, 68, 72) 0px 22px 40px -24px",
+          "padding": "20px",
+          "gap": "6px",
+          "grilla": null,
+          "texto": "RevenueLast 30 days $55,239+4.8% vs the 30 days before Onlin"
+        },
+        {
+          "etiqueta": "section.card.ov-today",
+          "x": 760,
+          "y": 239,
+          "w": 367,
+          "h": 506,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Today, by the hour Orders 12a6a12p6p 14orders · $2,219Busies"
+        },
+        {
+          "etiqueta": "section.card.ov-kiln",
+          "x": 1143,
+          "y": 239,
+          "w": 271,
+          "h": 506,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "From the kiln Stock BookedPebble espresso set36 pcs · Oct 22"
+        },
+        {
+          "etiqueta": "section.card.ov-demand",
+          "x": 282,
+          "y": 761,
+          "w": 1132,
+          "h": 576,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Demand by category Online shopStudio shopWholesaleLast year "
+        },
+        {
+          "etiqueta": "span.rail__pill",
+          "x": 303,
+          "y": 836,
+          "w": 236,
+          "h": 480,
+          "fondo": "rgb(244, 242, 237)",
+          "borde": "0px none rgb(27, 26, 23)",
+          "radio": "0px",
+          "sombra": "rgba(32, 28, 22, 0.17) 0px 0px 0px 1px inset",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "div.mp__stub",
+          "x": 1144,
+          "y": 1113,
+          "w": 249,
+          "h": 97,
+          "fondo": "rgb(244, 242, 237)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "8px",
+          "grilla": "219px",
+          "texto": "Top buyerANAtelier Nord$1,180 in the month"
+        },
+        {
+          "etiqueta": "div.mp__stub",
+          "x": 1144,
+          "y": 1218,
+          "w": 249,
+          "h": 97,
+          "fondo": "rgb(244, 242, 237)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "8px",
+          "grilla": "219px",
+          "texto": "Best sellerMorning mugOat glaze · $32"
+        },
+        {
+          "etiqueta": "section.card.ov-orders",
+          "x": 282,
+          "y": 1352,
+          "w": 654,
+          "h": 524,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Latest orders Pack 21 paidAll OrderCustomerChannelStatusTota"
+        },
+        {
+          "etiqueta": "section.card.ov-best",
+          "x": 952,
+          "y": 1352,
+          "w": 462,
+          "h": 524,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Best sellers October 1Morning mug$3,355144 pieces · Oat2Harb"
+        },
+        {
+          "etiqueta": "section.card.ov-margin",
+          "x": 282,
+          "y": 1892,
+          "w": 462,
+          "h": 488,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Where each $100 goes Costs $20of every $100 sold this month "
+        },
+        {
+          "etiqueta": "section.card.ov-feed",
+          "x": 760,
+          "y": 1892,
+          "w": 654,
+          "h": 488,
+          "fondo": "rgb(252, 251, 248)",
+          "borde": "1px solid rgba(32, 28, 22, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Activity Hana Doyle ordered $184.00 (online shop)Online shop"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "PelagoFernhill Ceramics",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 25,
+            "y": 29,
+            "w": 180,
+            "h": 71
+          },
+          "estilo": {
+            "color": "rgb(42, 40, 35)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(42, 40, 35)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(42, 40, 35) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "a.nav__item",
+          "texto": "Overview",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 25,
+            "y": 145,
+            "w": 218,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(19, 100, 105)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(19, 100, 105)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(19, 100, 105) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 2,
+          "etiqueta": "a.nav__item.nav__item--group",
+          "texto": "Orders29",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 25,
+            "y": 235,
+            "w": 218,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(42, 40, 35)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(42, 40, 35)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(42, 40, 35) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(32, 28, 22, 0.06)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(32, 28, 22, 0.06)"
+            ]
+          }
+        },
+        {
+          "n": 3,
+          "etiqueta": "a.goal",
+          "texto": "October goal55% $34k of $62k · pace $54k",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 25,
+            "y": 719,
+            "w": 218,
+            "h": 91
+          },
+          "estilo": {
+            "color": "rgb(42, 40, 35)",
+            "backgroundColor": "rgb(252, 251, 248)",
+            "borderColor": "rgba(32, 28, 22, 0.09)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(42, 40, 35) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "borderColor": [
+              "rgba(32, 28, 22, 0.09)",
+              "rgba(32, 28, 22, 0.17)"
+            ]
+          },
+          "alApretar": {
+            "borderColor": [
+              "rgba(32, 28, 22, 0.09)",
+              "rgba(32, 28, 22, 0.17)"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.me",
+          "texto": "NHNoor HaddadHead of commerce",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 25,
+            "y": 817,
+            "w": 218,
+            "h": 58
+          },
+          "estilo": {
+            "color": "rgb(42, 40, 35)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(42, 40, 35)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(42, 40, 35) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(32, 28, 22, 0.06)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(32, 28, 22, 0.06)"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.finder-btn",
+          "texto": "Search orders, products, customers…⌘K",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 282,
+            "y": 20,
+            "w": 382,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(93, 90, 83)",
+            "backgroundColor": "rgb(252, 251, 248)",
+            "borderColor": "rgba(32, 28, 22, 0.09)",
+            "boxShadow": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(93, 90, 83) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "borderColor": [
+              "rgba(32, 28, 22, 0.09)",
+              "rgba(32, 28, 22, 0.17)"
+            ]
+          },
+          "alApretar": {
+            "borderColor": [
+              "rgba(32, 28, 22, 0.09)",
+              "rgba(32, 28, 22, 0.17)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "a.pulse",
+          "texto": "14 today$2.2k",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1039,
+            "y": 20,
+            "w": 158,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(27, 26, 23)",
+            "backgroundColor": "rgb(252, 251, 248)",
+            "borderColor": "rgba(32, 28, 22, 0.09)",
+            "boxShadow": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(27, 26, 23) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 7,
+          "etiqueta": "button.ibtn.ibtn--glass",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1205,
+            "y": 20,
+            "w": 46,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(27, 26, 23)",
+            "backgroundColor": "rgb(252, 251, 248)",
+            "borderColor": "rgba(32, 28, 22, 0.09)",
+            "boxShadow": "rgba(32, 28, 22, 0.04) 0px 1px 1px 0px, rgba(32, 28, 22, 0.28) 0px 10px 26px -18px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(27, 26, 23) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(252, 251, 248)",
+              "rgba(32, 28, 22, 0.06)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(252, 251, 248)",
+              "rgba(32, 28, 22, 0.06)"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "button.btn.btn--primary.top__new",
+          "texto": "New",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1313,
+            "y": 21,
+            "w": 101,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(4, 32, 31)",
+            "backgroundColor": "rgb(94, 196, 191)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "rgba(0, 0, 0, 0.14) 0px -2px 0px 0px inset, color(srgb 0.368627 0.768627 0.74902 / 0.8) 0px 10px 22px -12px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(4, 32, 31) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0008, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0002, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "etiqueta": "button.seg__btn",
+          "texto": "7 days",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1043,
+            "y": 114,
+            "w": 72,
+            "h": 37
+          },
+          "estilo": {
+            "color": "rgb(170, 167, 159)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(170, 167, 159)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(170, 167, 159) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 10,
+          "etiqueta": "button.btn.btn--ghost.magnetic",
+          "texto": "Export",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1296,
+            "y": 111,
+            "w": 118,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(237, 236, 232)",
+            "backgroundColor": "rgb(25, 25, 23)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(237, 236, 232) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(25, 25, 23)",
+              "rgb(30, 30, 27)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0008, -0.0006)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(25, 25, 23)",
+              "rgb(30, 30, 27)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0002, -0.0001)"
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "etiqueta": "a.btn.btn--xs.btn--ghost",
+          "texto": "Orders",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1014,
+            "y": 263,
+            "w": 92,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(237, 236, 232)",
+            "backgroundColor": "rgb(25, 25, 23)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(237, 236, 232) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(25, 25, 23)",
+              "rgb(30, 30, 27)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(25, 25, 23)",
+              "rgb(30, 30, 27)"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "etiqueta": "button.kiln__row",
+          "texto": "Pebble espresso set36 pcs · Oct 22",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1158,
+            "y": 339,
+            "w": 218,
+            "h": 56
+          },
+          "estilo": {
+            "color": "rgb(237, 236, 232)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(237, 236, 232)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(237, 236, 232) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 13,
+          "etiqueta": "button.ibtn.ibtn--sm",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1384,
+            "y": 351,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(237, 236, 232)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(237, 236, 232) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 14,
+          "etiqueta": "button.ibtn.ibtn--sm.kiln__book",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1384,
+            "y": 561,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(94, 196, 191)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "color(srgb 0.368627 0.768627 0.74902 / 0.35)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(94, 196, 191) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 15,
+          "etiqueta": "button.switch",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1244,
+            "y": 788,
+            "w": 44,
+            "h": 26
+          },
+          "estilo": {
+            "color": "rgb(170, 167, 159)",
+            "backgroundColor": "rgb(94, 196, 191)",
+            "borderColor": "rgb(170, 167, 159)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(170, 167, 159) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 16,
+          "etiqueta": "button.rail__item",
+          "texto": "All categories$689k · 12 mo",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 303,
+            "y": 836,
+            "w": 236,
+            "h": 51
+          },
+          "estilo": {
+            "color": "rgb(237, 236, 232)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(237, 236, 232)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(237, 236, 232) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 17,
+          "etiqueta": "rect",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 605,
+            "y": 460,
+            "w": 41,
+            "h": 440
+          },
+          "estilo": {
+            "color": "rgb(237, 236, 232)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(237, 236, 232)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(237, 236, 232) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 18,
+          "etiqueta": "button.btn.btn--xs.btn--soft",
+          "texto": "Pack 21 paid",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 736,
+            "y": 434,
+            "w": 128,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(94, 196, 191)",
+            "backgroundColor": "color(srgb 0.368627 0.768628 0.74902 / 0.2)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(94, 196, 191) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 19,
+          "etiqueta": "tr",
+          "texto": "HDPG-107919 min ago Hana DoyleOnline sho",
+          "transicion": {
+            "propiedad": "background-color",
+            "duracion": "0.15s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 297,
+            "y": 418,
+            "w": 624,
+            "h": 65
+          },
+          "estilo": {
+            "color": "rgb(237, 236, 232)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(237, 236, 232)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(237, 236, 232) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(30, 30, 27)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(30, 30, 27)"
+            ]
+          }
+        },
+        {
+          "n": 20,
+          "etiqueta": "button.best__row",
+          "texto": "1Morning mug$3,355144 pieces · Oat",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 973,
+            "y": 416,
+            "w": 420,
+            "h": 67
+          },
+          "estilo": {
+            "color": "rgb(237, 236, 232)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(237, 236, 232)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(237, 236, 232) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 21,
+          "etiqueta": "a",
+          "texto": "Hana Doyle ordered $184.00 (online shop)",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 825,
+            "y": 441,
+            "w": 301,
+            "h": 21
+          },
+          "estilo": {
+            "color": "rgb(237, 236, 232)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(237, 236, 232)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(237, 236, 232) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 22,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

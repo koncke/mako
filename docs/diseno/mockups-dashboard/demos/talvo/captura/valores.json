@@ -1,0 +1,3194 @@
+{
+  "medido": "2026-11-04T11:18:10.030Z",
+  "url": "https://demo.codeandchill.store/talvo/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/talvo/#/overview",
+      "ancho": 390,
+      "alto": 5422,
+      "fondo": "rgb(233, 236, 229)",
+      "letra": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Manrope\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+        "--fs-2xs": ".75rem",
+        "--fs-xs": ".8125rem",
+        "--fs-sm": ".875rem",
+        "--fs-md": ".9375rem",
+        "--fs-base": "1rem",
+        "--fs-lg": "1.0625rem",
+        "--fs-xl": "1.125rem",
+        "--bg": "#e9ece5",
+        "--glow-a": "#f3f8d8",
+        "--glow-b": "#e4e2f6",
+        "--surface": "#fbfcf9",
+        "--surface-2": "#f3f5f0",
+        "--raised": "#fff",
+        "--well": "#141a140e",
+        "--line": "#141a1417",
+        "--line-2": "#141a142b",
+        "--shadow": "0 1px 0 #fffc inset, 0 1px 2px #141a140a",
+        "--shadow-lift": "0 18px 40px -22px #141a1452",
+        "--shadow-pop": "0 26px 60px -18px #141a1457, 0 2px 6px #141a1414",
+        "--text": "#131714",
+        "--muted": "#565e57",
+        "--faint": "#687069",
+        "--ink": "#121512",
+        "--on-ink": "#e9ede7",
+        "--ink-dim": "#e9ede799",
+        "--ink-2": "#1c201c",
+        "--citron": "#cbea3f",
+        "--on-citron": "#141a02",
+        "--citron-d": "#536f00",
+        "--primary": "#121512",
+        "--on-primary": "#cbea3f",
+        "--lavender": "#8b7cf0",
+        "--lavender-d": "#5544c4",
+        "--sky": "#3d89dc",
+        "--teal": "#12998a",
+        "--amber": "#dc9c1c",
+        "--rose": "#dd5069",
+        "--slate": "#6c7884",
+        "--mint": "#2fae76",
+        "--peach": "#ee8556",
+        "--good": "#156d3d",
+        "--warn": "#925400",
+        "--bad": "#ac2c22",
+        "--info": "#2a60bf",
+        "--soft": "14%",
+        "--r-card": "22px",
+        "--r-tile": "14px",
+        "--gap": "16px",
+        "--side-w": "72px",
+        "--side-inset": "10px",
+        "--gutter": "clamp(16px, 1.8vw, 30px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--s-bg": "",
+        "--ink-card": "",
+        "--c": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 42,
+          "ejemplo": "In $57.1k"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 34,
+          "ejemplo": "Tuesday, October 20"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "30px",
+          "peso": "800",
+          "interlineado": "31.8px",
+          "espaciado": "-1.35px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 17,
+          "ejemplo": "Operating balance, every bill and invoic"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 14,
+          "ejemplo": "Operations ••2719"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 11,
+          "ejemplo": "Open forecast"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 11,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "800",
+          "interlineado": "21.25px",
+          "espaciado": "-0.34px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 9,
+          "ejemplo": "Next 30 days"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "rgb(20, 24, 20)",
+          "veces": 8,
+          "ejemplo": "CM"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "18px",
+          "espaciado": "-0.24px",
+          "color": "rgb(86, 94, 87)",
+          "veces": 7,
+          "ejemplo": "8/31"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 7,
+          "ejemplo": "Gorge Fuel Stop"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 6,
+          "ejemplo": "Ask Talvo about your money"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "18px",
+          "espaciado": "0.72px",
+          "color": "rgb(238, 242, 236)",
+          "veces": 6,
+          "ejemplo": "Operations"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.9px",
+          "peso": "800",
+          "interlineado": "14.85px",
+          "espaciado": "normal",
+          "color": "rgb(238, 242, 236)",
+          "veces": 6,
+          "ejemplo": "Hana Sato"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 5,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(172, 44, 34)",
+          "veces": 5,
+          "ejemplo": "Overdue"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 5,
+          "ejemplo": "Malt & grain"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "-0.15px",
+          "color": "rgb(21, 109, 61)",
+          "veces": 5,
+          "ejemplo": "+$1,502.09"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "800",
+          "interlineado": "18px",
+          "espaciado": "0.12px",
+          "color": "rgb(20, 24, 20)",
+          "veces": 5,
+          "ejemplo": "FZ"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "750",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 5,
+          "ejemplo": "Fatima"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 5,
+          "ejemplo": "14 min ago"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(233, 237, 231)",
+          "veces": 4,
+          "ejemplo": "Accounts"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 3,
+          "ejemplo": "Who owes us money?"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgba(233, 237, 231, 0.66)",
+          "veces": 3,
+          "ejemplo": "Accounts + treasury, right now"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgba(233, 237, 231, 0.66)",
+          "veces": 3,
+          "ejemplo": "Operating ••4417"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(233, 237, 231)",
+          "veces": 3,
+          "ejemplo": "$146,319"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgba(233, 237, 231, 0.66)",
+          "veces": 3,
+          "ejemplo": "28%"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 3,
+          "ejemplo": "Expected in"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.365px",
+          "peso": "900",
+          "interlineado": "20.0475px",
+          "espaciado": "-0.5346px",
+          "color": "rgb(238, 242, 236)",
+          "veces": 3,
+          "ejemplo": "talvo"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "8.118px",
+          "peso": "800",
+          "interlineado": "12.177px",
+          "espaciado": "0.8118px",
+          "color": "rgb(238, 242, 236)",
+          "veces": 3,
+          "ejemplo": "Debit"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "13.662px",
+          "peso": "600",
+          "interlineado": "13.662px",
+          "espaciado": "1.09296px",
+          "color": "rgb(238, 242, 236)",
+          "veces": 3,
+          "ejemplo": "•••• 2719"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(203, 234, 63)",
+          "veces": 3,
+          "ejemplo": "Approve"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(21, 109, 61)",
+          "veces": 3,
+          "ejemplo": "$1,330.00"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 3,
+          "ejemplo": "Approve Ballast Can Co. holiday cans"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 3,
+          "ejemplo": "HS Hana · Today"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10px",
+          "peso": "800",
+          "interlineado": "15px",
+          "espaciado": "0.1px",
+          "color": "rgb(20, 24, 20)",
+          "veces": 3,
+          "ejemplo": "HS"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "800",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(233, 237, 231)",
+          "veces": 2,
+          "ejemplo": "4"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "23.25px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 2,
+          "ejemplo": "7 payments"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(233, 237, 231)",
+          "veces": 2,
+          "ejemplo": "−$36,613"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "800",
+          "interlineado": "28.5px",
+          "espaciado": "-0.665px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 2,
+          "ejemplo": "$189,940"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "18px",
+          "espaciado": "0.72px",
+          "color": "rgb(21, 27, 3)",
+          "veces": 2,
+          "ejemplo": "Taproom"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.9px",
+          "peso": "800",
+          "interlineado": "14.85px",
+          "espaciado": "normal",
+          "color": "rgb(21, 27, 3)",
+          "veces": 2,
+          "ejemplo": "Amara Okafor"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(146, 84, 0)",
+          "veces": 2,
+          "ejemplo": "Needs approval"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "-0.15px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 2,
+          "ejemplo": "−$86.96"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 26, 2)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(20, 26, 2)",
+          "veces": 1,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "800",
+          "interlineado": "31.5px",
+          "espaciado": "-0.84px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "Talvo"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "23.25px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 1,
+          "ejemplo": "7 payments need you, $115,090 is owed to"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "23.25px",
+          "espaciado": "normal",
+          "color": "rgb(172, 44, 34)",
+          "veces": 1,
+          "ejemplo": "dips under your buffer around Nov 1"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "800",
+          "interlineado": "21.25px",
+          "espaciado": "-0.34px",
+          "color": "rgb(233, 237, 231)",
+          "veces": 1,
+          "ejemplo": "Cash on hand"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(20, 26, 2)",
+          "veces": 1,
+          "ejemplo": "Move money"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "40px",
+          "peso": "900",
+          "interlineado": "40px",
+          "espaciado": "-2.2px",
+          "color": "rgb(233, 237, 231)",
+          "veces": 1,
+          "ejemplo": "$529,031"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "800",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(251, 252, 249)",
+          "veces": 1,
+          "ejemplo": "20"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "800",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "Nov"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "16.8px",
+          "espaciado": "-0.28px",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "$43.1k"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "14.4px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Nov 1"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(172, 44, 34)",
+          "veces": 1,
+          "ejemplo": "Lowest"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "800",
+          "interlineado": "28.5px",
+          "espaciado": "-0.665px",
+          "color": "rgb(172, 44, 34)",
+          "veces": 1,
+          "ejemplo": "$43,066 Nov 1"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "800",
+          "interlineado": "18px",
+          "espaciado": "-0.24px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "10/19"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.365px",
+          "peso": "900",
+          "interlineado": "20.0475px",
+          "espaciado": "-0.5346px",
+          "color": "rgb(21, 27, 3)",
+          "veces": 1,
+          "ejemplo": "talvo"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "8.118px",
+          "peso": "800",
+          "interlineado": "12.177px",
+          "espaciado": "0.8118px",
+          "color": "rgb(21, 27, 3)",
+          "veces": 1,
+          "ejemplo": "Debit"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "13.662px",
+          "peso": "600",
+          "interlineado": "13.662px",
+          "espaciado": "1.09296px",
+          "color": "rgb(21, 27, 3)",
+          "veces": 1,
+          "ejemplo": "•••• 5521"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.89px",
+          "peso": "700",
+          "interlineado": "16.335px",
+          "espaciado": "normal",
+          "color": "rgb(29, 42, 51)",
+          "veces": 1,
+          "ejemplo": "Frozen"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "28px",
+          "peso": "800",
+          "interlineado": "28px",
+          "espaciado": "-1.12px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "2.8"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 1,
+          "ejemplo": "To review"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(172, 44, 34)",
+          "veces": 1,
+          "ejemplo": "$19,710"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "24px",
+          "peso": "800",
+          "interlineado": "36px",
+          "espaciado": "-0.96px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "3/15"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 1,
+          "ejemplo": "tasks done"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "800",
+          "interlineado": "30px",
+          "espaciado": "-0.6px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "12 to go"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "form.ov-ask",
+          "x": 14,
+          "y": 213,
+          "w": 362,
+          "h": 100,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "6px 6px 6px 14px",
+          "gap": "4px",
+          "grilla": "18px 270px 44px",
+          "texto": "Ask Talvo about your money Who owes us money?When is cash lo"
+        },
+        {
+          "etiqueta": "section.card.card--ink.ov-cash",
+          "x": 14,
+          "y": 335,
+          "w": 362,
+          "h": 418,
+          "fondo": "rgb(21, 25, 21)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "20px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "18px",
+          "grilla": "328px",
+          "texto": "Cash on handAccounts + treasury, right now Move money $529,0"
+        },
+        {
+          "etiqueta": "section.card.ov-hz",
+          "x": 14,
+          "y": 769,
+          "w": 362,
+          "h": 536,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Next 30 daysOperating balance, every bill and invoice on its"
+        },
+        {
+          "etiqueta": "div",
+          "x": 31,
+          "y": 1138,
+          "w": 159,
+          "h": 70,
+          "fondo": "rgb(243, 245, 240)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Expected in$189,940"
+        },
+        {
+          "etiqueta": "div",
+          "x": 200,
+          "y": 1138,
+          "w": 159,
+          "h": 70,
+          "fondo": "rgb(243, 245, 240)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Going out$231,112"
+        },
+        {
+          "etiqueta": "div.is-bad",
+          "x": 31,
+          "y": 1218,
+          "w": 328,
+          "h": 70,
+          "fondo": "color(srgb 0.956431 0.914824 0.900588)",
+          "borde": "1px solid color(srgb 0.67451 0.172549 0.133333 / 0.28)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Lowest$43,066 Nov 1"
+        },
+        {
+          "etiqueta": "section.card.ov-flow",
+          "x": 14,
+          "y": 1321,
+          "w": 362,
+          "h": 332,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "In & out, by weekLast 8 weeks · transfers left out $100k0−$1"
+        },
+        {
+          "etiqueta": "section.card.ov-cards",
+          "x": 14,
+          "y": 1670,
+          "w": 362,
+          "h": 368,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": "328px",
+          "texto": "Company cardsTap a card to bring it forward All 6 talvoDebit"
+        },
+        {
+          "etiqueta": "div.ccard.ccard--ink.ccard--sm",
+          "x": 37,
+          "y": 1778,
+          "w": 220,
+          "h": 139,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 242, 236)",
+          "radio": "13.2px",
+          "sombra": "rgba(255, 255, 255, 0.12) 0px 1px 0px 0px inset, rgba(10, 14, 10, 0.6) 0px 22px 40px -22px",
+          "padding": "13.2px 14.3px",
+          "gap": "normal",
+          "grilla": "191.406px",
+          "texto": "talvoDebit •••• 2719 OperationsHana SatoExp08/28 Frozen"
+        },
+        {
+          "etiqueta": "div.ccard.ccard--citron.ccard--sm",
+          "x": 58,
+          "y": 1772,
+          "w": 216,
+          "h": 143,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(21, 27, 3)",
+          "radio": "13.2px",
+          "sombra": "rgba(255, 255, 255, 0.12) 0px 1px 0px 0px inset, rgba(10, 14, 10, 0.6) 0px 22px 40px -22px",
+          "padding": "13.2px 14.3px",
+          "gap": "normal",
+          "grilla": "191.406px",
+          "texto": "talvoDebit •••• 5521 TaproomAmara OkaforExp05/28 Frozen"
+        },
+        {
+          "etiqueta": "div.ccard.ccard--lavender.ccard--sm",
+          "x": 80,
+          "y": 1768,
+          "w": 211,
+          "h": 146,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 242, 236)",
+          "radio": "13.2px",
+          "sombra": "rgba(255, 255, 255, 0.12) 0px 1px 0px 0px inset, rgba(10, 14, 10, 0.6) 0px 22px 40px -22px",
+          "padding": "13.2px 14.3px",
+          "gap": "normal",
+          "grilla": "191.406px",
+          "texto": "talvoVirtual •••• 8034 SoftwarePriya RamanExp01/29 Frozen"
+        },
+        {
+          "etiqueta": "div.ccard.ccard--pine.ccard--sm",
+          "x": 102,
+          "y": 1764,
+          "w": 204,
+          "h": 147,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 242, 236)",
+          "radio": "13.2px",
+          "sombra": "rgba(255, 255, 255, 0.12) 0px 1px 0px 0px inset, rgba(10, 14, 10, 0.6) 0px 22px 40px -22px",
+          "padding": "13.2px 14.3px",
+          "gap": "normal",
+          "grilla": "191.406px",
+          "texto": "talvoDebit •••• 4806 Sales travelKwame AsanteExp07/28 Frozen"
+        },
+        {
+          "etiqueta": "section.card.ov-cover",
+          "x": 14,
+          "y": 2053,
+          "w": 362,
+          "h": 361,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": "328px",
+          "texto": "Cost coverMonths of costs the cash would carry if sales stop"
+        },
+        {
+          "etiqueta": "section.card.ov-needs",
+          "x": 14,
+          "y": 2431,
+          "w": 362,
+          "h": 1018,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Needs youApprove, pay or chase — without leaving Bills CMCas"
+        },
+        {
+          "etiqueta": "section.card.ov-budget",
+          "x": 14,
+          "y": 3465,
+          "w": 362,
+          "h": 408,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Budgets, by pace63% of October gone — the tick is where you’"
+        },
+        {
+          "etiqueta": "section.card.ov-tx",
+          "x": 14,
+          "y": 3889,
+          "w": 362,
+          "h": 501,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Latest transactions All Gorge Fuel StopFreight & delivery · "
+        },
+        {
+          "etiqueta": "section.card.ov-close",
+          "x": 14,
+          "y": 4406,
+          "w": 362,
+          "h": 389,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "October close Close 3/15tasks done12 to goBooks close Nov 6 "
+        },
+        {
+          "etiqueta": "section.card.ov-feed",
+          "x": 14,
+          "y": 4810,
+          "w": 362,
+          "h": 508,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "20px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team activity FZFatima entered B-4142 from Ridgeline Freight"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/talvo/#/overview",
+      "ancho": 1440,
+      "alto": 2347,
+      "fondo": "rgb(233, 236, 229)",
+      "letra": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Manrope\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+        "--fs-2xs": ".75rem",
+        "--fs-xs": ".8125rem",
+        "--fs-sm": ".875rem",
+        "--fs-md": ".9375rem",
+        "--fs-base": "1rem",
+        "--fs-lg": "1.0625rem",
+        "--fs-xl": "1.125rem",
+        "--bg": "#e9ece5",
+        "--glow-a": "#f3f8d8",
+        "--glow-b": "#e4e2f6",
+        "--surface": "#fbfcf9",
+        "--surface-2": "#f3f5f0",
+        "--raised": "#fff",
+        "--well": "#141a140e",
+        "--line": "#141a1417",
+        "--line-2": "#141a142b",
+        "--shadow": "0 1px 0 #fffc inset, 0 1px 2px #141a140a",
+        "--shadow-lift": "0 18px 40px -22px #141a1452",
+        "--shadow-pop": "0 26px 60px -18px #141a1457, 0 2px 6px #141a1414",
+        "--text": "#131714",
+        "--muted": "#565e57",
+        "--faint": "#687069",
+        "--ink": "#121512",
+        "--on-ink": "#e9ede7",
+        "--ink-dim": "#e9ede799",
+        "--ink-2": "#1c201c",
+        "--citron": "#cbea3f",
+        "--on-citron": "#141a02",
+        "--citron-d": "#536f00",
+        "--primary": "#121512",
+        "--on-primary": "#cbea3f",
+        "--lavender": "#8b7cf0",
+        "--lavender-d": "#5544c4",
+        "--sky": "#3d89dc",
+        "--teal": "#12998a",
+        "--amber": "#dc9c1c",
+        "--rose": "#dd5069",
+        "--slate": "#6c7884",
+        "--mint": "#2fae76",
+        "--peach": "#ee8556",
+        "--good": "#156d3d",
+        "--warn": "#925400",
+        "--bad": "#ac2c22",
+        "--info": "#2a60bf",
+        "--soft": "14%",
+        "--r-card": "22px",
+        "--r-tile": "14px",
+        "--gap": "16px",
+        "--side-w": "252px",
+        "--side-inset": "12px",
+        "--gutter": "clamp(16px, 1.8vw, 30px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--s-bg": "",
+        "--ink-card": "",
+        "--c": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 47,
+          "ejemplo": "In $57.1k"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 34,
+          "ejemplo": "Tuesday, October 20"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "38.88px",
+          "peso": "800",
+          "interlineado": "41.2128px",
+          "espaciado": "-1.7496px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 16,
+          "ejemplo": "Operating balance, every bill and invoic"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 14,
+          "ejemplo": "Operations ••2719"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(233, 237, 231)",
+          "veces": 12,
+          "ejemplo": "Accounts"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 11,
+          "ejemplo": "Open forecast"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "rgb(20, 24, 20)",
+          "veces": 9,
+          "ejemplo": "PR"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "800",
+          "interlineado": "21.25px",
+          "espaciado": "-0.34px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 9,
+          "ejemplo": "Next 30 days"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 8,
+          "ejemplo": "Ask"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 8,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "650",
+          "interlineado": "16.5px",
+          "espaciado": "-0.22px",
+          "color": "rgb(86, 94, 87)",
+          "veces": 7,
+          "ejemplo": "8/31"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 6,
+          "ejemplo": "Ask Talvo about your money"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "7.425px",
+          "peso": "700",
+          "interlineado": "11.1375px",
+          "espaciado": "0.4455px",
+          "color": "rgb(238, 242, 236)",
+          "veces": 6,
+          "ejemplo": "Operations"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.9px",
+          "peso": "800",
+          "interlineado": "14.85px",
+          "espaciado": "normal",
+          "color": "rgb(238, 242, 236)",
+          "veces": 6,
+          "ejemplo": "Hana Sato"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "800",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(233, 237, 231)",
+          "veces": 5,
+          "ejemplo": "4"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 5,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(172, 44, 34)",
+          "veces": 5,
+          "ejemplo": "Overdue"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 5,
+          "ejemplo": "Malt & grain"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "-0.15px",
+          "color": "rgb(21, 109, 61)",
+          "veces": 5,
+          "ejemplo": "+$1,502.09"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "800",
+          "interlineado": "18px",
+          "espaciado": "0.12px",
+          "color": "rgb(20, 24, 20)",
+          "veces": 5,
+          "ejemplo": "FZ"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "750",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 5,
+          "ejemplo": "Fatima"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "650",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 4,
+          "ejemplo": "25"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "18px",
+          "espaciado": "1.2px",
+          "color": "rgba(233, 237, 231, 0.58)",
+          "veces": 3,
+          "ejemplo": "Money"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 3,
+          "ejemplo": "Who owes us money?"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgba(233, 237, 231, 0.66)",
+          "veces": 3,
+          "ejemplo": "Accounts + treasury, right now"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgba(233, 237, 231, 0.66)",
+          "veces": 3,
+          "ejemplo": "Operating ••4417"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(233, 237, 231)",
+          "veces": 3,
+          "ejemplo": "$146,319"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgba(233, 237, 231, 0.66)",
+          "veces": 3,
+          "ejemplo": "28%"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 3,
+          "ejemplo": "Expected in"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.365px",
+          "peso": "900",
+          "interlineado": "20.0475px",
+          "espaciado": "-0.5346px",
+          "color": "rgb(238, 242, 236)",
+          "veces": 3,
+          "ejemplo": "talvo"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "8.118px",
+          "peso": "800",
+          "interlineado": "12.177px",
+          "espaciado": "0.8118px",
+          "color": "rgb(238, 242, 236)",
+          "veces": 3,
+          "ejemplo": "Debit"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "13.662px",
+          "peso": "600",
+          "interlineado": "13.662px",
+          "espaciado": "1.09296px",
+          "color": "rgb(238, 242, 236)",
+          "veces": 3,
+          "ejemplo": "•••• 2719"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(203, 234, 63)",
+          "veces": 3,
+          "ejemplo": "Approve"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(21, 109, 61)",
+          "veces": 3,
+          "ejemplo": "$1,330.00"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 3,
+          "ejemplo": "Approve Ballast Can Co. holiday cans"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 3,
+          "ejemplo": "HS Hana · Today"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10px",
+          "peso": "800",
+          "interlineado": "15px",
+          "espaciado": "0.1px",
+          "color": "rgb(20, 24, 20)",
+          "veces": 3,
+          "ejemplo": "HS"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "800",
+          "interlineado": "24.8px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 2,
+          "ejemplo": "7 payments"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(233, 237, 231)",
+          "veces": 2,
+          "ejemplo": "−$36,613"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "800",
+          "interlineado": "28.5px",
+          "espaciado": "-0.665px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 2,
+          "ejemplo": "$189,940"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "7.425px",
+          "peso": "700",
+          "interlineado": "11.1375px",
+          "espaciado": "0.4455px",
+          "color": "rgb(21, 27, 3)",
+          "veces": 2,
+          "ejemplo": "Taproom"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.9px",
+          "peso": "800",
+          "interlineado": "14.85px",
+          "espaciado": "normal",
+          "color": "rgb(21, 27, 3)",
+          "veces": 2,
+          "ejemplo": "Amara Okafor"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(146, 84, 0)",
+          "veces": 2,
+          "ejemplo": "Needs approval"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "800",
+          "interlineado": "22.5px",
+          "espaciado": "-0.15px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 2,
+          "ejemplo": "−$86.96"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 26, 2)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "800",
+          "interlineado": "23.1px",
+          "espaciado": "-0.77px",
+          "color": "rgb(233, 237, 231)",
+          "veces": 1,
+          "ejemplo": "TalvoKettlewick Brewing Co."
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "13.65px",
+          "espaciado": "normal",
+          "color": "rgba(233, 237, 231, 0.58)",
+          "veces": 1,
+          "ejemplo": "Kettlewick Brewing Co."
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 26, 2)",
+          "veces": 1,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgba(233, 237, 231, 0.58)",
+          "veces": 1,
+          "ejemplo": "Operating"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "800",
+          "interlineado": "28.5px",
+          "espaciado": "-0.57px",
+          "color": "rgb(233, 237, 231)",
+          "veces": 1,
+          "ejemplo": "$146,319"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 180, 168)",
+          "veces": 1,
+          "ejemplo": "Dips to $43.1k · Nov 1"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(233, 237, 231)",
+          "veces": 1,
+          "ejemplo": "Priya Raman"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgba(233, 237, 231, 0.58)",
+          "veces": 1,
+          "ejemplo": "Controller"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 1,
+          "ejemplo": "Kettlewick Brewing Co."
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "900",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 1,
+          "ejemplo": "Search payees, bills, invoices…"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 1,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "750",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(203, 234, 63)",
+          "veces": 1,
+          "ejemplo": "New"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "500",
+          "interlineado": "24.8px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 1,
+          "ejemplo": "7 payments need you, $115,090 is owed to"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "800",
+          "interlineado": "24.8px",
+          "espaciado": "normal",
+          "color": "rgb(172, 44, 34)",
+          "veces": 1,
+          "ejemplo": "dips under your buffer around Nov 1"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "800",
+          "interlineado": "21.25px",
+          "espaciado": "-0.34px",
+          "color": "rgb(233, 237, 231)",
+          "veces": 1,
+          "ejemplo": "Cash on hand"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(20, 26, 2)",
+          "veces": 1,
+          "ejemplo": "Move money"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "60px",
+          "peso": "900",
+          "interlineado": "60px",
+          "espaciado": "-3.3px",
+          "color": "rgb(233, 237, 231)",
+          "veces": 1,
+          "ejemplo": "$529,031"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "800",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(251, 252, 249)",
+          "veces": 1,
+          "ejemplo": "20"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "800",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "Nov"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "16.8px",
+          "espaciado": "-0.28px",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "$43.1k"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "13.2px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Nov 1"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(172, 44, 34)",
+          "veces": 1,
+          "ejemplo": "Lowest"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "800",
+          "interlineado": "28.5px",
+          "espaciado": "-0.665px",
+          "color": "rgb(172, 44, 34)",
+          "veces": 1,
+          "ejemplo": "$43,066 Nov 1"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "800",
+          "interlineado": "16.5px",
+          "espaciado": "-0.22px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "10/19"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.365px",
+          "peso": "900",
+          "interlineado": "20.0475px",
+          "espaciado": "-0.5346px",
+          "color": "rgb(21, 27, 3)",
+          "veces": 1,
+          "ejemplo": "talvo"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "8.118px",
+          "peso": "800",
+          "interlineado": "12.177px",
+          "espaciado": "0.8118px",
+          "color": "rgb(21, 27, 3)",
+          "veces": 1,
+          "ejemplo": "Debit"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "13.662px",
+          "peso": "600",
+          "interlineado": "13.662px",
+          "espaciado": "1.09296px",
+          "color": "rgb(21, 27, 3)",
+          "veces": 1,
+          "ejemplo": "•••• 5521"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.89px",
+          "peso": "700",
+          "interlineado": "16.335px",
+          "espaciado": "normal",
+          "color": "rgb(29, 42, 51)",
+          "veces": 1,
+          "ejemplo": "Frozen"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 1,
+          "ejemplo": "$15,000 left"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "28px",
+          "peso": "800",
+          "interlineado": "28px",
+          "espaciado": "-1.12px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "2.8"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "750",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 1,
+          "ejemplo": "To review"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(172, 44, 34)",
+          "veces": 1,
+          "ejemplo": "$19,710"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "24px",
+          "peso": "800",
+          "interlineado": "36px",
+          "espaciado": "-0.96px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "3/15"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 94, 87)",
+          "veces": 1,
+          "ejemplo": "tasks done"
+        },
+        {
+          "familia": "Manrope, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "800",
+          "interlineado": "30px",
+          "espaciado": "-0.6px",
+          "color": "rgb(19, 23, 20)",
+          "veces": 1,
+          "ejemplo": "12 to go"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": 12,
+          "y": 12,
+          "w": 252,
+          "h": 876,
+          "fondo": "rgb(18, 21, 18)",
+          "borde": "0px none rgb(233, 237, 231)",
+          "radio": "26px",
+          "sombra": "rgba(10, 14, 10, 0.7) 0px 30px 60px -36px",
+          "padding": "14px 12px 12px",
+          "gap": "4px",
+          "grilla": null,
+          "texto": "TalvoKettlewick Brewing Co. Money Overview Accounts4 Balance"
+        },
+        {
+          "etiqueta": "span.nav__pill",
+          "x": 24,
+          "y": 82,
+          "w": 228,
+          "h": 584,
+          "fondo": "rgb(203, 234, 63)",
+          "borde": "0px none rgb(233, 237, 231)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "a.cashchip",
+          "x": 24,
+          "y": 704,
+          "w": 228,
+          "h": 112,
+          "fondo": "rgba(255, 255, 255, 0.055)",
+          "borde": "0px none rgb(233, 237, 231)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "12px 12px 10px",
+          "gap": "6px",
+          "grilla": "204px",
+          "texto": "Operating$146,319Dips to $43.1k · Nov 1"
+        },
+        {
+          "etiqueta": "form.ov-ask",
+          "x": 954,
+          "y": 132,
+          "w": 460,
+          "h": 100,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "6px 6px 6px 14px",
+          "gap": "4px",
+          "grilla": "18px 368px 44px",
+          "texto": "Ask Talvo about your money Who owes us money?When is cash lo"
+        },
+        {
+          "etiqueta": "section.card.card--ink.ov-cash",
+          "x": 290,
+          "y": 254,
+          "w": 459,
+          "h": 401,
+          "fondo": "rgb(21, 25, 21)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "18px 20px 20px",
+          "gap": "18px",
+          "grilla": "417.078px",
+          "texto": "Cash on handAccounts + treasury, right now Move money $529,0"
+        },
+        {
+          "etiqueta": "section.card.ov-hz",
+          "x": 765,
+          "y": 254,
+          "w": 649,
+          "h": 401,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Next 30 daysOperating balance, every bill and invoice on its"
+        },
+        {
+          "etiqueta": "div",
+          "x": 786,
+          "y": 564,
+          "w": 196,
+          "h": 70,
+          "fondo": "rgb(243, 245, 240)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Expected in$189,940"
+        },
+        {
+          "etiqueta": "div",
+          "x": 992,
+          "y": 564,
+          "w": 196,
+          "h": 70,
+          "fondo": "rgb(243, 245, 240)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Going out$231,112"
+        },
+        {
+          "etiqueta": "div.is-bad",
+          "x": 1197,
+          "y": 564,
+          "w": 196,
+          "h": 70,
+          "fondo": "color(srgb 0.956431 0.914824 0.900588)",
+          "borde": "1px solid color(srgb 0.67451 0.172549 0.133333 / 0.28)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Lowest$43,066 Nov 1"
+        },
+        {
+          "etiqueta": "section.card.ov-flow",
+          "x": 290,
+          "y": 671,
+          "w": 364,
+          "h": 401,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "In & out, by weekLast 8 weeks · transfers left out $100k0−$1"
+        },
+        {
+          "etiqueta": "section.card.ov-cards",
+          "x": 670,
+          "y": 671,
+          "w": 364,
+          "h": 401,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": "322.062px",
+          "texto": "Company cardsTap a card to bring it forward All 6 talvoDebit"
+        },
+        {
+          "etiqueta": "div.ccard.ccard--ink.ccard--sm",
+          "x": 697,
+          "y": 802,
+          "w": 220,
+          "h": 139,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 242, 236)",
+          "radio": "13.2px",
+          "sombra": "rgba(255, 255, 255, 0.12) 0px 1px 0px 0px inset, rgba(10, 14, 10, 0.6) 0px 22px 40px -22px",
+          "padding": "13.2px 14.3px",
+          "gap": "normal",
+          "grilla": "191.406px",
+          "texto": "talvoDebit •••• 2719 OperationsHana SatoExp08/28 Frozen"
+        },
+        {
+          "etiqueta": "div.ccard.ccard--citron.ccard--sm",
+          "x": 718,
+          "y": 797,
+          "w": 216,
+          "h": 143,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(21, 27, 3)",
+          "radio": "13.2px",
+          "sombra": "rgba(255, 255, 255, 0.12) 0px 1px 0px 0px inset, rgba(10, 14, 10, 0.6) 0px 22px 40px -22px",
+          "padding": "13.2px 14.3px",
+          "gap": "normal",
+          "grilla": "191.406px",
+          "texto": "talvoDebit •••• 5521 TaproomAmara OkaforExp05/28 Frozen"
+        },
+        {
+          "etiqueta": "div.ccard.ccard--lavender.ccard--sm",
+          "x": 740,
+          "y": 792,
+          "w": 211,
+          "h": 146,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 242, 236)",
+          "radio": "13.2px",
+          "sombra": "rgba(255, 255, 255, 0.12) 0px 1px 0px 0px inset, rgba(10, 14, 10, 0.6) 0px 22px 40px -22px",
+          "padding": "13.2px 14.3px",
+          "gap": "normal",
+          "grilla": "191.406px",
+          "texto": "talvoVirtual •••• 8034 SoftwarePriya RamanExp01/29 Frozen"
+        },
+        {
+          "etiqueta": "div.ccard.ccard--pine.ccard--sm",
+          "x": 762,
+          "y": 788,
+          "w": 204,
+          "h": 147,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 242, 236)",
+          "radio": "13.2px",
+          "sombra": "rgba(255, 255, 255, 0.12) 0px 1px 0px 0px inset, rgba(10, 14, 10, 0.6) 0px 22px 40px -22px",
+          "padding": "13.2px 14.3px",
+          "gap": "normal",
+          "grilla": "191.406px",
+          "texto": "talvoDebit •••• 4806 Sales travelKwame AsanteExp07/28 Frozen"
+        },
+        {
+          "etiqueta": "section.card.ov-cover",
+          "x": 1050,
+          "y": 671,
+          "w": 364,
+          "h": 401,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": "322.062px",
+          "texto": "Cost coverMonths of costs the cash would carry if sales stop"
+        },
+        {
+          "etiqueta": "section.card.ov-needs",
+          "x": 290,
+          "y": 1088,
+          "w": 649,
+          "h": 680,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Needs youApprove, pay or chase — without leaving Bills CMCas"
+        },
+        {
+          "etiqueta": "section.card.ov-budget",
+          "x": 955,
+          "y": 1088,
+          "w": 459,
+          "h": 680,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Budgets, by pace63% of October gone — the tick is where you’"
+        },
+        {
+          "etiqueta": "section.card.ov-tx",
+          "x": 290,
+          "y": 1784,
+          "w": 364,
+          "h": 507,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Latest transactions All Gorge Fuel StopFreight & delivery · "
+        },
+        {
+          "etiqueta": "section.card.ov-close",
+          "x": 670,
+          "y": 1784,
+          "w": 364,
+          "h": 507,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "October close Close 3/15tasks done12 to goBooks close Nov 6 "
+        },
+        {
+          "etiqueta": "section.card.ov-feed",
+          "x": 1050,
+          "y": 1784,
+          "w": 364,
+          "h": 507,
+          "fondo": "rgb(251, 252, 249)",
+          "borde": "1px solid rgba(20, 26, 20, 0.09)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(20, 26, 20, 0.04) 0px 1px 2px 0px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team activity FZFatima entered B-4142 from Ridgeline Freight"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "TalvoKettlewick Brewing Co.",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 26,
+            "w": 228,
+            "h": 52
+          },
+          "estilo": {
+            "color": "rgb(233, 237, 231)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(233, 237, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(233, 237, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "a.nav__item.is-here",
+          "texto": "Overview",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 112,
+            "w": 228,
+            "h": 37
+          },
+          "estilo": {
+            "color": "rgb(20, 26, 2)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(20, 26, 2)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(20, 26, 2) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 2,
+          "etiqueta": "a.nav__item",
+          "texto": "Accounts4",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 150,
+            "w": 228,
+            "h": 37
+          },
+          "estilo": {
+            "color": "rgb(233, 237, 231)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(233, 237, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(233, 237, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          }
+        },
+        {
+          "n": 3,
+          "etiqueta": "a.cashchip",
+          "texto": "Operating$146,319Dips to $43.1k · Nov 1",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 704,
+            "w": 228,
+            "h": 112
+          },
+          "estilo": {
+            "color": "rgb(233, 237, 231)",
+            "backgroundColor": "rgba(255, 255, 255, 0.055)",
+            "borderColor": "rgb(233, 237, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(233, 237, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.me",
+          "texto": "PRPriya RamanController",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 824,
+            "w": 228,
+            "h": 52
+          },
+          "estilo": {
+            "color": "rgb(233, 237, 231)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(233, 237, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(233, 237, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.finder-btn",
+          "texto": "Search payees, bills, invoices…⌘K",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 750,
+            "y": 23,
+            "w": 360,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(86, 94, 87)",
+            "backgroundColor": "rgb(251, 252, 249)",
+            "borderColor": "rgba(20, 26, 20, 0.09)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(86, 94, 87) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "borderColor": [
+              "rgba(20, 26, 20, 0.09)",
+              "rgba(20, 26, 20, 0.17)"
+            ]
+          },
+          "alApretar": {
+            "borderColor": [
+              "rgba(20, 26, 20, 0.09)",
+              "rgba(20, 26, 20, 0.17)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "a.ask-btn",
+          "texto": "Ask",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1120,
+            "y": 23,
+            "w": 83,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(19, 23, 20)",
+            "backgroundColor": "rgb(251, 252, 249)",
+            "borderColor": "rgba(20, 26, 20, 0.09)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(19, 23, 20) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "borderColor": [
+              "rgba(20, 26, 20, 0.09)",
+              "rgba(20, 26, 20, 0.17)"
+            ]
+          },
+          "alApretar": {
+            "borderColor": [
+              "rgba(20, 26, 20, 0.09)",
+              "rgba(20, 26, 20, 0.17)"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "etiqueta": "button.ibtn.ibtn--glass",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1211,
+            "y": 23,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(19, 23, 20)",
+            "backgroundColor": "rgb(251, 252, 249)",
+            "borderColor": "rgba(20, 26, 20, 0.09)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(19, 23, 20) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(251, 252, 249)",
+              "rgba(20, 26, 20, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(251, 252, 249)",
+              "rgba(20, 26, 20, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "button.btn.btn--primary.top__new",
+          "texto": "New",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1315,
+            "y": 23,
+            "w": 99,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(20, 26, 2)",
+            "backgroundColor": "rgb(212, 241, 90)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(20, 26, 2) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0021, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(1.08)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0005, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(1.08)"
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "etiqueta": "button.ibtn.ov-ask__go",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1363,
+            "y": 139,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(20, 26, 2)",
+            "backgroundColor": "rgb(212, 241, 90)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(20, 26, 2) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(1.2)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(1.2)"
+            ]
+          }
+        },
+        {
+          "n": 10,
+          "etiqueta": "button.chip",
+          "texto": "Who owes us money?",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 969,
+            "y": 193,
+            "w": 162,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(232, 236, 231)",
+            "backgroundColor": "rgb(25, 28, 25)",
+            "borderColor": "rgba(255, 255, 255, 0.075)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 236, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "borderColor": [
+              "rgba(255, 255, 255, 0.075)",
+              "rgba(255, 255, 255, 0.15)"
+            ]
+          },
+          "alApretar": {
+            "borderColor": [
+              "rgba(255, 255, 255, 0.075)",
+              "rgba(255, 255, 255, 0.15)"
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "etiqueta": "button.btn.btn--xs.btn--citron",
+          "texto": "Move money",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 596,
+            "y": 273,
+            "w": 132,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(20, 26, 2)",
+            "backgroundColor": "rgb(212, 241, 90)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(20, 26, 2) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(1.05)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(1.05)"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "etiqueta": "a",
+          "texto": "Operating ••4417$146,31928%",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 311,
+            "y": 440,
+            "w": 417,
+            "h": 37
+          },
+          "estilo": {
+            "color": "rgb(233, 237, 231)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(233, 237, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(233, 237, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.07)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.07)"
+            ]
+          }
+        },
+        {
+          "n": 13,
+          "etiqueta": "a.btn.btn--xs.btn--ghost",
+          "texto": "Open forecast",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1212,
+            "y": 273,
+            "w": 143,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(232, 236, 231)",
+            "backgroundColor": "rgb(20, 23, 20)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 236, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(20, 23, 20)",
+              "rgb(25, 28, 25)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(20, 23, 20)",
+              "rgb(25, 28, 25)"
+            ]
+          }
+        },
+        {
+          "n": 14,
+          "etiqueta": "button.ibtn.ibtn--sm.card__expand",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1361,
+            "y": 273,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(166, 173, 167)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(166, 173, 167) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 15,
+          "etiqueta": "div.ov-hz__chart.hz.hz--compact",
+          "texto": "$0$50.0k$100k$150k$200k 2025Nov4914 $43.",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 786,
+            "y": 330,
+            "w": 607,
+            "h": 222
+          },
+          "estilo": {
+            "color": "rgb(232, 236, 231)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(232, 236, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 236, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 16,
+          "etiqueta": "button.deck__card",
+          "texto": "talvoDebit •••• 2719 OperationsHana Sato",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 697,
+            "y": 761,
+            "w": 220,
+            "h": 139
+          },
+          "estilo": {
+            "color": "rgb(232, 236, 231)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(232, 236, 231)",
+            "boxShadow": "none",
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "opacity": "1",
+            "outline": "rgb(232, 236, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 17,
+          "etiqueta": "button.switch",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 969,
+            "y": 437,
+            "w": 44,
+            "h": 26
+          },
+          "estilo": {
+            "color": "rgb(232, 236, 231)",
+            "backgroundColor": "rgba(255, 255, 255, 0.15)",
+            "borderColor": "rgb(232, 236, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 236, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 18,
+          "etiqueta": "button.btn.btn--xs.btn--ghost",
+          "texto": "Pay now",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 816,
+            "y": 434,
+            "w": 102,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(232, 236, 231)",
+            "backgroundColor": "rgb(20, 23, 20)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 236, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(20, 23, 20)",
+              "rgb(25, 28, 25)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(20, 23, 20)",
+              "rgb(25, 28, 25)"
+            ]
+          }
+        },
+        {
+          "n": 19,
+          "etiqueta": "button.btn.btn--xs.btn--primary",
+          "texto": "Approve",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 815,
+            "y": 434,
+            "w": 103,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(20, 26, 2)",
+            "backgroundColor": "rgb(212, 241, 90)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(20, 26, 2) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(1.08)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(1.08)"
+            ]
+          }
+        },
+        {
+          "n": 20,
+          "etiqueta": "a.txl__row",
+          "texto": "Gorge Fuel StopFreight & delivery · 3 h ",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 305,
+            "y": 420,
+            "w": 334,
+            "h": 60
+          },
+          "estilo": {
+            "color": "rgb(232, 236, 231)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(232, 236, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 236, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(25, 28, 25)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(25, 28, 25)"
+            ]
+          }
+        },
+        {
+          "n": 21,
+          "etiqueta": "label",
+          "texto": "Approve Ballast Can Co. holiday cansHS H",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 691,
+            "y": 520,
+            "w": 322,
+            "h": 64
+          },
+          "estilo": {
+            "color": "rgb(232, 236, 231)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(255, 255, 255, 0.075) rgb(232, 236, 231) rgb(232, 236, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 236, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 22,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

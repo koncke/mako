@@ -1,0 +1,1892 @@
+{
+  "medido": "2026-11-04T11:08:43.406Z",
+  "url": "https://demo.codeandchill.store/corbel/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/corbel/",
+      "ancho": 390,
+      "alto": 2077,
+      "fondo": "rgb(239, 239, 237)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--display": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#efefed",
+        "--mesh-a": "#e1e1de",
+        "--mesh-b": "#f9f9f7",
+        "--mesh-c": "#e6e6e3",
+        "--glass": "#ffffffa3",
+        "--glass-2": "#ffffffc7",
+        "--glass-3": "#fffffff0",
+        "--rim": "#ffffffeb",
+        "--float": "#fcfcfb",
+        "--panel": "transparent",
+        "--surface": "#fcfcfb",
+        "--surface-2": "#ffffff8c",
+        "--well": "#1111110f",
+        "--line": "#11111117",
+        "--line-2": "#1111112b",
+        "--shadow": "0 1px 0 #fffc inset, 0 22px 44px -30px #00000038",
+        "--shadow-lift": "0 1px 2px #14202a0d, 0 14px 30px -16px #1c3c524d",
+        "--shadow-pop": "0 24px 60px -18px #14283857, 0 2px 6px #14283814",
+        "--text": "#121212",
+        "--muted": "#4f4f4c",
+        "--faint": "#636360",
+        "--primary": "#121212",
+        "--primary-2": "#a3a39e",
+        "--primary-ink": "#121212",
+        "--primary-soft": "#e4e4e1",
+        "--on-primary": "#fff",
+        "--ink-btn": "#121212",
+        "--on-ink-btn": "#f6f6f4",
+        "--pill": "#121212",
+        "--on-pill": "#f6f6f4",
+        "--dock": "#121212",
+        "--on-dock": "#f6f6f4",
+        "--sky": "#121212",
+        "--mint": "#fff",
+        "--coral": "#d2d2cd",
+        "--lemon": "#e2e2de",
+        "--ocean": "#121212",
+        "--on-ocean": "#f3f7f8",
+        "--oc-1": "#fff",
+        "--oc-2": "#8e8e89",
+        "--oc-3": "#cfcfca",
+        "--sat": "0",
+        "--on-tile": "#14202a",
+        "--c1": "#121212",
+        "--c2": "#b4b4af",
+        "--c3": "#6a6a66",
+        "--c4": "#8e8e89",
+        "--c5": "#c8c8c3",
+        "--hatch": "#00000029",
+        "--hatch-bg": "#00000009",
+        "--heat-0": "#e8e8e5",
+        "--heat-1": "#d0d0cc",
+        "--heat-2": "#a6a6a1",
+        "--heat-3": "#696965",
+        "--heat-4": "#121212",
+        "--up": "#22735c",
+        "--up-soft": "#d5eee4",
+        "--down": "#b1412a",
+        "--down-soft": "#f8e1da",
+        "--warn": "#85580a",
+        "--warn-soft": "#f5ead2",
+        "--sea": "#3f3f3c",
+        "--sea-soft": "#e4e4e1",
+        "--r-xs": "8px",
+        "--r-sm": "14px",
+        "--r": "22px",
+        "--r-lg": "28px",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--dock-x": "20px",
+        "--dock-w": "60px",
+        "--gut": "14px",
+        "--app-max": "1840px",
+        "--side-w": "0px",
+        "--tabbar-h": "calc(80px + 0px)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--tile": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "17.55px",
+          "espaciado": "normal",
+          "color": "rgb(20, 32, 42)",
+          "veces": 41,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(99, 99, 96)",
+          "veces": 29,
+          "ejemplo": "$60k"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 8,
+          "ejemplo": "Dashboard"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(246, 246, 244)",
+          "veces": 8,
+          "ejemplo": "Dashboard"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 4,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(20, 32, 42, 0.76)",
+          "veces": 3,
+          "ejemplo": "Revenue"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(20, 32, 42)",
+          "veces": 3,
+          "ejemplo": "$42,300"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(20, 32, 42, 0.76)",
+          "veces": 3,
+          "ejemplo": "See analytics"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(18, 18, 18)",
+          "veces": 3,
+          "ejemplo": "Revenue"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(246, 246, 244)",
+          "veces": 3,
+          "ejemplo": "Nov 2026"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(246, 246, 244)",
+          "veces": 3,
+          "ejemplo": "Revenue"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(79, 79, 76)",
+          "veces": 3,
+          "ejemplo": "Website"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "16px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 2,
+          "ejemplo": "14"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "16px",
+          "espaciado": "normal",
+          "color": "rgb(246, 246, 244)",
+          "veces": 2,
+          "ejemplo": "14"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(79, 79, 76)",
+          "veces": 2,
+          "ejemplo": "Online"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(143, 227, 196)",
+          "veces": 2,
+          "ejemplo": "14.2%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(27, 94, 74)",
+          "veces": 2,
+          "ejemplo": "7.1%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(99, 99, 96)",
+          "veces": 2,
+          "ejemplo": "$342,300 so far this year"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 2,
+          "ejemplo": "Nov 2026: $42,300 revenue."
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(246, 246, 244)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "18px",
+          "espaciado": "-0.3px",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "Corbel Supply Co."
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "0.24px",
+          "color": "rgb(61, 61, 61)",
+          "veces": 1,
+          "ejemplo": "MR"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(20, 32, 42)",
+          "veces": 1,
+          "ejemplo": "11"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "28px",
+          "peso": "600",
+          "interlineado": "29.12px",
+          "espaciado": "-0.7px",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "Dashboard"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(20, 32, 42)",
+          "veces": 1,
+          "ejemplo": "1,290 shoppers"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(243, 247, 248, 0.78)",
+          "veces": 1,
+          "ejemplo": "Active sales"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(243, 247, 248)",
+          "veces": 1,
+          "ejemplo": "$48,320"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(243, 247, 248, 0.78)",
+          "veces": 1,
+          "ejemplo": "See orders"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(143, 50, 32)",
+          "veces": 1,
+          "ejemplo": "−0.2 pt"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(243, 247, 248)",
+          "veces": 1,
+          "ejemplo": "Sales performance"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "600",
+          "interlineado": "34px",
+          "espaciado": "-1.19px",
+          "color": "rgb(243, 247, 248)",
+          "veces": 1,
+          "ejemplo": "86"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(243, 247, 248, 0.7)",
+          "veces": 1,
+          "ejemplo": "of 100 points"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 248)",
+          "veces": 1,
+          "ejemplo": "Ahead of plan"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(243, 247, 248, 0.78)",
+          "veces": 1,
+          "ejemplo": "Both channels beat last month. Online di"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 248)",
+          "veces": 1,
+          "ejemplo": "Improve your score"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(79, 79, 76)",
+          "veces": 1,
+          "ejemplo": "2025"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "2026"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(63, 63, 60)",
+          "veces": 1,
+          "ejemplo": "avg $31.1k"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "Nov"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(94, 230, 180)",
+          "veces": 1,
+          "ejemplo": "+21.2%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "28.6px",
+          "espaciado": "-0.52px",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "214,860"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(34, 115, 92)",
+          "veces": 1,
+          "ejemplo": "8.5%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "28.6px",
+          "espaciado": "-0.78px",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "76%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(99, 99, 96)",
+          "veces": 1,
+          "ejemplo": "Website"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "article.db-kpi.tile--sky",
+          "x": 14,
+          "y": 308,
+          "w": 176,
+          "h": 141,
+          "fondo": "rgb(18, 18, 18)",
+          "borde": "0px none rgb(243, 247, 248)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "14px",
+          "gap": "8px",
+          "grilla": "148px",
+          "texto": "Active sales $48,32014.2%vs last month See orders"
+        },
+        {
+          "etiqueta": "article.db-kpi.tile--mint",
+          "x": 200,
+          "y": 308,
+          "w": 176,
+          "h": 141,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "0px none rgb(20, 32, 42)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "14px",
+          "gap": "8px",
+          "grilla": "148px",
+          "texto": "Revenue $42,3007.1%vs last month See analytics"
+        },
+        {
+          "etiqueta": "article.db-kpi.tile--lemon",
+          "x": 14,
+          "y": 458,
+          "w": 176,
+          "h": 141,
+          "fondo": "rgb(226, 226, 222)",
+          "borde": "0px none rgb(20, 32, 42)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "14px",
+          "gap": "8px",
+          "grilla": "148px",
+          "texto": "Units sold 3,8426.4%vs last month 77% See products"
+        },
+        {
+          "etiqueta": "article.db-kpi.tile--coral",
+          "x": 200,
+          "y": 458,
+          "w": 176,
+          "h": 141,
+          "fondo": "rgb(210, 210, 205)",
+          "borde": "0px none rgb(20, 32, 42)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "14px",
+          "gap": "8px",
+          "grilla": "148px",
+          "texto": "Conversion rate 4.8%−0.2 ptvs last month See funnel"
+        },
+        {
+          "etiqueta": "section.card.tile--ocean.db-perf",
+          "x": 14,
+          "y": 615,
+          "w": 362,
+          "h": 333,
+          "fondo": "rgb(18, 18, 18)",
+          "borde": "0px none rgb(243, 247, 248)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px",
+          "gap": "normal 24px",
+          "grilla": null,
+          "texto": "Sales performance Sales score 86+3of 100 points Ahead of pla"
+        },
+        {
+          "etiqueta": "section.card.db-an",
+          "x": 14,
+          "y": 964,
+          "w": 362,
+          "h": 346,
+          "fondo": "rgba(255, 255, 255, 0.64)",
+          "borde": "0px none rgb(18, 18, 18)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.92) 0px 0px 0px 1px inset, rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.22) 0px 22px 44px -30px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Revenue $342,300 so far this year 20252026 $60k$45k$30k$15k$"
+        },
+        {
+          "etiqueta": "div.db-tip",
+          "x": 196,
+          "y": 1046,
+          "w": 164,
+          "h": 105,
+          "fondo": "rgb(18, 18, 18)",
+          "borde": "0px none rgb(246, 246, 244)",
+          "radio": "12px",
+          "sombra": "rgba(20, 40, 56, 0.34) 0px 24px 60px -18px, rgba(20, 40, 56, 0.08) 0px 2px 6px 0px",
+          "padding": "10px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Nov 2026Forecast Revenue$42,300Orders596vs last year+21.2%"
+        },
+        {
+          "etiqueta": "section.card.db-heatc",
+          "x": 14,
+          "y": 1326,
+          "w": 362,
+          "h": 218,
+          "fondo": "rgba(255, 255, 255, 0.64)",
+          "borde": "0px none rgb(18, 18, 18)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.92) 0px 0px 0px 1px inset, rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.22) 0px 22px 44px -30px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Visits by time 011k+ MonTueWedThuFriSatSun 12 AM – 8 AM12–8a"
+        },
+        {
+          "etiqueta": "section.card.db-vis",
+          "x": 14,
+          "y": 1560,
+          "w": 362,
+          "h": 413,
+          "fondo": "rgba(255, 255, 255, 0.64)",
+          "borde": "0px none rgb(18, 18, 18)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.92) 0px 0px 0px 1px inset, rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.22) 0px 22px 44px -30px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Total visits 214,860 vs last month 8.5% Website162,400In sto"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/corbel/",
+      "ancho": 1440,
+      "alto": 1063,
+      "fondo": "rgb(239, 239, 237)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--display": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#efefed",
+        "--mesh-a": "#e1e1de",
+        "--mesh-b": "#f9f9f7",
+        "--mesh-c": "#e6e6e3",
+        "--glass": "#ffffffa3",
+        "--glass-2": "#ffffffc7",
+        "--glass-3": "#fffffff0",
+        "--rim": "#ffffffeb",
+        "--float": "#fcfcfb",
+        "--panel": "transparent",
+        "--surface": "#fcfcfb",
+        "--surface-2": "#ffffff8c",
+        "--well": "#1111110f",
+        "--line": "#11111117",
+        "--line-2": "#1111112b",
+        "--shadow": "0 1px 0 #fffc inset, 0 22px 44px -30px #00000038",
+        "--shadow-lift": "0 1px 2px #14202a0d, 0 14px 30px -16px #1c3c524d",
+        "--shadow-pop": "0 24px 60px -18px #14283857, 0 2px 6px #14283814",
+        "--text": "#121212",
+        "--muted": "#4f4f4c",
+        "--faint": "#636360",
+        "--primary": "#121212",
+        "--primary-2": "#a3a39e",
+        "--primary-ink": "#121212",
+        "--primary-soft": "#e4e4e1",
+        "--on-primary": "#fff",
+        "--ink-btn": "#121212",
+        "--on-ink-btn": "#f6f6f4",
+        "--pill": "#121212",
+        "--on-pill": "#f6f6f4",
+        "--dock": "#121212",
+        "--on-dock": "#f6f6f4",
+        "--sky": "#121212",
+        "--mint": "#fff",
+        "--coral": "#d2d2cd",
+        "--lemon": "#e2e2de",
+        "--ocean": "#121212",
+        "--on-ocean": "#f3f7f8",
+        "--oc-1": "#fff",
+        "--oc-2": "#8e8e89",
+        "--oc-3": "#cfcfca",
+        "--sat": "0",
+        "--on-tile": "#14202a",
+        "--c1": "#121212",
+        "--c2": "#b4b4af",
+        "--c3": "#6a6a66",
+        "--c4": "#8e8e89",
+        "--c5": "#c8c8c3",
+        "--hatch": "#00000029",
+        "--hatch-bg": "#00000009",
+        "--heat-0": "#e8e8e5",
+        "--heat-1": "#d0d0cc",
+        "--heat-2": "#a6a6a1",
+        "--heat-3": "#696965",
+        "--heat-4": "#121212",
+        "--up": "#22735c",
+        "--up-soft": "#d5eee4",
+        "--down": "#b1412a",
+        "--down-soft": "#f8e1da",
+        "--warn": "#85580a",
+        "--warn-soft": "#f5ead2",
+        "--sea": "#3f3f3c",
+        "--sea-soft": "#e4e4e1",
+        "--r-xs": "8px",
+        "--r-sm": "14px",
+        "--r": "22px",
+        "--r-lg": "28px",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--dock-x": "20px",
+        "--dock-w": "60px",
+        "--gut": "clamp(16px, 1.6vw, 28px)",
+        "--app-max": "1840px",
+        "--side-w": "calc(20px + 60px)",
+        "--tabbar-h": "0px",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--tile": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "17.55px",
+          "espaciado": "normal",
+          "color": "rgb(20, 32, 42)",
+          "veces": 41,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(99, 99, 96)",
+          "veces": 29,
+          "ejemplo": "$60k"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 8,
+          "ejemplo": "Dashboard"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(246, 246, 244)",
+          "veces": 8,
+          "ejemplo": "Dashboard"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(20, 32, 42, 0.76)",
+          "veces": 6,
+          "ejemplo": "Revenue"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 4,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.22px",
+          "color": "rgb(61, 61, 61)",
+          "veces": 3,
+          "ejemplo": "MR"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(99, 99, 96)",
+          "veces": 3,
+          "ejemplo": "November 2026, month to date"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "28.6px",
+          "espaciado": "-0.52px",
+          "color": "rgb(20, 32, 42)",
+          "veces": 3,
+          "ejemplo": "$42,300"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(20, 32, 42, 0.7)",
+          "veces": 3,
+          "ejemplo": "vs last month"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(18, 18, 18)",
+          "veces": 3,
+          "ejemplo": "Revenue"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(246, 246, 244)",
+          "veces": 3,
+          "ejemplo": "Nov 2026"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(246, 246, 244)",
+          "veces": 3,
+          "ejemplo": "Revenue"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(79, 79, 76)",
+          "veces": 3,
+          "ejemplo": "Website"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "16px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 2,
+          "ejemplo": "14"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "16px",
+          "espaciado": "normal",
+          "color": "rgb(246, 246, 244)",
+          "veces": 2,
+          "ejemplo": "14"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(79, 79, 76)",
+          "veces": 2,
+          "ejemplo": "Online"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(243, 247, 248, 0.78)",
+          "veces": 2,
+          "ejemplo": "Active sales"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(143, 227, 196)",
+          "veces": 2,
+          "ejemplo": "14.2%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(27, 94, 74)",
+          "veces": 2,
+          "ejemplo": "7.1%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 2,
+          "ejemplo": "Nov 2026: $42,300 revenue."
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(246, 246, 244)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "700",
+          "interlineado": "20.4px",
+          "espaciado": "-0.34px",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "Corbel Supply Co."
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "14.4px",
+          "espaciado": "normal",
+          "color": "rgb(79, 79, 76)",
+          "veces": 1,
+          "ejemplo": "Pro trial, 9 days left"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.22px",
+          "color": "rgb(79, 79, 76)",
+          "veces": 1,
+          "ejemplo": "+2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "0.24px",
+          "color": "rgb(61, 61, 61)",
+          "veces": 1,
+          "ejemplo": "MR"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(79, 79, 76)",
+          "veces": 1,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(20, 32, 42)",
+          "veces": 1,
+          "ejemplo": "11"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "37.44px",
+          "peso": "600",
+          "interlineado": "38.9376px",
+          "espaciado": "-0.936px",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "Dashboard"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(20, 32, 42)",
+          "veces": 1,
+          "ejemplo": "1,290 shoppers"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(20, 32, 42)",
+          "veces": 1,
+          "ejemplo": "live now"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "28.6px",
+          "espaciado": "-0.52px",
+          "color": "rgb(243, 247, 248)",
+          "veces": 1,
+          "ejemplo": "$48,320"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(243, 247, 248, 0.7)",
+          "veces": 1,
+          "ejemplo": "vs last month"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(20, 32, 42)",
+          "veces": 1,
+          "ejemplo": "77%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(143, 50, 32)",
+          "veces": 1,
+          "ejemplo": "−0.2 pt"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(243, 247, 248)",
+          "veces": 1,
+          "ejemplo": "Sales performance"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "600",
+          "interlineado": "34px",
+          "espaciado": "-1.19px",
+          "color": "rgb(243, 247, 248)",
+          "veces": 1,
+          "ejemplo": "86"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(243, 247, 248, 0.7)",
+          "veces": 1,
+          "ejemplo": "of 100 points"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 248)",
+          "veces": 1,
+          "ejemplo": "Ahead of plan"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(243, 247, 248, 0.78)",
+          "veces": 1,
+          "ejemplo": "Both channels beat last month. Online di"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 248)",
+          "veces": 1,
+          "ejemplo": "Improve your score"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(79, 79, 76)",
+          "veces": 1,
+          "ejemplo": "2025"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "2026"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(63, 63, 60)",
+          "veces": 1,
+          "ejemplo": "avg $31.1k"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "Nov"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(94, 230, 180)",
+          "veces": 1,
+          "ejemplo": "+21.2%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "28.6px",
+          "espaciado": "-0.52px",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "214,860"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(34, 115, 92)",
+          "veces": 1,
+          "ejemplo": "8.5%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "28.6px",
+          "espaciado": "-0.78px",
+          "color": "rgb(18, 18, 18)",
+          "veces": 1,
+          "ejemplo": "76%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(99, 99, 96)",
+          "veces": 1,
+          "ejemplo": "Website"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "article.db-kpi.tile--sky",
+          "x": 103,
+          "y": 218,
+          "w": 316,
+          "h": 162,
+          "fondo": "rgb(18, 18, 18)",
+          "borde": "0px none rgb(243, 247, 248)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "18px 20px 16px",
+          "gap": "12px",
+          "grilla": "276.484px",
+          "texto": "Active sales $48,32014.2%vs last month See orders"
+        },
+        {
+          "etiqueta": "article.db-kpi.tile--mint",
+          "x": 436,
+          "y": 218,
+          "w": 316,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "0px none rgb(20, 32, 42)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "18px 20px 16px",
+          "gap": "12px",
+          "grilla": "276.484px",
+          "texto": "Revenue $42,3007.1%vs last month See analytics"
+        },
+        {
+          "etiqueta": "article.db-kpi.tile--lemon",
+          "x": 768,
+          "y": 218,
+          "w": 316,
+          "h": 162,
+          "fondo": "rgb(226, 226, 222)",
+          "borde": "0px none rgb(20, 32, 42)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "18px 20px 16px",
+          "gap": "12px",
+          "grilla": "276.484px",
+          "texto": "Units sold 3,8426.4%vs last month 77% See products"
+        },
+        {
+          "etiqueta": "article.db-kpi.tile--coral",
+          "x": 1100,
+          "y": 218,
+          "w": 316,
+          "h": 162,
+          "fondo": "rgb(210, 210, 205)",
+          "borde": "0px none rgb(20, 32, 42)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "18px 20px 16px",
+          "gap": "12px",
+          "grilla": "276.484px",
+          "texto": "Conversion rate 4.8%−0.2 ptvs last month See funnel"
+        },
+        {
+          "etiqueta": "section.card.tile--ocean.db-perf",
+          "x": 103,
+          "y": 395,
+          "w": 427,
+          "h": 354,
+          "fondo": "rgb(18, 18, 18)",
+          "borde": "0px none rgb(243, 247, 248)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Sales performance Sales score 86+3of 100 points Ahead of pla"
+        },
+        {
+          "etiqueta": "section.card.db-an",
+          "x": 546,
+          "y": 395,
+          "w": 871,
+          "h": 354,
+          "fondo": "rgba(255, 255, 255, 0.64)",
+          "borde": "0px none rgb(18, 18, 18)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.92) 0px 0px 0px 1px inset, rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.22) 0px 22px 44px -30px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Revenue $342,300 so far this year 20252026 $60k$45k$30k$15k$"
+        },
+        {
+          "etiqueta": "div.db-tip",
+          "x": 1217,
+          "y": 453,
+          "w": 164,
+          "h": 105,
+          "fondo": "rgb(18, 18, 18)",
+          "borde": "0px none rgb(246, 246, 244)",
+          "radio": "12px",
+          "sombra": "rgba(20, 40, 56, 0.34) 0px 24px 60px -18px, rgba(20, 40, 56, 0.08) 0px 2px 6px 0px",
+          "padding": "10px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Nov 2026Forecast Revenue$42,300Orders596vs last year+21.2%"
+        },
+        {
+          "etiqueta": "section.card.db-heatc",
+          "x": 103,
+          "y": 765,
+          "w": 760,
+          "h": 258,
+          "fondo": "rgba(255, 255, 255, 0.64)",
+          "borde": "0px none rgb(18, 18, 18)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.92) 0px 0px 0px 1px inset, rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.22) 0px 22px 44px -30px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Visits by time 011k+ MonTueWedThuFriSatSun 12 AM – 8 AM12–8a"
+        },
+        {
+          "etiqueta": "section.card.db-vis",
+          "x": 879,
+          "y": 765,
+          "w": 538,
+          "h": 258,
+          "fondo": "rgba(255, 255, 255, 0.64)",
+          "borde": "0px none rgb(18, 18, 18)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.92) 0px 0px 0px 1px inset, rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.22) 0px 22px 44px -30px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Total visits 214,860 vs last month 8.5% Website162,400In sto"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "Corbel Supply Co.Pro trial, 9 days left",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 103,
+            "y": 26,
+            "w": 181,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(18, 18, 18)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(18, 18, 18)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(18, 18, 18) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "a.tab",
+          "texto": "Dashboard",
+          "transicion": {
+            "propiedad": "background-color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 395,
+            "y": 26,
+            "w": 99,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(18, 18, 18)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(18, 18, 18)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(18, 18, 18) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 2,
+          "etiqueta": "button.ibtn.ibtn--glass",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background-color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1213,
+            "y": 24,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(18, 18, 18)",
+            "backgroundColor": "rgba(255, 255, 255, 0.78)",
+            "borderColor": "rgb(18, 18, 18)",
+            "boxShadow": "rgba(255, 255, 255, 0.92) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(18, 18, 18) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.78)",
+              "rgba(255, 255, 255, 0.94)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.78)",
+              "rgba(255, 255, 255, 0.94)"
+            ]
+          }
+        },
+        {
+          "n": 3,
+          "etiqueta": "a.me",
+          "texto": "MR",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1373,
+            "y": 24,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(18, 18, 18)",
+            "backgroundColor": "rgba(255, 255, 255, 0.78)",
+            "borderColor": "rgb(18, 18, 18)",
+            "boxShadow": "rgba(255, 255, 255, 0.92) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(18, 18, 18) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.dock__btn",
+          "texto": "Search ⌘K",
+          "transicion": {
+            "propiedad": "opacity, background-color",
+            "duracion": "0.2s, 0.2s",
+            "curva": "ease, ease",
+            "demora": "0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 28,
+            "y": 295,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(246, 246, 244)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(246, 246, 244)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.74",
+            "outline": "rgb(246, 246, 244) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "a.dock__btn",
+          "texto": "11Workspace",
+          "transicion": {
+            "propiedad": "opacity, background-color",
+            "duracion": "0.2s, 0.2s",
+            "curva": "ease, ease",
+            "demora": "0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 28,
+            "y": 356,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(246, 246, 244)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(246, 246, 244)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.74",
+            "outline": "rgb(246, 246, 244) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "a.dock__btn.dock__upgrade",
+          "texto": "Upgrade to Corbel Plus",
+          "transicion": {
+            "propiedad": "opacity, background-color",
+            "duracion": "0.2s, 0.2s",
+            "curva": "ease, ease",
+            "demora": "0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 28,
+            "y": 513,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(246, 246, 244)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(246, 246, 244)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.74",
+            "outline": "rgb(246, 246, 244) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "etiqueta": "button",
+          "texto": "Overview",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 106,
+            "y": 166,
+            "w": 82,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(18, 18, 18)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(18, 18, 18)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(18, 18, 18) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 8,
+          "etiqueta": "a.btn",
+          "texto": "Full analytics",
+          "transicion": {
+            "propiedad": "background-color, color, box-shadow",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1183,
+            "y": 162,
+            "w": 131,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(18, 18, 18)",
+            "backgroundColor": "rgba(255, 255, 255, 0.78)",
+            "borderColor": "rgb(18, 18, 18)",
+            "boxShadow": "rgba(17, 17, 17, 0.17) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(18, 18, 18) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.78)",
+              "rgba(255, 255, 255, 0.94)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.78)",
+              "rgba(255, 255, 255, 0.94)"
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"9\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button ty"
+        },
+        {
+          "n": 10,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 1991.9500000000044ms exceeded.\nCall log:\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    2 × waiti"
+        },
+        {
+          "n": 11,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 1992.8319999999949ms exceeded.\nCall log:\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    2 × waiti"
+        },
+        {
+          "n": 12,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 1991.0509999999995ms exceeded.\nCall log:\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    2 × waiti"
+        },
+        {
+          "n": 13,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 1993.1810000000041ms exceeded.\nCall log:\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    2 × waiti"
+        },
+        {
+          "n": 14,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 1990.4680000000008ms exceeded.\nCall log:\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    2 × waiti"
+        },
+        {
+          "n": 15,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 1990.3739999999962ms exceeded.\nCall log:\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    2 × waiti"
+        },
+        {
+          "n": 16,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 1989.8970000000045ms exceeded.\nCall log:\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    2 × waiti"
+        },
+        {
+          "n": 17,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

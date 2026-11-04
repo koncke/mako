@@ -1,0 +1,1507 @@
+{
+  "medido": "2026-11-04T11:31:27.595Z",
+  "url": "https://demo.codeandchill.store/parley/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/parley/",
+      "ancho": 390,
+      "alto": 2497,
+      "fondo": "rgb(239, 233, 225)",
+      "letra": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+      "variables": {
+        "--bg": "#efe9e1",
+        "--bg-2": "#e7dfd4",
+        "--surface": "#fffdf9",
+        "--surface-2": "#f7f2eb",
+        "--line": "#ebe3d8",
+        "--line-strong": "#e0d6ca",
+        "--ink": "#221b26",
+        "--ink-2": "#554b5a",
+        "--ink-3": "#6b6071",
+        "--rail": "#221b26",
+        "--cream": "#fff6ee",
+        "--c-tangerine": "#e4572e",
+        "--c-teal": "#1e9a8a",
+        "--c-violet": "#5b3e8c",
+        "--c-tangerine-soft": "#f6d6c8",
+        "--c-tangerine-deep": "#c13d14",
+        "--c-violet-soft": "#e2d9ef",
+        "--good": "#176a47",
+        "--good-bg": "#e2f2e8",
+        "--bad": "#b3261e",
+        "--bad-bg": "#f8e1df",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--font-display": "\"Bricolage Grotesque\", ui-sans-serif, system-ui, sans-serif",
+        "--font-body": "\"Geist\", ui-sans-serif, system-ui, -apple-system, sans-serif",
+        "--fs-xs": ".75rem",
+        "--fs-sm": ".8125rem",
+        "--fs-md": ".9375rem",
+        "--fs-lg": "1.125rem",
+        "--fs-fig": "clamp(1.875rem, 1.3rem + 1.4vw, 2.5rem)",
+        "--fs-hero": "clamp(2.75rem, 1.9rem + 2.4vw, 3.75rem)",
+        "--fs-title": "clamp(1.625rem, 1.1rem + 1.6vw, 2.375rem)",
+        "--r-card": "20px",
+        "--r-sm": "10px",
+        "--gap": "12px",
+        "--edge": "clamp(12px, 1.4vw, 28px)",
+        "--rail-open": "236px",
+        "--rail-w": "76px",
+        "--pad": "18px",
+        "--shadow": "0 1px 0 #221b260a, 0 12px 32px -18px #221b262e",
+        "--ease-out": "cubic-bezier(.22, 1, .36, 1)",
+        "--hatch": "repeating-linear-gradient(135deg, currentColor 0 1.5px, transparent 1.5px 5px)"
+      },
+      "tipografia": [
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 26,
+          "ejemplo": "Search contacts, campaigns and pages"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.82)",
+          "veces": 16,
+          "ejemplo": "Mar: 212 new"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "11px",
+          "peso": "400",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 16,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 15,
+          "ejemplo": "Month"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 14,
+          "ejemplo": "$420"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 11,
+          "ejemplo": "Here’s how your conversations moved toda"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "18px",
+          "peso": "600",
+          "interlineado": "26.1px",
+          "espaciado": "-0.18px",
+          "color": "rgb(34, 27, 38)",
+          "veces": 6,
+          "ejemplo": "Delivery rate"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "12.1px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.72)",
+          "veces": 5,
+          "ejemplo": "Inbox, 5 unread"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 5,
+          "ejemplo": "AL"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 5,
+          "ejemplo": "32%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(23, 106, 71)",
+          "veces": 4,
+          "ejemplo": "1.4%"
+        },
+        {
+          "familia": "\"Bricolage Grotesque\", ui-sans-serif, system-ui, sans-serif",
+          "tamano": "26px",
+          "peso": "650",
+          "interlineado": "28.6px",
+          "espaciado": "-0.52px",
+          "color": "rgb(34, 27, 38)",
+          "veces": 3,
+          "ejemplo": "Good"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "30px",
+          "peso": "600",
+          "interlineado": "30px",
+          "espaciado": "-0.9px",
+          "color": "rgb(34, 27, 38)",
+          "veces": 3,
+          "ejemplo": "94.2"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "11px",
+          "peso": "400",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 3,
+          "ejemplo": "Oct 6"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 3,
+          "ejemplo": "2026"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 3,
+          "ejemplo": "2025"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 3,
+          "ejemplo": "SMS"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "18px",
+          "peso": "600",
+          "interlineado": "26.1px",
+          "espaciado": "-0.18px",
+          "color": "rgb(255, 246, 238)",
+          "veces": 2,
+          "ejemplo": "Audience"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.9)",
+          "veces": 2,
+          "ejemplo": "318 new in October 9%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 2,
+          "ejemplo": "386"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "16.5px",
+          "peso": "500",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 2,
+          "ejemplo": "%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.78)",
+          "veces": 2,
+          "ejemplo": "1,913 today 12%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(85, 75, 90)",
+          "veces": 2,
+          "ejemplo": "Replied"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 2,
+          "ejemplo": "Replied1,120"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.75)",
+          "veces": 2,
+          "ejemplo": "Replied"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "12.1px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "10px",
+          "peso": "700",
+          "interlineado": "10px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "5"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "14.95px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 1,
+          "ejemplo": "Last sync"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "13.8px",
+          "espaciado": "normal",
+          "color": "rgb(23, 106, 71)",
+          "veces": 1,
+          "ejemplo": "Just now"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "0.52px",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "NA"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "0.48px",
+          "color": "rgba(255, 246, 238, 0.9)",
+          "veces": 1,
+          "ejemplo": "Live"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "44px",
+          "peso": "600",
+          "interlineado": "44px",
+          "espaciado": "-1.32px",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "4,862"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "9%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12.6px",
+          "peso": "500",
+          "interlineado": "12.6px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 1,
+          "ejemplo": "balance"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "30d"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.62)",
+          "veces": 1,
+          "ejemplo": "7d"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "30px",
+          "peso": "600",
+          "interlineado": "30px",
+          "espaciado": "-0.9px",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "128,414"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(159, 227, 196)",
+          "veces": 1,
+          "ejemplo": "12%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "Oct 2026 · 1,410"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(34, 27, 38)",
+          "veces": 1,
+          "ejemplo": "9.4K"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 1,
+          "ejemplo": "messages"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(179, 38, 30)",
+          "veces": 1,
+          "ejemplo": "3.8%"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "div.rail__panel",
+          "x": 12,
+          "y": 818,
+          "w": 366,
+          "h": 70,
+          "fondo": "rgb(34, 27, 38)",
+          "borde": "0px none rgb(255, 246, 238)",
+          "radio": "22px",
+          "sombra": "rgba(34, 27, 38, 0.5) 0px 16px 40px -12px",
+          "padding": "4px",
+          "gap": "22px",
+          "grilla": null,
+          "texto": "Parley Overview 5 Inbox, 5 unread Campaigns Scheduled Audien"
+        },
+        {
+          "etiqueta": "article.card.card--hero",
+          "x": 16,
+          "y": 151,
+          "w": 358,
+          "h": 358,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(255, 246, 238)",
+          "radio": "20px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "18px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Audience Live 4,862 318 new in October 9% 212 Mar: 212 new 2"
+        },
+        {
+          "etiqueta": "article.card",
+          "x": 16,
+          "y": 522,
+          "w": 358,
+          "h": 152,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "20px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "18px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Delivery rate 312 queued 94.2% 1.4%"
+        },
+        {
+          "etiqueta": "article.card",
+          "x": 16,
+          "y": 686,
+          "w": 358,
+          "h": 152,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "20px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "18px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Active campaigns 6 scheduled 18/ 40 3 this week"
+        },
+        {
+          "etiqueta": "article.card",
+          "x": 16,
+          "y": 1153,
+          "w": 358,
+          "h": 171,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "20px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "18px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Credits +$100 +$250 +$500 $1,830balance $420 of $600 monthly"
+        },
+        {
+          "etiqueta": "article.card.card--dark",
+          "x": 16,
+          "y": 850,
+          "w": 358,
+          "h": 291,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(255, 246, 238, 0.08)",
+          "radio": "20px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "18px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Messages sent 30d 7d 128,414 1,913 today 12% Oct 6Oct 20Toda"
+        },
+        {
+          "etiqueta": "article.card.card--month",
+          "x": 16,
+          "y": 1336,
+          "w": 358,
+          "h": 343,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "20px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "18px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Messages by month Replied Awaiting reply 2026 2025 05001K1.5"
+        },
+        {
+          "etiqueta": "article.card",
+          "x": 16,
+          "y": 1691,
+          "w": 358,
+          "h": 336,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "20px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "18px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Channel mix This month Last 9.4Kmessages SMS 52%2.1% WhatsAp"
+        },
+        {
+          "etiqueta": "article.card",
+          "x": 16,
+          "y": 2039,
+          "w": 358,
+          "h": 365,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "20px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "18px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Top contacts Week Month AL Amara Lindqvist amara@northfold.c"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/parley/",
+      "ancho": 1440,
+      "alto": 1380,
+      "fondo": "rgb(239, 233, 225)",
+      "letra": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+      "variables": {
+        "--bg": "#efe9e1",
+        "--bg-2": "#e7dfd4",
+        "--surface": "#fffdf9",
+        "--surface-2": "#f7f2eb",
+        "--line": "#ebe3d8",
+        "--line-strong": "#e0d6ca",
+        "--ink": "#221b26",
+        "--ink-2": "#554b5a",
+        "--ink-3": "#6b6071",
+        "--rail": "#221b26",
+        "--cream": "#fff6ee",
+        "--c-tangerine": "#e4572e",
+        "--c-teal": "#1e9a8a",
+        "--c-violet": "#5b3e8c",
+        "--c-tangerine-soft": "#f6d6c8",
+        "--c-tangerine-deep": "#c13d14",
+        "--c-violet-soft": "#e2d9ef",
+        "--good": "#176a47",
+        "--good-bg": "#e2f2e8",
+        "--bad": "#b3261e",
+        "--bad-bg": "#f8e1df",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--font-display": "\"Bricolage Grotesque\", ui-sans-serif, system-ui, sans-serif",
+        "--font-body": "\"Geist\", ui-sans-serif, system-ui, -apple-system, sans-serif",
+        "--fs-xs": ".75rem",
+        "--fs-sm": ".8125rem",
+        "--fs-md": ".9375rem",
+        "--fs-lg": "1.125rem",
+        "--fs-fig": "clamp(1.875rem, 1.3rem + 1.4vw, 2.5rem)",
+        "--fs-hero": "clamp(2.75rem, 1.9rem + 2.4vw, 3.75rem)",
+        "--fs-title": "clamp(1.625rem, 1.1rem + 1.6vw, 2.375rem)",
+        "--r-card": "22px",
+        "--r-sm": "10px",
+        "--gap": "16px",
+        "--edge": "clamp(12px, 1.4vw, 28px)",
+        "--rail-open": "236px",
+        "--rail-w": "76px",
+        "--pad": "22px",
+        "--shadow": "0 1px 0 #221b260a, 0 12px 32px -18px #221b262e",
+        "--ease-out": "cubic-bezier(.22, 1, .36, 1)",
+        "--hatch": "repeating-linear-gradient(135deg, currentColor 0 1.5px, transparent 1.5px 5px)"
+      },
+      "tipografia": [
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 26,
+          "ejemplo": "Search contacts, campaigns and pages"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.82)",
+          "veces": 16,
+          "ejemplo": "Mar: 212 new"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "11px",
+          "peso": "400",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 16,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 15,
+          "ejemplo": "Month"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 14,
+          "ejemplo": "$420"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 10,
+          "ejemplo": "312 queued"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "18px",
+          "peso": "600",
+          "interlineado": "26.1px",
+          "espaciado": "-0.18px",
+          "color": "rgb(34, 27, 38)",
+          "veces": 6,
+          "ejemplo": "Delivery rate"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 5,
+          "ejemplo": "AL"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 5,
+          "ejemplo": "32%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.72)",
+          "veces": 4,
+          "ejemplo": "Inbox, 5 unread"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(23, 106, 71)",
+          "veces": 4,
+          "ejemplo": "1.4%"
+        },
+        {
+          "familia": "\"Bricolage Grotesque\", ui-sans-serif, system-ui, sans-serif",
+          "tamano": "38px",
+          "peso": "650",
+          "interlineado": "41.8px",
+          "espaciado": "-0.76px",
+          "color": "rgb(34, 27, 38)",
+          "veces": 3,
+          "ejemplo": "Good"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "40px",
+          "peso": "600",
+          "interlineado": "40px",
+          "espaciado": "-1.2px",
+          "color": "rgb(34, 27, 38)",
+          "veces": 3,
+          "ejemplo": "94.2"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "11px",
+          "peso": "400",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 3,
+          "ejemplo": "Oct 6"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 3,
+          "ejemplo": "2026"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 3,
+          "ejemplo": "2025"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 3,
+          "ejemplo": "SMS"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "18px",
+          "peso": "600",
+          "interlineado": "26.1px",
+          "espaciado": "-0.18px",
+          "color": "rgb(255, 246, 238)",
+          "veces": 2,
+          "ejemplo": "Audience"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.9)",
+          "veces": 2,
+          "ejemplo": "318 new in October 9%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 2,
+          "ejemplo": "386"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "22px",
+          "peso": "500",
+          "interlineado": "22px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 2,
+          "ejemplo": "%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.78)",
+          "veces": 2,
+          "ejemplo": "1,908 today 12%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(85, 75, 90)",
+          "veces": 2,
+          "ejemplo": "Replied"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 2,
+          "ejemplo": "Replied1,120"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.75)",
+          "veces": 2,
+          "ejemplo": "Replied"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "10px",
+          "peso": "700",
+          "interlineado": "10px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "5"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 1,
+          "ejemplo": "Here’s how your conversations moved toda"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "11px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 1,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "14.95px",
+          "espaciado": "normal",
+          "color": "rgb(34, 27, 38)",
+          "veces": 1,
+          "ejemplo": "Last sync"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "13.8px",
+          "espaciado": "normal",
+          "color": "rgb(23, 106, 71)",
+          "veces": 1,
+          "ejemplo": "Just now"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "0.52px",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "NA"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "0.48px",
+          "color": "rgba(255, 246, 238, 0.9)",
+          "veces": 1,
+          "ejemplo": "Live"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "60px",
+          "peso": "600",
+          "interlineado": "60px",
+          "espaciado": "-1.8px",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "4,862"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "9%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "16.8px",
+          "peso": "500",
+          "interlineado": "16.8px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 1,
+          "ejemplo": "balance"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "30d"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(255, 246, 238, 0.62)",
+          "veces": 1,
+          "ejemplo": "7d"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "40px",
+          "peso": "600",
+          "interlineado": "40px",
+          "espaciado": "-1.2px",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "128,409"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(159, 227, 196)",
+          "veces": 1,
+          "ejemplo": "12%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 246, 238)",
+          "veces": 1,
+          "ejemplo": "Oct 2026 · 1,410"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(34, 27, 38)",
+          "veces": 1,
+          "ejemplo": "9.4K"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(107, 96, 113)",
+          "veces": 1,
+          "ejemplo": "messages"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(179, 38, 30)",
+          "veces": 1,
+          "ejemplo": "3.8%"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "div.rail__panel",
+          "x": 20,
+          "y": 20,
+          "w": 236,
+          "h": 860,
+          "fondo": "rgb(34, 27, 38)",
+          "borde": "0px none rgb(255, 246, 238)",
+          "radio": "24px",
+          "sombra": "none",
+          "padding": "18px 15px",
+          "gap": "22px",
+          "grilla": null,
+          "texto": "Parley Overview 5 Inbox, 5 unread Campaigns Scheduled Audien"
+        },
+        {
+          "etiqueta": "article.card.card--hero",
+          "x": 116,
+          "y": 112,
+          "w": 424,
+          "h": 499,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(255, 246, 238)",
+          "radio": "22px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "22px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Audience Live 4,862 318 new in October 9% 212 Mar: 212 new 2"
+        },
+        {
+          "etiqueta": "article.card",
+          "x": 556,
+          "y": 112,
+          "w": 424,
+          "h": 174,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "22px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "22px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Delivery rate 312 queued 94.2% 1.4%"
+        },
+        {
+          "etiqueta": "article.card",
+          "x": 996,
+          "y": 112,
+          "w": 424,
+          "h": 174,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "22px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "22px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Active campaigns 6 scheduled 18/ 40 3 this week"
+        },
+        {
+          "etiqueta": "article.card",
+          "x": 556,
+          "y": 302,
+          "w": 424,
+          "h": 309,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "22px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "22px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Credits +$100 +$250 +$500 $1,830balance $420 of $600 monthly"
+        },
+        {
+          "etiqueta": "article.card.card--dark",
+          "x": 996,
+          "y": 302,
+          "w": 424,
+          "h": 309,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(255, 246, 238, 0.08)",
+          "radio": "22px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "22px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Messages sent 30d 7d 128,409 1,908 today 12% Oct 6Oct 20Toda"
+        },
+        {
+          "etiqueta": "article.card.card--month",
+          "x": 116,
+          "y": 627,
+          "w": 864,
+          "h": 732,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "22px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "22px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Messages by month Replied Awaiting reply 2026 2025 05001K1.5"
+        },
+        {
+          "etiqueta": "article.card",
+          "x": 996,
+          "y": 627,
+          "w": 424,
+          "h": 344,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "22px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "22px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Channel mix This month Last 9.4Kmessages SMS 52%2.1% WhatsAp"
+        },
+        {
+          "etiqueta": "article.card",
+          "x": 996,
+          "y": 987,
+          "w": 424,
+          "h": 373,
+          "fondo": "rgb(255, 253, 249)",
+          "borde": "1px solid rgba(34, 27, 38, 0.06)",
+          "radio": "22px",
+          "sombra": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+          "padding": "22px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Top contacts Week Month AL Amara Lindqvist amara@northfold.c"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"0\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a href=\"#"
+        },
+        {
+          "n": 1,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"1\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a href=\"#"
+        },
+        {
+          "n": 2,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"2\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a href=\"#"
+        },
+        {
+          "n": 3,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"3\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a href=\"#"
+        },
+        {
+          "n": 4,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"4\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button ty"
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.sync",
+          "texto": "Last sync Just now",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1246,
+            "y": 38,
+            "w": 118,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(34, 27, 38)",
+            "backgroundColor": "rgb(255, 253, 249)",
+            "borderColor": "rgb(235, 227, 216)",
+            "boxShadow": "rgba(34, 27, 38, 0.04) 0px 1px 0px 0px, rgba(34, 27, 38, 0.18) 0px 12px 32px -18px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(34, 27, 38) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "borderColor": [
+              "rgb(235, 227, 216)",
+              "rgb(217, 207, 194)"
+            ]
+          },
+          "alApretar": {
+            "borderColor": [
+              "rgb(235, 227, 216)",
+              "rgb(217, 207, 194)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "button.avatar",
+          "texto": "NA",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1374,
+            "y": 38,
+            "w": 46,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(255, 255, 255)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(255, 255, 255) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 7,
+          "etiqueta": "button.topup__btn",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background-color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 923,
+            "y": 321,
+            "w": 38,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(255, 246, 238)",
+            "backgroundColor": "rgb(34, 27, 38)",
+            "borderColor": "rgb(255, 246, 238)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(255, 246, 238) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(34, 27, 38)",
+              "rgb(58, 47, 64)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(34, 27, 38)",
+              "rgb(58, 47, 64)"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "button",
+          "texto": "30d",
+          "transicion": {
+            "propiedad": "color, background-color, box-shadow",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1314,
+            "y": 329,
+            "w": 43,
+            "h": 27
+          },
+          "estilo": {
+            "color": "rgb(255, 246, 238)",
+            "backgroundColor": "rgba(255, 246, 238, 0.14)",
+            "borderColor": "rgb(255, 246, 238)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(255, 246, 238) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 9,
+          "etiqueta": "a",
+          "texto": "Amara Lindqvist",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1065,
+            "y": 591,
+            "w": 101,
+            "h": 19
+          },
+          "estilo": {
+            "color": "rgb(34, 27, 38)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(34, 27, 38)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(34, 27, 38) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 10,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"10\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a target"
+        }
+      ]
+    }
+  }
+}

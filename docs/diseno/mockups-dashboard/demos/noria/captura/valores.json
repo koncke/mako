@@ -1,0 +1,2650 @@
+{
+  "medido": "2026-11-04T11:36:09.844Z",
+  "url": "https://demo.codeandchill.store/noria/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/noria/#/overview",
+      "ancho": 390,
+      "alto": 4198,
+      "fondo": "rgb(236, 238, 233)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#eceee9",
+        "--glow-a": "#d9ebe5",
+        "--glow-b": "#efe6d2",
+        "--surface": "#fbfcfa",
+        "--surface-2": "#f3f5f1",
+        "--raised": "#fff",
+        "--well": "#14221e0e",
+        "--line": "#14221e1a",
+        "--line-2": "#14221e2e",
+        "--shadow": "0 1px 2px #14221e0d, 0 14px 32px -22px #14221e47",
+        "--shadow-pop": "0 26px 60px -18px #0e1a1757, 0 2px 6px #0e1a1714",
+        "--text": "#121a17",
+        "--muted": "#56615c",
+        "--faint": "#67716c",
+        "--primary": "#0b6b5f",
+        "--on-primary": "#effcf8",
+        "--primary-soft": "#0b6b5f1f",
+        "--side": "#10201c",
+        "--on-side": "#e3eeea",
+        "--side-dim": "#e3eeea99",
+        "--side-hover": "#ffffff0f",
+        "--side-pill": "#e8b54d",
+        "--on-side-pill": "#241803",
+        "--good": "#1a6e3c",
+        "--good-c": "#2f9a5a",
+        "--bad": "#ab311f",
+        "--bad-c": "#dd5a43",
+        "--info": "#2a5fc4",
+        "--info-c": "#3d78e0",
+        "--warn": "#9a5f00",
+        "--warn-c": "#d99a1e",
+        "--idle": "#6b7671",
+        "--teal": "#12917f",
+        "--brass": "#c3922e",
+        "--sky": "#3a83cf",
+        "--ocean": "#1f7f99",
+        "--rose": "#cf4f68",
+        "--lime": "#5a9a2e",
+        "--slate": "#66747a",
+        "--coral": "#e0703f",
+        "--soft": "14%",
+        "--r-card": "22px",
+        "--r-tile": "14px",
+        "--gap": "16px",
+        "--side-w": "256px",
+        "--gutter": "clamp(16px, 1.8vw, 28px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 24,
+          "ejemplo": "All runs"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 18,
+          "ejemplo": "vs last Tuesday by now"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "28px",
+          "peso": "600",
+          "interlineado": "29.12px",
+          "espaciado": "-0.7px",
+          "color": "rgb(18, 26, 23)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 14,
+          "ejemplo": "Every run, as it happened. The brass lin"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "700",
+          "interlineado": "18.9px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 12,
+          "ejemplo": "Leila"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "normal",
+          "espaciado": "-0.125px",
+          "color": "rgb(86, 97, 92)",
+          "veces": 9,
+          "ejemplo": "#48607"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 8,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 7,
+          "ejemplo": "1"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "-0.075px",
+          "color": "rgb(18, 26, 23)",
+          "veces": 7,
+          "ejemplo": "Run pulse"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(36, 24, 3)",
+          "veces": 6,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 6,
+          "ejemplo": "7 days"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "700",
+          "interlineado": "16.875px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 6,
+          "ejemplo": "Shipment booked"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "normal",
+          "espaciado": "-0.12px",
+          "color": "rgb(86, 97, 92)",
+          "veces": 6,
+          "ejemplo": "348 ms"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "700",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 6,
+          "ejemplo": "POD matcher"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(26, 110, 60)",
+          "veces": 6,
+          "ejemplo": "Live"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(17, 32, 28)",
+          "veces": 6,
+          "ejemplo": "LH"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(227, 238, 234)",
+          "veces": 5,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 5,
+          "ejemplo": "Tuesday 20 October"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(26, 110, 60)",
+          "veces": 5,
+          "ejemplo": "OK"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(11, 107, 95)",
+          "veces": 4,
+          "ejemplo": "Retry"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 4,
+          "ejemplo": "99.5%+"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 4,
+          "ejemplo": "98.3%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "900",
+          "interlineado": "19.8px",
+          "espaciado": "-0.18px",
+          "color": "rgb(18, 26, 23)",
+          "veces": 3,
+          "ejemplo": "109"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "16.875px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 3,
+          "ejemplo": "Customs portal returned 503 Service Unav"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 3,
+          "ejemplo": "#48599 · 19 min ago"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "-0.24px",
+          "color": "color(srgb 0.535294 0.400784 0.126275)",
+          "veces": 2,
+          "ejemplo": "OI"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "-0.24px",
+          "color": "color(srgb 0.159216 0.359608 0.568235)",
+          "veces": 2,
+          "ejemplo": "BW"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(171, 49, 31)",
+          "veces": 2,
+          "ejemplo": "91.4%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "-0.24px",
+          "color": "color(srgb 0.28 0.318431 0.334902)",
+          "veces": 2,
+          "ejemplo": "PW"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(239, 252, 248)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "7"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "700",
+          "interlineado": "27.55px",
+          "espaciado": "-0.38px",
+          "color": "rgb(18, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Noria"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 1,
+          "ejemplo": "109 runs since midnight. 7 failed runs n"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Ask Copilot"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(239, 252, 248)",
+          "veces": 1,
+          "ejemplo": "New flow"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(26, 110, 60)",
+          "veces": 1,
+          "ejemplo": "+27%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(171, 49, 31)",
+          "veces": 1,
+          "ejemplo": "−0.6 pts"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "900",
+          "interlineado": "19.8px",
+          "espaciado": "-0.18px",
+          "color": "rgb(11, 107, 95)",
+          "veces": 1,
+          "ejemplo": "16.3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 1,
+          "ejemplo": "h"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 1,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "-0.28px",
+          "color": "rgb(18, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Customs entry pre-check"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(42, 95, 196)",
+          "veces": 1,
+          "ejemplo": "Running"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "-0.22px",
+          "color": "color(srgb 0.159216 0.359608 0.568235)",
+          "veces": 1,
+          "ejemplo": "BW"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "-0.22px",
+          "color": "color(srgb 0.614902 0.307451 0.172941)",
+          "veces": 1,
+          "ejemplo": "DV"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "-0.22px",
+          "color": "color(srgb 0.568235 0.216863 0.28549)",
+          "veces": 1,
+          "ejemplo": "CP"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "-0.22px",
+          "color": "color(srgb 0.247059 0.422745 0.126275)",
+          "veces": 1,
+          "ejemplo": "TC"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "0.88px",
+          "color": "rgb(86, 97, 92)",
+          "veces": 1,
+          "ejemplo": "Just finished"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "16.25px",
+          "espaciado": "-0.075px",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "7"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Ask Copilot"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 1,
+          "ejemplo": "↵"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(239, 252, 248)",
+          "veces": 1,
+          "ejemplo": "Ask"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "section.card.ov__pulse",
+          "x": 14,
+          "y": 246,
+          "w": 362,
+          "h": 661,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Run pulseEvery run, as it happened. The brass line is the sa"
+        },
+        {
+          "etiqueta": "div.kpis",
+          "x": 31,
+          "y": 385,
+          "w": 328,
+          "h": 215,
+          "fondo": "rgb(243, 245, 241)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": "163px 163px",
+          "texto": "Runs109+27%vs last Tuesday by now Succeeded96.3%−0.6 ptsvs l"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 32,
+          "y": 497,
+          "w": 163,
+          "h": 102,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "2px",
+          "grilla": "135px",
+          "texto": "Median run4.7 sacross every flow, last 48 h"
+        },
+        {
+          "etiqueta": "div.kpi.kpi--saved",
+          "x": 195,
+          "y": 497,
+          "w": 163,
+          "h": 102,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "2px",
+          "grilla": "134px",
+          "texto": "Desk time saved16.3hso far today · 2 people-days"
+        },
+        {
+          "etiqueta": "section.card.ov__live",
+          "x": 14,
+          "y": 923,
+          "w": 362,
+          "h": 695,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Live nowThe run in flight, step by step. All runs Customs en"
+        },
+        {
+          "etiqueta": "section.card.ov__look",
+          "x": 14,
+          "y": 1634,
+          "w": 362,
+          "h": 490,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Needs a look 7Failed runs nobody has handled yet. Customs en"
+        },
+        {
+          "etiqueta": "li.look__row",
+          "x": 31,
+          "y": 1709,
+          "w": 328,
+          "h": 117,
+          "fondo": "color(srgb 0.947765 0.924314 0.904157)",
+          "borde": "1px solid color(srgb 0.866667 0.352941 0.262745 / 0.18)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "8px 10px",
+          "grilla": "34px 262px",
+          "texto": "Customs entry pre-checkCustoms portal returned 503 Service U"
+        },
+        {
+          "etiqueta": "li.look__row",
+          "x": 31,
+          "y": 1834,
+          "w": 328,
+          "h": 117,
+          "fondo": "color(srgb 0.947765 0.924314 0.904157)",
+          "borde": "1px solid color(srgb 0.866667 0.352941 0.262745 / 0.18)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "8px 10px",
+          "grilla": "34px 262px",
+          "texto": "Detention invoice auditPortwatch has no gate-out event for M"
+        },
+        {
+          "etiqueta": "li.look__row",
+          "x": 31,
+          "y": 1960,
+          "w": 328,
+          "h": 117,
+          "fondo": "color(srgb 0.947765 0.924314 0.904157)",
+          "borde": "1px solid color(srgb 0.866667 0.352941 0.262745 / 0.18)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "8px 10px",
+          "grilla": "34px 262px",
+          "texto": "Customs entry pre-checkCustoms portal returned 503 Service U"
+        },
+        {
+          "etiqueta": "section.card.ov__rel",
+          "x": 14,
+          "y": 2139,
+          "w": 362,
+          "h": 346,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "ReliabilityLast 14 days, busiest flows first. POD matcher97."
+        },
+        {
+          "etiqueta": "section.card.ov__ask",
+          "x": 14,
+          "y": 2501,
+          "w": 362,
+          "h": 380,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Ask CopilotIt reads your flows and runs. It can draft a flow"
+        },
+        {
+          "etiqueta": "form.ask",
+          "x": 31,
+          "y": 2582,
+          "w": 328,
+          "h": 125,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.18)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "10px 10px 8px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Ask Copilot ↵ to sendAsk"
+        },
+        {
+          "etiqueta": "section.card.ov__flows",
+          "x": 14,
+          "y": 2897,
+          "w": 362,
+          "h": 720,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Busiest flowsThis week, by number of runs. All flows FlowSta"
+        },
+        {
+          "etiqueta": "section.card.ov__feed",
+          "x": 14,
+          "y": 3633,
+          "w": 362,
+          "h": 461,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team activityWho changed what. LHLeila edited the draft New "
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/noria/#/overview",
+      "ancho": 1440,
+      "alto": 1881,
+      "fondo": "rgb(236, 238, 233)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#eceee9",
+        "--glow-a": "#d9ebe5",
+        "--glow-b": "#efe6d2",
+        "--surface": "#fbfcfa",
+        "--surface-2": "#f3f5f1",
+        "--raised": "#fff",
+        "--well": "#14221e0e",
+        "--line": "#14221e1a",
+        "--line-2": "#14221e2e",
+        "--shadow": "0 1px 2px #14221e0d, 0 14px 32px -22px #14221e47",
+        "--shadow-pop": "0 26px 60px -18px #0e1a1757, 0 2px 6px #0e1a1714",
+        "--text": "#121a17",
+        "--muted": "#56615c",
+        "--faint": "#67716c",
+        "--primary": "#0b6b5f",
+        "--on-primary": "#effcf8",
+        "--primary-soft": "#0b6b5f1f",
+        "--side": "#10201c",
+        "--on-side": "#e3eeea",
+        "--side-dim": "#e3eeea99",
+        "--side-hover": "#ffffff0f",
+        "--side-pill": "#e8b54d",
+        "--on-side-pill": "#241803",
+        "--good": "#1a6e3c",
+        "--good-c": "#2f9a5a",
+        "--bad": "#ab311f",
+        "--bad-c": "#dd5a43",
+        "--info": "#2a5fc4",
+        "--info-c": "#3d78e0",
+        "--warn": "#9a5f00",
+        "--warn-c": "#d99a1e",
+        "--idle": "#6b7671",
+        "--teal": "#12917f",
+        "--brass": "#c3922e",
+        "--sky": "#3a83cf",
+        "--ocean": "#1f7f99",
+        "--rose": "#cf4f68",
+        "--lime": "#5a9a2e",
+        "--slate": "#66747a",
+        "--coral": "#e0703f",
+        "--soft": "14%",
+        "--r-card": "22px",
+        "--r-tile": "14px",
+        "--gap": "16px",
+        "--side-w": "256px",
+        "--gutter": "clamp(16px, 1.8vw, 28px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 24,
+          "ejemplo": "All runs"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "37.44px",
+          "peso": "600",
+          "interlineado": "38.9376px",
+          "espaciado": "-0.936px",
+          "color": "rgb(18, 26, 23)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 16,
+          "ejemplo": "vs last Tuesday by now"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 14,
+          "ejemplo": "Every run, as it happened. The brass lin"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 12,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "700",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 12,
+          "ejemplo": "POD matcher"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "700",
+          "interlineado": "18.9px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 12,
+          "ejemplo": "Leila"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(227, 238, 234)",
+          "veces": 9,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "normal",
+          "espaciado": "-0.125px",
+          "color": "rgb(86, 97, 92)",
+          "veces": 9,
+          "ejemplo": "#48607"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(36, 24, 3)",
+          "veces": 8,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 7,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "-0.075px",
+          "color": "rgb(18, 26, 23)",
+          "veces": 7,
+          "ejemplo": "Run pulse"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(26, 110, 60)",
+          "veces": 7,
+          "ejemplo": "Succeeded"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 7,
+          "ejemplo": "Flow"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 6,
+          "ejemplo": "running"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 6,
+          "ejemplo": "7 days"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 6,
+          "ejemplo": "4 min ago"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(17, 32, 28)",
+          "veces": 6,
+          "ejemplo": "LH"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(26, 110, 60)",
+          "veces": 5,
+          "ejemplo": "OK"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(36, 24, 3)",
+          "veces": 4,
+          "ejemplo": "1"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "700",
+          "interlineado": "16.875px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 4,
+          "ejemplo": "Booking confirmed"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "normal",
+          "espaciado": "-0.12px",
+          "color": "rgb(86, 97, 92)",
+          "veces": 4,
+          "ejemplo": "98 ms"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(11, 107, 95)",
+          "veces": 4,
+          "ejemplo": "Retry"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 4,
+          "ejemplo": "99.5%+"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 4,
+          "ejemplo": "98.3%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "0.99px",
+          "color": "rgba(227, 238, 234, 0.6)",
+          "veces": 3,
+          "ejemplo": "Automate"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(227, 238, 234, 0.6)",
+          "veces": 3,
+          "ejemplo": "4 failed"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "900",
+          "interlineado": "24.2px",
+          "espaciado": "-0.22px",
+          "color": "rgb(18, 26, 23)",
+          "veces": 3,
+          "ejemplo": "110"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "16.875px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 3,
+          "ejemplo": "Customs portal returned 503 Service Unav"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 3,
+          "ejemplo": "#48599 · 19 min ago"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 2,
+          "ejemplo": "Search flows, runs, apps, people…"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 2,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(239, 252, 248)",
+          "veces": 2,
+          "ejemplo": "New"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 2,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "-0.22px",
+          "color": "color(srgb 0.159216 0.359608 0.568235)",
+          "veces": 2,
+          "ejemplo": "BW"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "-0.24px",
+          "color": "color(srgb 0.535294 0.400784 0.126275)",
+          "veces": 2,
+          "ejemplo": "OI"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "-0.24px",
+          "color": "color(srgb 0.159216 0.359608 0.568235)",
+          "veces": 2,
+          "ejemplo": "BW"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(171, 49, 31)",
+          "veces": 2,
+          "ejemplo": "91.4%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "-0.24px",
+          "color": "color(srgb 0.28 0.318431 0.334902)",
+          "veces": 2,
+          "ejemplo": "PW"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(239, 252, 248)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "23.1px",
+          "espaciado": "-0.42px",
+          "color": "rgb(227, 238, 234)",
+          "veces": 1,
+          "ejemplo": "NoriaHalyard & Pike"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "13.2px",
+          "espaciado": "normal",
+          "color": "rgba(227, 238, 234, 0.6)",
+          "veces": 1,
+          "ejemplo": "Halyard & Pike"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(227, 238, 234)",
+          "veces": 1,
+          "ejemplo": "12"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "7"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(232, 181, 77)",
+          "veces": 1,
+          "ejemplo": "16 h"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "0.125px",
+          "color": "rgb(17, 32, 28)",
+          "veces": 1,
+          "ejemplo": "LH"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "700",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(227, 238, 234)",
+          "veces": 1,
+          "ejemplo": "Leila Haddad"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Ask Copilot"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(26, 110, 60)",
+          "veces": 1,
+          "ejemplo": "+29%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(171, 49, 31)",
+          "veces": 1,
+          "ejemplo": "−0.5 pts"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "900",
+          "interlineado": "24.2px",
+          "espaciado": "-0.22px",
+          "color": "rgb(11, 107, 95)",
+          "veces": 1,
+          "ejemplo": "16.3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 97, 92)",
+          "veces": 1,
+          "ejemplo": "h"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 1,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "-0.28px",
+          "color": "rgb(18, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Booking confirmations"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "-0.22px",
+          "color": "color(srgb 0.614902 0.307451 0.172941)",
+          "veces": 1,
+          "ejemplo": "DV"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "-0.22px",
+          "color": "color(srgb 0.535294 0.400784 0.126275)",
+          "veces": 1,
+          "ejemplo": "OI"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "0.88px",
+          "color": "rgb(86, 97, 92)",
+          "veces": 1,
+          "ejemplo": "Just finished"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "16.25px",
+          "espaciado": "-0.075px",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "7"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(18, 26, 23)",
+          "veces": 1,
+          "ejemplo": "Ask Copilot"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(239, 252, 248)",
+          "veces": 1,
+          "ejemplo": "Ask"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(26, 110, 60)",
+          "veces": 1,
+          "ejemplo": "+4 min"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": 12,
+          "y": 12,
+          "w": 244,
+          "h": 876,
+          "fondo": "rgb(16, 32, 28)",
+          "borde": "0px none rgb(227, 238, 234)",
+          "radio": "26px",
+          "sombra": "rgba(8, 20, 17, 0.55) 0px 30px 60px -30px",
+          "padding": "16px 12px 12px",
+          "gap": "4px",
+          "grilla": null,
+          "texto": "NoriaHalyard & Pike Automate Overview Flows12 Recipes Copilo"
+        },
+        {
+          "etiqueta": "span.nav__pill",
+          "x": 24,
+          "y": 84,
+          "w": 220,
+          "h": 468,
+          "fondo": "rgb(232, 181, 77)",
+          "borde": "0px none rgb(227, 238, 234)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "2px",
+          "grilla": "220px",
+          "texto": "AutomateOverviewFlows12RecipesCopilotMonitorRuns7Connections"
+        },
+        {
+          "etiqueta": "a.today",
+          "x": 24,
+          "y": 730,
+          "w": 220,
+          "h": 84,
+          "fondo": "rgba(255, 255, 255, 0.055)",
+          "borde": "0px none rgb(227, 238, 234)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "12px 12px 13px",
+          "gap": "8px",
+          "grilla": "196px",
+          "texto": "110 runs today4 failed 16 h of desk work saved"
+        },
+        {
+          "etiqueta": "section.card.ov__pulse",
+          "x": 282,
+          "y": 191,
+          "w": 749,
+          "h": 604,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "22px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Run pulseEvery run, as it happened. The brass line is the sa"
+        },
+        {
+          "etiqueta": "div.kpis",
+          "x": 303,
+          "y": 266,
+          "w": 707,
+          "h": 118,
+          "fondo": "rgb(243, 245, 241)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": "176.359px 176.359px 176.359px 176.375px",
+          "texto": "Runs110+29%vs last Tuesday by now Succeeded96.4%−0.5 ptsvs l"
+        },
+        {
+          "etiqueta": "section.card.ov__live",
+          "x": 1047,
+          "y": 191,
+          "w": 367,
+          "h": 604,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "22px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Live nowThe run in flight, step by step. All runs Booking co"
+        },
+        {
+          "etiqueta": "section.card.ov__look",
+          "x": 282,
+          "y": 812,
+          "w": 367,
+          "h": 496,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "22px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Needs a look 7Failed runs nobody has handled yet. Customs en"
+        },
+        {
+          "etiqueta": "li.look__row",
+          "x": 303,
+          "y": 889,
+          "w": 325,
+          "h": 117,
+          "fondo": "color(srgb 0.947765 0.924314 0.904157)",
+          "borde": "1px solid color(srgb 0.866667 0.352941 0.262745 / 0.18)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "8px 10px",
+          "grilla": "34px 258.719px",
+          "texto": "Customs entry pre-checkCustoms portal returned 503 Service U"
+        },
+        {
+          "etiqueta": "li.look__row",
+          "x": 303,
+          "y": 1014,
+          "w": 325,
+          "h": 117,
+          "fondo": "color(srgb 0.947765 0.924314 0.904157)",
+          "borde": "1px solid color(srgb 0.866667 0.352941 0.262745 / 0.18)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "8px 10px",
+          "grilla": "34px 258.719px",
+          "texto": "Detention invoice auditPortwatch has no gate-out event for M"
+        },
+        {
+          "etiqueta": "li.look__row",
+          "x": 303,
+          "y": 1140,
+          "w": 325,
+          "h": 117,
+          "fondo": "color(srgb 0.947765 0.924314 0.904157)",
+          "borde": "1px solid color(srgb 0.866667 0.352941 0.262745 / 0.18)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "8px 10px",
+          "grilla": "34px 258.719px",
+          "texto": "Customs entry pre-checkCustoms portal returned 503 Service U"
+        },
+        {
+          "etiqueta": "section.card.ov__rel",
+          "x": 665,
+          "y": 812,
+          "w": 367,
+          "h": 496,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "22px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "ReliabilityLast 14 days, busiest flows first. POD matcher97."
+        },
+        {
+          "etiqueta": "section.card.ov__ask",
+          "x": 1047,
+          "y": 812,
+          "w": 367,
+          "h": 496,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "22px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Ask CopilotIt reads your flows and runs. It can draft a flow"
+        },
+        {
+          "etiqueta": "form.ask",
+          "x": 1068,
+          "y": 895,
+          "w": 325,
+          "h": 125,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.18)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "10px 10px 8px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Ask Copilot ↵ to sendAsk"
+        },
+        {
+          "etiqueta": "section.card.ov__flows",
+          "x": 282,
+          "y": 1323,
+          "w": 749,
+          "h": 502,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "22px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Busiest flowsThis week, by number of runs. All flows FlowSta"
+        },
+        {
+          "etiqueta": "section.card.ov__feed",
+          "x": 1047,
+          "y": 1323,
+          "w": 367,
+          "h": 502,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "1px solid rgba(20, 34, 30, 0.1)",
+          "radio": "22px",
+          "sombra": "rgba(20, 34, 30, 0.05) 0px 1px 2px 0px, rgba(20, 34, 30, 0.28) 0px 14px 32px -22px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team activityWho changed what. LHLeila edited the draft New "
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "NoriaHalyard & Pike",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 30,
+            "y": 28,
+            "w": 127,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(227, 238, 234)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(227, 238, 234)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(227, 238, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "button.ibtn.ibtn--side.side__fold",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 210,
+            "y": 31,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(227, 238, 234)",
+            "backgroundColor": "rgba(255, 255, 255, 0.05)",
+            "borderColor": "rgba(255, 255, 255, 0.16)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(227, 238, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.05)",
+              "rgba(255, 255, 255, 0.1)"
+            ],
+            "borderColor": [
+              "rgba(255, 255, 255, 0.16)",
+              "rgba(255, 255, 255, 0.3)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.05)",
+              "rgba(255, 255, 255, 0.1)"
+            ],
+            "borderColor": [
+              "rgba(255, 255, 255, 0.16)",
+              "rgba(255, 255, 255, 0.3)"
+            ]
+          }
+        },
+        {
+          "n": 2,
+          "etiqueta": "a.nav__item",
+          "texto": "Overview",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 110,
+            "w": 220,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(227, 238, 234)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(227, 238, 234)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(227, 238, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          }
+        },
+        {
+          "n": 3,
+          "etiqueta": "a.today",
+          "texto": "112 runs today4 failed 17 h of desk work",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 730,
+            "w": 220,
+            "h": 84
+          },
+          "estilo": {
+            "color": "rgb(227, 238, 234)",
+            "backgroundColor": "rgba(255, 255, 255, 0.055)",
+            "borderColor": "rgb(227, 238, 234)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(227, 238, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.055)",
+              "rgba(255, 255, 255, 0.08)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.055)",
+              "rgba(255, 255, 255, 0.08)"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.me",
+          "texto": "LHLeila HaddadOps automation lead",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 822,
+            "w": 220,
+            "h": 54
+          },
+          "estilo": {
+            "color": "rgb(227, 238, 234)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(227, 238, 234)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(227, 238, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.finder-btn",
+          "texto": "Search flows, runs, apps, people…⌘K",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 282,
+            "y": 18,
+            "w": 416,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(86, 97, 92)",
+            "backgroundColor": "rgb(251, 252, 250)",
+            "borderColor": "rgba(20, 34, 30, 0.1)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(86, 97, 92) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "borderColor": [
+              "rgba(20, 34, 30, 0.1)",
+              "rgba(20, 34, 30, 0.18)"
+            ]
+          },
+          "alApretar": {
+            "borderColor": [
+              "rgba(20, 34, 30, 0.1)",
+              "rgba(20, 34, 30, 0.18)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "a.live.is-on",
+          "texto": "5running",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1110,
+            "y": 18,
+            "w": 102,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(18, 26, 23)",
+            "backgroundColor": "rgb(251, 252, 250)",
+            "borderColor": "rgba(20, 34, 30, 0.1)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(18, 26, 23) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 7,
+          "etiqueta": "button.ibtn.ibtn--glass",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1220,
+            "y": 18,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(18, 26, 23)",
+            "backgroundColor": "rgb(251, 252, 250)",
+            "borderColor": "rgba(20, 34, 30, 0.1)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(18, 26, 23) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(251, 252, 250)",
+              "rgba(20, 34, 30, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(251, 252, 250)",
+              "rgba(20, 34, 30, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "button.btn.btn--primary.top__new",
+          "texto": "New",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1324,
+            "y": 18,
+            "w": 90,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(3, 33, 27)",
+            "backgroundColor": "rgb(79, 209, 187)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "color(srgb 0.309804 0.819608 0.733333 / 0.9) 0px 10px 22px -14px, rgba(255, 255, 255, 0.14) 0px 1px 0px 0px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(3, 33, 27) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0016, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0004, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "etiqueta": "a.btn.btn--ghost",
+          "texto": "Ask Copilot",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1156,
+            "y": 127,
+            "w": 131,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(231, 238, 235)",
+            "backgroundColor": "rgb(18, 25, 23)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 238, 235) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(18, 25, 23)",
+              "rgb(23, 32, 29)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(18, 25, 23)",
+              "rgb(23, 32, 29)"
+            ]
+          }
+        },
+        {
+          "n": 10,
+          "etiqueta": "button.btn.btn--primary.magnetic",
+          "texto": "New flow",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1294,
+            "y": 127,
+            "w": 120,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(3, 33, 27)",
+            "backgroundColor": "rgb(79, 209, 187)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "color(srgb 0.309804 0.819608 0.733333 / 0.9) 0px 10px 22px -14px, rgba(255, 255, 255, 0.14) 0px 1px 0px 0px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(3, 33, 27) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0005, -0.0011)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0002, -0.0003)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "etiqueta": "button.seg__btn",
+          "texto": "Today",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 773,
+            "y": 213,
+            "w": 62,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(231, 238, 235)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(231, 238, 235)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 238, 235) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 12,
+          "etiqueta": "button.ibtn.ibtn--sm.card__expand",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 978,
+            "y": 213,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(231, 238, 235)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 238, 235) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 13,
+          "etiqueta": "a.btn.btn--xs.btn--ghost",
+          "texto": "All runs",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1328,
+            "y": 210,
+            "w": 65,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(231, 238, 235)",
+            "backgroundColor": "rgb(18, 25, 23)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 238, 235) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(18, 25, 23)",
+              "rgb(23, 32, 29)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(18, 25, 23)",
+              "rgb(23, 32, 29)"
+            ]
+          }
+        },
+        {
+          "n": 14,
+          "etiqueta": "a",
+          "texto": "OKBooking confirmations10:43",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1068,
+            "y": 687,
+            "w": 325,
+            "h": 37
+          },
+          "estilo": {
+            "color": "rgb(231, 238, 235)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(231, 238, 235) rgb(231, 238, 235) rgba(255, 255, 255, 0.08)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 238, 235) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 15,
+          "etiqueta": "button.btn.btn--xs.btn--soft",
+          "texto": "Retry",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 358,
+            "y": 435,
+            "w": 74,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(79, 209, 187)",
+            "backgroundColor": "rgba(79, 209, 187, 0.14)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(79, 209, 187) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(79, 209, 187, 0.14)",
+              "color(srgb 0.309804 0.819608 0.733333 / 0.2)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(79, 209, 187, 0.14)",
+              "color(srgb 0.309804 0.819608 0.733333 / 0.2)"
+            ]
+          }
+        },
+        {
+          "n": 16,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"16\"]')\u001b[22m\n"
+        },
+        {
+          "n": 17,
+          "etiqueta": "a.rel__row",
+          "texto": "POD matcher97.9%",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 680,
+            "y": 355,
+            "w": 337,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(231, 238, 235)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(231, 238, 235)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 238, 235) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(23, 32, 29)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(23, 32, 29)"
+            ]
+          }
+        },
+        {
+          "n": 18,
+          "etiqueta": "button.btn.btn--sm.btn--primary",
+          "texto": "Ask",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1309,
+            "y": 432,
+            "w": 73,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(3, 33, 27)",
+            "backgroundColor": "rgb(79, 209, 187)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "color(srgb 0.309804 0.819608 0.733333 / 0.9) 0px 10px 22px -14px, rgba(255, 255, 255, 0.14) 0px 1px 0px 0px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(3, 33, 27) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          }
+        },
+        {
+          "n": 19,
+          "etiqueta": "button.ask__sug",
+          "texto": "Why did the detention audit fail?",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1068,
+            "y": 431,
+            "w": 325,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(231, 238, 235)",
+            "backgroundColor": "rgb(23, 32, 29)",
+            "borderColor": "rgba(255, 255, 255, 0.08)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 238, 235) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(231, 238, 235)",
+              "rgb(79, 209, 187)"
+            ],
+            "borderColor": [
+              "rgba(255, 255, 255, 0.08)",
+              "color(srgb 0.309804 0.819608 0.733333 / 0.4)"
+            ],
+            "outline": [
+              "rgb(231, 238, 235) none 3px",
+              "rgb(79, 209, 187) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(231, 238, 235)",
+              "rgb(79, 209, 187)"
+            ],
+            "borderColor": [
+              "rgba(255, 255, 255, 0.08)",
+              "color(srgb 0.309804 0.819608 0.733333 / 0.4)"
+            ],
+            "outline": [
+              "rgb(231, 238, 235) none 3px",
+              "rgb(79, 209, 187) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 20,
+          "etiqueta": "tr",
+          "texto": "OIPOD matcherEmail with an attachment in",
+          "transicion": {
+            "propiedad": "background-color",
+            "duracion": "0.15s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 295,
+            "y": 451,
+            "w": 748,
+            "h": 62
+          },
+          "estilo": {
+            "color": "rgb(231, 238, 235)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(231, 238, 235)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 238, 235) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(23, 32, 29)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(23, 32, 29)"
+            ]
+          }
+        },
+        {
+          "n": 21,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

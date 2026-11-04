@@ -1,0 +1,94 @@
+##############################################################################
+#  TEND   bundle 182kB - 26 helpers - 9 chunks - ARQ VANILLA - 16 fromTo crudos
+##############################################################################
+
+CHUNKS: campaigns-ChfRlS5v.js, charts-rcCLLbpX.js, inbox-D1osjwsi.js, patients-DgUJnzR9.js, reports-data-dQSaGnST.js, reports-fMtct1-O.js, schedule-DRtwJxcu.js, settings-CzGEb0DE.js, today-D1rpBgY4.js
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[o -> export (no exp)]  (t,a,o,s){var l;typeof a==`number`&&(o.duration=a,a=o,o=null),l=r.call(this,s?a:Ie(a))||this;var u=l.vars,d=u.duration,f=u.delay,p=u.immediateRender,m=u.stagger,h=u.overwrite,g=u.keyframes,v=u.defaults,x=u.scrollTrigger,T=a.parent||N,E=(w(t)||C(t)?_(t[0]):`length`in a)?[t]:gt(t),D,O,k,A,j,M,ee,te;if(l._targets=E.length?ye(E):ie(`GSAP target `+t+` not found. https://gsap.com`,!n.nullTargetWarn)||[],l._ptLookup=[],l._overwrite=h,g||m||S(d)||S(f)){a=l.vars;var P=a.easeReverse||a.yoyoEase;if(D=l.timeline=new ln({data:`nested`,defaults:v||{},targets:T&&T.data...
+
+[ro -> export Rn]  (e,t=0){if(!e)return U.timeline();let n=no(e);return U.fromTo(n,{yPercent:115,rotation:6},{yPercent:0,rotation:0,duration:G(.85),ease:`power4.out`,stagger:G(.022),delay:G(t),clearProps:`transform`})}
+
+[io -> export Pn]  (e,{y:t=34,stagger:n=.07,delay:r=0}={}){return e.length?U.fromTo(e,{opacity:0,y:t,scale:.985},{opacity:1,y:0,scale:1,duration:G(.9),ease:`power3.out`,stagger:G(n),delay:G(r),clearProps:`transform,opacity`}):U.timeline()}
+
+[ao -> export An]  (e,{x:t=0,y:n=12,stagger:r=.045,delay:i=0}={}){return e.length?U.fromTo(e,{opacity:0,x:t,y:n},{opacity:1,x:0,y:0,duration:G(.55),ease:`power3.out`,stagger:G(r),delay:G(i),clearProps:`transform,opacity`}):U.timeline()}
+
+[oo -> export Dn]  (e,{delay:t=0,stagger:n=.06}={}){return e.length?U.fromTo(e,{opacity:0,y:40,rotation:e=>e%2?3:-3,scale:.94},{opacity:1,y:0,rotation:0,scale:1,duration:G(.8),ease:`back.out(1.4)`,stagger:G(n),delay:G(t),clearProps:`transform,opacity`}):U.timeline()}
+
+[so -> export In]  (e,{from:t=.6,delay:n=0,stagger:r=.05}={}){!e||Za.matches||U.fromTo(e,{scale:t,opacity:0},{scale:1,opacity:1,duration:.6,ease:`back.out(3)`,delay:n,stagger:r,overwrite:`auto`,clearProps:`transform,opacity`})}
+
+[co -> export Tn]  (e){e&&(e.classList.remove(`is-flash`),e.offsetWidth,e.classList.add(`is-flash`),!Za.matches&&U.fromTo(e,{y:-4,scale:1.06},{y:0,scale:1,duration:.55,ease:`back.out(2.4)`,overwrite:`auto`,clearProps:`transform`}))}
+
+[lo -> export Mn]  (e,t){if(!e||Za.matches)return;let n=e.getBoundingClientRect(),r=Object.assign(document.createElement(`span`),{className:`float-up`,textContent:t});r.setAttribute(`aria-hidden`,`true`),Object.assign(r.style,{left:`${n.left+n.width/2}px`,top:`${n.top}px`}),document.body.append(r),U.fromTo(r,{opacity:0,y:6,xPercent:-50,scale:.9},{keyframes:[{opacity:1,y:-12,scale:1,duration:.35,ease:`back.out(2)`},{opacity:0,y:-40,duration:.8,ease:`power2.in`,delay:.6}],onComplete:()=>r.remove()})}
+
+[fo -> export En]  (e,t,n,{duration:r=1.2,delay:i=0,from:a}={}){if(!e)return;let o=uo.get(e);if(o||uo.set(e,o={v:a??0}),a!==void 0&&(o.v=a),U.killTweensOf(o),Za.matches||!r||o.v===t){o.v=t,e.textContent=n(t);return}let s=o;e.textContent=n(s.v),U.to(s,{v:t,duration:r,delay:i,ease:`power3.out`,onUpdate:()=>{e.textContent=n(s.v)},onComplete:()=>{e.textContent=n(t)}})}
+
+[po -> export Vn]  (e){if(Za.matches)return;let t=e.querySelector(`svg`)??e;U.fromTo(t,{scale:.72},{scale:1,duration:.55,ease:`back.out(3)`,overwrite:!0})}
+
+[go -> export Nn]  (e=document,t=-4){$a.matches&&q(`[data-lift]`,e).forEach(e=>{e.__lift||(e.__lift=!0,e.addEventListener(`pointerenter`,()=>{!Za.matches&&ho.v&&U.to(e,{y:t,duration:.45,ease:`power3.out`,overwrite:`auto`})}),e.addEventListener(`pointerleave`,()=>{ho.v&&U.to(e,{y:0,duration:.5,ease:`power3.out`,overwrite:`auto`,clearProps:`transform`})}))})}
+
+[wc -> export R]  (e,t=0){let n=U.timeline({delay:G(t)});n.add(ro(to(`.head__title`,e)),0);let r=to(`.head__back`,e);return r&&n.fromTo(r,{opacity:0,x:-14},{opacity:1,x:0,duration:G(.6),ease:`power3.out`,clearProps:`transform,opacity`},0),n.add(ao(q(`.head__eyebrow`,e),{y:8}),0),n.add(ao(q(`.head .stat, .head__actions > *`,e),{y:14,stagger:.07}),.12),n.add(()=>Sc(K(`.head`,e)),.15),n}
+
+[Ec -> export dt]  (e,t,n,r=!0,i=999){if(!n||!n.offsetWidth){U.set(e,{opacity:0});return}let a=t.scrollWidth,o=t.scrollHeight,s={l:n.offsetLeft,r:a-(n.offsetLeft+n.offsetWidth),t:n.offsetTop,b:o-(n.offsetTop+n.offsetHeight)},c=e=>`inset(${e.t}px ${e.r}px ${e.b}px ${e.l}px round ${i}px)`,l=e,u=l.__e;if(l.__e=s,!r||Qa()||!u||Number(U.getProperty(e,`opacity`))===0){U.killTweensOf(l.__st??{}),l.__st={...s},U.set(e,{clipPath:c(s),opacity:1});return}let d=l.__st??{...u};l.__st=d,U.killTweensOf(d);let f=Math.abs(s.t-u.t)>Math.abs(s.l-u.l),p=f?s.t>u.t:s.l>u.l,[m,h]=f?p?[`b`,`t`]:[...
+
+[jc -> export it]  (e,t,{cls:n=``,align:r=`end`,label:i=``,onClose:a}={}){if(kc?.anchor===e)return Ac(),null;Ac();let o=document.createElement(`div`);o.className=`pop ${n}`,i&&(o.setAttribute(`role`,`dialog`),o.setAttribute(`aria-label`,i)),typeof t==`string`?o.innerHTML=t:o.append(t),K(`.pop-layer`).append(o),e.setAttribute(`aria-expanded`,`true`);let s=()=>{let t=e.getBoundingClientRect(),n=o.offsetWidth,i=o.offsetHeight,a=innerWidth,s=innerHeight,c=r===`start`?t.left:r===`center`?t.left+t.width/2-n/2:t.right-n;c=Math.max(12,Math.min(a-n-12,c));let l=t.bottom+8+i<s-12||t...
+
+[d -> export (no exp)]  (t=!1){!kc||kc.el!==o||(kc=null,e.setAttribute(`aria-expanded`,`false`),document.removeEventListener(`pointerdown`,c,!0),document.removeEventListener(`keydown`,l,!0),removeEventListener(`resize`,u),removeEventListener(`scroll`,u,!0),U.to(o,{opacity:0,scale:.96,duration:G(.16),ease:`power2.in`,onComplete:()=>o.remove()}),t&&e.focus(),a?.())}
+
+[Nc -> export (no exp)]  (e,t){e.showModal(),U.fromTo(e,t,{opacity:1,x:0,y:0,scale:1,duration:G(.45),ease:`back.out(1.5)`,clearProps:`transform`})}
+
+[Pc -> export (no exp)]  (e,t,n){!e.open||e.dataset.closing||(e.dataset.closing=`1`,U.to(e,{...t,opacity:0,duration:G(.22),ease:`power2.in`,onComplete:()=>{delete e.dataset.closing,e.close(),U.set(e,{clearProps:`all`}),n?.()}}))}
+
+[Vc -> export _t]  (e,{undo:t,ico:n=`check`}={}){let r=K(`.toast`),i=K(`.toast__undo`,r);K(`.toast__ico`,r).innerHTML=$(n),K(`.toast__msg`,r).textContent=e,Bc=t??null,i.hidden=!t,U.killTweensOf(r),U.timeline().fromTo(r,{opacity:0,y:18,scale:.96,visibility:`visible`},{opacity:1,y:0,scale:1,duration:G(.45),ease:`back.out(1.8)`}).to(r,{opacity:0,y:10,duration:G(.3),ease:`power2.in`,onComplete:()=>{Bc=null,i.hidden=!0,U.set(r,{visibility:`hidden`})}},t?`+=5`:`+=2.6`)}
+
+[Wc -> export (no exp)]  (e,t){if(Uc&&Uc!==e&&Gc(),e.classList.contains(`is-focus`)){Gc();return}let n=[...e.children],r=document.createElement(`div`);r.className=`card-ph`;let i=getComputedStyle(e);Object.assign(r.style,{gridArea:i.gridArea,gridColumn:i.gridColumn,gridRow:i.gridRow,height:`${e.offsetHeight}px`}),e.before(r);let a=Xa.getState(e);e.classList.add(`is-focus`),document.documentElement.classList.add(`has-focus`),Uc=e,t?.setAttribute(`aria-label`,`Collapse`),U.set(n,{opacity:0}),U.to(K(`.scrim`),{autoAlpha:1,duration:G(.35)}),Xa.from(a,{duration:G(.6),ease:`power3.inO...
+
+[Gc -> export (no exp)]  (){let e=Uc;if(!e)return;Uc=null;let t=e.previousElementSibling,n=[...e.children];U.to(K(`.scrim`),{autoAlpha:0,duration:G(.3)}),U.to(n,{opacity:0,duration:G(.14),onComplete:()=>{let r=Xa.getState(e);e.classList.remove(`is-focus`),document.documentElement.classList.remove(`has-focus`),t?.classList.contains(`card-ph`)&&t.remove(),to(`[data-expand]`,e)?.setAttribute(`aria-label`,`Expand`),e.dispatchEvent(new CustomEvent(`card:resize`)),Xa.from(r,{duration:G(.5),ease:`power3.inOut`,scale:!0,onComplete:()=>U.set(e,{clearProps:`transform`})}),U.to(n,{opacity:...
+
+[Jc -> export V]  (e,t){let n=new Map;q(`[data-key]`,e).forEach(e=>n.set(e.dataset.key,e.getBoundingClientRect())),t(),q(`[data-key]`,e).forEach(e=>{let t=n.get(e.dataset.key);if(!t){U.fromTo(e,{opacity:0,y:12,scale:.97},{opacity:1,y:0,scale:1,duration:G(.45),ease:`power3.out`,clearProps:`transform,opacity`});return}let r=e.getBoundingClientRect(),i=t.left-r.left,a=t.top-r.top;(i||a)&&U.fromTo(e,{x:i,y:a},{x:0,y:0,duration:G(.55),ease:`power3.inOut`,clearProps:`transform`})})}
+
+[Yc -> export z]  (e,t){U.to(e,{opacity:0,scale:.94,y:-6,duration:G(.25),ease:`power2.in`,onComplete:t})}
+
+[gu -> export (no exp)]  (e=!1){let{name:t,params:n}=su(location.hash),r=++hu;Ac(),Kc()&&Gc();let i=K(`[data-view="${t}"]`);if(mu?.name===t){mu.page.enter({params:n,first:!1,same:!0}),_u(mu.page,n);return}let a=pu.get(t);if(!a){try{a=(await ou[t]()).page}catch(e){console.error(e),Vc(`${iu[t]} couldn’t load. Check your connection and try again.`,{ico:`alert`});return}if(r!==hu)return;a.mount(i),pu.set(t,a)}if(r!==hu)return;let o=i.dataset.entered!==`1`,s=mu;mu={name:t,page:a},s?.page.leave?.(),fu(t,!e),_u(a,n),document.documentElement.dataset.route=t;let c=()=>{q(`.view`).forEach...
+
+[Eu -> export (no exp)]  (){vu.open||(Ac(),yu.value=``,Su=0,Tu(),vu.showModal(),U.fromTo(vu,{opacity:0,y:-14,scale:.97},{opacity:1,y:0,scale:1,duration:G(.38),ease:`back.out(1.6)`,clearProps:`transform`}),ao(q(`.finder__opt`,bu),{y:8,stagger:.025}),yu.focus())}
+
+[Du -> export (no exp)]  (){U.to(vu,{opacity:0,y:-8,duration:G(.16),ease:`power2.in`,onComplete:()=>{vu.close(),U.set(vu,{clearProps:`all`})}})}
+
+[Bu -> export (no exp)]  (){document.documentElement.classList.add(`is-ready`);let e=matchMedia(`(max-width: 760px)`).matches;U.timeline().fromTo(`.side`,e?{y:90,opacity:0}:{x:-60,opacity:0},{x:0,y:0,opacity:1,duration:G(.9),ease:`power3.out`,clearProps:`transform,opacity`},0).add(ao(q(`.brand, .nav__label, .nav__track > .nav__item, .side__foot > *`).filter(e=>e.offsetParent),e?{y:10,stagger:.04}:{x:-12,y:0,stagger:.04}),.15).add(ao(q(`.top > *`).filter(e=>e.offsetParent),{y:-12,stagger:.05}),.05).add(()=>gu(!0),.12).add(()=>{ho.v=!0},1.6),zu()}
+
+========================== TIMELINE DEL ARMAZON ==========================
+(this)},e}(),Ya=function(){function e(e){this.id=e,this.actions=[],this._kill=[],this._final=[],this._abs=[],this._run=[],this.data={},this.state=new Ka,this.timeline=qi.timeline()}var t=e.prototype;return t.add=function(e){var t=this.actions.filter(function(t){return t.vars===e});return t.length?t[0]:(t=new Ja(typeof e==`function`?{animate:e}:e,this),this.actions.push(t),t)},t.remove=function(e){var t=this.actions.indexOf(e);return t>=0&&this.actions.splice(t,1),this},t.getState=function(e){var t=this,n=W,r=Ji;return W=this,this.state.clear(),this._kill.length=0,this.actions.forEach(function(n){n.vars.getState&&(n.states.length=0,Ji=n,n.state=n.vars.getState(n)),e&&n.states.forEach(function(e){return t.state.add(e)})}),Ji=r,W=n,this.killConflicts(),this},t.animate=function(){var e=this,t=W,n=this.timeline,r=this.actions.length,i,a;for(W=this,n.clear(),this._abs.length=this._final.length=this._run.length=0,this.actions.forEach(function(e){e.vars.animate&&e.vars.animate(e);var t=e.vars.onEnter,n=e.vars.onLeave,r=e.targets,i,a;r&&r.length&&(t||n)&&(i=new Ka,e.states.forEach(function(e){return i.add(e)}),a=i.compare(Xa.getState(r)),a.enter.length&&t&&t(a.enter),a.leave.length&&n&&n(a.leave))}),Ea(this._abs),this._run.forEach(function(e){return e()}),a=n.duration(),i=this._final.slice(0),n.add(function(){a<=n.time()&&(i.forEach(function(e){return e()}),Qi(e,`onComplete`))}),W=t;r--;)this.actions[r].vars.once&&this.actions[r].kill();return Qi(this,`onStart`),n.restart(),this},t.loadState=function(e){e||=function(){return 0};var t=[];return this.actions.forEach(function(n){if(n.vars.loadState){var r,i=function i(a){a&&(n.targets=a),r=t.indexOf(i),~r&&(t.splice(r,1),t.length||e())};t.push(i),n.vars.loadState(i)}}),t.length||e(),this},t.setState=function(){return this.actions.forEach(function(e){return e.targets=e.vars.setState&&e.vars.setState(e
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2px solid var(--primary);outline-offset:2px }
+  .nav__item:hover { background:#ffffff0f }
+  .nav__pill .nav__item:hover { background:0 0 }
+  .me:hover { background:#ffffff0f }
+  .finder-btn:hover { border-color:var(--line-2) }
+  .ibtn:hover { background:var(--well) }
+  .btn--primary:hover { filter:brightness(1.12) }
+  :root[data-theme=dark] .btn--primary:hover { filter:brightness(.94) }
+  .btn--wa:hover { filter:brightness(1.06) }
+  .btn--ghost:hover { background:var(--surface-2) }
+  .btn--soft:hover { background:color-mix(in srgb, var(--teal) 24%, transparent) }
+  .input:focus,.search:focus-within { border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent) }
+  .chip:hover { border-color:var(--line-2) }
+  .table tbody tr:hover { background:var(--surface-2) }
+  .chart:focus-visible { outline:2px solid var(--primary);outline-offset:4px;border-radius:12px }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--well);outline:none }
+  .pop__row:hover,.pop__row:focus-visible { background:var(--well);outline:none }
+  .nav__item:hover,.ibtn:hover,.btn--ghost:hover,.table tbody tr:hover,.menu__item:hover,.pop__row:hover,.me:hover { background:0 0 }
+  .btn--ghost:hover { background:var(--surface) }
+  .btn--primary:hover,.btn--wa:hover { filter:none }
+  .ibtn:active,.pop__row:active,.menu__item:active { background:var(--well) }
+
+  -- keyframes --
+  @keyframes flash {0%{color:var(--teal)}to{color:inherit}}
+  @keyframes fade {0%{opacity:0}}
+
+  -- transitions --
+  transition:background-color .15s
+  transition:opacity .15s
+  transition:transform .3s var(--ease)

@@ -1,0 +1,2188 @@
+{
+  "medido": "2026-11-04T11:22:14.167Z",
+  "url": "https://demo.codeandchill.store/ondra/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/ondra/#/overview",
+      "ancho": 390,
+      "alto": 3704,
+      "fondo": "rgb(238, 240, 236)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#eef0ec",
+        "--surface": "#fbfcfa",
+        "--surface-2": "#f3f5f1",
+        "--raised": "#fff",
+        "--well": "#14261f0e",
+        "--line": "#14261f14",
+        "--line-2": "#14261f29",
+        "--rim": "inset 0 0 0 1px #14261f13",
+        "--shadow": "0 1px 2px #14261f0a, 0 10px 28px -20px #14261f4d",
+        "--shadow-pop": "0 26px 60px -20px #14261f57, 0 2px 6px #14261f14",
+        "--text": "#15201c",
+        "--muted": "#4f5c56",
+        "--faint": "#5f6c66",
+        "--primary": "#c4461d",
+        "--on-primary": "#fff",
+        "--primary-soft": "#c4461d1a",
+        "--side": "oklch(25% .035 165)",
+        "--side-2": "oklch(29% .04 165)",
+        "--on-side": "#e7efe9",
+        "--side-dim": "#e7efe99e",
+        "--side-hover": "#ffffff12",
+        "--live": "#f0643a",
+        "--on-live": "#fff",
+        "--ember": "oklch(64% .16 42)",
+        "--steel": "oklch(60% .12 250)",
+        "--gold": "oklch(74% .14 78)",
+        "--sea": "oklch(61% .1 192)",
+        "--moss": "oklch(63% .13 138)",
+        "--rose": "oklch(62% .15 10)",
+        "--slate": "oklch(58% .035 240)",
+        "--pine": "oklch(53% .09 165)",
+        "--clay": "oklch(60% .08 55)",
+        "--good": "oklch(47% .12 150)",
+        "--warn": "oklch(52% .11 70)",
+        "--bad": "oklch(52% .18 25)",
+        "--info": "oklch(50% .12 250)",
+        "--side-accent": "oklch(80% .1 45)",
+        "--soft": "14%",
+        "--av-ink": "#15201c",
+        "--r-card": "20px",
+        "--r-tile": "14px",
+        "--r-ctl": "12px",
+        "--gap": "12px",
+        "--side-w": "248px",
+        "--side-inset": "12px",
+        "--gutter": "clamp(16px, 1.8vw, 30px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 28,
+          "ejemplo": "Paid search"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 25,
+          "ejemplo": "Thursday, October 22"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 21,
+          "ejemplo": "vs $309,494"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "27.04px",
+          "espaciado": "-0.65px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 16,
+          "ejemplo": "Last 30 days against the 30 before"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 8,
+          "ejemplo": "up 11.9%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "18.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 7,
+          "ejemplo": "Performance"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 7,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 6,
+          "ejemplo": "30 days"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 6,
+          "ejemplo": "24%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "16.8px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 6,
+          "ejemplo": "5.42×"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "13.2px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 6,
+          "ejemplo": "ROAS"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 6,
+          "ejemplo": "DR"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 6,
+          "ejemplo": "Diego moved Cascade Basecamp Supply to P"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "16.1px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 5,
+          "ejemplo": "122k"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "0.125px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 5,
+          "ejemplo": "GL"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 5,
+          "ejemplo": "77"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 4,
+          "ejemplo": "Campaigns"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "600",
+          "interlineado": "19.8px",
+          "espaciado": "-0.27px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 4,
+          "ejemplo": "$346,383"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.12 150)",
+          "veces": 4,
+          "ejemplo": "+11.9%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(196, 70, 29)",
+          "veces": 4,
+          "ejemplo": "All campaigns"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "13.8px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 4,
+          "ejemplo": "start"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.52 0.18 25)",
+          "veces": 2,
+          "ejemplo": "−1.5%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 1,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "700",
+          "interlineado": "29px",
+          "espaciado": "-0.5px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 1,
+          "ejemplo": "Ondra"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 1,
+          "ejemplo": "Revenue is up 11.9% on the 30 days befor"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(196, 70, 29)",
+          "veces": 1,
+          "ejemplo": "9 new leads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Plan a campaign"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(238, 240, 236)",
+          "veces": 1,
+          "ejemplo": "All"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "13.8px",
+          "espaciado": "normal",
+          "color": "oklch(0.52 0.18 25)",
+          "veces": 1,
+          "ejemplo": "12.7%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "700",
+          "interlineado": "27.3px",
+          "espaciado": "-0.65px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 1,
+          "ejemplo": "$28,495"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.52 0.11 70)",
+          "veces": 1,
+          "ejemplo": "10% under"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "section.card.ov__hero",
+          "x": 14,
+          "y": 246,
+          "w": 362,
+          "h": 615,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "PerformanceLast 30 days against the 30 before 7 days30 days9"
+        },
+        {
+          "etiqueta": "div.kpis",
+          "x": 30,
+          "y": 360,
+          "w": 330,
+          "h": 203,
+          "fondo": "rgb(243, 245, 241)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "18px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset",
+          "padding": "6px",
+          "gap": "8px",
+          "grilla": "155px 155px",
+          "texto": "Revenue $346,383 +11.9%vs $309,494 Orders 2,705 +12.4%vs 2,4"
+        },
+        {
+          "etiqueta": "button.kpi.kpi--ember",
+          "x": 36,
+          "y": 366,
+          "w": 155,
+          "h": 91,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "13px",
+          "sombra": "rgba(20, 38, 31, 0.06) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 8px 18px -10px",
+          "padding": "10px",
+          "gap": "6px",
+          "grilla": "135px",
+          "texto": "Revenue $346,383 +11.9%vs $309,494"
+        },
+        {
+          "etiqueta": "section.card.ov__mix",
+          "x": 14,
+          "y": 873,
+          "w": 362,
+          "h": 513,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Where it came fromBy channel, same period RevenueOrdersSpend"
+        },
+        {
+          "etiqueta": "section.card.ov__live",
+          "x": 14,
+          "y": 1398,
+          "w": 362,
+          "h": 468,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Running now9 live campaigns · spend against budget All campa"
+        },
+        {
+          "etiqueta": "section.card.ov__fun",
+          "x": 14,
+          "y": 1879,
+          "w": 362,
+          "h": 340,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Checkout funnelLast 30 days, every visit Details AllSocialSe"
+        },
+        {
+          "etiqueta": "section.card.ov__hot",
+          "x": 14,
+          "y": 2231,
+          "w": 362,
+          "h": 376,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Hottest leadsWholesale, by score Pipeline GL Northfork Outfi"
+        },
+        {
+          "etiqueta": "section.card.ov__pace",
+          "x": 14,
+          "y": 2619,
+          "w": 362,
+          "h": 419,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "October budget$28,495 of $41,300 spent Budgets $28,49569% of"
+        },
+        {
+          "etiqueta": "ul.pace",
+          "x": 30,
+          "y": 2939,
+          "w": 330,
+          "h": 83,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px dashed rgba(20, 38, 31, 0.16)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "12px 0px 0px",
+          "gap": "8px",
+          "grilla": "330px",
+          "texto": "Paid socialOn pacePaid search3% overCreators10% under"
+        },
+        {
+          "etiqueta": "section.card.ov__feed",
+          "x": 14,
+          "y": 3050,
+          "w": 362,
+          "h": 562,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team activityWhat changed today DRDiego moved Cascade Baseca"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/ondra/#/overview",
+      "ancho": 1440,
+      "alto": 1872,
+      "fondo": "rgb(238, 240, 236)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#eef0ec",
+        "--surface": "#fbfcfa",
+        "--surface-2": "#f3f5f1",
+        "--raised": "#fff",
+        "--well": "#14261f0e",
+        "--line": "#14261f14",
+        "--line-2": "#14261f29",
+        "--rim": "inset 0 0 0 1px #14261f13",
+        "--shadow": "0 1px 2px #14261f0a, 0 10px 28px -20px #14261f4d",
+        "--shadow-pop": "0 26px 60px -20px #14261f57, 0 2px 6px #14261f14",
+        "--text": "#15201c",
+        "--muted": "#4f5c56",
+        "--faint": "#5f6c66",
+        "--primary": "#c4461d",
+        "--on-primary": "#fff",
+        "--primary-soft": "#c4461d1a",
+        "--side": "oklch(25% .035 165)",
+        "--side-2": "oklch(29% .04 165)",
+        "--on-side": "#e7efe9",
+        "--side-dim": "#e7efe99e",
+        "--side-hover": "#ffffff12",
+        "--live": "#f0643a",
+        "--on-live": "#fff",
+        "--ember": "oklch(64% .16 42)",
+        "--steel": "oklch(60% .12 250)",
+        "--gold": "oklch(74% .14 78)",
+        "--sea": "oklch(61% .1 192)",
+        "--moss": "oklch(63% .13 138)",
+        "--rose": "oklch(62% .15 10)",
+        "--slate": "oklch(58% .035 240)",
+        "--pine": "oklch(53% .09 165)",
+        "--clay": "oklch(60% .08 55)",
+        "--good": "oklch(47% .12 150)",
+        "--warn": "oklch(52% .11 70)",
+        "--bad": "oklch(52% .18 25)",
+        "--info": "oklch(50% .12 250)",
+        "--side-accent": "oklch(80% .1 45)",
+        "--soft": "14%",
+        "--av-ink": "#15201c",
+        "--r-card": "20px",
+        "--r-tile": "14px",
+        "--r-ctl": "12px",
+        "--gap": "16px",
+        "--side-w": "248px",
+        "--side-inset": "12px",
+        "--gutter": "clamp(16px, 1.8vw, 30px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 28,
+          "ejemplo": "Paid search"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 27,
+          "ejemplo": "vs $309,494"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 26,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 19,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "37.44px",
+          "peso": "600",
+          "interlineado": "38.9376px",
+          "espaciado": "-0.936px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 16,
+          "ejemplo": "Last 30 days against the 30 before"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "16.8px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 12,
+          "ejemplo": "5.42×"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "13.2px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 12,
+          "ejemplo": "ROAS"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 8,
+          "ejemplo": "up 11.9%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgba(231, 239, 233, 0.62)",
+          "veces": 7,
+          "ejemplo": "Campaigns"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "18.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 7,
+          "ejemplo": "Performance"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "0.125px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 6,
+          "ejemplo": "SA"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 6,
+          "ejemplo": "30 days"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 6,
+          "ejemplo": "24%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 6,
+          "ejemplo": "DR"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 6,
+          "ejemplo": "Diego moved Cascade Basecamp Supply to P"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "16.1px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 5,
+          "ejemplo": "122k"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.485482 0.382957 0.146218)",
+          "veces": 5,
+          "ejemplo": "Proposal"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 5,
+          "ejemplo": "77"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "24.2px",
+          "espaciado": "-0.33px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 4,
+          "ejemplo": "$346,383"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.12 150)",
+          "veces": 4,
+          "ejemplo": "+11.9%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(196, 70, 29)",
+          "veces": 4,
+          "ejemplo": "All campaigns"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "13.8px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 4,
+          "ejemplo": "start"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(231, 239, 233)",
+          "veces": 3,
+          "ejemplo": "9"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "1.1px",
+          "color": "rgba(231, 239, 233, 0.45)",
+          "veces": 2,
+          "ejemplo": "Marketing"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 2,
+          "ejemplo": "New"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.52 0.18 25)",
+          "veces": 2,
+          "ejemplo": "−1.5%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "23.1px",
+          "espaciado": "-0.42px",
+          "color": "rgb(231, 239, 233)",
+          "veces": 1,
+          "ejemplo": "OndraHighmoor Outfitters"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "13.2px",
+          "espaciado": "normal",
+          "color": "rgba(231, 239, 233, 0.62)",
+          "veces": 1,
+          "ejemplo": "Highmoor Outfitters"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(231, 239, 233)",
+          "veces": 1,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(231, 239, 233, 0.62)",
+          "veces": 1,
+          "ejemplo": "October revenue"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "22px",
+          "espaciado": "-0.44px",
+          "color": "rgb(231, 239, 233)",
+          "veces": 1,
+          "ejemplo": "$254.0kof $300k"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "12.5px",
+          "espaciado": "normal",
+          "color": "rgba(231, 239, 233, 0.62)",
+          "veces": 1,
+          "ejemplo": "of $300k"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(231, 239, 233, 0.62)",
+          "veces": 1,
+          "ejemplo": "$46,841 ahead of pace"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "oklch(0.8 0.1 45)",
+          "veces": 1,
+          "ejemplo": "$46,841"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "15px",
+          "espaciado": "normal",
+          "color": "rgb(231, 239, 233)",
+          "veces": 1,
+          "ejemplo": "Selin Arslan"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "14.4px",
+          "espaciado": "normal",
+          "color": "rgba(231, 239, 233, 0.62)",
+          "veces": 1,
+          "ejemplo": "Head of Growth"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 1,
+          "ejemplo": "Search campaigns, leads, audiences…"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 1,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 1,
+          "ejemplo": "Thu, Oct 22 · 9:48 AM"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(21, 32, 28)",
+          "veces": 1,
+          "ejemplo": "9:48 AM"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(79, 92, 86)",
+          "veces": 1,
+          "ejemplo": "Revenue is up 11.9% on the 30 days befor"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(196, 70, 29)",
+          "veces": 1,
+          "ejemplo": "9 new leads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(238, 240, 236)",
+          "veces": 1,
+          "ejemplo": "All"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "13.8px",
+          "espaciado": "normal",
+          "color": "oklch(0.52 0.18 25)",
+          "veces": 1,
+          "ejemplo": "12.7%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "700",
+          "interlineado": "27.3px",
+          "espaciado": "-0.65px",
+          "color": "rgb(21, 32, 28)",
+          "veces": 1,
+          "ejemplo": "$28,495"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.52 0.11 70)",
+          "veces": 1,
+          "ejemplo": "10% under"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": 12,
+          "y": 12,
+          "w": 248,
+          "h": 876,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(231, 239, 233)",
+          "radio": "24px",
+          "sombra": "rgba(10, 30, 22, 0.6) 0px 30px 60px -32px, rgba(255, 255, 255, 0.06) 0px 0px 0px 1px inset, rgba(255, 255, 255, 0.06) 0px 1px 0px 0px inset",
+          "padding": "14px 12px 12px",
+          "gap": "2px",
+          "grilla": null,
+          "texto": "OndraHighmoor Outfitters Marketing Overview Campaigns9 All c"
+        },
+        {
+          "etiqueta": "a.goal-card",
+          "x": 24,
+          "y": 694,
+          "w": 224,
+          "h": 122,
+          "fondo": "rgba(255, 255, 255, 0.05)",
+          "borde": "0px none rgb(231, 239, 233)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.07) 0px 0px 0px 1px inset",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "196px",
+          "texto": "October revenue85% $254.0kof $300k $46,841 ahead of pace"
+        },
+        {
+          "etiqueta": "section.card.ov__hero",
+          "x": 286,
+          "y": 212,
+          "w": 747,
+          "h": 508,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "PerformanceLast 30 days against the 30 before 7 days30 days9"
+        },
+        {
+          "etiqueta": "div.kpis",
+          "x": 306,
+          "y": 284,
+          "w": 707,
+          "h": 120,
+          "fondo": "rgb(243, 245, 241)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "18px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset",
+          "padding": "6px",
+          "gap": "8px",
+          "grilla": "167.688px 167.703px 167.688px 167.703px",
+          "texto": "Revenue $346,383 +11.9%vs $309,494 Orders 2,705 +12.4%vs 2,4"
+        },
+        {
+          "etiqueta": "span.kpis__bar",
+          "x": 306,
+          "y": 284,
+          "w": 707,
+          "h": 120,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "0px",
+          "sombra": "rgba(20, 38, 31, 0.06) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 8px 18px -10px",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "section.card.ov__mix",
+          "x": 1049,
+          "y": 212,
+          "w": 365,
+          "h": 525,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Where it came fromBy channel, same period RevenueOrdersSpend"
+        },
+        {
+          "etiqueta": "section.card.ov__live",
+          "x": 286,
+          "y": 753,
+          "w": 651,
+          "h": 476,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Running now9 live campaigns · spend against budget All campa"
+        },
+        {
+          "etiqueta": "section.card.ov__fun",
+          "x": 953,
+          "y": 753,
+          "w": 461,
+          "h": 476,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Checkout funnelLast 30 days, every visit Details AllSocialSe"
+        },
+        {
+          "etiqueta": "section.card.ov__hot",
+          "x": 286,
+          "y": 1246,
+          "w": 365,
+          "h": 570,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Hottest leadsWholesale, by score Pipeline GL Northfork Outfi"
+        },
+        {
+          "etiqueta": "section.card.ov__pace",
+          "x": 667,
+          "y": 1246,
+          "w": 365,
+          "h": 570,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "October budget$28,495 of $41,300 spent Budgets $28,49569% of"
+        },
+        {
+          "etiqueta": "ul.pace",
+          "x": 687,
+          "y": 1569,
+          "w": 325,
+          "h": 83,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px dashed rgba(20, 38, 31, 0.16)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "12px 0px 0px",
+          "gap": "8px",
+          "grilla": "325.391px",
+          "texto": "Paid socialOn pacePaid search3% overCreators10% under"
+        },
+        {
+          "etiqueta": "section.card.ov__feed",
+          "x": 1049,
+          "y": 1246,
+          "w": 365,
+          "h": 570,
+          "fondo": "rgb(251, 252, 250)",
+          "borde": "0px none rgb(21, 32, 28)",
+          "radio": "20px",
+          "sombra": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team activityWhat changed today DRDiego moved Cascade Baseca"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "OndraHighmoor Outfitters",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 28,
+            "y": 28,
+            "w": 178,
+            "h": 39
+          },
+          "estilo": {
+            "color": "rgb(231, 239, 233)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(231, 239, 233)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 239, 233) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "button.side__rail",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 214,
+            "y": 32,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(231, 239, 233)",
+            "backgroundColor": "rgba(255, 255, 255, 0.05)",
+            "borderColor": "rgb(231, 239, 233)",
+            "boxShadow": "rgba(255, 255, 255, 0.16) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 239, 233) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.05)",
+              "rgba(255, 255, 255, 0.11)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.05)",
+              "rgba(255, 255, 255, 0.11)"
+            ]
+          }
+        },
+        {
+          "n": 2,
+          "etiqueta": "a.nav__item",
+          "texto": "Overview",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 126,
+            "w": 224,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(231, 239, 233)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(231, 239, 233)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 239, 233) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 3,
+          "etiqueta": "a.goal-card",
+          "texto": "October revenue85% $254.0kof $300k $46,8",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 694,
+            "w": 224,
+            "h": 122
+          },
+          "estilo": {
+            "color": "rgb(231, 239, 233)",
+            "backgroundColor": "rgba(255, 255, 255, 0.05)",
+            "borderColor": "rgb(231, 239, 233)",
+            "boxShadow": "rgba(255, 255, 255, 0.07) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 239, 233) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.05)",
+              "rgba(255, 255, 255, 0.08)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.05)",
+              "rgba(255, 255, 255, 0.08)"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.me",
+          "texto": "SASelin ArslanHead of Growth",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 824,
+            "w": 224,
+            "h": 52
+          },
+          "estilo": {
+            "color": "rgb(231, 239, 233)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(231, 239, 233)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(231, 239, 233) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.07)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.07)"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.finder-btn",
+          "texto": "Search campaigns, leads, audiences…⌘K",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 711,
+            "y": 20,
+            "w": 340,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(79, 92, 86)",
+            "backgroundColor": "rgb(251, 252, 250)",
+            "borderColor": "rgb(79, 92, 86)",
+            "boxShadow": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(79, 92, 86) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(79, 92, 86)",
+              "rgb(21, 32, 28)"
+            ],
+            "borderColor": [
+              "rgb(79, 92, 86)",
+              "rgb(21, 32, 28)"
+            ],
+            "outline": [
+              "rgb(79, 92, 86) none 3px",
+              "rgb(21, 32, 28) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(79, 92, 86)",
+              "rgb(21, 32, 28)"
+            ],
+            "borderColor": [
+              "rgb(79, 92, 86)",
+              "rgb(21, 32, 28)"
+            ],
+            "outline": [
+              "rgb(79, 92, 86) none 3px",
+              "rgb(21, 32, 28) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "button.ibtn.ibtn--top",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1232,
+            "y": 23,
+            "w": 38,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(21, 32, 28)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(20, 38, 31, 0.16)",
+            "boxShadow": "rgba(20, 38, 31, 0.075) 0px 0px 0px 1px inset, rgba(20, 38, 31, 0.04) 0px 1px 2px 0px, rgba(20, 38, 31, 0.3) 0px 10px 28px -20px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 32, 28) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 38, 31, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 38, 31, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "etiqueta": "button.btn.btn--primary.top__new",
+          "texto": "New",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1324,
+            "y": 20,
+            "w": 90,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(42, 13, 2)",
+            "backgroundColor": "rgb(255, 138, 94)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "color(srgb 1 0.541176 0.368627 / 0.9) 0px 12px 24px -14px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(42, 13, 2) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0016, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0004, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "a",
+          "texto": "9 new leads",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 537,
+            "y": 154,
+            "w": 72,
+            "h": 16
+          },
+          "estilo": {
+            "color": "rgb(255, 138, 94)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(255, 138, 94)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(255, 138, 94) none 3px",
+            "textDecorationLine": "underline",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 9,
+          "etiqueta": "button.btn.btn--ghost",
+          "texto": "Export",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1137,
+            "y": 148,
+            "w": 103,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(232, 238, 234)",
+            "backgroundColor": "rgb(21, 28, 26)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 238, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(21, 28, 26)",
+              "rgb(26, 34, 32)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(21, 28, 26)",
+              "rgb(26, 34, 32)"
+            ]
+          }
+        },
+        {
+          "n": 10,
+          "etiqueta": "button.btn.btn--primary.magnetic",
+          "texto": "Plan a campaign",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1250,
+            "y": 148,
+            "w": 164,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(42, 13, 2)",
+            "backgroundColor": "rgb(255, 138, 94)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "color(srgb 1 0.541176 0.368627 / 0.9) 0px 12px 24px -14px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(42, 13, 2) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0023, -0.0006)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0005, -0.0001)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "etiqueta": "button.seg__btn",
+          "texto": "7 days",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 808,
+            "y": 235,
+            "w": 63,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(168, 180, 174)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(168, 180, 174)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(168, 180, 174) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 12,
+          "etiqueta": "button.kpi.kpi--ember",
+          "texto": "Revenue $346,383 +11.9%vs $309,494",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 312,
+            "y": 290,
+            "w": 168,
+            "h": 108
+          },
+          "estilo": {
+            "color": "rgb(232, 238, 234)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(232, 238, 234)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 238, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 13,
+          "etiqueta": "button.kpi.kpi--pine",
+          "texto": "Orders 2,705 +12.4%vs 2,407",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 488,
+            "y": 290,
+            "w": 168,
+            "h": 108
+          },
+          "estilo": {
+            "color": "rgb(168, 180, 174)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(168, 180, 174)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(168, 180, 174) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 14,
+          "etiqueta": "button.kpi.kpi--steel",
+          "texto": "Conversion 2.21% +0.3%vs 2.21%",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 663,
+            "y": 290,
+            "w": 168,
+            "h": 108
+          },
+          "estilo": {
+            "color": "rgb(168, 180, 174)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(168, 180, 174)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(168, 180, 174) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 15,
+          "etiqueta": "button.kpi.kpi--gold",
+          "texto": "Return on ads 4.61× −1.5%vs 4.68×",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 839,
+            "y": 290,
+            "w": 168,
+            "h": 108
+          },
+          "estilo": {
+            "color": "rgb(168, 180, 174)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(168, 180, 174)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(168, 180, 174) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 16,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"16\"]')\u001b[22m\n\u001b[2m    - locator resolved to <g tabind"
+        },
+        {
+          "n": 17,
+          "etiqueta": "a.card__more",
+          "texto": "All campaigns",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 838,
+            "y": 626,
+            "w": 80,
+            "h": 18
+          },
+          "estilo": {
+            "color": "rgb(255, 138, 94)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(255, 138, 94)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(255, 138, 94) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 18,
+          "etiqueta": "button.live__name",
+          "texto": "Brand Search — HighmoorPaid search · 71 ",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 358,
+            "y": 840,
+            "w": 187,
+            "h": 41
+          },
+          "estilo": {
+            "color": "rgb(232, 238, 234)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(232, 238, 234)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 238, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 19,
+          "etiqueta": "button.switch",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 873,
+            "y": 847,
+            "w": 44,
+            "h": 26
+          },
+          "estilo": {
+            "color": "rgb(232, 238, 234)",
+            "backgroundColor": "rgb(255, 138, 94)",
+            "borderColor": "rgb(232, 238, 234)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 238, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 20,
+          "etiqueta": "button.chip",
+          "texto": "All",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 973,
+            "y": 829,
+            "w": 36,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(14, 19, 18)",
+            "backgroundColor": "rgb(232, 238, 234)",
+            "borderColor": "rgb(14, 19, 18)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(14, 19, 18) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 21,
+          "etiqueta": "button.hot__row",
+          "texto": "GL Northfork OutfittersGrace Liang · Mis",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 298,
+            "y": 422,
+            "w": 341,
+            "h": 57
+          },
+          "estilo": {
+            "color": "rgb(232, 238, 234)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(232, 238, 234)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 238, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(26, 34, 32)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(26, 34, 32)"
+            ]
+          }
+        },
+        {
+          "n": 22,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

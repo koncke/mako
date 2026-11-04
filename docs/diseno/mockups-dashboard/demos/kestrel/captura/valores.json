@@ -1,0 +1,1497 @@
+{
+  "medido": "2026-11-04T11:20:58.589Z",
+  "url": "https://demo.codeandchill.store/kestrel/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/kestrel/",
+      "ancho": 390,
+      "alto": 2670,
+      "fondo": "rgb(234, 238, 243)",
+      "letra": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--page": "#eaeef3",
+        "--panel": "#f2f5f8",
+        "--card": "#fbfcfd",
+        "--well": "#eef2f6",
+        "--well-2": "#e5eaf1",
+        "--hair": "#e0e5ec",
+        "--hair-strong": "#cdd4de",
+        "--ink": "#101827",
+        "--muted": "#566377",
+        "--faint": "#677388",
+        "--scrim": "#10182759",
+        "--brand": "#1d62de",
+        "--brand-ink": "#1749ab",
+        "--on-brand": "#fff",
+        "--brand-soft": "color-mix(in oklab, #1d62de 12%, #fbfcfd)",
+        "--brand-soft-2": "color-mix(in oklab, #1d62de 22%, #fbfcfd)",
+        "--s1": "#1d62de",
+        "--s2": "#d4932c",
+        "--s3": "#d4486f",
+        "--other": "#97a2b4",
+        "--good": "#1f8a4c",
+        "--good-bg": "#e2f3e8",
+        "--warn": "#b56f0b",
+        "--warn-bg": "#fbefd9",
+        "--bad": "#c9372c",
+        "--bad-bg": "#fbe6e3",
+        "--info": "#6a45d4",
+        "--info-bg": "#ece7fb",
+        "--shadow": "0 1px 2px #1018270a, 0 12px 32px -16px #10182724",
+        "--shadow-lg": "0 2px 4px #1018270d, 0 24px 60px -20px #10182740",
+        "--r-lg": "22px",
+        "--r-md": "14px",
+        "--r-sm": "9px",
+        "--r-xs": "6px",
+        "--font": "\"Geist\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-xs": ".8125rem",
+        "--fs-sm": ".875rem",
+        "--fs-md": ".9375rem",
+        "--fs-lg": "1.125rem",
+        "--fs-xl": "1.5rem",
+        "--fs-2xl": "2rem",
+        "--fs-hero": "3.25rem",
+        "--ease": "cubic-bezier(.22, 1, .36, 1)",
+        "--ease-soft": "cubic-bezier(.4, 0, .2, 1)",
+        "--t-fast": ".18s",
+        "--t-med": ".32s",
+        "--t-slow": ".5s",
+        "--side-w": "248px",
+        "--rail-w": "76px",
+        "--top-h": "64px",
+        "--gap": "16px",
+        "--pad": "20px",
+        "--focus": "0 0 0 2px #fbfcfd, 0 0 0 4px #1d62de"
+      },
+      "tipografia": [
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 18,
+          "ejemplo": "Visitors"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(16, 24, 39)",
+          "veces": 15,
+          "ejemplo": "-20%"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 14,
+          "ejemplo": "Last 30 days"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(31, 138, 76)",
+          "veces": 10,
+          "ejemplo": "+5.2%"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(16, 24, 39)",
+          "veces": 9,
+          "ejemplo": "Today, 14:12"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 6,
+          "ejemplo": "SEO"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "25.3px",
+          "espaciado": "-0.44px",
+          "color": "rgb(16, 24, 39)",
+          "veces": 6,
+          "ejemplo": "12,492"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "600",
+          "interlineado": "27px",
+          "espaciado": "-0.18px",
+          "color": "rgb(16, 24, 39)",
+          "veces": 4,
+          "ejemplo": "Kestrel"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "450",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 4,
+          "ejemplo": "Google Analytics"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 4,
+          "ejemplo": "Table"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "0.12px",
+          "color": "rgb(201, 55, 44)",
+          "veces": 4,
+          "ejemplo": "Needs review"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "0.12px",
+          "color": "rgb(31, 138, 76)",
+          "veces": 4,
+          "ejemplo": "Good"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 4,
+          "ejemplo": "1,240"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "400",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(103, 115, 136)",
+          "veces": 4,
+          "ejemplo": "Oct 4"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(16, 24, 39)",
+          "veces": 3,
+          "ejemplo": "−2.3%"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 3,
+          "ejemplo": "Date"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "33px",
+          "espaciado": "-0.44px",
+          "color": "rgb(16, 24, 39)",
+          "veces": 3,
+          "ejemplo": "48,210"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 2,
+          "ejemplo": "Search or jump to…"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(201, 55, 44)",
+          "veces": 2,
+          "ejemplo": "−0.2pt"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "0.12px",
+          "color": "rgb(181, 111, 11)",
+          "veces": 2,
+          "ejemplo": "Neutral"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 73, 171)",
+          "veces": 1,
+          "ejemplo": "Realtime overview"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(103, 115, 136)",
+          "veces": 1,
+          "ejemplo": "v2.4"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "32px",
+          "peso": "600",
+          "interlineado": "36.8px",
+          "espaciado": "-0.64px",
+          "color": "rgb(16, 24, 39)",
+          "veces": 1,
+          "ejemplo": "Realtime overview"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "0.26px",
+          "color": "rgb(31, 138, 76)",
+          "veces": 1,
+          "ejemplo": "Live"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(16, 24, 39)",
+          "veces": 1,
+          "ejemplo": "Lead quality"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(16, 24, 39)",
+          "veces": 1,
+          "ejemplo": "Top posts"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": -258,
+          "y": 0,
+          "w": 248,
+          "h": 900,
+          "fondo": "rgb(242, 245, 248)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "0px",
+          "sombra": "rgba(16, 24, 39, 0.05) 0px 2px 4px 0px, rgba(16, 24, 39, 0.25) 0px 24px 60px -20px",
+          "padding": "18px 10px 14px",
+          "gap": "8px",
+          "grilla": null,
+          "texto": "Kestrel Realtime overview SEO Paid ads Social media Data sou"
+        },
+        {
+          "etiqueta": "section.card.kpis",
+          "x": 12,
+          "y": 246,
+          "w": 366,
+          "h": 293,
+          "fondo": "rgb(251, 252, 253)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(16, 24, 39, 0.04) 0px 1px 2px 0px, rgba(16, 24, 39, 0.14) 0px 12px 32px -16px",
+          "padding": "12px 6px",
+          "gap": "14px 0px",
+          "grilla": "176px 176px",
+          "texto": "Visitors 12,492 +5.2% ROI 3.4× +0.3× Conversions 612 +9.1% S"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 19,
+          "y": 259,
+          "w": 176,
+          "h": 80,
+          "fondo": "oklab(0.935507 -0.00422655 -0.025251 / 0.504042)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "9px",
+          "sombra": "none",
+          "padding": "4px 12px",
+          "gap": "4px",
+          "grilla": null,
+          "texto": "Visitors 12,492 +5.2%"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 195,
+          "y": 259,
+          "w": 176,
+          "h": 80,
+          "fondo": "oklab(0 0 0 / 0)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "9px",
+          "sombra": "none",
+          "padding": "4px 12px",
+          "gap": "4px",
+          "grilla": null,
+          "texto": "ROI 3.4× +0.3×"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 19,
+          "y": 353,
+          "w": 176,
+          "h": 80,
+          "fondo": "oklab(0 0 0 / 0)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "9px",
+          "sombra": "none",
+          "padding": "4px 12px",
+          "gap": "4px",
+          "grilla": null,
+          "texto": "Conversions 612 +9.1%"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 195,
+          "y": 353,
+          "w": 176,
+          "h": 80,
+          "fondo": "oklab(0 0 0 / 0)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "9px",
+          "sombra": "none",
+          "padding": "4px 12px",
+          "gap": "4px",
+          "grilla": null,
+          "texto": "Spend $8,840 −2%"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 19,
+          "y": 446,
+          "w": 176,
+          "h": 80,
+          "fondo": "oklab(0 0 0 / 0)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "9px",
+          "sombra": "none",
+          "padding": "4px 12px",
+          "gap": "4px",
+          "grilla": null,
+          "texto": "Click-through 2.8% −0.2pt"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 195,
+          "y": 446,
+          "w": 176,
+          "h": 80,
+          "fondo": "oklab(0 0 0 / 0)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "9px",
+          "sombra": "none",
+          "padding": "4px 12px",
+          "gap": "4px",
+          "grilla": null,
+          "texto": "Cost per lead $14.40 −$1.10"
+        },
+        {
+          "etiqueta": "section.card.trends",
+          "x": 12,
+          "y": 555,
+          "w": 366,
+          "h": 352,
+          "fondo": "rgb(251, 252, 253)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(16, 24, 39, 0.04) 0px 1px 2px 0px, rgba(16, 24, 39, 0.14) 0px 12px 32px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Trends Table 3M VisitorsROIConversions -20%-10%0%+10%+20%−2."
+        },
+        {
+          "etiqueta": "section.card.leads",
+          "x": 12,
+          "y": 923,
+          "w": 366,
+          "h": 615,
+          "fondo": "rgb(251, 252, 253)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(16, 24, 39, 0.04) 0px 1px 2px 0px, rgba(16, 24, 39, 0.14) 0px 12px 32px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Lead quality Day on day Week on week Search queries Keyword "
+        },
+        {
+          "etiqueta": "section.card.social-card",
+          "x": 12,
+          "y": 1554,
+          "w": 366,
+          "h": 632,
+          "fondo": "rgb(251, 252, 253)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(16, 24, 39, 0.04) 0px 1px 2px 0px, rgba(16, 24, 39, 0.14) 0px 12px 32px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Instagram 7D Followers 48,210+124 Interactions 1,356+7 Likes"
+        },
+        {
+          "etiqueta": "div.tile",
+          "x": 33,
+          "y": 1617,
+          "w": 324,
+          "h": 80,
+          "fondo": "rgb(238, 242, 246)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "2px",
+          "grilla": null,
+          "texto": "Followers 48,210+124"
+        },
+        {
+          "etiqueta": "div.tile",
+          "x": 33,
+          "y": 1705,
+          "w": 324,
+          "h": 126,
+          "fondo": "rgb(238, 242, 246)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "2px",
+          "grilla": null,
+          "texto": "Interactions 1,356+7"
+        },
+        {
+          "etiqueta": "section.card.social-card",
+          "x": 12,
+          "y": 2201,
+          "w": 366,
+          "h": 421,
+          "fondo": "rgb(251, 252, 253)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(16, 24, 39, 0.04) 0px 1px 2px 0px, rgba(16, 24, 39, 0.14) 0px 12px 32px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "X.com 7D Followers 12,015+7 27282930123DayPosts engagement27"
+        },
+        {
+          "etiqueta": "div.tile",
+          "x": 33,
+          "y": 2264,
+          "w": 324,
+          "h": 80,
+          "fondo": "rgb(238, 242, 246)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "2px",
+          "grilla": null,
+          "texto": "Followers 12,015+7"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/kestrel/",
+      "ancho": 1440,
+      "alto": 1366,
+      "fondo": "rgb(234, 238, 243)",
+      "letra": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--page": "#eaeef3",
+        "--panel": "#f2f5f8",
+        "--card": "#fbfcfd",
+        "--well": "#eef2f6",
+        "--well-2": "#e5eaf1",
+        "--hair": "#e0e5ec",
+        "--hair-strong": "#cdd4de",
+        "--ink": "#101827",
+        "--muted": "#566377",
+        "--faint": "#677388",
+        "--scrim": "#10182759",
+        "--brand": "#1d62de",
+        "--brand-ink": "#1749ab",
+        "--on-brand": "#fff",
+        "--brand-soft": "color-mix(in oklab, #1d62de 12%, #fbfcfd)",
+        "--brand-soft-2": "color-mix(in oklab, #1d62de 22%, #fbfcfd)",
+        "--s1": "#1d62de",
+        "--s2": "#d4932c",
+        "--s3": "#d4486f",
+        "--other": "#97a2b4",
+        "--good": "#1f8a4c",
+        "--good-bg": "#e2f3e8",
+        "--warn": "#b56f0b",
+        "--warn-bg": "#fbefd9",
+        "--bad": "#c9372c",
+        "--bad-bg": "#fbe6e3",
+        "--info": "#6a45d4",
+        "--info-bg": "#ece7fb",
+        "--shadow": "0 1px 2px #1018270a, 0 12px 32px -16px #10182724",
+        "--shadow-lg": "0 2px 4px #1018270d, 0 24px 60px -20px #10182740",
+        "--r-lg": "22px",
+        "--r-md": "14px",
+        "--r-sm": "9px",
+        "--r-xs": "6px",
+        "--font": "\"Geist\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-xs": ".8125rem",
+        "--fs-sm": ".875rem",
+        "--fs-md": ".9375rem",
+        "--fs-lg": "1.125rem",
+        "--fs-xl": "1.5rem",
+        "--fs-2xl": "2rem",
+        "--fs-hero": "3.25rem",
+        "--ease": "cubic-bezier(.22, 1, .36, 1)",
+        "--ease-soft": "cubic-bezier(.4, 0, .2, 1)",
+        "--t-fast": ".18s",
+        "--t-med": ".32s",
+        "--t-slow": ".5s",
+        "--side-w": "248px",
+        "--rail-w": "76px",
+        "--top-h": "64px",
+        "--gap": "16px",
+        "--pad": "20px",
+        "--focus": "0 0 0 2px #fbfcfd, 0 0 0 4px #1d62de"
+      },
+      "tipografia": [
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 31,
+          "ejemplo": "Visitors"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(16, 24, 39)",
+          "veces": 15,
+          "ejemplo": "-20%"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 14,
+          "ejemplo": "Last 30 days"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(31, 138, 76)",
+          "veces": 10,
+          "ejemplo": "+5.2%"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(23, 73, 171)",
+          "veces": 10,
+          "ejemplo": "link"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(16, 24, 39)",
+          "veces": 10,
+          "ejemplo": "USA"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(16, 24, 39)",
+          "veces": 9,
+          "ejemplo": "Today, 14:12"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(16, 24, 39)",
+          "veces": 8,
+          "ejemplo": "Lead quality"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 7,
+          "ejemplo": "Date"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 6,
+          "ejemplo": "SEO"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "25.3px",
+          "espaciado": "-0.44px",
+          "color": "rgb(16, 24, 39)",
+          "veces": 6,
+          "ejemplo": "12,495"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "600",
+          "interlineado": "27px",
+          "espaciado": "-0.18px",
+          "color": "rgb(16, 24, 39)",
+          "veces": 4,
+          "ejemplo": "Kestrel"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "450",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 4,
+          "ejemplo": "Google Analytics"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 4,
+          "ejemplo": "Table"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "0.12px",
+          "color": "rgb(201, 55, 44)",
+          "veces": 4,
+          "ejemplo": "Needs review"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "0.12px",
+          "color": "rgb(31, 138, 76)",
+          "veces": 4,
+          "ejemplo": "Good"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 4,
+          "ejemplo": "1,240"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "400",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(103, 115, 136)",
+          "veces": 4,
+          "ejemplo": "Oct 4"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(16, 24, 39)",
+          "veces": 3,
+          "ejemplo": "−2.3%"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "33px",
+          "espaciado": "-0.44px",
+          "color": "rgb(16, 24, 39)",
+          "veces": 3,
+          "ejemplo": "48,210"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 2,
+          "ejemplo": "Search or jump to…"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(201, 55, 44)",
+          "veces": 2,
+          "ejemplo": "−0.2pt"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "0.12px",
+          "color": "rgb(181, 111, 11)",
+          "veces": 2,
+          "ejemplo": "Neutral"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 73, 171)",
+          "veces": 1,
+          "ejemplo": "Realtime overview"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(103, 115, 136)",
+          "veces": 1,
+          "ejemplo": "v2.4"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(86, 99, 119)",
+          "veces": 1,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "32px",
+          "peso": "600",
+          "interlineado": "36.8px",
+          "espaciado": "-0.64px",
+          "color": "rgb(16, 24, 39)",
+          "veces": 1,
+          "ejemplo": "Realtime overview"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "0.26px",
+          "color": "rgb(31, 138, 76)",
+          "veces": 1,
+          "ejemplo": "Live"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(16, 24, 39)",
+          "veces": 1,
+          "ejemplo": "Top posts"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": 0,
+          "y": 0,
+          "w": 248,
+          "h": 900,
+          "fondo": "rgb(242, 245, 248)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "18px 12px 14px",
+          "gap": "8px",
+          "grilla": null,
+          "texto": "Kestrel Realtime overview SEO Paid ads Social media Data sou"
+        },
+        {
+          "etiqueta": "section.card.kpis",
+          "x": 268,
+          "y": 169,
+          "w": 836,
+          "h": 110,
+          "fondo": "rgb(251, 252, 253)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(16, 24, 39, 0.04) 0px 1px 2px 0px, rgba(16, 24, 39, 0.14) 0px 12px 32px -16px",
+          "padding": "14px 8px",
+          "gap": "0px",
+          "grilla": null,
+          "texto": "Visitors 12,495 +5.2% ROI 3.4× +0.3× Conversions 612 +9.1% S"
+        },
+        {
+          "etiqueta": "section.card.trends",
+          "x": 268,
+          "y": 295,
+          "w": 836,
+          "h": 352,
+          "fondo": "rgb(251, 252, 253)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(16, 24, 39, 0.04) 0px 1px 2px 0px, rgba(16, 24, 39, 0.14) 0px 12px 32px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Trends Table 3M VisitorsROIConversions -20%-10%0%+10%+20%−2."
+        },
+        {
+          "etiqueta": "section.card.leads",
+          "x": 268,
+          "y": 663,
+          "w": 836,
+          "h": 655,
+          "fondo": "rgb(251, 252, 253)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(16, 24, 39, 0.04) 0px 1px 2px 0px, rgba(16, 24, 39, 0.14) 0px 12px 32px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Lead quality Day on day Week on week Search queries Keyword "
+        },
+        {
+          "etiqueta": "section.card.social-card",
+          "x": 1120,
+          "y": 169,
+          "w": 300,
+          "h": 611,
+          "fondo": "rgb(251, 252, 253)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(16, 24, 39, 0.04) 0px 1px 2px 0px, rgba(16, 24, 39, 0.14) 0px 12px 32px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Instagram 7D Followers 48,210+124 Interactions 1,356+7 Likes"
+        },
+        {
+          "etiqueta": "div.tile",
+          "x": 1141,
+          "y": 232,
+          "w": 258,
+          "h": 80,
+          "fondo": "rgb(238, 242, 246)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "2px",
+          "grilla": null,
+          "texto": "Followers 48,210+124"
+        },
+        {
+          "etiqueta": "div.tile",
+          "x": 1141,
+          "y": 320,
+          "w": 258,
+          "h": 126,
+          "fondo": "rgb(238, 242, 246)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "2px",
+          "grilla": null,
+          "texto": "Interactions 1,356+7"
+        },
+        {
+          "etiqueta": "section.card.social-card",
+          "x": 1120,
+          "y": 796,
+          "w": 300,
+          "h": 421,
+          "fondo": "rgb(251, 252, 253)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(16, 24, 39, 0.04) 0px 1px 2px 0px, rgba(16, 24, 39, 0.14) 0px 12px 32px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "X.com 7D Followers 12,015+7 27282930123DayPosts engagement27"
+        },
+        {
+          "etiqueta": "div.tile",
+          "x": 1141,
+          "y": 859,
+          "w": 258,
+          "h": 80,
+          "fondo": "rgb(238, 242, 246)",
+          "borde": "0px none rgb(16, 24, 39)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "2px",
+          "grilla": null,
+          "texto": "Followers 12,015+7"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.side__logo",
+          "texto": "Kestrel",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 12,
+            "y": 18,
+            "w": 223,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(16, 24, 39)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(16, 24, 39)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(16, 24, 39) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "a.nav__item.is-active",
+          "texto": "Realtime overview",
+          "transicion": {
+            "propiedad": "color, background",
+            "duracion": "0.18s, 0.18s",
+            "curva": "ease, ease",
+            "demora": "0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 12,
+            "y": 78,
+            "w": 223,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(23, 73, 171)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(23, 73, 171)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(23, 73, 171) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 2,
+          "etiqueta": "a.nav__item",
+          "texto": "SEO",
+          "transicion": {
+            "propiedad": "color, background",
+            "duracion": "0.18s, 0.18s",
+            "curva": "ease, ease",
+            "demora": "0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 12,
+            "y": 120,
+            "w": 223,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(86, 99, 119)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(86, 99, 119)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(86, 99, 119) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(229, 234, 241)"
+            ],
+            "borderColor": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "outline": [
+              "rgb(86, 99, 119) none 3px",
+              "rgb(16, 24, 39) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(229, 234, 241)"
+            ],
+            "borderColor": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "outline": [
+              "rgb(86, 99, 119) none 3px",
+              "rgb(16, 24, 39) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 3,
+          "etiqueta": "a.nav__item.nav__item--sub",
+          "texto": "Google Analytics",
+          "transicion": {
+            "propiedad": "color, background",
+            "duracion": "0.18s, 0.18s",
+            "curva": "ease, ease",
+            "demora": "0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 32,
+            "y": 288,
+            "w": 203,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(86, 99, 119)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(86, 99, 119)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(86, 99, 119) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(229, 234, 241)"
+            ],
+            "borderColor": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "outline": [
+              "rgb(86, 99, 119) none 3px",
+              "rgb(16, 24, 39) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(229, 234, 241)"
+            ],
+            "borderColor": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "outline": [
+              "rgb(86, 99, 119) none 3px",
+              "rgb(16, 24, 39) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.theme-seg__btn",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background, color, transform",
+            "duracion": "0.18s, 0.18s, 0.32s",
+            "curva": "ease, ease, cubic-bezier(0.22, 1, 0.36, 1)",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 19,
+            "y": 855,
+            "w": 32,
+            "h": 28
+          },
+          "estilo": {
+            "color": "rgb(23, 73, 171)",
+            "backgroundColor": "oklab(0.889609 -0.0072508 -0.0449952)",
+            "borderColor": "rgb(23, 73, 171)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(23, 73, 171) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.iconbtn.top__rail",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background, color, transform",
+            "duracion": "0.18s, 0.18s, 0.32s",
+            "curva": "ease, ease, cubic-bezier(0.22, 1, 0.36, 1)",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 268,
+            "y": 14,
+            "w": 36,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(86, 99, 119)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(86, 99, 119)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(86, 99, 119) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(238, 242, 246)"
+            ],
+            "borderColor": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "outline": [
+              "rgb(86, 99, 119) none 3px",
+              "rgb(16, 24, 39) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(238, 242, 246)"
+            ],
+            "borderColor": [
+              "rgb(86, 99, 119)",
+              "rgb(16, 24, 39)"
+            ],
+            "transform": [
+              "none",
+              "matrix(0.946408, 0, 0, 0.946408, 0, 0)"
+            ],
+            "outline": [
+              "rgb(86, 99, 119) none 3px",
+              "rgb(16, 24, 39) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "button.search",
+          "texto": "Search or jump to… ⌘K",
+          "transicion": {
+            "propiedad": "border-color, box-shadow, transform",
+            "duracion": "0.18s, 0.18s, 0.32s",
+            "curva": "ease, ease, cubic-bezier(0.22, 1, 0.36, 1)",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 144,
+            "y": 12,
+            "w": 420,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(86, 99, 119)",
+            "backgroundColor": "rgb(251, 252, 253)",
+            "borderColor": "rgb(224, 229, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(86, 99, 119) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "borderColor": [
+              "rgb(224, 229, 236)",
+              "rgb(205, 212, 222)"
+            ]
+          },
+          "alApretar": {
+            "borderColor": [
+              "rgb(224, 229, 236)",
+              "rgb(205, 212, 222)"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"7\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button da"
+        },
+        {
+          "n": 8,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"8\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button da"
+        },
+        {
+          "n": 9,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"9\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button ty"
+        },
+        {
+          "n": 10,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"10\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 11,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"11\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 12,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"12\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 13,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"13\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 14,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"14\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button r"
+        },
+        {
+          "n": 15,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"15\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 16,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"16\"]')\u001b[22m\n\u001b[2m    - locator resolved to <tr data-"
+        },
+        {
+          "n": 17,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"17\"]')\u001b[22m\n\u001b[2m    - locator resolved to <tr data-"
+        },
+        {
+          "n": 18,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"18\"]')\u001b[22m\n\u001b[2m    - locator resolved to <tr data-"
+        },
+        {
+          "n": 19,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"19\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 20,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"20\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a target"
+        }
+      ]
+    }
+  }
+}
