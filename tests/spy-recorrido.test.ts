@@ -32,7 +32,8 @@ test('1. cada paso tiene su marca en la pantalla', () => {
 test('2. es el Recorrido de la casa, con su «?», y un id nuevo', () => {
   const app = leer('app/competitor-spy/SpyApp.tsx');
   assert.match(app, /import \{ BotonRecorrido, Recorrido, useRecorrido \} from '@\/app\/_ui\/Recorrido';/);
-  assert.match(app, /<Recorrido id=\{RECORRIDO_SPY\} pasos=\{PASOS_SPY\} abierto=\{recorrido\.abierto\} onCerrar=\{recorrido\.onCerrar\} \/>/);
+  // Abierto sólo con la ficha quieta (tests/spy-miniaturas-recorrido.test.ts, 3).
+  assert.match(app, /<Recorrido id=\{RECORRIDO_SPY\} pasos=\{PASOS_SPY\} abierto=\{recorridoAbierto\} onCerrar=\{recorrido\.onCerrar\} \/>/);
   assert.match(app, /<BotonRecorrido onClick=\{recorrido\.reabrir\} objetivo="spy-recorrido" \/>/);
   assert.ok(idRecorridoValido(RECORRIDO_SPY));
   assert.match(RECORRIDO_SPY, /\d{4}$/, 'con su fecha: quien vio otro recorrido ve éste');
