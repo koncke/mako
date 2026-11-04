@@ -20,16 +20,20 @@ sin dominio ni remitente propios (el envío se corta en `sendEmail`); cero enví
 |---|---|---|---|
 | 1 | El dominio por la API: `conectar_dominio_email` (devuelve los DNS) y `fijar_remitente_email` (con `responderA`); el `reply_to` sale en el motor y en los broadcasts. La lógica, en `lib/email-dominio.ts`. | `7dcae09be` | **en main** (punta/email-dominio) |
 | 2 | El seguimiento de aperturas y clics se prende al crear el dominio y al verificarlo (`PATCH /domains/{id}`). | `7dcae09be` | **en main** |
-| 3 | `agregar_en_bloque_a_crm` (HTTP): suma a otro CRM sin sacar del suyo, `excluirEstados`, hasta 5.000 `leadIds`, con tope de tiempo y `pendientes`. | `ec1bdb72b` | `punta/email-lote` |
-| 4 | `funnelId` en `crear_secuencia_email` y `editar_meta_secuencia_email` (inscribe a los AGREGADOS de ese CRM); HTTP abierto en `probar_secuencia`, `configurar_automatizacion`, `configuracion_automatizacion` y `cambiar_crons_secuencia`. | `0f3f3e096`, `c9aaf7123` | `punta/email-campana` |
-| 5 | `columnasEmail` por automatización (`configurar_automatizacion`, UN parámetro: `"enviado=key,abrio=key,clic=key"`); `lib/email-eventos-crm.ts` mueve la tarjeta al enviar (motor) y al abrir o hacer clic (webhook), sin sesión, con el workspace de la fila. Nunca hacia atrás ni desde una terminal. | `6d539b05b` (+ arreglo en `a904ce6e2`) | `punta/email-campana` |
-| 6 | El corte: con columnas, a quien no está abierto o llegó a Ganado en ese CRM no le sale el siguiente; la inscripción se cancela con su rastro. | `6d539b05b` | `punta/email-campana` |
-| 7 | La rampa del email (50 → +50 por día hasta 100, `email.arranqueDia`/`arranqueSube` en `mako.limites_envio`); el freno por rebotes (5 %) y quejas (0,3 %) con 50 enviados o más en 24 h, que apaga el envío y avisa (`email-frenado`); `ver_limites_envio` y `cambiar_limites_envio`; la respuesta de activar (también con token detallado) dice la campaña entera. | `a904ce6e2` y el commit del punto 8 | `punta/email-campana` |
-| 8 | La receta: el artículo «Una campaña de email con Claude» en `/api-mako › Documentación › Guías` y la sección 5 de la skill (`lib/agente-skill.ts` → `plugin/skills/mako/SKILL.md`). | el commit del punto 8 | `punta/email-campana` |
+| 3 | `agregar_en_bloque_a_crm` (HTTP): suma a otro CRM sin sacar del suyo, `excluirEstados`, hasta 5.000 `leadIds`, con tope de tiempo y `pendientes`. | `ec1bdb72b` | **en main** (`2960211be`) |
+| 4 | `funnelId` en `crear_secuencia_email` y `editar_meta_secuencia_email` (inscribe a los AGREGADOS de ese CRM); HTTP abierto en `probar_secuencia`, `configurar_automatizacion`, `configuracion_automatizacion` y `cambiar_crons_secuencia`. | `0f3f3e096`, `c9aaf7123` | **en main** (`ebf9163ec`) |
+| 5 | `columnasEmail` por automatización (`configurar_automatizacion`, UN parámetro: `"enviado=key,abrio=key,clic=key"`); `lib/email-eventos-crm.ts` mueve la tarjeta al enviar (motor) y al abrir o hacer clic (webhook), sin sesión, con el workspace de la fila. Nunca hacia atrás ni desde una terminal. | `6d539b05b` (+ arreglo en `a904ce6e2`) | **en main** (`ebf9163ec`) |
+| 6 | El corte: con columnas, a quien no está abierto o llegó a Ganado en ese CRM no le sale el siguiente; la inscripción se cancela con su rastro. | `6d539b05b` | **en main** (`ebf9163ec`) |
+| 7 | La rampa del email (50 → +50 por día hasta 100, `email.arranqueDia`/`arranqueSube` en `mako.limites_envio`); el freno por rebotes (5 %) y quejas (0,3 %) con 50 enviados o más en 24 h, que apaga el envío y avisa (`email-frenado`); `ver_limites_envio` y `cambiar_limites_envio`; la respuesta de activar (también con token detallado) dice la campaña entera. | `a904ce6e2` y `e5ff29d89` | **en main** (`ebf9163ec`) |
+| 8 | La receta: el artículo «Una campaña de email con Claude» en `/api-mako › Documentación › Guías` y la sección 5 de la skill (`lib/agente-skill.ts` → `plugin/skills/mako/SKILL.md`). | `e5ff29d89` | **en main** (`ebf9163ec`) |
 
 ⚠️ **Los puntos 4 a 8 van en UNA punta, no en cinco.** Son commits apilados y los arreglos de uno cayeron en el siguiente (el
 presupuesto del turno lo rompió el punto 5 y lo arregló el 7; la guarda de los CRON la rompió el 4 y la arregló el 7). Una punta
 por punto habría salido roja en Actions. `punta/email-lote` va sola porque está limpia.
+
+**Al 4/11, 10:26 UTC los ocho puntos están en `main`** (run 41810880301 verde; el primero, 41807072990, había chocado al
+llevarlo a main porque `email-lote` entró en el medio y las dos tocan `tests/_email-campana-hijo.ts`: se mezcló y se resolvió
+dejando la lista con los cinco escenarios). El deploy de Vercel no se miró desde la nube.
 
 Las pruebas (corren el motor, el webhook y los runners reales sobre una base en memoria, `tests/_email-campana-hijo.ts`):
 `tests/email-campana-dominio.test.ts`, `-lote`, `-secuencia`, `-columnas`, `-topes` y `-receta`. Cada una con su tabla de
