@@ -26,7 +26,7 @@ export const CSS_AUTOMATIZACIONES = `
 .nor {
   container-type: inline-size; container-name: nor;
   --font: 'Noria Urbanist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --fs-2xs: 11px; --fs-xs: 12px; --fs-sm: 12.5px; --fs-md: 13.5px; --fs-base: 14px; --fs-lg: 15px; --fs-xl: 17px;
+  --nor-fs-2xs: 11px; --nor-fs-xs: 12px; --nor-fs-sm: 12.5px; --nor-fs-md: 13.5px; --nor-fs-base: 14px; --nor-fs-lg: 15px; --nor-fs-xl: 17px;
   --bg: #eceee9; --glow-a: #d9ebe5; --glow-b: #efe6d2;
   --surface: #fbfcfa; --surface-2: #f3f5f1; --raised: #fff; --well: #14221e0e; --line: #14221e1a; --line-2: #14221e2e;
   --shadow: 0 1px 2px #14221e0d, 0 14px 32px -22px #14221e47;
@@ -40,7 +40,7 @@ export const CSS_AUTOMATIZACIONES = `
   --r-card: 22px; --r-tile: 14px; --gap: 16px; --side-w: 256px;
   --gutter: clamp(16px, 1.8vw, 28px);
   --ease: cubic-bezier(.2, .8, .2, 1);
-  position: relative; isolation: isolate; color: var(--text); font: 500 var(--fs-base)/1.45 var(--font); -webkit-font-smoothing: antialiased;
+  position: relative; isolation: isolate; color: var(--text); font: 500 var(--nor-fs-base)/1.45 var(--font); -webkit-font-smoothing: antialiased;
   background: radial-gradient(60% 50% at 0% 0%, var(--glow-a) 0%, #d9ebe500 70%), radial-gradient(50% 45% at 100% 0%, var(--glow-b) 0%, #efe6d200 70%), var(--bg);
 }
 .nor *, .nor *::before, .nor *::after { box-sizing: border-box; }
@@ -61,22 +61,22 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-av--sky { background: #c4e2f2; }
 .nor .nor-av--peach { background: #f6d1bd; }
 @keyframes nor-breathe { 0%, to { box-shadow: 0 0 0 0 color-mix(in srgb, var(--info-c) 45%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--info-c) 0%, transparent); } }
-.nor .nor-btn { height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 19px; border-radius: 14px; border: 1px solid transparent; font-size: var(--fs-md); font-weight: 600; white-space: nowrap; transition: background-color .15s, filter .15s; }
+.nor .nor-btn { height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 19px; border-radius: 14px; border: 1px solid transparent; font-size: var(--nor-fs-md); font-weight: 600; white-space: nowrap; transition: background-color .15s, filter .15s; }
 .nor .nor-btn--primary { background: var(--primary); color: var(--on-primary); box-shadow: 0 12px 22px -12px #0b6b5fb3; }
 .nor .nor-btn--primary:hover { filter: brightness(1.1); }
 .nor .nor-btn--ghost { background: var(--surface); border-color: var(--line); color: var(--text); }
 .nor .nor-btn--ghost:hover { background: var(--surface-2); }
-.nor .nor-btn--xs { height: 30px; padding: 0 12px; border-radius: 10px; font-size: var(--fs-sm); }
-.nor .nor-btn--sm { height: 36px; padding: 0 16px; border-radius: 12px; font-size: var(--fs-sm); }
+.nor .nor-btn--xs { height: 30px; padding: 0 12px; border-radius: 10px; font-size: var(--nor-fs-sm); }
+.nor .nor-btn--sm { height: 36px; padding: 0 16px; border-radius: 12px; font-size: var(--nor-fs-sm); }
 .nor .nor-btn--soft { background: var(--primary-soft); color: var(--primary); }
 .nor .nor-btn--soft:hover { background: color-mix(in srgb, var(--primary) 20%, transparent); }
 .nor .nor-btn svg { width: 16px; height: 16px; }
 .nor .nor-ov__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 20px 0 20px; }
-.nor .nor-crumbs { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: 500; color: var(--muted); line-height: 18.125px; }
+.nor .nor-crumbs { display: flex; align-items: center; gap: 6px; font-size: var(--nor-fs-sm); font-weight: 500; color: var(--muted); line-height: 18.125px; }
 .nor .nor-crumbs a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 .nor .nor-crumbs svg { width: 12px; height: 12px; }
 .nor .nor-ov__h1 { margin: 5px 0 7px; font-size: clamp(28px, 2.6vw, 44px); font-weight: 600; line-height: 1.04; letter-spacing: -.025em; }
-.nor .nor-ov__lede { margin: 0; font-size: var(--fs-base); color: var(--muted); line-height: 20.3px; }
+.nor .nor-ov__lede { margin: 0; font-size: var(--nor-fs-base); color: var(--muted); line-height: 20.3px; }
 .nor .nor-ov__lede b { color: var(--text); font-weight: 600; }
 .nor .nor-ov__acts { display: flex; gap: 8px; }
 .nor .nor-ov { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); align-items: stretch; }
@@ -84,12 +84,12 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-ov__pulse { grid-column: span 2; }
 .nor .nor-ov__flows { grid-column: span 2; }
 .nor .nor-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.nor .nor-card__t { margin: 0; font-size: var(--fs-lg); font-weight: 600; line-height: 19.5px; letter-spacing: -.075px; display: flex; align-items: center; gap: 10px; }
-.nor .nor-card__s { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--muted); line-height: 18.125px; }
+.nor .nor-card__t { margin: 0; font-size: var(--nor-fs-lg); font-weight: 600; line-height: 19.5px; letter-spacing: -.075px; display: flex; align-items: center; gap: 10px; }
+.nor .nor-card__s { margin: 2px 0 0; font-size: var(--nor-fs-sm); color: var(--muted); line-height: 18.125px; }
 .nor .nor-card__tools { display: flex; align-items: center; gap: 9px; }
 .nor .nor-cnt { min-width: 23px; height: 23px; border-radius: 7px; display: grid; place-items: center; background: var(--bad-c); color: #fff; font-size: 12.5px; font-weight: 700; padding: 0 6px; }
 .nor .nor-seg { display: inline-flex; padding: 4px; border-radius: 13px; background: var(--surface-2); gap: 2px; height: 37px; }
-.nor .nor-seg__btn { border: 0; background: transparent; height: 29px; padding: 0 12px; border-radius: 10px; font-size: var(--fs-sm); font-weight: 700; color: var(--muted); transition: color .15s; position: relative; }
+.nor .nor-seg__btn { border: 0; background: transparent; height: 29px; padding: 0 12px; border-radius: 10px; font-size: var(--nor-fs-sm); font-weight: 700; color: var(--muted); transition: color .15s; position: relative; }
 .nor .nor-seg__btn:hover { color: var(--text); }
 .nor .nor-seg__btn.nor-is-on { background: var(--raised); color: var(--text); box-shadow: 0 1px 2px #14221e14, 0 4px 10px -4px #14221e2e; }
 .nor .nor-ibtn--sm { width: 32px; height: 32px; border-radius: 10px; margin-top: 3px; }
@@ -97,12 +97,12 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-kpis { margin-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface-2); border: 1px solid var(--line); border-radius: 16px; min-height: 118px; }
 .nor .nor-kpi { padding: 12px 14px 12px; display: flex; flex-direction: column; position: relative; min-width: 0; }
 .nor .nor-kpi + .nor-kpi { border-left: 1px solid var(--line); }
-.nor .nor-kpi__k { font-size: var(--fs-sm); font-weight: 600; color: var(--muted); line-height: 18.125px; }
+.nor .nor-kpi__k { font-size: var(--nor-fs-sm); font-weight: 600; color: var(--muted); line-height: 18.125px; }
 .nor .nor-kpi__v { font-size: 22px; font-weight: 900; line-height: 24.2px; letter-spacing: -.22px; }
 .nor .nor-kpi__v small { font-size: 15px; font-weight: 600; color: var(--muted); margin-left: 1px; }
 .nor .nor-kpi--saved .nor-kpi__v { color: var(--primary); }
 .nor .nor-kpi__flash { position: absolute; top: 25px; left: 66px; font-size: 14px; font-weight: 600; color: var(--good); line-height: 20.3px; }
-.nor .nor-kpi__n { font-size: var(--fs-xs); color: var(--muted); line-height: 17.4px; margin-top: auto; }
+.nor .nor-kpi__n { font-size: var(--nor-fs-xs); color: var(--muted); line-height: 17.4px; margin-top: auto; }
 .nor .nor-kpi__n b { color: var(--text); font-weight: 700; }
 .nor .nor-kpi--med .nor-kpi__v { margin-top: 8px; }
 .nor .nor-kpi--med .nor-kpi__n { margin-top: 18px; }
@@ -115,7 +115,7 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-pulse { position: relative; margin-top: 21px; height: 367px; }
 .nor .nor-pulse__plot { position: absolute; left: 39px; right: 7px; top: 18px; height: 298px; }
 .nor .nor-pulse__grid { position: absolute; left: 0; right: 0; border-top: 1px dashed #14221e1f; }
-.nor .nor-pulse__y { position: absolute; left: -39px; width: 30px; text-align: right; font-size: var(--fs-2xs); font-weight: 600; color: var(--muted); line-height: 15.95px; transform: translateY(-50%); }
+.nor .nor-pulse__y { position: absolute; left: -39px; width: 30px; text-align: right; font-size: var(--nor-fs-2xs); font-weight: 600; color: var(--muted); line-height: 15.95px; transform: translateY(-50%); }
 .nor .nor-pulse__cols { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(24, 1fr); }
 .nor .nor-pcol { position: relative; }
 .nor .nor-pcol__rail { position: absolute; left: 50%; width: 16px; margin-left: -8px; top: 0; bottom: 0; border-radius: 8px; background: #14221e09; }
@@ -123,20 +123,20 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-pcol__ok, .nor .nor-pcol__ko { position: absolute; left: 50%; width: 16px; margin-left: -8px; border-radius: 7px; transform-origin: bottom; }
 .nor .nor-pcol__ok { bottom: 0; background: var(--primary); }
 .nor .nor-pcol__ko { background: var(--bad-c); }
-.nor .nor-pulse__x { position: absolute; top: calc(100% + 8px); font-size: var(--fs-2xs); font-weight: 600; color: var(--muted); transform: translateX(-50%); line-height: 15.95px; }
+.nor .nor-pulse__x { position: absolute; top: calc(100% + 8px); font-size: var(--nor-fs-2xs); font-weight: 600; color: var(--muted); transform: translateX(-50%); line-height: 15.95px; }
 .nor .nor-pulse__line { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .nor .nor-pulse__line path { fill: none; stroke: var(--brass); stroke-width: 2; stroke-dasharray: 6 5; stroke-linecap: round; }
 .nor .nor-pulse__now { position: absolute; top: -12px; bottom: 0; width: 1.5px; margin-left: -.75px; background: repeating-linear-gradient(to bottom, var(--text) 0 1.5px, transparent 1.5px 5px); }
 .nor .nor-pulse__now span { position: absolute; top: -9px; left: .75px; transform: translateX(-50%); height: 19px; padding: 0 7px; border-radius: 99px; background: var(--text); color: #fff; font-size: 11px; font-weight: 700; line-height: 19px; }
 .nor .nor-pulse__now i { position: absolute; bottom: -5px; left: -5px; width: 9px; height: 9px; border-radius: 50%; background: var(--text); }
-.nor .nor-legend { position: absolute; left: 0; bottom: 0; display: flex; gap: 15px; font-size: var(--fs-sm); color: var(--muted); line-height: 18.125px; }
+.nor .nor-legend { position: absolute; left: 0; bottom: 0; display: flex; gap: 15px; font-size: var(--nor-fs-sm); color: var(--muted); line-height: 18.125px; }
 .nor .nor-legend span { display: inline-flex; align-items: center; gap: 7px; }
 .nor .nor-legend i { width: 10px; height: 10px; border-radius: 3px; }
 .nor .nor-legend i.nor-l { width: 10px; height: 2px; border-radius: 2px; background: var(--brass) !important; }
 .nor .nor-run { margin-top: 14px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .nor .nor-run__t { font-size: 14px; font-weight: 600; letter-spacing: -.28px; line-height: 20.3px; }
-.nor .nor-run__id { font-size: var(--fs-sm); color: var(--muted); letter-spacing: -.125px; }
-.nor .nor-pill { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 9px; font-size: var(--fs-sm); font-weight: 700; white-space: nowrap; }
+.nor .nor-run__id { font-size: var(--nor-fs-sm); color: var(--muted); letter-spacing: -.125px; }
+.nor .nor-pill { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 9px; font-size: var(--nor-fs-sm); font-weight: 700; white-space: nowrap; }
 .nor .nor-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .nor .nor-pill--ok { background: #2f9a5a24; color: var(--good); }
 .nor .nor-pill--run { background: #3d78e024; color: var(--info); }
@@ -157,13 +157,13 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-ap--lg { width: 36px; height: 36px; border-radius: 10px; font-size: 12px; letter-spacing: -.24px; }
 .nor .nor-step__t { min-width: 0; padding-left: 0; }
 .nor .nor-step__t b { display: block; font-size: 13.5px; font-weight: 700; line-height: 16.875px; }
-.nor .nor-step__t span { display: block; font-size: var(--fs-xs); color: var(--muted); line-height: 16px; }
+.nor .nor-step__t span { display: block; font-size: var(--nor-fs-xs); color: var(--muted); line-height: 16px; }
 .nor .nor-step__ms { font-size: 12px; color: var(--muted); letter-spacing: -.12px; }
-.nor .nor-fin { margin-top: 24px; padding: 0 12px; height: 37px; display: flex; align-items: center; border-radius: 12px; background: var(--surface-2); font-size: var(--fs-sm); color: var(--muted); }
+.nor .nor-fin { margin-top: 24px; padding: 0 12px; height: 37px; display: flex; align-items: center; border-radius: 12px; background: var(--surface-2); font-size: var(--nor-fs-sm); color: var(--muted); }
 .nor .nor-fin b { color: var(--text); font-weight: 700; }
 .nor .nor-lbl { margin: 17px 0 5px; font-size: 11px; font-weight: 600; letter-spacing: .88px; text-transform: uppercase; color: var(--muted); }
 .nor .nor-jf { list-style: none; margin: 0; padding: 0; }
-.nor .nor-jf a { display: grid; grid-template-columns: 74px 1fr auto; column-gap: 14px; align-items: center; height: 37px; box-sizing: border-box; border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.nor .nor-jf a { display: grid; grid-template-columns: 74px 1fr auto; column-gap: 14px; align-items: center; height: 37px; box-sizing: border-box; border-top: 1px solid var(--line); font-size: var(--nor-fs-sm); }
 .nor .nor-jf li:first-child a { border-top: 0; height: 36px; }
 .nor .nor-jf a:hover .nor-jf__n { text-decoration: underline; text-underline-offset: 3px; }
 .nor .nor-jf .nor-pill { height: 22px; border-radius: 8px; margin-left: 4px; font-size: 12px; justify-content: flex-start; width: 74px; padding: 0 9px; }
@@ -206,11 +206,11 @@ export const CSS_AUTOMATIZACIONES = `
 .nor .nor-ask__hint { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .nor .nor-ask__hint kbd { width: 22px; height: 18px; display: grid; place-items: center; border: 1px solid var(--line-2); border-radius: 6px; background: var(--surface-2); font-size: 10px; }
 .nor .nor-sugs { display: grid; gap: 7px; margin-top: 12px; }
-.nor .nor-ask__sug { display: flex; align-items: center; gap: 12px; text-align: left; min-height: 38px; padding: 9px 12px 9px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); font-size: var(--fs-sm); font-weight: 600; line-height: 18px; transition: border-color .15s, color .15s; }
+.nor .nor-ask__sug { display: flex; align-items: center; gap: 12px; text-align: left; min-height: 38px; padding: 9px 12px 9px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); font-size: var(--nor-fs-sm); font-weight: 600; line-height: 18px; transition: border-color .15s, color .15s; }
 .nor .nor-ask__sug:hover { border-color: color-mix(in srgb, var(--primary) 45%, transparent); color: var(--primary); }
 .nor .nor-ask__sug svg { width: 14px; height: 14px; color: var(--brass); }
 .nor .nor-tbl-wrap { margin: 11px -8px 0 -8px; overflow-x: auto; }
-.nor .nor-table { width: 748px; table-layout: fixed; border-collapse: collapse; font-size: var(--fs-sm); }
+.nor .nor-table { width: 748px; table-layout: fixed; border-collapse: collapse; font-size: var(--nor-fs-sm); }
 .nor .nor-table col.nor-w-fl { width: 281px; }
 .nor .nor-table col.nor-w-st { width: 74px; }
 .nor .nor-table col.nor-w-sp { width: 130px; }
