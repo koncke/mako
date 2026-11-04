@@ -35,7 +35,16 @@ quitar, fuente, destino de un botón e imagen andaban en todas las secciones y s
   que se puede hacer es AVISAR. `capaEncima` lo detecta con el `getComputedStyle` de los dos seudo-elementos y el editor dice
   «Una capa de la página la tapa». Una caja HIJA que tapa no se detecta.
 
-**Probado rompiéndolo (4/11):** 13 roturas, 13 rojas (sacar el ícono de la lista, el corte del reproductor, la agenda, el
+**Y la rama traía 8 rojos que nadie había visto** (sus tests afectados nunca corrieron: el relevo lo decía «FALTA»). Seis
+salían de UNA frase: la réplica sumó a la descripción de `editar_landing_con_ia` tres ejemplos («quita la sección de precios»,
+«pon los testimonios arriba de todo», «duplica la del hero»), y esas palabras le subieron el puntaje contra los pedidos de
+quitar un botón y de animar, que dejaron de traer `acomodar_bloque_landing` y la lista de secciones (ops-center-bateria,
+ops-center-clasificador-app, mako-intencion-landing, api-mako-landing-animacion). Se volvió a la descripción de main: la
+IA igual saca, reordena y duplica, porque eso lo dice la gramática, no la descripción. Es la regla de AGENTS.md («las
+descripciones no repiten las raíces de OTRAS operaciones») cumplida tarde. Los otros dos fijaban líneas que la réplica
+reescribió (el clic que elige y la frase de la gramática): se reescribieron para afirmar lo que cuidan.
+
+**Probado rompiéndolo (4/11):** 16 roturas, 16 rojas (las 3 de las aserciones reescritas, y sacar el ícono de la lista, el corte del reproductor, la agenda, el
 relleno al poner y al sacar, el relleno puesto en el fondo, el cableado de `onIcono`, las pestañas, y las cuatro condiciones
 de `capaEncima` más el aviso). `tsc-acotado` sin errores en los 5 archivos.
 
