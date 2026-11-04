@@ -57,7 +57,7 @@
   // ── el mes (lunes primero; lo de afuera más claro, el fin de semana más claro, los feriados rayados) ──────
   $$('[data-cal]').forEach((caja) => {
     const d = JSON.parse(caja.dataset.cal);
-    const dow = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+    const dow = d.dias || ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
     let html = dow.map((x) => `<span class="cal__dow">${x}</span>`).join('');
     const ini = new Date(`${d.inicio}T12:00:00Z`);
     for (let i = 0; i < 35; i++) {
@@ -137,6 +137,9 @@
     p.style.strokeDasharray = String(L);
     p.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 1000, easing: P2IO, delay: (0.4 + 0.1 + i * 0.06) * 1000, fill: 'backwards' });
   });
+  // «rt» (`.meter__fill`: scaleX 0 → su valor · 1 s power3.out · .03): en la adaptación la barrita reemplaza a la línea. Se
+  // pone a los .4, donde la entrada llama a `Oe(.kpis)` (el INFORME no dice qué hace ese helper: es una inferencia).
+  $$('.kpi .meter__fill').forEach((m, i) => { const fin = m.style.transform || 'scaleX(1)'; m.animate([{ transform: 'scaleX(0)' }, { transform: fin }], { duration: 1000, easing: P3O, delay: (0.4 + i * 0.03) * 1000, fill: 'backwards' }); });
   er($$('.quick, .upc, .hw, .perf, .risk, .notes'), { stagger: 0.06, delay: 0.45 });
   zn($$('.quick__a'), { y: 12, stagger: 0.035, delay: 0.6 });
   zn($$('.upc__row, .risk__row, .notes__row'), { y: 10, stagger: 0.03, delay: 0.7 });
