@@ -23,7 +23,7 @@ import { capaDef } from './capas';
 import {
   TOPE_AUTOMATICOS_POR_DIA, TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, delegadoQueDecideMartin, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket, type Triage,
-  ESTADOS, PRIORIDADES, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
+  ESTADOS, PRIORIDADES, esRefDelSistema, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
 } from './tickets-reglas';
 
 const T = 'tickets';
@@ -303,8 +303,8 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
 /** Los estados de un ticket cerrado (un automático cerrado abre uno nuevo si vuelve a pasar). */
 const CERRADOS: readonly EstadoTicket[] = ['resuelto', 'rechazado', 'duplicado'];
 
-/** ¿Esta `ref` es de un ticket que abrió el SISTEMA por la persona (un automático, un error, lo que no existe)? */
-export const esRefDelSistema = (ref: string | null | undefined): boolean => !!ref && /^(?:np|error|no-existe):/.test(ref);
+/** ¿Esta `ref` es de un ticket que abrió el SISTEMA por la persona? Vive en lib/tickets-reglas.ts (también la usa el correo de avance). */
+export { esRefDelSistema };
 
 /**
  * Cierra el ticket automático ABIERTO con esa `ref` (o su sufijo): lo del proveedor o la configuración, cuando vuelve a andar

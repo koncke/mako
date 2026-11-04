@@ -1,6 +1,7 @@
 // La animación de Competitors Spy: sus piezas se juntan y se reparten en carpetas (Martín, 1/11/2026, copiada de «Sort my footage»).
 // Probado rompiéndolo:
 //   · contar el sitio como una pieza                         → 1
+//   · volver a partir las carpetas por etapa                 → 1 y 1b
 //   · repartirMiniaturas sin el tope                         → 2
 //   · dejar una carpeta sin miniaturas al cortar             → 2
 //   · rectDe sin calcular cuántas entran                     → 3 (se salen de su carpeta)
@@ -24,9 +25,22 @@ test('1. las carpetas salen de las piezas: todas caen en una, y el sitio no es u
   const cs = carpetasDe(ps);
   assert.equal(cs.reduce((s, c) => s + c.n, 0), 40);
   assert.equal(new Set(cs.flatMap((c) => c.ids)).size, 40);
-  assert.ok(cs.some((c) => c.rotulo === 'Videos · Probado'));
-  assert.ok(cs.some((c) => c.rotulo === 'Videos'), 'sin etapa, sólo el formato');
+  // Una carpeta por TIPO DE CONTENIDO, sin la etapa («Videos · Probado» se fue el 4/11: Martín no entendía «Probado»).
+  assert.deepEqual(cs.map((c) => c.rotulo), ['Reels', 'Videos de YouTube']);
   assert.deepEqual(carpetasDe([]), []);
+});
+
+test('1b. los Shorts y los carruseles van en su carpeta, en el orden del desplegable de la ficha', () => {
+  const cs = carpetasDe([
+    { id: 1, canal: 'youtube', tipo: 'video', duracion: 'PT45S' },
+    { id: 2, canal: 'youtube', tipo: 'video', duracion: 'PT12M3S' },
+    { id: 3, canal: 'instagram', tipo: 'publicacion' },
+    { id: 4, canal: 'instagram', tipo: 'reel' },
+    { id: 5, canal: 'anuncios', tipo: 'anuncio' },
+  ]);
+  assert.deepEqual(cs.map((c) => [c.rotulo, c.ids]), [
+    ['Reels', [4]], ['Carruseles e imágenes', [3]], ['Videos de YouTube', [2]], ['Shorts', [1]], ['Anuncios', [5]],
+  ]);
 });
 
 test('2. se dibujan como mucho las del tope, y ninguna carpeta se queda sin la suya', () => {
@@ -74,7 +88,7 @@ test('4. la bola no pisa las carpetas: en una pantalla ancha queda en el medio',
 test('5. sólo anima lo que se leyó, nunca traba y una relectura sola va callada', () => {
   const spy = leer('app/competitor-spy/SpyApp.tsx');
   assert.match(spy, /setOrdenando\(\(v\) => \(v\?\.id !== id \|\| actual\.current !== id \? null : p\?\.length \? \{ id, piezas: p \} : null\)\)/, 'sin piezas no hay animación');
-  assert.match(spy, /void leer\(elegido, !p\?\.length\)/, 'una ficha que ya tiene piezas se relee sin correrle la pantalla');
+  assert.match(spy, /await leer\(id, !p\?\.length\)/, 'una ficha que ya tiene piezas se relee sin correrle la pantalla');
   // Tocar «Revisar» a mitad de la película dejaba la escena sin carpetas, y la página se caía (la revisión del 1/11/2026).
   assert.equal((spy.match(/disabled=\{estaLeyendo \|\| ordenando != null \|\|/g) ?? []).length, 2);
   assert.match(spy, /setTrayendo\(true\); setOrdenando\(null\);/, 'cambiar de ficha corta la película');
