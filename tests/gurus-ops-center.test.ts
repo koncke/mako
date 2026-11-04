@@ -107,8 +107,9 @@ test('2. la fila no es un clic muerto, y abrirlo no cambia de ruta', () => {
   assert.match(sb, /filasDeGurus\.map\(\(\{ id \}\) => \{[\s\S]{0,400}onElegir=\{\(\) => abrirGuru\(id\)\} \/>/, 'su fila abre su chat ahí mismo');
   assert.equal(tocarEnLaBarra('chat', { ticketera: false, mapa: false, nuevo: false }).ir ?? null, null, 'sin el grafo abierto, no se navega');
   const ini = sb.indexOf('const abrirGuru =');
-  const fin = sb.indexOf('const edadDeGuru =');
-  assert.ok(ini >= 0 && fin > ini, 'abrirGuru está antes de edadDeGuru');
+  // Hasta la función que sigue (abrirGrupo, desde el 4/11/2026; si no está, edadDeGuru): sólo el cuerpo de abrirGuru.
+  const fin = [sb.indexOf('const abrirGrupo ='), sb.indexOf('const edadDeGuru =')].filter((x) => x > ini).sort((x, y) => x - y)[0] ?? -1;
+  assert.ok(ini >= 0 && fin > ini, 'abrirGuru está antes de abrirGrupo y de edadDeGuru');
   const abrir = sb.slice(ini, fin);
   assert.match(abrir, /setGuru\(id\);/);
   assert.match(abrir, /if \(paso\.ir\) \{[^}]*router\.push\(`\$\{base\}\?guru=/, 'sólo el grafo, que es de otra página, navega');

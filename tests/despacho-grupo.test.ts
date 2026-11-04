@@ -382,7 +382,7 @@ test('14. M1: de lo que escribe el Cerebro, al grupo del cliente sólo llega lo 
 test('15. M3: el DEBUG lo habilita quien escribe (con su teléfono), y `diagnosticar_negocio` sólo la corre el código', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
   // Rota: `escribeElDueno: esElGrupoDeLaPlataforma` → cualquiera de un grupo de prueba de la allowlist mira cualquier negocio.
-  assert.ok(doer.includes('const escribeElDueno = esElGrupoDeLaPlataforma && !data.loteDeVarios\n      && (key?.fromMe === true || (await esAdminDeMaKoPorTelefono(telefonoDelParticipante(quienPide)).catch(() => false)));'),
+  assert.ok(doer.includes('const escribeElDueno = esElGrupoDeLaPlataforma && !data.loteDeVarios\n      && (key?.fromMe === true || deLaApp?.letra === \'m\' || (await esAdminDeMaKoPorTelefono(telefonoDelParticipante(quienPide)).catch(() => false)));'),
     'el DEBUG no mira quién escribe');
   assert.ok(doer.includes('esSuperAdmin: esElGrupoDeLaPlataforma, escribeElDueno,\n'));
   // Quién escribe: el teléfono de `participantAlt` en un grupo de `@lid`; y en un lote de varios, nadie (no prueba quién pidió).

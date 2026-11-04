@@ -1001,3 +1001,82 @@ dos formas), que Apify devuelva los ítems de error con esa forma, y el cron en 
 lib/spy-reglas.ts (`canalDeLaBio`) · lib/spy-todo.ts (`reservarCorrida`) · lib/spy-todo-reglas.ts (`usadasHoy`,
 `avisoDeTraida`) · app/api/cron/spy-todo/route.ts · app/api/competitor-spy/redes/route.ts · app/competitor-spy/SpyApp.tsx ·
 tests/spy-cadena.test.ts
+
+## La caricatura por cola: la hace el Runner con Canva, y el camino de Flow se borró (4/11/2026)
+
+> Martín, 4/11 (por el Cerebro): «cada vez que se genere un nuevo competidor, hacer una especie de levantar un ticket
+> para generar esa imagen y ya con eso se pone la imagen ahí».
+
+**Por qué se cambió de camino:** el de antes (la IA del negocio describía la cara y el puente de Google Flow la generaba)
+no salió **ni una vez** en producción: el Cerebro midió que todos los puentes estaban sin sesión, así que la pantalla lo
+pedía, se rendía callada y la tarjeta quedaba con la foto. Y le cobraba al negocio dos veces. Se borró entero (motor, ruta
+y el bucle de la pantalla), para no dejar dos caminos vivos.
+
+**Lo que quedó:** al leer un competidor con su foto ya en NUESTRO Storage, queda pendiente en `spy.caricaturas`; el Runner
+la lista (`spy-caricaturas-pendientes.mjs`: sólo ws, id y la URL de la foto) y la guarda (`spy-caricatura-guardar.mjs`). El
+contrato, en docs/relevo/nube-spy.md. Una sola lógica para el servidor y los scripts: lib/spy-caricatura-cola.ts, sin
+`server-only` y con lo que habla con la base inyectado, así el test corre la cadena entera.
+
+**Tres decisiones que no se ven en el código:**
+- **Una caricatura por PERSONA, no por negocio.** Se guarda por su cuenta (`spy/caricatura/instagram-den_borgg.png`) y se
+  marca lista en todo competidor con la misma red y el mismo usuario; los que comparten una cuenta son un grupo (también
+  encadenado: A y B comparten Instagram, B y C YouTube) y el grupo se lista una vez. Lo único que cruza negocios es la
+  imagen: nunca quién mira a quién.
+- **Los fallos se juntan en UNO.** La primera versión elegía «el que entró primero a la cola»: con el fallo anotado en el
+  competidor del negocio del lado, la próxima vez se le pedía al otro, que arrancaba en cero — tres intentos por negocio
+  en vez de tres por persona. Ahora se elige primero al que ya falló (lo cazó el test 5b, escrito porque esa rotura daba
+  verde).
+- **«No hay Canva» no es un fallo.** Canva depende de la cuenta de Claude del Runner: sin él no se anota nada y la
+  pendiente espera. Lo que lo delata es `masVieja` (la fecha de la pendiente más vieja) creciendo en la lista del super
+  admin; la pantalla no dice nada.
+
+**La receta, medida por el Cerebro con Den Borg (~30 s):** `upload-asset-from-url` → `generate-image` con
+`imageReferences` y `SQUARE_1_1` → `get-generate-image-job` hasta `SUCCESS` → `get-assets`. **El conector entrega una vista
+de 200 × 200 aunque el original mida 1264**: el tamaño se LEE del archivo (`medidasDeImagen`) y no se supone. Y **el prompt
+aprobado dice «the man»**: Den Borg es una mujer, así que el género y los rasgos los completa el Runner mirando la foto,
+nunca un texto fijo.
+
+**Regla:** cuando un proveedor entrega «una vista» de un archivo, el tamaño se lee de los bytes que llegaron, no del
+original que se pidió.
+
+**Sin probar contra el servicio:** los scripts contra la base de producción (la primera prueba es Den Borg, ws 9,
+competidor 17) y la búsqueda por prefijo del Storage (`caricaturaGuardada`).
+
+**Vive en:** lib/spy-caricatura-reglas.ts (`estadoEnCola`, `colaDeCaricaturas`, `mismaPersona`, `medidasDeImagen`,
+`caraDeTarjeta`) · lib/spy-caricatura-cola.ts (`encolarCaricatura`, `listarCola`, `guardarCaricatura`, `anotarFallo`) ·
+lib/spy-caricatura-servidor.ts (`encolarAlLeer`) · lib/spy-miniaturas.ts (`caricaturaGuardada`) · lib/spy.ts
+(`mirarCompetidor`) · scripts/spy-caricaturas-pendientes.mjs · scripts/spy-caricatura-guardar.mjs ·
+scripts/spy-caricatura-base.mjs · app/competitor-spy/SpyApp.tsx · tests/spy-caricatura-cola.test.ts
+
+## «Sugeridos»: los competidores de la plataforma en todos los negocios, sin cobrarle a nadie (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11): los que carga el negocio de la plataforma aparecen en todos los negocios como
+> catálogo «Sugeridos», sin cobrarle al cliente; se suman a su lista sin duplicarlos, y nunca se ven los de otro cliente.
+
+**Lo que quedó:** un bloque «Sugeridos» debajo de los competidores (también cuando el negocio todavía no mira a nadie), con
+la misma tarjeta y «Sumar». Sumarlo COPIA lo que la plataforma ya leyó (sus publicaciones vivas, su foto, sus números y su
+caricatura si ya está hecha) y deja anotada la traída larga como hecha hoy: no se le pide nada a Apify ni a YouTube con la
+clave del negocio. Lo nuevo, después, sigue las reglas de siempre (la lectura compartida primero). En la API de MaKo:
+`ver_sugeridos` y `sumar_sugerido`, por el mismo camino que la pantalla.
+
+**Tres cosas que no se ven en el código:**
+- **Sólo la plataforma, y por capa.** El negocio de la plataforma sale de `wsSuperAdmin()` (capa `superadmin`), nunca de
+  un 9 escrito; y cada fila se vuelve a mirar contra ese negocio (`soloDeLaPlataforma`), así una consulta mal filtrada no
+  alcanza para que se cuele a quién mira otro cliente. El test lo prueba con una base que devuelve filas de todos.
+- **Los anuncios no se copian.** Lo traído de la Biblioteca de Anuncios no se le pasa a un tercero (los términos de Meta
+  no dejan transferir lo recolectado): el cliente trae los suyos con su propia lectura. Tampoco viaja la `oferta`: está
+  escrita contra el negocio de la plataforma, no contra el del cliente.
+- **Lo borrado no se copia como vivo.** Una pieza que la plataforma vio desaparecer (`dejo_de_verse_en`) no entra:
+  copiada por `guardarVistas`, nacería como «a la vista».
+
+**Lo que se resigna:** la fecha de «visto por primera vez» de lo copiado es la de hoy (la escribe sólo el insert de
+`guardarVistas`, a propósito); la fecha de publicación sí viaja.
+
+**Sin probar contra el servicio ni en pantalla:** el bloque no se dibujó con datos (la pantalla entera trae las actions
+del servidor y no entra en el banco de prueba); usa las mismas clases que la tarjeta de los competidores.
+
+**Vive en:** lib/spy-sugeridos.ts (`listarSugeridos`, `agregarSugerido`, `soloDeLaPlataforma`, `piezasACopiar`,
+`esLaMismaPersona`) · lib/spy-sugeridos-server.ts · lib/spy-todo.ts (`marcarTraidaHoy`) · app/competitor-spy/actions.ts
+(`sugeridosAction`, `sumarSugeridoAction`) · app/competitor-spy/page.tsx · app/competitor-spy/SpyApp.tsx
+(`RejillaSugeridos`) · lib/api-mako/areas/spy.def.ts y spy.run.ts (`ver_sugeridos`, `sumar_sugerido`) ·
+tests/spy-sugeridos.test.ts

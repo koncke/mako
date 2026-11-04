@@ -22,13 +22,15 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, TOPE_TURNO_VIEJO, carteroVivo, destinoVivo, esParaMartin, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat, textoDelEncargo } from './operaciones-reglas';
-import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
+import { CARTERO_VIVO_MS, CUENTA_RE, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, TOPE_TURNO_VIEJO, carteroVivo, comoEstaElDestino, esParaMartin, fotoAlDia, noticiaDe, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat, textoDelEncargo } from './operaciones-reglas';
+import { hace, instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
 import { usoDeCuenta, type Cuota } from './centro-uso';
 import { estaAbierta, preguntaDeTrabajo, resumenDeRespuesta, seContestaEnLaApp, type PreguntaChat } from './centro-preguntas-chat';
 import { listasEnRenglones } from './respuesta-como-claude';
+import { haceCuanto } from './centro-limbo';
+import { rotuloDia } from './centro-fechas';
 
 export type EstadoChat = 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato';
 
@@ -77,7 +79,7 @@ export type SesionDeChat = {
 };
 
 /** Lo mínimo de un cartero (lib/operaciones.ts → Cartero). `claves`: las que acepta la PC (para la caja de escribir). */
-export type CarteroP = { cuenta: string; vistoAt: string | null; chats: readonly ChatCartero[]; claves?: readonly string[]; cuota?: Cuota | null };
+export type CarteroP = { cuenta: string; /** La última vuelta de un RUNNER (`carteroVivo`). */ vistoAt: string | null; /** La última vuelta de cualquiera, también del servicio de la PC. Sin el dato, vale `vistoAt`. */ noticiasAt?: string | null; chats: readonly ChatCartero[]; claves?: readonly string[]; cuota?: Cuota | null };
 /** Lo mínimo de un trabajo de la cola (lib/operaciones.ts → Pedido). Lo de abajo de `created_at` es lo que dibuja la
  *  conversación (el texto que se mandó, por dónde va y el cierre que dejó el chat); la lista no lo necesita. */
 export type TrabajoP = {
@@ -214,7 +216,8 @@ export function completarChats(base: readonly ChatCentro[], { carteros, trabajos
 
   // 1. Lo que subió cada cartero: sesión, título (el de la app, que se puede renombrar) y estado.
   for (const k of carteros) {
-    const visto = fecha(k.vistoAt);
+    // De cuándo es esta foto: de la última vuelta de CUALQUIERA. Con el servicio de la PC, el estado está al día aunque no haya Runner.
+    const visto = fecha(noticiaDe(k));
     const viejo = visto == null || ahora - visto >= CARTERO_VIVO_MS;
     for (const ch of k.chats) {
       if (!DESTINO_RE.test(ch.local) && !ch.nube) continue;
@@ -1074,14 +1077,79 @@ export function comoSale(
 }
 
 /**
- * Cuándo dio su última vuelta un Runner, si NINGUNO da vueltas ahora: el estado de los chats es una foto de ese momento
- * (Martín, 17/10/2026: «aparecen todos los chats como que no están haciendo nada, cuando no es así»; el Runner se había
- * caido con la app). null = alguno da vueltas, o ninguno dio nunca: no hay nada que avisar.
+ * ¿Se le puede mandar ahora a este chat, sabiendo que lo va a recibir? ⚠️ `envio.puede` NO LO DICE: `comoSale` devuelve `espera: 'cartero'`
+ * ANTES de mirar el estado, así que sin Runner un chat cerrado «puede». Y con la foto vieja, `abierto` es de hace rato. La usan los
+ * que ofrecen o eligen un chat por lo que está abierto (CartelLimbo.tsx, useCentro.ts → mandarDelLimbo). Puede salir con `espera: 'cartero'`: el
+ * chat está abierto y falta el Runner, que es otra cosa. Para la bandeja de tickets, `chatCerrado`.
  */
-export function sinNoticiasDesde(carteros: readonly Pick<CarteroP, 'vistoAt'>[], ahora: number): number | null {
-  if (!carteros.length || carteros.some((k) => carteroVivo(k, ahora))) return null;
-  const vistos = carteros.map((k) => fecha(k.vistoAt)).filter((t): t is number => t != null);
+export const chatRecibe = (c: Pick<ChatCentro, 'estado' | 'viejo'>, envio: Envio): boolean =>
+  envio.puede && envio.espera !== 'chat_cerrado' && !chatCerrado(c) && !c.viejo;
+
+/** ¿El estado de este chat no dice que esté abierto? Vale también con la foto vieja y con `sin_dato`. */
+export const chatCerrado = (c: Pick<ChatCentro, 'estado'>): boolean => c.estado !== 'abierto' && c.estado !== 'trabajando';
+
+/**
+ * Cuándo dio la PC su última vuelta, si NO da ninguna ahora: el estado de los chats es una foto de ese momento (Martín, 17/10/2026:
+ * «aparecen todos los chats como que no están haciendo nada, cuando no es así»; el Runner se había caido con la app). null = alguna
+ * llega, o no llegó nunca: no hay nada que avisar. ⚠️ Es la pregunta de la PC, no la del Runner: con el servicio, la PC da noticias sin Runner.
+ */
+export function sinNoticiasDesde(carteros: readonly Pick<CarteroP, 'vistoAt' | 'noticiasAt'>[], ahora: number): number | null {
+  if (!carteros.length || carteros.some((k) => carteroVivo({ vistoAt: noticiaDe(k) }, ahora))) return null;
+  const vistos = carteros.map((k) => fecha(noticiaDe(k))).filter((t): t is number => t != null);
   return vistos.length ? Math.max(...vistos) : null;
+}
+
+// ── El estado de la PC, en el Uso (30/10/2026; 31/10, adentro del panel) ────────────────────────────────────────
+// El Runner estuvo parado del 24/10 al 30/10 y nadie se enteró. La ausencia la dice MaKo con sus propios datos, porque lo que depende de la
+// PC calla justo cuando la PC no está. Iba como un cartel rojo arriba del Ops Center, y Martín lo pidió en otro lugar: «Si, ponlo pero en
+// USO». Se consulta cuando se quiere saber, no interrumpe.
+// ⚠️ DICE EL HECHO CON SU EDAD, NO LA CONCLUSIÓN: «Sin noticias de la PC desde las 17:20», nunca «no responde» (31/10/2026: con la PC prendida
+//    salió «no responde», porque la tolerancia era menor que el intervalo de las vueltas).
+
+/** `cuenta`: la del pedido más viejo, la que hay que abrir primero. */
+export type EstadoPc =
+  | { tipo: 'al_dia'; desde: number; texto: string; hacer: null }
+  | { tipo: 'sin_noticias'; desde: number; cuenta: string | null; texto: string; hacer: string }
+  | { tipo: 'sin_runner'; desde: number | null; pedidos: number; masViejo: number | null; cuenta: string | null; texto: string; hacer: string };
+
+/** «las 23:47» hoy, «ayer a las 23:47» o «el 24 oct a las 23:47»: una hora sola, de hace días, miente. */
+function cuandoFue(t: number, ahora: number): string {
+  const dia = rotuloDia(t, ahora);
+  if (dia === 'Hoy') return `las ${horaAR(t)}`;
+  return `${dia === 'Ayer' ? 'ayer' : `el ${dia}`} a las ${horaAR(t)}`;
+}
+
+/**
+ * Uno solo, o ninguno. La PC sin ninguna vuelta reciente → «sin noticias». Con vueltas (el servicio sube) y ningún Runner → «sin Runner», con
+ * los pedidos en «escrito». Con un Runner dando vueltas → al día, con su edad. null = una PC que nunca dio noticias.
+ * ⚠️ Cuenta TODOS los «escrito», también los de un chat abierto y los de un chat nuevo: sin Runner no sale ninguno.
+ */
+export function estadoDeLaPc(
+  carteros: readonly Pick<CarteroP, 'vistoAt' | 'noticiasAt'>[],
+  pedidos: readonly { estado: string; created_at: string; destino_cuenta: string | null }[],
+  ahora: number,
+): EstadoPc | null {
+  if (!carteros.length) return null;
+  const esperan = pedidos.filter((p) => p.estado === 'escrito' && Number.isFinite(Date.parse(p.created_at)))
+    .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  const cuenta = esperan.find((p) => !!p.destino_cuenta && CUENTA_RE.test(p.destino_cuenta))?.destino_cuenta ?? null;
+  const runner = `el Runner${cuenta ? ` de la cuenta ${cuenta.replace(/^claude/, '')}` : ''}`;
+  const desde = sinNoticiasDesde(carteros, ahora);
+  if (desde != null) {
+    return { tipo: 'sin_noticias', desde, cuenta, texto: `Sin noticias de la PC desde ${cuandoFue(desde, ahora)}`, hacer: `Mira si está prendida y abre ${runner}.` };
+  }
+  if (!carteros.some((k) => carteroVivo({ vistoAt: noticiaDe(k) }, ahora))) return null; // Nunca llegó nada: es una PC sin conectar.
+  if (carteros.some((k) => carteroVivo(k, ahora))) {
+    const ultima = Math.max(...carteros.map((k) => fecha(noticiaDe(k)) ?? 0));
+    return { tipo: 'al_dia', desde: ultima, texto: `La PC dio noticias ${hace(ultima, ahora)}`, hacer: null };
+  }
+  const n = esperan.length;
+  const masViejo = n ? Date.parse(esperan[0].created_at) : null;
+  const edad = masViejo != null ? haceCuanto(ahora - masViejo) : '';
+  const cuantos = !n ? '' : n === 1 ? `: 1 pedido tuyo espera (de ${edad})` : `: ${n} pedidos tuyos esperan (el más viejo, de ${edad})`;
+  const vistos = carteros.map((k) => fecha(k.vistoAt)).filter((t): t is number => t != null);
+  const ultimoRunner = vistos.length ? Math.max(...vistos) : null;
+  return { tipo: 'sin_runner', desde: ultimoRunner, pedidos: n, masViejo, cuenta, texto: `Sin Runner${ultimoRunner != null ? ` desde ${cuandoFue(ultimoRunner, ahora)}` : ''}${cuantos}`, hacer: `Abre ${runner}.` };
 }
 
 // ── En qué está lo que mandó Martín (17/10/2026) ──────────────────────────────────────────────────────────────
@@ -1140,10 +1208,11 @@ function porQueTarda(
  * Con la cuenta sin noticias, no se sabe (`vivo` es de la última vuelta): null, como `comoSale`. null = sale.
  */
 export function preguntaDeChatCerrado(
-  local: string, cuenta: string | null, carteros: readonly Pick<CarteroP, 'cuenta' | 'vistoAt' | 'chats'>[], ahora: number,
+  local: string, cuenta: string | null, carteros: readonly Pick<CarteroP, 'cuenta' | 'vistoAt' | 'noticiasAt' | 'chats'>[], ahora: number,
 ): string | null {
-  if (destinoVivo(local, carteros)) return null;
-  if (!carteroVivo(carteros.find((k) => k.cuenta === cuenta), ahora)) return null;
+  // `vivo` es de la última vuelta de cualquiera: lo que importa es que la foto esté al día, no que haya un Runner.
+  if (comoEstaElDestino(local, cuenta, carteros, ahora) !== 'cerrado') return null;
+  if (!carteros.some((k) => k.cuenta === cuenta && fotoAlDia(k, ahora))) return null;
   const n = cuenta?.replace(/^claude/, '');
   return `Este chat está cerrado: ábrelo${n ? ` en la cuenta ${n}` : ''} para contestarle.`;
 }

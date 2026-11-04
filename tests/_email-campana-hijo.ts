@@ -7,7 +7,8 @@
 // la red real: lo que no es la base ni Resend se anota en `otros` y tiene que dar vacío.
 //
 // Corre con: node --conditions=react-server --import tsx tests/_email-campana-hijo.ts <escenario>
-// Escenarios: 'dominio' (puntos 1 y 2: conectar el dominio, el seguimiento, el remitente y el reply_to).
+// Escenarios: 'dominio' (puntos 1 y 2: conectar el dominio, el seguimiento, el remitente y el reply_to); 'claves' (la key
+// que administra dominios y la que manda, separadas: tests/resend-clave-admin.test.ts).
 // Imprime el resultado después de la marca @@RESULTADO@@.
 // =============================================================================
 
@@ -18,6 +19,8 @@ process.env.SUPABASE_URL = 'http://supa.test';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'srk-de-prueba';
 process.env.SUPABASE_SERVICE_KEY = 'srk-de-prueba';
 process.env.RESEND_API_KEY = 're_de_la_plataforma';
+// La que administra dominios (4/11/2026): aparte de la que manda, y sólo la lee lib/resend-dominios.ts.
+process.env.RESEND_ADMIN_API_KEY = 're_admin_de_la_plataforma';
 process.env.CREDENCIALES_SECRET = 'secreto-de-cifrado-de-prueba-suficientemente-largo';
 process.env.UNSUBSCRIBE_SECRET = 'secreto-de-baja-de-prueba';
 
@@ -48,7 +51,7 @@ const pg = crearPostgrest({
 const db = pg.db as Record<string, Fila[]>;
 
 // ── Resend de mentira ──────────────────────────────────────────────────────────────────────
-type Pedido = { metodo: string; path: string; body: Record<string, unknown> | null };
+type Pedido = { metodo: string; path: string; body: Record<string, unknown> | null; clave: string | null };
 const resend: Pedido[] = [];
 const dominios = new Map<string, Fila>();
 let estadoDelDominio = 'not_started';
@@ -61,7 +64,8 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.host === 'api.resend.com') {
     const metodo = (init.method ?? 'GET').toUpperCase();
     const body = typeof init.body === 'string' && init.body ? JSON.parse(init.body) as Record<string, unknown> : null;
-    resend.push({ metodo, path: u.pathname, body });
+    const auth = new Headers(init.headers).get('authorization');
+    resend.push({ metodo, path: u.pathname, body, clave: auth?.replace(/^Bearer /, '') ?? null });
     if (u.pathname === '/domains' && metodo === 'POST') {
       const name = String(body?.name);
       const d: Fila = {
@@ -174,6 +178,58 @@ async function escenarioDominio(): Promise<Record<string, unknown>> {
   const sin = await enNegocio(() => remitente.preparar!({ nombre: 'Mauricio', local: 'hola', sinResponderA: true }, ctx(NEGOCIO)));
   out.sinResponderA = await enNegocio(() => remitente.ejecutar!(sin.payload as Record<string, unknown>, ctx(NEGOCIO)));
   out.replyToTrasSacar = setting(NEGOCIO, 'resend_reply_to');
+  return out;
+}
+
+// ── Las dos keys de Resend (4/11/2026): la que administra dominios y la que manda ───────────────────────────────────
+// El Cerebro: «no le subas el permiso a la clave que envía. Separalo». Se mira el `Authorization` de cada pedido a Resend.
+async function escenarioClaves(): Promise<Record<string, unknown>> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { runnerDe } = await import('../lib/api-mako/runners');
+  const marketing = await import('../lib/email-marketing');
+  const { sendEmail } = await import('../lib/resend');
+  const { REMITENTE_MAKO } = await import('../lib/app-url');
+  const { estadoEmail } = await import('../lib/api-mako/areas/email.helpers');
+  const conectar = runnerDe('conectar_dominio_email') as unknown as Runner;
+  const verificar = runnerDe('verificar_dominio_envio') as unknown as Runner;
+  const enNegocio = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  const out: Record<string, unknown> = {};
+  const porRuta = () => ({
+    dominios: [...new Set(resend.filter((p) => p.path.startsWith('/domains')).map((p) => p.clave))],
+    envios: [...new Set(resend.filter((p) => p.path.startsWith('/emails')).map((p) => p.clave))],
+  });
+
+  db.workspaces.push({ id: PLATAFORMA, nombre: 'MaKo', capa: 'superadmin', estado: 'activo' });
+  db.workspaces.push({ id: NEGOCIO, nombre: 'Elevate', capa: 'completo', estado: 'activo' });
+
+  // 1) Sin la clave de administración: no se propone nada, no se le pide nada a Resend y no se escribe nada.
+  const admin = process.env.RESEND_ADMIN_API_KEY;
+  delete process.env.RESEND_ADMIN_API_KEY;
+  out.sinClave = await enNegocio(() => conectar.preparar!({ dominio: 'elevate.com.mx' }, ctx(NEGOCIO)));
+  db.app_settings.push({ workspace_id: NEGOCIO, key: 'resend_domain', value: 'elevate.com.mx' }, { workspace_id: NEGOCIO, key: 'resend_domain_id', value: 'dom-elevate.com.mx' });
+  out.sinClaveVerificar = await enNegocio(() => verificar.preparar!({}, ctx(NEGOCIO)));
+  out.sinClaveEstado = (await enNegocio(() => estadoEmail())) as unknown as Record<string, unknown>;
+  db.app_settings = db.app_settings.filter((f) => !(Number(f.workspace_id) === NEGOCIO && String(f.key).startsWith('resend_domain')));
+  pg.db.app_settings = db.app_settings;
+  out.sinClaveSettings = db.app_settings.filter((f) => Number(f.workspace_id) === NEGOCIO).map((f) => f.key);
+  out.sinClavePedidos = resend.filter((p) => p.path.startsWith('/domains')).length;
+  process.env.RESEND_ADMIN_API_KEY = admin;
+
+  // 2) Con ella: el alta, el seguimiento y la verificación van con la de administración.
+  const prep = await enNegocio(() => conectar.preparar!({ dominio: 'elevate.com.mx' }, ctx(NEGOCIO)));
+  out.conectar = await enNegocio(() => conectar.ejecutar!(prep.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  estadoDelDominio = 'verified';
+  const pv = await enNegocio(() => verificar.preparar!({}, ctx(NEGOCIO)));
+  out.verificar = await enNegocio(() => verificar.ejecutar!(pv.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  out.conClaveEstado = (await enNegocio(() => estadoEmail())) as unknown as Record<string, unknown>;
+
+  // 3) Y lo que MANDA sigue con la suya: un broadcast del negocio y un aviso de MaKo.
+  db.app_settings.push({ workspace_id: NEGOCIO, key: 'resend_from', value: 'Elevate <hola@elevate.com.mx>' });
+  db.email_broadcasts.push({ id: 42, workspace_id: NEGOCIO, asunto: 'Hola {nombre}', preheader: '', cuerpo: 'Texto', segmento: 'activos', estado: 'borrador' });
+  out.prueba = await enNegocio(() => marketing.enviarBroadcastPrueba(42, 'mauricio@personal.test'));
+  out.aviso = await runWithWorkspace(PLATAFORMA, () => sendEmail({ to: 'martin@prueba.test', from: REMITENTE_MAKO, subject: 'Aviso', html: '<p>Hola</p>', text: 'Hola' }));
+  out.claves = porRuta();
+  out.otros = otros;
   return out;
 }
 
@@ -510,7 +566,7 @@ async function escenarioTopes(): Promise<Record<string, unknown>> {
 }
 
 async function main() {
-  const escenarios: Record<string, () => Promise<Record<string, unknown>>> = { dominio: escenarioDominio, lote: escenarioLote, secuencia: escenarioSecuencia, columnas: escenarioColumnas, topes: escenarioTopes };
+  const escenarios: Record<string, () => Promise<Record<string, unknown>>> = { dominio: escenarioDominio, claves: escenarioClaves, lote: escenarioLote, secuencia: escenarioSecuencia, columnas: escenarioColumnas, topes: escenarioTopes };
   const fn = escenarios[ESC];
   if (!fn) throw new Error(`escenario desconocido: ${ESC}`);
   const out = await fn();

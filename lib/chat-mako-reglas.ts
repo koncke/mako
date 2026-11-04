@@ -157,16 +157,6 @@ export function colgarIrA<T extends { k: string; id: string; role?: string }>(it
   return i < 0 ? [...items] : items.map((x, j) => (j === i ? { ...x, irA: [...links] } : x));
 }
 
-/** El grupo de WhatsApp de MaKo en la barra del Second Brain (tanda 8): se lee acá y se contesta allá. */
-export const TITULO_GRUPO = 'MaKo en WhatsApp';
-export const AVISO_GRUPO = 'Se contesta en el grupo de WhatsApp.';
-
-/** ¿Es un momento válido para pedir la página anterior del grupo? (`?antes=` de la ruta: una fecha ISO, nada más). */
-export function antesValido(v: unknown): string | null {
-  if (typeof v !== 'string' || v.length > 40 || !/^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})$/.test(v)) return null;
-  return Number.isFinite(Date.parse(v)) ? v : null;
-}
-
 // ── «Lo que hizo» (tanda 7) ──────────────────────────────────────────────────────────────────────────────────────
 
 /** Cómo quedó una acción que MaKo dejó en el chat (lo que dibuja el riel). Los rótulos salen de PILL_PROPUESTA. */
@@ -263,11 +253,11 @@ export function seEscondeDeOffer(s: { id: number; updatedAt: string }, copiada: 
 
 /** Lo elegido en la barra: una conversación con MaKo, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»), una conversación de Offer, o un chat de Claude Code (su clave del Centro). */
-export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number } | { grupo: true }
+export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number }
   | { automatizacion: number } | { editor: TipoEditor; clave: string } | { coach: 'funnel' };
 
-/** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). El grupo no tiene motor: se lee. */
-export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'grupo' | 'automations' | 'editor';
+/** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). El grupo del negocio no va acá: tiene el suyo (ChatDelGrupo.tsx). */
+export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'automations' | 'editor';
 
 export type FilaDelCliente = {
   /** La key de React y la búsqueda del elegido. */
@@ -533,11 +523,9 @@ export function jefeDelGrupo(g: { clave: string; jefe: string; subs: readonly Fi
 }
 
 /** La lista entera: el Cerebro primero (siempre, aunque no tenga conversación todavía) y el resto, lo más reciente arriba. La
- *  búsqueda no esconde al Cerebro (es la casa). `grupo`: el grupo de WhatsApp de MaKo del negocio, de SÓLO LECTURA y sólo del
- *  admin (22/10/2026, OC3: el lector existía y nadie lo llamaba; lib/chat-mako-indice.ts → grupoDeMaKo, que ya corta al resto). */
+ *  búsqueda no esconde al Cerebro (es la casa). */
 export function listaDelCliente(p: {
   sesiones: readonly SesionChat[]; offer: readonly ConTitulo[]; antes: readonly DeAntes[]; busca: string;
-  grupo?: { titulo: string; ultimoAt: string | null } | null;
   /** Las charlas del lienzo de Automations (OC5): se leen acá y se siguen en el lienzo. */
   automations?: readonly ConTitulo[];
   /** Los chats del Image Editor y del Video Editor (OC8): se leen acá y se siguen en el editor. */
@@ -569,7 +557,6 @@ export function listaDelCliente(p: {
       const titulo = nombre ? conOrigen(origen, nombre) : origen ?? `Chat del ${fechaCorta(ms(a.updatedAt)) || 'principio'}`;
       return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo, criatura: origen ?? titulo, actividad: ms(a.updatedAt), origen: 'antes' };
     }),
-    ...(p.grupo ? [{ clave: 'grupo', elegido: { grupo: true } as const, titulo: p.grupo.titulo, criatura: TITULO_GRUPO, actividad: ms(p.grupo.ultimoAt), origen: 'grupo' as const }] : []),
     ...(p.automations ?? []).map((a): FilaDelCliente => ({
       clave: `au${a.id}`, elegido: { automatizacion: a.id }, titulo: conOrigen(ORIGEN_AUTOMATIONS, a.titulo?.trim() || `Automatización ${a.id}`),
       criatura: ORIGEN_AUTOMATIONS, actividad: ms(a.updatedAt), origen: 'automations',

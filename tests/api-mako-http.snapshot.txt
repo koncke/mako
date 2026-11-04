@@ -258,6 +258,7 @@ enviar_prueba_broadcast
 envio_email_habilitado
 escenarios_ensayo
 escenarios_secuencia
+escribir_en_grupo
 escribir_guion_anuncio
 esta_aviso_activo
 estado_analisis_lead

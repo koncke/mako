@@ -55,8 +55,9 @@ export const NOMBRE_WS_PRUEBA = 'Cliente de Prueba';
 // `landing-imagenes` (0246): las imágenes y videos del editor de landings, PÚBLICO y con <ws>/ adelante.
 const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips', 'curso-notas', 'curso-adjuntos', 'curso-entregas', 'comunidad-adjuntos', 'landing-imagenes', 'image-editor', 'chats-email', 'lead-notas'] as const;
 
-/** Los que no van por `<ws>/`: las portadas de los informes (`ws<N>/`) y las fotos de los contactos (`leads/<ws>/`, público). Lo encontró la revisión del 3/11/2026. */
-const CARPETAS_APARTE = (ws: number): Array<[string, string]> => [['portadas', `ws${ws}`], ['avatars', `leads/${ws}`]];
+/** Los que no van por `<ws>/`: las portadas de los informes (`ws<N>/`) y las fotos de los contactos (`leads/<ws>/`, público). Lo encontró la revisión del 3/11/2026.
+ *  Y lo que se sube al grupo de la app (`archivero/grupos/<ws>/`, lib/grupo-app.ts), 4/11/2026. */
+const CARPETAS_APARTE = (ws: number): Array<[string, string]> => [['portadas', `ws${ws}`], ['avatars', `leads/${ws}`], ['archivero', `grupos/${ws}`]];
 
 export type ResultadoReset = {
   borrado: Record<string, number>;
