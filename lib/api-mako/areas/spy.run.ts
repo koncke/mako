@@ -24,6 +24,8 @@ import {
 } from '@/lib/spy';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { sugeridosDelNegocio, sumarSugeridoAlNegocio } from '@/lib/spy-sugeridos-server';
+import { ofertaGuardada } from '@/lib/spy-oferta-servidor';
+import { FUENTE_PUNTAJE, dimensionLabel } from '@/lib/offer-marco';
 import { contenidoNoConfiable } from '@/lib/prompt-render';
 import { funnelDeFila, funnelEnPalabras } from '@/lib/spy-funnel';
 import { dibujarContador, NOMBRE_CANAL, NOMBRE_ETAPA, NOMBRE_FUENTE, SIN_ANUNCIOS_EN_ESTE_PAIS, adLibraryCubreComercial, type CanalSpy } from '@/lib/spy-reglas';
@@ -266,6 +268,27 @@ export const RUNNERS: Runners = {
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: `Listo: quedó en el radar, con ${r.piezas} publicaciones ya leídas.`, datos: { id: r.id } };
     }),
+  },
+
+  su_oferta_con_notas: {
+    leer: async (input): Promise<SalidaLectura> => {
+      const id = idDe(input.id);
+      if (id == null) return json({ ok: false, error: 'Dime cuál: el id que devuelve listar_vigilados.' });
+      const v = await ofertaGuardada(id);
+      if (!v) return json({ ok: false, error: 'Ese competidor no está.' });
+      if (v.estado === 'sin-web') return json({ ok: true, estado: 'sin-web', nota: 'No tiene web guardada: no hay oferta que leer.' });
+      if (v.estado === 'sin-ia' || !('diagnostico' in v) || !v.diagnostico) {
+        return json({ ok: true, estado: v.estado, motivo: 'motivo' in v ? v.motivo : null, nota: 'Todavía no hay notas: se leen solas al abrir su ficha en Competitors Spy.' });
+      }
+      const d = v.diagnostico;
+      return json({
+        ok: true, estado: v.estado, webs: v.urls, leida: v.leidaEn,
+        total: v.total, de: 100, fuente_del_total: FUENTE_PUNTAJE,
+        mas_flojo: v.cuello ? dimensionLabel(v.cuello) : null,
+        tesis: d.tesis, fuertes: d.fuertes ?? (d.fuerte ? [d.fuerte] : []),
+        notas: d.dimensiones.map((n) => ({ dimension: dimensionLabel(n.id), nota: n.nota, porque: n.porque })),
+      });
+    },
   },
 };
 

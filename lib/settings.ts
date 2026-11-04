@@ -107,6 +107,12 @@ async function cambiarSettingSiPorFecha(ws: number, key: string, esperado: strin
   return (data?.length ?? 0) > 0;
 }
 
+/** Borra una setting del negocio en curso: lo que se va con otra cosa (la oferta de un competidor que se dejó de mirar). */
+export async function borrarSetting(key: string): Promise<void> {
+  const { error } = await getSupabaseServer().from('app_settings').delete().eq('workspace_id', await wsObligatorio()).eq('key', key);
+  if (error) throw new Error(`Error borrando setting ${key}: ${error.message}`);
+}
+
 /**
  * Borra una setting SOLO si todavía vale `esperado` (el compare-and-set de `cambiarSettingSi`, para borrar).
  * Devuelve si borró.

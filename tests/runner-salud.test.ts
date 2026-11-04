@@ -11,7 +11,8 @@
 //   - tomarUnaVez sin `wx` → «sólo el primer chat» y «dos corridas»;
 //   - alAbrir sin mirar el nombre → «un Runner no se encarga a sí mismo»;
 //   - contar toda corrida de la guardia como Runner → «la corrida de la guardia, con su nombre»;
-//   - no anotar quién tomó el puesto → «la corrida que tomó el puesto» y «corridas»;
+//   - destino sin mirar si el proceso vive → «destino»;
+//   - avisar sin separar por cuenta → «avisar»;
 //   - corridas sin mirar la última actividad o lo archivado → «corridas»;
 //   - alAbrir sin mirar el origen → «al compactar» y «por el hook de verdad»;
 //   - el hook sin pasarle el origen → «por el hook de verdad».
@@ -69,7 +70,7 @@ function pc() {
   };
   const guardia = (cuenta = 'claude5', uuid = UUID_5) => writeFileSync(join(app, uuid, ORG, 'scheduled-tasks.json'), JSON.stringify({ scheduledTasks: [{ id: `runner-guardia-${cuenta}`, enabled: true }] }));
   const leerMarcador = () => readFileSync(marcador, 'utf8').trim();
-  return { correr, chat, chatVivo, latido, guardia, leerMarcador, dir, app };
+  return { correr, chat, chatVivo, latido, guardia, leerMarcador, dir, app, sesiones };
 }
 
 const MIN = 60_000;
@@ -177,11 +178,29 @@ test('la corrida de la guardia, con su nombre, no se cuenta como el Runner que b
   assert.equal(JSON.parse(p.correr('estado')).runner.vivo, false);
 });
 
-test('la corrida que tomó el puesto sí es el Runner, aunque no la hayan dejado renombrarse', () => {
+test('una corrida de la guardia nunca pasa por el Runner, aunque haya tomado la vuelta: no puede entregar en segundos', () => {
   const p = pc();
-  const yo = p.chatVivo(1, 'Guardia > Runner'); p.latido(0);
-  assert.equal(p.correr('tomar', { CLAUDE_CODE_HOST_SESSION_ID: yo }), 'TOMADO');
-  assert.equal(JSON.parse(p.correr('estado')).runner.vivo, true);
+  p.chatVivo(1, 'Guardia > Runner'); p.latido(0);
+  assert.equal(p.correr('tomar'), 'TOMADO');
+  assert.equal(JSON.parse(p.correr('estado')).runner.vivo, false);
+});
+
+test('destino: el chat de un uds:, sólo si está abierto', () => {
+  const p = pc();
+  const pipe = 'pipe-del-cerebro';
+  writeFileSync(join(p.sesiones, '1.json'), JSON.stringify({ pid: process.pid, hostSessionId: 'local_cerebro', messagingSocketPath: pipe }));
+  writeFileSync(join(p.sesiones, '2.json'), JSON.stringify({ pid: pidMuerto(), hostSessionId: 'local_cerrado', messagingSocketPath: 'pipe-cerrado' }));
+  const destino = (to: string) => spawnSync(process.execPath, [SCRIPT, 'destino', to], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', CARTERO_DIR: p.dir, RUNNER_SESIONES_DIR: p.sesiones } }).stdout.trim();
+  assert.equal(destino(`uds:${pipe}`), 'local_cerebro');
+  assert.equal(destino('uds:pipe-cerrado'), 'SIN_DESTINO', 'un chat cerrado no recibe');
+  assert.equal(destino('uds:otro'), 'SIN_DESTINO');
+});
+
+test('avisar: el Cerebro lo sabe una sola vez, por cuenta', () => {
+  const p = pc();
+  assert.equal(p.correr('avisar'), 'AVISAR');
+  assert.equal(p.correr('avisar'), 'YA');
+  assert.equal(p.correr('avisar', { CLAUDE_CODE_ACCOUNT_UUID: UUID_1 }), 'AVISAR', 'otra cuenta tiene su propio aviso');
 });
 
 test('medirYa: sin medición, o con una de más de 30 minutos', () => {
@@ -198,7 +217,7 @@ test('sin Runner, se lo dice sólo al primer chat que abre', () => {
   p.guardia();
   const primero = p.correr('al-abrir');
   assert.match(primero, /NO HAY RUNNER EN claude5/);
-  assert.match(primero, /Lo levanta sola la tarea runner-guardia-claude5/);
+  assert.match(primero, /sale recien cuando corre la tarea runner-guardia-claude5/);
   assert.ok(!/["\\\n]/.test(primero), 'va adentro de un JSON armado a mano');
   assert.equal(p.correr('al-abrir'), '', 'el segundo chat no recibe el mismo aviso');
 });
@@ -219,7 +238,7 @@ test('un Runner o una corrida de la guardia no se encargan a sí mismos', () => 
   }
 });
 
-test('corridas: las terminadas de la guardia, sin el Runner, sin las activas y sin chats ajenos', () => {
+test('corridas: las terminadas de la guardia, sin las activas ni las archivadas ni chats ajenos', () => {
   const p = pc();
   const viejo = Date.now() - 30 * MIN;
   const chatDe = (n: number, title: string, lastActivityAt: number, extra = {}) => {
@@ -231,8 +250,6 @@ test('corridas: las terminadas de la guardia, sin el Runner, sin las activas y s
   chatDe(2, 'Guardia > Runner', Date.now());
   chatDe(3, 'Guardia > Runner', viejo, { isArchived: true });
   chatDe(4, 'Cerebro', viejo);
-  const puesto = chatDe(5, 'Guardia > Runner', viejo);
-  assert.equal(p.correr('tomar', { CLAUDE_CODE_HOST_SESSION_ID: puesto }), 'TOMADO');
   assert.deepEqual(JSON.parse(p.correr('corridas')), [terminada]);
 });
 

@@ -1479,6 +1479,23 @@ export const N_CAMBIOS = 3;
  * «[completar]» a la vista. Se completan en vez de rechazar el diagnóstico porque rechazarlo quema la
  * cascada gratis por algo que no cambia ninguna nota.
  */
+/**
+ * El diagnóstico de una oferta que NO es del dueño (4/11/2026, Competitors Spy; Martín: «en "Su Funnel" debe "exponer" su
+ * OFERTA con el analizador de oferta que ya tenemos construido»). Es EL MISMO analista —la rúbrica, las reglas y el parse
+ * de arriba—, con su web como documento. Lo que cambia es de quién habla: el prompt dice «el dueño» y escribe de «tú», y
+ * leído por OTRO negocio un «tu promesa no dice…» parece hablar de la suya. Esto va pegado al system ya armado (y no en un
+ * slot del template): un prompt editado en /configuraciones lo lleva igual. El nombre lo escribió una persona: va sin
+ * saltos ni comillas y recortado.
+ */
+export function bloqueOfertaDeOtro(nombre: string): string {
+  const quien = recortar(String(nombre ?? '').replace(/[\r\n«»"]+/g, ' ').replace(/\s+/g, ' ').trim(), 80) || 'un competidor';
+  return [
+    `ESTA VEZ LA OFERTA NO ES DEL DUEÑO: es la de «${quien}», un competidor que el dueño mira, leída de su web pública (viene en LOS DOCUMENTOS). Diagnostícala igual, con la misma rúbrica y las mismas reglas, con estos cambios:`,
+    '- Habla de ella en tercera persona («su oferta», «promete», «su web no lo dice»), nunca de «tú» ni de «tu oferta»: quien lo lee es otro negocio.',
+    '- Lo que cites sale de su web, entre «comillas». Lo que su web no dice, dilo así: «su web no lo dice».',
+  ].join('\n');
+}
+
 export function parseDiagnostico(raw: unknown): DiagnosticoOferta | null {
   const o = aObjeto(raw);
   if (!o || !Array.isArray(o.dimensiones)) return null;

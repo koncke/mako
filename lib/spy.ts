@@ -65,7 +65,8 @@ import { encolarAlLeer } from './spy-caricatura-servidor';
 import { seFueron } from './spy-todo-reglas';
 import { FORMATOS, formatoDe } from './spy-detalle';
 import { leerPorPaginas } from './supabase-paginado';
-import { getSetting } from './settings';
+import { borrarSetting, getSetting } from './settings';
+import { claveOfertaSpy } from './spy-oferta';
 import { ANALISIS_SIN_DATOS, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta } from './spy-analisis-reglas';
 import { queEs } from './spy-que-es';
 import { getTenantDb, getWorkspaceActual } from './workspace';
@@ -303,6 +304,9 @@ export async function quitarCompetidor(id: number): Promise<{ ok: true } | { ok:
   const db = await getTenantDb();
   const { error } = await db.from('spy_competidores').delete().eq('id', id);
   if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude quitarlo: ${error.message}` };
+  // Su oferta (lib/spy-oferta.ts) vive en una clave aparte y se va con él. Si no se puede, queda una clave huérfana que
+  // nadie lee: no frena el «Dejar de mirarlo».
+  await borrarSetting(claveOfertaSpy(id)).catch((e) => console.warn(`[spy] no pude borrar la oferta del competidor ${id}:`, e instanceof Error ? e.message : e));
   return { ok: true };
 }
 

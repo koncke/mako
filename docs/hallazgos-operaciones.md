@@ -7,16 +7,20 @@ del código.
 
 ---
 
-## Un Runner muerto no se revive con un mensaje: la cuenta sale de la app y lo levanta una tarea programada (4/11/2026, Runner)
+## Un Runner muerto no se revive con un mensaje, y una tarea programada no lo reemplaza: entrega de a una vuelta (4/11/2026, Runner)
 
 **Vive en:** `scripts/operaciones/runner-salud.mjs` · `scripts/operaciones/guardia-runner.md` · `scripts/claude-hooks/bitacora-sesion.sh` · la tarea `runner-guardia-<cuenta>` (una por cuenta, en la app)
 
 - **El síntoma:** el log del cartero quieto desde el 3/11 a las 04:24 UTC, y Martín pidiendo a mano el uso en cada cuenta. El chat «Runner» estaba abierto, fijado y con su nombre.
-- ⚠️ **El diagnóstico obvio era el equivocado: «se cayó, hay que avisarle».** El chat no se había caído: estaba vivo, sin cron ni Monitor, unas 30 horas. Cuando el Cerebro le pidió rearmarlos contestó que no lo haría «sin que vos me lo pidas directamente en este chat». Un cron es configuración persistente, y un mensaje de otro chat no es un pedido de Martín. Lo que sí arranca sin nadie es una **corrida de una tarea programada**: su prompt es su encargo. Por eso la guardia no le avisa a nadie: se convierte en el Runner.
+- ⚠️ **El diagnóstico obvio era el equivocado: «se cayó, hay que avisarle».** El chat no se había caído: estaba vivo, sin cron ni Monitor, unas 30 horas. Cuando el Cerebro le pidió rearmarlos contestó que no lo haría «sin que vos me lo pidas directamente en este chat». Un cron es configuración persistente, y un mensaje de otro chat no es un pedido de Martín. Lo que sí arranca sin nadie es una **corrida de una tarea programada**: su prompt es su encargo.
 - **«Vivo» son dos cosas juntas, y cada una sola ya mintió:** un chat Runner abierto y de ESTA cuenta, y `continuo.latido` fresco. El nombre solo es el caso de arriba. El latido solo miente al cambiar de cuenta, porque el script del Monitor sigue tocando el archivo hasta 28 minutos después.
 - **La cuenta SÍ se puede saber.** `docs/dos-cuentas.md` y AGENTS.md decían que no se deduce, y es cierto del disco: no del entorno. La app le pone `CLAUDE_CODE_ACCOUNT_UUID` a cada chat, y es la carpeta de `claude-code-sessions` que `config.json → carpetas` ya traduce. Medido en un chat y en una corrida: claude5.
 - ⚠️ **Sólo con `source: startup` (lo vio el Cerebro leyendo el código).** SessionStart también corre al compactar y al retomar, y un proceso guarda el uuid del día que arrancó: uno abierto antes de cambiar de cuenta, al compactar, devolvería el marcador a la cuenta anterior y todos firmarían mal. No se probó con un chat real: lo cubre un test que corre el hook de verdad.
-- **Medido con el Runner apagado a propósito (4/11, 11:49 UTC):** la corrida de las 11:57 lo encontró caído y en 44 s tomó el puesto, se renombró, midió, armó cron y Monitor, y avisó al Cerebro. Con el Runner vivo, una corrida dura 20 s en Haiku: unos 150.000 tokens leídos de caché y 35.000 escritos.
+- ⚠️ **Y el segundo diagnóstico obvio también era el equivocado: «la corrida se convierte en el Runner».** Apagué el Monitor a propósito, y la corrida de las 11:57 UTC tomó el puesto en 44 s: se renombró, midió, armó cron y Monitor, y avisó al Cerebro. Parecía aprobado. **Al primer pedido real, su `SendMessage` a `uds:` contestó «Cross-session messaging is not available in this session»**, y quedaron con acuse de error `96fa3745` (de Martín) y cinco intentos del ticket #55. Lo dije como «falta verlo entregar», pero lo había dejado de Runner igual: lo único que importaba era lo único sin probar.
+- **La causa, medida en `~/.claude/sessions/<pid>.json`:** una corrida programada no tiene `messagingSocketPath` ni `bridgeSessionId`. Todos los chats abiertos los tienen. Sin ese canal no hay `uds:`, y sin `uds:` no hay entrega por el camino del LEEME.
+- **Lo que sí anda desde una corrida:** `send_message`, que va por la app y pide el id del chat (el aviso al Cerebro salió por ahí). También `get_usage`, `medir` y `set_session_title`. Por eso la guardia da **una vuelta por corrida**: entrega con `send_message` y termina, en vez de ocupar el puesto. `runner-salud.mjs destino` saca el id del pipe. El tope de 10 mensajes por sesión no la frena en lo normal: cada corrida es una sesión nueva. Sin probar con un pedido real.
+- **Sacar a un Runner de la vuelta es delicado, y dejó dos rastros:** el clasificador rechaza cerrar su proceso (`Interfere With Workloads`). Le cambié el nombre y le pedí por `send_message` que borrara su cron y soltara el Monitor, y lo hizo. Pero **un `vigilar-continuo.sh` nuevo le saca el puesto al que corre** (`continuo.pid`): el suyo, rearmado en esos segundos, tiró abajo el mío, y su copia siguió dando `ERROR vigilar: este chat («Guardia retirada») no es el Runner`. Después de sacar a otro, se rearma el propio y se mira quién es el dueño.
+- **Con el Runner vivo, una corrida dura 20 s en Haiku:** unos 150.000 tokens leídos de caché y 35.000 escritos.
 
 **Las trampas de las tareas programadas (ninguna da error):**
 - **Creada en un turno que Martín no escribió en la app de la PC, no guarda el modo.** La corrida se frena en su primer Bash, con `waitingFor: permission prompt` en `sessions/<pid>.json`, y `list_task_runs` dice `running` sin más. Lo avisa el resultado de `create_scheduled_task`: hay que leerlo.
@@ -32,7 +36,7 @@ del código.
 - **Un `tsc` acotado en un worktree no ve `NODE_ENV`:** `next-env.d.ts` no se versiona, y sin `node_modules/next/types/global.d.ts` en el `include` da 0 errores donde GitHub da TS2769. Mi primer intento de reproducir el rojo dio verde por eso.
 - **Una mezcla vieja deja JSX huérfano sin chocar:** `PiezasCentro.tsx` había perdido `sinNoticias` y `horaAR` en la rama, y conservaba el renglón que los usaba. Lo vio sólo el `tsc` entero.
 
-**SIN HACER / sin medir:** el cambio real de una cuenta a otra; que un chat obedezca el encargo de crear la guardia (las otras cuatro cuentas no la tienen); una entrega real del Runner levantado; si la guardia debe mirar también el cron vencido. Detalle en `docs/relevo/runner.md`.
+**SIN HACER / sin medir:** una entrega real de la guardia con `send_message`; el cambio real de una cuenta a otra; que un chat obedezca el encargo de crear la guardia (las otras cuatro cuentas no la tienen); si la guardia debe mirar también el cron vencido. Detalle en `docs/relevo/runner.md`.
 
 ---
 
