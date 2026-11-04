@@ -23,6 +23,7 @@
 // Uso:  runner-salud.mjs al-abrir <source>   lo corre el hook SessionStart: corrige el marcador e imprime UNA línea para el chat, o nada
 //       runner-salud.mjs estado     el JSON que lee la guardia
 //       runner-salud.mjs tomar      la guardia reclama el puesto: TOMADO u OCUPADO (dos corridas a la vez no levantan dos Runners)
+//       runner-salud.mjs corridas   las corridas de la guardia ya terminadas: cada una deja un chat en la lista y un proceso de ~270 MB, y las archiva el Runner
 //
 // Un hook no frena a nadie: `al-abrir` ante cualquier error no imprime nada y sale con 0.
 // =============================================================================
@@ -45,6 +46,8 @@ export const LATIDO_VIVO_MS = 6 * 60 * 1000;
 export const MEDIDO_VIEJO_MS = 30 * 60 * 1000;
 /** De los chats que abren juntos, sólo el primero recibe el aviso o el encargo. */
 const PEDIDA_VENCE_MS = 10 * 60 * 1000;
+/** Una corrida sin actividad en este rato ya terminó: las medidas duran menos de un minuto. */
+const CORRIDA_TERMINADA_MS = 5 * 60 * 1000;
 /** Lo que tarda una corrida en armar el cron y el Monitor: pasado esto, otra puede intentarlo. */
 const TOMA_VENCE_MS = 10 * 60 * 1000;
 
@@ -156,6 +159,20 @@ export function tomarPuesto(env = process.env, ahora = Date.now()) {
   return true;
 }
 
+/** Las corridas de la guardia sin archivar que ya terminaron. La que tomó el puesto es el Runner, y la que sigue activa puede estar por tomarlo. */
+export function corridasTerminadas(env = process.env, ahora = Date.now()) {
+  const uuid = env.CLAUDE_CODE_ACCOUNT_UUID;
+  if (!uuid) return [];
+  const puesto = leerJson(path.join(DIR, 'guardia-puesto.json'), null)?.chat ?? null;
+  const out = [];
+  for (const [id, f] of chatsDeLaCuenta(uuid)) {
+    const o = leerJson(f, null);
+    if (!o || o.isArchived || id === puesto || !esGuardia(o.title)) continue;
+    if (ahora - Number(o.lastActivityAt ?? 0) >= CORRIDA_TERMINADA_MS) out.push(id);
+  }
+  return out;
+}
+
 /** El nombre de este chat, si ya está registrado. Una corrida de la guardia y el Runner no reciben encargos sobre sí mismos. */
 function nombrePropio(env) {
   const pid = Number(env.CLAUDE_PID);
@@ -197,12 +214,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     if (linea) process.stdout.write(`${linea}\n`);
   } else if (cmd === 'estado') {
     process.stdout.write(`${JSON.stringify(estado(), null, 1)}\n`);
+  } else if (cmd === 'corridas') {
+    process.stdout.write(`${JSON.stringify(corridasTerminadas())}\n`);
   } else if (cmd === 'tomar') {
     const si = tomarPuesto();
     if (si) anotar('la guardia tomó el puesto de Runner');
     process.stdout.write(si ? 'TOMADO\n' : 'OCUPADO\n');
   } else {
-    process.stderr.write('uso: runner-salud.mjs al-abrir | estado | tomar\n');
+    process.stderr.write('uso: runner-salud.mjs al-abrir <source> | estado | tomar | corridas\n');
     process.exitCode = 2;
   }
 }
