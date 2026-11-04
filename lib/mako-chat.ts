@@ -7,7 +7,8 @@
 // (no del workspace), y manda con la voz de MaKo. Best-effort: nunca lanza.
 
 import 'server-only';
-import { instanciaVoz, enviarAGrupoJid, enviarPartesAJid, KEY_GRUPO_SUPERADMIN, KEY_GRUPO_JID } from './mako-grupo';
+import { altasEnGrupos, cupoAltaDeLinea, instanciaVoz, enviarAGrupoJid, enviarPartesAJid, KEY_GRUPO_SUPERADMIN, KEY_GRUPO_JID } from './mako-grupo';
+import { ALTAS_FRENADAS } from './altas-en-grupos';
 import { getSupabaseServer } from './supabase';
 import { leerResultados, esAdminEn, jidCanonico, type ParticipanteCrudo } from './participantes-grupo';
 
@@ -194,9 +195,17 @@ async function accionParticipantes(
   jid: string, numeros: string[], action: 'add' | 'remove' | 'promote', inst?: string,
   opts: { canonicos?: boolean } = {},
 ): Promise<ResultadoAccion> {
+  if (action === 'add' && !(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS };
   const instancia = inst ?? (await instanciaVoz());
   const nums = numeros.map(soloDigitos).filter(Boolean);
   if (!nums.length) return { ok: false, error: 'Falta el número.' };
+  // Cuenta en el tope de la línea. El mismo número en varios grupos no gasta: es lo que hace la mudanza a un número nuevo.
+  if (action === 'add') {
+    for (const n of nums) {
+      const cupo = await cupoAltaDeLinea(n, instancia);
+      if (!cupo.ok) return cupo;
+    }
+  }
   const participants = opts.canonicos ? nums.map(jidCanonico) : nums;
   const r = await ev(`/group/updateParticipant/${instancia}?groupJid=${encodeURIComponent(jid)}`, {
     method: 'POST', body: JSON.stringify({ action, participants }),

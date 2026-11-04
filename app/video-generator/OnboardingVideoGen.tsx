@@ -42,8 +42,7 @@ import { estadoDelPuente, AvisoPuente } from './puente-avisos';
 import { estadoPuenteAction } from './puente-actions';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import { useGrabacionVoz, BarraGrabacion, type GrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
-import { useWs } from '@/app/_ui/Link';
-import { conWs } from '@/lib/ws-tab';
+import { EXTENSION_URL_TIENDA } from '@/lib/extension-tienda';
 import {
   marcarPasoVideoAction, guardarAcentoAction, guardarMuletillasAction,
   escucharMiVozAction, type PasoVideoGen,
@@ -520,8 +519,6 @@ export function OnboardingVideoGen({
    */
   const [errorAccion, setErrorAccion] = useState<{ texto: string; onClick: () => void } | null>(null);
   const [busy, setBusy] = useState(false);
-  // La pestaña del cliente que se mira (`?ws=`): un `window.location.href` pelado la pierde (AGENTS.md).
-  const ws = useWs();
 
   // ── La cara ──
   const [misFotos, setMisFotos] = useState(fotos);
@@ -1502,16 +1499,16 @@ export function OnboardingVideoGen({
               primero, y los subtítulos explicaban — que es lo que va plegado.
 
               La pantalla tiene tres estados y cada uno es UNA cosa: el botón de
-              descargar, el aviso de abrir Flow, o los créditos de tu cuenta. */}
+              agregarla, el aviso de abrir Flow, o los créditos de tu cuenta. */}
           {!instalada && (
             <Button
               variant="mako"
               size="lg"
-              icon={<Icon name="descargar" size={17} />}
-              onClick={() => { window.location.href = conWs('/extension/instalar', ws); }}
+              icon={<Icon name="plus" size={17} />}
+              onClick={() => window.open(EXTENSION_URL_TIENDA, '_blank', 'noopener')}
               style={{ alignSelf: 'center' }}
             >
-              Descargar la extensión
+              Agregar a Chrome
             </Button>
           )}
           {/* ⚠️ ESTE PASO NO TRABA, Y ES EL MOTIVO POR EL QUE ESTÁ PRIMERO.
