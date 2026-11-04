@@ -81,6 +81,10 @@ export const TABLAS_DE_INQUILINO = [
   // De la clave de una reunión a su grabador (mig «reuniones_de_cualquier_grabador», sin número, 26/10/2026).
   'grabador_reuniones',
   'funnel_config', 'funnel_ofertas', 'funnels',
+  // El grupo del negocio dentro de la app (mig 0372, 3/11/2026): el hilo, los invitados y lo que leyó cada persona. ⚠️ NUNCA en TENANT_TABLES: `getTenantDb()` le daría a un
+  // invitado SU negocio y estamparía su ws en el mensaje. Las lee lib/grupo-app.ts con el cliente de servicio y el ws de la URL ya autorizada.
+  // ⚠️ La 0372 se aplica ANTES del deploy: el reset del cliente de prueba borra de acá y una tabla que no existe da error.
+  'grupo_invitados', 'grupo_leidos', 'grupo_mensajes',
   // La IA del cliente en SU computadora (migs 0320 y 0321, 21/10/2026): los códigos, las PC y los turnos, por negocio.
   // `ia_pc_llamadas` no tiene `workspace_id`: se va con su turno (on delete cascade). No van en TENANT_TABLES: las lee
   // lib/ia-pc.ts con el service role.

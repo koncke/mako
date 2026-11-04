@@ -49,6 +49,7 @@ import { vistaDe } from './vista';
 import { canalKeyDe, canalDeClave, etiquetaDeCanal, puedeConfirmar, PREFIJO_APP, PREFIJO_FLUJO } from './canal';
 import { esAccion, type AccionDef, type AccionRun, type Ctx, type Ejecutado } from './tipos';
 import { rechazoSiNoEsConfirmacionPura } from '@/lib/confirmacion-pura';
+import { salidaDelGrupo } from '@/lib/grupo-salida';
 import { anotarEnHiloDeOrigen } from '@/lib/chat-hilo-origen';
 import { bloqueDeResultado } from '@/lib/chat-bloques';
 import { esReglaUOpinion, lineaDelTicket } from '../no-pude';
@@ -303,7 +304,7 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   const rechazoATercero = rechazoSiNoEsConfirmacionPura({
     canal: ctx.canal, aTerceros: def && esAccion(def) ? def.aTerceros : undefined, plata: def && esAccion(def) ? def.plata : undefined, mensaje: ctx.mensajeUsuario, titulo: def?.titulo ?? p.tipo, resumen: p.resumen,
     enElGrupo: ctx.enElGrupo ? { pidio: p.pidio ?? null, confirma: ctx.enElGrupo.quien, aMaKo: ctx.enElGrupo.aMaKo } : undefined,
-    id: def?.id,
+    id: def?.id, nacioEnLaApp: p.soloApp, turnoDeLaApp: salidaDelGrupo()?.soloApp,
   });
   if (rechazoATercero) return { error: rechazoATercero };
 

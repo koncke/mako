@@ -52,8 +52,8 @@ export async function GET(req: NextRequest) {
       // (línea caída, grupo sin JID), las filas quedan pendientes y entran en el resumen
       // de mañana: un aviso pospuesto que se pierde por un fallo de envío sería el peor de
       // los dos mundos — no llegó en el momento Y tampoco llegó después.
-      if (res.wa || res.apagado) await marcarEnviados(wsId, items.map((i) => i.id));
-      salida.push({ canal: clave, n: items.length, enviado: !!res.wa, motivo: res.apagado ? 'apagado' : res.waError });
+      if (res.wa || res.enApp || res.apagado) await marcarEnviados(wsId, items.map((i) => i.id));
+      salida.push({ canal: clave, n: items.length, enviado: !!(res.wa || res.enApp), motivo: res.apagado ? 'apagado' : res.waError });
     }
 
     const total = salida.reduce((n, s) => n + s.n, 0);

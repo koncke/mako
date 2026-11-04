@@ -32,6 +32,8 @@ import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, de
 import { chatDelMensaje } from './mako-bot-reglas';
 import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, huellaDeTexto, pausaDeEscritura, puedeEscribirleAPersona } from './mako-salida-reglas';
 import { antesDeEscribir, trasEscribir } from './linea-freno';
+import { tituloDelGrupo } from './grupo-reglas';
+import { cartelParaLaApp, esClaveDeLaApp, esIdDeLaApp, idDeLaApp, salidaPara, wsDeClaveDeLaApp } from './grupo-salida';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
@@ -186,6 +188,9 @@ function extraerJid(body: unknown): string | null {
   return typeof cand === 'string' && cand.includes('@g.us') ? cand : null;
 }
 
+/** El hilo del grupo en la app. Se importa al usarlo: lib/grupo-app.ts arrastra la puerta (la sesión, la cartera) y le pide acá el jid. */
+const grupoApp = () => import('./grupo-app');
+
 // ── JID del grupo por workspace (app_settings) ───────────────────────────────
 export async function getGrupoJidMaKo(ws: number): Promise<string | null> {
   return runWithWorkspace(ws, () => getSetting(KEY_GRUPO_JID));
@@ -285,7 +290,7 @@ export async function asegurarGrupoMaKo(
   opts: { nombre: string; participantes?: string[]; adoptarJid?: string; bienvenida?: boolean },
 ): Promise<AsegurarResult> {
   if (!grupoConfigurado()) return { ok: false, error: 'Evolution no configurado' };
-  const subject = `MaKo <> ${opts.nombre.trim()}`;
+  const subject = tituloDelGrupo(opts.nombre);
   const desc = descripcionGrupoMaKo(opts.nombre);
 
   // Un jid que no es de grupo, guardado como «el grupo», haría que todos los avisos del negocio le lleguen a esa persona (4/11/2026).
@@ -881,13 +886,20 @@ export async function asegurarGrupoSuperAdmin(
   return { ok: true, jid, creado: false };
 }
 
-/** Manda un texto al grupo del SuperAdmin. */
-export async function enviarAlGrupoSuperAdmin(texto: string): Promise<EnvioGrupo> {
+/**
+ * Manda un texto al grupo del SuperAdmin. Primero al hilo del grupo de la plataforma (`copiarAlGrupo`), salvo `sinCopia`: lo pasa `emitirAviso`, que ya copió.
+ * Si WhatsApp no lo entrega y quedó en el hilo, salió (`enApp`).
+ */
+export async function enviarAlGrupoSuperAdmin(texto: string, o: { sinCopia?: true } = {}): Promise<EnvioGrupo> {
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
+  const app = o.sinCopia ? null : await grupoApp();
+  const wsApp = app ? await wsSuperAdmin().catch(() => null) : null;
+  const copia = app && wsApp != null ? await app.copiarAlGrupo(wsApp, { texto, de: 'mako' }) : null;
   const jid = await getGrupoSuperAdminJid();
-  if (!jid) return { ok: false, error: 'no hay grupo de SuperAdmin todavía' };
+  if (!jid) return copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no hay grupo de SuperAdmin todavía' };
   const r = await enviarTextoVozMaKo(jid, texto);
-  return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar', fallaElEnvio: true };
+  if (r.ok) { if (copia && app && wsApp != null) await app.atarIdDeWhatsApp(wsApp, copia.id, r.id); return { ok: true, id: r.id }; }
+  return copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no se pudo enviar', fallaElEnvio: true };
 }
 
 // ── Grupo suelto (pruebas): crear sin persistir + postear a un JID cualquiera ──
@@ -983,13 +995,29 @@ const delAnillo = (raw: string | null): string[] => {
  *  (`enviarTextoVozMaKo`). */
 export async function enviarAGrupoJid(jid: string, texto: string, delayMs?: number): Promise<EnvioGrupo> {
   if (!jid || !texto.trim()) return { ok: false, error: 'faltan jid o texto' };
+  // EL TURNO DE MaKo EN UN GRUPO (lib/grupo-salida.ts): lo que dice va al hilo de la app, y sólo si el lote no es entero de la app, además, a WhatsApp.
+  // Los 14 sitios del doer no cambian. Sin contexto (el panel de /agencia, la demo de avisos) sale como siempre, y el panel se ve por su eco.
+  const salida = salidaPara(jid);
+  const wsApp = salida?.ws ?? wsDeClaveDeLaApp(jid);
+  if (wsApp != null) {
+    const soloApp = !!salida?.soloApp || esClaveDeLaApp(jid);
+    const app = await grupoApp();
+    const copia = await app.copiarAlGrupo(wsApp, { texto: soloApp ? cartelParaLaApp(texto) : texto, de: 'mako' });
+    // Una clave de la app NUNCA llega a Evolution: no es un jid de verdad.
+    if (soloApp) return copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no pude escribir en el grupo de la app' };
+    const r = await enviarTextoVozMaKo(jid, texto, delayMs);
+    if (r.ok) { if (copia) await app.atarIdDeWhatsApp(wsApp, copia.id, r.id); return { ok: true, id: r.id }; }
+    return copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no se pudo enviar' };
+  }
   const r = await enviarTextoVozMaKo(jid, texto, delayMs);
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar' };
 }
 
 /** `sinGrupo`: el negocio NO TIENE grupo de MaKo, leído (17/10/2026). Ausente en cualquier otro error, también «no pude leer». */
 /** `fallaElEnvio`: se intentó y WhatsApp no lo tomó. No es «no pude leer cuál es el grupo», y de eso cuelga el mail de `emitirAviso`. */
-export type EnvioGrupo = { ok: true; id: string } | { ok: false; error: string; sinGrupo?: true; fallaElEnvio?: true };
+/** `enApp`: WhatsApp no lo entregó (o el negocio no tiene grupo), pero quedó en el hilo del grupo de la app: para quien reintenta, salió. Sin esto, cada
+ *  reintento suma una burbuja (`avisarUno`, `aviso-arreglo`). `id` es entonces `app:<fila>`. */
+export type EnvioGrupo = { ok: true; id: string; enApp?: true } | { ok: false; error: string; sinGrupo?: true; fallaElEnvio?: true };
 
 /** Saca el mensaje útil del body de error de Evolution (viene anidado y variado). Vive en lib/mako-tarjeta.ts
  *  (puro): lo usa también el envío por partes. */
@@ -1005,12 +1033,46 @@ const detalleEv = detalleEvolution;
  */
 export type MemoriaDelEnvio = 'mako' | 'equipo' | { de: 'equipo'; ticket: number } | null;
 
-/** Manda un texto al grupo de MaKo del workspace (para el ruteo de avisos). */
+/**
+ * Lo que se mandó queda en lo que ve el turno (`MemoriaDelEnvio`). Si no se puede anotar, el mensaje ya salió: se loguea.
+ * `jid` es la clave de la conversación: el jid del grupo, o `app<ws>@g.us` si salió sólo por la app.
+ */
+async function anotarEnLaMemoria(ws: number, jid: string, texto: string, id: string, memoria: MemoriaDelEnvio): Promise<void> {
+  if (memoria === 'mako') {
+    const { guardarTurno } = await import('./mako-doer-conv');
+    await guardarTurno(ws, jid, 'assistant', texto, id || undefined)
+      .catch((e) => console.error(`[mako-grupo] ws${ws}: salió y no pude guardarlo en la conversación: ${e instanceof Error ? e.message : String(e)}`));
+  } else if (memoria === 'equipo' || (memoria && typeof memoria === 'object')) {
+    await anotarLoDelEquipo(ws, texto, id, typeof memoria === 'object' ? memoria.ticket : undefined)
+      .catch((e) => console.error(`[mako-grupo] ws${ws}: salió y no pude anotarlo como del equipo: ${e instanceof Error ? e.message : String(e)}`));
+  }
+}
+
+/**
+ * Manda un texto al grupo de MaKo del workspace (para el ruteo de avisos).
+ *
+ * ⚠️ PRIMERO AL HILO DE LA APP (`copiarAlGrupo`, 3/11/2026), y sólo después a WhatsApp: el aviso tiene que existir aunque la línea esté caída, y la fila
+ * escrita antes es lo que deja al eco no duplicar. `memoria === null` es `emitirAviso`, que ya copió. Si WhatsApp no lo entrega y quedó en el hilo, salió (`enApp`):
+ * quien reintenta no suma burbujas, y lo que MaKo preguntó queda en la memoria con la clave de la conversación.
+ */
 export async function enviarAlGrupoMaKo(ws: number, texto0: string, memoria: MemoriaDelEnvio): Promise<EnvioGrupo> {
   // ⚠️ Todo link a MaKo sale con el `?ws=` de ESTE negocio (27/10/2026, Leila: «Este lead no es de esta cuenta»;
   // lib/links-con-ws.ts): quien lo abre mirando otra cuenta llega al lead correcto. Uno que ya trae su `ws` no se toca.
   const texto = linksConWs(texto0, ws, APP_BASE_URL);
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
+  const app = memoria === null ? null : await grupoApp();
+  const copia = app ? await app.copiarAlGrupo(ws, { texto, de: memoria === 'mako' ? 'mako' : 'equipo' }) : null;
+  const r = await enviarPorWhatsApp(ws, texto, memoria);
+  if (!app || !copia) return r;
+  if (r.ok) { await app.atarIdDeWhatsApp(ws, copia.id, r.id); return r; }
+  const id = idDeLaApp(copia.id);
+  const clave = await app.claveDeConversacion(ws).catch(() => null);
+  if (clave) await anotarEnLaMemoria(ws, clave, texto, id, memoria);
+  return { ok: true, id, enApp: true };
+}
+
+/** El envío a WhatsApp, tal cual era: el grupo del negocio por la voz de MaKo. */
+async function enviarPorWhatsApp(ws: number, texto: string, memoria: MemoriaDelEnvio): Promise<EnvioGrupo> {
   let jid: string | null;
   try { jid = await grupoJidEstricto(ws); } catch (e) { return { ok: false, error: `no pude leer el grupo de MaKo: ${e instanceof Error ? e.message : String(e)}` }; }
   if (!jid) return { ok: false, error: SIN_GRUPO_MAKO, sinGrupo: true };
@@ -1027,15 +1089,7 @@ export async function enviarAlGrupoMaKo(ws: number, texto0: string, memoria: Mem
   const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
   // Al anillo anti-eco: el eco de un aviso no es el dueño escribiendo (ver `anotarEnviadosAlGrupo`).
   if (id) await anotarEnviadosConTope(OWNER_WS, jid, [id]);
-  // Lo que se mandó queda en lo que ve el turno (`MemoriaDelEnvio`). Si no se puede anotar, el mensaje ya salió: se loguea.
-  if (memoria === 'mako') {
-    const { guardarTurno } = await import('./mako-doer-conv');
-    await guardarTurno(ws, jid, 'assistant', texto, id || undefined)
-      .catch((e) => console.error(`[mako-grupo] ws${ws}: salió y no pude guardarlo en la conversación: ${e instanceof Error ? e.message : String(e)}`));
-  } else if (memoria === 'equipo' || (memoria && typeof memoria === 'object')) {
-    await anotarLoDelEquipo(ws, texto, id, typeof memoria === 'object' ? memoria.ticket : undefined)
-      .catch((e) => console.error(`[mako-grupo] ws${ws}: salió y no pude anotarlo como del equipo: ${e instanceof Error ? e.message : String(e)}`));
-  }
+  await anotarEnLaMemoria(ws, jid, texto, id, memoria);
   return { ok: true, id };
 }
 
@@ -1087,6 +1141,8 @@ export async function enviarPartesAlGrupoMaKo(
 export async function enviarPartesAJid(
   jid: string, partes: readonly PartePreparada[], d: { ev?: EvFn; esperar?: (ms: number) => Promise<void>; delayMs?: number } = {},
 ): Promise<EnvioPartes> {
+  // Una clave de la app no es un jid de verdad: nunca llega a Evolution.
+  if (esClaveDeLaApp(jid)) return { ok: false, salieron: 0, ids: [], error: 'este negocio no tiene grupo de WhatsApp' };
   if (!d.ev && !grupoConfigurado()) return { ok: false, salieron: 0, ids: [], error: 'Evolution no configurado' };
   // Regla 1 (lib/mako-salida-reglas.ts): a una persona, sólo si escribió antes. Lo de siempre es un grupo.
   if (!d.ev && !jid.endsWith('@g.us') && !puedeEscribirleAPersona({ leEscribio: await leEscribioALaLinea(jid).catch(() => null) })) {
@@ -1114,6 +1170,11 @@ export async function reaccionarMensaje(
   emoji: string,
 ): Promise<boolean> {
   if (!jid || !key?.id) return false;
+  // En el turno de un grupo, la reacción se anota en la fila; lo de la app no toca Evolution (lib/grupo-salida.ts). Anotarla no le demora el 👍 a WhatsApp: corre al lado.
+  const salida = salidaPara(jid);
+  const keyId = key.id;
+  const anotada = salida ? grupoApp().then((a) => a.anotarReaccion(salida.ws, keyId, emoji)).catch(() => false) : null;
+  if (esClaveDeLaApp(jid) || esIdDeLaApp(keyId) || salida?.soloApp) { await anotada; return !!salida; }
   // Una reacción a una persona también es escribirle (regla 1): sólo en un grupo, o a quien escribió.
   if (!jid.endsWith('@g.us') && !puedeEscribirleAPersona({ leEscribio: await leEscribioALaLinea(jid).catch(() => null) })) return false;
   const r = await ev(`/message/sendReaction/${await instanciaVoz()}`, {
@@ -1124,5 +1185,6 @@ export async function reaccionarMensaje(
     }),
   });
   if (!r.ok) console.warn(`[mako-grupo] reacción ${emoji} falló: Evolution ${r.status}`);
+  await anotada;
   return r.ok;
 }

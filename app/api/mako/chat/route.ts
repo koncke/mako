@@ -46,7 +46,7 @@ import {
   urlDeVozDelChat, escucharNotaDelChat,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
-import { CONTEXTO_SECOND_BRAIN, ORIGEN_FUNNEL_COACH, antesValido, appDeEscritorio, referenteDeTab, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
+import { CONTEXTO_SECOND_BRAIN, ORIGEN_FUNNEL_COACH, appDeEscritorio, referenteDeTab, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
 import { contextoDeReferente, contextoDelFunnelCoach, pistaDelFunnelCoach } from '@/lib/asesores/contexto';
 import { asesorPorId, sanearReferentes } from '@/lib/asesores/catalogo';
 // Ya viene con el turno (lib/mako-turno-app.ts lo importa): estático, así la guarda de las rutas sin IA lo ve (tests/d6b-rutas.test.ts).
@@ -57,7 +57,7 @@ import { tipoDeDispositivo } from '@/lib/movil-dispositivo';
 import { sanearDesde, type Desde } from '@/lib/chat-desde';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeLosEditores, chatsDeOffer, claveDeAntes, conTemas, gurusConCharla, hiloDeAutomatizacion, hiloDeEditor, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
+import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeLosEditores, chatsDeOffer, claveDeAntes, conTemas, gurusConCharla, hiloDeAutomatizacion, hiloDeEditor, claveDeTab, hiloDeAntes, hiloDeOffer, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 import type { PersonaChat } from '@/lib/mako-turno-app';
 import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
 import { sanearCambio } from '@/lib/centro-mensajes';
@@ -217,14 +217,6 @@ export async function GET(req: NextRequest) {
       }
       const id = enteroDe(sp.get('antesId'));
       const hilo = id == null ? null : await hiloDeAntes(q, id);
-      if (!hilo) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
-      return json({ ok: true, ...hilo });
-    }
-    // El grupo de WhatsApp de MaKo (22/10/2026, OC3): SÓLO del admin y de SÓLO LECTURA. El corte lo hace el lector
-    // (lib/chat-mako-indice.ts → grupoDeMaKo, hiloDelGrupoMaKo): a un miembro le da null, y el jid nunca sale de acá.
-    if (sp.get('grupo')) return json({ ok: true, grupo: await grupoDeMaKo(persona) });
-    if (sp.get('grupoHilo')) {
-      const hilo = await hiloDelGrupoMaKo(persona, antesValido(sp.get('desde')));
       if (!hilo) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       return json({ ok: true, ...hilo });
     }

@@ -1,43 +1,44 @@
-# Relevo del chat Runner (03/11/2026, 00:45 UTC; 98% semanal, cuenta claude1; reinicia el 04/11 a las 10:00 UTC)
+# Relevo del Runner (04/11/2026, 12:10 UTC; cuenta claude5, 58% semanal, reinicia el 10/11 a las 18:00 UTC)
 
 Cómo se opera: `~/.claude/operaciones/LEEME-cartero.md`, con el prompt del cron. Eso manda sobre este archivo.
+Qué es cada pieza y cómo se crea la guardia: `~/.claude/operaciones/guardia-runner.md` (copia en `scripts/operaciones/`).
 
-## Lo que corre ahora, adentro de este chat
+## Lo que corre ahora
 
-- **Cron `4b1570c8`** cada 10 minutos: mide la cuota y corre el vigía. Vence el 07/11.
-- **Monitor con `vigilar-continuo.sh`:** entrega en segundos y termina solo a los 28 minutos. Hay que volver a armarlo en cada aviso.
-- **Recordatorios:** `8a9b80fb` (05/11, rearmar el cron) y `a3d9a0af` (06/11, revisar el limbo).
-- Si este chat se cierra, no se entrega ni se mide. Al retomar: `CronList`, armar el Monitor y contar las copias (`continuo.pid`; memoria `monitor-no-mata-el-proceso`).
-- **Si la cuenta corta (desde el 02/11, al 99%; el cierre con relevo es al 98%), se para todo esto:** nada más entrega los pedidos del Centro hasta que este chat siga en otra cuenta. Al retomar, `medir` frena una medición de otra cuenta si el marcador está mal, y `--renovada` sólo se usa si lo dice Martín.
-- La app no informa la ventana de 5 horas: `medir` va con `"" ""` en su lugar.
-- **Última vuelta antes de este relevo:** 03/11, 02:15 UTC, con la cuenta al 99%. Latido al día, sin alertas y 9 en el limbo.
-- **03/11 de 02:43 a 03:05 UTC, la vigilancia estuvo parada:** frené por el corte del 99%. Desde las 02:30 UTC existía `~/.claude/guardia/sin-corte`, que lo apaga (según esa nota, por pedido de Martín). La volví a armar, pero la cuenta puede frenar de golpe al 100%. El Cerebro está avisado.
-- **Del 02/11 02:00 al 03/11 02:15 UTC** se entregaron al Cerebro, con acuse: tickets #43, #44 y #45 (y el 03/11, entre las 03:25 y las 04:00 UTC, #46, #47 y #48, con la cuenta al 100%), y los pedidos de Martín `4dbf4767`, `3a1657a3` y `1088908c`. Entregar no dice que los leyó ni que están hechos: eso se mira en el Centro.
+- **El Runner es `local_bb1661c6…`** (Haiku), levantado solo por la guardia el 04/11 a las 11:57 UTC. Cron `5016b4a7` (vence el 11/11) y Monitor con `vigilar-continuo.sh`, que hay que rearmar en cada vencimiento.
+- **La guardia:** tarea programada `runner-guardia-claude5`, en modo Auto y con Haiku. Corre a los minutos 7, 27 y 47, y la app le suma ~10 minutos: en los hechos, a los 17, 37 y 57.
+- **`bitacora-sesion.sh` instalado:** al arrancar un chat, `runner-salud.mjs al-abrir` corrige el marcador con el uuid de la app. Copia anterior: `~/.claude/bitacora-sesion.sh.antes-04-11`.
+- **`local_184238c7…`** (el chat que armó todo esto) ya no da vueltas: borré su cron. Le quedan dos recordatorios de una sola vez: `b5faee6f` (06/11, revisar el limbo) y `402bbd89` (10/11, rearmar el cron). Si ese chat se cierra, se pierden.
+- **`local_ac844b1a…`** (el Runner viejo) sigue abierto y fijado, sin cron ni Monitor. No lo archivé.
 
 ## Lo pedido y lo hecho
 
-- **Cartel rojo de los mensajes sin entregar, y aviso «Sin noticias de la PC»** (Martín, 31/10, desde el teléfono: «Me dice que no responde... Y elimina el cartel rojo de "9 mensajes tuyos..."»): en main desde `9008c347c` (`a151e6cf9`); desplegado con `e22c68698`, según el Cerebro. Nadie lo miró en pantalla.
-- **Estado de la PC en el Uso** (Martín, citado por el Cerebro: «Si, ponlo pero en USO»): rama `runner-servicio-3010`. Ya sin carteles.
-- **Fuga de procesos del Monitor:** arreglada en `~/.claude/operaciones/vigilar-continuo.sh`, fuera del repo.
+Martín, 4/11: «me gustaría que trabajemos bajo la misma metodología que el resto, instalando la app o que corras un scrip o algo así para que siempre se detecte en que cuenta estoy y el uso... Porque te lo tengo que pedir cada que entro en una cuenta y eso debería ser autompatico. Y supongo que si no está el runner tampoco recibe mensajes, eso no debe pasar...».
 
-## A medias: `runner-servicio-3010`, sin subir
-
-Carpeta `C:/dev/wt-runner-servicio`. Medido el 03/11 a las 00:45 UTC contra `59353f806`: 15 commits propios (el servicio y este relevo) y 156 atrás de main. Antes de subir hay que traer main con merge, sin rebasar. Va último en la cola del Cerebro. Falta:
-
-- Tipos de `useCentro.ts` y de los `.tsx` grandes (el acotado dio 99; los juzga Actions).
-- Verla en la pantalla real como super admin. El arnés sólo probó la pieza y su CSS.
-- La migración 0355: la aplica el Cerebro antes de subir. El número se confirma al subir.
-
-`node_modules` de esa carpeta es un enlace a `C:/dev/wt-runner-sin-cartel`: no borrar esa carpeta primero.
+- **El servicio** (cartero 1.26.1, estado de la PC en el Uso): en main desde `60290ac80`. MaKo contesta `{"servicio":true}` a `?servicio-listo=1`: la migración 0355 (la aplicó el Cerebro) y el deploy están.
+- **La cuenta sale sola:** `CLAUDE_CODE_ACCOUNT_UUID` + `config.json → carpetas`, sólo con `source: startup`.
+- **El uso se mide solo:** el Runner cada 10 minutos, la guardia si pasaron 30, y cualquier chat con `cartero.mjs medir` cuando el hook se lo pide.
+- **Un Runner muerto se levanta solo:** probado rompiéndolo el 04/11: apagué el Monitor a las 11:49 UTC, y la corrida de las 11:57 lo encontró caído y en 44 s tomó el puesto, se renombró, midió, armó cron y Monitor, y avisó al Cerebro.
 
 ## Lo que espera a Martín
 
-- La instalación del servicio del Runner en su PC (clave Run, `instalar-servicio`, hook `SessionStart`). Un mensaje de otro chat no la autoriza. Es un paso aparte del push.
+- **Instalar el servicio de Windows:** `node "C:/dev/wt-runner-servicio/scripts/operaciones/cartero.mjs" instalar-servicio`, y `explorer.exe` con `~/.claude/operaciones/mako-cartero.vbs` para no esperar al reinicio. Un chat no lo puede correr (`soloMartin`). Medido: el panel Terminal de la app da `esUnChat=false`, así que el botón Run sirve. Hasta entonces, `~/.claude/operaciones/cartero.mjs` sigue siendo la 1.24.0.
+- **Archivar las corridas de la guardia:** cada una deja un chat en la lista y un proceso de ~270 MB, unas 72 por día. Regla suya: no se archivan sin su sí. El Cerebro se lo plantea. `runner-salud.mjs corridas` las lista.
+
+## Lo que no se midió
+
+- **El cambio real de una cuenta a otra.** Nada de esto se vio con Martín cambiando de cuenta. Lo medido es que el uuid existe en el chat y en la corrida, y lo cubre el test con el hook de verdad.
+- **Las otras cuatro cuentas no tienen guardia.** Se crea en el primer chat donde Martín escriba al entrar, por el encargo del hook. Sin probar que un chat lo obedezca. Se crea sólo en un turno escrito en la app de la PC: desde el teléfono, la tarea no guarda el modo y se frena en un permiso.
+- **Una entrega real del Runner levantado por la guardia.** Sólo se vio armado. `exigirRunner` lo deja pasar por nombre.
+- **Si la app cierra sola el proceso de cada corrida.** Una sola medición: el de la corrida de las 10:57 UTC no estaba a las 11:37.
+- **Las pantallas del estado de la PC,** en el Uso, como super admin. Nadie las miró.
+- **Las carpetas de terminal:** no toqué `.claude-cuenta3` ni `.claude-martin`, sin sesiones desde el 15/10. Ahí la cuenta sigue saliendo del marcador.
 
 ## Sin hacer
 
+- **El cron del Runner levantado vence el 11/11.** La medición sigue por `medirYa` de la guardia, pero el vigía se apaga. Falta que la guardia lo mire.
 - **`CARTERO_VIVO_MS` sigue siendo un número suelto:** derivarlo del intervalo real pide columna y cartero nuevo. Dueño: Runner (`docs/pendientes.md`).
-- **El limbo:** 9 mensajes, los primeros vencen el 08/11. Los cierra el Cerebro, de a uno; no se cancelan por script.
+- **El limbo:** 6 mensajes, los primeros vencen el 08/11. Los cierra el Cerebro, de a uno. Tres (`1e5ca526…`, `6e5ee912…`, `bb5ff6c7…`) salieron al buzón el 03/11 a las 04:24 UTC justo antes de morir el Runner, y quedaron en «incierto» sin acuse. Eran de octubre.
 - **`lib/centro-limbo.ts`** quedó con funciones sin pantalla (`originalParaReenviar`, `queHacer`, `chatsParaMandarle`, `textoDelCartel`), igual que `descartarDelLimboAction`.
-- **El Monitor del vigía de tickets del Cerebro** puede tener la misma fuga. Se lo avisé el 01/11; no lo medí.
-- **El corte de vueltas del 01/11, de 02:25 a 08:54 hora Argentina:** sin causa medida; quizá la PC dormida.
+- **El hook `pre-push` de este clon es viejo:** dice «rama integracion» y no corre el filtro chico. Se instala con `docs/relevo/nube-metodologia.md`.
+- **El Monitor del vigía de tickets del Cerebro** puede tener la misma fuga de copias. Se lo avisé el 01/11; no lo medí.

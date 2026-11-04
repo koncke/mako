@@ -110,6 +110,9 @@ test('CONTRATO inverse — toda tabla del loop bulk 0054 con workspace_id está 
 
 /** Tienen `workspace_id` y NO pasan por `getTenantDb()`, a propósito. Quien las lee filtra a mano. */
 const FUERA_DEL_PROXY: Record<string, string> = {
+  grupo_mensajes: 'el hilo del grupo (mig 0372): lo lee un invitado de OTRO negocio, así que getTenantDb le daría el grupo de SU negocio y estamparía su ws. lib/grupo-app.ts, con el ws de la URL ya autorizada',
+  grupo_invitados: 'quién está invitado al grupo (mig 0372): lib/grupo-puerta.ts y lib/grupo-app.ts, con el ws explícito; se lee también por usuario, cruzando negocios',
+  grupo_leidos: 'hasta dónde leyó cada persona el grupo (mig 0372): lib/grupo-app.ts, con el ws explícito',
   app_settings: 'settings por clave; lib/settings.ts pone el workspace_id a mano',
   credenciales: 'cifradas; lib/credenciales.ts resuelve el workspace y filtra a mano',
   partner_codigos: 'el código de MaKo Partners (mig 0330): lib/partners-programa.ts con el cliente de servicio y el ws de la sesión; /r/<código> lo busca por código',
