@@ -114,3 +114,145 @@ export function candidatosDeLaRespuesta(cuerpo: unknown, ya: RedesQueYaTiene): C
   }
   return salida;
 }
+
+// ── ¿Es de la misma persona? (4/11/2026) ─────────────────────────────────────
+// Martín, 4/11: «Lo de "Buscar sus otras redes" debe ser automático, no un botón, de última que te muestre opciones y
+// te pregunte si es ese o no... me gustaría que pase una IA o un proceso donde pueda tener un POCO de criterio para
+// darse cuenta si no es... Por la foto, o que razone».
+//
+// El criterio son TRES pruebas, de la más fuerte a la más floja, y sólo la primera alcanza sola:
+//   1. Se ENLAZAN: el canal de YouTube nombra su Instagram, la bio de Instagram nombra su canal, o los dos llevan a su
+//      mismo sitio. Eso lo escribió la persona: no es un parecido, es su firma.
+//   2. La MISMA FOTO: su cara de perfil y la del candidato, comparadas con un hash perceptual (dHash de 64 bits). Una
+//      foto igual con el mismo nombre ya es ella.
+//   3. El MISMO NOMBRE: con «Sofia Contreras» hubo cinco Instagram distintos. Solo, nunca alcanza: se pregunta.
+// Con 1, o con 2 y 3 juntas, se agrega SOLO y se puede deshacer. Con una sola de 2 o 3, se pregunta. Sin ninguna, el
+// candidato no se muestra: es otra persona.
+
+export type Evidencia = {
+  /** El candidato y el competidor se nombran entre ellos (su @, su canal o su sitio). */
+  enlaza: boolean;
+  /** El nombre del candidato y el del competidor son el mismo, sin tildes ni mayúsculas. */
+  mismoNombre: boolean;
+  /** Bits distintos entre las dos fotos (0 = iguales, 64 = nada que ver). null = no hubo con qué comparar. */
+  distanciaFoto: number | null;
+};
+export type Veredicto = 'es' | 'quizas' | 'no';
+
+/** Hasta cuántos bits de 64 dos fotos se consideran la misma (recortada, comprimida, otro tamaño). */
+export const MISMA_FOTO_HASTA = 10;
+
+export function veredictoDe(e: Evidencia): Veredicto {
+  const mismaFoto = e.distanciaFoto != null && e.distanciaFoto <= MISMA_FOTO_HASTA;
+  if (e.enlaza || (mismaFoto && e.mismoNombre)) return 'es';
+  if (mismaFoto || e.mismoNombre) return 'quizas';
+  return 'no';
+}
+
+/** Por qué se dice que puede ser ella, cuando no se enlazan (el enlace lo describe quien sabe quién nombra a quién). */
+export function porqueDe(e: Evidencia): string {
+  const mismaFoto = e.distanciaFoto != null && e.distanciaFoto <= MISMA_FOTO_HASTA;
+  if (e.enlaza) return 'Se enlazan entre ellos';
+  if (mismaFoto && e.mismoNombre) return 'Misma foto y mismo nombre';
+  if (mismaFoto) return 'Misma foto';
+  return 'Mismo nombre';
+}
+
+/**
+ * La segunda vuelta, por su @ («va buscando hasta encontrar»): si el nombre no trajo una red segura, su @ de Instagram (o
+ * su @ de YouTube) suele ser el mismo en las otras. Vacía si no hay @ o si es lo mismo que el nombre.
+ */
+export function consultaPorUsuario(c: { nombre: string; instagram: string | null; youtube_id: string | null }): string {
+  const u = str(c.instagram).replace(/^@/, '') || (str(c.youtube_id).startsWith('@') ? str(c.youtube_id).slice(1) : '');
+  if (!u || plano(u) === plano(str(c.nombre)).replace(/\s+/g, '')) return '';
+  return `"${u}" (site:youtube.com OR site:tiktok.com OR site:instagram.com)`;
+}
+
+const plano = (s: string) => (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/** ¿Los dos nombres son el mismo? «Víctor Heras» = «Victor Heras»; «Víctor Heras Media» contiene «Víctor Heras». */
+export function nombresParecidos(a: string | null, b: string | null): boolean {
+  const x = plano(a ?? '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const y = plano(b ?? '').replace(/[^a-z0-9]+/g, ' ').trim();
+  if (x.length < 4 || y.length < 4) return false;
+  if (x === y) return true;
+  const [corto, largo] = x.length <= y.length ? [x, y] : [y, x];
+  return corto.includes(' ') && (` ${largo} `).includes(` ${corto} `);
+}
+
+/** Lo que identifica a alguien en un texto: su @ de Instagram, su @ o id de YouTube, su TikTok y el dominio de su sitio. */
+export type Firma = { instagram?: string | null; youtube?: string | null; tiktok?: string | null; sitio?: string | null };
+
+const dominioDe = (u: string | null | undefined): string | null => {
+  if (!u) return null;
+  try { return new URL(/^https?:\/\//i.test(u) ? u : `https://${u}`).hostname.toLowerCase().replace(/^www\./, ''); } catch { return null; }
+};
+
+/**
+ * ¿El texto (una bio, la descripción de un canal, su web) nombra a esta firma? Busca el enlace o el @ entero, nunca un
+ * pedazo: «@hera» no es «@herasmedia».
+ */
+export function nombraA(texto: string | null | undefined, f: Firma): boolean {
+  const t = plano(texto ?? '');
+  if (!t) return false;
+  const borde = (x: string) => new RegExp(`(^|[^a-z0-9._])${x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9._])`);
+  if (f.instagram && (borde(`instagram.com/${f.instagram.toLowerCase()}`).test(t) || borde(`@${f.instagram.toLowerCase()}`).test(t))) return true;
+  if (f.youtube) {
+    const y = f.youtube.toLowerCase();
+    if (y.startsWith('@') && (borde(`youtube.com/${y}`).test(t) || borde(y).test(t))) return true;
+    if (/^uc[a-z0-9_-]{20,}$/.test(y) && t.includes(`youtube.com/channel/${y}`)) return true;
+  }
+  if (f.tiktok && borde(`tiktok.com/@${f.tiktok.toLowerCase()}`).test(t)) return true;
+  const d = dominioDe(f.sitio);
+  // Un dominio de red social no es SU sitio: «linktr.ee» o «instagram.com» lo tiene medio mundo.
+  if (d && !/(instagram|youtube|tiktok|facebook|linktr|beacons|bio\.link|wa\.me|whatsapp)/.test(d) && borde(d).test(t)) return true;
+  return false;
+}
+
+// ── El hash de una foto ──────────────────────────────────────────────────────
+
+/**
+ * El dHash de 64 bits de una imagen ya reducida a 9×8 en grises (72 bytes, fila por fila): cada bit dice si un píxel
+ * es más claro que el de su derecha. Dos fotos iguales a otro tamaño o con otra compresión dan casi el mismo hash; una
+ * cara distinta, la mitad de los bits distintos. Se devuelve como 16 caracteres hexadecimales.
+ */
+export function dHash(grises: ArrayLike<number>): string | null {
+  if (grises.length !== 72) return null;
+  let bits = '';
+  for (let fila = 0; fila < 8; fila += 1) {
+    for (let col = 0; col < 8; col += 1) bits += grises[fila * 9 + col] > grises[fila * 9 + col + 1] ? '1' : '0';
+  }
+  let hex = '';
+  for (let i = 0; i < 64; i += 4) hex += parseInt(bits.slice(i, i + 4), 2).toString(16);
+  return hex;
+}
+
+/** Bits distintos entre dos dHash. null si alguno no está. */
+export function distanciaHash(a: string | null, b: string | null): number | null {
+  if (!a || !b || a.length !== b.length) return null;
+  let d = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    let x = parseInt(a[i], 16) ^ parseInt(b[i], 16);
+    while (x) { d += x & 1; x >>= 1; }
+  }
+  return d;
+}
+
+/**
+ * Su sitio, sacado de un texto que escribió él (la descripción de su canal, su bio): el primer enlace que NO es una red
+ * social ni un acortador. Martín, 4/11: «Si encuentra la web, que la analice automáticamente». Un competidor agregado por
+ * su canal de YouTube no tenía sitio aunque lo escribiera en la descripción («viralidad.com»).
+ */
+export function sitioDelTexto(texto: string | null | undefined): string | null {
+  const t = texto ?? '';
+  const RED = /(^|\.)(instagram|youtube|youtu|tiktok|facebook|fb|twitter|x|threads|linkedin|whatsapp|wa|t|telegram|spotify|apple|google|bit|tinyurl|linktr|beacons|bio|lnk|hoo|campsite|amzn|amazon|paypal|hotmart|calendly)\.[a-z.]+$/i;
+  for (const m of t.matchAll(/(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,})(\/[^\s)"'<>]*)?/gi)) {
+    const host = m[1].toLowerCase();
+    if (RED.test(host) || /\.(png|jpe?g|gif|mp4)$/i.test(host)) continue;
+    // Un correo («hola@acme.com») no es un sitio que se pueda abrir: se salta lo que viene pegado a una arroba.
+    const antes = t[(m.index ?? 0) - 1];
+    if (antes === '@') continue;
+    return `https://${host}${(m[2] ?? '').replace(/[.,;:!?]+$/, '')}`;
+  }
+  return null;
+}
