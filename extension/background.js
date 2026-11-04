@@ -2550,6 +2550,40 @@ async function pestanasDeMaKo() {
   return tabs.filter((t) => esUrlDeMaKo(t.url));
 }
 
+// ── «Capturar» desde «Sus páginas» de Spy (0.76.0) ─────────────────────────────────────────────
+// Lo pendiente vive en `chrome.storage.session` (se borra al cerrar el navegador) y no en una variable: el worker se duerme.
+async function capturasPendientes() {
+  const { spyCapturas } = await chrome.storage.session.get('spyCapturas').catch(() => ({}));
+  return spyCapturas && typeof spyCapturas === 'object' ? spyCapturas : {};
+}
+async function anotarCaptura(tabId, p) {
+  const todas = await capturasPendientes();
+  todas[String(tabId)] = p;
+  await chrome.storage.session.set({ spyCapturas: todas });
+}
+/** Saca la pendiente de esa pestaña y la devuelve (null si no había). */
+async function sacarCaptura(tabId) {
+  const todas = await capturasPendientes();
+  const p = todas[String(tabId)] || null;
+  if (p) { delete todas[String(tabId)]; await chrome.storage.session.set({ spyCapturas: todas }); }
+  return p;
+}
+/** Vuelve a la pestaña de Spy que pidió y le dice cómo terminó (`lista`: se guardó; `cerrada`: la cerraron sin capturar). */
+async function volverASpy(p, como) {
+  const spyTab = await chrome.tabs.get(p.spyTabId).catch(() => null);
+  if (!spyTab) return;
+  if (como.lista) {
+    await chrome.tabs.update(spyTab.id, { active: true }).catch(() => {});
+    if (spyTab.windowId != null) await chrome.windows.update(spyTab.windowId, { focused: true }).catch(() => {});
+  }
+  await chrome.tabs.sendMessage(spyTab.id, { tipo: 'SPY_CAPTURA_TERMINO', competidorId: p.competidorId, url: p.url, ...como }).catch(() => {});
+}
+// Si la persona cierra la pestaña sin capturar, la pantalla deja de esperar. (Con `?.`: los tests cargan este worker con un
+// `chrome` de mentira que no tiene todos los eventos.)
+chrome.tabs?.onRemoved?.addListener((tabId) => {
+  void sacarCaptura(tabId).then((p) => { if (p) void volverASpy(p, { cerrada: true }); });
+});
+
 /** Cuánto se espera a que la persona escanee el QR de WhatsApp Web (0.72.3). */
 const ESPERA_QR_MS = 5 * 60000;
 const esPestanaDeWhatsapp = (t) => !!t && t.id != null && typeof t.url === 'string' && t.url.startsWith('https://web.whatsapp.com/');
@@ -3298,6 +3332,38 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         }
         responder({ ok: true });
       } catch { responder({ ok: false }); }
+    })();
+    return true;
+  }
+
+  // «Capturar» desde «Sus páginas» de Spy (0.76.0, 4/11/2026). La pantalla de MaKo pide abrir ESA página a la vista; acá se abre
+  // y se anota para qué. No se lee nada: la lee el desplegable cuando la persona toca el ícono en esa pestaña (`activeTab`). Si la
+  // página pide comprobar que es una persona, lo hace ella.
+  if (msg?.tipo === 'SPY_CAPTURAR') {
+    if (!pedidoPermitido(_s) || !_s?.tab?.id) { responder({ ok: false, motivo: 'origen' }); return false; }
+    const competidorId = Number(msg.competidorId);
+    let url = null;
+    try { const u = new URL(String(msg.url)); if (u.protocol === 'https:' || u.protocol === 'http:') url = u.toString(); } catch { url = null; }
+    if (!Number.isInteger(competidorId) || competidorId <= 0 || !url) { responder({ ok: false, motivo: 'pedido' }); return false; }
+    void (async () => {
+      try {
+        const t = await chrome.tabs.create({ url, active: true, openerTabId: _s.tab.id, index: (_s.tab.index ?? 0) + 1 });
+        await anotarCaptura(t.id, { competidorId, url, spyTabId: _s.tab.id, desde: Date.now() });
+        responder({ ok: true });
+      } catch { responder({ ok: false, motivo: 'abrir' }); }
+    })();
+    return true;
+  }
+  // El desplegable guardó la captura: se cierra esa pestaña, se vuelve a Spy y se le avisa (la pantalla la muestra sola).
+  if (msg?.tipo === 'SPY_CAPTURA_LISTA') {
+    if (_s?.tab) { responder({ ok: false }); return false; }
+    void (async () => {
+      const p = await sacarCaptura(Number(msg.tabId));
+      if (p) {
+        await chrome.tabs.remove(Number(msg.tabId)).catch(() => {});
+        await volverASpy(p, { lista: true });
+      }
+      responder({ ok: !!p });
     })();
     return true;
   }

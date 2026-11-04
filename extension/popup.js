@@ -1013,6 +1013,63 @@ async function guardarEnSpy(competidorId) {
   }
 }
 
+// ── «Capturar» desde «Sus páginas» (0.76.0, 4/11/2026) ─────────────────────────────────────────
+// Spy pidió capturar una página que el servidor no puede mostrar (una barrera, como el «comprobar que es una persona» de
+// Beacons). El worker la abrió en esta pestaña y la anotó (`spyCapturas`). Cuando la persona la ve y toca el ícono, Chrome le da
+// esta pestaña a la extensión (`activeTab`) y recién ahí se lee: la foto de lo que se ve y la página (spy-pagina.js). Sin ese toque
+// no se lee nada, y no hace falta ningún permiso nuevo. Si la página pide comprobar que es una persona, lo hace ella: acá no se
+// hace clic ni se resuelve nada.
+
+/** La captura que Spy pidió para ESTA pestaña, si la hay. Sin `tab.url` es que Chrome no dio la pestaña: no hay nada que hacer. */
+async function capturaPendiente() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+  if (!tab?.id || !tab.url) return null;
+  const { spyCapturas } = await chrome.storage.session.get('spyCapturas').catch(() => ({}));
+  const p = spyCapturas && spyCapturas[String(tab.id)];
+  return p && Number.isInteger(p.competidorId) && typeof p.url === 'string' ? { ...p, tabId: tab.id, windowId: tab.windowId } : null;
+}
+
+async function capturarPagina(p) {
+  vista = { pantalla: 'spy' };
+  $('atras').hidden = true;
+  $('donde').textContent = DONDE.spy;
+  pantallaSpy('Capturando esta página…');
+  const { token } = await chrome.storage.local.get('token').catch(() => ({}));
+  if (!token) {
+    pantallaSpy('Conecta este navegador', 'Para guardar en tu MaKo, primero hay que conectarlo.', [['Conectar', () => void ir({ pantalla: 'flow' })]]);
+    return;
+  }
+  spy.token = token;
+  let captura = null;
+  try {
+    const [r] = await chrome.scripting.executeScript({ target: { tabId: p.tabId }, files: ['spy-pagina.js'], world: 'ISOLATED' });
+    captura = r?.result ?? null;
+  } catch { captura = null; }
+  // La foto de lo que se ve: con el toque en el ícono, `activeTab` alcanza.
+  let foto = null;
+  try { foto = await chrome.tabs.captureVisibleTab(p.windowId, { format: 'jpeg', quality: 60 }); } catch { foto = null; }
+  if (!captura || captura.modo !== 'pagina') {
+    pantallaSpy('No pude leer esta página', 'Recárgala y vuelve a tocar el ícono de MaKo.');
+    return;
+  }
+  pantallaSpy('Guardando…');
+  const { status, datos } = await pedirSpy({ accion: 'pagina', competidorId: p.competidorId, url: p.url, captura, foto }, 30000)
+    .catch(() => ({ status: 0, datos: null }));
+  if (status === 404) {
+    pantallaSpy('Conecta este navegador', 'MaKo no lo reconoció. Vuelve a conectarlo.', [['Conectar', () => void ir({ pantalla: 'flow' })]]);
+    return;
+  }
+  if (!datos?.ok) {
+    // El desafío, su error o una página sin cargar: la pestaña queda abierta para volver a tocar el ícono.
+    pantallaSpy(datos?.motivo === 'desafio' ? 'Falta pasar la verificación' : 'No se guardó', datos?.error || 'No pude hablar con MaKo.');
+    return;
+  }
+  pantallaSpy('Guardada en «Sus páginas»', datos.titulo || '');
+  // El worker cierra esta pestaña y vuelve a Spy, que la muestra sola.
+  await enviar({ tipo: 'SPY_CAPTURA_LISTA', tabId: p.tabId });
+  window.close();
+}
+
 /** «hoy 10:32» o «24/10 10:32». */
 function cuandoFue(ms) {
   const d = new Date(Number(ms) || 0);
@@ -1246,6 +1303,9 @@ async function arrancar() {
   const lista = await registro();
   let guardada = null;
   try { guardada = (await chrome.storage.local.get('popupVista')).popupVista || null; } catch { /* nada */ }
+  // La pestaña que abrió «Capturar» de Spy: tocar el ícono es capturarla, y no hay otra cosa que hacer acá.
+  const pendiente = await capturaPendiente().catch(() => null);
+  if (pendiente) { await capturarPagina(pendiente); return; }
   const viva = lista.find(enCurso);
   const conSpy = await prepararSpy().catch(() => false);
   if (viva) vista = { pantalla: 'extraccion', id: viva.id };

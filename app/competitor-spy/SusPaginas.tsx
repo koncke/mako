@@ -17,7 +17,12 @@
 // que enlaza. Va AL FINAL de la pestaña y no tiene nada debajo.
 // =============================================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Confirm } from '@/app/_ui';
+import { lineaDeVersion } from '@/lib/extension-tienda';
+import { alTerminarCaptura, extensionCaptura, pedirCaptura } from '@/lib/spy-captura-cliente';
+import { capturaDe, VERSION_CAPTURA, type PaginaCapturada } from '@/lib/spy-pagina-capturada';
+import { webComparable } from '@/lib/spy-oferta';
 import { EsqueletoPagina } from './Esqueletos';
 import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
@@ -44,6 +49,14 @@ const CSS = `
 .spy-navegador__cuerpo iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
 .spy-navegador__sin{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:220px;padding:28px 24px;text-align:center}
 .spy-navegador__titulo{max-width:52ch;font-size:var(--fs-md);font-weight:600;color:var(--ink)}
+.spy-navegador__botones{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+.spy-navegador__abrir{border:0;font:inherit;cursor:pointer}
+.spy-navegador__espera{margin:0;max-width:44ch;color:var(--dim);font-size:var(--fs-sm);line-height:1.5}
+.spy-navegador__captura{display:flex;flex-direction:column}
+.spy-navegador__foto{max-height:min(720px,72vh);overflow:auto;background:#fff}
+.spy-navegador__foto img{display:block;width:100%;height:auto}
+.spy-navegador__pie{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-top:1px solid var(--border);
+  color:var(--faint);font-size:var(--fs-sm);font-weight:600}
 .spy-navegador__abrir{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 22px;border-radius:99px;background:var(--ink);color:var(--bg);font-weight:600;text-decoration:none}
 .spy-navegador__abrir:hover{opacity:.9}
 @media (max-width:760px){
@@ -60,6 +73,24 @@ type Respuesta = { estado: 'abierta' | 'no-pudo'; final: string | null };
 export const PLAZO_MARCO_MS = 20_000;
 /** Cuánto se espera el aviso de la página nueva cuando el marco se va a otra (un clic adentro): sin él, se esconde. */
 export const PLAZO_OTRA_PAGINA_MS = 4_000;
+
+/** Lo que devuelve /api/competitor-spy/paginas de cada página capturada (sin su texto). */
+type Capturada = Omit<PaginaCapturada, 'texto'>;
+
+/** La versión de la extensión que dejó el puente en <html> (y se entera cuando aparece: se instaló con la pestaña abierta). */
+function suscribirPuente(avisar: () => void): () => void {
+  const mo = new MutationObserver(avisar);
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-mako-puente'] });
+  window.addEventListener('focus', avisar);
+  return () => { mo.disconnect(); window.removeEventListener('focus', avisar); };
+}
+const versionDelPuente = () => document.documentElement.getAttribute('data-mako-puente');
+
+/** «4 nov», para «Capturada el …». */
+const diaCorto = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('es', { day: 'numeric', month: 'short' }).replace('.', '');
+};
 
 /** «beacons.page/denborg» o «passline.com/eventos/marca-personal», para el desplegable. */
 export function nombreDePagina(url: string): string {
@@ -85,7 +116,35 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
   conVistaPrevia: boolean;
 }) {
   const ws = useWs();
-  const url = elegida && enlaces.includes(elegida) ? elegida : enlaces[0] ?? null;
+  // ⚠️ LO CAPTURADO CON LA EXTENSIÓN (4/11/2026, Martín: «Pero podemos hacerlo con la extension de mako... Yo no quiero vulnerar
+  // a nadie, solo quiero capturar el diseño»). Cuando el servidor no puede mostrar la página (una barrera, como el «comprobar que
+  // es una persona» de Beacons), «Capturar» la abre en una pestaña a la vista; la persona pasa la barrera si aparece y toca el ícono
+  // de MaKo, y la extensión guarda la foto de lo que se ve (lib/spy-pagina-capturada.ts). Acá se muestra esa foto. Y las otras
+  // páginas de una página de enlaces capturada entran al desplegable.
+  const [capturas, setCapturas] = useState<Record<string, Capturada>>({});
+  const [vueltaCapturas, setVueltaCapturas] = useState(0);
+  useEffect(() => {
+    if (!conVistaPrevia) return;
+    let vivo = true;
+    fetch(`/api/competitor-spy/paginas?id=${competidorId}`, { signal: AbortSignal.timeout(15_000) })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; capturas?: Capturada[] } | null) => {
+        if (!vivo || !j?.ok || !Array.isArray(j.capturas)) return;
+        setCapturas(Object.fromEntries(j.capturas.map((c) => [webComparable(c.url), c])));
+      })
+      .catch(() => { /* sin capturas: queda «Capturar» */ });
+    return () => { vivo = false; };
+  }, [conVistaPrevia, competidorId, vueltaCapturas]);
+  const todas = useMemo(() => {
+    const vistas = new Set<string>();
+    return [...enlaces, ...Object.values(capturas).flatMap((c) => c.paginas)].filter((u) => {
+      const k = webComparable(u);
+      if (vistas.has(k)) return false;
+      vistas.add(k);
+      return true;
+    });
+  }, [enlaces, capturas]);
+  const url = elegida && todas.includes(elegida) ? elegida : todas[0] ?? null;
   // ⚠️ SI LA PÁGINA NO DEJA LEERLA, NO SE DIBUJA EL ERROR (4/11/2026: la captura de Martín decía «La página respondió 403: está
   // bloqueando la lectura automática»). La ruta del iframe dibuja su error ADENTRO del iframe y desde acá no se ve: se pregunta
   // antes (/api/competitor-spy/pagina, la misma lectura de siempre). Si abre, el iframe; si no, «Abrir» en el navegador de la
@@ -146,16 +205,56 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
   };
 
   const conAbrirGrande = !conVistaPrevia || estado === 'no-pudo' || veredicto === 'no';
-  const opciones = useMemo(() => enlaces.map((u) => ({ value: u, label: titulos.get(u) ? `${titulos.get(u)} · ${nombreDePagina(u)}` : nombreDePagina(u) })), [enlaces, titulos]);
+  const capturada = url ? capturaDe(capturas as Record<string, PaginaCapturada>, url) : null;
+  const tituloDe = (u: string) => titulos.get(u) || capturaDe(capturas as Record<string, PaginaCapturada>, u)?.titulo || '';
+  const opciones = useMemo(() => todas.map((u) => {
+    const t = titulos.get(u) || capturas[webComparable(u)]?.titulo || '';
+    return { value: u, label: t ? `${t} · ${nombreDePagina(u)}` : nombreDePagina(u) };
+  }), [todas, titulos, capturas]);
+
+  // «Capturar»: con la extensión que sabe (0.76.0), la página se abre a la vista y se espera el toque en el ícono. Sin ella, el
+  // pedido de instalarla (el mismo modal que el CRM), y al aparecer, la captura arranca sola.
+  const version = useSyncExternalStore(suscribirPuente, versionDelPuente, () => null);
+  const ext = extensionCaptura(version);
+  const [capturando, setCapturando] = useState<string | null>(null);
+  const [pideExt, setPideExt] = useState<string | null>(null);
+  const [esperaExt, setEsperaExt] = useState<string | null>(null);
+  const capturar = (u: string) => {
+    if (ext !== 'si') { setPideExt(u); return; }
+    setCapturando(u);
+    void pedirCaptura(window as unknown as Parameters<typeof pedirCaptura>[0], competidorId, u).then((r) => {
+      if (r.ok) return;
+      setCapturando(null);
+      // Sin respuesta del puente es una extensión que no sabe capturar (o se recargó): se pide la que sí.
+      if (r.motivo === 'sin_respuesta' || r.motivo === 'extension') setPideExt(u);
+    });
+  };
+  useEffect(() => alTerminarCaptura(window, (f) => {
+    if (f.competidorId !== competidorId) return;
+    setCapturando((c) => (c && webComparable(c) === webComparable(f.url) ? null : c));
+    if (f.lista) setVueltaCapturas((n) => n + 1);
+  }), [competidorId]);
+  // Se instaló (o se actualizó) con la pestaña abierta: la captura que se pidió arranca sola.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- arranca lo que la persona ya pidió
+  useEffect(() => { if (esperaExt && ext === 'si') { const u = esperaExt; setEsperaExt(null); capturar(u); } }, [esperaExt, ext]);
+  const irAInstalar = () => {
+    setEsperaExt(pideExt);
+    setPideExt(null);
+    window.dispatchEvent(new CustomEvent('MAKO_EXTENSION_REVISAR'));
+    window.open('/extension/instalar', '_blank', 'noopener');
+  };
+
   if (!url || !destino) return null;
+  /** Sin vista del servidor, y con su foto capturada (mientras no se esté capturando de nuevo). */
+  const conFoto = conAbrirGrande && conVistaPrevia && !!capturada?.foto && capturando !== url;
 
   return (
     <section id="spy-sus-paginas" className="spy-paginas-web" aria-label="Sus páginas">
       <style>{CSS}</style>
       <div className="spy-paginas-web__cabeza">
         <h3>Sus páginas</h3>
-        {enlaces.length > 1 && <span className="spy-paginas-web__n">{enlaces.length}</span>}
-        {enlaces.length > 1 && (
+        {todas.length > 1 && <span className="spy-paginas-web__n">{todas.length}</span>}
+        {todas.length > 1 && (
           <Dropdown
             ariaLabel="Elegir otra de sus páginas"
             value={url}
@@ -173,13 +272,35 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
           <span className="spy-navegador__acciones">
             {/* ⚠️ El parámetro es `?analizar=`, el que el Web Generator entiende (`derechaDeQuery`, app/web-generator/panel-reglas.ts). */}
             <a href={`/web-generator?analizar=${encodeURIComponent(destino)}`} className="spy-boton">Copiar su sitio</a>
-            {!conAbrirGrande && <a href={destino} target="_blank" rel="noreferrer noopener" className="spy-boton">Abrir</a>}
+            {(!conAbrirGrande || conFoto) && <a href={destino} target="_blank" rel="noreferrer noopener" className="spy-boton">Abrir</a>}
           </span>
         </div>
-        {conAbrirGrande ? (
+        {conFoto && capturada?.foto ? (
+          <div className="spy-navegador__captura" data-pagina="capturada">
+            <div className="spy-navegador__foto">
+              {/* eslint-disable-next-line @next/next/no-img-element -- la foto de nuestro Storage, con su tamaño */}
+              <img src={capturada.foto} alt={`Así se veía ${nombreDePagina(destino)}`} loading="lazy" />
+            </div>
+            <div className="spy-navegador__pie">
+              <span>Capturada el {diaCorto(capturada.capturadaEn)}</span>
+              <button type="button" className="spy-boton" onClick={() => capturar(url)}>Capturar de nuevo</button>
+            </div>
+          </div>
+        ) : conAbrirGrande ? (
           <div className="spy-navegador__sin" data-pagina="sin-vista">
-            {titulos.get(url) && <b className="spy-navegador__titulo">{titulos.get(url)}</b>}
-            <a href={destino} target="_blank" rel="noreferrer noopener" className="spy-navegador__abrir"><Icon name="web" size={16} />Abrir</a>
+            {tituloDe(url) && <b className="spy-navegador__titulo">{tituloDe(url)}</b>}
+            {capturando === url ? (
+              <p className="spy-navegador__espera" role="status">Se abrió en otra pestaña. Cuando la veas, toca el ícono de MaKo.</p>
+            ) : (
+              <div className="spy-navegador__botones">
+                {conVistaPrevia && (
+                  <button type="button" className="spy-navegador__abrir" onClick={() => capturar(url)}><Icon name="descargar" size={16} />Capturar</button>
+                )}
+                <a href={destino} target="_blank" rel="noreferrer noopener" className={conVistaPrevia ? 'spy-boton' : 'spy-navegador__abrir'}>
+                  {!conVistaPrevia && <Icon name="web" size={16} />}Abrir
+                </a>
+              </div>
+            )}
           </div>
         ) : !estado ? (
           <div className="spy-navegador__cuerpo"><EsqueletoPagina /></div>
@@ -203,6 +324,14 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
           </div>
         )}
       </div>
+      {pideExt && (
+        <Confirm tone="primary" title={ext === 'vieja' ? 'Actualiza la extensión de MaKo' : 'Instala la extensión de MaKo'}
+          confirmLabel={ext === 'vieja' ? 'Actualizar' : 'Instalar'}
+          message={ext === 'vieja'
+            ? lineaDeVersion(VERSION_CAPTURA, 'Tu extensión es de antes y no sabe capturar páginas. Actualízala y la captura empieza sola.')
+            : 'Para capturar una página que no se puede mostrar acá, MaKo la abre en tu navegador con su extensión. Instálala y la captura empieza sola.'}
+          onConfirm={irAInstalar} onCancel={() => setPideExt(null)} />
+      )}
     </section>
   );
 }

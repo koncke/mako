@@ -29,7 +29,7 @@ import { paginaParaVer } from '@/lib/landing-fetch';
 import { copyDeHtml } from '@/lib/landing-extraer';
 import { esPaginaDeError, paginaFinal } from '@/lib/pagina-real';
 import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
-import { ofertaGuardada } from '@/lib/spy-oferta-servidor';
+import { paginasSuyas } from '@/lib/spy-pagina-capturada-servidor';
 import { webComparable } from '@/lib/spy-oferta';
 import { getWorkspaceActual } from '@/lib/workspace';
 
@@ -50,10 +50,10 @@ export async function POST(req: NextRequest) {
   const url = typeof cuerpo.url === 'string' ? cuerpo.url.trim() : '';
   if (!Number.isInteger(id) || id <= 0 || !/^https?:\/\//i.test(url)) return Response.json({ ok: false, error: 'Falta la página.' }, { status: 400 });
 
-  // Sólo las páginas SUYAS (su web y las que enlaza): esto no es un lector de cualquier dirección.
-  const v = await ofertaGuardada(id).catch(() => null);
-  if (!v) return Response.json({ ok: false, error: 'Ese competidor no está.' }, { status: 404 });
-  const suyas = 'enlaces' in v ? [...v.urls, ...v.enlaces] : [];
+  // Sólo las páginas SUYAS (su web, las que enlaza y las que salieron de una página de enlaces capturada): esto no es un lector
+  // de cualquier dirección.
+  const suyas = await paginasSuyas(id).catch(() => null);
+  if (!suyas) return Response.json({ ok: false, error: 'Ese competidor no está.' }, { status: 404 });
   if (!suyas.some((u) => webComparable(u) === webComparable(url))) return Response.json({ ok: false, error: 'Esa página no es suya.' }, { status: 404 });
 
   try {
