@@ -660,12 +660,11 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'newsletters', titulo: 'Newsletters', familia: 'Sales Machine',
-    estado: 'por-construir', verEnApp: '/newsletters',
-    alcance: 'Escribir newsletters recurrentes a la lista. ComingSoon sin backend.',
-    // Una newsletter, mirada desde el código, es un broadcast que se repite: el envío
-    // a una lista, la baja y el dominio por cliente ya existen. Sin estas rutas el
-    // historial del área eran commits del sidebar y ninguno de un envío.
-    vive: ['app/newsletters/page.tsx', 'app/_components/ComingSoon.tsx', 'app/_components/nav.ts', 'app/api/email/broadcasts', 'lib/email-marketing.ts', 'lib/resend.ts', 'lib/plan-proyectos-catalogo.ts'],
+    estado: 'parcial', verEnApp: '/newsletters',
+    alcance: 'El newsletter (aprobado el 29/10/2026): los suscriptos son un CRM «Newsletter» (Suscripto → Lee → Dormido → Dado de baja) y las ediciones, broadcasts de ese CRM que se escriben en el Copywriter, quedan en el Calendario y salen desde el dominio del negocio. Sólo el super admin la ve mientras el envío de email esté apagado.',
+    // Una edición, mirada desde el código, es un broadcast cuyo segmento es el CRM del newsletter: el envío, la baja y el
+    // dominio por cliente son los de siempre. Sin estas rutas el historial del área eran commits del sidebar.
+    vive: ['app/newsletters', 'lib/newsletter.ts', 'lib/newsletter-reglas.ts', 'lib/newsletter-ia.ts', 'lib/newsletter-copy.ts', 'app/_components/nav.ts', 'app/api/email/broadcasts', 'app/api/email/unsubscribe', 'app/api/cron/email-broadcasts', 'lib/email-marketing.ts', 'lib/resend.ts', 'lib/plan-proyectos-catalogo.ts'],
     nota: 'Es la única de las ocho tabs de Sales Machine sin proyecto propio en lib/plan-proyectos-catalogo.ts: la fila «Sales Email» dice que cubre «el generador de emails de venta y las newsletters para el cliente», así que una tarea de newsletter no tiene lugar propio donde rutearse.',
   },
   {
