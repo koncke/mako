@@ -23,7 +23,7 @@ import type { GrupoDeLaLista } from '../app/_chat/grupo/pantalla';
 import { mensajeWADe } from '../app/m/mako/chat-ui';
 import type { MensajeDelHilo } from '../lib/grupo-reglas';
 import {
-  FRASES_DEL_GRUPO, GRUPOS_VISIBLES, citaDeMensaje, cursorNuevo, edadDelGrupo, filasVisibles, itemsDelGrupo, mezclarMensajes, negritaDeWhatsApp, noLeidosEnFila, previaDelGrupo, quePuede, urlDelSondeo,
+  FRASES_DEL_GRUPO, GRUPOS_VISIBLES, citaDeMensaje, cursorNuevo, edadDelGrupo, filasVisibles, itemsDelGrupo, mezclarMensajes, negritaDeWhatsApp, noLeidosEnFila, previaDelGrupo, quePuede, quienesEstan, urlDelSondeo,
 } from '../app/_chat/grupo/pantalla';
 import { armarHook, dibujador } from './hook-en-node';
 
@@ -123,6 +123,7 @@ async function armarPiezas(): Promise<Dibujo> {
     export { VistaParticipantes } from '@/app/_chat/grupo/Participantes';
     export { HiloDelGrupo } from '@/app/_chat/grupo/HiloDelGrupo';
     export { CajaDelGrupo } from '@/app/_chat/grupo/CajaDelGrupo';
+    export { ChatDelGrupo } from '@/app/second-brain/ChatDelGrupo';
   `;
   const r = await build({
     stdin: { contents: entrada, resolveDir: RAIZ, loader: 'ts' }, bundle: true, write: false, format: 'cjs', platform: 'node', logLevel: 'silent', jsx: 'automatic',
@@ -527,6 +528,40 @@ test('19. queda montado como un gurú, y nadie más pide por este motor', () => 
   for (const f of ['app/_chat/grupo/useHiloDelGrupo.ts', 'app/_chat/grupo/pantalla.ts', 'app/_chat/grupo/Participantes.tsx']) assert.doesNotMatch(sinComentarios(leer(f)), /conWs\(|[?&]ws=/, f);
 });
 
+test('20. como un grupo de WhatsApp (4/11/2026, Martín: «"Participantes" debería estar al final a la derecha... no veo el botón de invitar»)', async () => {
+  const { html, m, react } = await dibujo();
+  // La cabecera de la computadora, dibujada: el nombre, y a la derecha Invitar y Participantes. A un invitado no se le ofrece invitar.
+  const pc = (g: GrupoDeLaLista) => html(react.createElement(m.ChatDelGrupo, { ws: 7, grupo: g, onVolver() {}, onLeido() {}, onCambio() {}, onSalio() {} }));
+  const admin = pc(fila(7, { titulo: 'MaKo &lt;&gt; Inmobiliaria' }));
+  enOrden(admin, 'co-cab__titulo', 'gr-cab-acciones', '>Invitar<', '>Participantes<');
+  const inv = pc(fila(7, { administra: false, invitado: true, titulo: 'Invitación de Ana' }));
+  assert.match(inv, />Participantes</);
+  assert.doesNotMatch(inv, />Invitar</, 'un invitado no invita');
+  // Debajo del nombre, quiénes están: los demás y «Tú» al final.
+  assert.equal(quienesEstan([{ nombre: 'Ana', propio: true }, { nombre: 'Joan', propio: false }, { nombre: ' Juanfran ', propio: false }]), 'Joan, Juanfran, Tú');
+  // La hoja: el resultado en su lugar, entre el formulario y la lista, aunque no haya nada que decir; y la lista dice cuántos son.
+  const datos = { administra: true, invitado: false, frase: FRASE, topeInvitados: 30, sugeridos: [], participantes: [{ nombre: 'Ana', tipo: 'admin', propio: true }, { nombre: 'Joan', tipo: 'invitado', propio: false, email: 'joan@y.com' }] };
+  enOrden(html(react.createElement(m.VistaParticipantes, { ...VISTA, datos })), 'gr-invitar', 'gr-resultado', '2 participantes', 'gr-lista');
+  enOrden(html(react.createElement(m.VistaParticipantes, { ...VISTA, datos, aviso: 'Listo. Si usa MaKo, lo verá en sus chats.' })), 'gr-invitar', 'gr-resultado', 'Listo.', 'gr-lista');
+  // El Modal no cambia de alto al invitar: alto fijo, y en él sólo la lista scrollea. En el teléfono scrollea la hoja entera.
+  assert.match(sinComentarios(leer('app/second-brain/ChatDelGrupo.tsx')), /<Modal titulo="Participantes"[^\n]*alto="min\(85vh, 640px\)"/);
+  const css = leer('app/_chat/grupo/grupo.css');
+  assert.match(css, /\.mk-modal__cuerpo \.gr-miembros > \.gr-lista \{ flex: 1; min-height: 0; overflow-y: auto; \}/);
+  // El 👍 montado sobre el borde del globo, no colgando debajo; y en lo tuyo, del lado que no tapa la hora.
+  assert.match(css, /\.gr-hilo \.co-yo > \.co-wa__reaccion--de-mako, \.gr-hilo \.co-otro > \.co-wa__reaccion--de-mako \{ margin-top: -16px; \}/);
+  // El hilo: lo tuyo sin tu foto, y lo que MaKo contesta lleva la cita del mensaje al que contesta.
+  const h = html(react.createElement(m.HiloDelGrupo, { ...HILO_BASE, k: K({ mensajes: [
+    msg(3, 'persona', 'Joan', false, 'mako estas vivo?'), msg(4, 'mako', 'MaKo', false, 'Sí, aquí estoy.', { respondeA: 3 }), msg(5, 'persona', 'Ana', true, 'Gracias'),
+  ] }) }));
+  assert.ok(!h.includes('class="co-mifoto"'), 'lo tuyo va sin tu foto, como en WhatsApp');
+  assert.equal((h.match(/class="co-yo/g) ?? []).length, 1);
+  enOrden(h, 'mako estas vivo?', 'co-cita', 'Joan', 'mako estas vivo?', 'Sí, aquí estoy.');
+  assert.match(h, /class="gr-hilo"/, 'el hilo del grupo tiene su envoltorio de estilo');
+});
+
+// PROBADO ROMPIÉNDOLO (4/11/2026, el diseño de WhatsApp), base 21/0: ocho roturas, una por vez y restaurada, las ocho 20/1 (el test 20):
+//   · Participantes pegado al título (sin `gr-cab-acciones`) · Invitar a un invitado · sin `alto` en el Modal · la lista sin scroll propio en el Modal
+//   · lo tuyo con tu foto · MaKo sin la cita · el resultado sólo cuando hay algo (sin `gr-resultado`) · la reacción con su margen de antes
 // PROBADO ROMPIÉNDOLO (4/11/2026, base 20/0): 41 roturas, una por vez sobre el código real y restaurada; todas dieron rojo. Entre paréntesis, el test que cayó.
 //   · El orden: el grupo debajo del Cerebro en el teléfono (4, 5, 6) · adentro de la lista del cliente, que lo haría esperar y caer con ella (4, 5) · debajo de los coaches en lo del
 //     super admin (4) · doble en el teléfono del super admin mirando un cliente (4) · sin «Ver más» para una agencia (7) · la lista salta mientras carga (7)

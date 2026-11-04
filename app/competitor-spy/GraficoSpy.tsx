@@ -121,7 +121,8 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
   /** La IA del negocio está leyendo sus piezas: los formatos todavía se están llenando. */
   analizando: boolean;
   onAbrir: (p: PiezaVista) => void;
-  onAgregarRed: () => void;
+  /** Elegir «Agregar su Instagram/YouTube» abre el buscador de esa red. */
+  onAgregarRed: (red: 'instagram' | 'youtube') => void;
   /** «Su web» no es un gráfico: lleva a la pestaña de su web. */
   onWeb: () => void;
 }) {
@@ -168,8 +169,11 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
   const listo = aBajar.every((id) => precarga.intentadas.has(id));
   const bajadas = listo ? precarga.ok : null;
 
-  // ── La entrada: desde una columna a la izquierda, desenfocadas y grandes, a su lugar. UNA vez por gráfico (por su
-  // tipo y su red): un cambio de ancho a mitad de camino la corta y deja cada miniatura en su lugar, no la repite. ──
+  // ── La entrada: las tarjetas se ACOMODAN y después VAN AL GRÁFICO (4/11/2026). Martín: «quiero que al entrar a un competidor se
+  // vea la animación de las tarjetas acomodándose y yendo al gráfico». Antes entraban volando desde una columna a la izquierda.
+  // Ahora, en el mismo gesto (sin otra pantalla ni otra espera): aparecen ordenadas en una grilla en el centro, de la que más rinde a
+  // la que menos, se quedan un instante, y cada una vuela a su día y sus vistas. UNA vez por gráfico (por su tipo y su red): un
+  // cambio de ancho a mitad de camino la corta y deja cada miniatura en su lugar. ~1,6 s en total: no frena la entrada. ──
   const plot = useRef<HTMLDivElement>(null);
   const animado = useRef<string | null>(null);
   const clave = `${grupo}|${redActiva}`;
@@ -179,21 +183,28 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
     if (quieto()) return;
     const els = [...plot.current.querySelectorAll<HTMLElement>('[data-pt]')];
     const caja = plot.current.getBoundingClientRect();
-    if (!caja.width) return;
-    // El orden de la columna: de la que más rinde a la que menos (la de arriba es la primera que se ve llegar).
+    if (!caja.width || !els.length) return;
+    // El orden de la grilla: de la que más rinde a la que menos (la de arriba a la izquierda es la mejor).
     const orden = [...els].sort((a, b) => Number(b.dataset.valor) - Number(a.dataset.valor));
-    const lado = telefono ? 24 : 34;
-    const porFila = Math.max(2, Math.floor((caja.width * 0.18) / (lado + 6)));
-    const paso = Math.min(9, 1300 / Math.max(1, els.length));
+    const r0 = orden.map((el) => el.getBoundingClientRect());
+    const lado = Math.max(...r0.map((r) => r.height), telefono ? 24 : 34);
+    const paso = lado + 6;
+    const columnas = Math.max(4, Math.min(orden.length, Math.floor((caja.width * 0.86) / paso)));
+    const filas = Math.ceil(orden.length / columnas);
+    const x0 = (caja.width - Math.min(columnas, orden.length) * paso) / 2;
+    const y0 = Math.max(0, (caja.height - filas * paso) / 2);
+    const escalon = Math.min(10, 520 / Math.max(1, orden.length));
     const anims = orden.map((el, i) => {
-      const r = el.getBoundingClientRect();
-      const ox = (i % porFila) * (lado + 6) - (r.left - caja.left);
-      const oy = Math.floor(i / porFila) * (lado + 6) - (r.top - caja.top);
+      const r = r0[i];
+      const gx = x0 + (i % columnas) * paso - (r.left - caja.left);
+      const gy = y0 + Math.floor(i / columnas) * paso - (r.top - caja.top);
+      const enGrilla = `translate(${gx}px,${gy}px)`;
       return el.animate([
-        { transform: `translate(${ox}px,${oy}px) scale(1.5)`, filter: 'blur(7px)', opacity: 0 },
-        { opacity: 1, offset: 0.25 },
-        { transform: 'translate(0,0) scale(1)', filter: 'blur(0)', opacity: 1 },
-      ], { duration: 900, delay: i * paso, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'backwards' });
+        { transform: `${enGrilla} scale(.55)`, opacity: 0 },
+        { transform: `${enGrilla} scale(1)`, opacity: 1, offset: 0.28 },
+        { transform: `${enGrilla} scale(1)`, opacity: 1, offset: 0.46 },
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      ], { duration: 1100, delay: i * escalon, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'backwards' });
     });
     return () => anims.forEach((a) => a.cancel());
   }, [listo, clave, telefono]);
@@ -229,7 +240,7 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
               buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
               options={opciones.map((o) => ({ ...o, icono: ICONO[o.value] }))}
               onChange={(v) => {
-                if (v === 'agregar-instagram' || v === 'agregar-youtube') { onAgregarRed(); return; }
+                if (v === 'agregar-instagram' || v === 'agregar-youtube') { onAgregarRed(v === 'agregar-youtube' ? 'youtube' : 'instagram'); return; }
                 if (v === 'web') { onWeb(); return; }
                 setElegido(v as Grupo);
                 setRed('todo');

@@ -25,6 +25,8 @@
 // =============================================================================
 
 import { HOSTS_VIDEO, hostDePieza, pixelesMetaDe } from './landing-analisis';
+import { esAgregador } from './spy-otras-redes-reglas';
+import { nombreParaBuscar } from './spy-reglas';
 
 export const PROVEEDORES_PIXEL = ['meta', 'ga4', 'gtm', 'google-ads', 'tiktok', 'taboola'] as const;
 export type ProveedorPixel = (typeof PROVEEDORES_PIXEL)[number];
@@ -345,28 +347,45 @@ export function funnelEnPalabras(f: Funnel): string[] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Lo que se busca en la Biblioteca para encontrar sus anuncios, cuando no está su Página guardada (4/11/2026). Martín, mirando a Den
+ * Borg: «En su biblioteca de anuncios la buscó como su página [su web], cuando debió buscarla por su Instagram, todo el mundo
+ * publicita con su cuenta personal, o de última con el nombre del negocio». Su web era beacons.page: la búsqueda trajo 54 anuncios
+ * de cualquiera que usa Beacons.
+ *
+ * El orden: su nombre (el de su perfil, sin lo que va después de « - »: así se llama la Página con la que pauta), o su @ de Instagram
+ * sin la arroba, y recién al final el dominio de SU web. ⚠️ Una página de enlaces (beacons, linktree…) NUNCA: es de todos.
+ */
+export function busquedaDeSusAnuncios(c: { nombre?: string | null; instagram?: string | null; landing_url?: string | null }): string | null {
+  const nombre = nombreParaBuscar(c.nombre ?? '').replace(/^@/, '').trim();
+  if (nombre.length >= 3) return nombre;
+  const ig = (c.instagram ?? '').trim().replace(/^@/, '');
+  if (ig.length >= 3) return ig;
+  if (c.landing_url && !esAgregador(c.landing_url)) {
+    try { return new URL(c.landing_url).hostname.replace(/^www\./, '') || null; } catch { return null; }
+  }
+  return null;
+}
+
+/**
  * La Biblioteca de Anuncios abierta en este competidor. Es un enlace para que lo mire la persona, y
  * por eso no tiene ningún problema de términos: MaKo no lee nada.
  *
- * Con su Página guardada (`pagina_anuncios`, si es un id) va directo; sin ella busca su dominio, y si no
- * tiene, su nombre. `country=ALL` cuando no se sabe el país: con un país equivocado la lista sale vacía,
- * y una lista vacía se lee como «no pauta».
+ * Con su Página guardada (`pagina_anuncios`, si es un id) va directo; sin ella busca su nombre o su @ (`busquedaDeSusAnuncios`).
+ * `country=ALL` cuando no se sabe el país: con un país equivocado la lista sale vacía, y una lista vacía se lee como «no pauta».
  *
  * ⚠️ FRASE EXACTA Y ENTRE COMILLAS. Medido el 3/11/2026 con `q=acquisition.com`: con `keyword_unordered`
  * parte el dominio en dos palabras y da ~24.000 anuncios de cualquiera (el primero, de Naukri.com); con
  * `keyword_exact_phrase` y `"acquisition.com"`, los de Alex Hormozi. Sin esto el enlace abre, y miente.
  */
-export function enlaceSusAnuncios(c: { pagina_anuncios?: string | null; landing_url?: string | null; nombre?: string | null; pais?: string | null }): string {
+export function enlaceSusAnuncios(c: { pagina_anuncios?: string | null; landing_url?: string | null; nombre?: string | null; instagram?: string | null; pais?: string | null }): string {
   const p = new URLSearchParams({ active_status: 'active', ad_type: 'all', country: (c.pais ?? '').toUpperCase() || 'ALL', media_type: 'all' });
   const pagina = (c.pagina_anuncios ?? '').trim();
   if (/^\d{5,25}$/.test(pagina)) {
     p.set('search_type', 'page');
     p.set('view_all_page_id', pagina);
   } else {
-    let dominio = '';
-    try { dominio = c.landing_url ? new URL(c.landing_url).hostname.replace(/^www\./, '') : ''; } catch { dominio = ''; }
     p.set('search_type', 'keyword_exact_phrase');
-    p.set('q', `"${dominio || (c.nombre ?? '').trim()}"`);
+    p.set('q', `"${busquedaDeSusAnuncios(c) ?? (c.nombre ?? '').trim()}"`);
   }
   return `https://www.facebook.com/ads/library/?${p.toString()}`;
 }

@@ -510,6 +510,15 @@ export const TIPOS_POR_CANAL: Record<CanalSpy, readonly TipoPieza[]> = {
 export const nombreComparable = (s: string): string =>
   (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
+/**
+ * Su nombre para buscar: sin lo que va después de « - », « | » o « — » («Den Borg - Estrategia de Marca Personal» → «Den Borg»).
+ * Lo usan el buscador (sumarle un canal), el enlace a sus anuncios y la verificación de que un anuncio es suyo (4/11/2026).
+ */
+export function nombreParaBuscar(nombre: string): string {
+  const corto = (nombre ?? '').split(/\s+[-|—–·]\s+/)[0]?.trim() ?? '';
+  return corto.length >= 3 ? corto : (nombre ?? '').trim();
+}
+
 /** El dominio de una landing, para comparar: sin protocolo, sin www, sin barra final ni query. */
 export const dominioComparable = (s: string): string =>
   (s ?? '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];

@@ -103,9 +103,18 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: sh scripts/ci-main-verde.sh origin
 
+      # Quién llegó a main en las últimas horas, y quién llegó con un veredicto de la nube (scripts/veredicto.mjs): un rojo acá es de
+      # una mezcla, y sin esta lista no hay a quién preguntarle. El checkout es de un solo commit: se trae la historia que hace falta.
       - name: Main está rojo
         if: failure()
         run: |
           sha=$(git rev-parse HEAD)
+          git fetch --quiet --deepen=400 origin main || true
+          {
+            echo "### Llegaron a main en las últimas 3 horas"
+            git log --since=3.hours --format='- %h %s' --grep='^Merge origin/main en punta/' HEAD | head -30
+            echo "### De esos, con un veredicto de la nube (los tests y los tipos los corrió la sesión, no Actions)"
+            git log --since=3.hours --format='%h %(trailers:key=Veredicto,valueonly,separator=%x20)' HEAD | awk 'NF > 1 { q = "?"; for (i = 2; i <= NF; i++) if ($i ~ /^quien=/) q = substr($i, 7); print "- " $1 " · sesión " q }' | head -30
+          } >> "$GITHUB_STEP_SUMMARY" || true
           git push --force origin "$sha:refs/heads/ci-rojo/main"
           echo "::error::La mezcla de main $(git rev-parse --short HEAD) dio rojo (tipos o barredoras). Las puntas que den rojo mientras tanto se relanzan solas cuando main vuelva a verde."

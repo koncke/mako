@@ -213,7 +213,8 @@ export function ordenarPiezas<T extends Pick<Pieza, 'publicada_en' | 'visto_prim
  * carruseles o imágenes»). Reemplaza a los chips de canal y a «Sigue a la vista» y «Probado», que «no se entiende qué
  * hacen». Un Short de YouTube es contenido corto como un reel, pero va aparte: se publica y se mide distinto.
  */
-export type TipoContenido = 'todo' | 'reels' | 'carruseles' | 'largos' | 'shorts';
+/** `anuncios` no está en `TIPOS_CONTENIDO` (los gráficos lo agrupan aparte, `grupoDe`): en la grilla es un formato más (4/11/2026). */
+export type TipoContenido = 'todo' | 'reels' | 'carruseles' | 'largos' | 'shorts' | 'anuncios';
 export const TIPOS_CONTENIDO: ReadonlyArray<{ value: TipoContenido; label: string; canal: 'instagram' | 'youtube' | null }> = [
   { value: 'todo', label: 'Todo lo que publica', canal: null },
   { value: 'reels', label: 'Reels', canal: 'instagram' },
@@ -227,6 +228,14 @@ export function tipoDeContenido(p: Pick<Pieza, 'canal' | 'tipo' | 'duracion'>): 
   if (p.canal === 'instagram') return p.tipo === 'reel' ? 'reels' : 'carruseles';
   if (p.canal === 'youtube') return esShort({ duracion: p.duracion ?? null }) ? 'shorts' : 'largos';
   return null;
+}
+
+/**
+ * El tipo de una pieza EN LA GRILLA: sus anuncios entran como un formato más (Martín, 4/11/2026: «los anuncios deberían estar en
+ * "Contenido", igual que el resto»). `tipoDeContenido` no los nombra a propósito: lo usan los gráficos, que los agrupan aparte.
+ */
+export function tipoEnLaGrilla(p: Pick<Pieza, 'canal' | 'tipo' | 'duracion'>): Exclude<TipoContenido, 'todo'> | null {
+  return p.canal === 'anuncios' ? 'anuncios' : tipoDeContenido(p);
 }
 
 /** Lo que se elige en el desplegable de tipos: un tipo de contenido, o sumarle la red que le falta. */
@@ -243,13 +252,14 @@ export function opcionesDeContenido(
 ): Array<{ value: ValorDeContenido; label: string }> {
   const n = new Map<TipoContenido, number>();
   for (const p of piezas) {
-    const t = tipoDeContenido(p);
+    const t = tipoEnLaGrilla(p);
     if (t) n.set(t, (n.get(t) ?? 0) + 1);
   }
   const conCuenta = (label: string, k: number) => `${label} · ${k}`;
   return [
-    { value: 'todo', label: conCuenta('Todo lo que publica', piezas.filter((p) => tipoDeContenido(p)).length) },
+    { value: 'todo', label: conCuenta('Todo lo que publica', piezas.filter((p) => tipoEnLaGrilla(p)).length) },
     ...TIPOS_CONTENIDO.filter((t) => t.value !== 'todo' && (n.get(t.value) ?? 0) > 0).map((t) => ({ value: t.value as ValorDeContenido, label: conCuenta(t.label, n.get(t.value) ?? 0) })),
+    ...((n.get('anuncios') ?? 0) > 0 ? [{ value: 'anuncios' as const, label: conCuenta('Anuncios', n.get('anuncios') ?? 0) }] : []),
     ...(!c.instagram ? [{ value: 'agregar-instagram' as const, label: 'Agregar su Instagram' }] : []),
     ...(!c.youtube_id ? [{ value: 'agregar-youtube' as const, label: 'Agregar su YouTube' }] : []),
   ];
@@ -260,7 +270,7 @@ type PiezaFiltrable = Pick<Pieza, 'canal' | 'tipo' | 'duracion' | 'titulo' | 'te
 export function filtrarPiezas<T extends PiezaFiltrable>(piezas: readonly T[], texto: string, tipo: TipoContenido): T[] {
   const q = texto.trim().toLowerCase();
   return piezas.filter((p) =>
-    (tipo === 'todo' || tipoDeContenido(p) === tipo)
+    (tipo === 'todo' || tipoEnLaGrilla(p) === tipo)
     && (!q || `${p.titulo ?? ''} ${p.texto ?? ''}`.toLowerCase().includes(q)));
 }
 
@@ -334,4 +344,43 @@ export function debeLeerAlAbrir(
   if (yaSeLeyo || !canalesDe(c)) return false;
   if (!c.mirado_en || cuantasPiezas === 0) return true;
   return ahora.getTime() - Date.parse(c.mirado_en) > HORAS_FRESCA * 3_600_000;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La grilla de sus piezas, por páginas (4/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// Martín: «rediseña mejor la parte donde se ve todos sus reels, YT, etc... No me gusta para nada esa parte con scroll infinito, y
+// sin ocupar todo el ancho». La grilla va a todo el ancho, de a páginas de filas enteras (las columnas que entran × FILAS_POR_PAGINA).
+
+/** Cuántas filas tiene una página de la grilla. */
+export const FILAS_POR_PAGINA = 3;
+
+/** Cuántas columnas entran: el mismo cálculo que `repeat(auto-fill, minmax(min, 1fr))`. Nunca menos de 1. */
+export function columnasQueEntran(ancho: number, minimo: number, hueco: number): number {
+  return Math.max(1, Math.floor((ancho + hueco) / (minimo + hueco)));
+}
+
+/** La página que se pide, encajada en las que hay (con 0 piezas, la 1). */
+export function paginaEnRango(pagina: number, total: number, porPagina: number): number {
+  const paginas = Math.max(1, Math.ceil(total / Math.max(1, porPagina)));
+  return Math.min(Math.max(1, Math.floor(pagina) || 1), paginas);
+}
+
+/**
+ * Los botones del paginador: siempre la primera y la última, la actual con sus dos vecinas, y «…» donde se saltea. Con 7 o menos,
+ * todas. `null` es un «…».
+ */
+export function botonesDePaginas(actual: number, paginas: number): Array<number | null> {
+  if (paginas <= 7) return Array.from({ length: paginas }, (_, i) => i + 1);
+  const desde = Math.max(2, Math.min(actual - 1, paginas - 4));
+  const hasta = Math.min(paginas - 1, Math.max(actual + 1, 5));
+  // Un «…» que tapa UNA sola página es peor que la página: se muestra el número.
+  const out: Array<number | null> = [1];
+  if (desde === 3) out.push(2);
+  else if (desde > 3) out.push(null);
+  for (let i = desde; i <= hasta; i += 1) out.push(i);
+  if (hasta === paginas - 2) out.push(paginas - 1);
+  else if (hasta < paginas - 2) out.push(null);
+  out.push(paginas);
+  return out;
 }

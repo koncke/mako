@@ -203,6 +203,26 @@ export const plantillaHojaDe = (id: string) => {
   return PLANTILLAS_HOJA.find((p) => p.id === vigente) ?? PLANTILLAS_GENERAL.find((p) => p.id === vigente);
 };
 
+/**
+ * LAS QUE SE OFRECEN (4/11/2026). Martín, mirando producción: «elimina todos los templates viejos y vamos de a poco cargando cuando
+ * ya estén». Se ofrece —en «Nueva hoja», en el catálogo de la API y para crear desde una plantilla— SÓLO la que trae su DISEÑO PROPIO
+ * copiado de su referencia (`Hoja.diseno`, como Closing con Halden). Se DERIVA del dato, no es una lista a mano: una hoja nueva copiada
+ * entra sola el día que su plantilla tenga el diseño.
+ * ⚠️ Las demás SIGUEN en el código (`PLANTILLAS_HOJA`, `PLANTILLAS_GENERAL`): las hojas que ya se crearon con ellas no cambian, y la
+ *    portada de General (Focus) y los «Ver … →» de una hoja de antes las siguen usando. Lo que falta copiar está en
+ *    docs/templates-dashboard-propuesta.md, «Lo que falta copiar»; la pantalla no lo muestra (no hay «próximamente»).
+ */
+export function esPlantillaOfrecida(p: PlantillaHoja): boolean {
+  try { return !!(p.armar((local) => local) as { diseno?: unknown }).diseno; } catch { return false; }
+}
+export const PLANTILLAS_OFRECIDAS: readonly PlantillaHoja[] = PLANTILLAS_HOJA.filter(esPlantillaOfrecida);
+export const PLANTILLAS_GENERAL_OFRECIDAS: readonly PlantillaHoja[] = PLANTILLAS_GENERAL.filter(esPlantillaOfrecida);
+/** La plantilla de ese id (o la que la reemplaza), SÓLO si se ofrece. */
+export const plantillaOfrecidaDe = (id: string): PlantillaHoja | undefined => {
+  const p = plantillaHojaDe(id);
+  return p && esPlantillaOfrecida(p) ? p : undefined;
+};
+
 /** Una hoja de la galería con ids NUEVOS (la hoja y cada componente y control): se puede agregar dos veces. */
 export function instanciarPlantilla(p: PlantillaHoja): Hoja {
   const ids = new Map<string, string>();

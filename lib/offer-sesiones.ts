@@ -28,7 +28,7 @@ import { leerTodo } from './supabase-paginado';
 import { leerFunnels } from './funnels';
 import { hayLeadsFueraDelFunnel } from './analisis-negocio';
 import {
-  faltanMinimas,
+  faltanMinimas, ofertaArmadaDe, sanearConclusiones,
   type ArbolOffer, type CalculoDiagnostico, type ConclusionOferta, type DiagnosticoOferta, type EstadoSesion,
   type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezasSabidas,
 } from './offer-marco';
@@ -96,13 +96,6 @@ const num = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 const esObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-
-/** Las versiones de la conclusión. Las escribe sólo este módulo, así que se mira la forma, no cada campo. */
-function sanearConclusiones(raw: unknown): ConclusionOferta[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((c): c is ConclusionOferta =>
-    esObjeto(c) && esObjeto(c.diagnostico) && esObjeto(c.calculo) && esObjeto(c.propuesta) && typeof c.version === 'number');
-}
 
 function sanearBorrador(raw: unknown): BorradorOffer | null {
   return esObjeto(raw) && esObjeto(raw.diagnostico) && esObjeto(raw.calculo) ? (raw as unknown as BorradorOffer) : null;
@@ -299,18 +292,21 @@ export async function leerSesion(id: number): Promise<OfferSesionVista | null> {
 }
 
 /**
- * ¿Hay alguna conversación de oferta con una oferta ARMADA? (4/11/2026, el coach único). El Funnel Coach abre con «Empecemos por tu
+ * La oferta ARMADA en una conversación de oferta, si hay (4/11/2026, el coach único). El Funnel Coach abre con «Empecemos por tu
  * oferta» sólo si no hay ninguna: quien la armó en una conversación de Offer y no la guardó como oferta del negocio no vuelve a
- * empezar. Sólo la más reciente que tiene conclusiones (`conclusiones` nace `[]`, mig 0254), no las 60 de la lista. Tira si no pudo
- * leer: quien llama lo trata como «no se sabe».
+ * empezar. Y dice CUÁL usa, con su nombre y el de la conversación (ticket #57, lib/funnel-plan.ts → `ofertaDelCoach`). Sólo la más
+ * reciente que tiene conclusiones (`conclusiones` nace `[]`, mig 0254), no las 60 de la lista. Tira si no pudo leer: quien llama lo
+ * trata como «no se sabe».
  */
-export async function hayOfertaArmada(): Promise<boolean> {
+export async function ofertaArmada(): Promise<{ nombre: string; conversacion: string } | null> {
   const db = await getTenantDb();
-  const { data, error } = await db.from(TABLA).select('conclusiones').neq('conclusiones', '[]')
+  const { data, error } = await db.from(TABLA).select('titulo, conclusiones').neq('conclusiones', '[]')
     .order('updated_at', { ascending: false }).order('id', { ascending: false }).limit(1);
   if (error) throw fallo('mirar si hay una oferta armada', error.message);
   const fila = ((data ?? []) as unknown as Array<Record<string, unknown>>)[0];
-  return fila != null && totalDe(fila.conclusiones) != null;
+  const armada = fila ? ofertaArmadaDe(fila.conclusiones) : null;
+  if (!armada) return null;
+  return { nombre: armada.nombre, conversacion: typeof fila.titulo === 'string' && fila.titulo.trim() ? fila.titulo.trim() : TITULO_DEFAULT };
 }
 
 /** Contrato: las conversaciones del negocio, la más reciente primero. */
