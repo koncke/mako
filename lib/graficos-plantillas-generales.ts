@@ -177,6 +177,40 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
       { local: 'flow', tipo: 'tabla_barras', fuente: 'flow', dimension: 'tipo', metricas: ['trabajos', 'listos', 'fallidos', 'tasa_exito'], barra: 'trabajos', titulo: 'Videos e imágenes', ir: 'video-generator' },
     ],
   },
+  {
+    // 4/11/2026 — INMOBILIARIA, la primera por RUBRO (docs/templates-dashboard-propuesta.md §6, regla 3, y §7.3, LINTEL): se copia
+    // SÓLO su Overview, la página que informa (las otras cinco dejan trabajar: ya son el CRM). La pregunta es la del rubro: ¿cuántos
+    // interesados visitan, cuántos compran y en qué proyecto? «Proyecto» es el funnel de MaKo (un desarrollo, una propiedad), así que
+    // le sirve a cualquier negocio que venda inmuebles. ⚠️ Lintel pone «97 % win rate» sin denominador ni ventana: acá cada tasa dice
+    // de qué ES en su título («de los que visitan»).
+    id: 'inmobiliaria', nombre: 'Inmobiliaria', emoji: '🏠', buscar: 'bienes raíces desarrollos propiedades proyectos',
+    linea: 'Cuántos interesados visitan, cuántos compran y en qué proyecto, quién vende y por qué no compraron.',
+    subtitulo: 'Tus interesados, de la visita a la compra.', periodo: 'ult90',
+    controles: [{ tipo: 'lista', campo: 'producto', valores: null }],
+    piezas: [
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'leads', fecha: 'alta', metricas: ['leads', 'agendas', 'cierres'], dimension: null, titulo: 'Tus interesados',
+        frase: 'Entraron {leads} interesados · {agendas} agendaron una visita · {cierres} ya compraron', ir: 'crm',
+      },
+      { local: 'cierre', tipo: 'numero_tendencia', fuente: 'leads', fecha: 'agenda', metricas: ['tasa_cierre'], dimension: null, titulo: 'Compran, de los que visitan', comparar: true, invertida: true, ir: 'closing' },
+      { local: 'asistencia', tipo: 'numero_tendencia', fuente: 'leads', fecha: 'agenda', metricas: ['tasa_asistencia'], dimension: null, titulo: 'Vienen a la visita', comparar: true, ir: 'calendario' },
+      { local: 'ticket', tipo: 'numero_tendencia', fuente: 'leads', fecha: 'cierre', metricas: ['ticket'], dimension: null, titulo: 'Ticket promedio', ir: 'crm' },
+      { local: 'ciclo', tipo: 'numero_tendencia', fuente: 'leads', fecha: 'cierre', metricas: ['ciclo_cierre'], dimension: null, titulo: 'Días hasta comprar', ir: 'crm' },
+      { local: 'por-semana', tipo: 'columnas', fuente: 'leads', fecha: 'alta', dimension: 'semana', metricas: ['leads', 'agendas'], titulo: 'Interesados y visitas, por semana' },
+      {
+        local: 'por-proyecto', tipo: 'tabla_barras', fuente: 'leads', fecha: 'alta', dimension: 'producto', metricas: ['leads', 'agendas', 'cierres'], barra: 'leads',
+        titulo: 'Por proyecto', ir: 'crm',
+      },
+      { local: 'origen', tipo: 'barras', fuente: 'leads', fecha: 'alta', dimension: 'origen', metricas: ['leads'], limite: 8, titulo: 'De dónde llegan' },
+      { local: 'etapa', tipo: 'barras', fuente: 'leads', fecha: 'alta', dimension: 'etapa', metricas: ['leads'], titulo: 'En qué etapa están', ir: 'crm' },
+      {
+        local: 'asesores', tipo: 'tabla', fuente: 'leads', fecha: 'agenda', dimension: 'closer', metricas: ['asistencias', 'cierres', 'tasa_cierre', 'vendido'],
+        ordenMetrica: 'vendido', titulo: 'Quién vende', subtitulo: 'Las visitas que recibió, las que cerró y lo que vendió', ir: 'closing',
+      },
+      { local: 'motivos', tipo: 'barras', fuente: 'leads', dimension: 'motivo', metricas: ['leads'], limite: 8, titulo: 'Por qué no compraron', subtitulo: 'Lo que se marcó al perder, contado' },
+      { local: 'donde', tipo: 'mapa', fuente: 'ubicacion', dimension: 'region', metricas: ['visitas'], titulo: 'De dónde te buscan', subtitulo: 'Las visitas a tus páginas, por región' },
+    ],
+  },
 ];
 
 /** Las generales, en el orden de la galería. */

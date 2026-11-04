@@ -169,22 +169,59 @@ cargar, la entrada se posterga hasta el `visibilitychange`.
   `UnicodeEncodeError`. Hay que hacer `sys.stdout.reconfigure(encoding='utf-8')` dentro
   del script.
 
-## 10. Lo que quedó SIN hacer
+## 10. Las 20 hojas en producción (4/11/2026, chat en la nube): lo que costó
 
-- **15 de las 20 hojas.** Hechas: General, Comercial, Cobranza, Landing y Focus (en dos
-  variantes). El mapa de las que faltan, con su referencia, está en
-  [templates-dashboard-propuesta.md](templates-dashboard-propuesta.md) §7.3 y en la
-  galería `docs/diseno/mockups-dashboard/index.html`.
-- **Las 4 hojas nuevas no tienen referencia todavía**: «Anuncio ganador», «Hooks y
-  retención», «VSL y YouTube» y la de Ads Analyst que se partió en dos. Martín autorizó
-  buscar plantillas afuera. ⚠️ **La licencia se verifica abriendo el LICENSE, no la
-  etiqueta de GitHub**: ya pasó que `NOASSERTION` escondía un MIT y que un repo de Meta
-  era propietario.
-- **Seis mediciones que MaKo no tiene** y sin las cuales esas hojas nacen vacías:
-  retención por segundo del video, confianza estadística de un A/B, cohortes M0–M5,
-  motivos de baja contados, alcance y CTR antes del clic, y tiempo de foco por tarea.
-- **Nada de esto está conectado a datos reales**: los mockups son HTML con números de
-  ejemplo. Falta la pasada de llevarlos al modelo de hojas del Dashboard.
-- **Sin medir**: el hover y el clic de las plantillas que todavía no se construyeron
-  (los `:hover` de cada demo sí están extraídos en `demos/<slug>/INFORME.txt` de la
-  corrida, que es temporal: si se necesitan, se vuelven a bajar con el medidor).
+Martín: *«Haz todo lo de los dashboards… subelas a producción directo y los reviso allí. Y no solo 4, haz todo»*.
+Cada hoja es una punta (`punta/dash-<hoja>`); qué hay en cada una y qué mirar, en
+[relevo/nube-dashboards.md](relevo/nube-dashboards.md).
+
+**Vive en:** `lib/graficos-frase.ts`, `lib/graficos-destinos.ts`, `lib/graficos-portadas.ts`, `lib/general-plantillas.ts`,
+`lib/graficos-plantillas.ts`, `lib/graficos-plantillas-analysts.ts`, `lib/graficos-plantillas-generales.ts`
+
+- **Los gestos de las referencias se copiaron como PIEZAS, no como hojas.** La frase de apertura (Orvel, Pane, Noria) es un
+  tipo de gráfico (`frase`), el «Ver … →» del pie es un campo de cualquier gráfico (`ir`, contra un catálogo cerrado de
+  destinos) y el subtítulo de un panel ya no se borra al acomodar. Así lo hereda cualquier hoja, también la que arma MaKo
+  por la API. Una frase pierde el tramo que no se pudo leer en vez de decir «falta».
+- ⚠️ **«Invertida» NO es «la mala noticia»: es el ANCLA, el número que contesta la pregunta de la hoja.** Lo escribí mal en
+  tres mensajes de commit (Por cobrar, Deuda vencida, Costo por mil) antes de leer el comentario de `invertida` en
+  `lib/graficos-catalogo.ts`; en dos de las tres el ancla elegida además no contestaba la pregunta. Antes de elegirla:
+  ¿este número es la respuesta a la pregunta de la tabla de §7.3?
+- ⚠️ **El `motivo` de la cartera es el de la SEÑAL, no el de una baja.** `filasCartera` lo saca de
+  `MOTIVO_DE_REGLA[c.senal.regla]`. Una barra «Por qué se van» filtrada por estado «Baja» habría mostrado la regla que
+  prendió la señal de esos clientes, con cara de motivo de baja. La hoja dice «Por qué piden atención»; el motivo de baja
+  sigue sin guardarse (§7.4).
+- **Cada `comparar` en la VSL es otra lectura de los eventos del video**, lo más pesado del Dashboard (`hallazgos-graficos.md`,
+  «La hoja Landing tardaba 51 s»). Su frase va sin «que el período anterior».
+- **Las vistas del VSL (YouTube y Panda) las tiene UN cliente.** `negocio.vistas_vsl` sale de una tabla que hoy llena uno
+  solo; para los demás esos dos números quedan sin dato. Está escrito en la cabecera de la plantilla.
+- **El test de «cada dato una vez» de General no mira la fecha.** «Clientes en entrega hoy» y «Avanzaron de etapa» (la misma
+  métrica con otra fecha) cuentan como el mismo dato. Se cambió una de las dos piezas, no el test: en la referencia tampoco
+  se repite.
+- **«Ninguna forma domina» medía la primera fila, y con la frase todas abrían igual.** Ahora mira la estructura debajo de la
+  frase (`tests/graficos-corbel.test.ts`). Pasó al agregar la frase número 15: las anteriores seguían dando 4 aperturas.
+- **Las coordenadas crudas de una plantilla de Analysts no se pueden pisar aunque `comoDenso` las rehaga.**
+  `tests/graficos-analysts.test.ts` mira el `armar` crudo: una frase en `y: 0` corre todo lo de abajo tres filas.
+- **«Pendientes del CRM» no va en ninguna plantilla** (decisión del 1/11, `tests/general-editor.test.ts`): Operación diaria
+  quería «Te está esperando» y usa «Lo que vence».
+- **Ads Analyst se partió en dos sin cambiar de id.** «Anuncio ganador» sigue siendo `ads-analyst` (lo nombran
+  `/ads-analyst`, `lib/mako-capacidades.ts`, `lib/retro-reporte.ts` y la migración v5) y «Hooks y retención» es una hoja
+  nueva. Igual «Instagram y redes» (`instagram`) y «VSL y YouTube» (`vsl-analyst`): renombrar el id rompía links guardados.
+- **Las puntas se subieron EN CADENA**: cada una lleva las anteriores, porque todas tocan las mismas listas (`PORTADAS_GENERAL`,
+  `portadasDashboard`, los colores) en líneas vecinas y en paralelo chocaban al mezclar main. Si una llega antes que la de
+  atrás, lleva a las de atrás con ella; si una da rojo, las de adelante también.
+- **Los tests de `api-mako-*` que cargan el registro con `--conditions=react-server` fallan en el contenedor de la nube**
+  («does not provide an export named MAKO_ACCION_TOOLS»), también sobre `main` sin cambios: es el entorno, no el código.
+
+## 11. Lo que quedó SIN hacer
+
+- **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué
+  pieza va dónde, con un script sobre `componentesDe`), los tests y los tipos. Lo que hay que mirar está en el relevo.
+- **Seis mediciones que MaKo no tiene** (§7.4 de la propuesta), y por eso las hojas no las prometen: retención por SEGUNDO
+  del video (Hooks y VSL van por cuartiles), confianza estadística de un A/B (Anuncio ganador usa la confianza por muestra),
+  cohortes M0–M5 (Curso y CS), motivos de baja contados (CS), el tiempo de foco por tarea (Focus no tiene el temporizador
+  de Pane) y las horas que ahorra una automatización.
+- **«¿Cada cliente va en fecha?»** (Agencia o servicio) pide una fecha comprometida por etapa de la entrega, que no se guarda:
+  la hoja mide cuándo llegó cada uno a su etapa.
+- **Las sugeridas no tienen eje de rubro**: Inmobiliaria no se sugiere sola, se encuentra por nombre.
+- **Sin medir**: el hover y el clic de las plantillas (los `:hover` de cada demo están en el `INFORME.txt` del medidor, que
+  es temporal).

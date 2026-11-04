@@ -27,7 +27,7 @@
 // como prefijo (lo puso la página de la extensión), así que esta ruta lo hereda.
 
 import { EMAIL_MAKO } from '@/lib/app-url';
-import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
+import { RAZON_SOCIAL_MAKO, PUBLICA_EN_PLAY } from '@/lib/titular-mako';
 import { PLAZO_BAJA_DIAS } from '@/lib/baja-cuenta-reglas';
 import { H, H3, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 import { loginPideAgenda } from '@/lib/google-login-agenda';
@@ -39,7 +39,7 @@ export const metadata = {
   description: 'Qué datos usa MaKo, con quién se comparten y qué puedes hacer con ellos.',
 };
 
-const ACTUALIZADO = '12 de octubre de 2026';
+const ACTUALIZADO = '4 de noviembre de 2026';
 
 // ⚠️ LOS TRES DATOS QUE NO SALEN DEL CÓDIGO. Una política con el responsable
 // equivocado es peor que no tenerla: es el único dato que le dice a una persona A
@@ -476,7 +476,8 @@ export default function Page() {
 
       <H id="contacto">Quiénes somos y cómo contactarnos</H>
       <p>
-        Responsable del tratamiento: <strong>{RESPONSABLE}</strong>. Los servidores están en la
+        Responsable del tratamiento: <strong>{RESPONSABLE}</strong>. Quién publica la app: en la App Store,{' '}
+        <strong>{RAZON_SOCIAL_MAKO}</strong>; en Google Play, <strong>{PUBLICA_EN_PLAY}</strong>. Los servidores están en la
         infraestructura de nuestros proveedores (Vercel y Supabase), lo que puede implicar que tus
         datos se traten fuera de tu país.
       </p>

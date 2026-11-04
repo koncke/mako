@@ -105,6 +105,13 @@ test('rutasSinExtension + resolverNombre: `leer(\'lib/nutricion\')` apunta a lib
   assert.deepEqual(reales.sort(), ['lib/flujo/index.ts', 'lib/nutricion.ts']);
 });
 
+test('resolverNombre: un archivo sin extensión (el hook de pre-push) se nombra tal cual, y una carpeta sigue yendo a su index', () => {
+  const src = `const fuente = leer('scripts/claude-hooks/pre-push'); join(raiz, 'lib', 'flujo');`;
+  const existe = existeEn('scripts/claude-hooks/pre-push', 'lib/flujo/index.ts');
+  const reales = [...rutasSinExtension(src)].map((t) => resolverNombre(t, existe)).filter(Boolean);
+  assert.deepEqual(reales.sort(), ['lib/flujo/index.ts', 'scripts/claude-hooks/pre-push']);
+});
+
 test('clavesDe: la ruta entera, las colas de 2+ segmentos, y el nombre solo sólo si es distintivo', () => {
   const unico = (b: string) => b === 'PanelProbar.tsx' || b === 'nav.ts';
   assert.deepEqual(clavesDe('app/automations/PanelProbar.tsx', unico), ['app/automations/PanelProbar.tsx', 'automations/PanelProbar.tsx', 'PanelProbar.tsx']);
