@@ -1043,6 +1043,7 @@ function leerArgs(argv) {
     else if (k === '--explicar') o.explicar = true;
     else if (k === '--cortar') o.cortar = true;
     else if (k === '--resto') o.resto = true;
+    else if (k === '--barredoras') o.barredoras = true;
     else if (k === '--ayuda' || k === '-h') o.ayuda = true;
     else { process.stderr.write(`  [tests-afectados] no conozco «${argv[i]}» (mirá --ayuda)\n`); o.ayuda = true; }
   }
@@ -1055,6 +1056,7 @@ const AYUDA = `node scripts/tests-afectados.mjs [--base origin/main] [--listar] 
   Elige los tests que lo cambiado desde --base puede romper (barredoras, nombran un archivo cambiado, importan uno) y los corre.
   --profundidad N: sólo sigue N saltos de import (por default todos). Es la palanca si el tiempo aprieta, con el costo de dejar afuera a los más lejanos.
   --resto: corre LOS DEMÁS (todos menos los afectados): Actions corre primero los afectados y después éstos, y así no se repite ninguno.
+  --barredoras: corre TODAS las que barren el repo, sin mirar qué cambió (el chequeo sobre main de .github/workflows/sobre-main.yml).
   Salida: 0 verde · 1 rojo · 2 no se pudo calcular · 99 no corrió (falta RAM).`;
 
 const ETIQUETA = { cambio: 'los toca el cambio', nombra: 'nombran un archivo cambiado', barre: 'barren el repo (corren siempre)', importa: 'importan un archivo cambiado' };
@@ -1100,7 +1102,7 @@ async function main(argv) {
     return 2;
   }
   const { cambios, sel } = plan;
-  if (cambios.cambiados.length === 0 && !o.resto) { out(`[tests-afectados] Nada cambió respecto de ${o.base}: no hay tests que correr.`); return 0; }
+  if (cambios.cambiados.length === 0 && !o.resto && !o.barredoras) { out(`[tests-afectados] Nada cambió respecto de ${o.base}: no hay tests que correr.`); return 0; }
 
   // ⚠️ EL BARRIDO COMPLETO (`--resto`) NO SE CORRE EN ESTA MÁQUINA. Decisión de Martín por el Cerebro, 31/10/2026, y va acá —en la
   // herramienta— y no en un documento, porque la regla escrita no alcanzó: el 31/10 TRES chats distintos llegaron a menos de 0,3 GB
@@ -1136,6 +1138,15 @@ async function main(argv) {
       lista = lista.filter((t) => !vale(t));
       out(`  ↳ ${compartidos.length} barredoras corren juntas en procesos compartidos; ${lista.length} aisladas (no barren, o tocan el entorno o un global)`);
     }
+    if (o.listar) return 0;
+  } else if (o.barredoras) {
+    // `--barredoras` (4/11/2026, .github/workflows/sobre-main.yml): TODAS las que barren el repo, sobre el árbol tal cual, sin mirar
+    // qué cambió. Es lo que una MEZCLA rompe sin que ninguna de las dos puntas lo vea: cada una corrió las barredoras sobre su árbol, y
+    // el de main es otro. Las que sólo leen van juntas con `--compartir`, como en la punta.
+    const todas = [...sel.barredoras.keys()].filter((t) => !LENTOS_FUERA_DE_LA_FASE_RAPIDA.has(t)).sort();
+    compartidos = o.compartir ? todas.filter((t) => sel.compartibles.has(t)) : [];
+    lista = todas.filter((t) => !compartidos.includes(t));
+    out(`[tests-afectados] --barredoras: las ${todas.length} que barren el repo (${compartidos.length} compartidas, ${lista.length} aisladas)`);
     if (o.listar) return 0;
   } else {
     imprimirPlan(plan, o, out);
