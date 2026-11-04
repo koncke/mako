@@ -166,26 +166,39 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
       // 4/11/2026 — NORIA (docs/templates-dashboard-propuesta.md §7.3): «¿qué corrió, qué falló y cuántas horas ahorró?». Abre con la
       // frase de lo que salió y lo que falló; el ancla es lo que falló, y la tabla dice en cuál. ⚠️ Las horas AHORRADAS no se miden
       // (pedirían cuánto tardaría una persona en hacerlo a mano): lo que hay es en cuántas horas responden.
+      // 4/11/2026 — EL DISEÑO DE NORIA (app/dashboard/disenos/HojaAutomatizaciones.tsx, maquetas en
+      // docs/diseno/mockups-dashboard/automatizaciones-noria/): cada bloque lee una de estas piezas (`diseno.piezas`, abajo). La frase
+      // compara (los cuatro números llevan su cambio), el día a día es lo que salió y lo que falló, y las dos piezas de los últimos 14
+      // días (los envíos y los fallos por día y por automatización) son las casillas de «Qué tan bien salen» y la línea de la tabla.
       {
         local: 'resumen', tipo: 'frase', fuente: 'envios', metricas: ['enviados', 'fallaron', 'respuestas'], dimension: null, titulo: 'Tus automatizaciones',
-        frase: 'Salieron {enviados} mensajes · {fallaron} fallaron · {respuestas} te respondieron', ir: 'automations',
+        frase: 'Salieron {enviados} mensajes · {fallaron} fallaron · {respuestas} te respondieron', ir: 'automations', comparar: true,
       },
       { local: 'entraron', tipo: 'numero_tendencia', fuente: 'inscripciones', metricas: ['personas'], dimension: null, titulo: 'Personas que entraron', comparar: true },
       { local: 'fallaron', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['fallaron'], dimension: null, titulo: 'Fallaron', invertida: true, ir: 'automations' },
       { local: 'apertura', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_apertura'], dimension: null, titulo: 'Tasa de apertura' },
-      { local: 'respuesta', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_respuesta'], dimension: null, titulo: 'Tasa de respuesta' },
-      { local: 'por-dia', tipo: 'serie', fuente: 'envios', dimension: 'dia', metricas: ['envios', 'respuestas'], titulo: 'Envíos y respuestas', controles: AGRUPAR_AUTO },
+      { local: 'respuesta', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_respuesta'], dimension: null, titulo: 'Tasa de respuesta', comparar: true },
+      { local: 'por-dia', tipo: 'serie', fuente: 'envios', dimension: 'dia', metricas: ['enviados', 'fallaron'], titulo: 'Lo que salió y lo que falló', controles: AGRUPAR_AUTO },
       {
-        local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'respuestas', 'tasa_respuesta', 'fallaron'],
+        local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'fallaron', 'respuestas', 'tasa_respuesta', 'leads'],
         titulo: 'Por automatización', ir: 'automations',
       },
-      { local: 'desenlace', tipo: 'barras', fuente: 'inscripciones', dimension: 'desenlace', metricas: ['personas'], titulo: 'Cómo terminaron' },
+      { local: 'desenlace', tipo: 'barras', fuente: 'inscripciones', dimension: 'desenlace', metricas: ['personas', 'respondieron', 'en_curso'], titulo: 'Cómo terminaron' },
       { local: 'donde-fallo', tipo: 'barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['fallaron'], ordenMetrica: 'fallaron', limite: 8, titulo: 'Dónde falló' },
       {
-        local: 'horas', tipo: 'barras', fuente: 'inscripciones', fecha: 'alta', dimension: 'automatizacion', metricas: ['horas_respuesta'], ordenMetrica: 'horas_respuesta',
+        local: 'horas', tipo: 'barras', fuente: 'inscripciones', fecha: 'alta', dimension: 'automatizacion', metricas: ['horas_respuesta', 'respondieron'], ordenMetrica: 'horas_respuesta',
         limite: 8, titulo: 'En cuántas horas responden',
       },
+      { local: 'envios-dia', tipo: 'serie', fuente: 'envios', dimension: 'dia', desglose: 'automatizacion', metricas: ['envios'], titulo: 'Envíos por día, por automatización' },
+      { local: 'fallos-dia', tipo: 'serie', fuente: 'envios', dimension: 'dia', desglose: 'automatizacion', metricas: ['fallaron'], titulo: 'Fallos por día, por automatización' },
     ],
+    diseno: {
+      id: 'automatizaciones',
+      piezas: {
+        apertura: 'resumen', entraron: 'entraron', respuesta: 'respuesta', dias: 'por-dia', tabla: 'por-automatizacion', recorrido: 'desenlace',
+        fallos: 'donde-fallo', horas: 'horas', vol: 'envios-dia', fal: 'fallos-dia',
+      },
+    },
   },
   {
     id: 'ia-contenido', nombre: 'Contenido e IA', emoji: '✨',

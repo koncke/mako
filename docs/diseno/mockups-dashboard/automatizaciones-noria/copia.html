@@ -1,0 +1,198 @@
+<!doctype html>
+<!-- AUTOMATIZACIONES (NORIA) · PASO 1: LA COPIA EXACTA de la página «Overview» de Noria (4/11/2026), con los textos del demo.
+     Escrita desde lo MEDIDO (demos/noria/captura/valores.json, las capturas, los estados de los controles y el INFORME); nada del
+     código de la tienda. Sin el cartel «BUY THIS TEMPLATE». La adaptación a MaKo (mako.html) usa la MISMA hoja. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Noria · Overview (copia)</title>
+<link rel="stylesheet" href="noria.css">
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-wheel" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.6"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4M5.3 5.3l2.8 2.8M15.9 15.9l2.8 2.8M18.7 5.3l-2.8 2.8M8.1 15.9l-2.8 2.8"/></symbol>
+  <symbol id="i-fold" viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="15" rx="3"/><path d="M9.5 4.5v15M15 10l-2 2 2 2"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2.5-5 4 10 2.5-5H21"/></symbol>
+  <symbol id="i-flow" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.3"/><circle cx="18" cy="18" r="2.3"/><path d="M8.3 6H14a3 3 0 0 1 3 3v0a3 3 0 0 1-3 3h-4a3 3 0 0 0-3 3v0a3 3 0 0 0 3 3h5.7"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9.5A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M14 3.5V8h4M9 12h6M9 15.5h6"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M10 4l1.6 4.4L16 10l-4.4 1.6L10 16l-1.6-4.4L4 10l4.4-1.6zM17.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M10.2 8.8l5 3.2-5 3.2z"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3.5v4M15 3.5v4M6.5 7.5h11v3a5.5 5.5 0 0 1-11 0zM12 16v4.5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3 1a7.6 7.6 0 0 0-2.6-1.5L14 2.6h-4l-.5 2.5a7.6 7.6 0 0 0-2.6 1.5l-2.3-1-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-1a7.6 7.6 0 0 0 2.6 1.5l.5 2.5h4l.5-2.5a7.6 7.6 0 0 0 2.6-1.5l2.3 1 2-3.4z"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2.1-2.4 3.6M12 16.6v.1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.5A7.5 7.5 0 0 1 9.5 4.5a7.5 7.5 0 1 0 10 10z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 2h-14zM10 20.5h4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 16L16 8M9.5 8H16v6.5"/></symbol>
+  <symbol id="i-up" viewBox="0 0 12 12"><path d="M3 9l6-6M4 3h5v5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 12 12"><path d="M3 4.5L6 7.5 9 4.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 15.5H3zM12 10v4.5M12 17.2v.1"/></symbol>
+  <symbol id="i-retry" viewBox="0 0 24 24"><path d="M19.5 9A7.5 7.5 0 0 0 6.2 6.8L4.5 8.5M4.5 4.5v4h4M4.5 15a7.5 7.5 0 0 0 13.3 2.2l1.7-1.7M19.5 19.5v-4h-4"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M20.5 3.5L10.2 13.8M20.5 3.5l-6.5 17-3.8-6.7-6.7-3.8z"/></symbol>
+  <symbol id="i-enter" viewBox="0 0 24 24"><path d="M18 6v6H7M10 8.5L7 12l3 3.5"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="8" cy="12" r="1.3" fill="currentColor"/><circle cx="16" cy="12" r="1.3" fill="currentColor"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="18" cy="12" r="1.3" fill="currentColor"/></symbol>
+  <symbol id="i-doc2" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9.5A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5z"/></symbol>
+</svg>
+
+<aside class="side" aria-label="Main">
+  <div class="side__top">
+    <a class="brand" href="#"><span class="brand__logo"><svg class="i"><use href="#i-wheel"/></svg></span><span class="brand__txt"><span class="brand__name">Noria</span><span class="brand__ws">Halyard &amp; Pike</span></span></a>
+    <button class="ibtn ibtn--side side__fold" aria-label="Collapse sidebar"><svg class="i"><use href="#i-fold"/></svg></button>
+  </div>
+  <nav class="nav">
+    <div class="nav__label">Automate</div>
+    <a class="nav__item is-on" href="#" aria-current="page"><svg class="i"><use href="#i-pulse"/></svg>Overview</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-flow"/></svg>Flows<span class="badge">12</span></a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-doc"/></svg>Recipes</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-spark"/></svg>Copilot</a>
+    <div class="nav__label">Monitor</div>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-play"/></svg>Runs<span class="badge badge--bad">7</span></a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-plug"/></svg>Connections<span class="badge badge--warn">1</span></a>
+    <div class="nav__label">Workspace</div>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-help"/></svg>Help</a>
+  </nav>
+  <div class="side__foot">
+    <a class="today" href="#">
+      <span class="today__row"><span class="today__runs">110 runs today</span><span class="today__fail">4 failed</span></span>
+      <span class="today__bar"><span class="today__ok" style="flex:1"></span><span class="today__ko"></span></span>
+      <span class="today__saved"><b>16 h</b> of desk work saved</span>
+    </a>
+    <button class="me"><span class="av av--mint">LH</span><span class="me__txt"><span class="me__name">Leila Haddad</span><span class="me__role">Ops automation lead</span></span><svg class="i me__more"><use href="#i-more"/></svg></button>
+  </div>
+</aside>
+
+<div class="main-col">
+  <header class="top">
+    <a class="top__brand" href="#" hidden><span class="brand__logo"><svg class="i"><use href="#i-wheel"/></svg></span>Noria</a>
+    <button class="finder-btn"><svg class="i"><use href="#i-search"/></svg><span>Search flows, runs, apps, people…</span><kbd>⌘K</kbd></button>
+    <span class="top__sp"></span>
+    <a class="live" href="#"><span class="live__dot"></span><b>0</b><span>running</span></a>
+    <button class="ibtn ibtn--glass top__theme" aria-label="Dark mode"><svg class="i"><use href="#i-moon"/></svg></button>
+    <button class="ibtn ibtn--glass" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg><span class="dot"></span></button>
+    <button class="btn btn--primary top__new"><svg class="i"><use href="#i-plus"/></svg><span>New</span></button>
+  </header>
+
+  <div class="ov__head">
+    <div>
+      <div class="crumbs"><a href="#">Tuesday 20 October</a><svg class="i"><use href="#i-chev"/></svg><a href="#">Halyard &amp; Pike Ops</a></div>
+      <h1 class="ov__h1">Good morning, Leila</h1>
+      <p class="ov__lede"><b>110 runs</b> since midnight. <b>7 failed runs need</b> a look. The flows have saved the desk <b>16 h</b> today.</p>
+    </div>
+    <div class="ov__acts">
+      <a class="btn btn--ghost" href="#"><svg class="i"><use href="#i-spark"/></svg>Ask Copilot</a>
+      <button class="btn btn--primary magnetic"><svg class="i"><use href="#i-plus"/></svg>New flow</button>
+    </div>
+  </div>
+
+  <main class="ov">
+    <section class="card ov__pulse">
+      <div class="card__head">
+        <div><h2 class="card__t">Run pulse</h2><p class="card__s">Every run, as it happened. The brass line is the same span a week earlier.</p></div>
+        <div class="card__tools">
+          <div class="seg" role="tablist"><button class="seg__btn is-on" data-r="today">Today</button><button class="seg__btn" data-r="7">7 days</button><button class="seg__btn" data-r="30">30 days</button></div>
+          <button class="ibtn ibtn--sm card__expand" aria-label="Open runs"><svg class="i"><use href="#i-expand"/></svg></button>
+        </div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><span class="kpi__k">Runs</span><span class="kpi__v num" data-n="110">110</span><span class="chip chip--up"><svg class="i"><use href="#i-up"/></svg>+29%</span><span class="kpi__n">vs last Tuesday by now</span></div>
+        <div class="kpi"><span class="kpi__k">Succeeded</span><span class="kpi__v num" data-n="96.4" data-d="1" data-s="%">96.4%</span><span class="chip chip--down"><svg class="i"><use href="#i-down"/></svg>−0.5 pts</span><span class="kpi__n">vs last 7 days</span></div>
+        <div class="kpi kpi--med"><span class="kpi__k">Median run</span><span class="kpi__v num">4.6 s</span><span class="kpi__n">across every flow, last 48 h</span></div>
+        <div class="kpi kpi--saved"><span class="kpi__k">Desk time saved</span><span class="kpi__flash">+4 min</span><span class="kpi__v num"><span data-n="16.3" data-d="1">16.3</span><small>h</small></span><span class="kpi__n">so far today · <b>2</b> people-days</span></div>
+      </div>
+      <div class="pulse" id="pulse"></div>
+    </section>
+
+    <section class="card ov__live">
+      <div class="card__head">
+        <div><h2 class="card__t">Live now</h2><p class="card__s">The run in flight, step by step.</p></div>
+        <a class="btn btn--xs btn--ghost" href="#">All runs</a>
+      </div>
+      <div class="run">
+        <div><div class="run__t">Booking confirmations</div><div class="run__id">#48607 · HP-118717 · Patel &amp; Rowe</div></div>
+        <span class="pill pill--ok">Succeeded</span>
+      </div>
+      <ol class="steps">
+        <li class="step"><span class="step__ck"><svg class="i"><use href="#i-check"/></svg></span><span class="ap ap--bw">BW</span><span class="step__t"><b>Booking confirmed</b><span>Any customer, any mode</span></span><span class="step__ms">98 ms</span></li>
+        <li class="step"><span class="step__ck"><svg class="i"><use href="#i-check"/></svg></span><span class="ap ap--dv">DV</span><span class="step__t"><b>Build the confirmation PDF</b><span>House template v3</span></span><span class="step__ms">877 ms</span></li>
+        <li class="step"><span class="step__ck"><svg class="i"><use href="#i-check"/></svg></span><span class="ap ap--oi">OI</span><span class="step__t"><b>Email the shipper</b><span>With the PDF attached</span></span><span class="step__ms">354 ms</span></li>
+        <li class="step"><span class="step__ck"><svg class="i"><use href="#i-check"/></svg></span><span class="ap ap--bw">BW</span><span class="step__t"><b>Log it on the shipment</b><span>Timeline note</span></span><span class="step__ms">617 ms</span></li>
+      </ol>
+      <div class="fin">Finished in&nbsp;<b>1.9 s</b>&nbsp;· saved about 4 min of desk work</div>
+      <div class="lbl">Just finished</div>
+      <ul class="jf">
+        <li><a href="#"><span class="pill pill--ok">OK</span><span class="jf__n">Booking confirmations</span><span class="jf__t">10:42</span></a></li>
+        <li><a href="#"><span class="pill pill--ok">OK</span><span class="jf__n">Customs entry pre-check</span><span class="jf__t">10:39</span></a></li>
+        <li><a href="#"><span class="pill pill--ok">OK</span><span class="jf__n">Customs entry pre-check</span><span class="jf__t">10:38</span></a></li>
+        <li><a href="#"><span class="pill pill--ok">OK</span><span class="jf__n">POD matcher</span><span class="jf__t">10:38</span></a></li>
+        <li><a href="#"><span class="pill pill--ok">OK</span><span class="jf__n">POD matcher</span><span class="jf__t">10:37</span></a></li>
+      </ul>
+    </section>
+
+    <section class="card ov__look">
+      <div><h2 class="card__t">Needs a look <span class="cnt">7</span></h2><p class="card__s">Failed runs nobody has handled yet.</p></div>
+      <ul class="look">
+        <li class="look__row"><span class="look__ic"><svg class="i"><use href="#i-alert"/></svg></span><div><div class="look__t">Customs entry pre-check</div><div class="look__e">Customs portal returned 503 Service…</div><div class="look__m">#48599 · 19 min ago</div><div class="look__acts"><button class="btn btn--xs btn--soft"><svg class="i"><use href="#i-retry"/></svg>Retry</button><button class="look__ok" aria-label="Mark handled"><svg class="i"><use href="#i-check"/></svg></button></div></div></li>
+        <li class="look__row"><span class="look__ic"><svg class="i"><use href="#i-alert"/></svg></span><div><div class="look__t">Detention invoice audit</div><div class="look__e">Portwatch has no gate-out event for MSKU…</div><div class="look__m">#48593 · 33 min ago</div><div class="look__acts"><button class="btn btn--xs btn--soft"><svg class="i"><use href="#i-retry"/></svg>Retry</button><button class="look__ok" aria-label="Mark handled"><svg class="i"><use href="#i-check"/></svg></button></div></div></li>
+        <li class="look__row"><span class="look__ic"><svg class="i"><use href="#i-alert"/></svg></span><div><div class="look__t">Customs entry pre-check</div><div class="look__e">Customs portal returned 503 Service…</div><div class="look__m">#48584 · 47 min ago</div><div class="look__acts"><button class="btn btn--xs btn--soft"><svg class="i"><use href="#i-retry"/></svg>Retry</button><button class="look__ok" aria-label="Mark handled"><svg class="i"><use href="#i-check"/></svg></button></div></div></li>
+      </ul>
+      <a class="more" href="#">4 more in Failures<svg class="i"><use href="#i-arrow"/></svg></a>
+    </section>
+
+    <section class="card ov__rel">
+      <div><h2 class="card__t">Reliability</h2><p class="card__s">Last 14 days, busiest flows first.</p></div>
+      <div class="rel" id="rel"></div>
+      <div class="rel__leg"><span><i class="q1"></i>99.5%+</span><span><i class="q2"></i>98%+</span><span><i class="q3"></i>95%+</span><span><i class="q4"></i>Below</span></div>
+    </section>
+
+    <section class="card ov__ask">
+      <div class="card__head" style="justify-content:flex-start;align-items:center;gap:12px"><span class="ask__ic"><svg class="i"><use href="#i-spark"/></svg></span><h2 class="card__t">Ask Copilot</h2></div>
+      <p class="card__s" style="margin-top:2px">It reads your flows and runs. It can draft a flow for you.</p>
+      <form class="ask" onsubmit="return false">
+        <textarea rows="2" placeholder="e.g. Why are customs runs failing this morning?" aria-label="Ask Copilot"></textarea>
+        <div class="ask__foot"><span class="ask__hint"><kbd><svg class="i" style="width:11px;height:11px"><use href="#i-enter"/></svg></kbd>to send</span><button class="btn btn--sm btn--primary"><svg class="i"><use href="#i-send"/></svg>Ask</button></div>
+      </form>
+      <div class="sugs">
+        <button class="ask__sug"><svg class="i"><use href="#i-spark"/></svg>Why did the detention audit fail?</button>
+        <button class="ask__sug"><svg class="i"><use href="#i-spark"/></svg>Draft a flow that chases missing commercial invoices</button>
+        <button class="ask__sug"><svg class="i"><use href="#i-spark"/></svg>Which flow saved the most time this week?</button>
+      </div>
+    </section>
+
+    <section class="card ov__flows">
+      <div class="card__head">
+        <div><h2 class="card__t">Busiest flows</h2><p class="card__s">This week, by number of runs.</p></div>
+        <a class="btn btn--xs btn--ghost" href="#">All flows</a>
+      </div>
+      <div class="tbl-wrap"><table class="table"><colgroup><col class="w-fl"><col class="w-st"><col class="w-sp"><col class="w-ru"><col class="w-pc"><col class="w-ag"><col class="w-dt"></colgroup>
+        <thead><tr><th>Flow</th><th>Status</th><th>14 days</th><th class="r">Runs, 7 d</th><th class="r">Succeeded</th><th>Last run</th><th></th></tr></thead>
+        <tbody id="flows"></tbody>
+      </table></div>
+    </section>
+
+    <section class="card ov__feed">
+      <div><h2 class="card__t">Team activity</h2><p class="card__s">Who changed what.</p></div>
+      <ul class="feed">
+        <li class="feed__item"><span class="av av--mint">LH</span><div><p>Leila edited the draft <a href="#">New customer setup</a></p><time>18 min ago</time></div></li>
+        <li class="feed__item"><span class="av av--mint">LH</span><div><p>Leila created <a href="#">New customer setup</a></p><time>50 min ago</time></div></li>
+        <li class="feed__item"><span class="av av--rose">TW</span><div><p>Tomasz retried 3 runs of <a href="#">Customs entry pre-check</a></p><time>3 h ago</time></div></li>
+        <li class="feed__item"><span class="av av--sand">AO</span><div><p>Amara shared the recipe <a href="#">Short-pay chaser</a></p><time>5 h ago</time></div></li>
+        <li class="feed__item"><span class="av av--sky">MR</span><div><p>Mateo published <a href="#">Freight invoices to ERP</a> v15</p><time>1 d ago</time></div></li>
+        <li class="feed__item"><span class="av av--peach">PR</span><div><p>Priya published <a href="#">Damage claim intake</a> v2</p><time>2 d ago</time></div></li>
+      </ul>
+    </section>
+  </main>
+</div>
+
+<nav class="tabbar" aria-label="Main">
+  <a class="is-on" href="#"><svg class="i"><use href="#i-pulse"/></svg>Overview</a>
+  <a href="#"><svg class="i"><use href="#i-flow"/></svg>Flows</a>
+  <a href="#"><svg class="i"><use href="#i-spark"/></svg>Copilot</a>
+  <a href="#"><svg class="i"><use href="#i-play"/></svg>Runs<span class="badge">7</span></a>
+  <a href="#"><svg class="i"><use href="#i-more"/></svg>More</a>
+</nav>
+<script src="noria.js"></script>
+</body></html>

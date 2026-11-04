@@ -186,9 +186,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   // La de Chat Analyst (la copia de Parley, app/dashboard/disenos/HojaChat.tsx), igual: sólo saluda a quien mira. Es también la hoja
   // del setter (`HOJA_DE_ROL`): lo que dibuja sale de sus piezas, que ya son de sus conjuntos.
   const hayDisenoChat = hayDiseno('chat');
+  // La de Automatizaciones (la copia de Noria, app/dashboard/disenos/HojaAutomatizaciones.tsx), igual: sólo saluda a quien mira.
+  const hayDisenoAutomatizaciones = hayDiseno('automatizaciones');
   const agendaComercial = hayDisenoComercial && !unica ? agendaParaComercial(hoy) : Promise.resolve(null);
   const agendaClosing = hayDisenoClosing && !unica ? agendaParaElClosing(hoy) : Promise.resolve(null);
-  const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat
+  const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones
     ? variablesDeQuienMira().then((q) => ({ saludo: q.saludo ?? 'Hola', nombre: q.nombre ?? '', fecha: q.fecha ?? '' })).catch(() => null)
     : Promise.resolve(null);
   const [datos, senalesNegocio, closing, caida, agenda, quien, agendaHoy] = await Promise.all([
@@ -222,13 +224,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         plantillasInicial={plantillas && !unica}
         avisoClosing={avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida))}
         accionClosing={accionDeLaHojaClosing(closing)}
-        disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat ? {
+        disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones ? {
           closing: hayDisenoClosing ? { agenda, quien } : null,
           cobranza: hayDisenoCobranza ? { quien } : null,
           comercial: hayDisenoComercial ? { agenda: agendaHoy, quien } : null,
           marketing: hayDisenoMarketing ? { quien } : null,
           landing: hayDisenoLanding ? { quien } : null,
           chat: hayDisenoChat ? { quien } : null,
+          automatizaciones: hayDisenoAutomatizaciones ? { quien } : null,
         } : null}
       />
     </Pagina>

@@ -453,6 +453,23 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **La leyenda al lado del título no entra en el teléfono junto al selector**: va debajo de la cabecera, con un margen negativo que la deja
   donde Parley la tiene a 1440.
 
+## 24. Automatizaciones (Noria): los 14 días de cada una salen de dos cruces, y un «no está» no siempre es un cero (4/11/2026, chat en la nube)
+
+- **Un cruce (`desglose`) es de la PRIMERA métrica y sus columnas se ordenan por ella**, de a ocho más «Otros» (`MAX_COLUMNAS_DESGLOSE`,
+  lib/graficos-agregar.ts). Para saber qué parte salió bien cada día y por automatización hacen falta los envíos Y los fallos: son dos piezas
+  (`envios-dia` y `fallos-dia`, dimensión día, desglose automatización). Con una sola razón («salieron bien») las columnas se ordenarían por
+  el porcentaje y las que más fallan caerían en «Otros»: justo las que hay que ver.
+- **El cruce de los fallos se ordena por los fallos, así que no tiene las mismas columnas que el de los envíos.** Una automatización que no
+  está entre las columnas de los fallos **no falló nada si el cruce no tiene «Otros»** (están todas las que fallaron); si lo tiene, no se sabe:
+  la casilla queda gris y la fila sin porcentaje, nunca un «sin fallas» inventado. Lo fija el test (con y sin «Otros»).
+- **«Salieron bien» es lo que salió sobre lo que se INTENTÓ** (salió o falló): un borrador, un simulado o una acción no son ni éxito ni
+  fallo. En las casillas, en cambio, el denominador es todo lo que la automatización hizo (`envios`): el cruce no trae lo intentado.
+- **La línea de «una semana antes» sale de las mismas filas** (el mismo día, siete días antes): las primeras siete columnas del período no
+  tienen con qué compararse y la línea arranca en la octava. No hace falta una lectura del período anterior por día, que el gráfico no da
+  (`anterior` es sólo de los totales).
+- **El pulso de Noria es por HORA; las automatizaciones se leen por día** (`envios` no tiene la hora): la hoja va por día con «7 días ·
+  30 días», y «Hoy» marca la columna que todavía corre.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

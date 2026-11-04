@@ -1,6 +1,14 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~20:50 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~21:30 UTC)
+
+- **Chat Analyst está en producción.** Entró a main a las 21:05 (`d8c7ca164`, la mezcla de `punta/dash-chat` con `be54b7222`, su veredicto:
+  7.018 tests y el tsc entero); el deploy promovido de las 21:08 la contiene.
+- **Automatizaciones (la copia de Noria) va en `punta/dash-auto`**: la sección de abajo. Es la undécima hoja copiada. No suma métricas ni
+  dimensiones: sale entera de `envios` e `inscripciones` (dos piezas nuevas en la plantilla: los envíos y los fallos por día y por
+  automatización).
+
+### Lo de las ~20:50 UTC
 
 - **Chat Analyst (la copia de Parley) va en `punta/dash-chat`**: la sección de abajo. Es la décima hoja copiada y la hoja del SETTER
   (`HOJA_DE_ROL`): todo lo que dibuja sale de sus conjuntos (los chats, los mensajes, los envíos y las automatizaciones).
@@ -78,7 +86,72 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
 
-## Chat Analyst: la décima hoja copiada (la de Parley), con «¿cuánto tardamos en contestar?» (punta `dash-chat`, 4/11/2026)
+## Automatizaciones: la undécima hoja copiada (la de Noria), con «¿qué corrió y qué falló?» (punta `dash-auto`, 4/11/2026)
+
+La referencia de Automatizaciones es una sola (Noria, `docs/templates-dashboard-propuesta.md` §7.3): la página «Overview» de Noria (una app
+de automatizaciones): una barra lateral oscura, el saludo con su frase, «Run pulse» (cuatro números y el pulso por hora con la línea de una
+semana antes), «Live now» (la corrida en curso paso por paso), «Needs a look», «Reliability» (14 días en casillas), «Ask Copilot», la tabla
+«Busiest flows» con sus 14 días y «Team activity».
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «Automatizaciones»** con su miniatura de verdad.
+- **Arriba:** la fecha y el período en las migas, el saludo y la frase («Salieron 1,779 mensajes. 52 no salieron y esperan que los mires.
+  Te respondieron 355 veces.»); a la derecha, «Ver la grilla» y «Nueva automatización» (lleva a Automations).
+- **El pulso** («Run pulse»): cuatro números con su cambio contra el período anterior: los **mensajes** que salieron, **qué parte salió
+  bien** (lo que salió sobre lo que se intentó: salió o falló; en puntos), **te respondieron** (la tasa de respuesta) y las **personas que
+  entraron**, con cuántas **siguen en el flujo**. Debajo, **día por día** lo que salió (verde) y lo que falló (rojo, arriba), con la **línea
+  dorada del mismo día una semana antes** (lo que se intentó) y «Hoy» marcado; «7 días · 30 días»; al pasar sobre un día, un globo con lo
+  que salió, lo que falló y lo de antes. Tocar un día abre su detalle.
+- **El recorrido** («Live now»): de entrar a responder en cuatro pasos (**entraron**, **les escribió MaKo**, **respondieron**, **siguen en el
+  flujo**, cada uno con su parte), **en cuánto responden** en promedio y **cómo terminaron** (respondió, pasó a una persona, terminó la
+  secuencia…).
+- **Dónde falló** («Needs a look»): las automatizaciones con mensajes que no salieron, cuántos y qué parte de sus envíos, con «Revisar» (lleva
+  a Automations; MaKo no reintenta desde el tablero). Sin fallas, lo dice en verde.
+- **Qué tan bien salen** («Reliability»): los **últimos 14 días** de cada automatización, las que más mandan primero, en casillas (99.5 %+,
+  98 %+, 95 %+, menos; gris = ese día no mandó nada) y su porcentaje.
+- **Pregúntale a MaKo** («Ask Copilot»): la caja abre el chat de MaKo; debajo, tres atajos (revisar la que más falló, contestar a quien
+  respondió, crear una nueva).
+- **Las que más mandan** («Busiest flows»): la tabla por automatización: si falló (o «Sin fallas»), sus 14 días, sus envíos, qué parte salió
+  bien y cuántas respuestas. **En cuántas horas responden** («Team activity»): cada automatización con lo que tardan en contestarle.
+
+**Lo que se copió de Noria, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/automatizaciones-noria/copia.html`) sale de lo medido del demo: `valores.json`, las capturas, los
+  estados de los controles y el INFORME. **Nada del código de la tienda, ni el cartel «BUY THIS TEMPLATE».** El subtítulo de «Ask Copilot»
+  que el cartel tapa a 1440 se leyó de la captura a 390.
+- **Las cajas de la copia caen a ±1 px a 1440** (el pulso 749×604 en 282,191 y sus números 707×119 en 303,266; «Live now» 367×604; la fila de
+  abajo en 811 contra 812, de 495 contra 496; la tabla y el feed en 1323, de 501 contra 502). Los renglones de adentro a 1-3 px (la tabla: las
+  columnas en 586, 660, 791, 859 y 940 contra 586, 660, 790, 858 y 938; el feed, cada 59 px). **A 390** el pulso da 662 contra 661 y la caja
+  del pulso, la de Copilot y la tabla calzan; «Live now» no se compara: el demo estaba en otra corrida (seis pasos, «Running»).
+- **La letra es Urbanist**, la misma de MaKo: la hoja la carga como «Noria Urbanist» con las mismas URL (el navegador no la baja dos veces).
+- **El movimiento, del INFORME (trae la línea de tiempo del armazón, no la de la página):** la barra lateral entra desde la izquierda (x −40,
+  .9 s, power3.out) y sus filas en escalera de 35 ms; la barra de arriba baja 12 px cada 50 ms; la página entra a los 120 ms. La pastilla
+  del período se desliza (.35 s, su `--ease`), la fila de la tabla se pinta al pasar, una sugerencia se tiñe.
+- **⚠️ Lo que el INFORME no dice y está SUPUESTO** (el código de la página «Overview» no está en el INFORME): las tarjetas suben 18 px cada
+  60 ms, las columnas crecen desde abajo (.7 s, cada 24 ms), la línea dorada se destapa de izquierda a derecha (1,1 s), los números cuentan
+  (1,1 s), los pasos entran desde la izquierda, las casillas aparecen de a una con rebote y las líneas de la tabla se destapan.
+
+**Lo que Noria tiene y MaKo no mide, y no está:** las **horas de trabajo ahorradas** («Desk time saved»: pediría cuánto tardaría una persona),
+la **corrida en vivo** paso por paso con sus milisegundos, el pulso **por hora** de hoy (las automatizaciones se leen por día), **quién cambió
+qué** en cada flujo, el **«Live»** de cada uno y el **reintento** («Retry»). La barra lateral, el buscador y la de arriba los pone la app.
+**La plantilla no perdió nada que se viera:** los fallos y la tasa de apertura siguen en la grilla; el día a día pasó de envíos y respuestas a
+lo que salió y lo que falló, la tabla suma los leads distintos, «Cómo terminaron» suma los que respondieron y los que siguen, y se sumaron las
+dos piezas de los 14 días (12 piezas, más la portada).
+
+**Lo del medio (701 a 980, que Noria no mide):** de a dos columnas (el pulso y la tabla a lo ancho).
+
+**Dónde vive:**
+- El modelo: `lib/automatizaciones-diseno.ts`, puro. Los datos de ejemplo: `lib/automatizaciones-diseno-muestra.ts` (cuadran entre tarjetas).
+- El dibujo: `app/dashboard/disenos/HojaAutomatizaciones.tsx`; lo vivo, `AutomatizacionesVivo.tsx`; la hoja de estilos,
+  `automatizaciones-css.ts` (la arma `scratchpad/noria/armar-nor.py` desde `automatizaciones-noria/noria.css`: todo con el prefijo `nor-`).
+- La plantilla: `lib/graficos-plantillas-generales.ts` («automatizaciones», doce piezas, `diseno.id = 'automatizaciones'`); `DISENOS_HOJA` en
+  `lib/graficos-catalogo.ts`.
+- Los tests: `tests/dashboard-diseno-automatizaciones.test.ts` (8, probado rompiéndolo de ocho maneras: cada rotura sola da rojo).
+
+**⚠️ Para la próxima hoja:** las casillas de los 14 días salen de DOS cruces (los envíos y los fallos por día y por automatización). El de los
+fallos se ordena por los fallos: una automatización que no está entre sus columnas no falló NADA si el cruce no tiene «Otros»; si lo tiene,
+no se sabe y la casilla queda gris (§24 de los hallazgos).
+
+## Chat Analyst: la décima hoja copiada (la de Parley), con «¿cuánto tardamos en contestar?» (en producción desde el 4/11/2026, 21:08 UTC)
 
 Las referencias de Chat Analyst eran dos (Parley · Tend, `docs/templates-dashboard-propuesta.md` §7.3); ésta es **Parley**, la página
 «Overview» de Parley (mensajería): una tarjeta naranja con columnas, dos de casillas, una de presupuesto, una oscura con un área, columnas
