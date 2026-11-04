@@ -65,6 +65,7 @@ import type { NombreIconoMenu } from '../_ui/iconos-menu';
 import { dibujarContador } from '@/lib/spy-reglas';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
+import type { Sugerido } from '@/lib/spy-sugeridos';
 import {
   ORDENES, canalesDe, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
   fraseDeLectura, haceCuanto, mezclaDeTipos, miniaturaDePieza, opcionesDeContenido, ordenarPiezas, pideConectarMeta,
@@ -76,7 +77,7 @@ import { debeBuscarRedes, marcarRedesBuscadas } from './redes-recordar';
 import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import {
   competidoresAction, guardarAnuncioAction, piezasAction, quitarCanalAction, quitarCompetidorAction,
-  revisarAction, sumarCanalAction, sumarCompetidorAction, type PiezaVista,
+  revisarAction, sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista,
 } from './actions';
 import type { RedOtra } from '@/lib/spy-otras-redes-reglas';
 import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
@@ -329,6 +330,8 @@ button.spy-campo:hover{color:var(--dim)}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .spy-ccard__sub{display:block;margin-top:2px;color:var(--faint);font-size:var(--fs-sm)}
 .spy-ccard__pie{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.spy-sugeridos{margin-top:calc(var(--gap) * 2)}
+.spy-sugeridos .spy-phead h2{margin:0;font-size:var(--fs-sect);font-weight:600;letter-spacing:-.015em}
 /* El borrar vive EN la tarjeta: para sacar un duplicado ya no hay que entrar al competidor. */
 .spy-ccard__borrar{position:absolute;top:12px;right:12px;display:grid;place-items:center;
   width:32px;height:32px;border:0;border-radius:10px;background:var(--surface);color:var(--faint);
@@ -652,6 +655,44 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
   );
 }
 
+/**
+ * «Sugeridos»: los competidores de la plataforma que este negocio todavía no mira (lib/spy-sugeridos.ts). La misma
+ * tarjeta que los propios, con «Sumar». Sumarlo copia lo que ya se leyó de él: no gasta nada del negocio.
+ */
+function RejillaSugeridos({ sugeridos, ocupado, onSumar }: { sugeridos: Sugerido[]; ocupado: boolean; onSumar: (s: Sugerido) => void }) {
+  if (!sugeridos.length) return null;
+  return (
+    <section aria-label="Sugeridos" className="spy-sugeridos">
+      <header className="spy-phead"><div className="spy-phead__texto"><h2>Sugeridos</h2></div></header>
+      <div className="spy-crejilla">
+        {sugeridos.map((s, i) => {
+          const canales = [s.instagram ? 'Instagram' : null, s.youtube_id ? 'YouTube' : null, s.tiktok ? 'TikTok' : null, s.landing_url ? 'Su web' : null].filter(Boolean).join(' · ');
+          const titulo = nombreDeTarjeta(s);
+          return (
+            <div key={s.id} className="spy-ccard">
+              <span className="spy-ccard__cara" style={{ '--flote': `${((i * 0.55) % 7).toFixed(2)}s` } as CSSProperties} aria-hidden>
+                {s.cara
+                  // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public, no pasa por el optimizador
+                  ? <img src={s.cara} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
+                  : inicial(s.nombre)}
+              </span>
+              <div className="spy-ccard__cuerpo">
+                <span>
+                  <b className="spy-ccard__nombre" title={titulo}>{titulo}</b>
+                  {canales && <small className="spy-ccard__sub">{canales}</small>}
+                </span>
+                <div className="spy-ccard__pie">
+                  <button type="button" className="spy-boton spy-boton-primario" disabled={ocupado} onClick={() => onSumar(s)}>Sumar</button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 /** La serie categórica: el mismo color para el mismo concepto en la barra y en la fila. */
 const SERIE = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
 
@@ -707,7 +748,7 @@ function RielAnalisis({ piezas, c }: { piezas: PiezaVista[]; c: Competidor }) {
   );
 }
 
-export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puedeBorrar = false, ws = null }: {
+export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [] }: {
   iniciales: Competidor[];
   resumenInicial: Record<number, ResumenPiezas>;
   /** El `?competidor=` de la URL. La ficha es una URL: se comparte, se marca y se vuelve. */
@@ -717,8 +758,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   puedeBorrar?: boolean;
   /** El negocio: va en la clave de lo que se recuerda en el navegador (`redes-recordar.ts`). */
   ws?: number | null;
+  /** Los competidores de la plataforma que este negocio todavía no mira. */
+  sugeridosIniciales?: Sugerido[];
 }) {
   const [competidores, setCompetidores] = useState<Competidor[]>(iniciales);
+  const [sugeridos, setSugeridos] = useState<Sugerido[]>(sugeridosIniciales);
   const [resumen, setResumen] = useState(resumenInicial);
   const [elegido, setElegido] = useState<number | null>(abierto ?? (iniciales.length === 1 ? iniciales[0].id : null));
   const [piezas, setPiezas] = useState<PiezaVista[]>([]);
@@ -1032,6 +1076,20 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     await abrirRecienAgregado(id);
   };
 
+  // Un sugerido se suma copiando lo que ya se leyó de él: se abre su ficha sin leer nada (no gasta la clave del negocio).
+  const sumarSugerido = async (sug: Sugerido) => {
+    setOcupado(true); setError(null);
+    try {
+      const r = await sumarSugeridoAction(sug.id);
+      if (!r.ok) { setError(r.error); return; }
+      setSugeridos((v) => v.filter((x) => x.id !== sug.id));
+      await recargarLista();
+      irA(r.id);
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   const sumarCanal = async (valor: string) => {
     if (elegido == null) return;
     setOcupado(true); setErrorModal(null);
@@ -1269,6 +1327,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
         )}
 
         {!c && competidores.length > 0 && <RejillaCompetidores competidores={competidores} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} puedeBorrar={puedeBorrar} />}
+        {!c && <RejillaSugeridos sugeridos={sugeridos} ocupado={ocupado} onSumar={(x) => { void sumarSugerido(x); }} />}
 
         {/* ── MIENTRAS LEE Y ORDENA, NADA MÁS EN PANTALLA (punto 14 del 4/11): ni la miga, ni las pestañas, ni sus redes.
              Primero la criatura sola, después la animación, y recién al terminar el resto. ── */}

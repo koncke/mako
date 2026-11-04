@@ -1047,3 +1047,36 @@ competidor 17) y la búsqueda por prefijo del Storage (`caricaturaGuardada`).
 lib/spy-caricatura-servidor.ts (`encolarAlLeer`) · lib/spy-miniaturas.ts (`caricaturaGuardada`) · lib/spy.ts
 (`mirarCompetidor`) · scripts/spy-caricaturas-pendientes.mjs · scripts/spy-caricatura-guardar.mjs ·
 scripts/spy-caricatura-base.mjs · app/competitor-spy/SpyApp.tsx · tests/spy-caricatura-cola.test.ts
+
+## «Sugeridos»: los competidores de la plataforma en todos los negocios, sin cobrarle a nadie (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11): los que carga el negocio de la plataforma aparecen en todos los negocios como
+> catálogo «Sugeridos», sin cobrarle al cliente; se suman a su lista sin duplicarlos, y nunca se ven los de otro cliente.
+
+**Lo que quedó:** un bloque «Sugeridos» debajo de los competidores (también cuando el negocio todavía no mira a nadie), con
+la misma tarjeta y «Sumar». Sumarlo COPIA lo que la plataforma ya leyó (sus publicaciones vivas, su foto, sus números y su
+caricatura si ya está hecha) y deja anotada la traída larga como hecha hoy: no se le pide nada a Apify ni a YouTube con la
+clave del negocio. Lo nuevo, después, sigue las reglas de siempre (la lectura compartida primero). En la API de MaKo:
+`ver_sugeridos` y `sumar_sugerido`, por el mismo camino que la pantalla.
+
+**Tres cosas que no se ven en el código:**
+- **Sólo la plataforma, y por capa.** El negocio de la plataforma sale de `wsSuperAdmin()` (capa `superadmin`), nunca de
+  un 9 escrito; y cada fila se vuelve a mirar contra ese negocio (`soloDeLaPlataforma`), así una consulta mal filtrada no
+  alcanza para que se cuele a quién mira otro cliente. El test lo prueba con una base que devuelve filas de todos.
+- **Los anuncios no se copian.** Lo traído de la Biblioteca de Anuncios no se le pasa a un tercero (los términos de Meta
+  no dejan transferir lo recolectado): el cliente trae los suyos con su propia lectura. Tampoco viaja la `oferta`: está
+  escrita contra el negocio de la plataforma, no contra el del cliente.
+- **Lo borrado no se copia como vivo.** Una pieza que la plataforma vio desaparecer (`dejo_de_verse_en`) no entra:
+  copiada por `guardarVistas`, nacería como «a la vista».
+
+**Lo que se resigna:** la fecha de «visto por primera vez» de lo copiado es la de hoy (la escribe sólo el insert de
+`guardarVistas`, a propósito); la fecha de publicación sí viaja.
+
+**Sin probar contra el servicio ni en pantalla:** el bloque no se dibujó con datos (la pantalla entera trae las actions
+del servidor y no entra en el banco de prueba); usa las mismas clases que la tarjeta de los competidores.
+
+**Vive en:** lib/spy-sugeridos.ts (`listarSugeridos`, `agregarSugerido`, `soloDeLaPlataforma`, `piezasACopiar`,
+`esLaMismaPersona`) · lib/spy-sugeridos-server.ts · lib/spy-todo.ts (`marcarTraidaHoy`) · app/competitor-spy/actions.ts
+(`sugeridosAction`, `sumarSugeridoAction`) · app/competitor-spy/page.tsx · app/competitor-spy/SpyApp.tsx
+(`RejillaSugeridos`) · lib/api-mako/areas/spy.def.ts y spy.run.ts (`ver_sugeridos`, `sumar_sugerido`) ·
+tests/spy-sugeridos.test.ts
