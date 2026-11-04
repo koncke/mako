@@ -20,7 +20,7 @@
 import type { OperacionDef, Gating } from '../tipos';
 import { FUENTES_KPI, METRICA_LABEL } from '@/lib/objectives-modelo';
 import { PIEZAS_GENERAL, opcionesDePieza } from '@/lib/general-piezas';
-import { PLANTILLAS_GENERAL } from '@/lib/general-plantillas';
+import { PLANTILLAS_GENERAL_OFRECIDAS } from '@/lib/graficos-plantillas';
 
 const GATING: Gating = { tab: 'general', rolMinimo: 'admin' };
 const TODOS = ['whatsapp', 'app', 'http'] as const;
@@ -36,7 +36,8 @@ const CAMPOS_OPCIONES = [...new Set(PIEZAS_GENERAL.flatMap((p) => opcionesDePiez
   descripcion: PIEZAS_GENERAL.flatMap((p) => opcionesDePieza(p.id).filter((o) => o.id === id)
     .map((o) => `${p.id} (${o.nombre}): ${o.valores.map((v) => v.id).join(', ')}`)).join(' · '),
 }));
-const PLANTILLAS = PLANTILLAS_GENERAL.map((p) => p.id);
+// SÓLO las que se ofrecen (4/11/2026, las que traen su diseño copiado: lib/graficos-plantillas.ts, `esPlantillaOfrecida`), como «Nueva hoja».
+const PLANTILLAS = PLANTILLAS_GENERAL_OFRECIDAS.map((p) => p.id);
 
 export const DEFS: readonly OperacionDef[] = [
   // ── Lecturas ────────────────────────────────────────────────────────────────
@@ -254,10 +255,10 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_hoja_general', area: 'general', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear una hoja de General',
-    descripcion: 'Propone agregar una hoja nueva a la pantalla General de una persona: desde una plantilla de General (por id: la General de siempre, Bienvenida, Operación diaria, una por tipo de funnel…; las pide listar_hojas_general) o con un `pedido` en palabras para que MaKo la arme con IA gratis, con lo que General ofrece y sus bloques («mis tareas prioritarias y lo cobrado del mes»). Con pedido, MaKo la arma ANTES de proponerla. Usa una plantilla O un pedido.',
+    descripcion: 'Propone agregar una hoja nueva a la pantalla General de una persona: desde una plantilla de General (por id; las que se ofrecen las da listar_hojas_general, y puede no haber ninguna) o con un `pedido` en palabras para que MaKo la arme con IA gratis, con lo que General ofrece y sus bloques («mis tareas prioritarias y lo cobrado del mes»). Con pedido, MaKo la arma ANTES de proponerla. Usa una plantilla O un pedido.',
     parametros: [
       { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'Email (o nombre) de la persona admin. Si se omite: en el chat de la app, la de quien chatea; si no, la única persona admin de la cuenta.' },
-      { nombre: 'plantilla', tipo: 'string', enum: PLANTILLAS, descripcion: 'id de la plantilla de General. Usa esto O pedido.' },
+      { nombre: 'plantilla', tipo: 'string', max: 40, ...(PLANTILLAS.length ? { enum: PLANTILLAS } : {}), descripcion: 'id de una plantilla de General que se ofrece (listar_hojas_general). Usa esto O pedido.' },
       { nombre: 'pedido', tipo: 'string', max: 1200, descripcion: 'Qué quiere ver al entrar, en palabras, para que MaKo arme la hoja. Usa esto O plantilla.' },
       { nombre: 'nombre', tipo: 'string', max: 60, descripcion: 'Cómo se llama la hoja (default: el de la plantilla o el que elija MaKo).' },
     ],

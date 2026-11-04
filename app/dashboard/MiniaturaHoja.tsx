@@ -43,6 +43,7 @@ import { CuerpoSeccion } from './Seccion';
 import { PiezaGeneralDeMuestra, useVariablesInforme } from './ElementoGeneral';
 import { marcoDePortada } from '@/lib/graficos-identidad';
 import { tilesDeComponentes } from './Grafico';
+import { DisenoEnMiniatura } from './disenos/DisenoEnMiniatura';
 
 /** El ancho de la página que se dibuja (px): la grilla y el lugar de cada componente salen de `lugarEnMiniatura`. */
 const ANCHO_REF = PAGINA_MINIATURA.ancho;
@@ -163,7 +164,11 @@ export function MiniaturaHoja({ hoja, proporcion = '16 / 10' }: { hoja: Hoja | n
 
   return (
     <div ref={caja} className="mh" style={{ aspectRatio: proporcion, '--mh-demora': `${demoraDe(hoja?.id ?? '')}s` } as CSSProperties} data-paleta={hoja ? paletaDeEscena(hoja.tema) : undefined} data-en-vista={enVista || undefined}>
-      {hoja && (
+      {/* UNA PLANTILLA CON DISEÑO PROPIO se ve con su diseño, no con su grilla (4/11/2026, Martín: «en "Closing" la miniatura no es
+          para nada igual»): el MISMO componente que dibuja la hoja (./disenos/DisenoEnMiniatura.tsx), quieto y recién cuando se ve. */}
+      {hoja?.diseno ? (
+        <div className="mh-pagina mh-pagina--diseno" style={pagina}>{vivo && hoy && <DisenoEnMiniatura hoja={hoja} hoy={hoy} />}</div>
+      ) : hoja && (
         <div className="mh-pagina" style={pagina}>
           {hoja.componentes.map((c) => {
             return <div key={c.id} className="mh-pos" style={lugarEnMiniatura(c)}><Pieza c={c} hoja={hoja} vivo={vivo && !!hoy} hoy={hoy} tile={tiles?.get(c.id)} /></div>;
@@ -187,6 +192,7 @@ export const CSS_MINIATURA = `
 @media (prefers-reduced-motion: reduce){.mh[data-en-vista] *{animation:none !important}}
 .mh{position:relative;width:100%;overflow:hidden;background:var(--bg);border-radius:10px;pointer-events:none;user-select:none}
 .mh-pagina{position:absolute;left:0;top:0;transform-origin:top left;font-family:var(--dash-letra,inherit);color:var(--ink)}
+.mh-pagina--diseno{font-family:inherit}
 .mh-pos{position:absolute;display:flex;min-width:0;min-height:0}
 .mh-pos > .lk-comp{min-height:0}
 .mh .gen-pieza{overflow:hidden}
