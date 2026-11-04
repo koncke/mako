@@ -92,6 +92,13 @@ export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: 
     notifId, wa: 'no', email: false, destinos: { wa: 0, email: 0 },
   };
 
+  // El push (3/11/2026: la app es el canal principal, también de los reportes). Un reporte no pasa por `emitirAviso`: sin esto, quedaba en la bandeja y nada avisaba. Best-effort.
+  const { enviarPush } = await import('./push');
+  await enviarPush(wsRep, {
+    tipo: idMsg, titulo: rep.titulo, cuerpo: rep.descripcion, ruta: '/m/inbox?vista=avisos',
+    tag: `reporte:${rep.tipo}`, ttl: 6 * 3600, urgencia: rep.severidad === 'urgente' ? 'high' : 'normal', soloAdmins: true,
+  }).catch((e) => console.error(`[notify] push del reporte ${rep.tipo}: ${e instanceof Error ? e.message : String(e)}`));
+
   // 2) Email — a cada destinatario por separado, no en copia: son personas
   // distintas del mismo negocio y no tienen por qué verse los mails entre sí.
   if (canal.email) {

@@ -42,6 +42,7 @@ import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
 import type { PropuestaCrm } from './onboarding-crm';
 import { RUTA_AUTOMATIONS } from './ruta-automations';
 import { NOTA_DE_VOZ } from './chat-mako-reglas';
+import { AVISOS_LISTOS, AVISOS_SIN_SOPORTE, PIDE_AVISOS, PREGUNTA_AVISOS } from './avisos-telefono-reglas';
 import {
   DICE_NO, DICE_SI, MONEDA_DOLAR, MONEDA_LOCAL, NO_DE_UNA_PALABRA, NOMBRA_LO_PREGUNTADO, PUEDE_SER_NOMBRE, SI_DE_UNA_PALABRA, TRAS_EL_NO,
 } from './onboarding-frases';
@@ -118,6 +119,8 @@ export type EstadoArranque = {
   hiloCreando?: { at: string; por: string };
   /** Ya vio la animación del principio: no se repite al recargar. */
   introVista?: boolean;
+  /** «Mi teléfono no puede» (3/11/2026): la única salida del paso de los avisos, y sólo la ofrece un navegador que no los recibe. Que los active se MIDE, no se guarda. */
+  avisos?: 'sin-soporte';
 };
 
 /** Lo que el server MIDE (nunca se guarda: estado vivo, no recordado). */
@@ -147,14 +150,18 @@ export type HechosArranque = {
   conTelefono: boolean;
   /** El onboarding ya está cerrado. */
   terminado: boolean;
+  /** El paso de los avisos aplica (lib/avisos-telefono.ts). Sin esto, no existe: mirando a otro, o con el push apagado, no se traba a nadie. */
+  conAvisos?: boolean;
+  /** Tiene un TELÉFONO con los avisos activados. Medido en cada lectura. */
+  avisosListos?: boolean;
 };
 
 export type EtapaArranque =
   | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'pdf' | 'cobro' | 'crm'
-  | 'telefono' | 'codigo' | 'cierre' | 'listo';
+  | 'telefono' | 'codigo' | 'avisos' | 'cierre' | 'listo';
 
 /** `pdf`: el PDF con lo que vende (la ruta lo arma con las piezas de la conversación). */
-export type TarjetaArranque = 'crm' | 'telefono' | 'pdf' | 'listo';
+export type TarjetaArranque = 'crm' | 'telefono' | 'avisos' | 'pdf' | 'listo';
 
 /** Un mensaje del chat de arranque (los de la conversación de la oferta son los de Offer, aparte). */
 export type MensajeArranque = {
@@ -977,6 +984,8 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
   }
   if (!e.origen) return 'origen';
   if (h.modo === 'oferta' && !e.interes) return 'interes';
+  // OBLIGATORIO (Martín, 3/11/2026): la app es el canal de los avisos, así que sin el teléfono activado no se entra. Lo último, cuando ya invirtió el tiempo: un permiso pedido de entrada se niega.
+  if (h.conAvisos && !h.avisosListos && e.avisos !== 'sin-soporte') return 'avisos';
   return 'cierre';
 }
 
@@ -1029,6 +1038,11 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
       preguntarConOpciones(lista, preguntar, e, { msg: 'interes', pregunta: 'interes' }, '¿Qué te gustaría que MaKo resuelva primero?',
         INTERESES.map((i) => i.label), elegido >= 0 ? elegido : undefined);
       if (etapa === 'interes') return true;
+    }
+    if (h.conAvisos) {
+      lista.push({ id: 'arr-avisos', de: 'mako', texto: PREGUNTA_AVISOS, ...(etapa === 'avisos' ? { tarjeta: 'avisos' as const } : {}) });
+      if (etapa === 'avisos') return true;
+      lista.push({ id: 'arr-avisos-r', de: 'yo', texto: e.avisos === 'sin-soporte' && !h.avisosListos ? AVISOS_SIN_SOPORTE : AVISOS_LISTOS });
     }
     return false;
   };
@@ -1392,6 +1406,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     if (normal(texto).trim() === normal(AHORA_NO)) return { ok: true, patch: { telefono: 'postergado' } };
     return { ok: false, error: PIDE_TELEFONO };
   }
+  if (etapa === 'avisos') return { ok: false, error: PIDE_AVISOS };
   if (etapa === 'crm') {
     if (opcion === VER_OTROS_TIPOS) return { ok: true, patch: { crmVerTodos: true } };
     if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false, e.crmPropuesta).tipos[0].id } };

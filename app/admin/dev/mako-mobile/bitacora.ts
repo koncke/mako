@@ -251,4 +251,20 @@ export const BITACORA: Hito[] = [
     revisar: '/m/crm',
     tickets: [27],
   },
+  {
+    fecha: '3 nov', hora: '19:30', chat: 'Bot y avisos', sesion: 'local_0fabc2d4-f10f-4a2d-b0ef-70cec8e878a7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los avisos del teléfono: paso obligatorio del onboarding',
+    puntos: [
+      'El onboarding no termina sin el teléfono con los avisos activados. En la computadora muestra un QR y sigue solo cuando el teléfono los activó.',
+      'Si ya los tenías activados, el paso no aparece. Quien ya terminó el onboarding lo ve en General hasta activarlos.',
+      'Los reportes también suenan en el teléfono: no pasaban por el motor de avisos.',
+      '**Cómo se prueba:** entra al negocio de prueba desde la computadora, llega al final del onboarding, escanea el QR y toca «Activar avisos» en el teléfono.',
+    ],
+    archivos: [
+      'app/onboarding/TarjetaAvisos.tsx — lo que pide según el dispositivo',
+      'lib/avisos-telefono.ts y lib/avisos-telefono-reglas.ts — qué cuenta como «tiene los avisos»',
+      'tests/onboarding-avisos.test.ts',
+    ],
+  },
 ];
