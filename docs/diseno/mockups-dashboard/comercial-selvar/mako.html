@@ -1,0 +1,181 @@
+<!doctype html>
+<!-- COMERCIAL (SELVAR) · PASO 2: LA ADAPTACIÓN A MaKo de la copia de Selvar (4/11/2026). La MISMA hoja (selvar.css) y el mismo
+     dibujo (selvar.js) que copia.html; cambian los textos y lo que dice cada bloque. Los nombres y los números son de EJEMPLO (ficticios).
+     Sin la barra lateral ni la de arriba: en MaKo las pone la app.
+     De dónde sale cada bloque (la pregunta de la hoja: «¿convierte, y a qué costo?»):
+       · la cabecera: el saludo, la fecha con el período y la frase (de cuántas agendas salieron cuántos cierres, lo vendido y lo
+         que costó cada cierre en anuncios), con «Ver la grilla» y «Abrir el CRM»;
+       · «Vendido» («Closed-won»): lo vendido en el período contra el anterior; a la derecha, lo invertido en anuncios y lo que
+         costó cada agenda. La barra es lo que pasó con las agendas del período: cerraron, vinieron y no cerraron, no vinieron y
+         sin marcar. Abajo, las agendas, las que vinieron y el retorno de los anuncios;
+       · los cuatro números («Win rate», «Average deal», «Sales cycle», «Pipeline coverage»): la tasa de cierre, el ticket promedio,
+         los días hasta el cierre y el costo por cierre, cada uno con su cambio y su línea;
+       · «Por qué no se cerró» (el «Copilot»): los motivos de pérdida más repetidos, con «Ver en el CRM»;
+       · «Lo vendido» («Bookings»): por semana, apilado por funnel, o por mes (lo vendido entero, la Tendencia de la grilla), con el
+         promedio punteado;
+       · «De agenda a cierre» («Where deals sit»): las cohortes maduras, paso por paso, con cuántos pasan al siguiente;
+       · «Hoy» («Today»): las llamadas de venta de hoy, con la línea de «Ahora»;
+       · «De dónde vienen los que cierran» («Deals that need you»): cada origen con su tasa de cierre y lo vendido;
+       · «Quién cierra» («Quota race»): la tasa de cierre de cada closer.
+     Lo que Selvar tiene y no está, a propósito: el «Pace today», el «Forecast» y la bandera de la cuota (MaKo no tiene una cuota ni un
+     pronóstico de ventas), los botones de la IA de cada señal y la caja para preguntarle (MaKo se pregunta desde su chat), y la
+     cruz de cada señal (un motivo de pérdida no se descarta). -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Comercial · MaKo (adaptación)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="selvar.css">
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-rail" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M10 5v14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1.5"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.5"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.5"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.5"/></symbol>
+  <symbol id="i-board" viewBox="0 0 24 24"><path d="M5 5h4v14H5zM10 5h4v9h-4zM15 5h4v6h-4z"/></symbol>
+  <symbol id="i-funnel" viewBox="0 0 24 24"><path d="M4.5 5h15l-6 7.5V19l-3-1.5v-5z"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8zM18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="2.5"/><path d="M4 10h16M8 3.5v4M16 3.5v4"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="4.5" y="4" width="15" height="16" rx="2.5"/><circle cx="12" cy="10.5" r="2.5"/><path d="M8 16.5c1-2 7-2 8 0"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 19h14M7.5 16v-5M12 16V8M16.5 16v-3"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="9" r="3"/><path d="M3.5 18.5c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5M15.5 6.2a3 3 0 0 1 0 5.6M17.5 14.4c1.4.6 2.4 2 2.9 4.1"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M6 18l1.6-1.6M16.4 7.6L18 6"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9.8 9.5a2.3 2.3 0 1 1 3.2 2.1c-.6.3-1 .8-1 1.4v.5M12 16.6v.1"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M10 7l5 5-5 5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 10a5.5 5.5 0 0 1 11 0c0 5 2 6.5 2 6.5h-15s2-1.5 2-6.5M10 19.5a2.2 2.2 0 0 0 4 0"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.2A7.8 7.8 0 1 1 9.8 4.5a6.3 6.3 0 0 0 9.7 9.7z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 3.5v1.8M12 18.7v1.8M3.5 12h1.8M18.7 12h1.8M6 6l1.3 1.3M16.7 16.7L18 18M6 18l1.3-1.3M16.7 7.3L18 6"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M8 16L16 8M9 8h7v7"/></symbol>
+  <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 5v10M7.5 10.5L12 15l4.5-4.5M5.5 19h13"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4.5h8v4.5a4 4 0 0 1-8 0zM8 6.5H5.5c0 2.2 1 3.5 2.6 3.8M16 6.5h2.5c0 2.2-1 3.5-2.6 3.8M12 13v3.5M8.5 19.5h7M10 16.5h4v3h-4z"/></symbol>
+  <symbol id="i-dollar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M14.5 9.5c-.4-1-1.4-1.5-2.5-1.5-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2c-1.2 0-2.2-.5-2.6-1.5M12 6.5V8M12 16v1.5"/></symbol>
+  <symbol id="i-hour" viewBox="0 0 24 24"><path d="M7 4h10M7 20h10M8 4c0 4 8 4.5 8 8s-8 4-8 8M16 4c0 3-2 4-4 5.5"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 4l8 4.2-8 4.2-8-4.2zM4 12.2l8 4.2 8-4.2M4 16l8 4.2 8-4.2"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M4 16.5l5.5-5.5 3.5 3.5 7-7M15 7.5h5v5"/></symbol>
+  <symbol id="i-dn" viewBox="0 0 24 24"><path d="M4 7.5L9.5 13l3.5-3.5 7 7M15 16.5h5v-5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4.5L20 19H4zM12 10v4M12 16.6v.1"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8v.1"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 21V4.5M6 5h11l-3 4 3 4H6"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4.5 7h15M4.5 12h15M4.5 17h15"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><path d="M6 12h.1M12 12h.1M18 12h.1"/></symbol>
+</svg>
+<main class="main main--sola">
+  <section class="hero">
+    <div class="hero__txt">
+      <div class="hero__date"><svg class="i"><use href="#i-sun"/></svg>Miércoles 4 de noviembre · Últimos 30 días</div>
+      <h1>Buenos días, Ana</h1>
+      <p>De <b>27 agendas</b> salieron <b>6 cierres</b>, vendiste <b>US$96,000</b> y cada cierre te costó <b>US$410</b> en anuncios.</p>
+    </div>
+    <div class="hero__btns">
+      <button class="btn"><svg class="i"><use href="#i-grid"/></svg>Ver la grilla</button>
+      <a class="btn btn--primary" href="#"><svg class="i"><use href="#i-board"/></svg>Abrir el CRM</a>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card runway">
+      <div class="runway__top">
+        <div>
+          <div class="runway__k">Vendido · Últimos 30 días <span class="chip chip--good chip--dot chip--lg">Más que el período anterior</span></div>
+          <div class="runway__big"><strong>US$96,000</strong><span class="runway__vs"><svg class="i up"><use href="#i-up"/></svg><b class="up">+12%</b> contra los 30 días anteriores</span></div>
+        </div>
+        <div class="runway__quota">Invertido en anuncios<strong>US$2,460</strong>US$91 por agenda</div>
+      </div>
+      <div class="track">
+        <div class="track__bar">
+          <span class="track__seg track__seg--won" style="width:22.2%"></span>
+          <span class="track__seg track__seg--commit" style="width:55.6%"></span>
+          <span class="track__seg track__seg--best" style="width:14.8%"></span>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i class="sw"></i>Cerraron <b>6</b></span>
+        <span><i class="sw" style="--c:var(--c-amber)"></i>Vinieron y no cerraron <b>15</b></span>
+        <span><i class="sw" style="--c:#bccdf5"></i>No vinieron <b>4</b></span>
+        <span><i class="sw sw--hatch"></i>Sin marcar <b>2</b></span>
+      </div>
+      <dl class="stats">
+        <div><dt>Agendas</dt><dd>27</dd></div>
+        <div><dt>Vinieron</dt><dd>21<small>el 78%</small></dd></div>
+        <div><dt>Retorno de los anuncios</dt><dd>39×<small>lo vendido ÷ lo invertido</small></dd></div>
+      </dl>
+    </section>
+
+    <section class="card copilot">
+      <div class="copilot__h">
+        <svg class="copilot__orb" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#2f56d6" stroke-width="2" stroke-dasharray="9 5"/><circle cx="20" cy="20" r="13" fill="none" stroke="#e3952a" stroke-width="2" stroke-dasharray="12 6"/><circle cx="20" cy="20" r="7.5" fill="#2f56d6"/></svg>
+        <div><h2>Por qué no se cerró</h2><div class="card__sub">18 perdidos con motivo, en el período</div></div>
+        <a class="ibtn" href="#" aria-label="Abrir el CRM"><svg class="i"><use href="#i-out"/></svg></a>
+      </div>
+      <p class="copilot__say">Lo que más se repite es «No le alcanzó el presupuesto»: 7 de los 18 que no cerraron.</p>
+      <ul class="sigs">
+        <li class="sig"><span class="sig__ico sig__ico--bad"><svg class="i"><use href="#i-warn"/></svg></span><div class="sig__b"><div class="sig__t">No le alcanzó el presupuesto</div><div class="sig__m"><span class="chip chip--bad">7 leads</span>el 39% de los perdidos</div><div class="sig__a"><a class="btn btn--ink btn--sm" href="#"><svg class="i"><use href="#i-board"/></svg>Ver en el CRM</a></div></div></li>
+        <li class="sig"><span class="sig__ico sig__ico--bad"><svg class="i"><use href="#i-warn"/></svg></span><div class="sig__b"><div class="sig__t">Lo va a pensar</div><div class="sig__m"><span class="chip chip--bad">6 leads</span>el 33% de los perdidos</div><div class="sig__a"><a class="btn btn--ink btn--sm" href="#"><svg class="i"><use href="#i-board"/></svg>Ver en el CRM</a></div></div></li>
+        <li class="sig"><span class="sig__ico sig__ico--bad"><svg class="i"><use href="#i-warn"/></svg></span><div class="sig__b"><div class="sig__t">Eligió otra opción</div><div class="sig__m"><span class="chip chip--bad">3 leads</span>el 17% de los perdidos</div><div class="sig__a"><a class="btn btn--ink btn--sm" href="#"><svg class="i"><use href="#i-board"/></svg>Ver en el CRM</a></div></div></li>
+      </ul>
+    </section>
+
+    <article class="tile tile--feature t1"><div class="tile__k"><span class="tile__ico"><svg class="i"><use href="#i-trophy"/></svg></span>Tasa de cierre</div><div class="tile__v">28.6%</div><div class="tile__d"><b><svg class="i"><use href="#i-up"/></svg>+13%</b>6 cerraron de 21</div><svg class="tile__spark" data-spark="[2,3,2.6,3.4,3,4,4.6,5.2,6]"></svg></article>
+    <article class="tile t2"><div class="tile__k"><span class="tile__ico"><svg class="i"><use href="#i-dollar"/></svg></span>Ticket promedio</div><div class="tile__v">US$16,000</div><div class="tile__d"><b class="up"><svg class="i"><use href="#i-up"/></svg>+8%</b></div><div class="tile__p">De los cierres del período</div><svg class="tile__spark" data-spark="[3,4.2,3.6,5.1,4.8,5.4,6.1,6.6]"></svg></article>
+    <article class="tile t3"><div class="tile__k"><span class="tile__ico"><svg class="i"><use href="#i-hour"/></svg></span>Días hasta el cierre</div><div class="tile__v">9 días</div><div class="tile__d"><b class="up"><svg class="i"><use href="#i-dn"/></svg>−6%</b></div><div class="tile__p">De la primera reunión al cierre</div><svg class="tile__spark" data-spark="[7,6.2,6.4,5.6,5.2,4.8,4.1]"></svg></article>
+    <article class="tile t4"><div class="tile__k"><span class="tile__ico"><svg class="i"><use href="#i-layers"/></svg></span>Costo por cierre</div><div class="tile__v">US$410</div><div class="tile__d"><b class="up"><svg class="i"><use href="#i-dn"/></svg>−11%</b></div><div class="tile__p">Lo invertido en anuncios ÷ los cierres</div><svg class="tile__spark" data-spark="[6.6,5.8,6.1,4.9,4.6,4,3.4]"></svg></article>
+
+    <section class="card book">
+      <div class="card__h">
+        <div><h2>Lo vendido</h2><div class="card__sub" data-sub>Por semana · US$198,000 en los últimos 90 días</div></div>
+        <div class="seg" role="group"><button class="seg__opt" aria-pressed="true" data-vista="semanas">Semanas</button><button class="seg__opt" aria-pressed="false" data-vista="meses">Meses</button></div>
+      </div>
+      <div class="legend"><span data-serie><i class="sw" style="width:10px;height:10px"></i>Programa principal</span><span data-serie><i class="sw" style="--c:var(--c-amber);width:10px;height:10px"></i>Mentoría</span><span><i class="sw sw--dash"></i><span data-pace>Promedio por semana US$15,200</span></span></div>
+      <div class="chart" data-chart='{"semanas":{"x":["4 ago","11 ago","18 ago","25 ago","1 sep","8 sep","15 sep","22 sep","29 sep","6 oct","13 oct","20 oct","27 oct","3 nov"],"s":[[8,16,0,24,16,8,16,32,16,8,16,24,0,0],[0,0,4,0,0,4,0,0,4,0,0,4,0,0]],"pace":15.2,"tope":60,"paso":20,"paceTxt":"Promedio por semana US$15,200","pre":"US$","sub":"Por semana · US$198,000 en los últimos 90 días","leyenda":["Programa principal","Mentoría"]},"meses":{"x":["Dic","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov"],"s":[[44,56,40,68,72,56,92,64,80,68,92,16]],"pace":64,"tope":150,"paso":50,"paceTxt":"Promedio por mes US$64,000","pre":"US$","sub":"Por mes · US$768,000 en los últimos 12 meses","leyenda":["Vendido"]}}'></div>
+    </section>
+
+    <section class="card where">
+      <div class="card__h"><div><h2>De agenda a cierre</h2><div class="card__sub">Las cohortes maduras, de todo el historial</div></div><a class="ibtn" href="#" aria-label="Abrir el CRM"><svg class="i"><use href="#i-out"/></svg></a></div>
+      <ul class="stages">
+        <li class="stage"><div class="stage__n">Agendaron<small>leads</small></div><div class="stage__bar"><i style="width:100%;--c:var(--c-slate)"></i></div><div class="stage__v">120</div></li>
+        <li class="stage__mv"><svg class="i"><use href="#i-down"/></svg>78% vino a la reunión</li>
+        <li class="stage"><div class="stage__n">Vinieron<small>leads</small></div><div class="stage__bar"><i style="width:78%;--c:var(--c-sky)"></i></div><div class="stage__v">94</div></li>
+        <li class="stage__mv"><svg class="i"><use href="#i-down"/></svg>76% quedó calificado</li>
+        <li class="stage"><div class="stage__n">Calificados<small>leads</small></div><div class="stage__bar"><i style="width:59%;--c:var(--c-cobalt)"></i></div><div class="stage__v">71</div></li>
+        <li class="stage__mv"><svg class="i"><use href="#i-down"/></svg>35% cerró</li>
+        <li class="stage"><div class="stage__n">Cerraron<small>leads</small></div><div class="stage__bar"><i style="width:21%;--c:var(--c-amber)"></i></div><div class="stage__v">25</div></li>
+      </ul>
+      <div class="where__foot"><svg class="i"><use href="#i-info"/></svg>18 se perdieron con motivo; el más común, «No le alcanzó el presupuesto».</div>
+    </section>
+  </div>
+
+  <div class="row4">
+    <section class="card today">
+      <div class="card__h"><div><h2>Hoy</h2><div class="card__sub">Miércoles 4 de noviembre · 4 llamadas de venta</div></div><a class="ibtn" href="#" aria-label="Abrir el Calendario"><svg class="i"><use href="#i-cal"/></svg></a></div>
+      <ul class="ag">
+        <li class="ag__row is-past"><div class="ag__t">9:00<small>R1</small></div><i class="ag__bar"></i><div class="ag__w"><b>Paola Núñez</b><small>Con Ana · vino</small></div><span class="av" style="--b:var(--av-teal);--t:var(--av-teal-t)">AN</span></li>
+        <li class="ag__now">Ahora · 11:10</li>
+        <li class="ag__row"><div class="ag__t">12:30<small>R2</small></div><i class="ag__bar" style="--c:var(--c-amber)"></i><div class="ag__w"><b>Laura Méndez</b><small>Con Diego</small></div><span class="av" style="--b:var(--av-amber);--t:var(--av-amber-t)">DI</span></li>
+        <li class="ag__row"><div class="ag__t">15:00<small>R1</small></div><i class="ag__bar" style="--c:var(--c-cobalt)"></i><div class="ag__w"><b>Tomás Ibarra</b><small>Con Sofía</small></div><span class="av" style="--b:var(--av-coral);--t:var(--av-coral-t)">SO</span></li>
+        <li class="ag__row"><div class="ag__t">18:00<small>R1</small></div><i class="ag__bar" style="--c:var(--c-cobalt)"></i><div class="ag__w"><b>Jorge Salinas</b><small>Con Diego</small></div><span class="av" style="--b:var(--av-amber);--t:var(--av-amber-t)">DI</span></li>
+      </ul>
+    </section>
+    <section class="card deals">
+      <div class="card__h"><div><h2>De dónde vienen los que cierran</h2><div class="card__sub">Por origen del lead, en los últimos 30 días</div></div><a class="ibtn" href="#" aria-label="Abrir el CRM"><svg class="i"><use href="#i-out"/></svg></a></div>
+      <ul class="dl">
+        <li class="dl__row fila"><div class="dl__n"><b>Anuncios de Meta</b><small>14 agendas</small></div><span class="chip chip--good chip--dot">33% cierra</span><div class="dl__v">US$48,000<small>3 cierres</small></div><span class="av">AM</span></li>
+        <li class="dl__row fila"><div class="dl__n"><b>Referidos</b><small>5 agendas</small></div><span class="chip chip--good chip--dot">50% cierra</span><div class="dl__v">US$32,000<small>2 cierres</small></div><span class="av" style="--b:var(--av-teal);--t:var(--av-teal-t)">RE</span></li>
+        <li class="dl__row fila"><div class="dl__n"><b>Instagram</b><small>6 agendas</small></div><span class="chip chip--bad chip--dot">20% cierra</span><div class="dl__v">US$16,000<small>1 cierre</small></div><span class="av" style="--b:var(--av-amber);--t:var(--av-amber-t)">IN</span></li>
+        <li class="dl__row fila"><div class="dl__n"><b>Orgánico</b><small>2 agendas</small></div><span class="chip chip--bad chip--dot">0% cierra</span><div class="dl__v">US$0<small>0 cierres</small></div><span class="av" style="--b:var(--av-sand);--t:var(--av-sand-t)">OR</span></li>
+      </ul>
+    </section>
+    <section class="card race">
+      <div class="card__h"><div><h2>Quién cierra</h2><div class="card__sub">La tasa de cierre de cada closer</div></div><a class="ibtn" href="#" aria-label="Abrir el CRM"><svg class="i"><use href="#i-out"/></svg></a></div>
+      <ul class="rc">
+        <li class="rc__row fila"><span class="rc__pos"><svg class="i"><use href="#i-trophy"/></svg></span><span class="av av--lg" style="--b:var(--av-coral);--t:var(--av-coral-t)">SO</span><div class="rc__n">Sofía<div class="rc__bar"><i style="width:43%"></i></div></div><span class="rc__v">43%</span></li>
+        <li class="rc__row fila"><span class="rc__pos">2</span><span class="av av--lg" style="--b:var(--av-amber);--t:var(--av-amber-t)">DI</span><div class="rc__n">Diego<div class="rc__bar"><i style="width:30%"></i></div></div><span class="rc__v">30%</span></li>
+        <li class="rc__row fila"><span class="rc__pos">3</span><span class="av av--lg" style="--b:var(--av-teal);--t:var(--av-teal-t)">AN</span><div class="rc__n">Ana<div class="rc__bar"><i style="width:17%;--c:var(--c-amber)"></i></div></div><span class="rc__v">17%</span></li>
+      </ul>
+    </section>
+  </div>
+</main>
+<script src="selvar.js"></script>
+</body></html>

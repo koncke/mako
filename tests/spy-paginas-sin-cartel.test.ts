@@ -35,14 +35,17 @@ test('1. mientras pregunta, la carga de la casa; sin vista previa, «Abrir»; y 
   assert.doesNotMatch(sin, /<p[ >]/, 'sin un texto al lado');
   const fuente = sinComentarios(leer('app/competitor-spy/SusPaginas.tsx'));
   assert.match(fuente, /fetch\('\/api\/competitor-spy\/pagina'/);
-  assert.match(fuente, /const conAbrirGrande = !conVistaPrevia \|\| estado === 'no-pudo';/);
+  // Y desde el mismo día, tampoco el marco que no avisó que pintó la página (tests/spy-paginas-verificadas.test.ts).
+  assert.match(fuente, /const conAbrirGrande = !conVistaPrevia \|\| estado === 'no-pudo' \|\| veredicto === 'no';/);
 });
 
 test('2. la ruta: la puerta de la tab, sólo sus páginas, la lectura de siempre y sin el porqué', () => {
   const r = sinComentarios(leer('app/api/competitor-spy/pagina/route.ts'));
   assert.match(r, /soloAdminDeTab\('market-an'\)/);
   assert.match(r, /if \(!suyas\.some\(\(u\) => webComparable\(u\) === webComparable\(url\)\)\)/, 'no es un lector de cualquier dirección');
-  assert.match(r, /await paginaParaVer\(url\);\s*return Response\.json\(\{ ok: true, estado: 'abierta' \}\);/);
+  // La lectura de siempre, siguiendo un acortador hasta su destino (lib/pagina-real.ts → paginaFinal).
+  assert.match(r, /await paginaFinal\(url, paginaParaVer\);/);
+  assert.match(r, /return Response\.json\(\{ ok: true, estado: 'abierta', \.\.\.\(final \? \{ final \} : \{\}\) \}\);/);
   assert.match(r, /return Response\.json\(\{ ok: true, estado: 'no-pudo' \}\);/);
   assert.doesNotMatch(r, /Response\.json\(\{[^}]*(?:motivo|e\.message)/, 'el porqué no viaja a la pantalla');
   assert.doesNotMatch(r, /apify|proxy|residential|playwright/i, 'el bloqueo se respeta: no se intenta pasar');

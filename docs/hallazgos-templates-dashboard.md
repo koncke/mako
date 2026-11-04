@@ -354,6 +354,42 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
   el modelo llama a `debenDe`: dos cuentas de lo mismo dirían dos números en dos hojas. **Vive en:** lib/general-diseno.ts, lib/general-plantillas.ts.
 - **La entrada de la página de Orvel no está en su INFORME** (sólo la del armazón). No se inventó: las tarjetas quedan quietas. **Vive en:**
   app/dashboard/disenos/HojaGeneral.tsx (cabecera).
+- **Un link de la MUESTRA de la miniatura también es un link de la app.** La miniatura de General llevaba un ejemplo con `href: '/integraciones'`
+  y `tests/integracion-sin-salir.test.ts` frenó la punta en el veredicto: el guard barre `app/` entero y no sabe que es una muestra. La muestra
+  lleva a una pantalla que no sea /integraciones (`/ads-manager`). **Vive en:** app/dashboard/disenos/DisenoEnMiniatura.tsx.
+
+## 19. «Operación diaria» (Moorly): una clase que vivía en el armazón y una marea que se medía, no se adivinaba (4/11/2026, chat en la nube)
+
+- **Sacar el armazón del CSS copiado se puede llevar una clase que usa la PÁGINA.** El círculo de las iniciales (`.av`) estaba definido en la parte
+  del armazón de `moorly.css` (lo usa el avatar de la barra de arriba) y lo usan también las llamadas y la espera. Al dejar sólo la página, los
+  círculos salían sin forma. Antes de cortar el armazón, buscar en el HTML de la página cada clase que se define en la parte que se saca.
+  **Vive en:** app/dashboard/disenos/operacion-css.ts (la cola: `.mo-av`).
+- **La marea de las llamadas se mide en el demo, no se deduce del dibujo.** Las barras de Moorly tienen 119 px de alto útil, cuatro líneas
+  punteadas cada 30 px y la más alta llega a la MITAD (el tope es el doble del máximo). Con un tope igual al máximo, la barra más alta tocaba el
+  borde y no se parecía en nada. **Vive en:** app/dashboard/disenos/HojaOperacion.tsx (`Marea`, `escalaOperacion`).
+- **La copia a 390 medía más que la pantalla.** Las pestañas del gráfico (Cobrado · Agendas · Cierres) iban en el mismo renglón que el título y no
+  bajaban. En el teléfono, el título y las pestañas van en dos renglones, como en el demo de Moorly a ese ancho. Lo encontró el arnés midiendo
+  `scrollWidth` a 390. **Vive en:** docs/diseno/mockups-dashboard/operacion-moorly/moorly.css y app/dashboard/disenos/operacion-css.ts.
+- **«Te está esperando» tiene un orden, y el test lo fija.** Primero lo vencido (cuotas y tareas), después los leads por marcar, después lo que vence
+  pronto. Una de las seis roturas que el test caza es poner los leads antes que las tareas vencidas. **Vive en:** lib/operacion-diseno.ts.
+- **Lo que Moorly tiene y MaKo no hace no se inventa:** la caja para agregar un pendiente y la plata de cada etapa del funnel. La entrada de la
+  página tampoco está en su INFORME, igual que en Orvel. **Vive en:** lib/operacion-diseno.ts (cabecera).
+
+## 20. Comercial (Selvar): una frase que perdía dos métricas sin avisar y un tope de 14 paneles (4/11/2026, chat en la nube)
+
+- **El saneo de una pieza RECORTA las métricas en silencio.** Una frase lleva hasta 4 (`maxMetricas` del tipo, lib/graficos-catalogo.ts):
+  la plantilla declaraba seis para la apertura y la hoja creada salía con las primeras cuatro, sin un error. El diseño se quedaba sin «no
+  vinieron» y la barra de Selvar mentía. Lo cazó el test del cableado (`tests/dashboard-diseno-comercial.test.ts`), que instancia la
+  plantilla y mira las métricas que QUEDARON, no las declaradas. **Vive en:** lib/graficos-plantillas.ts (COMERCIAL).
+- **Una hoja del Dashboard lleva entre 8 y 14 paneles y una sola frase** (`tests/graficos-corbel.test.ts`). Las piezas que pide un diseño
+  entran en ese tope: lo que se puede calcular (el costo por agenda, el retorno) se calcula en el modelo y no se pide como otra pieza, y
+  «por mes» reusa la Tendencia que ya estaba. **Vive en:** lib/comercial-diseno.ts (`vistaComercial`).
+- **Un atajo de la adaptación con el mismo peso que el del teléfono le gana.** `.dl__row.fila { padding: 0 8px }` (para que la fila que
+  se toca tenga su hover) le pisaba el `padding: 12px 0` del teléfono por especificidad: en la maqueta las filas quedaban pegadas. Va con
+  `padding-left` y `padding-right`, nunca el atajo. **Vive en:** docs/diseno/mockups-dashboard/comercial-selvar/selvar.css.
+- **`.card__h > div { flex: 1 }` también estiraba el selector de Semanas · Meses.** En la captura a media escala se veía bien; medido, el
+  selector ocupaba media tarjeta. Va `:first-child`. **Vive en:** app/dashboard/disenos/comercial-css.ts.
+- **La entrada de la página de Selvar no está en su INFORME** (sólo la del armazón), como en Orvel y Moorly. No se inventó.
 
 ## 11. Lo que quedó SIN hacer
 

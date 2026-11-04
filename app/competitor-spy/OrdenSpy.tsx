@@ -28,7 +28,7 @@ import { NOMBRE_CANAL } from '@/lib/spy-reglas';
 import { miniaturaDePieza } from '@/lib/spy-vista';
 import type { PiezaVista } from './actions';
 import { espera, precargarTodas, quieto } from './precarga';
-import { TEXTO_PASO, type PasoLectura } from '@/lib/spy-lectura-pasos';
+import { CADA_FRASE_MS, TEXTO_PASO, fraseDelPaso, type PasoLectura } from '@/lib/spy-lectura-pasos';
 
 const CSS = `
 .spyo{position:relative;display:flex;flex-direction:column;gap:12px;min-height:max(540px,calc(100dvh - 210px))}
@@ -73,9 +73,10 @@ const CSS = `
 .spyo-paso[data-estado='ahora'] i{width:7px;height:7px;border-radius:50%;background:var(--primary);flex:none;animation:spyoLatido 1.1s ease-in-out infinite}
 .spyo-paso[data-estado='ahora'] span{background:linear-gradient(100deg,var(--dim) 20%,var(--ink) 45%,var(--dim) 70%);background-size:240% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;animation:spyoBrillo 1.8s linear infinite}
+.spyo-frase{display:inline-block;animation:spyoPasoEntra .44s cubic-bezier(.2,.8,.2,1) both}
 @keyframes spyoPasoEntra{from{opacity:0;transform:translateY(6px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
 @keyframes spyoBrillo{from{background-position:120% 0}to{background-position:-20% 0}}
-@media (prefers-reduced-motion:reduce){.spyo-estado i,.spyo-fin i,.spyo-paso,.spyo-paso i,.spyo-paso span{animation:none}
+@media (prefers-reduced-motion:reduce){.spyo-estado i,.spyo-fin i,.spyo-paso,.spyo-paso i,.spyo-paso span,.spyo-frase{animation:none}
   .spyo-paso[data-estado='ahora'] span{background:none;color:var(--ink)}}
 @media (max-width:640px){.spyo-numero{padding:8px 10px}.spyo-numero b{font-size:17px}.spyo-titulo{font-size:18px}}
 `;
@@ -110,6 +111,19 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar, pasos = [] }: {
   const [frase, setFrase] = useState('');
   /** Las piezas cuya miniatura ya se bajó. null = todavía se están bajando (o leyendo): se ve sólo la criatura. */
   const [bajadas, setBajadas] = useState<Set<number> | null>(null);
+  // ⚠️ LA FRASE DEL PASO DE AHORA CAMBIA SOLA mientras el paso sigue (`fraseDelPaso`, lib/spy-lectura-pasos.ts; Martín: «se quedó
+  // mucho tiempo en "mirando su instagram"»). Se cuenta desde que ESE paso empezó; antes del primero, las de `inicio`.
+  const pasoDeAhora = pasos.length ? pasos[pasos.length - 1] : 'inicio';
+  // Cuántas frases lleva ESE paso: un reloj que cuenta de a `CADA_FRASE_MS` y vuelve a cero cuando cambia el paso (sin leer la
+  // hora al dibujar: un render tiene que ser puro).
+  const pasoRef = useRef<string>(pasoDeAhora);
+  useEffect(() => { pasoRef.current = pasoDeAhora; }, [pasoDeAhora]);
+  const [frases, setFrases] = useState<{ paso: string; n: number }>({ paso: pasoDeAhora, n: 0 });
+  useEffect(() => {
+    const t = setInterval(() => setFrases((v) => (v.paso === pasoRef.current ? { paso: v.paso, n: v.n + 1 } : { paso: pasoRef.current, n: 0 })), CADA_FRASE_MS);
+    return () => clearInterval(t);
+  }, []);
+  const fraseN = frases.paso === pasoDeAhora ? frases.n : 0;
 
   const carpetas = useMemo(() => (piezas ? carpetasDe(piezas) : []), [piezas]);
   const visibles = useMemo(() => repartirMiniaturas(carpetas), [carpetas]);
@@ -233,17 +247,21 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar, pasos = [] }: {
           MaKo (Martín, 4/11/2026). Lo de abajo ya está oculto (`visibility`), así que no hace falta tapar nada. */}
       {!lista && <CargandoMako cubre que={`lo que publica ${nombre}`} size={88} style={{ backgroundColor: 'transparent' }} />}
       {/* Lo que está haciendo, y lo que ya hizo: sólo lo que pasa de verdad. El último es el de ahora. */}
-      {!lista && pasos.length > 0 && (
+      {!lista && (
         <ol className="spyo-pasos" aria-label="Lo que estoy leyendo">
-          {pasos.slice(-4).map((p, i, l) => {
+          {(pasos.length ? pasos.slice(-4) : (['inicio'] as const)).map((p, i, l) => {
             const ahora = i === l.length - 1;
+            const texto = ahora
+              ? fraseDelPaso(p, fraseN * CADA_FRASE_MS)
+              // Lo hecho, sin los puntos suspensivos: ya no está pasando.
+              : (p === 'inicio' ? '' : TEXTO_PASO[p].replace(/…$/, ''));
             return (
               <li key={p} className="spyo-paso" data-estado={ahora ? 'ahora' : 'hecho'}>
                 {ahora
                   ? <i aria-hidden />
                   : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12.5l4.2 4.2L19 7" /></svg>}
-                {/* Lo hecho, sin los puntos suspensivos: ya no está pasando. */}
-                <span>{ahora ? TEXTO_PASO[p] : TEXTO_PASO[p].replace(/…$/, '')}</span>
+                {/* La frase nueva entra con su animación: `key` = la frase. */}
+                <span key={texto} className="spyo-frase">{texto}</span>
               </li>
             );
           })}

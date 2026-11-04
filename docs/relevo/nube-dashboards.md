@@ -1,6 +1,18 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~16:45 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~18:00 UTC)
+
+- **«Operación diaria» está en producción.** Entró a main a las 17:44 (`5330cfb37`, la mezcla de `punta/dash-operacion`); el deploy
+  promovido de las 17:40 (`b73d4bc5b`) la contiene. El veredicto de la nube: 6.994 tests y el tsc entero en verde (`a70024a14`).
+- **Comercial (la copia de Selvar) va en `punta/dash-comercial`**: la sección de abajo. Es la séptima hoja copiada, y la primera del
+  Dashboard desde Cobranza.
+
+### Lo de las ~17:30 UTC
+
+- **General está en producción.** Entró a main a las 16:58 (`30e5586f5`); el deploy promovido de las 17:05 (`5bd386108`) la contiene.
+- **«Operación diaria» (la copia de Moorly) va en `punta/dash-operacion`**: la sección de abajo. Es la sexta hoja copiada.
+
+### Lo de las ~16:45 UTC
 
 - **«Mi día» está en producción.** Entró a main a las 16:20 (`c1d8e89e4`); el deploy promovido de las 16:30 (`ddfc71d20`) la contiene. El
   veredicto de la nube la dejó pasar sin repetir los tests (6.949 tests y el tsc entero en verde, `8edcd95da`).
@@ -25,6 +37,113 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## Comercial: la séptima hoja copiada (la de Selvar), con «¿convierte, y a qué costo?» (punta `dash-comercial`, 4/11/2026)
+
+El pedido es el mismo: primero la copia exacta y después la adaptación, *«de a una»*. Las referencias de Comercial eran seis (Coffer ·
+Corbel · Prism · Orvel · Pelago · Selvar, `docs/templates-dashboard-propuesta.md` §7.3); ésta es **Selvar**, la que es un tablero de
+ventas (el pipeline, la tasa de cierre, las ventas por semana y el ranking del equipo). Coffer y Orvel ya están copiadas en Cobranza y
+General; las otras quedan para otra hoja.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «Comercial»**, con su miniatura de verdad: gris claro, tarjetas blancas y el azul cobalto de Selvar.
+- **Arriba:** la fecha con el período, el saludo y una frase: «De 27 agendas salieron 6 cierres, vendiste US$96,000 y cada cierre te
+  costó US$410 en anuncios», con «Ver la grilla» y «Abrir el CRM».
+- **«Vendido»:** lo vendido contra el período anterior (con su chip «Más que el período anterior»), a la derecha lo invertido en anuncios y
+  lo que costó cada agenda, y la barra de Selvar con lo que pasó con las agendas: cerraron, vinieron y no cerraron, no vinieron y sin
+  marcar. Abajo, las agendas, las que vinieron y el retorno de los anuncios.
+- **Los cuatro números** (con su cambio y su línea): la tasa de cierre (el azul), el ticket promedio, los días hasta el cierre y el costo
+  por cierre. Lo que baja en días y en costo se pinta verde.
+- **«Por qué no se cerró»** (el «Copilot» de Selvar): los tres motivos de pérdida más repetidos, cada uno con «Ver los leads», que abre el
+  detalle de siempre de esa pieza.
+- **«Lo vendido»:** por semana (los últimos 90 días, apilado por funnel) o por mes (los últimos 12, lo vendido entero), con el promedio
+  punteado.
+- **«De agenda a cierre»:** las cohortes maduras paso por paso (agendaron, vinieron, calificados, cerraron) con cuántos pasan al siguiente,
+  y el motivo de pérdida más común al pie.
+- **«Hoy»:** las llamadas de venta de hoy del CRM, con la línea de «Ahora». Cada una abre la ficha del lead.
+- **«De dónde vienen los que cierran»:** cada origen con su tasa de cierre (verde si está arriba de la del período), lo vendido y los
+  cierres. **«Quién cierra»:** la tasa de cierre de cada closer, con la copa para el primero.
+
+**Lo que Selvar tiene y no está, a propósito:** el «Pace today», el «Forecast» y la bandera de la cuota (MaKo no tiene una cuota ni un
+pronóstico de ventas), los botones de IA de cada señal, su cruz y la caja para preguntarle (a MaKo se le pregunta desde su chat).
+
+**El movimiento:** el INFORME de Selvar trae la entrada del armazón (la barra lateral y la de arriba) y los hover del CSS; **la entrada de
+la página «Overview» no está** (vive en un chunk que el INFORME no muestra), igual que en Orvel y en Moorly. No se inventó.
+
+**La comparación:**
+- **La copia contra el demo, a 1440:** cada caja a 2 px o menos de la medida (la tarjeta grande 746 × 383 contra 385, los cuatro números
+  de 174 × 199, «Lo vendido» 746 × 383, las tres de abajo de 365, 460 y 270 de ancho) y el alto total 1686 contra 1688.
+- **A 390:** las mismas cajas en el mismo orden. Los dos números de arriba del demo miden 145 de alto y no se pudo ver por qué: la barra de
+  abajo del demo los tapa en la captura. En la copia miden 178.
+- **La adaptación contra el componente, en un arnés con los datos pasando por el modelo de verdad:** a 1440 y a 390, las once cajas en el
+  mismo píxel. Lo único que cambia son las barras de «Lo vendido», que tienen otros datos de ejemplo. A 900 (el medio, que Selvar no
+  mide) los números van de a cuatro, «Por qué no se cerró» y «De agenda a cierre» de a dos, y «Quién cierra» a lo ancho.
+- Capturas en `comercial-selvar/captura/`: `copia-*`, `mako-*` y `producto-*`.
+
+**Cómo está hecho:**
+- `app/dashboard/disenos/HojaComercial.tsx` dibuja y `comercial-css.ts` es `comercial-selvar/selvar.css` sin el armazón, con todo
+  adentro de `.cm` y cada clase con `cm-`. `ComercialVivo.tsx` le pone los datos (los de las piezas de la hoja y las llamadas de hoy) y
+  lo carga `EditorInforme` con `next/dynamic`.
+- **La página lee las llamadas de venta de hoy** (`lib/comercial-diseno-server.ts`, la misma lectura que el Calendario y que Closing),
+  sólo si hay una hoja con este diseño y nunca para el closer ni el setter: nombran leads.
+- **La plantilla `comercial` cambia:** la frase de arriba pasa a ser lo que pasó con las agendas (una frase lleva hasta cuatro métricas) y
+  suma dos piezas: «Lo vendido y lo invertido» (columnas por semana, que dan los totales y el período anterior) y «Lo vendido por semana»
+  (apilado por funnel). El ticket y los días hasta el cierre se comparan con el período anterior, y «De dónde vienen» suma lo vendido.
+  ⚠️ Una hoja lleva hasta 14 paneles y una sola frase (`tests/graficos-corbel.test.ts`): por eso no hay una pieza de «por mes» aparte (es
+  la Tendencia) y el costo por agenda y el retorno se calculan en el modelo. Una hoja Comercial que ya existe no cambia.
+- El modelo es `lib/comercial-diseno.ts`; el test, `tests/dashboard-diseno-comercial.test.ts` (10 casos): ejecuta el modelo y está probado
+  rompiéndolo (6 de 6 roturas en rojo). `tests/graficos.test.ts` y `tests/dashboard-plantillas-ofrecidas.test.ts` cambiaron lo que
+  afirmaban de Comercial: 14 paneles en vez de 12, y que ahora se ofrece.
+- **En la API de MaKo:** `crear_hoja_dashboard` y el catálogo de plantillas leen `PLANTILLAS_OFRECIDAS`, así que Comercial entra sola
+  (`docs/api-mako.md` no nombra las plantillas: no cambió).
+
+**Falta:** verlo con los datos de un cliente (la nube no tiene la base) y que Martín lo compare en el Dashboard. La que sigue es la
+próxima de §7.3.1 (Marketing, con Kestrel · Ondra), de a una.
+
+## «Operación diaria»: la sexta hoja copiada (la de Moorly), con lo de hoy (punta `dash-operacion`, 4/11/2026)
+
+El pedido es el mismo: primero la copia exacta y después la adaptación, *«de a una»*. La referencia de «Operación diaria» era Moorly · Torque
+(`docs/templates-dashboard-propuesta.md` §7.3); ésta es **Moorly**. Torque queda para otra hoja.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» de General ofrece «Operación diaria»**, con su miniatura de verdad: el cielo celeste con el sol arriba a la derecha y el mar de
+  Moorly detrás de la cabecera.
+- **Arriba:** el saludo, la fecha y una frase con lo de hoy: «3 llamadas hoy, 2 cuotas vencidas y 4 tareas que vencen esta semana. **Laura
+  Méndez** es tu próxima llamada, a las 12:30.» A la derecha, el botón de la grilla (los bloques de siempre), «Abrir el Plan» y «Abrir el CRM».
+- **Los cuatro números de Moorly**, con su línea: las agendas, lo que falta cobrar, los cierres y lo cobrado (con el cambio contra el período
+  anterior). Abajo de cada uno, lo de hoy: las llamadas de hoy, las cuotas vencidas, de cuántas agendas salieron los cierres.
+- **«Mes a mes»:** lo cobrado, las agendas o los cierres de los últimos 12 meses (las tres pestañas de Moorly), con el total, el promedio y el
+  mejor mes.
+- **«Te está esperando»:** las cuotas vencidas, las tareas vencidas, los leads por marcar, lo que vence pronto y las tareas de esta semana, en
+  ese orden y hasta seis. Cada renglón lleva a su lugar (la ficha del lead, la tarea del Plan, el CRM).
+- **«Tu funnel hoy»**, **«Las llamadas que vienen»** (las llamadas de cada día de las próximas dos semanas, como la marea de Moorly, y las tres
+  que siguen), **«Te deben»** (por tramo de atraso, con las cuentas de la hoja Cobranza), **«Para tildar hoy»** (las tareas de hoy y las
+  vencidas, que se tildan ahí mismo), **«Salud del negocio»** (el semáforo) y **«La meta del trimestre»**.
+
+**Lo que Moorly tiene y no está, a propósito:** la caja para agregar un pendiente (una tarea nueva del Plan se crea en el Plan) y la plata de
+cada etapa del funnel (MaKo cuenta leads por etapa, no montos).
+
+**El movimiento:** el INFORME de Moorly trae la entrada del armazón y los hover del CSS; **la entrada de la página no está**, igual que en Orvel.
+No se inventó: las tarjetas quedan quietas y los hover son los del CSS.
+
+**La comparación con la maqueta aprobada** (`docs/diseno/mockups-dashboard/operacion-moorly/mako.html` contra el componente, en un arnés con los
+datos pasando por el modelo de verdad): **a 1440, las once cajas caen en el mismo píxel** (la cabecera, los cuatro números de 332 × 126, el
+gráfico 912 × 426, «Te está esperando» 448 × 426 y las dos filas de tres de 448 × 406) y el alto total es el mismo, 1592. **A 390, las mismas
+cajas en el mismo lugar**, salvo «Para tildar hoy», que tiene un renglón menos porque el arnés trae tres tareas y la maqueta cuatro. A 900 (el
+medio, que Moorly no mide) los números van de a dos, el gráfico y la espera a todo el ancho, y las de abajo de a dos. Capturas en
+`operacion-moorly/captura/`: `copia-*`, `mako-*` y `producto-*`.
+
+**Cómo está hecho:**
+- `app/dashboard/disenos/HojaOperacion.tsx` dibuja; `operacion-css.ts` es `operacion-moorly/moorly.css` sin el armazón, con todo adentro de
+  `.mo` y cada clase con `mo-`. `OperacionVivo.tsx` le pone las dos fuentes (los datos de General y los de seis componentes de la hoja) y lo
+  carga `EditorInforme` con `next/dynamic`.
+- **La plantilla `operacion` cambia:** suma «Mes a mes» (lo cobrado, las agendas y los cierres de los últimos 12 meses) y «Te deben» (lo que
+  falta cobrar por tramo de atraso), y trae su `diseno`. Una hoja «Operación diaria» que ya existe no cambia.
+- El modelo es `lib/operacion-diseno.ts`; el test, `tests/dashboard-diseno-operacion.test.ts` (10 casos): ejecuta el modelo y está probado
+  rompiéndolo (6 de 6 roturas en rojo).
+- **En la API de MaKo:** `agregar_hoja_general` ofrece `operacion` (sale solo de `PLANTILLAS_GENERAL_OFRECIDAS`; `docs/api-mako.md` regenerado).
+
+**Falta:** verlo con los datos de un cliente y que Martín lo compare en el Dashboard. La que sigue es Torque o la próxima de §7.3.1, de a una.
 
 ## General: la quinta hoja copiada (la de Orvel), con lo que MaKo sabe del negocio (punta `dash-general`, 4/11/2026)
 

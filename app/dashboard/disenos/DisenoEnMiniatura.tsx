@@ -26,6 +26,10 @@ import { HojaMiDia } from './HojaMiDia';
 import { mesDe, type VistaMiDia } from '@/lib/mi-dia-diseno';
 import { HojaGeneral } from './HojaGeneral';
 import { fraseGeneral, type VistaGeneral } from '@/lib/general-diseno';
+import { HojaOperacion } from './HojaOperacion';
+import type { VistaOperacion } from '@/lib/operacion-diseno';
+import { HojaComercial } from './HojaComercial';
+import { fraseComercial, type VistaComercial } from '@/lib/comercial-diseno';
 
 const dia = (hoy: string, n: number) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const resultado = (columnas: string[], totales: Array<number | null>, filas: Resultado['filas'] = [], anterior?: Array<number | null>): DatosPieza => ({
@@ -297,6 +301,116 @@ function vistaGeneralMuestra(hoy: string): VistaGeneral {
   };
 }
 
+/** «Operación diaria» de EJEMPLO (la de la maqueta, operacion-moorly/mako.html: ficticios), para la miniatura de «Nueva hoja». */
+function vistaOperacionMuestra(hoy: string): VistaOperacion {
+  const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const mesHoy = Number(hoy.slice(5, 7)) - 1;
+  const cob = [9.6, 12.3, 8.4, 13.8, 15.6, 11.7, 18.3, 13.2, 17.4, 14.7, 19.8, 12.5];
+  const dm = (n: number) => `${Number(dia(hoy, n).slice(8))}/${Number(dia(hoy, n).slice(5, 7))}`;
+  return {
+    frase: [{ tipo: 'texto', s: '3 llamadas hoy, 2 cuotas vencidas y 4 tareas que vencen esta semana. ' }, { tipo: 'fuerte', s: 'Laura Méndez' }, { tipo: 'texto', s: ' es tu próxima llamada, a las 12:30.' }],
+    numeros: [
+      { id: 'agendas', titulo: 'Agendas', valor: '27', serie: [0, 1, 2, 1, 0, 2, 3, 1, 2, 0, 1, 3, 2, 1, 4], pie: '3 llamadas hoy', cambio: null },
+      { id: 'pendiente', titulo: 'Por cobrar', valor: 'US$41,179', serie: [38, 39, 40, 40, 42, 41, 43, 42, 41, 40, 41, 42, 41, 41, 41], pie: '2 cuotas vencidas', cambio: null },
+      { id: 'cierres', titulo: 'Cierres', valor: '6', serie: [0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0], pie: 'De 27 agendas', cambio: null },
+      { id: 'cobrado', titulo: 'Cobrado', valor: 'US$12,480', serie: [1, 3, 2, 4, 2, 3, 5, 3, 4, 2, 6, 3, 5, 4, 7], pie: 'contra el período anterior', cambio: '+32%' },
+    ],
+    meses: cob.map((c, i) => {
+      const m = (mesHoy + 1 + i) % 12;
+      return { clave: `m${i}`, corto: MESES[m], largo: MESES[m], cobrado: c * 1000, agendas: 20 + ((i * 7) % 11), cierres: 3 + (i % 4) };
+    }),
+    espera: {
+      total: 11,
+      lista: [
+        { id: 'c1', tipo: 'cobro', titulo: 'Carlos Méndez', detalle: 'US$2,475 · venció hace 67 días', cuando: 'vencida', tono: 'bad', href: '/crm' },
+        { id: 'c2', tipo: 'cobro', titulo: 'Lucía Ramos', detalle: 'US$5,181 · venció hace 5 días', cuando: 'vencida', tono: 'bad', href: '/crm' },
+        { id: 't1', tipo: 'tarea', titulo: 'Mandar la propuesta a Jorge Salinas', detalle: 'Ventas del mes', cuando: '7 días tarde', tono: 'bad', href: '/plan' },
+        { id: 'l', tipo: 'leads', titulo: '5 leads por marcar', detalle: 'En el CRM', cuando: 'marcar', tono: 'info', href: '/crm' },
+        { id: 't2', tipo: 'tarea', titulo: 'Revisar el guion de la VSL', detalle: 'Nueva VSL', cuando: 'en 2 días', tono: 'warn', href: '/plan' },
+        { id: 't3', tipo: 'tarea', titulo: 'Grabar tres hooks nuevos', detalle: 'Creativos de Meta', cuando: 'en 4 días', tono: 'warn', href: '/plan' },
+      ],
+    },
+    funnel: {
+      id: 1, nombre: 'Programa principal', principal: true, total: 82,
+      etapas: [{ nombre: 'Nuevo', n: 38, color: null }, { nombre: 'Agendó', n: 21, color: null }, { nombre: 'Asistió', n: 9, color: null },
+        { nombre: 'Propuesta', n: 6, color: null }, { nombre: 'Ganado', n: 5, color: null }],
+    },
+    llamadas: {
+      porDia: [3, 2, 1, 0, 0, 2, 1, 2, 3, 1, 0, 0, 1, 2].map((n, k) => ({ dia: dia(hoy, k), rotulo: k === 0 ? 'Hoy' : dm(k), n })),
+      proximas: [
+        { id: 'l1', dia: Number(hoy.slice(8)), mes: MESES[mesHoy].toLowerCase(), nombre: 'Laura Méndez', detalle: 'R2 · closer Ana', cuando: 'Hoy 12:30', hoy: true, href: null },
+        { id: 'l2', dia: Number(hoy.slice(8)), mes: MESES[mesHoy].toLowerCase(), nombre: 'Jorge Salinas', detalle: 'R1 · closer Diego', cuando: 'Hoy 18:00', hoy: true, href: null },
+        { id: 'l3', dia: Number(dia(hoy, 1).slice(8)), mes: MESES[Number(dia(hoy, 1).slice(5, 7)) - 1].toLowerCase(), nombre: 'Paola Núñez', detalle: 'R1 · closer Ana', cuando: 'Mañana 10:00', hoy: false, href: null },
+      ],
+    },
+    deben: { total: 41179, cuotas: 18, tramos: [{ nombre: 'Al día', monto: 31512, pct: 77 }, { nombre: 'De 1 a 30 días', monto: 5181, pct: 13 }, { nombre: 'De 31 a 60 días', monto: 2011, pct: 5 }, { nombre: 'Más de 60 días', monto: 2475, pct: 6 }] },
+    tildar: [
+      { id: 'a', titulo: 'Mandar la propuesta a Jorge Salinas', cuando: 'vencida' },
+      { id: 'b', titulo: 'Preparar la R2 de Laura Méndez', cuando: 'hoy' },
+      { id: 'c', titulo: 'Grabar tres hooks nuevos', cuando: 'hoy' },
+    ],
+    salud: [
+      { titulo: '2 cuotas vencidas sin cobrar', link: 'Ver las cuotas', href: '/crm', nivel: 'rojo' },
+      { titulo: '3 leads sin marcar la asistencia a la R1', link: 'Marcar en el CRM', href: '/crm', nivel: 'ambar' },
+      { titulo: 'La meta del trimestre va a tiempo', link: 'Ver la meta', href: '/plan', nivel: 'verde' },
+    ],
+    meta: { titulo: 'US$30,000 de facturación', pct: 62, esperado: 58, diasRestantes: 57, atrasado: false },
+  };
+}
+
+/** La muestra de Comercial: la misma que la adaptación (comercial-selvar/mako.html), con nombres de EJEMPLO. */
+function vistaComercialMuestra(hoy: string): VistaComercial {
+  const semanas = Array.from({ length: 13 }, (_, i) => dia(hoy, -7 * (12 - i)));
+  const meses = Array.from({ length: 12 }, (_, i) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() - (11 - i), 1); return d.toISOString().slice(0, 10); });
+  const MES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const sem = [8, 16, 0, 24, 16, 8, 16, 32, 16, 8, 16, 24, 8].map((k) => k * 1000), semB = [0, 0, 4, 0, 0, 4, 0, 0, 4, 0, 0, 4, 0].map((k) => k * 1000);
+  const mes = [40, 56, 32, 64, 72, 48, 88, 64, 72, 64, 88, 16].map((k) => k * 1000), mesB = [4, 0, 8, 4, 0, 8, 4, 0, 8, 4, 4, 0].map((k) => k * 1000);
+  const serie = (x: string[], rot: (c: string) => string, a: number[], b: number[]) => {
+    const t = [...a, ...b].reduce((s, v) => s + v, 0);
+    return { x: x.map((c) => ({ clave: c, rotulo: rot(c) })), series: [{ nombre: 'Programa principal', valores: a }, { nombre: 'Mentoría', valores: b }], total: t, promedio: t / x.length };
+  };
+  const seg = (id: 'cerraron' | 'vinieron' | 'no-vino' | 'sin-marcar', nombre: string, n: number) => ({ id, nombre, n, pct: (n / 27) * 100 });
+  return {
+    frase: fraseComercial(27, 6, 96000, 410),
+    vendido: { valor: 96000, anterior: 85700, cambio: '+12%', sube: true },
+    inversion: { gasto: 2460, cpa: 91, roas: 39 },
+    desenlace: { agendas: 27, vinieron: 21, segmentos: [seg('cerraron', 'Cerraron', 6), seg('vinieron', 'Vinieron y no cerraron', 15), seg('no-vino', 'No vinieron', 4), seg('sin-marcar', 'Sin marcar', 2)] },
+    tasa: 28.6,
+    numeros: [
+      { id: 'tasa', titulo: 'Tasa de cierre', valor: '28.6%', cambio: '+13%', bueno: true, baja: false, pie: '6 cerraron de 21', serie: [2, 3, 2.6, 3.4, 3, 4, 4.6, 5.2, 6] },
+      { id: 'ticket', titulo: 'Ticket promedio', valor: 'US$16,000', cambio: '+8%', bueno: true, baja: false, pie: 'De los cierres del período', serie: [3, 4.2, 3.6, 5.1, 4.8, 5.4, 6.1, 6.6] },
+      { id: 'ciclo', titulo: 'Días hasta el cierre', valor: '9 días', cambio: '−6%', bueno: true, baja: true, pie: 'De la primera reunión al cierre', serie: [7, 6.2, 6.4, 5.6, 5.2, 4.8, 4.1] },
+      { id: 'costo', titulo: 'Costo por cierre', valor: 'US$410', cambio: '−11%', bueno: true, baja: true, pie: 'Lo invertido en anuncios ÷ los cierres', serie: [6.6, 5.8, 6.1, 4.9, 4.6, 4, 3.4] },
+    ],
+    motivos: { total: 18, filas: [{ clave: 'a', nombre: 'No le alcanzó el presupuesto', n: 7, pct: 39 }, { clave: 'b', nombre: 'Lo va a pensar', n: 6, pct: 33 }, { clave: 'c', nombre: 'Eligió otra opción', n: 3, pct: 17 }] },
+    ventas: {
+      semanas: serie(semanas, (c) => `${Number(c.slice(8, 10))} ${MES[Number(c.slice(5, 7)) - 1].toLowerCase()}`, sem, semB),
+      meses: serie(meses, (c) => MES[Number(c.slice(5, 7)) - 1], mes, mesB),
+    },
+    embudo: [{ nombre: 'Agendaron', n: 120, pasa: '78% vino a la reunión' }, { nombre: 'Vinieron', n: 94, pasa: '76% quedó calificado' }, { nombre: 'Calificados', n: 71, pasa: '35% cerró' }, { nombre: 'Cerraron', n: 25, pasa: null }],
+    hoy: {
+      ahora: 1, hora: '11:10',
+      llamadas: [
+        { id: 'l1', leadId: 1, hora: '9:00', cual: 'R1', nombre: 'Paola Núñez', closer: 'Ana', estado: 'paso', detalle: 'Con Ana · vino' },
+        { id: 'l2', leadId: 2, hora: '12:30', cual: 'R2', nombre: 'Laura Méndez', closer: 'Diego', estado: 'viene', detalle: 'Con Diego' },
+        { id: 'l3', leadId: 3, hora: '15:00', cual: 'R1', nombre: 'Tomás Ibarra', closer: 'Sofía', estado: 'viene', detalle: 'Con Sofía' },
+        { id: 'l4', leadId: 4, hora: '18:00', cual: 'R1', nombre: 'Jorge Salinas', closer: 'Diego', estado: 'viene', detalle: 'Con Diego' },
+      ],
+    },
+    origenes: [
+      { clave: 'meta', nombre: 'Anuncios de Meta', agendas: 14, cierres: 3, tasa: 33, vendido: 48000, bueno: true },
+      { clave: 'ref', nombre: 'Referidos', agendas: 5, cierres: 2, tasa: 50, vendido: 32000, bueno: true },
+      { clave: 'ig', nombre: 'Instagram', agendas: 6, cierres: 1, tasa: 20, vendido: 16000, bueno: false },
+      { clave: 'org', nombre: 'Orgánico', agendas: 2, cierres: 0, tasa: 0, vendido: 0, bueno: false },
+    ],
+    closers: [
+      { clave: 'so', nombre: 'Sofía', tasa: 43, cierres: 3, bueno: true },
+      { clave: 'di', nombre: 'Diego', tasa: 30, cierres: 2, bueno: true },
+      { clave: 'an', nombre: 'Ana', tasa: 17, cierres: 1, bueno: false },
+    ],
+  };
+}
+
 const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<string, DatosPieza>; hoy: string }) => ReactNode> = {
   closing: ({ hoja, datos, hoy }) => (
     // Con sus botones y links, como se ve la hoja (en la miniatura no se tocan: `pointer-events: none`); `quieta` no lee la caja de IA.
@@ -315,6 +429,12 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   ),
   general: ({ hoy }) => (
     <HojaGeneral vista={vistaGeneralMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" onGrilla={() => {}} quieta />
+  ),
+  operacion: ({ hoy }) => (
+    <HojaOperacion vista={vistaOperacionMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" onGrilla={() => {}} quieta />
+  ),
+  comercial: ({ hoja, hoy }) => (
+    <HojaComercial hoja={hoja} vista={vistaComercialMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
   ),
 };
 

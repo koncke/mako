@@ -153,7 +153,7 @@ async function leerCanales(refs: string[]): Promise<Map<string, LeidoRed>> {
     const apunta = apuntaDeRef(ref);
     if (!apunta) return;
     const l = await leerCanalCorto(apunta, clave, fetch).catch(() => null);
-    if (l?.ok) out.set(ref, { nombre: l.canal.nombre || null, texto: l.canal.descripcion, foto: l.canal.foto });
+    if (l?.ok) out.set(ref, { nombre: l.canal.nombre || null, texto: l.canal.descripcion, foto: l.canal.foto, id: l.canal.id || null, seguidores: l.canal.suscriptores });
   }));
   return out;
 }
@@ -163,7 +163,7 @@ async function leerPerfiles(ws: number, usuarios: string[]): Promise<Map<string,
   const out = new Map<string, LeidoRed>();
   const perfiles = await leerPerfilesEnLote(usuarios, { ws, reserva: RESERVA_DEL_ALTA });
   for (const [u, l] of perfiles ?? []) {
-    if (l.ok) out.set(u, { nombre: l.perfil.nombre, texto: [l.perfil.bio, l.perfil.web].filter(Boolean).join(' '), foto: l.perfil.foto });
+    if (l.ok) out.set(u, { nombre: l.perfil.nombre, texto: [l.perfil.bio, l.perfil.web].filter(Boolean).join(' '), foto: l.perfil.foto, id: u.toLowerCase(), seguidores: l.perfil.seguidores ?? null });
   }
   return out;
 }

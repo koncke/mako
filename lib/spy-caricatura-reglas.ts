@@ -180,6 +180,15 @@ export function estadoEnCola(
   return 'pendiente';
 }
 
+/**
+ * ¿Su caricatura se está haciendo AHORA? (4/11/2026; Martín: «si aun no la generó un placeholder que se note que lo está
+ * generando»). Sólo `pendiente`: entró a la cola y nadie falló. Una que falló y espera su reintento, o que se rindió, no dice
+ * «Haciendo…»: muestra su foto, como siempre.
+ */
+export const caricaturaEnCamino = (
+  e: EntradaCaricatura | undefined, c: { avatar?: string | null; referente: boolean }, ahora: number,
+): boolean => estadoEnCola(e, c, ahora) === 'pendiente';
+
 /** Un competidor de un negocio, como lo ve la cola. */
 export type CompetidorCola = CuentaCompetidor & { ws: number; id: number; avatar: string | null; referente: boolean };
 

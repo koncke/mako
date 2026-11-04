@@ -52,12 +52,17 @@ export function TarjetaPieza({ p, analizando = false, onAbrir }: {
   const vistas = contadorDeTarjeta(p.vistas, p.metricas_leidas_en);
   const megusta = contadorDeTarjeta(p.megusta, p.metricas_leidas_en);
   const hayVistas = /^\d/.test(vistas);
+  const hayMeGusta = /^\d/.test(megusta);
+  // ⚠️ LA PÍLDORA LLEVA EL NÚMERO QUE HAY (Martín, con Leila, 4/11/2026: «"No lo publica" y "Publicación · 110…" cortado se ven
+  // mal»). Sus vistas; si no las publica, sus me gusta; si no hay ninguno, no hay píldora. «No lo publica» en una píldora llena
+  // le quitaba el lugar a la línea de al lado, que se cortaba.
+  const numero = hayVistas ? { valor: vistas, titulo: `${vistas} vistas`, icono: 'vistas' as const }
+    : hayMeGusta ? { valor: megusta, titulo: `${megusta} me gusta`, icono: 'megusta' as const } : null;
 
-  // La línea de arriba del pie: sólo lo que existe, separado por puntos medios.
-  const linea = [
-    rotuloDeTipo(p.tipo),
-    /^\d/.test(megusta) ? `${megusta} me gusta` : null,
-  ].filter(Boolean).join(' · ');
+  // La línea de arriba del pie: su tipo y sus me gusta (si no van en la píldora), con un corazón y no «me gusta»: con la píldora
+  // al lado, «Reel · 11 mil me gusta» se cortaba en cualquier ancho. En el teléfono, sólo su tipo (`.spy-pcard__mg`).
+  const tipoDePieza = rotuloDeTipo(p.tipo);
+  const mgDeLinea = hayVistas && hayMeGusta ? `♥ ${megusta}` : null;
 
   const cuerpo = (
     <>
@@ -95,7 +100,7 @@ export function TarjetaPieza({ p, analizando = false, onAbrir }: {
 
       <div className="spy-pcard__pie">
         <div className="spy-pcard__texto">
-          <small>{linea}</small>
+          <small>{tipoDePieza}{mgDeLinea && <span className="spy-pcard__mg"> · {mgDeLinea}</span>}</small>
           {titulo && <b>{titulo}</b>}
         </div>
         {/* ⚠️ EL NÚMERO LLEVA EL PESO QUE LA REFERENCIA LE DA A ESE LUGAR. En `.pcard__buy` de fitlo
@@ -103,16 +108,19 @@ export function TarjetaPieza({ p, analizando = false, onAbrir }: {
             lejos. Lo nuestro era un chip apagado con un rótulo en versalitas: dos tamaños de letra
             para decir un número. Ahora es la píldora llena, en tinta y no en el acento, porque es
             un dato y no una acción; y el ojo dice «vistas» sin gastar un renglón. */}
-        {!esAnuncio && (
-          <span className={hayVistas ? 'spy-pcard__num' : 'spy-pcard__num spy-pcard__num--ausente'}
-            title={hayVistas ? `${vistas} vistas` : vistas}>
-            {hayVistas && (
+        {!esAnuncio && numero && (
+          <span className="spy-pcard__num" title={numero.titulo}>
+            {numero.icono === 'vistas' ? (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                 <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />
                 <circle cx="12" cy="12" r="2.8" />
               </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
+                <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />
+              </svg>
             )}
-            <b>{vistas}</b>
+            <b>{numero.valor}</b>
           </span>
         )}
       </div>

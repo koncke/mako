@@ -23,9 +23,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LogoRed, redDePieza } from './LogoRed';
 import { Dropdown } from '../components/Dropdown';
-import { CargandoMako } from '@/app/_ui/CargandoMako';
+import { EsqueletoFormatos, EsqueletoGrafico } from './Esqueletos';
 import {
-  formatosDe, graficoDe, grupoDe, lecturaDeFormatos, medidaEnElGrafico, muestraDe, numerosDe, opcionesDeGrafico, redesDe, MINIATURAS_POR_GRAFICO,
+  GRUPOS, formatosDe, graficoDe, grupoDe, lecturaDeFormatos, medidaEnElGrafico, muestraDe, numerosDe, opcionesDeGrafico, redesDe, MINIATURAS_POR_GRAFICO,
   type Grupo, type ValorDeGrafico,
 } from '@/lib/spy-detalle';
 import { dibujarContador } from '@/lib/spy-reglas';
@@ -46,7 +46,6 @@ const CSS = `
 .spyg-num span{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spyg-num b{display:block;margin-top:4px;font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spyg-caja{position:relative;border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:16px 16px 12px}
-.spyg-caja[data-cargando=true]{border-color:transparent;background:transparent;box-shadow:none}
 .spyg-caja h3{margin:0 0 4px;font-size:15px;font-weight:700;color:var(--ink)}
 .spyg-pie{margin:8px 0 0;font-size:12px;color:var(--dim)}
 .spyg-plot{position:relative;height:380px;margin-left:44px;margin-bottom:22px}
@@ -70,10 +69,6 @@ const CSS = `
 .spyg-pista{position:relative;height:38px}
 .spyg-pista .spyg-pt{border-radius:6px;top:50%;translate:0 -50%}
 .spyg-mediana{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);border-radius:2px}
-.spyg-vivo{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--dim)}
-.spyg-vivo i{width:7px;height:7px;border-radius:50%;background:var(--primary);animation:spygLatido 1.1s ease-in-out infinite}
-@keyframes spygLatido{50%{opacity:.25}}
-@media (prefers-reduced-motion:reduce){.spyg-vivo i{animation:none}}
 @media (max-width:640px){
   .spyg-plot{height:260px;margin-left:36px}
   .spyg-pt{width:24px;height:24px;border-radius:6px;border-width:1.5px}
@@ -245,7 +240,9 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
   const metricaLarga = nums.metrica === 'vistas' ? 'Vistas' : nums.metrica === 'me gusta' ? 'Me gusta' : 'Días al aire';
   const mejor = filas.find((f) => f.veces >= 1.2) ?? null;
   const numeros = [
-    { k: 'piezas', rot: grupo === 'anuncios' ? 'Anuncios' : 'Piezas', val: String(nums.piezas) },
+    // El rótulo dice QUÉ se cuenta: las del formato elegido («Contenido corto»), no todas sus piezas (Martín vio 181 arriba y 255
+    // abajo, y eran dos preguntas distintas con el mismo nombre).
+    { k: 'piezas', rot: GRUPOS.find((g) => g.value === grupo)?.label ?? 'Piezas', val: String(nums.piezas) },
     ...(nums.total != null ? [{ k: 'total', rot: metricaLarga, val: dibujarContador(nums.total) }] : []),
     ...(nums.mediana != null ? [{ k: 'mediana', rot: nums.metrica === 'días al aire' ? 'Días, la mediana' : 'Mediana', val: dibujarContador(nums.mediana) }] : []),
     ...(mejor ? [{ k: 'funciona', rot: 'Le funciona', val: mejor.rotulo }] : []),
@@ -259,8 +256,10 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
       </div>
 
       {/* ⚠️ EL SELECTOR Y LOS FILTROS VAN ADENTRO DE LA TARJETA DEL GRÁFICO (Martín, 4/11), arriba del dibujo. Y MIENTRAS
-          CARGA, SIN TARJETA: la criatura «directo sobre el gris», sin la caja blanca detrás. */}
-      <section className="spyg-caja" data-cargando={g.puntos.length > 0 && !bajadas} aria-label={`${metricaLarga} por día de publicación`}>
+          CARGA, LA TARJETA CON SU ESQUELETO (Martín, con Leila, 4/11 tarde: «el placeholder típico, con los bloques cargando, no
+          me refiero a mako»): sus líneas y sus miniaturas en gris donde van a ir, con la misma medida (Esqueletos.tsx). La
+          criatura queda para entrar a un competidor (OrdenSpy.tsx). */}
+      <section className="spyg-caja" aria-busy={g.puntos.length > 0 && !bajadas} aria-label={`${metricaLarga} por día de publicación`}>
           <div className="spyg-herr">
             <Dropdown
               ariaLabel="Qué gráfico ver"
@@ -285,7 +284,7 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
               </div>
             )}
           </div>
-        {g.puntos.length > 0 && !bajadas && <CargandoMako que={`lo que publica ${c.nombre}`} alto={380} size={72} />}
+        {g.puntos.length > 0 && !bajadas && <EsqueletoGrafico telefono={telefono} nombre={c.nombre} />}
         {g.puntos.length > 0 && (
           <>
           <div className="spyg-plot" ref={plot} style={bajadas ? undefined : { visibility: 'hidden', position: 'absolute', inset: 0 }}>
@@ -347,7 +346,8 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
           ))}
         </section>
       )}
-      {!filas.length && analizando && <p className="spyg-vivo" aria-live="polite"><i />Analizando sus formatos…</p>}
+      {/* Mientras la IA del negocio lee sus piezas, la sección con su forma; nunca un renglón solo en un hueco (el Cerebro, 4/11). */}
+      {!filas.length && analizando && <EsqueletoFormatos />}
     </div>
   );
 }

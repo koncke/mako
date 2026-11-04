@@ -22,16 +22,22 @@
 import { videosDeGoogle } from './spy-buscar-reglas';
 import { esPendiente, esSinCupo } from './spy-google-corrida';
 import {
-  CANDIDATOS_POR_RED, candidatosDeLaRespuesta, consultaDeRedes, consultaPorUsuario, distanciaHash, enlacesDeHtml, enlacesDelTexto,
+  CANDIDATOS_POR_RED, candidatosDeLaRespuesta, claveDeCanal, consultaDeRedes, consultaPorUsuario, distanciaHash, enlacesDeHtml, enlacesDelTexto,
   esAgregador, loQueEnlaza, nombraA, nombresParecidos, porqueDe, redDeUrl, usuariosParaProbar, veredictoDe,
   type CandidatoRed, type Firma, type RedOtra, type RedesQueYaTiene,
 } from './spy-otras-redes-reglas';
 
 /** Un candidato ya mirado: con su foto para mostrarlo y el porqué de lo que se concluyó. */
-export type CandidatoVerificado = CandidatoRed & { foto: string | null; porque: string };
+export type CandidatoVerificado = CandidatoRed & {
+  foto: string | null; porque: string;
+  /** El id que devolvió la red al leerlo (el `UC…` de un canal, el usuario de un perfil): lo que lo identifica (`claveDeCanal`). */
+  id?: string | null;
+  /** Sus suscriptores o seguidores, para distinguir dos con el mismo nombre. */
+  seguidores?: number | null;
+};
 
 /** Lo que se sabe de un perfil o canal para compararlo: su nombre, su texto (bio, descripción, web) y su foto. */
-export type LeidoRed = { nombre: string | null; texto: string; foto: string | null };
+export type LeidoRed = { nombre: string | null; texto: string; foto: string | null; id?: string | null; seguidores?: number | null };
 
 export type CompetidorCadena = RedesQueYaTiene & { nombre: string; avatar?: string | null; landing_url?: string | null };
 
@@ -110,6 +116,8 @@ export async function cadenaDeRedes(c: CompetidorCadena, deps: DepsCadena): Prom
     return out;
   };
 
+  // El mismo canal por dos refs (`@x` y su `UC…`) es UN canal: se reconoce por el id que devuelve la red (`claveDeCanal`).
+  const canalesVistos = new Set<string>();
   const evaluar = async (cs: CandidatoRed[], extra: { enlaza?: boolean; mismoUsuario?: boolean; soloSiExiste?: boolean; porque?: (k: CandidatoRed) => string }) => {
     const nuevos = cs.filter((k) => falta(k.red) && !seguros.has(k.red) && !vistos.has(clave(k)));
     for (const k of nuevos) vistos.add(clave(k));
@@ -120,7 +128,9 @@ export async function cadenaDeRedes(c: CompetidorCadena, deps: DepsCadena): Prom
       const l = leidos.get(clave(k));
       // Un @ probado a ciegas que no existe no es un candidato.
       if (!l && extra.soloSiExiste) return;
-      const ll = l ?? { nombre: null, texto: '', foto: null };
+      const ll: LeidoRed = l ?? { nombre: null, texto: '', foto: null };
+      const canal = claveDeCanal({ red: k.red, ref: k.ref, id: ll.id });
+      if (canalesVistos.has(canal)) return;
       const firmaK: Firma = k.red === 'youtube' ? { youtube: k.ref } : k.red === 'instagram' ? { instagram: k.ref } : { tiktok: k.ref };
       const nombraAlCompetidor = nombraA(`${ll.texto} ${k.titulo}`, firmaC);
       const loNombraElCompetidor = !!extra.enlaza || nombraA(textoC, firmaK);
@@ -130,9 +140,11 @@ export async function cadenaDeRedes(c: CompetidorCadena, deps: DepsCadena): Prom
       };
       const v = veredictoDe(e);
       if (v === 'no') return;
+      // Se marca recién cuando se muestra: un «no» por un camino no le cierra la puerta al mismo canal por otro con más evidencia.
+      canalesVistos.add(canal);
       const porque = extra.porque?.(k)
         ?? (loNombraElCompetidor ? `Su perfil enlaza a este ${NOMBRE[k.red]}` : nombraAlCompetidor ? `Este ${NOMBRE[k.red]} enlaza a sus otras redes` : porqueDe(e));
-      const vk: CandidatoVerificado = { ...k, titulo: ll.nombre ?? (k.titulo || k.ref), foto: ll.foto, porque };
+      const vk: CandidatoVerificado = { ...k, titulo: ll.nombre ?? (k.titulo || k.ref), foto: ll.foto, porque, id: ll.id ?? null, seguidores: ll.seguidores ?? null };
       if (v === 'es' && !seguros.has(k.red)) seguros.set(k.red, vk);
       else dudosos.push(vk);
     });

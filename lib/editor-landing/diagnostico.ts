@@ -770,6 +770,9 @@ export function contextoDeComentario(c: {
 // EL PROTOCOLO (todos los mensajes llevan `gmDg: 1`):
 //   iframe → padre  { tipo: 'listo', texto, marco }           al arrancar (el padre manda las citas)
 //   iframe → padre  { tipo: 'pinto', texto, marco }           al cargar y dos veces mas: cuanto texto hay
+//                                                              (y desde el 4/11/2026, `muestra` y `titulo`: el
+//                                                              principio del texto y el título, para reconocer una
+//                                                              página de error)
 //                                                              (`marco`: true / false / null, si la página
 //                                                              REAL se deja mostrar adentro de MaKo: lo
 //                                                              decide el server con sus cabeceras)
@@ -941,11 +944,17 @@ export const SCRIPT_DIAGNOSTICO = String.raw`(function () {
       var fuera = c.querySelectorAll('script,style,noscript,template,link,meta');
       for (var i = 0; i < fuera.length; i++) { if (fuera[i].parentNode) fuera[i].parentNode.removeChild(fuera[i]); }
       var t = c.textContent || '';
-      return String(t).replace(/[\s\u00a0]+/g, ' ').trim().length;
+      ULTIMO = String(t).replace(/[\s\u00a0]+/g, ' ').trim();
+      return ULTIMO.length;
     } catch (e) { return -1; }
   }
-  function contarTexto() { enviar({ tipo: 'pinto', texto: cuantoTextoPinto(), marco: MARCO }); }
-  enviar({ tipo: 'listo', texto: cuantoTextoPinto(), marco: MARCO });
+  // Con el conteo, el principio de lo que se ve y el título: «Sus páginas» de Competitors Spy no dibuja la página de error de la
+  // página («500», «Application error»), que también tiene texto (lib/landing-extraer.ts → esPaginaDeError).
+  // (el texto se mide antes de leer la muestra: medir es lo que llena ULTIMO.)
+  var ULTIMO = '';
+  function tituloDe() { try { return String(document.title || '').slice(0, 160); } catch (e) { return ''; } }
+  function contarTexto() { enviar({ tipo: 'pinto', texto: cuantoTextoPinto(), marco: MARCO, muestra: ULTIMO.slice(0, 240), titulo: tituloDe() }); }
+  enviar({ tipo: 'listo', texto: cuantoTextoPinto(), marco: MARCO, muestra: ULTIMO.slice(0, 240), titulo: tituloDe() });
   window.addEventListener('load', contarTexto);
   setTimeout(contarTexto, 1200);
   setTimeout(contarTexto, 3000);

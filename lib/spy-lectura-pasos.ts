@@ -71,3 +71,28 @@ export function canalesALeer(sumadas: ReadonlyArray<{ red: string }>, web?: stri
   if (web) out.push('web');
   return out;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Las frases que rotan mientras un paso tarda (4/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// Martín, con el alta de Leila: «el loader de mako se quedó mucho tiempo en "mirando su instagram", tienes que variar, aunque sea
+// falso, para que le dé al usuario la sensación de que estamos trabajando». El Cerebro: se permiten frases GENÉRICAS de avance,
+// sin afirmar resultados que no pasaron. Cada paso real tiene las suyas (la primera es la de siempre, `TEXTO_PASO`) y cambian
+// cada `CADA_FRASE_MS` mientras el paso sigue; ninguna dice que encontró algo. `inicio` es antes del primer paso.
+
+export const FRASES_DEL_PASO: Record<PasoLectura | 'piezas' | 'inicio', readonly string[]> = {
+  inicio: ['Preparando su ficha…', 'Buscando sus redes…'],
+  instagram: [TEXTO_PASO.instagram, 'Leyendo sus últimas piezas…', 'Mirando sus reels…', 'Contando sus vistas…'],
+  youtube: [TEXTO_PASO.youtube, 'Buscando sus videos…', 'Mirando sus títulos…'],
+  web: [TEXTO_PASO.web, 'Leyendo su oferta…', 'Mirando su funnel…'],
+  piezas: [TEXTO_PASO.piezas, 'Armando el gráfico…'],
+};
+
+/** Cada cuánto cambia la frase de un paso que sigue. */
+export const CADA_FRASE_MS = 3200;
+
+/** La frase de ahora de un paso que lleva `ms` andando. */
+export function fraseDelPaso(paso: PasoLectura | 'piezas' | 'inicio', ms: number): string {
+  const l = FRASES_DEL_PASO[paso];
+  return l[Math.floor(Math.max(0, ms) / CADA_FRASE_MS) % l.length];
+}

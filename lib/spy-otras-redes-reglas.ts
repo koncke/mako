@@ -370,3 +370,47 @@ export function usuariosParaProbar(c: { instagram: string | null; youtube_id: st
   const instagram = c.instagram || !yt ? [] : [...new Set([yt.toLowerCase(), yt.toLowerCase().replace(/-/g, '')].filter((u) => /^[a-z0-9._]{2,30}$/.test(u)))];
   return { youtube, instagram };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Un canal, una pastilla (4/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// Martín, con Federico Cristofari: «2 veces saltó el cartel de YouTube. Eso no debe pasar». El mismo canal llegaba por dos
+// caminos con dos refs (su `@handle` probado a ciegas y su `UC…` del video de Google) y cada uno era un candidato. Lo que lo
+// identifica es el id que DEVUELVE la API al leerlo (`id`), no la ref con la que se pidió.
+
+/** Lo que identifica a un canal: el id leído si lo hay; si no, la ref. Sin mayúsculas. */
+export const claveDeCanal = (k: { red: string; ref: string; id?: string | null }): string =>
+  `${k.red}|${(k.id || k.ref).replace(/^@/, '').toLowerCase()}`;
+
+/** Sin repetidos, en el orden en que llegaron (el primero es el de más evidencia: así los evalúa la cadena). */
+export function sinCanalesRepetidos<T extends { red: string; ref: string; id?: string | null }>(lista: readonly T[]): T[] {
+  const vistos = new Set<string>();
+  const out: T[] = [];
+  for (const k of lista) {
+    const clave = claveDeCanal(k);
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+    out.push(k);
+  }
+  return out;
+}
+
+/** El orden en que se pregunta: lo que más importa primero (su YouTube y su Instagram traen piezas; TikTok sólo se muestra). */
+const ORDEN_DE_RED: Record<string, number> = { youtube: 0, instagram: 1, tiktok: 2 };
+
+/**
+ * La pregunta de ahora: UNA sola pastilla de «¿Es su…?» en la fila de la miga, la más probable, y cuántas más hay para «Ver otro»
+ * (Martín, con Federico Cristofari: dos pastillas iguales, y la segunda partía la fila). Primero su YouTube, después su Instagram,
+ * y dentro de cada red en el orden en que llegaron (el primero es el de más evidencia: así los evalúa la cadena). `vuelta` es
+ * cuántas veces se tocó «Ver otro»: da la vuelta. «No es» saca la de ahora y aparece la siguiente.
+ */
+export function preguntaDeAhora<T extends { red: string; ref: string; id?: string | null }>(
+  lista: readonly T[], vuelta = 0,
+): { k: T; otros: number } | null {
+  const todas = sinCanalesRepetidos(lista)
+    .map((k, i) => ({ k, i }))
+    .sort((a, b) => (ORDEN_DE_RED[a.k.red] ?? 9) - (ORDEN_DE_RED[b.k.red] ?? 9) || a.i - b.i)
+    .map((x) => x.k);
+  if (!todas.length) return null;
+  return { k: todas[((vuelta % todas.length) + todas.length) % todas.length], otros: todas.length - 1 };
+}

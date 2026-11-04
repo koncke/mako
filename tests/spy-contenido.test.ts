@@ -3,7 +3,8 @@
 // =============================================================================
 // Pedido de Martín (por el Cerebro, 4/11): sólo dos pestañas; el selector y los filtros adentro de la tarjeta del
 // gráfico; cada miniatura con su proporción real (reel vertical, imagen cuadrada, YouTube apaisado), en el gráfico y en
-// las tarjetas; sin «Revisar ahora»; sin textos que narran lo que ya se ve; y la criatura sin la tarjeta blanca detrás.
+// las tarjetas; sin «Revisar ahora»; sin textos que narran lo que ya se ve. Mientras carga, la tarjeta con su esqueleto (Martín,
+// 4/11 tarde: «el placeholder típico, con los bloques cargando, no me refiero a mako»; reemplaza la criatura sin tarjeta).
 //
 // PROBADO ROMPIÉNDOLO (4/11/2026), una rotura por vez y restaurada, base en verde (qué tests caen):
 //   · `proporcionDe` con todo cuadrado                         → 1
@@ -11,7 +12,7 @@
 //   · vuelve una tercera pestaña                               → 2
 //   · vuelve el botón «Revisar ahora»                          → 2
 //   · el selector afuera de la tarjeta del gráfico             → 3
-//   · la tarjeta del gráfico sin `data-cargando`               → 3
+//   · el gráfico que vuelve a la criatura mientras carga       → 3
 //   · las tarjetas de piezas sin su proporción                 → 3
 //   · la ficha con la caricatura en vez de su foto             → 4
 // Correr: node --import tsx --test tests/spy-contenido.test.ts
@@ -50,13 +51,14 @@ test('2. dos pestañas, «Contenido» y «Funnel», y sin «Revisar ahora»', ()
   assert.doesNotMatch(codigo, /activa === '(grafico|publica|miniaturas|oferta|sitio|anuncios)'/);
 });
 
-test('3. el selector y los filtros adentro de la tarjeta del gráfico; sin tarjeta mientras carga; las tarjetas con su proporción', () => {
+test('3. el selector y los filtros adentro de la tarjeta del gráfico; su esqueleto mientras carga; las tarjetas con su proporción', () => {
   const g = sinComentarios(leer('app/competitor-spy/GraficoSpy.tsx'));
-  const caja = g.indexOf('<section className="spyg-caja" data-cargando={g.puntos.length > 0 && !bajadas}');
+  const caja = g.indexOf('<section className="spyg-caja" aria-busy={g.puntos.length > 0 && !bajadas}');
   assert.ok(caja > 0, 'la tarjeta del gráfico dice si está cargando');
   const herr = g.indexOf('<div className="spyg-herr">');
   assert.ok(herr > caja && herr < g.indexOf('</section>', caja), 'el selector va adentro de la tarjeta');
-  assert.match(g, /\.spyg-caja\[data-cargando=true\]\{border-color:transparent;background:transparent;box-shadow:none\}/);
+  assert.match(g, /\{g\.puntos\.length > 0 && !bajadas && <EsqueletoGrafico telefono=\{telefono\} nombre=\{c\.nombre\} \/>\}/, 'su esqueleto adentro de la tarjeta');
+  assert.doesNotMatch(g, /CargandoMako/, 'la criatura queda para entrar a un competidor');
   assert.doesNotMatch(g, /Cada miniatura es/);
   assert.match(g, /const m = medidaEnElGrafico\(p, telefono \? 30 : 42\);/);
   const t = sinComentarios(leer('app/competitor-spy/TarjetaPieza.tsx'));

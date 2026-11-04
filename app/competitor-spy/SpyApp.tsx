@@ -68,6 +68,7 @@ import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { LogoRed } from './LogoRed';
 import { OtrasRedes, type BusquedaDeRedes } from './OtrasRedes';
+import { sinCanalesRepetidos } from '@/lib/spy-otras-redes-reglas';
 import { BotonRecorrido, Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
 import { PASOS_SPY, RECORRIDO_SPY } from './recorrido-spy';
 import type { Sugerido } from '@/lib/spy-sugeridos';
@@ -201,6 +202,8 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-riel{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
 
 /* --- Volver a todos: un botón de verdad, con la flecha y las caras de los demás (4/11/2026). --- */
+.spy-sin-anuncios{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.spy-sin-anuncios a{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:2px}
 .spy-volver{display:flex;align-items:center;gap:10px;min-width:0;margin:6px 0 18px;flex-wrap:wrap}
 .spy-volver__grupo{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap}
 .spy-volver__ayuda{margin-left:auto;display:flex}
@@ -233,6 +236,8 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-kpi{display:flex;flex-direction:column;min-height:98px;padding:16px 18px 14px;border-radius:var(--r-lg);
   background:var(--t1);color:var(--t-ink);overflow:hidden}
 .spy-kpi:nth-child(2){background:var(--t2)}
+/* Una cantidad impar: la última ocupa la fila entera, sin hueco al lado. */
+.spy-kpi:last-child:nth-child(odd){grid-column:1/-1}
 .spy-kpi:nth-child(3){background:var(--t3)}
 .spy-kpi:nth-child(4){background:var(--t4)}
 .spy-kpi b{display:flex;align-items:center;gap:8px;color:var(--t-dim);font-size:var(--fs-sm);font-weight:600}
@@ -296,8 +301,13 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-pcard__media{position:relative;display:block;aspect-ratio:4/5;overflow:hidden}
 /* La foto va ENCIMA del texto, no en vez del texto: si no carga, se borra y abajo queda el texto. */
 .spy-pcard__foto{position:absolute;inset:0;z-index:1;display:block;width:100%;height:100%;object-fit:cover}
-.spy-pcard__texto-creativo{position:absolute;inset:0;display:block;padding:18px 18px 22px;color:var(--t-ink);
-  font-size:var(--fs-sm);line-height:1.45;overflow:hidden}
+/* ⚠️ EL TEXTO DE UNA PUBLICACIÓN SIN FOTO NO VA DEBAJO DE LOS CHIPS (Martín, con Leila, 4/11/2026: «el chip "Analizando…" tapa el
+   nombre» y «"Hace 2 d" tapa el texto de la pieza»). Arranca debajo de la fila del punto y de «Analizando…», y se desvanece antes
+   de las píldoras de abajo (hasta dos apiladas: 70 px). */
+.spy-pcard__texto-creativo{position:absolute;inset:0;display:block;padding:46px 18px 0;color:var(--t-ink);
+  font-size:var(--fs-sm);line-height:1.45;overflow:hidden;
+  -webkit-mask-image:linear-gradient(#000 calc(100% - 78px),transparent calc(100% - 50px));
+  mask-image:linear-gradient(#000 calc(100% - 78px),transparent calc(100% - 50px))}
 .spy-pcard__puntos{position:absolute;z-index:2;top:16px;left:14px;display:flex}
 .spy-pcard__puntos i{width:18px;height:18px;border-radius:50%;
   box-shadow:0 0 0 2px var(--surface),inset 0 0 0 1px #0000001f}
@@ -338,7 +348,18 @@ button.spy-campo:hover{color:var(--dim)}
    primera versión le ponía a la caricatura un 10 % de aire y «contain» para que se leyera como
    dibujo: se veía chica y con un marco que nadie pidió. Caricatura y foto se dibujan IGUAL. */
 .spy-ccard__cara img{display:block;width:100%;height:100%;object-fit:cover;
-  animation:spy-flota 7s ease-in-out infinite;animation-delay:var(--flote,0s);will-change:transform}
+  animation:spy-cara-entra .7s ease-out both,spy-flota 7s ease-in-out infinite;animation-delay:0s,var(--flote,0s);will-change:transform}
+@keyframes spy-cara-entra{from{opacity:0}to{opacity:1}}
+/* Su caricatura se está haciendo: su foto suavizada, un brillo que pasa y el rótulo abajo. */
+.spy-ccard__cara[data-haciendo] img{filter:blur(5px) saturate(.75);transform:scale(1.08)}
+.spy-ccard__cara[data-haciendo]::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.38) 50%,transparent 70%);background-size:250% 100%;
+  animation:spy-cara-brillo 1.8s ease-in-out infinite}
+@keyframes spy-cara-brillo{from{background-position:120% 0}to{background-position:-120% 0}}
+.spy-ccard__haciendo{position:absolute;left:10px;right:10px;bottom:10px;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  height:32px;padding:0 12px;border-radius:99px;background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--ink);
+  font-size:var(--fs-sm);font-weight:600;box-shadow:var(--sombra-tarjeta)}
+.spy-ccard__haciendo i{width:12px;height:12px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--ink);animation:spy-redes-gira .8s linear infinite}
 /* ⚠️ LA TARJETA SE MUEVE SOLA. Martín, 2/11/2026: «que las tarjetas tengan algún tipo de animación,
    que la figura se mueva o que parpadee, o que digamos flote». Flota: es lo único que se puede
    mirar diez minutos sin molestar — un parpadeo en una rejilla de veinticinco tarjetas es un
@@ -355,6 +376,7 @@ button.spy-campo:hover{color:var(--dim)}
 /* El que no quiere movimiento no lo tiene: no es un adorno opcional, es una preferencia del sistema. */
 @media (prefers-reduced-motion:reduce){
   .spy-ccard__cara img{animation:none}
+  .spy-ccard__cara[data-haciendo]::after,.spy-ccard__haciendo i{animation:none}
   .spy-ccard:hover .spy-ccard__cara img{transform:none}
   .spy-ccard{transition:none}
   .spy-ccard:hover{transform:none}
@@ -372,8 +394,11 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-trayendo{display:inline-flex;align-items:center;gap:7px;color:var(--faint);font-size:var(--fs-meta);font-weight:600}
 .spy-trayendo i{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:spy-latido 1.4s ease-in-out infinite}
 @keyframes spy-latido{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
-.spy-pgrid--ancha{gap:16px}
-.spy-pgrid__celda{min-width:0;display:flex}
+/* ⚠️ CADA TARJETA MIDE LO SUYO (Martín, con Leila: la tarjeta se estiraba con un bloque crema enorme debajo). Una fila de
+   alturas distintas (un reel 9:16 al lado de un video 16:9) estiraba a todas a la más alta; ahora cada celda va arriba
+   (align-self: start) con su altura, y el hueco que queda es del fondo de la página, no de la tarjeta. */
+.spy-pgrid--ancha{gap:16px;align-items:start}
+.spy-pgrid__celda{min-width:0;display:flex;align-self:start}
 .spy-pgrid__celda > *{flex:1;min-width:0}
 .spy-paginas{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:20px;flex-wrap:wrap}
 .spy-paginas__cuenta{color:var(--faint);font-size:var(--fs-sm);font-weight:600;font-variant-numeric:tabular-nums}
@@ -459,22 +484,25 @@ button.spy-campo:hover{color:var(--dim)}
    debajo de la pantalla. Ahora: el alto de los botones de la miga (40 px), lo que no entra se corta con «…», y cada pastilla
    ocupa el lugar libre de la fila; sólo con muchas baja de renglón. --- */
 .spy-migas .spy-migas-accion{margin-left:auto;color:var(--accent)}
-.spy-redes{display:contents}
-.spy-redes-fila{display:inline-flex;align-items:center;gap:8px;height:40px;max-width:100%;min-width:0;padding:0 4px 0 6px;
+.spy-redes{display:flex;align-items:center;gap:10px;min-width:0;flex:0 1 auto}
+.spy-redes-fila{display:inline-flex;align-items:center;gap:8px;height:40px;max-width:100%;min-width:0;flex:0 1 auto;padding:0 4px 0 6px;
   border-radius:99px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);font-size:var(--fs-sm);
   animation:spy-redes-entra .32s cubic-bezier(.2,.8,.2,1) both}
 @keyframes spy-redes-entra{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.spy-redes-fila{animation:none}}
-.spy-redes-logo{display:inline-flex;flex:0 0 auto}
-.spy-redes-cara{width:24px;height:24px;margin-left:-12px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:var(--surface-2);
+.spy-redes-cara{position:relative;display:inline-flex;width:28px;height:28px;flex:0 0 auto}
+.spy-redes-cara img{width:28px;height:28px;border-radius:50%;object-fit:cover;background:var(--surface-2)}
+.spy-redes-cara[data-con-foto='si'] .spy-redes-logo{position:absolute;right:-4px;bottom:-3px;display:inline-flex;border-radius:5px;
   box-shadow:0 0 0 2px var(--surface)}
+.spy-redes-cara[data-con-foto='no'] .spy-redes-logo{display:inline-flex;margin:2px}
 .spy-redes-texto{display:flex;align-items:center;gap:6px;min-width:0;max-width:340px;white-space:nowrap}
 .spy-redes-texto b{flex:0 0 auto;font-weight:600;color:var(--ink)}
-.spy-redes-texto a{display:inline-flex;align-items:center;gap:3px;min-width:0;color:var(--dim);font-weight:600;text-decoration:none}
+.spy-redes-texto a{display:inline-flex;align-items:center;gap:3px;min-width:72px;flex:0 1 auto;color:var(--dim);font-weight:600;text-decoration:none}
 .spy-redes-texto a span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .spy-redes-texto a svg{flex:0 0 auto;opacity:.7}
 .spy-redes-texto a:hover{color:var(--ink);text-decoration:underline}
-.spy-redes-texto small{flex:0 0 auto;color:var(--faint);font-size:12px}
+/* Lo primero que cede es el detalle (suscriptores, el porqué): su nombre se lee siempre. */
+.spy-redes-texto small{flex:0 100 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--faint);font-size:12px}
 .spy-redes-fila[data-red='youtube']{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--yt) 28%,var(--border))}
 .spy-redes-fila[data-red='instagram']{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ig) 28%,var(--border))}
 .spy-redes-trae{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 4px;color:var(--dim);font-size:var(--fs-sm);
@@ -484,7 +512,10 @@ button.spy-campo:hover{color:var(--dim)}
 @keyframes spy-redes-gira{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spy-redes-trae i{animation:none}}
 .spy-redes-fila .spy-boton{height:32px;padding:0 12px;flex:0 0 auto}
-@media (max-width:560px){.spy-redes-fila{width:100%}.spy-redes-texto{flex:1 1 auto;max-width:none}.spy-redes-texto small{display:none}}
+/* La fila de la miga NO se parte en la computadora (Martín, con Federico Cristofari: la segunda pastilla bajaba de renglón y empujaba
+   el «?» y las pestañas): las pastillas se achican (su nombre con «…») y el «?» queda al final. En el teléfono, cada una en su renglón. */
+@media (min-width:561px){.spy-volver{flex-wrap:nowrap}.spy-volver__grupo{flex:0 0 auto}}
+@media (max-width:560px){.spy-redes{flex-wrap:wrap;width:100%}.spy-redes-fila{width:100%}.spy-redes-texto{flex:1 1 auto;max-width:none}.spy-redes-texto small{display:none}}
 .spy-aviso--suave{background:none;padding:0;color:var(--dim)}
 .spy-vermas{display:flex;justify-content:center;margin:18px 0 6px}
 .spy-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
@@ -549,6 +580,7 @@ button.spy-campo:hover{color:var(--dim)}
   .spy-cuerpo{padding:8px 14px 32px}
   .spy-pgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
   .spy-pcard__pie{padding:10px 11px 12px 12px}
+  .spy-pcard__mg{display:none}
   .spy-pcard__texto b{font-size:var(--fs-sm)}
   .spy-pcard__num{padding:4px 9px}
   .spy-pcard__num small{display:none}
@@ -673,6 +705,7 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
         {competidores.map((c, i) => {
           const r = resumen[c.id];
           const cara = caraDeTarjeta(c, caricaturaDeCompetidor(c));
+          const haciendo = !!c.caricaturaPendiente && !c.caricatura;
           // Los competidores que YA estaban se guardaron con lo que se pegó —un @, el id de un
           // canal—, y esas filas no se arreglan solas: se eligió mostrar su nombre de verdad en vez
           // de reescribirle un dato al negocio.
@@ -690,13 +723,17 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
                 onAbrir(c.id, r ? { left: r.left, top: r.top, width: r.width, height: r.height } : undefined);
               }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(c.id); } }}>
-              <span className="spy-ccard__cara" style={{ '--flote': flote } as CSSProperties} aria-hidden>
+              <span className="spy-ccard__cara" style={{ '--flote': flote } as CSSProperties} data-haciendo={haciendo || undefined}>
                 {/* ⚠️ LA CARICATURA PRIMERO (4/11/2026): la que hizo el Runner, después la dibujada de un referente, y recién
-                    sin ninguna su foto (`caraDeTarjeta`). Sin la caricatura NO hay cartel ni spinner: la foto y listo. */}
+                    sin ninguna su foto (`caraDeTarjeta`).
+                    ⚠️ Y MIENTRAS SE HACE, SE NOTA (Martín, 4/11 tarde: «si aun no la generó un placeholder que se note que lo está
+                    generando»; antes, por pedido suyo del 2/11, no había cartel: la foto y listo). Su foto suavizada con un brillo que
+                    pasa, y «Haciendo su caricatura…». Cuando llega, entra sola con un fundido (`key` = la imagen nueva), sin recargar. */}
                 {cara
                   // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public, no pasa por el optimizador
-                  ? <img src={cara} alt="" loading="lazy" onError={(e) => { caerAFoto(e.currentTarget, c.avatar); }} />
-                  : inicial(c.nombre)}
+                  ? <img key={cara} src={cara} alt="" loading="lazy" onError={(e) => { caerAFoto(e.currentTarget, c.avatar); }} />
+                  : <span aria-hidden>{inicial(c.nombre)}</span>}
+                {haciendo && <span className="spy-ccard__haciendo" role="status"><i aria-hidden />Haciendo su caricatura…</span>}
               </span>
               <div className="spy-ccard__cuerpo">
                 <span>
@@ -883,6 +920,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [trayendoTodo, setTrayendoTodo] = useState<number | null>(null);
   /** Por qué la traída larga no trajo todo, por competidor (4/11/2026: «si una corrida larga no terminó, la pantalla lo dice»). */
   const [avisoTodo, setAvisoTodo] = useState<Record<number, string>>({});
+  /** Los que no pautan: se probaron todas sus búsquedas en la Biblioteca y no hay anuncios suyos. La fecha en que se miró. */
+  const [sinAnuncios, setSinAnuncios] = useState<Record<number, string>>({});
   /** Cuántas tarjetas se dibujan: con cientos de piezas, de a 60 (una grilla de 500 imágenes traba la pantalla). */
   const [lecturas, setLecturas] = useState<Record<number, LecturaCanalSpy[]>>({});
   const [error, setError] = useState<string | null>(errorInicial);
@@ -911,6 +950,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [redes, setRedes] = useState<Record<number, BusquedaDeRedes>>({});
   /** Los canales recién sumados que se están trayendo: su pastilla dice «Trayendo…» hasta que lleguen sus piezas. */
   const [trayendoRedes, setTrayendoRedes] = useState<Record<number, readonly PasoLectura[]>>({});
+  /** El competidor que se acaba de agregar y todavía no se leyó: su ficha abre con el loader puesto (`abrirRecienAgregado`). */
+  const altaEnCurso = useRef<number | null>(null);
 
   // Qué ficha está abierta AHORA: una lectura que tarda no puede pisar la de otro competidor.
   const actual = useRef(elegido);
@@ -943,6 +984,37 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     if (r.ok) { setCompetidores(r.competidores); setResumen(r.resumen); }
     return r.ok ? r.competidores : null;
   }, []);
+
+  // ── Las caricaturas que se están haciendo, sin recargar (4/11/2026; Martín: «sí o sí tengo que refrescar la página, no
+  // debería»). Mientras alguna está en camino, se pregunta por una RUTA (no una action: haría fila detrás de una lectura) cada
+  // pocos segundos, y la nueva entra sola en su tarjeta con un fundido. Llegadas todas, deja de preguntar. Con la pestaña
+  // escondida no pregunta; a los ~40 minutos se rinde (la próxima apertura la trae).
+  const enCamino = competidores.filter((x) => x.caricaturaPendiente && !x.caricatura).map((x) => x.id).join(',');
+  useEffect(() => {
+    if (!enCamino) return;
+    let vivo = true;
+    let vueltas = 0;
+    let t: ReturnType<typeof setTimeout>;
+    const vuelta = async () => {
+      if (!vivo) return;
+      if (document.visibilityState === 'visible') {
+        type R = { ok: boolean; caras?: Array<{ id: number; caricatura: string | null; pendiente: boolean }> };
+        const r: R | null = await fetch('/api/competitor-spy/caricaturas', { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
+          .then((x) => x.json() as Promise<R>).catch(() => null);
+        if (!vivo) return;
+        if (r?.ok && r.caras) {
+          const caras = new Map(r.caras.map((k) => [k.id, k]));
+          setCompetidores((v) => (v.some((x) => { const k = caras.get(x.id); return !!k && (k.caricatura !== (x.caricatura ?? null) || k.pendiente !== !!x.caricaturaPendiente); })
+            ? v.map((x) => { const k = caras.get(x.id); return k ? { ...x, caricatura: k.caricatura, caricaturaPendiente: k.pendiente } : x; })
+            : v));
+        }
+      }
+      vueltas += 1;
+      if (vueltas < 150) t = setTimeout(() => { void vuelta(); }, vueltas < 40 ? 5_000 : 20_000);
+    };
+    t = setTimeout(() => { void vuelta(); }, 5_000);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [enCamino]);
 
   const traerPiezas = useCallback(async (id: number) => {
     const p = await piezasAction(id);
@@ -1020,14 +1092,20 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     const ini = inicialesDePiezas.current?.id === id ? inicialesDePiezas.current : null;
     inicialesDePiezas.current = null;
     if (!ini) setPiezas([]);
-    setError(null); setBuscar(''); setTipo('todo'); setPestana('contenido'); setTrayendo(!ini); setOrdenando(null);
+    // El loader del alta ya está puesto (`abrirRecienAgregado`): no se saca, o se ve un cuadro del detalle antes de él.
+    const esAlta = altaEnCurso.current === id;
+    setError(null); setBuscar(''); setTipo('todo'); setPestana('contenido'); setTrayendo(!ini);
+    setOrdenando((v) => (esAlta && v?.id === id ? v : null));
     void (async () => {
       const p = ini ? ini.piezas : await traerPiezas(id);
       if (!vivo) return;
       setTrayendo(false);
       setFichaLista(id);
       const quien = listaActual.current.find((x) => x.id === id);
-      if (quien && debeLeerAlAbrir(quien, p?.length ?? 0, yaLeidos.current.has(id))) await leer(id, !p?.length).catch(() => undefined);
+      // Recién agregado, con `'alta'`: sirve la lectura que ya pagó otro negocio (ítem 13).
+      if (quien && debeLeerAlAbrir(quien, p?.length ?? 0, yaLeidos.current.has(id))) await leer(id, esAlta || !p?.length, esAlta ? 'alta' : undefined).catch(() => undefined);
+      else if (esAlta) setOrdenando((v) => (v?.id === id && !v.piezas ? null : v));
+      if (altaEnCurso.current === id) altaEnCurso.current = null;
       else {
         if (p && cuantasFaltan(p)) void analizarSolo(id);
         void traerTodo(id);
@@ -1054,10 +1132,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     return () => window.removeEventListener('popstate', alVolver);
   }, []);
 
-  const irA = useCallback((id: number | null, origen?: Caja) => {
+  // `alta`: un competidor recién agregado no tiene tarjeta de donde salir; lo primero que se ve es el loader de su lectura
+  // (`abrirRecienAgregado`), no la entrada de su caricatura.
+  const irA = useCallback((id: number | null, origen?: Caja, o?: { alta?: boolean }) => {
     setElegido(id);
     setFichaLista(null);
-    setEntrada(id != null && !quieto() ? { id, origen: origen ?? null, fase: 'esperando' } : null);
+    setEntrada(id != null && !quieto() && !o?.alta ? { id, origen: origen ?? null, fase: 'esperando' } : null);
     // El detalle abierto es de una pieza del que se deja: se cierra, y el otro abre en su gráfico.
     setAbierta(null);
     setPaginaElegida(null);
@@ -1069,13 +1149,20 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   }, []);
 
   const abrirRecienAgregado = async (id: number) => {
+    // ⚠️ DIRECTO AL LOADER (4/11/2026; Martín, con el alta de Leila: «por un momento me aparecieron los bloques del detail en
+    // lugar del loader de mako directamente»). El loader se pone ANTES de navegar, y la ficha lo encuentra puesto: no hay un
+    // solo cuadro del detalle entre el «Agregar» y MaKo leyendo.
+    // Primero la lista (la ficha necesita a su competidor) y después, en el MISMO tick, el loader y la navegación: React los
+    // dibuja juntos, así que el primer cuadro de la ficha ya es el loader.
     await recargarLista();
+    if (!quieto()) setOrdenando({ id, piezas: null });
+    setPasosLectura({ id, pasos: [] });
     // Se lee aunque la ficha ya estuviera abierta: puede haber sumado un canal.
     yaLeidos.current.delete(id);
     // Recién agregado: va con motivo `'alta'`, que es donde el ítem 13 ahorra de verdad — si otro
     // negocio ya leyó este canal hace poco, no se gasta un crédito en volver a leerlo.
     if (actual.current === id) void leer(id, true, 'alta');
-    else irA(id);
+    else { altaEnCurso.current = id; irA(id, undefined, { alta: true }); }
   };
 
   /** Lee SÓLO los canales recién sumados (ver `buscarRedes`), con su pastilla en «Trayendo…», y una vez más si se cortó. */
@@ -1107,7 +1194,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     setRedes((v) => ({
       ...v,
       [id]: r.ok
-        ? { buscando: false, sumadas: [...(v[id]?.sumadas ?? []).filter((k) => !r.sumadas.some((x) => x.red === k.red && x.ref === k.ref)), ...r.sumadas], candidatos: r.candidatos }
+        ? {
+          buscando: false,
+          sumadas: sinCanalesRepetidos([...r.sumadas, ...(v[id]?.sumadas ?? [])]),
+          // Sin repetidos y sin preguntar por una red que ya se sumó (Martín, con Federico Cristofari: «2 veces saltó el cartel de
+          // YouTube. Eso no debe pasar»).
+          candidatos: sinCanalesRepetidos(r.candidatos).filter((k) => ![...r.sumadas, ...(v[id]?.sumadas ?? [])].some((x) => x.red === k.red)),
+        }
         : { buscando: false, sumadas: v[id]?.sumadas ?? [], candidatos: [] },
     }));
     if (sigue) setTimeout(() => { if (actual.current === id) void buscarRedes(id, vuelta + 1); }, ESPERA_REDES_MS);
@@ -1174,7 +1267,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
    * Apify que empieza el servidor y no se espera (/api/competitor-spy/todo). Si está en marcha, se vuelve a preguntar.
    */
   const traerTodo = useCallback(async (id: number) => {
-    type Resp = { ok: boolean; enMarcha?: boolean; nuevas?: number; porque?: string };
+    type Resp = { ok: boolean; enMarcha?: boolean; nuevas?: number; porque?: string; anuncios?: 'no-pauta'; anunciosMirados?: string };
     const r: Resp = await fetch('/api/competitor-spy/todo', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(65_000),
     }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false }));
@@ -1182,6 +1275,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     // El motivo, en palabras: antes se tiraba y la ficha quedaba con lo de la lectura de siempre sin decir por qué.
     const aviso = !r.ok ? null : avisoDeTraida(r.porque, { admin: puedeBorrar });
     setAvisoTodo((v) => { const n = { ...v }; if (aviso) n[id] = aviso; else delete n[id]; return n; });
+    if (r.ok) setSinAnuncios((v) => { const n = { ...v }; if (r.anuncios === 'no-pauta' && r.anunciosMirados) n[id] = r.anunciosMirados; else delete n[id]; return n; });
     return r;
   }, [puedeBorrar]);
 
@@ -1467,7 +1561,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   // Las celdas pastel del riel. Un contador ausente NO es cero: sin dato no hay celda.
   const rc = c ? resumen[c.id] : undefined;
   const celdas = c ? [
-    ...(rc && rc.vivas > 0 ? [{ k: 'vivas', rot: 'Piezas', val: String(rc.vivas), pie: 'publicadas' }] : []),
+    // ⚠️ SIN «PIEZAS · N PUBLICADAS» (Martín, 4/11/2026: «hay 2 bloques de "Piezas", no necesitamos 2... Quita el que está abajo
+    // del perfil»). Contaba TODAS sus piezas (255 en Den Borg) y el de arriba, las del formato elegido (181): el de arriba queda, con
+    // el nombre del formato como rótulo (GraficoSpy.tsx).
     ...(rc && rc.idas > 0 ? [{ k: 'idas', rot: 'Borradas', val: String(rc.idas), pie: 'las bajó' }] : []),
     ...(c.instagram_seguidores != null ? [{ k: 'ig', rot: 'Seguidores', val: dibujarContador(c.instagram_seguidores), pie: 'en Instagram' }] : []),
     ...(c.youtube_suscriptores != null ? [{ k: 'yt', rot: 'Suscriptores', val: dibujarContador(c.youtube_suscriptores), pie: 'en YouTube' }] : []),
@@ -1762,6 +1858,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                           {trayendoTodo === c.id && <span className="spy-trayendo" aria-live="polite"><i aria-hidden />Trayendo más</span>}
                         </div>
                         {trayendoTodo !== c.id && avisoTodo[c.id] && <p className="spy-aviso spy-aviso--suave" aria-live="polite">{avisoTodo[c.id]}</p>}
+                        {/* ⚠️ NO PAUTAR ES UN DATO, NO UN ERROR (el Cerebro, 4/11/2026): se probaron todas sus búsquedas y no hay anuncios
+                            suyos. Se dice en el lugar de sus anuncios, con la Biblioteca a un clic, sin cartel. */}
+                        {!anuncios.length && sinAnuncios[c.id] && (
+                          <p className="spy-aviso spy-aviso--suave spy-sin-anuncios">
+                            <Icon name="ads" size={14} />Sin anuncios activos en Meta · lo miré el {fechaCorta(sinAnuncios[c.id])}
+                            <a href={enlaceSusAnuncios(c)} target="_blank" rel="noreferrer noopener">Ver la Biblioteca</a>
+                          </p>
+                        )}
                         {/* La barra de herramientas de fitlo: campo ancho, el tipo (los anuncios son uno más) y el orden a la derecha. */}
                         <div className="spy-herramientas">
                           <label className="spy-buscar">

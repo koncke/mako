@@ -1,0 +1,177 @@
+<!doctype html>
+<!-- OPERACIÓN DIARIA (MOORLY) · PASO 1: LA COPIA EXACTA de la página «Desk» de Moorly (4/11/2026), con los textos del demo.
+     Escrita desde lo MEDIDO (demos/moorly/captura/valores.json, las capturas y el INFORME); nada del código de la tienda.
+     Sin el cartel «BUY THIS TEMPLATE» ni las fotos de la tienda. La adaptación a MaKo (mako.html) usa la MISMA hoja. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Moorly · Desk (copia)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="moorly.css">
+</head><body>
+<svg class="sea" viewBox="0 0 1440 900" preserveAspectRatio="none" aria-hidden="true">
+  <path d="M0 440 C 300 424 620 404 940 410 S 1300 448 1440 454 L1440 900 L0 900Z" fill="var(--w1)" stroke="var(--crest)" stroke-width="2"/>
+  <path d="M0 569 C 320 552 640 528 950 532 S 1300 570 1440 575 L1440 900 L0 900Z" fill="var(--w2)" stroke="var(--crest)" stroke-width="2"/>
+  <path d="M0 665 C 300 676 640 690 952 683 S 1300 640 1440 635 L1440 900 L0 900Z" fill="var(--w3)" stroke="var(--crest)" stroke-width="2"/>
+  <path d="M0 769 C 320 790 660 812 952 811 S 1300 782 1440 777 L1440 900 L0 900Z" fill="var(--w4)" stroke="var(--crest)" stroke-width="2"/>
+</svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-anchor" viewBox="0 0 24 24"><path d="M12 7v13M8 11h8M5 14c0 3.5 3 6 7 6s7-2.5 7-6M12 3.5a2 2 0 1 0 0 4a2 2 0 1 0 0-4"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M5 20V10l7-5 7 5v10zM10 20v-5h4v5"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M4 13l2.5-7h11l2.5 7v6H4zM4 13h5l1 2h4l1-2h5"/></symbol>
+  <symbol id="i-renew" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2-5M19 4v4h-4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M4 7h6l2 2h8v10H4z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.5l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9v-5zM9 12l2 2 4-4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 4h7l4 4v12H7zM10 12h5M10 15h5M10 9h2"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 10l6 6 6-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 10a5.5 5.5 0 0 1 11 0c0 5 2 6.5 2 6.5h-15s2-1.5 2-6.5M10 19.5a2.2 2.2 0 0 0 4 0"/></symbol>
+  <symbol id="i-board" viewBox="0 0 24 24"><path d="M5 5h4v14H5zM10 5h4v9h-4zM15 5h4v6h-4z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M20 4L9.5 14.5M20 4l-6.5 16-4-5.5L4 10.5z"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M4 10h16M8 3.5v4M16 3.5v4"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4zM9 9h6M9 12h4"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M7 4h7l4 4v12H7zM14 4v4h4M10 13h4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4 4 10-10"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><path d="M5 5h5v5H5zM14 5h5v5h-5zM5 14h5v5H5zM14 14h5v5h-5z"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="top__row">
+    <a class="brand" href="#"><span class="brand__mark"><svg class="i" style="width:20px;height:20px"><use href="#i-anchor"/></svg></span><span><b>Moorly</b><small>Saltgate Marine · broker portal</small></span></a>
+    <nav class="mainnav">
+      <a href="#" aria-current="page"><svg class="i"><use href="#i-home"/></svg>Desk</a>
+      <a href="#"><svg class="i"><use href="#i-inbox"/></svg>Applications<span class="n">14</span></a>
+      <a href="#"><svg class="i"><use href="#i-renew"/></svg>Renewals<span class="n">1</span></a>
+      <a href="#"><svg class="i"><use href="#i-folder"/></svg>Bookroll</a>
+      <a href="#"><svg class="i"><use href="#i-shield"/></svg>Policies</a>
+      <a href="#"><svg class="i"><use href="#i-doc"/></svg>Agency bills</a>
+      <button>More<svg class="i" style="width:12px;height:12px"><use href="#i-down"/></svg></button>
+    </nav>
+    <div class="top__acts">
+      <button class="ibtn" aria-label="Search"><svg class="i"><use href="#i-search"/></svg></button>
+      <a class="btn btn--primary" href="#"><svg class="i"><use href="#i-plus"/></svg>New</a>
+      <button class="ibtn" aria-label="Theme"><svg class="i"><use href="#i-moon"/></svg></button>
+      <button class="ibtn" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg><span class="dot">3</span></button>
+      <button class="mebtn"><span class="av">NL</span><svg class="i" style="width:14px;height:14px"><use href="#i-down"/></svg></button>
+    </div>
+  </div>
+  <div class="top__sub"><p class="crumbs">Workspace<svg class="i"><use href="#i-chev"/></svg><b>Desk</b></p><p class="desk-status"><i></i>Saltgate desk online · 10:14 AM</p></div>
+</header>
+
+<header class="mtop"><span class="brand__mark"><svg class="i" style="width:20px;height:20px"><use href="#i-anchor"/></svg></span><b>Desk</b><button class="ibtn" aria-label="Search"><svg class="i"><use href="#i-search"/></svg></button><button class="ibtn" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg><span class="dot">3</span></button></header>
+<main class="page">
+  <div class="hero">
+    <div>
+      <h1>Good morning, Noa</h1>
+      <p>Monday, October 26 · 14 questions waiting on you, 2 offers ending this week and 1 renewal not started. <b>Pell Harbor Ferry</b> is one stage from an offer.</p>
+    </div>
+    <div class="hero__acts">
+      <a class="btn" href="#"><svg class="i"><use href="#i-board"/></svg>Pipeline</a>
+      <a class="btn btn--primary" href="#"><svg class="i"><use href="#i-plus"/></svg>New application</a>
+    </div>
+  </div>
+
+  <div class="grid kpis">
+    <div class="kpi kpi--sea" data-card><p class="kpi__l"><svg class="i"><use href="#i-inbox"/></svg>Open applications</p><p class="kpi__v">24</p><p class="kpi__f">14 questions open</p><svg class="spark" data-spark="[3,5,4,7,6,9,8,11,10,12]"></svg></div>
+    <div class="kpi kpi--sand" data-card><p class="kpi__l"><svg class="i"><use href="#i-send"/></svg>On offer now</p><p class="kpi__v">$358,010</p><p class="kpi__f">5 quotes out</p><svg class="spark" data-spark="[9,12,6,7,4,6,5,6,5,9]"></svg></div>
+    <div class="kpi kpi--sky" data-card><p class="kpi__l"><svg class="i"><use href="#i-shield"/></svg>Bound this year</p><p class="kpi__v">$1.75M</p><p class="kpi__f">34 policies</p><svg class="spark" data-spark="[5,10,6,9,5,6,4,5,4,8]"></svg></div>
+    <div class="kpi kpi--coral" data-card><p class="kpi__l"><svg class="i"><use href="#i-cal"/></svg>Commission, October</p><p class="kpi__v">$34,362</p><p class="kpi__f"><span class="up">↑ 166%</span><span class="vs">vs September</span></p><svg class="spark" data-spark="[5,10,6,9,5,6,4,5,4,8]"></svg></div>
+  </div>
+
+  <div class="grid row2">
+    <section class="card desk__chart" data-card>
+      <div class="card__h"><div><h2 class="card__t">Premium on the water</h2><p class="card__s">Policies starting each month · last 12 months</p></div>
+        <div class="tabs" role="tablist"><button role="tab" aria-selected="true">Premium</button><button role="tab" aria-selected="false">Commission</button><button role="tab" aria-selected="false">Policies</button></div></div>
+      <div class="chart" data-chart='{"v":[150,400,240,360,200,120,140,60,100,130,90,270],"x":["Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"],"tope":800}'><svg aria-hidden="true"></svg></div>
+      <div class="cstats"><div><p>Twelve months</p><b>$2,265,810</b></div><div><p>Monthly average</p><b>$188,818</b></div><div><p>Best month</p><b>December 2025</b></div><div><p>This month so far</p><b>$270,400</b></div></div>
+    </section>
+
+    <section class="card desk__wait" data-card>
+      <div class="card__h"><div><h2 class="card__t">Waiting on you</h2><p class="card__s">25 things across the pipeline</p></div></div>
+      <ul class="wait">
+        <li><span class="tile" style="--t:var(--warm-soft);--tc:var(--warm-text)"><svg class="i"><use href="#i-chat"/></svg></span><span style="min-width:0"><b>Do the two ferries keep a fire watch while laid up?</b><small>Pell Harbor Ferry Co. · Dev</small></span><span class="pill pill--warn">in 2 days</span></li>
+        <li><span class="tile" style="--t:var(--warm-soft);--tc:var(--warm-text)"><svg class="i"><use href="#i-chat"/></svg></span><span style="min-width:0"><b>Confirm the crew count and whether any are seasonal</b><small>Pell Harbor Ferry Co. · Dev</small></span><span class="pill pill--warn">in 4 days</span></li>
+        <li><span class="tile" style="--t:var(--warm-soft);--tc:var(--warm-text)"><svg class="i"><use href="#i-chat"/></svg></span><span style="min-width:0"><b>When was the last out-of-water survey on the docks?</b><small>Bluefin Row Marina · Tomás</small></span><span class="pill pill--bad">20 days late</span></li>
+        <li><span class="tile" style="--t:var(--accent-soft);--tc:var(--accent-text)"><svg class="i"><use href="#i-send"/></svg></span><span style="min-width:0"><b>Offer out · $88,050</b><small>Bluefin Row Marina · Marina</small></span><span class="pill pill--info">ends in 15 days</span></li>
+        <li><span class="tile" style="--t:var(--accent-soft);--tc:var(--accent-text)"><svg class="i"><use href="#i-send"/></svg></span><span style="min-width:0"><b>Offer out · $42,550</b><small>Halvorsen Freight Forwarding · Cargo</small></span><span class="pill pill--info">ends in 12 days</span></li>
+        <li><span class="tile" style="--t:var(--bad-soft);--tc:var(--bad)"><svg class="i"><use href="#i-file"/></svg></span><span style="min-width:0"><b>Crew licences missing</b><small>Pell Harbor Ferry Co.</small></span><span class="pill pill--bad">upload</span></li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="grid row3">
+    <section class="card" data-card>
+      <div class="card__h"><div><h2 class="card__t">Pipeline</h2><p class="card__s">24 open · $1,482,900 indicated</p></div><a class="linkbtn" href="#">Board</a></div>
+      <ul class="pipe">
+        <li><span class="n">5</span><span>Intake</span><span class="bar"><i style="width:80%;opacity:.5"></i></span><em>$285k</em></li>
+        <li><span class="n">4</span><span>Clearance</span><span class="bar"><i style="width:84%;opacity:.6"></i></span><em>$300k</em></li>
+        <li><span class="n">6</span><span>Risk review</span><span class="bar"><i style="width:86%;opacity:.7"></i></span><em>$308k</em></li>
+        <li><span class="n">4</span><span>Pre-bind</span><span class="bar"><i style="width:65%;opacity:.85"></i></span><em>$231k</em></li>
+        <li><span class="n">5</span><span>Offer</span><span class="bar"><i style="width:100%"></i></span><em>$358k</em></li>
+      </ul>
+    </section>
+
+    <section class="card" data-card>
+      <div class="card__h"><div><h2 class="card__t">Renewal tide</h2><p class="card__s">Premium expiring, week by week · next 13 weeks</p></div><a class="linkbtn" href="#">Renewals</a></div>
+      <div class="tide" data-tide='{"v":[0,0,0,21,9,7,0,58,50,10,9,44,0],"tope":119,"hi":7,"x":["Oct 26","Nov 2","Nov 9","Nov 16","Nov 23","Nov 30","Dec 7","Dec 14","Dec 21","Dec 28","Jan 4","Jan 11","Jan 18"]}'><svg aria-hidden="true"></svg></div>
+      <ul class="ren">
+        <li><span class="days"><b>25</b><small>days</small></span><span style="min-width:0"><b>Penobscot Shore Marina</b><small>Charter · $22,110</small></span><span class="pill pill--good"><i></i>Renewed</span></li>
+        <li><span class="days"><b>27</b><small>days</small></span><span style="min-width:0"><b>Mendoza Produce Exporters</b><small>Cargo · $49,340</small></span><span class="pill pill--blue"><i></i>Quoted</span></li>
+        <li><span class="days"><b>29</b><small>days</small></span><span style="min-width:0"><b>Calder Composite Yachts</b><small>Builder · $32,120</small></span><span class="pill pill--good"><i></i>Renewed</span></li>
+      </ul>
+    </section>
+
+    <section class="card mix" data-card>
+      <div class="card__h"><div><h2 class="card__t">Book by program</h2><p class="card__s">45 policies in force · $2.21M</p></div><a class="linkbtn" href="#">Book mix</a></div>
+      <div class="mixbar"><i style="--c:var(--c-hull);flex:22"></i><i style="--c:var(--c-cargo);flex:12"></i><i style="--c:var(--c-marina);flex:17"></i><i style="--c:var(--c-build);flex:6"></i><i style="--c:var(--c-fish);flex:20"></i><i style="--c:var(--c-charter);flex:23"></i></div>
+      <ul>
+        <li><i style="--c:var(--c-charter)"></i><span>Charter Fleet</span><em>23%</em><b>$505k</b></li>
+        <li><i style="--c:var(--c-hull)"></i><span>Hull &amp; Machinery</span><em>22%</em><b>$488k</b></li>
+        <li><i style="--c:var(--c-fish)"></i><span>Fishing Fleet P&amp;I</span><em>20%</em><b>$448k</b></li>
+        <li><i style="--c:var(--c-marina)"></i><span>Marina Operators</span><em>17%</em><b>$369k</b></li>
+        <li><i style="--c:var(--c-cargo)"></i><span>Cargo Open Cover</span><em>12%</em><b>$264k</b></li>
+        <li><i style="--c:var(--c-build)"></i><span>Boatbuilder's Risk</span><em>6%</em><b>$137k</b></li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="grid row3">
+    <section class="card todos" data-card>
+      <div class="card__h"><div><h2 class="card__t">To-dos</h2><p class="card__s">3 open</p></div></div>
+      <label class="add"><input placeholder="Add a to-do and press Enter"></label>
+      <ul>
+        <li class="todo"><button role="checkbox" aria-checked="false" aria-label="Done"></button><span>Answer Dev on the Pell Harbor fire watch</span><small>in 2 days</small></li>
+        <li class="todo"><button role="checkbox" aria-checked="false" aria-label="Done"></button><span>Walk Bluefin Row through the marina quote</span><small>tomorrow</small></li>
+        <li class="todo"><button role="checkbox" aria-checked="false" aria-label="Done"></button><span>Triage the Casco Bay book roll</span><small>in 4 days</small></li>
+        <li class="todo is-done"><button role="checkbox" aria-checked="true" aria-label="Done"><svg class="i"><use href="#i-check"/></svg></button><span>Send loss-run letter to Halyard for Ironhull</span><small>today</small></li>
+      </ul>
+    </section>
+
+    <section class="card desk__feed" data-card>
+      <div class="card__h"><div><h2 class="card__t">Activity</h2><p class="card__s">Harrow &amp; Pike and Saltgate</p></div></div>
+      <ul class="feed">
+        <li><span class="av" style="--c:oklch(90% .05 25)">DM</span><span><b>Dev asked a question on Pell Harbor Ferry Co.</b><small>26 min ago</small></span></li>
+        <li><span class="av" style="--c:oklch(91% .04 125)">TF</span><span><b>Tomás sent a quote for Bluefin Row Marina</b><small>2 h ago</small></span></li>
+        <li><span class="av" style="--c:oklch(91% .05 75)">MT</span><span><b>Mei issued certificate COI-58120 to Maine Port Authority</b><small>Yesterday, 5:02 PM</small></span></li>
+        <li><span class="av" style="--c:oklch(91% .04 125)">NL</span><span><b>You submitted BLDR-RI-1026-2090 for Calder Composite Yachts</b><small>Yesterday, 3:20 PM</small></span></li>
+        <li><span class="av" style="--c:oklch(90% .05 25)">DM</span><span><b>Dev bound Merrow Tug &amp; Barge</b><small>Sat, 11:05 AM</small></span></li>
+        <li><span class="av" style="--c:oklch(91% .03 200)">OG</span><span><b>Owen paid agency bill AB-2608</b><small>Fri, 4:45 PM</small></span></li>
+      </ul>
+    </section>
+
+    <section class="card bill" data-card>
+      <div class="card__h"><div><h2 class="card__t">Next agency bill</h2><p class="card__s">AB-2609 · September 2026 instalments</p></div><span class="pill pill--warn" style="margin-left:auto"><i></i>Due in 4 days</span></div>
+      <p class="bill__v">$91,456</p>
+      <p class="bill__s">to remit to Saltgate · 25 policies</p>
+      <div class="billbar"><i style="--c:var(--accent);flex:91456"></i><i style="--c:oklch(72% .13 78);flex:14061"></i></div>
+      <div class="leg"><span><i style="--c:var(--accent)"></i>Net to Saltgate $91,456</span><span><i style="--c:oklch(72% .13 78)"></i>Your commission $14,061</span></div>
+      <a class="btn" href="#"><svg class="i"><use href="#i-doc"/></svg>Review the statement</a>
+    </section>
+  </div>
+</main>
+<nav class="tabbar"><a href="#" aria-current="page"><svg class="i"><use href="#i-home"/></svg>Desk</a><a href="#"><svg class="i"><use href="#i-inbox"/></svg>Apps</a><a href="#"><svg class="i"><use href="#i-renew"/></svg>Renewals</a><a href="#"><svg class="i"><use href="#i-shield"/></svg>Policies</a><a href="#"><svg class="i"><use href="#i-grid"/></svg>More</a></nav>
+<script src="moorly.js"></script>
+</body></html>
