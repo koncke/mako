@@ -77,8 +77,9 @@ test('3: cada plantilla, cargada del lado del server, se puede guardar como dise
 });
 
 test('4: las operaciones del área llevan el permiso de la tab y de admin, y la definición no arrastra el server', () => {
-  // 7 del editor + 3 de los carruseles que funcionan (4/11/2026: estado_carruseles, buscar_carruseles, guardar_carrusel).
-  assert.equal(DEFS.length, 10);
+  // 7 del editor + 4 de los carruseles (4/11/2026: estado_carruseles, buscar_carruseles, guardar_carrusel y
+  // crear_carrusel_desde_referencia, «Hacer el mío»).
+  assert.equal(DEFS.length, 11);
   for (const d of DEFS) {
     assert.equal(d.area, 'imagen');
     assert.deepEqual(d.gating, { tab: 'image-editor', rolMinimo: 'admin' }, `${d.id}: el permiso es el de la tab, como toda tab`);
@@ -143,5 +144,5 @@ test('7: el runner del área carga en un node suelto con --conditions=react-serv
   const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--input-type=module', '-e', `const m = await import(${href}); process.stdout.write(String(Object.keys(m.RUNNERS).length));`], {
     cwd: RAIZ, encoding: 'utf8', maxBuffer: 4 << 20,
   });
-  assert.equal(salida.trim(), '10');
+  assert.equal(salida.trim(), '11');
 });

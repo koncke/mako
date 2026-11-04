@@ -59,7 +59,7 @@ test('el outlier es el de Spy: por CUENTA y contra su mediana, no contra todas j
 
 const c = (p: Partial<Carrusel>): Carrusel => ({
   id: ++n, competidorId: 1, creador: { nombre: 'Estudio Lumen', usuario: 'estudio.lumen', foto: null }, url: null, miniatura: null,
-  texto: null, gancho: null, formato: '', medio: 'carrusel', laminas: 6, megusta: 100, comentarios: 10, publicada: dia(3), traida: dia(2), outlier: 1, ...p,
+  texto: null, gancho: null, tipoGancho: null, cierre: null, formato: '', medio: 'carrusel', laminas: 6, megusta: 100, comentarios: 10, publicada: dia(3), traida: dia(2), outlier: 1, ...p,
 });
 
 test('la búsqueda: con @ es por creador; sin @, TODAS las palabras, sin tildes', () => {

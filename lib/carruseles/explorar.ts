@@ -22,6 +22,7 @@
 
 import { formatoDe, formatoPorTexto, mejoresPiezas, FORMATOS, type Formato } from '../spy-detalle';
 import type { Medio } from '../spy-medio';
+import { cierreDeTexto, plano, type Cierre } from './texto';
 import { LARGOS_CARRUSEL, ORDENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL, type LargoCarrusel, type OrdenCarrusel, type PeriodoCarrusel, type VistaCarrusel } from './opciones';
 
 /** Un carrusel del explorador: una publicación de Instagram de una cuenta que el negocio sigue en Spy. */
@@ -36,8 +37,13 @@ export type Carrusel = {
   miniatura: string | null;
   /** Su texto (el pie). Spy lo borra a los 30 días de leído: puede venir vacío. */
   texto: string | null;
-  /** Con qué abre, como lo leyó la IA del negocio en Spy (vacío si todavía no se analizó). */
+  /** Con qué abre, como lo leyó la IA del negocio en Spy (vacío si todavía no se analizó), y de qué clase (pregunta, promesa,
+   *  dolor…: el vocabulario de Spy). */
   gancho: string | null;
+  tipoGancho: string | null;
+  /** Qué pide al final («guardar», «mensaje»…), leído del texto ENTERO acá: al navegador el texto viaja cortado
+   *  (lib/carruseles/explorar-servidor.ts) y la llamada a la acción suele ir al final. «Hacer el mío» lo toma de acá. */
+  cierre: Cierre | null;
   formato: Formato | '';
   /** carrusel · imagen · null (no se sabe: leído antes de la mig 0391). */
   medio: Medio | null;
@@ -54,7 +60,7 @@ export type Carrusel = {
 /** Lo que entra de Spy, con la forma de `spy_piezas` (las columnas que se leen) y su competidor. */
 export type PiezaParaCarrusel = {
   id: number; competidor_id: number; canal: string; tipo: string; url: string | null; texto: string | null; titulo?: string | null;
-  analisis?: { gancho?: string; formato?: string } | null; vistas: number | null; megusta: number | null; comentarios: number | null;
+  analisis?: { gancho?: string; tipoGancho?: string; formato?: string } | null; vistas: number | null; megusta: number | null; comentarios: number | null;
   duracion?: string | null; publicada_en: string | null; visto_primera_vez: string; dejo_de_verse_en: string | null;
   miniatura: string | null; medio?: string | null; laminas?: number | null;
 };
@@ -91,6 +97,8 @@ export function carruselesDe(piezas: readonly PiezaParaCarrusel[], competidores:
         miniatura: p.miniatura,
         texto: p.texto,
         gancho: p.analisis?.gancho?.trim() || null,
+        tipoGancho: p.analisis?.tipoGancho?.trim() || null,
+        cierre: cierreDeTexto(p.texto),
         formato: formatoDe(p.analisis?.formato) || formatoPorTexto(p.texto),
         medio,
         laminas: medio === 'carrusel' && typeof p.laminas === 'number' ? p.laminas : null,
@@ -135,7 +143,8 @@ export const FILTROS_INICIALES: FiltrosCarrusel = {
   q: '', creadores: [], outlierMin: 0, periodo: 'todo', largo: 'todos', formato: '', conImagenes: false, orden: 'outlier', vista: 'todos',
 };
 
-export const plano = (t: string): string => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+// `plano` vive en ./texto.ts (lo usa también «Hacer el mío»): se re-exporta acá, donde lo buscaban.
+export { plano };
 
 const DIA = 86_400_000;
 const enRango = (iso: string | null, dias: number, ahora: number): boolean => {

@@ -21,6 +21,7 @@ import { InicioImagenM } from './InicioImagenM';
 import { leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { filtrosDeQuery } from '@/lib/carruseles/explorar';
 import { ExplorarCarruseles } from '@/app/image-editor/carruseles/ExplorarCarruseles';
+import { nombreDelNegocio } from '@/lib/carruseles/marca';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,11 +40,14 @@ export default async function ImageEditorPagina({ searchParams }: { searchParams
       </PantallaM>
     );
   }
-  const r = ctx.ws == null ? { ok: false as const, error: 'Abre el editor desde un negocio.' } : await listarDisenos(ctx.ws);
+  const [r, negocio] = await Promise.all([
+    ctx.ws == null ? { ok: false as const, error: 'Abre el editor desde un negocio.' } : listarDisenos(ctx.ws),
+    nombreDelNegocio(ctx.ws),
+  ]);
   return (
     <PantallaM>
       {r.ok
-        ? <InicioImagenM disenos={r.disenos} />
+        ? <InicioImagenM disenos={r.disenos} negocio={negocio} />
         : <ErrorM frase="No se pudieron leer tus diseños. Es un problema nuestro: vuelve a intentar." />}
     </PantallaM>
   );

@@ -15,7 +15,7 @@
 
 import type { OperacionDef, Gating } from '../tipos';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
-import { ORDENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL } from '@/lib/carruseles/opciones';
+import { IDS_TIPO_CARRUSEL, ORDENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL } from '@/lib/carruseles/opciones';
 
 const GATING: Gating = { tab: 'image-editor', rolMinimo: 'admin' };
 const TODOS = ['whatsapp', 'app', 'http'] as const;
@@ -134,5 +134,18 @@ export const DEFS: readonly OperacionDef[] = [
     canales: SIN_HTTP, costo: 'gratis', gating: GATING,
     reversible: true,
     escribe: 'app_settings carruseles.guardados (compare-and-set)',
+  },
+  {
+    id: 'crear_carrusel_desde_referencia', area: 'imagen', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear un carrusel desde una referencia',
+    descripcion: 'Crea un diseño nuevo con la ESTRUCTURA de un carrusel de buscar_carruseles (tipo, láminas, con qué abre y qué pide al final), nunca sus palabras: cada lámina trae una guía.',
+    parametros: [
+      { nombre: 'carruselId', tipo: 'number', entero: true, obligatorio: true, minimo: 1, descripcion: 'El id que dio buscar_carruseles.' },
+      { nombre: 'tipo', tipo: 'string', enum: [...IDS_TIPO_CARRUSEL], descripcion: 'Sin esto, el que se entendió de la referencia. Si no encaja con ninguno, pregúntalo.' },
+      { nombre: 'laminas', tipo: 'number', entero: true, minimo: 3, maximo: 12, descripcion: 'Sin esto, las de la referencia (dentro del rango del tipo).' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    reversible: true,
+    escribe: 'insert en image_disenos',
   },
 ];

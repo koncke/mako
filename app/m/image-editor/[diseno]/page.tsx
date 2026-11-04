@@ -18,6 +18,7 @@
 
 import { requireMovil } from '@/lib/movil-guard';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
+import { nombreDelNegocio } from '@/lib/carruseles/marca';
 import { ImageEditorCliente } from '@/app/image-editor/ImageEditorCliente';
 import { CabeceraM, PantallaM } from '@/app/m/_ui';
 import { PantallaCompletaM } from '../../_creacion/PantallaCompletaM';
@@ -26,12 +27,12 @@ export const dynamic = 'force-dynamic';
 
 export default async function DisenoPagina({ params }: { params: Promise<{ diseno: string }> }) {
   const ctx = await requireMovil({ navKey: 'image-editor' });
-  const [{ diseno }, senales] = await Promise.all([params, senalesDelNegocio().catch(() => null)]);
+  const [{ diseno }, senales, negocio] = await Promise.all([params, senalesDelNegocio().catch(() => null), nombreDelNegocio(ctx.ws)]);
   return (
     <PantallaM>
       <CabeceraM titulo="Image Editor" trabajo />
       <PantallaCompletaM etiqueta="Image Editor">
-        <ImageEditorCliente vista="editor" disenoId={diseno} ws={ctx.ws} senales={senales} salir="/image-editor" />
+        <ImageEditorCliente vista="editor" disenoId={diseno} ws={ctx.ws} negocio={negocio} senales={senales} salir="/image-editor" />
       </PantallaCompletaM>
     </PantallaM>
   );

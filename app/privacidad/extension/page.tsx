@@ -20,7 +20,7 @@ export const metadata = {
   description: 'Qué datos usa la extensión de MaKo, y cuáles no.',
 };
 
-const ACTUALIZADO = '3 de noviembre de 2026';
+const ACTUALIZADO = '4 de noviembre de 2026';
 
 export default function Page() {
   return (
@@ -137,6 +137,23 @@ export default function Page() {
         Lee sólo lo que ya está en pantalla: no se mueve por la página, no toca nada y no baja
         videos. <strong>No envía valores de formularios, cookies ni lo que el sitio guarda en tu
         navegador.</strong> Y no corre en WhatsApp Web, ni en Google Flow, ni en MaKo.
+      </p>
+
+      {/* ⚠️ DESDE LA 0.76.0 (4/11/2026) «CAPTURAR» EN «SUS PÁGINAS». Tiene que coincidir con extension/spy-pagina.js (qué lee),
+          extension/popup.js y extension/background.js (cuándo) y lib/spy-pagina-capturada.ts (qué se guarda). */}
+      <H>Al capturar una página de un competidor</H>
+      <p>
+        Cuando MaKo no puede mostrar una página de un competidor y tocas «Capturar» en Competitors
+        Spy, la extensión <strong>abre esa página en una pestaña, a la vista</strong>. Abrirla no lee
+        nada. Si la página pide comprobar que eres una persona, lo haces tú: la extensión no hace
+        clic ni resuelve nada por ti.
+      </p>
+      <p>
+        <strong>Recién cuando tocas el ícono de MaKo en esa pestaña</strong>, la extensión la lee una
+        vez: una foto de lo que se ve, su título, su texto y las direcciones de las páginas que
+        enlaza (sin lo que traen en la consulta). Viaja a tu cuenta de MaKo, queda en tu espacio de
+        trabajo y la pestaña se cierra. No envía valores de formularios, cookies ni lo que el sitio
+        guarda en tu navegador, y no lee ninguna otra pestaña.
       </p>
 
       {/* ⚠️ ESTA LISTA ES EL CONTRATO PÚBLICO, Y SE MIDIÓ CONTRA EL CÓDIGO.

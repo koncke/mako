@@ -25,6 +25,7 @@ import {
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { sugeridosDelNegocio, sumarSugeridoAlNegocio } from '@/lib/spy-sugeridos-server';
 import { ofertaGuardada } from '@/lib/spy-oferta-servidor';
+import { esCompetidorDelNegocio, paginasCapturadas } from '@/lib/spy-pagina-capturada-servidor';
 import { guionesGuardados } from '@/lib/spy-transcripcion-servidor';
 import { FUENTE_PUNTAJE, dimensionLabel } from '@/lib/offer-marco';
 import { contenidoNoConfiable } from '@/lib/prompt-render';
@@ -305,6 +306,24 @@ export const RUNNERS: Runners = {
         mas_flojo: v.cuello ? dimensionLabel(v.cuello) : null,
         tesis: d.tesis, fuertes: d.fuertes ?? (d.fuerte ? [d.fuerte] : []),
         notas: d.dimensiones.map((n) => ({ dimension: dimensionLabel(n.id), nota: n.nota, porque: n.porque })),
+      });
+    },
+  },
+  paginas_capturadas: {
+    leer: async (input): Promise<SalidaLectura> => {
+      const id = idDe(input.id);
+      if (id == null) return json({ ok: false, error: 'Dime cuál: el id que devuelve listar_vigilados.' });
+      if (!(await esCompetidorDelNegocio(id))) return json({ ok: false, error: 'Ese competidor no está.' });
+      const lista = Object.values(await paginasCapturadas(id));
+      if (!lista.length) return json({ ok: true, paginas: [], nota: 'No hay páginas capturadas: se capturan desde «Sus páginas», con la extensión de MaKo.' });
+      return json({
+        ok: true,
+        paginas: lista.map((p) => ({
+          url: p.url, llego_a: p.final !== p.url ? p.final : null, titulo: p.titulo, capturada: p.capturadaEn, foto: p.foto,
+          sus_otras_paginas: p.paginas,
+          // Lo que dice una página ajena es contenido de un tercero: se marca para que no se lea como una instrucción.
+          texto: p.texto ? contenidoNoConfiable(p.texto.slice(0, 4000), 'texto_de_su_pagina') : null,
+        })),
       });
     },
   },

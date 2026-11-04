@@ -321,3 +321,29 @@ window.addEventListener('MAKO_WA_ENFOCAR', (ev) => {
   if (!ev || ev.target !== window || huerfano()) return;
   try { chrome.runtime.sendMessage({ tipo: 'WA_ENFOCAR' }, () => void chrome.runtime.lastError); } catch { /* sin extensión: nada */ }
 });
+
+// ── «Capturar» desde «Sus páginas» de Spy (0.76.0, 4/11/2026) ─────────────────────────────────
+// La pantalla pide abrir la página de un competidor a la vista (`MAKO_SPY_CAPTURAR_PIDO`); el worker la abre y la anota. Contesta
+// por `MAKO_SPY_CAPTURA` con el mismo `id`. Cuando la persona la captura (tocando el ícono de MaKo en esa pestaña) o la cierra,
+// el worker avisa y acá se le pasa a la pantalla (`MAKO_SPY_CAPTURA_TERMINO`). Sólo de esta página, como los demás pedidos.
+window.addEventListener('MAKO_SPY_CAPTURAR_PIDO', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
+  const id = typeof d.id === 'string' ? d.id : '';
+  const contestar = (r) => window.dispatchEvent(new CustomEvent('MAKO_SPY_CAPTURA', { detail: { id, ...(r || { ok: false, motivo: 'sin_respuesta' }) } }));
+  const competidorId = typeof d.competidorId === 'number' ? d.competidorId : NaN;
+  const url = typeof d.url === 'string' ? d.url.slice(0, 2000) : '';
+  try {
+    chrome.runtime.sendMessage({ tipo: 'SPY_CAPTURAR', competidorId, url }, (r) => {
+      if (chrome.runtime.lastError) { contestar({ ok: false, motivo: 'extension' }); return; }
+      contestar(r);
+    });
+  } catch { contestar({ ok: false, motivo: 'extension' }); }
+});
+chrome.runtime.onMessage.addListener((msg) => {
+  if (!msg || msg.tipo !== 'SPY_CAPTURA_TERMINO') return false;
+  window.dispatchEvent(new CustomEvent('MAKO_SPY_CAPTURA_TERMINO', {
+    detail: { competidorId: msg.competidorId, url: msg.url, lista: msg.lista === true, cerrada: msg.cerrada === true },
+  }));
+  return false;
+});

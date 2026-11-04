@@ -272,11 +272,13 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Arrancar de un tamaño o de una plantilla: post, historia, carrusel de Instagram de varias páginas, presentación', 'Diseños de varias páginas', 'Texto, formas, imágenes, marcos, QR y capas', 'Recortar, filtros y animaciones', 'Presentar y descargar en PNG, JPG, PDF o SVG', 'Pedirle cambios a MaKo',
       // 4/11/2026: el explorador (app/image-editor/carruseles), con lo que Competitors Spy ya trajo.
       'Carruseles que funcionan: los de las cuentas que sigues en Competitors Spy, con su outlier (cuántas veces la mediana de su cuenta), buscar por tema o @cuenta, filtrar, ordenar, lo de esta semana, guardar y guardar búsquedas',
+      'Carruseles de MaKo por tipo (lista, paso a paso, historia, antes y después, mito vs. realidad, opinión, caso con números, preguntas): la estructura con una guía en cada lámina y el nombre del negocio, y «Ver ejemplo» con un negocio ficticio',
+      'Hacer el mío: un carrusel nuevo con la ESTRUCTURA de uno de las cuentas que sigues (tipo, láminas, con qué abre y qué pide al final), nunca sus palabras',
     ],
-    noHace: ['No baja ni muestra bibliotecas de carruseles de otras apps: sólo los de las cuentas que sigues', 'Todavía no: pedirle fotos a un banco de imágenes'],
+    noHace: ['No baja ni muestra bibliotecas de carruseles de otras apps: sólo los de las cuentas que sigues', 'Todavía no: escribir con IA el texto de cada lámina de un carrusel (trae guías)', 'Todavía no: pedirle fotos a un banco de imágenes'],
     reemplaza: 'Canva',
     // Carousels se retiró el 29/10/2026: un carrusel es una plantilla de «Nuevo diseño» (app/_crear/PantallaCrear.tsx).
-    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels', 'carruseles que funcionan', 'outlier', 'topcarousels'],
+    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels', 'carruseles que funcionan', 'outlier', 'topcarousels', 'hacer el mío'],
     conecta: [{ a: 'market-an', motivo: 'Los carruseles que funcionan salen de las cuentas que sigues en Competitors Spy' }],
     estado: 'parcial', slugDev: 'image-editor', fuentes: [AREAS, 'AGENTS.md'],
   },
