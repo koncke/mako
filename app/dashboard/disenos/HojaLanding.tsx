@@ -355,7 +355,7 @@ export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onFila, co
                 <button type="button" aria-pressed={metrica === 'personas'} onClick={() => setMetrica('personas')}>Personas</button>
               </div>
             </div>
-            {fallos.columnas ? <div className="cb-vacio">{fallos.columnas}</div> : !cols.length ? <div className="cb-vacio"><b>Todavía no hay visitas</b>Cuando entre alguien a tus páginas, aparece acá día por día.</div> : (
+            {fallos.columnas ? <div className="cb-vacio">{fallos.columnas}</div> : !cols.length ? <div className="cb-vacio"><b>Todavía no hay visitas</b>Cuando entre alguien a tus páginas, aparece aquí día por día.</div> : (
               <div className="cb-chart">
                 <div className="cb-chart__y">{[0, 1, 2, 3, 4].map((k) => <span key={k} style={{ top: `${k * 25}%` }}>{rotuloEje(tope * (1 - k / 4))}</span>)}</div>
                 <div className="cb-chart__plot" onPointerLeave={() => setMarcada(null)}>
@@ -394,7 +394,7 @@ export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onFila, co
             <div className="cb-card__head"><h2>Cuándo entran</h2><Info que="cuando" />
               {cuando && cuando.max > 0 && <span className="cb-heat__ley" aria-hidden><span>0</span>{[0, 1, 2, 3, 4].map((k) => <i key={k} style={{ background: `var(--heat-${k})` }} />)}<span>{corto(cuando.max)}</span></span>}
             </div>
-            {fallos.cuando ? <div className="cb-vacio">{fallos.cuando}</div> : !cuando || cuando.max === 0 ? <div className="cb-vacio"><b>Todavía no hay visitas</b>Acá vas a ver a qué hora y qué día entra la gente.</div> : (
+            {fallos.cuando ? <div className="cb-vacio">{fallos.cuando}</div> : !cuando || cuando.max === 0 ? <div className="cb-vacio"><b>Todavía no hay visitas</b>Aquí verás a qué hora y qué día entra la gente.</div> : (
               <div className="cb-heat__g">
                 <span className="cb-heat__d" />
                 {cuando.dias.map((d) => <span key={d} className="cb-heat__d">{d}</span>)}
@@ -412,7 +412,7 @@ export function HojaLanding({ hoja, vista, titulo, periodo, onGrilla, onFila, co
           {/* DE DÓNDE LLEGAN («Total visits»): las visitas, su cambio y el reparto entre los orígenes, con el anillo del primero. */}
           <section className="cb-card cb-visits">
             <div className="cb-card__head"><h2>De dónde llegan</h2><Info que="origen" /></div>
-            {fallos.origen ? <div className="cb-vacio">{fallos.origen}</div> : !origen || !origen.partes.length ? <div className="cb-vacio"><b>Todavía no hay visitas</b>Acá vas a ver de qué sitio llega la gente a tus páginas.</div> : (
+            {fallos.origen ? <div className="cb-vacio">{fallos.origen}</div> : !origen || !origen.partes.length ? <div className="cb-vacio"><b>Todavía no hay visitas</b>Aquí verás de qué sitio llega la gente a tus páginas.</div> : (
               <div className="cb-visits__body">
                 <div>
                   <b className="cb-visits__n" data-cuenta="">{total != null ? entero(total) : '—'}</b>
