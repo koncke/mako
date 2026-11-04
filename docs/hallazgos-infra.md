@@ -86,6 +86,34 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 - **Regla:** quien sube con `--no-verify` corre antes `sh scripts/guardas-push.sh origin`. Y si un push choca con esa guarda
   en algo que no tocó, se regenera con `node --import tsx scripts/generar-api-doc.mjs` y se commitea: no es un error suyo.
 
+## Cada punta a su propia corrida: lo que engaña al partir un tren (3/11/2026)
+
+**Síntoma.** Ocho corridas rojas seguidas de `integracion` frenaron 47 commits, porque el tren corta en el primer grupo rojo. Martín: *«se va deployando lo que ya pasó en lugar de todo junto... Esto como regla»*. Quedó `.github/workflows/punta.yml`, atado por `tests/punta-ci.test.ts`, y el tren se partió en ramas `punta/<nombre>`.
+
+**Una punta cortada del tren trae el tren adentro.** `1dd2f0508` se anotó como «la punta de tiendas», y `git merge-base` con main se ve normal. `git log origin/main..1dd2f0508` da 27 commits: arriba de `b071c5f84` están la vigilancia, el freno, la extensión y los gurús, y sólo los últimos seis son de tiendas. Empujarla habría llevado todo eso a main sin que nadie lo decidiera. La rama se armó con esos seis por cherry-pick, y entraron limpios.
+- **Regla:** antes de subir una punta se mira `git log origin/main..<punta>`, no el merge-base. Si trae commits ajenos, se separa.
+- Lo mismo con el sha anotado: «la vigilancia es `e9ac1b519`» dejaba afuera `59f6b29cc`, el commit de arriba. Y brain-docs (#44) ya estaba en main.
+
+**Lo que no se puede separar se dice en el documento que lo recibe.** La cosecha del ban (`8156484ed`) se escribe adentro de la entrada que trae la vigilancia, y la decisión de la UE edita una fila que tiendas reescribió. Parecían sólo documentación y ninguna aplica sobre main sola: van con su punta.
+
+**Después de mezclar main, `tests-afectados --base origin/main` compara bien, aunque parezca que no.** `leerCambios` hace `merge-base origin/main HEAD` y compara ese commit contra el disco. Mezclado, ese ancestro ES main: la lista es lo que la punta le agrega, sin lo que trajo main. Lo que engaña está en otro lado: **el script sale con 0 cuando dice «Nada cambió» o «Ningún test mira lo cambiado»**. Por eso el paso exige la línea `VERDE · N tests` con N mayor que cero. Y su código 2 no se puede tratar como en `integracion`, que lo deja pasar porque después corre el resto: acá no hay resto.
+
+**Cuatro detalles que dan un rojo raro o un verde falso:**
+- `npm ci` va DESPUÉS de mezclar. Antes, si main sumó una dependencia, los tests corren contra la lista vieja.
+- Ningún `git fetch --depth=1` en un flujo que mezcla. `integracion.yml` lo tiene y no le hace daño porque su HEAD desciende de main; acá deja a main sin historia y la mezcla muere con «unrelated histories».
+- El tope de minutos del JOB lo deja cancelado, y `if: failure()` no corre: un cuelgue no dejaría marca. Por eso los pasos largos llevan su propio tope.
+- **Una rama nueva construye en Vercel** salvo que `git.deploymentEnabled` la apague, y eso se lee de `vercel.json` en el commit subido. Por eso el cambio va en el mismo commit que `punta.yml`.
+
+**El autor de la mezcla.** Una mezcla hecha en Actions sale de github-actions[bot], y Vercel puede bloquear a un autor que no es del equipo: main avanzaría sin llegar a producción. Autor y committer se toman del último commit de la punta, y sólo en los dos pasos que mezclan: en un `GITHUB_ENV` alcanzarían también a los tests que arman repos de prueba.
+
+**Dos puntas que agregan en el mismo renglón chocan, y se arregla moviendo el renglón.** Tickets y vigilancia agregaban en el mismo lugar del índice, de `hallazgos-comunicacion.md` y al final de la bitácora. Corriendo la entrada de una, las dos llegan solas. ⚠️ `merge=union` no sirve para una bitácora: el choque arranca adentro del objeto del hito, y la unión deja un solo objeto con las claves repetidas.
+
+**Sin hacer, o sin medir:**
+- **Una mezcla hecha en el último paso no pasa por tests ni tipos:** si main se movió mientras corrían, repite sólo las guardas y lo avisa con un `::warning::`. Dos puntas que no chocan como texto pueden romperse entre sí. Lo caza la corrida de la punta siguiente, que mezcla ese main y corre tipos, o el semanal.
+- **El primer push:** el 2/11 el `GITHUB_TOKEN` llevó a main cambios de un workflow por fast-forward (corridas 372 y 377). Una mezcla NUEVA hecha en el job con un workflow distinto del de main no está medida. Si GitHub la rechaza, sale rojo y no toca main. Conviene que la primera punta salga con main quieto.
+- **Un choque de `docs/hallazgos.md` en Actions es rojo:** `scripts/unir-indice-hallazgos.py` lo resolvería solo, pero mezclar por su cuenta en el job se decide aparte. Mientras tanto, cuesta ~20 s y una mezcla a mano.
+- **`punta.yml` nunca corrió en GitHub:** lo probado es el paso a paso con git de verdad sobre un repo de prueba, no el runner. La primera corrida hay que mirarla.
+
 ## Sin RAM para el tipado, el camino es `integracion`, sin `--no-verify` (3/11/2026)
 
 - `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:integracion` corre las guardas, no pide RAM, y Actions corre tipos y tests y

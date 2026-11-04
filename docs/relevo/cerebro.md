@@ -341,7 +341,7 @@ aplicadas en producción**. Lo que falta de cada una es el cableado, y está esc
 | | por qué |
 |---|---|
 | **Los 10 gurús que faltan** (ítem 14) | **~2,3 millones de tokens**, medido por la sesión «Ops Center»: cada ficha costó 175–285 mil. Necesita cuenta nueva. El brief está escrito |
-| **#8, el rediseño del modal** de nuevo competidor | **lo marqué HECHO por error**: arreglé cómo FUNCIONA, no cómo se VE. Empezar por `docs/diseno/referencia-spy.md`, NUNCA por `SpyApp.tsx` |
+| **#8, el rediseño del modal** de nuevo competidor | está en `punta/spy` (`fdde379b4`, 3/11). Falta mirarlo en producción: lo primero, que la foto salga en las filas |
 | **#10, el desplegable** de varios perfiles | hace falta elegir un actor de BÚSQUEDA de Apify. Martín ya dijo que paga |
 | **Caricatura de quien no es gurú** | falta medir **sobre qué cuenta de Google corre el puente de Flow**: si es la de Martín, le gasta a él |
 | **#20, la extensión** | consentimiento OAuth de la cuenta de Google de Martín. No es código |
