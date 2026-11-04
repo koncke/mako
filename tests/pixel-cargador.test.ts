@@ -163,7 +163,7 @@ test('el proxy no la corta: el matcher la excluye, y si cambia, está en PUBLICO
   assert.equal(esPublica(RUTA_CARGADOR), true, 'fuera de PUBLICOS, un cambio del matcher apaga el Pixel de todos con un 401');
   assert.equal(esPublicaSoloLeer(RUTA_CARGADOR), true, 'no es /api/: tiene que ser sólo GET/HEAD/OPTIONS');
   // El matcher de proxy.ts excluye los caminos que terminan en .js (hoy el proxy ni la ve).
-  const crudo = /matcher:\s*\['([^']+)'\]/.exec(leer('proxy.ts'))?.[1];
+  const crudo = /matcher:\s*\[\s*'([^']+)'/.exec(leer('proxy.ts'))?.[1];
   assert.ok(crudo, 'no encontré el matcher del proxy');
   const re = new RegExp(`^${crudo!.replace(/\\\\/g, '\\')}$`);
   assert.equal(re.test('/integraciones'), true, 'el matcher reconstruido no matchea ni una página: este test no mide nada');

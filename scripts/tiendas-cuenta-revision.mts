@@ -43,7 +43,7 @@ if (!carpeta || carpeta.toLowerCase().startsWith(REPO.toLowerCase()) || /onedriv
 }
 const rotar = process.argv.includes('--rotar');
 
-const { CUENTA_DE_REVISION, WS_REVISION, DOMINIO_DE_EJEMPLO, esCorreoDeEjemplo, esCuentaDeRevision } = await imp('lib/cuenta-revision-reglas.ts');
+const { CUENTA_DE_REVISION, WS_REVISION, NOMBRE_NEGOCIO_REVISION, DOMINIO_DE_EJEMPLO, esCorreoDeEjemplo, esCuentaDeRevision } = await imp('lib/cuenta-revision-reglas.ts');
 const { WS_PRUEBAS, OWNER_WS } = await imp('lib/auth-session.ts');
 if (WS_PRUEBAS.includes(WS_REVISION) || WS_REVISION === OWNER_WS) { console.error('⛔ La cuenta de revisión vive en su propio negocio, nunca en uno de prueba ni en el ws 1.'); process.exit(1); }
 
@@ -59,7 +59,7 @@ const db = getSupabaseServer();
 // ── 1. Su negocio ────────────────────────────────────────────────────────────────────────────────────────────────────
 let negocio = await getWorkspace(WS_REVISION);
 if (!negocio) {
-  negocio = await crearWorkspace('Negocio de demostración', CAPA_DEFAULT, { id: WS_REVISION });
+  negocio = await crearWorkspace(NOMBRE_NEGOCIO_REVISION, CAPA_DEFAULT, { id: WS_REVISION });
   console.log(`✓ Negocio ${WS_REVISION} creado: «${negocio.nombre}».`);
 }
 
@@ -96,7 +96,26 @@ if (yaTiene && !rotar) {
   process.exit(1);
 }
 
-// ── 4. La contraseña: primero el archivo (nuevo, sin pisar), después la base ───────────────────────────────────────
+// ── 4. Lo que sobreviviría a rotarla (ANTES de la contraseña: si no sale, no hay contraseña nueva) ─────────────────────────────────────────────────────────────────────────────────
+const limpiezas: Array<[string, PromiseLike<{ error: { message: string } | null }>]> = [
+  ['su segundo factor', db.from('usuario_mfa').delete().eq('usuario_id', u.id)],
+  ['sus passkeys', db.from('usuario_passkeys').delete().eq('usuario_id', u.id)],
+  ['las computadoras conectadas a su negocio', db.from('ia_pc_dispositivos').update({ revocado_at: new Date().toISOString() }).eq('workspace_id', WS_REVISION).is('revocado_at', null)],
+  ['sus avisos del teléfono', db.from('push_suscripciones').delete().eq('usuario_id', u.id)],
+];
+// ⛔ Si algo de esto no sale, el script termina con ERROR y antes de tocar la contraseña (4/11/2026, la segunda revisión): con «⚠️» y
+// un ✓ al final, el Cerebro daba la contraseña con un segundo factor o una computadora de antes todavía adentro.
+const noSalieron: string[] = [];
+for (const [que, q] of limpiezas) {
+  const { error } = await q;
+  if (error) noSalieron.push(`${que} (${error.message})`);
+}
+if (noSalieron.length) {
+  console.error(`⛔ No pude sacar ${noSalieron.join(' · ')}. No toqué la contraseña: vuelve a correrlo, o sácalo a mano y córrelo de nuevo.`);
+  process.exit(1);
+}
+
+// ── 5. La contraseña: primero el archivo (nuevo, sin pisar), después la base ───────────────────────────────────────
 // 20 bytes al azar: en base64url son 27 caracteres. Se le suma lo que pide la regla de contraseñas.
 const contrasena = `Mk-${randomBytes(20).toString('base64url')}-9`;
 mkdirSync(carpeta, { recursive: true });
@@ -108,18 +127,6 @@ writeFileSync(archivo, `Correo: ${u.email}\nContraseña: ${contrasena}\nCreada: 
 const r = await guardarContrasena(u.id, contrasena, u.email);
 if (!r.ok) { console.error(`⛔ No pude guardar la contraseña (${r.error}). El archivo ${archivo} quedó con una que NO vale: bórralo.`); process.exit(1); }
 
-// ── 5. Lo que sobreviviría a rotarla ─────────────────────────────────────────────────────────────────────────────────
-const limpiezas: Array<[string, PromiseLike<{ error: { message: string } | null }>]> = [
-  ['su segundo factor', db.from('usuario_mfa').delete().eq('usuario_id', u.id)],
-  ['sus passkeys', db.from('usuario_passkeys').delete().eq('usuario_id', u.id)],
-  ['las computadoras conectadas a su negocio', db.from('ia_pc_dispositivos').update({ revocado_at: new Date().toISOString() }).eq('workspace_id', WS_REVISION).is('revocado_at', null)],
-  ['sus avisos del teléfono', db.from('push_suscripciones').delete().eq('usuario_id', u.id)],
-];
-for (const [que, q] of limpiezas) {
-  const { error } = await q;
-  if (error) console.error(`⚠️ No pude sacar ${que}: ${error.message}. Hazlo a mano antes de dar la contraseña.`);
-}
-
 // ── 6. Los datos de ejemplo, sólo si el negocio está vacío ─────────────────────────────────────────────────────────
 const LEADS_DE_EJEMPLO = [
   { nombre: 'Ana Ruiz', empresa: 'Estudio Ruiz', dias: 2 },
@@ -129,9 +136,11 @@ const LEADS_DE_EJEMPLO = [
   { nombre: 'Valeria Ramos', empresa: 'Ramos Inmobiliaria', dias: null },
   { nombre: 'Jorge Silva', empresa: 'Silva Marketing', dias: null },
 ] as const;
-const { count: leads } = await db.from('leads').select('id', { count: 'exact', head: true }).eq('workspace_id', WS_REVISION);
+const { count: leads, error: errorLeads } = await db.from('leads').select('id', { count: 'exact', head: true }).eq('workspace_id', WS_REVISION);
 let cargados = 0;
-if (!leads) {
+// Lo que no se pudo contar no es cero: sin el conteo no se cargan (y el script termina con error al final).
+if (errorLeads) console.error(`⛔ No pude contar los leads de su negocio (${errorLeads.message}): no cargué los de ejemplo.`);
+if (!errorLeads && !leads) {
   await runWithWorkspace(WS_REVISION, async () => {
     for (const l of LEADS_DE_EJEMPLO) {
       const correo = `${l.nombre.split(' ')[0].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}@${DOMINIO_DE_EJEMPLO}`;
@@ -142,4 +151,5 @@ if (!leads) {
   });
 }
 
+if (errorLeads) process.exit(1);
 console.log(`✓ Cuenta de revisión lista (usuario ${u.id}, negocio ${WS_REVISION}${cargados ? `, ${cargados} leads de ejemplo` : ''}). La contraseña quedó en ${archivo}.`);
