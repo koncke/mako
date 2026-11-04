@@ -356,13 +356,16 @@ export const BITACORA: Hito[] = [
       'Desde el cambio del veredicto, una punta sin veredicto se salteaba el paso de los tests. Llegaron así dos a main: el Dashboard de Cobranza y las páginas bloqueadas de Spy.',
       'La causa: la condición comparaba una salida con un número, y en GitHub una salida que falta vale 0. Ahora compara con una palabra.',
       'El test ahora EVALÚA la condición con las reglas de GitHub, sobre lo que el veredicto escribe en cada caso. El de antes miraba el texto y daba verde con el error adentro.',
-      'Los tests de lo que llegó sin ellos se corrieron sobre main el mismo día.',
+      'Los tests de lo que llegó sin ellos se corrieron sobre main el mismo día: un rojo real, una ruta nueva de Spy sin clasificar para la cuenta de revisión de las tiendas. Quedó cortada, que es lo seguro.',
+      'Al subirlo desde un worktree, un test del pre-push le escribió al repo de verdad (movió ramas y lo dejó «bare»). Se restauró, y el filtro ya no les pasa a los tests las variables de git del hook.',
     ],
     archivos: [
       '.github/workflows/punta.yml — las dos condiciones de los tests',
       'scripts/veredicto.mjs — revisar escribe siempre nada_que_repetir',
       'tests/_expresion-actions.ts — evalúa un if: de Actions como GitHub',
       'tests/veredicto.test.ts — qué paso de tests corre en cada caso',
+      'scripts/filtro-punta.mjs — sinElRepoDelHook: sin GIT_DIR para los tests del pre-push',
+      'tests/filtro-punta.test.ts — un worktree, el GIT_DIR del hook y un test que hace git init',
     ],
   },
 ];

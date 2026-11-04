@@ -29,7 +29,10 @@ const wf = (a: string, b: string) => ['name: x', 'on: push', `# ${a}`, ...Array.
 /** base con dos workflows; la punta y main escriben lo suyo y commitean; queda parado en la punta. */
 function repo(punta: Record<string, string>, main: Record<string, string>) {
   const dir = mkdtempSync(join(tmpdir(), 'ci-wf-nuevo-'));
-  const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x', GIT_CONFIG_NOSYSTEM: '1', HOME: dir };
+  // Sin las variables de git de afuera: corrido desde el pre-push de un worktree, `GIT_DIR` apunta al repo de verdad y este `git init` y
+  // sus commits le escribían a él (4/11/2026: movió main y la rama de la punta, y dejó core.bare=true). Ver sinElRepoDelHook en filtro-punta.
+  const afuera = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')));
+  const env = { ...afuera, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x', GIT_CONFIG_NOSYSTEM: '1', HOME: dir };
   const g = (...a: string[]) => spawnSync('git', a, { cwd: dir, env, encoding: 'utf8' });
   const escribir = (m: Record<string, string>) => { for (const [f, c] of Object.entries(m)) { mkdirSync(join(dir, dirname(f)), { recursive: true }); writeFileSync(join(dir, f), c); } };
   g('init', '-q', '-b', 'main');

@@ -16,7 +16,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -113,6 +113,57 @@ test('correrTestsConTope: la tanda que el reloj corta no cuenta como roja, y lo 
   const tests = Array.from({ length: 14 }, (_, i) => `tests/t${i}.test.ts`);
   const r = await correrTestsConTope(tests, { hasta: Date.now() + 1000, correr });
   assert.deepEqual([r.corridos, r.casos, r.rojos.length, r.sinCorrer], [6, 3, 0, 8]);
+});
+
+// ── Desde un worktree, los tests del filtro no le escriben al repo de verdad (4/11/2026) ─────────────────────────────────
+// En el pre-push de un worktree, git deja `GIT_DIR` con la ruta ABSOLUTA del repo. Un test que arma su repo de prueba con
+// `{ ...process.env }` le escribía a ése: tests/ci-workflow-nuevo.test.ts movió main y la rama de la punta, cambió el índice del worktree y
+// dejó core.bare=true. Acá se arma eso mismo (un repo, un worktree, GIT_DIR absoluto y un test que hace `git init` y commitea en su carpeta)
+// y se corre por correrTestsConTope DE VERDAD. Probado rompiéndolo: con sinElRepoDelHook sin borrar las GIT_*, el test peligroso commitea
+// «de la prueba» en la rama del worktree y deja core.bare=true, y caen los asserts. (Una primera rotura, devolver el env tal cual, dejaba
+// también NODE_TEST_CONTEXT, con lo que el test peligroso no arrancaba y todo daba verde: por eso se pide que haya corrido.)
+test('correrTestsConTope: con el GIT_DIR de un worktree, un test que hace git init no toca el repo de verdad', { skip: spawnSync('git', ['--version']).error && 'sin git' }, async () => {
+  const base = mkdtempSync(join(tmpdir(), 'filtro-gitdir-'));
+  try {
+    const repo = join(base, 'repo');
+    const wt = join(base, 'wt');
+    const env = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_'))), HOME: base, GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
+    const g = (cwd: string, ...a: string[]) => { const r = spawnSync('git', a, { cwd, env, encoding: 'utf8' }); assert.equal(r.status, 0, `git ${a.join(' ')}: ${r.stderr}`); return r.stdout.trim(); };
+    mkdirSync(repo);
+    g(repo, 'init', '-q', '-b', 'main');
+    writeFileSync(join(repo, 'x.txt'), 'x\n');
+    writeFileSync(join(repo, '.gitignore'), 'node_modules\n');
+    g(repo, 'add', '.'); g(repo, 'commit', '-qm', 'base');
+    g(repo, 'worktree', 'add', '-q', '-b', 'punta/x', wt);
+    symlinkSync(join(RAIZ, 'node_modules'), join(wt, 'node_modules'), 'junction');   // el `--import tsx` del filtro se resuelve desde el cwd
+    const antes = { main: g(repo, 'rev-parse', 'main'), punta: g(repo, 'rev-parse', 'punta/x') };
+    // El test peligroso, como el de ci-workflow-nuevo: copia el env entero y arma su repo en una carpeta temporal.
+    const peligroso = join(base, 'peligroso.test.mjs');
+    writeFileSync(peligroso, [
+      "import { test } from 'node:test';",
+      "import { spawnSync } from 'node:child_process';",
+      "import { mkdtempSync, writeFileSync } from 'node:fs';",
+      "import { tmpdir } from 'node:os';",
+      "import { join } from 'node:path';",
+      "test('arma su repo', () => {",
+      "  const dir = mkdtempSync(join(tmpdir(), 'peligroso-'));",
+      "  const e = { ...process.env, GIT_AUTHOR_NAME: 'p', GIT_AUTHOR_EMAIL: 'p@x', GIT_COMMITTER_NAME: 'p', GIT_COMMITTER_EMAIL: 'p@x' };",
+      "  const g = (...a) => spawnSync('git', a, { cwd: dir, env: e, encoding: 'utf8' });",
+      "  g('init', '-q', '-b', 'main'); writeFileSync(join(dir, 'y.txt'), 'y'); g('add', '.'); g('commit', '-qm', 'de la prueba');",
+      `  writeFileSync(${JSON.stringify(join(base, 'corrio.txt'))}, 'GIT_DIR=' + (process.env.GIT_DIR ?? ''));`,
+      "});",
+      '',
+    ].join('\n'));
+    const gitDirDelHook = g(wt, 'rev-parse', '--absolute-git-dir');
+    const r = await correrTestsConTope([peligroso], { hasta: Date.now() + 60_000, cwd: wt, env: { ...env, GIT_DIR: gitDirDelHook } });
+    assert.equal(r.rojos.length, 0, JSON.stringify(r));
+    // Que corrió DE VERDAD: un test que no arrancó tampoco rompe nada, y daría verde sin probar nada.
+    assert.equal(r.casos, 1, JSON.stringify(r));
+    assert.equal(readFileSync(join(base, 'corrio.txt'), 'utf8'), 'GIT_DIR=', 'el test corrió, y sin el GIT_DIR del hook');
+    assert.deepEqual({ main: g(repo, 'rev-parse', 'main'), punta: g(repo, 'rev-parse', 'punta/x') }, antes, 'las ramas del repo de verdad no se movieron');
+    assert.notEqual(spawnSync('git', ['config', 'core.bare'], { cwd: repo, env, encoding: 'utf8' }).stdout.trim(), 'true', 'el repo no quedó bare');
+    assert.equal(g(wt, 'status', '--porcelain'), '', 'el índice del worktree quedó como estaba');
+  } finally { rmSync(base, { recursive: true, force: true }); }
 });
 
 // ── El hook: corre el filtro sólo en un push a punta/*, frena sólo con su exit 1, y MAKO_SIN_FILTRO=1 lo saltea ─────────────

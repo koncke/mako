@@ -116,6 +116,25 @@ main ese mismo día, con el resultado en `docs/relevo/nube-metodologia.md` → �
 **La regla que generaliza: en un `if:` de Actions, una salida de un paso se compara con una palabra.** Con un número, una salida que
 falta vale 0. Y se prueba EVALUANDO la condición, no leyéndola.
 
+**Lo que encontró correr sus tests sobre main** (802 archivos de los que tocaron las dos puntas, 10.243 tests): un solo rojo, real.
+spy-paginas-bloqueadas sumó `POST /api/competitor-spy/pagina` sin clasificarla para la cuenta de revisión de las tiendas
+(tests/cuenta-revision-escrituras.test.ts). Nace cortada, que es lo seguro, así que se regeneró la lista con la ruta cortada.
+
+**Y al subir el arreglo desde un worktree apareció otro: un test le escribió al repo de verdad.** En el pre-push de un worktree, git
+deja `GIT_DIR` con la ruta absoluta del repo. tests/ci-workflow-nuevo.test.ts arma su repo de prueba con `{ ...process.env }`, así que
+su `git init` y sus commits fueron al repo de verdad:
+- movieron `main` y la rama de la punta;
+- cambiaron el índice del worktree;
+- dejaron `core.bare=true` en el config compartido, y `git worktree list` mostraba el clon como «(bare)».
+
+Se restauró con los reflogs. Desde el clon principal `GIT_DIR` vale `.git` (relativo) y se resuelve contra la carpeta del test, por eso
+nadie lo había visto.
+- El filtro del pre-push ahora le saca esas variables a los tests que corre (`sinElRepoDelHook`, scripts/filtro-punta.mjs), y el test
+  las saca él mismo.
+- tests/filtro-punta.test.ts lo prueba de punta a punta: un repo, un worktree, el `GIT_DIR` absoluto y un test que hace `git init`.
+- ⚠️ La primera rotura de ese test daba verde por la razón equivocada: devolver el env tal cual dejaba también `NODE_TEST_CONTEXT`, y
+  así el test peligroso no arrancaba. Ahora se exige que haya corrido.
+
 ## Actions sin repetir: los minutos se iban en tests que ya habían pasado, no en la documentación (4/11/2026)
 
 **Vive en:** `scripts/veredicto.mjs` · `scripts/node24.sh` · `scripts/tests-afectados.mjs` (`--solo`, `MAKO_VEREDICTO_CORRIDA`) ·
