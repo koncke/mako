@@ -21,12 +21,13 @@
 //  · Un contador ausente no es cero: `contadorDeTarjeta` devuelve una frase, y cuando no empieza
 //    con un dígito la píldora cambia de peso en vez de dibujar un 0.
 //  · Si falta un dato, la línea se omite y la tarjeta se recompone. Nunca una clave ni un `ref`.
-//  · La etapa es nuestro criterio y lleva su `title` con el porqué.
+//  · ⚠️ LA ETAPA YA NO SE DIBUJA (4/11/2026): «Probado» y «a la vista» eran criterio nuestro y Martín no los entendía. Lo
+//    orgánico dice hace cuánto se publicó; un anuncio, cuántos días lleva al aire.
+//  · «Analizando…» mientras la IA del negocio lee la pieza, sola y en segundo plano (`analizando`).
 //
 // ⚠️ LA MINIATURA SE DIBUJA DESDE LA URL VIVA Y NO SE GUARDA. La de YouTube se arma con el id.
 // La de Instagram vence (es del CDN de Meta) y se reescribe en cada lectura (lib/spy.ts).
 
-import { NOMBRE_ETAPA } from '@/lib/spy-reglas';
 import { contadorDeTarjeta, destinoDePieza, fechaCorta, miniaturaDePieza, rotuloDeTipo, tiempoDePieza } from '@/lib/spy-vista';
 import type { PiezaVista } from './actions';
 
@@ -35,7 +36,7 @@ const PUNTO: Record<string, string> = {
   instagram: 'var(--ig)', youtube: 'var(--yt)', anuncios: 'var(--info, #23559f)', landing: 'var(--faint)',
 };
 
-export function TarjetaPieza({ p }: { p: PiezaVista }) {
+export function TarjetaPieza({ p, analizando = false }: { p: PiezaVista; analizando?: boolean }) {
   const esAnuncio = p.canal === 'anuncios';
   const t = tiempoDePieza(p);
   // El texto ya se ve en el lugar del creativo cuando no hay miniatura: no se repite abajo.
@@ -48,7 +49,6 @@ export function TarjetaPieza({ p }: { p: PiezaVista }) {
 
   // La línea de arriba del pie: sólo lo que existe, separado por puntos medios.
   const linea = [
-    p.etapa ? NOMBRE_ETAPA[p.etapa].rotulo : null,
     rotuloDeTipo(p.tipo),
     /^\d/.test(megusta) ? `${megusta} me gusta` : null,
   ].filter(Boolean).join(' · ');
@@ -75,17 +75,20 @@ export function TarjetaPieza({ p }: { p: PiezaVista }) {
         {/* Un anuncio pegado no dice cuándo empezó; el que se guardó desde la Biblioteca sí. */}
         {esAnuncio && t.dias == null
           ? <span className="spy-pcard__tag">Lo viste el {fechaCorta(p.visto_primera_vez)}</span>
-          : t.dias != null && (
-            <span className={t.sigue ? 'spy-pcard__tag spy-pcard__tag--viva' : 'spy-pcard__tag'} title={t.linea}>
-              {t.sigue && <i className="spy-punto spy-punto-vivo" />}{t.dias} d {esAnuncio ? 'al aire' : 'a la vista'}
-            </span>
-          )}
+          : t.dias != null && (esAnuncio
+            ? (
+              <span className={t.sigue ? 'spy-pcard__tag spy-pcard__tag--viva' : 'spy-pcard__tag'} title={t.linea}>
+                {t.sigue && <i className="spy-punto spy-punto-vivo" />}{t.dias} d al aire
+              </span>
+            )
+            : <span className="spy-pcard__tag" title={t.linea}>{t.dias === 0 ? 'Hoy' : `Hace ${t.dias} d`}</span>)}
+        {analizando && <span className="spy-pcard__tag spy-pcard__tag--analizando" aria-live="polite"><i className="spy-punto spy-punto-vivo" />Analizando…</span>}
         {destino && <span className="spy-pcard__tag" title={`Manda a ${destino}`}>{destino}</span>}
       </div>
 
       <div className="spy-pcard__pie">
         <div className="spy-pcard__texto">
-          <small title={p.etapa ? NOMBRE_ETAPA[p.etapa].porque : undefined}>{linea}</small>
+          <small>{linea}</small>
           {titulo && <b>{titulo}</b>}
         </div>
         {/* ⚠️ EL NÚMERO LLEVA EL PESO QUE LA REFERENCIA LE DA A ESE LUGAR. En `.pcard__buy` de fitlo
