@@ -27,6 +27,7 @@ import {
   type ParteMensaje, type CamposMensaje, type PasoConPartes,
 } from './mensaje-partes';
 import { AVISO_REPETIDO } from './nutricion-grafo-motor';
+import { pausaDeEscritura } from './mako-salida-reglas';
 import { proximaApertura, textoDeApertura, type HorarioEnvio } from './horario-envio';
 
 /** La operación de la tarjeta. El MISMO literal que `OP_AVISAR` (lib/flujo-legado.ts); el test lo fija. */
@@ -337,9 +338,8 @@ export function detalleEvolution(body: unknown): string {
 
 const soloB64 = (s: string): string => (s.includes(',') ? s.split(',').pop()! : s);
 
-/** El «escribiendo…» anti-ban de un texto: el de siempre (`enviarAlGrupoMaKo`), proporcional al largo. */
-export const delayDeTexto = (texto: string, azar: () => number = Math.random): number =>
-  Math.round(Math.min(1500 + texto.length * 45, 9000) * (0.8 + azar() * 0.4));
+/** El «escribiendo…» de un texto: la regla de la casa (`pausaDeEscritura`, lib/mako-salida-reglas.ts), proporcional al largo y con variación. */
+export const delayDeTexto = (texto: string, azar: () => number = Math.random): number => pausaDeEscritura(texto.length, 'texto', azar);
 
 /** El «grabando…» / «enviando…» de un audio o un archivo. */
 export const DELAY_BINARIO_MS = 1000;

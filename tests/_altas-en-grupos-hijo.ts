@@ -62,6 +62,8 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.pathname.startsWith('/chat/whatsappNumbers')) return json(200, [{ exists: true, jid: `${String((body?.numbers as string[])[0])}@s.whatsapp.net` }]);
   if (u.pathname.startsWith('/group/participants')) return json(200, { participants: [] });
   if (u.pathname.startsWith('/group/inviteCode')) return json(200, { inviteUrl: 'https://chat.whatsapp.com/LINK' });
+  // La línea de MaKo, conectada: de acá sale el número del link `wa.me` de la verificación (lee la base de Evolution, no le habla a WhatsApp).
+  if (u.pathname.startsWith('/instance/fetchInstances')) return json(200, [{ name: 'mako_ws9', connectionStatus: 'open', ownerJid: '5493410000999@s.whatsapp.net' }]);
   if (u.pathname.startsWith('/chat/findMessages')) {
     const jid = String((body?.where as { key?: { remoteJid?: string } })?.key?.remoteJid ?? '');
     if (jid.startsWith(LECTURA_ROTA)) return json(500, { message: 'caído' });
@@ -171,9 +173,9 @@ async function main() {
   out.topeDetalle = await chat.agregarParticipantesMaKo('grupo-otro@g.us', [TERCERO]);
   // Otra línea tiene su propio cupo.
   out.topeOtraLinea = await g.cupoAltaDeLinea(TERCERO, 'mako_otra');
-  // El código de verificación no gasta en la línea.
+  // La verificación no gasta en la línea, y desde el 4/11/2026 no le escribe a nadie: devuelve el link para que la persona escriba.
   pedidos = [];
-  out.topeCodigo = { res: await g.enviarCodigoVerificacion(SIN_GRUPO, TERCERO, 'Nueva'), pedidos };
+  out.topeCodigo = { res: await g.pedirMensajeDeVerificacion(SIN_GRUPO, TERCERO, 'Nueva'), pedidos };
   // Pasada la ventana, vuelve.
   const haceRato = new Date(Date.now() - 11 * 60_000).toISOString();
   for (const f of db.app_settings) if (String(f.key).includes('linea-altas')) f.value = haceRato;

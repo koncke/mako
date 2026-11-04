@@ -165,4 +165,30 @@ export const BITACORA: Hito[] = [
     ],
     tickets: [40],
   },
+  {
+    fecha: '4 nov', hora: '—', chat: 'WhatsApp sin ban (nube)', sesion: 'cli_9e4287f8-a741-5483-aea2-368f75752652', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que no nos vuelvan a banear',
+    pedido: 'Ya nos desbanearon la cuenta de whatsapp, implementa medidas para que no nos baneen, por ejemplo, en el onboarding, en lugar de nosotros enviarle un codigo de seguridad, pedirles que ellos nos envien un mensaje primero y ahí enviarles su codigo... O algo así, revisa todo.',
+    puntos: ['Con la línea desbaneada el 4/11. Que el código lo manden ellos, y revisar cada envío de las líneas.'],
+  },
+  {
+    fecha: '4 nov', hora: '04:31', chat: 'WhatsApp sin ban (nube)', sesion: 'cli_9e4287f8-a741-5483-aea2-368f75752652', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo ya no le escribe primero a nadie, y si WhatsApp avisa, la línea frena sola',
+    puntos: [
+      '**El onboarding:** en vez de mandarte un código, MaKo te da un botón «Abrir WhatsApp» con el mensaje escrito. Lo mandas y la conversación sigue sola.',
+      '**Nada a un número que nunca escribió:** ni el código, ni la invitación al grupo por mensaje, ni las tareas de una reunión.',
+      '**Si WhatsApp avisa que una línea manda demasiado o la restringe**, esa línea frena sola un rato y llega un mail. Vale también para las líneas de los clientes.',
+      '**Topes nuevos:** 10 altas en grupos por día por línea, y el mismo texto a no más de 5 grupos por hora.',
+      '**Cómo se prueba:** en el negocio de prueba (ws 3), hacer el onboarding y mandar el mensaje desde el teléfono. Falta probarlo con WhatsApp de verdad.',
+    ],
+    archivos: [
+      'lib/mako-salida-reglas.ts — las reglas de lo que no sale, puras',
+      'lib/verificacion-entrante.ts — el código que manda la persona',
+      'lib/linea-freno.ts — el freno de todas las líneas',
+      'tests/whatsapp-anti-ban.test.ts — 24, probado rompiéndolo',
+      'docs/hallazgos-comunicacion.md — la tabla de cada envío y qué dice Meta',
+    ],
+  },
 ];

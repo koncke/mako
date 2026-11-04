@@ -12,7 +12,7 @@ cuentas, revisadas otra vez el 23/10 en las páginas oficiales.
 
 **Lo único que le queda a Martín, en orden.** Lo demás lo hace un chat de código.
 
-1. **Decidir qué responsable dicen las páginas legales.** `/privacidad` y `/terminos` nombran a «Tejado Gonzalvez Leandro Martin» (`lib/titular-mako.ts`). En la App Store coincide con el vendedor. En Play no: el titular es Martín, y Google muestra su nombre legal aunque el nombre público sea MaKo. Un revisor vería a dos responsables.
+1. ~~Decidir qué responsable dicen las páginas legales.~~ **Decidido el 4/11/2026** (Martín: «Si, el responsable legal es Leandro»). `/privacidad` y `/terminos` siguen nombrando a «Tejado Gonzalvez Leandro Martin» (`lib/titular-mako.ts`), y suman una línea con quién publica en cada tienda: ese mismo nombre en la App Store y «Martín Carballo Koncke» en Google Play (`PUBLICA_EN_PLAY`). Lo fija `tests/tiendas-quien-publica.test.ts`.
 2. **Terminar las verificaciones de Play Console.** La cuenta personal ya está abierta (3/11/2026, con martinkoncke@gmail.com y el nombre público MaKo). Google está revisando la identidad (unos días); faltan el teléfono Android con la app Play Console y el número de contacto. Hasta entonces la consola no deja crear la app, y **el reloj de los 14 días todavía no arrancó**. Cuando llegue el mail, aceptar los términos del Android SDK para compilar el `.aab`.
 3. **Juntar de 15 a 16 testers con Android**, en un Grupo de Google (paso 4 de la (b)).
 4. **Crear la app en Play y pegar los borradores:** `docs/tiendas-fichas-borradores.md`. Data safety y la política van **antes** de la prueba cerrada: Play los pide también ahí. Después, subir el `.aab`. Desde ese día corren los 14.
@@ -23,7 +23,7 @@ cuentas, revisadas otra vez el 23/10 en las páginas oficiales.
 | Paso de la (a) | Estado | Evidencia |
 |---|---|---|
 | 1. `/.well-known` público | **Hecho**, falta la huella | Dan 200 (medido el 3/11). El de Apple ya lleva el Team ID. `assetlinks.json` sigue vacío hasta tener la huella: la pone `scripts/tiendas-asociar.mjs` |
-| 2. El teléfono no vende | **Hecho el 3/11** | Medido antes: «Tu plan» abría el pago, Agency tenía «Pagar su primer mes», los carteles de la prueba y More ofrecían pasar de plan, y la cuenta pausada, pagar. `tests/tiendas-telefono-no-vende.test.ts` |
+| 2. El teléfono no vende | **Hecho el 3/11** | Medido antes: «Tu plan» abría el pago, Agency tenía «Pagar su primer mes», los carteles de la prueba y More ofrecían pasar de plan, y la cuenta pausada, pagar. `tests/tiendas-telefono-no-vende.test.ts`. Desde el 4/11, MaKo Partners («Ya cobraste») y Agency Dashboard («Falta pagar») no van en ningún teléfono, Android incluido: `TABS_QUE_VENDEN`, `lib/tienda.ts` |
 | 3. Modo iOS | **Hecho el 3/11** | `lib/tienda.ts`: sin Google, sin relleno, y lo que vende no se abre. Mismo test |
 | 4. Borrar la cuenta, `/soporte`, `/eliminar-cuenta`, privacidad | **Hecho el 3/11** | `lib/baja-cuenta.ts`, `tests/baja-cuenta.test.ts`. Hay que agregar una tabla nueva a la base de producción (`0371_bajas_cuenta.sql`), que sólo agrega, antes de subir |
 | 5. La cuenta de revisión | **Escrita en la rama `tiendas-revisor-0311`, sin subir** | Pide la revisión de seguridad. El script que la crea está sin correr |

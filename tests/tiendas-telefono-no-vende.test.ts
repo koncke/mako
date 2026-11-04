@@ -19,8 +19,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as React from 'react';
-import { MARCA_APP_IOS, esAppIos, esRutaDeVenta, masParaAppIos } from '../lib/tienda';
-import { masCompleto, RUTA_PRONTO } from '../lib/movil-rutas';
+import { MARCA_APP_IOS, TABS_QUE_VENDEN, esAppIos, esRutaDeVenta, esTabQueVende, masParaAppIos, sinLoQueVende } from '../lib/tienda';
+import { masCompleto, RUTA_PRONTO, type GrupoMasCompleto } from '../lib/movil-rutas';
+import { pedidoMovil } from '../lib/movil-desvio';
+import { USER_NAV } from '../app/_components/nav';
+import { puedeVerItem } from '../lib/nav-visibilidad';
 import { esPublica } from '../lib/rutas-publicas';
 
 const leer = (f: string) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
@@ -134,12 +137,67 @@ test('7. More en iPhone: sólo lo que tiene pantalla; sin la marca, entero', () 
   assert.match(sinComentarios(leer('app/m/pronto/[key]/page.tsx')), /if \(!item \|\| await esAppIosDelPedido\(\)\) redirect/);
 });
 
-test('9. las tabs que existen para vender MaKo a otros no van en iPhone, y las demás sí', () => {
+// 4/11/2026, Martín: el teléfono no vende en NINGÚN teléfono. Android no se distingue de Chrome, y en la clasificación de edad
+// de Google Play se contestó que la app no da premios en dinero (MaKo Partners del teléfono decía «Ya cobraste»; Agency
+// Dashboard, «Falta pagar»). Hasta ese día, Partners y Agency salían sólo de la app de iPhone.
+const UA = {
+  android: 'Mozilla/5.0 (Linux; Android 14; SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
+  iphoneSafari: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+  iphoneApp: `Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 ${MARCA_APP_IOS}`,
+};
+/** Lo que /m/mas le dibuja a ese user agent: la misma línea que app/m/mas/page.tsx (la fija la 7). */
+const masDelTelefono = (ua: string, completo: GrupoMasCompleto[]) => (esAppIos(ua) ? masParaAppIos(completo, RUTA_PRONTO) : completo);
+const keysDe = (grupos: GrupoMasCompleto[]) => grupos.flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'grupo' ? [f.key, ...f.filas.map((x) => x.key)] : [f.key])));
+
+test('9. las tabs que existen para vender MaKo a otros no van en NINGÚN teléfono, y las demás sí', () => {
+  assert.deepEqual([...TABS_QUE_VENDEN].sort(), ['agency', 'partners']);
+  assert.equal(esTabQueVende('partners'), true);
+  assert.equal(esTabQueVende('agency'), true);
+  assert.equal(esTabQueVende('crm'), false);
+  // El filtro, con filas armadas a mano: también adentro de un desplegable, y el desplegable que queda vacío se va.
   const fila = (key: string, href: string) => ({ tipo: 'pantalla' as const, key, label: key, icon: 'x', href, seccion: null });
-  const grupos = [{ id: 'menu' as const, titulo: null, filas: [fila('agency', '/m/agency'), fila('partners', '/m/partners'), fila('crm', '/m/crm')] }];
-  assert.deepEqual(masParaAppIos(grupos, RUTA_PRONTO).flatMap((g) => g.filas.map((f) => f.key)), ['crm']);
-  for (const rel of ['app/m/agency/page.tsx', 'app/m/partners/page.tsx']) {
-    assert.match(sinComentarios(leer(rel)), /if \(await esAppIosDelPedido\(\)\) redirect\(await rutaConWs\(RUTA_MAS\)\);/, `${rel}: un link directo tampoco`);
+  const grupos: GrupoMasCompleto[] = [
+    { id: 'menu', titulo: null, filas: [fila('agency', '/m/agency'), fila('partners', '/m/partners'), fila('crm', '/m/crm')] },
+    { id: 'sales', titulo: 'Sales', filas: [{ tipo: 'grupo', key: 'mas', label: 'Más', icon: 'x', filas: [fila('partners', '/m/partners')] }] },
+  ];
+  assert.deepEqual(keysDe(sinLoQueVende(grupos)), ['crm']);
+  // More de verdad, para el admin de un negocio y el de una agencia: la sidebar les muestra las dos (el control), y ningún
+  // teléfono —Android, iPhone en Safari, la app de iPhone— las dibuja.
+  for (const capa of ['completo', 'agencia']) {
+    const vista = { adminShell: false, rolWs: 'admin', capa };
+    for (const key of TABS_QUE_VENDEN) {
+      const it = USER_NAV.find((i) => i.key === key);
+      assert.ok(it && puedeVerItem(it, vista), `el control: la sidebar de ${capa} muestra ${key}`);
+    }
+    const completo = masCompleto('admin', capa, false);
+    for (const [nombre, ua] of Object.entries(UA)) {
+      const dibujadas = keysDe(masDelTelefono(ua, completo)).filter((k) => esTabQueVende(k));
+      assert.deepEqual(dibujadas, [], `${capa} en ${nombre}: More las dibuja`);
+    }
+    // Y el resto del menú de la foto sigue (Settings, Report a problem): no se vació More.
+    assert.ok(keysDe(completo).includes('tickets'), `${capa}: se fue el resto del menú de la foto`);
+  }
+});
+
+test('9b. un link a /partners o /agency en un teléfono cae en su página, que vuelve a More antes de leer nada; la computadora, igual', () => {
+  for (const [ruta, interna] of [['/partners', '/m/partners'], ['/agency', '/m/agency']] as const) {
+    // El teléfono: el proxy le sirve la página de /m en la misma URL (ninguna cubierta «Abrirla igual» con el panel debajo).
+    assert.deepEqual(pedidoMovil({ pathname: ruta, search: '', metodo: 'GET', telefono: true }), { tipo: 'reescribir', destino: interna });
+    // La computadora: no cambia nada.
+    assert.deepEqual(pedidoMovil({ pathname: ruta, search: '', metodo: 'GET', telefono: false }), { tipo: 'seguir' });
+  }
+  for (const [rel, key] of [['app/m/partners/page.tsx', 'partners'], ['app/m/agency/page.tsx', 'agency']] as const) {
+    const src = sinComentarios(leer(rel));
+    const corte = src.indexOf(`if (esTabQueVende('${key}')) redirect(await rutaConWs(RUTA_MAS));`);
+    assert.ok(corte > 0, `${rel}: no vuelve a More`);
+    // Para todos los teléfonos: no pregunta cuál es.
+    assert.doesNotMatch(src, /esAppIosDelPedido/, `${rel}: el corte volvió a ser sólo de iPhone`);
+    // Antes de leer el negocio o la query: nada del panel se arma para un teléfono.
+    for (const lectura of ['await searchParams', 'getWorkspaceActual()', 'getSesionAdmin()']) {
+      const i = src.indexOf(lectura);
+      assert.ok(i > 0, `${rel}: el control, «${lectura}» está`);
+      assert.ok(corte < i, `${rel}: lee «${lectura}» antes de volver a More`);
+    }
   }
 });
 
@@ -184,6 +242,14 @@ test('8. el login de la app de iPhone no tiene Google y abre el correo; sin la m
 //   · More deja pasar lo que no tiene pantalla                -> 8 / 1 (7)
 //   · More deja pasar Agency                                  -> 8 / 1 (9). La primera versión NO la veía: con el super admin
 //     en la plataforma esa fila no sale. Por eso la 9 arma las filas a mano.
+// 4/11/2026, ningún teléfono (base 12 / 0; una rotura por vez, restaurada de memoria y comparada por hash):
+//   · `masCompleto` sin `sinLoQueVende`                       -> 11 / 1 (9: las dos, en Android y en iPhone Safari; y caen
+//     también tests/movil-toda-tab.test.ts y tests/sidebar-nueva.test.ts)
+//   · `sinLoQueVende` sin mirar adentro de un desplegable     -> 11 / 1 (9)
+//   · `partners` fuera de TABS_QUE_VENDEN                     -> 11 / 1 (9)
+//   · /m/partners vuelve a cortar sólo en iPhone              -> 11 / 1 (9b)
+//   · /m/agency sin el corte                                  -> 11 / 1 (9b)
+//   · el corte de /m/partners después de leer la query        -> 11 / 1 (9b)
 //   · el botón de Google sin la condición                     -> 8 / 1 (8)
 //   · la marca distinta de la de Capacitor                    -> 8 / 1 (5)
 //   · un iPhone cualquiera prende el modo                     -> 8 / 1 (5)

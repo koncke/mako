@@ -1714,3 +1714,35 @@ guion del refutador, versionado, con dos casos nuevos: la cancelación de sub_A 
 minutos la vuelve a mandar (R5). Lo arregla un reclamo escrito ANTES de mandar, en lib/cobros-externos-meta.ts (de Zernio).
 **Vive en:** lib/cobros.ts (`reconciliarCobros`, `avisoTrabajando`) · tests/venta-externa.test.ts (o, p) ·
 C:/dev/revisiones/scratch-a196/partners-zernio-refuta/z-meta.ts.
+
+---
+
+## «Figuran al día y no pagan desde agosto»: un cálculo y un dato, que parecían lo mismo (ticket #53 de Leila, 4/11/2026)
+
+**Síntoma:** Leila (ws11): «tanto Carlos dominguez como Wilberth Vera figuran al día cuando no pagan desde agosto». El diagnóstico
+obvio era UNO solo, «la regla de "Al día" no ve lo que se debe». Había dos cosas distintas, y ninguna era esa.
+
+**Wilberth Vera (lead 1871): un cálculo, pero sólo en una rama.** Con su fecha de cierre, la regla andaba: `cobradoDelLead` decía
+«Falta registrar 2 meses» (medido corriendo la función con sus filas). `lead_audit` lo dice todo: a las 05:00:39 del 4/11 Leila lo sacó
+de Ganado a «Nutrición - Manual», eso borra `fecha_cierre` (`lib/lead-desenlace.ts`: la venta sólo vive con `cerro`), y a las 05:02
+levantó el ticket. **El «Al día» lo produjo el clic con el que ella lo sacó.** `sinRegistrar` se cuenta sólo con un cierre: sin él quedaba
+en 0 porque no se contó, y el semáforo caía al último renglón. «Al día» era el valor por defecto.
+
+**Carlos Dominguez (lead 1713): un dato.** Está cargado como `unico`, US$40, con una cuota cobrada el 06/08. La ficha dice «Pagó todo» (no
+«Al día»), y con esos datos es lo correcto: no hay cuenta que descubra que era una mensualidad. Su servicio dice «Lidermente pagó hoy»;
+las demás ventas de Lidermente son `suscripcion` de US$40. Como suscripción daría «Falta registrar 3 meses». No se arregla en código.
+
+**Los otros del mismo negocio** (ws11, las únicas 7 suscripciones sin cierre de toda la base; medido): «Al día» falso también en 1923
+(Yahumara, último pago 26/08), 1852 (Belizario, perdido) y 1940 (Laura, perdida). Cargados como pago único con pinta de mensualidad:
+2634 (Raul, US$40) y 1712 (Leticia, «Lídermente mensual», perdida). Las filas a reparar no se tocaron: las decide Leila.
+
+**La regla:** un estado que AFIRMA algo («Al día», «Pagó todo») tiene que salir de una cuenta que corrió. Si el dato para contar no está, se
+dice lo que se sabe («Último pago el…»), nunca el verde del último renglón. Y antes de tocar una regla de plata: correr la función con
+las filas del cliente y leer `lead_audit` de esa noche.
+
+**Lo que NO cambió:** «A quién cobrar» sigue leyendo sólo a los ganados (`getSuscripcionesPorCobrar`): quien sale de Ganado no entra, a
+propósito. Para que Wilberth entre, vuelve a Ganado. Quien mueve un cliente que dejó de pagar a una etapa de nutrición lo saca de la cobranza:
+la app no lo avisa, y Leila ya lo hizo con cinco.
+
+**Vive en:** `cobradoDelLead`, `sinCierre` (lib/cobrado-lead.ts) · `estadoDeCuenta` (lib/pagos-vistazo.ts) ·
+tests/pagos-vistazo.test.ts · tests/cobrado-lead.test.ts.

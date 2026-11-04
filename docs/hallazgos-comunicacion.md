@@ -17,6 +17,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **MaKo no le escribe primero a nadie, y una línea que WhatsApp frena se calla sola** (4/11/2026). El código del onboarding lo manda la
+  persona por `wa.me`; la invitación por DM y el mensaje a una persona salen sólo a quien escribió; y un «rate-overlimit», 463 o 403
+  frena la línea y avisa por mail. Ver «Para que no nos vuelvan a banear», abajo, con la tabla de cada envío.
 - **Un jid de una persona nunca sale por la voz, y el bot no tiene línea por defecto** (3/11/2026): la voz es el WhatsApp personal de Martín, y ahí contestaría a su familia. Todo lo que MaKo le manda a una persona pasa por `lib/mako-salida.ts`, que mira las 24 horas. Ver «Los avisos en el teléfono y el bot 1 a 1», abajo.
 - **WhatsApp baneó la línea de MaKo, y no fue por volumen** (3/11/2026). Evolution reintenta solo todo menos 401, 402, 403 y 406, y desde el servidor un ban y un
   cambio de teléfono se ven igual: lo dice el teléfono. Nunca se mueve ese tráfico a otra línea. Ver «WhatsApp BANEÓ la línea de MaKo», abajo.
@@ -53,6 +56,113 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   el funnel SÍ le llega al modelo y pierde contra un imperativo del catálogo. Una clienta
   que prospecta en frío grabó un audio que dice «vi que dejaste tus datos en el anuncio».
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
+
+---
+
+## Para que no nos vuelvan a banear: la persona escribe primero y la línea frena sola (4/11/2026, nube)
+
+Martín, el 4/11, con la línea desbaneada: *«Ya nos desbanearon la cuenta de whatsapp, implementa medidas para que no nos baneen, por
+ejemplo, en el onboarding, en lugar de nosotros enviarle un codigo de seguridad, pedirles que ellos nos envien un mensaje primero y ahí
+enviarles su codigo... O algo así, revisa todo.»*
+
+**Vive en:** `lib/mako-salida-reglas.ts` (las reglas, puras) · `lib/verificacion-entrante.ts` (el código entrante, puro) ·
+`lib/linea-freno.ts` (el freno de todas las líneas) · `lib/mako-grupo.ts` (`pedirMensajeDeVerificacion`, `confirmarPorMensajeEntrante`,
+`enviarTextoVozMaKo`, `enviarInvitacionGrupo`, `cupoAltaDeLinea`) · `app/api/webhooks/evolution/route.ts` · `app/onboarding/ChatArranque.tsx`
+(`TarjetaWhatsapp`) · `app/automations/OnboardingChatAgent.tsx` · `lib/mfa-reglas.ts` · `tests/whatsapp-anti-ban.test.ts`.
+
+### Qué cambió
+
+- **El onboarding ya no le escribe a nadie.** La pantalla da un link `wa.me` a la línea de MaKo con el texto escrito («Hola MaKo, mi
+  código es K7P2QX»). La persona lo manda; el webhook lo lee antes que el bot y que el espejo del inbox, y confirma el número de QUIEN
+  LO MANDÓ. MaKo no contesta nada por WhatsApp: la conversación sigue sola en la app (pregunta cada 4 s). Recién confirmado, el dueño entra
+  al grupo. Vale para los tres caminos: el chat de arranque, `/api/onboarding` (`contacto-*`) y la prueba de Automations.
+- **El 2FA nunca manda un código por WhatsApp**, aunque alguien lo sume a `CANALES_CODIGO` (`canalDisponible`). Ya estaba apagado (tanda
+  1); ahora no se puede prender por error. Nadie queda afuera: la app de autenticación, la llave de acceso y los códigos de recuperación no
+  dependen de WhatsApp, y el correo de respaldo sigue siendo el camino de la tanda 2 (por una automatización del SuperAdmin, sin construir).
+- **Las seis reglas, en un lugar** (`lib/mako-salida-reglas.ts`): no escribirle primero a quien nunca escribió; sin invitación por DM a
+  un desconocido (ahora tampoco con `mako.grupos.automatico` en `si`); altas con tope (nuevo: 10 por día por línea); ritmo con variación
+  y el mismo texto a no más de 5 chats por hora por la línea de MaKo; sin links en el primer mensaje a quien no escribió; y el freno.
+- **El freno** (`lib/linea-freno.ts`): si Evolution contesta «rate-overlimit», 463 o 403 a una escritura, la línea frena sola (30 min,
+  24 h y 6 h) y se avisa UNA vez por mail (`avisarPorEmail`) al equipo de MaKo y a los destinatarios del negocio de esa línea. Mientras
+  tanto, ninguna escritura de esa línea llega a Evolution; leer sigue andando. El motor de los clientes la saltea y reprograma lo que
+  tocaba para la hora del freno (no 24 h después).
+
+### La tabla: cada envío por la línea de MaKo (relevado sobre `5aaf3d69`)
+
+| Qué manda | A quién | ¿Esa persona ya le escribió? | Qué cambió el 4/11 |
+|---|---|---|---|
+| Código de verificación (arranque, `/api/onboarding`, prueba de Automations) | el número tipeado | No | **Ya no sale.** La persona le escribe a MaKo con `wa.me`. |
+| Alta del dueño en su grupo al verificar (`setNumeroDuenoYSync`) | el dueño | Ahora sí: acaba de escribir el código | Sale recién después de su mensaje. Tope por línea: 2 cada 10 min y 10 por día. |
+| Altas de Notificaciones (teléfonos 2..N), del detalle del grupo (`mako-chat`) y de la mudanza de voz | gente del negocio | No siempre | Siguen (las pide una persona), con el tope nuevo de 10 por día por línea. |
+| Invitación por DM con el link del grupo, cuando el alta falla | persona suelta | Sólo si escribió | **Nunca a quien no escribió**, aunque lo automático esté prendido. La pantalla da el link. |
+| `enviarAPersonaMaKo` (respaldo de `/api/plan-reunion`: tareas con link) | teléfono tipeado | No | **Bloqueado** salvo que haya escrito; vuelve «MaKo no le escribe primero…». |
+| Tarjeta «MaKo en WhatsApp» por partes (`enviarPartesAJid`) y reacciones (`reaccionarMensaje`) | grupo | — | A una persona, sólo si escribió. |
+| Avisos, insistencias, flujos, tickets y aviso de arreglo al grupo (`enviarAlGrupoMaKo`) | grupo del negocio | — | El mismo texto, a no más de 5 chats por hora. Ritmo de la casa. Freno. |
+| Bienvenida al crear el grupo, grupo SuperAdmin | grupo | — | Freno. |
+| `/api/admin/avisos-demo` (~50 mensajes a 250 ms) | grupo de pruebas | — | **Con el ritmo de la casa** (2-4 s entre uno y otro) y el `jid` tiene que ser un grupo. |
+| `adoptarJid` de `/api/admin/mako-grupo` | — | — | Tiene que terminar en `@g.us`: si no, todos los avisos le llegaban a esa persona. |
+| Vigilante de líneas (aviso con link a la secundaria) | el número propio de Martín | Es su número | Sin cambios. Sale por `enviarTexto`, así que el freno lo alcanza. |
+| Bot 1 a 1 (`lib/mako-salida.ts`) | persona | Sí: ventana de 24 h | Freno de la línea; ritmo de la casa. Sigue apagado. |
+
+**Las líneas de los clientes** (sus números, `evolution_instancias`):
+
+| Qué manda | A quién | ¿Escribió? | Qué cambió el 4/11 |
+|---|---|---|---|
+| Motor: secuencias, flujos, difusiones, goteo | leads (prospección) | No | **Sólo el freno**, con aviso por mail. Ya tenían 40 por día, 6 por hora y 20 h por persona; la difusión, uno cada 3 min y 40 por día. |
+| «Si responde» y el setter que contesta solo | quien acaba de escribir | Sí | Freno. |
+| Recordatorio de reunión (con link), mensajes del curso (con link), bandeja a mano, borradores, pruebas | lead / cliente | Depende | Freno. |
+
+⚠️ **Lo que NO se aplicó a los clientes, a propósito:** «sin links en el primer mensaje» y «el mismo texto a muchos». Prospectar y mandar
+una difusión son lo que venden esas líneas: aplicarlas sería apagarles algo que hoy les funciona sin decírselo. La regla está escrita
+(`primerMensajeOk` con `puedeEscribirPrimero`) para cuando se decida avisarlo en el editor; hoy no la llama nadie.
+
+### Qué dice Meta y qué es folclore (investigado el 4/11; los dominios de Meta no abrieron desde la nube: frases de los extractos del buscador)
+
+| Afirmación | Fuente | Clase |
+|---|---|---|
+| El envío masivo o automatizado y los clientes no oficiales van contra los términos | [Términos](https://www.whatsapp.com/legal/terms-of-service), [Messaging Guidelines](https://www.whatsapp.com/legal/messaging-guidelines) | Meta |
+| Vincular por apps no oficiales «may put your account at risk» | [FAQ linked devices](https://faq.whatsapp.com/378279804439436) | Meta |
+| Una cuenta restringida no puede escribirle a contactos nuevos, crear grupos ni agregar miembros; sugiere anuncios de comunidad en vez de repetir en grupos | [FAQ restricted accounts](https://faq.whatsapp.com/717472490411581) | Meta |
+| Sólo se contacta a quien dio su número y su permiso, y se respeta el «basta» | [Business Policy](https://business.whatsapp.com/policy) | Meta |
+| La calidad de un número baja con bloqueos, denuncias y silencios | [Messaging limits (Cloud API)](https://developers.facebook.com/documentation/business-messaging/whatsapp/messaging-limits) | Meta (API oficial) |
+| Un código (OTP) por la API oficial sólo sale como plantilla de autenticación | [Authentication templates](https://developers.facebook.com/documentation/business-messaging/whatsapp/templates/authentication-templates/authentication-templates) | Meta (API oficial) |
+| Una cuenta nueva que manda en ráfaga se banea; la falta de «escribiendo» es una señal | White paper «Stopping Abuse» (2019) | Meta, viejo |
+| Tope mensual a quien escribe a no-contactos que no contestan; lo contestado no cuenta | [TechCrunch, 17/10/2025](https://techcrunch.com/2025/10/17/whatsapp-will-curb-the-number-of-messages-people-and-businesses-can-send-without-a-response) citando a WhatsApp | Prensa |
+| 463 = límite a escribirle a desconocidos, por una cuenta restringida | [Baileys #2441](https://github.com/WhiskeySockets/Baileys/issues/2441) (equipo de Baileys) | Librería |
+| «rate-overlimit» como respuesta del servidor | issues de Baileys (#796, #1061), sin documentación | Librería, sin doc |
+| Calentar el número, X mensajes por día, delays de N segundos, variar el texto, no poner links en el primer mensaje, foto de perfil, proxies | blogs y vendedores | **Folclore** |
+
+**Los números de este código son nuestros, no de Meta:** 10 altas por día, 5 chats con el mismo texto, 30 min / 6 h / 24 h de freno. Lo
+de no escribir primero, no invitar a desconocidos y frenar ante una restricción sí cuelga de lo que dice Meta.
+
+### ⚠️ Lo que parecía y no era, y las trampas
+
+- **El código en la pantalla no prueba nada: lo que prueba es el NÚMERO que lo manda.** Por eso una verificación entrante no se confirma
+  tipeando el código en la app (`decidirCodigoTipeado`), y desde otro número no se confirma: queda `otroNumero` y la pantalla lo dice.
+- **El mensaje llega a la voz, que hoy es `mako_ws9`: el WhatsApp personal de Martín.** Antes los clientes nuevos recibían el código de
+  ese número; ahora le escriben ahí. El webhook saca ese mensaje del bot y del espejo del inbox del ws9: es un mensaje del sistema, no una
+  charla. Si la voz vuelve a una línea propia, el link cambia solo (`lineaQueRecibe`).
+- **Un `@lid` sin el número alternativo no se confirma**: no se sabe quién es. Queda «Ahora no» para seguir.
+- **Una lectura del freno que falla NO frena** (es una red, no la puerta); escribirlo, sí se intenta siempre. Lo leído se guarda 20 s por
+  línea en memoria del proceso.
+- **Un 403 POR PARTICIPANTE adentro de un 200 no es una señal**: es la privacidad de quien no deja que lo sumen. Tampoco un 403 al leer un
+  grupo donde la línea no es admin. Sólo un 403 al MANDAR un mensaje.
+- **El tope de 40 por día es del motor, no de la línea**: la bandeja a mano, las pruebas, los recordatorios, el curso y los borradores
+  aprobados no cuentan (relevamiento del 4/11). El freno sí los alcanza a todos, porque está en `evFetch`.
+- **En el negocio de la plataforma (ws9), un envío sin línea sale por la de MaKo** (`lineasParaMandar` → `lineaDeMaKoPara`). Nada de eso
+  pasa por la puerta del bot.
+- **`lib/api-mako/flujo.ts` llama a `enviarBorrador` directo** y se saltea el bloqueo, el goteo y el camino que mira `borrador-camino`. No es
+  de este ban, pero es un agujero: anotado.
+
+### Sin hacer, o sin medir
+
+- **Nada se probó contra un WhatsApp de verdad**: sólo con Evolution de mentira (`tests/_whatsapp-anti-ban-hijo.ts`). Qué falta probar, en
+  `docs/relevo/nube-whatsapp.md`.
+- **No se sabe qué devuelve Evolution 2.3.7 para un 463**, ni si un «rate-overlimit» al mandar llega igual que al leer grupos (500 con el
+  texto adentro). La señal se busca en el cuerpo entero; si llega con otra forma, no frena.
+- **Las altas de Notificaciones no exigen que esa persona haya escrito antes.** Exigirlo cambia lo que una persona pide y Martín pidió que
+  siga andando: es su decisión.
+- **El aviso del freno sale por mail, no por la app.** Hoy casi nadie tiene los avisos del teléfono activados.
 
 ---
 
@@ -12436,3 +12546,29 @@ todo lo que importa esos módulos, no los que uno se acuerda.
   - La cuenta compartida la avisa el workspace de menor id (`cuentasYaAvisadas`), y ese decide también el destino: una cuenta compartida entre un
     cliente directo y uno de agencia puede avisarle a uno solo.
   - Una agencia que bajó de capa sigue recibiendo la alerta con un link a MaKo Partners que ya no la deja entrar.
+
+---
+
+## «No puedo ver mis chats de Instagram»: no eran chats (#50 de Leandro, 4/11/2026)
+
+**Síntoma:** las filas de Instagram dicen «(Mensaje no compatible)» y al abrirlas, «Todavía no hay mensajes. Escribe el primero». El diagnóstico obvio
+es que el hilo de Instagram no carga en el teléfono. **No: los mensajes que existen se ven.** Medido en ws10: 356 personas, **293 sin un solo mensaje**, y
+las 293 con `comentario_id`, sin `zernio_conversation_id` ni `ultimo_mensaje_at`. Comentaron una publicación; nunca escribieron.
+
+**Causa:** `conUltimoMensaje` les pone el texto «Comentó una publicación» con tipo `otro`, y después `previewDe` (que dice un adjunto por su tipo, nunca
+por su texto) lo reemplazó por «(Mensaje no compatible)». Dos reglas correctas por separado. Y en el hilo el comentario no estaba.
+
+**La regla:** un texto que escribe el código para una fila va con tipo `text`. `otro` es para lo que de verdad no se reconoce.
+
+**Sin hacer:** el TEXTO del comentario no se guarda (`filaDe`, lib/zernio-entrante.ts: llega en el evento y se usa sólo para disparar). Mostrarlo pide una
+columna en `ig_conversaciones`: una migración, la decide Martín. Y el hilo sigue sin lo que manda el motor (vive en `nutricion_envios`).
+
+## Un audio se cortaba solo cada 15 s en el teléfono (#50, 4/11/2026)
+
+Leandro pidió la velocidad, y el `<audio controls>` del iPhone no la ofrece. Al pasar al reproductor de la casa (`AudioPlay`) apareció lo otro: `/m/chats` relee el
+hilo cada 15 s y **cada lectura firma de nuevo la URL del Storage**. Un `src` que cambia recarga el audio y lo para. Por código pasaba igual con el nativo
+(no se midió en un teléfono), y con la velocidad se habría vuelto a 1× cada 15 s. **La regla:** dos URLs firmadas del mismo archivo son el mismo audio
+(`mismoArchivo`: sólo cambia el `token`; otra query es otro archivo). Si la guardada vence, el error prueba con la última.
+
+**Vive en:** `LO_ULTIMO_FUE_COMENTAR`, `eventoDelComentario` (lib/canal-social.ts) · `previewDe` (app/chats/lista-reglas.ts) ·
+`AudioPlay` (app/whatsapp/_shared/AudioPlay.tsx) · tests/m-chats.test.ts · tests/whatsapp-sexta-tanda.test.ts.

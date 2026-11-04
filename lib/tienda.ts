@@ -6,6 +6,7 @@
 //   · no hay botón de Google: Google prohíbe su OAuth dentro de un WebView (riesgo R3, T6);
 //   · no se ve lo que Apple lee como relleno: «Coming soon» y «En la computadora» (guía 2.1, riesgo R6);
 //   · no se abre nada de lo que vende (guía 3.1.1(a), T5, riesgo R2).
+// Y en CUALQUIER teléfono (4/11/2026): ni MaKo Partners ni Agency Dashboard (`TABS_QUE_VENDEN`).
 //
 // ⚠️ ANDROID NO TIENE MODO, y no es un olvido: la TWA es Chrome y comparte el user agent, las cookies y el storage. Una marca
 //    ahí se filtraría al navegador. Por eso el teléfono no vende en NINGÚN teléfono, sin preguntar cuál es.
@@ -46,12 +47,38 @@ export function rutaDeLinkDeLaApp(url: string | null | undefined, host = 'hola-m
   }
 }
 
-/** Las tabs que existen para vender MaKo a otros (la cartera de una agencia, el programa de partners): en iPhone no van. */
+/**
+ * Las tabs que existen para vender MaKo a otros (la cartera de una agencia, el programa de partners). NO VAN EN NINGÚN
+ * TELÉFONO desde el 4/11/2026 (hasta ese día, sólo en la app de iPhone). Martín lo decidió así: en la clasificación de edad
+ * de Google Play se contestó que la app no da premios en dinero, y MaKo Partners del teléfono decía «Ya cobraste»; Agency
+ * Dashboard decía «Falta pagar», «Esperando su pago» y «Renovación pendiente». Y Android no se distingue de Chrome.
+ *
+ * Lo leen los dos lugares por donde se llegaba: More (`masCompleto` → `sinLoQueVende`) y la página de cada una, que vuelve a
+ * More (app/m/partners, app/m/agency). Lo de abajo de esas páginas queda para el día que una vuelva: sacarla de esta lista
+ * la devuelve a los teléfonos. En la computadora no cambia nada.
+ */
 export const TABS_QUE_VENDEN: readonly string[] = ['agency', 'partners'];
 
-/** More sin lo que en la app de iPhone se lee como relleno o como venta: lo que no tiene pantalla, «Coming soon» y lo de arriba. */
+/** ¿Esta tab (key de nav.ts) existe para vender MaKo a otros? Entonces no va en el teléfono. */
+export const esTabQueVende = (key: string): boolean => TABS_QUE_VENDEN.includes(key);
+
+/** More sin las tabs que venden MaKo a otros, en cualquier teléfono: ni su fila ni la de adentro de un desplegable. */
+export function sinLoQueVende(grupos: GrupoMasCompleto[]): GrupoMasCompleto[] {
+  const limpiar = (filas: FilaMas[]): FilaMas[] => filas
+    .filter((f) => !esTabQueVende(f.key))
+    .map((f) => (f.tipo === 'grupo' ? { ...f, filas: limpiar(f.filas) } : f))
+    .filter((f) => f.tipo !== 'grupo' || f.filas.length > 0);
+  return grupos
+    .map((g) => ({ ...g, filas: limpiar(g.filas) }))
+    .filter((g) => g.filas.length > 0);
+}
+
+/**
+ * More sin lo que en la app de iPhone se lee como relleno: lo que no tiene pantalla y «Coming soon». Lo que vende ya salió
+ * en `masCompleto` (`sinLoQueVende`), para todos los teléfonos.
+ */
 export function masParaAppIos(grupos: GrupoMasCompleto[], rutaPronto: string): GrupoMasCompleto[] {
-  const conPantalla = (f: FilaMas) => f.tipo === 'pantalla' && !f.href.startsWith(`${rutaPronto}/`) && !TABS_QUE_VENDEN.includes(f.key);
+  const conPantalla = (f: FilaMas) => f.tipo === 'pantalla' && !f.href.startsWith(`${rutaPronto}/`);
   return grupos
     .map((g) => ({ ...g, filas: g.filas.filter(conPantalla) }))
     .filter((g) => g.filas.length > 0);

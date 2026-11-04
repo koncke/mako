@@ -159,7 +159,15 @@ export type Canal = 'whatsapp' | 'email';
  */
 export const CANALES_CODIGO: readonly Canal[] = [];
 
+/**
+ * ⛔ EL CÓDIGO POR WHATSAPP NO SALE NUNCA DESDE MaKo (4/11/2026). Mandarle un código a un número es escribirle primero, y eso es lo
+ * que pesó en el ban de la línea del 3/11 (docs/hallazgos-comunicacion.md). Por eso no alcanza con la lista vacía: aunque alguien lo
+ * sume a `CANALES_CODIGO`, esto contesta que no. El día que el 2FA use WhatsApp, va al revés: la persona le escribe a MaKo desde su
+ * número (lib/verificacion-entrante.ts), y es otra función. Nadie queda afuera: la app de autenticación, la llave de acceso y los
+ * códigos de recuperación no dependen de WhatsApp, y el correo de respaldo es el otro camino de la tanda 2.
+ */
 export function canalDisponible(canal: Canal, disponibles: readonly Canal[] = CANALES_CODIGO): boolean {
+  if (canal === 'whatsapp') return false;
   return disponibles.includes(canal);
 }
 
