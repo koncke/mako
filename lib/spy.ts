@@ -58,6 +58,7 @@ import { sirveLaCompartida, type MotivoDeLectura } from './spy-compartido';
 import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy-compartido-db';
 import { conLectura, funnelDeFila, leerFunnel, type Funnel, type LecturaFunnel } from './spy-funnel';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
+import { faltaLaColumnaDeMedio, gruposDeMedio, medioDeInstagram, type Medio } from './spy-medio';
 import { VIDEOS_POR_LECTURA_COMPLETA, leerCompleto, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
 import { esAgregador, sitioDelTexto } from './spy-otras-redes-reglas';
 import { CLAVE_CARICATURAS, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
@@ -132,6 +133,9 @@ export type Pieza = {
   dejo_de_verse_en: string | null;
   texto_leido_en: string | null;
   metricas_leidas_en: string | null;
+  /** Sólo Instagram: carrusel, imagen o video, y las láminas de un carrusel (mig 0391, lib/spy-medio.ts). Sin la columna, no viene. */
+  medio?: Medio | null;
+  laminas?: number | null;
 };
 
 /** Lo que concluyó el analista sobre la oferta de un competidor. El bloque que justifica la tab. */
@@ -438,6 +442,9 @@ export type PiezaVista = {
   miniatura?: string | null;
   /** La fecha en que la FUENTE dice que terminó (un anuncio inactivo de la Biblioteca). No es «no vino en esta lectura». */
   dejoDeVerseEn?: string | null;
+  /** Sólo Instagram: si es carrusel, imagen o video, y sus láminas (lib/spy-medio.ts). Se escribe aparte (`guardarMedios`). */
+  medio?: Medio | null;
+  laminas?: number | null;
 };
 
 /**
@@ -532,7 +539,32 @@ export async function guardarVistas(
     const r = await db.from('spy_piezas').upsert(viejas.map(comun), { onConflict: 'workspace_id,competidor_id,canal,ref' });
     if (r.error) err = r.error.message;
   }
+  // Carrusel, imagen o video, y sus láminas: APARTE del upsert (lib/spy-medio.ts), que no puede fallar por una columna nueva.
+  if (!err) await guardarMedios(competidorId, conFoto);
   return { nuevas: nuevas.length, actualizadas: viejas.length, error: err };
+}
+
+/** La 0391 sin aplicar se dice UNA vez por proceso: no es un error del negocio, y el explorador de carruseles vive sin ella. */
+let medioSinColumna = false;
+
+/**
+ * Escribe si cada publicación de Instagram es un carrusel, una imagen o un video, y las láminas de un carrusel (mig 0391).
+ * Un update por grupo, nunca uno por pieza. NUNCA tira y nunca hace fallar la lectura: es un dato de más. Sin la columna,
+ * deja de intentar hasta el próximo arranque.
+ */
+async function guardarMedios(competidorId: number, vistas: readonly PiezaVista[]): Promise<void> {
+  if (medioSinColumna) return;
+  const grupos = gruposDeMedio(vistas);
+  if (!grupos.length) return;
+  const db = await getTenantDb();
+  for (const g of grupos) {
+    const r = await db.from('spy_piezas').update({ medio: g.medio, laminas: g.laminas })
+      .eq('competidor_id', competidorId).eq('canal', 'instagram').in('ref', g.refs);
+    if (r.error) {
+      if (faltaLaColumnaDeMedio(r.error)) { medioSinColumna = true; console.warn('[spy] la 0391 (medio, láminas) todavía no está aplicada'); return; }
+      console.warn('[spy] no pude guardar el medio:', r.error.message);
+    }
+  }
 }
 
 /**
@@ -552,6 +584,9 @@ export function vistaDeInstagram(p: PiezaInstagram): PiezaVista {
     // (`thumbnail_url`, lib/instagram-perfil.ts) y este mapeo no la copiaba, así que un reel
     // llegaba a la grilla como texto con números en vez de como un video que se ve.
     miniatura: p.miniatura,
+    // Carrusel, imagen o video (lib/spy-medio.ts): lo decía la fuente y se perdía al guardar.
+    medio: medioDeInstagram(p.tipo),
+    laminas: medioDeInstagram(p.tipo) === 'carrusel' ? p.laminas ?? null : null,
   };
 }
 

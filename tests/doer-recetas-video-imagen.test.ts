@@ -78,11 +78,14 @@ test('el Generator: el saldo null es «nunca se leyó», una toma por vez, sin p
 });
 
 test('toda operación de video o imagen del registro está en un grupo (o es una lectura que no pide receta)', () => {
-  const LECTURAS_SIN_RECETA = new Set(['listar_proyectos_video', 'ver_proyecto_video', 'listar_plantillas_video', 'ver_avatares', 'listar_disenos_imagen', 'ver_diseno_imagen', 'listar_plantillas_imagen']);
+  const LECTURAS_SIN_RECETA = new Set(['listar_proyectos_video', 'ver_proyecto_video', 'listar_plantillas_video', 'ver_avatares', 'listar_disenos_imagen', 'ver_diseno_imagen', 'listar_plantillas_imagen', 'estado_carruseles', 'buscar_carruseles']);
+  // Guardar un carrusel en las referencias (04/11/2026) no edita ningún diseño: la receta del Image Editor (qué diseño,
+  // qué tamaño, los textos que son hechos) no tiene nada que decirle, y su descripción ya dice de dónde sale el id.
+  const ACCIONES_SIN_RECETA = new Set(['guardar_carrusel']);
   const sinGrupo = REGISTRO
     .filter((d) => d.area === 'video' || d.area === 'imagen')
     .map((d) => d.id)
-    .filter((id) => !ESCRITURAS_EDITOR_VIDEO.has(id) && !OPERACIONES_GENERADOR_VIDEO.has(id) && !ESCRITURAS_IMAGEN.has(id) && !LECTURAS_SIN_RECETA.has(id));
+    .filter((id) => !ESCRITURAS_EDITOR_VIDEO.has(id) && !OPERACIONES_GENERADOR_VIDEO.has(id) && !ESCRITURAS_IMAGEN.has(id) && !LECTURAS_SIN_RECETA.has(id) && !ACCIONES_SIN_RECETA.has(id));
   assert.deepEqual(sinGrupo, [], `operaciones sin receta decidida: ${sinGrupo.join(', ')}. Súmalas a un grupo de lib/doer-recetas.ts`);
   assert.equal(ESCRITURAS_EDITOR_VIDEO.size, 35, 'el editor tiene 35 operaciones de escritura (lib/editor-video/chat-api.ts; la 35, borrar_silencios_video, 28/10)');
   // Leila se lo pidió a MaKo el 27/10 y la receta le hacía decir que no podía: lo que tiene operación no va en «no puede».

@@ -1,0 +1,126 @@
+/* El explorador de carruseles (./ExplorarCarruseles.tsx). Sólo tokens de la casa: sigue el tema claro u oscuro de la app. */
+
+.raiz { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; background: var(--bg); }
+.col { box-sizing: border-box; width: 100%; max-width: 1240px; margin: 0 auto; padding: 32px 32px 48px; display: flex; flex-direction: column; gap: 16px; }
+
+.cabeza { display: flex; flex-direction: column; gap: 4px; }
+.titulo { display: flex; align-items: baseline; gap: 10px; }
+.titulo h1 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 650; color: var(--ink); letter-spacing: -0.01em; }
+.cuenta { font-size: 14px; font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
+.bajada { margin: 0; font-size: 13.5px; color: var(--dim); }
+.bajada a { color: var(--primary); text-decoration: none; }
+.bajada a:hover { text-decoration: underline; }
+
+.barra { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vistas { display: inline-flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); flex-wrap: wrap; }
+.vistas button {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 9px; cursor: pointer;
+  background: transparent; color: var(--dim); font: inherit; font-size: 13.5px; font-weight: 550; white-space: nowrap;
+  transition: background 120ms ease, color 120ms ease;
+}
+.vistas button:hover { color: var(--ink); }
+.vistas button[aria-selected='true'] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(18, 21, 27, 0.08); }
+.vistas button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--border); color: var(--ink); font-size: 11px; font-weight: 650; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+
+.busca { flex: 1 1 260px; min-width: 200px; max-width: 460px; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--dim); }
+.busca:focus-within { border-color: var(--primary); box-shadow: var(--focus-ring); }
+.busca input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--ink); font: inherit; font-size: 14px; }
+
+.filtros { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.espacio { flex: 1; }
+.texto { border: 0; background: transparent; color: var(--primary); font: inherit; font-size: 13px; font-weight: 550; cursor: pointer; padding: 6px 6px; border-radius: 8px; text-decoration: none; white-space: nowrap; }
+.texto:hover { background: var(--velo-hover); }
+.texto:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.busquedas { display: flex; gap: 8px; flex-wrap: wrap; }
+.busqueda { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); overflow: hidden; }
+.busqueda[data-activa='si'] { border-color: var(--primary); background: var(--primary-bg); }
+.busqueda button { border: 0; background: transparent; font: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer; height: 28px; padding: 0 4px 0 12px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.busqueda .quitar { padding: 0 10px 0 6px; color: var(--faint); }
+.busqueda .quitar:hover { color: var(--bad); }
+
+.aviso { margin: 0; color: var(--bad); font-size: 13px; }
+
+.vacio { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 56px 16px; text-align: center; border: 1px dashed var(--border-strong, var(--border)); border-radius: 16px; background: var(--surface); }
+.vacio p { margin: 0; max-width: 460px; color: var(--dim); font-size: 14.5px; line-height: 1.5; }
+.boton { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 10px; border: 0; background: var(--primary); color: var(--on-primary, #fff); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; text-decoration: none; }
+.boton:hover { background: var(--primary-strong, var(--primary)); }
+.boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── La grilla ── */
+.grilla { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px 16px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.grilla[data-grilla='compacta'] { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+
+.tarjeta { min-width: 0; display: flex; flex-direction: column; gap: 10px; animation: entra 260ms cubic-bezier(.2, .7, .2, 1) both; }
+@keyframes entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tarjeta { animation: none; } }
+
+.mini { position: relative; aspect-ratio: 4 / 5; border-radius: 14px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); }
+.mini img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 300ms ease; }
+.tarjeta:hover .mini img { transform: scale(1.025); }
+.sinFoto { position: absolute; inset: 0; padding: 16px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 14px; line-height: 1.4; color: var(--dim); overflow: hidden; }
+
+.marcas { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; }
+.outlier, .laminas { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; backdrop-filter: blur(6px); }
+.outlier { background: rgba(18, 21, 27, 0.72); color: #fff; }
+.outlier[data-fuerte='si'] { background: var(--mako); color: #12151b; }
+.laminas { background: rgba(255, 255, 255, 0.88); color: #12151b; }
+
+.guardar { position: absolute; right: 8px; top: 8px; width: 32px; height: 32px; border-radius: 10px; border: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; background: rgba(255, 255, 255, 0.9); color: #12151b; opacity: 0; transition: opacity 140ms ease, transform 140ms ease; }
+.guardar[data-guardado='si'], .tarjeta:hover .guardar, .guardar:focus-visible { opacity: 1; }
+.guardar[data-guardado='si'] { background: var(--primary); color: var(--on-primary, #fff); }
+.guardar:active { transform: scale(0.94); }
+.guardar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.usar { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 36px; border-radius: 10px; border: 0; cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 650; background: var(--surface); color: var(--ink); box-shadow: 0 6px 18px rgba(18, 21, 27, 0.18); opacity: 0; transform: translateY(6px); transition: opacity 160ms ease, transform 160ms ease; }
+.tarjeta:hover .usar, .usar:focus-visible { opacity: 1; transform: none; }
+.usar:hover { background: var(--primary); color: var(--on-primary, #fff); }
+.usar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Sin mouse (teléfono, tablet): lo que aparece al pasar el cursor se ve siempre. */
+@media (hover: none) {
+  .guardar, .usar { opacity: 1; transform: none; }
+}
+
+.pie { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.creador { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
+.cara { width: 24px; height: 24px; border-radius: 999px; flex: none; object-fit: cover; background: var(--surface-2); color: var(--dim); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border: 1px solid var(--border); }
+.quien { color: var(--ink); font-weight: 600; text-decoration: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quien:hover { text-decoration: underline; }
+.cuando { margin-left: auto; color: var(--faint); font-size: 12px; white-space: nowrap; flex: none; }
+.texto2 { margin: 0; font-size: 13.5px; line-height: 1.4; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.numeros { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; min-width: 0; font-size: 12.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.formato { padding: 1px 8px; border-radius: 999px; background: var(--surface-2); color: var(--dim); font-size: 11.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.numeros > span:not(.formato) { flex: none; }
+.original { margin-left: auto; width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: var(--dim); text-decoration: none; flex: none; }
+.original:hover { color: var(--ink); background: var(--velo-hover); }
+.original:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.mas { align-self: center; height: 38px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.mas:hover { background: var(--velo-hover); }
+
+/* ── Cuentas ── */
+.cuentas { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
+.cuentas ul { list-style: none; margin: 0; padding: 0; width: 100%; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.cuentaFila { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--border); }
+.cuentaFila:first-child { border-top: 0; }
+.cuentaFila .cara { width: 36px; height: 36px; font-size: 14px; }
+.cuentaNombre { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cuentaNombre strong { font-size: 14px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cuentaNombre span { font-size: 12.5px; color: var(--dim); }
+
+/* ── Teléfono y ventanas angostas ── */
+@media (max-width: 760px) {
+  .col { padding: 18px 16px 32px; gap: 14px; }
+  /* Las cuatro vistas en una grilla pareja de dos por dos: envueltas a mano quedaban despatarradas. */
+  .vistas { display: grid; grid-template-columns: 1fr 1fr; width: 100%; box-sizing: border-box; }
+  .vistas button { justify-content: center; padding: 0 8px; }
+  .formato { display: none; }
+  .cuando { font-size: 11px; }
+  .titulo h1 { font-size: 20px; }
+  .busca { max-width: none; flex-basis: 100%; }
+  .grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 10px; }
+  .usar { height: 32px; font-size: 12.5px; left: 6px; right: 6px; bottom: 6px; }
+  .cuentaFila { flex-wrap: wrap; }
+}

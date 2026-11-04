@@ -77,14 +77,15 @@ test('3: cada plantilla, cargada del lado del server, se puede guardar como dise
 });
 
 test('4: las operaciones del área llevan el permiso de la tab y de admin, y la definición no arrastra el server', () => {
-  assert.equal(DEFS.length, 7);
+  // 7 del editor + 3 de los carruseles que funcionan (4/11/2026: estado_carruseles, buscar_carruseles, guardar_carrusel).
+  assert.equal(DEFS.length, 10);
   for (const d of DEFS) {
     assert.equal(d.area, 'imagen');
     assert.deepEqual(d.gating, { tab: 'image-editor', rolMinimo: 'admin' }, `${d.id}: el permiso es el de la tab, como toda tab`);
   }
   const src = readFileSync(join(RAIZ, 'lib/api-mako/areas/imagen.def.ts'), 'utf8');
   const imports = [...src.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]);
-  assert.deepEqual(imports.sort(), ['../tipos', '@/lib/image-editor/tamanos'], 'una .def.ts sólo importa tipos y datos sin dependencias');
+  assert.deepEqual(imports.sort(), ['../tipos', '@/lib/carruseles/opciones', '@/lib/image-editor/tamanos'], 'una .def.ts sólo importa tipos y datos sin dependencias');
 });
 
 test('5: por WhatsApp, un pedido de crear un diseño llega con las herramientas del editor, y no se roba otros pedidos', async () => {
@@ -142,5 +143,5 @@ test('7: el runner del área carga en un node suelto con --conditions=react-serv
   const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--input-type=module', '-e', `const m = await import(${href}); process.stdout.write(String(Object.keys(m.RUNNERS).length));`], {
     cwd: RAIZ, encoding: 'utf8', maxBuffer: 4 << 20,
   });
-  assert.equal(salida.trim(), '7');
+  assert.equal(salida.trim(), '10');
 });

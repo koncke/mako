@@ -18,11 +18,27 @@ import { requireMovil } from '@/lib/movil-guard';
 import { listarDisenos } from '@/lib/image-editor/server';
 import { ErrorM, PantallaM } from '@/app/m/_ui';
 import { InicioImagenM } from './InicioImagenM';
+import { leerExplorador } from '@/lib/carruseles/explorar-servidor';
+import { filtrosDeQuery } from '@/lib/carruseles/explorar';
+import { ExplorarCarruseles } from '@/app/image-editor/carruseles/ExplorarCarruseles';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ImageEditorPagina() {
+export default async function ImageEditorPagina({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const ctx = await requireMovil({ navKey: 'image-editor' });
+  // «Carruseles que funcionan» (4/11/2026): la MISMA vista de la computadora (app/image-editor/carruseles), con sus filtros.
+  const q = await searchParams;
+  if ((Array.isArray(q.ver) ? q.ver[0] : q.ver) === 'carruseles') {
+    const e = ctx.ws == null ? null : await leerExplorador();
+    return (
+      <PantallaM>
+        {e && e.ok
+          ? <ExplorarCarruseles telefono filtrosIniciales={filtrosDeQuery(q)}
+            datos={{ carruseles: e.carruseles, guardados: e.guardados.map((g) => g.id), busquedas: e.busquedas, paso: e.paso, frase: e.frase, accion: e.accion }} />
+          : <ErrorM frase="No pude leer los carruseles de las cuentas que sigues. Es un problema nuestro: vuelve a intentar." />}
+      </PantallaM>
+    );
+  }
   const r = ctx.ws == null ? { ok: false as const, error: 'Abre el editor desde un negocio.' } : await listarDisenos(ctx.ws);
   return (
     <PantallaM>

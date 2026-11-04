@@ -16,6 +16,10 @@ import { cambiarTextos, documentoEnBlanco, textosDe, uuidValido } from '@/lib/im
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
 import { catalogoPlantillas, documentoDePlantilla } from '@/app/image-editor/mako/plantillas';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
+import { guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servidor';
+import {
+  FILTROS_INICIALES, OUTLIER_MINIMOS, filtrarCarruseles, filtrosDeQuery, queryDeFiltros, rotuloFormato, rotuloOutlier, type Carrusel,
+} from '@/lib/carruseles/explorar';
 
 const str = (input: Record<string, unknown>, k: string): string | null => {
   const v = input[k];
@@ -72,6 +76,28 @@ function cambiosDe(input: Record<string, unknown>): { actual: string; nuevo: str
   }
   return out;
 }
+
+/** El link al explorador con unos filtros (`/image-editor?ver=carruseles&…`). */
+const linkExplorador = (query: string, ws: number) => linkApp(`/image-editor?${query}`, ws);
+
+/** Un carrusel como lo devuelve la API: su creador y el link a SU publicación (es una referencia, no algo de MaKo). */
+const carruselParaApi = (c: Carrusel) => ({
+  id: c.id,
+  creador: c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre,
+  original: c.url,
+  outlier: c.outlier == null ? null : rotuloOutlier(c.outlier),
+  laminas: c.laminas,
+  formato: rotuloFormato(c.formato) || null,
+  gancho: c.gancho,
+  texto: c.texto ? c.texto.slice(0, 280) : null,
+  megusta: c.megusta, comentarios: c.comentarios, publicado: c.publicada,
+});
+
+/** El piso del outlier que pidió el modelo, llevado al más cercano por debajo de los que ofrece la pantalla. */
+const pisoDeOutlier = (v: unknown): number => {
+  const n = typeof v === 'number' && Number.isFinite(v) ? v : 0;
+  return [...OUTLIER_MINIMOS].reverse().find((m) => m <= n) ?? 0;
+};
 
 export const RUNNERS: Runners = {
   listar_disenos_imagen: {
@@ -187,6 +213,66 @@ export const RUNNERS: Runners = {
       const r = await borrarDiseno(ctx.ws, str(payload, 'disenoId') ?? '');
       if (!r.ok) return { ok: false, resumen: `No se pudo eliminar (${r.error}).` };
       return { ok: true, resumen: 'Eliminado.', datos: { disenoId: str(payload, 'disenoId') } };
+    },
+  },
+
+  // ── Los carruseles que funcionan (lib/carruseles/): lo que Spy ya trajo, sin gastar nada ──
+  estado_carruseles: {
+    leer: async (_input, ctx) => {
+      const r = await leerExplorador();
+      if (!r.ok) return JSON.stringify({ error: 'No pude leer los carruseles de las cuentas que sigue el negocio. Vuelve a intentar.' });
+      const carruseles = r.carruseles.filter((c) => c.medio !== 'imagen');
+      return JSON.stringify({
+        paso: r.paso,
+        cuentasSeguidas: r.cuentas.competidores, conInstagram: r.cuentas.conInstagram, carruseles: carruseles.length, guardados: r.guardados.length,
+        ...(r.paso === 'listo'
+          ? { siguiente: 'Usa buscar_carruseles para ver los que mejor funcionan.', link: linkExplorador('ver=carruseles', ctx.ws) }
+          : { siguiente: r.frase, ...(r.accion ? { donde: linkApp(r.accion.ruta, ctx.ws) } : {}) }),
+      });
+    },
+  },
+
+  buscar_carruseles: {
+    leer: async (input, ctx) => {
+      const r = await leerExplorador();
+      if (!r.ok) return JSON.stringify({ error: 'No pude leer los carruseles de las cuentas que sigue el negocio. Vuelve a intentar.' });
+      // Sin carruseles todavía, lo que contesta es la guía (en qué paso está), nunca una lista vacía que parezca un cero.
+      if (r.paso !== 'listo') return JSON.stringify({ paso: r.paso, carruseles: [], siguiente: r.frase, ...(r.accion ? { donde: linkApp(r.accion.ruta, ctx.ws) } : {}) });
+      const base = filtrosDeQuery(new URLSearchParams({
+        q: str(input, 'buscar') ?? '', periodo: str(input, 'periodo') ?? '', orden: str(input, 'orden') ?? '', vista: str(input, 'vista') ?? '',
+      }));
+      const f = { ...FILTROS_INICIALES, ...base, outlierMin: pisoDeOutlier(input.outlierMinimo) };
+      const vistos = filtrarCarruseles(r.carruseles, f, new Set(r.guardados.map((g) => g.id)));
+      const tope = typeof input.tope === 'number' ? Math.max(1, Math.min(30, Math.round(input.tope))) : 10;
+      return JSON.stringify({
+        total: vistos.length,
+        carruseles: vistos.slice(0, tope).map(carruselParaApi),
+        link: linkExplorador(queryDeFiltros(f), ctx.ws),
+        nota: 'Son publicaciones de otras cuentas: sirven de referencia de estructura. El outlier es cuántas veces la mediana de su cuenta.',
+      });
+    },
+  },
+
+  guardar_carrusel: {
+    preparar: async (input): Promise<Preparado> => {
+      const id = typeof input.carruselId === 'number' ? input.carruselId : NaN;
+      if (!Number.isSafeInteger(id) || id <= 0) return { error: 'Falta el id del carrusel (de buscar_carruseles).', faltan: ['carruselId'] };
+      const guardar = input.guardar !== false;
+      const r = await leerExplorador();
+      if (!r.ok) return { error: 'No pude leer los carruseles. Vuelve a intentar.', falla: true };
+      const c = r.carruseles.find((x) => x.id === id);
+      if (!c) return { error: 'Ese carrusel no está entre los de las cuentas que sigue el negocio. Búscalo con buscar_carruseles.' };
+      const ya = r.guardados.some((g) => g.id === id);
+      if (ya === guardar) return { error: guardar ? 'Ese carrusel ya está guardado.' : 'Ese carrusel no estaba guardado.', yaEstaba: true };
+      const quien = c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre;
+      return { payload: { carruselId: id, guardar }, resumen: guardar ? `Guardar el carrusel de ${quien} en las referencias.` : `Sacar el carrusel de ${quien} de las referencias.` };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const id = Number(payload.carruselId);
+      const guardar = payload.guardar !== false;
+      const r = await guardarCarrusel(id, guardar);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: guardar ? 'Guardado.' : 'Sacado de los guardados.', datos: { carruselId: id, link: linkExplorador('ver=carruseles&vista=guardados', ctx.ws) } };
     },
   },
 };

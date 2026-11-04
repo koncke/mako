@@ -15,9 +15,15 @@
 
 import type { OperacionDef, Gating } from '../tipos';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
+import { ORDENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL } from '@/lib/carruseles/opciones';
 
 const GATING: Gating = { tab: 'image-editor', rolMinimo: 'admin' };
 const TODOS = ['whatsapp', 'app', 'http'] as const;
+/**
+ * Los carruseles que funcionan (4/11/2026) salen de Competitors Spy: dicen a QUIÉN sigue el negocio. Mismo criterio que el
+ * área `spy` (lib/api-mako/areas/spy.def.ts): por la app y WhatsApp, SIN `'http'` (un bearer vive en la máquina de un tercero).
+ */
+const SIN_HTTP = ['whatsapp', 'app'] as const;
 const ID = { nombre: 'disenoId', tipo: 'string', obligatorio: true, max: 36, descripcion: 'El id del diseño (de listar_disenos_imagen).', ejemplo: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e5f' } as const;
 
 export const DEFS: readonly OperacionDef[] = [
@@ -94,5 +100,39 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: GATING,
     reversible: false,
     escribe: 'marca borrado_at en image_disenos',
+  },
+  // ── Los carruseles que funcionan (4/11/2026): al FINAL del área, y sin las palabras de las de arriba (AGENTS.md). ──
+  {
+    id: 'estado_carruseles', area: 'imagen', tipo: 'lectura',
+    titulo: 'En qué paso están los carruseles que funcionan',
+    descripcion: 'Cuántas cuentas sigue el negocio en Competitors Spy, cuántas con Instagram y cuántos carruseles hay para mirar; si falta algo, qué hacer ahora y dónde. Úsala antes de buscar_carruseles si no sabes si hay.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+  },
+  {
+    id: 'buscar_carruseles', area: 'imagen', tipo: 'lectura',
+    titulo: 'Buscar carruseles que funcionan',
+    descripcion: 'Los carruseles públicos de las cuentas que el negocio sigue en Competitors Spy, con su creador, el link a la publicación original y su outlier (cuántas veces la mediana de su cuenta). Busca por tema o por @cuenta, con filtros y orden. Son referencias: no se copian.',
+    parametros: [
+      { nombre: 'buscar', tipo: 'string', max: 120, descripcion: 'Palabras del tema, o un @cuenta.' },
+      { nombre: 'outlierMinimo', tipo: 'number', minimo: 0, maximo: 10, descripcion: `El piso del outlier (2 = el doble de lo típico de su cuenta). Se redondea a uno de: ${OUTLIER_MINIMOS.join(', ')}.` },
+      { nombre: 'periodo', tipo: 'string', enum: PERIODOS_CARRUSEL.map((x) => x.value), descripcion: 'Publicados en los últimos N días, o cuando sea.' },
+      { nombre: 'orden', tipo: 'string', enum: ORDENES_CARRUSEL.map((x) => x.value), descripcion: 'outlier (por defecto), nuevos, viejos, interaccion o traidos.' },
+      { nombre: 'vista', tipo: 'string', enum: VISTAS_CARRUSEL.map((x) => x.value), descripcion: 'todos, semana (lo de esta semana) o guardados.' },
+      { nombre: 'tope', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'Cuántos devolver (10 por defecto).' },
+    ],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+  },
+  {
+    id: 'guardar_carrusel', area: 'imagen', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Guardar un carrusel como referencia',
+    descripcion: 'Guarda (o saca) un carrusel de buscar_carruseles en las referencias guardadas del negocio.',
+    parametros: [
+      { nombre: 'carruselId', tipo: 'number', entero: true, obligatorio: true, minimo: 1, descripcion: 'El id que dio buscar_carruseles.' },
+      { nombre: 'guardar', tipo: 'boolean', descripcion: 'false = sacarlo de los guardados. Por defecto, guardarlo.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    reversible: true,
+    escribe: 'app_settings carruseles.guardados (compare-and-set)',
   },
 ];

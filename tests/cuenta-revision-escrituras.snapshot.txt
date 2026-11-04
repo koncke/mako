@@ -367,6 +367,7 @@ acción app/customer-success/curso/modulos-actions.ts → cortada (ninguna pági
 acción app/customer-success/tarjeta-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/general/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/image-editor/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/image-editor/carruseles/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/integraciones/landing-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/integraciones/landing-config-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/integraciones/prueba-lead-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)

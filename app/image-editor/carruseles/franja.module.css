@@ -1,0 +1,37 @@
+/* La franja de carruseles de «¿Qué vas a crear hoy?» (./FranjaCarruseles.tsx). Sólo tokens de la casa. */
+
+.franja { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.cabeza { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 24px; }
+.cabeza h2 { margin: 0; font-size: 18px; font-weight: 600; color: var(--ink); }
+.todos { font-size: 13.5px; font-weight: 600; color: var(--primary); text-decoration: none; white-space: nowrap; }
+.todos:hover { text-decoration: underline; }
+
+.fila { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.mini { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.foto { position: relative; display: block; aspect-ratio: 4 / 5; border-radius: 12px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); }
+.foto img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 300ms ease; }
+.foto:hover img { transform: scale(1.03); }
+.foto:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.sinFoto { position: absolute; inset: 0; padding: 10px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 12px; line-height: 1.35; color: var(--dim); overflow: hidden; }
+.outlier { position: absolute; left: 6px; top: 6px; height: 22px; padding: 0 7px; border-radius: 999px; display: inline-flex; align-items: center; font-size: 11.5px; font-weight: 700; background: rgba(18, 21, 27, 0.72); color: #fff; font-variant-numeric: tabular-nums; }
+.outlier[data-fuerte='si'] { background: var(--mako); color: #12151b; }
+.quien { font-size: 12.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.numeros { font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+.esqueletoTitulo { display: block; width: 240px; height: 18px; border-radius: 6px; background: var(--surface-2); }
+.esqueleto { display: block; aspect-ratio: 4 / 5; border-radius: 12px; background: linear-gradient(100deg, var(--surface-2) 30%, var(--border) 50%, var(--surface-2) 70%); background-size: 300% 100%; animation: brillo 1.4s ease-in-out infinite; }
+@keyframes brillo { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .esqueleto { animation: none; } }
+
+.linea { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); font-size: 13.5px; color: var(--dim); }
+.linea span { flex: 1 1 220px; min-width: 0; }
+.linea a { color: var(--primary); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.linea a:hover { text-decoration: underline; }
+.cerrar { width: 28px; height: 28px; flex: none; border: 0; border-radius: 8px; background: transparent; color: var(--faint); font-size: 18px; line-height: 1; cursor: pointer; }
+.cerrar:hover { background: var(--velo-hover); color: var(--ink); }
+
+.error { width: 100%; margin: 0; font-size: 13px; color: var(--bad); }
+.error button { border: 0; background: transparent; color: var(--primary); font: inherit; font-weight: 600; cursor: pointer; padding: 0; }
+
+@media (max-width: 900px) { .fila { grid-template-columns: repeat(3, minmax(0, 1fr)); } .fila > :nth-child(n + 4) { display: none; } }
+@media (max-width: 520px) { .linea { flex-wrap: wrap; } }
