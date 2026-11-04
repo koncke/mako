@@ -993,4 +993,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '17:30', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Operación diaria», la sexta hoja copiada: el diseño de Moorly con lo de hoy',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» de General**, con su miniatura de verdad: el cielo celeste, el sol y el mar de Moorly detrás de la cabecera.',
+      '**La frase de hoy:** las llamadas de hoy, las cuotas vencidas, lo que vence esta semana y la próxima llamada.',
+      '**Los cuatro números con su línea:** las agendas, lo que falta cobrar, los cierres y lo cobrado.',
+      '**Mes a mes y «Te está esperando»:** lo cobrado, las agendas o los cierres de 12 meses, y lo vencido primero, hasta seis.',
+      '**Tu funnel hoy, las llamadas que vienen, te deben, para tildar hoy, la salud del negocio y la meta**, con las mismas cuentas que las otras hojas.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaOperacion.tsx · operacion-css.ts — el diseño',
+      'app/dashboard/disenos/OperacionVivo.tsx — los datos de General y de seis piezas',
+      'lib/operacion-diseno.ts — de dónde sale cada número',
+      'docs/diseno/mockups-dashboard/operacion-moorly/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];
