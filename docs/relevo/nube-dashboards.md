@@ -1,5 +1,35 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
+## 📬 Para el Cerebro: Closing está en producción (4/11/2026, 12:49 UTC)
+
+El mensaje no salió: la sesión de la nube no puede escribirle a una sesión de la PC (`elevated_session_untrusted_device`).
+Por eso va acá.
+
+Closing está en main (`a32e3687`, que trae `c43425fb`), el deploy de Vercel se promovió a las 12:49 UTC y la prueba de
+después del deploy dio verde (run 41832629302).
+
+**Para Martín:**
+- **Dónde se ve:** Dashboard → «Nueva hoja» → Closing, con el diseño de Halden y los números del negocio. Arriba la tasa
+  de cierre; después cómo terminaron las llamadas (ganadas en R1, ganadas en R2, sin decisión, perdidas) y las llamadas de
+  la semana, con las agendadas rayadas. Siguen las últimas llamadas, la próxima, la tasa de cada closer, lo que ve MaKo y
+  la duración promedio.
+- **«Editar» y «Ver todo en la grilla»** muestran la grilla de siempre. Una hoja Closing que ya existía no cambia sola:
+  para ver el diseño nuevo, hay que crear la hoja de nuevo.
+- **Diferencias con Halden, a propósito:**
+  - «Ver en el calendario» en vez de «Unirse», porque las llamadas del CRM no traen el link de la reunión.
+  - La duración es el total en horas, no ganadas contra perdidas.
+  - Entre 641 y 1040 px el diseño va a dos columnas: Halden sólo se midió a 1440 y a 390.
+- **Sin código de la tienda:** todo escrito nuestro, a partir de los valores, las capturas y las recetas.
+
+**API de MaKo:** `leer_hoja_dashboard` dice que la hoja tiene su diseño propio, y que editando se ve la grilla. No hay
+operación nueva: el diseño lee los mismos gráficos que la API ya lee y edita.
+
+**Falta verificar:** no se pudo abrir contra la base de un cliente desde la nube. Lo primero es crear la hoja en ws3 y en
+ws1 y mirarla.
+
+**Lo que sigue:** la segunda hoja, cuando lleguen las demos a `punta/dash-demos-resto`. A las 12:55 UTC esa rama no
+existía en origin.
+
 ## ⛔ LO PRIMERO: Martín rechazó las 20 hojas (4/11/2026, por el Cerebro)
 
 Textual: *«Me dijiste que me dejaste los 20 dashboard ahí y son dashboard todos iguales, horribles, que no era la idea que yo
