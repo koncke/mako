@@ -69,8 +69,11 @@ export function naceConHorario(o: { creadaAt: string | null | undefined; trigger
 /** Lo que se muestra de una ya prendida. `poner`: el botón que lleva a Configuraciones. */
 export type AvisoDeUnaPrendida = { texto: string; rotulo: string; poner: string | null };
 
-/** Los topes de la línea que mira el motor (`LimitesEnvio`). null = no se pudieron leer. */
-export type TopesDeLinea = { wa: { dia: number; hora: number }; email: { dia: number } };
+/**
+ * Los topes de la línea que mira el motor (`LimitesEnvio`). null = no se pudieron leer. `email.rampa` (4/11/2026): la rampa del
+ * dominio desde HOY (`dia` = el tope de hoy, `sube` = cuánto sube cada día que llega), si todavía no llegó al tope de la línea.
+ */
+export type TopesDeLinea = { wa: { dia: number; hora: number }; email: { dia: number; rampa?: ArranqueGoteo } };
 
 const NOMBRE_CANAL: Readonly<Record<CanalDelGoteo, string>> = { whatsapp: 'WhatsApp', email: 'email', instagram: 'Instagram', messenger: 'Messenger' };
 
@@ -327,7 +330,9 @@ export function avisoDeRitmo(o: DatosDelRitmo): AvisoDeRitmo | null {
   // Los que suelta el botón de al lado: lo dice antes de apretarlo. Si ya se dijo de los otros, al descartar se vuelve a contar.
   const deSoltar = minutos == null && !deAdentro && salen + alDescartar >= 2 ? `Si descartas los borradores viejos, a ${salen + alDescartar} personas les sale su próximo mensaje al prenderla, sin goteo.` : '';
   const adentroSinGoteo = minutos == null && salen + alDescartar >= 2;
-  const deArranque = o.canal === 'whatsapp' && o.goteo?.arranque && o.goteo.dia != null && (base || deAdentro) ? `Arranca con ${o.goteo.arranque.dia} por día y sube ${o.goteo.arranque.sube} por día.` : '';
+  const deArranque = o.canal === 'whatsapp' && o.goteo?.arranque && o.goteo.dia != null && (base || deAdentro) ? `Arranca con ${o.goteo.arranque.dia} por día y sube ${o.goteo.arranque.sube} por día.`
+    // La rampa del dominio (4/11/2026): sólo si la línea de email es la que frena (`rampaQueFrena`).
+    : o.canal === 'email' && rampaQueFrena(o) && (base || deAdentro) ? `Tu dominio arranca hoy con ${o.topes!.email.rampa!.dia} emails y sube ${o.topes!.email.rampa!.sube} cada día que llega, hasta ${o.topes!.email.dia}.` : '';
   // ⚠️ LO QUE QUEDA PARA APROBAR SE DICE SIEMPRE: una que dispara por evento, o sin nadie todavía, también deja al negocio creyendo que MaKo escribió.
   // Si el primero es uno de ellos, ya va adentro de `base` (cuando hay a quién contar).
   const deAprobar = o.porAprobar && !(aprobar && base) ? fraseDeAprobar(o.porAprobar, alcance(o)) : '';
@@ -364,11 +369,39 @@ type DatosDelRitmo = {
   siguenFrenados?: number;
   /** El que vale para ella (`horarioDeLaAutomatizacion`). null = no tiene; ausente = no se pudo leer. */
   horario?: HorarioEnvio | null;
+  /** Cuántos emails tiene el flujo (4/11/2026): con dos o más, se dice la campaña entera (`fraseDeCampana`). */
+  emailsDelFlujo?: number;
 };
+
+/**
+ * LA CAMPAÑA DE EMAIL ENTERA (4/11/2026, Martín, sobre la de Mauricio: «a 100 por día, 14 emails a 1.128 personas son
+ * 15.792 envíos, y el segundo email le llega a cada uno ~11 días después del primero, no a las 24 h: que se diga claro al
+ * activar»). El motor manda primero lo que venció antes, así que el email siguiente de cada persona espera a que salga la
+ * tanda entera: la distancia entre dos emails de una persona es lo que tarda en salirle uno a todas. Es un piso, como el resto.
+ */
+function fraseDeCampana(n: number, emails: number, porDia: number, rampa: ArranqueGoteo | undefined): string {
+  if (n < 2 || emails < 2 || !Number.isFinite(porDia)) return '';
+  const total = n * emails;
+  const todo = tardaAlMenos(total, null, Infinity, porDia, rampa);
+  const entre = tardaAlMenos(n + 1, null, Infinity, porDia, rampa);
+  const miles = (x: number) => x.toLocaleString('es-MX');
+  const partes = [`Son hasta ${miles(total)} emails (${miles(n)} personas × ${emails}).`];
+  if (todo) partes.push(`A ese ritmo, la campaña entera tarda al menos ${todo}.`);
+  // Si no salen todos en el mismo día, el siguiente de cada uno espera a que salga la tanda entera.
+  if (entre) partes.push(`Cada persona recibe el email siguiente al menos ${entre} después del anterior, aunque la espera del flujo sea menor.`);
+  return partes.join(' ');
+}
 
 /** A cuántas personas pueden llegarles los mensajes del flujo. null = no se pudo contar y no hay nadie adentro. */
 function alcance(o: DatosDelRitmo): number | null {
   return o.personas == null && !o.adentro ? null : (o.personas ?? 0) + (o.adentro ?? 0);
+}
+
+/** ¿La rampa del dominio frena a esta? Por email, con la rampa por delante y sin un goteo propio más bajo que la línea. */
+function rampaQueFrena(o: DatosDelRitmo): boolean {
+  const r = o.topes?.email.rampa;
+  if (o.canal !== 'email' || !r || r.dia >= (o.topes?.email.dia ?? 0)) return false;
+  return o.goteo?.dia == null || o.goteo.dia >= (o.topes?.email.dia ?? Infinity);
 }
 
 function textoDelRitmo(o: DatosDelRitmo): { texto: string; sinGoteo: boolean } | null {
@@ -397,20 +430,26 @@ function textoDelRitmo(o: DatosDelRitmo): { texto: string; sinGoteo: boolean } |
     const ritmo = sinGoteo ? 'No tiene goteo.' : `Queda uno cada ${minutos} min.`;
     return { texto: `Entran ${n} personas. ${fraseDeAprobar(o.porAprobar!, alcance(o))} ${ritmo}`, sinGoteo };
   }
-  const tarda = tardaAlMenos(n, minutos, lineaHora, porDia, o.goteo?.dia != null && o.canal === 'whatsapp' ? o.goteo.arranque : undefined);
-  const fin = tarda ? ` Tarda al menos ${tarda}.` : '';
+  // La rampa: la del goteo por WhatsApp; la del dominio por email, si la línea es la que frena.
+  const rampa = o.goteo?.dia != null && o.canal === 'whatsapp' ? o.goteo.arranque : rampaQueFrena(o) ? o.topes?.email.rampa : undefined;
+  const tarda = tardaAlMenos(n, minutos, lineaHora, porDia, rampa);
+  // El tope de HOY por email, con la rampa del dominio (por WhatsApp se sigue diciendo el del goteo, como antes).
+  const topeHoy = o.canal === 'email' && rampa ? Math.min(rampa.dia, porDia) : porDia;
+  const campana = o.canal === 'email' && !minutos ? fraseDeCampana(n, o.emailsDelFlujo ?? 0, porDia, rampa) : '';
+  const fin = `${tarda ? ` Tarda al menos ${tarda}.` : ''}${campana ? ` ${campana}` : ''}`;
 
   // Sólo los topes que frenan a ESTOS: un «hasta 40 por día» a 5 personas no dice nada.
   const topes = [
     n > lineaHora && (minutos == null || 60 / minutos > lineaHora) ? `${lineaHora} por hora` : null,
-    n > porDia ? `${porDia} por día` : null,
+    // Con la rampa del dominio, lo que frena HOY es su tope de hoy (`rampa.dia`), no el de la línea.
+    n > topeHoy ? `${topeHoy} por día` : null,
   ].filter((x): x is string => x != null);
   const hasta = topes.length ? `hasta ${topes.join(' y ')}` : '';
 
   if (!sinGoteo) {
     return { texto: `Entran ${n} personas. El primer mensaje sale por ${canal}: uno cada ${minutos} min${hasta ? `, ${hasta}` : ''}.${fin}`, sinGoteo };
   }
-  if (!tarda) return { texto: `Entran ${n} personas y no tiene goteo: los ${n} mensajes de ${canal} salen todos juntos.`, sinGoteo };
+  if (!tarda) return { texto: `Entran ${n} personas y no tiene goteo: los ${n} mensajes de ${canal} salen todos juntos.${campana ? ` ${campana}` : ''}`, sinGoteo };
   return { texto: `Entran ${n} personas y no tiene goteo: los mensajes de ${canal} salen juntos, ${hasta}${deQuien}.${fin}`, sinGoteo };
 }
 

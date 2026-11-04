@@ -51,7 +51,7 @@ import {
   ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo,
 } from '@/lib/goteo';
 import { goteoDeHoy } from '@/lib/goteo';
-import { subidasPorAutomatizacion } from '@/lib/goteo-db';
+import { subidasPorAutomatizacion, topeEmailDeHoy } from '@/lib/goteo-db';
 import { responderADelNegocio } from '@/lib/email-dominio';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
@@ -89,7 +89,7 @@ import { reentradaDe, puedeReentrar, esReentrada, DESENLACE_VOLVER_A_PROBAR, pue
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
-import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje, naceConHorario, clasificarBorradores, porAprobarDelFlujo, resumirViejos, seFrenaPorBorradores, seFrenaAlEntrar, seFrenaDesde, BORRADOR_VIEJO_DIAS, type FilaBorrador, type AvisoDeRitmo, type AvisoDeUnaPrendida } from '@/lib/ritmo-al-activar';
+import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje, naceConHorario, clasificarBorradores, porAprobarDelFlujo, resumirViejos, seFrenaPorBorradores, seFrenaAlEntrar, seFrenaDesde, BORRADOR_VIEJO_DIAS, type FilaBorrador, type AvisoDeRitmo, type AvisoDeUnaPrendida, type TopesDeLinea } from '@/lib/ritmo-al-activar';
 import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
 import { PREFIJO_CLAVE_DIFUSION } from '@/lib/difusion-reglas';
 import { descartarBorradoresAnotando, type DbDescarte } from '@/lib/borradores-descartar';
@@ -129,6 +129,7 @@ import { getSettingEstricto, cambiarSettingSi, setSetting } from '@/lib/settings
 import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
 import { cerradasAhora, horarioDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { columnaDelEvento, tieneColumnasEmail } from '@/lib/email-eventos-crm-reglas';
 import { configsDelNegocio, guardarConfigAutomatizacion, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { duplicadaAlActivar, avisoDuplicada, type Duplicada, type CronParaComparar } from '@/lib/automatizacion-duplicada';
 import {
@@ -2009,8 +2010,12 @@ export async function ritmoAlActivar(secuenciaId: number, o: { incluirExistentes
   const liberados = new Set(borradores?.liberados);
   const parados = new Set([...(borradores?.liberados ?? []), ...(borradores?.siguenFrenados ?? [])]);
   const vencidasParadas = [...(borradores?.vencidas ?? [])].filter((id) => parados.has(id));
+  // La rampa del dominio desde HOY (4/11/2026): el tope de hoy y cuánto sube. Sin poder leerla, el del primer día (un piso).
+  const topes = limites === 'ilegible' ? null : await topesConRampa(limites, canal === 'email');
   return avisoDeRitmo({
-    personas: personas == null ? null : personas - entranFrenados, canal, goteo: config?.goteo, topes: limites === 'ilegible' ? null : limites,
+    personas: personas == null ? null : personas - entranFrenados, canal, goteo: config?.goteo, topes,
+    // Cuántos emails tiene el flujo: con dos o más, el aviso dice la campaña entera (`fraseDeCampana`).
+    emailsDelFlujo: mensajesDelFlujo(sec.pasos).filter((p) => p.canal === 'email').length,
     // El aviso de MaKo también dispara por su evento, pero le escribe al equipo: no es el caso que asusta.
     porEvento: vistasPorDisparador(sec).some((v) => TRIGGERS_SOLO_EVENTO.has(v.trigger_tipo) && v.trigger_tipo !== TRIGGER_AVISO_MAKO),
     porAprobar: porAprobarDelFlujo(sec.pasos, sec.envio_automatico),
@@ -2023,6 +2028,23 @@ export async function ritmoAlActivar(secuenciaId: number, o: { incluirExistentes
     horario: config == null || delNegocio === 'ilegible' ? undefined
       : (await leTocaHorarioDeFabrica(secuenciaId).catch(() => false)) ? HORARIO_SUGERIDO : horarioDeLaAutomatizacion(config, delNegocio),
   });
+}
+
+/**
+ * El tope de email de HOY del negocio del contexto, con la rampa del dominio (`topeEmailDeHoy`, lib/goteo-db.ts). Si no se puede
+ * leer lo que ya mandó, el del primer día: es un piso, como en el motor. Lo usan el aviso al activar y `ver_limites_envio`.
+ */
+export async function topeEmailDeHoyDelNegocio(email: LimitesEnvio['email']): Promise<number> {
+  if (email.arranqueDia >= email.dia) return email.dia;
+  return topeEmailDeHoy(await getTenantDb(), email, await zonaParaArranque()).catch(() => Math.min(email.dia, email.arranqueDia));
+}
+
+/** Los topes de la línea para el aviso al activar, con la rampa del email desde hoy si la hay. */
+async function topesConRampa(limites: LimitesEnvio, conEmail: boolean): Promise<TopesDeLinea> {
+  const base: TopesDeLinea = { wa: limites.wa, email: { dia: limites.email.dia } };
+  if (!conEmail) return base;
+  const hoy = await topeEmailDeHoyDelNegocio(limites.email);
+  return hoy >= limites.email.dia ? base : { ...base, email: { dia: limites.email.dia, rampa: { dia: hoy, sube: limites.email.arranqueSube } } };
 }
 
 /** Las inscripciones que el motor mueve al prenderla: los estados y el reloj de `procesarEnvios`. */
@@ -4357,7 +4379,15 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
   // EL EMAIL, CON SU PROPIO TOPE (decisión 5): las secuencias que mandan algún email siguen con el
   // cupo de WhatsApp cumplido, como las acciones, mientras quede tope de email.
   const conEmail = secuencias.filter((s) => s.pasos.some((p) => claseDe(p) === 'mensaje' && !esPasoAccion(p) && p.canal === 'email')).map((s) => s.id);
-  const presupuestoEmail = conEmail.length ? limites.email.dia - (await enviosUltimas24h('email')) : 0;
+  // ⚠️ CON LA RAMPA DEL DOMINIO (4/11/2026, `topeEmailDeHoy`, lib/goteo-db.ts): el tope de hoy arranca en 50 y sube cada
+  // día que llega, hasta el de la línea. Si no se puede leer lo que ya mandó, el del primer día: manda menos, nunca más.
+  const topeEmailHoy = conEmail.length
+    ? await topeEmailDeHoy(supabase, limites.email, await zonaParaArranque()).catch((e: unknown) => {
+      console.error(`[nutricion] la rampa del email: ${e instanceof Error ? e.message : String(e)}`);
+      return Math.min(limites.email.dia, limites.email.arranqueDia);
+    })
+    : limites.email.dia;
+  const presupuestoEmail = conEmail.length ? topeEmailHoy - (await enviosUltimas24h('email')) : 0;
   let emailsEnCorrida = 0;
   const emailLleno = (): boolean => emailsEnCorrida >= presupuestoEmail;
   /**
@@ -5474,6 +5504,30 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
         continue;
       }
 
+      // ── EL CORTE AL COMPRAR (4/11/2026, punto 6 de la campaña de email de Mauricio) ──────────────────────────────
+      // Una automatización que eligió columnas para sus emails (`columnasEmail`, lo VISIBLE que lo prende: Configuraciones
+      // de la automatización o `configurar_automatizacion`) no le manda el email siguiente a quien ya no está abierto o
+      // llegó a Ganado en su CRM (lib/email-eventos-crm.ts, `cortaPorCompra`). Se cancela (no es un desenlace: el evaluador
+      // no le mueve la etapa a quien compró), con su rastro. Sin columnas, como siempre.
+      if (!carril && paso.canal === 'email' && wsCorrida != null && tieneColumnasEmail(configsCorrida.get(insc.secuencia_id)?.columnasEmail)) {
+        const { cortaPorCompra } = await import('@/lib/email-eventos-crm');
+        const corte = await cortaPorCompra({ ws: wsCorrida, leadId: insc.lead_id, secuenciaId: insc.secuencia_id, estadoLead: lead?.estado_lead });
+        if (corte === 'ilegible') {
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'no pude leer si ya compró: se vuelve a mirar' });
+          continue;
+        }
+        if (corte === 'corta') {
+          if (await escribir(insc, { estado: 'cancelada', proximo_envio_at: null }, { modo: 'cas', alcance: 'inscripcion' })) {
+            res.omitidos += 1;
+            await anotarCierreSinEnvio(insc, paso, lead, 'ya compró o no está abierto: no le salen más emails de esta automatización');
+            res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'ya compró: no recibe más' });
+          } else {
+            res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
+          }
+          continue;
+        }
+      }
+
       // El freno de 20 h POR CANAL, y mirando las DOS cosas: lo que dice la base (por lote) y lo
       // que ya salió en esta corrida (`frenadoPorAntiBan`, decisión 5).
       // ⚠️ SIN EL FRENO DE 20 H PARA INSTAGRAM Y MESSENGER: protege a la línea NO oficial de WhatsApp
@@ -5924,6 +5978,13 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           });
           estado = r.ok ? 'enviado' : 'fallo';
           if (r.ok) proveedorId = r.id; else nota = r.error;
+          // La tarjeta del CRM sigue al email (4/11/2026, punto 5): «Enviado», si la automatización eligió esa columna.
+          // Nunca tira ni frena el envío (lib/email-eventos-crm.ts); sin columnas no hace nada.
+          const cfgSec = configsCorrida.get(insc.secuencia_id);
+          if (r.ok && wsCorrida != null && columnaDelEvento(cfgSec?.columnasEmail, 'enviado')) {
+            const { moverPorEventoEmail } = await import('@/lib/email-eventos-crm');
+            await moverPorEventoEmail({ ws: wsCorrida, leadId: insc.lead_id, secuenciaId: insc.secuencia_id, evento: 'enviado', config: cfgSec });
+          }
         }
       }
       // (con simularApagados, un paso de canal apagado cae acá como 'simulado')

@@ -51,8 +51,9 @@ const FAB = LIMITES_CONSTANTES;
 
 test('lo de fábrica es lo de hoy: el env si está puesto y es un entero positivo, si no la constante', () => {
   assert.deepEqual(limitesDeFabrica({}), FAB);
-  assert.deepEqual(FAB, { wa: { dia: 40, hora: 6, personaHoras: 20 }, email: { dia: 100, personaHoras: 20 }, mako: { solasPor24h: 3, diasCharla: 7 } },
-    'lo de fábrica tiene que ser lo que el motor tenía cableado el 11/10/2026');
+  // La rampa del email (arranqueDia, arranqueSube) se sumó el 4/11/2026: 50 el primer día y 50 más cada día que llega.
+  assert.deepEqual(FAB, { wa: { dia: 40, hora: 6, personaHoras: 20 }, email: { dia: 100, personaHoras: 20, arranqueDia: 50, arranqueSube: 50 }, mako: { solasPor24h: 3, diasCharla: 7 } },
+    'lo de fábrica tiene que ser lo que el motor tenía cableado el 11/10/2026 (y la rampa del 4/11)');
   const f = limitesDeFabrica({ NUTRICION_MAX_POR_DIA: '25', NUTRICION_MAX_POR_CORRIDA: '4', NUTRICION_MAX_EMAIL_POR_DIA: '300' });
   assert.equal(f.wa.dia, 25);
   assert.equal(f.wa.hora, 4);
@@ -151,7 +152,11 @@ test('el motor lee los límites UNA vez por corrida, ESTRICTO, antes de cualquie
 
 test('los cuatro topes y el freno salen de lo leído, no de una constante', () => {
   assert.match(PROC, /const presupuesto = limites\.wa\.dia - \(await enviosUltimas24h\('whatsapp'\)\);/);
-  assert.match(PROC, /const presupuestoEmail = conEmail\.length \? limites\.email\.dia - \(await enviosUltimas24h\('email'\)\) : 0;/);
+  // El de email, con la rampa del dominio desde el 4/11/2026: el tope de HOY sale de lo leído (`limites.email`), y si no se
+  // puede leer lo que ya mandó, el del primer día (menos, nunca más). tests/email-campana-topes.test.ts corre el motor.
+  assert.match(PROC, /const presupuestoEmail = conEmail\.length \? topeEmailHoy - \(await enviosUltimas24h\('email'\)\) : 0;/);
+  assert.match(PROC, /await topeEmailDeHoy\(supabase, limites\.email, await zonaParaArranque\(\)\)/, 'la rampa sale de los límites leídos');
+  assert.match(PROC, /return Math\.min\(limites\.email\.dia, limites\.email\.arranqueDia\);/, 'sin leer lo mandado, el del primer día');
   assert.match(PROC, /const cupo = Math\.max\(0, Math\.min\(limites\.wa\.hora - enLaHora, presupuesto\)\);/);
   assert.match(PROC, /const LOTE = \(cupo > 0 \? cupo : limites\.wa\.hora\) \* 3;/);
   // 23/10/2026 (Martín: «elimina "Misma persona"»): el motor ya no lee horas a la misma persona, ni las del negocio ni las de cada
