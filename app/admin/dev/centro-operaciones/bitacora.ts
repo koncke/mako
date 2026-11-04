@@ -2239,4 +2239,17 @@ export const BITACORA: Hito[] = [
     ],
     commits: [{ sha: 'b6e290fe', msg: 'Merge origin/main en punta/grupos-app', lineas: 6114, archivos: 83 }],
   },
+  {
+    fecha: '4 nov', hora: '12:40', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Adentro de la cuenta de un cliente, la agencia ve sólo el grupo de ese cliente',
+    revisar: '/second-brain',
+    puntos: [
+      '**El ticket #55:** el administrador de una agencia, parado en la cuenta de un cliente, veía en la lista los grupos de todos sus otros clientes. Ahora ve sólo el de ese cliente.',
+      '**En su propio negocio no cambia nada:** ve el suyo, sus invitaciones y los de su cartera, para que su equipo pueda estar pendiente.',
+      '**No era una fuga a la clienta:** ella ve sólo el suyo y sus invitaciones, y quien veía los otros ya tenía acceso a esos clientes.',
+    ],
+    archivos: ['lib/grupo-puerta.ts — `gruposDeLaPersona` corta por la pestaña', 'tests/grupos-ops-lista-cartera.test.ts — la ruta real, los tres casos, cuatro roturas en rojo'],
+    tickets: [55],
+  },
 ];

@@ -7,6 +7,16 @@ Acá va lo que costó y no se deduce leyendo el código.
 
 ---
 
+## La lista de grupos no miraba la pestaña (ticket #55, 4/11/2026)
+
+**Síntoma:** el administrador de una agencia, parado en la cuenta de un cliente, veía en la lista los grupos de todos sus otros clientes, y lo reportó como «no debería verse».
+**Causa:** `gruposDeLaPersona` (`lib/grupo-puerta.ts`) usaba la pestaña sólo para el super admin. A quien no lo es le sumaba su negocio, su cartera aprobada y sus invitaciones, estuviera en la pestaña que estuviera.
+**El diagnóstico obvio era el equivocado:** sonaba a fuga entre clientes, y no lo era. La clienta ve sólo el suyo y sus invitaciones, y quien veía los demás ya tenía acceso a cada uno: la puerta (`accesoAlGrupo`) estaba bien. Lo que fallaba era la LISTA, no el permiso.
+**La regla que queda:** una lista que la persona ve parada en la cuenta de otro negocio muestra lo de ESE negocio, aunque tenga acceso a más. Tener acceso y mostrarlo son dos preguntas. En su propio negocio se sigue viendo todo, porque Martín quiere que el equipo de la agencia pueda estar pendiente.
+**Vive en:** `lib/grupo-puerta.ts` → `gruposDeLaPersona`; lo fija `tests/grupos-ops-lista-cartera.test.ts`, con la ruta real y la pestaña puesta con `runWithWorkspace`.
+
+---
+
 ## El grupo de la app, llevado a main (4/11/2026)
 
 La rama (`rescate/grupos-ops-0311`) estaba 387 commits detrás de main, y main había tocado justo el turno del grupo: la cita (#40), Google Calendar (#42), el bot 1 a 1, la regla de no escribirle primero a nadie y el freno anti-ban. Se rearmó con cherry-pick de sus cuatro commits en `punta/grupos-app`. Lo vivido en una sesión de la nube, sin la base ni la app: con tests y el `tsc` entero.

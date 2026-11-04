@@ -77,6 +77,7 @@ lo esperado.
 | A quien no tiene cuenta le llega el mail con el link (mismo tope de 24 h), y la invitación se ata cuando ENTRA con ese email | `lib/grupo-app.ts` → `avisarInvitacion`; `lib/grupo-invitaciones.ts` → `atarInvitacionesAlEntrar`, desde `registrarLogin` (`lib/usuarios.ts`) |
 | El recorrido de Joan de punta a punta: abrir, invitar, aviso, link en el teléfono, leer, escribir, MaKo, avisos, salir; y el de quien no tiene cuenta | `tests/grupos-ops-recorrido.test.ts` |
 | Las rutas del grupo, clasificadas para la cuenta de revisión de las tiendas: cortadas (invitar manda mails a terceros) | `tests/cuenta-revision-escrituras.snapshot.txt` |
+| Ticket #55: en la cuenta de un cliente, la agencia ve sólo el grupo de ese cliente (en su negocio, todo como antes) | `lib/grupo-puerta.ts` → `gruposDeLaPersona`; `tests/grupos-ops-lista-cartera.test.ts` (`punta/grupos-lista-cartera`) |
 
 Cada arreglo, probado rompiéndolo: los números están al pie de cada test. Lo que costó: `docs/hallazgos-ops-center.md` →
 «El grupo de la app, llevado a main».
