@@ -109,6 +109,7 @@ export const COLOR_DASHBOARD: Readonly<Record<string, string>> = {
   marketing: 'azul-meta',
   comercial: 'dorado',
   'ads-analyst': 'coral',
+  'hooks-retencion': 'azul-oscuro',
   landing: 'celeste',
   'vsl-analyst': 'rojo-play',
   'chat-analyst': 'verde-wa',

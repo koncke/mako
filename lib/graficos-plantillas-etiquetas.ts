@@ -21,6 +21,7 @@ export const ETIQUETAS_DASHBOARD: Readonly<Record<string, EtiquetasPlantilla>> =
   marketing: { entrada: ['formulario_anuncio', 'landing'] },
   comercial: { canal: ['llamadas', 'conversaciones'], cuello: ['conversion'] },
   'ads-analyst': { entrada: ['formulario_anuncio'] },
+  'hooks-retencion': { entrada: ['formulario_anuncio'] },
   landing: { entrada: ['landing', 'carrito'], canal: ['carrito'] },
   closing: { canal: ['llamadas'], entrada: ['agenda_sola'] },
   productividad: { cuello: ['sistema', 'delegacion', 'foco'] },
