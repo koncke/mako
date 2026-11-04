@@ -35,8 +35,8 @@ import type { Area } from '@/lib/api-mako/tipos';
 // La letra del chrome
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** La letra del chrome de Gamma (Instrument Sans, la libre más cercana a PP Mori: ver gamma.css). */
-export const URL_FUENTE_CHROME = 'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap';
+/** La letra del chrome: Urbanist, la de las plantillas que Martín mandó copiar (ver gamma.css). */
+export const URL_FUENTE_CHROME = 'https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Plazos (el de la ruta + un margen)

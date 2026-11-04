@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   contadorDeTarjeta, debeLeerAlAbrir, destinoDePieza, destinosDe, estadoDeResultados, fraseDeLectura,
-  ganchosDe, mezclaDeTipos, ordenarPiezas, pideConectarMeta, tiempoDePieza,
+  ORDENES, filtrarPiezas, ganchosDe, mezclaDeTipos, ordenarPiezas, pideConectarMeta, tiempoDePieza, tipoDeContenido,
 } from '../lib/spy-vista';
 import type { LecturaCanalSpy, Pieza } from '../lib/spy';
 
@@ -97,12 +97,27 @@ test('la mezcla ordena por cantidad y la frase cuenta sobre el total', () => {
   assert.equal(fraseDeLectura([], null, AHORA), null);
 });
 
-test('«lleva más tiempo» manda al final lo que no declara fecha, en vez de tratarlo como nuevo', () => {
-  const p = (id: string, publicada_en: string | null) => ({ id, publicada_en, visto_primera_vez: '2026-10-30T00:00:00Z' });
-  const orden = ordenarPiezas([p('sin', null), p('nuevo', '2026-10-20T00:00:00Z'), p('viejo', '2026-01-01T00:00:00Z')], 'mas-tiempo', AHORA);
-  assert.deepEqual(orden.map((x) => x.id), ['viejo', 'nuevo', 'sin']);
-  const nuevo = ordenarPiezas([p('viejo', '2026-01-01T00:00:00Z'), p('nuevo', '2026-10-20T00:00:00Z')], 'mas-nuevo', AHORA);
-  assert.equal(nuevo[0].id, 'nuevo');
+test('«Más vistas» ordena por vistas y deja al final lo que no publica el número; «Más reciente», por fecha', () => {
+  const v = (id: string, vistas: number | null, fecha: string, megusta: number | null = null) => ({ id, vistas, megusta, publicada_en: fecha, visto_primera_vez: fecha });
+  const lista = [v('oculto', null, '2026-10-30T00:00:00Z', 900), v('chico', 50, '2026-10-01T00:00:00Z'), v('viral', 90_000, '2026-01-01T00:00:00Z')];
+  assert.deepEqual(ordenarPiezas(lista, 'mas-vistas').map((x) => x.id), ['viral', 'chico', 'oculto'], '«no lo publica» no es «nadie lo vio»: va al final, no al principio');
+  assert.deepEqual(ordenarPiezas(lista, 'mas-reciente').map((x) => x.id), ['oculto', 'chico', 'viral']);
+  assert.deepEqual(ORDENES.map((o) => o.label), ['Más vistas', 'Más reciente']);
+});
+
+test('cada pieza cae en UN tipo de contenido: reels, carruseles, videos largos y Shorts', () => {
+  assert.equal(tipoDeContenido({ canal: 'instagram', tipo: 'reel', duracion: null }), 'reels');
+  assert.equal(tipoDeContenido({ canal: 'instagram', tipo: 'publicacion', duracion: null }), 'carruseles');
+  assert.equal(tipoDeContenido({ canal: 'youtube', tipo: 'video', duracion: 'PT45S' }), 'shorts');
+  assert.equal(tipoDeContenido({ canal: 'youtube', tipo: 'video', duracion: 'PT12M3S' }), 'largos');
+  assert.equal(tipoDeContenido({ canal: 'youtube', tipo: 'video', duracion: null }), 'largos', 'sin duración legible, largo');
+  const piezas = [
+    { canal: 'instagram', tipo: 'reel', duracion: null, titulo: null, texto: 'cómo vender' },
+    { canal: 'youtube', tipo: 'video', duracion: 'PT40S', titulo: 'un short', texto: null },
+  ] as const;
+  assert.equal(filtrarPiezas(piezas, '', 'shorts').length, 1);
+  assert.equal(filtrarPiezas(piezas, 'vender', 'todo').length, 1);
+  assert.equal(filtrarPiezas(piezas, 'vender', 'shorts').length, 0);
 });
 
 test('los ganchos llevan los días de la pieza, la más vieja primero', () => {
