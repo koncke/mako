@@ -287,4 +287,20 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/app-tiendas.ts — las dos tiendas y a dónde va cada dispositivo', 'app/app/page.tsx y app/app/GuiaApp.tsx — el link', 'tests/link-app.test.ts'],
     revisar: '/app',
   },
+  {
+    fecha: '4 nov', hora: '04:00', chat: 'Tickets 04/11', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Con una imagen adjunta se puede grabar un audio, y el campo de Chats en el teléfono queda pegado al teclado',
+    puntos: [
+      '**Una imagen adjunta ya no te saca el micrófono:** con lo adjuntado y nada escrito van los dos botones. Lo que dices sale como el texto de ese mensaje, junto con la imagen, para que MaKo los lea juntos. Vale en todas las cajas de chat.',
+      '**El campo de un chat en el iPhone:** con el teclado abierto queda pegado a él, sin el hueco de abajo, y ya no se ve pasar el hilo por debajo. El anillo negro alrededor del campo pasa a ser un borde, como en el chat con MaKo.',
+    ],
+    archivos: [
+      'app/_chat/CajaChat.tsx — la sesión de la nota que sale con lo adjuntado · app/admin/operaciones/Microfono.tsx — `BotonGrabar` · lib/centro-caja.ts — `micAlLadoDeLaFlecha`',
+      'app/m/chats/[clave]/ComposerChatsM.tsx · app/m/chats/chats.css · app/m/mako/chat-ui.ts — `tecladoDelComposer`',
+      'tests/caja-nota-con-adjuntos.test.ts · tests/_caja-adjuntos-hijo.ts',
+    ],
+    revisar: '/m/chats',
+    tickets: [51],
+  },
 ];

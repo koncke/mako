@@ -13,6 +13,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 
 | Área | Documento | Qué cubre |
 |---|---|---|
+| MaKo Mobile | [hallazgos-mobile.md](hallazgos-mobile.md) | **«Me saca el botón de audio» y el campo que flota (#51, 4/11)**: mostrar el micrófono no alcanzaba: esa nota sale por el `onMandar`, junto con lo adjuntado. Con la pantalla ya corrida por Safari, `altoTeclado` da 0: «abierto» se mide aparte. |
 | Tab Pagos de la ficha | [hallazgos-pagos.md](hallazgos-pagos.md) | **«Figuran al día y no pagan desde agosto» (#53, 4/11)**: parecía una regla mal hecha y eran dos cosas: un dato (cargado como pago único) y el clic que saca de Ganado, que borra el cierre y deja «Al día» como valor por defecto. Quien sale de Ganado sale de «A quién cobrar». |
 | Competitors Spy | [hallazgos-competitors-spy.md](hallazgos-competitors-spy.md) | **«Guardar en Spy» (03/11)**: `openPopup` no otorga `activeTab`; `performance` ve lo mismo desde el mundo aislado; una búsqueda por dominio trae un tercio de anuncios ajenos; las plataformas son íconos sin texto y el id de la Página no está en lo dibujado; una pestaña a medias no marca nada como bajado. Sin hacer: verlo escrito en el ws3 y publicar la 0.75.0. |
 | Extensión | [hallazgos-extension.md](hallazgos-extension.md) | **Probar la extensión de verdad sin una persona y sin producción (03/11)**: `Extensions.loadUnpacked` y `triggerAction` sobre el target `tab`; el desplegable llega como `other`, sin dirección y pausado; interceptar lo que iría a MaKo antes de soltarlo. |
