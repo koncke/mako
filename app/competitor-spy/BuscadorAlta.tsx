@@ -98,6 +98,7 @@ button.spy-kbd{cursor:pointer}
 .spy-finder__botones{display:flex;justify-content:flex-end;gap:8px;padding:0 20px 20px}
 .spy-solo-tactil{display:none}
 .spy-finder__red{display:inline-flex;align-items:center;gap:7px}
+.spy-finder__aviso{margin:0;padding:6px 14px 10px 40px;font-size:12.5px;color:var(--faint)}
 .spy-finder__espera{font-weight:600;letter-spacing:0;text-transform:none;color:var(--faint)}
 .spy-finder__avatar{position:relative;flex:none;width:36px;height:36px}
 .spy-finder__marca{position:absolute;right:-3px;bottom:-3px;display:grid;place-items:center;border-radius:6px;
@@ -555,10 +556,18 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
   ));
 
   // Los grupos, en orden fijo. Un grupo sin filas y sin nada en camino no se dibuja.
-  const GRUPOS: Array<{ id: FilaBusqueda['grupo']; nombre: string; red?: 'instagram' | 'youtube' | 'tiktok' | 'sitio'; cargando?: boolean; espera?: string }> = [
+  // ⚠️ YouTube dice qué pasó aunque no traiga a nadie (Martín, 4/11: «solamente me trae Instagram»). Sólo con otras filas
+  // en la lista: sin ninguna, lo dice el vacío de abajo.
+  const avisoYoutube = !filas.length ? undefined
+    : busqueda.youtubeEstado === 'ninguno' ? (plan.nombre ? 'Ningún canal con ese nombre.' : 'No encontré ese canal.')
+    : busqueda.youtubeEstado === 'no-pude' ? 'No pude buscar en YouTube. Prueba de nuevo en un rato.'
+    : busqueda.youtubeEstado === 'sin-clave' ? 'Conecta Apify para buscar canales por nombre.'
+    : busqueda.youtubeEstado === 'sin-cupo' ? 'Ya no quedan búsquedas de canales por hoy.'
+    : undefined;
+  const GRUPOS: Array<{ id: FilaBusqueda['grupo']; nombre: string; red?: 'instagram' | 'youtube' | 'tiktok' | 'sitio'; cargando?: boolean; espera?: string; aviso?: string }> = [
     { id: 'mirados', nombre: 'Ya los miras' },
     { id: 'instagram', nombre: 'Instagram', red: 'instagram', cargando: busqueda.instagramCargando, espera: busqueda.instagramCargando ? esperaDe(desdeQue(busqueda.clavesInstagram), !!plan.nombre) : undefined },
-    { id: 'youtube', nombre: 'YouTube', red: 'youtube', cargando: busqueda.youtubeCargando, espera: busqueda.youtubeCargando && !busqueda.instagramCargando ? esperaDe(desdeQue(busqueda.clavesYoutube), !!plan.nombre) : undefined },
+    { id: 'youtube', nombre: 'YouTube', red: 'youtube', cargando: busqueda.youtubeCargando, espera: busqueda.youtubeCargando && !busqueda.instagramCargando ? esperaDe(desdeQue(busqueda.clavesYoutube), !!plan.nombre) : undefined, aviso: avisoYoutube },
     { id: 'tiktok', nombre: 'TikTok', red: 'tiktok' },
     { id: 'sitio', nombre: 'Sitio web', red: 'sitio' },
     { id: 'nombre', nombre: 'Sin redes' },
@@ -566,7 +575,7 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
   let i = 0;
   const bloques = GRUPOS.map((g) => {
     const deEste = filas.filter((f) => f.grupo === g.id);
-    if (!deEste.length && !g.cargando) return null;
+    if (!deEste.length && !g.cargando && !g.aviso) return null;
     const desde = i;
     i += deEste.length;
     return (
@@ -577,6 +586,7 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
         </div>
         {deEste.map((f, j) => dibujarFila(f, desde + j))}
         {g.cargando && huesos(deEste.length ? 1 : 3, g.id === 'youtube' ? 'youtube' : 'instagram')}
+        {g.aviso && <p className="spy-finder__aviso">{g.aviso}</p>}
       </div>
     );
   });
