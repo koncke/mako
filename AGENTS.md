@@ -11506,3 +11506,19 @@ Apple y Google prohíben vender algo digital sin su cobro, o mandar a pagar afue
 - **Una función nueva que le manda algo a una IA** llama a `exigirPermisoIa()` antes de salir (lib/ia-permiso.ts), o sale por una que ya lo hace. `tests/ia-permiso.test.ts` enumera las puertas.
 - **Lo que necesita el aparato** va por `lib/nativo.ts`, con `window.Capacitor.Plugins`: la web no importa los plugins. Un `<a download>` ya funciona ahí solo.
 - **Lo que publica un usuario para otros** (Community) pide denunciar y bloquear desde la app (Apple 1.2): por eso no va en iPhone.
+
+# Una edición del newsletter es un BROADCAST del CRM «Newsletter» (29/10/2026)
+
+Martín aprobó el modelo el 29/10/2026 («Sí, armalo así»): los suscriptos son un CRM «Newsletter» (Suscripto → Lee →
+Dormido → Dado de baja) y las ediciones viven en la tab `/newsletters`. **Regla para código nuevo:**
+- **Una edición es un broadcast** (`email_broadcasts`) con segmento `newsletter:<funnelId>[:<etapa>]`: crear, probar,
+  programar y enviar pasan por lib/email-marketing.ts, nunca por un envío propio. Que sea una edición se DERIVA del
+  segmento (`segmentoNewsletter`, lib/newsletter-reglas.ts); no hay columna aparte.
+- **Los suscriptos se leen con `suscriptosDe`** (lib/newsletter.ts): la casa (`leads.funnel_id`) Y los agregados
+  (`lead_funnel`). «Suscripto» es la clave canónica `lead`.
+- **Lee y Dormido se CALCULAN** (`etapaPorLectura`): sólo cuentan los envíos `enviado`, una edición sin NINGUNA apertura no
+  mide (key propia o webhook sin configurar) y la baja, «Compró» y las salidas no las mueve la lectura.
+- **El newsletter no es una automatización.** La única es la bienvenida: la plantilla `email-newsletter` de la galería,
+  con el CRON en la etapa «Suscripto». Nada crea esa fila solo (`tests/automatizaciones-solo-plantillas.test.ts`).
+- **Con el envío apagado no se «envía»** (quema la edición: queda `enviado` con todo `simulado`): se prueba al email de
+  quien la pide y se programa. Lo fija tests/newsletter.test.ts; el porqué, en docs/hallazgos-newsletters.md.
