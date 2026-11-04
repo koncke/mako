@@ -199,10 +199,11 @@ export const esHidratacion = (mensaje: string): boolean => /Minified React error
 /**
  * Lo que puede haber tocado la página antes de hidratar. Un caso suelto no se reproduce, y sin esto nunca se sabe: `<font>` es el traductor
  * del navegador, una etiqueta con guion que no es nuestra es una extensión. Sólo cantidades y nombres de etiqueta: ningún texto de la página.
+ * `next-route-announcer` la pone Next en toda página: contarla decía «ajenas» de un caso sin ninguna (ticket #52, 4/11/2026).
  */
 export function pistasDeHidratacion(doc: Pick<Document, 'documentElement' | 'getElementsByTagName'>, idioma: string): string {
   const html = doc.documentElement;
-  const etiquetas = new Set([...doc.getElementsByTagName('*')].map((n) => n.tagName.toLowerCase()).filter((n) => n.includes('-')));
+  const etiquetas = new Set([...doc.getElementsByTagName('*')].map((n) => n.tagName.toLowerCase()).filter((n) => n.includes('-') && n !== 'next-route-announcer'));
   return [
     `font=${doc.getElementsByTagName('font').length}`,
     `traducida=${/translated-/.test(html.className) ? 'si' : 'no'}`,

@@ -12,7 +12,7 @@ cuentas, revisadas otra vez el 23/10 en las páginas oficiales.
 
 **Lo único que le queda a Martín, en orden.** Lo demás lo hace un chat de código.
 
-1. **Decidir qué responsable dicen las páginas legales.** `/privacidad` y `/terminos` nombran a «Tejado Gonzalvez Leandro Martin» (`lib/titular-mako.ts`). En la App Store coincide con el vendedor. En Play no: el titular es Martín, y Google muestra su nombre legal aunque el nombre público sea MaKo. Un revisor vería a dos responsables.
+1. ~~Decidir qué responsable dicen las páginas legales.~~ **Decidido el 4/11/2026** (Martín: «Si, el responsable legal es Leandro»). `/privacidad` y `/terminos` siguen nombrando a «Tejado Gonzalvez Leandro Martin» (`lib/titular-mako.ts`), y suman una línea con quién publica en cada tienda: ese mismo nombre en la App Store y «Martín Carballo Koncke» en Google Play (`PUBLICA_EN_PLAY`). Lo fija `tests/tiendas-quien-publica.test.ts`.
 2. **Terminar las verificaciones de Play Console.** La cuenta personal ya está abierta (3/11/2026, con martinkoncke@gmail.com y el nombre público MaKo). Google está revisando la identidad (unos días); faltan el teléfono Android con la app Play Console y el número de contacto. Hasta entonces la consola no deja crear la app, y **el reloj de los 14 días todavía no arrancó**. Cuando llegue el mail, aceptar los términos del Android SDK para compilar el `.aab`.
 3. **Juntar de 15 a 16 testers con Android**, en un Grupo de Google (paso 4 de la (b)).
 4. **Crear la app en Play y pegar los borradores:** `docs/tiendas-fichas-borradores.md`. Data safety y la política van **antes** de la prueba cerrada: Play los pide también ahí. Después, subir el `.aab`. Desde ese día corren los 14.

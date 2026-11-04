@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { AudioPlay, duracionVisible, tiempoDelReproductor } from '../app/whatsapp/_shared/AudioPlay';
+import { AudioPlay, aplicarVelocidad, duracionVisible, mismoArchivo, rotuloVelocidad, siguienteVelocidad, tiempoDelReproductor } from '../app/whatsapp/_shared/AudioPlay';
 import { BurbujaHilo, ANCHO_AUDIO } from '../app/whatsapp/_shared/BurbujaHilo';
 import { crearSesionVoz, wavDe, barrasDeOnda, BarraGrabacion, ESTADO_VOZ_INICIAL, type EstadoVoz, type GrabacionVoz } from '../app/whatsapp/_shared/VoiceRecorder';
 import {
@@ -72,6 +72,31 @@ test('la duración: la del archivo si se sabe, si no la de la biblioteca; y el t
   assert.equal(tiempoDelReproductor(12.9, 75, true), '0:12', 'sonando: lo que va');
   const html = renderToStaticMarkup(createElement(AudioPlay, { src: 'a.mp3', duracion: 75 }));
   assert.ok(html.includes('>1:15<'), 'antes de cargar se ve la duración de la biblioteca');
+});
+
+// Ticket #50 (Leandro, 4/11/2026): en el iPhone el reproductor nativo no deja cambiar la velocidad.
+// ROMPIÉNDOLO (4/11/2026, base 34 de 34): sin `defaultPlaybackRate` en `aplicarVelocidad` → 1 fallo; el botón también en la compacta → 1 fallo; la
+// velocidad que no da la vuelta → 1 fallo; `mismoArchivo` sólo con el `pathname` → 1 fallo (dos `?adjunto=` serían el mismo audio); `mismoArchivo` siempre
+// false → 1 fallo (la firma nueva cortaría el audio).
+test('#50: la velocidad da la vuelta, sale en el reproductor, y Safari no la pierde al cargar', () => {
+  assert.deepEqual([siguienteVelocidad(1), siguienteVelocidad(1.5), siguienteVelocidad(2)], [1.5, 2, 1]);
+  assert.deepEqual([rotuloVelocidad(1), rotuloVelocidad(1.5), rotuloVelocidad(2)], ['1×', '1,5×', '2×']);
+  const el = { playbackRate: 1, defaultPlaybackRate: 1 };
+  aplicarVelocidad(el, 1.5);
+  assert.deepEqual(el, { playbackRate: 1.5, defaultPlaybackRate: 1.5 });
+  const normal = renderToStaticMarkup(createElement(AudioPlay, { src: 'a.mp3' }));
+  assert.ok(normal.includes('aria-label="Velocidad del audio: 1×"'), 'el reproductor de una burbuja lo lleva');
+  assert.ok(!renderToStaticMarkup(createElement(AudioPlay, { src: 'a.mp3', compacto: true })).includes('Velocidad del audio'), 'la compacta no: no entra');
+  assert.ok(!renderToStaticMarkup(createElement(AudioPlay, { src: 'a.mp3', velocidad: false })).includes('Velocidad del audio'), 'el grabador no');
+});
+
+test('#50: el mismo archivo con otra firma no es otro audio (el hilo se relee cada 15 s y lo cortaba); otra query sí', () => {
+  const firma = (t: string) => `https://x.supabase.co/storage/v1/object/sign/wa/ws10/a.ogg?token=${t}`;
+  assert.equal(mismoArchivo(firma('uno'), firma('dos')), true);
+  assert.equal(mismoArchivo(firma('uno'), 'https://x.supabase.co/storage/v1/object/sign/wa/ws10/b.ogg?token=dos'), false);
+  assert.equal(mismoArchivo('/api/mako/chat?adjunto=1', '/api/mako/chat?adjunto=2'), false, 'sin firma, la query es el archivo');
+  assert.equal(mismoArchivo('a.mp3', 'a.mp3'), true);
+  assert.equal(mismoArchivo('a.mp3', 'b.mp3'), false);
 });
 
 // ── 7: grabar → TERMINAR → escuchar → mandar ─────────────────────────────────────────────────
