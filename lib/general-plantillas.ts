@@ -53,18 +53,30 @@ const SOLO_INSTAGRAM = { tipo: 'lista', campo: 'audiencia.plataforma', valores: 
 
 export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   {
-    // La General de siempre: la meta, la plata del mes en números, y lo que hay que atender hoy.
+    // 4/11/2026 — ORVEL · CORBEL (docs/templates-dashboard-propuesta.md §7.3): «¿cómo viene el negocio y qué me está esperando?».
+    // Orvel abre con UNA oración de tres hechos y uno accionable; Corbel pone la fila de números con su comparación y un link al
+    // pie de cada uno al lugar donde se trabaja, el puntaje con veredicto (acá la Meta objetivo y el Semáforo) y lo facturado
+    // por mes. El bloque «te está esperando» es «A quién cobrarle». Mockup: docs/diseno/mockups-dashboard/general.html.
     id: 'general', nombre: 'General', emoji: '🧭',
-    linea: 'Tu meta, la plata del mes, la acción del día y lo que hay que atender.',
+    linea: 'Cómo viene el mes en una frase, tu meta, la plata por mes y lo que te está esperando.',
     subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
-      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago' }),
-      numero('vendido', 'leads', 'vendido', 'Vendido', { fecha: 'cierre' }),
-      numero('agendas', 'leads', 'agendas', 'Agendas', { fecha: 'agenda' }),
-      numero('cierres', 'leads', 'cierres', 'Cierres', { fecha: 'cierre' }),
+      {
+        // Lo que la fila de números NO dice: cuánto cambió y si la pauta vuelve (cada dato, una vez).
+        local: 'apertura', tipo: 'frase', fuente: 'negocio', metricas: ['cobrado', 'gasto', 'roas_cobrado'], dimension: null, titulo: 'Cómo viene el mes', comparar: true,
+        frase: 'Entraron {cobrado} · {cobrado:cambio} que el período anterior · con {gasto} de pauta, cada dólar volvió {roas_cobrado}', ir: 'cobranza',
+      },
+      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago', invertida: true, ir: 'cobranza' }),
+      numero('vendido', 'leads', 'vendido', 'Vendido', { fecha: 'cierre', ir: 'comercial' }),
+      numero('agendas', 'leads', 'agendas', 'Agendas', { fecha: 'agenda', ir: 'crm' }),
+      numero('cierres', 'leads', 'cierres', 'Cierres', { fecha: 'cierre', ir: 'closing' }),
       bloque('cabecera'),
-      bloque('tareas'), bloque('deadlines', { opciones: { dias: '7', que: 'tareas' } }),
-      bloque('accion'), bloque('llamadas'), bloque('cobranza'),
+      {
+        local: 'por-mes', tipo: 'columnas', fuente: 'negocio', dimension: 'mes', metricas: ['cobrado'], titulo: 'Facturado por mes',
+        subtitulo: 'Lo cobrado, no lo prometido', controles: [{ tipo: 'periodo', preset: 'ult12m', fijo: true }], ir: 'cobranza',
+      },
+      bloque('semaforo', { titulo: 'Salud del negocio' }),
+      bloque('cobranza', { titulo: 'Te está esperando' }), bloque('accion'), bloque('llamadas'),
     ],
   },
   {
@@ -166,7 +178,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
 
 /** Lo que abre cada plantilla de General: su panel principal, al lado de los números (`comoDenso`, lib/graficos-portadas.ts). */
 export const PORTADAS_GENERAL: Readonly<Record<string, DefinicionPortada>> = {
-  general: { sube: 'cabecera', molde: 'ledge' },
+  general: { sube: 'cabecera', vecino: 'cabecera', par: ['por-mes', 'semaforo'], molde: 'ledge' },
   foco: { sube: 'objetivos', molde: 'moorly' },
   operacion: { sube: 'prioridades', cambios: { texto: 'Lo primero de hoy' }, molde: 'tilvo' },
   ventas: { sube: 'tendencia', molde: 'wharf' },
