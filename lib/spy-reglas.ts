@@ -44,6 +44,8 @@
 // Los canales que se vigilan de un competidor
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { esAgregador } from './spy-otras-redes-reglas';
+
 /**
  * Los cuatro canales, en el orden en que entraron (docs/diseno-competitors-spy.md §6). Los
  * anuncios van ÚLTIMOS a propósito: son los más valiosos y los únicos sin camino automático legal
@@ -553,5 +555,8 @@ export function canalDeLaBio(deLaBio: CanalLeido | null | undefined, yaPegado: C
   // TikTok en la bio terminaba guardado como su LANDING.
   if (deLaBio.campo !== 'landing_url' && deLaBio.campo !== 'youtube_id' && deLaBio.campo !== 'tiktok') return null;
   if (deLaBio.campo === yaPegado) return null;
+  // Una página de enlaces (beacons, linktree…) no es su web: la abre la cadena de sus redes y saca de ahí su web de verdad
+  // (lib/spy-cadena.ts). Medido en producción el 4/11/2026: @den.borgg quedó con su «web» = beacons.page/denborg.
+  if (deLaBio.campo === 'landing_url' && esAgregador(deLaBio.valor)) return null;
   return deLaBio;
 }

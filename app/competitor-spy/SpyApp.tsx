@@ -70,6 +70,7 @@ import {
   type OrdenSpy, type TipoContenido, type ValorDeContenido,
 } from '@/lib/spy-vista';
 import { cuantasFaltan } from '@/lib/spy-analisis-reglas';
+import { avisoDeTraida } from '@/lib/spy-todo-reglas';
 import { debeBuscarRedes, marcarRedesBuscadas } from './redes-recordar';
 import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import {
@@ -727,6 +728,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [autoAnalisis, setAutoAnalisis] = useState<number | null>(null);
   /** A quién se le está trayendo todo lo que publicó, en una corrida larga de Apify. */
   const [trayendoTodo, setTrayendoTodo] = useState<number | null>(null);
+  /** Por qué la traída larga no trajo todo, por competidor (4/11/2026: «si una corrida larga no terminó, la pantalla lo dice»). */
+  const [avisoTodo, setAvisoTodo] = useState<Record<number, string>>({});
   /** Cuántas tarjetas se dibujan: con cientos de piezas, de a 60 (una grilla de 500 imágenes traba la pantalla). */
   const [mostrar, setMostrar] = useState(60);
   const [lecturas, setLecturas] = useState<Record<number, LecturaCanalSpy[]>>({});
@@ -866,7 +869,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const buscarRedes = useCallback(async (id: number) => {
     marcarRedesBuscadas(ws, id);
     setRedes((v) => ({ ...v, [id]: { buscando: true, sumadas: [], candidatos: [] } }));
-    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[] } | { ok: false; error: string };
+    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web?: string | null } | { ok: false; error: string };
     const r: Resp = await fetch('/api/competitor-spy/redes', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(125_000),
     }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false as const, error: 'No pude buscar sus otras redes ahora.' }));
@@ -875,7 +878,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       [id]: r.ok ? { buscando: false, sumadas: r.sumadas, candidatos: r.candidatos } : { buscando: false, sumadas: [], candidatos: [], aviso: r.error },
     }));
     // Lo que se sumó solo se lee ya: sus piezas tienen que aparecer sin que nadie apriete nada.
-    if (r.ok && r.sumadas.some((k) => k.red !== 'tiktok')) {
+    // Su web encontrada también se lee ya (su funnel y su oferta, solos).
+    if (r.ok && (r.sumadas.some((k) => k.red !== 'tiktok') || r.web)) {
       await recargarLista();
       yaLeidos.current.delete(id);
       if (actual.current === id) void leer(id, false);
@@ -930,11 +934,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
    * Apify que empieza el servidor y no se espera (/api/competitor-spy/todo). Si está en marcha, se vuelve a preguntar.
    */
   const traerTodo = useCallback(async (id: number) => {
-    type Resp = { ok: boolean; enMarcha?: boolean; nuevas?: number };
+    type Resp = { ok: boolean; enMarcha?: boolean; nuevas?: number; porque?: string };
     const r: Resp = await fetch('/api/competitor-spy/todo', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(65_000),
     }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false }));
     if (r.ok && r.enMarcha) setTrayendoTodo(id);
+    // El motivo, en palabras: antes se tiraba y la ficha quedaba con lo de la lectura de siempre sin decir por qué.
+    const aviso = !r.ok ? null : avisoDeTraida(r.porque);
+    setAvisoTodo((v) => { const n = { ...v }; if (aviso) n[id] = aviso; else delete n[id]; return n; });
     return r;
   }, []);
 
@@ -953,6 +960,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       if (!vivo) return;
       if (r.ok && r.enMarcha && vueltas < 45) { t = setTimeout(() => { void vuelta(); }, 20_000); return; }
       setTrayendoTodo((v) => (v === id ? null : v));
+      // A los 15 minutos la pantalla deja de preguntar; la corrida sigue y la recoge el cron (/api/cron/spy-todo).
+      if (r.ok && r.enMarcha) setAvisoTodo((v) => ({ ...v, [id]: 'Sigue trayendo todo lo que publicó: aparece solo.' }));
       if (r.ok && (r.nuevas ?? 0) > 0) {
         await recargarLista();
         const p = await traerPiezas(id);
@@ -1344,6 +1353,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
               <div className="spy-cols">
                 <div>
                   {trayendoTodo === c.id && <p className="spy-aviso spy-aviso--suave" aria-live="polite">Trayendo todo lo que publicó…</p>}
+                  {trayendoTodo !== c.id && avisoTodo[c.id] && <p className="spy-aviso spy-aviso--suave" aria-live="polite">{avisoTodo[c.id]}</p>}
                   <GraficoSpy
                     c={c} piezas={piezas} analizando={autoAnalisis === c.id}
                     onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })}
@@ -1398,6 +1408,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                   )}
 
                   {trayendoTodo === c.id && <p className="spy-aviso spy-aviso--suave" aria-live="polite">Trayendo todo lo que publicó…</p>}
+                  {trayendoTodo !== c.id && avisoTodo[c.id] && <p className="spy-aviso spy-aviso--suave" aria-live="polite">{avisoTodo[c.id]}</p>}
 
                   {/* ── Un solo estado para toda la zona de resultados, jamás uno por canal. ── */}
                   {estado === 'hay' && (
