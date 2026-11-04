@@ -1,6 +1,11 @@
 # Relevo — tickets #46, #47 y #48 de Leila (claude2, 3/11/2026, corte al 99 %)
 
-**Rama:** `tickets-leila-0311` · **worktree:** `C:/dev/wt-tickets-leila` · **sin pushear** (el sha va al Cerebro).
+**Rama:** `tickets-leila-0311` · **worktree:** `C:/dev/wt-tickets-leila`.
+
+> **Al 4/11/2026 (nube, rearmado de las etiquetas `rescate/*`): está todo en main.** `d6501deac` y `71bbc41e0` son ancestros
+> de `origin/main`, y los hitos `tickets: [46]`, `[47]` y `[48]` están en app/admin/dev/second-brain/bitacora.ts. El tsc que
+> faltaba ya no falta: desde el 4/11 cada punta corre el tsc ENTERO, y la de `punta/tipos-enteros` (corrida 41783380997) dio
+> verde en «Tipos» sobre un main que ya trae este código. Lo de abajo queda como historia; lo único vivo es «Sin hacer».
 
 ## Hecho
 - `d6501deac`: el arreglo de los tres tickets (familias `precio-oferta`, `crear-secuencia` y `donde-se-edita` en
@@ -11,7 +16,7 @@
 - `71bbc41e0`: la regla en AGENTS.md.
 - Tests de lo tocado: 307 pasan, más los 3 de la ticketera. Leila ya tiene la respuesta en los tres tickets (`arreglado`).
 
-## FALTA (lo único): el tsc acotado
+## Faltaba (ya no): el tsc acotado
 `node scripts/tsc-acotado.mjs --rama` sale con **código 134 aun con 4,5 GB libres**: es el heap de 2,5 GB que queda
 corto, no la RAM de la PC. Correr `node scripts/tsc-acotado.mjs --rama --heap=4096` cuando la guardia lo deje (pide 3 GB
 libres). En verde, el tren lleva `71bbc41e0` (o este commit).
