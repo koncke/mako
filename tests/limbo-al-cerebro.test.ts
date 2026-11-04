@@ -36,7 +36,7 @@ let cache: Map<string, Escena> | null = null;
 function hijo(): Map<string, Escena> {
   if (cache) return cache;
   const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', join(RAIZ, 'tests/_limbo-al-cerebro-hijo.ts')], {
-    cwd: RAIZ, encoding: 'utf8', timeout: 120_000, env: { ...process.env, ESCENAS: process.env.ESCENAS ?? '' },
+    cwd: RAIZ, encoding: 'utf8', timeout: 120_000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, ESCENAS: process.env.ESCENAS ?? '' },
   });
   const salida = `${r.stdout ?? ''}${r.stderr ?? ''}`;
   const lineas = salida.split('\n').filter((l) => l.startsWith('@@LIMBO@@')).map((l) => JSON.parse(l.slice('@@LIMBO@@'.length)) as Escena);
