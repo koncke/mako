@@ -36,13 +36,14 @@ import { etapasConNombres } from '@/lib/onboarding-crm';
 import { RUTA_AL_TERMINAR, rutaDelHilo, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
 import { MENSAJE_BLOQUEADO } from '@/lib/onboarding-guardia';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
+import type { VistaEntrante } from '@/lib/verificacion-entrante';
 import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { OfferApp, type ArranqueOffer } from '../offer/OfferApp';
 import { EntradaMako } from './EntradaMako';
 import { CriaturaMako, type Reaccion } from './CriaturaMako';
 import { SESION_VACIA, aMensajeOffer, ladoDeLaPregunta, linkPdfLoQueVende, mandaElArranque, placeholderDe, preguntaQueContesta, tarjetaConNumero, tarjetasDe, terminoElArranque } from './arranque-ui';
 
-type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean };
+type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean; whatsapp?: VistaEntrante | null };
 /** Un aviso arriba del chat; con `accion`, lo que lo destraba sin recargar (un fallo pasajero se reintenta). */
 type Aviso = { texto: string; accion?: { label: string; onClick: () => void } };
 /** El plan de arranque: escribiéndose, listo con su link, o sin plan (no salió o la capa no lo arma). */
@@ -168,6 +169,23 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     })();
   }, [vista.etapa, intentoCierre]);
 
+  // ¿YA LLEGÓ SU MENSAJE? (4/11/2026): la persona le escribe a MaKo desde su WhatsApp y el webhook lo confirma. Mientras
+  // tanto se pregunta cada 4 s (sólo con la pestaña a la vista), y cuando llegó la conversación sigue sola.
+  const esperandoWhatsapp = vista.etapa === 'codigo' && (vista.whatsapp?.estado === 'esperando' || vista.whatsapp?.estado === 'otro-numero');
+  useEffect(() => {
+    if (!esperandoWhatsapp) return;
+    let vivo = true;
+    const t = window.setInterval(() => {
+      if (document.hidden) return;
+      void llamar({ action: 'whatsapp' }).then((r) => {
+        if (!vivo) return;
+        if (r.vista) setVista(r.vista);
+        else if (r.whatsapp) setVista((v) => ({ ...v, whatsapp: r.whatsapp ?? null }));
+      });
+    }, 4000);
+    return () => { vivo = false; window.clearInterval(t); };
+  }, [esperandoWhatsapp]);
+
   // Relee mientras el otro dispositivo cierra. Si no termina (se murió), vuelve a intentarlo: el reclamo del server ya venció.
   useEffect(() => {
     if (!esperandoCierre || vista.etapa !== 'cierre') return;
@@ -228,6 +246,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     if (t === 'crm') return <TarjetaCrm vista={vista} />;
     if (t === 'pdf') return vista.sesion ? <TarjetaPdf sesionId={vista.sesion.id} /> : null;
     if (t === 'telefono') return <TarjetaTelefono inicial={vista.telefonoDelPago} ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
+    if (t === 'whatsapp') return <TarjetaWhatsapp v={vista.whatsapp} ocupado={ocupado} onOtro={async () => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: vista.telefonoNumero.replace(/\D/g, '') })); } finally { setOcupado(false); } }} />;
     if (t === 'avisos') return <TarjetaAvisos qr={vista.avisosQr} onRevisar={releer} onSinSoporte={() => void llamar({ action: 'avisos', sinSoporte: true }).then(aplicar)} />;
     if (t === 'listo') return <TarjetaListo onEntrar={() => void entrar()} entrando={entrandoYa} />;
     return null;
@@ -352,7 +371,7 @@ function TarjetaCrm({ vista }: { vista: VistaArranque }) {
   );
 }
 
-/** El teléfono de los avisos, con su lada. El código llega por WhatsApp y se escribe en el chat. */
+/** El teléfono de los avisos, con su lada. Después la persona le escribe a MaKo desde ese número (`TarjetaWhatsapp`). */
 function TarjetaTelefono({ inicial, ocupado, onEnviar }: { inicial: string; ocupado: boolean; onEnviar: (telefono: string) => Promise<void> }) {
   const [lada, setLada] = useState(() => tarjetaConNumero(inicial).lada);
   const [numero, setNumero] = useState(() => tarjetaConNumero(inicial).numero);
@@ -363,8 +382,34 @@ function TarjetaTelefono({ inicial, ocupado, onEnviar }: { inicial: string; ocup
       <TelefonoConPais lada={lada} numero={numero} onLada={setLada} onNumero={setNumero} onEnter={enviar}
         placeholder="686 123 4567" inputStyle={CAMPO} />
       <Button variant="primary" size="sm" disabled={!listo || ocupado} loading={ocupado} onClick={enviar}>
-        Enviarme el código
+        Seguir
       </Button>
+    </div>
+  );
+}
+
+/**
+ * EL MENSAJE QUE LA PERSONA LE MANDA A MaKo (4/11/2026): MaKo no le escribe primero a nadie. El link abre su WhatsApp con el
+ * texto escrito; cuando llega, la conversación sigue sola (el efecto de arriba lo pregunta).
+ */
+function TarjetaWhatsapp({ v, ocupado, onOtro }: { v: VistaEntrante | null; ocupado: boolean; onOtro: () => Promise<void> }) {
+  if (!v || !v.link || v.estado === 'vencido') {
+    return (
+      <div className="arr-tarjeta">
+        <span className="arr-tarjeta__nota">{v?.estado === 'vencido' ? 'Pasó mucho tiempo.' : 'No pude armar el mensaje.'}</span>
+        <Button variant="primary" size="sm" loading={ocupado} disabled={ocupado} onClick={() => void onOtro()}>Pedir otro</Button>
+      </div>
+    );
+  }
+  return (
+    <div className="arr-tarjeta">
+      {v.estado === 'otro-numero' && v.otroNumero && (
+        <span className="arr-tarjeta__nota">Me escribiste desde el +{v.otroNumero}. Mándalo desde el {v.telefono ? `+${v.telefono}` : 'número que diste'}, o cambia el número.</span>
+      )}
+      <div className="arr-links">
+        <a className="arr-link arr-link--principal" href={v.link} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>
+      </div>
+      <span className="arr-tarjeta__nota">Cuando llegue, sigo solo.</span>
     </div>
   );
 }

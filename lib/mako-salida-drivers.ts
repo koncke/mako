@@ -10,6 +10,8 @@
 // PURO y sin `server-only`: el fetch se inyecta (tests/mako-salida.test.ts).
 // =============================================================================
 
+import { pausaDeEscritura } from './mako-salida-reglas';
+
 export type EnvioChat = { ok: true; id: string } | { ok: false; error: string; fueraDeVentana?: true };
 
 export type SalidaWhatsApp = {
@@ -28,10 +30,14 @@ export function digitosDelJid(jid: string): string | null {
   return /^(\d{8,15})(?::\d+)?@(?:s\.whatsapp\.net|c\.us)$/.exec(jid.trim())?.[1] ?? null;
 }
 
-/** La demora «escribiendo» de la vía no oficial: proporcional al texto, para no salir como una máquina. */
-export const demoraDeTexto = (texto: string): number => Math.round(Math.min(1500 + texto.length * 45, 9000) * (0.8 + Math.random() * 0.4));
+/** La demora «escribiendo» de la vía no oficial: la regla de la casa (lib/mako-salida-reglas.ts), proporcional al texto y con variación. */
+export const demoraDeTexto = (texto: string): number => pausaDeEscritura(texto.length);
 
-export function salidaEvolution(o: { base: string; clave: string; instancia: string; fetch?: Fetch }): SalidaWhatsApp {
+/**
+ * `observar`: lo que contestó Evolution a cada escritura, para el freno de la línea (lib/linea-freno.ts). Se inyecta: este archivo es
+ * puro, y la puerta (lib/mako-salida.ts) es la que lo enchufa.
+ */
+export function salidaEvolution(o: { base: string; clave: string; instancia: string; fetch?: Fetch; observar?: (ruta: string, status: number, cuerpo: unknown) => Promise<unknown> }): SalidaWhatsApp {
   const f = o.fetch ?? fetch;
   const base = o.base.replace(/\/$/, '');
   const pedir = async (ruta: string, cuerpo: unknown) => {
@@ -41,6 +47,7 @@ export function salidaEvolution(o: { base: string; clave: string; instancia: str
     const texto = await r.text();
     let json: unknown = null;
     try { json = texto ? JSON.parse(texto) : null; } catch { /* sigue con el texto */ }
+    if (!r.ok && o.observar) await o.observar(`${ruta}/${encodeURIComponent(o.instancia)}`, r.status, json ?? texto).catch(() => null);
     return { ok: r.ok, status: r.status, json, texto };
   };
   return {
