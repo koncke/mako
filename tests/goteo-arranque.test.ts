@@ -212,6 +212,8 @@ test('el cableado: el motor, aprobar, la hoja, Configuraciones, el editor y MaKo
   for (const x of ['variantes', 'arranqueDia', 'arranqueSube', 'goteoArranqueDia', 'goteoArranqueSube']) assert.match(def, new RegExp(`nombre: '${x}'`), x);
   const run = leer('lib/api-mako/areas/chatbot.run.ts');
   assert.match(run, /canales\.includes\('whatsapp'\) && input\.sinArranque !== true \? \{ arranque:/, 'MaKo arranca igual que la hoja');
-  assert.match(run, /cambioDeConfigDelInput\(input, await leerConfigAutomatizacion\(id\)\)/, 'el arranque se prueba contra lo que tiene: no dice «quedó» y lo tira');
+  // Lo que cuida: el cambio se prueba contra lo GUARDADO (`leerConfigAutomatizacion(id)` es el previo). Desde el 4/11/2026 la
+  // llamada lleva además las columnas del email.
+  assert.match(run, /cambioDeConfigDelInput\(input, await leerConfigAutomatizacion\(id\)(, columnas)?\)/, 'el arranque se prueba contra lo que tiene: no dice «quedó» y lo tira');
   assert.match(run, /las otras: \$\{pedido\.mensajes\.whatsapp\.variantes\.map\(/, 'lo que se confirma se lee: la difusión no se deshace');
 });

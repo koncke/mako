@@ -61,7 +61,36 @@ export type ConfigAutomatizacion = {
    * cada canal con su cuenta. Ausente = sin goteo propio. (El `goteoEmail` de antes se lee como éste si no hay uno.)
    */
   goteo?: { minutos?: number; dia?: number; arranque?: { dia: number; sube: number } };
+  /**
+   * LAS COLUMNAS DEL CRM QUE SIGUEN A LOS EMAILS (4/11/2026, la campaña de Mauricio: «si ya lo abrió me lo pones aquí», el
+   * clic a otra y una para el que compró): la key de la columna del CRM de esta automatización a la que pasa la tarjeta
+   * cuando le sale un email (`enviado`), cuando lo abre (`abrio`) y cuando hace clic (`clic`). Las mueve
+   * lib/email-eventos-crm.ts, nunca hacia atrás ni desde una terminal. Ausente = no se mueve nada, como antes. Con esto
+   * puesto, además, quien compró o ya no está abierto deja de recibir (lib/nutricion.ts, la rama del email).
+   */
+  columnasEmail?: ColumnasEmail;
 };
+
+/** Los tres momentos de un email que mueven la tarjeta. */
+export const EVENTOS_COLUMNA = ['enviado', 'abrio', 'clic'] as const;
+export type EventoColumna = (typeof EVENTOS_COLUMNA)[number];
+export type ColumnasEmail = Partial<Record<EventoColumna, string>>;
+
+/** La key de una columna, como se guarda: texto corto, sin saltos ni espacios en los bordes. null = no sirve. */
+const keyDeColumna = (v: unknown): string | null => {
+  if (typeof v !== 'string') return null;
+  const k = v.trim();
+  return k && k.length <= 80 && !/[\r\n\t]/.test(k) ? k : null;
+};
+
+/** Las columnas guardadas, saneadas: sólo los eventos que se entienden, o undefined si no queda ninguno. */
+function columnasGuardadas(raw: unknown): ColumnasEmail | undefined {
+  const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
+  if (!o) return undefined;
+  const out: ColumnasEmail = {};
+  for (const e of EVENTOS_COLUMNA) { const k = keyDeColumna(o[e]); if (k) out[e] = k; }
+  return Object.keys(out).length ? out : undefined;
+}
 
 /**
  * Los rangos del goteo: hasta 4 h entre envíos, y el tope por día hasta el más alto de las líneas (el de email: un tope por
@@ -103,6 +132,8 @@ export function sanearConfigAutomatizacion(raw: unknown): ConfigAutomatizacion {
   // automatizaciones con goteo, las dos sólo de WhatsApp (scripts/medir-goteo-un-interruptor.mts); ninguna se movió.
   const goteo = goteoGuardado(o.goteo) ?? goteoGuardado(o.goteoEmail);
   if (goteo) out.goteo = goteo;
+  const columnas = columnasGuardadas(o.columnasEmail);
+  if (columnas) out.columnasEmail = columnas;
   return out;
 }
 
@@ -119,8 +150,8 @@ export function textoDeHorario(h: HorarioEnvio | null): string {
  */
 export type PropsConfiguraciones = { secuenciaId: number; nombre: string; onCerrar: () => void };
 
-/** ¿Tiene algo propio? (si no, es la del negocio entera). */
-export const tieneConfigPropia = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.goteo !== undefined;
+/** ¿Tiene algo propio? (si no, es la del negocio entera). Las columnas del email cuentan: sin esto, guardarlas solas borraba la clave. */
+export const tieneConfigPropia = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.goteo !== undefined || c.columnasEmail !== undefined;
 
 /**
  * ¿Ya le eligieron el RITMO? (el aviso de Prospección de Publicar y Probar: «revisa su horario y sus límites»). Su horario o
@@ -187,6 +218,24 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
   // UNO SOLO (24/10/2026, f21): el del email ya no existe aparte. Rechazado y dicho, como «Misma persona».
   if ('goteoEmail' in o) return { ok: false, error: 'El goteo y el tope por día son uno solo para todos los canales: cámbialo en «goteo».' };
   if ('sinVistaPrevia' in o) return { ok: false, error: 'La vista previa de un link se saca en el mensaje, con la X de su tarjeta.' };
+  // Las columnas del email (4/11/2026): `null` las saca todas; en cada evento, `null` o '' saca ésa. Que la columna exista en el
+  // CRM de la automatización lo mira quien guarda (la API), que tiene la base.
+  if ('columnasEmail' in o) {
+    if (o.columnasEmail === null) delete out.columnasEmail;
+    else {
+      const c = o.columnasEmail && typeof o.columnasEmail === 'object' && !Array.isArray(o.columnasEmail) ? o.columnasEmail as Record<string, unknown> : null;
+      if (!c) return { ok: false, error: 'No entiendo las columnas del email.' };
+      const nuevo: ColumnasEmail = { ...(out.columnasEmail ?? {}) };
+      for (const e of EVENTOS_COLUMNA) {
+        if (!(e in c)) continue;
+        if (c[e] === null || c[e] === '') { delete nuevo[e]; continue; }
+        const k = keyDeColumna(c[e]);
+        if (!k) return { ok: false, error: `La columna de «${e}» no se entiende.` };
+        nuevo[e] = k;
+      }
+      if (Object.keys(nuevo).length) out.columnasEmail = nuevo; else delete out.columnasEmail;
+    }
+  }
   // Vacío = todo como el negocio: quien guarda BORRA la clave (`vacia`), no deja un '{}' (revisión del 20/10/2026).
   return { ok: true, config: out, valor: JSON.stringify(out), vacia: !tieneConfigPropia(out) };
 }
