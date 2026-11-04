@@ -36,13 +36,13 @@ import { isIP, type LookupFunction } from 'node:net';
 import { request as pedidoHttps } from 'node:https';
 import { request as pedidoHttp } from 'node:http';
 import { claveDeLanding, urlTalCual } from './landing-url';
-import { copyDeHtml, ErrorDeLectura, type LandingExtraida } from './landing-extraer';
+import { copyDeHtml, ErrorDeLectura, esDesafioDeBot, type LandingExtraida } from './landing-extraer';
 import type { CabecerasDeMarco } from './landing-marco';
 
 // Los tipos y el extractor viven en landing-extraer.ts (puro); se re-exportan: quien ya importaba de
 // acá sigue igual.
 export type { BloqueLanding, LandingExtraida } from './landing-extraer';
-export { ErrorDeLectura, bloqueaLaLectura } from './landing-extraer';
+export { ErrorDeLectura, bloqueaLaLectura, esDesafioDeBot } from './landing-extraer';
 
 /**
  * Techo de descarga. Eran 2 MB y una página de precios con su megamenú y sus tablas ya pesa 1,1 MB de
@@ -264,6 +264,12 @@ async function bajarHtml(url: string): Promise<{ html: string; final: string; by
       if (!res.location) throw new Error(`La página respondió ${res.status} sin decir a dónde redirige.`);
       actual = new URL(res.location, check.url).toString();
       continue;
+    }
+    // ⚠️ EL DESAFÍO DE UN ANTIBOTS NO ES LA PÁGINA, venga con el código que venga (4/11/2026: el «Just a moment...» de Cloudflare
+    // con 403, con 503 o con 200). Sale como «nos bloquea» (403): quien sabe leerla de otra forma (el navegador de la persona,
+    // un lector con navegador) lo pregunta con `bloqueaLaLectura`, igual que con un 403.
+    if (esDesafioDeBot(new TextDecoder('utf-8').decode(res.cuerpo.subarray(0, 30_000)))) {
+      throw new ErrorDeLectura('La página pide comprobar que es una persona: está bloqueando la lectura automática.', 403);
     }
     if (res.status < 200 || res.status >= 300) {
       // Con el código: `bloqueaLaLectura` (landing-extraer.ts) separa «no nos deja leerla» (en el

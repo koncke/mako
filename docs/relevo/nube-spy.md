@@ -80,6 +80,7 @@ verde, llega sola a `main`.
 | Funnel: la oferta y el funnel que usa arriba, con evidencia de un catálogo; sus webs con su vista previa y un desplegable de páginas | Hecho: el tipo de funnel con sus citas (Den Borg → evento presencial), la oferta rediseñada arriba, «Sus páginas» al final con la vista previa del Web Generator; por API en `que_esta_haciendo` | `punta/spy-funnel-tipo` | Lo que dice con competidores reales; los formatos nuevos del catálogo en el análisis de piezas (pendiente) |
 | Los formatos de «lo que le funciona» con una investigación de todos los tipos | Hecho: los 19 del catálogo, la IA recibe qué es cada uno, y sin IA se lee del texto con una frase clara | `punta/spy-formatos` | Volver a analizar con la IA lo ya analizado (no se manda solo) |
 | El recorrido que señala lo nuevo | Pendiente | — | — |
+| «Sus páginas» bloqueada (Beacons de Den Borg, 403 de Cloudflare): «que no se bloquee, y que funcione todo» | Hecho en parte: sin cartel técnico (la carga de la casa y después «Abrir»), y el desafío de un antibots ya no se lee como la página. **NO hecho:** leerla con un navegador de Apify. El clasificador de permisos lo frenó por evadir la verificación de un antibots; lo decide Martín | `punta/spy-paginas-bloqueadas` | La pantalla con la página real (desde la nube no se llega a Beacons) |
 
 ### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
 
