@@ -12,6 +12,8 @@ invitado de los datos del negocio, y arreglar lo chico que dejó abierto la revi
 
 ## Estado
 
+- **EN PRODUCCIÓN desde el 4/11 a las 12:10 UTC:** `punta/grupos-app` entró a main en `b6e290fe` (corrida 139 verde) y el deploy de
+  Vercel quedó «Ready» (`después del deploy` verde). Lo que sigue es probarlo con sesión, abajo.
 - **Rama:** `punta/grupos-app` (la pidió el Cerebro; no hay `punta/grupos`): los cuatro commits de la etiqueta rearmados con
   cherry-pick encima de `origin/main` (`e5d67c37`), más los de esta sesión con lo de abajo. La misma punta queda en
   `claude/gracious-edison-knwd27`.
