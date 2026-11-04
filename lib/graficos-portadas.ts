@@ -338,7 +338,7 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
     // Con su línea abajo: la tarjeta negra de Corbel nunca es un número solo en un rectángulo vacío.
     marketing: { molde: 'prism', sube: 'mk-tendencias', vecino: 'mk-tendencias', par: ['mk-funnel', 'mk-plataforma'] },
     comercial: { molde: 'ledge', sube: 'co-tendencia', vecino: 'co-tendencia', par: ['co-funnel-embudo', 'co-motivos', 'co-por-oferta', 'co-origen'] },
-    'ads-analyst': { molde: 'prism', sube: 'ad-video', cambios: { titulo: 'Cuánto ven el video' }, vecino: 'ad-cuadrante-dispersion', par: ['ad-eficiencia', 'ad-gancho'] },
+    'ads-analyst': { molde: 'prism', sube: 'ad-cuadrante-dispersion', vecino: 'ad-cuadrante-dispersion', par: ['ad-veredicto', 'ad-confianza'] },
     landing: { molde: 'tilvo', sube: 'la-scroll', cambios: { titulo: 'Hasta dónde bajan' }, vecino: 'la-visitas-dia', par: ['la-clics', 'la-origen'] },
     'vsl-analyst': {
       molde: 'corbel', nueva: (id) => ({ id: id('vs-mitad'), clase: 'grafico', tipo: 'indicador', fuente: 'retencion_vsl', metricas: ['tasa_50'], maximo: 100, titulo: 'Ven la mitad del video' }),

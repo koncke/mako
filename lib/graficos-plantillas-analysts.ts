@@ -142,46 +142,58 @@ export const ARMADO = { kpi, lista, fijo, periodoFijo, periodoVisible, caja, acc
 // ── Ads Analyst ──────────────────────────────────────────────────────────────────────────────
 
 const ADS: PlantillaHoja = {
-  id: 'ads-analyst', nombre: 'Ads Analyst', emoji: '🎬',
-  linea: 'Hook rate, retención y veredicto de cada guion, sus patrones y el cuadrante de retención.',
+  // 4/11/2026 — ANUNCIO GANADOR (docs/templates-dashboard-propuesta.md §7.3, VITREA · PRISM): «¿cuál creativo gana, y con cuánta
+  // confianza?». Ads Analyst se partió en dos: ésta (qué anuncio gana) y «Hooks y retención» (en qué segundo se van). El id sigue
+  // siendo `ads-analyst`: /ads-analyst, los links de MaKo y las hojas guardadas llegan acá. ⚠️ La «confianza» es la de la muestra
+  // (impresiones: alta desde 25.000, media desde 8.000, lib/ads-analyst-patrones.ts), no una prueba estadística entre dos creativos:
+  // ésa no se mide todavía (§7.4).
+  id: 'ads-analyst', nombre: 'Anuncio ganador', emoji: '🏆', buscar: 'Ads Analyst guiones creativos',
+  linea: 'Qué anuncio gana, con cuánta muestra, y qué ángulo y formato traen más agendas por cada mil dólares.',
   armar: (id: Id) => ({
-    id: id('ads-analyst'), nombre: 'Ads Analyst', emoji: '🎬', subtitulo: 'Los guiones de tus anuncios: qué frena, qué retiene y qué agenda.',
+    id: id('ads-analyst'), nombre: 'Anuncio ganador', emoji: '🏆', subtitulo: 'Los guiones de tus anuncios: cuál gana y con cuánta muestra.',
     controles: [
       { id: id('ad-periodo'), tipo: 'periodo', preset: 'todo' },
       lista(id('ad-angulo'), 'guiones.angulo'),
       lista(id('ad-tipo'), 'guiones.tipo'),
     ],
     componentes: [
-      // COMPOSICIÓN DEL 31/10/2026: el hook rate primero porque la hoja pregunta «¿mi creativo retiene?». La caja de MaKo va después de
-      // lo que resume: nace sin correr, y arriba tapaba la pregunta.
-      kpi(id('ad-hook'), 'guiones', 'hook_rate', 'Hook rate', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
-      kpi(id('ad-guiones'), 'guiones', 'guiones', 'Guiones analizados', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('ad-cpa'), 'guiones', 'cpa', 'Costo por agenda', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('ad-sin-retorno'), 'guiones', 'gasto', 'Gasto sin retorno', '', 9, 0, {
+      {
+        id: id('ad-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'guiones', metricas: ['agendas', 'cierres', 'cpa'],
+        titulo: 'Tus anuncios', frase: 'Tus anuncios trajeron {agendas} agendas y {cierres} cierres · cada agenda costó {cpa}',
+        ir: 'ads-writer', x: 0, y: 0, w: 12, h: 3,
+      },
+      // El ancla: cuántos guiones están para escalar (gancho y retención arriba, con muestra suficiente).
+      kpi(id('ad-escalar'), 'guiones', 'guiones', 'Listos para escalar', '', 0, 3, {
+        invertida: true, ir: 'ads-manager', controles: [fijo(id('ad-escalar-c'), 'guiones.veredicto', ['Escalar'])],
+      }),
+      kpi(id('ad-cpa'), 'guiones', 'cpa', 'Costo por agenda', '', 3, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('ad-costo-cierre'), 'guiones', 'costo_cierre', 'Costo por cierre', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('ad-sin-retorno'), 'guiones', 'gasto', 'Gasto sin retorno', '', 9, 3, {
         tipo: 'numero_tendencia', controles: [fijo(id('ad-sin-retorno-c'), 'guiones.resultado', ['Sin agendas'])],
       }),
-      // Qué retiene: el cuadrante dice CUÁLES, los cuartiles dicen DÓNDE se cae todo el mundo.
+      // Cuál gana: el cuadrante dice CUÁLES, el veredicto cuántos hay de cada uno y la confianza con cuánta muestra.
       {
         id: id('ad-cuadrante-dispersion'), clase: 'grafico', tipo: 'dispersion', fuente: 'guiones', dimension: 'guion', metricas: ['hook_rate', 'ret_cta'],
-        titulo: 'Cuadrante de retención', colorPor: 'angulo', limite: 50, x: 0, y: 4, w: 6, h: 12,
+        titulo: 'Cuadrante de retención', colorPor: 'angulo', limite: 50, x: 0, y: 7, w: 6, h: 12,
         ejes: { xMin: 0, xMax: 55, yMin: 0, yMax: 30 },
         // [arriba-izq, arriba-der, abajo-izq, abajo-der] con x = hook rate, y = retención al CTA (los de la tab).
         referencias: { x: 28, y: 10, rotulos: ['Mejorar gancho', 'Escalar', 'Repensar', 'Reescribir cuerpo'] },
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'ad-cuadrante-dispersion'),
       },
-      { id: id('ad-video'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'guiones', metricas: ['plays_3s', 'p25', 'p50', 'p75', 'p100'], titulo: 'Cuánto ven el video', x: 6, y: 4, w: 6, h: 12 },
+      { id: id('ad-veredicto'), clase: 'grafico', tipo: 'anillo', fuente: 'guiones', dimension: 'veredicto', metricas: ['guiones'], titulo: 'Qué hacer con cada uno', x: 6, y: 7, w: 3, h: 12 },
+      { id: id('ad-confianza'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'confianza', metricas: ['guiones'], titulo: 'Con cuánta muestra', x: 9, y: 7, w: 3, h: 12 },
       // Qué patrón gana
-      { id: id('ad-eficiencia'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'angulo', metricas: ['agendas_1k'], titulo: 'Agendas por US$1.000', x: 0, y: 16, w: 6, h: 9 },
-      { id: id('ad-gancho'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'gancho', metricas: ['hook_rate'], titulo: 'Hook rate por gancho', x: 6, y: 16, w: 6, h: 9 },
+      { id: id('ad-eficiencia'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'angulo', metricas: ['agendas_1k'], titulo: 'Agendas por US$1.000', x: 0, y: 19, w: 6, h: 9 },
+      { id: id('ad-formato'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'formato', metricas: ['agendas_1k'], titulo: 'Por formato', x: 6, y: 19, w: 6, h: 9 },
       // Los patrones de la tab (Sigue / Corta / Proceso) son una caja de MaKo (contrato v5, «patrones_guiones»).
-      caja(id('ad-patrones-ia'), 'Patrones de tus guiones', 'Qué patrones separan a los guiones que agendan de los que no', 0, 25, 12, 8),
+      caja(id('ad-patrones-ia'), 'Patrones de tus guiones', 'Qué patrones separan a los guiones que agendan de los que no', 0, 28, 12, 8),
       // Todos los guiones, como TARJETAS (la GuionCard de la tab): 4 números, la barra en el hook y los chips. La confianza va en
       // un chip: era la tabla «Muestra chica», que repetía guiones con un filtro.
       {
         id: id('ad-tabla'), clase: 'grafico', tipo: 'tarjetas', fuente: 'guiones', dimension: 'guion',
         metricas: ['agendas', 'hook_rate', 'retencion_final', 'cpa'], ordenMetrica: 'agendas', barra: 'hook_rate', limite: 50,
         tabla: { columnas: ['angulo', 'veredicto', 'confianza'] },
-        titulo: 'Guiones', x: 0, y: 33, w: 12, h: 16,
+        titulo: 'Guiones', x: 0, y: 36, w: 12, h: 16,
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'ad-tabla'),
       },
     ],
