@@ -184,7 +184,7 @@ test('4. la burbuja lleva su cara y su nombre, no una criatura sorteada', async 
   const html = renderToStaticMarkup(createElement(HiloMako, {
     items: [{ k: 'msg', id: 'm1', role: 'assistant', texto: 'Hola', at: '2026-11-03T12:00:00.000Z' }],
     quien: { nombre: 'Hormozi', aspecto: aspectoDeReferente('hormozi') }, ahora: Date.parse('2026-11-03T12:01:00.000Z'), escribiendo: null, tarjeta: null,
-    onTarjeta: () => {}, onReintentar: () => {}, onRecargar: () => {}, onResponder: () => {},
+    onTarjeta: () => {}, onReintentar: () => {}, onRecargar: () => {}, onResponder: () => false,
   }));
   assert.match(html, /asesores\/hormozi\.png/, 'su retrato, el que aprobó Martín');
 });
