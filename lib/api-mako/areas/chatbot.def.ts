@@ -326,13 +326,13 @@ export const DEFS: readonly OperacionDef[] = [
   },
   // CONFIGURACIONES DE UNA AUTOMATIZACIÓN (20/10/2026, Martín, 16/10 punto 5: «"configuraciones" ya no viva para todo
   // Automations, sino para cada chat»): su horario y su goteo, de WhatsApp y de email (lib/config-automatizacion.ts). Lo
-  // mismo que la tuerca del título. Sin http, como las demás nuevas.
+  // mismo que la tuerca del título. Con http desde el 4/11/2026 (la campaña de email de Mauricio desde su Claude: toda la receta por la API).
   {
     id: 'configuracion_automatizacion', area: 'chatbot', tipo: 'lectura',
     titulo: 'Configuración de una automatización',
     descripcion: 'El horario de oficina y el goteo (de WhatsApp y de email) de UNA automatización: el horario suyo si tiene, si no el del negocio (dice cuál vale y de dónde sale). Úsala cuando pregunten a qué hora manda una automatización o cuántos mensajes manda por día. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
-    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB },
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
   {
     id: 'configurar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
@@ -352,7 +352,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo y el tope por día.' },
     ],
     reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario y el goteo de esa automatización, uno solo para todos sus canales)',
-    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'desarchivar_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
@@ -624,7 +624,7 @@ export const DEFS: readonly OperacionDef[] = [
   // LEÍA (`ficha_secuencia_mensajes` trae `disparadores`) y no había cómo cambiarlos sin la pantalla.
   // De PANTALLA y no de chat: cambiar qué la dispara cambia A QUIÉN le escribe, y en una activa la
   // próxima corrida inscribe a la cohorte nueva (el mismo criterio que el trigger de email, diseño §3).
-  // SIN http: exponerlo a un token es otra decisión (el snapshot). Se guarda por la MISMA puerta que
+  // Con http desde el 4/11/2026 (la campaña de email por la API: decidido, el snapshot lo dice). Se guarda por la MISMA puerta que
   // la pantalla (`guardarDisparadores`, lib/disparadores-guardar.ts). `ignorar` y `cron.dias` van como
   // TEXTOS porque el validador no tiene listas de números; el runner los convierte.
   {
@@ -671,7 +671,7 @@ export const DEFS: readonly OperacionDef[] = [
       },
     ],
     reversible: false, escribe: 'reemplaza nutricion_secuencias.disparadores y las columnas del CRON principal (trigger_tipo, etapa, funnel_id, producto_id, etiqueta_id, cron); en una automatización activa, la próxima corrida inscribe con los CRON nuevos',
-    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'agregar_escenario_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
@@ -714,7 +714,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE mandar los mensajes de UN escenario de una secuencia (el camino que recorre un lead por sus condiciones), en orden y marcados [PRUEBA], al teléfono y al email del dueño cargados en Perfil (nunca a un lead), y devuelve un link para confirmarlo. Si tiene más de un escenario, pasa su número (de escenarios_secuencia); con uno solo, no hace falta. Sirve para ver y escuchar la secuencia como la recibe un lead. No toca inscripciones ni métricas. Los pasos de WhatsApp exigen el número vinculado; los de Instagram y Messenger no se prueban en vivo.',
     parametros: [pSecuenciaId, { nombre: 'escenario', tipo: 'number', entero: true, minimo: 1, maximo: 8, descripcion: 'el número del escenario (de escenarios_secuencia). Obligatorio si la secuencia tiene más de uno.' }],
     reversible: false, escribe: 'envía mensajes reales por WhatsApp y email al contacto del dueño y marca estrategia.probada_at',
-    canales: SIN_HTTP, costo: 'externo', gating: { tab: TAB, rolMinimo: 'admin' },
+    canales: TODOS, costo: 'externo', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'guardar_link_video', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',

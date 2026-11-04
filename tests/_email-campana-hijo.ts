@@ -36,6 +36,8 @@ const pg = crearPostgrest({
   defaults: (tabla, f) => {
     const base: Fila = { id: siguienteId++, created_at: ahora(), updated_at: ahora() };
     if (tabla === 'app_settings' || tabla === 'credenciales') delete base.id;
+    // Los defaults de la base (mig 0241): sin esto el compare-and-set de los CRON no encuentra la fila.
+    if (tabla === 'nutricion_secuencias') Object.assign(base, { disparadores: null, disparadores_rev: 0, funnel_id: null, etiqueta_id: null, producto_id: null, etapas: null, cron: null, cron_proxima_at: null, archivada_at: null });
     return { ...base, ...f };
   },
   unicos: [
@@ -229,8 +231,60 @@ async function escenarioLote(): Promise<Record<string, unknown>> {
   return out;
 }
 
+/** Suma al CRM de email a todos menos los ganados, con el runner real: lo que hace Mauricio antes de crear la secuencia. */
+async function sumarAlCrm(): Promise<void> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { runnerDe } = await import('../lib/api-mako/runners');
+  const agregar = runnerDe('agregar_en_bloque_a_crm') as unknown as Runner;
+  await runWithWorkspace(NEGOCIO, async () => {
+    const p = await agregar.preparar!({ haciaEmbudoId: EMAIL, todos: true, excluirEstados: ['ganado'], soloConEmail: true }, ctx(NEGOCIO));
+    await agregar.ejecutar!(p.payload as Record<string, unknown>, ctx(NEGOCIO));
+  });
+}
+
+async function escenarioSecuencia(): Promise<Record<string, unknown>> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { runnerDe } = await import('../lib/api-mako/runners');
+  const { planificarInscripciones } = await import('../lib/nutricion');
+  const crear = runnerDe('crear_secuencia_email') as unknown as Runner;
+  const editar = runnerDe('editar_meta_secuencia_email') as unknown as Runner;
+  const en = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  const out: Record<string, unknown> = {};
+  sembrarCrm(NEGOCIO);
+  await sumarAlCrm();
+
+  out.columnaQueNoEs = await en(() => crear.preparar!({ nombre: 'Campaña', funnelId: EMAIL, trigger: 'etapa_actual', etapa: 'no_existe' }, ctx(NEGOCIO)));
+  out.crmAjeno = await en(() => crear.preparar!({ nombre: 'Campaña', funnelId: 999 }, ctx(NEGOCIO)));
+  const prep = await en(() => crear.preparar!({ nombre: 'Campaña 14', funnelId: EMAIL }, ctx(NEGOCIO)));
+  out.prep = prep;
+  out.ejec = await en(() => crear.ejecutar!(prep.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  const id = Number((out.ejec as { datos?: { id?: number } }).datos?.id);
+  const fila = () => db.nutricion_secuencias.find((f) => Number(f.id) === id)!;
+  out.fila = (({ trigger_tipo, etapa, funnel_id, activa }) => ({ trigger_tipo, etapa, funnel_id, activa }))(fila());
+
+  // Con pasos y activa: el barrido inscribe a los AGREGADOS abiertos de la columna de entrada.
+  Object.assign(fila(), { activa: true, archivada_at: null, pasos: [{ id: 'm1', orden: 1, canal: 'email', delay_horas: 0, asunto: 'Hola', cuerpo: 'Uno' }, { id: 'm2', orden: 2, canal: 'email', delay_horas: 24, asunto: 'Dos', cuerpo: 'Dos' }] });
+  out.plan = (await en(() => planificarInscripciones())).filter((p) => p.secuencia === fila().clave).map((p) => p.lead_id).sort();
+  // Activa, no se le cambia el CRM: es cambiar a quién le escribe.
+  out.cambiarCrmActiva = await en(() => editar.preparar!({ id, sinCrm: true }, ctx(NEGOCIO)));
+  // Pausada, sí: y sin CRM, mira sólo la casa de cada lead, y los agregados no entran.
+  fila().activa = false;
+  const pe = await en(() => editar.preparar!({ id, sinCrm: true }, ctx(NEGOCIO)));
+  out.prepSinCrm = pe;
+  out.ejecSinCrm = await en(() => editar.ejecutar!(pe.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  out.filaSinCrm = { funnel_id: fila().funnel_id, etapa: fila().etapa };
+  fila().activa = true;
+  out.planSinCrm = (await en(() => planificarInscripciones())).filter((p) => p.secuencia === fila().clave).map((p) => p.lead_id).sort();
+  // Y volver a atarla, por la misma puerta.
+  fila().activa = false;
+  const pv = await en(() => editar.preparar!({ id, funnelId: EMAIL }, ctx(NEGOCIO)));
+  out.ejecVolver = await en(() => editar.ejecutar!(pv.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  out.filaVuelta = { funnel_id: fila().funnel_id, etapa: fila().etapa };
+  return out;
+}
+
 async function main() {
-  const escenarios: Record<string, () => Promise<Record<string, unknown>>> = { dominio: escenarioDominio, lote: escenarioLote };
+  const escenarios: Record<string, () => Promise<Record<string, unknown>>> = { dominio: escenarioDominio, lote: escenarioLote, secuencia: escenarioSecuencia };
   const fn = escenarios[ESC];
   if (!fn) throw new Error(`escenario desconocido: ${ESC}`);
   const out = await fn();

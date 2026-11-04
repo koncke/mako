@@ -236,10 +236,46 @@ async function fijarDisparadorEtiqueta(id: number, etiquetaId: unknown): Promise
   }
 }
 
-// Crea una secuencia de email nueva (pausada) con un paso vacío.
-export async function crearEmailSecuencia(nombre: string, etapa: string, trigger: string, etiquetaId?: unknown): Promise<number> {
+/**
+ * EL CRM DE UNA SECUENCIA (4/11/2026, la campaña de Mauricio: «un CRM nuevo "Email Marketing" con esos leads»). Sin el
+ * embudo, el CRON por etapa mira sólo la CASA de cada lead (`leadsDeCohorte`, lib/nutricion.ts) y los AGREGADOS a ese CRM
+ * no entran nunca, sin un error: la secuencia queda activa y no le escribe a nadie. Se guarda por la puerta de los CRON
+ * (`guardarDisparadores`, AGENTS.md: «Todo CRON se guarda por guardarDisparadores»), que valida que la etapa sea de ese
+ * CRM. Cambia el PRIMER CRON y deja los demás como están. Imports dinámicos: esos módulos importan éste.
+ */
+async function fijarCrmDelDisparador(id: number, cambio: { trigger_tipo?: string; etapa?: string; funnel_id: number | null; etiqueta_id?: number | null }): Promise<void> {
+  const { guardarDisparadores } = await import('@/lib/disparadores-guardar');
+  const { disparadoresDe } = await import('@/lib/disparadores');
+  const { TriggerInvalidoError } = await import('@/lib/setting-secuencias');
+  const supabase = await getTenantDb();
+  const cols = 'id, trigger_tipo, etapa, etapas, funnel_id, producto_id, etiqueta_id, cron, cron_proxima_at';
+  let fila = await supabase.from('nutricion_secuencias').select(`${cols}, disparadores`).eq('id', id).maybeSingle();
+  if (fila.error) fila = await supabase.from('nutricion_secuencias').select(cols).eq('id', id).maybeSingle();
+  if (fila.error) throw new Error(`fijarCrmDelDisparador: ${fila.error.message}`);
+  if (!fila.data) throw new DisparadorEmailError('Esa secuencia no existe en este negocio.');
+  const lista = disparadoresDe(fila.data as Parameters<typeof disparadoresDe>[0]);
+  const primero = lista[0] ?? { id: 'd1', trigger_tipo: 'manual' };
+  const nuevo = {
+    ...primero,
+    trigger_tipo: cambio.trigger_tipo || primero.trigger_tipo,
+    ...(cambio.etapa ? { etapa: cambio.etapa, etapas: null } : {}),
+    funnel_id: cambio.funnel_id,
+    ...(cambio.etiqueta_id !== undefined ? { etiqueta_id: cambio.etiqueta_id } : {}),
+  };
+  try {
+    await guardarDisparadores(id, [nuevo, ...lista.slice(1)]);
+  } catch (e) {
+    if (e instanceof TriggerInvalidoError) throw new DisparadorEmailError(e.message);
+    throw e;
+  }
+}
+
+// Crea una secuencia de email nueva (pausada) con un paso vacío. `funnelId` (4/11/2026): el CRM cuyos leads inscribe,
+// también los AGREGADOS a él (`fijarCrmDelDisparador`).
+export async function crearEmailSecuencia(nombre: string, etapa: string, trigger: string, etiquetaId?: unknown, funnelId?: number | null): Promise<number> {
   // Un evento de un canal o el Recurrente al grupo se eligen en el CRON: por acá quedarían mudos.
   if (SOLO_DESDE_EL_CRON.has(trigger)) throw new DisparadorEmailError(MOTIVO_SOLO_DESDE_EL_CRON);
+  const conCrm = typeof funnelId === 'number' && Number.isInteger(funnelId) && funnelId > 0;
   const porEtiqueta = trigger === TRIGGER_ETIQUETA;
   // Lo que se puede saber sin escribir, antes de escribir: una secuencia creada a medias quedaría
   // en la lista sin disparador.
@@ -251,16 +287,19 @@ export async function crearEmailSecuencia(nombre: string, etapa: string, trigger
   const pasoInicial: PasoSecuencia = { orden: 1, canal: 'email', delay_horas: 0, asunto: '', preheader: '', cuerpo: '', template_wa: null };
   const { data, error } = await supabase
     .from('nutricion_secuencias')
-    // Por etiqueta nace «manual» y el disparador lo fija su puerta (abajo): así hay UN lugar que
-    // valida la etiqueta. Si la rechaza, la fila se borra y el error llega tal cual.
-    .insert({ clave, nombre: nombre || 'Nueva secuencia de email', etapa: etapa || 'nutri', trigger_tipo: porEtiqueta ? 'manual' : (trigger || 'manual'), activa: false, pasos: [pasoInicial] })
+    // Por etiqueta (o con CRM) nace «manual» y el disparador lo fija su puerta (abajo): así hay UN lugar que
+    // valida la etiqueta y la etapa del CRM. Si la rechaza, la fila se borra y el error llega tal cual.
+    .insert({ clave, nombre: nombre || 'Nueva secuencia de email', etapa: etapa || 'nutri', trigger_tipo: porEtiqueta || conCrm ? 'manual' : (trigger || 'manual'), activa: false, pasos: [pasoInicial] })
     .select('id')
     .single();
   if (error) throw new Error(`crearEmailSecuencia: ${error.message}`);
   const id = (data as { id: number }).id;
-  if (porEtiqueta) {
+  if (porEtiqueta || conCrm) {
     try {
-      await fijarDisparadorEtiqueta(id, etiquetaId);
+      if (conCrm) {
+        const n = typeof etiquetaId === 'string' && etiquetaId.trim() ? Number(etiquetaId) : etiquetaId;
+        await fijarCrmDelDisparador(id, { trigger_tipo: trigger || 'manual', ...(etapa ? { etapa } : {}), funnel_id: funnelId as number, ...(porEtiqueta ? { etiqueta_id: typeof n === 'number' ? n : null } : {}) });
+      } else await fijarDisparadorEtiqueta(id, etiquetaId);
     } catch (e) {
       const { error: eDel } = await supabase.from('nutricion_secuencias').delete().eq('id', id);
       if (eDel) console.error(`[email] la secuencia ${id} quedó sin disparador y no se pudo borrar: ${eDel.message}`);
@@ -272,9 +311,23 @@ export async function crearEmailSecuencia(nombre: string, etapa: string, trigger
 
 // Actualiza metadata de una secuencia (nombre / etapa / trigger). Solo toca los
 // campos provistos. El disparador por etiqueta exige `etiqueta_id` (ver `fijarDisparadorEtiqueta`).
-export async function actualizarMetaEmailSecuencia(id: number, patch: { nombre?: string; etapa?: string; trigger_tipo?: string; etiqueta_id?: unknown }): Promise<void> {
+// `funnel_id` (4/11/2026): el CRM cuyos leads inscribe (null = todos los CRM, sólo la casa de cada lead). Presente, el
+// CRON se guarda ENTERO por su puerta (`fijarCrmDelDisparador`) con lo que se mandó de etapa y trigger.
+export async function actualizarMetaEmailSecuencia(id: number, patch: { nombre?: string; etapa?: string; trigger_tipo?: string; etiqueta_id?: unknown; funnel_id?: number | null }): Promise<void> {
   if (typeof patch.trigger_tipo === 'string' && SOLO_DESDE_EL_CRON.has(patch.trigger_tipo)) throw new DisparadorEmailError(MOTIVO_SOLO_DESDE_EL_CRON);
   const supabase = (await getTenantDb());
+  if (patch.funnel_id !== undefined) {
+    const n = typeof patch.etiqueta_id === 'string' && patch.etiqueta_id.trim() ? Number(patch.etiqueta_id) : patch.etiqueta_id;
+    await fijarCrmDelDisparador(id, {
+      ...(patch.trigger_tipo ? { trigger_tipo: patch.trigger_tipo } : {}), ...(patch.etapa ? { etapa: patch.etapa } : {}), funnel_id: patch.funnel_id,
+      ...(typeof n === 'number' ? { etiqueta_id: n } : {}),
+    });
+    if (typeof patch.nombre === 'string') {
+      const { error } = await supabase.from('nutricion_secuencias').update({ nombre: patch.nombre, updated_at: ahoraISO() }).eq('id', id);
+      if (error) throw new Error(`actualizarMetaEmailSecuencia: ${error.message}`);
+    }
+    return;
+  }
   const upd: Record<string, unknown> = { updated_at: ahoraISO() };
   if (typeof patch.nombre === 'string') upd.nombre = patch.nombre;
   if (typeof patch.etapa === 'string' && patch.etapa) upd.etapa = patch.etapa;

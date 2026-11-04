@@ -27,11 +27,13 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 
 const DEF = porId('cambiar_crons_secuencia');
 
-test('es una acción de PANTALLA, del admin y sin HTTP', () => {
+test('es una acción de PANTALLA, del admin y CON HTTP (decidido el 4/11/2026)', () => {
   assert.ok(DEF && esAccion(DEF), 'no está en el registro');
   assert.equal(DEF.confirmacion, 'pantalla', 'cambia a quién le escribe: no se confirma con un «sí» por chat');
   assert.equal(DEF.gating?.rolMinimo, 'admin');
-  assert.ok(!DEF.canales.includes('http'), 'exponerlo por HTTP es una decisión del snapshot');
+  // Martín, 4/11/2026: la campaña de email de Mauricio se arma desde su Claude con la API («toda la receta se puede hacer
+  // sólo por HTTP»). La decisión quedó en el snapshot (tests/api-mako-http.snapshot.txt).
+  assert.ok(DEF.canales.includes('http'), 'la receta de la campaña de email la necesita por HTTP');
   assert.equal(DEF.reversible, false, 'en una activa, la próxima corrida le escribe a la cohorte nueva: un mensaje no se deshace');
   // Los topes son los del modelo.
   const crons = DEF.parametros.find((p) => p.nombre === 'crons')!;
