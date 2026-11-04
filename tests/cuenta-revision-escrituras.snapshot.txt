@@ -124,6 +124,7 @@ POST /api/crm/analyst → cortada
 POST /api/crm/etiquetas → cortada
 POST /api/crm/ficha/armar → cortada
 POST /api/crm/importar-leads → cortada
+POST /api/crm/llamadas-grabadas → cortada
 POST /api/crm/mako → cortada
 POST /api/cuenta/eliminar → PERMITIDA
 POST /api/datos-mau → cortada

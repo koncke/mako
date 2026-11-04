@@ -6140,6 +6140,21 @@ exige sesión adentro** — su id viaja en todas las páginas. Lo fija
 `tests/acciones-sin-sesion.test.ts`. El detalle, en
 [docs/hallazgos-seguridad.md](docs/hallazgos-seguridad.md).
 
+# Una ruta nueva que escribe se clasifica para la cuenta de revisión de las tiendas (4/11/2026)
+
+La cuenta con la que entran los revisores de Google Play y App Store tiene una contraseña que manejan terceros. Puede leer toda la app, pero
+escribe sólo lo que está en `PERMITIDO_EN_REVISION` (`lib/cuenta-revision-reglas.ts`). Ninguna página está en esa lista, así que las server
+actions quedan cortadas todas. `tests/cuenta-revision-escrituras.test.ts` recorre cada `route.ts` de `app/api` que escribe y cada archivo
+`'use server'`, le pega al proxy de verdad y compara con su snapshot.
+
+- **Una ruta nueva nace cortada**, y el test da rojo hasta que regeneres la lista:
+  `MAKO_REGENERAR_SNAPSHOT=1 node --import tsx --test tests/cuenta-revision-escrituras.test.ts`.
+- **Si el revisor la tiene que poder usar,** se suma a la lista con su porqué. Tiene que ser algo que pidan Apple o Google y que toque sólo lo suyo.
+- **Un mensaje a un tercero** (un mail, un WhatsApp) sale por `sendEmail` o por `enviarTexto` / `enviarMedia` / `enviarAudio`, que ya
+  traen la guarda. Si un camino nuevo manda por otro lado, llama a `bloqueoDeEnvioEnRevision` (`lib/revision-guarda.ts`).
+- **El negocio de esa cuenta es `WS_REVISION`**, propio y fuera de `WS_PRUEBAS`: ninguna herramienta de prueba copia datos ahí.
+- Por qué y cómo se crea: `docs/relevo/nube-tiendas.md` y docs/hallazgos-seguridad.md («La lista de escritura no ve server actions»).
+
 # La página esconde por rol y la API no: el corte va ADENTRO de la ruta
 
 Auditoría del 14/10/2026: siete hallazgos tenían esta forma. `proxy.ts` sólo exige SESIÓN (el rol, únicamente en

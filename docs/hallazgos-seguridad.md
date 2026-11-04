@@ -2635,6 +2635,9 @@ La segunda revisión de la cuenta de revisión de las tiendas (la contraseña qu
   - **Por dónde sale:** `bloqueoDeEnvioEnRevision` (`lib/revision-guarda.ts`) va en `sendEmail` y en `enviarTexto` / `enviarMedia` / `enviarAudio`. En revisión sólo sale un correo a `EMAIL_MAKO`. Mira la cookie por su firma (con la base caída, `getUsuarioActual` es null) y el negocio del contexto (un cron o un flujo suyo).
   - **Su negocio:** `WS_REVISION` es propio, fuera de `WS_PRUEBAS`. La entrada exige 0 líneas, 0 credenciales y 0 cartera, y si no, contesta 503. Su ticket se guarda sin despacho, y el Runner y `scripts/tickets.ts` lo saltean.
 - **Y la prueba de la regla:** `tests/cuenta-revision-escrituras.test.ts` enumera toda ruta que escribe y todo `'use server'`, le pega al `proxy()` de verdad y lo compara con un snapshot. Una ruta nueva no pasa hasta que alguien decide. Al mezclar main el mismo día entró `/api/competitor-spy/copiar` y nació cortada. `tests/cuenta-revision.test.ts` corre los envíos, la entrada, los tickets, Google, la computadora, la baja y el script.
+- **`leerSesion` sigue fallando ABIERTA para todos** (la decisión del 3/11): sólo la sesión de revisión cae con la base caída, y sólo ella
+  suma una consulta (su `cambiada_at`). Lo medía un regex sobre la línea del `catch`, que se puso rojo con la decisión intacta. Ahora
+  `tests/sesiones-revocadas.test.ts` (3) corre `getUsuarioActual` con la base caída y andando, y cuenta las consultas.
 - **Lo que esto cuesta, a sabiendas:** el revisor no puede mover un lead, sumar una nota, marcar una tarea ni mandar un mensaje, porque todo eso son server actions o envíos. Puede mirar todo, hablar con MaKo, aceptar el permiso de IA, denunciar y eliminar la cuenta.
 - **Quedó sin hacer:**
   - El vigía del Cerebro tiene que saltear los tickets de `WS_REVISION`; está escrito en `docs/relevo/nube-tiendas.md`.
