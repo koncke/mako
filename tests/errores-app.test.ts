@@ -192,6 +192,16 @@ test('las pistas dicen qué tocó la página, sin un solo texto de la página', 
   assert.equal(pistasDeHidratacion(doc, 'de-DE'), 'font=2; traducida=si; lang=es; navegador=de-DE; ajenas=grammarly-extension');
 });
 
+// Ticket #52: con esto, «font=0 y ninguna ajena» (el criterio de docs/hallazgos-ticketera.md para decir «es nuestro») se puede leer de verdad.
+// ROMPIÉNDOLO (4/11/2026): sin el filtro → 1 fallo.
+test('la etiqueta que pone Next en toda página no es ajena', () => {
+  const doc = {
+    documentElement: { className: '', lang: 'es' },
+    getElementsByTagName: (q: string) => (q === 'font' ? [] : [{ tagName: 'DIV' }, { tagName: 'NEXT-ROUTE-ANNOUNCER' }]),
+  } as unknown as Document;
+  assert.equal(pistasDeHidratacion(doc, 'es-US'), 'font=0; traducida=no; lang=es; navegador=es-US; ajenas=');
+});
+
 test('las pistas pasan el saneo y llegan al ticket; lo que no parece una pista, no', () => {
   const base = { origen: 'navegador', nombre: 'Error', mensaje: 'Minified React error #418' };
   const pista = 'font=2; traducida=si; lang=es; navegador=de-DE; ajenas=';
