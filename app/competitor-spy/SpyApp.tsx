@@ -236,6 +236,8 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-kpi{display:flex;flex-direction:column;min-height:98px;padding:16px 18px 14px;border-radius:var(--r-lg);
   background:var(--t1);color:var(--t-ink);overflow:hidden}
 .spy-kpi:nth-child(2){background:var(--t2)}
+/* Una cantidad impar: la última ocupa la fila entera, sin hueco al lado. */
+.spy-kpi:last-child:nth-child(odd){grid-column:1/-1}
 .spy-kpi:nth-child(3){background:var(--t3)}
 .spy-kpi:nth-child(4){background:var(--t4)}
 .spy-kpi b{display:flex;align-items:center;gap:8px;color:var(--t-dim);font-size:var(--fs-sm);font-weight:600}
@@ -299,8 +301,13 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-pcard__media{position:relative;display:block;aspect-ratio:4/5;overflow:hidden}
 /* La foto va ENCIMA del texto, no en vez del texto: si no carga, se borra y abajo queda el texto. */
 .spy-pcard__foto{position:absolute;inset:0;z-index:1;display:block;width:100%;height:100%;object-fit:cover}
-.spy-pcard__texto-creativo{position:absolute;inset:0;display:block;padding:18px 18px 22px;color:var(--t-ink);
-  font-size:var(--fs-sm);line-height:1.45;overflow:hidden}
+/* ⚠️ EL TEXTO DE UNA PUBLICACIÓN SIN FOTO NO VA DEBAJO DE LOS CHIPS (Martín, con Leila, 4/11/2026: «el chip "Analizando…" tapa el
+   nombre» y «"Hace 2 d" tapa el texto de la pieza»). Arranca debajo de la fila del punto y de «Analizando…», y se desvanece antes
+   de las píldoras de abajo (hasta dos apiladas: 70 px). */
+.spy-pcard__texto-creativo{position:absolute;inset:0;display:block;padding:46px 18px 0;color:var(--t-ink);
+  font-size:var(--fs-sm);line-height:1.45;overflow:hidden;
+  -webkit-mask-image:linear-gradient(#000 calc(100% - 78px),transparent calc(100% - 50px));
+  mask-image:linear-gradient(#000 calc(100% - 78px),transparent calc(100% - 50px))}
 .spy-pcard__puntos{position:absolute;z-index:2;top:16px;left:14px;display:flex}
 .spy-pcard__puntos i{width:18px;height:18px;border-radius:50%;
   box-shadow:0 0 0 2px var(--surface),inset 0 0 0 1px #0000001f}
@@ -387,8 +394,11 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-trayendo{display:inline-flex;align-items:center;gap:7px;color:var(--faint);font-size:var(--fs-meta);font-weight:600}
 .spy-trayendo i{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:spy-latido 1.4s ease-in-out infinite}
 @keyframes spy-latido{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
-.spy-pgrid--ancha{gap:16px}
-.spy-pgrid__celda{min-width:0;display:flex}
+/* ⚠️ CADA TARJETA MIDE LO SUYO (Martín, con Leila: la tarjeta se estiraba con un bloque crema enorme debajo). Una fila de
+   alturas distintas (un reel 9:16 al lado de un video 16:9) estiraba a todas a la más alta; ahora cada celda va arriba
+   (align-self: start) con su altura, y el hueco que queda es del fondo de la página, no de la tarjeta. */
+.spy-pgrid--ancha{gap:16px;align-items:start}
+.spy-pgrid__celda{min-width:0;display:flex;align-self:start}
 .spy-pgrid__celda > *{flex:1;min-width:0}
 .spy-paginas{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:20px;flex-wrap:wrap}
 .spy-paginas__cuenta{color:var(--faint);font-size:var(--fs-sm);font-weight:600;font-variant-numeric:tabular-nums}
@@ -570,6 +580,7 @@ button.spy-campo:hover{color:var(--dim)}
   .spy-cuerpo{padding:8px 14px 32px}
   .spy-pgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
   .spy-pcard__pie{padding:10px 11px 12px 12px}
+  .spy-pcard__mg{display:none}
   .spy-pcard__texto b{font-size:var(--fs-sm)}
   .spy-pcard__num{padding:4px 9px}
   .spy-pcard__num small{display:none}
@@ -1550,7 +1561,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   // Las celdas pastel del riel. Un contador ausente NO es cero: sin dato no hay celda.
   const rc = c ? resumen[c.id] : undefined;
   const celdas = c ? [
-    ...(rc && rc.vivas > 0 ? [{ k: 'vivas', rot: 'Piezas', val: String(rc.vivas), pie: 'publicadas' }] : []),
+    // ⚠️ SIN «PIEZAS · N PUBLICADAS» (Martín, 4/11/2026: «hay 2 bloques de "Piezas", no necesitamos 2... Quita el que está abajo
+    // del perfil»). Contaba TODAS sus piezas (255 en Den Borg) y el de arriba, las del formato elegido (181): el de arriba queda, con
+    // el nombre del formato como rótulo (GraficoSpy.tsx).
     ...(rc && rc.idas > 0 ? [{ k: 'idas', rot: 'Borradas', val: String(rc.idas), pie: 'las bajó' }] : []),
     ...(c.instagram_seguidores != null ? [{ k: 'ig', rot: 'Seguidores', val: dibujarContador(c.instagram_seguidores), pie: 'en Instagram' }] : []),
     ...(c.youtube_suscriptores != null ? [{ k: 'yt', rot: 'Suscriptores', val: dibujarContador(c.youtube_suscriptores), pie: 'en YouTube' }] : []),
