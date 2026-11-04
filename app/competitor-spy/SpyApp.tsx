@@ -341,7 +341,18 @@ button.spy-campo:hover{color:var(--dim)}
    primera versión le ponía a la caricatura un 10 % de aire y «contain» para que se leyera como
    dibujo: se veía chica y con un marco que nadie pidió. Caricatura y foto se dibujan IGUAL. */
 .spy-ccard__cara img{display:block;width:100%;height:100%;object-fit:cover;
-  animation:spy-flota 7s ease-in-out infinite;animation-delay:var(--flote,0s);will-change:transform}
+  animation:spy-cara-entra .7s ease-out both,spy-flota 7s ease-in-out infinite;animation-delay:0s,var(--flote,0s);will-change:transform}
+@keyframes spy-cara-entra{from{opacity:0}to{opacity:1}}
+/* Su caricatura se está haciendo: su foto suavizada, un brillo que pasa y el rótulo abajo. */
+.spy-ccard__cara[data-haciendo] img{filter:blur(5px) saturate(.75);transform:scale(1.08)}
+.spy-ccard__cara[data-haciendo]::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.38) 50%,transparent 70%);background-size:250% 100%;
+  animation:spy-cara-brillo 1.8s ease-in-out infinite}
+@keyframes spy-cara-brillo{from{background-position:120% 0}to{background-position:-120% 0}}
+.spy-ccard__haciendo{position:absolute;left:10px;right:10px;bottom:10px;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  height:32px;padding:0 12px;border-radius:99px;background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--ink);
+  font-size:var(--fs-sm);font-weight:600;box-shadow:var(--sombra-tarjeta)}
+.spy-ccard__haciendo i{width:12px;height:12px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--ink);animation:spy-redes-gira .8s linear infinite}
 /* ⚠️ LA TARJETA SE MUEVE SOLA. Martín, 2/11/2026: «que las tarjetas tengan algún tipo de animación,
    que la figura se mueva o que parpadee, o que digamos flote». Flota: es lo único que se puede
    mirar diez minutos sin molestar — un parpadeo en una rejilla de veinticinco tarjetas es un
@@ -358,6 +369,7 @@ button.spy-campo:hover{color:var(--dim)}
 /* El que no quiere movimiento no lo tiene: no es un adorno opcional, es una preferencia del sistema. */
 @media (prefers-reduced-motion:reduce){
   .spy-ccard__cara img{animation:none}
+  .spy-ccard__cara[data-haciendo]::after,.spy-ccard__haciendo i{animation:none}
   .spy-ccard:hover .spy-ccard__cara img{transform:none}
   .spy-ccard{transition:none}
   .spy-ccard:hover{transform:none}
@@ -682,6 +694,7 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
         {competidores.map((c, i) => {
           const r = resumen[c.id];
           const cara = caraDeTarjeta(c, caricaturaDeCompetidor(c));
+          const haciendo = !!c.caricaturaPendiente && !c.caricatura;
           // Los competidores que YA estaban se guardaron con lo que se pegó —un @, el id de un
           // canal—, y esas filas no se arreglan solas: se eligió mostrar su nombre de verdad en vez
           // de reescribirle un dato al negocio.
@@ -699,13 +712,17 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
                 onAbrir(c.id, r ? { left: r.left, top: r.top, width: r.width, height: r.height } : undefined);
               }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(c.id); } }}>
-              <span className="spy-ccard__cara" style={{ '--flote': flote } as CSSProperties} aria-hidden>
+              <span className="spy-ccard__cara" style={{ '--flote': flote } as CSSProperties} data-haciendo={haciendo || undefined}>
                 {/* ⚠️ LA CARICATURA PRIMERO (4/11/2026): la que hizo el Runner, después la dibujada de un referente, y recién
-                    sin ninguna su foto (`caraDeTarjeta`). Sin la caricatura NO hay cartel ni spinner: la foto y listo. */}
+                    sin ninguna su foto (`caraDeTarjeta`).
+                    ⚠️ Y MIENTRAS SE HACE, SE NOTA (Martín, 4/11 tarde: «si aun no la generó un placeholder que se note que lo está
+                    generando»; antes, por pedido suyo del 2/11, no había cartel: la foto y listo). Su foto suavizada con un brillo que
+                    pasa, y «Haciendo su caricatura…». Cuando llega, entra sola con un fundido (`key` = la imagen nueva), sin recargar. */}
                 {cara
                   // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public, no pasa por el optimizador
-                  ? <img src={cara} alt="" loading="lazy" onError={(e) => { caerAFoto(e.currentTarget, c.avatar); }} />
-                  : inicial(c.nombre)}
+                  ? <img key={cara} src={cara} alt="" loading="lazy" onError={(e) => { caerAFoto(e.currentTarget, c.avatar); }} />
+                  : <span aria-hidden>{inicial(c.nombre)}</span>}
+                {haciendo && <span className="spy-ccard__haciendo" role="status"><i aria-hidden />Haciendo su caricatura…</span>}
               </span>
               <div className="spy-ccard__cuerpo">
                 <span>
@@ -954,6 +971,37 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     if (r.ok) { setCompetidores(r.competidores); setResumen(r.resumen); }
     return r.ok ? r.competidores : null;
   }, []);
+
+  // ── Las caricaturas que se están haciendo, sin recargar (4/11/2026; Martín: «sí o sí tengo que refrescar la página, no
+  // debería»). Mientras alguna está en camino, se pregunta por una RUTA (no una action: haría fila detrás de una lectura) cada
+  // pocos segundos, y la nueva entra sola en su tarjeta con un fundido. Llegadas todas, deja de preguntar. Con la pestaña
+  // escondida no pregunta; a los ~40 minutos se rinde (la próxima apertura la trae).
+  const enCamino = competidores.filter((x) => x.caricaturaPendiente && !x.caricatura).map((x) => x.id).join(',');
+  useEffect(() => {
+    if (!enCamino) return;
+    let vivo = true;
+    let vueltas = 0;
+    let t: ReturnType<typeof setTimeout>;
+    const vuelta = async () => {
+      if (!vivo) return;
+      if (document.visibilityState === 'visible') {
+        type R = { ok: boolean; caras?: Array<{ id: number; caricatura: string | null; pendiente: boolean }> };
+        const r: R | null = await fetch('/api/competitor-spy/caricaturas', { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
+          .then((x) => x.json() as Promise<R>).catch(() => null);
+        if (!vivo) return;
+        if (r?.ok && r.caras) {
+          const caras = new Map(r.caras.map((k) => [k.id, k]));
+          setCompetidores((v) => (v.some((x) => { const k = caras.get(x.id); return !!k && (k.caricatura !== (x.caricatura ?? null) || k.pendiente !== !!x.caricaturaPendiente); })
+            ? v.map((x) => { const k = caras.get(x.id); return k ? { ...x, caricatura: k.caricatura, caricaturaPendiente: k.pendiente } : x; })
+            : v));
+        }
+      }
+      vueltas += 1;
+      if (vueltas < 150) t = setTimeout(() => { void vuelta(); }, vueltas < 40 ? 5_000 : 20_000);
+    };
+    t = setTimeout(() => { void vuelta(); }, 5_000);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [enCamino]);
 
   const traerPiezas = useCallback(async (id: number) => {
     const p = await piezasAction(id);

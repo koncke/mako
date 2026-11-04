@@ -216,7 +216,9 @@ test('7. el camino de antes (IA del negocio + Flow) no existe, la pantalla no pi
     assert.ok(!existsSync(`${RAIZ}${f}`), `${f} era el camino de Flow: no dos caminos vivos`);
   }
   const app = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
-  assert.doesNotMatch(app, /competitor-spy\/caricatura/, 'la pantalla no pide caricaturas');
+  // La pantalla no PIDE caricaturas (el camino de antes era POST /api/competitor-spy/caricatura). Desde el 4/11/2026 sí LEE las que
+  // están en camino, por /api/competitor-spy/caricaturas, que sólo tiene GET (tests/spy-caricatura-en-vivo.test.ts).
+  assert.doesNotMatch(app, /competitor-spy\/caricatura(?!s)/, 'la pantalla no pide caricaturas');
   assert.doesNotMatch(app, /Google Flow/);
   assert.match(app, /const cara = caraDeTarjeta\(c, caricaturaDeCompetidor\(c\)\);/);
   const spy = sinComentarios(leer('lib/spy.ts'));
@@ -239,7 +241,7 @@ test('7. el camino de antes (IA del negocio + Flow) no existe, la pantalla no pi
 test('una cara que no carga cae a su foto, y recién sin foto se saca', () => {
   const app = readFileSync(new URL('../app/competitor-spy/SpyApp.tsx', import.meta.url), 'utf8');
   assert.match(app, /const cara = caraDeTarjeta\(c, caricaturaDeCompetidor\(c\)\);/);
-  assert.match(app, /<img src=\{cara\} alt="" loading="lazy" onError=\{\(e\) => \{ caerAFoto\(e\.currentTarget, c\.avatar\); \}\} \/>/);
+  assert.match(app, /<img key=\{cara\} src=\{cara\} alt="" loading="lazy" onError=\{\(e\) => \{ caerAFoto\(e\.currentTarget, c\.avatar\); \}\} \/>/);
   const fn = app.slice(app.indexOf('function caerAFoto('), app.indexOf('function RejillaCompetidores('));
   assert.ok(fn.indexOf('img.src = foto') > 0 && fn.indexOf('img.src = foto') < fn.indexOf('img.remove()'), 'primero la foto, después sacarla');
 });
