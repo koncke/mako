@@ -109,16 +109,18 @@ export const COLOR_DASHBOARD: Readonly<Record<string, string>> = {
   marketing: 'azul-meta',
   comercial: 'dorado',
   'ads-analyst': 'coral',
+  'hooks-retencion': 'azul-oscuro',
   landing: 'celeste',
   'vsl-analyst': 'rojo-play',
   'chat-analyst': 'verde-wa',
   closing: 'violeta',
   'cs-analyst': 'teal',
   productividad: 'lima',
-  crm: 'azul-oscuro',
   cobranza: 'ambar',
   automatizaciones: 'indigo',
   'ia-contenido': 'durazno',
+  // La primera por rubro (4/11/2026): el último color libre del Dashboard. En General, Noche es la General; son galerías distintas.
+  inmobiliaria: 'noche',
 };
 
 /**
@@ -129,7 +131,6 @@ export const COLOR_GENERAL: Readonly<Record<string, string>> = {
   general: 'noche',
   foco: 'lima',
   operacion: 'indigo',
-  ventas: 'dorado',
   servicio: 'teal',
   curso: 'celeste',
   instagram: 'magenta',
