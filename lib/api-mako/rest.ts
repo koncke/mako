@@ -119,6 +119,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // el cuerpo). La papelera: GET la lista, POST manda, y recuperar es una «recuperación» nueva.
   ['POST', '/crm/en-bloque/columna', 'pasar_en_bloque_otra_columna'],
   ['POST', '/crm/en-bloque/funnel', 'pasar_en_bloque_otro_funnel'],
+  ['POST', '/crm/en-bloque/otro-crm', 'agregar_en_bloque_a_crm'],
   ['GET', '/crm/papelera', 'ver_papelera_crm'],
   ['GET', '/crm/bajas', 'ver_bajas_de_leads'],
   ['GET', '/crm/nombres', 'ver_nombres_del_crm'],
