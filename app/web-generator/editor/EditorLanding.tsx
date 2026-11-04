@@ -102,7 +102,7 @@ import DialogoCompartir from './dialogos/DialogoCompartir';
 import DialogoPublicar from './dialogos/DialogoPublicar';
 import DialogoExportar from './dialogos/DialogoExportar';
 import { PanelLandings, RUTA_NUEVA_LANDING } from './paneles/PanelLandings';
-import type { Analizada } from '../panel-reglas';
+import type { Analizada, Derecha } from '../panel-reglas';
 import DialogoConfiguracion from './dialogos/DialogoConfiguracion';
 import DialogoAnalitica from './dialogos/DialogoAnalitica';
 import DialogoAtajos from './dialogos/DialogoAtajos';
@@ -252,6 +252,9 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
   const [panelIzq, setPanelIzqEstado] = useState<PanelIzq>('agente');
   /** «Nueva landing» abierta (se ve sólo con la lista a la izquierda: salir de la lista la cierra, ver el efecto). */
   const [nueva, setNuevaEstado] = useState(false);
+  /** Lo que «Nueva landing» tiene que abrir en vez del cuadro (una réplica sin terminar, ticket #54): ver `retomarReplica`. */
+  const [pedidoNueva, setPedidoNueva] = useState<{ n: number; derecha: Derecha } | null>(null);
+  const pedidos = useRef(0);
   const [panelEntero, setPanelEntero] = useState(false);
   const [revisionLista, setRevisionLista] = useState(0);
   const listaCambio = useCallback(() => setRevisionLista((n) => n + 1), []);
@@ -799,8 +802,20 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     }
     setNuevaEstado(v);
     setPanelEntero(false);
+    // «Nueva landing» a secas es el cuadro de crear: lo pedido por una réplica sin terminar no se vuelve a abrir solo.
+    setPedidoNueva(null);
   }, [guardarAhora]);
   const verPanel = useCallback(() => { setNueva(true); setPanelEntero(true); }, [setNueva]);
+  /**
+   * Ticket #54 (4/11/2026): una réplica sin terminar se retoma ACÁ, en «Nueva landing», con lo leído (el borrador de la
+   * lectura, lib/editor-landing/replica-borrador.ts). Antes, volver al chat desde la lista cerraba «Nueva landing» y lo leído
+   * se perdía. El `n` sube en cada pedido: el Panel embebido abre la réplica cuando cambia (sin remontarlo).
+   */
+  const retomarReplica = useCallback((url: string, adaptar: boolean) => {
+    setNueva(true);
+    pedidos.current += 1;
+    setPedidoNueva({ n: pedidos.current, derecha: { tipo: 'replicar', url, ...(adaptar ? { adaptar: true } : {}), auto: true } });
+  }, [setNueva]);
   // Ir al chat o a las páginas es volver a ESTA landing: «Nueva landing» se cierra (vale también para Mod+E).
   useEffect(() => {
     if (panelIzq !== 'landings') setNuevaEstado(false);
@@ -845,6 +860,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     setNueva,
     panelEntero: creando && panelEntero,
     verPanel,
+    retomarReplica,
     revisionLista,
     panelDer,
     setPanelDer,
@@ -862,7 +878,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     recargar,
   }), [
     docId, titulo, setTitulo, contenido, config, setConfig, tema, version, estado, guardarAhora, paginaActual,
-    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, setTarjetaActiva, modoIA, setModoIA, panelIzq, setPanelIzq, panelEntero, verPanel, revisionLista, creando, setNueva, panelDer, abrirAnimar,
+    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, setTarjetaActiva, modoIA, setModoIA, panelIzq, setPanelIzq, panelEntero, verPanel, retomarReplica, revisionLista, creando, setNueva, panelDer, abrirAnimar,
     dialogo, elegirImagenEstable, avisar, reemplazarTarjetas, insertarTarjetas, urlPublica, doc.baseLandings, cambiosSinPublicar, recargar,
   ]);
 
@@ -1099,6 +1115,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
                   bases={bases?.length ? bases : [doc.baseLandings]}
                   ahora={Date.now()}
                   derechaInicial={{ tipo: 'crear' }}
+                  derechaPedida={pedidoNueva}
                 />
               </Suspense>
             </div>

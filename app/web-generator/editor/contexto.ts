@@ -94,6 +94,11 @@ export type CtxEditorLanding = {
    */
   panelEntero: boolean;
   verPanel: () => void;
+  /**
+   * Retomar una réplica sin terminar (ticket #54, 4/11/2026): abre «Nueva landing» con lo leído de esa página, sin volver a
+   * leerla (lib/editor-landing/replica-borrador.ts). Lo ofrece la lista de landings, en «Sin terminar».
+   */
+  retomarReplica: (url: string, adaptar: boolean) => void;
   /** Sube cuando el Panel cambió la lista (renombrar, duplicar, archivar, eliminar): la de la tarjeta se vuelve a leer. */
   revisionLista: number;
   panelDer: PanelDer;
