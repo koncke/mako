@@ -465,7 +465,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       url: 'https://appstoreconnect.apple.com/access/integrations/api',
       urlLabel: 'App Store Connect → Integraciones',
       pasos: [
-        'Entra a App Store Connect › Usuarios y acceso › Integraciones › App Store Connect API.',
+        'Entra a App Store Connect, abre «Usuarios y acceso» y su pestaña «Integraciones».',
         'En «Claves del equipo» toca «+», ponle de nombre «MaKo vigía» y el acceso «Developer».',
         'Toca «Generar» y baja el archivo .p8: Apple lo deja bajar UNA sola vez. Guárdalo.',
         'Carga los tres campos de arriba: cada uno tiene su «?» con dónde está.',
@@ -489,7 +489,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'En el proyecto de Google Cloud de MaKo, crea una cuenta de servicio con el nombre «MaKo vigía».',
         'En su pestaña «Claves» toca «Agregar clave» › «JSON»: se baja el archivo. Guárdalo.',
         'Habilita las APIs «Google Play Android Developer» y «Chrome Web Store».',
-        'Invita su email en Play Console › Usuarios y permisos, sólo para ver la app.',
+        'Invita su email en Play Console, en «Usuarios y permisos», sólo para ver la app.',
         'Súmala en el panel de la Chrome Web Store, en Cuenta, y carga los dos campos de arriba.',
       ],
     },
@@ -1536,7 +1536,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   ASC_ISSUER_ID: {
     pasos: [
         'Para qué sirve: le dice a Apple de qué equipo es la clave con la que MaKo mira la app de iPhone.',
-        'Entra a App Store Connect › Usuarios y acceso › Integraciones › App Store Connect API.',
+        'Entra a App Store Connect, abre «Usuarios y acceso» y su pestaña «Integraciones».',
         'Copia el «Issuer ID», arriba de la lista de claves, y pégalo en este campo.',
       ],
     url: 'https://appstoreconnect.apple.com/access/integrations/api',
@@ -1545,7 +1545,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   TIENDAS_GOOGLE_CUENTA_SERVICIO: {
     pasos: [
         'Para qué sirve: con esta cuenta MaKo lee, sin publicar nada, en qué está la app de Android y la extensión.',
-        'En Google Cloud › Cuentas de servicio abre «MaKo vigía» y su pestaña «Claves».',
+        'En Google Cloud, en «Cuentas de servicio», abre «MaKo vigía» y su pestaña «Claves».',
         'Toca «Agregar clave» › «JSON»: se baja un archivo.',
         'Abre ese archivo con el Bloc de notas y pega todo en este campo.',
       ],

@@ -147,7 +147,7 @@ export const ITEMS: readonly ItemVigia[] = [
     link: 'https://www.ssl.com/',
     queHacer: 'Contesta lo que pida SSL.com en el pedido.',
     aMano: true,
-    nota: 'La validación de identidad se mira en ssl.com, en Dashboard › Orders. No tiene API.',
+    nota: 'La validación de identidad se mira en el panel de ssl.com, en «Orders». No tiene API.',
   },
 ];
 

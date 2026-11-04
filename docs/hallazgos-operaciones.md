@@ -3793,6 +3793,16 @@ la lectura del manifest quedaba muda y respondía sólo el panel. Ahora las dos 
 `tsc-acotado` sale con «código undefined», el `tsc` muerto por falta de heap. El `tsc` directo con `--max-old-space-size=6144`
 sobre el mismo tsconfig da 0.
 
+**Cuatro guardas del repo con las que choca un texto nuevo de este tipo** (las cuatro dieron rojo en la corrida local, con los ~700
+tests afectados en Node 24; arreglarlo antes de subir ahorró una punta roja):
+- `tests/mako-nombres-de-tabs.test.ts`: una ruta «X › Y» en el código empieza por una tab de MaKo. Las pantallas de Apple o de
+  Google van entre comillas: «Usuarios y acceso», su pestaña «Integraciones».
+- `tests/tutoriales-legibles.test.ts`: un id técnico con «mako-» suelto («mako-500317») choca con la regla de la marca, y tres
+  verbos en un paso son tres pasos.
+- `tests/motor-segunda-pasada.test.ts`: ninguna descripción de la API dice «cada hora». Era la ventana vieja de las automatizaciones.
+- `tests/resend-clave-admin.test.ts`: el nombre de la clave que administra los dominios de Resend lo escribe sólo
+  `lib/resend-dominios.ts`. Lo que falte se dice en palabras.
+
 **SIN hacer:**
 - Probarlo contra las APIs de verdad: falta cargar las claves (`docs/relevo/nube-aprobaciones.md`). Hasta entonces se leen las fichas
   públicas, los permisos de Meta con el secreto de la app que ya está en Vercel y Resend, si `RESEND_ADMIN_API_KEY` está puesta.
