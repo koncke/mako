@@ -157,7 +157,7 @@ test('los pushes a punta/** y ci-rojo/** no construyen en Vercel (cada build cue
 
 /** El entorno sin ningún GIT_*: tests-afectados le pasa GIT_INDEX_FILE a los tests, y ese índice no es de este repo. */
 function entornoLimpio(tmp: string): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {};
+  const env = {} as NodeJS.ProcessEnv;
   for (const [k, v] of Object.entries(process.env)) if (!k.startsWith('GIT_')) env[k] = v;
   const global = join(tmp, 'gitconfig-vacio');
   writeFileSync(global, '');
@@ -167,7 +167,7 @@ function entornoLimpio(tmp: string): NodeJS.ProcessEnv {
 type Salida = { codigo: number | null; salida: string; outputs: Record<string, string>; tmp: string };
 
 /** Corre el cuerpo de un paso como lo corre Actions (`-e`), con funciones que tapan lo que no se quiere correr de verdad. */
-function correrPaso(nombre: string, cwd: string, o: { env?: NodeJS.ProcessEnv; antes?: string; tmp?: string } = {}): Salida {
+function correrPaso(nombre: string, cwd: string, o: { env?: Partial<NodeJS.ProcessEnv>; antes?: string; tmp?: string } = {}): Salida {
   const tmp = o.tmp ?? mkdtempSync(join(tmpdir(), 'punta-paso-'));
   const script = join(tmp, 'paso.sh');
   writeFileSync(script, `${o.antes ?? ''}\n${paso(nombre).run}\n`);
@@ -230,7 +230,7 @@ function armarRepo() {
 /** `leerCambios` de tests-afectados, en otro proceso: mira el repo de donde se corre, y este test no puede mudar el suyo. */
 function loQueCompara(cwd: string, env: NodeJS.ProcessEnv): string[] {
   const url = pathToFileURL(join(RAIZ, 'scripts/tests-afectados.mjs')).href;
-  const r = spawnSync(process.execPath, ['--input-type=module', '-e', `const m = await import(${JSON.stringify(url)}); process.stdout.write(JSON.stringify(m.leerCambios('origin/main')));`], { cwd, encoding: 'utf8', env });
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', `const m = await import(${JSON.stringify(url)}); process.stdout.write(JSON.stringify(m.leerCambios('origin/main')));`], { cwd, encoding: 'utf8', env, maxBuffer: 64 * 1024 * 1024 });
   assert.equal(r.status, 0, r.stderr);
   return JSON.parse(r.stdout).cambiados;
 }
