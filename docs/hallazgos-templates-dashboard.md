@@ -337,6 +337,24 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **Un bloque de General que se agrega a mano no va en una plantilla.** `pendientes`, `kpis` y `mes` están en esa lista a propósito, y
   `tests/general-editor.test.ts` lo frena. **Vive en:** lib/general-plantillas.ts.
 
+## 18. General (Orvel): un corte del medio que le ganaba al del teléfono y un tsc acotado que se quedaba sin memoria (4/11/2026, chat en la nube)
+
+- **Dos `@container` que se pisan los decide el ORDEN, no el ancho.** El corte del medio («≤ 1040: las filas de tres pasan a dos») iba en la cola,
+  DESPUÉS del corte del teléfono («≤ 760: una columna»). A 390 los dos coinciden, gana el de abajo, y la página medía 505 px de ancho en una
+  pantalla de 390. Lo encontró el arnés midiendo `scrollWidth`, no la captura a 1440. Cada corte más chico repite lo suyo DESPUÉS del más
+  grande. **Vive en:** app/dashboard/disenos/general-css.ts.
+- **Un botón de más en una cabecera medida parte la frase en dos renglones.** «Ver todo en la grilla» como botón de texto bajó la cabecera de 100 a
+  125 px y corrió todo lo de abajo. Va como el botón de ícono de la barra de arriba de Orvel (con su `aria-label`): las nueve cajas vuelven al
+  mismo píxel de la maqueta. **Vive en:** app/dashboard/disenos/HojaGeneral.tsx.
+- **Una etiqueta del eje con plata de verdad es más ancha que la del demo.** Con el margen medido en Orvel (35 px), «US$10k» quedaba encima de la
+  curva. El primer punto cae, como mínimo, a la derecha de la etiqueta más ancha. **Vive en:** app/dashboard/disenos/HojaGeneral.tsx (`Grafico`).
+- **`tsc-acotado` sobre algo que importa `DatosGeneral` necesita más heap que el de por defecto** (2560 MB): salía con 99 («no se pudo chequear»,
+  el proceso muerto por memoria), que NO es un verde. Con `--heap=8000` dio 0. **Vive en:** scripts/tsc-acotado.mjs.
+- **«Te deben» usa las cuentas de Cobranza, no unas nuevas.** La pieza nueva de la plantilla es la misma consulta que «Cuánto hace que esperan» y
+  el modelo llama a `debenDe`: dos cuentas de lo mismo dirían dos números en dos hojas. **Vive en:** lib/general-diseno.ts, lib/general-plantillas.ts.
+- **La entrada de la página de Orvel no está en su INFORME** (sólo la del armazón). No se inventó: las tarjetas quedan quietas. **Vive en:**
+  app/dashboard/disenos/HojaGeneral.tsx (cabecera).
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

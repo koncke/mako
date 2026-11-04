@@ -24,6 +24,8 @@ import { HojaFocus } from './HojaFocus';
 import type { VistaFocus } from '@/lib/focus-diseno';
 import { HojaMiDia } from './HojaMiDia';
 import { mesDe, type VistaMiDia } from '@/lib/mi-dia-diseno';
+import { HojaGeneral } from './HojaGeneral';
+import { fraseGeneral, type VistaGeneral } from '@/lib/general-diseno';
 
 const dia = (hoy: string, n: number) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const resultado = (columnas: string[], totales: Array<number | null>, filas: Resultado['filas'] = [], anterior?: Array<number | null>): DatosPieza => ({
@@ -224,6 +226,77 @@ function vistaMiDiaMuestra(hoy: string): VistaMiDia {
   };
 }
 
+/** La hoja General de EJEMPLO (la de la maqueta, general-orvel/mako.html: ficticios), para la miniatura de «Nueva hoja». */
+function vistaGeneralMuestra(hoy: string): VistaGeneral {
+  const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const mesHoy = Number(hoy.slice(5, 7)) - 1;
+  const cobrado = [32, 41, 28, 46, 52, 39, 61, 44, 58, 49, 66, 40], gasto = [9, 11, 10, 12, 14, 12, 15, 13, 14, 13, 16, 8];
+  // El día y el mes de «hoy + n», y su «5/11».
+  const fd = (n: number) => ({ dia: Number(dia(hoy, n).slice(8)), mes: MESES[Number(dia(hoy, n).slice(5, 7)) - 1] });
+  const dm = (n: number) => `${Number(dia(hoy, n).slice(8))}/${Number(dia(hoy, n).slice(5, 7))}`;
+  return {
+    frase: fraseGeneral(12480, 2, 5),
+    mes: {
+      cobrado: 12480, delta: 3020, etiquetaAnterior: 'mismo período de octubre', proyeccion: 18500,
+      renglones: [
+        { id: 'cobrado', nombre: 'Cobrado', detalle: 'proyección US$18,500', valor: 'US$12,480', cambio: '+32%' },
+        { id: 'inversion', nombre: 'Inversión en anuncios', detalle: 'proyección US$3,200', valor: 'US$2,140', cambio: '+8%' },
+        { id: 'agendas', nombre: 'Agendas', detalle: 'proyección 42', valor: '27', cambio: '+12%' },
+        { id: 'cierres', nombre: 'Cierres', detalle: 'proyección 9', valor: '6', cambio: '−14%' },
+      ],
+    },
+    meta: { titulo: 'US$30,000 de facturación', pct: 62, esperado: 58, diasRestantes: 57, atrasado: false },
+    flujo: { cobrado: 12480, inversion: 2140, cambioCobrado: '+32%', cambioInversion: '+8%', etiquetaAnterior: 'mismo período de octubre' },
+    meses: cobrado.map((c, i) => ({ clave: `m${i}`, corto: MESES[(mesHoy + 1 + i) % 12], cobrado: c * 500, gasto: gasto[i] * 500 })),
+    necesita: [
+      { id: 'cuotas', titulo: 'Cuotas vencidas', detalle: 'De 2 clientes', n: 2, href: '/crm' },
+      { id: 'leads', titulo: 'Leads por marcar', detalle: '3 sin asistencia a R1', n: 5, href: '/crm' },
+      { id: 'tareas', titulo: 'Tareas vencidas', detalle: 'La más vieja, del 28/10', n: 3, href: '/plan' },
+      { id: 'alertas', titulo: 'Alertas en rojo', detalle: 'Tu tasa de asistencia bajó', n: 1, href: '/general' },
+    ],
+    vence: {
+      total: 9, vencidas: 2,
+      lista: [
+        { id: 'v1', titulo: 'Mandar la propuesta a Jorge Salinas', detalle: 'Ventas de noviembre', ...fd(-7), que: 'Tarea', cuando: 'Vencida', vencida: true, href: '/plan' },
+        { id: 'v2', titulo: 'Grabar tres hooks nuevos', detalle: 'Creativos de Meta', ...fd(-1), que: 'Tarea', cuando: 'Vencida', vencida: true, href: '/plan' },
+        { id: 'v3', titulo: 'Preparar la R2 de Laura Méndez', detalle: 'Ventas de noviembre', ...fd(0), que: 'Tarea', cuando: 'Hoy', vencida: false, href: '/plan' },
+        { id: 'v4', titulo: 'Revisar el guion de la VSL', detalle: 'Nueva VSL', ...fd(2), que: 'Tarea', cuando: dm(2), vencida: false, href: '/plan' },
+        { id: 'v5', titulo: 'Creativos de Meta', detalle: 'Proyecto del Plan', ...fd(7), que: 'Proyecto', cuando: dm(7), vencida: false, href: '/plan' },
+        { id: 'v6', titulo: 'Armar el reporte de octubre', detalle: 'Operación', ...fd(14), que: 'Tarea', cuando: dm(14), vencida: false, href: '/plan' },
+      ],
+    },
+    deben: {
+      total: 41179,
+      tramos: [
+        { nombre: 'Al día', monto: 31512, cuotas: 13, color: '' }, { nombre: '1-30 días', monto: 5181, cuotas: 3, color: '' },
+        { nombre: '31-60 días', monto: 2011, cuotas: 1, color: '' }, { nombre: '60+ días', monto: 2475, cuotas: 1, color: '' },
+      ],
+      cuotas: [
+        { leadId: 1, pagoId: 1, nombre: 'Carlos Méndez', linea: 'US$2,475 · venció hace 67 días', urgencia: 'vencida' },
+        { leadId: 2, pagoId: 2, nombre: 'Lucía Ramos', linea: 'US$5,181 · venció hace 5 días', urgencia: 'vencida' },
+        { leadId: 3, pagoId: 3, nombre: 'Diego Fuentes', linea: 'US$2,007 · vence hoy', urgencia: 'pronto' },
+      ],
+    },
+    funnel: {
+      id: 1, nombre: 'Programa principal', principal: true, total: 82,
+      etapas: [{ nombre: 'Nuevo', n: 38, color: null }, { nombre: 'Agendó', n: 21, color: null }, { nombre: 'Asistió', n: 9, color: null },
+        { nombre: 'Propuesta', n: 6, color: null }, { nombre: 'Ganado', n: 5, color: null }, { nombre: 'Perdido', n: 3, color: null }],
+    },
+    llamadas: [
+      { id: 'l1', nombre: 'Laura Méndez', detalle: 'Hoy 12:30 · R2 · closer Ana', cuando: 'en 1 h', href: null },
+      { id: 'l2', nombre: 'Jorge Salinas', detalle: 'Hoy 18:00 · R1 · closer Diego', cuando: 'en 7 h', href: null },
+      { id: 'l3', nombre: 'Paola Núñez', detalle: 'Mañana 10:00 · R1 · closer Ana', cuando: dm(1), href: null },
+      { id: 'l4', nombre: 'Raúl Ortega', detalle: 'Mañana 16:30 · R2 · closer Sofía', cuando: dm(1), href: null },
+    ],
+    salud: [
+      { titulo: '2 cuotas vencidas sin cobrar', link: 'Ver las cuotas', href: '/crm', nivel: 'rojo' },
+      { titulo: '3 leads sin marcar la asistencia a la R1', link: 'Marcar en el CRM', href: '/crm', nivel: 'ambar' },
+      { titulo: 'La meta del trimestre va a tiempo', link: 'Ver la meta', href: '/plan', nivel: 'verde' },
+      { titulo: 'Meta Ads conectado y leyendo', link: 'Ver las conexiones', href: '/integraciones', nivel: 'verde' },
+    ],
+  };
+}
+
 const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<string, DatosPieza>; hoy: string }) => ReactNode> = {
   closing: ({ hoja, datos, hoy }) => (
     // Con sus botones y links, como se ve la hoja (en la miniatura no se tocan: `pointer-events: none`); `quieta` no lee la caja de IA.
@@ -239,6 +312,9 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   ),
   'mi-dia': ({ hoy }) => (
     <HojaMiDia vista={vistaMiDiaMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" tz="UTC" ahora={null} onGrilla={() => {}} quieta />
+  ),
+  general: ({ hoy }) => (
+    <HojaGeneral vista={vistaGeneralMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" onGrilla={() => {}} quieta />
   ),
 };
 
