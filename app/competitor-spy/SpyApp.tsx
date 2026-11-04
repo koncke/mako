@@ -81,6 +81,9 @@ import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
 import { enlaceSusAnuncios } from '@/lib/spy-funnel';
 import { SuFunnel } from './SuFunnel';
 import { TarjetaPieza } from './TarjetaPieza';
+import { GraficoSpy } from './GraficoSpy';
+import { DetallePieza } from './DetallePieza';
+import { grupoDe } from '@/lib/spy-detalle';
 import { PeliculaDeOrden } from './OrdenSpy';
 import { BuscadorAlta } from './BuscadorAlta';
 
@@ -454,7 +457,7 @@ button.spy-campo:hover{color:var(--dim)}
 }
 `;
 
-type Pestana = 'publica' | 'miniaturas' | 'oferta' | 'sitio' | 'anuncios';
+type Pestana = 'grafico' | 'publica' | 'miniaturas' | 'oferta' | 'sitio' | 'anuncios';
 
 // ⚠️ LAS FRANJAS DE UNA LÍNEA SE FUERON (4/11/2026). Martín: «elimina textos innecesarios, como "Lo que publica Los días
 // los declara el canal; la etapa la calcula MaKo."». Explicaban un criterio nuestro que la pantalla ya no muestra.
@@ -728,7 +731,10 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [mostrar, setMostrar] = useState(60);
   const [lecturas, setLecturas] = useState<Record<number, LecturaCanalSpy[]>>({});
   const [error, setError] = useState<string | null>(errorInicial);
-  const [pestana, setPestana] = useState<Pestana>('publica');
+  // El gráfico va primero: es el detalle de cada competidor (punto 7 del 4/11/2026).
+  const [pestana, setPestana] = useState<Pestana>('grafico');
+  /** La pieza abierta en su detalle, con las de su gráfico (para su puesto). */
+  const [abierta, setAbierta] = useState<{ p: PiezaVista; todas: readonly PiezaVista[] } | null>(null);
 
   const [textoAlta, setTextoAlta] = useState('');
   const [buscar, setBuscar] = useState('');
@@ -836,6 +842,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
 
   const irA = useCallback((id: number | null) => {
     setElegido(id);
+    // El detalle abierto es de una pieza del que se deja: se cierra, y el otro abre en su gráfico.
+    setAbierta(null);
+    setPestana('grafico');
     const url = new URL(window.location.href);
     if (id == null) url.searchParams.delete('competidor');
     else url.searchParams.set('competidor', String(id));
@@ -1121,6 +1130,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
 
   // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece.
   const pestanas: Array<{ key: Pestana; rotulo: string; n?: number }> = c ? [
+    ...(flujo.length || anuncios.length ? [{ key: 'grafico' as const, rotulo: 'Gráfico' }] : []),
     ...(c.instagram || c.youtube_id || flujo.length || !c.landing_url ? [{ key: 'publica' as const, rotulo: 'Lo que publica', n: flujo.length || undefined }] : []),
     ...(videosYoutube.length ? [{ key: 'miniaturas' as const, rotulo: 'Miniaturas', n: videosYoutube.length }] : []),
     ...(c.oferta?.promete ? [{ key: 'oferta' as const, rotulo: 'Su oferta' }] : []),
@@ -1175,6 +1185,62 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       {error && <p>{error}</p>}
     </>
   );
+
+  // El riel de la ficha: su nombre, «Revisar ahora» y sus datos. Lo comparten el gráfico y «Lo que publica».
+  const riel = c ? (
+    <aside className="spy-riel">
+      {/* La identidad abre el riel, como la `.pd-info` abre la columna de al lado en la
+          referencia: ante-título chico, nombre grande, la frescura, y la acción. ⚠️ EL
+          RIEL YA NO DEPENDE DE QUE HAYA PIEZAS: si dependiera, un competidor sin nada
+          leído se quedaría sin nombre y sin el botón de revisarlo. */}
+      <section className="spy-ficha">
+        <div>
+          {anteTitulo && <small>{anteTitulo}</small>}
+          <h1>{c.nombre}</h1>
+        </div>
+        {identidad && <small className="spy-rango">{identidad}</small>}
+        <div className="spy-ficha__acciones">
+          <button type="button" className="spy-boton spy-boton-primario" disabled={estaLeyendo || ordenando != null || !canalesDe(c)} onClick={() => void leer(c.id)}>
+            {estaLeyendo ? 'Revisando…' : 'Revisar ahora'}
+          </button>
+          <Dropdown
+            ariaLabel="Más acciones"
+            value=""
+            width={210}
+            align="right"
+            resetAfterSelect
+            sinFlecha
+            botonLabel={<span aria-hidden>⋯</span>}
+            options={[
+              { value: 'canal', label: 'Agregar un canal' },
+              { value: 'anuncio', label: 'Guardar un anuncio' },
+              // Mismo criterio que el botón de la lista: borrar es del admin, y lo
+              // que no se puede hacer no se ofrece.
+              ...(puedeBorrar ? [{ value: 'quitar', label: 'Dejar de mirarlo' }] : []),
+            ]}
+            onChange={(v) => {
+              // ⚠️ «Qué vende y qué ataca» se fue el 4/11/2026: la oferta la lee sola la IA del negocio con
+              // cada lectura (/api/competitor-spy/analizar). Martín: «sin pedirlo».
+              setErrorModal(null);
+              setModal(v as 'canal' | 'anuncio' | 'quitar');
+            }}
+            buttonStyle={{ height: 40, width: 40, justifyContent: 'center', padding: 0, borderRadius: 12 }}
+          />
+        </div>
+      </section>
+
+      {/* Las celdas pastel de datos. Un dato que no tenemos no deja celda vacía. */}
+      {celdas.length > 0 && (
+        <div className="spy-kpis">
+          {celdas.map((k) => (
+            <div key={k.k} className="spy-kpi"><b>{k.rot}</b><strong>{k.val}</strong><small>{k.pie}</small></div>
+          ))}
+        </div>
+      )}
+
+      {flujo.length > 0 && <RielAnalisis piezas={flujo} c={c} />}
+    </aside>
+  ) : null;
 
   return (
     <main className="spy" data-spy>
@@ -1273,6 +1339,22 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
               </nav>
             )}
 
+            {/* ── El gráfico: el detalle de cada competidor (punto 7 del 4/11/2026, lib/spy-detalle.ts). ── */}
+            {activa === 'grafico' && (
+              <div className="spy-cols">
+                <div>
+                  {trayendoTodo === c.id && <p className="spy-aviso spy-aviso--suave" aria-live="polite">Trayendo todo lo que publicó…</p>}
+                  <GraficoSpy
+                    c={c} piezas={piezas} analizando={autoAnalisis === c.id}
+                    onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })}
+                    onAgregarRed={() => { setErrorModal(null); setModal('canal'); }}
+                    onWeb={() => setPestana('sitio')}
+                  />
+                </div>
+                {riel}
+              </div>
+            )}
+
             {activa === 'publica' && (
               // ── Las dos columnas de merrin: el catálogo manda y el análisis vive a la derecha.
               //    Sin piezas no hay riel, y entonces la grilla ocupa el ancho entero.
@@ -1322,7 +1404,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                     <>
                       {/* ⚠️ SIN PIE DE TEXTO (4/11/2026): «Lo que se pudo leer de sus canales públicos el 4 nov. La etapa la
                           calcula MaKo…» es lo que Martín pidió sacar. La fecha ya la dice la cabecera («Revisado hace…»). */}
-                      <div className="spy-pgrid">{visibles.slice(0, mostrar).map((p) => <TarjetaPieza key={p.id} p={p} analizando={autoAnalisis === c.id && !p.analisis} />)}</div>
+                      <div className="spy-pgrid">{visibles.slice(0, mostrar).map((p) => <TarjetaPieza key={p.id} p={p} analizando={autoAnalisis === c.id && !p.analisis} onAbrir={() => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })} />)}</div>
                       {visibles.length > mostrar && (
                         <div className="spy-vermas"><button type="button" className="spy-boton" onClick={() => setMostrar((n) => n + 60)}>Ver más · {visibles.length - mostrar}</button></div>
                       )}
@@ -1368,58 +1450,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                   )}
                 </div>
 
-                <aside className="spy-riel">
-                  {/* La identidad abre el riel, como la `.pd-info` abre la columna de al lado en la
-                      referencia: ante-título chico, nombre grande, la frescura, y la acción. ⚠️ EL
-                      RIEL YA NO DEPENDE DE QUE HAYA PIEZAS: si dependiera, un competidor sin nada
-                      leído se quedaría sin nombre y sin el botón de revisarlo. */}
-                  <section className="spy-ficha">
-                    <div>
-                      {anteTitulo && <small>{anteTitulo}</small>}
-                      <h1>{c.nombre}</h1>
-                    </div>
-                    {identidad && <small className="spy-rango">{identidad}</small>}
-                    <div className="spy-ficha__acciones">
-                      <button type="button" className="spy-boton spy-boton-primario" disabled={estaLeyendo || ordenando != null || !canalesDe(c)} onClick={() => void leer(c.id)}>
-                        {estaLeyendo ? 'Revisando…' : 'Revisar ahora'}
-                      </button>
-                      <Dropdown
-                        ariaLabel="Más acciones"
-                        value=""
-                        width={210}
-                        align="right"
-                        resetAfterSelect
-                        sinFlecha
-                        botonLabel={<span aria-hidden>⋯</span>}
-                        options={[
-                          { value: 'canal', label: 'Agregar un canal' },
-                          { value: 'anuncio', label: 'Guardar un anuncio' },
-                          // Mismo criterio que el botón de la lista: borrar es del admin, y lo
-                          // que no se puede hacer no se ofrece.
-                          ...(puedeBorrar ? [{ value: 'quitar', label: 'Dejar de mirarlo' }] : []),
-                        ]}
-                        onChange={(v) => {
-                          // ⚠️ «Qué vende y qué ataca» se fue el 4/11/2026: la oferta la lee sola la IA del negocio con
-                          // cada lectura (/api/competitor-spy/analizar). Martín: «sin pedirlo».
-                          setErrorModal(null);
-                          setModal(v as 'canal' | 'anuncio' | 'quitar');
-                        }}
-                        buttonStyle={{ height: 40, width: 40, justifyContent: 'center', padding: 0, borderRadius: 12 }}
-                      />
-                    </div>
-                  </section>
-
-                  {/* Las celdas pastel de datos. Un dato que no tenemos no deja celda vacía. */}
-                  {celdas.length > 0 && (
-                    <div className="spy-kpis">
-                      {celdas.map((k) => (
-                        <div key={k.k} className="spy-kpi"><b>{k.rot}</b><strong>{k.val}</strong><small>{k.pie}</small></div>
-                      ))}
-                    </div>
-                  )}
-
-                  {flujo.length > 0 && <RielAnalisis piezas={flujo} c={c} />}
-                </aside>
+                {riel}
               </div>
             )}
 
@@ -1483,12 +1514,18 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
             )}
 
             {activa === 'anuncios' && (
-              <div className="spy-pgrid">{anuncios.map((p) => <TarjetaPieza key={p.id} p={p} />)}</div>
+              <div className="spy-pgrid">{anuncios.map((p) => <TarjetaPieza key={p.id} p={p} onAbrir={() => setAbierta({ p, todas: anuncios })} />)}</div>
             )}
           </>
         )}
       </div>
 
+      {abierta && c && (
+        <DetallePieza
+          p={piezas.find((x) => x.id === abierta.p.id) ?? abierta.p} nombre={c.nombre} todas={abierta.todas}
+          analizando={autoAnalisis === c.id} onCerrar={() => setAbierta(null)}
+        />
+      )}
       {modal === 'alta' && (
         <BuscadorAlta
           textoInicial={textoAlta} competidores={competidores} ocupado={ocupado} error={errorModal}
