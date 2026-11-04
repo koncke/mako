@@ -12,6 +12,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { workspaceDeToken } from '@/lib/flow-cola';
+import { limitePorClave } from '@/lib/limite-publico';
 import { leerCaptura } from '@/lib/spy-captura';
 import { fichasParaLaExtension, guardarCaptura } from '@/lib/spy-captura-db';
 import { runWithWorkspace } from '@/lib/workspace';
@@ -26,6 +27,9 @@ export async function POST(req: NextRequest) {
   const ws = await workspaceDeToken(token);
   // 404 y no 403: a quien no le corresponde, no existe. El mismo criterio que /api/flow/puente.
   if (ws == null) return NextResponse.json({ ok: false, error: 'no encontrado' }, { status: 404 });
+  // Es el clic de una persona: sesenta por minuto por negocio sobran, y cada guardado baja imágenes.
+  const frenado = limitePorClave('spy-extension', ws, 60, 60_000);
+  if (frenado) return frenado;
 
   const crudo = await req.text().catch(() => '');
   if (crudo.length > TOPE_CUERPO) return NextResponse.json({ ok: false, error: 'Esta pestaña tiene demasiado para leer de una vez.' }, { status: 413 });
