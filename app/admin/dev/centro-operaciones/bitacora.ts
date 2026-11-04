@@ -2113,4 +2113,17 @@ export const BITACORA: Hito[] = [
       'scripts/generar-clases-de-referentes.mjs · lib/asesores/en-espera.ts · tests/cerebro-referente-vista.test.ts (8 roturas) · tests/gurus-en-espera.test.ts',
     ],
   },
+  {
+    fecha: '4 nov', hora: '08:25', chat: 'Gurús del Ops Center', sesion: 'cli_396482b1-2ab5-5c71-a91f-b88d681a11a5', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las fichas de los diez gurús que faltan: listas para entrar cuando llegue su caricatura',
+    puntos: [
+      '**Escritas las diez:** Juan Carrizo, Vilma Núñez, Samuel Albaa, Álvaro Luque, Sergio Begueria, Romuald Fons, Mateo Maffia, Francisco Doglio, Andy Landa y Gonzalo Seré, cada una leyendo de 8 a 12 clases de su curso.',
+      '**Lo que el curso enseña y el chat no repite** queda fuera de cada ficha: urgencia inventada, pedir un crédito para pagar, comprar enlaces y los montos propios como promesa.',
+      '**Falta sólo su cara:** cuando llegue la caricatura, el gurú entra a la galería y el test lo avisa.',
+    ],
+    archivos: [
+      'lib/asesores/ficha-*.ts (diez) · lib/asesores/en-espera.ts — EN_ESPERA',
+      'docs/relevo/nube-gurus.md · docs/hallazgos-ops-center.md',
+    ],
+  },
 ];
