@@ -31,6 +31,8 @@ export const ETIQUETAS_DASHBOARD: Readonly<Record<string, EtiquetasPlantilla>> =
   cobranza: { cobro: ['suscripcion'] },
   automatizaciones: { entrada: ['chat_entrante', 'chat_saliente'], cuello: ['sistema'] },
   'ia-contenido': {},
+  // Por RUBRO: las sugeridas no tienen un eje de rubro (canal, entrada, cobro y cuello), así que no se sugiere; se encuentra por nombre.
+  inmobiliaria: {},
 };
 
 /** La galería de General (`PLANTILLAS_GENERAL`). */
