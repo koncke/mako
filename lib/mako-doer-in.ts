@@ -1120,7 +1120,7 @@ async function registrarRespuestaAlEquipo(wsData: number, data: MsgIn, texto: st
  */
 async function sinLasDelEquipo(wsData: number, instance: string, jid: string, cola: readonly MsgBuffer[], yaMirado?: string): Promise<MsgBuffer[]> {
   const quedan: MsgBuffer[] = [];
-  const apartadas: number[] = [];
+  const delEquipoIds: number[] = [];
   let avisadas: string | null | undefined;
   for (const m of cola) {
     const id = m.wa_message_id ?? '';
@@ -1130,7 +1130,7 @@ async function sinLasDelEquipo(wsData: number, instance: string, jid: string, co
     const ademasPideAMaKo = !!texto && pideAlgoAMaKo(texto);
     if (avisadas === undefined) avisadas = await runWithWorkspace(wsData, () => getSetting(CLAVE_RESPUESTAS_AVISADAS)).catch(() => null);
     // Ya se avisó (la invocación de ese mensaje llegó primero): no se repite, y sin pedido a MaKo no entra al turno.
-    if (conLaAvisada(avisadas, id).yaEstaba) { if (ademasPideAMaKo) quedan.push(m); else apartadas.push(m.id); continue; }
+    if (conLaAvisada(avisadas, id).yaEstaba) { if (ademasPideAMaKo) quedan.push(m); else delEquipoIds.push(m.id); continue; }
     const alEquipo = await contestaAlEquipo(wsData, instance, jid, p, texto, !audioDe(p) && !adjuntoDe(p)).catch(() => null);
     if (!alEquipo || (alEquipo.ventana && texto && esSoloUnPedidoAMaKo(texto))) { quedan.push(m); continue; }
     await registrarRespuestaAlEquipo(wsData, p, texto || '(una nota de voz o un archivo)', alEquipo.delEquipo)
@@ -1139,9 +1139,9 @@ async function sinLasDelEquipo(wsData: number, instance: string, jid: string, co
       const { cerrarLaPreguntaDelEquipo } = await import('@/lib/mako-grupo');
       await cerrarLaPreguntaDelEquipo(wsData, alEquipo.delEquipo.id).catch(() => {});
     }
-    if (ademasPideAMaKo) quedan.push(m); else apartadas.push(m.id);
+    if (ademasPideAMaKo) quedan.push(m); else delEquipoIds.push(m.id);
   }
-  if (apartadas.length) await marcarProcesados(apartadas).catch(() => {});
+  if (delEquipoIds.length) await marcarProcesados(delEquipoIds).catch(() => {});
   return quedan;
 }
 

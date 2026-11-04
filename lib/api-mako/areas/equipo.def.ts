@@ -459,8 +459,8 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'invitar_al_grupo', area: 'equipo', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Invitar a alguien al grupo',
-    descripcion: 'PROPONE invitar a una persona al grupo del negocio por su email exacto, también si es de otro negocio, y deja un link para confirmar. Ve lo que cae en el grupo desde hoy, también avisos de ventas y cobros, y puede hablar con MaKo ahí; no entra al resto del negocio. No crea cuentas: si el email no tiene cuenta en MaKo, queda anotado y hay que invitarlo de nuevo cuando la tenga. Nunca dice si esa cuenta existe.',
-    escribe: 'grupo_invitados, y un aviso y un email a la persona si tiene cuenta',
+    descripcion: 'PROPONE invitar a una persona al grupo del negocio por su email exacto, también si es de otro negocio, y deja un link para confirmar. Ve lo que cae en el grupo desde hoy, también avisos de ventas y cobros, y puede hablar con MaKo ahí; no entra al resto del negocio. No crea cuentas: si el email no tiene cuenta en MaKo, queda anotado, le llega el email, y entra al grupo la primera vez que entre a MaKo con ese email. Nunca dice si esa cuenta existe.',
+    escribe: 'grupo_invitados, un email a la persona, y un aviso al teléfono si tiene cuenta',
     parametros: [
       { nombre: 'email', tipo: 'string', max: 320, obligatorio: true, descripcion: 'el email exacto de la persona.' },
     ],

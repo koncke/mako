@@ -33,6 +33,9 @@ export const tituloDelGrupo = (nombre: string): string => `MaKo <> ${(nombre ?? 
  * con mail de MaKo sirve para pedirle una clave a otro cliente. La identidad de MaKo la da el producto, no un texto del negocio.
  */
 export const tituloParaInvitado = (nombre: string, abrio: boolean): string => (abrio ? `Grupo de ${(nombre ?? '').trim()}` : `Invitación de ${(nombre ?? '').trim()}`);
+/** El mail a quien todavía no tiene cuenta en MaKo: quién invita, y que el grupo le aparece al entrar con ese email. Sin el nombre del negocio de nadie más. */
+export const textoInvitacionSinCuenta = (quien: string): string =>
+  `${quien.trim() || 'Alguien'} te invitó a su grupo de MaKo. Cuando entres a MaKo con este email, lo vas a ver arriba de todo.`;
 
 export type TipoDeAcceso = 'admin' | 'agencia' | 'invitado' | 'soporte';
 export type AccesoJuzgado = { tipo: TipoDeAcceso; administra: boolean; desdeId: number };

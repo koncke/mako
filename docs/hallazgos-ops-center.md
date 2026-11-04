@@ -9,7 +9,7 @@ Acá va lo que costó y no se deduce leyendo el código.
 
 ## El grupo de la app, llevado a main (4/11/2026)
 
-La rama (`rescate/grupos-ops-0311`) estaba 387 commits detrás de main, y main había tocado justo el turno del grupo: la cita (#40), Google Calendar (#42), el bot 1 a 1, la regla de no escribirle primero a nadie y el freno anti-ban. Se rearmó con cherry-pick de sus cuatro commits en `punta/grupos`. Lo vivido en una sesión de la nube, sin la base ni la app: con tests y el `tsc` entero.
+La rama (`rescate/grupos-ops-0311`) estaba 387 commits detrás de main, y main había tocado justo el turno del grupo: la cita (#40), Google Calendar (#42), el bot 1 a 1, la regla de no escribirle primero a nadie y el freno anti-ban. Se rearmó con cherry-pick de sus cuatro commits en `punta/grupos-app`. Lo vivido en una sesión de la nube, sin la base ni la app: con tests y el `tsc` entero.
 
 **La guarda frenó lo que tenía que frenar, y fue lo único que lo vio.** `tests/grupos-ops-guarda.test.ts` fija la lista de bloques del system del turno: al mezclar dio rojo con `ctxGoogle` (si el negocio tiene su Google Calendar conectado) y con `vozDelCanal` (la voz del chat de a dos, dos constantes). `ctxGoogle` va vacío con `hayInvitado`, y `ctxCita` sólo en la rama de quien administra. **Una semilla nueva, porque la guarda de fuente no prueba que no llegue:** el pedido de las semillas del test del turno nombra Google Calendar, y «GOOGLE CALENDAR:» le llega a quien administra y no al invitado. Rompiéndolo, rojo en las dos.
 
@@ -24,6 +24,16 @@ La rama (`rescate/grupos-ops-0311`) estaba 387 commits detrás de main, y main h
 - Un invitado ya no cuenta como no leídos los avisos a la agencia que no ve: `resumenParaLaLista` (lib/grupo-app.ts) los resta con los mismos filtros (`avisosParaAgencia`, lib/avisos-catalogo.ts).
 - Borrar un negocio se lleva `archivero/grupos/<ws>/` (`CARPETAS_APARTE`, lib/reset-workspace.ts).
 
+**Quien no tiene cuenta ahora se entera, y entra al ENTRAR, no al crear la cuenta** (el pedido de Joan, que el Cerebro pasó como LA prioridad). `invitarAlGrupo` avisaba sólo `if (usuario)`: a Juanfran sin cuenta lo anotaba callado y nunca entraba. Ahora le llega el mail («Ana te invitó a su grupo de MaKo…», con el link al grupo), con el mismo tope de 24 h por negocio y email, y la respuesta en pantalla sigue idéntica. **La decisión de dónde atarlo:** la revisión había dejado escrito «una cuenta creada después no entra sola: no consta que el email esté verificado», y era cierto: crear una cuenta lo hace un admin tipeando un email. Lo que sí prueba que el email es suyo es ENTRAR (el link del mail, Google o su contraseña), así que se ata en `registrarLogin` (`atarInvitacionesAlEntrar`, lib/grupo-invitaciones.ts), que corren los cuatro caminos de entrada. El test del recorrido lo fija en los dos sentidos: con la cuenta creada y sin entrar, 404; al entrar, el grupo.
+
+**El recorrido de Joan, eslabón por eslabón** (`tests/grupos-ops-recorrido.test.ts`, con las rutas, la puerta, la copia, el turno y el login reales): abrir → invitar → push y mail con el link → el link en el teléfono cae en `/m/second-brain?grupo=` → leer → escribir y que MaKo conteste sin tocar WhatsApp → recibir un aviso → salir. Cuatro roturas, cuatro rojos.
+
+**Trampas de esta tanda:**
+- Con el node 22 de la nube, unos 40 archivos dan «test failed» sin un caso (el enlazador de módulos ES no encuentra `MAKO_ACCION_TOOLS`), también sobre main. Ya estaba escrito en docs/hallazgos-infra.md: los tests van con `/opt/node24/bin`, el de CI.
+- `tests/agenda-sin-ia.test.ts` prohíbe la palabra `apartadas` en lib/mako-doer-in.ts (era el nombre de un ruteo que se sacó): una variable local con ese nombre lo puso rojo. Se renombró la variable.
+- **lib/usuarios.ts no puede importar lib/grupo-app.ts**, ni con un `import()` dinámico: lo llaman las rutas del login y de la sesión, y grupo-app llega a una IA por el grafo de imports. `tests/d6b-rutas.test.ts` lo frenó («auth/me no le pide nada a una IA»), con doce rutas de golpe. Lo que corre al entrar vive en lib/grupo-invitaciones.ts, que sólo importa la base.
+- Main sumó el 4/11 la cuenta de revisión de las tiendas: toda ruta nueva que escribe se clasifica (`tests/cuenta-revision-escrituras.snapshot.txt`). Las del grupo quedan cortadas para esa cuenta: invitar le manda mails a terceros.
+
 **Lo que sigue sin hacer:** todo lo de abajo que no está en esta lista, y sin mirar en producción. Cómo se prueba, en docs/relevo/nube-grupos.md.
 
 ---
@@ -36,7 +46,7 @@ La rama (`rescate/grupos-ops-0311`) estaba 387 commits detrás de main, y main h
 
 **Dos puertas al ticket, y se había cerrado una.** El arreglo «un invitado no entra por la vía libre» estaba en `abrirTicketDelGrupo`. Pero el «[[no-pude]]» abre su ticket por `ticketDeNoPude`, que entra como `automatico`: «Hola Martin, desde ayer ya no carga el CRM» de un invitado salía `en_curso`, directo al arreglo, con el texto de alguien de otro negocio. Y `[[ya-pedido: #N]]` le sumaba su texto a un ticket abierto del negocio, porque el turno leía los tickets aunque no fueran al system. **Lo obvio era el equivocado:** buscar quién llama a `crearTicket` desde el turno no alcanza con mirar `abrirTicketDelGrupo`; hay tres caminos. Hoy `crearTicket({ invitado })` corta en los dos, y con invitado no se leen los tickets.
 
-**«Hay que invitarlo de nuevo» contestaba ok y no hacía nada.** Una cuenta creada después no entra sola, y la pantalla y la API dicen que se la vuelva a invitar; pero con la fila ya anotada sin cuenta, `invitarAlGrupo` veía «ya está» y volvía. Es el caso de Joan y Juanfran si todavía no tienen cuenta. **El test lo escondía:** la escena de `cris@cerrada.test` sacaba a la persona antes de volver a invitarla, sin decir por qué. Un paso raro en un test para llegar a un estado suele ser un bug documentado con el arreglo por fuera.
+**«Hay que invitarlo de nuevo» contestaba ok y no hacía nada.** (Desde el 4/11 entra sola al entrar con ese email: arriba, «llevado a main».) Una cuenta creada después no entraba sola, y la pantalla y la API dicen que se la vuelva a invitar; pero con la fila ya anotada sin cuenta, `invitarAlGrupo` veía «ya está» y volvía. Es el caso de Joan y Juanfran si todavía no tienen cuenta. **El test lo escondía:** la escena de `cris@cerrada.test` sacaba a la persona antes de volver a invitarla, sin decir por qué. Un paso raro en un test para llegar a un estado suele ser un bug documentado con el arreglo por fuera.
 
 **Varias fotos con el pedido en la primera: 3 minutos, y mirando una sola.** Sólo la primera nombra a MaKo, así que las otras no entraban a la cola; el `sigue` hacía que la primera no disparara y la última no estaba encolada, así que nadie disparaba. Lo levantaba el cron. El test de `sigue` usaba dos textos. Hoy la foto de quien tiene un pedido suyo en la cola de hace menos de un minuto es de ese pedido (`sigueSuPedido`); lo de otra persona no cuenta.
 

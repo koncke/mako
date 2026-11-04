@@ -5,6 +5,7 @@ DELETE /api/chat-agent/adjuntos → cortada
 DELETE /api/chat-agent/audios → cortada
 DELETE /api/compartir → cortada
 DELETE /api/email/broadcasts → cortada
+DELETE /api/grupos/1/miembros → cortada
 DELETE /api/image-editor/disenos/1 → cortada
 DELETE /api/image-editor/subidos/1 → cortada
 DELETE /api/landing-analyst/view → cortada
@@ -126,6 +127,7 @@ POST /api/crm/ficha/armar → cortada
 POST /api/crm/importar-leads → cortada
 POST /api/crm/llamadas-grabadas → cortada
 POST /api/crm/mako → cortada
+POST /api/cron/grupo-turno → pública (no usa la sesión)
 POST /api/cuenta/eliminar → PERMITIDA
 POST /api/datos-mau → cortada
 POST /api/dev/group-photo → cortada
@@ -150,6 +152,9 @@ POST /api/graficos/ia → cortada
 POST /api/graficos/ia-elemento → cortada
 POST /api/graficos/imagen → cortada
 POST /api/graficos/plantilla → cortada
+POST /api/grupos/1/leido → cortada
+POST /api/grupos/1/mensajes → cortada
+POST /api/grupos/1/miembros → cortada
 POST /api/hilo-de-tab → PERMITIDA
 POST /api/ia-del-negocio/modelo → cortada
 POST /api/ia-del-negocio/probar-clave → cortada

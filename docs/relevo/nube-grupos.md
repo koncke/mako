@@ -12,18 +12,24 @@ invitado de los datos del negocio, y arreglar lo chico que dejó abierto la revi
 
 ## Estado
 
-- **Rama:** `punta/grupos`, los cuatro commits de la etiqueta rearmados con cherry-pick encima de `origin/main` (`e5d67c37`), más
-  un commit de esta sesión con lo de abajo. La misma punta queda en `claude/gracious-edison-knwd27`.
-- **Verificado acá:** los 7 archivos `tests/grupos-ops-*` (con los cambios de abajo, todos verdes), los tests que tocan lo
-  mezclado (`doer-hilo`, `d6b-rutas`, `baja-cuenta`, …) y el `tsc` ENTERO (`--noEmit`, exit 0, con `next typegen`).
+- **Rama:** `punta/grupos-app` (la pidió el Cerebro; no hay `punta/grupos`): los cuatro commits de la etiqueta rearmados con
+  cherry-pick encima de `origin/main` (`e5d67c37`), más los de esta sesión con lo de abajo. La misma punta queda en
+  `claude/gracious-edison-knwd27`.
+- **La primera subida (`cfa87cc9`, corrida 119) dio rojo en tres tests**, arreglados en la segunda: `agenda-google-grupo` (pedía la
+  línea de `ctxGoogle` sin la guarda del invitado), `cuenta-revision-escrituras` (las rutas del grupo, clasificadas: cortadas para
+  la cuenta de revisión) y `agenda-sin-ia` (prohíbe la palabra `apartadas` en el doer, y era el nombre de una variable nueva).
+- **Verificado acá:** los 8 archivos `tests/grupos-ops-*` (el del recorrido, nuevo), los 1.060 archivos de tests que elige
+  `tests-afectados` contra `origin/main` (10.221 tests, con node 24: con el 22 de la nube dan rojos falsos, también sobre main)
+  y el `tsc` ENTERO (`--noEmit`, exit 0, con `next typegen`).
 - **Sin ver:** la app con sesión, la base real y Evolution. La nube no tiene `.env.local`.
 - **No entra acá** (decisión de Martín): nada nuevo que escriba por WhatsApp, y el corte de grupos de WhatsApp
   (`avisos-bot-corte-0311`).
 
-## La migración 0372 — la aplica el Cerebro
+## La migración 0372 — APLICADA
 
 `supabase/migrations/0372_grupos_de_la_app.sql`: sólo agrega tres tablas (`grupo_mensajes`, `grupo_invitados`, `grupo_leidos`).
-**El número sigue libre** (medido el 4/11 sobre `origin/main` y las 125 ramas del remoto: hay 0371 y 0373, ninguna otra 0372).
+**El número estaba libre** (medido el 4/11 sobre `origin/main` y las 125 ramas del remoto: hay 0371 y 0373, ninguna otra 0372).
+**El Cerebro la aplicó el 4/11** (midió: las tres tablas, con 0 filas y RLS prendida). Esta sesión no cambió su contenido.
 
 - Su cabecera pide aplicarla **antes** del deploy. Si el deploy llega primero, no se rompe nada: la copia de los avisos loguea
   «FALTA LA MIG 0372» y sigue, WhatsApp sale igual, y la pantalla del grupo dice «No pude abrir el grupo» con Reintentar.
@@ -43,10 +49,14 @@ lo esperado.
 3. **Un aviso cae en los dos:** en `/automations`, «Probar» → «Probar en el grupo» de una automatización con una tarjeta «MaKo en
    WhatsApp»: la prueba aparece en el hilo de la app aunque WhatsApp no la entregue.
 4. **Lo que entra por WhatsApp se ve en la app**, marcado «vino de WhatsApp», y MaKo no contesta dos veces.
-5. **Un invitado:** desde Participantes, invita el email de una cuenta de OTRO negocio. Con esa cuenta, en `/second-brain`, sale
+5. **Un invitado con cuenta:** desde Participantes, invita el email de una cuenta de OTRO negocio. Le llega un push y un mail
+   «Invitación de …» con el link. Con esa cuenta, en `/second-brain`, sale
    «Invitación de …». Escribe «MaKo, ¿cuánto vendimos este mes?»: MaKo contesta sin un solo dato del negocio, y sin herramientas.
    No ve lo anterior a su entrada ni los avisos a la agencia, y su número de no leídos tampoco los cuenta.
-6. **La respuesta al equipo:** con una pregunta del equipo en el grupo, contéstala desde la app: le llega al equipo (al ticket o
+6. **Un invitado sin cuenta:** invita un email que no tenga cuenta en MaKo. La pantalla contesta igual. Le llega el mail «<quien> te
+   invitó a su grupo de MaKo…». Cuando esa persona ENTRA a MaKo por primera vez con ese email (crearle la cuenta solo no alcanza),
+   el grupo le aparece arriba de todo.
+7. **La respuesta al equipo:** con una pregunta del equipo en el grupo, contéstala desde la app: le llega al equipo (al ticket o
    al grupo de SuperAdmin) y MaKo no salta, ni al rato.
 
 ## Lo que se hizo en esta sesión, además de mezclar
@@ -58,6 +68,9 @@ lo esperado.
 | La respuesta al equipo escrita en la app no llega a MaKo cuando falla el autollamado o la mezcla otra persona (`sinLasDelEquipo`) | `lib/mako-doer-in.ts`; dos escenas en `tests/grupos-ops-turno.test.ts` |
 | Un invitado no cuenta como no leídos los avisos a la agencia que no ve | `lib/grupo-app.ts` → `resumenParaLaLista`; `tests/grupos-ops-puerta.test.ts` |
 | Borrar un negocio se lleva `archivero/grupos/<ws>/` | `lib/reset-workspace.ts` → `CARPETAS_APARTE`; `tests/baja-cuenta.test.ts` |
+| A quien no tiene cuenta le llega el mail con el link (mismo tope de 24 h), y la invitación se ata cuando ENTRA con ese email | `lib/grupo-app.ts` → `avisarInvitacion`; `lib/grupo-invitaciones.ts` → `atarInvitacionesAlEntrar`, desde `registrarLogin` (`lib/usuarios.ts`) |
+| El recorrido de Joan de punta a punta: abrir, invitar, aviso, link en el teléfono, leer, escribir, MaKo, avisos, salir; y el de quien no tiene cuenta | `tests/grupos-ops-recorrido.test.ts` |
+| Las rutas del grupo, clasificadas para la cuenta de revisión de las tiendas: cortadas (invitar manda mails a terceros) | `tests/cuenta-revision-escrituras.snapshot.txt` |
 
 Cada arreglo, probado rompiéndolo: los números están al pie de cada test. Lo que costó: `docs/hallazgos-ops-center.md` →
 «El grupo de la app, llevado a main».

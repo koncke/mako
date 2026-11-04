@@ -30,7 +30,7 @@ import { avisosParaAgencia } from './avisos-catalogo';
 import { letraVigente, miembrosDelGrupo, type PersonaDelGrupo } from './grupo-puerta';
 import {
   AVISO_DE_INVITACION_CADA_MS, POR_PAGINA, TOPE_INVITACIONES_POR_HORA, TOPE_INVITADOS, autorDePersona, esPathDelGrupo, filaAlHilo, laVeUnInvitado, sinLinksParaInvitado,
-  msgDeFila, textoParaComparar, tituloDelGrupo, tituloParaInvitado, type AdjuntoGrupo, type FilaGrupo, type MensajeDelHilo, type TipoAdjuntoGrupo,
+  msgDeFila, textoInvitacionSinCuenta, textoParaComparar, tituloDelGrupo, tituloParaInvitado, type AdjuntoGrupo, type FilaGrupo, type MensajeDelHilo, type TipoAdjuntoGrupo,
 } from './grupo-reglas';
 import type { PartePreparada } from './mako-tarjeta';
 
@@ -450,7 +450,9 @@ export type Resultado = { ok: true } | { ok: false; status: number; error: strin
  * ⚠️ LA RESPUESTA ES IDÉNTICA TENGA O NO CUENTA, y el aviso sale después de responder: sin eso, invitar sirve para averiguar quién usa MaKo.
  * ⚠️ `desde_id` se lee con chequeo de error y, si falla, NO se escribe nada: `getSupabaseServer` no tira, devuelve `{ data: null }`, y un 0 le abriría al
  * invitado el historial entero sin que nada lo diga. Un grupo vacío da 0 de verdad.
- * ⚠️ Una cuenta creada después NO entra sola: no consta que el email esté verificado. Se invita de nuevo, sin sacarla antes: la fila anotada sin cuenta se vuelve a escribir, con su cuenta y viendo desde hoy.
+ * ⚠️ QUIEN NO TIENE CUENTA TAMBIÉN SE ENTERA (4/11/2026, el pedido de Joan): le llega el mail con el link, y la invitación se ata a su cuenta la primera vez que
+ * ENTRA con ese email (`atarInvitacionesAlEntrar`, lib/grupo-invitaciones.ts, desde `registrarLogin`), no al crearla: crear una cuenta no prueba que el email sea suyo; entrar, sí (el link
+ * del mail, Google o su contraseña). Volver a invitarla también la deja entrar, sin sacarla antes, viendo desde hoy. No se crea ninguna cuenta.
  * No toca `usuarios` ni `/api/equipo`, que rechaza un email que ya existe.
  */
 export async function invitarAlGrupo(ws: number, emailCrudo: string, invito: { usuarioId: number | null; nombre: string }): Promise<Resultado> {
@@ -486,13 +488,17 @@ export async function invitarAlGrupo(ws: number, emailCrudo: string, invito: { u
       workspace_id: ws, email, usuario_id: usuario ? Number(usuario.id) : null, invito_usuario_id: invito.usuarioId, desde_id: desdeId, invitado_at: ahora, abrio_at: null, salio_at: null,
     }, { onConflict: 'workspace_id,email' });
     if (eIns) { console.error(`[grupo-app] ws${ws}: no pude invitar: ${eIns.message}`); return { ok: false, status: 500, error: 'No pude invitar: vuelve a intentarlo.' }; }
-    if (usuario) await porDetras(() => avisarInvitacion(ws, email, Number(usuario.id), invito.nombre));
+    // Con cuenta o sin ella, el aviso sale (después de responder: la respuesta no dice si la cuenta existe).
+    await porDetras(() => avisarInvitacion(ws, email, usuario ? Number(usuario.id) : null, invito.nombre));
   }
   return { ok: true };
 }
 
-/** El aviso de la invitación: a quien tiene cuenta, y como mucho uno cada 24 h por (negocio, email), también si lo sacan y lo vuelven a invitar. */
-async function avisarInvitacion(ws: number, email: string, usuarioId: number, deQuien: string): Promise<void> {
+/**
+ * El aviso de la invitación, como mucho uno cada 24 h por (negocio, email), también si lo sacan y lo vuelven a invitar. Con cuenta, un push y un mail; sin cuenta,
+ * sólo el mail, que dice que el grupo aparece al entrar a MaKo con ese email (`atarInvitacionesAlEntrar`, lib/grupo-invitaciones.ts).
+ */
+async function avisarInvitacion(ws: number, email: string, usuarioId: number | null, deQuien: string): Promise<void> {
   const corte = new Date(Date.now() - AVISO_DE_INVITACION_CADA_MS).toISOString();
   const ahora = new Date().toISOString();
   // Compare-and-set: dos invitaciones a la vez dan UN aviso.
@@ -501,9 +507,12 @@ async function avisarInvitacion(ws: number, email: string, usuarioId: number, de
   if (error || !(data ?? []).length) return;
   const nombre = (await getWorkspace(ws).catch(() => null))?.nombre ?? 'un negocio';
   const titulo = tituloParaInvitado(nombre, false);
-  const cuerpo = `${deQuien.trim() || 'Alguien'} te invitó a su grupo. Si no es tu negocio, puedes salir.`;
-  const { enviarPushAMiembros } = await import('./push');
-  await enviarPushAMiembros([usuarioId], { tipo: 'mako-grupo', titulo, cuerpo, ruta: `/second-brain?grupo=${ws}`, tag: `grupo:${ws}`, ttl: 24 * 3600 });
+  const quien = deQuien.trim() || 'Alguien';
+  const cuerpo = usuarioId != null ? `${quien} te invitó a su grupo. Si no es tu negocio, puedes salir.` : textoInvitacionSinCuenta(quien);
+  if (usuarioId != null) {
+    const { enviarPushAMiembros } = await import('./push');
+    await enviarPushAMiembros([usuarioId], { tipo: 'mako-grupo', titulo, cuerpo, ruta: `/second-brain?grupo=${ws}`, tag: `grupo:${ws}`, ttl: 24 * 3600 });
+  }
   const [{ sendEmail }, { renderEmailHtml }] = await Promise.all([import('./resend'), import('./email-html')]);
   const html = renderEmailHtml({ subject: titulo, titulo, bodyText: cuerpo, marca: 'mako', cta: { texto: 'Abrir MaKo', url: linkApp(`/second-brain?grupo=${ws}`, null) } });
   await sendEmail({ to: email, subject: titulo, html, text: cuerpo, from: REMITENTE_MAKO, replyTo: EMAIL_MAKO } as Parameters<typeof sendEmail>[0]).catch((e: unknown) => console.warn(`[grupo-app] mail de invitación: ${e instanceof Error ? e.message : String(e)}`));
