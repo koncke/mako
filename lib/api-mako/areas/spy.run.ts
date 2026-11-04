@@ -152,8 +152,7 @@ export const RUNNERS: Runners = {
         const f = lectura.principal;
         out.push('', f ? `**Su funnel:** ${f.label} (${f.que ?? ''})` : '**Su funnel:** no se ve en lo que publica.');
         if (f) {
-          out.push(contenidoNoConfiable(f.evidencias.map((e) => `- ${e.etiqueta}: «${e.cita}»`).join('
-'), 'evidencia_del_funnel'));
+          out.push(contenidoNoConfiable(f.evidencias.map((e) => `- ${e.etiqueta}: «${e.cita}»`).join('\n'), 'evidencia_del_funnel'));
           if (lectura.otros.length) out.push(`**También usa:** ${lectura.otros.map((o) => o.label).join(' · ')}`);
         }
       }
