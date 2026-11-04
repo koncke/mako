@@ -10,7 +10,8 @@
 //   - runnerDeLaCuenta sin mirar el latido → «un chat llamado Runner sin latido»;
 //   - tomarUnaVez sin `wx` → «sólo el primer chat» y «dos corridas»;
 //   - alAbrir sin mirar el nombre → «un Runner no se encarga a sí mismo»;
-//   - esRunner sin anclar el nombre → «la corrida de la guardia»;
+//   - contar toda corrida de la guardia como Runner → «la corrida de la guardia, con su nombre»;
+//   - no anotar quién tomó el puesto → «la corrida que tomó el puesto»;
 //   - alAbrir sin mirar el origen → «al compactar» y «por el hook de verdad»;
 //   - el hook sin pasarle el origen → «por el hook de verdad».
 // Y un cambio sin efecto (renombrar una variable local) lo deja verde.
@@ -171,8 +172,15 @@ test('Runner vivo: chat de esta cuenta y latido fresco, también bajo su jefe', 
 
 test('la corrida de la guardia, con su nombre, no se cuenta como el Runner que busca', () => {
   const p = pc();
-  p.chatVivo(1, 'Guardia del Runner'); p.latido(0);
+  p.chatVivo(1, 'Guardia > Runner'); p.latido(0);
   assert.equal(JSON.parse(p.correr('estado')).runner.vivo, false);
+});
+
+test('la corrida que tomó el puesto sí es el Runner, aunque no la hayan dejado renombrarse', () => {
+  const p = pc();
+  const yo = p.chatVivo(1, 'Guardia > Runner'); p.latido(0);
+  assert.equal(p.correr('tomar', { CLAUDE_CODE_HOST_SESSION_ID: yo }), 'TOMADO');
+  assert.equal(JSON.parse(p.correr('estado')).runner.vivo, true);
 });
 
 test('medirYa: sin medición, o con una de más de 30 minutos', () => {
@@ -184,14 +192,14 @@ test('medirYa: sin medición, o con una de más de 30 minutos', () => {
   assert.equal(JSON.parse(p.correr('estado')).medirYa, true);
 });
 
-test('sin Runner, se lo encarga sólo al primer chat que abre', () => {
+test('sin Runner, se lo dice sólo al primer chat que abre', () => {
   const p = pc();
   p.guardia();
   const primero = p.correr('al-abrir');
   assert.match(primero, /NO HAY RUNNER EN claude5/);
-  assert.match(primero, /run_scheduled_task con taskId runner-guardia-claude5/);
+  assert.match(primero, /Lo levanta sola la tarea runner-guardia-claude5/);
   assert.ok(!/["\\\n]/.test(primero), 'va adentro de un JSON armado a mano');
-  assert.equal(p.correr('al-abrir'), '', 'el segundo chat no lanza otra corrida');
+  assert.equal(p.correr('al-abrir'), '', 'el segundo chat no recibe el mismo aviso');
 });
 
 test('una cuenta sin su guardia recibe el encargo de crearla, aunque otra cuenta tenga la suya', () => {
@@ -202,7 +210,7 @@ test('una cuenta sin su guardia recibe el encargo de crearla, aunque otra cuenta
 });
 
 test('un Runner o una corrida de la guardia no se encargan a sí mismos', () => {
-  for (const nombre of ['Runner', 'Guardia del Runner']) {
+  for (const nombre of ['Runner', 'Guardia > Runner']) {
     const p = pc();
     p.guardia();
     writeFileSync(join(p.dir, '..', 'sessions', '777.json'), JSON.stringify({ name: nombre }));

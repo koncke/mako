@@ -43,7 +43,7 @@ const LOG = path.join(DIR, 'runner-salud.log');
 export const LATIDO_VIVO_MS = 6 * 60 * 1000;
 /** La vuelta del Runner mide cada 10 min: pasado esto, nadie está midiendo. */
 export const MEDIDO_VIEJO_MS = 30 * 60 * 1000;
-/** De los chats que abren juntos, sólo el primero recibe el encargo de levantarlo. */
+/** De los chats que abren juntos, sólo el primero recibe el aviso o el encargo. */
 const PEDIDA_VENCE_MS = 10 * 60 * 1000;
 /** Lo que tarda una corrida en armar el cron y el Monitor: pasado esto, otra puede intentarlo. */
 const TOMA_VENCE_MS = 10 * 60 * 1000;
@@ -55,7 +55,8 @@ const anotar = (linea) => { try { fs.appendFileSync(LOG, `${new Date().toISOStri
 
 /** El mismo criterio de `esElCartero` en cartero.mjs: se mira el último tramo del título. */
 export const esRunner = (nombre) => /^(runner|cartero)\b/i.test(String(nombre ?? '').split(/[›>]/).pop().trim());
-export const esGuardia = (nombre) => /^guardia del runner\b/i.test(String(nombre ?? '').trim());
+/** La tarea se llama «Guardia > Runner»: cartero.mjs la deja entregar sin renombrarla, porque renombrar puede estar vedado en una corrida sin nadie. */
+export const esGuardia = (nombre) => /^guardia\b/i.test(String(nombre ?? '').trim());
 export const idDeLaGuardia = (cuenta) => `runner-guardia-${cuenta}`;
 
 /** La cuenta de este chat, medida. `cuenta: null` con uuid es una cuenta que nadie declaró; sin uuid, un chat que no es de la app. */
@@ -97,10 +98,12 @@ export function runnerDeLaCuenta({ uuid, ahora = Date.now() }) {
   let archivos = [];
   try { archivos = fs.readdirSync(SESIONES).filter((f) => /^\d+\.json$/.test(f)); } catch { /* sin registro: sin Runner */ }
   const deLaCuenta = uuid ? chatsDeLaCuenta(uuid) : null;
+  const puesto = leerJson(path.join(DIR, 'guardia-puesto.json'), null)?.chat ?? null;
   const chats = [];
   for (const f of archivos) {
     const s = leerJson(path.join(SESIONES, f), null);
     if (!s || !esRunner(s.name) || !vive(s.pid)) continue;
+    if (esGuardia(s.name) && s.hostSessionId !== puesto) continue; // una corrida de la guardia es el Runner sólo si tomó el puesto
     if (deLaCuenta && !deLaCuenta.has(s.hostSessionId)) continue;
     chats.push(s.hostSessionId ?? s.sessionId);
   }
@@ -147,7 +150,11 @@ function tomarUnaVez(archivo, venceMs, ahora) {
   try { fs.writeFileSync(archivo, String(process.pid), { flag: 'wx' }); return true; } catch { return false; }
 }
 
-export const tomarPuesto = (ahora = Date.now()) => tomarUnaVez(path.join(DIR, 'guardia-toma'), TOMA_VENCE_MS, ahora);
+export function tomarPuesto(env = process.env, ahora = Date.now()) {
+  if (!tomarUnaVez(path.join(DIR, 'guardia-toma'), TOMA_VENCE_MS, ahora)) return false;
+  fs.writeFileSync(path.join(DIR, 'guardia-puesto.json'), JSON.stringify({ chat: env.CLAUDE_CODE_HOST_SESSION_ID ?? null, at: new Date(ahora).toISOString() }));
+  return true;
+}
 
 /** El nombre de este chat, si ya está registrado. Una corrida de la guardia y el Runner no reciben encargos sobre sí mismos. */
 function nombrePropio(env) {
@@ -176,7 +183,7 @@ export function alAbrir(origen, env = process.env, ahora = Date.now()) {
   if (!tarea.existe) {
     partes.push(`ESTA CUENTA (${cuenta}) NO TIENE LA GUARDIA DEL RUNNER: antes de contestar, lee ~/.claude/operaciones/guardia-runner.md, seccion Crear la guardia, y hacelo. Sin eso lo que Martin escribe en el Ops Center no le llega a nadie. No hace falta comentarselo.`);
   } else if (!runner.vivo) {
-    partes.push(`NO HAY RUNNER EN ${cuenta} (${runner.motivo}): lo que Martin escribe en el Ops Center no llega y el Uso no se mide. Antes de contestar, llama a mcp__scheduled-tasks__run_scheduled_task con taskId ${idDeLaGuardia(cuenta)} (cargala con ToolSearch): esa corrida se convierte en el Runner. No hace falta comentarselo.`);
+    partes.push(`NO HAY RUNNER EN ${cuenta} (${runner.motivo}): lo que Martin escribe en el Ops Center sale recien cuando se levante. Lo levanta sola la tarea ${idDeLaGuardia(cuenta)} en su proxima corrida, en menos de 30 minutos, y Martin puede adelantarla con Run now en Scheduled. No tenes que hacer nada: si pregunta por un mensaje suyo, decile esto.`);
   }
   anotar(`al-abrir ${cuenta}: tarea=${tarea.existe} runner=${runner.vivo}`);
   return partes.join(' ');
