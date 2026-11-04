@@ -11,6 +11,8 @@
 //   · `ofertaQueQueda` que pisa con una vacía                       → 5
 //   · el análisis volviendo a `chatClaude` (la IA de la plataforma) → 6
 //   · `opcionesDeContenido` sin «Agregar su Instagram»              → 7
+//   · `faltaAnalisis` sin pedir el formato a lo ya leído            → 1 y 2   (el detalle, 4/11)
+//   · `pendientesDeAnalisis` que no pone primero lo nunca leído    → 2
 // Correr: node --import tsx --test tests/spy-analisis.test.ts
 // =============================================================================
 
@@ -32,14 +34,18 @@ const pieza = (ref: string, vistas: number | null, analisis: unknown = null, can
 test('1. falta el análisis sólo si nunca se leyó; uno vacío ya cuenta como leído', () => {
   assert.equal(faltaAnalisis(pieza('a', 10)), true);
   assert.equal(faltaAnalisis(pieza('a', 10, ANALISIS_SIN_DATOS)), false);
-  assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x' })), false);
+  assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x', formato: 'pov' })), false);
+  assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x', formato: 'otro' })), false, 'la IA no vio el formato: no se vuelve a pedir');
+  assert.equal(faltaAnalisis(pieza('a', 10, { gancho: 'x' })), true, 'lo analizado antes del formato se lee una vez más');
   // La web se lee aparte (su funnel): no es una pieza que lea esta IA.
   assert.equal(faltaAnalisis(pieza('https://x.com', null, null, 'landing')), false);
 });
 
 test('2. primero lo más visto, lo que no publica sus vistas al final, y de a una tanda', () => {
-  const ps = [pieza('chico', 5), pieza('sin', null), pieza('grande', 900), pieza('medio', 50), pieza('leido', 5000, { gancho: 'g' })];
+  const ps = [pieza('chico', 5), pieza('sin', null), pieza('grande', 900), pieza('medio', 50), pieza('leido', 5000, { gancho: 'g', formato: 'pov' })];
   assert.deepEqual(pendientesDeAnalisis(ps).map((p) => p.ref), ['grande', 'medio', 'chico', 'sin']);
+  // Lo leído antes del formato va DESPUÉS de lo que nunca se leyó, aunque tenga más vistas.
+  assert.deepEqual(pendientesDeAnalisis([pieza('sinFormato', 9000, { gancho: 'g' }), pieza('nueva', 3)]).map((p) => p.ref), ['nueva', 'sinFormato']);
   const muchas = Array.from({ length: 70 }, (_, i) => pieza(`p${i}`, i));
   assert.equal(pendientesDeAnalisis(muchas).length, PIEZAS_POR_ANALISIS);
   assert.equal(pendientesDeAnalisis(muchas)[0].ref, 'p69');
@@ -48,7 +54,7 @@ test('2. primero lo más visto, lo que no publica sus vistas al final, y de a un
 });
 
 test('3. cuántas faltan: con eso la pantalla dibuja «Analizando…» y deja de preguntar en cero', () => {
-  assert.equal(cuantasFaltan([pieza('a', 1), pieza('b', 2, ANALISIS_SIN_DATOS), pieza('c', 3, { gancho: 'x' })]), 1);
+  assert.equal(cuantasFaltan([pieza('a', 1), pieza('b', 2, ANALISIS_SIN_DATOS), pieza('c', 3, { gancho: 'x', formato: 'lista' })]), 1);
   assert.equal(cuantasFaltan([]), 0);
 });
 
