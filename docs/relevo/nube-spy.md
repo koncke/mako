@@ -19,8 +19,7 @@ quedaron arreglados antes de entrar: `cuenta-revision-escrituras` (las rutas nue
 Lo que espera a Martín:
 1. Mirar en el ws 3, con un competidor real, el gráfico, la pestaña Funnel con su oferta y el detalle de una pieza con su
    guion («Transcribiendo…» y después el texto).
-2. Prender los anuncios: correr una vez desde la PC `scripts/probar-anuncios-apify.mjs` y, si los trae bien y el costo cabe,
-   cambiar `ANUNCIOS_POR_APIFY` a `true` (diseño §14).
+2. ~~Prender los anuncios~~: prendidos el 4/11 con la medición del Cerebro (`punta/spy-anuncios-apify`, cuarta vuelta).
 3. El guion de los videos de YouTube a un negocio SIN su Gemini: ¿con la clave de Gemini de la plataforma? (abajo).
 
 ## Cómo se sube
@@ -82,6 +81,35 @@ verde, llega sola a `main`.
 | El recorrido que señala lo nuevo | Hecho: el Recorrido de la casa (se oscurece y señala) con seis pasos: volver, más acciones, lo que mejor le fue, la grilla, la pestaña Funnel y el «?» para volver a verlo | `punta/spy-recorrido` (en `main`) | Mirarlo en pantalla con un competidor real |
 | «Sus páginas» bloqueada (Beacons de Den Borg, 403 de Cloudflare): «que no se bloquee, y que funcione todo» | Hecho: sin cartel técnico (la carga de la casa y después «Abrir»), y el desafío de un antibots ya no se lee como la página. El desafío NO se evade (el Cerebro lo confirmó el 4/11) | `punta/spy-paginas-bloqueadas` (en `main`) | La pantalla con la página real (desde la nube no se llega a Beacons) |
 | El guion de un video de YouTube (Cerebro: «Con Gemini le pides y te lo da entero») | Hecho: el Gemini DEL NEGOCIO lo transcribe desde su enlace (`fileData.fileUri`, sin bajar nada), por tramos de 10 min hasta los primeros 30, de a uno; un «high demand» o el tope del día (20 videos) lo dejan pendiente sin cartel ni fallo («Lo transcribo más tarde.»), y se vuelve a pedir al abrirlo desde esa hora | `punta/spy-guion-yt` | **Ningún pedido real**: las 7 pruebas desde la PC dieron 503. El costo por minuto (`usageMetadata`) queda en `anthropic_usage` con `feature='spy'` y motivo «…un video de YouTube»: medirlo con el primero que salga |
+
+## Cuarta vuelta (Martín probó el alta de Leila Hormozi y a Federico Cristofari en producción, 4/11/2026 tarde)
+
+**Cerebro: desde esta nube no te puedo escribir** (`send_message` contesta «elevated_session_untrusted_device»: la sesión no
+puede llegar a las de la PC). Todo lo mío va acá; el resto de la tanda, en el orden en que lo subo.
+
+| Qué pidió | Estado | Rama | Sin probar contra el servicio |
+|---|---|---|---|
+| La animación de la caricatura y las tarjetitas volando al gráfico | Hecho y **en `main` desde las 16:39 UTC** | `punta/spy-entrada` | Mirarla en producción con un competidor nuevo |
+| «Encontró su YouTube… no se cargaron sus videos… como si hubiese apretado en deshacer» | Hecho. **La causa, medida en el código:** al sumarse el canal solo, la ficha releía TODO (`leer(id, false)`, sin motivo: Instagram otra vez por Apify y sin la lectura compartida) en una acción con 60 s de techo, que se cortaba antes de llegar a YouTube; el canal quedaba en la ficha sin un video. Ahora se lee sólo el canal nuevo (`solo`), con la lectura compartida y un reintento; decir «Es» hace lo mismo; y la ficha que ya quedó así (su YouTube sin videos) lo trae sola al abrirse | `punta/spy-canal-sumado` (en `main`) | Abrir la ficha de Leila: tiene que traer sus videos sola |
+| El aviso de la red con su logo («Encontré a Leila en YouTube») | Hecho: su foto con el logo de la red en la esquina, «Su YouTube» / «¿Es su YouTube?», su nombre como link (↗) y «Trayendo sus videos…» mientras llegan; «Deshacer» espera a que termine | `punta/spy-canal-sumado` (en `main`) | — |
+| «2 veces saltó el cartel de YouTube» (Federico Cristofari) | Hecho: el mismo canal llegaba por su @ y por su `UC…`; ahora se reconoce por el id que devuelve la API, también en la ruta y en la pantalla. Una pregunta a la vez (la de más evidencia, su YouTube primero), con «Ver otro» y sus suscriptores para distinguir dos con el mismo nombre. La fila de la miga ya no se parte en la computadora | `punta/spy-redes-una` | — (dibujado a 1000, 1280 y 390) |
+| «No estoy viendo todavía los anuncios» | Hecho y **prendido** (`ANUNCIOS_POR_APIFY = true`, con tu medición): nada se guarda sin verificar de quién es (el de «Skool» queda afuera); su Página se aprende de los verificados y la próxima va por `view_all_page_id`; si por su nombre no hay ninguno suyo se prueba su @ y su web, y probadas todas la ficha dice «Sin anuncios activos en Meta · lo miré el …» con la Biblioteca a un clic, sin cartel. La corrida pide lo que deja el crédito del mes (antes empezaba con los 200 de siempre aunque el crédito dijera menos) | `punta/spy-anuncios-apify` | **La primera corrida real**: que el actor traiga `pageID` (si no, la Página se verifica por nombre, como hoy) |
+| La caricatura sin recargar, con un placeholder | Hecho: la tarjeta muestra su foto suavizada con «Haciendo su caricatura…» mientras está en la cola, y la nueva entra sola con un fundido (la pantalla pregunta a `/api/competitor-spy/caricaturas` cada 5 s mientras haya alguna en camino) | `punta/spy-caricatura-viva` | Con el Runner haciendo una de verdad |
+
+**Para medir en la base (te lo dejo, Cerebro): el YouTube de Leila, ws 9.**
+
+```sql
+select id, nombre, instagram, youtube_id, mirado_en from spy_competidores where workspace_id = 9 and nombre ilike '%leila%';
+select canal, count(*) from spy_piezas where competidor_id = <ese id> group by canal;
+```
+
+Si `youtube_id` está y no hay piezas de `youtube`, es exactamente el corte de arriba: al abrir su ficha (ya con
+`punta/spy-canal-sumado`) se lee sola.
+
+**Lo que sigue de esta tanda, en este orden:** el loader del alta sin un cuadro del detalle y con mensajes que cambian; las
+tarjetas de «Todas sus piezas» (que no se estiren y que los chips no pisen nada); los esqueletos por sección; sacar «Piezas · N
+publicadas» de debajo del perfil; y «Sus páginas» sin iframes que no se puedan verificar (el acortador resuelto a su destino, y
+la foto guardada con la extensión cuando la página tiene barrera).
 
 ### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
 
