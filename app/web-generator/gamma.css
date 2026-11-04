@@ -25,15 +25,20 @@
        botones de 28 px y un «pulgar» blanco de 36×28 que se desliza con 280ms
        cubic-bezier(0.34, 1.4, 0.64, 1) (el rebote de Gamma).
 
-   LA LETRA: la UI de Gamma es PP Mori (Pangram Pangram), que NO está en Google Fonts. La más
-   cercana libre es INSTRUMENT SANS: grotesca de proporción compacta y curvas apenas
-   cuadradas, como Mori, con los pesos que usa la UI (400, 500, 600, 700). La hoja la carga
-   EditorLanding con un <link> (URL_FUENTE_CHROME): un @import remoto acá dependería de cómo
-   Turbopack trata una URL externa en una hoja importada desde un componente, y eso no se
-   midió. Si la fuente no llega, cae a Geist (la carga el layout raíz para toda la app).
+   LOS VALORES (31/10/2026): la ESTRUCTURA sigue siendo la de Gamma (qué barra, qué panel, qué menú). Los
+   VALORES —letra, escala, paleta, radios, sombras, curvas— son los de TILVO, medidos con getComputedStyle
+   (docs/diseno/tokens-codeandchill.json y tilvo-oscuro-y-piezas.json), porque Martín mandó copiar esas plantillas
+   a toda la app (AGENTS.md, «NINGUNA pantalla se diseña de cero», punto 3: de un competidor se copia la estructura;
+   de una referencia de estilo, los números). Por eso los nombres de la escala (--gma-t500, --gma-b600) quedan y
+   adentro ya no hay un gris de Gamma.
+
+   LA LETRA: Urbanist (Google Fonts, SIL OFL), base 14 sobre 20,3. La hoja la carga EditorLanding con un <link>
+   (URL_FUENTE_CHROME): un @import remoto acá dependería de cómo Turbopack trata una URL externa en una hoja
+   importada desde un componente, y eso no se midió.
 
    MODO OSCURO: el de MaKo (`[data-tema="oscuro"]` en <html>, AGENTS.md «Una pantalla oscura
-   se hace redefiniendo TOKENS»), con las superficies «elevation» de Gamma (#1a1b1d → #515c68).
+   se hace redefiniendo TOKENS»), con los valores de Tilvo en oscuro: no es la paleta clara oscurecida, se invierte
+   la luminosidad del acento y la sombra es negro real.
    ⚠️ En el visor de Gamma el chrome también se oscurece cuando el TEMA de la landing es
    oscuro. Eso NO se copia: los menús y diálogos van portaleados al <body> y no heredarían un
    atributo puesto en la raíz del editor; el de <html> sí les llega.
@@ -41,29 +46,29 @@
 
 .gma {
   /* titanium (gray) */
-  --gma-t50: #f5f5f6;
-  --gma-t100: #ececed;
-  --gma-t200: #dfdfe0;
-  --gma-t300: #cacacb;
-  --gma-t400: #aeaeb2;
-  --gma-t500: #8b8b90;
-  --gma-t600: #66666b;
-  --gma-t700: #4d4d51;
-  --gma-t800: #38383c;
-  --gma-t900: #252527;
-  --gma-t950: #131314;
+  --gma-t50: #f3f5f8;
+  --gma-t100: #e3e7ee;
+  --gma-t200: #12182626;
+  --gma-t300: #12182640;
+  --gma-t400: #7d8aa1;
+  --gma-t500: #6c7a94;
+  --gma-t600: #5a6477;
+  --gma-t700: #2f3747;
+  --gma-t800: #2f3747;
+  --gma-t900: #121826;
+  --gma-t950: #0c0f14;
   /* trueblue / deepocean (blue) */
-  --gma-b50: #ebf3fe;
-  --gma-b100: #d0e6fe;
-  --gma-b200: #aad5fe;
-  --gma-b300: #84c1fa;
-  --gma-b400: #63acf7;
-  --gma-b500: #2c88f7;
-  --gma-b600: #0858f7;
-  --gma-b700: #0740df;
-  --gma-b800: #0540ad;
-  --gma-b900: #0b2e79;
-  --gma-b950: #002253;
+  --gma-b50: #1f55d61a;
+  --gma-b100: #dbe6fb;
+  --gma-b200: #8eafff;
+  --gma-b300: #9ab7ff;
+  --gma-b400: #6e98ff;
+  --gma-b500: #1f55d6;
+  --gma-b600: #1f55d6;
+  --gma-b700: #1946b8;
+  --gma-b800: #1a49bf;
+  --gma-b900: #1946b8;
+  --gma-b950: #121826;
   /* aurora (purple) */
   --gma-a50: #f8f6ff;
   --gma-a100: #f2ecff;
@@ -72,61 +77,63 @@
   --gma-a700: #8131dc;
   --gma-a800: #6623ad;
   /* evergreen y calamity, para los estados */
-  --gma-verde: #2c8c2c;
-  --gma-rojo: #dc2626;
-  --gma-rojo-fondo: #fef2f2;
+  --gma-verde: #176a3d;
+  --gma-rojo: #b42a26;
+  --gma-rojo-fondo: #b42a261a;
 
   /* lo que leen las piezas (lo que cambia en oscuro) */
-  --gma-fondo-app: var(--gma-t50);
-  --gma-superficie: #ffffff;
-  --gma-superficie-2: var(--gma-t50);
-  --gma-superficie-3: var(--gma-t100);
-  --gma-borde: var(--gma-t200);
-  --gma-borde-suave: rgba(0, 0, 0, 0.06);
-  --gma-texto: var(--gma-t700);
-  --gma-texto-fuerte: var(--gma-t800);
-  --gma-tenue: var(--gma-t500);
-  --gma-hover: var(--gma-t100);
-  --gma-presionado: var(--gma-t200);
-  --gma-primario: var(--gma-b800);
-  --gma-primario-hover: var(--gma-b700);
+  --gma-fondo-app: #eef1f5;
+  --gma-superficie: #fbfcfd;
+  --gma-superficie-2: #f3f5f8;
+  --gma-superficie-3: #e3e7ee;
+  --gma-borde: #12182626;
+  --gma-borde-suave: #12182614;
+  --gma-texto: #121826;
+  --gma-texto-fuerte: #121826;
+  --gma-tenue: #5a6477;
+  --gma-hover: #1218260d;
+  --gma-presionado: #e3e7ee;
+  --gma-primario: #1f55d6;
+  --gma-primario-hover: #1946b8;
   --gma-sobre-primario: #ffffff;
-  --gma-secundario: var(--gma-b100);
-  --gma-secundario-hover: var(--gma-b200);
-  --gma-sobre-secundario: var(--gma-b950);
-  --gma-activo: var(--gma-b100);
-  --gma-sobre-activo: var(--gma-b800);
-  --gma-seleccion: var(--gma-b500);
-  --gma-icono-bloque: var(--gma-b600);
-  --gma-menu: #ffffff;
-  --gma-sobre-menu: var(--gma-t800);
-  --gma-tooltip: var(--gma-t800);
-  --gma-sobre-tooltip: var(--gma-t50);
-  --gma-modo-fondo: var(--gma-t100);
-  --gma-pulgar: #ffffff;
-  --gma-lienzo-vacio: var(--gma-t100);
+  --gma-secundario: #dbe6fb;
+  --gma-secundario-hover: #1f55d62e;
+  --gma-sobre-secundario: #1a49bf;
+  --gma-activo: #dbe6fb;
+  --gma-sobre-activo: #1a49bf;
+  --gma-seleccion: #1f55d6;
+  --gma-icono-bloque: #1f55d6;
+  --gma-menu: #fbfcfd;
+  --gma-sobre-menu: #121826;
+  --gma-tooltip: #121826;
+  --gma-sobre-tooltip: #eef1f5;
+  --gma-modo-fondo: #e3e7ee;
+  --gma-pulgar: #fbfcfd;
+  --gma-lienzo-vacio: #e3e7ee;
 
   /* medidas */
   --gma-alto-barra: 48px;
   --gma-alto-boton: 32px;
   --gma-alto-item: 28px;
-  --gma-radio-pildora: 9999px;
-  --gma-radio-menu: 16px;
-  --gma-radio-item: 6px;
-  --gma-radio-xl: 12px;
-  --gma-radio-lg: 8px;
-  --gma-sombra-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --gma-sombra-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --gma-sombra-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --gma-sombra-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  --gma-sombra-menu: 0 8px 16px rgba(0, 0, 0, 0.15);
-  --gma-sombra-avatar: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --gma-rebote: cubic-bezier(0.34, 1.4, 0.64, 1);
-  --gma-fuente: 'Instrument Sans', 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --gma-radio-pildora: 12px;
+  --gma-radio-menu: 18px;
+  --gma-radio-item: 10px;
+  --gma-radio-xl: 14px;
+  --gma-radio-lg: 10px;
+  --gma-sombra-sm: 0 1px 2px #1218260d;
+  --gma-sombra-md: 0 1px 2px #1218260d, 0 10px 26px -16px #12182638;
+  --gma-sombra-lg: 0 2px 6px #12182612, 0 28px 60px -24px #12182657;
+  --gma-sombra-xl: 0 2px 6px #12182612, 0 28px 60px -24px #12182657;
+  --gma-sombra-menu: 0 2px 6px #12182612, 0 28px 60px -24px #12182657;
+  --gma-sombra-avatar: 0 1px 2px #1218260d;
+  --gma-sombra-tarjeta: inset 0 0 0 1px #12182614, 0 1px 2px #1218260d, 0 10px 26px -16px #12182638;
+  --gma-curva: cubic-bezier(.22, 1, .36, 1);
+  --gma-rebote: cubic-bezier(.25, 1.1, .4, 1);
+  --gma-fuente: 'Urbanist', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   font-family: var(--gma-fuente);
   font-size: 14px;
-  line-height: 21px;
+  line-height: 20.3px;
   font-weight: 500;
   color: var(--gma-texto);
   -webkit-font-smoothing: antialiased;
@@ -135,34 +142,43 @@
 
 /* El oscuro de MaKo → las superficies «elevation» de Gamma (1 #1a1b1d … 6 #515c68). */
 [data-tema="oscuro"] .gma {
-  --gma-fondo-app: #1a1b1d;
-  --gma-superficie: #1d1f22;
-  --gma-superficie-2: #212327;
-  --gma-superficie-3: #2f3339;
-  --gma-borde: #3d444c;
-  --gma-borde-suave: rgba(255, 255, 255, 0.08);
-  --gma-texto: var(--gma-t200);
-  --gma-texto-fuerte: var(--gma-t50);
-  --gma-tenue: var(--gma-t400);
-  --gma-hover: #2f3339;
-  --gma-presionado: #3d444c;
-  --gma-primario: var(--gma-b300);
-  --gma-primario-hover: var(--gma-b200);
-  --gma-sobre-primario: var(--gma-b950);
-  --gma-secundario: #3d444c;
-  --gma-secundario-hover: #515c68;
-  --gma-sobre-secundario: var(--gma-t300);
-  --gma-activo: rgba(44, 136, 247, 0.22);
-  --gma-sobre-activo: var(--gma-b200);
-  --gma-icono-bloque: var(--gma-b300);
-  --gma-menu: var(--gma-t950);
-  --gma-sobre-menu: var(--gma-t200);
-  --gma-tooltip: var(--gma-t100);
-  --gma-sobre-tooltip: var(--gma-t900);
-  --gma-modo-fondo: #2f3339;
-  --gma-pulgar: #515c68;
-  --gma-lienzo-vacio: #131314;
-  --gma-rojo-fondo: rgba(220, 38, 38, 0.16);
+  --gma-fondo-app: #0c0f14;
+  --gma-superficie: #151a22;
+  --gma-superficie-2: #11151c;
+  --gma-superficie-3: #232a37;
+  --gma-borde: #e8ecf329;
+  --gma-borde-suave: #e8ecf314;
+  --gma-texto: #e8ecf3;
+  --gma-texto-fuerte: #e8ecf3;
+  --gma-tenue: #99a2b3;
+  --gma-hover: #e8ecf314;
+  --gma-presionado: #232a37;
+  --gma-primario: #6e98ff;
+  --gma-primario-hover: #8eafff;
+  --gma-sobre-primario: #0b1222;
+  --gma-secundario: #6e98ff24;
+  --gma-secundario-hover: #6e98ff40;
+  --gma-sobre-secundario: #9ab7ff;
+  --gma-activo: #6e98ff24;
+  --gma-sobre-activo: #9ab7ff;
+  --gma-icono-bloque: #9ab7ff;
+  --gma-menu: #151a22;
+  --gma-sobre-menu: #e8ecf3;
+  --gma-tooltip: #e8ecf3;
+  --gma-sobre-tooltip: #0c0f14;
+  --gma-modo-fondo: #232a37;
+  --gma-pulgar: #151a22;
+  --gma-lienzo-vacio: #0c0f14;
+  --gma-rojo-fondo: #f2877b24;
+  --gma-rojo: #f2877b;
+  --gma-verde: #6fcf97;
+  --gma-sombra-sm: 0 1px 2px #0000004d;
+  --gma-sombra-md: 0 1px 2px #0000004d, 0 12px 30px -16px #0009;
+  --gma-sombra-lg: 0 2px 6px #0006, 0 30px 70px -24px #000c;
+  --gma-sombra-xl: 0 2px 6px #0006, 0 30px 70px -24px #000c;
+  --gma-sombra-menu: 0 2px 6px #0006, 0 30px 70px -24px #000c;
+  --gma-sombra-avatar: 0 1px 2px #0000004d;
+  --gma-sombra-tarjeta: inset 0 0 0 1px #e8ecf314, 0 1px 2px #0000004d, 0 12px 30px -16px #0009;
 }
 
 /* ── Raíz a pantalla completa ──────────────────────────────────────────────────────────
@@ -255,7 +271,7 @@
   text-decoration: underline;
 }
 
-/* ── Botones (Chakra de Gamma: píldora, 32 px, 14 px) ─────────────────────────────── */
+/* ── Botones (de Tilvo: radio 12, 32 px, 13,5 / 600) ─────────────────────────────── */
 .gma-boton {
   display: inline-flex;
   align-items: center;
@@ -269,7 +285,7 @@
   border-radius: var(--gma-radio-pildora);
   background: transparent;
   font: inherit;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   line-height: 21px;
   color: var(--gma-texto);
@@ -277,7 +293,7 @@
   text-decoration: none;
   cursor: pointer;
   user-select: none;
-  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  transition: background-color .2s, color .2s, border-color .2s;
 }
 .gma-boton:hover { background: var(--gma-hover); }
 .gma-boton:active { background: var(--gma-presionado); }
@@ -288,35 +304,37 @@
 .gma-tile:focus-visible,
 .gma-mini:focus-visible,
 .gma-pag:focus-visible { outline: 2px solid var(--gma-b400); outline-offset: 1px; }
-.gma-boton--primario { background: var(--gma-primario); color: var(--gma-sobre-primario); font-weight: 400; }
+.gma-boton--primario { background: var(--gma-primario); color: var(--gma-sobre-primario); box-shadow: 0 6px 16px -8px var(--gma-primario); }
 .gma-boton--primario:hover { background: var(--gma-primario-hover); }
 .gma-boton--primario:active { background: var(--gma-b900); }
 .gma-boton--secundario { background: var(--gma-secundario); border-color: var(--gma-secundario); color: var(--gma-sobre-secundario); }
 .gma-boton--secundario:hover { background: var(--gma-secundario-hover); border-color: var(--gma-secundario-hover); }
 .gma-boton--contorno { border-color: var(--gma-borde); background: var(--gma-superficie); }
 .gma-boton--icono { width: var(--gma-alto-boton); padding: 0; }
-.gma-boton--chico { height: 28px; font-size: 13px; padding: 0 10px; }
+.gma-boton--chico { height: 28px; font-size: 13.5px; padding: 0 10px; }
 .gma-boton--chico.gma-boton--icono { width: 28px; padding: 0; }
 .gma-boton--peligro { color: var(--gma-rojo); }
 
-/* El botón partido de Compartir: [Compartir][▾], UNA pastilla (radios 24px 0 0 24px y 0 24px 24px 0) con el divisor.
+/* El botón partido de Compartir: [Compartir][▾], UNA pastilla (cada mitad redondea sólo su lado) con el divisor.
    Con clases propias y no :first-child/:last-child (25/10/2026, Martín: «El desplegable al lado de "compartir" no debe ser
    redondo»): con cambios sin publicar, el último hijo es el puntito azul, y el ▾ quedaba suelto, como un círculo aparte. */
-.gma-partido { display: inline-flex; align-items: stretch; position: relative; border-radius: 24px; background: var(--gma-primario); }
-.gma-partido > .gma-partido-principal { border-radius: 24px 0 0 24px; padding: 0 12px 0 12px; }
+.gma-partido { display: inline-flex; align-items: stretch; position: relative; border-radius: var(--gma-radio-pildora); background: var(--gma-primario); }
+.gma-partido > .gma-partido-principal { border-radius: var(--gma-radio-pildora) 0 0 var(--gma-radio-pildora); padding: 0 12px 0 12px; }
 /* SE VE COMO UN SOLO BOTÓN, con su ▾ adentro (30/10/2026, sobre el pedido de Martín del 24/10: «un solo botón, azul y que diga
    "compartir"»): eran dos mitades con una raya en el medio. Siguen siendo dos blancos de clic, pero el fondo es del contenedor:
    dos fondos pegados dejan una línea en la unión cuando el ancho cae entre dos píxeles. */
+.gma-partido { box-shadow: 0 6px 16px -8px var(--gma-primario); }
 .gma-partido:hover { background: var(--gma-primario-hover); }
 .gma-partido:active { background: var(--gma-b900); }
 .gma-partido > .gma-boton--primario,
 .gma-partido > .gma-boton--primario:hover,
 .gma-partido > .gma-boton--primario:active { background: transparent; }
+.gma-partido > .gma-boton--primario { box-shadow: none; }
 .gma-partido > .gma-partido-principal { padding-right: 2px; }
 .gma-partido > .gma-partido-flecha {
   width: 26px;
   padding: 0 4px 0 0;
-  border-radius: 0 24px 24px 0;
+  border-radius: 0 var(--gma-radio-pildora) var(--gma-radio-pildora) 0;
 }
 .gma-punto-cambios {
   position: absolute;
@@ -340,7 +358,7 @@
   justify-content: center;
   background: var(--gma-b600);
   color: #ffffff;
-  font-size: 12.8px;
+  font-size: 12.5px;
   font-weight: 500;
   line-height: 1;
   box-shadow: var(--gma-sombra-avatar);
@@ -357,7 +375,7 @@
   padding: 8px 16px;
   background: var(--gma-b100);
   color: var(--gma-b950);
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 18px;
 }
 .gma-aviso[data-tono="error"] { background: var(--gma-rojo-fondo); color: var(--gma-rojo); }
@@ -378,10 +396,10 @@
    antes «Páginas» iba a 280 y el lienzo saltaba al abrirla. Ningún panel de la izquierda tiene un ancho propio. */
 /* La tarjeta izquierda FLOTA, como la de Automations (24/10/2026, Martín: «el mismo sistema de "Automations" con el chat
    flotando»): con aire alrededor, el borde redondeado y la sombra de la barra de herramientas. */
-.gma-izq { margin: 8px 0 8px 8px; border-right: 0; border-radius: var(--gma-radio-xl); overflow: hidden;
-  box-shadow: var(--gma-sombra-sm), 0 0 0 0.8px var(--gma-borde-suave); }
+.gma-izq { margin: 8px 0 8px 8px; border-right: 0; border-radius: 18px; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--gma-borde-suave), var(--gma-sombra-md); }
 .gma-ag-estado { font-size: 12px; color: var(--gma-tenue); white-space: nowrap; }
-.gma-ag-volver { font-size: 16px; line-height: 1; }
+.gma-ag-volver { font-size: 15px; line-height: 1; }
 /* La barra ÚNICA lleva el título. Sin «Guardado» al lado (24/10/2026, Martín: «extiende mas la sección del titulo para que se
    lea»): no se achica por debajo de 160 px (antes llegaba a 64 y se leía «Landin…»).
    ⚠️ PERO SÍ SE ACHICA HASTA 160 (25/10/2026): con `flex: 0 0 auto` no cedía nada, y el formato del medio que «cedía» está
@@ -412,7 +430,7 @@
 .gma-izq-titulo {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--gma-texto-fuerte);
   overflow: hidden;
@@ -423,7 +441,7 @@
 /* La flecha para volver al chat, la misma del chat («← MaKo», PanelAgente.tsx, `.gma-pb-iconbtn`). */
 .gma-izq-volver {
   display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; padding: 0;
-  border: 0; border-radius: 6px; background: transparent; color: var(--gma-tenue); cursor: pointer; font-size: 16px; line-height: 1;
+  border: 0; border-radius: 6px; background: transparent; color: var(--gma-tenue); cursor: pointer; font-size: 15px; line-height: 1;
 }
 .gma-izq-volver:hover { background: var(--gma-hover); color: var(--gma-texto-fuerte); }
 
@@ -459,8 +477,8 @@
   gap: 4px;
   padding: 6px 8px;
   background: var(--gma-superficie);
-  border-radius: var(--gma-radio-xl);
-  box-shadow: var(--gma-sombra-sm), 0 0 0 0.8px var(--gma-borde-suave);
+  border-radius: 16px;
+  box-shadow: var(--gma-sombra-tarjeta);
   position: relative;
   z-index: 2;
 }
@@ -548,7 +566,7 @@
   border: 1px solid var(--gma-t200);
   background: var(--gma-pulgar);
   box-shadow: var(--gma-sombra-sm);
-  transition: inset-inline-start 280ms var(--gma-rebote);
+  transition: inset-inline-start 340ms var(--gma-rebote);
   pointer-events: none;
 }
 .gma-modo[data-modo="ia"] .gma-modo-pulgar { inset-inline-start: 38px; }
@@ -668,7 +686,7 @@
 }
 .gma-mini:hover { background: var(--gma-hover); }
 .gma-mini[data-activa="si"] { border-color: var(--gma-seleccion); background: var(--gma-b50); }
-[data-tema="oscuro"] .gma .gma-mini[data-activa="si"] { background: rgba(44, 136, 247, 0.16); }
+[data-tema="oscuro"] .gma .gma-mini[data-activa="si"] { background: #6e98ff24; }
 .gma-mini[data-arrastrando="si"] { opacity: 0.5; }
 .gma-mini[data-oculta="si"] .gma-mini-caja { opacity: 0.4; }
 .gma-mini-caja {
@@ -692,7 +710,7 @@
   border-radius: 4px;
   background: #ffffff;
   color: var(--gma-t800);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 16px;
   font-weight: 600;
   text-align: center;
@@ -726,7 +744,7 @@
   border-radius: var(--gma-radio-item);
   background: transparent;
   font: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--gma-texto);
   text-align: left;
   cursor: pointer;
@@ -819,7 +837,7 @@
   background: var(--gma-superficie);
   box-shadow: var(--gma-sombra-md);
   font: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--gma-texto);
   cursor: pointer;
@@ -926,7 +944,7 @@
   border-radius: var(--gma-radio-lg);
   background: transparent;
   font: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
   color: var(--gma-texto);
   text-align: left;
@@ -947,7 +965,7 @@
   padding: 6px;
   align-content: start;
 }
-.gma-pop-vacio { padding: 24px 8px; text-align: center; font-size: 13px; color: var(--gma-tenue); }
+.gma-pop-vacio { padding: 24px 8px; text-align: center; font-size: 13.5px; color: var(--gma-tenue); }
 .gma-tile {
   position: relative;
   display: flex;
@@ -1022,7 +1040,7 @@
 .gma-pag-icono { flex: none; color: var(--gma-tenue); display: inline-flex; }
 .gma-pag[data-activa="si"] .gma-pag-icono { color: var(--gma-sobre-activo); }
 .gma-pag-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.gma-pag-titulo { font-size: 13px; line-height: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gma-pag-titulo { font-size: 13.5px; line-height: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gma-pag-ruta { font-size: 12px; line-height: 16px; color: var(--gma-tenue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gma-pag .gma-boton { opacity: 0; }
 .gma-pag:hover .gma-boton,
@@ -1037,7 +1055,7 @@
   border-radius: var(--gma-radio-item);
   background: var(--gma-superficie);
   font: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--gma-texto-fuerte);
   outline: none;
 }
@@ -1053,7 +1071,7 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(19, 19, 20, 0.45);
+  background: #12182673;
 }
 .gma-dialogo {
   width: 420px;
@@ -1083,7 +1101,7 @@
 }
 .gma-dialogo-pie { display: flex; justify-content: flex-end; gap: 8px; }
 .gma-boton--rojo { background: var(--gma-rojo); color: #ffffff; }
-.gma-boton--rojo:hover { background: #b91c1c; }
+.gma-boton--rojo:hover { background: color-mix(in srgb, var(--gma-rojo) 88%, #000); }
 
 /* ── Toast (3-4 palabras, con «Deshacer» opcional) ─────────────────────────────── */
 .gma-toast {
@@ -1158,10 +1176,10 @@ html[data-tips-flotantes] .gmc-tip::before { display: none !important; }
   z-index: 2147483000;
   padding: 2px 6px;
   border-radius: 2px;
-  font: 600 12px/18px 'Instrument Sans', 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 600 12px/18px var(--gma-fuente);
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--gma-sombra-md);
 }
 .gma-tip-flotante-atajo { margin-left: 10px; opacity: 0.65; font-weight: 500; }
 
@@ -1196,3 +1214,14 @@ html[data-tips-flotantes] .gmc-tip::before { display: none !important; }
    con height: 100% (que en un hijo de flex Safari puede resolver a cero: AGENTS.md). */
 .gma-izq-cuerpo > *,
 .gma-der > * { flex: 1 1 auto; min-height: 0; }
+
+/* EL TELÉFONO (31/10/2026): hasta acá el editor no tenía ninguna regla para él, y a 390 el panel de 340 tapaba todo y el
+   lienzo quedaba en una tira de 40 px. Arriba la página y abajo el chat, como los dos paneles de Tilvo a esa medida: 14 de
+   margen, 12 entre bloques (medidos a 390, docs/diseno/tilvo-oscuro-y-piezas.json). Los que flotan sobre el lienzo no tapan la caja. */
+@media (max-width: 760px) {
+  .gma-cuerpo { flex-direction: column; }
+  .gma-centro { order: 1; flex: 1 1 0; padding: 8px 8px 0; min-height: 0; }
+  .gma-izq { order: 2; width: auto; height: 46dvh; margin: 8px; }
+  .gma-izq .gma-ag { width: 100%; border-right: 0; }
+  .gma-lienzo[data-dispositivo="escritorio"] > .gm-doc:not([data-formato="presentacion"]) { margin-left: 0; }
+}

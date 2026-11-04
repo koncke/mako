@@ -321,7 +321,7 @@ export const CSS_CAJA_PEDIDO = `
 .gp .gp-cc-chip button:hover { background: rgba(0,0,0,.06); }
 .gp .gp-cc-fila { display: flex; align-items: center; gap: 8px; padding: 8px 10px 10px; }
 .gp .gp-cc-mas { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border: 0; border-radius: 9999px; background: var(--gp-azul-50); color: var(--gp-azul-600); cursor: pointer; }
-[data-tema="oscuro"] .gp .gp-cc-mas { background: #0b2e79; color: #aad5fe; }
+[data-tema="oscuro"] .gp .gp-cc-mas { background: #6e98ff24; color: #9ab7ff; }
 .gp .gp-cc-mic { display: inline-flex; margin-left: auto; flex: none; }
 .gp .gp-mic > button { width: 34px !important; height: 34px !important; border-radius: 9999px !important; }
 .gp .gp-cc-enviar { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border: 0; border-radius: 9999px; background: var(--gp-azul-500); color: #fff; cursor: pointer; }
@@ -345,12 +345,12 @@ export const CSS_CAJA_PEDIDO = `
  */
 export const CSS_TOKENS_CASA = `
 .gp.cp-casa {
-  --gp-azul-50: #ebf3fe; --gp-azul-300: #84c1fa; --gp-azul-500: #2c88f7; --gp-azul-600: #0858f7;
+  --gp-azul-50: #1f55d61a; --gp-azul-300: #9ab7ff; --gp-azul-500: #1f55d6; --gp-azul-600: #1f55d6;
   --gp-superficie: var(--surface); --gp-borde-suave: var(--border); --gp-borde: var(--border-strong);
   --gp-texto: var(--ink); --gp-debil: var(--faint); --gp-titulo: var(--ink); --gp-error: var(--bad);
   display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; color: var(--gp-texto);
 }
-[data-tema="oscuro"] .gp.cp-casa { --gp-azul-50: #0b2e79; --gp-azul-600: #aad5fe; }
+[data-tema="oscuro"] .gp.cp-casa { --gp-azul-50: #6e98ff24; --gp-azul-600: #9ab7ff; }
 .gp.cp-casa, .gp.cp-casa * { box-sizing: border-box; }
 .gp.cp-casa button { font: inherit; }
 .gp.cp-casa .gp-ico { display: inline-flex; flex: none; line-height: 0; }

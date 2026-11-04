@@ -4,6 +4,36 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## El correo de avance: lo difícil no era mandarlo, era a quién NO (4/11/2026, nube)
+
+**El pedido:** Joan, el 2/11: «¿cómo van esos tickets?». Martín: «que se le envíe por email los avances». La regla de qué hito
+avisa ya estaba (lib/tickets-avance.ts, con su test) y nadie la llamaba.
+
+**Lo que no se deduce del código:**
+- **Ningún camino de los tickets mandaba un correo.** `avisarPendientes` (lib/tickets-cierre.ts) avisa por push, chat y WhatsApp, y
+  su consulta filtra los estados FINALES: no sirve para el avance. El correo es una vuelta aparte del cron, el paso 4.
+- **El remitente es MaKo** (`REMITENTE_MAKO`, la key de la plataforma, el contexto del workspace de la plataforma), como el aviso de
+  cambio de plan (lib/aviso-plan.ts). Con la key del negocio un correo de soporte de MaKo saldría por el Resend de un cliente.
+- **Apagarlos no existía.** No hay una preferencia de email por persona (el canal «Email» de Notificaciones es a quién le avisa MaKo
+  lo del NEGOCIO). Va en `usuarios.perfil.ticketsPorEmail`, sin migración, con un link firmado por persona (otro prefijo que el de la
+  baja de un lead) en el pie y en `List-Unsubscribe`.
+- **El GET del link no apaga nada:** los antivirus de los correos abren los links solos. Apaga el botón (POST) o el «Cancelar
+  suscripción» de Gmail (One-Click, RFC 8058). La baja de los leads (/api/email/unsubscribe) apaga con el GET: ahí no se tocó.
+- **A quién NO:** los tickets que abre MaKo solo (`esRefDelSistema`, canal `sistema`: seis fallas en un día serían seis «Recibimos
+  tu ticket» de algo que nadie mandó), los de la plataforma, una persona de otro negocio (el super admin o una agencia mirando un
+  cliente), una suspendida y un ticket sin cuenta (por WhatsApp sin perfil el email es `whatsapp:<teléfono>`). `esRefDelSistema`
+  pasó a lib/tickets-reglas.ts para que la regla pura la use.
+- **Sólo lo que cambió en las últimas 48 horas:** el día que se prende no le llega a nadie un correo por un ticket viejo que ya se
+  avisó por WhatsApp. Marcar el correo no toca `updated_at`.
+- **Se marca antes de mandar**, compare-and-set contra el hito que había: dos vueltas a la vez mandan uno. Si Resend falla, ese
+  hito se pierde y queda anotado en el ticket; el siguiente avisa igual.
+
+**Vive en:** lib/tickets-avance.ts (la regla y la vuelta, pura) · lib/tickets-avance-email.ts (base y Resend) ·
+app/api/email/unsubscribe/tickets/route.ts · app/api/cron/tickets/route.ts. Lo fijan tests/tickets-avance.test.ts y
+tests/tickets-avance-email.test.ts (corre la vuelta, la baja y el cron reales contra una base y un Resend de mentira).
+
+**Sin medir:** que Resend entregue en producción. La primera vuelta lo dice en el registro del cron («correos de avance N»).
+
 ## El hito de commit no cierra, y `arreglado` puede quedar antes del deploy (3/11/2026)
 
 **Síntoma:** el ticket #45 quedó dado por resuelto en el relevo y el #44 figuraba `arreglado` con «Ya puedes cargar documentos…» sin que la

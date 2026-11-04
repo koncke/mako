@@ -11,6 +11,7 @@
 import {
   dibujarContador, diasCorriendo, metricasVencidas, type EtapaTendencia, type TipoPieza,
 } from './spy-reglas';
+import { esShort } from './spy-youtube';
 import type { Competidor, LecturaCanalSpy, Pieza } from './spy';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -184,40 +185,82 @@ export function fraseDeLectura(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Dos órdenes, como Meta. Su primero («Impressions: high to low») no se puede copiar: ellos tienen el
- * dato adentro y de un anuncio comercial en México no existe. Se ordena por lo que SÍ hay.
+ * Dos órdenes, con los nombres que se entienden (Martín, 4/11/2026: «"Más tiempo a la vista" o "Más nuevo" supongo que es
+ * un ordenamiento de "Views o fecha de publicación" pero le pusiste nombres que no se entienden»).
+ *
+ * ⚠️ «MÁS VISTAS» ORDENA POR VISTAS, Y UNA PIEZA SIN EL DATO VA AL FINAL, no como si tuviera cero: el dueño puede ocultar
+ * el contador (lib/instagram-perfil.ts) y «no lo publica» no es «nadie lo vio». Entre dos sin vistas desempatan los «me
+ * gusta» y después la fecha.
  */
-export type OrdenSpy = 'mas-tiempo' | 'mas-nuevo';
+export type OrdenSpy = 'mas-vistas' | 'mas-reciente';
+export const ORDENES: ReadonlyArray<{ value: OrdenSpy; label: string }> = [
+  { value: 'mas-vistas', label: 'Más vistas' },
+  { value: 'mas-reciente', label: 'Más reciente' },
+];
 
-export function ordenarPiezas<T extends Pick<Pieza, 'publicada_en' | 'visto_primera_vez'>>(
+export function ordenarPiezas<T extends Pick<Pieza, 'publicada_en' | 'visto_primera_vez' | 'vistas' | 'megusta'>>(
   piezas: readonly T[],
   orden: OrdenSpy,
-  ahora: Date = new Date(),
 ): T[] {
-  const nuevo = (p: T) => Date.parse(p.publicada_en ?? p.visto_primera_vez) || 0;
-  if (orden === 'mas-nuevo') return [...piezas].sort((a, b) => nuevo(b) - nuevo(a));
-  // Sin fecha declarada va al final: «no se sabe desde cuándo» no compite con «lleva 400 días».
-  return [...piezas].sort((a, b) => {
-    const da = diasCorriendo(a.publicada_en, ahora);
-    const db = diasCorriendo(b.publicada_en, ahora);
-    if (da == null && db == null) return nuevo(b) - nuevo(a);
-    if (da == null) return 1;
-    if (db == null) return -1;
-    return db - da;
-  });
+  const fecha = (p: T) => Date.parse(p.publicada_en ?? p.visto_primera_vez) || 0;
+  if (orden === 'mas-reciente') return [...piezas].sort((a, b) => fecha(b) - fecha(a));
+  const desc = (x: number | null, y: number | null) => (x != null && y != null ? y - x : x != null ? -1 : y != null ? 1 : 0);
+  return [...piezas].sort((a, b) => desc(a.vistas, b.vistas) || desc(a.megusta, b.megusta) || fecha(b) - fecha(a));
 }
 
-export type FiltroSpy = 'instagram' | 'youtube' | 'sigue' | 'probado';
+/**
+ * QUÉ SE VE: un tipo de contenido por vez (Martín, 4/11: «uno para contenido corto, otro para contenido largo, de sus
+ * carruseles o imágenes»). Reemplaza a los chips de canal y a «Sigue a la vista» y «Probado», que «no se entiende qué
+ * hacen». Un Short de YouTube es contenido corto como un reel, pero va aparte: se publica y se mide distinto.
+ */
+export type TipoContenido = 'todo' | 'reels' | 'carruseles' | 'largos' | 'shorts';
+export const TIPOS_CONTENIDO: ReadonlyArray<{ value: TipoContenido; label: string; canal: 'instagram' | 'youtube' | null }> = [
+  { value: 'todo', label: 'Todo lo que publica', canal: null },
+  { value: 'reels', label: 'Reels', canal: 'instagram' },
+  { value: 'carruseles', label: 'Carruseles e imágenes', canal: 'instagram' },
+  { value: 'largos', label: 'Videos de YouTube', canal: 'youtube' },
+  { value: 'shorts', label: 'Shorts', canal: 'youtube' },
+];
 
-type PiezaFiltrable = Pick<Pieza, 'canal' | 'titulo' | 'texto' | 'dejo_de_verse_en'> & { etapa: EtapaTendencia | null };
+/** De qué tipo es una pieza. Un video de YouTube sin duración legible cuenta como largo (`esShort`). */
+export function tipoDeContenido(p: Pick<Pieza, 'canal' | 'tipo' | 'duracion'>): Exclude<TipoContenido, 'todo'> | null {
+  if (p.canal === 'instagram') return p.tipo === 'reel' ? 'reels' : 'carruseles';
+  if (p.canal === 'youtube') return esShort({ duracion: p.duracion ?? null }) ? 'shorts' : 'largos';
+  return null;
+}
 
-export const cumpleFiltro = (p: PiezaFiltrable, f: FiltroSpy): boolean =>
-  f === 'sigue' ? !p.dejo_de_verse_en : f === 'probado' ? p.etapa === 'probado' : p.canal === f;
+/** Lo que se elige en el desplegable de tipos: un tipo de contenido, o sumarle la red que le falta. */
+export type ValorDeContenido = TipoContenido | 'agregar-instagram' | 'agregar-youtube';
 
-export function filtrarPiezas<T extends PiezaFiltrable>(piezas: readonly T[], texto: string, filtros: readonly FiltroSpy[]): T[] {
+/**
+ * Las opciones del desplegable de tipos. Martín, 4/11: «"Agregar Instagram" o la red que falte, ahora se hará en el
+ * desplegable para cambiar de gráficos de YT a Reels, Imágenes... si es que no lo trajo aún». Sólo los tipos que tiene
+ * (con cuántas), y al final la red que le falta. «Todo» va siempre primero.
+ */
+export function opcionesDeContenido(
+  piezas: readonly Pick<Pieza, 'canal' | 'tipo' | 'duracion'>[],
+  c: { instagram: string | null; youtube_id: string | null },
+): Array<{ value: ValorDeContenido; label: string }> {
+  const n = new Map<TipoContenido, number>();
+  for (const p of piezas) {
+    const t = tipoDeContenido(p);
+    if (t) n.set(t, (n.get(t) ?? 0) + 1);
+  }
+  const conCuenta = (label: string, k: number) => `${label} · ${k}`;
+  return [
+    { value: 'todo', label: conCuenta('Todo lo que publica', piezas.filter((p) => tipoDeContenido(p)).length) },
+    ...TIPOS_CONTENIDO.filter((t) => t.value !== 'todo' && (n.get(t.value) ?? 0) > 0).map((t) => ({ value: t.value as ValorDeContenido, label: conCuenta(t.label, n.get(t.value) ?? 0) })),
+    ...(!c.instagram ? [{ value: 'agregar-instagram' as const, label: 'Agregar su Instagram' }] : []),
+    ...(!c.youtube_id ? [{ value: 'agregar-youtube' as const, label: 'Agregar su YouTube' }] : []),
+  ];
+}
+
+type PiezaFiltrable = Pick<Pieza, 'canal' | 'tipo' | 'duracion' | 'titulo' | 'texto'>;
+
+export function filtrarPiezas<T extends PiezaFiltrable>(piezas: readonly T[], texto: string, tipo: TipoContenido): T[] {
   const q = texto.trim().toLowerCase();
   return piezas.filter((p) =>
-    filtros.every((f) => cumpleFiltro(p, f))
+    (tipo === 'todo' || tipoDeContenido(p) === tipo)
     && (!q || `${p.titulo ?? ''} ${p.texto ?? ''}`.toLowerCase().includes(q)));
 }
 
