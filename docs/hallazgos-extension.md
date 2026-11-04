@@ -412,3 +412,7 @@ feedback/chrome-web-store/ficha-y-permisos.md (fuera del repo).
 - **El panel del contacto** (categoría, web, correo, estado, catálogo): `business-profile` no los trae (sólo bots). Medir
   antes de construir.
 - **El rubro filtrable en el CRM**: hoy no llega por ningún camino gratis (las tablas no traen la categoría).
+
+## Leer un sitio ajeno sin que Chrome desactive la extensión (03/11/2026, Cerebro)
+
+Para «Guardar en Spy» alcanza con `activeTab`: lee la pestaña sólo al tocar el ícono. Según la documentación de Chrome no muestra advertencia, y por eso no debería desactivar la extensión al actualizar; sin medir. Un permiso de sitios, en cambio, sí la desactiva hasta que cada cliente lo acepte. Igual pasa por revisión, y la descripción y `app/privacidad/extension/page.tsx` tienen que decirlo antes de subir. Detalle: docs/hallazgos-competitors-spy.md, entrada del 03/11.

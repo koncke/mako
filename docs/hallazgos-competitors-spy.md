@@ -690,3 +690,25 @@ lib/instagram-perfil-server.ts · app/api/competitor-spy/perfil · app/api/cron/
 pedido; la foto directa al CDN en las dos pantallas; el proxy abierto o que siga una redirección; el campo gris; la barra que
 guarda sin confirmar; la búsqueda sin contar; el cron caído que contesta 200.
 
+## Unfunnelizer: qué copiar para Spy, y lo que Spy ya guarda y tira (03/11/2026, Cerebro)
+
+Martín: «investiga esto para copiarlo en la extension de MaKo» y «Obvio que esto va para la funcionalidad de Competitors Spy». Se investigó sin instalarla: ficha, documentos y el código de MaKo. Se copia la función, nunca su código, textos ni imágenes.
+
+**Lo que se encontró en casa:**
+- ⚠️ Los píxeles ya se leen y se tiran: `pixelesMetaDe` (`lib/landing-analisis.ts:389`) guarda `meta-px:` en `etiquetas`, y `nombresDe` los descarta al dibujar.
+- ⚠️ Las columnas de anuncios están y nadie las llena: `diasCorriendo` y `etapaDeTendencia` existen, pero `guardarAnuncioPegado` (`lib/spy.ts:691`) sólo guarda enlace y copy, y `pagina_anuncios` no la escribe nadie.
+- ⚠️ La poda de YouTube alcanza a todos los canales: `podarVencido` borraría a los 30 días lo leído de la Biblioteca, que no se relee. Y por eso `etiquetas` no sirve para datos nuevos: hace falta una columna propia.
+- `RE_CHECKOUT` (`lib/landing-conversion.ts:50`) ya reconoce Stripe, Hotmart y Mercado Pago, pero Spy no lo usa. VTurb y Vidalytics no aparecen en ningún lado.
+- ⚠️ No tocar `HOSTS_VIDEO` para esto: es el flujo del Pixel de los clientes, y esa cabecera avisa del riesgo de mandarles avisos falsos.
+
+**La regla que queda:**
+- Lo que se lee con la extensión se interpreta en el SERVIDOR: si cambia el diseño de un sitio, se arregla con un deploy y no con otra revisión de Chrome.
+- `activeTab` no muestra advertencia, así que no debería desactivar la extensión a los clientes al actualizar (deducido de la documentación de Chrome, sin medir). Un permiso de sitios sí.
+- Lo leído de Meta NO entra en `spy_lecturas_canal`: compartirlo entre negocios sería justo la transferencia a terceros que prohíben sus términos.
+
+**Qué NO se copia:** la descarga de VSL, el «fetch-relay» contra el hotlink, el modo Brute y la página desbloqueada. La política de Chrome prohíbe facilitar esa descarga y eludir muros, y reincidir puede cerrar la cuenta que distribuye la extensión a los clientes que pagan.
+
+**Sin hacer:**
+- Tanda A, en el servidor (`lib/spy-funnel.ts`, desde `mirarCompetidor`, `lib/spy.ts:520`): píxeles, checkout y VSL en la pestaña «Su web» (`SpyApp.tsx:1297`). 1-2 días, sin revisión de Chrome.
+- Tanda B, «Guardar en Spy» en la extensión: 3-4 días más la revisión. ⚠️ Antes de subirla hay que corregir `app/privacidad/extension/page.tsx`, que afirma «No accede a ningún sitio fuera de…», y la descripción de la ficha. Depende de la decisión abierta en `docs/diseno-competitors-spy.md` §9.1, por los términos de Meta.
+- Sin comprobar: si `performance` ve los recursos desde el mundo aislado, si `chrome.action.openPopup` otorga `activeTab`, y el HTML actual de la Biblioteca.
