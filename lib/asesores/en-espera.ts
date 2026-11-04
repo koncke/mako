@@ -20,6 +20,7 @@ import { FICHA_ALVARO_LUQUE } from './ficha-alvaro-luque';
 import { FICHA_SERGIO_BEGUERIA } from './ficha-sergio-begueria';
 import { FICHA_ROMUALD_FONS } from './ficha-romuald-fons';
 import { FICHA_MATEO_MAFFIA } from './ficha-mateo-maffia';
+import { FICHA_FRANCISCO_DOGLIO } from './ficha-francisco-doglio';
 
 /** Un gurú que espera su caricatura: lo mismo que una fila de `ASESORES`, con su ficha al lado. */
 export type GuruEnEspera = {
@@ -40,6 +41,7 @@ export const EN_ESPERA: readonly GuruEnEspera[] = [
   { id: 'sergio-begueria', nombre: 'Sergio Begueria', completo: 'Sergio Begueria', especialidad: 'Marca personal y video', curso: 'Instituto De Marca Personal', ficha: FICHA_SERGIO_BEGUERIA },
   { id: 'romuald-fons', nombre: 'Romuald Fons', completo: 'Romuald Fons', especialidad: 'SEO', curso: 'Bigseo Academy', ficha: FICHA_ROMUALD_FONS },
   { id: 'mateo-maffia', nombre: 'Mateo Maffia', completo: 'Mateo Maffia', especialidad: 'Video corto que vende', curso: 'BYF', ficha: FICHA_MATEO_MAFFIA },
+  { id: 'francisco-doglio', nombre: 'Francisco Doglio', completo: 'Francisco Doglio', especialidad: 'Equipo comercial y webinars', curso: 'ARCADIA', ficha: FICHA_FRANCISCO_DOGLIO },
 ];
 
 /** El tope de una ficha: viaja en cada mensaje del chat (lib/asesores/contexto.ts). Es el mismo de tests/coaches-ops-center.test.ts. */

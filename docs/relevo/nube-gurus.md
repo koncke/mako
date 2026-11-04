@@ -42,7 +42,7 @@ Su FICHA sí se escribe en la nube, de a una, y queda en `lib/asesores/en-espera
 | Sergio Begueria | Instituto De Marca Personal | **escrita** («Marca personal y video», `ficha-sergio-begueria.ts`) |
 | Romuald Fons | Bigseo Academy | **escrita** («SEO», `ficha-romuald-fons.ts`) |
 | Mateo Maffia | BYF | **escrita** («Video corto que vende», `ficha-mateo-maffia.ts`) |
-| Francisco Doglio | ARCADIA | pendiente |
+| Francisco Doglio | ARCADIA | **escrita** («Equipo comercial y webinars», `ficha-francisco-doglio.ts`) |
 | Andy Landa | ManyChat Master - Instagram | pendiente |
 | Gonzalo Seré | Growing Content Specialist | pendiente |
 
