@@ -20,9 +20,14 @@
 //
 // «Ver todo en el Panel» tampoco navega (30/10/2026, el Cerebro: lo que Martín pidió es que ir al Panel no cambie de ruta ni
 // de barra, y si queda un camino que navega es el que va a tocar): el mismo lugar, con la columna del Panel (`verPanel`).
+//
+// «Sin terminar» (ticket #54, 4/11/2026): las réplicas leídas que todavía no se crearon. Leandro: «se me borró completamente la
+// página analizada […] lo que haría no sería que se borre, sino de que quede en estado borrador». Lo leído queda como borrador
+// del negocio (lib/editor-landing/replica-borrador.ts) y un renglón acá lo retoma en «Nueva landing», sin volver a leer
+// (`retomarReplica`). La lista se vuelve a pedir cuando la pantalla de replicar avisa que guardó o descartó uno.
 // =============================================================================
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
@@ -34,6 +39,8 @@ export { RUTA_NUEVA_LANDING };
 import { useEditorLanding } from '../contexto';
 import { Ico } from '../../Ico';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import type { ResumenBorrador } from '@/lib/editor-landing/replica-borrador';
+import { EVENTO_BORRADORES_REPLICA, pedirBorradores } from '../../crear/borradores-replica';
 
 const CSS = `
 .gma-ls { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -57,10 +64,13 @@ const CSS = `
 .gma-ls-ver { padding: 0; border: 0; background: transparent; font: inherit; font-size: 13px; color: var(--gma-tenue); cursor: pointer; }
 .gma-ls-ver:hover { color: var(--gma-texto); text-decoration: underline; }
 .gma-ls-ver[aria-current="true"] { color: var(--gma-texto); font-weight: 600; }
+.gma-ls-grupo { margin: 8px 10px 2px; font-size: 12px; font-weight: 600; color: var(--gma-tenue); }
+.gma-ls-borrador { width: 100%; box-sizing: border-box; border: 0; background: transparent; font: inherit; font-size: 13.5px;
+  font-weight: 500; text-align: left; cursor: pointer; }
 `;
 
 export function PanelLandings() {
-  const { docId, guardarAhora, setPanelIzq, nueva, setNueva, panelEntero, verPanel, revisionLista } = useEditorLanding();
+  const { docId, guardarAhora, setPanelIzq, nueva, setNueva, panelEntero, verPanel, revisionLista, retomarReplica } = useEditorLanding();
   const [docs, setDocs] = useState<LandingResumen[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
@@ -75,6 +85,19 @@ export function PanelLandings() {
   useEffect(() => { void cargar(); }, [revisionLista]);
 
   const visibles = useMemo(() => landingsDeLaLista(docs ?? [], busca), [docs, busca]);
+
+  // Las réplicas sin terminar (ticket #54). Sin permiso o sin poder leerlas, no se dibuja nada: la lista de landings sigue igual.
+  const [borradores, setBorradores] = useState<ResumenBorrador[]>([]);
+  const cargarBorradores = useCallback(() => { void pedirBorradores().then((b) => { if (b) setBorradores(b); }); }, []);
+  useEffect(() => { cargarBorradores(); }, [cargarBorradores, revisionLista, nueva]);
+  useEffect(() => {
+    window.addEventListener(EVENTO_BORRADORES_REPLICA, cargarBorradores);
+    return () => window.removeEventListener(EVENTO_BORRADORES_REPLICA, cargarBorradores);
+  }, [cargarBorradores]);
+  const borradoresVisibles = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return q ? borradores.filter((b) => `${b.host} ${b.titulo}`.toLowerCase().includes(q)) : borradores;
+  }, [borradores, busca]);
   // Al irse a otra, lo pendiente de ésta se guarda antes (el mismo gesto que la casa de antes).
   const alIrse = () => { void guardarAhora(); };
 
@@ -91,6 +114,17 @@ export function PanelLandings() {
         <button type="button" className="gma-ls-item gma-ls-nueva" aria-current={nueva ? 'true' : undefined} onClick={() => setNueva(true)}>
           <Ico n="mas" t={14} /><span>Nueva landing</span>
         </button>
+        {borradoresVisibles.length > 0 && (
+          <>
+            <p className="gma-ls-grupo">Sin terminar</p>
+            {borradoresVisibles.map((b) => (
+              <button key={b.url} type="button" className="gma-ls-item gma-ls-borrador" title={`Retomar la réplica de ${b.host}`} onClick={() => retomarReplica(b.url, b.adaptar)}>
+                <Ico n="copiar" t={14} /><span>{b.host}</span>
+              </button>
+            ))}
+            <p className="gma-ls-grupo">Tus landings</p>
+          </>
+        )}
         {error ? (
           <p className="gma-ls-aviso" role="alert">No pude leer tus landings. <button type="button" className="gma-boton gma-boton--chico" onClick={() => { void cargar(); }}>Reintentar</button><ReportarASoporte /></p>
         ) : docs === null ? (

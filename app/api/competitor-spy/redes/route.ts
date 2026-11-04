@@ -16,7 +16,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { agregarCompetidor, leerCompetidor } from '@/lib/spy';
+import { agregarCompetidor, leerCompetidor, ponerWebEncontrada } from '@/lib/spy';
 import { marcarActosSpy } from '@/lib/spy-actos';
 import { buscarOtrasRedes, type CandidatoVerificado } from '@/lib/spy-otras-redes';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
@@ -47,7 +47,9 @@ export async function POST(req: NextRequest) {
       else candidatos.unshift(k);
     }
     if (sumadas.length) await marcarActosSpy(['spy_primero', 'spy_canales']);
-    return Response.json({ ok: true, sumadas, candidatos });
+    // Su web de verdad (sacada de su bio o de su página de enlaces): se pone sola, y la pantalla la lee con su funnel.
+    const web = r.web && (await ponerWebEncontrada(id, r.web)) ? r.web : null;
+    return Response.json({ ok: true, sumadas, candidatos, web });
   } catch (e) {
     return Response.json({ ok: false, error: e instanceof Error ? e.message : String(e) });
   }

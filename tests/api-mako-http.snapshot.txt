@@ -82,6 +82,7 @@ cambiar_aprende_solo
 cambiar_botones_mensaje
 cambiar_cobro_partners
 cambiar_codigo_partners
+cambiar_crons_secuencia
 cambiar_curso_al_ganar
 cambiar_duracion_video
 cambiar_espera_paso
@@ -93,6 +94,7 @@ cambiar_icono_landing
 cambiar_imagen_landing
 cambiar_like_comentario_comunidad
 cambiar_like_post_comunidad
+cambiar_limites_envio
 cambiar_moneda_negocio
 cambiar_tema_landing
 cambiar_texto_landing
@@ -127,6 +129,8 @@ compartir_borrador_landing
 compartir_documento_copywriter
 conectar_componentes_dashboard
 conectar_dominio_email
+configuracion_automatizacion
+configurar_automatizacion
 configurar_aviso_whatsapp
 configurar_bloque_general
 configurar_boton_landing
@@ -491,6 +495,7 @@ posponer_item_plan_retro
 preparar_subida_media_buyer
 probar_capi_meta
 probar_conexion_integracion
+probar_secuencia
 programar_analisis_dashboard
 programar_broadcast
 programar_publicacion
@@ -671,6 +676,7 @@ ver_iconos_landing
 ver_integracion
 ver_integraciones
 ver_landing_creada
+ver_limites_envio
 ver_media_buyer
 ver_metricas_video_panda
 ver_mi_plan

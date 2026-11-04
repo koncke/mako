@@ -9,6 +9,7 @@ DELETE /api/grupos/1/miembros → cortada
 DELETE /api/image-editor/disenos/1 → cortada
 DELETE /api/image-editor/subidos/1 → cortada
 DELETE /api/landing-analyst/view → cortada
+DELETE /api/landing-generator/replicar/borrador → cortada
 DELETE /api/onboarding/archivero → cortada
 DELETE /api/onboarding/persona → cortada
 DELETE /api/onboarding/voz → cortada
@@ -186,6 +187,7 @@ POST /api/landing-generator/imagenes → cortada
 POST /api/landing-generator/importar → cortada
 POST /api/landing-generator/pagar → pública (no usa la sesión)
 POST /api/landing-generator/replicar → cortada
+POST /api/landing-generator/replicar/borrador → cortada
 POST /api/landing-generator/replicar/leer → cortada
 POST /api/m/mako → PERMITIDA
 POST /api/mako-doer → cortada

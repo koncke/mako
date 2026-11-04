@@ -21,9 +21,9 @@ import { normalizarBusqueda } from './instagram-buscar';
 import { buscarPerfilesApify } from './instagram-buscar-apify';
 import { APIFY_ACTOR_REDES, TECHO_USD_POR_CORRIDA_REDES } from './spy-otras-redes-reglas';
 import {
-  canalesDeGoogle, consultasDeNombre, perfilesDeGoogle, type CanalHallado, type PerfilHallado,
+  canalesDeGoogle, consultasDeNombre, perfilesDeGoogle, videosDeGoogle, POR_RED, type CanalHallado, type PerfilHallado,
 } from './spy-buscar-reglas';
-import { apuntaDeRef, leerCanalCorto, type CanalYoutube } from './spy-youtube';
+import { apuntaDeRef, leerCanalCorto, leerCanalesDeVideos, type CanalYoutube } from './spy-youtube';
 import { claveDeYoutube } from './youtube';
 
 /** Lo que tarda Google por Apify: medido en 6 y 11 s el 3/11/2026, con una página. Con dos, un poco más. */
@@ -63,24 +63,53 @@ const canalHallado = (c: CanalYoutube, ref: string): CanalHallado => ({
   url: c.handle ? `https://www.youtube.com/${c.handle}` : `https://www.youtube.com/channel/${c.id}`,
 });
 
-/** Un canal por lo que guarda el alta (`UC…`, `@handle`, `user:x`): 1 unidad de cuota. null = no existe o no se pudo. */
-export async function leerCanalHallado(ref: string): Promise<CanalHallado | null> {
+/**
+ * Un canal por lo que guarda el alta (`UC…`, `@handle`, `user:x`): 1 unidad de cuota. `canal: null` con `vacio: null` =
+ * no existe; con `vacio`, no se pudo preguntar (sin la clave de YouTube, la cuota, la red) y la pantalla lo dice.
+ *
+ * ⚠️ Antes devolvía null en los dos casos: sin la clave, el grupo de YouTube quedaba vacío sin decir nada, y la lista
+ * parecía completa (Martín, 4/11: «ya no busca a usuarios de YouTube»).
+ */
+export async function leerCanalHallado(ref: string): Promise<{ canal: CanalHallado | null; vacio: 'sin-clave' | 'fallo' | null }> {
   const apunta = apuntaDeRef(ref);
-  if (!apunta) return null;
+  if (!apunta) return { canal: null, vacio: null };
   const k = `yt:${ref.toLowerCase()}`;
   const ya = leerCache<CanalHallado | null>(k);
-  if (ya !== undefined) return ya;
+  if (ya !== undefined) return { canal: ya, vacio: null };
   const clave = await claveDeYoutube().catch(() => null);
-  if (!clave) return null;
+  if (!clave) return { canal: null, vacio: 'sin-clave' };
   try {
     const l = await leerCanalCorto(apunta, clave, fetch);
     const c = l.ok ? canalHallado(l.canal, ref) : null;
     // «No existe» se recuerda; un fallo de la cuota o de la red no (la próxima vuelve a preguntar).
     if (l.ok || l.motivo === 'no-esta') guardarCache(k, c);
-    return c;
+    return { canal: c, vacio: l.ok || l.motivo === 'no-esta' ? null : 'fallo' };
   } catch (e) {
     console.error(`[spy-buscar] el canal ${ref}: ${msg(e)}`);
-    return null;
+    return { canal: null, vacio: 'fallo' };
+  }
+}
+
+/**
+ * Los canales de los VIDEOS que trajo Google (`videosDeGoogle`): `videos.list` dice de qué canal es cada uno (1 unidad
+ * por todos) y cada canal se lee con su foto (1 unidad cada uno). Sin los que ya vinieron como canal.
+ */
+async function canalesDeLosVideos(ids: readonly string[], ya: ReadonlySet<string>, cuantos: number): Promise<{ canales: CanalHallado[]; vacio: 'sin-clave' | 'fallo' | null }> {
+  if (!ids.length || cuantos <= 0) return { canales: [], vacio: null };
+  const clave = await claveDeYoutube().catch(() => null);
+  if (!clave) return { canales: [], vacio: 'sin-clave' };
+  try {
+    const r = await leerCanalesDeVideos(ids, clave, fetch);
+    if (!r.ok) return { canales: [], vacio: 'fallo' };
+    const nuevos = r.canales.filter((c) => !ya.has(c.id.toLowerCase())).slice(0, cuantos);
+    const canales = await Promise.all(nuevos.map(async (c) => {
+      const l = await leerCanalHallado(c.id);
+      return l.canal ?? { ref: c.id, url: `https://www.youtube.com/channel/${c.id}`, nombre: c.nombre, foto: null, suscriptores: null };
+    }));
+    return { canales, vacio: null };
+  } catch (e) {
+    console.error(`[spy-buscar] los canales de ${ids.length} videos: ${msg(e)}`);
+    return { canales: [], vacio: 'fallo' };
   }
 }
 
@@ -90,7 +119,7 @@ export async function leerCanalHallado(ref: string): Promise<CanalHallado | null
  * Los canales salen con su foto (una unidad de cuota cada uno); los perfiles, con los seguidores que Google escribe en
  * su descripción, y sin foto: la completa `completarPerfiles`.
  */
-export async function buscarEnGoogle(ws: number, nombre: string): Promise<{ instagram: PerfilHallado[]; youtube: CanalHallado[]; vacio: PorQueVacio }> {
+export async function buscarEnGoogle(ws: number, nombre: string): Promise<{ instagram: PerfilHallado[]; youtube: CanalHallado[]; vacio: PorQueVacio; vacioYoutube?: 'sin-clave' | 'fallo' | null }> {
   const consulta = consultasDeNombre(nombre);
   if (!consulta) return { instagram: [], youtube: [], vacio: null };
   const k = `g:${ws}:${normalizarBusqueda(nombre)}`;
@@ -115,12 +144,18 @@ export async function buscarEnGoogle(ws: number, nombre: string): Promise<{ inst
     const cuerpo = await r.json().catch(() => null);
     const instagram = perfilesDeGoogle(cuerpo);
     // La foto de cada canal: en paralelo, y un canal que no se pudo leer queda con lo que dijo Google.
-    const youtube = await Promise.all(canalesDeGoogle(cuerpo).map(async (c) => {
-      const leido = await leerCanalHallado(c.ref);
+    const directos = await Promise.all(canalesDeGoogle(cuerpo).map(async (c) => {
+      const leido = (await leerCanalHallado(c.ref)).canal;
       return leido ? { ...c, ...leido, suscriptores: leido.suscriptores ?? c.suscriptores, nombre: leido.nombre ?? c.nombre } : c;
     }));
-    guardarCache(k, { instagram, youtube });
-    return { instagram, youtube, vacio: null };
+    // Lo que más trae Google de YouTube son VIDEOS: se ofrece el canal de cada uno.
+    // Sin repetir: un canal que vino como enlace y como video sale una vez (se compara por lo que guarda el alta).
+    const ya = new Set(directos.map((c) => c.ref.toLowerCase()));
+    const deVideos = await canalesDeLosVideos(videosDeGoogle(cuerpo), ya, POR_RED - directos.length);
+    const youtube = [...directos, ...deVideos.canales.filter((c, i, xs) => !ya.has(c.ref.toLowerCase()) && xs.findIndex((x) => x.ref.toLowerCase() === c.ref.toLowerCase()) === i)];
+    // Un fallo leyendo los videos no se guarda: la próxima búsqueda vuelve a probar.
+    if (!deVideos.vacio) guardarCache(k, { instagram, youtube });
+    return { instagram, youtube, vacio: null, vacioYoutube: youtube.length ? null : deVideos.vacio };
   } catch (e) {
     console.error(`[spy-buscar] Google «${nombre}»: ${msg(e)}`);
     return { instagram: [], youtube: [], vacio: 'fallo' };

@@ -45,6 +45,14 @@
 // tanda volvió, el diseño) y `ArmadoEnVivo` (app/_ui) la muestra con una cadencia corta: las fases, un punto por sección
 // y la lista que crece. Cuando terminó Y ya se ve todo, se abre el editor de la copia. La lectura llega entera: su lista
 // de secciones también se revela de a una (`useRevelado`).
+//
+// TICKET #54 (4/11/2026, Leandro, ws 10): «quise volver para atrás […] se me borró completamente la página analizada […] lo que
+// haría no sería que se borre, sino de que quede en estado borrador». Lo leído vivía SÓLO en esta pantalla: volver al chat
+// desde la lista del editor (que cierra «Nueva landing»), ir a otra landing o el «atrás» se lo llevaban. Ahora la ruta de
+// lectura lo guarda como BORRADOR del negocio con lo elegido (lib/editor-landing/replica-borrador.ts); esta pantalla, al abrir
+// una dirección que tiene borrador, lo RETOMA sin volver a leer (`leerPagina`: no paga IA otra vez y no abre la ventana), guarda
+// lo que la persona va eligiendo (qué replicar, el formato, el tema, «Tu oferta») y ofrece «Descartar». La réplica creada borra
+// su borrador (la ruta de replicar). «Leer de nuevo» sobre lo que ya está a la vista lee de verdad.
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -78,6 +86,8 @@ import { CSS_TIPO } from './PiezasTipo';
 import { FORMATO_INICIAL } from './caja-modos';
 import { SelectorTemaCrear, temaSugerido } from './SelectorTemaCrear';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { eleccionEnPantalla, esRelectura, lineaDeRetomado, type BorradorReplica, type EleccionReplica } from '@/lib/editor-landing/replica-borrador';
+import { avisarBorradores, descartarBorrador, guardarEleccion, pedirBorrador } from './borradores-replica';
 
 /** El ícono de cada formato (lib/editor-landing/iconos.ts): las diapositivas, las secciones y la página. */
 export const ICONO_FORMATO: Record<FormatoReplicar, string> = { presentacion: 'presentar', landing: 'paginas', web: 'globo' };
@@ -247,6 +257,8 @@ export function useReplicarEnVivo(): {
       const aviso = r.aviso ?? (r.avisoScroll ? AVISO_SCROLL : null);
       if (aviso) dejarAvisoDeReplica(r.id, aviso);
       setLista({ id: r.id });
+      // Su borrador lo borró la ruta (ticket #54): la lista de «Sin terminar» se vuelve a pedir.
+      avisarBorradores();
       return;
     }
     const f = r as { error: string; enNavegador?: boolean; pegable?: boolean; probar?: unknown };
@@ -431,13 +443,17 @@ export type EstadoLectura =
  */
 export function useLeerParaReplicar(): {
   estado: EstadoLectura;
-  leer: (url: string, extra?: { ventana?: VentanaDelClic | null; lectura?: Lectura; texto?: string; sinAngulos?: boolean }) => Promise<void>;
+  leer: (url: string, extra?: { ventana?: VentanaDelClic | null; lectura?: Lectura; texto?: string; sinAngulos?: boolean; eleccion?: EleccionReplica }) => Promise<void>;
+  /** Lo leído antes, desde su borrador (ticket #54): sin volver a leer. */
+  retomar: (url: string, b: BorradorReplica) => void;
+  /** «Descartar»: vuelve a la dirección sola. */
+  olvidar: () => void;
 } {
   const [estado, setEstado] = useState<EstadoLectura>({ fase: 'quieta' });
   const montado = useRef(true);
   useEffect(() => { montado.current = true; return () => { montado.current = false; }; }, []);
-  const leer = useCallback(async (url: string, extra: { ventana?: VentanaDelClic | null; lectura?: Lectura; texto?: string; sinAngulos?: boolean } = {}) => {
-    const { ventana = null, sinAngulos = false, ...dato } = extra;
+  const leer = useCallback(async (url: string, extra: { ventana?: VentanaDelClic | null; lectura?: Lectura; texto?: string; sinAngulos?: boolean; eleccion?: EleccionReplica } = {}) => {
+    const { ventana = null, sinAngulos = false, eleccion, ...dato } = extra;
     const usaVentana = !dato.lectura && !dato.texto;
     if (ventana && ventana !== 'bloqueada' && !usaVentana) cerrarVentana(ventana);
     setEstado({ fase: 'leyendo' });
@@ -446,7 +462,8 @@ export function useLeerParaReplicar(): {
       ventana: usaVentana ? ventana : null,
       pedir: (leida) => {
         if (leida) setEstado({ fase: 'leyendo' });
-        return postJson<RespuestaLectura>('/api/landing-generator/replicar/leer', { url, ...dato, ...(leida ? { lectura: leida } : {}), ...(sinAngulos ? { angulos: false } : {}) }, PLAZO_LECTURA_MS);
+        // `eleccion`: lo que eligió la persona, para el borrador que guarda la ruta (ticket #54).
+        return postJson<RespuestaLectura>('/api/landing-generator/replicar/leer', { url, ...dato, ...(leida ? { lectura: leida } : {}), ...(sinAngulos ? { angulos: false } : {}), ...(eleccion ? { eleccion } : {}) }, PLAZO_LECTURA_MS);
       },
       pideNavegador: (x) => !x.ok && (x as { enNavegador?: boolean }).enNavegador === true,
       alLeer: () => setEstado({ fase: 'leyendo', enVentana: true }),
@@ -455,12 +472,17 @@ export function useLeerParaReplicar(): {
     if (!montado.current) return;
     if (r.ok) {
       setEstado({ fase: 'leida', url, lectura: r.lectura, leidaEnNavegador: lectura ?? dato.lectura ?? null, texto: dato.texto ?? null });
+      avisarBorradores();
       return;
     }
     const f = r as { error: string; enNavegador?: boolean; pegable?: boolean };
     setEstado({ fase: 'falla', url, error: f.error, enNavegador: f.enNavegador === true, pegable: f.pegable === true, salida: sinLectura });
   }, []);
-  return { estado, leer };
+  const retomar = useCallback((url: string, b: BorradorReplica) => {
+    setEstado({ fase: 'leida', url, lectura: b.lectura, leidaEnNavegador: (b.fuente.lectura as Lectura | null) ?? null, texto: b.fuente.texto });
+  }, []);
+  const olvidar = useCallback(() => setEstado({ fase: 'quieta' }), []);
+  return { estado, leer, retomar, olvidar };
 }
 
 /** Lo último que eligió la persona, en ESTE navegador (una comodidad, nunca un dato: puede volver vacío). */
@@ -507,7 +529,12 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   // competencia: medido el 28/10/2026 en el ws9, la réplica de Reportei seguía hablando de Reportei.
   const [oferta, setOferta] = useState<string>(() => leerLocal<string>(CLAVE_OFERTA, ''));
   const sugerido = useMemo(() => temaSugerido('vender'), []);
-  const { estado: lectura, leer } = useLeerParaReplicar();
+  const { estado: lectura, leer, retomar, olvidar } = useLeerParaReplicar();
+  // El borrador (ticket #54): cuándo se leyó lo que se retomó, y si se está buscando antes de leer.
+  const [retomado, setRetomado] = useState<string | null>(null);
+  const [buscando, setBuscando] = useState(false);
+  // Mientras se borra, «Leer» no puede retomar lo que se está descartando.
+  const [descartando, setDescartando] = useState(false);
   const { estado, eventos, lista, replicar } = useReplicarEnVivo();
   const ws = useWs();
   const vista = useMemo(() => vistaDeEventos(eventos), [eventos]);
@@ -522,11 +549,80 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   const url = urlParaAnalizar(texto);
   const leyendo = lectura.fase === 'leyendo';
   const replicando = estado.fase === 'replicando' || !!lista;
-  const ocupado = leyendo || replicando;
+  const ocupado = leyendo || replicando || buscando || descartando;
+  /** Lo elegido, tal como va al borrador. */
+  const eleccion = useMemo<EleccionReplica>(() => ({
+    partes: listaDePartes(partes), formato, oferta: oferta.trim().slice(0, TOPE_OFERTA_PANTALLA), tema: partes.diseno ? null : tema, adaptar: adaptarInicial,
+  }), [partes, formato, oferta, tema, adaptarInicial]);
+  const eleccionViva = useRef(eleccion);
+  eleccionViva.current = eleccion;
+  const leidaViva = useRef<string | null>(null);
+  leidaViva.current = lectura.fase === 'leida' ? lectura.url : null;
+
+  /** Lo leído antes vuelve a la pantalla tal como quedó: la lectura y lo elegido. */
+  const retomarBorrador = useCallback((u: string, b: BorradorReplica) => {
+    const e = eleccionEnPantalla(b.eleccion, FORMATO_INICIAL);
+    setPartes(e.partes);
+    setFormato(e.formato);
+    if (e.oferta) setOferta(e.oferta);
+    if (e.tema) setTema(e.tema);
+    retomar(u, b);
+    setRetomado(b.actualizado);
+  }, [retomar]);
 
   /** Leer `u`. `ventana`: la que se abrió EN EL CLIC (el submit) o la que reservó el ↑ de la caja (el arranque). */
   // Con la copia idéntica (las cuatro partes), la lectura no paga los ángulos: no los usa.
-  const leerPagina = useCallback((u: string, ventana: VentanaDelClic | null) => { void leer(u, { ventana, ...(sonTodas(partesVivas.current) ? { sinAngulos: true } : {}) }); }, [leer]);
+  // Ticket #54: si esa dirección tiene borrador, se RETOMA (sin leer, sin la ventana); «Leer de nuevo» sobre lo que ya está a la
+  // vista lee de verdad.
+  const leerPagina = useCallback((u: string, ventana: VentanaDelClic | null) => {
+    const releer = esRelectura(leidaViva.current, u);
+    void (async () => {
+      setBuscando(true);
+      const b = releer ? null : await pedirBorrador(u);
+      setBuscando(false);
+      if (b) {
+        if (ventana && ventana !== 'bloqueada') cerrarVentana(ventana);
+        retomarBorrador(u, b);
+        return;
+      }
+      setRetomado(null);
+      void leer(u, { ventana, eleccion: eleccionViva.current, ...(sonTodas(partesVivas.current) ? { sinAngulos: true } : {}) });
+    })();
+  }, [leer, retomarBorrador]);
+
+  // Lo que se va eligiendo queda en el borrador (con un respiro), y lo último sale aunque la pantalla se cierre.
+  const urlLeida = lectura.fase === 'leida' ? lectura.url : null;
+  const pendiente = useRef<{ url: string; eleccion: EleccionReplica } | null>(null);
+  const guardada = useRef<string | null>(null);
+  useEffect(() => {
+    // Replicando, lo pendiente no sale: la réplica ya lleva lo elegido, y su borrador se borra al salir bien.
+    if (!urlLeida || replicando) { if (replicando) pendiente.current = null; return; }
+    const firma = `${urlLeida}|${JSON.stringify(eleccion)}`;
+    // La primera vez es la de la lectura (la guardó la ruta) o la del borrador retomado: no hay nada nuevo.
+    if (guardada.current === null || !guardada.current.startsWith(`${urlLeida}|`)) { guardada.current = firma; return; }
+    // Volvió a lo que ya está guardado: lo intermedio no sale.
+    if (guardada.current === firma) { pendiente.current = null; return; }
+    pendiente.current = { url: urlLeida, eleccion };
+    const t = setTimeout(() => {
+      const p = pendiente.current;
+      if (!p) return;
+      pendiente.current = null;
+      guardada.current = firma;
+      void guardarEleccion(p.url, p.eleccion);
+    }, 900);
+    return () => clearTimeout(t);
+  }, [urlLeida, eleccion, replicando]);
+  useEffect(() => () => { const p = pendiente.current; if (p) void guardarEleccion(p.url, p.eleccion, { alSalir: true }); }, []);
+
+  const descartar = useCallback(() => {
+    if (!urlLeida) return;
+    pendiente.current = null;
+    guardada.current = null;
+    setRetomado(null);
+    olvidar();
+    setDescartando(true);
+    void descartarBorrador(urlLeida).finally(() => setDescartando(false));
+  }, [urlLeida, olvidar]);
 
   // El ref sobrevive al doble montaje del modo estricto: la lectura se paga una sola vez (y la ventana se toma una).
   const arrancado = useRef(false);
@@ -603,14 +699,23 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
           ocupado={false}
           accionTexto="Leer este texto"
           salida={lectura.salida}
-          onLectura={(l) => void leer(lectura.url, { lectura: l, ...(sonTodas(partes) ? { sinAngulos: true } : {}) })}
-          onTexto={(t) => void leer(lectura.url, { texto: t, ...(sonTodas(partes) ? { sinAngulos: true } : {}) })}
+          onLectura={(l) => void leer(lectura.url, { lectura: l, eleccion, ...(sonTodas(partes) ? { sinAngulos: true } : {}) })}
+          onTexto={(t) => void leer(lectura.url, { texto: t, eleccion, ...(sonTodas(partes) ? { sinAngulos: true } : {}) })}
         />
       ) : lectura.fase === 'falla' ? (
         <p className="gp-error" role="alert">{lectura.error}<ReportarASoporte /></p>
       ) : null}
+      {buscando && (
+        <p className="gp-analizar-sub gp-replicar-estado" role="status"><span className="gp-giro" aria-hidden /> Buscando lo que ya leíste…</p>
+      )}
       {lectura.fase === 'leida' && (
         <>
+          {retomado && (
+            <p className="gp-rp-nota gp-rp-retomado" role="status">
+              {lineaDeRetomado(retomado)}
+              <button type="button" className="gp-rp-descartar" disabled={replicando} onClick={descartar}>Descartar</button>
+            </p>
+          )}
           <LecturaDeLaPagina lectura={lectura.lectura} />
           <section className="gp-rp-elegir" aria-label="Qué replicar">
             <h2 className="gp-rp-titulo">Qué replicar</h2>
@@ -708,6 +813,9 @@ const CSS_REPLICAR = `
 .gp .gp-rp-oferta textarea { height: auto; padding: 10px 12px; resize: vertical; line-height: 1.45; }
 .gp .gp-rp-aviso { font-size: 13px; color: var(--gp-activo-texto); }
 .gp .gp-rp-replicar { margin-top: 16px; }
+.gp .gp-rp-retomado { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 14px; }
+.gp .gp-rp-descartar { padding: 0; border: 0; background: transparent; font: inherit; font-size: 13px; color: var(--gp-tenue); text-decoration: underline; cursor: pointer; }
+.gp .gp-rp-descartar:hover:not(:disabled) { color: var(--gp-texto); }
 .gp .gp-rp-sec-entra { animation: gp-rp-entra .3s ease-out both; }
 @keyframes gp-rp-entra { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .gp .gp-rp-sec-entra { animation: none; } }

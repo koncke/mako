@@ -17,12 +17,17 @@
 // lista de TLD) → 2 rojos. `contadorDeTexto` sin distinguir sufijo («1,2 M» como 12) → 1 rojo. Sacar `site:youtube.com`
 // de la consulta → 1 rojo. Ofrecer «Usar @x» cuando la lectura dijo que no existe → 1 rojo. Pedir el @ de quien ya se
 // mira → 1 rojo. «No hay» con la clave faltando → 1 rojo.
+// La búsqueda en YouTube (4/11, «pongo un espacio… solamente me trae Instagram»), rota de a una y restaurada: un nombre sin
+// su @ en YouTube → 3 rojos; `videosDeGoogle` vacío (tirar los videos, lo de antes) → 1 rojo; `canalesDeVideos` sin
+// sacar repetidos → 1 rojo; el estado de YouTube que calla un fallo → 1 rojo.
 // Correr: node --import tsx --test tests/spy-buscar.test.ts
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { canalesDeVideos, leerCanalesDeVideos } from '../lib/spy-youtube';
 import {
+  videoDeUrl, videosDeGoogle,
   canalesDeGoogle, consultasDeNombre, contadorDeTexto, cualesCompletar, esDominio, esperaDe, filasDeLaBusqueda,
   ordenarCanales, ordenarPerfiles, pedidosDelPlan, perfilesDeGoogle, planDeBusqueda,
   type PerfilHallado, type RespuestasBusqueda,
@@ -104,9 +109,9 @@ test('con menos de 3 letras no se pide nada', () => {
   assert.deepEqual(pedidosDelPlan(planDeBusqueda(''), nadie), []);
 });
 
-test('un nombre pide Google (Instagram y YouTube juntos) y el buscador de Instagram', () => {
+test('un nombre pide Google (Instagram y YouTube juntos), el buscador de Instagram y su @ en YouTube', () => {
   const fuentes = pedidosDelPlan(planDeBusqueda('Víctor Heras'), nadie).map((p) => new URL(p.url, 'https://x').searchParams.get('fuente'));
-  assert.deepEqual(fuentes.sort(), ['google', 'ig', 'ig-nombre']);
+  assert.deepEqual(fuentes.sort(), ['google', 'ig', 'ig-nombre', 'yt']);
   assert.match(consultasDeNombre('Víctor Heras'), /"Víctor Heras" site:instagram\.com\n"Víctor Heras" site:youtube\.com/);
 });
 
@@ -212,6 +217,7 @@ test('sin la clave de Spy se dice eso, no «no encontré a nadie»', () => {
     'ig:victorheras': { perfil: null, vacio: 'sin-clave' },
     'g:victor heras': { instagram: [], youtube: [], vacio: 'sin-clave' },
     'ign:victor heras': { perfiles: [], vacio: 'sin-clave' },
+    'yt:@victorheras': { canal: null, vacioYoutube: null },
   }, {}, nadie);
   assert.equal(b.sinClave, true);
   assert.equal(b.algoPedido, true);
@@ -245,4 +251,69 @@ test('la espera dice cuánto tarda y que con el @ es más rápido; nunca «inmed
   assert.match(esperaDe(4000, true), /20 segundos/);
   assert.match(esperaDe(12_000, true), /@ exacto/);
   for (const ms of [0, 4000, 12_000, 30_000]) for (const n of [true, false]) assert.doesNotMatch(esperaDe(ms, n), /inmediat/i);
+});
+
+// ── YouTube se busca SIEMPRE (Martín, 4/11: «pongo un espacio… solamente me trae Instagram») ─────────────────────
+
+/** ¿Lo escrito consulta YouTube? Con su @ o su canal (`yt:`), o por Google con `site:youtube.com` (`g:`). */
+const consultaYoutube = (texto: string) => {
+  const pedidos = pedidosDelPlan(planDeBusqueda(texto), nadie);
+  return {
+    exacto: pedidos.some((p) => p.k.startsWith('yt:')),
+    google: pedidos.some((p) => p.k.startsWith('g:')) && consultasDeNombre(planDeBusqueda(texto).nombre ?? '').includes('site:youtube.com'),
+  };
+};
+
+test('YouTube se consulta con un nombre, sin @, con @ y con el enlace del canal', () => {
+  const nombre = consultaYoutube('Victor Heras');
+  assert.ok(nombre.google, 'un nombre de dos palabras busca canales en Google');
+  assert.ok(nombre.exacto, 'y su nombre pegado se prueba como @ en YouTube, como en Instagram');
+  assert.equal(planDeBusqueda('Victor Heras').youtubeExacto, '@victorheras');
+  const pegado = consultaYoutube('victorheras');
+  assert.ok(pegado.exacto && pegado.google, 'una palabra: su @ en YouTube y la búsqueda por nombre');
+  assert.ok(consultaYoutube('@Victorherasmedia').exacto, 'el @ exacto también es su canal');
+  assert.ok(consultaYoutube('https://www.youtube.com/@Victorherasmedia').exacto, 'el enlace del canal');
+  assert.ok(consultaYoutube('youtube.com/channel/UCabcdefghijklmnopqrstuv').exacto, 'el enlace por id');
+});
+
+test('los VIDEOS que trae Google de YouTube son la puerta a su canal (antes se tiraban)', () => {
+  assert.deepEqual(videosDeGoogle(GOOGLE_VICTOR), [], 'el armado de arriba no trae un id de video válido (abc123 no tiene 11)');
+  const conVideos = [{ searchQuery: { term: '"Victor Heras" site:youtube.com' }, organicResults: [
+    { title: 'Cómo hacerse viral - YouTube', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10', description: '' },
+    { title: 'Un short', url: 'https://www.youtube.com/shorts/aBcDeFgHiJk', description: '' },
+    { title: 'Otro', url: 'https://youtu.be/dQw4w9WgXcQ', description: '' },
+    { title: 'Una lista', url: 'https://www.youtube.com/playlist?list=PL123', description: '' },
+  ] }];
+  assert.deepEqual(videosDeGoogle(conVideos), ['dQw4w9WgXcQ', 'aBcDeFgHiJk'], 'sin repetir, y una lista no es un video');
+  assert.equal(videoDeUrl('https://m.youtube.com/live/aBcDeFgHiJk'), 'aBcDeFgHiJk');
+  assert.equal(videoDeUrl('https://www.youtube.com/@Victorherasmedia'), null, 'un canal no es un video');
+  const resp = { items: [
+    { id: 'dQw4w9WgXcQ', snippet: { channelId: 'UCaaaaaaaaaaaaaaaaaaaaaa', channelTitle: 'Víctor Heras Media' } },
+    { id: 'aBcDeFgHiJk', snippet: { channelId: 'UCaaaaaaaaaaaaaaaaaaaaaa', channelTitle: 'Víctor Heras Media' } },
+    { id: 'zzzzzzzzzzz', snippet: { channelId: 'no-es-un-canal' } },
+  ] };
+  assert.deepEqual(canalesDeVideos(resp), [{ id: 'UCaaaaaaaaaaaaaaaaaaaaaa', nombre: 'Víctor Heras Media' }]);
+});
+
+test('los canales de los videos: UNA llamada a videos.list, y sin clave se dice', async () => {
+  const pedidas: string[] = [];
+  const falso = async (url: string) => { pedidas.push(url); return { status: 200, json: async () => ({ items: [{ snippet: { channelId: 'UCaaaaaaaaaaaaaaaaaaaaaa', channelTitle: 'X' } }] }) } as Response; };
+  const r = await leerCanalesDeVideos(['dQw4w9WgXcQ', 'aBcDeFgHiJk', 'malo'], 'k', falso);
+  assert.ok(r.ok);
+  assert.equal(pedidas.length, 1);
+  assert.match(pedidas[0], /\/videos\?part=snippet&id=dQw4w9WgXcQ%2CaBcDeFgHiJk&key=k/);
+  assert.deepEqual(await leerCanalesDeVideos(['dQw4w9WgXcQ'], '', falso), { ok: false, canales: [] }, 'sin clave no es «ninguno»');
+});
+
+test('el grupo de YouTube dice qué pasó: ninguno, no pude o sin clave; nunca calla', () => {
+  const plan = planDeBusqueda('Victor Heras');
+  const base: RespuestasBusqueda = { 'ig:victorheras': { perfil: p('victorheras', 5_200), vacio: null }, 'ign:victor heras': { perfiles: [], vacio: null } };
+  const estado = (extra: RespuestasBusqueda) => filasDeLaBusqueda(plan, { ...base, ...extra }, {}, nadie).youtubeEstado;
+  assert.equal(estado({}), 'cargando');
+  assert.equal(estado({ 'g:victor heras': { instagram: [], youtube: [], vacio: null }, 'yt:@victorheras': { canal: null, vacioYoutube: null } }), 'ninguno');
+  assert.equal(estado({ 'g:victor heras': { instagram: [], youtube: [], vacio: null, vacioYoutube: 'fallo' }, 'yt:@victorheras': { canal: null, vacioYoutube: null } }), 'no-pude', 'un fallo leyendo los videos no es «ninguno»');
+  assert.equal(estado({ 'g:victor heras': { instagram: [], youtube: [], vacio: null }, 'yt:@victorheras': { canal: null, vacioYoutube: 'sin-clave' } }), 'no-pude', 'sin la clave de YouTube: es nuestro, «no pude»');
+  assert.equal(estado({ 'g:victor heras': { instagram: [], youtube: [], vacio: 'sin-clave' }, 'yt:@victorheras': { canal: null, vacioYoutube: null } }), 'sin-clave', 'sin la clave de Apify: Google no buscó');
+  const canal = { ref: '@Victorherasmedia', nombre: 'Víctor Heras Media', foto: null, suscriptores: 120_000, url: 'https://www.youtube.com/@Victorherasmedia' };
+  assert.equal(estado({ 'g:victor heras': { instagram: [], youtube: [canal], vacio: null }, 'yt:@victorheras': { canal: null, vacioYoutube: null } }), 'hay');
 });

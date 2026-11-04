@@ -36,6 +36,13 @@ import { replicar } from '@/lib/editor-landing/replicar';
 import type { FormatoReplicar, RespuestaReplicar } from '@/lib/editor-landing/replicar-reglas';
 import type { SeLeeEnNavegador } from '@/lib/editor-landing/lectura-tipos';
 import { lineaDeEvento, type EventoReplica } from '@/lib/editor-landing/replicar-progreso';
+import { borrarBorradorReplica } from '@/lib/editor-landing/replica-borrador-server';
+
+/**
+ * La copia salió: el borrador de esa dirección se va (ticket #54, lib/editor-landing/replica-borrador.ts). La copia ya es la
+ * landing, en borrador sin publicar. Si no se pudo borrar, queda en la lista de «Sin terminar» y vence solo: no tumba la copia.
+ */
+const soltarBorrador = (url: unknown) => borrarBorradorReplica(url).catch((e: unknown) => console.error('[landing-generator/replicar] borrador:', e instanceof Error ? e.message : e));
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -73,6 +80,7 @@ export async function POST(req: Request) {
         try {
           const r = await replicar({ url: b.url, formato: b.formato, modo: b.modo, lectura: b.lectura, texto: b.texto, partes: b.partes, tema: b.tema, angulos: b.angulos, oferta: b.oferta, adaptar: b.adaptar, foto: b.foto }, enviar);
           respuesta = respuestaDe(r);
+          if (r.ok) await soltarBorrador(b.url);
         } catch (err) {
           console.error('[landing-generator/replicar] en vivo:', err instanceof Error ? err.message : err);
           respuesta = { ok: false, error: 'Algo falló. Vuelve a intentar.' };
@@ -96,6 +104,7 @@ export async function POST(req: Request) {
     }
     const { status: _s, ...cuerpo } = r;
     void _s;
+    await soltarBorrador(body.url);
     return Response.json(cuerpo satisfies RespuestaReplicar);
   } catch (err) {
     // replicar no tira (devuelve {ok:false}); esto es la red por si algo de afuera lo hace.

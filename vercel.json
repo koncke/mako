@@ -222,6 +222,10 @@
       "schedule": "47 6 * * *"
     },
     {
+      "path": "/api/cron/spy-todo",
+      "schedule": "23 * * * *"
+    },
+    {
       "path": "/api/cron/cs-sesiones-entrega",
       "schedule": "52 * * * *"
     },

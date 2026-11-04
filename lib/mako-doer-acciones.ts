@@ -158,6 +158,10 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         const activa = Boolean(payload.activa);
         // `aunqueDuplique` sólo si la PROPUESTA ya dijo que otra le escribe lo mismo (y la persona dijo que sí). Si la
         // gemela apareció entre la propuesta y el «sí», no se prende: se dice, y se vuelve a proponer con el aviso.
+        // EL RITMO TAMBIÉN EN LA RESPUESTA (4/11/2026, la campaña de email de Mauricio): con un token detallado la activación
+        // se aplica en el acto y lo que vuelve es ESTE resumen, no el de la propuesta. Se cuenta ANTES de prenderla (después,
+        // los que entran ya no son «los que entrarían»). No poder contarlo no frena.
+        const ritmo = activa ? await ritmoAlActivar(id).catch(() => null) : null;
         try {
           // `ws`: MaKo por WhatsApp corre sin sesión; el tope del plan lo pregunta `setSecuenciaActiva` (TopeDelPlanError).
           await setSecuenciaActiva(id, activa, { aunqueDuplique: payload.aunqueDuplique === true, ws });
@@ -166,7 +170,7 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
           if (e instanceof DuplicadaError) return { ok: false, resumen: `No activé la secuencia #${id}: ${e.message}. Si es a propósito, pídemelo otra vez.` };
           throw e;
         }
-        return { ok: true, resumen: `Secuencia de nutrición #${id} ${activa ? 'activada' : 'pausada'}.` };
+        return { ok: true, resumen: `Secuencia de nutrición #${id} ${activa ? 'activada' : 'pausada'}.${ritmo ? ` ${textoEnteroDelAviso(ritmo)}` : ''}` };
       }
       case 'meta_nombre':
       case 'meta_presupuesto':

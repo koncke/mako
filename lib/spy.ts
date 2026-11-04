@@ -59,7 +59,7 @@ import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy
 import { conLectura, funnelDeFila, leerFunnel, type Funnel, type LecturaFunnel } from './spy-funnel';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { VIDEOS_POR_LECTURA_COMPLETA, leerCompleto, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
-import { sitioDelTexto } from './spy-otras-redes-reglas';
+import { esAgregador, sitioDelTexto } from './spy-otras-redes-reglas';
 import { CLAVE_CARICATURAS, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
 import { seFueron } from './spy-todo-reglas';
 import { FORMATOS, formatoDe } from './spy-detalle';
@@ -381,6 +381,19 @@ export async function leerPieza(id: number): Promise<{ pieza: Pieza; competidor:
   return competidor ? { pieza, competidor } : null;
 }
 
+/**
+ * Pone la web que encontró la cadena de sus redes (lib/spy-cadena.ts), si no tenía o si la que tenía era su página de
+ * enlaces (beacons, linktree…). Nunca pisa una web que eligió el negocio: compare-and-set sobre lo que había. true si la puso.
+ */
+export async function ponerWebEncontrada(id: number, web: string): Promise<boolean> {
+  const c = await leerCompetidor(id);
+  if (!c || (c.landing_url && !esAgregador(c.landing_url))) return false;
+  const db = await getTenantDb();
+  const q = db.from('spy_competidores').update({ landing_url: web.slice(0, 500), updated_at: new Date().toISOString() }).eq('id', id);
+  const r = await (c.landing_url ? q.eq('landing_url', c.landing_url) : q.is('landing_url', null)).select('id');
+  return !r.error && (r.data?.length ?? 0) > 0;
+}
+
 /** La etapa de tendencia de una pieza: cuánto lleva a la vista. Es lo único que MaKo agrega sobre mirar a mano. */
 export function etapaDePieza(p: Pick<Pieza, 'publicada_en'>): ReturnType<typeof etapaDeTendencia> {
   return etapaDeTendencia(diasCorriendo(p.publicada_en));
@@ -646,7 +659,8 @@ export async function mirarCompetidor(
         if (vistas.length) await marcarDejadas(competidorId, 'instagram', vistas);
         // Se guarda para que el PRÓXIMO negocio no la pague. No se espera: si falla, este negocio
         // ya tiene sus piezas y lo único que se pierde es el ahorro del siguiente.
-        void guardarLecturaCompartida('instagram', c.instagram, vistas, { seguidores: l.perfil.seguidores ?? null });
+        // Con su bio y su web (4/11/2026): la cadena de sus otras redes las lee de acá y no paga otra lectura (lib/spy-cadena.ts).
+        void guardarLecturaCompartida('instagram', c.instagram, vistas, { seguidores: l.perfil.seguidores ?? null, bio: l.perfil.bio ?? '', web: l.perfil.web ?? null });
         canales.push({ canal: 'instagram', ok: !g.error, piezas: vistas.length, nuevas: g.nuevas, detalle: g.error ?? `${vistas.length} publicaciones` });
       }
       }
