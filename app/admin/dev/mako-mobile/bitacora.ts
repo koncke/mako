@@ -360,4 +360,29 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/movil-rutas.ts — `destinoDashboard` y la barra', 'app/m/_ui/cabecera.ts y app/m/badges.ts', 'tests/movil-rutas.test.ts, tests/sidebar-nueva.test.ts'],
     revisar: '/general',
   },
+  {
+    fecha: '4 nov', hora: '08:23', chat: 'Tiendas: privacidad', sesion: 'cli_d2b72179-90a8-55cc-b44f-a49a80e160ba', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El responsable legal de las páginas para las tiendas',
+    pedido: 'Si, el responsable legal es Leandro',
+    puntos: ['Contestó la pregunta del plan de las tiendas: qué responsable dicen /privacidad y /terminos, si la cuenta de Play es suya y la de Apple de Leandro.'],
+  },
+  {
+    fecha: '4 nov', hora: '08:23', chat: 'Tiendas: privacidad', sesion: 'cli_d2b72179-90a8-55cc-b44f-a49a80e160ba', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las páginas legales dicen quién publica la app en cada tienda',
+    puntos: [
+      'Privacidad y Términos siguen nombrando a Leandro como responsable, y suman una línea: en la App Store publica ese mismo nombre, en Google Play Martín Carballo Koncke.',
+      'Las fichas de Play quedan con el título y la descripción corta nuevos, y el token de avisos declarado en Data safety.',
+      '**Cómo se prueba:** abre hola-mako.com/privacidad y hola-mako.com/terminos, y lee el final de cada una.',
+    ],
+    commits: [{ sha: '8cffbbf2', msg: 'Las páginas legales dicen quién publica la app en cada tienda', lineas: 112, archivos: 6 }],
+    archivos: [
+      'lib/titular-mako.ts — `PUBLICA_EN_PLAY`, al lado de la razón social',
+      'app/privacidad/page.tsx y app/terminos/page.tsx — la línea de quién publica',
+      'docs/tiendas-fichas-borradores.md y docs/tiendas-play-appstore.md — la ficha de Play y la decisión',
+      'tests/tiendas-quien-publica.test.ts — las dos páginas sin JavaScript, probado rompiéndolo',
+    ],
+    revisar: '/privacidad',
+  },
 ];
