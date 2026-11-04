@@ -444,7 +444,6 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
   // (lib/offer-reglas.ts → mensajeDeMako manda la pregunta original).
   const delCliente = v.resultado();
   if (delCliente != null) return { ok: true, valor: delCliente, modelo: rotulo };
-  if (p.soloDelNegocio) return { ok: false, error: await errorDeCascada(errores, p.tema) };
 
   // 2) La RED DE PLATAFORMA: sólo si ninguna key del cliente contestó algo que sirva. Sus errores van
   //    aparte y sólo al log: con ellos se fabricaría el texto que lee el cliente.
@@ -459,7 +458,8 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
   //     keys gratis que el bucle de abajo (el doble de cuota por minuto de la agencia), usa un solo plazo
   //     en vez de `hastaRedMs` y no conoce el respaldo flojo. El super admin no: ya probó SUS keys arriba.
   const wsActual = await getWorkspaceActual().catch(() => null);
-  if (superWs != null && wsActual != null && wsActual !== superWs && p.hastaRedMs - Date.now() >= MIN_INTENTO_MS) {
+  // Con `soloDelNegocio` (Competitors Spy) ni el crédito ni la red: se cae directo al mensaje de abajo.
+  if (!p.soloDelNegocio && superWs != null && wsActual != null && wsActual !== superWs && p.hastaRedMs - Date.now() >= MIN_INTENTO_MS) {
     const { conCreditoDeLaPlataforma } = await import('./anthropic');
     const c = await conCreditoDeLaPlataforma({
       system: p.system, user: p.user, json: true, maxTokens: p.maxTokens,
@@ -473,7 +473,7 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
     } else if (c && 'error' in c) erroresRed.push(`crédito de Claude: ${c.error}`);
   }
 
-  const red = superWs != null ? await provsGratisDePlataforma().catch(() => []) : [];
+  const red = superWs != null && !p.soloDelNegocio ? await provsGratisDePlataforma().catch(() => []) : [];
   for (const r of red) {
     const queda = p.hastaRedMs - Date.now();
     if (queda < MIN_INTENTO_MS) { erroresRed.push(`sin tiempo para ${r.provider}`); break; }
