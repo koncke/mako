@@ -31,7 +31,10 @@ el retrato del gurú en la cabecera (el arnés no sirve `public/`).
 (`git log --all -- '*<apellido>*.png'`) y no hay ninguna. Las caricaturas se hacen con Canva desde la PC (prompt aprobado en
 `docs/hallazgos-ops-center.md`); la nube no tiene Canva. Si Martín ya las hizo, están en Canva o en la PC, no acá.
 
-Su FICHA sí se escribe en la nube, de a una, y queda en `lib/asesores/en-espera.ts` (`EN_ESPERA`), lista para entrar:
+Su FICHA sí se escribe en la nube, y **las diez están escritas** en `lib/asesores/en-espera.ts` (`EN_ESPERA`), listas para
+entrar. Cada una sale de leer de 8 a 12 clases de método de su curso; lo que el curso enseña y el chat no repite (escasez o
+urgencia inventada, promesas de ingresos, pedir un crédito para pagar, comprar enlaces) está en su «⚠️ NO SE TRASLADA».
+**Lo que falta para que entren es sólo su cara** (y que Martín lea la ficha si quiere: no la revisó nadie más).
 
 | Gurú | Curso | Ficha |
 |---|---|---|
@@ -44,7 +47,7 @@ Su FICHA sí se escribe en la nube, de a una, y queda en `lib/asesores/en-espera
 | Mateo Maffia | BYF | **escrita** («Video corto que vende», `ficha-mateo-maffia.ts`) |
 | Francisco Doglio | ARCADIA | **escrita** («Equipo comercial y webinars», `ficha-francisco-doglio.ts`) |
 | Andy Landa | ManyChat Master - Instagram | **escrita** («Automatizaciones de Instagram», `ficha-andy-landa.ts`) |
-| Gonzalo Seré | Growing Content Specialist | pendiente |
+| Gonzalo Seré | Growing Content Specialist | **escrita** («Estrategia de contenido», `ficha-gonzalo-sere.ts`) |
 
 Andrew Tate no entra (pedido explícito).
 
