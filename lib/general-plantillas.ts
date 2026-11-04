@@ -104,18 +104,27 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     ],
   },
   {
-    // El caso de la reunión del 12/10 (el Plan, la cobranza y el CRM en la pantalla de lo que se hace hoy).
+    // 4/11/2026 — MOORLY · TORQUE (docs/templates-dashboard-propuesta.md §7.3): «¿qué está vencido y a quién llamo?». Moorly abre con
+    // lo de hoy y lo que vence; Torque, el tablero de lo que está en curso. Es el caso de la reunión del 12/10 (el
+    // Plan, la cobranza y el CRM en la pantalla de lo que se hace hoy).
     id: 'operacion', nombre: 'Operación diaria', emoji: '⚡',
-    linea: 'Las prioridades del Plan, a quién cobrarle, las llamadas y cómo está el funnel.',
+    linea: 'Lo de hoy: las llamadas, lo vencido, a quién llamar y lo primero del Plan.',
     subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
-      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago' }),
-      numero('pendiente', 'pagos', 'pendiente', 'Por cobrar', { comparar: false }),
-      numero('agendas', 'leads', 'agendas', 'Agendas', { fecha: 'agenda' }),
-      numero('cierres', 'leads', 'cierres', 'Cierres', { fecha: 'cierre' }),
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'leads', fecha: 'agenda', metricas: ['agendas', 'asistencias', 'no_show'], dimension: null, titulo: 'Hoy',
+        frase: 'Hoy hay {agendas} llamadas agendadas · {asistencias} ya vinieron · {no_show} no se presentaron',
+        controles: [{ tipo: 'periodo', preset: 'hoy', fijo: true }], ir: 'crm',
+      },
+      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago', ir: 'cobranza' }),
+      numero('pendiente', 'pagos', 'pendiente', 'Por cobrar', { comparar: false, invertida: true, ir: 'cobranza' }),
+      numero('agendas', 'leads', 'agendas', 'Agendas', { fecha: 'agenda', ir: 'crm' }),
+      numero('cierres', 'leads', 'cierres', 'Cierres', { fecha: 'cierre', ir: 'closing' }),
       bloque('prioridades'),
-      bloque('cobranza'), bloque('llamadas'), bloque('agenda'),
-      bloque('funnel', { opciones: { estilo: 'barras' } }), bloque('semaforo'),
+      bloque('cobranza', { titulo: 'Lo vencido', opciones: { cuales: 'vencidas' } }),
+      bloque('llamadas', { titulo: 'A quién llamo hoy', opciones: { dias: '1' } }), bloque('agenda'),
+      bloque('deadlines', { titulo: 'Lo que vence', opciones: { dias: '7', que: 'tareas' } }),
+      bloque('funnel', { opciones: { estilo: 'barras' } }),
     ],
   },
   {
@@ -175,7 +184,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
 export const PORTADAS_GENERAL: Readonly<Record<string, DefinicionPortada>> = {
   general: { sube: 'cabecera', vecino: 'cabecera', par: ['por-mes', 'semaforo'], molde: 'ledge' },
   foco: { sube: 'objetivos', vecino: 'objetivos', par: ['agenda', 'llamadas', 'tareas', 'deadlines'], molde: 'moorly' },
-  operacion: { sube: 'prioridades', cambios: { texto: 'Lo primero de hoy' }, molde: 'tilvo' },
+  operacion: { sube: 'prioridades', cambios: { texto: 'Lo primero de hoy' }, vecino: 'prioridades', par: ['cobranza', 'llamadas', 'agenda', 'deadlines', 'funnel'], molde: 'tilvo' },
   servicio: { sube: 'etapas', molde: 'prism' },
   curso: { sube: 'tendencia', molde: 'corbel' },
   instagram: { sube: 'plataformas', molde: 'prism' },
