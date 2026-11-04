@@ -302,6 +302,8 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/m/chats',
     tickets: [51],
+  },
+  {
     fecha: '4 nov', hora: '04:22', chat: 'Grabar', sesion: 'cli_6ff1501b-e5d8-58be-a2dd-2546d599dfd6', cuenta: 'nube',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Grabar llamadas, la plantilla Cold Calling y el Dashboard en la barra del teléfono',
