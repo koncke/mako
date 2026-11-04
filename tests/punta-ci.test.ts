@@ -222,7 +222,7 @@ function armarRepo() {
   git(raiz, 'clone', '-q', origen, clon);
   git(clon, 'checkout', '-q', '-b', 'main');
   const guardasLog = join(raiz, 'guardas.log');
-  commit(clon, OTRO, { 'lib/base.ts': 'export const base = 1;\n', 'docs/base.md': 'base\n', 'scripts/guardas-push.sh': `echo corrida >> "${guardasLog.replace(/\\/g, '/')}"\n` }, 'base');
+  commit(clon, OTRO, { 'lib/base.ts': 'export const base = 1;\n', 'docs/base.md': 'base\n', 'scripts/guardas-push.sh': `echo corrida >> "${guardasLog.replace(/\\/g, '/')}"\n`, 'scripts/ci-workflow-nuevo.sh': readFileSync(join(RAIZ, 'scripts', 'ci-workflow-nuevo.sh'), 'utf8') }, 'base');
   git(clon, 'push', '-q', 'origin', 'main');
   git(clon, 'checkout', '-q', '-b', 'punta/prueba');
   /** Otro chat empuja a main desde su propio clon. */

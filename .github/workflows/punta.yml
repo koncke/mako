@@ -152,12 +152,15 @@ jobs:
           GIT_COMMITTER_NAME: ${{ steps.punta.outputs.autor_nombre }}
           GIT_COMMITTER_EMAIL: ${{ steps.punta.outputs.autor_correo }}
         run: |
+          antes=$(git rev-parse HEAD)
           if ! git merge --no-edit -m "Merge origin/main en $GITHUB_REF_NAME" origin/main; then
             choques=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
             git merge --abort || true
             echo "::error::La punta no se pudo mezclar con main. Archivos en choque: ${choques:-ninguno, mira el log de este paso}. No se chequeó nada. Mezcla origin/main en la punta, resuelve y vuelve a subir (el índice docs/hallazgos.md: python -I scripts/unir-indice-hallazgos.py .)."
             exit 1
           fi
+          # La punta y main cambiaron el mismo workflow: GitHub no dejaría subir la mezcla (scripts/ci-workflow-nuevo.sh).
+          sh scripts/ci-workflow-nuevo.sh "$antes"
           git diff --name-only --no-renames origin/main HEAD > "$RUNNER_TEMP/punta-neto.txt"
           if [ ! -s "$RUNNER_TEMP/punta-neto.txt" ]; then
             echo "nada=true" >> "$GITHUB_OUTPUT"
@@ -289,6 +292,7 @@ jobs:
               continue
             fi
             if ! git merge-base --is-ancestor origin/main HEAD; then
+              antes=$(git rev-parse HEAD)
               if ! git merge --no-edit -m "Merge origin/main en $GITHUB_REF_NAME" origin/main; then
                 choques=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
                 git merge --abort || true
@@ -296,6 +300,7 @@ jobs:
                 exit 1
               fi
               echo "::warning::main se movió durante los tests: esta mezcla pasó por las guardas, no por los tests ni los tipos."
+              sh scripts/ci-workflow-nuevo.sh "$antes" || exit 1
               sh scripts/guardas-push.sh origin || exit 1
               mezclo=1
             fi
