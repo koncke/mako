@@ -104,7 +104,8 @@ test('4: la acción busca el id en la lista, arma el documento sin el motor y lo
   assert.match(src, /const p = await puerta\(\);\s*if \(p instanceof Response\)/, 'la puerta del editor antes que nada');
   assert.match(src, /const pl = plantillaNueva\(id\);\s*if \(!pl\) return/, 'el id se busca en la lista; uno de afuera no entra');
   assert.match(src, /pl\.plantilla\s*\?\s*await documentoDePlantilla\(pl\.plantilla\)\s*:\s*documentoEnBlanco\(pl\.ancho, pl\.alto, Array\.from\(\{ length: Math\.max\(1, pl\.paginas\) \}/);
-  assert.match(src, /crearDiseno\(p\.ws, p\.quien, \{ titulo: pl\.nombre, doc \}\)/);
+  // El nombre sale de la tarjeta (o del que ella declara para el diseño: «Carrusel · Lista o tips»), nunca del navegador.
+  assert.match(src, /crearDiseno\(p\.ws, p\.quien, \{ titulo: pl\.tituloDiseno \?\? pl\.nombre, doc \}\)/);
   assert.doesNotMatch(src, /_doory/, 'el motor es sólo de cliente');
 });
 

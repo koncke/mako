@@ -41,3 +41,8 @@ export const VISTAS_CARRUSEL = [
   { value: 'guardados', label: 'Guardados' },
 ] as const;
 export type VistaCarrusel = (typeof VISTAS_CARRUSEL)[number]['value'];
+
+/** Los tipos de carrusel de MaKo (lib/carruseles/tipos.ts, que tiene la estructura de cada uno): los ofrece la API. */
+export const IDS_TIPO_CARRUSEL = ['lista', 'tutorial', 'historia', 'antes-despues', 'mito', 'opinion', 'caso', 'preguntas'] as const;
+export type IdTipoCarrusel = (typeof IDS_TIPO_CARRUSEL)[number];
+export const esTipoCarrusel = (v: unknown): v is IdTipoCarrusel => typeof v === 'string' && (IDS_TIPO_CARRUSEL as readonly string[]).includes(v);
