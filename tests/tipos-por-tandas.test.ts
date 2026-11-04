@@ -645,8 +645,9 @@ test('el workflow de medición corre SÓLO en la rama medir-tipos (o a mano), co
   for (const n of solo.filter((x) => experimentos().find((e) => e.nombre === x)?.pesos)) assert.ok(solo.indexOf('tandas-1') >= 0 && solo.indexOf('tandas-1') < solo.indexOf(n), `tandas-1 va antes que ${n}`);
 });
 
-test('el paso «Tipos» de integracion.yml pide las TANDAS que se midieron (4) y las entiende tipos-ci; y sigue sin tocar nada fuera del paso', () => {
-  const wf = readFileSync(join(REPO, '.github', 'workflows', 'integracion.yml'), 'utf8').replace(/\r\n/g, '\n');
+// 4/11/2026: integracion.yml se retiró; el paso «Tipos» que frena una subida es el de punta.yml (y el de sobre-main.yml, igual).
+test('el paso «Tipos» de punta.yml pide las TANDAS que se midieron (4) y las entiende tipos-ci; y sigue sin tocar nada fuera del paso', () => {
+  const wf = readFileSync(join(REPO, '.github', 'workflows', 'punta.yml'), 'utf8').replace(/\r\n/g, '\n');
   const codigo = wf.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
   const paso = /- name: Tipos\n([\s\S]*?)(?=\n      - name: )/.exec(codigo)?.[1] ?? '';
   const pedido = /env:\s*\n\s+TIPOS_TANDAS: '(\d+)'/.exec(paso)?.[1];
@@ -655,7 +656,7 @@ test('el paso «Tipos» de integracion.yml pide las TANDAS que se midieron (4) y
   assert.match(paso, /node scripts\/tipos-ci\.mjs/, 'sigue corriendo el script que dice qué pasó');
   assert.match(paso, /exit \$c/, 'y propaga su exit');
   assert.doesNotMatch(paso, /TIPOS_SOLO_TANDAS|TIPOS_HEAP_ENTERO_MB/, '«Tipos» es el tsc ENTERO: las tandas son sólo el respaldo si muere por memoria (OK PARCIAL); el paso no salta el entero ni le achica el heap');
-  assert.match(wf, /DESDE LA NOCHE DEL 21\/10\/2026 «Tipos» ES SIEMPRE EL TSC ENTERO/, 'y el workflow lo dice (la promesa de «igual al tsc» ya no vale para las tandas)');
+  assert.ok(Number(/TIPOS_HEAP_MB: '(\d+)'/.exec(paso)?.[1]) > 8192, '«Tipos» es el tsc ENTERO con swap (las tandas son el respaldo si muere por memoria): el tope de heap pasa la RAM del runner');
   assert.doesNotMatch(codigo.replace(paso, ''), /TIPOS_TANDAS/, 'las tandas son sólo del paso «Tipos»: ningún otro paso las hereda');
 });
 

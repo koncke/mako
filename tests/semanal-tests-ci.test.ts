@@ -87,5 +87,5 @@ test('no puede escribir en el repo ni avanzar main', () => {
   assert.match(src, /permissions:\n\s+contents: read\n/, 'permisos de sólo lectura');
   assert.doesNotMatch(src, /contents:\s*write|git push|--force/, 'la semanal avisa, no cambia nada');
   // Y la que sí avanza main sigue siendo la otra: este archivo no la reemplaza.
-  assert.match(sinComentarios(leer('.github/workflows/integracion.yml')), /git push origin "HEAD:refs\/heads\/main"/);
+  assert.match(sinComentarios(leer('.github/workflows/punta.yml')), /git push origin "HEAD:refs\/heads\/main"/);
 });
