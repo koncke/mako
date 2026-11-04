@@ -159,7 +159,7 @@ export function textoCaida(e: { rol: Rol; tipo: TipoCaida; foto: FotoLinea; desd
   const efecto = efectoDe(e.rol);
   if (e.tipo === 'cortada') {
     return `🟠 *Se cortó ${titulo}\nNo responde desde hace ${duracion(e.desde, e.ahoraMs)} y está intentando volver sola. ${efecto}\n\n`
-      + `Todavía no escanees: escanear puede tumbar una sesión que está por volver. Si en una hora sigue igual, entra acá:\n${e.link}`;
+      + `Todavía no escanees: escanear puede tumbar una sesión que está por volver. Si en una hora sigue igual, entra aquí:\n${e.link}`;
   }
   if (e.tipo === 'zombi') {
     return `🔴 *Se cayó ${titulo}\nFigura conectada pero no responde desde hace ${duracion(e.desde, e.ahoraMs)}. ${efecto}\n\n`
