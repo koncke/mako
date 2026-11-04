@@ -13,6 +13,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 
 | Área | Documento | Qué cubre |
 |---|---|---|
+| Comunicación | [hallazgos-comunicacion.md](hallazgos-comunicacion.md) | **Para que no nos vuelvan a banear (4/11)**: el onboarding ya no le escribe a nadie (la persona manda el código por `wa.me`); la línea de MaKo no escribe primero ni invita por DM a desconocidos; tope de altas por día; un «rate-overlimit», 463 o 403 frena la línea y avisa por mail. Con la tabla de cada envío y qué dice Meta vs. folclore. **Trampa: el código de la pantalla no prueba nada, prueba el número que lo manda.** |
 | Plan | [hallazgos-plan.md](hallazgos-plan.md) | **«Plan se volvió a dibujar sola» NO era la falsa alarma del #39 (#52, 4/11)**: sí se recupera sola, pero la causa es nuestra: «faltan N días» salía de la fecha de la máquina, y de noche el server (UTC) ya está en mañana. |
 | Comunicación | [hallazgos-comunicacion.md](hallazgos-comunicacion.md) | **«No puedo ver mis chats de Instagram» (#50, 4/11)**: no eran chats: 293 de 356 sólo comentaron, y `previewDe` convertía su texto en «(Mensaje no compatible)». **El audio se cortaba cada 15 s en el teléfono**: cada lectura del hilo firma de nuevo la URL. |
 | MaKo Mobile | [hallazgos-mobile.md](hallazgos-mobile.md) | **«Me saca el botón de audio» y el campo que flota (#51, 4/11)**: mostrar el micrófono no alcanzaba: esa nota sale por el `onMandar`, junto con lo adjuntado. Con la pantalla ya corrida por Safari, `altoTeclado` da 0: «abierto» se mide aparte. |

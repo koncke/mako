@@ -19,7 +19,7 @@ import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
 import { taparClaves } from '@/lib/claves-en-el-chat';
 import { manejarEntranteDoer, wsDeGrupoJid } from '@/lib/mako-doer-in';
 import { INSTANCIA_SUPERADMIN, esNombreDeCanal, instanciaCanal, usarCanalComoVoz } from '@/lib/mako-canal';
-import { instanciaVoz } from '@/lib/mako-grupo';
+import { confirmarPorMensajeEntrante, instanciaVoz } from '@/lib/mako-grupo';
 import { manejarEntranteBot } from '@/lib/mako-bot';
 import { lineaPuedeSerDelBot } from '@/lib/mako-bot-reglas';
 import { configDelBot } from '@/lib/mako-salida';
@@ -188,6 +188,26 @@ export async function POST(req: NextRequest) {
     }
 
     if (evento === 'messages.upsert') {
+      // LA PERSONA LE ESCRIBE A MaKo PARA CONFIRMAR SU WHATSAPP (4/11/2026, lib/verificacion-entrante.ts): MaKo no le escribe primero a
+      // nadie. Va antes que todo y SINCRÓNICO (`after` no es durable): es un mensaje del sistema, así que no pasa al bot ni al espejo
+      // del inbox. Sin un código en el texto no toca la base. El alta en el grupo habla con WhatsApp: ésa sí, después.
+      const todos = Array.isArray((body.data as { messages?: unknown[] } | undefined)?.messages)
+        ? (body.data as { messages: Record<string, unknown>[] }).messages
+        : (body.data ? [body.data as Record<string, unknown>] : []);
+      const deVerificacion = new Set<Record<string, unknown>>();
+      for (const m of todos) {
+        if ((((m?.key as { remoteJid?: string } | undefined)?.remoteJid) ?? '').endsWith('@g.us')) continue;
+        const r = await confirmarPorMensajeEntrante(instance, m).catch((e: unknown) => {
+          console.error(`[webhook:evolution] verificación: ${e instanceof Error ? e.message : String(e)}`);
+          return null;
+        });
+        if (!r) continue;
+        deVerificacion.add(m);
+        console.log(`[webhook:evolution] verificación por WhatsApp en ${instance}: ${r.resultado}`);
+        if (r.sumarAlGrupo) after(r.sumarAlGrupo);
+      }
+      const noEsVerificacion = (m: Record<string, unknown>) => !deVerificacion.has(m);
+
       // EL BOT 1 A 1 (3/11/2026, lib/mako-bot.ts): lo que una persona le escribe a la línea del bot. Va antes de resolver el workspace: esa línea no tiene por qué ser de
       // ninguno. Una línea de negocio no llega ni a leer los settings (`lineaPuedeSerDelBot`), que es por donde pasa casi todo el tráfico de este webhook.
       if (lineaPuedeSerDelBot(instance)) {
@@ -195,7 +215,7 @@ export async function POST(req: NextRequest) {
         if (c.activo && c.instancia === instance) {
           const crudos = body.data as Record<string, unknown> | undefined;
           const lista = Array.isArray((crudos as { messages?: unknown[] })?.messages) ? (crudos as { messages: Record<string, unknown>[] }).messages : (crudos ? [crudos] : []);
-          const chats = lista.filter((m) => !(((m?.key as { remoteJid?: string } | undefined)?.remoteJid) ?? '').endsWith('@g.us'));
+          const chats = lista.filter((m) => noEsVerificacion(m) && !(((m?.key as { remoteJid?: string } | undefined)?.remoteJid) ?? '').endsWith('@g.us'));
           if (chats.length) {
             after(async () => {
               for (const m of chats) {
@@ -216,7 +236,7 @@ export async function POST(req: NextRequest) {
         : (d ? [d] : []);
       const esGrupo = (m: Record<string, unknown>) => (((m?.key as { remoteJid?: string } | undefined)?.remoteJid) ?? '').endsWith('@g.us');
       const grupos = mensajes.filter(esGrupo);
-      const unoAuno = mensajes.filter((m) => !esGrupo(m));
+      const unoAuno = mensajes.filter((m) => !esGrupo(m) && noEsVerificacion(m));
 
       // Mensajes de GRUPO (…@g.us) → doer "Hola MaKo". El loop de tools con Claude es
       // LENTO: corriéndolo sincrónico, un turno pesado (ej. "tengo 10 ideas" → Opus)

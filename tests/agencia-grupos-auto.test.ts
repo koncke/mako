@@ -111,12 +111,12 @@ test('si no se puede leer la cartera el grupo nace igual, sin invitar a nadie y 
   assert.doesNotMatch(mensajes(R.carteraCaida.pasos)[0].texto, /agencia/i);
 });
 
-test('WhatsApp no deja a uno de la agencia: sale la invitación con su texto, y el grupo dice «invité»', () => {
-  const inv = R.privado.pasos.find((p: Paso) => p.paso === 'invitar');
-  assert.ok(inv, 'no salió la invitación');
-  assert.match(inv.texto, /grupo de MaKo de Con Privado/);
-  assert.doesNotMatch(inv.texto, /tu negocio/, 'el negocio no es de quien la recibe');
-  assert.match(mensajes(R.privado.pasos)[0].texto, /Invité también a \*Agencia Dos\*/);
+// ⚠️ 4/11/2026: MaKo no le escribe primero a nadie (lib/mako-salida-reglas.ts). Con lo automático prendido, a alguien de la agencia que
+// WhatsApp no deja sumar y que nunca le escribió a la línea NO le sale la invitación por DM, y el grupo no dice «invité».
+test('WhatsApp no deja a uno de la agencia que nunca escribió: no sale la invitación por DM, y el grupo no dice «invité»', () => {
+  assert.equal(R.privado.r.ok, true);
+  assert.equal(R.privado.pasos.find((p: Paso) => p.paso === 'invitar'), undefined, 'salió un DM con link a alguien que nunca le escribió a la línea');
+  assert.doesNotMatch(mensajes(R.privado.pasos)[0].texto, /Invité/);
 });
 
 test('un grupo que ya existe: el plan sólo lee; aplicar suma a quien falta; otra vez no repite', () => {

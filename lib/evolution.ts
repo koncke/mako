@@ -25,6 +25,8 @@ import { queryDeWebhook } from './evolution-firma';
 import { numeroParaWhatsApp, motivoConPista } from './numero-whatsapp';
 import { bloqueoDeEnvioEnRevision } from './revision-guarda';
 import { topeParaLineaNueva, type TopeLineaNueva } from './tope-lineas';
+import { antesDeEscribir, trasEscribir } from './linea-freno';
+import { pausaDeEscritura } from './mako-salida-reglas';
 import type { FotoLinea } from './lineas-de-mako';
 
 // El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
@@ -66,6 +68,10 @@ type EvResult<T> = { ok: true; data: T } | { ok: false; error: string; status: n
 
 async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: number): Promise<EvResult<T>> {
   if (!evolutionConfigurado()) return { ok: false, error: 'Evolution no configurado', status: 0 };
+  // ⛔ LA LÍNEA FRENADA NO ESCRIBE (4/11/2026, lib/linea-freno.ts): WhatsApp avisó que estaba en riesgo, y seguir insistiendo
+  // es lo que termina en un ban. Sale con el motivo y sin status (no llegó a Evolution).
+  const frenada = await antesDeEscribir(path).catch(() => null);
+  if (frenada) return { ok: false, error: frenada, status: 0, motivo: frenada };
   try {
     const res = await fetch(`${BASE}${path}`, {
       ...init,
@@ -88,6 +94,9 @@ async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: n
       // crudo de Evolution es un array JSON que no le dice nada a nadie (revisión del 11/09).
       // `detalle` lleva lo que Evolution dijo de verdad, anidado en `response.message`: sin eso
       // la sonda nunca veía el «Connection Closed» (ver `mensajeEvolution`).
+      // Un «rate-overlimit», un 463 o un 403 al mandar frenan la línea y avisan una vez (lib/linea-freno.ts). Se espera: el
+      // próximo envío de la misma tanda ya tiene que encontrarla frenada.
+      await trasEscribir(path, res.status, body).catch(() => null);
       return { ok: false, error: msg, status: res.status, detalle: mensajeEvolution(body, res.status), motivo: motivoDeEvolution(res.status, body) };
     }
     return { ok: true, data: body as T };
@@ -937,8 +946,7 @@ export async function enviarTexto(telefono: string, texto: string, linea?: strin
   if (!n.ok) return n;
   const num = n.numero;
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
-  const base = Math.min(1500 + texto.length * 45, 9000);
-  const delay = Math.round(base * (0.8 + Math.random() * 0.4)); // ±20% jitter
+  const delay = pausaDeEscritura(texto.length); // «escribiendo…» proporcional al largo, con variación (lib/mako-salida-reglas.ts)
   const r = await evFetch<{ key?: { id?: string; remoteJid?: string } }>(
     `/message/sendText/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ number: num, text: texto, delay, ...(opts.sinVistaPrevia ? { linkPreview: false } : {}) }) },
@@ -967,7 +975,7 @@ export async function enviarMedia(
   const num = n.numero;
   const media64 = soloB64(media.base64);
   if (!media64) return { ok: false, error: 'archivo vacío' };
-  const delay = Math.round(Math.min(1200 + Math.floor(media64.length / 120), 6000) * (0.8 + Math.random() * 0.4));
+  const delay = pausaDeEscritura(media64.length, 'media');
   const body: Record<string, unknown> = { number: num, mediatype: media.tipo, mimetype: media.mimetype, media: media64, delay };
   if (media.fileName) body.fileName = media.fileName;
   if (caption) body.caption = caption;
@@ -992,7 +1000,7 @@ export async function enviarAudio(telefono: string, base64: string, linea?: stri
   const num = n.numero;
   const audio64 = soloB64(base64);
   if (!audio64) return { ok: false, error: 'audio vacío' };
-  const delay = Math.round(Math.min(2000 + Math.floor(audio64.length / 90), 8000) * (0.8 + Math.random() * 0.4));
+  const delay = pausaDeEscritura(audio64.length, 'audio');
   const r = await evFetch<{ key?: { id?: string; remoteJid?: string } }>(
     `/message/sendWhatsAppAudio/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ number: num, audio: audio64, delay, encoding: true }) },

@@ -82,9 +82,12 @@ test('que MaKo le haya escrito a él no cuenta como que escribió, y sin poder l
   assert.equal(R.lecturaRota.res.link, 'https://chat.whatsapp.com/LINK');
 });
 
-test('prendido lo automático, salen el equipo y la invitación', () => {
+test('prendido lo automático, sale el equipo; la invitación por DM a quien nunca escribió, no (4/11/2026)', () => {
   assert.ok(R.equipoPrendido.pedidos.includes('group/updateParticipant'));
-  assert.ok(R.invitacionPrendida.pedidos.includes('group/sendInvite'));
+  // MaKo no le escribe primero a nadie (lib/mako-salida-reglas.ts): lo automático ya no abre la invitación a un desconocido.
+  assert.ok(!R.invitacionPrendida.pedidos.includes('group/sendInvite'));
+  assert.match(R.invitacionPrendida.res.error, new RegExp(SIN_INVITACION.slice(0, 20)));
+  assert.equal(R.invitacionPrendida.res.link, 'https://chat.whatsapp.com/LINK');
 });
 
 test('lo automático sin poder leerlo queda apagado, y la fila de un cliente no lo prende para la línea de todos', () => {
@@ -137,9 +140,10 @@ test('el grupo nuevo y el detalle del grupo también cuentan, y otra línea tien
   assert.deepEqual(R.topeOtraLinea, { ok: true });
 });
 
-test('el código de verificación no gasta en la línea: un cliente no se queda sin onboarding por lo que hizo otro negocio', () => {
+test('la verificación no gasta en la línea y no le escribe a nadie: devuelve el link para que la persona le escriba a MaKo', () => {
   assert.equal(R.topeCodigo.res.ok, true);
-  assert.ok(R.topeCodigo.pedidos.includes('message/sendText'));
+  assert.ok(!R.topeCodigo.pedidos.includes('message/sendText'), JSON.stringify(R.topeCodigo.pedidos));
+  assert.match(R.topeCodigo.res.link, /^https:\/\/wa\.me\/5493410000999\?text=Hola%20MaKo/);
 });
 
 test('pasada la ventana vuelve', () => {
