@@ -807,4 +807,27 @@ export const BITACORA: Hito[] = [
       'tests/mako-ficha-lead.test.ts — con los datos reales del ticket',
     ],
   },
+  {
+    fecha: '3 nov', hora: '16:40', chat: 'Bot y avisos', sesion: 'local_0fabc2d4-f10f-4a2d-b0ef-70cec8e878a7', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Sale de los grupos: un bot que sólo contesta',
+    pedido: 'conservar el chat de MaKo en WhatsApp con un bot ahí que responde automáticamente, pero no va a crear ni grupos de WhatsApp y no va a mandar ni mensajes a nadie... si un usuario lo quiere escribir porque entró a la landing y vio que había un botón de hablar por WhatsApp, le escribe, ahí MaKo le puede responder',
+    puntos: ['Lo pidió después de que WhatsApp baneara la línea de MaKo. Los grupos siguen hasta que los avisos lleguen por la app.'],
+  },
+  {
+    fecha: '3 nov', hora: '19:40', chat: 'Bot y avisos', sesion: 'local_0fabc2d4-f10f-4a2d-b0ef-70cec8e878a7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El bot 1 a 1 de MaKo, apagado hasta que tenga su línea',
+    puntos: [
+      'Nunca escribe primero: la puerta (lib/mako-salida.ts) no deja salir nada a quien no escribió en las últimas 24 horas.',
+      'Quien no tiene cuenta habla con ventas, sin herramientas. Quien administra un negocio, con el mismo MaKo de su grupo. Una agencia elige el negocio una sola vez.',
+      'Sólo habla de MaKo y del negocio de quien escribe, por la regla de IA de Meta.',
+      '**Cómo se prueba:** hace falta una línea propia. Con `mako.bot.instancia`, `mako.bot.activo` = `si` y `mako.bot.solo` con tu número, escribile a esa línea: nadie más recibe nada.',
+    ],
+    archivos: [
+      'lib/mako-salida.ts — la puerta · lib/mako-salida-drivers.ts — Evolution y la API oficial',
+      'lib/mako-bot.ts y lib/mako-bot-reglas.ts — quién es y qué se hace con cada mensaje',
+      'tests/mako-bot.test.ts, tests/mako-bot-reglas.test.ts',
+    ],
+  },
 ];

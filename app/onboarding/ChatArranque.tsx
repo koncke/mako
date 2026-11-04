@@ -22,6 +22,7 @@
 // Las reglas (en qué etapa está, qué dice MaKo, qué se acepta) son puras: lib/onboarding-arranque.ts.
 // =============================================================================
 
+import { TarjetaAvisos } from './TarjetaAvisos';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useWs } from '@/app/_ui/Link';
@@ -41,7 +42,7 @@ import { EntradaMako } from './EntradaMako';
 import { CriaturaMako, type Reaccion } from './CriaturaMako';
 import { SESION_VACIA, aMensajeOffer, ladoDeLaPregunta, linkPdfLoQueVende, mandaElArranque, placeholderDe, preguntaQueContesta, tarjetaConNumero, tarjetasDe, terminoElArranque } from './arranque-ui';
 
-type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string };
+type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean };
 /** Un aviso arriba del chat; con `accion`, lo que lo destraba sin recargar (un fallo pasajero se reintenta). */
 type Aviso = { texto: string; accion?: { label: string; onClick: () => void } };
 /** El plan de arranque: escribiéndose, listo con su link, o sin plan (no salió o la capa no lo arma). */
@@ -70,6 +71,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   const [plan, setPlan] = useState<EstadoPlan>('armando');
   /** Sube con «Reintentar» del cierre: el efecto del cierre vuelve a correr. */
   const [intentoCierre, setIntentoCierre] = useState(0);
+  const [esperandoCierre, setEsperandoCierre] = useState(false);
   const cerrando = useRef(false);
   const ligando = useRef<number | null>(null);
   const preparando = useRef(false);
@@ -151,6 +153,8 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     void (async () => {
       const r = await llamar({ action: 'cerrar' });
       aplicar(r);
+      // Lo está cerrando el otro dispositivo (el teléfono que activó los avisos): acá sólo se espera a verlo terminado. El plan lo arma el que cerró.
+      if (r.enCurso) { setPlan('sin'); setEsperandoCierre(true); return; }
       if (r.ok === false) {
         // Un fallo pasajero se reintenta acá mismo, sin recargar.
         cerrando.current = false;
@@ -163,6 +167,14 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
       setPlan(p?.ok && p.url ? { url: p.url, n: Number(p.n ?? 0) } : 'sin');
     })();
   }, [vista.etapa, intentoCierre]);
+
+  // Relee mientras el otro dispositivo cierra. Si no termina (se murió), vuelve a intentarlo: el reclamo del server ya venció.
+  useEffect(() => {
+    if (!esperandoCierre || vista.etapa !== 'cierre') return;
+    const t = window.setInterval(() => { void releer(); }, 3000);
+    const fin = window.setTimeout(() => { cerrando.current = false; setEsperandoCierre(false); setIntentoCierre((n) => n + 1); }, 200_000);
+    return () => { window.clearInterval(t); window.clearTimeout(fin); };
+  }, [esperandoCierre, vista.etapa, releer]);
 
   // ENTRA SOLO (18/10/2026, Martín: «cuando dice "¡Listo…! Tu MaKo ya está armado." automáticamente debería ingresar a
   // MaKo, no preguntarme, y la primera tab es el center»). A los 1,5 s del «¡Listo!» la pantalla se funde y entra al Ops
@@ -216,6 +228,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     if (t === 'crm') return <TarjetaCrm vista={vista} />;
     if (t === 'pdf') return vista.sesion ? <TarjetaPdf sesionId={vista.sesion.id} /> : null;
     if (t === 'telefono') return <TarjetaTelefono inicial={vista.telefonoDelPago} ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
+    if (t === 'avisos') return <TarjetaAvisos qr={vista.avisosQr} onRevisar={releer} onSinSoporte={() => void llamar({ action: 'avisos', sinSoporte: true }).then(aplicar)} />;
     if (t === 'listo') return <TarjetaListo onEntrar={() => void entrar()} entrando={entrandoYa} />;
     return null;
   };
@@ -464,6 +477,7 @@ const CSS_ARRANQUE = `
 }
 .arr-tarjeta__rotulo { font-size: var(--fs-meta); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
 .arr-tarjeta__titulo { font-size: 15px; font-weight: 650; color: var(--ink); }
+.arr-tarjeta__nota { font-size: 13px; color: var(--dim); line-height: 1.4; }
 .arr-visor { position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; left: 0; z-index: 250; display: grid; place-items: center; padding: 24px 16px; background: rgba(18,21,27,.55); }
 .arr-visor__caja { width: min(760px, 100%); max-height: 100%; display: flex; flex-direction: column; background: var(--surface); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden; }
 .arr-visor__cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 17px; color: var(--ink); }

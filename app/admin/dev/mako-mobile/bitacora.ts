@@ -251,4 +251,40 @@ export const BITACORA: Hito[] = [
     revisar: '/m/crm',
     tickets: [27],
   },
+  {
+    fecha: '3 nov', hora: '19:30', chat: 'Bot y avisos', sesion: 'local_0fabc2d4-f10f-4a2d-b0ef-70cec8e878a7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los avisos del teléfono: paso obligatorio del onboarding',
+    puntos: [
+      'El onboarding no termina sin el teléfono con los avisos activados. En la computadora muestra un QR y sigue solo cuando el teléfono los activó.',
+      'Si ya los tenías activados, el paso no aparece. Quien ya terminó el onboarding lo ve en General hasta activarlos.',
+      'Los reportes también suenan en el teléfono: no pasaban por el motor de avisos.',
+      '**Cómo se prueba:** entra al negocio de prueba desde la computadora, llega al final del onboarding, escanea el QR y toca «Activar avisos» en el teléfono.',
+    ],
+    archivos: [
+      'app/onboarding/TarjetaAvisos.tsx — lo que pide según el dispositivo',
+      'lib/avisos-telefono.ts y lib/avisos-telefono-reglas.ts — qué cuenta como «tiene los avisos»',
+      'tests/onboarding-avisos.test.ts',
+    ],
+  },
+  {
+    fecha: '3 nov', hora: '20:00', chat: 'Cerebro', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Un solo link para instalar la app, según el dispositivo',
+    pedido: 'que instalen la app y que sea ese link o que les lleve a la apple store dependiendo su dispositivo... Tipo un QR o algo así',
+    puntos: ['Lo relevó el Cerebro. Va en el paso de los avisos del onboarding.'],
+  },
+  {
+    fecha: '3 nov', hora: '20:30', chat: 'Bot y avisos', sesion: 'local_0fabc2d4-f10f-4a2d-b0ef-70cec8e878a7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El link /app: la tienda de cada teléfono, y el QR en la computadora',
+    puntos: [
+      'Un iPhone va a la App Store, un Android a Play Store y una computadora ve el QR.',
+      'Mientras una tienda no tenga la app, ese teléfono ve la guía para agregarla a la pantalla de inicio.',
+      'Prender una tienda es cambiar un solo valor: `publicada`, en lib/app-tiendas.ts.',
+      '**Cómo se prueba:** abre hola-mako.com/app en el teléfono y en la computadora.',
+    ],
+    archivos: ['lib/app-tiendas.ts — las dos tiendas y a dónde va cada dispositivo', 'app/app/page.tsx y app/app/GuiaApp.tsx — el link', 'tests/link-app.test.ts'],
+    revisar: '/app',
+  },
 ];

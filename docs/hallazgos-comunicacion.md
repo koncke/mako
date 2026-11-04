@@ -17,6 +17,7 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **Un jid de una persona nunca sale por la voz, y el bot no tiene línea por defecto** (3/11/2026): la voz es el WhatsApp personal de Martín, y ahí contestaría a su familia. Todo lo que MaKo le manda a una persona pasa por `lib/mako-salida.ts`, que mira las 24 horas. Ver «Los avisos en el teléfono y el bot 1 a 1», abajo.
 - **WhatsApp baneó la línea de MaKo, y no fue por volumen** (3/11/2026). Evolution reintenta solo todo menos 401, 402, 403 y 406, y desde el servidor un ban y un
   cambio de teléfono se ven igual: lo dice el teléfono. Nunca se mueve ese tráfico a otra línea. Ver «WhatsApp BANEÓ la línea de MaKo», abajo.
 - **Un fallo de producción se ubica contra el PUSH antes de diagnosticarlo** (29/10/2026). La nota de voz de Leandro que «Groq no
@@ -52,6 +53,65 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   el funnel SÍ le llega al modelo y pierde contra un imperativo del catálogo. Una clienta
   que prospecta en frío grabó un audio que dice «vi que dejaste tus datos en el anuncio».
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
+
+---
+
+## Los avisos en el teléfono y el bot 1 a 1: lo que hay que saber antes de sacar a MaKo de los grupos (3/11/2026, claude5)
+
+Martín, después del ban: *«conservar el chat de MaKo en WhatsApp con un bot ahí que responde automáticamente, pero no va a crear ni grupos de WhatsApp y no va a mandar ni mensajes a nadie»*, y los avisos por la app.
+
+**Vive en:** `lib/mako-salida.ts` (la puerta: todo lo que MaKo le manda a una persona) · `lib/mako-salida-drivers.ts` (las dos cañerías) · `lib/mako-bot.ts` y `lib/mako-bot-reglas.ts` (el bot) · `lib/avisos-telefono.ts` y `app/onboarding/TarjetaAvisos.tsx` (el paso del onboarding) · `lib/app-tiendas.ts` y `app/app/` (el link único `/app`, el del QR). El corte de los grupos está en la rama `avisos-bot-corte-0311`, sin integrar: espera al grupo de avisos del Ops Center (rama `grupos-ops-0311`, del Cerebro), que es a donde va a parar lo que hoy sale por WhatsApp.
+
+### ⚠️ Lo que parecía y no era
+
+- **«Nadie recibe avisos» no era un bug del push.** `push_suscripciones` tenía 0 filas porque nadie los había activado: el único camino era una hoja adentro de Notificaciones en el teléfono, y nada llevaba ahí. Las claves, `/sw.js` y las rutas ya estaban. Se arregla pidiéndolo, no tocando el envío.
+- **Los reportes no pasaban por `emitirAviso`:** salían por `despacharReporte`, sin push. Lo que se suma en `emitirAviso` no los alcanza.
+- **Un paso que se hace en otro dispositivo es una carrera.** El teléfono activa los avisos y la computadora lo ve a los 4 segundos: los dos llegan al cierre del onboarding juntos, y `cerrarArranque` no es atómico (oferta y producto repetidos). Por eso el cierre se reclama (`onboarding.cerrando`) y el que pierde sólo relee.
+
+### Lo que encontró armar el corte (rama `avisos-bot-corte-0311`), para quien lo monte
+
+- **`emitirAviso` no es la única salida al grupo.** Las automatizaciones, las insistencias, los tickets y el aviso de arreglo llaman directo a `enviarAlGrupoMaKo`. Con el corte se habrían perdido callados. `memoria` los distingue: `null` es `emitirAviso`, que ya escribió la bandeja.
+- **El freno de altas no frena todo.** Con `mako.grupos.altas` = `no`, `asegurarGrupoMaKo` sobre un grupo que ya existe le cambia igual el nombre, la descripción y la foto: tráfico contra WhatsApp. Por eso la última puerta del corte está en `ev()`, por donde pasa todo el archivo.
+- **`enviarCodigoVerificacion` escribe primero por DM y no pasa por las puertas de los grupos.** Con el corte, el onboarding tiene que dejar de pedir el WhatsApp.
+- **Las insistencias, en la app, serían un push cada N minutos que no se puede parar:** ahí no hay dónde contestar «ok».
+- **El resumen de la mañana marca «enviado» sólo con `res.wa`:** sin grupo, queda pendiente para siempre.
+- **«Apagar los dos canales» tiene dueño.** Lo primero que se probó fue dejar el aviso en la app, y `tests/email-y-canales.test.ts` lo frenó: la pantalla promete «este mensaje no sale», y quien silenció un aviso no quiere un push.
+
+### Las reglas
+
+- **El bot no tiene línea por defecto.** `mako.bot.instancia` vacío o `mako.bot.activo` distinto de `si`: apagado. Hoy está apagado.
+- **⛔ `mako_ws<n>` nunca es la línea del bot** (`lineaPuedeSerDelBot`). `mako_ws9` es el WhatsApp personal de Martín, y hoy es la voz: contestaría a su familia. Con esa línea configurada, el bot queda apagado y lo dice en el log.
+- **⛔ Nunca escribe primero: lo mira la puerta, no quien llama.** `enviarAlChat` no manda nada sin una fila de `mako_bot_contactos` con menos de 24 horas. Sin poder leerla, tampoco. El turno del doer llega a la puerta sin saberlo: sus `enviarAGrupoJid` y `reaccionarMensaje` desvían todo jid que no sea de un grupo.
+- **Un mensaje de hace más de 10 minutos no se contesta ni abre la ventana** (`mensajeReciente`). Es defensa: no se midió qué reentrega Evolution al reconectar esta línea, pero contestar eso sería escribirle de la nada a gente que ya se olvidó. Sin fecha legible, tampoco.
+- **«No pude leer» no es «no tiene cuenta».** Si la base no contesta, no se le vende nada: podría ser un cliente.
+- **Sólo quien administra ve datos.** El teléfono es la única prueba de quién es, y un setter no tiene por qué ver por acá lo que su rol no ve en la app: recibe el turno sin datos ni herramientas.
+- **⚠️ Para dar acceso, `mismoContacto` no alcanza** (`esSuTelefono`). Compara los últimos 10 dígitos, y para bloquear está bien que dos países se junten: falla cerrado. Acá fallaría abierto: un número de otro país vería un negocio ajeno. Si los dos traen país, tiene que ser el mismo.
+- **⚠️ Una cola huérfana de un chat NO corre el doer porque esté en un workspace.** Ventas encola en la plataforma, y `flushHuerfanos` corría el turno con los datos de la plataforma para un desconocido (`huerfanoDelChat`).
+- **`mako_doer_conv.grupo_jid` no hizo falta tocarla:** es un jid. La memoria, las pendientes y la cola de un chat funcionan por el mismo campo, separadas por negocio.
+- **Los settings del anillo y de `mako.doer.last.<jid>` viven en el ws1, que es un cliente:** un chat no los escribe, para que un teléfono ajeno no quede ahí.
+- **En un chat, un saludo se contesta** (`esSaludoDeChat`). En un grupo el 👍 alcanza, y `charlar` y `no_reply` se quedaban callados. Un «ok» o un «gracias» siguen con el 👍.
+- **La regla de IA de Meta** (`SOLO_MAKO_Y_EL_NEGOCIO`, sólo fuentes secundarias, ver abajo): va en ventas, en el turno sin datos y en el del doer. Ventas no tiene herramientas: no puede tocar nada aunque se lo pidan.
+- **Una agencia:** el negocio que nombra el mensaje; si no, el que venía usando; si no, se pregunta UNA vez y lo que escribió se contesta después de elegir, en un solo turno. Al cambiar de negocio lo dice: contestar sobre el equivocado es lo peor que puede pasar.
+
+### Qué pasa en iPhone hasta que exista la app de la tienda
+
+Web Push existe sólo con MaKo **agregada a inicio** (iOS 16.4 o más), abierta desde su ícono, y ahí la sesión es otra: hay que volver a entrar. En una pestaña de Safari no hay manera. El onboarding le muestra esos pasos. Quien no pueda toca «Mi teléfono no puede» (lo único que saltea el paso, y sólo aparece en un navegador que no los recibe) y sigue viendo sus avisos adentro de MaKo.
+
+**El link único es `/app`,** y el QR del onboarding apunta a él. Un iPhone va a su tienda, un Android a la suya y una computadora ve el QR. Mientras una tienda no tenga la app, ese teléfono ve la guía para agregarla a la pantalla de inicio; publicarla es cambiar `publicada` de esa tienda, en `lib/app-tiendas.ts`. ⚠️ Un iPad moderno se presenta como una Mac: el server le da el QR, y recién la pantalla sabe que es táctil.
+
+**Cuando exista la app de la tienda:** en Android es una TWA y el Web Push sigue igual. En iPhone es Capacitor, un WebView sin Web Push: lleva APNs (`lib/push-apns.ts`, rama `tiendas-0311`). `lib/push-cliente.ts` va solo por ahí adentro de la app, y una fila de APNs queda con `plataforma = 'ios'`, así que `TarjetaAvisos` y la detección no cambian. ⚠️ Adentro de la app, `soportaPush()` y `permiso()` dan «no»: para saber qué mostrar se pregunta `estadoSuscripcion()`.
+
+### Sin hacer
+
+- **El corte de los grupos:** rama `avisos-bot-corte-0311`, con sus tests. Se monta sobre el grupo del Ops Center, y lo que iba a la app (`avisoSoloEnLaApp`) pasa a ir a ese grupo. Cuándo prenderlo lo mide `GET /api/admin/corte-grupos`, que está en esa rama: qué negocios activos no tienen a ningún admin con un teléfono activado.
+- **El bot nunca habló con un WhatsApp de verdad:** no hay línea. El …2605 está baneado y el …3479 es el personal de Martín. Probado sólo con Evolution de mentira (`tests/mako-bot.test.ts`). Para probarlo: una línea propia, `mako.bot.instancia`, `mako.bot.activo` = `si` y `mako.bot.solo` con un número (`["549..."]`), que deja a todos los demás afuera.
+- **La tabla `mako_bot_contactos` hay que crearla** (`supabase/migrations/0367_mako_bot_contactos.sql`, sólo agrega). Sin ella la puerta no deja salir nada.
+- **El botón «hablar por WhatsApp» de la landing no existe:** la landing vive en el Web Generator y falta el número.
+- **La regla de tema no se midió con el modelo:** está en los tres prompts, y sólo se probó que viaja. No hay banco de casos «te pido una receta».
+- **Lo de la API oficial:** el envío está en `salidaCloud`, con `mako.bot.salida` = `cloud` y la credencial `WHATSAPP_CLOUD`, pero NO se probó contra Meta. Falta la ENTRADA (su webhook) y bajar los audios por su API: `fetchMediaBase64EnInstancia` es de Evolution. El `escribiendo` no hace nada sin el id del mensaje.
+- **Un contacto de ventas no entra al CRM de la plataforma.** No se usó el espejo (`guardarMensajeUpsert`) a propósito: corre efectos del negocio, y en el ws9 pueden salir por el WhatsApp personal de Martín. Hoy el equipo se entera por la bandeja (`bot-contacto-nuevo`, `bot-pide-persona`), y la charla queda en `mako_doer_conv` del ws de la plataforma.
+- **Nadie vigila la línea del bot:** `vigilarVozMaKo` mira la voz. Si cae, nadie avisa.
+- **Los chats del negocio con sus leads siguen por su línea no oficial** aunque se usen desde la app. Decisión aparte de Martín: esto no la toca.
 
 ---
 
@@ -127,7 +187,7 @@ switching phones»*. **Desde el servidor no se distingue un ban de un cambio de 
 - ⚠️ **No medir la línea de MaKo con `mako_doer_conv`:** dio ~US$11 porque deja afuera casi la mitad de lo que sale y cuenta cada grupo como una persona. La medida buena es la base de Evolution: hasta ~US$60/mes.
 - ⚠️ **El dato que circula ya venció:** las respuestas dentro de las 24 h fueron gratis hasta el 30/09/2026.
 - **Si MaKo sólo contesta** (la idea de Martín del 03/11: la app como canal principal, WhatsApp 1 a 1, sin grupos y sin escribir primero), no hace falta plantilla ni cuenta oficial. Con ~270 consultas por mes y 2 a 3 mensajes por consulta: US$0 hoy, ~US$80-135 con 100 negocios, ~US$300-460 con 300.
-- ⚠️ **Hoy `push_suscripciones` tiene 0 filas:** nadie tiene avisos de la app. Sin grupos no llegaría ningún aviso hasta resolver eso.
+- ⚠️ **Hoy `push_suscripciones` tiene 0 filas:** nadie tiene avisos de la app. Sin grupos no llegaría ningún aviso hasta resolver eso (ver «Los avisos en el teléfono y el bot 1 a 1», arriba).
 - **Se pierde del todo por la vía oficial:** leer los grupos del cliente, sumar gente directo, escribirle a quien no dio permiso y el historial de más de 6 meses (documentado por Meta). Etiquetas del WhatsApp, foto de perfil del contacto y preguntar si un número tiene WhatsApp: no aparecen en lo que expone la API, pero no se encontró un documento de Meta que lo diga. Coexistencia sólo para WhatsApp Business app, no para una cuenta personal.
 
 **Sin hacer, o sin medir:**

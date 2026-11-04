@@ -6,6 +6,7 @@
 //        { action: 'responder', texto?, opcion? }   la respuesta a la pregunta de la etapa actual
 //        { action: 'sesion', sesionId }      la conversación de la oferta que se abrió en el funnel principal
 //        { action: 'telefono', telefono }    manda el código por WhatsApp
+//        { action: 'avisos', sinSoporte? }   vuelve a mirar si el teléfono tiene los avisos; `sinSoporte` es «Mi teléfono no puede»
 //        { action: 'cerrar' }                deja escrito el perfil, el producto y la oferta, y cierra los pasos
 //
 // La conversación de la OFERTA no pasa por acá: va por /api/offer (turnos, archivos, armar la oferta), la
@@ -17,7 +18,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { wsDelOnboarding } from '@/lib/onboarding-guard';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { desbloquearOnboarding, frenoDeArranque } from '@/lib/onboarding-guardia-server';
-import { getSettingEstricto } from '@/lib/settings';
+import { borrarSettingSi, cambiarSettingSi, getSettingEstricto } from '@/lib/settings';
 import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfil';
 import { setDiagnosticoFase } from '@/lib/fase-store';
 import { asegurarGrupoMaKo, enviarCodigoVerificacion, getGrupoJidMaKo, verificarCodigoContacto } from '@/lib/mako-grupo';
@@ -26,6 +27,7 @@ import { idDelFunnelDefault } from '@/lib/funnels';
 import { estaImpersonando } from '@/lib/workspace';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
+import { AVISOS_SIN_SOPORTE } from '@/lib/avisos-telefono-reglas';
 import { CODIGO_CARGADO, etapaDeArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
 import { loQueContesto } from '@/lib/onboarding-historial';
 import {
@@ -36,6 +38,10 @@ import {
 export const dynamic = 'force-dynamic';
 // El CRM a medida le pide a la IA al llegar a su pregunta (`propuestaDeCrm`, con su plazo de 45 s).
 export const maxDuration = 120;
+
+/** El reclamo del cierre: más que `maxDuration`, para que no venza con el otro todavía corriendo. */
+const CLAVE_CERRANDO = 'onboarding.cerrando';
+const VENCE_CIERRE_MS = 3 * 60_000;
 
 const no = (status: number, error: string) => NextResponse.json({ ok: false, error }, { status });
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -197,6 +203,18 @@ export async function POST(req: NextRequest) {
         return await pedirCodigo(e, h, confirmado, digitos);
       }
 
+      // El paso de los avisos: que estén activados se MIDE (`avisosDeQuienEntra`), así que releer ya lo hace avanzar. «Mi teléfono no puede» es lo único que se guarda.
+      case 'avisos': {
+        const e = await estadoEstricto();
+        const h = await hechosDelArranque(e);
+        if (body.sinSoporte === true && etapaDeArranque(e, h) === 'avisos') {
+          const confirmado = await hechosConfirmados(h);
+          await guardarEstadoArranque({ avisos: 'sin-soporte' });
+          await anotarRespuesta(e, h, AVISOS_SIN_SOPORTE, confirmado);
+        }
+        return listo();
+      }
+
       // Que exista el funnel principal antes de abrir la conversación de la oferta (la pantalla lo pide
       // cuando le falta: si el intento de cuando contestó el objetivo falló, esto lo reintenta).
       case 'preparar': {
@@ -221,8 +239,18 @@ export async function POST(req: NextRequest) {
       }
 
       case 'cerrar': {
-        const r = await cerrarArranque();
-        return listo(r.avisos.length ? { aviso: r.avisos.join(' ') } : {}, { cierre: true });
+        // ⚠️ DOS DISPOSITIVOS A LA VEZ (3/11/2026): con el paso de los avisos, el teléfono activa y la computadora lo ve a los 4 segundos, así que los dos llegan al cierre juntos.
+        // `cerrarArranque` no es atómico: dos a la vez dejaban la oferta y el producto repetidos. Gana uno; el otro relee hasta verlo terminado. Vence solo: si el que ganó murió, se puede volver a intentar.
+        const marca = new Date().toISOString();
+        const previa = await getSettingEstricto(CLAVE_CERRANDO);
+        const vigente = !!previa && Date.now() - Date.parse(previa) < VENCE_CIERRE_MS;
+        if (vigente || !(await cambiarSettingSi(CLAVE_CERRANDO, previa, marca))) return NextResponse.json({ ok: true, enCurso: true, vista: await vistaArranque() });
+        try {
+          const r = await cerrarArranque();
+          return listo(r.avisos.length ? { aviso: r.avisos.join(' ') } : {}, { cierre: true });
+        } finally {
+          await borrarSettingSi(CLAVE_CERRANDO, marca).catch(() => {});
+        }
       }
 
       default:

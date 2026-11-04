@@ -20,6 +20,9 @@ import { taparClaves } from '@/lib/claves-en-el-chat';
 import { manejarEntranteDoer, wsDeGrupoJid } from '@/lib/mako-doer-in';
 import { INSTANCIA_SUPERADMIN, esNombreDeCanal, instanciaCanal, usarCanalComoVoz } from '@/lib/mako-canal';
 import { instanciaVoz } from '@/lib/mako-grupo';
+import { manejarEntranteBot } from '@/lib/mako-bot';
+import { lineaPuedeSerDelBot } from '@/lib/mako-bot-reglas';
+import { configDelBot } from '@/lib/mako-salida';
 import { upsertContacto } from '@/lib/evolution-contactos';
 import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels';
 import { cerrarPorAcuse, acusesDe } from '@/lib/insistencias';
@@ -185,6 +188,23 @@ export async function POST(req: NextRequest) {
     }
 
     if (evento === 'messages.upsert') {
+      // EL BOT 1 A 1 (3/11/2026, lib/mako-bot.ts): lo que una persona le escribe a la línea del bot. Va antes de resolver el workspace: esa línea no tiene por qué ser de
+      // ninguno. Una línea de negocio no llega ni a leer los settings (`lineaPuedeSerDelBot`), que es por donde pasa casi todo el tráfico de este webhook.
+      if (lineaPuedeSerDelBot(instance)) {
+        const c = await configDelBot();
+        if (c.activo && c.instancia === instance) {
+          const crudos = body.data as Record<string, unknown> | undefined;
+          const lista = Array.isArray((crudos as { messages?: unknown[] })?.messages) ? (crudos as { messages: Record<string, unknown>[] }).messages : (crudos ? [crudos] : []);
+          const chats = lista.filter((m) => !(((m?.key as { remoteJid?: string } | undefined)?.remoteJid) ?? '').endsWith('@g.us'));
+          if (chats.length) {
+            after(async () => {
+              for (const m of chats) {
+                try { await manejarEntranteBot(instance, m); } catch (e) { console.error(`[webhook:evolution] bot: ${e instanceof Error ? e.message : String(e)}`); }
+              }
+            });
+          }
+        }
+      }
       // Espejo total: resolvemos el workspace y guardamos cada mensaje dentro de
       // su scope (getTenantDb estampa workspace_id). data puede ser un mensaje o
       // { messages: [...] } según versión — normalizamos ambos.

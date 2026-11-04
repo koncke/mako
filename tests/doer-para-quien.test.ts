@@ -252,7 +252,7 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
   assert.match(grupo, /const KEY_ENVIADOS = \(jid: string\) => `mako\.doer\.sent\.\$\{jid\}`;/, 'el anillo cambió de clave: el doer ya no ve lo anotado antes');
   // El doer usa ESE anillo (uno solo) y nunca toma la línea de MaKo por la del dueño.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const idsEnviados = idsEnviadosAlGrupo;\n[^\n]*\n\s*const registrarEnviados = anotarEnviadosConTope;/);
+  assert.match(doer, /const idsEnviados = idsEnviadosAlGrupo;\n(?:\/\/[^\n]*\n)+\s*const registrarEnviados = \(ws: number, jid: string, ids: readonly string\[\]\): Promise<void> => \(jid\.endsWith\('@g\.us'\) \? anotarEnviadosConTope\(ws, jid, ids\) : Promise\.resolve\(\)\);/);
   assert.doesNotMatch(doer, /KEY_SENT/);
   // La voz, leída ESTRICTA (la otra convierte un error en «mako_ws1»): sin leerla no se anota ni se guarda en memoria.
   assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*const deMaKo = vozPropiaDeMaKo\(voz\) === instance;\n\s*const visto = deMaKo \? NaN :/);
