@@ -1836,3 +1836,8 @@ a.co-link:hover { color: var(--primary-strong); }
 /* La cabecera del chat de un gurú en un panel angosto: «Inspirado en» cede antes que el nombre y que su Second Brain. */
 .co-cab .co-cab__inspirado { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .co-cab .co-chip { flex-shrink: 0; }
+/* «Second Brain de <gurú>» / «Volver al chat» (app/second-brain/SuSecondBrain.tsx): a la derecha del todo de la cabecera (Martín,
+   4/11/2026). Lo que reemplaza a la conversación ocupa su lugar entero (PanelChat.tsx → `reemplazo`). */
+.co-cab .co-cab__cerebro { margin-left: auto; }
+.co-reemplazo { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 12px; background: var(--bg); }
+.co-reemplazo > * { flex: 1; min-height: 0; }

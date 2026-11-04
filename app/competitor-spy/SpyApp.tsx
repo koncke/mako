@@ -81,6 +81,9 @@ import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
 import { enlaceSusAnuncios } from '@/lib/spy-funnel';
 import { SuFunnel } from './SuFunnel';
 import { TarjetaPieza } from './TarjetaPieza';
+import { GraficoSpy } from './GraficoSpy';
+import { DetallePieza } from './DetallePieza';
+import { grupoDe } from '@/lib/spy-detalle';
 import { PeliculaDeOrden } from './OrdenSpy';
 import { BuscadorAlta } from './BuscadorAlta';
 
@@ -381,6 +384,7 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-redes-texto{display:flex;flex-direction:column;gap:2px;flex:1 1 220px;min-width:0}
 .spy-redes-texto small{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .spy-aviso--suave{background:none;padding:0;color:var(--dim)}
+.spy-vermas{display:flex;justify-content:center;margin:18px 0 6px}
 .spy-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
 .spy-mcard{display:flex;flex-direction:column;gap:8px;min-width:0;color:var(--ink);text-decoration:none}
 .spy-mcard__img{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:var(--surface-2)}
@@ -453,7 +457,7 @@ button.spy-campo:hover{color:var(--dim)}
 }
 `;
 
-type Pestana = 'publica' | 'miniaturas' | 'oferta' | 'sitio' | 'anuncios';
+type Pestana = 'grafico' | 'publica' | 'miniaturas' | 'oferta' | 'sitio' | 'anuncios';
 
 // ⚠️ LAS FRANJAS DE UNA LÍNEA SE FUERON (4/11/2026). Martín: «elimina textos innecesarios, como "Lo que publica Los días
 // los declara el canal; la etapa la calcula MaKo."». Explicaban un criterio nuestro que la pantalla ya no muestra.
@@ -721,9 +725,16 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [ordenando, setOrdenando] = useState<{ id: number; piezas: PiezaVista[] | null } | null>(null);
   /** A quién le está leyendo las piezas la IA, sola y en segundo plano. Sus tarjetas sin análisis dicen «Analizando…». */
   const [autoAnalisis, setAutoAnalisis] = useState<number | null>(null);
+  /** A quién se le está trayendo todo lo que publicó, en una corrida larga de Apify. */
+  const [trayendoTodo, setTrayendoTodo] = useState<number | null>(null);
+  /** Cuántas tarjetas se dibujan: con cientos de piezas, de a 60 (una grilla de 500 imágenes traba la pantalla). */
+  const [mostrar, setMostrar] = useState(60);
   const [lecturas, setLecturas] = useState<Record<number, LecturaCanalSpy[]>>({});
   const [error, setError] = useState<string | null>(errorInicial);
-  const [pestana, setPestana] = useState<Pestana>('publica');
+  // El gráfico va primero: es el detalle de cada competidor (punto 7 del 4/11/2026).
+  const [pestana, setPestana] = useState<Pestana>('grafico');
+  /** La pieza abierta en su detalle, con las de su gráfico (para su puesto). */
+  const [abierta, setAbierta] = useState<{ p: PiezaVista; todas: readonly PiezaVista[] } | null>(null);
 
   const [textoAlta, setTextoAlta] = useState('');
   const [buscar, setBuscar] = useState('');
@@ -781,6 +792,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       if (animada) setOrdenando((v) => (v?.id !== id || actual.current !== id ? null : p?.length ? { id, piezas: p } : null));
       // Lo nuevo lo lee la IA sola, sin que nadie espere (punto 11 del 4/11).
       if (p && cuantasFaltan(p)) void analizarSolo(id);
+      // Y todo lo que publicó, en una corrida larga de Apify que no se espera (punto 8 del 4/11).
+      void traerTodo(id);
     } catch (e) {
       setOrdenando(null);
       throw e;
@@ -796,14 +809,17 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     if (elegido == null) return;
     let vivo = true;
     const id = elegido;
-    setPiezas([]); setError(null); setBuscar(''); setTipo('todo'); setPestana('publica'); setTrayendo(true); setOrdenando(null);
+    setPiezas([]); setError(null); setBuscar(''); setTipo('todo'); setPestana('publica'); setTrayendo(true); setOrdenando(null); setMostrar(60);
     void (async () => {
       const p = await traerPiezas(id);
       if (!vivo) return;
       setTrayendo(false);
       const quien = listaActual.current.find((x) => x.id === id);
       if (quien && debeLeerAlAbrir(quien, p?.length ?? 0, yaLeidos.current.has(id))) await leer(id, !p?.length).catch(() => undefined);
-      else if (p && cuantasFaltan(p)) void analizarSolo(id);
+      else {
+        if (p && cuantasFaltan(p)) void analizarSolo(id);
+        void traerTodo(id);
+      }
       // Sus otras redes, solas, DESPUÉS de leer: si no, la búsqueda (que también lee perfiles) compite con la lectura.
       const ahora = listaActual.current.find((x) => x.id === id);
       if (vivo && ahora && debeBuscarRedes(ahora, ws)) void buscarRedes(id);
@@ -826,6 +842,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
 
   const irA = useCallback((id: number | null) => {
     setElegido(id);
+    // El detalle abierto es de una pieza del que se deja: se cierra, y el otro abre en su gráfico.
+    setAbierta(null);
+    setPestana('grafico');
     const url = new URL(window.location.href);
     if (id == null) url.searchParams.delete('competidor');
     else url.searchParams.set('competidor', String(id));
@@ -906,6 +925,46 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
    * La IA del negocio lee lo que falta, sola (/api/competitor-spy/analizar). La ruta contesta en el acto y el trabajo
    * sigue en el servidor; acá sólo se marca quién está en análisis y la pantalla vuelve a pedir las piezas.
    */
+  /**
+   * Todo lo que publicó (punto 8 del 4/11: «que traiga muchos más, si puede, todos directamente»): una corrida larga de
+   * Apify que empieza el servidor y no se espera (/api/competitor-spy/todo). Si está en marcha, se vuelve a preguntar.
+   */
+  const traerTodo = useCallback(async (id: number) => {
+    type Resp = { ok: boolean; enMarcha?: boolean; nuevas?: number };
+    const r: Resp = await fetch('/api/competitor-spy/todo', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(65_000),
+    }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false }));
+    if (r.ok && r.enMarcha) setTrayendoTodo(id);
+    return r;
+  }, []);
+
+  // Mientras la corrida larga está en marcha, se pregunta cada 20 s; al terminar, se traen las piezas nuevas y la IA las
+  // lee sola. Se para a los 15 minutos: la corrida sigue en Apify y la próxima apertura la recoge.
+  useEffect(() => {
+    if (trayendoTodo == null) return;
+    const id = trayendoTodo;
+    let vivo = true;
+    let vueltas = 0;
+    let t: ReturnType<typeof setTimeout>;
+    const vuelta = async () => {
+      if (!vivo || actual.current !== id) { setTrayendoTodo((v) => (v === id ? null : v)); return; }
+      vueltas += 1;
+      const r = await traerTodo(id);
+      if (!vivo) return;
+      if (r.ok && r.enMarcha && vueltas < 45) { t = setTimeout(() => { void vuelta(); }, 20_000); return; }
+      setTrayendoTodo((v) => (v === id ? null : v));
+      if (r.ok && (r.nuevas ?? 0) > 0) {
+        await recargarLista();
+        const p = await traerPiezas(id);
+        if (p && cuantasFaltan(p)) void analizarSolo(id);
+      }
+    };
+    t = setTimeout(() => { void vuelta(); }, 20_000);
+    return () => { vivo = false; clearTimeout(t); };
+  // `analizarSolo` es estable (useCallback sin dependencias) y se declara más abajo.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trayendoTodo, traerTodo, traerPiezas, recargarLista]);
+
   const analizarSolo = useCallback(async (id: number) => {
     type Resp = { ok: boolean; enMarcha?: boolean; faltan?: number; sinIA?: boolean };
     const r: Resp = await fetch('/api/competitor-spy/analizar', {
@@ -1062,12 +1121,16 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const sitio = useMemo(() => piezas.find((p) => p.canal === 'landing' && p.ref === c?.landing_url) ?? piezas.find((p) => p.canal === 'landing') ?? null, [piezas, c?.landing_url]);
   const piezasDelSitio = (sitio?.piezasDePagina ?? []).filter((n) => !sitio?.funnel || !n.startsWith('un video'));
   const visibles = useMemo(() => ordenarPiezas(filtrarPiezas(flujo, buscar, tipo), orden), [flujo, buscar, tipo, orden]);
+  // Otra búsqueda, otro tipo u otro orden vuelven a las primeras 60.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- es un reinicio por cambio de filtro, no un cálculo
+  useEffect(() => { setMostrar(60); }, [buscar, tipo, orden]);
   const opcionesTipo = useMemo(() => (c ? opcionesDeContenido(flujo, c) : []), [flujo, c]);
   // Las miniaturas de sus videos de YouTube con su título, para copiar lo que funciona (pedido del 4/11).
   const videosYoutube = useMemo(() => ordenarPiezas(flujo.filter((p) => p.canal === 'youtube'), 'mas-vistas'), [flujo]);
 
   // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece.
   const pestanas: Array<{ key: Pestana; rotulo: string; n?: number }> = c ? [
+    ...(flujo.length || anuncios.length ? [{ key: 'grafico' as const, rotulo: 'Gráfico' }] : []),
     ...(c.instagram || c.youtube_id || flujo.length || !c.landing_url ? [{ key: 'publica' as const, rotulo: 'Lo que publica', n: flujo.length || undefined }] : []),
     ...(videosYoutube.length ? [{ key: 'miniaturas' as const, rotulo: 'Miniaturas', n: videosYoutube.length }] : []),
     ...(c.oferta?.promete ? [{ key: 'oferta' as const, rotulo: 'Su oferta' }] : []),
@@ -1122,6 +1185,62 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       {error && <p>{error}</p>}
     </>
   );
+
+  // El riel de la ficha: su nombre, «Revisar ahora» y sus datos. Lo comparten el gráfico y «Lo que publica».
+  const riel = c ? (
+    <aside className="spy-riel">
+      {/* La identidad abre el riel, como la `.pd-info` abre la columna de al lado en la
+          referencia: ante-título chico, nombre grande, la frescura, y la acción. ⚠️ EL
+          RIEL YA NO DEPENDE DE QUE HAYA PIEZAS: si dependiera, un competidor sin nada
+          leído se quedaría sin nombre y sin el botón de revisarlo. */}
+      <section className="spy-ficha">
+        <div>
+          {anteTitulo && <small>{anteTitulo}</small>}
+          <h1>{c.nombre}</h1>
+        </div>
+        {identidad && <small className="spy-rango">{identidad}</small>}
+        <div className="spy-ficha__acciones">
+          <button type="button" className="spy-boton spy-boton-primario" disabled={estaLeyendo || ordenando != null || !canalesDe(c)} onClick={() => void leer(c.id)}>
+            {estaLeyendo ? 'Revisando…' : 'Revisar ahora'}
+          </button>
+          <Dropdown
+            ariaLabel="Más acciones"
+            value=""
+            width={210}
+            align="right"
+            resetAfterSelect
+            sinFlecha
+            botonLabel={<span aria-hidden>⋯</span>}
+            options={[
+              { value: 'canal', label: 'Agregar un canal' },
+              { value: 'anuncio', label: 'Guardar un anuncio' },
+              // Mismo criterio que el botón de la lista: borrar es del admin, y lo
+              // que no se puede hacer no se ofrece.
+              ...(puedeBorrar ? [{ value: 'quitar', label: 'Dejar de mirarlo' }] : []),
+            ]}
+            onChange={(v) => {
+              // ⚠️ «Qué vende y qué ataca» se fue el 4/11/2026: la oferta la lee sola la IA del negocio con
+              // cada lectura (/api/competitor-spy/analizar). Martín: «sin pedirlo».
+              setErrorModal(null);
+              setModal(v as 'canal' | 'anuncio' | 'quitar');
+            }}
+            buttonStyle={{ height: 40, width: 40, justifyContent: 'center', padding: 0, borderRadius: 12 }}
+          />
+        </div>
+      </section>
+
+      {/* Las celdas pastel de datos. Un dato que no tenemos no deja celda vacía. */}
+      {celdas.length > 0 && (
+        <div className="spy-kpis">
+          {celdas.map((k) => (
+            <div key={k.k} className="spy-kpi"><b>{k.rot}</b><strong>{k.val}</strong><small>{k.pie}</small></div>
+          ))}
+        </div>
+      )}
+
+      {flujo.length > 0 && <RielAnalisis piezas={flujo} c={c} />}
+    </aside>
+  ) : null;
 
   return (
     <main className="spy" data-spy>
@@ -1220,6 +1339,22 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
               </nav>
             )}
 
+            {/* ── El gráfico: el detalle de cada competidor (punto 7 del 4/11/2026, lib/spy-detalle.ts). ── */}
+            {activa === 'grafico' && (
+              <div className="spy-cols">
+                <div>
+                  {trayendoTodo === c.id && <p className="spy-aviso spy-aviso--suave" aria-live="polite">Trayendo todo lo que publicó…</p>}
+                  <GraficoSpy
+                    c={c} piezas={piezas} analizando={autoAnalisis === c.id}
+                    onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })}
+                    onAgregarRed={() => { setErrorModal(null); setModal('canal'); }}
+                    onWeb={() => setPestana('sitio')}
+                  />
+                </div>
+                {riel}
+              </div>
+            )}
+
             {activa === 'publica' && (
               // ── Las dos columnas de merrin: el catálogo manda y el análisis vive a la derecha.
               //    Sin piezas no hay riel, y entonces la grilla ocupa el ancho entero.
@@ -1262,12 +1397,17 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                     </>
                   )}
 
+                  {trayendoTodo === c.id && <p className="spy-aviso spy-aviso--suave" aria-live="polite">Trayendo todo lo que publicó…</p>}
+
                   {/* ── Un solo estado para toda la zona de resultados, jamás uno por canal. ── */}
                   {estado === 'hay' && (
                     <>
                       {/* ⚠️ SIN PIE DE TEXTO (4/11/2026): «Lo que se pudo leer de sus canales públicos el 4 nov. La etapa la
                           calcula MaKo…» es lo que Martín pidió sacar. La fecha ya la dice la cabecera («Revisado hace…»). */}
-                      <div className="spy-pgrid">{visibles.map((p) => <TarjetaPieza key={p.id} p={p} analizando={autoAnalisis === c.id && !p.analisis} />)}</div>
+                      <div className="spy-pgrid">{visibles.slice(0, mostrar).map((p) => <TarjetaPieza key={p.id} p={p} analizando={autoAnalisis === c.id && !p.analisis} onAbrir={() => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })} />)}</div>
+                      {visibles.length > mostrar && (
+                        <div className="spy-vermas"><button type="button" className="spy-boton" onClick={() => setMostrar((n) => n + 60)}>Ver más · {visibles.length - mostrar}</button></div>
+                      )}
                     </>
                   )}
                   {estado === 'cargando' && <Esqueleto leyendo={estaLeyendo} />}
@@ -1310,58 +1450,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                   )}
                 </div>
 
-                <aside className="spy-riel">
-                  {/* La identidad abre el riel, como la `.pd-info` abre la columna de al lado en la
-                      referencia: ante-título chico, nombre grande, la frescura, y la acción. ⚠️ EL
-                      RIEL YA NO DEPENDE DE QUE HAYA PIEZAS: si dependiera, un competidor sin nada
-                      leído se quedaría sin nombre y sin el botón de revisarlo. */}
-                  <section className="spy-ficha">
-                    <div>
-                      {anteTitulo && <small>{anteTitulo}</small>}
-                      <h1>{c.nombre}</h1>
-                    </div>
-                    {identidad && <small className="spy-rango">{identidad}</small>}
-                    <div className="spy-ficha__acciones">
-                      <button type="button" className="spy-boton spy-boton-primario" disabled={estaLeyendo || ordenando != null || !canalesDe(c)} onClick={() => void leer(c.id)}>
-                        {estaLeyendo ? 'Revisando…' : 'Revisar ahora'}
-                      </button>
-                      <Dropdown
-                        ariaLabel="Más acciones"
-                        value=""
-                        width={210}
-                        align="right"
-                        resetAfterSelect
-                        sinFlecha
-                        botonLabel={<span aria-hidden>⋯</span>}
-                        options={[
-                          { value: 'canal', label: 'Agregar un canal' },
-                          { value: 'anuncio', label: 'Guardar un anuncio' },
-                          // Mismo criterio que el botón de la lista: borrar es del admin, y lo
-                          // que no se puede hacer no se ofrece.
-                          ...(puedeBorrar ? [{ value: 'quitar', label: 'Dejar de mirarlo' }] : []),
-                        ]}
-                        onChange={(v) => {
-                          // ⚠️ «Qué vende y qué ataca» se fue el 4/11/2026: la oferta la lee sola la IA del negocio con
-                          // cada lectura (/api/competitor-spy/analizar). Martín: «sin pedirlo».
-                          setErrorModal(null);
-                          setModal(v as 'canal' | 'anuncio' | 'quitar');
-                        }}
-                        buttonStyle={{ height: 40, width: 40, justifyContent: 'center', padding: 0, borderRadius: 12 }}
-                      />
-                    </div>
-                  </section>
-
-                  {/* Las celdas pastel de datos. Un dato que no tenemos no deja celda vacía. */}
-                  {celdas.length > 0 && (
-                    <div className="spy-kpis">
-                      {celdas.map((k) => (
-                        <div key={k.k} className="spy-kpi"><b>{k.rot}</b><strong>{k.val}</strong><small>{k.pie}</small></div>
-                      ))}
-                    </div>
-                  )}
-
-                  {flujo.length > 0 && <RielAnalisis piezas={flujo} c={c} />}
-                </aside>
+                {riel}
               </div>
             )}
 
@@ -1425,12 +1514,18 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
             )}
 
             {activa === 'anuncios' && (
-              <div className="spy-pgrid">{anuncios.map((p) => <TarjetaPieza key={p.id} p={p} />)}</div>
+              <div className="spy-pgrid">{anuncios.map((p) => <TarjetaPieza key={p.id} p={p} onAbrir={() => setAbierta({ p, todas: anuncios })} />)}</div>
             )}
           </>
         )}
       </div>
 
+      {abierta && c && (
+        <DetallePieza
+          p={piezas.find((x) => x.id === abierta.p.id) ?? abierta.p} nombre={c.nombre} todas={abierta.todas}
+          analizando={autoAnalisis === c.id} onCerrar={() => setAbierta(null)}
+        />
+      )}
       {modal === 'alta' && (
         <BuscadorAlta
           textoInicial={textoAlta} competidores={competidores} ocupado={ocupado} error={errorModal}

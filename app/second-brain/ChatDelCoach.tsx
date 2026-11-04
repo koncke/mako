@@ -21,7 +21,7 @@ import { HiloMako } from '@/app/_chat/HiloMako';
 import { useChatCliente } from './useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from './PiezasCliente';
 import { ElegirReferente } from './ElegirReferente';
-import { BotonSuSecondBrain } from './SuSecondBrain';
+import { BotonSecondBrainDe, CerebroDelGuru } from './SuSecondBrain';
 import { ASPECTO_MAKO, aspectoDeReferente } from '@/lib/centro-munecos';
 import { ORIGEN_FUNNEL_COACH, TAB_FUNNEL_COACH, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
@@ -79,7 +79,10 @@ export function ChatDelCoach({ referente, hayOferta, puedeElegir, onReferente, o
     return () => { vivo = false; };
   }, [ocupado]);
 
-  const mostrandoPlan = viendoPlan && plan != null;
+  // El plan y el Second Brain del gurú van en el lugar de la conversación, de a uno: abrir uno cierra el otro.
+  const [viendoCerebro, setViendoCerebro] = useState(false);
+  const mostrandoCerebro = viendoCerebro && r != null;
+  const mostrandoPlan = viendoPlan && plan != null && !mostrandoCerebro;
   const [eligiendo, setEligiendo] = useState(false);
   const vacio = elegido != null && k.cargado && !k.errorCarga && !k.items.length && !k.trabajo;
   const saludo = useMemo<ItemHilo[]>(() => [{ k: 'msg', id: 'saludo-fc', role: 'assistant', texto: saludoDelFunnelCoach(hayOferta), at: new Date().toISOString() }], [hayOferta]);
@@ -92,11 +95,12 @@ export function ChatDelCoach({ referente, hayOferta, puedeElegir, onReferente, o
           acciones: (
             <>
               {r && <span className="co-cab__inspirado">{inspiradoEn(r)}</span>}
-              {r && <BotonSuSecondBrain referente={r} />}
-              {plan && <button type="button" className="co-chip" aria-pressed={mostrandoPlan} onClick={() => setViendoPlan((v) => !v)}>{mostrandoPlan ? 'Ver el chat' : 'Ver el plan'}</button>}
+              {plan && !mostrandoCerebro && <button type="button" className="co-chip" aria-pressed={mostrandoPlan} onClick={() => setViendoPlan((v) => !v)}>{mostrandoPlan ? 'Ver el chat' : 'Ver el plan'}</button>}
+              {r && <BotonSecondBrainDe referente={r} viendo={mostrandoCerebro} onCambiar={(si) => { setViendoCerebro(si); if (si) setViendoPlan(false); }} />}
             </>
           ),
         }}
+        reemplazo={mostrandoCerebro && r ? <CerebroDelGuru referente={r} /> : undefined}
         arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={ORIGEN_FUNNEL_COACH} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
         despues={<>
           <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
