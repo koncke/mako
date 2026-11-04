@@ -7,7 +7,9 @@ brain, y en el botón de "Second Brain de..." que esté "Volver al chat". Y dent
 bastante mal organizadas... Y los nodos son todos iguales, no esta bien diseñado como el que ya hicimos, que tienen diferentes
 colores, tamaños y que los titulos van apareciendo y desapareciendo por "sección", no esta bien organizado eso...».
 
-Entrega por `punta/gurus-*`, encima de `origin/main`. Sin base ni claves: no se aplicó nada en producción.
+**Estado: TODO EN `main`** (punta `gurus-segundo-cerebro`, corrida 56 verde, `003115dfa`). La corrida 40 había dado rojo sólo
+por un error de tipos en un test (`children` de `PanelDeChat`, arreglado en `e377ebe86`); los 7014 tests ya estaban verdes.
+Sin base ni claves: no se aplicó nada en producción y no hay migraciones.
 
 ## Hecho
 
