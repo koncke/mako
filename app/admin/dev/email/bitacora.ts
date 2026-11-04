@@ -40,7 +40,7 @@ export const BITACORA: Hito[] = [
       '**El seguimiento de aperturas y clics se prende solo**: al crear el dominio y al verificarlo (PATCH /domains de Resend). Sin eso, «Abrió» y «Hizo clic» no tenían de dónde salir.',
       'La lógica salió de la ruta de la pantalla a lib/email-dominio.ts: la pantalla y la API son la misma puerta.',
     ],
-    commits: [{ sha: '7dcae09be', msg: 'Email por la API: conectar el dominio, el remitente con reply_to, y el seguimiento de aperturas y clics', lineas: 316, archivos: 9 }],
+    commits: [{ sha: '7dcae09be', msg: 'Email por la API: conectar el dominio, el remitente con reply_to, y el seguimiento de aperturas y clics', lineas: 1035, archivos: 16 }],
     revisar: '/email',
   },
   {
@@ -53,7 +53,7 @@ export const BITACORA: Hito[] = [
       'La configuración de una automatización, sus CRON y la prueba salen por HTTP.',
     ],
     commits: [
-      { sha: 'ec1bdb72b', msg: 'CRM por la API: sumar leads en bloque a otro CRM sin sacarlos del suyo', lineas: 1035, archivos: 16 },
+      { sha: 'ec1bdb72b', msg: 'CRM por la API: sumar leads en bloque a otro CRM sin sacarlos del suyo', lineas: 316, archivos: 9 },
       { sha: '0f3f3e096', msg: 'Email por la API: la secuencia atada a un CRM, y la configuración, los CRON y la prueba por HTTP', lineas: 444, archivos: 10 },
     ],
     revisar: '/crm',
@@ -82,5 +82,17 @@ export const BITACORA: Hito[] = [
     ],
     commits: [{ sha: 'a904ce6e2', msg: 'Email: la rampa del dominio, el freno por rebotes y quejas, y los topes de envío por la API', lineas: 778, archivos: 23 }],
     revisar: '/email',
+  },
+  {
+    fecha: '4 nov', hora: '09:12', chat: 'Email por la API', sesion: SESION, cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La receta para el Claude del cliente',
+    puntos: [
+      '**La guía «Una campaña de email con Claude»** en /api-mako › Documentación: el mensaje para pegarle a Claude, con cada paso por su ruta REST, y la sección 5 de la skill del cliente.',
+      '⚠️ **Con un token detallado, la respuesta de activar decía sólo «activada»**: se aplica en el acto y vuelve el resumen de ejecutar, no el de la propuesta. Ahora trae el ritmo.',
+      'Lo que falta en producción y lo que le toca a Mauricio, en docs/relevo/nube-email.md.',
+    ],
+    commits: [{ sha: 'e5ff29d89', msg: 'Email: la receta para el Claude del cliente, la respuesta de activar con el ritmo, y el relevo', lineas: 419, archivos: 15 }],
+    revisar: '/api-mako?tab=docs&art=campana-email',
   },
 ];
