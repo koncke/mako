@@ -202,6 +202,9 @@ const TENANT_TABLES = new Set<string>([
   // De la clave de una reunión a su grabador (mig «reuniones_de_cualquier_grabador», sin número, 26/10/2026): sin esta
   // línea, la clave de una reunión de Loom de un negocio devolvería la de otro.
   'grabador_reuniones',
+  // Las llamadas grabadas desde MaKo (mig 0390, 04/11/2026): sin estas líneas getTenantDb() es PASSTHROUGH y la ficha de un
+  // lead listaría las grabaciones (y su audio) de otro negocio.
+  'llamadas_grabadas', 'llamadas_grabadas_partes',
   // «Re-priorizar todo»: un trabajo por tablero, con su foto y su avance (mig 0301, 16/10/2026). Sin
   // esta línea getTenantDb() es PASSTHROUGH: el tablero de un negocio vería —y empujaría— el trabajo
   // de otro, y «uno a la vez» se contaría entre todos los negocios.

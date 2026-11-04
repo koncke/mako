@@ -631,4 +631,59 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `MaKo está redactando el seguimiento de la ${reunion}; en un par de minutos queda como borrador en ${linkApp('/whatsapp', wsEnContexto())}. Si no aparece, el motivo queda en el historial del lead.`, datos: { leadId } };
     },
   },
+  // ── La Grabadora de MaKo (04/11/2026, lib/grabar-llamada.ts) ─────────────────────────────────────────────────────
+  grabaciones_en_mako_de_un_lead: {
+    leer: async (input) => {
+      const leadId = num(input, 'leadId');
+      if (!leadId) return error('Falta el lead.');
+      const { grabacionesDeLead } = await import('@/lib/grabar-llamada');
+      const { ROTULO_ESTADO, ROTULO_RESULTADO, duracionTexto } = await import('@/lib/grabar-llamada-reglas');
+      // Sin el audio (las URLs firmadas son para la pantalla): lo que lee el modelo es el texto, con su minuto.
+      const lista = await grabacionesDeLead(leadId, { conAudio: false });
+      return json({
+        total: lista.length,
+        grabaciones: lista.map((g) => ({
+          grabacionId: g.id, cuando: g.created_at, duracion: duracionTexto(g.duracion_seg), quien: g.autor, origen: g.origen,
+          resultado: g.resultado ? ROTULO_RESULTADO[g.resultado] : null, estado: ROTULO_ESTADO[g.estado], motivo: g.motivo,
+          // La clave de su análisis en el Closing (llamadas_lead, transcript_llamada).
+          recording_id: g.clave,
+          texto: g.partes.filter((p) => p.texto).map((p) => `[${duracionTexto(p.inicio_seg)}] ${p.texto}`).join('\n').slice(0, 20000) || null,
+        })),
+        ...(lista.length ? {} : { nota: 'No hay grabaciones hechas en MaKo para este lead. Las de Fathom y los demás grabadores salen en llamadas_lead.' }),
+      });
+    },
+  },
+  como_termino_grabacion: {
+    preparar: async (input): Promise<Preparado> => {
+      const id = str(input, 'grabacionId');
+      const resultado = str(input, 'resultado');
+      const { esIdGrabacion, esResultado, ROTULO_RESULTADO } = await import('@/lib/grabar-llamada-reglas');
+      if (!id || !esIdGrabacion(id)) return { error: 'Falta la grabación (grabacionId, de grabaciones_en_mako_de_un_lead).', faltan: ['grabacionId'] };
+      if (!esResultado(resultado)) return { error: 'Falta cómo terminó: no_contesto, hablo, agendo o no_interesa.', faltan: ['resultado'] };
+      const { getTenantDb } = await import('@/lib/workspace');
+      const db = await getTenantDb();
+      const { data, error: e } = await db.from('llamadas_grabadas').select('id, lead_id, resultado').eq('id', id.toLowerCase()).maybeSingle();
+      if (e) return { error: 'No pude leer la grabación. Intenta de nuevo.', falla: true };
+      if (!data) return { error: 'No encuentro esa grabación en este negocio.' };
+      const antes = (data as { resultado?: string | null }).resultado;
+      if (antes === resultado) return { error: `Ya está como «${ROTULO_RESULTADO[resultado]}».`, yaEstaba: true };
+      const lead = await getLead(Number((data as { lead_id: number }).lead_id)).catch(() => null);
+      return {
+        payload: { grabacionId: id.toLowerCase(), resultado },
+        resumen: `Marcar la grabación${lead?.nombre ? ` con ${lead.nombre}` : ''} como «${ROTULO_RESULTADO[resultado]}»${antes && esResultado(antes) ? ` (antes: ${ROTULO_RESULTADO[antes]})` : ''}. No mueve al lead en el CRM.`,
+      };
+    },
+    ejecutar: async (payload) => {
+      const { marcarResultado } = await import('@/lib/grabar-llamada');
+      const { esResultado, ROTULO_RESULTADO } = await import('@/lib/grabar-llamada-reglas');
+      const r = String(payload.resultado);
+      if (!esResultado(r)) return { ok: false, resumen: 'Ese resultado no existe.' };
+      try {
+        const ok = await marcarResultado(String(payload.grabacionId), r);
+        return ok ? { ok: true, resumen: `Listo: la grabación quedó como «${ROTULO_RESULTADO[r]}».` } : { ok: false, resumen: 'No encuentro esa grabación.' };
+      } catch {
+        return { ok: false, resumen: 'No pude guardar cómo terminó. Intenta de nuevo.' };
+      }
+    },
+  },
 };

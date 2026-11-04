@@ -20,6 +20,47 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Grabar» la llamada desde la ficha: lo que el navegador deja grabar y lo que no (4/11/2026, nube)
+
+Pedido de Martín: «quiero que implementes el botón de "grabar" en el detail de un lead». El botón está al lado del funnel en
+el pop-up y en la ruta del lead, y en el teléfono es la tercera acción de la ficha. Graba en el navegador, sube el audio al lead
+y MaKo lo transcribe y lo analiza con el Closing por detrás. Relevo, migración y qué se probó con audio: [relevo/nube-grabar.md](relevo/nube-grabar.md).
+
+- **Un pedazo de un `MediaRecorder` con `timeslice` no se abre solo.** Sólo el primero trae la cabecera (EBML en webm,
+  `ftyp` en mp4), así que un trozo del medio no se puede transcribir ni reproducir por su lado. Por eso la grabadora **reinicia
+  el grabador cada `SEGUNDOS_POR_PARTE` (3 min)** y cada parte es un archivo entero. Medido en Chromium con un micrófono falso
+  (`scripts/probar-grabadora-navegador.mjs`): tres partes, las tres empiezan con EBML, decodifican y suman lo grabado.
+  Además, una llamada de una hora no entra en un pedido a Vercel (~4,5 MB) y con partes lo grabado hasta un corte ya está guardado.
+- **Lo que no se puede grabar se dice en UNA línea, antes de empezar (`queSeGraba`).** Medido en la documentación, no en un
+  aparato: Android le da silencio a cualquier app mientras hay una llamada telefónica, e iOS le corta el micrófono a la página.
+  O sea que **una llamada de ese mismo teléfono no se graba**: va en otro aparato y en altavoz. El otro lado de una llamada por
+  computadora sólo se oye si se comparte la pestaña, y eso lo dan **Chrome y Edge de computadora** (`getDisplayMedia` con
+  audio; Safari y Firefox no). Sin pestaña, se graba sólo el micrófono y la línea lo dice.
+- **La mezcla de micrófono y pestaña se arma con un `AudioContext` creado EN el clic.** Creado después de un `await`, la regla
+  de autoplay lo deja suspendido y la grabación sale MUDA sin un error. ⚠️ Chromium sin pantalla no aplica esa regla, así que
+  esto **no se pudo probar rompiéndolo**: la prueba con audio sólo dice que la mezcla trae el tono de la pestaña (1 kHz) y la voz.
+- **Grabar no puede depender de que la ficha siga abierta.** La grabación vive en un store del módulo
+  (`app/_components/grabar/grabadora.ts`, con `useSyncExternalStore`) y un aviso flotante en la esquina
+  (`GrabacionEnCurso`, montado en el layout) la muestra y la corta desde cualquier pantalla. Lo que tarda (transcribir y
+  analizar) corre en un `after()` de la ruta, adentro de `conSuIADelNegocio`: la persona sigue trabajando.
+- **Cada parte escribe SU transcripción en SU fila** (`llamadas_grabadas_partes`). En un jsonb de la llamada, dos partes que
+  terminan a la vez se pisan. El análisis espera a que estén todas (`queSigue`).
+- **La grabadora es un grabador más (`'grabadora'` en `GrabadorId`), con clave NEGATIVA** (`claveDeGrabacion`): así el
+  Closing ata el análisis a ESA llamada y `leerReunion` la encuentra como a una de Fathom. Pero **no es una tarjeta de
+  /integraciones**: no hay nada que conectar. `tests/grabadores.test.ts` exigía una tarjeta por grabador; la excepción quedó
+  escrita ahí, afirmando que NO tiene tarjeta.
+- **Sin IA, el audio queda guardado y la pantalla lo dice** (`SIN_IA_PARA_TRANSCRIBIR`, `SIN_CLAUDE_PARA_ANALIZAR`), con un
+  botón que abre «Tus cuentas de IA» ahí mismo. ⚠️ No con `LinkIntegracion` a `?abrir=ia`: `ia` está en `SIN_MODAL_SUELTO`
+  (`tests/integracion-sin-salir.test.ts`), así que el link sacaba de la ficha. Va `<TusCuentasIA conectar />` en un `Modal`.
+- **«Cómo terminó» lo dice la PERSONA con un toque** (no contestó, habló, agendó, no le interesa). Es lo que cuenta Cold
+  Calling, y no lo adivina un modelo.
+- **La transcripción de una llamada no sale por HTTP.** `grabaciones_en_mako_de_un_lead` (lectura) y
+  `como_termino_grabacion` (acción de chat) están en el área `closing` de la API de MaKo, sin `'http'`: son conversaciones de
+  personas.
+- **El tipo de una parte se mira en sus primeros bytes** (`mimeDeBytes`), no en lo que manda el navegador.
+- **Sin hacer:** no se probó en un teléfono, en Safari ni en la app de iPhone; la transcripción y el análisis no se probaron
+  con IA de verdad (la nube no tiene claves). Está en el relevo.
+
 ## El desplegable de Instagram no salía nunca: Apify tarda 20 s y la ruta se cortaba a los 15 (3/11/2026)
 
 - **Síntoma:** Martín, en el alta de Competitors Spy: «cuando busco competidores no me sale el desplegable con opciones como

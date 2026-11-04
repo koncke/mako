@@ -10,6 +10,7 @@ import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { AvisoPixelViejo } from './_components/AvisoPixelViejo';
 import { AvisoExtensionVieja } from './_components/AvisoExtensionVieja';
 import { AvisoMoraPlan } from './_components/AvisoMoraPlan';
+import { GrabacionEnCurso } from './_components/grabar/GrabacionEnCurso';
 import { CartelPagoCliente } from './_components/CartelPagoCliente';
 import { EsquinaAvisos } from './_components/EsquinaAvisos';
 import { FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRouteGate';
@@ -277,6 +278,9 @@ export default async function RootLayout({
                 {sesion && <AvisoExtensionVieja />}
                 {/* La renovación del plan de MaKo que no entró: cuánto, cuándo se pausa, y a pagar (23/10/2026). */}
                 {sesion && <AvisoMoraPlan />}
+                {/* La llamada que se está grabando (04/11/2026): el reloj y «Cortar» desde cualquier pantalla, aunque se haya cerrado
+                    la ficha. Sin grabación no dibuja nada (app/_components/grabar/GrabarLlamada.tsx). */}
+                {sesion && <GrabacionEnCurso />}
                 <MakoConfirmGate />
               </EsquinaAvisos>
               {/* Las secciones de las tabs unificadas (Video, Image, Copywriting): una barra, acá, para

@@ -21,7 +21,9 @@
 import type { FathomMeeting, FathomTranscriptItem } from '../fathom-api';
 
 /** Los grabadores que MaKo sabe leer. El orden es el de la grilla de Integraciones. */
-export const GRABADORES = ['fathom', 'loom', 'tldv', 'fireflies', 'zoom', 'otter', 'readai', 'meet'] as const;
+// `grabadora` (04/11/2026): la grabación que se hace DESDE MaKo, con el botón «Grabar» de la ficha del lead y de Cold Calling
+// (lib/grabar-llamada.ts). No se conecta ni se lista: su lectura es la tabla `llamadas_grabadas` (lib/grabadores/grabadora.ts).
+export const GRABADORES = ['fathom', 'loom', 'tldv', 'fireflies', 'zoom', 'otter', 'readai', 'meet', 'grabadora'] as const;
 export type GrabadorId = (typeof GRABADORES)[number];
 
 export const esGrabador = (v: unknown): v is GrabadorId => typeof v === 'string' && (GRABADORES as readonly string[]).includes(v);

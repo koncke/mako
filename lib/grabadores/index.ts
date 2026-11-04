@@ -165,12 +165,15 @@ const comoRef = (ref: RefLike): { grabador: GrabadorId; id: string } => {
 /** UNA reunión con su transcripción y su resumen. `meta` = la del listado, para no volver a pedirla. */
 export async function leerReunion(ref: RefLike, meta?: Reunion): Promise<Reunion> {
   const r = comoRef(ref);
+  // La Grabadora de MaKo (04/11/2026) no es un grabador de afuera: su llamada vive en `llamadas_grabadas`.
+  if (r.grabador === 'grabadora') return (await import('./grabadora')).leerGrabadora(r.id);
   return lector(r.grabador).leer(r.id, meta);
 }
 
 /** Sólo la transcripción de una reunión. */
 export async function leerTranscripcion(ref: RefLike): Promise<TurnoReunion[]> {
   const r = comoRef(ref);
+  if (r.grabador === 'grabadora') return (await import('./grabadora')).transcripcionDeGrabadora(r.id);
   return lector(r.grabador).leerTranscripcion(r.id);
 }
 
