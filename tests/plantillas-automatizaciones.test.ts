@@ -832,27 +832,37 @@ test('crear una de un CANAL: nace con TODOS los eventos de su categoría en la f
   assert.equal(filaDePlantilla(plantillaPorId('lead-agendo')!, 'k', 'x').disparadores, undefined);
 });
 
-test('crear la del newsletter: pide UNA ETIQUETA del negocio, con las mismas opciones que el CRON', async () => {
-  const p = plantillaPorId('email-newsletter')!;
-  assert.equal(p.cron.pide, 'etiqueta');
+// El CRON de una ETIQUETA (`pide: 'etiqueta'`): lo usó la bienvenida al newsletter hasta el 29/10/2026 y sigue siendo una
+// elección válida del CRON, así que su mecánica se fija sola, sin plantilla.
+test('el CRON de una etiqueta: las mismas opciones que el editor del CRON', () => {
   const ETIQUETAS = [{ id: 3, nombre: 'Suscriptor' }, { id: 4, nombre: 'Vieja', archivada_at: '2026-01-01' }];
   const s = seccionesDeEtiquetas(ETIQUETAS);
   assert.deepEqual(s.flatMap((x) => x.options.map((o) => o.value)), ['etiqueta:3'], 'ofrece una archivada');
   assert.equal(rotuloDeEleccion('etiqueta', s, ''), SIN_ETIQUETA);
   assert.equal(rotuloDeEleccion('etiqueta', s, 'etiqueta:3'), 'Se le puso «Suscriptor»');
-  assert.equal(preguntaEtapa(p, UN_PRODUCTO, ETIQUETAS), true);
-  assert.equal(preguntaEtapa(p, UN_PRODUCTO, []), false, 'sin etiquetas pregunta igual');
   assert.deepEqual(seccionesParaCron('etiqueta', UN_PRODUCTO), [], 'una etiqueta no es una etapa');
   const d = disparadorDeEleccion('etiqueta', 'etiqueta:3');
   assert.deepEqual(d, { id: 'd1', trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3 });
   assert.equal(problemaDeDisparadores([d!]), null);
   assert.equal(disparadorDeEleccion('etiqueta', 'venta:5:agendado'), null, 'una etapa no es una etiqueta');
   assert.equal(disparadorDeEleccion('etapa_venta', 'etiqueta:3'), null);
+});
+
+// La bienvenida al newsletter (29/10/2026, el Newsletter que aprobó Martín): arranca con la etapa «Suscripto» del CRM
+// Newsletter (`lead`, la canónica de entrada: lib/newsletter-reglas.ts), no con una etiqueta que no pone nadie.
+test('crear la del newsletter: pide la ETAPA de entrada del CRM Newsletter', async () => {
+  const p = plantillaPorId('email-newsletter')!;
+  assert.equal(p.cron.pide, 'etapa_venta');
+  assert.match(p.cron.ayuda, /Suscripto/);
+  assert.equal(preguntaEtapa(p, UN_PRODUCTO, []), true);
+  const d = disparadorDeEleccion('etapa_venta', 'venta:7:lead');
+  assert.deepEqual(d, { id: 'd1', trigger_tipo: 'etapa_actual', etapa: 'lead', etapas: null, funnel_id: 7 });
+  assert.equal(disparadorDeEleccion('etapa_venta', 'etiqueta:3'), null, 'ya no arranca con una etiqueta');
   const { db } = baseDeMentira();
   const crones: unknown[] = [];
-  const r = await crearDesdePlantilla('email-newsletter', { db, setPasos: async () => {}, setDisparadores: async (_, l) => { crones.push(l); } }, { disparador: 'etiqueta:3' });
+  const r = await crearDesdePlantilla('email-newsletter', { db, setPasos: async () => {}, setDisparadores: async (_, l) => { crones.push(l); } }, { disparador: 'venta:7:lead' });
   assert.equal(r.pide, null);
-  assert.deepEqual(crones, [[{ id: 'd1', trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3 }]]);
+  assert.deepEqual(crones, [[{ id: 'd1', trigger_tipo: 'etapa_actual', etapa: 'lead', etapas: null, funnel_id: 7 }]]);
 });
 
 // ROTURAS (undécima tanda, w3-plantillas, 11/10/2026): las obligatorias del encargo, una por vez, con el arnés

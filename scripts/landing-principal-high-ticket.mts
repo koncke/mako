@@ -12,7 +12,8 @@
 //   · Todo «VSL Funnel» pasa a la venta High Ticket: el titular, la línea debajo de los botones, la historia de Mauricio,
 //     «¿Qué es MaKo?», el título de la grilla, «¿Para quién es esto?» y el título SEO. Al final no queda ninguno.
 //   · La grilla deja SÓLO lo que vende un negocio high ticket y anda HOY en producción, a 3 columnas: primero 6 tarjetas;
-//     después de que Martín las viera, las 9 del taller del Cerebro (`TARJETAS`), y se corre otra vez sobre la publicada.
+//     después de que Martín las viera, las 9 del taller del Cerebro, y se corre otra vez sobre la publicada. A la noche, las 9
+//     en el orden en que Martín se la presentó a Thiago (`TARJETAS`), con el «todo en uno» arriba y «Y además» abajo.
 //   · Y ~11:20: «no me gusta que esté con el fondo azul»: la sección de la Beta y los precios pasa al fondo claro (la hoja).
 //     Los precios completos (✓ y ✗) y la tabla comparativa son del CÓDIGO (app/vsl/PreciosLanding.tsx, app/planes/).
 //
@@ -79,7 +80,6 @@ const CSS_HOJA: [string, string][] = [
   ['font-size: 13.5px; color: rgba(255,255,255,.9); }', 'font-size: 13.5px; color: #5B6472; }'],
 ];
 
-const ICONO_INSTAGRAM = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 8a4 4 0 0 1 4 -4h8a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-8a4 4 0 0 1 -4 -4z"></path><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"></path><path d="M16.5 7.5v.01"></path>';
 const ICONO_LANDING = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 5a1 1 0 0 1 1 -1h14a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1z"></path><path d="M4 8h16"></path><path d="M8 4v4"></path><path d="M9 13h6"></path><path d="M9 16h4"></path>';
 
 const ICONO_TIJERA = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 7a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M3 17a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M8.6 8.6l10.4 10.4"></path><path d="M8.6 15.4l10.4 -10.4"></path>';
@@ -87,37 +87,118 @@ const ICONO_GRUPO = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><p
 // La cara dentro de un círculo (tabler «user-circle»): el avatar con tu cara.
 const ICONO_CARA = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path><path d="M9 10a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M6.168 18.849a4 4 0 0 1 3.832 -2.849h4a4 4 0 0 1 3.834 2.855"></path>';
 
+// El rayo (tabler «bolt»): las automatizaciones. Las barras (tabler «chart-bar»): los dashboards. Las columnas (tabler
+// «layout-kanban»): el Plan. La bandeja (tabler «inbox»): los chats.
+const ICONO_RAYO = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11"></path>';
+const ICONO_GRAFICO = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"></path><path d="M15 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"></path><path d="M9 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"></path><path d="M4 20h14"></path>';
+const ICONO_TABLERO = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 4l6 0"></path><path d="M14 4l6 0"></path><path d="M4 8m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z"></path><path d="M14 8m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z"></path>';
+const ICONO_BANDEJA = '<path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z"></path><path d="M4 13h3l3 3h4l3 -3h3"></path>';
+
+type Tarjeta = { de: string; titulo: string; bajada: string; nueva?: { feature: string; href: string; icono?: string; fondo?: [string, string] } };
+
 /**
- * Las 9 tarjetas, 3 x 3 y en este orden, con el texto exacto del taller del Cerebro (29/10, después de que Martín viera las 6:
- * «Esas no son las funcionalidades más hot... ¿Y el scraper? ¿Y el Avatar con IA? ¿Y la edición?»): el inventario de lo que
- * anda HOY en producción, lo que vende en el rubro y tres jurados (docs/hallazgos-editor-landing.md, «Lo que la landing puede
- * vender»). `de` = la tarjeta de hoy que se reusa (su caja, su ícono, su color); las que no existían salen de otra con su
- * ícono, su color y su enlace.
- *
- * El Avatar con IA (29/10 a la tarde, Martín: «haz que AI-Avatar esté disponible para todos», los tres planes): entra
- * SEGUNDO, como en el ranking del rubro del taller (el más llamativo, detrás del setter), en el lugar de «Su visita, grabada»,
- * que el ranking ni puntuaba. Se publica con DOS condiciones: la rama que lo abre (ai-avatar-todos-2910) DESPLEGADA (antes sólo
- * lo abre el super admin), y al menos un look generado en producción. Medido el 29/10 (docs/hallazgos-ai-avatar.md, rama
- * ai-avatar-todos-2910): el motor NUNCA generó uno (`ai-avatar.looks` vacío en todos los workspaces) y ninguna extensión
- * estaba lista. Sin eso, la tarjeta vende lo que el taller dijo que no se pauta: «recién el día que un cliente la abra y le
- * salga el video».
+ * Las 9 tarjetas, 3 x 3, en el ORDEN y con el PESO con que Martín le presentó MaKo a Thiago (29/10, 17:18, la llamada de
+ * Fathom 197943284; el análisis en el scratchpad del Cerebro, `llamada/como-presento-mako.md`). Martín, por el Cerebro: «revisa
+ * cómo le presenté la app a Thiago, qué cosas prioricé, y metelas en la landing de funcionalidades». Arriba, las cuatro que
+ * hizo EN VIVO o con más tiempo (el scraper, las automatizaciones «ManyChat 2.0», replicar una landing y los dashboards);
+ * después las de peso alto, en el orden en que salieron (el Plan, el media buyer, el editor de video, MaKo en tu WhatsApp), y
+ * los chats. Sus palabras cuando son buenas, en español neutro con «tú». Sólo lo que está EN PRODUCCIÓN según `promesas.md`
+ * («Lo que SÍ está»): fuera LinkedIn, lanzar campañas desde el chat, el scraper de Instagram y las publicaciones recurrentes. El
+ * media buyer «te propone»; decide solo sólo en Pro con el piloto prendido. Lo que mostró con menos peso va a «Y además».
+ * `de` = la tarjeta de la que sale cada una (su caja, su ícono, su color); `nueva` le pone su enlace, su ícono y su color.
  */
-const TARJETAS: { de: string; titulo: string; bajada: string; nueva?: { feature: string; href: string; icono: string; fondo?: [string, string] } }[] = [
-  { de: 'whatsapp', titulo: 'Tu setter en WhatsApp', bajada: 'Contesta a cada lead a cualquier hora, también audios, y le manda tu link para agendar.' },
-  { de: 'crm', titulo: 'Tu avatar con IA', bajada: 'Tu cara en 28 escenas, animada diciendo tu guion, con tu cuenta de Google Flow.',
-    nueva: { feature: 'avatar', href: '#beta', icono: ICONO_CARA, fondo: ['background:#FDECEC', 'color:#E5484D'] } },
+const TARJETAS: Tarjeta[] = [
+  { de: 'crm', titulo: 'De tus grupos al CRM', bajada: 'Elige un grupo de WhatsApp y toca «Extraer»: los contactos caen a tu CRM con nombre y perfil.',
+    nueva: { feature: 'grupos', href: '#beta', icono: ICONO_GRUPO, fondo: ['background:#E3F6F3', 'color:#0F9B8E'] } },
+  { de: 'crm', titulo: 'Tu ManyChat 2.0', bajada: 'WhatsApp, Instagram, Messenger y email: contesta, sigue y lleva a agendar, con goteo para que no te baneen.',
+    nueva: { feature: 'automatizaciones', href: '#beta', icono: ICONO_RAYO, fondo: ['background:#FCE8F1', 'color:#D62976'] } },
+  { de: 'crm', titulo: 'Replica una landing con un clic', bajada: 'Pega el link de la que vende: MaKo la copia, la cambias pidiéndoselo y la publicas en tu dominio.',
+    nueva: { feature: 'landings', href: 'https://hola-mako.com/vsl/crear-landings', icono: ICONO_LANDING } },
+  { de: 'crm', titulo: 'Dashboards para tus clientes', bajada: 'Con plantillas o pidiéndole a MaKo el gráfico que quieras, y se los mandas con un link.',
+    nueva: { feature: 'dashboards', href: 'https://hola-mako.com/vsl/dashboard', icono: ICONO_GRAFICO, fondo: ['background:#FDECEC', 'color:#E5484D'] } },
+  { de: 'crm', titulo: 'Terminas la reunión, te caen las tareas', bajada: 'Grábala con Fathom, tl;dv o Zoom y MaKo deja cada tarea en tu Plan, con su prioridad.',
+    nueva: { feature: 'plan', href: '#beta', icono: ICONO_TABLERO, fondo: ['background:#EEF0FF', 'color:#4F5BD5'] } },
+  { de: 'ads', titulo: 'Tu media buyer con IA', bajada: 'Cada día te propone qué subir, pausar o prender en Meta. En Pro, lo aplica solo dentro de tus límites.' },
   { de: 'crm', titulo: 'Tu editor de video', bajada: 'Pídele a MaKo que quite silencios y ruido, ponga subtítulos y haga los cortes.',
     nueva: { feature: 'video-editor', href: 'https://hola-mako.com/video-editor', icono: ICONO_TIJERA, fondo: ['background:#F1EDFE', 'color:#7C5CF5'] } },
-  { de: 'crm', titulo: 'De tus grupos al CRM', bajada: 'Toca «Extraer»: los contactos de tus grupos de WhatsApp caen al CRM con nombre y perfil.',
-    nueva: { feature: 'grupos', href: '#beta', icono: ICONO_GRUPO, fondo: ['background:#E3F6F3', 'color:#0F9B8E'] } },
-  { de: 'crm', titulo: 'Tu diseñador de landings', bajada: 'Crea tu landing con IA o replica una que ya vende, y publícala en tu dominio.',
-    nueva: { feature: 'landings', href: 'https://hola-mako.com/vsl/crear-landings', icono: ICONO_LANDING } },
-  { de: 'crm', titulo: 'Comentan «QUIERO», reciben el DM', bajada: 'Si comentan tu palabra clave, MaKo responde en público, manda el DM y sigue la charla.',
-    nueva: { feature: 'instagram', href: '#beta', icono: ICONO_INSTAGRAM, fondo: ['background:#FCE8F1', 'color:#D62976'] } },
-  { de: 'closing', titulo: 'Tu analista de llamadas', bajada: 'Puntúa cada llamada de venta grabada, marca las objeciones y te deja las tareas.' },
-  { de: 'ads', titulo: 'Tu media buyer con IA', bajada: 'Revisa tus anuncios de Meta cada día y te propone qué subir, pausar o prender, y por qué.' },
-  { de: 'crm', titulo: 'Tu CRM se mueve solo', bajada: 'Los leads de Meta y tu agenda entran solos, cambian de etapa y su llamada queda guardada.' },
+  { de: 'whatsapp', titulo: 'MaKo en tu WhatsApp', bajada: 'En tu grupo con MaKo: «¿cómo vienen mis campañas?», «muéveme la reunión». También por audio.',
+    nueva: { feature: 'mako-whatsapp', href: 'https://hola-mako.com/vsl/mako' } },
+  { de: 'crm', titulo: 'Todos tus chats en un lugar', bajada: 'WhatsApp, Instagram, Messenger y email en una bandeja, y en Pro, varios WhatsApp para tus setters.',
+    nueva: { feature: 'chats', href: '#beta', icono: ICONO_BANDEJA, fondo: ['background:#EEF1F5', 'color:#475467'] } },
 ];
+
+/**
+ * El Avatar con IA (`--con-avatar`): Martín lo abrió a los tres planes el 29/10 («haz que AI-Avatar esté disponible para
+ * todos», ai-avatar-todos-2910, ya en main con el tren-ad), pero la tarjeta sale recién con al menos un look generado en
+ * producción. Medido el 29/10 (docs/hallazgos-ai-avatar.md): el motor NUNCA generó uno (`ai-avatar.looks` vacío en todos los
+ * workspaces) y ninguna extensión estaba lista; el taller dijo que se pauta «recién el día que un cliente la abra y le salga el
+ * video». Con la opción entra detrás del editor de video (en la llamada, 31:17, peso alto), y los chats pasan a «Y además».
+ */
+const TARJETA_AVATAR: Tarjeta = { de: 'crm', titulo: 'Tu avatar con IA', bajada: 'Tu cara en 28 escenas, animada diciendo tu guion, con tu cuenta de Google Flow.',
+  nueva: { feature: 'avatar', href: '#beta', icono: ICONO_CARA, fondo: ['background:#FFF1E6', 'color:#F76707'] } };
+
+function tarjetasDeHoy(conAvatar: boolean): Tarjeta[] {
+  if (!conAvatar) return TARJETAS;
+  const i = TARJETAS.findIndex((t) => t.nueva?.feature === 'video-editor');
+  if (i < 0) throw new Error('no está la tarjeta del editor de video, detrás de la que va el Avatar');
+  return [...TARJETAS.slice(0, i + 1), TARJETA_AVATAR, ...TARJETAS.slice(i + 1).filter((t) => t.nueva?.feature !== 'chats')];
+}
+
+/**
+ * El marco con el que Martín abrió y cerró la llamada: «es un todo en uno: dejá de pagar todas las suscripciones que estás
+ * pagando» [29:37], «resuelve todo, de inicio a fin» [07:07]. Y la franja «Reemplaza a» nombra SÓLO lo que MaKo reemplaza hoy
+ * (el Cerebro, 29/10): ManyChat (Automations), CapCut (Video Editor), Canva (Image Editor), Notion y Trello (Plan), Skool
+ * (School) y el CRM.
+ */
+const TODO_EN_UNO = 'Todo en uno, de inicio a fin: deja de pagar todas las suscripciones que estás pagando.';
+const REEMPLAZA_A = ['ManyChat', 'CapCut', 'Canva', 'Notion', 'Trello', 'Skool', 'tu CRM'];
+/** Lo que mostró con menos peso (o no mostró y vende High Ticket), compacto, debajo de la grilla. */
+const Y_ADEMAS = [
+  'Tu CRM se mueve solo', 'Comentan «QUIERO» y les llega el DM', 'Tu Calendario publica tus reels y posts', 'School: tus cursos y tu comunidad',
+  'Imágenes y carruseles, como en Canva', 'Guiones de anuncio con IA', 'El análisis de tus llamadas de venta', 'La app en tu celular',
+  'La API para conectar tu Claude', 'Llaves de acceso y verificación en dos pasos',
+];
+/** Lo que la llamada prometió y NO está en producción (promesas.md): si aparece en la sección, el script no escribe. */
+const NO_ESTA = /LinkedIn|recurrente|scraper de Instagram|lanza(r|me)? (tu |una )?campaña|desde el chat lanza/i;
+
+const CHIP = 'display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:#fff;border:1px solid #EEF0F3;font-size:14px;line-height:1.3;color:#3A4250';
+const TILDE = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2F6FED" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l9 -10"></path></svg>';
+
+function marcoTodoEnUno(): string {
+  return `\n      <p data-mk="todo-en-uno" style="margin:0 auto;max-width:620px;font-size:18px;line-height:1.55;color:#5B6472;text-wrap:balance">${TODO_EN_UNO}</p>`
+    + `\n      <div data-mk="reemplaza" style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;margin-top:22px">`
+    + `<span style="font-size:14px;font-weight:600;color:#12151B;margin-right:2px">Reemplaza a</span>`
+    + REEMPLAZA_A.map((x) => `<span style="padding:6px 12px;border-radius:999px;background:#F5F7FA;border:1px solid #EEF0F3;font-size:14px;line-height:1.3;color:#5B6472;text-decoration:line-through;text-decoration-color:rgba(229,72,77,.6)">${x}</span>`).join('')
+    + '</div>';
+}
+
+function franjaYAdemas(extra: string[]): string {
+  return `<div data-mk="y-ademas" style="margin-top:22px;padding:20px 22px;border:1px solid #EEF0F3;border-radius:16px;background:#FAFBFC">`
+    + `<div style="font-size:15px;font-weight:600;color:#12151B;margin:0 0 12px">Y además</div>`
+    + `<div style="display:flex;flex-wrap:wrap;gap:8px 10px">${[...extra, ...Y_ADEMAS].map((x) => `<span style="${CHIP}">${TILDE}${x}</span>`).join('')}</div>`
+    + '</div>';
+}
+
+/**
+ * La última tarjeta sola (el Cerebro, 29/10, con la #32 v14 publicada): con 9 tarjetas, la grilla de 2 columnas (≤768 px:
+ * tablet y celular; entre medio hay un tramo de 1 columna, donde no cambia nada) deja la novena sola en su fila. Si el total
+ * es impar, la última ocupa el ancho entero. En escritorio son 3 columnas y no aplica.
+ */
+const MARCA_ULTIMA_SOLA = '/* La última tarjeta sola (impar) ocupa el ancho entero en 2 columnas (29/10). */';
+const ULTIMA_SOLA = `${MARCA_ULTIMA_SOLA}\n@media (max-width:768px){\n  .gm-libre .mk-feature-grid > a:last-child:nth-child(odd) { grid-column: 1 / -1; }\n}\n`;
+
+/** Saca un bloque marcado (`data-mk="<marca>"`, un <p> o un <div>) si ya está: correr el script dos veces no lo duplica. */
+function sinBloque(html: string, marca: string): string {
+  const i = html.indexOf(` data-mk="${marca}"`);
+  if (i < 0) return html;
+  const abre = html.lastIndexOf('<', i);
+  const tag = /^<([a-z]+)/.exec(html.slice(abre))?.[1];
+  const ini = html.indexOf('>', i) + 1;
+  const fin = tag === 'div' ? cierreDelDiv(html, ini) : html.indexOf(`</${tag}>`, ini);
+  if (!tag || fin < 0) throw new Error(`el bloque «${marca}» no cierra`);
+  const desde = html.slice(0, abre).replace(/\n[ \t]*$/, '');
+  return desde + html.slice(fin + `</${tag}>`.length);
+}
 
 const cuenta = (s: string, buscar: string) => s.split(buscar).length - 1;
 /**
@@ -197,18 +278,19 @@ function conTexto(a: string, titulo: string, bajada: string): string {
   return a.replace(/(<div style="[^"]*">)([^<]*)(<\/div>)/g, (_t, abre: string, _x: string, cierra: string) => abre + (i++ === 0 ? titulo : bajada) + cierra);
 }
 
-function nuevaTarjeta(base: string, n: NonNullable<(typeof TARJETAS)[number]['nueva']>): string {
+function nuevaTarjeta(base: string, n: NonNullable<Tarjeta['nueva']>): string {
   let a = base
     .replace(/href="[^"]*"/, `href="${n.href}"`)
     .replace(/data-feature="[^"]*"/, `data-feature="${n.feature}"`)
-    .replace(/id="feat-[^"]*"/, `id="feat-${n.feature}"`)
-    .replace(/(<svg\b[^>]*>)[\s\S]*?(<\/svg>)/, (_t, abre: string, cierra: string) => abre + n.icono + cierra);
+    .replace(/id="feat-[^"]*"/, `id="feat-${n.feature}"`);
+  // Sin ícono propio, se queda el de la tarjeta de la que sale (MaKo en tu WhatsApp, con el de WhatsApp).
+  if (n.icono) a = a.replace(/(<svg\b[^>]*>)[\s\S]*?(<\/svg>)/, (_t, abre: string, cierra: string) => abre + n.icono + cierra);
   if (n.fondo) a = a.replace('background:#EAF1FE', n.fondo[0]).replace('color:#2F6FED', n.fondo[1]);
   return a;
 }
 
 /** La landing nueva a partir de la fila de hoy (puro). Tira si algo no está donde se esperaba. */
-export function landingHighTicket(f: Pick<Fila, 'contenido' | 'config'>, o: { principal: boolean } = { principal: true }): { contenido: Contenido; config: Config } {
+export function landingHighTicket(f: Pick<Fila, 'contenido' | 'config'>, o: { principal: boolean; conAvatar?: boolean } = { principal: true }): { contenido: Contenido; config: Config } {
   const contenido = JSON.parse(JSON.stringify(f.contenido)) as Contenido;
   const config = JSON.parse(JSON.stringify(f.config)) as Config;
   if (contenido.paginas.length !== 1) throw new Error(`la landing tiene ${contenido.paginas.length} páginas (se esperaba 1)`);
@@ -227,18 +309,29 @@ export function landingHighTicket(f: Pick<Fila, 'contenido' | 'config'>, o: { pr
   if (!yaEsta && cuenta(top, DEBAJO_DEL_BOTON[0]) !== 2 && (o.principal || cuenta(top, DEBAJO_DEL_BOTON[0]) !== 0)) throw new Error(`t02top: la línea debajo del botón aparece ${cuenta(top, DEBAJO_DEL_BOTON[0])} veces (se esperaban 2)`);
   poner('t02top', top.split(DEBAJO_DEL_BOTON[0]).join(DEBAJO_DEL_BOTON[1]));
 
-  const h5 = html('t05comofunciona');
+  // Lo que una pasada anterior ya puso (el marco y «Y además») se saca antes, para no duplicarlo.
+  const h5 = ['y-ademas', 'reemplaza', 'todo-en-uno'].reduce(sinBloque, html('t05comofunciona'));
   const g = grilla(h5);
-  const nuevas = TARJETAS.map((t) => {
-    const base = g.tarjetas.get(t.de);
+  const tarjetas = tarjetasDeHoy(!!o.conAvatar);
+  // La base: la tarjeta ya publicada con ese `data-feature` (una segunda pasada), la de `de`, o cualquiera azul (la de siempre).
+  const azul = [...g.tarjetas.values()].find((a) => a.includes('background:#EAF1FE'));
+  const nuevas = tarjetas.map((t) => {
+    const base = (t.nueva && g.tarjetas.get(t.nueva.feature)) || g.tarjetas.get(t.de) || (t.nueva ? azul : undefined);
     if (!base) throw new Error(`no está la tarjeta «${t.de}» de la que sale «${t.titulo}»`);
     return conTexto(t.nueva ? nuevaTarjeta(base, t.nueva) : base, t.titulo, t.bajada);
   });
-  poner('t05comofunciona', h5.slice(0, g.ini) + '\n        ' + nuevas.join('') + '\n      ' + h5.slice(g.fin));
+  const extra = tarjetas.some((t) => t.nueva?.feature === 'chats') ? [] : ['Todos tus chats en un lugar'];
+  let h5n = h5.slice(0, g.ini) + '\n        ' + nuevas.join('') + '\n      </div>' + franjaYAdemas(extra) + h5.slice(g.fin + '</div>'.length);
+  const h2 = cuenta(h5n, '</h2>');
+  if (h2 === 1) h5n = h5n.replace('</h2>', () => '</h2>' + marcoTodoEnUno());
+  else if (o.principal) throw new Error(`t05comofunciona: tiene ${h2} títulos (se esperaba 1)`);
+  if (NO_ESTA.test(h5n)) throw new Error(`t05comofunciona promete algo que no está en producción: «${NO_ESTA.exec(h5n)?.[0]}»`);
+  poner('t05comofunciona', h5n);
   poner('t04quees', conMosaico(html('t04quees'), nuevas));
 
   let css = String(config.diseno?.css ?? '');
   for (const [buscar, nuevo] of CSS_HOJA) css = reemplazarUnaVez(css, buscar, nuevo, 'la hoja del diseño', o.principal);
+  if (!css.includes(MARCA_ULTIMA_SOLA)) css = css.replace(/\s*$/, '\n') + ULTIMA_SOLA;
   config.diseno = { ...config.diseno, css };
   // El SEO es propio de cada landing de funnel; sólo la principal lleva el de la portada.
   if (o.principal) config.sitio = { ...config.sitio, seoTitulo: SEO_TITULO };
@@ -281,7 +374,8 @@ async function main() {
   const sinAnclas = (h: string) => h.replace(/<span id="t-[^"]*" class="gm-ancla-seccion" aria-hidden="true"><\/span>/g, '');
   const borradorEsLoPublicado = sinAnclas(fotoHoy.paginas[0]?.html ?? '') === sinAnclas(f.publicado?.paginas[0]?.html ?? '-');
 
-  const nueva = landingHighTicket(f, { principal });
+  const conAvatar = args.includes('--con-avatar');
+  const nueva = landingHighTicket(f, { principal, conAvatar });
   const foto = armarFoto({ ...f, ...nueva, version: f.version + 1 } as never, [], new Date().toISOString(), urlBase, null);
   const pagina = foto.paginas[0];
   const vista = armarDocumento({ html: pagina.html, config: nueva.config as never, css: foto.css, cssDiseno: foto.cssDiseno, fuentes: foto.fuentes, workspaceId: ws, modo: 'vista' as never, urlCanonica: urlBase, titulo: pagina.titulo, descripcion: pagina.descripcion });
@@ -289,7 +383,7 @@ async function main() {
   writeFileSync(join(salida, `doc-${docId}-nueva.json`), JSON.stringify(nueva, null, 1));
   writeFileSync(join(salida, 'vista-previa.html'), vista);
   console.log(JSON.stringify({ ws, docId, version: f.version, borradorEsLoPublicado, vslFunnelEnLaNueva: (JSON.stringify(foto).match(/VSL Funnel/gi) ?? []).length,
-    titulo: pagina.titulo, tarjetas: TARJETAS.map((t) => t.titulo), salida }, null, 1));
+    titulo: pagina.titulo, tarjetas: tarjetasDeHoy(conAvatar).map((t) => t.titulo), salida }, null, 1));
 
   if (!args.includes('--aplicar')) return;
   if (Number(arg('--version')) !== f.version) throw new Error(`--version ${arg('--version')} no es la de hoy (${f.version}): mira la vista previa de nuevo`);

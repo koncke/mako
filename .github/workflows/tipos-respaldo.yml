@@ -1,6 +1,12 @@
 # =============================================================================
-# El tsc ENTERO, una vez por semana: el respaldo de las tandas (decidido el 21/10/2026)
+# El tsc ENTERO, CADA NOCHE si entró algo a main: el respaldo de las tandas (decidido el 21/10/2026; diario desde el 4/11)
 # =============================================================================
+# ⚠️ 4/11/2026: pasa de semanal a CADA NOCHE (docs/hallazgos-infra.md → «Por qué tardaba horas»), con el mismo primer paso que
+# semanal-tests.yml: si main no se movió desde el último veredicto, no corre (1 minuto facturado). Medido: ~5 min con swap (run
+# 41779840011: 248 s el tsc, 6.187 MB vivos). Desde el 4/11 cada punta ya corre el tsc ENTERO (OK PARCIAL sólo si muere por
+# memoria): esto es la red de esos parciales y de lo que llega a main sin pasar por una punta. 36 h sin veredicto con commits
+# nuevos = rojo del vigía de despues-del-deploy.yml. Lo de abajo es la historia de cuando era semanal.
+#
 # Por qué: el paso «Tipos» de `integracion` reparte el chequeo en tandas (TIPOS_TANDAS=4) para entrar en la RAM del runner, y las tandas NO son «lo mismo que el tsc» en todos los casos. El checker cachea
 # algunos errores (TS2589 una instanciación profunda, TS2303 un alias circular) y los atribuye al primer archivo que los dispara; si ese es de OTRA tanda se perdían y el paso decía «OK» donde el tsc da exit 2
 # (revisión del 21/10/2026, dos repros de 8 archivos). Repartir en el orden del programa lo evita en esas repros, pero con un ciclo de imports que cruce tandas puede volver a pasar. Y Vercel tiene
@@ -17,12 +23,12 @@
 #
 # GitHub manda el mail de un run que falló a quien editó este archivo por última vez; el resumen del run trae la línea TIPOS-MEDIDA.
 # =============================================================================
-name: tipos entero (respaldo semanal)
+name: tipos entero (respaldo de cada noche)
 
 on:
   schedule:
-    # Lunes 07:47 UTC = 04:47 AR, un rato después de semanal-tests.yml (07:17): no corren pegados. Un minuto "raro" a propósito.
-    - cron: '47 7 * * 1'
+    # Todos los días 07:47 UTC = 04:47 AR, un rato después de semanal-tests.yml (07:17): no corren pegados. Un minuto "raro" a propósito.
+    - cron: '47 7 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -37,25 +43,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      # Antes de gastar nada: ¿entró algo a main desde la última vez? A mano (workflow_dispatch) corre siempre.
-      - name: ¿Hubo cambios en la semana?
+      # Antes de gastar nada: ¿entró algo a main desde el último VEREDICTO de este workflow? (el mismo paso que semanal-tests.yml)
+      - name: ¿Hubo cambios desde el último veredicto?
         id: cambios
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENTO: ${{ github.event_name }}
+          WF: tipos-respaldo.yml
         run: |
-          desde=$(date -u -d '8 days ago' +%Y-%m-%dT%H:%M:%SZ)
-          nuevos=$(gh api "repos/${{ github.repository }}/commits?sha=main&since=${desde}&per_page=1" --jq 'length')
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${nuevos}" != "0" ]; then
-            echo "correr=si" >> "$GITHUB_OUTPUT"
-          else
+          main=$(gh api "repos/$REPO/commits/main" --jq .sha 2>/dev/null || true)
+          ultimo=$(gh api "repos/$REPO/actions/workflows/$WF/runs?status=completed&per_page=30" --jq '[.workflow_runs[] | select(.conclusion == "success" or .conclusion == "failure")][0].head_sha // ""' 2>/dev/null || true)
+          if [ "$EVENTO" != "workflow_dispatch" ] && [ -n "$main" ] && [ "$main" = "$ultimo" ]; then
             echo "correr=no" >> "$GITHUB_OUTPUT"
-            echo "Sin commits en main desde ${desde}: no se corre el tsc entero." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "main sigue en $main, el último commit que se juzgó: no se corre." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "correr=si" >> "$GITHUB_OUTPUT"
+            echo "main en ${main:-?} · último veredicto en ${ultimo:-ninguno} · evento $EVENTO: corre." | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Sin `ref: main`: el commit del disparo queda como head_sha, y es contra ése que compara el primer paso la noche siguiente.
       - uses: actions/checkout@v4
         if: steps.cambios.outputs.correr == 'si'
-        with:
-          ref: main
 
       - uses: actions/setup-node@v4
         if: steps.cambios.outputs.correr == 'si'

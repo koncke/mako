@@ -129,6 +129,8 @@ export type HojaM = {
   /** Sólo Comercial: «A quién cobrarle». */
   cobranza: { filas: CobroM[]; tz: string } | null;
   cobranzaError: string | null;
+  /** La oración de apertura de la hoja (tipo `frase`, lib/graficos-frase.ts), ya escrita. Ausente o null = la hoja no tiene. */
+  frase?: string | null;
 };
 
 export const ERROR_LECTURA = 'No pudimos leer estos números. No es nada tuyo.';
