@@ -124,35 +124,91 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
   },
   {
     id: 'automatizaciones', nombre: 'Automatizaciones', emoji: '⚙️',
-    linea: 'Quién entra a cada automatización, cuántos mensajes salen, cuántos se abren y cuántos responden.',
+    linea: 'Qué salió de cada automatización, qué falló, cuántos te responden y en cuánto tiempo.',
     subtitulo: 'Tus automatizaciones del período.', periodo: 'ult30',
     piezas: [
       // COMPOSICIÓN DEL 31/10/2026: la tabla por automatización es el tema de la hoja. «Por canal» era una torta estirada.
-      { local: 'entraron', tipo: 'numero_tendencia', fuente: 'inscripciones', metricas: ['personas'], dimension: null, titulo: 'Personas que entraron', comparar: true, invertida: true },
-      { local: 'envios', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['envios'], dimension: null, titulo: 'Mensajes enviados' },
+      // 4/11/2026 — NORIA (docs/templates-dashboard-propuesta.md §7.3): «¿qué corrió, qué falló y cuántas horas ahorró?». Abre con la
+      // frase de lo que salió y lo que falló; el ancla es lo que falló, y la tabla dice en cuál. ⚠️ Las horas AHORRADAS no se miden
+      // (pedirían cuánto tardaría una persona en hacerlo a mano): lo que hay es en cuántas horas responden.
+      {
+        local: 'resumen', tipo: 'frase', fuente: 'envios', metricas: ['enviados', 'fallaron', 'respuestas'], dimension: null, titulo: 'Tus automatizaciones',
+        frase: 'Salieron {enviados} mensajes · {fallaron} fallaron · {respuestas} te respondieron', ir: 'automations',
+      },
+      { local: 'entraron', tipo: 'numero_tendencia', fuente: 'inscripciones', metricas: ['personas'], dimension: null, titulo: 'Personas que entraron', comparar: true },
+      { local: 'fallaron', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['fallaron'], dimension: null, titulo: 'Fallaron', invertida: true, ir: 'automations' },
       { local: 'apertura', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_apertura'], dimension: null, titulo: 'Tasa de apertura' },
       { local: 'respuesta', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_respuesta'], dimension: null, titulo: 'Tasa de respuesta' },
       { local: 'por-dia', tipo: 'serie', fuente: 'envios', dimension: 'dia', metricas: ['envios', 'respuestas'], titulo: 'Envíos y respuestas', controles: AGRUPAR_AUTO },
-      { local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'abiertos', 'respuestas', 'tasa_respuesta'], titulo: 'Por automatización' },
+      {
+        local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'respuestas', 'tasa_respuesta', 'fallaron'],
+        titulo: 'Por automatización', ir: 'automations',
+      },
       { local: 'desenlace', tipo: 'barras', fuente: 'inscripciones', dimension: 'desenlace', metricas: ['personas'], titulo: 'Cómo terminaron' },
+      { local: 'donde-fallo', tipo: 'barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['fallaron'], ordenMetrica: 'fallaron', limite: 8, titulo: 'Dónde falló' },
+      {
+        local: 'horas', tipo: 'barras', fuente: 'inscripciones', fecha: 'alta', dimension: 'automatizacion', metricas: ['horas_respuesta'], ordenMetrica: 'horas_respuesta',
+        limite: 8, titulo: 'En cuántas horas responden',
+      },
     ],
   },
   {
     id: 'ia-contenido', nombre: 'Contenido e IA', emoji: '✨',
-    linea: 'Cuánto usas la IA y para qué, y los videos e imágenes que MaKo le pidió a Flow.',
+    linea: 'Cuánta IA gastas y en qué, y los videos e imágenes que MaKo le pidió a Flow.',
     subtitulo: 'La IA y la producción de contenido.', periodo: 'ult30',
     piezas: [
       // COMPOSICIÓN DEL 31/10/2026: cuánto se usa, cuánto cuesta, cuánto cuesta cada una y cuánto salió. Se fue «Por proveedor»: ninguna
       // hoja lo dibuja desde acá, y los videos e imágenes van como tabla, con su tasa de éxito adentro.
+      // 4/11/2026 — ORRERY (docs/templates-dashboard-propuesta.md §7.3): «¿cuánta IA gastamos y en qué?». Abre con la frase de cuántas
+      // veces se usó; el ancla es el costo, el anillo dice en qué función se va y el modelo cuál cuesta más.
+      {
+        local: 'resumen', tipo: 'frase', fuente: 'ia', metricas: ['llamadas'], dimension: null, titulo: 'Tu IA', comparar: true,
+        frase: 'Usaste la IA {llamadas} veces · {llamadas:cambio} que el período anterior',
+      },
       { local: 'costo', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['costo'], dimension: null, titulo: 'Costo de la IA', comparar: true, invertida: true },
-      { local: 'llamadas', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['llamadas'], dimension: null, titulo: 'Llamadas a la IA', comparar: true },
       { local: 'costo-prom', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['costo_prom'], dimension: null, titulo: 'Costo por llamada' },
-      { local: 'pedidos', tipo: 'numero_tendencia', fuente: 'flow', metricas: ['trabajos'], dimension: null, titulo: 'Pedidos a Flow' },
-      { local: 'por-dia', tipo: 'serie', fuente: 'ia', dimension: 'dia', metricas: ['llamadas'], titulo: 'Llamadas por día', controles: AGRUPAR_AUTO },
+      { local: 'pedidos', tipo: 'numero_tendencia', fuente: 'flow', metricas: ['trabajos'], dimension: null, titulo: 'Pedidos a Flow', ir: 'video-generator' },
+      { local: 'listos', tipo: 'numero_tendencia', fuente: 'flow', metricas: ['tasa_exito'], dimension: null, titulo: 'Salieron bien' },
+      { local: 'por-dia', tipo: 'serie', fuente: 'ia', dimension: 'dia', metricas: ['costo'], titulo: 'Lo gastado por día', controles: AGRUPAR_AUTO },
       { local: 'funciones', tipo: 'barras', fuente: 'ia', dimension: 'funcion', metricas: ['llamadas'], ordenMetrica: 'llamadas', titulo: 'Para qué se usa' },
+      { local: 'modelos', tipo: 'barras', fuente: 'ia', dimension: 'modelo', metricas: ['costo'], ordenMetrica: 'costo', limite: 6, titulo: 'Qué modelo cuesta más' },
       // Vivía en «WhatsApp y MaKo», que se fue en v5: lo que tu equipo le pide a MaKo es uso de la IA.
       { local: 'quien', tipo: 'barras', fuente: 'mako_chat', dimension: 'quien', metricas: ['mensajes'], titulo: 'Quién le escribe a MaKo' },
-      { local: 'flow', tipo: 'tabla_barras', fuente: 'flow', dimension: 'tipo', metricas: ['trabajos', 'listos', 'fallidos', 'tasa_exito'], barra: 'trabajos', titulo: 'Videos e imágenes' },
+      { local: 'flow', tipo: 'tabla_barras', fuente: 'flow', dimension: 'tipo', metricas: ['trabajos', 'listos', 'fallidos', 'tasa_exito'], barra: 'trabajos', titulo: 'Videos e imágenes', ir: 'video-generator' },
+    ],
+  },
+  {
+    // 4/11/2026 — INMOBILIARIA, la primera por RUBRO (docs/templates-dashboard-propuesta.md §6, regla 3, y §7.3, LINTEL): se copia
+    // SÓLO su Overview, la página que informa (las otras cinco dejan trabajar: ya son el CRM). La pregunta es la del rubro: ¿cuántos
+    // interesados visitan, cuántos compran y en qué proyecto? «Proyecto» es el funnel de MaKo (un desarrollo, una propiedad), así que
+    // le sirve a cualquier negocio que venda inmuebles. ⚠️ Lintel pone «97 % win rate» sin denominador ni ventana: acá cada tasa dice
+    // de qué ES en su título («de los que visitan»).
+    id: 'inmobiliaria', nombre: 'Inmobiliaria', emoji: '🏠', buscar: 'bienes raíces desarrollos propiedades proyectos',
+    linea: 'Cuántos interesados visitan, cuántos compran y en qué proyecto, quién vende y por qué no compraron.',
+    subtitulo: 'Tus interesados, de la visita a la compra.', periodo: 'ult90',
+    controles: [{ tipo: 'lista', campo: 'producto', valores: null }],
+    piezas: [
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'leads', fecha: 'alta', metricas: ['leads', 'agendas', 'cierres'], dimension: null, titulo: 'Tus interesados',
+        frase: 'Entraron {leads} interesados · {agendas} agendaron una visita · {cierres} ya compraron', ir: 'crm',
+      },
+      { local: 'cierre', tipo: 'numero_tendencia', fuente: 'leads', fecha: 'agenda', metricas: ['tasa_cierre'], dimension: null, titulo: 'Compran, de los que visitan', comparar: true, invertida: true, ir: 'closing' },
+      { local: 'asistencia', tipo: 'numero_tendencia', fuente: 'leads', fecha: 'agenda', metricas: ['tasa_asistencia'], dimension: null, titulo: 'Vienen a la visita', comparar: true, ir: 'calendario' },
+      { local: 'ticket', tipo: 'numero_tendencia', fuente: 'leads', fecha: 'cierre', metricas: ['ticket'], dimension: null, titulo: 'Ticket promedio', ir: 'crm' },
+      { local: 'ciclo', tipo: 'numero_tendencia', fuente: 'leads', fecha: 'cierre', metricas: ['ciclo_cierre'], dimension: null, titulo: 'Días hasta comprar', ir: 'crm' },
+      { local: 'por-semana', tipo: 'columnas', fuente: 'leads', fecha: 'alta', dimension: 'semana', metricas: ['leads', 'agendas'], titulo: 'Interesados y visitas, por semana' },
+      {
+        local: 'por-proyecto', tipo: 'tabla_barras', fuente: 'leads', fecha: 'alta', dimension: 'producto', metricas: ['leads', 'agendas', 'cierres'], barra: 'leads',
+        titulo: 'Por proyecto', ir: 'crm',
+      },
+      { local: 'origen', tipo: 'barras', fuente: 'leads', fecha: 'alta', dimension: 'origen', metricas: ['leads'], limite: 8, titulo: 'De dónde llegan' },
+      { local: 'etapa', tipo: 'barras', fuente: 'leads', fecha: 'alta', dimension: 'etapa', metricas: ['leads'], titulo: 'En qué etapa están', ir: 'crm' },
+      {
+        local: 'asesores', tipo: 'tabla', fuente: 'leads', fecha: 'agenda', dimension: 'closer', metricas: ['asistencias', 'cierres', 'tasa_cierre', 'vendido'],
+        ordenMetrica: 'vendido', titulo: 'Quién vende', subtitulo: 'Las visitas que recibió, las que cerró y lo que vendió', ir: 'closing',
+      },
+      { local: 'motivos', tipo: 'barras', fuente: 'leads', dimension: 'motivo', metricas: ['leads'], limite: 8, titulo: 'Por qué no compraron', subtitulo: 'Lo que se marcó al perder, contado' },
+      { local: 'donde', tipo: 'mapa', fuente: 'ubicacion', dimension: 'region', metricas: ['visitas'], titulo: 'De dónde te buscan', subtitulo: 'Las visitas a tus páginas, por región' },
     ],
   },
 ];

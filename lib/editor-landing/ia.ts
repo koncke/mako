@@ -50,14 +50,14 @@ import {
   cortarPegado, esquemaConservado, textoConTrozos, sanearEsquema, esquemaDelPedido,
   indicesValidos, pedidoDeTanda, ordenarPorIndice, tarjetaDesdeEsquema, bajarTitulo,
   sinStockEnPersonas, resolverBusquedas, sanearNodo, quitarPruebaInventada,
-  seccionesParaEditar, emparejarEdicion, convertirEdicion, attrsDe,
+  vistaQueEntra, emparejarEdicion, convertirEdicion, cambiosDeLista, avisosDeEdicion, attrsDe,
   prepararAlternativa, elegirAlternativas,
   instruccionTexto, accionTextoValida, limpiarTextoDelModelo, limpiarNotas,
   objetoConUnaReparacion, SalidaInvalida, REGLAS_PAGINA,
   seccionesParaDiscutir, focoParaDiscutir, charlaParaDiscutir, focoParaEditar,
 } from './ia-reglas';
 import { NODO, TOPES, textoDe, type JsonNodo } from './doc';
-import { MUCHO_PARA_EDITAR, type Esquema, type ParamsGeneracion, type FuenteImagenes, type AccionTexto } from './api-tipos';
+import { MUCHO_PARA_EDITAR, type EdicionIA, type Esquema, type ParamsGeneracion, type FuenteImagenes, type AccionTexto } from './api-tipos';
 import { fallaEnNavegador, motivoDeError, motivoDePagina, sanearLectura } from './lectura-reglas';
 import type { MotivoEnNavegador, SeLeeEnNavegador } from './lectura-tipos';
 import { REGLAS_DIAPOSITIVAS_ESQUEMA, REGLAS_DIAPOSITIVAS_SECCIONES, REGLAS_DIAPOSITIVAS_EDITAR } from './plantillas-presentaciones';
@@ -451,8 +451,10 @@ export type PedidoEditar = { instruccion: string; tarjetas: unknown; alcance: 'l
  * pantalla las inserta: son las que no encuentra en el documento). Las secciones
  * con «Bloquear» (`bloqueadaIA`) viajan al modelo solo con su título y lo que
  * vuelva con su id se descarta. `resumen` es una frase para el chat del agente.
+ * `quitar`, `orden` y `copias`: lo que cambia de la LISTA de secciones (`cambiosDeLista`, ia-reglas.ts); la pantalla y
+ * el server lo aplican con `planDeAplicacion` (diff-tarjetas.ts).
  */
-export async function editar(p: PedidoEditar): Promise<ResultadoIA<{ tarjetas: JsonNodo[]; resumen?: string }>> {
+export async function editar(p: PedidoEditar): Promise<ResultadoIA<EdicionIA>> {
   const t0 = Date.now();
   const instruccion = String(p.instruccion ?? '').trim().slice(0, 4_000);
   if (!instruccion) return invalido('Escribe qué quieres cambiar.');
@@ -463,11 +465,13 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<{ tarjetas: J
   }
   const params = normalizarParams(p.params);
   const formularioId = idTarjetaConFormulario(originales);
-  const vista = seccionesParaEditar(originales, (t) => tarjetaABloques(t, { formularioId }));
-  const json = JSON.stringify({ tarjetas: vista }, null, 1);
-  if (json.length > MAX_JSON_EDICION) return invalido(MUCHO_PARA_EDITAR);
   // La sección con el cursor, por su id (sólo en «toda la landing»: con una sección, ya es ésa).
   const foco = p.alcance === 'seccion' || typeof p.enFoco !== 'string' ? -1 : originales.findIndex((t) => attrsDe(t).id === p.enFoco);
+  // Una página que no entra entera (una copia idéntica de una landing larga) va con la del cursor y las que entren
+  // completas, y el resto RESUMIDAS: así se puede sacar, mover o duplicar cualquiera (`vistaQueEntra`, 28/10/2026).
+  const entra = vistaQueEntra(originales, (t) => tarjetaABloques(t, { formularioId }), { max: MAX_JSON_EDICION, foco });
+  if (!entra) return invalido(MUCHO_PARA_EDITAR);
+  const { json, resumidas } = entra;
 
   try {
     // Los archivos del mensaje van en el CONTEXTO, como datos (./adjuntos.ts): así también cuentan como respaldo de
@@ -493,10 +497,10 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<{ tarjetas: J
       hastaMs: hastaIA,
     });
     const raw = await objetoConUnaReparacion(salida, reparador(FEATURE_EDITAR, 'edición', hastaIA));
-    const { pares, descartes } = emparejarEdicion(comoTarjetasIA(raw), originales);
+    const { pares, descartes } = emparejarEdicion(comoTarjetasIA(raw), originales, { resumidas });
     const conFotos = await conImagenes(pares.map((x) => x.tarjeta), params.fuenteImagenes, t0 + PLAZOS.editar.total);
     const resultado = convertirEdicion(
-      pares.map((x, k) => ({ tarjeta: conFotos[k], base: x.base })),
+      pares.map((x, k) => ({ ...x, tarjeta: conFotos[k] })),
       originales,
       (t, base) => bloquesATarjeta(t, { base, descartes, formularioId }),
       descartes,
@@ -511,7 +515,20 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<{ tarjetas: J
     if (descartes.length) console.warn(`[landing-editor:editar] descartes: ${descartes.slice(0, 20).join(' · ')}`);
     if (quitados) console.warn(`[landing-editor:editar] ${quitados} citas o cifras sin respaldo, vaciadas`);
     const resumenModelo = typeof raw.resumen === 'string' ? raw.resumen.trim().split('\n')[0].slice(0, 200) : '';
-    return { ok: true, tarjetas, resumen: tarjetas.length ? resumenModelo || 'Listo.' : 'Sin cambios.' };
+    // Sacar, reordenar y duplicar secciones (28/10/2026): lo que cambia de la LISTA, además de las tarjetas.
+    const nuevas = new Set(resultado.nuevas);
+    const lista = cambiosDeLista(raw, originales, tarjetas.map((t) => String(attrsDe(t).id ?? '')).filter((id) => !nuevas.has(id)));
+    const copias = Object.fromEntries(Object.entries(resultado.copias).filter(([id]) => tarjetas.some((t) => attrsDe(t).id === id)));
+    const hay = tarjetas.length > 0 || lista.quitar.length > 0 || !!lista.orden;
+    // Lo que la IA dijo que hizo y no se pudo (una foto que no apareció, un texto que no se ubicó): el chat lo DICE.
+    const noSePudo = avisosDeEdicion(descartes);
+    return {
+      ok: true, tarjetas,
+      ...(lista.quitar.length ? { quitar: lista.quitar } : {}),
+      ...(lista.orden ? { orden: lista.orden } : {}),
+      ...(Object.keys(copias).length ? { copias } : {}),
+      resumen: [hay ? resumenModelo || 'Listo.' : 'Sin cambios.', ...noSePudo].join(' '),
+    };
   } catch (err) {
     return { ok: false, error: await falloIA(err, 'editar la landing'), status: 502 };
   }
