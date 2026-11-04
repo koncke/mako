@@ -57,10 +57,12 @@ function normalizarConMapa(t: string): { n: string; mapa: number[] } {
   return { n, mapa };
 }
 const normal = (t: string): string => normalizarConMapa(t).n;
+/** El texto como se compara: sin tildes y en minúsculas. Con `regexDeFrase`, lo usa también la lectura de formatos (lib/spy-detalle.ts). */
+export const textoComparable = normal;
 const escapar = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // Compiladas UNA vez por frase: el catálogo tiene cientos y un competidor, cientos de piezas.
 const REGEX_DE = new Map<string, RegExp>();
-function regexDe(frase: string): RegExp {
+export function regexDeFrase(frase: string): RegExp {
   let r = REGEX_DE.get(frase);
   if (!r) {
     r = new RegExp(`(?<![\\p{L}\\p{N}])${escapar(normal(frase)).replace(/\s+/g, '\\s+')}(?![\\p{L}\\p{N}])`, 'u');
@@ -119,16 +121,16 @@ function hallazgosDe(e: EntradaCatalogo, fuentes: readonly FuenteDeEvidencia[], 
   const out: Hallazgo[] = [];
   fuentes.forEach((f, i) => {
     const { n } = normales[i];
-    const hibrido = (e.nota_hibrido ?? []).some((x) => regexDe(x).test(n));
-    const descartada = !hibrido && (e.descarta ?? []).some((x) => regexDe(x).test(n));
+    const hibrido = (e.nota_hibrido ?? []).some((x) => regexDeFrase(x).test(n));
+    const descartada = !hibrido && (e.descarta ?? []).some((x) => regexDeFrase(x).test(n));
     for (const frase of e.fuertes ?? []) {
-      const m = regexDe(frase).exec(n);
+      const m = regexDeFrase(frase).exec(n);
       if (m) out.push({ frase, fuerte: !descartada, fuente: i, a: m.index, b: m.index + m[0].length, descartada });
     }
     // Una pieza que se descarta («por Zoom») sólo aporta sus fuertes, bajadas a débiles: sus palabras sueltas («evento», «entradas»)
     // hablan de otra cosa.
     for (const frase of descartada ? [] : e.debiles ?? []) {
-      const m = regexDe(frase).exec(n);
+      const m = regexDeFrase(frase).exec(n);
       if (m) out.push({ frase, fuerte: false, fuente: i, a: m.index, b: m.index + m[0].length });
     }
     const comp = compuestas(e, n);
@@ -248,7 +250,7 @@ export function fuentesDeEvidencia(piezas: readonly PiezaParaEvidencia[], pagina
 /** La cita partida para resaltar la frase que la delató, sin tildes ni mayúsculas. Sin la frase adentro, toda la cita va sola. */
 export function partesDeCita(cita: string, frase: string): { antes: string; frase: string; despues: string } {
   const { n, mapa } = normalizarConMapa(cita);
-  const m = regexDe(frase).exec(n);
+  const m = regexDeFrase(frase).exec(n);
   if (!m) return { antes: cita, frase: '', despues: '' };
   const a = mapa[m.index] ?? 0;
   const b = (mapa[m.index + m[0].length - 1] ?? cita.length - 1) + 1;

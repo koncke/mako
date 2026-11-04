@@ -11,7 +11,7 @@
 export type EntradaCatalogo = {
   id: string;
   label: string;
-  /** Qué es, en una línea: lo que lee quien mira la ficha («Vende entradas a un evento en un lugar…»). Sólo en los funnels. */
+  /** Qué es, en una línea: lo que lee quien mira la ficha («Vende entradas a un evento en un lugar…») y la IA al clasificar. */
   que?: string;
   fuertes?: string[];
   debiles?: string[];

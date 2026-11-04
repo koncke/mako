@@ -1326,3 +1326,26 @@ piezas, no por adivinanza.
 
 Lo fija `tests/spy-funnel-tipo.test.ts` (11 casos, nueve roturas probadas: catálogo, compuesta, descarte, débiles de dos piezas,
 host, landing repetida, página de enlaces, la vuelta y «nada debajo de sus páginas»).
+
+## Tercera vuelta: los formatos del catálogo, para la IA y sin ella (4/11/2026)
+
+**Vive en:** `lib/spy-detalle.ts` (`FORMATOS`, `GUIA_DE_FORMATOS`, `formatoPorTexto`, `formatosDe`), `lib/spy.ts` (el prompt del
+analista), `lib/prompt-registry.ts` (el slot `formatosQueSon`), `app/competitor-spy/DetallePieza.tsx`.
+
+Martín: «Tanto para funnels como para formatos de contenido al momento de clasificar "lo que le funciona" quiero que hagas una
+investigación profunda de todos los tipos de formatos».
+
+- **Los formatos son los 19 del catálogo** (§3 del documento: tutorial, lista, storytime, POV, antes y después, testimonio, caso
+  de éxito, opinión, mito, reseña, detrás de escena, recap de evento, entrevista, preguntas, reacción, tendencia, frase, promoción
+  y otro). Antes eran 11 y la IA no sabía qué era cada uno: recibía sólo los ids. Ahora recibe una línea por formato
+  (`{{formatosQueSon}}`). Un prompt editado en /configuraciones antes de esto no tiene el slot: sigue andando con los ids.
+- **Lo que la IA no clasificó se lee del texto, sólo con una frase clara** del catálogo («POV:», «antes y después», «7 errores»).
+  Las débiles no cuentan: «antes de grabar… después» no es un antes y después. Sirve sin IA conectada y para lo analizado antes,
+  que quedó «otro». El detalle de la pieza dice el mismo formato que la cuenta.
+- ⚠️ **Lo que costó esta vuelta:** el `tsc` acotado se corrió con una LISTA de archivos escrita a mano y dejó afuera
+  `lib/api-mako/areas/spy.run.ts`, donde un script de Python había escrito un `\n` real adentro de un texto: la punta salió sin
+  compilar (se arregló en `00b329e8`). **Se corre con `--rama`**, que toma todo lo que la rama cambió. Y en un script que escribe
+  código, un `\n` que tiene que quedar escrito va `\\n` (o el texto entre comillas triples crudas).
+
+Lo fija `tests/spy-formatos-catalogo.test.ts` (4 casos, cuatro roturas probadas: falta un formato, falta el slot, se aceptan las
+débiles, la cuenta mira sólo a la IA).

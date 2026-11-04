@@ -837,6 +837,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "tutorial",
     "label": "Tutorial",
+    "que": "Enseña a hacer algo, paso a paso.",
     "fuertes": [
       "tutorial",
       "paso a paso",
@@ -856,6 +857,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "lista",
     "label": "Lista o tips",
+    "que": "Varios tips, errores o claves numerados.",
     "debiles": [
       "top",
       "lista",
@@ -869,6 +871,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "storytime",
     "label": "Storytime",
+    "que": "Cuenta algo que le pasó, como una historia.",
     "fuertes": [
       "storytime",
       "mi historia",
@@ -890,6 +893,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "pov",
     "label": "POV",
+    "que": "Una escena actuada desde los ojos de alguien.",
     "fuertes": [
       "pov",
       "punto de vista"
@@ -902,6 +906,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "antes-despues",
     "label": "Antes y después",
+    "que": "Muestra cómo estaba y cómo quedó.",
     "fuertes": [
       "antes y después",
       "antes vs ahora",
@@ -921,6 +926,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "testimonio",
     "label": "Testimonio",
+    "que": "Un cliente cuenta su resultado.",
     "fuertes": [
       "testimonio",
       "testimonial",
@@ -942,6 +948,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "caso-de-exito",
     "label": "Caso de éxito",
+    "que": "Él cuenta el resultado de un cliente, con números.",
     "fuertes": [
       "caso de éxito",
       "case study",
@@ -960,6 +967,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "opinion",
     "label": "Opinión",
+    "que": "Toma postura sobre un tema de su nicho.",
     "fuertes": [
       "opinión impopular",
       "unpopular opinion",
@@ -978,6 +986,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "mito",
     "label": "Mito vs realidad",
+    "que": "Desmiente algo que se cree.",
     "fuertes": [
       "mito vs realidad",
       "mitos",
@@ -995,6 +1004,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "resena",
     "label": "Reseña",
+    "que": "Prueba o compara un producto o una herramienta.",
     "fuertes": [
       "reseña",
       "review",
@@ -1012,6 +1022,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "detras",
     "label": "Detrás de escena",
+    "que": "Muestra cómo trabaja o cómo se prepara.",
     "fuertes": [
       "detrás de cámaras",
       "detrás de escena",
@@ -1030,6 +1041,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "recap-evento",
     "label": "Recap de evento",
+    "que": "Resume un evento suyo, con público.",
     "fuertes": [
       "recap",
       "resumen del evento",
@@ -1052,6 +1064,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "entrevista",
     "label": "Entrevista o podcast",
+    "que": "Una charla con otra persona, o un clip de podcast.",
     "fuertes": [
       "entrevista",
       "podcast",
@@ -1068,6 +1081,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "preguntas",
     "label": "Preguntas y respuestas",
+    "que": "Contesta preguntas de su audiencia.",
     "fuertes": [
       "respondiendo a",
       "preguntas frecuentes",
@@ -1085,6 +1099,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "reaccion",
     "label": "Reacción",
+    "que": "Reacciona a otro video o lo comenta.",
     "fuertes": [
       "reacciono",
       "reaccionando a",
@@ -1101,6 +1116,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "tendencia",
     "label": "Tendencia o meme",
+    "que": "Usa un audio, meme o sketch de moda.",
     "fuertes": [
       "trend",
       "meme",
@@ -1115,6 +1131,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "frase",
     "label": "Frase",
+    "que": "Una frase o reflexión, sin más.",
     "debiles": [
       "frase",
       "recuerda",
@@ -1128,6 +1145,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   {
     "id": "promo",
     "label": "Promoción directa",
+    "que": "Vende directo: su producto, su precio, su enlace.",
     "fuertes": [
       "inscríbete",
       "inscripciones abiertas",
@@ -1149,6 +1167,7 @@ export const FORMATOS_DEL_CATALOGO: readonly EntradaCatalogo[] = [
   },
   {
     "id": "otro",
-    "label": "Otro"
+    "label": "Otro",
+    "que": "Ninguno de los de arriba."
   }
 ];

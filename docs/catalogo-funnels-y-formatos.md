@@ -776,84 +776,103 @@ muestra el creativo tal como lo ve el usuario, si está activo, desde cuándo y 
 ```yaml
 - id: tutorial
   label: Tutorial
+  que: Enseña a hacer algo, paso a paso.
   fuertes: ["tutorial", "paso a paso", "cómo hacer", "how to", "step by step"]
   debiles: ["cómo", "aprende a", "te enseño", "guía", "así se hace", "demo"]
 - id: lista
   label: Lista o tips
+  que: Varios tips, errores o claves numerados.
   debiles: ["top", "lista", "tips", "consejos"]
   compuestas: ["[N] + (errores | tips | consejos | claves | pasos | razones | cosas | hábitos | herramientas | señales | mistakes | ways)"]
 - id: storytime
   label: Storytime
+  que: Cuenta algo que le pasó, como una historia.
   fuertes: ["storytime", "mi historia", "les cuento cómo", "te cuento cómo", "nunca les conté", "la vez que", "lo que me pasó"]
   debiles: ["cuando yo", "cuando empecé", "my story"]
   compuestas: ["hace + [N] + años (débil)"]
 - id: pov
   label: POV
+  que: Una escena actuada desde los ojos de alguien.
   fuertes: ["pov", "punto de vista"]
   debiles: ["cuando eres", "tú cuando"]
 - id: antes-despues
   label: Antes y después
+  que: Muestra cómo estaba y cómo quedó.
   fuertes: ["antes y después", "antes vs ahora", "before and after", "glow up"]
   debiles: ["transformación", "hace un año", "antes", "después"]
   compuestas: ["de + cifra + a + cifra (débil)"]
 - id: testimonio
   label: Testimonio
+  que: Un cliente cuenta su resultado.
   fuertes: ["testimonio", "testimonial", "opinión de mi alumna", "opinión de mi alumno", "review de mi cliente"]
   debiles: ["alumno", "alumna", "cliente", "gracias a", "resultados"]
   compuestas: ["lo que dice + nombre"]
 - id: caso-de-exito
   label: Caso de éxito
+  que: Él cuenta el resultado de un cliente, con números.
   fuertes: ["caso de éxito", "case study", "cómo ayudé a"]
   debiles: ["facturó", "resultados", "en meses"]
   compuestas: ["cómo + nombre + pasó de", "de + cifra + a + cifra + en + [N] + meses (débil)"]
 - id: opinion
   label: Opinión
+  que: Toma postura sobre un tema de su nicho.
   fuertes: ["opinión impopular", "unpopular opinion", "hot take", "me van a odiar por esto", "nadie te dice"]
   debiles: ["la verdad sobre", "deja de", "stop", "polémico", "mi opinión"]
 - id: mito
   label: Mito vs realidad
+  que: Desmiente algo que se cree.
   fuertes: ["mito vs realidad", "mitos", "mito", "myth", "te mintieron", "no es cierto que"]
   debiles: ["falso", "mentira", "en realidad"]
 - id: resena
   label: Reseña
+  que: Prueba o compara un producto o una herramienta.
   fuertes: ["reseña", "review", "unboxing", "honest review"]
   debiles: ["probé", "vale la pena", "vs", "comparación", "mejor"]
 - id: detras
   label: Detrás de escena
+  que: Muestra cómo trabaja o cómo se prepara.
   fuertes: ["detrás de cámaras", "detrás de escena", "behind the scenes", "bts", "un día en mi vida", "day in my life", "vlog"]
   debiles: ["mi rutina", "así es mi día", "preparando"]
 - id: recap-evento
   label: Recap de evento
+  que: Resume un evento suyo, con público.
   fuertes: ["recap", "resumen del evento", "así se vivió", "aftermovie", "highlights"]
   debiles: ["sold out", "así fue", "lleno total", "qué noche", "edición", "escenario"]
   compuestas: ["gracias + nombre de ciudad"]
 - id: entrevista
   label: Entrevista o podcast
+  que: Una charla con otra persona, o un clip de podcast.
   fuertes: ["entrevista", "podcast", "episodio", "invitado", "conversación con", "charla con"]
   debiles: ["ep.", "con @"]
 - id: preguntas
   label: Preguntas y respuestas
+  que: Contesta preguntas de su audiencia.
   fuertes: ["respondiendo a", "preguntas frecuentes", "me preguntaron", "q&a", "preguntas y respuestas", "ask me anything"]
   debiles: ["respondo", "pregunta de", "me escriben"]
 - id: reaccion
   label: Reacción
+  que: Reacciona a otro video o lo comenta.
   fuertes: ["reacciono", "reaccionando a", "reaction", "stitch", "dueto", "duet"]
   debiles: ["vi este video", "opino sobre"]
 - id: tendencia
   label: Tendencia o meme
+  que: Usa un audio, meme o sketch de moda.
   fuertes: ["trend", "meme", "sketch", "parodia"]
   compuestas: ["línea que arranca con nadie: o yo: (débil)", "audio que no es suyo + menos de 15 s (débil)"]
 - id: frase
   label: Frase
+  que: Una frase o reflexión, sin más.
   debiles: ["frase", "recuerda", "reflexión", "quote"]
   compuestas: ["una sola imagen + texto entre comillas"]
 - id: promo
   label: Promoción directa
+  que: Vende directo: su producto, su precio, su enlace.
   fuertes: ["inscríbete", "inscripciones abiertas", "últimos lugares", "entradas a la venta", "preventa", "link en mi bio para inscribirte"]
   debiles: ["link en mi bio", "cupos", "oferta", "descuento"]
   compuestas: ["hasta el + fecha (débil)", "precio + moneda (débil)"]
 - id: otro
   label: Otro
+  que: Ninguno de los de arriba.
 ```
 
 ---

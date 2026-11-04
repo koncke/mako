@@ -78,6 +78,7 @@ verde, llega sola a `main`.
 | Más rápido; medir antes y después | Hecho en la vista de prueba (3,9 s → 3,2 s hasta el gráfico; 2.369 → 1.664 elementos): números y método en docs/hallazgos-competitors-spy.md | `punta/spy-ficha-diseno` | **Medirlo en producción con Den Borg**: la vista de prueba no tiene el CDN de Meta |
 | Anuncios por su Instagram o el nombre del negocio, verificados | Hecho: el enlace busca su nombre corto o su @ (nunca una página de enlaces) y un anuncio es suyo sólo por su Página o por mandar a SU web | `punta/spy-anuncios` | Si la frase exacta de la Biblioteca encuentra a la Página por su nombre |
 | Funnel: la oferta y el funnel que usa arriba, con evidencia de un catálogo; sus webs con su vista previa y un desplegable de páginas | Hecho: el tipo de funnel con sus citas (Den Borg → evento presencial), la oferta rediseñada arriba, «Sus páginas» al final con la vista previa del Web Generator; por API en `que_esta_haciendo` | `punta/spy-funnel-tipo` | Lo que dice con competidores reales; los formatos nuevos del catálogo en el análisis de piezas (pendiente) |
+| Los formatos de «lo que le funciona» con una investigación de todos los tipos | Hecho: los 19 del catálogo, la IA recibe qué es cada uno, y sin IA se lee del texto con una frase clara | `punta/spy-formatos` | Volver a analizar con la IA lo ya analizado (no se manda solo) |
 | El recorrido que señala lo nuevo | Pendiente | — | — |
 
 ### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
