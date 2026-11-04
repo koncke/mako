@@ -161,6 +161,7 @@ import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
 import { conMako, conVista, nombrePreset, PRESET_AUTOMATICO } from '@/lib/graficos-catalogo';
 import { HojaClosing, type ExtrasClosing } from './disenos/HojaClosing';
 import { HojaCobranza, type ExtrasCobranza } from './disenos/HojaCobranza';
+import type { ExtrasComercial } from './disenos/ComercialVivo';
 import dynamic from 'next/dynamic';
 import { idDeInformeAutomatizacion, type InformeAutomatizacion } from '@/lib/informe-automatizacion';
 import { BotonMako } from '@/app/_ui/BotonMako';
@@ -174,6 +175,7 @@ const FocusVivo = dynamic(() => import('./disenos/FocusVivo'));
 const MiDiaVivo = dynamic(() => import('./disenos/MiDiaVivo'));
 const GeneralVivo = dynamic(() => import('./disenos/GeneralVivo'));
 const OperacionVivo = dynamic(() => import('./disenos/OperacionVivo'));
+const ComercialVivo = dynamic(() => import('./disenos/ComercialVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -336,7 +338,7 @@ export function EditorInforme({
    * Lo que leen las hojas con DISEÑO PROPIO y ningún componente lee (`Hoja.diseno`, lib/graficos-catalogo.ts): la agenda y
    * quién mira, para la de Closing (./disenos/HojaClosing.tsx). Lo arma la página; null = sin eso (los bloques lo dicen).
    */
-  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null } | null;
+  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null; comercial?: ExtrasComercial | null } | null;
   /**
    * UN AVISO FIJO arriba de la hoja, de quien monta el editor (la misma franja `lk-aviso-hoja` que el de Closing): la prueba
    * A/B de una automatización en sus Métricas (app/automations/MetricasAutomatizacion.tsx, tanda A3, 25/10/2026).
@@ -1581,6 +1583,14 @@ export function EditorInforme({
               // componentes, y una fila abre lo de siempre de su pieza (el detalle con «Marcar cobrada», o su pop-up).
               <HojaCobranza
                 hoja={hoja} datos={datos} extras={disenos?.cobranza ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'comercial' && !enGrilla && !editando && !dueno ? (
+              // La hoja Comercial con su DISEÑO PROPIO (la copia de Selvar, ./disenos/HojaComercial.tsx): los datos de sus
+              // componentes y las llamadas de venta de hoy; una fila (un origen, un closer, un motivo) abre lo de siempre de su pieza.
+              <ComercialVivo
+                hoja={hoja} datos={datos} extras={disenos?.comercial ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
               />

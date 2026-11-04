@@ -28,6 +28,8 @@ import { HojaGeneral } from './HojaGeneral';
 import { fraseGeneral, type VistaGeneral } from '@/lib/general-diseno';
 import { HojaOperacion } from './HojaOperacion';
 import type { VistaOperacion } from '@/lib/operacion-diseno';
+import { HojaComercial } from './HojaComercial';
+import { fraseComercial, type VistaComercial } from '@/lib/comercial-diseno';
 
 const dia = (hoy: string, n: number) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const resultado = (columnas: string[], totales: Array<number | null>, filas: Resultado['filas'] = [], anterior?: Array<number | null>): DatosPieza => ({
@@ -356,6 +358,59 @@ function vistaOperacionMuestra(hoy: string): VistaOperacion {
   };
 }
 
+/** La muestra de Comercial: la misma que la adaptación (comercial-selvar/mako.html), con nombres de EJEMPLO. */
+function vistaComercialMuestra(hoy: string): VistaComercial {
+  const semanas = Array.from({ length: 13 }, (_, i) => dia(hoy, -7 * (12 - i)));
+  const meses = Array.from({ length: 12 }, (_, i) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() - (11 - i), 1); return d.toISOString().slice(0, 10); });
+  const MES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const sem = [8, 16, 0, 24, 16, 8, 16, 32, 16, 8, 16, 24, 8].map((k) => k * 1000), semB = [0, 0, 4, 0, 0, 4, 0, 0, 4, 0, 0, 4, 0].map((k) => k * 1000);
+  const mes = [40, 56, 32, 64, 72, 48, 88, 64, 72, 64, 88, 16].map((k) => k * 1000), mesB = [4, 0, 8, 4, 0, 8, 4, 0, 8, 4, 4, 0].map((k) => k * 1000);
+  const serie = (x: string[], rot: (c: string) => string, a: number[], b: number[]) => {
+    const t = [...a, ...b].reduce((s, v) => s + v, 0);
+    return { x: x.map((c) => ({ clave: c, rotulo: rot(c) })), series: [{ nombre: 'Programa principal', valores: a }, { nombre: 'Mentoría', valores: b }], total: t, promedio: t / x.length };
+  };
+  const seg = (id: 'cerraron' | 'vinieron' | 'no-vino' | 'sin-marcar', nombre: string, n: number) => ({ id, nombre, n, pct: (n / 27) * 100 });
+  return {
+    frase: fraseComercial(27, 6, 96000, 410),
+    vendido: { valor: 96000, anterior: 85700, cambio: '+12%', sube: true },
+    inversion: { gasto: 2460, cpa: 91, roas: 39 },
+    desenlace: { agendas: 27, vinieron: 21, segmentos: [seg('cerraron', 'Cerraron', 6), seg('vinieron', 'Vinieron y no cerraron', 15), seg('no-vino', 'No vinieron', 4), seg('sin-marcar', 'Sin marcar', 2)] },
+    tasa: 28.6,
+    numeros: [
+      { id: 'tasa', titulo: 'Tasa de cierre', valor: '28.6%', cambio: '+13%', bueno: true, baja: false, pie: '6 cerraron de 21', serie: [2, 3, 2.6, 3.4, 3, 4, 4.6, 5.2, 6] },
+      { id: 'ticket', titulo: 'Ticket promedio', valor: 'US$16,000', cambio: '+8%', bueno: true, baja: false, pie: 'De los cierres del período', serie: [3, 4.2, 3.6, 5.1, 4.8, 5.4, 6.1, 6.6] },
+      { id: 'ciclo', titulo: 'Días hasta el cierre', valor: '9 días', cambio: '−6%', bueno: true, baja: true, pie: 'De la primera reunión al cierre', serie: [7, 6.2, 6.4, 5.6, 5.2, 4.8, 4.1] },
+      { id: 'costo', titulo: 'Costo por cierre', valor: 'US$410', cambio: '−11%', bueno: true, baja: true, pie: 'Lo invertido en anuncios ÷ los cierres', serie: [6.6, 5.8, 6.1, 4.9, 4.6, 4, 3.4] },
+    ],
+    motivos: { total: 18, filas: [{ clave: 'a', nombre: 'No le alcanzó el presupuesto', n: 7, pct: 39 }, { clave: 'b', nombre: 'Lo va a pensar', n: 6, pct: 33 }, { clave: 'c', nombre: 'Eligió otra opción', n: 3, pct: 17 }] },
+    ventas: {
+      semanas: serie(semanas, (c) => `${Number(c.slice(8, 10))} ${MES[Number(c.slice(5, 7)) - 1].toLowerCase()}`, sem, semB),
+      meses: serie(meses, (c) => MES[Number(c.slice(5, 7)) - 1], mes, mesB),
+    },
+    embudo: [{ nombre: 'Agendaron', n: 120, pasa: '78% vino a la reunión' }, { nombre: 'Vinieron', n: 94, pasa: '76% quedó calificado' }, { nombre: 'Calificados', n: 71, pasa: '35% cerró' }, { nombre: 'Cerraron', n: 25, pasa: null }],
+    hoy: {
+      ahora: 1, hora: '11:10',
+      llamadas: [
+        { id: 'l1', leadId: 1, hora: '9:00', cual: 'R1', nombre: 'Paola Núñez', closer: 'Ana', estado: 'paso', detalle: 'Con Ana · vino' },
+        { id: 'l2', leadId: 2, hora: '12:30', cual: 'R2', nombre: 'Laura Méndez', closer: 'Diego', estado: 'viene', detalle: 'Con Diego' },
+        { id: 'l3', leadId: 3, hora: '15:00', cual: 'R1', nombre: 'Tomás Ibarra', closer: 'Sofía', estado: 'viene', detalle: 'Con Sofía' },
+        { id: 'l4', leadId: 4, hora: '18:00', cual: 'R1', nombre: 'Jorge Salinas', closer: 'Diego', estado: 'viene', detalle: 'Con Diego' },
+      ],
+    },
+    origenes: [
+      { clave: 'meta', nombre: 'Anuncios de Meta', agendas: 14, cierres: 3, tasa: 33, vendido: 48000, bueno: true },
+      { clave: 'ref', nombre: 'Referidos', agendas: 5, cierres: 2, tasa: 50, vendido: 32000, bueno: true },
+      { clave: 'ig', nombre: 'Instagram', agendas: 6, cierres: 1, tasa: 20, vendido: 16000, bueno: false },
+      { clave: 'org', nombre: 'Orgánico', agendas: 2, cierres: 0, tasa: 0, vendido: 0, bueno: false },
+    ],
+    closers: [
+      { clave: 'so', nombre: 'Sofía', tasa: 43, cierres: 3, bueno: true },
+      { clave: 'di', nombre: 'Diego', tasa: 30, cierres: 2, bueno: true },
+      { clave: 'an', nombre: 'Ana', tasa: 17, cierres: 1, bueno: false },
+    ],
+  };
+}
+
 const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<string, DatosPieza>; hoy: string }) => ReactNode> = {
   closing: ({ hoja, datos, hoy }) => (
     // Con sus botones y links, como se ve la hoja (en la miniatura no se tocan: `pointer-events: none`); `quieta` no lee la caja de IA.
@@ -377,6 +432,9 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   ),
   operacion: ({ hoy }) => (
     <HojaOperacion vista={vistaOperacionMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" onGrilla={() => {}} quieta />
+  ),
+  comercial: ({ hoja, hoy }) => (
+    <HojaComercial hoja={hoja} vista={vistaComercialMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
   ),
 };
 
