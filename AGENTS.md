@@ -133,7 +133,9 @@ de todo junto... Esto como regla». Y el 4/11: «que todas las cuentas sigan esa
    misma rama y se vuelve a subir. Un choque de mezcla se arregla con `git merge origin/main`, resolviendo y subiendo (las
    bitácoras de /admin/dev y `docs/hallazgos*.md` se unen solos en GitHub). Después de 2 rojos seguidos, la tercera no sale
    sin reproducir el rojo en local. Con `main` rojo (`ci-rojo/main`), la punta espera en `espera-main/<nombre>` y se relanza
-   sola cuando main vuelve a verde.
+   sola cuando main vuelve a verde. **Si la punta cambia un workflow (`.github/workflows/`) que main también cambió, se mezcla
+   main en la máquina antes de subir:** el token de Actions no puede subir una versión nueva de un workflow, y la corrida lo
+   frena a los ~20 s (`scripts/ci-workflow-nuevo.sh`; antes rebotaba al final, con todo en verde).
 5. **Lo que la punta no corre lo ve otra red:** los demás tests y el tsc sin tandas, cada noche si entró algo a main
    (`semanal-tests.yml`, `tipos-respaldo.yml`); la mezcla que llegó a main sin probar, `sobre-main.yml`; un deploy que falla
    o un sitio caído, `despues-del-deploy.yml`. Las cinco dan una corrida ROJA, nunca un silencio.
