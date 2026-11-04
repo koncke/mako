@@ -2022,9 +2022,8 @@ que editar antes de cada subida se sube sin editar la vez que hay apuro.
 
 **Lo que queda pendiente del trámite:**
 
-- **Poner `EXTENSION_EN_TIENDA = true`** en `lib/extension-tienda.ts` cuando aprueben. Es
-  el único cambio: la pantalla pasa sola de «descargar el zip» a «añadir a Chrome» y el
-  instructivo de modo desarrollador desaparece.
+- ~~Poner `EXTENSION_EN_TIENDA = true`~~: ese flag ya no existe (3/11/2026,
+  [hallazgos-extension.md](hallazgos-extension.md)). Todas las pantallas ofrecen la tienda.
 - **Si rechazan**, el motivo llega por mail con el ítem concreto del formulario. Casi
   siempre es una justificación de permiso que no explica el *para qué* del usuario: se
   reescribe ese campo y se reenvía, sin resubir el paquete.
@@ -5332,6 +5331,9 @@ enumerar dónde».
 ---
 
 ## La extensión y la Chrome Web Store: por qué «poné el flag en true» era el arreglo equivocado
+
+⚠️ **Desde el 3/11/2026 `EXTENSION_EN_TIENDA` no existe:** todas las pantallas ofrecen la tienda, también con la tienda atrás. Lo
+que sigue queda como historia; lo vigente está en [hallazgos-extension.md](hallazgos-extension.md).
 
 **Vive en:** `lib/extension-tienda.ts` · `scripts/version-en-tienda.mjs` ·
 `scripts/publicar-extension.mjs` · `app/video-generator/extension-instalada.tsx` ·

@@ -6,7 +6,9 @@
   },
   "git": {
     "deploymentEnabled": {
-      "integracion": false
+      "integracion": false,
+      "punta/**": false,
+      "ci-rojo/**": false
     }
   },
   "crons": [
@@ -145,6 +147,10 @@
     {
       "path": "/api/cron/alerta-critica",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/vigia-lineas-mako",
+      "schedule": "*/3 * * * *"
     },
     {
       "path": "/api/cron/tareas-verificar",

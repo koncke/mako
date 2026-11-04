@@ -731,8 +731,8 @@ Martín: «investiga esto para copiarlo en la extension de MaKo» y «Obvio que 
 - `guardarFunnel` va aparte de `guardarVistas` y no tira: sin la columna, un upsert con `funnel` adentro perdería la lectura entera de la landing.
 
 **Sin hacer:**
-- ⚠️ **La columna no está en producción** (medido el 3/11: `spy_piezas.funnel` no existe, y `scripts/apply-migration.mjs` lo frenó el clasificador de permisos). Mientras falte, el código anda igual y la pestaña no muestra nada nuevo: se verifica DESPUÉS de agregarla, con `scripts/verificar-migraciones-aplicadas.mjs`.
-- **El ws3 no tiene competidores** y la base entera no tiene ninguno con `landing_url` (medido el 3/11). Lo visto con datos reales fue la función sobre páginas reales: falta la lectura real en el ws3 y mirar la pestaña en la pantalla, cuando esté la columna.
+- La columna se agregó en producción el 4/11/2026, con el sí de Martín en el chat del Cerebro.
+- Lectura real en el negocio de prueba (4/11/2026, Acquisition.com, ws3): Vidalytics, Google Analytics, Tag Manager, Google Ads y TikTok quedaron en `spy_piezas.funnel`, sin ninguna fila en otro negocio. Falta mirar la pestaña en la pantalla, una vez desplegada.
 - Los videos que el analizador dice ver en un bundle (`reBundle`) pueden ser una librería que nadie monta (react-player trae las URL de YouTube y Vimeo). Se hereda tal cual de `analizarHtml`.
 
 ## «Guardar en Spy»: lo medido en la Biblioteca real, con la extensión de verdad (03/11/2026)
@@ -759,7 +759,7 @@ Martín: «investiga esto para copiarlo en la extension de MaKo» y «Obvio que 
 - La miniatura sólo puede ser del CDN de Meta: la baja el servidor, y si no, un token cualquiera le hace pedir lo que quiera.
 
 **Sin hacer:**
-- ⚠️ **Falta verlo escrito de verdad.** Guardar en el ws3 lo frenó el clasificador de permisos, igual que agregar la columna: `lib/spy-captura-db.ts` y la ruta se probaron con una base de mentira y capturas reales (`tests/spy-captura-db.test.ts`). Falta correrlo contra producción, en el ws3.
+- ⚠️ **Falta verlo escrito de verdad.** Guardar en el ws3 lo frenó el clasificador de permisos, `lib/spy-captura-db.ts` y la ruta se probaron con una base de mentira y capturas reales (`tests/spy-captura-db.test.ts`). Falta correrlo contra producción, en el ws3.
 - Publicar la 0.75.0 lo decide el Cerebro: la 0.74.5 sigue en revisión. **Al subir esta parte a main**, `EXTENSION_VERSION` pasa a 0.75.0 y la tienda queda atrás (`EXTENSION_EN_TIENDA`), así que la app vuelve a ofrecer el zip.
 - Sin medir: que `activeTab` no desactive la extensión al actualizar desde la tienda (deducido de la documentación). El clic se midió con `Extensions.triggerAction`, no con una persona.
 - **La miniatura que no se llega a bajar se pierde:** `guardarMiniaturas` tiene 9 s de presupuesto, y un anuncio no se relee solo. La que no entró queda apuntando al CDN, que vence, hasta que se vuelva a guardar esa pestaña.

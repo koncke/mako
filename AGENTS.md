@@ -117,6 +117,15 @@ modificado, dejó afuera un archivo ajeno stageado, y una segunda corrida no hiz
 **La red sólo salva lo que esté ESCRITO**: si el chat se corta antes de escribir su relevo, no
 hay nada que commitear. Por eso el umbral del 85% sigue siendo la parte que importa.
 
+# Cada punta se chequea sola: rama `punta/<nombre>` (Martín, 3/11/2026)
+
+«Y no podemos hacer que entren en diferentes testeos en github? Entonces se va deployando lo que ya pasó en lugar de
+todo junto... Esto como regla». Lo terminado se sube a **`punta/<nombre>`**, no a un tren: `.github/workflows/punta.yml`
+mezcla el main de ese momento, corre guardas, tests afectados (todos, sin cortar) y tipos, y si da verde llega a `main`
+sola. **Una punta roja deja su marca en `ci-rojo/<nombre>`, vuelve a su chat y no frena a las demás.** Los demás tests
+corren una vez por semana (`semanal-tests.yml`). Antes de subir, una punta cortada de `tren-*` o de otra punta se mira con
+`git log origin/main..<punta>`: si trae commits ajenos, se separa o los lleva a todos.
+
 # El typecheck NO corre en el build: lo bloquea un hook de pre-push
 
 `next build` tiene `typescript.ignoreBuildErrors: true` (ver next.config.ts). **No es

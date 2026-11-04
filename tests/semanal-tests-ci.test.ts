@@ -16,6 +16,10 @@
 //   · `timeout-minutes: 20` → `timeout-minutes: 360` (el default de GitHub) → 4 / 1
 //   · el paso "¿Hubo cambios?" sacado del `if:` del checkout              → 4 / 1
 //   · `contents: write` en los permisos                                   → 4 / 1
+//
+// ⚠️ 3/11/2026: el techo de 20 min CANCELÓ la corrida del 2/11 a los 1.165 s: la suite casi se duplicó. Sin veredicto y sin mail, y
+// desde `punta.yml` esta corrida es la única que ve «los demás». Este archivo fijaba «<= 25», o sea que fijaba la red muerta.
+// Probado rompiéndolo: el job en 20 → rojo · el paso sin su tope → rojo · el paso con el mismo tope que el job → rojo.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -53,7 +57,15 @@ test('corre `npm test` aislado: cada archivo en su proceso, sin compartir', () =
 test('tiene un techo duro de minutos', () => {
   const m = /timeout-minutes:\s*(\d+)/.exec(wf());
   assert.ok(m, 'sin timeout-minutes el techo de GitHub es de 360 minutos: un test colgado se come el mes');
-  assert.ok(Number(m[1]) <= 25, `el techo es de ${m[1]} minutos: con 5 lunes al mes son ${Number(m[1]) * 5}`);
+  assert.ok(Number(m[1]) <= 60, `el techo es de ${m[1]} minutos: con 5 lunes al mes son ${Number(m[1]) * 5}`);
+});
+
+test('el techo le alcanza a la suite, y un cuelgue es un rojo y no un job cancelado', () => {
+  const src = wf();
+  const job = Number(/^ {4}timeout-minutes: (\d+)$/m.exec(src)?.[1]);
+  const paso = Number(/^ {8}timeout-minutes: (\d+)$/m.exec(src)?.[1]);
+  assert.ok(job >= 45, `el job tiene ${job} min: el 2/11 lo cortaron 20 sin veredicto, y --resto solo ya tarda 22`);
+  assert.ok(paso > 0 && paso < job, `el paso tiene ${paso} min y el job ${job}: con un cuelgue, el que corta tiene que ser el paso`);
 });
 
 test('si la semana no tuvo commits no baja el repo ni instala nada', () => {

@@ -291,7 +291,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     const porPartes = canal.wa && salida ? await enviarPartesAlGrupoMaKo(ws, salida) : null;
     const env = canal.wa
       ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto)
-        : porPartes ? (porPartes.ok ? { ok: true as const, id: porPartes.ids[porPartes.ids.length - 1] ?? '' } : { ok: false as const, error: porPartes.error ?? 'no salió', ...(porPartes.sinGrupo ? { sinGrupo: true as const } : {}) })
+        : porPartes ? (porPartes.ok ? { ok: true as const, id: porPartes.ids[porPartes.ids.length - 1] ?? '' } : { ok: false as const, error: porPartes.error ?? 'no salió', ...(porPartes.sinGrupo ? { sinGrupo: true as const } : {}), ...(porPartes.fallaElEnvio ? { fallaElEnvio: true as const } : {}) })
           // La memoria la guarda este mismo aviso, abajo (con las partes que salieron): `null`.
           : await enviarAlGrupoMaKo(ws, texto, null))
       : { ok: false as const, id: undefined, error: undefined };
@@ -301,6 +301,9 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     const sinGrupo: SinGrupo | undefined = canal.wa && a.alDueno !== true && !env.ok && 'sinGrupo' in env && env.sinGrupo
       ? (a.sinGrupo === 'email' ? 'email' : 'app') : undefined;
     if (sinGrupo === 'email' && !canal.email) email = await enviarAvisoPorEmail(a, texto);
+    // ⚠️ EL PUENTE (3/11/2026): el envío al grupo FALLÓ, con grupo y todo (la línea caída, o la voz que no está en ese grupo). Sale una vez, por acá, y con la
+    // línea viva no se fuerza nada: si el grupo lo recibió, el mail sigue siendo sólo de quien lo prendió. «No pude leer cuál es el grupo» no cuenta: no se intentó.
+    if (canal.wa && !env.ok && 'fallaElEnvio' in env && env.fallaElEnvio && !email) email = await enviarAvisoPorEmail(a, texto);
     if (sinGrupo) console.warn(`[avisos] ${a.tipo}: el negocio no tiene grupo de MaKo (ws ${ws}) — ${sinGrupo === 'email' ? `por email: ${email ? 'salió' : 'no salió'}` : 'quedó en la app'}`);
     else if (canal.wa && !env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
     // La fila de la campanita dice si NO LLEGÓ al grupo, y por qué (17/10/2026). Se reescribe el payload entero: el update
