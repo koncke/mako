@@ -277,6 +277,14 @@ export function leerPerfilDeApify(usuario: string, items: unknown, conPiezas = f
 /** Un número del actor. ⚠️ Con los «me gusta» ocultos el actor manda -1: eso es «no se sabe», nunca un número. */
 const contadorDeApify = (v: unknown): number | null => { const n = num(v); return n != null && n >= 0 ? n : null; };
 
+/**
+ * Las publicaciones que devuelve `apify~instagram-scraper` con `resultsType: posts` (la corrida larga de Competitors Spy,
+ * lib/spy-todo.ts): son ítems con la misma forma que `latestPosts` del lector de perfiles. Sin un código, no es una pieza.
+ */
+export function piezasDeApify(items: unknown): PiezaInstagram[] {
+  return (Array.isArray(items) ? items.filter(esObj) : []).map(piezaDeApify).filter((m) => m.ref);
+}
+
 /** Una publicación del actor, con la misma forma que las de Business Discovery: Competitors Spy no distingue de dónde vino. */
 function piezaDeApify(m: Record<string, unknown>): PiezaInstagram {
   const permalink = str(m.url);

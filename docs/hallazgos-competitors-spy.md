@@ -837,3 +837,52 @@ medidas el 3/11).
 app/api/competitor-spy/analizar/route.ts · app/api/competitor-spy/redes/route.ts · lib/spy-otras-redes.ts ·
 lib/spy-otras-redes-reglas.ts · lib/spy-foto-hash.ts · app/competitor-spy/redes-recordar.ts ·
 app/competitor-spy/OrdenSpy.tsx · app/competitor-spy/SpyApp.tsx · tests/spy-analisis.test.ts · tests/spy-otras-redes.test.ts
+
+## «No me hizo la caricatura»: no fallaba la generación, nadie la pedía (4/11/2026)
+
+> Martín (por el Cerebro): «me traje a @den.borgg y no me hizo la caricatura como habíamos quedado».
+
+**El diagnóstico obvio era el equivocado:** «falla Flow». `pedirCaricatura` (lib/spy-caricatura-flow.ts) estaba escrita
+desde el 3/11 con su prompt aprobado, y **no tenía un solo llamador**: compilaba, tenía sus comentarios y nunca corría. Le
+faltaban dos cosas que nadie tenía: los `rasgos` que el prompt exige y quién la disparara.
+
+**Y debajo había otro que tampoco daba error:** el pedido iba con una ruta propia (`spy/caricaturas/…`) para guardarla en
+el bucket de Spy, pero la cola sólo le firma la subida al puente si la ruta pasa `RUTA_SUBIDA` (`firmarSubidas`,
+lib/flow-cola.ts). Con la propia, el puente no subía nada y lo único que volvía era la url de Flow, que vence en una
+hora. Ahora va con `rutaDeSubida` y el servidor la copia al bucket de Spy.
+
+**Regla:** una función que hace algo caro y lo hace bien no está terminada hasta que alguien la llama; antes de dar por
+«ya existe» una pieza, `grep` de sus llamadores.
+
+**Sin probar contra el servicio de verdad:** la caricatura entera (la IA mirando la foto, el puente de Flow tomando el
+pedido). La nube no llega a ninguno de los dos.
+
+**Vive en:** lib/spy-caricatura-auto.ts · lib/spy-caricatura-reglas.ts · lib/spy-caricatura-flow.ts ·
+app/api/competitor-spy/caricatura/route.ts · lib/spy.ts (`listarCompetidores`) · app/competitor-spy/SpyApp.tsx ·
+tests/spy-caricatura-auto.test.ts
+
+## Traer todo: la lectura de siempre iba a borrar el historial (4/11/2026)
+
+> Martín, 4/11: «que no traiga solo 50 reels o videos, que traiga muchos más, si puede, todos directamente».
+
+**El diagnóstico obvio era el equivocado:** «sube el número». Subir los 50 a 500 en la lectura de siempre se cae a los
+60 s de la ruta (cien publicaciones tardan uno o dos minutos en Apify), y además rompe otra cosa que no daba error.
+
+⚠️ **`marcarDejadas` marcaba como «borrada» toda pieza que no viniera en la lectura**, sin mirar hasta dónde llegaba esa
+lectura. Con una lectura que trae lo último y una corrida larga que trae años, cada «Revisar ahora» habría marcado todo el
+historial como «borradas» (y ya pasaba en YouTube: un canal que publica Shorts a diario sacaba de la ventana videos que
+seguían ahí). Ahora cuenta sólo lo publicado desde lo más viejo que trajo la lectura, y una pieza sin fecha no se marca
+(`seFueron`).
+
+**Y dos que callaban:** `listarPiezas` cortaba en 200 con un `.limit` (con todo lo traído, la ficha mostraba una parte
+sin decirlo), y la lectura de YouTube dejaba de paginar al tener 20 largos: «todos» nunca habría pasado de ahí.
+
+**Regla:** lo que marca algo como «se fue» tiene que saber hasta dónde miró. Una ausencia sólo es evidencia dentro de la
+ventana que se leyó.
+
+**Sin probar contra el servicio de verdad:** las corridas largas de Apify (empezar, mirar, leer el dataset) y el actor
+de anuncios entero, que queda apagado hasta medirlo con `scripts/probar-anuncios-apify.mjs`.
+
+**Vive en:** lib/spy-todo-reglas.ts · lib/spy-todo.ts · app/api/competitor-spy/todo/route.ts · lib/spy.ts
+(`marcarDejadas`, `listarPiezas`, `vistaDeInstagram`) · lib/spy-youtube.ts (`PAGINAS_COMPLETAS`) ·
+lib/instagram-perfil.ts (`piezasDeApify`) · scripts/probar-anuncios-apify.mjs · tests/spy-todo.test.ts
