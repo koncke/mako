@@ -175,8 +175,62 @@ async function escenarioDominio(): Promise<Record<string, unknown>> {
   return out;
 }
 
+// ── El CRM «Email Marketing» de la campaña: entrada, enviado, abrió, clic (y las terminales que suma el embudo) ─────────
+const etapa = (key: string, label: string, kind: string) => ({ key, label, kind, dot: '#888888', tone: 'slate', band: 'pipeline' });
+const PIPELINE_EMAIL = [etapa('em_entrada', 'Entrada', 'entrada'), etapa('em_enviado', 'Enviado', 'paso'), etapa('em_abrio', 'Abrió', 'paso'), etapa('em_clic', 'Hizo clic', 'paso')];
+const CASA = 1, EMAIL = 20;
+function sembrarCrm(ws: number) {
+  db.workspaces.push({ id: PLATAFORMA, nombre: 'MaKo', capa: 'superadmin', estado: 'activo' });
+  db.workspaces.push({ id: ws, nombre: 'Elevate', capa: 'completo', estado: 'activo' });
+  db.funnels.push({ id: CASA, workspace_id: ws, nombre: 'Funnel principal', canal: 'llamada', es_default: true, declarado: true, activo: true, orden: 0, data: {} });
+  db.funnels.push({ id: EMAIL, workspace_id: ws, nombre: 'Email Marketing', canal: 'llamada', es_default: false, declarado: true, activo: true, orden: 1, data: { pipeline: PIPELINE_EMAIL } });
+  const lead = (id: number, estado: string, email: string | null, extra: Fila = {}) =>
+    db.leads.push({ id, workspace_id: ws, nombre: `Lead ${id}`, email, telefono: null, estado_lead: estado, funnel_id: null, pipeline_stage: estado === 'ganado' ? 'ganado' : 'lead', created_at: '2026-06-01T10:00:00Z', ...extra });
+  lead(601, 'abierto', 'a601@cliente.test');
+  lead(602, 'abierto', 'a602@cliente.test');
+  lead(603, 'ganado', 'g603@cliente.test');
+  lead(604, 'abierto', null);
+  lead(605, 'perdido', 'p605@cliente.test');
+  lead(606, 'abierto', 'a606@cliente.test', { funnel_id: EMAIL, pipeline_stage: 'em_entrada' });   // su casa ya es el CRM de email
+  db.lead_funnel.push({ id: 801, workspace_id: ws, lead_id: 602, funnel_id: EMAIL, etapa: 'em_abrio', etapa_desde: '2026-10-01T10:00:00Z', created_at: '2026-10-01T10:00:00Z' });
+}
+
+async function escenarioLote(): Promise<Record<string, unknown>> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { runnerDe } = await import('../lib/api-mako/runners');
+  const { etapasDeProducto } = await import('../lib/lead-funnel');
+  const agregar = runnerDe('agregar_en_bloque_a_crm') as unknown as Runner;
+  const en = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  const out: Record<string, unknown> = {};
+  sembrarCrm(NEGOCIO);
+  out.etapas = (await en(() => etapasDeProducto(EMAIL))).map((e) => e.key);
+  const casasAntes = structuredClone(db.leads.map((l) => ({ id: l.id, funnel_id: l.funnel_id, pipeline_stage: l.pipeline_stage })));
+
+  out.sinNada = await en(() => agregar.preparar!({ haciaEmbudoId: EMAIL }, ctx(NEGOCIO)));
+  out.estadoRaro = await en(() => agregar.preparar!({ haciaEmbudoId: EMAIL, todos: true, excluirEstados: ['vendido'] }, ctx(NEGOCIO)));
+  out.crmAjeno = await en(() => agregar.preparar!({ haciaEmbudoId: 999, todos: true }, ctx(NEGOCIO)));
+  const prep = await en(() => agregar.preparar!({ haciaEmbudoId: EMAIL, todos: true, excluirEstados: ['ganado'], soloConEmail: true }, ctx(NEGOCIO)));
+  out.prep = prep;
+  out.ejec = await en(() => agregar.ejecutar!(prep.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  out.filas = db.lead_funnel.filter((f) => Number(f.funnel_id) === EMAIL).map((f) => ({ lead: Number(f.lead_id), etapa: f.etapa })).sort((a, b) => a.lead - b.lead);
+  out.casasIguales = JSON.stringify(casasAntes) === JSON.stringify(db.leads.map((l) => ({ id: l.id, funnel_id: l.funnel_id, pipeline_stage: l.pipeline_stage })));
+  out.historial = db.lead_audit.filter((h) => h.campo === 'Funnel').map((h) => Number(h.lead_id)).sort();
+
+  // Con una automatización ACTIVA en la entrada, no: les escribiría a todos en la próxima vuelta.
+  db.nutricion_secuencias.push({ id: 71, workspace_id: NEGOCIO, nombre: 'Campaña', clave: 'campana', activa: true, archivada_at: null, trigger_tipo: 'etapa_actual', etapa: 'em_entrada', funnel_id: EMAIL, pasos: [{ orden: 1, canal: 'email', delay_horas: 0, asunto: 'Hola', cuerpo: 'x' }] });
+  out.conAutomatizacion = await en(() => agregar.preparar!({ haciaEmbudoId: EMAIL, leadIds: ['601'] }, ctx(NEGOCIO)));
+  // Y si la prendieron entre el «sí» y el ejecutar, tampoco.
+  out.ejecConAutomatizacion = await en(() => agregar.ejecutar!(prep.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  // Sin tiempo (por HTTP la ruta corta a los 60 s): no escribe nada y devuelve lo que quedó, para pedirlo de nuevo.
+  const { agregarLoteAProducto } = await import('../lib/lead-funnel');
+  const antes = db.lead_funnel.length;
+  out.sinTiempo = await en(() => agregarLoteAProducto([604], EMAIL, 'prueba', { hasta: Date.now() - 1 }));
+  out.sinTiempoEscribio = db.lead_funnel.length - antes;
+  return out;
+}
+
 async function main() {
-  const escenarios: Record<string, () => Promise<Record<string, unknown>>> = { dominio: escenarioDominio };
+  const escenarios: Record<string, () => Promise<Record<string, unknown>>> = { dominio: escenarioDominio, lote: escenarioLote };
   const fn = escenarios[ESC];
   if (!fn) throw new Error(`escenario desconocido: ${ESC}`);
   const out = await fn();
