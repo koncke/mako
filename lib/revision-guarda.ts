@@ -2,8 +2,9 @@
 // revision-guarda — lo que la cuenta de revisión de las tiendas NO manda, en el punto de envío (4/11/2026)
 // =============================================================================
 // La lista de lo permitido del proxy (lib/cuenta-revision-reglas.ts) corta por dónde ENTRA un pedido. Esto corta por dónde SALE: un mail
-// de `sendEmail` (lib/resend.ts) y un WhatsApp de `enviarTexto` / `enviarMedia` / `enviarAudio` (lib/evolution.ts). Cubre lo que la lista
-// no ve: una acción que MaKo confirma, un flujo, una ruta que todavía no existe.
+// de `sendEmail` (lib/resend.ts) y un WhatsApp de `enviarTexto` / `enviarMedia` / `enviarAudio` (lib/evolution.ts), de toda escritura a
+// Evolution que pase por `antesDeEscribir` (lib/linea-freno.ts: la voz de MaKo, los grupos) y del bot (`salidaPara`, lib/mako-salida.ts).
+// Cubre lo que la lista no ve: una acción que MaKo confirma, un flujo, una ruta que todavía no existe.
 //
 // En revisión sólo sale un correo a la casilla del equipo (`EMAIL_MAKO`): nada a otra persona, ningún WhatsApp. Cuándo es «en
 // revisión», en `enRevision`. Un cron de otro negocio manda como siempre.
