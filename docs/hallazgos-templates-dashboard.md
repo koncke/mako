@@ -320,6 +320,23 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **Desde una sesión de la nube no se le puede escribir al Cerebro** si la sesión no puede llegar a las otras de Martín: el mensaje vuelve
   rechazado y pide un permiso que no se pide por un pedido de otra sesión. El estado va arriba del relevo (`docs/relevo/nube-dashboards.md`).
 
+## 17. «Mi día» (Lumora): el mes que no cabía en cinco semanas y un prefijo que no tocaba las clases compuestas (4/11/2026, chat en la nube)
+
+- **Un mes en grilla de lunes a domingo puede tocar SEIS semanas.** El modelo cortaba en 35 días y noviembre de 2026 (empieza domingo, termina
+  lunes) quedaba con el 30 afuera. Lo encontró el test al ejecutar el modelo con la fecha de hoy. Lo que decide si va una fila más es si esa
+  fila ARRANCA en el mes siguiente, no un número de días. **Vive en:** lib/mi-dia-diseno.ts (`mesDe`).
+- **Al prefijar las clases de una hoja copiada, las compuestas cuentan.** El primer intento usaba una regex que no tocaba lo que viene pegado a
+  otra clase (`.ribbon__it.is-now` quedaba `.ld-ribbon__it.is-now`): la regla nunca coincidía y el bloque «Ahora» salía sin su borde. Se prefija
+  todo `.nombre` fuera de los comentarios. **Vive en:** app/dashboard/disenos/mi-dia-css.ts.
+- **«La próxima llamada» es la que todavía no empezó.** Con «la que no terminó», la que está corriendo aparecía como próxima en la tarjeta de la IA,
+  en el número y en los recordatorios, al lado de la cinta que la marcaba «Ahora». **Vive en:** lib/mi-dia-diseno.ts.
+- **Una cinta que se corre sola sólo lo hace si lo que importa quedó fuera de la vista.** Correrla siempre hasta el ahora cortaba el primer bloque
+  aunque entrara todo. **Vive en:** app/dashboard/disenos/HojaMiDia.tsx.
+- **Un id de diseño con guion va entre comillas en la tabla de miniaturas,** y el test que buscaba la clave sin comillas daba rojo. Se buscan las dos
+  formas. **Vive en:** tests/dashboard-plantillas-ofrecidas.test.ts.
+- **Un bloque de General que se agrega a mano no va en una plantilla.** `pendientes`, `kpis` y `mes` están en esa lista a propósito, y
+  `tests/general-editor.test.ts` lo frena. **Vive en:** lib/general-plantillas.ts.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

@@ -133,6 +133,8 @@ export const COLOR_DASHBOARD: Readonly<Record<string, string>> = {
 export const COLOR_GENERAL: Readonly<Record<string, string>> = {
   general: 'noche',
   foco: 'lima',
+  // La otra referencia de Focus (4/11/2026): el durazno de Lumora; en el Dashboard es de la IA de contenido, otra galería.
+  'mi-dia': 'durazno',
   operacion: 'indigo',
   servicio: 'teal',
   curso: 'celeste',

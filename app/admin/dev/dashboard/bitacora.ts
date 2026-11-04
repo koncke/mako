@@ -955,4 +955,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard?hoja=focus',
   },
+  {
+    fecha: '4 nov', hora: '16:00', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Mi día», la cuarta hoja copiada: el diseño de Lumora con tu día',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» de General**, al lado de Focus, con su miniatura de verdad: una hoja clara, verde agua, como Lumora.',
+      '**La cinta del día:** lo de hoy en el Calendario en bloques, los huecos libres y la línea roja del ahora encima de lo que está corriendo.',
+      '**Cuatro números con su barrita:** las llamadas de hoy (con la próxima), las tareas de hoy, las cuotas por cobrar y los KPIs del día en verde.',
+      '**Lo que vence, tu funnel hoy, tus OKRs contra lo esperado, los que te deben y el semáforo**; al costado, el mes, tu día y los recordatorios, con las tareas de hoy para tildar ahí mismo.',
+      '**El movimiento de Lumora:** la cinta que crece desde abajo, la marca del ahora que baja, las tarjetas que giran al entrar, las barritas que se llenan y la tarjeta que sube con el mouse.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaMiDia.tsx · mi-dia-css.ts — el diseño',
+      'app/dashboard/disenos/MiDiaVivo.tsx — los datos de General',
+      'lib/mi-dia-diseno.ts — de dónde sale cada número',
+      'docs/diseno/mockups-dashboard/focus-lumora/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];
