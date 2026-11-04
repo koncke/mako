@@ -33,6 +33,9 @@ name: punta → main
 on:
   push:
     branches: ['punta/**']
+  # Lo usa scripts/ci-main-verde.sh para RELANZAR una punta que dio rojo mientras main estaba rojo, cuando main vuelve a verde
+  # (sobre-main.yml). Se lanza sobre la rama de la punta: todo lo de abajo lee GITHUB_REF_NAME y HEAD, igual que con un push.
+  workflow_dispatch:
 
 concurrency:
   group: punta-${{ github.ref_name }}
@@ -40,6 +43,9 @@ concurrency:
 
 permissions:
   contents: write
+  # Para lanzar sobre-main.yml y relanzar las puntas que esperaban (workflow_dispatch con el GITHUB_TOKEN: es la excepción que sí
+  # dispara otra corrida; un push hecho con él no dispara nada).
+  actions: write
 
 jobs:
   chequear-y-llevar:
@@ -246,6 +252,7 @@ jobs:
       # workflow por fast-forward, y se aceptó. Una mezcla NUEVA hecha acá con un workflow distinto del de main no está
       # medida: si GitHub la rechaza, el bucle agota sus 5 intentos y sale rojo, sin tocar main.
       - name: Llevar a main (sin forzar)
+        id: llevar
         if: steps.mezcla.outputs.nada != 'true'
         env:
           GIT_AUTHOR_NAME: ${{ steps.punta.outputs.autor_nombre }}
@@ -268,9 +275,11 @@ jobs:
               fi
               echo "::warning::main se movió durante los tests: esta mezcla pasó por las guardas, no por los tests ni los tipos."
               sh scripts/guardas-push.sh origin || exit 1
+              mezclo=1
             fi
             if git push origin "HEAD:refs/heads/main"; then
               echo "main avanzó a $(git rev-parse --short HEAD)." | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "sin_probar=${mezclo:-0}" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             echo "::warning::Intento ${intento}: main rechazó el push."
@@ -278,6 +287,30 @@ jobs:
           done
           echo "::error::Después de 5 intentos no pude llevar la punta a main: no se forzó nada."
           exit 1
+
+      # ── MAIN DESPUÉS DE ESTA PUNTA (4/11/2026, sobre-main.yml) ─────────────────────────────────────────────────────
+      # · Si lo que llegó a main es una mezcla que NO se probó (main se movió durante los tests): se lanza sobre-main.yml, que corre
+      #   tipos y barredoras sobre esa mezcla. Es lo único que la ve: 8 de 10 verdes llegaban así.
+      # · Si llegó lo mismo que se probó y main estaba marcado rojo (`ci-rojo/main`): este árbol acaba de pasar tipos y barredoras,
+      #   o sea que main volvió a verde. ci-main-verde.sh borra la marca y relanza las puntas que dieron rojo mientras tanto.
+      # Ninguno de los dos pone rojo este verde: lanzar y relanzar son favores.
+      - name: Main después de esta punta
+        if: steps.llevar.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SIN_PROBAR: ${{ steps.llevar.outputs.sin_probar }}
+        run: |
+          if [ "$SIN_PROBAR" = "1" ]; then
+            if gh workflow run sobre-main.yml --ref main; then
+              echo "La mezcla que llegó a main no pasó por los tests: la chequea sobre-main.yml." | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::No pude lanzar sobre-main.yml: la mezcla de main queda sin chequear hasta la próxima punta."
+            fi
+          elif git ls-remote --exit-code origin refs/heads/ci-rojo/main >/dev/null 2>&1; then
+            sh scripts/ci-main-verde.sh origin
+          fi
+          exit 0
 
       # El verde borra la marca de un rojo anterior de esta punta: una marca vieja se leería como un rojo vigente.
       - name: Borrar la marca de un rojo anterior
@@ -297,3 +330,8 @@ jobs:
           punta="${GITHUB_REF_NAME#punta/}"
           git push origin --force "$GITHUB_SHA:refs/heads/ci-rojo/$punta"
           echo "::notice::Marca dejada en origin/ci-rojo/$punta → $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # Con main rojo, este rojo puede no ser de la punta: queda esperando, y ci-main-verde.sh la relanza cuando main vuelva a verde.
+          if git ls-remote --exit-code origin refs/heads/ci-rojo/main >/dev/null 2>&1; then
+            git push origin --force "$GITHUB_SHA:refs/heads/espera-main/$punta" || true
+            echo "::notice::main está rojo: si este rojo es por main, la punta se relanza sola cuando main vuelva a verde."
+          fi
