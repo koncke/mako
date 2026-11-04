@@ -806,7 +806,7 @@ Reglas que salen de eso:
   falta muestran «—», que es lo correcto: no se inventa.
 
   ⚠️ **La cuenta NO se deduce: se lee de `~/.claude/cuenta-activa.txt`**, que trae
-  `claude1` o `claude2` y lo declara Martín. Un hook de `SessionStart` la inyecta a tu
+  `claude1` o `claude2`. Lo corrige cada chat que arranca, con el uuid de la cuenta que la app le pone (4/11/2026). Un hook de `SessionStart` la inyecta a tu
   contexto al abrir, junto con el titular. **No la infieras de ninguna otra cosa**: el
   `userEmail` de tu contexto sale de `~/.claude.json`, se actualiza al *loguearse* y no
   al abrir sesión, así que va con retraso y miente después de cada cambio. Tampoco sirven
