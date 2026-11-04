@@ -104,7 +104,7 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 - En Git Bash, `git show rama:.github/x` falla sin `MSYS_NO_PATHCONV=1`.
 
 **Sin hacer:**
-- Sacar la regla «nombra 20+» (`scripts/tests-afectados.mjs:67`): por ella corre siempre el test más lento, `tests/tipos-por-tandas.test.ts`. Ahorro inferido, ~200 s. Espera el veredicto de la suite semanal.
+- ✔ Hecho (4/11, `punta/sin-nombra-20`): sacada la regla «nombra 20+». 37 tests dejaron de correr en toda punta; siguen corriendo cuando cambia algo que nombran. Replay sobre 67 rojos reales de 45 corridas (las 21 de antes + integracion #360-#398 + puntas 1 y 14, ahora en `docs/fallos-ci-integracion.jsonl`): 67/67 con la regla y 67/67 sin ella, y ninguno dependía de ella. Cada punta escribe además el tiempo de cada archivo de test en el resumen del run (`scripts/reporter-tiempos.mjs`, sin tocar el reporte de siempre).
 - Filtro chico al subir una punta, sin candado y con tope de 60-90 s: guardas, tipos y tests de lo que tocó (`scripts/claude-hooks/pre-push`). Sin medir en la PC. Es un hook compartido: avisar antes.
 - Aviso de deploy fallido con los eventos de Vercel: `.github/workflows/despues-del-deploy.yml`. El 3/11 un deploy roto pasó 6 h sin aviso.
 - Chequeo sobre el main resultante, y relanzar solas las puntas rojas por culpa de main.

@@ -16,9 +16,10 @@
 // tests lo miran? La respuesta sale del código, no de una lista a mano que se desactualiza.
 //
 // QUE ELIGE (todo se detecta solo, mirando el texto de cada test):
-//   1. BARREDORAS: los tests que recorren el repo — usan `git ls-files`, hacen readdir/glob, o
-//      nombran 20+ archivos. Corren SIEMPRE: un cambio en cualquier lado las puede romper, y por
-//      eso no se les puede preguntar «¿tocaste lo mío?» (run 80 y 82).
+//   1. BARREDORAS: los tests que recorren el repo — usan `git ls-files`, `git grep` o hacen readdir/glob.
+//      Corren SIEMPRE: un cambio en cualquier lado las puede romper, y por eso no se les puede preguntar
+//      «¿tocaste lo mío?» (run 80 y 82). ⚠️ «Nombra 20+ archivos» ya NO es barrer (4/11/2026): ver
+//      `motivoBarredora`.
 //   2. NOMBRAN: el test escribe la ruta de un archivo cambiado como texto (`readFileSync('app/
 //      automations/PanelProbar.tsx')`, o `join(raiz, 'app', 'automations', 'PanelProbar.tsx')`):
 //      lo lee, y fija su forma (run 85).
@@ -63,8 +64,6 @@ export const SALIDA_SIN_CORRER = 99;   // misma convención que scripts/typechec
 const EXT_CODIGO = ['.ts', '.tsx', '.mts', '.cts', '.mjs', '.cjs', '.js', '.jsx'];
 export const ES_CODIGO = /\.(?:[cm]?[jt]s|[jt]sx)$/;
 export const ES_TEST = /^tests\/[^/]+\.test\.ts$/;     // el mismo glob que `npm test`
-/** Un test que nombra tantos archivos los está LEYENDO en lote (medido: 37 de 1.106 con ≥20 que no barren por otro lado). */
-export const UMBRAL_NOMBRA_MUCHOS = 20;
 
 // -----------------------------------------------------------------------------
 // 0. Los comentarios no son dependencias
@@ -195,12 +194,20 @@ export function clavesDe(ruta, basenameUnico) {
 // 3. Las barredoras
 // -----------------------------------------------------------------------------
 
-/** ¿Este test recorre el repo en vez de mirar un archivo? Devuelve el porqué, o null. */
-export function motivoBarredora(src, nombradas = rutasNombradas(src)) {
+/**
+ * ¿Este test recorre el repo en vez de mirar un archivo? Devuelve el porqué, o null.
+ *
+ * ⚠️ «NOMBRA 20+ ARCHIVOS» SE SACÓ EL 4/11/2026 (docs/hallazgos-infra.md → «Por qué tardaba horas»). Un test que nombra 20
+ * archivos los LEE, pero no BARRE: sabe cuáles son, y la regla 2 (NOMBRAN) ya lo elige cuando cualquiera de los 20 cambia. Con la
+ * regla, 37 tests corrían en TODAS las puntas sin que nada suyo cambiara, y entre ellos el más lento, `tests/tipos-por-tandas.test.ts`
+ * (nombra 132). Lo que se pierde es lo que el test mira por un camino que no nombra (un import de lo nombrado, una lectura
+ * armada en tiempo de ejecución): eso lo ve la suite de cada noche (semanal-tests.yml), que dio verde entera el 4/11 (run 41779837302).
+ * Medido antes de sacarla: el replay de los rojos reales (scripts/replay-fallos-ci.mjs) da lo mismo con y sin la regla.
+ */
+export function motivoBarredora(src) {
   if (/ls-files/.test(src)) return 'git ls-files';
   if (/\bgit\s+grep\b|\[\s*['"]grep['"]/.test(src)) return 'git grep';
   if (/\b(?:readdirSync|readdir|opendirSync|opendir|globSync|glob)\s*\(/.test(src)) return 'recorre carpetas';
-  if (nombradas.size >= UMBRAL_NOMBRA_MUCHOS) return `nombra ${nombradas.size} archivos`;
   return null;
 }
 
@@ -265,7 +272,7 @@ export function seleccionar({ cambiados, archivos, leer, profundidad = Infinity 
     // Un test que LANZA un script o un hijo (`spawn('node', ['tests/_x-hijo.ts'])`) depende de todo lo que ese
     // hijo importa. Sólo ayudantes (`tests/_*`) y scripts: nombrar a OTRO test no es correrlo.
     for (const a of archivosNombrados) if (ES_CODIGO.test(a) && /^(?:tests\/_|scripts\/)/.test(a)) arista(a, f);
-    const m = motivoBarredora(src, nombradas);
+    const m = motivoBarredora(src);
     // Quién puede correr en un proceso COMPARTIDO: todo test que no toca estado global (ver `compartible`). Medido el 17/10/2026: los
     // 1.050 compartibles de los 1.125 tests, en 2 procesos, dieron 10.905 casos, 0 rojos y 0 interferencias, en 260 s (separados, ~50 min en
     // esa misma PC cargada). El riesgo conocido es un FALSO VERDE por contagio (un test que pasa sólo por lo que dejó otro): lo cubre Actions,
@@ -771,11 +778,21 @@ export function porQueSeMato(r, archivos = []) {
     : `estuvo ${min(r.sinAvanceMs ?? TOPE_SIN_AVANCE_MS)} sin terminar un solo caso: un test se colgó.${cual}`;
 }
 
+/**
+ * El reporte de TIEMPO POR ARCHIVO (4/11/2026), sólo si se pidió con `MAKO_TIEMPOS_TESTS=<archivo.tsv>` (lo prende punta.yml). Va AL
+ * LADO del spec, que sigue saliendo por stdout igual que siempre: todo lo de acá lo lee con regex. Comprobado con node 24: la salida
+ * con `--test-reporter=spec` explícito es la misma que la de por default, letra por letra. Ver scripts/reporter-tiempos.mjs.
+ */
+const REPORTER_TIEMPOS = pathToFileURL(fileURLToPath(new URL('./reporter-tiempos.mjs', import.meta.url))).href;
+export const banderasDeTiempos = (env) => (env.MAKO_TIEMPOS_TESTS
+  ? ['--test-reporter=spec', '--test-reporter-destination=stdout', `--test-reporter=${REPORTER_TIEMPOS}`, '--test-reporter-destination=stdout']
+  : []);
+
 function correrTanda(archivos, concurrencia, env) {
   const bandera = concurrencia > 0 ? [`--test-concurrency=${concurrencia}`] : [];    // 0 = el de node (Actions)
   // Sin NODE_TEST_CONTEXT: si esto se llama desde adentro de un test, node cree que el hijo es un test ANIDADO y deja de imprimir el reporte.
   const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
-  return lanzarVigilado(['--import', 'tsx', '--test', ...bandera, ...archivos], { archivos: archivos.length, env: limpio, sinAvanceMs: sinAvanceDe(archivos) });
+  return lanzarVigilado(['--import', 'tsx', '--test', ...bandera, ...banderasDeTiempos(limpio), ...archivos], { archivos: archivos.length, env: limpio, sinAvanceMs: sinAvanceDe(archivos) });
 }
 
 // Las barredoras que sólo leen corren JUNTAS en un proceso que memoriza las lecturas (scripts/cache-lecturas.cjs): medido el 17/10/2026,
@@ -801,7 +818,7 @@ export const pisoCompartido = (grupos, total = 24 * grupos) => ZONA_ROJA_VIGIA_G
 function correrGrupoCompartido(archivos, env) {
   const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
   const NODE_OPTIONS = `${limpio.NODE_OPTIONS ?? ''} --require ${JSON.stringify(CACHE_LECTURAS)}`.trim();
-  return lanzarVigilado(['--import', 'tsx', '--test', '--test-isolation=none', ...archivos], { archivos: archivos.length, env: { ...limpio, NODE_OPTIONS }, sinAvanceMs: sinAvanceDe(archivos) });
+  return lanzarVigilado(['--import', 'tsx', '--test', '--test-isolation=none', ...banderasDeTiempos(limpio), ...archivos], { archivos: archivos.length, env: { ...limpio, NODE_OPTIONS }, sinAvanceMs: sinAvanceDe(archivos) });
 }
 
 /** Lo que el runner de node imprime al final: «ℹ tests N … ℹ fail M», y «test at <archivo>» por cada rojo. */
