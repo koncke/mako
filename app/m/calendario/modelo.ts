@@ -261,6 +261,7 @@ export function fraseDeFallos(f: FallosCalendario, g: GoogleDelCalendario | null
   if (f.plan) cuales.push('los deadlines del Plan');
   if (f.recurrentes) cuales.push('lo que se repite');
   if (f.cobros) cuales.push('los cobros');
+  if (f.newsletters) cuales.push('las ediciones del newsletter');
   if (f.objetivos) cuales.push('los Objetivos');
   if (!cuales.length) return null;
   const lista = cuales.length === 1 ? cuales[0] : `${cuales.slice(0, -1).join(', ')} y ${cuales[cuales.length - 1]}`;
