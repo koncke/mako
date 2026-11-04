@@ -13,7 +13,7 @@ avisos de rutina.
 
 | Punta | Qué cambia | Estado |
 |---|---|---|
-| `punta/vigia-aprobaciones` | Un vigía que revisa cada hora diez aprobaciones y le avisa a Martín sólo cuando algo pasa a aprobado, rechazado o «piden algo», por la bandeja de avisos y el teléfono. Martín pide la lista a MaKo en el Ops Center. Suma dos tarjetas a Integraciones para las claves. | Subida. Mirar la corrida de `punta.yml` |
+| `punta/vigia-aprobaciones` | Un vigía que revisa cada hora diez aprobaciones y le avisa a Martín sólo cuando algo pasa a aprobado, rechazado o «piden algo», por la bandeja de avisos y el teléfono. Martín pide la lista a MaKo en el Ops Center. Suma dos tarjetas a Integraciones para las claves. | La corrida 172 dio verde en tests (714 archivos), tipos y guardas, y chocó al llevarla a main: main sumó hitos a la misma bitácora mientras corría. Se mezcló main y se volvió a subir: mirar la corrida siguiente de `punta.yml` y el deploy en «Ready» |
 
 - **Dónde corre:** en el servidor, `/api/cron/vigia-aprobaciones`, a los :11 de cada hora (`vercel.json`). No usa la PC ni el Runner,
   así que no gasta tokens de Claude ni depende de un chat abierto.
