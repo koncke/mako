@@ -7,6 +7,7 @@
 // deja sus programados intactos (salen cuando lo active — no se "queman" como
 // simulado). ?force=1&ws=N procesa ese workspace igual (modo simulado, para
 // probar la máquina a mano). Auth: Bearer ${CRON_SECRET}.
+// En los mismos negocios, después, mueve a los suscriptos del newsletter según su lectura (`conciliarLectores`).
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -14,6 +15,7 @@ import { checkCronAuth } from '@/lib/cron-auth';
 import { procesarBroadcastsProgramados } from '@/lib/email-marketing';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
 import { listarWorkspaces, runWithWorkspace } from '@/lib/workspace';
+import { conciliarLectores } from '@/lib/newsletter';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -51,7 +53,10 @@ export async function GET(request: NextRequest) {
         const r = await runWithWorkspace(w.id, async () => {
           if (!(await envioEmailHabilitado())) return { ws: w.id, modo: 'off (programados esperan)' };
           const proc = await procesarBroadcastsProgramados();
-          return { ws: w.id, modo: 'envío real', ...proc };
+          // El newsletter: Suscripto → Lee → Dormido según lo que abrió cada uno (lib/newsletter.ts). Sólo con el envío
+          // real prendido: apagado, nada salió y no hay lectura que medir. Un fallo acá no tapa el de los broadcasts.
+          const lectores = await conciliarLectores().catch((e: unknown) => ({ error: e instanceof Error ? e.message : String(e) }));
+          return { ws: w.id, modo: 'envío real', ...proc, lectores };
         });
         resultados.push(r);
       } catch (err) {
