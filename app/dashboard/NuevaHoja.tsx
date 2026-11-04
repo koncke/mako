@@ -68,7 +68,7 @@ import { leerArchivoParaPedido } from '@/app/automations/archivo-pedido-cliente'
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { FUENTES, hojaVacia, sanearHoja, type Hoja } from '@/lib/graficos-catalogo';
-import { PLANTILLAS_HOJA, instanciarPlantilla, type PlantillaHoja } from '@/lib/graficos-plantillas';
+import { PLANTILLAS_GENERAL_OFRECIDAS, PLANTILLAS_OFRECIDAS, instanciarPlantilla, type PlantillaHoja } from '@/lib/graficos-plantillas';
 import { filtrarPlantillasHoja } from '@/lib/graficos-plantillas-generales';
 import { PLANTILLAS_GENERAL } from '@/lib/general-plantillas';
 import { ETIQUETAS_DASHBOARD, ETIQUETAS_GENERAL } from '@/lib/graficos-plantillas-etiquetas';
@@ -162,7 +162,11 @@ const CSS = `
  * del otro lleva a su editor, que la suma al abrir (`?hoja=`, app/dashboard/page.tsx). Sólo quien tiene los dos (`conTodas`).
  */
 const IDS_GENERAL = new Set(PLANTILLAS_GENERAL.map((p) => p.id));
-const CATALOGO_UNICO = [...PLANTILLAS_GENERAL, ...PLANTILLAS_HOJA];
+/**
+ * SÓLO LAS COPIADAS DE VERDAD (4/11/2026, Martín: «elimina todos los templates viejos y vamos de a poco cargando cuando ya estén»):
+ * las que traen su diseño propio (`esPlantillaOfrecida`, lib/graficos-plantillas.ts). Las de antes siguen en el código, fuera de acá.
+ */
+const CATALOGO_UNICO = [...PLANTILLAS_GENERAL_OFRECIDAS, ...PLANTILLAS_OFRECIDAS];
 const ETIQUETAS_UNICAS = { ...ETIQUETAS_GENERAL, ...ETIQUETAS_DASHBOARD };
 /** Las miniaturas de General en el Dashboard: sin los datos de verdad, que allá no se leen. Lo que no tiene ejemplo dice su título. */
 const SIN_LEER = { ok: false, error: '' } as const;
@@ -406,7 +410,7 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
 
   // LAS SUGERIDAS PRIMERO (lib/plantillas-sugeridas.ts): se ordena la galería ENTERA y después se filtra lo buscado,
   // que conserva el orden. Ordenar lo filtrado le daría el «Sugerido» a otra cuando la búsqueda deja afuera a las tres.
-  const catalogo = conTodas ? CATALOGO_UNICO : informe === 'general' ? PLANTILLAS_GENERAL : PLANTILLAS_HOJA;
+  const catalogo = conTodas ? CATALOGO_UNICO : informe === 'general' ? PLANTILLAS_GENERAL_OFRECIDAS : PLANTILLAS_OFRECIDAS;
   const ordenadas = useMemo(() => ordenarConSugeridas(
     catalogo, conTodas ? ETIQUETAS_UNICAS : informe === 'general' ? ETIQUETAS_GENERAL : ETIQUETAS_DASHBOARD, senales,
   ), [catalogo, conTodas, informe, senales]);

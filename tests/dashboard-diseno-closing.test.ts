@@ -99,7 +99,8 @@ test('5 · la semana va de lunes a domingo (lo que viene, rayado y de la agenda)
   const datos: Record<string, DatosPieza> = {
     [p.semana]: r(['llamadas'], [9], [fila('2026-11-02', [3]), fila('2026-11-03', [4]), fila('2026-11-04', [2])]),
     [p.ultimas]: r(['puntaje', 'duracion'], [null, null], [
-      fila('Uno', [9, 30], { dia: '2026-11-01', reunion: 'R1' }), fila('Dos', [5, 40], { dia: '2026-11-04', reunion: 'R2', closer: 'Ana Ruiz' }), fila('Tres', [7, 20], { dia: '2026-11-03' }),
+      // La columna `dia` llega como la ETIQUETA del agregador («dd/mm», sin año): «Uno» es del mes pasado y va última.
+      fila('Uno', [9, 30], { dia: '28/10', reunion: 'R1' }), fila('Dos', [5, 40], { dia: '04/11', reunion: 'R2', closer: 'Ana Ruiz' }), fila('Tres', [7, 20], { dia: '03/11' }),
     ]),
   };
   const v = vistaClosing(h, datos, { porDia: { '2026-11-05': 2, '2026-11-07': 1 }, proxima: null, tz: 'America/Mexico_City' }, hoy);
