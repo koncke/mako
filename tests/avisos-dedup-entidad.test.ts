@@ -84,7 +84,7 @@ test('⚠️ el aviso se RECLAMA antes de mandarlo: leer-hacer-marcar perdía la
   const iInterruptor = src.indexOf('estadoAviso(ws, a.tipo)');
   const iReclamo = src.indexOf('reclamarEspaciado(ws, a.tipo');
   const iCola = src.indexOf('encolarAviso(wsCola');
-  const iEnvio = src.indexOf('enviarAlGrupoSuperAdmin(texto)');
+  const iEnvio = src.indexOf('enviarAlGrupoSuperAdmin(texto');
   assert.ok(iInterruptor > 0 && iReclamo > 0 && iCola > 0 && iEnvio > 0, 'no se ubicaron las cuatro marcas');
   assert.ok(iInterruptor < iReclamo, 'el reclamo va DESPUÉS del interruptor, o apagar y prender deja el aviso mudo');
   assert.ok(iReclamo < iCola, 'el reclamo va antes de encolar');

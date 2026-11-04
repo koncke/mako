@@ -209,7 +209,7 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
   // rutaSeccion('persona') → /second-brain?area=voz&vista=persona; la ficha → /customer-success/comunidad?post=N.
   assert.deepEqual(QUERY_DE_SECCION, {
     calendario: ['vista', 'fecha'],
-    'second-brain': ['area', 'vista'],
+    'second-brain': ['area', 'vista', 'grupo'],
     experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'],
     offer: ['oferta', 'funnel', 'sesion'],
     copywriting: ['nuevo'],

@@ -227,6 +227,8 @@ export type NuevoTicket = {
   automatico?: { clave: string };
   /** Lo que se anota en el ticket automático que ya existía. */
   volvioAPasar?: string;
+  /** Lo escribió un invitado al grupo de la app, que no es de este negocio (lib/tickets-del-grupo.ts): como un tercero, lo decide Martín, siempre. */
+  invitado?: boolean;
 };
 export type Creado = { ok: true; id: number; estado: EstadoTicket; triage: Triage; yaExistia: boolean } | { ok: false; error: string };
 
@@ -292,6 +294,12 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   // lib/tickets-runner.ts). Lo lee Martín en la Ticketera, con el porqué a la vista.
   const deRevision = n.identidad.ws === WS_REVISION || esCorreoDeRevision(n.identidad.email);
   if (deRevision) triage = { ...triage, autoArreglo: false, porque: [...triage.porque, PORQUE_SIN_DESPACHO_REVISION] };
+  // ⛔ UN INVITADO AL GRUPO DE LA APP NO ENTRA POR LA VÍA LIBRE DEL NEGOCIO, aunque administre el suyo: como lo de un tercero, lo decide Martín. Sin esto, su ticket salía `en_curso` con el «hazlo» para el Runner.
+  if (n.invitado && triage.autoArreglo) {
+    triage.autoArreglo = false;
+    delete triage.regla;
+    triage.porque.push('Lo pidió un invitado al grupo de ese negocio, que no lo administra: lo decide Martín.');
+  }
   const estado = estadoInicial(triage);
   const { data, error } = await db.from(T).insert({
     ref,

@@ -692,7 +692,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
     const tz = await zonaDelNegocio(ws);
     // El TEXTO es el de su automatización de SuperAdmin (evento `reunion_tareas_al_plan`): acá van sólo los datos.
     const aviso = await emitirDelCatalogo('reunion-tareas-al-plan', { ws, datos: { ...datosAviso(hechas, tz) } });
-    if (aviso.wa) out.avisados += 1;
+    if (aviso.wa || aviso.enApp) out.avisados += 1;
     else { out.sinAviso += 1; out.avisoError = aviso.waError ?? 'no se pudo mandar el WhatsApp'; }
   }
   if (sinTiempo) out.sinTiempo = sinTiempo;

@@ -128,9 +128,10 @@ test('C1. el link de un push va sin `?ws=` SÓLO para el workspace de plataforma
   assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/plan' }, wsDelLink(13, 9)).url, `${APP_BASE_URL}/plan?ws=13`);
 });
 
-test('C2. los DOS envíos de lib/push.ts arman el link con `wsDelLink`', () => {
+test('C2. los envíos de lib/push.ts arman el link con `wsDelLink`, y el del grupo sin `?ws=` (a un invitado le abriría SU negocio)', () => {
   const src = sinComentarios(leer('lib/push.ts'));
   const llamadas = [...src.matchAll(/armarPayloadPush\(([\s\S]*?)\);/g)].map((m) => m[1]);
-  assert.equal(llamadas.length, 2, `esperaba 2 armados del payload (enviarPush y enviarPushAUsuario), hay ${llamadas.length}`);
-  for (const l of llamadas) assert.match(l, /wsDelLink\(ws, await wsSuperAdmin\(\)/, 'un envío arma el link con el `ws` pelado');
+  assert.equal(llamadas.length, 3, `esperaba 3 armados del payload (enviarPush, enviarPushAUsuario y enviarPushAMiembros), hay ${llamadas.length}`);
+  assert.match(llamadas[2], /, null$/, 'el push del grupo no lleva `?ws=`');
+  for (const l of llamadas.slice(0, 2)) assert.match(l, /wsDelLink\(ws, await wsSuperAdmin\(\)/, 'un envío arma el link con el `ws` pelado');
 });

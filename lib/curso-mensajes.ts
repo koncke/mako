@@ -429,7 +429,7 @@ async function avisarAlDueno(
     dedupTtlMin: 72 * 60,
   });
   if (r.deduped) return;
-  if (r.wa || r.email || r.agrupado) ctx.res.avisosDueno += 1;
+  if (r.wa || r.enApp || r.email || r.agrupado) ctx.res.avisosDueno += 1;
   else ctx.res.avisosDuenoSinSalir += 1;
 }
 
@@ -633,7 +633,7 @@ async function procesarJunta(ctx: Ctx, f: FilaSesion): Promise<void> {
     dedupTtlMin: 72 * 60,
   });
   if (r.deduped) return;
-  if (r.wa || r.email || r.agrupado) { ctx.res.avisosDueno += 1; ctx.res.juntas += 1; }
+  if (r.wa || r.enApp || r.email || r.agrupado) { ctx.res.avisosDueno += 1; ctx.res.juntas += 1; }
   else ctx.res.avisosDuenoSinSalir += 1;
 }
 
@@ -996,7 +996,7 @@ async function recordarEnWorkspace(ws: number, leadIds: number[], ahora: Date, r
     dedupTtlMin: 60,
   });
   if (r.deduped && !r.apagado) return;
-  if (r.wa || r.email === true) res.avisosDueno += 1;
+  if (r.wa || r.enApp || r.email === true) res.avisosDueno += 1;
   else res.avisosDuenoSinSalir += 1;
 }
 

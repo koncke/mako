@@ -194,10 +194,12 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
 // prendido — la misma regla que AVISOS_WA_EN_VIVO arriba: lo que se pierde al olvidarse de
 // sumarlo es poder APAGARLO de a uno, no el aviso.
 
-/** Los dos que no son avisos del catálogo: las decisiones que MaKo deja esperando. */
+/** Los que no son avisos del catálogo: las decisiones que MaKo deja esperando, y el grupo. */
 export const PUSH_DE_MAKO: AvisoWaDef[] = [
   { id: 'mako-pendiente', titulo: 'MaKo te pide confirmar', sub: 'Una acción espera tu sí.' },
   { id: 'mako-propuesta', titulo: 'MaKo dejó algo para revisar', sub: 'Un borrador espera tu revisión.' },
+  // NO va en PUSH_SOLO_ADMINS: un closer invitado o alguien de otro negocio lo reciben (lib/push.ts, `enviarPushAMiembros`).
+  { id: 'mako-grupo', titulo: 'Mensajes del grupo', sub: 'Lo que cae en el grupo de MaKo.' },
 ];
 
 /** Lo que la pantalla ofrece prender y apagar de a uno, en el orden en que se muestra. */
@@ -287,6 +289,17 @@ export function normalizarPush(raw: unknown, rol: RolPush): NotifPush {
     items,
     ...(silencio ? { silencio } : {}),
   };
+}
+
+/**
+ * ¿Esta persona quiere el push del GRUPO? (3/11/2026, lib/push.ts, `enviarPushAMiembros`). Sin nada guardado, SÍ: `normalizarPush` da apagado por defecto a un
+ * closer, y como el rol sale de SU negocio, un invitado nunca oiría nada sin que nadie se lo diga. Lo que la persona apagó, apagado; y su «No molestar» manda.
+ */
+export function quierePushDelGrupo(raw: unknown, tz: string, ahora: Date = new Date()): boolean {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Partial<NotifPush>;
+  if (o.activo === false) return false;
+  if ((o.items as Record<string, unknown> | undefined)?.['mako-grupo'] === false) return false;
+  return !enSilencio({ silencio: o.silencio ?? null }, tz, ahora);
 }
 
 /** ¿Esta persona quiere este push? El maestro manda; abajo, cada uno puede apagarse. */

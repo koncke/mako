@@ -32,6 +32,7 @@ const MAX_PALABRAS = 6;
  * ¿El mensaje es SÓLO una confirmación («sí», «dale, mandalo», «sí, hacelo por favor», «confirmo 👍»)? Sin un «pero», un «esperá», un cambio,
  * una pregunta ni ninguna palabra más. Ante la duda es falso: lo que no se reconoce no confirma, se repregunta.
  */
+
 export function confirmacionPura(mensaje: string | null | undefined): boolean {
   // Un lote de mensajes seguidos lleva un encabezado nuestro y la numeración «(1) », «(2) » (lib/mako-doer-buffer.ts): no son palabras de la persona.
   let t = String(mensaje ?? '');
@@ -79,7 +80,15 @@ export function rechazoSiNoEsConfirmacionPura(p: {
   enElGrupo?: ElSiEnElGrupo;
   /** El id de la acción del registro: las de `SE_APRUEBAN_EN_LA_APP` no se confirman por WhatsApp con NINGÚN «sí». */
   id?: string;
+  /** Se propuso en un turno SÓLO de la app (`SOLO_APP`): el grupo de WhatsApp nunca vio la pregunta. */
+  nacioEnLaApp?: boolean;
+  /** Este turno es entero de la app (un lote de varias personas no tiene quién: `confirma` viene null). */
+  turnoDeLaApp?: boolean;
 }): string | null {
+  // ⚠️ UN «DALE» EN WHATSAPP NO CONFIRMA LO QUE SE PROPUSO SÓLO EN LA APP (3/11/2026). Ana pide en la app «mandale el mail a Pérez»; Pedro, en WhatsApp, le contesta «dale» a otra persona:
+  // sin esto sale un mail que no se deshace, confirmado por alguien que nunca vio la pregunta. Va ANTES de todo y para cualquier acción, no sólo plata o terceros. Al revés no:
+  // lo propuesto en WhatsApp se puede confirmar desde la app, que ve el grupo.
+  if (p.canal === 'whatsapp' && p.nacioEnLaApp && !p.turnoDeLaApp && !/@app\.mako$/.test(p.enElGrupo?.confirma ?? '')) return lineaSeConfirmaEnLaApp(p.titulo);
   if (p.canal === 'whatsapp' && p.id && SE_APRUEBAN_EN_LA_APP.has(p.id)) return rechazoApruebaEnLaApp(p.titulo);
   if (p.canal !== 'whatsapp' || !(p.aTerceros || p.plata)) return null;
   if (!confirmacionPura(p.mensaje)) {
@@ -115,11 +124,16 @@ export function quienEnElGrupo(participant: string | null | undefined): string |
 /** Dónde guarda la pendiente quién la pidió: en su `payload` (jsonb, sin migración). No es un parámetro de la acción: se saca al
  *  leerla (lib/mako-pendientes.ts, `toP`), antes de mostrarla o ejecutarla. */
 export const PIDIO = '__pidio';
-export function conQuienPidio(payload: Record<string, unknown>, pidio: string | null | undefined): Record<string, unknown> {
-  return pidio ? { ...payload, [PIDIO]: pidio } : payload;
+/** Y si nació en un turno SÓLO de la app (`rechazoSiNoEsConfirmacionPura`). Como `__pidio`: no es un parámetro de la acción. */
+export const SOLO_APP = '__soloApp';
+/** Lo que le llega al modelo si se la quieren confirmar por WhatsApp. */
+export const lineaSeConfirmaEnLaApp = (titulo: string): string =>
+  `«${titulo}» se pidió en el grupo de la app, y por aquí nadie vio la pregunta: NO la confirmes. Dile en una línea que eso se confirma en el grupo de la app.`;
+export function conQuienPidio(payload: Record<string, unknown>, pidio: string | null | undefined, soloApp?: boolean): Record<string, unknown> {
+  return { ...payload, ...(pidio ? { [PIDIO]: pidio } : {}), ...(soloApp ? { [SOLO_APP]: true } : {}) };
 }
-export function sinQuienPidio(payload: Record<string, unknown>): { payload: Record<string, unknown>; pidio: string | null } {
-  if (!(PIDIO in payload)) return { payload, pidio: null };
-  const { [PIDIO]: pidio, ...resto } = payload;
-  return { payload: resto, pidio: typeof pidio === 'string' && pidio ? pidio : null };
+export function sinQuienPidio(payload: Record<string, unknown>): { payload: Record<string, unknown>; pidio: string | null; soloApp?: boolean } {
+  if (!(PIDIO in payload) && !(SOLO_APP in payload)) return { payload, pidio: null };
+  const { [PIDIO]: pidio, [SOLO_APP]: soloApp, ...resto } = payload;
+  return { payload: resto, pidio: typeof pidio === 'string' && pidio ? pidio : null, ...(soloApp === true ? { soloApp: true } : {}) };
 }

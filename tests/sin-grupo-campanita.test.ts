@@ -257,7 +257,8 @@ test('6. el Sidebar la monta sin plegarse debajo, la ruta lee estricto y la tarj
   const notif = sinComentarios(leer('lib/notificaciones.ts'));
   assert.equal((notif.match(/\.or\(SIN_RUIDO\)/g) ?? []).length, 2, 'la lista y el contador tienen que contar lo mismo');
   const grupo = sinComentarios(leer('lib/mako-grupo.ts'));
-  for (const f of ['export async function enviarAlGrupoMaKo(', 'export async function enviarPartesAlGrupoMaKo(']) {
+  // `enviarPorWhatsApp` es el cuerpo de `enviarAlGrupoMaKo` desde el 3/11/2026 (la copia al grupo de la app va antes).
+  for (const f of ['async function enviarPorWhatsApp(', 'export async function enviarPartesAlGrupoMaKo(']) {
     const i = grupo.indexOf(f);
     const cuerpo = grupo.slice(i, grupo.indexOf('\n}\n', i));
     assert.match(cuerpo, /grupoJidEstricto\(ws\)/, `${f} lee el grupo con getSetting: un error sería «no tiene grupo»`);

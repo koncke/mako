@@ -13,6 +13,8 @@
 import 'server-only';
 import { crearNotificacion, anotarSalida, type NotifSeveridad, type SalidaAviso } from './notificaciones';
 import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, enviarPartesAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
+import { alguienAbrioElGrupo, atarIdDeWhatsApp, claveDeConversacion, copiarAlGrupo, type Copia } from './grupo-app';
+import { idDeLaApp } from './grupo-salida';
 import { partesConRotulo, textoDePreparadas, type PartePreparada, type SinGrupo } from './mako-tarjeta';
 import { reclamarEspaciado, salioReciente } from './espaciado';
 import { frecuenciaEfectiva } from './disparador-mensaje';
@@ -121,6 +123,11 @@ export type EmitirAvisoResult = {
    */
   push?: { enviados: number; fallidos: number; sinSuscripciones: number; motivo?: string };
   ok: boolean; feedId: number | null; wa: boolean; deduped: boolean; waError?: string;
+  /**
+   * Quedó en el hilo del grupo de la app (lib/grupo-app.ts). `wa` sigue diciendo sólo WhatsApp: el puente por mail y el `waError` no cambian. Quien REINTENTA con el
+   * resultado del aviso lo cuenta como que llegó (avisos-resumen, lineas-vigilante, `llegoLaTarjeta`): con la voz fuera de los grupos, cada reintento sumaría una burbuja.
+   */
+  enApp?: true;
   /** no salió porque el negocio lo espació en la pantalla, no porque se repitiera. */
   espaciado?: boolean;
   /** el dueño apagó este aviso en Configuraciones › Notificaciones. */
@@ -280,6 +287,12 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // negocio decidió no mandar. Arranca acá y se espera al final: en PARALELO con el correo
     // y el WhatsApp, que pueden tardar segundos. Best-effort: nunca tumba el aviso.
     const pushP = a.push === false ? Promise.resolve(undefined) : enviarPushAviso(wsLector, a);
+    // ⚠️ LA COPIA AL GRUPO DE LA APP (3/11/2026, lib/grupo-app.ts): con el contrato del push, y por lo mismo. Después del interruptor, el dedup, el espaciado y la cola
+    // (lo apagado no se copia; el resumen sí, al salir), SIN MIRAR WHATSAPP: el aviso cae ahí aunque `canal.wa` sea falso, la línea esté caída o el negocio no tenga
+    // grupo. Es de quien lo va a leer (`wsLector`): un aviso `alDueno` va al grupo de la plataforma, nunca al del cliente. Va ANTES del intento por WhatsApp, y de eso
+    // depende que el eco no duplique. La única excepción: una tarjeta POR EMAIL (`push: false`, sin WhatsApp) ya eligió su canal.
+    const copia: Copia | null = a.push === false && !canal.wa
+      ? null : await copiarAlGrupo(wsLector, { texto, de: 'mako', avisoTipo: a.tipo, partes: salida, pushYaSalio: a.push !== false });
     // Y EL EMAIL, si el cliente lo prendió para este aviso. Va acá, en el choke point,
     // por lo mismo que el resto: los ~48 avisos del catálogo y los que se creen mañana
     // lo heredan sin que nadie se acuerde. Primero el correo y después WhatsApp no es
@@ -290,7 +303,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // cuántas le llegaron al grupo, y el historial guarda ésas (no las que no salieron).
     const porPartes = canal.wa && salida ? await enviarPartesAlGrupoMaKo(ws, salida) : null;
     const env = canal.wa
-      ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto)
+      ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto, { sinCopia: true })
         : porPartes ? (porPartes.ok ? { ok: true as const, id: porPartes.ids[porPartes.ids.length - 1] ?? '' } : { ok: false as const, error: porPartes.error ?? 'no salió', ...(porPartes.sinGrupo ? { sinGrupo: true as const } : {}), ...(porPartes.fallaElEnvio ? { fallaElEnvio: true as const } : {}) })
           // La memoria la guarda este mismo aviso, abajo (con las partes que salieron): `null`.
           : await enviarAlGrupoMaKo(ws, texto, null))
@@ -308,12 +321,14 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     else if (canal.wa && !env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
     // La fila de la campanita dice si NO LLEGÓ al grupo, y por qué (17/10/2026). Se reescribe el payload entero: el update
     // de supabase-js REEMPLAZA el jsonb, no lo mezcla.
-    if (feedId != null && canal.wa && !env.ok) {
+    // Con la copia en el hilo, «no llegó» sería falso: el aviso se ve en el grupo de la app.
+    if (feedId != null && canal.wa && !env.ok && !copia) {
       await anotarSalida(wsLector, feedId, { ...payloadFeed, salida: sinGrupo ? 'sin_grupo' : 'no_llego', ...(email ? { porEmail: true } : {}) });
     }
     // Lo que el grupo VIO: el texto, o las partes que salieron (sin las que no).
-    const textoTurno = porPartes && salida ? textoDePreparadas(salida.slice(0, porPartes.salieron)) : texto;
-    if (porPartes && !porPartes.ok && porPartes.salieron > 0) {
+    // Con la copia, el hilo vio TODAS las partes.
+    const textoTurno = porPartes && salida ? textoDePreparadas(copia ? salida : salida.slice(0, porPartes.salieron)) : copia && salida ? textoDePreparadas(salida) : texto;
+    if (porPartes && !porPartes.ok && porPartes.salieron > 0 && !copia) {
       const jidParcial = await getGrupoJidMaKo(ws);
       if (jidParcial) {
         const { guardarTurno } = await import('./mako-doer-conv');
@@ -325,13 +340,25 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // dueño contesta "sí, cargalo", el doer no sabe a qué le dijo que sí y se agarra
     // del mensaje anterior que encuentre. Pasó: confirmó una charla de cuatro días
     // antes y duplicó dos tareas.
-    if (env.ok) {
+    //
+    // ⚠️ Y SI QUEDÓ EN EL HILO, TAMBIÉN (`copia`): sin esto, un «¿lo cargo?» sin WhatsApp queda sin memoria, y el «sí» de la app no sabe a qué contesta. La clave es la de la
+    // conversación del negocio: un negocio sin grupo también tiene una. ⚠️ Un aviso `alDueno` NUNCA entra a la memoria del cliente aunque el `ws` sea el suyo: su clave es
+    // la del grupo de la plataforma. Se emite adentro del workspace del cliente, y con su clave MaKo le repetiría avisos de agencia sobre él.
+    if (copia && env.ok && env.id) {
+      const ids = porPartes?.ids ?? [env.id];
+      await Promise.all(copia.ids.map((fila, i) => (ids[i] ? atarIdDeWhatsApp(wsLector, fila, ids[i]) : Promise.resolve()))).catch(() => {});
+    }
+    if (env.ok || copia) {
       const { guardarTurno } = await import('./mako-doer-conv');
-      const jid = a.alDueno === true ? await getGrupoSuperAdminJid() : await getGrupoJidMaKo(ws);
+      const superJid = a.alDueno === true ? await getGrupoSuperAdminJid().catch(() => null) : null;
+      const jid = a.alDueno === true
+        ? (superJid ?? await claveDeConversacion(wsLector).catch(() => null))
+        : await claveDeConversacion(ws).catch(() => getGrupoJidMaKo(ws));
+      const idDelTurno = env.ok && env.id ? env.id : copia ? idDeLaApp(copia.id) : undefined;
       // Se guarda el texto QUE SE MANDÓ (con rótulo), no el pelado: el historial
       // del doer tiene que ser lo que el dueño ve en el chat, o el modelo razona
       // sobre un mensaje que nadie leyó. Por partes, los textos de las partes.
-      if (jid) await guardarTurno(ws, jid, 'assistant', textoTurno, env.id).catch(() => {});
+      if (jid) await guardarTurno(ws, jid, 'assistant', textoTurno, idDelTurno).catch(() => {});
 
       // ¿ESTE AVISO INSISTE? Si el cliente lo configuró en Configuraciones ›
       // Notificaciones, además de salir queda una insistencia abierta: vuelve cada N
@@ -354,7 +381,9 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
           // pausado abría insistencias igual: un interruptor que miente, y lo que
           // sigue saliendo es lo que quema la línea de WhatsApp del cliente.
           const paso = flujo?.activo === false ? undefined : flujo?.pasos.find((x) => x.tipo === 'insistir');
-          if (paso?.tipo === 'insistir') {
+          // ⚠️ Y CON LA COPIA, SÓLO SI ALGUIEN USA EL GRUPO (`alguienAbrioElGrupo`): sin nadie en la app, el «ok» del grupo de WhatsApp nunca llega al webhook (la línea no está ahí),
+          // y las repeticiones siguen hasta el techo en un hilo que nadie abrió.
+          if (paso?.tipo === 'insistir' && (env.ok || (await alguienAbrioElGrupo(ws).catch(() => false)))) {
             const { abrirInsistencia } = await import('./insistencias');
             await abrirInsistencia(ws, { flujoId: a.tipo, texto, cadaMin: paso.cadaMin, veces: paso.veces });
           }
@@ -365,7 +394,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       }
     }
     const push = await pushP;
-    return { ok: true, feedId, wa: env.ok, email, push, deduped: false, waError: env.ok ? undefined : env.error, ...(sinGrupo ? { sinGrupo } : {}) };
+    return { ok: true, feedId, wa: env.ok, email, push, deduped: false, waError: env.ok ? undefined : env.error, ...(sinGrupo ? { sinGrupo } : {}), ...(copia ? { enApp: true as const } : {}) };
   } catch (e) {
     console.error(`[avisos] emitirAviso(${a.tipo}) falló:`, e);
     return { ok: false, feedId: null, wa: false, deduped: false };
