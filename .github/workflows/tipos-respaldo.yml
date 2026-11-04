@@ -75,11 +75,11 @@ jobs:
       # El tsc entero pide ~5 GB vivos (y V8 deja crecer el heap por encima): en un runner de 7,9 GB la parte de más va a swap. Sin swap el paso moriría por memoria (MATADO / SIN MEMORIA).
       # ⚠️ NO `/swapfile`: el runner ya trae ese archivo, en uso, y `fallocate` muere con «Text file busy». Así murió el 2/11 (el 26/10 no
       # había minutos): este flujo nunca dio un veredicto, y «Tipos» viene saliendo OK PARCIAL contando con él.
-      - name: Swap de 10 GB
+      - name: Swap de 6 GB
         if: steps.cambios.outputs.correr == 'si'
         run: |
           df -h /
-          sudo fallocate -l 10G /swapfile-tipos
+          sudo fallocate -l 6G /swapfile-tipos
           sudo chmod 600 /swapfile-tipos
           sudo mkswap /swapfile-tipos
           sudo swapon /swapfile-tipos
