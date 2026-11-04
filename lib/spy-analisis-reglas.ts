@@ -31,19 +31,30 @@ const CANALES_ANALIZABLES = new Set(['instagram', 'youtube', 'anuncios']);
  * Lo que se guarda para una pieza que se mandó y la IA no devolvió. Sin esto queda «pendiente» para siempre, y cada
  * lectura la vuelve a mandar y a pagar.
  */
-export const ANALISIS_SIN_DATOS = { gancho: '', tipoGancho: '', angulo: '', etiquetas: [] as string[] };
+export const ANALISIS_SIN_DATOS = { gancho: '', tipoGancho: '', angulo: '', etiquetas: [] as string[], formato: 'otro' };
 
-/** ¿Le falta el análisis? `null` es «no se leyó»; un objeto, aunque venga vacío, es «ya se leyó». */
-export const faltaAnalisis = (p: PiezaParaAnalisis): boolean => CANALES_ANALIZABLES.has(p.canal) && (p.analisis == null);
+/** ¿El análisis ya trae el formato? Lo que se guardó antes del 4/11/2026 no lo tiene (lo pide el detalle: lib/spy-detalle.ts). */
+const conFormato = (a: unknown): boolean => !!a && typeof a === 'object' && typeof (a as { formato?: unknown }).formato === 'string';
 
 /**
- * Las que faltan, en el orden en que se leen: primero lo que más vistas tiene (es lo que se va a copiar), y a igual
+ * ¿Le falta el análisis? `null` es «no se leyó»; un objeto, aunque venga vacío, es «ya se leyó»… si trae el formato.
+ *
+ * ⚠️ LO ANALIZADO ANTES DEL FORMATO SE LEE UNA VEZ MÁS (4/11/2026, «la vista de formatos se llena sola»): sin eso, un
+ * competidor ya analizado no llena nunca «¿Qué formatos le funcionan?». Es UNA vez: `guardarAnalisis` escribe siempre un
+ * formato (`otro` si la IA no lo vio), y una pieza que la IA no devuelve queda con `ANALISIS_SIN_DATOS`, que también lo trae.
+ */
+export const faltaAnalisis = (p: PiezaParaAnalisis): boolean => CANALES_ANALIZABLES.has(p.canal) && !conFormato(p.analisis);
+
+/**
+ * Las que faltan, en el orden en que se leen: primero las que nunca se leyeron, y entre ellas lo que más vistas tiene (es lo que se va a copiar), y a igual
  * vistas, lo más nuevo. Un contador que el canal no publica va al final, no cuenta como cero.
  */
 export function pendientesDeAnalisis<T extends PiezaParaAnalisis>(piezas: readonly T[], tope = PIEZAS_POR_ANALISIS): T[] {
   return piezas
     .filter(faltaAnalisis)
     .sort((a, b) => {
+      // Lo que nunca se leyó va antes que lo que sólo necesita el formato: eso ya tiene algo que mostrar.
+      if ((a.analisis == null) !== (b.analisis == null)) return a.analisis == null ? -1 : 1;
       if (a.vistas == null && b.vistas != null) return 1;
       if (b.vistas == null && a.vistas != null) return -1;
       if ((b.vistas ?? 0) !== (a.vistas ?? 0)) return (b.vistas ?? 0) - (a.vistas ?? 0);
