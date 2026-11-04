@@ -106,7 +106,7 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 **Sin hacer:**
 - Sacar la regla «nombra 20+» (`scripts/tests-afectados.mjs:67`): por ella corre siempre el test más lento, `tests/tipos-por-tandas.test.ts`. Ahorro inferido, ~200 s. Espera el veredicto de la suite semanal.
 - Filtro chico al subir una punta, sin candado y con tope de 60-90 s: guardas, tipos y tests de lo que tocó (`scripts/claude-hooks/pre-push`). Sin medir en la PC. Es un hook compartido: avisar antes.
-- Aviso de deploy fallido con los eventos de Vercel: `.github/workflows/despues-del-deploy.yml`. El 3/11 un deploy roto pasó 6 h sin aviso.
+- ✔ Hecho (4/11, `punta/despues-del-deploy`): `.github/workflows/despues-del-deploy.yml`. Un deploy de producción que falla deja una corrida ROJA; uno que sale bien pasa la prueba de humo (`scripts/humo-produccion.mjs`: 9 GET a hola-mako.com, uno de ellos lee la base por el camino del Pixel, sin escribir nada; sólo alarma, nunca rollback; no ve lo que está detrás de la sesión). Escucha `repository_dispatch` (`vercel.deployment.*`) y `deployment_status`, porque desde la nube no se pudo leer la doc de Vercel (vercel.com no resuelve) ni medir si `github.silent` corta alguno. Por eso un vigía, cada 8 h, da rojo si main recibió commits en 48 h y no llegó ni un evento. ⚠️ Sin medir: si llegan, y si el runner de GitHub pasa el firewall de Vercel en hola-mako.com.
 - Chequeo sobre el main resultante, y relanzar solas las puntas rojas por culpa de main.
 - Retirar `integracion.yml`: un workflow desactivado no da rojo. Antes, el mensaje del hook, 45 líneas de AGENTS.md y 5 tests.
 - Rollback: procedimiento y ensayo real, con el sí de Martín. Sin probar por API.
