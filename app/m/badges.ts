@@ -41,6 +41,9 @@ const FUENTES: Partial<Record<IdBarra, FuenteBadge>> = {
   // desde el 20/10/2026 el Dashboard es una fila de More (el Ops Center tomó su lugar), y el número va en More y en esa
   // fila (app/m/mas/page.tsx).
   mas: async (ctx) => (await contarParaDecidir({ rol: ctx.rol, capa: ctx.capa })).total,
+  // 04/11/2026: el Dashboard volvió a la barra (donde estaba Plan) y el número vuelve a él; More no lo repite
+  // (`contarBadges` saltea `mas` cuando el Dashboard está en la barra).
+  dashboard: async (ctx) => (await contarParaDecidir({ rol: ctx.rol, capa: ctx.capa })).total,
 };
 
 /** Los números de los lugares VISIBLES (los otros ni se consultan). */
@@ -49,7 +52,10 @@ export async function contarBadges(
   visibles: IdBarra[],
 ): Promise<Partial<Record<IdBarra, number>>> {
   const out: Partial<Record<IdBarra, number>> = {};
+  // Lo que espera una decisión va en UN lugar: en el Dashboard si está en la barra, si no en More.
+  const sinMas = visibles.includes('dashboard');
   await Promise.all(visibles.map(async (d) => {
+    if (d === 'mas' && sinMas) return;
     const fuente = FUENTES[d];
     if (!fuente) return;
     try {

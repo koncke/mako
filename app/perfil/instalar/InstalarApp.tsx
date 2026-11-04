@@ -14,17 +14,20 @@
 import type { ReactNode } from 'react';
 import { FilaAjustes, GrupoAjustes, TituloAjustes } from '@/app/_ui/Ajustes';
 import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN } from '@/lib/ia-pc-reglas';
+import { SinConexion } from './SinConexion';
 
 /** La descarga del instalador de cada sistema: la misma ruta que usan el chat sin la app y «Tus cuentas de IA». */
 export const DESCARGA_DE = { windows: '/api/ia-pc/descargar?os=windows', mac: '/api/ia-pc/descargar?os=mac' } as const;
 
-export function InstalarApp({ qr, url, extension }: {
+export function InstalarApp({ qr, url, extension, sinConexion }: {
   /** El código para la cámara del teléfono (un data URL), o null si no se pudo armar. */
   qr: string | null;
   /** La dirección de MaKo, la que abre el teléfono. */
   url: string;
   /** La versión es la que da la tienda, no la del repo: es la que esta persona se lleva al tocar el botón. */
   extension: { version: string; tienda: string };
+  /** MaKo sin conexión en esta computadora (28/10/2026, ./SinConexion.tsx). null = sesión sin persona: no se ofrece. */
+  sinConexion?: { email: string; noDisponible: string | null } | null;
 }) {
   const boton = (href: string, texto: ReactNode, opts: { afuera?: boolean; titulo?: string } = {}) => (
     <a className="aj-boton" data-variante="borde" href={href} title={opts.titulo}
@@ -40,6 +43,7 @@ export function InstalarApp({ qr, url, extension }: {
           fin={boton(DESCARGA_DE.windows, 'Descargar', { titulo: AVISO_SMARTSCREEN })} />
         <FilaAjustes icono="computadora" titulo="Mac" detalle="MaKo.app en un .zip"
           fin={boton(DESCARGA_DE.mac, 'Descargar', { titulo: AVISO_GATEKEEPER })} />
+        {sinConexion && <SinConexion email={sinConexion.email} noDisponible={sinConexion.noDisponible} />}
       </GrupoAjustes>
 
       <GrupoAjustes titulo="En tu teléfono">

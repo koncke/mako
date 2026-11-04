@@ -29,8 +29,9 @@ export const PARTES: Parte[] = [
   { titulo: 'El envío a una lista', detalle: 'Broadcasts a segmentos sobre Resend · reanudables, con corte por rate-limit y tope diario · doble gate para mandar de verdad', estado: 'hecha' },
   { titulo: 'La baja y la supresión', detalle: 'Token HMAC en el footer + One-Click · el rebote duro suprime, el blando no · las dos escriben leads.email_opt_out', estado: 'hecha' },
   { titulo: 'El dominio es del cliente', detalle: 'Opción A: key única de MaKo + dominio por workspace, con titularidad verificada para que nadie firme como otro', estado: 'hecha' },
-  { titulo: 'La tab /newsletters', detalle: 'ComingSoon con guard de rol · y es la única de las ocho de Sales Machine sin proyecto propio en el catálogo', estado: 'cola' },
-  { titulo: 'La recurrencia', detalle: 'Lo que separa una newsletter de un broadcast: cadencia, número de edición, y qué pasa con el que se suma a la mitad', estado: 'cola' },
+  { titulo: 'La tab /newsletters', detalle: 'MaKo abre preguntando (sin IA) · los suscriptos son un CRM «Newsletter» · las ediciones, broadcasts de ese CRM · sólo el super admin hasta el go-live del email', estado: 'hecha' },
+  { titulo: 'La recurrencia', detalle: 'Frecuencia y próxima edición anclada en la anterior · Lee/Dormido calculados de la lectura · la baja atribuida a su edición', estado: 'hecha' },
+  { titulo: 'Abrirla a todos los negocios', detalle: 'Sacar la fila de PRONTO en nav.ts (chat Sidebar) con el go-live del email, que decide Martín', estado: 'cola' },
   { titulo: 'El tracking del cliente con key propia', detalle: 'Pendiente F2: con su propia RESEND_API_KEY manda igual pero pierde abiertos, clics y rebotes — y con eso, la supresión', estado: 'sigue' },
 ];
 
@@ -116,5 +117,40 @@ export const BITACORA: Hito[] = [
       { sha: '9bee13c0', msg: 'El MX no prueba que la casilla exista, y otras tres del barrido', lineas: 156, archivos: 6 },
     ],
     archivos: ['docs/hallazgos-comunicacion.md — el circuito de reenvío y qué quedó sin confirmar'],
+  },
+
+  // ── 29 de octubre: el newsletter, aprobado ─────────────────────────────────
+  {
+    fecha: '29 oct', hora: '23:00', chat: 'Cerebro', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Un newsletter no es una secuencia: es una base que no termina',
+    pedido: 'cómo podemos instalar dentro de MaKo la funcionalidad de newsletter… es diferente a una secuencia de ventas por email… algo que no termina nunca, indefinido, una gran base de datos… ¿lo hacemos en Automations, con una nueva tarjeta, o en otra pestaña? … necesitamos la base de datos de registrados… podría ser un nuevo CRM que diga newsletter. [A la propuesta del Cerebro:] Sí, armalo así.',
+    puntos: [
+      'Lo aprobado: los suscriptos son un CRM «Newsletter» (Suscripto → Lee → Dormido → Dado de baja); las ediciones viven en esta tab, se escriben en el Copywriter, quedan en el Calendario y salen desde el dominio del negocio; Automations sólo para la bienvenida; métricas por edición y «Dormido» solo.',
+      'El envío de email sigue APAGADO en producción: prenderlo es decisión de Martín. Todo tenía que andar y poder probarse con el flag apagado.',
+    ],
+  },
+  {
+    fecha: '29 oct', hora: '23:57', chat: 'Newsletter', sesion: 'local_3058f25f-a009-403a-add8-7da19e902e24', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una edición es un broadcast del CRM «Newsletter»',
+    puntos: [
+      '**El modelo, sin tabla nueva:** una edición es un broadcast con segmento `newsletter:<funnelId>[:<etapa>]`, así que hereda el envío desde el dominio del negocio, el flag por workspace, la baja, el guard de 20 h y el cron de los programados. Que sea una edición se deriva del segmento.',
+      '**La tab abre con MaKo tomando la iniciativa, sin IA:** «¿Cada cuánto quieres mandar tu newsletter?» y «¿De qué trata?», con pastillas. Al contestar, la IA del negocio propone la primera edición; sin IA, se escribe en el Copywriter igual.',
+      '⚠️ **«Dormido» sin tracking dormía a toda la lista:** con su propia key de Resend o sin el webhook no llega ni una apertura. Una edición sin NINGUNA apertura no mide; tampoco cuentan los envíos simulados (envío apagado).',
+      '⚠️ **La bienvenida pedía una etiqueta que nadie pone:** la plantilla de la galería ya existía; ahora arranca con la etapa «Suscripto», que es la clave canónica `lead` porque el opt-in de la landing nunca escribe la etapa.',
+      'Con el envío apagado: vista previa, prueba al email de quien la pide y programar (espera). «Enviar ahora» se niega: quemaría la edición.',
+    ],
+    commits: [
+      { sha: '8c004a6a', msg: 'Newsletter: los suscriptos son un CRM y cada edición, un broadcast de ese CRM (aprobado por Martín el 29/10)', lineas: 2636, archivos: 35 },
+    ],
+    archivos: [
+      'lib/newsletter-reglas.ts — el segmento, las etapas, la regla de «Dormido», la config y la charla de apertura (puro)',
+      'lib/newsletter.ts — el CRM, los suscriptos (casa y agregados), las ediciones y la conciliación de la lectura',
+      'app/newsletters/ — la tab: la apertura con MaKo, los suscriptos, las ediciones y su editor',
+      'supabase/migrations/0351_newsletter.sql — la baja por edición y el guion del Copywriter de cada una',
+      'docs/hallazgos-newsletters.md — lo que hay que saber antes de tocarlo, y lo que quedó sin hacer',
+    ],
+    revisar: '/newsletters',
   },
 ];
