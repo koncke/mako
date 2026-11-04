@@ -321,7 +321,9 @@ export function hojaDestino(t: Tablero, pedido: string | null | undefined): Dest
   const plantilla = plantillaHojaDe(p);
   if (!plantilla) return { hojaId: null, agregar: null };
   if (plantilla.id !== p && t.hojas.some((h) => h.id === plantilla.id)) return { hojaId: plantilla.id, agregar: null };
-  const nacida = t.hojas.find((h) => h.plantilla === plantilla.id);
+  // Primero la que nació de la plantilla PEDIDA aunque ya se haya reemplazado (4/11/2026): quien tiene su Ads Analyst y abre
+  // /ads-analyst vuelve a ESA hoja, no recibe una nueva de la plantilla que la reemplaza.
+  const nacida = t.hojas.find((h) => h.plantilla === p) ?? t.hojas.find((h) => h.plantilla === plantilla.id);
   if (nacida) return { hojaId: nacida.id, agregar: null };
   const firma = FIRMAS[plantilla.id];
   const conFirma = firma ? t.hojas.find((h) => calzaFirma(h, firma)) : undefined;

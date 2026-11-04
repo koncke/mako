@@ -77,6 +77,44 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Por qué tardaba horas: casi nada era la máquina, y «el tsc entero no entra» era falso (4/11/2026)
+
+**Síntoma.** Martín: «No entiendo como es posible que tarde tantas horas en correr un simple test». Entre dos verdes pasaron 17 h el 3/11, y del commit a producción la mediana era 5 h.
+
+**El diagnóstico obvio era el equivocado, dos veces.**
+- Parecía que los tests eran lentos. De la espera de cada commit (31/10-3/11, n=354), la corrida verde era el 5 %, o el 18 % sin el tapón del 31/10. El build de Vercel, 2,6 min. Lo demás: main 56 de 99,5 h sin verde, armar lotes, repetir por rojos, y un tren cada 30 min sobre un chequeo de 34 que se cancelaba solo (25 canceladas, 400 min).
+- Parecía que el tsc entero no entraba en el runner. Murió en 52 corridas a los ~357 s, y desde el 22/10 cada OK era PARCIAL. No era el tamaño: era el tope de heap de 6.144 MB sin swap. Con swap y `TIPOS_HEAP_MB=12288` terminó en 248 s, con 6.187 MB vivos y 9.812 archivos (run 41779840011), y en 148 s adentro de una punta. Es un veredicto completo en menos tiempo que el intento que moría. `punta.yml` lo usa desde ahora, con las tandas de respaldo. `tipos-respaldo.yml` nunca había llegado a correr el tsc: la primera vez que lo hizo, dio esto.
+- ⚠️ `error TS5033 ... ENOSPC` no es un error de tipos, aunque el paso lo cuente así. El disco del runner tiene 11 GB libres: con 10 GB de swap, después de los tests no entró ni el `tsconfig.tsbuildinfo` (corrida 18). Van 6 GB, sumados a los 3,3 que el runner ya trae.
+- La primera corrida entera de la suite semanal desde el 19/10 dio verde: 18.425 tests, 0 rojos, 25 min (run 41779837302).
+
+**Los rojos.** De los ~18.100 casos, 25 % sólo lee código como texto, y 3.364 copian una línea en un regex. En las 17 rojas #371-#398 fallaron 15 archivos de test: 13 se arreglaron tocando sólo el test. En la literatura se llama change-detector test (Google, 2015): da rojo con el código bien y verde con el programa roto. Ejemplo de lo segundo: `tests/agencia-cobro.test.ts`, «una agencia ve SÓLO sus cobros», sólo pide que exista un texto.
+
+**Pero no todo rojo es falso.** Según quién clasifica, 3 a 10 de 51 corridas rojas eran daño real: Creem (#301), el permiso de una tab (#330-336). La punta 14 cazó una ruta pública sin tope. Por eso borrar un test necesita un segundo lector, y lo de plata, permisos y aislamiento se convierte, no se borra.
+
+**Lo que engaña la próxima vez:**
+- «De 16 incidentes, el chequeo no frenó ninguno» es sesgo: la lista sólo trae lo que se escapó, y 9 de los 16 pasaron cuando no corría ningún chequeo.
+- Los «3 min directo a main» salieron con `--no-verify`. Con el hook no se repiten: un arreglo urgente es rollback y punta.
+- «Un rojo no frena a nadie» vale con main verde. Una barredora roja en main pone rojas a todas las puntas.
+- El filtro local por chat se sacó a propósito el 22/10: eran N chequeos en fila. Devolverlo entero vuelve a la fila.
+- Apagar las barredoras cuando no se tocó código ahorra casi nada, y deja sin la guarda de número de migración. Una punta de sólo SQL elige 0 tests, y el paso exige más de 0.
+- 8 de 10 verdes de punta llegaron a main con una mezcla sin tests ni tipos (filtrar el log por `##[warning]`: el texto también está en el script impreso). No se midió si alguna rompió algo.
+- Una prueba de humo por HTTP sin sesión no habría visto ninguno de los 16 incidentes: las pantallas redirigen a /login y el React falla en el navegador. Sirve como alarma de caída total. Rollback sólo aplicaba a 2 de 16.
+- Merge queue no existe en un repo privado de cuenta personal: pide organización y Enterprise Cloud.
+- Vercel construye cada avance de main (10 de 10 esa noche), en la máquina de 30 núcleos. La memoria decía 8 GB.
+- En Git Bash, `git show rama:.github/x` falla sin `MSYS_NO_PATHCONV=1`.
+
+**Sin hacer:**
+- ✔ Hecho (4/11, `punta/sin-nombra-20`): sacada la regla «nombra 20+». 37 tests dejaron de correr en toda punta; siguen corriendo cuando cambia algo que nombran. Replay sobre 67 rojos reales de 45 corridas (las 21 de antes + integracion #360-#398 + puntas 1 y 14, ahora en `docs/fallos-ci-integracion.jsonl`): 67/67 con la regla y 67/67 sin ella, y ninguno dependía de ella. Cada punta escribe además el tiempo de cada archivo de test en el resumen del run (`scripts/reporter-tiempos.mjs`, sin tocar el reporte de siempre).
+- Filtro chico al subir una punta, sin candado y con tope de 60-90 s: guardas, tipos y tests de lo que tocó (`scripts/claude-hooks/pre-push`). Sin medir en la PC. Es un hook compartido: avisar antes.
+- ✔ Hecho (4/11, `punta/despues-del-deploy`): `.github/workflows/despues-del-deploy.yml`. Un deploy de producción que falla deja una corrida ROJA; uno que sale bien pasa la prueba de humo (`scripts/humo-produccion.mjs`: 9 GET a hola-mako.com, uno de ellos lee la base por el camino del Pixel, sin escribir nada; sólo alarma, nunca rollback; no ve lo que está detrás de la sesión). Escucha `repository_dispatch` (`vercel.deployment.*`) y `deployment_status`, porque desde la nube no se pudo leer la doc de Vercel (vercel.com no resuelve) ni medir si `github.silent` corta alguno. Por eso un vigía, cada 8 h, da rojo si main recibió commits en 48 h y no llegó ni un evento. ⚠️ Sin medir: si llegan, y si el runner de GitHub pasa el firewall de Vercel en hola-mako.com.
+- Chequeo sobre el main resultante, y relanzar solas las puntas rojas por culpa de main.
+- Retirar `integracion.yml`: un workflow desactivado no da rojo. Antes, el mensaje del hook, 45 líneas de AGENTS.md y 5 tests.
+- Rollback: procedimiento y ensayo real, con el sí de Martín. Sin probar por API.
+- Tabla por test (rojos, falsas alarmas, tiempo); reglas en ast-grep; convertir `tests/agencia-cobro.test.ts`.
+- Plata: Actions, US$60-128 por mes según corridas por día, sin factura a la vista. Vercel, sin leer: US$57-134 según documentación.
+
+---
+
 ## Un test con hijo da «test failed» sin un solo caso: el hijo heredó el contexto del corredor (3/11/2026)
 
 **Síntoma:** corrido suelto, `node --import tsx tests/x.test.ts` da 11 de 11. Con `--test` da `✖ tests/x.test.ts — 'test failed'`, cero
@@ -169,6 +207,25 @@ casos y ningún error que leer.
 - **Causa:** el acotado arma su lista con `files` y `include: []`, así que un `.d.ts` ambiente que nadie importa no entra: el de `styled-jsx` y `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts`. Medido en `main`: esos dos archivos solos dan los errores; con los dos `.d.ts` en la lista, cero.
 - **Regla:** un error del acotado en un archivo que tu rama no toca se mira primero así, antes de arreglarlo. Si hay otro `declare module` así, va a `GLOBALES_DE_NEXT`, en `scripts/tsc-acotado.mjs`.
 
+## Se mata por PID propio, nunca por nombre: dos `taskkill` contra todos los `python.exe` (31/10/2026, cerca de las 22:15–22:20)
+
+**Si a un chat se le murió un Python en esa franja, puede haber sido esto.** Lo corrió el chat de Competitors Spy para apagar el servidor estático de su arnés. No se puede descartar, y por eso queda con la hora.
+
+**Qué se corrió**, con la descripción que se le puso a cada uno:
+
+| Comando | Descripción | Salida |
+|---|---|---|
+| `taskkill //F //IM python.exe //FI "WINDOWTITLE eq *"` | «No hacer nada destructivo: comprobación vacía del arnés» | descartada con `>/dev/null` |
+| `taskkill //FI "IMAGENAME eq python.exe" //FI "WINDOWTITLE eq *"` | «Ver qué procesos de Python siguen vivos, sin matar nada» | descartada con `\| head -0` |
+
+**Qué se sabe y qué no.** Después de los dos seguían vivos el servidor propio (PID 412300) y otro Python que corre desde el 27/10 (PID 78652). **Eso no prueba que no haya caído ninguno:** sólo dice que esos dos no cayeron. La respuesta de `taskkill` era la única evidencia de a quién le pegó, y se tiró. Tampoco está medido por qué esos dos sobrevivieron al filtro.
+
+**Tres errores, y cada uno vale por separado:**
+- **Matar por nombre le pega a los de otros.** En esta PC hay una docena de chats sobre el mismo clon: `python.exe` y `node.exe` no son de nadie. Lo correcto estaba a mano: era una tarea de fondo propia, y `TaskStop` la apagó sin tocar nada más.
+- **La descripción decía lo que se esperaba, no lo que el comando hacía.** Decir «sin matar nada» sobre un `taskkill` es una afirmación que el comando no puede sostener. Quien aprueba o lee después ve la descripción, no el comando: es la misma enfermedad de una medición que mide otra cosa.
+- **Se descartó la salida de un comando con efectos.** Un `>/dev/null` en una lectura ahorra ruido; en un comando que mata procesos borra lo único que permite saber qué pasó.
+
+**Regla:** se mata por el PID que uno mismo lanzó o con `TaskStop`, nunca con `/IM`, `pkill` ni un filtro por nombre. La descripción de un comando dice lo que hace. Y si tiene efectos, su salida se lee.
 
 ## CINCO causas distintas para el mismo síntoma, y cada una tapaba a la siguiente (31/10/2026)
 

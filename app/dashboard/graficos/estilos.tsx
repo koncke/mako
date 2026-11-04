@@ -13,8 +13,18 @@
 
 import { CSS_HTML } from './estilos-html';
 
+/** La oración de apertura (./Frase.tsx). */
+const CSS_FRASE = `
+.gr-frase { margin: 0; flex: 1; min-height: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 4px 0; font-size: var(--fs-sect); line-height: 1.35; color: var(--dim); letter-spacing: -0.01em; overflow: hidden; }
+.gr-frase b { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+.gr-frase-tramo { white-space: normal; }
+.gr-frase-punto { color: var(--faint); }
+.gr-frase--vacia { font-size: var(--fs-md); color: var(--faint); }
+@container (max-width: 520px) { .gr-frase { font-size: var(--fs-card); } }
+`;
 export const CSS_GRAFICOS = `
 ${CSS_HTML}
+${CSS_FRASE}
 .gr-punto { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
 .gr-chip { display: inline-flex; align-items: center; font-size: var(--fs-sm); font-weight: 600; padding: 3px 9px; border-radius: 8px; background: var(--surface-2); color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 

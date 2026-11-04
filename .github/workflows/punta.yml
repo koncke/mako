@@ -181,6 +181,9 @@ jobs:
       - name: Tests afectados por lo que cambió (todos, sin cortar)
         if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
         timeout-minutes: 30
+        # El tiempo de cada archivo de test, al lado del reporte de siempre (scripts/reporter-tiempos.mjs). Lo lee el paso de abajo.
+        env:
+          MAKO_TIEMPOS_TESTS: ${{ runner.temp }}/tiempos-tests.tsv
         run: |
           set +e
           echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
@@ -195,15 +198,33 @@ jobs:
             exit 1
           fi
 
+      # Cuánto tardó cada archivo de test, en el resumen del run (4/11/2026). Para sacar un test de la fase que frena se mide
+      # ACÁ, en el runner, no en la PC: ver LENTOS_FUERA_DE_LA_FASE_RAPIDA en tests-afectados.mjs. Nunca da rojo: es un dato.
+      - name: Tiempo por archivo de test
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
+        run: node scripts/tiempos-tests.mjs "$RUNNER_TEMP/tiempos-tests.tsv" --top 15 >> "$GITHUB_STEP_SUMMARY" || true
+
       # El tsc entero, con `scripts/tipos-ci.mjs`: 98 es «SIN MEMORIA / sin veredicto», y sale tal cual, rojo. TIPOS_TANDAS es
       # el respaldo si el entero muere por memoria, y su OK sale «OK PARCIAL» con un aviso (historia en integracion.yml).
-      # ⚠️ EL TOPE: hoy el entero muere a los ~360 s y las 4 tandas suman ~270 s. Medido en 19 corridas de `integracion` (3/11/2026):
-      # de 603 a 727 s, y 727 ya pasaba de los 12 min que tenía acá. Un rojo falso de tipos le cuesta ~25 min a cada punta.
+      # ⚠️ EL ENTERO NO MORÍA POR GRANDE: moría contra el tope de 6.144 MB, sin swap. Con 10 GB de swap y tope de 12.288 MB terminó en
+      # 248 s, con 6.187 MB vivos y sin parcial (run 41779840011, 4/11/2026, n=1). Antes eran ~360 s de intento que muere más ~270 de
+      # tandas, para un OK PARCIAL. Después de los tests, para que el swap no les cambie los tiempos.
+      # ⚠️ 6 GB, NO 10: el disco del runner tiene 11 GB libres y el runner ya trae 3,3 GB de swap. Con 10, después de los tests no quedó
+      # lugar ni para el tsbuildinfo: `error TS5033 ... ENOSPC` se contó como un error de tipos, con el chequeo limpio (corrida 18).
+      - name: Swap para los tipos
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
+        run: |
+          sudo fallocate -l 6G /swapfile-tipos
+          sudo chmod 600 /swapfile-tipos
+          sudo mkswap /swapfile-tipos
+          sudo swapon /swapfile-tipos
+
       - name: Tipos
         if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
         timeout-minutes: 18
         env:
           TIPOS_TANDAS: '4'
+          TIPOS_HEAP_MB: '12288'
         run: |
           set +e
           SECONDS=0

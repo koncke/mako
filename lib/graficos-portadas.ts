@@ -162,6 +162,8 @@ export const MOLDES = {
 export type NombreMolde = keyof typeof MOLDES;
 /** Un número ancho y bajo (`n2x2`): 122 px, los 124 a 133 de Tilvo, Coffra, Ledra y Moorly. */
 const ALTO_NUMERO_BAJO = 3;
+/** La oración de apertura: dos renglones de frase con su título arriba. */
+export const ALTO_FRASE = 3;
 
 /**
  * Arma la hoja con su molde. Los títulos de sección no van: en la referencia el título vive en la tarjeta. Los ids no cambian: el closer y
@@ -178,7 +180,10 @@ export function comoDenso(hoja: Crudo, def: DefinicionPortada | undefined, id: I
   const pieza: Crudo | undefined = def && 'sube' in def ? (vieja && { ...vieja, ...(def.cambios ?? {}) }) : def?.nueva(id);
   const todas = [...(pieza ? [pieza] : []), ...comps.filter((c) => c !== vieja).sort(porLugar)];
   const sueltos = todas.filter((c) => c.tipo === 'accion');
-  const lista = todas.filter((c) => c.tipo !== 'accion');
+  // LA ORACIÓN DE APERTURA (tipo `frase`, lib/graficos-frase.ts) abre la hoja, a lo ancho y antes del molde: así abren las
+  // referencias (Orvel, Pane, Noria: la frase primero, el primer panel después). No compite por ser el principal.
+  const frases = todas.filter((c) => c.tipo === 'frase');
+  const lista = todas.filter((c) => c.tipo !== 'accion' && c.tipo !== 'frase');
 
   // Los números: la que la plantilla dio vuelta abre, que es donde va el negro.
   const numeros = lista.filter(esNumero).sort((a, b) => Number(!!b.invertida) - Number(!!a.invertida));
@@ -192,8 +197,12 @@ export function comoDenso(hoja: Crudo, def: DefinicionPortada | undefined, id: I
   const anchos = sinPrincipal.filter((c) => VA_A_LO_ANCHO.has(c.tipo));
 
   const puestas: Crudo[] = [];
-  const poner = (c: Crudo, x: number, y: number, w: number, h: number) => puestas.push({ ...c, x, y, w, h, subtitulo: '' });
+  // El subtítulo de la plantilla se queda en los paneles (4/11/2026, docs/templates-dashboard-propuesta.md §1.3: «cada bloque
+  // tiene título Y un subtítulo en castellano llano»). En un número no: le comería el alto, y su definición va en el título.
+  const poner = (c: Crudo, x: number, y: number, w: number, h: number) =>
+    puestas.push({ ...c, x, y, w, h, subtitulo: esNumero(c) || typeof c.subtitulo !== 'string' ? '' : c.subtitulo });
   let y = 0;
+  for (const f of frases) { poner(f, 0, y, COLS, ALTO_FRASE); y += ALTO_FRASE; }
   let conPrincipal: Crudo | undefined = principal;
   const tomarPrincipal = () => { const c = conPrincipal; conPrincipal = undefined; return c; };
   /** Una fila de paneles: toma hasta `anchos` y reparte las 12 columnas entre los que haya. */

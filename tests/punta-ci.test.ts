@@ -130,6 +130,7 @@ test('ningún paso de los que frenan traga su propio rojo', () => {
     assert.doesNotMatch(t, /exit 0/, `«${nombre}» no puede salir en verde por un costado`);
   }
   assert.match(paso(TIPOS).texto, /TIPOS_TANDAS: '4'/);
+  assert.match(paso(TIPOS).texto, /TIPOS_HEAP_MB: '12288'/, 'con el tope por defecto el entero muere, y se gastan 6 min para un OK PARCIAL');
   // Si el script cambia cómo dice el verde, este paso daría rojo siempre: que se entere quien lo cambie.
   assert.ok(leer('scripts/tests-afectados.mjs').includes("'✔ VERDE'} · ${r.total.tests} tests de"), 'el paso busca esa línea en la salida del script');
 });

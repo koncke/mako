@@ -9368,6 +9368,8 @@ Agrega un gráfico a una hoja del Dashboard: un `tipo` (tabla, serie, barras, ci
 | `filtros.texto` | string | no | En vez de valores: entra lo que contenga este texto. |
 | `comparar` | boolean | no | true = muestra el cambio contra el período anterior. |
 | `mako` | boolean | no | true = la tarjeta lleva el botón para preguntarle a MaKo; false = va sin. Sin esto, como está (de entrada sólo lo llevan las tendencias en el tiempo, los embudos y la dispersión). |
+| `ir` | string (crm \\| clients \\| plan \\| calendario \\| chats \\| automations \\| ads-manager \\| ads-writer \\| web-generator \\| video-generator \\| classroom \\| offer \\| cobranza \\| closing \\| marketing \\| comercial) | no | El «Ver … →» del pie de la tarjeta: la pantalla de MaKo donde se trabaja ese número. |
+| `frase` | string | no | Sólo el tipo frase: la oración con sus métricas entre llaves, en tramos separados por « · » («Entraron {cobrado} · {agendas} agendas»). {metrica:cambio} = cuánto cambió contra el período anterior (pide comparar). Un tramo sin dato no se muestra. |
 | `lugar` | string (abajo \\| arriba) | no | Dónde va: abajo de todo (default) o arriba de todo. |
 
 ```bash
@@ -9416,6 +9418,8 @@ Cambia un gráfico de una hoja: título, tipo, conjunto, métricas, dimensión, 
 | `comparar` | boolean | no | true = muestra el cambio contra el período anterior. |
 | `mako` | boolean | no | true = la tarjeta lleva el botón para preguntarle a MaKo; false = va sin. Sin esto, como está (de entrada sólo lo llevan las tendencias en el tiempo, los embudos y la dispersión). |
 | `pedido_mako` | string | no | Lo que el botón de MaKo de este gráfico responde primero al abrirse («por qué subió o bajó, y qué hacer»). «-» lo saca (vuelve el análisis de siempre). |
+| `ir` | string (crm \\| clients \\| plan \\| calendario \\| chats \\| automations \\| ads-manager \\| ads-writer \\| web-generator \\| video-generator \\| classroom \\| offer \\| cobranza \\| closing \\| marketing \\| comercial \\| -) | no | El «Ver … →» del pie de la tarjeta: la pantalla de MaKo donde se trabaja ese número. «-» lo saca. |
+| `frase` | string | no | Sólo el tipo frase: la oración con sus métricas entre llaves, en tramos separados por « · » («Entraron {cobrado} · {agendas} agendas»). {metrica:cambio} = cuánto cambió contra el período anterior (pide comparar). Un tramo sin dato no se muestra. «-» vuelve a la que se arma sola. |
 | `filtros` | object[] | no | Los filtros que DEFINEN el gráfico: no se dibujan y ganan sobre los de la hoja en el mismo campo. Reemplaza los que tenía; una lista vacía los saca. |
 | `filtros.campo` | string | sí | La categoría que se filtra: una dimensión del conjunto (etapa, campana) o un campo de ver_catalogo_dashboard. |
 | `filtros.valores` | string[] | no | Los valores que entran, escritos como los muestra el gráfico. |
