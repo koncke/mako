@@ -265,7 +265,7 @@ export async function programarAction(id: number, cuandoIso: string): Promise<Ok
     if (!EDITABLE.has(e.estado)) return { ok: false, error: 'Esa edición ya salió.' };
     const t = Date.parse(cuandoIso);
     if (!Number.isFinite(t)) return { ok: false, error: 'Elige el día y la hora.' };
-    if (t < Date.now() + 5 * 60_000) return { ok: false, error: 'Elige un momento de acá a más de 5 minutos.' };
+    if (t < Date.now() + 5 * 60_000) return { ok: false, error: 'Elige un momento al menos 5 minutos más adelante.' };
     await sincronizarDelCopywriter(id);
     const ya = await edicionDe(id);
     if (!ya?.asunto.trim() || !ya.cuerpo.trim()) return { ok: false, error: 'Antes de programarla, escribe el asunto y el cuerpo.' };

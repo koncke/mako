@@ -21,6 +21,7 @@ import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import '@/app/admin/operaciones/centro.css';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import { CajaChat } from '@/app/_chat/CajaChat';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { CSS_OFFER } from '@/app/offer/estilos';
 import { itemsDeOffer } from '@/app/m/mako/chat-ui';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
@@ -170,6 +171,9 @@ function Apertura({ estado, onEstado, onError, onEscribir, onListo }: {
   onListo: () => void;
 }) {
   const [texto, setTexto] = useState('');
+  // Sin la app de escritorio la caja se bloquea, como en todo chat con MaKo (tests/app-de-escritorio-todos-los-chats.test.ts);
+  // las respuestas rápidas siguen andando, como en el arranque del Media Buyer.
+  const appEscritorio = useAppDeEscritorio();
   const [ocupado, start] = useTransition();
   const [propuesta, setPropuesta] = useState<{ asunto: string; idea: string } | { error: string } | null>(null);
   const [ahora] = useState(() => Date.now());
@@ -228,7 +232,7 @@ function Apertura({ estado, onEstado, onError, onEscribir, onListo }: {
         cabecera={{ clave: 'newsletter-apertura', titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: ocupado ? 'trabajando' : 'despierto' }}
         caja={
           <div className="co-caja">
-            <CajaChat texto={texto} onTexto={setTexto} placeholder={pregunta?.id === 'tema' ? 'O escríbelo con tus palabras' : 'Escríbele a MaKo'} enterManda ocupado={ocupado}
+            <CajaChat texto={texto} onTexto={setTexto} placeholder={pregunta?.id === 'tema' ? 'O escríbelo con tus palabras' : 'Escríbele a MaKo'} enterManda ocupado={ocupado} bloqueo={appEscritorio.bloqueo}
               onMandar={() => { const t = texto.trim(); if (t) responder(t); }} />
           </div>
         }>
@@ -278,12 +282,12 @@ function Suscriptos({ estado, onImportar, onLanding }: {
             <li key={l.url}>
               <Switch checked={l.enNewsletter} disabled={ocupada === l.url}
                 onChange={async (v) => { setOcupada(l.url); await onLanding(l.url, v); setOcupada(null); }}
-                label={l.titulo} hint={l.enNewsletter ? 'Quien deja su email acá, entra a tu Newsletter.' : 'Prende para que sume suscriptos.'} />
+                label={l.titulo} hint={l.enNewsletter ? 'Quien deja su email aquí, entra a tu Newsletter.' : 'Prende para que sume suscriptos.'} />
             </li>
           ))}
         </ul>
       ) : (
-        <p className="nl-nota">Crea una landing con un formulario en el <Link href={RUTA_WEB_GENERATOR} className="nl-link">Web Generator</Link> y prendela acá.</p>
+        <p className="nl-nota">Crea una landing con un formulario en el <Link href={RUTA_WEB_GENERATOR} className="nl-link">Web Generator</Link> y préndela aquí.</p>
       )}
     </Section>
   );
