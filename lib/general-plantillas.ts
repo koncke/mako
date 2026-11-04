@@ -158,17 +158,26 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     ],
   },
   {
+    // 4/11/2026 — LUMORA · VITREA (docs/templates-dashboard-propuesta.md §7.3): «¿cuántos siguen ahí al mes 3?». Lumora abre con la
+    // frase de cuántos siguen viendo y si son más o menos que antes; Vitrea, el avance como barra contra el 100 % y lo que pasa por
+    // estado y por área. ⚠️ La permanencia por cohorte (M0…M5) no se mide todavía: lo que hay es quién vio clases en el período.
     id: 'curso', nombre: 'Curso o comunidad', emoji: '🎓',
-    linea: 'Cuántos alumnos avanzan y qué tanto, junto a lo que vendes y publicas.',
+    linea: 'Cuántos alumnos siguen viendo clases y qué tanto avanzan, junto a lo que vendes.',
     subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
-      numero('alumnos', 'avance_cursos', 'alumnos', 'Alumnos activos', { comparar: false }),
-      numero('clases', 'avance_cursos', 'clases', 'Clases vistas', { comparar: false }),
-      numero('pct', 'avance_cursos', 'pct', 'Avance promedio', { comparar: false }),
-      numero('ventas', 'leads', 'cierres', 'Ventas', { fecha: 'cierre' }),
-      { local: 'tendencia', tipo: 'serie', fuente: 'avance_cursos', dimension: 'dia', metricas: ['clases'], titulo: 'Clases vistas' },
-      { local: 'avance', tipo: 'bala', fuente: 'avance_cursos', metricas: ['avance'], dimension: null, maximo: 100, titulo: 'Cuánto avanzan tus alumnos' },
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'avance_cursos', metricas: ['clases'], dimension: null, titulo: 'Tus alumnos', comparar: true,
+        frase: 'Tus alumnos vieron {clases} clases · {clases:cambio} que el período anterior', ir: 'classroom',
+      },
+      numero('alumnos', 'avance_cursos', 'alumnos', 'Alumnos activos', { invertida: true, ir: 'classroom' }),
+      numero('ventas', 'leads', 'cierres', 'Ventas', { fecha: 'cierre', ir: 'closing' }),
+      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago', ir: 'cobranza' }),
+      { ...deHoy('atencion', 'cartera', 'atencion', 'Piden atención'), ir: 'clients' },
+      { local: 'tendencia', tipo: 'serie', fuente: 'avance_cursos', dimension: 'dia', metricas: ['alumnos'], titulo: 'Alumnos que vieron clases' },
+      { local: 'avance', tipo: 'bala', fuente: 'avance_cursos', metricas: ['avance'], dimension: null, maximo: 100, titulo: 'Cuánto avanzan' },
+      { local: 'por-estado', tipo: 'anillo', fuente: 'avance_cursos', dimension: 'estado', metricas: ['alumnos'], titulo: 'En qué van' },
       { local: 'por-area', tipo: 'barras', fuente: 'avance_cursos', dimension: 'area', metricas: ['alumnos'], titulo: 'Alumnos por área' },
+      { local: 'por-semana', tipo: 'columnas', fuente: 'avance_cursos', dimension: 'semana', metricas: ['clases'], titulo: 'Clases por semana' },
       bloque('publicaciones'),
     ],
   },
@@ -199,7 +208,7 @@ export const PORTADAS_GENERAL: Readonly<Record<string, DefinicionPortada>> = {
   foco: { sube: 'objetivos', vecino: 'objetivos', par: ['agenda', 'llamadas', 'tareas', 'deadlines'], molde: 'moorly' },
   operacion: { sube: 'prioridades', cambios: { texto: 'Lo primero de hoy' }, vecino: 'prioridades', par: ['cobranza', 'llamadas', 'agenda', 'deadlines', 'funnel'], molde: 'tilvo' },
   servicio: { sube: 'etapas', vecino: 'etapas', par: ['por-producto', 'contacto'], molde: 'prism' },
-  curso: { sube: 'tendencia', molde: 'corbel' },
+  curso: { sube: 'tendencia', vecino: 'tendencia', par: ['avance', 'por-area', 'por-estado', 'por-semana'], molde: 'corbel' },
   instagram: { sube: 'plataformas', molde: 'prism' },
 };
 
