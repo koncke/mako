@@ -60,7 +60,7 @@ const rutasQueEscriben = (): Array<{ archivo: string; ruta: string; metodos: str
 const accionesDelServidor = (): string[] => archivos().filter((f) => /\.(ts|tsx)$/.test(f) && /^\s*(\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*\s*['"]use server['"]/.test(leer(f)));
 const paginas = (): string[] => archivos().filter((f) => /\/page\.tsx$/.test(f) || f === 'app/page.tsx').map(rutaDe);
 
-const cookie = (mfa?: string, email = CUENTA_DE_REVISION.email) =>
+const cookie = (mfa?: string, email: string = CUENTA_DE_REVISION.email) =>
   `${SESSION_COOKIE}=${crearToken({ sub: '77', email, nombre: 'X', rol: 'usuario', ...(mfa ? { mfa: mfa as 'revision' } : {}) }, 7)}`;
 const REVISION = cookie('revision');
 const CLOSER = cookie(undefined, 'closer@otro.test');

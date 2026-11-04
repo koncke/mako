@@ -77,7 +77,8 @@ async function main() {
   const { RequestCookies } = await import('next/dist/server/web/spec-extension/cookies.js');
   const tareasAfter: Array<() => unknown> = [];
   /** Corre `fn` adentro de un pedido con esa cookie de sesión (o sin ninguna). */
-  const enPedido = <T>(cookie: string | null, fn: () => Promise<T>, ruta = '/api/prueba'): Promise<T> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lo que corre adentro viene de imports dinámicos (any)
+  const enPedido = (cookie: string | null, fn: () => Promise<any>, ruta = '/api/prueba'): Promise<any> => {
     const headers = new Headers({ host: 'mako.test', ...(cookie ? { cookie } : {}) });
     const store = {
       type: 'request', phase: 'action', implicitTags: { tags: [], expirationsByCacheKind: new Map() }, url: { pathname: ruta, search: '' },
