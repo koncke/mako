@@ -811,3 +811,52 @@ editor de verdad (el banco dibuja la miniatura, no el lienzo de Doory).
 `docs/relevo/nube-carruseles.md`); sumar los @ de los referentes del Ops Center (salen de `buscar`); y las miniaturas que no se
 pudieron bajar en una corrida (por el tiempo de `guardarMiniaturas`) se quedan con la del CDN de Instagram, que vence, hasta la
 próxima lectura de esa fuente (una semana después).
+
+## La primera carga de la biblioteca: lo que midió el Cerebro y qué se corrigió (4/11/2026, nube)
+
+**Vive en:** `lib/carruseles/clasificar.ts` (nuevo, puro), `lib/carruseles/biblioteca.ts`, `lib/carruseles/explorar.ts`,
+`scripts/carruseles-biblioteca.mts`, `supabase/migrations/0393_carruseles_biblioteca_contenido.sql`.
+
+Lo medido (el Cerebro, ~21:20 UTC, en producción): 160 carruseles de 10 temas y 7 cuentas; **142 «sin tipo»** (87 de temas, 55
+de cuentas); el primero por outlier de @leilahormozi, una foto de su embarazo («Anytime now….», 9,7×); `buscar` trajo cuentas
+equivocadas («Alex Hormozi» → @damaristradesww, @hormoziw); los temas devolvieron **15 a 30 de las 80** publicaciones pedidas y
+el plan prometía «hasta 300» (entraron 97 de temas); @sofiacontreras trajo **1**.
+
+- **Por qué el texto no alcanzaba para el tipo.** El clasificador de Spy (`formatoPorTexto`) tiene sus frases fuertes en
+  español y las cuentas de la lista escriben en inglés; la lista sólo se reconocía con doce sustantivos pegados al número
+  («5 formas», «3 lessons», «7 simple ways» quedaban afuera); y, sobre todo, **en un carrusel el formato está en las láminas, no
+  en el pie** («Guárdalo 📌»). `tipoDeCarrusel` usa primero Spy (lo de antes no cambia), después una lista amplia (número de 2 a
+  30 y un sustantivo contable, con una palabra en el medio), frases en inglés que el catálogo tiene en español, y «Cómo» CON
+  TILDE al arrancar el gancho («Como emprendedora…» no es un tutorial). Lo que no dice nada sigue «sin tipo»: es la verdad.
+- **La portada dice el tipo.** Instagram escribe un texto para las personas ciegas («May be an image of text that says
+  '5 errores…'»). Si el actor de Apify lo manda (`alt`, o el de la primera lámina), se lee el tipo de ahí antes que del pie y no
+  se guarda (sólo lo que se deduce). ⚠️ **No está confirmado que lo mande:** desde la nube no se llega a apify.com. La lectura
+  cuenta cuántas publicaciones lo traían («N de M traían el texto de la portada») para medirlo en la próxima carga.
+- **Volver a clasificar es GRATIS** (`reclasificar`): toma el texto guardado y sólo LLENA lo que falta (nunca pisa un tipo que
+  pudo venir de la portada). Lo que ya no tiene texto (vence a los 30 días) no se adivina.
+- **Lo personal se BAJA, no se esconde** (`pareceContenido`, tres valores, medible): `true` si tiene tipo, pide algo al final o
+  la portada tiene texto; `false` si la portada es de personas sin texto, o el pie es corto (menos de 8 palabras) sin tipo, sin
+  cierre y sin un número; `null` si no se puede decir. Sólo cambia el orden de «Mayor outlier» y «Más interacción» (y el recorte
+  de la biblioteca): lo `false` va después, con su número a la vista; por fecha no se mueve. **Cubre** la foto personal con un pie
+  corto y, con la portada, la portada de personas sin texto. **No cubre** un pie personal LARGO sin portada leída (queda `null`,
+  donde lo pone su outlier), y **puede bajar de más** un carrusel de contenido con un pie de una palabra y sin portada (se sigue
+  viendo, más abajo). Vale también para las cuentas que el negocio sigue en Spy: es la misma función.
+- **La señal se guarda al leer (mig 0393, `parece_contenido`)** porque sale de la portada, que no se guarda, y del pie, que
+  vence. Sin la columna, la pantalla la calcula del texto que queda y el script no la manda (una columna que no existe hace que
+  PostgREST rechace la fila ENTERA: el script lo pregunta antes con un `select` de esa columna).
+- **Buscar por nombre trae cuentas equivocadas, y no se arregla buscando mejor:** la búsqueda de Instagram devuelve parecidos.
+  `buscar` ahora los ordena por cuánto se parecen al nombre y lo dice, y **no da ninguno por bueno**. Para confirmar está
+  `verificar @x --referente id` (lee el perfil, ~US$0,003): «confirmada» sólo si el nombre del perfil tiene el nombre de pila y
+  un apellido, y la cuenta está verificada o tiene 100.000 seguidores o más, y publica (30 o más). Una pariente verificada con el
+  mismo apellido no pasa: el nombre de pila manda. Lo más simple sigue siendo que el superadmin cargue el @ que le pasa Martín.
+- **El plan prometía el techo.** Un hashtag devuelve 15 a 30: `PUBLICACIONES_POR_TEMA` pasó de 80 a 30 (pedir 80 no traía más
+  y reservaba el techo de 80 por tema, que dejaba fuentes afuera). El plan en seco dice lo ESPERADO con lo medido (unos 10
+  carruseles por tema y 9 por cuenta) y lo PROBABLE en dólares (Apify cobra lo que llega); `--max-carruseles` es un techo.
+- **Una cuenta que trae casi nada (menos de 5) se marca, no se saca:** la lectura lo avisa con el comando para verificarla, y
+  `estado`, el panel («¿es su cuenta?», con el @ que abre el perfil) y `ver_biblioteca_carruseles` lo dicen.
+- **Nada de esto necesita otra carga grande** (quedaban US$1,07 libres): `reclasificar` no gasta, `verificar` cuesta unos
+  centavos por cuenta, y la próxima lectura semanal de cada fuente llena lo que sale de la portada.
+
+**Lo que quedó SIN hacer:** confirmar que el actor manda `alt` (lo dice la próxima carga); y si no lo manda, el tipo de la mayoría
+de los carruseles de los temas va a seguir sin saberse por el pie: la salida sería leer la portada con la IA del negocio, que
+no es parte de este pedido («sin inventar», sin gasto de IA).

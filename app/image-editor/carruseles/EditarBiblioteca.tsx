@@ -98,7 +98,12 @@ export function EditarBiblioteca() {
                 <li key={c.id} className={s.cuentaFila} data-fuera={c.estado === 'excluida' ? 'si' : undefined}>
                   <span className={s.cuentaNombre}>
                     <strong>{c.nombre}</strong>
-                    <span>@{c.instagram} · {c.estado === 'excluida' ? `fuera: ${c.motivo ?? 'sin motivo'}` : `${c.piezas} publicaciones · ${leidaHace(c.leida_en)}`}</span>
+                    <span>
+                      <a href={`https://www.instagram.com/${c.instagram}/`} target="_blank" rel="noopener noreferrer" className={s.enlace}>@{c.instagram}</a>
+                      {' · '}{c.estado === 'excluida' ? `fuera: ${c.motivo ?? 'sin motivo'}` : `${c.piezas} ${c.piezas === 1 ? 'publicación' : 'publicaciones'} · ${leidaHace(c.leida_en)}`}
+                      {/* Trajo casi nada al leerla: casi seguro no es la cuenta del creador (o es privada). Se dice; no se saca sola. */}
+                      {c.dudosa ? <span className={s.dudosa} title="Al leerla trajo casi nada: abre el perfil y confirma que sea la cuenta del creador"> · ¿es su cuenta?</span> : null}
+                    </span>
                   </span>
                   {c.estado === 'excluida'
                     ? <button type="button" className={s.texto} disabled={ocupado} onClick={() => cambiar({ que: 'cuenta', accion: 'volver', valor: c.instagram })}>Volver a sumar</button>
@@ -120,7 +125,7 @@ export function EditarBiblioteca() {
                 <li key={t.id} className={s.cuentaFila} data-fuera={t.activo ? undefined : 'si'}>
                   <span className={s.cuentaNombre}>
                     <strong>{t.nombre}</strong>
-                    <span>#{t.hashtag} · {t.activo ? `${t.piezas} carruseles · ${leidaHace(t.leido_en).replace('leída', 'leído')}` : 'apagado'}</span>
+                    <span>#{t.hashtag} · {t.activo ? `${t.piezas} ${t.piezas === 1 ? 'carrusel' : 'carruseles'} · ${leidaHace(t.leido_en).replace('leída', 'leído')}` : 'apagado'}</span>
                   </span>
                   <button type="button" className={t.activo ? s.textoPeligro : s.texto} disabled={ocupado}
                     onClick={() => cambiar({ que: 'tema', accion: t.activo ? 'sacar' : 'volver', valor: t.hashtag })}>{t.activo ? 'Apagar' : 'Volver a sumar'}</button>

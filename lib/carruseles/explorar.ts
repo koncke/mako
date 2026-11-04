@@ -20,9 +20,10 @@
 // Puro (sin `server-only`): lo usan el lector (./explorar-servidor.ts), la pantalla, la API de MaKo y los tests.
 // =============================================================================
 
-import { formatoDe, formatoPorTexto, mejoresPiezas, FORMATOS, type Formato } from '../spy-detalle';
+import { formatoDe, mejoresPiezas, FORMATOS, type Formato } from '../spy-detalle';
 import type { Medio } from '../spy-medio';
 import { cierreDeTexto, plano, type Cierre } from './texto';
+import { pareceContenido, tipoDeCarrusel } from './clasificar';
 import { LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL, type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type VistaCarrusel } from './opciones';
 
 /** Un carrusel del explorador: una publicación de Instagram de una cuenta que el negocio sigue en Spy. */
@@ -59,6 +60,11 @@ export type Carrusel = {
   traida: string | null;
   /** Cuántas veces la mediana de su cuenta (el de Spy). null = no se puede decir. */
   outlier: number | null;
+  /**
+   * ¿Parece contenido o una publicación personal? (./clasificar.ts). Sólo ORDENA: lo que es `false` va después en «Mayor
+   * outlier» y «Más interacción», con su número a la vista. Ausente o null: no se puede decir, y no se mueve.
+   */
+  pareceContenido?: boolean | null;
 };
 
 /** Lo que entra de Spy, con la forma de `spy_piezas` (las columnas que se leen) y su competidor. */
@@ -106,7 +112,8 @@ export function carruselesDe(piezas: readonly PiezaParaCarrusel[], competidores:
         gancho: p.analisis?.gancho?.trim() || null,
         tipoGancho: p.analisis?.tipoGancho?.trim() || null,
         cierre: cierreDeTexto(p.texto),
-        formato: formatoDe(p.analisis?.formato) || formatoPorTexto(p.texto),
+        // El tipo que dijo la IA de Spy; si no, el que dice el carrusel (su pie: ./clasificar.ts, más amplio que el de Spy).
+        formato: formatoDe(p.analisis?.formato) || tipoDeCarrusel({ texto: p.texto }),
         medio,
         laminas: medio === 'carrusel' && typeof p.laminas === 'number' ? p.laminas : null,
         megusta: p.megusta,
@@ -114,6 +121,7 @@ export function carruselesDe(piezas: readonly PiezaParaCarrusel[], competidores:
         publicada: p.publicada_en,
         traida: p.visto_primera_vez,
         outlier: veces.get(p.id) ?? null,
+        pareceContenido: pareceContenido({ texto: p.texto, formato: formatoDe(p.analisis?.formato) || tipoDeCarrusel({ texto: p.texto }) || null, cierre: cierreDeTexto(p.texto) }),
       });
     }
   }
@@ -212,7 +220,13 @@ export function ordenarCarruseles(xs: readonly Carrusel[], orden: OrdenCarrusel)
       : orden === 'traidos' ? fecha(c.traida)
       : fecha(c.publicada);
   const asc = orden === 'viejos';
+  // En lo que mide el rendimiento, lo que parece personal va después (se ve, con su número): una foto del embarazo de una
+  // creadora con 9,7× no es un ejemplo de carrusel (./clasificar.ts dice qué cubre y qué no).
+  const porRendimiento = orden === 'outlier' || orden === 'interaccion';
+  const personal = (c: Carrusel) => (porRendimiento && c.pareceContenido === false ? 1 : 0);
   return [...xs].sort((a, b) => {
+    const pa = personal(a) - personal(b);
+    if (pa) return pa;
     const ka = clave(a); const kb = clave(b);
     if (ka == null && kb == null) return (interaccion(b) ?? -1) - (interaccion(a) ?? -1) || (fecha(b.publicada) ?? 0) - (fecha(a.publicada) ?? 0) || b.id - a.id;
     if (ka == null) return 1;

@@ -16,7 +16,7 @@ import { leerPorPaginas } from '../supabase-paginado';
 import { podarVencido } from '../spy-reglas';
 import { getRolWsEfectivo, getWorkspaceActual, wsSuperAdmin } from '../workspace';
 import {
-  carruselesDeBiblioteca, cuentaDeInstagram, decidirCambio, filaDeBiblioteca, hashtagDe, recortarBiblioteca,
+  carruselesDeBiblioteca, cuentaDeInstagram, cuentaDudosa, decidirCambio, filaDeBiblioteca, hashtagDe, recortarBiblioteca,
   type CambioBiblioteca, type CuentaBiblioteca, type PiezaBiblioteca, type TemaBiblioteca,
 } from './biblioteca';
 import type { Carrusel } from './explorar';
@@ -116,8 +116,9 @@ export async function puedeEditarBiblioteca(): Promise<boolean> {
 }
 
 export type BibliotecaParaEditar = {
-  /** La lista (la que elige la plataforma) y los que salieron, con cuántas publicaciones tiene cada uno. */
-  cuentas: Array<CuentaBiblioteca & { piezas: number }>;
+  /** La lista (la que elige la plataforma) y los que salieron, con cuántas publicaciones tiene cada uno, y si es DUDOSA: se
+   *  leyó y trajo menos de `POCAS_PUBLICACIONES` (medido el 4/11: @sofiacontreras trajo 1; probablemente no es la de ella). */
+  cuentas: Array<CuentaBiblioteca & { piezas: number; dudosa: boolean }>;
   /** Cuántos creadores llegaron sólo por un tema (no se listan uno por uno: son cientos). */
   porTema: number;
   temas: Array<TemaBiblioteca & { piezas: number }>;
@@ -137,7 +138,10 @@ export async function bibliotecaParaEditar(): Promise<BibliotecaParaEditar | nul
     return true;
   }, { orden: 'id' });
   return {
-    cuentas: cuentas.filter((c) => c.fuente === 'lista' || c.estado === 'excluida').map((c) => ({ ...c, piezas: porCuenta.get(c.id) ?? 0 })),
+    cuentas: cuentas.filter((c) => c.fuente === 'lista' || c.estado === 'excluida').map((c) => {
+      const piezas = porCuenta.get(c.id) ?? 0;
+      return { ...c, piezas, dudosa: c.estado === 'activa' && !!c.leida_en && cuentaDudosa(piezas) };
+    }),
     porTema: cuentas.filter((c) => c.fuente === 'tema' && c.estado === 'activa').length,
     temas: temas.map((t) => ({ ...t, piezas: porTemaN.get(t.id) ?? 0 })),
   };

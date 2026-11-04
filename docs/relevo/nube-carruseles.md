@@ -20,6 +20,7 @@ biblioteca. Se copian las FUNCIONES con datos propios.
 | 1 | «Carruseles que funcionan» en Image (`/image-editor?ver=carruseles`): buscar por tema y @cuenta, filtros (publicado, láminas, formato, imágenes sueltas), outlier, cuentas, orden (outlier, nuevos, viejos, interacción, traídos), grilla de dos tamaños, guardados, búsquedas guardadas, esta semana, la pestaña «Cuentas» con su análisis en Spy; la franja de «Nuevo diseño»; el teléfono; la API (`estado_carruseles`, `buscar_carruseles`, `guardar_carrusel`) | `punta/carruseles-explorar` | subida |
 | 2 | Ocho carruseles de MaKo por tipo en «Nuevo diseño» (miniatura con el nombre del negocio, «Ver ejemplo» con un negocio ficticio) y «Hacer el mío» en el explorador (la estructura de uno, no su contenido); la API (`crear_carrusel_desde_referencia`, y `buscar_carruseles` dice la estructura) | `punta/carruseles-crear` | subida |
 | 3 | La biblioteca de ejemplos: carruseles públicos de Instagram de una lista de cuentas y de temas (hashtags), la misma para todos los negocios, al lado de lo de cada negocio en el explorador; el panel de la plataforma en «Cuentas»; la API (`ver_biblioteca_carruseles`, `cambiar_biblioteca_carruseles`, y `buscar_carruseles` con `origen`); el script de la PC que la llena | `punta/carruseles-biblioteca` | subida, **sin cargar**: falta la 0392 y correr el script |
+| 4 | Correcciones de la primera carga (lo que midió el Cerebro el 4/11 ~21:20 UTC): el tipo de cada carrusel con un clasificador más amplio y el texto de la portada; lo personal baja en el orden (no se esconde); `verificar` para confirmar una cuenta; el plan en seco dice lo esperado; aviso de cuentas que traen casi nada | `punta/carruseles-biblioteca-2` | subida: falta la 0393 y `reclasificar` |
 
 ## Migración sin aplicar
 
@@ -33,6 +34,10 @@ biblioteca. Se copian las FUNCIONES con datos propios.
   y las 159 etiquetas de origin (0391 era la última)**; si estaba reservado, se renumera antes de aplicar. Orden de despliegue
   indiferente: sin las tablas, el explorador muestra sólo lo de cada negocio y el script lo dice ANTES de gastar.
   **La biblioteca NO depende de la 0391**: guarda si es carrusel y sus láminas en sus propias columnas.
+
+- **0393_carruseles_biblioteca_contenido.sql** — una columna, `parece_contenido`, en las publicaciones de la biblioteca. Sólo
+  agrega. Número elegido barriendo main, 209 ramas y 159 etiquetas (0392 era la última). Orden indiferente: sin ella la pantalla
+  calcula la señal del texto y el script no la manda.
 
 ## Qué probar en el negocio de prueba (ws 3)
 
@@ -117,6 +122,46 @@ tipo y sin repetidos. Una fuente leída hace menos de una semana no se vuelve a 
    mío» sobre uno de la biblioteca.
 4. En el negocio de la plataforma: «Cuentas» → «Editar la biblioteca de ejemplos» (sumar, sacar, apagar un tema). En otro
    negocio, ese panel no aparece y la acción contesta «La biblioteca de ejemplos la edita la plataforma.».
+
+## Correcciones de la primera carga (4/11/2026): qué correr
+
+Quedan US$1,07 libres este mes: **nada de esto pide otra carga grande.** Desde la raíz del clon, con el `.env.local`:
+
+1. Aplicar la **0393**: `node scripts/apply-migration.mjs supabase/migrations/0393_carruseles_biblioteca_contenido.sql`.
+2. Volver a clasificar lo guardado (GRATIS; primero en seco, que dice cuántos «sin tipo» quedan y muestra la primera línea de
+   15 que siguen sin tipo, para mirar a ojo por qué):
+
+```bash
+node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts reclasificar
+```
+
+```bash
+node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts reclasificar --de-verdad
+```
+
+3. Confirmar la cuenta de Sofía Contreras (trajo 1 publicación; unos US$0,003). Si sale «no parece» o «dudosa», sacarla con
+   `sacar` o cambiarla por la buena:
+
+```bash
+node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts verificar @sofiacontreras --referente sofia-contreras
+```
+
+4. Los @ de los referentes: los carga el superadmin en la pantalla («Cuentas» → «Editar la biblioteca de ejemplos») o con
+   `sumar`, después de confirmarlos (hasta 20 por corrida, unos US$0,003 cada uno). Por ejemplo:
+
+```bash
+node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts verificar @hormozi --referente hormozi
+```
+
+   «✔ confirmada» se suma; «? dudosa» y «✖ no parece» los decide una persona mirando el perfil. `buscar` sigue existiendo, pero
+   sólo lista parecidos ordenados (no confirma nada).
+5. `estado` ahora dice cuántos carruseles siguen sin tipo, cuántos parecen personales y qué cuentas trajeron casi nada.
+6. La próxima `leer` (en seco primero) dice lo ESPERADO con lo medido (unos 10 carruseles por tema y 9 por cuenta) y lo
+   PROBABLE en dólares, y al terminar cuenta cuántas publicaciones traían el texto de la portada. **Ese número dice si el actor
+   manda `alt`:** si da 0, el tipo de los carruseles de los temas va a seguir saliendo sólo del pie.
+
+**Qué mirar en la pantalla después:** «Mayor outlier» con los ejemplos: la foto del embarazo de @leilahormozi tiene que quedar
+después de los carruseles con tipo o con cierre (sigue a la vista, con su 9,7×); «Filtros» → tipo, con más tipos que antes.
 
 ## Para leer desde la PC (la nube no llega a ese dominio)
 

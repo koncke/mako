@@ -210,4 +210,30 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/image-editor?ver=carruseles',
   },
+  {
+    fecha: '4 nov', hora: '21:22', chat: 'Carruseles (nube)', sesion: 'cli_daed829d-dde6-5b48-8dd1-048974536370', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Corregir lo que salió de la primera carga de la biblioteca',
+    pedido: 'La biblioteca ya está en producción con datos reales: esto salió de la primera carga y hay que corregirlo. MEDIDO 4/11, ~21:20 UTC: 160 carruseles guardados, de 10 temas y 7 cuentas. […] PARA CORREGIR: 1. 142 de los 160 quedaron «sin tipo» (87 de temas, 55 de cuentas). El filtro por tipo casi no sirve así: mira por qué el texto no alcanza y clasifícalos mejor, sin inventar. 2. El orden por outlier sube publicaciones personales. El primero de @leilahormozi es una foto de su embarazo («Anytime now….», 9,7×). No sirven como ejemplo de carrusel: busca una forma medible de bajarlas sin esconder lo que funciona, y deja dicho qué cubre y qué no. 3. `buscar` por nombre trae sobre todo cuentas equivocadas […]. Hace falta otra forma de confirmar la cuenta, o que el superadmin cargue los @. 4. Los temas devolvieron 15 a 30 publicaciones de las 80 pedidas; el plan decía «hasta 300» y entraron 97. Corrige lo que promete el plan en seco. 5. @sofiacontreras devolvió 1 publicación: la cuenta probablemente no es la de ella. CRÉDITO: quedan US$1,07 libres este mes para la biblioteca. Nada de lo que corrijas puede necesitar otra carga grande para probarse.',
+    puntos: [
+      'Llegó por el Cerebro, con lo medido en producción. Lo cortado son los ejemplos de cuentas equivocadas y cómo se sube.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '21:40', chat: 'Carruseles (nube)', sesion: 'cli_daed829d-dde6-5b48-8dd1-048974536370', cuenta: 'nube', actor: 'claude', tipo: 'correccion',
+    titulo: 'La biblioteca de ejemplos: más tipos, lo personal abajo y cuentas confirmadas',
+    puntos: [
+      'Más carruseles dicen su tipo: se leen listas en inglés y con otros sustantivos («5 formas», «3 lessons»), frases en inglés y el texto de la portada que escribe Instagram, cuando viene. Lo que no dice nada sigue sin tipo.',
+      'Lo guardado se vuelve a clasificar gratis, sin pedirle nada a Apify.',
+      'Las publicaciones personales (un pie corto sin nada de contenido, o una portada de personas sin texto) van después en «Mayor outlier» y «Más interacción». Se siguen viendo, con su número.',
+      'Una cuenta se confirma leyendo su perfil (nombre, verificada, seguidores, publicaciones) antes de sumarla; buscar por nombre ya no da ninguna por buena.',
+      'El plan dice cuántos carruseles se esperan con lo medido, no el tope, y una cuenta que trae casi nada se marca «¿es su cuenta?» en la pantalla.',
+    ],
+    archivos: [
+      'lib/carruseles/clasificar.ts — el tipo de un carrusel y si parece contenido, sin IA',
+      'supabase/migrations/0393_carruseles_biblioteca_contenido.sql — la señal guardada al leer (sin aplicar)',
+      'scripts/carruseles-biblioteca.mts — reclasificar (gratis), verificar, lo esperado y las cuentas dudosas',
+      'app/image-editor/carruseles/EditarBiblioteca.tsx — «¿es su cuenta?» y el @ que abre el perfil',
+    ],
+    revisar: '/image-editor?ver=carruseles',
+  },
 ];

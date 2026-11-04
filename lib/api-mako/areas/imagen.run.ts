@@ -327,7 +327,7 @@ export const RUNNERS: Runners = {
       if (b === undefined) return JSON.stringify({ error: 'No pude leer la biblioteca. Vuelve a intentar.' });
       if (b === null) return JSON.stringify({ error: 'La biblioteca todavía no está creada (falta aplicar la migración 0392).' });
       return JSON.stringify({
-        cuentas: b.cuentas.map((c) => ({ instagram: `@${c.instagram}`, nombre: c.nombre, estado: c.estado, motivo: c.motivo, publicaciones: c.piezas, leida: c.leida_en })),
+        cuentas: b.cuentas.map((c) => ({ instagram: `@${c.instagram}`, nombre: c.nombre, estado: c.estado, motivo: c.motivo, publicaciones: c.piezas, leida: c.leida_en, ...(c.dudosa ? { aviso: 'Al leerla trajo casi nada: puede no ser la cuenta del creador.' } : {}) })),
         creadoresPorTema: b.porTema,
         temas: b.temas.map((t) => ({ hashtag: `#${t.hashtag}`, nombre: t.nombre, activo: t.activo, carruseles: t.piezas, leido: t.leido_en })),
         nota: 'Se lee con el script de la PC (scripts/carruseles-biblioteca.mts). Lo que se suma aparece la próxima vez que corre.',

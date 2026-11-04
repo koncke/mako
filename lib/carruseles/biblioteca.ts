@@ -12,7 +12,7 @@
 //   · TEMAS (hashtags pensados para los negocios de MaKo): de cada uno se toman sólo los CARRUSELES, ordenados por
 //     rendimiento (me gusta + comentarios), sin repetidos. Esos no llevan outlier: no se leyó su cuenta, y lo que no se
 //     midió no se dice.
-// Cada publicación queda clasificada por tipo (lista, tutorial, historia…: `formatoPorTexto`, lib/spy-detalle.ts) y con lo
+// Cada publicación queda clasificada por tipo (lista, tutorial, historia…: `tipoDeCarrusel`, ./clasificar.ts) y con lo
 // que pide al final (`cierreDeTexto`), leídos al guardarla: el texto vence a los 30 días y lo leído de él no.
 // NUNCA de otra biblioteca de carruseles: ni topcarousels.com, ni su /explore, ni su lista de cuentas.
 //
@@ -28,11 +28,12 @@
 
 import { usuarioInstagram } from '@/app/crm/campo-inline';
 import type { PiezaInstagram } from '../instagram-perfil';
-import { formatoDe, formatoPorTexto } from '../spy-detalle';
+import { formatoDe } from '../spy-detalle';
 import { medioDeInstagram } from '../spy-medio';
 import { USD_POR_PUBLICACION } from '../spy-todo-reglas';
 import { carruselesDe, plano, type Carrusel, type CompetidorParaCarrusel, type PiezaParaCarrusel } from './explorar';
 import { cierreDeTexto, esCierre, type Cierre } from './texto';
+import { pareceContenido, portadaDice, textoDePortada, tipoDeCarrusel } from './clasificar';
 
 export type EstadoCuentaBiblioteca = 'activa' | 'excluida';
 /** 'lista': la eligió la plataforma y se lee entera. 'tema': apareció por un hashtag y no se lee sola. */
@@ -72,6 +73,8 @@ export type PiezaBiblioteca = {
   comentarios: number | null;
   vistas: number | null;
   metricas_leidas_en?: string | null;
+  /** ¿Parece contenido? (./clasificar.ts) Lo guarda la lectura (mig 0393); sin la columna, se calcula del texto al mostrar. */
+  parece_contenido?: boolean | null;
   publicada_en: string | null;
   visto_primera_vez: string;
   dejo_de_verse_en: string | null;
@@ -116,7 +119,9 @@ export function carruselesDeBiblioteca(piezas: readonly PiezaBiblioteca[], cuent
     const p = guardado.get(c.id);
     const deLaLista = p ? activas.get(p.cuenta_id)?.fuente === 'lista' : false;
     const cierre = p && esCierre(p.cierre) ? p.cierre : c.cierre;
-    return { ...c, outlier: deLaLista ? c.outlier : null, cierre };
+    // Lo guardado al leer (con la portada) gana; sin eso, lo que dice el texto que queda.
+    const contenido = typeof p?.parece_contenido === 'boolean' ? p.parece_contenido : pareceContenido({ texto: c.texto, formato: c.formato || null, cierre });
+    return { ...c, outlier: deLaLista ? c.outlier : null, cierre, pareceContenido: contenido };
   });
 }
 
@@ -127,16 +132,18 @@ const DIAS_RECIENTES = 14;
 
 /**
  * Lo que de la biblioteca llega al explorador. Sólo carruseles: las imágenes sueltas de una cuenta de la lista se guardan para
- * su mediana (el outlier) y no son ejemplos. Si pasan el tope, primero lo de los últimos 14 días y después lo que mejor rindió
- * (el outlier; sin outlier, la interacción). Lo que no se midió va después de lo medido, nunca como un cero.
+ * su mediana (el outlier) y no son ejemplos. Si pasan el tope, primero lo de los últimos 14 días, después lo que parece
+ * contenido (lo personal va al final, ./clasificar.ts) y después lo que mejor rindió (el outlier; sin outlier, la
+ * interacción). Lo que no se midió va después de lo medido, nunca como un cero.
  */
 export function recortarBiblioteca(cs: readonly Carrusel[], tope = CARRUSELES_EN_EXPLORADOR, ahora = Date.now()): Carrusel[] {
   const carruseles = cs.filter((c) => c.medio !== 'imagen');
   if (carruseles.length <= tope) return carruseles;
   const reciente = (c: Carrusel) => Date.parse(c.publicada ?? '') >= ahora - DIAS_RECIENTES * 86_400_000;
   const inter = (c: Carrusel) => (c.megusta ?? 0) + (c.comentarios ?? 0);
+  const personal = (c: Carrusel) => Number(c.pareceContenido === false);
   return [...carruseles]
-    .sort((a, b) => Number(reciente(b)) - Number(reciente(a)) || (b.outlier ?? -1) - (a.outlier ?? -1) || inter(b) - inter(a) || a.id - b.id)
+    .sort((a, b) => Number(reciente(b)) - Number(reciente(a)) || personal(a) - personal(b) || (b.outlier ?? -1) - (a.outlier ?? -1) || inter(b) - inter(a) || a.id - b.id)
     .slice(0, Math.max(0, tope));
 }
 
@@ -242,8 +249,32 @@ export const TEMAS_INICIALES: ReadonlyArray<{ hashtag: string; nombre: string }>
 
 /** Cuántas publicaciones se piden por cuenta de la lista: con eso hay de dónde sacar su mediana (el outlier). */
 export const PUBLICACIONES_POR_CUENTA = 40;
-/** Cuántas se piden por tema: los carruseles son una parte, y de esos se guardan los que mejor rinden. */
-export const PUBLICACIONES_POR_TEMA = 80;
+/**
+ * Cuántas se piden por tema. MEDIDO en la primera carga (4/11/2026): la página de un hashtag devolvió 15 a 30 publicaciones
+ * de las 80 pedidas. Pedir más no trae más, y reservaba el techo de 80 por tema (el plan dejaba afuera fuentes que entraban).
+ */
+export const PUBLICACIONES_POR_TEMA = 30;
+
+/**
+ * Lo que trajo de verdad la primera carga (4/11/2026, 10 temas y 7 cuentas, 160 carruseles): unos 10 carruseles por tema y
+ * 9 por cuenta. El plan en seco dice lo ESPERADO con esto; el tope (`--max-carruseles`) es un techo, no una promesa.
+ */
+export const MEDIDO_CARRUSELES = { porTema: 10, porCuenta: 9, fecha: '4/11/2026' } as const;
+/** Lo que costó cada publicación que llegó (Apify cobra por resultado): el techo de cada corrida es más alto que lo probable. */
+export const MEDIDO_PUBLICACIONES = { porTema: [15, 30] as const, porCuenta: 40 } as const;
+
+/** Lo esperado de un plan, con lo medido: cuántos carruseles y cuánto cuesta, probablemente (no el techo). */
+export function esperadoDelPlan(lecturas: readonly LecturaPlaneada[]): { carruseles: number; usdProbable: number } {
+  const temas = lecturas.filter((l) => l.fuente.tipo === 'tema');
+  const cuentas = lecturas.filter((l) => l.fuente.tipo === 'cuenta');
+  const carruseles = temas.length * MEDIDO_CARRUSELES.porTema + cuentas.length * MEDIDO_CARRUSELES.porCuenta;
+  const publicaciones = temas.reduce((n, l) => n + Math.min(l.cuantas, MEDIDO_PUBLICACIONES.porTema[1]), 0) + cuentas.reduce((n, l) => n + l.cuantas, 0);
+  return { carruseles, usdProbable: Math.ceil(publicaciones * USD_POR_PUBLICACION * 100) / 100 };
+}
+
+/** Una cuenta de la lista que trajo menos que esto casi seguro NO es la del creador (o es privada): se avisa, no se borra. */
+export const POCAS_PUBLICACIONES = 5;
+export const cuentaDudosa = (llegaron: number): boolean => llegaron < POCAS_PUBLICACIONES;
 /** Los topes de una corrida si no se dicen otros (el pedido de Martín para la primera carga). */
 export const TECHO_USD_POR_DEFECTO = 2;
 export const CARRUSELES_POR_DEFECTO = 300;
@@ -344,7 +375,7 @@ const interaccion = (p: Pick<PiezaInstagram, 'megusta' | 'comentarios'>) => (p.m
  * Cada una se clasifica al guardarla: su tipo y lo que pide al final.
  */
 export function filasDeLectura(
-  piezas: ReadonlyArray<PiezaInstagram & { creador: string }>,
+  piezas: ReadonlyArray<PiezaInstagram & { creador: string; alt?: string | null }>,
   o: { tema: number | null; tope?: number; fuera?: ReadonlySet<string>; ahora?: Date },
 ): FilaPiezaBiblioteca[] {
   const cuando = (o.ahora ?? new Date()).toISOString();
@@ -362,7 +393,8 @@ export function filasDeLectura(
     const medio = medioDeInstagram(p.tipo);
     const fecha = Date.parse(p.fecha ?? '');
     const texto = p.texto?.trim() || null;
-    const formato = formatoDe(formatoPorTexto(texto)) || null;
+    // El tipo, de la portada (el texto que escribió Instagram, si vino) y del pie (./clasificar.ts).
+    const formato = formatoDe(tipoDeCarrusel({ texto, portada: textoDePortada(p.alt) })) || null;
     const cierre: Cierre | null = cierreDeTexto(texto);
     return {
       creador: p.creador, tema_id: o.tema, ref: p.ref.slice(0, 80), url: p.permalink, miniatura: p.miniatura, texto, texto_leido_en: cuando,
@@ -370,6 +402,7 @@ export function filasDeLectura(
       medio, laminas: medio === 'carrusel' && typeof p.laminas === 'number' && p.laminas >= 2 && p.laminas <= 20 ? p.laminas : null,
       megusta: p.megusta, comentarios: p.comentarios, vistas: p.vistas, metricas_leidas_en: cuando,
       publicada_en: Number.isFinite(fecha) ? new Date(fecha).toISOString() : null,
+      parece_contenido: pareceContenido({ texto, formato: formato === 'otro' ? null : formato, cierre, portada: portadaDice(p.alt) }),
     };
   });
 }
@@ -388,4 +421,78 @@ export function referentesSinCuenta(referentes: ReadonlyArray<{ id: string; comp
   const yaPorRef = new Set(enLista.map((c) => c.referente).filter(Boolean));
   const yaPorNombre = new Set(enLista.map((c) => plano(c.nombre)));
   return referentes.filter((r) => !yaPorRef.has(r.id) && !yaPorNombre.has(plano(r.completo)));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Volver a clasificar lo guardado (gratis: no pide nada a Apify)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lo que cambia de una publicación guardada si se la vuelve a clasificar con su texto (sin la portada: no se guardó). Sólo
+ * LLENA lo que falta: un tipo, un cierre o la señal de contenido que ya están no se pisan (pueden venir de la portada).
+ * Sin texto (venció a los 30 días), no cambia nada. null = nada que cambiar.
+ */
+export function reclasificacion(f: Pick<PiezaBiblioteca, 'texto' | 'formato' | 'cierre' | 'parece_contenido'>): { formato?: string; cierre?: Cierre; parece_contenido?: boolean } | null {
+  const texto = f.texto?.trim() || null;
+  if (!texto) return null;
+  const cambios: { formato?: string; cierre?: Cierre; parece_contenido?: boolean } = {};
+  const formato = f.formato || formatoDe(tipoDeCarrusel({ texto })) || null;
+  if (!f.formato && formato && formato !== 'otro') cambios.formato = formato;
+  const cierre = (esCierre(f.cierre) ? f.cierre : null) ?? cierreDeTexto(texto);
+  if (!f.cierre && cierre) cambios.cierre = cierre;
+  if (typeof f.parece_contenido !== 'boolean') {
+    const c = pareceContenido({ texto, formato: formato && formato !== 'otro' ? formato : null, cierre });
+    if (c !== null) cambios.parece_contenido = c;
+  }
+  return Object.keys(cambios).length ? cambios : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Confirmar una cuenta antes de sumarla
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * ¿Este perfil es el de esta persona? Buscar por nombre en Instagram trae cuentas equivocadas (medido el 4/11/2026: para
+ * «Alex Hormozi», @damaristradesww y @hormoziw), así que el @ se CONFIRMA leyendo el perfil y comparando lo que se puede
+ * medir: que el nombre del perfil tenga el nombre y el apellido, que la cuenta esté verificada o tenga muchos seguidores, y
+ * que publique. «confirmada» es lo único que el script ofrece sumar; lo demás lo decide una persona mirando el perfil.
+ */
+/**
+ * ¿El nombre de un perfil es el de esta persona? Su nombre de pila Y al menos uno de sus apellidos (con «Adrià Sola Pastor»,
+ * exigir las tres palabras dejaba afuera un perfil que dice «Adrià Sola»). Sin tildes ni mayúsculas; palabras de 3 letras o más.
+ */
+export function nombreCoincide(nombre: string | null | undefined, completo: string): boolean {
+  const palabras = plano(completo).split(' ').filter((w) => w.length >= 3);
+  const n = plano(nombre ?? '');
+  if (!palabras.length || !n) return false;
+  const [pila, ...apellidos] = palabras;
+  return n.includes(pila) && (!apellidos.length || apellidos.some((w) => n.includes(w)));
+}
+
+export function confianzaDeCuenta(
+  p: { usuario: string; nombre: string | null; seguidores: number | null; publicaciones: number | null; verificada?: boolean | null },
+  completo: string | null,
+): { nivel: 'confirmada' | 'dudosa' | 'no-parece'; motivos: string[] } {
+  const motivos: string[] = [];
+  const palabras = completo ? plano(completo).split(' ').filter((w) => w.length >= 3) : [];
+  const enNombre = palabras.length && completo ? nombreCoincide(p.nombre, completo) : null;
+  const enUsuario = palabras.length ? palabras.some((w) => plano(p.usuario).includes(w)) : null;
+  if (enNombre === false) motivos.push(`el nombre del perfil («${p.nombre ?? 'sin nombre'}») no dice «${completo}»`);
+  if (p.verificada === true) motivos.push('verificada');
+  if (p.seguidores != null) motivos.push(`${p.seguidores.toLocaleString('es')} seguidores`);
+  if (p.publicaciones != null) motivos.push(`${p.publicaciones.toLocaleString('es')} publicaciones`);
+  const grande = p.verificada === true || (p.seguidores ?? 0) >= 100_000;
+  const publica = (p.publicaciones ?? 0) >= 30;
+  if (enNombre !== false && grande && publica) return { nivel: 'confirmada', motivos };
+  if (enNombre === false && enUsuario === false) return { nivel: 'no-parece', motivos };
+  if (!publica && p.publicaciones != null) motivos.push('publica poco');
+  return { nivel: 'dudosa', motivos };
+}
+
+/** Qué tanto se parece un candidato de la búsqueda al nombre buscado (0 a 2): su nombre lo dice entero (2), su @ lo nombra (1). */
+export function parecidoConNombre(c: { usuario: string; nombre?: string | null }, completo: string): number {
+  const palabras = plano(completo).split(' ').filter((w) => w.length >= 3);
+  if (!palabras.length) return 0;
+  if (nombreCoincide(c.nombre, completo)) return 2;
+  return palabras.some((w) => plano(c.usuario).includes(w)) ? 1 : 0;
 }
