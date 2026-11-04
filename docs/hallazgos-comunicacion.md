@@ -12546,3 +12546,29 @@ todo lo que importa esos módulos, no los que uno se acuerda.
   - La cuenta compartida la avisa el workspace de menor id (`cuentasYaAvisadas`), y ese decide también el destino: una cuenta compartida entre un
     cliente directo y uno de agencia puede avisarle a uno solo.
   - Una agencia que bajó de capa sigue recibiendo la alerta con un link a MaKo Partners que ya no la deja entrar.
+
+---
+
+## «No puedo ver mis chats de Instagram»: no eran chats (#50 de Leandro, 4/11/2026)
+
+**Síntoma:** las filas de Instagram dicen «(Mensaje no compatible)» y al abrirlas, «Todavía no hay mensajes. Escribe el primero». El diagnóstico obvio
+es que el hilo de Instagram no carga en el teléfono. **No: los mensajes que existen se ven.** Medido en ws10: 356 personas, **293 sin un solo mensaje**, y
+las 293 con `comentario_id`, sin `zernio_conversation_id` ni `ultimo_mensaje_at`. Comentaron una publicación; nunca escribieron.
+
+**Causa:** `conUltimoMensaje` les pone el texto «Comentó una publicación» con tipo `otro`, y después `previewDe` (que dice un adjunto por su tipo, nunca
+por su texto) lo reemplazó por «(Mensaje no compatible)». Dos reglas correctas por separado. Y en el hilo el comentario no estaba.
+
+**La regla:** un texto que escribe el código para una fila va con tipo `text`. `otro` es para lo que de verdad no se reconoce.
+
+**Sin hacer:** el TEXTO del comentario no se guarda (`filaDe`, lib/zernio-entrante.ts: llega en el evento y se usa sólo para disparar). Mostrarlo pide una
+columna en `ig_conversaciones`: una migración, la decide Martín. Y el hilo sigue sin lo que manda el motor (vive en `nutricion_envios`).
+
+## Un audio se cortaba solo cada 15 s en el teléfono (#50, 4/11/2026)
+
+Leandro pidió la velocidad, y el `<audio controls>` del iPhone no la ofrece. Al pasar al reproductor de la casa (`AudioPlay`) apareció lo otro: `/m/chats` relee el
+hilo cada 15 s y **cada lectura firma de nuevo la URL del Storage**. Un `src` que cambia recarga el audio y lo para. Por código pasaba igual con el nativo
+(no se midió en un teléfono), y con la velocidad se habría vuelto a 1× cada 15 s. **La regla:** dos URLs firmadas del mismo archivo son el mismo audio
+(`mismoArchivo`: sólo cambia el `token`; otra query es otro archivo). Si la guardada vence, el error prueba con la última.
+
+**Vive en:** `LO_ULTIMO_FUE_COMENTAR`, `eventoDelComentario` (lib/canal-social.ts) · `previewDe` (app/chats/lista-reglas.ts) ·
+`AudioPlay` (app/whatsapp/_shared/AudioPlay.tsx) · tests/m-chats.test.ts · tests/whatsapp-sexta-tanda.test.ts.

@@ -45,10 +45,12 @@ import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from '@/lib/disparadore
 import { publicarPasos, duplicadaDeLaActivacion, DuplicadaError, type PasoSecuencia } from '@/lib/nutricion';
 import { avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { remitenteEsSandbox, emailConectado, displayNameDe, verifyResendDomain, getResendDomain, remitenteDelNegocioActual, SANDBOX_FROM } from '@/lib/resend';
+import { remitenteEsSandbox, emailConectado, displayNameDe, remitenteDelNegocioActual, SANDBOX_FROM } from '@/lib/resend';
 import type { MotivoSinRemitente } from '@/lib/email-remitente';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
 import { zonaDelNegocio } from '@/lib/timezone';
+import { prepararConexion, conectarDominio, prepararRemitente, fijarRemitente, verificarDominio } from '@/lib/email-dominio';
+import type { RegistroDns } from '@/lib/email-dominio-reglas';
 import {
   anclaDeLaProxima, asegurarCrmNewsletter, conteoPorEtapa, crearEdicion, crmDelNewsletter, guardarConfigNewsletter,
   leerConfigNewsletter, listarEdiciones, suscriptosDe,
@@ -605,18 +607,18 @@ export const RUNNERS: Runners = {
       if (!id) return { error: 'Este negocio no tiene un dominio de envío cargado: primero hay que agregarlo en /email.' };
       return { payload: {}, resumen: 'Pedirle a Resend que revise los registros DNS del dominio de envío del negocio.' };
     },
+    // La MISMA verificación que /email (lib/email-dominio.ts, 4/11/2026): de paso, prende el seguimiento de aperturas y clics
+    // de un dominio que lo tenía apagado (uno dado de alta antes de ese día).
     ejecutar: async (): Promise<Ejecutado> => {
-      const id = await dominioIdDelWorkspace();
-      if (!id) return { ok: false, resumen: 'Este negocio ya no tiene un dominio de envío cargado.' };
-      const v = await verifyResendDomain(id);
-      if (!v.ok) return { ok: false, resumen: `Resend rechazó la verificación: ${v.error ?? 'sin detalle'}.` };
-      const d = await getResendDomain(id);
-      if (!d.ok) return { ok: true, resumen: `Verificación pedida a Resend. No se pudo leer el estado nuevo (${d.error}); puede tardar unos minutos.` };
-      const pendientes = d.domain.records.filter((r) => r.status && r.status !== 'verified').length;
+      const v = await verificarDominio();
+      if (!v.ok) return { ok: false, resumen: v.status === 400 ? 'Este negocio ya no tiene un dominio de envío cargado.' : `Resend rechazó la verificación: ${v.error}.` };
+      if (!v.dominio) return { ok: true, resumen: 'Verificación pedida a Resend. No se pudo leer el estado nuevo; puede tardar unos minutos.' };
+      const pendientes = v.registros.filter((r) => r.estado && r.estado !== 'verified').length;
+      const seguimiento = v.seguimiento === true ? ' Prendí las aperturas y los clics.' : typeof v.seguimiento === 'string' ? ` No pude prender las aperturas y los clics (${v.seguimiento}).` : '';
       return {
         ok: true,
-        resumen: `Verificación pedida. Dominio ${d.domain.name}: ${d.domain.status}${pendientes ? `, ${pendientes} registro(s) DNS sin verificar` : ''}. Puede tardar unos minutos en actualizarse.`,
-        datos: { dominio: d.domain.name, estado: d.domain.status },
+        resumen: `Verificación pedida. Dominio ${v.dominio}: ${v.estado}${pendientes ? `, ${pendientes} registro(s) DNS sin verificar` : ''}. Puede tardar unos minutos en actualizarse.${seguimiento}`,
+        datos: { dominio: v.dominio, estado: v.estado, ...(pendientes ? { registros: v.registros } : {}) },
       };
     },
   },
@@ -880,4 +882,50 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: on ? 'Envío real de email prendido.' : 'Envío real de email apagado: todo queda simulado.' };
     },
   },
+
+  // ── El dominio y el remitente, por la API (4/11/2026): la MISMA lógica que /email (lib/email-dominio.ts) ──────────────
+  conectar_dominio_email: {
+    preparar: async (input, ctx) => {
+      const p = await prepararConexion(ctx.ws, input.dominio);
+      if (!p.ok) return { error: p.error };
+      return {
+        payload: { dominio: p.dominio },
+        resumen: `Conectar ${p.dominio} para mandar los correos del negocio${p.reemplaza ? ` (reemplaza a ${p.reemplaza})` : ''}: te devuelvo los registros DNS que hay que cargar, y quedan prendidas las aperturas y los clics.`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const r = await conectarDominio(ctx.ws, payload.dominio);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      const seguimiento = r.seguimiento === true ? 'Aperturas y clics: prendidos.' : `No pude prender las aperturas y los clics (${r.seguimiento}): se vuelve a intentar al verificar.`;
+      return {
+        ok: true,
+        resumen: `Dominio ${r.dominio} conectado (${r.estado}). Carga estos registros en el proveedor del dominio y después pide verificar_dominio_envio: ${textoRegistros(r.registros)}. ${seguimiento}`,
+        datos: { dominio: r.dominio, estado: r.estado, registros: r.registros, seguimiento: r.seguimiento === true },
+      };
+    },
+  },
+  fijar_remitente_email: {
+    preparar: async (input, ctx) => {
+      const pedido = { local: input.local, nombre: input.nombre, ...(input.sinResponderA === true ? { responderA: null } : input.responderA !== undefined ? { responderA: input.responderA } : {}) };
+      const p = await prepararRemitente(ctx.ws, pedido);
+      if (!p.ok) return { error: p.error };
+      const resp = p.responderA === undefined ? '' : p.responderA === null ? ' Las respuestas vuelven al remitente.' : ` Las respuestas llegan a ${p.responderA}.`;
+      return { payload: pedido, resumen: `Los correos del negocio salen como «${p.from}».${resp}` };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const r = await fijarRemitente(ctx.ws, { local: payload.local, nombre: payload.nombre, ...('responderA' in payload ? { responderA: payload.responderA } : {}) });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return {
+        ok: true,
+        resumen: `Listo: los correos salen como «${r.from}»${r.responderA ? ` y las respuestas llegan a ${r.responderA}` : ''}.`,
+        datos: { remitente: r.from, responderA: r.responderA },
+      };
+    },
+  },
 };
+
+/** Los registros DNS en una línea cada uno, para el resumen que lee la persona (o su Claude). */
+function textoRegistros(rs: readonly RegistroDns[]): string {
+  if (!rs.length) return 'Resend no devolvió registros todavía (pídelos con estado_email)';
+  return rs.map((r) => `${r.tipo} ${r.nombre} → ${r.valor}${r.prioridad != null ? ` (prioridad ${r.prioridad})` : ''}`).join(' · ');
+}

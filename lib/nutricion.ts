@@ -52,6 +52,7 @@ import {
 } from '@/lib/goteo';
 import { goteoDeHoy } from '@/lib/goteo';
 import { subidasPorAutomatizacion } from '@/lib/goteo-db';
+import { responderADelNegocio } from '@/lib/email-dominio';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
   TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
@@ -4257,6 +4258,9 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
   // línea por default— una secuencia de la línea 2 viva se frenaba porque la 1 estaba caída,
   // o salía «lista» sobre una línea 2 muerta. Se memoiza por línea: la segunda secuencia de
   // la misma línea no vuelve a sondear.
+  // El `reply_to` del email (4/11/2026, lib/email-dominio.ts): UNA lectura por corrida, y sólo si sale un email.
+  let responderAMemo: Promise<string | undefined> | null = null;
+  const responderA = (): Promise<string | undefined> => (responderAMemo ??= responderADelNegocio());
   const canalPorLinea = new Map<string, Promise<CanalNoOficial>>();
   const canalDeLinea = (pedida: string | null): Promise<CanalNoOficial> => {
     const clave = pedida ?? '';
@@ -5914,6 +5918,8 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
             }),
             text: cuerpo,
             headers: unsubUrl ? { 'List-Unsubscribe': `<${unsubUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } : undefined,
+            // Adónde van las respuestas de los leads (4/11/2026, lib/email-dominio.ts): leído una vez por corrida.
+            ...(await responderA() ? { replyTo: await responderA() } : {}),
             tags: [{ name: 'tipo', value: 'nutricion' }, { name: 'secuencia_id', value: String(insc.secuencia_id) }],
           });
           estado = r.ok ? 'enviado' : 'fallo';

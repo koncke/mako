@@ -3915,4 +3915,23 @@ export const BITACORA: Hito[] = [
     revisar: '/crm?ws=3',
     tickets: [13, 26],
   },
+  {
+    fecha: '4 nov', hora: '03:40', chat: 'Tickets 04/11', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Una mensualidad sin fecha de cierre ya no dice «Al día» en la ficha',
+    puntos: [
+      '**Quien sale de Ganado pierde la fecha de cierre, y sin ella no había meses que contar:** la ficha caía en «Al día», en verde, aunque el último pago fuera de agosto.',
+      '**Ahora dice lo que se sabe:** «Sin venta activa», el último pago y la mensualidad que era. Lo vencido sigue diciendo «Debe», y una cuota por venir sigue siendo la próxima.',
+      '**MaKo lee lo mismo:** tampoco contesta «al día» de esos clientes.',
+    ],
+    archivos: [
+      'lib/cobrado-lead.ts — `sinCierre`, el semáforo',
+      'lib/pagos-vistazo.ts — el titular del estado de cuenta',
+      'app/crm/lead-view/ficha/pagos/bloques-cobro.tsx — el chip de la suscripción',
+      'lib/api-mako/areas/crm.run.ts — el estado que lee MaKo',
+      'tests/pagos-vistazo.test.ts · tests/cobrado-lead.test.ts',
+    ],
+    revisar: '/crm?ws=3',
+    tickets: [53],
+  },
 ];
