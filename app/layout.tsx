@@ -15,6 +15,7 @@ import { EsquinaAvisos } from './_components/EsquinaAvisos';
 import { FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRouteGate';
 import { CentinelaArranque } from './_components/CentinelaArranque';
 import { PuenteNativo } from './_components/PuenteNativo';
+import { CopiaSinConexion } from './_components/CopiaSinConexion';
 import { SeccionesTab } from './_components/SeccionesTab';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
@@ -200,6 +201,10 @@ export default async function RootLayout({
         {/* Si la app muere arriba de app/global-error.tsx (la pantalla «This page couldn't load» de Next), avisa el error
             real y recarga UNA vez (21/10/2026, Martín en su Android: «siempre que entro me sale el reload»). Sin React. */}
         {sesion && <CentinelaArranque />}
+        {/* MaKo sin conexión (28/10/2026, docs/diseno-mako-desktop-sin-conexion.md): renueva la copia cifrada del CRM y del Plan
+            en un navegador donde la persona lo activó. No pinta nada; sin activar, no hace nada. Sólo en la computadora y
+            nunca mirando la cuenta de otro (lo de un cliente no se guarda en la PC de quien lo inspecciona). */}
+        {sesion?.email && !telefono && !vista && <CopiaSinConexion email={sesion.email} />}
         {sesion && <ModoDelUsuario />}
         {esAdmin && <TemaCandidato />}
         {/* La zona del negocio sale de la ubicación de SUS admins (decisión 4 de la décima, 11/10/2026). No pinta
