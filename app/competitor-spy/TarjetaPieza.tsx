@@ -36,7 +36,12 @@ const PUNTO: Record<string, string> = {
   instagram: 'var(--ig)', youtube: 'var(--yt)', anuncios: 'var(--info, #23559f)', landing: 'var(--faint)',
 };
 
-export function TarjetaPieza({ p, analizando = false }: { p: PiezaVista; analizando?: boolean }) {
+export function TarjetaPieza({ p, analizando = false, onAbrir }: {
+  p: PiezaVista;
+  analizando?: boolean;
+  /** Abre su detalle (DetallePieza.tsx, con «Copiar estructura»). Sin esto, la tarjeta lleva a la pieza en su red. */
+  onAbrir?: () => void;
+}) {
   const esAnuncio = p.canal === 'anuncios';
   const t = tiempoDePieza(p);
   // El texto ya se ve en el lugar del creativo cuando no hay miniatura: no se repite abajo.
@@ -112,6 +117,17 @@ export function TarjetaPieza({ p, analizando = false }: { p: PiezaVista; analiza
     </>
   );
 
+  // ⚠️ CON `onAbrir` ES UN `div` CON ROL DE BOTÓN, no un `<button>`: adentro van bloques (un botón sólo admite texto en
+  // línea) y cambiar la etiqueta le cambiaría la hoja por defecto (AGENTS.md, «Cambiar la ETIQUETA de un elemento…»).
+  if (onAbrir) {
+    return (
+      <div className="spy-pcard" data-canal={p.canal} role="button" tabIndex={0} style={{ cursor: 'pointer' }}
+        aria-label={`Ver ${titulo ?? rotuloDeTipo(p.tipo)}`}
+        onClick={onAbrir} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(); } }}>
+        {cuerpo}
+      </div>
+    );
+  }
   return p.url
     ? <a className="spy-pcard" data-canal={p.canal} href={p.url} target="_blank" rel="noreferrer noopener">{cuerpo}</a>
     : <div className="spy-pcard" data-canal={p.canal}>{cuerpo}</div>;

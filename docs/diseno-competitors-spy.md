@@ -843,3 +843,63 @@ Se eligió (d), el mismo criterio que Martín ya tomó para Instagram en Spy. **
 (`ANUNCIOS_POR_APIFY = false`): la nube no llega a apify.com y la forma de su respuesta no se pudo leer. Para prenderlo:
 `node --env-file=… scripts/probar-anuncios-apify.mjs <ws> <id de su Página o su nombre>` una vez desde la PC; si
 «entendidos» es la mayoría y el costo cabe en el techo, se cambia la constante a `true`.
+
+## 15. El detalle de cada competidor: todo en un gráfico, y «Copiar estructura» (4/11/2026)
+
+> Martín, 4/11 (puntos 7 y 9): «Quiero que analices este video… y quiero que eso sea el Detail de cada competidor… como va
+> poniendo todos sus contenidos en un gráfico… uno para contenido corto, otro para contenido largo, de sus carruseles o
+> imágenes, y luego el análisis de su web» y «si se selecciona un reel, un YT, un carrusel, o una web, debería fácilmente
+> estar el botón de "Copiar estructura", y que lo procese en todas las herramientas que ya tenemos en MaKo».
+
+### Lo que muestra el video (la base, mirada cuadro por cuadro por el Cerebro)
+
+El video (39,9 s, cuenta buildingwithharsit, la herramienta «Creators · Foundable»). Se copia la FUNCIÓN y la idea del
+movimiento, no los textos ni la marca.
+
+1. **Arriba, tarjetas de números**: creadores, videos (420), vistas (3,6M), mediana (5k), CPM y gasto. La tarjeta elegida va
+   en negro y la destacada, en azul. Debajo, un filtro por red con su cantidad: Todos, TikTok, Instagram y YouTube.
+2. **La animación principal**: una columna a la izquierda con las mejores miniaturas, que vuelan desenfocadas hacia un
+   gráfico de dispersión. Cada punto ES la miniatura del video: X = el día en que se publicó (1 a 30), Y = sus vistas en
+   escala logarítmica (100 a 100k). Rótulo: «Cada miniatura es un video».
+3. **Tocar una miniatura**: su título, «#51 de 420», sus números, la «Anatomía del guion» (una barra de colores por tramo
+   —gancho, planteo, producto, prueba, CTA— con cada frase, su minuto, su etiqueta y las palabras clave resaltadas), la curva
+   de «siguen mirando» y la miniatura con el logo de su red.
+4. **«¿Qué formatos ganan?»**: barras horizontales por formato (POV, Storytime, Antes y después, Reseña honesta, Unboxing),
+   que se abren en filas: en cada una, sus miniaturas ubicadas por sus vistas y una línea negra en la mediana del formato. A
+   la izquierda, el nombre, cuántos y el mejor gancho. Encima, una tarjeta oscura con la lectura: «X y Y tienen 2,3x y 1,6x
+   la mediana; evitaría Z».
+5. **El modal de un video de un formato ganador**: el reproductor a la izquierda (vistas, formato) y, a la derecha, la cuenta
+   y sus seguidores, el título, los hashtags y el «Guion completo» con su barra de colores y sus frases.
+
+### Cómo se adapta a Spy
+
+- **El detalle es esta pantalla**: la pestaña «Gráfico», la primera de la ficha, con el riel de siempre a la derecha
+  (`app/competitor-spy/GraficoSpy.tsx`; las cuentas, puras y con test, en `lib/spy-detalle.ts`).
+- **Un desplegable cambia el gráfico**: Contenido corto (reels y shorts), Contenido largo (YouTube), Carruseles e imágenes,
+  Anuncios y Su web (que lleva a su pestaña: una web no es un gráfico). Ahí mismo se agrega la red que le falta.
+- **Arriba**: piezas, vistas (o «me gusta»), la mediana y «Le funciona» (el formato que más rinde, si hay uno). El filtro de
+  redes, con su logo y su cantidad, sólo si el gráfico tiene más de una.
+- **Ejes**: X = el día en que se publicó; Y = vistas en escala logarítmica. Donde la mayoría no tiene vistas (Instagram las
+  da sólo en los reels), «me gusta»; en los anuncios, los días al aire. Lo que no tiene número no se dibuja en cero.
+- **Antes de la animación, sólo la criatura**; se bajan TODAS las miniaturas que se van a dibujar (`precarga.ts`, la misma
+  pieza que la película del orden) y recién ahí entran volando. Hasta 180 miniaturas por gráfico (90 en el teléfono): las
+  de más arriba y una muestra pareja del resto en el tiempo, y el pie dice «se ven 180 de 2.000».
+- **Tocar una miniatura** abre su detalle (`DetallePieza.tsx`): el video de YouTube (o la imagen de Instagram), «#51 de
+  420», sus números, su estructura (gancho, ángulo, formato) con «Analizando…» mientras la IA del negocio no la leyó, sus
+  hashtags y «Copiar estructura». Las tarjetas de «Lo que publica» y de «Anuncios» abren el mismo detalle.
+- **Los formatos se llenan solos**: la IA del negocio le pone a cada pieza su formato al analizarla (POV, Storytime, Antes y
+  después, Tutorial, Lista o tips, Opinión, Reseña, Testimonio, Detrás de escena, Entrevista), sin que nadie lo pida. Lo
+  analizado antes del formato se lee UNA vez más, después de lo que nunca se leyó. Un formato necesita dos piezas para
+  tener fila, y la lectura de arriba la escribe el CÓDIGO con medianas (`lecturaDeFormatos`), no una IA.
+- **Lo que NO va, a propósito**: la «Anatomía del guion», el «Guion completo» y la curva de «siguen mirando». El guion de un
+  video ajeno no se lee (no hay forma legal de transcribirlo, §5) y la retención no la publica nadie. Un bloque sin datos
+  no se dibuja y no dice «falta».
+
+### «Copiar estructura»
+
+`/api/competitor-spy/copiar` arma una página del **Copywriter** del tipo que corresponde (un reel o un short → Reel; un
+video largo → YouTube; un anuncio → Anuncio; una publicación → Post) con de dónde viene, su estructura (gancho, ángulo,
+formato) y su texto CITADO («> »: una línea suya en MAYÚSCULA no abre una sección del guion), y la pantalla la abre. Ahí el
+chat de MaKo la escribe con la oferta y la voz del negocio. Quien no tiene el Copywriter (hoy lo ve sólo el super admin) se
+lleva el mismo texto copiado al portapapeles. Una web va al **Web Generator** con «Copiar su sitio» (`?analizar=`). Ninguna
+IA corre al copiar.

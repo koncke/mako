@@ -22,6 +22,7 @@ import { getTenantDb } from '@/lib/workspace';
 import { getSettingEstricto } from '@/lib/settings';
 import { getEmailFrom, emailConectado, remitenteEsSandbox, resendConfigurado, getResendDomain, type ResendDnsRecord } from '@/lib/resend';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
+import { responderADelNegocio } from '@/lib/email-dominio';
 
 export type EstadoEmail = {
   conectado: boolean; envio_real_habilitado: boolean; remitente_sandbox: boolean; resend_configurado: boolean;
@@ -31,6 +32,11 @@ export type EstadoEmail = {
   registros_dns_sin_verificar: number;
   /** no se pudo leer el dominio cargado en la base: dominio null NO significa «no hay» */
   error_lectura: string | null;
+  /** adónde van las respuestas de los leads (`resend_reply_to`, 4/11/2026); null = al remitente */
+  responder_a: string | null;
+  /** el seguimiento de aperturas y clics del dominio en Resend; null = no se pudo leer o no hay dominio */
+  seguimiento_aperturas: boolean | null;
+  seguimiento_clics: boolean | null;
 };
 
 /** El mismo agregado que GET /api/email/dominio (estadoActual), con el error de
@@ -47,17 +53,19 @@ export async function estadoEmail(): Promise<EstadoEmail> {
       return { dominio: null, id: null, error: e instanceof Error ? e.message : String(e) };
     }
   };
-  const [leido, remitente, conectado, envio, sandbox, keyOk] = await Promise.all([
+  const [leido, remitente, conectado, envio, sandbox, keyOk, responderA] = await Promise.all([
     leerDominio(), getEmailFrom(),
-    emailConectado(), envioEmailHabilitado(), remitenteEsSandbox(), resendConfigurado(),
+    emailConectado(), envioEmailHabilitado(), remitenteEsSandbox(), resendConfigurado(), responderADelNegocio(),
   ]);
   const id = leido.id;
   let estado: string | null = null;
   let registros: ResendDnsRecord[] = [];
   let errorDominio: string | null = null;
+  let aperturas: boolean | null = null;
+  let clics: boolean | null = null;
   if (id) {
     const r = await getResendDomain(id);
-    if (r.ok) { estado = r.domain.status; registros = r.domain.records; }
+    if (r.ok) { estado = r.domain.status; registros = r.domain.records; aperturas = r.domain.openTracking ?? null; clics = r.domain.clickTracking ?? null; }
     else errorDominio = r.error;
   }
   return {
@@ -65,6 +73,9 @@ export async function estadoEmail(): Promise<EstadoEmail> {
     dominio: leido.dominio, remitente, estado_dominio: estado, error_dominio: errorDominio, registros_dns: registros,
     registros_dns_sin_verificar: registros.filter((r) => r.status && r.status !== 'verified').length,
     error_lectura: leido.error,
+    responder_a: responderA ?? null,
+    seguimiento_aperturas: aperturas,
+    seguimiento_clics: clics,
   };
 }
 

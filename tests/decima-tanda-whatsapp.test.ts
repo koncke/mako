@@ -234,11 +234,13 @@ test('Email 1: el email de MaKo no es el de un cliente (salvo la plataforma)', (
   assert.equal(remitenteAGuardar(undefined, 'MaKo <equipo@hola-mako.com>'), null);
   // El de MaKo en un cliente llega como el sandbox: el «De» dice lo mismo que frena el envío.
   assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: true }), SIN_EMAIL_PROPIO, 'el «De» lo dice');
-  // El server: la ruta del dominio no lo conecta ni arma un remitente con él, y la prueba de verdad no sale.
+  // El server: conectar el dominio y armar el remitente con uno de MaKo se rechaza, y el estado dice si es la plataforma.
+  // Desde el 4/11/2026 eso vive en lib/email-dominio.ts (la usan la ruta de /email y la API de MaKo) y se EJECUTA en
+  // tests/email-campana-dominio.test.ts («no se conecta un dominio de MaKo…», «tampoco se arma un remitente…»). Acá queda
+  // que la ruta no tenga una segunda copia de esas reglas.
   const ruta = sinComentarios(leer('app/api/email/dominio/route.ts'));
-  assert.equal((ruta.match(/if \(esDominioDeMako\(dominio\) && !\(await esPlataforma\(g\.ws\)\)\) return Response\.json\(\{ ok: false, error: NO_ES_TUYO \}, \{ status: 403 \}\);/g) ?? []).length, 2,
-    'crear y remitente, los dos');
-  assert.match(ruta, /plataforma,\n\s*\};/, 'el «De» no sabe si es la plataforma');
+  assert.doesNotMatch(ruta, /esDominioDeMako|reclamadoPorOtroWs/, 'la ruta delega en lib/email-dominio.ts');
+  assert.match(ruta, /from '@\/lib\/email-dominio'/);
   const prueba = sinComentarios(leer('lib/prueba-paso.ts'));
   // Undécima: una sola puerta positiva. Sin remitente propio (el de MaKo en un cliente llega como el
   // sandbox) no sale, sin rama «de MaKo» ni excepción del super admin. Probado rompiéndolo

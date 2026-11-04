@@ -23,37 +23,11 @@ import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import Link from '@/app/_ui/Link';
 import { ComposerChatsM } from './ComposerChatsM';
 import { EstadoChatM } from './EstadoChatM';
-import { diasDelHilo, type DiaHiloM } from '../hilo-modelo';
+import { BurbujaChatM } from './BurbujaChatM';
+import { diasDelHilo } from '../hilo-modelo';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
-
-function Burbuja({ m }: { m: DiaHiloM['items'][number] }) {
-  if (m.tipo === 'evento') return <p className="m-chats-evento">{m.texto}</p>;
-  if (m.tipo === 'comentario') {
-    return (
-      <div className="m-chats-nota">
-        <span className="m-chats-nota__autor">{m.autor ? `Nota de ${m.autor}` : 'Nota'}</span>
-        {m.texto}
-        <span className="m-chats-burbuja__hora">{m.hora}</span>
-      </div>
-    );
-  }
-  return (
-    <div className={`m-chats-burbuja ${m.saliente ? 'm-chats-burbuja--mia' : 'm-chats-burbuja--suya'}`}>
-      {m.asunto && <strong className="m-chats-burbuja__asunto">{m.asunto}</strong>}
-      {m.media?.tipo === 'imagen' && <a href={m.media.url} target="_blank" rel="noreferrer"><img className="m-chats-burbuja__img" src={m.media.url} alt="Imagen" loading="lazy" /></a>}
-      {m.media?.tipo === 'audio' && <audio className="m-chats-burbuja__audio" controls preload="none" src={m.media.url} />}
-      {m.media?.tipo === 'video' && <video className="m-chats-burbuja__img" controls preload="none" src={m.media.url} />}
-      {m.media?.tipo === 'archivo' && <a className="m-chats-burbuja__archivo" href={m.media.url} target="_blank" rel="noreferrer">{m.media.nombre}</a>}
-      {m.adjuntos.map((a) => (a.url
-        ? <a key={a.nombre} className="m-chats-burbuja__archivo" href={a.url} target="_blank" rel="noreferrer">{a.nombre}</a>
-        : <span key={a.nombre} className="m-chats-burbuja__archivo">{a.nombre}</span>))}
-      {m.texto && <span>{m.texto}</span>}
-      <span className="m-chats-burbuja__hora">{m.canal ? `${m.canal} · ` : ''}{m.hora}{m.fallo ? ' · No salió' : ''}</span>
-    </div>
-  );
-}
 
 export default async function HiloChatMovil({ params }: { params: Promise<{ clave: string }> }) {
   await requireMovil({ navKey: 'chats' });
@@ -92,7 +66,7 @@ export default async function HiloChatMovil({ params }: { params: Promise<{ clav
         {dias.length ? dias.map((d) => (
           <div key={d.dia} style={{ display: 'contents' }}>
             <span className="m-chats-hilo__dia">{d.etiqueta}</span>
-            {d.items.map((m) => <Burbuja key={m.id} m={m} />)}
+            {d.items.map((m) => <BurbujaChatM key={m.id} m={m} />)}
           </div>
         )) : <VacioM frase="Todavía no hay mensajes. Escribe el primero." />}
       </div>

@@ -62,6 +62,7 @@ import { VIDEOS_POR_LECTURA_COMPLETA, leerCompleto, noPudeLeerCanal, traerVideos
 import { sitioDelTexto } from './spy-otras-redes-reglas';
 import { CLAVE_CARICATURAS, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
 import { seFueron } from './spy-todo-reglas';
+import { FORMATOS, formatoDe } from './spy-detalle';
 import { leerPorPaginas } from './supabase-paginado';
 import { getSetting } from './settings';
 import { ANALISIS_SIN_DATOS, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta } from './spy-analisis-reglas';
@@ -145,6 +146,8 @@ export type AnalisisPieza = {
   tipoGancho: string;
   angulo: string;
   etiquetas: string[];
+  /** El formato de la pieza (POV, Storytime…: `FORMATOS`, lib/spy-detalle.ts). Vacío en lo analizado antes del 4/11/2026. */
+  formato?: string;
 };
 
 const COLUMNAS_COMPETIDOR =
@@ -363,6 +366,19 @@ export async function listarPiezas(competidorId: number, canal?: CanalSpy): Prom
   filas.sort((a, b) => String(b.visto_ultima_vez ?? '').localeCompare(String(a.visto_ultima_vez ?? '')));
   // Con la flecha: `map` le pasaría el índice como la fecha de `ahora`.
   return filas.slice(0, PIEZAS_POR_COMPETIDOR).map((fila) => podarVencido(fila)) as Pieza[];
+}
+
+/**
+ * Una pieza por su id, con su competidor. `null` si no es de este negocio (el proxy ya scopea por workspace) o si no se
+ * pudo leer: «Copiar estructura» no copia lo que no pudo leer.
+ */
+export async function leerPieza(id: number): Promise<{ pieza: Pieza; competidor: Competidor } | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('spy_piezas').select('*').eq('id', id).maybeSingle();
+  if (error || !data) return null;
+  const pieza = podarVencido(data as Record<string, unknown>) as Pieza;
+  const competidor = await leerCompetidor(pieza.competidor_id);
+  return competidor ? { pieza, competidor } : null;
 }
 
 /** La etapa de tendencia de una pieza: cuánto lleva a la vista. Es lo único que MaKo agrega sobre mirar a mano. */
@@ -804,7 +820,7 @@ Responde SOLO con este JSON, sin texto alrededor:
     "huecos": ["lo que este competidor ataca y el negocio no menciona, una frase por elemento, hasta 3"]
   },
   "piezas": [
-    { "ref": "el ref tal como vino", "gancho": "con qué abre, en sus palabras", "tipoGancho": "{{tiposGancho}}", "angulo": "el ángulo en una o dos palabras", "etiquetas": ["de esta lista: {{etiquetas}}"] }
+    { "ref": "el ref tal como vino", "gancho": "con qué abre, en sus palabras", "tipoGancho": "{{tiposGancho}}", "angulo": "el ángulo en una o dos palabras", "formato": "{{formatos}} (por el título y la descripción; si no se ve, otro)", "etiquetas": ["de esta lista: {{etiquetas}}"] }
   ]
 }`;
 
@@ -859,6 +875,7 @@ export function leerAnalisis(crudo: unknown): Analisis {
       gancho: txt(p.gancho, 300),
       tipoGancho: unoDe(p.tipoGancho, HOOK_TYPES, 'promesa'),
       angulo: txt(p.angulo, 60),
+      formato: formatoDe(p.formato),
       etiquetas: (Array.isArray(p.etiquetas) ? p.etiquetas : []).map((t) => txt(t, 40)).filter((t) => (TAG_VOCAB as readonly string[]).includes(t)).slice(0, 6),
     })).filter((p) => p.ref),
   };
@@ -907,6 +924,7 @@ export async function analizarCompetidor(
     const system = await renderPrompt('spy.analisis.system', SPY_ANALISIS_SYSTEM_TEMPLATE, {
       tiposGancho: HOOK_TYPES.join('|'),
       etiquetas: TAG_VOCAB.join(', '),
+      formatos: FORMATOS.map((f) => f.value).join('|'),
     });
     const user = await renderPrompt('spy.analisis.user', SPY_ANALISIS_USER_TEMPLATE, {
       competidor: c.nombre,
@@ -952,7 +970,7 @@ async function guardarAnalisis(competidorId: number, a: Analisis, enviadas: read
     const ref = original.get(p.ref.trim().toLowerCase());
     if (!ref) continue;
     await db.from('spy_piezas')
-      .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas }, texto_leido_en: ahora, updated_at: ahora })
+      .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas, formato: p.formato || 'otro' }, texto_leido_en: ahora, updated_at: ahora })
       .eq('competidor_id', competidorId).eq('ref', ref);
   }
   const faltan = refsSinRespuesta(enviadas, a.piezas.map((p) => p.ref));

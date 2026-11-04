@@ -58,8 +58,12 @@ test('cada tipo con el control que el editor YA tiene, y la barra sólo con íco
   const v = leer('app/web-generator/editor/nodos/HtmlEditableVista.tsx');
   // Un video del diseño no se traga el clic que lo elige (sólo en el editor: esa hoja no se guarda).
   assert.match(v, /const CSS_DENTRO = '[^']*iframe,video\{pointer-events:none\}[^']*';/);
-  assert.match(v, /elegido\.current = elementoEnPunto\(d, e\.target as Element \| null, e\.clientX, e\.clientY\) as Element \| null;/);
-  assert.match(v, /setTipo\(tipoDeElemento\(elegido\.current\)\);/);
+  // El clic elige lo que tiene control propio (un enlace, una imagen, un video, un ícono) y, si no hay, lo tocado adentro de la
+  // sección (cualquier elemento, para «Elemento»: la réplica editable, 28/10/2026), o la sección. Antes se fijaba la línea
+  // vieja (`elegido.current = elementoEnPunto(...)`), que la réplica reescribió sin cambiar esto.
+  assert.match(v, /const conControl = elementoEnPunto\(d, tocado, e\.clientX, e\.clientY\) as Element \| null;/, 'el clic pregunta primero por el control propio');
+  assert.match(v, /elegirVivo\.current\(conControl \?\? \(tocado && r && r\.contains\(tocado\) \? tocado : r\)\);/, 'sin control propio, lo tocado de la sección');
+  assert.match(v, /const elegir = \(el: Element \| null\) => \{[\s\S]{0,300}?const t = tipoDeElemento\(el\);\n\s*setTipo\(t\);/, 'la barrita marca el tipo de lo elegido');
   // Botón o enlace: el selector de destino del botón de un bloque, no un campo suelto.
   assert.match(v, /<SelectorDestino valor=\{enlace\.a\.getAttribute\('href'\)\} nuevaPestana=\{enlace\.a\.getAttribute\('target'\) === '_blank'\}/);
   assert.doesNotMatch(v, /CampoEnlace/);

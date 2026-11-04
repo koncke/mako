@@ -125,8 +125,9 @@ test('las rutas que guardan credenciales devuelven el motivo como un 400; «simu
   assert.match(simular, /if \(!\(e instanceof IdentificadorOcupadoError\) && !\(e instanceof RemitenteNoPropioError\)\) throw e;/);
   // Y el ping de /integraciones lo dice ANTES de guardar, con el mismo texto (lib/resend-remitente.ts).
   assert.match(sinComentarios(leer('lib/resend-remitente.ts')), /if \(esDominioDeMako\(dom\)\) return NO_ES_TUYO;/);
-  assert.match(sinComentarios(leer('app/api/email/dominio/route.ts')), /import \{ esDominioDeMako, NO_ES_TUYO \} from '@\/lib\/email-remitente';/);
-  assert.doesNotMatch(sinComentarios(leer('app/api/email/dominio/route.ts')), /const NO_ES_TUYO =/, 'una sola copia del texto');
+  // Desde el 4/11/2026 la lógica del dominio vive en lib/email-dominio.ts (la ruta de /email y la API de MaKo la usan).
+  assert.match(sinComentarios(leer('lib/email-dominio.ts')), /import \{ esDominioDeMako, NO_ES_TUYO \} from '\.\/email-remitente';/);
+  assert.doesNotMatch(sinComentarios(leer('lib/email-dominio.ts')), /const NO_ES_TUYO =/, 'una sola copia del texto');
 });
 
 test('«te compartieron material» (lo firma MaKo): el preflight mide la cuenta de MaKo, no un remitente de negocio', () => {

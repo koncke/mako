@@ -21,16 +21,18 @@ export const ETIQUETAS_DASHBOARD: Readonly<Record<string, EtiquetasPlantilla>> =
   marketing: { entrada: ['formulario_anuncio', 'landing'] },
   comercial: { canal: ['llamadas', 'conversaciones'], cuello: ['conversion'] },
   'ads-analyst': { entrada: ['formulario_anuncio'] },
+  'hooks-retencion': { entrada: ['formulario_anuncio'] },
   landing: { entrada: ['landing', 'carrito'], canal: ['carrito'] },
   closing: { canal: ['llamadas'], entrada: ['agenda_sola'] },
   productividad: { cuello: ['sistema', 'delegacion', 'foco'] },
   'vsl-analyst': { entrada: ['landing'], canal: ['webinar'] },
   'cs-analyst': { cobro: ['suscripcion'] },
   'chat-analyst': { canal: ['conversaciones'], entrada: ['chat_entrante', 'chat_saliente'] },
-  crm: { cuello: ['conversion'] },
   cobranza: { cobro: ['suscripcion'] },
   automatizaciones: { entrada: ['chat_entrante', 'chat_saliente'], cuello: ['sistema'] },
   'ia-contenido': {},
+  // Por RUBRO: las sugeridas no tienen un eje de rubro (canal, entrada, cobro y cuello), así que no se sugiere; se encuentra por nombre.
+  inmobiliaria: {},
 };
 
 /** La galería de General (`PLANTILLAS_GENERAL`). */
@@ -38,7 +40,6 @@ export const ETIQUETAS_GENERAL: Readonly<Record<string, EtiquetasPlantilla>> = {
   general: {},
   foco: { cuello: ['foco'] },
   operacion: { cuello: ['sistema', 'delegacion'] },
-  ventas: { cobro: ['unico'] },
   servicio: { cobro: ['suscripcion'] },
   curso: { canal: ['carrito', 'webinar'] },
   instagram: { entrada: ['formulario_anuncio'] },
