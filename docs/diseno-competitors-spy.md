@@ -679,3 +679,51 @@ Las dos, siempre (AGENTS.md → «La app se adapta al tamaño de la pantalla, SI
   Instagram soporta `business_discovery` (el overview no lo lista y la referencia sigue diciendo
   Facebook Login); si `paidProductPlacementDetails` es público para videos ajenos; y el precio de
   suscripción de plataforma de Apify aparte del pay-per-result.
+
+---
+
+## 11. La búsqueda por red (4/11/2026)
+
+> Martín, 4/11: «La barra principal de búsqueda debería funcionar igual que cuando le doy al "+", solo que ahí
+> debería estar diferenciado las redes, Instagram, YouTube, Sitio Web... Si busco solo nombre, y tarda en buscar,
+> debería ir diciéndome "Esto puede tardar 20 segundos"... Y si busco solo el nombre TAMBIÉN debería buscar en
+> YouTube... me buscó Instagram con muy poquitos seguidores... no me trajo ni 1 solo de las cuentas grandes de
+> victor heras.»
+
+**Qué hace hoy:** la barra de arriba y el «+» abren el MISMO buscador (`app/competitor-spy/BuscadorAlta.tsx`), con un
+grupo por red y su logo: Instagram, YouTube, TikTok, Sitio web. Qué se busca lo decide `planDeBusqueda`
+(`lib/spy-buscar-reglas.ts`), y los pedidos salen EN PARALELO a `/api/competitor-spy/buscar`: lo rápido no espera a lo
+lento, y cada grupo se llena cuando llega lo suyo, con una línea que dice cuánto puede tardar.
+
+**Por qué Google para el nombre, y no otro actor de Instagram.** El buscador de Instagram ordena por relevancia con la
+sesión de quien busca; un scraper sin sesión sólo empareja texto, y «Víctor Heras» empareja igual con una cuenta de 14
+seguidores que con una de 492 mil. Google ordena por popularidad sin sesión y escribe los seguidores en la descripción
+del resultado («492K Followers…»), así que con UNA corrida de dos páginas (`site:instagram.com` y `site:youtube.com`)
+salen los perfiles grandes y los canales, y se ordenan por seguidores. El buscador de Instagram corre igual, al lado,
+para las cuentas que Google todavía no conoce. Las primeras cinco filas se completan con su foto y sus seguidores en UNA
+corrida del lector de perfiles (antes eran cinco).
+
+**YouTube nunca usa `search.list`** (§4.3: 100 llamadas por día para toda la app). Por nombre sale de Google; un enlace
+o un @ se leen con `channels.list` (1 unidad), que ahora también trae la foto del canal. Esa foto es la cara del
+competidor cuando no tiene Instagram (`mirarCompetidor`).
+
+**Lo que cuesta, por negocio y con SU clave de Spy** (precios de la tienda de Apify; los de Google y el buscador de
+Instagram, medidos el 3/11/2026; el del lector de perfiles, de la tienda, sin medir desde la nube):
+
+| Qué | Cuánto | Cupo por día | Peor día |
+|---|---|---|---|
+| Una búsqueda por nombre: Google (2 páginas) + el buscador de Instagram | US$0,0215 | 60 corridas = 30 búsquedas (`TOPE_BUSQUEDAS_SPY_POR_DIA`) | US$0,65 |
+| Leer un perfil (el @ exacto, completar filas, la confirmación) | ~US$0,0026 | 150 lecturas (`TOPE_LECTURAS_SPY_POR_DIA`), 30 reservadas para agregar | ~US$0,39 |
+| Un canal de YouTube | 1 unidad de cuota (gratis) | — | — |
+
+El cupo de lecturas era 40 y lo compartían las búsquedas: alcanzaba para tres búsquedas por día. Se separó y se subió
+porque completar las filas es lo que permite ordenar «los mejores resultados». El techo por corrida sigue siendo
+`APIFY_TOPE_USD` (US$0,02 por perfil).
+
+**Lo que se decidió sin preguntar** (con criterio, para no frenar):
+- Con «@» se lee sólo ese @ (y su canal de YouTube con el mismo @, 1 unidad): quien escribe la arroba sabe a quién
+  busca. Sin «@», una palabra que puede ser un usuario («den.borgg») se lee como @ Y se busca como nombre.
+- «algo.xx» es un sitio sólo si «xx» es un dominio de verdad (`esDominio`); «den.borgg» era la página https://den.borgg.
+- El @ que sale de pegar un nombre («Víctor Heras» → @victorheras) se prueba, pero NO va primero: compite por seguidores.
+- «Si tienes el @ exacto es inmediato» no se escribió así: el @ se lee por Apify y tarda unos segundos. Dice «Con su @
+  exacto es más rápido».
