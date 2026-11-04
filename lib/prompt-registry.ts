@@ -395,7 +395,7 @@ export const REGISTRY: Group[] = [
         label: 'Copy de email marketing (system)', kind: 'system', dynamic: true,
         variables: [v('perfil', 'el perfil del negocio del workspace'), v('voz', 'la guía de voz destilada del Chatbot'), v('funnel', 'el funnel REAL del workspace')], scope: 'full', sensitive: true,
         default: EMAIL_GEN_SYSTEM_TEMPLATE,
-        context: 'Este prompt tenía hardcodeado "escribiendo para Mauricio Bustos (Negocio que Escala™)" y su link de Calendly, para TODOS los workspaces: cualquier cliente que tocara "generar" recibía copy del negocio de otro. Conserva los slots {{perfil}}/{{voz}}/{{funnel}} y el bloque PROHIBIDO INVENTAR — sin él vuelven los links inventados y el dialecto por default (voseo a una audiencia mexicana).',
+        context: 'Este prompt tenía escrito a mano el nombre del negocio de un cliente y su link de Calendly, para TODOS los workspaces: cualquier cliente que tocara "generar" recibía copy del negocio de otro. Conserva los slots {{perfil}}/{{voz}}/{{funnel}} y el bloque PROHIBIDO INVENTAR — sin él vuelven los links inventados y el dialecto por default (voseo a una audiencia mexicana).',
       },
     ],
   },

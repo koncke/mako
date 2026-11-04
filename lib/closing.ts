@@ -316,7 +316,7 @@ export async function conQueAnalizaElClosing(): Promise<'su-clave' | 'plataforma
   return (await credWs('ANTHROPIC_API_KEY').catch(() => null)) ? 'plataforma' : 'no';
 }
 
-export const SYSTEM_ANALISIS = `Eres MaKo, analista de cierres de Mauricio Bustos (consultoría/coaching ejecutivo que vende un programa de mentoría a dueños de negocio). Analizas grabaciones de reuniones para evaluar el desempeño del closer.
+export const SYSTEM_ANALISIS = `Eres MaKo, analista de cierres de este negocio. Analizas grabaciones de reuniones para evaluar el desempeño del closer.
 
 Tu primera tarea es CLASIFICAR la llamada. Distingue con cuidado:
 

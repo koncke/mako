@@ -789,4 +789,23 @@ export const BITACORA: Hito[] = [
     revisar: '/second-brain',
     tickets: [44],
   },
+  {
+    fecha: '3 nov', hora: '20:20', chat: 'Tickets de clientes', sesion: 'local_d010fa87-9186-469e-83de-d431a71f64d8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo te prende «Aprende solo» desde el chat',
+    puntos: [
+      'Le pediste activar «Aprende solo» y te contestó que no existía. Sí existe: ahora te lo prende desde el chat, con tu «sí», y también lo apaga.',
+      'Y sabe dónde está: en el Second Brain, en la cabecera del Mapa.',
+      'Con «Aprende solo» prendido, MaKo aprende de tus conversaciones de WhatsApp con leads. No manda ningún mensaje.',
+      '**Cómo se prueba:** en el Ops Center, «activa Aprende solo».',
+    ],
+    archivos: [
+      'lib/mako-capacidades.ts — la capacidad aprende-solo',
+      'lib/mako-intencion-app.ts — la familia aprende-solo',
+      'lib/api-mako/areas/mako.def.ts · mako.run.ts — cambiar_aprende_solo',
+      'tests/aprende-solo-en-el-chat.test.ts — en un negocio que no es la plataforma; 6 roturas, cada una cae',
+    ],
+    revisar: '/second-brain',
+    tickets: [45],
+  },
 ];

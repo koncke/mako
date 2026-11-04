@@ -117,7 +117,7 @@ test('4: «Nuevo chat» ya no abre un modal ni una hoja de formulario; abre un c
   assert.match(leer('app/second-brain/ChatSecondBrain.tsx'), /<ChatNuevoCentro centro=\{centro\}/, 'el panel del chat nuevo');
   const movil = codigo('app/m/operaciones/ChatsMovil.tsx');
   assert.doesNotMatch(movil, /<NuevoChat\b|sePuedeAbrir|comandoNuevoChat/, 'el teléfono: sin el formulario');
-  assert.match(movil, /<CuerpoChatNuevo n=\{chatNuevo\} \/>/);
+  assert.match(movil, /<CuerpoChatNuevo n=\{chatNuevo\} alPie=\{<GaleriaDeGurus onElegir=\{onGuru\} \/>\} \/>/);
   assert.match(movil, /<CajaChatNuevo n=\{chatNuevo\} movil \/>/);
   // La acción: la IA barata, validada, con las reglas de respaldo; y la guarda de la Ops Center en la primera línea.
   const acc = codigo('app/admin/operaciones/acciones.ts');

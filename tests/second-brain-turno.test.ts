@@ -120,10 +120,13 @@ test('3. el turno lo trae en paralelo, al final del system, con la plata según 
   // capa del referente colgada (`conReferente`). Lo que importa es que `sinPlata` siga decidiendo,
   // no sobre qué variable: fijar el nombre convierte cualquier capa nueva en un rojo que no dice nada.
   assert.match(p, /const delRol = o\.sinPlata \? sinLaPlata\((\w+)\) : \1;/, 'la plata no se filtra por el rol');
-  // ⚠️ Y la capa del referente va ANTES del filtro: un curso no tiene números del negocio, pero si
-  // se colgara después, `sinLaPlata` no podría revisarlo. El orden es la garantía, no el contenido.
-  assert.match(p, /const conReferente = o\.referente \?[\s\S]{0,120}const delRol = o\.sinPlata/,
-    'la capa del referente se cuelga después del filtro de la plata');
+  // ⚠️ 3/11/2026 — EL CURSO DEL REFERENTE YA NO SE CUELGA DEL GRAFO: va en un bloque aparte, en
+  // paralelo con el del negocio. Colgado del grafo viajaba por `recuperar`, que nunca pone el cuerpo de
+  // un nodo sin pedirlo por id: el chat veía los títulos de las clases y ni una palabra del curso. Lo
+  // que este assert cuida es que vaya en paralelo (no espera al grafo) y que lo decida el referente
+  // del chat, no la pregunta (lib/cerebro-referente.ts → `cursoParaElTurno`).
+  assert.match(p, /await Promise\.all\(\[\s*paqueteDelNegocio\(q, o\),\s*o\.referente \? cursoParaElTurnoDe\(o\.referente, q\) : Promise\.resolve\(''\),\s*\]\)/,
+    'el curso del referente no va aparte y en paralelo con el negocio');
   assert.match(p, /const q = preguntaDelTurno\(pregunta\);\s*if \(!q\) return '';/, 'el turno busca con el mensaje entero');
   // Desde el 31/10/2026 hay DOS capas que se filtran por lo que pregunta el turno, así que son tres asserts y no uno:
   // las funciones (lib/cerebro-funciones.ts), Knowledge (lib/cerebro-knowledge.ts) y la búsqueda con su tope. Juntas en

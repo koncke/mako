@@ -24,6 +24,7 @@ import { conWs } from '@/lib/ws-tab';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import type { AccionesWA, MenuAbiertoWA, MensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { copiar } from '@/app/admin/operaciones/mandar';
+import { NO_PUDE_COPIAR } from '@/lib/copiar-texto';
 import { SIN_MARCAS, aplicarMarca, armarConCita, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
@@ -42,7 +43,7 @@ import {
 } from '@/lib/chat-mako-reglas';
 import type { ChatDeAntes, ChatDeAutomatizacion, ChatDeEditor, ChatDeOffer, GrupoDeMaKo } from '@/lib/chat-mako-indice';
 import { etiquetaDesde, type Desde } from '@/lib/chat-desde';
-import { aspectoDeChat, type Aspecto } from '@/lib/centro-munecos';
+import { aspectoDeChat, aspectoDeReferente, type Aspecto } from '@/lib/centro-munecos';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import type { OfferSesionVista } from '@/lib/offer-marco';
 import { eleccionVigente, resumenDeIA, type CuentaDeIA, type EleccionIA } from '@/lib/chat-ia-reglas';
@@ -122,7 +123,7 @@ async function linksDelPedido(texto: string): Promise<IrA[]> {
 
 export type ChatCliente = ReturnType<typeof useChatCliente>;
 
-export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null, tab: tabPropia = null, aspectoOffer = null }: {
+export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null, tab: tabPropia = null, aspectoOffer = null, quien = null }: {
   elegido: ElegidoChat | null;
   setElegido: Dispatch<SetStateAction<ElegidoChat | null>>;
   /** Lee Offer, los chats de antes y si tiene su IA. En el Ops Center del super admin la lista es la de Claude Code: no. */
@@ -145,6 +146,9 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   tab?: string | null;
   /** La criatura de los chats de Offer: la del referente que tiene al frente el Offer Coach (1/11/2026). Sin esto, la de cada chat. */
   aspectoOffer?: Aspecto | null;
+  /** Quién contesta en un chat que se abre sin la lista (`activo: false`): el gurú o el coach. Sin esto no hay fila de la que sacarlo, y el
+   *  hilo dibujaba una criatura sorteada con «Sin título» de nombre (Martín, 3/11/2026: «el que responde es una criatura de mako»). */
+  quien?: { nombre: string; aspecto: Aspecto } | null;
 }) {
   const ws = useWs();
   const [sesiones, setSesiones] = useState<SesionChat[] | null>(sesionesIniciales);
@@ -426,7 +430,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     setMenuWA(null);
     if (id.startsWith('reaccion:')) { const e = id.slice('reaccion:'.length); void ponerMarca({ tipo: 'reaccion', id: m.id, emoji: marcas.reacciones[m.id] === e ? null : e }); return; }
     if (id === 'responder') { accionesWA.responder(m); return; }
-    if (id === 'copiar') { void copiar(m.texto).then((ok) => setFaltaMic(ok ? 'Copiado' : 'No pude copiar')); return; }
+    if (id === 'copiar') { void copiar(m.texto).then((ok) => setFaltaMic(ok ? 'Copiado' : NO_PUDE_COPIAR)); return; }
     if (id === 'info') { setInfoWA(m); return; }
     if (id === 'destacar') { void ponerMarca({ tipo: 'destacar', id: m.id, si: !marcas.destacados.includes(m.id) }); return; }
     if (id === 'fijar') { void ponerMarca({ tipo: 'fijar', id: m.id, si: !marcas.fijados.includes(m.id) }); return; }
@@ -692,7 +696,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   // ── Lo que se dibuja ──
   // Cada fila con SU criatura (lib/centro-munecos.ts → aspectoDeChat): el Cerebro, la estrella (sale de su nombre).
   const lista = useMemo(() => listaDelCliente({ sesiones: sesiones ?? [], offer: offer ?? [], antes: antes ?? [], grupo, busca, automations: automations ?? [], editores: editores ?? [] })
-    .map((f) => ({ ...f, aspecto: f.clave === 'jefe' ? null : f.origen === 'offer' && aspectoOffer ? aspectoOffer : aspectoDeChat(f.clave) })), [sesiones, offer, antes, grupo, busca, automations, editores, aspectoOffer]);
+    .map((f) => ({ ...f, aspecto: f.clave === 'jefe' ? null : f.guru ? aspectoDeReferente(f.guru) : f.origen === 'offer' && aspectoOffer ? aspectoOffer : aspectoDeChat(f.clave) })), [sesiones, offer, antes, grupo, busca, automations, editores, aspectoOffer]);
   /** La fila de lo abierto (un chat nuevo no tiene). */
   const filaAbierta = elegido ? lista.find((f) => esFilaDe(f, elegido)) ?? null : null;
   const esJefe = filaAbierta?.clave === 'jefe';
@@ -702,11 +706,11 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   // estrella: «Mira lo mal que se ve esto»). Sin la fila, la cabecera decía «Chat nuevo» con una criatura redonda y después
   // saltaba a «Cerebro» con la estrella. Con `entrarAlCerebro` y nada pedido ni elegido, es el Cerebro desde el primer cuadro.
   const vaAlCerebro = !filaAbierta && elegido == null && entrarAlCerebro && chatInicial == null;
-  const nombre = filaAbierta?.titulo ?? (vaAlCerebro ? NOMBRE_JEFE
+  const nombre = quien?.nombre ?? filaAbierta?.titulo ?? (vaAlCerebro ? NOMBRE_JEFE
     : idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || deAntes?.tema?.trim() || SIN_TITULO : esGrupo ? TITULO_GRUPO : SIN_TITULO);
-  const nombreMuneco = filaAbierta?.criatura ?? (vaAlCerebro ? JEFE_SECOND_BRAIN : idOffer != null ? criaturaDeOffer(nombre) : nombre);
+  const nombreMuneco = quien?.nombre ?? filaAbierta?.criatura ?? (vaAlCerebro ? JEFE_SECOND_BRAIN : idOffer != null ? criaturaDeOffer(nombre) : nombre);
   /** La criatura del chat abierto: la de su fila (la cabecera, la portada y el hilo, la misma que en la lista). */
-  const aspectoMuneco = filaAbierta?.aspecto ?? null;
+  const aspectoMuneco = quien?.aspecto ?? filaAbierta?.aspecto ?? null;
   /** Dónde se sigue la charla del lienzo abierta: el lienzo de su automatización, en este negocio. */
   const hrefLienzo = idAutomatizacion != null ? conWs(rutaDelLienzo(idAutomatizacion), ws) : null;
   /** Dónde se sigue el chat de un editor abierto: ese diseño o ese proyecto, en este negocio. */

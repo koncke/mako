@@ -225,6 +225,8 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'crear-secuencia', test: /\bdispar\w*\b[^.\n]{0,40}\bsecuencias?\b|\bsecuencias?\b[^.\n]{0,40}\bdispar\w*|\b(?:cre\w+|arm\w+|nuevas?)\b[^.\n]{0,25}\bsecuencias?\b(?![^.\n]{0,30}\b(?:emails?|mails?|correos?)\b)/, areas: ['chatbot'], relevancia: 'crear automatizacion con ia crear automatizacion desde plantilla', actua: true },
   // «¿dónde actualizo mis datos?»: listar_capacidades_mako trae la pantalla de cada dato (datos-negocio) y las lecturas, su link.
   { id: 'donde-se-edita', test: /\bdonde\b[^.\n?]{0,25}\b(?:actualiz|cambi|edit|modific|corrig|corrij)\w*|\b(?:actualiz|cambi|edit|modific|corrig|corrij)\w*\b[^.\n]{0,20}\b(?:mis|los) datos\b/, areas: ['negocio', 'mako'], relevancia: 'listar capacidades mako ver perfil negocio listar ofertas listar productos' },
+  // «Activa la función "Aprende solo" en el Second Brain» (#45): cambiar_aprende_solo lo propone y listar_capacidades_mako dice dónde está.
+  { id: 'aprende-solo', test: /\baprender? solo\b/, areas: ['mako'], relevancia: 'cambiar aprende solo listar capacidades mako' },
   // ── Web Generator (tanda 6) ──
   { id: 'seccion-landing', test: /\bseccion(?:es)?\b[^.\n]{0,40}\b(?:arriba|abajo|primero|ultimo|al final|al principio|antes|despues)\b|\b(?:mover|mueve|move\w*|borr\w+|ocult\w+|elimin\w+|sac\w+)\b[^.\n]{0,15}\bseccion/, areas: ['landing'], relevancia: 'acomodar seccion landing', actua: true },
   { id: 'enlace-landing', test: /\b(?:link|enlace)\b[^.\n]{0,15}\b(?:vsl|agenda)\b/, areas: ['landing'], relevancia: 'poner enlace landing', actua: true },

@@ -21,6 +21,7 @@ import { HiloMako } from '@/app/_chat/HiloMako';
 import { useChatCliente } from './useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from './PiezasCliente';
 import { ElegirReferente } from './ElegirReferente';
+import { BotonSuSecondBrain } from './SuSecondBrain';
 import { ASPECTO_MAKO, aspectoDeReferente } from '@/lib/centro-munecos';
 import { ORIGEN_FUNNEL_COACH, TAB_FUNNEL_COACH, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
@@ -56,7 +57,10 @@ export function ChatDelCoach({ referente, hayOferta, puedeElegir, onReferente, o
       .then((j: { sesion?: SesionChat | null } | null) => { if (vivo) setElegido(j?.sesion ? { antes: j.sesion.id } : { virtual: 'nuevo' }); });
     return () => { vivo = false; };
   }, []);
-  const k = useChatCliente({ elegido, setElegido, activo: false, entrarAlCerebro: false, chatInicial: null, opcionArmar: '', busca: '', caja, desde: DESDE, tab: TAB_FUNNEL_COACH });
+  const r = asesorPorId(referente);
+  const aspecto = r ? aspectoDeReferente(r.id) : ASPECTO_MAKO;
+  const quien = useMemo(() => ({ nombre: r?.nombre ?? 'MaKo', aspecto }), [r?.nombre, aspecto]);
+  const k = useChatCliente({ elegido, setElegido, activo: false, entrarAlCerebro: false, chatInicial: null, opcionArmar: '', busca: '', caja, desde: DESDE, tab: TAB_FUNNEL_COACH, quien });
   const { mirarSuIA } = k;
   useEffect(() => { mirarSuIA(); }, [mirarSuIA]);
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
@@ -77,9 +81,6 @@ export function ChatDelCoach({ referente, hayOferta, puedeElegir, onReferente, o
 
   const mostrandoPlan = viendoPlan && plan != null;
   const [eligiendo, setEligiendo] = useState(false);
-  const r = asesorPorId(referente);
-  const aspecto = r ? aspectoDeReferente(r.id) : ASPECTO_MAKO;
-  const quien = useMemo(() => ({ nombre: r?.nombre ?? 'MaKo', aspecto }), [r?.nombre, aspecto]);
   const vacio = elegido != null && k.cargado && !k.errorCarga && !k.items.length && !k.trabajo;
   const saludo = useMemo<ItemHilo[]>(() => [{ k: 'msg', id: 'saludo-fc', role: 'assistant', texto: saludoDelFunnelCoach(hayOferta), at: new Date().toISOString() }], [hayOferta]);
 
@@ -91,6 +92,7 @@ export function ChatDelCoach({ referente, hayOferta, puedeElegir, onReferente, o
           acciones: (
             <>
               {r && <span className="co-cab__inspirado">{inspiradoEn(r)}</span>}
+              {r && <BotonSuSecondBrain referente={r} />}
               {plan && <button type="button" className="co-chip" aria-pressed={mostrandoPlan} onClick={() => setViendoPlan((v) => !v)}>{mostrandoPlan ? 'Ver el chat' : 'Ver el plan'}</button>}
             </>
           ),

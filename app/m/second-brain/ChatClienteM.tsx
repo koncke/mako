@@ -28,6 +28,9 @@ import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
 import { edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { aspectoDeChat } from '@/lib/centro-munecos';
+import { asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
+import { GaleriaDeGurus } from '@/app/second-brain/GaleriaDeGurus';
+import { HojaDelGuru } from './HojaDelGuru';
 import { useMisTickets } from '@/app/tickets/usarMisTickets';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -62,13 +65,20 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado, así que se baja
   // en el cuadro siguiente (el mismo cuidado que ChatsMovil.tsx).
   const seguirHoja = useCallback(() => hilo.current?.closest('.m-sheet__cuerpo') as HTMLElement | null, []);
+  const enChatNuevo = elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo';
+  // El chat nuevo se queda arriba: abajo de la portada están los gurús, y bajando se perdía lo que dice.
+  const quedaArriba = enChatNuevo && !k.items.length;
   useEffect(() => {
-    if (!abierta) return;
+    if (!abierta || quedaArriba) return;
     const t = setTimeout(() => { const el = seguirHoja(); if (el) el.scrollTop = el.scrollHeight; }, 80);
     return () => clearTimeout(t);
-  }, [abierta, k.items.length, k.trabajo, seguirHoja]);
+  }, [abierta, k.items.length, k.trabajo, seguirHoja, quedaArriba]);
 
-  const abrir = (e: ElegidoChat) => { if (k.elegir(e)) setAbierta(true); };
+  // El chat con un gurú: su propia hoja, con su motor (HojaDelGuru.tsx). Una sola a la vez: abrirla cierra la de la conversación.
+  const [guru, setGuru] = useState<IdAsesor | null>(null);
+  const delGuru = asesorPorId(guru);
+  const abrirGuru = (id: IdAsesor) => { setAbierta(false); setGuru(id); };
+  const abrir = (e: ElegidoChat) => { if (k.elegir(e)) { setGuru(null); setAbierta(true); } };
   const cerrar = () => { setAbierta(false); k.setInfoWA(null); k.setConectando(false); k.setMenuWA(null); };
   /** Lo que se abre ADENTRO de la hoja, con su «‹» (una sola hoja): la Info de un mensaje o «Tus cuentas de IA». */
   const panel = k.conectando ? 'conectar' : k.infoWA ? 'info' : null;
@@ -86,7 +96,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
         titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(f.titulo).sub}` : f.titulo}</span>}
         segunda={vivo ? <span className="m-operaciones-vivo">{TEXTO_SEGUNDO_RENGLON.vivo}</span> : undefined}
         riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edadCorta(f.actividad, k.ahora)}</span></span>}
-        onClick={() => abrir(f.elegido)} />
+        onClick={() => (f.guru ? abrirGuru(f.guru) : abrir(f.elegido))} />
     );
   };
   const estado = estadoDelCliente(k);
@@ -155,9 +165,11 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
               </div>
             </div>
             <HiloDelCliente k={k} />
+            {enChatNuevo && !k.items.length && !k.trabajo && <GaleriaDeGurus onElegir={abrirGuru} />}
           </div>
         )}
       </SheetM>
+      {delGuru && <HojaDelGuru key={delGuru.id} referente={delGuru} onCerrar={() => setGuru(null)} />}
       <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
     </>
   );

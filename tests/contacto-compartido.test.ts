@@ -24,7 +24,7 @@ test('1. si ya es un lead, lo dice con su número y pide no proponer otro; si no
 test('2. el doer lo busca antes del turno y lo pone en el system (nunca al de la red)', () => {
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /const contactosCompartidos = contactosDelMensaje\(data\.message\);/);
-  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxParaElEquipo, )?ctxContacto, (?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado\]/);
+  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxCita, )?(?:ctxParaElEquipo, )?ctxContacto, (?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado\]/);
   const srv = leer('lib/contacto-compartido.ts');
   assert.match(srv, /\.like\('telefono_normalizado', `%\$\{norm\.slice\(-10\)\}`\)/, 'no busca por el teléfono normalizado');
 });

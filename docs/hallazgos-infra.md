@@ -77,6 +77,16 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un test con hijo da «test failed» sin un solo caso: el hijo heredó el contexto del corredor (3/11/2026)
+
+**Síntoma:** corrido suelto, `node --import tsx tests/x.test.ts` da 11 de 11. Con `--test` da `✖ tests/x.test.ts — 'test failed'`, cero
+casos y ningún error que leer.
+
+**Causa:** `node --test` les pone `NODE_TEST_CONTEXT` a sus hijos, y un `execFileSync` adentro de un test lo hereda. Un hijo que importa
+`node:test` (por `mock.module`) se cree test anidado y le ensucia el reporte al padre.
+
+**La regla:** un hijo lanzado desde un test va con `env: { ...process.env, NODE_TEST_CONTEXT: undefined }`.
+
 ## Un push directo a main puede dejar la referencia de la API vieja, y entonces la guarda frena TODOS los push (3/11/2026)
 
 - **Síntoma:** «tengo varios push que estaban fallando». `scripts/guardas-push.sh` contestaba «docs/api-mako.md quedó viejo»

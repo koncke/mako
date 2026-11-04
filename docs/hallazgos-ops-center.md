@@ -178,3 +178,83 @@ persona del nombre de la carpeta. Así salieron «Jaime Jiguera» (es **Higuera*
 (es **Segués**). **El nombre de un ser humano se lee del `titulo:`, nunca de un slug.**
 
 **Vive en:** app/conocimientos/catalogo.ts (el mapa `TITULO`, ~línea 805) · lib/asesores/catalogo.ts
+
+---
+
+## El curso de un gurú: el disco de la función no tiene `public/`, y la pantalla no decide quién contesta (3/11/2026)
+
+**El síntoma que no se veía.** La capa del curso estaba «cableada» y con tests en verde, pero el lector
+hacía `readFile(process.cwd()/public/cono-tx/<videoId>.json)` dentro de un `try/catch` que devuelve
+`null`. En Vercel la función sólo lleva lo que se IMPORTA (`next.config.ts`, `outputFileTracingIncludes`:
+«un readFileSync no es un import»); `public/` lo sirve el CDN. Resultado posible: **cada clase `null`, el
+gurú sin curso y ningún error**. Y la otra punta es peor: si el trazado SÍ siguiera la ruta, arrastraría
+`public/cono-tx` entero — **187 MB medidos**, contra un tope de 250 MB por función: el deploy roto del 2/11
+por otra puerta.
+
+**La regla que queda:** un archivo de `public/` se lee **por HTTP** (`APP_BASE_URL` + la ruta pública,
+`lib/cerebro-referente-server.ts`), nunca con `fs` desde una función. Y lo que se lee por red se memoiza
+**sólo si llegó**: un curso a medias no se guarda, para que un corte no deje a un gurú vacío hasta el
+próximo deploy.
+
+**Quién contesta lo decide la CLAVE de la conversación, no la pantalla.** El chat con un gurú es una
+tab con chat propio (`mako-movil:<persona>:referente-<id>`, `lib/chat-mako-reglas.ts`) y el servidor saca
+al gurú de esa clave (`app/api/mako/chat/route.ts` → `contextoDelChat`). Si lo dijera la pantalla (como
+el Funnel Coach, por `desde.tab`), la misma conversación abierta desde la lista del Ops Center contestaría
+como MaKo a secas. ⚠️ Y `origenDeClave` tiene que reconocer la clave nueva: sin origen, `claveDeTab` la
+rechaza y la conversación **no se puede escribir**.
+
+**No va en `armar()`**, aunque el tablero lo decía: `armar` es el grafo del NEGOCIO, en caché por
+workspace; el referente es de cada CHAT. Colgado ahí, el curso de uno viajaba en el chat de todos.
+
+**Lo que quedó sin hacer:** el #15 (la tab de gurús y el modal que se vio roto) no se tocó.
+
+---
+
+## «No responde con su base»: el turno estaba bien, faltaba el mapa. Probar con UNO no prueba a los 22 (3/11/2026)
+
+**El síntoma.** Martín: «Cuando le escribo a algun guru, aun no me respondo con su base de conocimientos».
+
+**El diagnóstico obvio era el equivocado.** Ya se había arreglado el turno (los tramos del curso en un bloque
+propio) y probado con el curso real de Alborna: 41/41 clases. Pero `CURSO_DE_REFERENTE`
+(`lib/asesores/cursos.ts`) tenía **3 de los 22 gurús** de la galería. Con los otros 19, Hormozi incluido,
+`cursoDe` devolvía `null`: el chat seguía con la ficha, el Second Brain decía «todavía no tiene su curso» y **no
+había un solo error**. Se probó con el gurú que justo estaba en el mapa.
+
+**La regla que queda:** lo que se ofrece en una galería se prueba con TODA la galería, no con un ejemplo.
+`tests/gurus-ops-center.test.ts` corre el camino real con los 22 (`tests/_gurus-curso-hijo.ts`), y
+`tests/asesores-cursos.test.ts` compara el mapa con el encabezado de cada ficha, que dice de qué archivo se
+destiló. Sumar un gurú es tres cosas: su ficha, su línea en el mapa y regenerar el índice
+(`node scripts/generar-clases-de-referentes.mjs`).
+
+**Lo que pesa cada curso, medido el 3/11:** de 0,08 MB (Puigrredón) a 9,77 MB (Adrià Sola); 45 MB los 22. Marc
+Verdú son 452 clases. Por eso la lectura va de a 16 pedidos y el turno espera 12 s: pasado el plazo sigue con la
+ficha y la lectura termina por detrás. Contra el CDN real, en frío y desde la PC de Martín: Hormozi 33/33 en 975 ms,
+Adrià Sola 158/158 en 2,8 s y Verdú 452/452 en 6,6 s. Elegir los tramos tarda de 6 a 788 ms por turno. Dos clases de Five Stars
+y dos de Marca Personal 5.0 no tienen transcripción: un 404 no es un curso «a medias» (rearmarlo era en cada turno).
+
+## La burbuja no tiene dueño si el chat se abre sin la lista (3/11/2026)
+
+**El síntoma.** «El que responde es una criatura de mako, no la foto del guru». La cabecera sí traía su cara.
+
+**La causa.** `HiloDelCliente` dibuja con `k.nombreMuneco` y `k.aspectoMuneco`, que salen de `filaAbierta`, la
+fila de la lista. Un chat con `activo: false` (el del gurú, el Funnel Coach) no tiene lista: el aspecto daba
+`null` y el nombre «Sin título», y de ahí salía una criatura sorteada. El Funnel Coach con un gurú al frente
+tenía el mismo bug y nadie lo había visto. **La regla:** quien abre un chat sin lista le pasa `quien` a
+`useChatCliente` (el mismo que usa su saludo); si no, su hilo no sabe quién contesta.
+
+## El gurú no va en `ElegidoChat`, y queda montado (3/11/2026)
+
+`ElegidoChat` es lo elegido en el motor de la PANTALLA; el gurú tiene su propio motor
+(`useChatDelReferente.ts`). Sumarle `{ guru }` obligaba a tocar cada `'coach' in e` y no arreglaba nada: lo que
+hacía falta era que la fila llamara a `abrirGuru` en vez de buscar una conversación que podía no existir
+(`queAbreElOfferCoach`, `lib/chat-mako-reglas.ts`). Como el Funnel Coach, **una vez abierto queda montado y
+escondido**: desmontado a mitad de un turno, la respuesta llegaba a nadie.
+
+**El super admin no ve sus chats con gurús en su lista**, que es la de Claude Code (`k` corre con `activo: false`):
+por eso `filasOffer` estaba siempre vacío y Hormozi era un clic muerto SIEMPRE para él. Su historial sale de
+`?gurusConCharla=1` y va debajo de los coaches, igual para el cliente.
+
+**Trampa de los tests:** `useChatCliente` llega a `lib/auth.ts` (`server-only`) por una server action, que Next
+cambia por un puente y node no. Tapando `server-only` en `require.cache` el árbol carga, y el proceso del test
+**sale con código 1 sin escribir una línea**, ni el nombre del test que corría: se ve como «test failed» a nivel de
+archivo. El motor no se dibuja en un test; se mira su fuente y se dibuja `HiloMako`.
