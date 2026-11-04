@@ -13,6 +13,7 @@ import { getSupabaseServer } from './supabase';
 import { pendienteRepetida, MARGEN_RELOJ_MS } from './turno-sin-duplicar';
 import { datosSinMediosEmojis } from './unicode-seguro';
 import { conQuienPidio, sinQuienPidio } from './confirmacion-pura';
+import { salidaDelGrupo } from './grupo-salida';
 
 export type EstadoPendiente = 'pendiente' | 'confirmada' | 'ejecutada' | 'cancelada' | 'vencida' | 'error';
 export type Pendiente = {
@@ -20,6 +21,8 @@ export type Pendiente = {
   resumen: string; estado: EstadoPendiente; venceAt: string; origen: string | null; createdAt: string;
   /** Quién la pidió en el grupo (lib/confirmacion-pura.ts, `elSiEsDeQuienPidio`); null fuera de un grupo o si no se sabe. */
   pidio?: string | null;
+  /** Nació en un turno sólo de la app: un «sí» por WhatsApp no la confirma (`rechazoSiNoEsConfirmacionPura`). */
+  soloApp?: boolean;
 };
 
 type Row = {
@@ -28,10 +31,10 @@ type Row = {
 };
 const toP = (r: Row): Pendiente => {
   // Quién la pidió viaja en el payload y sale acá: ni la bandeja lo muestra ni la acción lo recibe.
-  const { payload, pidio } = sinQuienPidio((r.payload && typeof r.payload === 'object' ? r.payload : {}) as Record<string, unknown>);
+  const { payload, pidio, soloApp } = sinQuienPidio((r.payload && typeof r.payload === 'object' ? r.payload : {}) as Record<string, unknown>);
   return {
     id: r.id, grupoJid: r.grupo_jid, tipo: r.tipo, payload,
-    resumen: r.resumen, estado: r.estado as EstadoPendiente, venceAt: r.vence_at, origen: r.origen, createdAt: r.created_at, pidio,
+    resumen: r.resumen, estado: r.estado as EstadoPendiente, venceAt: r.vence_at, origen: r.origen, createdAt: r.created_at, pidio, ...(soloApp ? { soloApp } : {}),
   };
 };
 
@@ -60,7 +63,7 @@ export async function crearPendiente(
     pidio?: string | null;
   },
 ): Promise<PendienteCreada> {
-  const payloadCrudo = conQuienPidio(dataCruda.payload ?? {}, dataCruda.pidio);
+  const payloadCrudo = conQuienPidio(dataCruda.payload ?? {}, dataCruda.pidio, salidaDelGrupo()?.soloApp);
   const data = { ...dataCruda, ...datosSinMediosEmojis({ grupoJid: dataCruda.grupoJid, tipo: dataCruda.tipo, payload: payloadCrudo, resumen: dataCruda.resumen, origen: dataCruda.origen }) };
   return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();

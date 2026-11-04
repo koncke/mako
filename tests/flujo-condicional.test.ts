@@ -173,5 +173,8 @@ test('⚠️ el acuse del grupo marca la corrida, y NO la despierta', () => {
   // (`wsDeGrupoJid`) y no por la instancia. Con el de la instancia, todo «ok» de todo grupo
   // de todos los clientes marcaba las corridas del ws1 — los grupos entran por la línea de
   // voz de MaKo, que está mapeada al dueño. Lo fija tests/cruce-notificaciones.test.ts.
-  assert.match(hook, /marcarRespondieron\(wsGrupo\)/, 'el acuse del grupo dejo de marcar las corridas');
+  // Desde el 3/11/2026 el webhook y el grupo de la app acusan por la misma función.
+  assert.match(hook, /acusarDesdeElGrupo\(wsGrupo,/, 'el acuse del grupo dejo de pasar por acusarDesdeElGrupo');
+  const insistencias = readFileSync(new URL('../lib/insistencias.ts', import.meta.url), 'utf8');
+  assert.match(insistencias.split('export async function acusarDesdeElGrupo')[1], /marcarRespondieron\(ws\)/, 'el acuse del grupo dejo de marcar las corridas');
 });

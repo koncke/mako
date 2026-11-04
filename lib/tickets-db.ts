@@ -222,6 +222,8 @@ export type NuevoTicket = {
   automatico?: { clave: string };
   /** Lo que se anota en el ticket automático que ya existía. */
   volvioAPasar?: string;
+  /** Lo escribió un invitado al grupo de la app, que no es de este negocio (lib/tickets-del-grupo.ts): como un tercero, lo decide Martín, siempre. */
+  invitado?: boolean;
 };
 export type Creado = { ok: true; id: number; estado: EstadoTicket; triage: Triage; yaExistia: boolean } | { ok: false; error: string };
 
@@ -280,7 +282,13 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   // la revisión de privacidad): por lo que pidió (el título y lo que escribió), no por la descripción, que trae lo de antes.
   const decideMartin = contexto.delegado ? delegadoQueDecideMartin(`${titulo}\n${contexto.pedido ?? ''}`, n.identidad) : null;
   // Un negocio con la regla de Martín (Leandro, 26/10/2026: lib/tickets-reglas.ts → APROBADOS_POR_REGLA) no espera su aprobación.
-  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto, adjuntos: n.adjuntos?.length ?? 0 }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia, decideMartin }); // Leila (27/10)
+  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto, adjuntos: n.adjuntos?.length ?? 0 }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia, decideMartin });
+  // ⛔ UN INVITADO AL GRUPO DE LA APP NO ENTRA POR LA VÍA LIBRE DEL NEGOCIO, aunque administre el suyo: como lo de un tercero, lo decide Martín. Sin esto, su ticket salía `en_curso` con el «hazlo» para el Runner.
+  if (n.invitado && triage.autoArreglo) {
+    triage.autoArreglo = false;
+    delete triage.regla;
+    triage.porque.push('Lo pidió un invitado al grupo de ese negocio, que no lo administra: lo decide Martín.');
+  } // Leila (27/10)
   const estado = estadoInicial(triage);
   const { data, error } = await db.from(T).insert({
     ref,

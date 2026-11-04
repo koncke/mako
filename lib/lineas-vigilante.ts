@@ -136,7 +136,7 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
       const r = await emitirDelCatalogo('wa-reconectado', {
         ws, datos: datosVolvio({ linea: lineaLegible(f) }), dedupKey: `volvio:${linea}`, dedupTtlMin: DEDUP_LINEA_MIN,
       });
-      const llego = r.wa || r.email === true;
+      const llego = r.wa || r.enApp === true || r.email === true;
       return {
         ...base, llego,
         ...(llego ? {} : { error: r.waError ?? (r.apagado ? 'el negocio lo tiene apagado' : r.deduped ? 'ya avisado hace poco' : 'no salió por ningún canal') }),
@@ -157,7 +157,7 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
     // ⚠️ LA MARCA SE PONE SÓLO SI LE LLEGÓ. Si el aviso no salió (el negocio no tiene grupo
     // todavía, la voz de MaKo está caída, lo apagó), la próxima corrida vuelve a probar: el
     // dedup del catálogo es el que impide repetirlo cada 10 minutos.
-    const llego = r.wa || r.email === true;
+    const llego = r.wa || r.enApp === true || r.email === true;
     if (llego) await runWithWorkspace(ws, () => setSetting(keyAvisado(linea), ahora));
     return {
       ...base, llego,

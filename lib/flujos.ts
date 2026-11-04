@@ -580,6 +580,6 @@ async function emitirTarjetaDelEvento(
   });
   if (!r.ok) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió`);
   else if (porEmail && !r.email) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió por email (ws ${wsDestino}: ¿sin destinatarios?)`);
-  else if (partes && !r.wa && r.waError && !r.sinGrupo) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió al grupo — ${r.waError}`);
+  else if (partes && !r.wa && !r.enApp && r.waError && !r.sinGrupo) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió al grupo — ${r.waError}`);
   return llegoLaTarjeta(r);
 }

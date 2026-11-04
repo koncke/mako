@@ -7,6 +7,40 @@ Acá va lo que costó y no se deduce leyendo el código.
 
 ---
 
+## El grupo de la app: lo que cuesta y no se ve leyendo el código (3/11/2026)
+
+Martín, tras el ban de la línea de MaKo: un grupo por negocio adentro del Ops Center, fijado arriba, con invitados de otros negocios y MaKo igual que en WhatsApp. El servidor vive en `lib/grupo-*.ts` y `app/api/grupos/`.
+
+**El diagnóstico obvio era el equivocado: «un invitado corre sin herramientas» NO alcanza.** Sacando `tools`, el turno seguía llevando en el system el perfil del negocio (siempre), los objetivos con USD vendidos y cobrados (con `pensar`), los tickets de cualquiera, las pendientes, 7 días de charla y 12 turnos de historial anteriores a que entrara: MaKo le contaba la plata a alguien de otro negocio, con la única barrera de una frase del prompt. Hoy, con `hayInvitado`: `buildSystemPrompt` en `lean` (el de la red), sin historial, sin pendientes, sin `conMemoria` salvo quién escribe. ⚠️ `baseDelSystem === base` da **true** con las dos `lean`: la condición de `conMemoria` no se puede apoyar en eso. El test compara contra un **control**: las mismas semillas, con quien administra, SÍ llegan al modelo; sin el control, un test de «no llegó» da verde si la semilla está mal puesta.
+
+**Pasar el actor a email abrió la vía libre sin que nadie lo tocara.** `identidadDe` da el `rol` de la persona en SU negocio: un admin de otro negocio, invitado al ws10, pasaba `conPermisoEnElNegocio`, y `reglaDelNegocio` mira sólo el ws, así que su ticket nacía `en_curso` con el «hazlo» para el Runner. Por WhatsApp no pasaba porque un teléfono ajeno da `usuarioId` null. Con `invitado`, lo decide Martín, siempre, y sin turno de acción (`esAccionIA` false): sin herramientas, todo pedido se habría delegado.
+
+**La identidad va en `participant` (`<email>#<m|i>@app.mako`) y no en un campo nuevo**, porque los dos sintéticos del lote ya lo copian: un campo nuevo se pierde en todo lote (ya pasó). ⚠️ `EMAIL_RE` acepta `#`: se lee sólo con la regex anclada al final (`leerParticipanteDeApp`), y **la letra se vuelve a calcular contra la base al armar el lote y en el cron**: el `payload` es de cuando se escribió, y un invitado sacado mientras esperaba correría con todo. `#m` sólo con prueba positiva leída sin error; cualquier otra cosa, `#i`.
+
+**El turno corre en OTRA invocación (`/api/cron/grupo-turno`), sin la sesión.** Se diseñó para correr sin cookies. Adentro del POST, `getUsuarioActual` y `adminDeWorkspaceActual` verían a quien escribió: `cobros.run` trataría el turno como del Super Admin, y un admin de OTRO negocio pasaría `adminDeWorkspaceActual` sobre este ws. La ruta encola y responde; si el autollamado falla, lo levanta `doer-flush`. **Y `encolar` usa `getTenantDb`: va adentro de `runWithWorkspace(ws)`**, o la cola de un invitado cae en SU negocio y el cron corre el turno con SUS datos, contestando en el hilo del otro. Sin ningún error.
+
+**`app<ws>@g.us` termina en `@g.us` A PROPÓSITO.** `enElGrupo`, `SOLO_GRUPOS` del vigía y los `endsWith('@g.us')` lo tratan como grupo: con otra forma, la regla del «sí» de plata se apaga callada. No empieza con `app:` porque `canalDeClave` daría 'app', y con `canal: 'app'` `rechazoSiNoEsConfirmacionPura` no corre: un «ok, esperá» ejecutaría plata. `ctx.canal` y `tickets.canal` siguen en 'whatsapp' y es el punto. Sin poder leer el jid, no se encola: otra clave sería otra cola, otro candado y otras pendientes de un negocio que sí tiene grupo.
+
+**Una cola con el `sí` cruzado tiene dos peligros que no se parecen.** Lo propuesto en WhatsApp se puede confirmar desde la app (ve el grupo). Lo propuesto SÓLO en la app no se confirma por WhatsApp: sin `__soloApp`, el «dale» de Pedro a otra persona ejecutaba un mail que nadie de ahí vio pedir. La memoria sigue compartida por jid: un turno de WhatsApp puede citar lo escrito en la app. Es el costo del «sí» cruzado, y queda para decidir.
+
+**Un candado de 150 s no aguanta un turno de 275.** La fila sigue `pendiente` hasta el final: el mensaje siguiente ganaba el candado vencido, la cola traía el pedido de antes, y MaKo contestaba dos veces y podía repetir lo que hacía. Existía en WhatsApp; con personas charlando es lo normal. `renovarCandado`. Y quien pierde el candado se iba callado: quedaba 2 o 3 minutos sin respuesta hasta el cron (la otra vuelta en `bufferearYResponder`). ⚠️ En un arnés con PostgREST de mentira, `mako_doer_lock` necesita su único: sin él, el insert de `reclamar` deja otra fila libre y cualquiera gana el candado, y el test lo lee como un bug del candado.
+
+**`next/server` `after` en un test.** Tira fuera de un pedido, así que `lib/grupo-app.ts` cae en línea; el arnés lo cambia por una cola que corre al final: si la escena no la vacía, lo de una escena corre en la siguiente, y los mensajes «de más» parecen un bug del doer.
+
+**Una base colgada y un timer `unref`:** node sale con código 0 y sin imprimir nada si lo único vivo es un `setTimeout` con `unref`. El hijo «terminó bien» sin resultado. Con un intervalo vivo en la escena, se ve.
+
+**Tres pruebas verdes que no probaban nada, y salieron a la luz sólo rompiendo.** El PostgREST de mentira del arnés deja pasar un NULL en `neq` suelto (el de verdad no): sacarle el `or(usuario_id.is.null,…)` al conteo de no leídos daba verde, y por eso se afirma sobre el fuente. El push corta en la primera frase, y un link se corta en su propio punto: «no dice el dominio» era una aserción vacía; se afirma con un texto donde el link queda antes del corte. «@MaKo sí» ya confirmaba por `confirmacionPura` sin que se sacara la mención: lo que cambia sacándola es el clasificador, así que se prueba en las reglas. La regla que queda: una rotura que no da rojo es un dato sobre el TEST, no sobre el código.
+
+**Lo que quedó sin hacer**, con el archivo donde vive:
+- Las PANTALLAS: la fila fijada, el hilo, la caja, Participantes y los links de `app/m/second-brain/page.tsx` y `app/m/operaciones/page.tsx`. La fila vieja `{grupo:true}` (`useChatCliente`, `PiezasCliente`, `grupoDeMaKo`, `hiloDelGrupoMaKo`) sigue: hay que sacarla junto con la nueva, o sale doble. El contrato de lo que espera el servidor está en la cabecera de `lib/grupo-app.ts` (`leerHilo`).
+- La memoria no se muda: si un negocio sin grupo crea uno, la clave pasa de `app<ws>@g.us` al jid y la memoria y las pendientes quedan atrás (`claveDeConversacion`). El hilo visible no se pierde.
+- `misTickets` filtra por ws + email: el ticket de un invitado no aparece en SU /tickets (`lib/tickets-db.ts`).
+- «vino por WhatsApp» en Pendientes: `canalDeClave` da whatsapp para la clave de la app, y eso es lo que mantiene las confirmaciones.
+- Los archivos de `grupos/<ws>/` no se borran del bucket al borrar un negocio.
+- `esAcuse` usa `includes`: «el book» corta las insistencias de quien administra. Se usa igual que hoy, y en un chat de personas se va a notar más (`lib/flujos-tipos.ts`).
+
+---
+
 ## Dos fotos parecidas dan dos muñecos IDÉNTICOS, y el estilo no es el culpable (1/11/2026)
 
 **El síntoma.** Las caricaturas de Marcos Razzetti y Víctor Heras salieron indistinguibles. Martín:

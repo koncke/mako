@@ -446,9 +446,14 @@ export async function telefonoListoParaElGrupo(ws: number, persona: string): Pro
  */
 export async function encolarTurno(
   d: Dispositivo, sesionId: number, pedido: PedidoPc, esperaMs = TURNO_MS,
-  o: { pruebaSinSesion?: boolean; delGrupo?: { telefono: string } } = {},
+  // `email`: el grupo de la APP (3/11/2026). No hay teléfono que mirar: la persona salió de la SESIÓN (`participant`, lib/grupo-reglas.ts), y la puerta mira que sea quien conectó la PC.
+  o: { pruebaSinSesion?: boolean; delGrupo?: { telefono: string } | { email: string } } = {},
 ): Promise<number> {
-  if (o.delGrupo) {
+  if (o.delGrupo && 'email' in o.delGrupo) {
+    if (o.delGrupo.email.trim().toLowerCase() !== String(d.persona ?? '').trim().toLowerCase()) {
+      throw new SinLaPersona('ia-pc: quien escribe en el grupo de la app no es quien conectó esta PC, el turno no se encola');
+    }
+  } else if (o.delGrupo) {
     if (!(await esLaPersonaDelGrupo(d, o.delGrupo.telefono))) {
       throw new SinLaPersona('ia-pc: quien escribe en el grupo no es quien conectó esta PC, el turno no se encola');
     }

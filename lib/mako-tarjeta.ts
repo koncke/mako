@@ -510,6 +510,8 @@ export function armarAvisoDeTarjeta(
 
 /** Lo que `emitirAviso` devuelve y esta tarjeta lee (lib/avisos.ts, `EmitirAvisoResult`). */
 export type ResultadoAviso = {
+  /** Quedó en el hilo del grupo de la app aunque WhatsApp no lo haya tomado. */
+  enApp?: boolean;
   ok: boolean; wa: boolean; deduped: boolean; apagado?: boolean; agrupado?: boolean; waError?: string; email?: boolean;
   /** La fila de la campanita (null: no se pudo escribir). */
   feedId?: number | null;
@@ -546,6 +548,9 @@ export function resultadoDelAviso(r: ResultadoAviso, lead: { nombre: string } | 
       ? { ok: true, resumen: 'El negocio no tiene grupo de MaKo: quedó en la app.' }
       : { ok: false, resumen: 'El negocio no tiene grupo de MaKo, y no pude dejarlo en la app.' };
   }
+  // ⚠️ QUEDÓ EN EL GRUPO DE LA APP (3/11/2026): WhatsApp no lo tomó pero el equipo lo tiene. Sin esto, el motor lee «no salió» y dispara el aviso de respaldo: doble burbuja y
+  // doble push por la misma respuesta, y en el rastro el «Evolution 400 en mako_ws9» que nadie tiene que leer.
+  if (r.enApp) return { ok: true, resumen: 'Le avisé al equipo.' };
   if (!r.wa && r.waError) return { ok: false, resumen: `No salió al grupo: ${r.waError}`.slice(0, 300) };
   return { ok: true, resumen: 'Le avisé al equipo.' };
 }
@@ -558,8 +563,10 @@ export function resultadoDelAviso(r: ResultadoAviso, lead: { nombre: string } | 
  * 17/10. Con «por email» y el correo que no salió (nadie en Notificaciones) también quedó en la app: reintentar cada hora
  * no le crea un grupo ni un destinatario, sólo suma filas. «No pude dejarlo en la app» (`feedId` null) no llegó.
  */
-export function llegoLaTarjeta(r: { ok: boolean; wa: boolean; email?: boolean; sinGrupo?: SinGrupo; feedId?: number | null }): boolean {
+export function llegoLaTarjeta(r: { ok: boolean; wa: boolean; email?: boolean; sinGrupo?: SinGrupo; feedId?: number | null; enApp?: boolean }): boolean {
   if (!r.ok) return false;
   if (r.wa || r.email === true) return true;
+  // En el grupo de la app también llegó: reintentar cada hora suma burbujas.
+  if (r.enApp === true) return true;
   return !!r.sinGrupo && r.feedId != null;
 }
