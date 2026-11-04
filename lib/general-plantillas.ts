@@ -186,18 +186,34 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     // en su origen (el 1.062 que se había contado era `instant_form`, los formularios de Meta, que son de Facebook O de
     // Instagram), y ningún negocio tiene los DM conectados. Lo que sí hay, para cada negocio con Meta, es la AUDIENCIA por
     // plataforma (lib/graficos-audiencia.ts): cuánto te ven, cuántos tocan y cuántos agendan desde Instagram.
-    id: 'instagram', nombre: 'Instagram', emoji: '📸',
-    linea: 'Lo que te trae Instagram contra Facebook: cuántos te ven, cuántos tocan y cuántos agendan.',
+    // 4/11/2026 — MURMURA · KESTREL (docs/templates-dashboard-propuesta.md §7.3): «¿qué publicación trajo gente de verdad?». Murmura
+    // pone cada red contra la otra y lo que cada publicación trajo; Kestrel, el alcance y lo que cuesta. «De verdad» es CLIENTES, no
+    // clics: por eso el anuncio se ordena por los cierres de sus leads (todas las redes de Meta: el lead no dice de cuál vino).
+    // Se llama «Instagram y redes» y su id sigue siendo `instagram` (las hojas guardadas nacieron de ese id).
+    id: 'instagram', nombre: 'Instagram y redes', emoji: '📸',
+    linea: 'Lo que te trae Instagram contra Facebook, y qué anuncio trajo clientes de verdad.',
     subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
-      { local: 'plataformas', tipo: 'anillo', fuente: 'audiencia', dimension: 'plataforma', metricas: ['agendas'], titulo: 'Lo que te trae Instagram' },
-      { ...numero('vistas', 'audiencia', 'impresiones', 'Te vieron en Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
-      { ...numero('clics', 'audiencia', 'clics', 'Tocaron tu anuncio', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
-      { ...numero('agendas', 'audiencia', 'agendas', 'Agendaron desde Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'audiencia', metricas: ['impresiones', 'clics', 'agendas'], dimension: null, titulo: 'Instagram',
+        frase: 'Instagram te mostró {impresiones} veces · {clics} tocaron tu anuncio · {agendas} agendaron', controles: [SOLO_INSTAGRAM], ir: 'ads-manager',
+      },
+      { ...numero('alcance', 'audiencia', 'alcance', 'Alcance en Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
+      { ...numero('ctr', 'audiencia', 'ctr', 'Tocan el anuncio', { comparar: false, invertida: true, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
+      { ...numero('cpm', 'audiencia', 'cpm', 'Costo por mil', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
       { ...numero('gasto', 'audiencia', 'gasto', 'Inversión en Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
-      { local: 'por-region', tipo: 'barras', fuente: 'audiencia', dimension: 'region', metricas: ['agendas'], titulo: 'Por región', controles: [SOLO_INSTAGRAM] },
-      { local: 'por-edad', tipo: 'barras', fuente: 'audiencia', dimension: 'edad', metricas: ['impresiones'], titulo: 'Por edad', controles: [SOLO_INSTAGRAM] },
+      {
+        local: 'plataformas', tipo: 'tabla_barras', fuente: 'audiencia', dimension: 'plataforma', metricas: ['impresiones', 'clics', 'agendas'],
+        titulo: 'Instagram contra Facebook',
+      },
       { local: 'por-genero', tipo: 'anillo', fuente: 'audiencia', dimension: 'genero', metricas: ['impresiones'], titulo: 'Por género', controles: [SOLO_INSTAGRAM] },
+      { local: 'por-edad', tipo: 'barras', fuente: 'audiencia', dimension: 'edad', metricas: ['impresiones'], titulo: 'Por edad', controles: [SOLO_INSTAGRAM] },
+      { local: 'por-region', tipo: 'barras', fuente: 'audiencia', dimension: 'region', metricas: ['agendas'], titulo: 'Agendan por región', controles: [SOLO_INSTAGRAM] },
+      { local: 'origen', tipo: 'barras', fuente: 'leads', fecha: 'alta', dimension: 'origen', metricas: ['leads'], titulo: 'De dónde llegan tus leads', ir: 'crm' },
+      {
+        local: 'anuncios', tipo: 'tarjetas', fuente: 'leads', fecha: 'alta', dimension: 'anuncio', metricas: ['cierres', 'agendas', 'leads'],
+        ordenMetrica: 'cierres', barra: 'agendas', limite: 4, titulo: 'Qué anuncio trajo clientes', ir: 'ads-manager',
+      },
     ],
   },
 ];
@@ -209,7 +225,7 @@ export const PORTADAS_GENERAL: Readonly<Record<string, DefinicionPortada>> = {
   operacion: { sube: 'prioridades', cambios: { texto: 'Lo primero de hoy' }, vecino: 'prioridades', par: ['cobranza', 'llamadas', 'agenda', 'deadlines', 'funnel'], molde: 'tilvo' },
   servicio: { sube: 'etapas', vecino: 'etapas', par: ['por-producto', 'contacto'], molde: 'prism' },
   curso: { sube: 'tendencia', vecino: 'tendencia', par: ['avance', 'por-area', 'por-estado', 'por-semana'], molde: 'corbel' },
-  instagram: { sube: 'plataformas', molde: 'prism' },
+  instagram: { sube: 'plataformas', vecino: 'plataformas', par: ['por-genero', 'por-edad'], molde: 'prism' },
 };
 
 /** La galería de General, en orden. «Hoja en blanco» va primera siempre (la pone el modal). */
