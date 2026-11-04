@@ -13,12 +13,21 @@
 // se respeta: no se intenta pasar con otro navegador ni con otro proxy. Se abre donde la persona la ve, y si quiere guardarla en
 // Spy, lo hace desde su navegador con la extensión («Guardar en Spy»).
 //
-//   POST { id, url } → { ok, estado: 'abierta' | 'no-pudo' }   (sin el porqué: la pantalla no lo dibuja)
+// ⚠️ UN ACORTADOR SE RESUELVE ANTES (4/11/2026, el Cerebro con `linktw.in/pywydg`: «el iframe muestra el archivo triste gris de
+// Chrome… un acortador se resuelve primero a su destino final»). La lectura sigue sola las redirecciones por HTTP; la que se hace
+// en el navegador (una etiqueta `refresh` o un `location = …` en una página casi vacía) adentro del marco se iba a una página que
+// no se deja mostrar. Se sigue acá (`paginaFinal`, hasta tres saltos), y la pantalla muestra el DESTINO (`final`). Y una página que contesta
+// con su error («500», «Application error») no está abierta, aunque haya contestado (lib/pagina-real.ts).
+//
+//   POST { id, url } → { ok, estado: 'abierta' | 'no-pudo', final? }   (sin el porqué: la pantalla no lo dibuja; `final` sólo si
+//                                                                     la página es otra que la pedida)
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { paginaParaVer } from '@/lib/landing-fetch';
+import { copyDeHtml } from '@/lib/landing-extraer';
+import { esPaginaDeError, paginaFinal } from '@/lib/pagina-real';
 import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import { ofertaGuardada } from '@/lib/spy-oferta-servidor';
 import { webComparable } from '@/lib/spy-oferta';
@@ -48,8 +57,14 @@ export async function POST(req: NextRequest) {
   if (!suyas.some((u) => webComparable(u) === webComparable(url))) return Response.json({ ok: false, error: 'Esa página no es suya.' }, { status: 404 });
 
   try {
-    await paginaParaVer(url);
-    return Response.json({ ok: true, estado: 'abierta' });
+    const pagina = await paginaFinal(url, paginaParaVer);
+    const { titulo, texto } = copyDeHtml(pagina.html);
+    if (esPaginaDeError(texto.slice(0, 240), titulo)) {
+      console.warn(`[spy-pagina] ws=${ws} ${url}: contestó con su página de error («${titulo || texto.slice(0, 60)}»)`);
+      return Response.json({ ok: true, estado: 'no-pudo' });
+    }
+    const final = webComparable(pagina.final) === webComparable(url) ? undefined : pagina.final;
+    return Response.json({ ok: true, estado: 'abierta', ...(final ? { final } : {}) });
   } catch (e) {
     // El porqué queda en el log; la pantalla sólo ofrece «Abrir».
     console.warn(`[spy-pagina] ws=${ws} ${url}: ${e instanceof Error ? e.message : String(e)}`);
