@@ -19,6 +19,9 @@ import { BotonFlotanteM, HuecoFlotanteM } from '@/app/m/_ui/BotonFlotanteM';
 import { marcoDe } from '@/app/_crear/reglas';
 import { crearDisenoNuevoAction } from '@/app/image-editor/actions';
 import { PLANTILLAS_NUEVO_DISENO, type PlantillaNuevoDiseno } from '@/app/image-editor/plantillas-crear';
+import { MiniaturaCarrusel } from '@/app/image-editor/carruseles/MiniaturaCarrusel';
+import { documentoDeCarrusel } from '@/lib/carruseles/documento';
+import { tipoCarrusel } from '@/lib/carruseles/tipos';
 import { ErrorLineaM } from '../_creacion/escritor';
 import { borrarDisenoMAction } from './actions';
 
@@ -28,7 +31,10 @@ function hace(iso: string): string {
   try { return new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }); } catch { return ''; }
 }
 
-export function InicioImagenM({ disenos: iniciales }: { disenos: ResumenDiseno[] }) {
+let idMini = 0;
+const idLocal = () => `mm${++idMini}`;
+
+export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos: ResumenDiseno[]; negocio?: string | null }) {
   const router = useRouter();
   const toast = useToastM();
   const { enLinea } = useConexion();
@@ -39,6 +45,17 @@ export function InicioImagenM({ disenos: iniciales }: { disenos: ResumenDiseno[]
   const [elegido, setElegido] = useState<ResumenDiseno | null>(null);
   const [trabajando, setTrabajando] = useState<string | null>(null);
   const [error, setError] = useState('');
+
+  // Los carruseles por tipo se ven como lo que se va a crear (el mismo documento de la acción), no como un marco vacío.
+  const docsCarrusel = useMemo(() => {
+    const marca = { nombre: negocio?.trim() || 'Tu negocio', usuario: null };
+    const out = new Map<string, Record<string, unknown>>();
+    for (const p of PLANTILLAS_NUEVO_DISENO) {
+      const t = p.carrusel ? tipoCarrusel(p.carrusel) : null;
+      if (t) out.set(p.id, documentoDeCarrusel({ laminas: t.estructura(t.laminas.def), estilo: t.estilo, marca, nuevoId: idLocal }));
+    }
+    return out;
+  }, [negocio]);
 
   const visibles = useMemo(() => {
     const aguja = buscar.trim().toLocaleLowerCase('es');
@@ -140,11 +157,13 @@ export function InicioImagenM({ disenos: iniciales }: { disenos: ResumenDiseno[]
                 aria-busy={trabajando === p.id || undefined} disabled={!enLinea || (trabajando != null && trabajando !== p.id)}
                 onClick={() => void crear(p)}>
                 <span className="m-image-editor-plantilla__mini">
-                  {p.imagen
+                  {docsCarrusel.has(p.id)
+                    ? <MiniaturaCarrusel doc={docsCarrusel.get(p.id)!} nombre={p.nombre} />
+                    : p.imagen
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={p.imagen} alt="" loading="lazy" />
                     : <span className="m-image-editor-plantilla__marco" style={marcoDe(p.formato)} />}
-                  {!p.imagen && p.rotulo ? <span className="m-image-editor-plantilla__rotulo">{p.rotulo}</span> : null}
+                  {!p.imagen && !docsCarrusel.has(p.id) && p.rotulo ? <span className="m-image-editor-plantilla__rotulo">{p.rotulo}</span> : null}
                   {trabajando === p.id ? <span className="m-image-editor-plantilla__creando">Creando…</span> : null}
                 </span>
                 <span className="m-image-editor-plantilla__nombre">{p.nombre}</span>

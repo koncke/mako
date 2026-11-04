@@ -13,6 +13,7 @@
 
 import { getWorkspaceActual } from '@/lib/workspace';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
+import { nombreDelNegocio } from '@/lib/carruseles/marca';
 import { Pagina } from '@/app/_ui';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { requireEditorImagen } from '../acceso';
@@ -25,9 +26,10 @@ export default async function ImageEditorDisenoPage({ params }: { params: Promis
   await requireEditorImagen();
   const [ws, senales] = await Promise.all([getWorkspaceActual(), senalesDelNegocio().catch(() => null)]);
   const { diseno } = await params;
+  const negocio = await nombreDelNegocio(ws);
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-      <ImageEditorCliente vista="editor" disenoId={diseno} ws={ws} senales={senales} />
+      <ImageEditorCliente vista="editor" disenoId={diseno} ws={ws} negocio={negocio} senales={senales} />
     </Pagina>
   );
 }

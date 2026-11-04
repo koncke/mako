@@ -64,6 +64,9 @@ export type PlantillaCrear = {
   frase?: string;
   /** Un video corto que corre al pasar el mouse (AI Avatar), mudo y en bucle; nunca en una pantalla sin mouse. */
   video?: string | null;
+  /** La plantilla trae la ESTRUCTURA y su ejemplo lleno se ve aparte: dibuja «Ver ejemplo» (`onVerEjemplo` de la pantalla).
+   *  Image, los carruseles por tipo (4/11/2026): la miniatura es lo que se va a crear, el ejemplo es de un negocio ficticio. */
+  verEjemplo?: boolean;
 };
 
 /** La cara de la tarjeta izquierda: el chat de MaKo (siempre, de entrada) o la lista de proyectos (la «←»). */
