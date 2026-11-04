@@ -1,0 +1,158 @@
+##############################################################################
+#  SUNROW   bundle 222kB - 35 helpers - 17 chunks - ARQ VANILLA - 25 fromTo crudos
+##############################################################################
+
+CHUNKS: approvals-CAIzGqB1.js, budget-DGFQ9h7F.js, charts--sJ2gzMv.js, contractors-BbPQgT4Q.js, dashboard-C8h0R1te.js, documents-B0SPmvJL.js, equipment-CVfKaoFQ.js, insights-B_iq_qXg.js, materials-MBGcmIVi.js, progress-DAQckH4R.js, projects-DefTvZw9.js, purchasing-Nh9Ercon.js, reports-e8Mw9em6.js, safety-DWm9fZTc.js, settings-_Qv_4oM9.js, support-C1TK5pW4.js, timesheet-Co11azjh.js
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[t -> export (no exp)]  (t,r,a,s){var c;typeof r==`number`&&(a.duration=r,r=a,a=null),c=e.call(this,s?r:ze(r))||this;var l=c.vars,d=l.duration,f=l.delay,p=l.immediateRender,m=l.stagger,h=l.overwrite,g=l.keyframes,_=l.defaults,v=l.scrollTrigger,b=r.parent||P,C=(E(t)||T(t)?y(t[0]):`length`in r)?[t]:yt(t),D,O,k,A,j,M,N,ee;if(c._targets=C.length?Se(C):se(`GSAP target `+t+` not found. https://gsap.com`,!i.nullTargetWarn)||[],c._ptLookup=[],c._overwrite=h,g||m||w(d)||w(f)){r=c.vars;var te=r.easeReverse||r.yoyoEase;if(D=c.timeline=new fn({data:`nested`,defaults:_||{},targets:b&&b.data...
+
+[oo -> export sr]  (e,t=0){if(!e)return H.timeline();let n=ao(e);return H.fromTo(n,{yPercent:115,rotation:6},{yPercent:0,rotation:0,duration:W(.85),ease:`power4.out`,stagger:W(.022),delay:W(t),clearProps:`transform`})}
+
+[so -> export rr]  (e,{y:t=34,stagger:n=.07,delay:r=0}={}){return e.length?H.fromTo(e,{opacity:0,y:t,scale:.985},{opacity:1,y:0,scale:1,duration:W(.9),ease:`power3.out`,stagger:W(n),delay:W(r),clearProps:`transform,opacity`}):H.timeline()}
+
+[co -> export Qn]  (e,{x:t=0,y:n=12,stagger:r=.045,delay:i=0}={}){return e.length?H.fromTo(e,{opacity:0,x:t,y:n},{opacity:1,x:0,y:0,duration:W(.55),ease:`power3.out`,stagger:W(r),delay:W(i),clearProps:`transform,opacity`}):H.timeline()}
+
+[lo -> export Jn]  (e,{delay:t=0,stagger:n=.06}={}){return e.length?H.fromTo(e,{opacity:0,y:40,rotation:e=>e%2?3:-3,scale:.94},{opacity:1,y:0,rotation:0,scale:1,duration:W(.8),ease:`back.out(1.4)`,stagger:W(n),delay:W(t),clearProps:`transform,opacity`}):H.timeline()}
+
+[uo -> export ar]  (e,{from:t=.6,delay:n=0,stagger:r=.05}={}){!e||eo.matches||H.fromTo(e,{scale:t,opacity:0},{scale:1,opacity:1,duration:.6,ease:`back.out(3)`,delay:n,stagger:r,overwrite:`auto`,clearProps:`transform,opacity`})}
+
+[fo -> export Kn]  (e){e&&(e.classList.remove(`is-flash`),e.offsetWidth,e.classList.add(`is-flash`),!eo.matches&&H.fromTo(e,{y:-4,scale:1.06},{y:0,scale:1,duration:.55,ease:`back.out(2.4)`,overwrite:`auto`,clearProps:`transform`}))}
+
+[po -> export er]  (e,t){if(!e||eo.matches)return;let n=e.getBoundingClientRect(),r=Object.assign(document.createElement(`span`),{className:`float-up`,textContent:t});r.setAttribute(`aria-hidden`,`true`),Object.assign(r.style,{left:`${n.left+n.width/2}px`,top:`${n.top}px`}),document.body.append(r),H.fromTo(r,{opacity:0,y:6,xPercent:-50,scale:.9},{keyframes:[{opacity:1,y:-12,scale:1,duration:.35,ease:`back.out(2)`},{opacity:0,y:-40,duration:.8,ease:`power2.in`,delay:.6}],onComplete:()=>r.remove()})}
+
+[ho -> export qn]  (e,t,n,{duration:r=1.2,delay:i=0,from:a}={}){if(!e)return;let o=mo.get(e);if(o||mo.set(e,o={v:a??0}),a!==void 0&&(o.v=a),H.killTweensOf(o),eo.matches||!r||o.v===t){o.v=t,e.textContent=n(t);return}let s=o;e.textContent=n(s.v),H.to(s,{v:t,duration:r,delay:i,ease:`power3.out`,onUpdate:()=>{e.textContent=n(s.v)},onComplete:()=>{e.textContent=n(t)}})}
+
+[go -> export lr]  (e){if(eo.matches)return;let t=e.querySelector(`svg`)??e;H.fromTo(t,{scale:.72},{scale:1,duration:.55,ease:`back.out(3)`,overwrite:!0})}
+
+[yo -> export nr]  (e=document,t=-4){no.matches&&K(`[data-lift]`,e).forEach(e=>{e.__lift||(e.__lift=!0,e.addEventListener(`pointerenter`,()=>{!eo.matches&&vo.v&&H.to(e,{y:t,duration:.45,ease:`power3.out`,overwrite:`auto`})}),e.addEventListener(`pointerleave`,()=>{vo.v&&H.to(e,{y:0,duration:.5,ease:`power3.out`,overwrite:`auto`,clearProps:`transform`})}))})}
+
+[So -> export Yn]  (e,{delay:t=0,stagger:n=.05,duration:r=.7}={}){return e.length?(e.forEach(e=>{e.setAttribute(`pathLength`,`1`),e.style.strokeDasharray=`1 1`}),H.fromTo(e,{strokeDashoffset:1},{strokeDashoffset:0,duration:W(r),ease:`power2.inOut`,stagger:W(n),delay:W(t),onComplete(){e.forEach(e=>{e.style.strokeDasharray=``,e.style.strokeDashoffset=``})}})):H.timeline()}
+
+[Co -> export tr]  (e,{delay:t=0,stagger:n=.05,axis:r=`x`}={}){if(!e.length)return H.timeline();let i=r===`x`?`scaleX`:`scaleY`;return H.fromTo(e,{[i]:0},{[i]:(e,t)=>Number(t.dataset.v??1),duration:W(1),ease:`power3.out`,stagger:W(n),delay:W(t)})}
+
+[Vc -> export H]  (e,t=0){let n=H.timeline({delay:W(t)});n.add(oo(io(`.head__title`,e)),0);let r=io(`.head__back`,e);r&&n.fromTo(r,{opacity:0,x:-14},{opacity:1,x:0,duration:W(.6),ease:`power3.out`,clearProps:`transform,opacity`},0),n.add(co(K(`.crumbs, .head__sub`,e),{y:8}),0),n.add(co(K(`.head .stat, .head__actions > *`,e),{y:14,stagger:.06}),.1);let i=io(`.head__stats`,e);return i&&n.add(()=>zc(i),.15),n}
+
+[Uc -> export Dt]  (e,t,n,r=!0,i=999){if(!n||!n.offsetWidth){H.set(e,{opacity:0});return}let a=t.scrollWidth,o=t.scrollHeight,s=0,c=0;for(let e=n;e&&e!==t&&(s+=e.offsetLeft,c+=e.offsetTop,e.offsetParent!==t);e=e.offsetParent);let l={l:s,r:a-(s+n.offsetWidth),t:c,b:o-(c+n.offsetHeight)},u=e=>`inset(${e.t}px ${e.r}px ${e.b}px ${e.l}px round ${i}px)`,d=e,f=d.__e;if(d.__e=l,!r||to()||!f||Number(H.getProperty(e,`opacity`))===0){H.killTweensOf(d.__st??{}),d.__st={...l},H.set(e,{clipPath:u(l),opacity:1});return}let p=d.__st??{...f};d.__st=p,H.killTweensOf(p);let m=Math.abs(l.t-f....
+
+[Gc -> export gt]  (e,t,n=!0){if(!e)return;K(`.tab`,e).forEach(e=>e.dataset.sub===t?e.setAttribute(`aria-current`,`page`):e.removeAttribute(`aria-current`));let r=io(`.tab[data-sub="${t}"]`,e),i=io(`.tabs__bar`,e);if(!r||!i)return;let a=r.offsetLeft,o=r.offsetWidth;!n||to()||i.dataset.placed!==`1`?H.set(i,{x:a,scaleX:o,opacity:1}):H.to(i,{x:a,scaleX:o,opacity:1,duration:.5,ease:`power3.inOut`,overwrite:!0}),i.dataset.placed=`1`;let s=e;(a<s.scrollLeft||a+o>s.scrollLeft+s.clientWidth)&&s.scrollTo({left:a-24,behavior:to()?`auto`:`smooth`})}
+
+[Zc -> export yt]  (e,t,{cls:n=``,align:r=`end`,label:i=``,onClose:a}={}){if(Yc?.anchor===e)return Xc(),null;Xc();let o=document.createElement(`div`);o.className=`pop ${n}`,i&&(o.setAttribute(`role`,`dialog`),o.setAttribute(`aria-label`,i)),typeof t==`string`?o.innerHTML=t:o.append(t),G(`.pop-layer`).append(o),sl(G(`.pop-layer`)),e.setAttribute(`aria-expanded`,`true`);let s=()=>{let t=e.getBoundingClientRect(),n=o.offsetWidth,i=o.offsetHeight,a=innerWidth,s=innerHeight,c=r===`start`?t.left:r===`center`?t.left+t.width/2-n/2:t.right-n;c=Math.max(12,Math.min(a-n-12,c));let l=...
+
+[p -> export (no exp)]  (t=!1){!Yc||Yc.el!==o||(Yc=null,e.setAttribute(`aria-expanded`,`false`),document.removeEventListener(`pointerdown`,c,!0),document.removeEventListener(`keydown`,l,!0),removeEventListener(`resize`,f),removeEventListener(`scroll`,u,!0),H.to(o,{opacity:0,scale:.96,duration:W(.16),ease:`power2.in`,onComplete:()=>o.remove()}),t&&e.focus(),a?.())}
+
+[el -> export (no exp)]  (e,t){e.showModal(),H.fromTo(e,t,{opacity:1,x:0,y:0,scale:1,duration:W(.45),ease:`back.out(1.5)`,clearProps:`transform`})}
+
+[tl -> export (no exp)]  (e,t,n){!e.open||e.dataset.closing||(e.dataset.closing=`1`,H.to(e,{...t,opacity:0,duration:W(.22),ease:`power2.in`,onComplete:()=>{delete e.dataset.closing,e.close(),H.set(e,{clearProps:`all`}),n?.()}}))}
+
+[nl -> export (no exp)]  (e){if(e.dataset.wired)return;e.dataset.wired=`1`,e.addEventListener(`cancel`,t=>{t.preventDefault(),e.__close?.()}),e.addEventListener(`click`,t=>{t.target===e&&e.__close?.()});let t=null;e.addEventListener(`pointerdown`,e=>{!$c()||e.pointerType===`mouse`||!e.target.closest(`.sheet-grab, .mform__head`)||e.target.closest(`button`)||(t={y0:e.clientY,t0:performance.now(),dy:0})}),e.addEventListener(`pointermove`,n=>{t&&(t.dy=Math.max(0,n.clientY-t.y0),t.dy>4&&H.set(e,{y:t.dy*(t.dy>260?.85:1)}))});let n=()=>{if(!t)return;let{dy:n,t0:r}=t;t=null;let i=n/Math...
+
+[$ -> export Mt]  (e,{undo:t,ico:n=`check`}={}){let r=G(`.toast`),i=G(`.toast__undo`,r);G(`.toast__ico`,r).innerHTML=Q(n),G(`.toast__msg`,r).textContent=e,cl=t??null,i.hidden=!t,H.killTweensOf(r),sl(r),H.timeline().fromTo(r,{opacity:0,y:18,scale:.96,visibility:`visible`},{opacity:1,y:0,scale:1,duration:W(.45),ease:`back.out(1.8)`}).to(r,{opacity:0,y:10,duration:W(.3),ease:`power2.in`,onComplete:()=>{cl=null,i.hidden=!0,H.set(r,{visibility:`hidden`})}},t?`+=5`:`+=2.6`)}
+
+[dl -> export (no exp)]  (){let e=ul;if(!e)return;ul=null;let t=e.previousElementSibling,n=[...e.children];H.to(G(`.scrim`),{autoAlpha:0,duration:W(.3)}),H.to(n,{opacity:0,duration:W(.14),onComplete:()=>{let r=$a.getState(e);e.classList.remove(`is-focus`),document.documentElement.classList.remove(`has-focus`),t?.classList.contains(`card-ph`)&&t.remove(),io(`[data-expand]`,e)?.setAttribute(`aria-label`,`Expand`),e.dispatchEvent(new CustomEvent(`card:resize`)),$a.from(r,{duration:W(.5),ease:`power3.inOut`,scale:!0,onComplete:()=>H.set(e,{clearProps:`transform`})}),H.to(n,{opacity:...
+
+[pl -> export W]  (e,t){let n=new Map;K(`[data-key]`,e).forEach(e=>n.set(e.dataset.key,e.getBoundingClientRect())),t(),K(`[data-key]`,e).forEach(e=>{let t=n.get(e.dataset.key);if(!t){H.fromTo(e,{opacity:0,y:12,scale:.97},{opacity:1,y:0,scale:1,duration:W(.45),ease:`power3.out`,clearProps:`transform,opacity`});return}let r=e.getBoundingClientRect(),i=t.left-r.left,a=t.top-r.top;(i||a)&&H.fromTo(e,{x:i,y:a},{x:0,y:0,duration:W(.55),ease:`power3.inOut`,clearProps:`transform`})})}
+
+[ml -> export U]  (e,t){H.to(e,{opacity:0,scale:.94,y:-6,duration:W(.25),ease:`power2.in`,onComplete:t})}
+
+[mu -> export (no exp)]  (e){if(!e.trim())return;ou.push({who:`me`,html:q(e)}),uu();let t=G(`.as-body`,ru());co([...t.querySelectorAll(`.as-msg`)].slice(-1),{y:10});let n=Object.assign(document.createElement(`div`),{className:`as-msg as-msg--ai as-typing`,innerHTML:`<i></i><i></i><i></i>`});t.querySelector(`.as-sugs`)?.before(n),t.scrollTop=t.scrollHeight,to()||H.to(n.querySelectorAll(`i`),{y:-5,duration:.32,ease:`sine.inOut`,yoyo:!0,repeat:-1,stagger:.12}),setTimeout(()=>{H.killTweensOf(n.querySelectorAll(`i`)),ou.push({who:`ai`,html:lu(e)}),uu();let t=G(`.as-body`,ru());co([.....
+
+[gu -> export (no exp)]  (e){let t=e??!hu;if(t===hu)return;hu=t;let n=ru(),r=iu();r.setAttribute(`aria-expanded`,String(hu)),hu?(uu(),n.hidden=!1,H.fromTo(n,{opacity:0,scale:.6,y:20},{opacity:1,scale:1,y:0,duration:W(.5),ease:`back.out(1.5)`,clearProps:`transform`}),co(K(`.as-msg, .as-sug, .as-rem`,n),{y:10,stagger:.03,delay:.15}),r.querySelector(`.assist__fab-ico`).innerHTML=Q(`close`),matchMedia(`(pointer: fine)`).matches&&setTimeout(()=>io(`#as-q`,n)?.focus({preventScroll:!0}),50)):(H.to(n,{opacity:0,scale:.7,y:16,duration:W(.22),ease:`power2.in`,onComplete:()=>{n.hidden=!0,H...
+
+[vu -> export (no exp)]  (){let e=ru(),t=iu();t.addEventListener(`click`,()=>{gu(),_u()}),e.addEventListener(`click`,n=>{let r=n.target;if(r.closest(`[data-close]`)){gu(!1),t.focus(),_u();return}let i=r.closest(`[data-tab]`);if(i){au=i.dataset.tab,uu(),co(K(`.as-msg, .as-sug, .as-rem`,e),{y:10,stagger:.03});return}let a=r.closest(`[data-ask]`);if(a){mu(a.dataset.ask);return}let o=r.closest(`[data-done]`);if(o){let e=o.dataset.done,t=o.closest(`.as-rem`);H.to(t,{opacity:0,x:30,duration:W(.3),ease:`power2.in`,onComplete:()=>{if(e.startsWith(`td:`)){let t=X.todos.find(t=>t.id===e.s...
+
+[Wu -> export (no exp)]  (e,t=!0){let n=Tu(e);K(`.ptab`,Nu).forEach(e=>e.dataset.group===n?.key?e.setAttribute(`aria-current`,`page`):e.removeAttribute(`aria-current`)),K(`.dock__btn[data-route]`).forEach(t=>t.dataset.route===e?t.setAttribute(`aria-current`,`page`):t.removeAttribute(`aria-current`));let r=Hu(n);K(`.gtab`,zu).forEach(t=>t.dataset.route===e?t.setAttribute(`aria-current`,`page`):t.removeAttribute(`aria-current`)),Lu(t),Uu(t&&!r),r&&t&&!Ru.hidden&&(H.fromTo(Ru,{opacity:0,y:-8},{opacity:1,y:0,duration:W(.4),ease:`power3.out`,clearProps:`opacity,transform`}),co(K(`.gt...
+
+[Xu -> export (no exp)]  (e=!1){let{name:t,params:n}=ju(location.hash),r=++Yu;Xc(),fl()&&dl();let i=G(`[data-view="${t}"]`);if(Ju?.name===t){Wu(t,!0),Ju.page.enter({params:n,first:!1,same:!0}),Zu(Ju.page,n);return}let a=qu.get(t);if(!a){try{a=(await Au[t]()).page}catch(e){console.error(e),$(`${Du[t]} couldn’t load. Check your connection and try again.`,{ico:`alert`});return}if(r!==Yu)return;a.mount(i),qu.set(t,a)}if(r!==Yu)return;let o=i.dataset.entered!==`1`,s=Ju;Ju={name:t,page:a},s?.page.leave?.(),Wu(t,!e),Zu(a,n),document.documentElement.dataset.route=t;let c=()=>{K(`.view`)...
+
+[ad -> export (no exp)]  (){Qu.open||(Xc(),$u.value=``,nd=0,id(),Qu.showModal(),H.fromTo(Qu,{opacity:0,y:-14,scale:.97},{opacity:1,y:0,scale:1,duration:W(.38),ease:`back.out(1.6)`,clearProps:`transform`}),co(K(`.finder__opt`,ed),{y:8,stagger:.025}),$u.focus())}
+
+[od -> export (no exp)]  (){H.to(Qu,{opacity:0,y:-8,duration:W(.16),ease:`power2.in`,onComplete:()=>{Qu.close(),H.set(Qu,{clearProps:`all`})}})}
+
+[ld -> export (no exp)]  (){let e=Ks(),t=G(`#bell-badge`),n=t.textContent;t.hidden=e===0,t.textContent=String(e),n&&n!==String(e)&&e&&!to()&&H.fromTo(t,{scale:1.5},{scale:1,duration:.5,ease:`back.out(3)`}),G(`#btn-bell`).setAttribute(`aria-label`,e?`Notifications, ${e} unread`:`Notifications`),Cu.filter(e=>e.count).forEach(e=>{let t=e.count();K(`[data-count="${e.route}"]`).forEach(e=>{e.textContent=t?String(t):``}),io(`.gtab[data-route="${e.route}"]`,zu)?.setAttribute(`aria-label`,t?`${e.label}, ${t}`:e.label)})}
+
+[yd -> export (no exp)]  (){try{localStorage.setItem(`sunrow:signedout`,`1`)}catch{}vd(),_d.hidden=!1,H.fromTo(_d,{opacity:0},{opacity:1,duration:W(.4)}),H.fromTo(`.signin__card`,{y:24,scale:.97},{y:0,scale:1,duration:W(.6),ease:`back.out(1.6)`}),document.documentElement.classList.add(`is-signedout`)}
+
+[Td -> export (no exp)]  (){document.documentElement.classList.add(`is-ready`);let e=Mu();H.timeline().add(co([G(`.brand`),G(`.ptabs`),...K(`.top__tools > *`)].filter(e=>e.offsetParent),{y:-14,stagger:.05}),.05).fromTo(Ku,e?{yPercent:120,opacity:0}:{x:-90,opacity:0},{x:0,yPercent:0,opacity:1,duration:W(.85),ease:`power3.out`,clearProps:`transform,opacity`},.1).add(co(K(`.dock__btn`,Ku),{y:10,stagger:.035}),.3).fromTo(`.assist__fab`,{scale:.4,opacity:0},{scale:1,opacity:1,duration:W(.7),ease:`back.out(2.2)`,clearProps:`transform,opacity`},1.1).add(()=>Xu(!0),.12).add(()=>{vo.v=!0...
+
+========================== TIMELINE DEL ARMAZON ==========================
+(this)},e}(),Qa=function(){function e(e){this.id=e,this.actions=[],this._kill=[],this._final=[],this._abs=[],this._run=[],this.data={},this.state=new Ya,this.timeline=Xi.timeline()}var t=e.prototype;return t.add=function(e){var t=this.actions.filter(function(t){return t.vars===e});return t.length?t[0]:(t=new Za(typeof e==`function`?{animate:e}:e,this),this.actions.push(t),t)},t.remove=function(e){var t=this.actions.indexOf(e);return t>=0&&this.actions.splice(t,1),this},t.getState=function(e){var t=this,n=U,r=Zi;return U=this,this.state.clear(),this._kill.length=0,this.actions.forEach(function(n){n.vars.getState&&(n.states.length=0,Zi=n,n.state=n.vars.getState(n)),e&&n.states.forEach(function(e){return t.state.add(e)})}),Zi=r,U=n,this.killConflicts(),this},t.animate=function(){var e=this,t=U,n=this.timeline,r=this.actions.length,i,a;for(U=this,n.clear(),this._abs.length=this._final.length=this._run.length=0,this.actions.forEach(function(e){e.vars.animate&&e.vars.animate(e);var t=e.vars.onEnter,n=e.vars.onLeave,r=e.targets,i,a;r&&r.length&&(t||n)&&(i=new Ya,e.states.forEach(function(e){return i.add(e)}),a=i.compare($a.getState(r)),a.enter.length&&t&&t(a.enter),a.leave.length&&n&&n(a.leave))}),ka(this._abs),this._run.forEach(function(e){return e()}),a=n.duration(),i=this._final.slice(0),n.add(function(){a<=n.time()&&(i.forEach(function(e){return e()}),ta(e,`onComplete`))}),U=t;r--;)this.actions[r].vars.once&&this.actions[r].kill();return ta(this,`onStart`),n.restart(),this},t.loadState=function(e){e||=function(){return 0};var t=[];return this.actions.forEach(function(n){if(n.vars.loadState){var r,i=function i(a){a&&(n.targets=a),r=t.indexOf(i),~r&&(t.splice(r,1),t.length||e())};t.push(i),n.vars.loadState(i)}}),t.length||e(),this},t.setState=function(){return this.actions.forEach(function(e){return e.targets=e.vars.setState&&e.vars.setState(e
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2px solid var(--focus);outline-offset:2px }
+  :focus:not(:focus-visible),.head__title:focus { outline:none }
+  .link:hover { text-underline-offset:3px;text-decoration:underline }
+  .ptab:hover { background:var(--well) }
+  .ptab[aria-current=page]:hover { background:0 0 }
+  .org:hover { background:var(--surface-2) }
+  .gtab:hover,.gtab[aria-current=page] { color:var(--text) }
+  .dock__btn:hover,.dock__btn:focus-visible,.dock__btn[aria-expanded=true],.dock__btn[aria-current=page] { opacity:1;background:#ffffff21 }
+  .dock__btn:focus-visible { outline-color:var(--on-dock) }
+  .dock__btn:hover .dock__tip,.dock__btn:focus-visible .dock__tip { opacity:1 }
+  .crumbs a:hover,.crumbs [aria-current] { color:var(--text) }
+  .tab:hover { color:var(--text);background:var(--well) }
+  .card__more:hover { text-underline-offset:3px;text-decoration:underline }
+  .ibtn:hover { background:var(--well) }
+  .ibtn--glass:hover { background:var(--surface-2) }
+  .btn--primary:hover { filter:brightness(1.18) }
+  :root[data-theme=dark] .btn--primary:hover { filter:brightness(.92) }
+  .btn--dark:hover { filter:brightness(1.2) }
+  .btn--ghost:hover { background:var(--raised) }
+  .btn--soft:hover { background:color-mix(in srgb, var(--sun) 30%, transparent) }
+  .input:focus,.select:focus,.search:focus-within { border-color:var(--focus);box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 18%, transparent) }
+  .chip:hover { border-color:var(--line-2) }
+  .table tbody tr:hover { background:var(--surface-2) }
+  a.list__row:hover b,button.list__row:hover b { color:var(--accent-text) }
+  .chart:focus-visible { outline:2px solid var(--focus);outline-offset:4px;border-radius:12px }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--well);outline:none }
+  .pop__row:hover,.pop__row:focus-visible { background:var(--well);outline:none }
+  .as-head .ibtn:hover { background:#ffffff1a }
+  .as-sug:hover { border-color:var(--cobalt);color:var(--info) }
+  .ptab:hover,.ibtn:hover,.table tbody tr:hover,.menu__item:hover,.pop__row:hover,.tab:hover,.org:hover { background:0 0 }
+  .ibtn--glass:hover,.org:hover { background:var(--surface) }
+  .btn--ghost:hover { background:var(--surface-2) }
+  .btn--primary:hover,.btn--dark:hover { filter:none }
+  .ptab:active,.ibtn:active,.pop__row:active,.menu__item:active { background:var(--well) }
+  .btn:active,.chip:active,.ibtn:active { filter:brightness(.94) }
+  .table--stack tbody tr:hover { background:0 0 }
+
+  -- keyframes --
+  @keyframes breathe {50%{box-shadow:0 0 0 7px color-mix(in srgb, var(--jade) 6%, transparent)}}
+  @keyframes flash {0%{color:var(--accent-text)}to{color:inherit}}
+  @keyframes fade {0%{opacity:0}}
+
+  -- transitions --
+  transition:background-color .15s
+  transition:opacity .15s
+  transition:opacity .18s var(--ease)
+  transition:transform .3s var(--ease)
+
+======================== PAGINA dashboard-C8h0R1te.js (21kB) ========================
+  alias: F=so, L=Co, ce=uo, fe=go, g=co, ge=oo, oe=pl, pe=yo, re=ml
+
+  >>> function We()  [5 helpers]
+{let e=T.timeline(),t=y(`.hero__title`,B);return e.add(F([y(`.hero`,B)],{y:24}),0).add(ge(t),.05).add(g(b(`.hero__eyebrow, .hero__sub, .hchip`,B),{y:10,stagger:.06}),.15).fromTo(y(`.ai-card`,B),{opacity:0,x:30,scale:.97},{opacity:1,x:0,scale:1,duration:x(.8),ease:`power3.out`,clearProps:`transform,opacity`},.2).add(()=>{U?.play(),Ue()},.35).add(F(b(`.kpi`,B),{y:22,stagger:.06}),.25).add(()=>se(y(`.kpis`,B)),.35).add(F(b(`.dash__row3 > .card, .quick, .dash__aside > .card`,B),{y:30,stagger:.07}),.4).add(()=>{H?.play(),V?.play(),L(b(`.sites .meter__fill`,B),{stagger:.08}),Se(y(`.bud__top`,B),.3)},.7).add(g(b(`.sites .site, [data-updates] .list__row, [data-alerts] .list__row, [data-deadlines] .list__row, .todo, [data-notices] .list__row, .quick__a`,B),{y:10,stagger:.025}),.75).add(()=>ce(b(`.cal__d:not(.is-pad)`,B).sort((e,t)=>Math.abs(Number(e.dataset.d))-Math.abs(Number(t.dataset.d))),{from:.4,stagger:.012}),.8),e}
+
+  >>> function Ke()  [4 helpers]
+{B.addEventListener(`change`,e=>{let t=e.target;if(t.id===`dash-proj`){W=t.value;let e=X(W);V?.update(e.series,e.labels,e.marker);let n=y(`[data-read]`,B);n.innerHTML=Z(W),g([...n.children],{y:8,stagger:.05})}let n=t.closest(`[data-todo]`);n&&(n.closest(`.todo`).classList.toggle(`is-done`,n.checked),!N()&&n.checked&&T.fromTo(n,{scale:.6},{scale:1,duration:.5,ease:`back.out(3)`}),setTimeout(()=>s(n.dataset.todo),N()?0:380))}),B.addEventListener(`click`,t=>{let n=t.target,i=n.closest(`[data-resolve]`);if(i){fe(i),re(i.closest(`.list__row`),()=>a(i.dataset.resolve));return}let o=n.closest(`[data-cal]`);if(o){let e=Number(o.dataset.cal);G=Math.max(-3,Math.min(6,G+e));let t=y(`[data-cal-body]`,B);T.to(y(`.cal__grid`,t),{opacity:0,x:-24*e,duration:x(.16),ease:`power2.in`,onComplete:()=>{t.innerHTML=Re(),T.fromTo(y(`.cal__grid`,t),{opacity:0,x:24*e},{opacity:1,x:0,duration:x(.35),ease:`power3.out`,clearProps:`transform,opacity`})}});return}let s=n.closest(`.cal__d[data-d]`);if(s){K=Number(s.dataset.d),b(`.cal__d`,B).forEach(e=>{e.classList.toggle(`is-sel`,e===s),e.setAttribute(`aria-pressed`,String(e===s))}),N()||T.fromTo(s,{scale:.8},{scale:1,duration:.45,ease:`back.out(3)`,clearProps:`transform`});let e=y(`.cal__day`,B);e.innerHTML=ze(),g([...e.children],{y:8,stagger:.04});return}if(n.closest(`[data-new-todo]`)){le(n.closest(`[data-new-todo]`));return}n.closest(`[data-all-todos]`)&&r(`<h2>My tasks</h2><ul class="todos">${z.todos.map(t=>`<li class="todo${t.done?` is-done`:``}"><span class="well well--${t.done?`jade`:t.priority===`high`?`rose`:`sun`}">${e(t.done?`check`:`clock`)}</span><a href="${t.href}"><b>${S(t.title)}</b><small>${S(m(t.projectId)?.name??``)} · ${f(t.d)}</small></a>${I(t.priority)}</li>`).join(``)}</ul>`,{label:`My tasks`})}),v(`todos`,()=>$(`[data-todos]`,Be())),v(`alerts`,()=>{let e=u(`[data-alerts]`,B);e&&(e.outerHTML=Q())}),v(`activity`,()=>$(`[data-updates]`,Pe())),v(`notices`,()=>{let e=u(`[data-notices]`,B);e&&(e.outerHTML=Ve())}),v(`milestones`,()=>{let e=u(`[data-deadlines]`,B);e&&(e.outerHTML=Ie())}),v(`approvals`,Ge),v(`tasks`,()=>{Ge();let e=X(W);V?.update(e.series,e.labels,e.marker),y(`[data-read]`,B).innerHTML=Z(W);let t=u(`#dc-sites`,B);t&&(t.outerHTML=Ae(),L(b(`#dc-sites .meter__fill`,B))),U?.update(P()/100)}),v(`costs`,()=>{let e=t(),n=e.reduce((e,t)=>e+k(t.id),0),r=e.reduce((e,t)=>e+_(t.id),0),i=e.reduce((e,t)=>e+M(t.id),0);H?.update([{label:`Spent`,value:r,tone:`sun`},{label:`Committed`,value:i,tone:`cobalt`},{label:`Remaining`,value:Math.max(0,n-r-i),tone:`muted`}],D(r/n));let a=(e,t)=>{let n=u(`[data-b="${e}"]`,B);n&&(n....
+
+  >>> function He()  [1 helpers]
+{B.innerHTML=`<div class="dash">
+    <div class="dash__main">
+      ${Te()}
+      ${De()}
+      <div class="dash__row3">${Oe()}${ke()}${Ae()}</div>
+      ${Me()}
+      <div class="dash__row3 dash__row3--lists">
+        ${n({id:`dc-upd`,title:`Recent project updates`,ico:`trend`,tools:`<a class="card__more" href="#/progress/reports">View all ${e(`arrowR`)}</a>`,body:Pe()})}
+        ${n({id:`dc-alerts`,title:`Critical issue alerts`,ico:`alert`,cls:`dash-alerts`,tools:`<a class="card__more" href="#/safety/incidents">View all ${e(`arrowR`)}</a>`,body:Q()})}
+        ${n({id:`dc-dead`,title:`Upcoming deadlines`,ico:`flag`,tools:`<a class="card__more" href="#/progress/milestones">View all ${e(`arrowR`)}</a>`,body:Ie()})}
+      </div>
+    </div>
+    <aside class="dash__aside" aria-label="Your day">
+      ${n({id:`dc-cal`,title:`Calendar`,ico:`calendar`,cls:`cal`,body:`<div data-cal-body>${Re()}</div>`})}
+      ${n({id:`dc-tasks`,title:`My tasks`,ico:`check`,tools:`<button type="button" class="ibtn ibtn--sm" data-new-todo aria-label="Add task" title="Add task">${e(`plus`)}</button><button type="button" class="card__more" data-all-todos>View all ${e(`arrowR`)}</button>`,body:Be()})}
+      ${n({id:`dc-notes`,title:`Notifications`,ico:`bell`,tools:`<a class="card__more" href="#/approvals">View all ${e(`arrowR`)}</a>`,body:Ve()})}
+    </aside>
+  </div>`;let r=t(),i=r.reduce((e,t)=>e+k(t.id),0),a=r.reduce((e,t)=>e+_(t.id),0),o=r.reduce((e,t)=>e+M(t.id),0);H=be(y(`[data-donut]`,B),{parts:[{label:`Spent`,value:a,tone:`sun`},{label:`Committed`,value:o,tone:`cobalt`},{label:`Remaining`,value:Math.max(0,i-a-o),tone:`muted`}],center:D(a/i),sub:`utilized`,label:`Budget: ${D(a/i)} spent, ${D(o/i)} committed`}),U=xe(y(`[data-gauge]`,B),{value:P()/100,format:e=>String(Math.round(e*100)),sub:`out of 100`,label:`Delivery score ${P()} out of 100`,zones:{bad:.5,warn:.7}});let s=X(W);V=ve(y(`[data-chart]`,B),{...s,format:e=>`${Math.round(e)}%`,label:`Planned, actual, forecast and baseline progress by month`,max:100,height:210}),y(`[data-read]`,B).innerHTML=Z(W),y(`#dash-proj`,B).value=W,pe(B),de(B)}

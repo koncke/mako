@@ -1,0 +1,63 @@
+##############################################################################
+#  ORVEL   bundle 43kB - 7 helpers - 14 chunks - ARQ VANILLA - 7 fromTo crudos
+##############################################################################
+
+CHUNKS: accounts-BkP6GIkx.js, analytics-B_dbFzu7.js, bills-DPpbgMXq.js, cards-rRqP34A6.js, charts-CWjp6m1s.js, contacts-Co1Y3dZY.js, documents-Cs4LrnkE.js, invoices-BL3B2o4P.js, overview-Cr9CyfE1.js, settings-Bm7bXoYT.js, support-Dx_PVPUI.js, team-DfLP-0hM.js, transactions-7G4suQg_.js, ui-BJ6NGEmN.js
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[Wt -> export (no exp)]  (e,n,r=!0){k(`.nav__item[data-route]`).forEach(t=>t.dataset.route===e?t.setAttribute(`aria-current`,`page`):t.removeAttribute(`aria-current`)),w(`.nav__more`).classList.toggle(`is-current`,Pt.includes(e));let i=`#/${[e,...n.slice(0,1)].join(`/`)}`;k(`.nav__sub a`).forEach(e=>e.removeAttribute(`aria-current`));let a=Ae(`.nav__sub[data-sub-of="${e}"]`);if(a){let e=k(`a`,a);(e.find(e=>e.getAttribute(`href`)===i)??e[0])?.setAttribute(`aria-current`,`page`)}let o=a?e:``;if(o!==Ut){let e=k(`.nav__track > :not(.nav__pill)`),n=r&&!Oe()&&!zt()&&!Lt.matches?oe.get...
+
+[Gt -> export (no exp)]  (e){if(!zt()||!e.dataset.tip)return;let n=e.getBoundingClientRect();H.textContent=e.dataset.tip,t.killTweensOf(H),t.set(H,{left:n.right+10,top:n.top+n.height/2,yPercent:-50,visibility:`visible`}),t.fromTo(H,{opacity:0,x:-6},{opacity:1,x:0,duration:D(.25),ease:`power3.out`})}
+
+[Zt -> export (no exp)]  (e=!1){let{name:n,params:r}=It(location.hash),i=++Xt;he(),Be()&&Fe();let a=w(`[data-view="${n}"]`);if(W?.name===n){Wt(n,r,!0),W.page.enter({params:r,first:!1,same:!0}),Qt(W.page,r);return}let o=Yt.get(n);if(!o){try{o=(await Ft[n]()).page}catch(e){console.error(e),A(`${z[n]} couldn’t load. Check your connection and try again.`,{ico:`alert`});return}if(i!==Xt)return;o.mount(a),Yt.set(n,o)}if(i!==Xt)return;let s=a.dataset.entered!==`1`,c=W;W={name:n,page:o},c?.page.leave?.(),Wt(n,r,!e),Qt(o,r),B.dataset.route=n;let l=()=>{k(`.view`).forEach(e=>{e.hidden=e!=...
+
+[nn -> export (no exp)]  (){G.open||(he(),K.value=``,Y=0,tn(),G.showModal(),t.fromTo(G,{opacity:0,y:-14,scale:.97},{opacity:1,y:0,scale:1,duration:D(.38),ease:`back.out(1.6)`,clearProps:`transform`}),ge(k(`.finder__opt`,q),{y:8,stagger:.025}),K.focus())}
+
+[rn -> export (no exp)]  (){t.to(G,{opacity:0,y:-8,duration:D(.16),ease:`power2.in`,onComplete:()=>{G.close(),t.set(G,{clearProps:`all`})}})}
+
+[pn -> export (no exp)]  (){he(),w(`#signin-email`).value=u(S).email,w(`#signin-pass`).value=``,w(`#signin-err`).textContent=``,Q.hidden=!1,w(`.app`).setAttribute(`inert`,``),t.fromTo(Q,{opacity:0},{opacity:1,duration:D(.35)}),t.fromTo(w(`.signin__card`),{y:30,scale:.97,opacity:0},{y:0,scale:1,opacity:1,duration:D(.6),ease:`back.out(1.5)`,delay:D(.1),clearProps:`transform,opacity`}),w(`#signin-pass`).focus()}
+
+[gn -> export (no exp)]  (){B.classList.add(`is-ready`);let e=Lt.matches;t.timeline().fromTo(`.side`,e?{y:90,opacity:0}:{x:-40,opacity:0},{x:0,y:0,opacity:1,duration:D(.9),ease:`power3.out`,clearProps:`transform,opacity`},0).add(ge(k(`.side__top, .nav__label, .nav__track > .nav__item, .nav__sub.is-open a, .side__foot > *`).filter(e=>e.offsetParent),e?{y:10,stagger:.04}:{x:-12,y:0,stagger:.03}),.12).add(ge(k(`.top > *`).filter(e=>e.offsetParent),{y:-12,stagger:.05}),.05).add(()=>Zt(!0),.12).add(()=>{ze.v=!0},1.6),hn()}
+
+========================== TIMELINE DEL ARMAZON ==========================
+ns/${n.id}`),g(`txns`,`notices`),A(`Card •${j(`k-ops`)?.last4}: ${p(n.amount)} at ${e}`,{ico:`card`})},24e3)}function gn(){B.classList.add(`is-ready`);let e=Lt.matches;t.timeline().fromTo(`.side`,e?{y:90,opacity:0}:{x:-40,opacity:0},{x:0,y:0,opacity:1,duration:D(.9),ease:`power3.out`,clearProps:`transform,opacity`},0).add(ge(k(`.side__top, .nav__label, .nav__track > .nav__item, .nav__sub.is-open a, .side__foot > *`).filter(e=>e.offsetParent),e?{y:10,stagger:.04}:{x:-12,y:0,stagger:.03}),.12).add(ge(k(`.top > *`).filter(e=>e.offsetParent),{y:-12,stagger:.05}),.05).add(()=>Zt(!0),.12).add(()=>{ze.v=!0},1.6),hn()}Le(),un(),qt(),ne(),dn(),sn(),cn(),ye(),location.hash||history.replaceState(null,``,`#/overview`);var _n=!1,vn=()=>{_n||(_n=!0,gn())};Re?window.ORVEL={enter:vn,drive(e){let n=t.ticker.time,r=e();t.ticker.remove(t.updateRoot),t.ticker.add(()=>t.updateRoot(n+e()-r))},go(e){location.hash=e},set speed(e){be(e)},get speed(){return t.globalTimeline.timeScale()},get route(){return W?.name??``}}:(document.fonts?.ready??Promise.resolve()).then(vn);export{Dt as A,bt as C,ot as D,st as E,tt as M,it as N,Ge as O,gt as P,mt as S,Et as T,$e as _,nt as a,Ze as b,Xe as c,ht as d,qe as f,ft as g,wt as h,ut as i,at as j,Ye as k,Tt as l,St as m,_t as n,Ct as o,rt as p,Je as r,Ot as s,R as t,lt as u,xt as v,pt as w,yt as x,Ke as y};
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2px solid var(--primary);outline-offset:2px }
+  .side__rail:hover { color:var(--text) }
+  .nav__item:hover { background:var(--well) }
+  .nav__sub a:hover { color:var(--text);background:var(--well) }
+  .cover:hover { border-color:var(--line-2) }
+  .me:hover { background:var(--well) }
+  .finder-btn:hover { border-color:var(--line-2) }
+  .cashchip:hover { border-color:var(--line-2) }
+  .head__crumb a:hover { color:var(--text);text-underline-offset:3px;text-decoration:underline }
+  .ptabs__tab:hover,.ptabs__tab[aria-current=page] { color:var(--text) }
+  .link:hover { text-underline-offset:3px;text-decoration:underline }
+  .ibtn:hover { background:var(--well) }
+  .btn--primary:hover { filter:brightness(1.06) }
+  .btn--dark:hover { filter:brightness(1.2) }
+  :root[data-theme=dark] .btn--dark:hover { filter:brightness(.92) }
+  .btn--ghost:hover { background:var(--surface-2) }
+  .input:focus,.search:focus-within { border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent) }
+  .chip:hover { background:var(--surface-2) }
+  .table tbody tr:hover { background:var(--surface-2) }
+  .chart:focus-visible { outline:2px solid var(--primary);outline-offset:4px;border-radius:12px }
+  .cf:focus-visible { outline:2px solid var(--primary);outline-offset:6px;border-radius:14px }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--well);outline:none }
+  .pop__row:hover,.pop__row:focus-visible { background:var(--well);outline:none }
+  .nav__item:hover,.ibtn:hover,.table tbody tr:hover,.menu__item:hover,.pop__row:hover,.me:hover,.nav__sub a:hover,.chip:hover { background:0 0 }
+  .btn--ghost:hover { background:var(--surface) }
+  .btn--primary:hover,.btn--dark:hover { filter:none }
+  .ibtn:active,.pop__row:active,.menu__item:active { background:var(--well) }
+  .table--stack tbody tr:hover { background:0 0 }
+
+  -- keyframes --
+  @keyframes flash {0%{color:var(--accent-text)}to{color:inherit}}
+  @keyframes breathe {50%{opacity:.35}}
+  @keyframes fade {0%{opacity:0}}
+
+  -- transitions --
+  transition:opacity .15s
+  transition:transform .3s var(--ease)

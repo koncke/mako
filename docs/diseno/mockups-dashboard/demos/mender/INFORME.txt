@@ -1,0 +1,107 @@
+##############################################################################
+#  MENDER   bundle 158kB - 26 helpers - 0 chunks - ARQ VANILLA - 21 fromTo crudos
+##############################################################################
+
+CHUNKS: (ninguno: todo en el bundle)
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[o -> export (no exp)]  (t,a,o,s){var l;typeof a==`number`&&(o.duration=a,a=o,o=null),l=r.call(this,s?a:Fe(a))||this;var u=l.vars,d=u.duration,f=u.delay,p=u.immediateRender,m=u.stagger,h=u.overwrite,g=u.keyframes,v=u.defaults,x=u.scrollTrigger,T=a.parent||N,E=(w(t)||C(t)?_(t[0]):`length`in a)?[t]:ht(t),D,O,k,A,j,M,ee,te;if(l._targets=E.length?ve(E):re(`GSAP target `+t+` not found. https://gsap.com`,!n.nullTargetWarn)||[],l._ptLookup=[],l._overwrite=h,g||m||S(d)||S(f)){a=l.vars;var P=a.easeReverse||a.yoyoEase;if(D=l.timeline=new cn({data:`nested`,defaults:v||{},targets:T&&T.data...
+
+[no -> export (no exp)]  (e,t,n={}){let{d:r=0,duration:i=1.1,delay:a=0}=n,o=n.fmt??(e=>Qa(e,r)),s=to.get(e);s||to.set(e,s={v:0});let c=()=>{e.textContent=o(s.v)};W.to(s,{v:t,duration:K(i),delay:K(a),ease:`power3.out`,onUpdate:c,onComplete:c,overwrite:!0})}
+
+[ao -> export (no exp)]  (e,t=0){J(`.ring__val`,e).forEach((e,n)=>{let r=+(e.dataset.fill??0);W.fromTo(e,{attr:{"stroke-dashoffset":r}},{attr:{"stroke-dashoffset":0},duration:K(1.1),delay:K(t+n*.03),ease:`power3.out`})})}
+
+[oo -> export (no exp)]  (e,t,n){let r=+(e.dataset.fill??0),i=Math.max(0,Math.min(1,t))*ro;e.dataset.fill=String(i),n&&e.style.setProperty(`--tone`,n);let a={f:r};W.to(a,{f:i,duration:K(.8),ease:`power3.out`,overwrite:!0,onUpdate:()=>e.setAttribute(`stroke-dasharray`,`${a.f} 100`)})}
+
+[Jo -> export (no exp)]  (e,t){let n=document.createElement(`div`);n.className=`toast`,n.setAttribute(`role`,`status`),n.innerHTML=`<span>${Y(e)}</span>${t?`<button type="button" class="toast__undo">Undo</button>`:``}`,qo.prepend(n);let r=()=>{W.to(n,{opacity:0,y:8,scale:.96,duration:K(.22),ease:`power2.in`,onComplete:()=>n.remove()})};n.querySelector(`button`)?.addEventListener(`click`,()=>{t?.(),r()}),W.from(n,{opacity:0,y:14,scale:.94,duration:K(.45),ease:`back.out(1.6)`}),W.delayedCall(t?6:3.2,r),[...qo.children].slice(3).forEach(e=>e.remove())}
+
+[Qo -> export (no exp)]  (e,t,n=``){let r=e.getBoundingClientRect(),i=e.cloneNode(!0);i.removeAttribute(`id`),i.classList.add(`lifted`),n&&i.classList.add(n),i.setAttribute(`aria-hidden`,`true`),Object.assign(i.style,{left:`${r.left}px`,top:`${r.top}px`,width:`${r.width}px`,height:`${r.height}px`}),document.body.append(i);let a=t.clientX-r.left,o=t.clientY-r.top,s=()=>W.globalTimeline.time()*1e3,c=t.clientX,l=s(),u=W.quickTo(i,`rotation`,{duration:.45,ease:`power3.out`});return W.set(i,{x:0,y:0,transformOrigin:`${a}px ${o}px`}),W.to(i,{scale:1.04,duration:K(.25),ease:`back.out(2...
+
+[As -> export (no exp)]  (e,t){let n=Math.round(Math.max(ws,Math.min(Ts,e))/Es)*Es;t?W.to(Ds,{v:n,duration:K(.35),ease:`power3.out`,onUpdate:ks,overwrite:!0}):(W.killTweensOf(Ds),Ds.v=n,ks())}
+
+[Ns -> export (no exp)]  (e){ds=e??null,fs=!1,q(`#dlg-title`).textContent=e?`Edit case`:`Open a new case`,q(`.btn__label`,us).textContent=e?`Save changes`:`Open case`,rs.reset(),ss.value=e?.title??``,cs.value=e?.client??``,ls.value=e?.desc??``,_s.set(String(e?.owner??Q.me)),vs.set(e?.team??`fern`),Fs(),us.classList.remove(`is-busy`,`is-done`),ns.showModal(),As(e?.budget??22500,!1),ss.focus(),os.style.transformOrigin=`50% ${scrollY+innerHeight/2}px`,W.to(os,{scale:.975,opacity:.7,duration:K(.55),ease:`power3.out`}),W.fromTo(as,{opacity:0},{opacity:1,duration:K(.35)}),W.fromTo(is,...
+
+[Ps -> export (no exp)]  (e){ys.forEach(e=>e.close()),W.to(os,{scale:1,opacity:1,duration:K(.45),ease:`power3.out`,clearProps:`transform,opacity,transformOrigin`}),W.to(as,{opacity:0,duration:K(.3)}),W.to(is,{opacity:0,y:18,scale:.96,duration:K(.28),ease:`power2.in`,onComplete:()=>{ns.close(),e?.()}})}
+
+[Is -> export (no exp)]  (e,t){e.setAttribute(`aria-invalid`,`true`),q(`#${e.id}-err`).textContent=t,W.fromTo(e.closest(`.control`),{x:0},{keyframes:{x:[0,-7,6,-4,3,0]},duration:K(.42),ease:`power1.out`})}
+
+[ec -> export (no exp)]  (){let e=Ya.getState(J(`.case`,Bs));Bs.innerHTML=fo.map(e=>Zs(e.key,e.label)).join(``),Ya.from(e,{duration:K(.5),ease:`power3.inOut`,onEnter:e=>W.fromTo(e,{opacity:0,scale:.92},{opacity:1,scale:1,duration:K(.45),ease:`back.out(1.5)`})})}
+
+[tc -> export (no exp)]  (){let e=$s(),t=Ya.getState(J(`.pcard`,Vs));Vs.innerHTML=e.map(Qs).join(``)+`<p class="grid__empty"${e.some(Ys)?` hidden`:``}>${Gs&&e.length?`No matches`:zs[Ws]}</p>`,Ya.from(t,{duration:K(.45),ease:`power3.inOut`,onEnter:e=>W.fromTo(e,{opacity:0,y:12},{opacity:1,y:0,duration:K(.4)})})}
+
+[ic -> export (no exp)]  (e,t=!0){let n=Ws;Ws=e;let r=Ls.indexOf(e);if(J(`[role="tab"]`,Hs).forEach((e,t)=>{e.setAttribute(`aria-selected`,String(t===r)),e.tabIndex=t===r?0:-1}),W.to(`#seg .seg__pill`,{xPercent:r*100,duration:K(t?.5:0),ease:`expo.out`}),!t||n===e){Us.textContent=Rs[e],Bs.hidden=e!==`pipeline`,Vs.hidden=e===`pipeline`,e===`pipeline`?ec():tc();return}let i=n===`pipeline`?Bs:Vs;W.to([i,Us],{opacity:0,y:-8,duration:K(.22),ease:`power2.in`,overwrite:!0,onComplete:()=>{Us.textContent=Rs[e],Bs.hidden=e!==`pipeline`,Vs.hidden=e===`pipeline`,e===`pipeline`?Bs.innerHTML=f...
+
+[oc -> export (no exp)]  (e){Gs=e.trim().toLowerCase();let t=Ws===`pipeline`?J(`.case`,Bs):J(`.pcard`,Vs),n=Ya.getState(t);t.forEach(e=>{let t=Q.byId(e.dataset.id);e.hidden=!!t&&!Ys(t)}),J(`.lane`,Bs).forEach(e=>{let t=J(`.case:not([hidden])`,e).length;q(`.lane__n`,e).textContent=String(t);let n=q(`.lane__empty`,e);n.hidden=t>0,n.textContent=Gs?`No matches`:`Drop a case here`});let r=Vs.querySelector(`.grid__empty`);r&&(r.hidden=J(`.pcard:not([hidden])`,Vs).length>0,r.textContent=Gs?`No matches`:zs[Ws]),Ya.from(n,{duration:K(.4),ease:`power3.inOut`,scale:!0,absolute:!0,onEnter:e...
+
+[vc -> export (no exp)]  (e){let t=yo[fc],n=t.reduce((e,t)=>e+t.n,0),r=0,i=t.map(e=>{let t=r;return r+=e.n/n*100,{s:t,l:e.n/n*100}});W.to(hc,{s:e=>i[e].s,l:e=>i[e].l,duration:K(e?1.1:0),ease:`power3.inOut`,stagger:K(e?.06:0),onUpdate:_c,overwrite:!0}),no(q(`#donut-total`),n,{duration:+!!e}),mc.innerHTML=t.map((e,r)=>`<li><button type="button" class="legend__row" data-i="${r}" style="--tone:${e.tone}">     <span class="legend__dot"></span><span class="legend__label">${e.label}</span>     <span class="legend__bar"><i style="transform:scaleX(${e.n/t[0].n})"></i></span>     <b class...
+
+[Fc -> export (no exp)]  (e,t){let n=Q.crew(e);if(Oc.innerHTML=[...n,...po.map((e,t)=>t).filter(e=>!n.includes(e))].map(t=>{let n=e.steps.filter(e=>e.who===t&&!e.done).length;return`<li><button type="button" class="crew__p is-${n>=3?`busy`:n?`on`:`free`}${kc===t?` is-focus`:``}" data-person="${t}" aria-pressed="${kc===t}"       aria-label="${Y(po[t].name)}, ${n||`no`} open step${n===1?``:`s`}. Drag onto a step to assign; press to highlight their steps">       ${ko(t)}<span class="crew__badge" aria-hidden="true">${n||`+`}</span></button></li>`}).join(``),t!==void 0){let e=Oc.quer...
+
+[Ic -> export (no exp)]  (e,t){q(`#j-title`).textContent=e.title,q(`#j-client`).textContent=e.client;let n=e.steps.filter(e=>e.done).length;q(`#j-prog-t`).textContent=`${n} of ${e.steps.length} done`,W.to(`#j-bar`,{scaleX:n/e.steps.length,duration:K(t?.9:.6),ease:`power3.out`}),q(`#j-desc`).textContent=e.desc||`No description yet.`,q(`#j-meta`).innerHTML=`<span class="chip chip--${e.status}">${Ko(e.status)}</span>${Q.expired(e)?`<span class="chip chip--late">Late</span>`:``}     <span class="jbrief__item">${ko(e.owner,`av--xs`)}${Y(po[e.owner].name)}</span>     <span class="jbri...
+
+[Lc -> export (no exp)]  (e,t){let n={done:0,pending:0,open:0};e.steps.forEach(e=>n[jc(e)]++);let r=e.steps.length;[`done`,`pending`,`open`].forEach((e,i)=>{let a=q(`.bubble--${e}`);W.to(a,{scale:.5+.5*Math.sqrt(n[e]/r),duration:K(t?1:.6),ease:`elastic.out(1, 0.7)`,delay:K(t?.1*i:0)}),no(q(`b`,a),n[e],{duration:t?1:.5})})}
+
+[Hc -> export (no exp)]  (e,t){let n=e.getTotalLength();W.fromTo(e,{attr:{"stroke-dasharray":`${n} ${n}`,"stroke-dashoffset":n}},{attr:{"stroke-dashoffset":0},duration:K(.7),delay:K(t),ease:`power2.inOut`,onComplete:()=>{e.removeAttribute(`stroke-dasharray`),e.removeAttribute(`stroke-dashoffset`)}})}
+
+[al -> export (no exp)]  (e){let t=Xc.clientWidth,n=Xc.clientHeight;if(!t)return;let{o:r,r:i,days:a}=nl(),o={l:34,r:12,t:14,b:30},s=Math.ceil(Math.max(...r,...i)/5)*5+5,c=e=>o.l+e/(r.length-1)*(t-o.l-o.r),l=e=>o.t+(1-e/s)*(n-o.t-o.b);il={W:t,H:n,x:c,y:l};let u=e=>e.map((e,t)=>`${t?`L`:`M`}${c(t).toFixed(1)} ${l(e).toFixed(1)}`).join(``),d=`${u(i)}L${c(i.length-1)} ${l(0)}L${c(0)} ${l(0)}Z`,f=[0,s/2,s].map(e=>`<g class="vol__tick"><line x1="${o.l}" x2="${t-o.r}" y1="${l(e)}" y2="${l(e)}"/><text x="${o.l-8}" y="${l(e)+4}">${e}</text></g>`).join(``),p=Qc>14?5:2;Xc.innerHTML=`<svg v...
+
+[ml -> export (no exp)]  (e,t=!0){if(dl.dataset.theme=e,!fl)try{localStorage.setItem(`mender:theme`,e)}catch{}J(`.theme__opt`).forEach(t=>t.setAttribute(`aria-pressed`,String(t.dataset.theme===e))),W.to(`.theme__knob`,{yPercent:e===`light`?100:0,duration:K(t?.45:0),ease:`back.out(1.6)`}),q(`meta[name="theme-color"]`).setAttribute(`content`,e===`dark`?`#0f1513`:`#e7ece9`)}
+
+[Sl -> export (no exp)]  (e){let t=J(`.nav__link`),n=Math.max(0,t.findIndex(t=>t.dataset.nav===e));t.forEach((e,t)=>t===n?e.setAttribute(`aria-current`,`page`):e.removeAttribute(`aria-current`)),W.to(`.nav__pill`,{xPercent:n*100,duration:K(vl?.5:0),ease:`expo.out`})}
+
+[wl -> export (no exp)]  (){let e=xl(),t=++yl;if(Sl(e.view),document.title=`${gl[e.view]} · Mender`,e.view===_l){_l===`cases`&&e.tab!==ac()&&ic(e.tab),_l===`journey`&&(e.id&&e.id!==Yc()?W.to(`#flow`,{opacity:0,duration:K(.18),onComplete:()=>{t===yl&&(Uc(e.id,!0,e.who),W.set(`#flow`,{opacity:1}))}}):Jc(e.who));return}let n=_l?hl[_l]:null;_l=e.view;let r=()=>{t===yl&&(Object.keys(hl).forEach(t=>{t!==e.view&&(hl[t].hidden=!0)}),e.view===`cases`&&ic(e.tab,!1),scrollTo({top:0}),Cl(e.view,e))};if(!n){r();return}W.to(n,{opacity:0,y:-10,duration:K(.25),ease:`power2.in`,overwrite:!0,onCo...
+
+[Dl -> export (no exp)]  (){if(Tl.classList.contains(`is-open`)){El.focus();return}Tl.classList.add(`is-open`),q(`#search-btn`).setAttribute(`aria-expanded`,`true`),W.fromTo(`.search__box`,{opacity:0,x:16},{opacity:1,x:0,duration:K(.4),ease:`expo.out`}),El.focus()}
+
+[Ol -> export (no exp)]  (){Tl.classList.contains(`is-open`)&&(q(`#search-btn`).setAttribute(`aria-expanded`,`false`),W.to(`.search__box`,{opacity:0,x:16,duration:K(.2),ease:`power2.in`,onComplete:()=>Tl.classList.remove(`is-open`)}),El.value&&(El.value=``,oc(``)))}
+
+[Pl -> export (no exp)]  (){Nl.showModal(),W.fromTo(q(`.keys`,Nl),{opacity:0,y:20,scale:.95},{opacity:1,y:0,scale:1,duration:K(.5),ease:`expo.out`})}
+
+========================== TIMELINE DEL ARMAZON ==========================
+(this)},e}(),Ja=function(){function e(e){this.id=e,this.actions=[],this._kill=[],this._final=[],this._abs=[],this._run=[],this.data={},this.state=new Ga,this.timeline=Ki.timeline()}var t=e.prototype;return t.add=function(e){var t=this.actions.filter(function(t){return t.vars===e});return t.length?t[0]:(t=new qa(typeof e==`function`?{animate:e}:e,this),this.actions.push(t),t)},t.remove=function(e){var t=this.actions.indexOf(e);return t>=0&&this.actions.splice(t,1),this},t.getState=function(e){var t=this,n=G,r=qi;return G=this,this.state.clear(),this._kill.length=0,this.actions.forEach(function(n){n.vars.getState&&(n.states.length=0,qi=n,n.state=n.vars.getState(n)),e&&n.states.forEach(function(e){return t.state.add(e)})}),qi=r,G=n,this.killConflicts(),this},t.animate=function(){var e=this,t=G,n=this.timeline,r=this.actions.length,i,a;for(G=this,n.clear(),this._abs.length=this._final.length=this._run.length=0,this.actions.forEach(function(e){e.vars.animate&&e.vars.animate(e);var t=e.vars.onEnter,n=e.vars.onLeave,r=e.targets,i,a;r&&r.length&&(t||n)&&(i=new Ga,e.states.forEach(function(e){return i.add(e)}),a=i.compare(Ya.getState(r)),a.enter.length&&t&&t(a.enter),a.leave.length&&n&&n(a.leave))}),Ta(this._abs),this._run.forEach(function(e){return e()}),a=n.duration(),i=this._final.slice(0),n.add(function(){a<=n.time()&&(i.forEach(function(e){return e()}),Zi(e,`onComplete`))}),G=t;r--;)this.actions[r].vars.once&&this.actions[r].kill();return Zi(this,`onStart`),n.restart(),this},t.loadState=function(e){e||=function(){return 0};var t=[];return this.actions.forEach(function(n){if(n.vars.loadState){var r,i=function i(a){a&&(n.targets=a),r=t.indexOf(i),~r&&(t.splice(r,1),t.length||e())};t.push(i),n.vars.loadState(i)}}),t.length||e(),this},t.setState=function(){return this.actions.forEach(function(e){return e.targets=e.vars.setState&&e.vars.setState(e
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2px solid var(--emerald);outline-offset:2px }
+  .iconbtn:hover { background:var(--card-hover);color:var(--ink) }
+  .btn--ink:hover { background:color-mix(in srgb, var(--ink) 88%, var(--emerald)) }
+  .btn--ghost:hover { background:var(--card-solid) }
+  .nav__link:hover { color:var(--ink) }
+  .search__box input:focus-visible { border-color:var(--emerald);box-shadow:0 0 0 3px var(--emerald-soft) }
+  .rail__btn:hover { background:var(--card);color:var(--ink) }
+  .rail__btn--ink,.rail__btn--ink:hover { background:var(--ink);color:var(--on-ink) }
+  .seg button:hover { color:var(--ink) }
+  .case:hover { background:var(--card-hover) }
+  .case__act:hover,.case__act[aria-expanded=true] { background:var(--line);color:var(--ink) }
+  .pcard:hover { background:var(--card-hover) }
+  .legend__row:hover,.legend__row:focus-visible { background:var(--card) }
+  .step:hover { background:var(--card) }
+  .step__add:hover { border-color:var(--emerald);color:var(--emerald) }
+  .pin:hover { color:var(--ink-2) }
+  .vol__chart:focus-visible { box-shadow:0 0 0 2px var(--emerald) }
+  .load__row:not(:disabled):hover { background:var(--card) }
+  .control:focus-within { border-color:var(--emerald);box-shadow:0 0 0 3px var(--emerald-soft) }
+  .pick__list:focus-visible [role=option].is-active { box-shadow:inset 0 0 0 2px var(--emerald) }
+  .slider:focus-visible { box-shadow:0 0 0 2px var(--sheet), 0 0 0 4px var(--emerald) }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--field) }
+  .menu__item:focus-visible { box-shadow:inset 0 0 0 2px var(--emerald) }
+  .toast__undo:hover { background:color-mix(in srgb, var(--on-ink) 26%, transparent) }
+
+  -- keyframes --
+  @keyframes newcase {0%,55%{opacity:1}to{opacity:0}}
+  @keyframes flash {0%{opacity:1}to{opacity:0}}
+  @keyframes spin {to{transform:rotate(360deg)}}
+  @keyframes bob {0%,to{opacity:.5;transform:translateY(2px)}50%{opacity:1;transform:translateY(-3px)}}
+
+  -- transitions --
+  transition:background-color .2s
+  transition:background-color .2s,color .2s
+  transition:background-color .2s,opacity .25s
+  transition:border-color .2s,color .2s
+  transition:box-shadow .2s
+  transition:color .25s
+  transition:opacity .25s, transform .4s var(--ease)
+  transition:opacity .25s,background-color .2s
+  transition:opacity .2s
+  transition:opacity .3s
+  transition:transform .35s var(--ease)

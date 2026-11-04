@@ -1,0 +1,88 @@
+##############################################################################
+#  ONDRA   bundle 55kB - 13 helpers - 11 chunks - ARQ VANILLA - 20 fromTo crudos
+##############################################################################
+
+CHUNKS: analytics-BnWo72uU.js, audiences-BiUj9t6G.js, campaigns-Ke3qV4sN.js, drag-WzZF3T2U.js, help-BeguBtbC.js, leads-CQrv_ABC.js, motion-DsKMYOe-.js, overview-zI79eG7-.js, reports-DBmiosbE.js, settings-C1zl0C4n.js, ui-CtK5p4Op.js
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[at -> export w]  (e,n){e.classList.add(`cols`),e.setAttribute(`role`,`list`),e.setAttribute(`aria-label`,n.label);let r=n.values,i=n.labels,a=n.tones,o=()=>{let t=tt(Math.max(1e-9,...r));e.innerHTML=i.map((e,i)=>`<div class="cols__col${i===(n.highlight??-1)?` is-hi`:``}" role="listitem" aria-label="${p(e)}: ${p(n.format(r[i]??0))}" title="${p(e)}: ${p(n.format(r[i]??0))}">       <span class="cols__val">${p(n.format(r[i]??0))}</span>       <div class="cols__track"><span class="cols__bar tone-bg--${a?.[i]??n.tone??`ember`}" style="height:${Math.max(1.5,(r[i]??0)/t*100)}%">...
+
+[ot -> export D]  (e,n){e.classList.add(`rank`),e.setAttribute(`role`,`list`),e.setAttribute(`aria-label`,n.label);let r=n.rows,i=n.format,a=n.share??!0,o=()=>{let t=[...r].sort((e,t)=>t.value-e.value),n=Math.max(1e-9,...t.map(e=>e.value)),o=t.reduce((e,t)=>e+t.value,0)||1;e.innerHTML=t.map(e=>`<div class="rank__row" role="listitem" data-key="${p(e.key)}">       <span class="rank__name">${e.lead??``}<b>${p(e.label)}</b>${e.sub?`<small>${p(e.sub)}</small>`:``}</span>       <span class="rank__fig"><b>${p(i(e.value))}</b>${a?`<small>${Math.round(e.value/o*100)}%</small>`:``}...
+
+[st -> export T]  (e,n){e.classList.add(`fun`),e.setAttribute(`role`,`list`),e.setAttribute(`aria-label`,n.label);let r=n.values,i=e=>e>=1e4?`${(e/1e3).toFixed(e>=1e5?0:1)}k`:new Intl.NumberFormat(`en-US`).format(Math.round(e)),a=()=>{let t=Math.max(1,r[0]??1),a=r.map((e,t)=>t?e/Math.max(1,r[t-1]):1),o=a.slice(1).reduce((e,t,n)=>t<a[e+1]?n:e,0)+1;e.innerHTML=n.steps.map((e,s)=>{let c=r[s]??0,l=Math.max(.035,(c/t)**.42);return`<div class="fun__step${s===o?` is-leak`:``}" role="listitem" aria-label="${p(e)}: ${i(c)}${s?`, ${((a[s]??0)*100).toFixed(1)}% of the step before`:`...
+
+[ct -> export E]  (e,n){e.classList.add(`gauge`);let i=(e,t=86)=>[110+t*Math.sin(e*Math.PI/180),104-t*Math.cos(e*Math.PI/180)],[a,o]=i(-90),[s,c]=i(90),l=`M${a},${o} A86,86 0 0 1 ${s},${c}`,u=Array.from({length:21},(e,t)=>{let n=-90+t*9,[r,a]=i(n,70),[o,s]=i(n,86-(t%5==0?26:21));return`<line x1="${r.toFixed(1)}" y1="${a.toFixed(1)}" x2="${o.toFixed(1)}" y2="${s.toFixed(1)}"${t%5==0?` class="is-major"`:``}/>`}).join(``),f=n.max??1,m=n.mark===void 0?null:-90+180*Math.min(1,n.mark/f);e.innerHTML=`<svg viewBox="0 0 220 122" role="img" aria-label="${p(n.label)}">     <path cla...
+
+[Xt -> export (no exp)]  (e){let n=Jt();if(!n){t.set(J,{opacity:0}),Yt=!1;return}let r=qt()?n.offsetLeft:0,i=n.offsetTop;if(t.set(J,{width:qt()?n.offsetWidth:``,height:n.offsetHeight}),!e||l()||!Yt){t.killTweensOf(J),t.set(J,{x:r,y:i,opacity:1,scaleX:1,scaleY:1}),Yt=!0;return}if(Math.abs(i-Number(t.getProperty(J,`y`)))+Math.abs(r-Number(t.getProperty(J,`x`)))<1)return;let a=!qt();t.to(J,{x:r,y:i,duration:.55,ease:`power3.inOut`,overwrite:`auto`}),t.timeline().to(J,a?{scaleY:1.22,scaleX:.96,duration:.24,ease:`power2.out`}:{scaleX:1.16,scaleY:.94,duration:.24,ease:`power2.out`}).t...
+
+[Zt -> export (no exp)]  (e,n,r=!0){let i=u(`.nav__group`,q),a=i.find(t=>t.dataset.group===e&&!t.classList.contains(`is-open`)),o=i.filter(t=>t.dataset.group!==e&&t.classList.contains(`is-open`)),s=r&&!l()&&(a||o.length)&&!qt()?g.getState(u(`.nav__group > .nav__item, .nav__label--2, .nav__sub`,q)):null;i.forEach(t=>t.classList.toggle(`is-open`,t.dataset.group===e&&!!Vt[e])),u(`a[data-route]`).forEach(t=>t.dataset.route===e?t.setAttribute(`aria-current`,`page`):t.removeAttribute(`aria-current`)),u(`.nav__sub a`,q).forEach(t=>{t.closest(`.nav__group`).dataset.group===e&&t.dataset....
+
+[tn -> export (no exp)]  (){if(!matchMedia(`(min-width: 1280px)`).matches)return;let e=document.documentElement,n=!$t();_(Qt),on();let r=m(`.side`),i=r.offsetWidth,o=`round 26px`,s=u(`.side__top, .nav, .side__foot`),c=()=>{e.classList.toggle(`is-rail`,n);try{localStorage.setItem(`ondra:rail`,n?`1`:`0`)}catch{}en(),Xt(!1);let c=r.offsetWidth;l()||(t.fromTo(`.main-col`,{x:i-c},{x:0,duration:.55,ease:`power3.inOut`,clearProps:`transform`}),n?t.set(r,{clearProps:`clipPath`}):t.fromTo(r,{clipPath:`inset(0 ${c-76}px 0 0 ${o})`},{clipPath:`inset(0 0px 0 0 ${o})`,duration:.5,ease:`power...
+
+[an -> export (no exp)]  (e){let n=e.dataset.tip;if(!n||!rn()&&e!==Qt)return;nn.textContent=n;let r=e.getBoundingClientRect();t.killTweensOf(nn),t.set(nn,{left:r.right+12,top:r.top+r.height/2-nn.offsetHeight/2}),t.fromTo(nn,{opacity:0,x:-6},{opacity:1,x:0,duration:d(.2),ease:`power2.out`})}
+
+[hn -> export (no exp)]  (){X.open||(Ee(),Z.value=``,$=0,mn(),X.showModal(),t.fromTo(X,{opacity:0,y:-14,scale:.97},{opacity:1,y:0,scale:1,duration:d(.38),ease:`back.out(1.6)`,clearProps:`transform`}),a(u(`.finder__opt`,fn),{y:8,stagger:.025}),Z.focus())}
+
+[gn -> export (no exp)]  (){t.to(X,{opacity:0,y:-8,duration:d(.16),ease:`power2.in`,onComplete:()=>{X.close(),t.set(X,{clearProps:`all`})}})}
+
+[Nn -> export (no exp)]  (){Ee();try{localStorage.setItem(`ondra:out`,`1`)}catch{}t.timeline().to(`.app`,{opacity:0,scale:.98,duration:d(.35),ease:`power2.in`}).add(()=>{document.documentElement.classList.add(`is-out`),t.set(`.app`,{clearProps:`opacity,transform`}),Pn()})}
+
+[Pn -> export (no exp)]  (){Mn.hidden=!1,t.fromTo(`.signin__art`,{opacity:0,scale:.97},{opacity:1,scale:1,duration:d(.8),ease:`power3.out`,clearProps:`transform,opacity`}),a(u(`.signin__card > *`),{y:16,stagger:.05,delay:.15}),l()||t.to(`.signin__orb`,{x:`random(-40, 40)`,y:`random(-30, 30)`,duration:6,ease:`sine.inOut`,repeat:-1,yoyo:!0})}
+
+[Fn -> export (no exp)]  (){document.documentElement.classList.add(`is-ready`);let e=qt();t.timeline().fromTo(`.side`,e?{y:90,opacity:0}:{x:-40,opacity:0,scale:.97},{x:0,y:0,scale:1,opacity:1,duration:d(.9),ease:`power3.out`,clearProps:`transform,opacity`},0).add(a(u(`.side__top, .nav__label, .nav__group > .nav__item, .nav__more, .side__foot > *`).filter(e=>e.offsetParent),e?{y:10,stagger:.04}:{x:-12,y:0,stagger:.035}),.15).add(()=>{let e=f(`.goal-card__bar span`);e&&!l()&&t.from(e,{scaleX:0,duration:1.2,ease:`power3.out`})},.5).add(a(u(`.top > *`).filter(e=>e.offsetParent),{y:-...
+
+========================== TIMELINE DEL ARMAZON ==========================
+h.abs(i-Number(t.getProperty(J,`y`)))+Math.abs(r-Number(t.getProperty(J,`x`)))<1)return;let a=!qt();t.to(J,{x:r,y:i,duration:.55,ease:`power3.inOut`,overwrite:`auto`}),t.timeline().to(J,a?{scaleY:1.22,scaleX:.96,duration:.24,ease:`power2.out`}:{scaleX:1.16,scaleY:.94,duration:.24,ease:`power2.out`}).to(J,a?{scaleY:.86,scaleX:1.03,duration:.2,ease:`power2.in`}:{scaleX:.9,scaleY:1.04,duration:.2,ease:`power2.in`}).to(J,{scaleY:1,scaleX:1,duration:.6,ease:`elastic.out(1, 0.45)`})}function Zt(e,n,r=!0){let i=u(`.nav__group`,q),a=i.find(t=>t.dataset.group===e&&!t.classList.contains(`is-open`)),o=i.filter(t=>t.dataset.group!==e&&t.classList.contains(`is-open`)),s=r&&!l()&&(a||o.length)&&!qt()?g.getState(u(`.nav__group > .nav__item, .nav__label--2, .nav__sub`,q)):null;i.forEach(t=>t.classList.toggle(`is-open`,t.dataset.group===e&&!!Vt[e])),u(`a[data-route]`).forEach(t=>t.dataset.route===e?t.setAttribute(`aria-current`,`page`):t.removeAttribute(`aria-current`)),u(`.nav__sub a`,q).forEach(t=>{t.closest(`.nav__group`).dataset.group===e&&t.dataset.sub===n?t.setAttribute(`aria-current`,`page`):t.removeAttribute(`aria-current`)}),s&&g.from(s,{duration:.45,ease:`power3.inOut`,onEnter:e=>t.fromTo(e,{opacity:0,y:-8},{opacity:1,y:0,duration:.4,delay:.1,ease:`power3.out`,clearProps:`transform,opacity`})}),Xt(r)}new ResizeObserver(()=>Xt(!1)).observe(q),document.fonts?.ready.then(()=>Xt(!1));var Qt=m(`#btn-rail`),$t=()=>document.documentElement.classList.contains(`is-rail`);function en(){let e=$t();Qt.setAttribute(`aria-label`,e?`Expand sidebar`:`Collapse sidebar`),Qt.setAttribute(`aria-pressed`,String(e)),Qt.dataset.tip=e?`Expand sidebar  [`:`Collapse sidebar  [`}function tn(){if(!matchMedia(`(min-width: 1280px)`).matches)return;let e=document.documentElement,n=!$t();_(Qt),on();let r=m(`.side`),i=r.offsetWidth,o=`round 26px`,s=u(`.side__top, .nav, .side__f
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2px solid var(--primary);outline-offset:2px }
+  .side .side__rail:hover { background:#ffffff1c }
+  .nav__item:hover { color:var(--on-side);background:var(--side-hover) }
+  .nav__sub a:hover { color:var(--on-side);background:var(--side-hover) }
+  .goal-card:hover { background:#ffffff14 }
+  .side .me:hover { background:var(--side-hover) }
+  .finder-btn:hover { color:var(--text) }
+  .me:hover { background:var(--well) }
+  .tabs__tab:hover,.tabs__tab[aria-current=page] { color:var(--text) }
+  .card__more:hover { text-underline-offset:3px;text-decoration:underline }
+  .ibtn:hover { background:var(--well) }
+  .btn--primary:hover { filter:brightness(1.12) }
+  :root[data-theme=dark] .btn--primary:hover { filter:brightness(.94) }
+  .btn--live:hover { filter:brightness(1.05) }
+  .btn--ghost:hover { background:var(--surface-2) }
+  .btn--soft:hover { background:color-mix(in srgb, var(--primary) 18%, transparent) }
+  .btn--good:hover { background:color-mix(in srgb, var(--good) 24%, transparent) }
+  .input:focus,.search:focus-within { border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft) }
+  .chip:hover { color:var(--text) }
+  .table tbody tr:hover td { background:var(--surface-2) }
+  .table tbody tr:hover td:first-child { border-radius:12px 0 0 12px }
+  .table tbody tr:hover td:last-child { border-radius:0 12px 12px 0 }
+  a.cell-person:hover b { color:var(--primary) }
+  .chart:focus-visible { outline:2px solid var(--primary);outline-offset:4px;border-radius:12px }
+  .chart__pin:hover circle,.chart__pin:focus-visible circle { fill:var(--c) }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--well);outline:none }
+  .pop__row:hover,.pop__row:focus-visible { background:var(--well);outline:none }
+  .ld-step:hover i { background:color-mix(in srgb, var(--primary) 40%, var(--well)) }
+  .ld-step.is-done:hover i { background:var(--primary) }
+  .ld-camp:hover { color:var(--text) }
+  .nav__item:hover,.ibtn:hover,.btn--ghost:hover,.table tbody tr:hover td,.menu__item:hover,.pop__row:hover,.me:hover,.nav__sub a:hover { background:0 0 }
+  .btn--ghost:hover { background:var(--surface) }
+  .btn--primary:hover { filter:none }
+  .ibtn:active,.pop__row:active,.menu__item:active { background:var(--well) }
+  .nav__item:hover { color:var(--text);background:0 0 }
+  .finder-btn:active,.ibtn--top:active { background:var(--well) }
+  .table--stack tbody tr:hover td { background:0 0 }
+
+  -- keyframes --
+  @keyframes flash {0%{color:var(--primary)}to{color:inherit}}
+  @keyframes fade {0%{opacity:0}}
+
+  -- transitions --
+  transition:background-color .25s var(--ease), color .25s
+  transition:box-shadow .25s
+  transition:color .2s
+  transition:opacity .15s
+  transition:r .2s var(--ease)
+  transition:transform .35s var(--ease)
+  transition:transform .3s var(--ease)

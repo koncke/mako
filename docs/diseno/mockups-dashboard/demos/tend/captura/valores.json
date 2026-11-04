@@ -1,0 +1,3881 @@
+{
+  "medido": "2026-11-04T11:57:48.297Z",
+  "url": "https://demo.codeandchill.store/tend/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/tend/#/today",
+      "ancho": 390,
+      "alto": 4170,
+      "fondo": "rgb(238, 242, 239)",
+      "letra": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Geist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+        "--bg": "#eef2ef",
+        "--glow-a": "#d7efe4",
+        "--glow-b": "#e6eef6",
+        "--surface": "#fbfcfb",
+        "--surface-2": "#f4f7f5",
+        "--raised": "#fff",
+        "--well": "#10231f0e",
+        "--line": "#10231f16",
+        "--line-2": "#10231f29",
+        "--shadow": "0 1px 2px #10231f0a, 0 14px 34px -22px #10231f38",
+        "--shadow-pop": "0 24px 60px -18px #10231f4d, 0 2px 6px #10231f14",
+        "--text": "#10231f",
+        "--muted": "#586a65",
+        "--faint": "#8a9994",
+        "--primary": "#0d5c55",
+        "--on-primary": "#f1fbf7",
+        "--side": "#0f2d29",
+        "--on-side": "#dcebe7",
+        "--side-dim": "#dcebe79e",
+        "--side-pill": "#c4ecd9",
+        "--on-side-pill": "#0b2925",
+        "--teal": "#138a7e",
+        "--mint": "#4fbf93",
+        "--sky": "#4c94dc",
+        "--lilac": "#8b72d8",
+        "--apricot": "#e9953f",
+        "--coral": "#de5539",
+        "--sand": "#b79a55",
+        "--ink": "#10231f",
+        "--good": "#1d8656",
+        "--warn": "#b8700f",
+        "--bad": "#cf4429",
+        "--wa": "#1fa855",
+        "--tick": "#2b9fe0",
+        "--soft": "15%",
+        "--r-card": "22px",
+        "--r-tile": "16px",
+        "--r-ctl": "999px",
+        "--gap": "16px",
+        "--side-w": "76px",
+        "--gutter": "clamp(16px, 1.8vw, 30px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "500",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 33,
+          "ejemplo": "9:25 AM · Dr. Rahman"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "650",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 24,
+          "ejemplo": "New appointment"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 23,
+          "ejemplo": "LJ"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "700",
+          "interlineado": "37.4px",
+          "espaciado": "-1.19px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "0.13px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 11,
+          "ejemplo": "AS"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 11,
+          "ejemplo": "Ana Souza"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 10,
+          "ejemplo": "8a"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 10,
+          "ejemplo": "Type 2 diabetes · 21 d overdue"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(13, 92, 85)",
+          "veces": 9,
+          "ejemplo": "Check in"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(241, 251, 247)",
+          "veces": 9,
+          "ejemplo": "Call in"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "650",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.192157 0.38098 0.529216)",
+          "veces": 9,
+          "ejemplo": "Aaliyah"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15.5px",
+          "peso": "700",
+          "interlineado": "22.475px",
+          "espaciado": "-0.155px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 8,
+          "ejemplo": "Patient flow"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 8,
+          "ejemplo": "Expected"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 7,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.5px",
+          "peso": "600",
+          "interlineado": "15.225px",
+          "espaciado": "normal",
+          "color": "rgb(11, 41, 37)",
+          "veces": 6,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 6,
+          "ejemplo": "6 waiting on us"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 6,
+          "ejemplo": "Book a visit"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "18.2px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 6,
+          "ejemplo": "Leo checked in Noah Bennett4 min ago"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.2px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 6,
+          "ejemplo": "Leo"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "500",
+          "interlineado": "16.1px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 6,
+          "ejemplo": "4 min ago"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "700",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(31, 168, 85)",
+          "veces": 5,
+          "ejemplo": "8:59 AM"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 5,
+          "ejemplo": "Hi! I just moved to the area and would l"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 5,
+          "ejemplo": "1"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 5,
+          "ejemplo": "Dr. Rahman"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(207, 68, 41)",
+          "veces": 5,
+          "ejemplo": "21 d overdue"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.5px",
+          "peso": "600",
+          "interlineado": "15.225px",
+          "espaciado": "normal",
+          "color": "rgb(220, 235, 231)",
+          "veces": 4,
+          "ejemplo": "Inbox"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "15px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 4,
+          "ejemplo": "Appointments today"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "900",
+          "interlineado": "23.1px",
+          "espaciado": "-0.88px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 4,
+          "ejemplo": "87"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "20px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 4,
+          "ejemplo": "72"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 4,
+          "ejemplo": "Room 4"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "650",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(76, 148, 220)",
+          "veces": 4,
+          "ejemplo": "With David"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.5px",
+          "peso": "700",
+          "interlineado": "15.225px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 3,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "650",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(19, 138, 126)",
+          "veces": 3,
+          "ejemplo": "Confirmed"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "650",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(184, 112, 15)",
+          "veces": 3,
+          "ejemplo": "14 min"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.5px",
+          "peso": "700",
+          "interlineado": "11.025px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 2,
+          "ejemplo": "6 seen"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.5px",
+          "peso": "700",
+          "interlineado": "11.025px",
+          "espaciado": "normal",
+          "color": "rgb(29, 134, 86)",
+          "veces": 2,
+          "ejemplo": "avg 13 min"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 2,
+          "ejemplo": "+67 more today"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "650",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(207, 68, 41)",
+          "veces": 2,
+          "ejemplo": "16 min"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "650",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 2,
+          "ejemplo": "Open schedule"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "650",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.507059 0.245098 0.177647)",
+          "veces": 2,
+          "ejemplo": "Nadia"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(241, 251, 247)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "700",
+          "interlineado": "27.55px",
+          "espaciado": "-0.38px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 1,
+          "ejemplo": "tend"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 1,
+          "ejemplo": "Wednesday, November 4 · Northside Family"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "650",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Remind tomorrow · 45"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.628235 0.27451 0.192941)",
+          "veces": 1,
+          "ejemplo": "Urgent"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "650",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(13, 92, 85)",
+          "veces": 1,
+          "ejemplo": "Open inbox"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "700",
+          "interlineado": "37.7px",
+          "espaciado": "-0.52px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 1,
+          "ejemplo": "70"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "650",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Send 45 reminders"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "650",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 1,
+          "ejemplo": "30D"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "32px",
+          "peso": "700",
+          "interlineado": "32px",
+          "espaciado": "-0.96px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 1,
+          "ejemplo": "732"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 1,
+          "ejemplo": "Book"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "650",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(29, 134, 86)",
+          "veces": 1,
+          "ejemplo": "Free"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "div.stat",
+          "x": 14,
+          "y": 280,
+          "w": 176,
+          "h": 94,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "18px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "11px 13px",
+          "gap": "4px",
+          "grilla": "148px",
+          "texto": "Unread on WhatsApp 6reply in ~8 min"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 200,
+          "y": 280,
+          "w": 176,
+          "h": 94,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "18px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "11px 13px",
+          "gap": "4px",
+          "grilla": "148px",
+          "texto": "No-shows, last 30 days 4.5%was 14% before reminders"
+        },
+        {
+          "etiqueta": "section.card.td-flow",
+          "x": 14,
+          "y": 396,
+          "w": 362,
+          "h": 693,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Patient flow 5 waiting · 1 room free Expected72 LJLeo Jackso"
+        },
+        {
+          "etiqueta": "section.td-lane.td-lane--upcoming",
+          "x": 15,
+          "y": 469,
+          "w": 259,
+          "h": 597,
+          "fondo": "rgb(244, 247, 245)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Expected72 LJLeo Jackson9:25 AM · Dr. Rahman ConfirmedCheck "
+        },
+        {
+          "etiqueta": "article.td-card.td-card--upcoming",
+          "x": 26,
+          "y": 514,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "LJLeo Jackson9:25 AM · Dr. Rahman ConfirmedCheck in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--upcoming",
+          "x": 26,
+          "y": 617,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "EHEmma Hossain9:25 AM · Dr. Lin UnconfirmedCheck in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--upcoming",
+          "x": 26,
+          "y": 719,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "AJAaliyah James9:40 AM · Dr. Rahman ConfirmedCheck in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--upcoming",
+          "x": 26,
+          "y": 821,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "JRJames Richardson9:45 AM · Dr. Lin ConfirmedCheck in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--upcoming",
+          "x": 26,
+          "y": 923,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "XWXin Williams9:45 AM · Dr. Silva UnconfirmedCheck in"
+        },
+        {
+          "etiqueta": "section.td-lane.td-lane--arrived",
+          "x": 284,
+          "y": 469,
+          "w": 259,
+          "h": 597,
+          "fondo": "rgb(244, 247, 245)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Waiting room5 RWRahim Wang9:30 AM · Dr. Silva 16 minCall in "
+        },
+        {
+          "etiqueta": "article.td-card.td-card--arrived",
+          "x": 295,
+          "y": 514,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(233, 149, 63) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "RWRahim Wang9:30 AM · Dr. Silva 16 minCall in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--arrived",
+          "x": 295,
+          "y": 617,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(233, 149, 63) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "AMAva Murphy9:45 AM · Dr. Okafor 16 minCall in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--arrived",
+          "x": 295,
+          "y": 719,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(233, 149, 63) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "KFKarim Foster9:05 AM · Dr. Rahman 14 minCall in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--arrived",
+          "x": 295,
+          "y": 821,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(233, 149, 63) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "LLLucía Lopez9:30 AM · Nurse Berg 9 minCall in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--arrived",
+          "x": 295,
+          "y": 923,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(233, 149, 63) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "AWAaliyah Wang9:05 AM · Dr. Lin 8 minCall in"
+        },
+        {
+          "etiqueta": "section.td-lane.td-lane--in-consult",
+          "x": 553,
+          "y": 469,
+          "w": 259,
+          "h": 597,
+          "fondo": "rgb(244, 247, 245)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "In consult4 KRKenji Reed9:10 AM · Dr. Silva Room 4Finish TWT"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--in-consult",
+          "x": 564,
+          "y": 514,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(76, 148, 220) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "KRKenji Reed9:10 AM · Dr. Silva Room 4Finish"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--in-consult",
+          "x": 564,
+          "y": 617,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(76, 148, 220) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "TWTasnim Wilson9:15 AM · Nurse Berg Treatment roomFinish"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--in-consult",
+          "x": 564,
+          "y": 719,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(76, 148, 220) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "WGWei Green8:45 AM · Dr. Lin Room 3Finish"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--in-consult",
+          "x": 564,
+          "y": 821,
+          "w": 237,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(76, 148, 220) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "215.188px",
+          "texto": "DRDavid Rossi8:45 AM · Dr. Rahman Room 1Finish"
+        },
+        {
+          "etiqueta": "section.td-lane.td-lane--done",
+          "x": 823,
+          "y": 469,
+          "w": 259,
+          "h": 597,
+          "fondo": "rgb(244, 247, 245)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Seen6 ICIbrahim Clark8:45 AM · Dr. Okafor Finished 9:04 AM Y"
+        },
+        {
+          "etiqueta": "section.card.td-inbox",
+          "x": 14,
+          "y": 1105,
+          "w": 362,
+          "h": 552,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "WhatsApp 6 waiting on us AS Ana Souza8:59 AM Hi! I just move"
+        },
+        {
+          "etiqueta": "a.td-chat.is-unread.is-urgent",
+          "x": 25,
+          "y": 1238,
+          "w": 340,
+          "h": 89,
+          "fondo": "color(srgb 0.870588 0.333333 0.223529 / 0.07)",
+          "borde": "0px none rgb(16, 35, 31)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px 8px",
+          "gap": "11px",
+          "grilla": null,
+          "texto": "NB Noah Bennett8:54 AM Hello, my son Noah has a fever of 39."
+        },
+        {
+          "etiqueta": "section.card.td-line",
+          "x": 14,
+          "y": 2008,
+          "w": 362,
+          "h": 410,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Clinicians today Open schedule 8a9a10a11a12p1p2p3p4p5p ARDr."
+        },
+        {
+          "etiqueta": "section.card.td-rem",
+          "x": 14,
+          "y": 1673,
+          "w": 362,
+          "h": 319,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Reminders · Tomorrow 70 appointments tomorrowReminder sent17"
+        },
+        {
+          "etiqueta": "section.card.td-trend",
+          "x": 14,
+          "y": 2434,
+          "w": 362,
+          "h": 370,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Visits 2W30D 732patients seen in the last 14 days · 4.4% no-"
+        },
+        {
+          "etiqueta": "section.card.td-recall",
+          "x": 14,
+          "y": 2820,
+          "w": 362,
+          "h": 371,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Recalls due 69 in the next 2 weeks LR Leah ReedType 2 diabet"
+        },
+        {
+          "etiqueta": "section.card.td-docs",
+          "x": 14,
+          "y": 3207,
+          "w": 362,
+          "h": 442,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Clinician load ARDr. RahmanWith David 76% booked · next 9:05"
+        },
+        {
+          "etiqueta": "section.card.td-act",
+          "x": 14,
+          "y": 3665,
+          "w": 362,
+          "h": 401,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team activity Leo checked in Noah Bennett4 min ago You repli"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/tend/#/today",
+      "ancho": 1440,
+      "alto": 2352,
+      "fondo": "rgb(238, 242, 239)",
+      "letra": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Geist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+        "--bg": "#eef2ef",
+        "--glow-a": "#d7efe4",
+        "--glow-b": "#e6eef6",
+        "--surface": "#fbfcfb",
+        "--surface-2": "#f4f7f5",
+        "--raised": "#fff",
+        "--well": "#10231f0e",
+        "--line": "#10231f16",
+        "--line-2": "#10231f29",
+        "--shadow": "0 1px 2px #10231f0a, 0 14px 34px -22px #10231f38",
+        "--shadow-pop": "0 24px 60px -18px #10231f4d, 0 2px 6px #10231f14",
+        "--text": "#10231f",
+        "--muted": "#586a65",
+        "--faint": "#8a9994",
+        "--primary": "#0d5c55",
+        "--on-primary": "#f1fbf7",
+        "--side": "#0f2d29",
+        "--on-side": "#dcebe7",
+        "--side-dim": "#dcebe79e",
+        "--side-pill": "#c4ecd9",
+        "--on-side-pill": "#0b2925",
+        "--teal": "#138a7e",
+        "--mint": "#4fbf93",
+        "--sky": "#4c94dc",
+        "--lilac": "#8b72d8",
+        "--apricot": "#e9953f",
+        "--coral": "#de5539",
+        "--sand": "#b79a55",
+        "--ink": "#10231f",
+        "--good": "#1d8656",
+        "--warn": "#b8700f",
+        "--bad": "#cf4429",
+        "--wa": "#1fa855",
+        "--tick": "#2b9fe0",
+        "--soft": "15%",
+        "--r-card": "22px",
+        "--r-tile": "16px",
+        "--r-ctl": "999px",
+        "--gap": "16px",
+        "--side-w": "248px",
+        "--gutter": "clamp(16px, 1.8vw, 30px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "500",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 33,
+          "ejemplo": "9:20 AM · Dr. Silva"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 30,
+          "ejemplo": "FN"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "650",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 26,
+          "ejemplo": "New appointment"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "33.12px",
+          "peso": "700",
+          "interlineado": "36.432px",
+          "espaciado": "-1.1592px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 15,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "0.13px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 12,
+          "ejemplo": "NH"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(241, 251, 247)",
+          "veces": 11,
+          "ejemplo": "Call in"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 11,
+          "ejemplo": "Ana Souza"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "650",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.192157 0.38098 0.529216)",
+          "veces": 11,
+          "ejemplo": "Aaliyah"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(13, 92, 85)",
+          "veces": 10,
+          "ejemplo": "Check in"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 10,
+          "ejemplo": "8a"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 10,
+          "ejemplo": "Type 2 diabetes · 21 d overdue"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(11, 41, 37)",
+          "veces": 8,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15.5px",
+          "peso": "700",
+          "interlineado": "22.475px",
+          "espaciado": "-0.155px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 8,
+          "ejemplo": "Patient flow"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 8,
+          "ejemplo": "Expected"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 7,
+          "ejemplo": "6 waiting · 0 rooms free"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(220, 235, 231)",
+          "veces": 6,
+          "ejemplo": "Inbox"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "650",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(184, 112, 15)",
+          "veces": 6,
+          "ejemplo": "13 min"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 6,
+          "ejemplo": "Book a visit"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "18.2px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 6,
+          "ejemplo": "Leo checked in Noah Bennett4 min ago"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.2px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 6,
+          "ejemplo": "Leo"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "500",
+          "interlineado": "16.1px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 6,
+          "ejemplo": "4 min ago"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 5,
+          "ejemplo": "Wednesday, November 4 · Northside Family"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "650",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(19, 138, 126)",
+          "veces": 5,
+          "ejemplo": "Confirmed"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 5,
+          "ejemplo": "Room 4"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "700",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(31, 168, 85)",
+          "veces": 5,
+          "ejemplo": "8:54 AM"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 5,
+          "ejemplo": "Hi! I just moved to the area and would l"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 5,
+          "ejemplo": "1"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 5,
+          "ejemplo": "Dr. Rahman"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "650",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.507059 0.245098 0.177647)",
+          "veces": 5,
+          "ejemplo": "Ayesha"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(207, 68, 41)",
+          "veces": 5,
+          "ejemplo": "21 d overdue"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "650",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(76, 148, 220)",
+          "veces": 5,
+          "ejemplo": "With David"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "30px",
+          "peso": "900",
+          "interlineado": "31.5px",
+          "espaciado": "-1.2px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 4,
+          "ejemplo": "82"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "20px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 4,
+          "ejemplo": "67"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "500",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgba(220, 235, 231, 0.62)",
+          "veces": 3,
+          "ejemplo": "Northside Family Clinic"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "700",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 2,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "700",
+          "interlineado": "12.075px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 2,
+          "ejemplo": "4 seen"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "700",
+          "interlineado": "12.075px",
+          "espaciado": "normal",
+          "color": "rgb(29, 134, 86)",
+          "veces": 2,
+          "ejemplo": "avg 9 min"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "650",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 2,
+          "ejemplo": "Open schedule"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(241, 251, 247)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "30.45px",
+          "espaciado": "-0.84px",
+          "color": "rgb(220, 235, 231)",
+          "veces": 1,
+          "ejemplo": "tendNorthside Family Clinic"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.88px",
+          "color": "rgba(220, 235, 231, 0.62)",
+          "veces": 1,
+          "ejemplo": "Clinic"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(220, 235, 231)",
+          "veces": 1,
+          "ejemplo": "WhatsApp connected"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(220, 235, 231)",
+          "veces": 1,
+          "ejemplo": "Nadia Haque"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 1,
+          "ejemplo": "Search patients, conversations, pages…"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 1,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(16, 35, 31)",
+          "veces": 1,
+          "ejemplo": "8:57 AM"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.6667px",
+          "peso": "500",
+          "interlineado": "16.9167px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 1,
+          "ejemplo": "Clinic open"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "650",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(241, 251, 247)",
+          "veces": 1,
+          "ejemplo": "New"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "650",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Remind tomorrow · 47"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 1,
+          "ejemplo": "+62 more today"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.628235 0.27451 0.192941)",
+          "veces": 1,
+          "ejemplo": "Urgent"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "650",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(13, 92, 85)",
+          "veces": 1,
+          "ejemplo": "Open inbox"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.5px",
+          "peso": "700",
+          "interlineado": "15.225px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "8:57 AM"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "700",
+          "interlineado": "37.7px",
+          "espaciado": "-0.52px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 1,
+          "ejemplo": "74"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "650",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Send 47 reminders"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "650",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(88, 106, 101)",
+          "veces": 1,
+          "ejemplo": "30D"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "32px",
+          "peso": "700",
+          "interlineado": "32px",
+          "espaciado": "-0.96px",
+          "color": "rgb(16, 35, 31)",
+          "veces": 1,
+          "ejemplo": "732"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": 0,
+          "y": 0,
+          "w": 248,
+          "h": 900,
+          "fondo": "rgb(15, 45, 41)",
+          "borde": "0px none rgb(220, 235, 231)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "20px 14px 14px",
+          "gap": "6px",
+          "grilla": null,
+          "texto": "tendNorthside Family Clinic Clinic Today Inbox6 Patients Sch"
+        },
+        {
+          "etiqueta": "span.nav__pill",
+          "x": 14,
+          "y": 128,
+          "w": 220,
+          "h": 320,
+          "fondo": "rgb(196, 236, 217)",
+          "borde": "0px none rgb(220, 235, 231)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "2px",
+          "grilla": "220px",
+          "texto": "TodayInbox6PatientsScheduleCampaignsReportsSettingsMore"
+        },
+        {
+          "etiqueta": "a.wa-status",
+          "x": 14,
+          "y": 745,
+          "w": 220,
+          "h": 77,
+          "fondo": "rgba(255, 255, 255, 0.06)",
+          "borde": "0px none rgb(220, 235, 231)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "12px",
+          "gap": "2px 10px",
+          "grilla": "34px 152px",
+          "texto": "WhatsApp connected+1 (415) 555-0142 · quality high"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 274,
+          "y": 167,
+          "w": 273,
+          "h": 128,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "16px 18px",
+          "gap": "8px",
+          "grilla": "235.047px",
+          "texto": "Appointments today 824 seen"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 563,
+          "y": 167,
+          "w": 273,
+          "h": 128,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "16px 18px",
+          "gap": "8px",
+          "grilla": "235.047px",
+          "texto": "In the waiting room 6avg 9 min"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 852,
+          "y": 167,
+          "w": 273,
+          "h": 128,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "16px 18px",
+          "gap": "8px",
+          "grilla": "235.047px",
+          "texto": "Unread on WhatsApp 6reply in ~8 min"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 1141,
+          "y": 167,
+          "w": 273,
+          "h": 128,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "16px 18px",
+          "gap": "8px",
+          "grilla": "235.047px",
+          "texto": "No-shows, last 30 days 4.5%was 14% before reminders"
+        },
+        {
+          "etiqueta": "section.card.td-flow",
+          "x": 274,
+          "y": 317,
+          "w": 755,
+          "h": 753,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Patient flow 6 waiting · 0 rooms free Expected67 FNFreya Nel"
+        },
+        {
+          "etiqueta": "section.td-lane.td-lane--upcoming",
+          "x": 293,
+          "y": 390,
+          "w": 172,
+          "h": 661,
+          "fondo": "rgb(244, 247, 245)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Expected67 FNFreya Nelson9:20 AM · Dr. Silva ConfirmedCheck "
+        },
+        {
+          "etiqueta": "article.td-card.td-card--upcoming",
+          "x": 304,
+          "y": 435,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "127.688px",
+          "texto": "FNFreya Nelson9:20 AM · Dr. Silva ConfirmedCheck in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--upcoming",
+          "x": 304,
+          "y": 537,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "127.688px",
+          "texto": "NWNoah Wilson9:30 AM · Dr. Okafor ConfirmedCheck in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--upcoming",
+          "x": 304,
+          "y": 639,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "127.688px",
+          "texto": "HKHassan Kowalski9:30 AM · Nurse Berg ConfirmedCheck in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--upcoming",
+          "x": 304,
+          "y": 742,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "127.688px",
+          "texto": "KRKenji Reed9:35 AM · Dr. Silva ConfirmedCheck in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--upcoming",
+          "x": 304,
+          "y": 844,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "127.688px",
+          "texto": "AJAaliyah James9:40 AM · Dr. Rahman ConfirmedCheck in"
+        },
+        {
+          "etiqueta": "section.td-lane.td-lane--arrived",
+          "x": 475,
+          "y": 390,
+          "w": 172,
+          "h": 661,
+          "fondo": "rgb(244, 247, 245)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Waiting room6 YSYasmin Stewart9:05 AM · Dr. Silva 13 minCall"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--arrived",
+          "x": 486,
+          "y": 435,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(233, 149, 63) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "137.812px",
+          "texto": "YSYasmin Stewart9:05 AM · Dr. Silva 13 minCall in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--arrived",
+          "x": 486,
+          "y": 537,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(233, 149, 63) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "137.812px",
+          "texto": "LJLeo Jackson9:25 AM · Dr. Rahman 13 minCall in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--arrived",
+          "x": 486,
+          "y": 639,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(233, 149, 63) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "137.812px",
+          "texto": "AIAyesha Islam9:35 AM · Dr. Lin 13 minCall in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--arrived",
+          "x": 486,
+          "y": 742,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(233, 149, 63) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "130.578px",
+          "texto": "KFKarim Foster9:05 AM · Dr. Rahman 9 minCall in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--arrived",
+          "x": 486,
+          "y": 844,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(233, 149, 63) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "130.578px",
+          "texto": "JSJavier Sanders9:00 AM · Dr. Okafor 4 minCall in"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--arrived",
+          "x": 486,
+          "y": 946,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(233, 149, 63) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "130.578px",
+          "texto": "ZAZoe Ali9:15 AM · Nurse Berg 3 minCall in"
+        },
+        {
+          "etiqueta": "section.td-lane.td-lane--in-consult",
+          "x": 656,
+          "y": 390,
+          "w": 172,
+          "h": 661,
+          "fondo": "rgb(244, 247, 245)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "In consult5 ELEmeka Larsen8:45 AM · Dr. Silva Room 4Finish A"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--in-consult",
+          "x": 667,
+          "y": 435,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(76, 148, 220) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "127.688px",
+          "texto": "ELEmeka Larsen8:45 AM · Dr. Silva Room 4Finish"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--in-consult",
+          "x": 667,
+          "y": 537,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(76, 148, 220) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "127.688px",
+          "texto": "AZAyesha Zhang8:50 AM · Dr. Lin Room 3Finish"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--in-consult",
+          "x": 667,
+          "y": 639,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(76, 148, 220) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "127.688px",
+          "texto": "IWIngrid Watson8:45 AM · Nurse Berg Treatment roomFinish"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--in-consult",
+          "x": 667,
+          "y": 742,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(76, 148, 220) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "127.688px",
+          "texto": "ICIbrahim Clark8:45 AM · Dr. Okafor Room 2Finish"
+        },
+        {
+          "etiqueta": "article.td-card.td-card--in-consult",
+          "x": 667,
+          "y": 844,
+          "w": 150,
+          "h": 94,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "14px",
+          "sombra": "rgb(76, 148, 220) 3px 0px 0px 0px inset, rgba(16, 35, 31, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "8px",
+          "grilla": "127.688px",
+          "texto": "DRDavid Rossi8:45 AM · Dr. Rahman Room 1Finish"
+        },
+        {
+          "etiqueta": "section.td-lane.td-lane--done",
+          "x": 838,
+          "y": 390,
+          "w": 172,
+          "h": 661,
+          "fondo": "rgb(244, 247, 245)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Seen4 VUValentina Uddin8:30 AM · Dr. Lin Finished 8:54 AM JA"
+        },
+        {
+          "etiqueta": "section.card.td-inbox",
+          "x": 1045,
+          "y": 317,
+          "w": 369,
+          "h": 1157,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "WhatsApp 6 waiting on us AS Ana Souza8:54 AM Hi! I just move"
+        },
+        {
+          "etiqueta": "a.td-chat.is-unread.is-urgent",
+          "x": 1056,
+          "y": 450,
+          "w": 347,
+          "h": 89,
+          "fondo": "color(srgb 0.870588 0.333333 0.223529 / 0.07)",
+          "borde": "0px none rgb(16, 35, 31)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px 8px",
+          "gap": "11px",
+          "grilla": null,
+          "texto": "NB Noah Bennett8:49 AM Hello, my son Noah has a fever of 39."
+        },
+        {
+          "etiqueta": "section.card.td-line",
+          "x": 274,
+          "y": 1086,
+          "w": 755,
+          "h": 387,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Clinicians today Open schedule 8a9a10a11a12p1p2p3p4p5p ARDr."
+        },
+        {
+          "etiqueta": "section.card.td-rem",
+          "x": 274,
+          "y": 1490,
+          "w": 369,
+          "h": 348,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Reminders · Tomorrow 74 appointments tomorrowReminder sent19"
+        },
+        {
+          "etiqueta": "section.card.td-trend",
+          "x": 659,
+          "y": 1490,
+          "w": 755,
+          "h": 348,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Visits 2W30D 732patients seen in the last 14 days · 4.4% no-"
+        },
+        {
+          "etiqueta": "section.card.td-recall",
+          "x": 274,
+          "y": 1854,
+          "w": 369,
+          "h": 442,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Recalls due 69 in the next 2 weeks LR Leah ReedType 2 diabet"
+        },
+        {
+          "etiqueta": "section.card.td-docs",
+          "x": 659,
+          "y": 1854,
+          "w": 369,
+          "h": 442,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Clinician load ARDr. RahmanWith David 76% booked · next 9:05"
+        },
+        {
+          "etiqueta": "section.card.td-act",
+          "x": 1045,
+          "y": 1854,
+          "w": 369,
+          "h": 442,
+          "fondo": "rgb(251, 252, 251)",
+          "borde": "1px solid rgba(16, 35, 31, 0.086)",
+          "radio": "22px",
+          "sombra": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team activity Leo checked in Noah Bennett4 min ago You repli"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "tendNorthside Family Clinic",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 14,
+            "y": 20,
+            "w": 220,
+            "h": 68
+          },
+          "estilo": {
+            "color": "rgb(220, 235, 231)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(220, 235, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(220, 235, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "a.nav__item",
+          "texto": "Today",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 14,
+            "y": 128,
+            "w": 220,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(11, 41, 37)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(11, 41, 37)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(11, 41, 37) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 2,
+          "etiqueta": "a.wa-status",
+          "texto": "WhatsApp connected+1 (415) 555-0142 · qu",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 14,
+            "y": 745,
+            "w": 220,
+            "h": 77
+          },
+          "estilo": {
+            "color": "rgb(220, 235, 231)",
+            "backgroundColor": "rgba(255, 255, 255, 0.06)",
+            "borderColor": "rgb(220, 235, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(220, 235, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 3,
+          "etiqueta": "button.me",
+          "texto": "NHNadia HaqueFront desk lead",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 14,
+            "y": 832,
+            "w": 220,
+            "h": 54
+          },
+          "estilo": {
+            "color": "rgb(220, 235, 231)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(220, 235, 231)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(220, 235, 231) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.finder-btn",
+          "texto": "Search patients, conversations, pages…⌘K",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 274,
+            "y": 20,
+            "w": 382,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(88, 106, 101)",
+            "backgroundColor": "rgb(251, 252, 251)",
+            "borderColor": "rgba(16, 35, 31, 0.086)",
+            "boxShadow": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(88, 106, 101) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "borderColor": [
+              "rgba(16, 35, 31, 0.086)",
+              "rgba(16, 35, 31, 0.16)"
+            ]
+          },
+          "alApretar": {
+            "borderColor": [
+              "rgba(16, 35, 31, 0.086)",
+              "rgba(16, 35, 31, 0.16)"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.ibtn.ibtn--glass",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1214,
+            "y": 20,
+            "w": 46,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(16, 35, 31)",
+            "backgroundColor": "rgb(251, 252, 251)",
+            "borderColor": "rgba(16, 35, 31, 0.086)",
+            "boxShadow": "rgba(16, 35, 31, 0.04) 0px 1px 2px 0px, rgba(16, 35, 31, 0.22) 0px 14px 34px -22px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(16, 35, 31) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(251, 252, 251)",
+              "rgba(16, 35, 31, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(251, 252, 251)",
+              "rgba(16, 35, 31, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "button.btn.btn--primary.top__new",
+          "texto": "New",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1322,
+            "y": 22,
+            "w": 92,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(6, 32, 28)",
+            "backgroundColor": "rgb(92, 208, 180)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "color(srgb 0.360784 0.815686 0.705882 / 0.8) 0px 10px 22px -12px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(6, 32, 28) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "etiqueta": "button.btn.btn--ghost.magnetic",
+          "texto": "New appointment",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1021,
+            "y": 105,
+            "w": 179,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(229, 239, 236)",
+            "backgroundColor": "rgb(18, 29, 28)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(229, 239, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(18, 29, 28)",
+              "rgb(23, 36, 35)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0016, -0.0004)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(18, 29, 28)",
+              "rgb(23, 36, 35)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0004, -0.0001)"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "button.btn.btn--wa.magnetic",
+          "texto": "Remind tomorrow · 47",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1210,
+            "y": 105,
+            "w": 204,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(5, 40, 18)",
+            "backgroundColor": "rgb(63, 209, 122)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(5, 40, 18) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0023, -0.0004)"
+            ],
+            "filter": [
+              "none",
+              "brightness(1.06)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0005, -0.0001)"
+            ],
+            "filter": [
+              "none",
+              "brightness(1.06)"
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "etiqueta": "button.ibtn.card__expand",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 970,
+            "y": 336,
+            "w": 40,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(229, 239, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(229, 239, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 10,
+          "etiqueta": "button.td-card__open",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 305,
+            "y": 436,
+            "w": 148,
+            "h": 92
+          },
+          "estilo": {
+            "color": "rgb(229, 239, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(229, 239, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(229, 239, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 11,
+          "etiqueta": "button.btn.btn--xs.btn--soft",
+          "texto": "Check in",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 352,
+            "y": 490,
+            "w": 91,
+            "h": 28
+          },
+          "estilo": {
+            "color": "rgb(92, 208, 180)",
+            "backgroundColor": "color(srgb 0.235294 0.752941 0.678431 / 0.2)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(92, 208, 180) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.235294 0.752941 0.678431 / 0.2)",
+              "color(srgb 0.235294 0.752941 0.678431 / 0.24)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.235294 0.752941 0.678431 / 0.2)",
+              "color(srgb 0.235294 0.752941 0.678431 / 0.24)"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "etiqueta": "a.td-more",
+          "texto": "+62 more today",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 304,
+            "y": 435,
+            "w": 150,
+            "h": 29
+          },
+          "estilo": {
+            "color": "rgb(157, 176, 170)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(157, 176, 170)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(157, 176, 170) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(157, 176, 170)",
+              "rgb(229, 239, 236)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ],
+            "borderColor": [
+              "rgb(157, 176, 170)",
+              "rgb(229, 239, 236)"
+            ],
+            "outline": [
+              "rgb(157, 176, 170) none 3px",
+              "rgb(229, 239, 236) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(157, 176, 170)",
+              "rgb(229, 239, 236)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ],
+            "borderColor": [
+              "rgb(157, 176, 170)",
+              "rgb(229, 239, 236)"
+            ],
+            "outline": [
+              "rgb(157, 176, 170) none 3px",
+              "rgb(229, 239, 236) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 13,
+          "etiqueta": "button.btn.btn--xs.btn--primary",
+          "texto": "Call in",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 558,
+            "y": 490,
+            "w": 76,
+            "h": 28
+          },
+          "estilo": {
+            "color": "rgb(6, 32, 28)",
+            "backgroundColor": "rgb(92, 208, 180)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "color(srgb 0.360784 0.815686 0.705882 / 0.8) 0px 10px 22px -12px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(6, 32, 28) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          }
+        },
+        {
+          "n": 14,
+          "etiqueta": "a.td-chat.is-unread",
+          "texto": "AS Ana Souza8:56 AM Hi! I just moved to ",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1056,
+            "y": 386,
+            "w": 347,
+            "h": 62
+          },
+          "estilo": {
+            "color": "rgb(229, 239, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(229, 239, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(229, 239, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(23, 36, 35)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(23, 36, 35)"
+            ]
+          }
+        },
+        {
+          "n": 15,
+          "etiqueta": "a.td-chat.is-unread.is-urgent",
+          "texto": "NB Noah Bennett8:51 AM Hello, my son Noa",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1056,
+            "y": 450,
+            "w": 347,
+            "h": 89
+          },
+          "estilo": {
+            "color": "rgb(229, 239, 236)",
+            "backgroundColor": "color(srgb 0.941176 0.478431 0.372549 / 0.07)",
+            "borderColor": "rgb(229, 239, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(229, 239, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 16,
+          "etiqueta": "a.td-chat",
+          "texto": "KM Kwame MensahYesterday Book a visit",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1056,
+            "y": 734,
+            "w": 347,
+            "h": 61
+          },
+          "estilo": {
+            "color": "rgb(229, 239, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(229, 239, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(229, 239, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(23, 36, 35)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(23, 36, 35)"
+            ]
+          }
+        },
+        {
+          "n": 17,
+          "etiqueta": "a.btn.btn--soft.td-inbox__all",
+          "texto": "Open inbox",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1064,
+            "y": 429,
+            "w": 331,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(92, 208, 180)",
+            "backgroundColor": "color(srgb 0.235294 0.752941 0.678431 / 0.2)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(92, 208, 180) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.235294 0.752941 0.678431 / 0.2)",
+              "color(srgb 0.235294 0.752941 0.678431 / 0.24)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.235294 0.752941 0.678431 / 0.2)",
+              "color(srgb 0.235294 0.752941 0.678431 / 0.24)"
+            ]
+          }
+        },
+        {
+          "n": 18,
+          "etiqueta": "a.btn.btn--sm.btn--ghost",
+          "texto": "Open schedule",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 841,
+            "y": 433,
+            "w": 120,
+            "h": 34
+          },
+          "estilo": {
+            "color": "rgb(229, 239, 236)",
+            "backgroundColor": "rgb(18, 29, 28)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(229, 239, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(18, 29, 28)",
+              "rgb(23, 36, 35)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(18, 29, 28)",
+              "rgb(23, 36, 35)"
+            ]
+          }
+        },
+        {
+          "n": 19,
+          "etiqueta": "button.td-blk.td-blk--mint.is-done",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 486,
+            "y": 435,
+            "w": 15,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.643529 0.876863 0.77451)",
+            "backgroundColor": "color(srgb 0.158118 0.28502 0.239686)",
+            "borderColor": "color(srgb 0.643529 0.876863 0.77451) color(srgb 0.643529 0.876863 0.77451) color(srgb 0.643529 0.876863 0.77451) rgb(111, 211, 166)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.5",
+            "outline": "color(srgb 0.643529 0.876863 0.77451) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.158118 0.28502 0.239686)",
+              "color(srgb 0.201882 0.370667 0.304627)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.158118 0.28502 0.239686)",
+              "color(srgb 0.201882 0.370667 0.304627)"
+            ]
+          }
+        },
+        {
+          "n": 20,
+          "etiqueta": "button.td-blk.td-blk--teal.is-in-consult",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 501,
+            "y": 435,
+            "w": 21,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.533529 0.835882 0.789608)",
+            "backgroundColor": "color(srgb 0.110118 0.267137 0.246275)",
+            "borderColor": "color(srgb 0.533529 0.835882 0.789608) color(srgb 0.533529 0.835882 0.789608) color(srgb 0.533529 0.835882 0.789608) rgb(60, 192, 173)",
+            "boxShadow": "rgb(116, 179, 240) 0px 0px 0px 2px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.533529 0.835882 0.789608) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.110118 0.267137 0.246275)",
+              "color(srgb 0.129882 0.343843 0.31451)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.110118 0.267137 0.246275)",
+              "color(srgb 0.129882 0.343843 0.31451)"
+            ]
+          }
+        },
+        {
+          "n": 21,
+          "etiqueta": "button.td-blk.td-blk--teal.is-arrived",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 522,
+            "y": 435,
+            "w": 21,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.533529 0.835882 0.789608)",
+            "backgroundColor": "color(srgb 0.110118 0.267137 0.246275)",
+            "borderColor": "color(srgb 0.533529 0.835882 0.789608) color(srgb 0.533529 0.835882 0.789608) color(srgb 0.533529 0.835882 0.789608) rgb(60, 192, 173)",
+            "boxShadow": "rgb(242, 170, 95) 0px 0px 0px 2px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.533529 0.835882 0.789608) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.110118 0.267137 0.246275)",
+              "color(srgb 0.129882 0.343843 0.31451)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.110118 0.267137 0.246275)",
+              "color(srgb 0.129882 0.343843 0.31451)"
+            ]
+          }
+        },
+        {
+          "n": 22,
+          "etiqueta": "button.td-blk.td-blk--mint.is-confirmed",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 542,
+            "y": 435,
+            "w": 15,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.643529 0.876863 0.77451)",
+            "backgroundColor": "color(srgb 0.158118 0.28502 0.239686)",
+            "borderColor": "color(srgb 0.643529 0.876863 0.77451) color(srgb 0.643529 0.876863 0.77451) color(srgb 0.643529 0.876863 0.77451) rgb(111, 211, 166)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.643529 0.876863 0.77451) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.158118 0.28502 0.239686)",
+              "color(srgb 0.201882 0.370667 0.304627)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.158118 0.28502 0.239686)",
+              "color(srgb 0.201882 0.370667 0.304627)"
+            ]
+          }
+        },
+        {
+          "n": 23,
+          "etiqueta": "button.td-blk.td-blk--sky.is-confirmed",
+          "texto": "Aaliyah",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 558,
+            "y": 435,
+            "w": 31,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.654314 0.807843 0.934118)",
+            "backgroundColor": "color(srgb 0.162824 0.254902 0.309333)",
+            "borderColor": "color(srgb 0.654314 0.807843 0.934118) color(srgb 0.654314 0.807843 0.934118) color(srgb 0.654314 0.807843 0.934118) rgb(116, 179, 240)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.654314 0.807843 0.934118) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.162824 0.254902 0.309333)",
+              "color(srgb 0.208941 0.32549 0.409098)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.162824 0.254902 0.309333)",
+              "color(srgb 0.208941 0.32549 0.409098)"
+            ]
+          }
+        },
+        {
+          "n": 24,
+          "etiqueta": "button.td-blk.td-blk--teal.is-confirmed",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 604,
+            "y": 435,
+            "w": 21,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.533529 0.835882 0.789608)",
+            "backgroundColor": "color(srgb 0.110118 0.267137 0.246275)",
+            "borderColor": "color(srgb 0.533529 0.835882 0.789608) color(srgb 0.533529 0.835882 0.789608) color(srgb 0.533529 0.835882 0.789608) rgb(60, 192, 173)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.533529 0.835882 0.789608) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.110118 0.267137 0.246275)",
+              "color(srgb 0.129882 0.343843 0.31451)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.110118 0.267137 0.246275)",
+              "color(srgb 0.129882 0.343843 0.31451)"
+            ]
+          }
+        },
+        {
+          "n": 25,
+          "etiqueta": "button.td-blk.td-blk--lilac.is-confirmed",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 645,
+            "y": 435,
+            "w": 21,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.768627 0.745294 0.929804)",
+            "backgroundColor": "color(srgb 0.212706 0.227608 0.307451)",
+            "borderColor": "color(srgb 0.768627 0.745294 0.929804) color(srgb 0.768627 0.745294 0.929804) color(srgb 0.768627 0.745294 0.929804) rgb(169, 150, 238)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.768627 0.745294 0.929804) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.212706 0.227608 0.307451)",
+              "color(srgb 0.283765 0.284549 0.406275)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.212706 0.227608 0.307451)",
+              "color(srgb 0.283765 0.284549 0.406275)"
+            ]
+          }
+        },
+        {
+          "n": 26,
+          "etiqueta": "button.td-blk.td-blk--teal.is-booked",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 886,
+            "y": 435,
+            "w": 21,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.533529 0.835882 0.789608)",
+            "backgroundColor": "color(srgb 0.090353 0.190431 0.178039)",
+            "borderColor": "color(srgb 0.533529 0.835882 0.789608) color(srgb 0.533529 0.835882 0.789608) color(srgb 0.533529 0.835882 0.789608) rgb(60, 192, 173)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.533529 0.835882 0.789608) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 27,
+          "etiqueta": "button.td-blk.td-blk--apricot.is-done",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 501,
+            "y": 435,
+            "w": 15,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.926078 0.788431 0.621373)",
+            "backgroundColor": "color(srgb 0.281412 0.246431 0.172863)",
+            "borderColor": "color(srgb 0.926078 0.788431 0.621373) color(srgb 0.926078 0.788431 0.621373) color(srgb 0.926078 0.788431 0.621373) rgb(242, 170, 95)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.5",
+            "outline": "color(srgb 0.926078 0.788431 0.621373) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.281412 0.246431 0.172863)",
+              "color(srgb 0.386824 0.312784 0.204392)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.281412 0.246431 0.172863)",
+              "color(srgb 0.386824 0.312784 0.204392)"
+            ]
+          }
+        },
+        {
+          "n": 28,
+          "etiqueta": "button.td-blk.td-blk--apricot.is-arrived",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 563,
+            "y": 435,
+            "w": 15,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.926078 0.788431 0.621373)",
+            "backgroundColor": "color(srgb 0.281412 0.246431 0.172863)",
+            "borderColor": "color(srgb 0.926078 0.788431 0.621373) color(srgb 0.926078 0.788431 0.621373) color(srgb 0.926078 0.788431 0.621373) rgb(242, 170, 95)",
+            "boxShadow": "rgb(242, 170, 95) 0px 0px 0px 2px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.926078 0.788431 0.621373) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.281412 0.246431 0.172863)",
+              "color(srgb 0.386824 0.312784 0.204392)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.281412 0.246431 0.172863)",
+              "color(srgb 0.386824 0.312784 0.204392)"
+            ]
+          }
+        },
+        {
+          "n": 29,
+          "etiqueta": "button.td-blk.td-blk--apricot.is-confirmed",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 666,
+            "y": 435,
+            "w": 15,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.926078 0.788431 0.621373)",
+            "backgroundColor": "color(srgb 0.281412 0.246431 0.172863)",
+            "borderColor": "color(srgb 0.926078 0.788431 0.621373) color(srgb 0.926078 0.788431 0.621373) color(srgb 0.926078 0.788431 0.621373) rgb(242, 170, 95)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.926078 0.788431 0.621373) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.281412 0.246431 0.172863)",
+              "color(srgb 0.386824 0.312784 0.204392)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.281412 0.246431 0.172863)",
+              "color(srgb 0.386824 0.312784 0.204392)"
+            ]
+          }
+        },
+        {
+          "n": 30,
+          "etiqueta": "button.td-blk.td-blk--sky.is-booked",
+          "texto": "Keiko",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 681,
+            "y": 435,
+            "w": 31,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.654314 0.807843 0.934118)",
+            "backgroundColor": "color(srgb 0.116706 0.184314 0.209569)",
+            "borderColor": "color(srgb 0.654314 0.807843 0.934118) color(srgb 0.654314 0.807843 0.934118) color(srgb 0.654314 0.807843 0.934118) rgb(116, 179, 240)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.654314 0.807843 0.934118) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 31,
+          "etiqueta": "button.td-blk.td-blk--lilac.is-arrived",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 522,
+            "y": 435,
+            "w": 21,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.768627 0.745294 0.929804)",
+            "backgroundColor": "color(srgb 0.212706 0.227608 0.307451)",
+            "borderColor": "color(srgb 0.768627 0.745294 0.929804) color(srgb 0.768627 0.745294 0.929804) color(srgb 0.768627 0.745294 0.929804) rgb(169, 150, 238)",
+            "boxShadow": "rgb(242, 170, 95) 0px 0px 0px 2px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.768627 0.745294 0.929804) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.212706 0.227608 0.307451)",
+              "color(srgb 0.283765 0.284549 0.406275)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.212706 0.227608 0.307451)",
+              "color(srgb 0.283765 0.284549 0.406275)"
+            ]
+          }
+        },
+        {
+          "n": 32,
+          "etiqueta": "button.td-blk.td-blk--lilac.is-booked",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 542,
+            "y": 435,
+            "w": 21,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.768627 0.745294 0.929804)",
+            "backgroundColor": "color(srgb 0.141647 0.170667 0.208627)",
+            "borderColor": "color(srgb 0.768627 0.745294 0.929804) color(srgb 0.768627 0.745294 0.929804) color(srgb 0.768627 0.745294 0.929804) rgb(169, 150, 238)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.768627 0.745294 0.929804) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 33,
+          "etiqueta": "button.td-blk.td-blk--coral.is-confirmed",
+          "texto": "Nadia",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 845,
+            "y": 435,
+            "w": 46,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.921765 0.684902 0.621373)",
+            "backgroundColor": "color(srgb 0.279529 0.201255 0.172863)",
+            "borderColor": "color(srgb 0.921765 0.684902 0.621373) color(srgb 0.921765 0.684902 0.621373) color(srgb 0.921765 0.684902 0.621373) rgb(240, 122, 95)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.921765 0.684902 0.621373) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.279529 0.201255 0.172863)",
+              "color(srgb 0.384 0.24502 0.204392)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.279529 0.201255 0.172863)",
+              "color(srgb 0.384 0.24502 0.204392)"
+            ]
+          }
+        },
+        {
+          "n": 34,
+          "etiqueta": "button.td-blk.td-blk--mint.is-arrived",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 547,
+            "y": 435,
+            "w": 15,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.643529 0.876863 0.77451)",
+            "backgroundColor": "color(srgb 0.158118 0.28502 0.239686)",
+            "borderColor": "color(srgb 0.643529 0.876863 0.77451) color(srgb 0.643529 0.876863 0.77451) color(srgb 0.643529 0.876863 0.77451) rgb(111, 211, 166)",
+            "boxShadow": "rgb(242, 170, 95) 0px 0px 0px 2px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.643529 0.876863 0.77451) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.158118 0.28502 0.239686)",
+              "color(srgb 0.201882 0.370667 0.304627)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.158118 0.28502 0.239686)",
+              "color(srgb 0.201882 0.370667 0.304627)"
+            ]
+          }
+        },
+        {
+          "n": 35,
+          "etiqueta": "button.td-blk.td-blk--sand.is-done",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 455,
+            "y": 435,
+            "w": 15,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.852745 0.818627 0.675294)",
+            "backgroundColor": "color(srgb 0.249412 0.259608 0.196392)",
+            "borderColor": "color(srgb 0.852745 0.818627 0.675294) color(srgb 0.852745 0.818627 0.675294) color(srgb 0.852745 0.818627 0.675294) rgb(208, 184, 120)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.5",
+            "outline": "color(srgb 0.852745 0.818627 0.675294) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.249412 0.259608 0.196392)",
+              "color(srgb 0.338824 0.332549 0.239686)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.249412 0.259608 0.196392)",
+              "color(srgb 0.338824 0.332549 0.239686)"
+            ]
+          }
+        },
+        {
+          "n": 36,
+          "etiqueta": "button.td-blk.td-blk--sand.is-in-consult",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 532,
+            "y": 435,
+            "w": 15,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.852745 0.818627 0.675294)",
+            "backgroundColor": "color(srgb 0.249412 0.259608 0.196392)",
+            "borderColor": "color(srgb 0.852745 0.818627 0.675294) color(srgb 0.852745 0.818627 0.675294) color(srgb 0.852745 0.818627 0.675294) rgb(208, 184, 120)",
+            "boxShadow": "rgb(116, 179, 240) 0px 0px 0px 2px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.852745 0.818627 0.675294) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.249412 0.259608 0.196392)",
+              "color(srgb 0.338824 0.332549 0.239686)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.249412 0.259608 0.196392)",
+              "color(srgb 0.338824 0.332549 0.239686)"
+            ]
+          }
+        },
+        {
+          "n": 37,
+          "etiqueta": "button.td-blk.td-blk--sand.is-confirmed",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 578,
+            "y": 435,
+            "w": 15,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.852745 0.818627 0.675294)",
+            "backgroundColor": "color(srgb 0.249412 0.259608 0.196392)",
+            "borderColor": "color(srgb 0.852745 0.818627 0.675294) color(srgb 0.852745 0.818627 0.675294) color(srgb 0.852745 0.818627 0.675294) rgb(208, 184, 120)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.852745 0.818627 0.675294) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.249412 0.259608 0.196392)",
+              "color(srgb 0.338824 0.332549 0.239686)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.249412 0.259608 0.196392)",
+              "color(srgb 0.338824 0.332549 0.239686)"
+            ]
+          }
+        },
+        {
+          "n": 38,
+          "etiqueta": "button.td-blk.td-blk--apricot.is-booked",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 671,
+            "y": 435,
+            "w": 15,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.926078 0.788431 0.621373)",
+            "backgroundColor": "color(srgb 0.176 0.180078 0.141333)",
+            "borderColor": "color(srgb 0.926078 0.788431 0.621373) color(srgb 0.926078 0.788431 0.621373) color(srgb 0.926078 0.788431 0.621373) rgb(242, 170, 95)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.926078 0.788431 0.621373) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 39,
+          "etiqueta": "button.td-blk.td-blk--sand.is-booked",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 994,
+            "y": 435,
+            "w": 15,
+            "h": 30
+          },
+          "estilo": {
+            "color": "color(srgb 0.852745 0.818627 0.675294)",
+            "backgroundColor": "color(srgb 0.16 0.186667 0.153098)",
+            "borderColor": "color(srgb 0.852745 0.818627 0.675294) color(srgb 0.852745 0.818627 0.675294) color(srgb 0.852745 0.818627 0.675294) rgb(208, 184, 120)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.852745 0.818627 0.675294) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        }
+      ]
+    }
+  }
+}

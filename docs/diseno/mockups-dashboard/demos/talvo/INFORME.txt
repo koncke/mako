@@ -1,0 +1,124 @@
+##############################################################################
+#  TALVO   bundle 222kB - 36 helpers - 14 chunks - ARQ VANILLA - 30 fromTo crudos
+##############################################################################
+
+CHUNKS: accounts-Ci1XZGIT.js, assistant-C9HRxDD1.js, budgets-CWXf6Vrm.js, cashflow-BIp7AUzi.js, close-mAjfnQCG.js, financing-D4WOZ80X.js, horizon-BDGzQpo7.js, overview-BZgVORYl.js, payments-C69SUNIw.js, payroll-BlBqMJRP.js, reports-Bmqgd4j4.js, settings-B5ZVRzzz.js, support-vtP-R5g4.js, treasury-D_HD4cGt.js
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[o -> export (no exp)]  (t,a,o,s){var l;typeof a==`number`&&(o.duration=a,a=o,o=null),l=r.call(this,s?a:Re(a))||this;var u=l.vars,d=u.duration,f=u.delay,p=u.immediateRender,m=u.stagger,h=u.overwrite,g=u.keyframes,v=u.defaults,x=u.scrollTrigger,T=a.parent||N,E=(w(t)||C(t)?_(t[0]):`length`in a)?[t]:vt(t),D,O,k,A,j,M,ee,te;if(l._targets=E.length?be(E):ae(`GSAP target `+t+` not found. https://gsap.com`,!n.nullTargetWarn)||[],l._ptLookup=[],l._overwrite=h,g||m||S(d)||S(f)){a=l.vars;var ne=a.easeReverse||a.yoyoEase;if(D=l.timeline=new dn({data:`nested`,defaults:v||{},targets:T&&T.dat...
+
+[lo -> export jr]  (e,t=0){if(!e)return B.timeline();let n=co(e);return B.fromTo(n,{yPercent:115,rotation:6},{yPercent:0,rotation:0,duration:V(.85),ease:`power4.out`,stagger:V(.022),delay:V(t),clearProps:`transform`})}
+
+[uo -> export Dr]  (e,{y:t=34,stagger:n=.07,delay:r=0}={}){return e.length?B.fromTo(e,{opacity:0,y:t,scale:.985},{opacity:1,y:0,scale:1,duration:V(.9),ease:`power3.out`,stagger:V(n),delay:V(r),clearProps:`transform,opacity`}):B.timeline()}
+
+[fo -> export wr]  (e,{x:t=0,y:n=12,stagger:r=.045,delay:i=0}={}){return e.length?B.fromTo(e,{opacity:0,x:t,y:n},{opacity:1,x:0,y:0,duration:V(.55),ease:`power3.out`,stagger:V(r),delay:V(i),clearProps:`transform,opacity`}):B.timeline()}
+
+[po -> export xr]  (e,{delay:t=0,stagger:n=.06}={}){return e.length?B.fromTo(e,{opacity:0,y:40,rotation:e=>e%2?3:-3,scale:.94},{opacity:1,y:0,rotation:0,scale:1,duration:V(.8),ease:`back.out(1.4)`,stagger:V(n),delay:V(t),clearProps:`transform,opacity`}):B.timeline()}
+
+[mo -> export kr]  (e,{from:t=.6,delay:n=0,stagger:r=.05}={}){!e||to.matches||B.fromTo(e,{scale:t,opacity:0},{scale:1,opacity:1,duration:.6,ease:`back.out(3)`,delay:n,stagger:r,overwrite:`auto`,clearProps:`transform,opacity`})}
+
+[ho -> export yr]  (e){e&&(e.classList.remove(`is-flash`),e.offsetWidth,e.classList.add(`is-flash`),!to.matches&&B.fromTo(e,{y:-4,scale:1.06},{y:0,scale:1,duration:.55,ease:`back.out(2.4)`,overwrite:`auto`,clearProps:`transform`}))}
+
+[_o -> export br]  (e,t,n,{duration:r=1.2,delay:i=0,from:a}={}){if(!e)return;let o=go.get(e);if(o||go.set(e,o={v:a??0}),a!==void 0&&(o.v=a),B.killTweensOf(o),to.matches||!r||o.v===t){o.v=t,e.textContent=n(t);return}let s=o;e.textContent=n(s.v),B.to(s,{v:t,duration:r,delay:i,ease:`power3.out`,onUpdate:()=>{e.textContent=n(s.v)},onComplete:()=>{e.textContent=n(t)}})}
+
+[vo -> export Nr]  (e){if(to.matches)return;let t=e.querySelector(`svg`)??e;B.fromTo(t,{scale:.72},{scale:1,duration:.55,ease:`back.out(3)`,overwrite:!0})}
+
+[xo -> export Er]  (e=document,t=-4){ro.matches&&U(`[data-lift]`,e).forEach(e=>{e.__lift||(e.__lift=!0,e.addEventListener(`pointerenter`,()=>{!to.matches&&bo.v&&B.to(e,{y:t,duration:.45,ease:`power3.out`,overwrite:`auto`})}),e.addEventListener(`pointerleave`,()=>{bo.v&&B.to(e,{y:0,duration:.5,ease:`power3.out`,overwrite:`auto`,clearProps:`transform`})}))})}
+
+[Lc -> export ft]  (e,t=0){let n=B.timeline({delay:V(t)});n.add(lo(so(`.head__title`,e)),0);let r=so(`.head__back`,e);return r&&n.fromTo(r,{opacity:0,x:-14},{opacity:1,x:0,duration:V(.6),ease:`power3.out`,clearProps:`transform,opacity`},0),n.add(fo(U(`.head__eyebrow`,e),{y:8}),0),n.add(fo(U(`.head .tabs__a, .head .stat, .head__actions > *`,e),{y:14,stagger:.05}),.1),n.add(()=>{let t=so(`.head .tabs`,e);t&&zc(t,!1)},.1),n.add(()=>Fc(H(`.head`,e)),.15),n}
+
+[Wc -> export Xt]  (e,t,n,r=!0,i=999){if(!n||!n.offsetWidth){B.set(e,{opacity:0});return}let a=t.clientWidth,o=t.clientHeight,s={l:n.offsetLeft,r:a-(n.offsetLeft+n.offsetWidth),t:n.offsetTop,b:o-(n.offsetTop+n.offsetHeight)},c=e=>`inset(${e.t}px ${e.r}px ${e.b}px ${e.l}px round ${i}px)`,l=e,u=l.__e;if(l.__e=s,!r||no()||!u||Number(B.getProperty(e,`opacity`))===0){B.killTweensOf(l.__st??{}),l.__st={...s},B.set(e,{clipPath:c(s),opacity:1});return}let d=l.__st??{...u};l.__st=d,B.killTweensOf(d);let f=Math.abs(s.t-u.t)>Math.abs(s.l-u.l),p=f?s.t>u.t:s.l>u.l,[m,h]=f?p?[`b`,`t`]:[...
+
+[Gc -> export (no exp)]  (e,t,n,r=!0){if(!n||!n.offsetWidth){B.set(e,{opacity:0});return}let i=t.scrollWidth,a={l:n.offsetLeft+4,r:i-(n.offsetLeft+n.offsetWidth)+4},o=e,s=o.__e;o.__e=a;let c=e=>`inset(0 ${e.r}px 0 ${e.l}px round 2px)`;if(!r||no()||!s||Number(B.getProperty(e,`opacity`))===0){o.__st={...a},B.set(e,{clipPath:c(a),opacity:1});return}let l=o.__st??{...s};o.__st=l,B.killTweensOf(l);let u=a.l>s.l,d=()=>B.set(e,{clipPath:c(l)});B.to(l,{[u?`r`:`l`]:u?a.r:a.l,duration:.32,ease:`power3.out`,onUpdate:d}),B.to(l,{[u?`l`:`r`]:u?a.l:a.r,duration:.55,ease:`power3.inOut`,onUpdat...
+
+[Xc -> export (no exp)]  (e,t,{cls:n=``,align:r=`end`,label:i=``,onClose:a}={}){if(Jc?.anchor===e)return Yc(),null;Yc();let o=document.createElement(`div`);o.className=`pop ${n}`,i&&(o.setAttribute(`role`,`dialog`),o.setAttribute(`aria-label`,i)),typeof t==`string`?o.innerHTML=t:o.append(t),H(`.pop-layer`).append(o),e.setAttribute(`aria-expanded`,`true`);let s=()=>{let t=e.getBoundingClientRect(),n=o.offsetWidth,i=o.offsetHeight,a=innerWidth,s=innerHeight,c=r===`start`?t.left:r===`center`?t.left+t.width/2-n/2:t.right-n;c=Math.max(12,Math.min(a-n-12,c));let l=t.bottom+8+i<s-12||t...
+
+[d -> export (no exp)]  (t=!1){!Jc||Jc.el!==o||(Jc=null,e.setAttribute(`aria-expanded`,`false`),document.removeEventListener(`pointerdown`,c,!0),document.removeEventListener(`keydown`,l,!0),removeEventListener(`resize`,u),removeEventListener(`scroll`,u,!0),B.to(o,{opacity:0,scale:.96,duration:V(.16),ease:`power2.in`,onComplete:()=>o.remove()}),t&&e.focus(),a?.())}
+
+[$c -> export (no exp)]  (e,t){e.showModal(),B.fromTo(e,t,{opacity:1,x:0,y:0,scale:1,duration:V(.45),ease:`back.out(1.5)`,clearProps:`transform`})}
+
+[el -> export (no exp)]  (e,t,n){!e.open||e.dataset.closing||(e.dataset.closing=`1`,B.to(e,{...t,opacity:0,duration:V(.22),ease:`power2.in`,onComplete:()=>{delete e.dataset.closing,e.close(),B.set(e,{clearProps:`all`}),n?.()}}))}
+
+[ol -> export Jt]  (e){!e||no()||B.fromTo(e,{x:0},{keyframes:{x:[0,-7,6,-4,3,0]},duration:.42,ease:`power2.out`,clearProps:`transform`})}
+
+[ul -> export en]  (e,{undo:t,ico:n=`check`}={}){let r=H(`.toast`),i=H(`.toast__undo`,r);H(`.toast__ico`,r).innerHTML=Q(n),H(`.toast__msg`,r).textContent=e,ll=t??null,i.hidden=!t,B.killTweensOf(r),B.timeline().fromTo(r,{opacity:0,y:18,scale:.96,visibility:`visible`},{opacity:1,y:0,scale:1,duration:V(.45),ease:`back.out(1.8)`}).to(r,{opacity:0,y:10,duration:V(.3),ease:`power2.in`,onComplete:()=>{ll=null,i.hidden=!0,B.set(r,{visibility:`hidden`})}},t?`+=5`:`+=2.6`)}
+
+[pl -> export (no exp)]  (e,t){if(fl&&fl!==e&&ml(),e.classList.contains(`is-focus`)){ml();return}let n=[...e.children],r=document.createElement(`div`);r.className=`card-ph`;let i=getComputedStyle(e);Object.assign(r.style,{gridArea:i.gridArea,gridColumn:i.gridColumn,gridRow:i.gridRow,height:`${e.offsetHeight}px`}),e.before(r),B.set(e,{clearProps:`transform`});let a=eo.getState(e);e.classList.add(`is-focus`),document.documentElement.classList.add(`has-focus`),fl=e,t?.setAttribute(`aria-label`,`Collapse`),B.set(n,{opacity:0}),B.to(H(`.scrim`),{autoAlpha:1,duration:V(.35)}),eo.from(...
+
+[ml -> export (no exp)]  (){let e=fl;if(!e)return;fl=null;let t=e.previousElementSibling,n=[...e.children];B.to(H(`.scrim`),{autoAlpha:0,duration:V(.3)}),B.to(n,{opacity:0,duration:V(.14),onComplete:()=>{let r=eo.getState(e);e.classList.remove(`is-focus`),document.documentElement.classList.remove(`has-focus`),t?.classList.contains(`card-ph`)&&t.remove(),so(`[data-expand]`,e)?.setAttribute(`aria-label`,`Expand`),e.dispatchEvent(new CustomEvent(`card:resize`)),eo.from(r,{duration:V(.5),ease:`power3.inOut`,scale:!0,onComplete:()=>B.set(e,{clearProps:`transform`})}),B.to(n,{opacity:...
+
+[_l -> export gt]  (e,t){let n=new Map;U(`[data-key]`,e).forEach(e=>n.set(e.dataset.key,e.getBoundingClientRect())),t(),U(`[data-key]`,e).forEach((e,t)=>{let r=n.get(e.dataset.key);if(!r){B.fromTo(e,{opacity:0,y:12,scale:.97},{opacity:1,y:0,scale:1,duration:V(.45),delay:V(Math.min(t,12)*.02),ease:`power3.out`,clearProps:`transform,opacity`});return}let i=e.getBoundingClientRect(),a=r.left-i.left,o=r.top-i.top;(a||o)&&B.fromTo(e,{x:a,y:o},{x:0,y:0,duration:V(.55),ease:`power3.inOut`,clearProps:`transform`})})}
+
+[vl -> export pt]  (e,t){B.to(e,{opacity:0,scale:.94,y:-6,duration:V(.25),ease:`power2.in`,onComplete:t})}
+
+[bl -> export Zt]  (e,t,n=`good`){e.querySelector(`.stamp`)?.remove();let r=document.createElement(`span`);r.className=`stamp stamp--${n}`,r.textContent=t,r.setAttribute(`aria-hidden`,`true`),e.append(r),!no()&&(B.fromTo(r,{scale:2.6,opacity:0,rotation:-24},{scale:1,opacity:1,rotation:-12,duration:.42,ease:`back.out(2.2)`}),B.fromTo(e,{x:0},{keyframes:{x:[0,-3,2,-1,0]},duration:.3,delay:.32,clearProps:`transform`}))}
+
+[Bl -> export z]  (e,t){e.classList.add(`bars`),e.setAttribute(`role`,`list`),e.setAttribute(`aria-label`,t.label);let n=t.values,r=()=>{let r=Ll(Math.max(1,...n));e.innerHTML=t.labels.map((e,i)=>`<div class="bars__col${i===(t.highlight??-1)?` is-hi`:``}" role="listitem" aria-label="${W(e)}: ${W(t.format(n[i]??0))}" title="${W(e)}: ${W(t.format(n[i]??0))}">       <div class="bars__track"><span class="bars__bar bars__bar--${t.tone??`citron`}" style="height:${(n[i]??0)/r*100}%"></span></div><span class="bars__lab">${W(e)}</span></div>`).join(``)};return r(),{play(t=0){B.fro...
+
+[Vl -> export V]  (e,t){e.classList.add(`donut`);let n=2*Math.PI*52,r=t.parts,i=()=>{let i=r.reduce((e,t)=>e+t.value,0)||1,a=0;e.innerHTML=`<svg viewBox="0 0 140 140" role="img" aria-label="${W(t.label)}"><circle class="donut__track" cx="70" cy="70" r="52"/>${r.map(e=>{let t=e.value/i*n,o=r.length>1?3:0,s=`<circle class="donut__arc tone-stroke--${e.tone}" cx="70" cy="70" r="52" stroke-dasharray="${Math.max(0,t-o)} ${n}" stroke-dashoffset="${-a}" data-len="${Math.max(0,t-o)}"/>`;return a+=t,s}).join(``)}</svg><div class="donut__mid"><b>${W(t.center)}</b><span>${W(t.sub)}</...
+
+[Wl -> export B]  (e,t){e.classList.add(`dvg`);let n=t.inn,r=t.out,i=t.labels,a=()=>{let a=Ll(Math.max(1,...n,...r));e.innerHTML=`<div class="dvg__axis" aria-hidden="true"><span>${W(t.format(a))}</span><span>0</span><span>${W(t.format(-a))}</span></div><div class="dvg__cols" role="list" aria-label="${W(t.label)}">${i.map((e,i)=>{let o=n[i]??0,s=r[i]??0,c=o-s;return`<div class="dvg__col${i===(t.highlight??-1)?` is-hi`:``}" role="listitem" tabindex="-1" aria-label="${W(`${e}: in ${t.format(o)}, out ${t.format(s)}, net ${t.format(c)}`)}">         <div class="dvg__plot"><div ...
+
+[Gl -> export U]  (e,t){e.classList.add(`ring`);let n=Math.max(1,t.total),r=n>1?4:0,i=2*Math.PI*46,a=i/n-r,o=t.done;e.innerHTML=`<svg viewBox="0 0 120 120" role="img" aria-label="${W(t.label)}">${Array.from({length:n},(e,t)=>`<circle class="ring__seg" cx="60" cy="60" r="46" stroke-dasharray="${a.toFixed(2)} ${(i-a).toFixed(2)}" stroke-dashoffset="${(-(t*i)/n).toFixed(2)}"/>`).join(``)}</svg>     <div class="ring__mid"><b class="num">${o}/${n}</b><span>${W(t.sub)}</span></div>`;let s=[...e.querySelectorAll(`.ring__seg`)],c=(r,i=0)=>{s.forEach((e,n)=>{let a=n<o,s=e.classLis...
+
+[Qu -> export (no exp)]  (e,t,n=!0){let r=U(`.nav__group`,qu),i=r.find(t=>t.dataset.group===e&&!t.classList.contains(`is-open`)&&so(`.nav__sub`,t)),a=r.filter(t=>t.dataset.group!==e&&t.classList.contains(`is-open`)),o=n&&!no()&&(i||a.length)&&getComputedStyle(H(`.nav__label`,qu)).display!==`none`?eo.getState(U(`.nav__group > .nav__item, .nav__label, .nav__sep`,qu)):null;r.forEach(t=>t.classList.toggle(`is-open`,t.dataset.group===e)),U(`.nav__item[data-route]`,qu).forEach(t=>{let n=t.dataset.route===e;t.classList.toggle(`is-here`,n),n&&!Hu[e]?t.setAttribute(`aria-current`,`page`)...
+
+[nd -> export (no exp)]  (e=!1){let{name:t,params:n}=Gu(location.hash),r=++td;Yc(),hl()&&ml();let i=H(`[data-view="${t}"]`),a=Ku(t,n);if(ed?.name===t){Qu(t,a),id(t,a),ed.page.enter({params:n,first:!1,same:!0}),rd(ed.page,n);return}let o=$u.get(t);if(!o){try{o=(await Wu[t]()).page}catch(e){console.error(e),ul(`${Bu[t]} couldn’t load. Check your connection and try again.`,{ico:`alert`});return}if(r!==td)return;o.mount(i),$u.set(t,o),xo(i),yo(i)}if(r!==td)return;let s=i.dataset.entered!==`1`,c=ed;ed={name:t,page:o},c?.page.leave?.(),Qu(t,a,!e),id(t,a),rd(o,n),document.documentEleme...
+
+[pd -> export (no exp)]  (){ad.open||(Yc(),od.value=``,ld=0,fd(),ad.showModal(),B.fromTo(ad,{opacity:0,y:-14,scale:.97},{opacity:1,y:0,scale:1,duration:V(.38),ease:`back.out(1.6)`,clearProps:`transform`}),fo(U(`.finder__opt`,sd),{y:8,stagger:.025}),od.focus())}
+
+[md -> export (no exp)]  (){B.to(ad,{opacity:0,y:-8,duration:V(.16),ease:`power2.in`,onComplete:()=>{ad.close(),B.set(ad,{clearProps:`all`})}})}
+
+[Td -> export (no exp)]  (e){Yc(),wd.innerHTML=e,wd.hidden=!1,B.fromTo(wd,{opacity:0},{opacity:1,duration:V(.35)}),fo(U(`.gate__box > *`,wd),{y:18,stagger:.06,delay:.1})}
+
+[Od -> export (no exp)]  (){Td(`<form class="gate__box" novalidate>     <span class="gate__brand"><span class="brand__mark">${Ac}</span>Talvo</span>     <div><h1>Welcome back</h1><p>Sign in to Kettlewick Brewing Co.</p></div>     <label class="field"><span class="field__label">Work email</span><input name="email" type="email" value="${W(Y.settings.me.email)}" autocomplete="username" required /></label>     <label class="field"><span class="field__label">Password</span><input name="pw" type="password" value="" placeholder="••••••••" autocomplete="current-password" required /></la...
+
+[Ad -> export (no exp)]  (){if(kd)return;kd=!0;let e=``;Td(`<div class="gate__box" style="justify-items:center;text-align:center">     <span class="gate__brand"><span class="brand__mark">${Q(`lock`)}</span></span>     <div><h1>Talvo is locked</h1><p>${W(Y.settings.me.name)} · enter your PIN</p></div>     <div class="pin" aria-live="polite" aria-label="PIN, 0 of 4 digits"><i></i><i></i><i></i><i></i></div>     <div class="keypad">${[1,2,3,4,5,6,7,8,9].map(e=>`<button type="button" data-k="${e}">${e}</button>`).join(``)}<button type="button" data-k="x" aria-label="Delete">${Q(`bac...
+
+[Id -> export (no exp)]  (){document.documentElement.classList.add(`is-ready`);let e=matchMedia(`(max-width: 760px)`).matches;B.timeline().fromTo(`.side`,e?{y:90,opacity:0}:{x:-60,opacity:0},{x:0,y:0,opacity:1,duration:V(.9),ease:`power3.out`,clearProps:`transform,opacity`},0).add(fo(U(`.brand, .nav__label, .nav__group > .nav__item, .nav__group.is-open .nav__subitem, .side__foot > *`).filter(e=>e.offsetParent),e?{y:10,stagger:.04}:{x:-12,y:0,stagger:.03}),.15).add(fo(U(`.top > *, .top__tools > *`).filter(e=>e.offsetParent&&!e.classList.contains(`top__tools`)),{y:-12,stagger:.04}...
+
+========================== TIMELINE DEL ARMAZON ==========================
+(this)},e}(),$a=function(){function e(e){this.id=e,this.actions=[],this._kill=[],this._final=[],this._abs=[],this._run=[],this.data={},this.state=new Xa,this.timeline=Xi.timeline()}var t=e.prototype;return t.add=function(e){var t=this.actions.filter(function(t){return t.vars===e});return t.length?t[0]:(t=new Qa(typeof e==`function`?{animate:e}:e,this),this.actions.push(t),t)},t.remove=function(e){var t=this.actions.indexOf(e);return t>=0&&this.actions.splice(t,1),this},t.getState=function(e){var t=this,n=Zi,r=Qi;return Zi=this,this.state.clear(),this._kill.length=0,this.actions.forEach(function(n){n.vars.getState&&(n.states.length=0,Qi=n,n.state=n.vars.getState(n)),e&&n.states.forEach(function(e){return t.state.add(e)})}),Qi=r,Zi=n,this.killConflicts(),this},t.animate=function(){var e=this,t=Zi,n=this.timeline,r=this.actions.length,i,a;for(Zi=this,n.clear(),this._abs.length=this._final.length=this._run.length=0,this.actions.forEach(function(e){e.vars.animate&&e.vars.animate(e);var t=e.vars.onEnter,n=e.vars.onLeave,r=e.targets,i,a;r&&r.length&&(t||n)&&(i=new Xa,e.states.forEach(function(e){return i.add(e)}),a=i.compare(eo.getState(r)),a.enter.length&&t&&t(a.enter),a.leave.length&&n&&n(a.leave))}),Aa(this._abs),this._run.forEach(function(e){return e()}),a=n.duration(),i=this._final.slice(0),n.add(function(){a<=n.time()&&(i.forEach(function(e){return e()}),na(e,`onComplete`))}),Zi=t;r--;)this.actions[r].vars.once&&this.actions[r].kill();return na(this,`onStart`),n.restart(),this},t.loadState=function(e){e||=function(){return 0};var t=[];return this.actions.forEach(function(n){if(n.vars.loadState){var r,i=function i(a){a&&(n.targets=a),r=t.indexOf(i),~r&&(t.splice(r,1),t.length||e())};t.push(i),n.vars.loadState(i)}}),t.length||e(),this},t.setState=function(){return this.actions.forEach(function(e){return e.targets=e.vars.setState&&e.vars.setS
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2px solid var(--citron-d);outline-offset:2px }
+  :root[data-theme=dark] :focus-visible { outline-color:var(--citron) }
+  .nav__item:hover { background:var(--s-hover) }
+  .nav__item[aria-current=page]:hover,.nav__item.is-here:hover { background:0 0 }
+  .nav__subitem:hover { color:var(--s-text);background:var(--s-hover) }
+  .me:hover { background:var(--s-hover) }
+  .finder-btn:hover { border-color:var(--line-2) }
+  .ask-btn:hover { border-color:var(--line-2) }
+  .tabs__a:hover,.tabs__a[aria-current=page] { color:var(--text) }
+  .ibtn:hover { background:var(--well) }
+  .btn--primary:hover { filter:brightness(1.25) }
+  :root[data-theme=dark] .btn--primary:hover { filter:brightness(1.08) }
+  .btn--citron:hover { filter:brightness(1.05) }
+  .btn--ghost:hover { background:var(--surface-2) }
+  .btn--soft:hover { background:color-mix(in srgb, var(--text) 10%, transparent) }
+  .input:focus,.search:focus-within { border-color:var(--text);box-shadow:0 0 0 3px color-mix(in srgb, var(--citron) 45%, transparent) }
+  .chip:hover { border-color:var(--line-2) }
+  .table tbody tr:hover { background:var(--surface-2) }
+  .chart:focus-visible { outline:2px solid var(--citron-d);outline-offset:4px;border-radius:12px }
+  .dvg__col:hover .dvg__tip,.dvg__col:focus-visible .dvg__tip { opacity:1 }
+  .dvg__col:hover .dvg__up,.dvg__col:hover .dvg__down { filter:brightness(1.05) }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--well);outline:none }
+  .pop__row:hover,.pop__row:focus-visible { background:var(--well);outline:none }
+  .keypad button:hover { background:#ffffff1f }
+  .keypad button:active { background:var(--citron);color:var(--on-citron) }
+  .nav__item:hover,.ibtn:hover,.btn--ghost:hover,.table tbody tr:hover,.menu__item:hover,.pop__row:hover,.me:hover,.nav__subitem:hover { background:0 0 }
+  .btn--ghost:hover { background:var(--surface) }
+  .btn--primary:hover { filter:none }
+  .ibtn:active,.pop__row:active,.menu__item:active { background:var(--well) }
+  .table--stack tbody tr:hover { background:0 0 }
+
+  -- keyframes --
+  @keyframes flash {0%{color:var(--citron-d)}to{color:inherit}}
+  @keyframes fade {0%{opacity:0}}
+
+  -- transitions --
+  transition:background-color .15s
+  transition:color .2s
+  transition:opacity .15s
+  transition:transform .3s var(--ease)
