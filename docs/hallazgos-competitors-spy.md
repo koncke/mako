@@ -1362,3 +1362,5 @@ Recorrido de la casa (`app/_ui/Recorrido.tsx`): seis pasos, cada uno con su `dat
 - **El id lleva la fecha** (`spy-ficha-0411`): es la clave de «ya lo vio», y uno reusado no se le muestra a quien vio el anterior.
 - ⚠️ **Probar un test rompiendo el código se restaura de MEMORIA**: un `git checkout -- <archivo>` para deshacer la rotura se llevó
   también la marca recién escrita en `GrillaPiezas.tsx` (sin commitear). Se notó porque el test siguió rojo; se volvió a poner.
+- ⚠️ **El primer CI dio rojo por «acá»**: `tests/puente-panel-copy.test.ts` barre el copy de toda la app y pide español neutro
+  («aquí»). No es un test de Spy, así que correr `tests/spy-*.test.ts` no lo ve: con texto nuevo de pantalla, se corre ese también.
