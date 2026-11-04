@@ -5,8 +5,9 @@
 - **CS Analyst está en producción.** Entró a main a las 22:21 (`b42c446d9`, la mezcla de `punta/dash-cs` con `923d70e8b`, su veredicto:
   7.034 tests y el tsc entero); el deploy de ese mismo commit quedó listo a las 22:33. El primer veredicto dio un rojo de verdad: la hoja
   enlazaba `/customer-success`, la ruta vieja, y ahora usa `RUTA_CLIENTES` (lib/clients-rutas.ts).
-- **Sigo con Productividad (la copia de Fernly)**: la copia de la página está casi igual a la captura en 1440 y en 390; falta la
-  adaptación con las piezas de la plantilla.
+- **Productividad (la copia de Fernly) va en `punta/dash-productividad`**: la sección de abajo. Es la decimotercera hoja copiada. No suma
+  piezas a la plantilla: el diseño dibuja nueve de las once; la matriz de impacto × esfuerzo y lo que queda en cada proyecto siguen en la
+  grilla.
 
 ### Lo de las ~22:10 UTC
 
@@ -104,6 +105,62 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## Productividad: la decimotercera hoja copiada (la de Fernly), con «¿qué avanza y qué se estancó?» (punta `dash-productividad`, 4/11/2026)
+
+La referencia de Productividad es Fernly (`docs/templates-dashboard-propuesta.md` §7.3; Sunrow, la otra, queda por copiar): la página
+«Dashboard» de Fernly (un gestor de proyectos): la barra lateral y la de arriba, cuatro tarjetas de números, «Project Analytics» (siete
+columnas, una por día), «Reminders», «Project» (una lista con su fecha), «Team Collaboration» (personas con su estado), «Project Progress»
+(un medio arco) y «Time Tracker» (un cronómetro en una tarjeta oscura).
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «Productividad» con el diseño de Fernly**, con su miniatura de verdad.
+- **Arriba:** el saludo y la frase del tablero («Tienes 34 tareas activas: 8 en curso. Ya hiciste 23.»), y «Ver el Plan» y «Ver la grilla».
+- **Las cuatro tarjetas:** el **avance global** de los proyectos (la verde), las **estancadas** (más de 7 días sin moverse), las de **Alta sin
+  deadline** y cuántas se cerraron **a tiempo**. Sin «↑ desde el mes pasado»: la hoja es la foto de hoy del tablero y no tiene con qué
+  compararse. Un % que no se puede medir dice «—», nunca 0 %.
+- **Lo que vence, por semana** («Project Analytics»): una columna por semana de los próximos 30 días; **esta semana oscura**, las que tienen
+  algo verdes y las vacías rayadas (como los días que faltan en Fernly). La más alta lleva su número encima. Tocar una semana abre su detalle.
+- **Lo más quieto** («Reminders»): la tarea activa que más tiempo lleva sin tocarse, cuántos días y si su deadline se corrió, con «Abrir en
+  el Plan».
+- **Lo que huele mal** («Team Collaboration»): las cuatro que siguen, con iniciales en lugar de caras, cuántos días llevan quietas, cuántas
+  veces se movió su fecha y una pastilla: **Quieta** (más de 7 días), **Se corre** (dos o más cambios de fecha) o **Al día**. Son tareas, no
+  personas: las tareas de esta fuente no tienen responsable.
+- **Proyectos** («Project»): los cinco primeros proyectos activos con un aro de su avance y «N% de avance»; «N más» lleva al Plan.
+- **Tus tareas** («Project Progress»): el medio arco de las **hechas** (verde), las **en curso** (oscuro) y las que **no empezaron**
+  (rayado), con el % de hechas en el centro.
+- **Activas por prioridad** («Time Tracker»): cuántas activas hay en **Alta, Media y Baja**, en la tarjeta oscura, y «y N a futuro» si hay.
+
+**Lo que se copió de Fernly, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/productividad-fernly/copia.html`) sale de lo medido del demo: `valores.json`, las capturas a 1440
+  y a 390 y el INFORME. **Nada del código de la tienda, ni el cartel «BUY THIS TEMPLATE», ni las caras del demo** (van iniciales).
+- **A 1440 cae a ±1 px:** las tarjetas de números en 296, 578, 860 y 1142 (266×158, desde 197); la fila de abajo en 371 y 679 (292 de
+  alto); «Project» de 371 a 759 y el cronómetro de 775 a 971; las columnas, los renglones de las listas, el medio arco y la leyenda a ±1.
+- **A 390 las diez tarjetas caen a ±1 px y la página mide 2.415, igual que la captura.** El orden del teléfono no es el de la computadora:
+  números, columnas, recordatorio, proyectos, equipo, progreso y cronómetro. La barra de arriba lleva el menú (tres rayas de 16, 16 y 11 px).
+- **Tres trampas medidas, las tres en la hoja de la copia:** la pastilla del estado heredaba el tamaño y el gris de `.tlist span` (más
+  específica que `.pill`), el círculo de las iniciales heredaba `display: block` de `.me span`, y una lista en `display: grid` sin
+  `minmax(0, 1fr)` se ensancha con un texto que no se corta y corre todo 4 px afuera (§26 de los hallazgos).
+- **El movimiento, del INFORME:** los títulos suben desde abajo (115 % → 0, .85 s, power4.out, 24 ms de escalera); las tarjetas aparecen desde
+  36 px más abajo y .985 (.85 s, power3.out, 70 ms); las filas de las listas entran desde 12 px (.55 s, power3.out, 50 ms); los números
+  cuentan 1,3 s con power3.out; las columnas crecen desde abajo y los tramos del medio arco se dibujan (1,3 s, power3.out). Una tarjeta de
+  números sube 4 px al pasar el mouse (.45 s, power3.out).
+- **⚠️ Lo SUPUESTO:** el reloj del cronómetro tiene un rodillo de dígitos (el INFORME nombra `.tracker__time`) que deja ver apenas el número
+  de abajo; la copia dibuja los dígitos quietos. Y las rayas del fondo de la tarjeta oscura en Fernly son arcos de un círculo mucho más grande:
+  la copia los dibuja con el centro abajo a la izquierda.
+
+**Lo que Fernly tiene y MaKo no mide, y no está:** el **cronómetro** (el tiempo trabajado), **quién del equipo trabaja en qué** (las tareas de
+esta fuente no tienen responsable) y **la comparación con el mes pasado** (la hoja no tiene período). La barra lateral y la de arriba las
+pone la app.
+**La plantilla no perdió nada:** la matriz de impacto × esfuerzo y lo que queda en cada proyecto siguen en la grilla («Ver la grilla»).
+
+**Dónde vive:**
+- El modelo: `lib/productividad-diseno.ts`, puro. Los datos de ejemplo: `lib/productividad-diseno-muestra.ts` (cuadran entre tarjetas).
+- El dibujo: `app/dashboard/disenos/HojaProductividad.tsx`; lo vivo, `ProductividadVivo.tsx`; la hoja de estilos, `productividad-css.ts`
+  (la arma `scratchpad/frn/armar-frn.py` desde `productividad-fernly/fernly.css`: todo con el prefijo `frn-`).
+- La plantilla: `lib/graficos-plantillas-analysts.ts` («productividad», once piezas, `diseno.id = 'productividad'`); `DISENOS_HOJA` en
+  `lib/graficos-catalogo.ts`.
+- Los tests: `tests/dashboard-diseno-productividad.test.ts` (10, probado rompiéndolo de diez maneras: cada rotura sola da rojo).
 
 ## CS Analyst: la duodécima hoja copiada (la de Mender), con «¿quién necesita atención?» (en producción desde el 4/11/2026, 22:33)
 

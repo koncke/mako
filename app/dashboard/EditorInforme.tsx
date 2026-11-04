@@ -166,6 +166,7 @@ import type { ExtrasMarketing } from './disenos/MarketingVivo';
 import type { ExtrasLanding } from './disenos/LandingVivo';
 import type { ExtrasChat } from './disenos/ChatVivo';
 import type { ExtrasAutomatizaciones } from './disenos/AutomatizacionesVivo';
+import type { ExtrasProductividad } from './disenos/ProductividadVivo';
 import type { ExtrasCs } from './disenos/CsVivo';
 import dynamic from 'next/dynamic';
 import { idDeInformeAutomatizacion, type InformeAutomatizacion } from '@/lib/informe-automatizacion';
@@ -185,6 +186,7 @@ const MarketingVivo = dynamic(() => import('./disenos/MarketingVivo'));
 const LandingVivo = dynamic(() => import('./disenos/LandingVivo'));
 const ChatVivo = dynamic(() => import('./disenos/ChatVivo'));
 const AutomatizacionesVivo = dynamic(() => import('./disenos/AutomatizacionesVivo'));
+const ProductividadVivo = dynamic(() => import('./disenos/ProductividadVivo'));
 const CsVivo = dynamic(() => import('./disenos/CsVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
@@ -348,7 +350,7 @@ export function EditorInforme({
    * Lo que leen las hojas con DISEÑO PROPIO y ningún componente lee (`Hoja.diseno`, lib/graficos-catalogo.ts): la agenda y
    * quién mira, para la de Closing (./disenos/HojaClosing.tsx). Lo arma la página; null = sin eso (los bloques lo dicen).
    */
-  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null; comercial?: ExtrasComercial | null; marketing?: ExtrasMarketing | null; landing?: ExtrasLanding | null; chat?: ExtrasChat | null; automatizaciones?: ExtrasAutomatizaciones | null; cs?: ExtrasCs | null } | null;
+  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null; comercial?: ExtrasComercial | null; marketing?: ExtrasMarketing | null; landing?: ExtrasLanding | null; chat?: ExtrasChat | null; automatizaciones?: ExtrasAutomatizaciones | null; cs?: ExtrasCs | null; productividad?: ExtrasProductividad | null } | null;
   /**
    * UN AVISO FIJO arriba de la hoja, de quien monta el editor (la misma franja `lk-aviso-hoja` que el de Closing): la prueba
    * A/B de una automatización en sus Métricas (app/automations/MetricasAutomatizacion.tsx, tanda A3, 25/10/2026).
@@ -1641,6 +1643,14 @@ export function EditorInforme({
               // orden de las etapas de la entrega; un cliente, un motivo o una señal abre lo de siempre de su pieza.
               <CsVivo
                 hoja={hoja} datos={datos} extras={disenos?.cs ?? null} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'productividad' && !enGrilla && !editando && !dueno ? (
+              // La hoja Productividad con su DISEÑO PROPIO (la copia de Fernly, ./disenos/HojaProductividad.tsx): los datos de sus
+              // componentes; una semana, una tarea, un proyecto o una prioridad abre lo de siempre de su pieza.
+              <ProductividadVivo
+                hoja={hoja} datos={datos} extras={disenos?.productividad ?? null} hoy={hoy} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
               />

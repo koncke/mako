@@ -436,6 +436,17 @@ const PRODUCTIVIDAD: PlantillaHoja = {
         controles: [fijo(id('pr-huele-mal-f1'), 'ejecucion.estado', ['Activa'])],
       },
     ],
+    // El DISEÑO PROPIO (4/11/2026): la copia de Fernly con los datos de MaKo (app/dashboard/disenos/HojaProductividad.tsx; qué
+    // dibuja cada parte, lib/productividad-diseno.ts). La matriz de impacto × esfuerzo y lo que queda en cada proyecto quedan en la
+    // grilla: Fernly no tiene dónde dibujarlas.
+    diseno: {
+      id: 'productividad',
+      piezas: {
+        apertura: id('pr-apertura'), avance: id('pr-avance'), estancadas: id('pr-estancadas'), alta: id('pr-alta-sin'),
+        cumplimiento: id('pr-cumplimiento'), vence: id('pr-vence'), huele: id('pr-huele-mal'), proyectos: id('pr-avance-proyecto'),
+        piramide: id('pr-piramide-barras'),
+      },
+    },
   }),
 };
 

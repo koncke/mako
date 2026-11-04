@@ -1129,5 +1129,23 @@ export const BITACORA: Hito[] = [
       'docs/diseno/mockups-dashboard/cs-mender/ — la copia, la adaptación y las capturas',
     ],
     revisar: '/dashboard',
+  },  {
+    fecha: '4 nov', hora: '23:20', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Productividad, la decimotercera hoja copiada: el diseño de Fernly con «¿qué avanza y qué se estancó?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» del Dashboard**, con su miniatura de verdad.',
+      '**Cuatro tarjetas:** el avance global de los proyectos, las estancadas, las de Alta sin deadline y cuántas se cerraron a tiempo.',
+      '**Lo que vence, por semana:** esta semana oscura, las que tienen algo verdes y las vacías rayadas.',
+      '**Lo más quieto y lo que huele mal:** las tareas activas que nadie toca, con cuántos días y si su fecha se corre.',
+      '**Proyectos, tus tareas y la prioridad:** el avance de cada proyecto, el medio arco de hechas, en curso y por empezar, y las activas por prioridad.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaProductividad.tsx · productividad-css.ts · ProductividadVivo.tsx — el diseño',
+      'lib/productividad-diseno.ts — de dónde sale cada número',
+      'lib/productividad-diseno-muestra.ts — los datos de ejemplo de la miniatura',
+      'docs/diseno/mockups-dashboard/productividad-fernly/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
   },
 ];

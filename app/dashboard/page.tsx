@@ -192,10 +192,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   // La de CS Analyst (la copia de Mender, app/dashboard/disenos/HojaCs.tsx) saluda y lee el ORDEN de las etapas de la entrega
   // (lib/cs-diseno-server.ts): los carriles van en el orden del servicio, no del que más clientes tiene al que menos.
   const hayDisenoCs = hayDiseno('cs');
+  // La de Productividad (la copia de Fernly, app/dashboard/disenos/HojaProductividad.tsx) sólo saluda a quien mira: lo demás sale de sus piezas.
+  const hayDisenoProductividad = hayDiseno('productividad');
   const etapasCs = hayDisenoCs ? etapasDeLaEntregaEnOrden() : Promise.resolve(null);
   const agendaComercial = hayDisenoComercial && !unica ? agendaParaComercial(hoy) : Promise.resolve(null);
   const agendaClosing = hayDisenoClosing && !unica ? agendaParaElClosing(hoy) : Promise.resolve(null);
-  const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs
+  const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs || hayDisenoProductividad
     ? variablesDeQuienMira().then((q) => ({ saludo: q.saludo ?? 'Hola', nombre: q.nombre ?? '', fecha: q.fecha ?? '' })).catch(() => null)
     : Promise.resolve(null);
   const [datos, senalesNegocio, closing, caida, agenda, quien, agendaHoy, etapas] = await Promise.all([
@@ -229,7 +231,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         plantillasInicial={plantillas && !unica}
         avisoClosing={avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida))}
         accionClosing={accionDeLaHojaClosing(closing)}
-        disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs ? {
+        disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs || hayDisenoProductividad ? {
           closing: hayDisenoClosing ? { agenda, quien } : null,
           cobranza: hayDisenoCobranza ? { quien } : null,
           comercial: hayDisenoComercial ? { agenda: agendaHoy, quien } : null,
@@ -238,6 +240,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
           chat: hayDisenoChat ? { quien } : null,
           automatizaciones: hayDisenoAutomatizaciones ? { quien } : null,
           cs: hayDisenoCs ? { quien, etapas } : null,
+          productividad: hayDisenoProductividad ? { quien } : null,
         } : null}
       />
     </Pagina>

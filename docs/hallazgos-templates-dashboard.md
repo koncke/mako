@@ -493,6 +493,24 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **En la nube, el `tsc` acotado sobre EditorInforme y la página no entra en 2,5 GB** (se arrastra media app): sale «NO SE PUDO CHEQUEAR» con el
   heap lleno. Con `--max-old-space-size=7000` (la nube tiene la RAM) da 0.
 
+## 26. Productividad (Fernly): una regla de la copia que pierde contra una más específica no da error, y una lista en grilla se ensancha sola (4/11/2026, chat en la nube)
+
+- **Una clase sola pierde contra `.contenedor etiqueta`.** En la copia, `.pill` (0,1,0) perdía contra `.tlist span` (0,1,1): la pastilla del
+  estado salía con el tamaño y el gris del texto de al lado, 10 px más ancha que la de Fernly, sin un solo error. Lo mismo el círculo de las
+  iniciales de arriba, que heredaba `display: block` de `.me span` y dejaba las letras afuera. Lo encontró leer el estilo calculado
+  (`getComputedStyle`) de la pieza que no calzaba, no releer la hoja. La cura es escribir la regla del texto con su propia clase
+  (`.tlist__txt span`), no subir la especificidad de la pastilla a ciegas.
+- **Una lista en `display: grid` sin `grid-template-columns: minmax(0, 1fr)` se ensancha con el texto que no se corta.** Sus filas son
+  `min-width: auto`: un renglón con `white-space: nowrap` hace la fila tan ancha como su texto y empuja la pastilla 4 px afuera de la tarjeta;
+  en el teléfono la página quedó de 394 de ancho. `minmax(0, 1fr)` deja que el texto se corte con «…».
+- **Un `@container` intermedio de la adaptación no puede pisar el `display: contents` del teléfono.** La copia pone `.left`, `.right` y `.row`
+  en `display: contents` a 700 px para reordenar las tarjetas; un paso de 1000 px que les da `display: grid`, sin límite de abajo, lo pisa en el
+  teléfono porque va después. Va `(min-width: 701px) and (max-width: 1000px)`.
+- **Una marca encima de la columna más alta pisa el título.** La columna llena todo el alto y la marca sale 38 px arriba: en Fernly va sobre una
+  columna más baja. En la adaptación la más alta llega al 78 % (`ALTO_MAX`).
+- **Las columnas de Fernly a 390 miden el 78 % de las de 1440** (las siete, medidas en la captura): las alturas son una fracción de un máximo
+  (`--h` por columna y 175 o 136 px), no píxeles fijos.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué
