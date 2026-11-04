@@ -377,6 +377,25 @@ export const BITACORA: Hito[] = [
     revisar: '/general',
   },
   {
+    fecha: '4 nov', hora: '05:40', chat: 'Tiendas: Partners fuera del teléfono', sesion: 'cli_d2b72179-90a8-55cc-b44f-a49a80e160ba', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo Partners y Agency Dashboard ya no están en ningún teléfono',
+    puntos: [
+      'En Android, como ya pasaba en la app de iPhone, More no muestra MaKo Partners ni Agency Dashboard.',
+      'Un link a /partners o /agency abierto en el teléfono (un aviso, un mail) lleva a More. En la computadora no cambia nada.',
+      'Por qué: en la clasificación de edad de Google Play se contestó que la app no da premios en dinero, y Partners decía «Ya cobraste». Agency decía «Falta pagar».',
+      'Entrar a la cuenta de un cliente de la agencia queda en la computadora.',
+      '**Cómo se prueba:** abre More en un Android; en el menú ya no están las dos.',
+    ],
+    archivos: [
+      'lib/tienda.ts — `TABS_QUE_VENDEN` vale para todos los teléfonos (`esTabQueVende`, `sinLoQueVende`)',
+      'lib/movil-rutas.ts — `masCompleto` las saca de More',
+      'app/m/partners/page.tsx y app/m/agency/page.tsx — vuelven a More antes de leer nada',
+      'tests/tiendas-telefono-no-vende.test.ts (9 y 9b), tests/movil-toda-tab.test.ts, tests/sidebar-nueva.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/mas',
+  },
+  {
     fecha: '4 nov', hora: '08:23', chat: 'Tiendas: privacidad', sesion: 'cli_d2b72179-90a8-55cc-b44f-a49a80e160ba', cuenta: 'nube',
     actor: 'martin', tipo: 'prompt',
     titulo: 'El responsable legal de las páginas para las tiendas',

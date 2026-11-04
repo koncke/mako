@@ -426,6 +426,9 @@ export const ENTIDADES: Readonly<Record<string, InfoEntidad>> = {
   // Los factores del cierre: una fila por llamada y dimensión; la entidad es la LLAMADA (`r.llamada`). Abierta
   // desde una barra (una dimensión), cada llamada tiene UNA fila: `con_puntaje` vale 1, no es una columna.
   llamadas_dimensiones: { entidad: 'llamada', plural: 'Llamadas', ref: 'llamada', nombre: ['llamada'], linea: ['closer', 'tono'], ids: { llamada: 'llamada' }, unidad: ['con_puntaje'] },
+  // Las llamadas grabadas con el botón «Grabar» (Cold Calling): la entidad es el LEAD, no la grabación. Un lead llamado tres veces es
+  // una fila con sus tres llamadas, y abre su ficha (ahí están las grabaciones, con su transcripción).
+  llamadas_grabadas: { entidad: 'lead', plural: 'Leads', ref: 'lead', nombre: ['lead'], linea: ['resultado', 'autor'], ids: { lead: 'lead' }, unidad: ['leads_llamados'] },
 };
 
 /** A qué lista abre un número: qué conjunto se lee, con qué fecha, qué métrica decide quién entra y qué columnas se muestran. */

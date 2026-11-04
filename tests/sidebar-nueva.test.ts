@@ -172,9 +172,12 @@ test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Pa
   for (const rolWs of ['closer', 'setter']) {
     assert.equal(puedeVerItem(partners!, { adminShell: false, rolWs, capa: 'completo' }), false, `el ${rolWs} la vería`);
   }
+  // En el teléfono NO (4/11/2026, Martín: el teléfono no vende en ningún teléfono; lib/tienda.ts → TABS_QUE_VENDEN). Hasta ese
+  // día su fila salía del menú de la foto. El resto del menú sigue ahí.
   for (const capa of ['agencia', 'completo']) {
     const menuMas = masCompleto('admin', capa, false).find((g) => g.id === 'menu')?.filas.map((f) => f.label) ?? [];
-    assert.ok(menuMas.includes('MaKo Partners'), `en el teléfono (${capa}) no está con el menú de la foto`);
+    assert.ok(!menuMas.includes('MaKo Partners'), `en el teléfono (${capa}) volvió MaKo Partners`);
+    assert.ok(menuMas.includes('Report a problem'), `en el teléfono (${capa}) se vació el menú de la foto`);
   }
   // Plegada, la marca centrada como los íconos.
   assert.match(sb, /justifyContent: open \? 'space-between' : 'center', flex: 'none' \}\}>\s*<Marca open=\{open\} \/>/);

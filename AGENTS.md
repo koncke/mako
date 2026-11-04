@@ -117,6 +117,30 @@ modificado, dejó afuera un archivo ajeno stageado, y una segunda corrida no hiz
 **La red sólo salva lo que esté ESCRITO**: si el chat se corta antes de escribir su relevo, no
 hay nada que commitear. Por eso el umbral del 85% sigue siendo la parte que importa.
 
+# Cómo se sube lo terminado: a su punta, y GitHub la lleva a main (todas las cuentas, 4/11/2026)
+
+Martín, 3/11: «Y no podemos hacer que entren en diferentes testeos en github? Entonces se va deployando lo que ya pasó en lugar
+de todo junto... Esto como regla». Y el 4/11: «que todas las cuentas sigan esa metodologia». Vale para la PC y la nube.
+
+1. **Se sube** con `git push origin HEAD:punta/<nombre>`, un nombre por trabajo. A `main` va sólo una emergencia, con el sí
+   de Martín. `integracion` se retiró: el hook la rechaza y GitHub da rojo. Nunca `--no-verify`.
+2. **El pre-push tarda menos de 2 minutos:** las guardas (6 s medidos en la nube) y el filtro chico, que corre los tests y los tipos de lo tocado
+   con un tope de 90 s. Frena sólo con un rojo confirmado; lo que no entra en el tope lo avisa y deja subir.
+3. **GitHub (`punta.yml`) tarda ~14 min** (mediana del 4/11: 30 verdes, de 7 a 22 min; sólo docs, ~1,5 min). Mezcla el main de
+   ese momento y corre las guardas, los tests afectados (todos, sin cortar) y el tsc entero. Con verde, lleva la punta a main.
+   «En producción» es recién cuando el deploy de Vercel está en «Ready».
+4. **Si da rojo,** queda la marca `ci-rojo/<nombre>`. Se abre la corrida en Actions, se lee el paso rojo, se arregla en la
+   misma rama y se vuelve a subir. Un choque de mezcla se arregla con `git merge origin/main`, resolviendo y subiendo (las
+   bitácoras de /admin/dev y `docs/hallazgos*.md` se unen solos en GitHub). Después de 2 rojos seguidos, la tercera no sale
+   sin reproducir el rojo en local. Con `main` rojo (`ci-rojo/main`), la punta espera en `espera-main/<nombre>` y se relanza
+   sola cuando main vuelve a verde.
+5. **Lo que la punta no corre lo ve otra red:** los demás tests y el tsc sin tandas, cada noche si entró algo a main
+   (`semanal-tests.yml`, `tipos-respaldo.yml`); la mezcla que llegó a main sin probar, `sobre-main.yml`; un deploy que falla
+   o un sitio caído, `despues-del-deploy.yml`. Las cinco dan una corrida ROJA, nunca un silencio.
+6. **Cada clon y cada cuenta de la PC instala el hook una vez** (no se versiona): los comandos exactos, en
+   [docs/relevo/nube-metodologia.md](docs/relevo/nube-metodologia.md). Una punta cortada de otra se mira con
+   `git log origin/main..<punta>`: si trae commits ajenos, se separa o los lleva a todos.
+
 # Un test nuevo ejecuta el código (4/11/2026)
 
 Copiar una línea en un regex no prueba nada: da rojo con el código bien y verde con el programa roto. De 15 archivos de test rojos, 13 se arreglaron tocando sólo el test (docs/hallazgos-infra.md, «Por qué tardaba horas»).
@@ -124,15 +148,6 @@ Copiar una línea en un regex no prueba nada: da rojo con el código bien y verd
 - Además de «probado rompiéndolo», un cambio sin efecto (renombrar una variable local) tiene que dejarlo verde.
 - Un rojo falso no se arregla editando la línea para que vuelva a coincidir: se convierte en prueba real. Borrarlo pide un segundo lector. Lo de plata, permisos y aislamiento entre clientes nunca se borra sin reemplazo.
 - Tras 2 rojos seguidos de una punta, la tercera no sale sin reproducir el rojo en local.
-
-# Cada punta se chequea sola: rama `punta/<nombre>` (Martín, 3/11/2026)
-
-«Y no podemos hacer que entren en diferentes testeos en github? Entonces se va deployando lo que ya pasó en lugar de
-todo junto... Esto como regla». Lo terminado se sube a **`punta/<nombre>`**, no a un tren: `.github/workflows/punta.yml`
-mezcla el main de ese momento, corre guardas, tests afectados (todos, sin cortar) y tipos, y si da verde llega a `main`
-sola. **Una punta roja deja su marca en `ci-rojo/<nombre>`, vuelve a su chat y no frena a las demás.** Los demás tests
-corren cada noche si entró algo a main (`semanal-tests.yml`). Antes de subir, una punta cortada de `tren-*` o de otra punta se mira con
-`git log origin/main..<punta>`: si trae commits ajenos, se separa o los lleva a todos.
 
 # El typecheck NO corre en el build: lo bloquea un hook de pre-push
 
@@ -152,7 +167,7 @@ archivo). Corre el `tsc` ENTERO con 6 GB de swap y 12 GB de tope de heap (148 s 
 contra 6.144 MB sin swap y cada OK era PARCIAL). Por qué no en la PC: el `tsc` entero pide 5-6 GB y la notebook de 16 GB la
 comparten 8-20 chats. Hasta el 4/11/2026 esto era la rama `integracion` y su workflow: se retiraron (el hook rechaza el push ahí).
 
-- **Costo:** un minuto de Actions cuesta **US$0,006** (runner Linux de 2 núcleos). Una punta verde son ~10-15 min.
+- **Costo:** un minuto de Actions cuesta **US$0,006** (runner Linux de 2 núcleos). Una punta verde son ~14 min (mediana del 4/11/2026).
 - **Un push a `punta/**`, `ci-rojo/**` o `espera-main/**` NO genera deploy en Vercel** (`git.deploymentEnabled` en
   `vercel.json`): cada build cuesta, y sólo `main` va a producción.
 - **El pre-push local** (`scripts/claude-hooks/pre-push`): a cualquier rama corre las guardas baratas (`scripts/guardas-push.sh`,
@@ -2053,8 +2068,7 @@ código nuevo:
       a otro chat > feature > pulido (el mismo orden de docs/pendientes.md).
     - **«Cerebro» reparte y habla con Martín**: abre los jefes y le pasa a Martín los bullets de lo que llegó a producción.
       ⚠️ Desde el 4/11/2026 **no hay «Cerebro › Integración» ni tren**: cada jefe sube su trabajo a `punta/<nombre>` y GitHub lo
-      chequea y lo lleva a main solo (cómo, arriba de todo en este archivo). Donde este documento dice que Integración junta,
-      chequea o sube una punta, ya no aplica.
+      chequea y lo lleva a main solo (cómo, arriba de todo en este archivo).
     - **El Cerebro DELEGA** (Martín, 17/10 ~23:30: «¿por qué no delegás?»). Lo de un área lo hace el jefe que la conoce.
       Se reparte de a uno, según la RAM libre (la guardia frena con menos de 2,5 GB) y la cuota; cada jefe sube su punta.
     - **«En producción» es sólo lo desplegado.** Un commit en una punta, o con el run verde y el deploy sin «Ready»,
@@ -11393,6 +11407,7 @@ lo vuelva a construir.
 Apple y Google prohíben vender algo digital sin su cobro, o mandar a pagar afuera, y Apple pide permiso antes de mandarle datos a una IA de terceros. Plan: `docs/tiendas-play-appstore.md`.
 
 - **En `app/m/**` no se ofrece comprar, pagar ni subir de plan**, ni con un link ni con un botón ni con palabras (`tests/tiendas-telefono-no-vende.test.ts`). Una pantalla de escritorio que el teléfono también abre pregunta `esTelefono`. Los cobros de un negocio a SUS clientes son otra cosa, y se quedan.
+- **Lo que existe para vender MaKo a otros (MaKo Partners, Agency Dashboard) no va en NINGÚN teléfono** (4/11/2026): More no lo dibuja y su página de `app/m` vuelve a More. Una tab nueva así se suma a `TABS_QUE_VENDEN` (lib/tienda.ts).
 - **La app de iPhone se reconoce por la marca del user agent** (`esAppIos`, `esAppIosDelPedido`, lib/tienda.ts). Android no tiene modo: la TWA es Chrome. Es una regla de producto, nunca de seguridad.
 - **Una función nueva que le manda algo a una IA** llama a `exigirPermisoIa()` antes de salir (lib/ia-permiso.ts), o sale por una que ya lo hace. `tests/ia-permiso.test.ts` enumera las puertas.
 - **Lo que necesita el aparato** va por `lib/nativo.ts`, con `window.Capacitor.Plugins`: la web no importa los plugins. Un `<a download>` ya funciona ahí solo.

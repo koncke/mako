@@ -826,4 +826,26 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '10:30', chat: 'Grabar', sesion: 'cli_6ff1501b-e5d8-58be-a2dd-2546d599dfd6', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La plantilla Cold Calling: grabar las llamadas en frío y ver cuántas contestan y agendan',
+    pedido: 'quiero que implementes el botón de "grabar" en el detail de un lead y en un dashboard template que sea "Call Calling", en mobile, en lugar de "Plan" en la bottom bar, pon "Dashboard".',
+    puntos: [
+      '**Nueva hoja → Cold Calling:** arriba, «Grabar llamada»: buscas el lead y grabas con la misma grabadora de la ficha.',
+      'Abajo, los números de la tanda: llamadas, cuántas contestaron, cuántas agendaron, cómo terminan, quién llamó y a quién llamaste.',
+      '«Contestaron» sale de lo que marcas al cortar. Una llamada sin marcar se cuenta aparte, no como «no contestó».',
+      'Cada lead de la lista abre su ficha, con sus grabaciones y su transcripción.',
+      'Se sugiere a quien sale a buscar a sus clientes (les escribe o llama primero).',
+      '**Falta:** la migración 0390 (sin ella la hoja dice que la grabación todavía no está lista).',
+    ],
+    archivos: [
+      'lib/graficos-plantillas-generales.ts — la plantilla y su botón',
+      'lib/graficos-fuentes-extra.ts · lib/graficos-datos-extra.ts · lib/grabar-llamada-reglas.ts — el conjunto «Llamadas grabadas en MaKo»',
+      'lib/graficos-acciones.ts · lib/graficos-portadas.ts — «Grabar llamada», arriba',
+      'app/dashboard/ElementoAccion.tsx · app/_components/grabar/GrabarEnFrio.tsx — el buscador y la grabadora',
+      'tests/cold-calling.test.ts',
+    ],
+    revisar: '/dashboard',
+  },
 ];

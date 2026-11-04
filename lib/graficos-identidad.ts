@@ -59,6 +59,8 @@ export const IDENTIDADES: readonly Identidad[] = [
   { id: 'durazno', nombre: 'Durazno', fondo: '#FFBE9C', tinta: '#3A1708', forma: 'arco' },
   { id: 'magenta', nombre: 'Magenta', fondo: '#C42B7F', tinta: '#FFFFFF', forma: 'circulo' },
   { id: 'noche', nombre: 'Noche', fondo: '#12161F', tinta: '#FFFFFF', forma: 'arco' },
+  // Cold Calling (04/11/2026): un color nuevo, porque los demás ya nombran un tema (el Noche, la Inmobiliaria; el magenta, Instagram).
+  { id: 'pizarra', nombre: 'Pizarra', fondo: '#475569', tinta: '#FFFFFF', forma: 'circulo' },
 ];
 
 const POR_ID: ReadonlyMap<string, Identidad> = new Map(IDENTIDADES.map((x) => [x.id, x]));
@@ -121,6 +123,7 @@ export const COLOR_DASHBOARD: Readonly<Record<string, string>> = {
   'ia-contenido': 'durazno',
   // La primera por rubro (4/11/2026): el último color libre del Dashboard. En General, Noche es la General; son galerías distintas.
   inmobiliaria: 'noche',
+  'cold-calling': 'pizarra',
 };
 
 /**
