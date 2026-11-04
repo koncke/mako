@@ -31,7 +31,7 @@ Martín: «un dashboard template que sea "Call Calling"», con el mismo botón d
   grabaciones con la transcripción. La ficha de una llamada del Dashboard (`FichaLlamada`) se nombra por un `recording_id` positivo
   (`contextoDeClic` pide `^\d+$`) y la de una grabación es negativa.
 - **Sin la migración 0390 el conjunto lo dice** («todavía no está lista»), con `SinConexionError`: un «0 llamadas» se lee como un dato.
-- **El color es nuevo (Pizarra)**: los trece de la tabla ya nombran un tema, el Noche es de General y el magenta de Instagram.
+- **El color es nuevo (Pizarra)**: los de la tabla ya nombran un tema (el último libre, Noche, lo tomó Inmobiliaria el mismo día) y el magenta es de Instagram.
 - **El teléfono no dibuja los botones de una hoja**: ahí la grabación vive en la ficha del lead. Y una llamada hecha desde ese mismo
   teléfono no se graba igual (Android e iOS cortan el micrófono), así que Cold Calling se graba desde la computadora.
 

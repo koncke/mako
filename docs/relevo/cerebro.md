@@ -1,3 +1,22 @@
+# Relevo del Cerebro, 4/11/2026 ~06:00 ART
+
+**Cómo se sube ahora:** cada rama va a `punta/<nombre>` (`.github/workflows/punta.yml`) y llega sola a main con verde. Lo que no lee producción se delega a chats en la nube; se les escribe con SendMessage por su título y no contestan: dejan `docs/relevo/nube-<área>.md`. Un rojo: `node ~/.claude/guardia/vigia-ci.mjs estado`; si es de un chat, se le pasa el error y `visto <id>`.
+
+**Chats en la nube corriendo:** Spy (búsqueda, detalle, anuncios; ya recibió el análisis del video), Chequeo eficiente, Ops Center gurús, Dashboard, Grabar llamadas, Commits sin subir (etiquetas `rescate/*`), Tickets (fijo: se le pasa cada ticket por mensaje), WhatsApp anti-ban, Email de Mauricio, Tiendas (cuenta de revisión, Partners, privacidad).
+
+**Local:**
+- Grupos en la app (Joan): workflow `wf_b7c7bcd7-fe4`, carpeta `C:/dev/wt-grupos-ops`, rama `grupos-ops-0311`, en verificación. Al volver: aplicar `0372_grupos_de_la_app.sql` (sólo agrega) y subir por punta. Después, la rama `avisos-bot-corte-0311`, con el sí de Martín.
+- Runner: su chat recibió el pedido de quedar siempre activo y detectar la cuenta; `runner-servicio-3010` a `punta/runner-servicio`. Lo que corre Martín se lo pide ahí, en un comando.
+- `punta/tickets-0411` (#50 a #53): tres veces chocó con una bitácora. Si vuelve a chocar: `git merge origin/main` y separar los dos hitos. Datos a reparar en ws11, a confirmar con Leila: leads 1713, 1871, 2634, 1712.
+
+**Play:** prueba interna publicada sólo para Martín, https://play.google.com/apps/internaltest/4701620396507126219. En su Chrome, Play Console es `/u/1/`. Falta: cuenta de revisión → App access → Público objetivo → enviar Data safety (sumar «Device or other IDs») → capturas → prueba cerrada con 12 testers, 14 días. Sube archivos con Claude in Chrome (`file_upload`) desde una carpeta de la sesión.
+
+**Esperan a Martín:** subir el tope de Actions a US$130; correos de 12 a 15 testers; clave de Resend y plan para Mauricio; pegar la clave de Apple Push; prototipo del chat móvil; prueba del aviso en su Android.
+
+**Sin hacer:** la auditoría completa de los pedidos de Martín (workflow frenado por RAM); medir minutos de Actions del día.
+
+---
+
 # Relevo — Cerebro
 
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en

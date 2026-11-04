@@ -376,6 +376,8 @@ export function pedidoDeTanda(esquema: Esquema, indices: number[]): { esquema: s
  */
 export type SeccionGramatica = {
   id?: string;
+  /** Una sección NUEVA que copia a la de ese id (`emparejarEdicion`). */
+  copiaDe?: unknown;
   diseno?: unknown;
   imagen?: unknown;
   imagenSrc?: string | null;
@@ -771,6 +773,11 @@ export function attrsDe(t: JsonNodo): Record<string, unknown> {
 
 /** Una sección BLOQUEADA como la ve el modelo: solo su id y su título. */
 export type SeccionBloqueada = { id: string; bloqueada: true; titulo: string };
+/**
+ * Una sección RESUMIDA (28/10/2026): la página entera no entra en un pedido (una copia idéntica de una landing larga) y
+ * ésta viaja sólo con su id y el comienzo de lo que dice. Se puede sacar, mover o duplicar tal cual; no cambiar.
+ */
+export type SeccionResumida = { id: string; resumida: true; titulo: string };
 
 /**
  * Lo que se le manda al modelo. `aGramatica` es `tarjetaABloques` de ia-bloques.ts
@@ -786,8 +793,49 @@ export function seccionesParaEditar<T>(tarjetas: JsonNodo[], aGramatica: (t: Jso
   });
 }
 
-/** Una sección que volvió, con la ORIGINAL que reemplaza (o null si es nueva). */
-export type ParEdicion<T> = { tarjeta: T; base: JsonNodo | null };
+/** La resumida de una sección: su id y lo primero que dice (su título, si tiene). */
+export const resumidaDe = (t: JsonNodo): SeccionResumida => ({ id: String(attrsDe(t).id ?? ''), resumida: true, titulo: textoDe(t, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) });
+
+/**
+ * Lo que se manda de una página que NO entra entera en `max` caracteres (28/10/2026: las copias idénticas de landings
+ * largas; antes iba sólo la sección con el cursor, y «quita la sección de precios» no podía ver la de precios). Van
+ * COMPLETAS la sección con el cursor (`foco`, -1 si no hay) y después las demás en orden mientras entren; el resto,
+ * RESUMIDAS (`resumidaDe`). null si ni las resumidas entran, o si es UNA sola sección (resumida no se podría cambiar):
+ * eso sigue siendo «Es mucho de una vez». Si la del cursor no entra, igual se manda: lo de la lista se puede pedir.
+ * El JSON es el que se manda (`JSON.stringify(…, null, 1)`, como `editar`).
+ */
+export function vistaQueEntra<T>(
+  tarjetas: JsonNodo[],
+  aGramatica: (t: JsonNodo) => T,
+  op: { max: number; foco: number },
+): { vista: (T | SeccionBloqueada | SeccionResumida)[]; resumidas: string[]; json: string } | null {
+  const completas = seccionesParaEditar(tarjetas, aGramatica);
+  const enteraJson = JSON.stringify({ tarjetas: completas }, null, 1);
+  if (enteraJson.length <= op.max) return { vista: completas, resumidas: [], json: enteraJson };
+  if (tarjetas.length <= 1) return null;
+  const resumidas = tarjetas.map(resumidaDe);
+  const vista: (T | SeccionBloqueada | SeccionResumida)[] = completas.map((c, i) => ('bloqueada' in (c as object) ? c : resumidas[i]));
+  const medir = () => JSON.stringify({ tarjetas: vista }, null, 1);
+  let json = medir();
+  if (json.length > op.max) return null;
+  const orden = [...(op.foco >= 0 && op.foco < tarjetas.length ? [op.foco] : []), ...tarjetas.map((_, i) => i).filter((i) => i !== op.foco)];
+  for (const i of orden) {
+    if ('bloqueada' in (completas[i] as object)) continue;
+    // Se prueba completa y se mide de verdad (la sangría cambia con la profundidad: una cuenta suelta se queda corta).
+    vista[i] = completas[i];
+    const con = medir();
+    if (con.length <= op.max) { json = con; continue; }
+    vista[i] = resumidas[i];
+  }
+  const ids = vista.flatMap((v, i) => (v === resumidas[i] ? [resumidas[i].id] : []));
+  return { vista, resumidas: ids, json };
+}
+
+/**
+ * Una sección que volvió, con la ORIGINAL que reemplaza (o null si es nueva). Una COPIA (`copiaDe`, 28/10/2026) es nueva
+ * y su `base` es la sección que copia (de ahí salen sus `ref` y su estilo); `clon`: la copia vino sin bloques, es la misma.
+ */
+export type ParEdicion<T> = { tarjeta: T; base: JsonNodo | null; nueva?: boolean; clon?: boolean };
 
 /**
  * Empareja lo que volvió de una edición con lo que se mandó:
@@ -798,11 +846,17 @@ export type ParEdicion<T> = { tarjeta: T; base: JsonNodo | null };
  *   · una con id desconocido es NUEVA, y se le BORRA el id que trajo: si no, la
  *     conversión lo usaría tal cual y podría pisar una sección de la página que no
  *     se mandó (alcance «sección» manda una sola);
- *   · el mismo id dos veces: vale la primera.
+ *   · el mismo id dos veces: vale la primera;
+ *   · una sin id con `copiaDe` (el id de una mandada) es una COPIA de esa sección: nueva, con sus `ref`; sin bloques, la
+ *     misma tal cual (así se duplica una copia idéntica de 400 textos sin que la IA los escriba). Una bloqueada sólo se
+ *     copia tal cual: sus bloques no se mandaron.
  * No convierte nada: las imágenes se resuelven entre esto y la conversión.
  */
-export function emparejarEdicion<T extends SeccionGramatica>(lista: T[], originales: JsonNodo[]): { pares: ParEdicion<T>[]; descartes: string[] } {
+export function emparejarEdicion<T extends SeccionGramatica>(lista: T[], originales: JsonNodo[], op: { resumidas?: readonly string[] } = {}): { pares: ParEdicion<T>[]; descartes: string[] } {
   const porId = new Map(originales.map((t) => [String(attrsDe(t).id ?? ''), t]));
+  // Una RESUMIDA (`vistaQueEntra`) se mandó sin su contenido: como una bloqueada, no se cambia y se copia sólo tal cual.
+  const resumidas = new Set(op.resumidas ?? []);
+  const cerrada = (t: JsonNodo) => attrsDe(t).bloqueadaIA === true || resumidas.has(String(attrsDe(t).id ?? ''));
   const editables = originales.filter((t) => attrsDe(t).bloqueadaIA !== true);
   const unaSola = originales.length === 1 && editables.length === 1 ? editables[0] : null;
   const pares: ParEdicion<T>[] = [];
@@ -813,10 +867,20 @@ export function emparejarEdicion<T extends SeccionGramatica>(lista: T[], origina
   for (const t of lista) {
     const pedida = typeof t.id === 'string' ? t.id.trim() : '';
     let base = pedida ? porId.get(pedida) ?? null : null;
+    const copiada = !base && typeof t.copiaDe === 'string' ? porId.get(t.copiaDe.trim()) ?? null : null;
+    if (copiada) {
+      if (nuevas >= MAX_NUEVAS_POR_EDICION) { descartes.push('demasiadas secciones nuevas en una edición'); continue; }
+      nuevas++;
+      const { id: _id, copiaDe: _c, ...sinId } = t;
+      const clon = !Array.isArray(t.bloques) || cerrada(copiada);
+      pares.push({ tarjeta: sinId as T, base: copiada, nueva: true, ...(clon ? { clon: true } : {}) });
+      continue;
+    }
     if (!base && unaSola && !usados.has(String(attrsDe(unaSola).id))) base = unaSola;
     if (base) {
       const id = String(attrsDe(base).id);
       if (attrsDe(base).bloqueadaIA === true) { descartes.push(`la sección ${id} está bloqueada: no se toca`); continue; }
+      if (cerrada(base)) { descartes.push(`la sección ${id} iba resumida: no se cambia`); continue; }
       if (usados.has(id)) { descartes.push(`la sección ${id} volvió dos veces: vale la primera`); continue; }
       usados.add(id);
       pares.push({ tarjeta: { ...t, id }, base });
@@ -835,7 +899,20 @@ export type ResultadoEdicion = {
   tarjetas: JsonNodo[];
   /** Ids de las nuevas: la pantalla las INSERTA en vez de reemplazar. */
   nuevas: string[];
+  /** Las COPIAS: id de la nueva → id de la que copia (va justo debajo de ella: `planDeAplicacion`). */
+  copias: Record<string, string>;
 };
+
+/** La misma sección, para copiarla: los campos de un formulario con ids nuevos (son únicos en la landing, como «Duplicar»). */
+export function copiaDeSeccion(base: JsonNodo): JsonNodo {
+  const visitar = (n: JsonNodo): JsonNodo => {
+    const attrs = n.type === NODO.formulario && Array.isArray(n.attrs?.campos)
+      ? { ...n.attrs, campos: (n.attrs.campos as Record<string, unknown>[]).map((c) => ({ ...c, id: nuevoId('c') })) }
+      : n.attrs;
+    return { ...n, ...(attrs ? { attrs: { ...attrs } } : {}), ...(n.content ? { content: n.content.map(visitar) } : {}) };
+  };
+  return visitar(base);
+}
 
 /**
  * Convierte los pares (`convertir` es `bloquesATarjeta` de ia-bloques.ts, que con
@@ -843,6 +920,7 @@ export type ResultadoEdicion = {
  * código lo que el contrato promete: una reemplazada sale con el id de su
  * original, una nueva con un id que no es de ninguna mandada, y todo pasa por
  * `sanearNodo`. Una sección que volvió sin bloques válidos no reemplaza a nada.
+ * Una copia (`nueva` con `base`) es nueva; si es `clon`, es la base misma (`copiaDeSeccion`).
  */
 export function convertirEdicion<T>(
   pares: ParEdicion<T>[],
@@ -851,14 +929,14 @@ export function convertirEdicion<T>(
   descartes: string[] = [],
 ): ResultadoEdicion {
   const ocupados = new Set(originales.map((t) => String(attrsDe(t).id ?? '')));
-  const out: ResultadoEdicion = { tarjetas: [], nuevas: [] };
-  for (const { tarjeta, base } of pares) {
-    const crudo = convertir(tarjeta, base);
+  const out: ResultadoEdicion = { tarjetas: [], nuevas: [], copias: {} };
+  for (const { tarjeta, base, nueva, clon } of pares) {
+    const crudo = clon && base ? copiaDeSeccion(base) : convertir(tarjeta, base);
     const limpio = sanearNodo(crudo);
     const vacia = !limpio?.content?.length || (limpio.content.length === 1 && limpio.content[0].type === 'paragraph' && !limpio.content[0].content?.length);
     if (!limpio || vacia) { descartes.push(`una sección volvió sin bloques válidos${base ? ` (${String(attrsDe(base).id)})` : ''}`); continue; }
     const a = attrsDe(limpio);
-    if (base) {
+    if (base && !nueva) {
       const id = String(attrsDe(base).id);
       out.tarjetas.push({ ...limpio, attrs: { ...a, id, bloqueadaIA: false } });
     } else {
@@ -866,9 +944,54 @@ export function convertirEdicion<T>(
       ocupados.add(id);
       out.tarjetas.push({ ...limpio, attrs: { ...a, id, bloqueadaIA: false } });
       out.nuevas.push(id);
+      if (base) out.copias[id] = String(attrsDe(base).id);
     }
   }
   return out;
+}
+
+/**
+ * Lo que la IA dijo que hizo y NO se pudo, en palabras de la persona (28/10/2026, medido con las copias de Martín: el chat
+ * contestaba «Actualicé la primera imagen» con el buscador de fotos caído, y «Cambié el titular» con la sección que
+ * quedaba como estaba porque volvió un texto de menos). Sale de los descartes de la conversión; como mucho tres.
+ */
+export function avisosDeEdicion(descartes: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (const d of descartes) {
+    const foto = /imagen \d+: no encontré una para «([^»]+)»/.exec(d);
+    if (foto) out.add(`No encontré una foto de «${foto[1]}»: la imagen quedó como estaba.`);
+    else if (/volvieron \d+ textos y la sección tiene \d+/.test(d)) out.add('Una sección quedó con sus textos de antes: no pude ubicar cada cambio.');
+    else if (/no encontré el texto «/.test(d)) out.add('Algún texto no estaba como lo leí: quedó igual.');
+    else if (/Ese botón tiene \d+ textos/.test(d)) out.add('Un botón tiene más de un texto: se cambia escribiendo en el botón.');
+    else if (/no es un color/.test(d)) out.add('Un color no era válido: quedó el de antes.');
+  }
+  return [...out].slice(0, 3);
+}
+
+/**
+ * Lo que la edición cambia de la LISTA de secciones (28/10/2026, Martín: «sacá la sección de precios» por el chat): las que
+ * se sacan (`quitar`) y el orden nuevo (`orden`), validados contra lo que se mandó. Se saca sólo una mandada, no bloqueada
+ * y que no volvió cambiada (si la IA la cambia Y la saca, no se adivina: queda). Que la página no quede vacía lo cuida
+ * `planDeAplicacion` (acá no se sabe: con el alcance «sección» se manda una sola). El orden vale sólo si nombra cada
+ * mandada que queda, una vez, en otro orden que el de antes, y sin mover una bloqueada de su lugar.
+ */
+export function cambiosDeLista(raw: unknown, originales: JsonNodo[], devueltas: readonly string[]): { quitar: string[]; orden: string[] | null } {
+  const obj = raw && typeof raw === 'object' ? (raw as { quitar?: unknown; orden?: unknown }) : {};
+  const ids = originales.map((t) => String(attrsDe(t).id ?? ''));
+  const porId = new Map(originales.map((t) => [String(attrsDe(t).id ?? ''), t]));
+  const vueltas = new Set(devueltas);
+  const pedidas = Array.isArray(obj.quitar) ? obj.quitar.filter((x): x is string => typeof x === 'string').map((x) => x.trim()) : [];
+  const quitar = [...new Set(pedidas)].filter((id) => {
+    const t = porId.get(id);
+    return !!t && attrsDe(t).bloqueadaIA !== true && !vueltas.has(id);
+  });
+  const quedan = ids.filter((id) => !quitar.includes(id));
+  const crudo = Array.isArray(obj.orden) ? obj.orden.filter((x): x is string => typeof x === 'string').map((x) => x.trim()) : [];
+  const orden = crudo.filter((id) => !quitar.includes(id));
+  const valido = orden.length === quedan.length && new Set(orden).size === orden.length && orden.every((id) => porId.has(id))
+    && orden.some((id, i) => id !== quedan[i])
+    && orden.every((id, i) => attrsDe(porId.get(id)!).bloqueadaIA !== true || quedan[i] === id);
+  return { quitar, orden: valido ? orden : null };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1145,7 +1268,12 @@ CONTEXTO DEL NEGOCIO:
 Devuelve el JSON con esas secciones, y solo esas.`;
 
 /** Forma del JSON de una edición (slot {{formato}}). */
-export const FORMATO_EDITAR = `FORMATO DE ESTE PEDIDO: {"resumen":"una frase corta","tarjetas":[...]} con la gramática de arriba. Cada tarjeta que cambias lleva su "id" tal cual; las nuevas van sin "id". Solo el JSON, sin markdown ni texto alrededor.`;
+export const FORMATO_EDITAR = `FORMATO DE ESTE PEDIDO: {"resumen":"una frase corta","tarjetas":[...]} con la gramática de arriba. Cada tarjeta que cambias lleva su "id" tal cual; las nuevas van sin "id". Solo el JSON, sin markdown ni texto alrededor.
+Para SACAR secciones enteras: "quitar":["id",...] (no las devuelvas en "tarjetas").
+Para CAMBIAR EL ORDEN de las secciones: "orden":["id",...] con TODOS los id de las secciones que quedan, en el orden nuevo.
+Para DUPLICAR una sección: una tarjeta nueva sin "id" con "copiaDe":"<id de la que copias>"; sin "bloques" es igual a la original, con "bloques" (pueden usar sus "ref") es la copia cambiada.
+"quitar" y "orden" van sólo si la instrucción lo pide; si no, no los pongas.
+Una sección con "resumida": true trae sólo su id y su comienzo (la página es larga): puedes sacarla, moverla o duplicarla tal cual ("copiaDe" sin "bloques"), pero NO devolverla ni cambiar lo de adentro; si la instrucción pide cambiar lo de adentro de una resumida, no la toques y dilo en "resumen" (que toque esa sección y lo vuelva a pedir).`;
 
 export const EDITAR_SYSTEM_TEMPLATE = `Eres MaKo y editas secciones de una landing que ya existe, siguiendo la instrucción de la persona.
 

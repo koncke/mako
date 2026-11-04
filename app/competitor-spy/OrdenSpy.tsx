@@ -27,6 +27,7 @@ import { carpetasDe, disponer, repartirMiniaturas, type CarpetaOrden, type Dispo
 import { NOMBRE_CANAL } from '@/lib/spy-reglas';
 import { miniaturaDePieza } from '@/lib/spy-vista';
 import type { PiezaVista } from './actions';
+import { espera, precargarTodas, quieto } from './precarga';
 
 const CSS = `
 .spyo{position:relative;display:flex;flex-direction:column;gap:12px;min-height:max(540px,calc(100dvh - 210px))}
@@ -68,24 +69,6 @@ const CSS = `
 
 type Fase = 'leyendo' | 'juntando' | 'ordenando' | 'fin';
 const ESTADO: Record<Fase, string> = { leyendo: 'Leyendo sus canales', juntando: 'Juntando sus piezas', ordenando: 'Ordenando por formato', fin: 'Listo' };
-const espera = (ms: number) => new Promise<void>((r) => { window.setTimeout(r, ms); });
-/** Lo más que se espera a las miniaturas antes de arrancar: las que no llegaron entran con su texto. */
-const TOPE_PRECARGA_MS = 8_000;
-
-/**
- * Baja una miniatura y espera a que se pueda pintar. Resuelve `true` si quedó lista, `false` si falló. Nunca rechaza.
- * ⚠️ `referrerPolicy = 'no-referrer'`, como la `<img>` de la escena: con otro, el CDN de Meta contesta 403.
- */
-function precargar(url: string): Promise<boolean> {
-  return new Promise((listo) => {
-    const img = new Image();
-    img.referrerPolicy = 'no-referrer';
-    img.onload = () => { void img.decode().then(() => listo(true), () => listo(true)); };
-    img.onerror = () => listo(false);
-    img.src = url;
-  });
-}
-const quieto = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 /** Un orden mezclado pero siempre el mismo: que no se vacíe la bola de afuera hacia adentro. */
 const mezclado = (n: number) => Array.from({ length: n }, (_, i) => i).sort((a, b) => ((a * 2654435761) >>> 0) % 997 - ((b * 2654435761) >>> 0) % 997);
 const mover = (x: number, y: number, rot: number, escala: number, lado: number) => `translate(${x - lado / 2}px,${y - lado / 2}px) rotate(${rot}deg) scale(${escala})`;
@@ -128,12 +111,8 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
     if (!piezas) return;
     if (!total || quieto()) return;
     let vivo = true;
-    const ok = new Set<number>();
     const conImagen = minis.map((m) => ({ id: m.pieza.id, url: miniaturaDePieza(m.pieza) })).filter((m): m is { id: number; url: string } => !!m.url);
-    void Promise.race([
-      Promise.all(conImagen.map((m) => precargar(m.url).then((v) => { if (v) ok.add(m.id); }))),
-      espera(TOPE_PRECARGA_MS),
-    ]).then(() => { if (vivo) setBajadas(new Set(ok)); });
+    void precargarTodas(conImagen).then((ok) => { if (vivo) setBajadas(ok); });
     return () => { vivo = false; };
   }, [piezas, total, minis]);
 

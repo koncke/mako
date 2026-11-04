@@ -392,6 +392,10 @@
         "prism",
         "Muchos paneles chicos de anuncios para comparar de un vistazo."
       ],
+      "hooks-retencion": [
+        "tilvo",
+        "El video que cae con el gancho al lado: en qué parte se van y qué hook los retuvo."
+      ],
       "landing": [
         "tilvo",
         "Las visitas con el embudo al lado, y el mapa de calor pide el ancho."
@@ -416,10 +420,6 @@
         "moorly",
         "Cuatro números de avance arriba y los proyectos de a dos."
       ],
-      "crm": [
-        "tilvo",
-        "Los leads en el tiempo con el embudo al lado."
-      ],
       "cobranza": [
         "wharf",
         "A quién cobrarle es una tabla larga con acciones: pide la tabla ancha."
@@ -431,6 +431,10 @@
       "ia-contenido": [
         "corbel",
         "El anillo del costo en un tercio al lado de la serie."
+      ],
+      "inmobiliaria": [
+        "wharf",
+        "Los interesados por semana con cuatro números, y quién vende es una tabla que pide el ancho."
       ],
       "cold-calling": [
         "moorly",
@@ -449,10 +453,6 @@
       "operacion": [
         "tilvo",
         "Las prioridades con el panel de cobros al lado: lo que se hace hoy."
-      ],
-      "ventas": [
-        "wharf",
-        "Lo vendido en el tiempo con sus números."
       ],
       "servicio": [
         "prism",
