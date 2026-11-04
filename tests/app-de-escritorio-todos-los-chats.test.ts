@@ -44,6 +44,7 @@ const CON_EL_BLOQUEO: readonly string[] = [
   'app/whatsapp/WhatsAppAdvisor.tsx',
   'app/ads-manager/ArranqueMediaBuyer.tsx', // el arranque del Media Buyer (la charla de Offer con la calculadora)
   'app/ads-manager/Hoy.tsx', // la caja de órdenes del Media Buyer (arriba del árbol de HOY, y la de «¿En qué te ayudo hoy?»)
+  'app/newsletters/NewslettersApp.tsx', // la apertura del Newsletter (las respuestas rápidas siguen andando, como en el Media Buyer)
 ];
 
 /** Cajas que dibujan lo que les arma su MOTOR (las props llegan armadas): el bloqueo vive en el motor. */
