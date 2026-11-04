@@ -91,7 +91,7 @@ const sesion = (id: string, x: Record<string, unknown> = {}): Record<string, unk
   ...x,
 });
 const evento = (sesionId: string, n: number, x: Record<string, unknown> = {}) => ({
-  id: `evt_${n}`, tipo: 'checkout.session.completed', livemode: !sesionId.startsWith('cs_test_'), creado: '2026-10-28T11:59:00.000Z',
+  id: `evt_${n}`, tipo: 'checkout.session.completed', livemode: !sesionId.startsWith('cs_test_'), creado: new Date(Date.now() - 60_000).toISOString(),
   objeto: { id: sesionId, payment_status: 'paid', metadata: {} }, ...x,
 });
 
