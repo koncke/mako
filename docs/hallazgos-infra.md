@@ -248,6 +248,25 @@ casos y ningún error que leer.
 - **El marcador de la cuenta miente al volver a una cuenta vieja:** el hook decía claude2 al 99 % y era claude5 al 27 %. La
   huella es el `resetsAt` semanal de `get_usage`.
 
+## Sin RAM para el tipado: partir en tandas no baja nada, y pedir los errores de lo tocado sí (3/11/2026)
+
+- **Síntoma.** `tsc-acotado` dio 99 nueve veces seguidas sobre los 74 archivos del grupo de la app, con 3 a 4 GB libres. El vigía
+  mata por debajo de ~1,2 GB libres, y cada corrida llegaba a 2,3-2,7 GB.
+- **El diagnóstico obvio era el equivocado: «son muchos archivos, se parte en tandas».** Partir no bajó nada: tres archivos
+  livianos con heap de 1,5 GB murieron sin memoria (134), igual que los 74 con 3 GB. `tsc -p` chequea TODA la clausura de imports,
+  no lo que le nombrás: 74 archivos arman un programa de 3.403.
+- **Lo que sí baja:** armar el programa con la API y pedir los errores sólo de los tocados
+  (`ts.createProgram` + `programa.getSemanticDiagnostics(sf)` por archivo). El chequeador resuelve el resto a medida que lo necesita.
+  Medido sobre los mismos 74: **21 s y 1,5 GB de heap**; sumando 338 consumidores, 36 s y 2,2 GB. Con una sonda de errores a propósito
+  en la lista, para que un 0 valga: los nombró. Y sube a los consumidores, que el acotado no.
+- **Lo que no prueba:** los errores DENTRO de la clausura que no está en la lista. Cuando la RAM dio (5 GB libres, `--heap=3900`),
+  el acotado de verdad dio 0 sobre los mismos 74: coincidieron, una vez.
+- **«`pass 0, fail 1`, sin una línea de error» no es un rojo.** `d6b-rutas` y `frontera-use-client` daban eso en `node --test`, y el
+  vigía los había matado (lo dice `guardia.log`, con la hora). Solos y con RAM: 9/0 y 3/0.
+- **La guardia cuenta menciones, no procesos:** un `head` más un `node --test` del mismo archivo suman 3 `.test.ts` y frena como
+  tanda. Un nombre de archivo con `tsc` adentro también frena. No es un error: se separan los comandos.
+- **Sin hacer:** sumar esa forma a `scripts/tsc-acotado.mjs` como opción (`--solo-lo-tocado`) y que el brief del VERDE la nombre.
+
 ## Subir el tope de la función cambió el error por uno peor, y la clave «global» de Next deja la home afuera (3/11/2026)
 
 - **Síntoma:** cinco deploys seguidos murieron con `The Vercel Function "admin/docs" is 274.32mb uncompressed which exceeds the maximum uncompressed size limit of 250mb`. Se prendió `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` en el proyecto, y entonces el deploy empezó a fallar **más tarde y peor**: `Build Completed in /vercel/output [4m]` y después `ENOSPC` en «Deploying outputs...». Producción seguía sirviendo el commit de la noche anterior sin estar caída, así que nada avisaba.
