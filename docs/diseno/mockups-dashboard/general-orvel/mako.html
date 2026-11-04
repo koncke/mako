@@ -1,0 +1,181 @@
+<!doctype html>
+<!-- GENERAL (ORVEL) · PASO 2: LA ADAPTACIÓN A MaKo de la copia de Orvel (4/11/2026). La MISMA hoja (orvel.css) y el mismo dibujo
+     (orvel.js) que copia.html; cambian los textos y lo que dice cada bloque. Los nombres y los números son de EJEMPLO (ficticios).
+     Sin la barra lateral ni la de arriba: en MaKo las pone la app.
+     De dónde sale cada bloque:
+       · la cabecera: la fecha, el saludo y la frase del mes (lo cobrado, las cuotas vencidas y los leads por marcar), con dos botones;
+       · «Este mes» (el «Cash» de Orvel): lo cobrado en grande contra el mismo período del mes pasado, la barra de lo cobrado contra lo
+         que se proyecta al cierre, cuatro renglones (lo cobrado, la inversión, las agendas y los cierres, cada uno contra el mes pasado)
+         y, abajo, la meta del trimestre;
+       · «Lo que entró y lo que invertiste» («Money in and out»): lo cobrado, la inversión en anuncios y lo que quedó, y las dos líneas
+         mes a mes (6M · 12M: MaKo guarda el mes, no la semana);
+       · «Te necesita» («Needs you»): las cuotas vencidas, los leads por marcar, las tareas vencidas y las alertas en rojo;
+       · «Lo que vence en 3 semanas» («Next 3 weeks»): las tareas y los proyectos del Plan, por fecha;
+       · «Te deben» («Owed to you»): lo que falta cobrar, la barra por urgencia y las tres cuotas más urgentes;
+       · «Tu funnel hoy» («Where it went»): cada etapa del funnel principal con su barra;
+       · «Próximas llamadas» («Latest payments»): lo que viene en el Calendario del CRM;
+       · «Salud del negocio» («Who did what»): las alertas del semáforo.
+     Lo que Orvel tiene y MaKo no hace no se inventa: el sobre para recordarle a un cliente que pague (un mensaje a un tercero sale por
+     sus puertas), «Move money» y la barra de «lo mismo el mes pasado» de cada categoría (MaKo no guarda el funnel de cada día). -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>General · la hoja de MaKo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="orvel.css">
+<style>.page { margin: 0 auto 48px; max-width: 1188px; padding: 0 26px; } .head { margin-top: 26px; } @media (max-width: 760px) { .page { margin: 0 0 40px; padding: 0 14px; } }</style>
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M17 8.5A6 6 0 1 0 17 15.5"/></symbol>
+  <symbol id="i-rail" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M10 5v14M7 10l-1.5 2L7 14"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M5 20V10l7-5 7 5v10zM10 20v-5h4v5"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M5 8h13M15 5l3 3-3 3M19 16H6M9 13l-3 3 3 3"/></symbol>
+  <symbol id="i-bank" viewBox="0 0 24 24"><path d="M4 10l8-5 8 5zM6 10v8M10 10v8M14 10v8M18 10v8M4 20h16"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M3.5 10h17"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 4h7l4 4v12H7zM10 12h5M10 15h5M10 9h2"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 4h12v16l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 20zM9 9h6M9 12h6M9 15h3"/></symbol>
+  <symbol id="i-contact" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="16" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M8.5 16c.8-1.8 2-2.5 3.5-2.5s2.7.7 3.5 2.5"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="9" r="3"/><path d="M3.5 19c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5M16 6.5a2.6 2.6 0 0 1 0 5M17.5 14.6c1.6.6 2.7 2 3 4.4"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 19v-6M10 19V9M15 19v-9M20 19v-4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M4 7h6l2 2h8v10H4z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.5M12 18v2.5M3.5 12H6M18 12h2.5M6 6l1.7 1.7M16.3 16.3 18 18M6 18l1.7-1.7M16.3 7.7 18 6"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9.8 9.5a2.3 2.3 0 1 1 3.2 2.1c-.7.3-1 .8-1 1.5M12 16.5h.01"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><path d="M6 12h.01M12 12h.01M18 12h.01"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 10a5.5 5.5 0 0 1 11 0c0 5 2 6.5 2 6.5h-15s2-1.5 2-6.5M10 19.5a2.2 2.2 0 0 0 4 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="13" rx="2"/><path d="M4 9h16M15 14h2"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></symbol>
+  <symbol id="i-glass" viewBox="0 0 24 24"><path d="M7 4h10M7 20h10M8 4c0 4 4 5 4 8s-4 4-4 8M16 4c0 4-4 5-4 8s4 4 4 8"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M4 10h16M8 3.5v4M16 3.5v4"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="M4 8l8 5 8-5"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M4 12V5h7l9 9-7 7zM8 8h.01"/></symbol>
+  <symbol id="i-bld" viewBox="0 0 24 24"><path d="M5 20V6l7-2v16M12 9l7 2v9M3 20h18M8 9h1M8 13h1M15 13h1M15 16h1"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5M7 17H5v-7h14v7h-2M8 14h8v6H8z"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.5 5.5a4 4 0 0 0 4.5 5.4L11 19a2.1 2.1 0 0 1-3-3l8.1-8a4 4 0 0 0-1.6-2.5z"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.5 4h3l1.5 4-2 1.2a10 10 0 0 0 4.8 4.8L15 12l4 1.5v3A2 2 0 0 1 17 18.5C10.6 18.2 5.8 13.4 5.5 7A2 2 0 0 1 6.5 4z"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3zM12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 20V4M6 4h11l-2 4 2 4H6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4 4 10-10"/></symbol>
+</svg>
+
+<main class="page">
+  <div class="head">
+    <div>
+      <p class="head__date">Miércoles 4 de noviembre</p>
+      <h1 class="head__title">Buenos días, Ana</h1>
+      <p class="head__sum">Entraron <span class="in">US$12,480</span> este mes, <a href="#">2 cuotas</a> están vencidas y <a href="#">5 leads</a> esperan que los marques.</p>
+    </div>
+    <div class="head__acts">
+      <a class="btn btn--ghost" href="#"><svg class="i"><use href="#i-cal"/></svg>Abrir el Plan</a>
+      <a class="btn btn--primary" href="#"><svg class="i"><use href="#i-contact"/></svg>Abrir el CRM</a>
+    </div>
+  </div>
+
+  <div class="grid row1">
+    <section class="card cash" data-card>
+      <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-wallet"/></svg></span><h2 class="card__t">Este mes</h2><a class="link" href="#">Ver los cobros<svg class="i"><use href="#i-chev"/></svg></a></div>
+      <p class="cash__v">US$12,480</p>
+      <p class="cash__d"><span class="delta"><svg class="i"><use href="#i-up"/></svg>+US$3,020</span>contra el mismo período de octubre</p>
+      <div class="split"><i style="--c:var(--in);flex:12480"></i><i style="--c:var(--line-2);flex:6020"></i></div>
+      <ul class="acc">
+        <li><i style="--c:var(--in)"></i><span style="justify-self:start"><b>Cobrado</b><small>proyección US$18,500</small></span><em>US$12,480</em><span>+32%</span></li>
+        <li><i style="--c:var(--clay)"></i><span style="justify-self:start"><b>Inversión en anuncios</b><small>Meta</small></span><em>US$2,140</em><span>+8%</span></li>
+        <li><i style="--c:var(--sky)"></i><span style="justify-self:start"><b>Agendas</b><small>proyección 42</small></span><em>27</em><span>+12%</span></li>
+        <li><i style="--c:var(--violet)"></i><span style="justify-self:start"><b>Cierres</b><small>proyección 9</small></span><em>6</em><span>−14%</span></li>
+      </ul>
+      <div class="cover2"><div class="cover2__r"><svg class="i"><use href="#i-flag"/></svg>La meta del trimestre<b>62%</b></div><div class="meter"><i style="width:62%"></i></div><p>US$30,000 de facturación. A esta altura tendrías que ir por el 58%: vas a tiempo, y faltan 57 días.</p></div>
+    </section>
+
+    <section class="card flow" data-card>
+      <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-bars"/></svg></span><h2 class="card__t">Lo que entró y lo que invertiste</h2><div class="seg" data-seg><button aria-pressed="false">6M</button><button aria-pressed="true">12M</button></div></div>
+      <div class="flow__k">
+        <div><p><i style="--c:var(--in)"></i>Cobrado este mes</p><b class="in">US$12,480</b><small>↑ 32% contra el mismo período de octubre</small></div>
+        <div><p><i style="--c:var(--out)"></i>Inversión este mes</p><b>US$2,140</b><small>↑ 8% contra el mismo período de octubre</small></div>
+        <div><p>Te quedó</p><b class="in">+US$10,340</b><small>Lo cobrado menos los anuncios</small></div>
+      </div>
+      <div class="chart" data-chart='{"in":[32,41,28,46,52,39,61,44,58,49,66,40],"out":[9,11,10,12,14,12,15,13,14,13,16,8],"x":["Dic","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov"],"y":["US$20k","US$10k","US$0"]}'><svg aria-hidden="true"></svg></div>
+    </section>
+  </div>
+
+  <div class="grid row3">
+    <section class="card needs" data-card>
+      <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-bell"/></svg></span><h2 class="card__t">Te necesita</h2></div>
+      <div class="needs__l">
+        <a href="#"><span class="tile"><svg class="i"><use href="#i-wallet"/></svg></span><span><b>Cuotas vencidas</b><small>De 2 clientes</small></span><span class="count">2</span><svg class="i chev"><use href="#i-chev"/></svg></a>
+        <a href="#"><span class="tile"><svg class="i"><use href="#i-contact"/></svg></span><span><b>Leads por marcar</b><small>3 sin asistencia a R1</small></span><span class="count">5</span><svg class="i chev"><use href="#i-chev"/></svg></a>
+        <a href="#"><span class="tile"><svg class="i"><use href="#i-cal"/></svg></span><span><b>Tareas vencidas</b><small>La más vieja, del 28/10</small></span><span class="count">3</span><svg class="i chev"><use href="#i-chev"/></svg></a>
+        <a href="#"><span class="tile"><svg class="i"><use href="#i-warn"/></svg></span><span><b>Alertas en rojo</b><small>Tu tasa de asistencia bajó</small></span><span class="count">1</span><svg class="i chev"><use href="#i-chev"/></svg></a>
+      </div>
+    </section>
+
+    <section class="card up" data-card>
+      <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-cal"/></svg></span><h2 class="card__t">Lo que vence</h2><a class="link" href="#">El Plan<svg class="i"><use href="#i-chev"/></svg></a></div>
+      <p class="up__sum"><b>9</b> cosas vencen en las próximas 3 semanas · 2 ya están vencidas</p>
+      <ul class="up__l">
+        <li><span class="date"><b>28</b><small>Oct</small></span><span style="min-width:0"><strong>Mandar la propuesta a Jorge Salinas</strong><span>Ventas de noviembre</span></span><span class="amt">Tarea<small class="warn">Vencida</small></span></li>
+        <li><span class="date"><b>3</b><small>Nov</small></span><span style="min-width:0"><strong>Grabar tres hooks nuevos</strong><span>Creativos de Meta</span></span><span class="amt">Tarea<small class="warn">Vencida</small></span></li>
+        <li><span class="date"><b>4</b><small>Nov</small></span><span style="min-width:0"><strong>Preparar la R2 de Laura Méndez</strong><span>Ventas de noviembre</span></span><span class="amt">Tarea<small>Hoy</small></span></li>
+        <li><span class="date"><b>6</b><small>Nov</small></span><span style="min-width:0"><strong>Revisar el guion de la VSL</strong><span>Nueva VSL</span></span><span class="amt">Tarea<small>Viernes</small></span></li>
+        <li><span class="date"><b>11</b><small>Nov</small></span><span style="min-width:0"><strong>Creativos de Meta</strong><span>45% hecho</span></span><span class="amt">Proyecto<small>11/11</small></span></li>
+        <li><span class="date"><b>18</b><small>Nov</small></span><span style="min-width:0"><strong>Armar el reporte de octubre</strong><span>Operación</span></span><span class="amt">Tarea<small>18/11</small></span></li>
+      </ul>
+      <a class="more" href="#">3 más<svg class="i"><use href="#i-chev"/></svg></a>
+    </section>
+
+    <section class="card owed" data-card>
+      <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-doc"/></svg></span><h2 class="card__t">Te deben</h2><a class="link" href="#">Las cuotas<svg class="i"><use href="#i-chev"/></svg></a></div>
+      <p class="owed__v">US$41,179</p>
+      <div class="bars"><i style="--c:var(--bad);flex:2"></i><i style="--c:var(--saffron);flex:3"></i><i style="--c:var(--sky);flex:13"></i></div>
+      <div class="leg"><span><i style="--c:var(--bad)"></i>Vencidas 2</span><span><i style="--c:var(--saffron)"></i>Vencen pronto 3</span><span><i style="--c:var(--sky)"></i>Más adelante 13</span></div>
+      <ul class="rows">
+        <li><span class="av" style="--c:var(--rose)">CM</span><span style="min-width:0"><strong>Carlos Méndez</strong><span class="s">US$2,475 · <span class="late" style="display:inline">venció hace 67 días</span></span></span><em></em><svg class="i chev"><use href="#i-chev"/></svg></li>
+        <li><span class="av" style="--c:var(--rose)">LR</span><span style="min-width:0"><strong>Lucía Ramos</strong><span class="s">US$5,181 · <span class="late" style="display:inline">venció hace 5 días</span></span></span><em></em><svg class="i chev"><use href="#i-chev"/></svg></li>
+        <li><span class="av" style="--c:var(--saffron)">DF</span><span style="min-width:0"><strong>Diego Fuentes</strong><span class="s">US$2,007 · vence hoy</span></span><em></em><svg class="i chev"><use href="#i-chev"/></svg></li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="grid row3">
+    <section class="card spend" data-card>
+      <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-layers"/></svg></span><h2 class="card__t">Tu funnel hoy</h2><span class="card__s">Programa principal</span></div>
+      <ul class="spend__l">
+        <li><span class="chip" style="--c:var(--sky)">Nuevo</span><span class="sb"><i style="--c:var(--sky);width:100%"></i></span><b>38</b></li>
+        <li><span class="chip" style="--c:var(--saffron)">Agendó</span><span class="sb"><i style="--c:var(--saffron);width:55%"></i></span><b>21</b></li>
+        <li><span class="chip" style="--c:var(--violet)">Asistió</span><span class="sb"><i style="--c:var(--violet);width:24%"></i></span><b>9</b></li>
+        <li><span class="chip" style="--c:var(--clay)">Propuesta</span><span class="sb"><i style="--c:var(--clay);width:16%"></i></span><b>6</b></li>
+        <li><span class="chip" style="--c:var(--in)">Ganado</span><span class="sb"><i style="--c:var(--in);width:13%"></i></span><b>5</b></li>
+        <li><span class="chip" style="--c:var(--slate)">Perdido</span><span class="sb"><i style="--c:var(--slate);width:8%"></i></span><b>3</b></li>
+      </ul>
+      <div class="spend__k"><span>82 leads en el funnel</span></div>
+    </section>
+
+    <section class="card recent" data-card>
+      <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-phone"/></svg></span><h2 class="card__t">Próximas llamadas</h2><a class="link" href="#">Calendario<svg class="i"><use href="#i-chev"/></svg></a></div>
+      <ul class="pay">
+        <li><span class="av" style="--c:var(--in)">LM</span><span style="min-width:0"><strong>Laura Méndez</strong><span>Hoy 12:30 · R2 · closer Ana</span></span><em>en 1 h</em></li>
+        <li><span class="av" style="--c:var(--in)">JS</span><span style="min-width:0"><strong>Jorge Salinas</strong><span>Hoy 18:00 · R1 · closer Diego</span></span><em>en 7 h</em></li>
+        <li><span class="av" style="--c:var(--in)">PN</span><span style="min-width:0"><strong>Paola Núñez</strong><span>Mañana 10:00 · R1 · closer Ana</span></span><em>5/11</em></li>
+        <li><span class="av" style="--c:var(--in)">RO</span><span style="min-width:0"><strong>Raúl Ortega</strong><span>Mañana 16:30 · R2 · closer Sofía</span></span><em>5/11</em></li>
+        <li><span class="av" style="--c:var(--in)">MR</span><span style="min-width:0"><strong>Marta Ríos</strong><span>Viernes 11:00 · R1 · closer Diego</span></span><em>6/11</em></li>
+        <li><span class="av" style="--c:var(--in)">TI</span><span style="min-width:0"><strong>Tomás Ibarra</strong><span>Lunes 9:30 · R1 · closer Ana</span></span><em>9/11</em></li>
+      </ul>
+    </section>
+
+    <section class="card act" data-card>
+      <div class="card__h"><span class="card__ic"><svg class="i"><use href="#i-check"/></svg></span><h2 class="card__t">Salud del negocio</h2></div>
+      <ul class="act__l">
+        <li><span class="av" style="--c:var(--rose);border-radius:50%"><svg class="i" style="width:14px;height:14px"><use href="#i-warn"/></svg></span><span><p><b>2 cuotas vencidas</b> <u>sin cobrar</u></p><small>Ver las cuotas</small></span></li>
+        <li><span class="av" style="--c:var(--saffron);border-radius:50%"><svg class="i" style="width:14px;height:14px"><use href="#i-warn"/></svg></span><span><p><b>3 leads</b> <u>sin marcar la asistencia a la R1</u></p><small>Marcar en el CRM</small></span></li>
+        <li><span class="av" style="--c:var(--in);border-radius:50%"><svg class="i" style="width:14px;height:14px"><use href="#i-check"/></svg></span><span><p><b>La meta del trimestre</b> <u>va a tiempo</u></p><small>Ver la meta</small></span></li>
+        <li><span class="av" style="--c:var(--in);border-radius:50%"><svg class="i" style="width:14px;height:14px"><use href="#i-check"/></svg></span><span><p><b>Meta Ads</b> <u>conectado y leyendo</u></p><small>Ver las conexiones</small></span></li>
+      </ul>
+    </section>
+  </div>
+</main>
+<script src="orvel.js"></script>
+</body></html>

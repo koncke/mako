@@ -1,6 +1,12 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~16:00 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~16:45 UTC)
+
+- **«Mi día» está en producción.** Entró a main a las 16:20 (`c1d8e89e4`); el deploy promovido de las 16:30 (`ddfc71d20`) la contiene. El
+  veredicto de la nube la dejó pasar sin repetir los tests (6.949 tests y el tsc entero en verde, `8edcd95da`).
+- **General (la copia de Orvel) va en `punta/dash-general`**: la sección de abajo. Es la quinta hoja copiada.
+
+### Lo de las ~16:00 UTC
 
 - **Cobranza y Focus están en producción.** Cobranza entró a main a las 15:28 (`4bd93e83`, deploy promovido 15:32); Focus a las 15:37
   (`071ced42`, deploy promovido 15:40). La marca `ci-rojo/dash-cobranza` quedó vieja: su commit ya está en main.
@@ -19,6 +25,55 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## General: la quinta hoja copiada (la de Orvel), con lo que MaKo sabe del negocio (punta `dash-general`, 4/11/2026)
+
+El pedido sigue siendo el de Martín (por el Cerebro): primero la copia exacta, después la adaptación, y *«Después seguí con la segunda hoja,
+de a una»*. La referencia de la plantilla General era Orvel · Corbel (`docs/templates-dashboard-propuesta.md` §7.3); ésta es **Orvel**.
+Corbel queda para otra hoja.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» de General ofrece «General»**, con su miniatura de verdad. Es una hoja crema, con un brillo dorado arriba, como Orvel.
+- **Arriba:** la fecha, el saludo y una frase: «Entraron US$12,480 este mes, 2 cuotas están vencidas y 5 leads esperan que los marques» (las
+  cuotas y los leads llevan al CRM), con «Abrir el Plan» y «Abrir el CRM». El botón del ícono de la grilla muestra los bloques de siempre.
+- **«Este mes»:** lo cobrado en grande contra el mismo período del mes pasado, la barra de lo cobrado contra la proyección al cierre, cuatro
+  renglones (lo cobrado, la inversión en anuncios, las agendas y los cierres, cada uno con su proyección y su cambio) y la meta del trimestre:
+  cuánto va, cuánto tendría que ir a esta altura y cuántos días faltan.
+- **«Lo que entró y lo que invertiste»:** lo cobrado, la inversión y lo que quedó, y las dos líneas mes a mes (6M · 12M).
+- **«Te necesita»:** las cuotas vencidas, los leads por marcar, las tareas vencidas y las alertas en rojo, sólo lo que tiene algo.
+- **«Lo que vence»** en las próximas 3 semanas (tareas y proyectos del Plan, lo vencido primero), **«Te deben»** (todo lo que falta cobrar,
+  por tramo de atraso, y las tres cuotas más urgentes), **«Tu funnel hoy»** (cada etapa del funnel principal con su barra), **«Próximas
+  llamadas»** (las del CRM: «en 1 h» si es hoy, la fecha si es otro día) y **«Salud del negocio»** (el semáforo).
+
+**Lo que Orvel tiene y no está, a propósito:** el sobre para recordarle a un cliente que pague (un mensaje a un tercero sale por sus puertas),
+«Move money» y la barra de «lo mismo el mes pasado» de cada etapa (MaKo no guarda el funnel de cada día).
+
+**El movimiento:** el INFORME de Orvel trae la entrada del armazón (la barra lateral y la de arriba, que en MaKo pone la app) y los hover del
+CSS; **la entrada de la página «Overview» no está** (vive en un chunk que el INFORME no muestra). No se inventó: las tarjetas quedan quietas y
+los hover son los del CSS. Si Martín quiere movimiento de entrada acá, hace falta mirar el demo andando y medirlo.
+
+**La comparación con la maqueta aprobada** (`docs/diseno/mockups-dashboard/general-orvel/mako.html` contra el componente, en un arnés con los
+datos pasando por el modelo de verdad): **a 1440, las nueve cajas caen en el mismo píxel** (la cabecera 1136 × 100, «Este mes» 464 × 606, el
+gráfico 656 × 606, las dos filas de tres a 368 de ancho y 550 y 449 de alto) y el alto total es el mismo, 1833. **A 390, los mismos tamaños
+en el mismo orden**, 10 px más arriba (el margen del teléfono de Orvel). Capturas en `general-orvel/captura/`: `copia-*` (la copia del demo),
+`mako-*` (la adaptación) y `producto-*` (el componente). Lo que difiere, a propósito: la «k» del eje y de la leyenda sale de la plata de
+verdad, el primer punto del gráfico cae a la derecha de la etiqueta más ancha del eje, y «Te deben» va en los cuatro tramos de atraso de
+Cobranza (Orvel tiene tres).
+
+**Cómo está hecho:**
+- `app/dashboard/disenos/HojaGeneral.tsx` dibuja; `general-css.ts` es `general-orvel/orvel.css` sin el armazón, con todo adentro de `.gv` y cada
+  clase con `gv-`. El medio (761 a 1040) no está medido en Orvel: la primera fila baja a una columna y las de tres, a dos.
+- `app/dashboard/disenos/GeneralVivo.tsx` le pone DOS fuentes: los datos de los bloques de General y los de dos componentes de la hoja. Lo carga
+  `EditorInforme` con `next/dynamic`.
+- **La plantilla `general` cambia:** el gráfico por mes pasa a ser «Lo que entró y lo que invertiste» (lo cobrado y la inversión), y suma
+  «Te deben» (lo que falta cobrar por tramo de atraso, con las mismas cuentas que la hoja Cobranza: `debenDe`). Trae
+  `diseno: { id: 'general', piezas: { meses: 'por-mes', deben: 'deben' } }`. Una hoja General que ya existe no cambia.
+- El modelo es `lib/general-diseno.ts`; el test, `tests/dashboard-diseno-general.test.ts` (13 casos): ejecuta el modelo y está probado
+  rompiéndolo (6 de 6 roturas en rojo).
+- **En la API de MaKo:** `agregar_hoja_general` ofrece `general` (sale solo de `PLANTILLAS_GENERAL_OFRECIDAS`; `docs/api-mako.md` regenerado).
+
+**Falta:** verlo con los datos de un cliente (la nube no tiene la base) y que Martín lo compare en el Dashboard. La que sigue es Corbel o la
+próxima de §7.3.1 («Operación diaria», Moorly · Torque), de a una.
 
 ## «Mi día»: la cuarta hoja copiada (la de Lumora, la otra referencia de Focus) (punta `dash-mi-dia`, 4/11/2026)
 

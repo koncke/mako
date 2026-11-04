@@ -106,6 +106,11 @@ día) dentro de un `include` ancho del tsconfig. Medido: de 10.093 archivos del 
 
 Lo que dejan los tests pesados (que no se midió) alcanza para que el tsc no termine. n=1.
 
+**Y la primera medición de Actions con `TIPOS-RAM`** (sobre-main 45, máquina recién prendida, 253 s): a los 120 s la máquina tenía
+157 MB disponibles y el tsc 1.510 MB en el swap; a los 180 s, 119 MB y 4,6 GB de swap usado. **Ni en una máquina limpia entra en la
+RAM**: termina porque el swap alcanza. El orden y el corte lo vuelven robusto, pero no le dan margen. El arreglo que dura es achicar
+lo que carga el tsc, o un runner de 16 GB (plata: lo decide Martín).
+
 **Lo que quedó:**
 - **Tipos va antes de los tests.** El swap se saca después del tsc, así los tests corren con el disco entero, como antes.
 - **El script corta el tsc a los 14 min** (`TIPOS_TOPE_S`, por debajo del `timeout-minutes` del paso) y sale **97 «SIN TIEMPO — NO son
