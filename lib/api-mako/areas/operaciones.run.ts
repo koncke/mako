@@ -227,7 +227,7 @@ export const RUNNERS: Runners = {
         esperando: filas.filter((f) => f.esperando),
         aprobadas: filas.filter((f) => !f.esperando).map((f) => ({ nombre: f.nombre, version: f.version, desde: f.desde, detalle: f.detalle })),
         nota: ultimaVuelta
-          ? 'Es lo que leyó el vigía en su última revisión (cada hora). «Hay que mirarlo a mano» es que no hay API o falta la credencial: no sé su estado, no lo inventes. Da los links tal cual.'
+          ? 'Es lo que leyó el vigía en su última revisión (la hora está en ultima_revision). «Hay que mirarlo a mano» es que no hay API o falta la credencial: no sé su estado, no lo inventes. Da los links tal cual.'
           : 'El vigía todavía no corrió: no hay nada leído. Dilo así, sin inventar estados.',
       });
     },
