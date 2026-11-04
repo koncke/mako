@@ -3,8 +3,16 @@
 Pedido de Martín, textual: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach" y que tenga ambas
 funcionalidades dentro... Por defecto, que esté la cara de hormozi.»
 
-**Estado:** el coach único está en `main` (`26c02b09d`, corrida 150 verde). El ticket #57 (abajo) va por `punta/ticket-57`: llega
-sola a `main` si `punta.yml` da verde; «en producción» es recién con el deploy de Vercel en «Ready». **Sin migraciones**: lo elegido vive en `app_settings` (`coaches.referentes`), y lo nuevo se guarda al
+**Estado:** el coach único está en `main` (`26c02b09d`, corrida 150 verde). El ticket #57 (abajo) también: `63cb70bad` + la mezcla
+`afafba2d7` llegaron a `main` en `77e84c868` (4/11, 14:38 UTC). La primera corrida (165) dio verde en tests y tipos y rebotó al llevarla
+a main: en el medio, main le había puesto un `<div className="gr-hilo">` al hilo del grupo en la misma línea que el menú de «Reportar».
+Se mezcló main, quedaron las dos cosas, y la segunda llegó sola. El ticket se cierra con el deploy por el hito `tickets: [57]`. El ws 9
+es de Martín: no hay grupo de cliente al que avisar.
+
+**Para el Cerebro (el mensaje desde la nube no se entregó: «elevated_session_untrusted_device»):** ese era todo el resultado del #57.
+Y para Infra: el pre-push de la nube corre con el Node 22 del contenedor. Al mezclar main, el filtro tomó 151 tests de lo que trajo
+main y dio 12 rojos falsos: `mako-no-puedo-falsos` y `onboarding-hilo-carrera` abren un node hijo con mocks ESM, se rompen con el 22 y
+tumban su tanda entera. Con `PATH=/opt/node24/bin:$PATH`, el Node de `punta.yml`, pasan los 12 y el push salió sin saltear el filtro. **Sin migraciones**: lo elegido vive en `app_settings` (`coaches.referentes`), y lo nuevo se guarda al
 lado de lo de antes. Lo que cambió y por qué, en `docs/hallazgos-ops-center.md` → «Juntar dos coaches».
 
 ## Qué quedó
