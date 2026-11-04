@@ -31,14 +31,24 @@ export const tokenDeEndpoint = (endpoint: string): string => endpoint.slice(PREF
 
 export type ClavesApns = { keyId: string; teamId: string; p8: string };
 
+/**
+ * Una .p8 de Apple (PKCS#8) pegada como venga, en su forma PEM. `null` si no parece una clave. Un pegado puede perder los saltos.
+ * La usan esta pieza y el vigía de las aprobaciones (lib/vigia-aprobaciones-fuentes.ts, la clave de App Store Connect).
+ */
+export function pemPkcs8(texto: string | null | undefined): string | null {
+  const cuerpo = String(texto ?? '').replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/\s+/g, '');
+  if (cuerpo.length < 40) return null;
+  const lineas = cuerpo.match(/.{1,64}/g) ?? [];
+  return `-----BEGIN PRIVATE KEY-----\n${lineas.join('\n')}\n-----END PRIVATE KEY-----\n`; // claves-en-el-diff: ok
+}
+
 /** Las tres credenciales, ya normalizadas. `null` = todavía no están. Se pegan en Método: un pegado puede perder los saltos de la .p8. */
 export function clavesApnsDe(v: { keyId?: string | null; teamId?: string | null; p8?: string | null }): ClavesApns | null {
   const keyId = String(v.keyId ?? '').trim();
   const teamId = String(v.teamId ?? '').trim();
-  const cuerpo = String(v.p8 ?? '').replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/\s+/g, '');
-  if (!/^[A-Z0-9]{10}$/.test(keyId) || !/^[A-Z0-9]{10}$/.test(teamId) || cuerpo.length < 40) return null;
-  const lineas = cuerpo.match(/.{1,64}/g) ?? [];
-  return { keyId, teamId, p8: `-----BEGIN PRIVATE KEY-----\n${lineas.join('\n')}\n-----END PRIVATE KEY-----\n` }; // claves-en-el-diff: ok
+  const p8 = pemPkcs8(v.p8);
+  if (!/^[A-Z0-9]{10}$/.test(keyId) || !/^[A-Z0-9]{10}$/.test(teamId) || !p8) return null;
+  return { keyId, teamId, p8 };
 }
 
 const b64u = (b: Buffer | string) => Buffer.from(b).toString('base64url');

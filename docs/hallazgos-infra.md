@@ -84,6 +84,66 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Actions sin repetir: los minutos se iban en tests que ya habían pasado, no en la documentación (4/11/2026)
+
+**Vive en:** `scripts/veredicto.mjs` · `scripts/node24.sh` · `scripts/tests-afectados.mjs` (`--solo`, `MAKO_VEREDICTO_CORRIDA`) ·
+`.github/workflows/punta.yml` · `.github/workflows/sobre-main.yml` · `tests/veredicto.test.ts`.
+
+Martín, por el Cerebro: «Por que actions subió tanto?... imagina que tengo 5 cuentas... Que los chats en la nube hagan los testeos
+o algo así...».
+
+**Medido sobre las 159 corridas de `punta.yml` del 4/11 (2.157 min):**
+- 150 eran de código (2.120 min). Sólo documentación hubo 7 (10 min, 1,4 de media), y texto con bitácoras 2 (27 min). La
+  documentación ya no corría tests: el ahorro no estaba ahí.
+- Una punta de código típica (run 41829283278, 13,7 min): checkout 21 s, instalar 25 s y guardas 8 s. Después, **tests 7 min 45 s**
+  (690 de 2.137 archivos: 425 importan el registro de la API, que importa todas las áreas) y **tsc entero 4 min 33 s**.
+- 47 de las 159 fueron rojas o canceladas (606 min). Un rojo cuesta lo mismo que un verde.
+- Unas 104 las subió una sesión de la nube (trailer `Claude-Cuenta: nube`, o autor `noreply@anthropic.com`).
+- `sobre-main.yml` corrió 22 veces desde las 09:15, ninguna roja, casi una detrás de otra. Corre una y espera una, así que su
+  costo no crece con la cantidad de puntas.
+
+**El diagnóstico obvio era el equivocado: reusar el tsc desde main no ahorra nada.** `tsconfig.tsbuildinfo` pesa 1,7 MB y, sin
+cambios, el tsc baja de 248 s a 23 s. Pero una punta real (`punta/spy-medidos`, 12 archivos .ts) con la caché del main de ese
+momento tardó **236 s, lo mismo que sin caché**: un cambio en algo que importa media app (el registro de la API) hace rechequear
+todo lo que lo importa. Con `declaration` el builder compararía formas y no versiones, pero aparecerían errores que hoy no salen
+(TS2742). Medido en la nube, Node 24, 4/11.
+
+**Lo que sí ahorra: no repetir lo que ya pasó sobre el MISMO árbol.** El diseño, en la cabecera de `scripts/veredicto.mjs`.
+**Medido repitiendo las 87 puntas de código que dieron verde el 4/11.** A cada una se le supuso un veredicto de la nube sacado contra
+el main de 12 min antes de que subiera: es lo que tardan los tests y el tsc en la nube. Main se movió en 77 de las 87.
+- Sin veredicto: mediana **16,1 min**. Con veredicto: mediana **6,8** (media 5,8), un 36 % del costo.
+- Lo que queda es estructural: `lib/api-mako/registro.ts` importa todas las áreas. Cuando la punta y main tocan las dos algo que
+  llega ahí, los tests que lo importan corren otra vez. Se repiten 251 archivos de test por punta (mediana), y sólo 27 de las 87
+  cruzaron menos de 20.
+- El tsc ya no se paga en la punta (4,5 min); las barredoras sí (2,4 min, con 2 CPU).
+- El replay no está versionado: la API de corridas, una selección por punta con `seleccionar` y el main de cada momento sacado de
+  las mezclas `Merge origin/main en punta/<x>` de main.
+- Rojos: 16 de la nube pasaron los 4 min (262 min ese día). Con el veredicto se ven en la nube, antes de subir.
+
+**Lo que engaña:**
+- **Un veredicto atado no es un veredicto firmado.** El renglón frena el de otro árbol, el editado, el de otra selección, el de Node
+  22 y el de una base que no es de main. No frena a quien lo arma a propósito: el algoritmo está en el repo. Eso pide una clave que
+  sólo tengan las sesiones y GitHub (`MAKO_VEREDICTO_CLAVE`), y la carga Martín.
+- **El árbol probado es el del commit y el renglón va en el mensaje, que no es parte del árbol**: no se muerde la cola. La otra cara:
+  un commit más encima, aunque sea un relevo, y corre todo.
+- **El árbol mezclado de una corrida anterior no existe en el clon siguiente** (si dio rojo, la mezcla nunca se subió). El
+  veredicto de Actions se compara contra lo que movió la punta MÁS lo que movió main desde entonces: repite de más, nunca de menos.
+- **Dos guardas cazaron mi primera versión.** El paso de los tests tenía un `exit 0` para «el veredicto cubre todo», que
+  `tests/punta-ci.test.ts` prohíbe en un paso que frena; ahora lo decide la condición del paso. Y un test leía el JSON de un hijo
+  sin `maxBuffer` (`tests/tanda-no-la-mata-un-test-lento.test.ts`).
+- **El primer veredicto real se negó a salir, y estaba bien.** El tsc entero de `sacar` encontró 17 errores de tipos en
+  `tests/veredicto.test.ts`. Los tests corren con tsx, que no chequea tipos, y el filtro del pre-push no llega al tsc. En GitHub
+  habría sido una punta roja de ~14 min; en la nube fueron 4 y no costaron nada.
+- **El `/opt/node24` que dejó otra sesión no está en la tuya**: cada contenedor de la nube es nuevo. `scripts/node24.sh` lo baja
+  una vez, comprueba el sha256 contra SHASUMS256.txt de nodejs.org y lo deja en `~/.cache/mako-node`.
+- **docs.github.com y www.hetzner.com están fuera de la red de la nube** (el proxy rechaza la conexión): los precios del runner propio
+  de docs/relevo/nube-metodologia.md salieron de un buscador, no de la página oficial.
+
+**Lo que quedó sin medir:** el veredicto en una corrida real (lo mide la primera punta que lo traiga, que es la de este cambio), y
+cuántas sesiones de la nube lo van a sacar de verdad.
+
+*4/11/2026, nube, pedido del Cerebro.*
+
 ## Rearmar etiquetas `rescate/*` desde la nube: el clon miente, Node 22 no comparte y el índice suma filas viejas (4/11/2026)
 
 **Vive en:** `docs/relevo/nube-ramas.md` (el estado de cada etiqueta) · `scripts/unir-indice-hallazgos.py` · `.github/workflows/punta.yml`.

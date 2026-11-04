@@ -3,6 +3,101 @@
 > Escrito por la sesión de la nube que hizo el trabajo (`cli_fe44de53-c921-5546-aa4a-0d433bbd0829`). Es de primera mano sobre
 > lo que se escribió y se probó acá; lo de producción NO se midió desde la nube (no tiene acceso): está marcado como tal.
 
+## ⚠️ 4/11/2026, tarde: CADA NEGOCIO CON SU CUENTA DE RESEND — esto gana sobre lo de abajo
+
+Martín, textual (por el Cerebro): «Resend free permite hasta 3 dominios, pero eso lo trae cada user de mako». Y: «todo esto es
+súper importante que lo pueda hacer por API, es decir, que la API tiene que tener información y, por ejemplo, si detecta que no
+tiene [Resend] conectado, que le vaya guiando. Eso todo tiene que solucionarse por API siempre para que cualquier usuario lo
+pueda manejar desde su [Claude]». Rama `punta/email-cuenta-propia`.
+
+**Lo que cambió (el código):**
+- **El email de un negocio sale SÓLO con SU clave de Resend** (`lib/email-cuenta.ts` → `cuentaDeCorreo`). Sin ella no sale y
+  dice por qué (`SIN_EMAIL_PROPIO`); nunca cae a la de MaKo. La vía del dominio también la pide (`remitenteDelNegocio`).
+- **Lo que firma MaKo** (`from: REMITENTE_MAKO`) sale con la de MaKo desde cualquier negocio. La plataforma manda con la de MaKo.
+- **El dominio se da de alta y se verifica en SU cuenta**, con su clave (`lib/resend-dominios.ts`). Una clave de sólo envío o
+  inválida frena ANTES de proponer, diciendo cuál crear. **La clave de administración de MaKo queda SÓLO para el dominio de
+  MaKo** (la plataforma): ningún negocio la usa. Si nunca se carga, lo único que no anda es administrar el dominio de MaKo
+  desde MaKo; no hace falta para los clientes.
+- **El webhook es por negocio**: `conectar_dominio_email` crea (o reusa) en SU cuenta un webhook a
+  `/api/webhooks/resend?cuenta=<ws>` y guarda su secreto en su fila (`RESEND_WEBHOOK_SECRET_PROPIO`, otro nombre que el de
+  MaKo a propósito). La ruta verifica con ESE secreto (lectura estricta: «no pude leer» es 503) y lo que llega así toca sólo
+  las filas de ese negocio. Sin `?cuenta=`, el de MaKo como siempre. `conectar_seguimiento_email` (nueva, `PUT
+  /api/v1/email/seguimiento`) lo hace solo, para un dominio conectado antes o si falló.
+- **La guía por la API**: `estado_email` dice `paso` (sin_cuenta, la_de_mako, clave_solo_envio, clave_invalida, sin_dominio,
+  dominio_en_otra_cuenta, dns_pendiente, sin_seguimiento, sin_remitente, envio_apagado, listo), `que_hacer` (en palabras de la
+  persona), `siguiente` (la operación) y, si falta pegar la clave, `link_conectar` (el modal `/integraciones?abrir=email`, lo
+  pone el código). Cada operación que no puede por la cuenta contesta guiando, con `falta: { servicio: 'email' }`.
+- **La clave NO se recibe por la API**: la política del área de integraciones ya lo prohíbe («nunca pidas una key por el
+  chat»; ninguna operación pega un secreto). El camino seguro es el link al modal de MaKo, y volver a correr `estado_email`.
+  Prender el envío real sigue siendo una propuesta que confirma la persona.
+- **El ws1 deja de ser la fuente de la clave de correo de MaKo** (`lib/credenciales.ts`, `esClaveDeCorreoDeLaPlataforma`):
+  sale de la fila de la plataforma, como la IA desde el 18/10. **Mientras la plataforma no tenga su fila, el arranque la sigue
+  tomando del ws1 como hasta hoy** (con un `console.error` fuerte), así que los avisos de MaKo no se cortan si esto llega a
+  producción antes de la mudanza. Con la lectura de la plataforma caída, no la toma.
+- La guía «Una campaña de email con Claude», la skill (paso 0: `estado_email`) y el tutorial del modal de Resend dicen el
+  camino nuevo: crear la cuenta gratis, crear la clave «Full access», pegarla en MaKo. El dominio lo conecta MaKo.
+
+**Pruebas:** `tests/email-cuenta-propia.test.ts` (el camino ENTERO sólo con llamadas a la API, de «sin cuenta» a «listo»; el
+webhook firmado con el secreto del negocio; el ws1 antes, después y con la base caída) y `tests/resend-clave-admin.test.ts`
+(qué clave firma cada pedido), las dos probadas rompiéndolas (tablas en sus cabeceras).
+
+### El paso de producción (lo corre el Cerebro; desde la nube no se toca)
+
+1. **La mudanza de la clave de correo de MaKo**, desde la carpeta del clon con el `.env.local` de producción:
+   ```
+   npx tsx --conditions=react-server scripts/correo-del-ws1-a-la-plataforma.mts            # en seco: mirar lo que dice
+   npx tsx --conditions=react-server scripts/correo-del-ws1-a-la-plataforma.mts --aplicar  # copia
+   ```
+   Copia la `RESEND_API_KEY` de la fila del ws1 a la de la plataforma (aditiva: no toca el ws1; idempotente; relee y compara;
+   nunca imprime un valor). **Antes de aplicar, mirar la evidencia que imprime**: qué otros negocios tienen el MISMO valor (la
+   copia de «Datos de Mau» en el ws4). Si dice que la plataforma ya tiene OTRA, no toca nada y hay que decidir a mano.
+   **Se corre ANTES de avisarle a Mauricio**: si él pega la suya antes, la del ws1 ya no es la de MaKo.
+2. **La misma corrida en seco lista los negocios con un dominio cargado y SIN cuenta propia**: con este código sus emails dejan
+   de salir hasta que peguen su clave (`SIN_EMAIL_PROPIO`). Es la decisión de Martín; la lista es a quién avisarle. Al 17/10 los
+   únicos con cuenta propia eran el ws10 y el ws11 (siguen andando igual).
+3. **No hay que borrar nada**: la fila del ws1 la pisa Mauricio al pegar la suya; la copia del ws4 cuenta como «la de MaKo» y
+   no manda nada. Se puede borrar cuando se quiera.
+4. **La clave de administración en Vercel**: ya no hace falta para los clientes. Si está cargada, se queda para el dominio de
+   MaKo; si no, no urge.
+
+### Lo que le toca a Mauricio AHORA (cuando esto llegue a producción y la mudanza esté corrida; hasta entonces no se le avisa)
+
+1. Crear su cuenta gratis en resend.com.
+2. En «API Keys» crear una clave con permiso «Full access» y pegarla en MaKo, en Integraciones → Resend.
+3. Seguir con su Claude como dice la guía: el paso 0 es `estado_email`, que lo va llevando (dominio, DNS, remitente, campaña).
+   Si su dominio ya se había dado de alta en la cuenta de MaKo esta mañana, la guía dice «dominio_en_otra_cuenta» y lo conecta de
+   nuevo en la suya.
+
+### NO MEDIDO (no hay red a resend.com desde la nube)
+
+- La forma real de `POST/GET/PATCH /webhooks` sale del SDK oficial `resend@6.37.0` (`Webhooks.create` devuelve `signing_secret`,
+  `get` también). No se llamó a Resend de verdad.
+- Si Resend deja dar de alta en la cuenta del negocio un dominio que ya está en OTRA cuenta (la de MaKo). Si contesta que no,
+  hay que borrarlo de la cuenta de MaKo en resend.com.
+- Que el plan gratis de Resend tenga «hasta 3 dominios» (lo dijo Martín). El texto del tope no da un número.
+- Si leer lo que LLEGA (`getDeResend`) anda con una key de sólo envío: hoy la plataforma es la única que podría tener una.
+
+### Abierto, con su archivo
+
+- **La tarjeta de Resend en /integraciones** dice «conectada» si la fila del negocio tiene una `RESEND_API_KEY`, aunque sea la
+  copia de la de MaKo (el ws1 antes de que Mauricio pegue la suya, el ws4). No miente sobre el envío (`estado_email` dice
+  «la_de_mako» y no sale nada), pero la tarjeta no lo distingue como la de IA («la de MaKo»): `lib/integraciones.ts`.
+- **Lo que llegó al webhook de la cuenta de un negocio antes de que MaKo tenga su secreto** contesta 401, y Resend reintenta
+  y después deshabilita ese webhook. No pasa con el camino normal (el secreto se guarda al crearlo), sólo si alguien lo creó a
+  mano en resend.com con la URL de MaKo. `conectar_seguimiento_email` lo reusa y guarda su secreto.
+
+### La regla que Martín pidió para todos (propuesta; no la escribí en AGENTS.md)
+
+El Cerebro pidió sumarla a AGENTS.md en el mismo commit. No lo hice: AGENTS.md es parte de la configuración de Claude
+(CLAUDE.md lo incluye) y la regla de la casa es que eso no se cambia por un mensaje de otra sesión. El texto propuesto, para
+que lo pegue quien pueda:
+
+> **Toda capacidad de MaKo se puede hacer entera por la API, y la API GUÍA.** Un área con varios pasos (conectar una cuenta,
+> un dominio, una integración) tiene una lectura de estado que dice en qué paso está el negocio, qué hacer ahora (en palabras
+> de la persona), la operación que sigue y, si falta algo que se pega en MaKo, el link al modal (lo pone el código; una clave
+> nunca se pide por el chat). Cada operación que no puede seguir contesta guiando, con `falta: { servicio }`. El molde:
+> `estado_email` (lib/email-cuenta-reglas.ts → `guiaDelEmail`).
+
 ## Lo que se pidió
 
 Martín, textual: «Revisa mi ultima llamada con Mauricio, porque el va a comenzar a hacer campaña de email a sus leads, le di
@@ -44,7 +139,8 @@ Las pruebas (corren el motor, el webhook y los runners reales sobre una base en 
 1. ~~La migración `0380_email_rebotes.sql`~~ **YA ESTÁ: la aplicó el Cerebro y la midió el 4/11** (`rebotado_at` y
    `queja_at` existen en `nutricion_envios` y en `email_broadcast_envios`). El webhook ya puede anotar rebotes y quejas, y el
    freno tiene qué contar. No se midió desde la nube.
-2. **La clave que administra dominios: `RESEND_ADMIN_API_KEY` en Vercel (Production y Preview), y el plan de Resend.** Lo
+2. ⚠️ **SUPERADO por el modelo de la tarde (arriba): cada negocio con su cuenta.** Lo que sigue es la historia. **La clave que
+   administra dominios: `RESEND_ADMIN_API_KEY` en Vercel (Production y Preview), y el plan de Resend.** Lo
    hace Martín. Desde `6b8aae96b` (**en main** desde la corrida 41823262356, 4/11 11:54 UTC) la key que MANDA (la fila del ws 1, de sólo envío según midió
    el Cerebro el 4/11) se queda como está: dar de alta, leer y verificar dominios va con esa variable aparte, que sólo lee
    `lib/resend-dominios.ts`. Tiene que ser una key con «Full access» de la MISMA cuenta de Resend. Sin ella,
@@ -57,7 +153,7 @@ Las pruebas (corren el motor, el webhook y los runners reales sobre una base en 
 4. **El envío real del ws 1** está apagado y así se queda hasta que Mauricio confirme la propuesta de
    `activar_envio_real_email` (gasta: va a pantalla). No se prendió `EMAIL_SEND_ENABLED`.
 
-## Lo que le toca a Mauricio, paso a paso
+## Lo que le toca a Mauricio, paso a paso (antes del modelo de la tarde: suma primero los pasos de su cuenta de Resend, arriba)
 
 1. Crear un **token detallado** en `/api-mako › Tokens` con «Lectura y escritura» en «Email», «CRM» y «Chatbot y secuencias».
 2. Abrir `/api-mako › Documentación › Guías › Campaña de email con Claude`, copiar el mensaje, completar lo de `<…>` (su

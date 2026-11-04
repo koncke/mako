@@ -49,13 +49,22 @@ test('sendEmail: «habla MaKo» sólo por la constante, y entonces SIEMPRE la ke
   assert.match(cuerpo, /const key = hablaMako \? await keyDeLaPlataforma\(\) : await resendKey\(\);/,
     'lo que habla MaKo salía por la key del workspace del contexto (la cuenta del cliente en ws10/ws11)');
   assert.equal((cuerpo.match(/resendKey\(\)/g) ?? []).length, 1, '`resendKey()` sólo para lo que habla el negocio');
-  assert.equal((cuerpo.match(/hablaMako/g) ?? []).length, 3, 'una sola definición de «habla MaKo», usada para la key y el remitente');
+  // 4/11/2026 (cada negocio con su cuenta): el cuarto uso es el motivo cuando falta la key: sin la de MaKo es un problema de
+  // MaKo; sin la del negocio, que conecte SU cuenta. Por comportamiento lo fijan tests/resend-clave-admin.test.ts (el aviso de
+  // MaKo, desde un negocio, sale con la de MaKo) y tests/email-cuenta-propia.test.ts (el ws1 después de la mudanza).
+  assert.equal((cuerpo.match(/hablaMako/g) ?? []).length, 4, 'una sola definición de «habla MaKo», usada para la key, su motivo y el remitente');
+  assert.match(cuerpo, /if \(!key\) return \{ ok: false, error: hablaMako \? 'RESEND_API_KEY no configurada' : SIN_EMAIL_PROPIO \};/);
   assert.doesNotMatch(cuerpo, /esRemitenteDeMako|esDominioDeMako|hola-mako/, '«habla MaKo» no se adivina por el dominio: es la constante');
   assert.match(cuerpo, /if \(hablaMako\) from = REMITENTE_MAKO;/);
   // La key de la plataforma es la del entorno de la plataforma, no la del workspace.
+  // Desde el 4/11/2026 la lee lib/email-cuenta.ts (`keyDeCorreoDeLaPlataforma`), con envCred.
   const kp = entre(RESEND(), 'async function keyDeLaPlataforma(', '\n}\n');
-  assert.match(kp, /await envCred\('RESEND_API_KEY'\)/);
+  assert.match(kp, /return keyDeCorreoDeLaPlataforma\(\);/);
   assert.doesNotMatch(kp, /credWs|credDelCliente|resendKey/);
+  const cuenta = readFileSync(join(RAIZ, 'lib', 'email-cuenta.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const kpc = entre(cuenta, 'export async function keyDeCorreoDeLaPlataforma(', '\n}\n');
+  assert.match(kpc, /await envCred\('RESEND_API_KEY'\)/);
+  assert.doesNotMatch(kpc, /credWs|credDelCliente/);
 });
 
 test('sendEmail: lo del negocio pasa por el veredicto; sin remitente propio no sale, ni con el sandbox', () => {
@@ -77,7 +86,11 @@ test('getEmailFrom, emailConectado y remitenteDelNegocioActual salen del MISMO v
   assert.match(actual, /getSettingEstricto\('resend_domain'\)/);
   assert.match(actual, /credDelCliente\('RESEND_FROM'\)/);
   assert.doesNotMatch(actual, /credWs\(/, '`credWs` le da al ws1 (un cliente) lo del env de la plataforma');
-  assert.match(actual, /const keyPropia = !!keyCliente && !\(await esDeLaPlataforma\('RESEND_API_KEY', keyCliente\)\);/,
+  // Desde el 4/11/2026 «cuenta propia» la decide `cuentaDeCorreo` (lib/email-cuenta.ts): su clave, distinta de la de MaKo, o
+  // la plataforma. Que la key del ws1 y la copia del ws4 NO cuenten como propias lo fija por comportamiento
+  // tests/email-cuenta-propia.test.ts (el ws1 antes de la mudanza: «la_de_mako»).
+  assert.match(actual, /const cuenta = await cuentaDeCorreo\(\);/);
+  assert.match(actual, /const keyPropia = cuenta\.tipo === 'propia' \|\| cuenta\.tipo === 'plataforma';/,
     'la key del ws1 y la copia del ws4 son de la plataforma: no son cuenta propia');
   assert.match(actual, /return remitenteDelNegocio\(\{ resendFrom, resendDominio, credFrom, keyPropia, plataforma \}\);/);
   assert.match(actual, /catch \(e\) \{[\s\S]*return \{ puede: false, motivo: 'sin-remitente' \};/, 'un error de lectura = no puede');

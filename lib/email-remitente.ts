@@ -25,11 +25,12 @@
 //   lib/aviso-plan.ts) o llevan la banda (`marca: 'mako'`).
 // · EL REMITENTE DE UN PASO (`paso.remitente`) es opcional: ausente = el del workspace, como
 //   siempre. El motor lo usa SÓLO si es del MISMO DOMINIO que el remitente del workspace y ese no es
-//   el sandbox (`remitenteDelPaso`). ⚠️ Esa regla es la que importa: la cuenta de Resend es UNA para
-//   todos los clientes (Opción A, lib/resend.ts), así que cualquier dominio verificado ahí sale por
-//   cualquier workspace. Sin esta guarda, un paso guardado con «hola@otrocliente.com» (o
-//   «equipo@hola-mako.com») mandaría en nombre de otro. El dominio del remitente del workspace es
-//   suyo: la ruta sólo deja guardar uno de su dominio verificado y con titularidad.
+//   el sandbox (`remitenteDelPaso`). ⚠️ Esa regla es la que importa: hasta el 4/11/2026 la cuenta de
+//   Resend era UNA para todos los clientes (la «Opción A»), así que cualquier dominio verificado ahí salía
+//   por cualquier workspace. Desde ese día cada negocio manda con SU cuenta (lib/email-cuenta.ts), y la
+//   guarda sigue: sin ella, un paso guardado con «hola@otrocliente.com» (o «equipo@hola-mako.com») mandaría
+//   en nombre de otro. El dominio del remitente del workspace es suyo: la ruta sólo deja guardar uno de su
+//   dominio verificado y con titularidad.
 // · LOS VINCULADOS que ofrece el «De» salen de `/api/email/dominio`: `remitentes` si la ruta los
 //   manda (hoy no: ver el relevo, «Vincular nuevo» que SUME), y si no, el único que hay.
 //
@@ -158,7 +159,7 @@ export type HechosRemitente = {
   resendDominio: string | null | undefined;
   /** La credencial `RESEND_FROM` DEL CLIENTE (`credDelCliente`; nunca la del env de la plataforma). */
   credFrom: string | null | undefined;
-  /** ¿Su `RESEND_API_KEY` es SUYA? Cargada en su fila Y distinta de la de la plataforma. */
+  /** ¿Manda con SU cuenta de Resend? Su `RESEND_API_KEY` cargada en su fila y distinta de la de MaKo (o es la plataforma). */
   keyPropia: boolean;
   /** ¿Es el workspace de la plataforma (`wsSuperAdmin()`)? Sólo importa si el candidato es de MaKo. */
   plataforma: boolean;
@@ -183,6 +184,10 @@ function porDominio(h: HechosRemitente): VeredictoRemitente | null {
   if (esDominioDeMako(dominio) && !h.plataforma) return { puede: false, motivo: 'de-mako' };
   const reclamado = typeof h.resendDominio === 'string' ? h.resendDominio.trim().toLowerCase().replace(/\.$/, '') : '';
   if (!reclamado || dominio !== reclamado) return { puede: false, motivo: 'otro-dominio' };
+  // ⚠️ CON SU CUENTA (4/11/2026, Martín: «Resend free permite hasta 3 dominios, pero eso lo trae cada user de mako»): el
+  // dominio se verifica en la cuenta de Resend DEL NEGOCIO y sale con su clave. Hasta ese día se verificaba en la de MaKo y
+  // salía con la de MaKo; un dominio reclamado sin cuenta propia ya no manda.
+  if (!h.keyPropia && !h.plataforma) return { puede: false, motivo: 'sin-cuenta-propia' };
   return { puede: true, from, via: 'dominio' };
 }
 
@@ -199,8 +204,9 @@ function porCuentaPropia(h: HechosRemitente): VeredictoRemitente | null {
 
 /**
  * EL REMITENTE DEL NEGOCIO, o por qué no tiene. Un mail del negocio sale SÓLO si:
- *   (a) vía DOMINIO: `resend_from` legible, no el sandbox, de SU `resend_domain` (el mismo dominio exacto), y si
- *       es de un dominio de MaKo, el workspace es la plataforma (decisión 22: hoy la plataforma no lo reclamó);
+ *   (a) vía DOMINIO: `resend_from` legible, no el sandbox, de SU `resend_domain` (el mismo dominio exacto), si es de un
+ *       dominio de MaKo el workspace es la plataforma (decisión 22: hoy la plataforma no lo reclamó), y manda con SU
+ *       cuenta de Resend (`keyPropia`, desde el 4/11/2026: el dominio vive en su cuenta, no en la de MaKo);
  *   (b) vía CUENTA PROPIA: la credencial `RESEND_FROM` legible, no el sandbox ni de MaKo, con SU key.
  * Primero (a), como lo leía `getEmailFrom` desde siempre. Si ninguna pasa, el motivo es el de la primera que
  * tenía candidato. ⚠️ La key del ws1 y la copia del ws4 son las de la PLATAFORMA: `keyPropia` = false.

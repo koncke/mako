@@ -2279,6 +2279,33 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '4 nov', hora: '13:20', chat: 'Vigía de aprobaciones', sesion: 'cli_d49b582e-c756-535c-98c7-8f940c227ae4', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que algo me avise de las aprobaciones pendientes de cada app',
+    pedido: 'crea un script que me vaya avisando de todas las notficaciones de aprobaciones pendientes que tenemos de las diferentes apps que vamos creando... En Meta, la extensión, playstore, appstore, google, etc...',
+    puntos: [
+      'Llegó por el chat de la nube que abrió el Cerebro: avisar sólo cuando algo cambia (aprobado, rechazado, piden algo), nada de rutina, y la lista de lo que espera cuando Martín la pida.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '14:30', chat: 'Vigía de aprobaciones', sesion: 'cli_d49b582e-c756-535c-98c7-8f940c227ae4', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un vigía revisa cada hora las aprobaciones de las tiendas, Meta y Google, y avisa sólo cuando algo cambia',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Diez aprobaciones vigiladas:** la app de iPhone, la de Android (prueba cerrada, producción y la cuenta), la extensión de Chrome, los permisos y verificaciones de Meta, la app de Google, los dominios de correo y el certificado de Windows.',
+      '**Avisa sólo cuando algo pasa** a aprobado, rechazado o «piden algo», en la bandeja de avisos y en el teléfono. Nada de «sin novedades».',
+      '**Lo que no tiene API o le falta la clave** se dice una sola vez: «míralo a mano», con su link.',
+      '**La lista cuando la pidas:** pregúntale a MaKo «¿qué aprobaciones siguen pendientes?» en el Ops Center.',
+      '**Para leer más solo** faltan dos tarjetas en Integraciones: App Store Connect y Google Play y Chrome Web Store.',
+    ],
+    archivos: [
+      'lib/vigia-aprobaciones.ts — el inventario y cuándo avisar (puro) · lib/vigia-aprobaciones-fuentes.ts — qué lee cada fuente',
+      'lib/vigia-aprobaciones-server.ts · app/api/cron/vigia-aprobaciones/route.ts (cada hora, a los :11) · scripts/vigia-aprobaciones.mts',
+      'lib/api-mako/areas/operaciones.def.ts — ver_aprobaciones_pendientes · lib/metodo-catalogo.ts — las dos tarjetas nuevas',
+      'tests/vigia-aprobaciones.test.ts · tests/vigia-aprobaciones-fuentes.test.ts — 12 roturas, cada una en rojo',
+      'docs/relevo/nube-aprobaciones.md · docs/hallazgos-operaciones.md',
+    ],
+  },
+  {
     fecha: '4 nov', hora: '10:30', chat: 'Grupos de la app', sesion: SESION_GRUPOS, cuenta: 'claude5', actor: 'martin', tipo: 'prompt',
     titulo: 'Las caricaturas de los gurús que faltan',
     pedido: 'en los gurus, me siguen faltando un montón que ya habiamos hecho la miniatura',

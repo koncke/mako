@@ -32,7 +32,7 @@
 - **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `crear_pagina_reserva` · `editar_pagina_reserva` · `cambiar_tipo_etapa` · `renombrar_etapa` · `agregar_etapa` · `eliminar_etapa` · `ordenar_etapas` · `plazo_etapa` · `columna_nutricion_crm` · `ver_curso_al_ganar` · `cambiar_curso_al_ganar` · `ver_cobro_etapa` · `vincular_cobro_etapa` · `cuentas_cobro_etapa` · `desvincular_cobro_etapa` · `pasar_en_bloque_otra_columna` · `pasar_en_bloque_otro_funnel` · `mandar_en_bloque_a_papelera` · `ver_papelera_crm` · `ver_nombres_del_crm` · `marcar_palabra_no_nombre` · `ver_bajas_de_leads` · `recuperar_de_papelera_crm` · `agregar_en_bloque_a_crm` · `armar_tab_ficha`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar` · `ver_media_buyer` · `lanzar_decision_media_buyer` · `deshacer_decision_media_buyer` · `descartar_decision_media_buyer` · `reabrir_decision_media_buyer` · `calificar_decision_media_buyer` · `hooks_al_video_media_buyer` · `analizar_cuenta_media_buyer` · `modo_media_buyer` · `topes_media_buyer` · `metas_media_buyer` · `cuenta_media_buyer` · `ver_automatizaciones_media_buyer` · `ver_campanas_media_buyer` · `automatizacion_media_buyer` · `modo_agente_media_buyer` · `agente_media_buyer` · `borrar_agente_media_buyer` · `ver_biblioteca_media_buyer` · `zona_media_buyer` · `hasta_media_buyer` · `proponer_crear_campana` · `preparar_subida_media_buyer` · `subir_creativos_media_buyer`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
-- **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `ver_newsletter` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `configurar_newsletter` · `crear_edicion_newsletter` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email` · `conectar_dominio_email` · `fijar_remitente_email`
+- **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `ver_newsletter` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `configurar_newsletter` · `crear_edicion_newsletter` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email` · `conectar_dominio_email` · `fijar_remitente_email` · `conectar_seguimiento_email`
 - **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `configuracion_automatizacion` · `configurar_automatizacion` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `cambiar_crons_secuencia` · `agregar_escenario_secuencia` · `archivar_secuencia` · `probar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje` · `quienes_de_automatizacion` · `ver_limites_envio` · `cambiar_limites_envio`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `metricas_automatizacion` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_con_ia_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `mover_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
@@ -6965,7 +6965,7 @@ curl -L \
 
 ## Email — `email`
 
-Tab **Email** (`/email`). 13 lecturas · 16 acciones.
+Tab **Email** (`/email`). 13 lecturas · 17 acciones.
 
 ### `GET /api/v1/email/kpis` — KPIs del canal email
 
@@ -7187,7 +7187,7 @@ curl -L \
 
 ### `GET /api/v1/email/estado` — Estado del canal email
 
-Diagnóstico del canal: si el email está conectado (hay key y remitente propio), si el envío real está prendido, si el remitente sigue en sandbox (solo entrega al dueño de la cuenta de Resend), el dominio cargado, el remitente actual y el estado del dominio en Resend (verified, pending…) con cada registro DNS y su estado, más cuántos faltan verificar. Úsala ante cualquier «¿por qué no salen los mails?» o antes de proponer prender el envío real.
+LA GUÍA del email del negocio: en qué paso está (`paso`: sin_cuenta, la_de_mako, clave_solo_envio, sin_dominio, dns_pendiente, sin_seguimiento, sin_remitente, envio_apagado, listo), qué tiene que hacer AHORA (`que_hacer`, para decírselo), la operación que sigue (`siguiente`) y, si falta pegar su clave de Resend, el link al lugar de MaKo donde se pega (`link_conectar`; la clave nunca se pide por el chat). Cada negocio manda con SU cuenta de Resend, que es gratis. Trae también el dominio, sus registros DNS y su estado, el remitente y el envío real. Úsala PRIMERO ante cualquier pedido de email, y de nuevo después de cada paso.
 
 - **Ruta por operación:** `GET /api/v1/email/estado_email`
 - **Token detallado:** permiso `email=read` (Solo lectura en «Email»)
@@ -7684,14 +7684,14 @@ curl -L \
 
 ### `POST /api/v1/email/dominio-envio` — Conectar el dominio de envío
 
-Propone dar de alta el dominio propio del negocio (minegocio.com) para que sus correos salgan desde él, y devuelve los registros DNS que hay que cargar en su proveedor (GoDaddy, Cloudflare…). Prende el seguimiento de aperturas y clics. Si ya había otro, lo reemplaza. Un dominio de MaKo o de otro negocio no se puede. Después: verificar_dominio_envio y fijar_remitente_email.
+Propone dar de alta el dominio propio del negocio (minegocio.com) en SU cuenta de Resend, y devuelve los registros DNS que hay que cargar en su proveedor (GoDaddy, Cloudflare…). Prende el seguimiento de aperturas y clics y conecta los eventos de su cuenta con MaKo. Si ya había otro, lo reemplaza. Pide su clave de Resend ya pegada en MaKo (estado_email dice cómo). Un dominio de MaKo o de otro negocio no se puede. Después: verificar_dominio_envio y fijar_remitente_email.
 
 - **Ruta por operación:** `POST /api/v1/email/conectar_dominio_email`
 - **Token detallado:** permiso `email=write` (Lectura y escritura en «Email»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** da de alta el dominio en la cuenta de Resend de MaKo, le prende el seguimiento de aperturas y clics, y guarda resend_domain y resend_domain_id del negocio
+- **Escribe:** da de alta el dominio en la cuenta de Resend del negocio, le prende el seguimiento de aperturas y clics, crea en su cuenta el webhook hacia MaKo, y guarda resend_domain, resend_domain_id y el secreto de ese webhook
 - **Reversible:** no
 - **Costo:** externo
 - **Solo el administrador del workspace.**
@@ -7743,6 +7743,32 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/email/ajustes/remitente" \
   -d '{"nombre":"NOMBRE","local":"LOCAL"}'
+```
+
+### `PUT /api/v1/email/seguimiento` — Conectar el seguimiento
+
+Propone conectar los avisos de la cuenta de Resend del negocio con MaKo: quién abre, hace clic o rebota. Sin eso las tarjetas del CRM no siguen al email y los rebotes no frenan el envío. conectar_dominio_email ya lo hace; esto es para un dominio de antes o si ahí falló. Es idempotente.
+
+- **Ruta por operación:** `POST /api/v1/email/conectar_seguimiento_email`
+- **Token detallado:** permiso `email=write` (Lectura y escritura en «Email»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea (o reusa) en la cuenta de Resend del negocio el webhook hacia MaKo, y guarda su secreto en el negocio
+- **Reversible:** no
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** email
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/email/seguimiento"
 ```
 
 ## Chatbot y secuencias — `chatbot`

@@ -1044,6 +1044,8 @@ function leerArgs(argv) {
     else if (k === '--cortar') o.cortar = true;
     else if (k === '--resto') o.resto = true;
     else if (k === '--barredoras') o.barredoras = true;
+    // `--solo <archivo>` (4/11/2026, scripts/veredicto.mjs): corre EXACTAMENTE esos tests (uno por renglón), los que un veredicto no cubre.
+    else if (k === '--solo') o.solo = valor();
     else if (k === '--ayuda' || k === '-h') o.ayuda = true;
     else { process.stderr.write(`  [tests-afectados] no conozco «${argv[i]}» (mirá --ayuda)\n`); o.ayuda = true; }
   }
@@ -1057,6 +1059,8 @@ const AYUDA = `node scripts/tests-afectados.mjs [--base origin/main] [--listar] 
   --profundidad N: sólo sigue N saltos de import (por default todos). Es la palanca si el tiempo aprieta, con el costo de dejar afuera a los más lejanos.
   --resto: corre LOS DEMÁS (todos menos los afectados): Actions corre primero los afectados y después éstos, y así no se repite ninguno.
   --barredoras: corre TODAS las que barren el repo, sin mirar qué cambió (el chequeo sobre main de .github/workflows/sobre-main.yml).
+  --solo <archivo>: corre exactamente los tests del archivo (uno por renglón): lo que un veredicto no cubre (scripts/veredicto.mjs).
+  MAKO_VEREDICTO_CORRIDA=<archivo>: deja ahí lo que corrió y lo que no dio verde, para el veredicto de Actions.
   Salida: 0 verde · 1 rojo · 2 no se pudo calcular · 99 no corrió (falta RAM).`;
 
 const ETIQUETA = { cambio: 'los toca el cambio', nombra: 'nombran un archivo cambiado', barre: 'barren el repo (corren siempre)', importa: 'importan un archivo cambiado' };
@@ -1149,6 +1153,20 @@ async function main(argv) {
     out(`[tests-afectados] --barredoras: las ${todas.length} que barren el repo (${compartidos.length} compartidas, ${lista.length} aisladas)`);
     if (o.listar) return 0;
   } else {
+    if (o.solo != null) {
+      // Lo que pide el veredicto, tal cual, aunque `--base` no lo eligiera: la lista la armó veredicto.mjs sobre ESTE árbol.
+      let pedidos;
+      try { pedidos = readFileSync(o.solo, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean); }
+      catch { process.stderr.write(`  [tests-afectados] no puedo leer --solo ${o.solo}\n`); return 2; }
+      const existen = new Set(plan.archivos);
+      const tests = new Map();
+      for (const t of pedidos) {
+        if (!ES_TEST.test(t) || !existen.has(t)) continue;
+        tests.set(t, sel.tests.get(t) ?? (sel.barredoras.has(t) ? [{ tipo: 'barre', detalle: sel.barredoras.get(t) }] : [{ tipo: 'importa', detalle: 'lo pide el veredicto' }]));
+      }
+      out(`[tests-afectados] --solo: ${tests.size} de los ${pedidos.length} que pide el veredicto (${sel.tests.size} sin veredicto)`);
+      sel.tests = tests;
+    }
     imprimirPlan(plan, o, out);
     const ag = agrupar(sel.tests, sel.compartibles, { compartir: o.compartir });
     lista = ag.orden;
@@ -1171,6 +1189,12 @@ async function main(argv) {
     process.stderr.write(`\n  ✖ NO CORRÍ LOS TESTS: NO HAY RAM (quedan ${ramLibreGb().toFixed(1)} GB, hace falta ${pisoRam(1).toFixed(1)}). Esto NO es un test roto.\n`);
     process.stderr.write('    Cerrá unos chats de Claude y volvé a correrlo, o MAKO_TESTS_SIN_ESPERA=1 para correr igual (puede matarlo el vigía).\n\n');
     return SALIDA_SIN_CORRER;
+  }
+  // Lo que corrió y lo que no dio verde, para el veredicto de Actions (scripts/veredicto.mjs guardar). Rojo incluido: es lo que
+  // le ahorra a la próxima subida de la punta repetir todo lo que sí pasó.
+  if (process.env.MAKO_VEREDICTO_CORRIDA) {
+    try { writeFileSync(process.env.MAKO_VEREDICTO_CORRIDA, JSON.stringify({ corridos: [...lista, ...compartidos].sort(), noVerdes: [...new Set([...r.rojos, ...r.sinCorrer])].sort() })); }
+    catch (e) { process.stderr.write(`  [tests-afectados] no pude dejar la corrida en ${process.env.MAKO_VEREDICTO_CORRIDA}: ${e.message}\n`); }
   }
   // Los logs del detalle sólo se tiran si no hay nada que mirar: con un rojo o con archivos sin correr son la única forma de separarlos.
   if (r.rojos.size === 0 && r.sinCorrer.size === 0) rmSync(carpetaTmp, { recursive: true, force: true });
