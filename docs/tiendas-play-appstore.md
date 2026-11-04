@@ -37,10 +37,10 @@ cuentas, revisadas otra vez el 23/10 en las páginas oficiales.
 
 **⚠️ El reloj de los 14 días no lo arranca el `.aab`: lo traba la cuenta de revisión.** El `.aab` ya está en Play y la prueba cerrada igual no puede empezar: los links para anotarse salen «when you publish your app», y «Send app for review» sigue bloqueado hasta completar el dashboard. La cadena, en este orden y sin atajos:
 
-1. Cuenta de revisión → **Sign in details** (es «App access» con otro nombre).
-2. **Target audience** no abre sin el paso 1 («You must complete the Sign in details section»).
-3. **Data safety**: deja guardar borrador, pero su «Save» queda apagado sin el paso 2.
-4. **Capturas** → «Save» de la ficha. Sin ellas da «Your changes couldn't be saved».
+1. Cuenta de revisión → **Sign in details** (es «App access» con otro nombre). **Hecho (4/11, tarde):** Martín pegó la contraseña y la fila «Demo account» quedó guardada (se ve recargando).
+2. **Target audience** no abre sin el paso 1 («You must complete the Sign in details section»). **Hecho (4/11):** «18 and over» con «Restrict users … minors», guardado.
+3. **Data safety**: deja guardar borrador, pero su «Save» queda apagado sin el paso 2. **Hecho (4/11):** el borrador ya estaba completo (13 categorías, las mismas de la §4 de los borradores) y se guardó. App content → «Need attention» quedó en «You're all caught up».
+4. **Capturas** → «Save» de la ficha. Sin ellas da «Your changes couldn't be saved». **PENDIENTE: no hay capturas** (ver «Las capturas», abajo).
 5. «Send app for review» → Google aprueba la prueba cerrada → salen los links → los testers se anotan → corren los 14.
 
 **Play, lo que no estaba escrito:**
@@ -53,32 +53,47 @@ cuentas, revisadas otra vez el 23/10 en las páginas oficiales.
 - Hasta la primera revisión, el tester ve la app como `com.holamako.app (unreviewed)`.
 - Una lista de testers queda para todas las apps de la cuenta. La de la prueba cerrada se llama «MaKo prueba cerrada».
 - La ficha se edita en `/store-listings/default/edit` y la pista en `/tracks/4700906003437332314`. `/main-store-listing` y `/store-presence/...` vuelven al inicio sin avisar.
+- Las páginas de App content, por URL directa (cambiando `u/0` por `u/1` según la sesión): `/app-content/overview`, `/app-content/testing-credentials`, `/app-content/target-audience-content` y `/app-content/data-privacy-security`. `/app-content/app-content-overview` rebota al Inicio.
+- **Con «18 and over» marcado, Target audience salta «App details», «Ads» y «Store presence»** y va directo al resumen. Guardar ahí y en Data safety dice «Change saved. Send for review in Publishing overview» y ofrece «Go to overview»: «Not now» deja todo guardado sin mandar nada.
+- **Sign in details trae prendido** «allowing Google to use these sign-in details for testing on Google and trusted partner devices»: sale a Google y a socios. Es decisión de Martín y no se tocó.
 
 **Apple, lo que no estaba escrito:**
 - **«Add for Review» sirve para medir:** si falta algo, lista qué falta y no manda nada. El 4/11 pidió la captura de iPhone con Dynamic Island mediana, Content Rights, usuario y contraseña, y nombre, apellido, correo y teléfono de contacto (con «+» y código de país). No nombró la DSA, y sigue en «Set Up».
-- **Content Rights** no está en los borradores: es una declaración legal sobre contenido de terceros (el teléfono muestra chats y anuncios de las cuentas que conecta cada negocio). La contesta Martín.
+- **Content Rights** no está en los borradores: es una declaración legal sobre contenido de terceros (el teléfono muestra chats y anuncios de las cuentas que conecta cada negocio). **Hecho el 4/11** (permiso de Martín: «todo esto deberías hacerlo tú»): «Yes, it contains, shows, or accesses third-party content, and I have the necessary rights», en Información de la app, con «Save». El texto de la pantalla era el esperado. Recargando se ve «Yes, this app has the necessary rights to its third-party content», y Codemagic lo lee como `USES_THIRD_PARTY_CONTENT`.
+- **Contacto de App Review y de TestFlight: hecho el 4/11.** Martín Koncke, martinkoncke@gmail.com y el +54 9 3764 67-3479 (Apple lo acepta con ese formato, con los guiones). Está en la versión 1.0 › App Review Information y en TestFlight › Test Information › Beta App Review Information; los dos persisten al recargar. **Usuario y contraseña de la versión 1.0 siguen VACÍOS** (con «Sign-in required» marcado): los pega Martín.
+- **TestFlight › Test Information pide además la «Beta App Description»** (hoy vacía; el Feedback Email ya es `equipo@hola-mako.com`). Sin ella, `submit_to_testflight` da 422 «Beta App Description is missing … required to submit a build for external testing». No frena la build ni el grupo interno; sí el envío a la revisión beta externa.
 - El copyright tampoco estaba: va `2026 Tejado Gonzalvez Leandro Martin` (`RAZON_SOCIAL_MAKO`).
 - La versión venía con «Automatically release». Queda en manual.
 - Con 18+ a mano, Apple calcula 18+ en casi todos y 19+ en Corea, y 17+ en sistemas anteriores a la versión 26.
-- **La compilación 1 no es la que se envía:** salió de `integracion` (1493e55), y después cambió `Info.plist` (891ee15ce). Hay que compilar de nuevo desde main antes de enviar. Codemagic la subió y Apple la procesó («Ready to Submit», vence a los 90 días), pero `submit_to_testflight` falló al pedir la revisión beta externa, porque falta el contacto en TestFlight › Test Information. No frena al grupo interno.
+- **La compilación 1 no es la que se envía:** salió de `integracion` (1493e55), y después cambió `Info.plist` (891ee15ce). Codemagic la subió y Apple la procesó («Ready to Submit», vence a los 90 días), pero `submit_to_testflight` falló al pedir la revisión beta externa. No frena al grupo interno.
+- **Compilación 2, 4/11 11:36 (-03): la de main.** Id `6aeb3f86004ce28f20edc8a4` (índice 2), rama `main`, commit `e21d8a237`, que ya trae `891ee15ce`. Tardó 3 min 29 s en un Mac mini M2: subió, Apple la procesó, y termina «finished with post-processing failed» por la Beta App Description (arriba), no por el código. **Costó $0:** la cuenta es personal, sin suscripción ni método de pago, y mostraba «Free macOS minutes personal use 3 / 500». Para lanzarla: `codemagic.io/apps` → «Start new build» → `main` e «iOS → TestFlight»; el cartel de cookies tapa el botón del diálogo, y se lo clickea por la parte que asoma arriba. Antes de enviar a Apple falta ver en la versión 1.0, sección «Build», que el build elegido sea éste y no el 1.
 
-**Dónde están las sesiones:** Apple y Codemagic no están en Claude in Chrome, que cae en el login. Están en el navegador integrado de la app (`mcp__Claude_Browser`). La de Apple venció en menos de 15 horas, y la renueva Martín. Play sí está en Chrome, en `/u/1/`.
+**Dónde están las sesiones:** Apple y Codemagic no están en Claude in Chrome, que cae en el login. Están en el navegador integrado de la app (`mcp__Claude_Browser`). La de Apple venció en menos de 15 horas, y la renueva Martín. Play está en Chrome, en `/u/1/`, **pero el 4/11 su renderer se colgó** con la RAM al límite (`Page.captureScreenshot` agotó los 30 s después de un scroll, y varias veces seguidas, también en pestañas nuevas): se siguió en el navegador integrado, que tiene la misma cuenta de desarrollador en `/u/0/` (pedir `/u/1/` redirige a `/u/0/`) y no se colgó.
 
 **Trampas de las herramientas:**
 - `javascript_tool` de Chrome corta las salidas largas (`[TRUNCATED]`) y bloquea las que traen URLs con query (`[BLOCKED: Cookie/query string data]`): hay que devolver pedazos cortos, sin links.
 - En el navegador integrado, con poca RAM, la captura atrasa varios segundos. Lo guardado se confirma leyendo el valor o recargando la página, no mirando la foto.
 - Su `javascript_tool` corta a los 45 s pero el script sigue corriendo: lo largo se arranca sin esperar y se consulta después. Si se reintenta, se hace dos veces.
+- **Un `javascript_tool` sin `tabId` corre en la pestaña ACTIVA**, no en la última que se navegó: el 4/11 se ejecutó sobre la de Play donde Martín estaba pegando la contraseña. Pasar siempre `tabId`.
+- **El clasificador del arnés frena lo que lee los campos de una pantalla con credenciales** («Credential Materialization»): el texto de la fila de Sign in details de Play y los valores de todos los inputs de Apple. Se verifica con la foto (el campo de contraseña sale enmascarado y vacío se ve el placeholder) o con un booleano que no devuelve texto (`tieneFilaDemoAccount`, `Save` deshabilitado).
+- Apple tarda unos 25 s en hidratar con poca RAM: si `get_page_text` da sólo el menú, esperar. Para llegar a una sección, `scrollIntoView` sobre su título (con un `scroll` de rueda se pasa de largo por el atraso de la captura). El «Save» de Apple se prueba recargando: arriba dice «Saved», pero lo que cuenta es lo que queda después.
+- La `computer.wait` del navegador integrado topa en 10 s (con 12 da error de validación).
+- El **vigía de RAM** frena `node` con Playwright hasta tener 3 GB libres. El 4/11 había 1,9 a 2,4 con Claude y Chrome abiertos; se cerraron dos pestañas del navegador integrado que no se usaban (Play y GitHub), se esperó un rato y a la tercera pasó. No se salteó.
+
+**Las capturas: cómo se sacan, y por qué el 4/11 NO salieron.** `scripts/capturas-tiendas.mjs` firma una cookie `mako_session` de la cuenta de revisión (mismo formato que `crearToken`: `sub` 29, `mfa: 'revision'`, rol `usuario`, 7 días) con el `AUTH_SECRET` de un archivo de entorno, sin imprimirlo ni guardarlo, y con Playwright recorre `/m`, `/m/crm`, `/m/chats`, la ficha del primer lead y `/m/hoy` en dos tamaños: 360×640 a escala 3 (1080×1920, 9:16, el mínimo de Play) y 402×874 a escala 3 (1206×2622, la de Apple con Dynamic Island). Frena si una pantalla manda a `/login`. **Contra producción, las 8 pantallas que alcanzó a abrir (4 por tamaño; la ficha no se probó porque no hay tablero) mandaron a `/login`**: la cookie firmada con el `AUTH_SECRET` de `C:/dev/mako-api/.env.local` no alcanzó. No se pudo distinguir entre (a) que ese secreto no sea el de producción, y (b) que `lib/auth.ts` la corte por la fila (`esCuentaDeRevision` con `rol_ws` closer y negocio 900001, o `cambiada_at` posterior a la cookie en `usuario_contrasena`). Descartado: un redirect de `hola-mako.com` a `www` (no lo hay), y la forma del token (es la de `crearToken`). **No se forzó** (orden de Martín: si pide algo más, frenar). Para destrabarlo sin firmar nada: que quien tiene la contraseña entre una vez a mano con `npx playwright codegen --save-storage=estado.json https://hola-mako.com/login` y pasar `--estado estado.json` al script (esa rama está escrita y **sin probar**), o que Martín confirme que el `AUTH_SECRET` de ese `.env.local` es el de Vercel. ⚠️ Firmar a mano saltea `app/api/auth/contrasena`: no deja la entrada en `mfa_eventos` ni manda el aviso a equipo@. Al subirlas: Play, 2 a 8 PNG o JPEG 9:16 sin alfa en la ficha (`/store-listings/default/edit`); Apple, las de 1206×2622 en la versión 1.0. Mirar cada una: sin datos de personas reales (el negocio 900001 sólo tiene los 6 leads `@example.com`), sin carteles de error y sin «Estás viendo…». Y el negocio de revisión no tiene chats ni grupos cargados (el script sólo siembra leads): «el grupo del negocio» no existe como pantalla con datos, y `/m/chats` va a salir vacío.
 
 **Lo que queda sin hacer:**
 
 | Qué | Quién | Dónde |
 |---|---|---|
-| Correr el script de la cuenta de revisión | El Cerebro, con el sí de Martín | `docs/relevo/nube-tiendas.md` |
-| Con esa cuenta: los pasos 1 a 5 de arriba, y usuario y contraseña en Apple | Martín pega la contraseña; lo demás, un chat | `/app-content/testing-credentials` y la versión 1.0 de Apple |
-| Las capturas de las dos tiendas, del `/m` real con esa cuenta | Un chat | `docs/tiendas-fichas-borradores.md` |
-| Compilar la versión final desde main | Un chat | Codemagic |
+| ~~Correr el script de la cuenta de revisión~~ y ~~pasos 1 a 3 de Play~~ | Hecho el 4/11 | ver la cadena de arriba |
+| Usuario y contraseña de la cuenta de revisión en la versión 1.0 de Apple | Martín (la contraseña no se escribe ni se lee desde acá) | versión 1.0 › App Review Information |
+| **Las capturas de las dos tiendas, del `/m` real con esa cuenta** | Martín decide cómo destrabar la cookie (arriba); después un chat las saca y las sube | `scripts/capturas-tiendas.mjs`, `docs/tiendas-fichas-borradores.md` |
+| Con las capturas: «Save» de la ficha de Play (con «AI asset declaration» → «Don't label assets») y «Send app for review» de Play | Un chat, y Martín manda a revisión | `/store-listings/default/edit` y Publishing overview |
+| Elegir el build 2 en la versión 1.0 de Apple (hoy muestra el 1) y recién ahí enviar | Un chat; Martín envía | versión 1.0 › Build |
+| Beta App Description de TestFlight (para la revisión beta externa; el grupo interno anda sin ella) | Martín o un chat, con su visto bueno | TestFlight › Test Information |
 | Sumar testers: hay 6 de 12 | Martín | «MaKo prueba cerrada» |
-| Content Rights, y el contacto de App Review y de TestFlight (lleva teléfono) | Martín | Información de la app, y la versión 1.0 |
+| ~~Content Rights, contacto de App Review y de TestFlight~~ | Hecho el 4/11 | ver «Apple, lo que no estaba escrito» |
 | DSA en Apple: T3 dice que sí a la UE, pero deja públicos la dirección y el teléfono de Leandro. La §6 de los borradores todavía recomienda arrancar sin la UE: ya no vale | Martín | Información de la app |
 | Trader status en Play | Martín | Inicio de Play Console |
 | El crédito de IA para el revisor (R14) | Martín: es plata | `lib/veto-claude.ts` |
