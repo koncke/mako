@@ -1832,6 +1832,92 @@ function modelosSttGemini(): string[] {
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// ── El guion de un video PÚBLICO de YouTube, por Gemini (4/11/2026) ─────────────────────────────────────────────────────
+// Martín (por el Cerebro): «Con Gemini le pides y te lo da entero». La API de Gemini acepta el enlace de un video público de
+// YouTube como `fileData.fileUri` (función oficial: no se baja ni se lee nada de YouTube desde acá). Lo usa Competitors Spy
+// (lib/spy-transcripcion-servidor.ts) para el guion de un video de un competidor.
+//
+// ⚠️ CON EL GEMINI DEL NEGOCIO, por `provsDe` (sus cuentas, nunca una copia de la plataforma, y nada a Gemini si el negocio usa
+// su Claude o su GPT: D6b). Los modelos son los de `modelosSttGemini` (una cosa, un lugar), con el saturado al final.
+// ⚠️ UN «HIGH DEMAND» (503/429) NO ES UN FALLO: se prueba el otro modelo y, si todos están saturados, vuelve `saturado` para que
+// quien llama lo deje pendiente sin contarlo como fallo.
+
+/** Un enlace de YouTube que Gemini acepta: el `watch?v=` de un video, con su id de 11 caracteres. */
+export const ENLACE_YOUTUBE_GEMINI = /^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/;
+
+export type GuionDeYoutube =
+  | { ok: true; texto: string; tokens: number }
+  | { ok: false; motivo: 'sin-gemini' | 'saturado' | 'fallo'; error: string };
+
+/**
+ * El guion de un tramo de un video público de YouTube (`tramo` en segundos; null = el video entero), palabra por palabra.
+ * Con la resolución de video BAJA: lo que importa es lo que se DICE, y así un minuto cuesta menos de la mitad de tokens.
+ */
+export async function guionDeYoutubeConGemini(
+  url: string,
+  tramo: { desdeS: number; hastaS: number } | null,
+  opts: { feature: string; motivo: string; idioma?: string },
+): Promise<GuionDeYoutube> {
+  await exigirPermisoIa();
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => guionDeYoutubeConGemini(url, tramo, opts));
+  if (!ENLACE_YOUTUBE_GEMINI.test(url)) return { ok: false, motivo: 'fallo', error: 'No es el enlace de un video de YouTube.' };
+  const provs = await provsDe('gemini');
+  if (!provs.length) return { ok: false, motivo: 'sin-gemini', error: 'Sin Gemini conectado.' };
+  const instruccion = [
+    `Transcribe palabra por palabra lo que se dice en ${tramo ? 'este tramo del video' : 'este video'}, en el idioma en que se habla${opts.idioma ? ` (normalmente ${opts.idioma})` : ''}.`,
+    'Devuelve SOLO la transcripción: sin timestamps, sin nombres de hablante, sin títulos, sin comentarios tuyos y sin describir lo que se ve.',
+    'Si no se dice nada (sólo música o imagen), devuelve exactamente: (vacío)',
+  ].join(' ');
+  const parteVideo: Record<string, unknown> = { fileData: { fileUri: url } };
+  if (tramo) parteVideo.videoMetadata = { startOffset: `${Math.max(0, Math.floor(tramo.desdeS))}s`, endOffset: `${Math.max(1, Math.floor(tramo.hastaS))}s` };
+  let ultimo = '';
+  let saturados = 0;
+  let intentos = 0;
+  for (const p of provs) {
+    const base = p.base.replace(/\/openai\/?$/, '');
+    for (const model of modelosSttGemini()) {
+      intentos += 1;
+      let res: Response;
+      try {
+        res = await fetch(`${base}/models/${encodeURIComponent(model)}:generateContent`, {
+          method: 'POST',
+          headers: { 'x-goog-api-key': p.key, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [parteVideo, { text: instruccion }] }],
+            generationConfig: { temperature: 0, maxOutputTokens: 65536, mediaResolution: 'MEDIA_RESOLUTION_LOW' },
+          }),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(170_000),
+        });
+      } catch (e) {
+        // Un corte por plazo (un video largo) se repetiría con el otro modelo: otra cuenta, si hay.
+        ultimo = e instanceof Error ? e.message : String(e);
+        break;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) {
+        const detalle = `HTTP ${res.status} ${leerErrorProveedor(data, res.status).mensaje}`;
+        ultimo = detalle;
+        if (dijoSaturado(detalle)) { anotarSaturado('gemini', model); saturados += 1; continue; }
+        // Otro error (un video privado, uno que Gemini no puede abrir, una clave mala) no cambia con otro modelo: otra cuenta.
+        break;
+      }
+      const fin = data.candidates?.[0]?.finishReason;
+      if (fin && fin !== 'STOP') { ultimo = `el guion se cortó (finishReason=${fin})`; break; }
+      const partes = (data.candidates?.[0]?.content?.parts ?? []) as Array<{ text?: string }>;
+      const texto = partes.map((x) => x.text ?? '').join('').trim();
+      const u = data.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
+      void recordUsage(opts.feature, model,
+        { prompt_tokens: u?.promptTokenCount ?? 0, completion_tokens: u?.candidatesTokenCount ?? 0, total_tokens: u?.totalTokenCount ?? 0 },
+        opts.motivo, 'gemini', nroCuenta(p));
+      return { ok: true, texto: texto === '(vacío)' ? '' : texto, tokens: u?.totalTokenCount ?? 0 };
+    }
+  }
+  if (saturados > 0 && saturados === intentos) return { ok: false, motivo: 'saturado', error: ultimo };
+  return { ok: false, motivo: 'fallo', error: ultimo || 'Gemini no contestó.' };
+}
+
 /**
  * Una cuenta intenta escuchar el audio. `{ texto }` si contestó (vacío = no había voz), null si
  * no pudo — y el porqué queda en `errores`.

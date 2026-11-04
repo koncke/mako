@@ -1389,3 +1389,38 @@ Recorrido de la casa (`app/_ui/Recorrido.tsx`): seis pasos, cada uno con su `dat
   también la marca recién escrita en `GrillaPiezas.tsx` (sin commitear). Se notó porque el test siguió rojo; se volvió a poner.
 - ⚠️ **El primer CI dio rojo por «acá»**: `tests/puente-panel-copy.test.ts` barre el copy de toda la app y pide español neutro
   («aquí»). No es un test de Spy, así que correr `tests/spy-*.test.ts` no lo ve: con texto nuevo de pantalla, se corre ese también.
+
+## El guion de un video de YouTube: lo transcribe Gemini desde su enlace (4/11/2026)
+
+**Pedido:** el Cerebro, con Martín: «Con Gemini le pides y te lo da entero». El relevo anterior decía que no había forma
+permitida y proponía un actor de Apify que lee subtítulos: **era el diagnóstico equivocado.** La API de Gemini acepta el enlace
+de un video PÚBLICO de YouTube como `fileData.fileUri`: no se baja nada, no se scrapea y no hace falta la clave de Spy.
+
+**Vive en:** `lib/ai-cheap.ts` (`guionDeYoutubeConGemini`), `lib/spy-transcripcion.ts` (`transcribirGuionYoutube`,
+`tramosDeYoutube`), `lib/spy-transcripcion-servidor.ts`, `app/api/competitor-spy/transcribir/route.ts`.
+
+- **Con el Gemini DEL NEGOCIO, por `provsDe('gemini')`**, y la pregunta «¿tiene Gemini?» de la ruta también adentro de
+  `conSuIADelNegocio`. La función pasa por `exigirPermisoIa` y por la puerta de D6b (`pasaPorLaPuerta`): las dos guardas de la
+  capa de IA (`tests/d6b-puerta.test.ts`, test 5, y `tests/ia-saturacion.test.ts`, test 3) la vieron enseguida — una función
+  exportada nueva de `lib/ai-cheap.ts` entra en sus barridos.
+- **Por tramos de 10 minutos hasta los primeros 30** (`videoMetadata.startOffset/endOffset`), con `mediaResolution: LOW`: lo que
+  importa es lo que se dice. **De a uno**: con una sola clave, tres pedidos de ~19.000 tokens a la vez son un «high demand»
+  seguro (la regla de la casa sobre `Promise.all` contra una key). La ruta subió a `maxDuration = 800` (3 × 170 s).
+- **Un «high demand» o el tope del día NO son un fallo**: el guion queda `no-pudo` con `reintentarEn` y sin motivo, no se pide el
+  tramo siguiente (no se gasta en cadena) y se vuelve a pedir al abrirlo desde esa hora (30 min; 6 h el tope). La pantalla dice
+  «Lo transcribo más tarde.». Un error de verdad (un video privado: 400) es un fallo con su motivo y su espera de un día, y no se
+  prueba con el otro modelo (no cambia).
+- **Sin duración, se transcribe UN tramo y no se afirma que sigue** (`cortado: null`): el guion dice «Hasta el minuto 10.», que
+  es verdad aunque el video dure 3.
+- **El tope del día (20 videos) cuenta en la base** (`spy.guiones-yt.dia`, la misma forma que `spy.transcripciones.dia`), uno por
+  video, no por tramo. Un pendiente que vuelve a correr usa otro: es el costo de un tope que se reserva antes de gastar.
+- **Lo que NO se hizo, a propósito:** la clave de Gemini de la plataforma para un negocio sin la suya (lo pidió el Cerebro; va
+  contra AGENTS: las claves de la plataforma nunca son para un negocio) y un «Conecta tu Gemini» (Martín lo sacó el 25/10). Sin
+  su Gemini, el bloque no se dibuja. Queda como decisión de Martín en el relevo.
+- **Sin medir:** ningún pedido real salió (las 7 pruebas del Cerebro desde la PC dieron 503). El costo queda en
+  `anthropic_usage` (`feature='spy'`, motivo «…un video de YouTube», con `input_tokens` del `usageMetadata`).
+- **Trampa de la prueba:** `recordUsage` corre sin esperarlo (`void`): en un arnés, la fila de uso llega un instante después y
+  se cuenta en la vuelta siguiente si no se espera (el hijo espera 60 ms).
+
+Lo fija `tests/spy-guion-youtube.test.ts` (con `tests/_spy-guion-yt-hijo.ts`: la función real contra un Gemini de mentira),
+probado rompiéndolo: 7 roturas, las 7 caen.

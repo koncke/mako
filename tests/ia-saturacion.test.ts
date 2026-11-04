@@ -123,7 +123,7 @@ test('3. el turno con herramientas (MaKo en WhatsApp) anota el 503, y NINGÚN ca
   assert.deepEqual(modelos(R.E), [LATEST, LITE], 'rota al respaldo en el mismo turno');
   // Todo `anotarSaturado(` de la cascada va detrás de lo que el proveedor DICE (`dijoSaturado`), nunca de un timeout.
   const lineas = fuente('lib/ai-cheap.ts').split('\n').filter((l) => /anotarSaturado\(/.test(l) && !/^import /.test(l));
-  assert.equal(lineas.length, 2, 'chatCheap y chatCheapTools');
+  assert.equal(lineas.length, 3, 'chatCheap, chatCheapTools y el guion de YouTube (guionDeYoutubeConGemini, 4/11/2026)');
   for (const l of lineas) assert.match(l, /if \(dijoSaturado\(/, `anota sin que el proveedor lo diga: ${l.trim()}`);
 });
 

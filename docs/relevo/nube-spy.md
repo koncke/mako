@@ -21,7 +21,7 @@ Lo que espera a Martín:
    guion («Transcribiendo…» y después el texto).
 2. Prender los anuncios: correr una vez desde la PC `scripts/probar-anuncios-apify.mjs` y, si los trae bien y el costo cabe,
    cambiar `ANUNCIOS_POR_APIFY` a `true` (diseño §14).
-3. El guion de los videos de YouTube (abajo, «Decisiones que esperan a Martín»).
+3. El guion de los videos de YouTube a un negocio SIN su Gemini: ¿con la clave de Gemini de la plataforma? (abajo).
 
 ## Cómo se sube
 
@@ -80,7 +80,8 @@ verde, llega sola a `main`.
 | Funnel: la oferta y el funnel que usa arriba, con evidencia de un catálogo; sus webs con su vista previa y un desplegable de páginas | Hecho: el tipo de funnel con sus citas (Den Borg → evento presencial), la oferta rediseñada arriba, «Sus páginas» al final con la vista previa del Web Generator; por API en `que_esta_haciendo` | `punta/spy-funnel-tipo` (en `main`) | Lo que dice con competidores reales; los formatos nuevos del catálogo en el análisis de piezas (pendiente) |
 | Los formatos de «lo que le funciona» con una investigación de todos los tipos | Hecho: los 19 del catálogo, la IA recibe qué es cada uno, y sin IA se lee del texto con una frase clara | `punta/spy-formatos` (en `main`) | Volver a analizar con la IA lo ya analizado (no se manda solo) |
 | El recorrido que señala lo nuevo | Hecho: el Recorrido de la casa (se oscurece y señala) con seis pasos: volver, más acciones, lo que mejor le fue, la grilla, la pestaña Funnel y el «?» para volver a verlo | `punta/spy-recorrido` (en `main`) | Mirarlo en pantalla con un competidor real |
-| «Sus páginas» bloqueada (Beacons de Den Borg, 403 de Cloudflare): «que no se bloquee, y que funcione todo» | Hecho en parte: sin cartel técnico (la carga de la casa y después «Abrir»), y el desafío de un antibots ya no se lee como la página. **NO hecho:** leerla con un navegador de Apify. El clasificador de permisos lo frenó por evadir la verificación de un antibots; lo decide Martín | `punta/spy-paginas-bloqueadas` | La pantalla con la página real (desde la nube no se llega a Beacons) |
+| «Sus páginas» bloqueada (Beacons de Den Borg, 403 de Cloudflare): «que no se bloquee, y que funcione todo» | Hecho: sin cartel técnico (la carga de la casa y después «Abrir»), y el desafío de un antibots ya no se lee como la página. El desafío NO se evade (el Cerebro lo confirmó el 4/11) | `punta/spy-paginas-bloqueadas` (en `main`) | La pantalla con la página real (desde la nube no se llega a Beacons) |
+| El guion de un video de YouTube (Cerebro: «Con Gemini le pides y te lo da entero») | Hecho: el Gemini DEL NEGOCIO lo transcribe desde su enlace (`fileData.fileUri`, sin bajar nada), por tramos de 10 min hasta los primeros 30, de a uno; un «high demand» o el tope del día (20 videos) lo dejan pendiente sin cartel ni fallo («Lo transcribo más tarde.»), y se vuelve a pedir al abrirlo desde esa hora | `punta/spy-guion-yt` | **Ningún pedido real**: las 7 pruebas desde la PC dieron 503. El costo por minuto (`usageMetadata`) queda en `anthropic_usage` con `feature='spy'` y motivo «…un video de YouTube»: medirlo con el primero que salga |
 
 ### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
 
@@ -159,13 +160,34 @@ pantalla del teléfono, monta `GraficoSpy` tal cual.
 
 ## Decisiones que esperan a Martín
 
-- **El guion de los videos de YouTube.** No hay una forma permitida: `captions.download` pide ser el dueño del canal y bajar
-  el video va contra los términos de YouTube. La única salida es un actor de Apify que lee los subtítulos (con la clave de
-  Spy del negocio), y eso extiende a YouTube lo que se decidió «sólo para Spy» sobre Instagram. Hasta que lo decida, el
-  detalle de un video de YouTube muestra su descripción.
+- ~~El guion de los videos de YouTube con un actor de Apify~~: ya no existe (4/11, el Cerebro con Martín: «Con Gemini le pides
+  y te lo da entero»). Lo transcribe el Gemini del negocio desde el enlace del video, sin bajarlo.
+- **Un negocio SIN su Gemini, ¿transcribe YouTube con la clave de Gemini de la plataforma?** El Cerebro lo pidió («es un video
+  público sin datos de clientes, con tope diario por negocio») y NO lo hice: AGENTS dice, con las palabras de Martín del 22/10,
+  que «las claves de la plataforma son para lo interno de MaKo, nunca para un negocio» (`provsGratisDePlataforma` devuelve `[]`
+  fuera del ws 9), y el brief de Spy, «cada negocio paga la suya». Tampoco le pido conectar su Gemini: el 25/10 Martín sacó ese
+  pedido de la app («le sigue diciendo que debe conectar su IA de Gemini…»). Hoy, sin su Gemini, el bloque del guion de un
+  video de YouTube no se dibuja. Si Martín dice que sí, es una rama en `tramoDeYoutube` (lib/spy-transcripcion-servidor.ts) con
+  su tope, y la excepción escrita en AGENTS.
 
 ## Migraciones que faltan aplicar
 
 Ninguna. Lo nuevo que se guarda vive en `app_settings` del negocio (`spy.todo`, las corridas largas; `spy.todo.dia`, cuántas
 empezó hoy; `spy.caricaturas`, las caricaturas; `spy.oferta.<id>`, la oferta de cada competidor, que se borra con él; `spy.transcripcion.<competidor>.<pieza>`, el guion de
-cada reel, que se borra con él; `spy.transcripciones.dia`, cuántos videos se pidieron hoy) y en las columnas que ya existían (`spy_piezas.analisis` lleva ahora su `formato`, dentro del mismo jsonb).
+cada reel o video de YouTube, que se borra con él; `spy.transcripciones.dia`, cuántos videos de Instagram se pidieron hoy;
+`spy.guiones-yt.dia`, cuántos de YouTube transcribió hoy Gemini) y en las columnas que ya existían (`spy_piezas.analisis` lleva ahora su `formato`, dentro del mismo jsonb).
+
+## Modelos de Gemini escritos a mano FUERA de Spy (el Cerebro pidió anotarlos, 4/11/2026)
+
+En Spy no queda ninguno: el guion de YouTube usa `modelosSttGemini()` (lib/ai-cheap.ts), la misma lista que escucha audio.
+`gemini-2.5-flash` (el que da 404) ya no está en el código vivo. Quedan como texto fijo, todos alias `-latest` (no envejecen
+como un id con versión, pero viven en varios lugares):
+
+- `lib/ai-cheap.ts`: `MODELOS_RESPALDO` (`gemini-flash-lite-latest`), y `'gemini-flash-latest'` como respaldo de
+  `modeloPorDefecto`, `MODELO_DOCS`, la visión, `sttGemini` y `modelosSttGemini` (cada uno con `process.env.GEMINI_*` delante).
+- `lib/model-catalogo.ts:100`, `lib/offer-ia.ts:75` (`MODELO_TURNO_RED`, `gemini-flash-lite-latest`) y
+  `lib/transcribe-plataforma.ts:113`.
+- Scripts: `scripts/arnes-pregunta-en-editar.mts:42`, `scripts/perro-a-gemini.ts:42`, `scripts/probe-saludo-sin-tools.ts:56`.
+- Los embeddings usan `gemini-embedding-001`, que es otra familia.
+
+Juntarlos en una constante es trabajo de la capa de IA (Infra), no de Spy: no los toqué.

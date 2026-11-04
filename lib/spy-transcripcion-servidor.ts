@@ -11,6 +11,9 @@ import 'server-only';
 // cortado (un mp4 a medias no se puede escuchar), se dice que pesa demasiado.
 // ⚠️ LO ESCUCHA LA IA DEL NEGOCIO, como el audio de un anuncio (lib/transcribe.ts → `escuchar`): `pii` para que no vaya a
 // la red gratis de la plataforma («cada negocio paga la suya») y `sinGroq` porque no es una nota de voz (IA16).
+// ⚠️ UN VIDEO DE YOUTUBE NO SE BAJA: lo transcribe el Gemini DEL NEGOCIO desde su enlace (`guionDeYoutubeConGemini`), con el
+// tope del día en la base (`CLAVE_DIA_GUIONES_YT`). Sin el Gemini del negocio no se reclama nada (la pantalla lo pide); la
+// clave de Gemini de la plataforma NO se usa acá (AGENTS: las claves de la plataforma nunca son para un negocio).
 // =============================================================================
 
 import { randomUUID } from 'node:crypto';
@@ -18,13 +21,14 @@ import { cambiarSettingSi, getSettingEstricto, getSettingsConPrefijo } from './s
 import { getTenantDb } from './workspace';
 import { bajarWebSegura, pedirClavado } from './archivero-bajada';
 import { validarDestino } from './landing-fetch';
-import { errorDeCascada, SttSinEscucha, transcribirAudio } from './ai-cheap';
+import { errorDeCascada, guionDeYoutubeConGemini, SttSinEscucha, transcribirAudio } from './ai-cheap';
 import { salidaDegenerada } from './stt-degenerado';
-import { videoDeUnaPublicacion } from './spy-todo';
+import { esSinPermisoIa, TEXTO_SIN_PERMISO_IA } from './ia-permiso-reglas';
+import { reservarDelDia, videoDeUnaPublicacion } from './spy-todo';
 import {
-  MAX_BYTES_VIDEO, claveTranscripcion, enlaceDeLaPublicacion, leerGuion, prefijoTranscripciones, reclamarGuion, tieneGuion, transcribirGuion,
-  vencido, vistaDeGuion,
-  type DepsGuion, type VistaGuion,
+  CLAVE_DIA_GUIONES_YT, GUIONES_YT_POR_DIA, MAX_BYTES_VIDEO, TRANSCRIBIENDO_YT_VENCE_MS, claveTranscripcion, enlaceDeLaPublicacion, esDeYoutube,
+  leerGuion, prefijoTranscripciones, reclamarGuion, tieneGuion, transcribirGuion, transcribirGuionYoutube, vencido, vistaDeGuion,
+  type DepsGuion, type DepsGuionYoutube, type ResultadoTramoYt, type VistaGuion,
 } from './spy-transcripcion';
 
 const UA = 'Mozilla/5.0 (compatible; MaKoBot/1.0; +https://hola-mako.com)';
@@ -51,16 +55,29 @@ async function escuchar(bytes: Uint8Array, mime: string): Promise<{ ok: true; te
   }
 }
 
-type Pieza = { id: number; competidor_id: number; canal: string; tipo: string; ref: string; url: string | null };
+/** UN tramo de un video de YouTube, con el Gemini del negocio. Un error que no es «high demand» vuelve en palabras de la persona. */
+async function tramoDeYoutube(url: string, tramo: { desdeS: number; hastaS: number } | null): Promise<ResultadoTramoYt> {
+  let r: ResultadoTramoYt;
+  try {
+    r = await guionDeYoutubeConGemini(url, tramo, { feature: 'spy', motivo: 'Competitors Spy: el guion de un video de YouTube' });
+  } catch (e) {
+    return { ok: false, motivo: 'fallo', error: esSinPermisoIa(e) ? TEXTO_SIN_PERMISO_IA : 'No pude transcribirlo.' };
+  }
+  if (r.ok || r.motivo !== 'fallo') return r;
+  console.warn(`[spy-guion-yt] ${url}: ${r.error}`);
+  return { ...r, error: await errorDeCascada([r.error], 'transcribir este video').catch(() => 'No pude transcribirlo.') };
+}
+
+type Pieza = { id: number; competidor_id: number; canal: string; tipo: string; ref: string; url: string | null; duracion: string | null };
 
 async function piezaDe(piezaId: number): Promise<Pieza | null> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('spy_piezas').select('id, competidor_id, canal, tipo, ref, url').eq('id', piezaId).maybeSingle();
+  const { data, error } = await db.from('spy_piezas').select('id, competidor_id, canal, tipo, ref, url, duracion').eq('id', piezaId).maybeSingle();
   if (error) throw new Error(`No pude leer la pieza: ${error.message}`);
   return (data as Pieza | null) ?? null;
 }
 
-function depsDe(ws: number, p: Pieza): DepsGuion {
+function depsDe(ws: number, p: Pieza): DepsGuion & DepsGuionYoutube {
   const clave = claveTranscripcion(p.competidor_id, p.id);
   return {
     leer: async () => { const crudo = await getSettingEstricto(clave); return { crudo, version: crudo }; },
@@ -68,20 +85,44 @@ function depsDe(ws: number, p: Pieza): DepsGuion {
     video: (enlace) => videoDeUnaPublicacion(ws, enlace),
     bajar: bajarVideo,
     escuchar,
+    youtube: tramoDeYoutube,
+    reservarDia: () => reservarDelDia(CLAVE_DIA_GUIONES_YT, GUIONES_YT_POR_DIA),
     nuevoIntento: () => randomUUID(),
   };
 }
 
 /**
  * Lo que hay del guion de una pieza y, si hace falta transcribirlo, el trabajo para un `after()`. Sin IA o sin la clave de
- * Spy no se reclama nada: la pantalla lo dice y no queda un «transcribiendo» colgado.
+ * Spy (un reel), o sin el Gemini del negocio (un video de YouTube), no se reclama nada: la pantalla lo dice y no queda un
+ * «transcribiendo» colgado.
  */
-export async function asegurarGuion(ws: number, piezaId: number, opts: { hayIA: boolean; hayClave: boolean }): Promise<{ vista: VistaGuion; trabajo: (() => Promise<void>) | null } | null> {
+export async function asegurarGuion(
+  ws: number,
+  piezaId: number,
+  opts: { hayIA: boolean; hayClave: boolean; hayGemini: () => Promise<boolean> },
+): Promise<{ vista: VistaGuion; trabajo: (() => Promise<void>) | null } | null> {
   const p = await piezaDe(piezaId);
   if (!p) return null;
   const enlace = tieneGuion(p) ? enlaceDeLaPublicacion(p) : null;
   if (!enlace) return { vista: { estado: 'no-aplica' }, trabajo: null };
   const deps = depsDe(ws, p);
+  if (esDeYoutube(enlace)) {
+    if (!(await opts.hayGemini())) {
+      const g = leerGuion((await deps.leer()).crudo);
+      return { vista: vistaDeGuion(g, { aplica: true, sinGemini: true }), trabajo: null };
+    }
+    const r = await reclamarGuion(deps, Date.now(), TRANSCRIBIENDO_YT_VENCE_MS);
+    if (!r.corre) return { vista: vistaDeGuion(r.actual, { aplica: true }), trabajo: null };
+    const trabajo = async () => {
+      try {
+        const fin = await transcribirGuionYoutube(deps, enlace, p.duracion, r);
+        if (fin.estado !== 'listo') console.warn(`[spy-guion-yt] pieza=${p.id}: ${fin.motivo ?? (fin.reintentarEn ? `pendiente hasta ${fin.reintentarEn}` : fin.estado)}`);
+      } catch (e) {
+        console.error(`[spy-guion-yt] pieza=${p.id}:`, e instanceof Error ? e.message : String(e));
+      }
+    };
+    return { vista: vistaDeGuion(r.actual, { aplica: true }), trabajo };
+  }
   if (!opts.hayIA || !opts.hayClave) {
     const g = leerGuion((await deps.leer()).crudo);
     return { vista: vistaDeGuion(g, { aplica: true, sinIA: !opts.hayIA, sinClave: !opts.hayClave }), trabajo: null };
