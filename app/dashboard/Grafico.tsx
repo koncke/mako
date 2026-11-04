@@ -60,6 +60,7 @@ import { Tabla, extraDe } from './graficos/Tabla';
 import { BarrasGordas } from './graficos/BarrasGordas';
 import { BarraProporcion } from './graficos/BarraProporcion';
 import { Tramos } from './graficos/Tramos';
+import { Frase } from './graficos/Frase';
 import { Tarjetas } from './graficos/Tarjetas';
 import { Dispersion } from './graficos/Dispersion';
 import { puntoActivo, puntosDe } from './graficos/puntos';
@@ -92,7 +93,7 @@ export type EstadoDatos = { cargando: boolean; error?: string; resultado?: Resul
  * la línea de tiempo están en el grupo «Cuadro de resultados» del catálogo pero son GRÁFICOS: van con la
  * tarjeta de cualquier gráfico.
  */
-export const esTarjetaNumero = (tipo: string) => tipoDe(tipo)?.grupo === 'Cuadro de resultados' && tipo !== 'barra_proporcion' && tipo !== 'tramos';
+export const esTarjetaNumero = (tipo: string) => tipoDe(tipo)?.grupo === 'Cuadro de resultados' && tipo !== 'barra_proporcion' && tipo !== 'tramos' && tipo !== 'frase';
 
 /** El tile de cada número de la hoja, con el estilo de Corbel: lo usan los dos que dibujan una tarjeta (el editor y la miniatura). */
 export const tilesDeComponentes = (comps: readonly Componente[]) => tilesDeHoja(comps.map((c) => ({
@@ -333,6 +334,8 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
       return <BarraProporcion r={r} colorDe={colorDe} compacto={e.compacto} alMetrica={(i) => abrirMetrica(r.columnas[i]?.id)} />;
     }
     if (g.tipo === 'tramos') return <Tramos r={r} color={c(0)} compacto={e.compacto} alMetrica={(i) => abrirMetrica(r.columnas[i]?.id)} />;
+    // La oración de apertura (lib/graficos-frase.ts): sus números van ENTEROS salvo que el tema abrevie.
+    if (g.tipo === 'frase') return <Frase r={r} patron={g.frase} compacto={e.compacto} />;
 
     // ── Cuadros de resultados: la KPI de las tabs viejas ──
     if (info?.grupo === 'Cuadro de resultados' || g.tipo === 'serie_sparkline') {

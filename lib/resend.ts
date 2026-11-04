@@ -178,8 +178,31 @@ export function verifyUnsubscribeToken(leadId: number, token: string): boolean {
   const b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
-export function buildUnsubscribeUrl(leadId: number): string {
-  return `${APP_BASE_URL}/api/email/unsubscribe?lead=${leadId}&t=${unsubscribeToken(leadId)}`;
+/**
+ * El link de baja. Con `broadcastId`, la baja queda atribuida a ese envío (`email_broadcast_envios.baja_at`: las bajas de
+ * cada edición del newsletter). El `b` no va firmado y no hace falta: el token es del LEAD, y con un `b` cambiado sólo se
+ * estampa la fila de ese mismo lead en otro envío, si la tiene.
+ */
+export function buildUnsubscribeUrl(leadId: number, broadcastId?: number | null): string {
+  const b = broadcastId != null && Number.isSafeInteger(broadcastId) && broadcastId > 0 ? `&b=${broadcastId}` : '';
+  return `${APP_BASE_URL}/api/email/unsubscribe?lead=${leadId}&t=${unsubscribeToken(leadId)}${b}`;
+}
+
+// ── La baja de los correos de AVANCE de los tickets (4/11/2026) ──────────────
+// Es por PERSONA (`usuarios.id`), no por lead: lo que se apaga es «los avances de MIS tickets» (lib/tickets-avance.ts).
+// El mismo secreto que la baja de un lead, con OTRO prefijo adentro de la firma: un token de baja de un lead no sirve para
+// apagarle los correos a la persona con ese mismo número, ni al revés.
+export function tokenBajaTickets(usuarioId: number): string {
+  return crypto.createHmac('sha256', unsubSecret()).update(`tickets-email:${usuarioId}`).digest('hex').slice(0, 32);
+}
+export function verificarBajaTickets(usuarioId: number, token: string): boolean {
+  if (!unsubSecret()) return false;
+  const a = Buffer.from(token || '');
+  const b = Buffer.from(tokenBajaTickets(usuarioId));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+export function linkBajaTickets(usuarioId: number): string {
+  return `${APP_BASE_URL}/api/email/unsubscribe/tickets?u=${usuarioId}&t=${tokenBajaTickets(usuarioId)}`;
 }
 
 export type SendEmailResult = { ok: true; id: string } | { ok: false; error: string };

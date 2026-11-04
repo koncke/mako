@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="es" data-estilo="corbel" data-tema-inicial="claro"><head><meta charset="utf-8">
+<title>General — Dashboard de MaKo</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="movimiento.css">
+<style>
+/* GENERAL — referencias: Orvel (la oración de apertura y «te está esperando»)
+   y Corbel (la fila de KPI, el puntaje con veredicto, el link al pie de cada bloque).
+   La pregunta que contesta: ¿cómo viene el negocio y qué me está esperando?
+   Lo copiado es el GESTO, no las métricas: Orvel es banca y Corbel retail; MaKo es
+   ticket alto (coaches, agencias, consultoras), así que la unidad es la AGENDA y el
+   CIERRE, no la orden ni el envío. */
+.medidor{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 2px}
+.medidor .pun{font-size:54px;font-weight:600;letter-spacing:-2px;line-height:1}
+.medidor .de{font-size:var(--fs-sm);opacity:.72}
+.arco{width:100%;max-width:230px}
+.nota{background:#ffffff14;border-radius:var(--r-sm);padding:12px 14px;margin-top:14px}
+.nota b{font-size:var(--fs-md);font-weight:600;display:block;margin-bottom:3px}
+.nota span{font-size:var(--fs-sm);opacity:.76;line-height:1.4}
+.cols{display:flex;align-items:flex-end;gap:6px;height:168px;margin-top:16px;position:relative}
+.cols>div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:8px;height:100%;cursor:pointer}
+.cols i{display:block;width:100%;border-radius:8px 8px 4px 4px;background:var(--c2);transform-origin:50% 100%}
+.cols>div.on i{background:var(--c1)}
+.cols>div.prox i{background:repeating-linear-gradient(135deg,var(--hatch) 0 2px,transparent 2px 6px),var(--hatch-bg)}
+.cols span{font-size:var(--fs-2xs);color:var(--faint)}
+.cols>div.on span{color:var(--text);font-weight:600}
+.promedio{position:absolute;left:0;right:0;border-top:1px dashed var(--line-2);pointer-events:none}
+.promedio em{position:absolute;right:0;top:-17px;font-size:var(--fs-2xs);font-style:normal;color:var(--faint);
+  background:var(--bg);padding:0 5px}
+.act{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line)}
+.act:last-of-type{border-bottom:0}
+.act .ic{width:28px;height:28px;border-radius:9px;background:var(--well);display:flex;align-items:center;
+  justify-content:center;font-size:13px;flex:0 0 auto}
+.act .t{flex:1;min-width:0}
+.act .t b{font-size:var(--fs-md);font-weight:600;display:block}
+.act .t span{font-size:var(--fs-xs);color:var(--faint)}
+.act .q{font-size:var(--fs-2xs);font-weight:700;border-radius:999px;padding:3px 9px;background:var(--well);
+  color:var(--muted);white-space:nowrap}
+.mini{width:84px;height:44px;align-self:flex-end;margin-top:auto}
+.tile .fila-abajo{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:auto}
+</style></head>
+<body>
+
+<!-- 1. LA ORACIÓN DE APERTURA. Orvel: tres hechos, UNO accionable. Es texto, y es la
+        diferencia más grande con lo que teníamos: abríamos con un panel. -->
+<div class="cab">
+  <div>
+    <div class="h1">Cómo viene noviembre</div>
+    <div class="estado" data-mk="texto">Entraron <b>$12.400</b> este mes ·
+      <b>9 propuestas</b> esperan respuesta y <b>14 agendas</b> sin contactar ·
+      vas <b>18% arriba</b> de octubre con la misma inversión.</div>
+  </div>
+  <div class="btns" data-mk="texto">
+    <div class="btn">Exportar</div>
+    <div class="btn btn--ink">Ver las 14 agendas</div>
+  </div>
+</div>
+
+<div class="rejilla">
+
+  <!-- 2. LA FILA DE KPI. Corbel: 4 tiles, y el orden de contraste (negra, blanca,
+          gris, gris oscuro) es lo que hace que la fila se lea sin mirar el número.
+          Ningún número va solo: lleva su comparación Y su meta. -->
+  <div class="c12 kpis" data-grupo="kpis">
+    <div class="tile tile--1" data-mk="kpi">
+      <div class="rot">Facturado</div>
+      <div class="num" data-cuenta="1.3">$12.400</div>
+      <div class="meta"><span class="delta delta--up">▲ 18%</span> vs octubre</div>
+      <div class="fila-abajo">
+        <div style="font-size:var(--fs-sm);opacity:.74">62% de los $20.000 · faltan $7.600</div>
+      </div>
+      <div class="pie">Ver Cobranza →</div>
+    </div>
+    <div class="tile tile--2" data-mk="kpi">
+      <div class="rot">Agendas</div>
+      <div class="num" data-cuenta="0.6">48</div>
+      <div class="meta"><span class="delta delta--up">▲ 9</span> vs octubre</div>
+      <div class="fila-abajo">
+        <div style="font-size:var(--fs-sm);opacity:.74">31 fueron · <b>14 sin contactar</b></div>
+      </div>
+      <div class="pie">Ver el CRM →</div>
+    </div>
+    <div class="tile tile--3" data-mk="kpi">
+      <div class="rot">Cerrados</div>
+      <div class="num" data-cuenta="0.6">7</div>
+      <div class="meta"><span class="delta delta--down">▼ 2</span> vs octubre</div>
+      <div class="fila-abajo">
+        <div style="font-size:var(--fs-sm);opacity:.74">22,6% de las que fueron</div>
+      </div>
+      <div class="pie">Ver Closing →</div>
+    </div>
+    <div class="tile tile--4" data-mk="kpi">
+      <div class="rot">Costo por agenda</div>
+      <div class="num" data-cuenta="0.6">$37</div>
+      <div class="meta"><span class="delta delta--up">▼ $6</span> vs octubre</div>
+      <div class="fila-abajo">
+        <div style="font-size:var(--fs-sm);opacity:.74">$1.771 de pauta · meta $45</div>
+      </div>
+      <div class="pie">Ver Marketing →</div>
+    </div>
+  </div>
+
+  <!-- 3. EL PUNTAJE CON VEREDICTO EN PALABRAS. Corbel: «86 · Adelantado al plan — lo
+          online hizo casi todo el trabajo», con botón «Mejorá tu puntaje». El bloque
+          negro es el SEGUNDO de la página y NUNCA va a lo ancho en escritorio. -->
+  <div class="c4 card card--ink" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit" style="color:var(--on-ocean)">Salud del negocio</div>
+        <div class="sub">Sobre 100, con lo que pasó en 30 días</div></div>
+    </div>
+    <div class="medidor">
+      <svg class="arco" viewBox="0 0 200 108">
+        <path d="M14 100a86 86 0 0 1 172 0" fill="none" stroke="#ffffff26" stroke-width="13" stroke-linecap="round"/>
+        <path d="M14 100a86 86 0 0 1 172 0" fill="none" stroke="#f3f7f8" stroke-width="13" stroke-linecap="round"
+              pathLength="100" data-mk="anillo" stroke-dasharray="74 100"/>
+        <g font-size="10" fill="#f3f7f8" opacity=".55" font-weight="600">
+          <text x="14" y="107" text-anchor="middle">0</text>
+          <text x="186" y="107" text-anchor="middle">100</text>
+        </g>
+      </svg>
+      <div class="pun" data-cuenta="1.7" data-cuenta-delay="0.15">74</div>
+      <div class="de"><span class="delta delta--up">▲ 6</span> en 30 días</div>
+    </div>
+    <!-- 4. el veredicto, y el PORQUÉ. Sin esto el puntaje es un número suelto. -->
+    <div class="nota" data-mk="texto">
+      <b>Bien, con una fuga en el seguimiento</b>
+      <span>La pauta trae agendas más baratas que nunca, pero 14 de 48 no se contactaron
+        y 9 propuestas quedaron sin respuesta. Ahí está la plata que falta.</span>
+    </div>
+    <div class="pie" style="border-top-color:#ffffff2b;color:#f3f7f8b3">Cómo se calcula →</div>
+  </div>
+
+  <!-- 5. EL GRÁFICO DEL MES, con el promedio (que entra ÚLTIMO, a 1,45 s) y el mes
+          proyectado rayado. Corbel pone el recorte de tiempo DENTRO del bloque. -->
+  <div class="c8 card" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit">Facturado por mes</div>
+        <div class="sub">Lo cobrado, no lo prometido · el último mes es proyección</div></div>
+      <div class="seg"><b class="on">2026</b><b>2025</b></div>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <span style="font-size:var(--fs-display);font-weight:600;letter-spacing:-1.19px"
+            data-cuenta="1.3">$118.900</span>
+      <span class="sub">en el año · <b style="color:var(--up);font-weight:700">▲ 34%</b> vs 2025</span>
+    </div>
+    <div class="cols" data-grupo="cols">
+      <div><i data-mk="bary" style="height:38%"></i><span>Ene</span></div>
+      <div><i data-mk="bary" style="height:44%"></i><span>Feb</span></div>
+      <div><i data-mk="bary" style="height:35%"></i><span>Mar</span></div>
+      <div><i data-mk="bary" style="height:52%"></i><span>Abr</span></div>
+      <div><i data-mk="bary" style="height:48%"></i><span>May</span></div>
+      <div><i data-mk="bary" style="height:61%"></i><span>Jun</span></div>
+      <div><i data-mk="bary" style="height:57%"></i><span>Jul</span></div>
+      <div><i data-mk="bary" style="height:72%"></i><span>Ago</span></div>
+      <div><i data-mk="bary" style="height:66%"></i><span>Sep</span></div>
+      <div><i data-mk="bary" style="height:79%"></i><span>Oct</span></div>
+      <div class="on"><i data-mk="bary" style="height:93%"></i><span>Nov</span></div>
+      <div class="prox"><i data-mk="bary" style="height:88%"></i><span>Dic</span></div>
+      <div class="promedio" data-mk="avg" style="bottom:52%"><em>promedio $9.908</em></div>
+    </div>
+    <div class="pie">Abrir Cobranza →</div>
+  </div>
+
+  <!-- 6. «TE ESTÁ ESPERANDO». El bloque que convierte un informe en una herramienta.
+          Orvel, Moorly, Murmura, Noria y Coffer lo tienen; ninguna de nuestras 20
+          hojas lo tenía. El motivo al lado y el botón que lo resuelve. -->
+  <div class="c7 card card--aviso" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit">Te está esperando</div>
+        <div class="sub">Trabado por vos, no por el cliente</div></div>
+      <span class="chip chip--d">4</span>
+    </div>
+    <div data-grupo="esp">
+      <div class="fila" data-mk="fila"><div class="ic act-ic"></div>
+        <div class="t"><b>14 agendas sin contactar</b>
+          <span>Las más viejas son de hace 3 días · del anuncio «Método 90 días»</span></div>
+        <span class="chip chip--d" data-mk="chip">3 días</span>
+        <div class="accion">Abrir el CRM</div></div>
+      <div class="fila" data-mk="fila">
+        <div class="t"><b>9 propuestas sin respuesta</b>
+          <span>$31.400 en juego · la más vieja es de Ana Gómez, 28/10</span></div>
+        <span class="chip chip--w" data-mk="chip">$31.400</span>
+        <div class="accion">Hacer seguimiento</div></div>
+      <div class="fila" data-mk="fila">
+        <div class="t"><b>3 cuotas vencidas</b>
+          <span>$900 · la de Marta Díaz venció el viernes</span></div>
+        <span class="chip chip--d" data-mk="chip">$900</span>
+        <div class="accion">Cobrar</div></div>
+      <div class="fila" data-mk="fila">
+        <div class="t"><b>Carlos Ruiz cerró y no se le mandó el contrato</b>
+          <span>Cerró el 30/10 · $7.200</span></div>
+        <span class="chip chip--w" data-mk="chip">2 días</span>
+        <div class="accion">Mandar</div></div>
+    </div>
+    <div class="pie">Abrir el CRM →</div>
+  </div>
+
+  <!-- 7. BARRAS CON MARCA DE META Y VEREDICTO ESCRITO (Prism: «6,0×, por encima de
+          la meta»). La fórmula va en el subtítulo, no en un tooltip (Ledge). -->
+  <div class="c5 card" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit">Por oferta</div>
+        <div class="sub">Cobrado ÷ meta del mes · la raya es la meta</div></div>
+      <span class="nofiltra">Vista larga · no filtrada</span>
+    </div>
+    <div class="gl" data-grupo="gl">
+      <div><span data-mk="gllab">Mentoría Q4</span>
+        <div class="riel"><i data-mk="glbar" style="width:88%"></i>
+          <div class="meta-marca" style="left:75%"></div></div>
+        <b data-mk="gllab">$7.200</b></div>
+      <div><span data-mk="gllab">Método 90 días</span>
+        <div class="riel"><i data-mk="glbar" style="width:54%"></i>
+          <div class="meta-marca" style="left:75%"></div></div>
+        <b data-mk="gllab">$3.100</b></div>
+      <div><span data-mk="gllab">Consultoría 1:1</span>
+        <div class="riel"><i data-mk="glbar" style="width:31%"></i>
+          <div class="meta-marca" style="left:75%"></div></div>
+        <b data-mk="gllab">$1.400</b></div>
+      <div><span data-mk="gllab">Comunidad</span>
+        <div class="riel"><i data-mk="glbar" style="width:19%"></i>
+          <div class="meta-marca" style="left:75%"></div></div>
+        <b data-mk="gllab">$700</b></div>
+    </div>
+    <div class="veredicto" data-mk="texto"><b>Mentoría Q4 ya pasó su meta</b> y sostiene el mes.
+      Comunidad va en 19%: a este ritmo cierra noviembre en $1.100.</div>
+    <div class="pie">Abrir Comercial →</div>
+  </div>
+
+  <!-- 8. EL FEED CON QUIÉN LO HIZO, incluidos los que no son personas (Wharf:
+          `Sistema`, `Mensajería`). Acá MaKo es uno de los que trabajan. -->
+  <div class="c12 card" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit">Lo último</div>
+        <div class="sub">Quién hizo qué, MaKo incluida</div></div>
+      <span class="lnk">Ver todo</span>
+    </div>
+    <div data-grupo="act" style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px">
+      <div class="act" data-mk="fila"><div class="ic">◆</div>
+        <div class="t"><b>Jorge Peña pasó a «Propuesta enviada»</b><span>hace 12 min</span></div>
+        <span class="q">Luis</span></div>
+      <div class="act" data-mk="fila"><div class="ic">◆</div>
+        <div class="t"><b>Se contestaron 6 mensajes de WhatsApp</b><span>hace 20 min</span></div>
+        <span class="q">MaKo</span></div>
+      <div class="act" data-mk="fila"><div class="ic">◆</div>
+        <div class="t"><b>Cobrada la cuota 2 de Leila Ortiz · $300</b><span>hace 1 h</span></div>
+        <span class="q">Mercado Pago</span></div>
+      <div class="act" data-mk="fila"><div class="ic">◆</div>
+        <div class="t"><b>Se pausó el anuncio «Hook 7» por costo</b><span>hace 2 h</span></div>
+        <span class="q">MaKo</span></div>
+      <div class="act" data-mk="fila"><div class="ic">◆</div>
+        <div class="t"><b>Ana Gómez no vino a la R2</b><span>hace 3 h</span></div>
+        <span class="q">Calendario</span></div>
+      <div class="act" data-mk="fila"><div class="ic">◆</div>
+        <div class="t"><b>Entraron 9 agendas del «Método 90 días»</b><span>hoy</span></div>
+        <span class="q">Meta</span></div>
+    </div>
+    <div class="pie">Abrir el Centro de Operaciones →</div>
+  </div>
+</div>
+
+<script src="base.js"></script>
+</body></html>
