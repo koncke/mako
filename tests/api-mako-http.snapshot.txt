@@ -14,6 +14,7 @@ agregar_bloque_general
 agregar_bloque_landing
 agregar_capa_efecto_video
 agregar_dependencia_plan
+agregar_en_bloque_a_crm
 agregar_escenario_secuencia
 agregar_etapa
 agregar_filtro_dashboard
