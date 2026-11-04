@@ -30,6 +30,13 @@ Falla en la dirección peligrosa: dice «no lo elegía» en todos los casos. Es 
 
 **Ver una pantalla sin levantar `next dev`.** Arrancar local escribe en producción, y por eso una pantalla nueva se quedaba sin mirar hasta el despliegue. Sirve un arnés fuera del repo: `esbuild` empaqueta el componente real, un plugin cambia `./actions` por funciones falsas con un caso por `?e=` y los componentes con server actions por un stub, `globals.css` da los tokens reales, y `python -m http.server` lo sirve. Dos trampas: hay que definir `window.process` antes del bundle (`next/link` lo lee) y `esbuild` no resuelve bien con una ruta relativa larga a otro disco, se le da un alias. Con eso se ven los cuatro estados en escritorio, teléfono y oscuro sin tocar la base. No prueba las server actions ni la sesión.
 
+**El mismo arnés, con la pantalla ENTERA y el teléfono (el grupo de la app, 4/11/2026).** Sirve también para `ChatSecondBrain`, `ChatClienteM`, `ShellM` y `SheetM` de verdad: un plugin cambia cada archivo `'use server'` por funciones vacías (saca los nombres con una regex) y `next/navigation`, `next/link` y `next/dynamic` por stubs. Tres trampas:
+- Un `useRouter` de mentira que devuelve un objeto nuevo en cada render da «Maximum update depth» en `ShellM`, y parece un bug de la pantalla. El de Next es estable: el stub, una constante.
+- El tema del teléfono lo pisa `ShellM`: se elige con `localStorage['mako.modo']`, no con `data-tema`. Con `data-tema` la foto «en oscuro» sale clara.
+- `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream` hacen grabar de verdad en Chrome sin ventana: se vio salir la nota, ya en MP3, hasta el POST.
+
+**`tests/hook-en-node.ts` tiene `useCallback = (fn) => fn`.** Un efecto colgado de una función memorizada corre en CADA dibujo. Con un motor que carga en un efecto y marca `leyendo`, el sondeo no salía nunca y el test decía que el motor estaba roto. El hilo del grupo pasa su propio React, con `useCallback` de verdad (`REACT_CON_MEMO`, tests/grupos-ops-pantalla.test.ts). Sin arreglar en el arnés común: los otros tests dependen de cómo está.
+
 **Un SIN CHEQUEAR por RAM no acusa a los archivos.** La compuerta de esa punta (7.829 tests, 0 rojos, 66 min) dejó 18
 sin juzgar, con un mínimo de 0,3 GB libres: el vigía bajó sus tandas y el veredicto nombra a todos los de la tanda. Repetidos
 de a tres y esperando 2 GB libres, los primeros seis dieron 91 verdes y 0 rojos. No se separó qué lo resolvió, la tanda más

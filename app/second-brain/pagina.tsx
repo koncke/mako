@@ -35,7 +35,7 @@ import '@/app/admin/runway/decisiones.css';
 import '@/app/tickets/bandeja/bandeja.css';
 
 /** `?offer=` y `?antes=` (21/10/2026): la conversación de Offer o el chat de antes abierto, que se siguen en el Ops Center. */
-export type QuerySecondBrain = { coach?: string; chat?: string; offer?: string; antes?: string; panel?: string; area?: string; centro?: string; ticketera?: string; recorrido?: string };
+export type QuerySecondBrain = { coach?: string; grupo?: string; chat?: string; offer?: string; antes?: string; panel?: string; area?: string; centro?: string; ticketera?: string; recorrido?: string };
 
 /** ¿La URL pide el Mapa? `?panel=mapa`, o un `?area=` de los links de siempre. */
 export const pideElMapa = (q: QuerySecondBrain): boolean => q.panel === 'mapa' || !!q.area;

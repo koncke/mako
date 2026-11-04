@@ -17599,10 +17599,11 @@ curl -L \
   -d '{"nombre":"NOMBRE"}'
 ```
 
-### `POST /api/v1/equipo/escribir_en_grupo` — Escribir en el grupo
+### `POST /api/v1/equipo/grupo/mensajes` — Escribir en el grupo
 
 PROPONE escribir un mensaje en el grupo del negocio dentro de la app, firmado por MaKo (queda pendiente hasta el «sí»). Le suena a quienes están en el grupo. NO sale por WhatsApp.
 
+- **Ruta por operación:** `POST /api/v1/equipo/escribir_en_grupo`
 - **Token detallado:** permiso `equipo=write` (Lectura y escritura en «Cuenta, equipo y notificaciones»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -17617,7 +17618,14 @@ PROPONE escribir un mensaje en el grupo del negocio dentro de la app, firmado po
 | `texto` | string | sí | el mensaje, tal como se va a leer. |
 
 ```bash
-
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/equipo/grupo/mensajes" \
+  -d '{"texto":"TEXTO"}'
 ```
 
 ### `PATCH /api/v1/equipo/negocio/horario-envio` — Cambiar el horario de oficina

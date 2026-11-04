@@ -18,6 +18,8 @@ const SESION_CH = 'local_5cc6190d-8390-4df1-b215-849f5590ee30';
 /** El chat «Ops Center» de la cuenta 5 (Ananda), desde el 24/10/2026 a la noche. */
 const SESION_OPS5 = 'local_ea6ee0d2-c89d-49d7-b9a5-7354088461a9';
 const SESION_ESTRATEGIA = 'local_94ec0e46-f987-4530-a3cc-c5c1a0bc0601';
+/** El Cerebro de la cuenta 5, que corrió los grupos de la app (3/11/2026). */
+const SESION_GRUPOS = 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8';
 /** Desde el 15/10 a la noche, en la cuenta 3: el chat del Centro y el coordinador de esa cuenta. */
 const SESION_CH_3 = 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b';
 const SESION_ESTRATEGIA_3 = 'local_0f38f4d5-0e64-411e-b6c8-6d6ead20baed';
@@ -2124,6 +2126,34 @@ export const BITACORA: Hito[] = [
     archivos: [
       'lib/asesores/ficha-*.ts (diez) · lib/asesores/en-espera.ts — EN_ESPERA',
       'docs/relevo/nube-gurus.md · docs/hallazgos-ops-center.md',
+    ],
+  },
+  {
+    fecha: '3 nov', hora: '18:34', chat: 'Grupos de la app', sesion: SESION_GRUPOS, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los grupos adentro del Ops Center, con los avisos de WhatsApp',
+    pedido: '«algo súper importante que quiero que crees ya mismo es la funcionalidad de grupos, tipo grupos de WhatsApp dentro del Ops Center, de Mako, entonces básicamente los clientes pueden utilizar lo mismo que están utilizando hoy en día en los grupos de Mako en WhatsApp, pero dentro de la aplicación mobile. Es decir, que le puedan, por ejemplo, invitar a otros usuarios de Mako, en este caso a Joan y a Juanfran, que quieren estar pendientes, y que todas las notificaciones que hoy en día estamos enviando por WhatsApp también haya un chat específico dentro de lo que sería Mako Mobile, es decir, el Ops Center, que reciba todo eso, que sea el grupo justamente, y que esté posicionado arriba. Eso quisiera resolverlo así ellos lo pueden seguir utilizando.»',
+    puntos: ['WhatsApp baneó la línea de MaKo el mismo día: con la voz en el número personal de Martín, MaKo no puede escribir en buena parte de los grupos. El aviso tiene que llegar aunque WhatsApp no lo entregue.'],
+  },
+  {
+    fecha: '4 nov', hora: '02:00', chat: 'Grupos de la app', sesion: SESION_GRUPOS, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grupo del negocio, primero en la lista de chats',
+    revisar: '/second-brain',
+    puntos: [
+      '**Fijado arriba, en las cuatro listas:** debajo de «Nuevo chat», en la computadora y en el teléfono, del cliente y del super admin. Con la última línea, cuándo fue y cuántos faltan leer. También para un invitado de otro negocio.',
+      '**Como WhatsApp:** burbujas, nombre y hora; lo tuyo a la derecha y lo de los demás a la izquierda con su nombre. Los avisos de MaKo llevan su marca, y lo que vino de WhatsApp lo dice. Lo nuevo aparece solo. Fotos, PDF y notas de voz.',
+      '**Participantes:** quien administra invita por email y saca; un invitado sólo puede salir, y no ve ningún email. Nada es un buscador: no sirve para averiguar quién usa MaKo.',
+      '**Nunca en blanco:** cargando, la criatura; sin poder leer, «No pude abrir el grupo» con Reintentar; sacado, lo dice. Lo que no salió queda en el hilo con Reintentar, y reintentar no duplica.',
+      '**Se fue la fila «MaKo en WhatsApp» de sólo lectura:** saldría doble. Lo de antes se ve con «Ver lo anterior de WhatsApp», con el mismo corte.',
+      '**Sin mirar en la app de verdad:** se vio en un arnés con las piezas reales y un servidor de mentira, en claro y en oscuro, a 390 y a 1280, con clics, un archivo y el micrófono falso. La sesión y la base no se probaron ahí.',
+    ],
+    archivos: [
+      'app/_chat/grupo/ — el motor (useHiloDelGrupo.ts), la lista (useGrupos.ts), el hilo, la caja y Participantes; pantalla.ts decide lo que depende del rol',
+      'app/second-brain/ChatDelGrupo.tsx · app/m/second-brain/HojaDelGrupo.tsx · FilasDelGrupoM.tsx',
+      'app/_chat/HiloMako.tsx · app/admin/operaciones/Hilo.tsx (FilaDeOtro) · app/admin/operaciones/MensajeWA.tsx',
+      'tests/grupos-ops-pantalla.test.ts — el orden y el rol, con las piezas reales dibujadas, probado rompiéndolo',
+      'docs/hallazgos-ops-center.md — lo que costó y lo que falta',
     ],
   },
 ];
