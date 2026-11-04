@@ -72,7 +72,7 @@ test('3. lo que escribió Martín no se corta; y desde el 25/10/2026 lo que cont
 test('4. `vigilar` da la vuelta completa cuando un transcript creció (lo escrito en la app), una cada 10 s', () => {
   const src = leer('scripts/operaciones/cartero.mjs');
   assert.match(src, /const crecio = ahora\(\) - ultima >= CADA_TURNOS_MS && transcriptsCrecidos\(cuenta, cfg, propio\);/);
-  assert.match(src, /if \(\(hay > 0 \|\| fallo \|\| crecio\) && ahora\(\) - ultima >= /, 'cuenta como «hay algo»');
+  assert.match(src, /if \(\(hay > 0 \|\| fallo \|\| crecio \|\| r\.salteada\) && ahora\(\) - ultima >= /, 'cuenta como «hay algo»');
   assert.match(src, /if \(tam > marca\.offset\) return true;/, 'creció más allá de lo que ya subió');
   assert.match(src, /CARTERO_TURNOS_MS\) \|\| 10_000\)/, 'como mucho una vuelta cada 10 s');
 });

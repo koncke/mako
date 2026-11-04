@@ -68,6 +68,12 @@ export async function crearClaveDelDispositivo(sub: string): Promise<ClaveDispos
   return describir(par);
 }
 
+/** ¿Esta firma (r||s en base64) es de ESTE dispositivo sobre ese texto? Lo que se vuelve a firmar se mira antes (lib/centro-limbo.ts). */
+export async function firmaEsDeEste(clave: ClaveDispositivo, texto: string, firmaB64: string): Promise<boolean> {
+  const firma = Uint8Array.from(atob(firmaB64), (c) => c.charCodeAt(0));
+  return crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, clave.par.publicKey, firma, new TextEncoder().encode(texto));
+}
+
 /** Firma el texto tal cual (UTF-8). Devuelve r||s en base64, que es lo que da WebCrypto. */
 export async function firmar(clave: ClaveDispositivo, texto: string): Promise<string> {
   const firma = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, clave.par.privateKey, new TextEncoder().encode(texto));

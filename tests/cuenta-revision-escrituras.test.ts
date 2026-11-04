@@ -11,6 +11,9 @@
 //      hasta que alguien decide si un tercero con esa contraseña la puede usar y regenera la lista:
 //        MAKO_REGENERAR_SNAPSHOT=1 node --import tsx --test tests/cuenta-revision-escrituras.test.ts
 //
+// ⚠️ Esto llama a `proxy()` DIRECTO y no ve el matcher de proxy.ts: que cada pedido LLEGUE al proxy lo mira
+// tests/proxy-matcher-completo.test.ts (4/11/2026: `POST /crm/x.png` con `Next-Action` no llegaba, y acá daba todo verde).
+//
 // Correr: node --import tsx --test tests/cuenta-revision-escrituras.test.ts
 //
 // ⚠️ PROBADO ROMPIÉNDOLO (4/11/2026, base 6 / 0; una rotura por vez, restaurada de memoria):

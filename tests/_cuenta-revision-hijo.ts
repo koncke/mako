@@ -133,6 +133,23 @@ async function main() {
   const waCloser = await enPedido(COOKIE_CLOSER, () => enviarTexto('5215512345678', 'hola'));
   R.whatsappCloser = { ok: waCloser.ok, error: waCloser.ok ? null : waCloser.error, aEvolution: salio.evolution - evCloser };
   R.motivo = MOTIVO_ENVIO_EN_REVISION;
+  // Y la línea de MaKo tampoco (4/11/2026, la segunda revisión): las tareas de una reunión caían a ella cuando la guarda le decía que no
+  // a la del negocio, y el bot (lib/mako-salida.ts) y todo lo que pasa por `antesDeEscribir` (lib/linea-freno.ts) preguntan lo mismo.
+  const { enviarTareasAPersona } = await imp('lib/reunion-destinatarios.ts');
+  const { enviarAlChat } = await imp('lib/mako-salida.ts');
+  const { antesDeEscribir } = await imp('lib/linea-freno.ts');
+  const evTareas = salio.evolution;
+  const tareas = await enPedido(COOKIE_REV, () => enviarTareasAPersona({
+    de: 'R', dest: { email: 'y@afuera.test', nombre: 'Y', registrado: false, workspaceId: null, telefono: '5215512345678', puedeCargarPlan: false },
+    tareas: [{ titulo: 'Mandar el presupuesto' }], reunion: { titulo: 'Junta' }, canales: { wa: true },
+  }));
+  R.tareasRevision = { wa: tareas.wa ?? null, aEvolution: salio.evolution - evTareas };
+  const evBot = salio.evolution;
+  const bot = await enPedido(COOKIE_REV, () => enviarAlChat('5215512345678@s.whatsapp.net', 'hola'));
+  R.botRevision = { ok: bot.ok, error: bot.ok ? null : bot.error, aEvolution: salio.evolution - evBot };
+  R.lineaRevision = await enPedido(COOKIE_REV, () => antesDeEscribir('/message/sendText/mako_voz'));
+  R.lineaRevisionLeer = await enPedido(COOKIE_REV, () => antesDeEscribir('/group/findGroupInfos/mako_voz'));
+  R.lineaCloser = await enPedido(COOKIE_CLOSER, () => antesDeEscribir('/message/sendText/mako_voz'));
 
   // ── La sesión: rotar la contraseña la cierra ───────────────────────────────
   const fila = db.usuario_contrasena.find((f) => f.usuario_id === REV.id)!;
@@ -188,6 +205,12 @@ async function main() {
   const sinRastroRes = await pedirEntrada(CONTRASENA, '198.51.100.4');
   R.entradaSinRastro = { status: sinRastroRes.status, conSesion: sinRastroRes.conSesion };
   sinRastro = false;
+  // Con la fila tocada (alguien le cambió el `rol_ws`), no entra por el camino de todos: sin la marca, el proxy no la cortaría.
+  REV.rol_ws = 'admin';
+  const antesTocada = salio.resend.length;
+  const tocada = await pedirEntrada(CONTRASENA, '198.51.100.4');
+  R.entradaConLaFilaTocada = { status: tocada.status, conSesion: tocada.conSesion, avisos: salio.resend.length - antesTocada };
+  REV.rol_ws = 'closer';
   const antesFallo = salio.resend.length;
   const fallo = await pedirEntrada('otra-cosa-que-no-es', '192.0.2.99');
   const sinAvisoAntesDeContestar = salio.resend.length - antesFallo;

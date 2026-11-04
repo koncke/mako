@@ -16,16 +16,20 @@
 // ⚠️ NUNCA la key de Resend del negocio: la fila del ws 1 es la de la PLATAFORMA (lib/credenciales.ts), y una key de
 // Mauricio ahí desviaría los avisos de MaKo a su cuenta. Su email sale de SU dominio, verificado en la cuenta de MaKo.
 // ⚠️ Y el email de MaKo no es de ningún negocio: el dominio de MaKo sólo lo conecta la plataforma (`esDominioDeMako`).
+// ⚠️ Y LA CLAVE QUE ADMINISTRA DOMINIOS NO ES LA QUE MANDA (4/11/2026): la de producción es de sólo envío y así se queda. El
+// alta, la lectura y la verificación usan `RESEND_ADMIN_API_KEY` (lib/resend-dominios.ts, el único que la lee). Sin ella,
+// `prepararConexion` y `prepararVerificacion` frenan ANTES de crear nada, con un error que dice que es de MaKo (`nuestra`).
 // =============================================================================
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import {
-  createResendDomain, getResendDomain, verifyResendDomain, prenderSeguimiento,
+  createResendDomain, getResendDomain, verifyResendDomain, prenderSeguimiento, puedeAdministrarDominios,
   getEmailFrom, emailConectado, remitenteEsSandbox, resendConfigurado,
   type ResendDomain,
 } from './resend';
+import { SIN_CLAVE_DE_DOMINIOS } from './resend-errores';
 import { envioEmailHabilitado, setEnvioEmail } from './envio-flags';
 import { EMAIL_MAKO } from './app-url';
 import { esDominioDeMako, NO_ES_TUYO } from './email-remitente';
@@ -38,8 +42,15 @@ import {
 /** El setting de la dirección de respuestas. */
 export const KEY_RESPONDER_A = 'resend_reply_to';
 
-export type Falla = { ok: false; error: string; status: number };
+/** `nuestra`: la falla es de MaKo (una clave que falta), no de lo que pidió la persona. La API la marca `falla: true`. */
+export type Falla = { ok: false; error: string; status: number; nuestra?: true };
 const falla = (error: string, status: number): Falla => ({ ok: false, error, status });
+const sinClave = (): Falla => ({ ok: false, error: SIN_CLAVE_DE_DOMINIOS, status: 503, nuestra: true });
+
+/** LO QUE SE PUEDE SABER SIN ESCRIBIR antes de verificar: que haya con qué hablarle a Resend de dominios. */
+export async function prepararVerificacion(): Promise<{ ok: true } | Falla> {
+  return (await puedeAdministrarDominios()) ? { ok: true } : sinClave();
+}
 
 /**
  * TITULARIDAD (anti-spoofing entre negocios): con la cuenta única de Resend, un dominio de un negocio B no lo puede
@@ -115,6 +126,8 @@ export async function prepararConexion(ws: number, raw: unknown): Promise<{ ok: 
   if (!dominio) return falla(DOMINIO_INVALIDO, 400);
   if (esDominioDeMako(dominio) && !(await esPlataforma(ws))) return falla(NO_ES_TUYO, 403);
   if (await reclamadoPorOtroWs(dominio, ws)) return falla(`Ese dominio ya está conectado en otro negocio. Si es tuyo, escríbenos a ${EMAIL_MAKO}.`, 403);
+  // Sin la clave que administra dominios no se crea nada: ni el dominio en Resend ni una línea en los settings.
+  if (!(await puedeAdministrarDominios())) return sinClave();
   const previo = (await getSettingEstricto('resend_domain'))?.trim() || null;
   return { ok: true, dominio, reemplaza: previo && previo !== dominio ? previo : null };
 }
@@ -143,6 +156,8 @@ export async function conectarDominio(ws: number, raw: unknown): Promise<Conexio
 export async function verificarDominio(): Promise<{ ok: true; dominio: string | null; estado: string | null; registros: RegistroDns[]; seguimiento: true | string | null } | Falla> {
   const id = (await getSettingEstricto('resend_domain_id'))?.trim();
   if (!id) return falla('Primero agrega tu dominio.', 400);
+  const listo = await prepararVerificacion();
+  if (!listo.ok) return listo;
   const v = await verifyResendDomain(id);
   if (!v.ok) return falla(v.error ?? 'Resend no pudo verificar el dominio.', 502);
   const d = await getResendDomain(id);
