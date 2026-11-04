@@ -4,7 +4,7 @@
 // GET ?estado=1 → { ok, conexion: ConexionMeta } (22/10/2026): ¿el negocio puede buscar en Meta? Sin buscar a nadie
 //   (`conexionDeMeta`, abajo). El buscador lo pregunta al enfocar el campo, para ofrecer «Conectar Meta» ANTES de que se
 //   escriba el @ a ciegas. `&fresco=1` (después de conectar) olvida lo guardado en la caché de ese negocio.
-// GET ?q=<texto> → { ok, perfiles: PerfilIg[], porNombre, meta }
+// GET ?q=<texto> → { ok, perfiles: PerfilIg[], porNombre, meta, limite }
 //   · perfiles   — lo que contestaron Meta y Google, sin repetidos, Meta primero (hasta 8).
 //   · porNombre  — true si Google contestó: el buscador por NOMBRE está andando. Con false (sin las
 //                  claves de la plataforma, sin cuota o caído) la pantalla pide el @ exacto cuando
@@ -54,6 +54,7 @@ import {
   clavesQueOlvida, tocaRefrescar, type AnotadoFresco,
 } from '@/lib/instagram-buscar';
 import { leerPerfilInstagram } from '@/lib/instagram-perfil-server';
+import { gastarBusquedaDeSpy, topeDeSpyAgotado } from '@/lib/instagram-perfil-server';
 
 export const dynamic = 'force-dynamic';
 /**
@@ -116,6 +117,7 @@ async function buscarConApify(texto: string, ws: number): Promise<PerfilIg[]> {
   const { APIFY_CLAVE_DE_SPY } = await import('@/lib/instagram-perfil');
   const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
   if (!token) return [];
+  if (!gastarBusquedaDeSpy(ws)) return [];
   const hallados = await buscarPerfilesApify(texto, token);
   if (hallados.length) guardarCache(clave, hallados);
   return hallados;
@@ -376,6 +378,8 @@ export async function GET(req: NextRequest) {
     ok: true,
     perfiles: combinarPerfiles(meta.perfiles, google?.perfiles ?? []),
     meta: meta.estado,
+    // Sin resultados porque se acabó el tope de hoy: la pantalla lo dice en vez de «no encontré a nadie».
+    limite: !meta.perfiles.length && !google?.perfiles.length && topeDeSpyAgotado(ws),
     // false = Google no pudo contestar (sin claves, sin cuota, caído): sin resultados, la pantalla
     // pide el @ exacto. null = no se le preguntó.
     porNombre: google ? google.respondio : null,

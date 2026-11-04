@@ -104,6 +104,23 @@ async function porApify(usuario: string, token: string, conPiezas = false): Prom
   return leerPerfilDeApify(usuario, cuerpo, conPiezas);
 }
 
+/**
+ * Anota UNA búsqueda por nombre en el tope de hoy de la clave de Spy del negocio. false = ya no queda.
+ *
+ * ⚠️ LA CABECERA DE lib/instagram-buscar-apify.ts DECÍA QUE EL TOPE LA CUBRÍA Y NO ERA CIERTO: `leerPerfilInstagram` contaba sus
+ * lecturas y la búsqueda corría sin contar nada, así que escribir nombres no tenía techo.
+ */
+export function gastarBusquedaDeSpy(ws: number): boolean {
+  const cuenta = `s${ws}|${hoy()}`;
+  const usadas = apifyHoy.get(cuenta) ?? 0;
+  if (usadas >= APIFY_TOPE_POR_DIA) return false;
+  apifyHoy.set(cuenta, usadas + 1);
+  return true;
+}
+
+/** ¿Este negocio ya gastó el tope de hoy con su clave de Spy? Para que la pantalla no diga «no hay nadie» cuando es esto. */
+export const topeDeSpyAgotado = (ws: number): boolean => (apifyHoy.get(`s${ws}|${hoy()}`) ?? 0) >= APIFY_TOPE_POR_DIA;
+
 /** Cuánto «dice» un fallo: el mejor gana para contarle al dueño qué pasó. */
 const PESO: Record<MotivoInstagram, number> = { 'no-esta': 5, 'sin-permiso': 4, limite: 3, 'sin-cuenta': 2, error: 1, 'sin-conexion': 0 };
 
@@ -112,7 +129,11 @@ const PESO: Record<MotivoInstagram, number> = { 'no-esta': 5, 'sin-permiso': 4, 
  * plataforma no tiene, su Apify). `fuentes` = cuáles probar (el alta ya preguntó a Meta con sus candidatos: sólo Apify).
  */
 export async function leerPerfilInstagram(
-  usuario: string, opts: { ws?: number | null; fuentes?: readonly FuenteInstagram[]; conPiezas?: boolean } = {},
+  usuario: string, opts: {
+    ws?: number | null; fuentes?: readonly FuenteInstagram[]; conPiezas?: boolean;
+    /** Cuántas lecturas del tope diario NO puede tocar esta llamada. Lo que nadie pidió con un clic deja margen. */
+    reservaApify?: number;
+  } = {},
 ): Promise<LecturaConFuente> {
   // El @ se valida ACÁ también (B3): entra a la expansión de campos de Graph, con el token de la plataforma.
   if (usuarioDeTexto(usuario) !== usuario) return { ok: false, motivo: 'no-esta', detalle: 'no es un usuario de Instagram' };
@@ -125,7 +146,16 @@ export async function leerPerfilInstagram(
   // ⚠️ SI TIENE LA CLAVE DE SPY TAMBIÉN ENTRA EN LA CLAVE DE LA CACHÉ: un fallo se recuerda 10 minutos, y sin esto, pegar la clave y tocar «Revisar
   // ahora» seguía contestando «no pude» aunque ya hubiera con qué.
   const claveDeSpy = fuentes.includes('apify-spy') && ws != null ? await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null) : null;
-  const clave = `${ws ?? '-'}|${usuario}|${fuentes.join(',')}|${opts.conPiezas ? 'anchas' : 'angostas'}|${claveDeSpy ? 'spy' : ''}`;
+  // ⚠️ CON RESERVA ES OTRA CLAVE: un «tope» de quien tiene reserva no puede tapar 10 minutos a quien sí puede leer. Sin esto, la fila
+  // que no se completó le contestaba «no pude» a la vista previa que la persona pidió con un clic.
+  const reserva = opts.reservaApify ?? 0;
+  const clave = `${ws ?? '-'}|${usuario}|${fuentes.join(',')}|${opts.conPiezas ? 'anchas' : 'angostas'}|${reserva}|${claveDeSpy ? 'spy' : ''}`;
+  // ⚠️ LO LEÍDO BIEN SE COMPARTE ENTRE QUIENES LLAMAN, sea cual sea su lista de fuentes (3/11/2026). La clave de arriba lleva la lista,
+  // así que el buscador (`meta-plataforma,apify,apify-spy`) y la vista previa (`meta-negocio,…`) pagaban DOS veces a la misma persona:
+  // escribir su @ gastaba una lectura y confirmarla, otra. Un perfil leído es el mismo perfil venga de la fuente que venga.
+  const claveLeido = `${ws ?? '-'}|${usuario}|leido|${opts.conPiezas ? 'anchas' : 'angostas'}`;
+  const leido = cache.get(claveLeido);
+  if (leido && leido.hasta > Date.now()) return leido.lectura;
   const ya = cache.get(clave);
   if (ya && ya.hasta > Date.now()) return ya.lectura;
   let peor: Extract<LecturaInstagram, { ok: false }> = { ok: false, motivo: 'sin-conexion', detalle: 'ninguna fuente para leer Instagram' };
@@ -139,6 +169,7 @@ export async function leerPerfilInstagram(
   const guardar = (l: LecturaConFuente): LecturaConFuente => {
     const sabe = l.ok || (l.motivo === 'no-esta' && noEstaDeApify);
     guardarEnCache(clave, { hasta: Date.now() + (sabe ? 24 * 3600_000 : 10 * 60_000), lectura: l });
+    if (l.ok) guardarEnCache(claveLeido, { hasta: Date.now() + 24 * 3600_000, lectura: l });
     return l;
   };
   // Meta leyó el perfil pero sin las publicaciones: sirve, pero si otra fuente las trae, gana ella.
@@ -150,7 +181,7 @@ export async function leerPerfilInstagram(
         if (!claveDeSpy) continue;
         const cuenta = `s${ws}|${hoy()}`;
         const usadas = apifyHoy.get(cuenta) ?? 0;
-        if (usadas >= APIFY_TOPE_POR_DIA) { anotar({ ok: false, motivo: 'limite', detalle: `tope de ${APIFY_TOPE_POR_DIA} lecturas por día` }); continue; }
+        if (usadas >= APIFY_TOPE_POR_DIA - reserva) { anotar({ ok: false, motivo: 'limite', detalle: `tope de ${APIFY_TOPE_POR_DIA} lecturas por día` }); continue; }
         apifyHoy.set(cuenta, usadas + 1);
         const l = await porApify(usuario, claveDeSpy, opts.conPiezas).catch((e): LecturaInstagram => ({ ok: false, motivo: 'error', detalle: msg(e) }));
         if (l.ok) return guardar({ ...l, fuente: 'apify-spy' });
@@ -181,7 +212,7 @@ export async function leerPerfilInstagram(
       if (!token) continue;
       const cuenta = `${deLaPlataforma ? `p${plataforma}` : `n${ws}`}|${hoy()}`;
       const usadas = apifyHoy.get(cuenta) ?? 0;
-      if (usadas >= APIFY_TOPE_POR_DIA) { anotar({ ok: false, motivo: 'limite', detalle: `tope de ${APIFY_TOPE_POR_DIA} lecturas por día` }); continue; }
+      if (usadas >= APIFY_TOPE_POR_DIA - reserva) { anotar({ ok: false, motivo: 'limite', detalle: `tope de ${APIFY_TOPE_POR_DIA} lecturas por día` }); continue; }
       apifyHoy.set(cuenta, usadas + 1);
       const l = await porApify(usuario, token).catch((e): LecturaInstagram => ({ ok: false, motivo: 'error', detalle: msg(e) }));
       if (l.ok) return guardar({ ...l, fuente: 'apify' });

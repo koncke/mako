@@ -22,8 +22,7 @@ import { nombresDe } from '@/lib/landing-snapshot';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { marcarActosSpy } from '@/lib/spy-actos';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
-import { leerPerfilInstagram } from '@/lib/instagram-perfil-server';
-import { queEs } from '@/lib/spy';
+import { leerPerfilParaElAlta, queEs } from '@/lib/spy';
 import type { CanalSpy, EtapaTendencia } from '@/lib/spy-reglas';
 import { buscarOtrasRedes } from '@/lib/spy-otras-redes';
 import type { CandidatoRed } from '@/lib/spy-otras-redes-reglas';
@@ -134,7 +133,7 @@ export async function vistaPreviaAction(pegado: string): Promise<{ ok: true; vis
     // al canal y la landing habría que bajarla. Para esos dos se confirma con lo que se pegó.
     if (leido.campo !== 'instagram') return { ok: true, vista: { campo: leido.campo, valor: leido.valor } };
 
-    const l = await leerPerfilInstagram(leido.valor, { ws: await getWorkspaceActual(), conPiezas: false });
+    const l = await leerPerfilParaElAlta(leido.valor);
     if (!l.ok) {
       return { ok: true, vista: { campo: leido.campo, valor: leido.valor, aviso: `No pude leer @${leido.valor} para mostrarte quién es. Puedes agregarlo igual.` } };
     }
