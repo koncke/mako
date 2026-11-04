@@ -128,20 +128,33 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     ],
   },
   {
+    // 4/11/2026 — SUNROW · TORQUE (docs/templates-dashboard-propuesta.md §7.3): «¿cada cliente va en fecha?». Torque es el tablero de
+    // lo que está en curso: cuántos clientes hay en cada etapa de la entrega y cuántos avanzaron este mes. Sunrow, cada cliente con su
+    // fila: quién te necesita y hace cuánto no hablan. ⚠️ «En fecha» de verdad pide una fecha comprometida por etapa, que la entrega no
+    // guarda: lo que se mide es cuándo llegó cada uno a su etapa (docs/relevo/nube-dashboards.md).
     id: 'servicio', nombre: 'Agencia o servicio', emoji: '🤝',
-    linea: 'Tus clientes en cada etapa de la entrega, quién te necesita y lo que te deben.',
+    linea: 'Tus clientes en cada etapa de la entrega, quién avanzó, quién te necesita y lo que te deben.',
     subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
-      deHoy('clientes', 'cartera', 'clientes', 'Clientes activos'),
-      deHoy('atencion', 'cartera', 'atencion', 'Piden atención'),
-      deHoy('deuda', 'cartera', 'deuda_vencida_usd', 'Deuda vencida'),
-      deHoy('sesiones', 'cartera', 'sesiones', 'Sesiones'),
-      { local: 'etapas', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Clientes por etapa de la entrega' },
-      bloque('cobranza'), bloque('llamadas'), bloque('agenda'),
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'cartera', fecha: 'actual', metricas: ['atencion', 'sesiones', 'cuotas_vencidas'], dimension: null, titulo: 'Tu cartera',
+        frase: '{atencion} clientes te necesitan hoy · {sesiones} sesiones dadas · {cuotas_vencidas} cuotas vencidas', ir: 'clients',
+      },
+      deHoy('clientes', 'cartera', 'clientes', 'Clientes'),
+      numero('avanzaron', 'entrega', 'clientes', 'Avanzaron de etapa', { fecha: 'desde', invertida: true, ir: 'clients' }),
+      { ...deHoy('deuda', 'cartera', 'deuda_vencida_usd', 'Deuda vencida'), ir: 'cobranza' },
+      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago', ir: 'cobranza' }),
+      { local: 'etapas', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Clientes por etapa', ir: 'clients' },
+      { local: 'por-producto', tipo: 'anillo', fuente: 'entrega', fecha: 'actual', dimension: 'producto', metricas: ['clientes'], titulo: 'Por funnel' },
+      {
+        local: 'contacto', tipo: 'barras', fuente: 'cartera', fecha: 'actual', dimension: 'tramo_contacto', metricas: ['clientes'], titulo: 'Hace cuánto no hablan',
+      },
+      { local: 'ritmo', tipo: 'columnas', fuente: 'entrega', fecha: 'desde', dimension: 'semana', metricas: ['clientes'], titulo: 'Avanzaron, por semana' },
       {
         local: 'quien', tipo: 'tarjetas', fuente: 'cartera', dimension: 'cliente', metricas: ['atencion', 'deuda_vencida_usd', 'sesiones'],
         ordenMetrica: 'atencion', barra: 'deuda_vencida_usd', limite: 3, tabla: { columnas: ['senal', 'tramo_contacto'] }, titulo: 'Quién te necesita hoy',
       },
+      bloque('cobranza', { titulo: 'Lo que te deben' }), bloque('agenda'),
     ],
   },
   {
@@ -185,7 +198,7 @@ export const PORTADAS_GENERAL: Readonly<Record<string, DefinicionPortada>> = {
   general: { sube: 'cabecera', vecino: 'cabecera', par: ['por-mes', 'semaforo'], molde: 'ledge' },
   foco: { sube: 'objetivos', vecino: 'objetivos', par: ['agenda', 'llamadas', 'tareas', 'deadlines'], molde: 'moorly' },
   operacion: { sube: 'prioridades', cambios: { texto: 'Lo primero de hoy' }, vecino: 'prioridades', par: ['cobranza', 'llamadas', 'agenda', 'deadlines', 'funnel'], molde: 'tilvo' },
-  servicio: { sube: 'etapas', molde: 'prism' },
+  servicio: { sube: 'etapas', vecino: 'etapas', par: ['por-producto', 'contacto'], molde: 'prism' },
   curso: { sube: 'tendencia', molde: 'corbel' },
   instagram: { sube: 'plataformas', molde: 'prism' },
 };
