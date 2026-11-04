@@ -184,3 +184,21 @@ export function textoDeGoteo(g: Goteo | null | undefined): string {
   const partes = [g.minutos != null ? `uno cada ${g.minutos} min` : '', g.dia != null ? `hasta ${g.dia} por día` : '', g.arranque && g.dia != null ? `por WhatsApp arranca con ${g.arranque.dia} y sube ${g.arranque.sube} por día` : ''].filter(Boolean);
   return `${partes.join(', ')}, dentro del tope de la línea`;
 }
+
+/**
+ * LA RAMPA DEL EMAIL DE LA LÍNEA (4/11/2026, la campaña de email de Mauricio: 1.128 personas y un dominio recién
+ * conectado). El tope de email del negocio (`LimitesEnvio.email`) arranca en `arranqueDia` y sube `arranqueSube` cada día
+ * que llegó a su tope, hasta `dia`: la misma cuenta que el arranque de WhatsApp (`subidasDelArranque`), por lo que MANDÓ y
+ * no por fecha. `dias`: los emails enviados por día del negocio, en su zona. Sin rampa (arranca en el tope o más), el tope.
+ */
+export function rampaDeEmail(email: { dia: number; arranqueDia: number; arranqueSube: number }): { dia: number; arranque: ArranqueGoteo } | null {
+  if (email.arranqueDia >= email.dia) return null;
+  return { dia: email.dia, arranque: { dia: email.arranqueDia, sube: email.arranqueSube } };
+}
+
+/** El tope de email de HOY con la rampa (ver `rampaDeEmail`). */
+export function topeConRampa(email: { dia: number; arranqueDia: number; arranqueSube: number }, dias: ReadonlyMap<string, number>, hoy: string): number {
+  const g = rampaDeEmail(email);
+  if (!g) return email.dia;
+  return goteoDeHoy(g, subidasDelArranque(dias, hoy, g))?.dia ?? email.dia;
+}

@@ -344,17 +344,15 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'desde', tipo: 'number', minimo: 0, maximo: 23.5, descripcion: 'con horario propio: la hora en que abre (9.5 = 9:30).' },
       { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'con horario propio: la hora en que cierra (21 = hasta las 20:59).' },
       { nombre: 'dias', tipo: 'string', max: 40, descripcion: 'con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos.' },
-      { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo, minutos entre dos mensajes por un mismo canal.' },
+      { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: minutos entre dos mensajes por canal.' },
       { nombre: 'goteoArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: WhatsApp arranca con estos por día (con tope).' },
       { nombre: 'goteoArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: y sube esto cada día que llega al suyo.' },
       { nombre: 'sinArranque', tipo: 'boolean', descripcion: 'opcional: true lo saca.' },
-      { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: el tope de mensajes en 24 h por canal (adentro del tope de la línea).' },
+      { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: tope de mensajes en 24 h por canal.' },
       { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo y el tope por día.' },
-      // Las columnas del email (4/11/2026, lib/email-eventos-crm.ts): la key de una columna del CRM de la automatización.
-      { nombre: 'columnaEnviado', tipo: 'string', max: 60, descripcion: 'opcional: la key de la columna de su CRM a la que pasa la tarjeta cuando le sale un email ("ninguna" la saca).' },
-      { nombre: 'columnaAbrio', tipo: 'string', max: 60, descripcion: 'opcional: la columna cuando abre un email ("ninguna" la saca).' },
-      { nombre: 'columnaClic', tipo: 'string', max: 60, descripcion: 'opcional: la columna cuando hace clic en un link ("ninguna" la saca). Con columnas, a quien gana o deja de estar abierto no le salen más emails de ella.' },
-      { nombre: 'sinColumnasEmail', tipo: 'boolean', descripcion: 'opcional: true le saca las tres columnas del email.' },
+      // Las columnas del email (4/11/2026, lib/email-eventos-crm.ts): UN parámetro y corto, a propósito. Con cuatro, la op
+      // creció 600 caracteres y dejó a `cambiar_crons_secuencia` fuera del presupuesto del turno (tests/ops-center-bateria).
+      { nombre: 'columnasEmail', tipo: 'string', descripcion: 'opcional: "enviado=key,abrio=key,clic=key", columnas de su CRM que siguen al email («ninguna» saca).' },
     ],
     reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario, el goteo y las columnas del email de esa automatización)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
@@ -856,5 +854,31 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'cual', tipo: 'string', obligatorio: true, enum: ['respondieron', 'en_curso', 'entraron'], descripcion: 'cuál número.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // LOS TOPES DE ENVÍO DEL NEGOCIO (4/11/2026, la campaña de email de Mauricio, punto 7): `mako.limites_envio`
+  // (lib/limites-envio.ts). Ya no están en la pantalla (23/10/2026: «No quiero nada para todas las automatizaciones»), pero el
+  // Claude del cliente los tiene que poder leer y cambiar. Van AL FINAL del área, con palabras que no son las del área.
+  {
+    id: 'ver_limites_envio', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Ver los topes de envío',
+    descripcion: 'Los topes del negocio por día y por hora, la rampa del dominio de email (con el tope de hoy), lo que ya salió en 24 h y si el email está frenado por rebotes o quejas.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  {
+    id: 'cambiar_limites_envio', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar los topes de envío',
+    descripcion: 'PROPONE cambiar los topes del negocio (valen para todas): por día y por hora de la línea de WhatsApp, por día de email y su rampa. Mira antes ver_limites_envio.',
+    parametros: [
+      { nombre: 'waDia', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: WhatsApp por día (en 24 h).' },
+      { nombre: 'waHora', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'opcional: WhatsApp por hora de reloj.' },
+      { nombre: 'emailDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: emails por día (en 24 h).' },
+      { nombre: 'emailArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: la rampa del dominio: emails el primer día.' },
+      { nombre: 'emailArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: y cuánto sube cada día que llega a su tope.' },
+      { nombre: 'makoSolasPor24h', tipo: 'number', entero: true, minimo: 0, maximo: 10, descripcion: 'opcional: respuestas que MaKo manda sola a una persona en 24 h (0 = siempre borrador).' },
+      { nombre: 'restaurar', tipo: 'boolean', descripcion: 'opcional: true vuelve todo a lo de fábrica.' },
+    ],
+    reversible: true, escribe: 'guarda mako.limites_envio en app_settings (sólo lo que difiere de lo de fábrica)',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
 ];

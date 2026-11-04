@@ -49,7 +49,7 @@ import {
   ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo,
 } from '@/lib/goteo';
 import { goteoDeHoy } from '@/lib/goteo';
-import { subidasPorAutomatizacion } from '@/lib/goteo-db';
+import { subidasPorAutomatizacion, topeEmailDeHoy } from '@/lib/goteo-db';
 import { responderADelNegocio } from '@/lib/email-dominio';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
@@ -87,7 +87,7 @@ import { reentradaDe, puedeReentrar, esReentrada, DESENLACE_VOLVER_A_PROBAR, pue
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
-import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje, naceConHorario, clasificarBorradores, porAprobarDelFlujo, resumirViejos, seFrenaPorBorradores, seFrenaAlEntrar, seFrenaDesde, BORRADOR_VIEJO_DIAS, type FilaBorrador, type AvisoDeRitmo, type AvisoDeUnaPrendida } from '@/lib/ritmo-al-activar';
+import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje, naceConHorario, clasificarBorradores, porAprobarDelFlujo, resumirViejos, seFrenaPorBorradores, seFrenaAlEntrar, seFrenaDesde, BORRADOR_VIEJO_DIAS, type FilaBorrador, type AvisoDeRitmo, type AvisoDeUnaPrendida, type TopesDeLinea } from '@/lib/ritmo-al-activar';
 import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
 import { PREFIJO_CLAVE_DIFUSION } from '@/lib/difusion-reglas';
 import { descartarBorradoresAnotando, type DbDescarte } from '@/lib/borradores-descartar';
@@ -2008,8 +2008,12 @@ export async function ritmoAlActivar(secuenciaId: number, o: { incluirExistentes
   const liberados = new Set(borradores?.liberados);
   const parados = new Set([...(borradores?.liberados ?? []), ...(borradores?.siguenFrenados ?? [])]);
   const vencidasParadas = [...(borradores?.vencidas ?? [])].filter((id) => parados.has(id));
+  // La rampa del dominio desde HOY (4/11/2026): el tope de hoy y cuánto sube. Sin poder leerla, el del primer día (un piso).
+  const topes = limites === 'ilegible' ? null : await topesConRampa(limites, canal === 'email');
   return avisoDeRitmo({
-    personas: personas == null ? null : personas - entranFrenados, canal, goteo: config?.goteo, topes: limites === 'ilegible' ? null : limites,
+    personas: personas == null ? null : personas - entranFrenados, canal, goteo: config?.goteo, topes,
+    // Cuántos emails tiene el flujo: con dos o más, el aviso dice la campaña entera (`fraseDeCampana`).
+    emailsDelFlujo: mensajesDelFlujo(sec.pasos).filter((p) => p.canal === 'email').length,
     // El aviso de MaKo también dispara por su evento, pero le escribe al equipo: no es el caso que asusta.
     porEvento: vistasPorDisparador(sec).some((v) => TRIGGERS_SOLO_EVENTO.has(v.trigger_tipo) && v.trigger_tipo !== TRIGGER_AVISO_MAKO),
     porAprobar: porAprobarDelFlujo(sec.pasos, sec.envio_automatico),
@@ -2022,6 +2026,23 @@ export async function ritmoAlActivar(secuenciaId: number, o: { incluirExistentes
     horario: config == null || delNegocio === 'ilegible' ? undefined
       : (await leTocaHorarioDeFabrica(secuenciaId).catch(() => false)) ? HORARIO_SUGERIDO : horarioDeLaAutomatizacion(config, delNegocio),
   });
+}
+
+/**
+ * El tope de email de HOY del negocio del contexto, con la rampa del dominio (`topeEmailDeHoy`, lib/goteo-db.ts). Si no se puede
+ * leer lo que ya mandó, el del primer día: es un piso, como en el motor. Lo usan el aviso al activar y `ver_limites_envio`.
+ */
+export async function topeEmailDeHoyDelNegocio(email: LimitesEnvio['email']): Promise<number> {
+  if (email.arranqueDia >= email.dia) return email.dia;
+  return topeEmailDeHoy(await getTenantDb(), email, await zonaParaArranque()).catch(() => Math.min(email.dia, email.arranqueDia));
+}
+
+/** Los topes de la línea para el aviso al activar, con la rampa del email desde hoy si la hay. */
+async function topesConRampa(limites: LimitesEnvio, conEmail: boolean): Promise<TopesDeLinea> {
+  const base: TopesDeLinea = { wa: limites.wa, email: { dia: limites.email.dia } };
+  if (!conEmail) return base;
+  const hoy = await topeEmailDeHoyDelNegocio(limites.email);
+  return hoy >= limites.email.dia ? base : { ...base, email: { dia: limites.email.dia, rampa: { dia: hoy, sube: limites.email.arranqueSube } } };
 }
 
 /** Las inscripciones que el motor mueve al prenderla: los estados y el reloj de `procesarEnvios`. */
@@ -4352,7 +4373,15 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
   // EL EMAIL, CON SU PROPIO TOPE (decisión 5): las secuencias que mandan algún email siguen con el
   // cupo de WhatsApp cumplido, como las acciones, mientras quede tope de email.
   const conEmail = secuencias.filter((s) => s.pasos.some((p) => claseDe(p) === 'mensaje' && !esPasoAccion(p) && p.canal === 'email')).map((s) => s.id);
-  const presupuestoEmail = conEmail.length ? limites.email.dia - (await enviosUltimas24h('email')) : 0;
+  // ⚠️ CON LA RAMPA DEL DOMINIO (4/11/2026, `topeEmailDeHoy`, lib/goteo-db.ts): el tope de hoy arranca en 50 y sube cada
+  // día que llega, hasta el de la línea. Si no se puede leer lo que ya mandó, el del primer día: manda menos, nunca más.
+  const topeEmailHoy = conEmail.length
+    ? await topeEmailDeHoy(supabase, limites.email, await zonaParaArranque()).catch((e: unknown) => {
+      console.error(`[nutricion] la rampa del email: ${e instanceof Error ? e.message : String(e)}`);
+      return Math.min(limites.email.dia, limites.email.arranqueDia);
+    })
+    : limites.email.dia;
+  const presupuestoEmail = conEmail.length ? topeEmailHoy - (await enviosUltimas24h('email')) : 0;
   let emailsEnCorrida = 0;
   const emailLleno = (): boolean => emailsEnCorrida >= presupuestoEmail;
   /**

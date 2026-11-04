@@ -384,6 +384,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/chatbot/secuencias/{secuenciaId}/configuracion', 'configurar_automatizacion'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/crons', 'cambiar_crons_secuencia'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/pruebas', 'probar_secuencia'],
+  // Los topes de envío del negocio (4/11/2026, la campaña de email de Mauricio).
+  ['GET', '/chatbot/limites-envio', 'ver_limites_envio'],
+  ['PUT', '/chatbot/limites-envio', 'cambiar_limites_envio'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/escenarios', 'agregar_escenario_secuencia'],
   ['PATCH', '/chatbot/secuencias/{secuenciaId}/estrategia', 'guardar_estrategia_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/pasos', 'editar_pasos_secuencia_mensajes'],

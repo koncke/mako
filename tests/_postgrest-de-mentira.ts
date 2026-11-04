@@ -112,6 +112,11 @@ export function crearPostgrest(o: {
         const xs = v.slice(4, -1).split(',').map((s) => s.replace(/^"|"$/g, ''));
         out.push((f) => xs.includes(String(val(f))));
       }
+      // `id=not.in.(…)` suelto (4/11/2026, el motor saltea las secuencias cerradas y las filas ya vistas): como Postgres, un null no entra.
+      else if (v.startsWith('not.in.(')) {
+        const xs = v.slice(8, -1).split(',').map((s) => s.replace(/^"|"$/g, ''));
+        out.push((f) => val(f) != null && !xs.includes(String(val(f))));
+      }
       else if (v === 'is.null') out.push((f) => val(f) == null);
       else if (v === 'not.is.null') out.push((f) => val(f) != null);
       // Como Postgres: `IS TRUE` sólo el true; `NOT (… IS TRUE)` también el null (20/10/2026, el cobro condicional).

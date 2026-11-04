@@ -3,7 +3,7 @@
 // =============================================================================
 // Lo que se le dijo en la llamada: «si ya lo abrió me lo pones aquí», el clic en el botón pasa a otra columna, y quien
 // compró no recibe el email siguiente. Cada automatización elige sus columnas (`columnasEmail`, por
-// `configurar_automatizacion`), en el CRM al que está atada; lib/email-eventos-crm.ts las mueve.
+// `configurar_automatizacion`, con `columnasEmail`), en el CRM al que está atada; lib/email-eventos-crm.ts las mueve.
 //
 // Corre el motor REAL (`procesarEnvios`), la ruta REAL del webhook de Resend (firmada como Svix) y los runners de la API
 // sobre una base en memoria (tests/_email-campana-hijo.ts, escenario «columnas»). Nada sale a la red.
@@ -34,6 +34,7 @@ test('las columnas se eligen del CRM de la automatización, y nunca una de cierr
   assert.match(R.sinCrm.error, /no está atada a un CRM/);
   assert.match(R.columnaQueNoEs.error, /no tiene la columna «no_existe»/);
   assert.match(R.columnaDeCierre.error, /columna de cierre/);
+  assert.match(R.eventoQueNoEs.error, /evento enviado, abrio o clic/);
   assert.deepEqual(R.prepColumnas.payload.cambio, { columnasEmail: { enviado: 'em_enviado', abrio: 'em_abrio', clic: 'em_clic' } });
   assert.equal(R.ejecColumnas.ok, true);
   assert.deepEqual(R.leidas, { enviado: 'em_enviado', abrio: 'em_abrio', clic: 'em_clic' }, 'configuracion_automatizacion las muestra');

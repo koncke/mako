@@ -240,13 +240,16 @@ async function fijarDisparadorEtiqueta(id: number, etiquetaId: unknown): Promise
  * EL CRM DE UNA SECUENCIA (4/11/2026, la campaña de Mauricio: «un CRM nuevo "Email Marketing" con esos leads»). Sin el
  * embudo, el CRON por etapa mira sólo la CASA de cada lead (`leadsDeCohorte`, lib/nutricion.ts) y los AGREGADOS a ese CRM
  * no entran nunca, sin un error: la secuencia queda activa y no le escribe a nadie. Se guarda por la puerta de los CRON
- * (`guardarDisparadores`, AGENTS.md: «Todo CRON se guarda por guardarDisparadores»), que valida que la etapa sea de ese
+ * (`publicarCrons` → `guardarDisparadores`, AGENTS.md: «Todo CRON se guarda por guardarDisparadores»), que valida que la etapa sea de ese
  * CRM. Cambia el PRIMER CRON y deja los demás como están. Imports dinámicos: esos módulos importan éste.
  */
 async function fijarCrmDelDisparador(id: number, cambio: { trigger_tipo?: string; etapa?: string; funnel_id: number | null; etiqueta_id?: number | null }): Promise<void> {
-  const { guardarDisparadores } = await import('@/lib/disparadores-guardar');
+  // Por `publicarCrons` y no `guardarDisparadores` a secas: lo pide una persona (la API), y cambiar a quién le escribe una
+  // ACTIVA es activarla de nuevo para esa gente: pregunta por la duplicada (tests/automations-activar-todos-los-caminos).
+  const { publicarCrons } = await import('@/lib/disparadores-guardar');
   const { disparadoresDe } = await import('@/lib/disparadores');
   const { TriggerInvalidoError } = await import('@/lib/setting-secuencias');
+  const { DuplicadaError } = await import('@/lib/nutricion');
   const supabase = await getTenantDb();
   const cols = 'id, trigger_tipo, etapa, etapas, funnel_id, producto_id, etiqueta_id, cron, cron_proxima_at';
   let fila = await supabase.from('nutricion_secuencias').select(`${cols}, disparadores`).eq('id', id).maybeSingle();
@@ -263,9 +266,9 @@ async function fijarCrmDelDisparador(id: number, cambio: { trigger_tipo?: string
     ...(cambio.etiqueta_id !== undefined ? { etiqueta_id: cambio.etiqueta_id } : {}),
   };
   try {
-    await guardarDisparadores(id, [nuevo, ...lista.slice(1)]);
+    await publicarCrons(id, [nuevo, ...lista.slice(1)]);
   } catch (e) {
-    if (e instanceof TriggerInvalidoError) throw new DisparadorEmailError(e.message);
+    if (e instanceof TriggerInvalidoError || e instanceof DuplicadaError) throw new DisparadorEmailError(e.message);
     throw e;
   }
 }
@@ -1017,9 +1020,11 @@ export async function procesarBroadcastsProgramados(): Promise<{ procesados: num
 // mueve la tarjeta del CRM de la automatización (`moverPorEventoEmail`, lib/email-eventos-crm.ts) en el workspace de la
 // FILA. Sólo la primera vez que se marca: un segundo «abrió» del mismo email no mueve nada.
 export type FilaEventoEmail = { tabla: 'nutricion_envios' | 'email_broadcast_envios'; id: number; workspace_id: number | null; lead_id: number | null; secuencia_id: number | null };
-export async function marcarEventoEmail(proveedorId: string, tipo: 'abierto' | 'clic', whenISO: string): Promise<FilaEventoEmail | null> {
+export async function marcarEventoEmail(proveedorId: string, tipo: 'abierto' | 'clic' | 'rebote' | 'queja', whenISO: string): Promise<FilaEventoEmail | null> {
   const supabase = getSupabaseServer();
-  const col = tipo === 'abierto' ? 'abierto_at' : 'clic_at';
+  // El rebote y la queja (4/11/2026, mig 0380, el freno de lib/email-reputacion.ts). Sin la columna, el update da error y
+  // vuelve null: el webhook sigue (da de baja al lead igual) y el freno no tiene qué contar.
+  const col = ({ abierto: 'abierto_at', clic: 'clic_at', rebote: 'rebotado_at', queja: 'queja_at' } as const)[tipo];
   let fila: FilaEventoEmail | null = null;
   for (const tabla of ['nutricion_envios', 'email_broadcast_envios'] as const) {
     const { data, error } = await supabase
