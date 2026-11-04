@@ -513,6 +513,37 @@ async function main() {
   preguntaAMaKo.graciasPorWhatsApp = await unaEscena('CHARLA', 'No debería salir.', 'MaKo, gracias', true);
   out.preguntaAMaKo = preguntaAMaKo;
 
+  // ── Con DOS líneas de MaKo en el grupo, lo suyo le llega a la otra como una persona (4/11/2026, ws13) ──
+  // `fromMe: false`, otro participante, y su id en el anillo: no es una persona. Primero, el eco que entró ANTES de que su id llegara al
+  // anillo, en el mismo lote que el pedido de Joan: el lote sale sin él. Después, el que llega con el id ya anotado: ni entra a la cola.
+  const anillo = (ids: string[]) => {
+    const k = `mako.doer.sent.${JID}`;
+    const f = db.app_settings.find((x) => x.workspace_id === 1 && x.key === k);
+    if (f) f.value = JSON.stringify(ids); else db.app_settings.push({ workspace_id: 1, key: k, value: JSON.stringify(ids) });
+  };
+  const deLaOtraLinea = (id: string, t: string) => ({ ...deWhatsApp(id, t, '5491100000077@s.whatsapp.net'), pushName: 'Mako' });
+  limpiar(); escenaNueva({ clase: clase('ACCION', 'agendar lo del audio'), respuesta: 'Listo, lo agendo.' });
+  // El eco ya está en la cola: entró unos segundos antes, mientras su id no llegaba al anillo (con la ventana en 0, mandarlo por
+  // `manejarEntranteDoer` correría su turno solo, y lo que se prueba es el lote). Después se anota su id, y llega el pedido de Joan.
+  const eco = deLaOtraLinea('WAecoTarde', 'mako ✅ Nuevo agendado: Laura Pérez, jueves 10:00');
+  db.mako_doer_buffer.push({ id: 990001, workspace_id: WS, grupo_jid: JID, wa_message_id: 'WAecoTarde', texto: eco.message.conversation, tiene_media: false, tiene_audio: false,
+    estado: 'pendiente', payload: { ...eco, instance: LINEA }, created_at: new Date(Date.now() - 5000).toISOString() });
+  const encolado = db.mako_doer_buffer.some((f) => f.wa_message_id === 'WAecoTarde');
+  anillo(['WAecoTarde']);
+  await manejarEntranteDoer(LINEA, deWhatsApp('WApedidoJoan', 'mako agendame el pago de la segunda cuota para el 19 de diciembre') as never);
+  await correrDespues();
+  const alModeloTarde = lo().map((m) => JSON.stringify(m.mensajes)).join(' ');
+  const ecoTarde = {
+    encolado, procesado: db.mako_doer_buffer.filter((f) => f.wa_message_id === 'WAecoTarde').every((f) => f.estado === 'procesado'),
+    pedidoAlModelo: alModeloTarde.includes('segunda cuota'), ecoAlModelo: alModeloTarde.includes('Nuevo agendado'),
+  };
+  limpiar(); escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'No debería salir.' });
+  anillo(['WAecoConId']);
+  await manejarEntranteDoer(LINEA, deLaOtraLinea('WAecoConId', 'mako ✅ Nuevo agendado: Laura Pérez, jueves 10:00') as never);
+  await correrDespues();
+  const ecoConId = { encolado: db.mako_doer_buffer.some((f) => f.wa_message_id === 'WAecoConId'), llamadasAlTurno: lo().length, textosPorWhatsApp: aEvolution().filter((x) => x.includes('/message/sendText/')).length };
+  out.ecoDeOtraLinea = { tarde: ecoTarde, conId: ecoConId };
+
   await decirYSalir(decirResultado(out));
 }
 

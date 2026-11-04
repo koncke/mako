@@ -11,13 +11,14 @@ import '@/app/m/operaciones/operaciones.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SheetM } from '@/app/m/_ui';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
+import { Icon } from '@/app/_components/icons';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { CajaDelGrupo } from '@/app/_chat/grupo/CajaDelGrupo';
 import { HiloDelGrupo } from '@/app/_chat/grupo/HiloDelGrupo';
-import { Participantes } from '@/app/_chat/grupo/Participantes';
+import { Participantes, useMiembrosDelGrupo } from '@/app/_chat/grupo/Participantes';
 import { useHiloDelGrupo } from '@/app/_chat/grupo/useHiloDelGrupo';
 import { useSeguirElHilo } from '@/app/_chat/grupo/useSeguirElHilo';
-import type { GrupoDeLaLista } from '@/app/_chat/grupo/pantalla';
+import { quienesEstan, type GrupoDeLaLista } from '@/app/_chat/grupo/pantalla';
 
 export function HojaDelGrupo({ ws, grupo, onCerrar, onLeido, onCambio, onSalio }: {
   ws: number;
@@ -29,7 +30,10 @@ export function HojaDelGrupo({ ws, grupo, onCerrar, onLeido, onCambio, onSalio }
 }) {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  const [viendo, setViendo] = useState(false);
+  // Participantes, o la misma vista con el cursor en el email («Invitar», 4/11/2026).
+  const [viendo, setViendo] = useState<'participantes' | 'invitar' | null>(null);
+  const miembros = useMiembrosDelGrupo(ws);
+  const invita = miembros.datos ? miembros.datos.administra : !!grupo?.administra && !grupo?.invitado;
   const [estado, setEstado] = useState<string | null>(null);
   const k = useHiloDelGrupo({ ws, visible: true, onLeido });
   // La hoja mide su cuerpo después del primer pintado (el mismo cuidado que ChatClienteM.tsx): lo que escrolea es el cuerpo, no el hilo.
@@ -44,13 +48,21 @@ export function HojaDelGrupo({ ws, grupo, onCerrar, onLeido, onCambio, onSalio }
   return (
     <SheetM abierto onCerrar={onCerrar} snap="alto" id={`grupo-${ws}`}
       titulo={viendo ? 'Participantes' : (
-        <button type="button" className="gr-titulo-boton m-operaciones-titulo" onClick={() => setViendo(true)} aria-label={`${titulo}: ver participantes`} disabled={k.estado === 'fuera'}>
-          <span className="m-operaciones-titulo__muneco"><Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo={k.pensando ? 'trabajando' : 'despierto'} size={34} /></span>
-          <span className="m-operaciones-titulo__texto">
-            <span className="m-operaciones-titulo__nombre">{titulo}</span>
-            <span className="gr-titulo-boton__ver">Ver participantes</span>
-          </span>
-        </button>
+        <span className="gr-titulo-m-fila">
+          <button type="button" className="gr-titulo-boton m-operaciones-titulo" onClick={() => setViendo('participantes')} aria-label={`${titulo}: ver participantes`} disabled={k.estado === 'fuera'}>
+            <span className="m-operaciones-titulo__muneco"><Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo={k.pensando ? 'trabajando' : 'despierto'} size={34} /></span>
+            <span className="m-operaciones-titulo__texto">
+              <span className="m-operaciones-titulo__nombre">{titulo}</span>
+              {/* Como WhatsApp: quiénes están, y tocar el nombre abre los participantes. */}
+              <span className="gr-titulo-boton__ver">{miembros.datos ? quienesEstan(miembros.datos.participantes) : 'Ver participantes'}</span>
+            </span>
+          </button>
+          {invita && k.estado !== 'fuera' && (
+            <button type="button" className="gr-invitar-m" onClick={() => setViendo('invitar')} aria-label="Invitar al grupo" title="Invitar">
+              <Icon name="plus" size={18} />
+            </button>
+          )}
+        </span>
       )}
       pie={viendo || k.estado === 'fuera' ? undefined : (
         <div className="m-operaciones-caja">
@@ -60,10 +72,10 @@ export function HojaDelGrupo({ ws, grupo, onCerrar, onLeido, onCambio, onSalio }
       )}>
       {viendo ? (
         <>
-          <button type="button" className="m-operaciones-volver" onClick={() => setViendo(false)}>
+          <button type="button" className="m-operaciones-volver" onClick={() => setViendo(null)}>
             <span aria-hidden>‹</span> {titulo}
           </button>
-          <Participantes ws={ws} onCambio={onCambio} onSalio={onSalio} />
+          <Participantes ws={ws} miembros={miembros} enfocar={viendo === 'invitar'} onCambio={onCambio} onSalio={onSalio} />
         </>
       ) : (
         <div className="m-operaciones-hilo" ref={hilo}>

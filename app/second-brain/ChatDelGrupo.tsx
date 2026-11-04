@@ -15,10 +15,10 @@ import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { CajaDelGrupo } from '@/app/_chat/grupo/CajaDelGrupo';
 import { HiloDelGrupo } from '@/app/_chat/grupo/HiloDelGrupo';
-import { Participantes } from '@/app/_chat/grupo/Participantes';
+import { Participantes, useMiembrosDelGrupo } from '@/app/_chat/grupo/Participantes';
 import { useHiloDelGrupo } from '@/app/_chat/grupo/useHiloDelGrupo';
 import { useSeguirElHilo } from '@/app/_chat/grupo/useSeguirElHilo';
-import type { GrupoDeLaLista } from '@/app/_chat/grupo/pantalla';
+import { quienesEstan, type GrupoDeLaLista } from '@/app/_chat/grupo/pantalla';
 
 export function ChatDelGrupo({ ws, grupo, visible = true, onVolver, onLeido, onCambio, onSalio }: {
   ws: number;
@@ -36,7 +36,11 @@ export function ChatDelGrupo({ ws, grupo, visible = true, onVolver, onLeido, onC
   const k = useHiloDelGrupo({ ws, visible, onLeido });
   const seguir = useCallback(() => hilo.current, []);
   const s = useSeguirElHilo({ contenedor: seguir, mensajes: k.mensajes, pendientes: k.pendientes.length, conError: k.pendientes.filter((p) => p.estado === 'error').length, listo: k.estado === 'listo', visible });
-  const [viendo, setViendo] = useState(false);
+  // Participantes, o la misma hoja con el cursor en el email («Invitar», 4/11/2026: Martín, «no veo el botón de invitar allí mismo»).
+  const [viendo, setViendo] = useState<'participantes' | 'invitar' | null>(null);
+  const miembros = useMiembrosDelGrupo(ws);
+  // Invita quien administra: lo dice la hoja cuando llegó, y mientras tanto la fila de la lista. A un invitado no se le ofrece.
+  const invita = miembros.datos ? miembros.datos.administra : !!grupo?.administra && !grupo?.invitado;
   const [estado, setEstado] = useState<string | null>(null);
   const { marcarLeido } = k;
   useEffect(() => { if (visible && s.abajo && k.estado === 'listo') marcarLeido(); }, [visible, s.abajo, k.estado, k.mensajes, k.ahora, marcarLeido]);
@@ -50,8 +54,13 @@ export function ChatDelGrupo({ ws, grupo, visible = true, onVolver, onLeido, onC
       <PanelDeChat hilo={hilo}
         cabecera={{
           clave: `grupo-${ws}`, titulo, criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: k.pensando ? 'trabajando' : 'despierto', onVolver,
+          // Como WhatsApp: debajo del nombre, quiénes están; a la derecha del todo, Invitar y Participantes (como «Second Brain de …» en los otros chats).
+          subtitulo: miembros.datos && k.estado !== 'fuera' ? quienesEstan(miembros.datos.participantes) : undefined,
           acciones: k.estado === 'fuera' ? undefined : (
-            <button type="button" className="co-chip gr-participantes" onClick={() => setViendo(true)}><Icon name="users" size={14} />Participantes</button>
+            <div className="gr-cab-acciones">
+              {invita && <button type="button" className="co-chip gr-participantes" aria-label="Invitar" title="Invitar" onClick={() => setViendo('invitar')}><Icon name="plus" size={14} /><span className="gr-cab-rotulo">Invitar</span></button>}
+              <button type="button" className="co-chip gr-participantes" aria-label="Participantes" title="Participantes" onClick={() => setViendo('participantes')}><Icon name="users" size={14} /><span className="gr-cab-rotulo">Participantes</span></button>
+            </div>
           ),
         }}
         caja={k.estado === 'fuera' ? null : <div className="co-caja"><CajaDelGrupo k={k} campo={caja} seguir={seguir} onError={setEstado} onEnviado={s.bajar} /></div>}
@@ -60,8 +69,9 @@ export function ChatDelGrupo({ ws, grupo, visible = true, onVolver, onLeido, onC
           nuevos={s.nuevos} onBajar={s.bajar} onVolver={onVolver} />
       </PanelDeChat>
       {viendo && (
-        <Modal titulo="Participantes" onCerrar={() => setViendo(false)} ancho={460}>
-          <Participantes ws={ws} onCambio={onCambio} onSalio={() => { setViendo(false); onSalio(); }} />
+        // Alto FIJO: invitar suma una fila y un renglón, y la hoja no puede crecer y saltar (4/11/2026). La lista scrollea adentro.
+        <Modal titulo="Participantes" onCerrar={() => setViendo(null)} ancho={460} alto="min(85vh, 640px)">
+          <Participantes ws={ws} miembros={miembros} enfocar={viendo === 'invitar'} onCambio={onCambio} onSalio={() => { setViendo(null); onSalio(); }} />
         </Modal>
       )}
     </>
