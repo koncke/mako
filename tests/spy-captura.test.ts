@@ -433,7 +433,7 @@ test('el texto ajeno se le pasa a un modelo marcado como ajeno', () => {
 test('la ruta se autentica sola y no mira la cookie', () => {
   assert.equal(esPublica('/api/competitor-spy/extension'), true);
   // Exacta: abajo de /api/competitor-spy hay una ruta con sesión.
-  assert.equal(esPublica('/api/competitor-spy/perfil'), false);
+  assert.equal(esPublica('/api/competitor-spy/buscar'), false);
   const s = sinComentarios(leer('app/api/competitor-spy/extension/route.ts'));
   assert.match(s, /workspaceDeToken\(token\)/);
   assert.match(s, /runWithWorkspace\(ws,/);

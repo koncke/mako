@@ -1,48 +1,42 @@
 'use client';
 
 // =============================================================================
-// BuscadorAlta — «Mirar a alguien más»: el buscador de merrin, tal cual (3/11/2026)
+// BuscadorAlta — «Mirar a alguien más»: el buscador de merrin, con un grupo por red (4/11/2026)
 // =============================================================================
-// Martín, 3/11: «No se mejoró ni el modal, sigue horrible el diseño... Y no tiene sentido que tenga 2
-// tabs... La tab de "pegar un dato" no tiene sentido, eliminala». Y antes, cuatro veces: «te pido por favor
-// que visualmente lo copies de otro dashboard, no te inventes cosas».
+// Martín, 4/11: «La barra principal de búsqueda debería funcionar igual que cuando le doy al "+", solo que ahí
+// debería estar diferenciado las redes, Instagram, YouTube, Sitio Web...», «si busco solo nombre, y tarda en buscar,
+// debería ir diciéndome "Esto puede tardar 20 segundos..."», «si busco solo el nombre TAMBIÉN debería buscar en
+// YouTube... diferenciado de qué red social es... Tal vez con el logo de la red social».
 //
-// ⚠️ SE EMPEZÓ POR LA REFERENCIA, NO POR LO NUESTRO. Es el `.finder` de demo.codeandchill.store/merrin/, la
-// plantilla de un CRM: el buscador de ⌘K, que es exactamente esta tarea (escribir, ver filas, elegir una).
-// Medidas y reglas en docs/diseno/referencia-spy.md. Lo que se ve acá es eso con los tokens de MaKo:
-//   · 620 px, a 12vh de arriba, r 22, sombra + línea de 1 px. En el teléfono, a 10 px del borde.
-//   · El campo NO es un campo: 60 px sobre la misma tarjeta, sin fondo y sin borde, con un filete abajo.
-//     Por eso no se ve gris. El gris venía del `campo` del alta del CRM, que no se copió.
-//   · Filas de 53 px: círculo o ícono de 36, negrita y línea chica, flecha a la derecha.
-//   · Grupos en versalita de 11 px, y el pie con las teclas.
-//   · Vacío, sin escribir: lo que ya existe. En merrin son pedidos y clientes; acá, a quiénes ya mira.
-//     Y lo mismo al escribir: así nadie agrega dos veces a la misma persona.
+// ⚠️ SE COPIÓ DE LA REFERENCIA, NO SE INVENTÓ (3/11/2026): el `.finder` de demo.codeandchill.store/merrin/, el
+// buscador de ⌘K de un CRM. Medidas y reglas en docs/diseno/referencia-spy.md. Lo de este cambio son los GRUPOS, que
+// es lo que el `.finder` ya hace (pedidos, clientes, productos): acá son Instagram, YouTube, TikTok y Sitio web, cada
+// uno con su logo, y cada uno se llena cuando llega lo suyo.
 //
-// LO QUE SE FUE, y era el motivo de la queja (medido en producción el 3/11, a 480 × 254 px):
-//   · `padding: 0` en la caja: el texto pegado a los bordes.
-//   · Las dos pestañas, y dos botones «Buscar» a la vista.
-//   · Dos campos para lo mismo. Ahora es uno, y lo escrito decide (`queSeHace`, lib/spy-alta-reglas.ts): un
-//     canal de YouTube o un sitio no se buscan en Instagram, salen como UNA fila y siguen igual que los demás.
-//   · «Cargar a mano»: de un nombre sin redes sale una fila, y sus otros canales se suman desde la ficha.
+// QUÉ SE PIDE Y CUÁNDO lo decide `planDeBusqueda` (lib/spy-buscar-reglas.ts), que se EJECUTA en un test. Acá sólo se
+// pide y se dibuja. Los pedidos salen EN PARALELO a /api/competitor-spy/buscar (una ruta y no actions: las actions
+// hacen fila), y lo rápido —el @ exacto, el canal de YouTube— no espera a lo lento —el nombre—.
 //
 // ⚠️ NADA ENTRA SIN EL «SÍ» (Martín, 2/11: «súper importante que lo valides»). Elegir una fila lleva a la
 // confirmación con su cara; sólo «Sí, agregar» guarda. Buscar por nombre trae a otras personas.
 //
-// ⚠️ LA LISTA NO VA EN UN PORTAL COMO EN EL ALTA DEL CRM. Allá el campo vive en un formulario y la lista flota
-// encima; acá la lista ES el modal.
+// ⚠️ LA LISTA NO VA EN UN PORTAL COMO EN EL ALTA DEL CRM: acá la lista ES el modal.
 // =============================================================================
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as TeclaReact } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as TeclaReact, type ReactNode } from 'react';
 import { Icon } from '../_components/icons';
+import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
 import { useConectarIntegracion } from '../_components/ConectarIntegracion';
-import { useBusquedaInstagram, type PerfilIg } from '@/app/crm/new/InstagramBuscador';
-import { avisoSinResultados, perfilManual, pideConectarMeta, usuarioDeTexto } from '@/lib/instagram-buscar';
 import { fotoPorNosotros } from '@/lib/foto-instagram-reglas';
 import { dibujarContador } from '@/lib/spy-reglas';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
-import { ESPERA_COMPLETAR_MS, coincideCompetidor, cualesCompletar, queSeHace, usuarioDelNombre, type OpcionDirecta } from '@/lib/spy-alta-reglas';
+import { ESPERA_COMPLETAR_MS, coincideCompetidor } from '@/lib/spy-alta-reglas';
+import {
+  cualesCompletar, esperaDe, filasDeLaBusqueda, planDeBusqueda, pedidosDelPlan,
+  type CanalHallado, type FilaBusqueda, type PerfilHallado, type RespuestasBusqueda,
+} from '@/lib/spy-buscar-reglas';
 import type { Competidor } from '@/lib/spy';
-import { vistaPreviaAction, type VistaPrevia } from './actions';
+import type { VistaPrevia } from './actions';
 
 /* Sin comillas invertidas adentro de este CSS: cierran el template literal. */
 const CSS = `
@@ -103,6 +97,11 @@ button.spy-kbd{cursor:pointer}
 .spy-finder__nota--mal{color:var(--bad)}
 .spy-finder__botones{display:flex;justify-content:flex-end;gap:8px;padding:0 20px 20px}
 .spy-solo-tactil{display:none}
+.spy-finder__red{display:inline-flex;align-items:center;gap:7px}
+.spy-finder__espera{font-weight:600;letter-spacing:0;text-transform:none;color:var(--faint)}
+.spy-finder__avatar{position:relative;flex:none;width:36px;height:36px}
+.spy-finder__marca{position:absolute;right:-3px;bottom:-3px;display:grid;place-items:center;border-radius:6px;
+  box-shadow:0 0 0 2px var(--surface)}
 @media (max-width:760px){
   .spy-finder{top:calc(10px + env(safe-area-inset-top))}
   .spy-finder__in input{font-size:16px}
@@ -120,18 +119,9 @@ button.spy-kbd{cursor:pointer}
 @media (prefers-reduced-motion:reduce){.spy-hueso{animation:none}}
 `;
 
-/** El tope de la ruta del perfil (60 s) + un margen: un `fetch` sin tope es un giro eterno. */
-const TOPE_PERFIL_MS = 62_000;
+/** El tope de la ruta (60 s) + un margen: un `fetch` sin tope es un giro eterno. */
+const TOPE_MS = 62_000;
 const MAX_MIRADOS = 6;
-
-type PerfilCompleto = { usuario: string; nombre: string | null; foto: string | null; seguidores: number | null; bio: string | null; web: string | null };
-
-type Fila =
-  | { k: string; tipo: 'mirado'; grupo: string; c: Competidor }
-  | { k: string; tipo: 'perfil'; grupo: string; p: PerfilIg }
-  | { k: string; tipo: 'usar'; grupo: string; usuario: string }
-  | { k: string; tipo: 'directo'; grupo: string; o: OpcionDirecta }
-  | { k: string; tipo: 'nombre'; grupo: string; nombre: string };
 
 const FLECHA = (
   <svg className="spy-finder__flecha" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -141,17 +131,26 @@ const FLECHA = (
 
 const inicial = (s: string) => s.replace(/^@/, '').charAt(0).toUpperCase() || '?';
 const sinProtocolo = (s: string) => s.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
-const vistaDe = (c: PerfilCompleto): VistaPrevia => ({ campo: 'instagram', valor: c.usuario, nombre: c.nombre, foto: c.foto, seguidores: c.seguidores, bio: c.bio, web: c.web });
 
-/** La cara de una fila: su foto por NUESTRA ruta (directo, el CDN de Instagram la bloquea) o su inicial. */
-function Cara({ src, nombre }: { src: string | null; nombre: string }) {
+/** El logo de cada red: el oficial (ServicioVisual.tsx), nunca uno dibujado por nosotros. */
+const LOGO: Record<'instagram' | 'youtube' | 'tiktok', string> = { instagram: 'red-instagram', youtube: 'youtube', tiktok: 'red-tiktok' };
+function LogoRed({ red, box = 18 }: { red: 'instagram' | 'youtube' | 'tiktok' | 'sitio'; box?: number }) {
+  if (red === 'sitio') return <Icon name="web" size={box - 2} />;
+  return <SvcIcon k={LOGO[red]} box={box} size={Math.round(box * 0.62)} radius={Math.round(box * 0.28)} />;
+}
+
+/** La cara de una fila: su foto por NUESTRA ruta (directo, el CDN de Instagram la bloquea) o su inicial, y el logo de su red en la esquina. */
+function Cara({ src, nombre, red }: { src: string | null; nombre: string; red?: 'instagram' | 'youtube' | 'tiktok' }) {
   const [rota, setRota] = useState<string | null>(null);
   return (
-    <span className="spy-finder__cara" aria-hidden>
-      {src && rota !== src
-        // eslint-disable-next-line @next/next/no-img-element -- la sirve nuestra ruta o nuestro bucket: acá sólo se mira
-        ? <img src={src} alt="" loading="lazy" onError={() => setRota(src)} />
-        : inicial(nombre)}
+    <span className="spy-finder__avatar" aria-hidden>
+      <span className="spy-finder__cara">
+        {src && rota !== src
+          // eslint-disable-next-line @next/next/no-img-element -- la sirve nuestra ruta, nuestro bucket o YouTube: acá sólo se mira
+          ? <img src={src} alt="" loading="lazy" onError={() => setRota(src)} />
+          : inicial(nombre)}
+      </span>
+      {red && <span className="spy-finder__marca"><LogoRed red={red} box={16} /></span>}
     </span>
   );
 }
@@ -162,6 +161,9 @@ const QUE_ES: Record<VistaPrevia['campo'], string> = {
 const PREGUNTA: Record<VistaPrevia['campo'], string> = {
   instagram: '¿Es esta persona?', youtube_id: '¿Es este canal?', tiktok: '¿Es este TikTok?', landing_url: '¿Es este sitio?', nombre: '¿Agregar con este nombre?',
 };
+
+const vistaDePerfil = (p: PerfilHallado): VistaPrevia => ({ campo: 'instagram', valor: p.usuario, nombre: p.nombre, foto: p.foto, seguidores: p.seguidores, bio: p.bio ?? null, web: p.web ?? null });
+const vistaDeCanal = (c: CanalHallado): VistaPrevia => ({ campo: 'youtube_id', valor: c.ref, nombre: c.nombre, foto: c.foto, seguidores: c.suscriptores });
 
 export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, onClose, onAgregar, onAbrir }: {
   textoInicial?: string;
@@ -175,14 +177,15 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
   onAbrir: (id: number) => void;
 }) {
   const [texto, setTexto] = useState(textoInicial);
-  const [activo, setActivo] = useState(0);
-  const [ronda, setRonda] = useState(0);
-  // Lo que ya se leyó de cada @, y lo que está en camino. Vive lo que el modal: escribir otra cosa y volver no paga dos veces.
-  const [completos, setCompletos] = useState<Record<string, PerfilCompleto | null>>({});
-  const [completando, setCompletando] = useState<ReadonlySet<string>>(() => new Set());
+  const [activoK, setActivoK] = useState<string | null>(null);
+  // Lo que contestó cada pedido, por su clave. Vive lo que el modal: escribir otra cosa y volver no paga dos veces.
+  const [resp, setResp] = useState<RespuestasBusqueda>({});
+  const [inicio, setInicio] = useState<Record<string, number>>({});
+  const [ahora, setAhora] = useState(() => Date.now());
+  const [completos, setCompletos] = useState<Record<string, PerfilHallado>>({});
   const pedidos = useRef(new Set<string>());
-  const enCamino = useRef(new Map<string, Promise<PerfilCompleto | null>>());
-  const sinCupo = useRef(false);
+  const completando = useRef(new Map<string, Promise<void>>());
+  const [ronda, setRonda] = useState(0);
   // La confirmación.
   const [elegido, setElegido] = useState<{ pegado: string } | null>(null);
   const [vista, setVista] = useState<VistaPrevia | null>(null);
@@ -195,123 +198,131 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
   const idLista = useId();
 
   const t = texto.trim();
-  const accion = useMemo(() => queSeHace(t), [t]);
-  const consulta = accion.que === 'buscar' ? accion.consulta : t;
-  // Los @ que ya se miran: no se buscan ni se ofrecen, salen arriba en «Ya los miras». Buscar a quien ya está es gastar para nada.
-  const ya = useMemo(() => new Set(competidores.map((c) => (c.instagram ?? '').toLowerCase()).filter(Boolean)), [competidores]);
-  const buscable = accion.que === 'buscar' && !(consulta.startsWith('@') && ya.has(consulta.slice(1)));
-  const [resp, setResp] = useBusquedaInstagram(consulta, buscable, ronda, () => setActivo(0));
-  const actual = resp && resp.texto === consulta ? resp : null;
-  const encontrados = actual && 'perfiles' in actual ? actual.perfiles : null;
-  const fallo = !!actual && 'fallo' in actual;
-  const limite = !!actual && 'limite' in actual && actual.limite;
-  const buscando = buscable && !actual;
-  const delNombre = buscable ? usuarioDelNombre(consulta) : null;
+  const plan = useMemo(() => planDeBusqueda(t), [t]);
+  // Los @ y los canales que ya se miran: no se buscan ni se ofrecen, salen arriba en «Ya los miras».
+  const ya = useMemo(() => ({
+    instagram: new Set(competidores.map((c) => (c.instagram ?? '').toLowerCase()).filter(Boolean)),
+    youtube: new Set(competidores.map((c) => (c.youtube_id ?? '').toLowerCase()).filter(Boolean)),
+  }), [competidores]);
 
-  const integracion = useConectarIntegracion({ onConectado: () => { setResp(null); setRonda((n) => n + 1); } });
-  const conectando = integracion.abierto != null;
+  const pedir = useCallback((k: string, url: string) => {
+    if (pedidos.current.has(k)) return;
+    pedidos.current.add(k);
+    setInicio((v) => ({ ...v, [k]: Date.now() }));
+    void fetch(url, { signal: AbortSignal.timeout(TOPE_MS) })
+      .then((r) => r.json().catch(() => null))
+      .then((j: unknown) => setResp((v) => ({ ...v, [k]: j && typeof j === 'object' && (j as { ok?: boolean }).ok ? j as RespuestasBusqueda[string] : { fallo: true } })))
+      .catch(() => {
+        // Un pedido cortado se puede volver a hacer: no queda anotado como hecho.
+        pedidos.current.delete(k);
+        setResp((v) => ({ ...v, [k]: { fallo: true } }));
+      });
+  }, []);
 
-  // ── Completar solas las primeras filas ─────────────────────────────────────
-  // ⚠️ NO EN CADA TECLA: espera a que la lista esté y a que la persona deje de escribir. Lo que ya viene con foto y nombre no
-  // se lee (`cualesCompletar`), y el servidor frena solo antes de agotar el tope (`RESERVA_DEL_ALTA`).
+  // ── Pedir, cuando la persona deja de escribir ──────────────────────────────
+  // ⚠️ NO EN CADA TECLA: un nombre espera más que un @, porque buscar un nombre cuesta dos corridas de Apify.
   useEffect(() => {
-    if (!encontrados || sinCupo.current) return;
-    const pedir = cualesCompletar(encontrados, pedidos.current, delNombre);
-    if (!pedir.length) return;
-    const ctrl = new AbortController();
-    const tope = setTimeout(() => ctrl.abort(), ESPERA_COMPLETAR_MS + TOPE_PERFIL_MS);
-    const espera = setTimeout(() => {
-      for (const u of pedir) pedidos.current.add(u);
-      setCompletando((v) => new Set([...v, ...pedir]));
-      for (const u of pedir) {
-        enCamino.current.set(u, (async () => {
-          try {
-            const r = await fetch(`/api/competitor-spy/perfil?usuario=${encodeURIComponent(u)}`, { signal: ctrl.signal });
-            const j = (await r.json().catch(() => null)) as { ok?: boolean; perfil?: PerfilCompleto | null; limite?: boolean } | null;
-            if (j?.limite) sinCupo.current = true;
-            const perfil = j?.ok ? j.perfil ?? null : null;
-            setCompletos((v) => ({ ...v, [u]: perfil }));
-            return perfil;
-          } catch {
-            // Cancelado porque cambió lo escrito: el servidor igual terminó y lo guardó, así que volver a pedirlo es gratis.
-            pedidos.current.delete(u);
-            return null;
-          } finally {
-            enCamino.current.delete(u);
-            setCompletando((v) => { const n = new Set(v); n.delete(u); return n; });
-          }
-        })());
-      }
-    }, ESPERA_COMPLETAR_MS);
-    return () => { clearTimeout(espera); clearTimeout(tope); ctrl.abort(); };
-  }, [encontrados, delNombre]);
+    const lista = pedidosDelPlan(plan, ya);
+    if (!lista.length) return;
+    const espera = setTimeout(() => { for (const p of lista) pedir(p.k, p.url); }, plan.nombre ? 750 : 350);
+    return () => clearTimeout(espera);
+  }, [plan, ya, pedir, ronda]);
 
   // ── Las filas ──────────────────────────────────────────────────────────────
-  const filas: Fila[] = useMemo(() => {
-    const out: Fila[] = [];
-    const mirados = t ? competidores.filter((c) => coincideCompetidor(c, t, nombreDeTarjeta(c))) : competidores;
-    for (const c of mirados.slice(0, MAX_MIRADOS)) out.push({ k: `c:${c.id}`, tipo: 'mirado', grupo: 'Ya los miras', c });
-    if (accion.que === 'directo') {
-      out.push({ k: `d:${accion.opcion.campo}`, tipo: 'directo', grupo: accion.opcion.grupo, o: accion.opcion });
-      if (accion.tambienUsuario && !ya.has(accion.tambienUsuario)) out.push({ k: `u:${accion.tambienUsuario}`, tipo: 'usar', grupo: 'Instagram', usuario: accion.tambienUsuario });
-    }
-    if (accion.que === 'buscar') {
-      const conDatos = (p: PerfilIg): PerfilIg => {
-        const c = completos[p.usuario];
-        return c ? { usuario: p.usuario, nombre: c.nombre ?? p.nombre, foto: c.foto ?? p.foto } : p;
-      };
-      // El @ del nombre pegado sólo aparece si esa cuenta EXISTE: lo dijo la lectura, no una suposición.
-      const hallado = delNombre ? completos[delNombre] : null;
-      const lista = [
-        ...(hallado && !(encontrados ?? []).some((p) => p.usuario === delNombre) ? [{ usuario: hallado.usuario, nombre: hallado.nombre, foto: hallado.foto }] : []),
-        ...(encontrados ?? []).map(conDatos),
-      ];
-      for (const p of lista) if (!ya.has(p.usuario)) out.push({ k: `p:${p.usuario}`, tipo: 'perfil', grupo: 'Instagram', p });
-      const manual = perfilManual(consulta);
-      if (manual && !ya.has(manual.usuario) && !lista.some((p) => p.usuario === manual.usuario)) {
-        out.push({ k: `u:${manual.usuario}`, tipo: 'usar', grupo: 'Instagram', usuario: manual.usuario });
-      }
-      if (!usuarioDeTexto(consulta) && actual) out.push({ k: 'n', tipo: 'nombre', grupo: 'Sin redes', nombre: t });
-    }
-    return out;
-  }, [t, consulta, ya, competidores, accion, encontrados, completos, delNombre, actual]);
+  const mirados = useMemo(() => (t ? competidores.filter((c) => coincideCompetidor(c, t, nombreDeTarjeta(c))) : competidores).slice(0, MAX_MIRADOS), [t, competidores]);
+  const busqueda = useMemo(() => filasDeLaBusqueda(plan, resp, completos, ya), [plan, resp, completos, ya]);
 
-  const iActivo = filas.length ? Math.min(activo, filas.length - 1) : -1;
+  // ── Completar las primeras filas de Instagram con su foto y sus seguidores, en UNA corrida ─────────────
+  useEffect(() => {
+    if (busqueda.sinCupo) return;
+    const faltan = cualesCompletar(busqueda.instagram, new Set([...completando.current.keys(), ...Object.keys(completos)]));
+    if (!faltan.length) return;
+    const espera = setTimeout(() => {
+      const promesa = fetch(`/api/competitor-spy/buscar?fuente=completar&u=${encodeURIComponent(faltan.join(','))}`, { signal: AbortSignal.timeout(TOPE_MS) })
+        .then((r) => r.json().catch(() => null))
+        .then((j: { ok?: boolean; perfiles?: PerfilHallado[] } | null) => {
+          const leidos = Array.isArray(j?.perfiles) ? j.perfiles : [];
+          setCompletos((v) => {
+            const n = { ...v };
+            for (const p of leidos) if (p?.usuario) n[p.usuario] = p;
+            // Lo que no se pudo leer queda anotado igual: no se vuelve a pedir en esta búsqueda.
+            for (const u of faltan) if (!n[u]) n[u] = { usuario: u, nombre: null, foto: null, seguidores: null, sinLeer: true };
+            return n;
+          });
+        })
+        .catch(() => { /* se muestra lo que hay */ })
+        .finally(() => { for (const u of faltan) completando.current.delete(u); });
+      for (const u of faltan) completando.current.set(u, promesa);
+    }, ESPERA_COMPLETAR_MS);
+    return () => clearTimeout(espera);
+  }, [busqueda.instagram, busqueda.sinCupo, completos]);
+
+  // El reloj de los mensajes de espera: corre sólo mientras algo de lo escrito está en camino.
+  const enCamino = busqueda.instagramCargando || busqueda.youtubeCargando;
+  useEffect(() => {
+    if (!enCamino) return;
+    const id = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [enCamino]);
+  const desdeQue = (claves: readonly string[]) => {
+    const ts = claves.map((k) => inicio[k]).filter((x): x is number => typeof x === 'number');
+    return ts.length ? Math.max(0, ahora - Math.min(...ts)) : 0;
+  };
+
+  const filas: FilaBusqueda[] = useMemo(() => [
+    ...mirados.map((c): FilaBusqueda => ({ k: `c:${c.id}`, tipo: 'mirado', grupo: 'mirados', competidorId: c.id })),
+    ...busqueda.filas,
+  ], [mirados, busqueda.filas]);
+  const iEncontrado = filas.findIndex((f) => f.k === activoK);
+  const iActivo = filas.length ? (iEncontrado >= 0 ? iEncontrado : 0) : -1;
   const idFila = (i: number) => `${idLista}-${i}`;
-
-  // El scroll sigue al teclado y nada más: si siguiera al mouse, pasar por una fila a medio ver movería la lista bajo el dedo.
   const moverA = (i: number) => {
-    setActivo(i);
+    setActivoK(filas[i]?.k ?? null);
     requestAnimationFrame(() => document.getElementById(idFila(i))?.scrollIntoView({ block: 'nearest' }));
   };
 
+  const integracion = useConectarIntegracion({
+    onConectado: () => {
+      // Con la clave recién puesta, lo escrito se vuelve a buscar.
+      pedidos.current.clear();
+      setResp({});
+      setRonda((n) => n + 1);
+    },
+  });
+  const conectando = integracion.abierto != null;
+
   // ── Elegir y confirmar ─────────────────────────────────────────────────────
-  const irAConfirmar = useCallback(async (pegado: string, ya: VistaPrevia | null, leyendo?: Promise<PerfilCompleto | null>) => {
+  const irAConfirmar = useCallback(async (pegado: string, previa: VistaPrevia, leer?: () => Promise<VistaPrevia | null>) => {
     const turno = ++vigencia.current;
-    setElegido({ pegado }); setVista(ya); setErrorVista(null); setFotoRota(false);
+    setElegido({ pegado }); setVista(leer ? null : previa); setErrorVista(null); setFotoRota(false);
     cajaRef.current?.focus();
-    if (ya) return;
-    // ⚠️ SI ESA FILA YA SE ESTÁ LEYENDO, SE LA ESPERA: pedir otra pagaría dos veces a la misma persona, y es lo más común del
-    // mundo, porque se elige justo mientras las filas se están completando.
-    const c = leyendo ? await leyendo : null;
+    if (!leer) return;
+    const v = await leer().catch(() => null);
     if (turno !== vigencia.current) return;
-    if (c) { setVista(vistaDe(c)); return; }
-    const r = await vistaPreviaAction(pegado).catch(() => ({ ok: false as const, error: 'No pude leerlo ahora. Prueba de nuevo en un rato.' }));
-    if (turno !== vigencia.current) return;
-    if (r.ok) setVista(r.vista);
-    else setErrorVista(r.error);
+    // Un perfil que no se pudo leer NO frena el alta: se muestra lo que se sabía y se dice.
+    setVista(v ?? { ...previa, aviso: 'No pude leerlo para mostrarte quién es. Puedes agregarlo igual.' });
   }, []);
 
-  const elegirUsuario = (usuario: string) => {
-    const c = completos[usuario];
-    void irAConfirmar(`@${usuario}`, c ? vistaDe(c) : null, enCamino.current.get(usuario));
+  /** Un perfil de Instagram: con bio ya leída se confirma en el acto; si no, se lee (y si ya se está leyendo, se espera). */
+  const elegirPerfil = (p: PerfilHallado) => {
+    const c = completos[p.usuario];
+    const lleno = c && !c.sinLeer ? { ...p, ...c } : p;
+    if (lleno.bio !== undefined && lleno.foto) { void irAConfirmar(`@${p.usuario}`, vistaDePerfil(lleno)); return; }
+    void irAConfirmar(`@${p.usuario}`, vistaDePerfil(lleno), async () => {
+      // ⚠️ SI ESA FILA YA SE ESTÁ COMPLETANDO, SE ESPERA ESA CORRIDA: pedir otra pagaría dos veces a la misma persona.
+      await completando.current.get(p.usuario);
+      const r = await fetch(`/api/competitor-spy/buscar?fuente=ig&u=${encodeURIComponent(p.usuario)}`, { signal: AbortSignal.timeout(TOPE_MS) });
+      const j = (await r.json().catch(() => null)) as { perfil?: PerfilHallado | null } | null;
+      return j?.perfil ? vistaDePerfil({ ...lleno, ...j.perfil }) : null;
+    });
   };
 
-  const elegir = (f: Fila) => {
-    if (f.tipo === 'mirado') onAbrir(f.c.id);
-    else if (f.tipo === 'perfil') elegirUsuario(f.p.usuario);
-    else if (f.tipo === 'usar') elegirUsuario(f.usuario);
-    else if (f.tipo === 'directo') void irAConfirmar(t, { campo: f.o.campo, valor: f.o.valor });
+  const elegir = (f: FilaBusqueda) => {
+    if (f.tipo === 'mirado') onAbrir(f.competidorId);
+    else if (f.tipo === 'perfil') elegirPerfil(f.perfil);
+    else if (f.tipo === 'usar') void irAConfirmar(`@${f.usuario}`, { campo: 'instagram', valor: f.usuario });
+    else if (f.tipo === 'canal') void irAConfirmar(f.canal.url, vistaDeCanal(f.canal));
+    else if (f.tipo === 'directo') void irAConfirmar(f.pegar, { campo: f.campo, valor: f.valor });
     else void irAConfirmar(t, { campo: 'nombre', valor: f.nombre });
   };
 
@@ -337,7 +348,7 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Con el modal de Meta encima, el Escape es de él.
+      // Con el modal de la integración encima, el Escape es de él.
       if (e.key !== 'Escape' || conectando) return;
       e.stopPropagation();
       if (elegido) volver();
@@ -380,22 +391,16 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
   );
 
   // ── Lo que dice la lista cuando no tiene qué mostrar ──────────────────────
-  const meta = actual && 'meta' in actual ? actual.meta : null;
-  const sinPerfiles = !buscando && !filas.some((f) => f.tipo === 'perfil');
-  const leyendoAlguno = completando.size > 0;
-  const pideConectar = pideConectarMeta(meta);
-  const vacio = (() => {
-    if (accion.que === 'no-reconocido') return { titulo: 'No reconozco ese enlace', texto: 'Pega el de su canal: el que lleva su @ o /channel/.' };
+  const vacio = ((): { titulo: string; texto: string; conectar?: boolean } | null => {
+    if (plan.noReconocido === 'youtube-c') return { titulo: 'No reconozco ese enlace', texto: 'Pega el de su canal: el que lleva su @ o /channel/.' };
+    if (plan.noReconocido === 'instagram-post') return { titulo: 'Ese enlace es una publicación', texto: 'Pega el de su perfil, o escribe su @.' };
     if (!t && !competidores.length) return { titulo: 'A quién quieres mirar', texto: 'Escribe su nombre, su @, su canal de YouTube o su sitio.' };
-    if (t && accion.que === 'nada' && !filas.length) return { titulo: 'Sigue escribiendo', texto: 'Con 3 letras ya busco.' };
-    if (!buscable || !actual) return null;
-    if (fallo) return { titulo: 'No pude buscar', texto: 'Prueba de nuevo en un rato, o escribe su @ exacto.' };
-    if (limite) return { titulo: 'Ya no quedan búsquedas por hoy', texto: 'Se renuevan mañana. Si sabes su @, puedes agregarlo igual.' };
-    if (sinPerfiles && !leyendoAlguno) {
-      // Por nombre se dice sin el «por nombre no se puede» del alta del CRM: acá buscar por nombre sí anda, y esta vez no trajo nada.
-      const conArroba = usuarioDeTexto(consulta) != null;
-      return { titulo: 'No encontré a nadie', texto: conArroba ? avisoSinResultados({ esUsuario: true, meta, porNombre: 'porNombre' in actual ? actual.porNombre : null }) : 'Prueba con su @ exacto.' };
-    }
+    if (t && !filas.length && !busqueda.algoEnCamino && !busqueda.algoPedido) return { titulo: 'Sigue escribiendo', texto: 'Con 3 letras ya busco.' };
+    if (busqueda.algoEnCamino || busqueda.filas.length) return null;
+    if (busqueda.sinClave) return { titulo: 'Conecta Apify para buscar por nombre', texto: 'Con tu clave de Apify busco en Instagram y en YouTube.', conectar: true };
+    if (busqueda.sinCupo) return { titulo: 'Ya no quedan búsquedas por hoy', texto: 'Se renuevan mañana. Si sabes su @, puedes agregarlo igual.' };
+    if (busqueda.fallo) return { titulo: 'No pude buscar', texto: 'Prueba de nuevo en un rato, o escribe su @ exacto.' };
+    if (busqueda.algoPedido) return { titulo: 'No encontré a nadie', texto: plan.nombre ? 'Prueba con su @ exacto.' : 'Revisa que esté bien escrito.' };
     return null;
   })();
 
@@ -405,8 +410,8 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
     const foto = !fotoRota ? fotoPorNosotros(vista?.foto) : null;
     const detalle = vista && [
       QUE_ES[vista.campo],
-      vista.campo === 'instagram' ? `@${vista.valor}` : null,
-      vista.seguidores != null ? `${dibujarContador(vista.seguidores)} seguidores` : null,
+      vista.campo === 'instagram' ? `@${vista.valor}` : vista.campo === 'youtube_id' && vista.valor.startsWith('@') ? vista.valor : null,
+      vista.seguidores != null ? `${dibujarContador(vista.seguidores)} ${vista.campo === 'youtube_id' ? 'suscriptores' : 'seguidores'}` : null,
     ].filter(Boolean).join(' · ');
     return (
       <>
@@ -425,9 +430,9 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
               <span className="spy-finder__rostro" aria-hidden>
                 {!vista
                   ? <span className="spy-hueso" style={{ width: '100%', height: '100%' }} />
-                  // eslint-disable-next-line @next/next/no-img-element -- la sirve nuestra ruta: acá sólo se mira
+                  // eslint-disable-next-line @next/next/no-img-element -- la sirve nuestra ruta o YouTube: acá sólo se mira
                   : foto ? <img src={foto} alt="" onError={() => setFotoRota(true)} />
-                    : vista.campo === 'youtube_id' ? <Icon name="youtube" size={56} />
+                    : vista.campo === 'youtube_id' ? <SvcIcon k="youtube" box={88} size={52} radius={22} />
                       : vista.campo === 'landing_url' ? <Icon name="web" size={56} /> : inicial(nombre)}
               </span>
               <span className="spy-finder__datos">
@@ -452,7 +457,6 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
             </div>
           )}
           {errorVista && <p className="spy-finder__nota spy-finder__nota--mal" style={{ marginTop: 16 }}>{errorVista}</p>}
-          {/* Un perfil que no se pudo leer NO frena el alta: se dice y se deja agregar igual. */}
           {vista?.aviso && <p className="spy-finder__nota">{vista.aviso}</p>}
           {error && <p className="spy-finder__nota spy-finder__nota--mal">{error}</p>}
           <div className="spy-finder__botones">
@@ -462,48 +466,55 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
             </button>
           </div>
         </div>
+        <BrandDefs />
       </>
     );
   }
 
   // ── La lista ───────────────────────────────────────────────────────────────
-  // El grupo se escribe una sola vez, arriba de su primera fila.
-  const grupos: Array<{ nombre: string; desde: number; filas: Fila[] }> = [];
-  filas.forEach((f, i) => {
-    const ultimo = grupos[grupos.length - 1];
-    if (ultimo?.nombre === f.grupo) ultimo.filas.push(f);
-    else grupos.push({ nombre: f.grupo, desde: i, filas: [f] });
-  });
-  const iInstagram = grupos.findIndex((g) => g.nombre === 'Instagram');
-
-  const dibujarFila = (f: Fila, i: number) => {
+  const dibujarFila = (f: FilaBusqueda, i: number): ReactNode => {
     const comun = {
       id: idFila(i), role: 'option' as const, 'aria-selected': i === iActivo, className: 'spy-finder__fila',
-      onMouseEnter: () => setActivo(i), onClick: () => elegir(f),
+      onMouseEnter: () => setActivoK(f.k), onClick: () => elegir(f),
     };
     if (f.tipo === 'mirado') {
-      const titulo = nombreDeTarjeta(f.c);
-      const canales = [f.c.instagram ? 'Instagram' : null, f.c.youtube_id ? 'YouTube' : null, f.c.tiktok ? 'TikTok' : null, f.c.landing_url ? 'Su web' : null].filter(Boolean).join(' · ');
+      const c = competidores.find((x) => x.id === f.competidorId);
+      if (!c) return null;
+      const titulo = nombreDeTarjeta(c);
+      const canales = [c.instagram ? 'Instagram' : null, c.youtube_id ? 'YouTube' : null, c.tiktok ? 'TikTok' : null, c.landing_url ? 'Su web' : null].filter(Boolean).join(' · ');
       return (
         <div key={f.k} {...comun}>
-          <Cara src={f.c.avatar || caricaturaDeCompetidor(f.c)} nombre={titulo} />
+          <Cara src={c.avatar || caricaturaDeCompetidor(c)} nombre={titulo} />
           <span className="spy-finder__texto"><b>{titulo}</b><small>{canales || 'Sin canales todavía'}</small></span>
           {FLECHA}
         </div>
       );
     }
     if (f.tipo === 'perfil') {
-      const c = completos[f.p.usuario];
-      const seguidores = c?.seguidores != null ? `${dibujarContador(c.seguidores)} seguidores` : null;
-      const enCamino = completando.has(f.p.usuario);
+      const p = f.perfil;
+      const seguidores = p.seguidores != null ? `${dibujarContador(p.seguidores)} seguidores` : null;
       return (
         <div key={f.k} {...comun}>
-          {enCamino && !f.p.foto ? <span className="spy-hueso spy-hueso--cara" aria-hidden /> : <Cara src={fotoPorNosotros(f.p.foto)} nombre={f.p.nombre || f.p.usuario} />}
+          {f.completando && !p.foto ? <span className="spy-hueso spy-hueso--cara" aria-hidden /> : <Cara src={fotoPorNosotros(p.foto)} nombre={p.nombre || p.usuario} red="instagram" />}
           <span className="spy-finder__texto">
-            <b>{f.p.nombre || `@${f.p.usuario}`}</b>
-            {f.p.nombre || seguidores
-              ? <small>{[`@${f.p.usuario}`, seguidores].filter(Boolean).join(' · ')}</small>
-              : enCamino ? <span className="spy-hueso spy-hueso--s" aria-hidden /> : <small>Ver quién es</small>}
+            <b>{p.nombre || `@${p.usuario}`}</b>
+            {p.nombre || seguidores
+              ? <small>{[`@${p.usuario}`, seguidores].filter(Boolean).join(' · ')}</small>
+              : f.completando ? <span className="spy-hueso spy-hueso--s" aria-hidden /> : <small>Ver quién es</small>}
+          </span>
+          {FLECHA}
+        </div>
+      );
+    }
+    if (f.tipo === 'canal') {
+      const c = f.canal;
+      const subs = c.suscriptores != null ? `${dibujarContador(c.suscriptores)} suscriptores` : null;
+      return (
+        <div key={f.k} {...comun}>
+          <Cara src={c.foto} nombre={c.nombre || c.ref} red="youtube" />
+          <span className="spy-finder__texto">
+            <b>{c.nombre || c.ref}</b>
+            <small>{[c.ref.startsWith('@') ? c.ref : null, subs].filter(Boolean).join(' · ') || 'Canal de YouTube'}</small>
           </span>
           {FLECHA}
         </div>
@@ -512,7 +523,7 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
     if (f.tipo === 'usar') {
       return (
         <div key={f.k} {...comun}>
-          <span className="spy-finder__ico" aria-hidden><Icon name="instagram" size={18} /></span>
+          <span className="spy-finder__ico" aria-hidden><LogoRed red="instagram" box={20} /></span>
           <span className="spy-finder__texto"><b>Usar @{f.usuario}</b><small>Tal como lo escribiste</small></span>
           {FLECHA}
         </div>
@@ -521,8 +532,8 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
     if (f.tipo === 'directo') {
       return (
         <div key={f.k} {...comun}>
-          <span className="spy-finder__ico" aria-hidden><Icon name={f.o.campo === 'youtube_id' ? 'youtube' : 'web'} size={18} /></span>
-          <span className="spy-finder__texto"><b>{f.o.titulo}</b><small>{f.o.detalle}</small></span>
+          <span className="spy-finder__ico" aria-hidden><LogoRed red={f.campo === 'tiktok' ? 'tiktok' : f.campo === 'youtube_id' ? 'youtube' : 'sitio'} box={20} /></span>
+          <span className="spy-finder__texto"><b>{f.titulo}</b><small>{f.detalle}</small></span>
           {FLECHA}
         </div>
       );
@@ -536,17 +547,39 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
     );
   };
 
-  const huesos = buscando && (
-    <>
-      {iInstagram < 0 && <div className="spy-finder__grupo"><span>Instagram</span><span>Buscando…</span></div>}
-      {Array.from({ length: 5 }, (_, i) => (
-        <div key={i} className="spy-finder__fila spy-finder__esq" aria-hidden>
-          <span className="spy-hueso spy-hueso--cara" />
-          <span className="spy-finder__texto"><span className="spy-hueso spy-hueso--b" /><span className="spy-hueso spy-hueso--s" /></span>
+  const huesos = (n: number, red: 'instagram' | 'youtube') => Array.from({ length: n }, (_, i) => (
+    <div key={`h-${red}-${i}`} className="spy-finder__fila spy-finder__esq" aria-hidden>
+      <span className="spy-hueso spy-hueso--cara" />
+      <span className="spy-finder__texto"><span className="spy-hueso spy-hueso--b" /><span className="spy-hueso spy-hueso--s" /></span>
+    </div>
+  ));
+
+  // Los grupos, en orden fijo. Un grupo sin filas y sin nada en camino no se dibuja.
+  const GRUPOS: Array<{ id: FilaBusqueda['grupo']; nombre: string; red?: 'instagram' | 'youtube' | 'tiktok' | 'sitio'; cargando?: boolean; espera?: string }> = [
+    { id: 'mirados', nombre: 'Ya los miras' },
+    { id: 'instagram', nombre: 'Instagram', red: 'instagram', cargando: busqueda.instagramCargando, espera: busqueda.instagramCargando ? esperaDe(desdeQue(busqueda.clavesInstagram), !!plan.nombre) : undefined },
+    { id: 'youtube', nombre: 'YouTube', red: 'youtube', cargando: busqueda.youtubeCargando, espera: busqueda.youtubeCargando && !busqueda.instagramCargando ? esperaDe(desdeQue(busqueda.clavesYoutube), !!plan.nombre) : undefined },
+    { id: 'tiktok', nombre: 'TikTok', red: 'tiktok' },
+    { id: 'sitio', nombre: 'Sitio web', red: 'sitio' },
+    { id: 'nombre', nombre: 'Sin redes' },
+  ];
+  let i = 0;
+  const bloques = GRUPOS.map((g) => {
+    const deEste = filas.filter((f) => f.grupo === g.id);
+    if (!deEste.length && !g.cargando) return null;
+    const desde = i;
+    i += deEste.length;
+    return (
+      <div key={g.id}>
+        <div className="spy-finder__grupo">
+          <span className="spy-finder__red">{g.red && <LogoRed red={g.red} box={16} />}{g.nombre}</span>
+          {g.espera && <span className="spy-finder__espera" aria-live="polite">{g.espera}</span>}
         </div>
-      ))}
-    </>
-  );
+        {deEste.map((f, j) => dibujarFila(f, desde + j))}
+        {g.cargando && huesos(deEste.length ? 1 : 3, g.id === 'youtube' ? 'youtube' : 'instagram')}
+      </div>
+    );
+  });
 
   return (
     <>
@@ -559,7 +592,7 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
             ref={inputRef}
             type="text"
             value={texto}
-            onChange={(e) => { setTexto(e.target.value); setActivo(0); }}
+            onChange={(e) => { setTexto(e.target.value); setActivoK(null); }}
             onKeyDown={onTecla}
             placeholder="Nombre, @, canal de YouTube o sitio"
             aria-label="Buscar a quién mirar"
@@ -574,25 +607,15 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
           />
           {esc}
         </div>
-        <div id={idLista} className="spy-finder__lista" role="listbox" aria-label="Resultados" aria-busy={buscando} onMouseDown={(e) => e.preventDefault()}>
-          {grupos.map((g, ig) => (
-            <div key={g.nombre}>
-              <div className="spy-finder__grupo">
-                <span>{g.nombre}</span>
-                {g.nombre === 'Instagram' && buscando && <span>Buscando…</span>}
-              </div>
-              {ig === iInstagram && huesos}
-              {g.filas.map((f, j) => dibujarFila(f, g.desde + j))}
-            </div>
-          ))}
-          {iInstagram < 0 && huesos}
+        <div id={idLista} className="spy-finder__lista" role="listbox" aria-label="Resultados" aria-busy={enCamino} onMouseDown={(e) => e.preventDefault()}>
+          {bloques}
           {vacio && (
             <div className="spy-finder__vacio">
               <b>{vacio.titulo}</b>
               <p>{vacio.texto}</p>
-              {/* Sin Meta ni clave de Spy no hay con qué buscar: el botón, ahí mismo y sin salir de la tab. */}
-              {pideConectar && (
-                <button type="button" className="spy-boton" data-conectar-integracion="meta" onClick={() => integracion.abrir('meta')}>Conectar Meta</button>
+              {/* Sin la clave de Apify no hay con qué buscar por nombre: el botón, ahí mismo y sin salir de la tab. */}
+              {vacio.conectar && (
+                <button type="button" className="spy-boton" data-conectar-integracion="apify-instagram" onClick={() => integracion.abrir('apify-instagram')}>Conectar Apify</button>
               )}
             </div>
           )}
@@ -602,7 +625,9 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
           <span><span className="spy-kbd">↵</span> elegir</span>
         </div>
       </div>
+      <BrandDefs />
       {integracion.modal}
     </>
   );
 }
+
