@@ -100,7 +100,7 @@ export const BITACORA: Hito[] = [
     actor: 'claude', tipo: 'implementacion',
     titulo: 'La clave que da de alta dominios, aparte de la que manda',
     puntos: [
-      'El Cerebro midió que la clave con que MaKo manda es de **sólo envío**: con ella Mauricio no podía conectar su dominio. **No se le subió el permiso**: dar de alta, leer y verificar un dominio usa `RESEND_ADMIN_API_KEY`, que sólo lee lib/resend-dominios.ts.',
+      'El Cerebro midió que la clave con que MaKo manda es de **sólo envío**: con ella Mauricio no podía conectar su dominio. **No se le subió el permiso**: dar de alta, leer y verificar un dominio usa una clave aparte, de administración, que vive en una variable de Vercel y sólo lee lib/resend-dominios.ts.',
       '**Sin esa clave no se crea nada**: conectar y verificar el dominio dicen que es un problema de MaKo, y `estado_email` lo muestra.',
       '**El tope de dominios del plan se dice como tal**, sin culpar al dominio. ⚠️ La forma de ese error no se midió.',
       'Un negocio con su propia clave de Resend sigue administrando su dominio con la suya.',
