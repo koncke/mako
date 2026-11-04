@@ -200,10 +200,12 @@ jobs:
       # ⚠️ EL ENTERO NO MORÍA POR GRANDE: moría contra el tope de 6.144 MB, sin swap. Con 10 GB de swap y tope de 12.288 MB terminó en
       # 248 s, con 6.187 MB vivos y sin parcial (run 41779840011, 4/11/2026, n=1). Antes eran ~360 s de intento que muere más ~270 de
       # tandas, para un OK PARCIAL. Después de los tests, para que el swap no les cambie los tiempos.
+      # ⚠️ 6 GB, NO 10: el disco del runner tiene 11 GB libres y el runner ya trae 3,3 GB de swap. Con 10, después de los tests no quedó
+      # lugar ni para el tsbuildinfo: `error TS5033 ... ENOSPC` se contó como un error de tipos, con el chequeo limpio (corrida 18).
       - name: Swap para los tipos
         if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
         run: |
-          sudo fallocate -l 10G /swapfile-tipos
+          sudo fallocate -l 6G /swapfile-tipos
           sudo chmod 600 /swapfile-tipos
           sudo mkswap /swapfile-tipos
           sudo swapon /swapfile-tipos
