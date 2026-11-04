@@ -1424,3 +1424,40 @@ de un video PÚBLICO de YouTube como `fileData.fileUri`: no se baja nada, no se 
 
 Lo fija `tests/spy-guion-youtube.test.ts` (con `tests/_spy-guion-yt-hijo.ts`: la función real contra un Gemini de mentira),
 probado rompiéndolo: 7 roturas, las 7 caen.
+
+## Cuarta y quinta vuelta: lo que se aprendió con el alta de Leila, «Sus páginas» y «Capturar» (4/11/2026)
+
+**Vive en:** `app/competitor-spy/` (`SusPaginas.tsx`, `Esqueletos.tsx`, `TarjetaPieza.tsx`), `lib/pagina-real.ts`,
+`lib/spy-pagina-capturada*.ts`, `lib/spy-captura-cliente.ts`, `extension/spy-pagina.js`, `extension/popup.js`, `extension/background.js`.
+
+- **El «archivo triste gris» de Chrome adentro de «Sus páginas» no era la página: el marco se había ido a otra.** Un acortador
+  (`linktw.in/…`) que redirige con JavaScript corre adentro del marco (`sandbox="allow-scripts"` deja que el marco se navegue a sí
+  mismo), llega a un sitio que no se deja mostrar en un marco, y Chrome pinta su error. Desde la pantalla no se ve: es otro origen.
+  Dos arreglos, uno por lado: el servidor sigue la redirección hecha en el navegador ANTES de mostrar (`paginaFinal`, sólo en una
+  página casi sin texto: en una de verdad, un `location.href` es un botón), y el marco se muestra sólo cuando él mismo avisa que pintó
+  la página (`marcoVerificado`, con el script del Diagnóstico). Sin aviso a tiempo, «Abrir». Un marco que no se puede verificar no se
+  dibuja.
+- **`activeTab` es el permiso de la captura, y sale sólo del toque de la persona en el ícono.** Una pestaña que abre la extensión NO
+  le da permiso de leerla (`captureVisibleTab` y `executeScript` piden `activeTab` o un permiso de sitios), y un permiso de sitios
+  nuevo desactiva la extensión a cada cliente hasta que lo acepte. Por eso la captura es: Spy pide, la extensión abre la página a la
+  vista y la anota en `chrome.storage.session`, la persona pasa la barrera si aparece y toca el ícono, y el desplegable lee esa
+  pestaña. Nada se evade: el desafío lo pasa la persona.
+- **`spy-miniaturas` es público y sólo de imágenes (mig 0361):** el HTML de una página ajena no va ahí. La captura guarda la foto, el
+  título, el texto y los enlaces; el diseño para «Copiar su sitio» necesita un bucket privado (una migración).
+- **Una guarda de la casa frena que un archivo use la clave de servicio Y lea `spy_competidores`** (`tests/spy-sugeridos.test.ts`, 5):
+  la subida a Storage va por `lib/spy-miniaturas.ts` (`subirFotoDePagina`), no al lado de la lectura del competidor.
+- **En la vista de prueba, un doble con `url.includes('/api/competitor-spy/pagina')` atrapa también `/paginas?id=`.** La pantalla
+  parecía no traer las capturas; era el arnés. Los dobles por prefijo van del más largo al más corto.
+- **Un arreglo devuelto por `runInNewContext` no es «estrictamente igual» a uno de acá** (otros prototipos): se pasa por JSON antes
+  de `deepStrictEqual`, o el test falla mostrando dos valores idénticos.
+- **Un prefijo de clases de CSS repetido se pisa sin avisar:** la entrada ya usaba `spye-`; los esqueletos van con `spyesq-`. Antes de
+  nombrar, `grep` del prefijo en la carpeta.
+- **Una sección que carga se dibuja con su forma, en su tarjeta, y con la medida de lo de verdad** (Martín: «los placeholder típicos,
+  no me refiero a mako»). El gris de la casa (`--surface-2`) casi no se ve sobre una tarjeta blanca: adentro de un esqueleto va el
+  tono del borde. La criatura queda para entrar a un competidor.
+- **Una fila de tarjetas de alturas distintas estira a todas a la más alta** (`align-items: stretch` por defecto en la grilla): el
+  «bloque crema» de Leila. Cada celda va `align-self: start`.
+
+Lo fijan `tests/spy-tarjetas-sin-relleno.test.ts`, `tests/spy-esqueletos.test.ts`, `tests/spy-paginas-verificadas.test.ts` y
+`tests/spy-captura-pagina.test.ts` (con la extensión de mentira: sin extensión, con desafío, página que no carga y captura vacía),
+todos probados rompiéndolos.
