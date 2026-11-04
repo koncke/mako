@@ -27,9 +27,13 @@ REMOTO="${1:-origin}"
 A_MAIN=0
 A_INTEGRACION=0
 SHA_INTEGRACION=""
+A_PUNTA=0
+SHA_PUNTA=""
 while read -r _ref_local sha_local ref_remota _sha_remota; do
   [ "$ref_remota" = "refs/heads/main" ] && A_MAIN=1
   if [ "$ref_remota" = "refs/heads/integracion" ]; then A_INTEGRACION=1; SHA_INTEGRACION="$sha_local"; fi
+  # Un borrado de rama (sha 000…) no sube nada que chequear.
+  case "$ref_remota" in refs/heads/punta/*) [ "$sha_local" != "0000000000000000000000000000000000000000" ] && { A_PUNTA=1; SHA_PUNTA="$sha_local"; } ;; esac
 done
 
 # ⚠️ PUSH A `integracion` (17/10/2026): corre scripts/antes-de-subir.mjs — las guardas, el tsc ACOTADO de lo cambiado y los
@@ -132,4 +136,26 @@ if [ ! -f "$GUARDAS" ]; then
   exit 1
 fi
 sh "$GUARDAS" "$REMOTO" || exit 1
+
+# ⚠️ PUSH A `punta/*` (4/11/2026): el FILTRO CHICO, scripts/filtro-punta.mjs del árbol que se sube. Los tests de lo tocado (el
+# cambio los toca, lo nombran o lo importan directo) y los tipos de lo tocado, con un TOPE de 90 s, sin candado y sin esperar RAM.
+# NO es antes-de-subir: no hace fila, no corre barredoras ni importadores lejanos (eso lo corre la punta en GitHub). Frena SÓLO con
+# un rojo confirmado; si no entra en el tope, no hay RAM u otro tsc está corriendo, avisa y DEJA SUBIR (nunca 99).
+# Medido el 4/11: habría frenado los dos rojos de ese día en la PC, en 54 s y en 4 s, en vez de una corrida de GitHub cada uno.
+# Saltearlo a propósito (un falso rojo del filtro: un tsc acotado que inventa un error de un paquete): MAKO_SIN_FILTRO=1 git push …
+if [ "$A_PUNTA" -eq 1 ] && [ "${MAKO_SIN_FILTRO:-}" != "1" ] && [ -f scripts/filtro-punta.mjs ]; then
+  if [ "$SHA_PUNTA" != "$(git rev-parse HEAD)" ]; then
+    echo "[pre-push] El push a la punta no sube HEAD: el filtro mira HEAD. Lo chequea la punta en GitHub."
+  else
+    node scripts/filtro-punta.mjs
+    if [ $? -eq 1 ]; then
+      echo ""
+      echo "  ✖ PUSH BLOQUEADO: el filtro de la punta dio ROJO (la línea de arriba dice qué)."
+      echo "    Arreglalo y volvé a pushear: en GitHub este rojo cuesta una corrida entera (10-25 min)."
+      echo "    Si es un falso rojo del filtro (un tipo de un paquete que el tsc acotado no ve): MAKO_SIN_FILTRO=1 git push …"
+      echo ""
+      exit 1
+    fi
+  fi
+fi
 exit 0
