@@ -12,7 +12,7 @@
 
 import type { Hoja } from './graficos-catalogo';
 import type { Resultado } from './graficos-agregar';
-import { COLORES_ATRASO, TRAMOS_ATRASO } from './graficos-datos-puro';
+import { TRAMOS_ATRASO } from './graficos-datos-puro';
 import { diaDeEtiqueta, type DatosPieza } from './closing-diseno';
 
 export type { DatosPieza };
@@ -40,6 +40,9 @@ export type VistaCobranza = {
   funnel: { total: number; filas: FilaMonto[] } | null;
 };
 
+/** Los colores de los tramos en el DISEÑO, los de Coffer (medidos en su valores.json: --age0 a --age3). En la grilla van tokens. */
+export const COLORES_COFFER: Readonly<Record<(typeof TRAMOS_ATRASO)[number], string>> = { 'Al día': '#3a4150', '1-30 días': '#d7a33c', '31-60 días': '#df6e2c', '60+ días': '#c0352f' };
+
 const SIN_DATO = '(sin dato)';
 const res = (datos: Record<string, DatosPieza>, id: string | undefined): Resultado | null => (id ? datos[id]?.resultado ?? null : null);
 const num = (v: number | null | undefined): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -64,7 +67,7 @@ export function debenDe(r: Resultado | null): VistaCobranza['deben'] {
   const por = new Map(r.filas.map((f) => [f.clave, f]));
   const tramos: TramoAtraso[] = TRAMOS_ATRASO.map((nombre) => {
     const f = por.get(nombre);
-    return { nombre, monto: num(f?.valores[iP]) ?? 0, cuotas: iC < 0 ? 0 : num(f?.valores[iC]) ?? 0, color: COLORES_ATRASO[nombre] };
+    return { nombre, monto: num(f?.valores[iP]) ?? 0, cuotas: iC < 0 ? 0 : num(f?.valores[iC]) ?? 0, color: COLORES_COFFER[nombre] };
   });
   const totalP = tramos.reduce((s, t) => s + t.monto, 0);
   const cuotas = tramos.reduce((s, t) => s + t.cuotas, 0);

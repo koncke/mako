@@ -278,7 +278,9 @@ export const MOTIVO_DE_REGLA: Readonly<Record<string, string>> = {
  * venció). Los colores son los de la barra de Coffer (sus `--age0…3`).
  */
 export const TRAMOS_ATRASO = ['Al día', '1-30 días', '31-60 días', '60+ días'] as const;
-export const COLORES_ATRASO: Readonly<Record<string, string>> = { 'Al día': '#3a4150', '1-30 días': '#d7a33c', '31-60 días': '#df6e2c', '60+ días': '#c0352f' };
+/** Los colores de los tramos en la GRILLA: tokens de la casa (el catálogo no acepta otra cosa). El diseño de Cobranza lleva los de
+ * Coffer, que son suyos (`COLORES_COFFER`, lib/cobranza-diseno.ts). */
+export const COLORES_ATRASO: Readonly<Record<string, string>> = { 'Al día': 'var(--good)', '1-30 días': 'var(--warn)', '31-60 días': 'var(--bad)', '60+ días': 'var(--ink)' };
 /**
  * Los días de `desde` a `hasta` (YYYY-MM-DD), CON SIGNO: negativo si `hasta` va antes (una cuota pagada antes de vencer).
  * ⚠️ No es `diasEntre` (arriba), que da null con un negativo porque para el ciclo de venta eso es un dato roto.
