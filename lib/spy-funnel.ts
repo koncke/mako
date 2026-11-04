@@ -94,6 +94,7 @@ const PATRONES: Patron[] = [
       new RegExp(String.raw`gtag/js\?${OTROS}id=(AW-\d{7,12})\b`, 'g'),
       /gtag\(\s*["']config["']\s*,\s*["'](AW-\d{7,12})["']/g,
       /send_to["']?\s*:\s*["'](AW-\d{7,12})\b/g,
+      /[?&]tid=(AW-\d{7,12})\b/g,
       /pagead\/(?:viewthrough)?conversion\/(\d{7,12})/g,
     ],
     normal: (id) => (id.startsWith('AW-') ? id : `AW-${id}`),
@@ -298,8 +299,20 @@ export const conLectura = (antes: Funnel | null, lector: keyof Funnel, lectura: 
 });
 
 /** Lo que se dibuja: lo que vio cualquiera de los dos. */
-export function funnelUnido(f: Funnel): Omit<LecturaFunnel, 'leidoEn'> {
-  const lecturas = [f.pagina, f.navegador].filter((x): x is LecturaFunnel => !!x);
+export const funnelUnido = (f: Funnel): Omit<LecturaFunnel, 'leidoEn'> => unirLecturas([f.pagina, f.navegador]);
+
+/**
+ * Lo mismo para todas las páginas guardadas de un competidor: su VSL y su página de venta no tienen por
+ * qué cargar lo mismo. `null` = ninguna se leyó. `vioElNavegador` dice si lo de Tag Manager ya se pudo ver.
+ */
+export function funnelDeLasPaginas(filas: readonly unknown[]): (Omit<LecturaFunnel, 'leidoEn'> & { vioElNavegador: boolean }) | null {
+  const funnels = filas.map(funnelDeFila).filter((f): f is Funnel => !!f);
+  if (!funnels.length) return null;
+  return { ...unirLecturas(funnels.flatMap((f) => [f.pagina, f.navegador])), vioElNavegador: funnels.some((f) => !!f.navegador) };
+}
+
+function unirLecturas(todas: ReadonlyArray<LecturaFunnel | null>): Omit<LecturaFunnel, 'leidoEn'> {
+  const lecturas = todas.filter((x): x is LecturaFunnel => !!x);
   const ids = new Map<ProveedorPixel, Set<string>>();
   for (const l of lecturas) {
     for (const p of l.pixeles) {

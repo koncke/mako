@@ -72,11 +72,12 @@ export function TarjetaPieza({ p }: { p: PiezaVista }) {
 
         <span className="spy-pcard__puntos" aria-hidden><i style={{ background: PUNTO[p.canal] ?? 'var(--faint)' }} /></span>
 
-        {esAnuncio
+        {/* Un anuncio pegado no dice cuándo empezó; el que se guardó desde la Biblioteca sí. */}
+        {esAnuncio && t.dias == null
           ? <span className="spy-pcard__tag">Lo viste el {fechaCorta(p.visto_primera_vez)}</span>
           : t.dias != null && (
             <span className={t.sigue ? 'spy-pcard__tag spy-pcard__tag--viva' : 'spy-pcard__tag'} title={t.linea}>
-              {t.sigue && <i className="spy-punto spy-punto-vivo" />}{t.dias} d a la vista
+              {t.sigue && <i className="spy-punto spy-punto-vivo" />}{t.dias} d {esAnuncio ? 'al aire' : 'a la vista'}
             </span>
           )}
         {destino && <span className="spy-pcard__tag" title={`Manda a ${destino}`}>{destino}</span>}

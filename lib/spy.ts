@@ -28,9 +28,9 @@
 //     Library API devuelve sólo política fuera de la Unión Europea y el Reino Unido (HTTP 200 con
 //     lista vacía), y raspar la web pública está prohibido por `robots.txt` (`Disallow: /`) y por
 //     los Automated Data Collection Terms de Meta, cuya cláusula 4 describe el modelo de MaKo:
-//     recolectar y mostrárselo a un cliente que paga. Lo que SÍ se puede es `guardarAnuncioPegado`:
-//     la persona pega el enlace de un anuncio que está mirando y queda en la ficha. El recorrido
-//     guiado con la extensión es la Etapa 4 y lo decide Martín (§9 del plan).
+//     recolectar y mostrárselo a un cliente que paga. Lo que hay son dos caminos con la persona
+//     adelante: `guardarAnuncioPegado` (pega el enlace de un anuncio) y «Guardar en Spy» en la
+//     extensión, con un clic, que Martín decidió el 3/11/2026 (§9.1 del plan; lib/spy-captura.ts).
 //   · **No calcula métricas derivadas** mientras `ENMIENDA_III_L` sea `false` (lib/spy-reglas.ts):
 //     el VPH y el outlier están prohibidos por defecto por los Developer Policies de YouTube, y la
 //     salida es un trámite, no un `if`.
@@ -48,7 +48,7 @@ import { nombresDe } from './landing-snapshot';
 import { mirarLanding } from './landing-vigilancia';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
 import {
-  contadorPublicado, diasCorriendo, etapaDeTendencia, leerTramo, metricasVencidas, textoVencido, TOPES,
+  contadorPublicado, diasCorriendo, etapaDeTendencia, leerTramo, podarVencido, TOPES,
   type CanalSpy, type FuentePieza, type TipoPieza,
   nombreComparable, dominioComparable, canalDeLaBio,
 } from './spy-reglas';
@@ -337,24 +337,8 @@ export async function listarPiezas(competidorId: number, canal?: CanalSpy): Prom
   if (canal) q = q.eq('canal', canal);
   const { data, error } = await q.order('visto_ultima_vez', { ascending: false }).limit(200);
   if (error) return [];
-  return (data ?? []).map(podarVencido) as Pieza[];
-}
-
-/**
- * Tacha de una fila lo que ya venció, al LEERLA. Son las dos retenciones de los Developer Policies
- * de YouTube, y se aplican acá porque es el único lugar por donde pasan todas las lecturas: una poda
- * que vive sólo en un cron deja la fila vieja a la vista hasta que el cron corra.
- *
- * El texto a los 30 días SIEMPRE; las métricas a los 36 meses con la enmienda III.L y a los 30 días
- * sin ella (lib/spy-reglas.ts). Lo que se tacha queda `null`, que es «no lo sé» — no «no lo tiene».
- */
-function podarVencido(fila: Record<string, unknown>): Record<string, unknown> {
-  const out = { ...fila };
-  const tTexto = typeof fila.texto_leido_en === 'string' ? fila.texto_leido_en : null;
-  if (tTexto && textoVencido(tTexto)) { out.titulo = null; out.texto = null; out.etiquetas = null; out.analisis = null; }
-  const tMetricas = typeof fila.metricas_leidas_en === 'string' ? fila.metricas_leidas_en : null;
-  if (tMetricas && metricasVencidas(tMetricas)) { out.vistas = null; out.megusta = null; out.comentarios = null; }
-  return out;
+  // Con la flecha: `map` le pasaría el índice como la fecha de `ahora`.
+  return (data ?? []).map((fila) => podarVencido(fila as Record<string, unknown>)) as Pieza[];
 }
 
 /** La etapa de tendencia de una pieza: cuánto lleva a la vista. Es lo único que MaKo agrega sobre mirar a mano. */
@@ -387,6 +371,8 @@ export type PiezaVista = {
   publicadaEn?: string | null;
   /** La imagen que dio la fuente. Instagram la trae (`thumbnail_url`); YouTube no la necesita: la suya se deriva del ref. */
   miniatura?: string | null;
+  /** La fecha en que la FUENTE dice que terminó (un anuncio inactivo de la Biblioteca). No es «no vino en esta lectura». */
+  dejoDeVerseEn?: string | null;
 };
 
 /**
@@ -465,7 +451,7 @@ export async function guardarVistas(
     dominio_destino: v.dominioDestino ?? null,
     publicada_en: v.publicadaEn ?? null,
     visto_ultima_vez: ahora,
-    dejo_de_verse_en: null,
+    dejo_de_verse_en: v.dejoDeVerseEn ?? null,
     updated_at: ahora,
   });
 

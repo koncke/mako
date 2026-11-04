@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { RE_CHECKOUT } from '../lib/landing-conversion';
 import { analizarHtml, HOSTS_VIDEO } from '../lib/landing-analisis';
 import {
-  conLectura, enlaceSusAnuncios, funnelDeFila, funnelEnPalabras, funnelUnido, leerFunnel, piezasDeVideoEn, type LecturaFunnel,
+  conLectura, enlaceSusAnuncios, funnelDeFila, funnelDeLasPaginas, funnelEnPalabras, funnelUnido, leerFunnel, piezasDeVideoEn, type LecturaFunnel,
 } from '../lib/spy-funnel';
 
 const ids = (l: LecturaFunnel, p: string) => l.pixeles.find((x) => x.proveedor === p)?.ids;
@@ -51,6 +51,7 @@ test('lo que vio el navegador se lee con los mismos patrones: las direcciones qu
       'https://connect.facebook.net/signals/config/987654321098765',
       'https://www.google-analytics.com/g/collect?tid=G-ZZ99YY88XX',
       'https://googleads.g.doubleclick.net/pagead/viewthroughconversion/765432109/',
+      'https://www.google.com/ccm/collect?tid=AW-112233445',
       'https://analytics.tiktok.com/i18n/pixel/events.js?sdkid=CTIKTOK1234567890AB',
       'https://cdn.taboola.com/libtrc/unip/1777777/tfa.js',
     ].join('\n'),
@@ -58,7 +59,7 @@ test('lo que vio el navegador se lee con los mismos patrones: las direcciones qu
   assert.deepEqual(ids(l, 'gtm'), ['GTM-AAAA111']);
   assert.deepEqual(ids(l, 'meta'), ['987654321098765']);
   assert.deepEqual(ids(l, 'ga4'), ['G-ZZ99YY88XX']);
-  assert.deepEqual(ids(l, 'google-ads'), ['AW-765432109']);
+  assert.deepEqual(ids(l, 'google-ads')?.sort(), ['AW-112233445', 'AW-765432109']);
   assert.deepEqual(ids(l, 'tiktok'), ['CTIKTOK1234567890AB']);
   assert.deepEqual(ids(l, 'taboola'), ['1777777']);
 });
@@ -163,6 +164,17 @@ test('una lectura no borra lo que vio el otro lector', () => {
   assert.deepEqual(funnelUnido(otraVez).pixeles.map((p) => p.proveedor), ['ga4']);
 });
 
+test('varias páginas guardadas se dibujan juntas, y se sabe si ya miró un navegador', () => {
+  assert.equal(funnelDeLasPaginas([null, undefined, {}]), null, 'ninguna leída no es «no tiene nada»');
+  const vsl = conLectura(null, 'pagina', leerFunnel({ html: `<script>fbq('init','111122223333');</script>` }));
+  const venta = conLectura(null, 'navegador', leerFunnel({ html: 'https://www.googletagmanager.com/gtm.js?id=GTM-ABCD123', piezas: ['video-vimeo'] }));
+  const u = funnelDeLasPaginas([vsl, null, venta]);
+  assert.deepEqual(u?.pixeles.map((p) => p.proveedor), ['meta', 'gtm']);
+  assert.deepEqual(u?.videos, ['Vimeo']);
+  assert.equal(u?.vioElNavegador, true);
+  assert.equal(funnelDeLasPaginas([vsl])?.vioElNavegador, false);
+});
+
 test('la columna se lee sin creerle: nada de lo que sale de acá puede ejecutarse en un href', () => {
   assert.equal(funnelDeFila(null), null);
   assert.equal(funnelDeFila('algo'), null);
@@ -221,10 +233,10 @@ test('mirarCompetidor lo guarda sólo después de una lectura buena, y un fallo 
 
 test('la pantalla la dibuja desde la fila de la landing y con el enlace', () => {
   const s = leer('app/competitor-spy/SpyApp.tsx');
-  assert.match(s, /<SuFunnel funnel=\{sitio\?\.funnel\} \/>/);
+  assert.match(s, /<SuFunnel filas=\{piezas\.filter\(\(p\) => p\.canal === 'landing'\)\.map\(\(p\) => p\.funnel\)\} \/>/);
   assert.match(s, /href=\{enlaceSusAnuncios\(c\)\}[^>]*rel="noreferrer noopener"[^>]*>Ver sus anuncios</);
   // Sin leer: nada. Leída y sin nada: «no se ve», que no es «no tiene».
   const f = leer('app/competitor-spy/SuFunnel.tsx');
-  assert.match(f, /if \(!f\) return null;/);
+  assert.match(f, /if \(!u\) return null;/);
   assert.match(f, /Desde afuera no se ve/);
 });

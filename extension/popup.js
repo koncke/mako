@@ -817,8 +817,8 @@ async function recargarMakoYConectar() {
 //     · Flow → lo de siempre (`pintar`, arriba): conectar este navegador recién ahí, cuando la persona eligió Flow.
 // Al abrir: la extracción que está corriendo (el worker abre este desplegable al empezarla), y si no, donde se dejó.
 let vista = { pantalla: 'inicio' };
-const ATRAS = { flow: 'inicio', scraper: 'inicio', extraccion: 'scraper' };
-const DONDE = { flow: 'Google Flow', scraper: 'Scraper de WhatsApp', extraccion: 'Scraper de WhatsApp' };
+const ATRAS = { flow: 'inicio', scraper: 'inicio', extraccion: 'scraper', spy: 'inicio' };
+const DONDE = { flow: 'Google Flow', scraper: 'Scraper de WhatsApp', extraccion: 'Scraper de WhatsApp', spy: 'Competitors Spy' };
 /** Una extracción sin noticias hace tanto se cortó (el navegador cerró la extensión a la mitad). */
 const CORTADA_MS = 3 * 60000;
 
@@ -843,6 +843,7 @@ async function dibujar() {
   $('donde').textContent = DONDE[vista.pantalla] || '';
   armada = null;
   if (vista.pantalla === 'flow') { esperando('Un momento…'); await pintar(); return; }
+  if (vista.pantalla === 'spy') { if (spy.hay) dibujarSpy(); return; }
   const lista = await registro();
   if (vista.pantalla === 'scraper') dibujarRegistro(lista);
   else if (vista.pantalla === 'extraccion') dibujarExtraccion(lista.find((e) => e.id === vista.id) || null);
@@ -897,6 +898,119 @@ function dibujarInicio(lista) {
   opcion('Google Flow', 'Tus anuncios, con tu cuenta de Flow',
     ['M4 5h11a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4z', 'M17 10l4-3v10l-4-3'], '#2f6df6', 'rgba(47,109,246,.12)',
     () => void ir({ pantalla: 'flow' }));
+  // «Guardar en Spy»: sólo si Chrome dio esta pestaña, o sea si la persona tocó el ícono (ver `prepararSpy`).
+  if (spy.hay) {
+    opcion(spy.rotulo, MakoSpy.detalle(spy.hay),
+      ['M12 5C6.5 5 3 12 3 12s3.5 7 9 7 9-7 9-7-3.5-7-9-7z', 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'], '#7c3aed', 'rgba(124,58,237,.12)',
+      () => void abrirSpy());
+  }
+}
+
+// ── «Guardar en Spy» ──────────────────────────────────────────────────────────────────────────
+// La persona abre el sitio o los anuncios de un competidor y toca el ícono. Tres cosas que son a propósito:
+//   · ABRIR ESTO NO LEE NADA y no le cuenta a MaKo qué sitio se está mirando: la lista de competidores viene
+//     entera y se compara acá (spy-reglas.js). La página se lee recién al tocar el botón.
+//   · SÓLO `activeTab`. Sin `tab.url` es que Chrome no dio la pestaña, y entonces no se ofrece nada. Medido
+//     el 3/11/2026 con Chrome 156: `chrome.action.openPopup` abre esto y NO otorga `activeTab`, así que
+//     cuando el worker lo abre durante una extracción el botón no aparece. Hace falta el clic de la persona.
+//   · LO LEÍDO SE INTERPRETA EN EL SERVIDOR (lib/spy-captura.ts). Lo que muestra esta pantalla es su respuesta,
+//     con `textContent`: el nombre de una Página es de un tercero y acá no se interpreta como HTML.
+const RUTA_SPY = `${ORIGEN_MAKO}/api/competitor-spy/extension`;
+let spy = { hay: null, tabId: null, ficha: null, rotulo: '', competidores: [], token: null };
+
+async function pedirSpy(cuerpo, esperaMs) {
+  const r = await fetch(RUTA_SPY, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-flow-token': spy.token },
+    body: JSON.stringify(cuerpo),
+    ...(esperaMs ? { signal: AbortSignal.timeout(esperaMs) } : {}),
+  });
+  const datos = await r.json().catch(() => null);
+  return { status: r.status, datos };
+}
+
+/** Lo que el inicio necesita saber, sin leer la página. Si algo falla, el botón no aparece y todo lo demás sigue igual. */
+async function prepararSpy() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+  const hay = tab?.url ? MakoSpy.queHay(tab.url) : null;
+  if (!hay) return false;
+  const { token } = await chrome.storage.local.get('token').catch(() => ({}));
+  spy = { hay, tabId: tab.id, ficha: null, rotulo: MakoSpy.rotulo(null), competidores: [], token: token || null };
+  if (!spy.token) return true;
+  // Con MaKo lento, el desplegable no se queda en blanco: nada más de esta pantalla depende de esto.
+  const { datos } = await pedirSpy({ accion: 'lista' }, 2500).catch(() => ({ datos: null }));
+  spy.competidores = Array.isArray(datos?.competidores) ? datos.competidores : [];
+  spy.ficha = MakoSpy.fichaDe(hay, spy.competidores);
+  spy.rotulo = MakoSpy.rotulo(spy.ficha);
+  return true;
+}
+
+function abrirSpy() {
+  vista = { pantalla: 'spy' };
+  $('atras').hidden = false;
+  $('donde').textContent = DONDE.spy;
+  dibujarSpy();
+}
+
+/** Una pantalla de esta parte: título, línea tenue y botones. Por nodos, nunca con HTML. */
+function pantallaSpy(titulo, tenue, botones) {
+  const cuerpo = $('cuerpo');
+  cuerpo.textContent = '';
+  cuerpo.appendChild(nodo('h1', '', titulo));
+  if (tenue) cuerpo.appendChild(nodo('div', 'tenue', tenue));
+  for (const [texto, fn, suave] of botones || []) {
+    const b = nodo('button', suave ? 'suave' : '', texto);
+    b.type = 'button';
+    b.addEventListener('click', fn);
+    cuerpo.appendChild(b);
+  }
+}
+
+/** Sin token, a conectar. Con ficha, derecho. Sin ficha, primero de quién es: uno de la lista o uno nuevo. */
+function dibujarSpy() {
+  if (!spy.token) {
+    pantallaSpy('Conecta este navegador', 'Para guardar en tu MaKo, primero hay que conectarlo.', [['Conectar', () => void ir({ pantalla: 'flow' })]]);
+    return;
+  }
+  if (spy.ficha) { void guardarEnSpy(spy.ficha.id); return; }
+  if (!spy.competidores.length) { void guardarEnSpy(null); return; }
+  pantallaSpy('¿De quién es?', MakoSpy.detalle(spy.hay), [
+    ['Uno nuevo', () => void guardarEnSpy(null)],
+    ...spy.competidores.map((c) => [c.nombre, () => void guardarEnSpy(c.id), true]),
+  ]);
+}
+
+/** El clic: recién acá se inyecta el lector, una vez, en esta pestaña y en el mundo aislado. */
+async function guardarEnSpy(competidorId) {
+  pantallaSpy('Leyendo esta pestaña…');
+  let captura = null;
+  try {
+    const [r] = await chrome.scripting.executeScript({ target: { tabId: spy.tabId }, files: ['spy-leer.js'], world: 'ISOLATED' });
+    captura = r?.result ?? null;
+  } catch { captura = null; }
+  if (!captura || captura.modo === 'prohibido') {
+    pantallaSpy('No pude leer esta pestaña', 'Recárgala y vuelve a tocar el ícono de MaKo.', [['Volver', () => void ir({ pantalla: 'inicio' })]]);
+    return;
+  }
+  pantallaSpy('Guardando…');
+  const { status, datos } = await pedirSpy({ accion: 'guardar', competidorId, captura }).catch(() => ({ status: 0, datos: null }));
+  if (status === 404) {
+    pantallaSpy('Conecta este navegador', 'MaKo no lo reconoció. Vuelve a conectarlo.', [['Conectar', () => void ir({ pantalla: 'flow' })]]);
+    return;
+  }
+  if (!datos?.ok) {
+    pantallaSpy(datos?.motivo === 'sin-anuncios' ? 'No vi anuncios' : datos?.motivo === 'de-otro' ? 'Son de otro' : 'No se guardó', datos?.error || 'No pude hablar con MaKo.', [['Volver', () => void ir({ pantalla: 'inicio' })]]);
+    return;
+  }
+  const verla = ['Verla en MaKo', () => void abrirMakoEn(`/competitor-spy?competidor=${encodeURIComponent(datos.competidor.id)}`)];
+  if (datos.tipo === 'anuncios') {
+    const sub = [`${datos.nuevos} nuevos`, datos.otros ? `${datos.otros} de otros anunciantes no se guardaron` : ''].filter(Boolean).join(' · ');
+    pantallaSpy(`${datos.guardados} ${datos.guardados === 1 ? 'anuncio' : 'anuncios'} en la ficha de ${datos.competidor.nombre}`, sub, [verla]);
+  } else if (datos.tipo === 'sitio') {
+    pantallaSpy(`Guardado en la ficha de ${datos.competidor.nombre}`, (datos.lineas || []).join(' · ') || 'No vi píxeles, checkout ni video en esta página.', [verla]);
+  } else {
+    pantallaSpy(`${datos.competidor.nombre} ya está en Spy`, '', [verla]);
+  }
 }
 
 /** «hoy 10:32» o «24/10 10:32». */
@@ -1133,8 +1247,12 @@ async function arrancar() {
   let guardada = null;
   try { guardada = (await chrome.storage.local.get('popupVista')).popupVista || null; } catch { /* nada */ }
   const viva = lista.find(enCurso);
+  const conSpy = await prepararSpy().catch(() => false);
   if (viva) vista = { pantalla: 'extraccion', id: viva.id };
-  else if (guardada && ATRAS[guardada.pantalla] !== undefined) {
+  // Abierto sobre lo que ya es de un competidor o sobre sus anuncios, esto es lo que se vino a hacer: la
+  // pantalla donde se dejó la última vez lo escondería.
+  else if (conSpy && (spy.ficha || spy.hay?.tipo === 'anuncios')) vista = { pantalla: 'inicio' };
+  else if (guardada && guardada.pantalla !== 'spy' && ATRAS[guardada.pantalla] !== undefined) {
     // Una extracción terminada hace rato no es «donde se dejó»: su lugar es el registro.
     const e = guardada.pantalla === 'extraccion' ? lista.find((x) => x.id === guardada.id) : null;
     vista = guardada.pantalla === 'extraccion' && (!e || Date.now() - (Number(e.actualizado) || 0) > 10 * 60000) ? { pantalla: 'scraper' } : guardada;

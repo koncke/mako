@@ -68,9 +68,9 @@ export const NOMBRE_CANAL: Record<CanalSpy, string> = {
  *   · `pagina`    — se bajó la página pública y se leyó (la landing del competidor).
  *   · `pegado`    — lo trajo la persona: pegó el link de un anuncio que estaba mirando. No hay
  *                   recolección automatizada, así que no hay riesgo de términos.
- *   · `recorrido` — un recorrido a la vista en el navegador de la persona (Etapa 4, y sólo si
- *                   Martín lo decide: por la letra de los Automated Data Collection Terms de Meta
- *                   sigue siendo recolección automatizada). Hoy ninguna pieza entra así.
+ *   · `recorrido` — la leyó la extensión en el navegador de la persona, con un clic y sólo lo que
+ *                   la página ya dibujó («Guardar en Spy», decidido por Martín el 3/11/2026, §9.1 del
+ *                   plan). El nombre viene de cuando era un recorrido: no recorre nada.
  */
 export const FUENTES_PIEZA = ['api', 'pagina', 'pegado', 'recorrido'] as const;
 export type FuentePieza = (typeof FUENTES_PIEZA)[number];
@@ -80,7 +80,7 @@ export const NOMBRE_FUENTE: Record<FuentePieza, string> = {
   api: 'De la API oficial',
   pagina: 'De su página pública',
   pegado: 'Lo pegaste tú',
-  recorrido: 'De un recorrido en tu navegador',
+  recorrido: 'Lo guardaste desde tu navegador',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -415,6 +415,28 @@ export function diasCorriendo(
   if (!Number.isFinite(t)) return null;
   const dias = Math.floor((ahora.getTime() - t) / 86_400_000);
   return dias < 0 ? null : dias;
+}
+
+/**
+ * Tacha de una fila lo que ya venció, al LEERLA. Son las dos retenciones de los Developer Policies
+ * de YouTube, y se aplican acá porque es el único lugar por donde pasan todas las lecturas: una poda
+ * que vive sólo en un cron deja la fila vieja a la vista hasta que el cron corra.
+ *
+ * El texto a los 30 días SIEMPRE; las métricas a los 36 meses con la enmienda III.L y a los 30 días
+ * sin ella. Lo que se tacha queda `null`, que es «no lo sé» — no «no lo tiene».
+ *
+ * ⚠️ LOS ANUNCIOS NO SE PODAN. Estas retenciones son de YouTube y alcanzaban a todos los canales. Un
+ * anuncio llega porque la persona lo trajo con un clic y nadie lo vuelve a leer solo: a los 30 días
+ * quedaba una tarjeta sin texto y sin forma de recuperarlo. Tampoco tiene métricas: Meta no las publica.
+ */
+export function podarVencido<T extends Record<string, unknown>>(fila: T, ahora: Date = new Date()): T {
+  if (fila.canal === 'anuncios') return { ...fila };
+  const out: Record<string, unknown> = { ...fila };
+  const tTexto = typeof fila.texto_leido_en === 'string' ? fila.texto_leido_en : null;
+  if (tTexto && textoVencido(tTexto, ahora)) { out.titulo = null; out.texto = null; out.etiquetas = null; out.analisis = null; }
+  const tMetricas = typeof fila.metricas_leidas_en === 'string' ? fila.metricas_leidas_en : null;
+  if (tMetricas && metricasVencidas(tMetricas, ahora)) { out.vistas = null; out.megusta = null; out.comentarios = null; }
+  return out as T;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

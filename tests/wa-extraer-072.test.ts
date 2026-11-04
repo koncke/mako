@@ -412,7 +412,7 @@ test('4. el desplegable: Inicio (Scraper o Flow) → el registro → la extracci
   const popup = sinComentarios(leer('extension/popup.js'));
   const html = leer('extension/popup.html');
   assert.match(html, /<button id="atras" class="atras" type="button" aria-label="Atrás"/);
-  assert.match(popup, /const ATRAS = \{ flow: 'inicio', scraper: 'inicio', extraccion: 'scraper' \};/, 'la flecha no vuelve un paso');
+  assert.match(popup, /const ATRAS = \{ flow: 'inicio', scraper: 'inicio', extraccion: 'scraper', spy: 'inicio' \};/, 'la flecha no vuelve un paso');
   assert.match(popup, /opcion\('Scraper de WhatsApp',/);
   assert.match(popup, /opcion\('Google Flow',[\s\S]{0,300}\(\) => void ir\(\{ pantalla: 'flow' \}\)\);/);
   assert.match(popup, /void arrancar\(\);\s*$/, 'el desplegable arranca en Flow (`pintar`) en vez de en Inicio');

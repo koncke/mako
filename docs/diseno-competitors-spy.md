@@ -624,10 +624,24 @@ Las dos, siempre (AGENTS.md → «La app se adapta al tamaño de la pantalla, SI
 
 ## 9. Lo que queda SIN decidir (para Martín)
 
-1. **Los anuncios de Meta: ¿la vía (b)?** El recorrido a la vista en su navegador es la única forma de
-   tener los anuncios de un competidor de LATAM, y por la letra de los términos de Meta sigue siendo
-   recolección automatizada (§4.1). Es el mismo riesgo que ya aceptó para WhatsApp, pero esta vez el
-   dato se le muestra a un cliente que paga, que es justo lo que la cláusula 4 nombra. **Sí o no.**
+1. **Los anuncios de Meta: DECIDIDO el 3/11/2026, «Sí, con un clic»** (Martín, sabiendo que los términos
+   de Meta piden permiso escrito y pueden cortar el uso de sus productos). Se construyó como «Guardar en
+   Spy» en la extensión, y es menos que la vía (b) de §4.1: no recorre nada.
+   - **Lo que hace:** la persona abre los anuncios o el sitio del competidor y toca el ícono de MaKo. Con
+     sólo `activeTab`, la extensión lee una vez lo que esa pestaña ya dibujó (`extension/spy-leer.js`, en
+     el mundo aislado). El servidor lo interpreta (`lib/spy-captura.ts`): si cambia el diseño, se arregla
+     con un deploy.
+   - **Lo que no hace:** recorrer solo con scroll; bajar videos; barras dentro de la página ajena; ningún
+     permiso de sitios ni content script nuevo; valores de formularios, cookies o almacenamiento. Lo leído
+     de Meta **no** entra en `spy_lecturas_canal`: no se comparte entre negocios. Una lectura no marca
+     nada como «ya no se ve» salvo que la Biblioteca diga la fecha en que terminó.
+   - **Lo que se dice:** `app/privacidad/extension/page.tsx` y la ficha de la tienda; cada pieza lleva
+     `fuente: 'recorrido'` y la pantalla dice «Lo guardaste desde tu navegador».
+   - **Lo medido antes de subir** (Chrome 156, 3/11/2026): `performance` ve desde el mundo aislado lo mismo
+     que la página (117 de 117 recursos en un sitio, 216 de 216 en la Biblioteca), y las variables de la
+     página no (`dataLayer` da `undefined`). `chrome.action.openPopup` abre el desplegable y **no otorga
+     `activeTab`**: hace falta el clic de la persona, y sin él el botón no aparece. El HTML de la Biblioteca
+     y sus textos en inglés, español y portugués: docs/hallazgos-competitors-spy.md.
 2. **¿Apify para los perfiles de Instagram de competidores?** El repo ya lo usa para leer un @ y lo paga
    la plataforma por centésimos de centavo. No es el caso que él revirtió (eso era enriquecer miles de
    leads), pero choca con §4.2 de los términos de Instagram. La alternativa es esperar la credencial de

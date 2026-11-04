@@ -954,7 +954,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
 
   const flujo = useMemo(() => piezas.filter((p) => p.canal === 'instagram' || p.canal === 'youtube'), [piezas]);
   const anuncios = useMemo(() => piezas.filter((p) => p.canal === 'anuncios'), [piezas]);
-  const sitio = useMemo(() => piezas.find((p) => p.canal === 'landing') ?? null, [piezas]);
+  // La página que se le cargó, no la última que se guardó: con «Guardar en Spy» puede haber varias.
+  const sitio = useMemo(() => piezas.find((p) => p.canal === 'landing' && p.ref === c?.landing_url) ?? piezas.find((p) => p.canal === 'landing') ?? null, [piezas, c?.landing_url]);
+  const piezasDelSitio = (sitio?.piezasDePagina ?? []).filter((n) => !sitio?.funnel || !n.startsWith('un video'));
   const visibles = useMemo(() => ordenarPiezas(filtrarPiezas(flujo, buscar, filtros), orden), [flujo, buscar, filtros, orden]);
 
   // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece.
@@ -1308,10 +1310,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                 : (
                   <section className="spy-sitio">
                     <a className="spy-nombre" href={c.landing_url} target="_blank" rel="noreferrer noopener" style={{ color: 'inherit', fontSize: 16 }}>{sitio?.titulo ?? c.landing_url}</a>
-                    {!!sitio?.piezasDePagina?.length && (
-                      <div className="spy-etiquetas">{sitio.piezasDePagina.map((n) => <span key={n} className="spy-pildora-gris">{n}</span>)}</div>
+                    {/* Con el funnel leído, el video ya tiene su fila: dos veces lo mismo no dice más. */}
+                    {!!piezasDelSitio.length && (
+                      <div className="spy-etiquetas">{piezasDelSitio.map((n) => <span key={n} className="spy-pildora-gris">{n}</span>)}</div>
                     )}
-                    <SuFunnel funnel={sitio?.funnel} />
+                    <SuFunnel filas={piezas.filter((p) => p.canal === 'landing').map((p) => p.funnel)} />
                     {!sitio && lecturasDe?.filter((l) => l.canal === 'landing').map((l) => <p key={l.canal} className="spy-aviso">{l.detalle}</p>)}
                     <div className="spy-sitio-acciones">
                       {/* ⚠️ El parámetro es `?analizar=`, el que el Web Generator entiende

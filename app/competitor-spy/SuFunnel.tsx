@@ -8,17 +8,16 @@
 //   · leída y sin nada → «no se ve desde afuera», que NO es «no tiene píxeles».
 //   · leída y con algo → las filas, y sólo las que tienen algo.
 
-import { funnelDeFila, funnelUnido, NOMBRE_PIXEL } from '@/lib/spy-funnel';
+import { funnelDeLasPaginas, NOMBRE_PIXEL } from '@/lib/spy-funnel';
 
-export function SuFunnel({ funnel }: { funnel: unknown }) {
-  const f = funnelDeFila(funnel);
-  if (!f) return null;
-  const u = funnelUnido(f);
+export function SuFunnel({ filas }: { filas: readonly unknown[] }) {
+  const u = funnelDeLasPaginas(filas);
+  if (!u) return null;
   if (!u.pixeles.length && !u.checkouts.length && !u.videos.length) {
     return <p className="spy-funnel-nada">Desde afuera no se ve ningún píxel, checkout ni video.</p>;
   }
   // Tag Manager carga el resto desde el navegador, y una página bajada desde el servidor no lo ejecuta.
-  const faltaVer = !f.navegador && u.pixeles.some((p) => p.proveedor === 'gtm');
+  const faltaVer = !u.vioElNavegador && u.pixeles.some((p) => p.proveedor === 'gtm');
   return (
     <div className="spy-funnel">
       {!!u.pixeles.length && (

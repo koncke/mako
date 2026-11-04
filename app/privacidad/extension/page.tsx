@@ -20,7 +20,7 @@ export const metadata = {
   description: 'Qué datos usa la extensión de MaKo, y cuáles no.',
 };
 
-const ACTUALIZADO = '27 de octubre de 2026';
+const ACTUALIZADO = '3 de noviembre de 2026';
 
 export default function Page() {
   return (
@@ -29,9 +29,10 @@ export default function Page() {
       actualizado={ACTUALIZADO}
       intro={<>
         Esta extensión permite que quien usa MaKo genere sus anuncios en video con{' '}
-        <strong>su propia cuenta de Google Flow</strong>, desde su propio navegador, y que
+        <strong>su propia cuenta de Google Flow</strong>, desde su propio navegador, que
         complete los datos de sus contactos con lo que ya ve en <strong>su propio WhatsApp
-        Web</strong>. Esta política describe exactamente qué datos toca y qué hace con ellos.
+        Web</strong>, y que guarde en Competitors Spy la página o los anuncios de un competidor que
+        está mirando. Esta política describe exactamente qué datos toca y qué hace con ellos.
       </>}
     >
 
@@ -108,6 +109,36 @@ export default function Page() {
         no envía mensajes y no se comunica con los servidores de WhatsApp.
       </p>
 
+      {/* ⚠️ DESDE LA 0.75.0 (3/11/2026) «GUARDAR EN SPY», y esto es su contrato: lo que dice tiene que coincidir con
+          extension/spy-leer.js (qué lee), extension/popup.js (cuándo lee) y lib/spy-captura.ts (qué se guarda). Si uno cambia,
+          esta página también. */}
+      <H>Al guardar en Competitors Spy</H>
+      <p>
+        Sólo cuando abres el desplegable de la extensión sobre un sitio o sobre la Biblioteca de
+        Anuncios de Meta (<code>facebook.com/ads/library</code>) y tocas «Guardar en la ficha de…»
+        o «Agregar como competidor», la extensión lee <strong>esa pestaña, una vez</strong>. Abrir
+        el desplegable no lee nada: para decirte de quién es la página trae tu lista de
+        competidores y compara en tu navegador, y la dirección de la pestaña no sale de ahí hasta
+        que tocas el botón.
+      </p>
+      <p>
+        <strong>De un sitio</strong> viaja a tu cuenta de MaKo su dirección, su título y las
+        direcciones de lo que la página cargó y enlaza, sin lo que traen en la consulta salvo el
+        identificador de la cuenta de cada proveedor. Nada de su texto. Con eso MaKo dice qué
+        píxeles, qué checkout y qué video usa ese sitio.
+      </p>
+      <p>
+        <strong>De la Biblioteca de Anuncios</strong> viaja lo que la página ya dibujó: de cada
+        anuncio su texto, sus fechas, el anunciante, a dónde manda y su imagen, y lo que buscaste
+        en esa pestaña, para saber de quién son. MaKo guarda los de ese competidor en tu espacio de
+        trabajo. No se comparten con otros negocios.
+      </p>
+      <p>
+        Lee sólo lo que ya está en pantalla: no se mueve por la página, no toca nada y no baja
+        videos. <strong>No envía valores de formularios, cookies ni lo que el sitio guarda en tu
+        navegador.</strong> Y no corre en WhatsApp Web, ni en Google Flow, ni en MaKo.
+      </p>
+
       {/* ⚠️ ESTA LISTA ES EL CONTRATO PÚBLICO, Y SE MIDIÓ CONTRA EL CÓDIGO.
 
           Decía «Solo dos cosas, y ninguna es un dato personal» y era falso desde
@@ -174,9 +205,10 @@ export default function Page() {
             seguían figurando dos dominios de tres. Una lista de «solo estos sitios»
             a la que le falta uno es una afirmación falsa, no una desactualización. */}
         <li>
-          No accede a ningún sitio fuera de <code>labs.google</code>,{' '}
+          Por su cuenta no accede a ningún sitio fuera de <code>labs.google</code>,{' '}
           <code>flow.google.com</code>, <code>aisandbox-pa.googleapis.com</code>,{' '}
-          <code>web.whatsapp.com</code> y <code>hola-mako.com</code>.
+          <code>web.whatsapp.com</code> y <code>hola-mako.com</code>. Otro sitio lo lee sólo si tú
+          tocas «Guardar en la ficha de…» o «Agregar como competidor» en su pestaña (ver arriba).
         </li>
         <li>No recopila datos de uso, analítica, publicidad ni seguimiento de ningún tipo.</li>
         <li>No vende, comparte ni transfiere información a terceros.</li>
@@ -190,7 +222,7 @@ export default function Page() {
           <code>flow.google.com</code>) agrega un script propio para poder hacer, con tu
           sesión, los mismos pedidos que harías tú a mano; en WhatsApp Web, mientras extrae un
           grupo, muestra arriba un aviso de MaKo que dice qué está haciendo (ver arriba); en
-          cualquier otro sitio no hace absolutamente nada.
+          cualquier otro sitio no agrega nada, y sólo lee la pestaña en la que tú lo pides.
         </li>
       </ul>
 
@@ -212,7 +244,13 @@ export default function Page() {
         <li>
           <strong>scripting</strong> — insertar en la página de Google Flow el script que
           hace los pedidos con tu sesión. Es el mismo trabajo que harías tú a mano en esa
-          pestaña; sin este permiso no hay forma de hacerlo.
+          pestaña; sin este permiso no hay forma de hacerlo. Con el permiso de abajo, también
+          leer la pestaña en la que tocaste «Guardar en la ficha de…» o «Agregar como competidor».
+        </li>
+        <li>
+          <strong>activeTab</strong> — acceder a la pestaña que estás mirando sólo cuando tocas
+          el ícono de la extensión. No da acceso a ningún otro sitio ni a otras pestañas, y se
+          termina al salir de esa página.
         </li>
         <li>
           <strong>labs.google</strong>, <strong>flow.google.com</strong> y{' '}

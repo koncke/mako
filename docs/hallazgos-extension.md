@@ -415,4 +415,14 @@ feedback/chrome-web-store/ficha-y-permisos.md (fuera del repo).
 
 ## Leer un sitio ajeno sin que Chrome desactive la extensión (03/11/2026, Cerebro)
 
-Para «Guardar en Spy» alcanza con `activeTab`: lee la pestaña sólo al tocar el ícono. Según la documentación de Chrome no muestra advertencia, y por eso no debería desactivar la extensión al actualizar; sin medir. Un permiso de sitios, en cambio, sí la desactiva hasta que cada cliente lo acepte. Igual pasa por revisión, y la descripción y `app/privacidad/extension/page.tsx` tienen que decirlo antes de subir. Detalle: docs/hallazgos-competitors-spy.md, entrada del 03/11.
+Para «Guardar en Spy» alcanza con `activeTab`: lee la pestaña sólo al tocar el ícono. Según la documentación de Chrome no muestra advertencia, y por eso no debería desactivar la extensión al actualizar; sin medir. Un permiso de sitios, en cambio, sí la desactiva hasta que cada cliente lo acepte. Igual pasa por revisión, y la descripción y `app/privacidad/extension/page.tsx` ya lo dicen (0.75.0). Detalle: docs/hallazgos-competitors-spy.md, entrada «Guardar en Spy».
+
+## Probar la extensión de verdad sin una persona y sin producción (03/11/2026, Chrome 156)
+
+Un test con `vm` prueba las reglas; esto prueba el permiso, el clic y la inyección. Costó cuatro vueltas, y es corto:
+
+- **Cargarla:** `--remote-debugging-pipe --enable-unsafe-extension-debugging` y `Extensions.loadUnpacked`. Con Chrome oficial, `--load-extension` ya no sirve. Siempre `--headless=new --mute-audio`, y cerrar por su PID.
+- **El clic en el ícono:** `Extensions.triggerAction`, y ⚠️ **sobre el target de tipo `tab`, no `page`** («Action can only be triggered on a tab target»): sale de `Target.getTargets` con `filter: [{ type: 'tab', exclude: false }]`. Eso sí otorga `activeTab`. `chrome.action.openPopup` no: es el control negativo.
+- ⚠️ **El desplegable llega como `other`, sin dirección y pausado** con `waitForDebuggerOnStart`; recién después dice que es `popup.html`. Buscarlo por la URL no lo encuentra nunca. Y cualquier otro target hay que soltarlo con `Runtime.runIfWaitingForDebugger`: un worker sin soltar contesta «chrome is not defined».
+- **Sin tocar producción:** `--host-resolver-rules=MAP hola-mako.com 127.0.0.1:9` (el worker con un token de mentira no le habla a nadie) y `Fetch.enable` en el desplegable ANTES de soltarlo, para contestar lo que iría a MaKo con el intérprete real.
+- La herramienta de edición volvió a escribir `\u0300` como el carácter literal (ver «Ningún archivo trae un no carácter»). En la extensión, `\p{M}` y `\p{Cf}` no tienen ese problema.

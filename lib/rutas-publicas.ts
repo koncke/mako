@@ -48,6 +48,10 @@ export const PUBLICOS = [
   // (hasheado en flow_puentes) y no mira la cookie para nada. Es la ruta EXACTA,
   // no el prefijo `/api/flow`: ahí van a convivir rutas de la app con sesión.
   '/api/flow/puente',
+  // «Guardar en Spy» (3/11/2026): también lo llama la EXTENSIÓN, y si no estuviera acá el chequeo de Origin
+  // del proxy la cortaría con 403 (el pedido viene de `chrome-extension://`). Se autentica con el token del
+  // puente y no mira la cookie para nada. Ruta EXACTA: abajo de /api/competitor-spy hay rutas con sesión.
+  '/api/competitor-spy/extension',
   // El worker de montaje: corre en un contenedor propio, no en un navegador, asi
   // que no tiene cookie de sesion. Se autentica con `MONTAJE_WORKER_TOKEN` en un
   // bearer, comparado en tiempo constante, y sin ese secreto configurado la ruta

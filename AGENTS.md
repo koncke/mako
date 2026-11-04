@@ -11212,6 +11212,11 @@ nunca vigila, y devuelve SÓLO lo que se le pidió (la agenda de la persona no s
 aislado, no en MAIN. Lo que lee tiene que estar dicho en `app/privacidad/extension/page.tsx`, con la fecha actualizada. Lo
 hace cumplir tests/wa-fichas-extension.test.ts; el porqué, docs/hallazgos-extension.md.
 
+La otra lectura de un sitio ajeno es «Guardar en Spy» (3/11/2026): `extension/spy-leer.js` no es un content script, lo inyecta el desplegable con `activeTab` cuando la
+persona toca el botón, y **no interpreta nada**: lo que decide qué es un anuncio o un píxel vive en el servidor (`lib/spy-captura.ts`), para que un cambio de diseño ajeno
+se arregle con un deploy y no con otra revisión de Chrome. Un permiso de sitios nuevo, en cambio, **desactiva la extensión** a cada cliente hasta que lo acepte: no se pide.
+Lo hace cumplir tests/spy-captura.test.ts.
+
 Y en `extension/*.js`, **ninguna barra-asterisco dentro de un texto** (un patrón de URL de Chrome la tiene al final): los
 tests de la extensión quitan comentarios con una regex que no distingue textos, y esa secuencia se come el código que sigue
 hasta el próximo cierre de comentario. Rompe tests que no tienen nada que ver, que es lo más caro de diagnosticar.

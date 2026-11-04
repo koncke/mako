@@ -710,8 +710,7 @@ Martín: «investiga esto para copiarlo en la extension de MaKo» y «Obvio que 
 
 **Sin hacer:**
 - Tanda A, en el servidor: hecha, ver la entrada siguiente.
-- Tanda B, «Guardar en Spy» en la extensión: 3-4 días más la revisión. ⚠️ Antes de subirla hay que corregir `app/privacidad/extension/page.tsx`, que afirma «No accede a ningún sitio fuera de…», y la descripción de la ficha. Depende de la decisión abierta en `docs/diseno-competitors-spy.md` §9.1, por los términos de Meta.
-- Sin comprobar: si `performance` ve los recursos desde el mundo aislado, si `chrome.action.openPopup` otorga `activeTab`, y el HTML actual de la Biblioteca.
+- Tanda B, «Guardar en Spy» en la extensión: hecha, y lo que estaba sin comprobar se midió. Ver «Guardar en Spy», abajo.
 
 ## Sus píxeles, su checkout y su video: lo que se midió construyéndolo (03/11/2026)
 
@@ -735,3 +734,34 @@ Martín: «investiga esto para copiarlo en la extension de MaKo» y «Obvio que 
 - ⚠️ **La columna no está en producción** (medido el 3/11: `spy_piezas.funnel` no existe, y `scripts/apply-migration.mjs` lo frenó el clasificador de permisos). Mientras falte, el código anda igual y la pestaña no muestra nada nuevo: se verifica DESPUÉS de agregarla, con `scripts/verificar-migraciones-aplicadas.mjs`.
 - **El ws3 no tiene competidores** y la base entera no tiene ninguno con `landing_url` (medido el 3/11). Lo visto con datos reales fue la función sobre páginas reales: falta la lectura real en el ws3 y mirar la pestaña en la pantalla, cuando esté la columna.
 - Los videos que el analizador dice ver en un bundle (`reBundle`) pueden ser una librería que nadie monta (react-player trae las URL de YouTube y Vimeo). Se hereda tal cual de `analizarHtml`.
+
+## «Guardar en Spy»: lo medido en la Biblioteca real, con la extensión de verdad (03/11/2026)
+
+**Vive en:** `extension/spy-leer.js`, `extension/spy-reglas.js`, `extension/popup.js`; `lib/spy-captura.ts`, `lib/spy-captura-db.ts`; `app/api/competitor-spy/extension/route.ts`. La decisión de Martín («Sí, con un clic»): `docs/diseno-competitors-spy.md` §9.1.
+
+**El diagnóstico obvio era el equivocado:**
+- ⚠️ `chrome.action.openPopup` abre el desplegable y **no otorga `activeTab`** (Chrome 156: «Cannot access contents of the page» antes y después, y `tab.url` no viene). Hace falta el clic en el ícono. Por eso, sin `tab.url` el botón no aparece: cuando el worker abre el desplegable durante una extracción, no se ofrece nada.
+- ⚠️ Buscar el dominio en la Biblioteca trae anuncios de otros aunque sea frase exacta: de 28 tarjetas de `"acquisition.com"`, 19 eran de Alex Hormozi y 9 de otros anunciantes que nombran ese dominio. Guardar «lo que se ve» habría llenado su ficha de ajenos. Entran sólo los que coinciden por Página, nombre o dominio de destino, y el desplegable dice cuántos quedaron afuera.
+- ⚠️ El navegador ve más que el servidor, pero no todo. En acquisition.com vio tres cuentas de Google Analytics contra una, y **el servidor** vio Vidalytics, que el navegador todavía no había cargado. Ninguno de los dos vio el píxel de Meta. Por eso una lectura no reemplaza a la otra.
+
+**Medido el 3/11/2026:**
+- `performance` desde el mundo aislado ve lo mismo que la página: 117 de 117 recursos en un sitio, 216 de 216 en la Biblioteca. Las variables de la página no: `dataLayer` da `undefined`. Un píxel cargado por Tag Manager se ve por la dirección que pidió.
+- Las direcciones alcanzan sin la consulta: `gtm.js?id=`, `g/collect?tid=`, `ccm/collect?tid=AW-`, `events.js?sdkid=`, `tr?id=`. Del resto de la consulta sale el correo del visitante y su identificador: `spy-leer.js` deja sólo `id`, `tid`, `sdkid`, `u` y `view_all_page_id`.
+- La Biblioteca, sin sesión, con ~95 KB por 28 tarjetas. El id se dice «Library ID:», «Identificador de la biblioteca:» o «Identificação da biblioteca:»; la fecha, «Started running on Jul 29, 2026», «En circulación desde el 29 jul 2026» o «Veiculação iniciada em 29 de jul de 2026»; un anuncio inactivo trae el rango («30 jun 2026 - 11 ago 2026»).
+- ⚠️ **Las plataformas son íconos sin texto** y el **id de la Página no está en lo dibujado**: sólo en la dirección, si se abrió por `view_all_page_id`. Por eso `plataformas` queda vacía y `pagina_anuncios` puede ser un nombre (`ahormozi`); con un nombre, «Ver sus anuncios» busca por frase exacta.
+- Punta a punta, con la extensión real y sin tocar producción: en acquisition.com dijo «Guardar en la ficha de…» y guardó Analytics, Tag Manager, Google Ads y TikTok; en la Biblioteca dijo «Agregar como competidor» y sacó 19 anuncios de Alex Hormozi con sus fechas, destino e imagen.
+
+**La regla que queda:**
+- Lo que se lee con `activeTab` se interpreta en el servidor. El lector no sabe qué es un anuncio.
+- Lo dibujado en una pestaña no dice lo que falta: `marcarDejadas` no se llama nunca desde acá. «Dejó de verse» sólo si la Biblioteca dice la fecha en que terminó.
+- De un sitio sólo salen direcciones y su título. La persona puede tocar el botón con una sesión abierta, y lo que ese sitio le muestra a ella no es asunto de MaKo.
+- Abrir el desplegable no cuenta qué sitio se está mirando: la lista de competidores viene entera y se compara en el navegador.
+- La miniatura sólo puede ser del CDN de Meta: la baja el servidor, y si no, un token cualquiera le hace pedir lo que quiera.
+
+**Sin hacer:**
+- ⚠️ **Falta verlo escrito de verdad.** Guardar en el ws3 lo frenó el clasificador de permisos, igual que agregar la columna: `lib/spy-captura-db.ts` y la ruta se probaron con una base de mentira y capturas reales (`tests/spy-captura-db.test.ts`). Falta correrlo contra producción, en el ws3.
+- Publicar la 0.75.0 lo decide el Cerebro: la 0.74.5 sigue en revisión. **Al subir esta parte a main**, `EXTENSION_VERSION` pasa a 0.75.0 y la tienda queda atrás (`EXTENSION_EN_TIENDA`), así que la app vuelve a ofrecer el zip.
+- Sin medir: que `activeTab` no desactive la extensión al actualizar desde la tienda (deducido de la documentación). El clic se midió con `Extensions.triggerAction`, no con una persona.
+- **La miniatura que no se llega a bajar se pierde:** `guardarMiniaturas` tiene 9 s de presupuesto, y un anuncio no se relee solo. La que no entró queda apuntando al CDN, que vence, hasta que se vuelva a guardar esa pestaña.
+- La imagen se guarda en `spy/anuncios/<id>`, sin el negocio: dos negocios con el mismo anuncio reusan el archivo. No es la lectura compartida (no hay manera de ver el de otro), pero el archivo es uno.
+- Cuando la 0.75.0 esté publicada, «Tag Manager puede cargar más» (`SuFunnel.tsx`) debería decir cómo verlo: abrir su sitio y tocar el ícono de MaKo.

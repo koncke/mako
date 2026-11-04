@@ -23,6 +23,7 @@ import {
   leerCompetidor, listarCompetidores, listarPiezas, mirarCompetidor, queEs, quitarCompetidor,
 } from '@/lib/spy';
 import { perfilNegocioTexto } from '@/lib/onboarding';
+import { contenidoNoConfiable } from '@/lib/prompt-render';
 import { funnelDeFila, funnelEnPalabras } from '@/lib/spy-funnel';
 import { dibujarContador, NOMBRE_CANAL, NOMBRE_ETAPA, NOMBRE_FUENTE, SIN_ANUNCIOS_EN_ESTE_PAIS, adLibraryCubreComercial, type CanalSpy } from '@/lib/spy-reglas';
 
@@ -140,9 +141,12 @@ export const RUNNERS: Runners = {
         const delCanal = piezas.filter((p) => p.canal === canalUno);
         if (!delCanal.length) continue;
         out.push('', `### ${NOMBRE_CANAL[canalUno]}`);
+        // Todo lo de abajo es de un tercero: el copy de un anuncio puede decir cualquier cosa, y esta
+        // respuesta se la lee un modelo. Va marcado, igual que en `analizarCompetidor`.
+        const lineas: string[] = [];
         for (const p of delCanal.slice(0, 15)) {
           const etapa = etapaDePieza(p);
-          out.push([
+          lineas.push([
             `- ${p.titulo || p.texto?.slice(0, 90) || p.ref}`,
             `vistas ${dibujarContador(p.vistas)}`,
             `me gusta ${dibujarContador(p.megusta)}`,
@@ -152,8 +156,9 @@ export const RUNNERS: Runners = {
             NOMBRE_FUENTE[p.fuente].toLowerCase(),
           ].join(' · '));
           const funnel = p.canal === 'landing' ? funnelDeFila(p.funnel) : null;
-          if (funnel) out.push(...funnelEnPalabras(funnel).map((l) => `  - ${l}`));
+          if (funnel) lineas.push(...funnelEnPalabras(funnel).map((l) => `  - ${l}`));
         }
+        out.push(contenidoNoConfiable(lineas.join('\n'), 'piezas_del_competidor'));
       }
       // Si pidió los anuncios y el país no está cubierto, se dice por qué no hay nada que traer en
       // vez de dejar una sección vacía que se lee como «no pauta».

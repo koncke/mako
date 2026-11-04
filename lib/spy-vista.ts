@@ -50,7 +50,8 @@ export function tiempoDePieza(
   p: Pick<Pieza, 'publicada_en' | 'visto_primera_vez' | 'dejo_de_verse_en'>,
   ahora: Date = new Date(),
 ): TiempoDePieza {
-  const dias = diasCorriendo(p.publicada_en, ahora);
+  // Hasta que terminó: un anuncio del 30/6 al 11/8 estuvo 42 días, no «los que pasaron hasta hoy».
+  const dias = diasCorriendo(p.publicada_en, p.dejo_de_verse_en ? new Date(p.dejo_de_verse_en) : ahora);
   const sigue = !p.dejo_de_verse_en;
   if (dias == null) return { sigue, dias, linea: `La vemos desde el ${fechaCorta(p.visto_primera_vez, ahora)}` };
   const hasta = p.dejo_de_verse_en ? fechaCorta(p.dejo_de_verse_en, ahora) : 'hoy';
