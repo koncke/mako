@@ -1315,6 +1315,9 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
 - **Todo envío al grupo de MaKo declara su `memoria`** (`enviarAlGrupoMaKo(ws, texto, memoria)`, lib/mako-grupo.ts): 'mako' si lo
   dice MaKo (queda en la conversación), 'equipo' si lo dice el equipo (al anillo del equipo, nunca como turno de MaKo), null si
   quien llama ya lo guarda. Sin eso, el turno no sabe a qué le contestan (28/10/2026, tests/grupo-ve-el-grupo.test.ts).
+- **Todo lo que MaKo le manda a una PERSONA por WhatsApp sale por `lib/mako-salida.ts`**, que no deja escribirle a quien no escribió en las últimas 24 horas (3/11/2026, «no va a mandar ni
+  mensajes a nadie»). Nunca `instanciaVoz()` ni `enviarAGrupoJid` de lib/mako-grupo.ts para un número: la voz puede ser el WhatsApp personal de Martín. El bot no tiene línea por defecto y `mako_ws<n>` no puede serlo. La cañería
+  (Evolution o la API oficial) vive en `lib/mako-salida-drivers.ts` y no decide nada (docs/hallazgos-comunicacion.md, tests/mako-bot.test.ts).
 - **En el grupo de WhatsApp no van MAKO_NUCLEO ni la persona de consultor**: el system del grupo es `buildSystemPrompt` con
   `canal: 'grupo'` (NUCLEO_GRUPO, lib/nucleo-grupo.ts, fijo y primero). Todo texto nuevo del turno del grupo va ahí o en
   DOER_WA_VOZ, nunca en MAKO_NUCLEO, que es del dashboard y de la app (28/10/2026, tests/banco-grupo.test.ts).
