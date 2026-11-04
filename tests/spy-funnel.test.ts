@@ -233,9 +233,13 @@ test('mirarCompetidor lo guarda sólo después de una lectura buena, y un fallo 
 });
 
 test('la pantalla la dibuja desde la fila de la landing y con el enlace', () => {
+  // Desde la tercera vuelta (4/11) lo dibuja la tarjeta «Su funnel» (SuFunnelTipo), arriba de la pestaña: SpyApp le pasa las filas.
   const s = leer('app/competitor-spy/SpyApp.tsx');
-  assert.match(s, /<SuFunnel filas=\{piezas\.filter\(\(p\) => p\.canal === 'landing'\)\.map\(\(p\) => p\.funnel\)\} \/>/);
-  assert.match(s, /href=\{enlaceSusAnuncios\(c\)\}[^>]*rel="noreferrer noopener"[^>]*>Ver sus anuncios</);
+  assert.match(s, /const filasDeSuWeb = useMemo\(\(\) => piezas\.filter\(\(p\) => p\.canal === 'landing'\)\.map\(\(p\) => p\.funnel\), \[piezas\]\);/);
+  assert.match(s, /<SuFunnelTipo[\s\S]*?filasDeSuWeb=\{filasDeSuWeb\}[\s\S]*?enlaceAnuncios=\{enlaceSusAnuncios\(c\)\}/, 'las filas y el enlace llegan a la tarjeta');
+  const t = leer('app/competitor-spy/SuFunnelTipo.tsx');
+  assert.match(t, /<SuFunnel filas=\{filasDeSuWeb\} \/>/);
+  assert.match(t, /href=\{enlaceAnuncios\}[^>]*rel="noreferrer noopener"[^>]*>Ver sus anuncios/);
   // Sin leer: nada. Leída y sin nada: «no se ve», que no es «no tiene».
   const f = leer('app/competitor-spy/SuFunnel.tsx');
   assert.match(f, /if \(!u\) return null;/);

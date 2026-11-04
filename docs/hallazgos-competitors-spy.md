@@ -1292,3 +1292,60 @@ Cerebro: la Biblioteca abierta con `q="beacons.page"`, 54 anuncios de cualquiera
   plataforma (Skool) son de miles: antes de comparar por dominio, se pregunta `esAgregador`.
 
 Lo fijan `tests/spy-captura.test.ts` y `tests/spy-funnel.test.ts` (los dos, probados rompiéndolos).
+
+## Tercera vuelta: qué funnel usa, con evidencia, y sus páginas al final (4/11/2026)
+
+**Vive en:** `docs/catalogo-funnels-y-formatos.md` (la investigación, con fuentes, y su tabla §4), `lib/spy-catalogo-leer.ts`,
+`lib/spy-catalogo-datos.ts` (GENERADO con `node --import tsx scripts/spy-catalogo-a-codigo.mts`), `lib/spy-funnel-tipo.ts`,
+`lib/spy-oferta.ts` (`enlaces`, `paginas`), `app/competitor-spy/SuFunnelTipo.tsx`, `SuOferta.tsx`, `SusPaginas.tsx`.
+
+Martín, con Den Borg: «Quiero que se analice qué funnel utiliza... denborg es obvio que hace funnel de eventos presenciales... la
+oferta debería ir arriba... no pongas nada abajo de las web». El Cerebro: la clasificación sale del catálogo y con evidencia de sus
+piezas, no por adivinanza.
+
+- **El catálogo es la fuente y el código lo lee, no lo copia.** 22 funnels y 19 formatos, cada uno con frases fuertes, débiles, lo
+  que lo descarta y los hosts que lo delatan. La tabla del documento se convierte en `lib/spy-catalogo-datos.ts` con un script, y
+  `tests/spy-funnel-tipo.test.ts` falla si los dos se separan. Una línea de «qué es» por funnel (`que:`) es lo que se dibuja.
+- **Sin evidencia, «no sé».** Una frase fuerte alcanza; sin fuerte hacen falta dos débiles distintas de DOS piezas distintas (un post
+  con «conferencia» y «speakers» puede ser la conferencia de otro). Una pieza que dice «por Zoom» baja sus fuertes a débiles, sus
+  palabras sueltas no cuentan y no confirma como «otra pieza»: sin eso, dos posts de un seminario online daban «evento presencial».
+- **La compuesta que decide a Den Borg es «fecha + entradas»** («22 de noviembre… últimos boletos»): ninguna frase fija la cubre.
+- **Su página de enlaces no es su web: es una lista.** De Beacons o Linktree se leen las páginas que enlaza (hasta 3) y se guardan
+  todas (hasta 8) para «Sus páginas». Leer la página de enlaces daba un diagnóstico de su lista de botones.
+- **Una lectura de antes no tenía el texto de sus páginas** (la evidencia del funnel): `hayQueLeer` la vuelve a leer UNA vez. Con el
+  mismo texto la huella es la misma y la IA no se paga de nuevo; con una página de enlaces sí (ahora se leen otras páginas).
+- **La vista previa es la del Diagnóstico del Web Generator** (`srcPaginaDiagnostico`, `sandbox="allow-scripts"`), con su puerta: el
+  admin y esa tab en el plan (`conVistaPrevia`, la pide la página). Sin eso, la tarjeta con «Abrir».
+- **La oferta, partida en dos:** arriba, al lado del funnel, el puntaje en un anillo, la tesis como titular, lo más flojo, lo que
+  vende y lo que ataca y tu oferta no dice; abajo, las 9 notas. La tesis va una vez (al diagnóstico de abajo se le pasa sin ella).
+- **Por API:** `que_esta_haciendo` dice qué funnel usa, con su evidencia marcada como contenido de un tercero.
+- ⚠️ **Trampa de la verificación:** una captura de página entera de Playwright dibuja en blanco un iframe que sí cargó; se mira con
+  la página quieta (`fullPage: false`) y bajando hasta él.
+- ⚠️ **No medido:** los formatos nuevos del catálogo (caso de éxito, mito, recap de evento…) todavía no los usa el análisis de piezas
+  (`FORMATOS`, lib/spy-detalle.ts): va en otra punta. Y lo que diga el funnel con un competidor real hay que mirarlo en producción.
+
+Lo fija `tests/spy-funnel-tipo.test.ts` (11 casos, nueve roturas probadas: catálogo, compuesta, descarte, débiles de dos piezas,
+host, landing repetida, página de enlaces, la vuelta y «nada debajo de sus páginas»).
+
+## Tercera vuelta: los formatos del catálogo, para la IA y sin ella (4/11/2026)
+
+**Vive en:** `lib/spy-detalle.ts` (`FORMATOS`, `GUIA_DE_FORMATOS`, `formatoPorTexto`, `formatosDe`), `lib/spy.ts` (el prompt del
+analista), `lib/prompt-registry.ts` (el slot `formatosQueSon`), `app/competitor-spy/DetallePieza.tsx`.
+
+Martín: «Tanto para funnels como para formatos de contenido al momento de clasificar "lo que le funciona" quiero que hagas una
+investigación profunda de todos los tipos de formatos».
+
+- **Los formatos son los 19 del catálogo** (§3 del documento: tutorial, lista, storytime, POV, antes y después, testimonio, caso
+  de éxito, opinión, mito, reseña, detrás de escena, recap de evento, entrevista, preguntas, reacción, tendencia, frase, promoción
+  y otro). Antes eran 11 y la IA no sabía qué era cada uno: recibía sólo los ids. Ahora recibe una línea por formato
+  (`{{formatosQueSon}}`). Un prompt editado en /configuraciones antes de esto no tiene el slot: sigue andando con los ids.
+- **Lo que la IA no clasificó se lee del texto, sólo con una frase clara** del catálogo («POV:», «antes y después», «7 errores»).
+  Las débiles no cuentan: «antes de grabar… después» no es un antes y después. Sirve sin IA conectada y para lo analizado antes,
+  que quedó «otro». El detalle de la pieza dice el mismo formato que la cuenta.
+- ⚠️ **Lo que costó esta vuelta:** el `tsc` acotado se corrió con una LISTA de archivos escrita a mano y dejó afuera
+  `lib/api-mako/areas/spy.run.ts`, donde un script de Python había escrito un `\n` real adentro de un texto: la punta salió sin
+  compilar (se arregló en `00b329e8`). **Se corre con `--rama`**, que toma todo lo que la rama cambió. Y en un script que escribe
+  código, un `\n` que tiene que quedar escrito va `\\n` (o el texto entre comillas triples crudas).
+
+Lo fija `tests/spy-formatos-catalogo.test.ts` (4 casos, cuatro roturas probadas: falta un formato, falta el slot, se aceptan las
+débiles, la cuenta mira sólo a la IA).

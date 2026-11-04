@@ -20,7 +20,10 @@ import { getTenantDb } from './workspace';
 import { bloqueaLaLectura, extraerLanding } from './landing-fetch';
 import { leerConLectorExterno } from './offer-lector-externo';
 import { diagnosticoOffer } from './offer-ia';
+import { fetchSeguro } from './fetch-seguro';
+import { enlacesDeHtml, paginasQueEnlaza } from './spy-otras-redes-reglas';
 import {
+  MAX_ENLACES,
   claveOfertaSpy, leerOferta, leerSuOferta, reclamarLectura, vistaDeOferta, websDelCompetidor,
   type DepsOferta, type PaginaLeida, type VistaOferta,
 } from './spy-oferta';
@@ -46,12 +49,26 @@ async function bajarWeb(url: string): Promise<PaginaLeida> {
   return { url: pagina.urlFinal || url, titulo: pagina.titulo, texto: pagina.texto.trim() ? texto : '' };
 }
 
+/** Las páginas suyas que enlaza una página de enlaces (beacons, linktree): se baja su HTML, nunca se ejecuta. Vacío si no pudo. */
+async function enlacesDe(url: string): Promise<string[]> {
+  try {
+    const r = await fetchSeguro(url, { signal: AbortSignal.timeout(8_000), headers: { 'user-agent': 'Mozilla/5.0 (compatible; MaKoBot/1.0; +https://hola-mako.com)' } });
+    if (r.status < 200 || r.status >= 300) return [];
+    const html = (await r.text()).slice(0, 1_500_000);
+    return paginasQueEnlaza(enlacesDeHtml(html, url), url, MAX_ENLACES);
+  } catch (e) {
+    console.warn(`[spy-oferta] la página de enlaces ${url}: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  }
+}
+
 function depsDe(competidorId: number, inicio: number): DepsOferta {
   const clave = claveOfertaSpy(competidorId);
   return {
     leer: async () => { const crudo = await getSettingEstricto(clave); return { crudo, version: crudo }; },
     cambiarSi: (version, nuevo) => cambiarSettingSi(clave, version, nuevo),
     bajar: bajarWeb,
+    enlacesDe,
     diagnosticar: async ({ nombre, paginas }) => {
       const at = new Date().toISOString();
       const r = await diagnosticoOffer({
