@@ -33,7 +33,7 @@
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar` · `ver_media_buyer` · `lanzar_decision_media_buyer` · `deshacer_decision_media_buyer` · `descartar_decision_media_buyer` · `reabrir_decision_media_buyer` · `calificar_decision_media_buyer` · `hooks_al_video_media_buyer` · `analizar_cuenta_media_buyer` · `modo_media_buyer` · `topes_media_buyer` · `metas_media_buyer` · `cuenta_media_buyer` · `ver_automatizaciones_media_buyer` · `ver_campanas_media_buyer` · `automatizacion_media_buyer` · `modo_agente_media_buyer` · `agente_media_buyer` · `borrar_agente_media_buyer` · `ver_biblioteca_media_buyer` · `zona_media_buyer` · `hasta_media_buyer` · `proponer_crear_campana` · `preparar_subida_media_buyer` · `subir_creativos_media_buyer`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `ver_newsletter` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `configurar_newsletter` · `crear_edicion_newsletter` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email` · `conectar_dominio_email` · `fijar_remitente_email`
-- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje` · `quienes_de_automatizacion`
+- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `configuracion_automatizacion` · `configurar_automatizacion` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `cambiar_crons_secuencia` · `agregar_escenario_secuencia` · `archivar_secuencia` · `probar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje` · `quienes_de_automatizacion` · `ver_limites_envio` · `cambiar_limites_envio`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `metricas_automatizacion` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_con_ia_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `mover_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `listar_videos_alojados` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_iconos_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `dar_formato_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `cambiar_imagen_landing` · `cambiar_icono_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
@@ -7258,7 +7258,7 @@ Propone crear una secuencia de email nueva, PAUSADA y con un paso vacío. No man
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** inserta una fila pausada en nutricion_secuencias con un paso de email vacío
+- **Escribe:** inserta una fila pausada en nutricion_secuencias con un paso de email vacío (con funnelId, su CRON queda en ese CRM)
 - **Reversible:** no
 - **Costo:** gratis
 - **Requiere la tab:** email
@@ -7269,6 +7269,7 @@ Propone crear una secuencia de email nueva, PAUSADA y con un paso vacío. No man
 | `etapa` | string | no | Etapa (value de listar_etapas_email, o clave de etapa del funnel si el trigger es etapa_actual). Vacío: nutri. |
 | `trigger` | string | no | Trigger (value de listar_triggers_email). Vacío: manual, que no inscribe a nadie solo. |
 | `etiquetaId` | number | no | Con el trigger etiqueta_puesta, OBLIGATORIO: la etiqueta del CRM que lo dispara (id de listar_etiquetas, área crm). Sin ella la secuencia no se dispararía nunca. |
+| `funnelId` | number | no | opcional: el CRM cuyos leads inscribe (su embudoId), también los sumados con agregar_en_bloque_a_crm. Sin trigger, va por etapa_actual; sin etapa, en su columna de entrada. |
 
 ```bash
 curl -L \
@@ -7288,7 +7289,7 @@ Propone cambiar el nombre, la etapa y/o el trigger de una secuencia de email ide
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** actualiza nombre, etapa y/o trigger_tipo de la secuencia en nutricion_secuencias
+- **Escribe:** actualiza nombre, etapa, trigger_tipo y/o el CRM (funnel_id) de la secuencia en nutricion_secuencias
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** email
@@ -7300,6 +7301,8 @@ Propone cambiar el nombre, la etapa y/o el trigger de una secuencia de email ide
 | `etapa` | string | no | Etapa nueva (value de listar_etapas_email, o clave de etapa del funnel si el trigger es etapa_actual). |
 | `trigger_tipo` | string | no | Trigger nuevo (value de listar_triggers_email). |
 | `etiquetaId` | number | no | Con el trigger etiqueta_puesta, OBLIGATORIO: la etiqueta del CRM que lo dispara (id de listar_etiquetas, área crm). Se puede mandar sola para cambiar la etiqueta de una secuencia que ya se dispara por etiqueta. |
+| `funnelId` | number | no | opcional: el CRM cuyos leads inscribe (su embudoId), también los sumados a él. Con etapa_actual, la etapa es una columna de ese CRM. |
+| `sinCrm` | boolean | no | opcional: true para que vuelva a mirar todos los CRM (sólo la casa de cada lead). |
 
 ```bash
 curl -L \
@@ -7743,7 +7746,7 @@ curl -L \
 
 ## Chatbot y secuencias — `chatbot`
 
-Tab **Automations** (`/automations`). 17 lecturas · 18 acciones.
+Tab **Automations** (`/automations`). 19 lecturas · 22 acciones.
 
 ### `GET /api/v1/chatbot/secuencias` — Listar las secuencias de mensajes
 
@@ -8177,6 +8180,68 @@ curl -L \
   -d '{"delayHoras":0}'
 ```
 
+### `GET /api/v1/chatbot/secuencias/{secuenciaId}/configuracion` — Configuración de una automatización
+
+El horario de oficina y el goteo (de WhatsApp y de email) de UNA automatización: el horario suyo si tiene, si no el del negocio (dice cuál vale y de dónde sale). Úsala cuando pregunten a qué hora manda una automatización o cuántos mensajes manda por día. Pide antes el secuenciaId con listar_secuencias_nutricion.
+
+- **Ruta por operación:** `GET /api/v1/chatbot/configuracion_automatizacion`
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/configuracion"
+```
+
+### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/configuracion` — Configurar una automatización
+
+PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos y hasta M por día, adentro del tope de la línea; UNO SOLO para todos sus canales —WhatsApp, email, Instagram y Messenger—, y cada canal cuenta sus mensajes), lo mismo que su tuerca en Automations. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.
+
+- **Ruta por operación:** `POST /api/v1/chatbot/configurar_automatizacion`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda automatizacion.config:<id> en app_settings (el horario, el goteo y las columnas del email de esa automatización)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
+| `horario` | string (propio \\| negocio \\| sin_horario) | no | opcional: «propio» (con desde, hasta y dias), «negocio» para volver al del negocio, o «sin_horario» para que mande a cualquier hora. |
+| `desde` | number | no | con horario propio: la hora en que abre (9.5 = 9:30). |
+| `hasta` | number | no | con horario propio: la hora en que cierra (21 = hasta las 20:59). |
+| `dias` | string | no | con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos. |
+| `goteoMinutos` | number | no | opcional: minutos entre dos mensajes por canal. |
+| `goteoArranqueDia` | number | no | opcional: WhatsApp arranca con estos por día (con tope). |
+| `goteoArranqueSube` | number | no | opcional: y sube esto cada día que llega al suyo. |
+| `sinArranque` | boolean | no | opcional: true lo saca. |
+| `goteoPorDia` | number | no | opcional: tope de mensajes en 24 h por canal. |
+| `sinGoteo` | boolean | no | opcional: true para sacarle el goteo y el tope por día. |
+| `columnasEmail` | string | no | opcional: "enviado=key,abrio=key,clic=key", columnas de su CRM que siguen al email («ninguna» saca). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/configuracion"
+```
+
 ### `POST /api/v1/chatbot/secuencias/{secuenciaId}/restauraciones` — Desarchivar una secuencia
 
 PROPONE devolver una secuencia archivada al listado. Vuelve PAUSADA aunque estuviera prendida al archivarse: para que mande, hay que activarla aparte con proponer_toggle_nutricion. Las inscripciones que se cancelaron al archivarla NO vuelven, y esos leads no pueden reingresar a esa secuencia. Pide antes el secuenciaId con listar_secuencias_archivadas.
@@ -8455,6 +8520,60 @@ curl -L \
   "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/mensajes/TARJETA"
 ```
 
+### `PUT /api/v1/chatbot/secuencias/{secuenciaId}/crons` — Cambiar los CRON de una automatización
+
+PROPONE reemplazar la lista de CRON de una automatización (lo que la hace arrancar: una etapa de un producto, una etiqueta, un evento de Instagram, Messenger o el email que llega, o un Recurrente con su horario). La lista que pases REEMPLAZA a la actual y arranca por CUALQUIERA de sus CRON; el primero es el principal. Cambia a quién le escribe: en una automatización activa, la próxima corrida inscribe con los CRON nuevos. Lee antes ficha_secuencia_mensajes (su campo disparadores tiene la forma de cada CRON: pasa el mismo id para conservar la próxima ocurrencia de un horario que no cambia). Un evento de Instagram o Messenger necesita su subtipo; «grupo_mako» sólo vale con horario.
+
+- **Ruta por operación:** `POST /api/v1/chatbot/cambiar_crons_secuencia`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** reemplaza nutricion_secuencias.disparadores y las columnas del CRON principal (trigger_tipo, etapa, funnel_id, producto_id, etiqueta_id, cron); en una automatización activa, la próxima corrida inscribe con los CRON nuevos
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
+| `crons` | object[] | sí | los CRON, el principal primero (hasta 10). |
+| `crons.id` | string | no | opcional: el id del CRON (de ficha_secuencia_mensajes), para conservar la próxima ocurrencia de su horario. |
+| `crons.trigger_tipo` | string | sí | qué lo dispara: etapa_actual, entrega_actual, etiqueta_puesta, etiqueta_agregada, etiqueta_quitada, instagram, messenger, email_recibido, pago, grupo_mako, o un trigger de listar_triggers_email (área email). |
+| `crons.etapa` | string | no | con etapa_actual o entrega_actual: la clave de la etapa (de etapas_para_secuencia). |
+| `crons.etapas` | string[] | no | opcional: varias etapas del mismo kanban (la primera es la de etapa). |
+| `crons.funnel_id` | number | no | con etapa_actual: el embudo del producto (sin él, la etapa de cualquier producto). |
+| `crons.producto_id` | number | no | con entrega_actual: el producto cuya entrega se mira. |
+| `crons.etiqueta_id` | number | no | con etiqueta_puesta: la etiqueta (de listar_etiquetas, área crm). |
+| `crons.ignorar` | string[] | no | con etiqueta_agregada o etiqueta_quitada: los ids de las etiquetas que NO la disparan, como textos ("12", "15"). |
+| `crons.subtipo` | string | no | con instagram, messenger, email_recibido o pago: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido. Pago: aprobado, rechazado, reembolsado, suscripcion_cancelada. |
+| `crons.grupo` | boolean | no | con horario: además (o en vez) de la cohorte, le escribe al grupo de WhatsApp de MaKo del negocio. |
+| `crons.palabras` | string[] | no | con subtipo comentario o en_vivo: arranca sólo si el comentario tiene una de estas palabras (sin mayúsculas ni acentos). Vacía = cualquier comentario. |
+| `crons.coincidencia` | string (contiene \\| exacta) | no | con palabras: contiene (la palabra está en el comentario, default) o exacta (el comentario es la palabra). |
+| `crons.publicacion` | string | no | con subtipo comentario: el link o el id de la publicación o Reel. Vacío = cualquiera. |
+| `crons.cron` | object | no | opcional: el horario de un Recurrente. Con horario, el CRON no arranca por el evento: sale en cada ocurrencia, a los que están en la cohorte. |
+| `crons.cron.unidad` | string (hora \\| dia \\| semana \\| mes \\| anio) | sí | cada cuánto: hora, dia, semana, mes o anio. |
+| `crons.cron.cada` | number | no | cada cuántas unidades (default 1). |
+| `crons.cron.hora` | number | no | la hora, en la zona del negocio (default 9). |
+| `crons.cron.minuto` | number | no | el minuto (default 0). |
+| `crons.cron.diaSemana` | number | no | con semana: el día (0 = domingo). |
+| `crons.cron.dias` | string[] | no | con semana: varios días, como textos ("2", "4" = martes y jueves). |
+| `crons.cron.diaMes` | number | no | con mes o anio: el día del mes. |
+| `crons.cron.mes` | number | no | con anio: el mes. |
+| `crons.cron.desde` | string | no | opcional: desde qué día sale (AAAA-MM-DD). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/crons" \
+  -d '{"crons":[]}'
+```
+
 ### `POST /api/v1/chatbot/secuencias/{secuenciaId}/escenarios` — Agregar un caso previsto
 
 PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la automatización tiene un AI Step, el caso entra ADENTRO como un escenario más de su objetivo (hasta 10): sale solo si contestaSolo y no habla de plata; si no, queda para aprobar; sin cómo responder, sólo te avisa. Si tiene la tarjeta «Si responde» de siempre, entra como una rama nueva con un «MaKo contesta» que usa tu guía (máximo 30); si no tiene ninguna, la secuencia tiene que tener estrategia guardada. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).
@@ -8515,6 +8634,35 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID"
+```
+
+### `POST /api/v1/chatbot/secuencias/{secuenciaId}/pruebas` — Probar una secuencia en vivo
+
+PROPONE mandar los mensajes de UN escenario de una secuencia (el camino que recorre un lead por sus condiciones), en orden y marcados [PRUEBA], al teléfono y al email del dueño cargados en Perfil (nunca a un lead), y devuelve un link para confirmarlo. Si tiene más de un escenario, pasa su número (de escenarios_secuencia); con uno solo, no hace falta. Sirve para ver y escuchar la secuencia como la recibe un lead. No toca inscripciones ni métricas. Los pasos de WhatsApp exigen el número vinculado; los de Instagram y Messenger no se prueban en vivo.
+
+- **Ruta por operación:** `POST /api/v1/chatbot/probar_secuencia`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** envía mensajes reales por WhatsApp y email al contacto del dueño y marca estrategia.probada_at
+- **Reversible:** no
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
+| `escenario` | number | no | el número del escenario (de escenarios_secuencia). Obligatorio si la secuencia tiene más de uno. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/pruebas"
 ```
 
 ### `PUT /api/v1/chatbot/ajustes/link-video` — Guardar el link del video
@@ -8712,6 +8860,62 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/chatbot/quienes?secuenciaId=1&cual=respondieron"
+```
+
+### `GET /api/v1/chatbot/limites-envio` — Ver los topes de envío
+
+Los topes del negocio por día y por hora, la rampa del dominio de email (con el tope de hoy), lo que ya salió en 24 h y si el email está frenado por rebotes o quejas.
+
+- **Ruta por operación:** `GET /api/v1/chatbot/ver_limites_envio`
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/chatbot/limites-envio"
+```
+
+### `PUT /api/v1/chatbot/limites-envio` — Cambiar los topes de envío
+
+PROPONE cambiar los topes del negocio (valen para todas): por día y por hora de la línea de WhatsApp, por día de email y su rampa. Mira antes ver_limites_envio.
+
+- **Ruta por operación:** `POST /api/v1/chatbot/cambiar_limites_envio`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda mako.limites_envio en app_settings (sólo lo que difiere de lo de fábrica)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `waDia` | number | no | opcional: WhatsApp por día (en 24 h). |
+| `waHora` | number | no | opcional: WhatsApp por hora de reloj. |
+| `emailDia` | number | no | opcional: emails por día (en 24 h). |
+| `emailArranqueDia` | number | no | opcional: la rampa del dominio: emails el primer día. |
+| `emailArranqueSube` | number | no | opcional: y cuánto sube cada día que llega a su tope. |
+| `makoSolasPor24h` | number | no | opcional: respuestas que MaKo manda sola a una persona en 24 h (0 = siempre borrador). |
+| `restaurar` | boolean | no | opcional: true vuelve todo a lo de fábrica. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/chatbot/limites-envio"
 ```
 
 ## Dashboard y análisis — `metricas`

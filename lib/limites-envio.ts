@@ -46,6 +46,13 @@ export type LimitesEnvio = {
   email: {
     dia: number;
     personaHoras: number;
+    /**
+     * LA RAMPA DEL DOMINIO (4/11/2026, la campaña de email de Mauricio): el tope de la línea de email arranca en
+     * `arranqueDia` y sube `arranqueSube` cada día que llegó a su tope, hasta `dia` (`topeConRampa`, lib/goteo.ts). Un
+     * dominio nuevo que manda 100 el primer día se va a spam; uno que ya mandaba no la nota (los días que llegaron ya cuentan).
+     */
+    arranqueDia: number;
+    arranqueSube: number;
   };
   /** MaKo contesta sola (el setter, #787/#788). */
   mako: {
@@ -59,14 +66,15 @@ export type LimitesEnvio = {
 /** Lo que el motor tenía cableado el 11/10/2026 (lib/nutricion.ts y lib/setter-conversacion.ts). */
 export const LIMITES_CONSTANTES: LimitesEnvio = {
   wa: { dia: 40, hora: 6, personaHoras: 20 },
-  email: { dia: 100, personaHoras: 20 },
+  // La rampa, desde el 4/11/2026: 50 el primer día y 50 más cada día que llega a su tope.
+  email: { dia: 100, personaHoras: 20, arranqueDia: 50, arranqueSube: 50 },
   mako: { solasPor24h: 3, diasCharla: 7 },
 };
 
 /** Los rangos que se pueden elegir, ambos extremos incluidos. Enteros. */
 export const RANGOS_LIMITES = {
   wa: { dia: [1, 150], hora: [1, 30], personaHoras: [3, 72] },
-  email: { dia: [1, 500], personaHoras: [1, 168] },
+  email: { dia: [1, 500], personaHoras: [1, 168], arranqueDia: [1, 500], arranqueSube: [1, 500] },
   mako: { solasPor24h: [0, 10], diasCharla: [1, 30] },
 } as const satisfies { [G in keyof LimitesEnvio]: { [K in keyof LimitesEnvio[G]]: readonly [number, number] } };
 
@@ -77,6 +85,7 @@ type Campo<G extends Grupo> = keyof LimitesEnvio[G] & string;
 export const CAMPOS_LIMITES: ReadonlyArray<{ grupo: Grupo; campo: string }> = [
   { grupo: 'wa', campo: 'dia' }, { grupo: 'wa', campo: 'hora' }, { grupo: 'wa', campo: 'personaHoras' },
   { grupo: 'email', campo: 'dia' }, { grupo: 'email', campo: 'personaHoras' },
+  { grupo: 'email', campo: 'arranqueDia' }, { grupo: 'email', campo: 'arranqueSube' },
   { grupo: 'mako', campo: 'solasPor24h' }, { grupo: 'mako', campo: 'diasCharla' },
 ];
 
@@ -84,6 +93,7 @@ export const CAMPOS_LIMITES: ReadonlyArray<{ grupo: Grupo; campo: string }> = [
 const NOMBRE: Record<string, string> = {
   'wa.dia': 'WhatsApp por día', 'wa.hora': 'WhatsApp por hora', 'wa.personaHoras': 'WhatsApp a la misma persona',
   'email.dia': 'Email por día', 'email.personaHoras': 'Email a la misma persona',
+  'email.arranqueDia': 'Email el primer día', 'email.arranqueSube': 'Email, cuánto sube por día',
   'mako.solasPor24h': 'Respuestas solas por persona', 'mako.diasCharla': 'Días de charla abierta',
 };
 
@@ -111,7 +121,7 @@ export function limitesDeFabrica(env: Record<string, string | undefined> = {}): 
   const c = LIMITES_CONSTANTES;
   return {
     wa: { dia: deEnv('NUTRICION_MAX_POR_DIA', c.wa.dia), hora: deEnv('NUTRICION_MAX_POR_CORRIDA', c.wa.hora), personaHoras: c.wa.personaHoras },
-    email: { dia: deEnv('NUTRICION_MAX_EMAIL_POR_DIA', c.email.dia), personaHoras: c.email.personaHoras },
+    email: { dia: deEnv('NUTRICION_MAX_EMAIL_POR_DIA', c.email.dia), personaHoras: c.email.personaHoras, arranqueDia: c.email.arranqueDia, arranqueSube: c.email.arranqueSube },
     mako: { ...c.mako },
   };
 }
@@ -232,6 +242,8 @@ export const BLOQUES_LIMITES: ReadonlyArray<{ titulo: string; filas: FilaLimite[
     filas: [
       { grupo: 'email', campo: 'dia', rotulo: 'Por día', unidad: 'emails', ayuda: 'Emails por día, en 24 h' },
       { grupo: 'email', campo: 'personaHoras', rotulo: 'Misma persona', unidad: 'h', ayuda: 'Horas entre dos emails a la misma persona' },
+      { grupo: 'email', campo: 'arranqueDia', rotulo: 'Primer día', unidad: 'emails', ayuda: 'Emails el primer día de la rampa' },
+      { grupo: 'email', campo: 'arranqueSube', rotulo: 'Sube por día', unidad: 'emails', ayuda: 'Cuánto sube cada día que llega a su tope' },
     ],
   },
   {
@@ -251,7 +263,8 @@ export const BLOQUES_LIMITES: ReadonlyArray<{ titulo: string; filas: FilaLimite[
  */
 export const INFO_LINEA = 'Para todas tus automatizaciones juntas: es lo que cuida a tu número de un bloqueo. No se apaga.';
 export const FILAS_LINEA: ReadonlyArray<FilaLimite> = BLOQUES_LIMITES.flatMap((b) => b.filas)
-  .filter((f) => f.campo !== 'personaHoras')
+  // La rampa del email (4/11/2026) se cambia por la API de MaKo (`cambiar_limites_envio`), no en esta pantalla.
+  .filter((f) => f.campo !== 'personaHoras' && f.campo !== 'arranqueDia' && f.campo !== 'arranqueSube')
   .map((f) => (f.grupo === 'mako' ? f : { ...f, rotulo: f.campo === 'hora' ? 'Línea por hora' : 'Línea por día', info: f.campo === 'dia' ? INFO_LINEA : f.info }));
 
 /** La línea de uso de un bloque, o null (sin uso leído, o un bloque sin tope que contar). */
