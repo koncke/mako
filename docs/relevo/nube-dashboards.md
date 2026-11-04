@@ -1,5 +1,78 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
+## 📬 Para el Cerebro (4/11/2026, ~15:00 UTC)
+
+Desde esta sesión de la nube no le puedo escribir al Cerebro: el mensaje entre sesiones está cerrado para una sesión que no puede llegar a las
+otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
+- **«Nueva hoja» (`punta/dash-seleccion`) está en producción** desde las ~14:12 UTC (deploy `2de03f8e`, corrida 41845201367).
+- **Cobranza (`punta/dash-cobranza`)**: la corrida 171 dio rojo por una palabra, un «acá» en el vacío de los planes de pago
+  (`tests/puente-panel-copy.test.ts`). Está corregido en `5936606b` y subido de nuevo. El otro rojo de esa corrida, `coaches-ops-center`, fue FLAKY:
+  pasó aislado y no es de esta punta. Revisé el resto de los textos de la hoja.
+- **Focus (`punta/dash-focus`)**: la sección de abajo. Sale DESPUÉS de Cobranza, porque la rama la contiene.
+
+## Focus: la tercera hoja copiada (la de Pane), con lo que MaKo sabe del día (punta `dash-focus`, 4/11/2026)
+
+El pedido (Martín, por el Cerebro): *«Carga los de FOCUS que ya teníamos»*, con la regla de las otras: *«que sea primero la copia, es decir,
+que se vea exactamente igual que la copia, y después la adaptación con Maco»*. Focus es una plantilla de **GENERAL** (`lib/general-plantillas.ts`,
+id `foco`), no del Dashboard.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» de General ofrece Focus** (era la única de General con maqueta). Es una hoja oscura, de vidrio, como Pane.
+- **Arriba:** el saludo con su nombre, la fecha y cuántas llamadas y tareas tiene hoy, y tres cifras: las tareas hechas hoy, las llamadas
+  que ya pasaron y las vencidas. A la derecha, «Ver todo en la grilla» y «Próxima: 11:30», que abre lo que viene.
+- **Hoy (los anillos):** las tareas de hoy, las llamadas de hoy y los KPIs del día en verde.
+- **Lo que viene:** lo próximo del Calendario en grande («en 20 min») y hasta tres más.
+- **La meta:** cuánto lleva la meta objetivo, cuánto debería llevar a hoy y cuántos días faltan. El botón la edita o la carga, con el editor de siempre.
+- **Mis tareas:** las de hoy y las atrasadas (atrasada = «Urgente», prioridad alta = «Alta»); si no hay, las que más mueven la aguja. El
+  círculo la completa, con «Deshacer», con la misma escritura que los bloques de General.
+- **La semana:** cuántas tareas y proyectos vencen cada día, con hoy más claro.
+- **Proyectos:** los abiertos del Plan, con su avance y sus tareas abiertas.
+- **Te está esperando:** los cobros por hacer (abren la tab Pagos del cliente) y los leads por marcar en el CRM, con el selector Cobros · Leads.
+
+**Lo que Pane tiene y MaKo no mide, y no se inventó:**
+- el temporizador de foco: en su lugar va «La meta»;
+- «Right now» (en qué está cada persona del equipo): en su lugar va «Te está esperando»;
+- las tareas cerradas por día: en su lugar, lo que vence cada día;
+- el selector «Trimestre · Año» de la maqueta en «La meta»: la meta es una sola, y un selector que no cambia nada es un control muerto.
+
+**Comparación**, captura contra captura (`docs/diseno/mockups-dashboard/focus-pane/captura/`):
+- **La copia contra Pane:** `copia-1440.png` / `copia-390.png` contra las capturas del demo. A 1440 mide 1646 px de alto contra 1647, y el título
+  lo mismo, porque la letra es Inter 4 con su tamaño óptico, como la captura. Lo que no se copió es el armazón (la barra lateral y la de arriba:
+  en MaKo las pone la app) y la foto borrosa del fondo (va su degradé medido).
+- **El componente contra la maqueta de la adaptación:** `producto-1440.png` / `mako-1440.png` y `producto-390.png` / `mako-390.png`. Las
+  tarjetas, los anillos, las barras y las filas coinciden: 1649 px de alto contra 1647. Diferencias, todas a propósito:
+  - «Ver todo en la grilla» en lugar de «Nueva tarea»: el Plan no abre una tarea nueva por link, y un botón que promete algo que no hace no va;
+  - sin los avatares de «Lo que viene» (el Calendario no trae a los invitados);
+  - el título de la meta, cortado con «…» si no entra.
+- **El medio** (641 a 1040 de lienzo) no está en Pane y es nuestro (`producto-800.png`): dos tarjetas por fila arriba, y las de abajo a lo ancho.
+
+**El movimiento** (el INFORME de Pane, con Element.animate; `producto-entrada-420ms.png` es un cuadro a mitad de la entrada, medido con 52
+animaciones):
+- el título, letra por letra;
+- la bajada y los botones;
+- las tres cifras y las tarjetas, que suben con su recorte;
+- las filas;
+- las cifras que cuentan;
+- la pastilla del selector, que viaja con el resorte (medido: de 3 px a 71 px, con sus dos animaciones);
+- la tarjeta, que sube 4 px con el mouse.
+
+Lo que el INFORME no trae y queda quieto: cómo crecen los anillos y las barras.
+
+**Cómo está hecho:**
+- `app/dashboard/disenos/HojaFocus.tsx` dibuja, y su hoja de estilos `focus-css.ts` va dentro de `.fp`, con cada clase con el prefijo `fp-`,
+  porque la casa también tiene `.card`, `.btn`, `.grid` y `.chip`.
+- `app/dashboard/disenos/FocusVivo.tsx` le pone los datos de verdad. Lo carga `EditorInforme` con `next/dynamic`, sólo si la hoja es un Focus
+  y está en General.
+- El modelo es `lib/focus-diseno.ts`: de dónde sale cada número, a partir de los datos de los bloques de General (`DatosGeneral`, que General
+  ahora presta en su contexto: `useGeneral().datos`). Al Plan de General se le sumaron `deHoy` y `vencidas`.
+- El test es `tests/dashboard-diseno-focus.test.ts`: ejecuta el modelo y está probado rompiéndolo (5 de 5 roturas en rojo).
+- La plantilla `foco` trae `diseno: { id: 'foco', piezas: {} }`: no lee piezas de la hoja; editando, quedan los bloques de siempre.
+- La miniatura de «Nueva hoja» usa el mismo componente, quieto, con un día de ejemplo (`DisenoEnMiniatura.tsx`).
+
+**Falta:**
+- verificar contra la base de un cliente (la nube no tiene la base): crear la hoja en ws3 y completar una tarea desde ahí;
+- **Lumora**, la otra referencia de Focus: la maqueta del 1/11 (`focus-lumora.html`) todavía no es copia exacta.
+
 ## Cobranza: la segunda hoja copiada (la de Coffer), con los datos de MaKo (punta `dash-cobranza`, 4/11/2026)
 
 El pedido (Martín, por el Cerebro): *«que sea primero la copia, es decir, que se vea exactamente igual que la copia, y después la adaptación

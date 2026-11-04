@@ -28,6 +28,7 @@ import { conVariables, opcionDe, piezaGeneral, type OpcionesElegidas, type Pieza
 
 export type { FunnelElegible } from '../components/ElegirFunnels';
 import type { FunnelElegible } from '../components/ElegirFunnels';
+import type { DatosGeneral } from '../general/datos-tipos';
 import { RedDeBloque } from './RedDeBloque';
 
 /** Lo que General le presta al editor (lo monta app/general/ProveedorGeneral.tsx). */
@@ -44,6 +45,11 @@ export type ContextoDeGeneral = {
   variables: ValoresVariables;
   /** null = no se pudieron leer: el panel no ofrece elegir. */
   funnels: FunnelElegible[] | null;
+  /**
+   * Los datos de General enteros (los de los bloques): los lee la hoja Focus con su DISEÑO PROPIO (./disenos/FocusVivo.tsx),
+   * que dibuja varios bloques en uno. Ausente fuera de /general (la galería de «Nueva hoja» presta sólo las muestras).
+   */
+  datos?: DatosGeneral | null;
 };
 
 const Contexto = createContext<ContextoDeGeneral | null>(null);

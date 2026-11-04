@@ -1,0 +1,167 @@
+<!doctype html>
+<!-- FOCUS (PANE) · PASO 1: LA COPIA EXACTA de la «Home» de Pane (4/11/2026), con sus textos, para compararla captura contra
+     captura con demos/pane/captura/pagina-1440.png y pagina-390.png. Código nuestro (pane.css y pane.js): nada de la tienda.
+     ⚠️ Las fotos de las personas son de la tienda: van como iniciales. La foto borrosa del fondo, igual: un degradé medido. -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Focus · la copia de Pane</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="pane.css">
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5L12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.3 4.6-4.8"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10.5h16M8.5 3.5v4M15.5 3.5v4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 6.5h6l2 2h9v10h-17z"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M6 18v-5M10 18V8M14 18v-8M18 18v-3"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5M15.5 5.6a3 3 0 0 1 0 5.8M17.5 14.5c1.7.5 2.8 2 3.1 4.5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M6 18l1.6-1.6M16.4 7.6L18 6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 10a5.5 5.5 0 0 1 11 0c0 5 2 6.5 2 6.5h-15s2-1.5 2-6.5M10 19.5a2.2 2.2 0 0 0 4 0"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><path d="M3.5 7h11v10h-11zM14.5 10.5l6-3v9l-6-3"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z" fill="currentColor"/></symbol>
+  <symbol id="i-caret" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z" fill="currentColor"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M9 15L18 6M11 6h7v7"/></symbol>
+  <symbol id="i-tick" viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-8.5"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-grid4" viewBox="0 0 24 24"><rect x="5" y="5" width="6" height="6" rx="1.5"/><rect x="13" y="5" width="6" height="6" rx="1.5"/><rect x="5" y="13" width="6" height="6" rx="1.5"/><rect x="13" y="13" width="6" height="6" rx="1.5"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M14 4c3 0 6 3 6 6l-7 7-6-6zM8 15l-3 4 4-3M15 9h.01"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14zM5 19l7-7"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c3 4 6 6 6 10a6 6 0 0 1-12 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3 1-6 2-8.5z"/></symbol>
+</svg>
+
+<aside class="side glass" aria-label="Pane">
+  <a class="brand" href="#"><span class="brand__ic"><svg class="i"><use href="#i-grid4"/></svg></span>Pane</a>
+  <nav class="nav">
+    <a class="nav__item" href="#" aria-current="page"><svg class="i"><use href="#i-home"/></svg>Home</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-check"/></svg>Tasks<span class="nav__badge">7</span></a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-cal"/></svg>Calendar</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-folder"/></svg>Projects</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-bars"/></svg>Insights</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-team"/></svg>Team</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
+  </nav>
+  <div class="pinned">
+    <div class="side__group">Pinned</div>
+    <a href="#"><i class="dot" style="background:var(--blue)"></i>Tide mobile app</a>
+    <a href="#"><i class="dot" style="background:var(--purple)"></i>Orbit 2.0 launch</a>
+  </div>
+  <button class="side__me"><span class="ava" style="background:#e8c8a8">LZ</span><span><b>Lin Zhao</b><small>Product Lead</small></span></button>
+</aside>
+
+<main class="page">
+  <div class="toolbar glass">
+    <button class="search-pill"><svg class="i"><use href="#i-search"/></svg>Search<kbd>⌘K</kbd></button>
+    <button class="tbtn" aria-label="Nueva"><svg class="i"><use href="#i-plus"/></svg></button>
+    <button class="tbtn" aria-label="Tema"><svg class="i"><use href="#i-sun"/></svg></button>
+    <button class="tbtn" aria-label="Avisos"><svg class="i"><use href="#i-bell"/></svg><i class="badge"></i></button>
+  </div>
+  <div class="head">
+    <div>
+      <h1 class="head__title">Good morning, Lin</h1>
+      <p class="head__sub">Wednesday, November 4 · 4 meetings and 6 tasks left today</p>
+      <div class="stats">
+        <div class="stat glass" data-stat><div class="stat__l">Done today</div><div class="stat__v"><span data-count="2">2</span><small> / 8</small></div></div>
+        <div class="stat glass" data-stat><div class="stat__l">Focus today</div><div class="stat__v">1.1h</div></div>
+        <div class="stat glass" data-stat><div class="stat__l">Overdue</div><div class="stat__v">0</div></div>
+      </div>
+    </div>
+    <div class="head__actions">
+      <button class="btn btn--glass"><svg class="i"><use href="#i-plus"/></svg>New task</button>
+      <button class="btn btn--accent"><svg class="i"><use href="#i-video"/></svg>Next: 11:00 AM</button>
+    </div>
+  </div>
+
+  <section class="grid row1">
+    <article class="card glass" data-card>
+      <div class="card__h"><div><h2 class="card__t">Today</h2><p class="card__s">Close your rings</p></div></div>
+      <div class="rings" data-rings='[{"v":2,"de":8,"c":"var(--ring-tasks)"},{"v":1.1,"de":2,"c":"var(--ring-focus)"},{"v":1,"de":4,"c":"var(--ring-meet)"}]'>
+        <svg viewBox="0 0 120 120" aria-hidden="true"></svg>
+        <div class="rings__l">
+          <div class="rk" style="border-color:var(--ring-tasks)"><div class="rk__l">Tasks</div><div class="rk__v">2<small> / 8</small></div></div>
+          <div class="rk" style="border-color:var(--ring-focus)"><div class="rk__l">Focus</div><div class="rk__v">1.1h<small> / 2h</small></div></div>
+          <div class="rk" style="border-color:var(--ring-meet)"><div class="rk__l">Meetings</div><div class="rk__v">1<small> / 4</small></div></div>
+        </div>
+      </div>
+    </article>
+    <article class="card glass" data-card>
+      <div class="card__h"><h2 class="card__t">Up next</h2><a class="btn btn--ghost btn--sm" href="#">Calendar</a></div>
+      <button class="next">
+        <span class="next__en">in <b>20 min</b></span>
+        <span class="next__t">Tide sync review</span>
+        <span class="next__m">11:00 AM – 11:45 AM · Video call</span>
+        <span class="next__pie"><span class="avas"><span class="ava" style="background:#d9b38c">NO</span><span class="ava" style="background:#e9d6c3">EM</span><span class="ava" style="background:#b98d6b">OS</span><span class="ava" style="background:#a3826b">KA</span></span><span class="btn btn--accent btn--join"><svg class="i"><use href="#i-video"/></svg>Join</span></span>
+      </button>
+      <div class="evs">
+        <button class="ev" style="--c:var(--pink)"><b>Lunch &amp; learn: glass materials</b><span>12:30 PM</span></button>
+        <button class="ev" style="--c:var(--indigo)"><b>Deep work</b><span>2:00 PM</span></button>
+        <button class="ev" style="--c:var(--purple)"><b>Orbit launch film cut</b><span>4:00 PM</span></button>
+      </div>
+    </article>
+    <article class="card glass" data-card>
+      <div class="card__h">
+        <div><h2 class="card__t">Focus</h2><p class="card__s">The island keeps the time</p></div>
+        <div class="seg" data-seg><span class="seg__pill"></span><button class="seg__btn" aria-pressed="false">15m</button><button class="seg__btn" aria-pressed="true">25m</button><button class="seg__btn" aria-pressed="false">50m</button></div>
+      </div>
+      <div class="focus__b">
+        <div class="timer"><b>25:00</b><small>Ready</small></div>
+        <div class="focus__c">
+          <div class="focus__on">Focus on</div>
+          <div class="select">No task — just focus<svg class="i"><use href="#i-caret"/></svg></div>
+          <button class="btn btn--accent focus__go"><svg class="i" style="width:12px;height:12px"><use href="#i-play"/></svg>Start focus</button>
+        </div>
+      </div>
+      <div class="well"><div class="well__r"><span>Focused today</span><b>1.1h · 2 sessions</b></div><div class="bar"><i style="width:50%"></i></div></div>
+    </article>
+  </section>
+
+  <section class="grid row2">
+    <article class="card glass" data-card>
+      <div class="card__h"><div><h2 class="card__t">My tasks</h2><p class="card__s">Due today and late</p></div><a class="btn btn--ghost btn--sm" href="#">All tasks</a></div>
+      <ul class="tasks">
+        <li class="task"><span class="check"></span><button class="mytask__body" style="text-align:left;min-width:0"><div class="task__t">Review Tide release checklist</div><div class="task__m"><span class="chip" style="--c:var(--blue)"><i class="dot"></i>Tide mobile app</span>Today</div></button><span class="prio prio--alta">High</span></li>
+        <li class="task"><span class="check"></span><button class="mytask__body" style="text-align:left;min-width:0"><div class="task__t">Approve Orbit press kit</div><div class="task__m"><span class="chip" style="--c:var(--purple)"><i class="dot"></i>Orbit 2.0 launch</span>Today</div></button><span class="prio prio--urgente"><svg class="i"><use href="#i-flag"/></svg>Urgent</span></li>
+        <li class="task"><span class="check"></span><button class="mytask__body" style="text-align:left;min-width:0"><div class="task__t">Write Sprout read-out summary</div><div class="task__m"><span class="chip" style="--c:var(--green)"><i class="dot"></i>Sprout onboarding</span>Today</div></button><span class="prio prio--alta">High</span></li>
+        <li class="task"><span class="check"></span><button class="mytask__body" style="text-align:left;min-width:0"><div class="task__t">Reply to Facet token questions</div><div class="task__m"><span class="chip" style="--c:var(--pink)"><i class="dot"></i>Facet design system</span>Today</div></button><span></span></li>
+        <li class="task"><span class="check"></span><button class="mytask__body" style="text-align:left;min-width:0"><div class="task__t">Plan next sprint goals</div><div class="task__m"><span class="chip" style="--c:var(--blue)"><i class="dot"></i>Tide mobile app</span>Today</div></button><span></span></li>
+        <li class="task"><span class="check"></span><button class="mytask__body" style="text-align:left;min-width:0"><div class="task__t">Invite flow friction log</div><div class="task__m"><span class="chip" style="--c:var(--green)"><i class="dot"></i>Sprout onboarding</span>Today</div></button><span class="prio prio--urgente"><svg class="i"><use href="#i-flag"/></svg>Urgent</span></li>
+        <li class="task task--hecha"><span class="check check--on"><svg class="i" style="width:14px;height:14px;stroke-width:2.6;color:#fff"><use href="#i-tick"/></svg></span><button class="mytask__body" style="text-align:left;min-width:0"><div class="task__t">Answer Kwame on the sync edge case</div><div class="task__m"><span class="chip" style="--c:var(--blue)"><i class="dot"></i>Tide mobile app</span>Nov 4</div></button><span></span></li>
+      </ul>
+    </article>
+    <article class="card glass" data-card>
+      <div class="card__h"><div><h2 class="card__t">This week</h2><p class="card__s">Tasks the team finished</p></div><button class="ibtn" aria-label="Expand"><svg class="i"><use href="#i-expand"/></svg></button></div>
+      <div class="big"><b data-count="15">15</b><span>finished so far</span><em>+25% vs last week</em></div>
+      <div class="bars" data-bars='{"dias":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],"v":[5,8,2,0,0,0,0],"max":10,"hoy":2}'></div>
+    </article>
+  </section>
+
+  <section class="grid row3">
+    <article class="card glass" data-card>
+      <div class="card__h"><h2 class="card__t">Projects</h2><a class="btn btn--ghost btn--sm" href="#">See all</a></div>
+      <ul class="projs">
+        <li><a class="hproject" href="#" style="--c:var(--blue)"><span class="tile"><svg class="i"><use href="#i-phone"/></svg></span><span><b>Tide mobile app</b><small>In progress · due Dec 14</small></span><span class="hproject__bar"><i style="width:47%"></i></span><span class="hproject__pct">47%</span><span class="avas avas--sm"><span class="ava" style="background:#d9b38c">N</span><span class="ava" style="background:#e9d6c3">E</span><span class="ava" style="background:#b98d6b">O</span><span class="mas">+3</span></span></a></li>
+        <li><a class="hproject" href="#" style="--c:var(--pink)"><span class="tile"><svg class="i"><use href="#i-grid4"/></svg></span><span><b>Facet design system</b><small>In progress · due Jan 3</small></span><span class="hproject__bar"><i style="width:50%"></i></span><span class="hproject__pct">50%</span><span class="avas avas--sm"><span class="ava" style="background:#a3826b">K</span><span class="ava" style="background:#e9d6c3">E</span><span class="ava" style="background:#d9b38c">N</span><span class="mas">+1</span></span></a></li>
+        <li><a class="hproject" href="#" style="--c:var(--purple)"><span class="tile"><svg class="i"><use href="#i-rocket"/></svg></span><span><b>Orbit 2.0 launch</b><small>In progress · due Nov 16</small></span><span class="hproject__bar"><i style="width:45%"></i></span><span class="hproject__pct">45%</span><span class="avas avas--sm"><span class="ava" style="background:#b98d6b">O</span><span class="ava" style="background:#d9b38c">I</span><span class="ava" style="background:#a3826b">P</span><span class="mas">+2</span></span></a></li>
+        <li><a class="hproject" href="#" style="--c:var(--green)"><span class="tile"><svg class="i"><use href="#i-leaf"/></svg></span><span><b>Sprout onboarding</b><small>In review · due Nov 9</small></span><span class="hproject__bar"><i style="width:50%"></i></span><span class="hproject__pct">50%</span><span class="avas avas--sm"><span class="ava" style="background:#e9d6c3">E</span><span class="ava" style="background:#d9b38c">N</span><span class="ava" style="background:#a3826b">K</span><span class="mas">+1</span></span></a></li>
+        <li><a class="hproject" href="#" style="--c:var(--orange)"><span class="tile"><svg class="i"><use href="#i-flame"/></svg></span><span><b>Q4 brand campaign</b><small>Planning · due Jan 11</small></span><span class="hproject__bar"><i style="width:0%"></i></span><span class="hproject__pct">0%</span><span class="avas avas--sm"><span class="ava" style="background:#d9b38c">I</span><span class="ava" style="background:#b98d6b">O</span><span class="ava" style="background:#e9d6c3">P</span><span class="mas">+1</span></span></a></li>
+      </ul>
+    </article>
+    <article class="card glass" data-card>
+      <div class="card__h"><h2 class="card__t">Right now</h2><div class="seg" data-seg><span class="seg__pill"></span><button class="seg__btn" aria-pressed="true">Team</button><button class="seg__btn" aria-pressed="false">Activity</button></div></div>
+      <ul class="people">
+        <li><a class="person" href="#"><span class="ava" style="background:#b98d6b">NO<i style="background:var(--purple)"></i></span><span><b>Nia Okoro</b><small>In focus · until 11:30 AM</small></span></a></li>
+        <li><a class="person" href="#"><span class="ava" style="background:#a3826b">OS<i style="background:var(--purple)"></i></span><span><b>Omar Saleh</b><small>In focus · until 11:30 AM</small></span></a></li>
+        <li><a class="person" href="#"><span class="ava" style="background:#d9b38c">KA<i style="background:var(--orange)"></i></span><span><b>Kwame Asante</b><small>In a meeting · Tide sync review</small></span></a></li>
+        <li><a class="person" href="#"><span class="ava" style="background:#b98d6b">ID<i style="background:var(--orange)"></i></span><span><b>Inés Duarte</b><small>In a meeting · Marketing Lead</small></span></a></li>
+        <li><a class="person" href="#"><span class="ava" style="background:#e9d6c3">EM<i style="background:var(--green)"></i></span><span><b>Elise Marchand</b><small>Online · Product Designer</small></span></a></li>
+        <li><a class="person" href="#"><span class="ava" style="background:#e8c8a8">PL<i style="background:var(--green)"></i></span><span><b>Peter Lund</b><small>Online · Engineering Manager</small></span></a></li>
+      </ul>
+    </article>
+  </section>
+</main>
+<script src="pane.js"></script>
+</body></html>

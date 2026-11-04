@@ -297,6 +297,29 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
   `text-align:left` (la regla de AGENTS.md, «Cambiar la ETIQUETA de un elemento»). Y donde no hay a dónde ir (la pieza no está), va un `div`: un
   botón que no hace nada se lee como roto. **Vive en:** app/dashboard/disenos/HojaCobranza.tsx (`Toque`).
 
+## 16. Focus: una regla de la hoja copiada que le pega a un componente de adentro, y una palabra que frenó una punta (4/11/2026, chat en la nube)
+
+- **`.fp-big span` le pegó a la cifra que cuenta.** En la maqueta, «9 vencen esta semana» es `<b>9</b><span>vencen…</span>`, y la regla del
+  `span` (15 px, gris) estaba bien. En el componente el 9 es `<b><Cuenta/></b>`, y `Cuenta` dibuja su propio `<span>`: el 9 salió en 15 px.
+  Leyendo el CSS no se ve; lo encontró poner la captura del componente al lado de la de la maqueta. **Al pasar una hoja copiada a React, una
+  regla por etiqueta que tenga un componente adentro va con `>`** (`.fp-big>span`). **Vive en:** app/dashboard/disenos/focus-css.ts.
+- **Las clases de una hoja copiada llevan el prefijo de la hoja, todas.** Pane se llama `.card`, `.btn`, `.grid`, `.chip`, `.dot`, `.bar`, y la
+  casa usa los mismos nombres. Envolver en `.fp` no alcanza: una regla de la casa con más especificidad le gana igual. **Vive en:**
+  app/dashboard/disenos/focus-css.ts.
+- **La guarda del voseo no corre en el filtro chico del pre-push, y frenó la punta de Cobranza por un «acá».** Es una barredora: en GitHub corre
+  siempre y en la PC el filtro elige por lo que cambió. Antes de subir un texto nuevo de pantalla se corre
+  `node --import tsx --test tests/puente-panel-copy.test.ts` (3 s). **Vive en:** app/dashboard/disenos/HojaCobranza.tsx.
+- **Y ese mismo archivo trae otro guard que una hoja copiada pisa: todo `var(--fs-*)` tiene que ser un token de la casa.** La variable propia
+  del título de Pane se llamaba `--fs-title` y daba rojo aunque estaba definida adentro de `.fp`: una variable de una hoja copiada lleva el
+  prefijo de la hoja (`--fp-title`). Lo encontró correr las barredoras sueltas: en esta máquina (node 22) los grupos compartidos de
+  `tests-afectados` no corren y la herramienta dice «SIN CHEQUEAR». **Vive en:** app/dashboard/disenos/focus-css.ts.
+- **Una hoja que dibuja varios bloques en uno necesita los datos de General enteros, no los de una pieza.** El contexto de General prestaba
+  `dibujar`, `muestra` y `variables` por bloque; ahora presta también `datos`, y la hoja Focus arma lo suyo con un modelo puro
+  (`vistaFocus`). El control de la meta (Trimestre · Año) de la maqueta no se pasó: con una sola meta no cambia nada. **Vive en:**
+  app/dashboard/ElementoGeneral.tsx, lib/focus-diseno.ts.
+- **Desde una sesión de la nube no se le puede escribir al Cerebro** si la sesión no puede llegar a las otras de Martín: el mensaje vuelve
+  rechazado y pide un permiso que no se pide por un pedido de otra sesión. El estado va arriba del relevo (`docs/relevo/nube-dashboards.md`).
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

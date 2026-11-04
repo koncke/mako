@@ -161,12 +161,16 @@ import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
 import { conMako, conVista, nombrePreset, PRESET_AUTOMATICO } from '@/lib/graficos-catalogo';
 import { HojaClosing, type ExtrasClosing } from './disenos/HojaClosing';
 import { HojaCobranza, type ExtrasCobranza } from './disenos/HojaCobranza';
+import dynamic from 'next/dynamic';
 import { idDeInformeAutomatizacion, type InformeAutomatizacion } from '@/lib/informe-automatizacion';
 import { BotonMako } from '@/app/_ui/BotonMako';
 import { EditorMako } from './EditorMako';
 import { MenuContextual, opcionesContextuales, type IdOpcion } from './MenuContextual';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import { EVENTO_PREGUNTA_GRAFICO, entidadDeHoja, preguntaDelEvento, textoDePregunta, type PreguntaGrafico } from './pregunta-grafico';
+
+// La hoja Focus con su diseño (la copia de Pane) lee los datos de General: se carga sólo si hay un Focus que dibujar.
+const FocusVivo = dynamic(() => import('./disenos/FocusVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -1577,6 +1581,10 @@ export function EditorInforme({
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
               />
+            ) : hoja.diseno?.id === 'foco' && general?.datos && !enGrilla && !editando && !dueno ? (
+              // La hoja Focus con su DISEÑO PROPIO (la copia de Pane, ./disenos/HojaFocus.tsx): los datos de los bloques de
+              // General (sólo existe en General: fuera de ahí, la grilla de siempre).
+              <FocusVivo hoja={hoja} hoy={hoy} compartido={!!compartido} onGrilla={() => setEnGrilla(true)} />
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
                 <p>{dueno ? 'Este pop-up está vacío.' : 'Esta hoja no tiene gráficos.'}</p>

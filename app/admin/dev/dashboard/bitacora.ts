@@ -936,4 +936,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '15:00', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Focus, la tercera hoja copiada: el diseño de Pane con tu día',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» de General**, con su miniatura de verdad: una hoja oscura, de vidrio, como Pane.',
+      '**Tu día arriba:** el saludo, cuántas llamadas y tareas tienes hoy, las hechas, las llamadas que ya pasaron y las vencidas, y los tres anillos.',
+      '**Lo que viene** del Calendario, **la meta** (cuánto llevas contra lo esperado a hoy, y el botón para editarla), **tus tareas** de hoy y atrasadas (se completan ahí mismo, con «Deshacer»), **la semana** y **tus proyectos**.',
+      '**Te está esperando:** los cobros por hacer y los leads por marcar, con el selector Cobros · Leads.',
+      '**El movimiento de Pane:** el título letra por letra, las tarjetas que suben con su recorte, las cifras que cuentan, el selector con su resorte y la tarjeta que sube con el mouse.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaFocus.tsx · focus-css.ts — el diseño',
+      'app/dashboard/disenos/FocusVivo.tsx — los datos de General',
+      'lib/focus-diseno.ts — de dónde sale cada número',
+      'docs/diseno/mockups-dashboard/focus-pane/ — la copia, la maqueta y las capturas',
+    ],
+    revisar: '/dashboard?hoja=focus',
+  },
 ];

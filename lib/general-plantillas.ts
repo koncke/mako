@@ -88,6 +88,10 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     id: 'foco', nombre: 'Focus', emoji: '🎯', buscar: 'Foco de la semana',
     linea: 'Tu día: lo que te queda, la línea del ahora, lo que viene y tus OKRs.',
     subtitulo: '', tema: TEMA, periodo: 'este_mes',
+    // 4/11/2026 — EL DISEÑO DE PANE (app/dashboard/disenos/HojaFocus.tsx, maquetas en docs/diseno/mockups-dashboard/focus-pane/):
+    // mirando se dibuja la copia, con los datos de los bloques de General (lib/focus-diseno.ts); editando, estas piezas.
+    // Sin `piezas`: lo que dibuja no sale de un gráfico de la hoja sino de los datos de General.
+    diseno: { id: 'foco', piezas: {} },
     piezas: [
       {
         local: 'apertura', tipo: 'frase', fuente: 'tareas', fecha: 'actual', metricas: ['abiertas', 'avance'], dimension: null, titulo: 'Tu día',
