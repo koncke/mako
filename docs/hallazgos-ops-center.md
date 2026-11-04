@@ -7,6 +7,16 @@ Acá va lo que costó y no se deduce leyendo el código.
 
 ---
 
+## El grupo, como uno de WhatsApp: lo que se miró con capturas (4/11/2026)
+
+**Cómo se miró sin `next dev`:** un arnés fuera del repo. esbuild empaqueta `ChatDelGrupo` y `HojaDelGrupo` reales para el navegador, el CSS de `app/globals.css` se compila con `@tailwindcss/postcss` (esbuild no entiende `@import "tailwindcss"`), y un `fetch` falso contesta `/api/grupos/7/*`. Chromium saca las capturas a 390 y 1280, en claro y en oscuro (`data-tema="oscuro"` en `<html>`).
+**Trampa del arnés del teléfono:** `SheetM` se monta en `#m-capas`, y todo el CSS del teléfono va con `[data-m]` delante. Sin un `<div id="m-root" data-m>` con su `<div id="m-capas" />` adentro, la hoja sale sin estilos y la caja se ve rota: se diagnostica un bug que no existe. Pasa lo mismo con la columna de la lista en la computadora: con una de ancho fijo, la cabecera a 390 mide 90 px.
+**Lo que se encontró, además de lo pedido:** la respuesta de MaKo no mostraba la cita (`itemsDelGrupo` la pasaba sólo en los mensajes de las personas), y lo propio llevaba la foto de quien mira, que WhatsApp no pone.
+**Trampa del CSS:** el alto fijo con la lista scrolleando adentro va SÓLO en el Modal (`.mk-modal__cuerpo .gr-miembros`). Puesto en `.gr-miembros` a secas, en la hoja del teléfono hacía doble scroll y escondía el «‹» arriba.
+**Vive en:** `app/second-brain/ChatDelGrupo.tsx`, `app/m/second-brain/HojaDelGrupo.tsx`, `app/_chat/grupo/` (`Participantes.tsx` → `useMiembrosDelGrupo`, `grupo.css` → `.gr-hilo`); lo fija `tests/grupos-ops-pantalla.test.ts` (20).
+
+---
+
 ## La lista de grupos no miraba la pestaña (ticket #55, 4/11/2026)
 
 **Síntoma:** el administrador de una agencia, parado en la cuenta de un cliente, veía en la lista los grupos de todos sus otros clientes, y lo reportó como «no debería verse».
