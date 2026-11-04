@@ -512,7 +512,7 @@ export const RUNNERS: Runners = {
         return {
           content: J({
             informe: r.etiqueta, estado: r.lectura.estado,
-            hoja: { id: hoja.id, nombre: hoja.nombre, emoji: hoja.emoji, subtitulo: hoja.subtitulo, estilo: hoja.tema, filtros: controles, conectores: hoja.conectores ?? [] },
+            hoja: { id: hoja.id, nombre: hoja.nombre, emoji: hoja.emoji, subtitulo: hoja.subtitulo, estilo: hoja.tema, filtros: controles, conectores: hoja.conectores ?? [], ...(hoja.diseno ? { diseno: { id: hoja.diseno.id, nota: 'Mirándola, la hoja se ve con su diseño propio; cada bloque lee uno de estos gráficos. Editando, se ve la grilla.' } } : {}) },
             componentes: leidos.map((l) => {
               if (!('desde' in l)) return elementoJson(l.c);
               const g = l.c;

@@ -248,6 +248,29 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **El INFORME corta las líneas largas** (`....`): lo que viene después del corte no está medido. Se copia hasta ahí y lo demás se
   anota como no copiado (la entrada del título, `bo`, no figura entre los helpers; la cuota y el reloj no tienen entrada).
 
+## 13. Llevar la copia al Dashboard: tres trampas que la maqueta no tenía (4/11/2026, Closing)
+
+- **«Nueva hoja» poda los gráficos que hoy dan vacío** (`podarSinDatos`, regla de Martín del 13/10: «no crear un montón de
+  gráficos vacíos»). En la grilla está bien; en un diseño propio no: el bloque se dibuja igual, y sin su gráfico no se llena
+  nunca, aunque mañana haya datos. Un Closing creado en una semana sin llamadas perdía «Llamadas de esta semana» para
+  siempre. Ahora la poda no toca las piezas del diseño **ni lo que leen sus cajas de MaKo** (la caja de Closing lee un
+  gráfico que no es pieza: sin eso, se iba igual). Lo fija `tests/dashboard-diseno-closing.test.ts` (9).
+- **El reset de la hoja copiada le ganaba a sus propias clases.** `.hc button{background:none}` (0,1,1) le gana a
+  `.hc-btn--primary` (0,1,0): el botón principal salía blanco y los links negros. En la maqueta no pasaba porque el reset
+  era `button{}` suelto. Va `.hc :where(button)` (0,1,0, y el orden decide). Al limitar una hoja copiada a una clase raíz,
+  los resets por etiqueta van con `:where()`.
+- **El ancho del medio no está en el demo.** Halden se capturó a 1440 y 390, y el lienzo real del Dashboard (con la barra y
+  la lista de hojas) en una ventana de 1024 mide ~780: ahí las tres columnas no entran (el reloj se cortaba, los títulos
+  iban palabra por palabra). Se agregó un paso a dos columnas, y se dice que es nuestro. Una copia nueva se mide también en
+  el ancho del lienzo, no sólo en el de la ventana.
+- **Lo que el diseño necesita se busca primero en lo que la plantilla YA tiene.** Sumar un gráfico por bloque dejó la plantilla
+  en 16 paneles y con dos frases (`tests/graficos-corbel.test.ts`: una frase, que abre, y 14 paneles como mucho). «Cómo
+  terminaron» salió de dos columnas más en la tabla del equipo (sus totales cuentan todas las filas, no sólo las que se ven), y
+  el anillo que contaba lo mismo se fue. Una tabla ordena por su primera métrica: «las últimas» no puede salir de una tabla
+  ordenada por score, y por eso tiene la suya.
+- **Un texto de MaKo es más largo que el del demo**: «7 de 18 llamadas de cierre terminaron en venta» partía en dos columnas
+  en el teléfono. Se mira cada texto adaptado en 390 antes de darlo por copiado.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué
@@ -261,4 +284,5 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **Las sugeridas no tienen eje de rubro**: Inmobiliaria no se sugiere sola, se encuentra por nombre.
 - **Sin medir**: el hover y el clic de las plantillas (los `:hover` de cada demo están en el `INFORME.txt` del medidor, que
   es temporal). Para Closing ya están copiados (§12).
-- **Closing todavía no está en producción con su diseño**: la copia y la adaptación son maquetas (§12, el relevo).
+- **Closing sin probar contra la base de un cliente**: el diseño está en la punta `dash-closing-producto` (§13); falta
+  crearlo en el ws3 y el ws1 y mirarlo con datos reales.

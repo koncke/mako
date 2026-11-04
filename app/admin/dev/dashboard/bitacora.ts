@@ -875,4 +875,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '12:12', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Closing se ve como Halden en el Dashboard, con los números del negocio',
+    puntos: [
+      '**Una hoja Closing nueva** («Nueva hoja» → Closing) se ve con el diseño de Halden: la tasa de cierre arriba, cómo terminaron, las llamadas de la semana con las agendadas, las últimas, la próxima, cada closer, lo que ve MaKo y la duración.',
+      '**Entra y responde igual que la copia:** los mismos tiempos al aparecer, el número que cuenta, el reloj que gira y las barras que suben.',
+      '**«Editar» o «Ver todo en la grilla»** muestran la hoja de siempre, con los mismos gráficos; tocar una llamada abre su pop-up.',
+      '**Un closer o un setter** la ven sin la agenda, como el resto de su Dashboard. Una hoja Closing de antes no cambia sola.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaClosing.tsx · closing-css.ts — el diseño, sólo de Closing',
+      'lib/closing-diseno.ts — lo que dice cada bloque (con test)',
+      'lib/graficos-catalogo.ts — la hoja guarda qué diseño usa y de qué gráfico lee cada bloque',
+      'docs/relevo/nube-dashboards.md — las capturas al lado de la maqueta',
+    ],
+    revisar: '/dashboard',
+  },
 ];

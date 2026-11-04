@@ -69,7 +69,12 @@ export function rellenarFilas<T extends Caja>(quedan: readonly T[], antes: reado
  */
 export function podarSinDatos(h: Hoja, medidas: ReadonlyMap<string, Medida>): { hoja: Hoja; quitados: number; sinNada: boolean } {
   const graficos = h.componentes.filter((c): c is Grafico => c.clase === 'grafico');
-  const vacios = new Set(graficos.filter((g) => medidas.get(g.id) === 'sin').map((g) => g.id));
+  // Los gráficos de los que lee un DISEÑO propio (la hoja Closing) no se podan: el diseño dibuja su bloque igual, con su
+  // vacío honesto, y sin el gráfico ese bloque no se llenaría nunca, aunque mañana haya datos (4/11/2026).
+  // Con lo que leen sus cajas de MaKo: podado eso, la caja se iría con él.
+  const piezas = new Set(Object.values(h.diseno?.piezas ?? {}));
+  const delDiseno = new Set([...piezas, ...h.componentes.flatMap((c) => (piezas.has(c.id) && c.clase === 'elemento' && c.tipo === 'ia' ? c.ia?.fuentes ?? [] : []))]);
+  const vacios = new Set(graficos.filter((g) => medidas.get(g.id) === 'sin' && !delDiseno.has(g.id)).map((g) => g.id));
   if (!vacios.size) return { hoja: h, quitados: 0, sinNada: false };
   if (!graficos.some((g) => medidas.get(g.id) === 'con')) return { hoja: h, quitados: 0, sinNada: true };
 

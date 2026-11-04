@@ -42,7 +42,8 @@ const EVENTO = 'mako:caja-ia';
 type Respuesta = { vista?: VistaCaja; estado?: string; error?: string };
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : 'No pude completar el pedido');
 
-async function leerCaja(q: { hojaId: string; elementoId: string; popupDe: string | null; ref: string | null }): Promise<VistaCaja> {
+/** Lee el último texto de una caja (el GET de siempre). Lo usa también la hoja Closing con diseño (./disenos/HojaClosing.tsx). */
+export async function leerCaja(q: { hojaId: string; elementoId: string; popupDe: string | null; ref: string | null }): Promise<VistaCaja> {
   const p = new URLSearchParams({ hoja: q.hojaId, elemento: q.elementoId });
   if (q.popupDe) p.set('popup', q.popupDe);
   if (q.ref) p.set('ref', q.ref);

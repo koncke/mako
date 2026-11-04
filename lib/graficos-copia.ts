@@ -162,6 +162,9 @@ export function hojaConIdsNuevos(h: Hoja, nombre?: string): Hoja {
   const copia: Hoja = { ...h, id: nuevoId(), nombre: (nombre ?? h.nombre).slice(0, 40), controles: controles(h.controles), componentes };
   if (conectores.length) copia.conectores = conectores;
   else delete copia.conectores;
+  // El diseño propio sigue a sus componentes por el id NUEVO, como los conectores (sin esto, la copia se quedaba con
+  // un diseño que no encuentra ninguna pieza).
+  if (h.diseno) copia.diseno = { id: h.diseno.id, piezas: Object.fromEntries(Object.entries(h.diseno.piezas).flatMap(([k, v]) => { const n = nuevoDe.get(v); return n ? [[k, n]] : []; })) };
   return copia;
 }
 

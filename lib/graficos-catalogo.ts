@@ -1293,7 +1293,41 @@ export type Hoja = {
   plantilla?: string;
   /** v5: las flechas que unen componentes (hasta MAX_CONECTORES). Ausente = ninguna. */
   conectores?: Conector[];
+  /**
+   * El DISEÑO PROPIO de la hoja (4/11/2026). Ausente = la grilla de siempre. Ver `DISENOS_HOJA`.
+   */
+  diseno?: DisenoHoja;
 };
+/**
+ * Las hojas con DISEÑO PROPIO. Martín, 4/11/2026, al rechazar las 20 hojas iguales: «Quiero hacerlo de manera muy
+ * personalizada, cada dashboard… que sea primero la copia, es decir, que se vea exactamente igual que la copia, y después
+ * la adaptación con Maco». Mirando, una hoja con diseño NO se dibuja en la grilla: la dibuja su componente
+ * (app/dashboard/disenos/), con su letra, su CSS y su movimiento, que no comparte con ninguna otra hoja. Los DATOS son los
+ * de siempre: los de sus componentes, que el diseño encuentra por las `piezas` (nombre de la pieza → id del componente).
+ * Editando, la grilla de siempre con esos mismos componentes.
+ *
+ * ⚠️ Una pieza que ya no existe (se borró el componente) se cae en el saneo, y el diseño no dibuja ese bloque.
+ * ⚠️ La traen SÓLO las hojas nuevas de su plantilla: una hoja de antes no cambia sola (Martín, regla 6 del relevo).
+ * ⚠️ Catálogo cerrado: un diseño nuevo es una entrada acá y su componente en app/dashboard/disenos/.
+ */
+export const DISENOS_HOJA = ['closing'] as const;
+export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
+/** Las piezas de un diseño: nombres cortos, en minúscula. */
+const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;
+/** El diseño de una hoja, saneado: un id del catálogo y sólo las piezas que apuntan a un componente que existe. */
+export function sanearDiseno(raw: unknown, ids: ReadonlySet<string>): DisenoHoja | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as { id?: unknown; piezas?: unknown };
+  const id = DISENOS_HOJA.find((d) => d === o.id);
+  if (!id) return null;
+  const piezas: Record<string, string> = {};
+  if (o.piezas && typeof o.piezas === 'object') {
+    for (const [k, v] of Object.entries(o.piezas as Record<string, unknown>).slice(0, 30)) {
+      if (PIEZA_DISENO.test(k) && typeof v === 'string' && ids.has(v)) piezas[k] = v;
+    }
+  }
+  return { id, piezas };
+}
 /**
  * `archivadas` (14/10/2026, Martín: «Me debería dejar eliminar todas las hojas, también para dashboard. Y en el
  * desplegable de las hojas, un texto que diga "Archivados" y ahí la opción de eliminar permanentemente»): eliminar una
@@ -1889,6 +1923,7 @@ export function sanearHoja(raw: unknown, i: number): Hoja | null {
   const nombre = typeof o.nombre === 'string' && o.nombre.trim() ? o.nombre.trim().slice(0, 40) : `Página ${i + 1}`;
   const plantilla = idValido(o.plantilla);
   const conectores = sanearConectores(o.conectores, new Set(componentes.map((c) => c.id)));
+  const diseno = sanearDiseno(o.diseno, new Set(componentes.map((c) => c.id)));
   const id = idValido(o.id) ?? nuevoId();
   return {
     id, nombre,
@@ -1896,6 +1931,7 @@ export function sanearHoja(raw: unknown, i: number): Hoja | null {
     tema: sanearTema(o.tema), controles: conFunnelDeCobros(controles, plantilla, id), componentes,
     ...(plantilla ? { plantilla } : {}),
     ...(conectores.length ? { conectores } : {}),
+    ...(diseno ? { diseno } : {}),
   };
 }
 

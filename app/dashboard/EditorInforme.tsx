@@ -158,7 +158,8 @@ import { hojaConIdsNuevos } from '@/lib/graficos-copia';
 import { sigueComoSeCreo } from '@/lib/graficos-plantilla-relleno';
 import { tokenDeDashboard } from './copia-dash-cliente';
 import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
-import { conMako } from '@/lib/graficos-catalogo';
+import { conMako, conVista, nombrePreset, PRESET_AUTOMATICO } from '@/lib/graficos-catalogo';
+import { HojaClosing, type ExtrasClosing } from './disenos/HojaClosing';
 import { idDeInformeAutomatizacion, type InformeAutomatizacion } from '@/lib/informe-automatizacion';
 import { BotonMako } from '@/app/_ui/BotonMako';
 import { EditorMako } from './EditorMako';
@@ -306,6 +307,7 @@ export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
   senales = null, unido = null, plantillasInicial = false, avisoClosing = null, accionClosing = 'Conectar Claude', cabeceraPropia = null, avisoFijo = null,
+  disenos = null,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -322,6 +324,11 @@ export function EditorInforme({
   avisoClosing?: string | null;
   /** El texto del botón del aviso (./aviso-closing.ts, `accionDeLaHojaClosing`): conectar Claude, o abrir la que ya tiene. */
   accionClosing?: string;
+  /**
+   * Lo que leen las hojas con DISEÑO PROPIO y ningún componente lee (`Hoja.diseno`, lib/graficos-catalogo.ts): la agenda y
+   * quién mira, para la de Closing (./disenos/HojaClosing.tsx). Lo arma la página; null = sin eso (los bloques lo dicen).
+   */
+  disenos?: { closing?: ExtrasClosing | null } | null;
   /**
    * UN AVISO FIJO arriba de la hoja, de quien monta el editor (la misma franja `lk-aviso-hoja` que el de Closing): la prueba
    * A/B de una automatización en sus Métricas (app/automations/MetricasAutomatizacion.tsx, tanda A3, 25/10/2026).
@@ -379,6 +386,9 @@ export function EditorInforme({
   // `?probar=` (una hipótesis de Offer) abre «Editar con MaKo»: es un pedido de CAMBIAR la hoja, así que entra editando
   // (17/10/2026: el panel que cambia la hoja sólo existe editando; en vista, MaKo asesora).
   const [editando, setEditando] = useState(() => !!probarInicial && !soloLectura && !compartido);
+  // Una hoja con DISEÑO PROPIO (`Hoja.diseno`) se mira con su diseño; «Ver todo» la muestra en la grilla, y un botón vuelve.
+  // Es estado de la vista: no se guarda.
+  const [enGrilla, setEnGrilla] = useState(false);
   const editandoRef = useRef(editando);
   editandoRef.current = editando;
   const [dispositivoElegido, setDispositivo] = useState<Dispositivo>('escritorio');
@@ -875,6 +885,11 @@ export function EditorInforme({
   };
 
   // ── El pop-up (punto 7) ──────────────────────────────────────────────────────────────────────
+  /** El nombre del período de la barra de la hoja («Últimos 30 días»): el renglón de arriba del diseño propio. */
+  const periodoDiseno = useMemo(() => {
+    const c = hoja.controles.find((k) => k.tipo === 'periodo');
+    return nombrePreset((c ? conVista(c, vista).preset : null) ?? PRESET_AUTOMATICO);
+  }, [hoja.controles, vista]);
   const abrirPopup = useCallback((g: Grafico, s: SelDetalle) => {
     const ef = efectivosHoja[g.id] ?? efectivoDe(g, hoja, vista, hoy);
     setPopup({ g, ctx: contextoPopupDe(g, s, datos[g.id]?.resultado), periodo: { desde: ef.desde, hasta: ef.hasta }, hoja });
@@ -1081,6 +1096,7 @@ export function EditorInforme({
   const alEmpezarGesto = useCallback(() => { apilar(tableroRef.current); setEnGesto(true); }, [apilar]);
   const alTerminarGesto = useCallback(() => setEnGesto(false), []);
   const idHoja = hoja.id;
+  useEffect(() => { setEnGrilla(false); }, [idHoja]);
   // La grilla avisa un cambio también al MONTAR, cuando compacta lo que vino (medido el 11/10: así se
   // guardó el informe de Mauricio a las 01:59 sin que tocara nada). Mirando, no se escribe: sólo editando.
   // Lo que avisa son filas DIBUJADAS: `aGuardado` las vuelve a las guardadas (lo plegado, en su lugar).
@@ -1528,6 +1544,12 @@ export function EditorInforme({
                 {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>{accionClosing}</BotonIntegracion>}
               </div>
             )}
+            {hoja.diseno && enGrilla && !editando && !dueno && !enBlanco && (
+              <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" onClick={(e) => e.stopPropagation()}>
+                <span>Aquí ves todas las piezas de la hoja.</span>
+                <button type="button" className="lk-aviso-hoja__accion" onClick={() => setEnGrilla(false)}>Volver al diseño</button>
+              </div>
+            )}
             {avisoFijo && !dueno && !enBlanco && (
               <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" data-aviso-fijo onClick={(e) => e.stopPropagation()}>{avisoFijo}</div>
             )}
@@ -1538,6 +1560,14 @@ export function EditorInforme({
               <div className="lk-en-blanco lk-en-blanco-crear" onClick={(e) => e.stopPropagation()}>
                 {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informeGeneralODashboard} senales={senales} conTodas={!!unido} />}
               </div>
+            ) : hoja.diseno?.id === 'closing' && !enGrilla && !editando && !dueno ? (
+              // La hoja Closing con su DISEÑO PROPIO (la copia de Halden, ./disenos/HojaClosing.tsx): los datos de sus
+              // componentes, la agenda que trae la página y el pop-up de siempre al tocar una llamada.
+              <HojaClosing
+                hoja={hoja} datos={datos} extras={disenos?.closing ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onLlamada={(g, clave) => abrirPopup(g, { dimension: g.dimension ?? null, valor: clave })}
+              />
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
                 <p>{dueno ? 'Este pop-up está vacío.' : 'Esta hoja no tiene gráficos.'}</p>

@@ -66,6 +66,8 @@ import { conQueAnalizaElClosing, CONECTA_TU_CLAUDE_CLOSING } from '@/lib/closing
 import { accionDeLaHojaClosing, avisoDeLaHojaClosing, esHojaClosing } from './aviso-closing';
 import { iaCaidaParaLaHoja } from '@/lib/closing-ia-caida';
 import { avisoDeIaCaida } from '@/lib/closing-ia-caida-reglas';
+import { agendaParaElClosing } from '@/lib/closing-diseno-server';
+import { variablesDeQuienMira } from '../general/datos';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -166,7 +168,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
     : Promise.resolve(null);
   // Y con SU clave caída (sin crédito, borrada: lib/closing-ia-caida.ts), la causa y el paso para arreglarlo (27/10/2026).
   const caidaClosing = hayHojaClosing ? iaCaidaParaLaHoja() : Promise.resolve(null);
-  const [datos, senalesNegocio, closing, caida] = await Promise.all([datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales, conClosing, caidaClosing]);
+  // La hoja Closing con DISEÑO PROPIO (la copia de Halden, app/dashboard/disenos/HojaClosing.tsx) lee además la agenda
+  // del CRM (las llamadas que vienen) y quién mira (el saludo). La agenda nombra leads: NO para el closer ni el setter
+  // (`unica`, su hoja sin los leads); el saludo sí.
+  const hayDisenoClosing = !sinPaginas && (tablero.hojas.some((h) => h.diseno?.id === 'closing') || agregar?.diseno?.id === 'closing');
+  const agendaClosing = hayDisenoClosing && !unica ? agendaParaElClosing(hoy) : Promise.resolve(null);
+  const quienClosing = hayDisenoClosing
+    ? variablesDeQuienMira().then((q) => ({ saludo: q.saludo ?? 'Hola', nombre: q.nombre ?? '', fecha: q.fecha ?? '' })).catch(() => null)
+    : Promise.resolve(null);
+  const [datos, senalesNegocio, closing, caida, agenda, quien] = await Promise.all([
+    datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales, conClosing, caidaClosing, agendaClosing, quienClosing,
+  ]);
 
   return (
     // ⚠️ `flex: 'none'` + el alto + `overflow: hidden`, LOS TRES. Pagina trae `flex: 1` (base 0%), que en
@@ -195,6 +207,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         plantillasInicial={plantillas && !unica}
         avisoClosing={avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida))}
         accionClosing={accionDeLaHojaClosing(closing)}
+        disenos={hayDisenoClosing ? { closing: { agenda, quien } } : null}
       />
     </Pagina>
   );

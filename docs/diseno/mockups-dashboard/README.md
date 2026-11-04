@@ -23,7 +23,7 @@ python -m http.server 4900 --bind 127.0.0.1
 | `comun.css` `comun.js` | la base vieja, que sólo usan los dos Focus |
 | `medidor/` | el medidor que lee el movimiento del código fuente de los demos |
 | `demos/<demo>/` | lo medido de cada demo (desde la PC): `INFORME.txt` (la entrada), `captura/pagina-1440.png` y `pagina-390.png`, `captura/valores.json` y `captura/estados/` |
-| `closing/` | **Closing, copiado de Halden** (4/11/2026): `copia.html` (la copia exacta), `closing.html` (la adaptación), su propia hoja y su movimiento, y `captura/` para comparar |
+| `closing/` | **Closing, copiado de Halden** (4/11/2026): `copia.html` (la copia exacta), `closing.html` (la adaptación), su propia hoja y su movimiento, y `captura/` para comparar (`producto-*.png` es el componente que monta el Dashboard) |
 
 ## Cómo se mide una referencia nueva
 

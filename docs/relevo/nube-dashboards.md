@@ -100,12 +100,52 @@ pone el Dashboard.
 Se sacó: la barra de arriba de Halden, el buscador, las pestañas y los tres botones de la sesión. Se agregó: el tramo rosa de
 «Perdida» (Halden no tiene uno: sus tramos son todos abiertos).
 
-### Lo que falta para que esté en producción
+### Paso 3: el diseño en el Dashboard, con los datos reales (punta `dash-closing-producto`)
 
-La copia y la adaptación son maquetas: **producción todavía muestra la hoja Closing de antes** (la del rechazo). Falta llevar
-este diseño al Dashboard con los datos reales: que una hoja nacida de la plantilla Closing se dibuje con su propio diseño (su
-CSS y su movimiento, sólo de ella) leyendo los mismos componentes de siempre, y sumar las dos lecturas que hoy no existen en
-la hoja (las agendadas de la semana y la próxima llamada). Va en su propia punta.
+**Qué cambia para Martín:** una hoja nueva desde **«Nueva hoja» → Closing** se ve con el diseño de Halden (el de la maqueta),
+con los números de su negocio. Mirando la hoja se ve el diseño; **«Editar»** o **«Ver todo en la grilla»** muestran la grilla de
+siempre, con los mismos gráficos. **Una hoja Closing que ya tenía no cambia sola**: para verla hay que crearla otra vez.
+
+Capturas del componente real (el mismo que monta el Dashboard, con datos de ejemplo), al lado de la maqueta:
+
+| | Maqueta | El componente |
+|---|---|---|
+| Computadora | `closing/captura/mako-1440.png` | `closing/captura/producto-1440.png` |
+| Teléfono | `closing/captura/mako-390.png` | `closing/captura/producto-390.png` |
+| Lienzo de 760 (una ventana de 1024 con la barra) | — | `closing/captura/producto-760.png` |
+
+Cómo está hecho (para el que siga con la próxima hoja):
+
+- **La hoja guarda qué diseño usa y de qué gráfico lee cada bloque**: `Hoja.diseno = { id: 'closing', piezas: { tasa: <id>, … } }`
+  (`lib/graficos-catalogo.ts`, catálogo cerrado `DISENOS_HOJA`). Lo pone la plantilla (`lib/graficos-plantillas-analysts.ts`), el
+  saneo saca las piezas cuyo gráfico se borró, y duplicar o copiar la hoja lleva las piezas a los ids nuevos
+  (`lib/graficos-copia.ts`). Una hoja sin `diseno` se dibuja como siempre.
+- **El dibujo** es `app/dashboard/disenos/HojaClosing.tsx` con su hoja de estilos `closing-css.ts` (todo adentro de `.hc`, con
+  `@container` y no `@media`: el lienzo del Dashboard no es la ventana). Lo que el bloque dice lo arma `lib/closing-diseno.ts`
+  (puro, con test). Lo monta `app/dashboard/EditorInforme.tsx` cuando la hoja tiene ese diseño y no se está editando.
+- **Lo que cambia en la plantilla (la grilla)**: dos gráficos más (las llamadas de los últimos 7 días por día y las de los últimos
+  14), y la tabla del equipo suma «ganadas en la R2» y «perdidas», que es de donde «Cómo terminaron» saca sus tramos. **Sale el
+  anillo «Cómo terminaron»** de la grilla: contaba lo mismo y una plantilla no pasa de 14 paneles (`tests/graficos-corbel.test.ts`).
+- **Lo que la hoja de antes no tenía**: la (las agendadas de los días que vienen y la próxima llamada), que lee el server con `leerLlamadasDeVenta`
+  (`lib/closing-diseno-server.ts`) y **sólo para quien ve el Calendario**: un closer o un setter ven el diseño sin la agenda.
+- **«Nueva hoja» no le poda al diseño un bloque sin datos de hoy** (`podarSinDatos`, `lib/graficos-con-datos.ts`): el bloque
+  queda con su vacío y se llena cuando haya. Los gráficos que no son del diseño se podan como siempre.
+- **Tocar una llamada** de «Últimas llamadas» abre el mismo pop-up de la llamada que la grilla.
+- **El medio (641 a 1040 de lienzo) es nuestro**: Halden sólo se midió a 1440 y 390. Ahí va a dos columnas, en el orden del teléfono.
+- **API de MaKo**: nada nuevo que declarar. `crear_hoja_dashboard` con `plantilla: closing` arma la hoja con el diseño (sale de la
+  misma plantilla) y `leer_hoja_dashboard` lee los mismos gráficos de los que sale cada bloque, y dice que la hoja tiene su diseño
+  (`hoja.diseno`). La pantalla no tiene un control nuevo que cambiar: el diseño no se prende ni se apaga.
+
+Diferencias con la maqueta, porque MaKo no tiene el dato:
+
+- **«Próxima llamada» lleva «Ver en el calendario»**, no «Entrar a la llamada»: la llamada de venta del CRM no trae el link de la
+  reunión.
+- **«Duración promedio» dice el total de horas**, no la duración de las ganadas contra las perdidas: la hoja no tiene la duración
+  partida por desenlace.
+
+Verificado: el componente dibujado en un navegador a 1440, 1180, 1040, 960, 760, 660, 520 y 390, sin errores en la consola y
+sin texto fuera de su tarjeta. **No** se probó con la base de un cliente (la nube no tiene acceso): lo primero al estar en
+producción es crear la hoja en el ws3 y en el ws1 y mirarla.
 
 ---
 
