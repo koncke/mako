@@ -528,7 +528,7 @@ const CS: PlantillaHoja = {
       }),
       {
         id: id('cs-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'cartera', dimension: 'cliente', metricas: ['atencion', 'deuda_vencida_usd', 'sesiones'],
-        ordenMetrica: 'atencion', limite: 50, tabla: { columnas: ['senal', 'estado', 'tramo_contacto'] }, titulo: 'Cada cliente', ir: 'clients', x: 0, y: 7, w: 12, h: 10,
+        ordenMetrica: 'atencion', limite: 50, tabla: { columnas: ['senal', 'estado', 'tramo_contacto', 'producto'] }, titulo: 'Cada cliente', ir: 'clients', x: 0, y: 7, w: 12, h: 10,
       },
       { id: id('cs-etapas'), clase: 'grafico', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Dónde está cada cliente', x: 0, y: 17, w: 6, h: 8 },
       { id: id('cs-contacto'), clase: 'grafico', tipo: 'barras', fuente: 'cartera', dimension: 'tramo_contacto', metricas: ['clientes'], titulo: 'Hace cuánto no hablan', x: 6, y: 17, w: 6, h: 8 },
@@ -541,8 +541,25 @@ const CS: PlantillaHoja = {
         id: id('cs-semanas'), clase: 'grafico', tipo: 'serie', fuente: 'llamadas', dimension: 'semana', metricas: ['llamadas'], titulo: 'Sesiones por semana',
         x: 0, y: 33, w: 12, h: 8, controles: [fijo(id('cs-semanas-c'), 'llamadas.categoria', [ENTREGA])],
       },
-      caja(id('cs-ia'), 'Quién necesita atención', 'Qué señales de la cartera piden atención y qué conviene hacer esta semana', 0, 41, 12, 7),
+      // 4/11/2026 (el diseño de Mender, su «Case pipeline»): cada cliente con su etapa de la entrega en el CRUCE, para dibujar un carril
+      // por etapa. El cruce (y no una columna de la tabla) porque un cliente de dos servicios está en dos etapas: la columna las junta en un
+      // texto («Arranque, Entrega») que no se puede partir.
+      {
+        id: id('cs-carriles'), clase: 'grafico', tipo: 'barras_apiladas', fuente: 'entrega', fecha: 'actual', dimension: 'cliente', desglose: 'etapa',
+        metricas: ['clientes'], limite: 50, titulo: 'Cada cliente, por etapa', ir: 'clients', x: 0, y: 41, w: 12, h: 10,
+      },
+      caja(id('cs-ia'), 'Quién necesita atención', 'Qué señales de la cartera piden atención y qué conviene hacer esta semana', 0, 51, 12, 7),
     ],
+    // 4/11/2026 — EL DISEÑO DE MENDER (docs/diseno/mockups-dashboard/cs-mender/): mirando, la hoja la dibuja app/dashboard/disenos/HojaCs.tsx
+    // con estas piezas (lib/cs-diseno.ts arma cada parte, con test). Las pausas, las cuotas vencidas, las sesiones por semana y la caja de
+    // MaKo quedan en la grilla: Mender no tiene dónde dibujarlas.
+    diseno: {
+      id: 'cs',
+      piezas: {
+        apertura: id('cs-apertura'), sesiones: id('cs-sesiones'), carriles: id('cs-carriles'), etapas: id('cs-etapas'), tabla: id('cs-tabla'),
+        motivos: id('cs-motivos'), senal: id('cs-senal'), contacto: id('cs-contacto'), bajas: id('cs-bajas'),
+      },
+    },
   }),
 };
 

@@ -166,6 +166,7 @@ import type { ExtrasMarketing } from './disenos/MarketingVivo';
 import type { ExtrasLanding } from './disenos/LandingVivo';
 import type { ExtrasChat } from './disenos/ChatVivo';
 import type { ExtrasAutomatizaciones } from './disenos/AutomatizacionesVivo';
+import type { ExtrasCs } from './disenos/CsVivo';
 import dynamic from 'next/dynamic';
 import { idDeInformeAutomatizacion, type InformeAutomatizacion } from '@/lib/informe-automatizacion';
 import { BotonMako } from '@/app/_ui/BotonMako';
@@ -184,6 +185,7 @@ const MarketingVivo = dynamic(() => import('./disenos/MarketingVivo'));
 const LandingVivo = dynamic(() => import('./disenos/LandingVivo'));
 const ChatVivo = dynamic(() => import('./disenos/ChatVivo'));
 const AutomatizacionesVivo = dynamic(() => import('./disenos/AutomatizacionesVivo'));
+const CsVivo = dynamic(() => import('./disenos/CsVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -346,7 +348,7 @@ export function EditorInforme({
    * Lo que leen las hojas con DISEÑO PROPIO y ningún componente lee (`Hoja.diseno`, lib/graficos-catalogo.ts): la agenda y
    * quién mira, para la de Closing (./disenos/HojaClosing.tsx). Lo arma la página; null = sin eso (los bloques lo dicen).
    */
-  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null; comercial?: ExtrasComercial | null; marketing?: ExtrasMarketing | null; landing?: ExtrasLanding | null; chat?: ExtrasChat | null; automatizaciones?: ExtrasAutomatizaciones | null } | null;
+  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null; comercial?: ExtrasComercial | null; marketing?: ExtrasMarketing | null; landing?: ExtrasLanding | null; chat?: ExtrasChat | null; automatizaciones?: ExtrasAutomatizaciones | null; cs?: ExtrasCs | null } | null;
   /**
    * UN AVISO FIJO arriba de la hoja, de quien monta el editor (la misma franja `lk-aviso-hoja` que el de Closing): la prueba
    * A/B de una automatización en sus Métricas (app/automations/MetricasAutomatizacion.tsx, tanda A3, 25/10/2026).
@@ -1631,6 +1633,14 @@ export function EditorInforme({
               // componentes; un día, una automatización o un desenlace abre lo de siempre de su pieza.
               <AutomatizacionesVivo
                 hoja={hoja} datos={datos} extras={disenos?.automatizaciones ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'cs' && !enGrilla && !editando && !dueno ? (
+              // La hoja CS Analyst con su DISEÑO PROPIO (la copia de Mender, ./disenos/HojaCs.tsx): los datos de sus componentes y el
+              // orden de las etapas de la entrega; un cliente, un motivo o una señal abre lo de siempre de su pieza.
+              <CsVivo
+                hoja={hoja} datos={datos} extras={disenos?.cs ?? null} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
               />

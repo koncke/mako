@@ -470,6 +470,29 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **El pulso de Noria es por HORA; las automatizaciones se leen por día** (`envios` no tiene la hora): la hoja va por día con «7 días ·
   30 días», y «Hoy» marca la columna que todavía corre.
 
+## 25. CS Analyst (Mender): la etapa de cada cliente sale del CRUCE, el orden de las etapas viene aparte, y un número que React actualiza no se cuenta (4/11/2026, chat en la nube)
+
+- **Una columna extra de una tabla (`tabla.columnas`) no sirve para algo que puede valer dos cosas por fila.** Si las filas de un grupo dicen
+  varios valores, `textoExtra` (lib/graficos-agregar.ts) devuelve «los dos más frecuentes, +N» juntos en un texto: un cliente de dos servicios
+  trae «Arranque, Entrega», que no se puede partir (el nombre de una etapa puede tener una coma). La etapa de cada cliente sale del CRUCE de
+  una pieza `barras_apiladas` (dimensión cliente, desglose etapa): una celda por etapa, y el cliente va en los dos carriles.
+- **Una categoría que no es una escala se ordena por la métrica** (`ordenarGrupos`): las etapas de la entrega salen de la que más clientes tiene
+  a la que menos, y un tablero por etapas tiene que ir en el orden del servicio. Ese orden no está en ningún Resultado: lo lee la página aparte
+  (`etapasDeLaEntregaEnOrden`, lib/cs-diseno-server.ts, el catálogo de etapas de cada servicio) y viaja en los extras del diseño. Sin poder
+  leerlo, el de la pieza: nunca se inventa uno. En un link compartido no viaja (la página compartida no lee los extras).
+- **Contar un número desde cero escribe `textContent` y le saca a React su nodo de texto.** Si ese número después cambia por un estado de
+  React (acá, el conteo de cada carril al cambiar de pestaña), React escribe en el nodo viejo y la pantalla se queda con el número de antes.
+  Se cuenta sólo lo que no cambia sin remontar, o se le da una `key` que cambie con el valor (el total del anillo, que cambia con «Motivos ·
+  Señal», va con `key`).
+- **`limite` de una pieza es 50 como mucho** (`entero(o.limite, 3, 50, 10)`, lib/graficos-catalogo.ts): un tablero con más de 50 clientes
+  muestra los primeros y dice cuántos quedaron afuera (`fuera`), con el link a Clients. El conteo de cada carril sale de la pieza de las
+  etapas, que cuenta a todos.
+- **Los tamaños propios de una copia no se llaman `--fs-*`** (lo pagó Automatizaciones, el mismo día): tests/puente-panel-copy.test.ts exige que
+  todo `var(--fs-*)` de `app/` y `lib/` exista en app/globals.css, y un `--fs-base` declarado adentro de `.nor` parece uno de la casa que no
+  existe. El armador lo renombra (`--nor-fs-*`) y el de Mender falla si aparece uno.
+- **En la nube, el `tsc` acotado sobre EditorInforme y la página no entra en 2,5 GB** (se arrastra media app): sale «NO SE PUDO CHEQUEAR» con el
+  heap lleno. Con `--max-old-space-size=7000` (la nube tiene la RAM) da 0.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

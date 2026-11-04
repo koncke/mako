@@ -1110,4 +1110,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '22:10', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'CS Analyst, la duodécima hoja copiada: el diseño de Mender con «¿quién necesita atención?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» del Dashboard**, con su miniatura de verdad.',
+      '**Tu cartera por etapa:** un carril por etapa de la entrega, en el orden del servicio, con cada cliente, su señal, su último contacto y si debe.',
+      '**Las pestañas filtran** los carriles: todos, los que piden atención, los que están al día y los que hace tiempo que no hablan.',
+      '**Por qué piden atención:** el anillo de los motivos de la señal, o la señal de toda la cartera.',
+      '**Cómo está tu cartera:** tres medidores (hablaron hace poco, sin pedir atención y siguen contigo).',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaCs.tsx · cs-css.ts · CsVivo.tsx — el diseño',
+      'lib/cs-diseno.ts — de dónde sale cada número',
+      'lib/cs-diseno-muestra.ts — los datos de ejemplo de la miniatura',
+      'lib/cs-diseno-server.ts — el orden de las etapas de la entrega',
+      'docs/diseno/mockups-dashboard/cs-mender/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];

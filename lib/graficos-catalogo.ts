@@ -1338,7 +1338,9 @@ export type Hoja = {
 //   automatizaciones y la caja de MaKo quedan en la grilla).
 // · 'automatizaciones' (4/11/2026, la copia de Noria): del Dashboard, con diez de las doce piezas de su plantilla (los fallos y la
 //   tasa de apertura quedan en la grilla: Noria no tiene dónde dibujarlos).
-export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones'] as const;
+// · 'cs' (4/11/2026, la copia de Mender): CS Analyst, con las piezas de su plantilla y el orden de las etapas de la entrega,
+//   que lee la página aparte (los carriles van en el orden del servicio, no del que más tiene al que menos).
+export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs'] as const;
 export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;

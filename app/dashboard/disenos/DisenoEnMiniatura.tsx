@@ -42,6 +42,9 @@ import { datosChatMuestra } from '@/lib/chat-diseno-muestra';
 import { HojaAutomatizaciones } from './HojaAutomatizaciones';
 import { vistaAutomatizaciones } from '@/lib/automatizaciones-diseno';
 import { datosAutomatizacionesMuestra } from '@/lib/automatizaciones-diseno-muestra';
+import { HojaCs } from './HojaCs';
+import { vistaCs } from '@/lib/cs-diseno';
+import { datosCsMuestra, ETAPAS_MUESTRA } from '@/lib/cs-diseno-muestra';
 
 const dia = (hoy: string, n: number) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const resultado = (columnas: string[], totales: Array<number | null>, filas: Resultado['filas'] = [], anterior?: Array<number | null>): DatosPieza => ({
@@ -464,6 +467,10 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   // (automatizaciones-noria/mako.html).
   automatizaciones: ({ hoja, hoy }) => (
     <HojaAutomatizaciones hoja={hoja} vista={vistaAutomatizaciones(hoja, datosAutomatizacionesMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" periodo="Últimos 30 días" hoy={hoy} onGrilla={() => {}} quieta />
+  ),
+  // La de CS Analyst, igual: el MISMO vistaCs que la hoja de verdad, con los datos de la adaptación (cs-mender/mako.html).
+  cs: ({ hoja }) => (
+    <HojaCs hoja={hoja} vista={vistaCs(hoja, datosCsMuestra(hoja), ETAPAS_MUESTRA)} titulo="Buenos días, Ana" onGrilla={() => {}} quieta />
   ),
 };
 

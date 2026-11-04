@@ -1,6 +1,17 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~21:30 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~22:10 UTC)
+
+- **Automatizaciones está en producción.** Entró a main a las 21:41 (`a866b40be`, la punta `dash-auto` tal cual, con su veredicto: 7.026 tests
+  y el tsc entero); el deploy promovido de las 22:01 (`50a2c9f52`) la contiene. El primer veredicto dio un rojo de verdad: la hoja de Noria
+  declaraba sus propios `--fs-base`, `--fs-lg` y `--fs-xs` adentro de `.nor`, y la guarda de tests/puente-panel-copy.test.ts exige que todo
+  `var(--fs-*)` del repo exista en app/globals.css. El armador ahora los llama `--nor-fs-*` (§25 de los hallazgos).
+- **CS Analyst (la copia de Mender) va en `punta/dash-cs`**: la sección de abajo. Es la duodécima hoja copiada. Suma una pieza a la plantilla
+  (cada cliente con su etapa de la entrega, en el cruce) y el producto como columna de la tabla de la cartera; la página lee aparte el orden de
+  las etapas de cada servicio.
+
+### Lo de las ~21:30 UTC
+
 
 - **Chat Analyst está en producción.** Entró a main a las 21:05 (`d8c7ca164`, la mezcla de `punta/dash-chat` con `be54b7222`, su veredicto:
   7.018 tests y el tsc entero); el deploy promovido de las 21:08 la contiene.
@@ -86,7 +97,66 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
 
-## Automatizaciones: la undécima hoja copiada (la de Noria), con «¿qué corrió y qué falló?» (punta `dash-auto`, 4/11/2026)
+## CS Analyst: la duodécima hoja copiada (la de Mender), con «¿quién necesita atención?» (punta `dash-cs`, 4/11/2026)
+
+La referencia de CS Analyst es Mender (`docs/templates-dashboard-propuesta.md` §7.3; Vitrea, la otra, queda por copiar): la página «Cases
+overview» de Mender (una app de soporte): la barra de arriba y un riel, el tablero «Case pipeline» con cuatro carriles (New, Working, Waiting
+on client, Resolved) y sus pestañas, «Top case drivers» (un anillo con su leyenda y 30/90 días) y «Case health» (tres medidores).
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «CS Analyst»** con su miniatura de verdad.
+- **Arriba:** el saludo y la frase de la cartera («4 de tus 14 clientes piden atención. Deben US$1,350 vencidos. Tuvieron 33 sesiones en el
+  período.»).
+- **Tu cartera por etapa** («Case pipeline»): **un carril por etapa de la entrega**, en el orden del servicio (el mismo de Clients), con
+  cuántos clientes tiene. Cada cliente con sus iniciales, el **aro coral si pide atención**, cuándo habló por última vez («habló hace 8-14
+  días», «nunca habló»), **«Debe»** si tiene cuotas vencidas, el reloj si hace más de dos semanas que no hablan y el doble tilde si está al
+  día. Arriba en cada carril, los que piden atención. Hasta cinco por carril y «y N más» (lleva a Clients). **Las pestañas filtran**: Todos,
+  Piden atención, Al día y Sin hablar. Tocar un cliente abre su detalle. A la derecha, «Ver clientes» y la grilla. Más de cuatro etapas: los
+  carriles se corren de costado.
+- **Por qué piden atención** («Top case drivers»): el anillo de los **motivos de la señal** (cuota vencida, nunca hablaron, silencio…: los
+  tres con más clientes y «Lo demás»), o con «Señal», **cómo está toda la cartera** (atención, bien, sin datos). La barra de cada renglón es
+  contra el más grande, como Mender. Tocar un motivo abre su detalle.
+- **Cómo está tu cartera** («Case health»): tres medidores: **hablaron hace poco** (los de los últimos 14 días), **sin pedir atención** y
+  **siguen contigo** (los que no se dieron de baja). Verde desde el 80 %, ámbar desde el 60 %, coral debajo.
+
+**Lo que se copió de Mender, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/cs-mender/copia.html`) sale de lo medido del demo: `valores.json`, las capturas, los estados de los
+  controles y el INFORME. **Nada del código de la tienda, ni el cartel «BUY THIS TEMPLATE», ni las caras dibujadas del demo** (van iniciales).
+- **A 1440 cae a ±1 px:** el tablero 1306×568 en 106,147; las pestañas de 548 a 971 (y 168 a 216); los encabezados de los carriles en 234 y
+  las tarjetas cada 82 px desde 298; la fila de abajo en 733; el anillo de 141 a 312 y de 823 a 994; las barras de la leyenda de 565 a 660 y
+  los porcentajes hasta 714; los medidores desde 828 y 1031, de 824 a 933. **A 390** el tablero va de 193 a 799 (contra 798), las pestañas de
+  270 a 317 y las tarjetas cada 78 px desde 400 (60 de alto). **El anillo y los medidores del demo a 390 se fotografiaron en cero** (su entrada
+  no había corrido): ahí no hay con qué comparar los valores, sólo las cajas.
+- **El fondo:** el halo esmeralda de arriba a la izquierda (el `--glow-a` de Mender, medido en la captura: una elipse de 600×450 que se apaga
+  hacia el centro). El `--glow-b` coral existe como variable y no se ve en la captura: no se dibujó.
+- **El movimiento, del INFORME (trae las funciones de la página):** los números cuentan 1,1 s con power3.out; los medidores se dibujan desde su
+  valor (1,1 s, power3.out, 30 ms de escalera); el anillo reparte sus tramos en 1,1 s con power3.inOut y 60 ms de escalera, y al cambiar de
+  pestaña va del reparto viejo al nuevo; las tarjetas entran desde .92 con back.out(1.5) en .45 s, también al filtrar; la pastilla de las
+  pestañas se corre .5 s con expo.out. El hover, el del INFORME: la tarjeta y la fila de la leyenda se aclaran (.2 s).
+- **⚠️ Lo SUPUESTO** (no está en el INFORME): la cabecera y los paneles suben al entrar (.6 y .7 s, power3.out).
+- **⚠️ Lo que Mender hace y la copia no:** sus otras pestañas (In progress, Resolved, Expired) cambian a una grilla de tarjetas que no se midió;
+  en la copia sólo se corre la pastilla, y en la adaptación las pestañas filtran los carriles (como su búsqueda, que sí está en el INFORME).
+
+**Lo que Mender tiene y MaKo no mide, y no está:** la **primera respuesta** de un caso, la **satisfacción** de 1 a 5, el **SLA**, el **avance**
+de cada caso («56% through») y **por qué se van** (el motivo de baja no se guarda: §7.4 de la propuesta; por eso el anillo dice por qué PIDEN
+ATENCIÓN). La barra de arriba y el riel los pone la app.
+**La plantilla no perdió nada que se viera:** las pausas, las cuotas vencidas, las sesiones por semana y la caja de MaKo siguen en la grilla;
+la tabla de la cartera suma la columna del producto y hay una pieza nueva, «Cada cliente, por etapa» (13 piezas).
+
+**⚠️ Para la próxima hoja:** la etapa de cada cliente sale del CRUCE de la pieza (cliente × etapa), no de una columna de la tabla: un cliente
+de dos servicios está en dos etapas, y la columna las junta en un texto («Arranque, Entrega») que no se puede partir. Y el orden de las etapas
+lo lee la página aparte (`lib/cs-diseno-server.ts`): la pieza las ordena por cuántos clientes tienen (§25 de los hallazgos).
+
+**Dónde vive:**
+- El modelo: `lib/cs-diseno.ts`, puro. Los datos de ejemplo: `lib/cs-diseno-muestra.ts` (cuadran entre tarjetas). El orden de las etapas:
+  `lib/cs-diseno-server.ts`.
+- El dibujo: `app/dashboard/disenos/HojaCs.tsx`; lo vivo, `CsVivo.tsx`; la hoja de estilos, `cs-css.ts` (la arma `scratchpad/csm/armar-mnd.py`
+  desde `cs-mender/mender.css`: todo con el prefijo `mnd-`).
+- La plantilla: `lib/graficos-plantillas-analysts.ts` («cs-analyst», trece piezas, `diseno.id = 'cs'`); `DISENOS_HOJA` en
+  `lib/graficos-catalogo.ts`.
+- Los tests: `tests/dashboard-diseno-cs.test.ts` (8, probado rompiéndolo de diez maneras: cada rotura sola da rojo).
+
+## Automatizaciones: la undécima hoja copiada (la de Noria), con «¿qué corrió y qué falló?» (en producción desde el 4/11/2026, 22:01 UTC)
 
 La referencia de Automatizaciones es una sola (Noria, `docs/templates-dashboard-propuesta.md` §7.3): la página «Overview» de Noria (una app
 de automatizaciones): una barra lateral oscura, el saludo con su frase, «Run pulse» (cuatro números y el pulso por hora con la línea de una
