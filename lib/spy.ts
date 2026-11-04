@@ -70,6 +70,7 @@ import { claveOfertaSpy } from './spy-oferta';
 import { prefijoTranscripciones } from './spy-transcripcion';
 import { ANALISIS_SIN_DATOS, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta } from './spy-analisis-reglas';
 import { queEs } from './spy-que-es';
+import { claveLectura, type PasoLectura } from './spy-lectura-pasos';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { claveDeYoutube } from './youtube';
 
@@ -308,6 +309,7 @@ export async function quitarCompetidor(id: number): Promise<{ ok: true } | { ok:
   // Su oferta (lib/spy-oferta.ts) vive en una clave aparte y se va con él. Si no se puede, queda una clave huérfana que
   // nadie lee: no frena el «Dejar de mirarlo».
   await borrarSetting(claveOfertaSpy(id)).catch((e) => console.warn(`[spy] no pude borrar la oferta del competidor ${id}:`, e instanceof Error ? e.message : e));
+  await borrarSetting(claveLectura(id)).catch(() => undefined);
   // Y los guiones de sus reels (lib/spy-transcripcion.ts), por su prefijo.
   await borrarSettingsConPrefijo(prefijoTranscripciones(id)).catch((e) => console.warn(`[spy] no pude borrar los guiones del competidor ${id}:`, e instanceof Error ? e.message : e));
   return { ok: true };
@@ -609,7 +611,10 @@ export type LecturaCanalSpy = { canal: CanalSpy; ok: boolean; piezas: number; nu
 export async function mirarCompetidor(
   competidorId: number,
   motivo: MotivoDeLectura = 'a-pedido',
+  /** Antes de cada canal: lo que la pantalla del alta muestra como «Mirando su Instagram…» (lib/spy-lectura-pasos.ts). Nunca tira. */
+  alPaso?: (paso: PasoLectura) => Promise<void>,
 ): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
+  const paso = (p: PasoLectura) => (alPaso ? alPaso(p).catch(() => undefined) : Promise.resolve());
   const c = await leerCompetidor(competidorId);
   if (!c) return { ok: false, canales: [], error: 'No encontré ese competidor.' };
   const canales: LecturaCanalSpy[] = [];
@@ -622,6 +627,7 @@ export async function mirarCompetidor(
 
   // ── Instagram: Business Discovery con el juego ancho de campos ──────────────
   if (c.instagram) {
+    await paso('instagram');
     // ⚠️ ANTES DE PAGAR, ¿YA LO LEYÓ OTRO? (ítem 13, 2/11/2026). Una lectura de Instagram gasta del
     // tope diario de Apify del negocio, y el resultado es el MISMO para cualquiera porque el canal
     // es público. Con `'alta'` sirve hasta 24 h; con «Revisar ahora» (`'a-pedido'`) NUNCA, por
@@ -679,6 +685,7 @@ export async function mirarCompetidor(
 
   // ── YouTube: channels.list → playlist de subidas → playlistItems → videos.list ───
   if (c.youtube_id) {
+    await paso('youtube');
     // La misma caché compartida que Instagram (ítem 13). Acá no se ahorra PLATA del negocio sino
     // CUOTA de la API de YouTube, que es de la plataforma y es igual de finita: leer el canal de
     // Hormozi una vez por negocio la agota igual.
@@ -748,6 +755,7 @@ export async function mirarCompetidor(
 
   // ── La landing: lo que ya hace `mirarLanding`, apuntado a una página ajena ──
   if (landing) {
+    await paso('web');
     try {
       // Se llena mientras se lee. El HTML no vuelve en `m` porque esa respuesta también viaja a la
       // pantalla del Pixel, que no tiene por qué llevar 2 MB de una página.

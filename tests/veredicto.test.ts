@@ -18,13 +18,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { escribirRenglon, leerRenglon, sumaDe, aRepetir, muestraDe, revisarRenglon } from '../scripts/veredicto.mjs';
 import { scriptDelPaso, leerWorkflow } from './_workflow';
+import { condicionDe, evaluar } from './_expresion-actions';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = join(RAIZ, 'scripts', 'veredicto.mjs');
@@ -140,7 +141,7 @@ function conVeredicto(r: R, o: { node?: string; clave?: string; sel?: string[]; 
 }
 
 /** Como punta.yml: mezcla origin/main sobre la punta y corre `revisar`. */
-type Revision = { usar?: string; cuantos?: string; tipos_saltear?: string; sin_probar?: string; origen?: string; repetir: string[] | null; salida: string };
+type Revision = { usar?: string; cuantos?: string; tipos_saltear?: string; sin_probar?: string; origen?: string; repetir: string[] | null; salida: string; outputs: Record<string, string> };
 
 function revisar(r: R, punta: string, o: { previo?: object; env?: Entorno } = {}): Revision {
   r.g('checkout', '-q', '--detach', punta);
@@ -155,7 +156,7 @@ function revisar(r: R, punta: string, o: { previo?: object; env?: Entorno } = {}
   const outputs: Record<string, string> = Object.fromEntries(readFileSync(gh, 'utf8').split('\n').filter(Boolean).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
   const repetir = outputs.usar === 'true' ? readFileSync(outputs.repetir, 'utf8').split('\n').filter(Boolean) : null;
   r.g('checkout', '-q', 'punta');
-  const res: Revision = { usar: outputs.usar, cuantos: outputs.cuantos, tipos_saltear: outputs.tipos_saltear, sin_probar: outputs.sin_probar, origen: outputs.origen, repetir, salida: s.stdout };
+  const res: Revision = { usar: outputs.usar, cuantos: outputs.cuantos, tipos_saltear: outputs.tipos_saltear, sin_probar: outputs.sin_probar, origen: outputs.origen, repetir, salida: s.stdout, outputs };
   return res;
 }
 
@@ -288,9 +289,7 @@ test('punta.yml: el veredicto se revisa antes de los tests, decide los tipos, y 
     assert.ok(i(a) >= 0 && i(b) > i(a), `«${a}» va antes que «${b}»`);
   }
   assert.match(scriptDelPaso(yml, 'Tests afectados por lo que cambió (todos, sin cortar)'), /--solo \$REPETIR/);
-  // Con el veredicto cubriendo todo, el paso de los tests NO corre (en vez de salir con 0 por un costado), y el de al lado lo dice.
-  assert.match(yml, /- name: Tests afectados por lo que cambió \(todos, sin cortar\)\n\s+if: ".*steps\.veredicto\.outputs\.cuantos != '0'"/);
-  assert.match(yml, /- name: Los tests los cubre el veredicto\n\s+if: ".*steps\.veredicto\.outputs\.cuantos == '0'"/);
+  // Qué paso de los tests corre en cada caso lo EVALÚA el test de abajo («sin veredicto, los tests corren»), con las reglas de GitHub.
   assert.match(yml, /- name: Tipos\n\s+id: tipos\n\s+if: ".*steps\.veredicto\.outputs\.tipos_saltear != 'true'"/);
   assert.match(scriptDelPaso(yml, 'Llevar a main (sin forzar)'), /if \[ "\$SIN_PROBAR_VEREDICTO" = "1" \]; then sp=1; fi/, 'sin los tipos de acá, main lo mira sobre-main');
   // Con el secreto cargado, el paso lo recibe: si no, la clave de GitHub no frenaría nada.
@@ -298,3 +297,69 @@ test('punta.yml: el veredicto se revisa antes de los tests, decide los tipos, y 
   // El paso que revisa nunca frena la punta: si falla, corre todo.
   assert.match(scriptDelPaso(yml, 'Lo que ya se probó'), /echo "usar=false" >> "\$GITHUB_OUTPUT"/);
 });
+
+// ── Qué paso de los tests corre: las condiciones de punta.yml EVALUADAS con las reglas de GitHub ──────────────────────
+// 4/11/2026, corridas 188 y 189: con `cuantos != '0'` y sin veredicto (`cuantos` no se escribe), GitHub comparó null con '0' como 0 con 0
+// y salteó el paso: dash-cobranza y spy-paginas-bloqueadas llegaron a main sin correr un test. El test de antes miraba el TEXTO de la
+// condición y daba verde con el bug adentro. Éste la evalúa sobre las salidas que `revisar` escribe de verdad, en cada caso.
+// Probado rompiéndolo (4/11/2026): con la condición vieja, «sin veredicto» y «el paso no corrió» dan que NO corre ningún paso de tests
+// (los tres casos de abajo que lo esperan caen); con `nada_que_repetir` sacado de `sinVeredicto`, igual sigue verde (null != 'si' corre),
+// que es lo que se busca: la condición no depende de que la salida exista.
+
+const TESTS = 'Tests afectados por lo que cambió (todos, sin cortar)';
+const CUBRE = 'Los tests los cubre el veredicto';
+
+/** Qué pasos de tests corren con estas salidas del paso «Lo que ya se probó» (`null`: el paso no corrió). */
+function corren(yml: string, outputs: Record<string, string> | null) {
+  const ctx = { funciones: { cancelled: false, success: true, failure: false, always: true }, datos: { steps: { instalar: { outcome: 'success' }, veredicto: outputs == null ? { outputs: {} } : { outputs } } } };
+  const c = (n: string) => { const e = condicionDe(yml, n); assert.ok(e, `«${n}» tiene su if:`); return evaluar(e, ctx); };
+  return { tests: c(TESTS), cubre: c(CUBRE) };
+}
+
+test('las reglas de GitHub: una salida que falta es null, y null contra un número es 0 (lo que salteó los tests)', () => {
+  const ctx = (outputs: Record<string, string>) => ({ funciones: {}, datos: { steps: { v: { outputs } } } });
+  assert.equal(evaluar("steps.v.outputs.cuantos != '0'", ctx({})), false, 'null != \'0\' es falso: así se salteó el paso en las corridas 188 y 189');
+  assert.equal(evaluar("steps.v.outputs.cuantos != '0'", ctx({ cuantos: '7' })), true);
+  assert.equal(evaluar("steps.v.outputs.marca != 'si'", ctx({})), true, 'contra una palabra no hay número: null != \'si\' es verdadero');
+  assert.equal(evaluar("steps.v.outputs.usar == 'TRUE'", ctx({ usar: 'true' })), true, 'los strings se comparan sin mayúsculas');
+  assert.equal(evaluar("!(steps.v.outputs.a == 'x' && steps.v.outputs.b == 'y') || false", ctx({ a: 'x', b: 'y' })), false);
+  assert.throws(() => evaluar("contains(steps.v.outputs.a, 'x')", ctx({})), /no sé (leer|evaluar)/, 'lo que no sabe evaluar tira: no se cree evaluado');
+});
+
+test('punta.yml: sin veredicto, con uno que repite, con uno que cubre todo y con el paso que no corrió, corre exactamente UN paso de tests', { skip: !hayGit && 'sin git' }, () => {
+  const yml = leerWorkflow(RAIZ, 'punta.yml');
+  const r = repo();
+  const p1 = r.enPunta({ 'lib/a.ts': "import { y } from './compartida.ts';\nexport const x = y; // otra\n" });
+  // 1. Sin veredicto: la punta no trae renglón y no hay corrida anterior. Es el caso de casi todas las puntas.
+  const sin = revisar(r, p1);
+  assert.equal(sin.usar, 'false', sin.salida);
+  assert.deepEqual(corren(yml, sin.outputs), { tests: true, cubre: false }, `sin veredicto los tests CORREN (salidas: ${JSON.stringify(sin.outputs)})`);
+  // 2. El de la nube con main quieto: repite la muestra.
+  const sel = conVeredicto(r).lista;
+  const nube = revisar(r, r.g('rev-parse', 'HEAD'));
+  assert.ok((nube.repetir ?? []).length > 0, nube.salida);
+  assert.deepEqual(corren(yml, nube.outputs), { tests: true, cubre: false }, 'con algo que repetir corren los tests');
+  // 3. El de Actions con todo en verde, misma punta y main quieto: no queda nada que repetir.
+  r.g('reset', '-q', '--hard', p1);
+  const previo = { v: 1, punta: p1, main: r.g('rev-parse', 'origin/main'), verdes: sel, tipos: 'ok', node: '24.1.0', corrida: 9 };
+  const todo = revisar(r, p1, { previo });
+  assert.deepEqual(todo.repetir, [], todo.salida);
+  assert.deepEqual(corren(yml, todo.outputs), { tests: false, cubre: true }, 'con nada que repetir corre el paso que lo dice, no el de los tests');
+  // 4. El paso no corrió (sólo texto) o 5. falló (el respaldo del paso): corren los tests.
+  assert.deepEqual(corren(yml, null), { tests: true, cubre: false }, 'si «Lo que ya se probó» no corrió, los tests corren');
+  assert.deepEqual(corren(yml, { usar: 'false', nada_que_repetir: 'no' }), { tests: true, cubre: false }, 'si falló, corren');
+  assert.match(scriptDelPaso(yml, 'Lo que ya se probó'), /echo "nada_que_repetir=no" >> "\$GITHUB_OUTPUT"/, 'el respaldo lo escribe');
+});
+
+test('ningún workflow compara una salida de un paso contra un número: una que falta vale 0', () => {
+  const dir = join(RAIZ, '.github', 'workflows');
+  const malos: string[] = [];
+  for (const f of readdirSync(dir).filter((n) => /\.ya?ml$/.test(n))) {
+    readFileSync(join(dir, f), 'utf8').split(/\r?\n/).forEach((l, i) => {
+      if (/^\s*#/.test(l)) return;
+      if (/outputs\.[\w-]+\s*[!=]=\s*'-?\d/.test(l) || /'-?\d[\d.]*'\s*[!=]=\s*steps\.[\w-]+\.outputs/.test(l)) malos.push(`${f}:${i + 1}: ${l.trim()}`);
+    });
+  }
+  assert.deepEqual(malos, [], 'comparar con una palabra («si»/«no»), nunca con un número');
+});
+

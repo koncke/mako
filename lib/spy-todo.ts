@@ -78,6 +78,9 @@ async function reservarCorrida(clave = CLAVE_DIA, tope = CORRIDAS_LARGAS_POR_DIA
   return false;
 }
 
+/** Una del tope del día de `clave` (el guion de un video de YouTube: `CLAVE_DIA_GUIONES_YT`). Compare-and-set en la base. */
+export const reservarDelDia = (clave: string, tope: number): Promise<boolean> => reservarCorrida(clave, tope);
+
 /** El crédito del mes de la cuenta de Apify del negocio. null = no se pudo saber (no es «sin crédito»). */
 async function creditoDelMes(token: string): Promise<CreditoApify | null> {
   const r = await apify(token, '/users/me/limits').catch(() => null);
