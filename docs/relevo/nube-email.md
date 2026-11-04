@@ -8,7 +8,9 @@
 Martín, textual (por el Cerebro): «Resend free permite hasta 3 dominios, pero eso lo trae cada user de mako». Y: «todo esto es
 súper importante que lo pueda hacer por API, es decir, que la API tiene que tener información y, por ejemplo, si detecta que no
 tiene [Resend] conectado, que le vaya guiando. Eso todo tiene que solucionarse por API siempre para que cualquier usuario lo
-pueda manejar desde su [Claude]». Rama `punta/email-cuenta-propia`.
+pueda manejar desde su [Claude]». Rama `punta/email-cuenta-propia`: **en main** desde la corrida 41851402679 (verde, 4/11
+15:04 UTC; commits `f0589d4db` … `fa1ea6726`). El deploy de Vercel no se miró desde la nube. **La mudanza de la clave (abajo)
+todavía no corrió**: hasta que corra, la clave de MaKo sigue saliendo del ws1 y a Mauricio no se le avisa.
 
 **Lo que cambió (el código):**
 - **El email de un negocio sale SÓLO con SU clave de Resend** (`lib/email-cuenta.ts` → `cuentaDeCorreo`). Sin ella no sale y
