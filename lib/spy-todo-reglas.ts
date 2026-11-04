@@ -38,6 +38,18 @@ export const USD_POR_ANUNCIO = 0.006;
 export const DIAS_ENTRE_CORRIDAS = 7;
 /** Cuántas corridas largas empieza un negocio por día, sumando publicaciones y anuncios. */
 export const CORRIDAS_LARGAS_POR_DIA = 6;
+/** Dónde se cuentan las corridas largas del día del negocio: en la base, para que el tope valga entre procesos. */
+export const CLAVE_DIA = 'spy.todo.dia';
+
+/** Cuántas corridas largas ya empezó el negocio en `dia` (YYYY-MM-DD). Otro día, o algo ilegible, es 0. */
+export function usadasHoy(crudo: string | null, dia: string): number {
+  try {
+    const v = JSON.parse(crudo ?? 'null') as { fecha?: unknown; usadas?: unknown } | null;
+    return v && v.fecha === dia && Number.isInteger(v.usadas) && (v.usadas as number) >= 0 ? (v.usadas as number) : 0;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * ⚠️ APAGADO HASTA MEDIR EL ACTOR DE ANUNCIOS. La forma de su respuesta no se pudo leer desde la nube (apify.com no
@@ -215,4 +227,15 @@ export function seFueron(
     const t = Date.parse(g.publicada_en ?? '');
     return Number.isFinite(t) && t >= desde;
   }).map((g) => g.id);
+}
+
+/**
+ * El motivo de la traída larga, para la persona (lo devuelve `avanzarTodo`). Sin motivo, nada que decir. Martín, 4/11: «Si
+ * una corrida larga no terminó, la pantalla lo dice» — antes se tiraba y la ficha quedaba en 12 sin decir por qué.
+ */
+export function avisoDeTraida(porque: string | undefined): string | null {
+  if (!porque) return null;
+  if (porque === 'sin-clave') return 'Conecta Apify para traer todo lo que publica.';
+  if (porque === 'limite') return 'Hoy ya no quedan traídas: mañana sigue sola.';
+  return `No traje todo lo que publicó. ${porque}.`;
 }

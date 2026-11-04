@@ -955,3 +955,49 @@ es un canal» era cierto y dejaba la fuente vacía.
 **Vive en:** lib/spy-buscar-reglas.ts (`planDeBusqueda`, `videoDeUrl`, `videosDeGoogle`, `youtubeEstado`) ·
 lib/spy-buscar.ts (`leerCanalHallado`, `canalesDeLosVideos`) · lib/spy-youtube.ts (`canalesDeVideos`,
 `leerCanalesDeVideos`) · app/api/competitor-spy/buscar/route.ts · app/competitor-spy/BuscadorAlta.tsx · tests/spy-buscar.test.ts
+
+## «12 publicaciones de 500, y no buscó su YouTube ni su web»: la traída larga callaba, y su web era su página de enlaces (4/11/2026)
+
+> Martín, 4/11: «tampoco está haciendo el ejercicio de buscar en YouTube y también buscar su web… Yo busqué literalmente el
+> usuario exacto y ya me apareció el primer resultado… y en correlación mirar las biografías para traer sus webs».
+
+**Lo que midió el Cerebro en producción:** Den Borg (ws 9, competidor 17) llegó a 255 publicaciones con la traída larga: la
+traída SÍ anda cuando se la empuja. El de 12 es OTRO competidor (id 13, ws 11). El 17 tenía `youtube_id` vacío y su «web»
+era `beacons.page/denborg`, una página de ENLACES.
+
+**Las causas, medidas en el código (ninguna da error):**
+- **La traída larga sólo avanzaba con la ficha abierta.** La pantalla pregunta cada 20 s y deja de preguntar a los 15
+  minutos; sin nadie mirando, una corrida terminada no se recogía nunca. → Cron de cada hora (`/api/cron/spy-todo`).
+- **Una corrida que terminaba SIN NADA contaba como la de la semana.** Apify contesta «terminé» también cuando Instagram no le
+  dio nada (los ítems vienen como `{ error, errorDescription }`): el competidor quedaba siete días con lo de la lectura de
+  siempre (12), sin una línea que lo dijera. → Se anota para mañana, y la pantalla lo dice.
+- **El `porque` de la traída se calculaba y no se mostraba.** «Sin clave», «sin cupo» o «Apify no trajo nada» llegaban a la
+  pantalla y no se dibujaban. → Una línea suave debajo del competidor (`avisoDeTraida`).
+- **Sus otras redes salían sólo de Google, y Google trae videos** (el mismo bug de la búsqueda: se tiraban). Y nadie probaba
+  su MISMO usuario en la otra red, que es lo primero que hizo Martín a mano.
+- **Una página de enlaces (beacons, linktr.ee…) se guardaba como su web**, y su web de verdad estaba adentro, sin leer.
+
+**Lo que quedó: `cadenaDeRedes` (lib/spy-cadena.ts), de lo más barato a lo más caro, sin escribir nada:** (1) lo que él
+enlaza en su bio y lo que enlaza su página de enlaces (se ABRE con `fetchSeguro`; los enlaces que la página dibuja con
+JavaScript se leen de sus datos) — eso es seguro; (2) su mismo usuario en la red que falta (`@den.borgg` y `@denborgg`, 1
+unidad de YouTube) — entra solo con su mismo nombre o su misma foto, si no se pregunta; (3) Google, SÓLO si todavía le falta
+Instagram o YouTube, y los videos se leen como su canal. La bio de Instagram ya viaja en la lectura compartida (`perfil.bio`,
+`perfil.web`), así que la cadena no vuelve a pedir el perfil. Su web se guarda sólo si no tenía o la que tenía era su página de
+enlaces (`ponerWebEncontrada`, compare-and-set).
+
+**Y uno que apareció al poner el cron: el tope de 6 corridas largas por día vivía en la MEMORIA del proceso.** Con la ficha
+abierta, todas las preguntas caían en la misma instancia y alcanzaba; con un cron de cada hora, cada vuelta puede caer en una
+instancia nueva que arranca en cero, y el tope dejaba de topear sobre la clave del negocio. Ahora se reserva en la base
+(`spy.todo.dia`, compare-and-set) ANTES de empezar la corrida.
+
+**Regla:** un contador que protege plata vive donde lo ven todas las instancias. Uno en memoria sirve mientras un solo
+proceso hace el trabajo, y deja de servir en silencio el día que se le suma un cron.
+
+**Sin probar contra el servicio:** que beacons.page sirva sus enlaces sin JavaScript (se probó con una página armada con las
+dos formas), que Apify devuelva los ítems de error con esa forma, y el cron en Vercel.
+
+**Vive en:** lib/spy-cadena.ts (`cadenaDeRedes`) · lib/spy-otras-redes.ts (`buscarOtrasRedes`) · lib/spy-otras-redes-reglas.ts
+(`esAgregador`, `enlacesDeHtml`, `loQueEnlaza`, `usuariosParaProbar`, `veredictoDe`) · lib/spy.ts (`ponerWebEncontrada`) ·
+lib/spy-reglas.ts (`canalDeLaBio`) · lib/spy-todo.ts (`reservarCorrida`) · lib/spy-todo-reglas.ts (`usadasHoy`,
+`avisoDeTraida`) · app/api/cron/spy-todo/route.ts · app/api/competitor-spy/redes/route.ts · app/competitor-spy/SpyApp.tsx ·
+tests/spy-cadena.test.ts
