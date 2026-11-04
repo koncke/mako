@@ -23,8 +23,19 @@ verde, llega sola a `main`.
 | 11 | Sin «Con qué abre», «Sigue a la vista», «Probado»; la IA analiza sola; «Agregar Instagram» en el desplegable; nombres de orden que se entiendan | Hecho: la IA DEL NEGOCIO lee sola las piezas nuevas en segundo plano, «Analizando…» en cada tarjeta; desplegable de tipos (Reels, Carruseles e imágenes, Videos de YouTube, Shorts) con «Agregar su Instagram/YouTube»; orden «Más vistas» / «Más reciente» | `punta/spy-ficha` | Que 3 tandas de 30 piezas terminen en los 300 s de la ruta con la IA de un negocio real |
 | 13 | Su web, analizada sola | Hecho: el sitio sale de la descripción de su canal o de su bio y se lee con su funnel en la misma lectura; el botón que queda es «Copiar su sitio» | `punta/spy-ficha` | — |
 | 14 | Antes de la animación, sólo la estrella; miniaturas cargadas antes | Hecho: `CargandoMako` solo mientras se lee y se bajan TODAS las miniaturas (hasta 8 s); después la animación; la miga, las pestañas y sus redes al terminar | `punta/spy-ficha` | Mirarlo en pantalla con un competidor de Instagram |
+| 8 | Traer muchos más reels y videos, todos si se puede | Hecho: Instagram por una corrida larga de Apify (300 la primera vez, lo nuevo cada semana) que no se espera; YouTube hasta 500 videos la primera vez; la ficha lee hasta 2.000 piezas y dibuja de a 60 | `punta/spy-todo` | Las corridas largas contra Apify (empezar, mirar, leer el dataset) |
+| 10 | Todos los anuncios de la Biblioteca | Armado y APAGADO (`ANUNCIOS_POR_APIFY = false`): un actor de Apify sobre la Biblioteca pública, sin la sesión de nadie (los riesgos de cada camino, en el diseño §14). Falta medir el actor una vez: `scripts/probar-anuncios-apify.mjs` | `punta/spy-todo` | Todo: la forma de la respuesta del actor no se pudo leer desde la nube |
+| 7 | El detalle de cada competidor como el video: todo en un gráfico, uno por tipo de contenido | Hecho: pestaña «Gráfico», la primera; desplegable Contenido corto · Contenido largo · Carruseles e imágenes · Anuncios · Su web; números arriba, filtro de redes, cada miniatura en su día y sus vistas (escala log), entrando volando desde una columna; «¿Qué formatos le funcionan?» con la mediana de cada formato y la lectura escrita por el código. Sin «Anatomía del guion» ni retención: no hay datos públicos (diseño §15) | `punta/spy-detalle` | Mirarlo en pantalla con un competidor real; que la IA del negocio devuelva el formato |
+| 9 | «Copiar estructura» de un reel, un YouTube, un carrusel o una web | Hecho: tocar una miniatura o una tarjeta abre su detalle con «Copiar estructura», que arma una página del Copywriter del tipo que corresponde (con su estructura y su texto citado); sin el Copywriter, el texto queda copiado. La web va al Web Generator («Copiar su sitio») | `punta/spy-detalle` | La página nueva del Copywriter en producción |
 | + | (Cerebro, 4/11) Un apartado para las miniaturas de YouTube con su título | Hecho: pestaña «Miniaturas», de la más vista a la menos | `punta/spy-ficha` | — |
 | + | (Cerebro, 4/11) La caricatura, sola y en segundo plano | Hecho: la IA del negocio describe la cara, la foto sube a Flow y la imagen vuelve a nuestro Storage; la tarjeta la usa antes que la foto. Necesita la extensión conectada y Google Flow abierto en ese navegador (como el AI Avatar) | `punta/spy-caricatura` | Toda la caricatura: la IA mirando la foto y el puente tomando el pedido |
+
+## El teléfono
+
+Competitors Spy no tiene pantalla propia en el teléfono (`app/m/`): está `EN_CAMINO` en `lib/movil-rutas.ts` desde antes de este
+pedido, y un teléfono ve la cubierta de «se usa en la computadora». Lo nuevo (el gráfico, el detalle, «Copiar estructura») se
+probó a 390 px en Chromium con datos inventados: entra sin scroll de costado, con 90 miniaturas como mucho. Cuando se escriba la
+pantalla del teléfono, monta `GraficoSpy` tal cual.
 
 ## Cambios de cupo y de costo (lo decidí yo; está en `docs/diseno-competitors-spy.md` §11)
 

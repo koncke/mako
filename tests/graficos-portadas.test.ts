@@ -30,7 +30,8 @@ test('la tabla de colores: adentro de una galería ninguno se repite, y todos ex
 });
 
 test('el MISMO TEMA lleva el MISMO COLOR en las dos galerías', () => {
-  const pares: Array<[string, string]> = [['cs-analyst', 'servicio'], ['comercial', 'ventas']];
+  // 4/11/2026: «Ventas del mes» se fue (la absorbe Comercial): queda el par de la cartera.
+  const pares: Array<[string, string]> = [['cs-analyst', 'servicio']];
   for (const [d, g] of pares) assert.equal(COLOR_DASHBOARD[d], COLOR_GENERAL[g], `${d} y ${g}`);
   assert.equal(COLOR_GENERAL.instagram, 'magenta', 'el magenta es de Instagram');
   assert.ok(!Object.values(COLOR_DASHBOARD).includes('magenta'), 'y ninguna del Dashboard lo usa');

@@ -46,6 +46,8 @@ export type ClaseDeCurso = {
   orden: number;
   /** La transcripción entera, ya unida. Sin tope. */
   texto: string;
+  /** El módulo del curso al que pertenece (su `grupo` en Knowledge): la sección de su Second Brain. */
+  modulo?: string;
 };
 
 /** Lo poco que hace falta saber del referente para armar su capa. Sale de `lib/asesores/catalogo.ts`. */
@@ -92,6 +94,7 @@ export function nodoDeClase(r: ReferenteDelCerebro, c: ClaseDeCurso): NodoCerebr
     datos: [
       { k: 'Curso', v: r.curso },
       { k: 'Clase', v: String(c.orden) },
+      ...(c.modulo ? [{ k: 'Módulo', v: c.modulo }] : []),
     ],
     // ⚠️ ACÁ VA EL CURSO ENTERO Y NO SE TOPEA. Es el pedido de Martín, y es seguro porque este
     // cuerpo viaja SÓLO cuando un chat lo pide por id.

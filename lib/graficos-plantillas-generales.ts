@@ -4,7 +4,8 @@
 // Martín, 11/10/2026: «replica el modal que tenemos en "Automations", en donde al principio tenemos
 // la opción de "Pídeselo a MaKo" y abajo se le ofrece TEMPLATES». Marketing y Comercial son las dos
 // tabs viejas (lib/graficos-plantillas.ts); las de Analysts las arma lib/graficos-plantillas-analysts.ts.
-// Éstas son las del resto de MaKo, una por área: el CRM, la cobranza, las automatizaciones y la IA. (El Plan
+// Éstas son las del resto de MaKo, una por área: la cobranza, las automatizaciones y la IA (el CRM se fue el 4/11/2026: lo absorbe
+// Comercial, `PLANTILLAS_REEMPLAZADAS`). (El Plan
 // no tiene una propia: lo cubre la de Productivity Analyst.)
 //
 // ⚠️ TANDA v5 (12/10/2026): «WhatsApp y MaKo» y «Customer Success» se FUERON. Las reemplazan las hojas Chat
@@ -37,6 +38,8 @@ export type PiezaPlantilla = { local: string; controles?: Array<Record<string, u
 
 export type DefinicionGeneral = {
   id: string; nombre: string; emoji: string; linea: string; subtitulo: string;
+  /** Otras palabras con las que se la busca en «Nueva hoja» (el nombre de antes: «Foco de la semana» para Focus). */
+  buscar?: string;
   /** El control de período de arriba de la hoja: lo que muestra de entrada. */
   periodo: Preset;
   piezas: PiezaPlantilla[];
@@ -62,7 +65,7 @@ function aComponente(p: PiezaPlantilla, id: (local: string) => string): Record<s
 /** Una definición → la plantilla de «Nueva hoja». Exportada desde el 14/10/2026: la usan también las de General. */
 export function plantilla(d: DefinicionGeneral): PlantillaHoja {
   return {
-    id: d.id, nombre: d.nombre, emoji: d.emoji, linea: d.linea,
+    id: d.id, nombre: d.nombre, emoji: d.emoji, linea: d.linea, ...(d.buscar ? { buscar: d.buscar } : {}),
     armar: (id) => {
       const componentes = d.piezas
         .map((p) => sanearComponente(aComponente(p, id)))
@@ -82,79 +85,96 @@ const AGRUPAR_AUTO = [{ tipo: 'agrupar', agrupar: 'auto' }];
 /** Las definiciones, a la vista de los tests (que las pasan por `deIAHoja`). */
 export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
   {
-    id: 'crm', nombre: 'CRM y pipeline', emoji: '🧲',
-    linea: 'Cuántos leads entran, cuántos agendan y cierran, de dónde vienen y en qué etapa están.',
-    subtitulo: 'Los leads del período, del alta al cierre.', periodo: 'ult30',
-    piezas: [
-      // COMPOSICIÓN DEL 31/10/2026: cuatro números iguales y cada tema de a pares. «Cierres por closer» se fue: la tabla de cierre ya lo abre.
-      { local: 'leads', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['leads'], dimension: null, titulo: 'Leads nuevos', comparar: true, invertida: true },
-      { local: 'agendas', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['agendas'], dimension: null, titulo: 'Agendaron' },
-      { local: 'asistencia', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['tasa_asistencia'], dimension: null, titulo: 'Tasa de asistencia' },
-      { local: 'cierre', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['tasa_cierre'], dimension: null, titulo: 'Tasa de cierre' },
-      { local: 'embudo', tipo: 'embudo_vertical', fuente: 'leads', metricas: ['leads', 'agendas', 'asistencias', 'cierres'], dimension: null, titulo: 'Del lead al cierre' },
-      { local: 'por-dia', tipo: 'serie', fuente: 'leads', dimension: 'dia', metricas: ['leads', 'agendas'], titulo: 'Leads y agendas', controles: AGRUPAR_AUTO },
-      { local: 'etapas', tipo: 'barras', fuente: 'leads', dimension: 'etapa', metricas: ['leads'], titulo: 'Leads por etapa' },
-      { local: 'perdidas', tipo: 'barras', fuente: 'leads', dimension: 'motivo', metricas: ['leads'], titulo: 'Por qué se pierden' },
-      { local: 'origen', tipo: 'tabla_barras', fuente: 'leads', dimension: 'origen', metricas: ['leads', 'agendas', 'cierres', 'tasa_cierre'], titulo: 'De dónde vienen' },
-    ],
-  },
-  {
-    // «Este mes completo»: lo que VENCE mira hacia adelante (`pagos.vencimiento` es `futuro`), así que el mes
-    // entra entero; lo cobrado igual se corta en hoy (decisión de la tanda v5).
+    // 4/11/2026 — COFFER · CORVANE · TALVO (docs/templates-dashboard-propuesta.md §7.3): «¿qué plata está prometida y no entró?».
+    // Coffer: los tramos de lo vencido y «a quién perseguir» con su sello; Talvo: la frase con lo que vence y lo que falta; Corvane:
+    // el porqué de cada número escrito al lado. La plata que se mudó de Comercial (la barra cobrado / pendiente) vive acá.
+    // Mockup: docs/diseno/mockups-dashboard/cobranza.html.
+    // «Este mes completo»: lo que VENCE mira hacia adelante (`pagos.vencimiento` es `futuro`), así que el mes entra entero; lo
+    // cobrado igual se corta en hoy (decisión de la tanda v5).
     id: 'cobranza', nombre: 'Cobranza', emoji: '💳',
-    linea: 'Lo que vence en el período, lo cobrado, lo pendiente y a quién cobrarle primero.',
+    linea: 'La plata prometida que no entró: lo que vence, a quién perseguir y hace cuánto esperan.',
     subtitulo: 'Las cuotas de tus clientes.', periodo: 'este_mes_completo',
     // EL SELECTOR DE CRM (22/10/2026, llamada con un cliente: «que tú le puedas seleccionar de qué CRM quieres ver ese dashboard»): el
-    // «Funnel» de la hoja, en «Todos» de entrada. Era de la plantilla «Cobros» de General, que salió el 1/11/2026 por repetir a ésta.
+    // «Funnel» de la hoja, en «Todos» de entrada.
     controles: [{ tipo: 'lista', campo: 'producto', valores: null }],
     piezas: [
-      // COMPOSICIÓN DEL 31/10/2026: lo cobrado primero. «Por cliente» era la portada con menos columnas y sin acción.
-      { local: 'cobrado', tipo: 'numero_tendencia', fuente: 'pagos', fecha: 'pago', metricas: ['cobrado'], dimension: null, titulo: 'Cobrado', comparar: true, invertida: true },
-      { local: 'pendiente', tipo: 'numero_tendencia', fuente: 'pagos', metricas: ['pendiente'], dimension: null, titulo: 'Pendiente' },
-      { local: 'vence', tipo: 'numero_tendencia', fuente: 'pagos', metricas: ['monto'], dimension: null, titulo: 'Vence' },
-      { local: 'cuotas', tipo: 'numero_tendencia', fuente: 'pagos', metricas: ['pagos'], dimension: null, titulo: 'Cuotas' },
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'pagos', fecha: 'vencimiento', metricas: ['monto', 'cobrado', 'pendiente'], dimension: null, titulo: 'Lo prometido',
+        frase: 'En el período vencen {monto} · entraron {cobrado} · faltan {pendiente}', ir: 'clients',
+      },
+      { local: 'cobrado', tipo: 'numero_tendencia', fuente: 'pagos', fecha: 'pago', metricas: ['cobrado'], dimension: null, titulo: 'Cobrado', comparar: true, invertida: true, ir: 'clients' },
+      { local: 'cuotas-cobradas', tipo: 'numero_tendencia', fuente: 'revenue', metricas: ['cuotas_cobradas'], dimension: null, titulo: 'Cuotas cobradas', ir: 'clients' },
+      { local: 'cuotas-pendientes', tipo: 'numero_tendencia', fuente: 'revenue', metricas: ['cuotas_pendientes'], dimension: null, titulo: 'Cuotas pendientes', ir: 'clients' },
+      { local: 'clientes', tipo: 'numero', fuente: 'cobranza', metricas: ['clientes'], dimension: null, titulo: 'Clientes por cobrar', ir: 'clients' },
+      { local: 'semanas', tipo: 'columnas', fuente: 'pagos', dimension: 'semana', metricas: ['cobrado', 'pendiente'], titulo: 'Lo que entra, semana a semana', subtitulo: 'Cobrado contra lo que falta' },
+      // Coffer: cuánto hay en cada edad de la deuda.
+      { local: 'urgencia', tipo: 'barras', fuente: 'cobranza', dimension: 'urgencia', metricas: ['pendiente'], titulo: 'Cuánto hace que esperan', subtitulo: 'Lo pendiente, por urgencia' },
+      // La barra de Comercial (v5): lo cobrado y lo que falta, de UNA lectura.
+      { local: 'barra', tipo: 'barra_proporcion', fuente: 'revenue', metricas: ['cobrado', 'pendiente'], dimension: null, titulo: 'Lo cobrado y lo que falta', subtitulo: 'Del período, en una barra' },
+      { local: 'por-funnel', tipo: 'barras', fuente: 'pagos', dimension: 'producto', metricas: ['pendiente'], titulo: 'Pendiente por funnel', subtitulo: 'Qué oferta tiene más plata en el aire' },
       // La que era el bloque «A quién cobrarle»: una fila por cliente, el más urgente arriba, «Marcar cobrada».
       {
-        local: 'a-quien', tipo: 'tabla', fuente: 'cobranza', dimension: 'cliente', metricas: ['pendiente', 'proxima_monto', 'dias'], titulo: 'A quién cobrarle',
+        local: 'a-quien', tipo: 'tabla', fuente: 'cobranza', dimension: 'cliente', metricas: ['pendiente', 'proxima_monto', 'dias'], titulo: 'A quién perseguir',
+        subtitulo: 'Te está esperando: el más urgente arriba, con «Marcar cobrada»',
         ordenMetrica: 'dias', ordenAsc: true, limite: 50, tabla: { acciones: true, columnas: ['urgencia'] },
       },
-      { local: 'semanas', tipo: 'columnas', fuente: 'pagos', dimension: 'semana', metricas: ['cobrado', 'pendiente'], titulo: 'Cobrado y pendiente por semana' },
-      { local: 'por-funnel', tipo: 'barras', fuente: 'pagos', dimension: 'producto', metricas: ['pendiente'], titulo: 'Pendiente por funnel' },
       { local: 'por-estado', tipo: 'anillo', fuente: 'pagos', dimension: 'estado', metricas: ['monto'], titulo: 'Cuotas por estado' },
-      { local: 'por-cliente', tipo: 'barras', fuente: 'pagos', dimension: 'cliente', metricas: ['pendiente'], titulo: 'Quién debe más', limite: 5 },
+      { local: 'por-cliente', tipo: 'barras', fuente: 'pagos', dimension: 'cliente', metricas: ['pendiente'], titulo: 'Quién debe más', subtitulo: 'Los cinco con más pendiente', limite: 5 },
     ],
   },
   {
     id: 'automatizaciones', nombre: 'Automatizaciones', emoji: '⚙️',
-    linea: 'Quién entra a cada automatización, cuántos mensajes salen, cuántos se abren y cuántos responden.',
+    linea: 'Qué salió de cada automatización, qué falló, cuántos te responden y en cuánto tiempo.',
     subtitulo: 'Tus automatizaciones del período.', periodo: 'ult30',
     piezas: [
       // COMPOSICIÓN DEL 31/10/2026: la tabla por automatización es el tema de la hoja. «Por canal» era una torta estirada.
-      { local: 'entraron', tipo: 'numero_tendencia', fuente: 'inscripciones', metricas: ['personas'], dimension: null, titulo: 'Personas que entraron', comparar: true, invertida: true },
-      { local: 'envios', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['envios'], dimension: null, titulo: 'Mensajes enviados' },
+      // 4/11/2026 — NORIA (docs/templates-dashboard-propuesta.md §7.3): «¿qué corrió, qué falló y cuántas horas ahorró?». Abre con la
+      // frase de lo que salió y lo que falló; el ancla es lo que falló, y la tabla dice en cuál. ⚠️ Las horas AHORRADAS no se miden
+      // (pedirían cuánto tardaría una persona en hacerlo a mano): lo que hay es en cuántas horas responden.
+      {
+        local: 'resumen', tipo: 'frase', fuente: 'envios', metricas: ['enviados', 'fallaron', 'respuestas'], dimension: null, titulo: 'Tus automatizaciones',
+        frase: 'Salieron {enviados} mensajes · {fallaron} fallaron · {respuestas} te respondieron', ir: 'automations',
+      },
+      { local: 'entraron', tipo: 'numero_tendencia', fuente: 'inscripciones', metricas: ['personas'], dimension: null, titulo: 'Personas que entraron', comparar: true },
+      { local: 'fallaron', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['fallaron'], dimension: null, titulo: 'Fallaron', invertida: true, ir: 'automations' },
       { local: 'apertura', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_apertura'], dimension: null, titulo: 'Tasa de apertura' },
       { local: 'respuesta', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_respuesta'], dimension: null, titulo: 'Tasa de respuesta' },
       { local: 'por-dia', tipo: 'serie', fuente: 'envios', dimension: 'dia', metricas: ['envios', 'respuestas'], titulo: 'Envíos y respuestas', controles: AGRUPAR_AUTO },
-      { local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'abiertos', 'respuestas', 'tasa_respuesta'], titulo: 'Por automatización' },
+      {
+        local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'respuestas', 'tasa_respuesta', 'fallaron'],
+        titulo: 'Por automatización', ir: 'automations',
+      },
       { local: 'desenlace', tipo: 'barras', fuente: 'inscripciones', dimension: 'desenlace', metricas: ['personas'], titulo: 'Cómo terminaron' },
+      { local: 'donde-fallo', tipo: 'barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['fallaron'], ordenMetrica: 'fallaron', limite: 8, titulo: 'Dónde falló' },
+      {
+        local: 'horas', tipo: 'barras', fuente: 'inscripciones', fecha: 'alta', dimension: 'automatizacion', metricas: ['horas_respuesta'], ordenMetrica: 'horas_respuesta',
+        limite: 8, titulo: 'En cuántas horas responden',
+      },
     ],
   },
   {
     id: 'ia-contenido', nombre: 'Contenido e IA', emoji: '✨',
-    linea: 'Cuánto usas la IA y para qué, y los videos e imágenes que MaKo le pidió a Flow.',
+    linea: 'Cuánta IA gastas y en qué, y los videos e imágenes que MaKo le pidió a Flow.',
     subtitulo: 'La IA y la producción de contenido.', periodo: 'ult30',
     piezas: [
       // COMPOSICIÓN DEL 31/10/2026: cuánto se usa, cuánto cuesta, cuánto cuesta cada una y cuánto salió. Se fue «Por proveedor»: ninguna
       // hoja lo dibuja desde acá, y los videos e imágenes van como tabla, con su tasa de éxito adentro.
+      // 4/11/2026 — ORRERY (docs/templates-dashboard-propuesta.md §7.3): «¿cuánta IA gastamos y en qué?». Abre con la frase de cuántas
+      // veces se usó; el ancla es el costo, el anillo dice en qué función se va y el modelo cuál cuesta más.
+      {
+        local: 'resumen', tipo: 'frase', fuente: 'ia', metricas: ['llamadas'], dimension: null, titulo: 'Tu IA', comparar: true,
+        frase: 'Usaste la IA {llamadas} veces · {llamadas:cambio} que el período anterior',
+      },
       { local: 'costo', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['costo'], dimension: null, titulo: 'Costo de la IA', comparar: true, invertida: true },
-      { local: 'llamadas', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['llamadas'], dimension: null, titulo: 'Llamadas a la IA', comparar: true },
       { local: 'costo-prom', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['costo_prom'], dimension: null, titulo: 'Costo por llamada' },
-      { local: 'pedidos', tipo: 'numero_tendencia', fuente: 'flow', metricas: ['trabajos'], dimension: null, titulo: 'Pedidos a Flow' },
-      { local: 'por-dia', tipo: 'serie', fuente: 'ia', dimension: 'dia', metricas: ['llamadas'], titulo: 'Llamadas por día', controles: AGRUPAR_AUTO },
+      { local: 'pedidos', tipo: 'numero_tendencia', fuente: 'flow', metricas: ['trabajos'], dimension: null, titulo: 'Pedidos a Flow', ir: 'video-generator' },
+      { local: 'listos', tipo: 'numero_tendencia', fuente: 'flow', metricas: ['tasa_exito'], dimension: null, titulo: 'Salieron bien' },
+      { local: 'por-dia', tipo: 'serie', fuente: 'ia', dimension: 'dia', metricas: ['costo'], titulo: 'Lo gastado por día', controles: AGRUPAR_AUTO },
       { local: 'funciones', tipo: 'barras', fuente: 'ia', dimension: 'funcion', metricas: ['llamadas'], ordenMetrica: 'llamadas', titulo: 'Para qué se usa' },
+      { local: 'modelos', tipo: 'barras', fuente: 'ia', dimension: 'modelo', metricas: ['costo'], ordenMetrica: 'costo', limite: 6, titulo: 'Qué modelo cuesta más' },
       // Vivía en «WhatsApp y MaKo», que se fue en v5: lo que tu equipo le pide a MaKo es uso de la IA.
       { local: 'quien', tipo: 'barras', fuente: 'mako_chat', dimension: 'quien', metricas: ['mensajes'], titulo: 'Quién le escribe a MaKo' },
-      { local: 'flow', tipo: 'tabla_barras', fuente: 'flow', dimension: 'tipo', metricas: ['trabajos', 'listos', 'fallidos', 'tasa_exito'], barra: 'trabajos', titulo: 'Videos e imágenes' },
+      { local: 'flow', tipo: 'tabla_barras', fuente: 'flow', dimension: 'tipo', metricas: ['trabajos', 'listos', 'fallidos', 'tasa_exito'], barra: 'trabajos', titulo: 'Videos e imágenes', ir: 'video-generator' },
     ],
   },
 ];

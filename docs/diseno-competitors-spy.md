@@ -803,3 +803,103 @@ del negocio.
 
 **Lo que hace falta para que corra en un negocio:** la extensión de MaKo conectada y Google Flow abierto en ese
 navegador (el mismo requisito que el AI Avatar). Sin eso la tarjeta sigue con la foto, sin aviso.
+
+## 14. Traer todo: sus publicaciones, sus videos y sus anuncios (4/11/2026)
+
+> Martín, 4/11 (puntos 8 y 10): «que no traiga solo 50 reels o videos, que traiga muchos más, si puede, todos
+> directamente» y «falta todo lo de ADS en Competitors Spy, todos los anuncios de la biblioteca de anuncios... Que los
+> traiga para analizarlos».
+
+**Corridas largas que no se esperan** (`lib/spy-todo.ts`, `/api/competitor-spy/todo`). Cien publicaciones tardan uno o
+dos minutos en Apify: esperar adentro de «Revisar ahora» la cortaría a los 60 s. El servidor EMPIEZA una corrida
+(`/acts/…/runs`, contesta en el acto), anota su id en `spy.todo` (app_settings del negocio, sin migración), y la ficha
+pregunta cada 20 s; cuando termina, se guarda con el mismo camino que la lectura de siempre y la IA del negocio la lee
+sola (§12). Si se cierra la pestaña, la corrida termina en Apify y la próxima apertura la recoge.
+
+| Qué | Cuánto | Cada cuánto | Cuesta (clave de Spy del negocio) |
+|---|---|---|---|
+| Sus publicaciones de Instagram (`apify~instagram-scraper`, `resultsType: posts`) | 300 la primera vez; después lo nuevo (hasta 40) | 1 vez por semana por competidor | US$2,30 por mil (tienda): ~US$0,69 la primera, ~US$0,09 después; techo por corrida |
+| Sus videos de YouTube (`channels.list` + `playlistItems` + `videos.list`) | 500 la primera vez (10 páginas); después, los últimos | en cada lectura | 20 unidades la primera, 8 después, de la cuota de la plataforma (10.000/día) |
+| Sus anuncios (`apify~facebook-ads-scraper`) | 200 por corrida, activos y viejos | 1 vez por semana por competidor | sin medir: techo de US$0,006 por anuncio (US$1,20 por corrida) |
+
+Tope de corridas largas por negocio: 6 por día (`CORRIDAS_LARGAS_POR_DIA`); el peor día, ~US$4,14 si son seis primeras
+corridas de Instagram. La ficha dibuja de a 60 tarjetas («Ver más») y lee hasta 2.000 piezas por competidor.
+
+**Lo que se arregló al traer todo:** la lectura de siempre marcaba como «borrada» toda pieza que no venía en ella. Con el
+historial completo, cada «Revisar ahora» habría marcado años de publicaciones. Ahora sólo cuenta lo que esa lectura podía
+ver: lo publicado desde lo más viejo que trajo (`seFueron`).
+
+**Los anuncios: los caminos, con su riesgo** (lo posterior manda: el 3/11 fue «Sí, con un clic» desde la extensión; el
+4/11, «todos»):
+
+| Camino | Riesgo para las cuentas del cliente | Otros | Elegido |
+|---|---|---|---|
+| (a) La API oficial de la Biblioteca | Ninguno | Fuera de la UE y el Reino Unido sólo devuelve anuncios políticos: para un competidor de LATAM, nada | No |
+| (b) La extensión recorriendo la Biblioteca entera (scroll solo) | **Alto:** automatiza la sesión de Facebook DEL CLIENTE, que es lo que Meta detecta y castiga | Recorrer páginas ajenas pide más permisos y otra revisión de la tienda | No |
+| (c) «Guardar en Spy» con un clic (lo del 3/11) | Bajo: lee una vez lo que la persona ya abrió | Trae sólo lo que se dibujó en esa pestaña, no «todos» | Sigue, como respaldo |
+| (d) Un actor de Apify sobre la Biblioteca pública | **Ninguno:** corre en los servidores de Apify, sin la sesión de nadie | Va contra los términos de Meta (recolección automatizada); lo paga el negocio con su clave de Spy, como Instagram | **Sí** |
+
+Se eligió (d), el mismo criterio que Martín ya tomó para Instagram en Spy. **Queda APAGADO hasta medir el actor**
+(`ANUNCIOS_POR_APIFY = false`): la nube no llega a apify.com y la forma de su respuesta no se pudo leer. Para prenderlo:
+`node --env-file=… scripts/probar-anuncios-apify.mjs <ws> <id de su Página o su nombre>` una vez desde la PC; si
+«entendidos» es la mayoría y el costo cabe en el techo, se cambia la constante a `true`.
+
+## 15. El detalle de cada competidor: todo en un gráfico, y «Copiar estructura» (4/11/2026)
+
+> Martín, 4/11 (puntos 7 y 9): «Quiero que analices este video… y quiero que eso sea el Detail de cada competidor… como va
+> poniendo todos sus contenidos en un gráfico… uno para contenido corto, otro para contenido largo, de sus carruseles o
+> imágenes, y luego el análisis de su web» y «si se selecciona un reel, un YT, un carrusel, o una web, debería fácilmente
+> estar el botón de "Copiar estructura", y que lo procese en todas las herramientas que ya tenemos en MaKo».
+
+### Lo que muestra el video (la base, mirada cuadro por cuadro por el Cerebro)
+
+El video (39,9 s, cuenta buildingwithharsit, la herramienta «Creators · Foundable»). Se copia la FUNCIÓN y la idea del
+movimiento, no los textos ni la marca.
+
+1. **Arriba, tarjetas de números**: creadores, videos (420), vistas (3,6M), mediana (5k), CPM y gasto. La tarjeta elegida va
+   en negro y la destacada, en azul. Debajo, un filtro por red con su cantidad: Todos, TikTok, Instagram y YouTube.
+2. **La animación principal**: una columna a la izquierda con las mejores miniaturas, que vuelan desenfocadas hacia un
+   gráfico de dispersión. Cada punto ES la miniatura del video: X = el día en que se publicó (1 a 30), Y = sus vistas en
+   escala logarítmica (100 a 100k). Rótulo: «Cada miniatura es un video».
+3. **Tocar una miniatura**: su título, «#51 de 420», sus números, la «Anatomía del guion» (una barra de colores por tramo
+   —gancho, planteo, producto, prueba, CTA— con cada frase, su minuto, su etiqueta y las palabras clave resaltadas), la curva
+   de «siguen mirando» y la miniatura con el logo de su red.
+4. **«¿Qué formatos ganan?»**: barras horizontales por formato (POV, Storytime, Antes y después, Reseña honesta, Unboxing),
+   que se abren en filas: en cada una, sus miniaturas ubicadas por sus vistas y una línea negra en la mediana del formato. A
+   la izquierda, el nombre, cuántos y el mejor gancho. Encima, una tarjeta oscura con la lectura: «X y Y tienen 2,3x y 1,6x
+   la mediana; evitaría Z».
+5. **El modal de un video de un formato ganador**: el reproductor a la izquierda (vistas, formato) y, a la derecha, la cuenta
+   y sus seguidores, el título, los hashtags y el «Guion completo» con su barra de colores y sus frases.
+
+### Cómo se adapta a Spy
+
+- **El detalle es esta pantalla**: la pestaña «Gráfico», la primera de la ficha, con el riel de siempre a la derecha
+  (`app/competitor-spy/GraficoSpy.tsx`; las cuentas, puras y con test, en `lib/spy-detalle.ts`).
+- **Un desplegable cambia el gráfico**: Contenido corto (reels y shorts), Contenido largo (YouTube), Carruseles e imágenes,
+  Anuncios y Su web (que lleva a su pestaña: una web no es un gráfico). Ahí mismo se agrega la red que le falta.
+- **Arriba**: piezas, vistas (o «me gusta»), la mediana y «Le funciona» (el formato que más rinde, si hay uno). El filtro de
+  redes, con su logo y su cantidad, sólo si el gráfico tiene más de una.
+- **Ejes**: X = el día en que se publicó; Y = vistas en escala logarítmica. Donde la mayoría no tiene vistas (Instagram las
+  da sólo en los reels), «me gusta»; en los anuncios, los días al aire. Lo que no tiene número no se dibuja en cero.
+- **Antes de la animación, sólo la criatura**; se bajan TODAS las miniaturas que se van a dibujar (`precarga.ts`, la misma
+  pieza que la película del orden) y recién ahí entran volando. Hasta 180 miniaturas por gráfico (90 en el teléfono): las
+  de más arriba y una muestra pareja del resto en el tiempo, y el pie dice «se ven 180 de 2.000».
+- **Tocar una miniatura** abre su detalle (`DetallePieza.tsx`): el video de YouTube (o la imagen de Instagram), «#51 de
+  420», sus números, su estructura (gancho, ángulo, formato) con «Analizando…» mientras la IA del negocio no la leyó, sus
+  hashtags y «Copiar estructura». Las tarjetas de «Lo que publica» y de «Anuncios» abren el mismo detalle.
+- **Los formatos se llenan solos**: la IA del negocio le pone a cada pieza su formato al analizarla (POV, Storytime, Antes y
+  después, Tutorial, Lista o tips, Opinión, Reseña, Testimonio, Detrás de escena, Entrevista), sin que nadie lo pida. Lo
+  analizado antes del formato se lee UNA vez más, después de lo que nunca se leyó. Un formato necesita dos piezas para
+  tener fila, y la lectura de arriba la escribe el CÓDIGO con medianas (`lecturaDeFormatos`), no una IA.
+- **Lo que NO va, a propósito**: la «Anatomía del guion», el «Guion completo» y la curva de «siguen mirando». El guion de un
+  video ajeno no se lee (no hay forma legal de transcribirlo, §5) y la retención no la publica nadie. Un bloque sin datos
+  no se dibuja y no dice «falta».
+
+### «Copiar estructura»
+
+`/api/competitor-spy/copiar` arma una página del **Copywriter** del tipo que corresponde (un reel o un short → Reel; un
+video largo → YouTube; un anuncio → Anuncio; una publicación → Post) con de dónde viene, su estructura (gancho, ángulo,
+formato) y su texto CITADO («> »: una línea suya en MAYÚSCULA no abre una sección del guion), y la pantalla la abre. Ahí el
+chat de MaKo la escribe con la oferta y la voz del negocio. Quien no tiene el Copywriter (hoy lo ve sólo el super admin) se
+lleva el mismo texto copiado al portapapeles. Una web va al **Web Generator** con «Copiar su sitio» (`?analizar=`). Ninguna
+IA corre al copiar.
