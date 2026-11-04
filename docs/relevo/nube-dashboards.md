@@ -1,6 +1,11 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~16:45 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~17:30 UTC)
+
+- **General está en producción.** Entró a main a las 16:58 (`30e5586f5`); el deploy promovido de las 17:05 (`5bd386108`) la contiene.
+- **«Operación diaria» (la copia de Moorly) va en `punta/dash-operacion`**: la sección de abajo. Es la sexta hoja copiada.
+
+### Lo de las ~16:45 UTC
 
 - **«Mi día» está en producción.** Entró a main a las 16:20 (`c1d8e89e4`); el deploy promovido de las 16:30 (`ddfc71d20`) la contiene. El
   veredicto de la nube la dejó pasar sin repetir los tests (6.949 tests y el tsc entero en verde, `8edcd95da`).
@@ -25,6 +30,51 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## «Operación diaria»: la sexta hoja copiada (la de Moorly), con lo de hoy (punta `dash-operacion`, 4/11/2026)
+
+El pedido es el mismo: primero la copia exacta y después la adaptación, *«de a una»*. La referencia de «Operación diaria» era Moorly · Torque
+(`docs/templates-dashboard-propuesta.md` §7.3); ésta es **Moorly**. Torque queda para otra hoja.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» de General ofrece «Operación diaria»**, con su miniatura de verdad: el cielo celeste con el sol arriba a la derecha y el mar de
+  Moorly detrás de la cabecera.
+- **Arriba:** el saludo, la fecha y una frase con lo de hoy: «3 llamadas hoy, 2 cuotas vencidas y 4 tareas que vencen esta semana. **Laura
+  Méndez** es tu próxima llamada, a las 12:30.» A la derecha, el botón de la grilla (los bloques de siempre), «Abrir el Plan» y «Abrir el CRM».
+- **Los cuatro números de Moorly**, con su línea: las agendas, lo que falta cobrar, los cierres y lo cobrado (con el cambio contra el período
+  anterior). Abajo de cada uno, lo de hoy: las llamadas de hoy, las cuotas vencidas, de cuántas agendas salieron los cierres.
+- **«Mes a mes»:** lo cobrado, las agendas o los cierres de los últimos 12 meses (las tres pestañas de Moorly), con el total, el promedio y el
+  mejor mes.
+- **«Te está esperando»:** las cuotas vencidas, las tareas vencidas, los leads por marcar, lo que vence pronto y las tareas de esta semana, en
+  ese orden y hasta seis. Cada renglón lleva a su lugar (la ficha del lead, la tarea del Plan, el CRM).
+- **«Tu funnel hoy»**, **«Las llamadas que vienen»** (las llamadas de cada día de las próximas dos semanas, como la marea de Moorly, y las tres
+  que siguen), **«Te deben»** (por tramo de atraso, con las cuentas de la hoja Cobranza), **«Para tildar hoy»** (las tareas de hoy y las
+  vencidas, que se tildan ahí mismo), **«Salud del negocio»** (el semáforo) y **«La meta del trimestre»**.
+
+**Lo que Moorly tiene y no está, a propósito:** la caja para agregar un pendiente (una tarea nueva del Plan se crea en el Plan) y la plata de
+cada etapa del funnel (MaKo cuenta leads por etapa, no montos).
+
+**El movimiento:** el INFORME de Moorly trae la entrada del armazón y los hover del CSS; **la entrada de la página no está**, igual que en Orvel.
+No se inventó: las tarjetas quedan quietas y los hover son los del CSS.
+
+**La comparación con la maqueta aprobada** (`docs/diseno/mockups-dashboard/operacion-moorly/mako.html` contra el componente, en un arnés con los
+datos pasando por el modelo de verdad): **a 1440, las once cajas caen en el mismo píxel** (la cabecera, los cuatro números de 332 × 126, el
+gráfico 912 × 426, «Te está esperando» 448 × 426 y las dos filas de tres de 448 × 406) y el alto total es el mismo, 1592. **A 390, las mismas
+cajas en el mismo lugar**, salvo «Para tildar hoy», que tiene un renglón menos porque el arnés trae tres tareas y la maqueta cuatro. A 900 (el
+medio, que Moorly no mide) los números van de a dos, el gráfico y la espera a todo el ancho, y las de abajo de a dos. Capturas en
+`operacion-moorly/captura/`: `copia-*`, `mako-*` y `producto-*`.
+
+**Cómo está hecho:**
+- `app/dashboard/disenos/HojaOperacion.tsx` dibuja; `operacion-css.ts` es `operacion-moorly/moorly.css` sin el armazón, con todo adentro de
+  `.mo` y cada clase con `mo-`. `OperacionVivo.tsx` le pone las dos fuentes (los datos de General y los de seis componentes de la hoja) y lo
+  carga `EditorInforme` con `next/dynamic`.
+- **La plantilla `operacion` cambia:** suma «Mes a mes» (lo cobrado, las agendas y los cierres de los últimos 12 meses) y «Te deben» (lo que
+  falta cobrar por tramo de atraso), y trae su `diseno`. Una hoja «Operación diaria» que ya existe no cambia.
+- El modelo es `lib/operacion-diseno.ts`; el test, `tests/dashboard-diseno-operacion.test.ts` (10 casos): ejecuta el modelo y está probado
+  rompiéndolo (6 de 6 roturas en rojo).
+- **En la API de MaKo:** `agregar_hoja_general` ofrece `operacion` (sale solo de `PLANTILLAS_GENERAL_OFRECIDAS`; `docs/api-mako.md` regenerado).
+
+**Falta:** verlo con los datos de un cliente y que Martín lo compare en el Dashboard. La que sigue es Torque o la próxima de §7.3.1, de a una.
 
 ## General: la quinta hoja copiada (la de Orvel), con lo que MaKo sabe del negocio (punta `dash-general`, 4/11/2026)
 

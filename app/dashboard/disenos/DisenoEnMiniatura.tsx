@@ -26,6 +26,8 @@ import { HojaMiDia } from './HojaMiDia';
 import { mesDe, type VistaMiDia } from '@/lib/mi-dia-diseno';
 import { HojaGeneral } from './HojaGeneral';
 import { fraseGeneral, type VistaGeneral } from '@/lib/general-diseno';
+import { HojaOperacion } from './HojaOperacion';
+import type { VistaOperacion } from '@/lib/operacion-diseno';
 
 const dia = (hoy: string, n: number) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const resultado = (columnas: string[], totales: Array<number | null>, filas: Resultado['filas'] = [], anterior?: Array<number | null>): DatosPieza => ({
@@ -297,6 +299,63 @@ function vistaGeneralMuestra(hoy: string): VistaGeneral {
   };
 }
 
+/** «Operación diaria» de EJEMPLO (la de la maqueta, operacion-moorly/mako.html: ficticios), para la miniatura de «Nueva hoja». */
+function vistaOperacionMuestra(hoy: string): VistaOperacion {
+  const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const mesHoy = Number(hoy.slice(5, 7)) - 1;
+  const cob = [9.6, 12.3, 8.4, 13.8, 15.6, 11.7, 18.3, 13.2, 17.4, 14.7, 19.8, 12.5];
+  const dm = (n: number) => `${Number(dia(hoy, n).slice(8))}/${Number(dia(hoy, n).slice(5, 7))}`;
+  return {
+    frase: [{ tipo: 'texto', s: '3 llamadas hoy, 2 cuotas vencidas y 4 tareas que vencen esta semana. ' }, { tipo: 'fuerte', s: 'Laura Méndez' }, { tipo: 'texto', s: ' es tu próxima llamada, a las 12:30.' }],
+    numeros: [
+      { id: 'agendas', titulo: 'Agendas', valor: '27', serie: [0, 1, 2, 1, 0, 2, 3, 1, 2, 0, 1, 3, 2, 1, 4], pie: '3 llamadas hoy', cambio: null },
+      { id: 'pendiente', titulo: 'Por cobrar', valor: 'US$41,179', serie: [38, 39, 40, 40, 42, 41, 43, 42, 41, 40, 41, 42, 41, 41, 41], pie: '2 cuotas vencidas', cambio: null },
+      { id: 'cierres', titulo: 'Cierres', valor: '6', serie: [0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0], pie: 'De 27 agendas', cambio: null },
+      { id: 'cobrado', titulo: 'Cobrado', valor: 'US$12,480', serie: [1, 3, 2, 4, 2, 3, 5, 3, 4, 2, 6, 3, 5, 4, 7], pie: 'contra el período anterior', cambio: '+32%' },
+    ],
+    meses: cob.map((c, i) => {
+      const m = (mesHoy + 1 + i) % 12;
+      return { clave: `m${i}`, corto: MESES[m], largo: MESES[m], cobrado: c * 1000, agendas: 20 + ((i * 7) % 11), cierres: 3 + (i % 4) };
+    }),
+    espera: {
+      total: 11,
+      lista: [
+        { id: 'c1', tipo: 'cobro', titulo: 'Carlos Méndez', detalle: 'US$2,475 · venció hace 67 días', cuando: 'vencida', tono: 'bad', href: '/crm' },
+        { id: 'c2', tipo: 'cobro', titulo: 'Lucía Ramos', detalle: 'US$5,181 · venció hace 5 días', cuando: 'vencida', tono: 'bad', href: '/crm' },
+        { id: 't1', tipo: 'tarea', titulo: 'Mandar la propuesta a Jorge Salinas', detalle: 'Ventas del mes', cuando: '7 días tarde', tono: 'bad', href: '/plan' },
+        { id: 'l', tipo: 'leads', titulo: '5 leads por marcar', detalle: 'En el CRM', cuando: 'marcar', tono: 'info', href: '/crm' },
+        { id: 't2', tipo: 'tarea', titulo: 'Revisar el guion de la VSL', detalle: 'Nueva VSL', cuando: 'en 2 días', tono: 'warn', href: '/plan' },
+        { id: 't3', tipo: 'tarea', titulo: 'Grabar tres hooks nuevos', detalle: 'Creativos de Meta', cuando: 'en 4 días', tono: 'warn', href: '/plan' },
+      ],
+    },
+    funnel: {
+      id: 1, nombre: 'Programa principal', principal: true, total: 82,
+      etapas: [{ nombre: 'Nuevo', n: 38, color: null }, { nombre: 'Agendó', n: 21, color: null }, { nombre: 'Asistió', n: 9, color: null },
+        { nombre: 'Propuesta', n: 6, color: null }, { nombre: 'Ganado', n: 5, color: null }],
+    },
+    llamadas: {
+      porDia: [3, 2, 1, 0, 0, 2, 1, 2, 3, 1, 0, 0, 1, 2].map((n, k) => ({ dia: dia(hoy, k), rotulo: k === 0 ? 'Hoy' : dm(k), n })),
+      proximas: [
+        { id: 'l1', dia: Number(hoy.slice(8)), mes: MESES[mesHoy].toLowerCase(), nombre: 'Laura Méndez', detalle: 'R2 · closer Ana', cuando: 'Hoy 12:30', hoy: true, href: null },
+        { id: 'l2', dia: Number(hoy.slice(8)), mes: MESES[mesHoy].toLowerCase(), nombre: 'Jorge Salinas', detalle: 'R1 · closer Diego', cuando: 'Hoy 18:00', hoy: true, href: null },
+        { id: 'l3', dia: Number(dia(hoy, 1).slice(8)), mes: MESES[Number(dia(hoy, 1).slice(5, 7)) - 1].toLowerCase(), nombre: 'Paola Núñez', detalle: 'R1 · closer Ana', cuando: 'Mañana 10:00', hoy: false, href: null },
+      ],
+    },
+    deben: { total: 41179, cuotas: 18, tramos: [{ nombre: 'Al día', monto: 31512, pct: 77 }, { nombre: 'De 1 a 30 días', monto: 5181, pct: 13 }, { nombre: 'De 31 a 60 días', monto: 2011, pct: 5 }, { nombre: 'Más de 60 días', monto: 2475, pct: 6 }] },
+    tildar: [
+      { id: 'a', titulo: 'Mandar la propuesta a Jorge Salinas', cuando: 'vencida' },
+      { id: 'b', titulo: 'Preparar la R2 de Laura Méndez', cuando: 'hoy' },
+      { id: 'c', titulo: 'Grabar tres hooks nuevos', cuando: 'hoy' },
+    ],
+    salud: [
+      { titulo: '2 cuotas vencidas sin cobrar', link: 'Ver las cuotas', href: '/crm', nivel: 'rojo' },
+      { titulo: '3 leads sin marcar la asistencia a la R1', link: 'Marcar en el CRM', href: '/crm', nivel: 'ambar' },
+      { titulo: 'La meta del trimestre va a tiempo', link: 'Ver la meta', href: '/plan', nivel: 'verde' },
+    ],
+    meta: { titulo: 'US$30,000 de facturación', pct: 62, esperado: 58, diasRestantes: 57, atrasado: false },
+  };
+}
+
 const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<string, DatosPieza>; hoy: string }) => ReactNode> = {
   closing: ({ hoja, datos, hoy }) => (
     // Con sus botones y links, como se ve la hoja (en la miniatura no se tocan: `pointer-events: none`); `quieta` no lee la caja de IA.
@@ -315,6 +374,9 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   ),
   general: ({ hoy }) => (
     <HojaGeneral vista={vistaGeneralMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" onGrilla={() => {}} quieta />
+  ),
+  operacion: ({ hoy }) => (
+    <HojaOperacion vista={vistaOperacionMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" onGrilla={() => {}} quieta />
   ),
 };
 
