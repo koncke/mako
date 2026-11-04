@@ -263,7 +263,7 @@ test('8. la ruta, la pantalla, la API y «Dejar de mirarlo» pasan por acá', ()
   assert.doesNotMatch(app, /className="spy-oferta"/, 'el bloque de antes se fue: lo dibuja SuOferta');
   const vista = sinComentarios(leer('app/competitor-spy/SuOferta.tsx'));
   assert.match(vista, /<VistaDiagnostico[\s\S]*?deOtro/, 'el diagnóstico es el de Offer');
-  assert.match(vista, /<CargandoMako /, 'la criatura mientras lee');
+  assert.match(vista, /<EsqueletoOferta nombre=\{nombre\} \/>/, 'mientras lee, su forma en gris (Martín, 4/11 tarde: «no me refiero a mako»)');
   const run = sinComentarios(leer('lib/api-mako/areas/spy.run.ts'));
   assert.match(run, /su_oferta_con_notas: \{\s*leer:/);
   assert.match(run, /await ofertaGuardada\(id\)/);
