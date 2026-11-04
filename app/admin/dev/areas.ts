@@ -660,12 +660,11 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'newsletters', titulo: 'Newsletters', familia: 'Sales Machine',
-    estado: 'por-construir', verEnApp: '/newsletters',
-    alcance: 'Escribir newsletters recurrentes a la lista. ComingSoon sin backend.',
-    // Una newsletter, mirada desde el código, es un broadcast que se repite: el envío
-    // a una lista, la baja y el dominio por cliente ya existen. Sin estas rutas el
-    // historial del área eran commits del sidebar y ninguno de un envío.
-    vive: ['app/newsletters/page.tsx', 'app/_components/ComingSoon.tsx', 'app/_components/nav.ts', 'app/api/email/broadcasts', 'lib/email-marketing.ts', 'lib/resend.ts', 'lib/plan-proyectos-catalogo.ts'],
+    estado: 'parcial', verEnApp: '/newsletters',
+    alcance: 'El newsletter (aprobado el 29/10/2026): los suscriptos son un CRM «Newsletter» (Suscripto → Lee → Dormido → Dado de baja) y las ediciones, broadcasts de ese CRM que se escriben en el Copywriter, quedan en el Calendario y salen desde el dominio del negocio. Sólo el super admin la ve mientras el envío de email esté apagado.',
+    // Una edición, mirada desde el código, es un broadcast cuyo segmento es el CRM del newsletter: el envío, la baja y el
+    // dominio por cliente son los de siempre. Sin estas rutas el historial del área eran commits del sidebar.
+    vive: ['app/newsletters', 'lib/newsletter.ts', 'lib/newsletter-reglas.ts', 'lib/newsletter-ia.ts', 'lib/newsletter-copy.ts', 'app/_components/nav.ts', 'app/api/email/broadcasts', 'app/api/email/unsubscribe', 'app/api/cron/email-broadcasts', 'lib/email-marketing.ts', 'lib/resend.ts', 'lib/plan-proyectos-catalogo.ts'],
     nota: 'Es la única de las ocho tabs de Sales Machine sin proyecto propio en lib/plan-proyectos-catalogo.ts: la fila «Sales Email» dice que cubre «el generador de emails de venta y las newsletters para el cliente», así que una tarea de newsletter no tiene lugar propio donde rutearse.',
   },
   {
@@ -1165,6 +1164,7 @@ export const AREAS: AreaDev[] = [
     vive: [
       'app/tickets/page.tsx', 'app/tickets/soporte/', 'lib/soporte-chat.ts', 'lib/soporte-reporte.ts', 'app/api/soporte/reportar/route.ts', 'app/_ui/ReportarASoporte.tsx', 'app/tickets/acciones.ts', 'app/tickets/tickets.css', 'app/tickets/bandeja/',
       'lib/tickets-reglas.ts', 'lib/tickets-db.ts', 'lib/tickets-cierre.ts', 'lib/tickets-aviso.ts', 'lib/tickets-runner.ts',
+      'lib/tickets-avance.ts', 'lib/tickets-avance-email.ts', 'app/api/email/unsubscribe/tickets/route.ts', 'supabase/migrations/0364_ticket_avance_por_email.sql', 'tests/tickets-avance.test.ts', 'tests/tickets-avance-email.test.ts', 'tests/_tickets-avance-email-hijo.ts',
       'lib/api-mako/areas/tickets.def.ts', 'lib/api-mako/areas/tickets.run.ts', 'app/api/cron/tickets/route.ts', 'scripts/tickets.ts',
       'lib/errores-app.ts', 'lib/errores-app-reglas.ts', 'app/api/errores/route.ts', 'app/_components/ReportarErrores.tsx', 'supabase/migrations/0313_errores_app.sql', 'tests/errores-app.test.ts', 'tests/tickets-cartero.test.ts',
       'supabase/migrations/0311_tickets_usuarios.sql', 'tests/tickets.test.ts', 'tests/tickets-triage.test.ts', 'docs/diseno-ticketera-usuarios.md',

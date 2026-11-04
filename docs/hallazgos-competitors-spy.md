@@ -765,3 +765,124 @@ Martín: «investiga esto para copiarlo en la extension de MaKo» y «Obvio que 
 - **La miniatura que no se llega a bajar se pierde:** `guardarMiniaturas` tiene 9 s de presupuesto, y un anuncio no se relee solo. La que no entró queda apuntando al CDN, que vence, hasta que se vuelva a guardar esa pestaña.
 - La imagen se guarda en `spy/anuncios/<id>`, sin el negocio: dos negocios con el mismo anuncio reusan el archivo. No es la lectura compartida (no hay manera de ver el de otro), pero el archivo es uno.
 - Cuando la 0.75.0 esté publicada, «Tag Manager puede cargar más» (`SuFunnel.tsx`) debería decir cómo verlo: abrir su sitio y tocar el ícono de MaKo.
+
+## El buscador traía cuentas chicas: el diagnóstico obvio («otro actor de Apify») era el equivocado (4/11/2026)
+
+**Síntoma:** Martín buscó «Víctor Heras» y vinieron @victorheras (5,2 mil), @victoria.herasymchukk (59),
+@victor.heras.167 (14)… y ninguna de las grandes que el buscador del propio Instagram muestra primero
+(victorherasemprendedor, 492 mil; herasmedia, 248 mil).
+
+**El diagnóstico obvio era el equivocado:** «el actor de Apify busca mal, hay que buscar uno mejor». Pero el buscador de
+Instagram ordena por relevancia CON la sesión de quien busca (a quién sigue, quién es grande, qué buscó otra gente); un
+scraper sin sesión sólo puede emparejar texto, y ahí 14 seguidores y 492 mil empatan. Ningún actor sin sesión arregla eso.
+Lo que ordena por popularidad sin sesión es Google, y además escribe los seguidores en la descripción del resultado:
+con eso se ordena sin leer cada perfil. **Regla: cuando un proveedor ordena «mal», preguntá primero con qué dato ordena
+el que ordena bien, y si ese dato se puede tener sin su sesión.**
+
+**Otros tres del mismo pedido, ninguno daba error:**
+- ⚠️ **La barra principal no buscaba: filtraba.** Sólo comparaba contra los competidores que ya se miran; con un nombre
+  nuevo mostraba un cartel con otro botón. Para Martín «no hace nada». Ahora abre el mismo buscador que el «+».
+- ⚠️ **«den.borgg» era un SITIO.** `queEs` tomaba cualquier «algo.algo» por un dominio pelado: el @ escrito sin la arroba
+  se ofrecía como la página https://den.borgg y nunca se leía. Y «instagram.com/herasmedia» sin https caía en la misma
+  regla y se guardaba como su landing. Un sitio ahora pide un dominio de primer nivel de verdad (`esDominio`).
+- ⚠️ **El link de un canal de YouTube no traía la foto** aunque `channels.list` la devuelve en la misma respuesta que ya
+  se pagaba (`snippet.thumbnails`): se tiraba. Ahora la confirmación y la ficha la usan.
+
+**Y el @ exacto tardaba porque se preguntaba en fila:** la Meta del negocio (hasta 12 s), la de la plataforma, Google y
+recién Apify. De once negocios con Meta, uno tiene permisos de Instagram: las esperas de adelante casi nunca traían nada.
+Con la clave de Spy, Apify va primero (`leerExacto`). El actor en sí sigue tardando unos segundos: eso no se arregla
+desde acá, y por eso la pantalla no promete «inmediato».
+
+**Sin probar contra el servicio de verdad** (la nube no llega a Apify ni a Google): la forma de la descripción de Google
+(«492K Followers» en inglés, «492 mil seguidores» en español: el lector entiende las dos), cuánto tarda una corrida de dos
+páginas, y que el lector de perfiles acepte cinco usuarios en una corrida con `maxItems` 5.
+
+**Vive en:** lib/spy-buscar-reglas.ts · lib/spy-buscar.ts · app/api/competitor-spy/buscar/route.ts ·
+app/competitor-spy/BuscadorAlta.tsx · lib/instagram-perfil-server.ts (`leerPerfilesEnLote`) · lib/spy-que-es.ts ·
+lib/spy-youtube.ts (`leerCanalCorto`) · tests/spy-buscar.test.ts · tests/instagram-perfil-fuentes.test.ts
+
+## La ficha automática: lo que no daba error (4/11/2026)
+
+> Martín, 4/11: «la IA ya debería analizar por sí sola todo, sin pedirlo… muchas veces aparecen tarjetas vacías sin la
+> miniatura, y segundos después, cuando la animación ya empezó, ahí aparece la miniatura».
+
+**El diagnóstico obvio era el equivocado, dos veces:**
+- ⚠️ **Las tarjetas vacías de la animación no eran miniaturas rotas: eran miniaturas que todavía no habían llegado.** La
+  película esperaba 700 ms a que se pudieran pintar, y empezaba igual. Las de Instagram vienen del CDN de Meta y tardan
+  más que eso. Ahora se bajan TODAS antes de arrancar (`new Image()` con el mismo `referrerPolicy` que la `<img>`, si no el
+  CDN contesta 403), hasta 8 s, y la que no llegó entra con su texto. Mientras tanto se ve sólo la criatura.
+- ⚠️ **Sospeché que un avatar PNG con transparencia rompía la comparación de fotos** (`grayscale().raw()` con dos canales,
+  144 bytes, y `dHash` en null). Lo medí antes de escribirlo como hallazgo: con esta versión de sharp sale un solo canal.
+  Quedó el test con un PNG con alfa, como red, y no la afirmación.
+
+**Tres que callaban:**
+- ⚠️ **El análisis «a pedido» caía a la IA de la plataforma.** Sin la clave de Claude del negocio, `analizarCompetidor`
+  llamaba a `chatClaude`; no se gastaba porque el veto frena `spy`, pero el negocio con sólo su Gemini no podía analizar
+  nada. Ahora es `chatCheapCascade` (su Claude, su GPT, su Gemini) y sin ninguna dice «Conecta tu…».
+- ⚠️ **Mandar siempre «las primeras 40» repetía y pagaba lo ya leído**, y una pieza que la IA no devolvía quedaba
+  pendiente para siempre (cada lectura la volvía a mandar). Ahora van sólo las pendientes, y lo que no volvió se marca
+  leído sin datos (`ANALISIS_SIN_DATOS`). Y el ref se busca sin mayúsculas: un modelo que lo devuelve en minúsculas no
+  encontraba la fila con `.eq('ref', …)`.
+- ⚠️ **Una tanda que no dice qué promete borraba la oferta.** El análisis de 30 reels de una charla devuelve `promete`
+  vacío, y se escribía encima del que había. `ofertaQueQueda` sólo pisa con una que trae algo.
+
+**Regla:** lo que corre solo y en segundo plano necesita una marca de «ya lo hice» que no dependa de que la IA conteste
+bien; si no, lo que falla una vez se paga en cada vuelta.
+
+**Sin probar contra el servicio de verdad:** que el análisis automático con la IA de un negocio real termine en los 300 s
+de la ruta (3 tandas de 30), y la búsqueda de redes completa contra Google y Apify (los dobles salen de las respuestas
+medidas el 3/11).
+
+**Vive en:** lib/spy-analisis-reglas.ts · lib/spy.ts (`analizarCompetidor`, `guardarAnalisis`, el sitio de la bio) ·
+app/api/competitor-spy/analizar/route.ts · app/api/competitor-spy/redes/route.ts · lib/spy-otras-redes.ts ·
+lib/spy-otras-redes-reglas.ts · lib/spy-foto-hash.ts · app/competitor-spy/redes-recordar.ts ·
+app/competitor-spy/OrdenSpy.tsx · app/competitor-spy/SpyApp.tsx · tests/spy-analisis.test.ts · tests/spy-otras-redes.test.ts
+
+## «No me hizo la caricatura»: no fallaba la generación, nadie la pedía (4/11/2026)
+
+> Martín (por el Cerebro): «me traje a @den.borgg y no me hizo la caricatura como habíamos quedado».
+
+**El diagnóstico obvio era el equivocado:** «falla Flow». `pedirCaricatura` (lib/spy-caricatura-flow.ts) estaba escrita
+desde el 3/11 con su prompt aprobado, y **no tenía un solo llamador**: compilaba, tenía sus comentarios y nunca corría. Le
+faltaban dos cosas que nadie tenía: los `rasgos` que el prompt exige y quién la disparara.
+
+**Y debajo había otro que tampoco daba error:** el pedido iba con una ruta propia (`spy/caricaturas/…`) para guardarla en
+el bucket de Spy, pero la cola sólo le firma la subida al puente si la ruta pasa `RUTA_SUBIDA` (`firmarSubidas`,
+lib/flow-cola.ts). Con la propia, el puente no subía nada y lo único que volvía era la url de Flow, que vence en una
+hora. Ahora va con `rutaDeSubida` y el servidor la copia al bucket de Spy.
+
+**Regla:** una función que hace algo caro y lo hace bien no está terminada hasta que alguien la llama; antes de dar por
+«ya existe» una pieza, `grep` de sus llamadores.
+
+**Sin probar contra el servicio de verdad:** la caricatura entera (la IA mirando la foto, el puente de Flow tomando el
+pedido). La nube no llega a ninguno de los dos.
+
+**Vive en:** lib/spy-caricatura-auto.ts · lib/spy-caricatura-reglas.ts · lib/spy-caricatura-flow.ts ·
+app/api/competitor-spy/caricatura/route.ts · lib/spy.ts (`listarCompetidores`) · app/competitor-spy/SpyApp.tsx ·
+tests/spy-caricatura-auto.test.ts
+
+## Traer todo: la lectura de siempre iba a borrar el historial (4/11/2026)
+
+> Martín, 4/11: «que no traiga solo 50 reels o videos, que traiga muchos más, si puede, todos directamente».
+
+**El diagnóstico obvio era el equivocado:** «sube el número». Subir los 50 a 500 en la lectura de siempre se cae a los
+60 s de la ruta (cien publicaciones tardan uno o dos minutos en Apify), y además rompe otra cosa que no daba error.
+
+⚠️ **`marcarDejadas` marcaba como «borrada» toda pieza que no viniera en la lectura**, sin mirar hasta dónde llegaba esa
+lectura. Con una lectura que trae lo último y una corrida larga que trae años, cada «Revisar ahora» habría marcado todo el
+historial como «borradas» (y ya pasaba en YouTube: un canal que publica Shorts a diario sacaba de la ventana videos que
+seguían ahí). Ahora cuenta sólo lo publicado desde lo más viejo que trajo la lectura, y una pieza sin fecha no se marca
+(`seFueron`).
+
+**Y dos que callaban:** `listarPiezas` cortaba en 200 con un `.limit` (con todo lo traído, la ficha mostraba una parte
+sin decirlo), y la lectura de YouTube dejaba de paginar al tener 20 largos: «todos» nunca habría pasado de ahí.
+
+**Regla:** lo que marca algo como «se fue» tiene que saber hasta dónde miró. Una ausencia sólo es evidencia dentro de la
+ventana que se leyó.
+
+**Sin probar contra el servicio de verdad:** las corridas largas de Apify (empezar, mirar, leer el dataset) y el actor
+de anuncios entero, que queda apagado hasta medirlo con `scripts/probar-anuncios-apify.mjs`.
+
+**Vive en:** lib/spy-todo-reglas.ts · lib/spy-todo.ts · app/api/competitor-spy/todo/route.ts · lib/spy.ts
+(`marcarDejadas`, `listarPiezas`, `vistaDeInstagram`) · lib/spy-youtube.ts (`PAGINAS_COMPLETAS`) ·
+lib/instagram-perfil.ts (`piezasDeApify`) · scripts/probar-anuncios-apify.mjs · tests/spy-todo.test.ts

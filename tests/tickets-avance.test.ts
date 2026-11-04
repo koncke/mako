@@ -23,7 +23,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ASUNTO_DEL_HITO, HITOS_QUE_AVISAN, cuerpoDelAvance, tocaAvisarAvance } from '../lib/tickets-avance';
+import { ASUNTO_DEL_HITO, HITOS_QUE_AVISAN, cuerpoDelAvance, decidirAvance, hitoPendiente, linkDelTicket, tocaAvisarAvance, type PersonaDelAvance, type TicketDelAvance } from '../lib/tickets-avance';
 
 test('el primer hito siempre avisa: es el que Joan no tuvo', () => {
   assert.equal(tocaAvisarAvance('recibido', null), true);
@@ -64,4 +64,35 @@ test('el correo dice en qué anda y lleva el link, sin jerga', () => {
   // La barra de más de la base no duplica la del link.
   assert.match(texto, /https:\/\/hola-mako\.com\/tickets\?t=43$/);
   assert.equal(ASUNTO_DEL_HITO.en_curso, 'Ya lo estamos desarrollando');
+});
+
+test('el link lleva el negocio, como todo link que sale de MaKo', () => {
+  assert.equal(linkDelTicket(43, 'https://hola-mako.com/', 30), 'https://hola-mako.com/tickets?t=43&ws=30');
+  assert.equal(linkDelTicket(43, 'https://hola-mako.com', null), 'https://hola-mako.com/tickets?t=43');
+});
+
+test('a quién le sale: sólo a la persona del negocio que lo levantó y no los apagó (4/11/2026)', () => {
+  const t: TicketDelAvance = { id: 1, titulo: 'x', estado: 'nuevo', workspace_id: 30, usuario_id: 2, canal: 'formulario', ref: null, avance_email: null };
+  const p: PersonaDelAvance = { id: 2, email: ' P2@Test.com ', workspace_id: 30, estado: 'activo', perfil: {} };
+  assert.deepEqual(decidirAvance(t, p, 9), { manda: true, hito: 'recibido', a: 'p2@test.com' });
+  const motivo = (tt: Partial<TicketDelAvance>, pp: Partial<PersonaDelAvance> | null = {}) => {
+    const d = decidirAvance({ ...t, ...tt }, pp === null ? null : { ...p, ...pp }, 9);
+    return d.manda ? 'manda' : d.motivo;
+  };
+  assert.equal(motivo({ avance_email: 'recibido' }), 'sin_hito');
+  assert.equal(motivo({ canal: 'sistema' }), 'automatico');
+  assert.equal(motivo({ ref: 'error:abc' }), 'automatico');
+  assert.equal(motivo({ workspace_id: 9 }, { workspace_id: 9 }), 'plataforma');
+  assert.equal(motivo({}, null), 'sin_persona');
+  assert.equal(motivo({ usuario_id: 7 }), 'sin_persona', 'la fila leída tiene que ser la del ticket');
+  assert.equal(motivo({}, { workspace_id: 31 }), 'otro_negocio');
+  assert.equal(motivo({}, { estado: 'suspendido' }), 'suspendida');
+  assert.equal(motivo({}, { email: 'whatsapp:5215511112222' }), 'sin_email');
+  assert.equal(motivo({}, { perfil: { ticketsPorEmail: false } }), 'apagado');
+  assert.equal(motivo({}, { perfil: { ticketsPorEmail: true } }), 'manda');
+});
+
+test('un valor viejo en la columna no habilita nada', () => {
+  assert.equal(hitoPendiente({ estado: 'en_curso', avance_email: 'vaya_a_saber' }), null);
+  assert.equal(hitoPendiente({ estado: 'rechazado', avance_email: null }), null, 'cerrado no manda correo');
 });

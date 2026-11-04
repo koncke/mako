@@ -130,6 +130,9 @@ export const TABLAS_DE_INQUILINO = [
   'replay_lotes', 'replay_sesiones',
   'retros', 'review_queue', 'script_analyses',
   'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares',
+  // Lo escrito sin conexión que ya se subió (MaKo sin conexión, T2, mig 0346, 28/10/2026): la llave de idempotencia de cada
+  // cambio. No va en TENANT_TABLES: la lee app/_sin-conexion/acciones.ts con la PERSONA (usuario_id) y el id del cambio.
+  'sin_conexion_aplicadas',
   // Competitors Spy (mig 0359): los competidores que vigila el negocio y sus piezas. Vaciar el
   // negocio o borrarlo se los lleva; `spy_piezas` también se va con su competidor (on delete cascade).
   'spy_competidores', 'spy_piezas',

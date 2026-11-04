@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="es" data-estilo="lumora" data-tema-inicial="claro"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="comun.css?v=1793570156">
+<style>
+/* Replica de la disposición de Lumora, medida el 1/11/2026 sobre el demo a 1183 px:
+   columna principal 753 + RIEL FIJO de 296, gap 19.
+   Principal: hero (saludo + tira del día) → 4 tiles → accesos → dos tarjetas → una ancha → dos tarjetas.
+   Riel: calendario del mes → el día → recordatorios.  */
+:root{ --r:20px; --r-sm:14px; }
+:root[data-tema="claro"]{
+--bg:#f6f5f1;--surface:#fff;--text:#16161a;--muted:#5a5a60;--faint:#86868d;
+--line:#1616161a;--line-2:#16161629;--well:#1616160d;--ink:#16161a;--on-ink:#faf9f6;
+--mint:#d9ece1;--on-mint:#1d4635;--sky:#d4e3f7;--on-sky:#1d3a5c;
+--peach:#f8ddd2;--on-peach:#6b3621;--lemon:#f8e9bd;--on-lemon:#5d4710;
+--up:#22735c;--up-soft:#d5eee4;--down:#b1412a;--down-soft:#f8e1da;--warn:#85580a;--warn-soft:#f5ead2;
+--mk-ctl-bg:#fff;--mk-ctl-fg:#5a5a60;--mk-ctl-hov:#1616160f;--mk-ctl-on:#16161a;--mk-ctl-on-fg:#faf9f6;
+--mk-row-hov:#1616160a;--surface-2:#efeee8;--mk-flash:#16161a14;--acento:#1f58d6;
+}
+:root[data-tema="oscuro"]{
+--bg:#101114;--surface:#191b1f;--text:#eceef1;--muted:#a0a5ac;--faint:#7b8089;
+--line:#ffffff14;--line-2:#ffffff26;--well:#ffffff0d;--ink:#eceef1;--on-ink:#16161a;
+--mint:#1e3a30;--on-mint:#8fd9ba;--sky:#1b2e45;--on-sky:#9cc4ef;
+--peach:#3a2620;--on-peach:#f0b398;--lemon:#39301a;--on-lemon:#e8cf86;
+--up:#4fbf92;--up-soft:#4fbf9226;--down:#e8795f;--down-soft:#e8795f26;--warn:#e0a94a;--warn-soft:#e0a94a26;
+--mk-ctl-bg:#191b1f;--mk-ctl-fg:#a0a5ac;--mk-ctl-hov:#ffffff12;--mk-ctl-on:#eceef1;--mk-ctl-on-fg:#16161a;
+--mk-row-hov:#ffffff08;--surface-2:#212429;--mk-flash:#eceef11f;--acento:#7db4ff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:500 14px/1.45 Urbanist,ui-sans-serif,system-ui,sans-serif;padding:16px 22px 48px}
+/* la cápsula de arriba, centrada, como en Lumora */
+.capsula{display:flex;align-items:center;gap:13px;background:var(--surface);border-radius:999px;padding:8px 18px 8px 13px;
+  box-shadow:0 1px 2px #00000014,0 10px 24px -18px #00000040;width:fit-content;margin:0 auto 16px}
+.punto{width:9px;height:9px;border-radius:50%;background:var(--up);box-shadow:0 0 0 4px var(--up-soft)}
+.capsula .hora{font-size:18px;font-weight:600;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.capsula .que{font-size:12.5px;color:var(--muted)}
+.capsula .riel{width:88px;height:5px;border-radius:999px;background:var(--well);overflow:hidden}
+.capsula .riel i{display:block;height:100%;width:62%;background:var(--ink);border-radius:999px}
+/* ── LA ESTRUCTURA DE LUMORA: principal + riel ──────────────────────────── */
+.marco{display:grid;grid-template-columns:minmax(0,753fr) 296fr;gap:19px;align-items:start}
+.col{display:flex;flex-direction:column;gap:19px}
+.card{background:var(--surface);border-radius:var(--r);padding:18px;box-shadow:0 1px 2px #00000012;
+  display:flex;flex-direction:column}
+.tit{font-size:15px;font-weight:600;letter-spacing:-.1px}
+.sub{font-size:12.5px;color:var(--faint);margin-top:1px}
+.cabc{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:13px}
+.lnk{font-size:12.5px;font-weight:600;color:var(--acento)}
+.pie{margin-top:auto;padding-top:11px;color:var(--muted);font-size:12.5px;font-weight:600}
+/* hero */
+.hero{background:linear-gradient(135deg,var(--mint),var(--surface) 62%);padding:22px}
+.eyebrow{font-size:12.5px;color:var(--faint)}
+.h1{font-size:33px;font-weight:600;letter-spacing:-.85px;line-height:35px;margin-top:3px}
+.estado{font-size:15px;color:var(--muted);margin-top:7px}
+.estado b{color:var(--text);font-weight:600}
+.estado .al{color:var(--down);font-weight:600}
+.btns{display:flex;gap:9px;margin-top:15px}
+.btn{height:40px;padding:0 18px;border-radius:999px;background:var(--surface);box-shadow:0 1px 2px #00000014;
+  display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600}
+.btn--ink{background:var(--ink);color:var(--on-ink);box-shadow:none}
+.tira{display:flex;gap:8px;margin-top:40px;position:relative;align-items:stretch}
+.hueco{flex:1;border-radius:var(--r-sm);padding:11px 13px;min-height:88px;display:flex;flex-direction:column;
+  justify-content:space-between;position:relative}
+/* los bloques con clase: barra de color a la izquierda, como el original */
+.hueco.cls{box-shadow:inset 3px 0 0 var(--barra,transparent)}
+/* LIBRE: contorno punteado, sin relleno */
+.libre{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2);border-style:dashed;color:var(--faint)}
+/* PLANIFICAR: rayado diagonal */
+.plan{background:repeating-linear-gradient(-45deg,var(--line) 0 2px,transparent 2px 8px),var(--well);color:var(--faint)}
+/* el separador entre bloques, con su iconito */
+.corte{flex:0 0 30px;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:.45}
+/* la línea del AHORA, copiada de .ribbon__now: 2 px, rgb(229,105,74), punto de 10 y píldora de 36x17 */
+.ahora-linea{position:absolute;top:-6px;bottom:-14px;width:2px;background:#e5694a;border-radius:2px;z-index:3}
+.ahora-linea::before{content:"";position:absolute;left:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:#e5694a}
+.ahora-linea::after{content:"11:52";position:absolute;left:-17px;top:-26px;height:17px;padding:0 7px;border-radius:6px;
+  background:#e5694a;color:#fff;font-size:10.5px;font-weight:700;line-height:17px;white-space:nowrap}
+.ahora{box-shadow:inset 0 0 0 2px var(--borde,#1f58d6)}
+.hueco b{font-size:13px;font-weight:600}.hueco span{font-size:11px;opacity:.72}
+.libre{background:repeating-linear-gradient(-45deg,var(--line) 0 2px,transparent 2px 8px),var(--well);color:var(--faint)}
+/* tiles */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.tile{border-radius:var(--r);padding:15px 16px;min-height:124px;display:flex;flex-direction:column}
+.tile .rot{font-size:12.5px;font-weight:600;opacity:.82;display:flex;justify-content:space-between}
+.tile .num{font-size:31px;font-weight:600;letter-spacing:-1px;line-height:1;margin-top:auto}
+.tile .fin{font-size:11.5px;opacity:.8;margin-top:6px}
+.spark{height:22px;margin-top:5px}
+/* accesos rápidos, como «Quick links» */
+.accesos{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.acc{background:var(--well);border-radius:var(--r-sm);padding:12px 10px;text-align:center;font-size:12px;font-weight:600;
+  display:flex;flex-direction:column;align-items:center;gap:7px;transition:background .15s}
+.acc:hover{background:var(--mk-row-hov)}
+.acc i{width:30px;height:30px;border-radius:10px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:15px}
+/* listas */
+.fila{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line)}
+.fila:last-of-type{border-bottom:0}
+.fila .t{flex:1;min-width:0}
+.fila .t b{font-size:13.5px;font-weight:600;display:block}
+.fila .t span{font-size:12px;color:var(--faint)}
+.chip{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;background:var(--well);color:var(--muted);white-space:nowrap}
+.chip--d{background:var(--down-soft);color:var(--down)}.chip--w{background:var(--warn-soft);color:var(--warn)}
+.bolita{width:17px;height:17px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line-2);flex:0 0 auto}
+.accion{height:28px;padding:0 13px;border-radius:999px;background:var(--ink);color:var(--on-ink);font-size:12px;font-weight:600;
+  display:flex;align-items:center;flex:0 0 auto}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:19px}
+/* barras */
+.barras{display:flex;align-items:flex-end;gap:10px;height:132px;margin-top:12px}
+.barras div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;height:100%}
+.barras i{display:block;width:100%;border-radius:9px;background:var(--mint)}
+.barras i.hoy{background:var(--ink)}
+.barras span{font-size:11px;color:var(--faint)}
+/* el riel */
+.mini{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:4px}
+.mini span{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:11.5px;border-radius:9px;color:var(--muted)}
+.mini span.hoy{background:var(--ink);color:var(--on-ink);font-weight:700}
+.mini span.pt{background:var(--mint);color:var(--on-mint);font-weight:600}
+.mini .dow{color:var(--faint);font-size:10.5px;font-weight:600}
+.ag{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--line)}
+.ag:last-of-type{border-bottom:0}
+.ag .h{font-size:11.5px;color:var(--faint);width:40px;flex:0 0 auto;padding-top:2px}
+.ag b{font-size:13px;font-weight:600;display:block}.ag span{font-size:11.5px;color:var(--faint)}
+.ag i{width:3px;border-radius:2px;background:var(--mint);align-self:stretch}
+.rec{border-radius:var(--r-sm);padding:12px 13px;margin-bottom:10px}
+.rec:last-child{margin-bottom:0}
+.rec b{font-size:13px;font-weight:600;display:block}
+.rec p{font-size:12px;opacity:.82;margin:3px 0 9px}
+.rec .ir{font-size:12px;font-weight:700}
+</style></head>
+<body>
+
+<div class="capsula">
+  <span class="punto"></span><span class="hora">11:30</span>
+  <span class="que">R2 con Ana Gómez · quedan 28 min</span><span class="riel"><i></i></span>
+</div>
+
+<div class="marco">
+  <!-- ══ COLUMNA PRINCIPAL ══ -->
+  <div class="col">
+
+    <div class="card hero">
+      <div class="eyebrow">Domingo 1 de noviembre · semana 44</div>
+      <div class="h1">Buen día, Martín</div>
+      <div class="estado">Tenés <b>3 llamadas</b> hoy y <b>6 tareas</b>.
+        <span class="al">⚠ 2 agendas de ayer siguen sin contactar.</span></div>
+      <div class="btns"><div class="btn btn--ink">✓ Contactar las 2 agendas</div>
+        <div class="btn">🗓 Ver el día completo</div></div>
+      <div class="tira">
+        <i class="ahora-linea" style="left:21%"></i>
+        <div class="hueco plan"><span>Preparar</span><b>—</b><span>09:00</span></div>
+        <div class="hueco cls ahora" style="background:var(--mint);color:var(--on-mint);--barra:#1d4635;--borde:#2f6b50">
+          <span>R2 · Ana Gómez</span><b>Luis</b><span>11:30</span></div>
+        <div class="corte">☕</div>
+        <div class="hueco cls" style="background:var(--sky);color:var(--on-sky);--barra:#1d3a5c">
+          <span>R1 · Carlos Ruiz</span><b>Sofía</b><span>16:00</span></div>
+        <div class="hueco libre"><span>Libre</span><b>—</b><span>17:00</span></div>
+        <div class="corte">🕐</div>
+        <div class="hueco cls" style="background:var(--peach);color:var(--on-peach);--barra:#6b3621">
+          <span>Creativos</span><b>Equipo</b><span>17:30</span></div>
+        <div class="hueco libre"><span>Libre</span><b>—</b><span>19:00</span></div>
+      </div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile" style="background:var(--mint);color:var(--on-mint)">
+        <div class="rot"><span>Hecho hoy</span><span>✓</span></div><div class="num">2<span style="font-size:14px;opacity:.7"> / 8</span></div>
+        <svg class="spark" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 17 L20 14 L40 16 L60 9 L80 11 L100 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".5"/></svg>
+        <div class="fin">2 más que ayer</div></div>
+      <div class="tile" style="background:var(--sky);color:var(--on-sky)">
+        <div class="rot"><span>Foco hoy</span><span>◷</span></div><div class="num">1,1 h</div>
+        <svg class="spark" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 7 L20 10 L40 9 L60 14 L80 12 L100 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".5"/></svg>
+        <div class="fin">0,9 h para cerrar el anillo</div></div>
+      <div class="tile" style="background:var(--peach);color:var(--on-peach)">
+        <div class="rot"><span>Te está esperando</span><span>!</span></div><div class="num">5</div>
+        <svg class="spark" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 12 L20 9 L40 11 L60 7 L80 10 L100 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".5"/></svg>
+        <div class="fin">2 de hace más de 3 días</div></div>
+      <div class="tile" style="background:var(--lemon);color:var(--on-lemon)">
+        <div class="rot"><span>Cierres del mes</span><span>$</span></div><div class="num">3</div>
+        <svg class="spark" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="M0 16 L20 17 L40 13 L60 14 L80 8 L100 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".5"/></svg>
+        <div class="fin">faltan $18.000 — unos 4 cierres</div></div>
+    </div>
+
+    <div class="card">
+      <div class="cabc"><div><div class="tit">Accesos</div><div class="sub">Lo que más abrís</div></div>
+        <span class="lnk">Personalizar</span></div>
+      <div class="accesos">
+        <div class="acc"><i>🧲</i>CRM</div><div class="acc"><i>📋</i>Plan</div><div class="acc"><i>💬</i>Chats</div>
+        <div class="acc"><i>📣</i>Campañas</div><div class="acc"><i>🧭</i>Offer</div><div class="acc"><i>🎬</i>Creativos</div>
+      </div>
+    </div>
+
+    <div class="dos">
+      <div class="card">
+        <div class="cabc"><div><div class="tit">Te está esperando</div><div class="sub">Trabado por vos</div></div>
+          <span class="chip chip--d">5</span></div>
+        <div class="fila"><div class="bolita"></div><div class="t"><b>Ana Gómez</b><span>Propuesta sin respuesta · $4.500</span></div>
+          <span class="chip chip--d">4 d</span></div>
+        <div class="fila"><div class="bolita"></div><div class="t"><b>Carlos Ruiz</b><span>Sin contrato · $7.200</span></div>
+          <span class="chip chip--w">2 d</span></div>
+        <div class="fila"><div class="bolita"></div><div class="t"><b>2 agendas de ayer</b><span>Del «Método 90 días»</span></div>
+          <span class="chip chip--w">ayer</span></div>
+        <div class="fila"><div class="bolita"></div><div class="t"><b>Marta Díaz</b><span>Cuota vencida · $300</span></div>
+          <span class="chip chip--d">3 d</span></div>
+        <div class="pie">Abrir el CRM →</div>
+      </div>
+      <div class="card">
+        <div class="cabc"><div><div class="tit">Mis tareas</div><div class="sub">De hoy y atrasadas</div></div>
+          <span class="lnk">Ver todas</span></div>
+        <div class="fila"><div class="bolita"></div><div class="t"><b>Preparar la R2 de Carlos</b><span>Mentoría Q4</span></div>
+          <span class="chip chip--d">Urgente</span></div>
+        <div class="fila"><div class="bolita"></div><div class="t"><b>Grabar 3 hooks nuevos</b><span>Método 90 días</span></div>
+          <span class="chip chip--w">Alta</span></div>
+        <div class="fila"><div class="bolita"></div><div class="t"><b>Revisar el guion de la VSL</b><span>Lanzamiento</span></div>
+          <span class="chip chip--w">Alta</span></div>
+        <div class="fila"><div class="bolita"></div><div class="t"><b>Cerrar lo de Jorge Peña</b><span>Mentoría Q4</span></div></div>
+        <div class="pie">Abrir el Plan →</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cabc"><div><div class="tit">La semana del equipo</div>
+        <div class="sub">Tareas cerradas y llamadas hechas, día por día</div></div>
+        <span class="lnk">Ver el Plan</span></div>
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <span style="font-size:31px;font-weight:600;letter-spacing:-1px">25</span>
+        <span class="sub">cerradas · <b style="color:var(--down);font-weight:700">−4%</b> vs la semana anterior</span></div>
+      <div class="barras">
+        <div><i style="height:46%"></i><span>Lun</span></div><div><i style="height:30%"></i><span>Mar</span></div>
+        <div><i style="height:58%"></i><span>Mié</span></div><div><i style="height:86%"></i><span>Jue</span></div>
+        <div><i style="height:22%"></i><span>Vie</span></div><div><i style="height:12%"></i><span>Sáb</span></div>
+        <div><i class="hoy" style="height:38%"></i><span>Hoy</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ EL RIEL (296 px, como en Lumora) ══ -->
+  <div class="col">
+
+    <div class="card">
+      <div class="cabc"><div><div class="tit">Noviembre 2026</div></div><span class="lnk">Calendario</span></div>
+      <div class="mini">
+        <span class="dow">L</span><span class="dow">M</span><span class="dow">M</span><span class="dow">J</span>
+        <span class="dow">V</span><span class="dow">S</span><span class="dow">D</span>
+        <span></span><span></span><span></span><span></span><span></span><span></span><span class="hoy">1</span>
+        <span class="pt">2</span><span>3</span><span class="pt">4</span><span>5</span><span class="pt">6</span><span>7</span><span>8</span>
+        <span>9</span><span class="pt">10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span>
+      </div>
+      <div class="sub" style="margin-top:11px">3 llamadas esta semana · 2 cuotas vencen</div>
+    </div>
+
+    <div class="card">
+      <div class="cabc"><div><div class="tit">El día</div><div class="sub">De acá a la noche</div></div></div>
+      <div class="ag"><span class="h">11:30</span><i></i><div><b>R2 · Ana Gómez</b><span>Closer: Luis · video</span></div></div>
+      <div class="ag"><span class="h">16:00</span><i style="background:var(--sky)"></i><div><b>R1 · Carlos Ruiz</b><span>Closer: Sofía</span></div></div>
+      <div class="ag"><span class="h">17:30</span><i style="background:var(--peach)"></i><div><b>Revisión de creativos</b><span>Con el equipo</span></div></div>
+      <div class="pie">Abrir el Calendario →</div>
+    </div>
+
+    <div class="card">
+      <div class="cabc"><div><div class="tit">MaKo te sugiere</div><div class="sub">Según lo que pasó hoy</div></div></div>
+      <div class="rec" style="background:var(--sky);color:var(--on-sky)">
+        <b>Preparar la R2 de Ana</b>
+        <p>Te armo de dónde vino, qué dijo en la R1 y su objeción.</p><div class="ir">Preparar →</div></div>
+      <div class="rec" style="background:var(--lemon);color:var(--on-lemon)">
+        <b>Escribir los 4 seguimientos</b>
+        <p>Para las propuestas sin respuesta, en tu tono.</p><div class="ir">Escribir →</div></div>
+      <div class="rec" style="background:var(--peach);color:var(--on-peach)">
+        <b>La campaña se pasó del tope</b>
+        <p>«Mentoría Q4» gastó $1.240 de $1.000 con ROAS 2,1×.</p><div class="ir">Ver →</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="comun.js?v=1793570156"></script>
+</body></html>

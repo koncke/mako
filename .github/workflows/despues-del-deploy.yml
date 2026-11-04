@@ -1,0 +1,181 @@
+# =============================================================================
+# Después del deploy: un deploy de producción que falla deja una corrida ROJA, y uno que sale bien pasa la prueba de humo
+# =============================================================================
+# Por qué (docs/hallazgos-infra.md → «Por qué tardaba horas»): el 3/11/2026 un deploy roto pasó 6 h sin que nada lo dijera.
+# `main` avanzaba, el build de Vercel moría, y producción seguía sirviendo la versión anterior: no se rompe nada para el
+# cliente y TAMPOCO LLEGA NADA. Lo que ve el vigía —y GitHub, que manda el mail de una corrida que falló— son las corridas
+# rojas de Actions: por eso un deploy fallido tiene que terminar acá como una corrida roja, no como un aviso que nadie abre.
+#
+# DE DÓNDE SALEN LOS EVENTOS. Vercel avisa por DOS caminos y no está medido cuál llega a este repo, así que se escuchan los dos:
+#   · `repository_dispatch` con los tipos `vercel.deployment.*` (el camino nuevo de Vercel; `client_payload` trae `url`,
+#     `environment` y `git.sha`). Los nombres de los tipos salen del pedido de Martín y de la doc de Vercel, que desde la nube
+#     no se pudo leer (vercel.com no resuelve en el sandbox): si alguno no existe, simplemente no dispara.
+#   · `deployment_status` (el camino de siempre: Vercel marca el «deployment» de GitHub como success / failure / error).
+#   ⚠️ `github.silent: true` de vercel.json apaga los COMENTARIOS de Vercel en commits y PRs; no está medido si también apaga
+#   alguno de estos eventos. Por eso el job `vigia` (cada 8 h) da ROJO si main recibió commits en las últimas 48 h y no llegó
+#   ni un evento de Vercel: ahí el aviso está ciego, y hay que mirar la integración de Vercel con GitHub (Project Settings → Git).
+#   ⚠️ Los dos eventos sólo disparan con este archivo en la rama por defecto (main).
+#
+# QUÉ CORRE:
+#   · deploy-fallido: el evento dice error / failed / failure en PRODUCCIÓN → ::error y exit 1. Sin checkout: ~10 s.
+#   · humo: el evento dice success en producción, cada 8 h, o a mano → scripts/humo-produccion.mjs contra hola-mako.com.
+#     SÓLO ALARMA: nunca hace rollback (un rollback servía en 2 de 16 incidentes, y uno automático sobre un falso rojo saca un
+#     arreglo bueno de producción). Y NO VE lo que está detrás de la sesión: es una alarma de caída total, nada más.
+#   · vigia: cada 8 h, el control de que los eventos lleguen (arriba), y de que las redes de cada noche (semanal-tests.yml y
+#     tipos-respaldo.yml) den veredicto: 36 h sin uno, con commits nuevos en main, es rojo.
+#
+# MINUTOS: un job de ~15 s factura 1 minuto. Con ~20 deploys por día son ~600 min al mes (US$3,6 a US$0,006 el minuto).
+# Un job salteado por su `if` no factura nada. Los deploys de preview (otras ramas) se ignoran: el `if` mira el ambiente.
+# =============================================================================
+name: después del deploy
+
+on:
+  repository_dispatch:
+    types:
+      - vercel.deployment.success
+      - vercel.deployment.promoted
+      - vercel.deployment.error
+      - vercel.deployment.failed
+      - vercel.deployment.canceled
+  deployment_status:
+  schedule:
+    # Cada 8 h, en un minuto «raro» (a las en punto GitHub encola de más y se atrasa).
+    - cron: '23 */8 * * *'
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Dónde correr el humo (por defecto, https://hola-mako.com)'
+        required: false
+        default: 'https://hola-mako.com'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy-fallido:
+    # Producción y un estado de falla, por cualquiera de los dos caminos. `contains` no distingue mayúsculas: Vercel nombra el
+    # ambiente de GitHub «Production» (o «Production – <proyecto>») y el de repository_dispatch «production».
+    if: >-
+      (github.event_name == 'repository_dispatch'
+        && (github.event.action == 'vercel.deployment.error' || github.event.action == 'vercel.deployment.failed')
+        && contains(github.event.client_payload.environment, 'production'))
+      || (github.event_name == 'deployment_status'
+        && (github.event.deployment_status.state == 'failure' || github.event.deployment_status.state == 'error')
+        && contains(github.event.deployment.environment, 'production'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    # Si los dos caminos avisan el mismo deploy, queda UNA corrida roja (la otra, cancelada).
+    concurrency:
+      group: deploy-fallido-${{ github.event.client_payload.git.sha || github.event.deployment.sha || github.run_id }}
+      cancel-in-progress: true
+    steps:
+      - name: El deploy de producción falló
+        env:
+          EVENTO: ${{ github.event_name }}
+          ACCION: ${{ github.event.action || github.event.deployment_status.state }}
+          SHA: ${{ github.event.client_payload.git.sha || github.event.deployment.sha }}
+          URL_DEPLOY: ${{ github.event.client_payload.url || github.event.deployment_status.target_url || github.event.deployment_status.environment_url }}
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+        run: |
+          echo "Evento: $EVENTO · $ACCION · commit ${SHA:-?}"
+          echo "Lo que mandó Vercel (para saber la forma real del evento):"
+          printf '%s\n' "$PAYLOAD" | head -c 4000; echo
+          {
+            echo "### ✖ El deploy de producción falló"
+            echo ""
+            echo "- Commit: \`${SHA:-sin dato}\` (${EVENTO}: ${ACCION})"
+            echo "- Deploy: ${URL_DEPLOY:-sin link}"
+            echo ""
+            echo "Producción sigue sirviendo la versión anterior: lo de este commit NO llegó a nadie. Mirá el log del build en Vercel."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::El deploy de producción del commit ${SHA:-?} falló (${ACCION}). Producción sigue en la versión anterior. ${URL_DEPLOY}"
+          exit 1
+
+  humo:
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'repository_dispatch'
+        && (github.event.action == 'vercel.deployment.success' || github.event.action == 'vercel.deployment.promoted')
+        && contains(github.event.client_payload.environment, 'production'))
+      || (github.event_name == 'deployment_status'
+        && github.event.deployment_status.state == 'success'
+        && contains(github.event.deployment.environment, 'production'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: humo-${{ github.event.client_payload.git.sha || github.event.deployment.sha || github.run_id }}
+      cancel-in-progress: true
+    steps:
+      # Sólo el script: el repo entero son minutos de checkout para correr un archivo.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/humo-produccion.mjs
+          sparse-checkout-cone-mode: false
+
+      # El node que trae el runner alcanza (fetch y AbortSignal.timeout): sin setup-node ni npm ci.
+      - name: Humo de producción
+        env:
+          HUMO_URL: ${{ github.event.inputs.url || 'https://hola-mako.com' }}
+        run: |
+          set +e
+          # Justo después de un deploy el alias puede tardar: el script ya reintenta cada chequeo una vez a los 10 s.
+          node scripts/humo-produccion.mjs | tee humo.txt
+          c=${PIPESTATUS[0]}
+          grep -v '^::' humo.txt >> "$GITHUB_STEP_SUMMARY"
+          exit $c
+
+  vigia:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: ¿Llegan los eventos de Vercel?
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Commits de main de hace entre 48 h y 1 h (el de la última hora puede estar construyéndose).
+          desde=$(date -u -d '48 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          hasta=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)
+          commits=$(gh api "repos/$REPO/commits?sha=main&since=$desde&until=$hasta&per_page=1" --jq 'length')
+          eventos=0
+          for ev in repository_dispatch deployment_status; do
+            n=$(gh api "repos/$REPO/actions/workflows/despues-del-deploy.yml/runs?event=$ev&created=%3E$desde&per_page=1" --jq '.total_count')
+            echo "$ev en 48 h: $n"
+            eventos=$((eventos + n))
+          done
+          echo "Commits en main (48 h a 1 h atrás): $commits · eventos de Vercel: $eventos" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$commits" != "0" ] && [ "$eventos" = "0" ]; then
+            echo "::error::main recibió commits y Vercel no mandó NINGÚN evento en 48 h: el aviso de deploy fallido está ciego. Revisá la integración de Vercel con GitHub (Project Settings → Git) y si github.silent de vercel.json los apaga."
+            exit 1
+          fi
+
+      # ── LAS REDES DE CADA NOCHE (4/11/2026) ──────────────────────────────────────────────────────────────────────────
+      # semanal-tests.yml y tipos-respaldo.yml corren cada noche si entró algo a main. Una red que no da veredicto no avisa: se queda
+      # callada (el 2/11 la suite semanal la canceló su techo sin un mail, y el respaldo de tipos no había dado ninguno). Un veredicto
+      # es una corrida verde o ROJA; una cancelada, sin arrancar o sin minutos, no. 36 h sin veredicto y con commits nuevos = rojo.
+      - name: ¿Las redes de cada noche dan veredicto?
+        if: "!cancelled()"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          limite=$(date -u -d '36 hours ago' +%s)
+          alarma=0
+          for wf in semanal-tests.yml tipos-respaldo.yml; do
+            ultimo=$(gh api "repos/$REPO/actions/workflows/$wf/runs?status=completed&per_page=30" --jq '[.workflow_runs[] | select(.conclusion == "success" or .conclusion == "failure")][0].created_at // ""')
+            if [ -n "$ultimo" ] && [ "$(date -u -d "$ultimo" +%s)" -ge "$limite" ]; then
+              echo "$wf: último veredicto $ultimo." | tee -a "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            desde="${ultimo:-$(date -u -d '36 hours ago' +%Y-%m-%dT%H:%M:%SZ)}"
+            nuevos=$(gh api "repos/$REPO/commits?sha=main&since=$desde&per_page=1" --jq length)
+            if [ "$nuevos" != "0" ]; then
+              echo "::error::$wf no da veredicto desde ${ultimo:-hace más de 36 h} y main recibió commits: la red de esa noche está muda. Mirá sus corridas (canceladas, sin minutos o sin arrancar)."
+              alarma=1
+            else
+              echo "$wf: sin veredicto en 36 h, pero main no recibió commits: no hay nada que juzgar." | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          exit $alarma

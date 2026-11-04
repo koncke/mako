@@ -89,21 +89,35 @@ test('la misma persona se paga una vez aunque cambie la lista de fuentes, y sól
   assert.equal(aApify(r.quienPidePiezas).length, 1, 'una lectura sin piezas no le contesta a quien las pide');
 });
 
-test('la reserva frena antes del tope, y no le tapa nada a quien no la tiene', () => {
-  assert.deepEqual(aApify(r.conReservaFrena), [], 'con 25 de 40 gastadas y 15 de reserva, no sale');
+test('la reserva frena antes del cupo de la clave de Spy, y no le tapa nada a quien no la tiene', () => {
+  const x = r as unknown as { topeLecturasSpy: number };
+  assert.ok(x.topeLecturasSpy > APIFY_TOPE_POR_DIA, 'la clave de Spy tiene su propio cupo, más ancho');
+  assert.deepEqual(aApify(r.conReservaFrena), [], 'con el cupo menos la reserva ya gastado, no sale');
   assert.equal(r.conReservaFrena.motivo, 'limite');
   assert.equal(aApify(r.sinReservaLee).length, 1, 'el «limite» de arriba no se cachea para quien la pidió con un clic');
   assert.equal(r.sinReservaLee.ok, true);
-  assert.equal(aApify(r.conReservaAunLee).length, 1, 'con 24 todavía hay margen: el freno es exacto');
+  assert.equal(aApify(r.conReservaAunLee).length, 1, 'con una menos todavía hay margen: el freno es exacto');
 });
 
-test('la búsqueda por nombre cuenta en el mismo tope que las lecturas', () => {
-  const x = r as unknown as { busquedasDelDia: number; topeAgotadoAntes: boolean; topeAgotadoDespues: boolean };
-  assert.equal(x.busquedasDelDia, APIFY_TOPE_POR_DIA);
+test('las búsquedas por nombre tienen SU cupo: agotarlo no deja sin leer un @ (4/11/2026)', () => {
+  const x = r as unknown as { busquedasDelDia: number; topeBusquedasSpy: number; topeAgotadoAntes: boolean; topeAgotadoDespues: boolean };
+  assert.equal(x.busquedasDelDia, x.topeBusquedasSpy);
   assert.equal(x.topeAgotadoAntes, false);
   assert.equal(x.topeAgotadoDespues, true);
-  assert.deepEqual(aApify(r.leerSinCupo), [], 'gastadas en búsquedas, una lectura ya no sale');
-  assert.equal(r.leerSinCupo.motivo, 'limite');
+  assert.equal(aApify(r.leerConBusquedasAgotadas).length, 1, 'gastadas las búsquedas, una lectura igual sale');
+  assert.equal(r.leerConBusquedasAgotadas.ok, true);
+});
+
+test('varias filas en UNA corrida: cada perfil cuenta, y lo leído no se vuelve a pagar', () => {
+  const x = r as unknown as { loteCorridas: number; loteOk: string[]; loteContadas: number; loteRepetidoCorridas: number; loteConReservaOk: number; loteConReservaLimite: number };
+  assert.equal(x.loteCorridas, 1, 'tres usuarios, una corrida');
+  assert.deepEqual(x.loteOk, ['lote_a', 'lote_b']);
+  assert.equal(x.loteContadas, 3, 'cada perfil pedido cuenta una lectura del cupo');
+  assert.deepEqual(aApify(r.despuesDelLote), [], 'la confirmación encuentra lo que leyó el lote: no se paga dos veces');
+  assert.equal(r.despuesDelLote.ok, true);
+  assert.equal(x.loteRepetidoCorridas, 0, 'pedir otra vez lo ya leído no sale a la red');
+  assert.equal(x.loteConReservaOk, 1, 'con un solo lugar antes de la reserva entra uno');
+  assert.equal(x.loteConReservaLimite, 2, 'y los otros vuelven como «limite», sin pasarse del cupo');
 });
 
 test('el alta de un lead y Offer usan LA misma función (sin copiarla)', () => {
@@ -123,5 +137,7 @@ test('el alta de un lead y Offer usan LA misma función (sin copiarla)', () => {
   assert.match(respaldo[1], /'apify-spy'/);
   const offer = sinComentarios(leer('app/api/offer/route.ts'));
   assert.match(offer, /const perfil = await leerPerfilInstagram\(ig, \{ ws: await getWorkspaceActual\(\) \}\);/);
-  assert.doesNotMatch(leer('lib/instagram-perfil-server.ts'), /export async function leerPerfil(?!Instagram)/, 'una sola función exportada que lee');
+  // Una sola función que lee UN perfil. `leerPerfilesEnLote` (4/11/2026) es otra capacidad —varios en una corrida— y
+  // comparte la caché y el lector de la respuesta: no es una copia.
+  assert.doesNotMatch(leer('lib/instagram-perfil-server.ts'), /export async function leerPerfil(?!Instagram|esEnLote)/, 'una sola función exportada que lee');
 });

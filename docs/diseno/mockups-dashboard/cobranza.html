@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="es" data-estilo="coffer" data-tema-inicial="claro"><head><meta charset="utf-8">
+<title>Cobranza — Dashboard de MaKo</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="movimiento.css">
+<style>
+/* COBRANZA — referencias: Coffer (los tramos de vencimiento, «a quién perseguir»,
+   los días promedio de cobro y el SELLO), Corvane (el error escrito como
+   instrucción), Talvo (el número traducido a SU unidad).
+   La pregunta: ¿qué plata está prometida y no entró? */
+.tramos{display:flex;gap:10px;margin-top:4px}
+.tramo{flex:1;background:var(--well);border-radius:var(--r-sm);padding:13px 14px;display:flex;
+  flex-direction:column;gap:7px;cursor:pointer}
+.tramo span{font-size:var(--fs-xs);color:var(--faint);font-weight:600}
+.tramo b{font-size:var(--fs-2xl);font-weight:600;letter-spacing:-.4px;line-height:1}
+.tramo em{font-style:normal;font-size:var(--fs-2xs);color:var(--faint)}
+.tramo .lin{height:4px;border-radius:999px;background:var(--c1);transform-origin:0 50%}
+.tramo.v1 .lin{background:var(--c2)} .tramo.v2 .lin{background:var(--warn)}
+.tramo.v3 .lin{background:var(--down)} .tramo.v4 .lin{background:var(--down)}
+.tramo.v4 b{color:var(--down)}
+/* el SELLO de Coffer: entra desde scale 0 con back.out(2.5) y va inclinado */
+.sello{display:inline-flex;align-items:center;gap:5px;border:2px solid currentColor;border-radius:8px;
+  padding:3px 9px;font-size:var(--fs-2xs);font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  transform:rotate(-7deg);transform-origin:50% 50%}
+.sello--ok{color:var(--up)} .sello--mal{color:var(--down)}
+/* CORVANE: el error escrito como INSTRUCCIÓN, con el botón al lado */
+.error{display:flex;align-items:flex-start;gap:13px;background:var(--down-soft);border-radius:var(--r-sm);
+  padding:14px 16px;margin-top:4px}
+.error .t{flex:1}
+.error .t b{font-size:var(--fs-md);font-weight:600;display:block;color:var(--down)}
+.error .t span{font-size:var(--fs-sm);color:var(--muted);line-height:1.45}
+.unidad{font-size:var(--fs-sm);color:var(--muted);margin-top:8px}
+.unidad b{color:var(--text);font-weight:600}
+</style></head>
+<body>
+
+<!-- TALVO: el número traducido a SU unidad («2 nóminas en los próximos 30 días»).
+     Para un coach la unidad no es la nómina: son los meses de costos fijos. -->
+<div class="cab">
+  <div>
+    <div class="h1">Cobranza</div>
+    <div class="estado" data-mk="texto">Hay <b>$8.900</b> prometidos que no entraron ·
+      <b>$2.300 están vencidos</b> y la mitad es de un solo cliente ·
+      cobrar lo vencido te cubre <b>1,8 meses</b> de costos fijos.</div>
+  </div>
+  <div class="btns" data-mk="texto">
+    <div class="btn">Exportar</div>
+    <div class="btn btn--ink">Cobrar los 3 vencidos</div>
+  </div>
+</div>
+
+<div class="rejilla">
+
+  <div class="c12 kpis" data-grupo="kpis">
+    <div class="tile tile--1" data-mk="kpi">
+      <div class="rot">Por cobrar</div>
+      <div class="num" data-cuenta="1.3">$8.900</div>
+      <div class="meta">en 14 cuotas de 9 clientes</div>
+      <div class="fila-abajo"><div style="font-size:var(--fs-sm);opacity:.74">$6.600 al día · $2.300 vencido</div></div>
+      <div class="pie">Ver los pagos →</div>
+    </div>
+    <div class="tile tile--2" data-mk="kpi">
+      <div class="rot">Vencido</div>
+      <div class="num" data-cuenta="1.3">$2.300</div>
+      <div class="meta"><span class="delta delta--down">▲ $800</span> vs octubre</div>
+      <div class="fila-abajo"><div style="font-size:var(--fs-sm);opacity:.74">26% de lo que hay por cobrar</div></div>
+      <div class="pie">A quién perseguir →</div>
+    </div>
+    <div class="tile tile--3" data-mk="kpi">
+      <div class="rot">Días para cobrar</div>
+      <div class="num" data-cuenta="0.6">11</div>
+      <div class="meta"><span class="delta delta--up">▼ 3 días</span> vs octubre</div>
+      <div class="fila-abajo"><div style="font-size:var(--fs-sm);opacity:.74">del vencimiento al pago</div></div>
+      <div class="pie">Ver el detalle →</div>
+    </div>
+    <div class="tile tile--4" data-mk="kpi">
+      <div class="rot">Cobrado en noviembre</div>
+      <div class="num" data-cuenta="1.3">$12.400</div>
+      <div class="meta"><span class="delta delta--up">▲ 18%</span> vs octubre</div>
+      <div class="fila-abajo"><div style="font-size:var(--fs-sm);opacity:.74">93% de lo que vencía</div></div>
+      <div class="pie">Ver General →</div>
+    </div>
+  </div>
+
+  <!-- COFFER: los tramos de vencimiento. El gesto: ver de un golpe cuánto hay en
+       cada edad de la deuda, y que el tramo se pueda tocar para filtrar la lista. -->
+  <div class="c12 card" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit">Cuánto hace que esperan</div>
+        <div class="sub">Por días desde el vencimiento · tocá un tramo para filtrar la lista</div></div>
+      <span class="nofiltra">Al día de hoy</span>
+    </div>
+    <div class="tramos" data-grupo="tramos">
+      <div class="tramo v1"><span>Al día</span><b data-cuenta="1.1">$6.600</b>
+        <em>11 cuotas · vence en 8 días la próxima</em>
+        <div class="lin" data-mk="glbar" style="width:100%"></div></div>
+      <div class="tramo v2"><span>1 a 7 días</span><b data-cuenta="1.1">$900</b>
+        <em>2 cuotas · Marta Díaz y Jorge Peña</em>
+        <div class="lin" data-mk="glbar" style="width:39%"></div></div>
+      <div class="tramo v3"><span>8 a 30 días</span><b data-cuenta="1.1">$1.100</b>
+        <em>1 cuota · Leila Ortiz</em>
+        <div class="lin" data-mk="glbar" style="width:48%"></div></div>
+      <div class="tramo v4"><span>Más de 30</span><b data-cuenta="1.1">$300</b>
+        <em>1 cuota · Pablo Sosa, desde el 22/9</em>
+        <div class="lin" data-mk="glbar" style="width:13%"></div></div>
+    </div>
+    <div class="veredicto" data-mk="texto"><b>El 74% de lo vencido tiene menos de 30 días</b>, que es
+      donde todavía se cobra solo con escribir. Lo de Pablo Sosa ya lleva 40 días: ése necesita llamada.</div>
+    <div class="pie">Abrir los pagos del CRM →</div>
+  </div>
+
+  <!-- CORVANE: el error escrito como INSTRUCCIÓN, no como código.
+       «£704,85 volvió — cuenta cerrada. Confirmá sus datos bancarios y reintentá» -->
+  <div class="c7 card" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit">Pagos que rebotaron</div>
+        <div class="sub">Qué pasó y qué hacer · no el código del error</div></div>
+      <span class="chip chip--d">2</span>
+    </div>
+    <div data-grupo="errores">
+      <div class="error" data-mk="fila">
+        <div class="t"><b>$300 de Marta Díaz volvieron — tarjeta vencida</b>
+          <span>El cobro automático falló el viernes y se reintentó el sábado.
+            Pedile una tarjeta nueva y reintentá: el link ya está armado.</span></div>
+        <div class="accion">Pedir tarjeta</div>
+      </div>
+      <div class="error" data-mk="fila" style="background:var(--warn-soft)">
+        <div class="t"><b style="color:var(--warn)">$1.100 de Leila Ortiz están en revisión del banco</b>
+          <span>Mercado Pago lo retuvo por monto inusual. Suele destrabarse solo en 48 h;
+            si el jueves sigue así, conviene mandarle un link nuevo.</span></div>
+        <div class="accion">Ver en MP</div>
+      </div>
+    </div>
+    <div class="unidad" data-mk="texto">Entre los dos son <b>$1.400</b>: lo que cuesta
+      <b>la pauta de 10 días</b>.</div>
+    <div class="pie">Abrir Mercado Pago →</div>
+  </div>
+
+  <!-- COFFER: «a quién perseguir», con el sello -->
+  <div class="c5 card card--aviso" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit">A quién perseguir</div>
+        <div class="sub">Ordenado por plata, no por fecha</div></div>
+      <span class="chip chip--d">$2.300</span>
+    </div>
+    <div data-grupo="perseguir">
+      <div class="fila" data-mk="fila"><div class="t"><b>Leila Ortiz</b>
+        <span>Cuota 3 de 6 · Mentoría Q4</span></div>
+        <span class="sello sello--mal" data-mk="sello">12 días</span>
+        <b style="width:58px;text-align:right">$1.100</b></div>
+      <div class="fila" data-mk="fila"><div class="t"><b>Marta Díaz</b>
+        <span>Cuota 2 de 4 · Método 90 días</span></div>
+        <span class="sello sello--mal" data-mk="sello">3 días</span>
+        <b style="width:58px;text-align:right">$600</b></div>
+      <div class="fila" data-mk="fila"><div class="t"><b>Jorge Peña</b>
+        <span>Cuota 1 de 3 · Consultoría</span></div>
+        <span class="sello sello--mal" data-mk="sello">1 día</span>
+        <b style="width:58px;text-align:right">$300</b></div>
+      <div class="fila" data-mk="fila"><div class="t"><b>Pablo Sosa</b>
+        <span>Cuota 4 de 4 · Mentoría Q3</span></div>
+        <span class="sello sello--mal" data-mk="sello">40 días</span>
+        <b style="width:58px;text-align:right">$300</b></div>
+    </div>
+    <div class="pie">Mandarles el recordatorio →</div>
+  </div>
+
+  <div class="c12 card" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit">Lo que entra, mes a mes</div>
+        <div class="sub">Cobrado contra lo que vencía · el último mes es lo comprometido</div></div>
+      <div class="seg"><b class="on">6 M</b><b>12 M</b></div>
+    </div>
+    <div class="barras" data-grupo="meses">
+      <div><i data-mk="bary" style="height:54%"></i><span>Jun</span></div>
+      <div><i data-mk="bary" style="height:49%"></i><span>Jul</span></div>
+      <div><i data-mk="bary" style="height:67%"></i><span>Ago</span></div>
+      <div><i data-mk="bary" style="height:61%"></i><span>Sep</span></div>
+      <div><i data-mk="bary" style="height:76%"></i><span>Oct</span></div>
+      <div><i class="hoy" data-mk="bary" style="height:93%"></i><span>Nov</span></div>
+    </div>
+    <div class="veredicto" data-mk="texto">Noviembre ya es el mes de más cobranza del año con
+      <b>$12.400</b>, y todavía quedan <b>$6.600</b> que vencen antes del 30.</div>
+    <div class="pie">Abrir General →</div>
+  </div>
+</div>
+
+<script src="base.js"></script>
+</body></html>

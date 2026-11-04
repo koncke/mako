@@ -37,6 +37,7 @@ import { acentoDePortada, paletaDe, paletaDeEscena, pintaPortada, varsDeTema } f
 import { PAGINA_MINIATURA, lugarEnMiniatura, resultadoDeMuestra } from '@/lib/graficos-muestra';
 import { VARIABLES_TEXTO, conVariables, esPiezaGeneral, piezaGeneral } from '@/lib/general-piezas';
 import { CuerpoGrafico, esTarjetaNumero } from './Grafico';
+import { destinoDe } from '@/lib/graficos-destinos';
 import { TAMANOS_TEXTO } from './Elemento';
 import { CuerpoSeccion } from './Seccion';
 import { PiezaGeneralDeMuestra, useVariablesInforme } from './ElementoGeneral';
@@ -68,10 +69,12 @@ function Pieza({ c, hoja, vivo, hoy, tile }: { c: Componente; hoja: Hoja; vivo: 
   if (esGrafico(c)) {
     const kpi = esTarjetaNumero(c.tipo);
     return (
-      <div className={conPortada(`lk-comp${kpi ? ' lk-comp--kpi' : ''}`)} style={estilo} data-forma={portada?.forma} data-tile={tile}>
+      <div className={conPortada(`lk-comp${kpi ? ' lk-comp--kpi' : ''}${c.tipo === 'frase' && !portada ? ' lk-comp--frase' : ''}`)} style={estilo} data-forma={portada?.forma} data-tile={tile}>
         <div className="lk-comp-cab"><div className="lk-comp-tit"><span>{tituloDe(c)}</span></div></div>
         {!kpi && c.subtitulo && <div className="lk-comp-sub">{c.subtitulo}</div>}
         {vivo && <CuerpoGrafico g={c} estado={{ cargando: false, resultado: resultadoDeMuestra(c, hoy) }} tema={hoja.tema} />}
+        {/* El «Ver … →» del pie, como en la hoja (lib/graficos-destinos.ts). En la miniatura no se toca. */}
+        {destinoDe(c.ir) && <span className="lk-comp-ir">{destinoDe(c.ir)!.rotulo} →</span>}
       </div>
     );
   }

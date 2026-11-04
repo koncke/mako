@@ -226,6 +226,23 @@ export const APIFY_ACTOR_PERFIL = 'apify~instagram-profile-scraper';
 export const APIFY_TOPE_USD = 0.02;
 /** Cuántas lecturas por Apify por negocio y por día (el buscador del alta pregunta mientras se escribe). */
 export const APIFY_TOPE_POR_DIA = 40;
+/**
+ * Cuántas lecturas por día gasta un negocio con SU clave de Spy (`APIFY_CLAVE_DE_SPY`), separado del tope de arriba.
+ *
+ * ⚠️ SUBIÓ DE 40 A 150 EL 4/11/2026, y no es un descuido: Martín pidió que buscar por nombre traiga «los mejores
+ * resultados» con sus seguidores, y eso se completa leyendo las primeras filas (`leerPerfilesEnLote`, una corrida
+ * para las cinco). Con 40 —compartidas con las búsquedas— alcanzaba para tres búsquedas por día. Lo que cuesta,
+ * con el precio de la tienda de Apify (no medido desde la nube): ~US$2,60 cada 1.000 perfiles, o sea **~US$0,39 por
+ * día en el peor caso**, que paga el negocio con su clave. El techo por corrida sigue en `APIFY_TOPE_USD`.
+ */
+export const TOPE_LECTURAS_SPY_POR_DIA = 150;
+/**
+ * Cuántas CORRIDAS de búsqueda por día y por negocio. Una búsqueda por nombre gasta dos: Google (dos páginas,
+ * US$0,009) y el buscador de Instagram (US$0,012), medidos el 3/11/2026. **60 corridas = 30 búsquedas, peor caso
+ * US$0,65 por día.** Va aparte de las lecturas: si compartieran el cupo, buscar dejaría al negocio sin poder agregar
+ * a nadie.
+ */
+export const TOPE_BUSQUEDAS_SPY_POR_DIA = 60;
 /** Desde cuántas letras un @ se le pregunta a Apify: «@flo» trae a cualquiera y se paga igual. */
 export const APIFY_MIN_LETRAS = 5;
 /**
@@ -259,6 +276,14 @@ export function leerPerfilDeApify(usuario: string, items: unknown, conPiezas = f
 
 /** Un número del actor. ⚠️ Con los «me gusta» ocultos el actor manda -1: eso es «no se sabe», nunca un número. */
 const contadorDeApify = (v: unknown): number | null => { const n = num(v); return n != null && n >= 0 ? n : null; };
+
+/**
+ * Las publicaciones que devuelve `apify~instagram-scraper` con `resultsType: posts` (la corrida larga de Competitors Spy,
+ * lib/spy-todo.ts): son ítems con la misma forma que `latestPosts` del lector de perfiles. Sin un código, no es una pieza.
+ */
+export function piezasDeApify(items: unknown): PiezaInstagram[] {
+  return (Array.isArray(items) ? items.filter(esObj) : []).map(piezaDeApify).filter((m) => m.ref);
+}
 
 /** Una publicación del actor, con la misma forma que las de Business Discovery: Competitors Spy no distingue de dónde vino. */
 function piezaDeApify(m: Record<string, unknown>): PiezaInstagram {
