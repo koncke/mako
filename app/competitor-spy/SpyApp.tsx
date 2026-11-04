@@ -85,6 +85,8 @@ import type { RedOtra } from '@/lib/spy-otras-redes-reglas';
 import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
 import { enlaceSusAnuncios } from '@/lib/spy-funnel';
 import { SuFunnel } from './SuFunnel';
+import { SuOferta } from './SuOferta';
+import type { VistaOferta } from '@/lib/spy-oferta';
 import { TarjetaPieza } from './TarjetaPieza';
 import { GraficoSpy } from './GraficoSpy';
 import { DetallePieza } from './DetallePieza';
@@ -423,10 +425,6 @@ button.spy-campo:hover{color:var(--dim)}
 @keyframes spy-latido{0%,100%{opacity:1}50%{opacity:.55}}
 
 /* ── Ficha de oferta y de sitio. ── */
-.spy-oferta{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--gap)}
-.spy-dato{padding:16px 18px;border-radius:var(--r-lg);background:var(--surface);
-  box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta);font-size:var(--fs-md);line-height:1.5}
-.spy-dato b{display:block;margin-bottom:6px;color:var(--faint);font-size:var(--fs-sm);font-weight:600}
 .spy-sitio{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:20px;
   border-radius:var(--r-lg);background:var(--surface);box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta)}
 .spy-sitio-acciones{display:flex;flex-wrap:wrap;gap:8px}
@@ -799,6 +797,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [ordenando, setOrdenando] = useState<{ id: number; piezas: PiezaVista[] | null } | null>(null);
   /** A quién le está leyendo las piezas la IA, sola y en segundo plano. Sus tarjetas sin análisis dicen «Analizando…». */
   const [autoAnalisis, setAutoAnalisis] = useState<number | null>(null);
+  // Su oferta, con el analista de Offer (lib/spy-oferta.ts): la trae sola /api/competitor-spy/oferta.
+  const [ofertas, setOfertas] = useState<Record<number, VistaOferta>>({});
   /** A quién se le está trayendo todo lo que publicó, en una corrida larga de Apify. */
   const [trayendoTodo, setTrayendoTodo] = useState<number | null>(null);
   /** Por qué la traída larga no trajo todo, por competidor (4/11/2026: «si una corrida larga no terminó, la pantalla lo dice»). */
@@ -1055,6 +1055,20 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     if (r.ok && r.enMarcha) setAutoAnalisis(id);
   }, []);
 
+  // ── Su oferta (4/11/2026; Martín: «en "Su Funnel" debe "exponer" su OFERTA con el analizador de oferta que ya tenemos
+  // construido, y debe traer automáticamente sus web»). Se pide sola al abrir un competidor con web, y se vuelve a preguntar
+  // mientras dice «leyendo». El trabajo sigue en el servidor aunque esto se pare o se cierre la pestaña.
+  const pedirOferta = useCallback(async (id: number): Promise<VistaOferta | null> => {
+    type Resp = { ok: boolean; oferta?: VistaOferta };
+    const r: Resp = await fetch('/api/competitor-spy/oferta', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(30_000),
+    }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false }));
+    if (!r.ok || !r.oferta) return null;
+    const o = r.oferta;
+    setOfertas((v) => ({ ...v, [id]: o }));
+    return o;
+  }, []);
+
   // ── Las caricaturas NO se piden desde acá (4/11/2026): entran a la cola al leer al competidor y las hace el Runner con
   // Canva (lib/spy-caricatura-cola.ts). La pantalla sólo dibuja la que ya esté; sin ella, la foto.
 
@@ -1084,6 +1098,24 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     t = setTimeout(() => { void vuelta(); }, 5000);
     return () => { vivo = false; clearTimeout(t); };
   }, [autoAnalisis, traerPiezas, recargarLista]);
+
+  // Con web (la suya, o una página que se guardó de él), su oferta se pide sola. Cada 8 s mientras lee, hasta 5 minutos.
+  const idConWeb = c && (c.landing_url || piezas.some((p) => p.canal === 'landing')) ? c.id : null;
+  useEffect(() => {
+    if (idConWeb == null) return;
+    const id = idConWeb;
+    let vivo = true;
+    let vueltas = 0;
+    let t: ReturnType<typeof setTimeout>;
+    const vuelta = async () => {
+      if (!vivo || actual.current !== id) return;
+      vueltas += 1;
+      const o = await pedirOferta(id);
+      if (vivo && o?.estado === 'leyendo' && vueltas < 40) t = setTimeout(() => { void vuelta(); }, 8000);
+    };
+    void vuelta();
+    return () => { vivo = false; clearTimeout(t); };
+  }, [idConWeb, c?.landing_url, pedirOferta]);
 
   const sumar = async (valor: string, nombre?: string, deLaBio?: string | null): Promise<number | null> => {
     setOcupado(true); setError(null); setErrorModal(null);
@@ -1198,11 +1230,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   // eslint-disable-next-line react-hooks/set-state-in-effect -- es un reinicio por cambio de filtro, no un cálculo
   useEffect(() => { setMostrar(60); }, [buscar, tipo, orden]);
   const opcionesTipo = useMemo(() => (c ? opcionesDeContenido(flujo, c) : []), [flujo, c]);
+  const ofertaDe = c ? ofertas[c.id] : undefined;
+  const ofertaConDiagnostico = !!ofertaDe && 'diagnostico' in ofertaDe && !!ofertaDe.diagnostico;
   // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece. Y son DOS (Martín, 4/11): las de antes
   // (Gráfico, Lo que publica, Miniaturas, Su oferta, Su web, Anuncios) partían lo mismo en seis lugares.
   const pestanas: Array<{ key: Pestana; rotulo: string; n?: number }> = c ? [
     ...(flujo.length || anuncios.length || c.instagram || c.youtube_id || !c.landing_url ? [{ key: 'contenido' as const, rotulo: 'Contenido', n: (flujo.length + anuncios.length) || undefined }] : []),
-    ...(c.landing_url || c.oferta?.promete ? [{ key: 'funnel' as const, rotulo: 'Funnel' }] : []),
+    ...(c.landing_url || c.oferta?.promete || ofertaConDiagnostico ? [{ key: 'funnel' as const, rotulo: 'Funnel' }] : []),
   ] : [];
   const activa: Pestana = pestanas.some((p) => p.key === pestana) ? pestana : (pestanas[0]?.key ?? 'contenido');
 
@@ -1553,19 +1587,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                 )
             )}
 
-            {activa === 'funnel' && c.oferta?.promete && (
-              <section className="spy-oferta">
-                <div className="spy-dato"><b>Promete</b>{c.oferta.promete}</div>
-                {c.oferta.aQuien && <div className="spy-dato"><b>A quién</b>{c.oferta.aQuien}</div>}
-                {c.oferta.precio && <div className="spy-dato"><b>Precio que publica</b>{c.oferta.precio}</div>}
-                {c.oferta.objecion && <div className="spy-dato"><b>Objeción que ataca</b>{c.oferta.objecion}</div>}
-                {!!c.oferta.huecos.length && (
-                  <div className="spy-dato">
-                    <b>Lo que ataca y tu oferta no menciona</b>
-                    <ul style={{ margin: 0, paddingLeft: 18 }}>{c.oferta.huecos.map((h) => <li key={h}>{h}</li>)}</ul>
-                  </div>
-                )}
-              </section>
+            {/* Su oferta, leída sola con el analista de Offer (lib/spy-oferta.ts): sin botón, con la criatura mientras lee. */}
+            {activa === 'funnel' && (
+              <SuOferta vista={ofertaDe} datos={c.oferta} nombre={c.nombre} onConectado={() => void pedirOferta(c.id)} />
             )}
 
           </>
