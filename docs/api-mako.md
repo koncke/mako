@@ -579,7 +579,7 @@ curl -L \
 
 ### `POST /api/v1/general/hojas` — Crear una hoja de General
 
-Propone agregar una hoja nueva a la pantalla General de una persona: desde una plantilla de General (por id: la General de siempre, Bienvenida, Operación diaria, una por tipo de funnel…; las pide listar_hojas_general) o con un `pedido` en palabras para que MaKo la arme con IA gratis, con lo que General ofrece y sus bloques («mis tareas prioritarias y lo cobrado del mes»). Con pedido, MaKo la arma ANTES de proponerla. Usa una plantilla O un pedido.
+Propone agregar una hoja nueva a la pantalla General de una persona: desde una plantilla de General (por id; las que se ofrecen las da listar_hojas_general, y puede no haber ninguna) o con un `pedido` en palabras para que MaKo la arme con IA gratis, con lo que General ofrece y sus bloques («mis tareas prioritarias y lo cobrado del mes»). Con pedido, MaKo la arma ANTES de proponerla. Usa una plantilla O un pedido.
 
 - **Ruta por operación:** `POST /api/v1/general/crear_hoja_general`
 - **Token detallado:** permiso `general=write` (Lectura y escritura en «General»)
@@ -595,7 +595,7 @@ Propone agregar una hoja nueva a la pantalla General de una persona: desde una p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `persona` | string | no | Email (o nombre) de la persona admin. Si se omite: en el chat de la app, la de quien chatea; si no, la única persona admin de la cuenta. |
-| `plantilla` | string (general \\| foco \\| operacion \\| servicio \\| curso \\| instagram) | no | id de la plantilla de General. Usa esto O pedido. |
+| `plantilla` | string | no | id de una plantilla de General que se ofrece (listar_hojas_general). Usa esto O pedido. |
 | `pedido` | string | no | Qué quiere ver al entrar, en palabras, para que MaKo arme la hoja. Usa esto O plantilla. |
 | `nombre` | string | no | Cómo se llama la hoja (default: el de la plantilla o el que elija MaKo). |
 
@@ -9553,7 +9553,7 @@ curl -L \
 
 ### `POST /api/v1/metricas/dashboard/hojas` — Crear una hoja del Dashboard
 
-Crea una hoja nueva en el informe del Dashboard de una persona. Tres formas: desde una plantilla (`plantilla`: marketing, comercial, closing, ads-analyst…; la lista en ver_catalogo_dashboard), en blanco (sin plantilla ni pedido), o con un `pedido` en palabras para que MaKo la arme con IA gratis («los leads por campaña y el CAC de los últimos 90 días»). Con pedido, MaKo la arma ANTES de proponerla y el resumen dice qué gráficos tiene. Con plantilla o pedido, la hoja sale sin los gráficos que quedarían vacíos en este negocio, y a una plantilla MaKo le suma gráficos sobre los datos que sí tiene. Devuelve el id de la hoja. No corre en una automatización.
+Crea una hoja nueva en el informe del Dashboard de una persona. Tres formas: desde una plantilla (`plantilla`: closing…; sólo las que se ofrecen, la lista en ver_catalogo_dashboard), en blanco (sin plantilla ni pedido), o con un `pedido` en palabras para que MaKo la arme con IA gratis («los leads por campaña y el CAC de los últimos 90 días»). Con pedido, MaKo la arma ANTES de proponerla y el resumen dice qué gráficos tiene. Con plantilla o pedido, la hoja sale sin los gráficos que quedarían vacíos en este negocio, y a una plantilla MaKo le suma gráficos sobre los datos que sí tiene. Devuelve el id de la hoja. No corre en una automatización.
 
 - **Ruta por operación:** `POST /api/v1/metricas/crear_hoja_dashboard`
 - **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
@@ -9569,7 +9569,7 @@ Crea una hoja nueva en el informe del Dashboard de una persona. Tres formas: des
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `persona` | string | no | El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio. |
-| `plantilla` | string | no | El id de una plantilla de hoja (de ver_catalogo_dashboard). |
+| `plantilla` | string | no | El id de una plantilla de hoja que se ofrece (de ver_catalogo_dashboard). |
 | `pedido` | string | no | Qué quiere ver, en palabras, para que MaKo arme la hoja. Usa esto O plantilla. |
 | `nombre` | string | no | El nombre de la pestaña. Default: el de la plantilla, el que elija MaKo o «Página N». |
 
@@ -9581,7 +9581,7 @@ curl -L \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/metricas/dashboard/hojas" \
-  -d '{"persona":"ana@negocio.com","plantilla":"comercial"}'
+  -d '{"persona":"ana@negocio.com","plantilla":"closing"}'
 ```
 
 ### `POST /api/v1/metricas/dashboard/hojas/{hoja}/ediciones` — Editar una hoja del Dashboard con MaKo
