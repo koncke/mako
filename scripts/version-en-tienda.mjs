@@ -5,8 +5,8 @@
 //   node scripts/version-en-tienda.mjs
 //
 // Lee la ficha pública y devuelve lo que Google le muestra a cualquiera. De ahí
-// sale `VERSION_EN_TIENDA` en lib/extension-tienda.ts, que es lo que decide si a
-// un cliente se le ofrece la tienda o el zip.
+// sale `VERSION_EN_TIENDA` en lib/extension-tienda.ts: a todos se les ofrece la
+// tienda, y este número dice qué se llevan y si una función tiene que esperar.
 //
 // ── Por qué NO se usa `publicar-extension.mjs --estado` para esto ───────────
 // Ese modo pega a la API con `?projection=DRAFT`, así que su `crxVersion` es la
@@ -140,8 +140,8 @@ const vieja = (a, b) => {
   return false;
 };
 if (DEL_ZIP && vieja(publicada, DEL_ZIP)) {
-  console.log(`\n→ La tienda va ATRÁS del zip (${publicada} < ${DEL_ZIP}): a los clientes se les sigue ofreciendo el zip.`);
-  console.log('  Para que se pueda instalar desde Google, hay que publicar y esperar la aprobación.');
+  console.log(`\n→ La tienda va ATRÁS del repo (${publicada} < ${DEL_ZIP}): lo nuevo de la extensión todavía no le llega a nadie.`);
+  console.log('  Para que llegue, hay que publicar y esperar la aprobación. Nadie deja de poder instalarla mientras tanto.');
 } else if (DEL_ZIP) {
-  console.log(`\n→ La tienda está al día (${publicada} ≥ ${DEL_ZIP}): el camino de instalación es «Añadir a Chrome».`);
+  console.log(`\n→ La tienda está al día (${publicada} ≥ ${DEL_ZIP}).`);
 }
