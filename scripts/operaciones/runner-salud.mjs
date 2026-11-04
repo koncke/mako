@@ -16,13 +16,17 @@
 //   · un chat llamado Runner, abierto y de ESTA cuenta (al cambiar de cuenta, el de la otra sigue vivo y no le llega a nadie);
 //   · `continuo.latido` fresco: un chat que se llama Runner sin su cron ni su Monitor no entrega nada (3/11-4/11: 30 horas así).
 //
-// QUIÉN LO LEVANTA. Un script no puede: SendMessage, get_usage y CronCreate sólo los llama un chat. Lo levanta la tarea
-// programada `runner-guardia-<cuenta>`, que vive fuera de todo chat y es por cuenta (scheduled-tasks.json). Su corrida se
-// convierte en el Runner si no hay uno: guardia-runner.md. Este archivo sólo mide y avisa: nunca reclama ni entrega.
+// QUIÉN ENTREGA SIN RUNNER. Un script no puede: SendMessage, send_message y get_usage sólo los llama un chat. Entrega la tarea
+// programada `runner-guardia-<cuenta>`, que vive fuera de todo chat y es por cuenta (scheduled-tasks.json), con una vuelta por
+// corrida: guardia-runner.md. ⚠️ NO PUEDE SER EL RUNNER (4/11): una corrida no tiene canal de mensajes (sin `messagingSocketPath`
+// en su sessions/<pid>.json), y su SendMessage a `uds:` contesta «Cross-session messaging is not available in this session». Sí
+// anda send_message, que va por la app y pide el id del chat: `destino` lo saca del pipe. Este archivo nunca reclama ni entrega.
 //
 // Uso:  runner-salud.mjs al-abrir <source>   lo corre el hook SessionStart: corrige el marcador e imprime UNA línea para el chat, o nada
 //       runner-salud.mjs estado     el JSON que lee la guardia
-//       runner-salud.mjs tomar      la guardia reclama el puesto: TOMADO u OCUPADO (dos corridas a la vez no levantan dos Runners)
+//       runner-salud.mjs tomar      la corrida reclama la vuelta: TOMADO u OCUPADO (dos a la vez no entregan lo mismo)
+//       runner-salud.mjs destino <to>   el id del chat de un `uds:`, para send_message; SIN_DESTINO si ese chat no está abierto
+//       runner-salud.mjs avisar     AVISAR una vez cada 2 horas por cuenta, YA el resto: lo que se le dice al Cerebro sin gastarle cuota
 //       runner-salud.mjs corridas   las corridas de la guardia ya terminadas: cada una deja un chat en la lista y un proceso de ~270 MB. Sólo lista: archivar sesiones pide el sí de Martín
 //
 // Un hook no frena a nadie: `al-abrir` ante cualquier error no imprime nada y sale con 0.
@@ -46,9 +50,11 @@ export const LATIDO_VIVO_MS = 6 * 60 * 1000;
 export const MEDIDO_VIEJO_MS = 30 * 60 * 1000;
 /** De los chats que abren juntos, sólo el primero recibe el aviso o el encargo. */
 const PEDIDA_VENCE_MS = 10 * 60 * 1000;
-/** Una corrida sin actividad en este rato ya terminó: las medidas duran menos de un minuto. */
+/** Una corrida sin actividad en este rato ya terminó: las medidas duran menos de dos minutos. */
 const CORRIDA_TERMINADA_MS = 5 * 60 * 1000;
-/** Lo que tarda una corrida en armar el cron y el Monitor: pasado esto, otra puede intentarlo. */
+/** Mientras no haya Runner, el Cerebro lo sabe una vez cada este rato: cada aviso le gasta un turno. */
+const AVISO_VENCE_MS = 2 * 60 * 60 * 1000;
+/** Lo que dura una corrida entregando: pasado esto, otra puede intentarlo. */
 const TOMA_VENCE_MS = 10 * 60 * 1000;
 
 const leerJson = (f, si) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return si; } };
@@ -58,7 +64,7 @@ const anotar = (linea) => { try { fs.appendFileSync(LOG, `${new Date().toISOStri
 
 /** El mismo criterio de `esElCartero` en cartero.mjs: se mira el último tramo del título. */
 export const esRunner = (nombre) => /^(runner|cartero)\b/i.test(String(nombre ?? '').split(/[›>]/).pop().trim());
-/** La tarea se llama «Guardia > Runner»: cartero.mjs la deja entregar sin renombrarla, porque renombrar puede estar vedado en una corrida sin nadie. */
+/** La tarea se llama «Guardia > Runner»: cartero.mjs la deja dar una vuelta, y acá no cuenta como el Runner, que tiene que poder entregar en segundos. */
 export const esGuardia = (nombre) => /^guardia\b/i.test(String(nombre ?? '').trim());
 export const idDeLaGuardia = (cuenta) => `runner-guardia-${cuenta}`;
 
@@ -101,12 +107,11 @@ export function runnerDeLaCuenta({ uuid, ahora = Date.now() }) {
   let archivos = [];
   try { archivos = fs.readdirSync(SESIONES).filter((f) => /^\d+\.json$/.test(f)); } catch { /* sin registro: sin Runner */ }
   const deLaCuenta = uuid ? chatsDeLaCuenta(uuid) : null;
-  const puesto = leerJson(path.join(DIR, 'guardia-puesto.json'), null)?.chat ?? null;
   const chats = [];
   for (const f of archivos) {
     const s = leerJson(path.join(SESIONES, f), null);
     if (!s || !esRunner(s.name) || !vive(s.pid)) continue;
-    if (esGuardia(s.name) && s.hostSessionId !== puesto) continue; // una corrida de la guardia es el Runner sólo si tomó el puesto
+    if (esGuardia(s.name)) continue;
     if (deLaCuenta && !deLaCuenta.has(s.hostSessionId)) continue;
     chats.push(s.hostSessionId ?? s.sessionId);
   }
@@ -153,21 +158,31 @@ function tomarUnaVez(archivo, venceMs, ahora) {
   try { fs.writeFileSync(archivo, String(process.pid), { flag: 'wx' }); return true; } catch { return false; }
 }
 
-export function tomarPuesto(env = process.env, ahora = Date.now()) {
-  if (!tomarUnaVez(path.join(DIR, 'guardia-toma'), TOMA_VENCE_MS, ahora)) return false;
-  fs.writeFileSync(path.join(DIR, 'guardia-puesto.json'), JSON.stringify({ chat: env.CLAUDE_CODE_HOST_SESSION_ID ?? null, at: new Date(ahora).toISOString() }));
-  return true;
+export const tomarVuelta = (ahora = Date.now()) => tomarUnaVez(path.join(DIR, 'guardia-toma'), TOMA_VENCE_MS, ahora);
+
+export const avisarUnaVez = (cuenta, ahora = Date.now()) => tomarUnaVez(path.join(DIR, `guardia-avisada.${cuenta}`), AVISO_VENCE_MS, ahora);
+
+/** El chat de un `uds:` que trae lo del buzón: send_message pide el id, y el pipe sólo está en el registro de sesiones. */
+export function destinoDelPipe(to) {
+  const pipe = String(to ?? '').replace(/^uds:/, '');
+  if (!pipe) return null;
+  let archivos = [];
+  try { archivos = fs.readdirSync(SESIONES).filter((f) => /^\d+\.json$/.test(f)); } catch { return null; }
+  for (const f of archivos) {
+    const s = leerJson(path.join(SESIONES, f), null);
+    if (s?.messagingSocketPath === pipe && s.hostSessionId && vive(s.pid)) return s.hostSessionId;
+  }
+  return null;
 }
 
-/** Las corridas de la guardia sin archivar que ya terminaron. La que tomó el puesto es el Runner, y la que sigue activa puede estar por tomarlo. */
+/** Las corridas de la guardia sin archivar que ya terminaron. */
 export function corridasTerminadas(env = process.env, ahora = Date.now()) {
   const uuid = env.CLAUDE_CODE_ACCOUNT_UUID;
   if (!uuid) return [];
-  const puesto = leerJson(path.join(DIR, 'guardia-puesto.json'), null)?.chat ?? null;
   const out = [];
   for (const [id, f] of chatsDeLaCuenta(uuid)) {
     const o = leerJson(f, null);
-    if (!o || o.isArchived || id === puesto || !esGuardia(o.title)) continue;
+    if (!o || o.isArchived || !esGuardia(o.title)) continue;
     if (ahora - Number(o.lastActivityAt ?? 0) >= CORRIDA_TERMINADA_MS) out.push(id);
   }
   return out;
@@ -200,7 +215,7 @@ export function alAbrir(origen, env = process.env, ahora = Date.now()) {
   if (!tarea.existe) {
     partes.push(`ESTA CUENTA (${cuenta}) NO TIENE LA GUARDIA DEL RUNNER: antes de contestar, lee ~/.claude/operaciones/guardia-runner.md, seccion Crear la guardia, y hacelo. Sin eso lo que Martin escribe en el Ops Center no le llega a nadie. No hace falta comentarselo.`);
   } else if (!runner.vivo) {
-    partes.push(`NO HAY RUNNER EN ${cuenta} (${runner.motivo}): lo que Martin escribe en el Ops Center sale recien cuando se levante. Lo levanta sola la tarea ${idDeLaGuardia(cuenta)} en su proxima corrida, en menos de 30 minutos, y Martin puede adelantarla con Run now en Scheduled. No tenes que hacer nada: si pregunta por un mensaje suyo, decile esto.`);
+    partes.push(`NO HAY RUNNER EN ${cuenta} (${runner.motivo}): lo que Martin escribe en el Ops Center sale recien cuando corre la tarea ${idDeLaGuardia(cuenta)}, cada 20 minutos, y no en segundos. Si sos el Cerebro, abri un chat Runner con start_session, con este encargo: lee ~/.claude/operaciones/LEEME-cartero.md y arma el cron y el Monitor. Si no, seguí con lo tuyo: si Martin pregunta por un mensaje suyo, decile esto.`);
   }
   anotar(`al-abrir ${cuenta}: tarea=${tarea.existe} runner=${runner.vivo}`);
   return partes.join(' ');
@@ -217,11 +232,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   } else if (cmd === 'corridas') {
     process.stdout.write(`${JSON.stringify(corridasTerminadas())}\n`);
   } else if (cmd === 'tomar') {
-    const si = tomarPuesto();
-    if (si) anotar('la guardia tomó el puesto de Runner');
+    const si = tomarVuelta();
+    if (si) anotar('la guardia da una vuelta: no hay Runner');
     process.stdout.write(si ? 'TOMADO\n' : 'OCUPADO\n');
+  } else if (cmd === 'destino') {
+    process.stdout.write(`${destinoDelPipe(process.argv[3]) ?? 'SIN_DESTINO'}\n`);
+  } else if (cmd === 'avisar') {
+    const { cuenta } = cuentaDelEntorno(process.env, leerJson(path.join(DIR, 'config.json'), null));
+    process.stdout.write(avisarUnaVez(cuenta ?? 'sin-cuenta') ? 'AVISAR\n' : 'YA\n');
   } else {
-    process.stderr.write('uso: runner-salud.mjs al-abrir <source> | estado | tomar | corridas\n');
+    process.stderr.write('uso: runner-salud.mjs al-abrir <source> | estado | tomar | destino <to> | avisar | corridas\n');
     process.exitCode = 2;
   }
 }
