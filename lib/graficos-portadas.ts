@@ -354,7 +354,7 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
         id: id('automatizaciones-portada'), clase: 'grafico', tipo: 'embudo_barras', fuente: 'envios', metricas: ['envios', 'abiertos', 'respuestas'],
         titulo: '¿Te contestan?',
       }),
-      vecino: 'por-dia', par: ['por-automatizacion', 'desenlace'],
+      vecino: 'por-dia', par: ['por-automatizacion', 'automatizaciones-portada', 'desenlace', 'donde-fallo', 'horas'],
     },
     'ia-contenido': {
       molde: 'corbel', nueva: (id) => ({

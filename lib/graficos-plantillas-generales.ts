@@ -124,17 +124,32 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
   },
   {
     id: 'automatizaciones', nombre: 'Automatizaciones', emoji: '⚙️',
-    linea: 'Quién entra a cada automatización, cuántos mensajes salen, cuántos se abren y cuántos responden.',
+    linea: 'Qué salió de cada automatización, qué falló, cuántos te responden y en cuánto tiempo.',
     subtitulo: 'Tus automatizaciones del período.', periodo: 'ult30',
     piezas: [
       // COMPOSICIÓN DEL 31/10/2026: la tabla por automatización es el tema de la hoja. «Por canal» era una torta estirada.
-      { local: 'entraron', tipo: 'numero_tendencia', fuente: 'inscripciones', metricas: ['personas'], dimension: null, titulo: 'Personas que entraron', comparar: true, invertida: true },
-      { local: 'envios', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['envios'], dimension: null, titulo: 'Mensajes enviados' },
+      // 4/11/2026 — NORIA (docs/templates-dashboard-propuesta.md §7.3): «¿qué corrió, qué falló y cuántas horas ahorró?». Abre con la
+      // frase de lo que salió y lo que falló; el ancla es lo que falló, y la tabla dice en cuál. ⚠️ Las horas AHORRADAS no se miden
+      // (pedirían cuánto tardaría una persona en hacerlo a mano): lo que hay es en cuántas horas responden.
+      {
+        local: 'resumen', tipo: 'frase', fuente: 'envios', metricas: ['enviados', 'fallaron', 'respuestas'], dimension: null, titulo: 'Tus automatizaciones',
+        frase: 'Salieron {enviados} mensajes · {fallaron} fallaron · {respuestas} te respondieron', ir: 'automations',
+      },
+      { local: 'entraron', tipo: 'numero_tendencia', fuente: 'inscripciones', metricas: ['personas'], dimension: null, titulo: 'Personas que entraron', comparar: true },
+      { local: 'fallaron', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['fallaron'], dimension: null, titulo: 'Fallaron', invertida: true, ir: 'automations' },
       { local: 'apertura', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_apertura'], dimension: null, titulo: 'Tasa de apertura' },
       { local: 'respuesta', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_respuesta'], dimension: null, titulo: 'Tasa de respuesta' },
       { local: 'por-dia', tipo: 'serie', fuente: 'envios', dimension: 'dia', metricas: ['envios', 'respuestas'], titulo: 'Envíos y respuestas', controles: AGRUPAR_AUTO },
-      { local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'abiertos', 'respuestas', 'tasa_respuesta'], titulo: 'Por automatización' },
+      {
+        local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'respuestas', 'tasa_respuesta', 'fallaron'],
+        titulo: 'Por automatización', ir: 'automations',
+      },
       { local: 'desenlace', tipo: 'barras', fuente: 'inscripciones', dimension: 'desenlace', metricas: ['personas'], titulo: 'Cómo terminaron' },
+      { local: 'donde-fallo', tipo: 'barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['fallaron'], ordenMetrica: 'fallaron', limite: 8, titulo: 'Dónde falló' },
+      {
+        local: 'horas', tipo: 'barras', fuente: 'inscripciones', fecha: 'alta', dimension: 'automatizacion', metricas: ['horas_respuesta'], ordenMetrica: 'horas_respuesta',
+        limite: 8, titulo: 'En cuántas horas responden',
+      },
     ],
   },
   {
