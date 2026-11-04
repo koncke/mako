@@ -161,7 +161,8 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
   assert.deepEqual(gruposMas('admin', 'completo').map((g) => [g.titulo, g.secciones.map((s) => s.id)]), [
     // 17/10/2026 noche, la sidebar del prototipo: lo diario (las hojas del Dashboard; Plan y Chats están en la barra), y
     // Sales · Marketing · Create. Clients es UNA fila; MaKo Partners sólo para una agencia.
-    ['Today', ['dashboard']],
+    // 04/11/2026: el Dashboard volvió a la barra (donde estaba Plan) y Plan es la fila de lo diario.
+    ['Today', ['plan']],
     ['Sales', ['calendario', 'automations', 'cs']],
     ['Marketing', ['offer', 'landing', 'ads']],
     // Image (la copia de Canva) entró el 17/10/2026, debajo de Video, como en la sidebar (tests/m-creacion.test.ts).
@@ -170,11 +171,12 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
   ]);
   // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la sidebar (desde el
   // 20/10/2026 el Ops Center es el lugar del medio y el Dashboard dejó la barra, así que suben sus hojas y Calendar).
-  assert.deepEqual(barraMovil('admin', 'pm').map((b) => b.id), ['dashboard', 'calendario', 'mako', 'plan', 'mas']);
+  // 04/11/2026: con el Dashboard fijo en la barra (su hoja), suben Plan y Calendar.
+  assert.deepEqual(barraMovil('admin', 'pm').map((b) => b.id), ['plan', 'calendario', 'mako', 'dashboard', 'mas']);
   assert.deepEqual(gruposMas('admin', 'pm').map((g) => g.secciones.map((s) => s.id)), []);
   // El closer y el setter: More no les ofrece ninguna de las siete (y el Ops Center lo tienen en la barra).
-  assert.deepEqual(gruposMas('closer', 'completo').map((g) => g.secciones.map((s) => s.id)), [['dashboard']]);
-  assert.deepEqual(gruposMas('setter', 'completo').map((g) => g.secciones.map((s) => s.id)), [['dashboard'], ['automations']]);
+  assert.deepEqual(gruposMas('closer', 'completo').map((g) => g.secciones.map((s) => s.id)), [['plan']]);
+  assert.deepEqual(gruposMas('setter', 'completo').map((g) => g.secciones.map((s) => s.id)), [['plan'], ['automations']]);
 });
 
 test('el teléfono deja entrar donde deja entrar la página de escritorio (mismo gating)', () => {

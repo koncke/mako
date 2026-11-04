@@ -56,6 +56,8 @@ import { hrefPermitido, srcImagen, NORMALIZAR_NODOS, NORMALIZAR_MARCAS, ETIQUETA
 import { compactar } from './validar';
 import { hrefPagoValido, productoDeHref } from './pago-landing';
 import { TOPE_TEXTOS_DISENO, conTextos, textosDeHtmlEditable } from './html-editable-textos';
+import { conCopiaDeElementoDeDiseno, conEnlaceDeDiseno, conImagenDeDiseno, elementosDeHtmlEditable, sinElementoDeDiseno } from './html-editable-elementos';
+import { colorValido } from './diseno-elemento-acciones';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La gramática (tipos)
@@ -110,7 +112,21 @@ export type BloqueIA =
    * Una sección de «Diseño editable» (24/10/2026, html-editable-textos.ts): sus TEXTOS en orden, para cambiarlos sin tocar
    * la forma. Vuelve con la misma cantidad; cada uno va a su lugar exacto del HTML.
    */
-  | { t: 'diseno'; ref: string; textos: string[] };
+  | { t: 'diseno'; ref: string; textos: string[]; cambios?: Array<{ n: number; antes: string; texto: string }>; botones?: BotonDisenoIA[]; imagenes?: ImagenDisenoIA[] };
+
+/** Cuántos botones y cuántas imágenes de un diseño ve la IA (una sección con más, ve los primeros). */
+export const TOPE_ELEMENTOS_DISENO = 60;
+
+/**
+ * Un botón o enlace de un diseño, por su número (28/10/2026, la réplica editable: «el botón en verde», «que el botón lleve a
+ * mi WhatsApp», «sacá el botón de iniciar sesión»). Lo que no se dice queda como estaba.
+ */
+export type BotonDisenoIA = { n: number; texto?: string; destino?: string; fondo?: string; colorTexto?: string; quitar?: boolean; duplicar?: boolean };
+/**
+ * Una imagen de un diseño, por su número: otra de stock (`busqueda`, la resuelve el SERVER: la IA nunca pone una URL) o
+ * fuera (`quitar`). `src` lo pone el server (aplicarImagenes): string = resuelta · null = se buscó y no hubo.
+ */
+export type ImagenDisenoIA = { n: number; alt?: string; busqueda?: string; src?: string | null; quitar?: boolean; duplicar?: boolean };
 
 /** Fondo de una sección: el del tema, el color de acento, un degradado de la lista o un #rrggbb. */
 export type FondoIA = 'tema' | 'acento' | Degradado | `#${string}`;
@@ -118,6 +134,8 @@ export type FondoIA = 'tema' | 'acento' | Degradado | `#${string}`;
 export type TarjetaIA = {
   /** Sólo en «Editar con IA»: el id de la sección que se reemplaza. */
   id?: string;
+  /** Sólo en «Editar con IA»: una sección NUEVA que copia a la de ese id (sin `bloques`, tal cual: ia-reglas.ts `emparejarEdicion`). */
+  copiaDe?: string;
   /** Imagen de acento: 'sin' · 'arriba' · 'izquierda' · 'derecha' · 'fondo'. */
   diseno?: DisenoTarjeta;
   /** Búsqueda de stock EN INGLÉS de 2 a 6 palabras, o ''. Nunca una URL: la resuelve el server. */
@@ -643,6 +661,111 @@ function destinoBoton(v: unknown, ctx: Ctx, donde: string): string {
   return ctx.formularioId ? `#t-${ctx.formularioId}` : ctx.ids ? '#' : ANCLA_FORMULARIO;
 }
 
+/** Un destino que la IA propuso para un botón de diseño, o null si no es uno válido (y entonces el botón queda como estaba). */
+function destinoDeDiseno(v: unknown, ctx: Ctx, donde: string): string | null {
+  const s = strCrudo(v).trim();
+  if (!s) return null;
+  const h = hrefPermitido(s);
+  if (h) return h;
+  // El formulario, una sección o un cobro que ya estaba: lo resuelve `destinoBoton`, con sus reglas.
+  if (/^#?(t-)?formulario$/i.test(s) || /^#?(?:t-)?secci[oó]n-\d{1,2}$/i.test(s) || hrefPagoValido(s)) return destinoBoton(s, ctx, donde);
+  ctx.d?.push(`${donde}: destino no válido «${s.slice(0, 80)}»: queda como estaba`);
+  return null;
+}
+
+/**
+ * Los botones y las imágenes que la IA cambió en un «Diseño editable» (28/10/2026, Martín: «Debe ser todo editable», y la
+ * personalización va por el chat): por su número, en el orden en que la sección los tiene (`elementosDeHtmlEditable`).
+ *   · botón: su texto, a dónde lleva, sus colores (sólo valores de color, nunca otra cosa en el `style`) o quitarlo;
+ *   · imagen: otra de stock (la resolvió el server en `src`: la IA nunca pone una URL) o quitarla.
+ * Lo que no se puede aplicar se cae SOLO (y se anota): el resto de la sección sigue igual. Los «quitar» van al final y de
+ * atrás para adelante: quitar el 2 antes del 5 correría la numeración.
+ */
+/**
+ * Los textos de un diseño que la IA cambia UNO por UNO (28/10/2026, medido con las copias de Martín: con «devolvé los 15
+ * textos en el mismo orden», en tryholo.ai volvieron 14 y la sección entera quedaba como estaba). Cada cambio dice su lugar
+ * (`n`, desde 1) y el texto de ANTES copiado tal cual: si en ese lugar no está ese texto (la IA contó mal), se busca el
+ * texto; si aparece una sola vez, va ahí; si aparece varias, al más cercano a `n`. Lo que no se encuentra se cae, solo él.
+ */
+function conCambiosDeTexto(html: string, cambios: unknown[], anotar: (s: string) => void): string {
+  const ahora = textosDeHtmlEditable(html);
+  const igual = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  const nuevos = [...ahora];
+  for (const raw of cambios.slice(0, 400)) {
+    if (!esObj(raw)) continue;
+    const texto = strCrudo(raw.texto).replace(/\s+/g, ' ').trim().slice(0, 2_000);
+    if (!texto) continue;
+    const antes = igual(strCrudo(raw.antes));
+    const n = Number(raw.n);
+    const enN = Number.isInteger(n) && n >= 1 && n <= ahora.length ? n - 1 : -1;
+    let i = enN >= 0 && (!antes || igual(ahora[enN]) === antes) ? enN : -1;
+    if (i < 0 && antes) {
+      const donde = ahora.flatMap((t, k) => (igual(t) === antes ? [k] : []));
+      if (donde.length) i = enN < 0 ? donde[0] : donde.reduce((m, k) => (Math.abs(k - enN) < Math.abs(m - enN) ? k : m), donde[0]);
+    }
+    if (i < 0) { anotar(`no encontré el texto «${strCrudo(raw.antes).slice(0, 60)}»: queda como estaba`); continue; }
+    nuevos[i] = texto;
+  }
+  return conTextos(html, nuevos) ?? html;
+}
+
+function conElementosDeDiseno(html: string, b: Record<string, unknown>, ctx: Ctx, ref: string): string {
+  let out = html;
+  const anotar = (s: string) => ctx.d?.push(`diseno «${ref}»: ${s}`);
+  const aplicar = (r: string | { error: string }, que: string) => {
+    if (typeof r === 'string') out = r;
+    else anotar(`${que}: ${r.error}`);
+  };
+  const numero = (x: unknown): number | null => { const n = Number(x); return Number.isInteger(n) && n >= 1 && n <= 500 ? n : null; };
+  // Lo que corre la numeración (quitar, y duplicar: la copia es la `n + 1`) va al final, de la última a la primera: así
+  // la `n` de cada pedido sigue siendo la que vio la IA.
+  type Paso = { n: number; quitar: boolean; aplicar?: (html: string, n: number) => string | { error: string } };
+  const pasosBotones: Paso[] = [];
+  const pasosImagenes: Paso[] = [];
+  for (const raw of arr(b.botones).slice(0, 80)) {
+    if (!esObj(raw)) continue;
+    const n = numero(raw.n);
+    if (n === null) continue;
+    if (raw.quitar === true) { pasosBotones.push({ n, quitar: true }); continue; }
+    const cambio: { texto?: string; destino?: string; fondo?: string; colorTexto?: string } = {};
+    const texto = strCrudo(raw.texto).trim();
+    if (texto) cambio.texto = texto.slice(0, 120);
+    if (raw.destino !== undefined) { const d = destinoDeDiseno(raw.destino, ctx, `diseno «${ref}» botón ${n}`); if (d !== null) cambio.destino = d; }
+    for (const [k, v] of [['fondo', raw.fondo], ['colorTexto', raw.colorTexto]] as const) {
+      const c = strCrudo(v).trim();
+      if (!c) continue;
+      if (colorValido(c)) cambio[k] = c;
+      else anotar(`botón ${n}: «${c.slice(0, 40)}» no es un color`);
+    }
+    const conCambio = Object.keys(cambio).length ? (html: string, k: number) => conEnlaceDeDiseno(html, k, cambio) : undefined;
+    // «duplicar»: un botón más justo después, con los cambios (el de antes queda como estaba).
+    if (raw.duplicar === true) { pasosBotones.push({ n, quitar: false, aplicar: conCambio }); continue; }
+    if (conCambio) aplicar(conCambio(out, n), `botón ${n}`);
+  }
+  for (const raw of arr(b.imagenes).slice(0, 80)) {
+    if (!esObj(raw)) continue;
+    const n = numero(raw.n);
+    if (n === null) continue;
+    if (raw.quitar === true) { pasosImagenes.push({ n, quitar: true }); continue; }
+    // `src` lo puso el server al resolver la búsqueda; sin búsqueda resuelta, la imagen queda como estaba.
+    const src = typeof raw.src === 'string' ? srcImagen(raw.src) : null;
+    if (!src && normalizarBusqueda(raw.busqueda)) anotar(`imagen ${n}: no encontré una para «${normalizarBusqueda(raw.busqueda)}», queda la que estaba`);
+    const conSrc = src ? (html: string, k: number) => conImagenDeDiseno(html, k, src) : undefined;
+    if (raw.duplicar === true) { pasosImagenes.push({ n, quitar: false, aplicar: conSrc }); continue; }
+    if (conSrc) aplicar(conSrc(out, n), `imagen ${n}`);
+  }
+  for (const [tipo, pasos, nombre] of [['enlace', pasosBotones, 'botón'], ['imagen', pasosImagenes, 'imagen']] as const) {
+    for (const p of [...pasos].sort((a, c) => c.n - a.n)) {
+      if (p.quitar) { aplicar(sinElementoDeDiseno(out, tipo, p.n), `quitar ${nombre === 'botón' ? 'el botón' : 'la imagen'} ${p.n}`); continue; }
+      const copia = conCopiaDeElementoDeDiseno(out, tipo, p.n);
+      if (typeof copia !== 'string') { anotar(`duplicar ${nombre} ${p.n}: ${copia.error}`); continue; }
+      out = copia;
+      if (p.aplicar) aplicar(p.aplicar(out, p.n + 1), `${nombre} ${p.n} (la copia)`);
+    }
+  }
+  return out;
+}
+
 function nodoBotones(b: Record<string, unknown>, ctx: Ctx): JsonNodo | null {
   const botones: JsonNodo[] = [];
   for (const [i, x] of arr(b.items).entries()) {
@@ -924,8 +1047,12 @@ function convertirBloque(raw: unknown, ctx: Ctx, enColumna: boolean): JsonNodo[]
       const orig = ctx.refs.get(ref);
       if (!orig || orig.type !== NODO.htmlEditable) { ctx.d?.push(`diseno: la referencia «${ref}» no es un diseño editable, se cae`); return []; }
       const html = typeof orig.attrs?.html === 'string' ? orig.attrs.html : '';
-      const nuevo = conTextos(html, arr(b.textos));
-      if (nuevo === null) { ctx.d?.push(`diseno «${ref}»: volvieron ${arr(b.textos).length} textos y la sección tiene ${textosDeHtmlEditable(html).length}: queda como estaba`); return [clonar(orig)]; }
+      // Los textos: `cambios` (sólo los que cambian, por su lugar Y su texto de antes) o `textos` (todos, la misma cantidad).
+      // Sin ninguno de los dos (sólo botones o imágenes), quedan como estaban.
+      const conLosTextos = Array.isArray(b.cambios) ? conCambiosDeTexto(html, b.cambios, (s) => ctx.d?.push(`diseno «${ref}»: ${s}`))
+        : b.textos === undefined ? html : conTextos(html, arr(b.textos));
+      if (conLosTextos === null) { ctx.d?.push(`diseno «${ref}»: volvieron ${arr(b.textos).length} textos y la sección tiene ${textosDeHtmlEditable(html).length}: queda como estaba`); return [clonar(orig)]; }
+      const nuevo = conElementosDeDiseno(conLosTextos, b, ctx, ref);
       const copia = clonar(orig);
       return [{ ...copia, attrs: { ...(copia.attrs ?? {}), html: nuevo } }];
     }
@@ -1105,7 +1232,8 @@ export function bloquesATarjetas(tarjetas: TarjetaIA[], op: Omit<OpConversion, '
 /** La forma mínima de lo que devuelve el modelo: `[…]`, `{tarjetas: […]}` o `{secciones: […]}`. */
 export function comoTarjetasIA(x: unknown): TarjetaIA[] {
   const lista = Array.isArray(x) ? x : esObj(x) ? arr(x.tarjetas ?? x.secciones) : [];
-  return lista.filter((t): t is TarjetaIA => esObj(t) && Array.isArray(t.bloques));
+  // Una copia (`copiaDe`) puede venir sin bloques: es la misma sección.
+  return lista.filter((t): t is TarjetaIA => esObj(t) && (Array.isArray(t.bloques) || (typeof t.copiaDe === 'string' && !!t.copiaDe.trim())));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1123,6 +1251,8 @@ function* busquedasDe(t: TarjetaIA): Generator<string> {
         for (const it of arr(b.items)) if (esObj(it) && !it.ref && it.imagenSrc === undefined) { const q = normalizarBusqueda(it.imagen); if (q) yield q; }
       }
       if (b.t === 'columnas') for (const c of arr(b.columnas)) yield* enBloques(arr(c));
+      // Las imágenes de un diseño que la IA quiere cambiar (28/10/2026): se buscan como las demás.
+      if (b.t === 'diseno') for (const im of arr(b.imagenes)) if (esObj(im) && im.quitar !== true && im.src === undefined) { const q = normalizarBusqueda(im.busqueda); if (q) yield q; }
     }
   };
   yield* enBloques(arr(t.bloques));
@@ -1165,6 +1295,14 @@ export function aplicarImagenes(tarjetas: TarjetaIA[], mapa: Map<string, string>
       }) as ItemOptimizadoIA[] };
     }
     if (b.t === 'columnas') return { ...b, columnas: arr(b.columnas).map((c) => enBloques(arr(c) as BloqueIA[])) };
+    if (b.t === 'diseno' && Array.isArray(b.imagenes)) {
+      return { ...b, imagenes: b.imagenes.map((im) => {
+        if (!esObj(im) || im.quitar === true || im.src !== undefined) return im;
+        const q = normalizarBusqueda(im.busqueda);
+        const r = q ? resolver(q) : undefined;
+        return r === undefined ? im : { ...im, src: r };
+      }) };
+    }
     return b;
   });
   return arr(tarjetas).map((raw) => {
@@ -1321,8 +1459,18 @@ function bloqueDeNodo(n: JsonNodo, base: JsonNodo, d: string[] | undefined, form
     case NODO.htmlEditable: {
       const r = refDeNodo(base, n);
       if (!r) return [];
-      const textos = textosDeHtmlEditable(typeof a.html === 'string' ? a.html : '');
-      return textos.length && textos.length <= TOPE_TEXTOS_DISENO ? [{ t: 'diseno', ref: r, textos }] : [{ t: 'conservar', ref: r, que: 'html' }];
+      const html = typeof a.html === 'string' ? a.html : '';
+      const textos = textosDeHtmlEditable(html);
+      if (!textos.length || textos.length > TOPE_TEXTOS_DISENO) return [{ t: 'conservar', ref: r, que: 'html' }];
+      // Sus botones y sus imágenes, por número (28/10/2026, la réplica editable): así «el botón en verde», «que lleve a mi
+      // WhatsApp» o «otra foto acá» tienen a qué apuntar. Sólo lo que la IA necesita para elegir: el texto y el destino de un
+      // botón, la descripción de una imagen (nunca su dirección).
+      const elementos = elementosDeHtmlEditable(html);
+      const botones = elementos.filter((e) => e.tipo === 'enlace').slice(0, TOPE_ELEMENTOS_DISENO)
+        .map((e) => (e.tipo === 'enlace' ? { n: e.n, texto: e.texto.slice(0, 80), destino: e.destino ?? '' } : null)).filter((x) => x !== null);
+      const imagenes = elementos.filter((e) => e.tipo === 'imagen').slice(0, TOPE_ELEMENTOS_DISENO)
+        .map((e) => (e.tipo === 'imagen' ? { n: e.n, alt: (e.alt ?? '').slice(0, 80) } : null)).filter((x) => x !== null);
+      return [{ t: 'diseno', ref: r, textos, ...(botones.length ? { botones } : {}), ...(imagenes.length ? { imagenes } : {}) }];
     }
     case NODO.video: case NODO.insertado: case NODO.htmlLibre: {
       const r = refDeNodo(base, n);
@@ -1411,7 +1559,9 @@ function armarGramatica(): string {
     '- {"t":"imagen","busqueda","alt"} una foto suelta (búsqueda en inglés).',
     '- {"t":"etiqueta","texto"} una píldora corta: «Más vendido», «Nuevo».',
     '- {"t":"conservar","ref"} un elemento que ya existe (video, imagen, insertado): déjalo donde va, sin tocar el ref. Lo mismo con el "ref" de un ítem o de un formulario.',
-    '- {"t":"diseno","ref","textos":["..."]} una sección de diseño a medida: SÓLO cambias sus textos, cada uno en su lugar. Devuelve la MISMA cantidad de textos, en el mismo orden; el que no cambia va igual. No agregues ni quites textos, no escribas HTML ni markdown y no toques el ref.',
+    '- {"t":"diseno","ref","textos":["..."],"botones":[...],"imagenes":[...]} una sección de diseño a medida (por ejemplo, la copia de una página). Para cambiar ALGUNOS de sus textos, en vez de "textos" devuelve "cambios":[{"n":3,"antes":"el texto como está, copiado tal cual","texto":"el nuevo"}] con sólo los que cambian ("n" es su lugar en "textos", desde 1). Para cambiarlos casi todos (una traducción), "textos" con la MISMA cantidad, en el mismo orden, y el que no cambia igual. No agregues ni quites textos, no escribas HTML ni markdown y no toques el ref. Si no cambias ningún texto, no pongas ni "textos" ni "cambios".',
+    '  · "botones": SÓLO los que cambian, por su "n" (el número que trae): {"n":2,"texto":"Agenda tu llamada","destino":"https://wa.me/549...","fondo":"#16a34a","colorTexto":"#ffffff"} o {"n":3,"quitar":true}. Lo que no dices queda igual. "fondo" y "colorTexto" son colores (#rrggbb). "destino": una dirección completa (https://, mailto:, tel:), "formulario" o "seccion-N". Con "duplicar":true va OTRO botón igual justo después, con lo que digas (el de "n" queda como estaba).',
+    '  · "imagenes": SÓLO las que cambian, por su "n": {"n":1,"busqueda":"foto concreta en inglés","alt":"qué muestra"} para otra de stock, o {"n":2,"quitar":true}; con "duplicar":true, otra igual justo después (con su "busqueda", otra foto). Nunca escribas una dirección de imagen.',
     'TEXTO: **negrita**, *cursiva* y [texto](url). Nada de HTML ni de otro markdown (sin #, sin >, sin tablas en texto).',
     'VARIANTES de optimizado (cuándo usar cada una): ' + variantes + '.',
     'ÍCONOS válidos (campo "icono"; si ninguno calza, no pongas ícono): ' + iconos + '.',

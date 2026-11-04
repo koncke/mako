@@ -45,12 +45,12 @@ import type { Cerebro } from './cerebro-modelo';
  */
 import CLASES_POR_CURSO from './asesores/clases-de-referentes.json';
 
-type ClaseDelIndice = { t: string; v: string };
+type ClaseDelIndice = { t: string; v: string; g?: string };
 
-/** Las clases de un curso por su slug, listas para leerles la transcripción. */
+/** Las clases de un curso por su slug, listas para leerles la transcripción. El módulo es la sección de su Second Brain. */
 export function clasesDelIndice(slug: string): CursoParaLeer {
   const lista = (CLASES_POR_CURSO as Record<string, ClaseDelIndice[]>)[slug] ?? [];
-  return { clases: lista.map((c) => ({ titulo: c.t, videoId: c.v })) };
+  return { clases: lista.map((c) => ({ titulo: c.t, videoId: c.v, modulo: c.g })) };
 }
 
 /** Lo que hace falta de un curso para leerlo. Se le pasa ya cargado: este módulo no importa cursos. */
@@ -58,7 +58,7 @@ export type CursoParaLeer = {
   // ⚠️ `| null` Y NO SÓLO `| undefined`: el `Clase` del repo declara estos campos como
   // `string | null`, y con `?: string` el tipo de un `Curso` de verdad NO entra acá. Lo cazó el tsc
   // acotado antes de subirlo (`Argument of type 'Curso' is not assignable to 'CursoParaLeer'`).
-  clases: ReadonlyArray<{ titulo?: string | null; videoId?: string | null }>;
+  clases: ReadonlyArray<{ titulo?: string | null; videoId?: string | null; modulo?: string | null }>;
 };
 
 /**
@@ -124,7 +124,8 @@ export async function clasesDelCurso(curso: CursoParaLeer): Promise<ClaseDeCurso
       const c = curso.clases[i];
       const videoId = (c.videoId ?? '').trim();
       const texto = videoId ? await textoDeClaseMemo(videoId) : null;
-      if (texto) leidas[i] = { videoId, titulo: (c.titulo ?? '').trim() || `Clase ${i + 1}`, orden: i + 1, texto };
+      const modulo = (c.modulo ?? '').trim();
+      if (texto) leidas[i] = { videoId, titulo: (c.titulo ?? '').trim() || `Clase ${i + 1}`, orden: i + 1, texto, ...(modulo ? { modulo } : {}) };
     }
   };
   await Promise.all(Array.from({ length: Math.min(CLASES_A_LA_VEZ, curso.clases.length) }, leerLasQueSiguen));

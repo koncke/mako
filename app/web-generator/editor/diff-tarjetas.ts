@@ -122,6 +122,8 @@ export type DiffTarjetas = {
   cambiadas: number;
   quitadas: number;
   iguales: number;
+  /** Las que siguen cambiaron de orden entre ellas («mueve la de precios arriba», 28/10/2026). */
+  movidas: boolean;
 };
 
 /** El título que se muestra de una sección: su primer título, o «Sin título». */
@@ -164,12 +166,16 @@ export function diffTarjetas(antes: readonly JsonNodo[], despues: readonly JsonN
     if (!vistas.has(k) && previas.get(k) === t) cambios.push({ tipo: 'quita', id: idDe(t), titulo: tituloVisible(t) });
   });
 
+  const siguen = (lista: readonly JsonNodo[]) => lista.map(idDe).filter((id) => id && vistas.has(id));
+  const a = siguen(antes);
+  const b = siguen(despues);
   return {
     cambios,
     agregadas: cambios.filter((c) => c.tipo === 'agrega').length,
     cambiadas: cambios.filter((c) => c.tipo === 'cambia').length,
     quitadas: cambios.filter((c) => c.tipo === 'quita').length,
     iguales,
+    movidas: a.length === b.length && a.some((id, i) => id !== b[i]),
   };
 }
 
@@ -181,6 +187,7 @@ export function resumenDeCambios(d: DiffTarjetas): string {
   if (d.cambiadas) partes.push(`cambia ${plural(d.cambiadas, 'sección', 'secciones')}`);
   if (d.agregadas) partes.push(`agrega ${partes.length ? d.agregadas : plural(d.agregadas, 'sección', 'secciones')}`);
   if (d.quitadas) partes.push(`quita ${partes.length ? d.quitadas : plural(d.quitadas, 'sección', 'secciones')}`);
+  if (d.movidas) partes.push(partes.length ? 'cambia el orden' : 'cambia el orden de las secciones');
   const s = partes.join(' · ');
   return s ? s[0].toUpperCase() + s.slice(1) : '';
 }
@@ -193,18 +200,38 @@ export type PlanAplicacion = {
   inserciones: Insercion[];
   /** Cómo queda la lista de secciones si se aplica (para el diff y la vista «Modificado»). */
   resultado: JsonNodo[];
+  /** Las que se SACAN (28/10/2026): de `quitar`, las que existen y no se reemplazan; nunca todas. */
+  quitadas: string[];
+  /** Si el orden de las que quedan cambia (`orden`): la pantalla lo aplica con `trQuitarYOrdenar` (insertar.ts). */
+  reordenada: boolean;
 };
+
+/**
+ * Pone en el orden de `orden` los elementos que nombra, en los LUGARES que ocupan ellos: los demás no se mueven. Un id
+ * que no está se saltea; un id repetido en la lista vale la primera vez. No muta la entrada.
+ */
+export function ordenarPorIds<T>(lista: readonly T[], id: (t: T) => string, orden: readonly string[]): T[] {
+  const nombrados = new Set(orden);
+  const porId = new Map<string, T>();
+  for (const t of lista) { const k = id(t); if (nombrados.has(k) && !porId.has(k)) porId.set(k, t); }
+  const cola = [...new Set(orden)].filter((k) => porId.has(k)).map((k) => porId.get(k) as T);
+  let i = 0;
+  return lista.map((t) => (porId.get(id(t)) === t ? cola[i++] : t));
+}
 
 /**
  * Parte una propuesta en lo que se REEMPLAZA y lo que se INSERTA (y dónde), y simula el
  * resultado. Ver la cabecera: una nueva va después de la existente que la precede en la
  * propuesta; si no hay, después de `anclaNuevas` (si existe en el documento) o al final.
  * `despuesDe: null` sólo cuando el documento no tiene ninguna sección.
+ * Lo que cambia de la LISTA (`editar`, lib/editor-landing/api-tipos.ts `EdicionIA`): una COPIA (`copias`) va justo debajo
+ * de la que copia; `orden` ordena las existentes (en sus lugares: `ordenarPorIds`) y las nuevas siguen a la suya;
+ * `quitar` saca las que existen y no se reemplazan, salvo que no quedara ninguna sección (entonces queda la primera).
  */
 export function planDeAplicacion(
   actuales: readonly JsonNodo[],
   propuestas: readonly JsonNodo[],
-  op: { anclaNuevas?: string | null } = {},
+  op: { anclaNuevas?: string | null; quitar?: readonly string[] | null; orden?: readonly string[] | null; copias?: Readonly<Record<string, string>> | null } = {},
 ): PlanAplicacion {
   const existentes = new Set(actuales.map(idDe).filter(Boolean));
   const reemplazos: JsonNodo[] = [];
@@ -225,7 +252,8 @@ export function planDeAplicacion(
       grupo = null;
       continue;
     }
-    const despuesDe = ultimaExistente ?? anclaPorDefecto;
+    const copiaDe = id ? op.copias?.[id] : undefined;
+    const despuesDe = copiaDe && existentes.has(copiaDe) ? copiaDe : ultimaExistente ?? anclaPorDefecto;
     if (!grupo || grupo.despuesDe !== despuesDe) {
       grupo = { despuesDe, tarjetas: [] };
       inserciones.push(grupo);
@@ -234,15 +262,22 @@ export function planDeAplicacion(
   }
 
   const porId = new Map(reemplazos.map((t) => [idDe(t), t] as const));
-  const resultado: JsonNodo[] = [];
-  for (const t of actuales) {
+  const ordenadas = op.orden?.length ? ordenarPorIds(actuales, idDe, op.orden) : actuales;
+  const todo: JsonNodo[] = [];
+  for (const t of ordenadas) {
     const id = idDe(t);
-    resultado.push(porId.get(id) ?? t);
-    for (const g of inserciones) if (g.despuesDe && g.despuesDe === id) resultado.push(...g.tarjetas);
+    todo.push(porId.get(id) ?? t);
+    for (const g of inserciones) if (g.despuesDe && g.despuesDe === id) todo.push(...g.tarjetas);
   }
-  for (const g of inserciones) if (!g.despuesDe) resultado.push(...g.tarjetas);
+  for (const g of inserciones) if (!g.despuesDe) todo.push(...g.tarjetas);
 
-  return { reemplazos, inserciones, resultado };
+  const fuera = new Set((op.quitar ?? []).filter((id) => existentes.has(id) && !porId.has(id)));
+  let resultado = todo.filter((t) => !fuera.has(idDe(t)));
+  if (!resultado.length && todo.length) { fuera.delete(idDe(todo[0])); resultado = [todo[0]]; }
+  const antes = actuales.map(idDe).filter((id) => id && !fuera.has(id));
+  const despues = resultado.map(idDe).filter((id) => existentes.has(id));
+  const reordenada = antes.length === despues.length && antes.some((id, i) => id !== despues[i]);
+  return { reemplazos, inserciones, resultado, quitadas: [...fuera], reordenada };
 }
 
 /**

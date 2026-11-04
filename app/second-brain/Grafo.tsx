@@ -170,6 +170,9 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
    *  construcción de MaKo: lib/cerebro-union.ts). Pinta, agrupa, navega y filtra; el editor de un área es sólo de las
    *  diez del negocio (`esAreaDeNegocio`). */
   const tax = cerebro.taxonomia ?? TAXONOMIA_NEGOCIO;
+  /** EL CURSO DE UN GURÚ (4/11/2026, lib/cerebro-referente-vista.ts): el mismo grafo, pero lo que se cuenta son clases y módulos.
+   *  La barra lateral, el filtro, el detalle y los textos dejan de hablar de «lo que MaKo sabe de tu negocio». */
+  const curso = cerebro.curso ?? null;
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const gRef = useRef<SVGGElement | null>(null);
@@ -1045,7 +1048,12 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     const anchoU = caja.width / porPixel;
     const altoU = caja.height / porPixel;
     const aire = 24 / porPixel;
-    const k = Math.min((anchoU - 2 * aire) / (bbox.w || 1), (altoU - 2 * aire) / (bbox.h || 1));
+    // El curso de un gurú (4/11/2026): el encuadre mide los PUNTOS, y el título de una sección (en versalitas, centrado en su
+    // punto) puede ser mucho más ancho: pegado al borde salía cortado («…HOP RECORDINGS»). A los costados se deja, además, la
+    // mitad del título de sección más largo (≈ 7,5 px por letra, con tope). Sólo en un curso: el mapa del negocio no cambia.
+    const mitadTitulo = curso ? Math.min(120, Math.max(0, ...nodos.filter((n) => n.id.startsWith('n1:')).map((n) => Math.min(n.etiqueta.length, 34) * 3.75))) : 0;
+    const aireX = (24 + mitadTitulo) / porPixel;
+    const k = Math.min((anchoU - 2 * aireX) / (bbox.w || 1), (altoU - 2 * aire) / (bbox.h || 1));
     kFit.current = k;
     setKFitEstado((prev) => (Math.abs(prev - k) < 1e-6 ? prev : k));
     // ⚠️ CUÁNTAS UNIDADES DE MUNDO ENTRAN EN UN PÍXEL. El <g> se escala DOS veces —por el
@@ -1061,7 +1069,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     const cyU = encuadre.y + encuadre.lado / 2;
     vista.current = { k, x: cxU - k * bbox.cx, y: cyU - k * bbox.cy };
     pedirPintado();
-  }, [bbox, encuadre, pedirPintado]);
+  }, [bbox, encuadre, pedirPintado, curso, nodos]);
   ajustarRef.current = ajustar;
 
   /** Zoom desde los botones. Va contra el CENTRO del lienzo, no contra el cursor: el
@@ -1278,6 +1286,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
         <aside className={clase} aria-label={`Detalle: ${nodoSel.etiqueta}`}>
           <div className="cbg-det__cuerpo">
             <div className="cbg-det__cab">
+              {curso && nodoSel.id === 'raiz' ? <span className="cbg-det__tipo" style={{ margin: 0 }}>{curso.de}</span> : (
               <button
                 type="button"
                 className="cbg-area-btn"
@@ -1288,19 +1297,25 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                 <span className="cbg-punto" style={{ background: areaDe(nodoSel.area).color }} />
                 {areaDe(nodoSel.area).nombre}
               </button>
+              )}
               <span style={{ flex: 1 }} />
               <button type="button" className="cbg-det__cerrar" onClick={soltarNodo} title="Soltar (Esc)" aria-label="Soltar el dato">✕</button>
             </div>
 
             <p className="cbg-det__tipo">{tipoDeNodo(nodoSel)}</p>
             <h2 className="cbg-det__titulo">{nodoSel.etiqueta}</h2>
-            <div className="cbg-det__pastillas">
-              <span className="cbg-pastilla" data-autoria={nodoSel.autoria} title={AUTORIA_TEXTO[nodoSel.autoria]}>{AUTORIA_CORTA[nodoSel.autoria]}</span>
-              {nodoSel.destacado && <span className="cbg-pastilla" data-tono="mako">Tu Norte</span>}
-              {nodoSel.alerta && <span className="cbg-pastilla" data-tono="warn">Cuello de botella</span>}
-              {fechaCorta(nodoSel.nace) && <span className="cbg-pastilla">{fechaCorta(nodoSel.nace)}</span>}
-            </div>
+            {/* Una clase de un curso no la «dedujo MaKo»: es del curso, y lo dice su «De dónde salió». Sin pastillas, sin su fila. */}
+            {curso ? <div style={{ height: 12 }} /> : (
+              <div className="cbg-det__pastillas">
+                <span className="cbg-pastilla" data-autoria={nodoSel.autoria} title={AUTORIA_TEXTO[nodoSel.autoria]}>{AUTORIA_CORTA[nodoSel.autoria]}</span>
+                {nodoSel.destacado && <span className="cbg-pastilla" data-tono="mako">Tu Norte</span>}
+                {nodoSel.alerta && <span className="cbg-pastilla" data-tono="warn">Cuello de botella</span>}
+                {fechaCorta(nodoSel.nace) && <span className="cbg-pastilla">{fechaCorta(nodoSel.nace)}</span>}
+              </div>
+            )}
 
+            {/* De una clase se ve cómo EMPIEZA (lib/cerebro-referente-vista.ts → `tramoDeVista`): dicho, para que no se lea como un resumen. */}
+            {curso && nodoSel.tipo === 'Clase' && nodoSel.detalle && <h3 className="cbg-det__h" style={{ marginTop: 6 }}>Cómo empieza</h3>}
             {nodoSel.detalle && <p className="cbg-det__resumen">{nodoSel.detalle}</p>}
 
             {/* Los datos del nodo, como pares nombre → valor (antes se pegaban con « · » en un renglón). */}
@@ -1905,7 +1920,8 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             campos={campos}
             onCampos={setCampos}
             ia={ia}
-            onBuscarIA={(t) => void buscarConIA(t)}
+            onBuscarIA={curso ? undefined : (t) => void buscarConIA(t)}
+            rotulo={curso ? 'Buscar una clase' : undefined}
             onLimpiarIA={() => setIa({ pensando: false, ids: null, explico: '' })}
             resultados={resultados.length}
             total={nodos.length}
@@ -1926,11 +1942,12 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             conteoArea={porArea}
             conteoAutoria={{ mako: cuenta.mako, usuario: cuenta.usuario, falta: cuenta.pendientes }}
             tax={tax}
+            soloModulos={!!curso}
           />
           {/* «N de M», que el tablero no tiene y el CRM sí. Sin esto, filtrar y no ver
               nada es indistinguible de que el mapa esté vacío. */}
           {hayFiltro && (
-            <span className="cbg-cuenta" title={`Se muestran ${datosVisibles} de ${datosTotal} datos del Second Brain`}>
+            <span className="cbg-cuenta" title={`Se muestran ${datosVisibles} de ${datosTotal} ${curso ? 'clases' : 'datos del Second Brain'}`}>
               <b style={{ fontWeight: 600, color: 'var(--cbg-texto)' }}>{datosVisibles}</b> de {datosTotal}
             </span>
           )}
@@ -1938,7 +1955,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             {/* Sin columna (ventana angosta o tableta) el navegador de áreas se pide: no ocupa el lienzo solo. */}
             {!nodoSel && (
               <button type="button" className="cbg-chip cbg-areas-btn" aria-pressed={navAbierto} onClick={() => setNavAbierto((v) => !v)}>
-                {lateral ? 'MaKo' : 'Áreas'}
+                {lateral ? 'MaKo' : curso ? 'Módulos' : 'Áreas'}
               </button>
             )}
             {accion}
@@ -1951,7 +1968,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             className="cbg-mapa"
             viewBox={vb}
             role="img"
-            aria-label={`Second Brain: ${cuenta.total} datos que MaKo entendió de tu negocio`}
+            aria-label={curso ? `Second Brain de ${curso.de}: ${cuenta.total} clases de «${curso.nombre}»` : `Second Brain: ${cuenta.total} datos que MaKo entendió de tu negocio`}
             onDragStart={frenarDragNativo}
             // Mantener apretado dispara `contextmenu` en Android y abre el menú del navegador encima del gesto.
             onContextMenu={frenarMenu}
@@ -2133,7 +2150,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
               <NoResults
                 inline
-                detalle="Tu Second Brain tiene datos, pero ninguno pasa este filtro."
+                detalle={curso ? 'Ninguna clase pasa este filtro.' : 'Tu Second Brain tiene datos, pero ninguno pasa este filtro.'}
                 onLimpiar={() => setFiltro(filtroVacio())}
               />
             </div>
@@ -2147,10 +2164,10 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
               alignItems: 'center', justifyContent: 'center', gap: 10, textAlign: 'center', padding: 24,
             }}>
               <div style={{ fontSize: 'var(--fs-card)', fontWeight: 650, color: 'var(--ink)' }}>
-                Todavía no sé nada de tu negocio
+                {curso ? 'Este curso todavía no tiene clases' : 'Todavía no sé nada de tu negocio'}
               </div>
               <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)', maxWidth: 340, lineHeight: 1.55 }}>
-                Suelta tus documentos en El Archivero y el mapa se arma solo.
+                {curso ? 'Vuelve a abrirlo en un momento.' : 'Suelta tus documentos en El Archivero y tu Second Brain se arma solo.'}
               </p>
               {onEditarArea && (
                 <Button variant="primary" onClick={() => onEditarArea('documentos')}>Abrir El Archivero</Button>
@@ -2226,6 +2243,47 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
         </div>
       ) : nodoSel ? (
         detalleDelNodo('cbg-detalle cbg-det')
+      ) : curso ? (
+        /* EL CURSO DE UN GURÚ (4/11/2026, Martín: «revisa la sidebar de cada second brain, están bastante mal organizadas»). Decía
+           «453 cosas que MaKo sabe · 453 de MaKo · 0 tuyas» y una sola sección con el curso entero adentro. Ahora: qué curso es, de
+           quién, cuántas clases, y sus MÓDULOS en el orden del curso —con el color de su sección en el mapa—, que es como se recorre. */
+        <aside className="cbg-detalle cbg-nav" data-plegado={navAbierto ? '0' : '1'} aria-label={`El curso: ${curso.nombre}`}>
+          <div className="cbg-det__cuerpo">
+            <p className="cbg-det__tipo">Curso de {curso.de}</p>
+            <h2 className="cbg-det__titulo">{curso.nombre}</h2>
+            <p className="cbg-nav__desglose">
+              {cuenta.total} {cuenta.total === 1 ? 'clase' : 'clases'} · {curso.modulos} {curso.modulos === 1 ? 'módulo' : 'módulos'}
+            </p>
+            <div className="cbg-nav__carpeta">
+              <p className="cbg-nav-carpeta" style={{ cursor: 'default' }}>Módulos</p>
+              <div className="cbg-nav__areas">
+                {tax.areas.filter((a) => (porArea[a.id] ?? 0) > 0).map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    className="cbg-nav-fila"
+                    aria-pressed={areasFiltradas.has(a.id)}
+                    onClick={() => {
+                      setFiltro((f) => {
+                        const as = new Set(f.areas);
+                        const id = a.id as AreaId;
+                        if (as.has(id)) as.delete(id); else as.add(id);
+                        return { ...f, areas: as };
+                      });
+                      irA(`n1:${a.id}`, false);
+                    }}
+                    title={areasFiltradas.has(a.id) ? 'Ver todos los módulos' : `Ver sólo ${a.nombre}`}
+                  >
+                    <span className="cbg-punto" style={{ background: a.color }} />
+                    <span className="cbg-nav-txt">{a.nombre}</span>
+                    <span className="cbg-nav__conteo">{porArea[a.id] ?? 0}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="cbg-nav__pista">Toca una clase para ver de qué trata.</p>
+          </div>
+        </aside>
       ) : (
         /* El navegador: «Tu negocio» de un vistazo y las áreas, cada una con su conteo y su «Editar». */
         <aside className="cbg-detalle cbg-nav" data-plegado={navAbierto ? '0' : '1'} aria-label="Tu negocio">

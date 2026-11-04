@@ -194,6 +194,11 @@ export type NodoCerebro<A extends string = AreaId> = {
    *  «Abrir en <abrirEn>» en vez de prometer un «Editar» de un área que no lo tiene. */
   href?: string;
   abrirEn?: string;
+  /** Un PISO para el tamaño del punto, en la misma unidad que el grado (4/11/2026, el Second Brain de un gurú,
+   *  lib/cerebro-referente-vista.ts): la raíz y los módulos de un curso tienen pocas aristas y tienen que verse grandes, y
+   *  una clase larga más que una corta. Lo leen las dos puntas por `gradosDe`, así que el layout y el dibujo miden igual.
+   *  Sin esto, el grado de siempre. */
+  peso?: number;
 };
 
 /** Una arista se dibuja solo si SIGNIFICA algo verificable. `motivo` es lo que se
@@ -242,4 +247,10 @@ export type Cerebro<A extends string = AreaId> = {
   huella?: string;
   /** La taxonomía de este grafo; sin ella, la del negocio (TAXONOMIA_NEGOCIO). */
   taxonomia?: Taxonomia;
+  /** Si este grafo es el CURSO de un gurú (lib/cerebro-referente-vista.ts): la barra lateral, el filtro y el detalle hablan
+   *  de clases y módulos, no de «lo que MaKo sabe de tu negocio». */
+  curso?: CursoDelGrafo;
 };
+
+/** De qué curso es un grafo de gurú: su nombre, de quién es y cuántos módulos tiene. */
+export type CursoDelGrafo = { nombre: string; de: string; modulos: number };
