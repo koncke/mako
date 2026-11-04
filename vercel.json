@@ -6,7 +6,9 @@
   },
   "git": {
     "deploymentEnabled": {
-      "integracion": false
+      "integracion": false,
+      "punta/**": false,
+      "ci-rojo/**": false
     }
   },
   "crons": [

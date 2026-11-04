@@ -10,12 +10,17 @@
 #   · UNA corrida por semana (lunes 04:17 AR), nunca por push ni por pull request;
 #   · si en la semana no entró NINGÚN commit a main, no hace nada (el primer paso lo mira con la API en segundos, antes de
 #     bajar el repo ni instalar nada: se factura 1 minuto en vez de ~11);
-#   · una sola fase: sin guardas, sin tipos (los corre `integracion` en cada subida), sin `next typegen`;
-#   · `timeout-minutes: 20` es el techo duro: si algo se cuelga no se come el mes (20 × 5 lunes = 100 min como mucho).
-# Medido en el primer run: el tiempo de la suite se escribe en el resumen del run. Tarda más de 20 min → subir el techo
+#   · una sola fase: sin guardas, sin tipos (los corren `punta.yml` e `integracion` en cada subida), sin `next typegen`;
+#   · `timeout-minutes: 55` es el techo duro: si algo se cuelga no se come el mes (55 × 5 lunes = 275 min como mucho).
+#
+# ⚠️ MEDIDO con la API (3/11/2026): 657 s el 19/10; el 2/11 la CANCELÓ su propio techo de 20 min a los 1.165 s, sin veredicto y
+# sin mail. La suite casi se duplicó en dos semanas (2.052 archivos; `--resto` tardó 21 min 45 s, y eso con las barredoras
+# compartidas). Desde que `punta.yml` no corre «los demás», ésta es la ÚNICA corrida que los ve: un techo que no le alcanza es
+# no tener red. El paso lleva su propio tope, menor que el del job: un cuelgue es un FALLO del paso, no un job cancelado. Cuánto
+# tarda se escribe en el resumen del run: si roza los 50 min, se suben los dos
 # (docs/hallazgos-infra.md → «La suite entera, una vez por semana»).
 #
-# Un rojo acá NO frena nada (main avanza por `integracion`): avisa. GitHub manda el mail de un run que falló a quien editó
+# Un rojo acá NO frena nada (main avanza por `punta.yml` e `integracion`): avisa. GitHub manda el mail de un run que falló a quien editó
 # este archivo por última vez; el resumen del run trae la lista de los tests rojos.
 # =============================================================================
 name: suite completa (semanal)
@@ -36,7 +41,7 @@ permissions:
 jobs:
   suite-completa:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 55
     steps:
       # Antes de gastar nada: ¿entró algo a main desde la última vez? A mano (workflow_dispatch) corre siempre.
       - name: ¿Hubo cambios en la semana?
@@ -72,6 +77,7 @@ jobs:
       # (el runner trae 2 CPU y ~7 GB; el default de node, núcleos − 1, serían UNO solo).
       - name: Suite entera, cada test en su proceso
         if: steps.cambios.outputs.correr == 'si'
+        timeout-minutes: 50
         run: |
           SECONDS=0
           echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"

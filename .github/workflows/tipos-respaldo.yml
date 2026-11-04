@@ -73,18 +73,23 @@ jobs:
         run: npx next typegen
 
       # El tsc entero pide ~5 GB vivos (y V8 deja crecer el heap por encima): en un runner de 7,9 GB la parte de más va a swap. Sin swap el paso moriría por memoria (MATADO / SIN MEMORIA).
+      # ⚠️ NO `/swapfile`: el runner ya trae ese archivo, en uso, y `fallocate` muere con «Text file busy». Así murió el 2/11 (el 26/10 no
+      # había minutos): este flujo nunca dio un veredicto, y «Tipos» viene saliendo OK PARCIAL contando con él.
       - name: Swap de 10 GB
         if: steps.cambios.outputs.correr == 'si'
         run: |
-          sudo fallocate -l 10G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          df -h /
+          sudo fallocate -l 10G /swapfile-tipos
+          sudo chmod 600 /swapfile-tipos
+          sudo mkswap /swapfile-tipos
+          sudo swapon /swapfile-tipos
           free -m
 
       # SIN TIPOS_TANDAS: es el tsc entero, que es lo que se quiere (el entero también corre en cada subida mientras entre en la RAM del runner; este es la garantía cuando no entra y «Tipos» sale «OK PARCIAL»). TIPOS_HEAP_MB sube el tope de heap por encima de la RAM porque hay swap.
       - name: Tipos (el tsc entero)
         if: steps.cambios.outputs.correr == 'si'
+        # Menor que el del job: si no entra, es un FALLO del paso, no un job cancelado sin veredicto.
+        timeout-minutes: 27
         env:
           TIPOS_HEAP_MB: '12288'
         run: |
