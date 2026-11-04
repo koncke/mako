@@ -197,7 +197,11 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   // Las raíces de la barra: el nombre, sin volver. El Ops Center es el del medio desde el 20/10/2026 (un chat: de trabajo,
   // con la barra); el Dashboard pasó a More y vuelve a More.
   assert.deepEqual(cabeceraPorRuta('/m/second-brain'), t('Ops Center', null, true, true));
-  assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('Dashboard', { href: '/m/mas', label: 'More' }));
+  // 04/11/2026: el Dashboard volvió a la barra (donde estaba Plan): una raíz, sin «volver». Plan es una sección de More.
+  assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('Dashboard', null));
+  assert.deepEqual(cabeceraPorRuta('/m/plan'), t('Plan', { href: '/m/mas', label: 'More' }));
+  // Sin el Dashboard en la barra de su rol (el setter de pm), vuelve a More, como del 20/10 al 04/11/2026.
+  assert.deepEqual(cabeceraPorRuta('/m/hoy', barraMovil('setter', 'pm')), t('Dashboard', { href: '/m/mas', label: 'More' }));
   assert.deepEqual(cabeceraPorRuta('/m/inbox').padre, { href: '/m/hoy', label: 'Dashboard' }, 'Avisos vuelve al Dashboard');
   assert.deepEqual(cabeceraPorRuta('/m/crm'), t('CRM', null));
   assert.deepEqual(cabeceraPorRuta('/m/chats'), t('Chats', null));
@@ -241,11 +245,14 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
 
 test('el nivel de una pantalla: ir más adentro desliza; cambiar de tab y volver, no', () => {
   // Cambiar de tab: 0 → 0.
-  for (const p of ['/m/second-brain', '/m/crm', '/m/chats', '/m/plan', '/m/mas']) assert.equal(nivel(p), 0, p);
-  // El Dashboard es una fila de More desde el 20/10/2026 (un nivel adentro), y Avisos se abre desde su campana: uno más.
-  assert.equal(nivel('/m/hoy'), 1);
-  assert.equal(nivel('/m/inbox'), 2);
-  // More → una sección (la MISMA profundidad de URL, pero un nivel más adentro).
+  for (const p of ['/m/second-brain', '/m/crm', '/m/chats', '/m/hoy', '/m/mas']) assert.equal(nivel(p), 0, p);
+  // El Dashboard es raíz de la barra desde el 04/11/2026, y Avisos se abre desde su campana: uno más adentro.
+  assert.equal(nivel('/m/inbox'), 1);
+  // Sin el Dashboard en la barra (el setter de pm): fila de More (1) y Avisos, uno más (2).
+  assert.equal(nivel('/m/hoy', barraMovil('setter', 'pm')), 1);
+  assert.equal(nivel('/m/inbox', barraMovil('setter', 'pm')), 2);
+  // More → una sección (la MISMA profundidad de URL, pero un nivel más adentro). Plan, desde el 04/11/2026.
+  assert.equal(nivel('/m/plan'), 1);
   assert.equal(nivel('/m/dashboard'), 1);
   assert.equal(nivel('/m/cuenta'), 1);
   assert.equal(nivel('/m/crm/12'), 1);

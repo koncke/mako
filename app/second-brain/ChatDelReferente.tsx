@@ -13,16 +13,17 @@
 //     `cursoParaElTurno`). Por eso retomarla desde la lista del Ops Center sigue siendo con él.
 //   · ⚠️ SU CARA Y SU NOMBRE EN EL HILO los pone `quien` (./useChatDelReferente.ts): la burbuja salía de la fila de la lista, y este
 //     chat se abre sin lista.
-//   · «SU SECOND BRAIN» (#18): el grafo de SU curso (./SuSecondBrain.tsx).
+//   · «SECOND BRAIN DE <GURÚ>» (#18; 4/11/2026): el grafo de SU curso EN EL LUGAR de la conversación, y el mismo botón dice
+//     «Volver al chat» (./SuSecondBrain.tsx).
 
-import { useCallback, useLayoutEffect, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Modal } from '@/app/_ui';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from './PiezasCliente';
-import { BotonSuSecondBrain } from './SuSecondBrain';
+import { BotonSecondBrainDe, CerebroDelGuru } from './SuSecondBrain';
 import { useChatDelReferente } from './useChatDelReferente';
 import { tabDeReferente } from '@/lib/chat-mako-reglas';
 import { inspiradoEn, type Asesor } from '@/lib/asesores/catalogo';
@@ -38,6 +39,7 @@ export function ChatDelReferente({ referente: r, visible = true, onVolver }: {
   const { k, aspecto, quien, vacio, saludo } = useChatDelReferente(r, caja);
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo, visible]);
   const seguirHilo = useCallback(() => hilo.current, []);
+  const [viendoCerebro, setViendoCerebro] = useState(false);
 
   return (
     <>
@@ -47,10 +49,11 @@ export function ChatDelReferente({ referente: r, visible = true, onVolver }: {
           acciones: (
             <>
               <span className="co-cab__inspirado">{inspiradoEn(r)}</span>
-              <BotonSuSecondBrain referente={r} />
+              <BotonSecondBrainDe referente={r} viendo={viendoCerebro} onCambiar={setViendoCerebro} />
             </>
           ),
         }}
+        reemplazo={viendoCerebro ? <CerebroDelGuru referente={r} /> : undefined}
         arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={r.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
         despues={<>
           <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
