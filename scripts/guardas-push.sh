@@ -4,7 +4,7 @@
 # =============================================================================
 # Los corren DOS lugares y por eso viven acá, versionados: el pre-push local
 # (.git/hooks/pre-push, que no se versiona) y GitHub Actions
-# (.github/workflows/integracion.yml). Hasta el 15/10/2026 la lista vivía sólo
+# (.github/workflows/punta.yml; antes integracion.yml, retirado el 4/11/2026). Hasta el 15/10/2026 la lista vivía sólo
 # adentro del hook: una copia por máquina y otra en AGENTS.md, y Actions habría
 # sido la tercera. El porqué de cada uno, en AGENTS.md → «El typecheck NO corre en
 # el build». Uso: sh scripts/guardas-push.sh <remoto>   (el remoto, para hooks-en-orden)

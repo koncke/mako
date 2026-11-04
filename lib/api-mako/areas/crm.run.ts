@@ -849,7 +849,7 @@ export const RUNNERS: Runners = {
           texto: cob.texto, estado: cob.semaforo.texto, tono: cob.semaforo.tono,
           cobrado_usd: cob.cobradoUsd, total_usd: cob.totalUsd, pendiente_usd: cob.pendienteUsd, vencido_usd: cob.vencidoUsd, porcentaje: cob.pct,
           proxima: cob.proxima ? { pago_id: cob.proxima.pagoId, vence: cob.proxima.fecha, monto_usd: cob.proxima.montoUsd } : null,
-          ...(cob.suscripcion ? { suscripcion: { estado: cob.suscripcion.estado, mensualidad: cob.suscripcion.mensualidadTexto, fin_del_plazo: cob.suscripcion.finPlazo, proxima_renovacion: cob.suscripcion.proximaRenovacion, renovacion_fallida: cob.suscripcion.renovacionFallida, cobra: cob.suscripcion.fuente, meses_sin_registrar: cob.suscripcion.sinRegistrar } } : {}),
+          ...(cob.suscripcion ? { suscripcion: { estado: cob.suscripcion.sinCierre ? 'sin_fecha_de_cierre' : cob.suscripcion.estado, mensualidad: cob.suscripcion.mensualidadTexto, fin_del_plazo: cob.suscripcion.finPlazo, proxima_renovacion: cob.suscripcion.proximaRenovacion, renovacion_fallida: cob.suscripcion.renovacionFallida, cobra: cob.suscripcion.fuente, meses_sin_registrar: cob.suscripcion.sinRegistrar } } : {}),
           ...(cob.monedas.length ? { en_otras_monedas: cob.monedas } : {}),
           ...(cob.baja ? { baja_del_cliente: { quedo_sin_cobrar_usd: cob.baja.usd, desde: cob.baja.at, nota: 'Se dio de baja: lo que no pagó no es deuda ni se le recuerda. Se deshace con baja_del_cliente (deshacer: true).' } } : {}),
           ...(cob.cuadra && !cob.cuadra.cuadra && !cob.baja ? { no_cuadra: `El plan suma USD ${cob.cuadra.diferenciaUsd > 0 ? 'más' : 'menos'} que el cierre (diferencia ${cob.cuadra.diferenciaUsd}).` } : {}),
