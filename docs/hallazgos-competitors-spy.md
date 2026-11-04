@@ -765,3 +765,38 @@ Martín: «investiga esto para copiarlo en la extension de MaKo» y «Obvio que 
 - **La miniatura que no se llega a bajar se pierde:** `guardarMiniaturas` tiene 9 s de presupuesto, y un anuncio no se relee solo. La que no entró queda apuntando al CDN, que vence, hasta que se vuelva a guardar esa pestaña.
 - La imagen se guarda en `spy/anuncios/<id>`, sin el negocio: dos negocios con el mismo anuncio reusan el archivo. No es la lectura compartida (no hay manera de ver el de otro), pero el archivo es uno.
 - Cuando la 0.75.0 esté publicada, «Tag Manager puede cargar más» (`SuFunnel.tsx`) debería decir cómo verlo: abrir su sitio y tocar el ícono de MaKo.
+
+## El buscador traía cuentas chicas: el diagnóstico obvio («otro actor de Apify») era el equivocado (4/11/2026)
+
+**Síntoma:** Martín buscó «Víctor Heras» y vinieron @victorheras (5,2 mil), @victoria.herasymchukk (59),
+@victor.heras.167 (14)… y ninguna de las grandes que el buscador del propio Instagram muestra primero
+(victorherasemprendedor, 492 mil; herasmedia, 248 mil).
+
+**El diagnóstico obvio era el equivocado:** «el actor de Apify busca mal, hay que buscar uno mejor». Pero el buscador de
+Instagram ordena por relevancia CON la sesión de quien busca (a quién sigue, quién es grande, qué buscó otra gente); un
+scraper sin sesión sólo puede emparejar texto, y ahí 14 seguidores y 492 mil empatan. Ningún actor sin sesión arregla eso.
+Lo que ordena por popularidad sin sesión es Google, y además escribe los seguidores en la descripción del resultado:
+con eso se ordena sin leer cada perfil. **Regla: cuando un proveedor ordena «mal», preguntá primero con qué dato ordena
+el que ordena bien, y si ese dato se puede tener sin su sesión.**
+
+**Otros tres del mismo pedido, ninguno daba error:**
+- ⚠️ **La barra principal no buscaba: filtraba.** Sólo comparaba contra los competidores que ya se miran; con un nombre
+  nuevo mostraba un cartel con otro botón. Para Martín «no hace nada». Ahora abre el mismo buscador que el «+».
+- ⚠️ **«den.borgg» era un SITIO.** `queEs` tomaba cualquier «algo.algo» por un dominio pelado: el @ escrito sin la arroba
+  se ofrecía como la página https://den.borgg y nunca se leía. Y «instagram.com/herasmedia» sin https caía en la misma
+  regla y se guardaba como su landing. Un sitio ahora pide un dominio de primer nivel de verdad (`esDominio`).
+- ⚠️ **El link de un canal de YouTube no traía la foto** aunque `channels.list` la devuelve en la misma respuesta que ya
+  se pagaba (`snippet.thumbnails`): se tiraba. Ahora la confirmación y la ficha la usan.
+
+**Y el @ exacto tardaba porque se preguntaba en fila:** la Meta del negocio (hasta 12 s), la de la plataforma, Google y
+recién Apify. De once negocios con Meta, uno tiene permisos de Instagram: las esperas de adelante casi nunca traían nada.
+Con la clave de Spy, Apify va primero (`leerExacto`). El actor en sí sigue tardando unos segundos: eso no se arregla
+desde acá, y por eso la pantalla no promete «inmediato».
+
+**Sin probar contra el servicio de verdad** (la nube no llega a Apify ni a Google): la forma de la descripción de Google
+(«492K Followers» en inglés, «492 mil seguidores» en español: el lector entiende las dos), cuánto tarda una corrida de dos
+páginas, y que el lector de perfiles acepte cinco usuarios en una corrida con `maxItems` 5.
+
+**Vive en:** lib/spy-buscar-reglas.ts · lib/spy-buscar.ts · app/api/competitor-spy/buscar/route.ts ·
+app/competitor-spy/BuscadorAlta.tsx · lib/instagram-perfil-server.ts (`leerPerfilesEnLote`) · lib/spy-que-es.ts ·
+lib/spy-youtube.ts (`leerCanalCorto`) · tests/spy-buscar.test.ts · tests/instagram-perfil-fuentes.test.ts

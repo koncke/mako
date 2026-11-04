@@ -10,6 +10,7 @@
 import { TOPES } from './spy-reglas';
 import { canalDeUrl } from './spy-youtube';
 import { redDeUrl } from './spy-otras-redes-reglas';
+import { usuarioDeUrlInstagram } from './instagram-buscar';
 
 /**
  * Lo que se pega para agregar un competidor: UN campo, no un formulario. Un @ de Instagram, un link
@@ -22,8 +23,13 @@ export function queEs(crudo: string): { campo: 'instagram' | 'youtube_id' | 'tik
   // Un @ suelto, o un link de Instagram.
   const arroba = s.match(/^@([A-Za-z0-9._]{2,30})$/);
   if (arroba) return { campo: 'instagram', valor: arroba[1].toLowerCase() };
-  const ig = s.match(/^https?:\/\/(?:www\.)?instagram\.com\/([A-Za-z0-9._]{2,30})\/?/i);
-  if (ig) return { campo: 'instagram', valor: ig[1].toLowerCase() };
+  // ⚠️ CON O SIN https, Y UN POST NO ES UN PERFIL (4/11/2026). «instagram.com/herasmedia» pegado sin el protocolo caía
+  // en la regla del dominio pelado y se guardaba como su LANDING; y «instagram.com/reel/ABC» se leía como el @ «reel».
+  // `usuarioDeUrlInstagram` es la que ya sabe qué tramos no son un usuario.
+  if (/^(?:https?:\/\/)?(?:[a-z]+\.)?instagram\.com\//i.test(s)) {
+    const u = usuarioDeUrlInstagram(/^https?:\/\//i.test(s) ? s : `https://${s}`);
+    return u ? { campo: 'instagram', valor: u } : null;
+  }
   // Un canal de YouTube. `canalDeUrl` ya sabe qué formas puede resolver y cuáles no (un `/c/<alias>`
   // no tiene endpoint y devuelve null, en vez de adivinar).
   if (/youtube\.com|youtu\.be/i.test(s)) {

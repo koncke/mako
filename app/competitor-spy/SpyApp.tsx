@@ -63,7 +63,6 @@ import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import { AVISO_CORTE_VIEWCOUNT, ETAPA_ES_NUESTRO_CRITERIO, NOMBRE_CANAL, cruzaElCorte, dibujarContador } from '@/lib/spy-reglas';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
-import { coincideCompetidor } from '@/lib/spy-alta-reglas';
 import {
   canalesDe, cumpleFiltro, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
   fraseDeLectura, ganchosDe, haceCuanto, mezclaDeTipos, ordenarPiezas, pideConectarMeta,
@@ -128,7 +127,13 @@ const CSS = `
 .spy-campo{display:flex;align-items:center;gap:10px;flex:1;min-width:0;max-width:420px;height:42px;
   padding:0 8px 0 14px;border-radius:13px;background:var(--surface);color:var(--faint);
   box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta)}
-.spy-campo:focus-within{box-shadow:inset 0 0 0 1.5px var(--accent),0 0 0 4px var(--mako-bg)}
+.spy-campo:focus-within,.spy-campo:focus-visible{box-shadow:inset 0 0 0 1.5px var(--accent),0 0 0 4px var(--mako-bg)}
+button.spy-campo{border:0;font:inherit;text-align:left;cursor:text}
+button.spy-campo:hover{color:var(--dim)}
+.spy-campo__texto{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:var(--fs-md);font-weight:500}
+.spy-campo .spy-kbd{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 6px;border-radius:7px;
+  background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border);font-size:11px;font-weight:700;color:var(--faint)}
+@media (hover:none){.spy-campo .spy-kbd{display:none}}
 .spy-campo input{flex:1;min-width:0;border:0;outline:0;background:none;font:inherit;
   font-size:var(--fs-md);font-weight:500;color:var(--ink)}
 .spy-mas{display:grid;place-items:center;flex:0 0 auto;width:42px;height:42px;border:0;border-radius:13px;
@@ -725,7 +730,6 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [error, setError] = useState<string | null>(errorInicial);
   const [pestana, setPestana] = useState<Pestana>('publica');
 
-  const [filtro, setFiltro] = useState('');
   const [textoAlta, setTextoAlta] = useState('');
   const [buscar, setBuscar] = useState('');
   const [filtros, setFiltros] = useState<FiltroSpy[]>([]);
@@ -878,7 +882,6 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     const id = await sumar(valor, nombre, deLaBio);
     if (id == null) return;
     setModal(null);
-    setFiltro('');
     void buscarRedes(id);
     await abrirRecienAgregado(id);
   };
@@ -949,8 +952,23 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   };
 
   const abrirAlta = (texto = '') => { setErrorModal(null); setTextoAlta(texto); setModal('alta'); };
-  // La barra de arriba busca entre los que YA se miran. Lo nuevo se busca en el modal, que es lo que gasta del tope diario.
-  const coinciden = useMemo(() => competidores.filter((x) => coincideCompetidor(x, filtro, nombreDeTarjeta(x))), [competidores, filtro]);
+  // ⚠️ LA BARRA DE ARRIBA ABRE EL BUSCADOR, igual que el «+» (Martín, 4/11: «La barra principal de búsqueda debería
+  // funcionar igual que cuando le doy al "+"... no funciona la funcionalidad de buscar... No hace nada»). Antes filtraba
+  // sólo entre los que ya se miran y, sin coincidencias, mostraba un cartel con otro botón: escribir un nombre nuevo no
+  // buscaba nada. Ahora es el `.finder` de merrin, que también se abre desde su barra: «Ya los miras» sale primero ahí.
+  // El atajo es el de la referencia: «/» o ⌘K.
+  useEffect(() => {
+    if (c) return;
+    const atajo = (e: KeyboardEvent) => {
+      if (modal) return;
+      const enCampo = e.target instanceof HTMLElement && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName));
+      if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !enCampo)) { e.preventDefault(); abrirAlta(); }
+    };
+    document.addEventListener('keydown', atajo);
+    return () => document.removeEventListener('keydown', atajo);
+  // `abrirAlta` se arma en cada render y sólo toca estado: no hace falta en las dependencias.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [c, modal]);
 
   const flujo = useMemo(() => piezas.filter((p) => p.canal === 'instagram' || p.canal === 'youtube'), [piezas]);
   const anuncios = useMemo(() => piezas.filter((p) => p.canal === 'anuncios'), [piezas]);
@@ -1033,21 +1051,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
         <button type="button" className="spy-marca" onClick={() => irA(null)}>
           <Icon name="spy" size={18} /><span>Competitor Spy</span>
         </button>
-        <div className="spy-campo">
+        <button type="button" className="spy-campo" aria-label="Buscar a quién mirar" aria-haspopup="dialog" onClick={() => abrirAlta()}>
           <Icon name="search" size={14} />
-          <input
-            aria-label="Buscar entre tus competidores"
-            placeholder="Buscar competidor"
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== 'Enter' || !filtro.trim()) return;
-              if (!coinciden.length) abrirAlta(filtro.trim());
-              else if (coinciden.length === 1) irA(coinciden[0].id);
-            }}
-          />
-          {filtro && <button type="button" className="spy-x" aria-label="Limpiar" onClick={() => setFiltro('')}><Icon name="x" size={13} /></button>}
-        </div>
+          <span className="spy-campo__texto">Nombre, @, canal de YouTube o sitio</span>
+          <span className="spy-kbd" aria-hidden>/</span>
+        </button>
         <button type="button" className="spy-mas" aria-label="Mirar a alguien más" title="Mirar a alguien más" onClick={() => abrirAlta()}>
           <Icon name="plus" size={17} />
         </button>
@@ -1058,7 +1066,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
         {!c && error && <p className="spy-aviso spy-error">{error}</p>}
 
         {/* ── Cero competidores: un bloque, cuatro elementos, nunca cuatro cajas. ── */}
-        {!c && !competidores.length && !filtro.trim() && (
+        {!c && !competidores.length && (
           <Vacio
             icono={<Icon name="spy" size={28} />}
             titulo="Todavía no estás mirando a nadie"
@@ -1068,16 +1076,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
           </Vacio>
         )}
 
-        {/* ── La barra sin coincidencias: lo escrito viaja al modal, y ahí se busca y se confirma. ── */}
-        {!c && !!filtro.trim() && !coinciden.length && (
-          <Vacio
-            icono={<Icon name="search" size={28} />}
-            titulo={`«${filtro.trim()}» no está en tu lista`}
-            botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => abrirAlta(filtro.trim())}>Buscarlo y agregarlo</button>}
-          />
-        )}
-
-        {!c && coinciden.length > 0 && <RejillaCompetidores competidores={coinciden} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} puedeBorrar={puedeBorrar} />}
+        {!c && competidores.length > 0 && <RejillaCompetidores competidores={competidores} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} puedeBorrar={puedeBorrar} />}
 
         {c && (
           <>
@@ -1339,7 +1338,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
           textoInicial={textoAlta} competidores={competidores} ocupado={ocupado} error={errorModal}
           onClose={() => setModal(null)}
           onAgregar={(v, n, bio) => void alta(v, n, bio)}
-          onAbrir={(id) => { setModal(null); setFiltro(''); irA(id); }}
+          onAbrir={(id) => { setModal(null); irA(id); }}
         />
       )}
       {modal === 'canal' && c && <ModalCampo titulo={`Agregar un canal a ${c.nombre}`} placeholder="Su @, su canal de YouTube o su sitio" boton="Agregar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void sumarCanal(v)} />}

@@ -25,6 +25,7 @@ import { wsSuperAdmin } from './workspace';
 import { motivoDeErrorGraph, usuarioDeTexto } from './instagram-buscar';
 import {
   APIFY_ACTOR_PERFIL, APIFY_CLAVE_DE_SPY, APIFY_MIN_LETRAS, APIFY_TOPE_POR_DIA, APIFY_TOPE_USD, campoDesconocido, CAMPOS_PERFIL, CAMPOS_PERFIL_PIEZAS,
+  TOPE_BUSQUEDAS_SPY_POR_DIA, TOPE_LECTURAS_SPY_POR_DIA,
   leerPerfilDeApify, leerPerfilDeMeta,
   type LecturaInstagram, type MotivoInstagram,
 } from './instagram-perfil';
@@ -111,15 +112,17 @@ async function porApify(usuario: string, token: string, conPiezas = false): Prom
  * lecturas y la búsqueda corría sin contar nada, así que escribir nombres no tenía techo.
  */
 export function gastarBusquedaDeSpy(ws: number): boolean {
-  const cuenta = `s${ws}|${hoy()}`;
+  // ⚠️ DESDE EL 4/11/2026 LAS BÚSQUEDAS TIENEN SU PROPIO CUPO (`b<ws>`), separado de las lecturas por @ (`s<ws>`):
+  // compartiéndolo, buscar nombres dejaba al negocio sin poder agregar a nadie el resto del día.
+  const cuenta = `b${ws}|${hoy()}`;
   const usadas = apifyHoy.get(cuenta) ?? 0;
-  if (usadas >= APIFY_TOPE_POR_DIA) return false;
+  if (usadas >= TOPE_BUSQUEDAS_SPY_POR_DIA) return false;
   apifyHoy.set(cuenta, usadas + 1);
   return true;
 }
 
-/** ¿Este negocio ya gastó el tope de hoy con su clave de Spy? Para que la pantalla no diga «no hay nadie» cuando es esto. */
-export const topeDeSpyAgotado = (ws: number): boolean => (apifyHoy.get(`s${ws}|${hoy()}`) ?? 0) >= APIFY_TOPE_POR_DIA;
+/** ¿Este negocio ya gastó las búsquedas de hoy con su clave de Spy? Para que la pantalla no diga «no hay nadie» cuando es esto. */
+export const topeDeSpyAgotado = (ws: number): boolean => (apifyHoy.get(`b${ws}|${hoy()}`) ?? 0) >= TOPE_BUSQUEDAS_SPY_POR_DIA;
 
 /** Cuánto «dice» un fallo: el mejor gana para contarle al dueño qué pasó. */
 const PESO: Record<MotivoInstagram, number> = { 'no-esta': 5, 'sin-permiso': 4, limite: 3, 'sin-cuenta': 2, error: 1, 'sin-conexion': 0 };
@@ -181,7 +184,7 @@ export async function leerPerfilInstagram(
         if (!claveDeSpy) continue;
         const cuenta = `s${ws}|${hoy()}`;
         const usadas = apifyHoy.get(cuenta) ?? 0;
-        if (usadas >= APIFY_TOPE_POR_DIA - reserva) { anotar({ ok: false, motivo: 'limite', detalle: `tope de ${APIFY_TOPE_POR_DIA} lecturas por día` }); continue; }
+        if (usadas >= TOPE_LECTURAS_SPY_POR_DIA - reserva) { anotar({ ok: false, motivo: 'limite', detalle: `tope de ${TOPE_LECTURAS_SPY_POR_DIA} lecturas por día` }); continue; }
         apifyHoy.set(cuenta, usadas + 1);
         const l = await porApify(usuario, claveDeSpy, opts.conPiezas).catch((e): LecturaInstagram => ({ ok: false, motivo: 'error', detalle: msg(e) }));
         if (l.ok) return guardar({ ...l, fuente: 'apify-spy' });
@@ -224,4 +227,65 @@ export async function leerPerfilInstagram(
   if (sinPiezas) return guardar(sinPiezas);
   if (peor.motivo !== 'no-esta' && peor.motivo !== 'sin-conexion') console.warn(`[instagram] no pude leer @${usuario}: ${peor.motivo} (${peor.detalle})`);
   return guardar(peor);
+}
+
+/**
+ * Varios perfiles en UNA corrida de Apify, con la clave de Spy del negocio (4/11/2026). Es lo que completa las
+ * primeras filas del buscador con su foto y sus seguidores para poder ordenarlas.
+ *
+ * ⚠️ ANTES ERAN CINCO CORRIDAS, UNA POR FILA (`/api/competitor-spy/perfil`): cinco arranques del actor, cinco
+ * esperas, y cinco lecturas del cupo. El actor acepta una lista de usuarios y cobra por perfil, así que una corrida
+ * con cinco cuesta lo mismo y arranca una sola vez.
+ *
+ * Comparte la caché de `leerPerfilInstagram` (la clave `leido` angosta): lo que se completó acá, la confirmación lo
+ * encuentra sin volver a pagarlo. Cada perfil cuenta una lectura del cupo, y con `reserva` nunca agota el día.
+ * NUNCA TIRA: lo que no se pudo leer vuelve como `ok: false`.
+ */
+export async function leerPerfilesEnLote(
+  usuarios: readonly string[], opts: { ws: number; reserva?: number },
+): Promise<Map<string, LecturaConFuente>> {
+  const out = new Map<string, LecturaConFuente>();
+  const pedir: string[] = [];
+  for (const crudo of usuarios) {
+    const u = usuarioDeTexto(crudo);
+    if (!u || u !== crudo || out.has(u) || pedir.includes(u)) continue;
+    const leido = cache.get(`${opts.ws}|${u}|leido|angostas`);
+    if (leido && leido.hasta > Date.now()) out.set(u, leido.lectura);
+    else pedir.push(u);
+  }
+  if (!pedir.length) return out;
+  const token = await credDelCliente(APIFY_CLAVE_DE_SPY, opts.ws).catch(() => null);
+  const sinLeer = (motivo: MotivoInstagram, detalle: string) => { for (const u of pedir) out.set(u, { ok: false, motivo, detalle }); return out; };
+  if (!token) return sinLeer('sin-conexion', 'sin la clave de Spy');
+  const cuenta = `s${opts.ws}|${hoy()}`;
+  const usadas = apifyHoy.get(cuenta) ?? 0;
+  const quedan = TOPE_LECTURAS_SPY_POR_DIA - (opts.reserva ?? 0) - usadas;
+  if (quedan <= 0) return sinLeer('limite', `tope de ${TOPE_LECTURAS_SPY_POR_DIA} lecturas por día`);
+  const lote = pedir.slice(0, quedan);
+  apifyHoy.set(cuenta, usadas + lote.length);
+  try {
+    const q = new URLSearchParams({ maxItems: String(lote.length), maxTotalChargeUsd: String(Math.max(APIFY_TOPE_USD, APIFY_TOPE_USD * lote.length)) });
+    const r = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR_PERFIL}/run-sync-get-dataset-items?${q}`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usernames: lote }), signal: AbortSignal.timeout(TOPE_APIFY_MS), cache: 'no-store',
+    });
+    const cuerpo = await r.json().catch(() => null);
+    if (r.status < 200 || r.status >= 300) {
+      const motivo: MotivoInstagram = r.status === 401 || r.status === 403 ? 'sin-permiso' : r.status === 402 || r.status === 429 ? 'limite' : 'error';
+      for (const u of lote) out.set(u, { ok: false, motivo, detalle: `Apify: HTTP ${r.status}` });
+    } else {
+      for (const u of lote) {
+        const l = leerPerfilDeApify(u, cuerpo);
+        if (l.ok) {
+          const conFuente: LecturaConFuente = { ...l, fuente: 'apify-spy' };
+          guardarEnCache(`${opts.ws}|${u}|leido|angostas`, { hasta: Date.now() + 24 * 3600_000, lectura: conFuente });
+          out.set(u, conFuente);
+        } else out.set(u, l);
+      }
+    }
+  } catch (e) {
+    for (const u of lote) out.set(u, { ok: false, motivo: 'error', detalle: msg(e) });
+  }
+  for (const u of pedir.slice(lote.length)) out.set(u, { ok: false, motivo: 'limite', detalle: `tope de ${TOPE_LECTURAS_SPY_POR_DIA} lecturas por día` });
+  return out;
 }
