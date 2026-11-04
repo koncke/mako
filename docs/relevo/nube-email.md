@@ -77,6 +77,15 @@ webhook firmado con el secreto del negocio; el ws1 antes, después y con la base
 - Que el plan gratis de Resend tenga «hasta 3 dominios» (lo dijo Martín). El texto del tope no da un número.
 - Si leer lo que LLEGA (`getDeResend`) anda con una key de sólo envío: hoy la plataforma es la única que podría tener una.
 
+### Abierto, con su archivo
+
+- **La tarjeta de Resend en /integraciones** dice «conectada» si la fila del negocio tiene una `RESEND_API_KEY`, aunque sea la
+  copia de la de MaKo (el ws1 antes de que Mauricio pegue la suya, el ws4). No miente sobre el envío (`estado_email` dice
+  «la_de_mako» y no sale nada), pero la tarjeta no lo distingue como la de IA («la de MaKo»): `lib/integraciones.ts`.
+- **Lo que llegó al webhook de la cuenta de un negocio antes de que MaKo tenga su secreto** contesta 401, y Resend reintenta
+  y después deshabilita ese webhook. No pasa con el camino normal (el secreto se guarda al crearlo), sólo si alguien lo creó a
+  mano en resend.com con la URL de MaKo. `conectar_seguimiento_email` lo reusa y guarda su secreto.
+
 ### La regla que Martín pidió para todos (propuesta; no la escribí en AGENTS.md)
 
 El Cerebro pidió sumarla a AGENTS.md en el mismo commit. No lo hice: AGENTS.md es parte de la configuración de Claude
