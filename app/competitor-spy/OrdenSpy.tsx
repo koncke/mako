@@ -13,18 +13,24 @@
 // ⚠️ NO TRABA A NADIE: «Saltar» la corta, y con «reducir movimiento» no corre. Dura unos 6 segundos y sólo después de una lectura pedida: una
 //    relectura sola de una ficha que ya tiene piezas no la dispara.
 // ⚠️ SE MUEVE CON LA WEB ANIMATIONS API, sólo `transform` y `opacity`: 140 elementos a 60 cuadros, sin un render de React por cuadro.
+// ⚠️ ANTES DE LA ANIMACIÓN, SÓLO LA CRIATURA (4/11/2026). Martín: «Donde sale MaKo, previo a la animación, no debería haber
+//    absolutamente nada más en pantalla, solo la estrella de MaKo y luego la animación… muchas veces aparecen tarjetas vacías sin
+//    la miniatura, y segundos después, cuando la animación ya empezó, ahí aparece la miniatura». Mientras se lee y mientras se bajan
+//    las miniaturas se ve `CargandoMako` (la pieza común, que al irse vuela a su lugar) y nada más: la escena está debajo, oculta,
+//    sólo para medirla. La animación arranca cuando TODAS las miniaturas se bajaron (o a los `TOPE_PRECARGA_MS`), y una que no se
+//    pudo bajar entra con su texto: ninguna caja vacía.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../_components/icons';
-import { Muneco } from '../admin/operaciones/Muneco';
-import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 import { carpetasDe, disponer, repartirMiniaturas, type CarpetaOrden, type Disposicion } from '@/lib/spy-orden';
 import { NOMBRE_CANAL } from '@/lib/spy-reglas';
 import { miniaturaDePieza } from '@/lib/spy-vista';
 import type { PiezaVista } from './actions';
 
 const CSS = `
-.spyo{display:flex;flex-direction:column;gap:12px;min-height:max(540px,calc(100dvh - 210px))}
+.spyo{position:relative;display:flex;flex-direction:column;gap:12px;min-height:max(540px,calc(100dvh - 210px))}
+.spyo[data-lista='false'] > :not(.cm-carga){visibility:hidden}
 .spyo-cab{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .spyo-titulo{margin:0;font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
 .spyo-titulo em{font-family:Georgia,'Times New Roman',serif;font-weight:500;color:var(--primary)}
@@ -39,11 +45,6 @@ const CSS = `
 .spyo-numero b{display:block;margin-top:2px;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
 .spyo-escena{position:relative;flex:1;min-height:420px;border-radius:16px;overflow:hidden;background:radial-gradient(60% 70% at 50% 50%,color-mix(in srgb,var(--primary) 10%,transparent),transparent 72%)}
 .spyo-mundo{position:absolute;inset:0;transform-origin:50% 50%}
-.spyo-mako{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:14px;transition:opacity .35s ease,transform .35s ease}
-.spyo-mako[data-fuera='true']{opacity:0;transform:translate(-50%,-50%) scale(.6)}
-.spyo-anillo{position:absolute;left:50%;top:48px;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:50%;border:2px solid var(--primary);opacity:0;animation:spyoAnillo 1.8s ease-out infinite}
-.spyo-anillo+.spyo-anillo{animation-delay:.6s}
-.spyo-mako p{margin:0;font-size:13.5px;color:var(--dim)}
 .spyo-carpeta{position:absolute;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 6px 20px rgba(18,21,27,.07);opacity:0;transform:translateY(8px) scale(.97);transition:opacity .38s ease,transform .38s cubic-bezier(.2,.8,.2,1)}
 .spyo-carpeta[data-visible='true']{opacity:1;transform:none}
 .spyo-carpeta-cab{display:flex;align-items:center;gap:6px;height:38px;padding:0 10px;color:var(--ink);font-size:12.5px;font-weight:600}
@@ -61,23 +62,37 @@ const CSS = `
 .spyo-fin p{margin:0;font-size:clamp(26px,4vw,42px);font-weight:800;letter-spacing:-.03em;color:var(--ink)}
 .spyo-fin i{display:inline-block;width:3px;height:.9em;margin-left:3px;vertical-align:-.08em;background:var(--primary);animation:spyoLatido .7s steps(2) infinite}
 @keyframes spyoLatido{50%{opacity:.25}}
-@keyframes spyoAnillo{0%{transform:scale(.75);opacity:.5}100%{transform:scale(1.7);opacity:0}}
-@media (prefers-reduced-motion:reduce){.spyo-estado i,.spyo-anillo,.spyo-fin i{animation:none}}
+@media (prefers-reduced-motion:reduce){.spyo-estado i,.spyo-fin i{animation:none}}
 @media (max-width:640px){.spyo-numero{padding:8px 10px}.spyo-numero b{font-size:17px}.spyo-titulo{font-size:18px}}
 `;
 
 type Fase = 'leyendo' | 'juntando' | 'ordenando' | 'fin';
-const ESTADO: Record<Fase, string> = { leyendo: 'Leyendo sus canales', juntando: 'Juntando sus piezas', ordenando: 'Ordenando por formato y etapa', fin: 'Listo' };
+const ESTADO: Record<Fase, string> = { leyendo: 'Leyendo sus canales', juntando: 'Juntando sus piezas', ordenando: 'Ordenando por formato', fin: 'Listo' };
 const espera = (ms: number) => new Promise<void>((r) => { window.setTimeout(r, ms); });
+/** Lo más que se espera a las miniaturas antes de arrancar: las que no llegaron entran con su texto. */
+const TOPE_PRECARGA_MS = 8_000;
+
+/**
+ * Baja una miniatura y espera a que se pueda pintar. Resuelve `true` si quedó lista, `false` si falló. Nunca rechaza.
+ * ⚠️ `referrerPolicy = 'no-referrer'`, como la `<img>` de la escena: con otro, el CDN de Meta contesta 403.
+ */
+function precargar(url: string): Promise<boolean> {
+  return new Promise((listo) => {
+    const img = new Image();
+    img.referrerPolicy = 'no-referrer';
+    img.onload = () => { void img.decode().then(() => listo(true), () => listo(true)); };
+    img.onerror = () => listo(false);
+    img.src = url;
+  });
+}
 const quieto = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 /** Un orden mezclado pero siempre el mismo: que no se vacíe la bola de afuera hacia adentro. */
 const mezclado = (n: number) => Array.from({ length: n }, (_, i) => i).sort((a, b) => ((a * 2654435761) >>> 0) % 997 - ((b * 2654435761) >>> 0) % 997);
 const mover = (x: number, y: number, rot: number, escala: number, lado: number) => `translate(${x - lado / 2}px,${y - lado / 2}px) rotate(${rot}deg) scale(${escala})`;
 
-/** Cuántas piezas de cada formato hay, para la fila de números. */
+/** Cuántas piezas de cada tipo hay, para la fila de números: una carpeta es un tipo de contenido (`carpetasDe`). */
 function formatos(carpetas: readonly CarpetaOrden[]) {
-  const nombre: Record<string, string> = { video: 'Videos', reel: 'Reels', publicacion: 'Publicaciones', anuncio: 'Anuncios' };
-  return [...new Set(carpetas.map((c) => c.tipo))].map((tipo) => ({ tipo, rotulo: nombre[tipo] ?? tipo, cs: carpetas.filter((c) => c.tipo === tipo) }));
+  return carpetas.map((c) => ({ tipo: c.clave, rotulo: c.rotulo, cs: [c] }));
 }
 
 export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
@@ -95,6 +110,8 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
   const [juntadas, setJuntadas] = useState(0);
   const [llegaron, setLlegaron] = useState<Record<string, number>>({});
   const [frase, setFrase] = useState('');
+  /** Las piezas cuya miniatura ya se bajó. null = todavía se están bajando (o leyendo): se ve sólo la criatura. */
+  const [bajadas, setBajadas] = useState<Set<number> | null>(null);
 
   const carpetas = useMemo(() => (piezas ? carpetasDe(piezas) : []), [piezas]);
   const visibles = useMemo(() => repartirMiniaturas(carpetas), [carpetas]);
@@ -106,15 +123,30 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
     return carpetas.flatMap((c) => (visibles.get(c.clave) ?? []).map((id, hueco) => ({ pieza: porId.get(id)!, clave: c.clave, hueco })));
   }, [piezas, carpetas, visibles]);
 
-  // Llegaron las piezas: se mide la escena y se calcula dónde cae todo.
+  // Llegaron las piezas: se bajan TODAS sus miniaturas antes de arrancar.
+  useEffect(() => {
+    if (!piezas) return;
+    if (!total || quieto()) return;
+    let vivo = true;
+    const ok = new Set<number>();
+    const conImagen = minis.map((m) => ({ id: m.pieza.id, url: miniaturaDePieza(m.pieza) })).filter((m): m is { id: number; url: string } => !!m.url);
+    void Promise.race([
+      Promise.all(conImagen.map((m) => precargar(m.url).then((v) => { if (v) ok.add(m.id); }))),
+      espera(TOPE_PRECARGA_MS),
+    ]).then(() => { if (vivo) setBajadas(new Set(ok)); });
+    return () => { vivo = false; };
+  }, [piezas, total, minis]);
+
+  // Con las miniaturas bajadas, se mide la escena (está debajo de la criatura, oculta) y se calcula dónde cae todo.
   useLayoutEffect(() => {
     if (!piezas) return;
     if (!total || quieto()) { terminar.current(); return; }
+    if (!bajadas) return;
     const r = escena.current?.getBoundingClientRect();
     if (!r?.width || !r.height) { terminar.current(); return; }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hay que medir el DOM: no hay cómo calcularlo antes
     setDispo(disponer(r.width, r.height, carpetas, visibles));
-  }, [piezas, total, carpetas, visibles]);
+  }, [piezas, total, carpetas, visibles, bajadas]);
 
   // La película.
   useEffect(() => {
@@ -125,9 +157,9 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
     const els = [...escena.current.querySelectorAll<HTMLElement>('[data-mini]')];
     const rects = new Map(dispo.carpetas.map((c) => [c.clave, c]));
     const correr = async () => {
-      // Antes de arrancar, un momento para las imágenes: una bola de cuadrados vacíos no es la bola. No se la espera más que esto.
+      // Las imágenes ya están bajadas (`bajadas`): se dibujan en el primer cuadro, sin cajas vacías que se llenan después.
       const imgs = [...escena.current!.querySelectorAll('img')];
-      await Promise.race([Promise.allSettled(imgs.map((i) => i.decode())), espera(700)]);
+      await Promise.race([Promise.allSettled(imgs.map((i) => i.decode())), espera(300)]);
       if (!vivo) return;
 
       // 1. Entran volando desde afuera y forman la bola, y el número sube con ellas.
@@ -199,13 +231,15 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
     return dibujadas ? Math.round((c.n * (llegaron[c.clave] ?? 0)) / dibujadas) : 0;
   };
 
+  const lista = dispo != null;
   return (
-    <div className="spyo" aria-live="polite">
+    <div className="spyo" aria-live="polite" data-lista={lista}>
       <style>{CSS}</style>
+      {!lista && <CargandoMako cubre que={`lo que publica ${nombre}`} size={88} />}
       <div className="spyo-cab">
         <h2 className="spyo-titulo">Ordenando lo que publica <em>{nombre}</em></h2>
         <span className="spyo-estado"><i />{ESTADO[fase]}</span>
-        {piezas && <button type="button" className="spyo-saltar" onClick={onTerminar}>Saltar</button>}
+        {lista && <button type="button" className="spyo-saltar" onClick={onTerminar}>Saltar</button>}
       </div>
       <div className="spyo-numeros">
         <div className="spyo-numero"><span>Piezas</span><b>{juntadas}</b></div>
@@ -216,11 +250,6 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
       </div>
       <div className="spyo-escena" ref={escena}>
         <div className="spyo-mundo" ref={mundo}>
-          <div className="spyo-mako" data-fuera={dispo != null}>
-            <i className="spyo-anillo" /><i className="spyo-anillo" />
-            <Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo="trabajando" size={96} />
-            <p>Leyendo sus canales. Tarda unos segundos.</p>
-          </div>
           {dispo?.carpetas.map((r) => {
             const c = carpetas.find((x) => x.clave === r.clave);
             if (!c) return null;
@@ -235,7 +264,8 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
             );
           })}
           {dispo && minis.map((m) => {
-            const mini = miniaturaDePieza(m.pieza);
+            // Sólo la que ya se bajó: la que falló entra con su texto, nunca como una caja vacía que se llena a mitad de camino.
+            const mini = bajadas?.has(m.pieza.id) ? miniaturaDePieza(m.pieza) : null;
             return (
               <div key={m.pieza.id} className="spyo-mini" data-mini="" data-clave={m.clave} data-hueco={m.hueco} data-canal={m.pieza.canal} style={{ width: dispo.ladoBola, height: dispo.ladoBola }}>
                 {mini

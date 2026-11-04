@@ -224,7 +224,8 @@ test('mirarCompetidor lo guarda sólo después de una lectura buena, y un fallo 
   const s = leer('lib/spy.ts');
   const bloque = s.slice(s.indexOf('// ── La landing: lo que ya hace'), s.indexOf("const db = await getTenantDb();\n  await db.from('spy_competidores').update({\n    mirado_en"));
   const corte = bloque.indexOf('if (!m.analisis.ok)');
-  const guarda = bloque.indexOf("await guardarFunnel(competidorId, c.landing_url, 'pagina'");
+  // `landing` y no `c.landing_url` desde el 4/11/2026: el sitio puede salir de la descripción de su canal o de su bio.
+  const guarda = bloque.indexOf("await guardarFunnel(competidorId, landing, 'pagina'");
   assert.ok(corte > 0 && guarda > corte, 'el funnel se escribe después de la puerta de «no pude leer»');
   // Dentro de `guardarVistas` haría fallar la landing entera si la columna todavía no llegó.
   const gv = s.slice(s.indexOf('export async function guardarVistas('), s.indexOf('export async function marcarDejadas('));
