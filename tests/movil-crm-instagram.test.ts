@@ -243,10 +243,11 @@ test('la ficha: con el @ como único canal no hay Llamar ni WhatsApp apagados, h
   const resto = acciones.slice(acciones.indexOf('<>'));
   assert.match(resto, /href=\{p\.tel\} aria-label=\{`Llamar a \$\{p\.nombre\}`\}/);
   assert.match(resto, /href=\{rutaChatsDeLead\(p\.id\)\} aria-label=\{`WhatsApp con \$\{p\.nombre\}`\}/);
-  // La fila se reparte entre los botones que quedan, y el link se arma con campo-inline.
-  assert.match(acciones, /style=\{p\.soloInstagram \? \{ gridTemplateColumns: `repeat\(\$\{nAcciones\}, minmax\(0, 1fr\)\)` \} : undefined\}/);
+  // La fila se reparte entre los botones que quedan, y el link se arma con campo-inline. Desde el 04/11/2026 la fila tiene
+  // además «Grabar» (siempre), así que se reparte en todos los casos: Agendar, Nota y Grabar, más Llamar y WhatsApp o Instagram.
+  assert.match(acciones, /style=\{\{ gridTemplateColumns: `repeat\(\$\{nAcciones\}, minmax\(0, 1fr\)\)` \}\}/);
   assert.match(ficha, /const igHref = p\.soloInstagram \? linkInstagram\(p\.soloInstagram\) : null;/);
-  assert.match(ficha, /const nAcciones = 2 \+ \(igHref \? 1 : 0\);/);
+  assert.match(ficha, /const nAcciones = 3 \+ \(p\.soloInstagram \? \(igHref \? 1 : 0\) : 2\);/);
   assert.match(sinComentarios(leer('app/m/crm/[id]/page.tsx')), /soloInstagram=\{d\.soloInstagram\}/, 'la página no le pasa el @ a la ficha');
 });
 

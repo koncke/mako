@@ -233,6 +233,8 @@ test('cada grabador tiene tarjeta, logo y slides; los que se conectan, campos y 
   const slides = leer('../lib/servicio-slides.ts');
   for (const g of GRABADORES) {
     const def = DEFS_TEST.find((d) => d.key === g);
+    // La Grabadora de MaKo (04/11/2026) graba DESDE MaKo: no es una integración, y tener tarjeta la ofrecería para «conectar».
+    if (g === 'grabadora') { assert.equal(def, undefined, 'la Grabadora de MaKo no tiene tarjeta en Integraciones'); continue; }
     assert.ok(def, `${g}: falta la tarjeta`);
     assert.match(visual, new RegExp(`^\\s{2}${g}: \\{`, 'm'), `${g}: falta el logo`);
     assert.match(slides, new RegExp(`^\\s{2}${g}: \\[`, 'm'), `${g}: faltan las slides`);

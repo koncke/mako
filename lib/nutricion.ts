@@ -37,6 +37,8 @@ import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags
 import { listarLineas, sondearSocket, type LineaRow } from '@/lib/evolution';
 import { lineaPorDefault, elegirLinea } from '@/lib/lineas-whatsapp';
 import { canalNoOficial, proveedorDelPaso, textoDelPaso, type CanalNoOficial } from '@/lib/nutricion-canal';
+import { frenoDeLinea } from '@/lib/linea-freno';
+import { textoDelFreno } from '@/lib/mako-salida-reglas';
 // Sólo el TIPO: el valor se importa dinámico adentro del motor (ciclo vía nutricion-generator).
 import type { AutorTexto } from '@/lib/paso-ia';
 import { parseEstrategia, dentroDeAntiguedad, hitoYaHecho, type EscenarioSecuencia } from '@/lib/setting-estrategia';
@@ -4268,6 +4270,10 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
         if (lineasEvo == null) return { listo: false, fuente: 'fila', motivo: 'No pude leer las líneas de WhatsApp de este negocio.' };
         const fila = pedida ? lineasEvo.find((l) => l.instance_name === pedida) ?? null : lineaPorDefault(lineasEvo);
         if (pedida && !fila) return { listo: false, fuente: 'fila', motivo: 'La línea de WhatsApp de esta secuencia ya no está vinculada.' };
+        // ⛔ UNA LÍNEA QUE WHATSAPP FRENÓ NO MANDA (4/11/2026, lib/linea-freno.ts): ni se sondea. Lo que tocaba sale a la hora del
+        // freno, no 24 h después, y el negocio ya recibió el aviso por mail.
+        const freno = fila ? await frenoDeLinea(fila.instance_name) : null;
+        if (freno) return { listo: false, fuente: 'fila', motivo: textoDelFreno(freno), reintentarHoras: Math.max(1, Math.ceil((Date.parse(freno.hasta) - Date.now()) / 3_600_000)) };
         const sondeo = fila ? await sondearSocket(fila.instance_name, 8000).catch(() => 'sin_respuesta' as const) : null;
         return canalNoOficial(sondeo, fila?.estado);
       })();
@@ -5681,7 +5687,7 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           // Sin teléfono, o sin un solo dígito: no se arregla reintentando (23/10/2026, lib/lead-sin-arreglo.ts). Se cierra.
           estado = 'fallo'; nota = telefonoSinArreglo(lead?.telefono) ?? 'lead sin teléfono'; terminal = true;
         } else if (!evoConectado) {
-          estado = 'fallo'; nota = canalEvo.motivo ?? 'WhatsApp de empresa no conectado'; backoffHoras = 24;
+          estado = 'fallo'; nota = canalEvo.motivo ?? 'WhatsApp de empresa no conectado'; backoffHoras = canalEvo.reintentarHoras ?? 24;
         } else if (await estaBloqueado(lead.telefono)) {
           estado = 'omitido'; nota = 'contacto bloqueado'; // no le mandamos por el no oficial
         } else if (partesMulti) {

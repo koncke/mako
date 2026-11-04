@@ -39,6 +39,7 @@ import { conversorGastoMeta } from './moneda-meta';
 import { integracionConectada } from './credenciales';
 // «¿Puede leer reuniones?» = CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI: lib/grabadores, 26/10/2026).
 import { hayGrabadorConectado } from './grabadores';
+import { filaDeLlamadaGrabada } from './grabar-llamada-reglas';
 import { getQuadrantData } from './ads-analyst';
 import { getAngles } from './script-angles';
 import { getAvatares } from './script-avatares';
@@ -866,6 +867,31 @@ async function filasConversaciones(fecha: string, rg: Rango): Promise<Fila[]> {
   return out;
 }
 
+// ── Llamadas grabadas en MaKo (Cold Calling) ─────────────────────────────────────────────
+
+type FGrabada = { id: string; lead_id: number; origen: string; autor: string | null; estado: string; resultado: string | null; duracion_seg: number | null; created_at: string };
+/**
+ * Una fila por llamada grabada con el botón «Grabar» (lib/grabar-llamada.ts), con el nombre de su lead. La fila la arma
+ * `filaDeLlamadaGrabada` (lib/grabar-llamada-reglas.ts, puro y con test). Sin la migración 0390 la tabla no existe: se dice
+ * con un SinConexionError, nunca un cero (un «0 llamadas» se lee como un dato).
+ */
+async function filasLlamadasGrabadas(rg: Rango): Promise<Fila[]> {
+  let rows: FGrabada[];
+  try {
+    rows = await leer<FGrabada>('llamadas_grabadas', 'id, lead_id, origen, autor, estado, resultado, duracion_seg, created_at', rg, { col: 'created_at', ts: true });
+  } catch (e) {
+    if (/llamadas_grabadas/.test(String((e as Error)?.message)) && /does not exist|could not find/i.test(String((e as Error)?.message))) {
+      throw new SinConexionError('La grabación de llamadas todavía no está lista en tu cuenta');
+    }
+    throw e;
+  }
+  const leads = rows.length ? await leerPorIds<{ id: number; nombre: string | null }>('leads', 'id, nombre', 'id', rows.map((x) => x.lead_id)) : [];
+  const nombre = new Map(leads.map((l) => [Number(l.id), txt(l.nombre)]));
+  return rows
+    .map((x) => filaDeLlamadaGrabada(x, { fecha: fechaTj(x.created_at), lead: nombre.get(Number(x.lead_id)) ?? null }))
+    .filter((x) => enRango(x.f, rg));
+}
+
 // ── El reparto ───────────────────────────────────────────────────────────────────────────
 
 /** Un lector por conjunto de lib/graficos-fuentes-extra.ts. El test exige que estén todos. */
@@ -887,4 +913,5 @@ export const LECTORES_EXTRA: Record<string, Lector> = {
   ubicacion: (_, rg) => filasUbicacion(rg),
   cartera: () => filasCartera(),
   conversaciones: (f, rg) => filasConversaciones(f, rg),
+  llamadas_grabadas: (_, rg) => filasLlamadasGrabadas(rg),
 };

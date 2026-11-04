@@ -2747,6 +2747,8 @@ const FUENTE_META: Record<FuenteTipo, { label: string; icon: () => ReactNode; ac
   'meet': chipDeGrabador('meet'),
   'readai': chipDeGrabador('readai'),
   otter: chipDeGrabador('otter'),
+  // Una llamada grabada desde MaKo (04/11/2026, lib/grabar-llamada.ts): no tiene logo de afuera.
+  grabadora: { label: 'Llamada grabada', icon: () => <span>🎙️</span>, accent: true },
   whatsapp: { label: 'WhatsApp', icon: () => <SvcIcon k="whatsapp" size={11} box={16} radius={4} />, accent: true },
   archivo: { label: 'Archivo', icon: () => <span>📄</span>, accent: false },
   'claude-code': { label: 'Claude Code', icon: () => <span style={{ fontFamily: MONO, fontWeight: 700 }}>‹╱›</span>, accent: false },
