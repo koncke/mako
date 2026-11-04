@@ -2070,4 +2070,22 @@ export const BITACORA: Hito[] = [
       'tests/centro-limbo.test.ts — el cartel no vuelve',
     ],
   },
+  {
+    fecha: '3 nov', hora: '20:20', chat: 'Tickets de clientes', sesion: 'local_d010fa87-9186-469e-83de-d431a71f64d8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Copiar en el Ops Center funciona aunque el navegador no deje',
+    puntos: [
+      'Copiar podía fallar con «No pude copiar», sobre todo desde la app de Claude: el navegador no dejaba y no había otro camino. Ahora prueba un segundo camino y copia igual.',
+      'Si tampoco se puede, el aviso dice que lo copies a mano. Nunca dice «Copiado» si no se copió.',
+      'No lo pudimos reproducir en la app: si te vuelve a pasar, usa «Reportar a Soporte».',
+      '**Cómo se prueba:** en el Ops Center, copia un mensaje y pégalo.',
+    ],
+    archivos: [
+      'lib/copiar-texto.ts — un solo camino, el de copiarTexto',
+      'app/admin/operaciones/mandar.ts — copiar',
+      'tests/copiar-texto.test.ts — 5 roturas, cada una cae',
+    ],
+    revisar: '/admin/operaciones',
+    tickets: [36],
+  },
 ];

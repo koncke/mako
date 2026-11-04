@@ -24,6 +24,7 @@ import { conWs } from '@/lib/ws-tab';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import type { AccionesWA, MenuAbiertoWA, MensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { copiar } from '@/app/admin/operaciones/mandar';
+import { NO_PUDE_COPIAR } from '@/lib/copiar-texto';
 import { SIN_MARCAS, aplicarMarca, armarConCita, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
@@ -426,7 +427,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     setMenuWA(null);
     if (id.startsWith('reaccion:')) { const e = id.slice('reaccion:'.length); void ponerMarca({ tipo: 'reaccion', id: m.id, emoji: marcas.reacciones[m.id] === e ? null : e }); return; }
     if (id === 'responder') { accionesWA.responder(m); return; }
-    if (id === 'copiar') { void copiar(m.texto).then((ok) => setFaltaMic(ok ? 'Copiado' : 'No pude copiar')); return; }
+    if (id === 'copiar') { void copiar(m.texto).then((ok) => setFaltaMic(ok ? 'Copiado' : NO_PUDE_COPIAR)); return; }
     if (id === 'info') { setInfoWA(m); return; }
     if (id === 'destacar') { void ponerMarca({ tipo: 'destacar', id: m.id, si: !marcas.destacados.includes(m.id) }); return; }
     if (id === 'fijar') { void ponerMarca({ tipo: 'fijar', id: m.id, si: !marcas.fijados.includes(m.id) }); return; }
