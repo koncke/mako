@@ -959,6 +959,21 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
 
   const c = competidores.find((x) => x.id === elegido) ?? null;
 
+  // ⚠️ EL RECORRIDO SE ABRE CON LA FICHA QUIETA, Y MIENTRAS ESTÁ ABIERTO LA PÁGINA NO SE SCROLLEA A MANO (4/11/2026, el Cerebro con
+  // Den Borg: «el primer cuadro salió con el texto vacío» y «al hacer scroll, el recorrido sigue pero el foco se pierde; que no se
+  // pueda scrollear o que lo siga»). Mientras se traen sus piezas o corre la película, la pantalla cambia debajo de la tarjeta; se
+  // espera a que termine. Y con la rueda, el recorte seguía al objetivo hasta afuera de la pantalla: ahora la mueve sólo el
+  // recorrido (su `scrollIntoView` funciona igual con `overflow: hidden`).
+  const recorridoListo = !!c && !trayendo && ordenando == null;
+  const recorridoAbierto = recorrido.abierto && recorridoListo;
+  useEffect(() => {
+    if (!recorridoAbierto) return;
+    const raiz = document.documentElement;
+    const antes = raiz.style.overflow;
+    raiz.style.overflow = 'hidden';
+    return () => { raiz.style.overflow = antes; };
+  }, [recorridoAbierto]);
+
   const recargarLista = useCallback(async () => {
     const r = await competidoresAction();
     if (r.ok) { setCompetidores(r.competidores); setResumen(r.resumen); }
@@ -1821,7 +1836,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       </div>
 
       {/* Sólo con una ficha abierta: en la lista no hay qué señalar. Un paso sin su objetivo en pantalla se saltea solo. */}
-      {c && <Recorrido id={RECORRIDO_SPY} pasos={PASOS_SPY} abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />}
+      {c && <Recorrido id={RECORRIDO_SPY} pasos={PASOS_SPY} abierto={recorridoAbierto} onCerrar={recorrido.onCerrar} />}
       {abierta && c && (
         <DetallePieza
           p={piezas.find((x) => x.id === abierta.p.id) ?? abierta.p} nombre={c.nombre} todas={abierta.todas}
