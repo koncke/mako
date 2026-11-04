@@ -105,7 +105,7 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 **Sin hacer:**
 - Sacar la regla «nombra 20+» (`scripts/tests-afectados.mjs:67`): por ella corre siempre el test más lento, `tests/tipos-por-tandas.test.ts`. Ahorro inferido, ~200 s. Espera el veredicto de la suite semanal.
-- Filtro chico al subir una punta, sin candado y con tope de 60-90 s: guardas, tipos y tests de lo que tocó (`scripts/claude-hooks/pre-push`). Sin medir en la PC. Es un hook compartido: avisar antes.
+- ✔ Hecho (4/11, `punta/filtro-punta`): `scripts/filtro-punta.mjs`, que el pre-push corre en un push a `punta/*` después de las guardas. Los tests de lo tocado (los toca, lo nombran o lo importan directo) en tandas de 6 y los tipos de lo tocado, con tope de 90 s, sin candado y sin esperar RAM. Frena sólo con un rojo confirmado; lo que no entra, avisa y deja subir. Medido en la nube (4 CPU, 15 GB): habría frenado los dos rojos de puntas de ese día, en 54 s (TS2339) y en 4 s (TS2769). ⚠️ Sin medir en la PC con 8 chats: el hook es compartido y hay que copiarlo a mano en cada clon (docs/relevo/nube-metodologia.md).
 - Aviso de deploy fallido con los eventos de Vercel: `.github/workflows/despues-del-deploy.yml`. El 3/11 un deploy roto pasó 6 h sin aviso.
 - Chequeo sobre el main resultante, y relanzar solas las puntas rojas por culpa de main.
 - Retirar `integracion.yml`: un workflow desactivado no da rojo. Antes, el mensaje del hook, 45 líneas de AGENTS.md y 5 tests.
