@@ -73,8 +73,8 @@ test('Marketing y Comercial: sus cuatro primeros números tienen EXACTAMENTE una
   const esperado: Record<string, string> = {
     // Marketing pregunta «¿cuánto cuesta una agenda y de qué anuncio vino?» (4/11/2026, docs/templates-dashboard-propuesta.md §7.3).
     marketing: 'Costo por agenda',
-    // Comercial pregunta «¿cuánta plata entró?» — el cobrado, no el vendido.
-    comercial: 'Cash Collected',
+    // Comercial pregunta «¿convierte, y a qué costo?» (4/11/2026): la tasa de cierre. Lo cobrado se mudó a Cobranza.
+    comercial: 'Tasa de cierre',
   };
   for (const [idPlantilla, titulo] of Object.entries(esperado)) {
     const p = PLANTILLAS_HOJA.find((x) => x.id === idPlantilla);

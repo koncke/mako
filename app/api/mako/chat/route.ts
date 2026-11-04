@@ -157,10 +157,12 @@ export async function GET(req: NextRequest) {
       const id = asesorPorId(sp.get('cerebroDe'))?.id;
       const c = id ? await cursoDe(id) : null;
       if (!c) return json({ ok: false, error: 'Este gurú todavía no tiene su curso cargado.' }, 404);
-      const { layoutCerebro } = await import('@/lib/cerebro-layout');
-      const nodos = c.capa.nodos.map(({ cuerpo: _sinTexto, ...n }) => n);
-      const { posiciones, encuadre } = layoutCerebro(nodos, c.capa.aristas);
-      return json({ ok: true, cerebro: { ...c.capa, nodos, posiciones, encuadre } });
+      // Con la forma del grafo del negocio (4/11/2026): sus módulos como secciones, con color y tamaño (lib/cerebro-referente-vista.ts).
+      // Sin el texto de las clases: sólo el principio de cada una.
+      const [{ layoutCerebro }, { vistaDeReferente }] = await Promise.all([import('@/lib/cerebro-layout'), import('@/lib/cerebro-referente-vista')]);
+      const vista = vistaDeReferente(c.a, c.capa);
+      const { posiciones, encuadre } = layoutCerebro(vista.nodos, vista.aristas);
+      return json({ ok: true, cerebro: { ...vista, posiciones, encuadre } });
     }
     if (sp.has('gurusConCharla')) return json({ ok: true, gurus: await gurusConCharla(persona) });
     if (sp.has('coaches')) {

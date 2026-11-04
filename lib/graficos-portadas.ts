@@ -320,7 +320,7 @@ const altoDeAncho = (c: Crudo) => (c.tipo === 'mapa_calor' ? num(c.h) || ALTO_AN
 /**
  * Las portadas del Dashboard, por plantilla. Lo que contesta cada una:
  *   · Marketing — ¿cuánto me cuesta un cliente? El CAC solo, gigante.
- *   · Comercial — ¿cuánto entró y cuánto falta? La barra cobrado / pendiente.
+ *   · Comercial — ¿convierte, y a qué costo? La tendencia con los cuatro números de la conversión al lado.
  *   · Ads Analyst — ¿qué anuncio funciona? Los ganadores como pósters, con su miniatura de Meta.
  *   · Landing — ¿qué miran y qué tocan? El mapa de calor: la página con el calor encima.
  *   · VSL Analyst — ¿dónde se van del video? La curva de retención.
@@ -328,7 +328,6 @@ const altoDeAncho = (c: Crudo) => (c.tipo === 'mapa_calor' ? num(c.h) || ALTO_AN
  *   · Closing — ¿cuántas llamadas se ganan? R1 → R2 → ganadas, en columnas.
  *   · CS Analyst — ¿a quién atiendo? Las personas que piden atención.
  *   · Productividad — ¿cómo van mis proyectos? El avance de cada proyecto activo (la matriz, abajo: pide proyectos evaluados).
- *   · CRM — ¿dónde se me caen los leads? El embudo del lead al cierre.
  *   · Cobranza — ¿a quién le cobro? La lista con «Marcar cobrada».
  *   · Automatizaciones — ¿me contestan? Enviados → abiertos → respondieron.
  *   · Contenido e IA — ¿en qué se va la IA? El anillo con el costo en el centro.
@@ -338,7 +337,7 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
     // Con su línea abajo: la tarjeta negra de Corbel nunca es un número solo en un rectángulo vacío.
     // Con su línea abajo: la tarjeta negra de Corbel nunca es un número solo en un rectángulo vacío.
     marketing: { molde: 'prism', sube: 'mk-tendencias', vecino: 'mk-tendencias', par: ['mk-funnel', 'mk-plataforma'] },
-    comercial: { molde: 'ledge', sube: 'co-revenue-barra', cambios: { titulo: 'Lo que entró y lo que falta cobrar' }, vecino: 'co-tendencia', par: ['co-cobranza-tabla', 'co-funnel-embudo'] },
+    comercial: { molde: 'ledge', sube: 'co-tendencia', vecino: 'co-tendencia', par: ['co-funnel-embudo', 'co-motivos', 'co-por-oferta', 'co-origen'] },
     'ads-analyst': { molde: 'prism', sube: 'ad-video', cambios: { titulo: 'Cuánto ven el video' }, vecino: 'ad-cuadrante-dispersion', par: ['ad-eficiencia', 'ad-gancho'] },
     landing: { molde: 'tilvo', sube: 'la-scroll', cambios: { titulo: 'Hasta dónde bajan' }, vecino: 'la-visitas-dia', par: ['la-clics', 'la-origen'] },
     'vsl-analyst': {
@@ -349,7 +348,6 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
     closing: { molde: 'wharf', sube: 'cl-embudo-embudo', cambios: { tipo: 'embudo_columnas', titulo: 'Cuántas llamadas se ganan' }, vecino: 'cl-factores-barras', par: ['cl-closers-tabla', 'cl-factores-ia'] },
     'cs-analyst': { molde: 'moorly', sube: 'cs-etapas', cambios: { titulo: 'Dónde está cada cliente' }, vecino: 'cs-semanas', par: ['cs-tabla', 'cs-contacto'] },
     productividad: { molde: 'moorly', sube: 'pr-piramide-barras', cambios: { titulo: 'Pirámide de prioridad' }, vecino: 'pr-avance-proyecto', par: ['pr-huele-mal', 'pr-matriz-burbujas'] },
-    crm: { molde: 'tilvo', sube: 'embudo', cambios: { titulo: 'Dónde se caen tus leads' }, vecino: 'por-dia', par: ['etapas', 'perdidas'] },
     cobranza: { molde: 'wharf', sube: 'por-funnel', cambios: { titulo: 'Pendiente por funnel' }, vecino: 'semanas', par: ['a-quien'] },
     automatizaciones: {
       molde: 'ledge', nueva: (id) => ({

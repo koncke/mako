@@ -44,6 +44,7 @@ import 'server-only';
 import { chatCheapCascade } from './ai-cheap';
 import { HOOK_TYPES, TAG_VOCAB } from './ads-analyst-vocabulario';
 import { leerPerfilInstagram } from './instagram-perfil-server';
+import type { PiezaInstagram } from './instagram-perfil';
 import { nombresDe } from './landing-snapshot';
 import { mirarLanding } from './landing-vigilancia';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
@@ -57,9 +58,11 @@ import { sirveLaCompartida, type MotivoDeLectura } from './spy-compartido';
 import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy-compartido-db';
 import { conLectura, funnelDeFila, leerFunnel, type Funnel, type LecturaFunnel } from './spy-funnel';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
-import { noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
+import { VIDEOS_POR_LECTURA_COMPLETA, leerCompleto, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
 import { sitioDelTexto } from './spy-otras-redes-reglas';
 import { CLAVE_CARICATURAS, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
+import { seFueron } from './spy-todo-reglas';
+import { leerPorPaginas } from './supabase-paginado';
 import { getSetting } from './settings';
 import { ANALISIS_SIN_DATOS, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta } from './spy-analisis-reglas';
 import { queEs } from './spy-que-es';
@@ -338,14 +341,28 @@ export async function resumenDePiezas(): Promise<Record<number, ResumenPiezas>> 
 }
 
 /** Las piezas de un competidor, la última vista primero. */
+/**
+ * Cuántas piezas de un competidor se leen como mucho. Eran 200 (un `.limit`), y desde que se trae TODO (punto 8 del
+ * 4/11/2026: cientos de reels y videos) eso cortaba en silencio. Se pagina de a 1000 (el techo de PostgREST) hasta acá.
+ */
+export const PIEZAS_POR_COMPETIDOR = 2000;
+
 export async function listarPiezas(competidorId: number, canal?: CanalSpy): Promise<Pieza[]> {
   const db = await getTenantDb();
-  let q = db.from('spy_piezas').select('*').eq('competidor_id', competidorId);
-  if (canal) q = q.eq('canal', canal);
-  const { data, error } = await q.order('visto_ultima_vez', { ascending: false }).limit(200);
-  if (error) return [];
+  const filas: Record<string, unknown>[] = [];
+  try {
+    // ⚠️ Paginado por `id`, que es único: con `visto_ultima_vez` (se repite en toda una lectura) las páginas se pisan.
+    await leerPorPaginas<Record<string, unknown>>(db, 'spy_piezas', '*', (pagina) => {
+      filas.push(...pagina);
+      return filas.length < PIEZAS_POR_COMPETIDOR;
+    }, { orden: 'id', filtros: (q) => (canal ? q.eq('competidor_id', competidorId).eq('canal', canal) : q.eq('competidor_id', competidorId)) });
+  } catch {
+    return [];
+  }
+  // El orden de antes, en memoria: lo último visto primero.
+  filas.sort((a, b) => String(b.visto_ultima_vez ?? '').localeCompare(String(a.visto_ultima_vez ?? '')));
   // Con la flecha: `map` le pasaría el índice como la fecha de `ahora`.
-  return (data ?? []).map((fila) => podarVencido(fila as Record<string, unknown>)) as Pieza[];
+  return filas.slice(0, PIEZAS_POR_COMPETIDOR).map((fila) => podarVencido(fila)) as Pieza[];
 }
 
 /** La etapa de tendencia de una pieza: cuánto lleva a la vista. Es lo único que MaKo agrega sobre mirar a mano. */
@@ -482,12 +499,30 @@ export async function guardarVistas(
  * buena**, y nunca con una lista vacía: con las piezas vacías de un timeout, esto convertiría «no
  * pude leer» en «lo bajó todo» y la línea de tiempo diría que el competidor dejó de publicar.
  */
-export async function marcarDejadas(competidorId: number, canal: CanalSpy, refsQueSiguen: readonly string[]): Promise<void> {
-  if (!refsQueSiguen.length) return;
+/** Una publicación de Instagram (de Meta o de Apify) como la guarda Spy. La usan la lectura de siempre y la corrida larga. */
+export function vistaDeInstagram(p: PiezaInstagram): PiezaVista {
+  return {
+    canal: 'instagram' as const,
+    tipo: (p.formato === 'REELS' ? 'reel' : 'publicacion') as TipoPieza,
+    ref: p.ref, fuente: 'api' as const, url: p.permalink, texto: p.texto,
+    vistas: p.vistas, megusta: p.megusta, comentarios: p.comentarios,
+    publicadaEn: p.fecha || null,
+    // ⚠️ ACÁ SE PERDÍAN LOS VIDEOS DE IG. `leerPerfilInstagram` ya devolvía la miniatura
+    // (`thumbnail_url`, lib/instagram-perfil.ts) y este mapeo no la copiaba, así que un reel
+    // llegaba a la grilla como texto con números en vez de como un video que se ve.
+    miniatura: p.miniatura,
+  };
+}
+
+export async function marcarDejadas(competidorId: number, canal: CanalSpy, leidas: ReadonlyArray<{ ref: string; publicadaEn?: string | null }>): Promise<void> {
+  if (!leidas.length) return;
   const db = await getTenantDb();
   const ahora = new Date().toISOString();
-  const { data } = await db.from('spy_piezas').select('id, ref').eq('competidor_id', competidorId).eq('canal', canal).is('dejo_de_verse_en', null);
-  const idsQueSeFueron = (data ?? []).filter((r) => !refsQueSiguen.includes((r as { ref: string }).ref)).map((r) => (r as { id: number }).id);
+  const { data, error } = await db.from('spy_piezas').select('id, ref, publicada_en').eq('competidor_id', competidorId).eq('canal', canal).is('dejo_de_verse_en', null).limit(5000);
+  // No poder leer no es «se fueron todas».
+  if (error) return;
+  // Sólo lo que esta lectura podía ver (`seFueron`, lib/spy-todo-reglas.ts): lo más viejo que lo que trajo no se marca.
+  const idsQueSeFueron = seFueron((data ?? []) as Array<{ id: number; ref: string; publicada_en: string | null }>, leidas);
   if (!idsQueSeFueron.length) return;
   await db.from('spy_piezas').update({ dejo_de_verse_en: ahora, updated_at: ahora }).in('id', idsQueSeFueron);
 }
@@ -590,19 +625,9 @@ export async function mirarCompetidor(
       if (!piezas) {
         canales.push({ canal: 'instagram', ok: true, piezas: 0, nuevas: 0, detalle: 'Leí el perfil, pero esta conexión de Meta no entrega los números de cada publicación.' });
       } else {
-        const vistas: PiezaVista[] = piezas.map((p) => ({
-          canal: 'instagram' as const,
-          tipo: (p.formato === 'REELS' ? 'reel' : 'publicacion') as TipoPieza,
-          ref: p.ref, fuente: 'api' as const, url: p.permalink, texto: p.texto,
-          vistas: p.vistas, megusta: p.megusta, comentarios: p.comentarios,
-          publicadaEn: p.fecha || null,
-          // ⚠️ ACÁ SE PERDÍAN LOS VIDEOS DE IG. `leerPerfilInstagram` ya devolvía la miniatura
-          // (`thumbnail_url`, lib/instagram-perfil.ts) y este mapeo no la copiaba, así que un reel
-          // llegaba a la grilla como texto con números en vez de como un video que se ve.
-          miniatura: p.miniatura,
-        }));
+        const vistas: PiezaVista[] = piezas.map(vistaDeInstagram);
         const g = await guardarVistas(competidorId, vistas);
-        if (vistas.length) await marcarDejadas(competidorId, 'instagram', vistas.map((v) => v.ref));
+        if (vistas.length) await marcarDejadas(competidorId, 'instagram', vistas);
         // Se guarda para que el PRÓXIMO negocio no la pague. No se espera: si falla, este negocio
         // ya tiene sus piezas y lo único que se pierde es el ahorro del siguiente.
         void guardarLecturaCompartida('instagram', c.instagram, vistas, { seguidores: l.perfil.seguidores ?? null });
@@ -635,7 +660,11 @@ export async function mirarCompetidor(
       const apunta = c.youtube_id.startsWith('@') ? { handle: c.youtube_id.slice(1) }
         : c.youtube_id.startsWith('user:') ? { usuario: c.youtube_id.slice(5) }
         : { id: c.youtube_id };
-      const l = await traerVideosDelCanal(apunta, clave, fetch);
+      // Completa (500 videos) la primera vez, o mientras tenga pocos guardados; después, la corta (punto 8 del 4/11).
+      const { count: guardados } = await (await getTenantDb()).from('spy_piezas').select('id', { count: 'exact', head: true })
+        .eq('competidor_id', competidorId).eq('canal', 'youtube');
+      const completa = leerCompleto(guardados ?? 0);
+      const l = await traerVideosDelCanal(apunta, clave, fetch, completa ? VIDEOS_POR_LECTURA_COMPLETA : TOPES.piezasPorVuelta, completa);
       if (!l.ok) {
         canales.push({ canal: 'youtube', ok: false, piezas: 0, nuevas: 0, detalle: noPudeLeerCanal(l.motivo) });
       } else {
@@ -669,7 +698,7 @@ export async function mirarCompetidor(
           miniatura: v.miniatura || `https://i.ytimg.com/vi/${encodeURIComponent(v.id)}/hqdefault.jpg`,
         }));
         const g = await guardarVistas(competidorId, vistas);
-        if (vistas.length) await marcarDejadas(competidorId, 'youtube', vistas.map((v) => v.ref));
+        if (vistas.length) await marcarDejadas(competidorId, 'youtube', vistas);
         // Para que el próximo negocio que mire este canal no gaste cuota. No se espera.
         void guardarLecturaCompartida('youtube', c.youtube_id, vistas, { suscriptores: l.canal.suscriptores ?? null });
         canales.push({ canal: 'youtube', ok: !g.error, piezas: vistas.length, nuevas: g.nuevas, detalle: g.error ?? `${vistas.length} videos` });

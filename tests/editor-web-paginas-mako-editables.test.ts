@@ -93,8 +93,9 @@ test('la IA ve los TEXTOS de una sección de diseño y los cambia sin tocar la f
   const muchos = '<div>' + Array.from({ length: TOPE_TEXTOS_DISENO + 1 }, (_, i) => `<p>t${i}</p>`).join('') + '</div>';
   const grande = tarjetaABloques({ type: NODO.tarjeta, attrs: { id: 'tg' }, content: [{ type: NODO.htmlEditable, attrs: { html: muchos } }] });
   assert.equal(grande.bloques[0]?.t, 'conservar');
-  // La gramática le explica la regla al modelo.
-  assert.match(GRAMATICA_IA, /"t":"diseno","ref","textos"[\s\S]*MISMA cantidad de textos/);
+  // La gramática le explica la regla al modelo (desde la réplica editable, 29/10: «cambios» para unos pocos, y «textos» con la
+  // MISMA cantidad y el mismo orden para casi todos; nunca agregar ni quitar).
+  assert.match(GRAMATICA_IA, /"t":"diseno","ref","textos"[\s\S]*"textos" con la MISMA cantidad, en el mismo orden[\s\S]*No agregues ni quites textos/);
 });
 
 test('un clic adentro del diseño ACTIVA su sección, y su barrita suma negrita y cursiva', () => {
