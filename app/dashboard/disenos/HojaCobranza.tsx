@@ -326,7 +326,7 @@ export function HojaCobranza({ hoja, datos, extras, hoy, periodo, onGrilla, onFi
                   ))}
                 </div>
               </>
-            ) : <p className="cbz-vacio">Cuando cargues los planes de pago de tus clientes, acá ves lo que te deben.</p>}
+            ) : <p className="cbz-vacio">Cuando cargues los planes de pago de tus clientes, aquí ves lo que te deben.</p>}
           </article>
           <div className="cbz-kpis">
             {kpis.map((k) => (
