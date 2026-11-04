@@ -1012,4 +1012,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '18:00', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Comercial, la séptima hoja copiada: el diseño de Selvar con «¿convierte, y a qué costo?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» del Dashboard**, con su miniatura de verdad: gris claro, tarjetas blancas y el azul cobalto de Selvar.',
+      '**La frase:** de cuántas agendas salieron cuántos cierres, lo vendido y lo que costó cada cierre en anuncios.',
+      '**Vendido:** contra el período anterior, con lo invertido y la barra de lo que pasó con las agendas.',
+      '**Los cuatro números:** la tasa de cierre, el ticket, los días hasta el cierre y el costo por cierre, con su cambio y su línea.',
+      '**Por qué no se cerró, lo vendido por semana y por mes, de agenda a cierre, las llamadas de hoy, de dónde vienen los que cierran y quién cierra.**',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaComercial.tsx · comercial-css.ts · ComercialVivo.tsx — el diseño',
+      'lib/comercial-diseno.ts — de dónde sale cada número',
+      'lib/comercial-diseno-server.ts — las llamadas de venta de hoy',
+      'docs/diseno/mockups-dashboard/comercial-selvar/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];
