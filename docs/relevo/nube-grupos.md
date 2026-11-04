@@ -18,6 +18,10 @@ invitado de los datos del negocio, y arreglar lo chico que dejó abierto la revi
 - **La primera subida (`cfa87cc9`, corrida 119) dio rojo en tres tests**, arreglados en la segunda: `agenda-google-grupo` (pedía la
   línea de `ctxGoogle` sin la guarda del invitado), `cuenta-revision-escrituras` (las rutas del grupo, clasificadas: cortadas para
   la cuenta de revisión) y `agenda-sin-ia` (prohíbe la palabra `apartadas` en el doer, y era el nombre de una variable nueva).
+- **La segunda (`94866a72`, corrida 127) pasó todo lo suyo** (tipos y 10.274 tests) **y dio rojo en `tests/venta-externa.test.ts`**,
+  que no es de esta rama: su evento tenía la fecha escrita a mano y el 4/11 cumplió 7 días (Meta recorta y suma `hecho_en`). Da rojo
+  también sobre main. Lo arregló el Cerebro en `punta/test-venta-fecha` (`b73829cb1`); acá no se tocó. Con eso en main, se mezcla main
+  y se vuelve a subir (main ya mezclado una vez el 4/11 a las 11:30: limpio, 204 de 204 en los tests de grupos y los que dieron rojo).
 - **Verificado acá:** los 8 archivos `tests/grupos-ops-*` (el del recorrido, nuevo), los 1.060 archivos de tests que elige
   `tests-afectados` contra `origin/main` (10.221 tests, con node 24: con el 22 de la nube dan rojos falsos, también sobre main)
   y el `tsc` ENTERO (`--noEmit`, exit 0, con `next typegen`).
