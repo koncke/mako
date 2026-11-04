@@ -9,6 +9,7 @@
 // la ficha. Los pasos del catálogo los marca el acto (lib/spy-actos.ts).
 
 import { SpyApp } from './SpyApp';
+import { piezasAction } from './actions';
 import { listarCompetidores, resumenDePiezas } from '@/lib/spy';
 import { sugeridosDelNegocio } from '@/lib/spy-sugeridos-server';
 import { requireRolWs } from '@/lib/tab-access';
@@ -27,22 +28,29 @@ export const maxDuration = 60;
 
 export default async function CompetitorSpyPage({ searchParams }: { searchParams: Promise<{ competidor?: string }> }) {
   await requireRolWs([], { nav: 'market-an' });
-  const r = await listarCompetidores().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
-  const resumen = await resumenDePiezas().catch(() => ({}));
-  // Los competidores de la plataforma que este negocio todavía no mira (lib/spy-sugeridos.ts). Sin poder leerlos, ninguno.
-  const sugeridos = await sugeridosDelNegocio().catch(() => []);
   const pedido = Number((await searchParams).competidor);
-  // Quién puede BORRAR. Cualquiera mira y agrega; borrar se lleva puestas todas las piezas
-  // leídas por el equipo (`on delete cascade`, 0359) y no se deshace, así que es del admin.
-  const esAdmin = (await getRolWsEfectivo()) === 'admin';
+  const abierto = Number.isInteger(pedido) && pedido > 0 ? pedido : null;
+  // ⚠️ TODO EN PARALELO, Y LAS PIEZAS DEL QUE SE ABRE YA DESDE ACÁ (4/11/2026, Martín: «que cargue más rápido»). Antes eran cuatro
+  // lecturas una detrás de otra, y las piezas recién se pedían después de hidratar, por una action (que además hace fila con las
+  // demás). Con el `?competidor=` en la URL, la ficha llega con lo suyo y dibuja sin esperar otra vuelta.
+  const [r, resumen, sugeridos, rol, ws, delAbierto] = await Promise.all([
+    listarCompetidores().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) })),
+    resumenDePiezas().catch(() => ({})),
+    sugeridosDelNegocio().catch(() => []),
+    getRolWsEfectivo(),
+    getWorkspaceActual(),
+    abierto ? piezasAction(abierto).catch(() => null) : Promise.resolve(null),
+  ]);
+  const esAdmin = rol === 'admin';
   return (
     <SpyApp
       iniciales={r.ok ? r.competidores : []}
       resumenInicial={resumen}
-      abierto={Number.isInteger(pedido) && pedido > 0 ? pedido : null}
+      abierto={abierto}
+      piezasIniciales={abierto && delAbierto?.ok ? { id: abierto, piezas: delAbierto.piezas } : null}
       errorInicial={r.ok ? null : r.error}
       puedeBorrar={esAdmin}
-      ws={await getWorkspaceActual()}
+      ws={ws}
       sugeridosIniciales={sugeridos}
     />
   );

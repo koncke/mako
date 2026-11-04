@@ -5,8 +5,12 @@
 // tarjetas vacías sin la miniatura, y segundos después… ahí aparece la miniatura». Lo usan las dos animaciones de Spy: la
 // película del orden (OrdenSpy.tsx) y el gráfico del detalle (GraficoSpy.tsx). Una pieza, no dos copias.
 
-/** Lo más que se espera a las miniaturas antes de arrancar: las que no llegaron entran sin imagen. */
-export const TOPE_PRECARGA_MS = 8_000;
+/**
+ * Lo más que se espera a las miniaturas antes de arrancar: las que no llegaron entran con su texto (ninguna caja vacía). Era 8 s:
+ * en una ficha de 180 miniaturas del CDN de Meta, la entrada podía quedarse 8 s en la criatura (Martín, 4/11/2026: «que cargue más
+ * rápido»). 3 s alcanza para las primeras, que son las que se ven llegar.
+ */
+export const TOPE_PRECARGA_MS = 3_000;
 
 export const espera = (ms: number) => new Promise<void>((r) => { window.setTimeout(r, ms); });
 
