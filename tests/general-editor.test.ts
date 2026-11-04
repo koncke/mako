@@ -125,12 +125,15 @@ test('un bloque se ata a un funnel sólo si sabe, y el bloque elige el suyo por 
   assert.match(bloque, /if \(filtra && sinCrm && d\.d\.deQuien == null\) return <Cobranza filas=\{\[\]\} tz=\{d\.d\.tz\} error="No pude leer de qué funnel es cada cliente\."/);
 });
 
-test('el informe con que arranca es la General de siempre, con la cabecera arriba', () => {
+test('el informe con que arranca es la General de siempre, con la frase y la cabecera arriba', () => {
   const t = informeGeneralInicial();
   assert.equal(t.hojas.length, 1);
   const h = t.hojas[0];
   assert.equal(h.plantilla, 'general');
-  const arriba = [...h.componentes].sort((a, b) => a.y - b.y || a.x - b.x)[0];
+  // 4/11/2026: abre con la oración de cómo viene el mes (Orvel), y la Meta objetivo es lo primero debajo, a la izquierda.
+  const orden = [...h.componentes].sort((a, b) => a.y - b.y || a.x - b.x);
+  assert.ok(orden[0].clase === 'grafico' && orden[0].tipo === 'frase', 'la frase de apertura no abre la hoja');
+  const arriba = orden[1];
   assert.ok(arriba.clase === 'elemento' && arriba.general?.pieza === 'cabecera', 'la cabecera (el objetivo y la acción del día) no va arriba');
   // Ids fijos: dos lecturas dan lo mismo, así el primer cambio se guarda tal cual.
   assert.deepEqual(informeGeneralInicial(), t);
