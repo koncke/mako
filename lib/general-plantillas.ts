@@ -57,6 +57,10 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     // Orvel abre con UNA oración de tres hechos y uno accionable; Corbel pone la fila de números con su comparación y un link al
     // pie de cada uno al lugar donde se trabaja, el puntaje con veredicto (acá la Meta objetivo y el Semáforo) y lo facturado
     // por mes. El bloque «te está esperando» es «A quién cobrarle». Mockup: docs/diseno/mockups-dashboard/general.html.
+    // 4/11/2026 (tarde) — y con su DISEÑO PROPIO, la copia de Orvel (docs/diseno/mockups-dashboard/general-orvel/,
+    // app/dashboard/disenos/HojaGeneral.tsx): mirando se dibuja eso, con los datos de los bloques de General y de dos
+    // componentes de acá: `meses` (lo cobrado y la inversión por mes, sus dos líneas) y `deben` (lo que falta cobrar por tramo
+    // de atraso, las mismas cuentas que la hoja Cobranza). Corbel queda para otra hoja.
     id: 'general', nombre: 'General', emoji: '🧭',
     linea: 'Cómo viene el mes en una frase, tu meta, la plata por mes y lo que te está esperando.',
     subtitulo: '', tema: TEMA, periodo: 'este_mes',
@@ -72,12 +76,21 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       numero('cierres', 'leads', 'cierres', 'Cierres', { fecha: 'cierre', ir: 'closing' }),
       bloque('cabecera'),
       {
-        local: 'por-mes', tipo: 'columnas', fuente: 'negocio', dimension: 'mes', metricas: ['cobrado'], titulo: 'Facturado por mes',
-        subtitulo: 'Lo cobrado, no lo prometido', controles: [{ tipo: 'periodo', preset: 'ult12m', fijo: true }], ir: 'cobranza',
+        local: 'por-mes', tipo: 'columnas', fuente: 'negocio', dimension: 'mes', metricas: ['cobrado', 'gasto'], titulo: 'Lo que entró y lo que invertiste',
+        subtitulo: 'Lo cobrado y la inversión en anuncios, mes a mes', controles: [{ tipo: 'periodo', preset: 'ult12m', fijo: true }], ir: 'cobranza',
       },
       bloque('semaforo', { titulo: 'Salud del negocio' }),
-      bloque('cobranza', { titulo: 'Te está esperando' }), bloque('accion'), bloque('llamadas'),
+      bloque('cobranza', { titulo: 'Te está esperando' }),
+      // El «Owed to you» de Orvel: TODO lo que se debe hoy, por los días que lleva vencido (las mismas cuentas que «Cuánto hace que
+      // esperan» de la hoja Cobranza).
+      {
+        local: 'deben', tipo: 'barras', fuente: 'pagos', fecha: 'vencimiento', dimension: 'atraso', metricas: ['pendiente', 'pagos'], titulo: 'Te deben',
+        subtitulo: 'Todo lo que falta cobrar, por días de atraso', ir: 'cobranza',
+        controles: [{ tipo: 'periodo', preset: 'todo', fijo: true }, { tipo: 'lista', campo: 'estado', valores: ['Vencido', 'Pendiente'], fijo: true }],
+      },
+      bloque('accion'), bloque('llamadas'),
     ],
+    diseno: { id: 'general', piezas: { meses: 'por-mes', deben: 'deben' } },
   },
   {
     // 4/11/2026 — PANE · LUMORA (docs/templates-dashboard-propuesta.md §3 y §7.3): «¿en qué estoy ahora y qué me queda hoy?». Deja de
