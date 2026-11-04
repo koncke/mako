@@ -53,93 +53,131 @@ const SOLO_INSTAGRAM = { tipo: 'lista', campo: 'audiencia.plataforma', valores: 
 
 export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   {
-    // La General de siempre: la meta, la plata del mes en números, y lo que hay que atender hoy.
+    // 4/11/2026 — ORVEL · CORBEL (docs/templates-dashboard-propuesta.md §7.3): «¿cómo viene el negocio y qué me está esperando?».
+    // Orvel abre con UNA oración de tres hechos y uno accionable; Corbel pone la fila de números con su comparación y un link al
+    // pie de cada uno al lugar donde se trabaja, el puntaje con veredicto (acá la Meta objetivo y el Semáforo) y lo facturado
+    // por mes. El bloque «te está esperando» es «A quién cobrarle». Mockup: docs/diseno/mockups-dashboard/general.html.
     id: 'general', nombre: 'General', emoji: '🧭',
-    linea: 'Tu meta, la plata del mes, la acción del día y lo que hay que atender.',
+    linea: 'Cómo viene el mes en una frase, tu meta, la plata por mes y lo que te está esperando.',
     subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
-      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago' }),
-      numero('vendido', 'leads', 'vendido', 'Vendido', { fecha: 'cierre' }),
-      numero('agendas', 'leads', 'agendas', 'Agendas', { fecha: 'agenda' }),
-      numero('cierres', 'leads', 'cierres', 'Cierres', { fecha: 'cierre' }),
+      {
+        // Lo que la fila de números NO dice: cuánto cambió y si la pauta vuelve (cada dato, una vez).
+        local: 'apertura', tipo: 'frase', fuente: 'negocio', metricas: ['cobrado', 'gasto', 'roas_cobrado'], dimension: null, titulo: 'Cómo viene el mes', comparar: true,
+        frase: 'Entraron {cobrado} · {cobrado:cambio} que el período anterior · con {gasto} de pauta, cada dólar volvió {roas_cobrado}', ir: 'cobranza',
+      },
+      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago', invertida: true, ir: 'cobranza' }),
+      numero('vendido', 'leads', 'vendido', 'Vendido', { fecha: 'cierre', ir: 'comercial' }),
+      numero('agendas', 'leads', 'agendas', 'Agendas', { fecha: 'agenda', ir: 'crm' }),
+      numero('cierres', 'leads', 'cierres', 'Cierres', { fecha: 'cierre', ir: 'closing' }),
       bloque('cabecera'),
-      bloque('tareas'), bloque('deadlines', { opciones: { dias: '7', que: 'tareas' } }),
-      bloque('accion'), bloque('llamadas'), bloque('cobranza'),
+      {
+        local: 'por-mes', tipo: 'columnas', fuente: 'negocio', dimension: 'mes', metricas: ['cobrado'], titulo: 'Facturado por mes',
+        subtitulo: 'Lo cobrado, no lo prometido', controles: [{ tipo: 'periodo', preset: 'ult12m', fijo: true }], ir: 'cobranza',
+      },
+      bloque('semaforo', { titulo: 'Salud del negocio' }),
+      bloque('cobranza', { titulo: 'Te está esperando' }), bloque('accion'), bloque('llamadas'),
     ],
   },
   {
-    id: 'foco', nombre: 'Foco de la semana', emoji: '🎯',
-    linea: 'Tus OKRs y lo que hay que hacer para cumplirlos: las tareas, los deadlines y los proyectos.',
+    // 4/11/2026 — PANE · LUMORA (docs/templates-dashboard-propuesta.md §3 y §7.3): «¿en qué estoy ahora y qué me queda hoy?». Deja de
+    // ser «Foco de la semana» (Martín, 1/11: «ya no sería "foco de la semana" solo sería "focus" con otras cosas»): es el DÍA.
+    // Pane abre con la frase de lo que queda, la cápsula del día y «lo que viene»; Lumora, la tira del día con la línea del ahora
+    // (acá «Mi día», en línea de tiempo). El temporizador de foco de Pane NO está: MaKo no mide el tiempo de foco por tarea
+    // (§7.4.6), y un reloj que no guarda nada no se pone. Mockups: docs/diseno/mockups-dashboard/focus-pane.html y focus-lumora.html.
+    id: 'foco', nombre: 'Focus', emoji: '🎯', buscar: 'Foco de la semana',
+    linea: 'Tu día: lo que te queda, la línea del ahora, lo que viene y tus OKRs.',
     subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
-      numero('cerradas', 'tareas', 'hechas', 'Tareas cerradas', { fecha: 'deadline' }),
-      deHoy('abiertas', 'tareas', 'abiertas', 'Te quedan abiertas'),
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'tareas', fecha: 'actual', metricas: ['abiertas', 'avance'], dimension: null, titulo: 'Tu día',
+        frase: 'Te quedan {abiertas} tareas abiertas · tu Plan va {avance}', ir: 'plan',
+      },
+      numero('cerradas', 'tareas', 'hechas', 'Tareas cerradas', { fecha: 'deadline', ir: 'plan' }),
       deHoy('avance', 'proyectos', 'avance_proyectos', 'Avance de proyectos'),
       deHoy('proyectos', 'proyectos', 'proyectos', 'Proyectos'),
+      deHoy('completos', 'proyectos', 'completos', 'Proyectos completos'),
       bloque('objetivos', { titulo: 'Cómo vas con tus OKRs', opciones: { estilo: 'barras', cuales: 'trimestre' } }),
-      bloque('tareas'), bloque('deadlines', { opciones: { dias: '7', que: 'tareas' } }), bloque('semaforo'),
-      bloque('proyectos'), bloque('agenda'),
+      bloque('agenda', { titulo: 'Tu día, de ahora a la noche' }), bloque('llamadas', { titulo: 'Lo que viene', opciones: { dias: '1' } }),
+      bloque('tareas', { titulo: 'Mis tareas' }), bloque('deadlines', { opciones: { dias: '7', que: 'tareas' } }),
+      bloque('proyectos'),
     ],
   },
   {
-    // El caso de la reunión del 12/10 (el Plan, la cobranza y el CRM en la pantalla de lo que se hace hoy).
+    // 4/11/2026 — MOORLY · TORQUE (docs/templates-dashboard-propuesta.md §7.3): «¿qué está vencido y a quién llamo?». Moorly abre con
+    // lo de hoy y lo que vence; Torque, el tablero de lo que está en curso. Es el caso de la reunión del 12/10 (el
+    // Plan, la cobranza y el CRM en la pantalla de lo que se hace hoy).
     id: 'operacion', nombre: 'Operación diaria', emoji: '⚡',
-    linea: 'Las prioridades del Plan, a quién cobrarle, las llamadas y cómo está el funnel.',
+    linea: 'Lo de hoy: las llamadas, lo vencido, a quién llamar y lo primero del Plan.',
     subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
-      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago' }),
-      numero('pendiente', 'pagos', 'pendiente', 'Por cobrar', { comparar: false }),
-      numero('agendas', 'leads', 'agendas', 'Agendas', { fecha: 'agenda' }),
-      numero('cierres', 'leads', 'cierres', 'Cierres', { fecha: 'cierre' }),
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'leads', fecha: 'agenda', metricas: ['agendas', 'asistencias', 'no_show'], dimension: null, titulo: 'Hoy',
+        frase: 'Hoy hay {agendas} llamadas agendadas · {asistencias} ya vinieron · {no_show} no se presentaron',
+        controles: [{ tipo: 'periodo', preset: 'hoy', fijo: true }], ir: 'crm',
+      },
+      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago', ir: 'cobranza' }),
+      numero('pendiente', 'pagos', 'pendiente', 'Por cobrar', { comparar: false, invertida: true, ir: 'cobranza' }),
+      numero('agendas', 'leads', 'agendas', 'Agendas', { fecha: 'agenda', ir: 'crm' }),
+      numero('cierres', 'leads', 'cierres', 'Cierres', { fecha: 'cierre', ir: 'closing' }),
       bloque('prioridades'),
-      bloque('cobranza'), bloque('llamadas'), bloque('agenda'),
-      bloque('funnel', { opciones: { estilo: 'barras' } }), bloque('semaforo'),
+      bloque('cobranza', { titulo: 'Lo vencido', opciones: { cuales: 'vencidas' } }),
+      bloque('llamadas', { titulo: 'A quién llamo hoy', opciones: { dias: '1' } }), bloque('agenda'),
+      bloque('deadlines', { titulo: 'Lo que vence', opciones: { dias: '7', que: 'tareas' } }),
+      bloque('funnel', { opciones: { estilo: 'barras' } }),
     ],
   },
   {
-    id: 'ventas', nombre: 'Ventas del mes', emoji: '📈',
-    linea: 'Lo vendido y lo cobrado, el funnel, y de dónde vienen las ventas.',
-    subtitulo: '', tema: TEMA, periodo: 'este_mes',
-    piezas: [
-      numero('vendido', 'leads', 'vendido', 'Vendido', { fecha: 'cierre', invertida: true }),
-      numero('cierres', 'leads', 'cierres', 'Cierres', { fecha: 'cierre' }),
-      numero('tasa', 'leads', 'tasa_cierre', 'Tasa de cierre', { fecha: 'agenda' }),
-      numero('ticket', 'leads', 'ticket', 'Ticket promedio', { fecha: 'cierre' }),
-      { local: 'tendencia', tipo: 'serie', fuente: 'negocio', dimension: 'dia', metricas: ['vendido', 'cobrado'], titulo: 'Lo vendido y lo cobrado' },
-      bloque('funnel', { opciones: { estilo: 'barras' } }), bloque('semaforo'), bloque('llamadas'),
-      { local: 'por-origen', tipo: 'tabla_barras', fuente: 'leads', fecha: 'cierre', dimension: 'origen', metricas: ['vendido'], titulo: 'Lo vendido por origen' },
-      { local: 'por-closer', tipo: 'barras', fuente: 'leads', fecha: 'cierre', dimension: 'closer', metricas: ['cierres'], titulo: 'Cierres por closer' },
-    ],
-  },
-  {
+    // 4/11/2026 — SUNROW · TORQUE (docs/templates-dashboard-propuesta.md §7.3): «¿cada cliente va en fecha?». Torque es el tablero de
+    // lo que está en curso: cuántos clientes hay en cada etapa de la entrega y cuántos avanzaron este mes. Sunrow, cada cliente con su
+    // fila: quién te necesita y hace cuánto no hablan. ⚠️ «En fecha» de verdad pide una fecha comprometida por etapa, que la entrega no
+    // guarda: lo que se mide es cuándo llegó cada uno a su etapa (docs/relevo/nube-dashboards.md).
     id: 'servicio', nombre: 'Agencia o servicio', emoji: '🤝',
-    linea: 'Tus clientes en cada etapa de la entrega, quién te necesita y lo que te deben.',
+    linea: 'Tus clientes en cada etapa de la entrega, quién avanzó, quién te necesita y lo que te deben.',
     subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
-      deHoy('clientes', 'cartera', 'clientes', 'Clientes activos'),
-      deHoy('atencion', 'cartera', 'atencion', 'Piden atención'),
-      deHoy('deuda', 'cartera', 'deuda_vencida_usd', 'Deuda vencida'),
-      deHoy('sesiones', 'cartera', 'sesiones', 'Sesiones'),
-      { local: 'etapas', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Clientes por etapa de la entrega' },
-      bloque('cobranza'), bloque('llamadas'), bloque('agenda'),
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'cartera', fecha: 'actual', metricas: ['atencion', 'sesiones', 'cuotas_vencidas'], dimension: null, titulo: 'Tu cartera',
+        frase: '{atencion} clientes te necesitan hoy · {sesiones} sesiones dadas · {cuotas_vencidas} cuotas vencidas', ir: 'clients',
+      },
+      deHoy('clientes', 'cartera', 'clientes', 'Clientes'),
+      numero('avanzaron', 'entrega', 'clientes', 'Avanzaron de etapa', { fecha: 'desde', invertida: true, ir: 'clients' }),
+      { ...deHoy('deuda', 'cartera', 'deuda_vencida_usd', 'Deuda vencida'), ir: 'cobranza' },
+      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago', ir: 'cobranza' }),
+      { local: 'etapas', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Clientes por etapa', ir: 'clients' },
+      { local: 'por-producto', tipo: 'anillo', fuente: 'entrega', fecha: 'actual', dimension: 'producto', metricas: ['clientes'], titulo: 'Por funnel' },
+      {
+        local: 'contacto', tipo: 'barras', fuente: 'cartera', fecha: 'actual', dimension: 'tramo_contacto', metricas: ['clientes'], titulo: 'Hace cuánto no hablan',
+      },
+      { local: 'ritmo', tipo: 'columnas', fuente: 'entrega', fecha: 'desde', dimension: 'semana', metricas: ['clientes'], titulo: 'Avanzaron, por semana' },
       {
         local: 'quien', tipo: 'tarjetas', fuente: 'cartera', dimension: 'cliente', metricas: ['atencion', 'deuda_vencida_usd', 'sesiones'],
         ordenMetrica: 'atencion', barra: 'deuda_vencida_usd', limite: 3, tabla: { columnas: ['senal', 'tramo_contacto'] }, titulo: 'Quién te necesita hoy',
       },
+      bloque('cobranza', { titulo: 'Lo que te deben' }), bloque('agenda'),
     ],
   },
   {
+    // 4/11/2026 — LUMORA · VITREA (docs/templates-dashboard-propuesta.md §7.3): «¿cuántos siguen ahí al mes 3?». Lumora abre con la
+    // frase de cuántos siguen viendo y si son más o menos que antes; Vitrea, el avance como barra contra el 100 % y lo que pasa por
+    // estado y por área. ⚠️ La permanencia por cohorte (M0…M5) no se mide todavía: lo que hay es quién vio clases en el período.
     id: 'curso', nombre: 'Curso o comunidad', emoji: '🎓',
-    linea: 'Cuántos alumnos avanzan y qué tanto, junto a lo que vendes y publicas.',
+    linea: 'Cuántos alumnos siguen viendo clases y qué tanto avanzan, junto a lo que vendes.',
     subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
-      numero('alumnos', 'avance_cursos', 'alumnos', 'Alumnos activos', { comparar: false }),
-      numero('clases', 'avance_cursos', 'clases', 'Clases vistas', { comparar: false }),
-      numero('pct', 'avance_cursos', 'pct', 'Avance promedio', { comparar: false }),
-      numero('ventas', 'leads', 'cierres', 'Ventas', { fecha: 'cierre' }),
-      { local: 'tendencia', tipo: 'serie', fuente: 'avance_cursos', dimension: 'dia', metricas: ['clases'], titulo: 'Clases vistas' },
-      { local: 'avance', tipo: 'bala', fuente: 'avance_cursos', metricas: ['avance'], dimension: null, maximo: 100, titulo: 'Cuánto avanzan tus alumnos' },
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'avance_cursos', metricas: ['clases'], dimension: null, titulo: 'Tus alumnos', comparar: true,
+        frase: 'Tus alumnos vieron {clases} clases · {clases:cambio} que el período anterior', ir: 'classroom',
+      },
+      numero('alumnos', 'avance_cursos', 'alumnos', 'Alumnos activos', { invertida: true, ir: 'classroom' }),
+      numero('ventas', 'leads', 'cierres', 'Ventas', { fecha: 'cierre', ir: 'closing' }),
+      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago', ir: 'cobranza' }),
+      { ...deHoy('atencion', 'cartera', 'atencion', 'Piden atención'), ir: 'clients' },
+      { local: 'tendencia', tipo: 'serie', fuente: 'avance_cursos', dimension: 'dia', metricas: ['alumnos'], titulo: 'Alumnos que vieron clases' },
+      { local: 'avance', tipo: 'bala', fuente: 'avance_cursos', metricas: ['avance'], dimension: null, maximo: 100, titulo: 'Cuánto avanzan' },
+      { local: 'por-estado', tipo: 'anillo', fuente: 'avance_cursos', dimension: 'estado', metricas: ['alumnos'], titulo: 'En qué van' },
       { local: 'por-area', tipo: 'barras', fuente: 'avance_cursos', dimension: 'area', metricas: ['alumnos'], titulo: 'Alumnos por área' },
+      { local: 'por-semana', tipo: 'columnas', fuente: 'avance_cursos', dimension: 'semana', metricas: ['clases'], titulo: 'Clases por semana' },
       bloque('publicaciones'),
     ],
   },
@@ -148,31 +186,46 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     // en su origen (el 1.062 que se había contado era `instant_form`, los formularios de Meta, que son de Facebook O de
     // Instagram), y ningún negocio tiene los DM conectados. Lo que sí hay, para cada negocio con Meta, es la AUDIENCIA por
     // plataforma (lib/graficos-audiencia.ts): cuánto te ven, cuántos tocan y cuántos agendan desde Instagram.
-    id: 'instagram', nombre: 'Instagram', emoji: '📸',
-    linea: 'Lo que te trae Instagram contra Facebook: cuántos te ven, cuántos tocan y cuántos agendan.',
+    // 4/11/2026 — MURMURA · KESTREL (docs/templates-dashboard-propuesta.md §7.3): «¿qué publicación trajo gente de verdad?». Murmura
+    // pone cada red contra la otra y lo que cada publicación trajo; Kestrel, el alcance y lo que cuesta. «De verdad» es CLIENTES, no
+    // clics: por eso el anuncio se ordena por los cierres de sus leads (todas las redes de Meta: el lead no dice de cuál vino).
+    // Se llama «Instagram y redes» y su id sigue siendo `instagram` (las hojas guardadas nacieron de ese id).
+    id: 'instagram', nombre: 'Instagram y redes', emoji: '📸',
+    linea: 'Lo que te trae Instagram contra Facebook, y qué anuncio trajo clientes de verdad.',
     subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
-      { local: 'plataformas', tipo: 'anillo', fuente: 'audiencia', dimension: 'plataforma', metricas: ['agendas'], titulo: 'Lo que te trae Instagram' },
-      { ...numero('vistas', 'audiencia', 'impresiones', 'Te vieron en Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
-      { ...numero('clics', 'audiencia', 'clics', 'Tocaron tu anuncio', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
-      { ...numero('agendas', 'audiencia', 'agendas', 'Agendaron desde Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'audiencia', metricas: ['impresiones', 'clics', 'agendas'], dimension: null, titulo: 'Instagram',
+        frase: 'Instagram te mostró {impresiones} veces · {clics} tocaron tu anuncio · {agendas} agendaron', controles: [SOLO_INSTAGRAM], ir: 'ads-manager',
+      },
+      { ...numero('alcance', 'audiencia', 'alcance', 'Alcance en Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
+      { ...numero('ctr', 'audiencia', 'ctr', 'Tocan el anuncio', { comparar: false, invertida: true, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
+      { ...numero('cpm', 'audiencia', 'cpm', 'Costo por mil', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
       { ...numero('gasto', 'audiencia', 'gasto', 'Inversión en Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
-      { local: 'por-region', tipo: 'barras', fuente: 'audiencia', dimension: 'region', metricas: ['agendas'], titulo: 'Por región', controles: [SOLO_INSTAGRAM] },
-      { local: 'por-edad', tipo: 'barras', fuente: 'audiencia', dimension: 'edad', metricas: ['impresiones'], titulo: 'Por edad', controles: [SOLO_INSTAGRAM] },
+      {
+        local: 'plataformas', tipo: 'tabla_barras', fuente: 'audiencia', dimension: 'plataforma', metricas: ['impresiones', 'clics', 'agendas'],
+        titulo: 'Instagram contra Facebook',
+      },
       { local: 'por-genero', tipo: 'anillo', fuente: 'audiencia', dimension: 'genero', metricas: ['impresiones'], titulo: 'Por género', controles: [SOLO_INSTAGRAM] },
+      { local: 'por-edad', tipo: 'barras', fuente: 'audiencia', dimension: 'edad', metricas: ['impresiones'], titulo: 'Por edad', controles: [SOLO_INSTAGRAM] },
+      { local: 'por-region', tipo: 'barras', fuente: 'audiencia', dimension: 'region', metricas: ['agendas'], titulo: 'Agendan por región', controles: [SOLO_INSTAGRAM] },
+      { local: 'origen', tipo: 'barras', fuente: 'leads', fecha: 'alta', dimension: 'origen', metricas: ['leads'], titulo: 'De dónde llegan tus leads', ir: 'crm' },
+      {
+        local: 'anuncios', tipo: 'tarjetas', fuente: 'leads', fecha: 'alta', dimension: 'anuncio', metricas: ['cierres', 'agendas', 'leads'],
+        ordenMetrica: 'cierres', barra: 'agendas', limite: 4, titulo: 'Qué anuncio trajo clientes', ir: 'ads-manager',
+      },
     ],
   },
 ];
 
 /** Lo que abre cada plantilla de General: su panel principal, al lado de los números (`comoDenso`, lib/graficos-portadas.ts). */
 export const PORTADAS_GENERAL: Readonly<Record<string, DefinicionPortada>> = {
-  general: { sube: 'cabecera', molde: 'ledge' },
-  foco: { sube: 'objetivos', molde: 'moorly' },
-  operacion: { sube: 'prioridades', cambios: { texto: 'Lo primero de hoy' }, molde: 'tilvo' },
-  ventas: { sube: 'tendencia', molde: 'wharf' },
-  servicio: { sube: 'etapas', molde: 'prism' },
-  curso: { sube: 'tendencia', molde: 'corbel' },
-  instagram: { sube: 'plataformas', molde: 'prism' },
+  general: { sube: 'cabecera', vecino: 'cabecera', par: ['por-mes', 'semaforo'], molde: 'ledge' },
+  foco: { sube: 'objetivos', vecino: 'objetivos', par: ['agenda', 'llamadas', 'tareas', 'deadlines'], molde: 'moorly' },
+  operacion: { sube: 'prioridades', cambios: { texto: 'Lo primero de hoy' }, vecino: 'prioridades', par: ['cobranza', 'llamadas', 'agenda', 'deadlines', 'funnel'], molde: 'tilvo' },
+  servicio: { sube: 'etapas', vecino: 'etapas', par: ['por-producto', 'contacto'], molde: 'prism' },
+  curso: { sube: 'tendencia', vecino: 'tendencia', par: ['avance', 'por-area', 'por-estado', 'por-semana'], molde: 'corbel' },
+  instagram: { sube: 'plataformas', vecino: 'plataformas', par: ['por-genero', 'por-edad'], molde: 'prism' },
 };
 
 /** La galería de General, en orden. «Hoja en blanco» va primera siempre (la pone el modal). */
