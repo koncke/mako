@@ -41,6 +41,30 @@ Martín, 4/11/2026: «Manda a un chat a solucionar todos los tickets siempre.» 
 
 Los #50, #51, #52 y #53 los ve otro agente: no se tocan hasta que el Cerebro los pase.
 
+### #56 — Natalia (ws 19), «los leads de la campaña X con nombre y teléfono» · punta `punta/ticket-56`
+
+1. **ARREGLADO.**
+   - `buscar_leads` busca la campaña cuando ningún lead se llama como el texto.
+   - `listar_leads` tiene `campana` y sus filas traen teléfono.
+   - En WhatsApp la lista la escribe el código: teléfonos exactos y la lista entera.
+   - Sin campaña que coincida, MaKo ofrece las que hay y no pide la fecha.
+   - Ya no sale «pídemelo otra vez» debajo de una pregunta.
+   - Detalle: docs/hallazgos-comunicacion.md → «Los leads de la campaña X».
+2. **Para medir en producción (lo corre el Cerebro desde la PC).** Cómo guardan la campaña esos 113 leads. Si los tres conteos de id
+   (`meta_campaign_id`, `utm_campaign`, `meta_ad_id`/`utm_content`) dan cero, la lista sale vacía igual y hay que mirar de dónde entran.
+   ```sql
+   select count(*) as total,
+     count(*) filter (where meta_campaign_id is not null) as con_campaign_id,
+     count(*) filter (where utm_campaign is not null) as con_utm_campaign,
+     count(*) filter (where meta_ad_id is not null or utm_content is not null) as con_anuncio,
+     count(*) filter (where meta_campaign_name is not null) as con_nombre
+   from leads where workspace_id = 19;
+   select utm_campaign, meta_campaign_name, count(*) from leads where workspace_id = 19 group by 1, 2 order by 3 desc limit 20;
+   select campaign_id, campaign_name, count(*) from marketing_metrics_daily
+   where workspace_id = 19 and plataforma = 'meta' and campaign_name ilike '%cortes%' group by 1, 2;
+   ```
+3. **La prueba después del deploy:** en el grupo del ws 19, «pásame los leads de la campaña recon Finca Cortesin con su teléfono».
+
 ### #54 — Leandro (ws 10), «Replicar y adaptar» en el Web Generator · punta `punta/ticket-54`
 
 1. **Volver atrás perdía lo leído y lo conversado: ARREGLADO.**

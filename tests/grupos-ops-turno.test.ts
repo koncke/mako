@@ -174,6 +174,24 @@ test('sin grupo de WhatsApp: la clave es de la app, la regla de plata sigue, y a
   assert.deepEqual(s.evolution, []);
 });
 
+test('una pregunta a MaKo no se queda en el 👍, en la app y en WhatsApp (4/11/2026)', () => {
+  const q = R().preguntaAMaKo;
+  assert.deepEqual(q.vivo.deMaKo, ['Sí, aquí estoy.'], '«mako estas vivo?» se contesta aunque la IA diga charla');
+  assert.deepEqual(q.noReplyConPregunta.deMaKo, ['Sí, te escucho.'], 'lo mismo si la IA dice que no es para MaKo y lo nombra preguntando');
+  assert.deepEqual(q.gracias.deMaKo, [], '«MaKo, gracias» no pregunta: el 👍 alcanza');
+  assert.equal(q.gracias.reaccion, '👍');
+  assert.equal(q.gracias.llamadasAlTurno, 0);
+  assert.deepEqual(q.bienAhi.deMaKo, []);
+  assert.equal(q.bienAhi.reaccion, '👍');
+  assert.deepEqual(q.aJuan.deMaKo, [], '«Juan, ¿venís?» pregunta, pero no a MaKo: silencio');
+  assert.equal(q.aJuan.reaccion, null);
+  assert.equal(q.aJuan.llamadasAlTurno, 0);
+  assert.equal(q.vivoPorWhatsApp.textosPorWhatsApp, 1, 'en WhatsApp sale la respuesta');
+  assert.ok(q.vivoPorWhatsApp.deMaKo.includes('Acá estoy, por WhatsApp.'));
+  assert.equal(q.graciasPorWhatsApp.textosPorWhatsApp, 0);
+  assert.equal(q.graciasPorWhatsApp.llamadasAlTurno, 0);
+});
+
 test('personas hablando entre ellas: MaKo no aparece', () => {
   const p = R().personas;
   assert.deepEqual(p.noReply.deMaKo, []);
@@ -354,3 +372,7 @@ test('la API de MaKo: escribir no toca Evolution; leer no sale por WhatsApp ni H
 // PROBADO ROMPIÉNDOLO (4/11/2026, al llevarlo a main), `sinLasDelEquipo`, base 27/0:
 //   · el cron sin apartarla → 1 en rojo: «la respuesta al equipo, desde la app» (el cron le hacía contestar a MaKo)
 //   · el lote sin apartarla → 1 en rojo: «la respuesta al equipo de Ana entró al lote de Bob»
+// PROBADO ROMPIÉNDOLO (4/11/2026, la pregunta a MaKo), `preguntaAMaKo` en lib/mako-doer-in.ts, base 28/0:
+//   · sin el cambio (la charla se queda en el 👍) → 1 en rojo: «mako estas vivo? se contesta aunque la IA diga charla»
+//   · las reglas con el respaldo del grupo (`porReglas`) → 2 en rojo: «MaKo, gracias no pregunta» y la charla de «personas hablando»
+//   · le habla siempre (sin mirar si lo nombra) → 2 en rojo: «Juan, ¿venís? pregunta, pero no a MaKo» y «personas hablando»
