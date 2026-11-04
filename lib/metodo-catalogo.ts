@@ -444,9 +444,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Entra a developer.apple.com/account/resources/authkeys/list con tu cuenta de Apple.',
         'Toca «+», ponle de nombre «MaKo push» y marca «Apple Push Notifications service (APNs)».',
         'Toca «Continue» y «Register», y baja el archivo .p8: Apple lo deja bajar UNA sola vez. Guárdalo.',
-        'Copia el «Key ID» de esa pantalla y pégalo arriba.',
-        'En «Membership» copia el «Team ID» y pégalo arriba.',
-        'Abre el .p8 con el Bloc de notas, copia todo y pégalo en «La clave».',
+        'Carga los tres campos de arriba: cada uno tiene su «?» con dónde está.',
       ],
     },
   },
@@ -1461,6 +1459,33 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://dashboard.stripe.com/apikeys',
     urlLabel: 'Stripe → API keys',
+  },
+  APNS_KEY_ID: {
+    pasos: [
+        'Para qué sirve: junto con el Team ID y la clave .p8, es lo que le permite a MaKo avisar en un iPhone.',
+        'Entra a developer.apple.com/account/resources/authkeys/list y abre la clave «MaKo push».',
+        'Copia el «Key ID», los 10 caracteres de esa pantalla, y pégalo en este campo.',
+      ],
+    url: 'https://developer.apple.com/account/resources/authkeys/list',
+    urlLabel: 'Apple Developer → Keys',
+  },
+  APNS_TEAM_ID: {
+    pasos: [
+        'Para qué sirve: le dice a Apple de qué cuenta de desarrollador sale el aviso.',
+        'Entra a developer.apple.com/account y baja hasta «Membership details».',
+        'Copia el «Team ID», los 10 caracteres, y pégalo en este campo.',
+      ],
+    url: 'https://developer.apple.com/account',
+    urlLabel: 'Apple Developer → Membership',
+  },
+  APNS_P8: {
+    pasos: [
+        'Para qué sirve: es la clave con la que MaKo firma cada aviso a un iPhone.',
+        'Abre con el Bloc de notas el archivo .p8 que bajaste al crear la clave.',
+        'Copia todo, desde -----BEGIN hasta -----END, y pégalo en este campo.',
+      ],
+    url: 'https://developer.apple.com/account/resources/authkeys/list',
+    urlLabel: 'Apple Developer → Keys',
   },
   CREEM_API_KEY: {
     pasos: [
