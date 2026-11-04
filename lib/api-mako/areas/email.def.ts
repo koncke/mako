@@ -8,9 +8,8 @@
 //
 // Qué NO está acá, a propósito:
 //   · listar_secuencias_nutricion / proponer_toggle_nutricion → área chatbot.
-//   · Conectar / desconectar el dominio y fijar el remitente: la lógica vive inline
-//     en app/api/email/dominio/route.ts (la titularidad del dominio es una consulta
-//     cross-workspace deliberada) y no hay función de lib que la encapsule.
+//   · Desconectar el dominio: sólo desde /email. Conectarlo y fijar el remitente SÍ están (4/11/2026,
+//     `conectar_dominio_email` y `fijar_remitente_email`, al final): la lógica se mudó a lib/email-dominio.ts.
 //   · Generar el copy con IA: vive inline en app/api/email/generar/route.ts.
 //   · Dar de baja a un lead: no hay función scopeada por lead en lib/.
 //
@@ -293,5 +292,31 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: CANALES_TODOS, costo: 'dinero', gating: TAB_ADMIN,
     reversible: false, escribe: 'guarda envio_email_enabled del negocio en app_settings; prendido, los envíos siguientes salen por Resend',
+  },
+  // ── El dominio y el remitente, por la API (4/11/2026) ───────────────────────────────────────────────────────────
+  // La campaña de email de Mauricio desde su Claude: lo primero que pide es su dominio, y sólo se conectaba en /email.
+  // La lógica es la de la pantalla (lib/email-dominio.ts). Al final del área: una nueva no le saca el lugar a otra.
+  {
+    id: 'conectar_dominio_email', area: 'email', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Conectar el dominio de envío',
+    descripcion: 'Propone dar de alta el dominio propio del negocio (minegocio.com) para que sus correos salgan desde él, y devuelve los registros DNS que hay que cargar en su proveedor (GoDaddy, Cloudflare…). Prende el seguimiento de aperturas y clics. Si ya había otro, lo reemplaza. Un dominio de MaKo o de otro negocio no se puede. Después: verificar_dominio_envio y fijar_remitente_email.',
+    parametros: [
+      { nombre: 'dominio', tipo: 'string', obligatorio: true, max: 253, descripcion: 'el dominio, sin https:// ni @ (minegocio.com).' },
+    ],
+    canales: CANALES_TODOS, costo: 'externo', gating: TAB_ADMIN,
+    reversible: false, escribe: 'da de alta el dominio en la cuenta de Resend de MaKo, le prende el seguimiento de aperturas y clics, y guarda resend_domain y resend_domain_id del negocio',
+  },
+  {
+    id: 'fijar_remitente_email', area: 'email', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Fijar el remitente',
+    descripcion: 'Propone con qué nombre y dirección salen los correos del negocio («De:», Mauricio <hola@minegocio.com>) y, si se pide, adónde llegan las respuestas de los leads (responderA: puede ser un Gmail). Exige el dominio verificado (estado_email).',
+    parametros: [
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el nombre que ven los leads.' },
+      { nombre: 'local', tipo: 'string', obligatorio: true, max: 64, descripcion: 'lo de antes del @ (hola, mauricio).' },
+      { nombre: 'responderA', tipo: 'string', max: 254, descripcion: 'opcional: la dirección donde llegan las respuestas.' },
+      { nombre: 'sinResponderA', tipo: 'boolean', descripcion: 'opcional: true para que las respuestas vuelvan al remitente.' },
+    ],
+    canales: CANALES_TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda resend_from (el «De:») y resend_reply_to (adónde van las respuestas) del negocio',
   },
 ];

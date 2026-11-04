@@ -16,6 +16,7 @@ import type { PasoSecuencia } from '@/lib/nutricion';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { noSonDelNegocio } from '@/lib/nombres-negocio';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox } from '@/lib/resend';
+import { responderADelNegocio } from '@/lib/email-dominio';
 import { firmaDelPie, SIN_EMAIL_PROPIO, POR_QUE_SIN_EMAIL } from '@/lib/email-remitente';
 import { getWorkspace, getWorkspaceActual } from '@/lib/workspace';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
@@ -25,6 +26,16 @@ import { etiquetaDeSegmento, PREFIJO_SEGMENTO_ETIQUETA, TRIGGER_ETIQUETA } from 
 import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from '@/lib/disparadores';
 
 const ahoraISO = () => new Date().toISOString();
+
+/**
+ * EL `reply_to` DE LO QUE MANDA EL NEGOCIO (4/11/2026, la campaña de Mauricio: «que te envíe a tu email personal»): la
+ * dirección que fijó con `fijar_remitente_email` o en /email (lib/email-dominio.ts). Sin una, nada: las respuestas van al
+ * remitente, como antes. Se esparce en los parámetros de `sendEmail`.
+ */
+async function replyToDelNegocio(): Promise<{ replyTo?: string }> {
+  const r = await responderADelNegocio();
+  return r ? { replyTo: r } : {};
+}
 const haceDiasISO = (d: number) => new Date(Date.now() - d * 86400 * 1000).toISOString();
 
 // ── Una secuencia es "de email" si tiene pasos y todos son canal='email' ──────
@@ -666,6 +677,8 @@ export async function enviarBroadcastPrueba(id: number, emailPrueba: string): Pr
     subject: `[PRUEBA] ${asunto}`,
     html: renderEmailHtml({ subject: asunto, bodyText: aplicarVariables(b.cuerpo, vars), preheader: aplicarVariables(b.preheader ?? '', vars) || undefined, fromName: await firmaDelNegocioActual() }),
     text: aplicarVariables(b.cuerpo, vars),
+    // Adónde van las respuestas (4/11/2026, lib/email-dominio.ts): la prueba se ve igual que lo que reciben los leads.
+    ...(await replyToDelNegocio()),
     tags: [{ name: 'tipo', value: 'broadcast-prueba' }],
   });
   return r.ok ? { ok: true } : { ok: false, error: r.error };
@@ -763,6 +776,8 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
   }
   const destinatarios = candidatos.filter((l) => !yaRegistrados.has(l.id));
   const fromNameWs = await firmaDelNegocioActual();
+  // Adónde van las respuestas de los leads (4/11/2026): UNA lectura por broadcast, no por lead.
+  const replyTo = await replyToDelNegocio();
 
   await supabase.from('email_broadcasts').update({ estado: 'enviando', updated_at: ahoraISO() }).eq('id', id);
 
@@ -807,6 +822,7 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
         html: renderEmailHtml({ subject: asunto, bodyText: cuerpo, preheader: aplicarVariables(b.preheader ?? '', vars) || undefined, unsubscribeUrl: unsubUrl, fromName: fromNameWs }),
         text: cuerpo,
         headers: { 'List-Unsubscribe': `<${unsubUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+        ...replyTo,
         tags: [{ name: 'tipo', value: 'broadcast' }, { name: 'broadcast_id', value: String(id) }],
       });
       if (r.ok) { estado = 'enviado'; proveedorId = r.id; res.enviados += 1; }
