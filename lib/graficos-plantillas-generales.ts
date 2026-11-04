@@ -4,7 +4,8 @@
 // Martín, 11/10/2026: «replica el modal que tenemos en "Automations", en donde al principio tenemos
 // la opción de "Pídeselo a MaKo" y abajo se le ofrece TEMPLATES». Marketing y Comercial son las dos
 // tabs viejas (lib/graficos-plantillas.ts); las de Analysts las arma lib/graficos-plantillas-analysts.ts.
-// Éstas son las del resto de MaKo, una por área: el CRM, la cobranza, las automatizaciones y la IA. (El Plan
+// Éstas son las del resto de MaKo, una por área: la cobranza, las automatizaciones y la IA (el CRM se fue el 4/11/2026: lo absorbe
+// Comercial, `PLANTILLAS_REEMPLAZADAS`). (El Plan
 // no tiene una propia: lo cubre la de Productivity Analyst.)
 //
 // ⚠️ TANDA v5 (12/10/2026): «WhatsApp y MaKo» y «Customer Success» se FUERON. Las reemplazan las hojas Chat
@@ -37,6 +38,8 @@ export type PiezaPlantilla = { local: string; controles?: Array<Record<string, u
 
 export type DefinicionGeneral = {
   id: string; nombre: string; emoji: string; linea: string; subtitulo: string;
+  /** Otras palabras con las que se la busca en «Nueva hoja» (el nombre de antes: «Foco de la semana» para Focus). */
+  buscar?: string;
   /** El control de período de arriba de la hoja: lo que muestra de entrada. */
   periodo: Preset;
   piezas: PiezaPlantilla[];
@@ -62,7 +65,7 @@ function aComponente(p: PiezaPlantilla, id: (local: string) => string): Record<s
 /** Una definición → la plantilla de «Nueva hoja». Exportada desde el 14/10/2026: la usan también las de General. */
 export function plantilla(d: DefinicionGeneral): PlantillaHoja {
   return {
-    id: d.id, nombre: d.nombre, emoji: d.emoji, linea: d.linea,
+    id: d.id, nombre: d.nombre, emoji: d.emoji, linea: d.linea, ...(d.buscar ? { buscar: d.buscar } : {}),
     armar: (id) => {
       const componentes = d.piezas
         .map((p) => sanearComponente(aComponente(p, id)))
@@ -81,23 +84,6 @@ const AGRUPAR_AUTO = [{ tipo: 'agrupar', agrupar: 'auto' }];
 
 /** Las definiciones, a la vista de los tests (que las pasan por `deIAHoja`). */
 export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
-  {
-    id: 'crm', nombre: 'CRM y pipeline', emoji: '🧲',
-    linea: 'Cuántos leads entran, cuántos agendan y cierran, de dónde vienen y en qué etapa están.',
-    subtitulo: 'Los leads del período, del alta al cierre.', periodo: 'ult30',
-    piezas: [
-      // COMPOSICIÓN DEL 31/10/2026: cuatro números iguales y cada tema de a pares. «Cierres por closer» se fue: la tabla de cierre ya lo abre.
-      { local: 'leads', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['leads'], dimension: null, titulo: 'Leads nuevos', comparar: true, invertida: true },
-      { local: 'agendas', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['agendas'], dimension: null, titulo: 'Agendaron' },
-      { local: 'asistencia', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['tasa_asistencia'], dimension: null, titulo: 'Tasa de asistencia' },
-      { local: 'cierre', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['tasa_cierre'], dimension: null, titulo: 'Tasa de cierre' },
-      { local: 'embudo', tipo: 'embudo_vertical', fuente: 'leads', metricas: ['leads', 'agendas', 'asistencias', 'cierres'], dimension: null, titulo: 'Del lead al cierre' },
-      { local: 'por-dia', tipo: 'serie', fuente: 'leads', dimension: 'dia', metricas: ['leads', 'agendas'], titulo: 'Leads y agendas', controles: AGRUPAR_AUTO },
-      { local: 'etapas', tipo: 'barras', fuente: 'leads', dimension: 'etapa', metricas: ['leads'], titulo: 'Leads por etapa' },
-      { local: 'perdidas', tipo: 'barras', fuente: 'leads', dimension: 'motivo', metricas: ['leads'], titulo: 'Por qué se pierden' },
-      { local: 'origen', tipo: 'tabla_barras', fuente: 'leads', dimension: 'origen', metricas: ['leads', 'agendas', 'cierres', 'tasa_cierre'], titulo: 'De dónde vienen' },
-    ],
-  },
   {
     // «Este mes completo»: lo que VENCE mira hacia adelante (`pagos.vencimiento` es `futuro`), así que el mes
     // entra entero; lo cobrado igual se corta en hoy (decisión de la tanda v5).

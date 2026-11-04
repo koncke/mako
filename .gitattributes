@@ -34,4 +34,4 @@ scripts/guardas-push.sh text eol=lf
 
 # La mezcla con fin de línea normalizado (25/10/2026, docs/hallazgos-infra.md): con CRLF, `sh` falla en la primera línea.
 scripts/mezcla-eol.sh text eol=lf
-docs/hallazgos.md merge=union
+docs/hallazgos*.md merge=union

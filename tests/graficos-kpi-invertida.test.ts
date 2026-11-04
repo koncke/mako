@@ -71,10 +71,10 @@ test('ninguna fila de ninguna plantilla lleva más de UNA invertida', () => {
 
 test('Marketing y Comercial: sus cuatro primeros números tienen EXACTAMENTE una, y es la que contesta la hoja', () => {
   const esperado: Record<string, string> = {
-    // Marketing pregunta «¿el gasto en anuncios vuelve?».
-    marketing: 'ROAS cash',
-    // Comercial pregunta «¿cuánta plata entró?» — el cobrado, no el vendido.
-    comercial: 'Cash Collected',
+    // Marketing pregunta «¿cuánto cuesta una agenda y de qué anuncio vino?» (4/11/2026, docs/templates-dashboard-propuesta.md §7.3).
+    marketing: 'Costo por agenda',
+    // Comercial pregunta «¿convierte, y a qué costo?» (4/11/2026): la tasa de cierre. Lo cobrado se mudó a Cobranza.
+    comercial: 'Tasa de cierre',
   };
   for (const [idPlantilla, titulo] of Object.entries(esperado)) {
     const p = PLANTILLAS_HOJA.find((x) => x.id === idPlantilla);

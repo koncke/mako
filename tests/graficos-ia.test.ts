@@ -250,8 +250,9 @@ test('acomodar: sin superposiciones, adentro de 12 columnas y en el orden en que
 
 // r6: 1 fallo.
 test('las plantillas generales pasan por la MISMA puerta que la IA: cero correcciones', () => {
-  // v5: «WhatsApp y MaKo» y «Customer Success» se fueron (son las hojas Chat Analyst y CS Analyst): quedan 4.
-  assert.ok(DEFINICIONES_GENERALES.length >= 4 && DEFINICIONES_GENERALES.length <= 8, `${DEFINICIONES_GENERALES.length} generales`);
+  // v5: «WhatsApp y MaKo» y «Customer Success» se fueron (son las hojas Chat Analyst y CS Analyst); el 4/11/2026, «CRM y pipeline»
+  // (la absorbe Comercial). Quedan 3 o más.
+  assert.ok(DEFINICIONES_GENERALES.length >= 3 && DEFINICIONES_GENERALES.length <= 8, `${DEFINICIONES_GENERALES.length} generales`);
   for (const d of DEFINICIONES_GENERALES) {
     const r = deIAHoja({ nombre: d.nombre, emoji: d.emoji, periodo: d.periodo, componentes: d.piezas.map(({ local: _l, controles: _c, ...p }) => p) });
     assert.deepEqual(r.errores, [], `${d.id}: ${r.errores.join(' | ')}`);

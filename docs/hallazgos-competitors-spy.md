@@ -860,3 +860,29 @@ pedido). La nube no llega a ninguno de los dos.
 **Vive en:** lib/spy-caricatura-auto.ts · lib/spy-caricatura-reglas.ts · lib/spy-caricatura-flow.ts ·
 app/api/competitor-spy/caricatura/route.ts · lib/spy.ts (`listarCompetidores`) · app/competitor-spy/SpyApp.tsx ·
 tests/spy-caricatura-auto.test.ts
+
+## Traer todo: la lectura de siempre iba a borrar el historial (4/11/2026)
+
+> Martín, 4/11: «que no traiga solo 50 reels o videos, que traiga muchos más, si puede, todos directamente».
+
+**El diagnóstico obvio era el equivocado:** «sube el número». Subir los 50 a 500 en la lectura de siempre se cae a los
+60 s de la ruta (cien publicaciones tardan uno o dos minutos en Apify), y además rompe otra cosa que no daba error.
+
+⚠️ **`marcarDejadas` marcaba como «borrada» toda pieza que no viniera en la lectura**, sin mirar hasta dónde llegaba esa
+lectura. Con una lectura que trae lo último y una corrida larga que trae años, cada «Revisar ahora» habría marcado todo el
+historial como «borradas» (y ya pasaba en YouTube: un canal que publica Shorts a diario sacaba de la ventana videos que
+seguían ahí). Ahora cuenta sólo lo publicado desde lo más viejo que trajo la lectura, y una pieza sin fecha no se marca
+(`seFueron`).
+
+**Y dos que callaban:** `listarPiezas` cortaba en 200 con un `.limit` (con todo lo traído, la ficha mostraba una parte
+sin decirlo), y la lectura de YouTube dejaba de paginar al tener 20 largos: «todos» nunca habría pasado de ahí.
+
+**Regla:** lo que marca algo como «se fue» tiene que saber hasta dónde miró. Una ausencia sólo es evidencia dentro de la
+ventana que se leyó.
+
+**Sin probar contra el servicio de verdad:** las corridas largas de Apify (empezar, mirar, leer el dataset) y el actor
+de anuncios entero, que queda apagado hasta medirlo con `scripts/probar-anuncios-apify.mjs`.
+
+**Vive en:** lib/spy-todo-reglas.ts · lib/spy-todo.ts · app/api/competitor-spy/todo/route.ts · lib/spy.ts
+(`marcarDejadas`, `listarPiezas`, `vistaDeInstagram`) · lib/spy-youtube.ts (`PAGINAS_COMPLETAS`) ·
+lib/instagram-perfil.ts (`piezasDeApify`) · scripts/probar-anuncios-apify.mjs · tests/spy-todo.test.ts

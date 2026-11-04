@@ -190,14 +190,17 @@ test('el teléfono, con lo medido a 390', () => {
   assert.equal(g.split('--fs-kpi: 22px;').length - 1, 2);
 });
 
-test('Foco: cuatro números bajos y los OKR a lo ancho, que son filas largas', () => {
+test('Focus: la frase del día, cuatro números bajos y los OKR a lo ancho, que son filas largas', () => {
   const p = PLANTILLAS_GENERAL.find((x) => x.id === 'foco')!;
   const h = sanearHoja({ ...p.armar((l: string) => l), plantilla: p.id }, 0)!;
   const c = h.componentes as Array<Record<string, any>>;
+  // 4/11/2026 (Pane · Lumora): abre con lo que te queda hoy, y debajo lo de siempre.
+  const frase = c.find((x) => x.tipo === 'frase')!;
+  assert.deepEqual([frase.x, frase.y, frase.w, frase.h], [0, 0, 12, ALTO_FRASE]);
   const numeros = c.filter((x) => String(x.tipo).startsWith('numero')).sort((a, b) => a.y - b.y || a.x - b.x);
-  assert.deepEqual(numeros.map((x) => [x.x, x.y, x.w, x.h]), [[0, 0, 6, 3], [6, 0, 6, 3], [0, 3, 6, 3], [6, 3, 6, 3]]);
+  assert.deepEqual(numeros.map((x) => [x.x, x.y, x.w, x.h]), [[0, 3, 6, 3], [6, 3, 6, 3], [0, 6, 6, 3], [6, 6, 6, 3]]);
   const okr = c.find((x) => x.general?.pieza === 'objetivos')!;
-  assert.deepEqual([okr.x, okr.y, okr.w], [0, 6, 12]);
+  assert.deepEqual([okr.x, okr.y, okr.w], [0, 9, 12]);
   assert.equal(okr.texto, 'Cómo vas con tus OKRs');
   assert.equal(okr.general.opciones.estilo, 'barras', 'con anillos, «Facturar $30,000 e…» se corta');
   assert.deepEqual(c.find((x) => x.general?.pieza === 'deadlines')!.general.opciones, { dias: '7', que: 'tareas' });
