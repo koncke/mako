@@ -258,3 +258,59 @@ por eso `filasOffer` estaba siempre vacío y Hormozi era un clic muerto SIEMPRE 
 cambia por un puente y node no. Tapando `server-only` en `require.cache` el árbol carga, y el proceso del test
 **sale con código 1 sin escribir una línea**, ni el nombre del test que corría: se ve como «test failed» a nivel de
 archivo. El motor no se dibuja en un test; se mira su fuente y se dibuja `HiloMako`.
+
+## El grafo de un gurú eran puntos iguales: era la FORMA del grafo, no el dibujo (4/11/2026)
+
+**El síntoma.** Martín: «los nodos son todos iguales, no está bien diseñado como el que ya hicimos, que tienen
+diferentes colores, tamaños y que los títulos van apareciendo y desapareciendo por "sección"». Y de la barra lateral:
+«están bastante mal organizadas».
+
+**El diagnóstico obvio era el equivocado.** Parecía un problema de `Grafo.tsx`, y el componente es el MISMO que el del
+negocio. Lo distinto era el dato: `armarReferente` (`lib/cerebro-referente.ts`) cuelga todas las clases de una raíz, en
+UN área y encadenadas. Con un área, todo sale de un color; con todas las clases de grado 3, todas del mismo tamaño
+(`radioNodo` tiene piso de 8 hasta grado 6); y sin nodos `n1:`, el grafo no tiene un nivel 1 cuyo título quede de lejos
+(`entraPorNivel`). La barra lateral contaba «453 cosas que MaKo sabe · 453 de MaKo · 0 tuyas» con una sola sección.
+
+**El arreglo** (`lib/cerebro-referente-vista.ts`, sobre la misma capa que lee el chat, con los MISMOS ids de clase):
+la raíz es el curso, cada módulo es un `n1:` con su color, las clases cuelgan de su módulo, y el tamaño sale de un
+`peso` nuevo de `NodoCerebro`: un PISO que leen las dos copias de `gradosDe` (layout y dibujo), así el servidor y el
+navegador miden igual. El grafo trae `curso`, y con eso la barra lateral, el filtro (sólo «Módulo»), el buscador (sin
+«Buscar con MaKo», que busca en el negocio) y el detalle (sin la pastilla «MaKo») hablan de clases.
+
+**Tres trampas que no se ven leyendo:**
+- **El índice de clases tomaba `subtitulo:` por `titulo:`.** La regex suelta del generador encontraba el subtítulo del
+  CURSO antes que el título de la primera clase: en 18 de 31 cursos la clase 1 se llamaba «33 clases, 2 módulos. Video,
+  transcripción y tus apuntes…», y así la listaba el turno del chat. Ahora se lee bloque por bloque
+  (`scripts/generar-clases-de-referentes.mjs`).
+- **Un curso de 2 módulos con 32 clases en uno es una estrella**, no secciones (Hormozi). Con menos de 4 módulos se usa
+  la sección de adentro (`subgrupo`): Hormozi queda en 8.
+- **Unir clases por una palabra del título une cualquier cosa** si la palabra es «vamos», «creando» o el nombre del
+  curso: con 452 clases salían 318 uniones y el mapa era una telaraña. Se sacan verbos y palabras vacías, una palabra
+  en más del 4 % de los títulos no une, y el mapa tiene techo (clases / 4): Marc Verdú queda en 113.
+
+**Lo que quedó sin resolver:** el encuadre mide los PUNTOS, no las etiquetas: un título de sección pegado al borde se
+corta («…HOP RECORDINGS»). Pasa también en el grafo del negocio; se arregla en `ajustar` de `Grafo.tsx`, para los dos.
+
+**Vive en:** `lib/cerebro-referente-vista.ts` · `app/second-brain/Grafo.tsx` · `app/second-brain/SuSecondBrain.tsx` ·
+`scripts/generar-clases-de-referentes.mjs` · `tests/cerebro-referente-vista.test.ts`.
+
+## «Su Second Brain» abría un modal: ahora reemplaza la conversación (4/11/2026)
+
+Martín: «en lugar de "Su Second Brain" que diga "Second Brain de NOMBRE DEL GURU" y que esté alineado a la derecha del
+todo... no debe abrirse un modal, sino que debe reemplazar lo que está en el chat... y en el botón... "Volver al chat"».
+`PanelDeChat` ganó `reemplazo`: lo que ocupa el lugar del hilo y la caja. **La conversación queda montada y escondida**
+(`display: none`), así que al volver sigue donde estaba, con lo escrito en la caja; desmontarla perdía el scroll y el
+borrador. El botón es uno (`BotonSecondBrainDe`) y va último en las acciones con `margin-left: auto`: en el Funnel Coach
+«Ver el plan» va antes, y abrir uno cierra el otro.
+
+**Vive en:** `app/admin/operaciones/PanelChat.tsx` · `app/second-brain/SuSecondBrain.tsx` · `ChatDelReferente.tsx` ·
+`ChatDelCoach.tsx` · `ChatSecondBrain.tsx` · `app/m/second-brain/HojaDelGuru.tsx`.
+
+## Los diez gurús que faltan no tienen caricatura en el repo (4/11/2026)
+
+Martín: «faltan un montón de gurús que nos habían quedado por la mitad que ya habíamos hecho sus caricaturas». Medido:
+los 22 retratos de `public/asesores/` ya están TODOS en la galería, y de los diez que faltan (Carrizo, Núñez, Landa,
+Fons, Maffia, Begueria, Luque, Doglio, Seré, Albaa) no hay una sola imagen en ninguna rama ni etiqueta del repo
+(`git log --all -- '*carrizo*.png'`, y así con cada uno). Las caricaturas se hacen con Canva desde la PC; una sesión en
+la nube no tiene Canva. Lo que sí se puede hacer en la nube es su FICHA: queda escrita en `lib/asesores/en-espera.ts`
+y el gurú entra a la galería en cuanto llegue su cara (el test lo avisa).
