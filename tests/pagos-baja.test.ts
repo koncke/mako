@@ -125,7 +125,16 @@ test('⚠️ barrido: toda suma de lo impago sin fecha excluye la baja (usa `noE
 
 test('sólo lib/pagos-baja.ts escribe la baja, y una suscripción no se da de baja (se cancela)', () => {
   const archivos = execFileSync('git', ['ls-files', 'app', 'lib'], { encoding: 'utf8' }).split('\n').filter((f) => /\.(ts|tsx)$/.test(f));
+  // La baja de una CUOTA es `pagos.baja_at`: la escribe sólo lib/pagos-baja.ts.
+  const enPagos = /from\(\s*['"]pagos['"]\s*\)\s*\.(update|insert|upsert)\(\s*\{[^}]*\bbaja_at:/;
+  assert.deepEqual(archivos.filter((f) => enPagos.test(leer(f))), ['lib/pagos-baja.ts']);
+  // Y cualquier OTRO `baja_at` que se escriba es de otra tabla, y está nombrado acá con la suya (4/11/2026: el Newsletter
+  // escribe `email_broadcast_envios.baja_at`, la baja de un email desde una edición). Así una cuota escrita por un camino que
+  // la regla de arriba no ve (la tabla en una variable) sigue dando rojo.
+  const OTRAS_BAJAS: Record<string, string> = {
+    'app/api/email/unsubscribe/route.ts': 'email_broadcast_envios.baja_at (mig 0351): la baja de un email, atribuida a su edición del newsletter',
+  };
   const escriben = archivos.filter((f) => /baja_at:\s*(ahora|null|new Date)/.test(leer(f)));
-  assert.deepEqual(escriben, ['lib/pagos-baja.ts']);
+  assert.deepEqual(escriben, ['lib/pagos-baja.ts', ...Object.keys(OTRAS_BAJAS)].sort());
   assert.match(leer('lib/pagos-baja.ts'), /venta_tipo === 'suscripcion'\) return \{ ok: false, error: 'Una suscripción no se da de baja: se cancela\.' \}/);
 });
