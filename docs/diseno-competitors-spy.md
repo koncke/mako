@@ -777,3 +777,69 @@ quedaba es el de copiarlo: «Copiar su sitio» (abre el Web Generator con `?anal
 común). La animación arranca con todas las miniaturas ya bajadas (o a los 8 s: las que no llegaron entran con su
 texto), y la miga, las pestañas y sus redes aparecen recién al terminar. Las carpetas son los tipos de contenido, no
 «Videos · Probado».
+
+## 13. La caricatura, sola (4/11/2026)
+
+> Martín, 4/11 (por el Cerebro): «me traje a @den.borgg y no me hizo la caricatura como habíamos quedado... Eso debe
+> hacerse en segundo plano de manera automática».
+
+La pantalla le pide a `/api/competitor-spy/caricatura` un paso por vez para cada competidor sin caricatura, de a uno y
+cada 15 s mientras esté en marcha (`lib/spy-caricatura-auto.ts`, con los pasos en `lib/spy-caricatura-reglas.ts`):
+
+1. **Rasgos:** la IA DEL NEGOCIO mira su foto y dice en una línea, en inglés, qué distingue su cabeza (pelo, barba,
+   lentes…). Es lo único que cambia por persona en el prompt aprobado (`promptDeCaricatura`). Sin una cara, no se insiste.
+2. **Cara:** la foto sube a Flow (`caraDelCompetidor`).
+3. **Pedido:** `generar_imagen` por la cola de Flow, con una ruta que la cola le firma al puente (`rutaDeSubida`), así la
+   imagen vuelve a nuestro Storage y no como la url de Flow, que vence en una hora.
+4. **Lista:** se copia al bucket de Spy y se anota en `spy.caricaturas` (app_settings del negocio; sin migración). La
+   tarjeta la usa antes que la caricatura dibujada de un referente y que la foto.
+
+**No se hace** para un referente (sus 22 están dibujadas y aprobadas), sin foto, en la prueba gratis (gastaría una de sus
+imágenes sin pedirlo) ni sin el puente de Flow listo (el pedido quedaría en la cola para siempre). Un pedido que nadie
+toma en 15 minutos se cierra; dos fallos de Flow y se queda con su foto.
+
+**Lo que cuesta:** la imagen, 0 créditos de Flow (`TOPE_CREDITOS.imagen`); los rasgos, una lectura de una foto con la IA
+del negocio.
+
+**Lo que hace falta para que corra en un negocio:** la extensión de MaKo conectada y Google Flow abierto en ese
+navegador (el mismo requisito que el AI Avatar). Sin eso la tarjeta sigue con la foto, sin aviso.
+
+## 14. Traer todo: sus publicaciones, sus videos y sus anuncios (4/11/2026)
+
+> Martín, 4/11 (puntos 8 y 10): «que no traiga solo 50 reels o videos, que traiga muchos más, si puede, todos
+> directamente» y «falta todo lo de ADS en Competitors Spy, todos los anuncios de la biblioteca de anuncios... Que los
+> traiga para analizarlos».
+
+**Corridas largas que no se esperan** (`lib/spy-todo.ts`, `/api/competitor-spy/todo`). Cien publicaciones tardan uno o
+dos minutos en Apify: esperar adentro de «Revisar ahora» la cortaría a los 60 s. El servidor EMPIEZA una corrida
+(`/acts/…/runs`, contesta en el acto), anota su id en `spy.todo` (app_settings del negocio, sin migración), y la ficha
+pregunta cada 20 s; cuando termina, se guarda con el mismo camino que la lectura de siempre y la IA del negocio la lee
+sola (§12). Si se cierra la pestaña, la corrida termina en Apify y la próxima apertura la recoge.
+
+| Qué | Cuánto | Cada cuánto | Cuesta (clave de Spy del negocio) |
+|---|---|---|---|
+| Sus publicaciones de Instagram (`apify~instagram-scraper`, `resultsType: posts`) | 300 la primera vez; después lo nuevo (hasta 40) | 1 vez por semana por competidor | US$2,30 por mil (tienda): ~US$0,69 la primera, ~US$0,09 después; techo por corrida |
+| Sus videos de YouTube (`channels.list` + `playlistItems` + `videos.list`) | 500 la primera vez (10 páginas); después, los últimos | en cada lectura | 20 unidades la primera, 8 después, de la cuota de la plataforma (10.000/día) |
+| Sus anuncios (`apify~facebook-ads-scraper`) | 200 por corrida, activos y viejos | 1 vez por semana por competidor | sin medir: techo de US$0,006 por anuncio (US$1,20 por corrida) |
+
+Tope de corridas largas por negocio: 6 por día (`CORRIDAS_LARGAS_POR_DIA`); el peor día, ~US$4,14 si son seis primeras
+corridas de Instagram. La ficha dibuja de a 60 tarjetas («Ver más») y lee hasta 2.000 piezas por competidor.
+
+**Lo que se arregló al traer todo:** la lectura de siempre marcaba como «borrada» toda pieza que no venía en ella. Con el
+historial completo, cada «Revisar ahora» habría marcado años de publicaciones. Ahora sólo cuenta lo que esa lectura podía
+ver: lo publicado desde lo más viejo que trajo (`seFueron`).
+
+**Los anuncios: los caminos, con su riesgo** (lo posterior manda: el 3/11 fue «Sí, con un clic» desde la extensión; el
+4/11, «todos»):
+
+| Camino | Riesgo para las cuentas del cliente | Otros | Elegido |
+|---|---|---|---|
+| (a) La API oficial de la Biblioteca | Ninguno | Fuera de la UE y el Reino Unido sólo devuelve anuncios políticos: para un competidor de LATAM, nada | No |
+| (b) La extensión recorriendo la Biblioteca entera (scroll solo) | **Alto:** automatiza la sesión de Facebook DEL CLIENTE, que es lo que Meta detecta y castiga | Recorrer páginas ajenas pide más permisos y otra revisión de la tienda | No |
+| (c) «Guardar en Spy» con un clic (lo del 3/11) | Bajo: lee una vez lo que la persona ya abrió | Trae sólo lo que se dibujó en esa pestaña, no «todos» | Sigue, como respaldo |
+| (d) Un actor de Apify sobre la Biblioteca pública | **Ninguno:** corre en los servidores de Apify, sin la sesión de nadie | Va contra los términos de Meta (recolección automatizada); lo paga el negocio con su clave de Spy, como Instagram | **Sí** |
+
+Se eligió (d), el mismo criterio que Martín ya tomó para Instagram en Spy. **Queda APAGADO hasta medir el actor**
+(`ANUNCIOS_POR_APIFY = false`): la nube no llega a apify.com y la forma de su respuesta no se pudo leer. Para prenderlo:
+`node --env-file=… scripts/probar-anuncios-apify.mjs <ws> <id de su Página o su nombre>` una vez desde la PC; si
+«entendidos» es la mayoría y el costo cabe en el techo, se cambia la constante a `true`.
