@@ -198,6 +198,8 @@ const FROM_PERMITIDOS: Record<string, string[]> = {
   'lib/onboarding-guardia-server.ts': ['REMITENTE_MAKO'],
   'lib/prueba-paso.ts': ['from'],
   'lib/reunion-destinatarios.ts': ['REMITENTE_MAKO'],
+  // El correo de avance de un ticket (4/11/2026): lo firma MaKo, a quien levantó el ticket.
+  'lib/tickets-avance-email.ts': ['REMITENTE_MAKO'],
   'app/api/compartir/route.ts': ['from'],
 };
 
