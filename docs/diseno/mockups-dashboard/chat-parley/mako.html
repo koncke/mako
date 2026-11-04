@@ -1,0 +1,274 @@
+<!doctype html>
+<!-- CHAT ANALYST (PARLEY) · PASO 2: LA ADAPTACIÓN a MaKo. Es lo que dibuja app/dashboard/disenos/HojaChat.tsx con los datos de ejemplo
+     (lib/chat-diseno-muestra.ts, inventados), guardado ya quieto, con su hoja de estilos (app/dashboard/disenos/chat-css.ts, que sale
+     de parley.css). Lo que cambió contra la copia (copia.html): el saludo y la frase en lugar de «Good morning» y su bajada, el período,
+     «Ver la grilla» y «Abrir tus chats» en lugar del buscador, «Last sync» y el avatar; los mensajes recibidos (con los de hoy en
+     lugar del «live») en la tarjeta naranja; los respondidos y los respondidos en menos de 15 minutos en las casillas; el tiempo de
+     respuesta contra la meta de 15 minutos en lugar de los créditos; los enviados en la tarjeta oscura; lo respondido y lo que quedó
+     sin respuesta, día por día; el reparto por tipo de mensaje y los setters. Sin la barra lateral: en MaKo la pone la app. -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chat Analyst · la adaptación de Parley</title>
+<style>
+body { margin: 0; background: #efe9e1; }
+.parl` y cada clase con el prefijo
+// `parl-`, para no tocar nada del resto del Dashboard. Sin el armazón de Parley (la barra lateral): en MaKo lo pone la app. La arma
+// scratchpad/parley/armar-parl.py desde la hoja de la copia: se cambia la copia y se vuelve a armar.
+//
+// Lo que se suma a la copia, y es de la adaptación (chat-parley/mako.html): el período en lugar del buscador, «Ver la grilla» en
+// lugar de «Last sync», «Abrir tus chats» en lugar del avatar, los vacíos, el chip que cuenta (sin cambio) y las filas que se abren.
+//
+// ⚠️ LAS LETRAS SON BRICOLAGE GROTESQUE Y GEIST DE VERDAD: en MaKo «Geist» es Urbanist (app/globals.css), por eso acá se llaman
+//    «Parley Bricolage» y «Parley Geist» y se cargan de Google Fonts (como «Kestrel Geist» en Marketing).
+// ⚠️ ESTA HOJA ES SÓLO DE CHAT ANALYST: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
+// ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y DESPUÉS del medio: dos @container que se
+//    pisan los decide el orden (docs/hallazgos-templates-dashboard.md §18).
+// ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
+// =============================================================================
+
+export const CSS_CHAT = `
+@font-face { font-family: 'Parley Bricolage'; font-style: normal; font-weight: 200 800; font-display: swap; src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9K6as8bTXq_nANBjzKo3IeZx8z6up5BeSl9D4dj_x9PpZBMlGGInHEVA.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Parley Bricolage'; font-style: normal; font-weight: 200 800; font-display: swap; src: url(https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9K6as8bTXq_nANBjzKo3IeZx8z6up5BeSl9D4dj_x9PpZBMlGIInE.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Parley Geist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwSGFWfOw.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Parley Geist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwcGFU.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+.parl {
+  container-type: inline-size; container-name: parl;
+  --bg: #efe9e1; --bg-2: #e7dfd4; --surface: #fffdf9; --surface-2: #f7f2eb; --line: #ebe3d8; --line-strong: #e0d6ca;
+  --ink: #221b26; --ink-2: #554b5a; --ink-3: #6b6071; --rail: #221b26; --cream: #fff6ee;
+  --c-tangerine: #e4572e; --c-teal: #1e9a8a; --c-violet: #5b3e8c; --c-tangerine-soft: #f6d6c8; --c-tangerine-deep: #c13d14;
+  --c-violet-soft: #e2d9ef; --c-teal-soft: #d4ece7; --good: #176a47; --good-bg: #e2f2e8; --bad: #b3261e; --bad-bg: #f8e1df;
+  --font-display: 'Parley Bricolage', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Parley Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --r-card: 22px; --r-sm: 10px; --gap: 16px; --pad: 22px;
+  --shadow: 0 1px 0 #221b260a, 0 12px 32px -18px #221b262e;
+  --shadow-hover: 0 1px 0 #221b260a, 0 18px 40px -20px #221b2642;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --hatch: repeating-linear-gradient(135deg, currentColor 0 1.5px, transparent 1.5px 5px);
+  position: relative; isolation: isolate; color: var(--ink); font: 400 15px/1.45 var(--font-body); -webkit-font-smoothing: antialiased;
+  background: radial-gradient(70% 55% at 88% -6%, #f3dccc 0%, #f3dccc00 70%), radial-gradient(45% 35% at -4% 104%, #e8dde9 0%, #e8dde900 70%), var(--bg);
+}
+.parl *, .parl *::before, .parl *::after { box-sizing: border-box; }
+.parl button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.parl a { color: inherit; text-decoration: none; }
+.parl svg.parl-i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.parl .parl-num { font-variant-numeric: tabular-nums; }
+.parl :focus-visible { outline: 2px solid var(--c-violet); outline-offset: 2px; }
+.parl .parl-card--dark :focus-visible, .parl .parl-card--hero :focus-visible { outline-color: var(--cream); }
+
+/* ── la copia ──────────────────────────────────────────────────────────────────────────────── */
+.parl * { box-sizing: border-box; }
+.parl .parl-card--hero :focus-visible { outline-color: var(--cream); }
+.parl .parl-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; min-height: 76px; margin-bottom: 16px; }
+.parl .parl-top__h { padding-top: 6px; }
+.parl .parl-top__title { margin: 0; font: 650 38px/1.1 var(--font-display); letter-spacing: -.02em; }
+.parl .parl-top__title .parl-w { display: inline-block; }
+.parl .parl-top__sub { margin: 6px 0 0; color: var(--ink-3); font-size: 15px; line-height: 1.45; }
+.parl .parl-top__tools { display: flex; align-items: center; gap: 10px; flex: none; margin-top: 18px; }
+.parl .parl-search { width: 262px; height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 9px 0 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); transition: border-color .2s, box-shadow .2s; }
+.parl .parl-search:focus-within { border-color: var(--c-violet); box-shadow: 0 0 0 3px #5b3e8c24; }
+.parl .parl-search .parl-i { width: 17px; height: 17px; color: var(--ink-3); }
+.parl .parl-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: 400 15px/1.45 var(--font-body); color: var(--ink); }
+.parl .parl-search input::placeholder { color: var(--ink-3); }
+.parl .parl-search kbd { font: 500 11px/1 var(--font-body); color: var(--ink-3); padding: 5px 6px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); }
+.parl .parl-sync { height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 16px 0 13px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); text-align: left; transition: border-color .25s, box-shadow .25s; }
+.parl .parl-sync:hover { border-color: #d9cfc2; }
+.parl .parl-sync .parl-i { width: 20px; height: 20px; color: var(--ink-2); }
+.parl .parl-sync__t { display: flex; flex-direction: column; }
+.parl .parl-sync__t b { font: 600 13px/1.15 var(--font-body); }
+.parl .parl-sync__t small { font: 500 12px/1.15 var(--font-body); color: var(--good); }
+.parl .parl-sync, .parl .parl-avatar { flex: none; }
+.parl .parl-avatar { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; color: #fff; font: 700 13px/1 var(--font-body); letter-spacing: .04em; background: linear-gradient(120deg, #5f4091, #7a52ac); box-shadow: var(--shadow); }
+.parl .parl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); grid-template-areas: "aud del camp" "aud cred sent" "month month mix" "month month top"; }
+.parl .parl-g-aud { grid-area: aud; }
+.parl .parl-g-del { grid-area: del; }
+.parl .parl-g-camp { grid-area: camp; }
+.parl .parl-g-cred { grid-area: cred; }
+.parl .parl-g-sent { grid-area: sent; }
+.parl .parl-g-month { grid-area: month; }
+.parl .parl-g-mix { grid-area: mix; }
+.parl .parl-g-top { grid-area: top; }
+.parl .parl-card { position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: var(--pad); border-radius: var(--r-card); background: var(--surface); border: 1px solid #221b260f; box-shadow: var(--shadow); transition: border-color .25s, box-shadow .25s; }
+.parl .parl-card:hover { border-color: #221b261f; box-shadow: var(--shadow-hover); }
+.parl .parl-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-height: 26px; }
+.parl .parl-card__title { margin: 0; display: flex; align-items: center; gap: 8px; font: 600 18px/1.45 var(--font-body); letter-spacing: -.01em; }
+.parl .parl-card__title .parl-i { width: 16px; height: 16px; color: var(--ink-2); }
+.parl .parl-card__meta { padding-top: 3px; font-size: 13px; line-height: 1.45; color: var(--ink-3); white-space: nowrap; }
+.parl .parl-fig { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.parl .parl-fig__n { font: 600 40px/1 var(--font-body); letter-spacing: -.03em; }
+.parl .parl-fig__u { font: 500 22px/1 var(--font-body); color: var(--ink-3); margin-left: -6px; align-self: flex-end; margin-bottom: 3px; }
+.parl .parl-fig__u--slash { margin-left: -2px; }
+.parl .parl-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 7px; border-radius: 99px; font: 600 12px/1 var(--font-body); white-space: nowrap; background: var(--good-bg); color: var(--good); }
+.parl .parl-chip svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.parl .parl-chip--bad { background: var(--bad-bg); color: var(--bad); }
+.parl .parl-cells { display: grid; grid-template-columns: repeat(40, minmax(0, 1fr)); gap: 3px; height: 34px; margin-top: auto; }
+.parl .parl-cells i { position: relative; border-radius: 3px; background: var(--hatch); color: var(--c-tangerine-soft); overflow: hidden; }
+.parl .parl-cells b { position: absolute; inset: 0; border-radius: 3px; background: var(--c-tangerine); transform-origin: 50% 100%; transform: scaleY(0); }
+.parl .parl-cells b.parl-on { transform: none; }
+.parl .parl-cells--violet i { color: var(--c-violet-soft); }
+.parl .parl-cells--violet b { background: var(--c-violet); }
+.parl .parl-card--hero { border: 0; color: var(--cream); overflow: hidden; background: radial-gradient(58% 44% at 104% 57%, #e55a2dd9 0%, #e55a2d00 100%), linear-gradient(180deg, #bc3e1b 0%, #ad3819 42%, #9b3216 70%, #852a12 100%); }
+.parl .parl-card--hero:hover { border: 0; }
+.parl .parl-card--hero .parl-card__title { color: var(--cream); }
+.parl .parl-live { display: inline-flex; align-items: center; gap: 8px; font: 600 12px/1.45 var(--font-body); letter-spacing: .04em; text-transform: uppercase; color: #fff6eee6; }
+.parl .parl-live i { position: relative; width: 7px; height: 7px; border-radius: 50%; background: #9fe3c4; }
+.parl .parl-live i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #9fe3c4; animation: parl-ping 2s cubic-bezier(0, 0, .2, 1) infinite; }
+@keyframes parl-ping { 0% { opacity: .8; transform: scale(1); } to { opacity: 0; transform: scale(3); } }
+.parl .parl-fig__n--hero { font-size: 60px; letter-spacing: -.03em; }
+.parl .parl-hero__sub { display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 1.45; color: #fff6eee6; }
+.parl .parl-hero__sub b { font-weight: 400; }
+.parl .parl-chip--hero { background: #00000029; color: var(--cream); }
+.parl .parl-hbars { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: 1fr auto; column-gap: 8px; row-gap: 9px; }
+.parl .parl-hbar { position: relative; display: flex; align-items: flex-end; justify-content: center; height: 100%; padding-top: 12px; overflow: hidden; cursor: default; }
+.parl .parl-hbar__bar { position: relative; width: 30px; max-width: 100%; border-radius: 15px 15px 0 0; background: var(--cream); transition: background-color .2s; }
+.parl .parl-hbar__bar--proj { position: absolute; bottom: 0; left: 50%; margin-left: -15px; background: var(--hatch); color: #fff6eeb3; }
+.parl .parl-hbar:hover .parl-hbar__bar:not(.parl-hbar__bar--proj) { background: #fff; }
+.parl .parl-hbar__val { position: absolute; top: 7px; left: 0; right: 0; text-align: center; font: 700 11px/1.45 var(--font-body); color: var(--ink); opacity: 0; transition: opacity .2s; }
+.parl .parl-hbar:hover .parl-hbar__val, .parl .parl-hbar.parl-is-peak .parl-hbar__val { opacity: 1; }
+.parl .parl-hbar__m { text-align: center; font: 500 12px/1.45 var(--font-body); color: #fff6eed1; }
+.parl .parl-topup { position: relative; margin: -4px -4px 0 0; }
+.parl .parl-topup__btn { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--cream); transition: background-color .2s; }
+.parl .parl-topup__btn:hover { background: #3a2f40; }
+.parl .parl-topup__btn .parl-i { width: 16px; height: 16px; stroke-width: 2; }
+.parl .parl-fig__u--soft { font-size: 16.8px; color: var(--ink-3); margin-left: -4px; margin-bottom: 2px; }
+.parl .parl-budget { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+.parl .parl-budget__bar { position: relative; height: 12px; border-radius: 99px; background: var(--hatch); color: var(--c-violet-soft); overflow: hidden; }
+.parl .parl-budget__bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: var(--c-violet); transform-origin: 0 50%; }
+.parl .parl-budget__foot { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; line-height: 1.45; color: var(--ink-3); }
+.parl .parl-budget__foot b { color: var(--ink); font-weight: 600; }
+.parl .parl-card--dark { color: var(--cream); border-color: #fff6ee14; background: linear-gradient(180deg, #2b2230 0%, #282029 100%); }
+.parl .parl-card--dark:hover { border-color: #fff6ee26; }
+.parl .parl-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); flex: none; }
+.parl .parl-seg button { padding: 5px 10px; border-radius: 9px; font: 600 12px/17px var(--font-body); color: var(--ink-3); transition: color .2s, background-color .2s, box-shadow .2s; }
+.parl .parl-seg button:hover { color: var(--ink); }
+.parl .parl-seg button.parl-is-on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px #221b2614, 0 0 0 1px #221b260a; }
+.parl .parl-seg--dark { background: #fff6ee0d; border-color: #fff6ee1a; }
+.parl .parl-seg--dark button { color: #fff6ee9e; }
+.parl .parl-seg--dark button:hover { color: var(--cream); }
+.parl .parl-seg--dark button.parl-is-on { background: #fff6ee24; color: var(--cream); box-shadow: none; }
+.parl .parl-fig__n--dark { color: var(--cream); }
+.parl .parl-sent__sub { margin-top: -4px; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 1.45; color: #fff6eec7; }
+.parl .parl-chip--dark { background: #fff6ee17; color: #9fe3c4; }
+.parl .parl-area { position: relative; height: 101px; }
+.parl .parl-area svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.parl .parl-area__axis { display: flex; justify-content: space-between; font: 400 11px/1.45 var(--font-body); color: #fff6ee8c; }
+.parl .parl-card--month { gap: 14px; }
+.parl .parl-month__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.parl .parl-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 6px; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+.parl .parl-legend span { display: inline-flex; align-items: center; gap: 8px; }
+.parl .parl-sw { width: 10px; height: 10px; border-radius: 3px; background: var(--c-tangerine); flex: none; }
+.parl .parl-sw--hatch { background: var(--hatch), var(--c-tangerine-soft); color: var(--c-tangerine); }
+.parl .parl-mchart { position: relative; flex: 1; min-height: 300px; }
+.parl .parl-mchart__plot { position: absolute; left: 34px; right: 0; top: 40px; bottom: 25px; }
+.parl .parl-mchart__grid { position: absolute; left: -34px; right: 0; height: 0; }
+.parl .parl-mchart__grid::after { content: ''; position: absolute; left: 34px; right: 0; top: 0; border-top: 1px solid var(--line); }
+.parl .parl-mchart__grid span { position: absolute; left: 0; top: -6px; font: 400 11px/1.45 var(--font-body); color: var(--ink-3); }
+.parl .parl-mchart__cols { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.parl .parl-mcol { position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; cursor: default; }
+.parl .parl-mcol__stack { position: relative; width: 29px; max-width: 58%; display: flex; flex-direction: column; justify-content: flex-end; transform-origin: 50% 100%; transition: opacity .25s; }
+.parl .parl-mcol__aw { border-radius: 5px 5px 0 0; background: var(--hatch), var(--c-tangerine-soft); color: #e4572ed9; border-bottom: 2px solid var(--surface); }
+.parl .parl-mcol__rep { background: var(--c-tangerine); }
+.parl .parl-mcol__stack.parl-solo .parl-mcol__rep { border-radius: 5px 5px 0 0; }
+.parl .parl-mcol__x { position: absolute; bottom: -24px; left: 0; right: 0; text-align: center; font: 400 11px/1.45 var(--font-body); color: var(--ink-3); }
+.parl .parl-mcol.parl-is-on .parl-mcol__x { color: var(--ink); font-weight: 700; }
+.parl .parl-mcol__x .parl-c { display: none; }
+.parl .parl-mchart.parl-is-hovering .parl-mcol:not(.parl-is-on) .parl-mcol__stack { opacity: .5; }
+.parl .parl-mtip { position: absolute; z-index: 3; width: 133px; padding: 10px 12px 10px; border-radius: 11px; background: var(--ink); color: var(--cream); box-shadow: 0 14px 30px -14px #221b2699; pointer-events: none; transform: translateX(-50%); transition: left .35s var(--ease-out), top .35s var(--ease-out); }
+.parl .parl-mtip b { display: block; font: 700 13px/1.5 var(--font-body); white-space: nowrap; margin-bottom: 2px; }
+.parl .parl-mtip div { display: flex; align-items: center; gap: 6px; font: 400 12px/1.5 var(--font-body); }
+.parl .parl-mtip div span:first-of-type { color: #fff6eebf; flex: 1; display: inline-flex; align-items: center; gap: 6px; }
+.parl .parl-mtip .parl-sw { width: 9px; height: 9px; border-radius: 2px; }
+.parl .parl-mtip .parl-sw--hatch { background: var(--hatch); color: var(--c-tangerine); }
+.parl .parl-donut { flex: 1; display: grid; place-items: center; padding: 11.5px 0 13.5px; }
+.parl .parl-donut__w { position: relative; width: 128px; height: 128px; }
+.parl .parl-donut svg { width: 128px; height: 128px; transform: rotate(-90deg); overflow: visible; }
+.parl .parl-donut__c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.parl .parl-donut__c b { font: 600 22px/1.1 var(--font-body); letter-spacing: -.02em; }
+.parl .parl-donut__c small { font-size: 12px; line-height: 1.45; color: var(--ink-3); }
+.parl .parl-mix { display: flex; flex-direction: column; gap: 9px; margin-bottom: -2px; }
+.parl .parl-mix li { display: flex; align-items: center; gap: 10px; min-height: 22px; font-size: 13px; line-height: 1.45; }
+.parl .parl-mix ul, .parl ul.parl-mix { list-style: none; margin: 0; padding: 0; }
+.parl .parl-mix__dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.parl .parl-mix__name { flex: 1; font-weight: 500; }
+.parl .parl-mix__pct { font-weight: 600; }
+.parl .parl-mix .parl-chip { min-width: 56px; justify-content: center; }
+.parl .parl-people { list-style: none; margin: 0 -10px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.parl .parl-person { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px; border-radius: 14px; transition: background-color .2s; }
+.parl .parl-person:hover { background: var(--surface-2); }
+.parl .parl-person__av { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font: 700 12px/1 var(--font-body); color: var(--ink); }
+.parl .parl-person__mid { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.parl .parl-person__name { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 13px; line-height: 1.45; white-space: nowrap; overflow: hidden; }
+.parl .parl-person__name a { font-weight: 600; text-underline-offset: 3px; }
+.parl .parl-person__name a:hover { text-decoration: underline; }
+.parl .parl-person__name small { font-size: 13px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; }
+.parl .parl-person__bar { height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.parl .parl-person:hover .parl-person__bar { background: var(--line); }
+.parl .parl-person__bar i { display: block; height: 100%; border-radius: 99px; background: var(--c-tangerine); transform-origin: 0 50%; }
+.parl .parl-person__n { text-align: right; display: flex; flex-direction: column; }
+.parl .parl-person__n b { font: 700 13px/1.3 var(--font-body); }
+.parl .parl-person__n small { font: 500 12px/1.3 var(--font-body); color: var(--ink-3); }
+
+/* ── lo de la adaptación ───────────────────────────────────────────────────────────────────── */
+.parl .parl-pagina { position: relative; z-index: 1; padding: 20px 20px 40px; }
+.parl .parl-top__sub b { color: var(--ink); font-weight: 600; }
+.parl .parl-periodo { width: auto; padding: 0 18px 0 16px; color: var(--ink); white-space: nowrap; cursor: default; }
+.parl .parl-periodo .parl-i { width: 17px; height: 17px; color: var(--ink-3); }
+.parl .parl-avatar { color: #fff; }
+.parl .parl-avatar .parl-i { width: 20px; height: 20px; }
+.parl .parl-quieta { opacity: .72; pointer-events: none; }
+.parl .parl-vacio { flex: 1; display: grid; place-content: center; gap: 4px; padding: 16px; text-align: center; font-size: 13px; line-height: 1.45; color: var(--ink-3); }
+.parl .parl-vacio b { display: block; color: var(--ink); font-weight: 600; }
+.parl .parl-card--hero .parl-vacio, .parl .parl-card--dark .parl-vacio { color: #fff6eeb3; }
+.parl .parl-card--hero .parl-vacio b, .parl .parl-card--dark .parl-vacio b { color: var(--cream); }
+.parl .parl-chip--n { background: var(--surface-2); color: var(--ink-3); }
+.parl .parl-fila { cursor: pointer; }
+.parl .parl-fila:focus-visible { outline-offset: -2px; }
+.parl .parl-budget__bar.parl-is-pasa i { background: var(--c-tangerine); }
+.parl .parl-hbar__m { white-space: nowrap; }
+.parl .parl-mcol__x { white-space: nowrap; }
+.parl .parl-mix__n { min-width: 56px; text-align: center; }
+.parl .parl-person__name b { font-weight: 600; }
+.parl .parl-legend--bajo { margin-top: -15px; }
+.parl .parl-area__dot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #f2835b; box-shadow: 0 0 0 2px #2a212e; }
+.parl .parl-mchart__plot .parl-mtip { transform: none; transition: left .35s var(--ease-out), bottom .35s var(--ease-out); }
+.parl .parl-card--dark .parl-chip--n { background: #fff6ee17; color: #fff6eec7; }
+.parl .parl-card__meta:is(a):hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+@container parl (max-width: 980px) {
+  .parl .parl-top { flex-wrap: wrap; }
+}
+@container parl (max-width: 700px) {
+  .parl .parl-pagina { padding: 20px 16px 32px; }
+  .parl .parl-periodo { flex: 1; }
+}
+
+@container parl (max-width: 980px) {
+  .parl .parl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "aud del" "aud camp" "sent cred" "month month" "mix top"; }
+}
+@container parl (max-width: 700px) {
+  .parl { --pad: 18px; --r-card: 20px; --gap: 12px; }
+  .parl .parl-top { flex-direction: column; align-items: stretch; gap: 20px; min-height: 0; margin-bottom: 12px; }
+  .parl .parl-top__h { padding-top: 2px; }
+  .parl .parl-top__tools { margin-top: 0; gap: 11px; }
+  .parl .parl-search, .parl .parl-sync, .parl .parl-avatar { height: 44px; }
+  .parl .parl-avatar { width: 44px; }
+  .parl .parl-top__title { font-size: 26px; }
+  .parl .parl-top__sub { font-size: 13px; margin-top: 6px; }
+  .parl .parl-search { width: auto; flex: 1; }
+  .parl .parl-search kbd { display: none; }
+  .parl .parl-sync { width: 44px; padding: 0; justify-content: center; }
+  .parl .parl-sync__t { display: none; }
+  .parl .parl-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "aud" "del" "camp" "sent" "cred" "month" "mix" "top"; }
+  .parl .parl-fig__n { font-size: 30px; }
+  .parl .parl-fig__n--hero { font-size: 44px; }
+  .parl .parl-fig__u { font-size: 16.5px; }
+  .parl .parl-fig__u--soft { font-size: 12px; margin-left: -2px; }
+  .parl .parl-mcol__x .parl-l { display: none; }
+  .parl .parl-mcol__x .parl-c { display: inline; }
+  .parl .parl-hbars { flex: none; height: 191px; }
+  .parl .parl-cells { height: 30px; }
+  .parl .parl-mchart { min-height: 0; flex: none; height: 240px; }
+}
+@media (prefers-reduced-motion: reduce) { .parl *, .parl *::before, .parl *::after { transition: none !important; animation: none !important; } }
+</style>
+</head><body>
+<div class="parl"><div class="parl-pagina"><header class="parl-top"><div class="parl-top__h"><h1 class="parl-top__title"><span><span class="parl-w">Buenos</span></span><span> <span class="parl-w">días,</span></span><span> <span class="parl-w">Ana</span></span></h1><p class="parl-top__sub"><span>Te escribieron </span><b>1,558 veces</b><span> y respondiste el </span><b>82%</b><span>, </span><b>1.4 pt más</b><span> que el período anterior</span><span>.</span></p></div><div class="parl-top__tools"><span class="parl-search parl-periodo"><svg class="parl-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v14H4zM4 10h16M8 3.5v4M16 3.5v4"></path></svg>Últimos 30 días</span><button type="button" class="parl-sync"><svg class="parl-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 4.5h6v6h-6zM13.5 4.5h6v6h-6zM4.5 13.5h6v6h-6zM13.5 13.5h6v6h-6z"></path></svg><span class="parl-sync__t"><b>Ver la grilla</b><small>Todas las piezas</small></span></button><a href="/chats" class="parl-avatar" aria-label="Abrir tus chats"><svg class="parl-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 5 5.5z"></path></svg></a></div></header><main class="parl-grid"><article class="parl-card parl-card--hero parl-g-aud"><div class="parl-card__head"><h2 class="parl-card__title">Mensajes recibidos</h2><span class="parl-live"><i></i>318 hoy</span></div><div class="parl-fig"><span class="parl-fig__n parl-fig__n--hero parl-num" data-cuenta="1600">5,072</span></div><div class="parl-hero__sub"><span><b class="parl-num" data-cuenta="1400">318</b>&nbsp; chats</span><span class="parl-chip parl-chip--hero"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 9L5 5.5l2 2L10.5 4M7.5 4h3v3"></path></svg>9%</span></div><div class="parl-hbars"><div class="parl-hbar" title="28 oct: 212 recibidos"><i class="parl-hbar__bar" style="height: 49.9293%;"><span class="parl-hbar__val">212</span></i></div><div class="parl-hbar" title="29 oct: 268 recibidos"><i class="parl-hbar__bar" style="height: 63.1182%;"><span class="parl-hbar__val">268</span></i></div><div class="parl-hbar" title="30 oct: 242 recibidos"><i class="parl-hbar__bar" style="height: 56.9948%;"><span class="parl-hbar__val">242</span></i></div><div class="parl-hbar" title="31 oct: 345 recibidos"><i class="parl-hbar__bar" style="height: 81.2529%;"><span class="parl-hbar__val">345</span></i></div><div class="parl-hbar" title="1 nov: 298 recibidos"><i class="parl-hbar__bar" style="height: 70.1837%;"><span class="parl-hbar__val">298</span></i></div><div class="parl-hbar parl-is-peak" title="2 nov: 386 recibidos"><i class="parl-hbar__bar" style="height: 90.9091%;"><span class="parl-hbar__val">386</span></i></div><div class="parl-hbar" title="3 nov: 351 recibidos"><i class="parl-hbar__bar" style="height: 82.666%;"><span class="parl-hbar__val">351</span></i></div><div class="parl-hbar" title="4 nov: 318 recibidos"><i class="parl-hbar__bar" style="height: 74.894%;"><span class="parl-hbar__val">318</span></i></div><span class="parl-hbar__m">28</span><span class="parl-hbar__m">29</span><span class="parl-hbar__m">30</span><span class="parl-hbar__m">31</span><span class="parl-hbar__m">1</span><span class="parl-hbar__m">2</span><span class="parl-hbar__m">3</span><span class="parl-hbar__m">4</span></div></article><article class="parl-card parl-g-del"><div class="parl-card__head"><h2 class="parl-card__title">Respondidos</h2><a href="/chats" class="parl-card__meta">12 esperando</a></div><div class="parl-fig"><span class="parl-fig__n parl-num" data-cuenta="1400">82.3</span><span class="parl-fig__u">%</span><span class="parl-chip"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 9L5 5.5l2 2L10.5 4M7.5 4h3v3"></path></svg>1.4 pt</span></div><div class="parl-cells" aria-hidden="true"><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div></article><article class="parl-card parl-g-camp"><div class="parl-card__head"><h2 class="parl-card__title">En menos de 15 min</h2><span class="parl-card__meta">el 45% del total</span></div><div class="parl-fig"><span class="parl-fig__n parl-num" data-cuenta="1000">701</span><span class="parl-fig__u parl-fig__u--slash">/ 1,558</span><span class="parl-chip"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 9L5 5.5l2 2L10.5 4M7.5 4h3v3"></path></svg>2.8 pt</span></div><div class="parl-cells parl-cells--violet" aria-hidden="true"><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b class="parl-on"></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div></article><article class="parl-card parl-g-cred"><div class="parl-card__head"><h2 class="parl-card__title"><svg class="parl-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 1 0 0-17M12 7.5V12l3 2"></path></svg>Tiempo de respuesta</h2><div class="parl-topup"><a href="/chats" class="parl-topup__btn" aria-label="Abrir tus chats"><svg class="parl-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12M13 7l5 5-5 5"></path></svg></a></div></div><div class="parl-fig"><span class="parl-fig__n parl-num" data-cuenta="1400">6</span><span class="parl-fig__u parl-fig__u--soft">min de mediana</span></div><div class="parl-budget"><div class="parl-budget__bar"><i style="width: 40%;"></i></div><div class="parl-budget__foot"><span><b>6 min</b>, meta: 15 min</span><span>el 10% más lento: 5.2 h</span></div></div></article><article class="parl-card parl-card--dark parl-g-sent"><div class="parl-card__head"><h2 class="parl-card__title">Mensajes enviados</h2><div class="parl-seg parl-seg--dark" role="group"><button type="button" class="parl-is-on" aria-pressed="true">Todo</button><button type="button" aria-pressed="false">7 días</button></div></div><div class="parl-fig"><span class="parl-fig__n parl-fig__n--dark parl-num" data-cuenta="1800">72,392</span></div><div class="parl-sent__sub"><span><span class="parl-num" data-cuenta="1400">1,380</span>&nbsp; hoy</span><span class="parl-chip parl-chip--dark parl-chip--n">2,449 por día</span></div><div class="parl-area"><svg viewBox="0 0 1000 101" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="parl-area-g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f2835b" stop-opacity=".32"></stop><stop offset="1" stop-color="#f2835b" stop-opacity="0"></stop></linearGradient></defs><path d="M0.0,54.5 C5.7,53.8 23.0,49.7 34.5,50.3 C46.0,50.8 57.5,58.2 69.0,57.7 C80.5,57.1 92.0,50.1 103.4,47.1 C114.9,44.1 126.4,40.6 137.9,39.7 C149.4,38.8 160.9,40.2 172.4,41.8 C183.9,43.4 195.4,47.4 206.9,49.2 C218.4,51.0 229.9,52.9 241.4,52.4 C252.9,51.8 264.4,48.5 275.9,46.0 C287.4,43.6 298.9,39.7 310.3,37.6 C321.8,35.5 333.3,33.7 344.8,33.3 C356.3,33.0 367.8,34.4 379.3,35.5 C390.8,36.5 402.3,37.9 413.8,39.7 C425.3,41.5 436.8,45.3 448.3,46.0 C459.8,46.7 471.3,45.3 482.8,43.9 C494.3,42.5 505.7,40.0 517.2,37.6 C528.7,35.1 540.2,30.5 551.7,29.1 C563.2,27.7 574.7,28.4 586.2,29.1 C597.7,29.8 609.2,31.9 620.7,33.3 C632.2,34.8 643.7,36.7 655.2,37.6 C666.7,38.5 678.2,39.3 689.7,38.6 C701.1,37.9 712.6,35.3 724.1,33.3 C735.6,31.4 747.1,28.8 758.6,27.0 C770.1,25.2 781.6,23.1 793.1,22.8 C804.6,22.4 816.1,23.1 827.6,24.9 C839.1,26.7 850.6,31.9 862.1,33.3 C873.6,34.8 885.1,34.8 896.6,33.3 C908.0,31.9 919.5,27.4 931.0,24.9 C942.5,22.4 959.8,19.6 965.5,18.6 L965.5,101 L0,101 Z" fill="url(#parl-area-g)"></path><path d="M0.0,54.5 C5.7,53.8 23.0,49.7 34.5,50.3 C46.0,50.8 57.5,58.2 69.0,57.7 C80.5,57.1 92.0,50.1 103.4,47.1 C114.9,44.1 126.4,40.6 137.9,39.7 C149.4,38.8 160.9,40.2 172.4,41.8 C183.9,43.4 195.4,47.4 206.9,49.2 C218.4,51.0 229.9,52.9 241.4,52.4 C252.9,51.8 264.4,48.5 275.9,46.0 C287.4,43.6 298.9,39.7 310.3,37.6 C321.8,35.5 333.3,33.7 344.8,33.3 C356.3,33.0 367.8,34.4 379.3,35.5 C390.8,36.5 402.3,37.9 413.8,39.7 C425.3,41.5 436.8,45.3 448.3,46.0 C459.8,46.7 471.3,45.3 482.8,43.9 C494.3,42.5 505.7,40.0 517.2,37.6 C528.7,35.1 540.2,30.5 551.7,29.1 C563.2,27.7 574.7,28.4 586.2,29.1 C597.7,29.8 609.2,31.9 620.7,33.3 C632.2,34.8 643.7,36.7 655.2,37.6 C666.7,38.5 678.2,39.3 689.7,38.6 C701.1,37.9 712.6,35.3 724.1,33.3 C735.6,31.4 747.1,28.8 758.6,27.0 C770.1,25.2 781.6,23.1 793.1,22.8 C804.6,22.4 816.1,23.1 827.6,24.9 C839.1,26.7 850.6,31.9 862.1,33.3 C873.6,34.8 885.1,34.8 896.6,33.3 C908.0,31.9 919.5,27.4 931.0,24.9 C942.5,22.4 959.8,19.6 965.5,18.6" fill="none" stroke="#f2835b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></path><path d="M965.5,18.6 L1000.0,65.4" stroke="#f2835b" stroke-width="2" stroke-dasharray="3 4" stroke-linecap="round" vector-effect="non-scaling-stroke"></path></svg><i class="parl-area__dot" style="left: 100%; top: 64.7739%;"></i></div><div class="parl-area__axis"><span>6 oct</span><span>20 oct</span><span>Hoy</span></div></article><article class="parl-card parl-card--month parl-g-month"><div class="parl-month__head"><h2 class="parl-card__title">Por día</h2><div class="parl-seg" role="group"><button type="button" class="parl-is-on" aria-pressed="true">Días</button><button type="button" aria-pressed="false">Semanas</button></div></div><div class="parl-legend parl-legend--bajo"><span><i class="parl-sw"></i>Respondidos</span><span><i class="parl-sw parl-sw--hatch"></i>Sin respuesta</span></div><div class="parl-mchart"><div class="parl-mchart__plot"><div class="parl-mchart__grid" style="top: 0%;"><span>80</span></div><div class="parl-mchart__grid" style="top: 25%;"><span>60</span></div><div class="parl-mchart__grid" style="top: 50%;"><span>40</span></div><div class="parl-mchart__grid" style="top: 75%;"><span>20</span></div><div class="parl-mchart__grid" style="top: 100%;"><span>0</span></div><div class="parl-mchart__cols" style="grid-template-columns: repeat(12, minmax(0px, 1fr));"><div class="parl-mcol"><div class="parl-mcol__stack" style="height: 52.5%;"><i class="parl-mcol__aw" style="height: 21.4286%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">24</span><span class="parl-c">24</span></span></div><div class="parl-mcol"><div class="parl-mcol__stack" style="height: 50%;"><i class="parl-mcol__aw" style="height: 17.5%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">25</span><span class="parl-c">25</span></span></div><div class="parl-mcol"><div class="parl-mcol__stack" style="height: 63.75%;"><i class="parl-mcol__aw" style="height: 13.7255%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">26</span><span class="parl-c">26</span></span></div><div class="parl-mcol"><div class="parl-mcol__stack" style="height: 57.5%;"><i class="parl-mcol__aw" style="height: 13.0435%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">27</span><span class="parl-c">27</span></span></div><div class="parl-mcol"><div class="parl-mcol__stack" style="height: 72.5%;"><i class="parl-mcol__aw" style="height: 17.2414%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">28</span><span class="parl-c">28</span></span></div><div class="parl-mcol"><div class="parl-mcol__stack" style="height: 60%;"><i class="parl-mcol__aw" style="height: 22.9167%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">29</span><span class="parl-c">29</span></span></div><div class="parl-mcol"><div class="parl-mcol__stack" style="height: 82.5%;"><i class="parl-mcol__aw" style="height: 22.7273%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">30</span><span class="parl-c">30</span></span></div><div class="parl-mcol"><div class="parl-mcol__stack" style="height: 80%;"><i class="parl-mcol__aw" style="height: 18.75%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">31</span><span class="parl-c">31</span></span></div><div class="parl-mcol"><div class="parl-mcol__stack" style="height: 87.5%;"><i class="parl-mcol__aw" style="height: 14.2857%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">1</span><span class="parl-c">1</span></span></div><div class="parl-mcol"><div class="parl-mcol__stack" style="height: 97.5%;"><i class="parl-mcol__aw" style="height: 12.8205%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">2</span><span class="parl-c">2</span></span></div><div class="parl-mcol"><div class="parl-mcol__stack" style="height: 76.25%;"><i class="parl-mcol__aw" style="height: 16.3934%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">3</span><span class="parl-c">3</span></span></div><div class="parl-mcol parl-is-on"><div class="parl-mcol__stack" style="height: 37.5%;"><i class="parl-mcol__aw" style="height: 30%;"></i><i class="parl-mcol__rep" style="flex: 1 1 0%;"></i></div><span class="parl-mcol__x"><span class="parl-l">4</span><span class="parl-c">4</span></span></div></div><div class="parl-mtip" aria-hidden="true" style="left: clamp(0px, 95.8333% - 66px, 100% - 133px); bottom: calc(37.5% + 12px);"><b>Hoy · 30</b><div><span><i class="parl-sw"></i>Respondidos</span><span>21</span></div><div><span><i class="parl-sw parl-sw--hatch"></i>Sin respuesta</span><span>9</span></div></div></div></div></article><article class="parl-card parl-g-mix"><div class="parl-card__head"><h2 class="parl-card__title">Por tipo</h2><div class="parl-seg" role="group"><button type="button" class="parl-is-on" aria-pressed="true">Recibidos</button><button type="button" aria-pressed="false">Enviados</button></div></div><div class="parl-donut"><div class="parl-donut__w"><svg viewBox="0 0 128 128" aria-hidden="true"><circle cx="64" cy="64" r="56" fill="none" stroke="#f7f2eb" stroke-width="16"></circle><circle class="parl-arco" cx="64" cy="64" r="56" fill="none" stroke="var(--c-tangerine)" stroke-width="16" stroke-linecap="round" stroke-dasharray="155.00520486179533 351.85837720205683" stroke-dashoffset="-14"></circle><circle class="parl-arco" cx="64" cy="64" r="56" fill="none" stroke="var(--c-teal)" stroke-width="16" stroke-linecap="round" stroke-dasharray="81.05389766593717 351.85837720205683" stroke-dashoffset="-197.00520486179533"></circle><circle class="parl-arco" cx="64" cy="64" r="56" fill="none" stroke="var(--c-violet)" stroke-width="16" stroke-linecap="round" stroke-dasharray="31.799274674324323 351.85837720205683" stroke-dashoffset="-306.05910252773253"></circle></svg><div class="parl-donut__c"><b class="parl-num">5,072</b><small>mensajes</small></div></div></div><ul class="parl-mix"><li role="button" tabindex="0" class="parl-fila"><i class="parl-mix__dot" style="background: var(--c-tangerine);"></i><span class="parl-mix__name">Texto</span><span class="parl-mix__pct parl-num">52%</span><span class="parl-chip parl-chip--n parl-mix__n">2,638</span></li><li role="button" tabindex="0" class="parl-fila"><i class="parl-mix__dot" style="background: var(--c-teal);"></i><span class="parl-mix__name">Audio</span><span class="parl-mix__pct parl-num">31%</span><span class="parl-chip parl-chip--n parl-mix__n">1,572</span></li><li role="button" tabindex="0" class="parl-fila"><i class="parl-mix__dot" style="background: var(--c-violet);"></i><span class="parl-mix__name">Imagen</span><span class="parl-mix__pct parl-num">17%</span><span class="parl-chip parl-chip--n parl-mix__n">862</span></li></ul></article><article class="parl-card parl-g-top"><div class="parl-card__head"><h2 class="parl-card__title">Por setter</h2><div class="parl-seg" role="group"><button type="button" class="parl-is-on" aria-pressed="true">Mensajes</button><button type="button" aria-pressed="false">En 15 min</button></div></div><ul class="parl-people"><li class="parl-person parl-fila" role="button" tabindex="0"><span class="parl-person__av" style="background: var(--c-tangerine-soft);">AR</span><div class="parl-person__mid"><div class="parl-person__name"><b>Ana Ruiz</b><small>61% en 15 min</small></div><div class="parl-person__bar"><i style="width: 100%;"></i></div></div><div class="parl-person__n"><b class="parl-num">498</b><small>32%</small></div></li><li class="parl-person parl-fila" role="button" tabindex="0"><span class="parl-person__av" style="background: var(--c-violet-soft);">LP</span><div class="parl-person__mid"><div class="parl-person__name"><b>Luis Pérez</b><small>48% en 15 min</small></div><div class="parl-person__bar"><i style="width: 72.6908%;"></i></div></div><div class="parl-person__n"><b class="parl-num">362</b><small>23%</small></div></li><li class="parl-person parl-fila" role="button" tabindex="0"><span class="parl-person__av" style="background: var(--c-teal-soft);">ID</span><div class="parl-person__mid"><div class="parl-person__name"><b>Inés Díaz</b><small>52% en 15 min</small></div><div class="parl-person__bar"><i style="width: 61.245%;"></i></div></div><div class="parl-person__n"><b class="parl-num">305</b><small>20%</small></div></li><li class="parl-person parl-fila" role="button" tabindex="0"><span class="parl-person__av" style="background: var(--c-violet-soft);">KM</span><div class="parl-person__mid"><div class="parl-person__name"><b>Kenji Mora</b><small>39% en 15 min</small></div><div class="parl-person__bar"><i style="width: 44.1767%;"></i></div></div><div class="parl-person__n"><b class="parl-num">220</b><small>14%</small></div></li><li class="parl-person parl-fila" role="button" tabindex="0"><span class="parl-person__av" style="background: var(--c-tangerine-soft);">RA</span><div class="parl-person__mid"><div class="parl-person__name"><b>Rita Abad</b><small>44% en 15 min</small></div><div class="parl-person__bar"><i style="width: 34.739%;"></i></div></div><div class="parl-person__n"><b class="parl-num">173</b><small>11%</small></div></li></ul></article></main></div></div>
+</body></html>

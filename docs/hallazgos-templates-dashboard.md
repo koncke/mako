@@ -436,6 +436,23 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **El lienzo de MaKo al lado de la barra lateral mide ~1100-1200 px**, que no es ni la captura de 1440 ni la de 390: los cuatro números de
   Corbel ahí se apretaban («2.3 pt» en dos renglones). Hace falta un corte propio (1240) además del medio de 1040.
 
+## 23. Chat Analyst (Parley): la hoja del setter, la meta que ya existía y un ancho que mide el padding (4/11/2026, chat en la nube)
+
+- **Chat Analyst es la hoja del SETTER** (`HOJA_DE_ROL`): sus conjuntos son sólo `whatsapp`, `conversaciones`, `envios` e
+  `inscripciones`. Una pieza nueva del diseño sale de ahí o el setter recibe un 403 en esa tarjeta; el test lo recorre pieza por pieza.
+- **La «meta» de 15 minutos no se inventó: es la de MaKo.** Parley tiene un presupuesto («$420 of $600»); la barra del tiempo de respuesta
+  es la mediana contra los 15 minutos de `rapidos_15` («Respondidos en 15 min»), que es el corte que el catálogo ya usa. Un número de
+  referencia nuevo en una pantalla se busca primero en el catálogo.
+- **Un promedio de tiempos de respuesta mentiría** (ws1: mediana 3 min y p90 71 h): la tarjeta lleva la mediana y el p90, en palabras («el
+  10% más lento: 5.2 h»), nunca el promedio.
+- **Un elemento con `position: absolute` mide su alto en porcentaje contra el PADDING-box de su contenedor**, no contra el contenido: la
+  columna rayada de Parley (la proyección, detrás de la barra) salía 10 px más alta que la barra de al lado, que sí descuenta el padding. Va
+  `calc((100% - <padding>) * x)`.
+- **Una parte se calcula sobre el TOTAL del período, no sobre las filas que llegaron:** el gráfico recorta (`limite`), y la suma de lo que se
+  ve no es el total. El test lo distingue con un total mayor que la suma de las filas.
+- **La leyenda al lado del título no entra en el teléfono junto al selector**: va debajo de la cabecera, con un margen negativo que la deja
+  donde Parley la tiene a 1440.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

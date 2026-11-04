@@ -1,0 +1,128 @@
+<!doctype html>
+<!-- CHAT ANALYST (PARLEY) · PASO 1: LA COPIA EXACTA de la página «Overview» de Parley (4/11/2026), con los textos del demo.
+     Escrita desde lo MEDIDO (demos/parley/captura/valores.json, las capturas, los estados de los controles y el INFORME); nada del
+     código de la tienda. Sin el cartel «BUY THIS TEMPLATE». La adaptación a MaKo (mako.html) usa la MISMA hoja. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Parley · Overview (copia)</title>
+<link rel="stylesheet" href="parley.css">
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M5.5 3.5h13A2.5 2.5 0 0 1 21 6v8.5a2.5 2.5 0 0 1-2.5 2.5H12l-4.6 3.7c-.5.4-1.2 0-1.2-.6V17h-.7A2.5 2.5 0 0 1 3 14.5V6a2.5 2.5 0 0 1 2.5-2.5z"/><circle cx="8.3" cy="10.3" r="1.25" fill="#221b26" stroke="none"/><circle cx="12" cy="10.3" r="1.25" fill="#221b26" stroke="none"/><circle cx="15.7" cy="10.3" r="1.25" fill="#221b26" stroke="none"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1.8"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.8"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.8"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.8"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 5 5.5z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M20.5 3.5L10.2 13.8M20.5 3.5l-6.5 17-3.8-6.7-6.7-3.8z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9.5" cy="8.5" r="3.5"/><path d="M3.5 19.5a6 6 0 0 1 12 0M15.5 5.2a3.5 3.5 0 0 1 0 6.6M17.5 14.2a6 6 0 0 1 3 5.3"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 3.5L5.5 13.5h6l-1 7 7.5-10h-6z"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 15.5v-3M12 15.5v-7M15.5 15.5v-5"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="15" rx="3"/><path d="M9.5 4.5v15M13 10l2 2-2 2"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="18" cy="12" r="1.2" fill="currentColor"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M19.5 9A7.5 7.5 0 0 0 6.2 6.8L4.5 8.5M4.5 4.5v4h4M4.5 15a7.5 7.5 0 0 0 13.3 2.2l1.7-1.7M19.5 19.5v-4h-4"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M3.5 10h17"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-up" viewBox="0 0 12 12"><path d="M1.5 9L5 5.5l2 2L10.5 4M7.5 4h3v3"/></symbol>
+  <symbol id="i-down" viewBox="0 0 12 12"><path d="M1.5 3L5 6.5l2-2L10.5 8M7.5 8h3V5"/></symbol>
+</svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="pl-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f2835b" stop-opacity=".32"/><stop offset="1" stop-color="#f2835b" stop-opacity="0"/></linearGradient>
+</defs></svg>
+
+<nav class="rail" aria-label="Main">
+  <div class="rail__panel">
+    <a class="rail__logo" href="#" aria-label="Parley"><svg><use href="#i-logo"/></svg></a>
+    <div class="rail__list">
+      <a class="rail__item is-active" href="#" aria-current="page" data-tip="Overview"><svg class="i"><use href="#i-grid"/></svg><span class="rail__label">Overview</span></a>
+      <a class="rail__item" href="#" data-tip="Inbox"><svg class="i"><use href="#i-chat"/></svg><span class="rail__badge">5</span><span class="rail__label">Inbox</span></a>
+      <a class="rail__item" href="#" data-tip="Campaigns"><svg class="i"><use href="#i-send"/></svg><span class="rail__label">Campaigns</span></a>
+      <a class="rail__item" href="#" data-tip="Scheduled" data-movil="no"><svg class="i"><use href="#i-clock"/></svg><span class="rail__label">Scheduled</span></a>
+      <a class="rail__item" href="#" data-tip="Audience"><svg class="i"><use href="#i-users"/></svg><span class="rail__label">Audience</span></a>
+      <a class="rail__item" href="#" data-tip="Automations" data-movil="no"><svg class="i"><use href="#i-zap"/></svg><span class="rail__label">Automations</span></a>
+      <a class="rail__item" href="#" data-tip="Reports" data-movil="no"><svg class="i"><use href="#i-chart"/></svg><span class="rail__label">Reports</span></a>
+      <a class="rail__item rail__more" href="#" data-tip="More"><svg class="i"><use href="#i-dots"/></svg><span class="rail__label">More</span></a>
+    </div>
+    <div class="rail__foot">
+      <a class="rail__item" href="#" data-tip="Settings"><svg class="i"><use href="#i-sliders"/></svg></a>
+      <button class="rail__toggle" type="button" data-tip="Expand sidebar" aria-label="Expand sidebar"><svg class="i"><use href="#i-panel"/></svg></button>
+    </div>
+  </div>
+</nav>
+<div class="rail__tip" aria-hidden="true"></div>
+
+<div class="app">
+  <header class="top">
+    <div class="top__h">
+      <h1 class="top__title">Good morning, Noor</h1>
+      <p class="top__sub">Here’s how your conversations moved today.</p>
+    </div>
+    <div class="top__tools">
+      <label class="search"><svg class="i"><use href="#i-search"/></svg><input type="search" placeholder="Search" aria-label="Search contacts, campaigns and pages"><kbd>⌘K</kbd></label>
+      <button class="sync" type="button"><svg class="i"><use href="#i-sync"/></svg><span class="sync__t"><b>Last sync</b><small>Just now</small></span></button>
+      <button class="avatar" type="button" aria-label="Noor Adeyemi">NA</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <article class="card card--hero g-aud" id="audience">
+      <div class="card__head"><h2 class="card__title">Audience</h2><span class="live"><i></i>Live</span></div>
+      <div class="fig"><span class="fig__n fig__n--hero num" data-n="4862">4,862</span></div>
+      <div class="hero__sub"><span><b class="num" data-n="318">318</b>&nbsp; new in October</span><span class="chip chip--hero"><svg><use href="#i-up"/></svg>9%</span></div>
+      <div class="hbars" data-hbars></div>
+    </article>
+
+    <article class="card g-del" id="delivery">
+      <div class="card__head"><h2 class="card__title">Delivery rate</h2><span class="card__meta">312 queued</span></div>
+      <div class="fig"><span class="fig__n num" data-n="94.2" data-dec="1">94.2</span><span class="fig__u">%</span><span class="chip"><svg><use href="#i-up"/></svg>1.4%</span></div>
+      <div class="cells" data-cells="0.942"></div>
+    </article>
+
+    <article class="card g-camp" id="campaigns">
+      <div class="card__head"><h2 class="card__title">Active campaigns</h2><span class="card__meta">6 scheduled</span></div>
+      <div class="fig"><span class="fig__n num" data-n="18" data-dur="1000">18</span><span class="fig__u fig__u--slash">/ 40</span><span class="chip"><svg><use href="#i-up"/></svg>3 this week</span></div>
+      <div class="cells cells--violet" data-cells="0.45"></div>
+    </article>
+
+    <article class="card g-cred" id="credits">
+      <div class="card__head"><h2 class="card__title"><svg class="i"><use href="#i-card"/></svg>Credits</h2>
+        <div class="topup"><button class="topup__btn" type="button" aria-label="Top up credits" aria-haspopup="menu"><svg class="i"><use href="#i-plus"/></svg></button>
+          <div class="topup__menu" role="menu"><button role="menuitem" data-add="100">+$100</button><button role="menuitem" data-add="250">+$250</button><button role="menuitem" data-add="500">+$500</button></div></div>
+      </div>
+      <div class="fig"><span class="fig__n num" data-n="1830" data-pre="$">$1,830</span><span class="fig__u fig__u--soft">balance</span></div>
+      <div class="budget"><div class="budget__bar"><i style="width:70%"></i></div>
+        <div class="budget__foot"><span><b>$420</b> of $600 monthly budget</span><span>≈ <span class="num" data-n="13" data-dur="1000">13</span> days left</span></div></div>
+    </article>
+
+    <article class="card card--dark g-sent" id="sent">
+      <div class="card__head"><h2 class="card__title">Messages sent</h2><div class="seg seg--dark" data-seg="rango"><button class="is-on" type="button">30d</button><button type="button">7d</button></div></div>
+      <div class="fig"><span class="fig__n fig__n--dark num" data-n="128409" data-dur="1800" data-sent>128,409</span></div>
+      <div class="sent__sub"><span><span class="num" data-n="1908" data-today>1,908</span>&nbsp; today</span><span class="chip chip--dark"><svg><use href="#i-up"/></svg>12%</span></div>
+      <div class="area" data-area></div>
+      <div class="area__axis"><span>Oct 6</span><span>Oct 20</span><span>Today</span></div>
+    </article>
+
+    <article class="card card--month g-month" id="month">
+      <div class="month__head">
+        <div><h2 class="card__title">Messages by month</h2>
+          <div class="legend"><span><i class="sw"></i>Replied</span><span><i class="sw sw--hatch"></i>Awaiting reply</span></div></div>
+        <div class="seg" data-seg="anio"><button class="is-on" type="button">2026</button><button type="button">2025</button></div>
+      </div>
+      <div class="mchart" data-mchart></div>
+    </article>
+
+    <article class="card g-mix" id="mix">
+      <div class="card__head"><h2 class="card__title">Channel mix</h2><div class="seg" data-seg="mezcla"><button class="is-on" type="button">This month</button><button type="button">Last</button></div></div>
+      <div class="donut"><div class="donut__w" data-donut><div class="donut__c"><b class="num">9.4K</b><small>messages</small></div></div></div>
+      <ul class="mix" data-mix></ul>
+    </article>
+
+    <article class="card g-top" id="top-contacts">
+      <div class="card__head"><h2 class="card__title">Top contacts</h2><div class="seg" data-seg="gente"><button class="is-on" type="button">Week</button><button type="button">Month</button></div></div>
+      <ul class="people" data-people></ul>
+    </article>
+  </main>
+</div>
+<div class="toast" role="status"></div>
+<script src="parley.js"></script>
+</body></html>

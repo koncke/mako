@@ -36,6 +36,9 @@ import { datosMarketingMuestra } from '@/lib/marketing-diseno-muestra';
 import { HojaLanding } from './HojaLanding';
 import { vistaLanding } from '@/lib/landing-diseno';
 import { datosLandingMuestra } from '@/lib/landing-diseno-muestra';
+import { HojaChat } from './HojaChat';
+import { vistaChat } from '@/lib/chat-diseno';
+import { datosChatMuestra } from '@/lib/chat-diseno-muestra';
 
 const dia = (hoy: string, n: number) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const resultado = (columnas: string[], totales: Array<number | null>, filas: Resultado['filas'] = [], anterior?: Array<number | null>): DatosPieza => ({
@@ -449,6 +452,10 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   // La de Landing, igual: el MISMO vistaLanding que la hoja de verdad, con los datos de la adaptación (landing-corbel/mako.html).
   landing: ({ hoja, hoy }) => (
     <HojaLanding hoja={hoja} vista={vistaLanding(hoja, datosLandingMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+  ),
+  // La de Chat Analyst, igual: el MISMO vistaChat que la hoja de verdad, con los datos de la adaptación (chat-parley/mako.html).
+  chat: ({ hoja, hoy }) => (
+    <HojaChat hoja={hoja} vista={vistaChat(hoja, datosChatMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
   ),
 };
 

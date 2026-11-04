@@ -577,23 +577,41 @@ const CHAT: PlantillaHoja = {
       kpi(id('ch-recibidos'), 'whatsapp', 'recibidos', 'Recibidos', '', 3, 3, { tipo: 'numero_tendencia', comparar: true }),
       kpi(id('ch-chats'), 'whatsapp', 'chats', 'Chats', '', 6, 3, { tipo: 'numero_tendencia' }),
       kpi(id('ch-esperando'), 'conversaciones', 'sin_responder', 'Esperando', '', 9, 3, { fecha: 'actual', ir: 'chats' }),
-      kpi(id('ch-rapidos'), 'conversaciones', 'pct_rapidos', 'Respondidos en 15 min', '', 0, 7),
+      kpi(id('ch-rapidos'), 'conversaciones', 'pct_rapidos', 'Respondidos en 15 min', '', 0, 7, { comparar: true }),
+      // 4/11/2026 (el diseño de Parley): la otra punta del tiempo de respuesta. La mediana dice cómo te va casi siempre; el p90, cuánto
+      // esperan los que más esperan (ws1: mediana 3 min y p90 71 h).
+      kpi(id('ch-lento'), 'conversaciones', 'p90_respuesta', 'Respuesta más lenta (p90)', '', 3, 7),
       {
         id: id('ch-por-dia'), clase: 'grafico', tipo: 'serie', fuente: 'whatsapp', dimension: 'dia', metricas: ['recibidos', 'enviados'], titulo: 'Mensajes por día',
         x: 0, y: 11, w: 12, h: 8, controles: [{ id: id('ch-por-dia-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
       { id: id('ch-setters'), clase: 'grafico', tipo: 'barras', fuente: 'conversaciones', dimension: 'setter', metricas: ['turnos', 'pct_rapidos'], titulo: 'Por setter', x: 0, y: 19, w: 6, h: 8 },
       { id: id('ch-lineas'), clase: 'grafico', tipo: 'columnas_apiladas', fuente: 'whatsapp', dimension: 'linea', desglose: 'direccion', metricas: ['mensajes'], titulo: 'Por línea', x: 6, y: 19, w: 6, h: 8 },
+      // 4/11/2026 (el diseño de Parley, su «Messages by month»): cada día, cuántas veces te escribieron y cuántas respondiste. Reemplaza
+      // al porcentaje de rápidos por día, que ya dicen la tarjeta de «Respondidos en 15 min» y el tiempo de respuesta.
       {
-        id: id('ch-rapidos-dia'), clase: 'grafico', tipo: 'serie', fuente: 'conversaciones', dimension: 'dia', metricas: ['pct_rapidos'],
-        titulo: 'Respondidos en 15 min, por día', x: 0, y: 27, w: 6, h: 8,
+        id: id('ch-respondidos-dia'), clase: 'grafico', tipo: 'serie', fuente: 'conversaciones', dimension: 'dia', metricas: ['turnos', 'respondidos'],
+        titulo: 'Te escribieron y respondiste, por día', x: 0, y: 27, w: 12, h: 8, controles: [{ id: id('ch-respondidos-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
       {
         id: id('ch-automatizaciones'), clase: 'grafico', tipo: 'barras', fuente: 'inscripciones', fecha: 'alta', dimension: 'automatizacion', metricas: ['tasa_respuesta'],
-        ordenMetrica: 'tasa_respuesta', limite: 8, titulo: 'Te contestan, por automatización', ir: 'automations', x: 6, y: 27, w: 6, h: 8,
+        ordenMetrica: 'tasa_respuesta', limite: 8, titulo: 'Te contestan, por automatización', ir: 'automations', x: 0, y: 35, w: 6, h: 8,
       },
-      caja(id('ch-ia'), 'Dónde se enfría el chat', 'En qué momento se enfrían las conversaciones y qué responder mejor', 0, 35, 12, 7),
+      // 4/11/2026 (el diseño de Parley, su «Channel mix»): qué te mandan y qué mandas (texto, audio, imagen…). Nunca se lee un mensaje.
+      { id: id('ch-tipos'), clase: 'grafico', tipo: 'columnas_apiladas', fuente: 'whatsapp', dimension: 'tipo', desglose: 'direccion', metricas: ['mensajes'], titulo: 'Qué tipo de mensaje', x: 6, y: 35, w: 6, h: 8 },
+      caja(id('ch-ia'), 'Dónde se enfría el chat', 'En qué momento se enfrían las conversaciones y qué responder mejor', 0, 43, 12, 7),
     ],
+    // 4/11/2026 — EL DISEÑO DE PARLEY (docs/diseno/mockups-dashboard/chat-parley/): mirando, la hoja la dibuja
+    // app/dashboard/disenos/HojaChat.tsx con estas piezas (lib/chat-diseno.ts arma cada parte, con test). Las líneas, las
+    // automatizaciones y la caja de MaKo quedan en la grilla: Parley no tiene dónde dibujarlas.
+    diseno: {
+      id: 'chat',
+      piezas: {
+        apertura: id('ch-apertura'), recibidos: id('ch-recibidos'), chats: id('ch-chats'), esperando: id('ch-esperando'), rapidos: id('ch-rapidos'),
+        mediana: id('ch-mediana'), lento: id('ch-lento'), dias: id('ch-por-dia'), respondidos: id('ch-respondidos-dia'), tipos: id('ch-tipos'),
+        setters: id('ch-setters'),
+      },
+    },
   }),
 };
 

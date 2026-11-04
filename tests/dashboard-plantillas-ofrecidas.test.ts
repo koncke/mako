@@ -28,6 +28,8 @@ test('se ofrece exactamente la plantilla que trae su diseño propio, y ninguna o
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'marketing'), 'Marketing (la copia de Kestrel) se ofrece');
   // Landing se ofrece desde el 4/11 (noche): trae su diseño (la copia de Corbel).
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'landing'), 'Landing (la copia de Corbel) se ofrece');
+  // Chat Analyst se ofrece desde el 4/11 (noche): trae su diseño (la copia de Parley).
+  assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'chat-analyst'), 'Chat Analyst (la copia de Parley) se ofrece');
   for (const viejo of ['ads-analyst']) assert.ok(!PLANTILLAS_OFRECIDAS.some((p) => p.id === viejo), `${viejo} ya no se ofrece`);
   assert.ok(PLANTILLAS_GENERAL_OFRECIDAS.every((p) => !!instanciarPlantilla(p).diseno));
 });

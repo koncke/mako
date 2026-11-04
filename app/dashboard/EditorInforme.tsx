@@ -164,6 +164,7 @@ import { HojaCobranza, type ExtrasCobranza } from './disenos/HojaCobranza';
 import type { ExtrasComercial } from './disenos/ComercialVivo';
 import type { ExtrasMarketing } from './disenos/MarketingVivo';
 import type { ExtrasLanding } from './disenos/LandingVivo';
+import type { ExtrasChat } from './disenos/ChatVivo';
 import dynamic from 'next/dynamic';
 import { idDeInformeAutomatizacion, type InformeAutomatizacion } from '@/lib/informe-automatizacion';
 import { BotonMako } from '@/app/_ui/BotonMako';
@@ -180,6 +181,7 @@ const OperacionVivo = dynamic(() => import('./disenos/OperacionVivo'));
 const ComercialVivo = dynamic(() => import('./disenos/ComercialVivo'));
 const MarketingVivo = dynamic(() => import('./disenos/MarketingVivo'));
 const LandingVivo = dynamic(() => import('./disenos/LandingVivo'));
+const ChatVivo = dynamic(() => import('./disenos/ChatVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -342,7 +344,7 @@ export function EditorInforme({
    * Lo que leen las hojas con DISEÑO PROPIO y ningún componente lee (`Hoja.diseno`, lib/graficos-catalogo.ts): la agenda y
    * quién mira, para la de Closing (./disenos/HojaClosing.tsx). Lo arma la página; null = sin eso (los bloques lo dicen).
    */
-  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null; comercial?: ExtrasComercial | null; marketing?: ExtrasMarketing | null; landing?: ExtrasLanding | null } | null;
+  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null; comercial?: ExtrasComercial | null; marketing?: ExtrasMarketing | null; landing?: ExtrasLanding | null; chat?: ExtrasChat | null } | null;
   /**
    * UN AVISO FIJO arriba de la hoja, de quien monta el editor (la misma franja `lk-aviso-hoja` que el de Closing): la prueba
    * A/B de una automatización en sus Métricas (app/automations/MetricasAutomatizacion.tsx, tanda A3, 25/10/2026).
@@ -1611,6 +1613,14 @@ export function EditorInforme({
               // un origen abre lo de siempre de su pieza.
               <LandingVivo
                 hoja={hoja} datos={datos} extras={disenos?.landing ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'chat' && !enGrilla && !editando && !dueno ? (
+              // La hoja Chat Analyst con su DISEÑO PROPIO (la copia de Parley, ./disenos/HojaChat.tsx): los datos de sus componentes;
+              // un setter o un tipo de mensaje abre lo de siempre de su pieza.
+              <ChatVivo
+                hoja={hoja} datos={datos} extras={disenos?.chat ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
               />

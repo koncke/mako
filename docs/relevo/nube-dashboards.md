@@ -1,6 +1,12 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~20:25 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~20:50 UTC)
+
+- **Chat Analyst (la copia de Parley) va en `punta/dash-chat`**: la sección de abajo. Es la décima hoja copiada y la hoja del SETTER
+  (`HOJA_DE_ROL`): todo lo que dibuja sale de sus conjuntos (los chats, los mensajes, los envíos y las automatizaciones).
+
+### Lo de las ~20:25 UTC
+
 
 - **Landing está en producción.** Entró a main a las 20:11 (`cbe8c2f6d`, la punta `dash-landing` tal cual, con su veredicto: 7.035 tests y
   el tsc entero); el deploy promovido de las 20:11 la contiene. El primer veredicto dio un rojo de verdad: la guarda del voseo encontró
@@ -71,6 +77,67 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## Chat Analyst: la décima hoja copiada (la de Parley), con «¿cuánto tardamos en contestar?» (punta `dash-chat`, 4/11/2026)
+
+Las referencias de Chat Analyst eran dos (Parley · Tend, `docs/templates-dashboard-propuesta.md` §7.3); ésta es **Parley**, la página
+«Overview» de Parley (mensajería): una tarjeta naranja con columnas, dos de casillas, una de presupuesto, una oscura con un área, columnas
+apiladas por mes, un anillo y una lista de contactos.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «Chat Analyst»** con su miniatura de verdad. Es la hoja que ve el setter: también la ve así.
+- **Arriba:** el saludo (con la letra de Parley) y la frase («Te escribieron 1,558 veces y respondiste el 82.3%, 1.4 pt más que el período
+  anterior»); a la derecha, el período, «Ver la grilla» y un botón violeta que abre tus chats.
+- **La tarjeta naranja** («Audience»): los **mensajes recibidos** del período, cuántos chats y su cambio; las columnas son los últimos ocho
+  días (o semanas), la más alta con su número. Donde Parley dice «LIVE», **los recibidos de hoy**.
+- **Respondidos** («Delivery rate»): qué parte de las veces que te escribieron tuvo respuesta, en 40 casillas, y cuántos esperan hoy (lleva
+  a tus chats).
+- **En menos de 15 min** («Active campaigns»): cuántas veces se respondió en menos de 15 minutos, de cuántas (el «18 / 40» de Parley), en
+  casillas violetas.
+- **Tiempo de respuesta** («Credits»): la **mediana**, su barra contra los **15 minutos** (la meta es la de MaKo: su «Respondidos en 15
+  min») y el **10 % más lento** (el p90). Si la mediana pasa la meta, la barra se pone naranja.
+- **Mensajes enviados** (la tarjeta oscura): lo que mandaste día por día, con el de hoy punteado (va por la mitad), y «Todo · 7 días».
+- **Por día** («Messages by month»): cada día, lo respondido y, rayado, lo que quedó sin respuesta; «Días · Semanas» junta por semana (de
+  lunes), y el globo sigue al mouse.
+- **Por tipo** («Channel mix»): el reparto entre texto, audio, imagen… de lo **recibido** o de lo **enviado** (los dos primeros y «Otros»,
+  que siempre suman el total). Nunca se lee un mensaje.
+- **Por setter** («Top contacts»): los cinco con más mensajes, su parte del total y cuánto respondió en 15 minutos («Mensajes · En 15 min»).
+  Tocar uno, o un tipo, abre lo de siempre de su pieza.
+
+**Lo que se copió de Parley, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/chat-parley/copia.html`) sale de lo medido del demo: `valores.json`, las capturas, los estados de
+  los controles y el INFORME. **Nada del código de la tienda, ni el cartel «BUY THIS TEMPLATE».**
+- **Las cajas de la copia caen EXACTAS a 1440** (la naranja 424×499 en 116,112; las de casillas 424×174; Credits y la oscura 424×309 en y
+  302; el mes 864×732, el anillo 424×344 y los contactos 424×373) y los renglones de adentro a ±1 px (el saludo en 31, la frase en 79, las
+  herramientas en 38, el globo del mes en 728..859 × 829..906, la grilla del mes cada 139 px). **A 390, a 1-2 px** (la naranja 358, las de
+  casillas 152, la oscura 291, Credits 171, el mes 343, el anillo 336 y los contactos 365), con la barra de abajo del teléfono.
+- **La letra de Parley es Bricolage Grotesque (los títulos) y Geist de verdad**; en MaKo «Geist» es Urbanist, así que el componente las carga
+  con otro nombre («Parley Bricolage», «Parley Geist»), como Kestrel.
+- **El movimiento, del INFORME (trae la entrada de la página):** el saludo entra palabra por palabra (y 70 %, .6 s, cada .06 s) y la frase
+  después; las herramientas bajan (y −8, .5 s, cada .06 s, desde .2 s); las tarjetas suben (y 28, escala .985, .8 s, power3.out, cada .08
+  s) y cada una arranca lo suyo a los .25 s de su entrada: los números cuentan (1,4 s; los recibidos 1,6 s, los enviados 1,8 s), las
+  columnas naranjas suben desde abajo (1,1 s, power4.out, cada .06 s), las casillas se llenan de a una (.35 s, back.out(2.2), cada .018 s),
+  la barra del tiempo crece (1,2 s). Al cambiar de día el globo rebota (.85 → 1, .4 s, back.out(2)). Con el mouse, una tarjeta oscurece su
+  borde y su sombra (.25 s); una columna naranja se pone blanca y muestra su número.
+- **⚠️ Lo que el INFORME no dice y está SUPUESTO:** cómo se dibuja el área de los enviados (se destapa de izquierda a derecha, 1,2 s), cómo
+  crecen las columnas del mes y el anillo (1 s, power3.out) y que al pasar sobre un día los otros se apagan a la mitad.
+
+**Lo que Parley tiene y MaKo no hace, y no está:** la barra lateral (la pone la app), el buscador, el «live», la proyección rayada del mes
+en curso, los créditos y su recarga (el «+»), y el cambio de cada canal contra el mes pasado (el gráfico no compara fila por fila: el chip
+dice cuántos son). **La plantilla no perdió nada que se viera:** las líneas, las automatizaciones y la caja de MaKo siguen en la grilla. Se
+sumaron dos piezas (la respuesta más lenta y el reparto por tipo) y el porcentaje de rápidos por día pasó a ser «te escribieron y
+respondiste, por día» (14 de 14).
+
+**Lo del medio (701 a 980, que Parley no mide):** de a dos columnas (la naranja a la izquierda de las dos de casillas); la cabecera baja de
+renglón si no entra.
+
+**Dónde vive:**
+- El modelo: `lib/chat-diseno.ts`, puro. Los datos de ejemplo: `lib/chat-diseno-muestra.ts` (las ocho columnas de Parley).
+- El dibujo: `app/dashboard/disenos/HojaChat.tsx`; lo vivo, `ChatVivo.tsx`; la hoja de estilos, `chat-css.ts` (la arma
+  `scratchpad/parley/armar-parl.py` desde `chat-parley/parley.css`: todo con el prefijo `parl-`).
+- La plantilla: `lib/graficos-plantillas-analysts.ts` (CHAT, catorce piezas, `diseno.id = 'chat'`); `DISENOS_HOJA` en
+  `lib/graficos-catalogo.ts`.
+- Los tests: `tests/dashboard-diseno-chat.test.ts` (9, probado rompiéndolo de ocho maneras: cada rotura sola da rojo).
 
 ## Landing: la novena hoja copiada (la de Corbel), con «¿hasta dónde bajan y dónde hacen clic?» (punta `dash-landing`, 4/11/2026)
 

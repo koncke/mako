@@ -1072,4 +1072,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '20:50', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Chat Analyst, la décima hoja copiada: el diseño de Parley con «¿cuánto tardamos en contestar?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» del Dashboard**, con su miniatura de verdad. Es la hoja que ve el setter, y la ve así.',
+      '**La tarjeta naranja:** los mensajes recibidos, los chats, su cambio y los últimos ocho días, con los de hoy.',
+      '**Respondidos y respondidos en menos de 15 minutos**, en casillas, con su cambio y cuántos esperan hoy.',
+      '**El tiempo de respuesta:** la mediana contra los 15 minutos y el 10% más lento.',
+      '**Los enviados día por día**, lo respondido y lo que quedó sin respuesta cada día (o semana), el reparto por tipo de mensaje y los setters.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaChat.tsx · chat-css.ts · ChatVivo.tsx — el diseño',
+      'lib/chat-diseno.ts — de dónde sale cada número',
+      'lib/chat-diseno-muestra.ts — los datos de ejemplo de la miniatura',
+      'docs/diseno/mockups-dashboard/chat-parley/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];
