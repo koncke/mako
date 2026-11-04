@@ -44,13 +44,15 @@ void (async () => {
   const delCliente = await paqueteParaElTurno('¿Cómo armo una oferta con un modelo de monetización que me deje caja?', { sinPlata: true, referente: 'hormozi' });
   const sinReferente = await paqueteParaElTurno('¿Cómo armo una oferta con un modelo de monetización que me deje caja?', { sinPlata: true });
   const deOffer = await cursoDelReferente('hormozi', '¿Cómo armo una oferta con un modelo de monetización que me deje caja?', 12_000);
-  // Su Second Brain, como lo arma la ruta (`?cerebroDe=`): el curso más largo, acomodado y sin el texto de las clases.
-  const { layoutCerebro } = await import('../lib/cerebro-layout');
+  // Su Second Brain, como lo arma la ruta (`?cerebroDe=`): el curso más largo, con sus módulos de secciones (lib/cerebro-referente-vista.ts),
+  // acomodado y sin el texto de las clases.
+  const [{ layoutCerebro }, { vistaDeReferente }] = await Promise.all([import('../lib/cerebro-layout'), import('../lib/cerebro-referente-vista')]);
   const largo = await cursoDe('marc-verdu');
-  const nodos = (largo?.capa.nodos ?? []).map(({ cuerpo: _sinTexto, ...n }) => n);
+  const vista = largo ? vistaDeReferente(largo.a, largo.capa) : null;
+  const nodos = vista?.nodos ?? [];
   const t2 = performance.now();
-  const { posiciones } = layoutCerebro(nodos, largo?.capa.aristas ?? []);
-  const grafo = { nodos: nodos.length, posiciones: Object.keys(posiciones).length, ms: Math.round(performance.now() - t2), kb: Math.round(JSON.stringify({ nodos, aristas: largo?.capa.aristas, posiciones }).length / 1024) };
+  const { posiciones } = layoutCerebro(nodos, vista?.aristas ?? []);
+  const grafo = { nodos: nodos.length, modulos: nodos.filter((n) => n.id.startsWith('n1:')).length, posiciones: Object.keys(posiciones).length, ms: Math.round(performance.now() - t2), kb: Math.round(JSON.stringify({ ...vista, posiciones }).length / 1024) };
   process.stdout.write(`${JSON.stringify({ gurus, releidas, delCliente: { conCurso: delCliente.includes('EL CURSO DE ALEX HORMOZI'), conTramos: delCliente.includes('LO QUE DICE SOBRE ESTA PREGUNTA:'), largo: delCliente.length }, sinReferente: sinReferente.includes('EL CURSO DE'), deOffer: { conCurso: deOffer.includes('EL CURSO DE ALEX HORMOZI'), largo: deOffer.length }, tarde: { ms: tardeMs, vacio: tarde === '' }, grafo })}\n`);
   process.exit(0);
 })().catch((e) => { process.stderr.write(String(e?.stack ?? e)); process.exit(1); });

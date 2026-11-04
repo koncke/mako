@@ -777,3 +777,29 @@ quedaba es el de copiarlo: «Copiar su sitio» (abre el Web Generator con `?anal
 común). La animación arranca con todas las miniaturas ya bajadas (o a los 8 s: las que no llegaron entran con su
 texto), y la miga, las pestañas y sus redes aparecen recién al terminar. Las carpetas son los tipos de contenido, no
 «Videos · Probado».
+
+## 13. La caricatura, sola (4/11/2026)
+
+> Martín, 4/11 (por el Cerebro): «me traje a @den.borgg y no me hizo la caricatura como habíamos quedado... Eso debe
+> hacerse en segundo plano de manera automática».
+
+La pantalla le pide a `/api/competitor-spy/caricatura` un paso por vez para cada competidor sin caricatura, de a uno y
+cada 15 s mientras esté en marcha (`lib/spy-caricatura-auto.ts`, con los pasos en `lib/spy-caricatura-reglas.ts`):
+
+1. **Rasgos:** la IA DEL NEGOCIO mira su foto y dice en una línea, en inglés, qué distingue su cabeza (pelo, barba,
+   lentes…). Es lo único que cambia por persona en el prompt aprobado (`promptDeCaricatura`). Sin una cara, no se insiste.
+2. **Cara:** la foto sube a Flow (`caraDelCompetidor`).
+3. **Pedido:** `generar_imagen` por la cola de Flow, con una ruta que la cola le firma al puente (`rutaDeSubida`), así la
+   imagen vuelve a nuestro Storage y no como la url de Flow, que vence en una hora.
+4. **Lista:** se copia al bucket de Spy y se anota en `spy.caricaturas` (app_settings del negocio; sin migración). La
+   tarjeta la usa antes que la caricatura dibujada de un referente y que la foto.
+
+**No se hace** para un referente (sus 22 están dibujadas y aprobadas), sin foto, en la prueba gratis (gastaría una de sus
+imágenes sin pedirlo) ni sin el puente de Flow listo (el pedido quedaría en la cola para siempre). Un pedido que nadie
+toma en 15 minutos se cierra; dos fallos de Flow y se queda con su foto.
+
+**Lo que cuesta:** la imagen, 0 créditos de Flow (`TOPE_CREDITOS.imagen`); los rasgos, una lectura de una foto con la IA
+del negocio.
+
+**Lo que hace falta para que corra en un negocio:** la extensión de MaKo conectada y Google Flow abierto en ese
+navegador (el mismo requisito que el AI Avatar). Sin eso la tarjeta sigue con la foto, sin aviso.
