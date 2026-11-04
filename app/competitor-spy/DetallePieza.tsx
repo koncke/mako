@@ -17,6 +17,8 @@
 
 import { useState } from 'react';
 import { Icon } from '../_components/icons';
+import { BrandDefs } from '../_components/ServicioVisual';
+import { LogoRed, redDePieza } from './LogoRed';
 import { Modal } from '@/app/_ui/Modal';
 import { useRouter } from '@/app/_ui/Link';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -46,6 +48,7 @@ const CSS = `
 .spyd-vivo i{width:7px;height:7px;border-radius:50%;background:var(--primary);animation:spydLatido 1.1s ease-in-out infinite}
 @keyframes spydLatido{50%{opacity:.25}}
 @media (prefers-reduced-motion:reduce){.spyd-vivo i{animation:none}}
+.spyd-red{display:inline-flex;align-items:center;gap:8px}
 @media (max-width:720px){.spyd{grid-template-columns:1fr}.spyd-media{max-height:48vh}}
 `;
 
@@ -107,14 +110,19 @@ export function DetallePieza({ p, nombre, todas, analizando, onCerrar }: {
   return (
     <Modal
       titulo={p.titulo || a?.gancho || `Una pieza de ${nombre}`}
-      encabezado={[puesto, RED[p.canal]].filter(Boolean).join(' · ')}
+      encabezado={(
+        <span className="spyd-red">
+          {redDePieza(p.canal) && <LogoRed red={redDePieza(p.canal)!} box={16} />}
+          {[RED[p.canal], puesto].filter(Boolean).join(' · ')}
+        </span>
+      )}
       ancho={900}
       alto="min(88vh, 760px)"
       onCerrar={onCerrar}
       pie={(
         <>
           {copiada && <span className="spyd-vivo" aria-live="polite">Copiada</span>}
-          {p.url && <a className="mk-btn" href={p.url} target="_blank" rel="noreferrer noopener">Ver en {RED[p.canal] ?? 'su red'}</a>}
+          {p.url && <a className="mk-btn" href={p.url} target="_blank" rel="noreferrer noopener">{redDePieza(p.canal) && <LogoRed red={redDePieza(p.canal)!} box={16} />}Ver en {RED[p.canal] ?? 'su red'}</a>}
           <button type="button" className="mk-btn mk-btn--primary" disabled={copiando} onClick={() => void copiar()}>
             <Icon name="copy" size={14} /> {copiando ? 'Copiando…' : 'Copiar estructura'}
           </button>
@@ -122,6 +130,7 @@ export function DetallePieza({ p, nombre, todas, analizando, onCerrar }: {
       )}
     >
       <style>{CSS}</style>
+      <BrandDefs />
       <div className="spyd">
         <div className="spyd-media" data-ancho={esVideoYt}>
           {esVideoYt

@@ -11,7 +11,8 @@
 //   - tomarUnaVez sin `wx` → «sólo el primer chat» y «dos corridas»;
 //   - alAbrir sin mirar el nombre → «un Runner no se encarga a sí mismo»;
 //   - contar toda corrida de la guardia como Runner → «la corrida de la guardia, con su nombre»;
-//   - no anotar quién tomó el puesto → «la corrida que tomó el puesto»;
+//   - no anotar quién tomó el puesto → «la corrida que tomó el puesto» y «corridas»;
+//   - corridas sin mirar la última actividad o lo archivado → «corridas»;
 //   - alAbrir sin mirar el origen → «al compactar» y «por el hook de verdad»;
 //   - el hook sin pasarle el origen → «por el hook de verdad».
 // Y un cambio sin efecto (renombrar una variable local) lo deja verde.
@@ -68,7 +69,7 @@ function pc() {
   };
   const guardia = (cuenta = 'claude5', uuid = UUID_5) => writeFileSync(join(app, uuid, ORG, 'scheduled-tasks.json'), JSON.stringify({ scheduledTasks: [{ id: `runner-guardia-${cuenta}`, enabled: true }] }));
   const leerMarcador = () => readFileSync(marcador, 'utf8').trim();
-  return { correr, chat, chatVivo, latido, guardia, leerMarcador, dir };
+  return { correr, chat, chatVivo, latido, guardia, leerMarcador, dir, app };
 }
 
 const MIN = 60_000;
@@ -216,6 +217,23 @@ test('un Runner o una corrida de la guardia no se encargan a sí mismos', () => 
     writeFileSync(join(p.dir, '..', 'sessions', '777.json'), JSON.stringify({ name: nombre }));
     assert.doesNotMatch(p.correr('al-abrir', { CLAUDE_PID: '777' }), /NO HAY RUNNER|NO TIENE LA GUARDIA/, nombre);
   }
+});
+
+test('corridas: las terminadas de la guardia, sin el Runner, sin las activas y sin chats ajenos', () => {
+  const p = pc();
+  const viejo = Date.now() - 30 * MIN;
+  const chatDe = (n: number, title: string, lastActivityAt: number, extra = {}) => {
+    const id = `local_00000000-0000-4000-8000-00000000001${n}`;
+    writeFileSync(join(p.app, UUID_5, ORG, `${id}.json`), JSON.stringify({ title, lastActivityAt, ...extra }));
+    return id;
+  };
+  const terminada = chatDe(1, 'Guardia > Runner', viejo);
+  chatDe(2, 'Guardia > Runner', Date.now());
+  chatDe(3, 'Guardia > Runner', viejo, { isArchived: true });
+  chatDe(4, 'Cerebro', viejo);
+  const puesto = chatDe(5, 'Guardia > Runner', viejo);
+  assert.equal(p.correr('tomar', { CLAUDE_CODE_HOST_SESSION_ID: puesto }), 'TOMADO');
+  assert.deepEqual(JSON.parse(p.correr('corridas')), [terminada]);
 });
 
 test('dos corridas de la guardia no levantan dos Runners', () => {
