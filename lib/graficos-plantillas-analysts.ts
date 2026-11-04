@@ -323,40 +323,54 @@ const PRODUCTIVIDAD: PlantillaHoja = {
   }),
 };
 
-// ── VSL Analyst (v5, punto 22) ───────────────────────────────────────────────────────────────
-// Todo sale del PIXEL (vsl_events, su resumen y los leads con visitor_id), nada de Panda ni YouTube: las vistas
-// de `negocio` salen de una tabla que sólo tiene un cliente. Sin `comparar` en los números del video: cada uno
+// ── VSL y YouTube (v5, punto 22; se llama así desde el 4/11/2026) ─────────────────────────────
+// Lo del video sale del PIXEL (vsl_events, su resumen y los leads con visitor_id). Las vistas y su costo salen de
+// `negocio` (YouTube del video marcado VSL más los plays de Panda), que hoy sólo tiene un cliente: para los demás
+// esos dos números quedan sin dato. Sin `comparar` en los números del video: cada uno
 // sería una lectura más de los eventos, que es lo más pesado del Dashboard (hallazgos-graficos.md, «La hoja
 // Landing tardaba 51 s»).
 
 const VSL: PlantillaHoja = {
-  id: 'vsl-analyst', nombre: 'VSL Analyst', emoji: '🎥',
+  // 4/11/2026 — se llama «VSL y YouTube» (docs/templates-dashboard-propuesta.md §7.3): la MISMA forma que Hooks y retención, con otra
+  // fuente. Pregunta «¿quién llega al final y ésos compran más?». Las vistas del VSL ya suman las de YouTube (el video marcado VSL) y los
+  // plays de Panda (`negocio.vistas_vsl`), con su costo. El id sigue siendo `vsl-analyst`: las hojas guardadas y /vsl-analyst lo usan.
+  id: 'vsl-analyst', nombre: 'VSL y YouTube', emoji: '🎥', buscar: 'VSL Analyst video de ventas',
   linea: 'Quién le da play a tu video, dónde se va, y si los que lo ven más agendan y compran más.',
   armar: (id: Id) => ({
-    id: id('vsl-analyst'), nombre: 'VSL Analyst', emoji: '🎥', subtitulo: 'Tu video de ventas: quién lo ve, hasta dónde, y qué pasa después.',
+    id: id('vsl-analyst'), nombre: 'VSL y YouTube', emoji: '🎥', subtitulo: 'Tu video de ventas: quién lo ve, hasta dónde, y qué pasa después.',
     controles: [
       { id: id('vs-periodo'), tipo: 'periodo', preset: 'ult30' },
       lista(id('vs-pagina'), 'pagina'),
       lista(id('vs-video'), 'video'),
     ],
     componentes: [
+      {
+        // Sin `comparar`: cada comparación es una lectura más de los eventos del video, lo más pesado del Dashboard.
+        id: id('vs-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'retencion_vsl', metricas: ['arrancaron', 'llegaron_final'],
+        titulo: 'Tu video', frase: '{arrancaron} personas le dieron play · {llegaron_final} lo vieron entero',
+        ir: 'web-generator', x: 0, y: 0, w: 12, h: 3,
+      },
       // COMPOSICIÓN DEL 31/10/2026: play, llegan al final, agendan. La curva es LA forma del dato (sube a portada); el embudo de los
       // mismos cortes se fue, y las tasas por video viven como columnas. La caja de MaKo va al pie: arriba tapaba la pregunta.
-      kpi(id('vs-final'), 'retencion_vsl', 'tasa_final', 'Llegan al final', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
-      kpi(id('vs-play'), 'retencion_vsl', 'arrancaron', 'Le dieron play', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('vs-play-rate'), 'vsl', 'play_rate', 'Le dan play', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('vs-agendaron'), 'vsl', 'agendaron', 'Agendaron', '', 9, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('vs-final'), 'retencion_vsl', 'tasa_final', 'Llegan al final', '', 0, 3, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('vs-vistas'), 'negocio', 'vistas_vsl', 'Vistas del VSL', '', 3, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('vs-costo-vista'), 'negocio', 'costo_vsl', 'Costo por vista', '', 6, 3, { tipo: 'numero_tendencia', ir: 'ads-manager' }),
+      kpi(id('vs-agendaron'), 'vsl', 'agendaron', 'Agendaron', '', 9, 3, { tipo: 'numero_tendencia', ir: 'crm' }),
       // La curva de la tab vieja (el bloque curva_vsl): cuántos siguen en cada corte del video.
-      { id: id('vs-curva'), clase: 'grafico', tipo: 'area', fuente: 'retencion_vsl', dimension: 'corte', metricas: ['siguen'], titulo: 'Dónde se van', x: 0, y: 4, w: 12, h: 10 },
+      { id: id('vs-curva'), clase: 'grafico', tipo: 'area', fuente: 'retencion_vsl', dimension: 'corte', metricas: ['siguen'], titulo: 'Dónde se van', x: 0, y: 7, w: 12, h: 10 },
       {
         id: id('vs-tramos'), clase: 'grafico', tipo: 'columnas', fuente: 'vsl_leads', fecha: 'alta', dimension: 'tramo_visto', metricas: ['leads', 'agendas', 'cierres'],
-        titulo: '¿Los que más ven, más compran?', x: 0, y: 14, w: 7, h: 10,
+        titulo: '¿Los que más ven, más compran?', x: 0, y: 17, w: 7, h: 10,
       },
       {
         id: id('vs-videos'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'retencion_vsl', dimension: 'video', metricas: ['arrancaron', 'tasa_25', 'tasa_50', 'tasa_final'],
-        ordenMetrica: 'arrancaron', barra: 'arrancaron', titulo: 'Por video', x: 7, y: 14, w: 5, h: 10,
+        ordenMetrica: 'arrancaron', barra: 'arrancaron', titulo: 'Por video', x: 7, y: 17, w: 5, h: 10,
       },
-      caja(id('vs-ia'), 'Qué dice tu video', 'En qué parte del video se va la gente, y si los que lo ven más agendan más', 0, 24, 12, 6),
+      {
+        id: id('vs-vistas-semana'), clase: 'grafico', tipo: 'columnas', fuente: 'negocio', dimension: 'semana', metricas: ['vistas_vsl'],
+        titulo: 'Vistas por semana', x: 0, y: 27, w: 12, h: 8,
+      },
+      caja(id('vs-ia'), 'Qué dice tu video', 'En qué parte del video se va la gente, y si los que lo ven más agendan más', 0, 35, 12, 6),
     ],
   }),
 };
