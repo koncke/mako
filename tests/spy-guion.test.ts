@@ -92,7 +92,8 @@ async function unaVez(d: Doble, ahora: number) {
 test('1. sólo un reel de Instagram tiene guion, con su enlace', () => {
   assert.equal(tieneGuion({ canal: 'instagram', tipo: 'reel' }), true);
   assert.equal(tieneGuion({ canal: 'instagram', tipo: 'publicacion' }), false, 'una imagen no tiene voz');
-  assert.equal(tieneGuion({ canal: 'youtube', tipo: 'video' }), false, 'YouTube no tiene una forma permitida (ver la cabecera)');
+  assert.equal(tieneGuion({ canal: 'youtube', tipo: 'video', ref: 'AbCdEfGhIj0' }), true, 'YouTube lo transcribe Gemini (tests/spy-guion-youtube.test.ts)');
+  assert.equal(tieneGuion({ canal: 'youtube', tipo: 'video' }), false, 'sin su id no hay enlace');
   assert.equal(tieneGuion({ canal: 'anuncios', tipo: 'anuncio' }), false);
   assert.equal(enlaceDeLaPublicacion({ url: ENLACE, ref: 'x' }), ENLACE);
   assert.equal(enlaceDeLaPublicacion({ url: null, ref: 'DAbc123xyz' }), 'https://www.instagram.com/p/DAbc123xyz/');

@@ -9,21 +9,23 @@
 //   POST { piezaId } → { ok, guion: VistaGuion }
 //
 // ⚠️ LA IA ES LA DEL NEGOCIO, adentro de `conSuIADelNegocio` (D6b), y el video lo pide la clave de Spy del negocio con su tope
-// del día. Sin una o la otra no se reclama nada y la pantalla dice cuál falta.
+// del día. Sin una o la otra no se reclama nada y la pantalla dice cuál falta. Un video de YouTube no pide la clave de Spy: lo
+// transcribe el Gemini del negocio desde su enlace, y «¿tiene Gemini?» se pregunta también adentro de `conSuIADelNegocio`
+// (un negocio con su Claude o su GPT no manda nada a Gemini).
 // =============================================================================
 
 import { after, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { claveDeIAPropia, conSuIADelNegocio } from '@/lib/ia-del-negocio';
-import { cheapDisponible } from '@/lib/ai-cheap';
+import { cheapDisponible, provsDe } from '@/lib/ai-cheap';
 import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import { asegurarGuion } from '@/lib/spy-transcripcion-servidor';
 import { tieneClaveDeSpy } from '@/lib/spy-todo';
 import { getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
-/** Traer el video (hasta 100 s), bajarlo y escucharlo. */
-export const maxDuration = 300;
+/** Traer el video (hasta 100 s), bajarlo y escucharlo; o los tramos de un video de YouTube, de a uno (hasta 3 × 170 s). */
+export const maxDuration = 800;
 
 export async function POST(req: NextRequest) {
   // La misma puerta que la pantalla (`requireRolWs([], { nav: 'market-an' })`): esto gasta la IA y la clave del negocio.
@@ -41,7 +43,9 @@ export async function POST(req: NextRequest) {
   const hayClave = await tieneClaveDeSpy(ws);
   let r: Awaited<ReturnType<typeof asegurarGuion>>;
   try {
-    r = await asegurarGuion(ws, piezaId, { hayIA, hayClave });
+    // «No pude leer» no es «no tiene»: un fallo acá es un 500 (la pantalla no dibuja el bloque), nunca un «Conecta tu Gemini».
+    const hayGemini = () => runWithWorkspace(ws, () => conSuIADelNegocio(ws, async () => (await provsDe('gemini')).length > 0));
+    r = await asegurarGuion(ws, piezaId, { hayIA, hayClave, hayGemini });
   } catch (e) {
     return Response.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }

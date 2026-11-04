@@ -20,6 +20,8 @@ import {
 } from '@/lib/spy';
 import { nombresDe } from '@/lib/landing-snapshot';
 import { marcarActosSpy } from '@/lib/spy-actos';
+import { anotarPasos, claveLectura, marcaValida, type PasoLectura } from '@/lib/spy-lectura-pasos';
+import { setSetting } from '@/lib/settings';
 import { sugeridosDelNegocio, sumarSugeridoAlNegocio, type Sugerido } from '@/lib/spy-sugeridos-server';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import type { CanalSpy, EtapaTendencia } from '@/lib/spy-reglas';
@@ -179,11 +181,16 @@ export async function sumarCanalAction(id: number, pegado: string): Promise<{ ok
  * diario. El botón «Revisar ahora» va SIEMPRE sin motivo —o sea `'a-pedido'`— porque quien lo toca
  * está mirando y pide datos de hoy.
  */
-export async function revisarAction(id: number, motivo?: 'alta' | 'rutina'): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
+export async function revisarAction(id: number, motivo?: 'alta' | 'rutina', marca?: string): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
   const no = await soloMiembro();
   if (no) return { ok: false, canales: [], error: no };
   try {
-    const r = await mirarCompetidor(id, motivo ?? 'a-pedido');
+    // Con una marca, cada canal anota su paso para la pantalla del alta (lib/spy-lectura-pasos.ts, /api/competitor-spy/lectura).
+    const hechos: PasoLectura[] = [];
+    const alPaso = marcaValida(marca)
+      ? (p: PasoLectura) => { hechos.push(p); return setSetting(claveLectura(id), anotarPasos(marca, hechos, Date.now())); }
+      : undefined;
+    const r = await mirarCompetidor(id, motivo ?? 'a-pedido', alPaso);
     if (r.ok) await marcarActosSpy(['spy_primero', 'spy_canales', 'spy_lectura']);
     return r;
   } catch (e) {

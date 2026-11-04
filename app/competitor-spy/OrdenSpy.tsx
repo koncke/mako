@@ -28,10 +28,11 @@ import { NOMBRE_CANAL } from '@/lib/spy-reglas';
 import { miniaturaDePieza } from '@/lib/spy-vista';
 import type { PiezaVista } from './actions';
 import { espera, precargarTodas, quieto } from './precarga';
+import { TEXTO_PASO, type PasoLectura } from '@/lib/spy-lectura-pasos';
 
 const CSS = `
 .spyo{position:relative;display:flex;flex-direction:column;gap:12px;min-height:max(540px,calc(100dvh - 210px))}
-.spyo[data-lista='false'] > :not(.cm-carga){visibility:hidden}
+.spyo[data-lista='false'] > :not(.cm-carga):not(.spyo-pasos){visibility:hidden}
 .spyo-cab{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .spyo-titulo{margin:0;font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
 .spyo-titulo em{font-family:Georgia,'Times New Roman',serif;font-weight:500;color:var(--primary)}
@@ -63,7 +64,19 @@ const CSS = `
 .spyo-fin p{margin:0;font-size:clamp(26px,4vw,42px);font-weight:800;letter-spacing:-.03em;color:var(--ink)}
 .spyo-fin i{display:inline-block;width:3px;height:.9em;margin-left:3px;vertical-align:-.08em;background:var(--primary);animation:spyoLatido .7s steps(2) infinite}
 @keyframes spyoLatido{50%{opacity:.25}}
-@media (prefers-reduced-motion:reduce){.spyo-estado i,.spyo-fin i{animation:none}}
+.spyo-pasos{position:absolute;left:50%;top:calc(50% + 76px);transform:translateX(-50%);z-index:21;margin:0;padding:0;list-style:none;
+  display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+.spyo-paso{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap;
+  animation:spyoPasoEntra .44s cubic-bezier(.2,.8,.2,1) both}
+.spyo-paso[data-estado='hecho']{color:var(--faint);font-weight:500;font-size:13px}
+.spyo-paso svg{flex:none;color:var(--good)}
+.spyo-paso[data-estado='ahora'] i{width:7px;height:7px;border-radius:50%;background:var(--primary);flex:none;animation:spyoLatido 1.1s ease-in-out infinite}
+.spyo-paso[data-estado='ahora'] span{background:linear-gradient(100deg,var(--dim) 20%,var(--ink) 45%,var(--dim) 70%);background-size:240% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;animation:spyoBrillo 1.8s linear infinite}
+@keyframes spyoPasoEntra{from{opacity:0;transform:translateY(6px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+@keyframes spyoBrillo{from{background-position:120% 0}to{background-position:-20% 0}}
+@media (prefers-reduced-motion:reduce){.spyo-estado i,.spyo-fin i,.spyo-paso,.spyo-paso i,.spyo-paso span{animation:none}
+  .spyo-paso[data-estado='ahora'] span{background:none;color:var(--ink)}}
 @media (max-width:640px){.spyo-numero{padding:8px 10px}.spyo-numero b{font-size:17px}.spyo-titulo{font-size:18px}}
 `;
 
@@ -78,11 +91,13 @@ function formatos(carpetas: readonly CarpetaOrden[]) {
   return carpetas.map((c) => ({ tipo: c.clave, rotulo: c.rotulo, cs: [c] }));
 }
 
-export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
+export function PeliculaDeOrden({ nombre, piezas, onTerminar, pasos = [] }: {
   nombre: string;
   /** null = todavía se está leyendo. */
   piezas: readonly PiezaVista[] | null;
   onTerminar: () => void;
+  /** Lo que la lectura hizo hasta ahora, en orden; el último es el que está haciendo (lib/spy-lectura-pasos.ts). */
+  pasos?: readonly (PasoLectura | 'piezas')[];
 }) {
   const escena = useRef<HTMLDivElement>(null);
   const mundo = useRef<HTMLDivElement>(null);
@@ -214,7 +229,26 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
   return (
     <div className="spyo" aria-live="polite" data-lista={lista}>
       <style>{CSS}</style>
-      {!lista && <CargandoMako cubre que={`lo que publica ${nombre}`} size={88} />}
+      {/* Sobre el FONDO de la página, no sobre una caja: `cubre` pinta --surface y acá se veía un bloque de otro color detrás de
+          MaKo (Martín, 4/11/2026). Lo de abajo ya está oculto (`visibility`), así que no hace falta tapar nada. */}
+      {!lista && <CargandoMako cubre que={`lo que publica ${nombre}`} size={88} style={{ backgroundColor: 'transparent' }} />}
+      {/* Lo que está haciendo, y lo que ya hizo: sólo lo que pasa de verdad. El último es el de ahora. */}
+      {!lista && pasos.length > 0 && (
+        <ol className="spyo-pasos" aria-label="Lo que estoy leyendo">
+          {pasos.slice(-4).map((p, i, l) => {
+            const ahora = i === l.length - 1;
+            return (
+              <li key={p} className="spyo-paso" data-estado={ahora ? 'ahora' : 'hecho'}>
+                {ahora
+                  ? <i aria-hidden />
+                  : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12.5l4.2 4.2L19 7" /></svg>}
+                {/* Lo hecho, sin los puntos suspensivos: ya no está pasando. */}
+                <span>{ahora ? TEXTO_PASO[p] : TEXTO_PASO[p].replace(/…$/, '')}</span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
       <div className="spyo-cab">
         <h2 className="spyo-titulo">Ordenando lo que publica <em>{nombre}</em></h2>
         <span className="spyo-estado"><i />{ESTADO[fase]}</span>
