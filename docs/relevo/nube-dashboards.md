@@ -1,6 +1,14 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~20:00 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~20:25 UTC)
+
+- **Landing está en producción.** Entró a main a las 20:11 (`cbe8c2f6d`, la punta `dash-landing` tal cual, con su veredicto: 7.035 tests y
+  el tsc entero); el deploy promovido de las 20:11 la contiene. El primer veredicto dio un rojo de verdad: la guarda del voseo encontró
+  «acá» en los tres vacíos de la hoja, y se cambió por «aquí» antes de subir.
+- **Lo próximo es Chat Analyst (la copia de Parley).** «Instagram y redes», que va antes en la tabla, no tiene plantilla en el código: queda
+  para cuando la tenga.
+
+### Lo de las ~20:00 UTC
 
 - **Landing (la copia de Corbel) va en `punta/dash-landing`**: la sección de abajo. Es la novena hoja copiada. Suma dos dimensiones a la
   fuente `visitas` (el día de la semana y la franja horaria, con la zona del negocio) para el «Cuándo entran» de Corbel.
