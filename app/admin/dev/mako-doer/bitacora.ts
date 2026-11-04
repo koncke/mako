@@ -831,6 +831,18 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '4 nov', hora: '13:20', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Una pregunta a MaKo ya no se queda en el 👍',
+    revisar: '/second-brain',
+    puntos: [
+      '**Lo que vio Martín con Joan:** «mako estas vivo?» en el grupo de Código Inmobiliario recibía sólo el 👍. La IA lo leía como charla.',
+      '**Ahora:** si el mensaje nombra a MaKo, lo menciona o lo cita, y pregunta algo, MaKo contesta, corto. En WhatsApp y en la app.',
+      '**Sigue igual:** «MaKo, gracias» y «bien ahí» se quedan en el 👍, y «Juan, ¿venís?» en silencio.',
+    ],
+    archivos: ['lib/doer-para-quien.ts — `preguntaAMaKo` · lib/mako-doer-in.ts — después del clasificador', 'tests/grupos-ops-turno.test.ts (el turno real, tres roturas) · tests/doer-para-quien.test.ts'],
+  },
+  {
     fecha: '4 nov', hora: '13:30', chat: 'Tickets en la nube', sesion: 'cli_c395d4ca-9c38-5214-ae30-582fa23cf9c4', cuenta: 'nube',
     actor: 'claude', tipo: 'correccion',
     titulo: 'MaKo te da la lista de los leads de una campaña, con nombre y teléfono',

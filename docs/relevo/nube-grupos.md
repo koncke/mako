@@ -84,6 +84,15 @@ Cada arreglo, probado rompiéndolo: los números están al pie de cada test. Lo 
 
 ## Lo que sigue abierto
 
+- **El 4/11 a la tarde entraron dos arreglos más:**
+  - El ticket #55: dentro de la cuenta de un cliente, la agencia ve sólo el grupo de ese cliente.
+  - «mako estas vivo?» ya no se queda en el 👍: una pregunta que le habla a MaKo se contesta (`preguntaAMaKo`).
+- **El espejo y la respuesta del Cerebro a Joan (ws13, 12:55 UTC) quedaron como `persona`, y no se cambió.** El espejo ya marca
+  como `mako` un `fromMe` de la línea PROPIA de MaKo. Si la voz es una línea `mako_ws<n>`, es el teléfono de una persona, y ahí
+  un `fromMe` puede ser ella escribiendo. Un envío directo por Evolution no queda en el anillo de lo que mandó MaKo. Lo que lo
+  decide se mide en la base: el valor de `mako.voz.instancia` (ws1) y qué instancia recibió ese mensaje. Para que salga como
+  MaKo, se manda por `lib/mako-grupo.ts`.
+
 En `docs/hallazgos-ops-center.md`, las dos listas «Lo que quedó sin hacer» (las del 3 y el 4/11): la sesión real de un invitado
 (y si Joan y Juanfran comparten fila en `usuarios`), el push en un Android, el `?ws=` de `WsFetch` contra las rutas del grupo,
 el autollamado que se aborta a los 5 s en un arranque en frío, el id de WhatsApp atado por posición, y reacciones/fijar/eliminar.

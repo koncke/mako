@@ -5,7 +5,7 @@ Qué es cada pieza y cómo se crea la guardia: `~/.claude/operaciones/guardia-ru
 
 ## Lo que corre ahora
 
-- **El Runner activo es `local_184238c7…`** (Opus, pendiente de bajarlo: lo puede hacer el Cerebro, que lo abrió). Cron `f63e48ef` (vence el 11/11) y Monitor con `vigilar-continuo.sh`, que hay que rearmar en cada vencimiento. Recordatorios de una sola vez: `b5faee6f` (06/11, revisar el limbo) y `402bbd89` (10/11, rearmar el cron).
+- **El Runner activo es `local_184238c7…`** (Opus, pendiente de bajarlo: lo puede hacer el Cerebro, que lo abrió). Cron `46a48ccc` (vence el 11/11; desde el 04/11 también hace las caricaturas de Spy, sección en el LEEME) y Monitor con `vigilar-continuo.sh`, que hay que rearmar en cada vencimiento. Recordatorios de una sola vez: `b5faee6f` (06/11, revisar el limbo) y `402bbd89` (10/11, rearmar el cron).
 - **`local_bb1661c6…` («Guardia retirada») NO es el Runner:** la corrida que probó serlo y no pudo entregar. Sin cron ni Monitor, sin canal de mensajes. No se archivó.
 - **La guardia:** tarea programada `runner-guardia-claude5`, en modo Auto y con Haiku. Corre a los minutos 7, 27 y 47, y la app le suma ~10 minutos: en los hechos, a los 17, 37 y 57.
 - **`bitacora-sesion.sh` instalado:** al arrancar un chat, `runner-salud.mjs al-abrir` corrige el marcador con el uuid de la app. Copia anterior: `~/.claude/bitacora-sesion.sh.antes-04-11`.

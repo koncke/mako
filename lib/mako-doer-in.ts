@@ -52,7 +52,7 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo, textoPorIdDeWhatsApp } from '@/lib/mako-doer-conv';
-import { bloqueParaElEquipo, bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, paraAlguienDelEquipo, conLasRespuestas, esEcoDeMaKo, vozPropiaDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
+import { bloqueParaElEquipo, bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, paraAlguienDelEquipo, conLasRespuestas, esEcoDeMaKo, vozPropiaDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, preguntaAMaKo, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { quienEnElGrupo, SE_APRUEBAN_EN_LA_APP } from '@/lib/confirmacion-pura';
 import { cuentasDelCreditoDeLosGrupos, marcarCuentaDeLosGruposSinCredito } from '@/lib/credito-negocio';
 import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
@@ -1865,7 +1865,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const citadoSinAudio = audioCitadoDe(data as never) ? null : citaDelMensaje(data as never);
     const textoDeLaCita = citadoSinAudio ? await textoDeLaCitaDe(wsData, jid, citadoSinAudio) : null;
     const ctxCita = citadoSinAudio ? bloqueDeLaCita(textoDeLaCita) : '';
-    const { veredicto: intencion, clase: claseDeLaIA } = await clasificarConIA({
+    const { veredicto: delClasificador, clase: claseDeLaIA } = await clasificarConIA({
       texto,
       historial: [
         ...historial.slice(-6).map((r) => ({ rol: r.role === 'user' ? 'persona' as const : 'mako' as const, texto: typeof r.content === 'string' ? r.content : '' })),
@@ -1875,6 +1875,18 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       esSuperAdmin: esElGrupoDeLaPlataforma, escribeElDueno,
       pendiente: vigentes.length > 0, preguntaDelEquipo: null, quien: data.pushName ?? null,
     }, porReglas, clasificadorDelGrupo(sinPrefijoDeLote(texto).slice(0, 60)));
+    // ── UNA PREGUNTA A MaKo NO SE QUEDA EN EL 👍 (4/11/2026, Joan en el grupo de ws13: «mako estas vivo?» → la IA dijo charla → sólo
+    // el 👍) ── Si le habla a MaKo y pregunta algo (lib/doer-para-quien.ts, `preguntaAMaKo`), la charla o el «no es para MaKo» corre
+    // con la lectura de las reglas: contesta, corto. El «ok», el «gracias» y el «bien ahí» siguen en el 👍, y «Juan, ¿venís?» en silencio.
+    const callaria = delClasificador.intencion === 'charlar' || delClasificador.intencion === 'no_reply';
+    const leHabla = () => nombraAMaKo(textoDirecto) || nombraAMaKo(texto) || (quien.aMaKo && !lineaDelDueno) || !!data.paraQuien?.nombra;
+    const pregunta = callaria && preguntaAMaKo({
+      texto: sinPrefijoDeLote(texto), reglasConsultan: delMensaje.intencion === 'consultar' && !delMensaje.sinSenal,
+      leHabla: leHabla() || (await citaAMaKo(data)),
+    });
+    const intencion: VeredictoIntencion = pregunta
+      ? { ...porReglas, fuente: 'reglas', porque: `${porReglas.porque} · le pregunta a MaKo (la IA: ${delClasificador.porque})`.slice(0, 280) }
+      : delClasificador;
     // La decisión queda registrada (sin migración: el registro del gasto), con su porqué.
     void recordUsage('clase-doer', `clase:${intencion.intencion}`, {}, `ws${wsData} · ${intencion.fuente ?? 'reglas'} · ${intencion.porque}`.slice(0, 300), 'mako', 1).catch(() => {});
     // NO ES PARA MaKo: silencio.

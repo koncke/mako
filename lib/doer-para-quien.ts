@@ -25,6 +25,19 @@ const ACUSE_SIN_FIN = String.raw`(?:${PALABRA_ACUSE}|${SALUDO})(?:[\s,.!¡]+(?:$
 /** «Buendiaa», «Geniall», «Okk»: la letra repetida AL FINAL de una palabra (en el medio, «arranca», es la palabra). */
 const sinEstirar = (s: string): string => s.replace(/(\p{L})\1+(?=[^\p{L}]|$)/gu, '$1');
 
+/**
+ * ¿Le PREGUNTA algo a MaKo? (4/11/2026). Joan escribió «mako estas vivo?» en el grupo de un cliente, la IA lo leyó como charla, y
+ * se quedó en el 👍: la pregunta, sin respuesta. Una charla o un «no es para MaKo» que le HABLA a MaKo (lo nombra, lo @menciona o lo
+ * cita) y pregunta algo (un «¿» o un «?», o las reglas dicen `consultar` por una señal propia) se contesta, corto. La regla de Martín
+ * del 24/10 («basta con la reacción») sigue para el «ok», el «gracias» y el «bien ahí»: ésos no preguntan.
+ * ⚠️ El `consultar` del «sin señal clara» del grupo (`enElGrupoSinSenal`) NO cuenta: es un respaldo, y le daría consultar a «MaKo,
+ * gracias». Quien llama pasa la lectura de las reglas sobre el mensaje solo, sin ese respaldo.
+ */
+export function preguntaAMaKo(o: { texto: string; leHabla: boolean; reglasConsultan: boolean }): boolean {
+  if (!o.leHabla) return false;
+  return /[¿?？]/u.test(o.texto || '') || o.reglasConsultan;
+}
+
 export function esAcusePuro(texto: string): boolean {
   return ACUSE_PURO.test(sinEstirar((texto || '').trim()));
 }
