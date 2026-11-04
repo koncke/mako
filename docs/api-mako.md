@@ -7083,10 +7083,11 @@ curl -L \
   "https://hola-mako.com/api/v1/email/broadcasts/ID"
 ```
 
-### `GET /api/v1/email/ver_newsletter` — El newsletter del negocio
+### `GET /api/v1/email/newsletter` — El newsletter del negocio
 
 El newsletter: cada cuánto sale y de qué trata, su CRM de suscriptos (cuántos hay en Suscripto, Lee, Dormido, Dado de baja y Compró), las ediciones (id, asunto, estado, fecha, y enviados, aperturas, clics y bajas de las que salieron), la fecha que MaKo propone para la próxima y si el envío real está prendido. Úsala cuando pregunten por el newsletter, sus suscriptos o cómo rindió una edición. Una edición es un broadcast: con su id, ficha_broadcast trae el copy entero.
 
+- **Ruta por operación:** `GET /api/v1/email/ver_newsletter`
 - **Token detallado:** permiso `email=read` (Solo lectura en «Email»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
@@ -7098,7 +7099,11 @@ El newsletter: cada cuánto sale y de qué trata, su CRM de suscriptos (cuántos
 _Sin parámetros._
 
 ```bash
-
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/email/newsletter"
 ```
 
 ### `GET /api/v1/email/segmentos` — Segmentos de broadcast con conteo
@@ -7325,10 +7330,11 @@ curl -L \
   "https://hola-mako.com/api/v1/email/dominio-envio/verificaciones"
 ```
 
-### `POST /api/v1/email/configurar_newsletter` — Configurar el newsletter
+### `PATCH /api/v1/email/newsletter` — Configurar el newsletter
 
 Propone fijar cada cuánto sale el newsletter del negocio, de qué trata y cuántas ediciones seguidas sin abrir pasan a alguien a «Dormido». Con la frecuencia y el tema puestos, crea el CRM «Newsletter» de los suscriptos si todavía no existe (etapas Suscripto, Lee, Dormido, Dado de baja y Compró). Solo toca lo que se mande. No manda nada. El newsletter NO es una automatización: las ediciones se crean con crear_edicion_newsletter.
 
+- **Ruta por operación:** `POST /api/v1/email/configurar_newsletter`
 - **Token detallado:** permiso `email=write` (Lectura y escritura en «Email»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -7347,13 +7353,19 @@ Propone fijar cada cuánto sale el newsletter del negocio, de qué trata y cuán
 | `dormido_tras` | number | no | Cuántas ediciones seguidas sin abrir pasan a un suscripto a «Dormido». Sin mandar: 3. |
 
 ```bash
-
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/email/newsletter"
 ```
 
-### `POST /api/v1/email/crear_edicion_newsletter` — Crear una edición del newsletter
+### `POST /api/v1/email/newsletter/ediciones` — Crear una edición del newsletter
 
 Propone crear una edición del newsletter en BORRADOR, para todo el CRM «Newsletter» (menos las bajas) o para una etapa. No manda nada: después se prueba con enviar_prueba_broadcast, se programa con programar_broadcast (queda en el Calendario) o se envía con enviar_broadcast, con el id que devuelve. Sale desde el dominio del negocio. Pide el newsletter configurado (configurar_newsletter).
 
+- **Ruta por operación:** `POST /api/v1/email/crear_edicion_newsletter`
 - **Token detallado:** permiso `email=write` (Lectura y escritura en «Email»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -7373,7 +7385,14 @@ Propone crear una edición del newsletter en BORRADOR, para todo el CRM «Newsle
 | `etapa` | string (lead \\| nl_lee \\| nl_dormido \\| ganado) | no | Sólo a una etapa del CRM: lead (Suscripto), nl_lee (Lee), nl_dormido (Dormido) o ganado (Compró). Sin mandar: a todos menos las bajas. |
 
 ```bash
-
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/email/newsletter/ediciones" \
+  -d '{"asunto":"ASUNTO","cuerpo":"CUERPO"}'
 ```
 
 ### `PUT /api/v1/email/secuencias/{id}/pasos` — Reescribir los emails de una secuencia
