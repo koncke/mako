@@ -8,7 +8,7 @@ import { esPublica } from './rutas-publicas';
 
 export const CON_CHAT_A_LA_VISTA = [
   '/second-brain', '/mako', '/mako-doer', '/admin/operaciones', // el Ops Center: es el chat
-  '/offer',                                                     // el Offer Coach
+  '/offer',                                                     // la tab Offer: su chat de la oferta
   '/copywriter', '/image-editor', '/video-editor', '/ai-avatar', // Create: el chat de MaKo fijo a la izquierda
   '/video-generator', '/web-generator',                         // sus estudios, con su chat
   '/automations',                                               // su chat en la lista

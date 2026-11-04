@@ -46,11 +46,13 @@ import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
 import { ElegirMuneco } from '@/app/admin/operaciones/ElegirMuneco';
 import { guardarMunecoAction } from '@/app/admin/operaciones/acciones';
-import { aspectoDe, aspectoDeReferente, elegidoPara, esCriaturaDeMako, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
-import { asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
+import { ASPECTO_MAKO, aspectoDe, aspectoDeReferente, elegidoPara, esCriaturaDeMako, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
+import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { GaleriaDeGurus } from '@/app/second-brain/GaleriaDeGurus';
-import { useGurusConCharla } from '@/app/second-brain/useCoaches';
+import { useCoaches, useGurusConCharla } from '@/app/second-brain/useCoaches';
 import { HojaDelGuru } from '@/app/m/second-brain/HojaDelGuru';
+import { HojaDelCoach } from '@/app/m/second-brain/HojaDelCoach';
+import { ORIGEN_FUNNEL_COACH } from '@/lib/chat-mako-reglas';
 import { HojaDelGrupo } from '@/app/m/second-brain/HojaDelGrupo';
 import { FilasDelGrupoM } from '@/app/m/second-brain/FilasDelGrupoM';
 import { useGrupos } from '@/app/_chat/grupo/useGrupos';
@@ -226,6 +228,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // El grupo de la plataforma (3/11/2026). `!parte`: en dos partes lo dibuja la lista del cliente, y esto no se pide.
   const grupos = useGrupos(!parte);
   const [grupo, setGrupo] = useState<number | null>(grupoInicial);
+  // El Funnel Coach (4/11/2026, el único coach: la oferta y el funnel), como en la computadora: su fila arriba de los gurús y su hoja.
+  const { referente, hayOferta, puedeElegir, elegirReferente } = useCoaches();
+  const delCoach = asesorPorId(referente);
+  const [conCoach, setConCoach] = useState(false);
   const [renombre, setRenombre] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ aspecto: Aspecto; guardando: boolean } | null>(null);
   const toast = useToastM();
@@ -447,12 +453,20 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
       )}
       {delGuru && <HojaDelGuru key={delGuru.id} referente={delGuru} onCerrar={() => setGuru(null)} />}
       {hojaDelGrupo}
+      {conCoach && <HojaDelCoach referente={referente} hayOferta={hayOferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onCerrar={() => setConCoach(false)} />}
       {conLista && (
         <SeccionM titulo={tituloChats}>
           <ListaM etiqueta={tituloChats}>
             {!parte && <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => setNuevoChat(true)} navegacion />}
             {/* Fijado, el primero de los chats (Martín: «que esté posicionado arriba»). */}
             {!parte && <FilasDelGrupoM g={grupos} abierto={grupo} onAbrir={setGrupo} />}
+            {/* El coach: la oferta y el funnel de SU negocio, en una hoja (HojaDelCoach.tsx). */}
+            {!parte && (
+              <FilaM chevron={false} leading={<Muneco titulo={delCoach?.nombre ?? 'MaKo'} aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" size={40} />}
+                titulo={<span className="m-operaciones-texto1">{ORIGEN_FUNNEL_COACH}</span>}
+                segunda={delCoach ? inspiradoEn(delCoach) : hayOferta ? 'Tu oferta y cómo conseguir clientes' : 'Empieza por tu oferta'}
+                onClick={() => { setGuru(null); setGrupo(null); setConCoach(true); }} />
+            )}
             {/* El historial de los gurús: esta lista es la de Claude Code, y sus chats no salen en ella. */}
             {!parte && gurusConCharla.map(({ id, at }) => {
               const g = asesorPorId(id);
@@ -460,7 +474,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 <FilaM key={id} chevron={false} leading={<Muneco titulo={g.nombre} aspecto={aspectoDeReferente(id)} animo="despierto" size={40} />}
                   titulo={<span className="m-operaciones-texto1">{g.nombre}</span>}
                   riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edad(at ? Date.parse(at) : null, ahora)}</span></span>}
-                  onClick={() => setGuru(id)} />
+                  onClick={() => { setConCoach(false); setGuru(id); }} />
               );
             })}
             {filas.map((f) => (f.tipo === 'mas'

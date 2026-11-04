@@ -298,6 +298,21 @@ export async function leerSesion(id: number): Promise<OfferSesionVista | null> {
   return f ? vistaSesion(f) : null;
 }
 
+/**
+ * ¿Hay alguna conversación de oferta con una oferta ARMADA? (4/11/2026, el coach único). El Funnel Coach abre con «Empecemos por tu
+ * oferta» sólo si no hay ninguna: quien la armó en una conversación de Offer y no la guardó como oferta del negocio no vuelve a
+ * empezar. Sólo la más reciente que tiene conclusiones (`conclusiones` nace `[]`, mig 0254), no las 60 de la lista. Tira si no pudo
+ * leer: quien llama lo trata como «no se sabe».
+ */
+export async function hayOfertaArmada(): Promise<boolean> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from(TABLA).select('conclusiones').neq('conclusiones', '[]')
+    .order('updated_at', { ascending: false }).order('id', { ascending: false }).limit(1);
+  if (error) throw fallo('mirar si hay una oferta armada', error.message);
+  const fila = ((data ?? []) as unknown as Array<Record<string, unknown>>)[0];
+  return fila != null && totalDe(fila.conclusiones) != null;
+}
+
 /** Contrato: las conversaciones del negocio, la más reciente primero. */
 export async function listarSesionesOffer(): Promise<OfferSesionResumen[]> {
   const db = await getTenantDb();

@@ -1,5 +1,12 @@
 # El Funnel Coach, el Offer Coach y qué hay para copiar (31/10/2026)
 
+> ⚠️ **Desde el 4/11/2026 hay UN solo coach.** Martín: «Junta a "Offer coach" con "Funnel Coach", que se quede solo
+> "Funnel coach" y que tenga ambas funcionalidades dentro... Por defecto, que esté la cara de hormozi». El Funnel Coach
+> trabaja primero la oferta y después el funnel, en un chat (lib/asesores/contexto.ts), con Hormozi al frente de fábrica;
+> las conversaciones de oferta cuelgan de su fila. Lo que este documento dice del «Offer Coach» es historia: el orden
+> oferta → funnel de §4 sigue valiendo, ahora adentro del mismo chat. Cómo se juntaron: docs/hallazgos-ops-center.md
+> («Juntar dos coaches»).
+
 **Esto es una decisión de producto de Martín, tomada en el chat del Cerebro el 31/10 a la noche, más el
 relevamiento de qué existe para copiar.** Se escribe acá porque una conversación de chat se pierde y esto
 define una tab entera. **Lo construido y lo que falta, en §10.**

@@ -349,10 +349,14 @@ export const ORIGEN_SECOND_BRAIN = 'Second Brain';
 export const TAB_VIDEO_GENERATOR = 'video-generator';
 export const ORIGEN_VIDEO_GENERATOR = 'Video Generator';
 /** Las tabs con una conversación propia por persona: lo único que acepta la ruta para crearla. */
-/** El Funnel Coach (1/11/2026, docs/funnel-coach.md): su fila está fija debajo del Ops Center, así que no se repite en el resto. */
+/**
+ * El Funnel Coach (1/11/2026, docs/funnel-coach.md): su fila está fija debajo del Ops Center, así que no se repite en el resto. Es el
+ * ÚNICO coach desde el 4/11/2026 (Martín: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach"»): trabaja la
+ * oferta y el funnel, y las conversaciones de oferta cuelgan de su fila. ⚠️ NO HAY OTRO ORIGEN DE COACH: un «Offer Coach» que vuelva a
+ * aparecer en una pantalla es una segunda puerta a lo mismo (tests/coaches-ops-center.test.ts lo frena).
+ */
 export const TAB_FUNNEL_COACH = 'funnel-coach';
 export const ORIGEN_FUNNEL_COACH = 'Funnel Coach';
-export const ORIGEN_OFFER_COACH = 'Offer Coach';
 export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN, TAB_VIDEO_GENERATOR, TAB_FUNNEL_COACH];
 
 // ── El chat con un GURÚ (3/11/2026, #16: «elegir un gurú desde Nuevo chat») ─────────────────────────────────────────
@@ -370,28 +374,20 @@ export function referenteDeTab(tab: string | null | undefined): IdAsesor | null 
 /** ¿Esta tab tiene una conversación propia por persona? Las de la lista fija y la de cada gurú (lo único que acepta la ruta). */
 export const esTabConChatPropio = (tab: string): boolean => TABS_CON_CHAT_PROPIO.includes(tab) || (!tab.includes(':') && referenteDeTab(tab) != null);
 
-/**
- * Qué abre tocar la fila del Offer Coach (3/11/2026, Martín: «Cuando le doy a "Hormozi" no se abre nada»). Con un gurú al frente, SU
- * chat, ahí mismo y aunque nunca le haya escrito: es lo que dice la fila. Sus conversaciones de Offer siguen debajo, cada una en su
- * fila. Sin gurú (eligió «MaKo»), la conversación de Offer más reciente; sin ninguna, elegir uno: la fila nunca es un clic muerto.
- */
-export function queAbreElOfferCoach(o: { referente: IdAsesor | null; offer: ElegidoChat | null }): { guru: IdAsesor } | { elegido: ElegidoChat } | { elegir: true } {
-  if (o.referente) return { guru: o.referente };
-  return o.offer ? { elegido: o.offer } : { elegir: true };
-}
-
 /** Un gurú con el que la persona ya habló: su conversación y cuándo fue lo último. */
 export type GuruConCharla = { id: IdAsesor; at: string | null };
 
 /**
- * Los gurús que van en la barra, debajo de los coaches, lo más reciente arriba: con los que ya habló y el que tiene abierto, aunque
- * todavía no le haya escrito (si no, abrirlo no se vería en la lista). El del Offer Coach no se repite: ya tiene su fila.
+ * Los gurús que van en la barra, debajo del coach, lo más reciente arriba: con los que ya habló y el que tiene abierto, aunque todavía no
+ * le haya escrito (si no, abrirlo no se vería en la lista). ⚠️ NINGUNO SE ESCONDE (4/11/2026): hasta ese día se sacaba el del Offer Coach,
+ * porque su fila ERA el chat con ese gurú. El coach único tiene su propia conversación, así que la charla con Hormozi que alguien tuvo
+ * tocando el Offer Coach sale acá, con su cara y su nombre, y no se pierde ni se duplica.
  */
-export function gurusDeLaBarra(o: { conCharla: readonly GuruConCharla[]; abierto: IdAsesor | null; delOffer: IdAsesor | null; busca: string }): GuruConCharla[] {
+export function gurusDeLaBarra(o: { conCharla: readonly GuruConCharla[]; abierto: IdAsesor | null; busca: string }): GuruConCharla[] {
   const b = normal(o.busca);
   const yaEsta = o.conCharla.some((g) => g.id === o.abierto);
   return [...o.conCharla, ...(o.abierto && !yaEsta ? [{ id: o.abierto, at: null }] : [])]
-    .filter((g) => g.id !== o.delOffer && (!b || normal(asesorPorId(g.id)?.nombre ?? '').includes(b)))
+    .filter((g) => !b || normal(asesorPorId(g.id)?.nombre ?? '').includes(b))
     .map((g, i) => ({ g, i, t: ms(g.at) ?? Number.MAX_SAFE_INTEGER }))
     .sort((x, y) => y.t - x.t || x.i - y.i)
     .map((x) => x.g);

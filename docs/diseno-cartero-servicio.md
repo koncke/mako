@@ -96,7 +96,7 @@ cuenta 1»), con el comando que ya muestra `PanelRunner`.
 
 ### 2.3 Entrega cualquier chat que arranque, no sólo uno llamado «Runner»
 
-> **4/11/2026: esto no se construyó, lo reemplaza la guardia.** Un chat que abre no se puede quedar entregando, y nadie abre un chat cuando Martín escribe desde el teléfono. Lo levanta la tarea programada `runner-guardia-<cuenta>`: `scripts/operaciones/guardia-runner.md`.
+> **4/11/2026: esto no se construyó, lo reemplaza la guardia.** Un chat que abre no se puede quedar entregando, y nadie abre un chat cuando Martín escribe desde el teléfono. Sin Runner, entrega la tarea programada `runner-guardia-<cuenta>`, de a una vuelta por corrida: `scripts/operaciones/guardia-runner.md`. El Runner sigue siendo un chat: una corrida no tiene canal de mensajes.
 
 Hoy la entrega depende de que exista un chat con el nombre exacto «Runner» y con su cron andando. Si no está, nadie mira el
 buzón. El cambio:

@@ -2228,4 +2228,54 @@ export const BITACORA: Hito[] = [
       'docs/relevo/nube-grupos.md · docs/hallazgos-ops-center.md',
     ],
   },
+  {
+    fecha: '4 nov', hora: '12:10', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los grupos de la app, en producción',
+    revisar: '/second-brain',
+    puntos: [
+      '**Ya está en producción:** el grupo del negocio en el Ops Center, con los avisos, MaKo contestando y los invitados.',
+      '**Falta probarlo con una sesión real** en el Cliente de Prueba: los pasos, en docs/relevo/nube-grupos.md.',
+    ],
+    commits: [{ sha: 'b6e290fe', msg: 'Merge origin/main en punta/grupos-app', lineas: 6114, archivos: 83 }],
+  },
+  {
+    fecha: '4 nov', hora: '12:40', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Adentro de la cuenta de un cliente, la agencia ve sólo el grupo de ese cliente',
+    revisar: '/second-brain',
+    puntos: [
+      '**El ticket #55:** el administrador de una agencia, parado en la cuenta de un cliente, veía en la lista los grupos de todos sus otros clientes. Ahora ve sólo el de ese cliente.',
+      '**En su propio negocio no cambia nada:** ve el suyo, sus invitaciones y los de su cartera, para que su equipo pueda estar pendiente.',
+      '**No era una fuga a la clienta:** ella ve sólo el suyo y sus invitaciones, y quien veía los otros ya tenía acceso a esos clientes.',
+    ],
+    archivos: ['lib/grupo-puerta.ts — `gruposDeLaPersona` corta por la pestaña', 'tests/grupos-ops-lista-cartera.test.ts — la ruta real, los tres casos, cuatro roturas en rojo'],
+    tickets: [55],
+  },
+  {
+    fecha: '4 nov', hora: '11:20', chat: 'Funnel Coach único', sesion: 'cli_135a1a29-c4ee-5d70-b52c-72bc63a68c64', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Un solo coach: el Funnel Coach, con la oferta adentro y la cara de Hormozi',
+    pedido: 'Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach" y que tenga ambas funcionalidades dentro... Por defecto, que esté la cara de hormozi.',
+    puntos: [
+      'Llegó por el chat de la nube que abrió el Cerebro, con lo que no se puede perder: las conversaciones de oferta, la oferta armada, las herramientas de los dos, lo que cada negocio ya eligió y los links de antes.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '12:40', chat: 'Funnel Coach único', sesion: 'cli_135a1a29-c4ee-5d70-b52c-72bc63a68c64', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Funnel Coach trabaja la oferta y el funnel en un chat, con Hormozi al frente',
+    revisar: '/second-brain?coach=funnel',
+    puntos: [
+      '**Un solo coach** en el Ops Center, en la computadora y en el teléfono, para el cliente y el super admin. El Offer Coach ya no aparece.',
+      '**Primero la oferta, después el funnel:** si no hay oferta, la arma ahí mismo y la guarda; si ya hay, la dice en una línea y sigue con el presupuesto, el funnel y el plan.',
+      '**Hormozi de fábrica.** Quien ya había elegido a alguien lo conserva: gana lo que eligió en el Funnel Coach; si sólo eligió en el Offer Coach, se usa esa.',
+      '**Nada se pierde:** las conversaciones de oferta cuelgan de su fila, y quien ya armó una oferta ahí no vuelve a empezar. La charla con Hormozi de antes sigue en la lista de gurús.',
+      '**Sus herramientas van siempre:** las de la oferta y las del funnel, dentro del límite de 12.000 caracteres y con un test que lo mide.',
+    ],
+    archivos: [
+      'lib/asesores/catalogo.ts — referenteDelCoach · lib/funnel-plan-db.ts · lib/asesores/contexto.ts — las fases y HERRAMIENTAS_DEL_COACH',
+      'lib/doer-herramientas.ts — propias · app/api/mako/chat/route.ts · app/api/offer/route.ts · lib/offer-sesiones.ts — hayOfertaArmada',
+      'app/second-brain/ChatSecondBrain.tsx · ChatDelCoach.tsx · useChatDelCoach.ts · app/m/second-brain/HojaDelCoach.tsx · ChatClienteM.tsx · app/m/operaciones/ChatsMovil.tsx',
+      'tests/coaches-ops-center.test.ts (11 roturas, cada una cae) · tests/gurus-ops-center.test.ts',
+    ],
+  },
 ];

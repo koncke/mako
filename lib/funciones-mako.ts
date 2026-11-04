@@ -70,9 +70,11 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Corregir los datos de tu negocio en el mapa: en «La oferta» → «El brief», el precio, qué incluye y el horario de tu oferta principal (tocas el dato y lo corriges); en «La oferta» → «La oferta», tus ofertas; en «Productos», el catálogo con su precio',
       'Hablar primero: la primera vez te pregunta qué te falta (hoy, conectar tu IA), con botones que andan sin la app',
       'Enseñarte la pestaña señalando, con el resto un poco opaco y el chat a la vista (el «?» de arriba)',
+      // El coach ÚNICO desde el 4/11/2026 (Martín: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach"»).
+      '«Funnel Coach»: un chat que primero trabaja tu oferta y la guarda, y después elige cómo conseguir clientes, calcula el presupuesto de anuncios y guarda el plan. Aconseja inspirado en un referente (Hormozi, de fábrica; lo cambias tocando su cara), y tus conversaciones de oferta cuelgan de él',
     ],
     noHace: ['No es el chat con tus leads: eso es Chats', 'Todavía no: la guía señalando en las otras pestañas ni con tu IA (por ahora, sólo el Ops Center y sin IA)'],
-    alias: ['ops center', 'second brain', 'segundo cerebro', 'cerebro', 'mapa', 'grafo', 'chat con mako', 'mis datos', 'datos del negocio', 'el brief'],
+    alias: ['ops center', 'second brain', 'segundo cerebro', 'cerebro', 'mapa', 'grafo', 'chat con mako', 'mis datos', 'datos del negocio', 'el brief', 'funnel coach', 'coach'],
     conecta: [{ a: 'crm', motivo: 'Lo que sabe de tus clientes sale del CRM' }, { a: 'offer', motivo: 'Tu oferta vive en Offer y el mapa la muestra' }],
     estado: 'lista', slugDev: 'second-brain', fuentes: [AREAS, 'docs/diseno-second-brain-grafo.md'],
   },

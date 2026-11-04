@@ -130,7 +130,7 @@ export type GrupoDeLaPersona = { ws: number; acceso: PersonaDelGrupo };
 
 /**
  * Los grupos de la persona de este pedido: el propio si administra, los invitados, la cartera aprobada si administra una agencia, y al super
- * admin el de la pestaña o la plataforma. Cada candidato pasa por la MISMA puerta: una cuenta del workspace de la plataforma sin el rol global no
+ * admin el de la pestaña o la plataforma. Parada en la pestaña de otro negocio (un cliente de su cartera), sólo el de ése. Cada candidato pasa por la MISMA puerta: una cuenta del workspace de la plataforma sin el rol global no
  * ve ese grupo, y una lista no es otro camino para entrar.
  */
 export async function gruposDeLaPersona(wsDeLaPestana: number | null): Promise<GrupoDeLaPersona[]> {
@@ -142,7 +142,14 @@ export async function gruposDeLaPersona(wsDeLaPestana: number | null): Promise<G
     const uno = wsDeLaPestana ?? plataforma;
     if (uno != null) candidatos.add(uno);
   } else if (p.workspace_id != null) {
-    candidatos.add(Number(p.workspace_id));
+    const propio = Number(p.workspace_id);
+    // Parada en la pestaña de OTRO negocio (un cliente de su cartera): sólo el grupo de ése. Sin esto, quien administra una agencia veía,
+    // adentro de la cuenta de un cliente, los grupos de todos los demás (ticket #55, 4/11/2026). Es la LISTA: la puerta sigue igual.
+    if (wsDeLaPestana != null && wsDeLaPestana !== propio) {
+      const acceso = await accesoAlGrupo(wsDeLaPestana);
+      return acceso ? [{ ws: wsDeLaPestana, acceso }] : [];
+    }
+    candidatos.add(propio);
     if (administraActivo(p)) {
       const cartera = await carteraDeAgencia(Number(p.workspace_id)).catch(() => []);
       for (const c of cartera) if (c.estado === 'aprobado') candidatos.add(Number(c.cliente_ws));

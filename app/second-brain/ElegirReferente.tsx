@@ -15,7 +15,7 @@ import { ASESORES, asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesore
 import { ASPECTO_MAKO, aspectoDeReferente } from '@/lib/centro-munecos';
 
 export function ElegirReferente({ titulo, elegido, onElegir, onCerrar }: {
-  /** El coach («Offer Coach»). */
+  /** El coach («Funnel Coach»). */
   titulo: string;
   elegido: IdAsesor | null;
   onElegir: (id: IdAsesor | null) => void;

@@ -529,7 +529,7 @@ export async function turnoOffer(p: {
   voz: string | null;
   /** La conversación del ONBOARDING: sólo lo que vende (`OFFER_ARRANQUE_SYSTEM_TEMPLATE`). */
   arranque?: boolean;
-  /** Con qué referente aconseja el Offer Coach (lib/asesores/contexto.ts → contextoDeReferente). Vacío: MaKo. */
+  /** Con qué referente aconseja (el del coach, que es uno desde el 4/11/2026: lib/asesores/contexto.ts → contextoDeReferente). Vacío: MaKo. */
   referente?: string;
 }): Promise<ResultadoIA<TurnoOffer>> {
   const b = bloquesComunes(p);
