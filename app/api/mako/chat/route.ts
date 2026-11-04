@@ -52,8 +52,8 @@ import { asesorPorId, referentePedido } from '@/lib/asesores/catalogo';
 // Ya viene con el turno (lib/mako-turno-app.ts lo importa): estático, así la guarda de las rutas sin IA lo ve (tests/d6b-rutas.test.ts).
 import { cursoDe } from '@/lib/cerebro-para-chat';
 import { guardarReferente, leerPlanFunnel, leerReferente } from '@/lib/funnel-plan-db';
-import { hayOfertaParaElCoach } from '@/lib/funnel-plan';
-import { hayOfertaArmada } from '@/lib/offer-sesiones';
+import { ofertaDelCoach, ofertaParaElContexto, type OfertaDelCoach } from '@/lib/funnel-plan';
+import { ofertaArmada } from '@/lib/offer-sesiones';
 import { listarOfertas } from '@/lib/ofertas';
 import { tipoDeDispositivo } from '@/lib/movil-dispositivo';
 import { sanearDesde, type Desde } from '@/lib/chat-desde';
@@ -136,14 +136,29 @@ async function contextoDelChat(quien: PersonaChat, desde: Desde | null): Promise
   if (guru) return { contexto: `${CONTEXTO_SECOND_BRAIN}\n\n${contextoDeReferente(guru)}`, referente: guru };
   if (desde?.tab !== ORIGEN_FUNNEL_COACH) return { contexto: CONTEXTO_SECOND_BRAIN };
   // UN SOLO COACH (4/11/2026): el Funnel Coach también trabaja la oferta, con el referente que tenía cualquiera de los dos coaches.
-  const referente = await runWithWorkspace(quien.ws, () => leerReferente());
+  // Y con la oferta con la que abrió el chat (ticket #57): el saludo no se guarda en el hilo, y sin esto a «no, es la otra» el
+  // coach no sabe de qué oferta le hablan. La misma lectura que el saludo (`laOfertaDelCoach`).
+  const [referente, oferta] = await runWithWorkspace(quien.ws, () => Promise.all([leerReferente(), laOfertaDelCoach()]));
   // ⚠️ `referente` ES OTRA COSA QUE `contexto`, y por eso viaja aparte (2/11/2026). El contexto
   // lleva la FICHA —cómo piensa, 5.200 caracteres, en CADA mensaje—; `referente` sólo dice QUIÉN
   // es, para que el Second Brain pueda colgar su curso entero como capa y traer la clase que la
   // pregunta pida (lib/cerebro-para-chat.ts). Martín: «que el segundo cerebro de estos gurús tenga
   // todo el contexto».
   // Sin pista desde el 4/11/2026: sus herramientas viajan fijas (`propias`), y la pista le quitaba el lugar a las demás (lib/asesores/contexto.ts).
-  return { contexto: contextoDelFunnelCoach(referente), referente, propias: HERRAMIENTAS_DEL_COACH };
+  return { contexto: `${contextoDelFunnelCoach(referente)}\n\n${ofertaParaElContexto(oferta)}`, referente, propias: HERRAMIENTAS_DEL_COACH };
+}
+
+/**
+ * Con qué oferta abre el coach (ticket #57, lib/funnel-plan.ts → `ofertaDelCoach`): la guardada (la principal primero) o la armada en
+ * una conversación de oferta. Una lectura que falla es «no se sabe», nunca «hay» (hasta el 4/11 decía «Tu oferta ya está cargada»
+ * con la base sin contestar). Adentro del `runWithWorkspace` de quien llama.
+ */
+async function laOfertaDelCoach(): Promise<OfertaDelCoach> {
+  const [guardadas, armada] = await Promise.all([
+    listarOfertas(true).catch(() => 'no-se' as const),
+    ofertaArmada().catch(() => 'no-se' as const),
+  ]);
+  return ofertaDelCoach(guardadas, armada);
 }
 
 export async function GET(req: NextRequest) {
@@ -170,12 +185,10 @@ export async function GET(req: NextRequest) {
     }
     if (sp.has('gurusConCharla')) return json({ ok: true, gurus: await gurusConCharla(persona) });
     if (sp.has('coaches')) {
-      const [referente, ofertas, armada] = await runWithWorkspace(persona.ws, () => Promise.all([
-        leerReferente(), listarOfertas(true).catch(() => null), hayOfertaArmada().catch(() => null),
-      ]));
+      const [referente, oferta] = await runWithWorkspace(persona.ws, () => Promise.all([leerReferente(), laOfertaDelCoach()]));
       // Una oferta guardada o una armada en una conversación de oferta (lo que trabajaba el Offer Coach): quien la armó no vuelve a
-      // empezar. Si la base no contestó no se sabe, y no se le dice a nadie que le falta una oferta que puede tener.
-      return json({ ok: true, referente, hayOferta: hayOfertaParaElCoach(ofertas?.length ?? null, armada), puedeElegir: persona.rol === 'admin' });
+      // empezar, y el saludo dice CUÁL (ticket #57). Si la base no contestó no se sabe, y no se afirma ni que hay ni que falta.
+      return json({ ok: true, referente, oferta, puedeElegir: persona.rol === 'admin' });
     }
     if (sp.has('planFunnel')) return json({ ok: true, plan: await runWithWorkspace(persona.ws, () => leerPlanFunnel()) });
     // Y las cuentas que el «+» de la caja deja elegir para ESTE chat (8b, lib/chat-ia.ts): sin ellas, el selector no se dibuja.

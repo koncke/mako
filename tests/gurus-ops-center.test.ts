@@ -7,15 +7,15 @@
 //
 // ⚠️ DOS DE LOS CINCO TENÍAN UNA CAUSA QUE NO ERA LA OBVIA:
 //   · «no responde con su base»: el turno ya traía los tramos del curso, pero `CURSO_DE_REFERENTE` tenía 3 de los 22 gurús. Probado con
-//     Alborna andaba, y con Hormozi no había nada que traer. Por eso el test corre el camino real con LOS 22 (tests/_gurus-curso-hijo.ts).
+//     Alborna andaba, y con Hormozi no había nada que traer. Por eso el test corre el camino real con TODOS (22 el 3/11, 32 desde el 4/11: tests/_gurus-curso-hijo.ts).
 //   · «una criatura de mako»: la cabecera traía su cara, y el hilo la sacaba de la fila de la lista (`filaAbierta`), que este chat no tiene.
 //
 // PROBADO ROMPIÉNDOLO (3/11/2026), con el archivo en 15 / 0, una rotura por vez y restaurada:
-//   1. `GaleriaDeGurus` con `ASESORES.slice(0, 1)`                                          → cae «están los 22»
+//   1. `GaleriaDeGurus` con `ASESORES.slice(0, 1)`                                          → cae «están los 32»
 //      `ChatsMovil` sin `alPie` en HojaChatNuevo                                           → cae «las cuatro puertas»
 //   2. (4/11/2026, el coach único: ya no hay fila del Offer Coach) `gurusDeLaBarra` que vuelve a esconder a uno → cae «Hormozi abre su chat»
 //      la fila de un gurú con `onElegir={() => elegir(…)}` en vez de `abrirGuru(id)`           → cae «la fila no es un clic muerto»
-//   3. borrar 'hormozi' de `CURSO_DE_REFERENTE`                                             → 13 / 2: «los 22 contestan» y «con la cuenta de un cliente»
+//   3. borrar 'hormozi' de `CURSO_DE_REFERENTE`                                             → 13 / 2: «los 32 contestan» y «con la cuenta de un cliente»
 //      `paqueteParaElTurno` que no lee el curso con `sinPlata`                             → 14 / 1: «con la cuenta de un cliente»
 //   4. `useChatCliente` sin `quien` en `aspectoMuneco`                                      → cae «la burbuja lleva su cara»
 //      la fila de la lista sin `guru`                                                       → cae «el historial»
@@ -61,10 +61,10 @@ function elementos(n: ReactNode): ReactElement<Record<string, unknown>>[] {
 
 // ── 1. «Nuevo chat» muestra los gurús ─────────────────────────────────────────────────────────────────
 
-test('1. están los 22, a la vista, y tocar uno lo elige', () => {
+test('1. están los 32, a la vista, y tocar uno lo elige', () => {
   const html = renderToStaticMarkup(createElement(GaleriaDeGurus, { onElegir: () => {} }));
   for (const a of ASESORES) assert.ok(html.includes(a.nombre.replace(/&/g, '&amp;')), `falta ${a.nombre}`);
-  assert.equal(ASESORES.length, 22);
+  assert.equal(ASESORES.length, 32);
   const tocados: IdAsesor[] = [];
   const botones = elementos(GaleriaDeGurus({ onElegir: (id) => tocados.push(id) })).filter((e) => e.type === 'button');
   assert.equal(botones.length, ASESORES.length);
@@ -140,7 +140,7 @@ function correr() {
   };
 }
 
-test('3. los 22 contestan con los tramos de SU curso, leídos de verdad', { timeout: 250_000 }, () => {
+test('3. los 32 contestan con los tramos de SU curso, leídos de verdad', { timeout: 250_000 }, () => {
   const { gurus, releidas } = curso();
   assert.equal(gurus.length, ASESORES.length);
   for (const g of gurus) {

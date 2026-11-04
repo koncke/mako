@@ -71,6 +71,7 @@ import type { Responder } from '@/app/admin/operaciones/PreguntaChat';
 import { SIN_MARCAS, idDeLinea } from '@/lib/centro-mensajes';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { previaDelCoach } from '@/lib/funnel-plan';
 
 /**
  * El título de la hoja de un chat, como la cabecera de WhatsApp (17/10/2026, Martín): la criatura a la izquierda del nombre.
@@ -229,7 +230,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const grupos = useGrupos(!parte);
   const [grupo, setGrupo] = useState<number | null>(grupoInicial);
   // El Funnel Coach (4/11/2026, el único coach: la oferta y el funnel), como en la computadora: su fila arriba de los gurús y su hoja.
-  const { referente, hayOferta, puedeElegir, elegirReferente } = useCoaches();
+  const { referente, oferta, puedeElegir, elegirReferente } = useCoaches();
   const delCoach = asesorPorId(referente);
   const [conCoach, setConCoach] = useState(false);
   const [renombre, setRenombre] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
@@ -453,7 +454,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
       )}
       {delGuru && <HojaDelGuru key={delGuru.id} referente={delGuru} onCerrar={() => setGuru(null)} />}
       {hojaDelGrupo}
-      {conCoach && <HojaDelCoach referente={referente} hayOferta={hayOferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onCerrar={() => setConCoach(false)} />}
+      {conCoach && <HojaDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onCerrar={() => setConCoach(false)} />}
       {conLista && (
         <SeccionM titulo={tituloChats}>
           <ListaM etiqueta={tituloChats}>
@@ -464,7 +465,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             {!parte && (
               <FilaM chevron={false} leading={<Muneco titulo={delCoach?.nombre ?? 'MaKo'} aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" size={40} />}
                 titulo={<span className="m-operaciones-texto1">{ORIGEN_FUNNEL_COACH}</span>}
-                segunda={delCoach ? inspiradoEn(delCoach) : hayOferta ? 'Tu oferta y cómo conseguir clientes' : 'Empieza por tu oferta'}
+                segunda={delCoach ? inspiradoEn(delCoach) : previaDelCoach(oferta)}
                 onClick={() => { setGuru(null); setGrupo(null); setConCoach(true); }} />
             )}
             {/* El historial de los gurús: esta lista es la de Claude Code, y sus chats no salen en ella. */}

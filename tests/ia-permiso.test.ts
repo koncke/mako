@@ -95,8 +95,11 @@ test('7. la app pregunta una vez y se cambia en Tu cuenta; fuera de la app de iP
 });
 
 test('8. Play: una respuesta de MaKo se denuncia desde el mismo mensaje, con lo que ya existe', () => {
+  // En el MENÚ del mensaje (clic derecho o mantener apretado), no con un botón debajo de cada respuesta (4/11/2026, ticket #57;
+  // Martín: «eso no tiene sentido»). Lo que hace y dónde se pide: tests/reportar-en-el-menu.test.ts, que lo corre.
   const hilo = sinComentarios(leer('app/_chat/HiloMako.tsx'));
-  assert.match(hilo, /\{x\.texto\.trim\(\) && <ReportarRespuesta texto=\{x\.texto\} \/>\}/);
+  assert.doesNotMatch(hilo, /<ReportarRespuesta\b/, 'debajo de la respuesta, no');
+  assert.match(hilo, /else if \(id === 'reportar'\) void rep\.reportar\(m\.texto\);/, 'en el menú del mensaje, sí');
   const r = sinComentarios(leer('app/_chat/ReportarRespuesta.tsx'));
   assert.match(r, /await reportarASoporte\(\{ error: /, 'el mismo camino que «Reportar a Soporte»: saneado en el servidor');
   assert.match(r, /\.slice\(0, TOPE_ERROR\)/, 'un pedazo, no la conversación');
@@ -109,3 +112,4 @@ test('8. Play: una respuesta de MaKo se denuncia desde el mismo mensaje, con lo 
 //   · un «no» también permite                                 → 7 / 1 (4)
 //   · el turno sin la puerta (la PC del cliente)              → 7 / 1 (6)
 //   · Reportar fuera del hilo                                 → 7 / 1 (8)
+//   (4/11/2026, ticket #57: el 8 mira el menú del mensaje; sacar `reportar` del menú mínimo del hilo → 7 / 1 (8))

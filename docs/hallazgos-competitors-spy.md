@@ -1225,3 +1225,70 @@ lib/spy-detalle.ts (`vecesSuMediana`) · tests/spy-guion.test.ts
   admin y sin cartel de error. Sin poder leer el crédito, sigue como siempre (no es «sin crédito»). Lo fija `tests/spy-todo.test.ts`.
 - **La caricatura de Den Borg.** El camino de la tarjeta está bien y tiene su test de punta a punta. El hueco era otro: si la
   imagen no cargaba, la tarjeta quedaba sin cara. Ahora cae a su foto de perfil (`caerAFoto`).
+
+## Tercera vuelta: la ficha de un competidor rediseñada (4/11/2026)
+
+**Vive en:** `app/competitor-spy/SpyApp.tsx`, `app/competitor-spy/GrillaPiezas.tsx`, `app/competitor-spy/MejoresPiezas.tsx`,
+`app/competitor-spy/BuscadorAlta.tsx`, `app/competitor-spy/GraficoSpy.tsx`, `app/competitor-spy/page.tsx`, `app/competitor-spy/precarga.ts`,
+`lib/spy-vista.ts`, `lib/spy-detalle.ts`, `lib/spy-buscar-reglas.ts`.
+
+Martín, con Den Borg en producción. Lo que se hizo, pedido por pedido (lo fija `tests/spy-ficha-tercera.test.ts`):
+
+- **«Agregar YouTube» abría un campo con un botón.** Ahora es el MISMO buscador del alta (`BuscadorAlta` con `para`): arranca con
+  su nombre sin lo que va después de « - » (`nombreParaBuscar`) y muestra sólo la red pedida (`gruposPermitidos`); desde el menú,
+  sólo sus redes, sin «Ya los miras» ni «Sin redes».
+- **Volver a todos los competidores** era una miga de 18 px en gris. Ahora es un botón con la flecha y las caras de los demás, y al
+  lado el cambio directo a otro (copiado del «←» de la cabecera de un ítem en Shopify y Linear).
+- **El ⋯ del perfil, arriba a la derecha.** ⚠️ El `Dropdown` de la casa toma `width` para el BOTÓN: con `width={210}` el ⋯ quedaba
+  encima del texto. Va `width={40}` y `menuMinAncho={210}`.
+- **La grilla de sus piezas: a todo el ancho y por páginas** (`GrillaPiezas`). Antes vivía al lado del riel y crecía de a 60: con
+  160 piezas, 13.600 px de página. Ahora una página son filas enteras (`columnasQueEntran` × 3), y el paginador nunca esconde
+  una sola página detrás de «…» (`botonesDePaginas`).
+- **«Lo que mejor le fue», al lado de los formatos.** Cierra el riel y se estira hasta donde terminan los formatos; si el riel es
+  más alto, se estiran los formatos. ⚠️ Para que la caja se estire sin empujar la grilla, la tarjeta va en `position: absolute`
+  dentro de una caja `flex: 1`: en flujo normal le sumaría su alto a la columna y nunca «llegaría» al final. Se ordena por cuántas
+  veces la mediana de SU grupo hizo cada pieza (`mejoresPiezas`): un short y un video largo no se comparan en vistas crudas.
+- **Los anuncios, dentro de Contenido**, como un formato más del desplegable (`tipoEnLaGrilla`). `tipoDeContenido` no los nombra a
+  propósito: lo usan los gráficos, que los agrupan aparte.
+- **La entrada:** las miniaturas se acomodan en una grilla en el centro, de la mejor a la peor, y cada una vuela a su lugar en el
+  gráfico (~1,6 s, el mismo gesto de antes con otro origen). La película de «ordenar» (6 s) sigue sólo después de una lectura pedida.
+- **En el teléfono**, el riel con `flex-wrap: wrap` en columna hacía que la base de 280 px fuera un ALTO: las tarjetas quedaban con
+  un hueco abajo (los seguidores, 223 px para 107 de contenido). Va `nowrap`.
+
+### La velocidad, medida (vista de prueba, no producción)
+
+Con la misma vista de la ficha (`SpyApp` con 166 piezas de Den Borg inventadas), con una demora simulada de 700 ms para traer las
+piezas y miniaturas que tardan entre 0,2 y 2,8 s, en Chromium a 1440 px, 3 vueltas cada una:
+
+| | Gráfico dibujado | Elementos en la página | Tarjetas en la grilla |
+|---|---|---|---|
+| Antes | 3,84 – 3,99 s | 2.369 | 66 |
+| Después | 3,17 – 3,22 s | 1.664 | 15 |
+
+Lo que bajó: las piezas del competidor abierto llegan con la página (antes se pedían por una action DESPUÉS de hidratar, y las
+actions hacen fila), las cuatro lecturas del server van en paralelo, y la grilla dibuja una página y no 60 tarjetas. Lo que NO
+mide esta vista: la red real del CDN de Meta. Por eso el tope de espera de las miniaturas bajó de 8 a 3 s (las que no llegan entran
+con su texto, sin cajas vacías). ⚠️ En producción hay que medir lo mismo con un competidor real: es lo que pidió el Cerebro.
+
+## Tercera vuelta: sus anuncios por su nombre, y verificados (4/11/2026)
+
+**Vive en:** `lib/spy-funnel.ts` (`busquedaDeSusAnuncios`, `enlaceSusAnuncios`), `lib/spy-captura.ts` (`anunciosDeQuien`).
+
+Martín, con Den Borg: «En su biblioteca de anuncios la buscó como su página [su web], cuando debió buscarla por su Instagram, todo
+el mundo publicita con su cuenta personal, o de última con el nombre del negocio... Y darse cuenta si es o no es». La captura del
+Cerebro: la Biblioteca abierta con `q="beacons.page"`, 54 anuncios de cualquiera.
+
+- **La causa era doble.** El enlace buscaba el dominio de su web ANTES que su nombre, y su web era una página de enlaces (Beacons):
+  es de todos. Y la verificación (`anunciosDeQuien`) daba por suyo cualquier anuncio que mandara a ese dominio, así que una captura
+  de esa búsqueda guardaba anuncios ajenos. Además comparaba la Página con su nombre ENTERO («Den Borg - Estrategia de Marca
+  Personal»), que ninguna Página tiene.
+- **Ahora:** el enlace busca su nombre corto (el de su perfil, sin lo que va después de « - »: así se llama la Página con que pauta),
+  después su @, y su web sólo si es SUYA. Un anuncio es suyo por su Página (el nombre entero, el corto o su @), por su Página
+  guardada, o por mandar a SU web; mandar a una página de enlaces no dice nada (del anuncio sólo se guarda el dominio al que manda).
+- ⚠️ **No medido:** si la búsqueda por frase exacta de la Biblioteca encuentra a la Página por su nombre o sólo el texto de los
+  anuncios. Lo que sí está garantizado es que lo que se GUARDA pasa la verificación. Con su Página guardada (`pagina_anuncios`
+  con un id) el enlace va directo a ella.
+- **La regla que queda:** un dominio identifica a alguien sólo si es suyo. Una página de enlaces, un checkout (Hotmart) o una
+  plataforma (Skool) son de miles: antes de comparar por dominio, se pregunta `esAgregador`.
+
+Lo fijan `tests/spy-captura.test.ts` y `tests/spy-funnel.test.ts` (los dos, probados rompiéndolos).

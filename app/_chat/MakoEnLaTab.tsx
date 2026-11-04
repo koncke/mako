@@ -47,6 +47,7 @@ import { profundidadModales, useCapaModal, useProfundidadModales, zEncimaDeModal
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
+import { esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente, useAperturaDelCerebro } from '@/app/second-brain/PiezasCliente';
@@ -328,7 +329,7 @@ export function ConversacionCerebro({ tab, apertura: aperturaDeLaTab = null, arr
         cabecera={{ clave: 'cerebro', titulo: k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: onCerrar, antes }}
         arriba={<><TrabajosTerminados trabajos={trabajos} />{arriba}<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} /></>}
         despues={<>
-          <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
+          <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} reportable={esRespuestaDeMaKo} />
           {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}
         </>}
         caja={<>

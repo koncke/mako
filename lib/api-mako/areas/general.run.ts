@@ -54,7 +54,13 @@ import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
 import { PIEZAS_GENERAL, atarFunnels, esPiezaGeneral, funnelsDeBloque, opcionesDePieza, piezaGeneral, piezaPorFunnel, piezaPorVariosFunnels, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from '@/lib/general-piezas';
 import { leerFunnelsDeGeneral, type FunnelDeGeneral } from '@/lib/general-alcance';
 import { funnelsDelPedido } from '../funnels-del-pedido';
-import { PLANTILLAS_GENERAL, elegirPersona, type PersonaGeneral } from '@/lib/general-plantillas';
+import { elegirPersona, type PersonaGeneral } from '@/lib/general-plantillas';
+import { PLANTILLAS_GENERAL_OFRECIDAS } from '@/lib/graficos-plantillas';
+
+/** Las plantillas de General que se ofrecen, dichas (puede no haber ninguna: se retiraron hasta tener su diseño copiado). */
+const listaOfrecidas = () => (PLANTILLAS_GENERAL_OFRECIDAS.length
+  ? `Las plantillas son: ${PLANTILLAS_GENERAL_OFRECIDAS.map((x) => x.id).join(', ')}.`
+  : 'Hoy no se ofrece ninguna plantilla de General: usa un pedido.');
 import { ETIQUETAS_GENERAL } from '@/lib/graficos-plantillas-etiquetas';
 import { ordenarConSugeridas } from '@/lib/plantillas-sugeridas';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
@@ -758,7 +764,8 @@ export const RUNNERS: Runners = {
           ...(piezaPorFunnel(b.id) ? { se_ata_a_un_funnel: true, ...(piezaPorVariosFunnels(b.id) ? { acepta_varios_funnels: true } : {}) } : {}),
           opciones: opcionesDePieza(b.id).map((o) => ({ id: o.id, nombre: o.nombre, valores: o.valores.map((v) => ({ id: v.id, nombre: v.nombre })), por_defecto: o.def })),
         })),
-        plantillas: ordenarConSugeridas(PLANTILLAS_GENERAL, ETIQUETAS_GENERAL, senales)
+        // Sólo las que se ofrecen (las que traen su diseño copiado), como «Nueva hoja» (lib/graficos-plantillas.ts).
+        plantillas: ordenarConSugeridas(PLANTILLAS_GENERAL_OFRECIDAS, ETIQUETAS_GENERAL, senales)
           .map(({ plantilla: p, porque }) => ({ id: p.id, nombre: p.nombre, que_trae: p.linea, ...(porque ? { sugerida: porque } : {}) })),
         funnels: funnels ? funnels.map((f) => ({ id: f.id, nombre: f.nombre, principal: f.esDefault })) : 'no se pudieron leer',
       };
@@ -788,7 +795,7 @@ export const RUNNERS: Runners = {
       const id = str(input, 'plantilla') ?? '';
       const pedido = str(input, 'pedido') ?? '';
       if (id && pedido) return { error: 'Usa una plantilla o un pedido, no los dos.' };
-      if (!id && !pedido) return { error: `Falta la plantilla o el pedido. Las plantillas son: ${PLANTILLAS_GENERAL.map((x) => x.id).join(', ')}.` };
+      if (!id && !pedido) return { error: `Falta la plantilla o el pedido. ${listaOfrecidas()}` };
       const l = await informeDe(e.persona.sub);
       if (l.tablero.hojas.length >= MAX_HOJAS) return { error: `Esa persona ya tiene ${MAX_HOJAS} hojas en General, el tope: que borre una antes.` };
       // 16/10/2026: con un pedido, MaKo la arma ANTES de proponerla, con lo que General ofrece y sus bloques (la misma
@@ -800,8 +807,8 @@ export const RUNNERS: Runners = {
         const piezas = g.hoja.componentes.length;
         return { payload: { sub: e.persona.sub, hoja: g.hoja, nombre }, resumen: `Crear la hoja «${nombre}» en General, que armó MaKo con tu pedido (${piezas} ${piezas === 1 ? 'pieza' : 'piezas'}).` };
       }
-      const p = PLANTILLAS_GENERAL.find((x) => x.id === id);
-      if (!p) return { error: `La plantilla «${id}» no existe. Son: ${PLANTILLAS_GENERAL.map((x) => x.id).join(', ')}.` };
+      const p = PLANTILLAS_GENERAL_OFRECIDAS.find((x) => x.id === id);
+      if (!p) return { error: `La plantilla «${id}» no se ofrece. ${listaOfrecidas()}` };
       const nombre = (str(input, 'nombre') ?? p.nombre).slice(0, 60);
       return { payload: { sub: e.persona.sub, plantilla: p.id, nombre }, resumen: `Crear la hoja «${nombre}» en General (plantilla ${p.nombre}).` };
     },
@@ -809,8 +816,8 @@ export const RUNNERS: Runners = {
       try {
         const sub = String(payload.sub);
         // La hoja que armó MaKo con el pedido viaja ARMADA en la propuesta (se vuelve a sanear); si no, la plantilla.
-        const p = payload.hoja ? null : PLANTILLAS_GENERAL.find((x) => x.id === payload.plantilla);
-        if (!payload.hoja && !p) return { ok: false, resumen: 'Esa plantilla ya no existe: no se creó.' };
+        const p = payload.hoja ? null : PLANTILLAS_GENERAL_OFRECIDAS.find((x) => x.id === payload.plantilla);
+        if (!payload.hoja && !p) return { ok: false, resumen: 'Esa plantilla ya no se ofrece: no se creó.' };
         // Se relee al ejecutar: entre la propuesta y el «sí» la persona pudo cambiar su General en la pantalla.
         const actual = await informeDe(sub);
         if (actual.tablero.hojas.length >= MAX_HOJAS) return { ok: false, resumen: `Ya tiene ${MAX_HOJAS} hojas en General: no se creó.` };

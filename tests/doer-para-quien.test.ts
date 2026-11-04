@@ -275,13 +275,21 @@ test('13. el eco de MaKo en SU línea se saltea aunque su id no esté en el anil
   // 3. La voz ilegible: cae al anillo, como antes.
   assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: MAKO, voz: null }), false);
   assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: MAKO, voz: null, enviados: ['ABC'] }), true);
-  // 4. Lo que no es fromMe (una persona del grupo) en la línea de MaKo: sigue igual, nunca es eco.
-  assert.equal(esEcoDeMaKo({ ...base, fromMe: false, instancia: MAKO, voz: MAKO, enviados: ['ABC'] }), false);
+  // 4. Lo que no es fromMe (una persona del grupo) en la línea de MaKo: no es eco, salvo que su id sea uno que mandó MaKo.
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: false, instancia: MAKO, voz: MAKO }), false);
+  // 5. ⚠️ Con DOS líneas de MaKo en el grupo (4/11/2026, ws13): lo que manda una le llega a la otra con `fromMe: false`, como una persona.
+  //    Su id está en el anillo: es eco, en cualquiera de las dos líneas. Sin el id, una persona: nunca se descarta por la línea.
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: false, instancia: MAKO, voz: MAKO, enviados: ['ABC'] }), true);
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: false, instancia: 'mako_ws9', voz: MAKO, enviados: ['ABC'] }), true);
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: false, instancia: 'mako_ws9', voz: MAKO }), false);
+  assert.equal(esEcoDeMaKo({ ...base, msgId: '', fromMe: false, instancia: MAKO, voz: MAKO, enviados: [''] }), false, 'un id vacío no es un id del anillo');
   // Sin instancia (una cola de antes del deploy en el cron) no se compara con la voz.
   assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: '', voz: '' }), false);
   // El doer: UNA función para los dos chequeos, la voz leída estricta, y el eco cortado antes de encolar y del 👍.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const \[voz, enviados\] = await Promise\.all\(\[instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\), idsEnviados\(OWNER_WS, jid\)\]\);\n\s*return esEcoDeMaKo\(\{ fromMe: true, msgId: key\.id \?\? '', instancia: instance, voz: vozPropiaDeMaKo\(voz\), enviados \}\);/);
+  // Sin `fromMe` también: el eco de la otra línea de MaKo no lo es (la voz sólo se lee para un `fromMe`).
+  assert.match(doer, /const fromMe = !!key\?\.fromMe;\n\s*const \[voz, enviados\] = await Promise\.all\(\[fromMe \? instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\) : Promise\.resolve\(null\), idsEnviados\(OWNER_WS, jid\)\]\);\n\s*return esEcoDeMaKo\(\{ fromMe, msgId: key\?\.id \?\? '', instancia: instance, voz: vozPropiaDeMaKo\(voz\), enviados \}\);/);
+  assert.doesNotMatch(doer.slice(doer.indexOf('async function esEcoDeMaKoAhora('), doer.indexOf('async function esEcoDeMaKoAhora(') + 400), /if \(!key\?\.fromMe\) return false/, 'el eco de la otra línea no es fromMe');
   assert.equal((doer.match(/await esEcoDeMaKoAhora\(instance, jid, (?:data\.key|key)\)/g) ?? []).length, 2, 'los dos chequeos no usan la misma función');
   assert.doesNotMatch(doer, /enviados\.includes\(msgId\)|idsEnviados\(OWNER_WS, jid\)\)\.includes\(msgId\)/, 'volvió un chequeo del eco suelto');
   const buffer = doer.slice(doer.indexOf('async function bufferearYResponder('));
