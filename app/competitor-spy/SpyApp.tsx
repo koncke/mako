@@ -64,12 +64,14 @@ import { Dropdown } from '../components/Dropdown';
 import type { NombreIconoMenu } from '../_ui/iconos-menu';
 import { dibujarContador } from '@/lib/spy-reglas';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
+import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
 import {
   ORDENES, canalesDe, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
   fraseDeLectura, haceCuanto, mezclaDeTipos, miniaturaDePieza, opcionesDeContenido, ordenarPiezas, pideConectarMeta,
   type OrdenSpy, type TipoContenido, type ValorDeContenido,
 } from '@/lib/spy-vista';
 import { cuantasFaltan } from '@/lib/spy-analisis-reglas';
+import { avisoDeTraida } from '@/lib/spy-todo-reglas';
 import { debeBuscarRedes, marcarRedesBuscadas } from './redes-recordar';
 import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import {
@@ -600,7 +602,7 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
       <div className="spy-crejilla">
         {competidores.map((c, i) => {
           const r = resumen[c.id];
-          const dibujo = caricaturaDeCompetidor(c);
+          const cara = caraDeTarjeta(c, caricaturaDeCompetidor(c));
           // Los competidores que YA estaban se guardaron con lo que se pegó —un @, el id de un
           // canal—, y esas filas no se arreglan solas: se eligió mostrar su nombre de verdad en vez
           // de reescribirle un dato al negocio.
@@ -616,11 +618,11 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
               onClick={() => onAbrir(c.id)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(c.id); } }}>
               <span className="spy-ccard__cara" style={{ '--flote': flote } as CSSProperties} aria-hidden>
-                {/* ⚠️ LA CARICATURA PRIMERO (4/11/2026): «no me hizo la caricatura como habíamos quedado». La que se hizo
-                    sola, después la dibujada de un referente, y recién sin ninguna su foto. */}
-                {c.caricatura || dibujo || c.avatar
+                {/* ⚠️ LA CARICATURA PRIMERO (4/11/2026): la que hizo el Runner, después la dibujada de un referente, y recién
+                    sin ninguna su foto (`caraDeTarjeta`). Sin la caricatura NO hay cartel ni spinner: la foto y listo. */}
+                {cara
                   // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public, no pasa por el optimizador
-                  ? <img src={(c.caricatura || dibujo || c.avatar) as string} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
+                  ? <img src={cara} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
                   : inicial(c.nombre)}
               </span>
               <div className="spy-ccard__cuerpo">
@@ -727,6 +729,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [autoAnalisis, setAutoAnalisis] = useState<number | null>(null);
   /** A quién se le está trayendo todo lo que publicó, en una corrida larga de Apify. */
   const [trayendoTodo, setTrayendoTodo] = useState<number | null>(null);
+  /** Por qué la traída larga no trajo todo, por competidor (4/11/2026: «si una corrida larga no terminó, la pantalla lo dice»). */
+  const [avisoTodo, setAvisoTodo] = useState<Record<number, string>>({});
   /** Cuántas tarjetas se dibujan: con cientos de piezas, de a 60 (una grilla de 500 imágenes traba la pantalla). */
   const [mostrar, setMostrar] = useState(60);
   const [lecturas, setLecturas] = useState<Record<number, LecturaCanalSpy[]>>({});
@@ -866,7 +870,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const buscarRedes = useCallback(async (id: number) => {
     marcarRedesBuscadas(ws, id);
     setRedes((v) => ({ ...v, [id]: { buscando: true, sumadas: [], candidatos: [] } }));
-    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[] } | { ok: false; error: string };
+    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web?: string | null } | { ok: false; error: string };
     const r: Resp = await fetch('/api/competitor-spy/redes', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(125_000),
     }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false as const, error: 'No pude buscar sus otras redes ahora.' }));
@@ -875,7 +879,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       [id]: r.ok ? { buscando: false, sumadas: r.sumadas, candidatos: r.candidatos } : { buscando: false, sumadas: [], candidatos: [], aviso: r.error },
     }));
     // Lo que se sumó solo se lee ya: sus piezas tienen que aparecer sin que nadie apriete nada.
-    if (r.ok && r.sumadas.some((k) => k.red !== 'tiktok')) {
+    // Su web encontrada también se lee ya (su funnel y su oferta, solos).
+    if (r.ok && (r.sumadas.some((k) => k.red !== 'tiktok') || r.web)) {
       await recargarLista();
       yaLeidos.current.delete(id);
       if (actual.current === id) void leer(id, false);
@@ -930,11 +935,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
    * Apify que empieza el servidor y no se espera (/api/competitor-spy/todo). Si está en marcha, se vuelve a preguntar.
    */
   const traerTodo = useCallback(async (id: number) => {
-    type Resp = { ok: boolean; enMarcha?: boolean; nuevas?: number };
+    type Resp = { ok: boolean; enMarcha?: boolean; nuevas?: number; porque?: string };
     const r: Resp = await fetch('/api/competitor-spy/todo', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(65_000),
     }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false }));
     if (r.ok && r.enMarcha) setTrayendoTodo(id);
+    // El motivo, en palabras: antes se tiraba y la ficha quedaba con lo de la lectura de siempre sin decir por qué.
+    const aviso = !r.ok ? null : avisoDeTraida(r.porque);
+    setAvisoTodo((v) => { const n = { ...v }; if (aviso) n[id] = aviso; else delete n[id]; return n; });
     return r;
   }, []);
 
@@ -953,6 +961,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       if (!vivo) return;
       if (r.ok && r.enMarcha && vueltas < 45) { t = setTimeout(() => { void vuelta(); }, 20_000); return; }
       setTrayendoTodo((v) => (v === id ? null : v));
+      // A los 15 minutos la pantalla deja de preguntar; la corrida sigue y la recoge el cron (/api/cron/spy-todo).
+      if (r.ok && r.enMarcha) setAvisoTodo((v) => ({ ...v, [id]: 'Sigue trayendo todo lo que publicó: aparece solo.' }));
       if (r.ok && (r.nuevas ?? 0) > 0) {
         await recargarLista();
         const p = await traerPiezas(id);
@@ -973,31 +983,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     if (r.ok && r.enMarcha) setAutoAnalisis(id);
   }, []);
 
-  // ── Las caricaturas, SOLAS (4/11/2026: «Eso debe hacerse en segundo plano de manera automática»). De a una: se le
-  // pide un paso a /api/competitor-spy/caricatura y se vuelve a preguntar cada 15 s mientras esté en marcha; al terminar,
-  // la siguiente. Se salta a los referentes (ya están dibujados) y a quien no tiene foto. Si se cierra la pestaña, lo
-  // pedido sigue en la cola de Flow y la próxima apertura lo recoge.
-  useEffect(() => {
-    let vivo = true;
-    const terminadas = new Set<number>();
-    const correr = async () => {
-      for (let vuelta = 0; vuelta < 60 && vivo; vuelta += 1) {
-        const x = listaActual.current.find((k) => !k.caricatura && k.avatar && !caricaturaDeCompetidor(k) && !terminadas.has(k.id));
-        if (!x) return;
-        type Resp = { ok: boolean; url?: string | null; enMarcha?: boolean };
-        const r: Resp | null = await fetch('/api/competitor-spy/caricatura', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: x.id }), signal: AbortSignal.timeout(65_000),
-        }).then((y) => y.json() as Promise<Resp>).catch(() => null);
-        if (!vivo) return;
-        if (!r?.ok || !r.enMarcha) terminadas.add(x.id);
-        if (r?.url) { await recargarLista(); continue; }
-        await new Promise((ok) => { setTimeout(ok, r?.enMarcha ? 15_000 : 500); });
-      }
-    };
-    // Un respiro al abrir: primero la lista, la lectura y lo que la persona vino a mirar.
-    const t = setTimeout(() => { void correr(); }, 4_000);
-    return () => { vivo = false; clearTimeout(t); };
-  }, [recargarLista]);
+  // ── Las caricaturas NO se piden desde acá (4/11/2026): entran a la cola al leer al competidor y las hace el Runner con
+  // Canva (lib/spy-caricatura-cola.ts). La pantalla sólo dibuja la que ya esté; sin ella, la foto.
 
   // Mientras la IA lee, se vuelven a pedir las piezas cada 5 s. Se para cuando no falta ninguna, cuando dejó de avanzar
   // (un minuto sin una nueva) o a los 4 minutos. El trabajo del servidor sigue aunque esto se pare o se cierre la pestaña.
@@ -1344,6 +1331,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
               <div className="spy-cols">
                 <div>
                   {trayendoTodo === c.id && <p className="spy-aviso spy-aviso--suave" aria-live="polite">Trayendo todo lo que publicó…</p>}
+                  {trayendoTodo !== c.id && avisoTodo[c.id] && <p className="spy-aviso spy-aviso--suave" aria-live="polite">{avisoTodo[c.id]}</p>}
                   <GraficoSpy
                     c={c} piezas={piezas} analizando={autoAnalisis === c.id}
                     onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })}
@@ -1398,6 +1386,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                   )}
 
                   {trayendoTodo === c.id && <p className="spy-aviso spy-aviso--suave" aria-live="polite">Trayendo todo lo que publicó…</p>}
+                  {trayendoTodo !== c.id && avisoTodo[c.id] && <p className="spy-aviso spy-aviso--suave" aria-live="polite">{avisoTodo[c.id]}</p>}
 
                   {/* ── Un solo estado para toda la zona de resultados, jamás uno por canal. ── */}
                   {estado === 'hay' && (

@@ -11,27 +11,31 @@
 // ⚠️ Y `localStorage` PUEDE NO ESTAR (ventana privada, sitio bloqueado): sin él, se busca. Nunca tira.
 // =============================================================================
 
+import { esAgregador } from '@/lib/spy-otras-redes-reglas';
+
 /** Cuántos días pasan antes de volver a buscar solas las redes de un competidor. */
 export const DIAS_SIN_REPETIR_REDES = 7;
 
 type Almacen = Pick<Storage, 'getItem' | 'setItem'>;
 
-const claveDe = (ws: number, id: number) => `mako.spy.redes.${ws}.${id}`;
+// `v2` (4/11/2026): la búsqueda pasó a ser una cadena (su bio, su página de enlaces, su mismo usuario, Google) y tiene que
+// volver a correr una vez en cada competidor que ya se había buscado con la de antes.
+const claveDe = (ws: number, id: number) => `mako.spy.redes.v2.${ws}.${id}`;
 
 function almacenDelNavegador(): Almacen | null {
   try { return typeof window !== 'undefined' ? window.localStorage : null; } catch { return null; }
 }
 
-/** ¿Le falta alguna red que se pueda buscar? */
-export const leFaltaUnaRed = (c: { instagram: string | null; youtube_id: string | null; tiktok: string | null }): boolean =>
-  !c.instagram || !c.youtube_id || !c.tiktok;
+/** ¿Le falta alguna red que se pueda buscar, o su web (sin web, o con su página de enlaces en lugar de su web)? */
+export const leFaltaUnaRed = (c: { instagram: string | null; youtube_id: string | null; tiktok: string | null; landing_url?: string | null }): boolean =>
+  !c.instagram || !c.youtube_id || !c.tiktok || !c.landing_url || esAgregador(c.landing_url);
 
 /**
  * ¿Se buscan sus redes al abrir su ficha? Sí, si le falta alguna y no se buscaron en los últimos
  * `DIAS_SIN_REPETIR_REDES` días desde este navegador para este negocio.
  */
 export function debeBuscarRedes(
-  c: { id: number; instagram: string | null; youtube_id: string | null; tiktok: string | null },
+  c: { id: number; instagram: string | null; youtube_id: string | null; tiktok: string | null; landing_url?: string | null },
   ws: number | null,
   ahora: number = Date.now(),
   almacen: Almacen | null = almacenDelNavegador(),

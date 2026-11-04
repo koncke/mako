@@ -6155,6 +6155,9 @@ actions quedan cortadas todas. `tests/cuenta-revision-escrituras.test.ts` recorr
 - **Un mensaje a un tercero** (un mail, un WhatsApp) sale por `sendEmail` o por `enviarTexto` / `enviarMedia` / `enviarAudio`, que ya
   traen la guarda. Si un camino nuevo manda por otro lado, llama a `bloqueoDeEnvioEnRevision` (`lib/revision-guarda.ts`).
 - **El negocio de esa cuenta es `WS_REVISION`**, propio y fuera de `WS_PRUEBAS`: ninguna herramienta de prueba copia datos ahí.
+- **Que un pedido LLEGUE al proxy lo decide el matcher de `proxy.ts`, y saltea sólo archivos:** uno de la raíz o de una carpeta de
+  `public/` nombrada ahí, nunca «todo lo que termina en `.png`» (`POST /crm/x.png` con `Next-Action` se salteaba el proxy entero). Una
+  carpeta nueva de `public/` con imágenes o scripts se suma a esa lista; `tests/proxy-matcher-completo.test.ts` lo cruza con cada ruta.
 - Por qué y cómo se crea: `docs/relevo/nube-tiendas.md` y docs/hallazgos-seguridad.md («La lista de escritura no ve server actions»).
 
 # La página esconde por rol y la API no: el corte va ADENTRO de la ruta

@@ -22,6 +22,8 @@ import { getSupabaseServer } from './supabase';
 import { linkApp } from './app-url';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { esEscritura, frenoVigente, instanciaDeRuta, nuevoFreno, senalDeRiesgo, textoDelFreno, type Freno } from './mako-salida-reglas';
+import { MOTIVO_ENVIO_EN_REVISION } from './cuenta-revision-reglas';
+import { enRevision } from './revision-guarda';
 
 export const keyFreno = (instancia: string): string => `linea.freno.${instancia}`;
 
@@ -46,6 +48,9 @@ export async function frenoDeLinea(instancia: string): Promise<Freno | null> {
 /** Antes de una escritura: el motivo si la línea está frenada, o null para seguir. */
 export async function antesDeEscribir(ruta: string): Promise<string | null> {
   if (!esEscritura(ruta)) return null;
+  // La cuenta de revisión de las tiendas no escribe por NINGUNA línea, la de MaKo incluida (4/11/2026). `enviarTexto` y compañía ya
+  // lo preguntaban; esto cubre lo que sale por el `ev` de lib/mako-grupo.ts (la voz de MaKo, sumar a un grupo, una invitación).
+  if (await enRevision()) return MOTIVO_ENVIO_EN_REVISION;
   const instancia = instanciaDeRuta(ruta);
   if (!instancia) return null;
   const f = await frenoDeLinea(instancia);

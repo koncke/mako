@@ -59,8 +59,9 @@ import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy
 import { conLectura, funnelDeFila, leerFunnel, type Funnel, type LecturaFunnel } from './spy-funnel';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { VIDEOS_POR_LECTURA_COMPLETA, leerCompleto, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
-import { sitioDelTexto } from './spy-otras-redes-reglas';
+import { esAgregador, sitioDelTexto } from './spy-otras-redes-reglas';
 import { CLAVE_CARICATURAS, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
+import { encolarAlLeer } from './spy-caricatura-servidor';
 import { seFueron } from './spy-todo-reglas';
 import { FORMATOS, formatoDe } from './spy-detalle';
 import { leerPorPaginas } from './supabase-paginado';
@@ -172,7 +173,7 @@ export async function listarCompetidores(): Promise<{ ok: true; competidores: Co
   const db = await getTenantDb();
   const { data, error } = await db.from('spy_competidores').select(COLUMNAS_COMPETIDOR).order('mirado_en', { ascending: false, nullsFirst: false }).limit(TOPES.competidores);
   if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${error.message}` };
-  // La caricatura que se hizo sola (lib/spy-caricatura-auto.ts). Sin poder leerla, la tarjeta usa su foto: no es un error.
+  // La caricatura que hizo el Runner (la cola: lib/spy-caricatura-cola.ts). Sin poder leerla, la tarjeta usa su foto: no es un error.
   const caricaturas = caricaturasListas(leerRegistro(await getSetting(CLAVE_CARICATURAS).catch(() => null)));
   return { ok: true, competidores: ((data ?? []) as Competidor[]).map((c) => ({ ...c, caricatura: caricaturas.get(c.id) ?? null })) };
 }
@@ -379,6 +380,19 @@ export async function leerPieza(id: number): Promise<{ pieza: Pieza; competidor:
   const pieza = podarVencido(data as Record<string, unknown>) as Pieza;
   const competidor = await leerCompetidor(pieza.competidor_id);
   return competidor ? { pieza, competidor } : null;
+}
+
+/**
+ * Pone la web que encontró la cadena de sus redes (lib/spy-cadena.ts), si no tenía o si la que tenía era su página de
+ * enlaces (beacons, linktree…). Nunca pisa una web que eligió el negocio: compare-and-set sobre lo que había. true si la puso.
+ */
+export async function ponerWebEncontrada(id: number, web: string): Promise<boolean> {
+  const c = await leerCompetidor(id);
+  if (!c || (c.landing_url && !esAgregador(c.landing_url))) return false;
+  const db = await getTenantDb();
+  const q = db.from('spy_competidores').update({ landing_url: web.slice(0, 500), updated_at: new Date().toISOString() }).eq('id', id);
+  const r = await (c.landing_url ? q.eq('landing_url', c.landing_url) : q.is('landing_url', null)).select('id');
+  return !r.error && (r.data?.length ?? 0) > 0;
 }
 
 /** La etapa de tendencia de una pieza: cuánto lleva a la vista. Es lo único que MaKo agrega sobre mirar a mano. */
@@ -646,7 +660,8 @@ export async function mirarCompetidor(
         if (vistas.length) await marcarDejadas(competidorId, 'instagram', vistas);
         // Se guarda para que el PRÓXIMO negocio no la pague. No se espera: si falla, este negocio
         // ya tiene sus piezas y lo único que se pierde es el ahorro del siguiente.
-        void guardarLecturaCompartida('instagram', c.instagram, vistas, { seguidores: l.perfil.seguidores ?? null });
+        // Con su bio y su web (4/11/2026): la cadena de sus otras redes las lee de acá y no paga otra lectura (lib/spy-cadena.ts).
+        void guardarLecturaCompartida('instagram', c.instagram, vistas, { seguidores: l.perfil.seguidores ?? null, bio: l.perfil.bio ?? '', web: l.perfil.web ?? null });
         canales.push({ canal: 'instagram', ok: !g.error, piezas: vistas.length, nuevas: g.nuevas, detalle: g.error ?? `${vistas.length} publicaciones` });
       }
       }
@@ -764,6 +779,11 @@ export async function mirarCompetidor(
     instagram_seguidores: seguidores, youtube_suscriptores: suscriptores, avatar: cara, updated_at: ahora,
     ...(landingNueva ? { landing_url: landing } : {}),
   }).eq('id', competidorId);
+  // ⚠️ SU CARICATURA ENTRA A LA COLA AL LEERLO (4/11/2026; Martín: «cada vez que se genere un nuevo competidor, hacer
+  // una especie de levantar un ticket para generar esa imagen»): con su foto ya en NUESTRO Storage, sin IA y sin gastar
+  // nada. La hace el Runner con Canva (lib/spy-caricatura-cola.ts). Si la misma persona ya la tiene, se usa esa.
+  const wsDeLaLectura = await getWorkspaceActual();
+  if (wsDeLaLectura != null) await encolarAlLeer(wsDeLaLectura, c, cara);
   return { ok: canales.some((x) => x.ok), canales };
 }
 

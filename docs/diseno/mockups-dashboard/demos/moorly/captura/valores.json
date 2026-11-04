@@ -1,0 +1,1611 @@
+{
+  "medido": "2026-11-04T10:53:57.792Z",
+  "url": "https://demo.codeandchill.store/moorly/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/moorly/",
+      "ancho": 390,
+      "alto": 3692,
+      "fondo": "oklch(0.95 0.018 215)",
+      "letra": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--r-sm": "9px",
+        "--r-md": "12px",
+        "--r-lg": "16px",
+        "--r-xl": "22px",
+        "--ease": "cubic-bezier(.22, 1, .36, 1)",
+        "--gap": "12px",
+        "--pad-x": "12px",
+        "--max": "1560px",
+        "--bg": "oklch(95% .018 215)",
+        "--glass": "#ffffff9e",
+        "--glass-strong": "#fafcfdd6",
+        "--glass-rim": "#ffffffb3",
+        "--glass-hi": "#fffffff2",
+        "--blur": "22px",
+        "--card": "#ffffffdb",
+        "--card-2": "oklch(45% .04 220/.055)",
+        "--card-3": "oklch(45% .04 220/.1)",
+        "--ink": "oklch(22% .025 230)",
+        "--ink-2": "oklch(36% .025 230)",
+        "--muted": "oklch(47% .02 230)",
+        "--line": "oklch(30% .03 230/.09)",
+        "--line-2": "oklch(30% .03 230/.16)",
+        "--shadow": "0 1px 1px oklch(30% .05 230/.04), 0 12px 32px -18px oklch(35% .06 225/.32)",
+        "--shadow-lg": "0 2px 6px oklch(30% .05 230/.06), 0 32px 70px -26px oklch(30% .07 225/.45)",
+        "--accent": "oklch(50% .09 205)",
+        "--accent-hi": "oklch(56% .095 205)",
+        "--accent-ink": "#fff",
+        "--accent-soft": "oklch(50% .09 205/.13)",
+        "--accent-text": "oklch(44% .085 205)",
+        "--warm": "oklch(74% .13 62)",
+        "--warm-text": "oklch(52% .11 55)",
+        "--warm-soft": "oklch(74% .13 62/.18)",
+        "--good": "oklch(50% .11 155)",
+        "--warn": "oklch(52% .11 68)",
+        "--bad": "oklch(52% .16 25)",
+        "--info": "oklch(50% .12 250)",
+        "--good-soft": "oklch(60% .12 155/.15)",
+        "--warn-soft": "oklch(75% .13 75/.22)",
+        "--bad-soft": "oklch(60% .16 25/.13)",
+        "--info-soft": "oklch(60% .12 250/.13)",
+        "--c-hull": "oklch(56% .12 250)",
+        "--c-cargo": "oklch(72% .13 78)",
+        "--c-marina": "oklch(60% .11 165)",
+        "--c-build": "oklch(62% .13 40)",
+        "--c-fish": "oklch(64% .11 125)",
+        "--c-charter": "oklch(62% .13 8)",
+        "--tile-sea": "oklch(88% .06 195/.62)",
+        "--tile-sand": "oklch(92% .06 80/.66)",
+        "--tile-coral": "oklch(89% .06 40/.62)",
+        "--tile-sky": "oklch(89% .05 245/.62)",
+        "--tile-ink": "oklch(22% .025 230)",
+        "--tile-muted": "oklch(22% .025 230/.68)",
+        "--sky1": "oklch(97.5% .012 230)",
+        "--sky2": "oklch(94.5% .03 210)",
+        "--sun": "oklch(93% .075 70)",
+        "--w1": "oklch(90% .045 195)",
+        "--w2": "oklch(86% .06 205)",
+        "--w3": "oklch(82% .07 215)",
+        "--w4": "oklch(78% .075 228)",
+        "--crest": "#ffffffbf",
+        "--mono-ink": "oklch(22% .025 230)",
+        "--stamp": "oklch(52% .17 25)",
+        "--paper": "#fdfcf8",
+        "--paper-ink": "#1d2226",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 24,
+          "ejemplo": "Pipeline"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 21,
+          "ejemplo": "$800k"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 19,
+          "ejemplo": "Pell Harbor Ferry Co. · Dev"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "28px",
+          "peso": "600",
+          "interlineado": "29.12px",
+          "espaciado": "-0.7px",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 15,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 13,
+          "ejemplo": "Pell Harbor Ferry"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 9,
+          "ejemplo": "Policies starting each month · last 12 m"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "18.75px",
+          "espaciado": "-0.075px",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 8,
+          "ejemplo": "Premium on the water"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 6,
+          "ejemplo": "23%"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10px",
+          "peso": "700",
+          "interlineado": "14.5px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 6,
+          "ejemplo": "DM"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "18.225px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 6,
+          "ejemplo": "Dev asked a question on Pell Harbor Ferr"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "24.65px",
+          "espaciado": "-0.17px",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 5,
+          "ejemplo": "Desk"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 5,
+          "ejemplo": "5"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230 / 0.68)",
+          "veces": 4,
+          "ejemplo": "Open applications"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "600",
+          "interlineado": "19.8px",
+          "espaciado": "-0.18px",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 4,
+          "ejemplo": "24"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 4,
+          "ejemplo": "Commission"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 4,
+          "ejemplo": "Twelve months"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230 / 0.68)",
+          "veces": 3,
+          "ejemplo": "14 questions open"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.52 0.11 68)",
+          "veces": 3,
+          "ejemplo": "in 2 days"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.44 0.085 205)",
+          "veces": 3,
+          "ejemplo": "Board"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "17.85px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 3,
+          "ejemplo": "25"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11.55px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 3,
+          "ejemplo": "days"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.52 0.16 25)",
+          "veces": 2,
+          "ejemplo": "20 days late"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.44 0.085 205)",
+          "veces": 2,
+          "ejemplo": "ends in 15 days"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.5 0.11 155)",
+          "veces": 2,
+          "ejemplo": "Renewed"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "oklch(0.95 0.018 215)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10px",
+          "peso": "700",
+          "interlineado": "14.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 1,
+          "ejemplo": "Monday, October 26 · 14 questions waitin"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "New application"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(23, 97, 59)",
+          "veces": 1,
+          "ejemplo": "↑ 166%"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 1,
+          "ejemplo": "Premium"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.5 0.12 250)",
+          "veces": 1,
+          "ejemplo": "Quoted"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 1,
+          "ejemplo": "Send loss-run letter to Halyard for Iron"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "28.6px",
+          "espaciado": "-0.52px",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 1,
+          "ejemplo": "$91,456"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Desk"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "div.kpi.kpi--sea",
+          "x": 12,
+          "y": 252,
+          "w": 177,
+          "h": 117,
+          "fondo": "oklch(0.88 0.06 195 / 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "14px 14px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Open applications2414 questions open"
+        },
+        {
+          "etiqueta": "div.kpi.kpi--sand",
+          "x": 201,
+          "y": 252,
+          "w": 177,
+          "h": 117,
+          "fondo": "oklch(0.92 0.06 80 / 0.66)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "14px 14px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "On offer now$358,0105 quotes out"
+        },
+        {
+          "etiqueta": "div.kpi.kpi--sky",
+          "x": 12,
+          "y": 381,
+          "w": 177,
+          "h": 112,
+          "fondo": "oklch(0.89 0.05 245 / 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "14px 14px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Bound this year$1.75M34 policies"
+        },
+        {
+          "etiqueta": "div.kpi.kpi--coral",
+          "x": 201,
+          "y": 381,
+          "w": 177,
+          "h": 112,
+          "fondo": "oklch(0.89 0.06 40 / 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "14px 14px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Commission, October$34,362↑ 166%vs September"
+        },
+        {
+          "etiqueta": "section.card.desk__chart",
+          "x": 12,
+          "y": 505,
+          "w": 366,
+          "h": 522,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Premium on the waterPolicies starting each month · last 12 m"
+        },
+        {
+          "etiqueta": "div.cstats",
+          "x": 28,
+          "y": 896,
+          "w": 334,
+          "h": 115,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid oklch(0.3 0.03 230 / 0.09)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "14px 0px 0px",
+          "gap": "12px",
+          "grilla": "161px 161px",
+          "texto": "Twelve months$2,265,810Monthly average$188,818Best monthDece"
+        },
+        {
+          "etiqueta": "section.card.desk__wait",
+          "x": 12,
+          "y": 1039,
+          "w": 366,
+          "h": 417,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Waiting on you25 things across the pipelineDo the two ferrie"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 12,
+          "y": 1468,
+          "w": 366,
+          "h": 313,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Pipeline24 open · $1,482,900 indicatedBoard5Intake$285k4Clea"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 12,
+          "y": 1793,
+          "w": 366,
+          "h": 400,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Renewal tidePremium expiring, week by week · next 13 weeksRe"
+        },
+        {
+          "etiqueta": "section.card.mix",
+          "x": 12,
+          "y": 2204,
+          "w": 366,
+          "h": 320,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Book by program45 policies in force · $2.21MBook mixCharter "
+        },
+        {
+          "etiqueta": "section.card.todos",
+          "x": 12,
+          "y": 2537,
+          "w": 366,
+          "h": 369,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "To-dos3 openAnswer Dev on the Pell Harbor fire watchin 2 day"
+        },
+        {
+          "etiqueta": "section.card.desk__feed",
+          "x": 12,
+          "y": 2918,
+          "w": 366,
+          "h": 419,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "ActivityHarrow & Pike and SaltgateDMDev asked a question on "
+        },
+        {
+          "etiqueta": "section.card.bill",
+          "x": 12,
+          "y": 3349,
+          "w": 366,
+          "h": 244,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Next agency billAB-2609 · September 2026 instalmentsDue in 4"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/moorly/",
+      "ancho": 1440,
+      "alto": 1714,
+      "fondo": "oklch(0.95 0.018 215)",
+      "letra": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--r-sm": "9px",
+        "--r-md": "12px",
+        "--r-lg": "16px",
+        "--r-xl": "22px",
+        "--ease": "cubic-bezier(.22, 1, .36, 1)",
+        "--gap": "16px",
+        "--pad-x": "clamp(16px, 2.2vw, 32px)",
+        "--max": "1560px",
+        "--bg": "oklch(95% .018 215)",
+        "--glass": "#ffffff9e",
+        "--glass-strong": "#fafcfdd6",
+        "--glass-rim": "#ffffffb3",
+        "--glass-hi": "#fffffff2",
+        "--blur": "22px",
+        "--card": "#ffffffdb",
+        "--card-2": "oklch(45% .04 220/.055)",
+        "--card-3": "oklch(45% .04 220/.1)",
+        "--ink": "oklch(22% .025 230)",
+        "--ink-2": "oklch(36% .025 230)",
+        "--muted": "oklch(47% .02 230)",
+        "--line": "oklch(30% .03 230/.09)",
+        "--line-2": "oklch(30% .03 230/.16)",
+        "--shadow": "0 1px 1px oklch(30% .05 230/.04), 0 12px 32px -18px oklch(35% .06 225/.32)",
+        "--shadow-lg": "0 2px 6px oklch(30% .05 230/.06), 0 32px 70px -26px oklch(30% .07 225/.45)",
+        "--accent": "oklch(50% .09 205)",
+        "--accent-hi": "oklch(56% .095 205)",
+        "--accent-ink": "#fff",
+        "--accent-soft": "oklch(50% .09 205/.13)",
+        "--accent-text": "oklch(44% .085 205)",
+        "--warm": "oklch(74% .13 62)",
+        "--warm-text": "oklch(52% .11 55)",
+        "--warm-soft": "oklch(74% .13 62/.18)",
+        "--good": "oklch(50% .11 155)",
+        "--warn": "oklch(52% .11 68)",
+        "--bad": "oklch(52% .16 25)",
+        "--info": "oklch(50% .12 250)",
+        "--good-soft": "oklch(60% .12 155/.15)",
+        "--warn-soft": "oklch(75% .13 75/.22)",
+        "--bad-soft": "oklch(60% .16 25/.13)",
+        "--info-soft": "oklch(60% .12 250/.13)",
+        "--c-hull": "oklch(56% .12 250)",
+        "--c-cargo": "oklch(72% .13 78)",
+        "--c-marina": "oklch(60% .11 165)",
+        "--c-build": "oklch(62% .13 40)",
+        "--c-fish": "oklch(64% .11 125)",
+        "--c-charter": "oklch(62% .13 8)",
+        "--tile-sea": "oklch(88% .06 195/.62)",
+        "--tile-sand": "oklch(92% .06 80/.66)",
+        "--tile-coral": "oklch(89% .06 40/.62)",
+        "--tile-sky": "oklch(89% .05 245/.62)",
+        "--tile-ink": "oklch(22% .025 230)",
+        "--tile-muted": "oklch(22% .025 230/.68)",
+        "--sky1": "oklch(97.5% .012 230)",
+        "--sky2": "oklch(94.5% .03 210)",
+        "--sun": "oklch(93% .075 70)",
+        "--w1": "oklch(90% .045 195)",
+        "--w2": "oklch(86% .06 205)",
+        "--w3": "oklch(82% .07 215)",
+        "--w4": "oklch(78% .075 228)",
+        "--crest": "#ffffffbf",
+        "--mono-ink": "oklch(22% .025 230)",
+        "--stamp": "oklch(52% .17 25)",
+        "--paper": "#fdfcf8",
+        "--paper-ink": "#1d2226",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 24,
+          "ejemplo": "Pipeline"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 19,
+          "ejemplo": "$800k"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 19,
+          "ejemplo": "Pell Harbor Ferry Co. · Dev"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "37.44px",
+          "peso": "600",
+          "interlineado": "38.9376px",
+          "espaciado": "-0.936px",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 15,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 13,
+          "ejemplo": "Pell Harbor Ferry"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 9,
+          "ejemplo": "Policies starting each month · last 12 m"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "18.75px",
+          "espaciado": "-0.075px",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 8,
+          "ejemplo": "Premium on the water"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 6,
+          "ejemplo": "Applications14"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 6,
+          "ejemplo": "Saltgate desk online · 10:14 AM"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 6,
+          "ejemplo": "23%"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10px",
+          "peso": "700",
+          "interlineado": "14.5px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 6,
+          "ejemplo": "DM"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "18.225px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 6,
+          "ejemplo": "Dev asked a question on Pell Harbor Ferr"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 5,
+          "ejemplo": "Workspace"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 5,
+          "ejemplo": "5"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230 / 0.68)",
+          "veces": 4,
+          "ejemplo": "Open applications"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "24.2px",
+          "espaciado": "-0.22px",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 4,
+          "ejemplo": "24"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230 / 0.68)",
+          "veces": 4,
+          "ejemplo": "14 questions open"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "24.65px",
+          "espaciado": "-0.17px",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 4,
+          "ejemplo": "$2,265,810"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 3,
+          "ejemplo": "Desk"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.52 0.11 68)",
+          "veces": 3,
+          "ejemplo": "in 2 days"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.44 0.085 205)",
+          "veces": 3,
+          "ejemplo": "Board"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "17.85px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 3,
+          "ejemplo": "25"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11.55px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 3,
+          "ejemplo": "days"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "oklch(0.36 0.025 230)",
+          "veces": 2,
+          "ejemplo": "14"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 2,
+          "ejemplo": "Desk"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.52 0.16 25)",
+          "veces": 2,
+          "ejemplo": "20 days late"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.44 0.085 205)",
+          "veces": 2,
+          "ejemplo": "ends in 15 days"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.5 0.11 155)",
+          "veces": 2,
+          "ejemplo": "Renewed"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "oklch(0.95 0.018 215)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "-0.42px",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 1,
+          "ejemplo": "Moorly"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "0.22px",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 1,
+          "ejemplo": "Saltgate Marine · broker portal"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10px",
+          "peso": "700",
+          "interlineado": "14.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 1,
+          "ejemplo": "NL"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 1,
+          "ejemplo": "Monday, October 26 · 14 questions waitin"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(23, 97, 59)",
+          "veces": 1,
+          "ejemplo": "↑ 166%"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "oklch(0.5 0.12 250)",
+          "veces": 1,
+          "ejemplo": "Quoted"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "oklch(0.47 0.02 230)",
+          "veces": 1,
+          "ejemplo": "Send loss-run letter to Halyard for Iron"
+        },
+        {
+          "familia": "Urbanist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "28.6px",
+          "espaciado": "-0.52px",
+          "color": "oklch(0.22 0.025 230)",
+          "veces": 1,
+          "ejemplo": "$91,456"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "div.top__in",
+          "x": 32,
+          "y": 10,
+          "w": 1377,
+          "h": 110,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "MoorlySaltgate Marine · broker portalDeskDeskApplications14R"
+        },
+        {
+          "etiqueta": "div.kpi.kpi--sea",
+          "x": 32,
+          "y": 254,
+          "w": 332,
+          "h": 126,
+          "fondo": "oklch(0.88 0.06 195 / 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px 18px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Open applications2414 questions open"
+        },
+        {
+          "etiqueta": "div.kpi.kpi--sand",
+          "x": 380,
+          "y": 254,
+          "w": 332,
+          "h": 126,
+          "fondo": "oklch(0.92 0.06 80 / 0.66)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px 18px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "On offer now$358,0105 quotes out"
+        },
+        {
+          "etiqueta": "div.kpi.kpi--sky",
+          "x": 728,
+          "y": 254,
+          "w": 332,
+          "h": 126,
+          "fondo": "oklch(0.89 0.05 245 / 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px 18px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Bound this year$1.75M34 policies"
+        },
+        {
+          "etiqueta": "div.kpi.kpi--coral",
+          "x": 1076,
+          "y": 254,
+          "w": 332,
+          "h": 126,
+          "fondo": "oklch(0.89 0.06 40 / 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "16px 18px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Commission, October$34,362↑ 166%vs September"
+        },
+        {
+          "etiqueta": "section.card.desk__chart",
+          "x": 32,
+          "y": 396,
+          "w": 912,
+          "h": 426,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Premium on the waterPolicies starting each month · last 12 m"
+        },
+        {
+          "etiqueta": "section.card.desk__wait",
+          "x": 960,
+          "y": 396,
+          "w": 448,
+          "h": 426,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Waiting on you25 things across the pipelineDo the two ferrie"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 32,
+          "y": 837,
+          "w": 448,
+          "h": 406,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Pipeline24 open · $1,482,900 indicatedBoard5Intake$285k4Clea"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 496,
+          "y": 837,
+          "w": 448,
+          "h": 406,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Renewal tidePremium expiring, week by week · next 13 weeksRe"
+        },
+        {
+          "etiqueta": "section.card.mix",
+          "x": 960,
+          "y": 837,
+          "w": 448,
+          "h": 406,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Book by program45 policies in force · $2.21MBook mixCharter "
+        },
+        {
+          "etiqueta": "section.card.todos",
+          "x": 32,
+          "y": 1259,
+          "w": 448,
+          "h": 407,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "To-dos3 openAnswer Dev on the Pell Harbor fire watchin 2 day"
+        },
+        {
+          "etiqueta": "section.card.desk__feed",
+          "x": 496,
+          "y": 1259,
+          "w": 448,
+          "h": 407,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "ActivityHarrow & Pike and SaltgateDMDev asked a question on "
+        },
+        {
+          "etiqueta": "section.card.bill",
+          "x": 960,
+          "y": 1259,
+          "w": 448,
+          "h": 407,
+          "fondo": "rgba(255, 255, 255, 0.62)",
+          "borde": "0px none oklch(0.22 0.025 230)",
+          "radio": "16px",
+          "sombra": "rgba(255, 255, 255, 0.95) 0px 1px 0px 0px inset, rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset, oklch(0.3 0.05 230 / 0.04) 0px 1px 1px 0px, oklch(0.35 0.06 225 / 0.32) 0px 12px 32px -18px",
+          "padding": "18px 20px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Next agency billAB-2609 · September 2026 instalmentsDue in 4"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "MoorlySaltgate Marine · broker portal",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 50,
+            "y": 22,
+            "w": 204,
+            "h": 40
+          },
+          "estilo": {
+            "color": "oklch(0.22 0.025 230)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "oklch(0.22 0.025 230)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "oklch(0.22 0.025 230) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "a",
+          "texto": "Desk",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 278,
+            "y": 23,
+            "w": 79,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(255, 255, 255)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(255, 255, 255) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 2,
+          "etiqueta": "button.mainnav__more",
+          "texto": "More",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 965,
+            "y": 23,
+            "w": 78,
+            "h": 38
+          },
+          "estilo": {
+            "color": "oklch(0.47 0.02 230)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "oklch(0.47 0.02 230)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "oklch(0.47 0.02 230) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "oklch(0.47 0.02 230)",
+              "oklch(0.22 0.025 230)"
+            ],
+            "borderColor": [
+              "oklch(0.47 0.02 230)",
+              "oklch(0.22 0.025 230)"
+            ],
+            "outline": [
+              "oklch(0.47 0.02 230) none 3px",
+              "oklch(0.22 0.025 230) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "oklch(0.47 0.02 230)",
+              "oklch(0.22 0.025 230)"
+            ],
+            "borderColor": [
+              "oklch(0.47 0.02 230)",
+              "oklch(0.22 0.025 230)"
+            ],
+            "outline": [
+              "oklch(0.47 0.02 230) none 3px",
+              "oklch(0.22 0.025 230) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 3,
+          "etiqueta": "button.searchpill",
+          "texto": "Search…⌘K",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1081,
+            "y": 22,
+            "w": 40,
+            "h": 40
+          },
+          "estilo": {
+            "color": "oklch(0.47 0.02 230)",
+            "backgroundColor": "oklch(0.45 0.04 220 / 0.055)",
+            "borderColor": "oklch(0.47 0.02 230)",
+            "boxShadow": "oklch(0.3 0.03 230 / 0.09) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "oklch(0.47 0.02 230) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "oklch(0.47 0.02 230)",
+              "oklch(0.22 0.025 230)"
+            ],
+            "borderColor": [
+              "oklch(0.47 0.02 230)",
+              "oklch(0.22 0.025 230)"
+            ],
+            "outline": [
+              "oklch(0.47 0.02 230) none 3px",
+              "oklch(0.22 0.025 230) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "oklch(0.47 0.02 230)",
+              "oklch(0.22 0.025 230)"
+            ],
+            "borderColor": [
+              "oklch(0.47 0.02 230)",
+              "oklch(0.22 0.025 230)"
+            ],
+            "outline": [
+              "oklch(0.47 0.02 230) none 3px",
+              "oklch(0.22 0.025 230) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"4\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button ty"
+        },
+        {
+          "n": 5,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"5\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button ty"
+        },
+        {
+          "n": 6,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"6\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button cl"
+        },
+        {
+          "n": 7,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"7\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button ty"
+        },
+        {
+          "n": 8,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"8\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a class=\""
+        },
+        {
+          "n": 9,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"9\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a class=\""
+        },
+        {
+          "n": 10,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"10\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 11,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"11\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 12,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"12\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a class="
+        },
+        {
+          "n": 13,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"13\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a class="
+        },
+        {
+          "n": 14,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"14\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 15,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"15\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a class="
+        },
+        {
+          "n": 16,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"16\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 17,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"17\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a class="
+        },
+        {
+          "n": 18,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"18\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a class="
+        },
+        {
+          "n": 19,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"19\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a data-m"
+        },
+        {
+          "n": 20,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

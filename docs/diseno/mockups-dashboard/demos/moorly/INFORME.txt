@@ -1,0 +1,58 @@
+##############################################################################
+#  MOORLY   bundle 244kB - 1 helpers - 13 chunks - ARQ REACT - 8 fromTo crudos
+##############################################################################
+
+CHUNKS: application-Ze9SPIdg.js, applications-Dd5sZ4_d.js, billing-Da3-rR9a.js, book-BwBbWm-s.js, charts-iL9A-Nru.js, desk-DyEdfTQ2.js, help-MzZjUXEX.js, integrations-Dmz6kEEL.js, kit-CK57Zj0e.js, policies-D6ZF2hjy.js, renewals-B_qvr-0x.js, resources-WmK8WWVY.js, settings-D-a7l_37.js
+
+======================== RECETAS (React: dentro de useLayoutEffect) ========================
+
+- rrent?.focus?.({preventScroll:!0})}),S.to(a.current,{opacity:0,duration:_(.18)})};(0,k.useLayoutEffect)(()=>{S.fromTo(a.current,{opacity:0},{opacity:1,duration:_(.25)}),u([i.current],{y:-14,from:.4}),i.current?.querySelector(`input`)?.focus()},[]),(0,k.useLayoutEffect)(()=>{r(0),b([...o.current?.querySelectorAll(`.finder__item`)??[]].slice(0,8),{y:6,stagger:.02})},[e]),(0,k.useLayoutEffect)(()=>{o.current?.querySelector(`[aria-selected="true"]`)?.scrollIntoView({block:`nearest`})},[n]);let d=e=>{e&&(l(),e.run())},f=e=>{e.key===`Arro
+
+- null),s=(0,k.useRef)(null),c=a(),l=(0,k.useRef)(c);(0,k.useLayoutEffect)(()=>{c>l.current&&o.current&&!r()&&(S.fromTo(o.current.querySelector(`svg`),{rotation:0},{keyframes:{rotation:[0,16,-14,10,-6,0]},duration:.8,ease:`power2.out`,transformOrigin:`50% 10%`}),S.fromTo(s.current,{scale:.4},{scale:1,duration:.6,ease:`back.out(3)`})),l.current=c},[c]);let u=document.documentElement.dataset.theme===`dark`,d=Oe();return(0,A.jsx)(`header`,{className:`top`,ref:i,children:(0,A.jsxs)(`div`,{className:`top__in`,children:[(0,A.jsxs)(`div`,{cl
+
+- tation:0},{keyframes:{rotation:[0,16,-14,10,-6,0]},duration:.8,ease:`power2.out`,transformOrigin:`50% 10%`}),S.fromTo(s.current,{scale:.4},{scale:1,duration:.6,ease:`back.out(3)`})),l.current=c},[c]);let u=document.documentElement.dataset.theme===`dark`,d=Oe();return(0,A.jsx)(`header`,{className:`top`,ref:i,children:(0,A.jsxs)(`div`,{className:`top__in`,children:[(0,A.jsxs)(`div`,{className:`top__row`,children:[(0,A.jsxs)(`a`,{className:`brand`,href:`#/desk`,"aria-label":`Moorly, the desk`,children:[(0,A.jsx)(`span`,{className:`bran
+
+- ({email:e.email,password:``}),[r,a]=(0,k.useState)(``),o=(0,k.useRef)(null);return(0,k.useLayoutEffect)(()=>{S.fromTo(o.current.children,{opacity:0,y:18},{opacity:1,y:0,duration:_(.6),stagger:_(.06),ease:`expo.out`,clearProps:`transform,opacity`})},[]),(0,A.jsx)(`div`,{className:`signin`,role:`dialog`,"aria-modal":`true`,"aria-label":`Sign in to Moorly`,children:(0,A.jsxs)(`div`,{className:`signin__card`,ref:o,children:[(0,A.jsx)(`span`,{className:`brand__mark`,children:(0,A.jsx)(m,{name:`logo`})}),(0,A.jsx)(`h1`,{children:`Sign in 
+
+- page,e.sub,e.page===`application`?e.params[0]:``]),(0,k.useLayoutEffect)(()=>{if(!n)return;let e=i.current,t=S.timeline({onComplete:()=>{le.v=!0}});t.add(u([e.querySelector(`.top__in`)],{y:-20,from:.3,kids:!1}),0),t.fromTo(e.querySelectorAll(`.brand, .mainnav > a, .mainnav > button, .top__row > .searchpill, .top__row > .btn, .top__row > .ibtn, .mebtn`),{opacity:0,x:-10},{opacity:1,x:0,duration:_(.5),ease:`power3.out`,stagger:_(.03),clearProps:`transform,opacity`},_(.12)),t.fromTo(e.querySelector(`.mainnav__pill`),{scale:.6},{scale:1,d
+
+- t,t=S.timeline({onComplete:()=>{le.v=!0}});t.add(u([e.querySelector(`.top__in`)],{y:-20,from:.3,kids:!1}),0),t.fromTo(e.querySelectorAll(`.brand, .mainnav > a, .mainnav > button, .top__row > .searchpill, .top__row > .btn, .top__row > .ibtn, .mebtn`),{opacity:0,x:-10},{opacity:1,x:0,duration:_(.5),ease:`power3.out`,stagger:_(.03),clearProps:`transform,opacity`},_(.12)),t.fromTo(e.querySelector(`.mainnav__pill`),{scale:.6},{scale:1,duration:_(.6),ease:`back.out(2)`,clearProps:`scale`},_(.36)),t.fromTo(e.querySelectorAll(`.crumbs, .des
+
+- :-10},{opacity:1,x:0,duration:_(.5),ease:`power3.out`,stagger:_(.03),clearProps:`transform,opacity`},_(.12)),t.fromTo(e.querySelector(`.mainnav__pill`),{scale:.6},{scale:1,duration:_(.6),ease:`back.out(2)`,clearProps:`scale`},_(.36)),t.fromTo(e.querySelectorAll(`.crumbs, .desk-status`),{opacity:0,y:6},{opacity:1,y:0,duration:_(.5),ease:`power3.out`,stagger:_(.05),clearProps:`transform,opacity`},_(.3)),innerWidth<=760&&t.fromTo(e.querySelector(`.tabbar`),{y:90},{y:0,duration:_(.7),ease:`expo.out`,clearProps:`transform`},_(.2))},[n]),
+
+- Selector(`.mainnav__pill`),{scale:.6},{scale:1,duration:_(.6),ease:`back.out(2)`,clearProps:`scale`},_(.36)),t.fromTo(e.querySelectorAll(`.crumbs, .desk-status`),{opacity:0,y:6},{opacity:1,y:0,duration:_(.5),ease:`power3.out`,stagger:_(.05),clearProps:`transform,opacity`},_(.3)),innerWidth<=760&&t.fromTo(e.querySelector(`.tabbar`),{y:90},{y:0,duration:_(.7),ease:`expo.out`,clearProps:`transform`},_(.2))},[n]),(0,k.useEffect)(()=>{let e=0,t=t=>{if((t.metaKey||t.ctrlKey)&&t.key.toLowerCase()===`k`){t.preventDefault(),it();return}if(!(
+
+- ,y:0,duration:_(.5),ease:`power3.out`,stagger:_(.05),clearProps:`transform,opacity`},_(.3)),innerWidth<=760&&t.fromTo(e.querySelector(`.tabbar`),{y:90},{y:0,duration:_(.7),ease:`expo.out`,clearProps:`transform`},_(.2))},[n]),(0,k.useEffect)(()=>{let e=0,t=t=>{if((t.metaKey||t.ctrlKey)&&t.key.toLowerCase()===`k`){t.preventDefault(),it();return}if(!(t.target.closest(`input, textarea, select, [contenteditable]`)||t.metaKey||t.ctrlKey||t.altKey||be()||!O.signedIn)){if(t.key===`/`)t.preventDefault(),it();else if(t.key===`?`)Mt();else if(
+
+========================== TIMELINE DEL ARMAZON ==========================
+,[e.page,e.sub,e.params[0]]),(0,k.useEffect)(()=>{pe()},[e.page,e.sub,e.page===`application`?e.params[0]:``]),(0,k.useLayoutEffect)(()=>{if(!n)return;let e=i.current,t=S.timeline({onComplete:()=>{le.v=!0}});t.add(u([e.querySelector(`.top__in`)],{y:-20,from:.3,kids:!1}),0),t.fromTo(e.querySelectorAll(`.brand, .mainnav > a, .mainnav > button, .top__row > .searchpill, .top__row > .btn, .top__row > .ibtn, .mebtn`),{opacity:0,x:-10},{opacity:1,x:0,duration:_(.5),ease:`power3.out`,stagger:_(.03),clearProps:`transform,opacity`},_(.12)),t.fromTo(e.querySelector(`.mainnav__pill`),{scale:.6},{scale:1,duration:_(.6),ease:`back.out(2)`,clearProps:`scale`},_(.36)),t.fromTo(e.querySelectorAll(`.crumbs, .desk-status`),{opacity:0,y:6},{opacity:1,y:0,duration:_(.5),ease:`power3.out`,stagger:_(.05),clearProps:`transform,opacity`},_(.3)),innerWidth<=760&&t.fromTo(e.querySelector(`.tabbar`),{y:90},{y:0,duration:_(.7),ease:`expo.out`,clearProps:`transform`},_(.2))},[n]),(0,k.useEffect)(()=>{let e=0,t=t=>{if((t.metaKey||t.ctrlKey)&&t.key.toLowerCase()===`k`){t.preventDefault(),it();return}if(!(t.target.closest(`input, textarea, select, [contenteditable]`)||t.metaKey||t.ctrlKey||t.altKey||be()||!O.signedIn)){if(t.key===`/`)t.preventDefault(),it();else if(t.key===`?`)Mt();else if(t.key.toLowerCase()===`n`)Xe();else if(t.key.toLowerCase()===`g`)e=performance.now();else if(performance.now()-e<900){let n={d:`desk`,a:`applications`,r:`renewals`,b:`book`,p:`policies`,i:`billing`,s:`settings`}[t.key.toLowerCase()];n&&v(n),e=0}}};return addEventListener(`keydown`,t),()=>removeEventListener(`keydown`,t)},[]),(0,k.useEffect)(()=>{if(!ce)return;let e=()=>{document.documentElement.classList.add(`is-started`),r(!0)};window.MOORLY={enter:e,drive(e){let t=S.ticker.time,n=e();S.ticker.remove(S.updateRoot),S.ticker.add(()=>S.updateRoot(t+e()-n))},set speed(e){se(e)},get speed()
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2px solid var(--accent);outline-offset:2px;border-radius:8px }
+  .mainnav a:hover,.mainnav button:hover { color:var(--ink) }
+  .mainnav [aria-current=page],.mainnav [aria-current=page]:hover { color:var(--accent-ink) }
+  .searchpill:hover { color:var(--ink) }
+  .ibtn:hover { background:var(--card-3) }
+  .ibtn--flat:hover { background:var(--card-2) }
+  .mebtn:hover { background:var(--card-2) }
+  .crumbs a:hover { color:var(--ink) }
+  .subtabs a:hover,.subtabs a[aria-current=page] { color:var(--ink) }
+  .btn:hover { background:var(--card-2) }
+  .btn--primary:hover { background:linear-gradient(180deg, var(--accent-hi), var(--accent-hi)) }
+  .btn--dark:hover { background:var(--ink-2) }
+  .btn--ghost:hover { background:var(--card-2) }
+  .linkbtn:hover { text-underline-offset:3px;text-decoration:underline }
+  .chip:hover { color:var(--ink) }
+  .tabs a:hover,.tabs button:hover,.tabs [aria-current=page],.tabs [aria-selected=true] { color:var(--ink) }
+  .table th button:hover { color:var(--ink) }
+  .table tbody tr.is-click:hover td { background:var(--card-2) }
+  .stepper button:hover { background:var(--card) }
+  .menu__item:hover,.menu__item:focus-visible,.menu__item[aria-current=page] { background:var(--card-2);outline:none }
+  .finder__in input:focus-visible { outline:none }
+  .notice:hover { background:var(--card-2) }
+  .table--stack tbody tr.is-click:hover td { background:0 0 }
+
+  -- keyframes --
+  @keyframes flash {0%{color:var(--accent)}to{color:inherit}}
+
+  -- transitions --
