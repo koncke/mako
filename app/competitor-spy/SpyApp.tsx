@@ -84,8 +84,10 @@ import {
 import type { RedOtra } from '@/lib/spy-otras-redes-reglas';
 import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
 import { enlaceSusAnuncios } from '@/lib/spy-funnel';
-import { SuFunnel } from './SuFunnel';
+import { SuFunnelTipo } from './SuFunnelTipo';
 import { SuOferta } from './SuOferta';
+import { SusPaginas } from './SusPaginas';
+import { clasificarFunnel, fuentesDeEvidencia } from '@/lib/spy-funnel-tipo';
 import type { VistaOferta } from '@/lib/spy-oferta';
 import { TarjetaPieza } from './TarjetaPieza';
 import { GraficoSpy } from './GraficoSpy';
@@ -474,9 +476,9 @@ button.spy-campo:hover{color:var(--dim)}
 @keyframes spy-latido{0%,100%{opacity:1}50%{opacity:.55}}
 
 /* ── Ficha de oferta y de sitio. ── */
-.spy-sitio{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:20px;
-  border-radius:var(--r-lg);background:var(--surface);box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta)}
-.spy-sitio-acciones{display:flex;flex-wrap:wrap;gap:8px}
+/* La pestaña Funnel (tercera vuelta, 4/11): arriba su funnel y su oferta, lado a lado; debajo las notas; al final sus páginas. */
+.spy-funnel-tab{display:flex;flex-direction:column;gap:28px;min-width:0}
+.spy-funnel-arriba{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px;align-items:stretch}
 .spy-funnel{display:flex;flex-direction:column;gap:12px;width:100%}
 .spy-funnel-fila{display:flex;flex-direction:column;gap:6px;min-width:0}
 .spy-funnel-fila>b{color:var(--faint);font-size:var(--fs-sm);font-weight:600}
@@ -844,7 +846,7 @@ function RielAnalisis({ piezas, c }: { piezas: PiezaVista[]; c: Competidor }) {
   );
 }
 
-export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = null, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [] }: {
+export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = null, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [], conVistaPrevia = false }: {
   iniciales: Competidor[];
   resumenInicial: Record<number, ResumenPiezas>;
   /** El `?competidor=` de la URL. La ficha es una URL: se comparte, se marca y se vuelve. */
@@ -858,6 +860,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   ws?: number | null;
   /** Los competidores de la plataforma que este negocio todavía no mira. */
   sugeridosIniciales?: Sugerido[];
+  /** La vista previa de sus páginas: la ruta del Diagnóstico del Web Generator pide el admin y esa tab en el plan. */
+  conVistaPrevia?: boolean;
 }) {
   const [competidores, setCompetidores] = useState<Competidor[]>(iniciales);
   const [sugeridos, setSugeridos] = useState<Sugerido[]>(sugeridosIniciales);
@@ -884,6 +888,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [pestana, setPestana] = useState<Pestana>('contenido');
   /** La pieza abierta en su detalle, con las de su gráfico (para su puesto). */
   const [abierta, setAbierta] = useState<{ p: PiezaVista; todas: readonly PiezaVista[] } | null>(null);
+  /** La página que se mira en «Sus páginas»: la elige el desplegable o una cita de su funnel. */
+  const [paginaElegida, setPaginaElegida] = useState<string | null>(null);
 
   const [textoAlta, setTextoAlta] = useState('');
   const [buscar, setBuscar] = useState('');
@@ -999,6 +1005,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     setElegido(id);
     // El detalle abierto es de una pieza del que se deja: se cierra, y el otro abre en su gráfico.
     setAbierta(null);
+    setPaginaElegida(null);
     setPestana('contenido');
     const url = new URL(window.location.href);
     if (id == null) url.searchParams.delete('competidor');
@@ -1308,9 +1315,6 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
 
   const flujo = useMemo(() => piezas.filter((p) => p.canal === 'instagram' || p.canal === 'youtube'), [piezas]);
   const anuncios = useMemo(() => piezas.filter((p) => p.canal === 'anuncios'), [piezas]);
-  // La página que se le cargó, no la última que se guardó: con «Guardar en Spy» puede haber varias.
-  const sitio = useMemo(() => piezas.find((p) => p.canal === 'landing' && p.ref === c?.landing_url) ?? piezas.find((p) => p.canal === 'landing') ?? null, [piezas, c?.landing_url]);
-  const piezasDelSitio = (sitio?.piezasDePagina ?? []).filter((n) => !sitio?.funnel || !n.startsWith('un video'));
   // La grilla de abajo: lo que publica Y sus anuncios, como un formato más (Martín, 4/11: «los anuncios deberían estar en
   // "Contenido", igual que el resto»). Antes los anuncios eran una sección aparte, al final de todo.
   const contenido = useMemo(() => [...flujo, ...anuncios], [flujo, anuncios]);
@@ -1319,11 +1323,31 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const opcionesTipo = useMemo(() => (c ? opcionesDeContenido(contenido, c) : []), [contenido, c]);
   const ofertaDe = c ? ofertas[c.id] : undefined;
   const ofertaConDiagnostico = !!ofertaDe && 'diagnostico' in ofertaDe && !!ofertaDe.diagnostico;
+  const paginasLeidas = useMemo(() => (ofertaDe && 'paginas' in ofertaDe ? ofertaDe.paginas : []), [ofertaDe]);
+  // Qué funnel usa, con lo que lo delata (lib/spy-funnel-tipo.ts, del catálogo). Se calcula UNA vez: también decide la pestaña.
+  const fuentesFunnel = useMemo(() => fuentesDeEvidencia(piezas, paginasLeidas), [piezas, paginasLeidas]);
+  const lecturaFunnel = useMemo(() => clasificarFunnel(fuentesFunnel), [fuentesFunnel]);
+  // Sus páginas: su web primero y, si es una página de enlaces (Beacons, Linktree), cada página suya que enlaza.
+  const susPaginas = useMemo(() => {
+    const leidos = ofertaDe && 'enlaces' in ofertaDe ? ofertaDe.enlaces : [];
+    return [...new Set([...(c?.landing_url ? [c.landing_url] : []), ...leidos])];
+  }, [ofertaDe, c?.landing_url]);
+  const titulosDePaginas = useMemo(() => new Map(paginasLeidas.filter((p) => p.titulo?.trim()).map((p) => [p.url, p.titulo])), [paginasLeidas]);
+  const filasDeSuWeb = useMemo(() => piezas.filter((p) => p.canal === 'landing').map((p) => p.funnel), [piezas]);
+  const verPagina = (url: string) => {
+    setPaginaElegida(url);
+    const quieto = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    requestAnimationFrame(() => document.getElementById('spy-sus-paginas')?.scrollIntoView({ behavior: quieto ? 'auto' : 'smooth', block: 'start' }));
+  };
+  const verPieza = (id: number) => {
+    const p = piezas.find((x) => x.id === id);
+    if (p) setAbierta({ p, todas: p.canal === 'anuncios' ? anuncios : piezas.filter((x) => grupoDe(x) === grupoDe(p)) });
+  };
   // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece. Y son DOS (Martín, 4/11): las de antes
   // (Gráfico, Lo que publica, Miniaturas, Su oferta, Su web, Anuncios) partían lo mismo en seis lugares.
   const pestanas: Array<{ key: Pestana; rotulo: string; n?: number }> = c ? [
     ...(flujo.length || anuncios.length || c.instagram || c.youtube_id || !c.landing_url ? [{ key: 'contenido' as const, rotulo: 'Contenido', n: (flujo.length + anuncios.length) || undefined }] : []),
-    ...(c.landing_url || c.oferta?.promete || ofertaConDiagnostico ? [{ key: 'funnel' as const, rotulo: 'Funnel' }] : []),
+    ...(c.landing_url || c.oferta?.promete || ofertaConDiagnostico || lecturaFunnel.principal ? [{ key: 'funnel' as const, rotulo: 'Funnel' }] : []),
   ] : [];
   const activa: Pestana = pestanas.some((p) => p.key === pestana) ? pestana : (pestanas[0]?.key ?? 'contenido');
 
@@ -1669,32 +1693,27 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
               </>
             )}
 
-            {activa === 'funnel' && c.landing_url && (
-              estaLeyendo && !sitio
-                ? <Esqueleto leyendo />
-                : (
-                  <section className="spy-sitio">
-                    <a className="spy-nombre" href={c.landing_url} target="_blank" rel="noreferrer noopener" style={{ color: 'inherit', fontSize: 16 }}>{sitio?.titulo ?? c.landing_url}</a>
-                    {/* Con el funnel leído, el video ya tiene su fila: dos veces lo mismo no dice más. */}
-                    {!!piezasDelSitio.length && (
-                      <div className="spy-etiquetas">{piezasDelSitio.map((n) => <span key={n} className="spy-pildora-gris">{n}</span>)}</div>
-                    )}
-                    <SuFunnel filas={piezas.filter((p) => p.canal === 'landing').map((p) => p.funnel)} />
-                    {!sitio && lecturasDe?.filter((l) => l.canal === 'landing').map((l) => <p key={l.canal} className="spy-aviso">{l.detalle}</p>)}
-                    <div className="spy-sitio-acciones">
-                      {/* ⚠️ El parámetro es `?analizar=`, el que el Web Generator entiende
-                          (`derechaDeQuery`, app/web-generator/panel-reglas.ts). Un `?replicar=` no
-                          existe en ese contrato: la query se ignora y el botón parece andar. */}
-                      <a href={`/web-generator?analizar=${encodeURIComponent(c.landing_url)}`} className="spy-boton">Copiar su sitio</a>
-                      <a href={enlaceSusAnuncios(c)} target="_blank" rel="noreferrer noopener" className="spy-boton">Ver sus anuncios</a>
-                    </div>
-                  </section>
-                )
-            )}
-
-            {/* Su oferta, leída sola con el analista de Offer (lib/spy-oferta.ts): sin botón, con la criatura mientras lee. */}
+            {/* ⚠️ EL ORDEN ES EL PEDIDO (Martín, 4/11): «la oferta debería ir arriba... Y no pongas nada abajo de las web, porque abajo
+                no se verá más nada». Arriba su funnel y su oferta; las notas; y AL FINAL sus páginas, sin nada debajo. */}
             {activa === 'funnel' && (
-              <SuOferta vista={ofertaDe} datos={c.oferta} nombre={c.nombre} onConectado={() => void pedirOferta(c.id)} />
+              <div className="spy-funnel-tab">
+                <div className="spy-funnel-arriba">
+                  <SuFunnelTipo
+                    lectura={lecturaFunnel} hayFuentes={fuentesFunnel.length > 0} filasDeSuWeb={filasDeSuWeb}
+                    enlaceAnuncios={enlaceSusAnuncios(c)} onVerPieza={verPieza} onVerPagina={verPagina}
+                  />
+                  <SuOferta vista={ofertaDe} datos={c.oferta} nombre={c.nombre} onConectado={() => void pedirOferta(c.id)} parte="cabeza" />
+                </div>
+                <SuOferta vista={ofertaDe} datos={c.oferta} nombre={c.nombre} onConectado={() => void pedirOferta(c.id)} parte="detalle" />
+                {estaLeyendo && !susPaginas.length
+                  ? <Esqueleto leyendo />
+                  : (
+                    <SusPaginas
+                      enlaces={susPaginas} titulos={titulosDePaginas} elegida={paginaElegida}
+                      onElegir={setPaginaElegida} conVistaPrevia={conVistaPrevia}
+                    />
+                  )}
+              </div>
             )}
 
           </>

@@ -1292,3 +1292,37 @@ Cerebro: la Biblioteca abierta con `q="beacons.page"`, 54 anuncios de cualquiera
   plataforma (Skool) son de miles: antes de comparar por dominio, se pregunta `esAgregador`.
 
 Lo fijan `tests/spy-captura.test.ts` y `tests/spy-funnel.test.ts` (los dos, probados rompiéndolos).
+
+## Tercera vuelta: qué funnel usa, con evidencia, y sus páginas al final (4/11/2026)
+
+**Vive en:** `docs/catalogo-funnels-y-formatos.md` (la investigación, con fuentes, y su tabla §4), `lib/spy-catalogo-leer.ts`,
+`lib/spy-catalogo-datos.ts` (GENERADO con `node --import tsx scripts/spy-catalogo-a-codigo.mts`), `lib/spy-funnel-tipo.ts`,
+`lib/spy-oferta.ts` (`enlaces`, `paginas`), `app/competitor-spy/SuFunnelTipo.tsx`, `SuOferta.tsx`, `SusPaginas.tsx`.
+
+Martín, con Den Borg: «Quiero que se analice qué funnel utiliza... denborg es obvio que hace funnel de eventos presenciales... la
+oferta debería ir arriba... no pongas nada abajo de las web». El Cerebro: la clasificación sale del catálogo y con evidencia de sus
+piezas, no por adivinanza.
+
+- **El catálogo es la fuente y el código lo lee, no lo copia.** 22 funnels y 19 formatos, cada uno con frases fuertes, débiles, lo
+  que lo descarta y los hosts que lo delatan. La tabla del documento se convierte en `lib/spy-catalogo-datos.ts` con un script, y
+  `tests/spy-funnel-tipo.test.ts` falla si los dos se separan. Una línea de «qué es» por funnel (`que:`) es lo que se dibuja.
+- **Sin evidencia, «no sé».** Una frase fuerte alcanza; sin fuerte hacen falta dos débiles distintas de DOS piezas distintas (un post
+  con «conferencia» y «speakers» puede ser la conferencia de otro). Una pieza que dice «por Zoom» baja sus fuertes a débiles, sus
+  palabras sueltas no cuentan y no confirma como «otra pieza»: sin eso, dos posts de un seminario online daban «evento presencial».
+- **La compuesta que decide a Den Borg es «fecha + entradas»** («22 de noviembre… últimos boletos»): ninguna frase fija la cubre.
+- **Su página de enlaces no es su web: es una lista.** De Beacons o Linktree se leen las páginas que enlaza (hasta 3) y se guardan
+  todas (hasta 8) para «Sus páginas». Leer la página de enlaces daba un diagnóstico de su lista de botones.
+- **Una lectura de antes no tenía el texto de sus páginas** (la evidencia del funnel): `hayQueLeer` la vuelve a leer UNA vez. Con el
+  mismo texto la huella es la misma y la IA no se paga de nuevo; con una página de enlaces sí (ahora se leen otras páginas).
+- **La vista previa es la del Diagnóstico del Web Generator** (`srcPaginaDiagnostico`, `sandbox="allow-scripts"`), con su puerta: el
+  admin y esa tab en el plan (`conVistaPrevia`, la pide la página). Sin eso, la tarjeta con «Abrir».
+- **La oferta, partida en dos:** arriba, al lado del funnel, el puntaje en un anillo, la tesis como titular, lo más flojo, lo que
+  vende y lo que ataca y tu oferta no dice; abajo, las 9 notas. La tesis va una vez (al diagnóstico de abajo se le pasa sin ella).
+- **Por API:** `que_esta_haciendo` dice qué funnel usa, con su evidencia marcada como contenido de un tercero.
+- ⚠️ **Trampa de la verificación:** una captura de página entera de Playwright dibuja en blanco un iframe que sí cargó; se mira con
+  la página quieta (`fullPage: false`) y bajando hasta él.
+- ⚠️ **No medido:** los formatos nuevos del catálogo (caso de éxito, mito, recap de evento…) todavía no los usa el análisis de piezas
+  (`FORMATOS`, lib/spy-detalle.ts): va en otra punta. Y lo que diga el funnel con un competidor real hay que mirarlo en producción.
+
+Lo fija `tests/spy-funnel-tipo.test.ts` (11 casos, nueve roturas probadas: catálogo, compuesta, descarte, débiles de dos piezas,
+host, landing repetida, página de enlaces, la vuelta y «nada debajo de sus páginas»).
