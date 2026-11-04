@@ -23,10 +23,27 @@ import { getSettingEstricto } from '@/lib/settings';
 import { getEmailFrom, emailConectado, remitenteEsSandbox, resendConfigurado, getResendDomain, puedeAdministrarDominios, type ResendDnsRecord } from '@/lib/resend';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
 import { responderADelNegocio } from '@/lib/email-dominio';
+import { cuentaDeCorreo, secretoDelWebhookPropio } from '@/lib/email-cuenta';
+import { probarClaveDeCuenta } from '@/lib/resend-dominios';
+import { guiaDelEmail, type EstadoCuenta, type PasoEmail } from '@/lib/email-cuenta-reglas';
+import { conexion } from '@/lib/conexiones-catalogo';
+import { linkPantalla } from '../link';
 
 export type EstadoEmail = {
+  /**
+   * LA GUÍA (4/11/2026, Martín: «si detecta que no tiene [Resend] conectado, que le vaya guiando… para que cualquier usuario
+   * lo pueda manejar desde su [Claude]»): en qué paso está el negocio, qué tiene que hacer AHORA (en sus palabras), la
+   * operación que sigue y, si lo que falta se pega en MaKo, el link exacto al modal (`link_conectar`, lo pone el código).
+   */
+  paso: PasoEmail; listo: boolean; que_hacer: string; siguiente: string | null; link_conectar: string | null;
+  /** De quién es la cuenta de Resend con la que manda: la suya, la de MaKo (sólo la plataforma), ninguna… */
+  cuenta: EstadoCuenta;
+  /** Lo que contestó Resend a su clave: 'ok', 'solo_envio', 'invalida', o null (sin cuenta, o no se pudo saber). */
+  clave: 'ok' | 'solo_envio' | 'invalida' | null;
+  /** Los eventos de SU cuenta (aperturas, clics, rebotes) llegan a MaKo: el webhook de su cuenta con su secreto. */
+  seguimiento_webhook: boolean;
   conectado: boolean; envio_real_habilitado: boolean; remitente_sandbox: boolean; resend_configurado: boolean;
-  /** ¿Hay con qué dar de alta y verificar un dominio? (la key de administración, aparte de la que manda: 4/11/2026) */
+  /** ¿Hay con qué administrar SU cuenta (dar de alta y verificar un dominio, conectar el webhook)? */
   alta_de_dominios_lista: boolean;
   dominio: string | null; remitente: string; estado_dominio: string | null;
   error_dominio: string | null; registros_dns: ResendDnsRecord[];
@@ -55,29 +72,49 @@ export async function estadoEmail(): Promise<EstadoEmail> {
       return { dominio: null, id: null, error: e instanceof Error ? e.message : String(e) };
     }
   };
-  const [leido, remitente, conectado, envio, sandbox, keyOk, responderA, altaLista] = await Promise.all([
+  const [leido, remitente, conectado, envio, sandbox, keyOk, responderA, altaLista, cuenta] = await Promise.all([
     leerDominio(), getEmailFrom(),
     emailConectado(), envioEmailHabilitado(), remitenteEsSandbox(), resendConfigurado(), responderADelNegocio(),
-    puedeAdministrarDominios(),
+    puedeAdministrarDominios(), cuentaDeCorreo(),
   ]);
+  const conCuenta = cuenta.tipo === 'propia' || cuenta.tipo === 'plataforma';
+  // Lo que contesta Resend a SU clave (el pedido más barato que distingue «sólo envío»). Sin cuenta, ni se pregunta.
+  const clave = conCuenta ? await probarClaveDeCuenta() : null;
+  // ¿Llegan sus eventos? La plataforma usa el webhook de siempre; un negocio, el de su cuenta (su secreto guardado).
+  let seguimientoWebhook = cuenta.tipo === 'plataforma';
+  let errorCuenta: string | null = cuenta.tipo === 'no_pude_leer' ? cuenta.error : null;
+  if (cuenta.tipo === 'propia') {
+    try { seguimientoWebhook = !!(await secretoDelWebhookPropio(cuenta.ws)); }
+    catch (e) { errorCuenta = e instanceof Error ? e.message : String(e); }
+  }
   const id = leido.id;
   let estado: string | null = null;
   let registros: ResendDnsRecord[] = [];
   let errorDominio: string | null = null;
   let aperturas: boolean | null = null;
   let clics: boolean | null = null;
-  if (id) {
+  let noEstaEnSuCuenta = false;
+  if (id && conCuenta && clave === 'ok') {
     const r = await getResendDomain(id);
     if (r.ok) { estado = r.domain.status; registros = r.domain.records; aperturas = r.domain.openTracking ?? null; clics = r.domain.clickTracking ?? null; }
-    else errorDominio = r.error;
+    else { errorDominio = r.error; noEstaEnSuCuenta = r.status === 404; }
   }
+  const pendientes = registros.filter((r) => r.status && r.status !== 'verified').length;
+  const guia = guiaDelEmail({
+    cuenta: errorCuenta || leido.error ? 'no_pude_leer' : cuenta.tipo,
+    clave, dominio: leido.dominio, estadoDominio: estado, dominioNoEstaEnSuCuenta: noEstaEnSuCuenta,
+    registrosPendientes: pendientes, seguimiento: seguimientoWebhook, remitentePropio: !sandbox, envioReal: envio,
+  });
   return {
+    paso: guia.paso, listo: guia.listo, que_hacer: guia.que_hacer, siguiente: guia.siguiente,
+    link_conectar: guia.conectar ? linkPantalla(conexion('email')?.ruta ?? '/integraciones?abrir=email') : null,
+    cuenta: cuenta.tipo, clave, seguimiento_webhook: seguimientoWebhook,
     conectado, envio_real_habilitado: envio, remitente_sandbox: sandbox, resend_configurado: keyOk,
-    // ¿Se puede dar de alta y verificar un dominio? Con `false`, conectar_dominio_email contesta que falta la clave de MaKo.
+    // ¿Se puede administrar SU cuenta? Con `false`, conectar_dominio_email contesta qué falta (la guía lo dice antes).
     alta_de_dominios_lista: altaLista,
     dominio: leido.dominio, remitente, estado_dominio: estado, error_dominio: errorDominio, registros_dns: registros,
-    registros_dns_sin_verificar: registros.filter((r) => r.status && r.status !== 'verified').length,
-    error_lectura: leido.error,
+    registros_dns_sin_verificar: pendientes,
+    error_lectura: leido.error ?? errorCuenta,
     responder_a: responderA ?? null,
     seguimiento_aperturas: aperturas,
     seguimiento_clics: clics,

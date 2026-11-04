@@ -29,7 +29,7 @@ import { LogoRed, redDePieza } from './LogoRed';
 import { Modal } from '@/app/_ui/Modal';
 import { useRouter } from '@/app/_ui/Link';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { FORMATOS, proporcionDe, puestoDe, vecesSuMediana } from '@/lib/spy-detalle';
+import { FORMATOS, formatoPorTexto, proporcionDe, puestoDe, vecesSuMediana } from '@/lib/spy-detalle';
 import { dibujarContador } from '@/lib/spy-reglas';
 import { fechaCorta, miniaturaDePieza } from '@/lib/spy-vista';
 import { tieneGuion, type VistaGuion } from '@/lib/spy-transcripcion';
@@ -193,7 +193,9 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
   const ancho = prop.ancho > prop.alto;
   const a = p.analisis;
   const leida = !!(a && (a.gancho || a.angulo));
-  const formato = a?.formato ? FORMATOS.find((f) => f.value === a.formato && f.value !== 'otro')?.label ?? null : null;
+  // El mismo formato que la cuenta en «¿Qué formatos le funcionan?»: el de la IA, o el que la pieza dice de sí misma.
+  const formatoId = (a?.formato && a.formato !== 'otro' ? a.formato : '') || formatoPorTexto(`${p.titulo ?? ''}\n${p.texto ?? ''}`);
+  const formato = FORMATOS.find((f) => f.value === formatoId && f.value !== 'otro')?.label ?? null;
   const tags = hashtagsDe(p.texto);
   const numeros = [
     p.vistas != null ? { k: 'Vistas', v: dibujarContador(p.vistas) } : null,

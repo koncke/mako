@@ -61,12 +61,14 @@ const SIN: Hechos = { resendFrom: null, resendDominio: null, credFrom: null, cre
 
 test('el remitente sale del workspace del ALUMNO: con DOS negocios, cada uno firma con el suyo', () => {
   // AGENTS.md: «con UN solo valor configurado no se puede saber si lo leés del lugar correcto».
-  const a = remitenteDeLaInvitacion({ ...SIN, resendFrom: 'Academia Uno <hola@uno.mx>', resendDominio: 'uno.mx' });
-  const b = remitenteDeLaInvitacion({ ...SIN, resendFrom: 'Escuela Dos <cursos@dos.com>', resendDominio: 'dos.com' });
+  // Cada uno con SU cuenta de Resend (desde el 4/11/2026 el dominio vive en la cuenta del negocio y sale con su clave).
+  const a = remitenteDeLaInvitacion({ ...SIN, resendFrom: 'Academia Uno <hola@uno.mx>', resendDominio: 'uno.mx', credKeyPropia: true });
+  const b = remitenteDeLaInvitacion({ ...SIN, resendFrom: 'Escuela Dos <cursos@dos.com>', resendDominio: 'dos.com', credKeyPropia: true });
   assert.deepEqual(a, { via: 'negocio', from: 'Academia Uno <hola@uno.mx>', replyTo: 'hola@uno.mx' });
   assert.deepEqual(b, { via: 'negocio', from: 'Escuela Dos <cursos@dos.com>', replyTo: 'cursos@dos.com' });
-  // Sin dominio conectado: el de MaKo, como siempre.
+  // Sin dominio conectado: el de MaKo, como siempre. Y con su dominio pero SIN su cuenta de Resend, también.
   assert.deepEqual(remitenteDeLaInvitacion(SIN), { via: 'mako' });
+  assert.deepEqual(remitenteDeLaInvitacion({ ...SIN, resendFrom: 'Academia Uno <hola@uno.mx>', resendDominio: 'uno.mx' }), { via: 'mako' }, 'su dominio sin su cuenta no manda');
 });
 
 test('no afirma un dominio que no es suyo: sandbox, el de MaKo, uno que no es el verificado', () => {
@@ -92,8 +94,14 @@ test('la credencial cuenta SÓLO con la key PROPIA del cliente (la de la platafo
   const resend = sinComentarios(leer('lib/resend.ts'));
   const actual = bloque(resend, 'export async function remitenteDelNegocioActual(', '\n}\n');
   assert.match(actual, /credDelCliente\('RESEND_FROM'\)/);
-  assert.match(actual, /credDelCliente\('RESEND_API_KEY'\)/);
+  // La key: desde el 4/11/2026 la decide `cuentaDeCorreo` (lib/email-cuenta.ts), que lee la fila DEL CLIENTE, estricta, y
+  // la compara con la de la plataforma.
+  assert.match(actual, /await cuentaDeCorreo\(\)/);
+  const cuenta = sinComentarios(leer('lib/email-cuenta.ts'));
+  assert.match(cuenta, /credDelClienteEstricta\('RESEND_API_KEY', ws, \{ ilegibleTira: true \}\)/);
+  assert.match(cuenta, /esDeLaPlataforma\('RESEND_API_KEY', \w+\)/);
   assert.doesNotMatch(actual, /credWs\(/, 'credWs le da al ws1 —un cliente— las credenciales de la plataforma');
+  assert.doesNotMatch(cuenta, /credWs\(/, 'credWs le da al ws1 —un cliente— las credenciales de la plataforma');
   const mail = bloque(inv, 'export async function invitarAlCursoPorEmail(', 'export async function invitarLiderPorEmail(');
   // El cuerpo arranca después del `}> {` que cierra el tipo de retorno (que trae su propio `{`).
   const primera = mail.slice(mail.indexOf('}> {') + 4).trim().split('\n')[0];

@@ -130,7 +130,8 @@ test('el cableado: la firma, la lectura estricta, la fila ANTES del disparo, y e
   assert.match(lib, /const r = await responderFalloDeRuteo\('email', e, identificador\);/);
   // Y el webhook de siempre de Resend (ya suscripto a `email.received`) lo manda a la MISMA función.
   const resend = sinComentarios(leer('app/api/webhooks/resend/route.ts'));
-  assert.match(resend, /case 'email\.received': \{\n\s+const r = await recibirEmailEntrante\(evt\);\n\s+return Response\.json\(r\.body, \{ status: r\.status \}\);/,
+  // Con `{ cuenta: soloWs }` desde el 4/11/2026: lo que llega por la cuenta de un negocio sólo puede ser suyo.
+  assert.match(resend, /case 'email\.received': \{\n\s+const r = await recibirEmailEntrante\(evt, \{ cuenta: soloWs \}\);\n\s+return Response\.json\(r\.body, \{ status: r\.status \}\);/,
     'sin el case, un mail que llega al webhook de siempre cae al `default` y se pierde con un 200');
   assert.ok(resend.indexOf("case 'email.received'") < resend.indexOf('default:'), 'el case va antes del default');
   // Ruteo por el dominio RECLAMADO, nunca por el remitente (el del ws1 es el de la plataforma).

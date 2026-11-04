@@ -319,15 +319,16 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       { env: 'RESEND_API_KEY', label: 'API key', secreto: true, placeholder: 're_…', nota: 'Empieza con re_. En resend.com → "API Keys" → "Create API Key", con permiso "Full access". Se ve UNA sola vez.' },
       { env: 'RESEND_FROM', label: 'Remitente', opcional: true, sinEsto: 'Sin remitente, tus correos solo te llegan a ti.', placeholder: 'Tu negocio <hola@tudominio.com>', nota: 'Tu nombre y tu correo entre < >, de tu dominio verificado en Resend. Por ejemplo: Tu negocio <hola@tunegocio.com>.' },
     ],
+    // 4/11/2026: cada negocio manda con SU cuenta de Resend (lib/email-cuenta.ts), y el dominio lo da de alta MaKo en esa
+    // cuenta (la pestaña Email, o `conectar_dominio_email` por la API). Lo único técnico que hace la persona es la clave.
     tutorial: {
-      url: 'https://resend.com/domains',
-      urlLabel: 'Resend → Domains',
+      url: 'https://resend.com/api-keys',
+      urlLabel: 'Resend → API Keys',
       pasos: [
-        'Entra a resend.com → "Domains" → "Add Domain" y escribe tu dominio (por ejemplo tunegocio.com).',
-        'Copia sus 3 registros (1 MX con prioridad 10 y 2 TXT) en la sección DNS de donde compraste tu dominio.',
-        'Ojo: el nombre va sobre send.tudominio.com. Después toca "Verify DNS Records" hasta que diga "Verified".',
-        'En "API Keys" toca "Create API Key" con "Full access", copia la key (re_…, se ve UNA vez) y pégala en "API key".',
-        'En "Remitente" escribe Tu negocio <hola@tunegocio.com>, con tu dominio. Vacío, el correo solo te llega a ti.',
+        'Crea tu cuenta gratis en resend.com: tus emails salen desde ahí.',
+        'En "API Keys" toca "Create API Key" con permiso "Full access" y copia la key (re_…, se ve UNA vez).',
+        'Pégala en "API key" y toca Guardar.',
+        'Tu dominio lo conecta MaKo en la pestaña Email: te da los registros DNS para cargar donde lo compraste.',
       ],
     },
   },
@@ -1186,7 +1187,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   RESEND_API_KEY: {
     pasos: [
         'Para qué sirve: deja a MaKo mandar tus correos de seguimiento y tus reportes desde tu cuenta de Resend.',
-        'Entra a resend.com → "API Keys" y toca "Create API Key".',
+        'Entra a resend.com (la cuenta es gratis) → "API Keys" y toca "Create API Key".',
         'En "Permission" elige "Full access": con "Sending access" MaKo marca la conexión como fallada.',
         'Copia la key (re_…, se ve UNA vez) y pégala en este campo.',
         'Para no caer en spam, tu dominio va verificado en "Domains": los pasos están en el "?" de "Remitente".',

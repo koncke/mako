@@ -26,7 +26,11 @@ const sinComentarios = (src: string) => src
 test('lib/resend.ts no lee las credenciales de Resend de process.env', () => {
   const src = sinComentarios(leer('lib/resend.ts'));
   assert.doesNotMatch(src, /process\.env\.RESEND_/);
-  assert.match(src, /envCred\('RESEND_API_KEY'\)/);
+  // La key de MaKo se lee en lib/email-cuenta.ts desde el 4/11/2026 (cada negocio con su cuenta): ahí, con envCred.
+  const cuenta = sinComentarios(leer('lib/email-cuenta.ts'));
+  assert.doesNotMatch(cuenta, /process\.env\.RESEND_/);
+  assert.match(cuenta, /envCred\('RESEND_API_KEY'\)/);
+  assert.match(src, /keyDeCorreoDeLaPlataforma\(\)/, 'lib/resend.ts toma la de MaKo de lib/email-cuenta.ts');
 });
 
 test('el webhook de Resend lee su secreto con envCred', () => {

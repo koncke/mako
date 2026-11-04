@@ -562,9 +562,17 @@ Reglas:
 Cuando el usuario pida mandarle una campaña de email a sus leads, va en este orden, con
 las operaciones del índice (pide el detalle de cada una con `?operacion=` antes de usarla):
 
-1. **El dominio**: `conectar_dominio_email` con su dominio. Muéstrale los registros DNS que
-   devuelve y espera a que te diga que los cargó; después, `verificar_dominio_envio`. El
-   email del negocio sale SÓLO de su dominio, nunca del de MaKo.
+0. **Primero, y después de cada paso, `estado_email`**: te dice en qué paso está («paso»), qué
+   decirle («que_hacer») y la operación que sigue («siguiente»). Sus emails salen desde SU
+   cuenta de Resend (es gratis): si no la tiene, la guía le explica cómo crearla y sacar una
+   clave «Full access», y «link_conectar» es el lugar de MaKo donde la pega. Pásale ese link
+   TAL CUAL y **nunca le pidas la clave por el chat**. Cuando te diga que la pegó, vuelve a
+   correr `estado_email`.
+1. **El dominio**: `conectar_dominio_email` con su dominio (lo da de alta en SU cuenta y conecta
+   el seguimiento de aperturas, clics y rebotes). Muéstrale los registros DNS que devuelve y
+   espera a que te diga que los cargó; después, `verificar_dominio_envio`. El email del negocio
+   sale SÓLO de su dominio, nunca del de MaKo. Si `estado_email` dice «sin_seguimiento»,
+   `conectar_seguimiento_email`.
 2. **El remitente**: `fijar_remitente_email` (nombre, lo de antes de la @ y `responderA`).
 3. **El CRM**: `crear_crm` («Email Marketing») y `agregar_etapa` para «Enviado», «Abrió» y
    «Hizo clic». `ver_funnel` con su `embudoId` te da las keys.

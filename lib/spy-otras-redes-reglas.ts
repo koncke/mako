@@ -336,6 +336,30 @@ export function loQueEnlaza(urls: readonly string[], propio?: string | null): { 
 }
 
 /**
+ * TODAS sus páginas de una página de enlaces (4/11/2026, Funnel: «en el caso de denborg tiene muchas otras páginas dentro»): lo que
+ * no es una red, ni otra página de enlaces, ni un CDN, ni un archivo. Sin repetir (por host y camino) y hasta `tope`. La venta de
+ * entradas (Passline, Eventbrite) entra: es una página suya, y es la mejor evidencia de su funnel.
+ */
+export function paginasQueEnlaza(urls: readonly string[], propio: string | null, tope: number): string[] {
+  const yo = propio ? hostDe(propio) : null;
+  const vistas = new Set<string>();
+  const out: string[] = [];
+  for (const u of urls) {
+    if (out.length >= tope) break;
+    if (redDeUrl(u)) continue;
+    const h = hostDe(u);
+    if (!h || h === yo || AGREGADORES.test(h) || NO_ES_WEB.test(h) || ES_ARCHIVO.test(u)) continue;
+    let camino = '';
+    try { camino = new URL(u).pathname.replace(/\/$/, ''); } catch { continue; }
+    const k = `${h}${camino}`.toLowerCase();
+    if (vistas.has(k)) continue;
+    vistas.add(k);
+    out.push(`https://${h}${camino}`);
+  }
+  return out;
+}
+
+/**
  * Su MISMO usuario en la red que le falta: con su @ de Instagram, el canal de YouTube con ese @ (y sin puntos ni guiones
  * bajos: @den.borgg → @denborgg); con su @ de YouTube, el Instagram con ese usuario. Gratis en YouTube (1 unidad).
  */

@@ -294,6 +294,30 @@ test('sólo docs se decide con las dos listas: un archivo fuera de docs/, o cód
   }
 });
 
+// 4/11/2026 (Actions sin repetir): «texto» es documentación, bitácoras de /admin/dev, AGENTS.md y CLAUDE.md. Corre sus tests sin el
+// tsc entero; cualquier otro archivo, o código adentro de docs/, corre todo. Probado rompiéndolo: sacar AGENTS.md del patrón → 1 rojo;
+// que Tipos no mire `texto` → 1 rojo.
+test('sólo texto: docs, bitácoras y AGENTS.md sin el tsc; cualquier otra cosa corre todo', { skip: !haySh && 'sin sh' }, () => {
+  const casos = [
+    [{ 'docs/nuevo.md': 'x\n' }, 'true'],
+    [{ 'AGENTS.md': 'x\n' }, 'true'],
+    [{ 'app/admin/dev/infra/bitacora.ts': 'export const x = 1;\n', 'docs/relevo/x.md': 'x\n' }, 'true'],
+    [{ 'app/admin/dev/infra/bitacora.ts': 'export const x = 1;\n', 'lib/punta.ts': 'export const p = 1;\n' }, 'false'],
+    [{ 'app/admin/dev/infra/pagina.tsx': 'export const x = 1;\n' }, 'false'],
+    [{ 'docs/x.ts': 'export const x = 1;\n' }, 'false'],
+  ] as const;
+  for (const [archivos, esperado] of casos) {
+    const R = armarRepo();
+    R.commit(R.clon, AUTORA, archivos);
+    R.subir();
+    const antes = correrPaso('Lo que cambió la punta', R.clon);
+    const m = correrPaso(MEZCLAR, R.clon, { env: firma(AUTORA), tmp: antes.tmp });
+    assert.equal(m.codigo, 0, m.salida);
+    assert.equal(m.outputs.texto, esperado, Object.keys(archivos).join(', '));
+  }
+  for (const n of [TIPOS, 'Swap para los tipos']) assert.match(paso(n).texto, /steps\.mezcla\.outputs\.texto != 'true'/, `«${n}» no corre con sólo texto`);
+});
+
 test('un choque con main es rojo, lo dice, y no deja una mezcla a medias', { skip: !haySh && 'sin sh' }, () => {
   const R = armarRepo();
   R.commit(R.clon, AUTORA, { 'lib/base.ts': 'export const base = 2;\n' });
