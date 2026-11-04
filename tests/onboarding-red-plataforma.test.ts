@@ -79,7 +79,9 @@ test('los caminos del ARRANQUE piden la red de plataforma', () => {
   }
   // El Archivero lee los documentos por VISIÓN, que es el camino que falló de
   // verdad (la cara de marca son fotos y el free tier de visión son 20 requests).
-  const ruta = leer('app/api/onboarding/archivero/route.ts');
+  // La lectura de la ruta se mudó a lib/archivero-ingesta.ts el 3/11/2026 (ticket #44): la ruta la importa.
+  const ruta = leer('lib/archivero-ingesta.ts');
+  assert.match(leer('app/api/onboarding/archivero/route.ts'), /import \{ leerArchivo,[^}]*\} from '@\/lib\/archivero-ingesta';/);
   assert.equal((ruta.match(/redDePlataforma: true/g) || []).length, 2, 'el PDF y la imagen van los dos con red');
   // Los cuatro del Archivero, uno por uno.
   assert.equal((leer('lib/onboarding.ts').match(/redDePlataforma: true/g) || []).length, 4);

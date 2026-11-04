@@ -18,7 +18,7 @@ type Estado = 'desconectado' | 'conectando' | 'conectado' | 'sin_confirmar' | 'e
 type Linea = { estado: Estado; numero: string | null; perfil: string | null };
 /** `esVozActiva: null` = no se pudo leer cuál es la voz. No es «no». */
 type Info = Linea & { esVozActiva: boolean | null };
-type Personal = { estado: string; numero: string | null; perfil: string | null; linea: string | null };
+type Personal = { estado: string; numero: string | null; perfil: string | null; linea: string | null; esVoz: boolean };
 type Paso = { jid: string; nombre: string; listo: boolean; motivo?: string };
 type Mudanza = { ok: boolean; error?: string; numero?: string; pasos?: Paso[] };
 type Flash = { txt: string; error?: boolean };
@@ -144,12 +144,13 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
   // ⚠️ Solo con `esVozActiva === false`, nunca con `null`: «no pude leer cuál es la voz» no
   // autoriza a escribirla (segunda revisión del 11/09/2026).
   useEffect(() => {
-    if (info?.estado === 'conectado' && info.esVozActiva === false && !autoVozRef.current) {
+    // Con MaKo hablando por tu número, a propósito (el botón de abajo), no se le saca la voz sola.
+    if (info?.estado === 'conectado' && info.esVozActiva === false && !personal?.esVoz && !autoVozRef.current) {
       autoVozRef.current = true;
       post({ action: 'usar' }).then(() => { avisarCambioDeVoz(); return cargar(); }).catch(() => {});
     }
     if (info?.estado !== 'conectado') autoVozRef.current = false;
-  }, [info?.estado, info?.esVozActiva, cargar]);
+  }, [info?.estado, info?.esVozActiva, personal?.esVoz, cargar]);
 
   const conectar = async () => {
     setBusy(true); setFlash(null);
@@ -227,6 +228,21 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
       const b64 = (j.qr as { base64?: string } | undefined)?.base64;
       if (j.ok && b64) { setQrPersonal(dataUrl(b64)); await sondear('personal'); }
       else setFlashPersonal({ txt: (j.error as string) || 'No se pudo generar el QR', error: true });
+    } catch {
+      setFlashPersonal({ txt: 'El servidor no respondió. Reintenta en unos segundos.', error: true });
+    } finally { setBusy(false); }
+  };
+
+  const cambiarVozPersonal = async (activar: boolean) => {
+    setBusy(true); setFlashPersonal(null);
+    try {
+      const j = await post({ action: 'voz-personal', activar });
+      if (!j.ok) setFlashPersonal({ txt: (j.error as string) || 'No se pudo cambiar', error: true });
+      else {
+        if (j.sinVoz) setFlashPersonal({ txt: 'La línea de MaKo está caída: MaKo queda sin voz.', error: true });
+        avisarCambioDeVoz();
+        await cargar();
+      }
     } catch {
       setFlashPersonal({ txt: 'El servidor no respondió. Reintenta en unos segundos.', error: true });
     } finally { setBusy(false); }
@@ -335,9 +351,15 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
           <Fila estado={personal.estado} numero={personal.numero} perfil={personal.perfil} etiqueta={!personal.linea ? 'Sin vincular' : undefined} />
         )}
         {qrPersonal && <Qr src={qrPersonal} pie={<>Escanéalo con <b>tu WhatsApp personal</b>.</>} />}
+        {personal?.esVoz && <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--good)' }}>MaKo habla por este número ✓</div>}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           {personal !== null && !personalConectado && (
             <button style={{ ...btn, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={vincularPersonal}>{qrPersonal ? 'Regenerar QR' : 'Vincular por QR'}</button>
+          )}
+          {personalConectado && (
+            <button style={{ ...(personal?.esVoz ? btnGhost : btn), opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => cambiarVozPersonal(!personal?.esVoz)}>
+              {personal?.esVoz ? 'Dejar de usarlo para MaKo' : 'Usarlo para MaKo'}
+            </button>
           )}
           {flashPersonal && <span style={{ fontSize: 13, fontWeight: 600, color: flashPersonal.error ? 'var(--bad)' : 'var(--good)' }}>{flashPersonal.txt}</span>}
         </div>

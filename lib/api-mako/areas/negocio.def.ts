@@ -694,4 +694,32 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'markdown', canales: TODOS, costo: 'ia',
   },
+
+  // ── Sumar un documento desde un chat (3/11/2026, ticket #44) ──
+  //
+  // La deuda anotada arriba («la lógica vive INLINE en la ruta») se pagó: la ingesta está en lib/archivero-ingesta.ts. Un
+  // cliente pegó su documento maestro en el chat del Second Brain y MaKo le contestó «no tengo una herramienta que escriba
+  // ahí». Va AL FINAL, y su título no repite «perfil» ni «Archivero» (las palabras del área): las lleva la descripción.
+  // Un negocio que sólo tiene SU Claude en la computadora no tiene con qué extraer en el servidor (D6b): ahí el preparar
+  // devuelve las claves del perfil y el modelo del turno —que ES su IA— manda los `campos`; la persona los ve antes del «sí».
+  {
+    id: 'sumar_documento_second_brain', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Sumar un documento al Second Brain',
+    descripcion: 'PROPONE guardar en El Archivero un documento que la persona pegó o adjuntó (un .docx, un texto) para que MaKo lo incorpore: queda en el Second Brain y saca de ahí lo que va en el perfil del negocio, sin tocar lo editado a mano. Úsala cuando pidan cargar, guardar, analizar o incorporar un documento. El texto va ENTERO y tal cual. Si contesta con `disponibles`, saca tú los campos con esas claves y vuelve a llamarla con `campos` y `resumen`. Se deshace con borrar_documento_archivero.',
+    parametros: [
+      { nombre: 'texto', rotulo: 'Documento', tipo: 'string', obligatorio: true, max: 60000, descripcion: 'El documento entero, tal cual llegó: sin resumir, sin corregir y sin las marcas [[texto pegado]].' },
+      { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', max: 120, descripcion: 'Cómo se llama (el nombre del archivo, si vino uno).' },
+      {
+        nombre: 'campos', rotulo: 'Para el perfil', tipo: 'object[]', max: 80,
+        descripcion: 'SÓLO si la herramienta te lo pidió con `disponibles`: lo que dice el documento para cada clave. Sin inventar: lo que no dice, no va.',
+        campos: [
+          { nombre: 'clave', tipo: 'string', obligatorio: true, max: 80, descripcion: 'Una clave de `disponibles`.' },
+          { nombre: 'valor', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'Lo que dice el documento, en sus palabras.' },
+        ],
+      },
+      { nombre: 'resumen', rotulo: 'Qué es', tipo: 'string', max: 2000, descripcion: 'Sólo con `campos`: qué es el documento y qué aporta, en dos o tres frases.' },
+    ],
+    canales: TODOS, costo: 'ia', gating: { rolMinimo: 'admin' },
+    escribe: 'una fila en archivero_files (el texto queda como su archivo), el panorama del negocio y el perfil recalculado (lo editado a mano gana)',
+  },
 ];

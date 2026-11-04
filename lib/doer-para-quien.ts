@@ -98,6 +98,15 @@ export function esEcoDeMaKo(p: { fromMe: boolean; msgId: string; instancia: stri
   return !!p.msgId && p.enviados.includes(p.msgId);
 }
 
+/**
+ * La voz que cuenta para decidir qué es eco. MaKo puede estar hablando por la línea de un NEGOCIO (`mako_ws<n>`: el botón de
+ * /agencia, 03/11/2026, con la línea de MaKo baneada), que es el teléfono de una persona: ahí un `fromMe` también es ella
+ * escribiendo, así que la línea no alcanza y decide el anillo. Es lo mismo que no conocer la voz: null.
+ */
+export function vozPropiaDeMaKo(voz: string | null): string | null {
+  return voz !== null && /^mako_ws\d/.test(voz) ? null : voz;
+}
+
 /** El mensaje que CITA (responder a un mensaje en WhatsApp): su id y quién lo escribió, de `contextInfo`. */
 export function citaDe(message: Record<string, unknown> | undefined): { id: string | null; autor: string | null } {
   const ctx = ((message?.extendedTextMessage as { contextInfo?: { stanzaId?: unknown; participant?: unknown } } | undefined)?.contextInfo

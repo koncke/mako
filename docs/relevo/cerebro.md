@@ -27,6 +27,12 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
+## ⏩ 3/11, ~17:30, cuenta 5 (Ananda): WhatsApp baneó el …2605
+
+- La voz de MaKo está en el número personal de Martín (`mako.voz.instancia = mako_ws9`, pedido textual suyo); el canal sigue en el …2605. El botón para apagarla está en /agencia. Si WhatsApp devuelve el …2605, al reconectar la voz vuelve sola.
+- MaKo está muda en 8 de 14 grupos (ws 15, 17, 18, 19, 20, 21, 22, 23): el personal no está adentro. Rehacerlos es de Martín.
+- Lo oficial, costos y qué se pierde: docs/hallazgos-comunicacion.md, entrada del 03/11.
+
 ## ⏩ 3/11, ~12:00, cuenta 5 (Ananda): lo último
 
 - **Producción:** sirve `12dc54318`; los deploys de la noche ya no fallan. El tren `tren-0311` (`C:/dev/wt-push-q`) está en

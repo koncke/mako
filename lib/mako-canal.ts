@@ -595,14 +595,17 @@ export async function pasarMaKoANumeroNuevo(opts: { forzar?: boolean } = {}): Pr
 // se esté mirando. Con el de la pestaña, vincular «tu número» lo dejaba en el negocio de un
 // cliente.
 
-export type NumeroPersonal = { estado: string; numero: string | null; perfil: string | null; linea: string | null };
+export type NumeroPersonal = { estado: string; numero: string | null; perfil: string | null; linea: string | null; esVoz: boolean };
 
 export async function estadoNumeroPersonal(): Promise<NumeroPersonal> {
   return runWithWorkspace(await wsSuperAdmin(), async () => {
     const row = await getInstanciaRow();
-    if (!row) return { estado: 'desconectado', numero: null, perfil: null, linea: null };
-    const e = await estadoEnVivo(row.instance_name).catch(() => ({ estado: 'error' as const, numero: null, perfil: null }));
-    return { estado: e.estado, numero: e.numero ?? row.numero ?? null, perfil: e.perfil ?? row.perfil_nombre ?? null, linea: row.instance_name };
+    if (!row) return { estado: 'desconectado', numero: null, perfil: null, linea: null, esVoz: false };
+    const [e, voz] = await Promise.all([
+      estadoEnVivo(row.instance_name).catch(() => ({ estado: 'error' as const, numero: null, perfil: null })),
+      instanciaVoz({ estricto: true }).catch(() => null),
+    ]);
+    return { estado: e.estado, numero: e.numero ?? row.numero ?? null, perfil: e.perfil ?? row.perfil_nombre ?? null, linea: row.instance_name, esVoz: voz === row.instance_name };
   });
 }
 
@@ -612,4 +615,32 @@ export async function vincularNumeroPersonal(): Promise<{ ok: true; qr: QrCanal 
     const r = row ? await conectar({ linea: row.instance_name }) : await conectar({ nueva: true, etiqueta: 'Personal' });
     return r.ok ? { ok: true, qr: r.qr } : r;
   });
+}
+
+// ── MaKo por tu número (el botón del panel) ──────────────────────────────────
+//
+// Martín, 03/11/2026, con el …2605 baneado y una clienta por arrancar: «que siga toda la comunicación por mi otro WhatsApp...
+// que pueda crear los grupos... de última yo en SuperAdmin con un botoncito» lo deshabilito.
+//
+// No se escanea nada: la línea de su negocio ya está vinculada. Se le abren los grupos (el doer sólo contesta los que reconoce
+// `wsDeGrupoJid`, así que sus grupos personales se ignoran) y la voz apunta a ella.
+//
+// ⚠️ EL CANAL NO SE TOCA. «Desconectar» borra la línea del canal: con el canal apuntando acá, borraba su WhatsApp personal.
+// ⚠️ Es su número: MaKo firma con su nombre y un ban le corta también sus chats. Sólo en los grupos donde ya está: en los que
+// creó el …2605 WhatsApp contesta `forbidden`, y nadie más que esa línea puede sumarlo.
+
+/** Prende o apaga la voz de MaKo en tu número. Al apagar vuelve al canal; `sinVoz`: ese canal no está vivo y MaKo queda muda. */
+export async function usarNumeroPersonalComoVoz(activar: boolean): Promise<{ ok: true; sinVoz?: boolean } | { ok: false; error: string }> {
+  const personal = await estadoNumeroPersonal();
+  if (activar) {
+    if (!personal.linea || personal.estado !== 'conectado') return { ok: false, error: 'Tu número no está conectado.' };
+    const grupos = await permitirGruposEnInstancia(personal.linea);
+    if (!grupos.ok) return { ok: false, error: `No pude abrirle los grupos a tu línea: ${grupos.error ?? 'sin detalle'}.` };
+    await setInstanciaVoz(personal.linea);
+    return { ok: true };
+  }
+  const canal = await instanciaCanal();
+  await setInstanciaVoz(canal);
+  if (personal.linea) await permitirGruposEnInstancia(personal.linea, false);
+  return { ok: true, sinVoz: (await sondearSocket(canal, 8000)) !== 'vivo' };
 }

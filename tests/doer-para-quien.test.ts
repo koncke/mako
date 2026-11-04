@@ -255,9 +255,9 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
   assert.match(doer, /const idsEnviados = idsEnviadosAlGrupo;\n[^\n]*\n\s*const registrarEnviados = anotarEnviadosConTope;/);
   assert.doesNotMatch(doer, /KEY_SENT/);
   // La voz, leída ESTRICTA (la otra convierte un error en «mako_ws1»): sin leerla no se anota ni se guarda en memoria.
-  assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*const deMaKo = voz === instance;\n\s*const visto = deMaKo \? NaN :/);
+  assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*const deMaKo = vozPropiaDeMaKo\(voz\) === instance;\n\s*const visto = deMaKo \? NaN :/);
   assert.match(doer, /if \(voz !== null\) LINEA_DEL_DUENO\.set\(/);
-  assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*if \(voz === null \|\| voz === instance\) return;/);
+  assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*if \(voz === null \|\| vozPropiaDeMaKo\(voz\) === instance\) return;/);
   assert.doesNotMatch(doer, /instanciaVoz\(\)\.catch/, 'la voz se lee sin estricto');
 });
 
@@ -281,7 +281,7 @@ test('13. el eco de MaKo en SU línea se saltea aunque su id no esté en el anil
   assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: '', voz: '' }), false);
   // El doer: UNA función para los dos chequeos, la voz leída estricta, y el eco cortado antes de encolar y del 👍.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const \[voz, enviados\] = await Promise\.all\(\[instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\), idsEnviados\(OWNER_WS, jid\)\]\);\n\s*return esEcoDeMaKo\(\{ fromMe: true, msgId: key\.id \?\? '', instancia: instance, voz, enviados \}\);/);
+  assert.match(doer, /const \[voz, enviados\] = await Promise\.all\(\[instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\), idsEnviados\(OWNER_WS, jid\)\]\);\n\s*return esEcoDeMaKo\(\{ fromMe: true, msgId: key\.id \?\? '', instancia: instance, voz: vozPropiaDeMaKo\(voz\), enviados \}\);/);
   assert.equal((doer.match(/await esEcoDeMaKoAhora\(instance, jid, (?:data\.key|key)\)/g) ?? []).length, 2, 'los dos chequeos no usan la misma función');
   assert.doesNotMatch(doer, /enviados\.includes\(msgId\)|idsEnviados\(OWNER_WS, jid\)\)\.includes\(msgId\)/, 'volvió un chequeo del eco suelto');
   const buffer = doer.slice(doer.indexOf('async function bufferearYResponder('));
