@@ -23,13 +23,14 @@ import { cambiarSettingSi, getSettingEstricto } from './settings';
 import { guardarVistas, leerCompetidor, vistaDeInstagram } from './spy';
 import { rellenarMiniaturas } from './spy-miniaturas-relleno';
 import { anunciosDeQuien, piezaDeAnuncio } from './spy-captura';
-import { enlaceSusAnuncios } from './spy-funnel';
+import { busquedasDeSusAnuncios, enlaceSusAnuncios } from './spy-funnel';
 import {
   ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, ajustarAlCredito, creditoDeApify, esFaltaDeCredito, APIFY_ACTOR_PUBLICACIONES, CLAVE_DIA, CLAVE_DIA_TRANSCRIPCIONES,
   CLAVE_TAREAS, CORRIDAS_LARGAS_POR_DIA, TRANSCRIPCIONES_POR_DIA, USD_POR_ANUNCIO, USD_POR_PUBLICACION, anuncioDeApify,
-  entradaDeAnuncios, entradaDePublicaciones, entradaDeUnaPublicacion, estadoDeCorrida, leerTareas, pedidoDePublicaciones,
-  tocaPedir, usadasHoy, videoDelItem, type CreditoApify, type TareaLarga, type TareasDeCompetidor,
+  entradaDeAnuncios, entradaDePublicaciones, entradaDeUnaPublicacion, estadoDeCorrida, leerTareas, paginaDeSusAnuncios, pedidoDePublicaciones,
+  siguienteDeAnuncios, tocaPedir, usadasHoy, videoDelItem, type CreditoApify, type TareaLarga, type TareasDeCompetidor,
 } from './spy-todo-reglas';
+import { getTenantDb } from './workspace';
 
 const API = 'https://api.apify.com/v2';
 const TOPE_MS = 20_000;
@@ -39,7 +40,12 @@ const ITEMS_DEL_DATASET = 1_000;
 const hoy = () => new Date().toISOString().slice(0, 10);
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export type EstadoTodo = { enMarcha: boolean; nuevas: number; porque?: string };
+export type EstadoTodo = {
+  enMarcha: boolean; nuevas: number; porque?: string;
+  /** Sus anuncios: 'no-pauta' = se probaron todas sus búsquedas y no pauta (un dato, no un error); con la fecha en que se miró. */
+  anuncios?: 'no-pauta';
+  anunciosMirados?: string;
+};
 
 type Canal = keyof TareasDeCompetidor;
 
@@ -109,24 +115,88 @@ async function leerDataset(token: string, dataset: string): Promise<unknown[] | 
   return r && r.status === 200 && Array.isArray(r.cuerpo) ? r.cuerpo : null;
 }
 
-/** Guarda lo que trajo una corrida, por canal. Devuelve cuántas piezas eran nuevas. */
-async function guardarLoTraido(id: number, canal: Canal, items: unknown[], c: NonNullable<Awaited<ReturnType<typeof leerCompetidor>>>): Promise<number> {
-  if (canal === 'instagram') {
-    const vistas = piezasDeApify(items).map(vistaDeInstagram);
-    if (!vistas.length) return 0;
-    const gv = await guardarVistas(id, vistas);
-    return gv.error ? 0 : gv.nuevas;
-  }
-  // Los anuncios: sólo los de SU página (la búsqueda por nombre o dominio trae también de otros), como la extensión.
-  const anuncios = items.map(anuncioDeApify).filter((a): a is NonNullable<typeof a> => !!a);
-  const { suyos } = anunciosDeQuien(anuncios, c, /^\d+$/.test(c.pagina_anuncios ?? ''));
-  if (!suyos.length) return 0;
-  const gv = await guardarVistas(id, suyos.map(piezaDeAnuncio));
+/** Guarda lo que trajo una corrida de Instagram. Devuelve cuántas piezas eran nuevas. (Los anuncios van por `pasoDeAnuncios`.) */
+async function guardarLoTraido(id: number, items: unknown[]): Promise<number> {
+  const vistas = piezasDeApify(items).map(vistaDeInstagram);
+  if (!vistas.length) return 0;
+  const gv = await guardarVistas(id, vistas);
   return gv.error ? 0 : gv.nuevas;
 }
 
+type CompetidorLeido = NonNullable<Awaited<ReturnType<typeof leerCompetidor>>>;
+
+/**
+ * Un paso de sus ANUNCIOS (4/11/2026, prendido con la medición del Cerebro): mirar la corrida en marcha o empezar una.
+ *
+ * ⚠️ NADA SE GUARDA SIN VERIFICAR DE QUIÉN ES. Buscar por palabra trae a quien lo menciona (por «Alex Hormozi», el primero era de la
+ * Página «Skool»): cada anuncio pasa por `anunciosDeQuien`. Sólo una corrida que fue por SU Página (`view_all_page_id`, con el id
+ * que tiene hoy) se toma entera. Y su Página se APRENDE de los verificados (`paginaDeSusAnuncios`): la próxima va directo.
+ * Si no hay ninguno suyo, se prueba su otra búsqueda (su @, su web: `busquedasDeSusAnuncios`); probadas todas, no pauta, y eso
+ * se dice en su lugar. Una corrida vacía cuesta US$0.
+ */
+async function pasoDeAnuncios(token: string, c: CompetidorLeido, t: TareaLarga | undefined): Promise<EstadoTodo> {
+  const busquedas = busquedasDeSusAnuncios(c);
+  const suPagina = /^\d{5,25}$/.test(c.pagina_anuncios ?? '') ? (c.pagina_anuncios as string) : null;
+  const ahora = () => new Date().toISOString();
+  const noPauta = (cuando?: string) => (cuando ? { anuncios: 'no-pauta' as const, anunciosMirados: cuando } : {});
+  if (t?.run && t.dataset) {
+    const r = await apify(token, `/actor-runs/${t.run}`).catch(() => null);
+    const status = String((r?.cuerpo as { data?: { status?: unknown } } | null)?.data?.status ?? '');
+    if (!r || r.status !== 200 || !status) return { enMarcha: true, nuevas: 0 };
+    if (estadoDeCorrida(status) === 'corre') return { enMarcha: true, nuevas: 0 };
+    const items = await leerDataset(token, t.dataset);
+    if (items == null) return { enMarcha: true, nuevas: 0 };
+    const leidos = items.map(anuncioDeApify).filter((a): a is NonNullable<typeof a> => !!a);
+    const porSuPagina = !!t.pagina && t.pagina === suPagina;
+    const { suyos, otros } = anunciosDeQuien(leidos, c, porSuPagina);
+    if (otros) console.info(`[spy-todo] competidor=${c.id} anuncios: ${otros} de otras Páginas no se guardaron`);
+    const sigue = siguienteDeAnuncios({ suyos: suyos.length, busqueda: t.busqueda ?? 0, busquedas: busquedas.length, porPagina: !!t.pagina });
+    if (sigue.que === 'guardar') {
+      const gv = await guardarVistas(c.id, suyos.map(piezaDeAnuncio));
+      const aprendida = suPagina ? null : paginaDeSusAnuncios(suyos);
+      if (aprendida) {
+        await (await getTenantDb()).from('spy_competidores').update({ pagina_anuncios: aprendida, updated_at: ahora() }).eq('id', c.id);
+      }
+      await anotar(c.id, 'anuncios', { ultima: ahora() });
+      return { enMarcha: false, nuevas: gv.error ? 0 : gv.nuevas };
+    }
+    if (sigue.que === 'probar') {
+      // Sin `ultima`: la próxima vuelta (la pantalla pregunta cada 20 s) la empieza con su otra búsqueda.
+      await anotar(c.id, 'anuncios', { busqueda: sigue.busqueda, ...(t.sinAnuncios ? { sinAnuncios: t.sinAnuncios } : {}) });
+      return { enMarcha: true, nuevas: 0 };
+    }
+    const hoyMirado = ahora();
+    await anotar(c.id, 'anuncios', { ultima: hoyMirado, sinAnuncios: hoyMirado });
+    return { enMarcha: false, nuevas: 0, ...noPauta(hoyMirado) };
+  }
+  if (!tocaPedir(t, Date.now())) return { enMarcha: false, nuevas: 0, ...noPauta(t?.sinAnuncios) };
+  if (!suPagina && !busquedas.length) return { enMarcha: false, nuevas: 0 };
+  // ⚠️ EL CRÉDITO DEL MES MANDA (plan FREE: US$5): la corrida se achica a lo que deja libre, o espera.
+  const credito = await creditoDelMes(token);
+  const pedido = ajustarAlCredito({ cuantas: ANUNCIOS_POR_CORRIDA, desde: null, techoUsd: Math.max(0.1, Math.round(ANUNCIOS_POR_CORRIDA * USD_POR_ANUNCIO * 100) / 100) }, credito);
+  if (!pedido) return { enMarcha: false, nuevas: 0, porque: 'sin-credito', ...noPauta(t?.sinAnuncios) };
+  if (!(await reservarCorrida())) return { enMarcha: false, nuevas: 0, porque: 'limite', ...noPauta(t?.sinAnuncios) };
+  const i = Math.min(t?.busqueda ?? 0, Math.max(0, busquedas.length - 1));
+  const enlace = enlaceSusAnuncios(c, suPagina ? undefined : busquedas[i]);
+  // ⚠️ LO QUE DEJA EL CRÉDITO, no `ANUNCIOS_POR_CORRIDA`: `ajustarAlCredito` achica `cuantas` y el techo juntos.
+  const corrida = await empezar(token, APIFY_ACTOR_ANUNCIOS, entradaDeAnuncios(enlace, pedido.cuantas), pedido.cuantas, pedido.techoUsd);
+  if (corrida === 'sin-credito') return { enMarcha: false, nuevas: 0, porque: 'sin-credito', ...noPauta(t?.sinAnuncios) };
+  if (!corrida) {
+    await anotar(c.id, 'anuncios', { ...(t ?? {}), ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
+    return { enMarcha: false, nuevas: 0, ...noPauta(t?.sinAnuncios) };
+  }
+  await anotar(c.id, 'anuncios', {
+    ...corrida, pedidaEn: ahora(), busqueda: i,
+    ...(suPagina ? { pagina: suPagina } : {}),
+    ...(t?.ultima ? { ultima: t.ultima } : {}),
+    ...(t?.sinAnuncios ? { sinAnuncios: t.sinAnuncios } : {}),
+  });
+  return { enMarcha: true, nuevas: 0, ...noPauta(t?.sinAnuncios) };
+}
+
 /** Un paso de un canal: mirar la corrida en marcha, o empezar una si toca. */
-async function pasoDeCanal(token: string, c: NonNullable<Awaited<ReturnType<typeof leerCompetidor>>>, canal: Canal, t: TareaLarga | undefined): Promise<EstadoTodo> {
+async function pasoDeCanal(token: string, c: CompetidorLeido, canal: Canal, t: TareaLarga | undefined): Promise<EstadoTodo> {
+  if (canal === 'anuncios') return pasoDeAnuncios(token, c, t);
   if (t?.run && t.dataset) {
     const r = await apify(token, `/actor-runs/${t.run}`).catch(() => null);
     const status = String((r?.cuerpo as { data?: { status?: unknown } } | null)?.data?.status ?? '');
@@ -137,16 +207,16 @@ async function pasoDeCanal(token: string, c: NonNullable<Awaited<ReturnType<type
     // Terminada (bien o cortada por tiempo o por el techo): se guarda lo que haya, y la próxima es en una semana.
     const items = await leerDataset(token, t.dataset);
     if (items == null) return { enMarcha: true, nuevas: 0, porque: 'No pude leer lo que trajo: vuelvo a intentar' };
-    const nuevas = await guardarLoTraido(c.id, canal, items, c);
+    const nuevas = await guardarLoTraido(c.id, items);
     // ⚠️ UNA CORRIDA QUE TERMINA SIN NADA NO CUENTA COMO HECHA (4/11/2026). Apify contesta «terminé» también cuando
     // Instagram no le dio nada (los ítems vienen como `{ error, errorDescription }`): anotarla como la de la semana dejaba
     // al competidor con lo de la lectura de siempre (12) por siete días, sin que nada lo dijera. Se vuelve a pedir mañana.
-    const trajo = canal === 'instagram' ? piezasDeApify(items).length : items.length;
+    const trajo = piezasDeApify(items).length;
     if (!trajo) {
       const primero = items[0] as { error?: unknown; errorDescription?: unknown } | undefined;
       console.error(`[spy-todo] competidor=${c.id} ${canal}: la corrida ${t.run} terminó (${status}) sin nada: ${String(primero?.errorDescription ?? primero?.error ?? 'vacía')}`);
       await anotar(c.id, canal, { ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
-      return { enMarcha: false, nuevas: 0, porque: canal === 'instagram' ? 'Apify no trajo sus publicaciones: vuelvo a intentar mañana' : 'Apify no trajo sus anuncios: vuelvo a intentar mañana' };
+      return { enMarcha: false, nuevas: 0, porque: 'Apify no trajo sus publicaciones: vuelvo a intentar mañana' };
     }
     await anotar(c.id, canal, { ultima: new Date().toISOString() });
     return { enMarcha: false, nuevas };
@@ -155,15 +225,11 @@ async function pasoDeCanal(token: string, c: NonNullable<Awaited<ReturnType<type
   // ⚠️ EL CRÉDITO DEL MES MANDA (4/11/2026): la traída larga se achica a lo que deja libre, o espera. Antes de gastar la
   // corrida del día: sin crédito no se reserva nada.
   const credito = await creditoDelMes(token);
-  const pedido = canal === 'instagram'
-    ? ajustarAlCredito(pedidoDePublicaciones(t), credito)
-    : ajustarAlCredito({ cuantas: ANUNCIOS_POR_CORRIDA, desde: null, techoUsd: Math.max(0.1, Math.round(ANUNCIOS_POR_CORRIDA * USD_POR_ANUNCIO * 100) / 100) }, credito);
+  const pedido = ajustarAlCredito(pedidoDePublicaciones(t), credito);
   if (!pedido) return { enMarcha: false, nuevas: 0, porque: 'sin-credito' };
   if (!(await reservarCorrida())) return { enMarcha: false, nuevas: 0, porque: 'limite' };
 
-  const corrida = canal === 'instagram'
-    ? await empezar(token, APIFY_ACTOR_PUBLICACIONES, entradaDePublicaciones(c.instagram as string, pedido), pedido.cuantas, pedido.techoUsd)
-    : await empezar(token, APIFY_ACTOR_ANUNCIOS, entradaDeAnuncios(enlaceSusAnuncios(c)), ANUNCIOS_POR_CORRIDA, pedido.techoUsd);
+  const corrida = await empezar(token, APIFY_ACTOR_PUBLICACIONES, entradaDePublicaciones(c.instagram as string, pedido), pedido.cuantas, pedido.techoUsd);
   if (corrida === 'sin-credito') return { enMarcha: false, nuevas: 0, porque: 'sin-credito' };
   if (!corrida) {
     // Sin poder empezar (sin saldo, sin permiso): no se insiste hasta mañana.
@@ -233,13 +299,15 @@ export async function avanzarTodo(ws: number, id: number): Promise<EstadoTodo> {
     let enMarcha = false;
     let nuevas = 0;
     let porque: string | undefined;
+    let anuncios: Pick<EstadoTodo, 'anuncios' | 'anunciosMirados'> = {};
     for (const canal of canales) {
       const r = await pasoDeCanal(token, c, canal, tareas[canal]);
       enMarcha ||= r.enMarcha;
       nuevas += r.nuevas;
       porque ??= r.porque;
+      if (r.anuncios) anuncios = { anuncios: r.anuncios, anunciosMirados: r.anunciosMirados };
     }
-    return { enMarcha, nuevas, ...(porque ? { porque } : {}) };
+    return { enMarcha, nuevas, ...(porque ? { porque } : {}), ...anuncios };
   } catch (e) {
     console.error(`[spy-todo] ws=${ws} competidor=${id}: ${msg(e)}`);
     return { enMarcha: false, nuevas: 0 };

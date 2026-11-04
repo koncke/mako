@@ -77,11 +77,11 @@ test('4. un anuncio del actor, en sus dos dialectos, y sin inventar el fin de un
     snapshot: { body: { text: 'Aprende a vender con reels' }, title: 'Curso', linkUrl: 'https://viralidad.com/curso', images: [{ originalImageUrl: 'https://scontent/x.jpg' }] },
   });
   assert.deepEqual(camel, {
-    id: '1234567890', desde: '2025-11-01T00:00:00.000Z', hasta: null, pagina: { nombre: 'Víctor Heras', handle: null },
+    id: '1234567890', paginaId: null, desde: '2025-11-01T00:00:00.000Z', hasta: null, pagina: { nombre: 'Víctor Heras', handle: null },
     texto: 'Aprende a vender con reels', titulo: 'Curso', destino: 'https://viralidad.com/curso', miniatura: 'https://scontent/x.jpg',
   });
   const snake = anuncioDeApify({
-    ad_archive_id: 987654321, page_name: 'Otra', is_active: false, start_date: '2026-09-01', end_date: '2026-09-30',
+    ad_archive_id: 987654321, page_id: '101112131415', page_name: 'Otra', is_active: false, start_date: '2026-09-01', end_date: '2026-09-30',
     snapshot: {
       body: { markup: { __html: '<p>Hola <b>mundo</b></p>' } },
       cards: [{ title: 'T', link_url: 'https://otra.com', video_preview_image_url: 'https://v/p.jpg' }],
@@ -94,6 +94,7 @@ test('4. un anuncio del actor, en sus dos dialectos, y sin inventar el fin de un
   assert.equal(snake?.destino, 'https://otra.com');
   assert.equal(snake?.miniatura, 'https://v/p.jpg');
   assert.equal(snake?.pagina?.handle, 'otra.pagina');
+  assert.equal(snake?.paginaId, '101112131415', 'el id de su Página: lo que la identifica');
   assert.equal(anuncioDeApify({ adArchiveID: 'no-es-un-numero' }), null);
   assert.equal(anuncioDeApify('x'), null);
   assert.equal(fechaDeAnuncio('nada'), null);

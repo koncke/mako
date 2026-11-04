@@ -88,7 +88,8 @@ test('4. la bola no pisa las carpetas: en una pantalla ancha queda en el medio',
 test('5. sólo anima lo que se leyó, nunca traba y una relectura sola va callada', () => {
   const spy = leer('app/competitor-spy/SpyApp.tsx');
   assert.match(spy, /setOrdenando\(\(v\) => \(v\?\.id !== id \|\| actual\.current !== id \? null : p\?\.length \? \{ id, piezas: p \} : null\)\)/, 'sin piezas no hay animación');
-  assert.match(spy, /await leer\(id, !p\?\.length\)/, 'una ficha que ya tiene piezas se relee sin correrle la pantalla');
+  // Animada sólo sin piezas, o en un alta (el loader ya está puesto: tests/spy-alta-loader.test.ts).
+  assert.match(spy, /await leer\(id, esAlta \|\| !p\?\.length, esAlta \? 'alta' : undefined\)/, 'una ficha que ya tiene piezas se relee sin correrle la pantalla');
   // Tocar «Revisar» a mitad de la película dejaba la escena sin carpetas, y la página se caía (la revisión del 1/11/2026).
   // Desde el 4/11 «Revisar ahora» no existe (Martín: se revisa una vez, sola); el único botón que vuelve a leer es
   // «Probar de nuevo», el de una lectura que falló, y sigue apagado mientras corre la película.
@@ -96,7 +97,8 @@ test('5. sólo anima lo que se leyó, nunca traba y una relectura sola va callad
   assert.match(spy, /disabled=\{estaLeyendo \|\| ordenando != null \|\| elegido == null\}[^\n]*\n\s*Probar de nuevo/);
   // Desde el 4/11 la ficha que abre la página trae sus piezas del server: «trayendo» sólo si no las trae (`!ini`). Lo que se cuida
   // es lo mismo: abrir otra ficha corta la película de la anterior.
-  assert.match(spy, /setTrayendo\(!ini\); setOrdenando\(null\);/, 'cambiar de ficha corta la película');
+  // Salvo la del alta de ESE competidor, que la ficha encuentra puesta (`abrirRecienAgregado`).
+  assert.match(spy, /setTrayendo\(!ini\);\s*setOrdenando\(\(v\) => \(esAlta && v\?\.id === id \? v : null\)\);/, 'cambiar de ficha corta la película');
   const o = leer('app/competitor-spy/OrdenSpy.tsx');
   assert.match(o, /if \(!total \|\| quieto\(\)\) \{ terminar\.current\(\); return; \}/, 'con «reducir movimiento» no corre');
   assert.match(o, /className="spyo-saltar" onClick=\{onTerminar\}>Saltar/);

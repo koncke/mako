@@ -61,7 +61,7 @@ import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { faltaLaColumnaDeMedio, gruposDeMedio, medioDeInstagram, type Medio } from './spy-medio';
 import { VIDEOS_POR_LECTURA_COMPLETA, leerCompleto, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
 import { esAgregador, sitioDelTexto } from './spy-otras-redes-reglas';
-import { CLAVE_CARICATURAS, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
+import { CLAVE_CARICATURAS, caricaturaEnCamino, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
 import { encolarAlLeer } from './spy-caricatura-servidor';
 import { seFueron } from './spy-todo-reglas';
 import { FORMATOS, GUIA_DE_FORMATOS, formatoDe } from './spy-detalle';
@@ -99,6 +99,8 @@ export type Competidor = {
   avatar: string | null;
   /** La caricatura que se hizo sola, ya en nuestro bucket. No es una columna: sale de `spy.caricaturas` al listar. */
   caricatura?: string | null;
+  /** Su caricatura está en la cola, sin fallos: la tarjeta lo dice y la pantalla pregunta hasta que llegue. No es una columna. */
+  caricaturaPendiente?: boolean;
   instagram_seguidores: number | null;
   youtube_suscriptores: number | null;
 };
@@ -181,8 +183,17 @@ export async function listarCompetidores(): Promise<{ ok: true; competidores: Co
   const { data, error } = await db.from('spy_competidores').select(COLUMNAS_COMPETIDOR).order('mirado_en', { ascending: false, nullsFirst: false }).limit(TOPES.competidores);
   if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${error.message}` };
   // La caricatura que hizo el Runner (la cola: lib/spy-caricatura-cola.ts). Sin poder leerla, la tarjeta usa su foto: no es un error.
-  const caricaturas = caricaturasListas(leerRegistro(await getSetting(CLAVE_CARICATURAS).catch(() => null)));
-  return { ok: true, competidores: ((data ?? []) as Competidor[]).map((c) => ({ ...c, caricatura: caricaturas.get(c.id) ?? null })) };
+  const registro = leerRegistro(await getSetting(CLAVE_CARICATURAS).catch(() => null));
+  const caricaturas = caricaturasListas(registro);
+  const ahora = Date.now();
+  return {
+    ok: true,
+    competidores: ((data ?? []) as Competidor[]).map((c) => ({
+      ...c,
+      caricatura: caricaturas.get(c.id) ?? null,
+      caricaturaPendiente: caricaturaEnCamino(registro[String(c.id)], { avatar: c.avatar, referente: !!referenteDeCompetidor(c) }, ahora),
+    })),
+  };
 }
 
 /** Lo que se le dice a la persona: sin una fuente que lea Instagram, el motivo técnico de Meta no le sirve; sí cuáles son las salidas. */

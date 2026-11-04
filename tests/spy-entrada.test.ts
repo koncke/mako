@@ -43,7 +43,8 @@ test('2. la ficha se arma escondida y sale con el gráfico listo, sin gráfico, 
   assert.match(app, /\.spy-cuerpo\[data-entrando='esperando'\] > :not\(\.spye\)\{opacity:0;pointer-events:none\}/, 'escondida, pero se puede medir');
   assert.match(app, /<div className="spy-cuerpo" data-entrando=\{entrando \? entrada\?\.fase : undefined\}>/);
   assert.match(app, /return id != null \? \{ id, origen: null, fase: 'esperando' \} : null;/, 'un link directo nace en el centro');
-  assert.match(app, /setEntrada\(id != null && !quieto\(\) \? \{ id, origen: origen \?\? null, fase: 'esperando' \} : null\);/);
+  // Un alta no tiene tarjeta de donde salir: va derecho al loader de su lectura (tests/spy-alta-loader.test.ts).
+  assert.match(app, /setEntrada\(id != null && !quieto\(\) && !o\?\.alta \? \{ id, origen: origen \?\? null, fase: 'esperando' \} : null\);/);
   assert.match(app, /if \(quieto\(\)\) \{ setEntrada\(null\); return; \}/, 'con «reducir movimiento», no hay entrada');
   assert.match(app, /if \(ordenando\?\.id === c\.id \|\| \(fichaLista === c\.id && !trayendo && !conGrafico\)\) \{ salir\(\); return; \}/);
   assert.match(app, /window\.setTimeout\(salir, 9000\)/, 'una espera que no termina no es un loader');
