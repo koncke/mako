@@ -152,7 +152,7 @@ test('--barredoras corre TODAS las que barren aunque no haya cambiado nada, y ni
     writeFileSync(join(dir, 'tests', 'barre.test.ts'), "import test from 'node:test';\nimport { readdirSync } from 'node:fs';\ntest('barre', () => { readdirSync('.'); });\n");
     writeFileSync(join(dir, 'tests', 'normal.test.ts'), "import test from 'node:test';\ntest('normal', () => { throw new Error('no barre: no corre'); });\n");
     g('init', '-q', '-b', 'main'); g('add', '.'); g('commit', '-q', '-m', 'x');
-    const r = spawnSync(process.execPath, [join(RAIZ, 'scripts', 'tests-afectados.mjs'), '--barredoras', '--base', 'HEAD', '--sin-compartir'], { cwd: dir, env: { ...env, CI: '1' }, encoding: 'utf8', timeout: 120_000 });
+    const r = spawnSync(process.execPath, [join(RAIZ, 'scripts', 'tests-afectados.mjs'), '--barredoras', '--base', 'HEAD', '--sin-compartir'], { cwd: dir, env: { ...env, CI: '1' }, encoding: 'utf8', timeout: 120_000, maxBuffer: 64 * 1024 * 1024 });
     assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
     assert.match(r.stdout, /--barredoras: las 1 que barren/);
     assert.match(r.stdout, /VERDE · 1 tests de 1 archivos/);
