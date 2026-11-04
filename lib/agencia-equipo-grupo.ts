@@ -28,7 +28,7 @@ export function mismoTelefono(a: unknown, b: unknown): boolean {
 }
 
 /** rol_ws NULL es admin (`getRolWsEfectivo`, el backfill). Un suspendido no entra; un invitado todavía no entró a MaKo. */
-const administraActivo = (u: MiembroAgencia): boolean => (u.rol_ws == null || u.rol_ws === 'admin') && (u.estado == null || u.estado === 'activo');
+export const administraActivo = (u: Pick<MiembroAgencia, 'rol_ws' | 'estado'>): boolean => (u.rol_ws == null || u.rol_ws === 'admin') && (u.estado == null || u.estado === 'activo');
 
 /**
  * Los teléfonos de quienes administran la agencia, sin repetir: el número del dueño de la agencia primero, y los perfiles.

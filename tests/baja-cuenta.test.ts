@@ -128,6 +128,7 @@ test('10. cancelar devuelve lo que el pedido apagó', () => {
 test('11. borrar un negocio se lleva sus archivos, y cierra su pedido con el mail que le prometimos', () => {
   assert.equal(R.borrado.ok, true, R.borrado.error);
   assert.ok(R.borradosStorage.some((b: string) => b.includes('contrato.pdf')), `los archivos quedaron en Storage: ${JSON.stringify(R.borradosStorage)}`);
+  assert.ok(R.borradosStorage.includes('archivero:grupos/40/foto-del-grupo.jpg'), `lo del grupo de la app quedó en Storage: ${JSON.stringify(R.borradosStorage)}`);
   assert.deepEqual(R.mailAlBorrar.map((c: { to: string }) => c.to), ['p7@test.com']);
   assert.equal(R.filaBorrado.estado, 'hecha');
   assert.equal(R.filaBorrado.email, null);
@@ -240,3 +241,4 @@ test('16. la marca sobrevive a lo que anota: sin FK y fuera de las tablas de inq
 //   · cancelar no despausa                         → 16 / 1 (10)
 //   · /soporte fuera de PUBLICOS                   → 16 / 1 (13)
 //   · la privacidad vuelve a decir que no existe   → 16 / 1 (15)
+//   · (4/11/2026) sin `archivero/grupos/<ws>/` en CARPETAS_APARTE → 21 / 1 (11): lo subido al grupo de la app quedaba en Storage

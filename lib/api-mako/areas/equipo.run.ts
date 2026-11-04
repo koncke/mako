@@ -52,6 +52,9 @@ import { estadoPlantillaReporte, asegurarPlantillaReporte, PLANTILLA_REPORTE_NOM
 import { listDrafts, setDraftStatus } from '@/lib/meta-templates';
 import { listarUsuarios, crearUsuario, actualizarUsuario, eliminarUsuario, type Usuario } from '@/lib/usuarios';
 import { invitarPorEmail } from '@/lib/invitaciones';
+import { copiarAlGrupo, invitarAlGrupo, leerParaLaApi, sacarDelGrupo } from '@/lib/grupo-app';
+import { miembrosDelGrupo } from '@/lib/grupo-puerta';
+import { tituloDelGrupo } from '@/lib/grupo-reglas';
 import { getSettingEstricto, setSetting } from '@/lib/settings';
 import { getSupabaseServer } from '@/lib/supabase';
 import { KEY_HORARIO_ENVIO, HORARIO_SUGERIDO, DIAS_PANTALLA, horaTexto, horarioParaGuardar, sanearHorario, type DiaSemana } from '@/lib/horario-envio';
@@ -185,6 +188,59 @@ async function nombreNegocio(ws: number): Promise<string> {
 // ── runners ──────────────────────────────────────────────────────────────────
 
 export const RUNNERS: Runners = {
+  // ── El grupo del negocio dentro de la app (3/11/2026) ── Las mismas funciones que la pantalla, con el `ctx.ws`.
+  ver_grupo: {
+    leer: async (input, ctx) => {
+      const limite = Math.min(100, Math.max(1, Number(input.limite) || 30));
+      const [m, mensajes, negocio] = await Promise.all([miembrosDelGrupo(ctx.ws), leerParaLaApi(ctx.ws, limite), getWorkspace(ctx.ws).catch(() => null)]);
+      if (!mensajes) return errorLectura('No pude leer el grupo: vuelve a intentarlo.');
+      return json({
+        grupo: tituloDelGrupo(negocio?.nombre ?? ''),
+        participantes: [
+          // Hasta que abre, el email: el nombre diría que esa cuenta existe (la misma regla que la pantalla).
+          ...m.conCuenta.map((p) => ({ nombre: p.tipo === 'invitado' && !p.abrio ? p.email : p.nombre || p.email, por: p.tipo === 'invitado' ? 'invitado' : p.tipo === 'agencia' ? 'administra su agencia' : 'administra el negocio' })),
+          ...m.invitadosSinCuenta.map((email) => ({ nombre: email, por: 'invitado' })),
+        ],
+        mensajes,
+      });
+    },
+  },
+  invitar_al_grupo: {
+    preparar: async (input): Promise<Preparado> => {
+      const email = (str(input, 'email') ?? '').toLowerCase();
+      if (!EMAIL_RE.test(email)) return { error: `«${email}» no es un email válido.`, faltan: ['email'] };
+      return { payload: { email }, resumen: `Invitar a <${email}> al grupo. Ve lo que cae en el grupo desde hoy, también avisos de ventas y cobros, y puede hablar con MaKo ahí. No entra al resto del negocio.` };
+    },
+    ejecutar: async (payload, ctx) => escribir(async () => {
+      const yo = await usuarioPropio().catch(() => null);
+      const r = await invitarAlGrupo(ctx.ws, String(payload.email ?? ''), { usuarioId: yo?.id ?? null, nombre: (await getUsuarioActual().catch(() => null))?.nombre ?? '' });
+      return r.ok ? { ok: true, resumen: `Quedó invitado <${String(payload.email ?? '')}>.` } : { ok: false, resumen: r.error };
+    }),
+  },
+  sacar_del_grupo: {
+    preparar: async (input): Promise<Preparado> => {
+      const email = (str(input, 'email') ?? '').toLowerCase();
+      if (!EMAIL_RE.test(email)) return { error: `«${email}» no es un email válido.`, faltan: ['email'] };
+      return { payload: { email }, resumen: `Sacar del grupo a <${email}>: deja de verlo en el acto.` };
+    },
+    ejecutar: async (payload, ctx) => escribir(async () => {
+      const r = await sacarDelGrupo(ctx.ws, String(payload.email ?? ''), { nombre: (await getUsuarioActual().catch(() => null))?.nombre ?? '' });
+      return r.ok ? { ok: true, resumen: `<${String(payload.email ?? '')}> ya no está en el grupo.` } : { ok: false, resumen: r.error };
+    }),
+  },
+  escribir_en_grupo: {
+    preparar: async (input): Promise<Preparado> => {
+      const texto = (str(input, 'texto') ?? '').trim();
+      if (!texto) return { error: 'Falta el mensaje.', faltan: ['texto'] };
+      return { payload: { texto }, resumen: `Escribir en el grupo: «${texto.slice(0, 200)}»` };
+    },
+    ejecutar: async (payload, ctx) => escribir(async () => {
+      // Sólo al hilo: nunca a Evolution.
+      const copia = await copiarAlGrupo(ctx.ws, { texto: String(payload.texto ?? ''), de: 'mako' });
+      return copia ? { ok: true, resumen: 'Quedó en el grupo.' } : { ok: false, resumen: 'No pude escribir en el grupo: vuelve a intentarlo.' };
+    }),
+  },
+
   // ── Lecturas ────────────────────────────────────────────────────────────────
   ver_perfil: {
     leer: async (_input, ctx) => {

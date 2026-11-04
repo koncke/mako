@@ -1237,7 +1237,8 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
 - **`tipoPendiente`** cuando la acción hereda un slug que ya hay en la base.
 - **Todo envío al grupo de MaKo declara su `memoria`** (`enviarAlGrupoMaKo(ws, texto, memoria)`, lib/mako-grupo.ts): 'mako' si lo
   dice MaKo (queda en la conversación), 'equipo' si lo dice el equipo (al anillo del equipo, nunca como turno de MaKo), null si
-  quien llama ya lo guarda. Sin eso, el turno no sabe a qué le contestan (28/10/2026, tests/grupo-ve-el-grupo.test.ts).
+  quien llama ya lo guarda. Sin eso, el turno no sabe a qué le contestan (28/10/2026, tests/grupo-ve-el-grupo.test.ts). `null` es
+  sólo de `emitirAviso`: es la única que ya copió al grupo de la app (lib/grupo-app.ts, tests/grupos-ops-guarda.test.ts).
 - **Todo lo que MaKo le manda a una PERSONA por WhatsApp sale por `lib/mako-salida.ts`**, que no deja escribirle a quien no escribió en las últimas 24 horas (3/11/2026, «no va a mandar ni
   mensajes a nadie»). Nunca `instanciaVoz()` ni `enviarAGrupoJid` de lib/mako-grupo.ts para un número: la voz puede ser el WhatsApp personal de Martín. El bot no tiene línea por defecto y `mako_ws<n>` no puede serlo. La cañería
   (Evolution o la API oficial) vive en `lib/mako-salida-drivers.ts` y no decide nada (docs/hallazgos-comunicacion.md, tests/mako-bot.test.ts).
@@ -1339,7 +1340,7 @@ Ocho cosas que no se ven en el código y ya mordieron:
    `crearPendiente` el inicio del turno (`mismoTurnoDesde`): la misma pendiente no se guarda
    dos veces en un turno.
 8. **Una capacidad nueva del doer se prueba con el turno que CORRE, no con uno armado a
-   mano.** Qué herramientas viajan lo decide `herramientasDelTurno` (`lib/doer-herramientas.ts`)
+   mano** (y si cambia lo que ve quien escribe, también por la puerta del grupo de la app: `manejarEntranteDeLaApp`, tests/grupos-ops-turno.test.ts). Qué herramientas viajan lo decide `herramientasDelTurno` (`lib/doer-herramientas.ts`)
    sobre el veredicto de `clasificarIntencion`, y el test pasa por las dos con las frases como
    las escribe la persona (molde: `tests/agenda-whatsapp.test.ts`). Armado con
    `toolsDelRegistro` suelto, el test de agenda dio verde mientras 3 de sus 5 pedidos llegaban
@@ -2459,6 +2460,17 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
   el texto por `enviarTextoVozMaKo` (que usan `enviarAGrupoJid`, el grupo SuperAdmin y la bienvenida), y `enviarAlGrupoMaKo` y
   `enviarPartesAJid` anotan lo suyo. Un envío nuevo a un grupo pasa por ahí, o anota su id. Si no, su eco vuelve como un `fromMe`
   que nadie mandó: el doer lo toma por el dueño escribiendo y le contesta a su propio aviso (28/10/2026). Un DM no es un grupo.
+- **Y lo que sale solo a un grupo pasa ANTES por `copiarAlGrupo` (lib/grupo-app.ts, 3/11/2026): el grupo de la app recibe TODOS los avisos aunque WhatsApp no los entregue.** Ya lo hacen `emitirAviso`,
+  `enviarAlGrupoMaKo`, `enviarAlGrupoSuperAdmin`, `enviarPruebaAlGrupo` y el turno del doer (`enviarAGrupoJid` con el contexto de lib/grupo-salida.ts). `tests/grupos-ops-guarda.test.ts` frena un envío nuevo que
+  la saltee: un archivo que le pegue a `/message/send` o un llamador nuevo de una puerta que no copia es rojo, hasta que copie o diga ahí por qué no. Quien reintenta con el resultado de un envío cuenta `enApp`
+  como que llegó: si no, cada reintento suma una burbuja.
+- **La pantalla del grupo es `HiloMako` con `grupo` en cada mensaje (app/_chat/grupo/pantalla.ts, 4/11/2026): lo de otra persona con `grupo.autor`, o sale a la derecha con la foto de quien mira.** Su motor es `useHiloDelGrupo` y no `useChatCliente`: mandar no espera a MaKo. Lo que depende del rol sale de `quePuede`, y esconder no es la puerta: la puerta es del servidor. tests/grupos-ops-pantalla.test.ts dibuja las piezas reales.
+- **En el grupo de la app (lib/grupo-puerta.ts): nada de `getTenantDb`, `?ws=` ni cookie, porque un invitado es de OTRO negocio.** El ws sale de la URL ya autorizada; `grupo_mensajes`, `grupo_invitados` y
+  `grupo_leidos` van en FUERA_DEL_PROXY; los ids son globales, así que toda lectura por id lleva `workspace_id`, y para un invitado también `id > desde_id`. **Un invitado no le saca datos del negocio a MaKo**:
+  su turno corre con `hayInvitado` (system `lean`, sin historial, sin pendientes, sin herramientas, sin escribir la memoria, y sus tickets los decide Martín). Quien toque lo que entra al system del turno del
+  grupo mira esa rama: tests/grupos-ops-turno.test.ts siembra perfil, plata, tickets, pendientes y charla, y exige que no le lleguen. El turno de MaKo sobre un mensaje de la app corre en OTRA invocación
+  (/api/cron/grupo-turno), sin la sesión de quien escribió, igual que el webhook. **Todo corte antes del turno en `bufferearYResponder` llama a `sacarDeLaCola`:** en WhatsApp esos `return` van antes de encolar, y en la app la fila ya está en la cola y, sin sacarla, a los 2 minutos el cron le corre un turno. **Un bloque nuevo en el system del turno del grupo (`armado`, lib/mako-doer-in.ts) se decide para un invitado:** tests/grupos-ops-guarda.test.ts fija la lista, porque un bloque que le cuente algo del negocio no lo atrapa ninguna semilla. **Y lo que abra un ticket desde el turno pasa `invitado`:** son tres caminos (`abrirTicketDelGrupo`, `ticketDeNoPude`, `[[ya-pedido]]`).
+  Y lo que en WhatsApp se aparta antes de `encolar` (la respuesta al equipo) se aparta también al armar el lote y en el cron: en la app ya está en la cola (`sinLasDelEquipo`, 4/11/2026).
 
 ## Y una regla de un canal de MaKo puesta SÓLO en el prompt no es regla (29/10/2026)
 

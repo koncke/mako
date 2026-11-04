@@ -50,8 +50,8 @@ test('2. UNA sola persona activa del negocio con ese teléfono, y es la que cone
 test('3. la puerta: con delGrupo mira el teléfono ADENTRO y falla cerrada; sin delGrupo, la cookie de siempre', () => {
   const src = sinComentarios(leer('lib/ia-pc.ts'));
   const puerta = src.slice(src.indexOf('export async function encolarTurno('), src.indexOf('export async function tomarTurno('));
-  assert.match(puerta, /o: \{ pruebaSinSesion\?: boolean; delGrupo\?: \{ telefono: string \} \} = \{\}/);
-  assert.match(puerta, /if \(o\.delGrupo\) \{\s*if \(!\(await esLaPersonaDelGrupo\(d, o\.delGrupo\.telefono\)\)\) \{\s*throw new SinLaPersona\(/);
+  assert.match(puerta, /o: \{ pruebaSinSesion\?: boolean; delGrupo\?: \{ telefono: string \} \| \{ email: string \} \} = \{\}/);
+  assert.match(puerta, /else if \(o\.delGrupo\) \{\s*if \(!\(await esLaPersonaDelGrupo\(d, o\.delGrupo\.telefono\)\)\) \{\s*throw new SinLaPersona\(/);
   // Rota: sin delGrupo, dejar de mirar la cookie → D6a se cae para todos.
   assert.match(puerta, /\} else \{[\s\S]*?const sesion = await getUsuarioActual\(\)\.catch\(\(\) => null\);\s*if \(!laPersonaEstaAdentro\(sesion, \{ ws: d\.ws, actor: d\.persona \}, o\.pruebaSinSesion === true\)\) \{\s*throw new SinLaPersona\(/);
   // Y antes de contar o insertar: la prueba va primero.

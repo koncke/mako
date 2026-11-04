@@ -77,7 +77,7 @@ test('3. la API: ?offer=1 y ?offerId=N, detrás de la puerta de MaKo; uno de otr
 test('4. la pantalla: cada conversación de Offer es una fila de la lista, y se sigue en el Ops Center con el motor de Offer', () => {
   const sb = leer('app/second-brain/useChatCliente.ts');
   // Con el grupo de WhatsApp de MaKo desde el 22/10/2026 (OC3): una fila más de LA lista.
-  assert.match(sb, /listaDelCliente\(\{ sesiones: sesiones \?\? \[\], offer: offer \?\? \[\], antes: antes \?\? \[\], grupo, busca, automations: automations \?\? \[\](?:, editores: editores \?\? \[\])? \}\)/, 'una fila por conversación, en LA lista');
+  assert.match(sb, /listaDelCliente\(\{ sesiones: sesiones \?\? \[\], offer: offer \?\? \[\], antes: antes \?\? \[\], busca, automations: automations \?\? \[\](?:, editores: editores \?\? \[\])? \}\)/, 'una fila por conversación, en LA lista');
   assert.match(sb, /void abrirOffer\(idOffer\)\.then\(/, 'se abre con el motor de Offer');
   assert.match(sb, /const r = await turnoOffer\(s\.id, mensaje, s\.mensajes, respuestaDeOffer\(s\.mensajes, mensaje\), archivos\.map\(\(a\) => a\.file\), nota\);/, 'lo escrito (y la nota de voz, OC7) va a Offer');
   assert.doesNotMatch(sb, /Seguir en Offer|AVISO_OFFER|\/offer\?sesion=/, 'nunca «Seguir en Offer»');

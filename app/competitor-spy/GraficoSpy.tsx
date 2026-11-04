@@ -21,11 +21,11 @@
 //    movimiento» no se anima.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Icon } from '../_components/icons';
+import { LogoRed, redDePieza } from './LogoRed';
 import { Dropdown } from '../components/Dropdown';
 import { CargandoMako } from '@/app/_ui/CargandoMako';
 import {
-  formatosDe, graficoDe, grupoDe, lecturaDeFormatos, muestraDe, numerosDe, opcionesDeGrafico, redesDe, MINIATURAS_POR_GRAFICO,
+  formatosDe, graficoDe, grupoDe, lecturaDeFormatos, medidaEnElGrafico, muestraDe, numerosDe, opcionesDeGrafico, redesDe, MINIATURAS_POR_GRAFICO,
   type Grupo, type ValorDeGrafico,
 } from '@/lib/spy-detalle';
 import { dibujarContador } from '@/lib/spy-reglas';
@@ -35,7 +35,7 @@ import { precargarTodas, quieto } from './precarga';
 
 const CSS = `
 .spyg{display:flex;flex-direction:column;gap:16px}
-.spyg-herr{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.spyg-herr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .spyg-redes{display:flex;gap:6px;flex-wrap:wrap}
 .spyg-red{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border:1px solid var(--border);border-radius:99px;background:var(--surface);color:var(--dim);font:inherit;font-size:var(--fs-sm);font-weight:600;cursor:pointer}
 .spyg-red[data-activa=true]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
@@ -46,6 +46,7 @@ const CSS = `
 .spyg-num span{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spyg-num b{display:block;margin-top:4px;font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spyg-caja{position:relative;border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:16px 16px 12px}
+.spyg-caja[data-cargando=true]{border-color:transparent;background:transparent;box-shadow:none}
 .spyg-caja h3{margin:0 0 4px;font-size:15px;font-weight:700;color:var(--ink)}
 .spyg-pie{margin:8px 0 0;font-size:12px;color:var(--dim)}
 .spyg-plot{position:relative;height:380px;margin-left:44px;margin-bottom:22px}
@@ -55,6 +56,8 @@ const CSS = `
 .spyg-pt{position:absolute;width:34px;height:34px;padding:0;border:2px solid #fff;border-radius:9px;overflow:hidden;cursor:pointer;box-shadow:0 2px 8px rgba(18,21,27,.22);background:var(--faint);will-change:transform,opacity}
 .spyg-pt:hover,.spyg-pt:focus-visible{z-index:2;outline:2px solid var(--accent);outline-offset:1px;transform:scale(1.35)}
 .spyg-pt img{width:100%;height:100%;object-fit:cover;display:block}
+.spyg-pt__red{position:absolute;right:1px;bottom:1px;display:flex;border-radius:4px;box-shadow:0 0 0 1px #fff;pointer-events:none}
+@media (max-width:600px){.spyg-pt__red{transform:scale(.7);transform-origin:bottom right}}
 .spyg-pt[data-canal=instagram]{background:linear-gradient(140deg,#F58529,#DD2A7B 55%,#8134AF)}
 .spyg-pt[data-canal=youtube]{background:#23252B}
 .spyg-pt[data-canal=anuncios]{background:linear-gradient(140deg,#2F6BFF,#1B3FA8)}
@@ -64,8 +67,8 @@ const CSS = `
 .spyg-fila b{display:block;font-size:14px;color:var(--ink)}
 .spyg-fila small{display:block;font-size:12px;color:var(--dim)}
 .spyg-fila q{display:block;margin-top:2px;font-size:12px;color:var(--ink);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.spyg-pista{position:relative;height:34px}
-.spyg-pista .spyg-pt{width:26px;height:26px;border-radius:7px;top:4px}
+.spyg-pista{position:relative;height:38px}
+.spyg-pista .spyg-pt{border-radius:6px;top:50%;translate:0 -50%}
 .spyg-mediana{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);border-radius:2px}
 .spyg-vivo{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--dim)}
 .spyg-vivo i{width:7px;height:7px;border-radius:50%;background:var(--primary);animation:spygLatido 1.1s ease-in-out infinite}
@@ -84,10 +87,14 @@ const ICONO: Record<ValorDeGrafico, 'video' | 'imagen' | 'anuncio' | 'web' | 'ag
   corto: 'video', largo: 'video', imagenes: 'imagen', anuncios: 'anuncio', web: 'web', 'agregar-instagram': 'agregar', 'agregar-youtube': 'agregar',
 };
 const NOMBRE_RED: Record<string, string> = { todo: 'Todas', instagram: 'Instagram', youtube: 'YouTube', anuncios: 'Anuncios' };
-const ICONO_RED: Record<string, 'instagram' | 'youtube' | 'meta'> = { instagram: 'instagram', youtube: 'youtube', anuncios: 'meta' };
+
+/** El logo de su red en la esquina de cada miniatura: el mismo que el buscador (Martín, 4/11). */
+function RedDeLaMiniatura({ canal }: { canal: string }) {
+  const red = redDePieza(canal);
+  return red ? <span className="spyg-pt__red" aria-hidden><LogoRed red={red} box={13} /></span> : null;
+}
 /** Cuántas miniaturas lleva como mucho la pista de un formato. */
 const MINIATURAS_POR_FILA = 40;
-const CADA: Record<Grupo, string> = { corto: 'Cada miniatura es un video', largo: 'Cada miniatura es un video', imagenes: 'Cada miniatura es una publicación', anuncios: 'Cada miniatura es un anuncio', web: '' };
 
 function useTelefono(): boolean {
   const [tel, setTel] = useState(false);
@@ -207,38 +214,40 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
   return (
     <div className="spyg">
       <style>{CSS}</style>
-      <div className="spyg-herr">
-        <Dropdown
-          ariaLabel="Qué gráfico ver"
-          value={grupo}
-          width={250}
-          buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
-          options={opciones.map((o) => ({ ...o, icono: ICONO[o.value] }))}
-          onChange={(v) => {
-            if (v === 'agregar-instagram' || v === 'agregar-youtube') { onAgregarRed(); return; }
-            if (v === 'web') { onWeb(); return; }
-            setElegido(v as Grupo);
-            setRed('todo');
-          }}
-        />
-        {redes.length > 0 && (
-          <div className="spyg-redes" role="group" aria-label="Red">
-            {redes.map((r) => (
-              <button key={r.red} type="button" className="spyg-red" data-activa={redActiva === r.red} onClick={() => setRed(r.red)}>
-                {ICONO_RED[r.red] && <Icon name={ICONO_RED[r.red]} size={14} />}{NOMBRE_RED[r.red] ?? r.red} <small>{r.n}</small>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
       <div className="spyg-nums">
         {numeros.map((n) => <div key={n.k} className="spyg-num"><span>{n.rot}</span><b>{n.val}</b></div>)}
       </div>
 
-      {g.puntos.length > 0 && (
-        <section className="spyg-caja" aria-label={`${metricaLarga} por día de publicación`}>
-          {!bajadas && <CargandoMako que={`lo que publica ${c.nombre}`} alto={380} size={72} />}
+      {/* ⚠️ EL SELECTOR Y LOS FILTROS VAN ADENTRO DE LA TARJETA DEL GRÁFICO (Martín, 4/11), arriba del dibujo. Y MIENTRAS
+          CARGA, SIN TARJETA: la criatura «directo sobre el gris», sin la caja blanca detrás. */}
+      <section className="spyg-caja" data-cargando={g.puntos.length > 0 && !bajadas} aria-label={`${metricaLarga} por día de publicación`}>
+          <div className="spyg-herr">
+            <Dropdown
+              ariaLabel="Qué gráfico ver"
+              value={grupo}
+              width={250}
+              buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
+              options={opciones.map((o) => ({ ...o, icono: ICONO[o.value] }))}
+              onChange={(v) => {
+                if (v === 'agregar-instagram' || v === 'agregar-youtube') { onAgregarRed(); return; }
+                if (v === 'web') { onWeb(); return; }
+                setElegido(v as Grupo);
+                setRed('todo');
+              }}
+            />
+            {redes.length > 0 && (
+              <div className="spyg-redes" role="group" aria-label="Red">
+                {redes.map((r) => (
+                  <button key={r.red} type="button" className="spyg-red" data-activa={redActiva === r.red} onClick={() => setRed(r.red)}>
+                    {redDePieza(r.red) && <LogoRed red={redDePieza(r.red)!} box={18} />}{NOMBRE_RED[r.red] ?? r.red} <small>{r.n}</small>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        {g.puntos.length > 0 && !bajadas && <CargandoMako que={`lo que publica ${c.nombre}`} alto={380} size={72} />}
+        {g.puntos.length > 0 && (
+          <>
           <div className="spyg-plot" ref={plot} style={bajadas ? undefined : { visibility: 'hidden', position: 'absolute', inset: 0 }}>
             {g.marcas.map((m) => <div key={m.rotulo} className="spyg-marca" style={{ bottom: `${m.y * 100}%` }}><span>{m.rotulo}</span></div>)}
             {g.desde && <span className="spyg-x" style={{ left: 0 }}>{fechaCorta(g.desde)}</span>}
@@ -246,25 +255,28 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
             {bajadas && dibujados.map((d) => {
               const p = porId.get(d.id);
               if (!p) return null;
-              const lado = telefono ? 24 : 34;
+              // Su proporción real: el lado más largo mide `lado` (un reel es vertical; un video de YouTube, apaisado).
+              const m = medidaEnElGrafico(p, telefono ? 30 : 42);
               return (
                 <button
                   key={d.id} type="button" className="spyg-pt" data-pt="" data-valor={d.valor} data-canal={p.canal}
-                  style={{ left: `calc(${d.x * 100}% - ${d.x * lado}px)`, bottom: `calc(${d.y * 100}% - ${d.y * lado}px)` }}
+                  style={{ width: m.ancho, height: m.alto, left: `calc(${d.x * 100}% - ${d.x * m.ancho}px)`, bottom: `calc(${d.y * 100}% - ${d.y * m.alto}px)` }}
                   aria-label={`${p.titulo || p.analisis?.gancho || 'Pieza'} · ${dibujarContador(d.valor)} ${nums.metrica}`}
                   title={`${dibujarContador(d.valor)} ${nums.metrica}`}
                   onClick={() => onAbrir(p)}
                 >
                   <Miniatura p={p} bajada={bajadas.has(d.id)} />
+                  <RedDeLaMiniatura canal={p.canal} />
                 </button>
               );
             })}
           </div>
-          <p className="spyg-pie">
-            {CADA[grupo]}{dibujados.length < g.puntos.length ? ` · se ven ${dibujados.length} de ${g.puntos.length}` : ''}
-          </p>
-        </section>
-      )}
+          {/* «Cada miniatura es un video» se fue (Martín, 4/11: los textos que narran lo que ya se ve). Queda sólo lo que no
+              se ve: que hay más piezas que miniaturas. */}
+          {dibujados.length < g.puntos.length && <p className="spyg-pie">Se ven {dibujados.length} de {g.puntos.length}</p>}
+          </>
+        )}
+      </section>
 
       {filas.length > 0 && (
         <section className="spyg-caja">
@@ -283,9 +295,10 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
                   const p = porId.get(x.id);
                   if (!p) return null;
                   return (
-                    <button key={x.id} type="button" className="spyg-pt" data-canal={p.canal} style={{ left: `calc(${x.x * 100}% - ${x.x * 26}px)` }}
+                    <button key={x.id} type="button" className="spyg-pt" data-canal={p.canal} style={{ width: medidaEnElGrafico(p, 30).ancho, height: medidaEnElGrafico(p, 30).alto, left: `calc(${x.x * 100}% - ${x.x * medidaEnElGrafico(p, 30).ancho}px)` }}
                       aria-label={`${p.titulo || p.analisis?.gancho || 'Pieza'} · ${dibujarContador(x.valor)} ${nums.metrica}`} onClick={() => onAbrir(p)}>
                       <Miniatura p={p} bajada={bajadas.has(x.id)} />
+                      <RedDeLaMiniatura canal={p.canal} />
                     </button>
                   );
                 })}
