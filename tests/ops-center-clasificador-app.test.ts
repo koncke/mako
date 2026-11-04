@@ -403,6 +403,8 @@ const IMAGEN: Caso[] = [
   ["¿qué carruseles funcionan esta semana?", ["buscar_carruseles"]],
   ["buscame carruseles con outlier alto de @estudio.lumen", ["buscar_carruseles"]],
   ["guardá ese carrusel en mis referencias", ["guardar_carrusel"]],
+  ["haceme uno con la estructura de ese carrusel de @estudio.lumen", ["crear_carrusel_desde_referencia"]],
+  ["crea un carrusel como el de @cafebrasa pero para mi negocio", ["crear_carrusel_desde_referencia"]],
   ["publicá mi landing en la galería de la comunidad", ["publicar_creacion"]],
   ["dale una estrella a esa creación", ["dar_estrella"]],
 ];

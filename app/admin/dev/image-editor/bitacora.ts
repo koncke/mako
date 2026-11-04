@@ -161,4 +161,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/image-editor?ver=carruseles',
   },
+  {
+    fecha: '4 nov', hora: '18:20', chat: 'Carruseles (nube)', sesion: 'cli_daed829d-dde6-5b48-8dd1-048974536370', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Carruseles de MaKo por tipo y «Hacer el mío»',
+    puntos: [
+      '«Nuevo diseño» abre con ocho carruseles de MaKo por tipo: lista, paso a paso, historia, antes y después, mito vs. realidad, opinión, caso con números y preguntas.',
+      'Cada tarjeta muestra lo que se va a crear (la portada con el nombre del negocio y las láminas detrás), y «Ver ejemplo» lo enseña lleno con un negocio ficticio, aparte.',
+      'El diseño nace con la estructura del tipo: una guía de qué escribir en cada lámina, la barra de progreso, la flecha y la última lámina para pedir algo.',
+      'En «Carruseles que funcionan», «Hacer el mío» toma la estructura de uno (tipo, láminas, con qué abre y qué pide al final), la muestra para cambiarla y crea uno nuevo. Sus palabras no se copian: van en las notas de quién es y el link.',
+      'MaKo lo puede hacer por la app y WhatsApp (crear_carrusel_desde_referencia), y buscar_carruseles ya dice la estructura de cada uno.',
+    ],
+    archivos: [
+      'lib/carruseles/tipos.ts — los ocho tipos: su estructura, su estilo y su ejemplo de un negocio ficticio',
+      'lib/carruseles/documento.ts — el documento del editor de un carrusel, una página por lámina',
+      'lib/carruseles/referencia.ts y texto.ts — la estructura de una referencia, nunca su texto',
+      'lib/carruseles/crear-servidor.ts — «Hacer el mío» para la pantalla y la API',
+      'app/image-editor/carruseles/MiniaturaCarrusel.tsx, DialogosCarrusel.tsx y useCarruselesDeImage.tsx — la miniatura, «Ver ejemplo» y «Hacer el mío»',
+    ],
+    revisar: '/image-editor',
+  },
 ];

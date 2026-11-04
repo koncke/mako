@@ -738,3 +738,31 @@ imagen. **Vive en:** `lib/carruseles/explorar.ts` (lo puro), `lib/carruseles/exp
 
 **Lo que quedó SIN hacer (en esta etapa):** «Hacer el mío» y las plantillas propias por tipo (etapa 2); mirar la pantalla con
 un negocio de verdad (el banco usa datos inventados); y la 0391 sin aplicar.
+
+## Carruseles por tipo y «Hacer el mío»: la estructura, nunca las palabras (4/11/2026, nube)
+
+**Vive en:** `lib/carruseles/tipos.ts`, `lib/carruseles/documento.ts`, `lib/carruseles/referencia.ts`, `lib/carruseles/texto.ts`,
+`lib/carruseles/crear-servidor.ts`, `app/image-editor/carruseles/MiniaturaCarrusel.tsx` y `DialogosCarrusel.tsx`.
+
+- **La miniatura dibuja el MISMO documento que se crea** (`documentoDeCarrusel` → `PaginaCarrusel`, con `cqw` contra el ancho
+  de la página), no una imagen aparte: la regla de Martín del 29/10 («nunca en blanco») sin un segundo dibujo que se desfase.
+- **El ejemplo va aparte** («Ver ejemplo», un negocio ficticio del elenco) y la tarjeta muestra la estructura con el nombre del
+  NEGOCIO: lo que se ve es lo que se crea. El @ del negocio no se guarda en MaKo (Zernio no deja el usuario): la cabecera va sin
+  @ y nunca se inventa uno.
+- **«Nunca sus palabras» lo cuida el TIPO:** `Estructura` no tiene el texto de la referencia, así que armar las láminas no tiene
+  cómo copiarlo. Lo que se toma: el tipo (por el formato que Spy le leyó, `tipoDeFormato`), las láminas, con qué abre (el
+  `tipoGancho` de Spy) y qué pide al final (`cierreDeTexto`, gana la ÚLTIMA pista). Sin tipo claro se pregunta, no se adivina.
+- **El cierre se lee del texto ENTERO, en el explorador.** Al navegador el texto viaja cortado a 320 caracteres y la llamada a la
+  acción va al final: con el texto cortado, la confirmación decía «sin cierre» y el server, que lee entero, creaba otro. Ahora
+  `carruselesDe` calcula `cierre` antes de cortar y «Hacer el mío» usa ése (test con un pie de 600 caracteres).
+- **Un rango de láminas tiene que caber en su estructura.** Tres tipos declaraban un mínimo menor que sus láminas fijas
+  (portada, resumen, cierre…): «Historia de 5» salía de 6. Lo cazó el test que arma cada tipo con cada número de su rango.
+- **«Ver ejemplo» va AL LADO de la tarjeta** (un botón no va adentro de otro): `.cr-plantilla-con`, con `verEjemplo` en la
+  plantilla y `onVerEjemplo` en `PantallaCrear` (las otras tabs no cambian). La miniatura lleva `zIndex: 0` para que sus
+  láminas apiladas no tapen las marcas de la tarjeta, y va más abajo (19 %) para no tapar la cabecera de la portada.
+- **`plano` se mudó a `texto.ts`** (`explorar.ts` lo re-exporta): `referencia.ts` importa de `explorar.ts` y el explorador
+  necesitaba `cierreDeTexto`, un ciclo.
+
+**Lo que quedó SIN hacer:** que MaKo escriba el texto de cada lámina con los datos del negocio (hoy son guías); «Hacer el mío» y
+«Ver ejemplo» en el teléfono (allí se crea con la plantilla, sin el diálogo); y mirar las fuentes del documento abierto en el
+editor de verdad (el banco dibuja la miniatura, no el lienzo de Doory).

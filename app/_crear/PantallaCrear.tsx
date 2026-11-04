@@ -80,6 +80,8 @@ export type PropsPantallaCrear = {
   /** Lo que la tab pone entre la caja y las plantillas de «¿Qué vas a crear hoy?» (Image: los carruseles que funcionan,
    *  4/11/2026). Sin esto, nada: las demás tabs se ven igual. */
   arribaDePlantillas?: ReactNode;
+  /** «Ver ejemplo» de una plantilla con `verEjemplo` (Image: los carruseles por tipo). Sin esto, no se dibuja el botón. */
+  onVerEjemplo?: (p: PlantillaCrear) => void;
   /** Lo escrito en la caja. Sin esto, va al chat de MaKo (al Cerebro, que crea) y la tarjeta vuelve al chat. Si devuelve un
    *  texto, es un error y se muestra debajo de la caja; si no, «Nuevo …» se cierra como al usar una plantilla. */
   onPedido?: (texto: string) => void | string | null | Promise<void | string | null>;
@@ -219,7 +221,7 @@ export function PantallaCrear(p: PropsPantallaCrear) {
         {hayPieza && <div className="cr-pieza" hidden={centro === 'nueva'}>{children}</div>}
         {centro === 'nueva' && (
           <NuevaCrear tab={tab} plantillas={p.plantillas} onPlantilla={p.onPlantilla} titulo={p.tituloPlantillas} miniatura={p.miniatura}
-            ejemplos={p.ejemplos} onPedido={alPedido} onCreado={alCreado} arriba={p.arribaDePlantillas} />
+            ejemplos={p.ejemplos} onPedido={alPedido} onCreado={alCreado} arriba={p.arribaDePlantillas} onVerEjemplo={p.onVerEjemplo} />
         )}
       </div>
     </div>
@@ -323,10 +325,12 @@ function MenuProyecto({ nombre, acciones }: { nombre: string; acciones: readonly
 }
 
 /** «¿Qué vas a crear hoy?»: la caja de siempre (`CajaPedido`, la del Web Generator, Automations y el Dashboard) y las plantillas. */
-export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas', miniatura, ejemplos, onPedido, onCreado, arriba }: {
+export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas', miniatura, ejemplos, onPedido, onCreado, arriba, onVerEjemplo }: {
   tab: string; plantillas: readonly PlantillaCrear[]; onPlantilla: PropsPantallaCrear['onPlantilla']; titulo?: string;
   /** Lo de la tab entre la caja y las plantillas (`arribaDePlantillas`). */
   arriba?: ReactNode;
+  /** «Ver ejemplo» de una plantilla con `verEjemplo`. */
+  onVerEjemplo?: PropsPantallaCrear['onVerEjemplo'];
   miniatura?: PropsPantallaCrear['miniatura'];
   ejemplos: readonly string[];
   /** Lo escrito en la caja; un texto de vuelta es un error. */
@@ -380,10 +384,20 @@ export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas'
           <section key={s.titulo ?? ''} className="cr-plantillas" aria-labelledby={`${idGrilla}-${i}`}>
             <h2 id={`${idGrilla}-${i}`} className="cr-plantillas__titulo">{s.titulo ?? titulo}</h2>
             <div className="cr-plantillas__grilla">
-              {s.plantillas.map((pl) => (
-                <TarjetaPlantilla key={pl.id} pl={pl} activa={activa === pl.id} usando={usando} miniatura={miniatura}
-                  onUsar={() => { void usar(pl); }} onActiva={(si) => setActiva((a) => (si ? pl.id : a === pl.id ? null : a))} />
-              ))}
+              {s.plantillas.map((pl) => {
+                const tarjeta = (
+                  <TarjetaPlantilla key={pl.id} pl={pl} activa={activa === pl.id} usando={usando} miniatura={miniatura}
+                    onUsar={() => { void usar(pl); }} onActiva={(si) => setActiva((a) => (si ? pl.id : a === pl.id ? null : a))} />
+                );
+                // «Ver ejemplo» va AL LADO de la tarjeta (un botón no va adentro de otro), en la esquina de su miniatura.
+                return pl.verEjemplo && onVerEjemplo ? (
+                  <div key={pl.id} className="cr-plantilla-con">
+                    {tarjeta}
+                    <button type="button" className="cr-plantilla__ver" disabled={!!usando} onClick={() => onVerEjemplo(pl)}
+                      aria-label={`Ver un ejemplo de ${pl.nombre}`}>Ver ejemplo</button>
+                  </div>
+                ) : tarjeta;
+              })}
             </div>
           </section>
         ))}

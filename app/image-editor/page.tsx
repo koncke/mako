@@ -15,6 +15,7 @@ import { Pagina } from '@/app/_ui';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { filtrosDeQuery } from '@/lib/carruseles/explorar';
+import { nombreDelNegocio } from '@/lib/carruseles/marca';
 import { requireEditorImagen } from './acceso';
 import { ImageEditorCliente } from './ImageEditorCliente';
 
@@ -26,10 +27,10 @@ export default async function ImageEditorPage({ searchParams }: { searchParams: 
   const ws = await getWorkspaceActual();
   const q = await searchParams;
   const carruseles = (Array.isArray(q.ver) ? q.ver[0] : q.ver) === 'carruseles';
-  const explorador = carruseles ? await leerExplorador() : null;
+  const [explorador, negocio] = await Promise.all([carruseles ? leerExplorador() : null, nombreDelNegocio(ws)]);
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-      <ImageEditorCliente vista={carruseles ? 'carruseles' : 'inicio'} ws={ws}
+      <ImageEditorCliente vista={carruseles ? 'carruseles' : 'inicio'} ws={ws} negocio={negocio}
         explorador={explorador && explorador.ok
           ? { datos: { carruseles: explorador.carruseles, guardados: explorador.guardados.map((g) => g.id), busquedas: explorador.busquedas, paso: explorador.paso, frase: explorador.frase, accion: explorador.accion }, filtros: filtrosDeQuery(q) }
           : explorador ? { error: true } : null} />

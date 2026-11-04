@@ -18,7 +18,7 @@ biblioteca. Se copian las FUNCIONES con datos propios.
 | Etapa | Qué | Rama | Estado |
 |---|---|---|---|
 | 1 | «Carruseles que funcionan» en Image (`/image-editor?ver=carruseles`): buscar por tema y @cuenta, filtros (publicado, láminas, formato, imágenes sueltas), outlier, cuentas, orden (outlier, nuevos, viejos, interacción, traídos), grilla de dos tamaños, guardados, búsquedas guardadas, esta semana, la pestaña «Cuentas» con su análisis en Spy; la franja de «Nuevo diseño»; el teléfono; la API (`estado_carruseles`, `buscar_carruseles`, `guardar_carrusel`) | `punta/carruseles-explorar` | subida |
-| 2 | Plantillas propias por tipo y «Hacer el mío» (la estructura de uno, no su contenido) | `punta/carruseles-crear` | en curso |
+| 2 | Ocho carruseles de MaKo por tipo en «Nuevo diseño» (miniatura con el nombre del negocio, «Ver ejemplo» con un negocio ficticio) y «Hacer el mío» en el explorador (la estructura de uno, no su contenido); la API (`crear_carrusel_desde_referencia`, y `buscar_carruseles` dice la estructura) | `punta/carruseles-crear` | subida |
 
 ## Migración sin aplicar
 
@@ -39,6 +39,13 @@ biblioteca. Se copian las FUNCIONES con datos propios.
 4. Con la 0391 aplicada: volver a abrir la ficha de la cuenta en Spy y mirar que los carruseles traen el chip de láminas.
 5. Desde el chat de MaKo (la tarjeta de la izquierda): «¿qué carruseles funcionan esta semana?» y «guardá ese carrusel».
 6. En el teléfono: Image → «Carruseles que funcionan».
+7. `/image-editor`: arriba, «Carruseles» con ocho tipos; cada miniatura lleva el nombre del negocio. «Ver ejemplo» de
+   «Historia» abre las siete láminas de un negocio ficticio y «Usar esta estructura» crea el diseño «Carrusel · Historia».
+   Abrirlo: cada lámina trae su guía, la barra de progreso crece y la última no tiene flecha.
+8. En el explorador, pasar el mouse por un carrusel → «Hacer el mío»: la confirmación dice tipo, láminas, con qué abre y qué
+   pide; cambiar el tipo o las láminas cambia la vista previa; «Crear mi carrusel» abre el diseño (las notas de la primera
+   página dicen de quién es la estructura).
+9. Por el chat: «hacé uno con la estructura de ese carrusel de @cuenta» → tarjeta con el resumen → confirmar → link al diseño.
 
 ## Para leer desde la PC (la nube no llega a ese dominio)
 
@@ -51,5 +58,7 @@ pantalla; no se cambia el número de Spy.
 
 ## Lo que sigue
 
-- Etapa 2: plantillas propias por tipo y «Hacer el mío» (este mismo documento, arriba, cuando suba).
+- Que MaKo escriba el texto de cada lámina con los datos del negocio (hoy son guías). Va por el chat del editor, que ya cambia
+  textos de un diseño abierto, o como una operación nueva; necesita la IA del negocio.
+- «Hacer el mío» y «Ver ejemplo» en el teléfono.
 - Las cuentas que el negocio sigue SÓLO para carruseles (sin el resto de Spy): hoy se suman en Competitors Spy.

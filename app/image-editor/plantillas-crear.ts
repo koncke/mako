@@ -10,7 +10,11 @@
 //     de Canva más pedidos). Los otros 30 de Canva siguen en «Redimensionar» del editor (_doory/editor/dialogs/resizeSizes.ts);
 //   · el CARRUSEL de Instagram (1080 × 1350, varias páginas): la tab Carousels se deprecó el 29/10/2026 y el DISEÑO de un
 //     carrusel vive acá (su texto se le pide a MaKo en el mismo chat);
-//   · las PLANTILLAS con diseño (las de Doory en español, ./mako/plantillas.ts), con su miniatura.
+//   · las PLANTILLAS con diseño (las de Doory en español, ./mako/plantillas.ts), con su miniatura;
+//   · los CARRUSELES DE MaKo POR TIPO (4/11/2026, lib/carruseles/tipos.ts: lista, paso a paso, historia, antes y después…),
+//     arriba de todo y en su sección: el documento trae la ESTRUCTURA (una guía de qué va en cada lámina) con el nombre del
+//     negocio en la cabecera, y el ejemplo lleno de un negocio ficticio se ve aparte («Ver ejemplo»). La miniatura la
+//     dibuja la pantalla desde el MISMO documento que se crea (./carruseles/MiniaturaCarrusel.tsx).
 //
 // Módulo PURO: lo leen el server (la acción), los dos clientes y los tests. Nada del motor (`_doory/`) más que tipos.
 // El test: tests/image-editor-plantillas-crear.test.ts.
@@ -18,6 +22,8 @@
 
 import type { PlantillaCrear } from '@/app/_crear/reglas';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
+import { ALTO_CARRUSEL, ANCHO_CARRUSEL } from '@/lib/carruseles/documento';
+import { TIPOS_CARRUSEL, type IdTipoCarrusel } from '@/lib/carruseles/tipos';
 import { catalogoPlantillas } from './mako/plantillas';
 
 /** Una tarjeta de «¿Qué vas a crear hoy?» con lo que hace falta para crear el diseño. */
@@ -29,6 +35,11 @@ export type PlantillaNuevoDiseno = PlantillaCrear & {
   paginas: number;
   /** El slug de la plantilla con diseño (./mako/plantillas.ts). Sin esto, el diseño nace en blanco. */
   plantilla?: string;
+  /** Un carrusel de MaKo por tipo (lib/carruseles/tipos.ts): el documento sale de su estructura, no en blanco. */
+  carrusel?: IdTipoCarrusel;
+  /** El nombre del diseño que se crea, si no es el de la tarjeta («Carrusel · Lista o tips»: en la lista de diseños, «Lista o
+   *  tips» solo no dice qué es). */
+  tituloDiseno?: string;
 };
 
 /** Las páginas de un carrusel nuevo: la portada, tres de contenido y el cierre. Se agregan o se sacan en el editor. */
@@ -64,8 +75,27 @@ const CON_DISENO: PlantillaNuevoDiseno[] = catalogoPlantillas().map((p) => ({
   imagen: `/cv/plantillas/${p.slug}.webp`,
 }));
 
-/** Todas, en el orden en que se ven: primero en blanco (con el carrusel), después las que traen diseño. */
-export const PLANTILLAS_NUEVO_DISENO: readonly PlantillaNuevoDiseno[] = [...conCarrusel(TAMANOS), ...CON_DISENO];
+/** La sección de los carruseles por tipo: la primera de «¿Qué vas a crear hoy?». */
+export const GRUPO_CARRUSELES = 'Carruseles';
+
+/** Los carruseles de MaKo por tipo: la estructura con las láminas del tipo, y su rango en la insignia. */
+const POR_TIPO: PlantillaNuevoDiseno[] = TIPOS_CARRUSEL.map((t) => ({
+  id: `carrusel-${t.id}`,
+  nombre: t.nombre,
+  tituloDiseno: `Carrusel · ${t.nombre}`,
+  ancho: ANCHO_CARRUSEL,
+  alto: ALTO_CARRUSEL,
+  paginas: t.laminas.def,
+  carrusel: t.id,
+  grupo: GRUPO_CARRUSELES,
+  formato: formato(ANCHO_CARRUSEL, ALTO_CARRUSEL),
+  insignia: `${t.laminas.def} láminas`,
+  ayuda: t.cuando,
+  verEjemplo: true,
+}));
+
+/** Todas, en el orden en que se ven: los carruseles por tipo, los tamaños en blanco (con el carrusel) y las que traen diseño. */
+export const PLANTILLAS_NUEVO_DISENO: readonly PlantillaNuevoDiseno[] = [...POR_TIPO, ...conCarrusel(TAMANOS), ...CON_DISENO];
 
 /** La plantilla con ese id, o null (la acción no confía en lo que llega del navegador). */
 export function plantillaNueva(id: string): PlantillaNuevoDiseno | null {

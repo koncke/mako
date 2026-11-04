@@ -17,6 +17,9 @@ import { TAMANOS_API } from '@/lib/image-editor/tamanos';
 import { catalogoPlantillas, documentoDePlantilla } from '@/app/image-editor/mako/plantillas';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servidor';
+import { crearCarruselDesdeReferencia, referenciaDelNegocio } from '@/lib/carruseles/crear-servidor';
+import { estructuraDe, frasesDe, planDeReferencia } from '@/lib/carruseles/referencia';
+import { esTipoCarrusel } from '@/lib/carruseles/tipos';
 import {
   FILTROS_INICIALES, OUTLIER_MINIMOS, filtrarCarruseles, filtrosDeQuery, queryDeFiltros, rotuloFormato, rotuloOutlier, type Carrusel,
 } from '@/lib/carruseles/explorar';
@@ -89,6 +92,8 @@ const carruselParaApi = (c: Carrusel) => ({
   laminas: c.laminas,
   formato: rotuloFormato(c.formato) || null,
   gancho: c.gancho,
+  // Lo que se entendió de su estructura (lo mismo que dice «Hacer el mío»): con esto se elige con qué crear el del negocio.
+  estructura: frasesDe(estructuraDe(c)),
   texto: c.texto ? c.texto.slice(0, 280) : null,
   megusta: c.megusta, comentarios: c.comentarios, publicado: c.publicada,
 });
@@ -273,6 +278,33 @@ export const RUNNERS: Runners = {
       const r = await guardarCarrusel(id, guardar);
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: guardar ? 'Guardado.' : 'Sacado de los guardados.', datos: { carruselId: id, link: linkExplorador('ver=carruseles&vista=guardados', ctx.ws) } };
+    },
+  },
+
+  // «Hacer el mío» por la API (4/11/2026): la MISMA función que la pantalla (lib/carruseles/crear-servidor.ts). La estructura,
+  // nunca sus palabras: el diseño nace con una guía de qué escribir en cada lámina.
+  crear_carrusel_desde_referencia: {
+    preparar: async (input): Promise<Preparado> => {
+      const id = typeof input.carruselId === 'number' ? input.carruselId : NaN;
+      if (!Number.isSafeInteger(id) || id <= 0) return { error: 'Falta el id del carrusel (de buscar_carruseles).', faltan: ['carruselId'] };
+      if (input.tipo != null && !esTipoCarrusel(input.tipo)) return { error: 'Ese tipo de carrusel no existe en MaKo.', faltan: ['tipo'] };
+      let c;
+      try { c = await referenciaDelNegocio(id); } catch { return { error: 'No pude leer ese carrusel. Vuelve a intentar.', falla: true }; }
+      if (!c) return { error: 'Ese carrusel no está entre los de las cuentas que sigue el negocio. Búscalo con buscar_carruseles.' };
+      const e = estructuraDe(c);
+      const plan = planDeReferencia(e, input.tipo, input.laminas);
+      if ('error' in plan) return { error: plan.error, faltan: ['tipo'] };
+      return {
+        payload: { carruselId: id, tipo: plan.tipo.id, laminas: plan.laminas },
+        resumen: `Crear un carrusel «${plan.tipo.nombre}» de ${plan.laminas} láminas con la estructura del de ${e.de} (${frasesDe(e).slice(2).join(', ') || 'sin gancho ni cierre leídos'}). Cada lámina trae una guía de qué escribir: sus palabras no se copian.`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const r = await crearCarruselDesdeReferencia(ctx.ws, QUIEN, Number(payload.carruselId), payload.tipo, payload.laminas);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      const url = link(r.id, ctx.ws);
+      const bloque = bloqueDiseno(r.id, { titulo: r.titulo, ancho: 1080, alto: 1350, estado: 'Nuevo', nota: `Con la estructura de ${r.de}: escribe lo tuyo en cada lámina.` });
+      return { ok: true, resumen: `Creado (${r.laminas} láminas). Ábrelo aquí: ${url}`, datos: { disenoId: r.id, link: url, bloque } };
     },
   },
 };
