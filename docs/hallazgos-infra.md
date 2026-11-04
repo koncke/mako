@@ -99,7 +99,10 @@ rearmadas desde la nube sobre `origin/main`, cada una en su `punta/<rama>`.
 - **El `node` de la nube es el 22; GitHub corre el 24.** Con el 22, los grupos compartidos de `tests-afectados.mjs` salen
   «NO CORRIÓ: no juzgó NI UN caso · 0 s» (240 archivos) y los repite aislados, uno por uno. El 24 está en `/opt/node24/bin`:
   `export PATH=/opt/node24/bin:$PATH` antes de correr tests o el tsc acotado (con el 22, `tsc-acotado` salió «código
-  undefined» sin chequear nada; con el 24, limpio).
+  undefined» sin chequear nada; con el 24, limpio). **Y antes de `git push` a una punta**: el filtro del pre-push corre los
+  tests con el `node` que lo lanzó. El 4/11 (`punta/ticket-57`, al mezclar main) dio 12 rojos falsos con el 22: dos tests de
+  main (`mako-no-puedo-falsos`, `onboarding-hilo-carrera`) abren un node hijo con mocks ESM que el 22 no enlaza, y cada uno
+  tumba su tanda de 6 («la tanda salió con 1» para los seis). Con el 24 pasan los 12 y el push sale sin saltear el filtro.
 - **`unir-indice-hallazgos.py` es para un MERGE: lee `MERGE_HEAD`, y en un cherry-pick no hace nada.** Y la salida obvia —
   sumar las filas de la que entra que HEAD no tiene— vuelve a meter filas que main reescribió después (pasó con dos filas de
   `desktop-offline`). Lo que vale es comparar contra el PADRE del commit (`CHERRY_PICK_HEAD^`): se suma sólo lo que el commit

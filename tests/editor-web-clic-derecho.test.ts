@@ -62,7 +62,8 @@ test('si quien monta el hilo ya trae su ContextoWA (el Ops Center, el teléfono)
 
 test('el menú mínimo: Copiar siempre; Responder sólo si la pantalla sabe citar; con el dedo no se abre', () => {
   const src = sinComentarios(leer('app/_chat/HiloMako.tsx'));
-  assert.match(src, /\.\.\.\(onCitar \? \[\{ id: 'responder', label: 'Responder', icono: 'cita' as const \}\] : \[\]\), \{ id: 'copiar', label: 'Copiar', icono: 'copiar' as const \}/);
+  // Desde el 4/11/2026 (ticket #57) lleva además «Reportar» en lo de MaKo: tests/reportar-en-el-menu.test.ts.
+  assert.match(src, /\.\.\.\(onCitar \? \[\{ id: 'responder', label: 'Responder', icono: 'cita' as const \}\] : \[\]\),\s*\{ id: 'copiar', label: 'Copiar', icono: 'copiar' as const \}/);
   assert.match(src, /abrirMenu: \(m, x, y, tactil\) => \{ if \(!tactil\) setAbierto\(\{ m, x, y \}\); \}/,
     'en Android el contextmenu que llega después cerraría el menú en el mismo gesto');
   // Copiar copia lo que se escribió, sin la cita de arriba.

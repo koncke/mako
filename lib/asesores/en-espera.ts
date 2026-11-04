@@ -1,28 +1,19 @@
 // =============================================================================
-// Los gurús con su FICHA escrita y SIN su caricatura todavía (4/11/2026)
+// Los gurús con su FICHA escrita y SIN su caricatura todavía — hoy no hay ninguno (4/11/2026)
 // =============================================================================
-// Martín: «faltan un montón de gurús que nos habían quedado por la mitad». Son los doce que pidió el 2/11 menos Puigrredón y
-// Alborna (docs/pendientes-martin.md, #14), con su curso ya localizado (./cursos.ts). Un gurú necesita las DOS cosas: su ficha
-// destilada de un curso de Knowledge y su caricatura (public/asesores/<id>.png y public/asesores/grandes/<id>.png), la que aprueba
-// Martín. La ficha se escribe en la nube; la caricatura se hace con Canva desde la PC (el prompt aprobado, en
-// docs/hallazgos-ops-center.md), y una sesión en la nube no tiene Canva.
+// Martín: «faltan un montón de gurús que nos habían quedado por la mitad». Eran diez (juan-carrizo, vilma-nunez, samuel-albaa,
+// alvaro-luque, sergio-begueria, romuald-fons, mateo-maffia, francisco-doglio, andy-landa, gonzalo-sere): su ficha estaba escrita
+// (se escribe en la nube) y faltaba su caricatura, que se hace con Canva desde la PC (el prompt aprobado, en docs/hallazgos-ops-center.md).
+// El mismo 4/11 llegaron las diez caras y pasaron a `ASESORES` (./catalogo.ts) y a `FICHAS` (./fichas.ts): la lista quedó vacía.
+//
+// SIGUE SIENDO LA SALA DE ESPERA para el próximo. Un gurú necesita las DOS cosas: su ficha destilada de un curso de Knowledge y su
+// caricatura (public/asesores/<id>.png y public/asesores/grandes/<id>.png), la que aprueba Martín.
 //
 // CÓMO ENTRA UNO A LA GALERÍA, cuando llega su cara: se suben sus dos PNG, se pasa su fila de acá a `ASESORES` (y su id a
 // `IdAsesor`) en ./catalogo.ts, y su ficha a `FICHAS` en ./fichas.ts. `tests/gurus-en-espera.test.ts` lo pide en cuanto ve el PNG.
 //
 // ⚠️ NO SE ELIGEN NI SE CONTESTAN DESDE ACÁ: sin cara, su fila sería un disco vacío (tests/coaches-ops-center.test.ts). Sólo el
 // servidor: las fichas pesan, y el navegador no las usa.
-
-import { FICHA_JUAN_CARRIZO } from './ficha-juan-carrizo';
-import { FICHA_VILMA_NUNEZ } from './ficha-vilma-nunez';
-import { FICHA_SAMUEL_ALBAA } from './ficha-samuel-albaa';
-import { FICHA_ALVARO_LUQUE } from './ficha-alvaro-luque';
-import { FICHA_SERGIO_BEGUERIA } from './ficha-sergio-begueria';
-import { FICHA_ROMUALD_FONS } from './ficha-romuald-fons';
-import { FICHA_MATEO_MAFFIA } from './ficha-mateo-maffia';
-import { FICHA_FRANCISCO_DOGLIO } from './ficha-francisco-doglio';
-import { FICHA_ANDY_LANDA } from './ficha-andy-landa';
-import { FICHA_GONZALO_SERE } from './ficha-gonzalo-sere';
 
 /** Un gurú que espera su caricatura: lo mismo que una fila de `ASESORES`, con su ficha al lado. */
 export type GuruEnEspera = {
@@ -35,18 +26,7 @@ export type GuruEnEspera = {
   ficha: string;
 };
 
-export const EN_ESPERA: readonly GuruEnEspera[] = [
-  { id: 'juan-carrizo', nombre: 'Juan Carrizo', completo: 'Juan Carrizo', especialidad: 'Oferta y valor', curso: 'Aumenta tu valor y ATV ADVANTAGE', ficha: FICHA_JUAN_CARRIZO },
-  { id: 'vilma-nunez', nombre: 'Vilma Núñez', completo: 'Vilma Núñez', especialidad: 'Marketing y crecimiento', curso: 'Certificación en Marketing Digital potenciada por IA', ficha: FICHA_VILMA_NUNEZ },
-  { id: 'samuel-albaa', nombre: 'Samuel Albaa', completo: 'Samuel Albaa', especialidad: 'Práctica del closer', curso: 'Growing Closer', ficha: FICHA_SAMUEL_ALBAA },
-  { id: 'alvaro-luque', nombre: 'Álvaro Luque', completo: 'Álvaro Luque', especialidad: 'Lanzamientos', curso: 'The perfect launch', ficha: FICHA_ALVARO_LUQUE },
-  { id: 'sergio-begueria', nombre: 'Sergio Begueria', completo: 'Sergio Begueria', especialidad: 'Marca personal y video', curso: 'Instituto De Marca Personal', ficha: FICHA_SERGIO_BEGUERIA },
-  { id: 'romuald-fons', nombre: 'Romuald Fons', completo: 'Romuald Fons', especialidad: 'SEO', curso: 'Bigseo Academy', ficha: FICHA_ROMUALD_FONS },
-  { id: 'mateo-maffia', nombre: 'Mateo Maffia', completo: 'Mateo Maffia', especialidad: 'Video corto que vende', curso: 'BYF', ficha: FICHA_MATEO_MAFFIA },
-  { id: 'francisco-doglio', nombre: 'Francisco Doglio', completo: 'Francisco Doglio', especialidad: 'Equipo comercial y webinars', curso: 'ARCADIA', ficha: FICHA_FRANCISCO_DOGLIO },
-  { id: 'andy-landa', nombre: 'Andy Landa', completo: 'Andy Landa', especialidad: 'Automatizaciones de Instagram', curso: 'ManyChat Master - Instagram', ficha: FICHA_ANDY_LANDA },
-  { id: 'gonzalo-sere', nombre: 'Gonzalo Seré', completo: 'Gonzalo Seré', especialidad: 'Estrategia de contenido', curso: 'Growing Content Specialist', ficha: FICHA_GONZALO_SERE },
-];
+export const EN_ESPERA: readonly GuruEnEspera[] = [];
 
 /** El tope de una ficha: viaja en cada mensaje del chat (lib/asesores/contexto.ts). Es el mismo de tests/coaches-ops-center.test.ts. */
 export const TOPE_FICHA = 5_200;
