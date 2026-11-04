@@ -15,7 +15,7 @@ import { TEMA_BASE, acentoDePortada, estiloEfectivo, paletaDe, paletaDeEscena, p
 import { PLANTILLAS_GENERAL, PORTADAS_GENERAL } from '../lib/general-plantillas';
 import { fuenteDe, sanearHoja } from '../lib/graficos-catalogo';
 import { componentesDe, instanciarPlantilla, PLANTILLAS_HOJA } from '../lib/graficos-plantillas';
-import { comoDenso, portadasDashboard, MOLDES, ALTO_MEDIANO, ALTO_NUMEROS, ALTO_PROTAGONISTA } from '../lib/graficos-portadas';
+import { comoDenso, portadasDashboard, MOLDES, ALTO_MEDIANO, ALTO_NUMEROS, ALTO_PROTAGONISTA, ALTO_FRASE } from '../lib/graficos-portadas';
 
 const MEDIDO = JSON.parse(readFileSync('docs/diseno/tokens-corbel.json', 'utf8'));
 const leer = (r: string) => readFileSync(r, 'utf8').replace(/\r\n/g, '\n');
@@ -190,14 +190,17 @@ test('el teléfono, con lo medido a 390', () => {
   assert.equal(g.split('--fs-kpi: 22px;').length - 1, 2);
 });
 
-test('Foco: cuatro números bajos y los OKR a lo ancho, que son filas largas', () => {
+test('Focus: la frase del día, cuatro números bajos y los OKR a lo ancho, que son filas largas', () => {
   const p = PLANTILLAS_GENERAL.find((x) => x.id === 'foco')!;
   const h = sanearHoja({ ...p.armar((l: string) => l), plantilla: p.id }, 0)!;
   const c = h.componentes as Array<Record<string, any>>;
+  // 4/11/2026 (Pane · Lumora): abre con lo que te queda hoy, y debajo lo de siempre.
+  const frase = c.find((x) => x.tipo === 'frase')!;
+  assert.deepEqual([frase.x, frase.y, frase.w, frase.h], [0, 0, 12, ALTO_FRASE]);
   const numeros = c.filter((x) => String(x.tipo).startsWith('numero')).sort((a, b) => a.y - b.y || a.x - b.x);
-  assert.deepEqual(numeros.map((x) => [x.x, x.y, x.w, x.h]), [[0, 0, 6, 3], [6, 0, 6, 3], [0, 3, 6, 3], [6, 3, 6, 3]]);
+  assert.deepEqual(numeros.map((x) => [x.x, x.y, x.w, x.h]), [[0, 3, 6, 3], [6, 3, 6, 3], [0, 6, 6, 3], [6, 6, 6, 3]]);
   const okr = c.find((x) => x.general?.pieza === 'objetivos')!;
-  assert.deepEqual([okr.x, okr.y, okr.w], [0, 6, 12]);
+  assert.deepEqual([okr.x, okr.y, okr.w], [0, 9, 12]);
   assert.equal(okr.texto, 'Cómo vas con tus OKRs');
   assert.equal(okr.general.opciones.estilo, 'barras', 'con anillos, «Facturar $30,000 e…» se corta');
   assert.deepEqual(c.find((x) => x.general?.pieza === 'deadlines')!.general.opciones, { dias: '7', que: 'tareas' });
@@ -244,7 +247,11 @@ test('LO MEDIDO A 1440: sin losa, sin títulos sueltos, densas, y cada fila llen
     const c = componentesDe(p) as unknown as Array<Record<string, any>>;
     assert.ok(!c.some((x) => x.portada), `${p.id}: volvió la losa`);
     assert.ok(!c.some((x) => x.tipo === 'seccion'), `${p.id}: en la referencia el título vive en la tarjeta`);
-    assert.ok(!c.some((x) => x.y === 0 && x.w === 12), `${p.id}: abre con algo a lo ancho`);
+    // La oración de apertura (tipo «frase», 4/11/2026) SÍ va a lo ancho y primera: es una línea de texto sin marco, no la losa que
+    // Martín rechazó. Nunca más alta que ALTO_FRASE, y nunca más de una.
+    assert.ok(!c.some((x) => x.y === 0 && x.w === 12 && x.tipo !== 'frase'), `${p.id}: abre con algo a lo ancho`);
+    const frases = c.filter((x) => x.tipo === 'frase');
+    assert.ok(frases.length <= 1 && frases.every((x) => x.y === 0 && x.h <= ALTO_FRASE), `${p.id}: la frase abre la hoja y es una línea`);
     assert.ok(c.length >= 8 && c.length <= 14, `${p.id}: ${c.length} paneles`);
     // Sin huecos: cada columna, de arriba abajo, está ocupada hasta donde termina la hoja de paneles.
     const hasta = Math.max(...c.filter((x) => x.tipo !== 'accion').map((x) => x.y + x.h));

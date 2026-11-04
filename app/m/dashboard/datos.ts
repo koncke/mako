@@ -38,6 +38,7 @@ import {
 } from '@/lib/graficos-catalogo';
 import { claveTiempo, clavesDelRango, fmtValor, periodoAnterior, type Resultado } from '@/lib/graficos-agregar';
 import { firmaDe, hojaDestino } from '@/lib/graficos-plantillas';
+import { cambioEnPalabras, fraseEnTexto, tramosDeFrase } from '@/lib/graficos-frase';
 import { pedidosDeHoja } from '@/app/dashboard/exportar';
 import {
   ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, deltaDe, etiquetaBarra, periodoDe,
@@ -215,20 +216,22 @@ const GRUPOS_NUMERO = new Set(['Cuadro de resultados', 'Indicador', 'Bala']);
 const TOPE_NUMEROS = 8;
 
 /** Lo que de una hoja entra en el teléfono: sus cuadros de resultados y su primera serie de tiempo. */
-export function piezasDeHoja(h: Hoja): { numeros: Grafico[]; serie: Grafico | null } {
+export function piezasDeHoja(h: Hoja): { numeros: Grafico[]; serie: Grafico | null; frase: Grafico | null } {
   const graficos = h.componentes.filter(esGrafico);
+  const frase = graficos.find((g) => g.tipo === 'frase') ?? null;
   const numeros = graficos.filter((g) => {
     const t = tipoDe(g.tipo);
-    return !!t && t.dimension === 'ninguna' && GRUPOS_NUMERO.has(t.grupo);
+    // La oración de apertura no es un número: en el teléfono va arriba, como frase (`fraseDeHoja`).
+    return !!t && t.dimension === 'ninguna' && GRUPOS_NUMERO.has(t.grupo) && g.tipo !== 'frase';
   }).slice(0, TOPE_NUMEROS);
   const serie = graficos.find((g) => esDim(g.dimension) && !g.desglose) ?? null;
-  return { numeros, serie };
+  return { numeros, serie, frase };
 }
 
 /** ¿Hay algo que mostrar de esta hoja en el teléfono? (sin leer datos). */
 export const entraEnTelefono = (h: Hoja) => {
   const p = piezasDeHoja(h);
-  return p.numeros.length > 0 || p.serie != null;
+  return p.numeros.length > 0 || p.serie != null || p.frase != null;
 };
 
 /**
@@ -264,10 +267,10 @@ function modoDe(formato: Formato): ModoDelta {
  */
 export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string): Promise<HojaM> {
   const hoja = vacia(h.id, h.nombre);
-  const { numeros, serie } = piezasDeHoja(h);
+  const { numeros, serie, frase } = piezasDeHoja(h);
   const control = h.controles.find((x) => x.tipo === 'periodo');
   const vista: VistaValores = control && periodo ? { [control.id]: { preset: periodo.id } } : {};
-  const usados = new Set([...numeros.map((g) => g.id), ...(serie ? [serie.id] : [])]);
+  const usados = new Set([...numeros.map((g) => g.id), ...(serie ? [serie.id] : []), ...(frase ? [frase.id] : [])]);
   // El armador de pedidos de escritorio, con la vista: el período, los filtros de la hoja y de cada
   // gráfico y el «agrupar por» quedan resueltos igual que en la pantalla grande.
   const { graficos } = pedidosDeHoja({ ...h, componentes: h.componentes.filter((c) => usados.has(c.id)) }, vista, hoy, 0);
@@ -321,5 +324,14 @@ export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string)
     };
   });
   if (numeros.length && out.numeros.every((n) => n.v === '—')) out.numerosError = ERROR_LECTURA;
+  // La oración de apertura, escrita con la MISMA regla que escritorio: un tramo sin dato no se dice.
+  if (frase) {
+    const r = datos[frase.id];
+    if (r?.ok) {
+      const res = r.resultado;
+      const tramos = tramosDeFrase(frase.frase, res.columnas, (i) => (res.totales[i] == null ? null : fmtValor(res.totales[i], res.columnas[i].formato)), (i) => cambioEnPalabras(res.totales[i], res.anterior?.[i]));
+      out.frase = tramos.length ? fraseEnTexto(tramos) : null;
+    }
+  }
   return out;
 }

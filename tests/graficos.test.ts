@@ -200,53 +200,53 @@ test('ningún componente del informe inicial se queda sin fuente conocida', () =
 test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las piezas en su lugar y sin perder una métrica', () => {
   const [mk, co] = tableroInicial().hojas;
   const graf = (h: Hoja) => h.componentes.filter(esGrafico);
-  // Marketing: desde el 1/11/2026 abre con la estructura de Prism (`comoDenso`, lib/graficos-portadas.ts): la tendencia y dos gráficos, y
-  // los números en fila, con el CAC entre ellos.
-  const titular = graf(mk).find((c) => c.id === 'mk-cac');
-  assert.equal(titular?.metricas[0], 'cac');
-  assert.equal(titular?.titulo, 'Cada cliente te cuesta');
+  // Marketing: desde el 4/11/2026 (Kestrel · Ondra) abre con la frase de la pauta, sigue con la estructura de Prism (`comoDenso`,
+  // lib/graficos-portadas.ts): la tendencia y dos gráficos, y los números en fila, con el costo por agenda como pregunta.
+  const apertura = graf(mk).find((c) => c.id === 'mk-apertura');
+  assert.deepEqual([apertura?.tipo, apertura?.y, apertura?.w], ['frase', 0, 12], 'la frase abre la hoja');
+  assert.deepEqual(apertura?.metricas, ['gasto', 'agendas', 'cpa']);
+  const titular = graf(mk).find((c) => c.id === 'mk-cpa');
+  assert.equal(titular?.metricas[0], 'cpa');
+  assert.ok(titular?.invertida, 'el costo por agenda es la negra');
   const porTitulo = (t: string) => graf(mk).find((c) => c.titulo === t);
-  for (const t of ['ROAS cash', 'Ad Spend', 'ROAS sold', 'CPM']) assert.equal(porTitulo(t)?.w, 3, t);
+  for (const t of ['Costo por agenda', 'Ad Spend', 'Costo por cierre', 'ROAS cash']) assert.equal(porTitulo(t)?.w, 3, t);
   assert.ok(porTitulo('Ad Spend')?.comparar, 'el Ad Spend trae el chip contra el período anterior');
   assert.deepEqual(graf(mk).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl']);
   assert.ok(graf(mk).some((c) => c.tipo === 'mapa' && c.dimension === 'region'), 'el mapa de México de la Audiencia');
-  // Tendencias: abre la hoja, y los anuncios como TARJETAS de 4 números, con el pop-up del anuncio.
-  assert.deepEqual(['x', 'y', 'w', 'h'].map((k) => graf(mk).find((c) => c.id === 'mk-tendencias')?.[k as 'x']), [0, 0, 6, 8]);
+  // Tendencias: debajo de la frase, y los anuncios como TARJETAS de 4 números, del que más agendas trajo, con el pop-up del anuncio.
+  assert.deepEqual(['x', 'y', 'w', 'h'].map((k) => graf(mk).find((c) => c.id === 'mk-tendencias')?.[k as 'x']), [0, 3, 6, 8]);
   const anuncios = graf(mk).find((c) => c.id === 'mk-anuncios');
   assert.equal(anuncios?.tipo, 'tarjetas');
-  assert.deepEqual(anuncios?.metricas, ['gasto', 'leads', 'agendas', 'cpa']);
+  assert.deepEqual(anuncios?.metricas, ['agendas', 'gasto', 'leads', 'cpa']);
+  assert.equal(anuncios?.ordenMetrica, 'agendas');
   assert.equal(anuncios?.alClic, 'popup');
   // El filtro de fecha arriba, en las dos (punto 5: «Como el filtro de fecha»).
   for (const h of [mk, co]) assert.equal(h.controles.filter((c) => c.tipo === 'periodo').length, 1, h.nombre);
   // Comercial: ningún bloque.
   for (const h of [mk, co]) assert.ok(!h.componentes.some(esBloque), `${h.nombre}: trae un bloque`);
   const de = (id: string) => co.componentes.find((c) => c.id === id);
-  // Con la estructura de Ledge: la tendencia con los números al lado, y la cobranza en las 8, que es donde se lee la tabla.
-  assert.deepEqual(['x', 'y', 'w'].map((k) => de('co-tendencia')?.[k as 'x']), [0, 0, 6]);
-  assert.deepEqual([de('co-cobranza-tabla')?.y === de('co-funnel-embudo')?.y, de('co-cobranza-tabla')?.w, de('co-funnel-embudo')?.w], [true, 8, 4]);
-  const orden = ['co-tendencia', 'co-cobranza-tabla', 'co-revenue-barra', 'co-cohortes-mes-tabla'];
+  // 4/11/2026 (Coffer · Corbel · Prism · Orvel · Pelago · Selvar): Comercial pregunta «¿convierte, y a qué costo?». Abre con la frase
+  // de agenda a cierre; con la estructura de Ledge, la tendencia con los cuatro números de la conversión al lado, y la tabla de quién
+  // cierra en las 8, que es donde se lee. Lo cobrado y «A quién cobrarle» se mudaron a Cobranza.
+  const fraseCo = de('co-apertura');
+  assert.ok(fraseCo && esGrafico(fraseCo) && fraseCo.tipo === 'frase' && fraseCo.y === 0 && fraseCo.w === 12, 'la frase abre la hoja');
+  assert.deepEqual(['x', 'y', 'w'].map((k) => de('co-tendencia')?.[k as 'x']), [0, 3, 6]);
+  assert.deepEqual([de('co-closers')?.y === de('co-funnel-embudo')?.y, de('co-closers')?.w, de('co-funnel-embudo')?.w], [true, 8, 4]);
+  const orden = ['co-apertura', 'co-tendencia', 'co-closers', 'co-motivos', 'co-cohortes-mes-tabla'];
   const ys = orden.map((id) => de(id)?.y ?? -1);
   assert.ok(ys.every((y, i) => y >= 0 && (i === 0 || y > ys[i - 1])), `Comercial fuera de orden: ${ys.join(', ')}`);
-  assert.equal(co.componentes.length, 9);
+  assert.equal(co.componentes.length, 12);
   const kpis = co.componentes.filter(esGrafico).filter((c) => c.tipo === 'numero_tendencia').sort((x, y) => x.y - y.y || x.x - y.x);
-  assert.deepEqual(kpis.map((c) => c.id), ['co-revenue-cobrado', 'co-revenue-vendido', 'co-revenue-pendiente', 'co-revenue-cierres']);
+  assert.deepEqual(kpis.map((c) => c.id), ['co-tasa', 'co-ticket', 'co-costo-cierre', 'co-ciclo']);
   assert.deepEqual(kpis.map((c) => [c.tipo, c.w, c.h]), Array(4).fill(['numero_tendencia', 3, 4]));
-  assert.deepEqual(kpis.map((c) => `${c.fuente}.${c.metricas[0]}`), ['revenue.cobrado', 'revenue.vendido', 'revenue.pendiente', 'revenue.cierres']);
-  assert.ok(kpis[0].invertida, 'Cash Collected es la negra');
+  assert.deepEqual(kpis.map((c) => `${c.fuente}.${c.metricas[0]}`), ['leads.tasa_cierre', 'leads.ticket', 'negocio.cac', 'leads.ciclo_cierre']);
+  assert.ok(kpis[0].invertida, 'la tasa de cierre es la negra');
   assert.ok(kpis.every((c) => !c.subtitulo && !c.secundaria), 'el subtítulo le come el alto al mini-gráfico');
-  assert.ok(!co.componentes.some((c) => esGrafico(c) && c.y > 4 && (c.tipo === 'numero' || c.tipo === 'numero_tendencia')), 'un número suelto a mitad de hoja');
-  // La barra cobrado/pendiente, de UNA lectura (`revenue`).
-  const barra = de('co-revenue-barra');
-  assert.ok(barra && esGrafico(barra) && barra.tipo === 'barra_proporcion' && barra.fuente === 'revenue');
-  assert.deepEqual(barra.metricas, ['cobrado', 'pendiente']);
-  // El Outstanding mira hacia ADELANTE con su período A LA VISTA (decisión de la tanda v5).
-  const out = kpis[2];
-  assert.ok(out.controles.some((k) => k.tipo === 'periodo' && k.preset === 'este_mes_completo' && !k.fijo));
-  // A quién cobrarle, desplegada y con «Marcar cobrada» en la fila.
-  const cobranza = de('co-cobranza-tabla');
-  assert.ok(cobranza && esGrafico(cobranza) && cobranza.fuente === 'cobranza' && cobranza.tabla?.acciones, 'la tabla de la cobranza sin «Marcar cobrada»');
-  assert.deepEqual(cobranza.metricas, ['pendiente', 'proxima_monto', 'dias']);
-  // El funnel de las cohortes MADURAS (un filtro fijo) en todo el histórico, y las cohortes por mes.
+  assert.ok(kpis.every((c) => c.ir), 'cada número lleva a donde se trabaja');
+  assert.ok(!co.componentes.some((c) => esGrafico(c) && c.y > 11 && (c.tipo === 'numero' || c.tipo === 'numero_tendencia')), 'un número suelto a mitad de hoja');
+  // Por qué no se cerró: contado, del motivo de pérdida que marca el CRM.
+  const motivos = de('co-motivos');
+  assert.ok(motivos && esGrafico(motivos) && motivos.fuente === 'leads' && motivos.dimension === 'motivo');
   const funnel = de('co-funnel-embudo');
   assert.ok(funnel && esGrafico(funnel));
   assert.deepEqual(funnel.metricas, ['agendas', 'asistencias', 'limpias', 'cierres']);

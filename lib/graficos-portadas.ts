@@ -162,6 +162,8 @@ export const MOLDES = {
 export type NombreMolde = keyof typeof MOLDES;
 /** Un número ancho y bajo (`n2x2`): 122 px, los 124 a 133 de Tilvo, Coffra, Ledra y Moorly. */
 const ALTO_NUMERO_BAJO = 3;
+/** La oración de apertura: dos renglones de frase con su título arriba. */
+export const ALTO_FRASE = 3;
 
 /**
  * Arma la hoja con su molde. Los títulos de sección no van: en la referencia el título vive en la tarjeta. Los ids no cambian: el closer y
@@ -178,7 +180,10 @@ export function comoDenso(hoja: Crudo, def: DefinicionPortada | undefined, id: I
   const pieza: Crudo | undefined = def && 'sube' in def ? (vieja && { ...vieja, ...(def.cambios ?? {}) }) : def?.nueva(id);
   const todas = [...(pieza ? [pieza] : []), ...comps.filter((c) => c !== vieja).sort(porLugar)];
   const sueltos = todas.filter((c) => c.tipo === 'accion');
-  const lista = todas.filter((c) => c.tipo !== 'accion');
+  // LA ORACIÓN DE APERTURA (tipo `frase`, lib/graficos-frase.ts) abre la hoja, a lo ancho y antes del molde: así abren las
+  // referencias (Orvel, Pane, Noria: la frase primero, el primer panel después). No compite por ser el principal.
+  const frases = todas.filter((c) => c.tipo === 'frase');
+  const lista = todas.filter((c) => c.tipo !== 'accion' && c.tipo !== 'frase');
 
   // Los números: la que la plantilla dio vuelta abre, que es donde va el negro.
   const numeros = lista.filter(esNumero).sort((a, b) => Number(!!b.invertida) - Number(!!a.invertida));
@@ -192,8 +197,12 @@ export function comoDenso(hoja: Crudo, def: DefinicionPortada | undefined, id: I
   const anchos = sinPrincipal.filter((c) => VA_A_LO_ANCHO.has(c.tipo));
 
   const puestas: Crudo[] = [];
-  const poner = (c: Crudo, x: number, y: number, w: number, h: number) => puestas.push({ ...c, x, y, w, h, subtitulo: '' });
+  // El subtítulo de la plantilla se queda en los paneles (4/11/2026, docs/templates-dashboard-propuesta.md §1.3: «cada bloque
+  // tiene título Y un subtítulo en castellano llano»). En un número no: le comería el alto, y su definición va en el título.
+  const poner = (c: Crudo, x: number, y: number, w: number, h: number) =>
+    puestas.push({ ...c, x, y, w, h, subtitulo: esNumero(c) || typeof c.subtitulo !== 'string' ? '' : c.subtitulo });
   let y = 0;
+  for (const f of frases) { poner(f, 0, y, COLS, ALTO_FRASE); y += ALTO_FRASE; }
   let conPrincipal: Crudo | undefined = principal;
   const tomarPrincipal = () => { const c = conPrincipal; conPrincipal = undefined; return c; };
   /** Una fila de paneles: toma hasta `anchos` y reparte las 12 columnas entre los que haya. */
@@ -311,7 +320,7 @@ const altoDeAncho = (c: Crudo) => (c.tipo === 'mapa_calor' ? num(c.h) || ALTO_AN
 /**
  * Las portadas del Dashboard, por plantilla. Lo que contesta cada una:
  *   · Marketing — ¿cuánto me cuesta un cliente? El CAC solo, gigante.
- *   · Comercial — ¿cuánto entró y cuánto falta? La barra cobrado / pendiente.
+ *   · Comercial — ¿convierte, y a qué costo? La tendencia con los cuatro números de la conversión al lado.
  *   · Ads Analyst — ¿qué anuncio funciona? Los ganadores como pósters, con su miniatura de Meta.
  *   · Landing — ¿qué miran y qué tocan? El mapa de calor: la página con el calor encima.
  *   · VSL Analyst — ¿dónde se van del video? La curva de retención.
@@ -319,7 +328,6 @@ const altoDeAncho = (c: Crudo) => (c.tipo === 'mapa_calor' ? num(c.h) || ALTO_AN
  *   · Closing — ¿cuántas llamadas se ganan? R1 → R2 → ganadas, en columnas.
  *   · CS Analyst — ¿a quién atiendo? Las personas que piden atención.
  *   · Productividad — ¿cómo van mis proyectos? El avance de cada proyecto activo (la matriz, abajo: pide proyectos evaluados).
- *   · CRM — ¿dónde se me caen los leads? El embudo del lead al cierre.
  *   · Cobranza — ¿a quién le cobro? La lista con «Marcar cobrada».
  *   · Automatizaciones — ¿me contestan? Enviados → abiertos → respondieron.
  *   · Contenido e IA — ¿en qué se va la IA? El anillo con el costo en el centro.
@@ -328,8 +336,8 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
   return {
     // Con su línea abajo: la tarjeta negra de Corbel nunca es un número solo en un rectángulo vacío.
     // Con su línea abajo: la tarjeta negra de Corbel nunca es un número solo en un rectángulo vacío.
-    marketing: { molde: 'prism', sube: 'mk-cac', cambios: { titulo: 'Cada cliente te cuesta', comparar: true, tipo: 'numero_tendencia' }, vecino: 'mk-tendencias', par: ['mk-funnel', 'mk-edad'] },
-    comercial: { molde: 'ledge', sube: 'co-revenue-barra', cambios: { titulo: 'Lo que entró y lo que falta cobrar' }, vecino: 'co-tendencia', par: ['co-cobranza-tabla', 'co-funnel-embudo'] },
+    marketing: { molde: 'prism', sube: 'mk-tendencias', vecino: 'mk-tendencias', par: ['mk-funnel', 'mk-plataforma'] },
+    comercial: { molde: 'ledge', sube: 'co-tendencia', vecino: 'co-tendencia', par: ['co-funnel-embudo', 'co-motivos', 'co-por-oferta', 'co-origen'] },
     'ads-analyst': { molde: 'prism', sube: 'ad-video', cambios: { titulo: 'Cuánto ven el video' }, vecino: 'ad-cuadrante-dispersion', par: ['ad-eficiencia', 'ad-gancho'] },
     landing: { molde: 'tilvo', sube: 'la-scroll', cambios: { titulo: 'Hasta dónde bajan' }, vecino: 'la-visitas-dia', par: ['la-clics', 'la-origen'] },
     'vsl-analyst': {
@@ -340,7 +348,6 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
     closing: { molde: 'wharf', sube: 'cl-embudo-embudo', cambios: { tipo: 'embudo_columnas', titulo: 'Cuántas llamadas se ganan' }, vecino: 'cl-factores-barras', par: ['cl-closers-tabla', 'cl-factores-ia'] },
     'cs-analyst': { molde: 'moorly', sube: 'cs-etapas', cambios: { titulo: 'Dónde está cada cliente' }, vecino: 'cs-semanas', par: ['cs-tabla', 'cs-contacto'] },
     productividad: { molde: 'moorly', sube: 'pr-piramide-barras', cambios: { titulo: 'Pirámide de prioridad' }, vecino: 'pr-avance-proyecto', par: ['pr-huele-mal', 'pr-matriz-burbujas'] },
-    crm: { molde: 'tilvo', sube: 'embudo', cambios: { titulo: 'Dónde se caen tus leads' }, vecino: 'por-dia', par: ['etapas', 'perdidas'] },
     cobranza: { molde: 'wharf', sube: 'por-funnel', cambios: { titulo: 'Pendiente por funnel' }, vecino: 'semanas', par: ['a-quien'] },
     automatizaciones: {
       molde: 'ledge', nueva: (id) => ({

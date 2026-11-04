@@ -131,6 +131,12 @@ export const PUBLICOS = [
   // estático sin datos de nadie. Mismo caso que '/m.js': el matcher del proxy ya excluye todo
   // camino que termina en `.js`, y está acá por si eso cambia. Sólo GET/HEAD/OPTIONS.
   '/sw.js',
+  // El cascarón de MaKo sin conexión (public/sin-conexion/, 28/10/2026): lo baja el service worker SIN cookies
+  // (`credentials: 'omit'`) para tenerlo cuando no hay red, y se abre a mano desde «Probar». Es estático e IGUAL para todos:
+  // lo de cada persona está cifrado en su navegador (docs/diseno-mako-desktop-sin-conexion.md). El matcher ya excluye
+  // `.js` y `.css`; el HTML pasa por el proxy y, sin esto, sin sesión volvía un login que el service worker no guarda.
+  // No es /api/: sólo se lee (`esPublicaSoloLeer`).
+  '/sin-conexion',
   '/api/og',
   '/vsl',
   '/vsl-assets',
