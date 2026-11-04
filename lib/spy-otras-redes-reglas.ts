@@ -132,6 +132,8 @@ export function candidatosDeLaRespuesta(cuerpo: unknown, ya: RedesQueYaTiene): C
 export type Evidencia = {
   /** El candidato y el competidor se nombran entre ellos (su @, su canal o su sitio). */
   enlaza: boolean;
+  /** El candidato es su MISMO usuario en la otra red (@den.borgg en Instagram, @den.borgg o @denborgg en YouTube). */
+  mismoUsuario?: boolean;
   /** El nombre del candidato y el del competidor son el mismo, sin tildes ni mayúsculas. */
   mismoNombre: boolean;
   /** Bits distintos entre las dos fotos (0 = iguales, 64 = nada que ver). null = no hubo con qué comparar. */
@@ -144,8 +146,10 @@ export const MISMA_FOTO_HASTA = 10;
 
 export function veredictoDe(e: Evidencia): Veredicto {
   const mismaFoto = e.distanciaFoto != null && e.distanciaFoto <= MISMA_FOTO_HASTA;
-  if (e.enlaza || (mismaFoto && e.mismoNombre)) return 'es';
-  if (mismaFoto || e.mismoNombre) return 'quizas';
+  // El mismo usuario con su nombre o su cara ya es ella (Martín, 4/11: «busqué literalmente el usuario exacto y ya me
+  // apareció»). El mismo usuario SOLO se pregunta: un @ libre en otra red lo puede tener cualquiera.
+  if (e.enlaza || (mismaFoto && e.mismoNombre) || (e.mismoUsuario && (mismaFoto || e.mismoNombre))) return 'es';
+  if (mismaFoto || e.mismoNombre || e.mismoUsuario) return 'quizas';
   return 'no';
 }
 
@@ -153,8 +157,11 @@ export function veredictoDe(e: Evidencia): Veredicto {
 export function porqueDe(e: Evidencia): string {
   const mismaFoto = e.distanciaFoto != null && e.distanciaFoto <= MISMA_FOTO_HASTA;
   if (e.enlaza) return 'Se enlazan entre ellos';
+  if (e.mismoUsuario && e.mismoNombre) return 'Mismo usuario y mismo nombre';
+  if (e.mismoUsuario && mismaFoto) return 'Mismo usuario y misma foto';
   if (mismaFoto && e.mismoNombre) return 'Misma foto y mismo nombre';
   if (mismaFoto) return 'Misma foto';
+  if (e.mismoUsuario) return 'Mismo usuario';
   return 'Mismo nombre';
 }
 
@@ -255,4 +262,87 @@ export function sitioDelTexto(texto: string | null | undefined): string | null {
     return `https://${host}${(m[2] ?? '').replace(/[.,;:!?]+$/, '')}`;
   }
   return null;
+}
+
+// ── La cadena: lo que él mismo enlaza, y su usuario en la otra red (4/11/2026) ─────────────────────────────
+// Martín, 4/11: «tampoco está haciendo el ejercicio de buscar en YouTube y también buscar su web… Yo busqué literalmente el
+// usuario exacto y ya me apareció el primer resultado… y en correlación mirar las biografías para traer sus webs». Medido
+// en producción (el Cerebro, 4/11): @den.borgg quedó sin YouTube y con su «web» = beacons.page/denborg, que es su página
+// de ENLACES, no su web.
+
+/**
+ * Las páginas de enlaces («link in bio»): no son su web, son la puerta a su web y a sus redes. Se abren y se leen sus
+ * enlaces. Una lista y no «cualquiera con muchos enlaces»: un sitio de verdad también tiene muchos.
+ */
+const AGREGADORES = /(^|\.)(beacons\.(page|ai)|linktr\.ee|linkin\.bio|lnk\.bio|bio\.link|bio\.site|solo\.to|hoo\.be|campsite\.bio|taplink\.(cc|at)|msha\.ke|linkpop\.com|stan\.store|komi\.io|snipfeed\.co|allmylinks\.com|linkbio\.co|tap\.bio|direct\.me|milkshake\.app|linkr\.bio|lynk\.id|linkfly\.to|link\.me|flowpage\.com)$/i;
+
+const hostDe = (u: string): string | null => {
+  try { return new URL(/^https?:\/\//i.test(u) ? u : `https://${u}`).hostname.toLowerCase().replace(/^www\./, ''); } catch { return null; }
+};
+
+/** ¿Es una página de enlaces (beacons, linktree…)? */
+export const esAgregador = (url: string | null | undefined): boolean => { const h = url ? hostDe(url) : null; return !!h && AGREGADORES.test(h); };
+
+/** Los enlaces de un texto (una bio, una descripción), con o sin https, en el orden en que aparecen. */
+export function enlacesDelTexto(texto: string | null | undefined): string[] {
+  const out: string[] = [];
+  for (const m of (texto ?? '').matchAll(/(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\/[^\s)"'<>]*)?/gi)) {
+    const antes = (texto ?? '')[(m.index ?? 0) - 1];
+    if (antes === '@') continue; // un correo
+    const u = m[0].replace(/[.,;:!?]+$/, '');
+    out.push(/^https?:\/\//i.test(u) ? u : `https://${u}`);
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * Los enlaces de una página de enlaces, ya absolutos: los `<a href>` y, como muchas se dibujan con JavaScript, los que
+ * vienen escritos en sus datos (`"https:\/\/…"`, `\u002F`). Sin repetir y con tope.
+ */
+export function enlacesDeHtml(html: string, base: string): string[] {
+  const out: string[] = [];
+  const sumar = (crudo: string) => {
+    try {
+      const u = new URL(crudo.replace(/&amp;/g, '&'), base);
+      if (u.protocol === 'https:' || u.protocol === 'http:') out.push(u.toString());
+    } catch { /* no es un enlace */ }
+  };
+  for (const m of html.matchAll(/<a\b[^>]*?\shref\s*=\s*["']([^"']+)["']/gi)) sumar(m[1]);
+  const sinEscapes = html.replace(/\\u002F/gi, '/').replace(/\\\//g, '/');
+  for (const m of sinEscapes.matchAll(/https?:\/\/[^\s"'<>\\)]+/g)) sumar(m[0]);
+  return [...new Set(out)].slice(0, 300);
+}
+
+/** Lo que no es una web de nadie: imágenes, fuentes, scripts y los servicios que cualquier página carga. */
+const NO_ES_WEB = /(^|\.)(cdn|static|assets|fonts?|img|images|media)\.|googleapis\.com$|gstatic\.com$|cloudfront\.net$|amazonaws\.com$|vercel\.(app|com)$|sentry\.io$|cloudflare|jsdelivr\.net$|unpkg\.com$|gravatar\.com$|googletagmanager\.com$|google-analytics\.com$|facebook\.(com|net)$|fb\.(com|me)$|doubleclick\.net$|hotjar\.com$|segment\.(io|com)$|intercom\.io$|w3\.org$|schema\.org$|ogp\.me$|apple\.com$|google\.com$|spotify\.com$|twitter\.com$|x\.com$|threads\.net$|linkedin\.com$|whatsapp\.com$|wa\.me$|t\.me$|telegram\.me$|tiktok\.com$|instagram\.com$|youtube\.com$|youtu\.be$|pinterest\.com$|snapchat\.com$|twitch\.tv$|discord\.(gg|com)$|paypal\.(com|me)$/i;
+const ES_ARCHIVO = /\.(png|jpe?g|gif|webp|svg|ico|css|js|mjs|woff2?|ttf|otf|mp4|mov|json|xml|txt|pdf)(\?|#|$)/i;
+
+/**
+ * Lo que enlaza (su bio, su descripción o su página de enlaces): sus redes, una por red, y su WEB — el primer enlace que
+ * no es una red, una página de enlaces, un archivo ni un servicio que carga cualquier página. Sin la página misma.
+ */
+export function loQueEnlaza(urls: readonly string[], propio?: string | null): { redes: Array<Omit<CandidatoRed, 'titulo'>>; web: string | null } {
+  const yo = propio ? hostDe(propio) : null;
+  const redes = new Map<RedOtra, Omit<CandidatoRed, 'titulo'>>();
+  let web: string | null = null;
+  for (const u of urls) {
+    const r = redDeUrl(u);
+    if (r) { if (!redes.has(r.red)) redes.set(r.red, r); continue; }
+    const h = hostDe(u);
+    if (web || !h || h === yo || AGREGADORES.test(h) || NO_ES_WEB.test(h) || ES_ARCHIVO.test(u)) continue;
+    web = `https://${h}${(() => { try { const p = new URL(u).pathname; return p === '/' ? '' : p.replace(/\/$/, ''); } catch { return ''; } })()}`;
+  }
+  return { redes: [...redes.values()], web };
+}
+
+/**
+ * Su MISMO usuario en la red que le falta: con su @ de Instagram, el canal de YouTube con ese @ (y sin puntos ni guiones
+ * bajos: @den.borgg → @denborgg); con su @ de YouTube, el Instagram con ese usuario. Gratis en YouTube (1 unidad).
+ */
+export function usuariosParaProbar(c: { instagram: string | null; youtube_id: string | null }): { youtube: string[]; instagram: string[] } {
+  const ig = str(c.instagram).replace(/^@/, '').toLowerCase();
+  const yt = str(c.youtube_id).startsWith('@') ? str(c.youtube_id).slice(1) : '';
+  const youtube = c.youtube_id || !ig ? [] : [...new Set([ig, ig.replace(/[._]/g, '')].filter((u) => /^[a-z0-9._-]{3,30}$/i.test(u)).map((u) => `@${u}`))];
+  const instagram = c.instagram || !yt ? [] : [...new Set([yt.toLowerCase(), yt.toLowerCase().replace(/-/g, '')].filter((u) => /^[a-z0-9._]{2,30}$/.test(u)))];
+  return { youtube, instagram };
 }

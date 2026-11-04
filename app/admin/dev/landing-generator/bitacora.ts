@@ -1617,4 +1617,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator?panel=1',
   },
+  {
+    fecha: '4 nov', hora: '07:35', chat: 'Tickets en la nube', sesion: 'cli_c395d4ca-9c38-5214-ae30-582fa23cf9c4', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Lo que lees para replicar ya no se pierde: queda como borrador y lo retomas',
+    puntos: [
+      'Al leer una página para replicarla o adaptarla, lo leído queda guardado como borrador, con lo que elegiste y «Tu oferta».',
+      'Si vuelves al chat, vas a otra landing o recargas, la encuentras en la lista de landings, en «Sin terminar». Al abrirla vuelve tal cual, sin leerla otra vez.',
+      'Abrir de nuevo la misma dirección también la retoma. «Leer de nuevo» la vuelve a leer, y «Descartar» la borra.',
+      'Cuando creas la copia, el borrador se va: la copia ya es tu landing.',
+      '⚠️ El defecto visual del chat que mencionó el ticket no se pudo ver sin la captura: queda anotado en docs/relevo/nube-tickets.md.',
+    ],
+    archivos: [
+      'lib/editor-landing/replica-borrador.ts — la regla (puro); replica-borrador-server.ts — app_settings',
+      'app/api/landing-generator/replicar/leer/route.ts — guarda; /replicar/borrador — retoma, lista, guarda lo elegido y descarta; /replicar — lo borra al crear la copia',
+      'app/web-generator/crear/Replicar.tsx — retoma en vez de leer; editor/paneles/PanelLandings.tsx — «Sin terminar»',
+      'tests/replica-borrador.test.ts — las rutas reales contra una base de mentira; probado rompiéndolo',
+    ],
+    revisar: '/web-generator',
+    tickets: [54],
+  },
 ];

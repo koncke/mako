@@ -24,9 +24,9 @@ import { guardarVistas, leerCompetidor, vistaDeInstagram } from './spy';
 import { anunciosDeQuien, piezaDeAnuncio } from './spy-captura';
 import { enlaceSusAnuncios } from './spy-funnel';
 import {
-  ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, APIFY_ACTOR_PUBLICACIONES, CLAVE_TAREAS,
+  ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, APIFY_ACTOR_PUBLICACIONES, CLAVE_DIA, CLAVE_TAREAS,
   CORRIDAS_LARGAS_POR_DIA, USD_POR_ANUNCIO, anuncioDeApify, entradaDeAnuncios, entradaDePublicaciones, estadoDeCorrida,
-  leerTareas, pedidoDePublicaciones, tocaPedir, type TareaLarga, type TareasDeCompetidor,
+  leerTareas, pedidoDePublicaciones, tocaPedir, usadasHoy, type TareaLarga, type TareasDeCompetidor,
 } from './spy-todo-reglas';
 
 const API = 'https://api.apify.com/v2';
@@ -34,9 +34,6 @@ const TOPE_MS = 20_000;
 /** Cuántos ítems se leen del dataset como mucho: los mismos que se pidieron, con margen. */
 const ITEMS_DEL_DATASET = 1_000;
 
-// Por negocio y por día, como los otros cupos de Spy (lib/instagram-perfil-server.ts).
-const g = globalThis as unknown as { __spyCorridasLargas?: Map<string, number> };
-const corridasHoy = (g.__spyCorridasLargas ??= new Map<string, number>());
 const hoy = () => new Date().toISOString().slice(0, 10);
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -62,6 +59,22 @@ async function anotar(id: number, canal: Canal, t: TareaLarga): Promise<void> {
     r[String(id)] = { ...(r[String(id)] ?? {}), [canal]: t };
     if (await cambiarSettingSi(CLAVE_TAREAS, crudo, JSON.stringify(r))) return;
   }
+}
+
+/**
+ * Reserva una corrida larga del día del negocio. ⚠️ LA CUENTA VIVE EN LA BASE (`spy.todo.dia`), NO EN LA MEMORIA DEL PROCESO
+ * (4/11/2026): con el cron de cada hora, cada vuelta puede caer en una instancia nueva, y un contador en memoria arrancaba en
+ * cero en cada una — el tope de 6 por día dejaba de ser un tope sobre la clave del negocio. Compare-and-set: de dos que
+ * compiten por la última, gana una. «No pude leer» tira (lo ataja `avanzarTodo`) y no gasta.
+ */
+async function reservarCorrida(): Promise<boolean> {
+  for (let vuelta = 0; vuelta < 3; vuelta += 1) {
+    const crudo = await getSettingEstricto(CLAVE_DIA);
+    const usadas = usadasHoy(crudo, hoy());
+    if (usadas >= CORRIDAS_LARGAS_POR_DIA) return false;
+    if (await cambiarSettingSi(CLAVE_DIA, crudo, JSON.stringify({ fecha: hoy(), usadas: usadas + 1 }))) return true;
+  }
+  return false;
 }
 
 /** Empieza una corrida. null = no se pudo (sin saldo, sin permiso, Apify caído): se vuelve a intentar otro día. */
@@ -99,7 +112,7 @@ async function guardarLoTraido(id: number, canal: Canal, items: unknown[], c: No
 }
 
 /** Un paso de un canal: mirar la corrida en marcha, o empezar una si toca. */
-async function pasoDeCanal(ws: number, token: string, c: NonNullable<Awaited<ReturnType<typeof leerCompetidor>>>, canal: Canal, t: TareaLarga | undefined): Promise<EstadoTodo> {
+async function pasoDeCanal(token: string, c: NonNullable<Awaited<ReturnType<typeof leerCompetidor>>>, canal: Canal, t: TareaLarga | undefined): Promise<EstadoTodo> {
   if (t?.run && t.dataset) {
     const r = await apify(token, `/actor-runs/${t.run}`).catch(() => null);
     const status = String((r?.cuerpo as { data?: { status?: unknown } } | null)?.data?.status ?? '');
@@ -111,13 +124,21 @@ async function pasoDeCanal(ws: number, token: string, c: NonNullable<Awaited<Ret
     const items = await leerDataset(token, t.dataset);
     if (items == null) return { enMarcha: true, nuevas: 0, porque: 'No pude leer lo que trajo: vuelvo a intentar' };
     const nuevas = await guardarLoTraido(c.id, canal, items, c);
+    // ⚠️ UNA CORRIDA QUE TERMINA SIN NADA NO CUENTA COMO HECHA (4/11/2026). Apify contesta «terminé» también cuando
+    // Instagram no le dio nada (los ítems vienen como `{ error, errorDescription }`): anotarla como la de la semana dejaba
+    // al competidor con lo de la lectura de siempre (12) por siete días, sin que nada lo dijera. Se vuelve a pedir mañana.
+    const trajo = canal === 'instagram' ? piezasDeApify(items).length : items.length;
+    if (!trajo) {
+      const primero = items[0] as { error?: unknown; errorDescription?: unknown } | undefined;
+      console.error(`[spy-todo] competidor=${c.id} ${canal}: la corrida ${t.run} terminó (${status}) sin nada: ${String(primero?.errorDescription ?? primero?.error ?? 'vacía')}`);
+      await anotar(c.id, canal, { ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
+      return { enMarcha: false, nuevas: 0, porque: canal === 'instagram' ? 'Apify no trajo sus publicaciones: vuelvo a intentar mañana' : 'Apify no trajo sus anuncios: vuelvo a intentar mañana' };
+    }
     await anotar(c.id, canal, { ultima: new Date().toISOString() });
-    return { enMarcha: false, nuevas, ...(e === 'fallo' && !items.length ? { porque: 'Apify no pudo traerlo' } : {}) };
+    return { enMarcha: false, nuevas };
   }
   if (!tocaPedir(t, Date.now())) return { enMarcha: false, nuevas: 0 };
-  const cuenta = `${ws}|${hoy()}`;
-  const usadas = corridasHoy.get(cuenta) ?? 0;
-  if (usadas >= CORRIDAS_LARGAS_POR_DIA) return { enMarcha: false, nuevas: 0, porque: 'limite' };
+  if (!(await reservarCorrida())) return { enMarcha: false, nuevas: 0, porque: 'limite' };
 
   let corrida: { run: string; dataset: string } | null;
   if (canal === 'instagram') {
@@ -127,7 +148,6 @@ async function pasoDeCanal(ws: number, token: string, c: NonNullable<Awaited<Ret
     const techo = Math.max(0.1, Math.round(ANUNCIOS_POR_CORRIDA * USD_POR_ANUNCIO * 100) / 100);
     corrida = await empezar(token, APIFY_ACTOR_ANUNCIOS, entradaDeAnuncios(enlaceSusAnuncios(c)), ANUNCIOS_POR_CORRIDA, techo);
   }
-  corridasHoy.set(cuenta, usadas + 1);
   if (!corrida) {
     // Sin poder empezar (sin saldo, sin permiso): no se insiste hasta mañana.
     await anotar(c.id, canal, { ...(t ?? {}), ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
@@ -153,7 +173,7 @@ export async function avanzarTodo(ws: number, id: number): Promise<EstadoTodo> {
     let nuevas = 0;
     let porque: string | undefined;
     for (const canal of canales) {
-      const r = await pasoDeCanal(ws, token, c, canal, tareas[canal]);
+      const r = await pasoDeCanal(token, c, canal, tareas[canal]);
       enMarcha ||= r.enMarcha;
       nuevas += r.nuevas;
       porque ??= r.porque;

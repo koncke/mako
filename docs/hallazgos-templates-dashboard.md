@@ -212,6 +212,22 @@ Cada hoja es una punta (`punta/dash-<hoja>`); qué hay en cada una y qué mirar,
 - **Los tests de `api-mako-*` que cargan el registro con `--conditions=react-server` fallan en el contenedor de la nube**
   («does not provide an export named MAKO_ACCION_TOOLS»), también sobre `main` sin cambios: es el entorno, no el código.
 
+## 10 bis. ⚠️ El diagnóstico equivocado: creer que «todas iguales» era eficiencia (4/11/2026)
+
+Martín rechazó las 20 hojas el mismo día: *«son dashboard todos iguales, horribles… agarraste un template y lo estandarizaste
+para todos»*. El pedido era otro desde el principio: **cada hoja es la COPIA EXACTA de un demo** (como la maqueta de Focus, que
+copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién después la adaptación** a los datos de MaKo.
+
+- **La base común fue el error, no un detalle de cada hoja.** Una frase, un ancla oscura, el «Ver … →» y la misma grilla de
+  `comoDenso` en todas hacen que veinte referencias distintas salgan con la misma cara. Lo que se comparte es el DATO (los
+  conjuntos, la API); la apariencia, nunca.
+- **Copiar «el gesto» no es copiar.** §7.2 de la propuesta listaba doce gestos sueltos de veintisiete demos; llevarlos a todas
+  las hojas fue lo contrario de lo que pedía la regla de la casa (AGENTS.md: una referencia de estilo se copia con sus valores).
+- **La vara es la maqueta de Focus** (`docs/diseno/mockups-dashboard/focus-pane.html`, commit `ee224623`): su propia letra
+  (Urbanist), su paleta oscura, sus tiles, sus dos columnas iguales con gap 14, medidas del demo.
+- **Sin el demo a la vista no hay copia.** Esta sesión no llega a `demo.codeandchill.store` (403 del proxy); por eso Closing no se
+  empezó. La captura y la medición, con `medidor/capturar.mjs` y `medidor/medir-demo.py`, están en el relevo.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué
