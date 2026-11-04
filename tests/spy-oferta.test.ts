@@ -22,7 +22,7 @@
 //   · `reclamarLectura` que no compara al escribir «leyendo»                   → 2, 3, 4, 5
 //   · `leerSuOferta` que escribe sin compare-and-set                          → 4
 //   · `esperaTrasFallos` que no espera                                        → 5
-//   · `pedir` sin el corte de `soloDelNegocio`                                → 7
+//   · `pedir` sin el corte de `soloDelNegocio` (en el crédito o en la red)     → 7
 //   · `VistaDiagnostico` que dibuja «Lo primero que cambiaría» con `deOtro`   → 9
 // Correr: node --import tsx --test tests/spy-oferta.test.ts
 // =============================================================================
@@ -241,10 +241,9 @@ test('7. el analista es el de Offer: habla de un tercero, sin crédito ni red de
   assert.match(ia, /const system = p\.deOtro \? `\$\{armado\}\\n\\n\$\{bloqueOfertaDeOtro\(p\.deOtro\.nombre\)\}` : armado;/, 'pegado DESPUÉS del render');
   assert.match(ia, /soloDelNegocio: p\.soloDelNegocio,/);
   const pedir = ia.slice(ia.indexOf('async function pedir<T>'), ia.indexOf('/** Las cuatro piezas de texto'));
-  const corte = pedir.indexOf('if (p.soloDelNegocio) return');
-  assert.ok(corte > 0, 'pedir corta con soloDelNegocio');
-  assert.ok(corte < pedir.indexOf('conCreditoDeLaPlataforma'), 'antes del crédito de Claude de la plataforma');
-  assert.ok(corte < pedir.indexOf('provsGratisDePlataforma'), 'y antes de la red de plataforma');
+  // Sin un `return` antes de la red (tests/red-primera-semana.test.ts lo prohíbe): los dos pasos de la plataforma se saltean.
+  assert.match(pedir, /if \(!p\.soloDelNegocio && superWs != null && wsActual != null[^\n]*\{\n[\s\S]*?conCreditoDeLaPlataforma/, 'sin el crédito de Claude de la plataforma');
+  assert.match(pedir, /const red = superWs != null && !p\.soloDelNegocio \? await provsGratisDePlataforma\(\)/, 'y sin la red de plataforma');
 
   const srv = sinComentarios(leer('lib/spy-oferta-servidor.ts'));
   assert.match(srv, /diagnosticoOffer\(\{/, 'el analista es el de Offer, no otro');
