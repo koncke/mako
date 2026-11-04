@@ -24,7 +24,7 @@ Lo que se declara sale del código y de `/privacidad`, medido el 3/11/2026. Si u
 
 **Quién figura:** en la App Store, el vendedor es el nombre legal de Leandro Tejado, titular de esa cuenta. En Play, la cuenta es de Martín, y Google muestra su nombre legal aunque el nombre público sea MaKo.
 
-⚠️ **Decide antes de publicar en Play:** `/privacidad` y `/terminos` nombran como responsable a «Tejado Gonzalvez Leandro Martin», la razón social de ARCA (`lib/titular-mako.ts`). Con Apple coincide; con Play no, y un revisor vería a dos responsables distintos.
+**Decidido el 4/11/2026** (Martín: «Si, el responsable legal es Leandro»): `/privacidad` y `/terminos` nombran como responsable a «Tejado Gonzalvez Leandro Martin», la razón social de ARCA (`lib/titular-mako.ts`), y suman una línea con quién publica en cada tienda: ese mismo nombre en la App Store y «Martín Carballo Koncke» en Google Play (`PUBLICA_EN_PLAY`).
 
 ---
 
@@ -32,11 +32,11 @@ Lo que se declara sale del código y de `/privacidad`, medido el 3/11/2026. Si u
 
 **Título (30 caracteres como máximo):**
 
-> MaKo: ventas y marketing con IA
+> MaKo: ventas y marketing IA
 
 **Descripción corta (80 como máximo):**
 
-> Tu CRM, tus chats y tus campañas en un solo lugar, con una IA que trabaja contigo.
+> Tu CRM, tus chats y campañas en un solo lugar, con una IA que trabaja contigo.
 
 **Descripción larga (4.000 como máximo):**
 
@@ -123,6 +123,7 @@ Todo cifrado en tránsito: **sí**. Se puede pedir el borrado: **sí**, con http
 | Nombre | Sí | No | Sí | Funcionalidad, gestión de la cuenta |
 | Correo | Sí | No | Sí | Funcionalidad, gestión de la cuenta, comunicaciones |
 | Identificadores de usuario | Sí | No | Sí | Funcionalidad, gestión de la cuenta |
+| Device or other IDs: el token de avisos (push) del teléfono | Sí, si activa los avisos | No: Firebase lo usa por encargo, sólo para entregar el aviso | Opcional | Funcionalidad: mandarle los avisos |
 | Teléfono | Sí | No | Opcional | Funcionalidad, seguridad |
 | Otra información personal (cargo, empresa, sitio web, zona horaria) | Sí | No | Opcional | Funcionalidad |
 | Historial de compras (lo que paga a MaKo y lo que cobra el negocio) | Sí | No | Opcional | Funcionalidad |
