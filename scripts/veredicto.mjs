@@ -304,7 +304,7 @@ function sacarCli(o) {
   if (Number(process.versions.node.split('.')[0]) !== NODE_MAYOR) {
     return fallar(`Esto corre con Node ${process.versions.node} y Actions usa el ${NODE_MAYOR} (con el 22, ~40 archivos dan rojo de mentira).\n    export PATH="$(sh scripts/node24.sh):$PATH"   y volvé a correrlo.`);
   }
-  const sucio = g(['status', '--porcelain', '--untracked-files=all']).trim();
+  const sucio = g(['status', '--porcelain', '--untracked-files=all']).replace(/\s+$/, '');
   if (sucio) return fallar(`El árbol tiene cosas sin commitear: el veredicto es del ÚLTIMO COMMIT, y esto no viaja.\n${sucio.split('\n').slice(0, 8).map((l) => '      ' + l).join('\n')}`);
   if (!gOk(['fetch', '--quiet', 'origin', '+refs/heads/main:refs/remotes/origin/main'])) return fallar('No pude traer origin/main.');
   if (gOk(['rev-parse', '--is-shallow-repository']) && g(['rev-parse', '--is-shallow-repository']).trim() === 'true') {

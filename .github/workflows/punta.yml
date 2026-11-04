@@ -218,6 +218,10 @@ jobs:
       - name: Lo que ya se probó
         id: veredicto
         if: steps.mezcla.outputs.nada != 'true' && steps.mezcla.outputs.texto != 'true'
+        # Si Martín carga este secreto (y la misma variable en el entorno de la nube), un veredicto sin su firma no pasa. Sin él, pasa
+        # y el resumen dice «sin firma»: ver la cabecera de scripts/veredicto.mjs.
+        env:
+          MAKO_VEREDICTO_CLAVE: ${{ secrets.MAKO_VEREDICTO_CLAVE }}
         run: |
           if ! node scripts/veredicto.mjs revisar --punta "$GITHUB_SHA" --main origin/main --salida "$RUNNER_TEMP/veredicto" --previo "$RUNNER_TEMP/veredicto-previo.json"; then
             echo "::warning::No pude revisar el veredicto: corre todo, como siempre."

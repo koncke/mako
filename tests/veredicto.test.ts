@@ -287,6 +287,8 @@ test('punta.yml: el veredicto se revisa antes de los tests, decide los tipos, y 
   assert.match(yml, /- name: Los tests los cubre el veredicto\n\s+if: ".*steps\.veredicto\.outputs\.cuantos == '0'"/);
   assert.match(yml, /- name: Tipos\n\s+id: tipos\n\s+if: ".*steps\.veredicto\.outputs\.tipos_saltear != 'true'"/);
   assert.match(scriptDelPaso(yml, 'Llevar a main (sin forzar)'), /if \[ "\$SIN_PROBAR_VEREDICTO" = "1" \]; then sp=1; fi/, 'sin los tipos de acá, main lo mira sobre-main');
+  // Con el secreto cargado, el paso lo recibe: si no, la clave de GitHub no frenaría nada.
+  assert.match(yml, /- name: Lo que ya se probó\n[\s\S]*?MAKO_VEREDICTO_CLAVE: \$\{\{ secrets\.MAKO_VEREDICTO_CLAVE \}\}/);
   // El paso que revisa nunca frena la punta: si falla, corre todo.
   assert.match(scriptDelPaso(yml, 'Lo que ya se probó'), /echo "usar=false" >> "\$GITHUB_OUTPUT"/);
 });
