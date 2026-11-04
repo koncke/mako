@@ -4,6 +4,17 @@ Lo escribe el chat de la nube que trabaja los 14 puntos. Se actualiza en cada et
 ni a la base**: todo lo de acá se probó con dobles y respuestas armadas con la forma del servicio. Lo que dice «sin
 probar» hay que mirarlo en el negocio de prueba (ws 3) una vez desplegado.
 
+## Estado (4/11/2026)
+
+**Los 14 puntos están en `main`**, por etapas: `punta/spy-busqueda` (1, 2, 3, 4, 12), `punta/spy-ficha` (5, 6, 11, 13,
+14), `punta/spy-caricatura`, `punta/spy-todo` (8, 10) y `punta/spy-detalle` (7, 9). Cada una pasó `punta.yml` en verde.
+
+Lo que espera a Martín:
+1. Mirar en el ws 3, con un competidor real, el gráfico, el detalle de una pieza y la página que arma «Copiar estructura».
+2. Prender los anuncios: correr una vez desde la PC `scripts/probar-anuncios-apify.mjs` y, si los trae bien y el costo cabe,
+   cambiar `ANUNCIOS_POR_APIFY` a `true` (diseño §14).
+3. La caricatura necesita la extensión conectada y Google Flow abierto en ese navegador: mirarla con la extensión puesta.
+
 ## Cómo se sube
 
 Cada etapa va a su rama `punta/spy-<nombre>` encima de `origin/main`; `.github/workflows/punta.yml` la chequea y, si da
@@ -42,8 +53,9 @@ pantalla del teléfono, monta `GraficoSpy` tal cual.
 - Lecturas con la clave de Spy: 40 → **150 por día** (~US$0,39 el peor día), con 30 reservadas para agregar.
 - Búsquedas por nombre: **cupo propio de 60 corridas** (30 búsquedas, US$0,65 el peor día). Antes compartían el de las
   lecturas y con tres búsquedas el negocio se quedaba sin poder agregar a nadie.
-- Lo paga cada negocio con su clave. Si querés otros números, son dos constantes en `lib/instagram-perfil.ts`.
+- Lo paga cada negocio con su clave. Si quieres otros números, son dos constantes en `lib/instagram-perfil.ts`.
 
 ## Migraciones que faltan aplicar
 
-Ninguna todavía.
+Ninguna. Lo nuevo que se guarda vive en `app_settings` del negocio (`spy.todo`, las corridas largas; `spy.caricaturas`, las
+caricaturas) y en las columnas que ya existían (`spy_piezas.analisis` lleva ahora su `formato`, dentro del mismo jsonb).
