@@ -212,3 +212,61 @@ export function reunionDeGrabacion(f: FilaGrabacion, partes: readonly ParteGuard
   };
   return r;
 }
+
+// ── Lo que cuenta el Dashboard (la plantilla Cold Calling) ─────────────────────────────────────────────────────────────
+
+/** De dónde se grabó, como lo lee la persona. */
+export const ROTULO_ORIGEN: Readonly<Record<OrigenGrabacion, string>> = { ficha: 'Desde la ficha', 'cold-calling': 'En frío' };
+/** Una llamada que todavía no tiene «cómo terminó» (se está grabando, o se cortó sin elegir). Se cuenta, y se dice. */
+export const SIN_MARCAR = 'Sin marcar';
+/** El orden fijo de los resultados en un gráfico: de lo mejor a lo que falta marcar. */
+export const VALORES_RESULTADO: readonly string[] = [
+  ROTULO_RESULTADO.agendo, ROTULO_RESULTADO.hablo, ROTULO_RESULTADO.no_interesa, ROTULO_RESULTADO.no_contesto, SIN_MARCAR,
+];
+export const COLORES_RESULTADO: Readonly<Record<string, string>> = {
+  [ROTULO_RESULTADO.agendo]: 'var(--good)', [ROTULO_RESULTADO.hablo]: 'var(--primary)', [ROTULO_RESULTADO.no_interesa]: 'var(--bad)',
+  [ROTULO_RESULTADO.no_contesto]: 'var(--faint)', [SIN_MARCAR]: 'var(--dim)',
+};
+
+export type GrabacionParaContar = {
+  lead_id: number | string; origen: string; autor: string | null; estado: string;
+  resultado: string | null; duracion_seg: number | null; created_at: string;
+};
+/** Una fila del agregador del Dashboard (la forma de `Fila`, lib/graficos-agregar.ts). */
+export type FilaLlamadaGrabada = {
+  f: string | null; d: Record<string, string | null>; r: Record<string, string | null>; v: Record<string, number>; u: Record<string, string | null>;
+};
+
+/**
+ * Una llamada grabada → la fila que cuenta el Dashboard. «Contestaron» sale de lo que marcó la PERSONA (`contesto`): una llamada
+ * sin marcar NO cuenta como contestada ni como no contestada, cuenta en «Sin marcar». Los minutos son los grabados (con el timbre
+ * de una que no contestó adentro). `fecha` es el día de la llamada ya pasado a la zona del Dashboard; `lead`, su nombre.
+ */
+export function filaDeLlamadaGrabada(x: GrabacionParaContar, o: { fecha: string | null; lead: string | null }): FilaLlamadaGrabada {
+  const r = esResultado(x.resultado) ? x.resultado : null;
+  const leadId = String(x.lead_id);
+  const seg = typeof x.duracion_seg === 'number' && Number.isFinite(x.duracion_seg) && x.duracion_seg > 0 ? x.duracion_seg : 0;
+  const estado = (ESTADOS_GRABACION as readonly string[]).includes(x.estado) ? (x.estado as EstadoGrabacion) : null;
+  return {
+    f: o.fecha,
+    d: {
+      resultado: r ? ROTULO_RESULTADO[r] : SIN_MARCAR,
+      origen: esOrigen(x.origen) ? ROTULO_ORIGEN[x.origen] : null,
+      autor: x.autor?.trim() || null,
+      lead: o.lead?.trim() || `Lead #${leadId}`,
+      estado: estado ? ROTULO_ESTADO[estado] : null,
+    },
+    r: { lead: leadId },
+    v: {
+      llamadas: 1,
+      contestaron: contesto(r) ? 1 : 0,
+      agendaron: r === 'agendo' ? 1 : 0,
+      no_interesa: r === 'no_interesa' ? 1 : 0,
+      no_contesto: r === 'no_contesto' ? 1 : 0,
+      sin_marcar: r ? 0 : 1,
+      minutos: seg / 60,
+      transcritas: estado === 'lista' || estado === 'analizando' ? 1 : 0,
+    },
+    u: { leads_llamados: leadId },
+  };
+}

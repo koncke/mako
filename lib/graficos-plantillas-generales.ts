@@ -44,6 +44,11 @@ export type DefinicionGeneral = {
   tema?: string;
   /** Los controles de la HOJA además del período (22/10/2026: el «Funnel» de «Cobros», para elegir qué CRM o CRMs mira). */
   controles?: Array<Record<string, unknown>>;
+  /**
+   * Los botones de la hoja (el elemento «Acción», ACCIONES_ELEMENTO de lib/graficos-acciones.ts), aparte de las piezas: las piezas son la
+   * forma que escribe la IA y pasan por su puerta (tests/graficos-ia.test.ts), y un botón no es eso. El de Cold Calling: «Grabar llamada».
+   */
+  acciones?: Array<{ local: string; accion: string; rotulo: string }>;
 };
 
 /** Una pieza (en la forma de la IA) → el componente crudo que entiende el catálogo, con su id. */
@@ -64,8 +69,9 @@ export function plantilla(d: DefinicionGeneral): PlantillaHoja {
   return {
     id: d.id, nombre: d.nombre, emoji: d.emoji, linea: d.linea,
     armar: (id) => {
-      const componentes = d.piezas
-        .map((p) => sanearComponente(aComponente(p, id)))
+      const botones = (d.acciones ?? []).map((a) => ({ id: id(a.local), clase: 'elemento', tipo: 'accion', texto: '', accion: { id: a.accion, rotulo: a.rotulo }, w: 3, h: 2 }));
+      const componentes = [...d.piezas.map((p) => aComponente(p, id)), ...botones]
+        .map((c) => sanearComponente(c))
         .filter((c): c is Componente => c != null);
       return {
         id: id(d.id), nombre: d.nombre, emoji: d.emoji, subtitulo: d.subtitulo,
@@ -155,6 +161,27 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
       // Vivía en «WhatsApp y MaKo», que se fue en v5: lo que tu equipo le pide a MaKo es uso de la IA.
       { local: 'quien', tipo: 'barras', fuente: 'mako_chat', dimension: 'quien', metricas: ['mensajes'], titulo: 'Quién le escribe a MaKo' },
       { local: 'flow', tipo: 'tabla_barras', fuente: 'flow', dimension: 'tipo', metricas: ['trabajos', 'listos', 'fallidos', 'tasa_exito'], barra: 'trabajos', titulo: 'Videos e imágenes' },
+    ],
+  },  {
+    // Martín, 04/11/2026: «un dashboard template que sea "Call Calling"», con el mismo botón de grabar de la ficha del lead. Se
+    // leyó como COLD CALLING (llamar en frío a una lista). Primero, «Grabar llamada» (elige el lead y graba: la misma grabadora de la
+    // ficha) al lado de los números de la tanda; después, lo demás, todos del conjunto `llamadas_grabadas` (lo que se grabó con ese botón). «Cómo terminó»
+    // lo marca quien llama al cortar: sin marcar, cuenta en «Sin marcar», nunca como «no contestó».
+    id: 'cold-calling', nombre: 'Cold Calling', emoji: '📞',
+    linea: 'Graba tus llamadas en frío y mira cuántas contestan, cuántas agendan y quién llama más.',
+    subtitulo: 'Las llamadas grabadas en MaKo.', periodo: 'ult7',
+    acciones: [{ local: 'grabar', accion: 'grabar_llamada', rotulo: 'Grabar llamada' }],
+    piezas: [
+      { local: 'llamadas', tipo: 'numero_tendencia', fuente: 'llamadas_grabadas', metricas: ['llamadas'], dimension: null, titulo: 'Llamadas', comparar: true, invertida: true },
+      { local: 'contacto', tipo: 'numero_tendencia', fuente: 'llamadas_grabadas', metricas: ['tasa_contacto'], dimension: null, titulo: 'Contestaron' },
+      { local: 'agendaron', tipo: 'numero_tendencia', fuente: 'llamadas_grabadas', metricas: ['agendaron'], dimension: null, titulo: 'Agendaron' },
+      { local: 'por-dia', tipo: 'serie', fuente: 'llamadas_grabadas', dimension: 'dia', metricas: ['llamadas', 'contestaron', 'agendaron'], titulo: 'Llamadas por día', controles: AGRUPAR_AUTO },
+      { local: 'como-terminan', tipo: 'anillo', fuente: 'llamadas_grabadas', dimension: 'resultado', metricas: ['llamadas'], titulo: 'Cómo terminan' },
+      { local: 'quien', tipo: 'tabla_barras', fuente: 'llamadas_grabadas', dimension: 'autor', metricas: ['llamadas', 'contestaron', 'agendaron', 'tasa_contacto'], barra: 'llamadas', titulo: 'Quién llamó' },
+      {
+        local: 'leads', tipo: 'tabla', fuente: 'llamadas_grabadas', dimension: 'lead', metricas: ['llamadas', 'minutos'], titulo: 'A quién llamaste',
+        limite: 50, tabla: { acciones: true, columnas: ['resultado'] },
+      },
     ],
   },
 ];

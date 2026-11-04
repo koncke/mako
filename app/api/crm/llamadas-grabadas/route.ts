@@ -26,6 +26,7 @@ import {
   SinTablaError, crearGrabacion, grabacionesDeLead, guardarParte, marcarResultado, procesarGrabacion, terminarGrabacion,
 } from '@/lib/grabar-llamada';
 import { TOPE_BYTES_PARTE, esIdGrabacion, esOrigen, esResultado } from '@/lib/grabar-llamada-reglas';
+import { buscarLeads } from '@/lib/crm-movil';
 
 export const dynamic = 'force-dynamic';
 // Transcribir una parte de 3 min y analizar una llamada con el Claude del negocio: hasta ~2 min cada uno, en `after()`.
@@ -58,6 +59,18 @@ const errorDe = (e: unknown): Response =>
 export async function GET(req: NextRequest) {
   const q = await quien();
   if (!q) return json({ ok: false, error: 'No autorizado' }, 401);
+  // Cold Calling: el buscador de leads de «Grabar llamada» en la hoja (app/_components/grabar/GrabarEnFrio.tsx). Es el MISMO buscador
+  // del CRM del teléfono (`buscarLeads`: ~20 filas compactas, nunca la cartera).
+  const buscar = req.nextUrl.searchParams.get('buscar');
+  if (buscar != null) {
+    try {
+      const r = await buscarLeads(buscar.slice(0, 120));
+      return json({ ok: true, filas: r.filas, hayMas: r.hayMas });
+    } catch (e) {
+      console.error('[api/crm/llamadas-grabadas] buscar', e instanceof Error ? e.message : String(e));
+      return json({ ok: false, error: 'No pude buscar los leads.' }, 500);
+    }
+  }
   const leadId = id(req.nextUrl.searchParams.get('leadId'));
   if (!leadId) return json({ ok: false, error: 'Falta el lead.' }, 400);
   try {

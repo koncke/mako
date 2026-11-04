@@ -11,7 +11,7 @@ llamadas en frío): con el botón de grabar adentro y los números de una tanda 
 |---|---|---|
 | 1. En el teléfono, «Dashboard» en el lugar de «Plan» | `punta/grabar-barra-dashboard` (`4b8468849`) | **En `main`** |
 | 2. «Grabar» en la ficha del lead (computadora y teléfono) | `punta/grabar-ficha` | Subida a su punta |
-| 3. La plantilla Cold Calling del Dashboard | `punta/grabar-cold-calling` | Ver abajo |
+| 3. La plantilla Cold Calling del Dashboard | `punta/grabar-cold-calling` (encima de la 2) | Subida a su punta |
 
 ## 1. La barra del teléfono
 
@@ -73,4 +73,17 @@ haya 2 partes), corta, elige cómo terminó. A los pocos minutos la llamada sale
 
 ## 3. Cold Calling
 
-Ver la sección de abajo cuando esté (la escribe la misma punta).
+**Dónde está:** Dashboard → Nueva hoja → **Cold Calling** (se sugiere a quien sale a buscar: escribe o llama primero).
+
+- Primero, al lado de los números, **«Grabar llamada»**: buscas el lead (el mismo buscador del CRM del teléfono) y grabas con la grabadora de
+  la ficha, con origen «en frío». «Otro lead» pasa al siguiente de la tanda.
+- Abajo, del conjunto nuevo **«Llamadas grabadas en MaKo»**: llamadas, cuántas contestaron (%), cuántas agendaron, cuántas agendan
+  de las que contestan (con menos de 5 que contestaron no se da el porcentaje), las llamadas por día, cómo terminan, quién llamó y a
+  quién llamaste (cada lead abre su ficha).
+- «Contestaron» es lo que marca quien llama al cortar; una sin marcar va a «Sin marcar».
+- Sin la migración 0390, la hoja dice que la grabación todavía no está lista (no muestra ceros).
+- En el teléfono, el Dashboard muestra los números de la hoja; el botón de grabar está en la ficha del lead.
+
+**Probado:** `tests/cold-calling.test.ts` corre la fila, el agregador del Dashboard y la hoja instanciada (el botón arriba, todo
+del conjunto nuevo, «Sincronizar llamadas» de Closing sigue al pie), probado rompiéndolo. **No probado:** la hoja en un navegador con
+datos de verdad (la nube no tiene base).

@@ -272,7 +272,8 @@ test('cada plantilla general: válida, con su período arriba, sin superposicion
     // La sección plegada de «Más detalle» es una pieza más que las escritas (31/10/2026, `comoCorbel`), y una portada nueva, otra.
     const extras = a.componentes.filter((c) => (c as { tipo?: unknown }).tipo === 'seccion').length;
     const nueva = componentesDe(p).filter((c) => /-portada$/.test(c.id)).length;
-    assert.equal(a.componentes.length, d.piezas.length + extras + nueva, `${p.id}: el saneo se comió una pieza`);
+    // Los botones (`acciones`, el «Grabar llamada» de Cold Calling) van aparte de las piezas: también cuentan.
+    assert.equal(a.componentes.length, d.piezas.length + (d.acciones?.length ?? 0) + extras + nueva, `${p.id}: el saneo se comió una pieza`);
     assert.equal(a.controles[0]?.tipo, 'periodo', `${p.id}: sin el período arriba`);
     assert.equal(a.controles[0].preset, d.periodo);
     assert.equal(sinSuperposicion(a.componentes), null, `${p.id}: ${sinSuperposicion(a.componentes)}`);

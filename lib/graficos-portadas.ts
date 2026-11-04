@@ -26,6 +26,7 @@
 // =============================================================================
 
 import { COLOR_DASHBOARD } from './graficos-identidad';
+import { accionElementoDe } from './graficos-acciones';
 
 type Crudo = Record<string, unknown>;
 type Id = (local: string) => string;
@@ -179,14 +180,19 @@ export function comoDenso(hoja: Crudo, def: DefinicionPortada | undefined, id: I
   const vieja = def && 'sube' in def ? comps.find((c) => esEse(c, def.sube)) : undefined;
   const pieza: Crudo | undefined = def && 'sube' in def ? (vieja && { ...vieja, ...(def.cambios ?? {}) }) : def?.nueva(id);
   const todas = [...(pieza ? [pieza] : []), ...comps.filter((c) => c !== vieja).sort(porLugar)];
-  const sueltos = todas.filter((c) => c.tipo === 'accion');
+  // LA ACCIÓN QUE ES LA HOJA (`arriba`, lib/graficos-acciones.ts: «Grabar llamada» en Cold Calling) va PRIMERA, como una tarjeta más de
+  // la fila de números (nunca a lo ancho: Martín rechazó «el bloque gigante primero»). Los demás botones sueltos (Sincronizar llamadas)
+  // siguen al pie.
+  const esArriba = (c: Crudo) => c.tipo === 'accion' && !!accionElementoDe((c.accion as { id?: string } | undefined)?.id)?.arriba;
+  const deArriba = todas.filter(esArriba);
+  const sueltos = todas.filter((c) => c.tipo === 'accion' && !esArriba(c));
   // LA ORACIÓN DE APERTURA (tipo `frase`, lib/graficos-frase.ts) abre la hoja, a lo ancho y antes del molde: así abren las
   // referencias (Orvel, Pane, Noria: la frase primero, el primer panel después). No compite por ser el principal.
   const frases = todas.filter((c) => c.tipo === 'frase');
   const lista = todas.filter((c) => c.tipo !== 'accion' && c.tipo !== 'frase');
 
   // Los números: la que la plantilla dio vuelta abre, que es donde va el negro.
-  const numeros = lista.filter(esNumero).sort((a, b) => Number(!!b.invertida) - Number(!!a.invertida));
+  const numeros = [...deArriba, ...lista.filter(esNumero).sort((a, b) => Number(!!b.invertida) - Number(!!a.invertida))];
   const otros = lista.filter((c) => !esNumero(c));
   const nombrado = def?.vecino ? otros.find((c) => esEse(c, def.vecino!)) : undefined;
   const elegibles = otros.filter((c) => !VA_A_LO_ANCHO.has(c.tipo));
@@ -332,6 +338,7 @@ const altoDeAncho = (c: Crudo) => (c.tipo === 'mapa_calor' ? num(c.h) || ALTO_AN
  *   · Cobranza — ¿a quién le cobro? La lista con «Marcar cobrada».
  *   · Automatizaciones — ¿me contestan? Enviados → abiertos → respondieron.
  *   · Contenido e IA — ¿en qué se va la IA? El anillo con el costo en el centro.
+ *   · Cold Calling — ¿cuántas contestan y cuántas agendan? El botón de grabar arriba y el anillo de cómo terminan.
  */
 export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>> {
   return {
@@ -365,6 +372,9 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
       }),
       vecino: 'por-dia', par: ['funciones', 'quien'],
     },
+    // Cold Calling (04/11/2026): ¿cuántas contestan? «Grabar llamada» y los tres números de a dos (Moorly), las llamadas por día a lo
+    // ancho, y cómo terminan al lado de quién llamó. El botón entra como la primera tarjeta (`arriba` en lib/graficos-acciones.ts).
+    'cold-calling': { molde: 'moorly', sube: 'como-terminan', vecino: 'por-dia', par: ['como-terminan', 'quien'] },
   };
 }
 
