@@ -178,23 +178,6 @@ export async function leerCompetidor(id: number): Promise<Competidor | null> {
   return data as Competidor;
 }
 
-/**
- * El perfil de alguien que TODAVÍA no se mira: lo que la pantalla del alta muestra para confirmar
- * quién es. La vista previa y el completar solo de las filas pasan por acá, con las MISMAS fuentes.
- *
- * ⚠️ `apify-spy` ES LO QUE FALTABA. La vista previa llamaba con las fuentes por defecto, que no la
- * incluyen: la clave que Martín pegó el 1/11 es la de Spy, y con sólo ésa la vista previa contestaba
- * «no pude leer» aunque hubiera con qué (el mismo bug que el buscador del CRM arregló el 2/11).
- *
- * `reserva` = cuántas lecturas del tope diario NO puede tocar quien llama. La pone el completar solo:
- * son lecturas que nadie pidió con un clic, y no pueden dejar al negocio sin poder agregar a nadie.
- */
-export async function leerPerfilParaElAlta(usuario: string, opts: { reserva?: number } = {}) {
-  return leerPerfilInstagram(usuario, {
-    ws: await getWorkspaceActual(), conPiezas: false,
-    fuentes: ['meta-negocio', 'meta-plataforma', 'apify', 'apify-spy'], reservaApify: opts.reserva,
-  });
-}
 
 /**
  * Agrega un competidor con lo poco que se pegó. El `nombre` es del negocio y no se sobrescribe: si
@@ -625,6 +608,13 @@ export async function mirarCompetidor(
         canales.push({ canal: 'youtube', ok: false, piezas: 0, nuevas: 0, detalle: noPudeLeerCanal(l.motivo) });
       } else {
         suscriptores = l.canal.suscriptores;
+        // ⚠️ SU CARA TAMBIÉN SALE DE YOUTUBE (4/11/2026). Un competidor que se agregó por su canal quedaba sin foto —
+        // Martín: «le pongo el link de su canal y no me trae la foto»— y la foto venía en la misma respuesta. Gana la de
+        // Instagram si la hay: es la que la persona reconoce. Se baja al bucket, como la de Instagram.
+        if (l.canal.foto && (!c.instagram || !cara)) {
+          const [bajada] = await guardarMiniaturas([{ canal: 'avatar', ref: c.youtube_id, miniatura: l.canal.foto }]);
+          if (esNuestra(bajada.miniatura)) cara = bajada.miniatura ?? cara;
+        }
         const vistas: PiezaVista[] = l.videos.map((v) => ({
           canal: 'youtube' as const, tipo: 'video' as const, ref: v.id, fuente: 'api' as const,
           url: `https://www.youtube.com/watch?v=${v.id}`,
