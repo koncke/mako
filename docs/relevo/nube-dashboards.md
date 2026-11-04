@@ -1,6 +1,12 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~15:00 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~16:00 UTC)
+
+- **Cobranza y Focus están en producción.** Cobranza entró a main a las 15:28 (`4bd93e83`, deploy promovido 15:32); Focus a las 15:37
+  (`071ced42`, deploy promovido 15:40). La marca `ci-rojo/dash-cobranza` quedó vieja: su commit ya está en main.
+- **«Mi día» (la copia de Lumora, la otra referencia de Focus) va en `punta/dash-mi-dia`**: la sección de abajo. Es la cuarta hoja copiada.
+
+### Lo de antes (~15:00 UTC)
 
 Desde esta sesión de la nube no le puedo escribir al Cerebro: el mensaje entre sesiones está cerrado para una sesión que no puede llegar a las
 otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
@@ -13,6 +19,52 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## «Mi día»: la cuarta hoja copiada (la de Lumora, la otra referencia de Focus) (punta `dash-mi-dia`, 4/11/2026)
+
+El pedido es el mismo de Focus (Martín, por el Cerebro): *«Carga los de FOCUS que ya teníamos»*, primero la copia exacta y después la
+adaptación. Focus tenía dos referencias: Pane (la hoja Focus, ya en producción) y Lumora, que es ésta. Va como una plantilla aparte de
+**GENERAL**, «Mi día» (id `mi-dia`), al lado de Focus.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» de General ofrece «Mi día»**, con su miniatura de verdad. Es una hoja clara, verde agua, como Lumora.
+- **Arriba:** la fecha y la semana del trimestre, el saludo con su nombre, «Tienes 3 llamadas hoy y 2 tareas que vencen» (las tareas llevan
+  al Plan) y las cuotas vencidas sin cobrar. Abajo, la **cinta del día**: lo de hoy en el Calendario en bloques, los huecos de una hora o más
+  como «Libre» y la línea roja del ahora encima de lo que está corriendo. Si un día tiene más bloques de los que entran, la cinta se corre de costado.
+- **Dos tarjetas:** «Prepara tu próxima llamada» (abre la ficha del lead de la próxima llamada que todavía no empezó) y «Pregúntale a MaKo» (su chat).
+- **Cuatro números:** las llamadas de hoy (con la próxima), las tareas de hoy (las hechas y las vencidas), las cuotas por cobrar (de cuántos
+  clientes, y las vencidas) y los KPIs del día en verde. La barrita de cada uno muestra la proporción.
+- **Accesos** a CRM, Plan, Calendario, Classroom, Offer, Ads Manager y Automations.
+- **Lo que vence** del Plan (tareas y proyectos, por fecha), **tu funnel hoy** (la dona por etapa del funnel principal), **cómo vas con tus OKRs**
+  (el avance contra lo esperado a hoy), **los que te deben** (lo más urgente primero) y **el semáforo**.
+- **Al costado:** el mes con lo que tiene el Calendario en puntos, **tu día** en lista (con «Ahora») y **recordatorios**: la próxima llamada,
+  las tareas vencidas, el próximo hueco libre y las tareas de hoy, que se tildan ahí mismo (con «Deshacer»).
+
+**Lo que Lumora tiene y no está, a propósito:** la línea de cada número (MaKo no guarda esa serie: va la barrita, que es del mismo demo), el
+selector «Scores · Attendance» (cada OKR tiene una sola vara), el «Customise» de los accesos, el sobre de la lista de vigilancia (un mensaje a un
+tercero sale por sus puertas) y la flecha del selector del funnel (no cambia nada).
+
+**La comparación con la maqueta aprobada** (`docs/diseno/mockups-dashboard/focus-lumora/mako.html` contra el componente, en un arnés con los
+datos pasando por el modelo de verdad): a 1440, 1942 px de alto contra 1967 de la maqueta (la maqueta tiene una alerta más en el semáforo y un
+recordatorio más); las cajas caen en las mismas columnas (952 + 320). A 390, los mismos bloques en el mismo orden. Capturas:
+`docs/diseno/mockups-dashboard/focus-lumora/captura/producto-1440.png` y `producto-390.png`.
+
+**El movimiento es el de Lumora** (su entrada `xt`, que el INFORME sí trae): el hero sube, el título letra por letra, la cinta crece desde abajo y
+la marca del ahora baja, las tarjetas de la IA giran al entrar, los números suben y sus barritas se llenan, las filas, las pastillas, el riel,
+las cifras que cuentan y la tarjeta que sube con el mouse. Medido en el arnés: 123 animaciones corriendo a los 450 ms y el hover responde.
+No se copió: el helper `Oe(.kpis)` (el INFORME no lo muestra; la barrita va a los .4, donde la entrada lo llama) y las curvas back.out de GSAP (aproximadas).
+
+**Cómo está hecho:**
+- `app/dashboard/disenos/HojaMiDia.tsx` dibuja; `mi-dia-css.ts` es `focus-lumora/lumora.css` con todo adentro de `.ld` y cada clase con
+  `ld-` (también las compuestas: `.ld-ribbon__it.ld-is-now`). El medio (761 a 1040) no está medido en Lumora: el riel baja en dos columnas.
+- `app/dashboard/disenos/MiDiaVivo.tsx` le pone los datos de General. Lo carga `EditorInforme` con `next/dynamic`, como a Focus.
+- El modelo es `lib/mi-dia-diseno.ts`; el test, `tests/dashboard-diseno-mi-dia.test.ts`: ejecuta el modelo y está probado rompiéndolo (7 de 7
+  roturas en rojo). Encontró un error real del mes: noviembre de 2026 toca seis semanas.
+- La plantilla `mi-dia` trae `diseno: { id: 'mi-dia', piezas: {} }`; editando, quedan sus bloques (Tu día, Lo que vence, Tu funnel hoy, Los que
+  te deben, OKRs, Para tildar hoy y el Semáforo). Su color es el durazno.
+- **En la API de MaKo:** `agregar_hoja_general` ofrece `mi-dia` (sale solo de `PLANTILLAS_GENERAL_OFRECIDAS`; `docs/api-mako.md` regenerado).
+
+**Falta:** verlo con los datos de un cliente (la nube no tiene la base) y que Martín lo compare en el Dashboard.
 
 ## Focus: la tercera hoja copiada (la de Pane), con lo que MaKo sabe del día (punta `dash-focus`, 4/11/2026)
 
@@ -75,7 +127,7 @@ Lo que el INFORME no trae y queda quieto: cómo crecen los anillos y las barras.
 
 **Falta:**
 - verificar contra la base de un cliente (la nube no tiene la base): crear la hoja en ws3 y completar una tarea desde ahí;
-- **Lumora**, la otra referencia de Focus. **La copia exacta ya está** (`docs/diseno/mockups-dashboard/focus-lumora/`: `lumora.css`,
+- ~~Lumora~~: hecha como su propia hoja, «Mi día» (arriba). **La copia exacta ya está** (`docs/diseno/mockups-dashboard/focus-lumora/`: `lumora.css`,
   `copia.html` y `lumora.js`), comparada contra el demo:
   - a 1440 mide 2042 px de alto contra 2040, y las cajas caen a 1-4 px;
   - a 390, los mismos bloques y el mismo orden.

@@ -171,6 +171,7 @@ import { EVENTO_PREGUNTA_GRAFICO, entidadDeHoja, preguntaDelEvento, textoDePregu
 
 // La hoja Focus con su diseño (la copia de Pane) lee los datos de General: se carga sólo si hay un Focus que dibujar.
 const FocusVivo = dynamic(() => import('./disenos/FocusVivo'));
+const MiDiaVivo = dynamic(() => import('./disenos/MiDiaVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -1585,6 +1586,10 @@ export function EditorInforme({
               // La hoja Focus con su DISEÑO PROPIO (la copia de Pane, ./disenos/HojaFocus.tsx): los datos de los bloques de
               // General (sólo existe en General: fuera de ahí, la grilla de siempre).
               <FocusVivo hoja={hoja} hoy={hoy} compartido={!!compartido} onGrilla={() => setEnGrilla(true)} />
+            ) : hoja.diseno?.id === 'mi-dia' && general?.datos && !enGrilla && !editando && !dueno ? (
+              // «Mi día» con su DISEÑO PROPIO (la copia de Lumora, la otra referencia de Focus: ./disenos/HojaMiDia.tsx), con los
+              // mismos datos de General.
+              <MiDiaVivo hoja={hoja} hoy={hoy} compartido={!!compartido} onGrilla={() => setEnGrilla(true)} />
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
                 <p>{dueno ? 'Este pop-up está vacío.' : 'Esta hoja no tiene gráficos.'}</p>
