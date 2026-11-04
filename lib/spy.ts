@@ -70,7 +70,7 @@ import { claveOfertaSpy } from './spy-oferta';
 import { prefijoTranscripciones } from './spy-transcripcion';
 import { ANALISIS_SIN_DATOS, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta } from './spy-analisis-reglas';
 import { queEs } from './spy-que-es';
-import { claveLectura, type PasoLectura } from './spy-lectura-pasos';
+import { claveLectura, leeCanal, type PasoLectura } from './spy-lectura-pasos';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { claveDeYoutube } from './youtube';
 
@@ -613,8 +613,16 @@ export async function mirarCompetidor(
   motivo: MotivoDeLectura = 'a-pedido',
   /** Antes de cada canal: lo que la pantalla del alta muestra como «Mirando su Instagram…» (lib/spy-lectura-pasos.ts). Nunca tira. */
   alPaso?: (paso: PasoLectura) => Promise<void>,
+  /**
+   * Sólo estos canales (4/11/2026, Leila Hormozi en producción). Cuando se le SUMA un canal (su YouTube, encontrado solo), se
+   * lee ESE canal y nada más. Antes se releía todo, Instagram por Apify incluido: la lectura pasaba los 60 s de la acción, se
+   * cortaba antes de llegar a YouTube y el canal quedaba sumado sin un video («como si hubiese apretado en deshacer»).
+   * Una web que aparece en la descripción del canal nuevo también se lee: es nueva. Sin esto, todos.
+   */
+  solo?: readonly PasoLectura[],
 ): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
   const paso = (p: PasoLectura) => (alPaso ? alPaso(p).catch(() => undefined) : Promise.resolve());
+  const lee = (p: PasoLectura) => leeCanal(solo, p);
   const c = await leerCompetidor(competidorId);
   if (!c) return { ok: false, canales: [], error: 'No encontré ese competidor.' };
   const canales: LecturaCanalSpy[] = [];
@@ -626,7 +634,7 @@ export async function mirarCompetidor(
   let landingNueva = false;
 
   // ── Instagram: Business Discovery con el juego ancho de campos ──────────────
-  if (c.instagram) {
+  if (c.instagram && lee('instagram')) {
     await paso('instagram');
     // ⚠️ ANTES DE PAGAR, ¿YA LO LEYÓ OTRO? (ítem 13, 2/11/2026). Una lectura de Instagram gasta del
     // tope diario de Apify del negocio, y el resultado es el MISMO para cualquiera porque el canal
@@ -684,7 +692,7 @@ export async function mirarCompetidor(
   }
 
   // ── YouTube: channels.list → playlist de subidas → playlistItems → videos.list ───
-  if (c.youtube_id) {
+  if (c.youtube_id && lee('youtube')) {
     await paso('youtube');
     // La misma caché compartida que Instagram (ítem 13). Acá no se ahorra PLATA del negocio sino
     // CUOTA de la API de YouTube, que es de la plataforma y es igual de finita: leer el canal de
@@ -754,7 +762,7 @@ export async function mirarCompetidor(
   }
 
   // ── La landing: lo que ya hace `mirarLanding`, apuntado a una página ajena ──
-  if (landing) {
+  if (landing && (lee('web') || landingNueva)) {
     await paso('web');
     try {
       // Se llena mientras se lee. El HTML no vuelve en `m` porque esa respuesta también viaja a la
@@ -792,7 +800,8 @@ export async function mirarCompetidor(
 
   const db = await getTenantDb();
   await db.from('spy_competidores').update({
-    mirado_en: ahora, texto_leido_en: ahora, metricas_leidas_en: ahora,
+    // Una lectura de UN canal no dice que el resto esté fresco: las fechas sólo las mueve una lectura entera (o la primera).
+    ...(!solo || !c.mirado_en ? { mirado_en: ahora, texto_leido_en: ahora, metricas_leidas_en: ahora } : {}),
     instagram_seguidores: seguidores, youtube_suscriptores: suscriptores, avatar: cara, updated_at: ahora,
     ...(landingNueva ? { landing_url: landing } : {}),
   }).eq('id', competidorId);

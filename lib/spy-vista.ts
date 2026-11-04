@@ -364,6 +364,20 @@ export function debeLeerAlAbrir(
   return ahora.getTime() - Date.parse(c.mirado_en) > HORAS_FRESCA * 3_600_000;
 }
 
+/**
+ * Su YouTube está en la ficha y no tiene ni un video guardado: se lee al abrir, SÓLO ese canal (4/11/2026). Es el arreglo de
+ * las fichas que quedaron así antes de que la lectura de lo nuevo dejara de cortarse (Leila Hormozi: su canal sumado solo, sin
+ * videos). Sólo YouTube: lo paga la cuota de la API de la plataforma, no el tope de Apify del negocio. Una vez por sesión, como
+ * `debeLeerAlAbrir`.
+ */
+export function youtubeSinLeer(
+  c: Pick<Competidor, 'youtube_id'>,
+  piezas: ReadonlyArray<{ canal: string }>,
+  yaSeLeyo: boolean,
+): boolean {
+  return !yaSeLeyo && !!c.youtube_id && !piezas.some((p) => p.canal === 'youtube');
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // La grilla de sus piezas, por páginas (4/11/2026)
 // ─────────────────────────────────────────────────────────────────────────────

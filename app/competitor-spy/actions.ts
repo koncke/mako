@@ -181,7 +181,11 @@ export async function sumarCanalAction(id: number, pegado: string): Promise<{ ok
  * diario. El botón «Revisar ahora» va SIEMPRE sin motivo —o sea `'a-pedido'`— porque quien lo toca
  * está mirando y pide datos de hoy.
  */
-export async function revisarAction(id: number, motivo?: 'alta' | 'rutina', marca?: string): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
+export async function revisarAction(
+  id: number, motivo?: 'alta' | 'rutina', marca?: string,
+  /** Sólo los canales que se acaban de sumar (`mirarCompetidor`): el resto ya se leyó y releerlo pasaba los 60 s. */
+  solo?: readonly PasoLectura[],
+): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
   const no = await soloMiembro();
   if (no) return { ok: false, canales: [], error: no };
   try {
@@ -190,7 +194,9 @@ export async function revisarAction(id: number, motivo?: 'alta' | 'rutina', marc
     const alPaso = marcaValida(marca)
       ? (p: PasoLectura) => { hechos.push(p); return setSetting(claveLectura(id), anotarPasos(marca, hechos, Date.now())); }
       : undefined;
-    const r = await mirarCompetidor(id, motivo ?? 'a-pedido', alPaso);
+    // Lo que llega del navegador se filtra: sólo los tres canales que existen, y una lista vacía es «todos».
+    const soloValidos = Array.isArray(solo) ? solo.filter((p): p is PasoLectura => p === 'instagram' || p === 'youtube' || p === 'web') : [];
+    const r = await mirarCompetidor(id, motivo ?? 'a-pedido', alPaso, soloValidos.length ? soloValidos : undefined);
     if (r.ok) await marcarActosSpy(['spy_primero', 'spy_canales', 'spy_lectura']);
     return r;
   } catch (e) {
