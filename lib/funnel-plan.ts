@@ -58,3 +58,24 @@ export function lineasDelPlan(p: PlanFunnel): Array<{ rotulo: string; valor: str
     ...dato('Inversión por mes', p.presupuestoMensual, true), ...dato('Creativos', p.creativos), ...dato('Ángulos', p.angulos), ...dato('Landings', p.landings),
   ];
 }
+
+/**
+ * ¿El coach puede dar la oferta por cargada? (4/11/2026, el coach único). Hay oferta si hay una guardada en el negocio O una armada en
+ * una conversación de oferta (lo que trabajaba el Offer Coach): quien la armó ahí no vuelve a empezar. `null` es «no pude leerlo», y
+ * no se le dice a nadie que le falta una oferta que puede tener.
+ */
+export function hayOfertaParaElCoach(guardadas: number | null, armada: boolean | null): boolean {
+  if (guardadas == null || armada == null) return true;
+  return guardadas > 0 || armada;
+}
+
+/**
+ * Lo que dice el chat vacío del coach, según haya oferta (app/second-brain/useChatDelCoach.ts). No se guarda: es la portada. La oferta
+ * va primero (lib/asesores/contexto.ts): sin ella, el coach la trabaja ahí mismo, sin mandar a ningún otro chat (hasta el 4/11/2026
+ * decía «Empieza con el Offer Coach y vuelve con ella»).
+ */
+export function saludoDelFunnelCoach(hayOferta: boolean): string {
+  return hayOferta
+    ? 'Tu oferta ya está cargada. ¿Cuánto puedes invertir por mes para conseguir clientes?'
+    : 'Empecemos por tu oferta: ¿qué vendes, a quién y a qué precio?';
+}

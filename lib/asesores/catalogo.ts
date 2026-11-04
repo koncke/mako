@@ -30,14 +30,15 @@ export type Asesor = {
   especialidad: string;
   /** El curso de Knowledge del que sale su ficha: lo que el chat dice cuando atribuye. */
   curso: string;
-  /** El Funnel Coach sin referente al frente usa sus marcos: anuncios y orgánico. Sólo esos, porque cada ficha son 5.000 caracteres en el system. */
-  enElFunnel?: true;
+  /** El coach sin referente al frente (eligió «MaKo») usa sus marcos: uno por tema que trabaja (oferta, anuncios y orgánico). Sólo
+   *  esos, porque cada ficha son 5.000 caracteres en el system de cada mensaje. */
+  enElCoach?: true;
 };
 
 export const ASESORES: readonly Asesor[] = [
-  { id: 'hormozi', nombre: 'Hormozi', completo: 'Alex Hormozi', especialidad: 'Oferta', curso: '100M Money Models' },
-  { id: 'juan-ads', nombre: 'Juan ADS', completo: 'Juan Osorio', especialidad: 'Anuncios', curso: 'Metodología JADS', enElFunnel: true },
-  { id: 'julian-otalora', nombre: 'Julián Otálora', completo: 'Julián Otálora', especialidad: 'Contenido orgánico', curso: 'Método Contenido Irresistible', enElFunnel: true },
+  { id: 'hormozi', nombre: 'Hormozi', completo: 'Alex Hormozi', especialidad: 'Oferta', curso: '100M Money Models', enElCoach: true },
+  { id: 'juan-ads', nombre: 'Juan ADS', completo: 'Juan Osorio', especialidad: 'Anuncios', curso: 'Metodología JADS', enElCoach: true },
+  { id: 'julian-otalora', nombre: 'Julián Otálora', completo: 'Julián Otálora', especialidad: 'Contenido orgánico', curso: 'Método Contenido Irresistible', enElCoach: true },
   { id: 'sofia-contreras', nombre: 'Sofía Contreras', completo: 'Sofía Contreras', especialidad: 'Marketing perpetuo', curso: 'MasteryHaus' },
   { id: 'marcos-razzetti', nombre: 'Marcos Razzetti', completo: 'Marcos Razzetti', especialidad: 'Agencias: captar clientes', curso: 'Agencia 6 Cifras' },
   { id: 'victor-heras', nombre: 'Víctor Heras', completo: 'Víctor Heras', especialidad: 'Marca personal', curso: 'Master Marca Personal 5.0' },
@@ -70,24 +71,64 @@ export const asesorPorId = (id: unknown): Asesor | null => ASESORES.find((a) => 
 /** Lo que dice la pantalla debajo de la caricatura: nunca sugiere que la persona participa. */
 export const inspiradoEn = (a: Pick<Asesor, 'completo'>): string => `Inspirado en ${a.completo}`;
 
-// ── Qué referente tiene cada coach ───────────────────────────────────────────────────────────────────────────────────────
+// ── Quién tiene al frente el coach ─────────────────────────────────────────────────────────────────────────────────────────
+// UN SOLO COACH desde el 4/11/2026. Martín: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach" y que tenga
+// ambas funcionalidades dentro... Por defecto, que esté la cara de hormozi». Hasta ese día eran dos, cada uno con su referente
+// (`{ funnel, offer }` en la misma fila), y lo que alguien ya eligió en cualquiera de los dos no se pierde: lo resuelve
+// `referenteDelCoach`, y lo nuevo se guarda como `{ coach }` AL LADO de lo de antes (lib/funnel-plan-db.ts), nunca encima.
 
-export type IdCoach = 'funnel' | 'offer';
-/** null = MaKo, sin referente al frente. */
-export type ReferentesElegidos = Record<IdCoach, IdAsesor | null>;
+/** Martín, 4/11/2026: «Por defecto, que esté la cara de hormozi». Sólo para quien nunca eligió: el default no pisa una elección. */
+export const REFERENTE_DE_FABRICA: IdAsesor = 'hormozi';
 
-/** Martín: «tercero offer coach, que cambiaría por Hormozi». El Funnel Coach abre como MaKo: usa a los dos de su tema y atribuye. */
-export const REFERENTES_DE_FABRICA: ReferentesElegidos = { funnel: null, offer: 'hormozi' };
-
-/** Dónde se guarda lo elegido: app_settings del negocio. */
+/** Dónde se guarda lo elegido: app_settings del negocio. La clave es la de los dos coaches de antes, y su contenido de antes sigue ahí. */
 export const CLAVE_REFERENTES = 'coaches.referentes';
 
-/** Lo guardado o lo que llega del navegador: un id que no existe vuelve al de fábrica, nunca rompe. */
-export function sanearReferentes(v: unknown): ReferentesElegidos {
+/**
+ * Quién aconseja en el coach, según lo guardado (o lo que llega del navegador). null = MaKo, sin referente al frente: también es
+ * una elección. Un id que ya no existe nunca rompe: sigue con la regla siguiente.
+ *
+ * Lo de ANTES del 4/11 (`{ funnel, offer }`), con la regla de Martín: «si eligió para el Funnel Coach, gana esa; si sólo eligió para
+ * el Offer Coach, se usa esa; si no eligió nada, Hormozi».
+ *   · `funnel` con un referente: eligió en el Funnel Coach (su fábrica era MaKo, así que un referente ahí es una elección).
+ *   · si no, `offer`: `null` es que eligió MaKo en el Offer Coach (su fábrica era Hormozi); un referente, el que eligió.
+ * ⚠️ LO QUE NO SE PUEDE DISTINGUIR: cada vez que se elegía en un coach, se guardaban los DOS (el otro con su fábrica). Así que
+ *    `{ funnel: null, offer: 'hormozi' }` es tanto «eligió MaKo en el Funnel Coach» como «eligió Hormozi en el Offer Coach» (o volvió
+ *    a él). Sale Hormozi: una elección de Hormozi no se pisa, y una de MaKo se recupera tocando la criatura. Cuántos negocios
+ *    quedaron así se mide en producción (docs/relevo/nube-funnel-coach.md).
+ */
+export function referenteDelCoach(v: unknown): IdAsesor | null {
   const o = v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
-  const uno = (c: IdCoach): IdAsesor | null => {
-    if (o[c] === null) return null;
-    return asesorPorId(o[c])?.id ?? REFERENTES_DE_FABRICA[c];
-  };
-  return { funnel: uno('funnel'), offer: uno('offer') };
+  // Lo elegido desde el 4/11/2026, con el coach único.
+  if ('coach' in o) {
+    if (o.coach === null) return null;
+    const a = asesorPorId(o.coach);
+    if (a) return a.id;
+  }
+  const delFunnel = asesorPorId(o.funnel);
+  if (delFunnel) return delFunnel.id;
+  if ('offer' in o) {
+    if (o.offer === null) return null;
+    return asesorPorId(o.offer)?.id ?? REFERENTE_DE_FABRICA;
+  }
+  // Sólo `{ funnel: null }`: eligió MaKo en el Funnel Coach y nada en el de la oferta.
+  return o.funnel === null ? null : REFERENTE_DE_FABRICA;
+}
+
+/** Lo que se guarda al elegir: lo de antes queda como estaba (si se vuelve atrás un deploy, cada coach sigue con lo suyo) y `coach` manda. */
+export function conReferenteElegido(guardado: unknown, id: IdAsesor | null): Record<string, unknown> {
+  const o = guardado && typeof guardado === 'object' && !Array.isArray(guardado) ? (guardado as Record<string, unknown>) : {};
+  return { ...o, coach: asesorPorId(id)?.id ?? null };
+}
+
+/**
+ * Lo que pide el navegador al elegir: `referente` (desde el 4/11/2026) o, de una pestaña abierta antes del cambio,
+ * `referentes: { funnel | offer }` con UN coach. Lo de una pestaña vieja también es una elección para el coach único.
+ * null = no pidió un referente que exista (la ruta contesta 400: nunca se guarda otro en su lugar).
+ */
+export function referentePedido(b: { referente?: unknown; referentes?: unknown }): { id: IdAsesor | null } | null {
+  const uno = (v: unknown): { id: IdAsesor | null } | null => (v === null ? { id: null } : asesorPorId(v) ? { id: asesorPorId(v)!.id } : null);
+  if ('referente' in b) return uno(b.referente);
+  const r = b.referentes && typeof b.referentes === 'object' && !Array.isArray(b.referentes) ? (b.referentes as Record<string, unknown>) : null;
+  if (r) for (const k of ['funnel', 'offer']) if (k in r) return uno(r[k]);
+  return null;
 }

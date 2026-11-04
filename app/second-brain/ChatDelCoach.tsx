@@ -1,43 +1,32 @@
 'use client';
 
 // =============================================================================
-// El Funnel Coach: su chat adentro del Ops Center (1/11/2026)
+// El Funnel Coach: su chat adentro del Ops Center (1/11/2026; el ÚNICO coach desde el 4/11/2026)
 // =============================================================================
 // Martín: «primero el chat principal de Ops Center, que ya no se llama cerebro... segundo funnel coach y ahí adentro la calculadora».
-// El detalle en docs/funnel-coach.md. ES EL CHAT ÚNICO DE LA APP (AGENTS.md), copiado de ChatDelSecondBrain.tsx:
-//   · el PANEL, el HILO y la CAJA son los del Ops Center; el MOTOR es useChatCliente → /api/mako/chat → turnoApp;
-//   · SU HILO ES SUYO: una conversación por persona y negocio (`mako-movil:<persona>:funnel-coach`, lib/chat-mako-reglas.ts);
-//   · lo que lo hace coach es su CONTEXTO, que elige el servidor por `desde.tab` (lib/asesores/contexto.ts), y la calculadora es la
-//     herramienta `calcular_presupuesto_anuncios`, no una pantalla;
+// Y el 4/11/2026: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach" y que tenga ambas funcionalidades
+// dentro... Por defecto, que esté la cara de hormozi». El detalle en docs/funnel-coach.md. ES EL CHAT ÚNICO DE LA APP (AGENTS.md):
+//   · el PANEL, el HILO y la CAJA son los del Ops Center; el MOTOR es ./useChatDelCoach.ts (el mismo del teléfono) → useChatCliente →
+//     /api/mako/chat → turnoApp;
+//   · lo que lo hace coach es su CONTEXTO y sus HERRAMIENTAS FIJAS, que elige el servidor por `desde.tab` (lib/asesores/contexto.ts):
+//     primero la oferta (lo que hacía el Offer Coach) y después el funnel, la calculadora y el plan, en UN solo chat, sin modos;
 //   · «VER EL PLAN» (docs/funnel-coach.md §3): deja de verse el chat y se ve lo GUARDADO. Sin plan guardado no hay botón.
-// ARRANCA SEGÚN LA OFERTA (§8.1): con oferta, por el presupuesto; sin ella, deriva al Offer Coach en vez de preguntar qué vende.
+// ARRANCA SEGÚN LA OFERTA: con oferta (guardada o armada en una conversación de oferta), por el presupuesto; sin ella, por la oferta,
+// ahí mismo. Las conversaciones de oferta de antes cuelgan de su fila en la barra (ChatSecondBrain.tsx).
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Modal } from '@/app/_ui';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { HiloMako } from '@/app/_chat/HiloMako';
-import { useChatCliente } from './useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from './PiezasCliente';
 import { ElegirReferente } from './ElegirReferente';
 import { BotonSecondBrainDe, CerebroDelGuru } from './SuSecondBrain';
-import { ASPECTO_MAKO, aspectoDeReferente } from '@/lib/centro-munecos';
-import { ORIGEN_FUNNEL_COACH, TAB_FUNNEL_COACH, type ElegidoChat } from '@/lib/chat-mako-reglas';
-import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
-import { lineasDelPlan, sanearPlan, type PlanFunnel } from '@/lib/funnel-plan';
-import type { Desde } from '@/lib/chat-desde';
-import type { ItemHilo } from '@/app/m/mako/chat-ui';
-import type { SesionChat } from '@/lib/mako-turno-app-reglas';
-
-const DESDE: Desde = { tab: ORIGEN_FUNNEL_COACH, entidad: null, modo: null };
-
-/** Lo que dice el chat vacío, según haya oferta. No se guarda: es la portada. */
-export function saludoDelFunnelCoach(hayOferta: boolean): string {
-  return hayOferta
-    ? 'Tu oferta ya está cargada. ¿Cuánto puedes invertir por mes para conseguir clientes?'
-    : 'Antes de elegir un funnel conviene tener clara tu oferta. Empieza con el Offer Coach y vuelve con ella.';
-}
+import { useChatDelCoach } from './useChatDelCoach';
+import { VistaDelPlan } from './VistaDelPlan';
+import { ORIGEN_FUNNEL_COACH, TAB_FUNNEL_COACH } from '@/lib/chat-mako-reglas';
+import { inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 
 export function ChatDelCoach({ referente, hayOferta, puedeElegir, onReferente, onVolver }: {
   referente: IdAsesor | null;
@@ -47,45 +36,18 @@ export function ChatDelCoach({ referente, hayOferta, puedeElegir, onReferente, o
   onReferente: (id: IdAsesor | null) => void;
   onVolver: () => void;
 }) {
-  const [elegido, setElegido] = useState<ElegidoChat | null>(null);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    let vivo = true;
-    void fetch(`/api/mako/chat?deTab=${TAB_FUNNEL_COACH}`, { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null)).catch(() => null)
-      .then((j: { sesion?: SesionChat | null } | null) => { if (vivo) setElegido(j?.sesion ? { antes: j.sesion.id } : { virtual: 'nuevo' }); });
-    return () => { vivo = false; };
-  }, []);
-  const r = asesorPorId(referente);
-  const aspecto = r ? aspectoDeReferente(r.id) : ASPECTO_MAKO;
-  const quien = useMemo(() => ({ nombre: r?.nombre ?? 'MaKo', aspecto }), [r?.nombre, aspecto]);
-  const k = useChatCliente({ elegido, setElegido, activo: false, entrarAlCerebro: false, chatInicial: null, opcionArmar: '', busca: '', caja, desde: DESDE, tab: TAB_FUNNEL_COACH, quien });
-  const { mirarSuIA } = k;
-  useEffect(() => { mirarSuIA(); }, [mirarSuIA]);
+  const { k, r, aspecto, quien, vacio, saludo, plan } = useChatDelCoach({ referente, hayOferta, caja });
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
 
-  // El plan guardado: se relee al entrar y cada vez que MaKo termina (una tarjeta confirmada pudo guardarlo).
-  const [plan, setPlan] = useState<PlanFunnel | null>(null);
-  const [viendoPlan, setViendoPlan] = useState(false);
-  const ocupado = k.enCurso || k.tarjeta != null;
-  useEffect(() => {
-    if (ocupado) return;
-    let vivo = true;
-    void fetch('/api/mako/chat?planFunnel=1', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null)).catch(() => null)
-      .then((j: { plan?: unknown } | null) => { if (vivo && j) setPlan(sanearPlan(j.plan)); });
-    return () => { vivo = false; };
-  }, [ocupado]);
-
   // El plan y el Second Brain del gurú van en el lugar de la conversación, de a uno: abrir uno cierra el otro.
+  const [viendoPlan, setViendoPlan] = useState(false);
   const [viendoCerebro, setViendoCerebro] = useState(false);
   const mostrandoCerebro = viendoCerebro && r != null;
   const mostrandoPlan = viendoPlan && plan != null && !mostrandoCerebro;
   const [eligiendo, setEligiendo] = useState(false);
-  const vacio = elegido != null && k.cargado && !k.errorCarga && !k.items.length && !k.trabajo;
-  const saludo = useMemo<ItemHilo[]>(() => [{ k: 'msg', id: 'saludo-fc', role: 'assistant', texto: saludoDelFunnelCoach(hayOferta), at: new Date().toISOString() }], [hayOferta]);
 
   return (
     <>
@@ -121,18 +83,5 @@ export function ChatDelCoach({ referente, hayOferta, puedeElegir, onReferente, o
         </Modal>
       )}
     </>
-  );
-}
-
-/** Lo guardado, en vez del chat: lo que el CRM o el Dashboard pueden leer, y lo que la persona retoma en tres semanas. */
-function VistaDelPlan({ plan }: { plan: PlanFunnel }) {
-  return (
-    <article className="fc-plan">
-      <dl className="fc-plan__datos">
-        {lineasDelPlan(plan).map((l) => <div key={l.rotulo}><dt>{l.rotulo}</dt><dd>{l.valor}</dd></div>)}
-      </dl>
-      {plan.porque && <p className="fc-plan__porque">{plan.porque}</p>}
-      {plan.pasos.length > 0 && <ol className="fc-plan__pasos">{plan.pasos.map((p) => <li key={p}>{p}</li>)}</ol>}
-    </article>
   );
 }

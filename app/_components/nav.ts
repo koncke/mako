@@ -389,8 +389,10 @@ export const FAMILIAS: NavFamilia[] = [
         // un trabajo propio —hay que mudar cada consumidor—, no una línea de menos acá, y tenerlas
         // afuera a medias dejaba 12 commits buenos sin poder desplegarse.
         // ⚠️ OFFER NO SE VE EN LA BARRA, PERO EL ÍTEM SE QUEDA. Martín, 2/11/2026: «elimina las tabs
-        // de offer… la de offer no la quiero». La pantalla sigue viva en /offer y se llega desde el
-        // Ops Center, donde está el Offer Coach: lo que se saca es el renglón, no la función.
+        // de offer… la de offer no la quiero». La pantalla sigue viva en /offer (la abren el CRM, una
+        // apertura o un link guardado); en el Ops Center la oferta la trabaja el Funnel Coach, el único
+        // coach desde el 4/11/2026, con las conversaciones de oferta colgando de él. Lo que se saca es el
+        // renglón, no la función.
         //
         // ⚠️ POR QUÉ `fueraDeLaBarra` Y NO BORRAR LA ENTRADA: la key es CONTRATO CON LA BASE. La
         // nombran los permisos por capa (`navKeys`, lib/capas.ts), el onboarding por tab, el móvil y

@@ -15,7 +15,7 @@
 // =============================================================================
 
 import { CONTRATO, areasDelMensaje, sinPrefijoDeLote, type Intencion, type VeredictoIntencion } from './mako-intencion';
-import { toolsDelRegistro, porId, leeDatosDeClientes, type Vista } from './api-mako/registro';
+import { toolsDelRegistro, porId, leeDatosDeClientes, visible, aToolDef, charsDeTools, type Vista } from './api-mako/registro';
 import { llevaDatosPersonales } from './mako-pedidos';
 import type { ToolDef } from './anthropic';
 import type { Area } from './api-mako/tipos';
@@ -195,6 +195,15 @@ export type EntradaTurno<T extends { name: string }> = {
   resumenesPendientes?: readonly string[];
   /** El negocio no tiene Calendly: sus herramientas no viajan. */
   sinCalendly?: boolean;
+  /**
+   * Las herramientas PROPIAS de este chat (ids del registro): el coach del Ops Center, que junta las de la oferta y las del
+   * funnel (lib/asesores/contexto.ts → `HERRAMIENTAS_DEL_COACH`, 4/11/2026). Sin esto viajaban por relevancia y, al juntar los dos
+   * coaches, `guardar_oferta` no llegaba ni con «guarda esta oferta». Entran PRIMERO y DENTRO del presupuesto de 12.000 (el resto del
+   * registro llena lo que queda), sólo si la intención lleva herramientas libres y sólo las que la vista puede pedir; en una
+   * pregunta, las que escriben no viajan y se OFRECEN (`ofrecibles`). Nunca se caen en silencio: el margen lo mide
+   * tests/coaches-ops-center.test.ts.
+   */
+  propias?: readonly string[];
 };
 
 /** Lo que pregunta MaKo cuando le piden mover algo sin decir qué. Es lo único que ve la
@@ -262,7 +271,14 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   ])];
   const relevanteA = [sobre, v.relevancia ?? '', ...(p.resumenesPendientes ?? [])].filter(Boolean).join('\n');
   const deSiempre = p.sinCalendly ? p.deSiempre.filter((t) => !DE_CALENDLY.includes(t.name)) : p.deSiempre;
-  const excluir = new Set([...p.deSiempre.map((t) => t.name), ...(p.sinCalendly ? DE_CALENDLY : []), ...(v.mover ? NO_MUEVEN_DE_DIA : [])]);
+  // EN UNA PREGUNTA NO VIAJAN LAS QUE ESCRIBEN (más abajo, «la ofrece»).
+  const ofrece = v.intencion === 'consultar' || v.intencion === 'pensar';
+  // Las propias del chat (`propias`): las que la vista puede pedir, sólo con herramientas libres (no en capturar, confirmar ni charlar).
+  const propias = CONTRATO[v.intencion].tools === null ? propiasDelChat(p.propias ?? [], p.vista) : [];
+  const propiasQueViajan = propias.filter((t) => !ofrece || !escribe(t.name));
+  // Lo que pesan se descuenta del presupuesto del registro: el total sigue siendo 12.000.
+  const presupuesto = Math.max(0, PRESUPUESTO_REGISTRO_CHARS - charsDeTools(propiasQueViajan));
+  const excluir = new Set([...p.deSiempre.map((t) => t.name), ...propias.map((t) => t.name), ...(p.sinCalendly ? DE_CALENDLY : []), ...(v.mover ? NO_MUEVEN_DE_DIA : [])]);
   // En la app (`buscaEnTodo`, lib/mako-intencion.ts) el pedido no siempre nombra el área de su operación («creá una etiqueta»,
   // «cortá el video»): la operación se busca en TODO el registro, con los frenos y las pasadas de lib/relevancia-app.ts (áreas
   // nombradas hasta el 60%; las otras sólo por una raíz al principio de una palabra, sin destructivas ni lecturas que cuestan; el
@@ -277,12 +293,12 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   const quita = deLaApp && pideQuitar(sobre);
   const delRegistro = buscaEnTodo
     ? registroParaLaApp({
-        vista: p.vista, areas, texto: sinOrden || sinVerboAlArranque(sobre), relevanteA, relevancia: v.relevancia ?? '', quita, orden: ordenDelPedido(sobre), conAcciones, excluir, presupuesto: PRESUPUESTO_REGISTRO_CHARS,
+        vista: p.vista, areas, texto: sinOrden || sinVerboAlArranque(sobre), relevanteA, relevancia: v.relevancia ?? '', quita, orden: ordenDelPedido(sobre), conAcciones, excluir, presupuesto,
       })
     : areas.length
       ? toolsDelRegistro({
           vista: p.vista, areas, incluirAcciones: v.intencion === 'actuar',
-          excluir, maxChars: PRESUPUESTO_REGISTRO_CHARS, relevanteA,
+          excluir, maxChars: presupuesto, relevanteA,
           ...(deLaApp ? { donde: puertaDeDestructivas(sinOrden, quita) } : {}),
         })
       : [];
@@ -295,8 +311,7 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
    * acciones sólo en `actuar`. El «sí» al ofrecimiento llega como `actuar`, con todo. Si hay
    * algo pendiente de confirmar, confirmar/cancelar quedan (la persona puede contestarlo).
    */
-  const ofrece = v.intencion === 'consultar' || v.intencion === 'pensar';
-  const tools = toolsParaIntencion<T | ToolDef>(v.intencion, [...deSiempre, ...delRegistro], v.dudosa, !!v.adivina)
+  const tools = toolsParaIntencion<T | ToolDef>(v.intencion, [...deSiempre, ...propiasQueViajan, ...delRegistro], v.dudosa, !!v.adivina)
     .filter((t) => !ofrece || !escribe(t.name) || (p.hayPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')))
     // Un seguimiento levantado desde «sin señal clara» no resuelve lo pendiente (lib/doer-hilo.ts, `noResuelvePendientes`).
     .filter((t) => !(v.noResuelvePendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
@@ -313,12 +328,25 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   // que escriben no viajan («la ofrece», arriba), y sin sus NOMBRES MaKo decía «no puedo» de lo que con un «sí» se hace. Sólo los
   // nombres, de las áreas del pedido y por su relevancia: el esquema viaja con el «sí». Lo dice el turno de la app
   // (lib/mako-turno-app.ts, `lineaDeOfrecibles`).
-  const ofrecibles = ofrece && areas.length
+  const ofreciblesDelRegistro = ofrece && areas.length
     ? toolsDelRegistro({ vista: p.vista, areas, incluirAcciones: true, excluir, maxChars: PRESUPUESTO_REGISTRO_CHARS, relevanteA })
       // Sin las DESTRUCTIVAS (la revisión del 28/10/2026): en una pregunta no se ofrece reembolsar, dar de baja ni despublicar.
       .map((t) => t.name).filter((n) => { const d = porId(n); return escribe(n) && !!d && !esDestructiva(d) && !tools.some((t) => t.name === n); }).slice(0, 4)
     : [];
+  // Las propias que escriben, en una pregunta, se ofrecen siempre: son lo que este chat hace (`propias`).
+  const ofreciblesPropias = ofrece ? propias.filter((t) => { const d = porId(t.name); return escribe(t.name) && !!d && !esDestructiva(d); }).map((t) => t.name) : [];
+  const ofrecibles = [...ofreciblesPropias, ...ofreciblesDelRegistro];
   return { tools, delRegistro, areas, ofrece, instruccion, ofrecibles };
+}
+
+/** Las propias de un chat (`propias`) como herramientas: las que existen en el registro y la vista puede pedir, en el orden dado. */
+export function propiasDelChat(ids: readonly string[], vista: Vista): ToolDef[] {
+  const out: ToolDef[] = [];
+  for (const id of ids) {
+    const d = porId(id);
+    if (d && visible(d, vista) && !out.some((t) => t.name === d.id)) out.push(aToolDef(d));
+  }
+  return out;
 }
 
 /** La línea del system con lo que se puede ofrecer (`ofrecibles`). */
