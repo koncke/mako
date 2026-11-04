@@ -101,16 +101,17 @@ export function sinElLlamadoAMaKo(texto: string, numeroLinea: string | null): st
 }
 
 /**
- * ¿Es el ECO de algo que mandó MaKo? (todo lo que MaKo manda al grupo vuelve por el webhook como `fromMe`, y el webhook se lo pasa
- * al doer sin filtrar). En la línea PROPIA de MaKo (`voz`, leída estricta) no escribe ninguna persona: un `fromMe` es MaKo, esté
- * o no su id en el anillo (la verificación de 8c1b7fa4e: con la base lenta, el id no llegaba a anotarse antes del eco, MaKo se
- * contestaba sola en el grupo de un cliente, y en bucle). En la línea del dueño (donde él también escribe `fromMe`) decide el
- * anillo; y si la voz no se pudo leer (`voz` null), también, como antes.
+ * ¿Es el ECO de algo que mandó MaKo? Dos caminos:
+ *   · SU ID ESTÁ EN EL ANILLO: es eco, venga como venga. ⚠️ CON DOS LÍNEAS DE MaKo EN UN GRUPO, `fromMe` NO ALCANZA (4/11/2026, ws13):
+ *     lo que manda una le llega a la otra con `fromMe: false`, como si lo escribiera una persona, y MaKo se contestaba a sí misma
+ *     (juntó su «Nuevo agendado» con el audio de Joan en un lote). Un id que mandó MaKo no lo puede tener el mensaje de una persona.
+ *   · UN `fromMe` EN LA LÍNEA PROPIA DE MaKo (`voz`, leída estricta): ahí no escribe ninguna persona, esté o no su id en el anillo (la
+ *     verificación de 8c1b7fa4e: con la base lenta, el id no llegaba a anotarse antes del eco, y en bucle). En la línea del dueño
+ *     (donde él también escribe `fromMe`) decide sólo el anillo; y si la voz no se pudo leer (`voz` null), también.
  */
 export function esEcoDeMaKo(p: { fromMe: boolean; msgId: string; instancia: string; voz: string | null; enviados: readonly string[] }): boolean {
-  if (!p.fromMe) return false;
-  if (p.voz !== null && !!p.instancia && p.voz === p.instancia) return true;
-  return !!p.msgId && p.enviados.includes(p.msgId);
+  if (p.msgId && p.enviados.includes(p.msgId)) return true;
+  return p.fromMe && p.voz !== null && !!p.instancia && p.voz === p.instancia;
 }
 
 /**

@@ -21,7 +21,7 @@
 // ⚠️ Mirando se dibuja esto; editando, la grilla con los mismos componentes (app/dashboard/EditorInforme.tsx).
 // =============================================================================
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { conNombres } from '@/lib/graficos-analisis';
@@ -48,16 +48,23 @@ const TONOS_TILE = ['hc-t-cyan', 'hc-t-rose', 'hc-t-violet', 'hc-t-amber', 'hc-t
 const AVATARES = ['#f3cdb8', '#f6e5b9', '#cfe0f6', '#d6efd6', '#f1dcf2'];
 const COLOR_SEGMENTO = { r1: 'var(--st-2)', r2: 'var(--st-4)', sin: 'var(--st-1)', perdida: 'var(--rosa-st)' } as const;
 
+/**
+ * QUIETA: la hoja dibujada como miniatura de «Nueva hoja» (./MiniaturaHoja.tsx, 4/11/2026): la misma hoja, sin la entrada, sin
+ * cifras que cuentan y sin el reloj que rueda (en una galería eso sería movimiento y trabajo por cada tarjeta).
+ */
+const Quieta = createContext(false);
+
 /** Una cifra que cuenta («lo» de Halden: 1.3 s power3.out; al cambiar, desde la de antes). */
 function Cuenta({ valor, formato, demora = 0 }: { valor: number | null; formato: (n: number) => string; demora?: number }) {
   const ref = useRef<HTMLSpanElement>(null);
   const antes = useRef<number | null>(null);
+  const quieta = useContext(Quieta);
   useEffect(() => {
     const el = ref.current;
     if (!el || valor == null) return;
     const desde = antes.current ?? 0;
     antes.current = valor;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches || desde === valor) { el.textContent = formato(valor); return; }
+    if (quieta || matchMedia('(prefers-reduced-motion: reduce)').matches || desde === valor) { el.textContent = formato(valor); return; }
     const t0 = performance.now() + demora * 1000;
     let id = 0;
     const paso = (ahora: number) => {
@@ -68,7 +75,7 @@ function Cuenta({ valor, formato, demora = 0 }: { valor: number | null; formato:
     el.textContent = formato(desde);
     id = requestAnimationFrame(paso);
     return () => cancelAnimationFrame(id);
-  }, [valor, formato, demora]);
+  }, [valor, formato, demora, quieta]);
   return <span ref={ref}>{valor == null ? '—' : formato(valor)}</span>;
 }
 
@@ -77,8 +84,9 @@ function Reloj({ minutos }: { minutos: number | null }) {
   const cols = useRef<Array<HTMLSpanElement | null>>([]);
   const [hh, mm, ss] = relojDe(minutos);
   const digitos = `${String(hh).padStart(2, '0')}${String(mm).padStart(2, '0')}${String(ss).padStart(2, '0')}`.split('').map(Number);
+  const quieta = useContext(Quieta);
   useEffect(() => {
-    const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const quieto = quieta || matchMedia('(prefers-reduced-motion: reduce)').matches;
     const pon = (anim: boolean) => cols.current.forEach((c, i) => {
       if (!c) return;
       const y = `translateY(${-10 * digitos[i]}%)`;
@@ -128,7 +136,7 @@ function useCaja(hojaId: string, elementoId: string | undefined): { vista: Vista
   return { vista, cargando };
 }
 
-export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLlamada, compartido }: {
+export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLlamada, compartido, quieta = false }: {
   hoja: Hoja;
   datos: Record<string, DatosPieza>;
   extras: ExtrasClosing | null;
@@ -141,12 +149,14 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
   onLlamada?: (g: Grafico, clave: string) => void;
   /** En un link compartido no se lee la caja de IA (pide sesión). */
   compartido?: boolean;
+  /** La miniatura de «Nueva hoja»: sin entrada, sin cifras que cuentan y sin leer la caja de IA. */
+  quieta?: boolean;
 }) {
   const v = useMemo(() => vistaClosing(hoja, datos, extras?.agenda ?? null, hoy), [hoja, datos, extras, hoy]);
   const raiz = useRef<HTMLDivElement>(null);
   // Las tarjetas arrancan ocultas hasta que corre la entrada (si no, se verían un cuadro antes de animarse).
   const [entro, setEntro] = useState(false);
-  const caja = useCaja(hoja.id, compartido ? undefined : hoja.diseno?.piezas.ia);
+  const caja = useCaja(hoja.id, compartido || quieta ? undefined : hoja.diseno?.piezas.ia);
   const tablaUltimas = hoja.componentes.find((c): c is Grafico => c.id === hoja.diseno?.piezas.ultimas && c.clase === 'grafico');
   const quien = extras?.quien ?? null;
   const tz = extras?.agenda?.tz ?? 'UTC';
@@ -157,7 +167,7 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
   useLayoutEffect(() => {
     const el = raiz.current;
     setEntro(true);
-    if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!el || quieta || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const anim = (n: Element, desde: Keyframe, dur: number, ease: string, delay: number) =>
       (n as HTMLElement).animate([desde, {}], { duration: dur * 1000, easing: ease, delay: delay * 1000, fill: 'backwards' });
     const todos = (s: string) => [...el.querySelectorAll(s)];
@@ -215,7 +225,8 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
   const clicFila = (f: FilaLlamada) => (tablaUltimas && onLlamada ? () => onLlamada(tablaUltimas, f.clave) : undefined);
 
   return (
-    <div className="hc" ref={raiz} data-antes={entro ? undefined : ''}>
+    <Quieta.Provider value={quieta}>
+    <div className="hc" ref={raiz} data-antes={entro || quieta ? undefined : ''}>
       <style href="dash-hoja-closing" precedence="medium">{CSS_CLOSING}</style>
       {/* La letra de Halden (Manrope), sólo para esta hoja. */}
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" precedence="default" />
@@ -393,5 +404,6 @@ export function HojaClosing({ hoja, datos, extras, hoy, periodo, onGrilla, onLla
         </section>
       </div>
     </div>
+    </Quieta.Provider>
   );
 }
