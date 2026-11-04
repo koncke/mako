@@ -59,6 +59,60 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Los leads de la campaña X»: ninguna herramienta filtraba por campaña (ticket #56, 4/11/2026, nube)
+
+**Síntoma:** Natalia (ws 19), por WhatsApp: «vamos a necesitar una lista de TODOS los leads entrantes de la campaña, con nombre,
+apellido y número de contacto» y después «de la campaña: Campaña recon Finca Cortesin». MaKo: «No encontré leads con ese filtro.
+¿De qué fecha es la campaña o cuándo empezó a entregar? Lo demás no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago.»
+El negocio tiene 113 leads, todos de los últimos 30 días.
+
+**Causa:** no era que la campaña no existiera ni que faltara la fecha. Ninguna herramienta filtraba por campaña: `buscar_leads` mira
+nombre, teléfono, email y empresa, y `listar_leads` etapa, fechas y personas. Medido con el turno real (`clasificarIntencion` +
+`herramientasDelTurno`, el tercer mensaje como `actuar`): llegaba con `buscar_leads` (va siempre) y sin `listar_leads`, así que el
+modelo buscó el nombre de la campaña como si fuera el de una persona. Y en un lead de landing el nombre ni siquiera está escrito: la
+landing guarda el ID (`utm_campaign`, `meta_campaign_id`, el anuncio en `utm_content`), y el nombre sale de las métricas.
+
+**El diagnóstico obvio era el equivocado:** «busca el nombre exacto y el lead guarda otra cosa» es cierto, pero buscar el nombre en
+las columnas del lead tampoco alcanza: el nombre que importa es el de Meta HOY, y la tabla del CRM ya lo resolvía bien (`origenAds`,
+lib/campana-atribucion.ts: el id manda, el nombre es de las métricas). Se usa ésa, no una tercera regla.
+
+**Lo que se hizo:**
+- `buscar_leads`, si ningún lead se llama como el texto, mira si el texto nombra una campaña (por principio de palabra, sin tildes ni
+  «campaña»; el nombre entero es ésa sola). Si no nombra ninguna pero habla de una, devuelve las que hay con cuántos leads trajo cada
+  una, y la instrucción de preguntar cuál: no de pedir la fecha.
+- `listar_leads` tiene `campana` (con los otros filtros, que se siguen aplicando) y sus filas traen teléfono y email.
+- **En WhatsApp la lista la escribe el CÓDIGO** (`aPersona`, que ahora también recibe `runMakoTool`): un teléfono copiado por un modelo
+  puede perder un dígito, y 113 renglones no entran en una respuesta de 2.500 tokens. El modelo recibe cuántos son.
+- Con más de 20 personas que coinciden, `buscar_leads` dice cuántas quedaron afuera (antes: «encontrados: 20» y nada más).
+- `sanearSalida` no pega «pídemelo otra vez y lo hago» debajo de una respuesta que termina preguntando un dato
+  (`preguntaUnDato`): lo que sigue es la respuesta de la persona, no repetir el pedido.
+
+**Trampa medida:** escribir «por campaña» en la DESCRIPCIÓN de `listar_leads` y `buscar_leads` les sumaba puntos («campaña»,
+«Meta», «lead») y sacó del turno a `ver_rendimiento_anuncios` («¿qué anuncio tiene el mejor costo por lead…?») y a
+`editar_contacto_lead` (tests/ops-center-bateria, 2 rojos). Con lo mismo en los PARÁMETROS, que no puntúan, 4 / 0 y el margen del CRON
+igual (318).
+
+**Trampa:** «una palabra del pedido está en el nombre» por subcadena hace que «ana» encuentre toda «Campaña…». Por principio de
+palabra no (lo prueba el test 1). Y el texto de una búsqueda que no es una campaña («Pedro Inexistente») sigue devolviendo el vacío de
+siempre: las campañas parecidas salen sólo si alguna se parece o si el texto dice «campaña».
+
+**Sin hacer:** no se midió contra la base del ws 19 cómo están guardados esos 113 leads (la nube no la ve). La consulta está en
+docs/relevo/nube-tickets.md. Si la campaña de esos leads no tiene id ni nombre (leads sin `utm_campaign`, `meta_campaign_id` ni
+`meta_ad_id`), la lista sale vacía igual y MaKo ofrece las campañas que sí conoce.
+
+**Vive en:** lib/leads-por-campana.ts · lib/leads-por-campana-server.ts · lib/mako-tools.ts (`buscar_leads`) ·
+lib/api-mako/areas/crm.run.ts (`listar_leads`) · lib/doer-salida.ts (`preguntaUnDato`) · tests/leads-por-campana.test.ts.
+## «mako estas vivo?» se quedaba en el 👍: era el clasificador, no la línea (4/11/2026, nube)
+
+**Síntoma:** Joan escribió «mako estas vivo?» en el grupo de un cliente, y MaKo no contestó. Martín lo vio en vivo.
+**El diagnóstico obvio era el equivocado:** parecía la línea caída o la cola trabada, y las dos estaban bien. El turno se procesó: `anthropic_usage` tiene la fila `clase:charlar` con «IA: charla (Saludo preguntando si MaKo está activo) · reglas: consultar». La IA lo leyó como charla y `procesarDoer` cortó en «charla: la reacción alcanza».
+**La regla que queda:** una charla o un «no es para MaKo» que le HABLA a MaKo (lo nombra, lo @menciona o lo cita) y pregunta algo (un «¿» o un «?», o las reglas leen `consultar` por una señal propia) se contesta, corto, con la lectura de las reglas. La regla de Martín del 24/10 («basta con la reacción») sigue para el «ok», el «gracias» y el «bien ahí».
+**Trampa:** el `consultar` del «sin señal clara» del grupo (`enElGrupoSinSenal`) es un respaldo, y le da `consultar` a «MaKo, gracias» y a «bien ahí». Si la señal se lee de `porReglas`, «MaKo, gracias» vuelve a contestar con texto. Se lee de las reglas sobre el mensaje solo (`delMensaje`, sin `sinSenal`).
+**Trampa del test:** las escenas del turno comparten estado (el tope de mensajes por minuto de cada persona, la charla con MaKo), y una escena nueva en el medio puso en rojo a tres de abajo. Va al final, con una persona que no escribió antes.
+**Vive en:** `lib/doer-para-quien.ts` → `preguntaAMaKo`; `lib/mako-doer-in.ts`, después de `clasificarConIA`. Lo fijan `tests/grupos-ops-turno.test.ts` (app y WhatsApp) y `tests/doer-para-quien.test.ts`.
+
+---
+
 ## Para que no nos vuelvan a banear: la persona escribe primero y la línea frena sola (4/11/2026, nube)
 
 Martín, el 4/11, con la línea desbaneada: *«Ya nos desbanearon la cuenta de whatsapp, implementa medidas para que no nos baneen, por
@@ -2877,6 +2931,45 @@ status de nutrición» (2026-08-02).
 ---
 
 ## Email (Resend)
+
+### La campaña de email por la API: lo que no se ve en el código (4/11/2026, nube, la campaña de Mauricio)
+
+El pedido: 14 emails a 1.128 personas desde el Claude del cliente, con un CRM que siga a cada email. El relevo (qué falta
+aplicar en producción y qué no se probó con un envío real) está en `docs/relevo/nube-email.md`.
+
+**1. «Uno cada 24 h» es falso a escala: el ritmo lo pone el tope, no la espera.** El motor manda primero lo que venció antes,
+así que el email 2 de cada persona espera a que salga el email 1 de TODAS. A 100 por día (arrancando en 50), 1.128 personas
+tardan 11 días en recibir el primero, y entre un email y el siguiente de cada una pasan unos 11 días; los 14 son 15.792 envíos
+y unos 158 días. Ninguna pantalla lo decía: el aviso al activar sólo contaba el primer mensaje. Ahora dice la campaña entera
+(`fraseDeCampana`, lib/ritmo-al-activar.ts).
+
+**2. Con un token detallado, lo que vuelve es el resumen de EJECUTAR, no el de la propuesta.** El ritmo vivía sólo en el
+resumen de `proponer_toggle_nutricion`; por HTTP con un token detallado la activación se aplica en el acto
+(`aplicarEnElActo`) y la respuesta era «Secuencia activada.», sin un número. Regla: lo que la persona tiene que saber al
+confirmar va también en lo que devuelve `ejecutar` (lib/mako-doer-acciones.ts, `nutricion_toggle`).
+
+**3. Una secuencia por etapa sin CRM mira sólo la CASA de cada lead.** Los sumados a «Email Marketing» con
+`agregar_en_bloque_a_crm` no entraban nunca: la secuencia activa, sin un error, sin escribirle a nadie. `funnelId` en
+`crear_secuencia_email` la ata al CRM y el barrido mira también los agregados.
+
+**4. Una apertura repetida no mueve nada, a propósito, y eso esconde un test.** `marcarEventoEmail` devuelve la fila sólo la
+primera vez que marca (`.is(col, null)`), así que «nunca hacia atrás» no lo prueba volver a abrir el MISMO email: lo prueba el
+email SIGUIENTE (sale y se abre con la tarjeta ya en «Hizo clic»). El primer test daba verde con la regla borrada.
+
+**5. Cuatro parámetros en una operación grande sacan a OTRA del turno.** Las columnas como cuatro parámetros de
+`configurar_automatizacion` dejaron a `cambiar_crons_secuencia` con −169 caracteres de margen (piso 300,
+tests/ops-center-bateria.test.ts): MaKo habría contestado «no puedo» a cambiar un CRON. Quedó UN parámetro
+(`columnasEmail: "enviado=key,abrio=key,clic=key"`) y margen 318.
+
+**6. Un rebote sin columna no frena, y lo dice.** El freno (rebotes 5 %, quejas 0,3 %, con 50 enviados o más en 24 h) cuenta
+`rebotado_at`/`queja_at` (mig 0380). Sin la migración, la cuenta tira y el freno no frena; `ver_limites_envio` lo dice en vez
+de mostrar un cero.
+
+**Vive en:** lib/email-dominio.ts · lib/email-eventos-crm.ts · lib/email-eventos-crm-reglas.ts · lib/email-freno.ts ·
+lib/email-reputacion.ts · lib/goteo.ts (`topeConRampa`) · lib/goteo-db.ts (`topeEmailDeHoy`) · lib/ritmo-al-activar.ts ·
+lib/nutricion.ts (el corte y la columna «Enviado» en la rama del email) · app/api/webhooks/resend/route.ts ·
+lib/api-mako/areas/{email,crm,chatbot}.{def,run}.ts · app/api-mako/Articulos.tsx (la guía) · lib/agente-skill.ts ·
+*2026-11-04 nube, la campaña de email de Mauricio*
 
 ### ⚠️ El generador de emails escribe para el negocio de Mauricio, no para el del cliente
 
@@ -11525,9 +11618,23 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   dejó de llamar «API key inválida» a una key que manda (`metodo-verificar.ts`).
 - Medido el 17/10: ws10 y ws11 tienen su propia key con acceso completo (ws11 con su dominio en `failed`); ws3 y ws13,
   ninguna.
+- **4/11/2026: se separaron las dos keys en vez de subirle el permiso a la que manda** (encargo del Cerebro, que midió
+  desde la PC que la de producción sigue siendo de sólo envío y que el plan de Resend tiene un dominio). Dar de alta, leer
+  y verificar dominios usa `RESEND_ADMIN_API_KEY`, una variable de Vercel que sólo lee `lib/resend-dominios.ts`; mandar
+  sigue con la de siempre. Tres cosas que no se ven en el código:
+  - ⚠️ **No va en el catálogo de credenciales, a propósito.** Lo que está ahí lo hidrata el arranque desde la fila del ws1
+    (un cliente), pisando el entorno de Vercel: así quedó de sólo envío la de producción. Fuera del catálogo, la variable
+    de Vercel llega intacta.
+  - **Un negocio con SU key (ws10, ws11) administra su dominio con la suya**: su dominio vive en su cuenta. «No pude leer
+    su key» NO cae a la de MaKo, porque daría de alta su dominio en otra cuenta.
+  - **El tope de dominios del plan se reconoce por el TEXTO, sin medir**: resend.com no resuelve desde la nube y el SDK no
+    tiene un código para eso. Cuando se vea el cuerpo real, se suma a `tests/resend-clave-admin.test.ts`.
+  - ⚠️ **Leer lo RECIBIDO** (`getDeResend`, la bandeja de Chats) sigue con la key que manda. Si Resend no deja leer con una
+    de sólo envío, eso también falla: no se midió, y mudarlo es sacar la de administración de su módulo.
 
-**Vive en:** `lib/resend.ts` (`resendFetch`, `errorDeResend`) · `lib/resend-errores.ts` · `lib/metodo-verificar.ts`
-(`email`) · `lib/credenciales.ts` (`aplicarAEnv`) · test: `tests/resend-key-solo-envio.test.ts`
+**Vive en:** `lib/resend-dominios.ts` (`claveDeDominios`, `resendFetch`, `errorDeResend`) · `lib/resend-errores.ts` ·
+`lib/email-dominio.ts` (`prepararConexion`, `prepararVerificacion`) · `lib/metodo-verificar.ts` (`email`) ·
+`lib/credenciales.ts` (`aplicarAEnv`) · tests: `tests/resend-key-solo-envio.test.ts`, `tests/resend-clave-admin.test.ts`
 
 ## «Nada por detrás», lote 2: la reunión cancelada de Calendly, mudada y con freno (17/10/2026)
 
@@ -12572,3 +12679,22 @@ hilo cada 15 s y **cada lectura firma de nuevo la URL del Storage**. Un `src` qu
 
 **Vive en:** `LO_ULTIMO_FUE_COMENTAR`, `eventoDelComentario` (lib/canal-social.ts) · `previewDe` (app/chats/lista-reglas.ts) ·
 `AudioPlay` (app/whatsapp/_shared/AudioPlay.tsx) · tests/m-chats.test.ts · tests/whatsapp-sexta-tanda.test.ts.
+## La copia al grupo de la app va ANTES de WhatsApp, y el eco se encuentra por el texto (3/11/2026)
+
+Lo que sale solo a un grupo pasa por `copiarAlGrupo` (`lib/grupo-app.ts`), y `tests/grupos-ops-guarda.test.ts` frena un envío nuevo que la saltee. No hay un punto de copia solo: `ev()` es demasiado bajo (ya tiene el jid), `enviarTextoVozMaKo` también lleva DMs, y `enviarPartesAJid` lo llama `enviarPartesAlGrupoMaKo` (copia doble). Son las puertas.
+
+**La copia antes del envío duplica con quien reintenta, y ése es el caso normal hoy.** Con la voz fuera de 7 u 8 grupos, `avisarUno`, `avisos-resumen`, `aviso-arreglo`, `lineas-vigilante` y `llegoLaTarjeta` reintentan: cada corrida sumaba una burbuja. `enviarAlGrupoMaKo` devuelve `{ ok: true, id: 'app:<fila>', enApp: true }` y `EmitirAvisoResult` suma `enApp`, sin tocar `wa`: así sigue el puente por mail, necesario porque `push_suscripciones` tenía 0 filas. **`resultadoDelAviso` era el que nadie había listado:** leía `wa:false` y contestaba «No salió», el motor disparaba el aviso de respaldo (doble burbuja y doble push), y en el rastro quedaba «Evolution 400 en mako_ws9». Hay que re-barrer `\.wa\b` cada vez que se sume un consumidor.
+
+**Sin WhatsApp, un aviso no entraba a la memoria ni insistía:** `emitirAviso` lo hacía sólo con `env.ok`. MaKo preguntaba «¿lo cargo?» en la app, contestaban «sí», y el doer no sabía a qué. Ahora con `env.ok || copia`, y la clave de la conversación. ⚠️ **Un aviso `alDueno` se emite con el `ws` del cliente:** con esa clave le quedaba en la memoria del cliente, y MaKo le repetía avisos de agencia sobre él. Su clave es la del grupo de la plataforma. ⚠️ **La insistencia, sólo si alguien usa el grupo** (`alguienAbrioElGrupo`): sin nadie en la app, el «ok» del grupo de WhatsApp no llega al webhook si la línea no está, y las repeticiones siguen hasta el techo en un hilo que nadie abrió.
+
+**El eco no se puede emparejar con el anillo:** con la voz en `mako_ws<n>`, `vozPropiaDeMaKo` da null y sólo decide el anillo, que ya perdió carreras. Como la fila existe antes del envío, el eco busca su texto entre las copias sin id de los últimos 10 min. ⚠️ **Hay que normalizar los dos lados con `linksConWs`:** el doer manda `/tickets?t=5` crudo y la copia lo guarda con `&ws=13`; sin eso no empareja, y si el eco le ganó al anillo sale una burbuja `persona` a nombre de Martín, porque la voz es su número.
+
+**El espejo es sincrónico y nunca llama al doer**, y por eso MaKo no contesta dos veces: el doer sigue entrando sólo por su `after`. La puerta es `wsDelGrupoOficial`, nunca el ws de la instancia: la voz trae TODOS los grupos del número de Martín, y los de prueba de la allowlist darían la plataforma. La fila se escribe antes de bajar la media: si no, el texto que venía detrás de una foto queda arriba de ella. Lo viejo que reentrega Evolution al reconectar (`wa_at` de más de 10 min) entra y no suena. Sin validar los bytes, un HTML con nombre de PDF se serviría en línea desde el storage.
+
+**El 👍 en la app sale DESPUÉS del clasificador.** Al llegar, dos personas charlando recibían el pulgar y después silencio. Y sin clasificador (el negocio sin su Claude y el crédito agotado), en la app no hay @menciones que lo atajen: «Juan, mirá esto» iba a turno completo y, sin IA, al cartel, la oferta de ayuda y un ticket, por cada tanda de 8 s. Con el texto de la app, si nadie lo nombra, no lo cita y no hay pendiente, MaKo no aparece, salvo que sea la única persona del grupo. **Una foto o un PDF sin nombrar a MaKo tampoco van a la cola:** es la diferencia con WhatsApp, donde un adjunto es deliberado. Es una decisión para el Cerebro.
+
+**Lo que el hilo guarda como texto no empareja con su eco (4/11).** Una tarjeta con un video: el hilo guarda «(un video)», porque no lo dibuja, y el eco dice «(video en WhatsApp)». En una tarjeta de varias partes el id se ata recién al final y el eco llega antes, así que no era una carrera rara: era lo normal, y salía una burbuja de más. `textoParaComparar` (lib/grupo-reglas.ts) los iguala.
+
+**`bufferearYResponder` tiene una segunda puerta (4/11).** Sus `return` tempranos (la respuesta al equipo, el emoji suelto) suponían que el mensaje no había entrado a la cola, y por WhatsApp es cierto. Desde la app la ruta ya encoló: sin `sacarDeLaCola`, el cron corría un turno a los 2 minutos sobre lo que era para el equipo. El detalle, en docs/hallazgos-ops-center.md.
+
+**Lo que no tiene arreglo sin otra decisión:** en los grupos donde la línea no está, Evolution no entrega nada: se ve lo que MaKo manda y lo escrito en la app, no lo que esas personas escriban en WhatsApp. Y un turno de WhatsApp puede citar lo escrito en la app, porque la memoria va por jid: es el costo de que el «sí» de un lado vea lo del otro.

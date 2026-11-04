@@ -157,16 +157,6 @@ export function colgarIrA<T extends { k: string; id: string; role?: string }>(it
   return i < 0 ? [...items] : items.map((x, j) => (j === i ? { ...x, irA: [...links] } : x));
 }
 
-/** El grupo de WhatsApp de MaKo en la barra del Second Brain (tanda 8): se lee acá y se contesta allá. */
-export const TITULO_GRUPO = 'MaKo en WhatsApp';
-export const AVISO_GRUPO = 'Se contesta en el grupo de WhatsApp.';
-
-/** ¿Es un momento válido para pedir la página anterior del grupo? (`?antes=` de la ruta: una fecha ISO, nada más). */
-export function antesValido(v: unknown): string | null {
-  if (typeof v !== 'string' || v.length > 40 || !/^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})$/.test(v)) return null;
-  return Number.isFinite(Date.parse(v)) ? v : null;
-}
-
 // ── «Lo que hizo» (tanda 7) ──────────────────────────────────────────────────────────────────────────────────────
 
 /** Cómo quedó una acción que MaKo dejó en el chat (lo que dibuja el riel). Los rótulos salen de PILL_PROPUESTA. */
@@ -263,11 +253,11 @@ export function seEscondeDeOffer(s: { id: number; updatedAt: string }, copiada: 
 
 /** Lo elegido en la barra: una conversación con MaKo, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»), una conversación de Offer, o un chat de Claude Code (su clave del Centro). */
-export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number } | { grupo: true }
+export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number }
   | { automatizacion: number } | { editor: TipoEditor; clave: string } | { coach: 'funnel' };
 
-/** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). El grupo no tiene motor: se lee. */
-export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'grupo' | 'automations' | 'editor';
+/** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). El grupo del negocio no va acá: tiene el suyo (ChatDelGrupo.tsx). */
+export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'automations' | 'editor';
 
 export type FilaDelCliente = {
   /** La key de React y la búsqueda del elegido. */
@@ -359,10 +349,14 @@ export const ORIGEN_SECOND_BRAIN = 'Second Brain';
 export const TAB_VIDEO_GENERATOR = 'video-generator';
 export const ORIGEN_VIDEO_GENERATOR = 'Video Generator';
 /** Las tabs con una conversación propia por persona: lo único que acepta la ruta para crearla. */
-/** El Funnel Coach (1/11/2026, docs/funnel-coach.md): su fila está fija debajo del Ops Center, así que no se repite en el resto. */
+/**
+ * El Funnel Coach (1/11/2026, docs/funnel-coach.md): su fila está fija debajo del Ops Center, así que no se repite en el resto. Es el
+ * ÚNICO coach desde el 4/11/2026 (Martín: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach"»): trabaja la
+ * oferta y el funnel, y las conversaciones de oferta cuelgan de su fila. ⚠️ NO HAY OTRO ORIGEN DE COACH: un «Offer Coach» que vuelva a
+ * aparecer en una pantalla es una segunda puerta a lo mismo (tests/coaches-ops-center.test.ts lo frena).
+ */
 export const TAB_FUNNEL_COACH = 'funnel-coach';
 export const ORIGEN_FUNNEL_COACH = 'Funnel Coach';
-export const ORIGEN_OFFER_COACH = 'Offer Coach';
 export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN, TAB_VIDEO_GENERATOR, TAB_FUNNEL_COACH];
 
 // ── El chat con un GURÚ (3/11/2026, #16: «elegir un gurú desde Nuevo chat») ─────────────────────────────────────────
@@ -380,28 +374,20 @@ export function referenteDeTab(tab: string | null | undefined): IdAsesor | null 
 /** ¿Esta tab tiene una conversación propia por persona? Las de la lista fija y la de cada gurú (lo único que acepta la ruta). */
 export const esTabConChatPropio = (tab: string): boolean => TABS_CON_CHAT_PROPIO.includes(tab) || (!tab.includes(':') && referenteDeTab(tab) != null);
 
-/**
- * Qué abre tocar la fila del Offer Coach (3/11/2026, Martín: «Cuando le doy a "Hormozi" no se abre nada»). Con un gurú al frente, SU
- * chat, ahí mismo y aunque nunca le haya escrito: es lo que dice la fila. Sus conversaciones de Offer siguen debajo, cada una en su
- * fila. Sin gurú (eligió «MaKo»), la conversación de Offer más reciente; sin ninguna, elegir uno: la fila nunca es un clic muerto.
- */
-export function queAbreElOfferCoach(o: { referente: IdAsesor | null; offer: ElegidoChat | null }): { guru: IdAsesor } | { elegido: ElegidoChat } | { elegir: true } {
-  if (o.referente) return { guru: o.referente };
-  return o.offer ? { elegido: o.offer } : { elegir: true };
-}
-
 /** Un gurú con el que la persona ya habló: su conversación y cuándo fue lo último. */
 export type GuruConCharla = { id: IdAsesor; at: string | null };
 
 /**
- * Los gurús que van en la barra, debajo de los coaches, lo más reciente arriba: con los que ya habló y el que tiene abierto, aunque
- * todavía no le haya escrito (si no, abrirlo no se vería en la lista). El del Offer Coach no se repite: ya tiene su fila.
+ * Los gurús que van en la barra, debajo del coach, lo más reciente arriba: con los que ya habló y el que tiene abierto, aunque todavía no
+ * le haya escrito (si no, abrirlo no se vería en la lista). ⚠️ NINGUNO SE ESCONDE (4/11/2026): hasta ese día se sacaba el del Offer Coach,
+ * porque su fila ERA el chat con ese gurú. El coach único tiene su propia conversación, así que la charla con Hormozi que alguien tuvo
+ * tocando el Offer Coach sale acá, con su cara y su nombre, y no se pierde ni se duplica.
  */
-export function gurusDeLaBarra(o: { conCharla: readonly GuruConCharla[]; abierto: IdAsesor | null; delOffer: IdAsesor | null; busca: string }): GuruConCharla[] {
+export function gurusDeLaBarra(o: { conCharla: readonly GuruConCharla[]; abierto: IdAsesor | null; busca: string }): GuruConCharla[] {
   const b = normal(o.busca);
   const yaEsta = o.conCharla.some((g) => g.id === o.abierto);
   return [...o.conCharla, ...(o.abierto && !yaEsta ? [{ id: o.abierto, at: null }] : [])]
-    .filter((g) => g.id !== o.delOffer && (!b || normal(asesorPorId(g.id)?.nombre ?? '').includes(b)))
+    .filter((g) => !b || normal(asesorPorId(g.id)?.nombre ?? '').includes(b))
     .map((g, i) => ({ g, i, t: ms(g.at) ?? Number.MAX_SAFE_INTEGER }))
     .sort((x, y) => y.t - x.t || x.i - y.i)
     .map((x) => x.g);
@@ -537,11 +523,9 @@ export function jefeDelGrupo(g: { clave: string; jefe: string; subs: readonly Fi
 }
 
 /** La lista entera: el Cerebro primero (siempre, aunque no tenga conversación todavía) y el resto, lo más reciente arriba. La
- *  búsqueda no esconde al Cerebro (es la casa). `grupo`: el grupo de WhatsApp de MaKo del negocio, de SÓLO LECTURA y sólo del
- *  admin (22/10/2026, OC3: el lector existía y nadie lo llamaba; lib/chat-mako-indice.ts → grupoDeMaKo, que ya corta al resto). */
+ *  búsqueda no esconde al Cerebro (es la casa). */
 export function listaDelCliente(p: {
   sesiones: readonly SesionChat[]; offer: readonly ConTitulo[]; antes: readonly DeAntes[]; busca: string;
-  grupo?: { titulo: string; ultimoAt: string | null } | null;
   /** Las charlas del lienzo de Automations (OC5): se leen acá y se siguen en el lienzo. */
   automations?: readonly ConTitulo[];
   /** Los chats del Image Editor y del Video Editor (OC8): se leen acá y se siguen en el editor. */
@@ -573,7 +557,6 @@ export function listaDelCliente(p: {
       const titulo = nombre ? conOrigen(origen, nombre) : origen ?? `Chat del ${fechaCorta(ms(a.updatedAt)) || 'principio'}`;
       return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo, criatura: origen ?? titulo, actividad: ms(a.updatedAt), origen: 'antes' };
     }),
-    ...(p.grupo ? [{ clave: 'grupo', elegido: { grupo: true } as const, titulo: p.grupo.titulo, criatura: TITULO_GRUPO, actividad: ms(p.grupo.ultimoAt), origen: 'grupo' as const }] : []),
     ...(p.automations ?? []).map((a): FilaDelCliente => ({
       clave: `au${a.id}`, elegido: { automatizacion: a.id }, titulo: conOrigen(ORIGEN_AUTOMATIONS, a.titulo?.trim() || `Automatización ${a.id}`),
       criatura: ORIGEN_AUTOMATIONS, actividad: ms(a.updatedAt), origen: 'automations',

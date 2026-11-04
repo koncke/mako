@@ -62,8 +62,11 @@ import { listarEtiquetas } from '@/lib/etiquetas';
 import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte } from '@/lib/flujo-ia-crear';
 import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
-import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from '@/lib/limites-envio';
-import { horarioDeLaAutomatizacion, textoDeHorario, configParaGuardar } from '@/lib/config-automatizacion';
+import { KEY_LIMITES_ENVIO, conLimite, limitesDeFabrica, limitesParaGuardar, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
+import { horarioDeLaAutomatizacion, textoDeHorario, configParaGuardar, EVENTOS_COLUMNA, type EventoColumna } from '@/lib/config-automatizacion';
+import { crmDeLaAutomatizacion } from '@/lib/email-eventos-crm';
+import { etapasDeProducto } from '@/lib/lead-funnel';
+import { terminalEstadoFor } from '@/lib/pipeline';
 import { textoDeGoteo } from '@/lib/goteo';
 import { cortarSinPartir } from '@/lib/unicode-seguro';
 import { leerConfigAutomatizacion, guardarConfigAutomatizacion, copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
@@ -161,9 +164,11 @@ async function secuenciaVigente(id: number) {
  * palabras para el resumen que la persona confirma. Sin nada que cambiar, el error.
  */
 
-function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Parameters<typeof configParaGuardar>[0]): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
+type ColumnasPedidas = { valor: unknown; partes: string[] } | null;
+function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Parameters<typeof configParaGuardar>[0], columnas: ColumnasPedidas = null): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
   const cambio: Record<string, unknown> = {};
   const partes: string[] = [];
+  if (columnas) { cambio.columnasEmail = columnas.valor; partes.push(...columnas.partes); }
   const h = str(input, 'horario');
   if (h === 'negocio') { cambio.horario = null; partes.push('el horario del negocio'); }
   else if (h === 'sin_horario') { cambio.horario = { activo: false, desde: 9, hasta: 21, dias: [0, 1, 2, 3, 4, 5, 6] }; partes.push('sin horario (manda a cualquier hora)'); }
@@ -190,11 +195,54 @@ function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Paramete
     }
     if (Object.keys(g).length) cambio.goteo = g;
   }
-  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario) o el goteo (goteoMinutos, goteoPorDia), que vale para todos los canales.' };
+  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), el goteo (goteoMinutos, goteoPorDia) o las columnas del email (columnasEmail).' };
   // Contra lo que tiene: el arranque sube hasta su tope, que puede estar puesto de antes (`configParaGuardar`).
   const prueba = configParaGuardar(previo, cambio);
   if (!prueba.ok) return { error: prueba.error };
   return { cambio, resumen: partes.join(' · ') };
+}
+
+/** Cómo dice el resumen cada evento de email (4/11/2026, la campaña de email de Mauricio). */
+const DICE_EVENTO: Record<EventoColumna, string> = { enviado: 'al salir el email', abrio: 'al abrirlo', clic: 'al hacer clic' };
+
+/** `"enviado=key,abrio=key"` → los pedidos, o el error. `«ninguna»` sola = sacar las tres. */
+function leerColumnasPedidas(texto: string): { todas: null } | { pares: Array<[EventoColumna, string]> } | { error: string } {
+  const t = texto.trim();
+  if (t.toLowerCase() === 'ninguna') return { todas: null };
+  const pares: Array<[EventoColumna, string]> = [];
+  for (const parte of t.split(',').map((x) => x.trim()).filter(Boolean)) {
+    const [ev, key] = parte.split('=').map((x) => (x ?? '').trim());
+    if (!(EVENTOS_COLUMNA as readonly string[]).includes(ev) || key == null) return { error: `No entendí «${parte}»: va evento=columna, con evento enviado, abrio o clic.` };
+    pares.push([ev as EventoColumna, key]);
+  }
+  return pares.length ? { pares } : { error: 'columnasEmail vino vacío.' };
+}
+
+/**
+ * LAS COLUMNAS DEL EMAIL (4/11/2026, lib/email-eventos-crm.ts): a qué columna del CRM de la automatización pasa la tarjeta
+ * cuando un email sale, se abre o se cliquea. Se validan contra ESE CRM (su `funnel_id`): una columna que no tiene, o una de
+ * cierre (Ganado, Perdido…: un clic no es una venta), es un error. `null` = no pidió nada de columnas.
+ */
+async function columnasDelInput(input: Record<string, unknown>, secuenciaId: number): Promise<{ valor: unknown; partes: string[] } | { error: string } | null> {
+  if (typeof input.columnasEmail !== 'string') return null;
+  const pedido = leerColumnasPedidas(input.columnasEmail);
+  if ('error' in pedido) return { error: pedido.error };
+  if ('todas' in pedido) return { valor: null, partes: ['sin columnas del email'] };
+  const funnelId = await crmDeLaAutomatizacion(secuenciaId);
+  if (funnelId == null) return { error: 'La automatización no está atada a un CRM: átala con editar_meta_secuencia_email (funnelId) antes de elegir columnas.' };
+  const etapas = await etapasDeProducto(funnelId);
+  const valor: Record<string, string | null> = {};
+  const partes: string[] = [];
+  for (const [e, k] of pedido.pares) {
+    // «ninguna» saca la de ese evento.
+    if (!k || k.toLowerCase() === 'ninguna') { valor[e] = null; partes.push(`sin columna ${DICE_EVENTO[e]}`); continue; }
+    const etapa = etapas.find((x) => x.key === k);
+    if (!etapa) return { error: `El CRM de esta automatización no tiene la columna «${k}». Columnas: ${etapas.map((x) => `${x.key} («${x.label}»)`).join(', ')}.` };
+    if (terminalEstadoFor(k) !== 'abierto') return { error: `«${etapa.label}» es una columna de cierre: un email no la puede mover ahí. Elige una abierta.` };
+    valor[e] = k;
+    partes.push(`${DICE_EVENTO[e]} pasa a «${etapa.label}»`);
+  }
+  return { valor, partes };
 }
 
 /** Lo que tiene el modelo para crear con IA por /api/v1, que corta a 60 s (`crear_automatizacion_con_ia`). */
@@ -465,6 +513,65 @@ export const RUNNERS: Runners = {
         escenarios: escenarios.map((e, k) => ({ numero: k + 1, cuando: e.cuando, camino: e.pasos, mensajes_whatsapp: e.mensajes })),
         faltan,
       });
+    },
+  },
+
+  // LOS TOPES DE ENVÍO (4/11/2026, la campaña de email de Mauricio): lib/limites-envio.ts, la rampa del email y el freno.
+  ver_limites_envio: {
+    leer: async () => {
+      const fabrica = limitesDeFabrica(process.env);
+      const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica);
+      const [{ usoDelCupo, topeEmailDeHoyDelNegocio }, { envioEmailHabilitado }, { conteoEmailUltimas24h }, { FRENO_EMAIL }] = await Promise.all([
+        import('@/lib/nutricion'), import('@/lib/envio-flags'), import('@/lib/email-reputacion'), import('@/lib/email-freno'),
+      ]);
+      const [uso, emailHoy, envioEmail, conteo] = await Promise.all([
+        usoDelCupo().catch(() => null), topeEmailDeHoyDelNegocio(vigentes.email), envioEmailHabilitado(),
+        // Sin la migración 0380 no hay rebotes que contar: se dice, no se inventa un cero.
+        conteoEmailUltimas24h().catch(() => null),
+      ]);
+      return json({
+        whatsapp: { por_dia: vigentes.wa.dia, por_hora: vigentes.wa.hora, en_24h: uso?.waDia ?? null, en_la_hora: uso?.waHora ?? null },
+        email: {
+          por_dia: vigentes.email.dia, tope_de_hoy: emailHoy, en_24h: uso?.emailDia ?? null, envio_prendido: envioEmail,
+          rampa: { primer_dia: vigentes.email.arranqueDia, sube_por_dia: vigentes.email.arranqueSube, nota: 'Arranca en primer_dia y sube cada día que llega a su tope, hasta por_dia.' },
+          freno: {
+            regla: `Con ${FRENO_EMAIL.minimoEnviados} enviados o más en 24 h, rebotes de ${FRENO_EMAIL.rebotes * 100} % o quejas de ${FRENO_EMAIL.quejas * 100} % apagan el envío y te avisan.`,
+            ultimas_24h: conteo ?? 'todavía no se pueden contar los rebotes (falta la migración 0380)',
+          },
+        },
+        mako_contesta_sola: { por_persona_en_24h: vigentes.mako.solasPor24h },
+        de_fabrica: { whatsapp_por_dia: fabrica.wa.dia, whatsapp_por_hora: fabrica.wa.hora, email_por_dia: fabrica.email.dia, rampa_primer_dia: fabrica.email.arranqueDia, rampa_sube: fabrica.email.arranqueSube },
+      });
+    },
+  },
+
+  cambiar_limites_envio: {
+    preparar: async (input) => {
+      const fabrica = limitesDeFabrica(process.env);
+      const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica);
+      if (input.restaurar === true) return { payload: { limites: fabrica }, resumen: 'Volver los topes de envío a los de fábrica' };
+      const CAMBIOS: Array<[string, keyof LimitesEnvio, string, string]> = [
+        ['waDia', 'wa', 'dia', 'WhatsApp por día'], ['waHora', 'wa', 'hora', 'WhatsApp por hora'], ['emailDia', 'email', 'dia', 'emails por día'],
+        ['emailArranqueDia', 'email', 'arranqueDia', 'la rampa del email arranca con'], ['emailArranqueSube', 'email', 'arranqueSube', 'y sube por día'],
+        ['makoSolasPor24h', 'mako', 'solasPor24h', 'respuestas solas por persona en 24 h'],
+      ];
+      let nuevo = vigentes;
+      const partes: string[] = [];
+      for (const [param, grupo, campo, dice] of CAMBIOS) {
+        if (input[param] == null) continue;
+        nuevo = conLimite(nuevo, grupo, campo, num(input, param));
+        partes.push(`${dice}: ${num(input, param)}`);
+      }
+      if (!partes.length) return { error: 'No dice qué cambiar: waDia, waHora, emailDia, emailArranqueDia, emailArranqueSube, makoSolasPor24h, o restaurar.' };
+      const prueba = limitesParaGuardar(nuevo, fabrica);
+      if (!prueba.ok) return { error: prueba.error };
+      return { payload: { limites: nuevo }, resumen: `Topes de envío: ${partes.join(' · ')}` };
+    },
+    ejecutar: async (payload) => {
+      const r = limitesParaGuardar(payload.limites, limitesDeFabrica(process.env));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      await setSetting(KEY_LIMITES_ENVIO, r.valor);
+      return { ok: true, resumen: 'Listo: los topes de envío quedaron guardados.' };
     },
   },
 
@@ -962,6 +1069,8 @@ export const RUNNERS: Runners = {
         horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: config.horario === undefined ? 'negocio' : 'propio' },
         goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, arranque: config.goteo?.arranque ?? null, canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
         linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
+        // Las columnas del email (4/11/2026): a cuál pasa la tarjeta en su CRM cuando el email sale, se abre o se cliquea.
+        columnas_email: { enviado: config.columnasEmail?.enviado ?? null, abrio: config.columnasEmail?.abrio ?? null, clic: config.columnasEmail?.clic ?? null },
         nota: 'Los topes por día y por hora de la LÍNEA son de todas las automatizaciones; el goteo es un sub-tope adentro de esos, de ésta sola.',
       });
     },
@@ -972,7 +1081,9 @@ export const RUNNERS: Runners = {
       const id = num(input, 'secuenciaId');
       const s = await secuenciaVigente(id);
       if (!s) return { error: noExiste(id) };
-      const r = cambioDeConfigDelInput(input, await leerConfigAutomatizacion(id));
+      const columnas = await columnasDelInput(input, id);
+      if (columnas && 'error' in columnas) return { error: columnas.error };
+      const r = cambioDeConfigDelInput(input, await leerConfigAutomatizacion(id), columnas);
       if ('error' in r) return { error: r.error };
       return { payload: { secuenciaId: id, cambio: r.cambio }, resumen: `«${s.nombre}»: ${r.resumen}` };
     },

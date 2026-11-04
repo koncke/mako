@@ -17,7 +17,6 @@ import { getSettingEstricto } from './settings';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { bloqueoDeEnvioEnRevision } from './revision-guarda';
-import { esKeySoloEnvio, KEY_SOLO_ENVIO_DE_MAKO, KEY_SOLO_ENVIO_TUYA } from './resend-errores';
 import {
   remitenteDelNegocio, remitenteDelPaso, sanearRemitente, dominioDe, esDominioDeMako, SIN_EMAIL_PROPIO,
   type VeredictoRemitente,
@@ -293,7 +292,10 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
 
 // ── Lo que LLEGA (Receiving), para la bandeja de Chats (17/10/2026) ──────────
 // El webhook `email.received` trae sólo el SOBRE (lib/email-entrante-reglas.ts): el cuerpo y los adjuntos se piden
-// aparte, con la misma key con que se reclamó el dominio (`resendKey`: la propia del negocio o la de la plataforma).
+// aparte, con la key con que se MANDA (`resendKey`: la propia del negocio o la de la plataforma).
+// ⚠️ NO MEDIDO (4/11/2026): el dominio ya no se reclama con ésa sino con la de administración (lib/resend-dominios.ts), y la
+// de producción es de sólo envío. Si Resend tampoco deja LEER lo recibido con una key de sólo envío, esto contesta
+// `restricted_api_key`: hay que medirlo antes de mudarlo, y mudarlo es decidir que la de administración sale de su módulo.
 //   GET /emails/receiving/{id}                          → html, text, subject, from, to, message_id, attachments[]
 //   GET /emails/receiving/{email_id}/attachments/{id}   → download_url (firmada, vence en `expires_at`)
 // Los usa lib/chats-email.ts. Leen; no mandan nada.
@@ -368,166 +370,13 @@ export async function getAdjuntoRecibido(emailId: string, adjuntoId: string): Pr
 // Se re-exporta para que los siete call sites sigan importando de donde siempre.
 export { renderEmailHtml, escapeHtml, linkify, bodyToHtml, marcasAHtml, type RenderEmailParams } from './email-html';
 
-// ── API de Domains (onboarding de dominio por workspace) ─────────────────────
-// POST /domains crea el dominio en la cuenta de MaKo y devuelve los registros
-// DNS (DKIM/SPF) que el cliente carga en su proveedor. GET /domains/{id} da el
-// estado; POST /domains/{id}/verify dispara la verificación.
-
-export type ResendDnsRecord = {
-  record: string;            // 'DKIM' | 'SPF' | ...
-  name: string;              // host del registro
-  type: string;              // 'TXT' | 'MX' | 'CNAME'
-  value: string;
-  ttl?: string;
-  priority?: number;
-  status?: string;           // 'not_started' | 'pending' | 'verified' | 'failure'
-};
-
-export type ResendDomain = {
-  id: string;
-  name: string;
-  status: string;            // 'not_started' | 'pending' | 'verified' | 'failure' | 'temporary_failure'
-  region?: string;
-  records: ResendDnsRecord[];
-  /** El seguimiento de aperturas y de clics del dominio (`open_tracking` / `click_tracking`). Ausente = Resend no lo dijo. */
-  openTracking?: boolean;
-  clickTracking?: boolean;
-};
-
-export type DomainResult = { ok: true; domain: ResendDomain } | { ok: false; error: string };
-
-// `deMako`: la key de esta llamada es la de la PLATAFORMA (la que el negocio no puede tocar). Lo usa `errorDeResend`.
-async function resendFetch(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; body: unknown; deMako?: boolean }> {
-  const key = await resendKey();
-  if (!key) return { ok: false, status: 0, body: { message: 'RESEND_API_KEY no configurada' } };
-  const deMako = await esDeLaPlataforma('RESEND_API_KEY', key).catch(() => false);
-  try {
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
-      cache: 'no-store',
-    });
-    const text = await res.text();
-    let body: unknown = text;
-    try { body = text ? JSON.parse(text) : {}; } catch { /* deja texto */ }
-    return { ok: res.ok, status: res.status, body, deMako };
-  } catch (err) {
-    return { ok: false, status: 0, body: { message: err instanceof Error ? err.message : String(err) } };
-  }
-}
-
-/**
- * EL ERROR DE UNA LLAMADA A /domains, EN PALABRAS (#875). Una key de sólo envío no es «Resend 401»: si es la de MaKo,
- * el problema es nuestro (y queda en el log, fuerte); si es la del negocio, se le dice cuál crear (lib/resend-errores.ts).
- */
-function errorDeResend(r: { status: number; body: unknown; deMako?: boolean }, fallback: string): string {
-  if (esKeySoloEnvio(r.body)) {
-    if (r.deMako) console.error('[resend] la key de la PLATAFORMA es de sólo envío: no da de alta ni verifica dominios (#875, docs/hallazgos-comunicacion.md)');
-    return r.deMako ? KEY_SOLO_ENVIO_DE_MAKO : KEY_SOLO_ENVIO_TUYA;
-  }
-  return errMsg(r.body, fallback);
-}
-
-function errMsg(body: unknown, fallback: string): string {
-  if (typeof body === 'object' && body && 'message' in body) return String((body as { message?: unknown }).message);
-  return typeof body === 'string' && body ? body.slice(0, 200) : fallback;
-}
-
-function parseDomain(body: unknown): ResendDomain | null {
-  if (typeof body !== 'object' || !body || !('id' in body)) return null;
-  const d = body as { id?: unknown; name?: unknown; status?: unknown; region?: unknown; records?: unknown; open_tracking?: unknown; click_tracking?: unknown };
-  return {
-    id: String(d.id ?? ''),
-    name: String(d.name ?? ''),
-    status: String(d.status ?? 'pending'),
-    region: d.region ? String(d.region) : undefined,
-    records: Array.isArray(d.records) ? (d.records as ResendDnsRecord[]) : [],
-    ...(typeof d.open_tracking === 'boolean' ? { openTracking: d.open_tracking } : {}),
-    ...(typeof d.click_tracking === 'boolean' ? { clickTracking: d.click_tracking } : {}),
-  };
-}
-
-const REGIONES_VALIDAS = new Set(['us-east-1', 'eu-west-1', 'sa-east-1', 'ap-northeast-1']);
-
-/**
- * PRENDE EL SEGUIMIENTO DE APERTURAS Y DE CLICS del dominio (4/11/2026, la campaña de Mauricio: «si ya lo abrió me lo pones
- * aquí»). Sin esto Resend no manda `email.opened` ni `email.clicked`, y el webhook no tiene nada que marcar: la columna
- * «Abrió» quedaría vacía para siempre, sin un error. Medido ese día: en hola-mako.com los dos estaban apagados.
- *
- * El contrato es el de la API de Resend (`PATCH /domains/{id}` con `open_tracking` y `click_tracking`, booleanos; contesta
- * `{ id, object: 'domain' }`), leído del SDK oficial (resend@6.37.0, `Domains.update`): la página de la documentación no se
- * podía abrir desde la nube. Se pide aunque ya estén prendidos: es idempotente. `{ ok: false }` lleva el motivo en palabras.
- */
-export async function prenderSeguimiento(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const r = await resendFetch(`/domains/${encodeURIComponent(id)}`, {
-    method: 'PATCH', body: JSON.stringify({ open_tracking: true, click_tracking: true }),
-  });
-  return r.ok ? { ok: true } : { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
-}
-
-/** Lo que devuelve `createResendDomain`: el dominio y si se pudo prender el seguimiento (`true`, o el motivo). */
-export type CreacionDominio = { ok: true; domain: ResendDomain; seguimiento: true | string } | { ok: false; error: string };
-
-// Crea el dominio. Si ya existe en la cuenta (ej: re-conectar en la prueba E2E),
-// lo busca en la lista y lo devuelve — idempotente para el onboarding. El caller
-// (lib/email-dominio.ts) valida la TITULARIDAD por workspace antes de adoptarlo.
-// El fallback por lista corre ante cualquier 4xx (no dependemos del wording del
-// mensaje de error de Resend).
-// ⚠️ Y SIEMPRE PRENDE EL SEGUIMIENTO (`prenderSeguimiento`), también al adoptar uno que ya estaba: un dominio dado de alta
-// antes del 4/11 nace con los dos apagados. Si el seguimiento falla, el dominio queda igual y el motivo vuelve en `seguimiento`.
-export async function createResendDomain(name: string, region = 'sa-east-1'): Promise<CreacionDominio> {
-  const reg = REGIONES_VALIDAS.has(region) ? region : 'sa-east-1';
-  const r = await resendFetch('/domains', { method: 'POST', body: JSON.stringify({ name, region: reg, open_tracking: true, click_tracking: true }) });
-  let creado: DomainResult;
-  if (r.ok) {
-    const d = parseDomain(r.body);
-    creado = d ? { ok: true, domain: d } : { ok: false, error: 'Resend no devolvió el dominio' };
-  } else {
-    creado = { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
-    // 4xx → puede ser "ya existe": buscarlo por nombre en la cuenta.
-    if (r.status >= 400 && r.status < 500) {
-      const lista = await listResendDomains();
-      if (lista.ok) {
-        const existente = lista.domains.find((d) => d.name.toLowerCase() === name.toLowerCase());
-        if (existente) creado = await getResendDomain(existente.id);
-      }
-    }
-  }
-  if (!creado.ok) return creado;
-  const s = await prenderSeguimiento(creado.domain.id);
-  return s.ok
-    ? { ok: true, domain: { ...creado.domain, openTracking: true, clickTracking: true }, seguimiento: true }
-    : { ok: true, domain: creado.domain, seguimiento: s.error };
-}
-
-export async function getResendDomain(id: string): Promise<DomainResult> {
-  const r = await resendFetch(`/domains/${encodeURIComponent(id)}`);
-  if (!r.ok) return { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
-  const d = parseDomain(r.body);
-  return d ? { ok: true, domain: d } : { ok: false, error: 'respuesta inválida de Resend' };
-}
-
-// Dispara la verificación (Resend revisa los DNS). El estado nuevo se lee con
-// getResendDomain — la verificación puede tardar minutos.
-export async function verifyResendDomain(id: string): Promise<{ ok: boolean; error?: string }> {
-  const r = await resendFetch(`/domains/${encodeURIComponent(id)}/verify`, { method: 'POST' });
-  return r.ok ? { ok: true } : { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
-}
-
-export async function listResendDomains(): Promise<{ ok: true; domains: Array<{ id: string; name: string; status: string }> } | { ok: false; error: string }> {
-  const r = await resendFetch('/domains');
-  if (!r.ok) return { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
-  const data = typeof r.body === 'object' && r.body && 'data' in r.body ? (r.body as { data?: unknown }).data : null;
-  const arr = Array.isArray(data) ? data : [];
-  return {
-    ok: true,
-    domains: arr.map((d) => ({
-      id: String((d as { id?: unknown }).id ?? ''),
-      name: String((d as { name?: unknown }).name ?? ''),
-      status: String((d as { status?: unknown }).status ?? ''),
-    })),
-  };
-}
+// ── API de Domains: vive en lib/resend-dominios.ts, con su PROPIA clave (4/11/2026) ──────────────────────────────────
+// La key con que se MANDA es de sólo envío (medido en producción) y así se queda: dar de alta, leer y verificar dominios
+// usa `RESEND_ADMIN_API_KEY`, que sólo lee ese módulo. Se re-exporta para que los que importan de acá sigan igual.
+export {
+  createResendDomain, getResendDomain, verifyResendDomain, listResendDomains, prenderSeguimiento, puedeAdministrarDominios,
+  type ResendDnsRecord, type ResendDomain, type DomainResult, type CreacionDominio,
+} from './resend-dominios';
 
 // ── Verificación de firma del webhook ────────────────────────────────────────
 // Resend firma con Standard Webhooks (Svix). El algoritmo vive en

@@ -1,0 +1,1468 @@
+{
+  "medido": "2026-11-04T11:43:18.211Z",
+  "url": "https://demo.codeandchill.store/fernly/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/fernly/",
+      "ancho": 390,
+      "alto": 2415,
+      "fondo": "rgb(233, 235, 233)",
+      "letra": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--page": "#e9ebe9",
+        "--panel": "#f5f6f5",
+        "--card": "#fdfdfc",
+        "--hair": "#e3e7e4",
+        "--ink": "#131a15",
+        "--muted": "#646d67",
+        "--faint": "#6c756f",
+        "--g-950": "#0d3a23",
+        "--g-800": "#155a37",
+        "--g-700": "#1d7347",
+        "--g-600": "#27865a",
+        "--g-400": "#5dbd8b",
+        "--g-100": "#e3f2e9",
+        "--hatch": "#8d9a92",
+        "--deep": "color-mix(in srgb, #0d3a23 55%, #000)",
+        "--swirl": "color-mix(in srgb, #5dbd8b 22%, transparent)",
+        "--amber": "#b06d0a",
+        "--amber-bg": "#fdf3e2",
+        "--rose": "#c23b3b",
+        "--rose-bg": "#fdeceb",
+        "--font": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--r-lg": "26px",
+        "--r-md": "20px",
+        "--gap": "16px",
+        "--shadow": "0 1px 2px #131a150a, 0 8px 24px -12px #131a151a",
+        "--ease": "cubic-bezier(.22, 1, .36, 1)",
+        "--focus": "0 0 0 3px #fdfdfc, 0 0 0 5px #27865a"
+      },
+      "tipografia": [
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "38px",
+          "peso": "600",
+          "interlineado": "43.7px",
+          "espaciado": "-0.76px",
+          "color": "rgb(241, 248, 243)",
+          "veces": 60,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(108, 117, 111)",
+          "veces": 10,
+          "ejemplo": "Due date: Oct 8, 2026"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "30px",
+          "peso": "600",
+          "interlineado": "33px",
+          "espaciado": "-1.05px",
+          "color": "rgb(19, 26, 21)",
+          "veces": 9,
+          "ejemplo": "D"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(108, 117, 111)",
+          "veces": 7,
+          "ejemplo": "S"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "500",
+          "interlineado": "27.55px",
+          "espaciado": "-0.38px",
+          "color": "rgb(19, 26, 21)",
+          "veces": 5,
+          "ejemplo": "Project Analytics"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 5,
+          "ejemplo": "Payments API v2"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "0.27px",
+          "color": "rgba(19, 26, 21, 0.78)",
+          "veces": 4,
+          "ejemplo": "PR"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15.5px",
+          "peso": "500",
+          "interlineado": "22.475px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 4,
+          "ejemplo": "Priya Raman"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "400",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(108, 117, 111)",
+          "veces": 4,
+          "ejemplo": "Working on Design System Tokens"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 4,
+          "ejemplo": "Design System Tokens"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "400",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(100, 109, 103)",
+          "veces": 4,
+          "ejemplo": "Project Ended"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14.5px",
+          "peso": "500",
+          "interlineado": "21.025px",
+          "espaciado": "-0.2175px",
+          "color": "rgb(19, 26, 21)",
+          "veces": 3,
+          "ejemplo": "Ended Projects"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "42px",
+          "peso": "600",
+          "interlineado": "42px",
+          "espaciado": "-1.68px",
+          "color": "rgb(19, 26, 21)",
+          "veces": 3,
+          "ejemplo": "10"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14.5px",
+          "peso": "400",
+          "interlineado": "21.025px",
+          "espaciado": "normal",
+          "color": "rgb(100, 109, 103)",
+          "veces": 3,
+          "ejemplo": "Time : 02.00 pm - 04.00 pm"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 2,
+          "ejemplo": "Search projects and people"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "500",
+          "interlineado": "23.2px",
+          "espaciado": "normal",
+          "color": "rgb(242, 248, 244)",
+          "veces": 2,
+          "ejemplo": "Add Project"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "400",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(100, 109, 103)",
+          "veces": 2,
+          "ejemplo": "6Increased from last month"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.5px",
+          "peso": "400",
+          "interlineado": "16px",
+          "espaciado": "normal",
+          "color": "rgb(100, 109, 103)",
+          "veces": 2,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 2,
+          "ejemplo": "New"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "38px",
+          "peso": "600",
+          "interlineado": "55.1px",
+          "espaciado": "-0.76px",
+          "color": "rgb(241, 248, 243)",
+          "veces": 2,
+          "ejemplo": ":"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(176, 109, 10)",
+          "veces": 2,
+          "ejemplo": "In Progress"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(242, 248, 244)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "0.28px",
+          "color": "rgba(19, 26, 21, 0.78)",
+          "veces": 1,
+          "ejemplo": "NC"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(100, 109, 103)",
+          "veces": 1,
+          "ejemplo": "Everything your team is shipping, in one"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "500",
+          "interlineado": "23.2px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 1,
+          "ejemplo": "Import Data"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14.5px",
+          "peso": "500",
+          "interlineado": "21.025px",
+          "espaciado": "-0.2175px",
+          "color": "rgb(241, 248, 243)",
+          "veces": 1,
+          "ejemplo": "Total Projects"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "42px",
+          "peso": "600",
+          "interlineado": "42px",
+          "espaciado": "-1.68px",
+          "color": "rgb(241, 248, 243)",
+          "veces": 1,
+          "ejemplo": "24"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "400",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(185, 230, 203)",
+          "veces": 1,
+          "ejemplo": "5Increased from last month"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.5px",
+          "peso": "400",
+          "interlineado": "16px",
+          "espaciado": "normal",
+          "color": "rgb(185, 230, 203)",
+          "veces": 1,
+          "ejemplo": "5"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "400",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(29, 115, 71)",
+          "veces": 1,
+          "ejemplo": "Awaiting review"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 1,
+          "ejemplo": "74%"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "23px",
+          "espaciado": "-0.5px",
+          "color": "rgb(21, 90, 55)",
+          "veces": 1,
+          "ejemplo": "Check-in with Halcyon Labs"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "500",
+          "interlineado": "27.55px",
+          "espaciado": "-0.38px",
+          "color": "rgb(241, 248, 243)",
+          "veces": 1,
+          "ejemplo": "Time Tracker"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(29, 115, 71)",
+          "veces": 1,
+          "ejemplo": "Completed"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(194, 59, 59)",
+          "veces": 1,
+          "ejemplo": "Pending"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "40px",
+          "peso": "600",
+          "interlineado": "40px",
+          "espaciado": "-2px",
+          "color": "rgb(19, 26, 21)",
+          "veces": 1,
+          "ejemplo": "42%"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "main.board",
+          "x": 10,
+          "y": 88,
+          "w": 370,
+          "h": 2317,
+          "fondo": "rgb(245, 246, 245)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "22px 12px 12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Dashboard Everything your team is shipping, in one calm plac"
+        },
+        {
+          "etiqueta": "article.card.stat.stat--hero",
+          "x": 22,
+          "y": 287,
+          "w": 167,
+          "h": 177,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(241, 248, 243)",
+          "radio": "20px",
+          "sombra": "rgba(13, 58, 35, 0.7) 0px 14px 30px -16px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Total Projects 24 5Increased from last month"
+        },
+        {
+          "etiqueta": "article.card.stat",
+          "x": 201,
+          "y": 287,
+          "w": 167,
+          "h": 177,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Ended Projects 10 6Increased from last month"
+        },
+        {
+          "etiqueta": "article.card.stat",
+          "x": 22,
+          "y": 476,
+          "w": 167,
+          "h": 177,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Running Projects 12 2Increased from last month"
+        },
+        {
+          "etiqueta": "article.card.stat",
+          "x": 201,
+          "y": 476,
+          "w": 167,
+          "h": 177,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Pending Projects 2 Awaiting review"
+        },
+        {
+          "etiqueta": "section.card.analytics",
+          "x": 22,
+          "y": 665,
+          "w": 346,
+          "h": 264,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Project Analytics Daily goal completion this week. Hatched b"
+        },
+        {
+          "etiqueta": "section.card.reminder",
+          "x": 22,
+          "y": 941,
+          "w": 346,
+          "h": 224,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Reminders Check-in with Halcyon Labs Time : 02.00 pm - 04.00"
+        },
+        {
+          "etiqueta": "section.card.projects",
+          "x": 22,
+          "y": 1176,
+          "w": 346,
+          "h": 344,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Project New Payments API v2Due date: Oct 8, 2026 Mobile Onbo"
+        },
+        {
+          "etiqueta": "section.card.tracker",
+          "x": 22,
+          "y": 2183,
+          "w": 346,
+          "h": 210,
+          "fondo": "color(srgb 0.0280392 0.125098 0.0754902)",
+          "borde": "0px none rgb(241, 248, 243)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Time Tracker 01234567890123456789:01234567890123456789:01234"
+        },
+        {
+          "etiqueta": "section.card.team",
+          "x": 22,
+          "y": 1533,
+          "w": 346,
+          "h": 335,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team Collaboration Add Member PRPriya RamanWorking on Design"
+        },
+        {
+          "etiqueta": "section.card.progress",
+          "x": 22,
+          "y": 1880,
+          "w": 346,
+          "h": 291,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Project Progress 42%Project Ended Completed In Progress Pend"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/fernly/",
+      "ancho": 1440,
+      "alto": 999,
+      "fondo": "rgb(233, 235, 233)",
+      "letra": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--page": "#e9ebe9",
+        "--panel": "#f5f6f5",
+        "--card": "#fdfdfc",
+        "--hair": "#e3e7e4",
+        "--ink": "#131a15",
+        "--muted": "#646d67",
+        "--faint": "#6c756f",
+        "--g-950": "#0d3a23",
+        "--g-800": "#155a37",
+        "--g-700": "#1d7347",
+        "--g-600": "#27865a",
+        "--g-400": "#5dbd8b",
+        "--g-100": "#e3f2e9",
+        "--hatch": "#8d9a92",
+        "--deep": "color-mix(in srgb, #0d3a23 55%, #000)",
+        "--swirl": "color-mix(in srgb, #5dbd8b 22%, transparent)",
+        "--amber": "#b06d0a",
+        "--amber-bg": "#fdf3e2",
+        "--rose": "#c23b3b",
+        "--rose-bg": "#fdeceb",
+        "--font": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--r-lg": "26px",
+        "--r-md": "20px",
+        "--gap": "16px",
+        "--shadow": "0 1px 2px #131a150a, 0 8px 24px -12px #131a151a",
+        "--ease": "cubic-bezier(.22, 1, .36, 1)",
+        "--focus": "0 0 0 3px #fdfdfc, 0 0 0 5px #27865a"
+      },
+      "tipografia": [
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "46px",
+          "peso": "600",
+          "interlineado": "52.9px",
+          "espaciado": "-0.92px",
+          "color": "rgb(241, 248, 243)",
+          "veces": 60,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(108, 117, 111)",
+          "veces": 10,
+          "ejemplo": "Due date: Oct 8, 2026"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "600",
+          "interlineado": "37.4px",
+          "espaciado": "-1.19px",
+          "color": "rgb(19, 26, 21)",
+          "veces": 9,
+          "ejemplo": "D"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "400",
+          "interlineado": "23.2px",
+          "espaciado": "normal",
+          "color": "rgb(100, 109, 103)",
+          "veces": 7,
+          "ejemplo": "Tasks10"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "400",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(100, 109, 103)",
+          "veces": 7,
+          "ejemplo": "noah@fernly.app"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(108, 117, 111)",
+          "veces": 7,
+          "ejemplo": "S"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "500",
+          "interlineado": "27.55px",
+          "espaciado": "-0.38px",
+          "color": "rgb(19, 26, 21)",
+          "veces": 5,
+          "ejemplo": "Project Analytics"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 5,
+          "ejemplo": "Payments API v2"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "0.27px",
+          "color": "rgba(19, 26, 21, 0.78)",
+          "veces": 4,
+          "ejemplo": "PR"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15.5px",
+          "peso": "500",
+          "interlineado": "22.475px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 4,
+          "ejemplo": "Priya Raman"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "400",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(108, 117, 111)",
+          "veces": 4,
+          "ejemplo": "Working on Design System Tokens"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 4,
+          "ejemplo": "Design System Tokens"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "500",
+          "interlineado": "26.1px",
+          "espaciado": "-0.27px",
+          "color": "rgb(19, 26, 21)",
+          "veces": 3,
+          "ejemplo": "Ended Projects"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "48px",
+          "peso": "600",
+          "interlineado": "48px",
+          "espaciado": "-1.92px",
+          "color": "rgb(19, 26, 21)",
+          "veces": 3,
+          "ejemplo": "10"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14.5px",
+          "peso": "400",
+          "interlineado": "21.025px",
+          "espaciado": "normal",
+          "color": "rgb(100, 109, 103)",
+          "veces": 3,
+          "ejemplo": "Time : 02.00 pm - 04.00 pm"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "0.72px",
+          "color": "rgb(108, 117, 111)",
+          "veces": 2,
+          "ejemplo": "Menu"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 2,
+          "ejemplo": "Search projects and people"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 2,
+          "ejemplo": "Ctrl K"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "500",
+          "interlineado": "23.2px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 2,
+          "ejemplo": "Noah Castell"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "500",
+          "interlineado": "23.2px",
+          "espaciado": "normal",
+          "color": "rgb(242, 248, 244)",
+          "veces": 2,
+          "ejemplo": "Add Project"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.5px",
+          "peso": "400",
+          "interlineado": "16px",
+          "espaciado": "normal",
+          "color": "rgb(100, 109, 103)",
+          "veces": 2,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 2,
+          "ejemplo": "New"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "46px",
+          "peso": "600",
+          "interlineado": "66.7px",
+          "espaciado": "-0.92px",
+          "color": "rgb(241, 248, 243)",
+          "veces": 2,
+          "ejemplo": ":"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(176, 109, 10)",
+          "veces": 2,
+          "ejemplo": "In Progress"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(242, 248, 244)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "31.9px",
+          "espaciado": "-0.66px",
+          "color": "rgb(19, 26, 21)",
+          "veces": 1,
+          "ejemplo": "Fernly"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "600",
+          "interlineado": "23.2px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 1,
+          "ejemplo": "Dashboard"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.5px",
+          "peso": "600",
+          "interlineado": "15.225px",
+          "espaciado": "normal",
+          "color": "rgb(240, 247, 242)",
+          "veces": 1,
+          "ejemplo": "10"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "400",
+          "interlineado": "21.85px",
+          "espaciado": "-0.38px",
+          "color": "rgb(238, 246, 241)",
+          "veces": 1,
+          "ejemplo": "Fernly for iOS & Android"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(185, 212, 195)",
+          "veces": 1,
+          "ejemplo": "Your board, in your pocket"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(238, 246, 241)",
+          "veces": 1,
+          "ejemplo": "Download"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14.5px",
+          "peso": "600",
+          "interlineado": "21.025px",
+          "espaciado": "0.29px",
+          "color": "rgba(19, 26, 21, 0.78)",
+          "veces": 1,
+          "ejemplo": "NC"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(100, 109, 103)",
+          "veces": 1,
+          "ejemplo": "Everything your team is shipping, in one"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "500",
+          "interlineado": "26.1px",
+          "espaciado": "-0.27px",
+          "color": "rgb(241, 248, 243)",
+          "veces": 1,
+          "ejemplo": "Total Projects"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "48px",
+          "peso": "600",
+          "interlineado": "48px",
+          "espaciado": "-1.92px",
+          "color": "rgb(241, 248, 243)",
+          "veces": 1,
+          "ejemplo": "24"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "400",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(185, 230, 203)",
+          "veces": 1,
+          "ejemplo": "5Increased from last month"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10.5px",
+          "peso": "400",
+          "interlineado": "16px",
+          "espaciado": "normal",
+          "color": "rgb(185, 230, 203)",
+          "veces": 1,
+          "ejemplo": "5"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "400",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(29, 115, 71)",
+          "veces": 1,
+          "ejemplo": "Awaiting review"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(19, 26, 21)",
+          "veces": 1,
+          "ejemplo": "74%"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "24px",
+          "peso": "600",
+          "interlineado": "27.6px",
+          "espaciado": "-0.6px",
+          "color": "rgb(21, 90, 55)",
+          "veces": 1,
+          "ejemplo": "Check-in with Halcyon Labs"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "500",
+          "interlineado": "27.55px",
+          "espaciado": "-0.38px",
+          "color": "rgb(241, 248, 243)",
+          "veces": 1,
+          "ejemplo": "Time Tracker"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(29, 115, 71)",
+          "veces": 1,
+          "ejemplo": "Completed"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(194, 59, 59)",
+          "veces": 1,
+          "ejemplo": "Pending"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "54px",
+          "peso": "600",
+          "interlineado": "54px",
+          "espaciado": "-2.7px",
+          "color": "rgb(19, 26, 21)",
+          "veces": 1,
+          "ejemplo": "42%"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.sidebar",
+          "x": 12,
+          "y": 12,
+          "w": 252,
+          "h": 876,
+          "fondo": "rgb(245, 246, 245)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "26px",
+          "sombra": "none",
+          "padding": "22px 0px 18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Fernly Menu Dashboard Tasks10 Calendar Analytics Team Genera"
+        },
+        {
+          "etiqueta": "div.promo",
+          "x": 30,
+          "y": 665,
+          "w": 216,
+          "h": 205,
+          "fondo": "color(srgb 0.0280392 0.125098 0.0754902)",
+          "borde": "0px none rgb(238, 246, 241)",
+          "radio": "20px",
+          "sombra": "none",
+          "padding": "18px 16px 16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Fernly for iOS & Android Your board, in your pocket Download"
+        },
+        {
+          "etiqueta": "header.topbar",
+          "x": 276,
+          "y": 12,
+          "w": 1152,
+          "h": 70,
+          "fondo": "rgb(245, 246, 245)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "26px",
+          "sombra": "none",
+          "padding": "10px 14px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Search projects and people Ctrl K NotificationsMark all read"
+        },
+        {
+          "etiqueta": "main.board",
+          "x": 276,
+          "y": 94,
+          "w": 1152,
+          "h": 893,
+          "fondo": "rgb(245, 246, 245)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "26px",
+          "sombra": "none",
+          "padding": "22px 20px 16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Dashboard Everything your team is shipping, in one calm plac"
+        },
+        {
+          "etiqueta": "article.card.stat.stat--hero",
+          "x": 296,
+          "y": 197,
+          "w": 266,
+          "h": 158,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(241, 248, 243)",
+          "radio": "20px",
+          "sombra": "rgba(13, 58, 35, 0.7) 0px 14px 30px -16px",
+          "padding": "18px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Total Projects 24 5Increased from last month"
+        },
+        {
+          "etiqueta": "article.card.stat",
+          "x": 578,
+          "y": 197,
+          "w": 266,
+          "h": 158,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "18px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Ended Projects 10 6Increased from last month"
+        },
+        {
+          "etiqueta": "article.card.stat",
+          "x": 860,
+          "y": 197,
+          "w": 266,
+          "h": 158,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "18px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Running Projects 12 2Increased from last month"
+        },
+        {
+          "etiqueta": "article.card.stat",
+          "x": 1142,
+          "y": 197,
+          "w": 266,
+          "h": 158,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "18px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Pending Projects 2 Awaiting review"
+        },
+        {
+          "etiqueta": "section.card.analytics",
+          "x": 296,
+          "y": 371,
+          "w": 548,
+          "h": 292,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "18px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Project Analytics Daily goal completion this week. Hatched b"
+        },
+        {
+          "etiqueta": "section.card.reminder",
+          "x": 860,
+          "y": 371,
+          "w": 266,
+          "h": 292,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "18px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Reminders Check-in with Halcyon Labs Time : 02.00 pm - 04.00"
+        },
+        {
+          "etiqueta": "section.card.projects",
+          "x": 1142,
+          "y": 371,
+          "w": 266,
+          "h": 388,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "18px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Project New Payments API v2Due date: Oct 8, 2026 Mobile Onbo"
+        },
+        {
+          "etiqueta": "section.card.tracker",
+          "x": 1142,
+          "y": 774,
+          "w": 266,
+          "h": 196,
+          "fondo": "color(srgb 0.0280392 0.125098 0.0754902)",
+          "borde": "0px none rgb(241, 248, 243)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "18px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Time Tracker 01234567890123456789:01234567890123456789:01234"
+        },
+        {
+          "etiqueta": "section.card.team",
+          "x": 296,
+          "y": 679,
+          "w": 454,
+          "h": 292,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "18px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team Collaboration Add Member PRPriya RamanWorking on Design"
+        },
+        {
+          "etiqueta": "section.card.progress",
+          "x": 766,
+          "y": 679,
+          "w": 360,
+          "h": 292,
+          "fondo": "rgb(253, 253, 252)",
+          "borde": "0px none rgb(19, 26, 21)",
+          "radio": "20px",
+          "sombra": "rgba(19, 26, 21, 0.04) 0px 1px 2px 0px, rgba(19, 26, 21, 0.1) 0px 8px 24px -12px",
+          "padding": "18px 20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Project Progress 42%Project Ended Completed In Progress Pend"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "Fernly",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 38,
+            "y": 34,
+            "w": 113,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(19, 26, 21)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(19, 26, 21)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(19, 26, 21) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "a.nav__link",
+          "texto": "Dashboard",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 12,
+            "y": 129,
+            "w": 252,
+            "h": 41
+          },
+          "estilo": {
+            "color": "rgb(19, 26, 21)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(19, 26, 21)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(19, 26, 21) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 2,
+          "etiqueta": "button.nav__link",
+          "texto": "Logout",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 12,
+            "y": 469,
+            "w": 252,
+            "h": 41
+          },
+          "estilo": {
+            "color": "rgb(100, 109, 103)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(100, 109, 103)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(100, 109, 103) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(100, 109, 103)",
+              "rgb(19, 26, 21)"
+            ],
+            "borderColor": [
+              "rgb(100, 109, 103)",
+              "rgb(19, 26, 21)"
+            ],
+            "outline": [
+              "rgb(100, 109, 103) none 3px",
+              "rgb(19, 26, 21) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(100, 109, 103)",
+              "rgb(19, 26, 21)"
+            ],
+            "borderColor": [
+              "rgb(100, 109, 103)",
+              "rgb(19, 26, 21)"
+            ],
+            "outline": [
+              "rgb(100, 109, 103) none 3px",
+              "rgb(19, 26, 21) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 3,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"3\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button ty"
+        },
+        {
+          "n": 4,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"4\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button ty"
+        },
+        {
+          "n": 5,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"5\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a class=\""
+        },
+        {
+          "n": 6,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"6\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button ty"
+        },
+        {
+          "n": 7,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"7\"]')\u001b[22m\n\u001b[2m    - locator resolved to <label dat"
+        },
+        {
+          "n": 8,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"8\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a class=\""
+        },
+        {
+          "n": 9,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"9\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button da"
+        },
+        {
+          "n": 10,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"10\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button d"
+        },
+        {
+          "n": 11,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"11\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button d"
+        },
+        {
+          "n": 12,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"12\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button d"
+        },
+        {
+          "n": 13,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"13\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 14,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"14\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button c"
+        },
+        {
+          "n": 15,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"15\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button c"
+        },
+        {
+          "n": 16,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"16\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 17,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"17\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a target"
+        }
+      ]
+    }
+  }
+}

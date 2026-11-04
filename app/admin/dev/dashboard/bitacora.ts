@@ -848,4 +848,49 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '10:30', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las 20 hojas, rechazadas: cada una tiene que ser la copia exacta de su referencia',
+    pedido: 'Me dijiste que me dejaste los 20 dashboard ahí y son dashboard todos iguales, horribles, que no era la idea que yo quiero. Recuerda lo que habíamos empezado a hacer en donde habíamos empezado a hacer el dashboard de Focus, hicimos de manera muy personalizada sobre todo copiando lo que tiene la otra página, y ahora lo que hiciste fue agarrar un template y estandarizarlo para todos. Eso no me gusta. Quiero hacerlo de manera muy personalizada, cada dashboard. Te pido por favor que sea de esa manera y que te centres en que sea primero la copia, es decir, que se vea exactamente igual que la copia, y después la adaptación con Maco. Es decir, tienes que buscar entre todos los dashboards que vamos a copiar ver cuál se adapta más al template que queremos crear, por ejemplo de Closing Analysis, agarrar ese y agarrar elementos, sacar otros, etcétera. Pero copiarlo todo, desde las animaciones de entrada, las animaciones de hover, las animaciones de clic, copiarlo absolutamente todo. Esa era la idea.',
+    puntos: [
+      'Llegó por el Cerebro. Una hoja por vez, empezando por Closing, con la copia al lado del original.',
+      'Desde la nube no se llega a los demos de la referencia: lo que hay que correr para medirlos está en docs/relevo/nube-dashboards.md.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '11:43', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Closing, copiado de Halden: primero la copia exacta, después con lo de MaKo',
+    puntos: [
+      '**La referencia de Closing es Halden:** cada bloque suyo tiene su par en las llamadas (lo ganado → la tasa de cierre, los vendedores → los closers).',
+      '**La copia exacta** mide lo mismo que el original en la compu y en el teléfono, con cada bloque a 0-2 px, y entra con sus mismos tiempos.',
+      '**La adaptación** cambia los datos y saca lo que no sirve: la tasa de cierre arriba, cómo terminaron, las llamadas de la semana, las últimas, la próxima, cada closer, lo que ve MaKo y la duración.',
+      '**Todavía es una maqueta:** en producción sigue la hoja de antes hasta llevar este diseño al Dashboard con los datos reales.',
+    ],
+    archivos: [
+      'docs/diseno/mockups-dashboard/closing/copia.html — la copia exacta',
+      'docs/diseno/mockups-dashboard/closing/closing.html — la adaptación',
+      'docs/diseno/mockups-dashboard/closing/closing.css · closing.js — la hoja y el movimiento, sólo de Closing',
+      'docs/relevo/nube-dashboards.md — la comparación con el original',
+    ],
+    revisar: '/dashboard',
+  },
+  {
+    fecha: '4 nov', hora: '12:12', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Closing se ve como Halden en el Dashboard, con los números del negocio',
+    puntos: [
+      '**Una hoja Closing nueva** («Nueva hoja» → Closing) se ve con el diseño de Halden: la tasa de cierre arriba, cómo terminaron, las llamadas de la semana con las agendadas, las últimas, la próxima, cada closer, lo que ve MaKo y la duración.',
+      '**Entra y responde igual que la copia:** los mismos tiempos al aparecer, el número que cuenta, el reloj que gira y las barras que suben.',
+      '**«Editar» o «Ver todo en la grilla»** muestran la hoja de siempre, con los mismos gráficos; tocar una llamada abre su pop-up.',
+      '**Un closer o un setter** la ven sin la agenda, como el resto de su Dashboard. Una hoja Closing de antes no cambia sola.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaClosing.tsx · closing-css.ts — el diseño, sólo de Closing',
+      'lib/closing-diseno.ts — lo que dice cada bloque (con test)',
+      'lib/graficos-catalogo.ts — la hoja guarda qué diseño usa y de qué gráfico lee cada bloque',
+      'docs/relevo/nube-dashboards.md — las capturas al lado de la maqueta',
+    ],
+    revisar: '/dashboard',
+  },
 ];

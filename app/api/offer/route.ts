@@ -107,7 +107,7 @@ import { avisarOfertaLista } from '@/lib/oferta-lista-server';
 import { crearNotificacion } from '@/lib/notificaciones';
 import { FEATURE_OFFER, diagnosticoOffer, lecturaDeParte, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
 import { contextoDeReferente } from '@/lib/asesores/contexto';
-import { leerReferentes } from '@/lib/funnel-plan-db';
+import { leerReferente } from '@/lib/funnel-plan-db';
 import {
   ConflictoCAS, ErrorOffer, TITULO_DEFAULT, actualizarSesion, arbolOffer, audiosDe, borrarSesion, crearSesion, guardarComoOferta,
   leerFila, nombreNegocioOffer, sesionVaciaDe, vistaSesion, type FilaOffer,
@@ -925,9 +925,11 @@ async function reintentarTurno(body: Record<string, unknown>, inicio: number): P
  *  En el ONBOARDING (`arranque`, 17/10/2026) MaKo sólo pregunta qué vende: sin el diagnóstico de fase (lo hace el
  *  arranque) y sin ofrecer «Armar mi oferta» (el análisis y la oferta mejorada son de la tab Offer).
  */
-/** Con quién aconseja el Offer Coach: su ficha y, como en su chat, los tramos de su curso que hablan de lo último que dijo el dueño. */
+/** Con quién aconseja el coach (el Funnel Coach, que desde el 4/11/2026 también trabaja la oferta): su ficha y, como en su chat, los
+ *  tramos de su curso que hablan de lo último que dijo el dueño. Es el MISMO referente que el del chat del coach: las conversaciones
+ *  de oferta cuelgan de él en el Ops Center, y no pueden aconsejar con otro. */
 async function referenteDelOfferCoach(mensajes: MensajeGuardado[]): Promise<string> {
-  const id = (await leerReferentes()).offer;
+  const id = await leerReferente();
   if (!id) return '';
   // Import dinámico: el grafo y su catálogo no tienen por qué entrar en el camino del onboarding.
   const { cursoDelReferente, PRESUPUESTO_CURSO_OFFER } = await import('@/lib/cerebro-para-chat');
@@ -950,7 +952,7 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     contexto: [ctx.texto, estadoDeLaOferta(fila)].filter((x) => x.trim()).join('\n\n'),
     inicio: p.inicio, diagnostico: diagnosticoParaPrompt(plan, e), diagnosticoObligatorio: plan.modo === 'forzar',
     voz: ctx.voz, arranque: p.arranque,
-    // El Offer Coach (1/11/2026): con quién aconseja. El onboarding no: ahí sólo se cuenta qué se vende.
+    // El coach (1/11/2026; uno solo desde el 4/11): con quién aconseja. El onboarding no: ahí sólo se cuenta qué se vende.
     referente: p.arranque ? '' : await referenteDelOfferCoach(fila.mensajes),
   });
   // Sin IA sólo se sigue si la pregunta que toca es la obligatoria del diagnóstico (sale la original).

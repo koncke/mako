@@ -1,0 +1,3268 @@
+{
+  "medido": "2026-11-04T11:39:57.378Z",
+  "url": "https://demo.codeandchill.store/sunrow/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/sunrow/#/dashboard",
+      "ancho": 390,
+      "alto": 5777,
+      "fondo": "rgb(236, 239, 240)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#eceff0",
+        "--surface": "#ffffffbd",
+        "--surface-2": "#ffffffe6",
+        "--raised": "#fbfcfb",
+        "--solid": "#f9fafa",
+        "--solid-2": "#fcfdfd",
+        "--rim": "#ffffffdb",
+        "--well": "#14242c0e",
+        "--line": "#14242c17",
+        "--line-2": "#14242c2b",
+        "--shadow": "0 1px 0 #ffffffbf inset, 0 22px 44px -30px #1c3a4252",
+        "--shadow-pop": "0 24px 60px -18px #14283052, 0 2px 6px #14283014",
+        "--text": "#15232b",
+        "--muted": "#4b5960",
+        "--faint": "#66737a",
+        "--primary": "#1b2a32",
+        "--on-primary": "#f3f7f5",
+        "--accent-text": "#0c6878",
+        "--pill": "#1b2a32",
+        "--on-pill": "#f3f7f5",
+        "--dock": "#1b2a32",
+        "--on-dock": "#f3f7f5",
+        "--focus": "#2f6fd0",
+        "--t-mint": "#a7e2c9",
+        "--on-mint": "#0e2e26",
+        "--t-sky": "#b9d5f4",
+        "--on-sky": "#0f2238",
+        "--t-blush": "#f6bdb5",
+        "--on-blush": "#3b1612",
+        "--t-lemon": "#f1df97",
+        "--on-lemon": "#2e2606",
+        "--t-ink": "#1b2a32",
+        "--on-ink": "#f3f7f5",
+        "--pv-l-bg": "#eceff0",
+        "--pv-l-card": "#fff",
+        "--pv-d-bg": "#0e1316",
+        "--pv-d-card": "#1a2024",
+        "--pv-dock": "#1b2a32",
+        "--tile-good": "#1d5429",
+        "--tile-warn": "#6e3a0e",
+        "--tile-bad": "#842030",
+        "--sun": "#1993aa",
+        "--ember": "#e3925a",
+        "--jade": "#3f8a4c",
+        "--cobalt": "#4b6bd2",
+        "--rose": "#cf5a64",
+        "--sky": "#6a8cb0",
+        "--slate": "#7c878c",
+        "--ink": "#1b2a32",
+        "--good": "#2a6735",
+        "--warn": "#8a4c1d",
+        "--bad": "#a3333e",
+        "--info": "#2f4ca6",
+        "--on-good": "#fff",
+        "--on-bad": "#fff",
+        "--on-sun": "#fff",
+        "--on-steel": "#fff",
+        "--on-pin": "#fff",
+        "--soft": "15%",
+        "--ai-a": "#15303b",
+        "--ai-b": "#1d5560",
+        "--on-ai": "#eef7f6",
+        "--ai-good": "#9fdcaf",
+        "--ai-bad": "#f6a8a6",
+        "--ai-sun": "#8fd6e2",
+        "--paper": "#fffdf8",
+        "--paper-ink": "#282e3426",
+        "--paper-ink-2": "#282e3457",
+        "--scrim": "#0e1c224d",
+        "--knob": "#fff",
+        "--toast-ico": "#a7e2c9",
+        "--av-sun": "#bfe3ea",
+        "--av-cobalt": "#cfdbf6",
+        "--av-jade": "#cce6cf",
+        "--av-ember": "#f6dcc6",
+        "--av-sky": "#d5e1ee",
+        "--av-rose": "#f4d1d1",
+        "--av-slate": "#dfe4e6",
+        "--av-ink": "#d3dde1",
+        "--av-text": "#172028",
+        "--r-card": "22px",
+        "--r-tile": "14px",
+        "--r-ctl": "999px",
+        "--gap": "16px",
+        "--dock-x": "0px",
+        "--dock-w": "60px",
+        "--gutter": "14px",
+        "--app-max": "1840px",
+        "--content-l": "0px",
+        "--sticky-top": "16px",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 37,
+          "ejemplo": "36% → 38% spent this month"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 26,
+          "ejemplo": "$234M"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 23,
+          "ejemplo": "Wednesday, October 21, 2026"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 22,
+          "ejemplo": "Cedar Flats Solar Farm"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(102, 115, 122)",
+          "veces": 20,
+          "ejemplo": "1"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "28px",
+          "peso": "600",
+          "interlineado": "29.12px",
+          "espaciado": "-0.7px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 16,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "18.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 10,
+          "ejemplo": "Budget utilization"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 9,
+          "ejemplo": "0%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 7,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 245)",
+          "veces": 7,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(12, 104, 120)",
+          "veces": 7,
+          "ejemplo": "View budget report"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 7,
+          "ejemplo": "Mo"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 6,
+          "ejemplo": "69%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(42, 103, 53)",
+          "veces": 6,
+          "ejemplo": "On track"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(163, 51, 62)",
+          "veces": 6,
+          "ejemplo": "Delayed"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "17.55px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 6,
+          "ejemplo": "Review RFI-245 (substation B relocation)"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 5,
+          "ejemplo": "Daylight left on site"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(138, 76, 29)",
+          "veces": 5,
+          "ejemplo": "Medium"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11.55px",
+          "espaciado": "0.44px",
+          "color": "rgb(12, 104, 120)",
+          "veces": 5,
+          "ejemplo": "Nov"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "-0.5px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 5,
+          "ejemplo": "4"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "16.875px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 5,
+          "ejemplo": "Mei Lin raised PO-8842 for 4 pad-mount t"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "13.2px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 3,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 3,
+          "ejemplo": "61°F"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "15.625px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 3,
+          "ejemplo": "Completed builds"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "22px",
+          "espaciado": "-0.55px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 3,
+          "ejemplo": "32"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(42, 103, 53)",
+          "veces": 3,
+          "ejemplo": "+2 vs last year"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 3,
+          "ejemplo": "Inspection · Weekly HSE walk — blocks 1–"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 2,
+          "ejemplo": "4"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 2,
+          "ejemplo": "7:46"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "-0.27px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 2,
+          "ejemplo": "35%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 245)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "700",
+          "interlineado": "19px",
+          "espaciado": "-0.38px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 1,
+          "ejemplo": "SunrowField ERP"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "-0.11px",
+          "color": "rgb(23, 32, 40)",
+          "veces": 1,
+          "ejemplo": "TR"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "0.125px",
+          "color": "rgb(23, 32, 40)",
+          "veces": 1,
+          "ejemplo": "NH"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 1,
+          "ejemplo": "7 builds are live across five states. 13"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(42, 103, 53)",
+          "veces": 1,
+          "ejemplo": "Live from 6 sites"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "700",
+          "interlineado": "24px",
+          "espaciado": "-0.5px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 1,
+          "ejemplo": "8 h 58 min"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "900",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(238, 247, 246)",
+          "veces": 1,
+          "ejemplo": "AI project insights"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "700",
+          "interlineado": "26px",
+          "espaciado": "-0.65px",
+          "color": "rgb(238, 247, 246)",
+          "veces": 1,
+          "ejemplo": "75"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.933333 0.968627 0.964706 / 0.74)",
+          "veces": 1,
+          "ejemplo": "out of 100"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(238, 247, 246)",
+          "veces": 1,
+          "ejemplo": "Delivery confidence"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.933333 0.968627 0.964706 / 0.74)",
+          "veces": 1,
+          "ejemplo": "Good chance of on-time delivery across t"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "17.5px",
+          "espaciado": "normal",
+          "color": "rgb(238, 247, 246)",
+          "veces": 1,
+          "ejemplo": "Key insightPinecrest will miss its COD b"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "17.5px",
+          "espaciado": "normal",
+          "color": "rgb(238, 247, 246)",
+          "veces": 1,
+          "ejemplo": "Key insight"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 245)",
+          "veces": 1,
+          "ejemplo": "View full AI analysis"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "15.625px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.054902 0.180392 0.14902 / 0.74)",
+          "veces": 1,
+          "ejemplo": "Active projects"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "22px",
+          "espaciado": "-0.55px",
+          "color": "rgb(14, 46, 38)",
+          "veces": 1,
+          "ejemplo": "7"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(29, 84, 41)",
+          "veces": 1,
+          "ejemplo": "+1 this quarter"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "15.625px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.231373 0.0862745 0.0705882 / 0.74)",
+          "veces": 1,
+          "ejemplo": "Delayed projects"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "22px",
+          "espaciado": "-0.55px",
+          "color": "rgb(59, 22, 18)",
+          "veces": 1,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.231373 0.0862745 0.0705882 / 0.74)",
+          "veces": 1,
+          "ejemplo": "Same as last month"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "15.625px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.180392 0.14902 0.0235294 / 0.74)",
+          "veces": 1,
+          "ejemplo": "Pending approvals"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "22px",
+          "espaciado": "-0.55px",
+          "color": "rgb(46, 38, 6)",
+          "veces": 1,
+          "ejemplo": "13"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(110, 58, 14)",
+          "veces": 1,
+          "ejemplo": "3 due today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "24.2px",
+          "espaciado": "-0.55px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 1,
+          "ejemplo": "38%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(42, 103, 53)",
+          "veces": 1,
+          "ejemplo": "36% → 38%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "0.6px",
+          "color": "rgb(75, 89, 96)",
+          "veces": 1,
+          "ejemplo": "Largest budgets"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 1,
+          "ejemplo": "Project"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 1,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "-0.27px",
+          "color": "rgb(42, 103, 53)",
+          "veces": 1,
+          "ejemplo": "+0.5 pts"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 245)",
+          "veces": 1,
+          "ejemplo": "21"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "section.hero",
+          "x": 14,
+          "y": 126,
+          "w": 362,
+          "h": 657,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "18px 16px",
+          "gap": "18px",
+          "grilla": "328px",
+          "texto": "Wednesday, October 21, 2026 Good morning, Noor 7 builds are "
+        },
+        {
+          "etiqueta": "div.ai-card",
+          "x": 31,
+          "y": 470,
+          "w": 328,
+          "h": 294,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 247, 246)",
+          "radio": "18px",
+          "sombra": "rgba(14, 40, 48, 0.8) 0px 20px 40px -24px",
+          "padding": "16px",
+          "gap": "12px",
+          "grilla": "296px",
+          "texto": "AI project insights 75out of 100 Delivery confidenceGood cha"
+        },
+        {
+          "etiqueta": "div.kpi.tile--mint",
+          "x": 14,
+          "y": 799,
+          "w": 176,
+          "h": 115,
+          "fondo": "rgb(167, 226, 201)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "146px",
+          "texto": "Active projects 7+1 this quarter"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 200,
+          "y": 799,
+          "w": 176,
+          "h": 115,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "146px",
+          "texto": "Completed builds 32+2 vs last year"
+        },
+        {
+          "etiqueta": "div.kpi.tile--blush",
+          "x": 14,
+          "y": 924,
+          "w": 176,
+          "h": 115,
+          "fondo": "rgb(246, 189, 181)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "146px",
+          "texto": "Delayed projects 2Same as last month"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 200,
+          "y": 924,
+          "w": 176,
+          "h": 115,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "146px",
+          "texto": "Work packages live 171 start this week"
+        },
+        {
+          "etiqueta": "div.kpi.tile--lemon",
+          "x": 14,
+          "y": 1050,
+          "w": 176,
+          "h": 115,
+          "fondo": "rgb(241, 223, 151)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "146px",
+          "texto": "Pending approvals 133 due today"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 200,
+          "y": 1050,
+          "w": 176,
+          "h": 115,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "146px",
+          "texto": "Crew attendance 90%19 of 21 on site"
+        },
+        {
+          "etiqueta": "section.card.dash-budget",
+          "x": 14,
+          "y": 1615,
+          "w": 362,
+          "h": 593,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "18px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "15px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Budget utilization 38%utilized Total budget$234M Spent$88.1M"
+        },
+        {
+          "etiqueta": "div.bud__top",
+          "x": 30,
+          "y": 1962,
+          "w": 330,
+          "h": 193,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(20, 36, 44, 0.09)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "14px 0px 0px",
+          "gap": "10px",
+          "grilla": "330px",
+          "texto": "Largest budgetsRed Mesa Solar + Storage$7.65M of $96.5MMarlo"
+        },
+        {
+          "etiqueta": "section.card.dash-time",
+          "x": 14,
+          "y": 1181,
+          "w": 362,
+          "h": 418,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "18px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "15px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Timeline progress ProjectAll projectsCedar Flats Solar FarmM"
+        },
+        {
+          "etiqueta": "section.card.dash-sites",
+          "x": 14,
+          "y": 2224,
+          "w": 362,
+          "h": 508,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "18px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "15px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Site-wise performance View all Cedar Flats Solar FarmTooele,"
+        },
+        {
+          "etiqueta": "section.card.quick",
+          "x": 14,
+          "y": 2747,
+          "w": 362,
+          "h": 271,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "18px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px 18px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Quick linksProjectsSite progressContractorsMaterialsPurchase"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 14,
+          "y": 3034,
+          "w": 362,
+          "h": 376,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "18px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "15px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Recent project updates View all Cedar Flats Solar FarmModule"
+        },
+        {
+          "etiqueta": "section.card.dash-alerts",
+          "x": 14,
+          "y": 3426,
+          "w": 362,
+          "h": 376,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "18px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "15px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Critical issue alerts View all Pile driving 22% behind planP"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 14,
+          "y": 3818,
+          "w": 362,
+          "h": 414,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "18px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "15px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Upcoming deadlines View all Nov4Electrical completeAshgrove "
+        },
+        {
+          "etiqueta": "section.card.cal",
+          "x": 14,
+          "y": 4248,
+          "w": 362,
+          "h": 515,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "18px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "15px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Calendar October 2026 MoTuWeThFrSaSu123456789101112131415161"
+        },
+        {
+          "etiqueta": "div.cal__day",
+          "x": 30,
+          "y": 4620,
+          "w": 330,
+          "h": 128,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(20, 36, 44, 0.09)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "10px 0px 0px",
+          "gap": "4px",
+          "grilla": "330px",
+          "texto": "Today3 eventsInspection · Weekly HSE walk — blocks 1–6Review"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 14,
+          "y": 4779,
+          "w": 362,
+          "h": 454,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "18px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "15px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "My tasks View all Review RFI-245 (substation B relocation)Ce"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 14,
+          "y": 5249,
+          "w": 362,
+          "h": 428,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "18px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "15px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Notifications View all Mei Lin raised PO-8842 for 4 pad-moun"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/sunrow/#/dashboard",
+      "ancho": 1440,
+      "alto": 2656,
+      "fondo": "rgb(236, 239, 240)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#eceff0",
+        "--surface": "#ffffffbd",
+        "--surface-2": "#ffffffe6",
+        "--raised": "#fbfcfb",
+        "--solid": "#f9fafa",
+        "--solid-2": "#fcfdfd",
+        "--rim": "#ffffffdb",
+        "--well": "#14242c0e",
+        "--line": "#14242c17",
+        "--line-2": "#14242c2b",
+        "--shadow": "0 1px 0 #ffffffbf inset, 0 22px 44px -30px #1c3a4252",
+        "--shadow-pop": "0 24px 60px -18px #14283052, 0 2px 6px #14283014",
+        "--text": "#15232b",
+        "--muted": "#4b5960",
+        "--faint": "#66737a",
+        "--primary": "#1b2a32",
+        "--on-primary": "#f3f7f5",
+        "--accent-text": "#0c6878",
+        "--pill": "#1b2a32",
+        "--on-pill": "#f3f7f5",
+        "--dock": "#1b2a32",
+        "--on-dock": "#f3f7f5",
+        "--focus": "#2f6fd0",
+        "--t-mint": "#a7e2c9",
+        "--on-mint": "#0e2e26",
+        "--t-sky": "#b9d5f4",
+        "--on-sky": "#0f2238",
+        "--t-blush": "#f6bdb5",
+        "--on-blush": "#3b1612",
+        "--t-lemon": "#f1df97",
+        "--on-lemon": "#2e2606",
+        "--t-ink": "#1b2a32",
+        "--on-ink": "#f3f7f5",
+        "--pv-l-bg": "#eceff0",
+        "--pv-l-card": "#fff",
+        "--pv-d-bg": "#0e1316",
+        "--pv-d-card": "#1a2024",
+        "--pv-dock": "#1b2a32",
+        "--tile-good": "#1d5429",
+        "--tile-warn": "#6e3a0e",
+        "--tile-bad": "#842030",
+        "--sun": "#1993aa",
+        "--ember": "#e3925a",
+        "--jade": "#3f8a4c",
+        "--cobalt": "#4b6bd2",
+        "--rose": "#cf5a64",
+        "--sky": "#6a8cb0",
+        "--slate": "#7c878c",
+        "--ink": "#1b2a32",
+        "--good": "#2a6735",
+        "--warn": "#8a4c1d",
+        "--bad": "#a3333e",
+        "--info": "#2f4ca6",
+        "--on-good": "#fff",
+        "--on-bad": "#fff",
+        "--on-sun": "#fff",
+        "--on-steel": "#fff",
+        "--on-pin": "#fff",
+        "--soft": "15%",
+        "--ai-a": "#15303b",
+        "--ai-b": "#1d5560",
+        "--on-ai": "#eef7f6",
+        "--ai-good": "#9fdcaf",
+        "--ai-bad": "#f6a8a6",
+        "--ai-sun": "#8fd6e2",
+        "--paper": "#fffdf8",
+        "--paper-ink": "#282e3426",
+        "--paper-ink-2": "#282e3457",
+        "--scrim": "#0e1c224d",
+        "--knob": "#fff",
+        "--toast-ico": "#a7e2c9",
+        "--av-sun": "#bfe3ea",
+        "--av-cobalt": "#cfdbf6",
+        "--av-jade": "#cce6cf",
+        "--av-ember": "#f6dcc6",
+        "--av-sky": "#d5e1ee",
+        "--av-rose": "#f4d1d1",
+        "--av-slate": "#dfe4e6",
+        "--av-ink": "#d3dde1",
+        "--av-text": "#172028",
+        "--r-card": "22px",
+        "--r-tile": "14px",
+        "--r-ctl": "999px",
+        "--gap": "16px",
+        "--dock-x": "20px",
+        "--dock-w": "60px",
+        "--gutter": "clamp(16px, 1.6vw, 28px)",
+        "--app-max": "1840px",
+        "--content-l": "calc(20px + 60px)",
+        "--sticky-top": "20px",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 37,
+          "ejemplo": "36% → 38% spent this month"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 27,
+          "ejemplo": "9:40 AM"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 23,
+          "ejemplo": "Wednesday, October 21, 2026"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 22,
+          "ejemplo": "Cedar Flats Solar Farm"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(102, 115, 122)",
+          "veces": 20,
+          "ejemplo": "1"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 17,
+          "ejemplo": "0%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "37.44px",
+          "peso": "600",
+          "interlineado": "38.9376px",
+          "espaciado": "-0.936px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 16,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "18.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 10,
+          "ejemplo": "Budget utilization"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 7,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 245)",
+          "veces": 7,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(12, 104, 120)",
+          "veces": 7,
+          "ejemplo": "View budget report"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 7,
+          "ejemplo": "Mo"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 6,
+          "ejemplo": "Live"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 6,
+          "ejemplo": "69%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(42, 103, 53)",
+          "veces": 6,
+          "ejemplo": "On track"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(163, 51, 62)",
+          "veces": 6,
+          "ejemplo": "Delayed"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "17.55px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 6,
+          "ejemplo": "Review RFI-245 (substation B relocation)"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(138, 76, 29)",
+          "veces": 5,
+          "ejemplo": "Medium"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11.55px",
+          "espaciado": "0.44px",
+          "color": "rgb(12, 104, 120)",
+          "veces": 5,
+          "ejemplo": "Nov"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "-0.5px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 5,
+          "ejemplo": "4"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "16.875px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 5,
+          "ejemplo": "Mei Lin raised PO-8842 for 4 pad-mount t"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "13.2px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 3,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 3,
+          "ejemplo": "61°F"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "15.625px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 3,
+          "ejemplo": "Completed builds"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "22px",
+          "espaciado": "-0.55px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 3,
+          "ejemplo": "32"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(42, 103, 53)",
+          "veces": 3,
+          "ejemplo": "+2 vs last year"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 3,
+          "ejemplo": "Inspection · Weekly HSE walk — blocks 1–"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 2,
+          "ejemplo": "4"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 2,
+          "ejemplo": "7:46"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "24.65px",
+          "espaciado": "-0.34px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 2,
+          "ejemplo": "35%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 2,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 245)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "-0.42px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 1,
+          "ejemplo": "SunrowField ERP"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "1.54px",
+          "color": "rgb(75, 89, 96)",
+          "veces": 1,
+          "ejemplo": "Field ERP"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "-0.11px",
+          "color": "rgb(23, 32, 40)",
+          "veces": 1,
+          "ejemplo": "TR"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "0.125px",
+          "color": "rgb(23, 32, 40)",
+          "veces": 1,
+          "ejemplo": "NH"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(75, 89, 96)",
+          "veces": 1,
+          "ejemplo": "7 builds are live across five states. 13"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(42, 103, 53)",
+          "veces": 1,
+          "ejemplo": "Live from 6 sites"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "26.4px",
+          "espaciado": "-0.55px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 1,
+          "ejemplo": "8 h 58 min"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "900",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(238, 247, 246)",
+          "veces": 1,
+          "ejemplo": "AI project insights"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "700",
+          "interlineado": "26px",
+          "espaciado": "-0.65px",
+          "color": "rgb(238, 247, 246)",
+          "veces": 1,
+          "ejemplo": "75"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.933333 0.968627 0.964706 / 0.74)",
+          "veces": 1,
+          "ejemplo": "out of 100"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(238, 247, 246)",
+          "veces": 1,
+          "ejemplo": "Delivery confidence"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.933333 0.968627 0.964706 / 0.74)",
+          "veces": 1,
+          "ejemplo": "Good chance of on-time delivery across t"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "17.5px",
+          "espaciado": "normal",
+          "color": "rgb(238, 247, 246)",
+          "veces": 1,
+          "ejemplo": "Key insightPinecrest will miss its COD b"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "17.5px",
+          "espaciado": "normal",
+          "color": "rgb(238, 247, 246)",
+          "veces": 1,
+          "ejemplo": "Key insight"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 245)",
+          "veces": 1,
+          "ejemplo": "View full AI analysis"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "15.625px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.054902 0.180392 0.14902 / 0.74)",
+          "veces": 1,
+          "ejemplo": "Active projects"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "22px",
+          "espaciado": "-0.55px",
+          "color": "rgb(14, 46, 38)",
+          "veces": 1,
+          "ejemplo": "7"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(29, 84, 41)",
+          "veces": 1,
+          "ejemplo": "+1 this quarter"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "15.625px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.231373 0.0862745 0.0705882 / 0.74)",
+          "veces": 1,
+          "ejemplo": "Delayed projects"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "22px",
+          "espaciado": "-0.55px",
+          "color": "rgb(59, 22, 18)",
+          "veces": 1,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.231373 0.0862745 0.0705882 / 0.74)",
+          "veces": 1,
+          "ejemplo": "Same as last month"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "15.625px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.180392 0.14902 0.0235294 / 0.74)",
+          "veces": 1,
+          "ejemplo": "Pending approvals"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "22px",
+          "espaciado": "-0.55px",
+          "color": "rgb(46, 38, 6)",
+          "veces": 1,
+          "ejemplo": "13"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(110, 58, 14)",
+          "veces": 1,
+          "ejemplo": "3 due today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "24.2px",
+          "espaciado": "-0.55px",
+          "color": "rgb(21, 35, 43)",
+          "veces": 1,
+          "ejemplo": "38%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(42, 103, 53)",
+          "veces": 1,
+          "ejemplo": "36% → 38%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "0.6px",
+          "color": "rgb(75, 89, 96)",
+          "veces": 1,
+          "ejemplo": "Largest budgets"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 1,
+          "ejemplo": "Project"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(21, 35, 43)",
+          "veces": 1,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "24.65px",
+          "espaciado": "-0.34px",
+          "color": "rgb(42, 103, 53)",
+          "veces": 1,
+          "ejemplo": "+0.5 pts"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(243, 247, 245)",
+          "veces": 1,
+          "ejemplo": "21"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(238, 247, 246)",
+          "veces": 1,
+          "ejemplo": "Ask Sunrow AI"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "section.hero",
+          "x": 103,
+          "y": 84,
+          "w": 983,
+          "h": 349,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "22px",
+          "gap": "18px",
+          "grilla": "581.422px 337.172px",
+          "texto": "Wednesday, October 21, 2026 Good morning, Noor 7 builds are "
+        },
+        {
+          "etiqueta": "div.ai-card",
+          "x": 725,
+          "y": 107,
+          "w": 337,
+          "h": 303,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 247, 246)",
+          "radio": "18px",
+          "sombra": "rgba(14, 40, 48, 0.8) 0px 20px 40px -24px",
+          "padding": "16px",
+          "gap": "12px",
+          "grilla": "305.172px",
+          "texto": "AI project insights 75out of 100 Delivery confidenceGood cha"
+        },
+        {
+          "etiqueta": "div.kpi.tile--mint",
+          "x": 103,
+          "y": 449,
+          "w": 320,
+          "h": 115,
+          "fondo": "rgb(167, 226, 201)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "289.531px",
+          "texto": "Active projects 7+1 this quarter"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 435,
+          "y": 449,
+          "w": 320,
+          "h": 115,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "289.531px",
+          "texto": "Completed builds 32+2 vs last year"
+        },
+        {
+          "etiqueta": "div.kpi.tile--blush",
+          "x": 766,
+          "y": 449,
+          "w": 320,
+          "h": 115,
+          "fondo": "rgb(246, 189, 181)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "289.531px",
+          "texto": "Delayed projects 2Same as last month"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 103,
+          "y": 576,
+          "w": 320,
+          "h": 115,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "289.531px",
+          "texto": "Work packages live 171 start this week"
+        },
+        {
+          "etiqueta": "div.kpi.tile--lemon",
+          "x": 435,
+          "y": 576,
+          "w": 320,
+          "h": 115,
+          "fondo": "rgb(241, 223, 151)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "289.531px",
+          "texto": "Pending approvals 133 due today"
+        },
+        {
+          "etiqueta": "div.kpi",
+          "x": 766,
+          "y": 576,
+          "w": 320,
+          "h": 115,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px",
+          "gap": "10px",
+          "grilla": "289.531px",
+          "texto": "Crew attendance 90%19 of 21 on site"
+        },
+        {
+          "etiqueta": "section.card.dash-budget",
+          "x": 103,
+          "y": 1111,
+          "w": 483,
+          "h": 516,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Budget utilization 38%utilized Total budget$234M Spent$88.1M"
+        },
+        {
+          "etiqueta": "div.bud__top",
+          "x": 122,
+          "y": 1367,
+          "w": 445,
+          "h": 193,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(20, 36, 44, 0.09)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "14px 0px 0px",
+          "gap": "10px",
+          "grilla": "445.297px",
+          "texto": "Largest budgetsRed Mesa Solar + Storage$7.65M of $96.5MMarlo"
+        },
+        {
+          "etiqueta": "section.card.dash-time",
+          "x": 103,
+          "y": 708,
+          "w": 983,
+          "h": 387,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Timeline progress ProjectAll projectsCedar Flats Solar FarmM"
+        },
+        {
+          "etiqueta": "section.card.dash-sites",
+          "x": 602,
+          "y": 1111,
+          "w": 483,
+          "h": 516,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Site-wise performance View all Cedar Flats Solar FarmTooele,"
+        },
+        {
+          "etiqueta": "section.card.quick",
+          "x": 103,
+          "y": 1642,
+          "w": 983,
+          "h": 80,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "14px 18px",
+          "gap": "16px",
+          "grilla": null,
+          "texto": "Quick linksProjectsSite progressContractorsMaterialsPurchase"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 103,
+          "y": 1738,
+          "w": 483,
+          "h": 384,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Recent project updates View all Cedar Flats Solar FarmModule"
+        },
+        {
+          "etiqueta": "section.card.dash-alerts",
+          "x": 602,
+          "y": 1738,
+          "w": 483,
+          "h": 384,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Critical issue alerts View all Pile driving 22% behind planP"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 103,
+          "y": 2138,
+          "w": 983,
+          "h": 422,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Upcoming deadlines View all Nov4Electrical completeAshgrove "
+        },
+        {
+          "etiqueta": "section.card.cal",
+          "x": 1102,
+          "y": 84,
+          "w": 315,
+          "h": 485,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Calendar October 2026 MoTuWeThFrSaSu123456789101112131415161"
+        },
+        {
+          "etiqueta": "div.cal__day",
+          "x": 1121,
+          "y": 423,
+          "w": 277,
+          "h": 128,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(20, 36, 44, 0.09)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "10px 0px 0px",
+          "gap": "4px",
+          "grilla": "277.344px",
+          "texto": "Today3 eventsInspection · Weekly HSE walk — blocks 1–6Review"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 1102,
+          "y": 585,
+          "w": 315,
+          "h": 551,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "My tasks View all Review RFI-245 (substation B relocation)Ce"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 1102,
+          "y": 1152,
+          "w": 315,
+          "h": 436,
+          "fondo": "rgba(255, 255, 255, 0.74)",
+          "borde": "1px solid rgba(255, 255, 255, 0.86)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Notifications View all Mei Lin raised PO-8842 for 4 pad-moun"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "SunrowField ERP",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 103,
+            "y": 21,
+            "w": 121,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(21, 35, 43)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "a.ptab",
+          "texto": "Overview",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 394,
+            "y": 24,
+            "w": 92,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(21, 35, 43)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 2,
+          "etiqueta": "button.ibtn.ibtn--glass",
+          "texto": "4",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1269,
+            "y": 21,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(255, 255, 255, 0.74)",
+            "borderColor": "rgba(255, 255, 255, 0.86)",
+            "boxShadow": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.74)",
+              "rgba(255, 255, 255, 0.9)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.74)",
+              "rgba(255, 255, 255, 0.9)"
+            ]
+          }
+        },
+        {
+          "n": 3,
+          "etiqueta": "button.org",
+          "texto": "TRTidewell RenewablesSalt Lake City HQ",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1321,
+            "y": 21,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(255, 255, 255, 0.74)",
+            "borderColor": "rgba(255, 255, 255, 0.86)",
+            "boxShadow": "rgba(255, 255, 255, 0.75) 0px 1px 0px 0px inset, rgba(28, 58, 66, 0.32) 0px 22px 44px -30px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.74)",
+              "rgba(255, 255, 255, 0.9)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.74)",
+              "rgba(255, 255, 255, 0.9)"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.top__me",
+          "texto": "NH",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1373,
+            "y": 21,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(255, 255, 255, 0.9)",
+            "borderColor": "rgba(255, 255, 255, 0.86)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 5,
+          "etiqueta": "a.ai-card__tip",
+          "texto": "Key insightPinecrest will miss its COD b",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 741,
+            "y": 288,
+            "w": 305,
+            "h": 57
+          },
+          "estilo": {
+            "color": "rgb(238, 247, 246)",
+            "backgroundColor": "rgba(255, 255, 255, 0.09)",
+            "borderColor": "rgba(255, 255, 255, 0.12)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(238, 247, 246) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.09)",
+              "rgba(255, 255, 255, 0.14)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.09)",
+              "rgba(255, 255, 255, 0.14)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "a.btn.btn--primary.btn--sm",
+          "texto": "View full AI analysis",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 741,
+            "y": 357,
+            "w": 305,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(243, 247, 245)",
+            "backgroundColor": "rgb(27, 42, 50)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(243, 247, 245) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0022, -0.0023)"
+            ],
+            "filter": [
+              "none",
+              "brightness(1.18)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0004, -0.0005)"
+            ],
+            "filter": [
+              "none",
+              "brightness(1.18)"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "etiqueta": "a.card__more.card__more--block",
+          "texto": "View budget report",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 122,
+            "y": 431,
+            "w": 445,
+            "h": 37
+          },
+          "estilo": {
+            "color": "rgb(12, 104, 120)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(20, 36, 44, 0.09) rgb(12, 104, 120) rgb(12, 104, 120)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(12, 104, 120) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "button.ibtn.ibtn--sm.card__expand",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1035,
+            "y": 729,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(20, 36, 44, 0.17)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "etiqueta": "a.card__more",
+          "texto": "View all",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 995,
+            "y": 435,
+            "w": 71,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(12, 104, 120)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(12, 104, 120)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(12, 104, 120) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 10,
+          "etiqueta": "a.list__row.site",
+          "texto": "Cedar Flats Solar FarmTooele, Utah · 48 ",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 621,
+            "y": 415,
+            "w": 445,
+            "h": 71
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(21, 35, 43) rgb(21, 35, 43) rgba(20, 36, 44, 0.09)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 11,
+          "etiqueta": "a.quick__a",
+          "texto": "Projects",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 210,
+            "y": 427,
+            "w": 109,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(255, 255, 255, 0.9)",
+            "borderColor": "rgba(20, 36, 44, 0.09)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.9)",
+              "rgba(255, 255, 255, 0.74)"
+            ],
+            "borderColor": [
+              "rgba(20, 36, 44, 0.09)",
+              "rgba(20, 36, 44, 0.17)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, -4)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.9)",
+              "rgba(255, 255, 255, 0.74)"
+            ],
+            "borderColor": [
+              "rgba(20, 36, 44, 0.09)",
+              "rgba(20, 36, 44, 0.17)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, -4)"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "etiqueta": "a.list__row",
+          "texto": "Cedar Flats Solar FarmModule install rea",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 122,
+            "y": 420,
+            "w": 445,
+            "h": 59
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(21, 35, 43) rgb(21, 35, 43) rgba(20, 36, 44, 0.09)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 13,
+          "etiqueta": "a.grow",
+          "texto": "Pile driving 22% behind planPinecrest Ag",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 671,
+            "y": 430,
+            "w": 296,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(21, 35, 43)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 14,
+          "etiqueta": "button.ibtn.ibtn--sm.ibtn--plain",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1033,
+            "y": 434,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 15,
+          "etiqueta": "button.ibtn.ibtn--sm",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1328,
+            "y": 149,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(20, 36, 44, 0.17)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 16,
+          "etiqueta": "button.cal__d.is-past",
+          "texto": "1",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1240,
+            "y": 215,
+            "w": 38,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(102, 115, 122)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(102, 115, 122)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(102, 115, 122) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 17,
+          "etiqueta": "button.cal__d.is-today.is-sel",
+          "texto": "21",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1200,
+            "y": 335,
+            "w": 38,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(243, 247, 245)",
+            "backgroundColor": "rgb(27, 42, 50)",
+            "borderColor": "rgb(243, 247, 245)",
+            "boxShadow": "rgba(255, 255, 255, 0.74) 0px 0px 0px 2px, rgb(25, 147, 170) 0px 0px 0px 4px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(243, 247, 245) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 18,
+          "etiqueta": "button.cal__d",
+          "texto": "22",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1240,
+            "y": 335,
+            "w": 38,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(21, 35, 43)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 19,
+          "etiqueta": "a.cal__ev",
+          "texto": "Inspection · Weekly HSE walk — blocks 1–",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1121,
+            "y": 458,
+            "w": 277,
+            "h": 28
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(21, 35, 43)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(20, 36, 44, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 20,
+          "etiqueta": "button.card__more",
+          "texto": "View all",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1327,
+            "y": 607,
+            "w": 71,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(12, 104, 120)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(12, 104, 120)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(12, 104, 120) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 21,
+          "etiqueta": "input.check",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1121,
+            "y": 666,
+            "w": 20,
+            "h": 20
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(255, 255, 255, 0.9)",
+            "borderColor": "rgba(20, 36, 44, 0.17)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 22,
+          "etiqueta": "label",
+          "texto": "Review RFI-245 (substation B relocation)",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1152,
+            "y": 664,
+            "w": 194,
+            "h": 53
+          },
+          "estilo": {
+            "color": "rgb(21, 35, 43)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(21, 35, 43)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(21, 35, 43) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 23,
+          "etiqueta": "button.dock__btn",
+          "texto": "Search ⌘K",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 28,
+            "y": 319,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(243, 247, 245)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(243, 247, 245)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.74",
+            "outline": "rgb(243, 247, 245) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          }
+        },
+        {
+          "n": 24,
+          "etiqueta": "a.dock__btn",
+          "texto": "Settings",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 28,
+            "y": 428,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(243, 247, 245)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(243, 247, 245)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.74",
+            "outline": "rgb(243, 247, 245) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          }
+        },
+        {
+          "n": 25,
+          "etiqueta": "button.dock__btn.dock__theme",
+          "texto": "Theme",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 28,
+            "y": 537,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(243, 247, 245)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(243, 247, 245)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.74",
+            "outline": "rgb(243, 247, 245) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          }
+        },
+        {
+          "n": 26,
+          "etiqueta": "button.assist__fab",
+          "texto": "Ask Sunrow AI 5",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1224,
+            "y": 828,
+            "w": 196,
+            "h": 52
+          },
+          "estilo": {
+            "color": "rgb(238, 247, 246)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(238, 247, 246)",
+            "boxShadow": "rgba(16, 48, 58, 0.6) 0px 18px 36px -16px, rgba(255, 255, 255, 0.14) 0px 1px 0px 0px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(238, 247, 246) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 27,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 774,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

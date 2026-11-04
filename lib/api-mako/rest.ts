@@ -379,6 +379,14 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}/texto', 'cambiar_texto_mensaje'],
   ['GET', '/chatbot/secuencias/{secuenciaId}/escenarios', 'escenarios_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/activacion', 'proponer_toggle_nutricion'],
+  // La campaña de email por la API (4/11/2026): la configuración de una automatización, sus CRON y su prueba.
+  ['GET', '/chatbot/secuencias/{secuenciaId}/configuracion', 'configuracion_automatizacion'],
+  ['PATCH', '/chatbot/secuencias/{secuenciaId}/configuracion', 'configurar_automatizacion'],
+  ['PUT', '/chatbot/secuencias/{secuenciaId}/crons', 'cambiar_crons_secuencia'],
+  ['POST', '/chatbot/secuencias/{secuenciaId}/pruebas', 'probar_secuencia'],
+  // Los topes de envío del negocio (4/11/2026, la campaña de email de Mauricio).
+  ['GET', '/chatbot/limites-envio', 'ver_limites_envio'],
+  ['PUT', '/chatbot/limites-envio', 'cambiar_limites_envio'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/escenarios', 'agregar_escenario_secuencia'],
   ['PATCH', '/chatbot/secuencias/{secuenciaId}/estrategia', 'guardar_estrategia_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/pasos', 'editar_pasos_secuencia_mensajes'],
@@ -697,6 +705,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/equipo/negocio', 'renombrar_negocio'],
   ['GET', '/equipo/negocio/horario-envio', 'ver_horario_envio'],
   ['PATCH', '/equipo/negocio/horario-envio', 'configurar_horario_envio'],
+  // El grupo del negocio en la app (3/11/2026): sólo escribir. Leer e invitar no salen por HTTP: conversaciones de personas (lib/api-mako/areas/equipo.def.ts).
+  ['POST', '/equipo/grupo/mensajes', 'escribir_en_grupo'],
   ['GET', '/equipo/notificaciones', 'ver_preferencias_notificaciones'],
   ['GET', '/equipo/notificaciones/avisos', 'listar_avisos_disponibles'],
   ['GET', '/equipo/notificaciones/avisos/{aviso}', 'esta_aviso_activo'],

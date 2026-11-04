@@ -4,7 +4,7 @@
 // El chat con un GURÚ, adentro del Ops Center (3/11/2026, #16 y #18)
 // =============================================================================
 // Martín: «me interesa que se avance con los gurús, y el second brain de cada uno». Se elige desde «Nuevo chat» (./GaleriaDeGurus.tsx),
-// desde su fila o desde la del Offer Coach, y es EL CHAT ÚNICO DE LA APP (AGENTS.md), copiado de ./ChatDelCoach.tsx: el panel, el hilo
+// o desde su fila, y es EL CHAT ÚNICO DE LA APP (AGENTS.md), copiado de ./ChatDelCoach.tsx: el panel, el hilo
 // y la caja del Ops Center, y el motor useChatCliente → /api/mako/chat → turnoApp.
 //   · SU HILO ES SUYO: una conversación por persona, negocio y gurú (`…:referente-<id>`, lib/chat-mako-reglas.ts). Elegir otra
 //     vez al mismo gurú la retoma.

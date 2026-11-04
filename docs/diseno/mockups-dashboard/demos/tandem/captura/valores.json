@@ -1,0 +1,2224 @@
+{
+  "medido": "2026-11-04T10:52:02.943Z",
+  "url": "https://demo.codeandchill.store/tandem/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/tandem/#l2",
+      "ancho": 390,
+      "alto": 1209,
+      "fondo": "rgb(239, 235, 230)",
+      "letra": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--page": "#efebe6",
+        "--side": "#efebe6",
+        "--column": "#f6f3ef",
+        "--qcard": "#fdfbf8",
+        "--card": "#fdfbf8d6",
+        "--card-solid": "#fdfbf8",
+        "--sunk": "#f3efe9",
+        "--hair": "#e4ded6",
+        "--hair-strong": "#d1c9be",
+        "--ink": "#221a14",
+        "--muted": "#54493f",
+        "--faint": "#6a5e53",
+        "--hl": "#ffdcc6",
+        "--hl-ink": "#7a2c0c",
+        "--brand": "#b84a23",
+        "--brand-2": "#9c3b18",
+        "--brand-text": "#9c3b18",
+        "--tick-off": "#e6ddd3",
+        "--act": "#221a14",
+        "--on-act": "#fdfbf8",
+        "--good": "#1d6b45",
+        "--good-bg": "#dcefe3",
+        "--bad": "#a8322e",
+        "--bad-bg": "#f8e1df",
+        "--hot": "#a33a12",
+        "--hot-bg": "#ffe1d1",
+        "--warm": "#845200",
+        "--warm-bg": "#faecc9",
+        "--cold": "#24569e",
+        "--cold-bg": "#dde9fb",
+        "--wash": "radial-gradient(70% 60% at 0% 0%, #ffd9c2 0%, #ffd9c200 70%), radial-gradient(60% 55% at 100% 0%, #fbecc4 0%, #fbecc400 70%), radial-gradient(70% 50% at 70% 100%, #dcebdf 0%, #dcebdf00 70%), #f9f6f2",
+        "--font": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--r-xl": "28px",
+        "--r-lg": "22px",
+        "--r-md": "16px",
+        "--r-sm": "12px",
+        "--shadow-card": "0 1px 2px #221a140a, 0 8px 24px -16px #221a1424",
+        "--shadow-pop": "0 0 0 1px #e4ded6, 0 24px 60px -18px #221a144d",
+        "--scrim": "#1a120c6b",
+        "--focus": "0 0 0 2px #efebe6, 0 0 0 4px #b84a23",
+        "--av-bg": "",
+        "--av-ink": ""
+      },
+      "tipografia": [
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15.5px",
+          "peso": "600",
+          "interlineado": "20.15px",
+          "espaciado": "-0.155px",
+          "color": "rgb(34, 26, 20)",
+          "veces": 10,
+          "ejemplo": "Jonas Whitlock"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "600",
+          "interlineado": "17.25px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 8,
+          "ejemplo": "Develop"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "400",
+          "interlineado": "18.75px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 7,
+          "ejemplo": "Discovery call"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(253, 251, 248)",
+          "veces": 6,
+          "ejemplo": "Score 84"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(122, 44, 12)",
+          "veces": 6,
+          "ejemplo": "Score 76"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "500",
+          "interlineado": "17.25px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 5,
+          "ejemplo": "Today · 10:40"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(106, 94, 83)",
+          "veces": 3,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "600",
+          "interlineado": "17.25px",
+          "espaciado": "normal",
+          "color": "rgb(168, 50, 46)",
+          "veces": 3,
+          "ejemplo": "Overdue 2 d"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(132, 82, 0)",
+          "veces": 2,
+          "ejemplo": "Score 47"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(168, 50, 46)",
+          "veces": 2,
+          "ejemplo": "Score 34"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(253, 251, 248)",
+          "veces": 1,
+          "ejemplo": "Skip to the lead"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "24px",
+          "peso": "600",
+          "interlineado": "28.8px",
+          "espaciado": "-0.48px",
+          "color": "rgb(34, 26, 20)",
+          "veces": 1,
+          "ejemplo": "My Work"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(106, 94, 83)",
+          "veces": 1,
+          "ejemplo": "8 leads · newest first"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 205)",
+          "veces": 1,
+          "ejemplo": "JW"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "400",
+          "interlineado": "18.75px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.409412 0.158431 0.0533333)",
+          "veces": 1,
+          "ejemplo": "Send the site survey"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 28)",
+          "veces": 1,
+          "ejemplo": "MO"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 330)",
+          "veces": 1,
+          "ejemplo": "SD"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 140)",
+          "veces": 1,
+          "ejemplo": "KA"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 185)",
+          "veces": 1,
+          "ejemplo": "HS"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 265)",
+          "veces": 1,
+          "ejemplo": "EK"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 50)",
+          "veces": 1,
+          "ejemplo": "RM"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 0)",
+          "veces": 1,
+          "ejemplo": "TN"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "section.queue",
+          "x": 10,
+          "y": 10,
+          "w": 370,
+          "h": 1189,
+          "fondo": "rgb(246, 243, 239)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "28px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "My Work 8 leads · newest first Today JW Jonas Whitlock Send "
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 23,
+          "y": 126,
+          "w": 344,
+          "h": 118,
+          "fondo": "rgb(255, 220, 198)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 260px",
+          "texto": "JW Jonas Whitlock Send the site survey Develop Today · 10:40"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 23,
+          "y": 252,
+          "w": 344,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 260px",
+          "texto": "MO Maren Okafor, pinned Discovery call Qualify Today · 09:24"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 23,
+          "y": 406,
+          "w": 344,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 260px",
+          "texto": "SD Saoirse Delaney Discovery call Qualify Yesterday · 16:05 "
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 23,
+          "y": 532,
+          "w": 344,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 260px",
+          "texto": "KA Kwame Asante, pinned Draft the proposal Propose Nov 2 · 1"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 23,
+          "y": 658,
+          "w": 344,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 260px",
+          "texto": "HS Hana Sato Sequence complete Close Nov 1 · 09:00 Score 88"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 23,
+          "y": 784,
+          "w": 344,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 260px",
+          "texto": "EK Elif Kaya Roof walk with engineer Develop Overdue 2 d Sco"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 23,
+          "y": 938,
+          "w": 344,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 260px",
+          "texto": "RM Rafael Moreno Send the site survey Qualify Overdue 6 d Sc"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 23,
+          "y": 1064,
+          "w": 344,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 260px",
+          "texto": "TN Tomasz Nowak Discovery call Qualify Overdue 14 d Score 34"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/tandem/#l2",
+      "ancho": 1440,
+      "alto": 900,
+      "fondo": "rgb(239, 235, 230)",
+      "letra": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--page": "#efebe6",
+        "--side": "#efebe6",
+        "--column": "#f6f3ef",
+        "--qcard": "#fdfbf8",
+        "--card": "#fdfbf8d6",
+        "--card-solid": "#fdfbf8",
+        "--sunk": "#f3efe9",
+        "--hair": "#e4ded6",
+        "--hair-strong": "#d1c9be",
+        "--ink": "#221a14",
+        "--muted": "#54493f",
+        "--faint": "#6a5e53",
+        "--hl": "#ffdcc6",
+        "--hl-ink": "#7a2c0c",
+        "--brand": "#b84a23",
+        "--brand-2": "#9c3b18",
+        "--brand-text": "#9c3b18",
+        "--tick-off": "#e6ddd3",
+        "--act": "#221a14",
+        "--on-act": "#fdfbf8",
+        "--good": "#1d6b45",
+        "--good-bg": "#dcefe3",
+        "--bad": "#a8322e",
+        "--bad-bg": "#f8e1df",
+        "--hot": "#a33a12",
+        "--hot-bg": "#ffe1d1",
+        "--warm": "#845200",
+        "--warm-bg": "#faecc9",
+        "--cold": "#24569e",
+        "--cold-bg": "#dde9fb",
+        "--wash": "radial-gradient(70% 60% at 0% 0%, #ffd9c2 0%, #ffd9c200 70%), radial-gradient(60% 55% at 100% 0%, #fbecc4 0%, #fbecc400 70%), radial-gradient(70% 50% at 70% 100%, #dcebdf 0%, #dcebdf00 70%), #f9f6f2",
+        "--font": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--r-xl": "28px",
+        "--r-lg": "22px",
+        "--r-md": "16px",
+        "--r-sm": "12px",
+        "--shadow-card": "0 1px 2px #221a140a, 0 8px 24px -16px #221a1424",
+        "--shadow-pop": "0 0 0 1px #e4ded6, 0 24px 60px -18px #221a144d",
+        "--scrim": "#1a120c6b",
+        "--focus": "0 0 0 2px #efebe6, 0 0 0 4px #b84a23",
+        "--av-bg": "",
+        "--av-ink": ""
+      },
+      "tipografia": [
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "400",
+          "interlineado": "17.25px",
+          "espaciado": "normal",
+          "color": "rgb(106, 94, 83)",
+          "veces": 16,
+          "ejemplo": "Est. value"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(106, 94, 83)",
+          "veces": 12,
+          "ejemplo": "My work"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15.5px",
+          "peso": "600",
+          "interlineado": "20.15px",
+          "espaciado": "-0.155px",
+          "color": "rgb(34, 26, 20)",
+          "veces": 10,
+          "ejemplo": "Jonas Whitlock"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(106, 94, 83)",
+          "veces": 9,
+          "ejemplo": "$318k of $600k booked"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "600",
+          "interlineado": "17.25px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 9,
+          "ejemplo": "Develop"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "400",
+          "interlineado": "20.25px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 9,
+          "ejemplo": "Facilities Director · Brightwater Logist"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 8,
+          "ejemplo": "Hot leads"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "400",
+          "interlineado": "18.75px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 7,
+          "ejemplo": "Discovery call"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(253, 251, 248)",
+          "veces": 6,
+          "ejemplo": "Score 84"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(122, 44, 12)",
+          "veces": 6,
+          "ejemplo": "Score 76"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "600",
+          "interlineado": "27px",
+          "espaciado": "-0.27px",
+          "color": "rgb(34, 26, 20)",
+          "veces": 6,
+          "ejemplo": "Contact"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "500",
+          "interlineado": "17.25px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 5,
+          "ejemplo": "Today · 10:40"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(34, 26, 20)",
+          "veces": 5,
+          "ejemplo": "Jonas Whitlock"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "18.225px",
+          "espaciado": "normal",
+          "color": "rgb(34, 26, 20)",
+          "veces": 5,
+          "ejemplo": "Moved to Develop"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "650",
+          "interlineado": "20.25px",
+          "espaciado": "normal",
+          "color": "rgb(34, 26, 20)",
+          "veces": 4,
+          "ejemplo": "an existing customer"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.75px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 3,
+          "ejemplo": "October target"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "600",
+          "interlineado": "17.25px",
+          "espaciado": "normal",
+          "color": "rgb(168, 50, 46)",
+          "veces": 3,
+          "ejemplo": "Overdue 2 d"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(34, 26, 20)",
+          "veces": 3,
+          "ejemplo": "$240,000"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(253, 251, 248)",
+          "veces": 3,
+          "ejemplo": "Qualify"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "18.9px",
+          "espaciado": "normal",
+          "color": "rgb(34, 26, 20)",
+          "veces": 3,
+          "ejemplo": "Send the site survey"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 3,
+          "ejemplo": "Budget and need confirmed."
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "400",
+          "interlineado": "16.675px",
+          "espaciado": "normal",
+          "color": "rgb(106, 94, 83)",
+          "veces": 3,
+          "ejemplo": "Nov 214:50"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(122, 44, 12)",
+          "veces": 2,
+          "ejemplo": "8"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 25)",
+          "veces": 2,
+          "ejemplo": "IV"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(132, 82, 0)",
+          "veces": 2,
+          "ejemplo": "Score 47"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(168, 50, 46)",
+          "veces": 2,
+          "ejemplo": "Score 34"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(106, 94, 83)",
+          "veces": 2,
+          "ejemplo": "Sales hub"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 2,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 2,
+          "ejemplo": "Propose"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "20.25px",
+          "espaciado": "normal",
+          "color": "rgb(253, 251, 248)",
+          "veces": 2,
+          "ejemplo": "Advance to Propose"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.392157 0.154902 0.054902)",
+          "veces": 2,
+          "ejemplo": "Step 2 · Due tomorrow"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(106, 94, 83)",
+          "veces": 2,
+          "ejemplo": "amara@bellogroup.io"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(253, 251, 248)",
+          "veces": 1,
+          "ejemplo": "Skip to the lead"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "700",
+          "interlineado": "25.5px",
+          "espaciado": "-0.34px",
+          "color": "rgb(34, 26, 20)",
+          "veces": 1,
+          "ejemplo": "Tandem"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "20.25px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 1,
+          "ejemplo": "Sales hub"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "24px",
+          "peso": "600",
+          "interlineado": "36px",
+          "espaciado": "-0.48px",
+          "color": "rgb(34, 26, 20)",
+          "veces": 1,
+          "ejemplo": "Menu"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(122, 44, 12)",
+          "veces": 1,
+          "ejemplo": "Accelerator"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(168, 50, 46)",
+          "veces": 1,
+          "ejemplo": "5"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "900",
+          "interlineado": "18.75px",
+          "espaciado": "normal",
+          "color": "rgb(34, 26, 20)",
+          "veces": 1,
+          "ejemplo": "53%"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "17.55px",
+          "espaciado": "normal",
+          "color": "rgb(34, 26, 20)",
+          "veces": 1,
+          "ejemplo": "Ines Varga"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "400",
+          "interlineado": "15.6px",
+          "espaciado": "normal",
+          "color": "rgb(106, 94, 83)",
+          "veces": 1,
+          "ejemplo": "Account executive"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "24px",
+          "peso": "600",
+          "interlineado": "28.8px",
+          "espaciado": "-0.48px",
+          "color": "rgb(34, 26, 20)",
+          "veces": 1,
+          "ejemplo": "My Work"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 205)",
+          "veces": 1,
+          "ejemplo": "JW"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "400",
+          "interlineado": "18.75px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.409412 0.158431 0.0533333)",
+          "veces": 1,
+          "ejemplo": "Send the site survey"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 28)",
+          "veces": 1,
+          "ejemplo": "MO"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 330)",
+          "veces": 1,
+          "ejemplo": "SD"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 140)",
+          "veces": 1,
+          "ejemplo": "KA"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 185)",
+          "veces": 1,
+          "ejemplo": "HS"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 265)",
+          "veces": 1,
+          "ejemplo": "EK"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 50)",
+          "veces": 1,
+          "ejemplo": "RM"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.14px",
+          "color": "oklch(0.34 0.09 0)",
+          "veces": 1,
+          "ejemplo": "TN"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "700",
+          "interlineado": "39px",
+          "espaciado": "0.26px",
+          "color": "oklch(0.34 0.09 205)",
+          "veces": 1,
+          "ejemplo": "JW"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "32px",
+          "peso": "600",
+          "interlineado": "36.8px",
+          "espaciado": "-0.8px",
+          "color": "rgb(34, 26, 20)",
+          "veces": 1,
+          "ejemplo": "Jonas Whitlock"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "600",
+          "interlineado": "17.25px",
+          "espaciado": "normal",
+          "color": "rgb(253, 251, 248)",
+          "veces": 1,
+          "ejemplo": "Lead"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.75px",
+          "espaciado": "normal",
+          "color": "rgb(163, 58, 18)",
+          "veces": 1,
+          "ejemplo": "Hot"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10px",
+          "peso": "700",
+          "interlineado": "15px",
+          "espaciado": "0.1px",
+          "color": "oklch(0.34 0.09 25)",
+          "veces": 1,
+          "ejemplo": "IV"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "650",
+          "interlineado": "17.55px",
+          "espaciado": "normal",
+          "color": "rgb(253, 251, 248)",
+          "veces": 1,
+          "ejemplo": "Commercial solar"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11.5px",
+          "peso": "400",
+          "interlineado": "14.95px",
+          "espaciado": "normal",
+          "color": "rgb(253, 251, 248)",
+          "veces": 1,
+          "ejemplo": "In Develop for 6 days"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(156, 59, 24)",
+          "veces": 1,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "20.25px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 1,
+          "ejemplo": "Activity 3"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "16.5px",
+          "espaciado": "normal",
+          "color": "rgb(84, 73, 63)",
+          "veces": 1,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "400",
+          "interlineado": "20.25px",
+          "espaciado": "normal",
+          "color": "rgb(34, 26, 20)",
+          "veces": 1,
+          "ejemplo": "Follow up with the survey form and two c"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(253, 251, 248)",
+          "veces": 1,
+          "ejemplo": "Write email"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(122, 44, 12)",
+          "veces": 1,
+          "ejemplo": "Mark complete"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(156, 59, 24)",
+          "veces": 1,
+          "ejemplo": "View all 3"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "50px",
+          "peso": "500",
+          "interlineado": "50px",
+          "espaciado": "-2px",
+          "color": "rgb(34, 26, 20)",
+          "veces": 1,
+          "ejemplo": "84"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "0.13px",
+          "color": "oklch(0.34 0.09 20)",
+          "veces": 1,
+          "ejemplo": "AB"
+        },
+        {
+          "familia": "\"Plus Jakarta Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "0.13px",
+          "color": "oklch(0.34 0.09 260)",
+          "veces": 1,
+          "ejemplo": "RC"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": 12,
+          "y": 12,
+          "w": 220,
+          "h": 876,
+          "fondo": "rgb(239, 235, 230)",
+          "borde": "0px none rgb(34, 26, 20)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "10px 6px 6px",
+          "gap": "4px",
+          "grilla": null,
+          "texto": "Tandem Sales hub Menu My work Accelerator8 Hot leads3 Due to"
+        },
+        {
+          "etiqueta": "div.side__goal",
+          "x": 24,
+          "y": 594,
+          "w": 196,
+          "h": 93,
+          "fondo": "rgb(246, 243, 239)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "October target53% $318k of $600k booked"
+        },
+        {
+          "etiqueta": "section.queue",
+          "x": 244,
+          "y": 12,
+          "w": 300,
+          "h": 876,
+          "fondo": "rgb(246, 243, 239)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "28px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "My Work 8 leads · newest first Today JW Jonas Whitlock Send "
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 257,
+          "y": 128,
+          "w": 274,
+          "h": 118,
+          "fondo": "rgb(255, 220, 198)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 190px",
+          "texto": "JW Jonas Whitlock Send the site survey Develop Today · 10:40"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 257,
+          "y": 254,
+          "w": 274,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 190px",
+          "texto": "MO Maren Okafor, pinned Discovery call Qualify Today · 09:24"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 257,
+          "y": 408,
+          "w": 274,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 190px",
+          "texto": "SD Saoirse Delaney Discovery call Qualify Yesterday · 16:05 "
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 257,
+          "y": 534,
+          "w": 274,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 190px",
+          "texto": "KA Kwame Asante, pinned Draft the proposal Propose Nov 2 · 1"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 257,
+          "y": 660,
+          "w": 274,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 190px",
+          "texto": "HS Hana Sato Sequence complete Close Nov 1 · 09:00 Score 88"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 257,
+          "y": 786,
+          "w": 274,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 190px",
+          "texto": "EK Elif Kaya Roof walk with engineer Develop Overdue 2 d Sco"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 257,
+          "y": 940,
+          "w": 274,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 190px",
+          "texto": "RM Rafael Moreno Send the site survey Qualify Overdue 6 d Sc"
+        },
+        {
+          "etiqueta": "button.qi__main",
+          "x": 257,
+          "y": 1066,
+          "w": 274,
+          "h": 118,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "none",
+          "padding": "16px 14px 14px 16px",
+          "gap": "12px",
+          "grilla": "40px 190px",
+          "texto": "TN Tomasz Nowak Discovery call Qualify Overdue 14 d Score 34"
+        },
+        {
+          "etiqueta": "article.record",
+          "x": 556,
+          "y": 70,
+          "w": 872,
+          "h": 818,
+          "fondo": "rgb(249, 246, 242)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "28px",
+          "sombra": "none",
+          "padding": "18px 20px 28px",
+          "gap": "16px",
+          "grilla": null,
+          "texto": "Save Pin Export PDF Delete All changes saved JW Jonas Whitlo"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 577,
+          "y": 385,
+          "w": 281,
+          "h": 479,
+          "fondo": "rgba(253, 251, 248, 0.84)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "rgba(34, 26, 20, 0.04) 0px 1px 2px 0px, rgba(34, 26, 20, 0.14) 0px 8px 24px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Contact Topic First name Last name Job title Business phone "
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 577,
+          "y": 877,
+          "w": 281,
+          "h": 344,
+          "fondo": "rgba(253, 251, 248, 0.84)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "rgba(34, 26, 20, 0.04) 0px 1px 2px 0px, rgba(34, 26, 20, 0.14) 0px 8px 24px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Company Company Industry Size Website City"
+        },
+        {
+          "etiqueta": "section.card.card--next",
+          "x": 872,
+          "y": 385,
+          "w": 267,
+          "h": 558,
+          "fondo": "rgba(253, 251, 248, 0.84)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "rgba(34, 26, 20, 0.04) 0px 1px 2px 0px, rgba(34, 26, 20, 0.14) 0px 8px 24px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Up next 1 of 4 done Sequence: New lead nurture Send the site"
+        },
+        {
+          "etiqueta": "li.step.is-now",
+          "x": 893,
+          "y": 511,
+          "w": 225,
+          "h": 250,
+          "fondo": "rgb(255, 220, 198)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "16px",
+          "gap": "12px",
+          "grilla": "36px 143.344px",
+          "texto": "Send the site survey Step 2 · Due tomorrow Follow up with th"
+        },
+        {
+          "etiqueta": "li.step",
+          "x": 893,
+          "y": 769,
+          "w": 225,
+          "h": 82,
+          "fondo": "rgb(253, 251, 248)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "16px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "12px",
+          "grilla": "36px 147.344px",
+          "texto": "Roof walk with engineer Step 3 · Due Nov 9"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 872,
+          "y": 957,
+          "w": 267,
+          "h": 389,
+          "fondo": "rgba(253, 251, 248, 0.84)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "rgba(34, 26, 20, 0.04) 0px 1px 2px 0px, rgba(34, 26, 20, 0.14) 0px 8px 24px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Timeline View all 3 Moved to Develop Budget and need confirm"
+        },
+        {
+          "etiqueta": "li.ev.ev--call",
+          "x": 893,
+          "y": 1090,
+          "w": 225,
+          "h": 117,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "10px 0px",
+          "gap": "12px",
+          "grilla": "34px 136.453px 30.8906px",
+          "texto": "Discovery call 32 min. Both depots run night shifts; demand "
+        },
+        {
+          "etiqueta": "li.ev.ev--note",
+          "x": 893,
+          "y": 1207,
+          "w": 225,
+          "h": 117,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "10px 0px",
+          "gap": "12px",
+          "grilla": "34px 130.125px 37.2188px",
+          "texto": "Referral Amara Bello introduced us — they installed with us "
+        },
+        {
+          "etiqueta": "section.card.card--score",
+          "x": 1153,
+          "y": 385,
+          "w": 254,
+          "h": 441,
+          "fondo": "rgba(253, 251, 248, 0.84)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "rgba(34, 26, 20, 0.04) 0px 1px 2px 0px, rgba(34, 26, 20, 0.14) 0px 8px 24px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Lead score 84 Grade B Rising Why this score Raises the score"
+        },
+        {
+          "etiqueta": "section.card",
+          "x": 1153,
+          "y": 840,
+          "w": 254,
+          "h": 232,
+          "fondo": "rgba(253, 251, 248, 0.84)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "22px",
+          "sombra": "rgba(34, 26, 20, 0.04) 0px 1px 2px 0px, rgba(34, 26, 20, 0.14) 0px 8px 24px -16px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Who knows whom 2 warm paths AB Amara Belloamara@bellogroup.i"
+        },
+        {
+          "etiqueta": "li.who__row",
+          "x": 1174,
+          "y": 979,
+          "w": 212,
+          "h": 72,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgb(228, 222, 214)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "9px 0px",
+          "gap": "10px",
+          "grilla": "36px 83.9688px 28px 34px",
+          "texto": "RC Ruth Callowayruth.calloway@brightwaterlogistics.com"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "Tandem",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 26,
+            "y": 26,
+            "w": 101,
+            "h": 28
+          },
+          "estilo": {
+            "color": "rgb(34, 26, 20)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(34, 26, 20)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(34, 26, 20) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "button.icon-btn.icon-btn--ghost.side__rail",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background-color, border-color, color",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 184,
+            "y": 80,
+            "w": 40,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(34, 26, 20)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(34, 26, 20) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(106, 94, 83)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(106, 94, 83)"
+            ]
+          }
+        },
+        {
+          "n": 2,
+          "etiqueta": "button.nav",
+          "texto": "Accelerator8",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 24,
+            "y": 153,
+            "w": 52,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(122, 44, 12)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(122, 44, 12)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(122, 44, 12) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 3,
+          "etiqueta": "button.icon-btn",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background-color, border-color, color",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 297,
+            "y": 36,
+            "w": 40,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(34, 26, 20)",
+            "backgroundColor": "color(srgb 0.992157 0.984314 0.972549 / 0.7)",
+            "borderColor": "rgb(209, 201, 190)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(34, 26, 20) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.992157 0.984314 0.972549 / 0.7)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgb(209, 201, 190)",
+              "rgb(106, 94, 83)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.992157 0.984314 0.972549 / 0.7)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgb(209, 201, 190)",
+              "rgb(106, 94, 83)"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.qi__main",
+          "texto": "JW Jonas Whitlock Send the site survey D",
+          "transicion": {
+            "propiedad": "background-color, border-color",
+            "duracion": "0.25s, 0.25s",
+            "curva": "ease, ease",
+            "demora": "0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 113,
+            "y": 128,
+            "w": 274,
+            "h": 118
+          },
+          "estilo": {
+            "color": "rgb(34, 26, 20)",
+            "backgroundColor": "rgb(255, 220, 198)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(34, 26, 20) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 5,
+          "etiqueta": "a.icon-btn.icon-btn--sm.qi__act",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background-color, border-color, color",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 339,
+            "y": 142,
+            "w": 34,
+            "h": 34
+          },
+          "estilo": {
+            "color": "rgb(34, 26, 20)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(209, 201, 190)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(34, 26, 20) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgb(209, 201, 190)",
+              "rgb(106, 94, 83)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgb(209, 201, 190)",
+              "rgb(106, 94, 83)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "button.chip",
+          "texto": "Save",
+          "transicion": {
+            "propiedad": "background-color, border-color, color, opacity",
+            "duracion": "0.2s, 0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease, ease",
+            "demora": "0s, 0s, 0s, 0s"
+          },
+          "cursor": "default",
+          "rect": {
+            "x": 433,
+            "y": 89,
+            "w": 82,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(34, 26, 20)",
+            "backgroundColor": "rgba(253, 251, 248, 0.84)",
+            "borderColor": "rgb(209, 201, 190)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.5",
+            "outline": "rgb(34, 26, 20) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 7,
+          "etiqueta": "button.chip.chip--danger",
+          "texto": "Delete",
+          "transicion": {
+            "propiedad": "background-color, border-color, color, opacity",
+            "duracion": "0.2s, 0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease, ease",
+            "demora": "0s, 0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 730,
+            "y": 89,
+            "w": 93,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(34, 26, 20)",
+            "backgroundColor": "rgba(253, 251, 248, 0.84)",
+            "borderColor": "rgb(209, 201, 190)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(34, 26, 20) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(34, 26, 20)",
+              "rgb(168, 50, 46)"
+            ],
+            "backgroundColor": [
+              "rgba(253, 251, 248, 0.84)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgb(209, 201, 190)",
+              "rgb(168, 50, 46)"
+            ],
+            "outline": [
+              "rgb(34, 26, 20) none 3px",
+              "rgb(168, 50, 46) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(34, 26, 20)",
+              "rgb(168, 50, 46)"
+            ],
+            "backgroundColor": [
+              "rgba(253, 251, 248, 0.84)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgb(209, 201, 190)",
+              "rgb(168, 50, 46)"
+            ],
+            "outline": [
+              "rgb(34, 26, 20) none 3px",
+              "rgb(168, 50, 46) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "button.btn.btn--primary.btn--sm",
+          "texto": "Advance to Develop",
+          "transicion": {
+            "propiedad": "background-color, color, border-color",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1218,
+            "y": 262,
+            "w": 189,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(253, 251, 248)",
+            "backgroundColor": "rgb(34, 26, 20)",
+            "borderColor": "rgb(253, 251, 248)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(253, 251, 248) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(34, 26, 20)",
+              "color(srgb 0.215686 0.128314 0.0866667)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(34, 26, 20)",
+              "color(srgb 0.215686 0.128314 0.0866667)"
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "etiqueta": "button.tab",
+          "texto": "Summary",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.25s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 438,
+            "y": 328,
+            "w": 98,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(253, 251, 248)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(253, 251, 248)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(253, 251, 248) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 10,
+          "etiqueta": "a.icon-btn.icon-btn--sm.fld__act",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background-color, border-color, color",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 709,
+            "y": 667,
+            "w": 34,
+            "h": 34
+          },
+          "estilo": {
+            "color": "rgb(34, 26, 20)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(228, 222, 214)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(34, 26, 20) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgb(228, 222, 214)",
+              "rgb(106, 94, 83)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgb(228, 222, 214)",
+              "rgb(106, 94, 83)"
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "etiqueta": "a.btn.btn--primary.btn--sm",
+          "texto": "Call",
+          "transicion": {
+            "propiedad": "background-color, color, border-color",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 864,
+            "y": 630,
+            "w": 81,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(253, 251, 248)",
+            "backgroundColor": "rgb(34, 26, 20)",
+            "borderColor": "rgb(253, 251, 248)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(253, 251, 248) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(34, 26, 20)",
+              "color(srgb 0.215686 0.128314 0.0866667)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(34, 26, 20)",
+              "color(srgb 0.215686 0.128314 0.0866667)"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "etiqueta": "button.btn.btn--line.btn--sm",
+          "texto": "Mark complete",
+          "transicion": {
+            "propiedad": "background-color, color, border-color",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 864,
+            "y": 676,
+            "w": 156,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(122, 44, 12)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(122, 44, 12)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(122, 44, 12) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "color(srgb 0.478431 0.172549 0.0470588 / 0.08)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "color(srgb 0.478431 0.172549 0.0470588 / 0.08)"
+            ]
+          }
+        },
+        {
+          "n": 13,
+          "etiqueta": "button.link",
+          "texto": "View all 5",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1015,
+            "y": 570,
+            "w": 58,
+            "h": 20
+          },
+          "estilo": {
+            "color": "rgb(156, 59, 24)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(156, 59, 24)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(156, 59, 24) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 14,
+          "etiqueta": "button.icon-btn.icon-btn--sm",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background-color, border-color, color",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1352,
+            "y": 853,
+            "w": 34,
+            "h": 34
+          },
+          "estilo": {
+            "color": "rgb(34, 26, 20)",
+            "backgroundColor": "color(srgb 0.992157 0.984314 0.972549 / 0.7)",
+            "borderColor": "rgb(209, 201, 190)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(34, 26, 20) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.992157 0.984314 0.972549 / 0.7)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgb(209, 201, 190)",
+              "rgb(106, 94, 83)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.992157 0.984314 0.972549 / 0.7)",
+              "rgb(253, 251, 248)"
+            ],
+            "borderColor": [
+              "rgb(209, 201, 190)",
+              "rgb(106, 94, 83)"
+            ]
+          }
+        },
+        {
+          "n": 15,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

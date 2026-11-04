@@ -321,10 +321,9 @@ const CLOSING: PlantillaHoja = {
         { fuentes: [id('cl-factores-barras')], largo: 'corto', formato: 'vinetas' }),
       // El equipo
       {
-        id: id('cl-closers-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'closer', metricas: ['llamadas', 'puntaje', 'ganadas', 'tasa_cierre'],
+        id: id('cl-closers-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'closer', metricas: ['llamadas', 'puntaje', 'ganadas', 'tasa_cierre', 'ganadas_r2', 'perdidas'],
         titulo: 'El equipo de closers', x: 0, y: 24, w: 12, h: 10,
       },
-      { id: id('cl-resultado'), clase: 'grafico', tipo: 'anillo', fuente: 'llamadas', dimension: 'resultado', metricas: ['llamadas'], titulo: 'Cómo terminaron', x: 0, y: 34, w: 6, h: 8 },
       { id: id('cl-puntaje-semana'), clase: 'grafico', tipo: 'serie', fuente: 'llamadas_venta', dimension: 'semana', metricas: ['puntaje'], titulo: 'El score por semana', x: 6, y: 34, w: 6, h: 8 },
       // 5 · Las llamadas: traer las nuevas (el cron de siempre y este botón) y la lista, con su búsqueda y el
       //     pop-up «Llamada» (la ficha de cada una, con sus tareas).
@@ -335,7 +334,31 @@ const CLOSING: PlantillaHoja = {
         tabla: { buscar: true, columnas: ['closer', 'reunion', 'dia'] },
         alClic: 'popup', popup: popupDe(POPUP_LLAMADA, id, 'cl-llamadas-tabla'),
       },
+      // 6 · Lo que lee el DISEÑO de la hoja (app/dashboard/disenos/HojaClosing.tsx, la copia de Halden) y no estaba arriba:
+      //     las llamadas de los últimos 7 días por día y las de los últimos 14 (las «Últimas llamadas», que el diseño ordena
+      //     por día: la tabla de arriba va por puntaje). «Cómo terminaron» sale de los totales del equipo (ganadas en la R2 y
+      //     perdidas, columnas suyas): el anillo de antes contaba lo mismo y la hoja no puede pasar de 14 paneles.
+      {
+        id: id('cl-semana'), clase: 'grafico', tipo: 'barras', fuente: 'llamadas_venta', dimension: 'dia', metricas: ['llamadas'],
+        titulo: 'Llamadas de los últimos 7 días', x: 0, y: 63, w: 6, h: 8, controles: [periodoFijo(id('cl-semana-fecha'), 'ult7')],
+      },
+      {
+        id: id('cl-ultimas'), clase: 'grafico', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'llamada', metricas: ['puntaje', 'duracion'],
+        titulo: 'Últimas llamadas', subtitulo: 'Los últimos 14 días', limite: 50, x: 6, y: 63, w: 6, h: 8, controles: [periodoFijo(id('cl-ultimas-fecha'), 'ult14')],
+        tabla: { columnas: ['closer', 'reunion', 'dia'] },
+        alClic: 'popup', popup: popupDe(POPUP_LLAMADA, id, 'cl-ultimas'),
+      },
     ],
+    // El DISEÑO PROPIO (4/11/2026, Martín: «primero la copia… y después la adaptación»): mirando, la hoja se dibuja como la
+    // copia de Halden (docs/diseno/mockups-dashboard/closing/), leyendo los datos de estas piezas. Editando, la grilla.
+    diseno: {
+      id: 'closing',
+      piezas: {
+        apertura: id('cl-apertura'), tasa: id('cl-tasa'), puntaje: id('cl-puntaje'), analizadas: id('cl-analizadas'), duracion: id('cl-duracion'),
+        embudo: id('cl-embudo-embudo'), desenlace: id('cl-closers-tabla'), semana: id('cl-semana'), ultimas: id('cl-ultimas'),
+        closers: id('cl-closers-tabla'), ia: id('cl-factores-ia'), sync: id('cl-llamadas-sync'), llamadas: id('cl-llamadas-tabla'),
+      },
+    },
   }),
 };
 

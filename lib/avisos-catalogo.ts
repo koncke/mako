@@ -211,6 +211,8 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'closing-ia-caida': 'sistema',
   // Instagram o Zernio frenan los mensajes de un negocio (28/10/2026, el evento de la plataforma `social_tope`).
   'social-tope': 'sistema',
+  // El freno del email (4/11/2026, lib/email-reputacion.ts): muchos rebotes o quejas apagan el envío.
+  'email-frenado': 'sistema',
   'tareas-autocompletadas': 'plan', 'ads-grabaste': 'plan',
   'plan-proyecto-vence': 'plan',
   'avisos-resumen': 'reporte',
@@ -378,6 +380,8 @@ export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERA
 
 /** ¿Es el aviso que le llega a una agencia en lugar del de su cliente (`aLaAgencia`)? Un negocio común no lo recibe nunca. */
 export const esAvisoParaAgencia = (id: string): boolean => CATALOGO_AVISOS.some((c) => c.aLaAgencia === id);
+/** Los avisos a una agencia, por su id: lo que un invitado al grupo de la app no ve, y por eso tampoco le cuenta como no leído (lib/grupo-app.ts). */
+export const avisosParaAgencia = (): string[] => CATALOGO_AVISOS.flatMap((c) => (c.aLaAgencia ? [c.aLaAgencia] : []));
 
 /** ¿El texto de este aviso lo arma el código? (`textoDelCodigo`). Un aviso propio del negocio, nunca. */
 export const textoLoArmaElCodigo = (id: string): boolean =>
@@ -966,6 +970,14 @@ Tu clave de Claude se quedó sin crédito (desde el 8 de octubre), y el Closing 
 
 👉 Cárgale crédito en console.anthropic.com → Billing. Apenas tenga, las 12 llamadas que esperan se analizan solas.
 https://hola-mako.com/integraciones?abrir=anthropic — MaKo`,
+  },
+  {
+    id: 'email-frenado', titulo: 'Apagué el envío de email', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
+    // 4/11/2026, la campaña de email de Mauricio (punto 7): lo emite el webhook de Resend (`revisarFrenoEmail`,
+    // lib/email-reputacion.ts) con la regla de lib/email-freno.ts. Uno por hora como mucho; apagado, no vuelve a avisar.
+    disparador: 'Llega un rebote o una queja de un email del negocio y, de lo enviado en las últimas 24 h (50 o más), rebotó el 5 % o más o se marcó como spam el 0,3 % o más. Apaga el envío de email.',
+    ejemplo: `Apagué el envío de email: 4 de 60 emails de las últimas 24 h rebotaron: esas direcciones no existen (6,7 %). Si sigue, Gmail y Outlook mandan tus emails a spam. Revisa la lista y vuelve a prenderlo desde Email.`,
   },
   {
     id: 'social-tope', titulo: 'Instagram frenó los mensajes de tus automatizaciones', categoria: 'aviso', porDefecto: 'on',

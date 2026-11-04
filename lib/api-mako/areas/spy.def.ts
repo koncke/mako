@@ -106,4 +106,37 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'borra a ese competidor y lo que se leyó de él en este negocio (tablas spy_competidores y spy_piezas)',
     canales: CANALES, costo: 'gratis', gating: PUERTA,
   },
+  // ── Los sugeridos de la plataforma (4/11/2026, lib/spy-sugeridos.ts): SÓLO los del negocio de la plataforma, nunca los
+  // de otro cliente; sumarlo copia lo ya leído (sin anuncios) y no gasta nada del negocio. Al final del área, a propósito.
+  {
+    id: 'ver_sugeridos', area: 'spy', tipo: 'lectura',
+    datosDeClientes: false,
+    titulo: 'Sugeridos por MaKo',
+    descripcion: 'Los que sugiere MaKo y este negocio todavía no mira, con su id. Sin parámetros.',
+    parametros: [],
+    salida: 'json', canales: CANALES, costo: 'gratis', gating: PUERTA,
+  },
+  {
+    id: 'sumar_sugerido', area: 'spy', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    datosDeClientes: false,
+    titulo: 'Sumar un sugerido',
+    descripcion: 'PROPONE sumar uno de los sugeridos, con lo que ya se leyó de él. No gasta nada.',
+    parametros: [
+      { nombre: 'id', tipo: 'number', obligatorio: true, entero: true, minimo: 1, rotulo: 'Cuál', descripcion: 'El id que devuelve ver_sugeridos.' },
+    ],
+    escribe: 'crea su ficha en este negocio con sus publicaciones ya leídas (tablas spy_competidores y spy_piezas)',
+    canales: CANALES, costo: 'gratis', gating: PUERTA,
+  },
+  // Su oferta con el analista de Offer (4/11/2026, lib/spy-oferta.ts): la pantalla la trae sola; esto LEE lo que quedó, sin
+  // IA y sin bajar nada. Al final del área, a propósito.
+  {
+    id: 'su_oferta_con_notas', area: 'spy', tipo: 'lectura',
+    datosDeClientes: false,
+    titulo: 'Cómo está armada su oferta',
+    descripcion: 'Las 9 notas de su oferta (el analista de Offer, sobre su web) y su puntaje. Lee lo ya hecho.',
+    parametros: [
+      { nombre: 'id', tipo: 'number', obligatorio: true, entero: true, minimo: 1, rotulo: 'Cuál', descripcion: 'El id que devuelve listar_vigilados.' },
+    ],
+    salida: 'json', canales: CANALES, costo: 'gratis', gating: PUERTA,
+  },
 ];

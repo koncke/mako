@@ -165,7 +165,7 @@ test('6. el clic derecho, la cita y las marcas del super admin, en cada mensaje 
   assert.deepEqual([m.de, m.propio, m.texto], ['Tú', true, 'hola']);
   const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   // El grupo de WhatsApp de MaKo, sin el menú (OC3, 22/10/2026: se lee, no se responde; tests/ops-center-grupo-mako.test.ts).
-  assert.match(piezas, /<ContextoWA\.Provider value=\{k\.esGrupo \|\| k\.esAutomatizacion(?: \|\| k\.esEditor)? \? null : k\.accionesWA\}>/, 'el hilo con lo de WhatsApp');
+  assert.match(piezas, /<ContextoWA\.Provider value=\{k\.esAutomatizacion(?: \|\| k\.esEditor)? \? null : k\.accionesWA\}>/, 'el hilo con lo de WhatsApp');
   assert.match(piezas, /\{k\.cita && <CitaCaja cita=\{k\.cita\} onQuitar=\{\(\) => k\.setCita\(null\)\} \/>\}/, 'la cita arriba de la caja');
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/m/second-brain/ChatClienteM.tsx']) {
     assert.match(sinComentarios(leer(f)), /<MenuMensajeWA abierto=\{k\.menuWA\} marcas=\{k\.marcas\} onCerrar=\{\(\) => k\.setMenuWA\(null\)\} onElegir=\{k\.elegirEnMenu\} sin=\{\['reenviar'\]\} \/>/, f);
@@ -212,7 +212,8 @@ test('8. el teléfono: la lista es la pantalla y cada chat se abre en su hoja, c
   assert.match(m, /<SheetM abierto=\{abierta && elegido != null\} onCerrar=\{cerrar\} snap="alto"/, 'la conversación, en una hoja alta');
   assert.match(m, /<FilaM leading=\{<CirculoNuevo size=\{40\} \/>\} titulo="Nuevo chat"/, '«Nuevo chat» arriba, con su círculo');
   // Desde el 22/10, agrupados por su origen con `porJefe` (tests/ops-center-lista-cliente.test.ts), en la misma lista.
-  assert.match(m, /\{cerebro && fila\(cerebro\)\}\s*(?:\{\}\s*)?\{porJefe\(corte\)\.flatMap\(/, 'el Cerebro y después todos, en la MISMA lista');
+  // Desde el 4/11/2026, entre los dos, el coach con sus conversaciones de oferta (tests/coaches-ops-center.test.ts, 15).
+  assert.match(m, /\{cerebro && fila\(cerebro\)\}\s*\{verCoach && \([\s\S]{0,700}?\{filasOffer\.map\(\(f\) => fila\(f, true\)\)\}\s*(?:\{\}\s*)?\{porJefe\(corte\)\.flatMap\(/, 'el Cerebro, el coach y después todos, en la MISMA lista');
 });
 
 // 21/10/2026 (~23:10), tres reglas de Martín para toda la app: el chat de MaKo de cada tab a la IZQUIERDA, con la estrella y al

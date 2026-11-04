@@ -18,6 +18,8 @@ const SESION_CH = 'local_5cc6190d-8390-4df1-b215-849f5590ee30';
 /** El chat «Ops Center» de la cuenta 5 (Ananda), desde el 24/10/2026 a la noche. */
 const SESION_OPS5 = 'local_ea6ee0d2-c89d-49d7-b9a5-7354088461a9';
 const SESION_ESTRATEGIA = 'local_94ec0e46-f987-4530-a3cc-c5c1a0bc0601';
+/** El Cerebro de la cuenta 5, que corrió los grupos de la app (3/11/2026). */
+const SESION_GRUPOS = 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8';
 /** Desde el 15/10 a la noche, en la cuenta 3: el chat del Centro y el coordinador de esa cuenta. */
 const SESION_CH_3 = 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b';
 const SESION_ESTRATEGIA_3 = 'local_0f38f4d5-0e64-411e-b6c8-6d6ead20baed';
@@ -2056,6 +2058,41 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '30 oct', hora: '18:30', chat: CH, sesion: 'local_60dde796-c69c-4cab-a626-b7770594e354', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Se ve si la PC no da noticias o si nadie entrega, y lo que espera un chat cerrado le llega al Cerebro',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Dos carteles rojos, arriba, en la computadora y el teléfono:** «La PC no da noticias desde las 23:47» y «Nadie entrega en la PC: 8 pedidos tuyos esperan (el más viejo, de hace 6 días)». No llegaron a subir: el 31/10 Martín los pidió en el Uso.',
+      '**El Ops Center ya no dice «Activo» por una vuelta del servicio:** «llegó algo» y «hay un Runner» son dos datos. Hace falta aplicar una migración antes de instalar el servicio.',
+      '**El Cerebro se entera:** cada mensaje sin entregar le llega una vez, y otra cuando le faltan 3 días para vencer. Con el id, la cuenta y la fecha, nunca con el texto.',
+      '**Sin mirarlo en un navegador:** no se levantó el servidor, porque bootear local escribe en producción.',
+    ],
+    archivos: [
+      'lib/operaciones.ts — cicloCartero, leerCarteros · lib/operaciones-reglas.ts — filaDeLaVuelta, vistoDeLaFila · lib/centro-chats.ts — cartelDeLaPc · CartelPc.tsx',
+      'lib/limbo-al-cerebro.ts · scripts/operaciones/cartero.mjs 1.26.0 — mensajeLimbo · scripts/tickets.ts mensaje · supabase/migrations/0355_operaciones_runner_visto.sql',
+      'tests/centro-cartel-pc.test.ts y tests/limbo-al-cerebro.test.ts',
+    ],
+  },
+  {
+    fecha: '30 oct', hora: '18:35', chat: CH, sesion: 'local_60dde796-c69c-4cab-a626-b7770594e354', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Un mensaje a un chat abierto de una cuenta sin Runner ya sale en el cartel, y lo que se reenvía es lo que firmaste',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El cartel de los mensajes dice la causa de cada uno:** un chat cerrado, el Runner de una cuenta, un chat por abrir o vencido. Antes, lo que esperaba al Runner de otra cuenta no salía en ningún lado.',
+      '**«Mandárselo a otro chat» ya no ofrece chats cerrados** sin Runner, y muestra el mensaje entero antes de firmarlo. Si el texto ya no es el que firmaste, no lo firma.',
+      '**La bandeja de tickets tampoco firma hacia un Cerebro cerrado sin Runner.**',
+      '**El servicio de la PC:** no pasa de 100 segundos por vuelta y sigue por la cuenta que faltó; con error insiste menos que sano, y un token nuevo lo despierta. Un chat no lo instala, y sin la migración y el deploy no se instala.',
+      '**Sin mirarlo en un navegador:** no se levantó el servidor, porque bootear local escribe en producción.',
+    ],
+    archivos: [
+      'lib/operaciones-reglas.ts — comoEstaElDestino · lib/centro-limbo.ts — mensajesEnLimbo, originalParaReenviar · lib/centro-chats.ts — chatRecibe · CartelLimbo.tsx · app/tickets/bandeja/cerebro.ts',
+      'scripts/operaciones/cartero.mjs 1.26.1 — vueltaDelServicio, esperaDelServicio, latidoVale · app/api/operaciones/cartero/route.ts — ?servicio-listo',
+      'tests/centro-limbo.test.ts, tests/cartero-servicio.test.ts, tests/centro-cartel-pc.test.ts y tests/avisar-antes-de-firmar.test.ts',
+    ],
+  },
+  {
     fecha: '31 oct', hora: '17:45', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
     actor: 'claude', tipo: 'correccion',
     titulo: 'Sale el cartel rojo de los mensajes sin entregar',
@@ -2068,6 +2105,21 @@ export const BITACORA: Hito[] = [
     archivos: [
       'app/admin/operaciones/CartelLimbo.tsx (borrado) · PiezasCentro.tsx · useCentro.ts · centro.css · app/m/operaciones/CentroAppMovil.tsx',
       'tests/centro-limbo.test.ts — el cartel no vuelve',
+    ],
+  },
+  {
+    fecha: '31 oct', hora: '19:30', chat: CH, sesion: 'local_60dde796-c69c-4cab-a626-b7770594e354', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El estado de la PC va en el Uso, no en un cartel rojo',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Martín:** «Si, ponlo pero en USO». Arriba de las cuentas, en la computadora y el teléfono: «La PC dio noticias hace 1 min», «Sin noticias de la PC desde las 17:20» o «Sin Runner desde ayer a las 23:47: 3 pedidos tuyos esperan».',
+      '**Dice el hecho con su edad:** nunca «no responde». Con el mismo punto que el Runner de cada cuenta, y sin alarma: se consulta, no interrumpe.',
+      '**Sin el comando para copiar:** el Uso no pide pegar nada en una terminal.',
+    ],
+    archivos: [
+      'lib/centro-chats.ts — estadoDeLaPc · app/admin/operaciones/Uso.tsx — EstadoDeLaPc · app/m/operaciones/RunnerMovil.tsx · useCentro.ts',
+      'tests/centro-estado-pc.test.ts',
     ],
   },
   {
@@ -2124,6 +2176,129 @@ export const BITACORA: Hito[] = [
     archivos: [
       'lib/asesores/ficha-*.ts (diez) · lib/asesores/en-espera.ts — EN_ESPERA',
       'docs/relevo/nube-gurus.md · docs/hallazgos-ops-center.md',
+    ],
+  },
+  {
+    fecha: '3 nov', hora: '18:34', chat: 'Grupos de la app', sesion: SESION_GRUPOS, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los grupos adentro del Ops Center, con los avisos de WhatsApp',
+    pedido: '«algo súper importante que quiero que crees ya mismo es la funcionalidad de grupos, tipo grupos de WhatsApp dentro del Ops Center, de Mako, entonces básicamente los clientes pueden utilizar lo mismo que están utilizando hoy en día en los grupos de Mako en WhatsApp, pero dentro de la aplicación mobile. Es decir, que le puedan, por ejemplo, invitar a otros usuarios de Mako, en este caso a Joan y a Juanfran, que quieren estar pendientes, y que todas las notificaciones que hoy en día estamos enviando por WhatsApp también haya un chat específico dentro de lo que sería Mako Mobile, es decir, el Ops Center, que reciba todo eso, que sea el grupo justamente, y que esté posicionado arriba. Eso quisiera resolverlo así ellos lo pueden seguir utilizando.»',
+    puntos: ['WhatsApp baneó la línea de MaKo el mismo día: con la voz en el número personal de Martín, MaKo no puede escribir en buena parte de los grupos. El aviso tiene que llegar aunque WhatsApp no lo entregue.'],
+  },
+  {
+    fecha: '4 nov', hora: '02:00', chat: 'Grupos de la app', sesion: SESION_GRUPOS, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grupo del negocio, primero en la lista de chats',
+    revisar: '/second-brain',
+    puntos: [
+      '**Fijado arriba, en las cuatro listas:** debajo de «Nuevo chat», en la computadora y en el teléfono, del cliente y del super admin. Con la última línea, cuándo fue y cuántos faltan leer. También para un invitado de otro negocio.',
+      '**Como WhatsApp:** burbujas, nombre y hora; lo tuyo a la derecha y lo de los demás a la izquierda con su nombre. Los avisos de MaKo llevan su marca, y lo que vino de WhatsApp lo dice. Lo nuevo aparece solo. Fotos, PDF y notas de voz.',
+      '**Participantes:** quien administra invita por email y saca; un invitado sólo puede salir, y no ve ningún email. Nada es un buscador: no sirve para averiguar quién usa MaKo.',
+      '**Nunca en blanco:** cargando, la criatura; sin poder leer, «No pude abrir el grupo» con Reintentar; sacado, lo dice. Lo que no salió queda en el hilo con Reintentar, y reintentar no duplica.',
+      '**Se fue la fila «MaKo en WhatsApp» de sólo lectura:** saldría doble. Lo de antes se ve con «Ver lo anterior de WhatsApp», con el mismo corte.',
+      '**Sin mirar en la app de verdad:** se vio en un arnés con las piezas reales y un servidor de mentira, en claro y en oscuro, a 390 y a 1280, con clics, un archivo y el micrófono falso. La sesión y la base no se probaron ahí.',
+    ],
+    archivos: [
+      'app/_chat/grupo/ — el motor (useHiloDelGrupo.ts), la lista (useGrupos.ts), el hilo, la caja y Participantes; pantalla.ts decide lo que depende del rol',
+      'app/second-brain/ChatDelGrupo.tsx · app/m/second-brain/HojaDelGrupo.tsx · FilasDelGrupoM.tsx',
+      'app/_chat/HiloMako.tsx · app/admin/operaciones/Hilo.tsx (FilaDeOtro) · app/admin/operaciones/MensajeWA.tsx',
+      'tests/grupos-ops-pantalla.test.ts — el orden y el rol, con las piezas reales dibujadas, probado rompiéndolo',
+      'docs/hallazgos-ops-center.md — lo que costó y lo que falta',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '07:15', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grupo de la app, listo para entrar a main con lo que dejó pendiente la revisión',
+    revisar: '/second-brain',
+    puntos: [
+      '**Rearmado sobre lo último de main:** los cuatro commits de la rama, con lo que main sumó al turno de MaKo en el grupo (la cita, Google Calendar, el chat de a dos y el freno anti-ban) y sin perder ninguna guarda del invitado.',
+      '**Un invitado tampoco sabe si el negocio tiene Google Calendar conectado**, ni lee el mensaje que citó otra persona como memoria del negocio.',
+      '**La respuesta al equipo ya no le llega a MaKo** aunque falle el autollamado o la mezcle otra persona escribiendo al mismo tiempo.',
+      '**Un invitado ya no ve no leídos que no puede abrir**, y al borrar un negocio se borran también los archivos de su grupo.',
+      '**A quien todavía no tiene cuenta le llega el mail** con el link, y ve el grupo apenas entra a MaKo con ese email. Nadie le crea una cuenta.',
+      '**Probado el recorrido entero, como Joan:** abrir, invitar, el aviso, el link en el teléfono, leer, escribir, que MaKo conteste, los avisos y salir.',
+      '**Falta probarlo en producción:** los pasos, en docs/relevo/nube-grupos.md.',
+    ],
+    archivos: [
+      'lib/mako-doer-in.ts — `ctxGoogle` y `ctxCita` con `hayInvitado`, `sinLasDelEquipo` en la cola y en el cron',
+      'lib/grupo-app.ts — `resumenParaLaLista`, `avisarInvitacion` · lib/grupo-invitaciones.ts — `atarInvitacionesAlEntrar`, desde `registrarLogin` · lib/reset-workspace.ts — `CARPETAS_APARTE`',
+      'tests/grupos-ops-recorrido.test.ts — el recorrido de Joan, cuatro roturas en rojo',
+      'tests/grupos-ops-guarda.test.ts · tests/grupos-ops-turno.test.ts · tests/grupos-ops-puerta.test.ts · tests/baja-cuenta.test.ts — probados rompiéndolos',
+      'docs/relevo/nube-grupos.md · docs/hallazgos-ops-center.md',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '12:10', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los grupos de la app, en producción',
+    revisar: '/second-brain',
+    puntos: [
+      '**Ya está en producción:** el grupo del negocio en el Ops Center, con los avisos, MaKo contestando y los invitados.',
+      '**Falta probarlo con una sesión real** en el Cliente de Prueba: los pasos, en docs/relevo/nube-grupos.md.',
+    ],
+    commits: [{ sha: 'b6e290fe', msg: 'Merge origin/main en punta/grupos-app', lineas: 6114, archivos: 83 }],
+  },
+  {
+    fecha: '4 nov', hora: '12:40', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Adentro de la cuenta de un cliente, la agencia ve sólo el grupo de ese cliente',
+    revisar: '/second-brain',
+    puntos: [
+      '**El ticket #55:** el administrador de una agencia, parado en la cuenta de un cliente, veía en la lista los grupos de todos sus otros clientes. Ahora ve sólo el de ese cliente.',
+      '**En su propio negocio no cambia nada:** ve el suyo, sus invitaciones y los de su cartera, para que su equipo pueda estar pendiente.',
+      '**No era una fuga a la clienta:** ella ve sólo el suyo y sus invitaciones, y quien veía los otros ya tenía acceso a esos clientes.',
+    ],
+    archivos: ['lib/grupo-puerta.ts — `gruposDeLaPersona` corta por la pestaña', 'tests/grupos-ops-lista-cartera.test.ts — la ruta real, los tres casos, cuatro roturas en rojo'],
+    tickets: [55],
+  },
+  {
+    fecha: '4 nov', hora: '11:20', chat: 'Funnel Coach único', sesion: 'cli_135a1a29-c4ee-5d70-b52c-72bc63a68c64', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Un solo coach: el Funnel Coach, con la oferta adentro y la cara de Hormozi',
+    pedido: 'Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach" y que tenga ambas funcionalidades dentro... Por defecto, que esté la cara de hormozi.',
+    puntos: [
+      'Llegó por el chat de la nube que abrió el Cerebro, con lo que no se puede perder: las conversaciones de oferta, la oferta armada, las herramientas de los dos, lo que cada negocio ya eligió y los links de antes.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '12:40', chat: 'Funnel Coach único', sesion: 'cli_135a1a29-c4ee-5d70-b52c-72bc63a68c64', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Funnel Coach trabaja la oferta y el funnel en un chat, con Hormozi al frente',
+    revisar: '/second-brain?coach=funnel',
+    puntos: [
+      '**Un solo coach** en el Ops Center, en la computadora y en el teléfono, para el cliente y el super admin. El Offer Coach ya no aparece.',
+      '**Primero la oferta, después el funnel:** si no hay oferta, la arma ahí mismo y la guarda; si ya hay, la dice en una línea y sigue con el presupuesto, el funnel y el plan.',
+      '**Hormozi de fábrica.** Quien ya había elegido a alguien lo conserva: gana lo que eligió en el Funnel Coach; si sólo eligió en el Offer Coach, se usa esa.',
+      '**Nada se pierde:** las conversaciones de oferta cuelgan de su fila, y quien ya armó una oferta ahí no vuelve a empezar. La charla con Hormozi de antes sigue en la lista de gurús.',
+      '**Sus herramientas van siempre:** las de la oferta y las del funnel, dentro del límite de 12.000 caracteres y con un test que lo mide.',
+    ],
+    archivos: [
+      'lib/asesores/catalogo.ts — referenteDelCoach · lib/funnel-plan-db.ts · lib/asesores/contexto.ts — las fases y HERRAMIENTAS_DEL_COACH',
+      'lib/doer-herramientas.ts — propias · app/api/mako/chat/route.ts · app/api/offer/route.ts · lib/offer-sesiones.ts — hayOfertaArmada',
+      'app/second-brain/ChatSecondBrain.tsx · ChatDelCoach.tsx · useChatDelCoach.ts · app/m/second-brain/HojaDelCoach.tsx · ChatClienteM.tsx · app/m/operaciones/ChatsMovil.tsx',
+      'tests/coaches-ops-center.test.ts (11 roturas, cada una cae) · tests/gurus-ops-center.test.ts',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '14:10', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que el grupo se vea como uno de WhatsApp',
+    pedido: '«"Participantes" debería estar al final a la derecha, cuida siempre el diseño... Y no veo el botón de invitar allí mismo... Y claro, revisa que el diseño no se rompa al invitar... Que se vea como un grupo de whatsapp normal.»',
+    puntos: ['Llegó por el Cerebro, después de que Martín revisara la pantalla.'],
+  },
+  {
+    fecha: '4 nov', hora: '14:30', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grupo se ve como un grupo de WhatsApp',
+    revisar: '/second-brain',
+    puntos: [
+      '**Arriba:** debajo del nombre, quiénes están, y a la derecha del todo «Invitar» y «Participantes». Un invitado no ve «Invitar».',
+      '**Invitar no hace saltar la ventana:** la lista scrollea adentro, y el aviso queda en su lugar, separado de la lista.',
+      '**En la conversación:** lo tuyo va sin tu foto, lo que MaKo contesta dice a qué mensaje contesta, y el 👍 queda montado sobre el borde del mensaje.',
+      '**En el teléfono:** debajo del nombre, quiénes están, y un «+» para invitar.',
+    ],
+    archivos: [
+      'app/second-brain/ChatDelGrupo.tsx · app/m/second-brain/HojaDelGrupo.tsx · app/_chat/grupo/Participantes.tsx (`useMiembrosDelGrupo`) · grupo.css',
+      'tests/grupos-ops-pantalla.test.ts (20) — ocho roturas en rojo',
     ],
   },
 ];

@@ -52,6 +52,31 @@ export type ArchivoHilo = {
 /** `incierta`: su trabajo largo se cortó y no se sabe si terminó (no es «falló»: no hay que pedirlo de nuevo sin mirar). */
 export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'en_curso' | 'hecho' | 'cancelada' | 'vencida' | 'resuelta' | 'fallo' | 'incierta';
 
+/**
+ * Lo que un mensaje del grupo de la app suma al hilo (app/_chat/grupo/pantalla.ts, 3/11/2026). Sin esto, `user` es quien mira y
+ * `assistant` es MaKo: los demás chats no cambian.
+ */
+export type ExtraDelGrupo = {
+  /** Quién lo dijo, si no es quien mira. null: lo suyo (a la derecha) o MaKo. */
+  autor: string | null;
+  /** El color del nombre: una persona se reconoce por él, como en un grupo de WhatsApp. */
+  color?: number;
+  /** Sigue a otro mensaje del mismo autor: sin repetir el nombre ni la foto. */
+  sigue?: boolean;
+  /** «WhatsApp»: vino de ahí. */
+  chip?: string | null;
+  /** El nombre, cuando no lo dice MaKo sino su equipo. */
+  deParte?: string;
+  /** Un aviso de MaKo: se dibuja distinto de lo que contesta. */
+  aviso?: boolean;
+  /** La reacción de MaKo a este mensaje. Es de MaKo: no se quita. */
+  reaccion?: string | null;
+  /** A qué responde. `id` null: el citado no está dibujado. */
+  cita?: { de: string; texto: string; id: IdMensaje | null } | null;
+  /** Es el primero sin leer: arriba de él va «Sin leer». */
+  sinLeer?: boolean;
+};
+
 export type ItemHilo =
   | {
       k: 'msg';
@@ -75,13 +100,15 @@ export type ItemHilo =
       /** los links a la pantalla donde se hace lo pedido (sólo de MaKo, y sólo en esta sesión de la pantalla: el
        *  Second Brain los pide a /api/mako/pedidos; lib/chat-mako-reglas.ts → colgarIrA) */
       irA?: { titulo: string; link: string }[];
+      /** El grupo de la app. */
+      grupo?: ExtraDelGrupo;
     }
   /** `abrir`: después de confirmarla, el «Abrir en <tab>» del link que devolvió la acción (1.8). */
   | { k: 'propuesta'; id: string; t: TarjetaPendiente; estado: EstadoPropuesta; nota?: string; abrir?: Abrir }
   | { k: 'pantalla'; id: string; p: PropuestaPantalla }
-  /** `mako` = lo escribió el código para la persona (la agenda); `plataforma` = no pude.
+  /** `mako` = lo escribió el código para la persona (la agenda); `plataforma` = no pude; `sistema` = lo que pasó en un grupo («Joan entró»).
    *  `conectar`: la integración que le falta al negocio (`RespuestaTurno.conectar`): un botón que abre su modal ahí mismo. */
-  | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma'; conectar?: string;
+  | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma' | 'sistema'; conectar?: string;
       /** El texto para mandar de nuevo: el aviso de un mensaje que quedó sin respuesta (`conSinRespuesta`). */
       reintentar?: string }
   /** Lo que el chat DIBUJA (lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx): lo creado con su miniatura, el antes y el
@@ -246,7 +273,8 @@ export const idWA = (x: Pick<ItemMsg, 'id' | 'role' | 'at'>): IdMensaje =>
   `t:${x.at ? `${x.role === 'user' ? 'u' : 'm'}${x.at.replace(/\D/g, '')}` : x.id.replace(/[^\w-]/g, '-').slice(-60)}`;
 /** El mensaje, para el menú del clic derecho, la cita y los fijados (sin el contexto de WhatsApp, no hace nada). */
 export const mensajeWADe = (x: ItemMsg, nombre: string): MensajeWA => ({
-  id: idWA(x), texto: x.texto, de: x.role === 'user' ? 'Tú' : nombre, propio: x.role === 'user',
+  // En un grupo, lo de otra persona es de ella: ni «Tú», ni a la derecha (`grupo.autor`).
+  id: idWA(x), texto: x.texto, de: x.grupo?.autor ?? (x.role === 'user' ? 'Tú' : nombre), propio: x.role === 'user' && !x.grupo?.autor,
   instante: x.at ? Date.parse(x.at) || 0 : 0, trabajo: null,
 });
 

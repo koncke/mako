@@ -2645,3 +2645,61 @@ La segunda revisión de la cuenta de revisión de las tiendas (la contraseña qu
   - Una «Versión de computadora» abierta desde el teléfono sigue mostrando Partners y Agency, que vienen de la punta hermana de Partners.
 
 **Vive en:** lib/cuenta-revision-reglas.ts · lib/revision-guarda.ts · lib/cuenta-revision.ts · proxy.ts · lib/resend.ts · lib/evolution.ts · lib/tickets-db.ts · lib/tickets-runner.ts · lib/agencia.ts · app/api/auth/contrasena/route.ts · app/api/auth/callback/google/route.ts · app/api/ia-pc/codigo/route.ts · scripts/tiendas-cuenta-revision.mts · scripts/tickets.ts · tests/cuenta-revision*.test.ts. *4/11/2026, chat «tiendas» en la nube.*
+
+## Las páginas dinámicas con punto quedan fuera del proxy (4/11/2026)
+
+**Síntoma, medido sin cookie en producción:** `POST /crm/x` da 307 a /login. `POST /crm/x.png` (también `.css`, `.js` y `/m/crm/x.png`)
+da 404 con `X-Matched-Path: /crm/[id]` y `X-Nextjs-Action-Not-Found: 1`: llega al manejador de acciones sin pasar por el proxy.
+
+**Causa:** el matcher de `proxy.ts` saca toda ruta terminada en extensión, salvo `api/`. El `(?!api/)` del 1/11 cubrió las rutas de API y
+no las páginas, y un segmento dinámico acepta cualquier valor, también `x.png`.
+
+**Qué se saltea:** el corte de sesión, el chequeo de Origin y `revisionPuedeEscribir`, la red de la cuenta de revisión que usan terceros.
+
+**El diagnóstico fácil era «hay acciones abiertas», y no se confirmó.** Un grep por el nombre del corte da 273 de 540 acciones sin corte, y
+72 al alcance de las 31 páginas dinámicas. Son casi todas falsos positivos: las que se leyeron (`gcal`, `agency`, `customer-success`,
+`comunidad`, `curso-ficha`, `pendientes`, `image-editor`, `avatar`) cortan con un ayudante propio (`adminDeWorkspaceActual`, `puedeUsarCs`,
+`conActor`, `puerta`, `ctxDeBandeja`, `veEditorVideo`). No se leyeron las 72 ni se ejecutó una acción real.
+
+**Por qué no lo vio el test:** `tests/cuenta-revision-escrituras.test.ts:67-72` llama a `proxy()` directo y saltea el matcher. Un test del
+proxy que no compila el matcher no dice qué pedidos le llegan.
+
+**El arreglo (`punta/proxy-acciones`, chat «tiendas» en la nube, 4/11/2026):**
+- **Lo que se saltea por extensión se escribe en POSITIVO**: un archivo de la RAÍZ (`/logo.png`, `/sw.js`, `/m.js`) o de una carpeta de
+  `public/` nombrada en el matcher (`replay`, `vsl-assets`, `logos`…). Ya no hay «todo lo que termina en `.png` menos `api/`», que es una
+  lista de exclusiones y se queda vieja sola: el `(?!api/)` del 1/11 cerró una cara y dejó la otra.
+- **Y todo lo que Next trataría como server action pasa siempre**, sea cual sea el camino: tres entradas con `has` (`next-action`,
+  `multipart/form-data.*` y `application/x-www-form-urlencoded.*`), las mismas tres condiciones de `getServerActionRequestMetadata`. Con
+  sólo la lista de carpetas, un POST a un archivo de la raíz con `Next-Action` seguía afuera (cae en el 404 de la app, que no se midió).
+- **El test compila el matcher con `getMiddlewareMatchers` y decide con `getMiddlewareRouteMatcher`**, las dos de Next
+  (`tests/proxy-matcher-completo.test.ts`), y cruza: cada ruta dinámica de app/ (API incluida) con cada extensión pasa; cada archivo de
+  `public/` con esas extensiones no pasa (sin sesión sería un 307 a /login); ninguna carpeta de la lista está de más; y lo que la propia
+  `getServerActionRequestMetadata` de Next llama acción, en cualquier camino, pasa. Probado rompiéndolo, rotura por rotura.
+- **Lo que no se puede ver desde el matcher: un `next-action` VACÍO.** `matchHas` toma un header vacío como ausente, así que esa combinación
+  queda afuera. La salva que el handler corta antes de buscar la acción (`getActionModIdOrError`: «Missing 'next-action' header»); el test
+  lo fija leyendo ese `if` del fuente de Next, para enterarse si cambia.
+- ⚠️ **Dos tests viejos leían el matcher como UN string** (`/matcher:\s*\['…'\]/`, tests/pixel-cargador.test.ts) o cortaban sus
+  alternativas por la forma del último tramo (tests/editor-landing-origen.test.ts). Pasar a una lista con objetos los rompía sin que el
+  matcher estuviera mal: el primer elemento sigue siendo el string, y los tests se adaptaron a esa forma.
+
+**Lo que salió de la misma revisión, en la misma punta:**
+- **La guarda de envío de la cuenta miraba sólo `enviarTexto`/`enviarMedia`/`enviarAudio`.** Las tareas de una reunión caían a la línea de
+  MaKo (`enviarAPersonaMaKo`) cuando la guarda decía que no, o sea que el «no» salía por otro número. Ahora la cuenta tampoco escribe por
+  `antesDeEscribir` (lib/linea-freno.ts: lo que pasa por el `ev` de lib/mako-grupo.ts) ni por el bot (`salidaPara`, lib/mako-salida.ts),
+  y las tareas devuelven el motivo. La lección: **una guarda «en el punto de envío» tiene tantos puntos como fetch a Evolution haya**; se
+  pone donde pasan todos (`antesDeEscribir`), no en la función que se vio primero.
+- **Una fila de la cuenta tocada** (`rol_ws` cambiado a mano) entraba por el camino de todos: sin la marca y sin segundo factor, como un
+  closer común. Ahora `/api/auth/contrasena` rechaza el correo o el negocio de revisión que no cumplan la regla entera, y avisa.
+- **`/api/mako/voz` y `/api/notificaciones` estaban en lo permitido con un porqué equivocado**: la primera es la guía de voz del negocio (no
+  el micrófono) y las dos son de admin. Una entrada que el rol corta igual sólo agranda la lista; salieron.
+- **El script de la cuenta avisaba «⚠️» y terminaba con ✓ si no podía sacar el segundo factor o las computadoras de antes.** Ahora la
+  limpieza va ANTES de la contraseña y, si algo no sale, termina con error sin tocarla. Y hay `scripts/tiendas-cuenta-revision-revertir.mts`:
+  `--corte` (la suspende) y `--total` (borra la persona y el negocio con `eliminarWorkspace`, sólo si sigue siendo el de demostración).
+- **De las acciones, una sin ningún corte:** `app/configuraciones/telefonos-actions.ts` (sin cookie, `getTenantDb` cae al ws1). No era
+  alcanzable: `TelefonosPanel` no lo monta ninguna pantalla, así que sus acciones no entran al build. Quedó con el corte de admin igual.
+  El barrido fue por ARCHIVO (un archivo `'use server'` sin ningún ayudante de sesión), no función por función: las otras siete de esa
+  lista cortan con un ayudante propio.
+
+**Vive en:** `proxy.ts` (`config.matcher`) · `tests/proxy-matcher-completo.test.ts` · `lib/linea-freno.ts` · `lib/mako-salida.ts` ·
+`lib/reunion-destinatarios.ts` · `lib/cuenta-revision-reglas.ts` · `app/api/auth/contrasena/route.ts` · `scripts/tiendas-cuenta-revision.mts` ·
+`scripts/tiendas-cuenta-revision-revertir.mts` · `app/configuraciones/telefonos-actions.ts` · `tests/cuenta-revision-escrituras.test.ts`.

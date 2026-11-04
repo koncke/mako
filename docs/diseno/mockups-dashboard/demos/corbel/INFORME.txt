@@ -1,0 +1,114 @@
+##############################################################################
+#  CORBEL   bundle 114kB - 25 helpers - 13 chunks - ARQ VANILLA - 21 fromTo crudos
+##############################################################################
+
+CHUNKS: analytics-Cmn8URPr.js, automations-DCjBvmRr.js, customers-OZKdRnn6.js, dashboard-CKi1od-B.js, email-l_3iO-B4.js, feedback-C0CAlBgx.js, help-C5w_teXF.js, integrations-CUGSezJh.js, messages-CIp8YCJG.js, orders-D85_2bBq.js, products-DbFUUs6i.js, settings-BwIdA_fS.js, workspace-D4Bm8VGz.js
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[o -> export (no exp)]  (t,a,o,s){var l;typeof a==`number`&&(o.duration=a,a=o,o=null),l=r.call(this,s?a:Pe(a))||this;var u=l.vars,d=u.duration,f=u.delay,p=u.immediateRender,m=u.stagger,h=u.overwrite,g=u.keyframes,v=u.defaults,x=u.scrollTrigger,T=a.parent||P,E=(w(t)||C(t)?_(t[0]):`length`in a)?[t]:pt(t),D,O,k,A,j,M,N,F;if(l._targets=E.length?ve(E):re(`GSAP target `+t+` not found. https://gsap.com`,!n.nullTargetWarn)||[],l._ptLookup=[],l._overwrite=h,g||m||S(d)||S(f)){a=l.vars;var I=a.easeReverse||a.yoyoEase;if(D=l.timeline=new on({data:`nested`,defaults:v||{},targets:T&&T.data==...
+
+[bi -> export (no exp)]  (e,t,n=0){let r=yi(e,t);return gi()?q.timeline():q.fromTo(r,{yPercent:110,rotation:5},{yPercent:0,rotation:0,duration:.8,ease:`power4.out`,stagger:.02,delay:n,clearProps:`transform`})}
+
+[xi -> export Tt]  (e,{y:t=26,stagger:n=.07,delay:r=0}={}){return e.length?q.fromTo(e,{opacity:0,y:t,scale:.985},{opacity:1,y:0,scale:1,duration:J(.9),ease:`expo.out`,stagger:J(n),delay:J(r),clearProps:`transform,opacity`}):q.timeline()}
+
+[Si -> export xt]  (e,{x:t=0,y:n=10,stagger:r=.04,delay:i=0}={}){return e.length?q.fromTo(e,{opacity:0,x:t,y:n},{opacity:1,x:0,y:0,duration:J(.6),ease:`power3.out`,stagger:J(r),delay:J(i),clearProps:`transform,opacity`}):q.timeline()}
+
+[Ci -> export Et]  (e,{from:t=.6,delay:n=0,stagger:r=.05}={}){!e||gi()||q.fromTo(e,{scale:t,opacity:0},{scale:1,opacity:1,duration:.6,ease:`back.out(2.6)`,delay:n,stagger:r,overwrite:`auto`,clearProps:`transform,opacity`})}
+
+[wi -> export gt]  (e){!e||gi()||q.fromTo(e,{y:-3,scale:1.05},{y:0,scale:1,duration:.55,ease:`back.out(2.4)`,overwrite:`auto`,clearProps:`transform`})}
+
+[Ti -> export Ct]  (e,t,n=`up`){if(!e||gi())return;let r=e.getBoundingClientRect(),i=Object.assign(document.createElement(`span`),{className:`float-up ${n}`,textContent:t});i.setAttribute(`aria-hidden`,`true`),Object.assign(i.style,{left:`${r.left+r.width/2}px`,top:`${r.top}px`}),document.body.append(i),q.fromTo(i,{opacity:0,y:6,xPercent:-50,scale:.9},{keyframes:[{opacity:1,y:-12,scale:1,duration:.35,ease:`back.out(2)`},{opacity:0,y:-38,duration:.8,ease:`power2.in`,delay:.5}],onComplete:()=>i.remove()})}
+
+[Ei -> export vt]  (e,{duration:t=1.2,delay:n=0,stagger:r=0,ease:i=`power3.inOut`}={}){q.fromTo(e,{strokeDasharray:`100 100`,strokeDashoffset:100},{strokeDashoffset:0,duration:J(t),delay:J(n),stagger:J(r),ease:i})}
+
+[Oi -> export _t]  (e,t,n,{duration:r=1.2,delay:i=0,from:a,ease:o=`power3.out`}={}){if(!e)return;let s=Di.get(e);if(s||Di.set(e,s={v:a??0}),a!==void 0&&(s.v=a),q.killTweensOf(s),gi()||!r||s.v===t){s.v=t,e.textContent=n(t);return}let c=s;e.textContent=n(c.v),q.to(c,{v:t,duration:r,delay:i,ease:o,onUpdate:()=>{e.textContent=n(c.v)},onComplete:()=>{e.textContent=n(t)}})}
+
+[ki -> export kt]  (e){if(gi())return;let t=e.querySelector(`svg`)??e;q.fromTo(t,{scale:.72},{scale:1,duration:.55,ease:`back.out(3)`,overwrite:!0})}
+
+[ji -> export wt]  (e=document,t=-3){_i.matches&&X(`[data-lift]`,e).forEach(e=>{if(e.__lift)return;e.__lift=!0;let n=e.dataset.lift===`inner`?e.firstElementChild??e:e;e.addEventListener(`pointerenter`,()=>{!gi()&&Ai.v&&q.to(n,{y:t,duration:.45,ease:`power3.out`,overwrite:`auto`})}),e.addEventListener(`pointerleave`,()=>{Ai.v&&q.to(n,{y:0,duration:.5,ease:`power3.out`,overwrite:`auto`,clearProps:`transform`})})})}
+
+[lo -> export w]  (e,t,n=!1){t=Math.round(t*1e3)/1e3;let r=t<0;e.classList.toggle(`is-down`,r);let i=e.querySelector(`span`);i&&(i.textContent=n?`${r?`−`:`+`}${Math.abs(t*100).toFixed(1)} pt`:`${Math.abs(t*100).toFixed(1)}%`);let a=e.querySelector(`.delta__arrow`);a&&q.to(a,{rotation:r?180:0,duration:J(.5),ease:`back.out(2)`,transformOrigin:`50% 50%`})}
+
+[fo -> export (no exp)]  (e,t,n,r=!0){if(!n||!n.offsetWidth){q.to(e,{opacity:0,duration:J(.2),overwrite:`auto`}),e.__lr=void 0;return}let i=t.scrollWidth,a=t.offsetHeight,o=n.offsetLeft,s=i-(n.offsetLeft+n.offsetWidth),c=n.offsetTop,l=a-(n.offsetTop+n.offsetHeight),u=(e,t)=>`inset(${c}px ${t}px ${l}px ${e}px round 999px)`,d=e.__lr;if(e.__lr=[o,s],!r||gi()||!d){q.set(e,{clipPath:u(o,s)}),q.to(e,{opacity:1,duration:d||!r?0:J(.25),overwrite:`auto`});return}let f={l:d[0],r:d[1]},p=o>d[0];q.killTweensOf(f),q.to(e,{opacity:1,duration:.2,overwrite:`auto`}),q.to(f,{l:o,duration:p?.55:.3...
+
+[po -> export C]  (e,t,n=0){let r=X(`button`,e),i=e.getAttribute(`role`)===`tablist`,a=e.querySelector(`.seg__pill`);a||(a=Object.assign(document.createElement(`span`),{className:`seg__pill`}),a.setAttribute(`aria-hidden`,`true`),e.prepend(a));let o=-1,s=e=>{let t=r[o];!t||!a||(a.style.width=`${t.offsetWidth}px`,q.to(a,{x:t.offsetLeft-3,duration:e?J(.55):0,ease:`expo.out`,overwrite:!0}))},c=(e,t=!0)=>{e!==o&&(o=e,r.forEach((t,n)=>{i?(t.setAttribute(`aria-selected`,String(n===e)),t.tabIndex=n===e?0:-1):t.setAttribute(`aria-pressed`,String(n===e))}),s(t))};return r.forEach(...
+
+[ho -> export O]  (e,{ico:t=`check`,action:n,onAction:r,ms:i=3600}={}){let a=Y(`#toasts`),o=document.createElement(`div`);o.className=`toast`,o.innerHTML=`<span class="toast__ico">${Ba(t)}</span><span>${Z(e)}</span>${n?`<button type="button">${Z(n)}</button>`:``}`,a.append(o);let s=()=>q.to(o,{opacity:0,y:10,scale:.97,duration:J(.25),ease:`power2.in`,onComplete:()=>o.remove()});o.querySelector(`button`)?.addEventListener(`click`,()=>{r?.(),s()}),q.fromTo(o,{opacity:0,y:18,scale:.96},{opacity:1,y:0,scale:1,duration:J(.55),ease:`back.out(1.8)`}),q.delayedCall(i/1e3,s)}
+
+[vo -> export (no exp)]  (e,t,n){let r=(_o.get(e)??0)+1;_o.set(e,r),e.firstElementChild&&q.killTweensOf(e.firstElementChild),e.open&&e.close(),e.innerHTML=`<div class="${t}__box"${n.wide?` data-wide`:``}>     <header class="${t}__head"><h2 id="${t}-title">${Z(n.title)}</h2><button class="icon-btn" type="button" data-dismiss aria-label="Close">${Ba(`x`)}</button></header>     <div class="${t}__body">${n.body}</div>${n.foot?`<footer class="${t}__foot">${n.foot}</footer>`:``}</div>`,e.setAttribute(`aria-labelledby`,`${t}-title`),e.classList.toggle(`is-wide`,!!n.wide);let i=e.firstE...
+
+[Co -> export y]  (e,t){if(So?.el===e){So.close();return}So?.close(),e.hidden=!1;let n=t.getBoundingClientRect(),r=e.offsetWidth;e.style.top=`${n.bottom+8}px`,e.style.left=`${Math.max(12,Math.min(innerWidth-r-12,n.right-r))}px`,t.setAttribute(`aria-expanded`,`true`),q.fromTo(e,{opacity:0,y:-8,scale:.97,transformOrigin:`90% 0%`},{opacity:1,y:0,scale:1,duration:J(.4),ease:`back.out(1.6)`});let i=n=>{!e.contains(n.target)&&!t.contains(n.target)&&o()},a=e=>{e.key===`Escape`&&(o(),t.focus())},o=()=>{So?.el===e&&(So=null,t.setAttribute(`aria-expanded`,`false`),document.removeEv...
+
+[Do -> export b]  (e,{y:t=8,stagger:n=.025}={}){gi()||!e.length||q.fromTo(e.slice(0,24),{opacity:0,y:t},{opacity:1,y:0,duration:.45,ease:`power3.out`,stagger:n,clearProps:`transform,opacity`})}
+
+[Zo -> export (no exp)]  (e,t,n){let r=Yo(e);if(!r){Ko.hidden=!0,Xo=``;return}let i=r.group!==Xo;i&&(Xo=r.group,X(`.subtab`,qo).forEach(e=>e.remove()),qo.insertAdjacentHTML(`beforeend`,r.items.map(e=>`<a class="subtab" href="${e.href}" data-key="${Z(e.key)}">${Z(e.label)}${e.count?`<span class="tab__count" data-count="${e.count}"></span>`:``}</a>`).join(``)),Ko.hidden=!1,q.set(Jo,{opacity:0}),Qo());let a=e===`workspace`?`workspace/${t[0]}`:e;X(`.subtab`,qo).forEach(e=>e.dataset.key===a?e.setAttribute(`aria-current`,`page`):e.removeAttribute(`aria-current`)),fo(Jo,qo,vi(`.subtab[...
+
+[rs -> export (no exp)]  (e=!1){let{name:t,params:n}=Ro(location.hash),r=++ts;wo();let i=Y(`[data-view="${t}"]`);if(es?.name===t){Go(t,n),es.page.enter({params:n,first:!1,same:!0}),is(es.page,n,!0);return}let a=$o.get(t);if(!a){try{a=(await Io[t]()).page}catch(e){console.error(e),ho(`${Po[t]} couldn’t load. Check your connection and try again.`,{ico:`alert`});return}if(r!==ts)return;a.mount(i),$o.set(t,a)}if(r!==ts)return;let o=i.dataset.entered!==`1`,s=es;es={name:t,page:a},s?.page.leave?.(),Go(t,n,!e),document.documentElement.dataset.route=t;let c=()=>{X(`.view`).forEach(e=>{e...
+
+[ms -> export (no exp)]  (){as.open||(wo(),os.value=``,ls=0,ds(),as.showModal(),os.focus(),q.fromTo(`.finder__box`,{opacity:0,y:-14,scale:.97},{opacity:1,y:0,scale:1,duration:J(.45),ease:`back.out(1.6)`}),Si(X(`.finder__hit`,ss),{y:6,stagger:.02}))}
+
+[hs -> export (no exp)]  (){as.open&&q.to(`.finder__box`,{opacity:0,y:-8,scale:.98,duration:J(.16),ease:`power2.in`,onComplete:()=>{as.close(),q.set(`.finder__box`,{clearProps:`all`})}})}
+
+[Ds -> export (no exp)]  (e,t){let n=e.toLocaleString(`en-US`);Ts.length!==n.replace(/\D/g,``).length&&Es(n),[...n.replace(/\D/g,``)].forEach((e,n)=>{q.to(Ts[n],{yPercent:-Number(e)*10,duration:t?J(.9):0,ease:`expo.out`,delay:t?n*.04:0})}),ws.textContent=`${n} shoppers`}
+
+[js -> export (no exp)]  (){document.documentElement.classList.add(`ready`);let e=q.timeline({defaults:{ease:`expo.out`}});if(gi()){rs(!0),Ns();return}e.fromTo(`.mesh`,{opacity:0},{opacity:1,duration:1.2,ease:`power2.out`,clearProps:`opacity`},0).add(Si([Y(`.brand`),Y(`.tabs`),...X(`.top__tools > *`)],{y:-14,stagger:.06}),.05).fromTo(`.dock`,As.matches?{y:90,opacity:0}:{x:-90,opacity:0},{x:0,y:0,opacity:1,duration:.9,ease:`power3.out`,clearProps:`transform,opacity`},.1).add(Si(X(`.dock__btn`),{y:10,stagger:.035}),.3).fromTo(`.main`,{opacity:0,y:22},{opacity:1,y:0,duration:1.1,cl...
+
+[Ms -> export (no exp)]  (){gi()||X(`.mesh i`).forEach((e,t)=>q.to(e,{x:[60,-50,40][t],y:[40,-60,50][t],scale:[1.08,.94,1.1][t],duration:14+t*4,ease:`sine.inOut`,yoyo:!0,repeat:-1}))}
+
+========================== TIMELINE DEL ARMAZON ==========================
+ass="word" aria-hidden="true">${[...e].map(e=>`<span class="ch">${Z(e)}</span>`).join(``)}</span>`).join(` `),X(`.ch`,e)}function bi(e,t,n=0){let r=yi(e,t);return gi()?q.timeline():q.fromTo(r,{yPercent:110,rotation:5},{yPercent:0,rotation:0,duration:.8,ease:`power4.out`,stagger:.02,delay:n,clearProps:`transform`})}function xi(e,{y:t=26,stagger:n=.07,delay:r=0}={}){return e.length?q.fromTo(e,{opacity:0,y:t,scale:.985},{opacity:1,y:0,scale:1,duration:J(.9),ease:`expo.out`,stagger:J(n),delay:J(r),clearProps:`transform,opacity`}):q.timeline()}function Si(e,{x:t=0,y:n=10,stagger:r=.04,delay:i=0}={}){return e.length?q.fromTo(e,{opacity:0,x:t,y:n},{opacity:1,x:0,y:0,duration:J(.6),ease:`power3.out`,stagger:J(r),delay:J(i),clearProps:`transform,opacity`}):q.timeline()}function Ci(e,{from:t=.6,delay:n=0,stagger:r=.05}={}){!e||gi()||q.fromTo(e,{scale:t,opacity:0},{scale:1,opacity:1,duration:.6,ease:`back.out(2.6)`,delay:n,stagger:r,overwrite:`auto`,clearProps:`transform,opacity`})}function wi(e){!e||gi()||q.fromTo(e,{y:-3,scale:1.05},{y:0,scale:1,duration:.55,ease:`back.out(2.4)`,overwrite:`auto`,clearProps:`transform`})}function Ti(e,t,n=`up`){if(!e||gi())return;let r=e.getBoundingClientRect(),i=Object.assign(document.createElement(`span`),{className:`float-up ${n}`,textContent:t});i.setAttribute(`aria-hidden`,`true`),Object.assign(i.style,{left:`${r.left+r.width/2}px`,top:`${r.top}px`}),document.body.append(i),q.fromTo(i,{opacity:0,y:6,xPercent:-50,scale:.9},{keyframes:[{opacity:1,y:-12,scale:1,duration:.35,ease:`back.out(2)`},{opacity:0,y:-38,duration:.8,ease:`power2.in`,delay:.5}],onComplete:()=>i.remove()})}function Ei(e,{duration:t=1.2,delay:n=0,stagger:r=0,ease:i=`power3.inOut`}={}){q.fromTo(e,{strokeDasharray:`100 100`,strokeDashoffset:100},{strokeDashoffset:0,duration:J(t),delay:J(n),stagger:J(r),ease:i})}var Di=new WeakMap;function Oi(e,t
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  .pal__opt:hover { color:var(--text) }
+  :focus-visible { outline:2px solid var(--text);outline-offset:2px;border-radius:6px }
+  .tab:hover { background:var(--well) }
+  .tab[aria-current]:hover { background:0 0 }
+  .dock__btn:hover,.dock__btn:focus-visible,.dock__btn[aria-current=page] { opacity:1;background:#ffffff21 }
+  .dock__btn:focus-visible { outline-color:var(--on-dock) }
+  .dock__btn:hover .dock__tip,.dock__btn:focus-visible .dock__tip { opacity:1 }
+  .subtab:hover,.subtab[aria-current] { color:var(--text) }
+  .btn:hover { background:var(--glass-3) }
+  .btn--primary:hover,.btn--dark:hover { background:color-mix(in srgb, var(--pill) 84%, var(--primary)) }
+  .btn--ghost:hover { background:var(--well);color:var(--text) }
+  .icon-btn:hover { background:var(--well);color:var(--text) }
+  .ibtn:hover { background:var(--glass-3) }
+  .link-btn:hover { text-decoration:underline }
+  .more-link:hover { color:var(--primary-ink);text-decoration-color:currentColor }
+  .seg button:hover,.seg button[aria-selected=true],.seg button[aria-pressed=true] { color:var(--text) }
+  .table tbody tr:hover { background:var(--surface-2) }
+  .switch input:focus-visible~.switch__track { outline:2px solid var(--text);outline-offset:2px }
+  .chip:hover { color:var(--text) }
+  .tab:hover,.ibtn:hover,.table tbody tr:hover { background:0 0 }
+  .ibtn--glass:hover { background:var(--glass-2) }
+  .dock__btn:hover:not([aria-current]) { opacity:.74;background:0 0 }
+  .dock__btn:hover .dock__tip { opacity:0 }
+
+  -- keyframes --
+  @keyframes ping {0%{opacity:.9;transform:scale(.4)}80%,to{opacity:0;transform:scale(1.5)}}
+
+  -- transitions --
+  transition:background-color .15s
+  transition:background-color .25s
+  transition:background-color .2s
+  transition:background-color .2s,color .2s
+  transition:background-color .2s,color .2s,box-shadow .2s
+  transition:box-shadow .2s
+  transition:box-shadow .2s,color .2s
+  transition:color .2s
+  transition:none
+  transition:opacity .18s var(--ease)
+  transition:opacity .2s,background-color .2s
+  transition:transform .35s cubic-bezier(.3,1.4,.5,1)
+
+======================== PAGINA dashboard-CKi1od-B.js (21kB) ========================
+  alias: O=lo, S=ki, c=ho, k=Si, p=Oi, t=po, u=xi, v=wi
+
+  >>> function Ee(t)  [3 helpers]
+{let r=t?1:.6,i=t?.15:.05;if(n()){q(!1),Q(!1),ve(!1),xe(!1),z=!0;return}k(G(`.db-bar > *`),{y:8,stagger:.05,delay:i}),u(G(`.db > .card`),{stagger:.07*r,delay:i+.05}),k(G(`.db-kpi`),{y:14,stagger:.08*r,delay:i+.12}),e.set(X,{yPercent:100}),e.set(W(`.db-hl`),{opacity:0}),e.set(W(`.db-tip`),{opacity:0,scale:.9}),e.set(G(`.db-mf, .db-ef`),{yPercent:100}),e.set(G(`.db-ring__fill`),{strokeDasharray:`0 100`}),te.v=0,se(),G(`.db-kpi [data-v]`).forEach(e=>p(e,0,()=>e.textContent??``,{duration:0})),q(!0,i+.3*r),e.fromTo(G(`.db-gl i`),{scaleX:0},{scaleX:1,transformOrigin:`0 50%`,duration:1.1*r,ease:`expo.out`,stagger:.06*r,delay:i+.4*r}),e.fromTo(G(`.db-gl span`),{opacity:0,x:-6},{opacity:1,x:0,duration:.6,stagger:.05*r,delay:i+.45*r,clearProps:`transform`}),e.fromTo(W(`.db-avg`),{opacity:0},{opacity:1,duration:.6,delay:i+1.3*r}),e.fromTo(G(`.db-col__x`),{opacity:0,y:6},{opacity:1,y:0,duration:.5,stagger:.03*r,delay:i+.5*r,clearProps:`transform`}),R=L,Q(!0,i+.55*r,r,!1);let a=i+1.35*r;e.delayedCall(a,()=>{$(0,!1),e.to(W(`.db-hl`),{opacity:1,duration:.3}),e.delayedCall(.12,()=>$(L,!0,.01)),e.to(W(`.db-tip`),{opacity:1,scale:1,duration:.5,ease:`back.out(2)`,delay:.55})}),ve(!0,i+.6*r),xe(!0,i+.7*r),z=!0}
+
+  >>> function q(t,r=0)  [3 helpers]
+{let a=d(F),o=t?1.3:0,s=e=>W(`.db-kpi[data-k="${e}"]`),c=(e,t,n,i,a=!1)=>{let c=s(e);p(E(`[data-v]`,c),t,n,{duration:o,delay:r}),O(E(`[data-d]`,c),i,a)};c(`active`,a.active,T,a.activeD),c(`revenue`,a.revenue,T,a.revenueD),c(`units`,a.units,_,a.unitsD),c(`conv`,a.conv,e=>f(e,1),a.convD,!0);let l=D(F,`cur`),u=[l[(i+10)%12],l[(i+11)%12],l[i]],m=Math.max(...u);e.to(C(`.db-mf`,s(`active`)),{yPercent:e=>K(u[e]*.92,m),duration:A(+!!t),ease:`expo.out`,stagger:A(.08),delay:r});let h=Array.from({length:8},(e,t)=>l[(i-7+t+12)%12]),g=Math.min(...h)*.9,v=Math.max(...h),y=h.map((e,t)=>[4+76/7*t,34-(e-g)/(v-g)*28]),b=y.map(([e,t],n)=>`${n?`L`:`M`}${e.toFixed(1)} ${t.toFixed(1)}`).join(` `),x=s(`revenue`);E(`.db-spark__line`,x).setAttribute(`d`,b),E(`.db-spark__area`,x).setAttribute(`d`,`${b} L80 40 L4 40 Z`);let S=y[y.length-1],w=E(`.db-spark__dot`,x);w.setAttribute(`cx`,String(S[0])),w.setAttribute(`cy`,String(S[1])),t&&!n()&&(e.fromTo(E(`.db-spark__line`,x),{strokeDasharray:`100 100`,strokeDashoffset:100},{strokeDashoffset:0,duration:1.3,ease:`power3.inOut`,delay:r}),e.fromTo(E(`.db-spark__area`,x),{opacity:0},{opacity:1,duration:.8,delay:r+.6}),e.fromTo(w,{scale:0,transformOrigin:`50% 50%`},{scale:1,duration:.5,ease:`back.out(3)`,delay:r+1.15}));let k=Math.min(1,a.units/ae[F]),j=s(`units`);e.to(E(`.db-ring__fill`,j),{strokeDasharray:`${k*100} 100`,duration:A(t?1.4:0),ease:`power3.inOut`,delay:r}),p(E(`.db-ring__pct`,j),k*100,e=>`${Math.round(e)}%`,{duration:t?1.4:0,delay:r}),e.to(C(`.db-ef`,s(`conv`)),{yPercent:e=>K(oe[F][e],1),duration:A(t?.9:0),ease:`expo.out`,stagger:A(.04),delay:r}),e.to(te,{v:a.score,duration:A(t?1.7:0),delay:r,ease:`power3.inOut`,onUpdate:se}),O(W(`[data-score-d]`),a.scoreD/100,!0),W(`[data-score-d] span`).textContent=`${a.scoreD>=0?`+`:`−`}${Math.abs(a.scoreD)}`;let M=W(`[data-note-h]`),ee=W(`[data-note-p]`);if(M.textContent!==a.scoreNote[0]){let r=()=>{M.textContent=a.scoreNote[0],ee.textContent=a.scoreNote[1]};!t||n()||!M.textContent?r():e.to(W(`.db-note`),{opacity:0,y:-6,duration:.2,onComplete:()=>{r(),e.fromTo(W(`.db-note`),{opacity:0,y:8},{opacity:1,y:0,duration:.5,ease:`power3.out`})}})}}
+
+  >>> function xe(t,r=0)  [2 helpers]
+{let i=g(F);W(`[data-v-label]`).textContent=i.label,p(W(`[data-v-total]`),i.total,_,{duration:t?1.3:0,delay:r}),O(W(`[data-v-d]`),i.delta);let a=0,o=i.parts.map(e=>{let t={start:a,len:e.value/i.total*100};return a+=t.len,t});G(`.db-legend button`).forEach((a,o)=>{let s=i.parts[o],c=E(`.db-legend__l`,a);c.textContent!==s.label&&(t&&!n()&&c.textContent&&e.fromTo(c,{opacity:0,y:6},{opacity:1,y:0,duration:.45,ease:`power3.out`,delay:r+o*.05}),c.textContent=s.label),p(E(`.db-legend__v`,a),s.value,_,{duration:t?1.1:0,delay:r}),a.setAttribute(`aria-label`,`${s.label}: ${_(s.value)} (${Math.round(s.value/i.total*100)}%)`)}),!t||n()?(o.forEach((e,t)=>Object.assign(B[t],e)),be()):z?o.forEach((t,n)=>e.to(B[n],{start:t.start,len:t.len,duration:.9,ease:`power3.inOut`,delay:r,onUpdate:be})):(B.forEach(e=>{e.start=0,e.len=0}),o.forEach((t,n)=>e.to(B[n],{start:t.start,len:t.len,duration:1.1,ease:`power3.inOut`,delay:r+n*.18,onUpdate:be}))),Se(V,t,r)}

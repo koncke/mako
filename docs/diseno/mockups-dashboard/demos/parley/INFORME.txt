@@ -1,0 +1,107 @@
+##############################################################################
+#  PARLEY   bundle 124kB - 21 helpers - 8 chunks - ARQ VANILLA - 25 fromTo crudos
+##############################################################################
+
+CHUNKS: audience-YY0F2WzB.js, automations-BL0noJhd.js, campaigns-D6g6s98m.js, campaigns-shared-CwUWEwqC.js, inbox-DqbQoCoI.js, reports-X683kdzz.js, scheduled-DgXwnE6w.js, settings-B2209G_f.js
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[o -> export (no exp)]  (t,a,o,s){var l;typeof a==`number`&&(o.duration=a,a=o,o=null),l=r.call(this,s?a:Fe(a))||this;var u=l.vars,d=u.duration,f=u.delay,p=u.immediateRender,m=u.stagger,h=u.overwrite,g=u.keyframes,v=u.defaults,x=u.scrollTrigger,T=a.parent||P,E=(w(t)||C(t)?_(t[0]):`length`in a)?[t]:ht(t),D,O,k,A,j,M,N,F;if(l._targets=E.length?ye(E):ie(`GSAP target `+t+` not found. https://gsap.com`,!n.nullTargetWarn)||[],l._ptLookup=[],l._overwrite=h,g||m||S(d)||S(f)){a=l.vars;var ee=a.easeReverse||a.yoyoEase;if(D=l.timeline=new cn({data:`nested`,defaults:v||{},targets:T&&T.data=...
+
+[xi -> export Z]  (e,t,n={}){let{decimals:r=0,prefix:i=``,duration:a=1.4}=n,o=bi.get(e);o||bi.set(e,o={v:n.from??0}),n.from!==void 0&&(o.v=n.from);let s=()=>{e.textContent=i+vi(o.v,r)};return G.to(o,{v:t,duration:q(a),ease:`power3.out`,onUpdate:s,onComplete:s,overwrite:!0})}
+
+[Ji -> export M]  (e,t){let n=J(`#toast`);typeof n.showPopover==`function`&&(n.matches(`:popover-open`)&&n.hidePopover(),n.showPopover()),n.replaceChildren();let r=document.createElement(`span`);if(r.textContent=e,n.append(r),t){let e=document.createElement(`button`);e.type=`button`,e.className=`toast__action`,e.textContent=t.label,e.addEventListener(`click`,()=>{t.run(),Yi()},{once:!0}),n.append(e)}n.classList.toggle(`has-action`,!!t),G.killTweensOf(n),G.fromTo(n,{y:16,opacity:0},{y:0,opacity:1,duration:q(.4),ease:`back.out(1.6)`}),clearTimeout(qi),qi=window.setTimeout(Y...
+
+[Yi -> export (no exp)]  (){clearTimeout(qi);let e=J(`#toast`);G.to(e,{y:10,opacity:0,duration:q(.3),ease:`power2.in`,onComplete:()=>{e.matches(`:popover-open`)&&e.hidePopover()}})}
+
+[xa -> export l]  (e,t={}){return G.fromTo(e,{opacity:0,y:t.y??18},{opacity:1,y:0,duration:q(.6),ease:`power3.out`,stagger:K?0:t.stagger??.06,delay:q(t.delay??0),clearProps:`transform,opacity`})}
+
+[Sa -> export f]  (e,t){let n=new Map;Y(`[data-key]`,e).forEach(e=>n.set(e.dataset.key,e.getBoundingClientRect())),t(),Y(`[data-key]`,e).forEach(e=>{let t=n.get(e.dataset.key);if(!t){G.fromTo(e,{opacity:0,y:10},{opacity:1,y:0,duration:q(.4),ease:`power3.out`,clearProps:`transform,opacity`});return}let r=e.getBoundingClientRect(),i=t.left-r.left,a=t.top-r.top;(i||a)&&G.fromTo(e,{x:i,y:a},{x:0,y:0,duration:q(.5),ease:`power3.out`,clearProps:`transform`})})}
+
+[Ca -> export u]  (e,t){G.to(e,{opacity:0,x:-12,duration:q(.25),ease:`power2.in`,onComplete:t})}
+
+[wa -> export w]  (e){G.fromTo(e,{scale:.94},{scale:1,duration:q(.45),ease:`elastic.out(1, 0.5)`,clearProps:`transform`})}
+
+[Ta -> export (no exp)]  (e,t){return new Promise(n=>{let r=document.createElement(`dialog`);r.className=`${e}${t.wide?` ${e}--wide`:``}`;let i=`dlg-${Math.random().toString(36).slice(2,8)}`;r.setAttribute(`aria-labelledby`,i);let a=t.actions?.length?`<footer class="${e}__foot">${t.actions.map(e=>`<button type="${e.submit?`submit`:`button`}" class="btn btn--${e.kind??`ghost`}" data-value="${X(e.value)}">${X(e.label)}</button>`).join(``)}</footer>`:``;r.innerHTML=`<form method="dialog" class="${e}__form" novalidate>         <header class="${e}__head"><h2 class="${e}__title" id="$...
+
+[Aa -> export k]  (e){let t=null;return Y(`input, select, textarea`,e).forEach(n=>{if(!n.id)return;let r=e.querySelector(`#${CSS.escape(n.id)}-err`);if(!r)return;let i=n.checkValidity();n.setAttribute(`aria-invalid`,String(!i)),r.hidden=i,r.textContent=i?``:n.dataset.error||n.validationMessage,i?n.removeAttribute(`aria-describedby`):n.setAttribute(`aria-describedby`,`${n.id}-err`),!i&&!t&&(t=n)}),t?(t.focus(),G.fromTo(t,{x:-6},{x:0,duration:q(.4),ease:`elastic.out(1, 0.3)`,clearProps:`transform`}),!1):!0}
+
+[La -> export y]  (e,t){if(Fa?.btn===e)return Ia(!0);Ia();let n=document.createElement(`div`);n.className=`menu`,n.setAttribute(`role`,`menu`),n.innerHTML=t.map((e,t)=>`<button type="button" role="menuitem" class="menu__item${e.danger?` is-danger`:``}" data-i="${t}">${e.icon?va(e.icon):``}${X(e.label)}</button>`).join(``),document.body.append(n);let r=e.getBoundingClientRect(),i=n.offsetWidth,a=n.offsetHeight,o=r.left+r.width/2<innerWidth/2,s=Math.min(innerWidth-i-8,Math.max(8,o?r.left:r.right-i)),c=r.bottom+6+a>innerHeight?r.top-a-6:r.bottom+6;n.style.left=`${s+scrollX}p...
+
+[h -> export (no exp)]  (e){d=e,n.classList.toggle(`is-hovering`,e>=0),s.forEach((t,n)=>t.classList.toggle(`is-on`,n===e)),f.forEach((t,n)=>t.classList.toggle(`is-on`,n===e)),m(),e>=0&&G.fromTo(a,{scale:.85},{scale:1,duration:q(.4),ease:`back.out(2)`})}
+
+[go -> export (no exp)]  (e){e.innerHTML=Array.from({length:ho},()=>`<i><b></b></i>`).join(``);let t=Y(`b`,e),n=0;return{to(e){let r=Math.round(e*ho),i=t.slice(n,r),a=t.slice(r,n).reverse();G.to(i,{scaleY:1,duration:q(.35),ease:`back.out(2.2)`,stagger:K?0:.018}),G.to(a,{scaleY:0,duration:q(.25),ease:`power2.in`,stagger:K?0:.018}),n=r}}}
+
+[To -> export (no exp)]  (){oo=!0;let e=Y(`.card`,ao),t=G.timeline({defaults:{ease:`power3.out`}});Y(`[data-count]`,ao).forEach(e=>{e.textContent=(e.dataset.prefix??``)+`0`}),G.set(uo,{yPercent:100}),G.set(`.budget__bar i`,{scaleX:0}),t.fromTo(e,{opacity:0,y:28,scale:.985},{opacity:1,y:0,scale:1,duration:q(.8),stagger:K?0:.08,clearProps:`transform`},0);let n=t=>e.findIndex(e=>e.id===t)*(K?0:.08)+q(.25);t.add(()=>{xi(ro(`audience-total`),Ha.total,{duration:1.6}),xi(ro(`audience-new`),Ha.newThisMonth),G.to(uo,{yPercent:0,duration:q(1.1),ease:`power4.out`,stagger:K?0:.06,clearProps...
+
+[zo -> export (no exp)]  (e,t){Io.innerHTML=Ro(e.title).split(` `).map(e=>`<span class="w">${X(e)}</span>`).join(` `),Lo.textContent=Ro(e.sub),t&&(G.from(Y(`.w`,Io),{yPercent:70,opacity:0,duration:q(.6),stagger:K?0:.06,ease:`power3.out`,clearProps:`transform,opacity`}),G.fromTo(Lo,{opacity:0,y:6},{opacity:1,y:0,duration:q(.5),delay:q(.15),ease:`power3.out`,clearProps:`transform`}))}
+
+[Wo -> export (no exp)]  (e,t){Ho.forEach(t=>{let n=t.dataset.route===e;t.classList.toggle(`is-active`,n),n?t.setAttribute(`aria-current`,`page`):t.removeAttribute(`aria-current`)});let n=Ho.find(t=>t.dataset.route===e&&t.closest(`.rail__list`)&&t.offsetParent!==null),r=n??(Go.offsetParent===null?null:Go);if(Go.classList.toggle(`is-active`,!n&&r===Go),!r){G.to(Bo,{opacity:0,scale:.6,duration:q(.2)});return}let i=r.querySelector(`.rail__icon`)??r,a=0,o=0;for(let e=i;e&&e!==Vo;e=e.offsetParent)a+=e.offsetLeft,o+=e.offsetTop;if(!t){if(!Uo){Uo=!0,G.fromTo(Bo,{x:a,y:o,scale:.4,opacit...
+
+[rs -> export (no exp)]  (e){if(ts()===e)return;os();let t=[J(`.top`),J(`.views`)],n=t.map(e=>e.getBoundingClientRect().left);Xo.classList.toggle(`rail-open`,e),ns();try{localStorage.setItem(Yo,e?`1`:`0`)}catch{}K||t.forEach((e,t)=>{let r=n[t]-e.getBoundingClientRect().left;r&&G.fromTo(e,{x:r},{x:0,duration:.45,ease:`power3.out`,clearProps:`transform`})})}
+
+[as -> export (no exp)]  (e){if(ts()||matchMedia(`(max-width: 860px)`).matches)return;let t=e===Qo?`Expand sidebar`:e.querySelector(`.rail__label`)?.firstChild?.textContent??e.getAttribute(`aria-label`)??``;if(!t.trim())return;is=e,es.innerHTML=`${X(t.trim())}${e===Qo?`<kbd>[</kbd>`:``}`;let n=e.getBoundingClientRect(),r=Zo.getBoundingClientRect(),i=n.top-r.top+n.height/2-es.offsetHeight/2;G.killTweensOf(es),G.fromTo(es,{x:-4,y:i,opacity:0},{x:0,y:i,opacity:1,duration:q(.18),ease:`power2.out`})}
+
+[fs -> export (no exp)]  (e=!1){let{name:t,params:n}=Fo(location.hash),r=++us,i=J(`[data-view="${t}"]`);if(ls?.name===t){ls.page.enter({params:n,first:!1,same:!0}),ds=location.hash;return}if(ls?.page.canLeave&&!await ls.page.canLeave()){history.replaceState(null,``,ds);return}if(r!==us)return;let a=cs.get(t);if(!a){try{a=(await Po[t]()).page}catch(e){console.error(e),Ji(`${No[t]} couldn’t load. Check your connection and try again.`);return}if(r!==us)return;a.mount(i),cs.set(t,a)}if(r!==us)return;let o=!ls||!cs.has(t)||i.dataset.entered!==`1`,s=ls;ls={name:t,page:a},ds=location.h...
+
+[_s -> export (no exp)]  (){let e=$.value.trim();if(ms=gs(e),hs=ms.length?0:-1,!e)return ys();let t=``;ps.innerHTML=ms.length?ms.map((n,r)=>{let i=n.group===t?``:`<li class="search__group" role="presentation">${n.group}</li>`;return t=n.group,`${i}<li class="search__hit" role="option" id="hit-${r}" data-i="${r}" aria-selected="${r===hs}">           <span class="search__lead">${n.lead}</span><span class="search__text"><b>${ba(n.label,e)}</b><small>${X(n.meta)}</small></span></li>`}).join(``):`<li class="search__none" role="presentation">Nothing matches “${X(e)}”.</li>`,ps.hidden&...
+
+[Es -> export (no exp)]  (){G.timeline({defaults:{ease:`power3.out`}}).fromTo(`.rail__logo, .rail__item`,{opacity:0,x:-10},{opacity:1,x:0,duration:q(.5),stagger:K?0:.04,clearProps:`transform`,onComplete:()=>Wo(ls?.name??`overview`,!1)},0).set(`.top__title`,{opacity:1},0).fromTo(`.top__tools > *`,{opacity:0,y:-8},{opacity:1,y:0,duration:q(.5),stagger:K?0:.06,clearProps:`transform`},.2),fs(!0)}
+
+========================== TIMELINE DEL ARMAZON ==========================
+w.setInterval(()=>{!document.hidden&&oo&&Co(2+Math.floor(Math.random()*9))},3500),Zi(()=>Co(14+Math.floor(Math.random()*20)))}function To(){oo=!0;let e=Y(`.card`,ao),t=G.timeline({defaults:{ease:`power3.out`}});Y(`[data-count]`,ao).forEach(e=>{e.textContent=(e.dataset.prefix??``)+`0`}),G.set(uo,{yPercent:100}),G.set(`.budget__bar i`,{scaleX:0}),t.fromTo(e,{opacity:0,y:28,scale:.985},{opacity:1,y:0,scale:1,duration:q(.8),stagger:K?0:.08,clearProps:`transform`},0);let n=t=>e.findIndex(e=>e.id===t)*(K?0:.08)+q(.25);t.add(()=>{xi(ro(`audience-total`),Ha.total,{duration:1.6}),xi(ro(`audience-new`),Ha.newThisMonth),G.to(uo,{yPercent:0,duration:q(1.1),ease:`power4.out`,stagger:K?0:.06,clearProps:`transform`})},n(`audience`)),t.add(()=>{xi(ro(`delivery`),Ba.value,{decimals:1}),_o.to(Ba.fill)},n(`delivery`)),t.add(()=>{xi(ro(`campaigns`),Va.value,{duration:1}),vo.to(Va.fill)},n(`campaigns`)),t.add(()=>{xi(ro(`credits`),Z.credits,{prefix:`$`}),xi(ro(`runway`),Math.floor(Z.credits/io),{duration:1}),G.to(`.budget__bar i`,{scaleX:1,duration:q(1.2),ease:`power3.out`})},n(`credits`)),t.add(()=>{xi(ro(`sent-total`),fo,{duration:1.8}),xi(ro(`sent-today`),po),co.set(Wa.ranges[`30d`].points)},n(`sent`)),t.add(()=>{so.set(Ga[2026],`2026`,!0),yo(`2026`)},n(`month`)),t.add(()=>lo.set(qa.month,bo(`month`),!0),n(`mix`)),t.add(()=>So(!0),n(`top-contacts`))}function Eo(){let e=new Date().getHours();return`${e<5?`Good evening`:e<12?`Good morning`:e<18?`Good afternoon`:`Good evening`}, ${Z.settings.profile.name.split(` `)[0]}`}var Do={title:Eo,sub:`Here’s how your conversations moved today.`,mount:wo,enter({same:e}){if(!e){if(!oo)return To();G.fromTo(Y(`.card`,ao),{opacity:0,y:18},{opacity:1,y:0,duration:q(.55),ease:`power3.out`,stagger:K?0:.05,clearProps:`transform`})}}},Oo=`modulepreload`,ko=function(e){return`/parley/`+e},Ao={},jo=function(e,t,n){let r=Promise.re
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2px solid var(--c-violet);outline-offset:2px }
+  .card--dark :focus-visible,.card--hero :focus-visible { outline-color:var(--cream) }
+  .rail__toggle:hover .rail__icon { background:#fff6ee1f }
+  .rail__item:hover { color:var(--cream) }
+  .rail__item:hover .rail__icon { background:#fff6ee1f }
+  .rail :focus-visible { outline-color:var(--cream) }
+  .search:focus-within { border-color:var(--c-violet);box-shadow:0 0 0 3px #5b3e8c24 }
+  .sync:hover { border-color:#d9cfc2 }
+  .card:hover { border-color:#221b261f;box-shadow:0 1px #221b260a,0 18px 40px -20px #221b2642 }
+  .seg button:hover { color:var(--ink) }
+  .seg--dark button:hover { color:var(--cream) }
+  .hbar:hover .hbar__val,.hbar.is-peak .hbar__val { opacity:1 }
+  .hbar:hover .hbar__bar:not(.hbar__bar--proj) { background:#fff }
+  .topup__btn:hover { background:#3a2f40 }
+  .topup__menu button:hover,.topup__menu button:focus-visible { background:#fff6ee1f }
+  .person:hover { background:var(--surface-2) }
+  .rail__item:hover .rail__icon { background:0 0 }
+  .person__name a:hover { text-underline-offset:3px;text-decoration:underline }
+  .toast__action:hover { background:#fff6ee3d }
+  .toast :focus-visible { outline-color:var(--cream) }
+  .more-link:hover,.more-link:focus-visible,.more-link[aria-current=page] { background:var(--surface-2) }
+  .btn--primary:hover { background:#3a2f40 }
+  .btn--accent:hover { background:#a93412 }
+  .btn--ghost:hover { background:var(--surface-2);border-color:#cfc3b5 }
+  .btn--danger:hover { background:#8f1f18 }
+  .icon-btn:hover { background:var(--surface-2);color:var(--ink) }
+  .input:hover,.select:hover,.textarea:hover { border-color:#cfc3b5 }
+  .chips button:hover { color:var(--ink);border-color:#cfc3b5 }
+  .table tbody tr:hover { background:var(--surface-2) }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--surface-2);outline:none }
+
+  -- keyframes --
+  @keyframes ping {0%{opacity:.8;transform:scale(1)}to{opacity:0;transform:scale(3)}}
+  @keyframes blink {50%{opacity:.25}}
+
+  -- transitions --
+  transition:background-color .15s
+  transition:background-color .25s
+  transition:background-color .2s
+  transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s
+  transition:background-color .2s,color .2s
+  transition:background-color .2s,color .2s,border-color .2s
+  transition:border-color .25s,box-shadow .25s
+  transition:border-color .2s,box-shadow .2s
+  transition:clip-path .45s var(--ease-out)
+  transition:color .2s
+  transition:color .2s,background-color .2s,box-shadow .2s
+  transition:none
+  transition:opacity .25s
+  transition:opacity .25s, translate .4s var(--ease-out)
+  transition:opacity .2s
+  transition:transform .35s cubic-bezier(.34,1.56,.64,1)
+  transition:transform .35s var(--ease-out)

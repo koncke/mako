@@ -1,0 +1,3392 @@
+{
+  "medido": "2026-11-04T11:53:13.282Z",
+  "url": "https://demo.codeandchill.store/lumora/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/lumora/#/dashboard",
+      "ancho": 390,
+      "alto": 4036,
+      "fondo": "rgb(238, 241, 240)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#eef1f0",
+        "--card": "#fbfcfc",
+        "--surface": "#fbfcfc",
+        "--surface-2": "#f3f6f5",
+        "--control": "#fff",
+        "--control-hi": "#fff",
+        "--pill-soft": "#16221f12",
+        "--raised": "#fff",
+        "--solid": "#fbfcfc",
+        "--well": "#16221f0d",
+        "--line": "#16221f14",
+        "--line-2": "#16221f26",
+        "--edge": "#16221f12",
+        "--shadow": "0 1px 2px #16221f0a, 0 10px 28px -18px #16221f33",
+        "--shadow-pop": "0 26px 60px -18px #16221f4d, 0 2px 6px #16221f14",
+        "--text": "#1c2524",
+        "--muted": "#59645f",
+        "--faint": "#6e7975",
+        "--cream": "#f7f9f4",
+        "--ink": "#1c2524",
+        "--pill": "#1c2524",
+        "--on-pill": "#f7f9f4",
+        "--dock": "#1c2524",
+        "--on-dock": "#f7f9f4",
+        "--primary": "#13695d",
+        "--on-primary": "#f2fbf8",
+        "--t-mint": "#bfe6d1",
+        "--t-sky": "#c5dbf5",
+        "--t-peach": "#f8cdb7",
+        "--t-lemon": "#f3e19d",
+        "--on-tile": "#1c2524",
+        "--tile-dim": "#1c2524ad",
+        "--tile-well": "#ffffff8c",
+        "--pine": "#1d9a85",
+        "--marigold": "#d8960f",
+        "--coral": "#e5694a",
+        "--sky": "#3f84d8",
+        "--clay": "#a8714b",
+        "--moss": "#4f9a2c",
+        "--rose": "#d9475f",
+        "--slate": "#66737a",
+        "--good": "#23864a",
+        "--warn": "#a96b05",
+        "--bad": "#c2372b",
+        "--info": "#2f6fc4",
+        "--soft": "14%",
+        "--on-bright": "#fff",
+        "--tint": "#fff",
+        "--on-av": "#1c2524",
+        "--on-marigold": "#2a1d03",
+        "--orb": "radial-gradient(circle at 35% 30%, #fffaf0, #f4c86a 38%, #4fbf9f 76%)",
+        "--orb-glow": "#f4c86a33",
+        "--wipe-light": "#eef1f0",
+        "--wipe-dark": "#0e1211",
+        "--cover-bg": "#121a18",
+        "--cover-fg": "#eef3f1",
+        "--cover-on": "#10201c",
+        "--device": "#121a17",
+        "--pv-bg-l": "#eef1f0",
+        "--pv-bg-d": "#0e1211",
+        "--pv-ink-l": "#1c2524",
+        "--pv-ink-d": "#eef3ee",
+        "--pv-mint": "#bfe6d1",
+        "--pv-sky": "#c5dbf5",
+        "--pv-peach": "#f8cdb7",
+        "--r-card": "26px",
+        "--r-tile": "18px",
+        "--gap": "16px",
+        "--dock-x": "20px",
+        "--dock-w": "60px",
+        "--gutter": "clamp(16px, 1.6vw, 28px)",
+        "--app-max": "1840px",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 43,
+          "ejemplo": "Planning time"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 22,
+          "ejemplo": "Falcon 10 · Today, 23:59 · Homework"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 18,
+          "ejemplo": "Tuesday 20 October · Week 7 of the autum"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "28px",
+          "peso": "600",
+          "interlineado": "29.12px",
+          "espaciado": "-0.7px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 11,
+          "ejemplo": "3 lessons"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 9,
+          "ejemplo": "0%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 8,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(247, 249, 244)",
+          "veces": 8,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 8,
+          "ejemplo": "Quick links"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "0.44px",
+          "color": "rgb(89, 100, 95)",
+          "veces": 7,
+          "ejemplo": "Mo"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 6,
+          "ejemplo": "P1"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 6,
+          "ejemplo": "08:30"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(19, 105, 93)",
+          "veces": 6,
+          "ejemplo": "Customise"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 5,
+          "ejemplo": "handed in"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "0.25px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 4,
+          "ejemplo": "TF"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(247, 249, 244)",
+          "veces": 4,
+          "ejemplo": "Fees"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(28, 37, 36, 0.68)",
+          "veces": 4,
+          "ejemplo": "Lessons today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "26px",
+          "espaciado": "-0.52px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 4,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgba(28, 37, 36, 0.68)",
+          "veces": 4,
+          "ejemplo": "Next: Falcon 10 · 10:35"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "16.875px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 4,
+          "ejemplo": "Sofia Mwangi handed in the amylase write"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "15.625px",
+          "espaciado": "-0.25px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 4,
+          "ejemplo": "08:3009:20"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "13.75px",
+          "espaciado": "-0.25px",
+          "color": "rgb(89, 100, 95)",
+          "veces": 4,
+          "ejemplo": "09:20"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11.55px",
+          "espaciado": "0.44px",
+          "color": "color(srgb 0.566902 0.419843 0.0901176)",
+          "veces": 3,
+          "ejemplo": "Oct"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "-0.4px",
+          "color": "color(srgb 0.566902 0.419843 0.0901176)",
+          "veces": 3,
+          "ejemplo": "20"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(110, 121, 117)",
+          "veces": 3,
+          "ejemplo": "28"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 2,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "17.55px",
+          "espaciado": "-0.135px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 2,
+          "ejemplo": "Plan a lesson with Wren"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 2,
+          "ejemplo": "Create plan"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 2,
+          "ejemplo": "Falcon 10"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.496863 0.337255 0.0560784)",
+          "veces": 2,
+          "ejemplo": "Medium risk"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(247, 249, 244)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "700",
+          "interlineado": "27.55px",
+          "espaciado": "-0.38px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 1,
+          "ejemplo": "lumora"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 1,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "11px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 1,
+          "ejemplo": "You have 3 lessons today and 87 pieces t"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(19, 105, 93)",
+          "veces": 1,
+          "ejemplo": "87 pieces to mark"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.579804 0.378431 0.0378431)",
+          "veces": 1,
+          "ejemplo": "Heron 9’s register isn’t taken yet."
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "09:40"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11.55px",
+          "espaciado": "0.44px",
+          "color": "color(srgb 0.112235 0.429569 0.37702)",
+          "veces": 1,
+          "ejemplo": "Oct"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "-0.4px",
+          "color": "color(srgb 0.112235 0.429569 0.37702)",
+          "veces": 1,
+          "ejemplo": "21"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11.55px",
+          "espaciado": "0.44px",
+          "color": "color(srgb 0.450196 0.329882 0.236)",
+          "veces": 1,
+          "ejemplo": "Oct"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "-0.4px",
+          "color": "color(srgb 0.450196 0.329882 0.236)",
+          "veces": 1,
+          "ejemplo": "22"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 1,
+          "ejemplo": "Class"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "37.7px",
+          "espaciado": "-0.52px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 1,
+          "ejemplo": "62%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.131765 0.449412 0.260392)",
+          "veces": 1,
+          "ejemplo": "164"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.663137 0.205098 0.16451)",
+          "veces": 1,
+          "ejemplo": "20"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.487373 0.186039 0.157098)",
+          "veces": 1,
+          "ejemplo": "High risk"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.225px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 1,
+          "ejemplo": "October 2026"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(242, 251, 248)",
+          "veces": 1,
+          "ejemplo": "20"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Now"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "section.card.hero",
+          "x": 14,
+          "y": 128,
+          "w": 362,
+          "h": 392,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "18px",
+          "gap": "18px",
+          "grilla": "324px",
+          "texto": "Tuesday 20 October · Week 7 of the autumn term Good morning,"
+        },
+        {
+          "etiqueta": "a.card.ai-card",
+          "x": 14,
+          "y": 1150,
+          "w": 168,
+          "h": 136,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "14px",
+          "gap": "8px",
+          "grilla": "137.984px",
+          "texto": "Plan a lesson with WrenObjectives, timings and a starter — i"
+        },
+        {
+          "etiqueta": "a.card.ai-card.ai-card--b",
+          "x": 192,
+          "y": 1150,
+          "w": 168,
+          "h": 136,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "14px",
+          "gap": "8px",
+          "grilla": "137.984px",
+          "texto": "Build a quiz with WrenPick a topic and level; edit every que"
+        },
+        {
+          "etiqueta": "a.card.kpi",
+          "x": 14,
+          "y": 531,
+          "w": 176,
+          "h": 134,
+          "fondo": "rgb(191, 230, 209)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "26px",
+          "sombra": "none",
+          "padding": "13px 14px",
+          "gap": "8px",
+          "grilla": "146px",
+          "texto": "Lessons today 3 Next: Falcon 10 · 10:35"
+        },
+        {
+          "etiqueta": "a.card.kpi",
+          "x": 200,
+          "y": 531,
+          "w": 176,
+          "h": 134,
+          "fondo": "rgb(197, 219, 245)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "26px",
+          "sombra": "none",
+          "padding": "13px 14px",
+          "gap": "8px",
+          "grilla": "146px",
+          "texto": "Students 118 Across 4 classes · 7 need a look"
+        },
+        {
+          "etiqueta": "a.card.kpi",
+          "x": 14,
+          "y": 676,
+          "w": 176,
+          "h": 118,
+          "fondo": "rgb(248, 205, 183)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "26px",
+          "sombra": "none",
+          "padding": "13px 14px",
+          "gap": "8px",
+          "grilla": "146px",
+          "texto": "To mark 87 Across 8 assignments"
+        },
+        {
+          "etiqueta": "a.card.kpi",
+          "x": 200,
+          "y": 676,
+          "w": 176,
+          "h": 118,
+          "fondo": "rgb(243, 225, 157)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "26px",
+          "sombra": "none",
+          "padding": "13px 14px",
+          "gap": "8px",
+          "grilla": "146px",
+          "texto": "Leave requests 2 Waiting for you"
+        },
+        {
+          "etiqueta": "section.card.upc",
+          "x": 14,
+          "y": 1954,
+          "w": 319,
+          "h": 390,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Upcoming View all Oct20 Punnett square problems dueFalcon 10"
+        },
+        {
+          "etiqueta": "section.card.hw",
+          "x": 14,
+          "y": 2356,
+          "w": 352,
+          "h": 274,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Hand-ins this week ClassAll classesKestrel 8Heron 9Falcon 10"
+        },
+        {
+          "etiqueta": "section.card.perf",
+          "x": 14,
+          "y": 2642,
+          "w": 337,
+          "h": 308,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Class performance ScoresAttendance 0%25%50%75%100%K8H9F10O11"
+        },
+        {
+          "etiqueta": "section.card.risk",
+          "x": 14,
+          "y": 2962,
+          "w": 362,
+          "h": 306,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Wren’s watch listStudents whose numbers changed this half te"
+        },
+        {
+          "etiqueta": "section.card.notes",
+          "x": 14,
+          "y": 3280,
+          "w": 362,
+          "h": 328,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Notifications View all Sofia Mwangi handed in the amylase wr"
+        },
+        {
+          "etiqueta": "section.card.cal",
+          "x": 14,
+          "y": 3620,
+          "w": 246,
+          "h": 316,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "October 2026 MoTuWeThFrSaSu282930123456789101112131415161718"
+        },
+        {
+          "etiqueta": "section.card.sch",
+          "x": 14,
+          "y": 806,
+          "w": 362,
+          "h": 332,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Today’s scheduleToday · 3 lessonsTimetable 08:3009:20Plannin"
+        },
+        {
+          "etiqueta": "section.card.rem",
+          "x": 14,
+          "y": 1297,
+          "w": 362,
+          "h": 455,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Smart reminders Falcon 10 — Variation and mutationStarts in "
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/lumora/#/dashboard",
+      "ancho": 1440,
+      "alto": 2040,
+      "fondo": "rgb(238, 241, 240)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#eef1f0",
+        "--card": "#fbfcfc",
+        "--surface": "#fbfcfc",
+        "--surface-2": "#f3f6f5",
+        "--control": "#fff",
+        "--control-hi": "#fff",
+        "--pill-soft": "#16221f12",
+        "--raised": "#fff",
+        "--solid": "#fbfcfc",
+        "--well": "#16221f0d",
+        "--line": "#16221f14",
+        "--line-2": "#16221f26",
+        "--edge": "#16221f12",
+        "--shadow": "0 1px 2px #16221f0a, 0 10px 28px -18px #16221f33",
+        "--shadow-pop": "0 26px 60px -18px #16221f4d, 0 2px 6px #16221f14",
+        "--text": "#1c2524",
+        "--muted": "#59645f",
+        "--faint": "#6e7975",
+        "--cream": "#f7f9f4",
+        "--ink": "#1c2524",
+        "--pill": "#1c2524",
+        "--on-pill": "#f7f9f4",
+        "--dock": "#1c2524",
+        "--on-dock": "#f7f9f4",
+        "--primary": "#13695d",
+        "--on-primary": "#f2fbf8",
+        "--t-mint": "#bfe6d1",
+        "--t-sky": "#c5dbf5",
+        "--t-peach": "#f8cdb7",
+        "--t-lemon": "#f3e19d",
+        "--on-tile": "#1c2524",
+        "--tile-dim": "#1c2524ad",
+        "--tile-well": "#ffffff8c",
+        "--pine": "#1d9a85",
+        "--marigold": "#d8960f",
+        "--coral": "#e5694a",
+        "--sky": "#3f84d8",
+        "--clay": "#a8714b",
+        "--moss": "#4f9a2c",
+        "--rose": "#d9475f",
+        "--slate": "#66737a",
+        "--good": "#23864a",
+        "--warn": "#a96b05",
+        "--bad": "#c2372b",
+        "--info": "#2f6fc4",
+        "--soft": "14%",
+        "--on-bright": "#fff",
+        "--tint": "#fff",
+        "--on-av": "#1c2524",
+        "--on-marigold": "#2a1d03",
+        "--orb": "radial-gradient(circle at 35% 30%, #fffaf0, #f4c86a 38%, #4fbf9f 76%)",
+        "--orb-glow": "#f4c86a33",
+        "--wipe-light": "#eef1f0",
+        "--wipe-dark": "#0e1211",
+        "--cover-bg": "#121a18",
+        "--cover-fg": "#eef3f1",
+        "--cover-on": "#10201c",
+        "--device": "#121a17",
+        "--pv-bg-l": "#eef1f0",
+        "--pv-bg-d": "#0e1211",
+        "--pv-ink-l": "#1c2524",
+        "--pv-ink-d": "#eef3ee",
+        "--pv-mint": "#bfe6d1",
+        "--pv-sky": "#c5dbf5",
+        "--pv-peach": "#f8cdb7",
+        "--r-card": "26px",
+        "--r-tile": "18px",
+        "--gap": "16px",
+        "--dock-x": "20px",
+        "--dock-w": "60px",
+        "--gutter": "clamp(16px, 1.6vw, 28px)",
+        "--app-max": "1840px",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 45,
+          "ejemplo": "Planning time"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 22,
+          "ejemplo": "Falcon 10 · Today, 23:59 · Homework"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 18,
+          "ejemplo": "Tuesday 20 October · Week 7 of the autum"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "38px",
+          "peso": "600",
+          "interlineado": "39.52px",
+          "espaciado": "-0.95px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 11,
+          "ejemplo": "3 lessons"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(247, 249, 244)",
+          "veces": 9,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 9,
+          "ejemplo": "0%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 8,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 8,
+          "ejemplo": "Quick links"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 7,
+          "ejemplo": "Objectives, timings and a starter — in s"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "0.44px",
+          "color": "rgb(89, 100, 95)",
+          "veces": 7,
+          "ejemplo": "Mo"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 6,
+          "ejemplo": "P1"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 6,
+          "ejemplo": "08:30"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(19, 105, 93)",
+          "veces": 6,
+          "ejemplo": "Customise"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "0.25px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 4,
+          "ejemplo": "TF"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(28, 37, 36, 0.68)",
+          "veces": 4,
+          "ejemplo": "Lessons today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "26px",
+          "espaciado": "-0.52px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 4,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgba(28, 37, 36, 0.68)",
+          "veces": 4,
+          "ejemplo": "Next: Falcon 10 · 10:35"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "16.875px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 4,
+          "ejemplo": "Sofia Mwangi handed in the amylase write"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "15.625px",
+          "espaciado": "-0.25px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 4,
+          "ejemplo": "08:3009:20"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "13.75px",
+          "espaciado": "-0.25px",
+          "color": "rgb(89, 100, 95)",
+          "veces": 4,
+          "ejemplo": "09:20"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11.55px",
+          "espaciado": "0.44px",
+          "color": "color(srgb 0.566902 0.419843 0.0901176)",
+          "veces": 3,
+          "ejemplo": "Oct"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "-0.4px",
+          "color": "color(srgb 0.566902 0.419843 0.0901176)",
+          "veces": 3,
+          "ejemplo": "20"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(110, 121, 117)",
+          "veces": 3,
+          "ejemplo": "28"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 2,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "-0.14px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 2,
+          "ejemplo": "Plan a lesson with Wren"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "16.2px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 2,
+          "ejemplo": "Falcon 10"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.496863 0.337255 0.0560784)",
+          "veces": 2,
+          "ejemplo": "Medium risk"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(247, 249, 244)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "30.45px",
+          "espaciado": "-0.42px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 1,
+          "ejemplo": "lumora"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 1,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "16.1px",
+          "espaciado": "-0.14px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 1,
+          "ejemplo": "09:40"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "11px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(89, 100, 95)",
+          "veces": 1,
+          "ejemplo": "You have 3 lessons today and 87 pieces t"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(19, 105, 93)",
+          "veces": 1,
+          "ejemplo": "87 pieces to mark"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.579804 0.378431 0.0378431)",
+          "veces": 1,
+          "ejemplo": "Heron 9’s register isn’t taken yet."
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "09:40"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11.55px",
+          "espaciado": "0.44px",
+          "color": "color(srgb 0.112235 0.429569 0.37702)",
+          "veces": 1,
+          "ejemplo": "Oct"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "-0.4px",
+          "color": "color(srgb 0.112235 0.429569 0.37702)",
+          "veces": 1,
+          "ejemplo": "21"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11.55px",
+          "espaciado": "0.44px",
+          "color": "color(srgb 0.450196 0.329882 0.236)",
+          "veces": 1,
+          "ejemplo": "Oct"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "-0.4px",
+          "color": "color(srgb 0.450196 0.329882 0.236)",
+          "veces": 1,
+          "ejemplo": "22"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(28, 37, 36)",
+          "veces": 1,
+          "ejemplo": "Class"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "37.7px",
+          "espaciado": "-0.52px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 1,
+          "ejemplo": "62%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.131765 0.449412 0.260392)",
+          "veces": 1,
+          "ejemplo": "164"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.663137 0.205098 0.16451)",
+          "veces": 1,
+          "ejemplo": "20"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.487373 0.186039 0.157098)",
+          "veces": 1,
+          "ejemplo": "High risk"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.225px",
+          "color": "rgb(28, 37, 36)",
+          "veces": 1,
+          "ejemplo": "October 2026"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(242, 251, 248)",
+          "veces": 1,
+          "ejemplo": "20"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "Now"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "section.card.hero",
+          "x": 103,
+          "y": 92,
+          "w": 978,
+          "h": 338,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "24px",
+          "gap": "18px",
+          "grilla": "927.938px",
+          "texto": "Tuesday 20 October · Week 7 of the autumn term Good morning,"
+        },
+        {
+          "etiqueta": "button.ribbon__it.ribbon__it--free",
+          "x": 592,
+          "y": 313,
+          "w": 141,
+          "h": 92,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px dashed rgba(22, 34, 31, 0.15)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "9px 9px 8px 11px",
+          "gap": "2px",
+          "grilla": null,
+          "texto": "FreeP411:30"
+        },
+        {
+          "etiqueta": "button.ribbon__it.ribbon__it--free",
+          "x": 915,
+          "y": 313,
+          "w": 141,
+          "h": 92,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px dashed rgba(22, 34, 31, 0.15)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "9px 9px 8px 11px",
+          "gap": "2px",
+          "grilla": null,
+          "texto": "FreeP614:05"
+        },
+        {
+          "etiqueta": "a.card.ai-card",
+          "x": 103,
+          "y": 446,
+          "w": 481,
+          "h": 128,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "18px",
+          "gap": "10px 14px",
+          "grilla": "44px 384.969px",
+          "texto": "Plan a lesson with WrenObjectives, timings and a starter — i"
+        },
+        {
+          "etiqueta": "a.card.ai-card.ai-card--b",
+          "x": 600,
+          "y": 446,
+          "w": 481,
+          "h": 128,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "18px",
+          "gap": "10px 14px",
+          "grilla": "44px 384.969px",
+          "texto": "Build a quiz with WrenPick a topic and level; edit every que"
+        },
+        {
+          "etiqueta": "a.card.kpi",
+          "x": 103,
+          "y": 590,
+          "w": 232,
+          "h": 132,
+          "fondo": "rgb(191, 230, 209)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "26px",
+          "sombra": "none",
+          "padding": "16px 18px",
+          "gap": "8px",
+          "grilla": "194.484px",
+          "texto": "Lessons today 3 Next: Falcon 10 · 10:35"
+        },
+        {
+          "etiqueta": "a.card.kpi",
+          "x": 352,
+          "y": 590,
+          "w": 232,
+          "h": 132,
+          "fondo": "rgb(197, 219, 245)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "26px",
+          "sombra": "none",
+          "padding": "16px 18px",
+          "gap": "8px",
+          "grilla": "194.484px",
+          "texto": "Students 118 Across 4 classes · 7 need a look"
+        },
+        {
+          "etiqueta": "a.card.kpi",
+          "x": 600,
+          "y": 590,
+          "w": 232,
+          "h": 132,
+          "fondo": "rgb(248, 205, 183)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "26px",
+          "sombra": "none",
+          "padding": "16px 18px",
+          "gap": "8px",
+          "grilla": "194.484px",
+          "texto": "To mark 87 Across 8 assignments"
+        },
+        {
+          "etiqueta": "a.card.kpi",
+          "x": 848,
+          "y": 590,
+          "w": 232,
+          "h": 132,
+          "fondo": "rgb(243, 225, 157)",
+          "borde": "1px solid rgba(0, 0, 0, 0)",
+          "radio": "26px",
+          "sombra": "none",
+          "padding": "16px 18px",
+          "gap": "8px",
+          "grilla": "194.484px",
+          "texto": "Leave requests 2 Waiting for you"
+        },
+        {
+          "etiqueta": "section.card.quick",
+          "x": 103,
+          "y": 738,
+          "w": 978,
+          "h": 186,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Quick links Customise RegisterTimetableLesson plansHomeworkM"
+        },
+        {
+          "etiqueta": "section.card.upc",
+          "x": 103,
+          "y": 940,
+          "w": 481,
+          "h": 398,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Upcoming View all Oct20 Punnett square problems dueFalcon 10"
+        },
+        {
+          "etiqueta": "section.card.hw",
+          "x": 600,
+          "y": 940,
+          "w": 481,
+          "h": 398,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Hand-ins this week ClassAll classesKestrel 8Heron 9Falcon 10"
+        },
+        {
+          "etiqueta": "section.card.perf",
+          "x": 103,
+          "y": 1354,
+          "w": 978,
+          "h": 316,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Class performance ScoresAttendance 0%25%50%75%100%K8H9F10O11"
+        },
+        {
+          "etiqueta": "section.card.risk",
+          "x": 103,
+          "y": 1686,
+          "w": 481,
+          "h": 306,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Wren’s watch listStudents whose numbers changed this half te"
+        },
+        {
+          "etiqueta": "section.card.notes",
+          "x": 600,
+          "y": 1686,
+          "w": 481,
+          "h": 306,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Notifications View all Sofia Mwangi handed in the amylase wr"
+        },
+        {
+          "etiqueta": "section.card.cal",
+          "x": 1097,
+          "y": 92,
+          "w": 320,
+          "h": 316,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "October 2026 MoTuWeThFrSaSu282930123456789101112131415161718"
+        },
+        {
+          "etiqueta": "section.card.sch",
+          "x": 1097,
+          "y": 424,
+          "w": 320,
+          "h": 340,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Today’s scheduleToday · 3 lessonsTimetable 08:3009:20Plannin"
+        },
+        {
+          "etiqueta": "section.card.rem",
+          "x": 1097,
+          "y": 779,
+          "w": 320,
+          "h": 517,
+          "fondo": "rgb(251, 252, 252)",
+          "borde": "1px solid rgba(22, 34, 31, 0.07)",
+          "radio": "26px",
+          "sombra": "rgba(22, 34, 31, 0.04) 0px 1px 2px 0px, rgba(22, 34, 31, 0.2) 0px 10px 28px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Smart reminders Falcon 10 — Variation and mutationStarts in "
+        },
+        {
+          "etiqueta": "a.rem__row",
+          "x": 1118,
+          "y": 850,
+          "w": 278,
+          "h": 76,
+          "fondo": "rgb(243, 246, 245)",
+          "borde": "1px solid rgba(22, 34, 31, 0.08)",
+          "radio": "14px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "12px",
+          "grilla": null,
+          "texto": "Falcon 10 — Variation and mutationStarts in 55 min · Lab 2"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "lumora",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 103,
+            "y": 24,
+            "w": 112,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(28, 37, 36)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(28, 37, 36)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(28, 37, 36) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "a.ptab",
+          "texto": "Today",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 308,
+            "y": 26,
+            "w": 70,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(28, 37, 36)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(28, 37, 36)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(28, 37, 36) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 2,
+          "etiqueta": "a.bell-period",
+          "texto": "09:40P2 · Heron 9 · 35 min left",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1031,
+            "y": 24,
+            "w": 80,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(28, 37, 36)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgba(22, 34, 31, 0.07)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(28, 37, 36) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 3,
+          "etiqueta": "button.ibtn.ibtn--soft.magnetic",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1119,
+            "y": 24,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(28, 37, 36)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgba(22, 34, 31, 0.07)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(28, 37, 36) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0011, -0.0004)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0003, -0.0001)"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.ibtn.ibtn--soft.magnetic",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1171,
+            "y": 24,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(28, 37, 36)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgba(22, 34, 31, 0.07)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(28, 37, 36) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0011, -0.0004)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0003, -0.0001)"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.btn.btn--primary.top__new",
+          "texto": "New",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1275,
+            "y": 24,
+            "w": 90,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(23, 33, 32)",
+            "backgroundColor": "rgb(238, 243, 238)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(23, 33, 32) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0004, -0.0004)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.92)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0001, -0.0001)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.92)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "button.me.magnetic",
+          "texto": "TF",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1373,
+            "y": 24,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgb(30, 36, 35)",
+            "borderColor": "rgba(255, 255, 255, 0.06)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0021, -0.0004)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0005, -0.0001)"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "etiqueta": "a.dock__btn",
+          "texto": "Fees",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 29,
+            "y": 350,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(238, 243, 238)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(238, 243, 238)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.74",
+            "outline": "rgb(238, 243, 238) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ],
+            "opacity": [
+              "0.74",
+              "1"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "a.dock__btn.dock__wren",
+          "texto": "Ask Wren",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 29,
+            "y": 446,
+            "w": 44,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(238, 243, 238)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(238, 243, 238)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(238, 243, 238) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.13)"
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "etiqueta": "a",
+          "texto": "87 pieces to mark",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 313,
+            "y": 195,
+            "w": 111,
+            "h": 17
+          },
+          "estilo": {
+            "color": "rgb(116, 214, 193)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(116, 214, 193)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(116, 214, 193) none 3px",
+            "textDecorationLine": "underline",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 10,
+          "etiqueta": "button.btn.btn--primary.magnetic",
+          "texto": "Take register · Heron 9",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 128,
+            "y": 229,
+            "w": 197,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(23, 33, 32)",
+            "backgroundColor": "rgb(238, 243, 238)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(23, 33, 32) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.002, -0.0002)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.92)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0005, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.92)"
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "etiqueta": "a.btn.btn--ghost",
+          "texto": "Today’s timetable",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 335,
+            "y": 229,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgb(22, 27, 26)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(22, 27, 26)",
+              "rgb(30, 36, 35)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(22, 27, 26)",
+              "rgb(30, 36, 35)"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "etiqueta": "button.ribbon__it.ribbon__it--slot.is-ppa",
+          "texto": "Planning timeP108:30",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 128,
+            "y": 313,
+            "w": 139,
+            "h": 92
+          },
+          "estilo": {
+            "color": "color(srgb 0.768627 0.8 0.782745)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "color(srgb 0.768627 0.8 0.782745)",
+            "boxShadow": "rgba(255, 255, 255, 0.15) 3px 0px 0px 0px inset",
+            "transform": "none",
+            "opacity": "0.5",
+            "outline": "color(srgb 0.768627 0.8 0.782745) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          }
+        },
+        {
+          "n": 13,
+          "etiqueta": "button.ribbon__it.ribbon__it--slot.is-lesson",
+          "texto": "Heron 9P2 · Lab 209:25",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 271,
+            "y": 313,
+            "w": 139,
+            "h": 92
+          },
+          "estilo": {
+            "color": "color(srgb 0.749804 0.840784 0.931765)",
+            "backgroundColor": "color(srgb 0.148039 0.193529 0.227843)",
+            "borderColor": "color(srgb 0.749804 0.840784 0.931765)",
+            "boxShadow": "rgb(127, 176, 240) 3px 0px 0px 0px inset, rgb(127, 176, 240) 0px 0px 0px 2px, rgb(127, 176, 240) 0px 10px 24px -12px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.749804 0.840784 0.931765) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          }
+        },
+        {
+          "n": 14,
+          "etiqueta": "button.ribbon__it.ribbon__it--break",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 415,
+            "y": 313,
+            "w": 30,
+            "h": 92
+          },
+          "estilo": {
+            "color": "rgb(139, 150, 145)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(139, 150, 145)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(139, 150, 145) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 15,
+          "etiqueta": "button.ribbon__it.ribbon__it--slot.is-lesson",
+          "texto": "Falcon 10P3 · Lab 210:35",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 449,
+            "y": 313,
+            "w": 139,
+            "h": 92
+          },
+          "estilo": {
+            "color": "color(srgb 0.67451 0.886275 0.839216)",
+            "backgroundColor": "color(srgb 0.119804 0.210588 0.193137)",
+            "borderColor": "color(srgb 0.67451 0.886275 0.839216)",
+            "boxShadow": "rgb(79, 205, 181) 3px 0px 0px 0px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.67451 0.886275 0.839216) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          }
+        },
+        {
+          "n": 16,
+          "etiqueta": "button.ribbon__it.ribbon__it--free",
+          "texto": "FreeP411:30",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 592,
+            "y": 313,
+            "w": 141,
+            "h": 92
+          },
+          "estilo": {
+            "color": "color(srgb 0.768627 0.8 0.782745)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.768627 0.8 0.782745) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          }
+        },
+        {
+          "n": 17,
+          "etiqueta": "a.card.ai-card",
+          "texto": "Plan a lesson with WrenObjectives, timin",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 103,
+            "y": 446,
+            "w": 481,
+            "h": 128
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(255, 255, 255, 0.06)",
+            "boxShadow": "rgba(255, 255, 255, 0.03) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.7) 0px 12px 30px -20px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, -4)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, -4)"
+            ]
+          }
+        },
+        {
+          "n": 18,
+          "etiqueta": "a.card.ai-card.ai-card--b",
+          "texto": "Build a quiz with WrenPick a topic and l",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 600,
+            "y": 446,
+            "w": 481,
+            "h": 128
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(255, 255, 255, 0.06)",
+            "boxShadow": "rgba(255, 255, 255, 0.03) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.7) 0px 12px 30px -20px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, -4)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, -4)"
+            ]
+          }
+        },
+        {
+          "n": 19,
+          "etiqueta": "a.card.kpi",
+          "texto": "Lessons today 3 Next: Falcon 10 · 10:35",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 103,
+            "y": 590,
+            "w": 232,
+            "h": 132
+          },
+          "estilo": {
+            "color": "rgb(238, 243, 238)",
+            "backgroundColor": "rgb(29, 58, 49)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(238, 243, 238) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, -4)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, -4)"
+            ]
+          }
+        },
+        {
+          "n": 20,
+          "etiqueta": "button.card__link",
+          "texto": "Customise",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 975,
+            "y": 762,
+            "w": 85,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(116, 214, 193)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(116, 214, 193)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(116, 214, 193) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 21,
+          "etiqueta": "a.quick__a",
+          "texto": "Register",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 124,
+            "y": 806,
+            "w": 125,
+            "h": 94
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgb(27, 33, 32)",
+            "borderColor": "rgba(255, 255, 255, 0.075)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(27, 33, 32)",
+              "rgb(22, 27, 26)"
+            ],
+            "borderColor": [
+              "rgba(255, 255, 255, 0.075)",
+              "rgba(255, 255, 255, 0.15)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(27, 33, 32)",
+              "rgb(22, 27, 26)"
+            ],
+            "borderColor": [
+              "rgba(255, 255, 255, 0.075)",
+              "rgba(255, 255, 255, 0.15)"
+            ]
+          }
+        },
+        {
+          "n": 22,
+          "etiqueta": "a.card__link",
+          "texto": "View all",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 511,
+            "y": 435,
+            "w": 52,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(116, 214, 193)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(116, 214, 193)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(116, 214, 193) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 23,
+          "etiqueta": "a.upc__row",
+          "texto": "Oct20 Punnett square problems dueFalcon ",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 124,
+            "y": 420,
+            "w": 439,
+            "h": 60
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(234, 240, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 24,
+          "etiqueta": "a.card__link.hw__more",
+          "texto": "See every hand-in",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 621,
+            "y": 435,
+            "w": 130,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(116, 214, 193)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(116, 214, 193)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(116, 214, 193) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 25,
+          "etiqueta": "button.seg__btn",
+          "texto": "Scores",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 898,
+            "y": 434,
+            "w": 65,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(234, 240, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 26,
+          "etiqueta": "a.risk__who",
+          "texto": "KMKofi MoreauFalcon 10 · Average 33% · A",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 128,
+            "y": 631,
+            "w": 301,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(234, 240, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 27,
+          "etiqueta": "button.ibtn.ibtn--sm",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 527,
+            "y": 635,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(30, 36, 35)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(30, 36, 35)"
+            ]
+          }
+        },
+        {
+          "n": 28,
+          "etiqueta": "a.notes__row.is-unread",
+          "texto": "Sofia Mwangi handed in the amylase write",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 621,
+            "y": 617,
+            "w": 439,
+            "h": 52
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(234, 240, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 29,
+          "etiqueta": "a.notes__row",
+          "texto": "Quadrat sampling report: 60% marked — fi",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 621,
+            "y": 779,
+            "w": 439,
+            "h": 52
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(234, 240, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 30,
+          "etiqueta": "button.ibtn.ibtn--sm.ibtn--plain",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1332,
+            "y": 111,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(30, 36, 35)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(30, 36, 35)"
+            ]
+          }
+        },
+        {
+          "n": 31,
+          "etiqueta": "button.cal__d.is-out",
+          "texto": "28",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1116,
+            "y": 181,
+            "w": 39,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(139, 150, 145)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(139, 150, 145)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.55",
+            "outline": "rgb(139, 150, 145) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 32,
+          "etiqueta": "button.cal__d",
+          "texto": "1",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1238,
+            "y": 181,
+            "w": 39,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(234, 240, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 33,
+          "etiqueta": "button.cal__d.is-we",
+          "texto": "3",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1319,
+            "y": 181,
+            "w": 39,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(166, 177, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(166, 177, 172)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(166, 177, 172) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 34,
+          "etiqueta": "button.cal__d.is-today.is-sel",
+          "texto": "20",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1157,
+            "y": 307,
+            "w": 39,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(6, 32, 25)",
+            "backgroundColor": "rgb(116, 214, 193)",
+            "borderColor": "rgb(6, 32, 25)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(6, 32, 25) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 35,
+          "etiqueta": "button.cal__d.is-hol",
+          "texto": "26",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1116,
+            "y": 349,
+            "w": 39,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(234, 240, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 36,
+          "etiqueta": "button.cal__d.is-out.is-we",
+          "texto": "1",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1359,
+            "y": 349,
+            "w": 39,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(166, 177, 172)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(166, 177, 172)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "0.55",
+            "outline": "rgb(166, 177, 172) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 37,
+          "etiqueta": "button.sch__row.sch__row--sky.is-now",
+          "texto": "09:2510:15 Heron 9 · Absorption in the s",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1118,
+            "y": 564,
+            "w": 278,
+            "h": 56
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "color(srgb 0.123333 0.158471 0.17749)",
+            "borderColor": "rgb(234, 240, 236)",
+            "boxShadow": "rgb(127, 176, 240) 3px 0px 0px 0px inset, rgb(127, 176, 240) 0px 0px 0px 1.5px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          }
+        },
+        {
+          "n": 38,
+          "etiqueta": "button.sch__row.sch__row--pine",
+          "texto": "10:3511:25 Falcon 10 · Variation and mut",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1118,
+            "y": 625,
+            "w": 278,
+            "h": 56
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "color(srgb 0.106392 0.168706 0.156667)",
+            "borderColor": "rgb(234, 240, 236)",
+            "boxShadow": "rgb(79, 205, 181) 3px 0px 0px 0px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          }
+        },
+        {
+          "n": 39,
+          "etiqueta": "button.sch__row.sch__row--clay",
+          "texto": "13:1014:00 Osprey 11 · Biodiversity and ",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1118,
+            "y": 687,
+            "w": 278,
+            "h": 56
+          },
+          "estilo": {
+            "color": "rgb(234, 240, 236)",
+            "backgroundColor": "color(srgb 0.154039 0.153176 0.136549)",
+            "borderColor": "rgb(234, 240, 236)",
+            "boxShadow": "rgb(214, 161, 124) 3px 0px 0px 0px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(234, 240, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.97)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -45,7 +45,7 @@ import {
   type CalculoDiagnostico, type DiagnosticoOferta, type PiezasSabidas, type PropuestaOferta,
 } from './offer-marco';
 import {
-  conversacionParaPrompt, documentosParaPrompt, faltanDelArranqueParaPrompt, guiaDelArranque, guiaParaPrompt, parseDiagnostico, parseLectura, parsePropuesta, parseTurno,
+  bloqueOfertaDeOtro, conversacionParaPrompt, documentosParaPrompt, faltanDelArranqueParaPrompt, guiaDelArranque, guiaParaPrompt, parseDiagnostico, parseLectura, parsePropuesta, parseTurno,
   parseTurnoConDiagnostico, piezasParaPrompt, validadorConRespaldo, type ContextoReglas, type DocParaPrompt, type MensajeParaPrompt, type TurnoOffer,
 } from './offer-reglas';
 import { parsePropuestaCrm, tiposParaPrompt, type PropuestaCrm } from './onboarding-crm';
@@ -407,6 +407,12 @@ type Pedido<T> = {
    * de 20 a 60 s. Todos sus turnos los terminó contestando flash-lite.)
    */
   modelosRed?: Partial<Record<ProvName, string>>;
+  /**
+   * SÓLO la IA del negocio: sin el crédito de Claude de la plataforma y sin la red de plataforma (4/11/2026, Competitors
+   * Spy: «IA: cada negocio paga la suya, y el crédito de Claude de la plataforma no se usa acá»). Sin esto, un negocio con
+   * el onboarding en curso le pagaba a MaKo, con el crédito del onboarding, el diagnóstico de la oferta de un competidor.
+   */
+  soloDelNegocio?: boolean;
 };
 
 async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
@@ -452,7 +458,8 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
   //     keys gratis que el bucle de abajo (el doble de cuota por minuto de la agencia), usa un solo plazo
   //     en vez de `hastaRedMs` y no conoce el respaldo flojo. El super admin no: ya probó SUS keys arriba.
   const wsActual = await getWorkspaceActual().catch(() => null);
-  if (superWs != null && wsActual != null && wsActual !== superWs && p.hastaRedMs - Date.now() >= MIN_INTENTO_MS) {
+  // Con `soloDelNegocio` (Competitors Spy) ni el crédito ni la red: se cae directo al mensaje de abajo.
+  if (!p.soloDelNegocio && superWs != null && wsActual != null && wsActual !== superWs && p.hastaRedMs - Date.now() >= MIN_INTENTO_MS) {
     const { conCreditoDeLaPlataforma } = await import('./anthropic');
     const c = await conCreditoDeLaPlataforma({
       system: p.system, user: p.user, json: true, maxTokens: p.maxTokens,
@@ -466,7 +473,7 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
     } else if (c && 'error' in c) erroresRed.push(`crédito de Claude: ${c.error}`);
   }
 
-  const red = superWs != null ? await provsGratisDePlataforma().catch(() => []) : [];
+  const red = superWs != null && !p.soloDelNegocio ? await provsGratisDePlataforma().catch(() => []) : [];
   for (const r of red) {
     const queda = p.hastaRedMs - Date.now();
     if (queda < MIN_INTENTO_MS) { erroresRed.push(`sin tiempo para ${r.provider}`); break; }
@@ -522,7 +529,7 @@ export async function turnoOffer(p: {
   voz: string | null;
   /** La conversación del ONBOARDING: sólo lo que vende (`OFFER_ARRANQUE_SYSTEM_TEMPLATE`). */
   arranque?: boolean;
-  /** Con qué referente aconseja el Offer Coach (lib/asesores/contexto.ts → contextoDeReferente). Vacío: MaKo. */
+  /** Con qué referente aconseja (el del coach, que es uno desde el 4/11/2026: lib/asesores/contexto.ts → contextoDeReferente). Vacío: MaKo. */
   referente?: string;
 }): Promise<ResultadoIA<TurnoOffer>> {
   const b = bloquesComunes(p);
@@ -594,9 +601,15 @@ export async function crmOffer(p: { piezas: PiezasSabidas; canal: string | null;
 export async function diagnosticoOffer(p: {
   mensajes: MensajeParaPrompt[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; contexto: string; embudo: string; inicio: number;
   alertas: string[];
+  /** La oferta es de OTRO (Competitors Spy, 4/11/2026): su web va en `docs` y el texto habla de él (`bloqueOfertaDeOtro`). */
+  deOtro?: { nombre: string };
+  /** Sólo la IA del negocio (ver `Pedido.soloDelNegocio`). */
+  soloDelNegocio?: boolean;
 }): Promise<ResultadoIA<DiagnosticoOferta>> {
   const b = bloquesComunes(p);
-  const system = await renderPrompt('offer.diagnostico.system', OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE, { marco: b.marco });
+  const armado = await renderPrompt('offer.diagnostico.system', OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE, { marco: b.marco });
+  // Pegado DESPUÉS del render: un prompt editado en /configuraciones también lo lleva.
+  const system = p.deOtro ? `${armado}\n\n${bloqueOfertaDeOtro(p.deOtro.nombre)}` : armado;
   const user = await renderPrompt('offer.diagnostico.user', OFFER_DIAGNOSTICO_USER_TEMPLATE, {
     contexto: b.contexto,
     embudo: p.embudo.trim() ? contenidoNoConfiable(p.embudo, 'embudo') : '(no hay datos del embudo)',
@@ -606,7 +619,9 @@ export async function diagnosticoOffer(p: {
   return pedir({
     system, user, maxTokens: 6_000, timeoutMs: 120_000, esfuerzo: 'medium',
     hastaMs: p.inicio + 200_000, hastaRedMs: p.inicio + 285_000,
-    motivo: 'Offer: diagnosticar la oferta', tema: 'diagnosticar tu oferta', parse: parseDiagnostico,
+    motivo: p.deOtro ? 'Competitors Spy: diagnosticar la oferta de un competidor' : 'Offer: diagnosticar la oferta',
+    tema: p.deOtro ? 'leer su oferta' : 'diagnosticar tu oferta', parse: parseDiagnostico,
+    soloDelNegocio: p.soloDelNegocio,
   });
 }
 

@@ -1,0 +1,144 @@
+##############################################################################
+#  KESTREL   bundle 185kB - 25 helpers - 0 chunks - ARQ VANILLA - 42 fromTo crudos
+##############################################################################
+
+CHUNKS: (ninguno: todo en el bundle)
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[o -> export (no exp)]  (t,a,o,s){var l;typeof a==`number`&&(o.duration=a,a=o,o=null),l=r.call(this,s?a:Le(a))||this;var u=l.vars,d=u.duration,f=u.delay,p=u.immediateRender,m=u.stagger,h=u.overwrite,g=u.keyframes,v=u.defaults,x=u.scrollTrigger,T=a.parent||P,E=(w(t)||C(t)?_(t[0]):`length`in a)?[t]:_t(t),D,O,k,A,j,M,N,F;if(l._targets=E.length?be(E):ae(`GSAP target `+t+` not found. https://gsap.com`,!n.nullTargetWarn)||[],l._ptLookup=[],l._overwrite=h,g||m||S(d)||S(f)){a=l.vars;var ee=a.easeReverse||a.yoyoEase;if(D=l.timeline=new un({data:`nested`,defaults:v||{},targets:T&&T.data=...
+
+[Mi -> export (no exp)]  (e,t,{from:n=0,format:r=X.int,duration:i=1.1,delay:a=0}={}){let o={v:n};return e.textContent=r(n),U(1)===0?(e.textContent=r(t),H.timeline()):H.to(o,{v:t,duration:i,delay:a,ease:`power3.out`,onUpdate:()=>{e.textContent=r(o.v)},onComplete:()=>{e.textContent=r(t)}})}
+
+[Z -> export (no exp)]  (e,{action:t,onAction:n,duration:r=5e3,tone:i=``}={}){Ni||=q(`#toasts`);let a=K(G`     <div class="toast ${i?`toast--`+i:``}" role="status">       <span class="toast__msg">${e}</span>       ${t?G`<button class="toast__action" type="button">${t}</button>`:``}       <span class="toast__bar" style="--t:${r}ms"></span>     </div>`);Ni.append(a);let o=!1,s=()=>{o||(o=!0,H.to(a,{opacity:0,y:8,scale:.98,duration:U(.25),ease:`power2.in`,onComplete:()=>a.remove()}))};a.querySelector(`.toast__action`)?.addEventListener(`click`,()=>{n?.(),s()}),H.fromTo(a,{opacity:...
+
+[Ii -> export (no exp)]  (e,t,{align:n=`end`,gap:r=8,onClose:i,cls:a=``}={}){Fi();let o=K(G`<div class="layer ${a}" role="dialog"></div>`);o.append(t),document.body.append(o);let s=()=>{let t=e.getBoundingClientRect(),i=o.offsetWidth,a=o.offsetHeight,s=n===`end`?t.right-i:n===`center`?t.left+t.width/2-i/2:t.left;s=Math.max(8,Math.min(innerWidth-i-8,s));let c=t.bottom+r,l=!1;c+a>innerHeight-8&&t.top-r-a>8&&(c=t.top-r-a,l=!0),o.style.left=s+`px`,o.style.top=c+`px`,o.style.setProperty(`--ox`,t.left+t.width/2-s+`px`),o.classList.toggle(`layer--up`,l)};s(),e.setAttribute(`aria-expand...
+
+[Ri -> export (no exp)]  (e,t){let n=q(`[role=tablist]`,e),r=q(`.tabs__ink`,e),i=J(`[role=tab]`,n),a=i.find(e=>e.getAttribute(`aria-selected`)===`true`)||i[0],o=(e=!0)=>{let t=a.getBoundingClientRect(),i=n.getBoundingClientRect(),o=t.left-i.left+n.scrollLeft;H.to(r,{x:o,width:t.width,duration:e?U(.45):0,ease:W,overwrite:!0})},s=(e,{silent:n=!1}={})=>{e===a&&!n||(i.forEach(t=>{t.setAttribute(`aria-selected`,String(t===e)),t.tabIndex=t===e?0:-1}),a=e,o(),n||t?.(e.dataset.tab,e))};i.forEach(e=>e.addEventListener(`click`,()=>s(e))),n.addEventListener(`keydown`,e=>{let t=i.indexOf(a)...
+
+[Ra -> export (no exp)]  (e){let t=K(G`<div class="chart__tip" role="tooltip" hidden><div class="chart__tip-title"></div><div class="chart__tip-rows"></div></div>`);e.append(t);let n=!1;return{show(r,i,a,o){q(`.chart__tip-title`,t).textContent=a;let s=q(`.chart__tip-rows`,t);s.textContent=``,o.forEach(e=>{let t=document.createElement(`div`);t.className=`chart__tip-row`;let n=document.createElement(`span`);n.className=`chart__tip-key `+(e.shape===`rect`?`chart__tip-key--rect`:``),n.style.setProperty(`--c`,e.color);let r=document.createElement(`strong`);r.textContent=e.value;let i...
+
+[Ba -> export (no exp)]  (e,t){t.showTable=t=>{let n=q(`.chart__plot`,e),r=q(`.chart__table`,e);if(!n||!r)return;let i=t,a=t?n:r,o=t?r:n;H.to(a,{opacity:0,duration:U(.18),onComplete:()=>{a.hidden=!0,o.hidden=!1,H.fromTo(o,{opacity:0,y:6},{opacity:1,y:0,duration:U(.35),ease:W,clearProps:`transform`})}}),e.dataset.table=i?`true`:`false`}}
+
+[ae -> export (no exp)]  (){if(!ie())return;ee(),S=j();let e=re();L(e,e,1),I(),r.forEach(e=>{T.get(e.key).style.opacity=+!e.hidden,E.get(e.key)&&(E.get(e.key).style.opacity=+!e.hidden)}),k||(k=!0,U(1)>0&&(A().forEach((e,t)=>{let n=T.get(e.key),r=n.getTotalLength();H.set(n,{strokeDasharray:r,strokeDashoffset:r}),H.to(n,{strokeDashoffset:0,duration:1.4,delay:.1+t*.12,ease:`power2.inOut`,onComplete:()=>H.set(n,{clearProps:`strokeDasharray,strokeDashoffset`})});let i=E.get(e.key);i&&H.fromTo(i,{opacity:0},{opacity:1,duration:1,delay:.6+t*.12})}),H.fromTo(d,{opacity:0},{opacity:1,dur...
+
+[oe -> export (no exp)]  (t){let a=re();r=t.series?t.series.map(e=>({...e,hidden:!!e.hidden})):r,i=t.labels||i,x=i.length,ee(),S=j();let o=re();a.vals=new Map([...a.vals].map(([e,t])=>[e,Ia(t,x)]));let s=za(i.map(n.labelOf),r,{labelHead:n.tableLabelHead,format:(e,t)=>(n.tipFormat||n.yFormat)(e,t)}),c=q(`.chart__table`,e);s.hidden=c.hidden,c.replaceWith(s),le(!0),u.style.opacity=0;let l={t:0};O?.kill(),r.forEach(e=>{H.to(T.get(e.key),{opacity:+!e.hidden,duration:U(.4)}),E.get(e.key)&&H.to(E.get(e.key),{opacity:+!e.hidden,duration:U(.4)})}),H.to(d,{opacity:0,duration:U(.15)}),O=H....
+
+[ce -> export (no exp)]  (t,a=!1){C=t;let o=M(t);H.set(m,{x:o}),m.style.opacity=1;let s=[];h.forEach(({key:e,dot:i})=>{let c=r.find(t=>t.key===e);if(!c||c.hidden){i.style.opacity=0;return}i.style.opacity=1,i.setAttribute(`cx`,o),i.setAttribute(`cy`,N(c.values[t])),a||H.fromTo(i,{scale:.6,transformOrigin:`50% 50%`},{scale:1,duration:U(.25),ease:`back.out(3)`,overwrite:!0}),s.push({color:c.color,name:c.name,value:(n.tipFormat||n.yFormat)(c.values[t],c)})});let c=Math.min(...A().map(e=>N(e.values[t])));g.show(o,c,n.labelOf(i[t],!0),s),e.dispatchEvent(new CustomEvent(`chart:hover`,{...
+
+[ue -> export (no exp)]  (e,t=!0){if(f.textContent=``,w=e,e<0)return;let r=M(e),a=n.padT+b,o=$(`g`,{transform:`translate(${r.toFixed(1)} 0)`}),s=$(`line`,{class:`chart__pinline`,x1:0,x2:0,y1:n.padT,y2:a}),c=n.labelOf(i[e],!0).split(` `)[0],l=Math.max(22,c.length*7+10),u=$(`rect`,{class:`chart__pinbadge`,x:-l/2,y:a+6,width:l,height:18,rx:9}),d=$(`text`,{class:`chart__pintext`,x:0,y:a+15,dy:`0.35em`,"text-anchor":`middle`});d.textContent=c,o.append(s,u,d),f.append(o),t&&H.fromTo(o,{opacity:0,scale:.9,transformOrigin:`${r}px ${a+15}px`},{opacity:1,scale:1,duration:U(.35),ease:`back...
+
+[Ua -> export (no exp)]  (e,{value:t,max:n=100,size:r=64,thickness:i=6,color:a=`var(--s1)`,label:o,sublabel:s,format:c=e=>X.int(e),delay:l=.2,pad:u=2}){e.classList.add(`ring`),e.style.setProperty(`--c`,a);let d=(r-i)/2,f=2*Math.PI*d,p=Pa(t/n,0,1);e.innerHTML=``;let m=$(`svg`,{viewBox:`0 0 ${r} ${r}`,width:r,height:r,class:`ring__svg`,"aria-hidden":`true`}),h=$(`circle`,{cx:r/2,cy:r/2,r:d,fill:`none`,"stroke-width":i,class:`ring__track`}),g=$(`circle`,{cx:r/2,cy:r/2,r:d,fill:`none`,"stroke-width":i,"stroke-linecap":`round`,class:`ring__arc`,"stroke-dasharray":f,"stroke-dashoffset...
+
+[Ga -> export (no exp)]  (e,{rows:t,cols:n,values:r,rowLabels:i,colLabels:a,color:o=`var(--s1)`,format:s=e=>Math.round(e*100)+`%`,title:c=(e,t)=>`${i[e]} · ${a[t]}`}){e.classList.add(`heat`),e.style.setProperty(`--c`,o),e.style.setProperty(`--cols`,n),e.innerHTML=``;let l=K(G`<div class="heat__grid" role="grid"></div>`);l.append(K(G`<span class="heat__corner"></span>`)),a.forEach(e=>l.append(K(G`<span class="heat__col" role="columnheader">${e}</span>`)));let u=[];for(let e=0;e<t;e++){l.append(K(G`<span class="heat__row" role="rowheader">${i[e]}</span>`));for(let t=0;t<n;t++){let...
+
+[Ka -> export (no exp)]  (e,{value:t,max:n=100,color:r=`var(--s1)`,delay:i=.2,label:a}){e.classList.add(`meter`),e.style.setProperty(`--c`,r),e.setAttribute(`role`,`meter`),e.setAttribute(`aria-valuemin`,`0`),e.setAttribute(`aria-valuemax`,String(n)),e.setAttribute(`aria-valuenow`,String(t)),a&&e.setAttribute(`aria-label`,a),e.innerHTML=`<span class="meter__fill"></span>`;let o=e.firstElementChild,s=Pa(t/n,0,1);return H.fromTo(o,{scaleX:0},{scaleX:s,duration:U(1.1),delay:U(i),ease:`power3.out`}),{set(t){H.to(o,{scaleX:Pa(t/n,0,1),duration:U(.6),ease:W}),e.setAttribute(`aria-valu...
+
+[qa -> export (no exp)]  (e,{segments:t,format:n=e=>X.int(e),suffix:r=``,ordinal:i=!1,color:a=`var(--s1)`}){e.classList.add(`stack`);let o=t.reduce((e,t)=>e+t.value,0),s=i?t.map((e,n)=>`color-mix(in oklab, ${a} ${Math.round(100-n/Math.max(1,t.length-1)*50)}%, var(--card))`):t.map(e=>e.color);e.innerHTML=``;let c=K(G`<div class="stack__bar" role="img" aria-label="${t.map(e=>`${e.name} ${n(e.value)}${r}`).join(`, `)}"></div>`);t.forEach((e,t)=>c.append(K(G`<span class="stack__seg" style="flex:${e.value};--c:${s[t]}"></span>`)));let l=K(G`<ul class="legend legend--rect"></ul>`);ret...
+
+[Qa -> export (no exp)]  (e,{live:t=!1}={}){let n=K(G`     <section class="card kpis" aria-label="Key metrics">       ${e.map((e,t)=>G`         <div class="kpi" data-i="${t}">           <span class="kpi__label">${e.label}</span>           <span class="kpi__row">             <strong class="kpi__value">${e.kind===`text`?e.value:X.by(e.kind)(0)}</strong>             ${ji(e)}           </span>         </div>`)}       ${t?G`<span class="live" aria-live="off"><span class="live__dot"></span>Live</span>`:``}     </section>`),r=J(`.kpi__value`,n),i=e.map(e=>e.kind===`text`?null:{v:0}),a=...
+
+[lo -> export (no exp)]  (e,t){let n=J(`.card, .pagehead`,e);if(U(1)===0){t?.();return}H.fromTo(n,{opacity:0,y:22,scale:.985},{opacity:1,y:0,scale:1,duration:.85,stagger:.07,ease:W,clearProps:`transform,opacity`}),t?.()}
+
+[g -> export (no exp)]  (e,t,n){let i=J(`tr`,t.parentElement),a=i.slice(i.indexOf(n)+1),o=a.map(e=>e.getBoundingClientRect().top),s=r.indexOf(e);r=r.filter(t=>t!==e),H.timeline({onComplete:()=>{t.remove(),n.remove(),a.forEach((e,t)=>{let n=o[t]-e.getBoundingClientRect().top;n&&H.fromTo(e,{y:n},{y:0,duration:U(.55),ease:W,clearProps:`transform`})}),Z(`${e.company||e.email} archived`,{action:`Undo`,onAction:()=>{r.splice(s,0,e),x(h())}})}}).to([t,n],{opacity:0,x:-18,duration:U(.3),ease:`power2.in`}),Vi(t,q(`.expand`,n),!1)}
+
+[x -> export (no exp)]  (e){p(),p=e.cleanup||(()=>{});let t=e.node||e,n=f.firstElementChild,r=()=>{f.innerHTML=``,f.append(t),H.fromTo(t,{opacity:0,y:10},{opacity:1,y:0,duration:U(.45),ease:W,clearProps:`all`}),H.fromTo(J(`tbody tr, .tile`,t),{opacity:0,y:6},{opacity:1,y:0,duration:U(.4),stagger:U(.02),ease:W,clearProps:`all`})};n?H.to(n,{opacity:0,y:-6,duration:U(.18),ease:`power2.in`,onComplete:r}):r()}
+
+[Eo -> export (no exp)]  (e,t){e.addEventListener(`click`,()=>{if(e.disabled)return;e.disabled=!0,e.classList.add(`is-syncing`);let n=q(`span`,e),r=n.textContent;n.textContent=`Syncing…`;let i=K(G`<span class="syncbar" aria-hidden="true"><span class="syncbar__fill"></span></span>`);e.after(i),H.fromTo(q(`.syncbar__fill`,i),{scaleX:0},{scaleX:1,duration:U(2.2),ease:`power2.inOut`,onComplete:()=>{i.remove(),e.disabled=!1,e.classList.remove(`is-syncing`),n.textContent=r,t?.()}}),U(1)===0&&(i.remove(),e.disabled=!1,e.classList.remove(`is-syncing`),n.textContent=r,t?.())})}
+
+[Ro -> export (no exp)]  (e,t=!0){if(e&&e.offsetParent===null&&(e=e.closest(`.nav__group`)?.querySelector(`:scope > .nav__item`)||null),!e){H.to(jo,{opacity:0,duration:U(.2)});return}let n=q(`.side__nav`,Ao),r=e.getBoundingClientRect(),i=n.getBoundingClientRect(),a=r.top-i.top+n.scrollTop,o=r.height;H.to(jo,{y:a,height:o,opacity:1,duration:t?U(.5):0,ease:W,overwrite:!0})}
+
+[zo -> export (no exp)]  (e){let t=Do[e]||Oo;Po||=(Po=!0,Fi(),No||await H.to(ko.children,{opacity:0,y:-10,duration:U(.2),ease:`power2.in`,stagger:U(.015)}),Mo(),ko.innerHTML=``,scrollTo({top:0,behavior:`instant`}),Mo=t.render(ko,Io)||(()=>{}),document.title=`${t.title} · Kestrel`,Lo(e),Ao.classList.contains(`is-open`)&&Uo(!1),No||q(`.pagehead__title`,ko)?.focus({preventScroll:!0}),No=!1,!1)}
+
+[os -> export (no exp)]  (){Zo.open||(Zo.showModal(),Qo.value=``,is(),H.fromTo(Zo,{opacity:0,scale:.96,y:-8},{opacity:1,scale:1,y:0,duration:U(.35),ease:W,clearProps:`transform`}))}
+
+[ss -> export (no exp)]  (){Zo.open&&H.to(Zo,{opacity:0,scale:.97,duration:U(.15),ease:`power2.in`,onComplete:()=>{Zo.close(),H.set(Zo,{clearProps:`all`})}})}
+
+[us -> export (no exp)]  (){document.documentElement.classList.remove(`record`),document.documentElement.classList.add(`ready`),U(1)>0&&(H.fromTo(Ao,{x:-24,opacity:0},{x:0,opacity:1,duration:.7,ease:W,clearProps:`all`}),H.fromTo(J(`.side__logo, .nav__item, .side__foot`,Ao),{opacity:0,x:-10},{opacity:1,x:0,duration:.6,stagger:.035,delay:.15,ease:W,clearProps:`all`}),H.fromTo(q(`.top`),{opacity:0,y:-10},{opacity:1,y:0,duration:.6,delay:.1,ease:W,clearProps:`all`})),zo(Fo()),setTimeout(()=>Ro(q(`.nav__item.is-active`,Ao),!1),60)}
+
+========================== TIMELINE DEL ARMAZON ==========================
+arrow-down`)}${ki(e)}</span>`;function Mi(e,t,{from:n=0,format:r=X.int,duration:i=1.1,delay:a=0}={}){let o={v:n};return e.textContent=r(n),U(1)===0?(e.textContent=r(t),H.timeline()):H.to(o,{v:t,duration:i,delay:a,ease:`power3.out`,onUpdate:()=>{e.textContent=r(o.v)},onComplete:()=>{e.textContent=r(t)}})}var Ni;function Z(e,{action:t,onAction:n,duration:r=5e3,tone:i=``}={}){Ni||=q(`#toasts`);let a=K(G`     <div class="toast ${i?`toast--`+i:``}" role="status">       <span class="toast__msg">${e}</span>       ${t?G`<button class="toast__action" type="button">${t}</button>`:``}       <span class="toast__bar" style="--t:${r}ms"></span>     </div>`);Ni.append(a);let o=!1,s=()=>{o||(o=!0,H.to(a,{opacity:0,y:8,scale:.98,duration:U(.25),ease:`power2.in`,onComplete:()=>a.remove()}))};a.querySelector(`.toast__action`)?.addEventListener(`click`,()=>{n?.(),s()}),H.fromTo(a,{opacity:0,y:16,scale:.98},{opacity:1,y:0,scale:1,duration:U(.5),ease:W});let c=setTimeout(s,r);return a.addEventListener(`pointerenter`,()=>clearTimeout(c),{once:!0}),s}var Pi=null;function Fi(){Pi?.()}function Ii(e,t,{align:n=`end`,gap:r=8,onClose:i,cls:a=``}={}){Fi();let o=K(G`<div class="layer ${a}" role="dialog"></div>`);o.append(t),document.body.append(o);let s=()=>{let t=e.getBoundingClientRect(),i=o.offsetWidth,a=o.offsetHeight,s=n===`end`?t.right-i:n===`center`?t.left+t.width/2-i/2:t.left;s=Math.max(8,Math.min(innerWidth-i-8,s));let c=t.bottom+r,l=!1;c+a>innerHeight-8&&t.top-r-a>8&&(c=t.top-r-a,l=!0),o.style.left=s+`px`,o.style.top=c+`px`,o.style.setProperty(`--ox`,t.left+t.width/2-s+`px`),o.classList.toggle(`layer--up`,l)};s(),e.setAttribute(`aria-expanded`,`true`),H.fromTo(o,{opacity:0,scale:.96,y:o.classList.contains(`layer--up`)?6:-6},{opacity:1,scale:1,y:0,duration:U(.32),ease:W});let c=t=>{!o.contains(t.target)&&!e.contains(t.target)&&d()},l=t=>{t.key===`Escape`&&(d()
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { box-shadow:var(--focus);outline:none }
+  .nav__item:hover { color:var(--ink);background:var(--well-2) }
+  .nav__item.is-active:hover { background:0 0 }
+  .nav__item:hover .ic { transform:translateY(-1px) }
+  .theme-seg__btn:hover { color:var(--ink) }
+  .search:hover { border-color:var(--hair-strong) }
+  .search:focus-visible { box-shadow:var(--focus) }
+  .avatar-btn:hover { transform:scale(1.06) }
+  .btn:active { transform:scale(.97) }
+  .btn--primary:hover { background:color-mix(in oklab, var(--brand) 88%, var(--ink)) }
+  .btn--soft:hover { background:var(--brand-soft-2) }
+  .btn--ghost:hover { background:var(--well) }
+  .btn--text:hover { background:var(--brand-soft) }
+  .btn--danger:hover { background:var(--bad);color:#fff }
+  .btn--text.btn--danger:hover { background:var(--bad-bg);color:var(--bad) }
+  .btn--range:hover { color:var(--ink) }
+  .iconbtn:hover { background:var(--well);color:var(--ink) }
+  .iconbtn:active { transform:scale(.94) }
+  .iconbtn--dots:hover,.iconbtn--dots[aria-expanded=true] { opacity:1 }
+  .pill:hover { color:var(--ink);border-color:var(--hair-strong) }
+  .pill--menu:active { transform:scale(.96) }
+  .link:hover { text-decoration-color:currentColor }
+  .input:hover { border-color:var(--faint) }
+  .switch__input:active+.switch__track .switch__knob { transform-origin:0;transform:scaleX(1.25) }
+  .switch__input:checked:active+.switch__track .switch__knob { transform-origin:100%;transform:translate(16px)scaleX(1.25) }
+  .switch__input:focus-visible+.switch__track { box-shadow:var(--focus) }
+  .check:focus-visible+.check__box { box-shadow:var(--focus) }
+  .chip input:focus-visible+span { box-shadow:var(--focus) }
+  .chip:active span { transform:scale(.96) }
+  .pagehead__crumb:hover { color:var(--brand-ink);background:var(--brand-soft) }
+  .pagehead__title:focus-visible { box-shadow:none;outline:none }
+  .legend__btn:hover:not(:disabled) { color:var(--ink);background:var(--well) }
+  .chart:focus-visible { box-shadow:none;outline:none }
+  .chart:focus-visible .chart__plot { box-shadow:var(--focus);border-radius:var(--r-sm) }
+  .chart__hit:focus-visible { stroke:var(--brand);stroke-width:2px;rx:8 }
+  .heat__cell:hover,.heat__cell:focus-visible { outline:2px solid var(--card);outline-offset:-1px;box-shadow:0 0 0 1px var(--ink);z-index:1;position:relative;transform:scale(1.15) }
+  .tabs [role=tab]:hover { color:var(--ink);background:var(--well) }
+  .lead:hover,.lead:focus-visible { background:var(--well) }
+  .lead:focus-visible td:first-child { box-shadow:inset 2px 0 0 var(--brand) }
+  .assign__row:hover { background:var(--well) }
+  .post__btn:hover { box-shadow:var(--shadow-lg);transform:translateY(-3px) }
+  .post__btn:hover img { transform:scale(1.06) }
+  .subnav a:hover { background:var(--well);color:var(--ink) }
+  .swatch:hover { transform:scale(1.1) }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--well);box-shadow:none }
+  .notes__item:hover { background:var(--well) }
+  .toast__action:hover { background:color-mix(in oklab, var(--page) 26%, transparent) }
+  .toast:hover .toast__bar { animation-play-state:paused }
+
+  -- keyframes --
+  @keyframes theme-reveal {0%{clip-path:circle(0 at var(--vx,50%) var(--vy,50%))}to{clip-path:circle(var(--vr,150%) at var(--vx,50%) var(--vy,50%))}}
+  @keyframes spin {to{transform:rotate(360deg)}}
+  @keyframes pulse {0%{opacity:.9;transform:scale(.5)}to{opacity:0;transform:scale(1.6)}}
+  @keyframes drain {0%{transform:scaleX(1)}to{transform:scaleX(0)}}
+  @keyframes dialog-in {0%{opacity:0;transform:translateY(8px)scale(.97)}}
+
+  -- transitions --
+  transition:background var(--t-fast)
+  transition:background var(--t-fast), border-color var(--t-fast)
+  transition:background var(--t-fast), color var(--t-fast)
+  transition:background var(--t-fast), color var(--t-fast), border-color var(--t-fast), transform var(--t-med) var(--ease)
+  transition:background var(--t-fast), color var(--t-fast), transform var(--t-med) var(--ease)
+  transition:background var(--t-fast), transform var(--t-med) var(--ease)
+  transition:background var(--t-med)
+  transition:border-color var(--t-fast), box-shadow var(--t-fast)
+  transition:border-color var(--t-fast), box-shadow var(--t-fast), transform var(--t-med) var(--ease)
+  transition:box-shadow var(--t-fast), transform var(--t-med) var(--ease)
+  transition:color var(--t-fast)
+  transition:color var(--t-fast), background var(--t-fast)
+  transition:color var(--t-fast), transform var(--t-med) var(--ease)
+  transition:grid-template-columns var(--t-med) var(--ease)
+  transition:grid-template-rows .5s var(--ease)
+  transition:grid-template-rows var(--t-med) var(--ease)
+  transition:max-width var(--t-med) var(--ease), opacity var(--t-fast)
+  transition:opacity var(--t-fast)
+  transition:opacity var(--t-med)
+  transition:transform .45s cubic-bezier(.34,1.56,.64,1)
+  transition:transform .6s var(--ease)
+  transition:transform var(--t-fast)
+  transition:transform var(--t-med) var(--ease)
+  transition:transform var(--t-med) var(--ease), background var(--t-fast), color var(--t-fast), border-color var(--t-fast), box-shado
+  transition:transform var(--t-med) var(--ease), box-shadow var(--t-med)

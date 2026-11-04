@@ -5,7 +5,7 @@
 **Chats en la nube corriendo:** Spy (búsqueda, detalle, anuncios; ya recibió el análisis del video), Chequeo eficiente, Ops Center gurús, Dashboard, Grabar llamadas, Commits sin subir (etiquetas `rescate/*`), Tickets (fijo: se le pasa cada ticket por mensaje), WhatsApp anti-ban, Email de Mauricio, Tiendas (cuenta de revisión, Partners, privacidad).
 
 **Local:**
-- Grupos en la app (Joan): workflow `wf_b7c7bcd7-fe4`, carpeta `C:/dev/wt-grupos-ops`, rama `grupos-ops-0311`, en verificación. Al volver: aplicar `0372_grupos_de_la_app.sql` (sólo agrega) y subir por punta. Después, la rama `avisos-bot-corte-0311`, con el sí de Martín.
+- Grupos en la app (Joan): rearmado sobre main en `punta/grupos-app` por la nube (4/11), con la 0372 ya aplicada. Falta probarlo en producción, en el ws3: docs/relevo/nube-grupos.md. Después, la rama `avisos-bot-corte-0311`, con el sí de Martín.
 - Runner: su chat recibió el pedido de quedar siempre activo y detectar la cuenta; `runner-servicio-3010` a `punta/runner-servicio`. Lo que corre Martín se lo pide ahí, en un comando.
 - `punta/tickets-0411` (#50 a #53): tres veces chocó con una bitácora. Si vuelve a chocar: `git merge origin/main` y separar los dos hitos. Datos a reparar en ws11, a confirmar con Leila: leads 1713, 1871, 2634, 1712.
 

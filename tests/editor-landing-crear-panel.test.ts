@@ -327,8 +327,15 @@ test('Replicar: 3 formatos con su ícono, `{ url, formato, lectura?, texto? }`, 
   assert.match(src, /\{probar && \(\s*<button type="button" className="gp-btn gp-btn-contorno"[^>]*onClick=\{\(\) => onProbar\(probar\)\}>/);
   // 28/10/2026: el lector (o el texto pegado) vuelve a LEER la página; la réplica sale después, de lo leído.
   // Con la copia idéntica (las cuatro partes), sin pagar los ángulos: no los usa (revisión de 45a8e5234 y la copia idéntica).
-  assert.match(src, /onLectura=\{\(l\) => void leer\(lectura\.url, \{ lectura: l, \.\.\.\(sonTodas\(partes\) \? \{ sinAngulos: true \} : \{\}\) \}\)\}/);
-  assert.match(src, /onTexto=\{\(t\) => void leer\(lectura\.url, \{ texto: t, \.\.\.\(sonTodas\(partes\) \? \{ sinAngulos: true \} : \{\}\) \}\)\}/);
+  // Se mira la LÍNEA de cada salida y lo que cuida, no la línea literal: el 4/11/2026 (ticket #54) la llamada sumó lo elegido
+  // (`eleccion`, para el borrador) y el assert de la línea entera se puso rojo con el código bien.
+  const linea = (marca: string) => src.split('\n').find((l) => l.includes(marca)) ?? '';
+  const conLectura = linea('onLectura={(l) => void leer(');
+  assert.match(conLectura, /void leer\(lectura\.url, \{ lectura: l,/, 'lo leído en el navegador vuelve a LEER la página');
+  assert.match(conLectura, /\.\.\.\(sonTodas\(partes\) \? \{ sinAngulos: true \} : \{\}\)/, 'con la copia idéntica, la lectura del lector no paga los ángulos');
+  const conTexto = linea('onTexto={(t) => void leer(');
+  assert.match(conTexto, /void leer\(lectura\.url, \{ texto: t,/, 'el texto pegado vuelve a LEER la página');
+  assert.match(conTexto, /\.\.\.\(sonTodas\(partes\) \? \{ sinAngulos: true \} : \{\}\)/, 'con la copia idéntica, el texto pegado no paga los ángulos');
   // Desde el link de la caja arranca solo, UNA vez (el ref sobrevive al doble montaje: la lectura se paga).
   assert.match(src, /if \(arrancado\.current\) return;\s*arrancado\.current = true;/);
   const dg = fuente(PANEL_DG);

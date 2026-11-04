@@ -98,7 +98,7 @@ test('4. el cartero: «la última de cada chat» es sólo de wrap_up; una ask m�
   const ask2 = preg(CUENTA1, '2026-10-25T04:00:00.000Z', 'ask', '¿Qué moneda?');
   const { preguntas } = preguntasParaSubir([], [wrapViejo, wrap, ask1, ask2]);
   assert.deepEqual(new Set(preguntas.map((q: PreguntaChat) => q.id)), new Set([wrap.id, ask1.id, ask2.id]));
-  assert.ok(['1.18.1', '1.19.0', '1.20.0', '1.21.0', '1.22.0', '1.22.1', '1.23.0', '1.24.0'].includes(VERSION), 'la regla de «la última» llegó en la 1.18.1');
+  assert.ok(['1.18.1', '1.19.0', '1.20.0', '1.21.0', '1.22.0', '1.22.1', '1.23.0', '1.24.0', '1.25.0', '1.26.0', '1.26.1'].includes(VERSION), 'la regla de «la última» llegó en la 1.18.1');
 });
 
 test('5. sin la cadena (no se pudo leer), cada pregunta se supera como antes, por su sesión', () => {

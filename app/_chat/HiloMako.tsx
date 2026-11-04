@@ -31,7 +31,7 @@ import { partirPegados } from '@/lib/chat-pegado';
 import { PegadosHilo, TextoPlegable } from './PegadoHilo';
 import Link from '@/app/_ui/Link';
 import type { Muneco } from '@/app/admin/operaciones/Muneco';
-import { FilaDelChat, FilaMia } from '@/app/admin/operaciones/Hilo';
+import { FilaDelChat, FilaDeOtro, FilaMia } from '@/app/admin/operaciones/Hilo';
 import { Trabajando } from '@/app/admin/operaciones/Trabajando';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 import { leerCita, renglonDeCita, type IdMensaje, type MarcasChat, type MensajeWA } from '@/lib/centro-mensajes';
@@ -163,6 +163,7 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
       const d = diaDe(x.at);
       if (d && d !== ultimoDia) { filas.push(<span key={`d-${x.id}`} className="co-dia">{rotuloDia(x.at, ahora)}</span>); ultimoDia = d; }
     }
+    if (x.k === 'msg' && x.grupo?.sinLeer) filas.push(<span key={`sin-leer-${x.id}`} className="co-dia co-dia--sin-leer" data-sin-leer="">Sin leer</span>);
     if (x.k === 'msg' && x.role === 'user') {
       const archivos = x.archivos ?? [];
       // Lo pegado de más de 1.000 caracteres viaja marcado y se dibuja como documento; lo escrito largo se pliega
@@ -172,37 +173,53 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
       const conCita = leerCita(crudo);
       const { texto: conTodo, pegados } = partirPegados(conCita?.resto ?? crudo);
       const texto = conTodo;
-      // Si respondió a un mensaje, la cita va arriba, en su globo, y se toca para ir a él (lo de WhatsApp del Centro).
-      const cita = conCita ? <CitaEnBurbuja de={conCita.cita.de} texto={conCita.cita.texto} lineas={[]} citado={citadoEn(items, conCita.cita.texto)} /> : null;
+      // Si respondió a un mensaje, la cita va arriba, en su globo, y se toca para ir a él (lo de WhatsApp del Centro). En un grupo la
+      // cita viene como dato (`grupo.cita`): nadie la escribió adentro del texto.
+      const g = x.grupo;
+      const citado = g?.cita ? <CitaEnBurbuja de={g.cita.de} texto={g.cita.texto} lineas={[]} citado={g.cita.id} />
+        : conCita ? <CitaEnBurbuja de={conCita.cita.de} texto={conCita.cita.texto} lineas={[]} citado={citadoEn(items, conCita.cita.texto)} /> : null;
       const pie = <span className="co-burbuja__pie"><MarcasEnHora id={idWA(x)} marcas={marcas} />{x.estado === 'enviando' ? 'Enviando…' : hora(x.at)}</span>;
-      filas.push(
-        <FilaMia key={x.id} m={wa(x)} marcas={marcas} despues={<>
-          {x.estado === 'error' && (
-            <p className="co-nota co-nota--mal" role="alert">{x.error}{' '}
-              <button type="button" className="ch-enlace" onClick={() => onReintentar(x.id)}>Reintentar</button>
-              {x.descartable && onDescartar && <>{' · '}<button type="button" className="ch-enlace" onClick={() => onDescartar(x.id)}>Descartar</button></>}
-              <ReportarASoporte /></p>
-          )}
-          {x.estado === 'incierto' && (
-            <p className="co-nota co-nota--mal" role="alert">{x.error ?? ERROR_INCIERTO}{' '}
-              <button type="button" className="ch-enlace" onClick={onRecargar}>Recargar el chat</button><ReportarASoporte /></p>
-          )}
-        </>}>
-          {/* Desde dónde lo escribió (la estrella de una tab, OC6): un chip arriba de la burbuja. */}
-          {x.desde && <span className="ch-desde">desde {x.desde}</span>}
-          {archivos.length > 0 && <ArchivosHilo archivos={archivos} />}
-          <PegadosHilo pegados={pegados} />
-          {/* Una nota de voz se ESCUCHA (21/10/2026): el audio en su globo y, debajo, lo que se entendió, chico (Offer la
-              guarda así: el texto del mensaje es la transcripción). */}
-          {x.voz ? (
-            <div className="co-burbuja ch-voz">
-              <AudioPlay src={x.voz.url} duracion={x.voz.secs} color="var(--primary)" style={{ width: 240 }} />
-              {texto && <span className="ch-voz__texto">{texto}</span>}
-              {pie}
-            </div>
-          ) : texto ? <TextoPlegable texto={texto} className="co-burbuja" pie={pie} arriba={cita} /> : <p className="ch-pie-suelto">{pie}</p>}
-        </FilaMia>,
-      );
+      // Lo de otra persona, en un grupo: a la izquierda y con su nombre adentro del globo (si hay archivos, arriba de ellos).
+      const otro = g?.autor ?? null;
+      const cabeza = otro && !g?.sigue
+        ? <span className="co-autor" data-color={g?.color ?? 0}>{otro}{g?.chip && <span className="co-autor__chip">{g.chip}</span>}</span> : null;
+      const enGlobo = archivos.length ? null : cabeza;
+      const cita = enGlobo ? <>{enGlobo}{citado}</> : citado;
+      const notas = <>
+        {x.estado === 'error' && (
+          <p className="co-nota co-nota--mal" role="alert">{x.error}{' '}
+            <button type="button" className="ch-enlace" onClick={() => onReintentar(x.id)}>Reintentar</button>
+            {x.descartable && onDescartar && <>{' · '}<button type="button" className="ch-enlace" onClick={() => onDescartar(x.id)}>Descartar</button></>}
+            <ReportarASoporte /></p>
+        )}
+        {x.estado === 'incierto' && (
+          <p className="co-nota co-nota--mal" role="alert">{x.error ?? ERROR_INCIERTO}{' '}
+            <button type="button" className="ch-enlace" onClick={onRecargar}>Recargar el chat</button><ReportarASoporte /></p>
+        )}
+      </>;
+      const cuerpo = <>
+        {/* Desde dónde lo escribió (la estrella de una tab, OC6): un chip arriba de la burbuja. */}
+        {x.desde && <span className="ch-desde">desde {x.desde}</span>}
+        {archivos.length > 0 && cabeza}
+        {archivos.length > 0 && <ArchivosHilo archivos={archivos} />}
+        <PegadosHilo pegados={pegados} />
+        {/* Una nota de voz se ESCUCHA (21/10/2026): el audio en su globo y, debajo, lo que se entendió, chico (Offer la
+            guarda así: el texto del mensaje es la transcripción). */}
+        {x.voz ? (
+          <div className="co-burbuja ch-voz">
+            {enGlobo}
+            <AudioPlay src={x.voz.url} duracion={x.voz.secs} color="var(--primary)" style={{ width: 240 }} />
+            {texto && <span className="ch-voz__texto">{texto}</span>}
+            {pie}
+          </div>
+        ) : texto ? <TextoPlegable texto={texto} className="co-burbuja" pie={pie} arriba={cita} /> : <p className="ch-pie-suelto">{pie}</p>}
+        {/* La de MaKo: se ve y no se toca. No es de la persona, y `ReaccionWA` le ofrecería quitarla. */}
+        {g?.reaccion && <span className="co-wa__reaccion co-wa__reaccion--de-mako" role="img" aria-label={`MaKo reaccionó ${g.reaccion}`}>{g.reaccion}</span>}
+      </>;
+      filas.push(otro
+        ? <FilaDeOtro key={x.id} m={wa(x)} nombre={otro} sigue={g?.sigue} despues={notas}>{cuerpo}</FilaDeOtro>
+        // En un grupo, lo tuyo va sin tu foto, como en WhatsApp (4/11/2026): la foto es de los demás.
+        : <FilaMia key={x.id} m={wa(x)} marcas={marcas} despues={notas} foto={g ? <></> : undefined}>{cuerpo}</FilaMia>);
       return;
     }
     if (x.k === 'msg') {
@@ -211,7 +228,7 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
         <DeMako key={x.id} quien={quien} hora={hora(x.at) || null} m={wa(x)} marcas={marcas}>
           {suyo?.arriba}
           {/* `iconos` (27/10/2026, ticket 874749710-12): el botón o la tab que MaKo nombra entre «» sale con su ícono de verdad. */}
-          {x.texto.trim() && <div className="ch-md"><Markdown text={x.texto} iconos /></div>}
+          {x.texto.trim() && <div className="ch-md"><Markdown text={x.texto} iconos enlaces={!!x.grupo} /></div>}
           {/* Lo pedido que se hace en otra pantalla: el link para ir, como el «Ir a …» de los otros chats (tanda 10). */}
           {!!x.irA?.length && (
             <div className="ch-ira">{x.irA.map((l) => <Link key={l.link} className="co-chip" href={l.link}>{`Ir a ${l.titulo}`}</Link>)}</div>
@@ -221,6 +238,11 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
           {x.texto.trim() && <ReportarRespuesta texto={x.texto} />}
         </DeMako>,
       );
+      return;
+    }
+    if (x.k === 'aviso' && x.tono === 'sistema') {
+      // Lo que pasó en un grupo: «Joan entró al grupo». No lo dijo nadie.
+      filas.push(<span key={x.id} className="co-dia co-dia--sistema" role="status">{x.texto}</span>);
       return;
     }
     if (x.k === 'aviso') {

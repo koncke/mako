@@ -24,7 +24,23 @@ BITACORA="${BITACORA_SESIONES:-$HOME/.claude/bitacora-sesiones.tsv}"
 MARCADOR="$HOME/.claude/cuenta-activa.txt"
 PROY="$HOME/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main"
 
-# --- la cuenta sale del marcador, nunca de una deducción ---
+# --- el session_id y el origen llegan por stdin en el JSON del hook ---
+entrada=$(timeout 2 cat 2>/dev/null)
+sid=$(printf '%s' "$entrada" | grep -o '"session_id":"[^"]*"' | head -1 | cut -d'"' -f4)
+[ -z "$sid" ] && sid="?"
+origen=$(printf '%s' "$entrada" | grep -o '"source": *"[^"]*"' | head -1 | cut -d'"' -f4)
+
+# --- al abrir, la app corrige el marcador (4/11/2026) ---
+# Martín: «Te lo tengo que pedir cada que entro en una cuenta y eso debería ser automático». La app le pone a cada chat
+# CLAUDE_CODE_ACCOUNT_UUID, y runner-salud.mjs lo traduce con operaciones/config.json. Va ANTES de leer el marcador. Devuelve
+# una línea si a esta cuenta le falta el Runner o su guardia. Le importa el origen: SessionStart también corre al compactar,
+# con el uuid del día que arrancó ese chat, y eso devolvería el marcador a la cuenta anterior. Sólo vale `startup`.
+salud=""
+if [ "$accion" = "inicio" ] && [ -f "$HOME/.claude/operaciones/runner-salud.mjs" ]; then
+  salud=$(timeout 8 node "$HOME/.claude/operaciones/runner-salud.mjs" al-abrir "$origen" </dev/null 2>/dev/null | tr -d '\r\n"\\')
+fi
+
+# --- la cuenta sale del marcador, y el marcador de la app ---
 cuenta=$(head -1 "$MARCADOR" 2>/dev/null | tr -d '\r\n')
 [ -z "$cuenta" ] && cuenta="desconocida"
 # El titular sale de una TABLA, no de un `case`: sumar una cuenta tiene que ser UNA LÍNEA
@@ -34,10 +50,6 @@ CUENTAS="${CUENTAS_CLAUDE:-$HOME/.claude/cuentas.tsv}"
 titular=$(awk -F'\t' -v c="$cuenta" '$1==c{sub(/\r$/,"",$2); print $2; exit}' "$CUENTAS" 2>/dev/null)
 [ -z "$titular" ] && titular="SIN IDENTIFICAR (agregala a ~/.claude/cuentas.tsv)"
 anotada=$(date -r "$MARCADOR" "+%d/%m %H:%M" 2>/dev/null || echo "?")
-
-# --- el session_id llega por stdin en el JSON del hook ---
-sid=$(timeout 2 cat 2>/dev/null | grep -o '"session_id":"[^"]*"' | head -1 | cut -d'"' -f4)
-[ -z "$sid" ] && sid="?"
 
 # --- Umbrales de la ventana SEMANAL (hook UserPromptSubmit: corre en CADA mensaje) ---
 # Un script no puede leer el % semanal: no queda en ningún archivo local (el log de la
@@ -74,7 +86,12 @@ if [ "$accion" = "turno" ]; then
 
   pct_int=${pct%%.*}; case "$pct_int" in ''|*[!0-9]*) pct_int=0 ;; esac
   umbral=0
-  for u in 95 90 85; do [ "$pct_int" -ge "$u" ] && { umbral=$u; break; }; done
+  # 2/11/2026, Martín, textual: «te había dado un prompt para que arranques… y me decís mil millones
+  # de veces que no vas a arrancar nada nuevo cuando explícitamente te pido que arranques y que si
+  # estás llegando al final —98, 99— guardes contexto y yo lo sigo con la próxima cuenta».
+  # El 95% decía «no arranques nada más» y por eso un chat le contestaba eso en vez de trabajar.
+  # El cierre pasa al 98%: hasta ahí se TRABAJA, con el relevo al día después de cada paso.
+  for u in 98 95 90 85; do [ "$pct_int" -ge "$u" ] && { umbral=$u; break; }; done
 
   if [ "$umbral" -gt 0 ]; then
     clave="$resets|$sid|$umbral"            # una vez por chat, por umbral y por semana
@@ -98,8 +115,9 @@ if [ "$accion" = "turno" ]; then
       fi
       case "$umbral" in
         85) extra="Antes de seguir: (1) escribi o actualiza tu docs/relevo/<tu-area>.md con TODO lo de esta cuenta (lo pedido, lo hecho con su commit y rama, lo que esta a medias con su archivo, lo que espera a Martin) y commitealo por ruta; (2) lo TERMINADO y verificado, commit y push como siempre; (3) lo que este A MEDIAS no se pushea, porque pushear es desplegar a clientes. Al 97% de la semanal o de las 5 horas el chat corta (guardia/corte-97.mjs): que el relevo ya este al dia cuando llegue." ;;
-        90) extra="Lo del 85% si no lo hiciste, y ademas: no arranques trabajo grande nuevo; cerra lo abierto en pasos chicos y commiteables, y manten el relevo al dia despues de cada uno." ;;
-        95) extra="CIERRE: escribi el relevo final de tu area ahora, con TODO lo de esta cuenta, commitealo, pushea lo terminado y no arranques nada mas. Lo que quede a medias va en el relevo con su archivo; un workflow que corre, con su runId y su journal.jsonl." ;;
+        90) extra="Lo del 85% si no lo hiciste, y ademas: trabaja en pasos chicos y commiteables, y actualiza el relevo despues de cada uno. SEGUI con lo que Martin pidio: no postergues ni le anuncies que no vas a arrancar." ;;
+        95) extra="Lo del 85% y el 90% si no lo hiciste. SEGUI TRABAJANDO en lo que Martin pidio, en pasos chicos y commiteables, con el relevo al dia despues de cada uno. NO anuncies que no arrancas nada: el cierre es al 98%, no acá." ;;
+        98) extra="AHORA SI, CIERRE: escribi el relevo final de tu area con TODO lo de esta cuenta, commitealo y pushea lo terminado. Lo que quede a medias va en el relevo con su archivo; un workflow que corre, con su runId y su journal.jsonl. Decile a Martin que guardaste el contexto y que siga con la proxima cuenta." ;;
       esac
       # 18/10/2026, Martín: sin restricciones. Con guardia/sin-corte, el umbral sólo informa: nadie frena ni posterga.
       [ -f "$HOME/.claude/guardia/sin-corte" ] && extra="Martin saco el corte (18/10/2026): segui con lo que te pidieron, sin frenar ni postergar. Commitea seguido: al 100% la cuenta frena de golpe."
@@ -108,7 +126,7 @@ if [ "$accion" = "turno" ]; then
   fi
 
   if [ "$viejo" = 1 ]; then
-    emitir "USO SEMANAL SIN MEDIR (o con mas de 30 min, o medido por la OTRA cuenta): antes de contestar, llama a la herramienta get_usage y guarda la ventana 'Weekly - all models' con este comando, reemplazando los dos valores: echo <percentUsed> <resetsAt> \$(date -u +%FT%TZ) \$(head -1 ~/.claude/cuenta-activa.txt) > ~/.claude/uso-semanal.txt  -- el 4o campo es la CUENTA: las dos cuentas comparten este archivo y un numero de la otra no vale para esta. Y guarda TAMBIEN la ventana '5-hour limit' igual, en el otro archivo: echo <percentUsed> <resetsAt> $(date -u +%FT%TZ) $(head -1 ~/.claude/cuenta-activa.txt) > ~/.claude/uso-cinco.txt  -- con los dos, este hook avisa los umbrales del 85, 90 y 95% y al 97% de CUALQUIERA de las dos el chat corta (guardia/corte-97.mjs). No hace falta comentarselo al usuario."
+    emitir "USO SEMANAL SIN MEDIR (o con mas de 30 min, o medido por la OTRA cuenta): antes de contestar, llama a la herramienta get_usage y pasale sus ventanas al cartero, que las anota para este hook, para el corte del 97% y para el Uso del Ops Center: node ~/.claude/operaciones/cartero.mjs medir <5h %> <5h resetsAt> <semana %> <semana resetsAt>, con los valores de '5-hour limit' y 'Weekly - all models'. Si medir se niega, la huella de la semana no cierra con el marcador: nunca uses --renovada sin que lo diga Martin; decile en una linea, y deja la semanal para este hook con: echo <percentUsed> <resetsAt> \$(date -u +%FT%TZ) \$(head -1 ~/.claude/cuenta-activa.txt) > ~/.claude/uso-semanal.txt. No hace falta comentarselo al usuario."
   fi
   exit 0
 fi
@@ -185,7 +203,7 @@ previa=$(grep -v "	$sid$" "$BITACORA" 2>/dev/null | tail -1 \
          | awk -F'\t' '{print $1" ("$2", "$3")"}')
 [ -n "$previa" ] && previa=" Sesion anterior registrada: $previa."
 
-msg="CUENTA DE CLAUDE ACTIVA: $cuenta = $titular (declarada el $anotada en ~/.claude/cuenta-activa.txt). Cada cuenta tiene SIEMPRE el mismo titular y la tabla esta en ~/.claude/cuentas.tsv; si dice SIN IDENTIFICAR, hay que sumarle una linea ahi. Quien te habla es MARTIN KONCKE (martinkoncke@gmail.com), duenio de las CINCO cuentas (16/10: las 1, 2 y 4 solo usan otro gmail para la suscripcion; son suyas. La 5, Ananda, entro el 24/10). El userEmail de tu contexto sale de ~/.claude.json, va con retraso y NO sirve para saber la cuenta. OJO: esto es una FOTO del arranque y no se actualiza solo; antes de firmar un commit releelo con 'head -1 ~/.claude/cuenta-activa.txt', porque Martin puede haber cambiado de cuenta con la sesion abierta (paso el 27/09: dos commits salieron firmados claude1 con el marcador ya en claude2). Firma cada commit con el trailer Claude-Cuenta: $cuenta, PEGADO a Co-Authored-By y sin linea en blanco en el medio: git solo parsea el ultimo bloque contiguo, y una linea vacia deja el trailer afuera sin dar error.$previa$aviso Si Martin dice que la cuenta es otra, gana Martin: reescribi el marcador en el acto. CONTINUA (regla de Martin, 28/10): al 97% de la cuota cada chat guarda TODO lo de su cuenta y corta, y Martin pasa a otra cuenta y escribe Continua. Si te lo escribe al abrir: lee el .tsv mas nuevo de ~/.claude/relevos-cuenta/ (que chats cortaron, en que carpeta, rama y transcript), el docs/relevo/cerebro.md de C:/dev/wt-push-q (git -C C:/dev/wt-push-q log -5 primero) y el relevo de cada chat en su carpeta (git -C <carpeta> show HEAD:docs/relevo/<chat>.md), y segui desde ahi sin preguntar. Un workflow que quedo corriendo dejo lo suyo en el journal.jsonl que nombra el relevo."
+msg="CUENTA DE CLAUDE ACTIVA: $cuenta = $titular (marcador del $anotada en ~/.claude/cuenta-activa.txt; al abrir lo corrige el uuid de la cuenta que la app le pone al chat). Cada cuenta tiene SIEMPRE el mismo titular y la tabla esta en ~/.claude/cuentas.tsv; si dice SIN IDENTIFICAR, hay que sumarle una linea ahi. Quien te habla es MARTIN KONCKE (martinkoncke@gmail.com), duenio de las CINCO cuentas (16/10: las 1, 2 y 4 solo usan otro gmail para la suscripcion; son suyas. La 5, Ananda, entro el 24/10). El userEmail de tu contexto sale de ~/.claude.json, va con retraso y NO sirve para saber la cuenta. OJO: esto es una FOTO del arranque y no se actualiza solo; antes de firmar un commit releelo con 'head -1 ~/.claude/cuenta-activa.txt', porque Martin puede haber cambiado de cuenta con la sesion abierta (paso el 27/09: dos commits salieron firmados claude1 con el marcador ya en claude2). Firma cada commit con el trailer Claude-Cuenta: $cuenta, PEGADO a Co-Authored-By y sin linea en blanco en el medio: git solo parsea el ultimo bloque contiguo, y una linea vacia deja el trailer afuera sin dar error.$previa$aviso Si Martin dice que la cuenta es otra, gana Martin: reescribi el marcador en el acto. CONTINUA (regla de Martin, 28/10): al 97% de la cuota cada chat guarda TODO lo de su cuenta y corta, y Martin pasa a otra cuenta y escribe Continua. Si te lo escribe al abrir: lee el .tsv mas nuevo de ~/.claude/relevos-cuenta/ (que chats cortaron, en que carpeta, rama y transcript), el docs/relevo/cerebro.md de C:/dev/wt-push-q (git -C C:/dev/wt-push-q log -5 primero) y el relevo de cada chat en su carpeta (git -C <carpeta> show HEAD:docs/relevo/<chat>.md), y segui desde ahi sin preguntar. Un workflow que quedo corriendo dejo lo suyo en el journal.jsonl que nombra el relevo.${salud:+ $salud}"
 
 # JSON a mano: el mensaje se construyo sin comillas ni saltos, asi que es seguro
 printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$msg"

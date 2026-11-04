@@ -185,6 +185,7 @@ function llamadas(src: string): string[] {
  * Un `from` nuevo (o un texto literal) falla acá: si lo firma MaKo, `from: REMITENTE_MAKO`.
  */
 const FROM_PERMITIDOS: Record<string, string[]> = {
+  'lib/grupo-app.ts': ['REMITENTE_MAKO'],
   'lib/aviso-plan.ts': ['REMITENTE_MAKO'],
   'lib/avisos.ts': ['REMITENTE_MAKO'],
   'lib/canal-vigilante.ts': ['REMITENTE_MAKO'],

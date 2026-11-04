@@ -22,6 +22,8 @@ python -m http.server 4900 --bind 127.0.0.1
 | `focus-pane.html` `focus-lumora.html` | Focus en sus dos variantes (traen su propio CSS) |
 | `comun.css` `comun.js` | la base vieja, que sólo usan los dos Focus |
 | `medidor/` | el medidor que lee el movimiento del código fuente de los demos |
+| `demos/<demo>/` | lo medido de cada demo (desde la PC): `INFORME.txt` (la entrada), `captura/pagina-1440.png` y `pagina-390.png`, `captura/valores.json` y `captura/estados/` |
+| `closing/` | **Closing, copiado de Halden** (4/11/2026): `copia.html` (la copia exacta), `closing.html` (la adaptación), su propia hoja y su movimiento, y `captura/` para comparar (`producto-*.png` es el componente que monta el Dashboard) |
 
 ## Cómo se mide una referencia nueva
 
@@ -43,17 +45,27 @@ es cada alias** y escribe `demos/<slug>/INFORME.txt`. Maneja las dos arquitectur
 la familia: las vanilla (`page = {mount, enter}`) y las de React (GSAP dentro de
 `useLayoutEffect`, donde no hay librería que resolver por alias).
 
-## Cómo se arma una hoja nueva
+**Lo quieto, el hover y el clic** salen de `medidor/capturar.mjs` (Playwright fuera del repo): la captura a 1440 y 390 (a 390×900,
+sin emulación móvil: la copia se compara con ESE viewport), las variables, la letra, cada panel y cada control en reposo, al
+pasar el cursor y al apretar.
 
-1. Medir su referencia con el medidor y anotar a qué **selectores** llama cada helper
-   (eso es lo que separa una plantilla de otra, no los valores).
-2. Copiar un HTML del lote 1, poner `data-estilo` con la familia de entrada que
-   corresponda (`corbel`, `coffer`, `orvel`, `pane`, `lumora`, `prism`).
-3. Marcar cada pieza con `data-mk` (`kpi`, `card`, `fila`, `glbar`, `chip`, `sello`…) y
-   envolver cada grupo escalonado en un `[data-grupo]`. El índice del stagger lo pone
-   `base.js`; el HTML no lleva delays.
-4. Los números que cuentan desde cero llevan `data-cuenta="1.3"` (la duración medida).
-5. **Cada bloque termina en un link a la tab de MaKo donde se trabaja ese número.**
+```bash
+NODE_PATH=<carpeta con playwright>/node_modules node capturar.mjs https://demo.codeandchill.store/halden/ ../demos/halden/captura --telefono
+```
+
+## Cómo se arma una hoja nueva (desde el 4/11/2026)
+
+⚠️ **Cada hoja es la copia de SU demo, con su propia hoja de estilos y su propio movimiento.** Lo del lote 1 (`tokens.css`,
+`movimiento.css`, `base.js`, una base común para todas) es lo que Martín rechazó el 4/11: *«son dashboard todos iguales»*.
+El molde es `closing/`:
+
+1. Elegir la referencia mirando las capturas lado a lado (`demos/<demo>/captura/pagina-1440.png`).
+2. **La copia exacta** en `<hoja>/copia.html`, con los textos del demo, escrita desde `valores.json`, las capturas y la receta
+   del INFORME (sin el código de la tienda). Se compara contra `pagina-1440.png` y `pagina-390.png` por franjas de tinta
+   dentro de cada tarjeta, hasta que las páginas midan lo mismo.
+3. **La adaptación** en `<hoja>/<hoja>.html`, con la MISMA hoja de estilos y el mismo movimiento: cambian los datos y los
+   textos, y se sacan o se agregan piezas.
+4. Lo que no se pudo copiar (lo que el INFORME no trae) se anota en el relevo, sin inventarlo.
 
 ## Cómo se verifica
 

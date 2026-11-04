@@ -22,23 +22,30 @@ import 'server-only';
 // =============================================================================
 
 import { credDelCliente } from './credenciales';
+import { fetchSeguro } from './fetch-seguro';
+import { cadenaDeRedes, type CompetidorCadena, type LeidoRed, type ResultadoCadena } from './spy-cadena';
+import { lecturaCompartida } from './spy-compartido-db';
 import { APIFY_CLAVE_DE_SPY } from './instagram-perfil';
 import { leerPerfilesEnLote } from './instagram-perfil-server';
 import { RESERVA_DEL_ALTA } from './spy-alta-reglas';
 import { hashDeImagen } from './spy-foto-hash';
+import { APIFY_ACTOR_REDES, TECHO_USD_POR_CORRIDA_REDES, TOPE_BUSQUEDAS_REDES_POR_DIA } from './spy-otras-redes-reglas';
 import {
-  APIFY_ACTOR_REDES, TECHO_USD_POR_CORRIDA_REDES, TOPE_BUSQUEDAS_REDES_POR_DIA,
-  candidatosDeLaRespuesta, consultaDeRedes, consultaPorUsuario, distanciaHash, nombraA, nombresParecidos, porqueDe, veredictoDe,
-  type CandidatoRed, type Firma, type RedOtra, type RedesQueYaTiene,
-} from './spy-otras-redes-reglas';
-import { apuntaDeRef, leerCanalCorto } from './spy-youtube';
+  GOOGLE_PENDIENTE, GOOGLE_SIN_CUPO, PREGUNTAR_CADA_MS, SEGUIR_CORRIDA_MS, TIMEOUT_CORRIDA_S, claveCorridaGoogle, leerCorrida,
+  queHacerConLaCorrida, type RespuestaGoogle,
+} from './spy-google-corrida';
+import { estadoDeCorrida } from './spy-todo-reglas';
+import { cambiarSettingSi, getSettingEstricto } from './settings';
+import { apuntaDeRef, leerCanalCorto, leerCanalesDeVideos } from './spy-youtube';
 import { claveDeYoutube } from './youtube';
 
 /** Medido en 6 y 11 s. */
-const TOPE_MS = 45_000;
 /** Lo que se espera por una foto: si no llega, se compara sin ella. */
 const TOPE_FOTO_MS = 4_000;
 const PESO_MAXIMO_FOTO = 3_000_000;
+/** Una página de enlaces: tarda poco y pesa poco. Si no contesta, la cadena sigue sin ella. */
+const TOPE_PAGINA_MS = 8_000;
+const PESO_MAXIMO_PAGINA = 1_500_000;
 
 // El mismo molde que el tope de lecturas (`apifyHoy`, lib/instagram-perfil-server.ts): por negocio y por día.
 const g = globalThis as unknown as { __spyRedesHoy?: Map<string, number> };
@@ -46,13 +53,10 @@ const redesHoy = (g.__spyRedesHoy ??= new Map<string, number>());
 const hoy = () => new Date().toISOString().slice(0, 10);
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** Un candidato ya mirado: con su foto para mostrarlo y el porqué de lo que se concluyó. */
-export type CandidatoVerificado = CandidatoRed & { foto: string | null; porque: string };
-export type BusquedaRedes =
-  | { ok: true; seguros: CandidatoVerificado[]; candidatos: CandidatoVerificado[] }
-  | { ok: false; error: string };
+export type { CandidatoVerificado } from './spy-cadena';
+export type BusquedaRedes = ResultadoCadena;
 
-type Competidor = RedesQueYaTiene & { nombre: string; avatar?: string | null; landing_url?: string | null };
+type Competidor = CompetidorCadena;
 
 /** El dHash de una foto, o null si no se pudo bajar o no es una imagen. Nunca tira. */
 async function hashDeFoto(url: string | null | undefined): Promise<string | null> {
@@ -68,119 +72,153 @@ async function hashDeFoto(url: string | null | undefined): Promise<string | null
   }
 }
 
-/** Una corrida de Google por Apify. null = no se pudo (la pantalla lo dice). */
-async function googlear(token: string, consulta: string): Promise<unknown | null> {
+const API = 'https://api.apify.com/v2';
+/** Lo que se espera a UNA pregunta a Apify (empezar, mirar, leer el dataset). La corrida en sí no tiene este tope. */
+const TOPE_PREGUNTA_MS = 15_000;
+
+async function apify(token: string, ruta: string, cuerpo?: unknown): Promise<{ status: number; cuerpo: unknown } | null> {
   try {
-    const params = new URLSearchParams({ maxTotalChargeUsd: String(TECHO_USD_POR_CORRIDA_REDES) });
-    const r = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR_REDES}/run-sync-get-dataset-items?${params}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      // UNA página: es lo que se midió, y las redes de la persona salen arriba o no salen.
-      body: JSON.stringify({ queries: consulta, resultsPerPage: 10, maxPagesPerQuery: 1, mobileResults: false, saveHtml: false }),
-      signal: AbortSignal.timeout(TOPE_MS),
-      cache: 'no-store',
+    const r = await fetch(`${API}${ruta}`, {
+      method: cuerpo === undefined ? 'GET' : 'POST',
+      headers: { Authorization: `Bearer ${token}`, ...(cuerpo === undefined ? {} : { 'Content-Type': 'application/json' }) },
+      ...(cuerpo === undefined ? {} : { body: JSON.stringify(cuerpo) }),
+      signal: AbortSignal.timeout(TOPE_PREGUNTA_MS), cache: 'no-store',
     });
-    if (r.status < 200 || r.status >= 300) {
-      console.error(`[spy-otras-redes] HTTP ${r.status} buscando «${consulta}»`);
-      return null;
-    }
-    return await r.json().catch(() => null);
+    return { status: r.status, cuerpo: await r.json().catch(() => null) };
   } catch (e) {
-    console.error(`[spy-otras-redes] «${consulta}»: ${msg(e)}`);
+    console.error(`[spy-otras-redes] Apify ${ruta.split('?')[0]}: ${msg(e)}`);
     return null;
   }
 }
 
-/** Lo que se sabe de un perfil o canal para compararlo: su nombre, su texto (bio, descripción, web) y su foto. */
-type Leido = { nombre: string | null; texto: string; foto: string | null };
+const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Lee los candidatos: los canales por `channels.list` (gratis) y los perfiles de Instagram en UNA corrida. */
-async function leerCandidatos(ws: number, cs: readonly CandidatoRed[]): Promise<Map<string, Leido>> {
-  const out = new Map<string, Leido>();
-  const clave = await claveDeYoutube().catch(() => null);
-  const igs = cs.filter((k) => k.red === 'instagram').map((k) => k.ref);
-  const [perfiles] = await Promise.all([
-    igs.length ? leerPerfilesEnLote(igs, { ws, reserva: RESERVA_DEL_ALTA }) : Promise.resolve(null),
-    ...cs.filter((k) => k.red === 'youtube').map(async (k) => {
-      const apunta = apuntaDeRef(k.ref);
-      if (!apunta || !clave) return;
-      const l = await leerCanalCorto(apunta, clave, fetch).catch(() => null);
-      if (l?.ok) out.set(`youtube|${k.ref}`, { nombre: l.canal.nombre || null, texto: l.canal.descripcion, foto: l.canal.foto });
-    }),
-  ]);
-  for (const [u, l] of perfiles ?? []) {
-    if (l.ok) out.set(`instagram|${u}`, { nombre: l.perfil.nombre, texto: [l.perfil.bio, l.perfil.web].filter(Boolean).join(' '), foto: l.perfil.foto });
+/**
+ * Una búsqueda en Google por Apify, SIN CORTARSE (lib/spy-google-corrida.ts tiene el porqué): se empieza la corrida y se sigue
+ * `SEGUIR_CORRIDA_MS`; si no terminó, queda anotada y el próximo pedido la retoma sin pagar otra. Devuelve el cuerpo,
+ * `GOOGLE_PENDIENTE`, `GOOGLE_SIN_CUPO` (no quedan búsquedas hoy: sólo se gasta una al EMPEZAR) o null (no se pudo).
+ */
+async function googlear(token: string, consulta: string, gastar: () => boolean): Promise<RespuestaGoogle | null> {
+  const clave = claveCorridaGoogle(consulta);
+  const crudo = await getSettingEstricto(clave).catch(() => null);
+  let corrida = leerCorrida(crudo);
+  if (queHacerConLaCorrida(corrida, Date.now()) === 'empezar') {
+    if (!gastar()) return GOOGLE_SIN_CUPO;
+    const q = new URLSearchParams({ maxTotalChargeUsd: String(TECHO_USD_POR_CORRIDA_REDES), timeout: String(TIMEOUT_CORRIDA_S) });
+    // UNA página: es lo que se midió, y las redes de la persona salen arriba o no salen.
+    const r = await apify(token, `/acts/${APIFY_ACTOR_REDES}/runs?${q}`, { queries: consulta, resultsPerPage: 10, maxPagesPerQuery: 1, mobileResults: false, saveHtml: false });
+    const d = (r?.cuerpo as { data?: { id?: unknown; defaultDatasetId?: unknown } } | null)?.data;
+    if (!r || r.status < 200 || r.status >= 300 || typeof d?.id !== 'string' || typeof d?.defaultDatasetId !== 'string') {
+      console.error(`[spy-otras-redes] no pude empezar la búsqueda: HTTP ${r?.status ?? '—'}`);
+      return null;
+    }
+    corrida = { run: d.id, dataset: d.defaultDatasetId, desde: new Date().toISOString() };
+    // Anotarla es lo que deja retomarla sin pagar: si no se pudo, se sigue igual (lo peor es una corrida más mañana).
+    await cambiarSettingSi(clave, crudo, JSON.stringify(corrida)).catch(() => false);
   }
-  // TikTok no se lee: lo que hay es el título de Google («Nombre (@x) | TikTok»).
-  for (const k of cs) if (k.red === 'tiktok') out.set(`tiktok|${k.ref}`, { nombre: k.titulo.replace(/\s*\(@[^)]*\).*$/, '').replace(/\s*[|·-]\s*TikTok.*$/i, '').trim() || null, texto: '', foto: null });
+  if (!corrida) return null;
+  const hasta = Date.now() + SEGUIR_CORRIDA_MS;
+  for (;;) {
+    const r = await apify(token, `/actor-runs/${corrida.run}`);
+    const status = String((r?.cuerpo as { data?: { status?: unknown } } | null)?.data?.status ?? '');
+    // No poder preguntar no es «terminó»: se vuelve a preguntar hasta el tope.
+    if (r && r.status === 200 && status && estadoDeCorrida(status) !== 'corre') {
+      const items = await apify(token, `/datasets/${corrida.dataset}/items?clean=true&format=json`);
+      if (items && items.status === 200 && Array.isArray(items.cuerpo)) return items.cuerpo;
+      return null;
+    }
+    if (Date.now() + PREGUNTAR_CADA_MS > hasta) return GOOGLE_PENDIENTE;
+    await espera(PREGUNTAR_CADA_MS);
+  }
+}
+
+/** Una página de enlaces (beacons, linktree…), como texto. null si no se pudo: un fallo no corta la cadena. */
+async function abrirPagina(url: string): Promise<string | null> {
+  try {
+    const r = await fetchSeguro(url, { signal: AbortSignal.timeout(TOPE_PAGINA_MS), headers: { 'user-agent': 'Mozilla/5.0 (compatible; MaKoBot/1.0; +https://hola-mako.com)' } });
+    if (r.status < 200 || r.status >= 300) return null;
+    return (await r.text()).slice(0, PESO_MAXIMO_PAGINA);
+  } catch (e) {
+    console.error(`[spy-otras-redes] la página de enlaces ${url}: ${msg(e)}`);
+    return null;
+  }
+}
+
+/** Canales por su ref (`@handle`, `UC…`): `channels.list`, 1 unidad cada uno, gratis para el negocio. */
+async function leerCanales(refs: string[]): Promise<Map<string, LeidoRed>> {
+  const out = new Map<string, LeidoRed>();
+  const clave = await claveDeYoutube().catch(() => null);
+  if (!clave) return out;
+  await Promise.all(refs.map(async (ref) => {
+    const apunta = apuntaDeRef(ref);
+    if (!apunta) return;
+    const l = await leerCanalCorto(apunta, clave, fetch).catch(() => null);
+    if (l?.ok) out.set(ref, { nombre: l.canal.nombre || null, texto: l.canal.descripcion, foto: l.canal.foto });
+  }));
   return out;
 }
 
-/** Lo que el competidor ya dice de sí mismo: su bio de Instagram y la descripción de su canal. */
+/** Perfiles de Instagram en UNA corrida (con la reserva del alta). */
+async function leerPerfiles(ws: number, usuarios: string[]): Promise<Map<string, LeidoRed>> {
+  const out = new Map<string, LeidoRed>();
+  const perfiles = await leerPerfilesEnLote(usuarios, { ws, reserva: RESERVA_DEL_ALTA });
+  for (const [u, l] of perfiles ?? []) {
+    if (l.ok) out.set(u, { nombre: l.perfil.nombre, texto: [l.perfil.bio, l.perfil.web].filter(Boolean).join(' '), foto: l.perfil.foto });
+  }
+  return out;
+}
+
+/**
+ * Lo que el competidor ya dice de sí mismo: su bio de Instagram y la descripción de su canal.
+ *
+ * ⚠️ SIN PAGAR OTRA LECTURA: la bio sale de la lectura compartida que dejó la lectura de su perfil (`spy_lecturas_canal`,
+ * con su `bio` y su `web` desde el 4/11/2026). Sólo si no está, se lee el perfil.
+ */
 async function textosDelCompetidor(ws: number, c: Competidor): Promise<string> {
   const partes: string[] = [];
+  let bio: string | null = null;
+  if (c.instagram) {
+    const comp = await lecturaCompartida('instagram', c.instagram).catch(() => null);
+    const p = comp?.perfil ?? null;
+    const t = [p?.bio, p?.web].filter((x): x is string => typeof x === 'string' && !!x.trim());
+    if (p && ('bio' in p || 'web' in p)) bio = t.join(' ');
+  }
   const clave = c.youtube_id ? await claveDeYoutube().catch(() => null) : null;
   const apunta = c.youtube_id ? apuntaDeRef(c.youtube_id) : null;
   const [ig, yt] = await Promise.all([
-    c.instagram ? leerPerfilesEnLote([c.instagram], { ws, reserva: RESERVA_DEL_ALTA }) : Promise.resolve(null),
+    c.instagram && bio == null ? leerPerfilesEnLote([c.instagram], { ws, reserva: RESERVA_DEL_ALTA }) : Promise.resolve(null),
     apunta && clave ? leerCanalCorto(apunta, clave, fetch).catch(() => null) : Promise.resolve(null),
   ]);
+  if (bio != null) partes.push(bio);
   const p = ig?.get(c.instagram as string);
   if (p?.ok) partes.push(p.perfil.bio, p.perfil.web ?? '');
   if (yt?.ok) partes.push(yt.canal.descripcion);
   return partes.filter(Boolean).join(' ');
 }
 
-const NOMBRE: Record<RedOtra, string> = { instagram: 'Instagram', youtube: 'canal de YouTube', tiktok: 'TikTok' };
-
+/**
+ * Sus otras redes y su web, en cadena (lib/spy-cadena.ts tiene el recorrido y el porqué). Acá se ponen las lecturas de
+ * verdad: lo que cuesta Apify (Google, los perfiles de Instagram) sale con la clave de Spy del negocio.
+ */
 export async function buscarOtrasRedes(ws: number, c: Competidor): Promise<BusquedaRedes> {
-  if (c.instagram && c.youtube_id && c.tiktok) return { ok: true, seguros: [], candidatos: [] };
-  const consultas = [...new Set([consultaDeRedes(c), consultaPorUsuario(c)].filter(Boolean))];
-  if (!consultas.length) return { ok: true, seguros: [], candidatos: [] };
   const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
-  if (!token) return { ok: false, error: 'Para buscar sus otras redes hace falta tu clave de Apify (Integraciones).' };
-
-  const firmaC: Firma = { instagram: c.instagram, youtube: c.youtube_id, tiktok: c.tiktok, sitio: c.landing_url ?? null };
-  const [textoC, hashC] = await Promise.all([textosDelCompetidor(ws, c), hashDeFoto(c.avatar)]);
-  const seguros = new Map<RedOtra, CandidatoVerificado>();
-  const dudosos: CandidatoVerificado[] = [];
-  const vistos = new Set<string>();
-  let algunaCorrio = false;
-
-  for (const consulta of consultas) {
-    const cuenta = `${ws}|${hoy()}`;
-    const usadas = redesHoy.get(cuenta) ?? 0;
-    if (usadas >= TOPE_BUSQUEDAS_REDES_POR_DIA) {
-      if (!algunaCorrio) return { ok: false, error: `Ya buscaste ${TOPE_BUSQUEDAS_REDES_POR_DIA} veces hoy. Mañana se puede de nuevo, o pega el enlace a mano.` };
-      break;
-    }
-    redesHoy.set(cuenta, usadas + 1);
-    const cuerpo = await googlear(token, consulta);
-    if (cuerpo == null) {
-      if (!algunaCorrio) return { ok: false, error: 'No pude buscar sus otras redes ahora. Prueba en un rato.' };
-      break;
-    }
-    algunaCorrio = true;
-    const nuevos = candidatosDeLaRespuesta(cuerpo, c).filter((k) => !seguros.has(k.red) && !vistos.has(`${k.red}|${k.ref.toLowerCase()}`));
-    for (const k of nuevos) vistos.add(`${k.red}|${k.ref.toLowerCase()}`);
-    const leidos = await leerCandidatos(ws, nuevos);
-    const hashes = await Promise.all(nuevos.map((k) => hashDeFoto(leidos.get(`${k.red}|${k.ref}`)?.foto)));
-    nuevos.forEach((k, i) => {
-      const l = leidos.get(`${k.red}|${k.ref}`) ?? { nombre: null, texto: '', foto: null };
-      const firmaK: Firma = k.red === 'youtube' ? { youtube: k.ref } : k.red === 'instagram' ? { instagram: k.ref } : { tiktok: k.ref };
-      const nombraAlCompetidor = nombraA(`${l.texto} ${k.titulo}`, firmaC);
-      const loNombraElCompetidor = nombraA(textoC, firmaK);
-      const e = { enlaza: nombraAlCompetidor || loNombraElCompetidor, mismoNombre: nombresParecidos(l.nombre ?? k.titulo, c.nombre), distanciaFoto: distanciaHash(hashC, hashes[i]) };
-      const v = veredictoDe(e);
-      if (v === 'no') return;
-      const enlace = loNombraElCompetidor ? `Su perfil enlaza a este ${NOMBRE[k.red]}` : nombraAlCompetidor ? `Este ${NOMBRE[k.red]} enlaza a sus otras redes` : null;
-      const vk: CandidatoVerificado = { ...k, titulo: l.nombre ?? k.titulo, foto: l.foto, porque: enlace ?? porqueDe(e) };
-      if (v === 'es' && !seguros.has(k.red)) seguros.set(k.red, vk);
-      else dudosos.push(vk);
-    });
-    // Si a cada red que le falta ya se le encontró la segura, no hace falta seguir buscando.
-    const faltan = (['instagram', 'youtube', 'tiktok'] as const).filter((r) => !(r === 'youtube' ? c.youtube_id : c[r]) && !seguros.has(r));
-    if (!faltan.length) break;
-  }
-  return { ok: true, seguros: [...seguros.values()], candidatos: dudosos.filter((k) => !seguros.has(k.red)) };
+  return cadenaDeRedes(c, {
+    textoPropio: () => textosDelCompetidor(ws, c),
+    abrirPagina,
+    leerCanales,
+    leerPerfiles: (us) => leerPerfiles(ws, us),
+    googlear: token ? (q, gastar) => googlear(token, q, gastar) : null,
+    gastarBusqueda: () => {
+      const cuenta = `${ws}|${hoy()}`;
+      const usadas = redesHoy.get(cuenta) ?? 0;
+      if (usadas >= TOPE_BUSQUEDAS_REDES_POR_DIA) return false;
+      redesHoy.set(cuenta, usadas + 1);
+      return true;
+    },
+    canalesDeVideos: async (ids) => {
+      const clave = await claveDeYoutube().catch(() => null);
+      return clave ? (await leerCanalesDeVideos(ids, clave, fetch)).canales : [];
+    },
+    hashDeFoto,
+  });
 }

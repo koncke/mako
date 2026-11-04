@@ -19,7 +19,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { cicloCartero, hayParaElCartero, tokenDelCarteroValido } from '@/lib/operaciones';
+import { cicloCartero, hayParaElCartero, servicioListoEnMako, tokenDelCarteroValido } from '@/lib/operaciones';
 import { adjuntoParaElCartero, firmarAdjuntoDeTurno, urlParaElCartero } from '@/lib/operaciones-adjuntos';
 import { guardarPasos } from '@/lib/centro-pasos-db';
 import { planDesdeElChat } from '@/lib/centro-plan-chat';
@@ -47,6 +47,8 @@ export async function GET(req: NextRequest) {
   try {
     if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
     const q = req.nextUrl.searchParams;
+    // ?servicio-listo=1 (cartero 1.26.1): `instalar-servicio` pregunta si la migración y este deploy ya están. Un servidor de antes contesta 404, abajo.
+    if (q.has('servicio-listo')) return NextResponse.json({ servicio: await servicioListoEnMako() }, { headers: { 'cache-control': 'no-store' } });
     // ?hay=<cuentas>&abre=<cuentas> (cartero 1.12.0, `vigilar`): ¿hay algo para entregar? SÓLO un número, sin escribir.
     if (q.has('hay')) {
       const lista = (k: string) => (q.get(k) ?? '').split(',').map((c) => c.trim()).filter(Boolean);

@@ -929,3 +929,299 @@ por nombre, con o sin tildes), el gráfico en pantalla con un competidor real, y
 **Vive en:** lib/spy-detalle.ts · app/competitor-spy/GraficoSpy.tsx · app/competitor-spy/DetallePieza.tsx ·
 app/competitor-spy/precarga.ts · app/api/competitor-spy/copiar/route.ts · lib/spy-analisis-reglas.ts (`faltaAnalisis`) ·
 lib/spy.ts (`leerAnalisis`, `guardarAnalisis`, `leerPieza`) · tests/spy-detalle.test.ts
+
+## «Pongo un espacio y sólo me trae Instagram»: YouTube tiraba los videos de Google (4/11/2026)
+
+> Martín, 4/11: «pongo un espacio… solamente me trae Instagram. Es como que directamente ya no busca a usuarios de
+> YouTube… debería buscarlos, tanto por nombre de usuario, por arroba, por link».
+
+**La causa, medida en el código:** con un nombre de varias palabras, YouTube salía SÓLO de Google (`"nombre"
+site:youtube.com`), y `canalesDeGoogle` tiraba todo resultado que fuera un video (`/watch`, `/shorts`, `youtu.be`)
+porque «un video no dice de qué canal es sin leerlo». Es casi todo lo que Google devuelve para esa consulta: el grupo de
+YouTube quedaba vacío. Y dos más que lo empeoraban: el nombre pegado se probaba como @ en Instagram y no en YouTube, y
+sin la clave de la YouTube Data API la lectura de un canal devolvía `null` igual que «no existe», así que la lista se veía
+completa sin serlo.
+
+**Lo que quedó:** los videos de Google se leen con `videos.list` (1 unidad por todos, sin `search.list`) y se ofrece el
+canal de cada uno; un nombre prueba también su @ en YouTube; y el grupo de YouTube dice qué pasó cuando no trae a nadie
+(«Ningún canal con ese nombre», «No pude buscar en YouTube», «Conecta Apify…»).
+
+**Regla:** un filtro que tira lo que no entiende tiene que medirse contra lo que la fuente devuelve de verdad. «Un video no
+es un canal» era cierto y dejaba la fuente vacía.
+
+**Sin probar contra el servicio:** que Google traiga videos con esa forma para un nombre real, y la lectura de
+`videos.list` con la clave de la plataforma.
+
+**Vive en:** lib/spy-buscar-reglas.ts (`planDeBusqueda`, `videoDeUrl`, `videosDeGoogle`, `youtubeEstado`) ·
+lib/spy-buscar.ts (`leerCanalHallado`, `canalesDeLosVideos`) · lib/spy-youtube.ts (`canalesDeVideos`,
+`leerCanalesDeVideos`) · app/api/competitor-spy/buscar/route.ts · app/competitor-spy/BuscadorAlta.tsx · tests/spy-buscar.test.ts
+
+## «12 publicaciones de 500, y no buscó su YouTube ni su web»: la traída larga callaba, y su web era su página de enlaces (4/11/2026)
+
+> Martín, 4/11: «tampoco está haciendo el ejercicio de buscar en YouTube y también buscar su web… Yo busqué literalmente el
+> usuario exacto y ya me apareció el primer resultado… y en correlación mirar las biografías para traer sus webs».
+
+**Lo que midió el Cerebro en producción:** Den Borg (ws 9, competidor 17) llegó a 255 publicaciones con la traída larga: la
+traída SÍ anda cuando se la empuja. El de 12 es OTRO competidor (id 13, ws 11). El 17 tenía `youtube_id` vacío y su «web»
+era `beacons.page/denborg`, una página de ENLACES.
+
+**Las causas, medidas en el código (ninguna da error):**
+- **La traída larga sólo avanzaba con la ficha abierta.** La pantalla pregunta cada 20 s y deja de preguntar a los 15
+  minutos; sin nadie mirando, una corrida terminada no se recogía nunca. → Cron de cada hora (`/api/cron/spy-todo`).
+- **Una corrida que terminaba SIN NADA contaba como la de la semana.** Apify contesta «terminé» también cuando Instagram no le
+  dio nada (los ítems vienen como `{ error, errorDescription }`): el competidor quedaba siete días con lo de la lectura de
+  siempre (12), sin una línea que lo dijera. → Se anota para mañana, y la pantalla lo dice.
+- **El `porque` de la traída se calculaba y no se mostraba.** «Sin clave», «sin cupo» o «Apify no trajo nada» llegaban a la
+  pantalla y no se dibujaban. → Una línea suave debajo del competidor (`avisoDeTraida`).
+- **Sus otras redes salían sólo de Google, y Google trae videos** (el mismo bug de la búsqueda: se tiraban). Y nadie probaba
+  su MISMO usuario en la otra red, que es lo primero que hizo Martín a mano.
+- **Una página de enlaces (beacons, linktr.ee…) se guardaba como su web**, y su web de verdad estaba adentro, sin leer.
+
+**Lo que quedó: `cadenaDeRedes` (lib/spy-cadena.ts), de lo más barato a lo más caro, sin escribir nada:** (1) lo que él
+enlaza en su bio y lo que enlaza su página de enlaces (se ABRE con `fetchSeguro`; los enlaces que la página dibuja con
+JavaScript se leen de sus datos) — eso es seguro; (2) su mismo usuario en la red que falta (`@den.borgg` y `@denborgg`, 1
+unidad de YouTube) — entra solo con su mismo nombre o su misma foto, si no se pregunta; (3) Google, SÓLO si todavía le falta
+Instagram o YouTube, y los videos se leen como su canal. La bio de Instagram ya viaja en la lectura compartida (`perfil.bio`,
+`perfil.web`), así que la cadena no vuelve a pedir el perfil. Su web se guarda sólo si no tenía o la que tenía era su página de
+enlaces (`ponerWebEncontrada`, compare-and-set).
+
+**Y uno que apareció al poner el cron: el tope de 6 corridas largas por día vivía en la MEMORIA del proceso.** Con la ficha
+abierta, todas las preguntas caían en la misma instancia y alcanzaba; con un cron de cada hora, cada vuelta puede caer en una
+instancia nueva que arranca en cero, y el tope dejaba de topear sobre la clave del negocio. Ahora se reserva en la base
+(`spy.todo.dia`, compare-and-set) ANTES de empezar la corrida.
+
+**Regla:** un contador que protege plata vive donde lo ven todas las instancias. Uno en memoria sirve mientras un solo
+proceso hace el trabajo, y deja de servir en silencio el día que se le suma un cron.
+
+**Sin probar contra el servicio:** que beacons.page sirva sus enlaces sin JavaScript (se probó con una página armada con las
+dos formas), que Apify devuelva los ítems de error con esa forma, y el cron en Vercel.
+
+**Vive en:** lib/spy-cadena.ts (`cadenaDeRedes`) · lib/spy-otras-redes.ts (`buscarOtrasRedes`) · lib/spy-otras-redes-reglas.ts
+(`esAgregador`, `enlacesDeHtml`, `loQueEnlaza`, `usuariosParaProbar`, `veredictoDe`) · lib/spy.ts (`ponerWebEncontrada`) ·
+lib/spy-reglas.ts (`canalDeLaBio`) · lib/spy-todo.ts (`reservarCorrida`) · lib/spy-todo-reglas.ts (`usadasHoy`,
+`avisoDeTraida`) · app/api/cron/spy-todo/route.ts · app/api/competitor-spy/redes/route.ts · app/competitor-spy/SpyApp.tsx ·
+tests/spy-cadena.test.ts
+
+## La caricatura por cola: la hace el Runner con Canva, y el camino de Flow se borró (4/11/2026)
+
+> Martín, 4/11 (por el Cerebro): «cada vez que se genere un nuevo competidor, hacer una especie de levantar un ticket
+> para generar esa imagen y ya con eso se pone la imagen ahí».
+
+**Por qué se cambió de camino:** el de antes (la IA del negocio describía la cara y el puente de Google Flow la generaba)
+no salió **ni una vez** en producción: el Cerebro midió que todos los puentes estaban sin sesión, así que la pantalla lo
+pedía, se rendía callada y la tarjeta quedaba con la foto. Y le cobraba al negocio dos veces. Se borró entero (motor, ruta
+y el bucle de la pantalla), para no dejar dos caminos vivos.
+
+**Lo que quedó:** al leer un competidor con su foto ya en NUESTRO Storage, queda pendiente en `spy.caricaturas`; el Runner
+la lista (`spy-caricaturas-pendientes.mjs`: sólo ws, id y la URL de la foto) y la guarda (`spy-caricatura-guardar.mjs`). El
+contrato, en docs/relevo/nube-spy.md. Una sola lógica para el servidor y los scripts: lib/spy-caricatura-cola.ts, sin
+`server-only` y con lo que habla con la base inyectado, así el test corre la cadena entera.
+
+**Tres decisiones que no se ven en el código:**
+- **Una caricatura por PERSONA, no por negocio.** Se guarda por su cuenta (`spy/caricatura/instagram-den_borgg.png`) y se
+  marca lista en todo competidor con la misma red y el mismo usuario; los que comparten una cuenta son un grupo (también
+  encadenado: A y B comparten Instagram, B y C YouTube) y el grupo se lista una vez. Lo único que cruza negocios es la
+  imagen: nunca quién mira a quién.
+- **Los fallos se juntan en UNO.** La primera versión elegía «el que entró primero a la cola»: con el fallo anotado en el
+  competidor del negocio del lado, la próxima vez se le pedía al otro, que arrancaba en cero — tres intentos por negocio
+  en vez de tres por persona. Ahora se elige primero al que ya falló (lo cazó el test 5b, escrito porque esa rotura daba
+  verde).
+- **«No hay Canva» no es un fallo.** Canva depende de la cuenta de Claude del Runner: sin él no se anota nada y la
+  pendiente espera. Lo que lo delata es `masVieja` (la fecha de la pendiente más vieja) creciendo en la lista del super
+  admin; la pantalla no dice nada.
+
+**La receta, medida por el Cerebro con Den Borg (~30 s):** `upload-asset-from-url` → `generate-image` con
+`imageReferences` y `SQUARE_1_1` → `get-generate-image-job` hasta `SUCCESS` → `get-assets`. **El conector entrega una vista
+de 200 × 200 aunque el original mida 1264**: el tamaño se LEE del archivo (`medidasDeImagen`) y no se supone. Y **el prompt
+aprobado dice «the man»**: Den Borg es una mujer, así que el género y los rasgos los completa el Runner mirando la foto,
+nunca un texto fijo.
+
+**Regla:** cuando un proveedor entrega «una vista» de un archivo, el tamaño se lee de los bytes que llegaron, no del
+original que se pidió.
+
+**Sin probar contra el servicio:** los scripts contra la base de producción (la primera prueba es Den Borg, ws 9,
+competidor 17) y la búsqueda por prefijo del Storage (`caricaturaGuardada`).
+
+**Vive en:** lib/spy-caricatura-reglas.ts (`estadoEnCola`, `colaDeCaricaturas`, `mismaPersona`, `medidasDeImagen`,
+`caraDeTarjeta`) · lib/spy-caricatura-cola.ts (`encolarCaricatura`, `listarCola`, `guardarCaricatura`, `anotarFallo`) ·
+lib/spy-caricatura-servidor.ts (`encolarAlLeer`) · lib/spy-miniaturas.ts (`caricaturaGuardada`) · lib/spy.ts
+(`mirarCompetidor`) · scripts/spy-caricaturas-pendientes.mjs · scripts/spy-caricatura-guardar.mjs ·
+scripts/spy-caricatura-base.mjs · app/competitor-spy/SpyApp.tsx · tests/spy-caricatura-cola.test.ts
+
+## «Sugeridos»: los competidores de la plataforma en todos los negocios, sin cobrarle a nadie (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11): los que carga el negocio de la plataforma aparecen en todos los negocios como
+> catálogo «Sugeridos», sin cobrarle al cliente; se suman a su lista sin duplicarlos, y nunca se ven los de otro cliente.
+
+**Lo que quedó:** un bloque «Sugeridos» debajo de los competidores (también cuando el negocio todavía no mira a nadie), con
+la misma tarjeta y «Sumar». Sumarlo COPIA lo que la plataforma ya leyó (sus publicaciones vivas, su foto, sus números y su
+caricatura si ya está hecha) y deja anotada la traída larga como hecha hoy: no se le pide nada a Apify ni a YouTube con la
+clave del negocio. Lo nuevo, después, sigue las reglas de siempre (la lectura compartida primero). En la API de MaKo:
+`ver_sugeridos` y `sumar_sugerido`, por el mismo camino que la pantalla.
+
+**Tres cosas que no se ven en el código:**
+- **Sólo la plataforma, y por capa.** El negocio de la plataforma sale de `wsSuperAdmin()` (capa `superadmin`), nunca de
+  un 9 escrito; y cada fila se vuelve a mirar contra ese negocio (`soloDeLaPlataforma`), así una consulta mal filtrada no
+  alcanza para que se cuele a quién mira otro cliente. El test lo prueba con una base que devuelve filas de todos.
+- **Los anuncios no se copian.** Lo traído de la Biblioteca de Anuncios no se le pasa a un tercero (los términos de Meta
+  no dejan transferir lo recolectado): el cliente trae los suyos con su propia lectura. Tampoco viaja la `oferta`: está
+  escrita contra el negocio de la plataforma, no contra el del cliente.
+- **Lo borrado no se copia como vivo.** Una pieza que la plataforma vio desaparecer (`dejo_de_verse_en`) no entra:
+  copiada por `guardarVistas`, nacería como «a la vista».
+
+**Lo que se resigna:** la fecha de «visto por primera vez» de lo copiado es la de hoy (la escribe sólo el insert de
+`guardarVistas`, a propósito); la fecha de publicación sí viaja.
+
+**Sin probar contra el servicio ni en pantalla:** el bloque no se dibujó con datos (la pantalla entera trae las actions
+del servidor y no entra en el banco de prueba); usa las mismas clases que la tarjeta de los competidores.
+
+**Vive en:** lib/spy-sugeridos.ts (`listarSugeridos`, `agregarSugerido`, `soloDeLaPlataforma`, `piezasACopiar`,
+`esLaMismaPersona`) · lib/spy-sugeridos-server.ts · lib/spy-todo.ts (`marcarTraidaHoy`) · app/competitor-spy/actions.ts
+(`sugeridosAction`, `sumarSugeridoAction`) · app/competitor-spy/page.tsx · app/competitor-spy/SpyApp.tsx
+(`RejillaSugeridos`) · lib/api-mako/areas/spy.def.ts y spy.run.ts (`ver_sugeridos`, `sumar_sugerido`) ·
+tests/spy-sugeridos.test.ts
+
+## Los logos de cada red, uno solo en toda la tab, y «¿En qué publica?» por red y por formato (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11): los mismos logos de Instagram y YouTube que el buscador, en todos lados donde
+> se ve la red de una pieza; y «¿En qué publica?» de verdad, sin «100% videos».
+
+**La causa del «100% videos»:** el reparto contaba por el tipo GUARDADO, y todo lo de YouTube se guarda como `video`
+(shorts y largos por igual): un canal de YouTube daba «100% videos» aunque la mitad fueran shorts. Ahora sale de
+`tipoDeContenido` (reels, carruseles e imágenes, shorts, videos largos, anuncios), y por red con su logo
+(`repartoDePublicaciones`). Su web no es una publicación: no entra al total.
+
+**Los logos:** `LogoRed` vivía adentro del buscador y el resto dibujaba íconos genéricos. Ahora es una pieza
+(app/competitor-spy/LogoRed.tsx) que usan el buscador, las miniaturas del gráfico (en la esquina), sus filtros, el
+detalle de una pieza y «¿En qué publica?». ⚠️ Los logos de marca se dibujan con los `<symbol>` de `<BrandDefs>`: la
+pantalla lo monta una vez, y el detalle también (va por portal). Sin eso, el logo sale vacío y sin error.
+
+**De paso:** «Cada miniatura es un video» se fue (narraba lo que ya se ve); queda «Se ven N de M» sólo cuando hay más
+piezas que miniaturas.
+
+**Vive en:** app/competitor-spy/LogoRed.tsx · lib/spy-detalle.ts (`repartoDePublicaciones`) · app/competitor-spy/GraficoSpy.tsx
+· app/competitor-spy/DetallePieza.tsx · app/competitor-spy/SpyApp.tsx (`RielAnalisis`, `CajaMix`) ·
+app/competitor-spy/BuscadorAlta.tsx · tests/spy-logos.test.ts
+
+## «Contenido» y «Funnel»: dos pestañas, el selector adentro del gráfico y cada miniatura con su proporción (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11), mirando la ficha en producción: sólo dos pestañas; el selector y los filtros
+> adentro de la tarjeta del gráfico; cada miniatura con su proporción real; sin «Revisar ahora»; sin textos que narran
+> lo que ya se ve; y la criatura de MaKo sin la tarjeta blanca detrás mientras analiza.
+
+**Lo que quedó:**
+- **Dos pestañas.** «Contenido» = el gráfico, sus piezas y sus anuncios debajo, con el riel al costado. «Funnel» = su web
+  (con su funnel y «Copiar su sitio») y lo que se leyó de su oferta. «Miniaturas» se fue: las tarjetas de YouTube ya
+  llevan su miniatura apaisada y su título.
+- **El selector y los filtros de red van adentro de la tarjeta del gráfico**, arriba del dibujo.
+- **Proporción real** (`proporcionDe`, `medidaEnElGrafico`): reel y short 9:16, publicación y anuncio 1:1, video largo y
+  web 16:9. En el gráfico el lado más largo mide lo mismo para todas (un video apaisado no ocupa más lugar); en las
+  tarjetas, el `aspect-ratio` de la imagen.
+- **Sin «Revisar ahora».** Queda «Probar de nuevo» sólo cuando una lectura FALLÓ; «no encontré publicaciones» ya no
+  ofrece releer.
+- **Mientras carga, la tarjeta del gráfico no se dibuja** (`data-cargando`): la criatura queda sobre el gris de la página.
+
+**Una trampa que no se ve:** un test (spy-orden, el 5) contaba DOS botones de releer apagados durante la película —
+«Revisar ahora» y «Revisar de nuevo»—; sacar uno lo ponía rojo. Lo que cuidaba no era el número sino que ninguno se
+pueda tocar mientras corre la animación: ahora afirma eso sobre el que queda.
+
+**Sin hacer todavía:** el detalle de una pieza rediseñado con su transcripción (#10). «Funnel» con el analizador de
+ofertas quedó en la entrada de abajo.
+
+**Vive en:** app/competitor-spy/SpyApp.tsx (`Pestana`, el panel «Contenido») · app/competitor-spy/GraficoSpy.tsx ·
+app/competitor-spy/TarjetaPieza.tsx · lib/spy-detalle.ts (`proporcionDe`, `medidaEnElGrafico`) · tests/spy-contenido.test.ts
+
+## «Su oferta» con el analista de Offer: el mismo analista hablaba de «tú» y podía pagarlo MaKo (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11): «en "Su Funnel" debe "exponer" su OFERTA con el analizador de oferta que ya
+> tenemos construido, y debe traer automáticamente sus web para analizarlas». Y del encargo: «IA: cada negocio paga la suya,
+> y el crédito de Claude de la plataforma no se usa acá».
+
+**Lo que quedó:** la pestaña «Funnel» dibuja, debajo de su web, el diagnóstico de Offer (`VistaDiagnostico`, las 9 notas
+con su porqué, la tesis, lo que ya hace bien) y el puntaje que calcula el código. Lo trae sola la ruta
+/api/competitor-spy/oferta al abrir un competidor con web: contesta en el acto, el trabajo sigue en un `after()` y la
+pantalla pregunta cada 8 s mientras dice «leyendo», con la criatura. Sin botón. En la API, `su_oferta_con_notas` (lectura).
+
+**Tres cosas que no se ven en el código:**
+- **El analista de Offer escribe de «tú» al «dueño».** Su prompt es para diagnosticar la oferta PROPIA, y la regla de idioma
+  dice «lo lee el dueño». Con la web de un competidor, el texto salía «tu promesa no dice…»: leído por otro negocio, parece
+  hablar de la suya. No se armó otro analista: `bloqueOfertaDeOtro` (lib/offer-reglas.ts) se pega al system YA RENDERIZADO
+  (si fuera un slot del template, un prompt editado en /configuraciones no lo tendría) y pide tercera persona y citas de su
+  web. Los consejos para el dueño de esa oferta («Para subirla», «Lo primero que cambiaría», los avisos, lo que le falta
+  para estar lista) no se dibujan: `VistaDiagnostico` con `deOtro`.
+- **`pedir` de Offer prueba el crédito de Claude de la plataforma y la red de plataforma** cuando las claves del negocio no
+  contestan, y con el onboarding en curso el crédito está habilitado para la feature `offer`. Sin un corte, un negocio
+  recién llegado le pagaba a MaKo el diagnóstico de la oferta de un competidor. `soloDelNegocio` corta antes de los dos.
+- **La landing que guarda Spy no tiene su texto** (`spy_piezas` canal `landing` guarda sus piezas y su funnel, no el
+  copy). Su web se vuelve a bajar con la puerta de Offer: `extraerLanding(url, { talCual: true })` y, si un antibots frena
+  a los servidores o casi no hay texto, el lector de afuera. No hay otro `fetch` de URLs.
+
+**Se lee una vez y listo:** la huella del texto de sus webs (`huellaDe`) decide. A la semana se baja otra vez (no cuesta
+IA) y sólo si cambió se diagnostica de nuevo; una web nueva se lee sola. Un fallo deja el motivo y el diagnóstico de antes,
+y espera un día (una semana, a los 3 seguidos). Cada escritura es compare-and-set contra lo que escribió ESE trabajo:
+un diagnóstico pesa 5-8 KB, así que `cambiarSettingSi` compara por `updated_at` y no por el valor en la URL.
+
+**Sin probar contra el servicio:** que el modelo de un negocio real cumpla la tercera persona (es una instrucción en el
+prompt: no hay un chequeo en el código que la corrija), y lo que trae la web de un competidor de verdad (un
+constructor de páginas que arma todo con JavaScript cae al lector de afuera).
+
+**Vive en:** lib/spy-oferta.ts · lib/spy-oferta-servidor.ts · app/api/competitor-spy/oferta/route.ts ·
+app/competitor-spy/SuOferta.tsx · lib/offer-reglas.ts (`bloqueOfertaDeOtro`) · lib/offer-ia.ts (`deOtro`,
+`soloDelNegocio`) · app/offer/Conclusion.tsx (`VistaDiagnostico`, `deOtro`) · tests/spy-oferta.test.ts
+
+## «No estás trayendo la transcripción»: no había transcripción, y el video de cada reel se tiraba al leerlo (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11): «En cada uno de los videos cuando entro no estás trayendo la transcripción, y
+> tampoco me gusta el modal que hiciste, rediseñalo bien… Tampoco me gusta el botón de copiar estructura».
+
+**Medido en el código, por qué no llegaba:** no había un camino de transcripción. El detalle decía, en su cabecera, «el guion
+de un video ajeno no se lee (no hay forma legal de transcribirlo)», y el dato que hacía falta se tiraba: Apify trae
+`videoUrl` en cada reel y `piezaDeApify` (lib/instagram-perfil.ts) no lo copiaba. Guardarlo tampoco servía: el enlace del
+CDN de Instagram VENCE en días.
+
+**Lo que quedó:** al abrir el detalle de un reel, /api/competitor-spy/transcribir pide su video fresco a Apify (UNA
+publicación, `videoDeUnaPublicacion` en lib/spy-todo.ts —el único archivo que puede tener la clave de Spy junto con los de
+siempre—, con un tope de 40 por día contado en la base), lo baja por la puerta SSRF-segura y lo escucha la IA del negocio
+(`transcribirAudio` con `pii` y `sinGroq`, como el audio de un anuncio). Mientras, «Transcribiendo…»; el guion queda en
+`spy.transcripcion.<competidor>.<pieza>` y no se vuelve a pagar hasta que vence a los 30 días (el reloj del texto de una
+pieza). Un reel sin voz queda dicho («es sólo música o imagen») y tampoco se vuelve a pagar.
+
+**Tres trampas:**
+- **Un mp4 cortado no se puede escuchar.** `pedirClavado` corta en su techo y devuelve lo leído (está bien para una web).
+  Para un video, se pide un byte más que el tope y, si lo pasa, «pesa demasiado»: nunca se escucha medio archivo.
+- **`.mk-btn` sin tamaño queda chico.** El botón de antes era `mk-btn mk-btn--primary` sin `--md` ni `--lg`: con la hoja
+  real de la casa mide unos 20 px de alto, y eso era parte del «no me gusta». Ahora `mk-btn--lg`.
+- **Un pedido que no contestó no es «transcribiendo».** Si la ruta falla, el bloque no se dibuja: un punto latiendo para
+  siempre se lee como que algo está pasando.
+
+**Lo que NO se hizo, y por qué:** el guion de YouTube. `captions.download` pide ser el dueño del canal (OAuth) y bajar el video
+va contra sus términos; Martín decidió Apify «sólo para Spy» sobre Instagram. Queda como decisión suya (docs/relevo/nube-spy.md).
+
+**Sin probar contra el servicio:** que el actor devuelva `videoUrl` para un enlace de reel (`directUrls` con un solo
+enlace), cuánto pesa un reel de verdad y que la IA de un negocio escuche un mp4 de Instagram.
+
+**Vive en:** lib/spy-transcripcion.ts · lib/spy-transcripcion-servidor.ts · app/api/competitor-spy/transcribir/route.ts ·
+lib/spy-todo.ts (`videoDeUnaPublicacion`, `tieneClaveDeSpy`) · lib/spy-todo-reglas.ts · app/competitor-spy/DetallePieza.tsx ·
+lib/spy-detalle.ts (`vecesSuMediana`) · tests/spy-guion.test.ts
+
+## Tercera vuelta (Martín revisó con Den Borg, 4/11/2026): lo que el Cerebro midió desde la PC
+
+**Vive en:** `app/competitor-spy/BuscadorAlta.tsx`, `lib/spy-otras-redes.ts`, `lib/spy-google-corrida.ts`, `lib/spy-cadena.ts`,
+`lib/spy-todo.ts`, `lib/spy-todo-reglas.ts`, `app/competitor-spy/SpyApp.tsx`.
+
+- **«Escribí tal cual @herasmedia y no me trajo al perfil».** La fila «Usar @x · Tal como lo escribiste» confirmaba sin leer: la
+  tarjeta salía con una letra «H». No era Apify (40 de 40 corridas `SUCCEEDED`, el perfil se lee en 10 s): era el `elegir` del
+  buscador. Ahora va por `elegirPerfil`, el mismo camino de un perfil hallado. Lo fija `tests/spy-buscador-alta.test.ts`.
+- **«No pude buscar sus otras redes ahora».** El actor de Google tardó 57 y 48 s (las dos `SUCCEEDED`) y nosotros cortábamos a
+  los 45: Apify terminaba y cobraba, y el resultado pagado se tiraba. Ahora la corrida se EMPIEZA asíncrona y se sigue 35 s; si no
+  terminó, queda anotada en el negocio (`spy.google.<huella>`, sin el texto buscado) y el pedido siguiente la RETOMA sin pagar
+  otra. La pantalla vuelve a pedir sola, sin texto. ⚠️ El cupo del día se gasta al EMPEZAR, no al retomar: por eso `gastar` pasó
+  de la cadena a la búsqueda. Lo fija `tests/spy-google-corrida.test.ts`.
+  - **La regla que queda:** con un proveedor que cobra por corrida, un `run-sync` con un timeout nuestro tira lo pagado cuando
+    tarda más. Se empieza asíncrona y se anota el `run` antes de esperarla.
+- **El crédito de Apify del negocio.** Plan FREE: US$5 por mes; una traída larga de 300 publicaciones costó US$0,69. La traída
+  larga ahora lee `GET /v2/users/me/limits` y se achica a un cuarto de lo que queda por encima de una reserva de US$2 (lo de todos
+  los días: leer, dar de alta, transcribir); si no alcanza, espera. Un 402 al empezar también es «sin crédito». Se le dice sólo al
+  admin y sin cartel de error. Sin poder leer el crédito, sigue como siempre (no es «sin crédito»). Lo fija `tests/spy-todo.test.ts`.
+- **La caricatura de Den Borg.** El camino de la tarjeta está bien y tiene su test de punta a punta. El hueco era otro: si la
+  imagen no cargaba, la tarjeta quedaba sin cara. Ahora cae a su foto de perfil (`caerAFoto`).

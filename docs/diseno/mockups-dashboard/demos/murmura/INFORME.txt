@@ -1,0 +1,99 @@
+##############################################################################
+#  MURMURA   bundle 196kB - 26 helpers - 12 chunks - ARQ VANILLA - 24 fromTo crudos
+##############################################################################
+
+CHUNKS: analytics-CqzZ4ABz.js, approvals-9_LkHnvX.js, calendar-dC-sZzXf.js, channels-CluNZ7pp.js, charts-Cm206kS9.js, compose-DcEkompt.js, inbox-Czp4FX5r.js, library-CKQOu0xM.js, listening-CzGtIEnV.js, overview-C5kP9O_e.js, settings-De7NLl3t.js, team-BzN6aZIm.js
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[o -> export (no exp)]  (t,a,o,s){var l;typeof a==`number`&&(o.duration=a,a=o,o=null),l=r.call(this,s?a:Ie(a))||this;var u=l.vars,d=u.duration,f=u.delay,p=u.immediateRender,m=u.stagger,h=u.overwrite,g=u.keyframes,v=u.defaults,x=u.scrollTrigger,T=a.parent||N,E=(w(t)||C(t)?_(t[0]):`length`in a)?[t]:gt(t),D,O,k,A,j,M,ee,te;if(l._targets=E.length?ye(E):ie(`GSAP target `+t+` not found. https://gsap.com`,!n.nullTargetWarn)||[],l._ptLookup=[],l._overwrite=h,g||m||S(d)||S(f)){a=l.vars;var P=a.easeReverse||a.yoyoEase;if(D=l.timeline=new ln({data:`nested`,defaults:v||{},targets:T&&T.data...
+
+[ro -> export (no exp)]  (e,t=0){if(!e)return U.timeline();let n=no(e);return U.fromTo(n,{yPercent:115,rotation:6},{yPercent:0,rotation:0,duration:G(.85),ease:`power4.out`,stagger:G(.022),delay:G(t),clearProps:`transform`})}
+
+[io -> export Rn]  (e,{y:t=34,stagger:n=.07,delay:r=0}={}){return e.length?U.fromTo(e,{opacity:0,y:t,scale:.985},{opacity:1,y:0,scale:1,duration:G(.9),ease:`power3.out`,stagger:G(n),delay:G(r),clearProps:`transform,opacity`}):U.timeline()}
+
+[ao -> export Fn]  (e,{x:t=0,y:n=12,stagger:r=.045,delay:i=0}={}){return e.length?U.fromTo(e,{opacity:0,x:t,y:n},{opacity:1,x:0,y:0,duration:G(.55),ease:`power3.out`,stagger:G(r),delay:G(i),clearProps:`transform,opacity`}):U.timeline()}
+
+[oo -> export Mn]  (e,{delay:t=0,stagger:n=.06}={}){return e.length?U.fromTo(e,{opacity:0,y:40,rotation:e=>e%2?3:-3,scale:.94},{opacity:1,y:0,rotation:0,scale:1,duration:G(.8),ease:`back.out(1.4)`,stagger:G(n),delay:G(t),clearProps:`transform,opacity`}):U.timeline()}
+
+[so -> export Bn]  (e,{from:t=.6,delay:n=0,stagger:r=.05}={}){!e||Za.matches||U.fromTo(e,{scale:t,opacity:0},{scale:1,opacity:1,duration:.6,ease:`back.out(3)`,delay:n,stagger:r,overwrite:`auto`,clearProps:`transform,opacity`})}
+
+[co -> export An]  (e){e&&(e.classList.remove(`is-flash`),e.offsetWidth,e.classList.add(`is-flash`),!Za.matches&&U.fromTo(e,{y:-4,scale:1.06},{y:0,scale:1,duration:.55,ease:`back.out(2.4)`,overwrite:`auto`,clearProps:`transform`}))}
+
+[uo -> export jn]  (e,t,n,{duration:r=1.2,delay:i=0,from:a}={}){if(!e)return;let o=lo.get(e);if(o||lo.set(e,o={v:a??0}),a!==void 0&&(o.v=a),U.killTweensOf(o),Za.matches||!r||o.v===t){o.v=t,e.textContent=n(t);return}let s=o,c=fo(e,s.v,t,n);e.textContent=n(s.v),U.to(s,{v:t,duration:r,delay:i,ease:`power3.out`,onUpdate:()=>{e.textContent=n(s.v)},onComplete:()=>{e.textContent=n(t),c()}})}
+
+[po -> export Un]  (e){if(Za.matches)return;let t=e.querySelector(`svg`)??e;U.fromTo(t,{scale:.72},{scale:1,duration:.55,ease:`back.out(3)`,overwrite:!0})}
+
+[go -> export Ln]  (e=document,t=-4){$a.matches&&q(`[data-lift]`,e).forEach(e=>{e.__lift||(e.__lift=!0,e.addEventListener(`pointerenter`,()=>{!Za.matches&&ho.v&&U.to(e,{y:t,duration:.45,ease:`power3.out`,overwrite:`auto`})}),e.addEventListener(`pointerleave`,()=>{ho.v&&U.to(e,{y:0,duration:.5,ease:`power3.out`,overwrite:`auto`,clearProps:`transform`})}))})}
+
+[Dc -> export W]  (e,t=0){let n=U.timeline({delay:G(t)});n.add(ro(to(`.head__title`,e)),0);let r=to(`.head__back`,e);return r&&n.fromTo(r,{opacity:0,x:-14},{opacity:1,x:0,duration:G(.6),ease:`power3.out`,clearProps:`transform,opacity`},0),n.add(ao(q(`.head .stat, .head__actions > *`,e),{y:14,stagger:.08}),.12),n.add(()=>Tc(K(`.head`,e)),.15),n}
+
+[kc -> export (no exp)]  (e,t,n,r=!0){if(!n||!n.offsetWidth){U.set(e,{opacity:0});return}let i=e.offsetWidth||t.scrollWidth,a=e.offsetHeight||t.offsetHeight,o=n.offsetLeft,s=i-(n.offsetLeft+n.offsetWidth),c=n.offsetTop,l=a-(n.offsetTop+n.offsetHeight),u=(e,t)=>`inset(${c}px ${t}px ${l}px ${e}px round 999px)`,d=e.__lr;if(e.__lr=[o,s],!r||Qa()||!d||Number(U.getProperty(e,`opacity`))===0){U.set(e,{clipPath:u(o,s),opacity:1});return}let f={l:d[0],r:d[1]},p=o>d[0];U.killTweensOf(f),U.to(f,{l:o,duration:p?.55:.36,ease:p?`power3.inOut`:`power3.out`,onUpdate:()=>U.set(e,{clipPath:u(f.l,...
+
+[Fc -> export mt]  (e,t,{cls:n=``,align:r=`end`,label:i=``,onClose:a}={}){if(Nc?.anchor===e)return Pc(),null;Pc();let o=document.createElement(`div`);o.className=`pop ${n}`,i&&(o.setAttribute(`role`,`dialog`),o.setAttribute(`aria-label`,i)),typeof t==`string`?o.innerHTML=t:o.append(t);let s=K(`.pop-layer`);s.append(o),Mc(s),e.setAttribute(`aria-expanded`,`true`);let c=()=>{let t=e.getBoundingClientRect(),n=o.offsetWidth,i=o.offsetHeight,a=innerWidth,s=innerHeight,c=r===`start`?t.left:r===`center`?t.left+t.width/2-n/2:t.right-n;c=Math.max(12,Math.min(a-n-12,c));let l=t.bott...
+
+[f -> export (no exp)]  (t=!1){!Nc||Nc.el!==o||(Nc=null,e.setAttribute(`aria-expanded`,`false`),document.removeEventListener(`pointerdown`,l,!0),document.removeEventListener(`keydown`,u,!0),removeEventListener(`resize`,d),removeEventListener(`scroll`,d,!0),U.to(o,{opacity:0,scale:.96,duration:G(.16),ease:`power2.in`,onComplete:()=>o.remove()}),t&&e.focus(),a?.())}
+
+[Lc -> export (no exp)]  (e,t){e.showModal(),U.fromTo(e,t,{opacity:1,x:0,y:0,scale:1,duration:G(.45),ease:`back.out(1.5)`,clearProps:`transform`})}
+
+[Rc -> export (no exp)]  (e,t,n){!e.open||e.dataset.closing||(e.dataset.closing=`1`,U.to(e,{...t,opacity:0,duration:G(.22),ease:`power2.in`,onComplete:()=>{delete e.dataset.closing,e.close(),U.set(e,{clearProps:`all`}),n?.()}}))}
+
+[$ -> export Ot]  (e,{undo:t,ico:n=`check`,action:r}={}){let i=K(`.toast`);Mc(i);let a=K(`.toast__undo`,i);K(`.toast__ico`,i).innerHTML=Q(n),K(`.toast__msg`,i).textContent=e,Gc=t??r?.run??null,a.textContent=t?`Undo`:r?.label??``,a.hidden=!Gc,U.killTweensOf(i);let o=matchMedia(`(max-width: 760px)`).matches?-1:1;U.timeline().fromTo(i,{opacity:0,y:18*o,scale:.96,visibility:`visible`},{opacity:1,y:0,scale:1,duration:G(.45),ease:`back.out(1.8)`}).to(i,{opacity:0,y:10*o,duration:G(.3),ease:`power2.in`,onComplete:()=>{Gc=null,a.hidden=!0,U.set(i,{visibility:`hidden`})}},Gc?`+=5`...
+
+[Jc -> export (no exp)]  (e,t){if(qc&&qc!==e&&Yc(),e.classList.contains(`is-focus`)){Yc();return}let n=[...e.children],r=document.createElement(`div`);r.className=`card-ph`;let i=getComputedStyle(e);Object.assign(r.style,{gridArea:i.gridArea,gridColumn:i.gridColumn,gridRow:i.gridRow,height:`${e.offsetHeight}px`}),e.before(r);let a=Xa.getState(e);e.classList.add(`is-focus`),document.documentElement.classList.add(`has-focus`),qc=e,t?.setAttribute(`aria-label`,`Collapse`),U.set(n,{opacity:0}),U.to(K(`.scrim`),{autoAlpha:1,duration:G(.35)}),Xa.from(a,{duration:G(.6),ease:`power3.inO...
+
+[Yc -> export (no exp)]  (){let e=qc;if(!e)return;qc=null;let t=e.previousElementSibling,n=[...e.children];U.to(K(`.scrim`),{autoAlpha:0,duration:G(.3)}),U.to(n,{opacity:0,duration:G(.14),onComplete:()=>{let r=Xa.getState(e);e.classList.remove(`is-focus`),document.documentElement.classList.remove(`has-focus`),t?.classList.contains(`card-ph`)&&t.remove(),to(`[data-expand]`,e)?.setAttribute(`aria-label`,`Expand`),e.dispatchEvent(new CustomEvent(`card:resize`)),Xa.from(r,{duration:G(.5),ease:`power3.inOut`,scale:!0,onComplete:()=>U.set(e,{clearProps:`transform`})}),U.to(n,{opacity:...
+
+[Qc -> export J]  (e,t){let n=new Map;q(`[data-key]`,e).forEach(e=>n.set(e.dataset.key,e.getBoundingClientRect())),t(),q(`[data-key]`,e).forEach(e=>{let t=n.get(e.dataset.key);if(!t){U.fromTo(e,{opacity:0,y:12,scale:.97},{opacity:1,y:0,scale:1,duration:G(.45),ease:`power3.out`,clearProps:`transform,opacity`});return}let r=e.getBoundingClientRect(),i=t.left-r.left,a=t.top-r.top;(i||a)&&U.fromTo(e,{x:i,y:a},{x:0,y:0,duration:G(.55),ease:`power3.inOut`,clearProps:`transform`})})}
+
+[$c -> export G]  (e,t){U.to(e,{opacity:0,scale:.94,y:-6,duration:G(.25),ease:`power2.in`,onComplete:t})}
+
+[bu -> export (no exp)]  (e=!1){if(!cs()){Xu();return}let{name:t,params:n}=lu(location.hash),r=++yu;Pc(),Xc()&&Yc();let i=K(`[data-view="${t}"]`);if(Cu&&t!==`team`&&(Cu=!1,_u.forEach((e,t)=>{if(t!==`team`){e.drop(),_u.delete(t);let n=K(`[data-view="${t}"]`);n.innerHTML=``,delete n.dataset.entered}})),vu?.name===t&&vu.page&&su(t)){vu.page.enter({params:n,first:!1,same:!0}),xu(vu.page,t,n);return}let a=null;if(su(t)){let e=_u.get(t);if(!e){let n;try{n=(await cu[t]()).page}catch(e){console.error(e),$(`${iu[t]} couldn’t load. Check your connection and try again.`,{ico:`close`});retu...
+
+[Nu -> export (no exp)]  (){Eu.open||!cs()||(Pc(),Du.value=``,Au=0,Mu(),Eu.showModal(),U.fromTo(Eu,{opacity:0,y:-14,scale:.97},{opacity:1,y:0,scale:1,duration:G(.38),ease:`back.out(1.6)`,clearProps:`transform`}),ao(q(`.finder__opt`,Ou),{y:8,stagger:.025}),Du.focus())}
+
+[Pu -> export (no exp)]  (){U.to(Eu,{opacity:0,y:-8,duration:G(.16),ease:`power2.in`,onComplete:()=>{Eu.close(),U.set(Eu,{clearProps:`all`})}})}
+
+[ed -> export (no exp)]  (){Qa()||q(`.mesh i`).forEach((e,t)=>U.to(e,{x:[60,-50,40][t],y:[40,-60,50][t],scale:[1.08,.94,1.1][t],duration:14+t*4,ease:`sine.inOut`,yoyo:!0,repeat:-1}))}
+
+[td -> export (no exp)]  (){if(document.documentElement.classList.add(`is-ready`),ed(),!cs()){U.fromTo(`.mesh`,{opacity:0},{opacity:1,duration:G(1.2)}),Xu();return}U.timeline().fromTo(`.mesh`,{opacity:0},{opacity:1,duration:G(1.2),ease:`power2.out`},0).add(ao([K(`.brand`),K(`.tabs`),...q(`.top__tools > *`)],{y:-14,stagger:.06}),.05).fromTo(Vu,{x:-90,opacity:0},{x:0,opacity:1,duration:G(.9),ease:`power3.out`,clearProps:`transform,opacity`},.1).add(ao(q(`.dock__btn`,Vu),{y:10,stagger:.035}),.3).add(()=>bu(!0),.12).add(()=>{ho.v=!0},1.6)}
+
+========================== TIMELINE DEL ARMAZON ==========================
+(this)},e}(),Ya=function(){function e(e){this.id=e,this.actions=[],this._kill=[],this._final=[],this._abs=[],this._run=[],this.data={},this.state=new Ka,this.timeline=qi.timeline()}var t=e.prototype;return t.add=function(e){var t=this.actions.filter(function(t){return t.vars===e});return t.length?t[0]:(t=new Ja(typeof e==`function`?{animate:e}:e,this),this.actions.push(t),t)},t.remove=function(e){var t=this.actions.indexOf(e);return t>=0&&this.actions.splice(t,1),this},t.getState=function(e){var t=this,n=W,r=Ji;return W=this,this.state.clear(),this._kill.length=0,this.actions.forEach(function(n){n.vars.getState&&(n.states.length=0,Ji=n,n.state=n.vars.getState(n)),e&&n.states.forEach(function(e){return t.state.add(e)})}),Ji=r,W=n,this.killConflicts(),this},t.animate=function(){var e=this,t=W,n=this.timeline,r=this.actions.length,i,a;for(W=this,n.clear(),this._abs.length=this._final.length=this._run.length=0,this.actions.forEach(function(e){e.vars.animate&&e.vars.animate(e);var t=e.vars.onEnter,n=e.vars.onLeave,r=e.targets,i,a;r&&r.length&&(t||n)&&(i=new Ka,e.states.forEach(function(e){return i.add(e)}),a=i.compare(Xa.getState(r)),a.enter.length&&t&&t(a.enter),a.leave.length&&n&&n(a.leave))}),Ea(this._abs),this._run.forEach(function(e){return e()}),a=n.duration(),i=this._final.slice(0),n.add(function(){a<=n.time()&&(i.forEach(function(e){return e()}),Qi(e,`onComplete`))}),W=t;r--;)this.actions[r].vars.once&&this.actions[r].kill();return Qi(this,`onStart`),n.restart(),this},t.loadState=function(e){e||=function(){return 0};var t=[];return this.actions.forEach(function(n){if(n.vars.loadState){var r,i=function i(a){a&&(n.targets=a),r=t.indexOf(i),~r&&(t.splice(r,1),t.length||e())};t.push(i),n.vars.loadState(i)}}),t.length||e(),this},t.setState=function(){return this.actions.forEach(function(e){return e.targets=e.vars.setState&&e.vars.setState(e
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2px solid var(--text);outline-offset:2px }
+  .skip:focus-visible { top:12px }
+  .tab:hover { background:var(--well) }
+  .tab[aria-current=page]:hover { background:0 0 }
+  .dock__btn:hover,.dock__btn:focus-visible,.dock__btn[aria-expanded=true],.dock__btn[aria-current=page] { opacity:1;background:#ffffff1f }
+  .dock__btn:focus-visible { outline-color:var(--on-dock) }
+  .dock__btn--new:hover,.dock__btn--new:focus-visible { background:#f5c562 }
+  .dock__btn:hover .dock__tip,.dock__btn:focus-visible .dock__tip { opacity:1 }
+  .ibtn:hover { background:var(--glass-2) }
+  .ibtn--on-dark:hover { background:#ffffff24 }
+  .btn--ink:hover { filter:brightness(1.15) }
+  :root[data-theme=dark] .btn--ink:hover { filter:brightness(.92) }
+  .btn--ghost:hover { background:var(--glass-2) }
+  .input:focus,.search:focus-within { border-color:var(--text) }
+  .table tbody tr:hover { background:var(--well) }
+  .chart:focus-visible { outline:2px solid var(--text);outline-offset:4px;border-radius:12px }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--well);outline:none }
+  .pop__row:hover,.pop__row:focus-visible { background:var(--well);outline:none }
+  .signin__person:hover { background:var(--glass-3) }
+  .tab:hover,.ibtn:hover,.btn--ghost:hover,.table tbody tr:hover,.menu__item:hover,.pop__row:hover,.signin__person:hover { background:0 0 }
+  .btn--ghost:hover { background:var(--glass) }
+  .signin__person:hover { background:var(--glass-2) }
+  .btn--ink:hover { filter:none }
+  .tab:active,.ibtn:active,.pop__row:active,.menu__item:active { background:var(--well) }
+  .cc-net:has(input:focus-visible) { outline:2px solid var(--text);outline-offset:2px }
+
+  -- keyframes --
+  @keyframes flash {0%{color:var(--coral)}to{color:inherit}}
+  @keyframes fade {0%{opacity:0}}
+
+  -- transitions --
+  transition:background-color .15s
+  transition:opacity .15s
+  transition:opacity .18s var(--ease)
+  transition:transform .3s var(--ease)

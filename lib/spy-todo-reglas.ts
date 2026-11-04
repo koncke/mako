@@ -38,6 +38,39 @@ export const USD_POR_ANUNCIO = 0.006;
 export const DIAS_ENTRE_CORRIDAS = 7;
 /** Cuántas corridas largas empieza un negocio por día, sumando publicaciones y anuncios. */
 export const CORRIDAS_LARGAS_POR_DIA = 6;
+/** Dónde se cuentan las corridas largas del día del negocio: en la base, para que el tope valga entre procesos. */
+export const CLAVE_DIA = 'spy.todo.dia';
+
+/**
+ * El guion de un reel (4/11/2026, lib/spy-transcripcion.ts): UNA publicación por Apify para tener su video fresco (el enlace
+ * del CDN de Instagram vence en días). Cuántas por día como mucho, con la clave de Spy del negocio, y dónde se cuentan.
+ */
+export const TRANSCRIPCIONES_POR_DIA = 40;
+export const CLAVE_DIA_TRANSCRIPCIONES = 'spy.transcripciones.dia';
+
+/** Lo que se le pide al actor para UNA publicación: su enlace, y nada más. */
+export function entradaDeUnaPublicacion(enlace: string): Record<string, unknown> {
+  return { directUrls: [enlace], resultsType: 'posts', resultsLimit: 1, addParentData: false };
+}
+
+/** El video de lo que devolvió el actor: el primer `videoUrl` https. null si no vino (no es un video, o Instagram no lo dio). */
+export function videoDelItem(items: unknown): string | null {
+  for (const it of Array.isArray(items) ? items : []) {
+    const v = it && typeof it === 'object' ? (it as { videoUrl?: unknown }).videoUrl : null;
+    if (typeof v === 'string' && /^https:\/\//.test(v)) return v;
+  }
+  return null;
+}
+
+/** Cuántas corridas largas ya empezó el negocio en `dia` (YYYY-MM-DD). Otro día, o algo ilegible, es 0. */
+export function usadasHoy(crudo: string | null, dia: string): number {
+  try {
+    const v = JSON.parse(crudo ?? 'null') as { fecha?: unknown; usadas?: unknown } | null;
+    return v && v.fecha === dia && Number.isInteger(v.usadas) && (v.usadas as number) >= 0 ? (v.usadas as number) : 0;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * ⚠️ APAGADO HASTA MEDIR EL ACTOR DE ANUNCIOS. La forma de su respuesta no se pudo leer desde la nube (apify.com no
@@ -101,6 +134,50 @@ export function pedidoDePublicaciones(t: TareaLarga | undefined): { cuantas: num
   // Un día de solape: lo publicado justo antes de la corrida anterior entra igual (el upsert no lo duplica).
   const desde = t?.ultima ? new Date(Date.parse(t.ultima) - 86_400_000).toISOString().slice(0, 10) : null;
   return { cuantas, desde, techoUsd: Math.max(0.05, Math.round(cuantas * USD_POR_PUBLICACION * 100) / 100) };
+}
+
+/**
+ * Lo que no se toca del crédito del mes de Apify del negocio (4/11/2026). El Cerebro lo midió: la cuenta de un negocio en plan
+ * FREE tiene US$5 por mes, y una traída larga de 300 publicaciones costó US$0,69. Lo de todos los días (leer, dar de alta,
+ * transcribir) sale de la misma cuenta: la traída larga nunca baja de esta reserva.
+ */
+export const RESERVA_CREDITO_USD = 2;
+/** Una traída larga usa a lo sumo esta parte de lo que queda por encima de la reserva: el crédito del mes no se va en una ficha. */
+export const PARTE_DEL_CREDITO = 0.25;
+/** Menos publicaciones que esto no vale una corrida: se espera al mes que viene. */
+export const MINIMO_DE_UNA_TRAIDA = 20;
+
+/** El crédito del mes de Apify, como lo dice `GET /v2/users/me/limits`. null = no se pudo saber. */
+export type CreditoApify = { usado: number; tope: number };
+
+/** Lee el crédito de la respuesta de Apify. Sin los dos números, null: no se inventa un cero. */
+export function creditoDeApify(cuerpo: unknown): CreditoApify | null {
+  const d = (cuerpo as { data?: { limits?: { maxMonthlyUsageUsd?: unknown }; current?: { monthlyUsageUsd?: unknown } } } | null)?.data;
+  const tope = Number(d?.limits?.maxMonthlyUsageUsd);
+  const usado = Number(d?.current?.monthlyUsageUsd);
+  return Number.isFinite(tope) && Number.isFinite(usado) && tope > 0 && usado >= 0 ? { usado, tope } : null;
+}
+
+/**
+ * El pedido de publicaciones achicado a lo que el crédito deja, o null si no alcanza (la traída espera; se dice sólo al admin).
+ * Sin saber el crédito, el pedido de siempre: el tope de corridas del día ya lo cuida.
+ */
+export function ajustarAlCredito(p: { cuantas: number; desde: string | null; techoUsd: number }, credito: CreditoApify | null): { cuantas: number; desde: string | null; techoUsd: number } | null {
+  if (!credito) return p;
+  const libre = credito.tope - credito.usado - RESERVA_CREDITO_USD;
+  if (libre <= 0) return null;
+  const techo = libre * PARTE_DEL_CREDITO;
+  if (p.techoUsd <= techo) return p;
+  const cuantas = Math.floor(techo / USD_POR_PUBLICACION);
+  if (cuantas < MINIMO_DE_UNA_TRAIDA) return null;
+  return { cuantas, desde: p.desde, techoUsd: Math.max(0.05, Math.floor(cuantas * USD_POR_PUBLICACION * 100) / 100) };
+}
+
+/** ¿El «no pude empezar» de Apify es por crédito? (HTTP 402, o el tipo de error que lo dice.) */
+export function esFaltaDeCredito(status: number, cuerpo: unknown): boolean {
+  if (status === 402) return true;
+  const e = (cuerpo as { error?: { type?: unknown; message?: unknown } } | null)?.error;
+  return /usage|credit|limit-exceeded|not-enough|insufficient/i.test(`${String(e?.type ?? '')} ${String(e?.message ?? '')}`);
 }
 
 /** Lo que se le manda al actor de publicaciones. */
@@ -215,4 +292,18 @@ export function seFueron(
     const t = Date.parse(g.publicada_en ?? '');
     return Number.isFinite(t) && t >= desde;
   }).map((g) => g.id);
+}
+
+/**
+ * El motivo de la traída larga, para la persona (lo devuelve `avanzarTodo`). Sin motivo, nada que decir. Martín, 4/11: «Si
+ * una corrida larga no terminó, la pantalla lo dice» — antes se tiraba y la ficha quedaba en 12 sin decir por qué.
+ */
+export function avisoDeTraida(porque: string | undefined, o: { admin?: boolean } = {}): string | null {
+  if (!porque) return null;
+  // ⚠️ EL CRÉDITO SE LE DICE SÓLO AL ADMIN Y SIN CARTEL DE ERROR (el Cerebro, 4/11/2026): es la plata del negocio, y para el resto
+  // del equipo no hay nada que hacer. La ficha sigue con lo que ya se leyó.
+  if (porque === 'sin-credito') return o.admin ? 'Tu crédito de Apify del mes no alcanza para traer todo lo que publicó.' : null;
+  if (porque === 'sin-clave') return 'Conecta Apify para traer todo lo que publica.';
+  if (porque === 'limite') return 'Hoy ya no quedan traídas: mañana sigue sola.';
+  return `No traje todo lo que publicó. ${porque}.`;
 }

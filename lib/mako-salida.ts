@@ -21,6 +21,7 @@ import { KEY_BOT_ACTIVO, KEY_BOT_INSTANCIA, KEY_BOT_SALIDA, KEY_BOT_SOLO, dentro
 import { salidaCloud, salidaEvolution, type EnvioChat, type SalidaWhatsApp } from './mako-salida-drivers';
 import { frenoDeLinea, trasEscribir } from './linea-freno';
 import { textoDelFreno } from './mako-salida-reglas';
+import { bloqueoDeEnvioEnRevision } from './revision-guarda';
 
 export type { EnvioChat } from './mako-salida-drivers';
 
@@ -76,6 +77,9 @@ async function canalDeSalida(c: ConfigBot): Promise<SalidaWhatsApp | null> {
 /** La puerta para los tres: bot prendido, cañería lista y ventana abierta. */
 async function salidaPara(jid: string): Promise<{ s: SalidaWhatsApp } | { error: string; fueraDeVentana?: true }> {
   if (jid.endsWith('@g.us')) return { error: 'la salida del bot no escribe en grupos' };
+  // La cuenta de revisión de las tiendas no le escribe a nadie (lib/revision-guarda.ts): el bot de MaKo tampoco.
+  const enRevision = await bloqueoDeEnvioEnRevision('whatsapp', jid);
+  if (enRevision) return { error: enRevision };
   const c = await configDelBot();
   if (!c.activo) return { error: 'el bot está apagado' };
   if (!(await ventanaAbierta(jid))) return { error: `no le escribió en las últimas 24 horas: ${jid}`, fueraDeVentana: true };

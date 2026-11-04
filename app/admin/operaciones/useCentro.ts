@@ -27,7 +27,7 @@ import { idLocal } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import { ERROR_SUBIDA, enMemoria } from './leer-adjunto';
 import {
-  claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, preguntaDeChatCerrado, textoDeEnvio, textoDeRenombre, vistaPrevia,
+  claveParaUrl, estadoDeLaPc, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, preguntaDeChatCerrado, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
   avisosDe, esperaCheck, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, ultimoYaEsta, vigiaCallado, type VistosDeChats, type YaVistos,
 } from '@/lib/centro-chats';
@@ -735,6 +735,9 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     return ok;
   }
 
+  // El estado de la PC, para el Uso (31/10/2026, Martín: «Si, ponlo pero en USO»): con lo mismo, sin pedirle nada a la PC.
+  const estadoPc = useMemo(() => estadoDeLaPc(carteros, cola, ahora), [cola, carteros, ahora]);
+
   // ── Contestar una pregunta del chat (17/10/2026, el formulario de su conversación) ──────────────────────────────
   // Primero sale FIRMADA por mandar.ts (el único camino a la PC: la PC recibe lo firmado), y recién con ese trabajo en la
   // cola el servidor la marca contestada (acciones.ts → contestarPreguntaAction). Devuelve el error, o null.
@@ -826,7 +829,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   return {
     chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
-    turnosDe, preguntasDe, tareasDe, contestarPregunta, avisoDePregunta, mirar,
+    turnosDe, preguntasDe, tareasDe, contestarPregunta, avisoDePregunta, estadoPc, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, cambiarCreditoDelNegocio, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, mandarNota, anotarEnviado, copiarConAviso, crearClave, copiarClave,

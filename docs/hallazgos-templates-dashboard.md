@@ -212,6 +212,65 @@ Cada hoja es una punta (`punta/dash-<hoja>`); qué hay en cada una y qué mirar,
 - **Los tests de `api-mako-*` que cargan el registro con `--conditions=react-server` fallan en el contenedor de la nube**
   («does not provide an export named MAKO_ACCION_TOOLS»), también sobre `main` sin cambios: es el entorno, no el código.
 
+## 10 bis. ⚠️ El diagnóstico equivocado: creer que «todas iguales» era eficiencia (4/11/2026)
+
+Martín rechazó las 20 hojas el mismo día: *«son dashboard todos iguales, horribles… agarraste un template y lo estandarizaste
+para todos»*. El pedido era otro desde el principio: **cada hoja es la COPIA EXACTA de un demo** (como la maqueta de Focus, que
+copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién después la adaptación** a los datos de MaKo.
+
+- **La base común fue el error, no un detalle de cada hoja.** Una frase, un ancla oscura, el «Ver … →» y la misma grilla de
+  `comoDenso` en todas hacen que veinte referencias distintas salgan con la misma cara. Lo que se comparte es el DATO (los
+  conjuntos, la API); la apariencia, nunca.
+- **Copiar «el gesto» no es copiar.** §7.2 de la propuesta listaba doce gestos sueltos de veintisiete demos; llevarlos a todas
+  las hojas fue lo contrario de lo que pedía la regla de la casa (AGENTS.md: una referencia de estilo se copia con sus valores).
+- **La vara es la maqueta de Focus** (`docs/diseno/mockups-dashboard/focus-pane.html`, commit `ee224623`): su propia letra
+  (Urbanist), su paleta oscura, sus tiles, sus dos columnas iguales con gap 14, medidas del demo.
+- **Sin el demo a la vista no hay copia.** Esta sesión no llega a `demo.codeandchill.store` (403 del proxy). Lo destrabó la
+  PC midiendo los demos (`demos/<demo>/`: INFORME, capturas, `valores.json` y estados), y desde ahí se copió Closing (§12).
+
+## 12. Copiar un demo hasta el píxel: cómo se mide la copia (4/11/2026, Closing ← Halden)
+
+**Vive en:** docs/diseno/mockups-dashboard/closing/ (copia.html, closing.html, closing.css, closing.js)
+
+- **Se compara por FRANJAS de tinta dentro de cada tarjeta, relativas a su borde de arriba**, no a ojo ni por coordenadas
+  absolutas. Una diferencia de 3 px arriba se arrastra a todas las filas de abajo y parece que todo está mal; medido contra el
+  borde de cada tarjeta, se ve qué bloque es el que sobra. Con eso la copia de Halden quedó con las dos páginas del mismo alto
+  (1440×959 y 390×2627) y cada bloque a 0-2 px.
+- ⚠️ **Lo que parece la punta de una barra puede ser la flechita de su etiqueta.** El escaneo dio el martes «a 501» y eran los 4 px
+  de la flecha del tooltip, 19 px arriba de la barra: la copia salió con la barra más alta del gráfico. Antes de creerle a un
+  borde, mirar qué otra cosa se dibuja arriba.
+- ⚠️ **`capturar.mjs` mide el teléfono a 390×900 SIN emulación móvil.** Comparar con un viewport de 844 o con `isMobile` mueve todo
+  lo fijo (la barra de abajo cae en otro lugar de la página entera) y no se parece a nada. Se compara con el MISMO viewport.
+- **Halden esconde en la compu las filas que no entran** (la 5.ª de la lista, la 3.ª del asistente) y el teléfono las muestra: una
+  copia de una sola captura pierde lo que la otra muestra.
+- **Lo que se ubica sobre algo que está entrando se mide con `offsetLeft`/`offsetTop`, no con `getBoundingClientRect`**: la tarjeta y
+  la barra todavía tienen su `transform` de partida y la etiqueta quedaba al pie de la barra, adonde la barra arrancaba.
+- **El INFORME corta las líneas largas** (`....`): lo que viene después del corte no está medido. Se copia hasta ahí y lo demás se
+  anota como no copiado (la entrada del título, `bo`, no figura entre los helpers; la cuota y el reloj no tienen entrada).
+
+## 13. Llevar la copia al Dashboard: tres trampas que la maqueta no tenía (4/11/2026, Closing)
+
+- **«Nueva hoja» poda los gráficos que hoy dan vacío** (`podarSinDatos`, regla de Martín del 13/10: «no crear un montón de
+  gráficos vacíos»). En la grilla está bien; en un diseño propio no: el bloque se dibuja igual, y sin su gráfico no se llena
+  nunca, aunque mañana haya datos. Un Closing creado en una semana sin llamadas perdía «Llamadas de esta semana» para
+  siempre. Ahora la poda no toca las piezas del diseño **ni lo que leen sus cajas de MaKo** (la caja de Closing lee un
+  gráfico que no es pieza: sin eso, se iba igual). Lo fija `tests/dashboard-diseno-closing.test.ts` (9).
+- **El reset de la hoja copiada le ganaba a sus propias clases.** `.hc button{background:none}` (0,1,1) le gana a
+  `.hc-btn--primary` (0,1,0): el botón principal salía blanco y los links negros. En la maqueta no pasaba porque el reset
+  era `button{}` suelto. Va `.hc :where(button)` (0,1,0, y el orden decide). Al limitar una hoja copiada a una clase raíz,
+  los resets por etiqueta van con `:where()`.
+- **El ancho del medio no está en el demo.** Halden se capturó a 1440 y 390, y el lienzo real del Dashboard (con la barra y
+  la lista de hojas) en una ventana de 1024 mide ~780: ahí las tres columnas no entran (el reloj se cortaba, los títulos
+  iban palabra por palabra). Se agregó un paso a dos columnas, y se dice que es nuestro. Una copia nueva se mide también en
+  el ancho del lienzo, no sólo en el de la ventana.
+- **Lo que el diseño necesita se busca primero en lo que la plantilla YA tiene.** Sumar un gráfico por bloque dejó la plantilla
+  en 16 paneles y con dos frases (`tests/graficos-corbel.test.ts`: una frase, que abre, y 14 paneles como mucho). «Cómo
+  terminaron» salió de dos columnas más en la tabla del equipo (sus totales cuentan todas las filas, no sólo las que se ven), y
+  el anillo que contaba lo mismo se fue. Una tabla ordena por su primera métrica: «las últimas» no puede salir de una tabla
+  ordenada por score, y por eso tiene la suya.
+- **Un texto de MaKo es más largo que el del demo**: «7 de 18 llamadas de cierre terminaron en venta» partía en dos columnas
+  en el teléfono. Se mira cada texto adaptado en 390 antes de darlo por copiado.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué
@@ -224,4 +283,6 @@ Cada hoja es una punta (`punta/dash-<hoja>`); qué hay en cada una y qué mirar,
   la hoja mide cuándo llegó cada uno a su etapa.
 - **Las sugeridas no tienen eje de rubro**: Inmobiliaria no se sugiere sola, se encuentra por nombre.
 - **Sin medir**: el hover y el clic de las plantillas (los `:hover` de cada demo están en el `INFORME.txt` del medidor, que
-  es temporal).
+  es temporal). Para Closing ya están copiados (§12).
+- **Closing sin probar contra la base de un cliente**: el diseño está en la punta `dash-closing-producto` (§13); falta
+  crearlo en el ws3 y el ws1 y mirarlo con datos reales.

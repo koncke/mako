@@ -49,7 +49,11 @@ import { remitenteEsSandbox, emailConectado, displayNameDe, remitenteDelNegocioA
 import type { MotivoSinRemitente } from '@/lib/email-remitente';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
 import { zonaDelNegocio } from '@/lib/timezone';
-import { prepararConexion, conectarDominio, prepararRemitente, fijarRemitente, verificarDominio } from '@/lib/email-dominio';
+import { prepararConexion, conectarDominio, prepararRemitente, fijarRemitente, verificarDominio, prepararVerificacion } from '@/lib/email-dominio';
+import { listarFunnels } from '@/lib/funnels';
+import { etapasDeProducto } from '@/lib/lead-funnel';
+import { etapaDeEntrada, nombreVisible } from '@/lib/lead-funnel-reglas';
+import { getTenantDb } from '@/lib/workspace';
 import type { RegistroDns } from '@/lib/email-dominio-reglas';
 import {
   anclaDeLaProxima, asegurarCrmNewsletter, conteoPorEtapa, crearEdicion, crmDelNewsletter, guardarConfigNewsletter,
@@ -138,6 +142,30 @@ function primerTurnoCron(ms: number): number {
     t += paso;
   }
   return t;
+}
+
+/**
+ * EL CRM DE UNA SECUENCIA (4/11/2026): que sea de este negocio y, con `etapaPedida`, que esa columna sea suya (por su key o su
+ * nombre); sin ella, su columna de entrada. Lo vuelve a validar al guardar la puerta de los CRON (`guardarDisparadores`).
+ */
+async function crmDeSecuencia(funnelId: number, etapaPedida: string | undefined): Promise<{ funnelId: number; nombre: string; etapa: { key: string; label: string } } | { error: string; disponibles?: unknown }> {
+  const funnels = await listarFunnels();
+  const f = funnels.find((x) => x.id === funnelId);
+  if (!f) return { error: `El CRM #${funnelId} no es de este negocio.`, disponibles: funnels.map((x) => ({ embudoId: x.id, nombre: nombreVisible(x) })) };
+  const etapas = await etapasDeProducto(funnelId);
+  const sinTildes = (x: string) => x.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const key = etapaPedida ?? etapaDeEntrada(etapas);
+  const e = etapas.find((x) => x.key === key) ?? (etapaPedida ? etapas.find((x) => sinTildes(x.label ?? '') === sinTildes(etapaPedida)) : undefined);
+  if (!e) return { error: `«${nombreVisible(f)}» no tiene la columna «${etapaPedida ?? ''}».`, disponibles: etapas.map((x) => ({ key: x.key, nombre: x.label })) };
+  return { funnelId, nombre: nombreVisible(f), etapa: { key: e.key, label: e.label } };
+}
+/** El CRM que hoy tiene la secuencia (null = todos). */
+async function funnelDeSecuencia(id: number): Promise<number | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('nutricion_secuencias').select('funnel_id').eq('id', id).maybeSingle();
+  if (error) throw new Error(`funnelDeSecuencia: ${error.message}`);
+  const v = (data as { funnel_id?: unknown } | null)?.funnel_id;
+  return v == null ? null : Number(v);
 }
 
 /** etapa válida: del catálogo, salvo con trigger etapa_actual (clave del funnel del negocio). */
@@ -495,22 +523,31 @@ export const RUNNERS: Runners = {
   crear_secuencia_email: {
     preparar: async (input) => {
       const nombre = str(input, 'nombre');
-      const etapa = str(input, 'etapa');
-      const trigger = str(input, 'trigger');
+      let etapa = str(input, 'etapa');
+      const funnelId = num(input, 'funnelId');
+      // Con CRM y sin trigger, «está en la columna» (4/11/2026): es lo que quiere decir atarla a un CRM.
+      const trigger = str(input, 'trigger') ?? (funnelId != null ? 'etapa_actual' : undefined);
       const etiquetaId = num(input, 'etiquetaId');
       const mal = errorEtapaTrigger(etapa, trigger);
       if (mal) return mal;
+      let enCrm = '';
+      if (funnelId != null) {
+        const c = await crmDeSecuencia(funnelId, trigger === 'etapa_actual' ? etapa : undefined);
+        if ('error' in c) return c;
+        if (trigger === 'etapa_actual') etapa = c.etapa.key;
+        enCrm = ` en el CRM «${c.nombre}»${trigger === 'etapa_actual' ? ` › «${c.etapa.label}»` : ''} (también los sumados a él)`;
+      }
       if (trigger === 'etapa_actual' && !etapa) return { error: 'Con el trigger etapa_actual hay que decir la etapa del funnel.', faltan: ['etapa'] };
       const malEtiqueta = await errorEtiquetaDelTrigger(trigger, etiquetaId);
       if (malEtiqueta) return malEtiqueta;
       return {
-        payload: { nombre: nombre ?? '', etapa: etapa ?? '', trigger: trigger ?? '', ...(etiquetaId != null ? { etiquetaId } : {}) },
-        resumen: `Crear la secuencia de email «${nombre ?? 'Nueva secuencia de email'}» pausada, con etapa ${etapa ?? 'nutri'} y trigger «${labelDe(TRIGGERS, trigger ?? 'manual')}»${etiquetaId != null ? ` (etiqueta #${etiquetaId})` : ''}. No manda nada hasta escribir los pasos y activarla.`,
+        payload: { nombre: nombre ?? '', etapa: etapa ?? '', trigger: trigger ?? '', ...(etiquetaId != null ? { etiquetaId } : {}), ...(funnelId != null ? { funnelId } : {}) },
+        resumen: `Crear la secuencia de email «${nombre ?? 'Nueva secuencia de email'}» pausada, con etapa ${etapa ?? 'nutri'} y trigger «${labelDe(TRIGGERS, trigger ?? 'manual')}»${etiquetaId != null ? ` (etiqueta #${etiquetaId})` : ''}${enCrm}. No manda nada hasta escribir los pasos y activarla.`,
       };
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
       try {
-        const id = await crearEmailSecuencia(String(payload.nombre ?? ''), String(payload.etapa ?? ''), String(payload.trigger ?? ''), payload.etiquetaId);
+        const id = await crearEmailSecuencia(String(payload.nombre ?? ''), String(payload.etapa ?? ''), String(payload.trigger ?? ''), payload.etiquetaId, typeof payload.funnelId === 'number' ? payload.funnelId : null);
         return { ok: true, resumen: `Secuencia de email #${id} creada (pausada).`, datos: { id } };
       } catch (e) {
         if (e instanceof DisparadorEmailError) return { ok: false, resumen: e.message };
@@ -528,17 +565,30 @@ export const RUNNERS: Runners = {
       const etapa = str(input, 'etapa');
       const trigger = str(input, 'trigger_tipo');
       const etiquetaId = num(input, 'etiquetaId');
-      if (nombre === undefined && etapa === undefined && trigger === undefined && etiquetaId == null) return { error: 'No hay nada que cambiar: manda nombre, etapa, trigger_tipo o etiquetaId.', faltan: ['nombre', 'etapa', 'trigger_tipo'] };
+      // El CRM (4/11/2026): `funnelId` lo fija, `sinCrm` lo saca; ninguno de los dos = no se toca.
+      const pedidoCrm: number | null | undefined = input.sinCrm === true ? null : num(input, 'funnelId') ?? undefined;
+      if (nombre === undefined && etapa === undefined && trigger === undefined && etiquetaId == null && pedidoCrm === undefined) return { error: 'No hay nada que cambiar: manda nombre, etapa, trigger_tipo, etiquetaId o funnelId.', faltan: ['nombre', 'etapa', 'trigger_tipo'] };
       const mal = errorEtapaTrigger(etapa, trigger ?? s.trigger_tipo);
       if (mal) return mal;
+      const crmActual = await funnelDeSecuencia(id);
+      let etapaCrm: string | undefined;
+      let textoCrm = '';
+      if (pedidoCrm != null) {
+        const c = await crmDeSecuencia(pedidoCrm, (trigger ?? s.trigger_tipo) === 'etapa_actual' ? (etapa ?? (crmActual === pedidoCrm ? s.etapa : undefined)) : undefined);
+        if ('error' in c) return c;
+        if ((trigger ?? s.trigger_tipo) === 'etapa_actual') etapaCrm = c.etapa.key;
+        textoCrm = `CRM → «${c.nombre}»${etapaCrm ? ` › «${c.etapa.label}»` : ''}`;
+      } else if (pedidoCrm === null && crmActual != null) textoCrm = 'CRM → todos';
+      const cambiaCrm = pedidoCrm !== undefined && pedidoCrm !== crmActual;
       // La etiqueta se mira contra el trigger que QUEDA. Pasar a etiqueta_puesta sin decir cuál
       // (o seguir en ese trigger sin una guardada) es la secuencia muda de antes.
       const queda = trigger ?? s.trigger_tipo;
       const etiquetaQueda = etiquetaId ?? (queda === s.trigger_tipo ? s.etiqueta_id : null);
       const malEtiqueta = (trigger !== undefined || etiquetaId != null) ? await errorEtiquetaDelTrigger(queda, queda === TRIGGER_ETIQUETA ? etiquetaQueda : etiquetaId) : null;
       if (malEtiqueta) return malEtiqueta;
-      if (s.activa && cambiaCohorte(s, etapa, trigger, etiquetaId)) return { error: ERROR_COHORTE_ACTIVA(id) };
+      if (s.activa && (cambiaCrm || cambiaCohorte(s, etapa ?? etapaCrm, trigger, etiquetaId))) return { error: ERROR_COHORTE_ACTIVA(id) };
       const partes: string[] = [];
+      if (textoCrm && (cambiaCrm || etapaCrm !== undefined)) partes.push(textoCrm);
       if (nombre !== undefined) partes.push(`nombre «${s.nombre}» → «${nombre}»`);
       if (etapa !== undefined) partes.push(`etapa ${s.etapa} → ${etapa}`);
       if (trigger !== undefined) partes.push(`trigger «${labelDe(TRIGGERS, s.trigger_tipo)}» → «${labelDe(TRIGGERS, trigger)}»${s.activa ? '' : ' (la secuencia está pausada: la cohorte nueva se inscribe recién al activarla)'}`);
@@ -549,6 +599,7 @@ export const RUNNERS: Runners = {
           // El disparador por etiqueta viaja ENTERO (trigger + etiqueta): cambiar sólo la etiqueta
           // también pasa por la puerta que la valida.
           ...(queda === TRIGGER_ETIQUETA && (trigger !== undefined || etiquetaId != null) ? { trigger_tipo: TRIGGER_ETIQUETA, etiquetaId: etiquetaQueda } : trigger !== undefined ? { trigger_tipo: trigger } : {}),
+          ...(pedidoCrm !== undefined ? { funnelId: pedidoCrm, ...(etapaCrm ? { etapa: etapaCrm } : {}) } : {}),
         },
         resumen: `Secuencia #${id}: ${partes.join('; ')}.`,
       };
@@ -558,8 +609,10 @@ export const RUNNERS: Runners = {
       const s = await secuenciaEmail(id);
       if (!s) return { ok: false, resumen: noSecuencia(id) };
       const etiquetaId = typeof payload.etiquetaId === 'number' ? payload.etiquetaId : null;
+      const funnelPedido = 'funnelId' in payload ? (typeof payload.funnelId === 'number' ? payload.funnelId : null) : undefined;
       // Pudo activarse entre el «sí» y ahora: un cambio de cohorte en una activa es un envío masivo.
-      if (s.activa && cambiaCohorte(s, typeof payload.etapa === 'string' ? payload.etapa : undefined, typeof payload.trigger_tipo === 'string' ? payload.trigger_tipo : undefined, etiquetaId)) {
+      const cambiaCrm = funnelPedido !== undefined && funnelPedido !== (await funnelDeSecuencia(id));
+      if (s.activa && (cambiaCrm || cambiaCohorte(s, typeof payload.etapa === 'string' ? payload.etapa : undefined, typeof payload.trigger_tipo === 'string' ? payload.trigger_tipo : undefined, etiquetaId))) {
         return { ok: false, resumen: ERROR_COHORTE_ACTIVA(id) };
       }
       try {
@@ -568,6 +621,7 @@ export const RUNNERS: Runners = {
           etapa: typeof payload.etapa === 'string' ? payload.etapa : undefined,
           trigger_tipo: typeof payload.trigger_tipo === 'string' ? payload.trigger_tipo : undefined,
           etiqueta_id: etiquetaId ?? undefined,
+          ...(funnelPedido !== undefined ? { funnel_id: funnelPedido } : {}),
         });
       } catch (e) {
         if (e instanceof DisparadorEmailError) return { ok: false, resumen: e.message };
@@ -605,13 +659,15 @@ export const RUNNERS: Runners = {
     preparar: async () => {
       const id = await dominioIdDelWorkspace();
       if (!id) return { error: 'Este negocio no tiene un dominio de envío cargado: primero hay que agregarlo en /email.' };
+      const listo = await prepararVerificacion();
+      if (!listo.ok) return { error: listo.error, ...(listo.nuestra ? { falla: true as const } : {}) };
       return { payload: {}, resumen: 'Pedirle a Resend que revise los registros DNS del dominio de envío del negocio.' };
     },
     // La MISMA verificación que /email (lib/email-dominio.ts, 4/11/2026): de paso, prende el seguimiento de aperturas y clics
     // de un dominio que lo tenía apagado (uno dado de alta antes de ese día).
     ejecutar: async (): Promise<Ejecutado> => {
       const v = await verificarDominio();
-      if (!v.ok) return { ok: false, resumen: v.status === 400 ? 'Este negocio ya no tiene un dominio de envío cargado.' : `Resend rechazó la verificación: ${v.error}.` };
+      if (!v.ok) return { ok: false, resumen: v.status === 400 ? 'Este negocio ya no tiene un dominio de envío cargado.' : v.nuestra ? v.error : `Resend rechazó la verificación: ${v.error}.` };
       if (!v.dominio) return { ok: true, resumen: 'Verificación pedida a Resend. No se pudo leer el estado nuevo; puede tardar unos minutos.' };
       const pendientes = v.registros.filter((r) => r.estado && r.estado !== 'verified').length;
       const seguimiento = v.seguimiento === true ? ' Prendí las aperturas y los clics.' : typeof v.seguimiento === 'string' ? ` No pude prender las aperturas y los clics (${v.seguimiento}).` : '';
@@ -887,7 +943,7 @@ export const RUNNERS: Runners = {
   conectar_dominio_email: {
     preparar: async (input, ctx) => {
       const p = await prepararConexion(ctx.ws, input.dominio);
-      if (!p.ok) return { error: p.error };
+      if (!p.ok) return { error: p.error, ...(p.nuestra ? { falla: true as const } : {}) };
       return {
         payload: { dominio: p.dominio },
         resumen: `Conectar ${p.dominio} para mandar los correos del negocio${p.reemplaza ? ` (reemplaza a ${p.reemplaza})` : ''}: te devuelvo los registros DNS que hay que cargar, y quedan prendidas las aperturas y los clics.`,

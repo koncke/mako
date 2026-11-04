@@ -329,7 +329,7 @@ export function tituloSeccion(s: Pick<DefSeccionMas, 'label' | 'titulo'>): strin
  */
 export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> = {
   calendario: ['vista', 'fecha'], // app/calendario/page.tsx
-  'second-brain': ['area', 'vista'], // app/second-brain/VistaCerebro.tsx (los arma `rutaSeccion`, lib/secciones-negocio.ts)
+  'second-brain': ['area', 'vista', 'grupo'], // app/second-brain/VistaCerebro.tsx (los arma `rutaSeccion`, lib/secciones-negocio.ts); `grupo`: el push del grupo de la app (lib/grupo-app.ts)
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
   offer: ['oferta', 'funnel', 'sesion'], // app/offer/page.tsx (el «Analizar oferta →» del CRM; `sesion`: «Seguir en Offer» del Ops Center, 20/10/2026)
   copywriting: ['nuevo'], // app/copywriter/page.tsx (`?nuevo=<tipo>`: sus templates primero). El `?tab=` del Ads Writer va aparte.
@@ -734,6 +734,9 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // chat): un `?tab=` viejo no viaja, y abre los chats. Lo que sí viaja es la Ticketera (`?ticketera=`).
   if (p === '/admin/operaciones') {
     const t = q.get('ticketera');
+    // El push del grupo de la app (lib/grupo-app.ts): sin esto, tocarlo abría la lista de chats.
+    const grupo = q.get('grupo');
+    if (grupo && /^\d+$/.test(grupo)) return `/m/operaciones?grupo=${grupo}`;
     return t === 'tickets' || t === 'tarjetas' || t === 'lista' ? `/m/operaciones?ticketera=${t}` : '/m/operaciones';
   }
   // Las pantallas que SÓLO existen en el teléfono, con la URL que muestran (`SOLO_TELEFONO`).

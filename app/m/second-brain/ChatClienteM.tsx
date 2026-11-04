@@ -14,6 +14,8 @@
 // ⚠️ UNA SOLA HOJA (SheetM → «Una hoja sobre otra REEMPLAZA»): la Info de un mensaje y «Tus cuentas de IA» se abren ADENTRO de
 //    la de la conversación, con su «‹» para volver, como el selector de la criatura en ChatsMovil.tsx.
 // ⚠️ Los chats de Claude Code del super admin que mira un cliente van debajo (`masChats`, app/m/second-brain/SecondBrainCentroM.tsx).
+// EL FUNNEL COACH (4/11/2026, Martín: «Junta a "Offer coach" con "Funnel Coach"... en computadora y en teléfono»): su fila va debajo del
+// Ops Center, como en la computadora, con las conversaciones de oferta colgando de ella; abre su hoja (HojaDelCoach.tsx).
 
 import '@/app/admin/operaciones/centro.css';
 import '@/app/m/operaciones/operaciones.css';
@@ -26,11 +28,16 @@ import { TEXTO_SEGUNDO_RENGLON, partesDelNombre, porJefe } from '@/lib/centro-ch
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
-import { edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
-import { aspectoDeChat } from '@/lib/centro-munecos';
-import { asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
+import { ORIGEN_FUNNEL_COACH, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { ASPECTO_MAKO, aspectoDeChat, aspectoDeReferente } from '@/lib/centro-munecos';
+import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { GaleriaDeGurus } from '@/app/second-brain/GaleriaDeGurus';
 import { HojaDelGuru } from './HojaDelGuru';
+import { HojaDelCoach } from './HojaDelCoach';
+import { useCoaches } from '@/app/second-brain/useCoaches';
+import { HojaDelGrupo } from './HojaDelGrupo';
+import { FilasDelGrupoM } from './FilasDelGrupoM';
+import { useGrupos } from '@/app/_chat/grupo/useGrupos';
 import { useMisTickets } from '@/app/tickets/usarMisTickets';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -38,7 +45,7 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 /** Cuántos chats se ven antes de «Ver todos» (los de ChatsMovil.tsx). */
 const VISIBLES = 10;
 
-export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar = '', chatInicial = null, offerInicial = null, masChats }: {
+export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar = '', chatInicial = null, offerInicial = null, grupoInicial = null, masChats }: {
   sesionesIniciales: SesionChat[];
   /** El grafo (sólo el admin de la tab, lo decide el servidor): «Second Brain» arriba de los chats. */
   hrefMapa?: string | null;
@@ -47,6 +54,8 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   /** `?chat=` y `?offer=`: la conversación que se abre al entrar. */
   chatInicial?: number | null;
   offerInicial?: number | null;
+  /** `?grupo=`: el grupo que se abre al entrar (el push de un aviso). */
+  grupoInicial?: number | null;
   /** Otros chats debajo de los suyos: los de Claude Code del super admin que mira un cliente. */
   masChats?: () => ReactNode;
 }) {
@@ -55,7 +64,11 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   const [todas, setTodas] = useState(false);
   const caja = useRef<HTMLTextAreaElement>(null);
   const hilo = useRef<HTMLDivElement>(null);
-  const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: false, chatInicial, opcionArmar, busca: '', caja, sesionesIniciales });
+  // El coach (uno desde el 4/11/2026): quién aconseja, si hay oferta y si esta persona lo puede cambiar. Su referente es también la cara
+  // de las conversaciones de oferta, que cuelgan de él.
+  const { referente, hayOferta, puedeElegir, elegirReferente } = useCoaches();
+  const delCoach = asesorPorId(referente);
+  const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: false, chatInicial, opcionArmar, busca: '', caja, sesionesIniciales, aspectoOffer: delCoach ? aspectoDeReferente(delCoach.id) : null });
   // Su Ticketera: el número de la fila (los que esperan su respuesta).
   // Para el super admin que mira un cliente (`masChats`), no: lo suyo está en su Ops Center, como en la computadora.
   const misTickets = useMisTickets(!masChats);
@@ -77,14 +90,25 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   // El chat con un gurú: su propia hoja, con su motor (HojaDelGuru.tsx). Una sola a la vez: abrirla cierra la de la conversación.
   const [guru, setGuru] = useState<IdAsesor | null>(null);
   const delGuru = asesorPorId(guru);
-  const abrirGuru = (id: IdAsesor) => { setAbierta(false); setGuru(id); };
-  const abrir = (e: ElegidoChat) => { if (k.elegir(e)) { setGuru(null); setAbierta(true); } };
+  // El grupo del negocio (3/11/2026): su hoja, con su motor (HojaDelGrupo.tsx). Lo mismo: una hoja por vez (también la del coach).
+  const grupos = useGrupos();
+  const [grupo, setGrupo] = useState<number | null>(grupoInicial);
+  const [conCoach, setConCoach] = useState(false);
+  const abrirGuru = (id: IdAsesor) => { setAbierta(false); setGrupo(null); setConCoach(false); setGuru(id); };
+  const abrirGrupo = (ws: number) => { setAbierta(false); setGuru(null); setConCoach(false); setGrupo(ws); };
+  const abrirCoach = () => { setAbierta(false); setGuru(null); setGrupo(null); setConCoach(true); };
+  const abrir = (e: ElegidoChat) => { if (k.elegir(e)) { setGuru(null); setGrupo(null); setConCoach(false); setAbierta(true); } };
   const cerrar = () => { setAbierta(false); k.setInfoWA(null); k.setConectando(false); k.setMenuWA(null); };
   /** Lo que se abre ADENTRO de la hoja, con su «‹» (una sola hoja): la Info de un mensaje o «Tus cuentas de IA». */
   const panel = k.conectando ? 'conectar' : k.infoWA ? 'info' : null;
   const volverDelPanel = () => { if (k.conectando) { k.setConectando(false); k.mirarSuIA(); } k.setInfoWA(null); };
 
-  const [cerebro, ...resto] = k.lista;
+  const [cerebro, ...todasLasFilas] = k.lista;
+  // El coach es del admin del negocio (sus herramientas lo son): su fila, como en la computadora. Con ella, las conversaciones de oferta
+  // cuelgan de él; sin ella (no la ve), siguen en la lista, para que nada se pierda.
+  const verCoach = hrefMapa != null || puedeElegir;
+  const filasOffer = verCoach ? todasLasFilas.filter((f) => f.origen === 'offer') : [];
+  const resto = verCoach ? todasLasFilas.filter((f) => f.origen !== 'offer') : todasLasFilas;
   const corte = todas ? resto : resto.filter((f, i) => i < VISIBLES || esFilaDe(f, elegido));
   /** Una fila: la criatura (la SUYA), el nombre, la edad a la derecha y, si trabaja, «Trabajando…» (las de ChatsMovil.tsx). En su
    *  grupo (`sub`, debajo de su jefe), corrida a la derecha y con «↳» y lo de después de «›», como un sub-chat del super admin. */
@@ -93,7 +117,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
     return (
       <FilaM key={f.clave} chevron={false}
         leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} size={sub ? 32 : 40} /></span>}
-        titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(f.titulo).sub}` : f.titulo}</span>}
+        titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(f.titulo).sub ?? f.titulo}` : f.titulo}</span>}
         segunda={vivo ? <span className="m-operaciones-vivo">{TEXTO_SEGUNDO_RENGLON.vivo}</span> : undefined}
         riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edadCorta(f.actividad, k.ahora)}</span></span>}
         onClick={() => (f.guru ? abrirGuru(f.guru) : abrir(f.elegido))} />
@@ -113,7 +137,17 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
       <SeccionM titulo="Chats">
         <ListaM etiqueta="Chats">
           <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => abrir({ virtual: 'nuevo' })} navegacion />
+          {/* Fijado, el primero de los chats (Martín: «que esté posicionado arriba»). */}
+          <FilasDelGrupoM g={grupos} abierto={grupo} onAbrir={abrirGrupo} />
           {cerebro && fila(cerebro)}
+          {verCoach && (
+            <FilaM chevron={false}
+              leading={<Muneco titulo={delCoach?.nombre ?? 'MaKo'} aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" size={40} />}
+              titulo={<span className="m-operaciones-texto1">{ORIGEN_FUNNEL_COACH}</span>}
+              segunda={delCoach ? inspiradoEn(delCoach) : hayOferta ? 'Tu oferta y cómo conseguir clientes' : 'Empieza por tu oferta'}
+              onClick={abrirCoach} />
+          )}
+          {filasOffer.map((f) => fila(f, true))}
           {/* Agrupados por su origen (22/10/2026), con el agrupado del super admin: cada grupo con su fila JEFE (la suya, o la de
               `jefeDelGrupo` si no tiene chat propio: «Offer», «Dashboard») y los suyos debajo, sin títulos de sección. */}
           {porJefe(corte).flatMap((g) => {
@@ -170,6 +204,11 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
         )}
       </SheetM>
       {delGuru && <HojaDelGuru key={delGuru.id} referente={delGuru} onCerrar={() => setGuru(null)} />}
+      {conCoach && <HojaDelCoach referente={referente} hayOferta={hayOferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onCerrar={() => setConCoach(false)} />}
+      {grupo != null && (
+        <HojaDelGrupo key={grupo} ws={grupo} grupo={grupos.grupos?.find((f) => f.ws === grupo) ?? null} onCerrar={() => { setGrupo(null); grupos.recargar(); }} onLeido={grupos.anotarLeido}
+          onCambio={grupos.recargar} onSalio={() => { setGrupo(null); grupos.recargar(); }} />
+      )}
       <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
     </>
   );

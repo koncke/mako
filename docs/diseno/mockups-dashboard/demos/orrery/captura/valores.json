@@ -1,0 +1,1946 @@
+{
+  "medido": "2026-11-04T11:44:24.007Z",
+  "url": "https://demo.codeandchill.store/orrery/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/orrery/#overview",
+      "ancho": 390,
+      "alto": 2601,
+      "fondo": "rgb(244, 244, 246)",
+      "letra": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--a-950": "#1f1a5c",
+        "--a-800": "#2f2789",
+        "--a-700": "#4a3dbf",
+        "--a-600": "#5a4bd1",
+        "--a-400": "#9488ec",
+        "--a-100": "#ecebfc",
+        "--page": "#f4f4f6",
+        "--panel": "#ececf0",
+        "--card": "#fdfdfd",
+        "--side": "#f0f0f3",
+        "--hair": "#e4e4ea",
+        "--hair-strong": "#d5d5dd",
+        "--ink": "#14141a",
+        "--muted": "#5e5e6b",
+        "--faint": "#6b6b78",
+        "--accent": "#4a3dbf",
+        "--accent-soft": "#ecebfc",
+        "--accent-ink": "#2f2789",
+        "--on-accent": "#f6f5ff",
+        "--good": "#1d7745",
+        "--good-bg": "#e3f3e8",
+        "--amber": "#96580a",
+        "--amber-bg": "#fcf0dc",
+        "--rose": "#bb3434",
+        "--rose-bg": "#fdeceb",
+        "--cat-1": "#2a78d6",
+        "--cat-2": "#eb6834",
+        "--cat-3": "#1baf7a",
+        "--cat-4": "#eda100",
+        "--fs-3xs": "11px",
+        "--fs-2xs": "12px",
+        "--fs-xs": "13px",
+        "--fs-sm": "14px",
+        "--fs-base": "15px",
+        "--fs-md": "16px",
+        "--fs-lg": "18px",
+        "--fs-xl": "20px",
+        "--fs-2xl": "24px",
+        "--fs-3xl": "27px",
+        "--fs-4xl": "31px",
+        "--fs-5xl": "34px",
+        "--fs-6xl": "42px",
+        "--font": "\"Geist\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+        "--side-w": "252px",
+        "--r-lg": "16px",
+        "--r-md": "12px",
+        "--r-sm": "9px",
+        "--gap": "16px",
+        "--shadow": "0 1px 2px #14141a0a",
+        "--shadow-pop": "0 0 0 1px #e4e4ea, 0 18px 48px -16px #14141a47",
+        "--scrim": "#0e0e1666",
+        "--topbar-bg": "#f4f4f6db",
+        "--ease": "cubic-bezier(.22, 1, .36, 1)",
+        "--focus": "0 0 0 2px #fdfdfd, 0 0 0 4px #5a4bd1"
+      },
+      "tipografia": [
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "27px",
+          "peso": "600",
+          "interlineado": "31.05px",
+          "espaciado": "-0.675px",
+          "color": "rgb(20, 20, 26)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 14,
+          "ejemplo": "8% of $18,000"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 8,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 8,
+          "ejemplo": "Atlas 3"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 7,
+          "ejemplo": "Open Playground"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 6,
+          "ejemplo": "215k requests in the last 24 hours"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 6,
+          "ejemplo": "08:46:19"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(29, 119, 69)",
+          "veces": 6,
+          "ejemplo": "200"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 6,
+          "ejemplo": "965ms"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "600",
+          "interlineado": "24px",
+          "espaciado": "-0.16px",
+          "color": "rgb(20, 20, 26)",
+          "veces": 5,
+          "ejemplo": "Requests per hour"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 4,
+          "ejemplo": "Requests today"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "24px",
+          "peso": "600",
+          "interlineado": "27.6px",
+          "espaciado": "-0.72px",
+          "color": "rgb(20, 20, 26)",
+          "veces": 4,
+          "ejemplo": "108.1k"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 4,
+          "ejemplo": "1.79s"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 4,
+          "ejemplo": "$981"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(74, 61, 191)",
+          "veces": 3,
+          "ejemplo": "All models"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(29, 119, 69)",
+          "veces": 3,
+          "ejemplo": "Operational"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "22.1px",
+          "espaciado": "normal",
+          "color": "rgb(29, 119, 69)",
+          "veces": 3,
+          "ejemplo": "\"Authorization: Bearer $ORRERY_API_KEY\""
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(150, 88, 10)",
+          "veces": 2,
+          "ejemplo": "1 model degraded"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(29, 119, 69)",
+          "veces": 2,
+          "ejemplo": "+0.6%"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 2,
+          "ejemplo": "cURL"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 2,
+          "ejemplo": "Python"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(246, 245, 255)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "0.26px",
+          "color": "rgb(35, 35, 43)",
+          "veces": 1,
+          "ejemplo": "NK"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 1,
+          "ejemplo": "Production · us-east"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 1,
+          "ejemplo": "Here’s how your API is running today."
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(246, 245, 255)",
+          "veces": 1,
+          "ejemplo": "Create key"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(187, 52, 52)",
+          "veces": 1,
+          "ejemplo": "3.6%"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(29, 119, 69)",
+          "veces": 1,
+          "ejemplo": "Live"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "22.1px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 1,
+          "ejemplo": "# Set ORRERY_API_KEY in your environment"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "22.1px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 1,
+          "ejemplo": "# Set ORRERY_API_KEY in your environment"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "article.card.kpi",
+          "x": 16,
+          "y": 243,
+          "w": 174,
+          "h": 157,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "6px",
+          "grilla": "142px",
+          "texto": "Requests today 108.1k +0.6%vs same time last week"
+        },
+        {
+          "etiqueta": "article.card.kpi",
+          "x": 200,
+          "y": 243,
+          "w": 174,
+          "h": 157,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "6px",
+          "grilla": "142px",
+          "texto": "Tokens today 276.99M +8.3%vs same time last week"
+        },
+        {
+          "etiqueta": "article.card.kpi",
+          "x": 16,
+          "y": 410,
+          "w": 174,
+          "h": 160,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "6px",
+          "grilla": "142px",
+          "texto": "Spend this month $1,463 8% of $18,000Forecast $12,893"
+        },
+        {
+          "etiqueta": "article.card.kpi",
+          "x": 200,
+          "y": 410,
+          "w": 174,
+          "h": 160,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "6px",
+          "grilla": "142px",
+          "texto": "Median latency 697ms 3.6%error rate, last 200 requests"
+        },
+        {
+          "etiqueta": "article.card.card--chart.ov-traffic",
+          "x": 16,
+          "y": 585,
+          "w": 358,
+          "h": 343,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Requests per hour 215k requests in the last 24 hours Live 05"
+        },
+        {
+          "etiqueta": "article.card.ov-status",
+          "x": 16,
+          "y": 944,
+          "w": 358,
+          "h": 463,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Model statusus-east · last 90 days All models Atlas 3Operati"
+        },
+        {
+          "etiqueta": "article.card.ov-spend",
+          "x": 16,
+          "y": 1423,
+          "w": 358,
+          "h": 385,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Spend by modelThis month so far Usage Atlas 3$981 67% of spe"
+        },
+        {
+          "etiqueta": "article.card.ov-recent",
+          "x": 16,
+          "y": 1824,
+          "w": 358,
+          "h": 333,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Recent requestsSampled from the live feed View logs 08:46:19"
+        },
+        {
+          "etiqueta": "article.card.ov-quick",
+          "x": 16,
+          "y": 2173,
+          "w": 358,
+          "h": 380,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "QuickstartYour first request in one call cURL Python Node # "
+        },
+        {
+          "etiqueta": "div.code",
+          "x": 32,
+          "y": 2296,
+          "w": 326,
+          "h": 241,
+          "fondo": "rgb(236, 236, 240)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "# Set ORRERY_API_KEY in your environment first curl https://"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/orrery/#overview",
+      "ancho": 1440,
+      "alto": 1364,
+      "fondo": "rgb(244, 244, 246)",
+      "letra": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--lightningcss-light": "",
+        "--lightningcss-dark": "",
+        "--a-950": "#1f1a5c",
+        "--a-800": "#2f2789",
+        "--a-700": "#4a3dbf",
+        "--a-600": "#5a4bd1",
+        "--a-400": "#9488ec",
+        "--a-100": "#ecebfc",
+        "--page": "#f4f4f6",
+        "--panel": "#ececf0",
+        "--card": "#fdfdfd",
+        "--side": "#f0f0f3",
+        "--hair": "#e4e4ea",
+        "--hair-strong": "#d5d5dd",
+        "--ink": "#14141a",
+        "--muted": "#5e5e6b",
+        "--faint": "#6b6b78",
+        "--accent": "#4a3dbf",
+        "--accent-soft": "#ecebfc",
+        "--accent-ink": "#2f2789",
+        "--on-accent": "#f6f5ff",
+        "--good": "#1d7745",
+        "--good-bg": "#e3f3e8",
+        "--amber": "#96580a",
+        "--amber-bg": "#fcf0dc",
+        "--rose": "#bb3434",
+        "--rose-bg": "#fdeceb",
+        "--cat-1": "#2a78d6",
+        "--cat-2": "#eb6834",
+        "--cat-3": "#1baf7a",
+        "--cat-4": "#eda100",
+        "--fs-3xs": "11px",
+        "--fs-2xs": "12px",
+        "--fs-xs": "13px",
+        "--fs-sm": "14px",
+        "--fs-base": "15px",
+        "--fs-md": "16px",
+        "--fs-lg": "18px",
+        "--fs-xl": "20px",
+        "--fs-2xl": "24px",
+        "--fs-3xl": "27px",
+        "--fs-4xl": "31px",
+        "--fs-5xl": "34px",
+        "--fs-6xl": "42px",
+        "--font": "\"Geist\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+        "--side-w": "252px",
+        "--r-lg": "16px",
+        "--r-md": "12px",
+        "--r-sm": "9px",
+        "--gap": "16px",
+        "--shadow": "0 1px 2px #14141a0a",
+        "--shadow-pop": "0 0 0 1px #e4e4ea, 0 18px 48px -16px #14141a47",
+        "--scrim": "#0e0e1666",
+        "--topbar-bg": "#f4f4f6db",
+        "--ease": "cubic-bezier(.22, 1, .36, 1)",
+        "--focus": "0 0 0 2px #fdfdfd, 0 0 0 4px #5a4bd1"
+      },
+      "tipografia": [
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 18,
+          "ejemplo": "8% of $18,000 budget"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "31px",
+          "peso": "600",
+          "interlineado": "35.65px",
+          "espaciado": "-0.775px",
+          "color": "rgb(20, 20, 26)",
+          "veces": 17,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 13,
+          "ejemplo": "0"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 9,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 8,
+          "ejemplo": "Playground"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 8,
+          "ejemplo": "Northwind Labs"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 7,
+          "ejemplo": "Open Playground"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 6,
+          "ejemplo": "08:44:28"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(29, 119, 69)",
+          "veces": 6,
+          "ejemplo": "200"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 6,
+          "ejemplo": "965ms"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 5,
+          "ejemplo": "$1,463"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "600",
+          "interlineado": "24px",
+          "espaciado": "-0.16px",
+          "color": "rgb(20, 20, 26)",
+          "veces": 5,
+          "ejemplo": "Requests per hour"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 4,
+          "ejemplo": "Requests today"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "31px",
+          "peso": "600",
+          "interlineado": "35.65px",
+          "espaciado": "-0.93px",
+          "color": "rgb(20, 20, 26)",
+          "veces": 4,
+          "ejemplo": "107.7k"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 4,
+          "ejemplo": "1.79s"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "0.48px",
+          "color": "rgb(107, 107, 120)",
+          "veces": 3,
+          "ejemplo": "Build"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(74, 61, 191)",
+          "veces": 3,
+          "ejemplo": "All models"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(29, 119, 69)",
+          "veces": 3,
+          "ejemplo": "Operational"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "22.1px",
+          "espaciado": "normal",
+          "color": "rgb(29, 119, 69)",
+          "veces": 3,
+          "ejemplo": "\"Authorization: Bearer $ORRERY_API_KEY\""
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 2,
+          "ejemplo": "CtrlK"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(150, 88, 10)",
+          "veces": 2,
+          "ejemplo": "1 model degraded"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(29, 119, 69)",
+          "veces": 2,
+          "ejemplo": "+0.6%"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 2,
+          "ejemplo": "cURL"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 2,
+          "ejemplo": "Python"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(246, 245, 255)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "700",
+          "interlineado": "27px",
+          "espaciado": "-0.54px",
+          "color": "rgb(20, 20, 26)",
+          "veces": 1,
+          "ejemplo": "Orrery"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(246, 245, 255)",
+          "veces": 1,
+          "ejemplo": "N"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "17.5px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 1,
+          "ejemplo": "Northwind Labs"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "16.25px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 1,
+          "ejemplo": "Scale plan · us-east"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "20px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 1,
+          "ejemplo": "4"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 1,
+          "ejemplo": "This month"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 1,
+          "ejemplo": "Docs"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 1,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "0.26px",
+          "color": "rgb(35, 35, 43)",
+          "veces": 1,
+          "ejemplo": "NK"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 1,
+          "ejemplo": "Production · us-east"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "400",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(94, 94, 107)",
+          "veces": 1,
+          "ejemplo": "Here’s how your API is running today."
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(246, 245, 255)",
+          "veces": 1,
+          "ejemplo": "Create key"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(187, 52, 52)",
+          "veces": 1,
+          "ejemplo": "3.6%"
+        },
+        {
+          "familia": "Geist, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(29, 119, 69)",
+          "veces": 1,
+          "ejemplo": "Live"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "22.1px",
+          "espaciado": "normal",
+          "color": "rgb(20, 20, 26)",
+          "veces": 1,
+          "ejemplo": "# Set ORRERY_API_KEY in your environment"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, monospace",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "22.1px",
+          "espaciado": "normal",
+          "color": "rgb(107, 107, 120)",
+          "veces": 1,
+          "ejemplo": "# Set ORRERY_API_KEY in your environment"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": 0,
+          "y": 0,
+          "w": 252,
+          "h": 900,
+          "fondo": "rgb(240, 240, 243)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "0px",
+          "sombra": "rgb(228, 228, 234) 1px 0px 0px 0px",
+          "padding": "14px 12px",
+          "gap": "14px",
+          "grilla": null,
+          "texto": "Orrery N Northwind LabsScale plan · us-east Build Overview P"
+        },
+        {
+          "etiqueta": "a.meter-card",
+          "x": 12,
+          "y": 756,
+          "w": 228,
+          "h": 88,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "12px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset",
+          "padding": "12px",
+          "gap": "8px",
+          "grilla": "204px",
+          "texto": "This month$1,463 8% of $18,000 budget"
+        },
+        {
+          "etiqueta": "article.card.kpi",
+          "x": 284,
+          "y": 200,
+          "w": 269,
+          "h": 208,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "20px",
+          "gap": "6px",
+          "grilla": "229px",
+          "texto": "Requests today 107.7k +0.6%vs same time last week"
+        },
+        {
+          "etiqueta": "article.card.kpi",
+          "x": 569,
+          "y": 200,
+          "w": 269,
+          "h": 208,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "20px",
+          "gap": "6px",
+          "grilla": "229px",
+          "texto": "Tokens today 276.02M +8.3%vs same time last week"
+        },
+        {
+          "etiqueta": "article.card.kpi",
+          "x": 854,
+          "y": 200,
+          "w": 269,
+          "h": 208,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "20px",
+          "gap": "6px",
+          "grilla": "229px",
+          "texto": "Spend this month $1,463 8% of $18,000Forecast $12,893"
+        },
+        {
+          "etiqueta": "article.card.kpi",
+          "x": 1139,
+          "y": 200,
+          "w": 269,
+          "h": 208,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "20px",
+          "gap": "6px",
+          "grilla": "229px",
+          "texto": "Median latency 697ms 3.6%error rate, last 200 requests"
+        },
+        {
+          "etiqueta": "article.card.card--chart.ov-traffic",
+          "x": 284,
+          "y": 424,
+          "w": 744,
+          "h": 475,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Requests per hour 214k requests in the last 24 hours Live 05"
+        },
+        {
+          "etiqueta": "article.card.ov-status",
+          "x": 1044,
+          "y": 424,
+          "w": 364,
+          "h": 475,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Model statusus-east · last 90 days All models Atlas 3Operati"
+        },
+        {
+          "etiqueta": "article.card.ov-spend",
+          "x": 284,
+          "y": 915,
+          "w": 364,
+          "h": 393,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Spend by modelThis month so far Usage Atlas 3$981 67% of spe"
+        },
+        {
+          "etiqueta": "article.card.ov-recent",
+          "x": 664,
+          "y": 915,
+          "w": 364,
+          "h": 393,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Recent requestsSampled from the live feed View logs 08:44:28"
+        },
+        {
+          "etiqueta": "article.card.ov-quick",
+          "x": 1044,
+          "y": 915,
+          "w": 364,
+          "h": 393,
+          "fondo": "rgb(253, 253, 253)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "16px",
+          "sombra": "rgb(228, 228, 234) 0px 0px 0px 1px inset, rgba(20, 20, 26, 0.04) 0px 1px 2px 0px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "QuickstartYour first request in one call cURL Python Node # "
+        },
+        {
+          "etiqueta": "div.code",
+          "x": 1064,
+          "y": 1019,
+          "w": 324,
+          "h": 241,
+          "fondo": "rgb(236, 236, 240)",
+          "borde": "0px none rgb(20, 20, 26)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "# Set ORRERY_API_KEY in your environment first curl https://"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "Orrery",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 18,
+            "y": 20,
+            "w": 90,
+            "h": 28
+          },
+          "estilo": {
+            "color": "rgb(20, 20, 26)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(20, 20, 26)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(20, 20, 26) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "button.icon-btn.side__rail-btn",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 200,
+            "y": 16,
+            "w": 36,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(94, 94, 107)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(94, 94, 107)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(94, 94, 107) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(94, 94, 107)",
+              "rgb(20, 20, 26)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(236, 236, 240)"
+            ],
+            "borderColor": [
+              "rgb(94, 94, 107)",
+              "rgb(20, 20, 26)"
+            ],
+            "outline": [
+              "rgb(94, 94, 107) none 3px",
+              "rgb(20, 20, 26) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(94, 94, 107)",
+              "rgb(20, 20, 26)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(236, 236, 240)"
+            ],
+            "borderColor": [
+              "rgb(94, 94, 107)",
+              "rgb(20, 20, 26)"
+            ],
+            "outline": [
+              "rgb(94, 94, 107) none 3px",
+              "rgb(20, 20, 26) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 2,
+          "etiqueta": "button.org",
+          "texto": "N Northwind LabsScale plan · us-east",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 10,
+            "y": 104,
+            "w": 52,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(20, 20, 26)",
+            "backgroundColor": "rgb(253, 253, 253)",
+            "borderColor": "rgb(20, 20, 26)",
+            "boxShadow": "rgb(228, 228, 234) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(20, 20, 26) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "boxShadow": [
+              "rgb(228, 228, 234) 0px 0px 0px 1px inset",
+              "rgb(213, 213, 221) 0px 0px 0px 1px inset"
+            ]
+          },
+          "alApretar": {
+            "boxShadow": [
+              "rgb(228, 228, 234) 0px 0px 0px 1px inset",
+              "rgb(213, 213, 221) 0px 0px 0px 1px inset"
+            ]
+          }
+        },
+        {
+          "n": 3,
+          "etiqueta": "a.nav__link",
+          "texto": "Overview",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 10,
+            "y": 177,
+            "w": 52,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(20, 20, 26)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(20, 20, 26)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(20, 20, 26) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 4,
+          "etiqueta": "a.nav__link.nav__link--quiet",
+          "texto": "Docs",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 10,
+            "y": 850,
+            "w": 52,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(107, 107, 120)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(107, 107, 120)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(107, 107, 120) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(107, 107, 120)",
+              "rgb(20, 20, 26)"
+            ],
+            "borderColor": [
+              "rgb(107, 107, 120)",
+              "rgb(20, 20, 26)"
+            ],
+            "outline": [
+              "rgb(107, 107, 120) none 3px",
+              "rgb(20, 20, 26) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(107, 107, 120)",
+              "rgb(20, 20, 26)"
+            ],
+            "borderColor": [
+              "rgb(107, 107, 120)",
+              "rgb(20, 20, 26)"
+            ],
+            "outline": [
+              "rgb(107, 107, 120) none 3px",
+              "rgb(20, 20, 26) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.search",
+          "texto": "Search or jump to… CtrlK",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 757,
+            "y": 12,
+            "w": 360,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(107, 107, 120)",
+            "backgroundColor": "rgb(253, 253, 253)",
+            "borderColor": "rgb(107, 107, 120)",
+            "boxShadow": "rgb(213, 213, 221) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(107, 107, 120) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(107, 107, 120)",
+              "rgb(94, 94, 107)"
+            ],
+            "borderColor": [
+              "rgb(107, 107, 120)",
+              "rgb(94, 94, 107)"
+            ],
+            "outline": [
+              "rgb(107, 107, 120) none 3px",
+              "rgb(94, 94, 107) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(107, 107, 120)",
+              "rgb(94, 94, 107)"
+            ],
+            "borderColor": [
+              "rgb(107, 107, 120)",
+              "rgb(94, 94, 107)"
+            ],
+            "outline": [
+              "rgb(107, 107, 120) none 3px",
+              "rgb(94, 94, 107) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "button.status-pill",
+          "texto": "1 model degraded",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1133,
+            "y": 14,
+            "w": 149,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(150, 88, 10)",
+            "backgroundColor": "rgb(252, 240, 220)",
+            "borderColor": "rgb(150, 88, 10)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(150, 88, 10) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 7,
+          "etiqueta": "button.icon-btn",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1292,
+            "y": 12,
+            "w": 36,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(94, 94, 107)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(94, 94, 107)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(94, 94, 107) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgb(94, 94, 107)",
+              "rgb(20, 20, 26)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(236, 236, 240)"
+            ],
+            "borderColor": [
+              "rgb(94, 94, 107)",
+              "rgb(20, 20, 26)"
+            ],
+            "outline": [
+              "rgb(94, 94, 107) none 3px",
+              "rgb(20, 20, 26) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgb(94, 94, 107)",
+              "rgb(20, 20, 26)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(236, 236, 240)"
+            ],
+            "borderColor": [
+              "rgb(94, 94, 107)",
+              "rgb(20, 20, 26)"
+            ],
+            "outline": [
+              "rgb(94, 94, 107) none 3px",
+              "rgb(20, 20, 26) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "button.profile",
+          "texto": "NK",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1376,
+            "y": 12,
+            "w": 36,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(236, 236, 241)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(236, 236, 241)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 236, 241) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 9,
+          "etiqueta": "a.btn.btn--ghost.magnetic",
+          "texto": "Open Playground",
+          "transicion": {
+            "propiedad": "background-color, color, box-shadow",
+            "duracion": "0.15s, 0.15s, 0.15s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1113,
+            "y": 140,
+            "w": 165,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(236, 236, 241)",
+            "backgroundColor": "rgb(23, 23, 28)",
+            "borderColor": "rgb(236, 236, 241)",
+            "boxShadow": "rgb(52, 52, 62) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 236, 241) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(23, 23, 28)",
+              "rgb(32, 32, 39)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.002, -0.0002)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(23, 23, 28)",
+              "rgb(32, 32, 39)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0004, 0)"
+            ]
+          }
+        },
+        {
+          "n": 10,
+          "etiqueta": "button.btn.btn--primary.magnetic",
+          "texto": "Create key",
+          "transicion": {
+            "propiedad": "background-color, color, box-shadow",
+            "duracion": "0.15s, 0.15s, 0.15s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1286,
+            "y": 140,
+            "w": 122,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(15, 15, 19)",
+            "backgroundColor": "rgb(148, 136, 236)",
+            "borderColor": "rgb(15, 15, 19)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(15, 15, 19) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(148, 136, 236)",
+              "color(srgb 0.630745 0.589333 0.934431)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0004, -0.0002)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(148, 136, 236)",
+              "color(srgb 0.630745 0.589333 0.934431)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0001, -0.0001)"
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "etiqueta": "a.link-btn",
+          "texto": "All models",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1319,
+            "y": 416,
+            "w": 69,
+            "h": 21
+          },
+          "estilo": {
+            "color": "rgb(148, 136, 236)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(148, 136, 236)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(148, 136, 236) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "etiqueta": "button.rq",
+          "texto": "08:45:46200OKAtlas 3 Mini965ms",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 556,
+            "y": 528,
+            "w": 400,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(236, 236, 241)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(236, 236, 241)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 236, 241) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(32, 32, 39)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgb(32, 32, 39)"
+            ]
+          }
+        },
+        {
+          "n": 13,
+          "etiqueta": "button.seg__btn",
+          "texto": "cURL",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1213,
+            "y": 474,
+            "w": 53,
+            "h": 26
+          },
+          "estilo": {
+            "color": "rgb(236, 236, 241)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(236, 236, 241)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 236, 241) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 14,
+          "etiqueta": "button.btn.btn--ghost.btn--sm",
+          "texto": "Copy",
+          "transicion": {
+            "propiedad": "background-color, color, box-shadow",
+            "duracion": "0.15s, 0.15s, 0.15s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1307,
+            "y": 544,
+            "w": 71,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(236, 236, 241)",
+            "backgroundColor": "rgb(23, 23, 28)",
+            "borderColor": "rgb(236, 236, 241)",
+            "boxShadow": "rgb(52, 52, 62) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 236, 241) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(23, 23, 28)",
+              "rgb(32, 32, 39)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(23, 23, 28)",
+              "rgb(32, 32, 39)"
+            ]
+          }
+        },
+        {
+          "n": 15,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        },
+        {
+          "n": 16,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"16\"]')\u001b[22m\n"
+        }
+      ]
+    }
+  }
+}

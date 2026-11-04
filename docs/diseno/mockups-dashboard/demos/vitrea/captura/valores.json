@@ -1,0 +1,2711 @@
+{
+  "medido": "2026-11-04T11:24:55.315Z",
+  "url": "https://demo.codeandchill.store/vitrea/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/vitrea/#/overview",
+      "ancho": 390,
+      "alto": 3605,
+      "fondo": "rgba(0, 0, 0, 0)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#111113",
+        "--glass": "#1e1e226b",
+        "--glass-chrome": "#2020245c",
+        "--glass-thick": "#1c1c20db",
+        "--glass-solid": "#1d1d21",
+        "--blur": "14px",
+        "--blur-thick": "30px",
+        "--sat": "175%",
+        "--bright": ".95",
+        "--rim-hi": "#ffffffd9",
+        "--rim-mid": "#ffffff73",
+        "--rim-lo": "#ffffff1f",
+        "--sheen-c": "#ffffff1a",
+        "--glint": "#ffffff24",
+        "--ripple": "#ffffff80",
+        "--depth": "inset 0 1px 1px #ffffff4d, inset 0 -1px 1px #ffffff1a, inset 3px 4px 12px -6px #ffffff38, inset -4px -6px 14px -8px #ffffff1f, inset 0 -16px 28px -18px #00000073",
+        "--shadow": "0 1px 2px #0000004d, 0 24px 48px -22px #000000bf",
+        "--surface": "#1e1e226b",
+        "--surface-2": "#ffffff14",
+        "--solid": "#1d1d21",
+        "--well": "#c8c8d71a",
+        "--line": "#ffffff1a",
+        "--line-2": "#ffffff2e",
+        "--lens": "linear-gradient(180deg, #ffffff52, #ffffff1f)",
+        "--lens-shadow": "inset 0 1px 1px #ffffff8c, inset 0 -2px 5px #ffffff1f, inset 0 0 0 .5px #ffffff4d, 0 8px 18px -8px #0009",
+        "--glass-hi": "#1c1c20db",
+        "--glass-under": "#2020245c",
+        "--glass-shadow": "inset 0 1px 1px #ffffff4d, inset 0 -1px 1px #ffffff1a, inset 3px 4px 12px -6px #ffffff38, inset -4px -6px 14px -8px #ffffff1f, inset 0 -16px 28px -18px #00000073, 0 1px 2px #0000004d, 0 24px 48px -22px #000000bf",
+        "--card-shadow": "inset 0 1px 1px #ffffff4d, inset 0 -1px 1px #ffffff1a, inset 3px 4px 12px -6px #ffffff38, inset -4px -6px 14px -8px #ffffff1f, inset 0 -16px 28px -18px #00000073, 0 1px 2px #0000004d, 0 24px 48px -22px #000000bf",
+        "--text": "#f6f8fc",
+        "--muted": "#c9d1de",
+        "--faint": "#7d8696",
+        "--accent": "#7aaef0",
+        "--on-accent": "#071a33",
+        "--accent-text": "#a9cdfc",
+        "--accent-line": "#8dbcf6",
+        "--ink-mark": "#9aa1ad",
+        "--info-fill": "#7aaef0",
+        "--info": "#a9cdfc",
+        "--good": "#8fdca8",
+        "--good-fill": "#5fc483",
+        "--warn": "#f3cd7e",
+        "--warn-fill": "#e4b759",
+        "--bad": "#f6a59c",
+        "--bad-fill": "#e98278",
+        "--teal-fill": "#68c0b8",
+        "--blue": "linear-gradient(160deg, #354a6a, #283953)",
+        "--blue-flat": "#2e425f",
+        "--on-blue": "#eef4fd",
+        "--teal": "linear-gradient(160deg, #31574f, #24433d)",
+        "--teal-flat": "#2b4d46",
+        "--on-teal": "#ecf8f5",
+        "--orange": "linear-gradient(160deg, #66503a, #4e3d2b)",
+        "--orange-flat": "#5a4632",
+        "--on-orange": "#fdf3e6",
+        "--coral": "linear-gradient(160deg, #6a423d, #52322e)",
+        "--coral-flat": "#5e3a35",
+        "--on-coral": "#fdeeeb",
+        "--green": "linear-gradient(160deg, #375741, #29432f)",
+        "--green-flat": "#304d38",
+        "--on-green": "#eef9f1",
+        "--ink": "linear-gradient(160deg, #3b3e46, #2c2e34)",
+        "--ink-flat": "#33363c",
+        "--on-ink": "#f1f2f5",
+        "--ico-blue": "linear-gradient(160deg, #d2e4ff, #9fc6f8)",
+        "--ico-teal": "linear-gradient(160deg, #c8efe8, #8fd8cc)",
+        "--ico-orange": "linear-gradient(160deg, #ffe3bf, #ffc286)",
+        "--ico-coral": "linear-gradient(160deg, #ffd5cd, #ffa99b)",
+        "--ico-green": "linear-gradient(160deg, #d0efd9, #98daad)",
+        "--ico-ink": "linear-gradient(160deg, #e6e8ec, #bcc0c8)",
+        "--r-card": "26px",
+        "--r-tile": "22px",
+        "--r-ctl": "999px",
+        "--gap": "16px",
+        "--dock-x": "14px",
+        "--dock-w": "60px",
+        "--gutter": "clamp(16px, 1.6vw, 28px)",
+        "--app-max": "1840px",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 17,
+          "ejemplo": "73,028 ratings · 6 apps"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "28px",
+          "peso": "600",
+          "interlineado": "29.12px",
+          "espaciado": "-0.7px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 14,
+          "ejemplo": "S"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 10,
+          "ejemplo": "Paperleaf 5.0.2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 9,
+          "ejemplo": "Proceeds"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 8,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(169, 205, 252)",
+          "veces": 8,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 8,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 7,
+          "ejemplo": "Proceeds"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 6,
+          "ejemplo": "Downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "700",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 6,
+          "ejemplo": "September"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 5,
+          "ejemplo": "5"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 5,
+          "ejemplo": "73%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(21, 24, 29)",
+          "veces": 5,
+          "ejemplo": "LB"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 5,
+          "ejemplo": "sent a new Driftwood 2.9.0 build to Test"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 4,
+          "ejemplo": "in the last 12 months · best month Septe"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 4,
+          "ejemplo": "Proceeds"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 4,
+          "ejemplo": "2Building"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "700",
+          "interlineado": "24.65px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 4,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "900",
+          "interlineado": "26.1px",
+          "espaciado": "-0.18px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 3,
+          "ejemplo": "$60,716"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "16.25px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 3,
+          "ejemplo": "Proceeds in October so far"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(7, 26, 51)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "19px",
+          "peso": "700",
+          "interlineado": "27.55px",
+          "espaciado": "-0.38px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 1,
+          "ejemplo": "vitrea"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "0.13px",
+          "color": "rgb(21, 24, 29)",
+          "veces": 1,
+          "ejemplo": "NH"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(143, 220, 168)",
+          "veces": 1,
+          "ejemplo": "+1% vs Sept"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(246, 165, 156)",
+          "veces": 1,
+          "ejemplo": "−1%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "26px",
+          "espaciado": "-0.65px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 1,
+          "ejemplo": "$888,310"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "18.7px",
+          "espaciado": "-0.255px",
+          "color": "rgb(238, 244, 253)",
+          "veces": 1,
+          "ejemplo": "Tally"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(238, 244, 253)",
+          "veces": 1,
+          "ejemplo": "Health & Fitness · v3.1.2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "700",
+          "interlineado": "19.8px",
+          "espaciado": "-0.36px",
+          "color": "rgb(238, 244, 253)",
+          "veces": 1,
+          "ejemplo": "$20,243"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(238, 244, 253)",
+          "veces": 1,
+          "ejemplo": "▼ 8% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "18.7px",
+          "espaciado": "-0.255px",
+          "color": "rgb(236, 248, 245)",
+          "veces": 1,
+          "ejemplo": "Driftwood"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(236, 248, 245)",
+          "veces": 1,
+          "ejemplo": "Health & Fitness · v2.8.0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "700",
+          "interlineado": "19.8px",
+          "espaciado": "-0.36px",
+          "color": "rgb(236, 248, 245)",
+          "veces": 1,
+          "ejemplo": "$15,897"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(236, 248, 245)",
+          "veces": 1,
+          "ejemplo": "▼ 3% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "18.7px",
+          "espaciado": "-0.255px",
+          "color": "rgb(253, 243, 230)",
+          "veces": 1,
+          "ejemplo": "Paperleaf"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(253, 243, 230)",
+          "veces": 1,
+          "ejemplo": "Productivity · v5.0.1"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "700",
+          "interlineado": "19.8px",
+          "espaciado": "-0.36px",
+          "color": "rgb(253, 243, 230)",
+          "veces": 1,
+          "ejemplo": "$10,004"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(253, 243, 230)",
+          "veces": 1,
+          "ejemplo": "▲ 8% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "18.7px",
+          "espaciado": "-0.255px",
+          "color": "rgb(253, 238, 235)",
+          "veces": 1,
+          "ejemplo": "Cinder"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(253, 238, 235)",
+          "veces": 1,
+          "ejemplo": "Finance · v1.9.4"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "700",
+          "interlineado": "19.8px",
+          "espaciado": "-0.36px",
+          "color": "rgb(253, 238, 235)",
+          "veces": 1,
+          "ejemplo": "$6,938"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(253, 238, 235)",
+          "veces": 1,
+          "ejemplo": "▲ 1% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "18.7px",
+          "espaciado": "-0.255px",
+          "color": "rgb(238, 249, 241)",
+          "veces": 1,
+          "ejemplo": "Herbarium"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(238, 249, 241)",
+          "veces": 1,
+          "ejemplo": "Education · v4.2.0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "700",
+          "interlineado": "19.8px",
+          "espaciado": "-0.36px",
+          "color": "rgb(238, 249, 241)",
+          "veces": 1,
+          "ejemplo": "$4,517"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(238, 249, 241)",
+          "veces": 1,
+          "ejemplo": "▼ 5% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "18.7px",
+          "espaciado": "-0.255px",
+          "color": "rgb(241, 242, 245)",
+          "veces": 1,
+          "ejemplo": "Platform"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(241, 242, 245)",
+          "veces": 1,
+          "ejemplo": "Navigation · v7.3.1"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "700",
+          "interlineado": "19.8px",
+          "espaciado": "-0.36px",
+          "color": "rgb(241, 242, 245)",
+          "veces": 1,
+          "ejemplo": "$3,117"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(241, 242, 245)",
+          "veces": 1,
+          "ejemplo": "▼ 4% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "600",
+          "interlineado": "34px",
+          "espaciado": "-1.19px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 1,
+          "ejemplo": "4.63"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 1,
+          "ejemplo": "4.00"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(246, 165, 156)",
+          "veces": 1,
+          "ejemplo": "▼ 0.63"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(169, 205, 252)",
+          "veces": 1,
+          "ejemplo": "12"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(7, 26, 51)",
+          "veces": 1,
+          "ejemplo": "Add"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 1,
+          "ejemplo": "Stand-up"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "section.card.ov-chart",
+          "x": 12,
+          "y": 347,
+          "w": 366,
+          "h": 410,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Proceeds ProceedsDownloads $888,310in the last 12 months · b"
+        },
+        {
+          "etiqueta": "section.card.ov-apps",
+          "x": 12,
+          "y": 772,
+          "w": 366,
+          "h": 599,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Your apps October, month to date 4.8 Tally Health & Fitness "
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--blue",
+          "x": 30,
+          "y": 844,
+          "w": 160,
+          "h": 163,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 244, 253)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.8 Tally Health & Fitness · v3.1.2 $20,243▼ 8% downloads"
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--teal",
+          "x": 200,
+          "y": 844,
+          "w": 160,
+          "h": 163,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(236, 248, 245)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.7 Driftwood Health & Fitness · v2.8.0 $15,897▼ 3% download"
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--orange",
+          "x": 30,
+          "y": 1017,
+          "w": 160,
+          "h": 163,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(253, 243, 230)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.6 Paperleaf Productivity · v5.0.1 $10,004▲ 8% downloads"
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--coral",
+          "x": 200,
+          "y": 1017,
+          "w": 160,
+          "h": 163,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(253, 238, 235)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.4 Cinder Finance · v1.9.4 $6,938▲ 1% downloads"
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--green",
+          "x": 30,
+          "y": 1190,
+          "w": 160,
+          "h": 163,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 249, 241)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.7 Herbarium Education · v4.2.0 $4,517▼ 5% downloads"
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--ink",
+          "x": 200,
+          "y": 1190,
+          "w": 160,
+          "h": 163,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(241, 242, 245)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "12px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.5 Platform Navigation · v7.3.1 $3,117▼ 4% downloads"
+        },
+        {
+          "etiqueta": "section.card.ov-rate",
+          "x": 12,
+          "y": 1387,
+          "w": 366,
+          "h": 312,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Ratings 4.6373,028 ratings · 6 apps 573%419%34%21%13% Last 3"
+        },
+        {
+          "etiqueta": "section.card.ov-train",
+          "x": 12,
+          "y": 1715,
+          "w": 366,
+          "h": 439,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Release train 8 in flight 2Building3TestFlight2In review1Rea"
+        },
+        {
+          "etiqueta": "section.card.ov-rev",
+          "x": 12,
+          "y": 2171,
+          "w": 366,
+          "h": 554,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Waiting for a reply 12 Lost a note Edited on my iPad and iPh"
+        },
+        {
+          "etiqueta": "li.ov-review",
+          "x": 30,
+          "y": 2243,
+          "w": 330,
+          "h": 139,
+          "fondo": "rgba(200, 200, 215, 0.1)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Lost a note Edited on my iPad and iPhone offline and one ver"
+        },
+        {
+          "etiqueta": "li.ov-review",
+          "x": 30,
+          "y": 2392,
+          "w": 330,
+          "h": 120,
+          "fondo": "rgba(200, 200, 215, 0.1)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Wrong times today Line 2 showed trains that never came. Lu W"
+        },
+        {
+          "etiqueta": "li.ov-review",
+          "x": 30,
+          "y": 2521,
+          "w": 330,
+          "h": 139,
+          "fondo": "rgba(200, 200, 215, 0.1)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Reminders came twice Since travelling to Tokyo every reminde"
+        },
+        {
+          "etiqueta": "section.card.ov-today",
+          "x": 12,
+          "y": 2740,
+          "w": 366,
+          "h": 350,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Today Add 1 of 4 done 9:30 AM Stand-up15 min 11:00 AM Tally "
+        },
+        {
+          "etiqueta": "section.card.ov-act",
+          "x": 12,
+          "y": 3106,
+          "w": 366,
+          "h": 398,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Recent activity LBLena sent a new Driftwood 2.9.0 build to T"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/vitrea/#/overview",
+      "ancho": 1440,
+      "alto": 1653,
+      "fondo": "rgba(0, 0, 0, 0)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#111113",
+        "--glass": "#1e1e226b",
+        "--glass-chrome": "#2020245c",
+        "--glass-thick": "#1c1c20db",
+        "--glass-solid": "#1d1d21",
+        "--blur": "14px",
+        "--blur-thick": "30px",
+        "--sat": "175%",
+        "--bright": ".95",
+        "--rim-hi": "#ffffffd9",
+        "--rim-mid": "#ffffff73",
+        "--rim-lo": "#ffffff1f",
+        "--sheen-c": "#ffffff1a",
+        "--glint": "#ffffff24",
+        "--ripple": "#ffffff80",
+        "--depth": "inset 0 1px 1px #ffffff4d, inset 0 -1px 1px #ffffff1a, inset 3px 4px 12px -6px #ffffff38, inset -4px -6px 14px -8px #ffffff1f, inset 0 -16px 28px -18px #00000073",
+        "--shadow": "0 1px 2px #0000004d, 0 24px 48px -22px #000000bf",
+        "--surface": "#1e1e226b",
+        "--surface-2": "#ffffff14",
+        "--solid": "#1d1d21",
+        "--well": "#c8c8d71a",
+        "--line": "#ffffff1a",
+        "--line-2": "#ffffff2e",
+        "--lens": "linear-gradient(180deg, #ffffff52, #ffffff1f)",
+        "--lens-shadow": "inset 0 1px 1px #ffffff8c, inset 0 -2px 5px #ffffff1f, inset 0 0 0 .5px #ffffff4d, 0 8px 18px -8px #0009",
+        "--glass-hi": "#1c1c20db",
+        "--glass-under": "#2020245c",
+        "--glass-shadow": "inset 0 1px 1px #ffffff4d, inset 0 -1px 1px #ffffff1a, inset 3px 4px 12px -6px #ffffff38, inset -4px -6px 14px -8px #ffffff1f, inset 0 -16px 28px -18px #00000073, 0 1px 2px #0000004d, 0 24px 48px -22px #000000bf",
+        "--card-shadow": "inset 0 1px 1px #ffffff4d, inset 0 -1px 1px #ffffff1a, inset 3px 4px 12px -6px #ffffff38, inset -4px -6px 14px -8px #ffffff1f, inset 0 -16px 28px -18px #00000073, 0 1px 2px #0000004d, 0 24px 48px -22px #000000bf",
+        "--text": "#f6f8fc",
+        "--muted": "#c9d1de",
+        "--faint": "#7d8696",
+        "--accent": "#7aaef0",
+        "--on-accent": "#071a33",
+        "--accent-text": "#a9cdfc",
+        "--accent-line": "#8dbcf6",
+        "--ink-mark": "#9aa1ad",
+        "--info-fill": "#7aaef0",
+        "--info": "#a9cdfc",
+        "--good": "#8fdca8",
+        "--good-fill": "#5fc483",
+        "--warn": "#f3cd7e",
+        "--warn-fill": "#e4b759",
+        "--bad": "#f6a59c",
+        "--bad-fill": "#e98278",
+        "--teal-fill": "#68c0b8",
+        "--blue": "linear-gradient(160deg, #354a6a, #283953)",
+        "--blue-flat": "#2e425f",
+        "--on-blue": "#eef4fd",
+        "--teal": "linear-gradient(160deg, #31574f, #24433d)",
+        "--teal-flat": "#2b4d46",
+        "--on-teal": "#ecf8f5",
+        "--orange": "linear-gradient(160deg, #66503a, #4e3d2b)",
+        "--orange-flat": "#5a4632",
+        "--on-orange": "#fdf3e6",
+        "--coral": "linear-gradient(160deg, #6a423d, #52322e)",
+        "--coral-flat": "#5e3a35",
+        "--on-coral": "#fdeeeb",
+        "--green": "linear-gradient(160deg, #375741, #29432f)",
+        "--green-flat": "#304d38",
+        "--on-green": "#eef9f1",
+        "--ink": "linear-gradient(160deg, #3b3e46, #2c2e34)",
+        "--ink-flat": "#33363c",
+        "--on-ink": "#f1f2f5",
+        "--ico-blue": "linear-gradient(160deg, #d2e4ff, #9fc6f8)",
+        "--ico-teal": "linear-gradient(160deg, #c8efe8, #8fd8cc)",
+        "--ico-orange": "linear-gradient(160deg, #ffe3bf, #ffc286)",
+        "--ico-coral": "linear-gradient(160deg, #ffd5cd, #ffa99b)",
+        "--ico-green": "linear-gradient(160deg, #d0efd9, #98daad)",
+        "--ico-ink": "linear-gradient(160deg, #e6e8ec, #bcc0c8)",
+        "--r-card": "26px",
+        "--r-tile": "22px",
+        "--r-ctl": "999px",
+        "--gap": "16px",
+        "--dock-x": "20px",
+        "--dock-w": "60px",
+        "--gutter": "clamp(16px, 1.6vw, 28px)",
+        "--app-max": "1840px",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 17,
+          "ejemplo": "73,028 ratings · 6 apps"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "500",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 15,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "37.44px",
+          "peso": "600",
+          "interlineado": "38.9376px",
+          "espaciado": "-0.936px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 14,
+          "ejemplo": "S"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 10,
+          "ejemplo": "Paperleaf 5.0.2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 9,
+          "ejemplo": "Proceeds"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 8,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(169, 205, 252)",
+          "veces": 8,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 7,
+          "ejemplo": "Proceeds"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 6,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 6,
+          "ejemplo": "Downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "700",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 6,
+          "ejemplo": "September"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 5,
+          "ejemplo": "Proceeds"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 5,
+          "ejemplo": "5"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 5,
+          "ejemplo": "73%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(21, 24, 29)",
+          "veces": 5,
+          "ejemplo": "LB"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 5,
+          "ejemplo": "sent a new Driftwood 2.9.0 build to Test"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 4,
+          "ejemplo": "in the last 12 months · best month Septe"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "700",
+          "interlineado": "24.65px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 4,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "900",
+          "interlineado": "31.9px",
+          "espaciado": "-0.22px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 3,
+          "ejemplo": "$60,716"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "16.25px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 3,
+          "ejemplo": "Proceeds in October so far"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(7, 26, 51)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "30.45px",
+          "espaciado": "-0.42px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 1,
+          "ejemplo": "vitrea"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "0.13px",
+          "color": "rgb(21, 24, 29)",
+          "veces": 1,
+          "ejemplo": "NH"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(143, 220, 168)",
+          "veces": 1,
+          "ejemplo": "+1% vs Sept"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(246, 165, 156)",
+          "veces": 1,
+          "ejemplo": "−1%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "600",
+          "interlineado": "34px",
+          "espaciado": "-0.85px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 1,
+          "ejemplo": "$888,310"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(238, 244, 253)",
+          "veces": 1,
+          "ejemplo": "4.8"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "22px",
+          "espaciado": "-0.3px",
+          "color": "rgb(238, 244, 253)",
+          "veces": 1,
+          "ejemplo": "Tally"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(238, 244, 253)",
+          "veces": 1,
+          "ejemplo": "Health & Fitness · v3.1.2"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(238, 244, 253)",
+          "veces": 1,
+          "ejemplo": "$20,243"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(238, 244, 253)",
+          "veces": 1,
+          "ejemplo": "▼ 8% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(236, 248, 245)",
+          "veces": 1,
+          "ejemplo": "4.7"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "22px",
+          "espaciado": "-0.3px",
+          "color": "rgb(236, 248, 245)",
+          "veces": 1,
+          "ejemplo": "Driftwood"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(236, 248, 245)",
+          "veces": 1,
+          "ejemplo": "Health & Fitness · v2.8.0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(236, 248, 245)",
+          "veces": 1,
+          "ejemplo": "$15,897"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(236, 248, 245)",
+          "veces": 1,
+          "ejemplo": "▼ 3% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(253, 243, 230)",
+          "veces": 1,
+          "ejemplo": "4.6"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "22px",
+          "espaciado": "-0.3px",
+          "color": "rgb(253, 243, 230)",
+          "veces": 1,
+          "ejemplo": "Paperleaf"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(253, 243, 230)",
+          "veces": 1,
+          "ejemplo": "Productivity · v5.0.1"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(253, 243, 230)",
+          "veces": 1,
+          "ejemplo": "$10,004"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(253, 243, 230)",
+          "veces": 1,
+          "ejemplo": "▲ 8% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(253, 238, 235)",
+          "veces": 1,
+          "ejemplo": "4.4"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "22px",
+          "espaciado": "-0.3px",
+          "color": "rgb(253, 238, 235)",
+          "veces": 1,
+          "ejemplo": "Cinder"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(253, 238, 235)",
+          "veces": 1,
+          "ejemplo": "Finance · v1.9.4"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(253, 238, 235)",
+          "veces": 1,
+          "ejemplo": "$6,938"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(253, 238, 235)",
+          "veces": 1,
+          "ejemplo": "▲ 1% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(238, 249, 241)",
+          "veces": 1,
+          "ejemplo": "4.7"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "22px",
+          "espaciado": "-0.3px",
+          "color": "rgb(238, 249, 241)",
+          "veces": 1,
+          "ejemplo": "Herbarium"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(238, 249, 241)",
+          "veces": 1,
+          "ejemplo": "Education · v4.2.0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(238, 249, 241)",
+          "veces": 1,
+          "ejemplo": "$4,517"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(238, 249, 241)",
+          "veces": 1,
+          "ejemplo": "▼ 5% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(241, 242, 245)",
+          "veces": 1,
+          "ejemplo": "4.5"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "20px",
+          "peso": "600",
+          "interlineado": "22px",
+          "espaciado": "-0.3px",
+          "color": "rgb(241, 242, 245)",
+          "veces": 1,
+          "ejemplo": "Platform"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(241, 242, 245)",
+          "veces": 1,
+          "ejemplo": "Navigation · v7.3.1"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(241, 242, 245)",
+          "veces": 1,
+          "ejemplo": "$3,117"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(241, 242, 245)",
+          "veces": 1,
+          "ejemplo": "▼ 4% downloads"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "600",
+          "interlineado": "34px",
+          "espaciado": "-1.19px",
+          "color": "rgb(246, 248, 252)",
+          "veces": 1,
+          "ejemplo": "4.63"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "700",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(246, 248, 252)",
+          "veces": 1,
+          "ejemplo": "4.00"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(246, 165, 156)",
+          "veces": 1,
+          "ejemplo": "▼ 0.63"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.11px",
+          "color": "rgb(169, 205, 252)",
+          "veces": 1,
+          "ejemplo": "12"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(7, 26, 51)",
+          "veces": 1,
+          "ejemplo": "Add"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(201, 209, 222)",
+          "veces": 1,
+          "ejemplo": "Stand-up"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "section.card.ov-chart",
+          "x": 103,
+          "y": 196,
+          "w": 871,
+          "h": 396,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Proceeds ProceedsDownloads $888,310in the last 12 months · b"
+        },
+        {
+          "etiqueta": "section.card.ov-apps",
+          "x": 103,
+          "y": 608,
+          "w": 1314,
+          "h": 266,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Your apps October, month to date 4.8 Tally Health & Fitness "
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--blue",
+          "x": 121,
+          "y": 680,
+          "w": 203,
+          "h": 176,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 244, 253)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "14px 14px 14px 16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.8 Tally Health & Fitness · v3.1.2 $20,243▼ 8% downloads"
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--teal",
+          "x": 336,
+          "y": 680,
+          "w": 203,
+          "h": 176,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(236, 248, 245)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "14px 14px 14px 16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.7 Driftwood Health & Fitness · v2.8.0 $15,897▼ 3% download"
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--orange",
+          "x": 551,
+          "y": 680,
+          "w": 203,
+          "h": 176,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(253, 243, 230)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "14px 14px 14px 16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.6 Paperleaf Productivity · v5.0.1 $10,004▲ 8% downloads"
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--coral",
+          "x": 766,
+          "y": 680,
+          "w": 203,
+          "h": 176,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(253, 238, 235)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "14px 14px 14px 16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.4 Cinder Finance · v1.9.4 $6,938▲ 1% downloads"
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--green",
+          "x": 981,
+          "y": 680,
+          "w": 203,
+          "h": 176,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(238, 249, 241)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "14px 14px 14px 16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.7 Herbarium Education · v4.2.0 $4,517▼ 5% downloads"
+        },
+        {
+          "etiqueta": "article.ov-tile.tone--ink",
+          "x": 1196,
+          "y": 680,
+          "w": 203,
+          "h": 176,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(241, 242, 245)",
+          "radio": "22px",
+          "sombra": "rgba(255, 255, 255, 0.7) 0px 1px 0px 0px inset, rgba(20, 30, 50, 0.06) 0px 0px 0px 0.5px, rgba(20, 30, 50, 0.35) 0px 16px 28px -22px",
+          "padding": "14px 14px 14px 16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "4.5 Platform Navigation · v7.3.1 $3,117▼ 4% downloads"
+        },
+        {
+          "etiqueta": "section.card.ov-rate",
+          "x": 990,
+          "y": 196,
+          "w": 427,
+          "h": 396,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Ratings 4.6373,028 ratings · 6 apps 573%419%34%21%13% Last 3"
+        },
+        {
+          "etiqueta": "section.card.ov-train",
+          "x": 103,
+          "y": 890,
+          "w": 427,
+          "h": 534,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Release train 8 in flight 2Building3TestFlight2In review1Rea"
+        },
+        {
+          "etiqueta": "section.card.ov-rev",
+          "x": 546,
+          "y": 890,
+          "w": 427,
+          "h": 534,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Waiting for a reply 12 Lost a note Edited on my iPad and iPh"
+        },
+        {
+          "etiqueta": "li.ov-review",
+          "x": 564,
+          "y": 962,
+          "w": 391,
+          "h": 139,
+          "fondo": "rgba(200, 200, 215, 0.1)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Lost a note Edited on my iPad and iPhone offline and one ver"
+        },
+        {
+          "etiqueta": "li.ov-review",
+          "x": 564,
+          "y": 1111,
+          "w": 391,
+          "h": 120,
+          "fondo": "rgba(200, 200, 215, 0.1)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Wrong times today Line 2 showed trains that never came. Lu W"
+        },
+        {
+          "etiqueta": "li.ov-review",
+          "x": 564,
+          "y": 1241,
+          "w": 391,
+          "h": 120,
+          "fondo": "rgba(200, 200, 215, 0.1)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "12px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Reminders came twice Since travelling to Tokyo every reminde"
+        },
+        {
+          "etiqueta": "section.card.ov-today",
+          "x": 990,
+          "y": 890,
+          "w": 427,
+          "h": 534,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Today Add 1 of 4 done 9:30 AM Stand-up15 min 11:00 AM Tally "
+        },
+        {
+          "etiqueta": "section.card.ov-act",
+          "x": 103,
+          "y": 1440,
+          "w": 1314,
+          "h": 157,
+          "fondo": "rgba(30, 30, 34, 0.42)",
+          "borde": "0px none rgb(246, 248, 252)",
+          "radio": "26px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Recent activity LBLena sent a new Driftwood 2.9.0 build to T"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand.glass.glass--chrome",
+          "texto": "vitrea",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 103,
+            "y": 16,
+            "w": 126,
+            "h": 52
+          },
+          "estilo": {
+            "color": "rgb(246, 248, 252)",
+            "backgroundColor": "rgba(32, 32, 36, 0.36)",
+            "borderColor": "rgb(246, 248, 252)",
+            "boxShadow": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.22) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(246, 248, 252) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1.07, 0, 0, 0.9, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 1,
+          "etiqueta": "a.tab",
+          "texto": "Overview",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 429,
+            "y": 22,
+            "w": 90,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(246, 248, 252)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(246, 248, 252)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(246, 248, 252) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1.07, 0, 0, 0.9, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 2,
+          "etiqueta": "button.ibtn",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1278,
+            "y": 21,
+            "w": 42,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(246, 248, 252)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(246, 248, 252)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(246, 248, 252) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(200, 200, 215, 0.1)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(200, 200, 215, 0.1)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1.07, 0, 0, 0.9, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 3,
+          "etiqueta": "button.me",
+          "texto": "NH",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1370,
+            "y": 21,
+            "w": 42,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(246, 248, 252)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(246, 248, 252)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(246, 248, 252) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1.0669, 0, 0, 0.9045, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.dock__btn",
+          "texto": "Search ⌘K",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 27,
+            "y": 246,
+            "w": 46,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(246, 248, 252)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(246, 248, 252)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(246, 248, 252) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(200, 200, 215, 0.1)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(200, 200, 215, 0.1)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1.051, 0, 0, 0.9272, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.dock__btn.dock__btn--new",
+          "texto": "Create N",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 27,
+            "y": 296,
+            "w": 46,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(7, 26, 51)",
+            "backgroundColor": "rgb(122, 174, 240)",
+            "borderColor": "rgb(7, 26, 51)",
+            "boxShadow": "rgba(255, 255, 255, 0.3) 0px 1px 0px 0px inset, color(srgb 0.478431 0.682353 0.941176 / 0.55) 0px 4px 12px -2px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(7, 26, 51) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(1.08)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(1.08)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "a.dock__btn",
+          "texto": "Settings",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 27,
+            "y": 559,
+            "w": 46,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(246, 248, 252)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(246, 248, 252)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(246, 248, 252) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(200, 200, 215, 0.1)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(200, 200, 215, 0.1)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "etiqueta": "button.dock__btn.dock__theme",
+          "texto": "Theme",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 27,
+            "y": 609,
+            "w": 46,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(246, 248, 252)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(246, 248, 252)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(246, 248, 252) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(200, 200, 215, 0.1)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(200, 200, 215, 0.1)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "button.seg__btn",
+          "texto": "Proceeds",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 688,
+            "y": 217,
+            "w": 79,
+            "h": 34
+          },
+          "estilo": {
+            "color": "rgb(11, 17, 28)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(11, 17, 28)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(11, 17, 28) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1.0608, 0, 0, 0.9132, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "etiqueta": "button.ibtn",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 868,
+            "y": 214,
+            "w": 40,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(11, 17, 28)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(20, 22, 30, 0.18)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(11, 17, 28) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(30, 32, 40, 0.07)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(30, 32, 40, 0.07)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 10,
+          "etiqueta": "button.ibtn.card__expand",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 916,
+            "y": 214,
+            "w": 40,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(11, 17, 28)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(20, 22, 30, 0.18)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(11, 17, 28) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(30, 32, 40, 0.07)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(30, 32, 40, 0.07)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "etiqueta": "button.ibtn.ibtn--sm.ov-tile__more",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 278,
+            "y": 697,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(15, 42, 82)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "color(srgb 0.0588235 0.164706 0.321569 / 0.3)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(15, 42, 82) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "color(srgb 0.0588235 0.164706 0.321569 / 0.14)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "color(srgb 0.0588235 0.164706 0.321569 / 0.14)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1.0205, 0, 0, 0.9707, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "etiqueta": "a.ov-tile__link",
+          "texto": "Tally",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 137,
+            "y": 744,
+            "w": 173,
+            "h": 22
+          },
+          "estilo": {
+            "color": "rgb(15, 42, 82)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(15, 42, 82)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(15, 42, 82) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 13,
+          "etiqueta": "a",
+          "texto": "Paperleaf 5.0.2",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 161,
+            "y": 442,
+            "w": 94,
+            "h": 17
+          },
+          "estilo": {
+            "color": "rgb(11, 17, 28)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(11, 17, 28)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(11, 17, 28) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 14,
+          "etiqueta": "button.btn.btn--sm.btn--ghost",
+          "texto": "Release",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 439,
+            "y": 433,
+            "w": 73,
+            "h": 34
+          },
+          "estilo": {
+            "color": "rgb(11, 17, 28)",
+            "backgroundColor": "rgba(255, 255, 255, 0.62)",
+            "borderColor": "rgba(20, 22, 30, 0.18)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(11, 17, 28) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.62)",
+              "rgba(30, 32, 40, 0.07)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.62)",
+              "rgba(30, 32, 40, 0.07)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 15,
+          "etiqueta": "a.btn.btn--sm.btn--ghost",
+          "texto": "Open the review inbox",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 564,
+            "y": 619,
+            "w": 156,
+            "h": 34
+          },
+          "estilo": {
+            "color": "rgb(11, 17, 28)",
+            "backgroundColor": "rgba(255, 255, 255, 0.62)",
+            "borderColor": "rgba(20, 22, 30, 0.18)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(11, 17, 28) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.62)",
+              "rgba(30, 32, 40, 0.07)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(255, 255, 255, 0.62)",
+              "rgba(30, 32, 40, 0.07)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 16,
+          "etiqueta": "button.btn.btn--sm.btn--accent",
+          "texto": "Add",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1320,
+            "y": 433,
+            "w": 79,
+            "h": 34
+          },
+          "estilo": {
+            "color": "rgb(11, 37, 71)",
+            "backgroundColor": "rgb(127, 179, 245)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "rgba(255, 255, 255, 0.28) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.12) 0px -1px 0px 0px inset, color(srgb 0.498039 0.701961 0.960784 / 0.65) 0px 6px 16px -6px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(11, 37, 71) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(1.08)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, 0, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(1.08)"
+            ]
+          }
+        },
+        {
+          "n": 17,
+          "etiqueta": "input.check",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1008,
+            "y": 439,
+            "w": 22,
+            "h": 22
+          },
+          "estilo": {
+            "color": "rgb(11, 17, 28)",
+            "backgroundColor": "rgb(127, 179, 245)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(11, 17, 28) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 18,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

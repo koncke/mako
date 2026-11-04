@@ -38,10 +38,10 @@ import { esOpcionArmar } from '@/app/offer/ayudas';
 import { conPegados, esPegadoLargo } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
-  EDITORES, JEFE_SECOND_BRAIN, NOMBRE_JEFE, SECCION_OFFER, SIN_TITULO, TITULO_GRUPO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, partesDeClaveDeEditor, rutaDelLienzo,
+  EDITORES, JEFE_SECOND_BRAIN, NOMBRE_JEFE, SECCION_OFFER, SIN_TITULO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, partesDeClaveDeEditor, rutaDelLienzo,
   type AppDeEscritorio, type ElegidoChat, type IrA,
 } from '@/lib/chat-mako-reglas';
-import type { ChatDeAntes, ChatDeAutomatizacion, ChatDeEditor, ChatDeOffer, GrupoDeMaKo } from '@/lib/chat-mako-indice';
+import type { ChatDeAntes, ChatDeAutomatizacion, ChatDeEditor, ChatDeOffer } from '@/lib/chat-mako-indice';
 import { etiquetaDesde, type Desde } from '@/lib/chat-desde';
 import { aspectoDeChat, aspectoDeReferente, type Aspecto } from '@/lib/centro-munecos';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
@@ -144,7 +144,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   /** La tab con chat propio de la persona (el Second Brain, 23/10/2026: lib/chat-mako-reglas.ts → TAB_SECOND_BRAIN): el primer
    *  mensaje crea ESA conversación (una por persona y negocio) y se sigue como las de las tabs (`antes`). */
   tab?: string | null;
-  /** La criatura de los chats de Offer: la del referente que tiene al frente el Offer Coach (1/11/2026). Sin esto, la de cada chat. */
+  /** La criatura de los chats de Offer: la del referente que tiene al frente el coach, del que cuelgan (1/11/2026; uno solo desde el 4/11). Sin esto, la de cada chat. */
   aspectoOffer?: Aspecto | null;
   /** Quién contesta en un chat que se abre sin la lista (`activo: false`): el gurú o el coach. Sin esto no hay fila de la que sacarlo, y el
    *  hilo dibujaba una criatura sorteada con «Sin título» de nombre (Martín, 3/11/2026: «el que responde es una criatura de mako»). */
@@ -168,14 +168,10 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   /** Las conversaciones de Offer del negocio (20/10/2026, Martín: «el chat de OFFER no está llegando al Ops Center»): una
    *  proyección de offer_sesiones (lib/chat-mako-indice.ts → chatsDeOffer), con la puerta de la tab. null = todavía no llegó. */
   const [offer, setOffer] = useState<ChatDeOffer[] | null>(null);
-  /** El grupo de WhatsApp de MaKo del negocio (22/10/2026, OC3): sólo lo trae el admin; null = no lo ve, o no hay grupo. */
-  const [grupo, setGrupo] = useState<GrupoDeMaKo | null>(null);
   /** Las charlas del lienzo de Automations (22/10/2026, OC5): se leen acá y se siguen en el lienzo. */
   const [automations, setAutomations] = useState<ChatDeAutomatizacion[] | null>(null);
   /** Los chats del Image Editor y del Video Editor (22/10/2026, OC8): se leen acá y se siguen en el editor. */
   const [editores, setEditores] = useState<ChatDeEditor[] | null>(null);
-  /** Lo leído del grupo (se pide de a páginas, lo más viejo arriba) y si hay más atrás. */
-  const [delGrupo, setDelGrupo] = useState<{ mensajes: MensajeChat[]; hayMas: boolean; trayendo: boolean }>({ mensajes: [], hayMas: false, trayendo: false });
   /** La conversación de Offer abierta, entera (sus opciones, su diagnóstico, si se está armando): la da el motor de Offer. */
   const [deOfferAbierta, setDeOfferAbierta] = useState<OfferSesionVista | null>(null);
   const offerRef = useRef<OfferSesionVista | null>(null);
@@ -239,7 +235,6 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const cargarOtros = useCallback(() => {
     void pedir<{ offer: ChatDeOffer[] }>(`${RUTA}?offer=1`).then((l) => setOffer(l.ok ? l.datos.offer ?? [] : []));
     void pedir<{ antes: ChatDeAntes[] }>(`${RUTA}?antes=1`).then((l) => setAntes(l.ok ? l.datos.antes ?? [] : []));
-    void pedir<{ grupo: GrupoDeMaKo | null }>(`${RUTA}?grupo=1`).then((l) => setGrupo(l.ok ? l.datos.grupo ?? null : null));
     void pedir<{ automations: ChatDeAutomatizacion[] }>(`${RUTA}?automations=1`).then((l) => setAutomations(l.ok ? l.datos.automations ?? [] : []));
     void pedir<{ editores: ChatDeEditor[] }>(`${RUTA}?editores=1`).then((l) => setEditores(l.ok ? l.datos.editores ?? [] : []));
   }, []);
@@ -265,8 +260,6 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const idElegido = elegido && 'id' in elegido ? elegido.id : null;
   const idAntes = elegido && 'antes' in elegido ? elegido.antes : null;
   const idOffer = elegido && 'offer' in elegido ? elegido.offer : null;
-  /** El grupo de WhatsApp de MaKo: se LEE y no se sigue desde acá (se contesta en el grupo, `AVISO_GRUPO`). */
-  const esGrupo = !!elegido && 'grupo' in elegido;
   /** Una charla del lienzo de Automations: se LEE acá y se sigue en el lienzo (`hrefLienzo`). */
   const idAutomatizacion = elegido && 'automatizacion' in elegido ? elegido.automatizacion : null;
   const esAutomatizacion = idAutomatizacion != null;
@@ -327,20 +320,6 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     sesionRef.current = idTurno;
     offerRef.current = null;
     setDeOfferAbierta(null);
-    if (esGrupo) {
-      // La última página del grupo; las de antes, con «Ver anteriores» (`verAnteriores`).
-      let vivo = true;
-      setCargado(false); setErrorCarga(null);
-      void pedir<{ mensajes: MensajeChat[]; hayMas: boolean }>(`${RUTA}?grupoHilo=1`).then((l) => {
-        if (!vivo) return;
-        if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el grupo.'); setCargado(true); return; }
-        const mensajes = l.datos.mensajes ?? [];
-        setDelGrupo({ mensajes, hayMas: !!l.datos.hayMas, trayendo: false });
-        setItems(itemsDeSesion(mensajes, []));
-        setCargado(true);
-      });
-      return () => { vivo = false; };
-    }
     if (deEditor) {
       let vivo = true;
       setCargado(false); setErrorCarga(null);
@@ -380,20 +359,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     let vivo = true;
     void cargarHilo(idTurno, idAntes != null, () => vivo);
     return () => { vivo = false; };
-  }, [elegido, esDelCliente, esGrupo, idAutomatizacion, deEditor?.editor, deEditor?.clave, idTurno, idAntes, idOffer, cargarHilo, ponerOffer]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /** La página anterior del grupo, arriba de lo que ya se ve. */
-  const verAnteriores = async () => {
-    if (!esGrupo || delGrupo.trayendo || !delGrupo.hayMas) return;
-    const desde = delGrupo.mensajes[0]?.created_at;
-    if (!desde) return;
-    setDelGrupo((d) => ({ ...d, trayendo: true }));
-    const l = await pedir<{ mensajes: MensajeChat[]; hayMas: boolean }>(`${RUTA}?grupoHilo=1&desde=${encodeURIComponent(desde)}`);
-    if (!l.ok) { setDelGrupo((d) => ({ ...d, trayendo: false })); setFaltaMic('No pude traer los mensajes anteriores.'); return; }
-    const mensajes = [...(l.datos.mensajes ?? []), ...delGrupo.mensajes];
-    setDelGrupo({ mensajes, hayMas: !!l.datos.hayMas, trayendo: false });
-    setItems(itemsDeSesion(mensajes, []));
-  };
+  }, [elegido, esDelCliente, idAutomatizacion, deEditor?.editor, deEditor?.clave, idTurno, idAntes, idOffer, cargarHilo, ponerOffer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mientras Offer arma la oferta por detrás (`armar`), la conversación se relee: la oferta aparece sola, con su PDF.
   const armandoOffer = idOffer != null && !!deOfferAbierta?.armando?.corriendo;
@@ -414,8 +380,6 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
 
   const recargar = () => {
     if (ocupadoRef.current) return;
-    // El grupo se recarga eligiéndolo de nuevo (su efecto trae la última página).
-    if (esGrupo) { setElegido({ grupo: true }); return; }
     if (idOffer != null) { void abrirOffer(idOffer).then((l) => { if (l.ok) void ponerOffer(l.sesion); }); return; }
     if (idTurno != null) void cargarHilo(idTurno, idAntes != null);
   };
@@ -582,7 +546,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
    * del chat. Las dos la escuchan con la IA del negocio. Con MaKo contestando, o si el chat cambió, espera en la barra.
    */
   const mandarNota = async (a: NotaEnLaCaja, chatAbierto: string) => {
-    if (esGrupo || esAutomatizacion || esEditor) return;
+    if (esAutomatizacion || esEditor) return;
     if (a.chat !== chatAbierto || ocupadoRef.current || !cargado || errorCarga) { setNotaEnEspera(a); return; }
     ocupadoRef.current = true;
     setFaltaMic(null);
@@ -595,10 +559,9 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
 
   const enviar = (mensaje: string, archivos: readonly ArchivoElegido[] = []): boolean => {
     const t = mensaje.trim();
-    // El grupo es de sólo lectura: lo que se escribe no va a ningún modelo ni al grupo (decisión 11).
-    // Una charla del lienzo, tampoco: se sigue en el lienzo (`AVISO_LIENZO`).
+    // Una charla del lienzo no se sigue desde acá: se sigue en el lienzo (`AVISO_LIENZO`).
     // Sin la app de escritorio, el chat no manda nada (tampoco un pedido de la tab: el «Hacerlo» de una sugerencia).
-    if (esGrupo || esAutomatizacion || esEditor || (!t && !archivos.length) || ocupadoRef.current || !cargado || errorCarga || app === 'bloquea') return false;
+    if (esAutomatizacion || esEditor || (!t && !archivos.length) || ocupadoRef.current || !cargado || errorCarga || app === 'bloquea') return false;
     ocupadoRef.current = true;
     setFaltaMic(null);
     const idU = idLocal('u');
@@ -695,8 +658,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
 
   // ── Lo que se dibuja ──
   // Cada fila con SU criatura (lib/centro-munecos.ts → aspectoDeChat): el Cerebro, la estrella (sale de su nombre).
-  const lista = useMemo(() => listaDelCliente({ sesiones: sesiones ?? [], offer: offer ?? [], antes: antes ?? [], grupo, busca, automations: automations ?? [], editores: editores ?? [] })
-    .map((f) => ({ ...f, aspecto: f.clave === 'jefe' ? null : f.guru ? aspectoDeReferente(f.guru) : f.origen === 'offer' && aspectoOffer ? aspectoOffer : aspectoDeChat(f.clave) })), [sesiones, offer, antes, grupo, busca, automations, editores, aspectoOffer]);
+  const lista = useMemo(() => listaDelCliente({ sesiones: sesiones ?? [], offer: offer ?? [], antes: antes ?? [], busca, automations: automations ?? [], editores: editores ?? [] })
+    .map((f) => ({ ...f, aspecto: f.clave === 'jefe' ? null : f.guru ? aspectoDeReferente(f.guru) : f.origen === 'offer' && aspectoOffer ? aspectoOffer : aspectoDeChat(f.clave) })), [sesiones, offer, antes, busca, automations, editores, aspectoOffer]);
   /** La fila de lo abierto (un chat nuevo no tiene). */
   const filaAbierta = elegido ? lista.find((f) => esFilaDe(f, elegido)) ?? null : null;
   const esJefe = filaAbierta?.clave === 'jefe';
@@ -707,7 +670,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   // saltaba a «Cerebro» con la estrella. Con `entrarAlCerebro` y nada pedido ni elegido, es el Cerebro desde el primer cuadro.
   const vaAlCerebro = !filaAbierta && elegido == null && entrarAlCerebro && chatInicial == null;
   const nombre = quien?.nombre ?? filaAbierta?.titulo ?? (vaAlCerebro ? NOMBRE_JEFE
-    : idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || deAntes?.tema?.trim() || SIN_TITULO : esGrupo ? TITULO_GRUPO : SIN_TITULO);
+    : idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || deAntes?.tema?.trim() || SIN_TITULO : SIN_TITULO);
   const nombreMuneco = quien?.nombre ?? filaAbierta?.criatura ?? (vaAlCerebro ? JEFE_SECOND_BRAIN : idOffer != null ? criaturaDeOffer(nombre) : nombre);
   /** La criatura del chat abierto: la de su fila (la cabecera, la portada y el hilo, la misma que en la lista). */
   const aspectoMuneco = quien?.aspecto ?? filaAbierta?.aspecto ?? null;
@@ -719,7 +682,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const editorPropio = !!deEditor && (editores ?? []).some((e) => e.tipo === deEditor.editor && e.clave === deEditor.clave && e.propio);
   const hrefEditor = deEditor && idDelEditor && editorPropio ? conWs(EDITORES[deEditor.editor].ruta(idDelEditor), ws) : null;
   const enCurso = !!trabajo || armandoOffer;
-  /** La nota de voz de la caja (OC7): en cada chat que se sigue desde acá (el grupo, el lienzo y los editores no tienen caja). */
+  /** La nota de voz de la caja (OC7): en cada chat que se sigue desde acá (el lienzo y los editores no tienen caja). */
   const chatAbierto = filaAbierta?.clave ?? 'nuevo';
   /** Lo elegido para el chat abierto, si todavía se puede (si no, Automático). Lo de Offer no pasa por acá: su motor es otro. */
   const iaDelChat = idOffer != null ? null : eleccionVigente(iaDe[chatAbierto] ?? null, cuentasIA);
@@ -740,7 +703,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
 
   return {
     sesiones, errorLista, lista, elegido, elegir, filaAbierta, esJefe, nombre, nombreMuneco, aspectoMuneco, idOffer, idAntes, idTurno,
-    esGrupo, esAutomatizacion, hrefLienzo, esEditor, hrefEditor, hayMasDelGrupo: delGrupo.hayMas, trayendoAnteriores: delGrupo.trayendo, verAnteriores,
+    esAutomatizacion, hrefLienzo, esEditor, hrefEditor,
     items, cargado, errorCarga, recargar, ahora, trabajo, segs, enCurso, armandoOffer, tarjeta, correrTarjeta, alTerminarTrabajo, reintentar,
     texto, setTexto, faltaMic, setFaltaMic, enviar, enviarCaja, adjuntosCaja, vozCaja, pegados, quitarPegado, pegarLargo, cita, setCita,
     marcas, ponerMarca, accionesWA, menuWA, setMenuWA, infoWA, setInfoWA, elegirEnMenu, mensajesWA,

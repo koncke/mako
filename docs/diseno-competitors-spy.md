@@ -891,9 +891,16 @@ movimiento, no los textos ni la marca.
   después, Tutorial, Lista o tips, Opinión, Reseña, Testimonio, Detrás de escena, Entrevista), sin que nadie lo pida. Lo
   analizado antes del formato se lee UNA vez más, después de lo que nunca se leyó. Un formato necesita dos piezas para
   tener fila, y la lectura de arriba la escribe el CÓDIGO con medianas (`lecturaDeFormatos`), no una IA.
-- **Lo que NO va, a propósito**: la «Anatomía del guion», el «Guion completo» y la curva de «siguen mirando». El guion de un
-  video ajeno no se lee (no hay forma legal de transcribirlo, §5) y la retención no la publica nadie. Un bloque sin datos
-  no se dibuja y no dice «falta».
+- **Lo que NO va, a propósito**: la «Anatomía del guion» y la curva de «siguen mirando». La retención no la publica nadie, y
+  partir el guion en tramos pediría otra lectura de la IA. Un bloque sin datos no se dibuja y no dice «falta».
+- **El guion completo SÍ va desde el 4/11/2026, en los reels de Instagram** (Martín: «En cada uno de los videos cuando entro
+  no estás trayendo la transcripción»): al abrir el detalle se pide su video fresco a Apify (UNA publicación, con la clave de
+  Spy del negocio y un tope de 40 por día) y lo escucha la IA del negocio, con «Transcribiendo…» mientras tanto
+  (lib/spy-transcripcion.ts). Un video de YouTube sigue sin forma permitida (`captions.download` pide ser su dueño, y
+  bajarlo va contra sus términos): ahí va su descripción. Si se quiere, es una decisión de Martín (docs/relevo/nube-spy.md).
+- **El detalle se rehízo el 4/11/2026**: quién lo publicó con su foto y sus seguidores, sus números con «frente a su
+  mediana» (vidIQ), su estructura en filas de etiqueta y valor (Linear), su guion y su texto. «Copiar estructura» pasó a
+  ser «Hacer uno así», con la estrella de MaKo, en el pie que no scrollea.
 
 ### «Copiar estructura»
 

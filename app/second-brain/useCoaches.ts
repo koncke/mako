@@ -1,39 +1,43 @@
 'use client';
 
-// Quién tiene cada coach al frente, si hay oferta (con qué arranca el Funnel Coach) y si esta persona puede cambiarlo (1/11/2026).
+// Quién tiene al frente el coach, si hay oferta (con qué arranca) y si esta persona puede cambiarlo (1/11/2026).
+// UN SOLO COACH desde el 4/11/2026 (Martín: «Junta a "Offer coach" con "Funnel Coach"»): el referente es uno, y el de fábrica es Hormozi.
 // Aparte de ChatSecondBrain.tsx: esa pantalla no hace pedidos propios (tests/ops-center-cliente.test.ts).
 
 import { useCallback, useEffect, useState } from 'react';
-import { REFERENTES_DE_FABRICA, sanearReferentes, type IdAsesor, type IdCoach, type ReferentesElegidos } from '@/lib/asesores/catalogo';
+import { REFERENTE_DE_FABRICA, asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
 import type { GuruConCharla } from '@/lib/chat-mako-reglas';
 
+/** Lo que contesta el servidor: un id que no existe nunca rompe (null = MaKo; ausente = el de fábrica, hasta que conteste). */
+const referenteDe = (v: unknown): IdAsesor | null => (v === null ? null : asesorPorId(v)?.id ?? REFERENTE_DE_FABRICA);
+
 export function useCoaches() {
-  const [referentes, setReferentes] = useState<ReferentesElegidos>(REFERENTES_DE_FABRICA);
+  const [referente, setReferente] = useState<IdAsesor | null>(REFERENTE_DE_FABRICA);
   const [hayOferta, setHayOferta] = useState(false);
   const [puedeElegir, setPuedeElegir] = useState(false);
   useEffect(() => {
     let vivo = true;
     void fetch('/api/mako/chat?coaches=1', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
-      .then((j: { referentes?: unknown; hayOferta?: boolean; puedeElegir?: boolean } | null) => {
+      .then((j: { referente?: unknown; hayOferta?: boolean; puedeElegir?: boolean } | null) => {
         if (!vivo || !j) return;
-        setReferentes(sanearReferentes(j.referentes));
+        if ('referente' in j) setReferente(referenteDe(j.referente));
         setHayOferta(!!j.hayOferta);
         setPuedeElegir(!!j.puedeElegir);
       });
     return () => { vivo = false; };
   }, []);
   /** Se ve en el acto; si el servidor no lo guarda, vuelve el de antes: el chat sigue aconsejando con lo guardado, y la cabecera no puede decir otra cosa. */
-  const elegirReferente = useCallback((coach: IdCoach, id: IdAsesor | null) => {
-    let antes: ReferentesElegidos | null = null;
-    setReferentes((r) => { antes = r; return { ...r, [coach]: id }; });
-    void fetch('/api/mako/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'referente', referentes: { [coach]: id } }) })
+  const elegirReferente = useCallback((id: IdAsesor | null) => {
+    let antes: IdAsesor | null | undefined;
+    setReferente((r) => { antes = r; return id; });
+    void fetch('/api/mako/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'referente', referente: id }) })
       .then((r) => (r.ok ? r.json() : null)).catch(() => null)
-      .then((j: { referentes?: unknown } | null) => {
-        if (j?.referentes) setReferentes(sanearReferentes(j.referentes));
-        else if (antes) setReferentes(antes);
+      .then((j: { referente?: unknown } | null) => {
+        if (j && 'referente' in j) setReferente(referenteDe(j.referente));
+        else if (antes !== undefined) setReferente(antes);
       });
   }, []);
-  return { referentes, hayOferta, puedeElegir, elegirReferente };
+  return { referente, hayOferta, puedeElegir, elegirReferente };
 }
 
 /**

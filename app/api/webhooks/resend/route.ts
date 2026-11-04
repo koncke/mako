@@ -3,10 +3,10 @@
 // =============================================================================
 // Resend firma con Svix (headers svix-id / svix-timestamp / svix-signature).
 // Eventos que nos importan:
-//   email.opened     → marca abierto_at
-//   email.clicked    → marca clic_at
-//   email.bounced    → da de baja al lead (supresión)
-//   email.complained → da de baja al lead (marcó spam)
+//   email.opened     → marca abierto_at (y mueve la tarjeta a la columna «abrió» de la automatización, si la eligió)
+//   email.clicked    → marca clic_at (y la mueve a la columna «clic»)
+//   email.bounced    → da de baja al lead (supresión), anota el rebote y mira el freno del email (lib/email-reputacion.ts)
+//   email.complained → da de baja al lead (marcó spam), anota la queja y mira el freno
 //   email.received   → un email que LLEGA dispara las automatizaciones de su lead
 //                      (lib/email-entrante.ts, sexta tanda, CRON 8)
 // Cualquier otro evento se ignora (200 para que Resend no reintente).
@@ -26,8 +26,9 @@
 import type { NextRequest } from 'next/server';
 import { verifyResendSignature } from '@/lib/resend';
 import { envCred } from '@/lib/credenciales';
-import { marcarEventoEmail, suprimirPorRebote } from '@/lib/email-marketing';
+import { marcarEventoEmail, moverPorEventoDeEmail, suprimirPorRebote } from '@/lib/email-marketing';
 import { recibirEmailEntrante } from '@/lib/email-entrante';
+import { revisarFrenoEmail } from '@/lib/email-reputacion';
 
 export const dynamic = 'force-dynamic';
 // `email.received` puede mandar el primer mensaje de una automatización en el acto (la vía rápida).
@@ -70,25 +71,35 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (evt.type) {
+      // La tarjeta del CRM sigue al email (4/11/2026, lib/email-eventos-crm.ts): sólo la primera vez que se marca, en el
+      // workspace de la fila del envío. `moverPorEventoDeEmail` no tira: esto sigue contestando 200.
       case 'email.opened':
-        await marcarEventoEmail(emailId, 'abierto', when);
+        await moverPorEventoDeEmail(await marcarEventoEmail(emailId, 'abierto', when), 'abierto');
         break;
       case 'email.clicked':
         // Un clic implica apertura: marcamos las dos.
-        await marcarEventoEmail(emailId, 'abierto', when);
-        await marcarEventoEmail(emailId, 'clic', when);
+        await moverPorEventoDeEmail(await marcarEventoEmail(emailId, 'abierto', when), 'abierto');
+        await moverPorEventoDeEmail(await marcarEventoEmail(emailId, 'clic', when), 'clic');
         break;
       case 'email.bounced': {
         // Solo suprimir en rebote PERMANENTE (dirección inválida). Los soft/transient
         // (buzón lleno, temporal) no deben dar de baja a un lead válido.
         const tipo = (evt.data?.bounce?.type ?? '').toLowerCase();
-        if (tipo === 'permanent' || tipo === 'hardbounce' || tipo === 'hard') await suprimirPorRebote(emailId);
+        if (tipo === 'permanent' || tipo === 'hardbounce' || tipo === 'hard') {
+          // Se anota con su hora (mig 0380) y se mira el freno del email del negocio (lib/email-reputacion.ts, 4/11/2026).
+          const fila = await marcarEventoEmail(emailId, 'rebote', when);
+          await suprimirPorRebote(emailId);
+          if (fila?.workspace_id != null) await revisarFrenoEmail(fila.workspace_id);
+        }
         break;
       }
-      case 'email.complained':
-        // Marcó spam → baja inmediata.
+      case 'email.complained': {
+        // Marcó spam → baja inmediata, y el freno (una queja castiga al dominio más que un rebote).
+        const fila = await marcarEventoEmail(emailId, 'queja', when);
         await suprimirPorRebote(emailId);
+        if (fila?.workspace_id != null) await revisarFrenoEmail(fila.workspace_id);
         break;
+      }
       case 'email.received': {
         // Un email que llega (ver la cabecera). Contesta lo que decida `recibirEmailEntrante`.
         const r = await recibirEmailEntrante(evt);

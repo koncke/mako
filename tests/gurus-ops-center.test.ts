@@ -13,8 +13,8 @@
 // PROBADO ROMPIÉNDOLO (3/11/2026), con el archivo en 15 / 0, una rotura por vez y restaurada:
 //   1. `GaleriaDeGurus` con `ASESORES.slice(0, 1)`                                          → cae «están los 22»
 //      `ChatsMovil` sin `alPie` en HojaChatNuevo                                           → cae «las cuatro puertas»
-//   2. `queAbreElOfferCoach` que con conversación de Offer no abre al gurú                  → cae «Hormozi abre su chat»
-//      la fila con `onElegir={() => { if (filasOffer[0]) … }}` (el clic muerto de antes)    → cae «la fila no es un clic muerto»
+//   2. (4/11/2026, el coach único: ya no hay fila del Offer Coach) `gurusDeLaBarra` que vuelve a esconder a uno → cae «Hormozi abre su chat»
+//      la fila de un gurú con `onElegir={() => elegir(…)}` en vez de `abrirGuru(id)`           → cae «la fila no es un clic muerto»
 //   3. borrar 'hormozi' de `CURSO_DE_REFERENTE`                                             → 13 / 2: «los 22 contestan» y «con la cuenta de un cliente»
 //      `paqueteParaElTurno` que no lee el curso con `sinPlata`                             → 14 / 1: «con la cuenta de un cliente»
 //   4. `useChatCliente` sin `quien` en `aspectoMuneco`                                      → cae «la burbuja lleva su cara»
@@ -35,7 +35,7 @@ import modulo from 'node:module';
 import { CuerpoChatNuevo, type ChatNuevo } from '../app/admin/operaciones/ChatNuevoPiezas';
 import { ASESORES, type IdAsesor } from '../lib/asesores/catalogo';
 import { aspectoDeReferente } from '../lib/centro-munecos';
-import { esTabConChatPropio, gurusDeLaBarra, listaDelCliente, origenDeClave, queAbreElOfferCoach, referenteDeTab } from '../lib/chat-mako-reglas';
+import { esTabConChatPropio, gurusDeLaBarra, listaDelCliente, origenDeClave, referenteDeTab } from '../lib/chat-mako-reglas';
 import { tocarEnLaBarra } from '../lib/ops-center-navegar';
 
 // El hilo trae CSS, que en node no carga: se importa adentro de su test, después de esto (como tests/aperturas.test.ts). El motor
@@ -96,18 +96,21 @@ test('1. las cuatro puertas: el cliente y el super admin, en la computadora y en
 // ── 2. El clic abre su chat ahí mismo, sin conversación previa ni cambio de ruta ───────────────────────
 
 test('2. Hormozi abre su chat, sin conversación previa y también con una', () => {
-  assert.deepEqual(queAbreElOfferCoach({ referente: 'hormozi', offer: null }), { guru: 'hormozi' });
-  assert.deepEqual(queAbreElOfferCoach({ referente: 'hormozi', offer: { offer: 7 } }), { guru: 'hormozi' }, 'sus conversaciones de Offer siguen en su fila, debajo');
-  assert.deepEqual(queAbreElOfferCoach({ referente: null, offer: { offer: 7 } }), { elegido: { offer: 7 } });
-  assert.deepEqual(queAbreElOfferCoach({ referente: null, offer: null }), { elegir: true }, 'sin gurú y sin conversación tampoco es un clic muerto');
+  // Desde el 4/11/2026 no hay fila del Offer Coach (el coach es uno): la charla con Hormozi que alguien tuvo tocándola es SU fila de gurú.
+  const conCharla = [{ id: 'hormozi' as const, at: '2026-11-03T00:00:00.000Z' }];
+  assert.deepEqual(gurusDeLaBarra({ conCharla, abierto: null, busca: '' }).map((g) => g.id), ['hormozi'], 'nadie se esconde');
+  assert.deepEqual(gurusDeLaBarra({ conCharla: [], abierto: 'hormozi', busca: '' }).map((g) => g.id), ['hormozi'], 'abierto sin haberle escrito, también');
 });
 
 test('2. la fila no es un clic muerto, y abrirlo no cambia de ruta', () => {
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  assert.match(sb, /onElegir=\{abrirOfferCoach\}/);
-  assert.doesNotMatch(sb, /if \(filasOffer\[0\]\) elegir\(filasOffer\[0\]\.elegido\); \}/);
+  assert.match(sb, /filasDeGurus\.map\(\(\{ id \}\) => \{[\s\S]{0,400}onElegir=\{\(\) => abrirGuru\(id\)\} \/>/, 'su fila abre su chat ahí mismo');
   assert.equal(tocarEnLaBarra('chat', { ticketera: false, mapa: false, nuevo: false }).ir ?? null, null, 'sin el grafo abierto, no se navega');
-  const abrir = sb.slice(sb.indexOf('const abrirGuru ='), sb.indexOf('const abrirOfferCoach ='));
+  const ini = sb.indexOf('const abrirGuru =');
+  // Hasta la función que sigue (abrirGrupo, desde el 4/11/2026; si no está, edadDeGuru): sólo el cuerpo de abrirGuru.
+  const fin = [sb.indexOf('const abrirGrupo ='), sb.indexOf('const edadDeGuru =')].filter((x) => x > ini).sort((x, y) => x - y)[0] ?? -1;
+  assert.ok(ini >= 0 && fin > ini, 'abrirGuru está antes de abrirGrupo y de edadDeGuru');
+  const abrir = sb.slice(ini, fin);
   assert.match(abrir, /setGuru\(id\);/);
   assert.match(abrir, /if \(paso\.ir\) \{[^}]*router\.push\(`\$\{base\}\?guru=/, 'sólo el grafo, que es de otra página, navega');
   assert.equal((abrir.match(/router\.push/g) ?? []).length, 1);
@@ -190,7 +193,8 @@ test('4. la burbuja lleva su cara y su nombre, no una criatura sorteada', async 
 });
 
 test('4. el Funnel Coach con un gurú al frente tampoco dibuja otra criatura', () => {
-  assert.match(sinComentarios(leer('app/second-brain/ChatDelCoach.tsx')), /useChatCliente\(\{[^}]*tab: TAB_FUNNEL_COACH, quien \}\)/);
+  // Su motor (el mismo de la computadora y el teléfono, 4/11/2026) le pasa su cara al chat.
+  assert.match(sinComentarios(leer('app/second-brain/useChatDelCoach.ts')), /useChatCliente\(\{[^}]*tab: TAB_FUNNEL_COACH, quien \}\)/);
 });
 
 test('4. el historial: en la lista lleva su nombre y su cara, y abre su chat', () => {
@@ -205,11 +209,11 @@ test('4. el historial: en la lista lleva su nombre y su cara, y abre su chat', (
   assert.match(sb, /filasDeLaLista\.filter\(\(f\) => f\.origen !== 'offer' && !f\.guru\)/, 'en la computadora van debajo de los coaches, una sola vez');
 });
 
-test('4. el historial en la barra: lo más reciente arriba, el abierto aunque no le haya escrito, y el del Offer Coach no se repite', () => {
+test('4. el historial en la barra: lo más reciente arriba, el abierto aunque no le haya escrito, y ninguno escondido', () => {
   const conCharla = [{ id: 'juan-ads' as const, at: '2026-11-01T00:00:00.000Z' }, { id: 'hormozi' as const, at: '2026-11-03T00:00:00.000Z' }, { id: 'tino-mossu' as const, at: '2026-11-02T00:00:00.000Z' }];
-  assert.deepEqual(gurusDeLaBarra({ conCharla, abierto: null, delOffer: 'hormozi', busca: '' }).map((g) => g.id), ['tino-mossu', 'juan-ads']);
-  assert.deepEqual(gurusDeLaBarra({ conCharla, abierto: 'adria-sola', delOffer: 'hormozi', busca: '' }).map((g) => g.id), ['adria-sola', 'tino-mossu', 'juan-ads']);
-  assert.deepEqual(gurusDeLaBarra({ conCharla, abierto: null, delOffer: null, busca: 'mossu' }).map((g) => g.id), ['tino-mossu']);
+  assert.deepEqual(gurusDeLaBarra({ conCharla, abierto: null, busca: '' }).map((g) => g.id), ['hormozi', 'tino-mossu', 'juan-ads']);
+  assert.deepEqual(gurusDeLaBarra({ conCharla, abierto: 'adria-sola', busca: '' }).map((g) => g.id), ['adria-sola', 'hormozi', 'tino-mossu', 'juan-ads']);
+  assert.deepEqual(gurusDeLaBarra({ conCharla, abierto: null, busca: 'mossu' }).map((g) => g.id), ['tino-mossu']);
   // Esta es la única forma de volver al suyo que tiene el super admin: su lista es la de Claude Code.
   assert.match(leer('app/m/operaciones/ChatsMovil.tsx'), /gurusConCharla\.map\(\(\{ id, at \}\) =>/);
 });
@@ -227,7 +231,8 @@ test('5. su Second Brain, en los chats donde aconseja un gurú, en la computador
   // «Second Brain de <gurú>» y, abierto, «Volver al chat»: lo que hace el botón y el reemplazo lo corre tests/cerebro-referente-vista.test.ts.
   assert.match(leer('app/second-brain/ChatDelReferente.tsx'), /<BotonSecondBrainDe referente=\{r\} viendo=\{viendoCerebro\}/, 'el suyo');
   assert.match(leer('app/second-brain/ChatDelCoach.tsx'), /\{r && <BotonSecondBrainDe referente=\{r\} viendo=\{mostrandoCerebro\}/, 'el Funnel Coach');
-  assert.match(leer('app/second-brain/ChatSecondBrain.tsx'), /<BotonSecondBrainDe referente=\{delOffer\} viendo=\{viendoCerebroOffer\}/, 'una conversación de Offer');
+  assert.match(leer('app/second-brain/ChatSecondBrain.tsx'), /<BotonSecondBrainDe referente=\{delCoach\} viendo=\{viendoCerebroOffer\}/, 'una conversación de oferta');
+  assert.match(leer('app/m/second-brain/HojaDelCoach.tsx'), /<CerebroDelGuru referente=\{r\} movil \/>/, 'el coach en el teléfono');
   const m = leer('app/m/second-brain/HojaDelGuru.tsx');
   assert.match(m, /<BotonSecondBrainDe referente=\{r\} viendo=\{false\} onCambiar=\{setViendoCerebro\} \/>/);
   assert.match(m, /<CerebroDelGuru referente=\{r\} movil \/>/, 'adentro de la hoja: una hoja sobre otra la reemplaza');
