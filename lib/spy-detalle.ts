@@ -144,6 +144,26 @@ export function redesDe(piezas: readonly Pick<Pieza, 'canal'>[]): Array<{ red: s
   return n.size > 1 ? [{ red: 'todo', n: piezas.length }, ...[...n.entries()].map(([red, k]) => ({ red, n: k })).sort((a, b) => b.n - a.n)] : [];
 }
 
+/**
+ * La proporción REAL de su miniatura (Martín, 4/11): un reel o un short son verticales (9:16), una publicación o un
+ * anuncio cuadrados, un video de YouTube y una web apaisados (16:9). Antes todas eran cuadradas en el gráfico y 4:5 en
+ * las tarjetas, y un video apaisado se veía recortado.
+ */
+export function proporcionDe(p: Pick<Pieza, 'canal' | 'tipo' | 'duracion'>): { ancho: number; alto: number } {
+  const t = tipoDeContenido(p);
+  if (t === 'reels' || t === 'shorts') return { ancho: 9, alto: 16 };
+  if (t === 'largos' || p.canal === 'landing') return { ancho: 16, alto: 9 };
+  return { ancho: 1, alto: 1 };
+}
+
+/** Su miniatura en el gráfico: el lado más largo mide `lado`, y el otro sale de su proporción. */
+export function medidaEnElGrafico(p: Pick<Pieza, 'canal' | 'tipo' | 'duracion'>, lado: number): { ancho: number; alto: number } {
+  const r = proporcionDe(p);
+  return r.ancho >= r.alto
+    ? { ancho: lado, alto: Math.round((lado * r.alto) / r.ancho) }
+    : { ancho: Math.round((lado * r.ancho) / r.alto), alto: lado };
+}
+
 /** Una fila de «¿En qué publica?»: cuántas piezas y qué parte del total. `red` dibuja su logo. */
 export type FilaReparto = { clave: string; rotulo: string; n: number; pct: number; red?: 'instagram' | 'youtube' | 'anuncios' };
 

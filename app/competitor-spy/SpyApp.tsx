@@ -70,7 +70,7 @@ import { LogoRed } from './LogoRed';
 import type { Sugerido } from '@/lib/spy-sugeridos';
 import {
   ORDENES, canalesDe, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
-  fraseDeLectura, haceCuanto, miniaturaDePieza, opcionesDeContenido, ordenarPiezas, pideConectarMeta,
+  fraseDeLectura, haceCuanto, opcionesDeContenido, ordenarPiezas, pideConectarMeta,
   type OrdenSpy, type TipoContenido, type ValorDeContenido,
 } from '@/lib/spy-vista';
 import { cuantasFaltan } from '@/lib/spy-analisis-reglas';
@@ -334,6 +334,8 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-ccard__sub{display:block;margin-top:2px;color:var(--faint);font-size:var(--fs-sm)}
 .spy-ccard__pie{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .spy-sugeridos{margin-top:calc(var(--gap) * 2)}
+.spy-anuncios{margin-top:calc(var(--gap) * 2)}
+.spy-anuncios h2{margin:0 0 12px;font-size:var(--fs-sect);font-weight:600}
 .spy-sugeridos .spy-phead h2{margin:0;font-size:var(--fs-sect);font-weight:600;letter-spacing:-.015em}
 /* El borrar vive EN la tarjeta: para sacar un duplicado ya no hay que entrar al competidor. */
 .spy-ccard__borrar{position:absolute;top:12px;right:12px;display:grid;place-items:center;
@@ -465,7 +467,8 @@ button.spy-campo:hover{color:var(--dim)}
 }
 `;
 
-type Pestana = 'grafico' | 'publica' | 'miniaturas' | 'oferta' | 'sitio' | 'anuncios';
+/** Dos pestañas y nada más (Martín, 4/11): «Contenido» (el gráfico y sus piezas) y «Funnel» (su web y su oferta). */
+type Pestana = 'contenido' | 'funnel';
 
 // ⚠️ LAS FRANJAS DE UNA LÍNEA SE FUERON (4/11/2026). Martín: «elimina textos innecesarios, como "Lo que publica Los días
 // los declara el canal; la etapa la calcula MaKo."». Explicaban un criterio nuestro que la pantalla ya no muestra.
@@ -803,7 +806,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [lecturas, setLecturas] = useState<Record<number, LecturaCanalSpy[]>>({});
   const [error, setError] = useState<string | null>(errorInicial);
   // El gráfico va primero: es el detalle de cada competidor (punto 7 del 4/11/2026).
-  const [pestana, setPestana] = useState<Pestana>('grafico');
+  const [pestana, setPestana] = useState<Pestana>('contenido');
   /** La pieza abierta en su detalle, con las de su gráfico (para su puesto). */
   const [abierta, setAbierta] = useState<{ p: PiezaVista; todas: readonly PiezaVista[] } | null>(null);
 
@@ -880,7 +883,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     if (elegido == null) return;
     let vivo = true;
     const id = elegido;
-    setPiezas([]); setError(null); setBuscar(''); setTipo('todo'); setPestana('publica'); setTrayendo(true); setOrdenando(null); setMostrar(60);
+    setPiezas([]); setError(null); setBuscar(''); setTipo('todo'); setPestana('contenido'); setTrayendo(true); setOrdenando(null); setMostrar(60);
     void (async () => {
       const p = await traerPiezas(id);
       if (!vivo) return;
@@ -915,7 +918,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     setElegido(id);
     // El detalle abierto es de una pieza del que se deja: se cierra, y el otro abre en su gráfico.
     setAbierta(null);
-    setPestana('grafico');
+    setPestana('contenido');
     const url = new URL(window.location.href);
     if (id == null) url.searchParams.delete('competidor');
     else url.searchParams.set('competidor', String(id));
@@ -1135,7 +1138,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       setModal(null);
       await traerPiezas(elegido);
       await recargarLista();
-      setPestana('anuncios');
+      setPestana('contenido');
     } finally {
       setOcupado(false);
     }
@@ -1193,19 +1196,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   // eslint-disable-next-line react-hooks/set-state-in-effect -- es un reinicio por cambio de filtro, no un cálculo
   useEffect(() => { setMostrar(60); }, [buscar, tipo, orden]);
   const opcionesTipo = useMemo(() => (c ? opcionesDeContenido(flujo, c) : []), [flujo, c]);
-  // Las miniaturas de sus videos de YouTube con su título, para copiar lo que funciona (pedido del 4/11).
-  const videosYoutube = useMemo(() => ordenarPiezas(flujo.filter((p) => p.canal === 'youtube'), 'mas-vistas'), [flujo]);
-
-  // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece.
+  // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece. Y son DOS (Martín, 4/11): las de antes
+  // (Gráfico, Lo que publica, Miniaturas, Su oferta, Su web, Anuncios) partían lo mismo en seis lugares.
   const pestanas: Array<{ key: Pestana; rotulo: string; n?: number }> = c ? [
-    ...(flujo.length || anuncios.length ? [{ key: 'grafico' as const, rotulo: 'Gráfico' }] : []),
-    ...(c.instagram || c.youtube_id || flujo.length || !c.landing_url ? [{ key: 'publica' as const, rotulo: 'Lo que publica', n: flujo.length || undefined }] : []),
-    ...(videosYoutube.length ? [{ key: 'miniaturas' as const, rotulo: 'Miniaturas', n: videosYoutube.length }] : []),
-    ...(c.oferta?.promete ? [{ key: 'oferta' as const, rotulo: 'Su oferta' }] : []),
-    ...(c.landing_url ? [{ key: 'sitio' as const, rotulo: 'Su web' }] : []),
-    ...(anuncios.length ? [{ key: 'anuncios' as const, rotulo: 'Anuncios', n: anuncios.length }] : []),
+    ...(flujo.length || anuncios.length || c.instagram || c.youtube_id || !c.landing_url ? [{ key: 'contenido' as const, rotulo: 'Contenido', n: (flujo.length + anuncios.length) || undefined }] : []),
+    ...(c.landing_url || c.oferta?.promete ? [{ key: 'funnel' as const, rotulo: 'Funnel' }] : []),
   ] : [];
-  const activa: Pestana = pestanas.some((p) => p.key === pestana) ? pestana : (pestanas[0]?.key ?? 'publica');
+  const activa: Pestana = pestanas.some((p) => p.key === pestana) ? pestana : (pestanas[0]?.key ?? 'contenido');
 
   const lecturasDe = elegido != null ? lecturas[elegido] ?? null : null;
   const estaLeyendo = leyendo != null && leyendo === elegido;
@@ -1243,7 +1240,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
 
   const revisarDeNuevo = (
     <button type="button" className="spy-boton" disabled={estaLeyendo || ordenando != null || elegido == null} onClick={() => { if (elegido != null) void leer(elegido); }}>
-      Revisar de nuevo
+      Probar de nuevo
     </button>
   );
 
@@ -1254,7 +1251,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     </>
   );
 
-  // El riel de la ficha: su nombre, «Revisar ahora» y sus datos. Lo comparten el gráfico y «Lo que publica».
+  // El riel de la ficha: su nombre, su menú y sus datos. Va al lado del gráfico y de sus piezas, en «Contenido».
   const riel = c ? (
     <aside className="spy-riel">
       {/* La identidad abre el riel, como la `.pd-info` abre la columna de al lado en la
@@ -1268,9 +1265,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
         </div>
         {identidad && <small className="spy-rango">{identidad}</small>}
         <div className="spy-ficha__acciones">
-          <button type="button" className="spy-boton spy-boton-primario" disabled={estaLeyendo || ordenando != null || !canalesDe(c)} onClick={() => void leer(c.id)}>
-            {estaLeyendo ? 'Revisando…' : 'Revisar ahora'}
-          </button>
+          {/* «Revisar ahora» se fue (Martín, 4/11): se revisa una vez, solo, y lo nuevo entra en segundo plano. */}
           <Dropdown
             ariaLabel="Más acciones"
             value=""
@@ -1393,7 +1388,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
             />
 
             {/* Lo que falló al apretar algo se dice acá. El vacío «no pude» ya lo trae entre sus motivos. */}
-            {error && !(activa === 'publica' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}</p>}
+            {error && !(activa === 'contenido' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}</p>}
 
             {/* ── Pestañas de la referencia: 42 px, subrayado del acento y el conteo en una badge.
                  Vuelven a tener fila propia —la vuelta anterior las había metido entre los chips de
@@ -1409,28 +1404,19 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
               </nav>
             )}
 
-            {/* ── El gráfico: el detalle de cada competidor (punto 7 del 4/11/2026, lib/spy-detalle.ts). ── */}
-            {activa === 'grafico' && (
+            {activa === 'contenido' && (
+              // ── Las dos columnas de merrin: el gráfico y sus piezas a la izquierda, el riel a la derecha.
               <div className="spy-cols">
                 <div>
-                  {trayendoTodo === c.id && <p className="spy-aviso spy-aviso--suave" aria-live="polite">Trayendo todo lo que publicó…</p>}
-                  {trayendoTodo !== c.id && avisoTodo[c.id] && <p className="spy-aviso spy-aviso--suave" aria-live="polite">{avisoTodo[c.id]}</p>}
-                  <GraficoSpy
-                    c={c} piezas={piezas} analizando={autoAnalisis === c.id}
-                    onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })}
-                    onAgregarRed={() => { setErrorModal(null); setModal('canal'); }}
-                    onWeb={() => setPestana('sitio')}
-                  />
-                </div>
-                {riel}
-              </div>
-            )}
-
-            {activa === 'publica' && (
-              // ── Las dos columnas de merrin: el catálogo manda y el análisis vive a la derecha.
-              //    Sin piezas no hay riel, y entonces la grilla ocupa el ancho entero.
-              <div className="spy-cols">
-                <div>
+                  {/* El gráfico: el detalle de cada competidor (punto 7 del 4/11/2026, lib/spy-detalle.ts). */}
+                  {(flujo.length > 0 || anuncios.length > 0) && (
+                    <GraficoSpy
+                      c={c} piezas={piezas} analizando={autoAnalisis === c.id}
+                      onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })}
+                      onAgregarRed={() => { setErrorModal(null); setModal('canal'); }}
+                      onWeb={() => setPestana('funnel')}
+                    />
+                  )}
                   {flujo.length > 0 && (
                     <>
                       {/* La barra de herramientas de fitlo: campo ancho, chips y el orden a la derecha. */}
@@ -1494,7 +1480,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                     </Vacio>
                   )}
                   {estado === 'leido-sin-nada' && (
-                    <Vacio titulo={`No encontré publicaciones de ${c.nombre}`} botones={revisarDeNuevo}>
+                    <Vacio titulo={`No encontré publicaciones de ${c.nombre}`}>
                       <p>Leímos sus canales {c.mirado_en ? `el ${fechaCorta(c.mirado_en)} ` : ''}y no había nada público.</p>
                     </Vacio>
                   )}
@@ -1520,49 +1506,21 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                       {motivos}
                     </Vacio>
                   )}
+
+                  {/* Sus anuncios, debajo de lo que publica (eran una pestaña aparte). */}
+                  {anuncios.length > 0 && (
+                    <section className="spy-anuncios" aria-label="Anuncios">
+                      <h2>Anuncios</h2>
+                      <div className="spy-pgrid">{anuncios.map((p) => <TarjetaPieza key={p.id} p={p} onAbrir={() => setAbierta({ p, todas: anuncios })} />)}</div>
+                    </section>
+                  )}
                 </div>
 
                 {riel}
               </div>
             )}
 
-            {/* ── Sus miniaturas de YouTube junto a su título, de la más vista a la menos (pedido de Martín del 4/11:
-                 «un apartado exclusivo para las miniaturas de YT junto a los titulares»). Es lo que se copia de un canal:
-                 la imagen y la frase que hacen que alguien entre. ── */}
-            {activa === 'miniaturas' && (
-              <div className="spy-mgrid">
-                {videosYoutube.map((p) => {
-                  const mini = miniaturaDePieza(p);
-                  return (
-                    <a key={p.id} className="spy-mcard" href={p.url ?? undefined} target="_blank" rel="noreferrer noopener">
-                      <span className="spy-mcard__img">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- la sirve YouTube, sin pasar por nuestro optimizador */}
-                        {mini && <img src={mini} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.remove(); }} />}
-                      </span>
-                      <b>{p.titulo || p.texto?.slice(0, 120) || 'Sin título'}</b>
-                      {p.vistas != null && <small>{dibujarContador(p.vistas)} vistas</small>}
-                    </a>
-                  );
-                })}
-              </div>
-            )}
-
-            {activa === 'oferta' && c.oferta && (
-              <section className="spy-oferta">
-                <div className="spy-dato"><b>Promete</b>{c.oferta.promete}</div>
-                {c.oferta.aQuien && <div className="spy-dato"><b>A quién</b>{c.oferta.aQuien}</div>}
-                {c.oferta.precio && <div className="spy-dato"><b>Precio que publica</b>{c.oferta.precio}</div>}
-                {c.oferta.objecion && <div className="spy-dato"><b>Objeción que ataca</b>{c.oferta.objecion}</div>}
-                {!!c.oferta.huecos.length && (
-                  <div className="spy-dato">
-                    <b>Lo que ataca y tu oferta no menciona</b>
-                    <ul style={{ margin: 0, paddingLeft: 18 }}>{c.oferta.huecos.map((h) => <li key={h}>{h}</li>)}</ul>
-                  </div>
-                )}
-              </section>
-            )}
-
-            {activa === 'sitio' && c.landing_url && (
+            {activa === 'funnel' && c.landing_url && (
               estaLeyendo && !sitio
                 ? <Esqueleto leyendo />
                 : (
@@ -1585,9 +1543,21 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                 )
             )}
 
-            {activa === 'anuncios' && (
-              <div className="spy-pgrid">{anuncios.map((p) => <TarjetaPieza key={p.id} p={p} onAbrir={() => setAbierta({ p, todas: anuncios })} />)}</div>
+            {activa === 'funnel' && c.oferta?.promete && (
+              <section className="spy-oferta">
+                <div className="spy-dato"><b>Promete</b>{c.oferta.promete}</div>
+                {c.oferta.aQuien && <div className="spy-dato"><b>A quién</b>{c.oferta.aQuien}</div>}
+                {c.oferta.precio && <div className="spy-dato"><b>Precio que publica</b>{c.oferta.precio}</div>}
+                {c.oferta.objecion && <div className="spy-dato"><b>Objeción que ataca</b>{c.oferta.objecion}</div>}
+                {!!c.oferta.huecos.length && (
+                  <div className="spy-dato">
+                    <b>Lo que ataca y tu oferta no menciona</b>
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>{c.oferta.huecos.map((h) => <li key={h}>{h}</li>)}</ul>
+                  </div>
+                )}
+              </section>
             )}
+
           </>
         )}
       </div>

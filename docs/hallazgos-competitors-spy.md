@@ -1102,3 +1102,31 @@ piezas que miniaturas.
 **Vive en:** app/competitor-spy/LogoRed.tsx · lib/spy-detalle.ts (`repartoDePublicaciones`) · app/competitor-spy/GraficoSpy.tsx
 · app/competitor-spy/DetallePieza.tsx · app/competitor-spy/SpyApp.tsx (`RielAnalisis`, `CajaMix`) ·
 app/competitor-spy/BuscadorAlta.tsx · tests/spy-logos.test.ts
+
+## «Contenido» y «Funnel»: dos pestañas, el selector adentro del gráfico y cada miniatura con su proporción (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11), mirando la ficha en producción: sólo dos pestañas; el selector y los filtros
+> adentro de la tarjeta del gráfico; cada miniatura con su proporción real; sin «Revisar ahora»; sin textos que narran
+> lo que ya se ve; y la criatura de MaKo sin la tarjeta blanca detrás mientras analiza.
+
+**Lo que quedó:**
+- **Dos pestañas.** «Contenido» = el gráfico, sus piezas y sus anuncios debajo, con el riel al costado. «Funnel» = su web
+  (con su funnel y «Copiar su sitio») y lo que se leyó de su oferta. «Miniaturas» se fue: las tarjetas de YouTube ya
+  llevan su miniatura apaisada y su título.
+- **El selector y los filtros de red van adentro de la tarjeta del gráfico**, arriba del dibujo.
+- **Proporción real** (`proporcionDe`, `medidaEnElGrafico`): reel y short 9:16, publicación y anuncio 1:1, video largo y
+  web 16:9. En el gráfico el lado más largo mide lo mismo para todas (un video apaisado no ocupa más lugar); en las
+  tarjetas, el `aspect-ratio` de la imagen.
+- **Sin «Revisar ahora».** Queda «Probar de nuevo» sólo cuando una lectura FALLÓ; «no encontré publicaciones» ya no
+  ofrece releer.
+- **Mientras carga, la tarjeta del gráfico no se dibuja** (`data-cargando`): la criatura queda sobre el gris de la página.
+
+**Una trampa que no se ve:** un test (spy-orden, el 5) contaba DOS botones de releer apagados durante la película —
+«Revisar ahora» y «Revisar de nuevo»—; sacar uno lo ponía rojo. Lo que cuidaba no era el número sino que ninguno se
+pueda tocar mientras corre la animación: ahora afirma eso sobre el que queda.
+
+**Sin hacer todavía:** el detalle de una pieza rediseñado con su transcripción (#10), y «Funnel» con el analizador de
+ofertas (#11).
+
+**Vive en:** app/competitor-spy/SpyApp.tsx (`Pestana`, el panel «Contenido») · app/competitor-spy/GraficoSpy.tsx ·
+app/competitor-spy/TarjetaPieza.tsx · lib/spy-detalle.ts (`proporcionDe`, `medidaEnElGrafico`) · tests/spy-contenido.test.ts
