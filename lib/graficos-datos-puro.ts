@@ -272,6 +272,28 @@ export const MOTIVO_DE_REGLA: Readonly<Record<string, string>> = {
 };
 
 /** «Vencida» / «Vence pronto» / «Más adelante» / «Sin fecha»: la urgencia de la próxima cuota de un cliente. */
+/**
+ * Los tramos de ATRASO de una cuota sin pagar (4/11/2026, la hoja Cobranza copiada de Coffer: «Not due · 1–30 days ·
+ * 31–60 days · 60+ days»). Los días se cuentan contra el HOY DEL NEGOCIO; una cuota sin vencimiento está «Al día» (no
+ * venció). Los colores son los de la barra de Coffer (sus `--age0…3`).
+ */
+export const TRAMOS_ATRASO = ['Al día', '1-30 días', '31-60 días', '60+ días'] as const;
+export const COLORES_ATRASO: Readonly<Record<string, string>> = { 'Al día': '#3a4150', '1-30 días': '#d7a33c', '31-60 días': '#df6e2c', '60+ días': '#c0352f' };
+/**
+ * Los días de `desde` a `hasta` (YYYY-MM-DD), CON SIGNO: negativo si `hasta` va antes (una cuota pagada antes de vencer).
+ * ⚠️ No es `diasEntre` (arriba), que da null con un negativo porque para el ciclo de venta eso es un dato roto.
+ */
+export function diasConSigno(desde: string, hasta: string): number {
+  return Math.round((Date.parse(`${hasta.slice(0, 10)}T12:00:00Z`) - Date.parse(`${desde.slice(0, 10)}T12:00:00Z`)) / 86_400_000);
+}
+/** El tramo de atraso de una cuota que SE DEBE (impaga y deuda), con su vencimiento y el hoy del negocio. */
+export function tramoDeAtraso(vence: string | null | undefined, hoy: string): (typeof TRAMOS_ATRASO)[number] {
+  if (!vence) return 'Al día';
+  const dias = diasConSigno(vence, hoy);
+  if (dias <= 0) return 'Al día';
+  return dias <= 30 ? '1-30 días' : dias <= 60 ? '31-60 días' : '60+ días';
+}
+
 export function rotuloUrgencia(urgencia: 'vencida' | 'pronto' | null, vence: string | null | undefined): string {
   if (urgencia === 'vencida') return 'Vencida';
   if (urgencia === 'pronto') return 'Vence pronto';

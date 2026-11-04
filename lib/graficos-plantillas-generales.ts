@@ -24,7 +24,7 @@
 //
 // Puro y sin server-only.
 
-import { sanearComponente, type Componente, type Preset } from './graficos-catalogo';
+import { sanearComponente, type Componente, type DisenoHoja, type Preset } from './graficos-catalogo';
 import { acomodar } from './graficos-ia';
 import type { PlantillaHoja } from './graficos-plantillas';
 
@@ -52,6 +52,11 @@ export type DefinicionGeneral = {
    * forma que escribe la IA y pasan por su puerta (tests/graficos-ia.test.ts), y un botón no es eso. El de Cold Calling: «Grabar llamada».
    */
   acciones?: Array<{ local: string; accion: string; rotulo: string }>;
+  /**
+   * El DISEÑO PROPIO de la hoja (4/11/2026, `Hoja.diseno`): qué componente dibuja mirando, y de qué pieza lee cada bloque, por su
+   * nombre `local` (acá) → el id de la pieza (al armar). La de Cobranza es la copia de Coffer (app/dashboard/disenos/HojaCobranza.tsx).
+   */
+  diseno?: { id: DisenoHoja['id']; piezas: Record<string, string> };
 };
 
 /** Una pieza (en la forma de la IA) → el componente crudo que entiende el catálogo, con su id. */
@@ -81,6 +86,7 @@ export function plantilla(d: DefinicionGeneral): PlantillaHoja {
         controles: [{ id: id(`${d.id}-periodo`), tipo: 'periodo', preset: d.periodo }, ...(d.controles ?? []).map((c, i) => ({ ...c, id: id(`${d.id}-c${i}`) }))],
         componentes: acomodar(componentes),
         ...(d.tema ? { tema: { plantilla: d.tema, acento: null, fuente: null } } : {}),
+        ...(d.diseno ? { diseno: { id: d.diseno.id, piezas: Object.fromEntries(Object.entries(d.diseno.piezas).map(([k, local]) => [k, id(local)])) } } : {}),
       };
     },
   };
@@ -108,25 +114,48 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
         local: 'apertura', tipo: 'frase', fuente: 'pagos', fecha: 'vencimiento', metricas: ['monto', 'cobrado', 'pendiente'], dimension: null, titulo: 'Lo prometido',
         frase: 'En el período vencen {monto} · entraron {cobrado} · faltan {pendiente}', ir: 'clients',
       },
+      // 4/11/2026 — EL DISEÑO DE COFFER (app/dashboard/disenos/HojaCobranza.tsx, maquetas en docs/diseno/mockups-dashboard/cobranza/):
+      // cada bloque lee una de estas piezas (`diseno.piezas`, abajo). Sus cuatro números de la derecha («Paid · Spent · Profit ·
+      // Average days to be paid») son lo cobrado, lo que vence, lo que falta y cuánto tardan en pagar, cada uno contra el mes anterior.
       { local: 'cobrado', tipo: 'numero_tendencia', fuente: 'pagos', fecha: 'pago', metricas: ['cobrado'], dimension: null, titulo: 'Cobrado', comparar: true, invertida: true, ir: 'clients' },
-      { local: 'cuotas-cobradas', tipo: 'numero_tendencia', fuente: 'revenue', metricas: ['cuotas_cobradas'], dimension: null, titulo: 'Cuotas cobradas', ir: 'clients' },
-      { local: 'cuotas-pendientes', tipo: 'numero_tendencia', fuente: 'revenue', metricas: ['cuotas_pendientes'], dimension: null, titulo: 'Cuotas pendientes', ir: 'clients' },
-      { local: 'clientes', tipo: 'numero', fuente: 'cobranza', metricas: ['clientes'], dimension: null, titulo: 'Clientes por cobrar', ir: 'clients' },
-      { local: 'semanas', tipo: 'columnas', fuente: 'pagos', dimension: 'semana', metricas: ['cobrado', 'pendiente'], titulo: 'Lo que entra, semana a semana', subtitulo: 'Cobrado contra lo que falta' },
-      // Coffer: cuánto hay en cada edad de la deuda.
-      { local: 'urgencia', tipo: 'barras', fuente: 'cobranza', dimension: 'urgencia', metricas: ['pendiente'], titulo: 'Cuánto hace que esperan', subtitulo: 'Lo pendiente, por urgencia' },
-      // La barra de Comercial (v5): lo cobrado y lo que falta, de UNA lectura.
-      { local: 'barra', tipo: 'barra_proporcion', fuente: 'revenue', metricas: ['cobrado', 'pendiente'], dimension: null, titulo: 'Lo cobrado y lo que falta', subtitulo: 'Del período, en una barra' },
+      { local: 'vence', tipo: 'numero_tendencia', fuente: 'pagos', fecha: 'vencimiento', metricas: ['monto'], dimension: null, titulo: 'Lo que vence', comparar: true, ir: 'clients' },
+      { local: 'falta', tipo: 'numero_tendencia', fuente: 'pagos', fecha: 'vencimiento', metricas: ['pendiente'], dimension: null, titulo: 'Falta cobrar', comparar: true, ir: 'clients' },
+      { local: 'atraso-pago', tipo: 'numero_tendencia', fuente: 'pagos', fecha: 'pago', metricas: ['atraso_pago'], dimension: null, titulo: 'Atraso al pagar', subtitulo: 'Días después del vencimiento, en promedio', comparar: true },
+      // El flujo de Coffer («Cash flow», 6M / 12M): de lo que vencía cada mes, lo que entró y lo que sigue sin pagar.
+      {
+        local: 'meses', tipo: 'columnas', fuente: 'pagos', fecha: 'vencimiento', dimension: 'mes', metricas: ['cobrado', 'pendiente'], titulo: 'Lo que vencía cada mes',
+        subtitulo: 'Lo que entró y lo que sigue sin pagar', controles: [{ tipo: 'periodo', preset: 'ult12m', fijo: true }],
+      },
+      // La barra de Coffer («Not due · 1–30 · 31–60 · 60+»): TODO lo que se debe hoy, por los días que lleva vencido.
+      {
+        local: 'atraso', tipo: 'barras', fuente: 'pagos', fecha: 'vencimiento', dimension: 'atraso', metricas: ['pendiente', 'pagos', 'clientes'], titulo: 'Cuánto hace que esperan',
+        subtitulo: 'Todo lo que te deben, por días de atraso', controles: [{ tipo: 'periodo', preset: 'todo', fijo: true }, { tipo: 'lista', campo: 'estado', valores: ['Vencido', 'Pendiente'], fijo: true }],
+      },
       { local: 'por-funnel', tipo: 'barras', fuente: 'pagos', dimension: 'producto', metricas: ['pendiente'], titulo: 'Pendiente por funnel', subtitulo: 'Qué oferta tiene más plata en el aire' },
       // La que era el bloque «A quién cobrarle»: una fila por cliente, el más urgente arriba, «Marcar cobrada».
       {
         local: 'a-quien', tipo: 'tabla', fuente: 'cobranza', dimension: 'cliente', metricas: ['pendiente', 'proxima_monto', 'dias'], titulo: 'A quién perseguir',
         subtitulo: 'Te está esperando: el más urgente arriba, con «Marcar cobrada»',
-        ordenMetrica: 'dias', ordenAsc: true, limite: 50, tabla: { acciones: true, columnas: ['urgencia'] },
+        ordenMetrica: 'dias', ordenAsc: true, limite: 50, tabla: { acciones: true, columnas: ['urgencia', 'proxima'] },
       },
-      { local: 'por-estado', tipo: 'anillo', fuente: 'pagos', dimension: 'estado', metricas: ['monto'], titulo: 'Cuotas por estado' },
       { local: 'por-cliente', tipo: 'barras', fuente: 'pagos', dimension: 'cliente', metricas: ['pendiente'], titulo: 'Quién debe más', subtitulo: 'Los cinco con más pendiente', limite: 5 },
+      // «Top clients» y «Latest» de Coffer: quién más pagó en el año y cada cuota que entró, la última arriba.
+      {
+        local: 'pagaron', tipo: 'barras', fuente: 'pagos', fecha: 'pago', dimension: 'cliente', metricas: ['cobrado'], titulo: 'Los que más pagaron', subtitulo: 'Los últimos 12 meses',
+        limite: 5, controles: [{ tipo: 'periodo', preset: 'ult12m', fijo: true }],
+      },
+      {
+        local: 'ultimos', tipo: 'tabla', fuente: 'pagos', fecha: 'pago', dimension: 'cobro', metricas: ['cobrado'], titulo: 'Lo último que entró', subtitulo: 'Las cuotas cobradas de los últimos 30 días',
+        limite: 50, tabla: { columnas: ['dia'] }, controles: [{ tipo: 'periodo', preset: 'ult30', fijo: true }],
+      },
     ],
+    diseno: {
+      id: 'cobranza',
+      piezas: {
+        atraso: 'atraso', cobrado: 'cobrado', vence: 'vence', falta: 'falta', demora: 'atraso-pago', meses: 'meses',
+        perseguir: 'a-quien', ultimos: 'ultimos', pagaron: 'pagaron', funnel: 'por-funnel',
+      },
+    },
   },
   {
     id: 'automatizaciones', nombre: 'Automatizaciones', emoji: '⚙️',

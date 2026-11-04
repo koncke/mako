@@ -918,4 +918,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '14:20', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cobranza, la segunda hoja copiada: el diseño de Coffer con lo que te deben',
+    puntos: [
+      '**Se ofrece en «Nueva hoja»** al lado de Closing, con su miniatura de verdad.',
+      '**Lo que te deben** arriba, con lo vencido y la barra por días de atraso; cobrado, lo que vence, lo que falta y cuántos días tardan en pagar, contra el mes pasado.',
+      '**Lo que vencía cada mes** (lo que entró y lo que sigue sin pagar, 6M o 12M), **a quién perseguir**, lo último que entró, quién más pagó y lo pendiente por funnel.',
+      '**Tocar una fila abre su detalle**: «Ver cuota» abre la cuota, con «Marcar cobrada».',
+      '**El movimiento de Coffer:** el título letra por letra, las tarjetas escalonadas, las cifras que cuentan y la barra del atraso que crece.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaCobranza.tsx · cobranza-css.ts — el diseño',
+      'lib/cobranza-diseno.ts — qué dibuja cada bloque',
+      'docs/diseno/mockups-dashboard/cobranza/ — la copia, la maqueta y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];

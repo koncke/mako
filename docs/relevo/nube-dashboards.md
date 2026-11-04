@@ -1,5 +1,58 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
+## Cobranza: la segunda hoja copiada (la de Coffer), con los datos de MaKo (punta `dash-cobranza`, 4/11/2026)
+
+El pedido (Martín, por el Cerebro): *«que sea primero la copia, es decir, que se vea exactamente igual que la copia, y después la adaptación
+con Maco»*, y *«seguí con la segunda hoja, una por vez»*. Cobranza es la segunda, con Coffer de referencia.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» ofrece Cobranza** al lado de Closing, con su miniatura de verdad (`docs/diseno/mockups-dashboard/cobranza/captura/miniatura-nueva-hoja.png`).
+- **La hoja se ve como Coffer:** arriba, lo que te deben (con lo vencido y la barra por días de atraso: al día, 1-30, 31-60, 60+), y cuatro números
+  (cobrado, lo que vence, lo que falta y cuántos días tardan en pagar, cada uno contra el mes pasado). En el medio, lo que vencía cada mes
+  (lo que entró arriba de la línea y lo que sigue sin pagar abajo, con el selector 6M / 12M) y a quién perseguir. Abajo, lo último que entró,
+  los que más pagaron en el año y lo pendiente por funnel (el anillo).
+- **Tocar una fila abre lo de siempre:** «Ver cuota» y cada nombre de «A quién perseguir» abren el detalle de la tabla de cobranza, con
+  «Marcar cobrada». Lo último que entró, los que más pagaron y el funnel abren el detalle de su pieza. «Ver todo en la grilla» muestra todas las piezas.
+- **Lo que no está, a propósito:** el «Remind» de Coffer (manda un aviso al cliente). Un mensaje a un tercero sale por sus puertas, no por un
+  botón de una hoja; en su lugar va «Ver cuota».
+
+**Comparación con la maqueta**, captura contra captura (`producto-1440.png` / `mako-1440.png`, `producto-390.png` / `mako-390.png` en
+`docs/diseno/mockups-dashboard/cobranza/captura/`): las cajas, los gráficos y las barras coinciden. Cambian sólo textos que son nuestros:
+- «67 días tarde» en vez de «67 días de atraso», que en la maqueta partía el renglón;
+- «Falta cobrar este mes» en vez de «del mes»;
+- el rótulo del funnel dice el período de la hoja, porque esa pieza lo sigue (la maqueta decía «Todo»).
+
+El ancho intermedio (641 a 1040 de lienzo) no está en Coffer y es nuestro (`producto-800.png`): la deuda a lo ancho, los cuatro números en una
+fila, el flujo y «A quién perseguir» a lo ancho, y abajo dos columnas con el anillo a lo ancho. Sin desbordes medidos.
+
+**El movimiento** (el INFORME de Coffer, con Element.animate; `producto-entrada-420ms.png` es un cuadro a mitad de la entrada):
+- el título, letra por letra;
+- las tarjetas, escalonadas;
+- las cifras que cuentan;
+- la barra del atraso, tramo por tramo;
+- la pastilla del 6M / 12M, que viaja y se estira.
+
+**Lo que NO se copió porque el INFORME no lo trae**, y queda quieto: la entrada de las listas, del flujo y del anillo, y a qué se le pone el hover que sube 3 px.
+
+**«Nueva hoja» con dos miniaturas**, medido igual que antes (arnés con Chromium):
+
+| | Con la CPU normal | Con la CPU 4 veces más lenta |
+|---|---|---|
+| Primer cuadro | 127–158 ms | 476–496 ms |
+| Bloqueo | 4–27 ms | 340–387 ms, después del primer cuadro |
+
+Con una sola miniatura era 92–107 ms y 392–396 ms. Antes del arreglo, con 21, era 410–540 ms y 1.890–1.950 ms.
+
+**Cómo está hecho:**
+- `app/dashboard/disenos/HojaCobranza.tsx` y su hoja de estilos `cobranza-css.ts`, todo dentro de `.cbz`.
+- El modelo, `lib/cobranza-diseno.ts`: qué dibuja cada bloque a partir de las piezas, con test en `tests/dashboard-diseno-cobranza.test.ts`, probado rompiéndolo.
+- Las piezas y los tramos de atraso en `pagos` vienen del commit de la copia.
+- Se monta en `EditorInforme` con `onFila` → `alClicDe`, como cualquier gráfico.
+- El saludo lo pasa `app/dashboard/page.tsx`.
+- ⚠️ **Cobranza es una plantilla del DASHBOARD.** Vive en `lib/graficos-plantillas-generales.ts`, cuyo nombre engaña: no es General.
+
+**Falta verificar:** abrirla contra la base de un cliente (la nube no tiene la base): crear la hoja en ws3 y mirar que «Ver cuota» abra la cuota.
+
 ## «Nueva hoja»: sólo lo copiado, la miniatura de verdad y el modal que no se traba (punta `dash-seleccion`, 4/11/2026)
 
 El pedido de Martín (por el Cerebro, después de revisar producción), textual: *«En dashboards, mejora la eficiencia al "crear nueva
@@ -45,10 +98,7 @@ no tiene la base. Lo primero en producción es abrir «Nueva hoja» y mirarlo.
 **Lo que sigue (del Cerebro):** el punto 2 (cargar las de Focus: las maquetas de Pane y Lumora del 1/11 se hacen copia exacta y componente,
 como Closing) y la segunda hoja, Cobranza, de a una.
 
-**⚠️ Cobranza a medias, NO subida:** la copia exacta de Coffer (al píxel a 1440 y 390), la maqueta de MaKo, los tramos de atraso en `pagos`, la
-plantilla con su diseño y `lib/cobranza-diseno.ts` están SÓLO en el commit `824f67be` de la rama local `dash-cobranza-copia`, en el contenedor de
-esta sesión: el proxy rechazó subirla como etiqueta (403), y una rama `claude/*` dispara un preview de Vercel (que es plata: lo decide Martín).
-Falta el componente (`HojaCobranza.tsx`), su miniatura y la subida; es lo próximo de este chat.
+**Cobranza:** terminada y subida en `punta/dash-cobranza` (la sección de arriba).
 
 ## 📬 Para el Cerebro: Closing está en producción (4/11/2026, 12:49 UTC)
 

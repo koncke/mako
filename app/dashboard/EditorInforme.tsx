@@ -160,6 +160,7 @@ import { tokenDeDashboard } from './copia-dash-cliente';
 import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
 import { conMako, conVista, nombrePreset, PRESET_AUTOMATICO } from '@/lib/graficos-catalogo';
 import { HojaClosing, type ExtrasClosing } from './disenos/HojaClosing';
+import { HojaCobranza, type ExtrasCobranza } from './disenos/HojaCobranza';
 import { idDeInformeAutomatizacion, type InformeAutomatizacion } from '@/lib/informe-automatizacion';
 import { BotonMako } from '@/app/_ui/BotonMako';
 import { EditorMako } from './EditorMako';
@@ -328,7 +329,7 @@ export function EditorInforme({
    * Lo que leen las hojas con DISEÑO PROPIO y ningún componente lee (`Hoja.diseno`, lib/graficos-catalogo.ts): la agenda y
    * quién mira, para la de Closing (./disenos/HojaClosing.tsx). Lo arma la página; null = sin eso (los bloques lo dicen).
    */
-  disenos?: { closing?: ExtrasClosing | null } | null;
+  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null } | null;
   /**
    * UN AVISO FIJO arriba de la hoja, de quien monta el editor (la misma franja `lk-aviso-hoja` que el de Closing): la prueba
    * A/B de una automatización en sus Métricas (app/automations/MetricasAutomatizacion.tsx, tanda A3, 25/10/2026).
@@ -1567,6 +1568,14 @@ export function EditorInforme({
                 hoja={hoja} datos={datos} extras={disenos?.closing ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onLlamada={(g, clave) => abrirPopup(g, { dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'cobranza' && !enGrilla && !editando && !dueno ? (
+              // La hoja Cobranza con su DISEÑO PROPIO (la copia de Coffer, ./disenos/HojaCobranza.tsx): los datos de sus
+              // componentes, y una fila abre lo de siempre de su pieza (el detalle con «Marcar cobrada», o su pop-up).
+              <HojaCobranza
+                hoja={hoja} datos={datos} extras={disenos?.cobranza ?? null} hoy={hoy} periodo={periodoDiseno} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
               />
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">

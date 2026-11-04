@@ -42,7 +42,7 @@ import { ESTADO_COBRADO } from './graficos-acciones';
 import { esCuotaDeBaja, noEsDeuda } from './cobrado-lead';
 import { ubicarLeads } from './funnels-elegidos-server';
 import { faltaColumnaFunnel, funnelDelMomento } from './funnels-elegidos';
-import { diasEntre, ESTADOS_RESPONDIO, enviosRespondidos, gano, rotuloMadurez, tramosDelCiclo } from './graficos-datos-puro';
+import { diasConSigno, diasEntre, ESTADOS_RESPONDIO, enviosRespondidos, gano, rotuloMadurez, tramoDeAtraso, tramosDelCiclo } from './graficos-datos-puro';
 import { horasHastaResponder, rotuloDeTarjeta, tipoDeEnvio } from './automatizacion-metricas';
 import type { PasoGrafo } from './flujo-grafo';
 import { carteraEnEntrega } from '@/app/customer-success/entrega';
@@ -333,10 +333,23 @@ async function filasPagos(fecha: string, rg: Rango): Promise<Fila[]> {
     const cuando = (x.pagado ? x.fecha_pago : null) ?? x.fecha_esperada;
     const funnel = x.funnel_id != null ? Number(x.funnel_id)
       : x.lead_id != null && cuando ? funnelDelMomento(donde.casas.get(x.lead_id) ?? null, donde.agregados.get(x.lead_id) ?? [], cuando) : null;
+    const cliente = lead != null ? nom.get(lead) ?? null : null;
+    const cuota = x.numero != null ? `Cuota ${x.numero}` : null;
+    // El atraso al pagar (la hoja Cobranza, 4/11/2026): sólo una cobrada con las dos fechas dice cuánto tardó.
+    const fechada = x.pagado && x.fecha_pago && x.fecha_esperada;
     return {
       f: fecha === 'pago' ? x.fecha_pago : x.fecha_esperada,
-      d: { estado, cliente: lead != null ? nom.get(lead) ?? null : null, cuota: x.numero != null ? `Cuota ${x.numero}` : null, producto: funnel != null ? rot.producto(funnel) : null },
-      v: { monto, cobrado: x.pagado ? monto : 0, pendiente: x.pagado || fuera ? 0 : monto, pagos: 1 },
+      d: {
+        estado, cliente, cuota, producto: funnel != null ? rot.producto(funnel) : null,
+        // Sólo lo que SE DEBE tiene tramo de atraso; una cobrada o una que no es deuda va sin dato.
+        atraso: x.pagado || fuera ? null : tramoDeAtraso(x.fecha_esperada, hoy),
+        // Una fila por cuota COBRADA: «quién pagó qué» («Lo último que entró»).
+        cobro: x.pagado ? [cliente ?? 'Sin nombre', cuota].filter(Boolean).join(' · ') : null,
+      },
+      v: {
+        monto, cobrado: x.pagado ? monto : 0, pendiente: x.pagado || fuera ? 0 : monto, pagos: 1,
+        ...(fechada ? { dias_atraso: diasConSigno(x.fecha_esperada as string, x.fecha_pago as string), cobradas_fechadas: 1 } : {}),
+      },
       u: { clientes: lead },
       // Los DOS ids de la MISMA fila: marcarPagoAction no comprueba que la cuota sea de ese lead
       // (relevo de los botones de acción), así que el par nunca se arma en el navegador.

@@ -33,6 +33,7 @@ import {
   type Area, type ClaseDim, type Dimension, type Formato, type Fuente, type Metrica,
 } from './graficos-constructores';
 import { FUENTES_EXTRA } from './graficos-fuentes-extra';
+import { COLORES_ATRASO, TRAMOS_ATRASO } from './graficos-datos-puro';
 import { atarFunnels, esPiezaGeneral, funnelsDeBloque, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from './general-piezas';
 import { sanearPropuesta, type PropuestaExperimento } from './experimentos-catalogo';
 import { idDeParte, idLibre, migrarBloquesV5 } from './graficos-migrar-v5';
@@ -241,8 +242,18 @@ const FUENTES_BASE: readonly Fuente[] = [
     fechas: [{ id: 'vencimiento', nombre: 'Vencimiento', futuro: true }, { id: 'pago', nombre: 'Pagado' }],
     // `producto` (17/10/2026): el funnel de cada cuota, el de donde estaba el lead ese día (lib/funnels-elegidos.ts):
     // «Cobrado por funnel» y la hoja filtrada por funnel cuentan la plata con la misma regla que un OKR.
-    dimensiones: [...TIEMPO, cat('estado', 'Estado'), cat('producto', 'Funnel'), cat('cliente', 'Cliente'), cat('cuota', 'Cuota')],
-    metricas: [m('monto', 'Monto', 'usd'), m('cobrado', 'Cobrado', 'usd'), menos(m('pendiente', 'Pendiente', 'usd')), m('pagos', 'Cuotas'), dist('clientes', 'Clientes')],
+    // `atraso` y `cobro` (4/11/2026, la hoja Cobranza copiada de Coffer): cuántos días lleva vencida cada cuota SIN pagar, en los
+    // tramos de Coffer (las cobradas y las que no son deuda no tienen tramo), y una fila por cuota cobrada («Lo último que entró»).
+    dimensiones: [
+      ...TIEMPO, cat('estado', 'Estado'), cat('producto', 'Funnel'), cat('cliente', 'Cliente'), cat('cuota', 'Cuota'),
+      { ...cat('atraso', 'Atraso'), valores: TRAMOS_ATRASO, colores: COLORES_ATRASO },
+      cat('cobro', 'Cobro'),
+    ],
+    // `atraso_pago`: cuántos días después del vencimiento se cobró, en promedio (negativo = antes). Sólo las cobradas con las dos fechas.
+    metricas: [
+      m('monto', 'Monto', 'usd'), m('cobrado', 'Cobrado', 'usd'), menos(m('pendiente', 'Pendiente', 'usd')), m('pagos', 'Cuotas'), dist('clientes', 'Clientes'),
+      menos(r('atraso_pago', 'Atraso al pagar (días)', 'numero', 'dias_atraso', 'cobradas_fechadas')), m('dias_atraso', 'Días de atraso'), m('cobradas_fechadas', 'Cobradas con vencimiento'),
+    ],
   },
   {
     id: 'llamadas', nombre: 'Llamadas analizadas', area: 'CRM y ventas',
@@ -1310,7 +1321,7 @@ export type Hoja = {
  * ⚠️ La traen SÓLO las hojas nuevas de su plantilla: una hoja de antes no cambia sola (Martín, regla 6 del relevo).
  * ⚠️ Catálogo cerrado: un diseño nuevo es una entrada acá y su componente en app/dashboard/disenos/.
  */
-export const DISENOS_HOJA = ['closing'] as const;
+export const DISENOS_HOJA = ['closing', 'cobranza'] as const;
 export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;

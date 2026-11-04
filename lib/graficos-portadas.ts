@@ -334,7 +334,7 @@ const altoDeAncho = (c: Crudo) => (c.tipo === 'mapa_calor' ? num(c.h) || ALTO_AN
  *   · Closing — ¿cuántas llamadas se ganan? R1 → R2 → ganadas, en columnas.
  *   · CS Analyst — ¿a quién atiendo? Las personas que piden atención.
  *   · Productividad — ¿cómo van mis proyectos? El avance de cada proyecto activo (la matriz, abajo: pide proyectos evaluados).
- *   · Cobranza — ¿qué plata está prometida y no entró? Lo que entra por semana, con los cuatro números al lado.
+ *   · Cobranza — ¿qué plata está prometida y no entró? Lo que vencía cada mes (lo que entró y lo que no), con los cuatro números al lado.
  *   · Automatizaciones — ¿me contestan? Enviados → abiertos → respondieron.
  *   · Contenido e IA — ¿en qué se va la IA? El anillo con el costo en el centro.
  *   · Cold Calling — ¿cuántas contestan y cuántas agendan? El botón de grabar arriba y el anillo de cómo terminan.
@@ -356,7 +356,7 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
     closing: { molde: 'wharf', sube: 'cl-embudo-embudo', cambios: { tipo: 'embudo_columnas', titulo: 'Cuántas llamadas se ganan' }, vecino: 'cl-factores-barras', par: ['cl-factores-ia', 'cl-embudo-embudo', 'cl-semana'] },
     'cs-analyst': { molde: 'moorly', sube: 'cs-etapas', cambios: { titulo: 'Dónde está cada cliente' }, vecino: 'cs-tabla', par: ['cs-motivos', 'cs-senal', 'cs-contacto', 'cs-etapas', 'cs-semanas', 'cs-ia'] },
     productividad: { molde: 'moorly', sube: 'pr-piramide-barras', cambios: { titulo: 'Pirámide de prioridad' }, vecino: 'pr-avance-proyecto', par: ['pr-huele-mal', 'pr-matriz-burbujas'] },
-    cobranza: { molde: 'wharf', sube: 'semanas', vecino: 'semanas', par: ['urgencia', 'barra', 'por-funnel'] },
+    cobranza: { molde: 'wharf', sube: 'meses', vecino: 'meses', par: ['atraso', 'por-funnel', 'pagaron'] },
     automatizaciones: {
       molde: 'ledge', nueva: (id) => ({
         id: id('automatizaciones-portada'), clase: 'grafico', tipo: 'embudo_barras', fuente: 'envios', metricas: ['envios', 'abiertos', 'respuestas'],
