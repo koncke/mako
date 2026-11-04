@@ -45,13 +45,16 @@ const TarjetaPrioridad = dynamic(() => import('@/app/plan/board/BoardShell').the
 
 const nada = () => {};
 
-/** Completar una tarea desde General: se va de la lista, vuelve si falla, y el toast trae «Deshacer». */
-function useCompletar() {
+/**
+ * Completar una tarea desde General: se va de la lista, vuelve si falla, y el toast trae «Deshacer». La usa también la hoja
+ * Focus con su diseño (app/dashboard/disenos/FocusVivo.tsx): una sola forma de completar desde General.
+ */
+export function useCompletar() {
   const { toast, show, clear } = useToast();
   const [hechas, setHechas] = useState<ReadonlySet<string>>(new Set());
   const enCurso = useRef(false);
   const volver = (id: string) => setHechas((s) => { const n = new Set(s); n.delete(id); return n; });
-  const completar = async (t: BoardTask) => {
+  const completar = async (t: Pick<BoardTask, 'id'>) => {
     if (enCurso.current) return;
     enCurso.current = true;
     setHechas((s) => new Set(s).add(t.id));
@@ -72,7 +75,7 @@ function useCompletar() {
       enCurso.current = false;
     }
   };
-  return { hechas, completar: (t: BoardTask) => { void completar(t); }, toast: <Toast state={toast} onClose={clear} /> };
+  return { hechas, completar: (t: Pick<BoardTask, 'id'>) => { void completar(t); }, toast: <Toast state={toast} onClose={clear} /> };
 }
 
 const useAbrir = () => {

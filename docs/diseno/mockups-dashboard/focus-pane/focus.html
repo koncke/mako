@@ -1,0 +1,146 @@
+<!doctype html>
+<!-- FOCUS (PANE) · PASO 2: LA ADAPTACIÓN A MaKo de la copia de Pane (4/11/2026). La MISMA hoja (pane.css) y el mismo
+     movimiento (pane.js) que copia.html; cambian los textos y lo que dice cada bloque. Los nombres y los números son de
+     EJEMPLO (ficticios). Sin la barra lateral ni la de arriba: en MaKo las pone el Dashboard.
+     Lo que Pane tiene y MaKo NO mide no se inventa: el temporizador de foco pasa a ser «La meta» (la meta objetivo y su
+     ritmo) y «Right now» (el estado del equipo) pasa a ser «Te está esperando» (los cobros y los leads por marcar).
+     De dónde sale cada bloque: docs/relevo/nube-dashboards.md, «Focus». -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Focus · la hoja de MaKo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="pane.css">
+<style>.page { margin: 0 auto; max-width: 1180px; padding: 14px 26px 48px; } @media (max-width: 760px) { .page { padding: 20px 14px 40px; } }</style>
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5L12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.3 4.6-4.8"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10.5h16M8.5 3.5v4M15.5 3.5v4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 6.5h6l2 2h9v10h-17z"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M6 18v-5M10 18V8M14 18v-8M18 18v-3"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5M15.5 5.6a3 3 0 0 1 0 5.8M17.5 14.5c1.7.5 2.8 2 3.1 4.5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M6 18l1.6-1.6M16.4 7.6L18 6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 10a5.5 5.5 0 0 1 11 0c0 5 2 6.5 2 6.5h-15s2-1.5 2-6.5M10 19.5a2.2 2.2 0 0 0 4 0"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><path d="M3.5 7h11v10h-11zM14.5 10.5l6-3v9l-6-3"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z" fill="currentColor"/></symbol>
+  <symbol id="i-caret" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z" fill="currentColor"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M9 15L18 6M11 6h7v7"/></symbol>
+  <symbol id="i-tick" viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-8.5"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-grid4" viewBox="0 0 24 24"><rect x="5" y="5" width="6" height="6" rx="1.5"/><rect x="13" y="5" width="6" height="6" rx="1.5"/><rect x="5" y="13" width="6" height="6" rx="1.5"/><rect x="13" y="13" width="6" height="6" rx="1.5"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M14 4c3 0 6 3 6 6l-7 7-6-6zM8 15l-3 4 4-3M15 9h.01"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14zM5 19l7-7"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c3 4 6 6 6 10a6 6 0 0 1-12 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3 1-6 2-8.5z"/></symbol>
+</svg>
+
+<main class="page">
+  <div class="head">
+    <div>
+      <h1 class="head__title">Buenos días, Ana</h1>
+      <p class="head__sub">Miércoles 4 de noviembre · 3 llamadas y 5 tareas para hoy</p>
+      <div class="stats">
+        <div class="stat glass" data-stat><div class="stat__l">Hechas hoy</div><div class="stat__v">2<small> / 7</small></div></div>
+        <div class="stat glass" data-stat><div class="stat__l">Llamadas hoy</div><div class="stat__v">1<small> / 3</small></div></div>
+        <div class="stat glass" data-stat><div class="stat__l">Vencidas</div><div class="stat__v">1</div></div>
+      </div>
+    </div>
+    <div class="head__actions">
+      <a class="btn btn--glass" href="#"><svg class="i"><use href="#i-plus"/></svg>Nueva tarea</a>
+      <a class="btn btn--accent" href="#"><svg class="i"><use href="#i-video"/></svg>Próxima: 11:30</a>
+    </div>
+  </div>
+
+  <section class="grid row1">
+    <article class="card glass" data-card>
+      <div class="card__h"><div><h2 class="card__t">Hoy</h2><p class="card__s">Cierra tus anillos</p></div></div>
+      <div class="rings" data-rings='[{"v":2,"de":7,"c":"var(--ring-tasks)"},{"v":1,"de":3,"c":"var(--ring-focus)"},{"v":2,"de":4,"c":"var(--ring-meet)"}]'>
+        <svg viewBox="0 0 120 120" aria-hidden="true"></svg>
+        <div class="rings__l">
+          <div class="rk" style="border-color:var(--ring-tasks)"><div class="rk__l">Tareas</div><div class="rk__v">2<small> / 7</small></div></div>
+          <div class="rk" style="border-color:var(--ring-focus)"><div class="rk__l">Llamadas</div><div class="rk__v">1<small> / 3</small></div></div>
+          <div class="rk" style="border-color:var(--ring-meet)"><div class="rk__l">KPIs del día</div><div class="rk__v">2<small> / 4</small></div></div>
+        </div>
+      </div>
+    </article>
+    <article class="card glass" data-card>
+      <div class="card__h"><h2 class="card__t">Lo que viene</h2><a class="btn btn--ghost btn--sm" href="#">Calendario</a></div>
+      <a class="next" href="#">
+        <span class="next__en">en <b>20 min</b></span>
+        <span class="next__t">R2 con Laura Méndez</span>
+        <span class="next__m">11:30 – 12:15 · Llamada de venta</span>
+        <span class="next__pie"><span class="avas"><span class="ava" style="background:#e8c8a8">LM</span><span class="ava" style="background:#cfe0f6">AR</span></span><span class="btn btn--accent btn--join"><svg class="i"><use href="#i-video"/></svg>Entrar</span></span>
+      </a>
+      <div class="evs">
+        <a class="ev" href="#" style="--c:var(--pink)"><b>R1 con Carlos Ibarra</b><span>16:00</span></a>
+        <a class="ev" href="#" style="--c:var(--indigo)"><b>Revisión de creativos</b><span>17:30</span></a>
+        <a class="ev" href="#" style="--c:var(--purple)"><b>Publicación: reel del método</b><span>19:00</span></a>
+      </div>
+    </article>
+    <article class="card glass" data-card>
+      <div class="card__h">
+        <div><h2 class="card__t">La meta</h2><p class="card__s">Vas a tiempo</p></div>
+        <div class="seg" data-seg><span class="seg__pill"></span><button class="seg__btn" aria-pressed="true">Trimestre</button><button class="seg__btn" aria-pressed="false">Año</button></div>
+      </div>
+      <div class="focus__b">
+        <div class="timer"><b>62%</b><small>de la meta</small></div>
+        <div class="focus__c">
+          <div class="focus__on">La meta del trimestre</div>
+          <div class="select">US$30,000 de facturación</div>
+          <a class="btn btn--accent focus__go" href="#">Ver la meta</a>
+        </div>
+      </div>
+      <div class="well"><div class="well__r"><span>Esperado a hoy</span><b>58% · faltan 57 días</b></div><div class="bar"><i style="width:58%"></i></div></div>
+    </article>
+  </section>
+
+  <section class="grid row2">
+    <article class="card glass" data-card>
+      <div class="card__h"><div><h2 class="card__t">Mis tareas</h2><p class="card__s">De hoy y atrasadas</p></div><a class="btn btn--ghost btn--sm" href="#">Ver el Plan</a></div>
+      <ul class="tasks">
+        <li class="task"><button class="check" aria-label="Marcar hecha"></button><a href="#" style="min-width:0"><div class="task__t">Preparar la R2 de Laura Méndez</div><div class="task__m"><span class="chip" style="--c:var(--blue)"><i class="dot"></i>Ventas de noviembre</span>Hoy</div></a><span class="prio prio--urgente"><svg class="i"><use href="#i-flag"/></svg>Urgente</span></li>
+        <li class="task"><button class="check" aria-label="Marcar hecha"></button><a href="#" style="min-width:0"><div class="task__t">Grabar tres hooks nuevos</div><div class="task__m"><span class="chip" style="--c:var(--purple)"><i class="dot"></i>Creativos de Meta</span>Hoy</div></a><span class="prio prio--alta">Alta</span></li>
+        <li class="task"><button class="check" aria-label="Marcar hecha"></button><a href="#" style="min-width:0"><div class="task__t">Revisar el guion de la VSL</div><div class="task__m"><span class="chip" style="--c:var(--green)"><i class="dot"></i>Nueva VSL</span>Hoy</div></a><span class="prio prio--alta">Alta</span></li>
+        <li class="task"><button class="check" aria-label="Marcar hecha"></button><a href="#" style="min-width:0"><div class="task__t">Mandar la propuesta a Jorge Salinas</div><div class="task__m"><span class="chip" style="--c:var(--blue)"><i class="dot"></i>Ventas de noviembre</span>Ayer</div></a><span class="prio prio--urgente"><svg class="i"><use href="#i-flag"/></svg>Urgente</span></li>
+        <li class="task"><button class="check" aria-label="Marcar hecha"></button><a href="#" style="min-width:0"><div class="task__t">Armar el reporte de octubre</div><div class="task__m"><span class="chip" style="--c:var(--orange)"><i class="dot"></i>Operación</span>Hoy</div></a><span></span></li>
+        <li class="task"><button class="check" aria-label="Marcar hecha"></button><a href="#" style="min-width:0"><div class="task__t">Responder las dudas del taller</div><div class="task__m"><span class="chip" style="--c:var(--pink)"><i class="dot"></i>Taller grupal</span>Hoy</div></a><span></span></li>
+        <li class="task task--hecha"><span class="check check--on"><svg class="i" style="width:14px;height:14px;stroke-width:2.6;color:#fff"><use href="#i-tick"/></svg></span><a href="#" style="min-width:0"><div class="task__t">Cargar los gastos de la semana</div><div class="task__m"><span class="chip" style="--c:var(--orange)"><i class="dot"></i>Operación</span>Hoy</div></a><span></span></li>
+      </ul>
+    </article>
+    <article class="card glass" data-card>
+      <div class="card__h"><div><h2 class="card__t">La semana</h2><p class="card__s">Lo que vence cada día</p></div><a class="ibtn" href="#" aria-label="Ver el Plan"><svg class="i"><use href="#i-expand"/></svg></a></div>
+      <div class="big"><b>9</b><span>vencen esta semana</span><em style="color:#ff8b92">1 vencida</em></div>
+      <div class="bars" data-bars='{"dias":["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"],"v":[1,2,4,1,1,0,0],"max":5,"hoy":2}'></div>
+    </article>
+  </section>
+
+  <section class="grid row3">
+    <article class="card glass" data-card>
+      <div class="card__h"><h2 class="card__t">Proyectos</h2><a class="btn btn--ghost btn--sm" href="#">Ver todos</a></div>
+      <ul class="projs">
+        <li><a class="hproject" href="#" style="--c:var(--blue)"><span class="tile">🚀</span><span><b>Ventas de noviembre</b><small>En curso · vence el 30/11</small></span><span class="hproject__bar"><i style="width:47%"></i></span><span class="hproject__pct">47%</span><span class="mas" style="margin:0;justify-self:end">8 tareas</span></a></li>
+        <li><a class="hproject" href="#" style="--c:var(--purple)"><span class="tile">🎬</span><span><b>Creativos de Meta</b><small>En curso · vence el 11/11</small></span><span class="hproject__bar"><i style="width:45%"></i></span><span class="hproject__pct">45%</span><span class="mas" style="margin:0;justify-self:end">5 tareas</span></a></li>
+        <li><a class="hproject" href="#" style="--c:var(--green)"><span class="tile">🧭</span><span><b>Nueva VSL</b><small>En revisión · vence el 15/11</small></span><span class="hproject__bar"><i style="width:50%"></i></span><span class="hproject__pct">50%</span><span class="mas" style="margin:0;justify-self:end">3 tareas</span></a></li>
+        <li><a class="hproject" href="#" style="--c:var(--pink)"><span class="tile">🎓</span><span><b>Taller grupal</b><small>En curso · vence el 2/12</small></span><span class="hproject__bar"><i style="width:30%"></i></span><span class="hproject__pct">30%</span><span class="mas" style="margin:0;justify-self:end">6 tareas</span></a></li>
+        <li><a class="hproject" href="#" style="--c:var(--orange)"><span class="tile">📣</span><span><b>Campaña de fin de año</b><small>Por iniciar · vence el 6/1</small></span><span class="hproject__bar"><i style="width:0%"></i></span><span class="hproject__pct">0%</span><span class="mas" style="margin:0;justify-self:end">4 tareas</span></a></li>
+      </ul>
+    </article>
+    <article class="card glass" data-card>
+      <div class="card__h"><h2 class="card__t">Te está esperando</h2><div class="seg" data-seg><span class="seg__pill"></span><button class="seg__btn" aria-pressed="true">Cobros</button><button class="seg__btn" aria-pressed="false">Leads</button></div></div>
+      <ul class="people">
+        <li><a class="person" href="#"><span class="ava" style="background:#f4d7e1">CM<i style="background:var(--danger)"></i></span><span><b>Carlos Méndez</b><small>US$2,475 · venció hace 67 días</small></span></a></li>
+        <li><a class="person" href="#"><span class="ava" style="background:#f4d7e1">LR<i style="background:var(--danger)"></i></span><span><b>Lucía Ramos</b><small>US$5,181 · venció hace 5 días</small></span></a></li>
+        <li><a class="person" href="#"><span class="ava" style="background:#f6e5b9">DF<i style="background:var(--orange)"></i></span><span><b>Diego Fuentes</b><small>US$2,007 · vence hoy</small></span></a></li>
+        <li><a class="person" href="#"><span class="ava" style="background:#d7edf4">SH<i style="background:var(--green)"></i></span><span><b>Sofía Herrera</b><small>US$1,200 · vence el viernes</small></span></a></li>
+        <li><a class="person" href="#"><span class="ava" style="background:#d7edf4">PO<i style="background:var(--green)"></i></span><span><b>Pablo Ortiz</b><small>US$600 · vence el 12/11</small></span></a></li>
+        <li><a class="person" href="#"><span class="ava" style="background:#d7edf4">VC<i style="background:var(--green)"></i></span><span><b>Valeria Castro</b><small>US$920 · vence el 14/11</small></span></a></li>
+      </ul>
+    </article>
+  </section>
+</main>
+<script src="pane.js"></script>
+</body></html>
