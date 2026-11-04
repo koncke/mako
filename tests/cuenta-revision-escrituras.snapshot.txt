@@ -119,6 +119,7 @@ POST /api/competitor-spy/extension → pública (no usa la sesión)
 POST /api/competitor-spy/oferta → cortada
 POST /api/competitor-spy/redes → cortada
 POST /api/competitor-spy/todo → cortada
+POST /api/competitor-spy/transcribir → cortada
 POST /api/copywriter → cortada
 POST /api/copywriter/ia → cortada
 POST /api/crm-auto → cortada
