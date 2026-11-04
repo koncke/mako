@@ -24,9 +24,10 @@ import { guardarVistas, leerCompetidor, vistaDeInstagram } from './spy';
 import { anunciosDeQuien, piezaDeAnuncio } from './spy-captura';
 import { enlaceSusAnuncios } from './spy-funnel';
 import {
-  ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, APIFY_ACTOR_PUBLICACIONES, CLAVE_DIA, CLAVE_TAREAS,
-  CORRIDAS_LARGAS_POR_DIA, USD_POR_ANUNCIO, anuncioDeApify, entradaDeAnuncios, entradaDePublicaciones, estadoDeCorrida,
-  leerTareas, pedidoDePublicaciones, tocaPedir, usadasHoy, type TareaLarga, type TareasDeCompetidor,
+  ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, APIFY_ACTOR_PUBLICACIONES, CLAVE_DIA, CLAVE_DIA_TRANSCRIPCIONES,
+  CLAVE_TAREAS, CORRIDAS_LARGAS_POR_DIA, TRANSCRIPCIONES_POR_DIA, USD_POR_ANUNCIO, USD_POR_PUBLICACION, anuncioDeApify,
+  entradaDeAnuncios, entradaDePublicaciones, entradaDeUnaPublicacion, estadoDeCorrida, leerTareas, pedidoDePublicaciones,
+  tocaPedir, usadasHoy, videoDelItem, type TareaLarga, type TareasDeCompetidor,
 } from './spy-todo-reglas';
 
 const API = 'https://api.apify.com/v2';
@@ -67,12 +68,12 @@ async function anotar(id: number, canal: Canal, t: TareaLarga): Promise<void> {
  * cero en cada una — el tope de 6 por día dejaba de ser un tope sobre la clave del negocio. Compare-and-set: de dos que
  * compiten por la última, gana una. «No pude leer» tira (lo ataja `avanzarTodo`) y no gasta.
  */
-async function reservarCorrida(): Promise<boolean> {
+async function reservarCorrida(clave = CLAVE_DIA, tope = CORRIDAS_LARGAS_POR_DIA): Promise<boolean> {
   for (let vuelta = 0; vuelta < 3; vuelta += 1) {
-    const crudo = await getSettingEstricto(CLAVE_DIA);
+    const crudo = await getSettingEstricto(clave);
     const usadas = usadasHoy(crudo, hoy());
-    if (usadas >= CORRIDAS_LARGAS_POR_DIA) return false;
-    if (await cambiarSettingSi(CLAVE_DIA, crudo, JSON.stringify({ fecha: hoy(), usadas: usadas + 1 }))) return true;
+    if (usadas >= tope) return false;
+    if (await cambiarSettingSi(clave, crudo, JSON.stringify({ fecha: hoy(), usadas: usadas + 1 }))) return true;
   }
   return false;
 }
@@ -155,6 +156,39 @@ async function pasoDeCanal(token: string, c: NonNullable<Awaited<ReturnType<type
   }
   await anotar(c.id, canal, { ...corrida, pedidaEn: new Date().toISOString(), ...(t?.ultima ? { ultima: t.ultima } : {}) });
   return { enMarcha: true, nuevas: 0 };
+}
+
+/** ¿El negocio tiene su clave de Spy? Sin ella no se pide nada a Apify, y la pantalla lo dice. «No pude leer» es que sí. */
+export async function tieneClaveDeSpy(ws: number): Promise<boolean> {
+  return !!(await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => 'no-se'));
+}
+
+/**
+ * El video FRESCO de UNA publicación, para transcribir su guion (4/11/2026, lib/spy-transcripcion.ts). El enlace del CDN de
+ * Instagram vence en días, así que no se guarda al leer: se pide al abrir el detalle. Con la clave de Spy del negocio, su
+ * tope del día (`TRANSCRIPCIONES_POR_DIA`, contado en la base) y el techo de una publicación. Nunca tira.
+ */
+export async function videoDeUnaPublicacion(ws: number, enlace: string): Promise<{ ok: true; url: string } | { ok: false; motivo: 'sin-clave' | 'limite' | 'no-esta' | 'fallo' }> {
+  try {
+    const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
+    if (!token) return { ok: false, motivo: 'sin-clave' };
+    if (!(await reservarCorrida(CLAVE_DIA_TRANSCRIPCIONES, TRANSCRIPCIONES_POR_DIA))) return { ok: false, motivo: 'limite' };
+    const techo = Math.max(0.01, Math.ceil(USD_POR_PUBLICACION * 3 * 100) / 100);
+    const q = new URLSearchParams({ maxItems: '1', maxTotalChargeUsd: String(techo), timeout: '90' });
+    const r = await fetch(`${API}/acts/${APIFY_ACTOR_PUBLICACIONES}/run-sync-get-dataset-items?${q}`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(entradaDeUnaPublicacion(enlace)), signal: AbortSignal.timeout(100_000), cache: 'no-store',
+    });
+    if (r.status < 200 || r.status >= 300) {
+      console.error(`[spy-todo] no pude traer el video de ${enlace}: HTTP ${r.status}`);
+      return { ok: false, motivo: 'fallo' };
+    }
+    const url = videoDelItem(await r.json().catch(() => null));
+    return url ? { ok: true, url } : { ok: false, motivo: 'no-esta' };
+  } catch (e) {
+    console.error(`[spy-todo] no pude traer el video de ${enlace}: ${msg(e)}`);
+    return { ok: false, motivo: 'fallo' };
+  }
 }
 
 /**

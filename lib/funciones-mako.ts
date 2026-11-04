@@ -209,8 +209,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   {
     keys: ['market-an'],
     que: 'Lo que hacen tus competidores, en un solo lugar: sumas a cada uno con sus canales y MaKo lee su sitio, su Instagram y su YouTube, con los números que pudo medir. Una lectura que falló se dice, nunca es un cero.',
-    hace: ['Sumar competidores con sus canales', 'Leer su sitio, su Instagram y su YouTube', 'Guardar los anuncios que pegues', 'Decir desde cuándo está a la vista cada pieza, desde que MaKo la vio', 'Sugerirte competidores que ya mira MaKo, y sumarlos sin gastar nada', 'Leer su oferta de su web, sola, con el analista de Offer: las 9 notas y su puntaje'],
-    noHace: ['Todavía no: revisar solo todos los días (lee al agregar y al abrir la ficha)', 'Todavía no: traer los anuncios de Meta sin pegarlos', 'Todavía no: analizar sus ángulos y ganchos contra tu oferta'],
+    hace: ['Sumar competidores con sus canales', 'Leer su sitio, su Instagram y su YouTube', 'Guardar los anuncios que pegues', 'Decir desde cuándo está a la vista cada pieza, desde que MaKo la vio', 'Sugerirte competidores que ya mira MaKo, y sumarlos sin gastar nada', 'Leer su oferta de su web, sola, con el analista de Offer: las 9 notas y su puntaje', 'Transcribir el guion de sus reels al abrir su detalle'],
+    noHace: ['Todavía no: revisar solo todos los días (lee al agregar y al abrir la ficha)', 'Todavía no: traer los anuncios de Meta sin pegarlos', 'Todavía no: analizar sus ángulos y ganchos contra tu oferta', 'Todavía no: el guion de sus videos de YouTube'],
     alias: ['competitor spy', 'competitors spy', 'competencia', 'competidores', 'espiar a la competencia', 'market analyst'],
     conecta: [{ a: 'ads-writer', motivo: 'Lo que le funciona a la competencia alimenta tus anuncios' }, { a: 'landing-writer', motivo: 'Replicar la landing de un competidor' }],
     estado: 'parcial', slugDev: 'competitor-spy', fuentes: [AREAS, 'docs/diseno-competitors-spy.md'],

@@ -176,5 +176,9 @@ test('8. el tope de corridas largas del día vive en la base, no en la memoria d
   assert.match(paso, /if \(!\(await reservarCorrida\(\)\)\) return \{[^}]*porque: 'limite' \}/, 'antes de empezar una corrida se reserva en la base');
   assert.ok(paso.indexOf('reservarCorrida()') < paso.indexOf('await empezar('), 'se reserva ANTES de gastar');
   const reservar = codigo.slice(codigo.indexOf('async function reservarCorrida'), codigo.indexOf('async function empezar'));
-  assert.match(reservar, /cambiarSettingSi\(CLAVE_DIA, crudo,/, 'compare-and-set: de dos que compiten por la última, gana una');
+  // Desde el 4/11 la misma reserva cuenta también los guiones de los reels (otra clave, otro tope): lo que cuida es que el
+  // tope de las corridas largas siga siendo `CLAVE_DIA` por defecto y que la cuenta sea compare-and-set en la base.
+  assert.match(reservar, /async function reservarCorrida\(clave = CLAVE_DIA, tope = CORRIDAS_LARGAS_POR_DIA\)/, 'por defecto, las corridas largas');
+  assert.match(reservar, /getSettingEstricto\(clave\)/, 'lee la cuenta de la base');
+  assert.match(reservar, /cambiarSettingSi\(clave, crudo,/, 'compare-and-set: de dos que compiten por la última, gana una');
 });

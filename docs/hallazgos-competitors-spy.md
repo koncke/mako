@@ -1168,3 +1168,38 @@ constructor de páginas que arma todo con JavaScript cae al lector de afuera).
 **Vive en:** lib/spy-oferta.ts · lib/spy-oferta-servidor.ts · app/api/competitor-spy/oferta/route.ts ·
 app/competitor-spy/SuOferta.tsx · lib/offer-reglas.ts (`bloqueOfertaDeOtro`) · lib/offer-ia.ts (`deOtro`,
 `soloDelNegocio`) · app/offer/Conclusion.tsx (`VistaDiagnostico`, `deOtro`) · tests/spy-oferta.test.ts
+
+## «No estás trayendo la transcripción»: no había transcripción, y el video de cada reel se tiraba al leerlo (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11): «En cada uno de los videos cuando entro no estás trayendo la transcripción, y
+> tampoco me gusta el modal que hiciste, rediseñalo bien… Tampoco me gusta el botón de copiar estructura».
+
+**Medido en el código, por qué no llegaba:** no había un camino de transcripción. El detalle decía, en su cabecera, «el guion
+de un video ajeno no se lee (no hay forma legal de transcribirlo)», y el dato que hacía falta se tiraba: Apify trae
+`videoUrl` en cada reel y `piezaDeApify` (lib/instagram-perfil.ts) no lo copiaba. Guardarlo tampoco servía: el enlace del
+CDN de Instagram VENCE en días.
+
+**Lo que quedó:** al abrir el detalle de un reel, /api/competitor-spy/transcribir pide su video fresco a Apify (UNA
+publicación, `videoDeUnaPublicacion` en lib/spy-todo.ts —el único archivo que puede tener la clave de Spy junto con los de
+siempre—, con un tope de 40 por día contado en la base), lo baja por la puerta SSRF-segura y lo escucha la IA del negocio
+(`transcribirAudio` con `pii` y `sinGroq`, como el audio de un anuncio). Mientras, «Transcribiendo…»; el guion queda en
+`spy.transcripcion.<competidor>.<pieza>` y no se vuelve a pagar hasta que vence a los 30 días (el reloj del texto de una
+pieza). Un reel sin voz queda dicho («es sólo música o imagen») y tampoco se vuelve a pagar.
+
+**Tres trampas:**
+- **Un mp4 cortado no se puede escuchar.** `pedirClavado` corta en su techo y devuelve lo leído (está bien para una web).
+  Para un video, se pide un byte más que el tope y, si lo pasa, «pesa demasiado»: nunca se escucha medio archivo.
+- **`.mk-btn` sin tamaño queda chico.** El botón de antes era `mk-btn mk-btn--primary` sin `--md` ni `--lg`: con la hoja
+  real de la casa mide unos 20 px de alto, y eso era parte del «no me gusta». Ahora `mk-btn--lg`.
+- **Un pedido que no contestó no es «transcribiendo».** Si la ruta falla, el bloque no se dibuja: un punto latiendo para
+  siempre se lee como que algo está pasando.
+
+**Lo que NO se hizo, y por qué:** el guion de YouTube. `captions.download` pide ser el dueño del canal (OAuth) y bajar el video
+va contra sus términos; Martín decidió Apify «sólo para Spy» sobre Instagram. Queda como decisión suya (docs/relevo/nube-spy.md).
+
+**Sin probar contra el servicio:** que el actor devuelva `videoUrl` para un enlace de reel (`directUrls` con un solo
+enlace), cuánto pesa un reel de verdad y que la IA de un negocio escuche un mp4 de Instagram.
+
+**Vive en:** lib/spy-transcripcion.ts · lib/spy-transcripcion-servidor.ts · app/api/competitor-spy/transcribir/route.ts ·
+lib/spy-todo.ts (`videoDeUnaPublicacion`, `tieneClaveDeSpy`) · lib/spy-todo-reglas.ts · app/competitor-spy/DetallePieza.tsx ·
+lib/spy-detalle.ts (`vecesSuMediana`) · tests/spy-guion.test.ts

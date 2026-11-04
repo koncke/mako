@@ -247,6 +247,22 @@ export function puestoDe(id: number, piezas: readonly PiezaDelGrafico[], ahora: 
   return i < 0 ? null : `#${i + 1} de ${orden.length}`;
 }
 
+/**
+ * Cuántas veces su mediana hizo ESTA pieza (4/11/2026, el detalle rediseñado; copiado del «multiplicador» de vidIQ): 2,3 =
+ * 2,3 veces lo que hace una pieza suya típica. Con la misma métrica del gráfico y sobre las mismas piezas. null sin su número,
+ * con menos de 3 piezas con número (la mediana de dos no dice nada) y en los anuncios (los días al aire no son un rendimiento).
+ */
+export function vecesSuMediana(id: number, piezas: readonly PiezaDelGrafico[], ahora: number = Date.now()): number | null {
+  const m = metricaDe(piezas);
+  if (m === 'días al aire') return null;
+  const vs = piezas.map((p) => valorDe(p, m, ahora)).filter((v): v is number => v != null);
+  const med = vs.length >= 3 ? mediana(vs) : null;
+  const p = piezas.find((x) => x.id === id);
+  const v = p ? valorDe(p, m, ahora) : null;
+  if (v == null || !med) return null;
+  return Math.round((v / med) * 10) / 10;
+}
+
 /** Una fila de «¿Qué formatos le funcionan?»: el formato, sus piezas ubicadas por su número, su mediana y su mejor gancho. */
 export type FilaFormato = {
   formato: Formato; rotulo: string; n: number; mediana: number; veces: number; gancho: string | null;

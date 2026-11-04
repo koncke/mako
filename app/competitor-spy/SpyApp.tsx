@@ -1599,6 +1599,10 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       {abierta && c && (
         <DetallePieza
           p={piezas.find((x) => x.id === abierta.p.id) ?? abierta.p} nombre={c.nombre} todas={abierta.todas}
+          cara={c.avatar}
+          seguidores={abierta.p.canal === 'youtube'
+            ? (c.youtube_suscriptores != null ? `${dibujarContador(c.youtube_suscriptores)} suscriptores` : null)
+            : (c.instagram_seguidores != null ? `${dibujarContador(c.instagram_seguidores)} seguidores` : null)}
           analizando={autoAnalisis === c.id} onCerrar={() => setAbierta(null)}
         />
       )}

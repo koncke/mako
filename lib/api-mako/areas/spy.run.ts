@@ -25,6 +25,7 @@ import {
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { sugeridosDelNegocio, sumarSugeridoAlNegocio } from '@/lib/spy-sugeridos-server';
 import { ofertaGuardada } from '@/lib/spy-oferta-servidor';
+import { guionesGuardados } from '@/lib/spy-transcripcion-servidor';
 import { FUENTE_PUNTAJE, dimensionLabel } from '@/lib/offer-marco';
 import { contenidoNoConfiable } from '@/lib/prompt-render';
 import { funnelDeFila, funnelEnPalabras } from '@/lib/spy-funnel';
@@ -131,6 +132,8 @@ export const RUNNERS: Runners = {
       if (!c.ok) return { content: json({ ok: false, error: c.error }), isError: true };
       const canal = typeof input.canal === 'string' ? (input.canal as CanalSpy) : undefined;
       const piezas = await listarPiezas(c.c.id, canal);
+      // El guion de sus reels, si ya se transcribió al abrir su detalle (lib/spy-transcripcion.ts). Sin pedir nada nuevo.
+      const guiones = await guionesGuardados(c.c.id).catch(() => new Map<number, string>());
       const out: string[] = [`## ${c.c.nombre}`];
       if (c.c.oferta?.promete) {
         out.push('', `**Qué vende:** ${c.c.oferta.promete}${c.c.oferta.aQuien ? ` — a ${c.c.oferta.aQuien}` : ''}`);
@@ -158,6 +161,8 @@ export const RUNNERS: Runners = {
             etapa ? NOMBRE_ETAPA[etapa].rotulo.toLowerCase() : 'no se sabe desde cuándo',
             NOMBRE_FUENTE[p.fuente].toLowerCase(),
           ].join(' · '));
+          const guion = guiones.get(p.id);
+          if (guion) lineas.push(`  - Guion: ${guion.replace(/\s+/g, ' ').slice(0, 600)}${guion.length > 600 ? '…' : ''}`);
           const funnel = p.canal === 'landing' ? funnelDeFila(p.funnel) : null;
           if (funnel) lineas.push(...funnelEnPalabras(funnel).map((l) => `  - ${l}`));
         }
