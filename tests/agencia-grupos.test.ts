@@ -78,17 +78,17 @@ test('agregarse: entra directo al grupo de ESE cliente, y el principal sigue sie
   assert.deepEqual(altas[0].body.participants, ['5492230000684@s.whatsapp.net']);
 });
 
-test('WhatsApp no deja agregarlo: se MANDA la invitación, y la pantalla dice qué pasó y da el link', () => {
+// ⚠️ 4/11/2026: MaKo no le escribe primero a nadie (lib/mako-salida-reglas.ts). Con lo automático prendido, igual NO sale la invitación
+// por DM a quien nunca le escribió a la línea: la pantalla lo dice y da el link para pasarlo a mano.
+test('WhatsApp no deja agregarlo y nunca le escribió a la línea: NO sale la invitación, y la pantalla dice qué pasó y da el link', () => {
   const faltan = R.privado.cuerpo.noAgregados as Array<{ telefono: string; motivo: string }>;
   assert.equal(faltan.length, 1);
   assert.equal(faltan[0].telefono, '5491130000403');
   assert.match(faltan[0].motivo, /no deja agregarlo directo/);
-  assert.match(faltan[0].motivo, /Le mandé el link de invitación por WhatsApp/);
+  assert.match(faltan[0].motivo, /Pásale tú el link del grupo: MaKo no le escribe a un número que nunca le escribió/);
   assert.equal(R.privado.cuerpo.linkGrupo, 'https://chat.whatsapp.com/LINKDEPRUEBA');
   const invitacion = R.privado.evolution.find((l: { ruta: string }) => l.ruta.startsWith('/group/sendInvite'));
-  assert.ok(invitacion, 'la pantalla no puede afirmar un envío que no ocurrió');
-  assert.deepEqual(invitacion.body.numbers, ['5491130000403@s.whatsapp.net']);
-  assert.equal(invitacion.body.groupJid, 'grupo-19@g.us');
+  assert.equal(invitacion, undefined, 'salió un DM con link a alguien que nunca le escribió a la línea');
   // Las dos pantallas lo dibujan.
   assert.match(sinComentarios(leer('app/perfil/DestinatariosCanal.tsx')), /noAgregados\.map/);
   assert.match(sinComentarios(leer('app/m/configuraciones/notificaciones/NotificacionesNegocioM.tsx')), /faltaGrupo\.noAgregados\.map/);

@@ -35,7 +35,6 @@
 //   · reclamarContactoLinea sin el cupo                                             → 13 / 2
 //   · reclamarContactoLinea con `siempre` ignorado (el código gratis al repetir)    → 14 / 1
 //   · reclamarContactoLinea tragándose el error de contar (`.catch(() => true)`)    → 14 / 1
-//   · enviarCodigoVerificacion volviendo a setNumeroDuenoYSync antes del código     → 14 / 1
 //   · setNumeroDuenoYSync guardando el número ANTES de prepararContacto             → 14 / 1
 //   · enviarInvitacionGrupo sin la marca de «una por número y ventana»              → 14 / 1
 //   · prepararContacto sin pedir cupo                                               → 14 / 1
@@ -269,17 +268,11 @@ test('volver a tocar el mismo número no gasta cupo; el CÓDIGO sí, cada vez', 
   await assert.rejects(reclamarContactoLinea(topeFalso({ roto: true }).alm, '5491100000000'));
 });
 
-test('cableado de la línea: el código va por DM y al grupo se entra recién verificado', () => {
+// ⚠️ Desde el 4/11/2026 el código NO va por DM: la persona le escribe a MaKo (lib/verificacion-entrante.ts). Lo que este test cuidaba
+// del código —que no suma al grupo a un número sin probar, que se suma recién verificado y que sin grupo no queda verificado— lo
+// prueba EJECUTANDO tests/whatsapp-anti-ban.test.ts («onboarding: …»). Acá queda lo del alta y la invitación.
+test('cableado de la línea: al grupo se entra recién con el número validado y contado', () => {
   const src = sinComentarios(leer('../lib/mako-grupo.ts'));
-
-  const enviar = bloque(src, 'export async function enviarCodigoVerificacion(');
-  assert.ok(!/setNumeroDuenoYSync\(/.test(enviar), 'el código volvió a sumar al grupo un número sin verificar');
-  assert.ok(!/enviarAlGrupoMaKo\(/.test(enviar), 'el código volvió a escribirse en el grupo (hay que sumar al número antes)');
-  antes(enviar, 'prepararContacto(ws, num, { siempre: true })', 'enviarDmVozMaKo(', 'el DM sale antes de contar el cupo');
-
-  const verificar = bloque(src, 'export async function verificarCodigoContacto(');
-  antes(verificar, "if (codigo.trim() !== v.codigo) return", 'setNumeroDuenoYSync(', 'se suma al grupo antes de comprobar el código');
-  antes(verificar, 'setNumeroDuenoYSync(', 'verificado: true', 'queda verificado aunque el grupo no salga');
 
   const sync = bloque(src, 'export async function setNumeroDuenoYSync(');
   antes(sync, 'prepararContacto(ws, crudo)', 'guardarNumeroDueno(ws', 'el número se guarda como dueño antes de validarlo y contarlo');

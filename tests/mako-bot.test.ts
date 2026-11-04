@@ -213,7 +213,11 @@ test('el webhook le pasa los chats al bot ANTES de resolver el workspace, y los 
   const bot = ruta.indexOf('manejarEntranteBot(instance, m)');
   const ws = ruta.indexOf("if (ws == null) return Response.json({ ok: true, ignored: 'instancia sin workspace' });");
   assert.ok(bot > 0 && ws > 0 && bot < ws, 'una línea sin workspace devolvía «ignored» antes de llegar al bot');
-  assert.match(ruta, /const chats = lista\.filter\(\(m\) => !\(\(\(m\?\.key as \{ remoteJid\?: string \} \| undefined\)\?\.remoteJid\) \?\? ''\)\.endsWith\('@g\.us'\)\);/);
+  // Lo que cuida: el filtro de los chats del bot deja afuera los grupos. Se mira la sentencia, no la línea copiada: el 4/11/2026 se le sumó
+  // que el mensaje de una verificación por WhatsApp no le llegue al bot (`noEsVerificacion`), y la copia literal daba rojo con el código bien.
+  const filtro = ruta.slice(ruta.indexOf('const chats = lista.filter('), ruta.indexOf(';', ruta.indexOf('const chats = lista.filter(')));
+  assert.ok(filtro.length > 0, 'no encontré el filtro de los chats del bot');
+  assert.match(filtro, /!\(\(\(m\?\.key as \{ remoteJid\?: string \} \| undefined\)\?\.remoteJid\) \?\? ''\)\.endsWith\('@g\.us'\)/, 'los grupos le llegan al bot');
   assert.match(ruta, /if \(lineaPuedeSerDelBot\(instance\)\) \{/, 'una línea de negocio no tiene por qué leer los settings en cada mensaje');
 });
 

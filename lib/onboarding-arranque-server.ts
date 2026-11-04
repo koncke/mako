@@ -24,7 +24,8 @@ import { getPerfil, setPerfil } from './perfil';
 import { getDiagnosticoFase, getDiagnosticoFaseEstricto } from './fase-store';
 import { PREGUNTAS, esCanal } from './fase-diagnostico';
 import { getEstadoOnboarding, getEstadoOnboardingEstricto, cerrarPasosOnboarding, type OnboardingState } from './onboarding-state';
-import { getEstadoVerificacionContacto } from './mako-grupo';
+import { estadoVerificacionEntrante, getEstadoVerificacionContacto } from './mako-grupo';
+import type { VistaEntrante } from './verificacion-entrante';
 import { getContactoReportes } from './perfil';
 import { integracionConectada } from './credenciales';
 import { leerSesion, leerFila, guardarComoOferta } from './offer-sesiones';
@@ -341,6 +342,8 @@ export type VistaArranque = {
   telefonoNumero: string;
   /** El WhatsApp que dio al pagar, sólo dígitos: la tarjeta arranca con él y lo manda un toque. Vacío si no dio ninguno. */
   telefonoDelPago: string;
+  /** El mensaje que la persona le manda a MaKo para confirmar su WhatsApp (4/11/2026), sólo en esa etapa: el link `wa.me` y si ya llegó. */
+  whatsapp: VistaEntrante | null;
   /** El tipo de CRM elegido, para la tarjeta. */
   crmTipo: TipoCrmId | null;
   /** El CRM a medida que armó MaKo (lib/onboarding-crm.ts): la tarjeta muestra sus etapas con esos nombres. */
@@ -398,6 +401,9 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
     avisosQr: etapa === 'avisos' ? await QRCode.toDataURL(linkApp(RUTA_APP, null), { margin: 1, width: 336 }).catch(() => null) : null,
     telefonoNumero: e.telefonoNumero ?? '',
     telefonoDelPago: etapa === 'telefono' ? (await getSetting(CLAVE_WHATSAPP_DEL_PAGO).catch(() => null)) ?? '' : '',
+    whatsapp: etapa === 'codigo' && e.telefonoEntrante
+      ? await getWorkspaceActual().then((ws) => (ws == null ? null : estadoVerificacionEntrante(ws))).catch(() => null)
+      : null,
     crmTipo: e.crmTipo ?? null,
     crmPropuesta: e.crmPropuesta ?? null,
     canal: h.canalNegocio,
