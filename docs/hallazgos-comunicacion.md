@@ -59,6 +59,18 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## Con dos líneas de MaKo en un grupo, `fromMe` no alcanza: MaKo se contestaba a sí misma (4/11/2026, nube)
+
+**Síntoma:** en el grupo de un cliente, MaKo armó la ficha de otra persona en vez de agendar lo que pedía el audio de Joan. Después se contestó a sí misma: «No entiendo: ¿vos me estás pidiendo…?».
+**Medido en `mako_doer_buffer`:** los mensajes de MaKo entraban a la cola con `fromMe: false`, otro participante y `pushName: Mako`, con su id YA en el anillo (`mako.doer.sent.<jid>`). A las 13:33 se juntaron en un lote su propio «Nuevo agendado» y el audio de Joan.
+**Causa:** el grupo tiene DOS líneas de MaKo. Lo que manda una le llega a la otra como una persona. `esEcoDeMaKo` y `esEcoDeMaKoAhora` cortaban si no era `fromMe`, así que el anillo no se miraba nunca para esos mensajes.
+**La regla que queda:** un id que está en el anillo es eco, venga con `fromMe` o no (el mensaje de una persona no puede tener un id que mandó MaKo). Sin el id, decide la línea sólo para un `fromMe`. Y lo que entró a la cola antes de que su id llegara al anillo se saca al armar el lote (`sinLosEcos`), también en el cron.
+**Trampa del test:** con `MAKO_DOER_VENTANA_MS = 0`, `manejarEntranteDoer` corre el turno en el acto: el eco «anterior al anillo» no se puede producir mandándolo, se siembra en la cola.
+**Sigue sin resolver:** un envío directo por Evolution con la línea de voz (sin pasar por `lib/mako-grupo.ts`) no queda en el anillo, y `grupo-espejo` lo guarda como persona.
+**Vive en:** `lib/doer-para-quien.ts` → `esEcoDeMaKo`; `lib/mako-doer-in.ts` → `esEcoDeMaKoAhora`, `sinLosEcos`. Lo fijan `tests/doer-para-quien.test.ts` (13) y `tests/grupos-ops-turno.test.ts` («con dos líneas de MaKo…»).
+
+---
+
 ## «Los leads de la campaña X»: ninguna herramienta filtraba por campaña (ticket #56, 4/11/2026, nube)
 
 **Síntoma:** Natalia (ws 19), por WhatsApp: «vamos a necesitar una lista de TODOS los leads entrantes de la campaña, con nombre,

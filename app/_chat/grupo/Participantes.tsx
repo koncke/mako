@@ -27,8 +27,10 @@ export type DatosDeMiembros = {
 const rotuloDe = (p: Participante): string => p.porQue ?? (p.tipo === 'invitado' && p.nombre !== 'Invitado' ? 'Invitado' : '');
 
 /** Lo que se ve, sin pedidos: es lo que depende del rol, y se dibuja en un test. */
-export function VistaParticipantes({ datos, email, onEmail, onInvitar, invitando, aviso, error, onSacar, sacando, onSalir, confirmaSalir, onConfirmaSalir, saliendo }: {
+export function VistaParticipantes({ datos, email, onEmail, onInvitar, invitando, aviso, error, onSacar, sacando, onSalir, confirmaSalir, onConfirmaSalir, saliendo, enfocar = false }: {
   datos: DatosDeMiembros;
+  /** Se abrió con «Invitar»: el cursor va al email. */
+  enfocar?: boolean;
   email: string;
   onEmail: (v: string) => void;
   onInvitar: (email: string) => void;
@@ -43,13 +45,15 @@ export function VistaParticipantes({ datos, email, onEmail, onInvitar, invitando
   saliendo: boolean;
 }) {
   const enviar = (e: FormEvent) => { e.preventDefault(); if (email.trim()) onInvitar(email.trim()); };
+  // En el teléfono no hay Modal que lea `data-autofocus`: el cursor se pone acá. En un Modal todavía escondido no hace nada, y lo pone él.
+  useEffect(() => { if (enfocar && datos.administra) document.getElementById('gr-invitar-email')?.focus(); }, [enfocar, datos.administra]);
   return (
     <div className="gr-miembros">
       {datos.administra && (
         <form className="gr-invitar" onSubmit={enviar}>
           <label className="gr-invitar__rotulo" htmlFor="gr-invitar-email">Invitar por email</label>
           <div className="gr-invitar__fila">
-            <Input id="gr-invitar-email" type="email" inputMode="email" autoComplete="off" autoCapitalize="none" placeholder="nombre@correo.com" value={email} onChange={(e) => onEmail(e.target.value)} disabled={invitando} />
+            <Input id="gr-invitar-email" data-autofocus={enfocar ? '' : undefined} type="email" inputMode="email" autoComplete="off" autoCapitalize="none" placeholder="nombre@correo.com" value={email} onChange={(e) => onEmail(e.target.value)} disabled={invitando} />
             <Button type="submit" variant="primary" size="md" loading={invitando} disabled={!email.trim()}>Invitar</Button>
           </div>
           <p className="gr-miembros__nota">{datos.frase}</p>
@@ -60,8 +64,13 @@ export function VistaParticipantes({ datos, email, onEmail, onInvitar, invitando
           )}
         </form>
       )}
-      {aviso && <p className="gr-miembros__nota gr-miembros__nota--bien" role="status">{aviso}</p>}
-      {error && <p className="co-nota co-nota--mal" role="alert">{error}<ReportarASoporte /></p>}
+      {/* El resultado, en su lugar: entre el formulario y la lista, con su aire, nunca pegado a ella (4/11/2026, «al agregar a la persona el
+          modal cambia de alto y salta»). Lo que no salta es la HOJA: su alto es fijo y la lista scrollea adentro (grupo.css). */}
+      <div className="gr-resultado" aria-live="polite">
+        {aviso && <p className="gr-miembros__nota gr-miembros__nota--bien" role="status">{aviso}</p>}
+        {error && <p className="co-nota co-nota--mal" role="alert">{error}<ReportarASoporte /></p>}
+      </div>
+      <p className="gr-cuantos">{datos.participantes.length === 1 ? '1 participante' : `${datos.participantes.length} participantes`}</p>
       <ul className="gr-lista" aria-label="Participantes">
         {datos.participantes.map((p, i) => (
           <li key={p.email ?? `${p.nombre}-${i}`} className="gr-miembro">
@@ -110,9 +119,28 @@ const conEmail = (metodo: 'POST' | 'DELETE', cuerpo: Record<string, unknown>): R
 /** Lo que dijo el servidor si es para la persona; nunca lo que dijo la red. */
 const motivo = (r: { status: number; j: Record<string, unknown> | null }, sino: string): string => (r.status >= 400 && r.status < 500 && r.status !== 404 && typeof r.j?.error === 'string' ? r.j.error : sino);
 
-export function Participantes({ ws, onSalio, onCambio }: { ws: number; onSalio: () => void; onCambio?: () => void }) {
+/**
+ * Quién está en el grupo, leído UNA vez para la cabecera y la hoja (4/11/2026: la cabecera dice quiénes están, como en WhatsApp). Lo
+ * monta la pantalla del grupo y se lo pasa a `Participantes`: dos lecturas del mismo dato mostrarían dos listas distintas.
+ */
+export function useMiembrosDelGrupo(ws: number) {
   const [datos, setDatos] = useState<DatosDeMiembros | null>(null);
   const [fase, setFase] = useState<'cargando' | 'listo' | 'error' | 'fuera'>('cargando');
+  const leer = useCallback(async () => {
+    const r = await pedir(ws);
+    if (r.ok && r.j) { setDatos(r.j as unknown as DatosDeMiembros); setFase('listo'); return; }
+    // Un fallo después de haberla leído mantiene lo dibujado.
+    setFase((f) => (r.status === 404 ? 'fuera' : f === 'listo' ? f : 'error'));
+  }, [ws]);
+  useEffect(() => { void leer(); }, [leer]);
+  return { datos, fase, leer };
+}
+export type MiembrosDelGrupo = ReturnType<typeof useMiembrosDelGrupo>;
+
+export function Participantes({ ws, miembros, enfocar = false, onSalio, onCambio }: {
+  ws: number; miembros: MiembrosDelGrupo; enfocar?: boolean; onSalio: () => void; onCambio?: () => void;
+}) {
+  const { datos, fase, leer } = miembros;
   const [email, setEmail] = useState('');
   const [invitando, setInvitando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -121,13 +149,6 @@ export function Participantes({ ws, onSalio, onCambio }: { ws: number; onSalio: 
   const [confirmaSalir, setConfirmaSalir] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
 
-  const leer = useCallback(async () => {
-    const r = await pedir(ws);
-    if (r.ok && r.j) { setDatos(r.j as unknown as DatosDeMiembros); setFase('listo'); return; }
-    // Un fallo después de haberla leído mantiene lo dibujado.
-    setFase((f) => (r.status === 404 ? 'fuera' : f === 'listo' ? f : 'error'));
-  }, [ws]);
-  useEffect(() => { void leer(); }, [leer]);
 
   const invitar = async (destino: string) => {
     setInvitando(true); setAviso(null); setError(null);
@@ -164,6 +185,6 @@ export function Participantes({ ws, onSalio, onCambio }: { ws: number; onSalio: 
   }
   return (
     <VistaParticipantes datos={datos} email={email} onEmail={(v) => { setEmail(v); setError(null); setAviso(null); }} onInvitar={(e) => void invitar(e)} invitando={invitando} aviso={aviso} error={error}
-      onSacar={(e) => void sacar(e)} sacando={sacando} onSalir={() => void salir()} confirmaSalir={confirmaSalir} onConfirmaSalir={setConfirmaSalir} saliendo={saliendo} />
+      onSacar={(e) => void sacar(e)} sacando={sacando} onSalir={() => void salir()} confirmaSalir={confirmaSalir} onConfirmaSalir={setConfirmaSalir} saliendo={saliendo} enfocar={enfocar} />
   );
 }
