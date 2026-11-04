@@ -59,6 +59,8 @@ import { conLectura, funnelDeFila, leerFunnel, type Funnel, type LecturaFunnel }
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
 import { sitioDelTexto } from './spy-otras-redes-reglas';
+import { CLAVE_CARICATURAS, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
+import { getSetting } from './settings';
 import { ANALISIS_SIN_DATOS, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta } from './spy-analisis-reglas';
 import { queEs } from './spy-que-es';
 import { getTenantDb, getWorkspaceActual } from './workspace';
@@ -86,6 +88,8 @@ export type Competidor = {
   metricas_leidas_en: string | null;
   /** Su foto de perfil, YA BAJADA a nuestro bucket (0362). No vence. En null, la lista dibuja la inicial. */
   avatar: string | null;
+  /** La caricatura que se hizo sola, ya en nuestro bucket. No es una columna: sale de `spy.caricaturas` al listar. */
+  caricatura?: string | null;
   instagram_seguidores: number | null;
   youtube_suscriptores: number | null;
 };
@@ -162,7 +166,9 @@ export async function listarCompetidores(): Promise<{ ok: true; competidores: Co
   const db = await getTenantDb();
   const { data, error } = await db.from('spy_competidores').select(COLUMNAS_COMPETIDOR).order('mirado_en', { ascending: false, nullsFirst: false }).limit(TOPES.competidores);
   if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${error.message}` };
-  return { ok: true, competidores: (data ?? []) as Competidor[] };
+  // La caricatura que se hizo sola (lib/spy-caricatura-auto.ts). Sin poder leerla, la tarjeta usa su foto: no es un error.
+  const caricaturas = caricaturasListas(leerRegistro(await getSetting(CLAVE_CARICATURAS).catch(() => null)));
+  return { ok: true, competidores: ((data ?? []) as Competidor[]).map((c) => ({ ...c, caricatura: caricaturas.get(c.id) ?? null })) };
 }
 
 /** Lo que se le dice a la persona: sin una fuente que lea Instagram, el motivo técnico de Meta no le sirve; sí cuáles son las salidas. */

@@ -24,7 +24,7 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 import { encolar } from './flow-cola';
-import { pedidoImagenInterfaz, pedidoSubidaInterfaz } from './flow-interfaz';
+import { pedidoImagenInterfaz, pedidoSubidaInterfaz, rutaDeSubida } from './flow-interfaz';
 import { getTenantDb } from './workspace';
 import { referenteDeCompetidor } from './spy-caricatura';
 
@@ -112,9 +112,11 @@ export async function pedirCaricatura(c: {
     cara,
     // Cuadrada, como las de los referentes: la tarjeta de Spy es 1:1.
     vertical: false,
-    // ⚠️ RUTA PROPIA y no `rutaDeSubida`: ése sólo sabe 'toma' | 'escena' y escribe bajo
-    // `video-generator/`. La caricatura de un competidor va al bucket de Spy, donde ya viven su
-    // foto y las miniaturas de sus piezas (migración 0361).
-    ruta: `spy/caricaturas/${c.id}-${randomUUID()}.jpg`,
+    // ⚠️ `rutaDeSubida`, NO una ruta propia (4/11/2026). La cola sólo le firma la subida al puente
+    // si la ruta pasa `RUTA_SUBIDA` (lib/flow-cola.ts, `firmarSubidas`): con `spy/caricaturas/…`
+    // el puente no la subía, y lo único que volvía era la url de Flow, que vence en una hora. Con
+    // ésta la sube a nuestro Storage, y `avanzarCaricatura` (lib/spy-caricatura-auto.ts) la copia
+    // al bucket de Spy, donde ya viven su foto y las miniaturas de sus piezas (migración 0361).
+    ruta: rutaDeSubida('spy-caricatura', 'escena', 1, randomUUID()),
   }));
 }
