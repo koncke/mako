@@ -107,6 +107,9 @@ export const PUBLICOS = [
   '/api/planes/comprar',
   // El reloj del 50% de la landing de venta: lo abre quien no tiene cuenta. No lee la sesión ni la base, y mira el Origin.
   '/api/promo-entrada',
+  // El link único para instalar MaKo (lib/app-tiendas.ts): el QR del onboarding apunta acá, y quien escanea puede no tener sesión en ese teléfono. Es una página: sólo
+  // GET (`esPublicaSoloLeer`). No lee la sesión ni la base: lo único que mira es el dispositivo.
+  '/app',
   // El link de MaKo Partners (`/r/<código>`, sólo GET): deja la cookie de quién lo mandó y lleva a
   // /planes. No lee la sesión.
   '/r',

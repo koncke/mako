@@ -60,7 +60,7 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 Martín, después del ban: *«conservar el chat de MaKo en WhatsApp con un bot ahí que responde automáticamente, pero no va a crear ni grupos de WhatsApp y no va a mandar ni mensajes a nadie»*, y los avisos por la app.
 
-**Vive en:** `lib/mako-salida.ts` (la puerta: todo lo que MaKo le manda a una persona) · `lib/mako-salida-drivers.ts` (las dos cañerías) · `lib/mako-bot.ts` y `lib/mako-bot-reglas.ts` (el bot) · `lib/avisos-telefono.ts` y `app/onboarding/TarjetaAvisos.tsx` (el paso del onboarding). El corte de los grupos está en la rama `avisos-bot-corte-0311`, sin integrar: espera al grupo de avisos del Ops Center (rama `grupos-ops-0311`, del Cerebro), que es a donde va a parar lo que hoy sale por WhatsApp.
+**Vive en:** `lib/mako-salida.ts` (la puerta: todo lo que MaKo le manda a una persona) · `lib/mako-salida-drivers.ts` (las dos cañerías) · `lib/mako-bot.ts` y `lib/mako-bot-reglas.ts` (el bot) · `lib/avisos-telefono.ts` y `app/onboarding/TarjetaAvisos.tsx` (el paso del onboarding) · `lib/app-tiendas.ts` y `app/app/` (el link único `/app`, el del QR). El corte de los grupos está en la rama `avisos-bot-corte-0311`, sin integrar: espera al grupo de avisos del Ops Center (rama `grupos-ops-0311`, del Cerebro), que es a donde va a parar lo que hoy sale por WhatsApp.
 
 ### ⚠️ Lo que parecía y no era
 
@@ -96,6 +96,8 @@ Martín, después del ban: *«conservar el chat de MaKo en WhatsApp con un bot a
 ### Qué pasa en iPhone hasta que exista la app de la tienda
 
 Web Push existe sólo con MaKo **agregada a inicio** (iOS 16.4 o más), abierta desde su ícono, y ahí la sesión es otra: hay que volver a entrar. En una pestaña de Safari no hay manera. El onboarding le muestra esos pasos. Quien no pueda toca «Mi teléfono no puede» (lo único que saltea el paso, y sólo aparece en un navegador que no los recibe) y sigue viendo sus avisos adentro de MaKo.
+
+**El link único es `/app`,** y el QR del onboarding apunta a él. Un iPhone va a su tienda, un Android a la suya y una computadora ve el QR. Mientras una tienda no tenga la app, ese teléfono ve la guía para agregarla a la pantalla de inicio; publicarla es cambiar `publicada` de esa tienda, en `lib/app-tiendas.ts`. ⚠️ Un iPad moderno se presenta como una Mac: el server le da el QR, y recién la pantalla sabe que es táctil.
 
 **Cuando exista la app de la tienda:** en Android es una TWA y el Web Push sigue igual. En iPhone es Capacitor, un WebView sin Web Push: lleva APNs (`lib/push-apns.ts`, rama `tiendas-0311`). `lib/push-cliente.ts` va solo por ahí adentro de la app, y una fila de APNs queda con `plataforma = 'ios'`, así que `TarjetaAvisos` y la detección no cambian. ⚠️ Adentro de la app, `soportaPush()` y `permiso()` dan «no»: para saber qué mostrar se pregunta `estadoSuscripcion()`.
 

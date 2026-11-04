@@ -4,7 +4,7 @@
 // TarjetaAvisos — el paso obligatorio del onboarding: los avisos en el teléfono
 // =============================================================================
 // Martín, 3/11/2026: los avisos pasan a la app, y sin el teléfono activado no le llega nada. Pregunta una cosa según el dispositivo (`pasoDeAvisos`):
-//   · en la computadora: el QR, y espera sola. Quien escanea entra a su onboarding en el teléfono y sigue ahí; la computadora lo ve y avanza;
+//   · en la computadora: el QR del link único (`/app`), y espera sola. Quien escanea instala MaKo, entra y sigue este paso en el teléfono; la computadora lo ve y avanza;
 //   · en el teléfono: el botón. ⚠️ `activarAvisos()` es lo PRIMERO del `onClick`: el permiso se pide dentro del toque (lib/push-cliente.ts);
 //   · en un iPhone sin la app agregada a inicio: los pasos, porque en una pestaña de Safari no existe Web Push;
 //   · con el permiso bloqueado: cómo destrabarlo, sin un botón que no puede hacer nada;
@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/app/_ui';
 import { activarAvisos, asegurarRegistro, esAppInstalada, estadoSuscripcion, probar, type EstadoAvisos } from '@/lib/push-cliente';
 import { esTelefonoPorUA, pasoDeAvisos } from '@/lib/avisos-telefono-reglas';
+import { RUTA_APP, TIENDAS } from '@/lib/app-tiendas';
 import { comoDesbloquear, pasosInstalar, toastDeActivar } from '@/app/m/cuenta/cuenta-ui';
 
 const CADA_MS = 4000;
@@ -75,7 +76,7 @@ export function TarjetaAvisos({ qr, onRevisar, onSinSoporte }: { qr: string | nu
           {/* eslint-disable-next-line @next/next/no-img-element -- el QR viene armado del server, como en /perfil/instalar */}
           {qr && <img src={qr} alt="QR para abrir MaKo en tu teléfono" width={168} height={168} style={{ borderRadius: 8, alignSelf: 'center' }} />}
           <span className="arr-tarjeta__titulo">Escanéalo con tu teléfono</span>
-          <span className="arr-tarjeta__nota">Entra con tu cuenta y activa los avisos. Sigo solo cuando estén.</span>
+          <span className="arr-tarjeta__nota">Instala MaKo, entra con tu cuenta y activa los avisos. Sigo solo cuando estén.</span>
         </>
       )}
       {paso === 'activar' && (
@@ -83,13 +84,21 @@ export function TarjetaAvisos({ qr, onRevisar, onSinSoporte }: { qr: string | nu
       )}
       {(paso === 'registrando' || paso === 'revisando') && <span className="arr-tarjeta__nota">Revisando tu teléfono…</span>}
       {paso === 'instalar-ios' && (
-        <>
-          <span className="arr-tarjeta__titulo">En iPhone, primero agrega MaKo a inicio</span>
-          <ol className="arr-etapas">
-            {pasosInstalar(true).map((p, i) => <li key={p.frase} className="arr-etapa"><span className="arr-etapa__n">{i + 1}</span>{p.frase}</li>)}
-          </ol>
-          <span className="arr-tarjeta__nota">Entra con tu cuenta y sigues aquí.</span>
-        </>
+        TIENDAS.ios.publicada ? (
+          <>
+            <span className="arr-tarjeta__titulo">En iPhone, primero instala MaKo</span>
+            <a className="arr-link arr-link--principal" href={RUTA_APP}>Instalar MaKo</a>
+            <span className="arr-tarjeta__nota">Entra con tu cuenta y sigues aquí.</span>
+          </>
+        ) : (
+          <>
+            <span className="arr-tarjeta__titulo">En iPhone, primero agrega MaKo a inicio</span>
+            <ol className="arr-etapas">
+              {pasosInstalar(true).map((p, i) => <li key={p.frase} className="arr-etapa"><span className="arr-etapa__n">{i + 1}</span>{p.frase}</li>)}
+            </ol>
+            <span className="arr-tarjeta__nota">Entra con tu cuenta y sigues aquí.</span>
+          </>
+        )
       )}
       {paso === 'bloqueado' && (
         <>

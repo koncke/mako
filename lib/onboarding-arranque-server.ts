@@ -9,6 +9,7 @@
 
 import QRCode from 'qrcode';
 import { linkApp } from './app-url';
+import { RUTA_APP } from './app-tiendas';
 import { avisosDeQuienEntra } from './avisos-telefono';
 import 'server-only';
 import { capaDef } from './capas';
@@ -334,7 +335,7 @@ export type VistaArranque = {
   funnelDefaultId: number | null;
   introVista: boolean;
   nombre: string;
-  /** El QR de la tarjeta de los avisos, sólo en esa etapa: abre el onboarding en el teléfono de quien lo escanea. */
+  /** El QR de la tarjeta de los avisos, sólo en esa etapa: lleva a instalar MaKo en el teléfono de quien lo escanea (`/app`). */
   avisosQr: string | null;
   /** El número que se está verificando (para la tarjeta del teléfono). */
   telefonoNumero: string;
@@ -393,8 +394,8 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
     funnelDefaultId: h.modo === 'oferta' ? await idDelFunnelDefault().catch(() => null) : null,
     introVista: !!e.introVista,
     nombre: e.nombre ?? '',
-    // Al onboarding, no a la raíz: sin sesión, el teléfono pasa por el login y vuelve acá, al mismo paso.
-    avisosQr: etapa === 'avisos' ? await QRCode.toDataURL(linkApp('/onboarding', null), { margin: 1, width: 336 }).catch(() => null) : null,
+    // Al link único (lib/app-tiendas.ts): lleva a la tienda de ese teléfono o, si todavía no está, a instalarla. Al entrar con su cuenta, sigue en este mismo paso.
+    avisosQr: etapa === 'avisos' ? await QRCode.toDataURL(linkApp(RUTA_APP, null), { margin: 1, width: 336 }).catch(() => null) : null,
     telefonoNumero: e.telefonoNumero ?? '',
     telefonoDelPago: etapa === 'telefono' ? (await getSetting(CLAVE_WHATSAPP_DEL_PAGO).catch(() => null)) ?? '' : '',
     crmTipo: e.crmTipo ?? null,

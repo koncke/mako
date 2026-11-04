@@ -4,7 +4,7 @@
 // Martín: los avisos pasan a la app, así que sin el teléfono activado no se entra. Que esté activado se MIDE (`avisosListos`), no se recuerda: si la persona lo activó antes, el paso no existe.
 //
 // Probado ROMPIÉNDOLO (3/11/2026), de a una, 16 roturas: el paso que no existe o que no detecta, algo escrito que lo saltea, la salida para cualquiera, el permiso fuera del toque, el cierre sin reclamar desde dos
-// dispositivos, y una computadora contando como teléfono. Fallan las 16; restaurado, 20 pasan y 0 fallan.
+// dispositivos, y una computadora contando como teléfono. Fallan las 16; restaurado, 19 pasan y 0 fallan. (El QR pasó a tests/link-app.test.ts.)
 //
 // Correr: node --import tsx --test tests/onboarding-avisos.test.ts
 // =============================================================================
@@ -136,11 +136,6 @@ test('⛔ «Mi teléfono no puede» sólo aparece donde de verdad no puede', () 
 test('la computadora sigue sola: la tarjeta le pregunta al server', () => {
   assert.match(TARJETA, /window\.setInterval\(onRevisar, CADA_MS\)/);
   assert.match(TARJETA, /visibilitychange/);
-});
-
-test('el QR abre el onboarding, no la raíz: sin sesión, el teléfono pasa por el login y vuelve al mismo paso', () => {
-  const s = readFileSync(join(RAIZ, 'lib/onboarding-arranque-server.ts'), 'utf8');
-  assert.match(s, /QRCode\.toDataURL\(linkApp\('\/onboarding', null\)/);
 });
 
 test('⛔ DOS DISPOSITIVOS: el teléfono y la computadora llegan al cierre juntos, y gana uno solo', () => {
