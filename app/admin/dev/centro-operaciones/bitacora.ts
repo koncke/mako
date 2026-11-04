@@ -2058,6 +2058,41 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '30 oct', hora: '18:30', chat: CH, sesion: 'local_60dde796-c69c-4cab-a626-b7770594e354', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Se ve si la PC no da noticias o si nadie entrega, y lo que espera un chat cerrado le llega al Cerebro',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Dos carteles rojos, arriba, en la computadora y el teléfono:** «La PC no da noticias desde las 23:47» y «Nadie entrega en la PC: 8 pedidos tuyos esperan (el más viejo, de hace 6 días)». No llegaron a subir: el 31/10 Martín los pidió en el Uso.',
+      '**El Ops Center ya no dice «Activo» por una vuelta del servicio:** «llegó algo» y «hay un Runner» son dos datos. Hace falta aplicar una migración antes de instalar el servicio.',
+      '**El Cerebro se entera:** cada mensaje sin entregar le llega una vez, y otra cuando le faltan 3 días para vencer. Con el id, la cuenta y la fecha, nunca con el texto.',
+      '**Sin mirarlo en un navegador:** no se levantó el servidor, porque bootear local escribe en producción.',
+    ],
+    archivos: [
+      'lib/operaciones.ts — cicloCartero, leerCarteros · lib/operaciones-reglas.ts — filaDeLaVuelta, vistoDeLaFila · lib/centro-chats.ts — cartelDeLaPc · CartelPc.tsx',
+      'lib/limbo-al-cerebro.ts · scripts/operaciones/cartero.mjs 1.26.0 — mensajeLimbo · scripts/tickets.ts mensaje · supabase/migrations/0355_operaciones_runner_visto.sql',
+      'tests/centro-cartel-pc.test.ts y tests/limbo-al-cerebro.test.ts',
+    ],
+  },
+  {
+    fecha: '30 oct', hora: '18:35', chat: CH, sesion: 'local_60dde796-c69c-4cab-a626-b7770594e354', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Un mensaje a un chat abierto de una cuenta sin Runner ya sale en el cartel, y lo que se reenvía es lo que firmaste',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El cartel de los mensajes dice la causa de cada uno:** un chat cerrado, el Runner de una cuenta, un chat por abrir o vencido. Antes, lo que esperaba al Runner de otra cuenta no salía en ningún lado.',
+      '**«Mandárselo a otro chat» ya no ofrece chats cerrados** sin Runner, y muestra el mensaje entero antes de firmarlo. Si el texto ya no es el que firmaste, no lo firma.',
+      '**La bandeja de tickets tampoco firma hacia un Cerebro cerrado sin Runner.**',
+      '**El servicio de la PC:** no pasa de 100 segundos por vuelta y sigue por la cuenta que faltó; con error insiste menos que sano, y un token nuevo lo despierta. Un chat no lo instala, y sin la migración y el deploy no se instala.',
+      '**Sin mirarlo en un navegador:** no se levantó el servidor, porque bootear local escribe en producción.',
+    ],
+    archivos: [
+      'lib/operaciones-reglas.ts — comoEstaElDestino · lib/centro-limbo.ts — mensajesEnLimbo, originalParaReenviar · lib/centro-chats.ts — chatRecibe · CartelLimbo.tsx · app/tickets/bandeja/cerebro.ts',
+      'scripts/operaciones/cartero.mjs 1.26.1 — vueltaDelServicio, esperaDelServicio, latidoVale · app/api/operaciones/cartero/route.ts — ?servicio-listo',
+      'tests/centro-limbo.test.ts, tests/cartero-servicio.test.ts, tests/centro-cartel-pc.test.ts y tests/avisar-antes-de-firmar.test.ts',
+    ],
+  },
+  {
     fecha: '31 oct', hora: '17:45', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
     actor: 'claude', tipo: 'correccion',
     titulo: 'Sale el cartel rojo de los mensajes sin entregar',
@@ -2070,6 +2105,21 @@ export const BITACORA: Hito[] = [
     archivos: [
       'app/admin/operaciones/CartelLimbo.tsx (borrado) · PiezasCentro.tsx · useCentro.ts · centro.css · app/m/operaciones/CentroAppMovil.tsx',
       'tests/centro-limbo.test.ts — el cartel no vuelve',
+    ],
+  },
+  {
+    fecha: '31 oct', hora: '19:30', chat: CH, sesion: 'local_60dde796-c69c-4cab-a626-b7770594e354', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El estado de la PC va en el Uso, no en un cartel rojo',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Martín:** «Si, ponlo pero en USO». Arriba de las cuentas, en la computadora y el teléfono: «La PC dio noticias hace 1 min», «Sin noticias de la PC desde las 17:20» o «Sin Runner desde ayer a las 23:47: 3 pedidos tuyos esperan».',
+      '**Dice el hecho con su edad:** nunca «no responde». Con el mismo punto que el Runner de cada cuenta, y sin alarma: se consulta, no interrumpe.',
+      '**Sin el comando para copiar:** el Uso no pide pegar nada en una terminal.',
+    ],
+    archivos: [
+      'lib/centro-chats.ts — estadoDeLaPc · app/admin/operaciones/Uso.tsx — EstadoDeLaPc · app/m/operaciones/RunnerMovil.tsx · useCentro.ts',
+      'tests/centro-estado-pc.test.ts',
     ],
   },
   {

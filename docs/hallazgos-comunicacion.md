@@ -11564,9 +11564,23 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   dejó de llamar «API key inválida» a una key que manda (`metodo-verificar.ts`).
 - Medido el 17/10: ws10 y ws11 tienen su propia key con acceso completo (ws11 con su dominio en `failed`); ws3 y ws13,
   ninguna.
+- **4/11/2026: se separaron las dos keys en vez de subirle el permiso a la que manda** (encargo del Cerebro, que midió
+  desde la PC que la de producción sigue siendo de sólo envío y que el plan de Resend tiene un dominio). Dar de alta, leer
+  y verificar dominios usa `RESEND_ADMIN_API_KEY`, una variable de Vercel que sólo lee `lib/resend-dominios.ts`; mandar
+  sigue con la de siempre. Tres cosas que no se ven en el código:
+  - ⚠️ **No va en el catálogo de credenciales, a propósito.** Lo que está ahí lo hidrata el arranque desde la fila del ws1
+    (un cliente), pisando el entorno de Vercel: así quedó de sólo envío la de producción. Fuera del catálogo, la variable
+    de Vercel llega intacta.
+  - **Un negocio con SU key (ws10, ws11) administra su dominio con la suya**: su dominio vive en su cuenta. «No pude leer
+    su key» NO cae a la de MaKo, porque daría de alta su dominio en otra cuenta.
+  - **El tope de dominios del plan se reconoce por el TEXTO, sin medir**: resend.com no resuelve desde la nube y el SDK no
+    tiene un código para eso. Cuando se vea el cuerpo real, se suma a `tests/resend-clave-admin.test.ts`.
+  - ⚠️ **Leer lo RECIBIDO** (`getDeResend`, la bandeja de Chats) sigue con la key que manda. Si Resend no deja leer con una
+    de sólo envío, eso también falla: no se midió, y mudarlo es sacar la de administración de su módulo.
 
-**Vive en:** `lib/resend.ts` (`resendFetch`, `errorDeResend`) · `lib/resend-errores.ts` · `lib/metodo-verificar.ts`
-(`email`) · `lib/credenciales.ts` (`aplicarAEnv`) · test: `tests/resend-key-solo-envio.test.ts`
+**Vive en:** `lib/resend-dominios.ts` (`claveDeDominios`, `resendFetch`, `errorDeResend`) · `lib/resend-errores.ts` ·
+`lib/email-dominio.ts` (`prepararConexion`, `prepararVerificacion`) · `lib/metodo-verificar.ts` (`email`) ·
+`lib/credenciales.ts` (`aplicarAEnv`) · tests: `tests/resend-key-solo-envio.test.ts`, `tests/resend-clave-admin.test.ts`
 
 ## «Nada por detrás», lote 2: la reunión cancelada de Calendly, mudada y con freno (17/10/2026)
 

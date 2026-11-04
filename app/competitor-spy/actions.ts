@@ -20,6 +20,7 @@ import {
 } from '@/lib/spy';
 import { nombresDe } from '@/lib/landing-snapshot';
 import { marcarActosSpy } from '@/lib/spy-actos';
+import { sugeridosDelNegocio, sumarSugeridoAlNegocio, type Sugerido } from '@/lib/spy-sugeridos-server';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import type { CanalSpy, EtapaTendencia } from '@/lib/spy-reglas';
 
@@ -112,6 +113,32 @@ export async function sumarCompetidorAction(pegado: string, nombre?: string, deL
     const c = r.competidor;
     await marcarActosSpy(c.instagram || c.youtube_id || c.landing_url ? ['spy_primero', 'spy_canales'] : ['spy_primero']);
     return { ok: true, id: c.id };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** El catálogo «Sugeridos»: los competidores de la plataforma que este negocio todavía no mira (lib/spy-sugeridos.ts). */
+export async function sugeridosAction(): Promise<{ ok: true; sugeridos: Sugerido[] } | { ok: false; error: string }> {
+  const no = await soloMiembro();
+  if (no) return { ok: false, error: no };
+  try {
+    return { ok: true, sugeridos: await sugeridosDelNegocio() };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** Suma un sugerido copiando lo que la plataforma ya leyó de él: no gasta la clave del negocio. */
+export async function sumarSugeridoAction(id: number): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
+  const no = await soloMiembro();
+  if (no) return { ok: false, error: no };
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'Falta cuál.' };
+  try {
+    const r = await sumarSugeridoAlNegocio(id);
+    if (!r.ok) return r;
+    await marcarActosSpy(['spy_primero', 'spy_canales']);
+    return { ok: true, id: r.id };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

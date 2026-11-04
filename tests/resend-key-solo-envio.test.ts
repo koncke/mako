@@ -34,10 +34,13 @@ const hijo = (deMako: boolean): { crear: { ok: boolean; error?: string }; verifi
 import { mock } from 'node:test';
 const real = (m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'default' && k !== 'module.exports'));
 const cred = await import(${url('lib/credenciales.ts')});
-mock.module(${url('lib/credenciales.ts')}, { exports: { ...real(cred), credWs: async () => 're_k', envCred: async () => 're_k', esDeLaPlataforma: async () => ${deMako} } });
+// 4/11/2026: los dominios van con la key de ADMINISTRACIÓN (lib/resend-dominios.ts) salvo un negocio con key propia (Opción B).
+process.env.RESEND_ADMIN_API_KEY = 're_admin';
+mock.module(${url('lib/credenciales.ts')}, { exports: { ...real(cred), credWs: async () => 're_k', envCred: async () => 're_k', credDelClienteEstricta: async () => 're_k', esDeLaPlataforma: async () => ${deMako} } });
 globalThis.fetch = async () => new Response(JSON.stringify(${JSON.stringify(RESTRINGIDA)}), { status: 401, headers: { 'Content-Type': 'application/json' } });
+const { runWithWorkspace } = await import(${url('lib/workspace.ts')});
 const { createResendDomain, verifyResendDomain } = await import(${url('lib/resend.ts')});
-console.log(JSON.stringify({ crear: await createResendDomain('negocio-uno.com'), verificar: await verifyResendDomain('d1') }));
+console.log(JSON.stringify(await runWithWorkspace(3, async () => ({ crear: await createResendDomain('negocio-uno.com'), verificar: await verifyResendDomain('d1') }))));
 `;
   const out = execFileSync(process.execPath, [
     '--conditions=react-server', '--experimental-test-module-mocks', '--no-warnings', '--import', 'tsx', '--input-type=module', '-e', codigo,

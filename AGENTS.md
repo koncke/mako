@@ -1742,7 +1742,9 @@ código nuevo:
   comando para leerla, y el bug del triage de un ticket de cliente (`mensajeTicket`, 1.15.0) lleva sólo el NÚMERO.
   Un mensaje nuevo sin firma sigue ese molde: de MaKo no viaja ni una palabra. Y si `hayParaElCartero` cuenta algo
   nuevo, lo cuenta sólo para un Runner de la versión que lo entrega: con uno de antes, `vigilar` saldría en cada
-  vuelta por algo que nunca le llega (tests/tickets-cartero.test.ts).
+  vuelta por algo que nunca le llega (tests/tickets-cartero.test.ts). **El aviso de lo que espera un chat cerrado (`mensajeLimbo`, 1.26.0) lleva el id, la cuenta y
+  la fecha, y lleva su PROPIO id:** un acuse con el id de un pedido le podría pisar el estado. Lo avisado lo sabe la PC, así que ni `hay` lo cuenta ni MaKo corta la lista
+  (lib/limbo-al-cerebro.ts, tests/limbo-al-cerebro.test.ts).
 - **Una tarjeta de la Ticketera se publica con `destino`** (la sesión que pregunta, `local_…`/`cli_…`):
   `chat` es un nombre y con un nombre no se sabe a quién avisar (lib/decisiones-aviso.ts).
 - **En la pantalla, lo que despacha el Centro es un «trabajo»; «pedido» es lo que pide Martín.** Martín,
@@ -1894,6 +1896,24 @@ código nuevo:
   cierre) se borra sólo si MaKo dice que ENTRÓ (`cierresIds`): con el buzón compartido, «se subió» no es «entró».
   ⚠️ Nunca se copian las `.key` de `<carpeta>/sessions/` a otra carpeta para «hacerlo andar»: es la protección contra
   un canal que nadie avaló.
+- **LO QUE EXISTE PARA CUANDO FALTA EL RUNNER SE PRUEBA SIN RUNNER** (30/10/2026; docs/hallazgos-operaciones.md, «Seis días sin Runner»): todas las cuentas calladas, una sí y otra no, la foto vieja.
+  Corriendo la regla con ese caso, no buscando su texto en el código. Romper prueba el test que hay, no que sea el caso que importa: 66 roturas en rojo, y la revisión igual encontró 15 defectos.
+- **SUBIR LA `VERSION` DE `cartero.mjs` ROMPE LOS TESTS QUE LA FIJAN:** chat-en-el-acto, feedback-2710-tanda1, ops-center-decisiones, preguntas-cadena-y-ask y turnos-enteros (30/10/2026: `grep -l "VERSION" tests/*.ts`). Los afectados
+  de una rama salen de buscar en `tests/` los archivos del diff entero, no de una lista de memoria: tres tandas en verde escondían 8 casos en rojo.
+- **LO QUE CORRE SIN UN CHAT NO LATE COMO RUNNER, NO RECLAMA Y LO DICE** (30/10/2026; `cartero.mjs servicio`, 1.25.0). **No reemplaza a un chat:** sin uno no se entrega ni se
+  mide la cuota, así que ningún texto dice que ya no hace falta abrir el Runner. Manda
+  `entregables: []` (la lista vacía: sin ella, MaKo reclama todos los vivos), `abre: []` y `servicio: { version, desde }`. No llama a
+  `latir` ni a `vuelta`, y a `carpetasConRunner` le pasa `null`: un chat con nombre y sin cron (lo que deja un `/clear`) no cuenta.
+  Una vuelta a la vez en la PC (`tomarVuelta`, `vuelta.lock`): quien lo encuentra tomado saltea, y `vigilar` la reintenta. Todo el
+  que toque marcas de turnos o acuses en una vuelta nueva pasa por ahí. ⚠️ El servidor y la migración 0355 van ANTES de instalarlo
+  (docs/diseno-cartero-servicio.md §2.6). `instalar-servicio` lo comprueba, y ni él ni `quitar-servicio` corren desde un chat.
+- **PARA SABER CÓMO ESTÁ UN CHAT, `comoEstaElDestino`; PARA OFRECERLO, `chatRecibe`** (30/10/2026; docs/hallazgos-operaciones.md, «La revisión del servicio»). `vivo` es de la última vuelta: una foto vieja no dice ni
+  abierto ni cerrado. Y `envio.puede` con `espera !== 'chat_cerrado'` no dice que esté abierto: sin Runner, `comoSale` da `'cartero'` antes de mirar el estado. Volver a firmar un mensaje de la cola pasa por
+  `originalParaReenviar`: la columna `texto` no está firmada. Lo que no sale va al cartel del limbo con su causa (`mensajesEnLimbo`): una causa nueva, con su texto y su remedio.
+- **EN LA BASE, `visto_at` ES «LLEGÓ ALGO» Y `runner_visto_at` ES «HAY UN RUNNER». EN EL CÓDIGO, `vistoAt` ES EL RUNNER** (30/10/2026). Quien pregunte
+  «¿hay quien entregue?» usa `carteroVivo`; quien pregunte «¿la PC está?» o «¿de cuándo es esta foto?», `noticiasAt` (`sinNoticiasDesde`). Una vuelta con `servicio` no escribe ni
+  `runner_visto_at` ni `version`, y no reclama nada (`filaDeLaVuelta`). El estado de la PC sale de una sola regla, `estadoDeLaPc`, se muestra en el Uso y no en un cartel (Martín, 31/10), y cualquier
+  otra cosa que hable de la PC va ahí, no en otro componente.
 - **UN CHAT ES SU NOMBRE, Y UN SUB-CHAT SE LLAMA «<Jefe> › <Sub>»** (15/10/2026; Martín: «todos los chats de todas las
   cuentas se llamen igual» y «quiero que cada chat esté englobado en su chat "jefe" que siempre se debe llamar como la
   tab... ESO no lo quiero decidir yo, lo decide el chat jefe»). Lo que gobierna a cualquier chat:

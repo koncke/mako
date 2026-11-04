@@ -49,7 +49,7 @@ import { remitenteEsSandbox, emailConectado, displayNameDe, remitenteDelNegocioA
 import type { MotivoSinRemitente } from '@/lib/email-remitente';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
 import { zonaDelNegocio } from '@/lib/timezone';
-import { prepararConexion, conectarDominio, prepararRemitente, fijarRemitente, verificarDominio } from '@/lib/email-dominio';
+import { prepararConexion, conectarDominio, prepararRemitente, fijarRemitente, verificarDominio, prepararVerificacion } from '@/lib/email-dominio';
 import { listarFunnels } from '@/lib/funnels';
 import { etapasDeProducto } from '@/lib/lead-funnel';
 import { etapaDeEntrada, nombreVisible } from '@/lib/lead-funnel-reglas';
@@ -659,13 +659,15 @@ export const RUNNERS: Runners = {
     preparar: async () => {
       const id = await dominioIdDelWorkspace();
       if (!id) return { error: 'Este negocio no tiene un dominio de envío cargado: primero hay que agregarlo en /email.' };
+      const listo = await prepararVerificacion();
+      if (!listo.ok) return { error: listo.error, ...(listo.nuestra ? { falla: true as const } : {}) };
       return { payload: {}, resumen: 'Pedirle a Resend que revise los registros DNS del dominio de envío del negocio.' };
     },
     // La MISMA verificación que /email (lib/email-dominio.ts, 4/11/2026): de paso, prende el seguimiento de aperturas y clics
     // de un dominio que lo tenía apagado (uno dado de alta antes de ese día).
     ejecutar: async (): Promise<Ejecutado> => {
       const v = await verificarDominio();
-      if (!v.ok) return { ok: false, resumen: v.status === 400 ? 'Este negocio ya no tiene un dominio de envío cargado.' : `Resend rechazó la verificación: ${v.error}.` };
+      if (!v.ok) return { ok: false, resumen: v.status === 400 ? 'Este negocio ya no tiene un dominio de envío cargado.' : v.nuestra ? v.error : `Resend rechazó la verificación: ${v.error}.` };
       if (!v.dominio) return { ok: true, resumen: 'Verificación pedida a Resend. No se pudo leer el estado nuevo; puede tardar unos minutos.' };
       const pendientes = v.registros.filter((r) => r.estado && r.estado !== 'verified').length;
       const seguimiento = v.seguimiento === true ? ' Prendí las aperturas y los clics.' : typeof v.seguimiento === 'string' ? ` No pude prender las aperturas y los clics (${v.seguimiento}).` : '';
@@ -941,7 +943,7 @@ export const RUNNERS: Runners = {
   conectar_dominio_email: {
     preparar: async (input, ctx) => {
       const p = await prepararConexion(ctx.ws, input.dominio);
-      if (!p.ok) return { error: p.error };
+      if (!p.ok) return { error: p.error, ...(p.nuestra ? { falla: true as const } : {}) };
       return {
         payload: { dominio: p.dominio },
         resumen: `Conectar ${p.dominio} para mandar los correos del negocio${p.reemplaza ? ` (reemplaza a ${p.reemplaza})` : ''}: te devuelvo los registros DNS que hay que cargar, y quedan prendidas las aperturas y los clics.`,
