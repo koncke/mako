@@ -25,6 +25,16 @@ export const TOPE_LINEA_MAKO = 5;
 /** La ventana, en minutos. */
 export const VENTANA_LINEA_MIN = 60;
 
+/**
+ * ⚠️ Y EL TOPE DE ALTAS POR LÍNEA (3/11/2026). El de arriba es por workspace y la línea es UNA: el día del ban la línea tocó 3 números en 3
+ * minutos, repartidos en 2 negocios, y el tope de cada uno ni se enteró. Éste cuenta altas en grupos e invitaciones de TODA la línea. El código de
+ * verificación no gasta acá: un cliente que lo pide dos veces no puede quedarse sin onboarding por lo que hizo otro negocio.
+ * Se paga con esto: el 21/10 un negocio guardó 3 números de una vez; hoy el tercero recibiría el link para pasarlo a mano.
+ */
+export const TOPE_ALTAS_POR_LINEA = 2;
+export const VENTANA_ALTAS_LINEA_MIN = 10;
+export const SIN_CUPO_ALTAS_LINEA = 'Esta línea ya sumó gente recién. Prueba en unos minutos, o pásale tú el link del grupo.';
+
 /** Lo que el tope necesita de la base (en producción, lib/espaciado.ts). */
 export type AlmacenTope = {
   /** ¿Este número ya se tocó dentro de la ventana? Lectura sola. */
