@@ -61,19 +61,23 @@ import { BotonIntegracion } from '../_components/ConectarIntegracion';
 import { ConfirmModal } from '../_components/ConfirmModal';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
-import { AVISO_CORTE_VIEWCOUNT, ETAPA_ES_NUESTRO_CRITERIO, NOMBRE_CANAL, cruzaElCorte, dibujarContador } from '@/lib/spy-reglas';
+import type { NombreIconoMenu } from '../_ui/iconos-menu';
+import { dibujarContador } from '@/lib/spy-reglas';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import {
-  canalesDe, cumpleFiltro, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
-  fraseDeLectura, ganchosDe, haceCuanto, mezclaDeTipos, ordenarPiezas, pideConectarMeta,
-  type FiltroSpy, type OrdenSpy,
+  ORDENES, canalesDe, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
+  fraseDeLectura, haceCuanto, mezclaDeTipos, miniaturaDePieza, opcionesDeContenido, ordenarPiezas, pideConectarMeta,
+  type OrdenSpy, type TipoContenido, type ValorDeContenido,
 } from '@/lib/spy-vista';
+import { cuantasFaltan } from '@/lib/spy-analisis-reglas';
+import { debeBuscarRedes, marcarRedesBuscadas } from './redes-recordar';
 import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import {
-  analizarAction, competidoresAction, guardarAnuncioAction, piezasAction, quitarCompetidorAction,
-  buscarRedesAction, revisarAction, sumarCanalAction, sumarCompetidorAction, type PiezaVista,
+  competidoresAction, guardarAnuncioAction, piezasAction, quitarCanalAction, quitarCompetidorAction,
+  revisarAction, sumarCanalAction, sumarCompetidorAction, type PiezaVista,
 } from './actions';
-import type { CandidatoRed, RedOtra } from '@/lib/spy-otras-redes-reglas';
+import type { RedOtra } from '@/lib/spy-otras-redes-reglas';
+import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
 import { enlaceSusAnuncios } from '@/lib/spy-funnel';
 import { SuFunnel } from './SuFunnel';
 import { TarjetaPieza } from './TarjetaPieza';
@@ -261,6 +265,7 @@ button.spy-campo:hover{color:var(--dim)}
   height:26px;padding:0 10px;border-radius:99px;background:var(--surface);color:var(--ink);
   font-size:var(--fs-meta);font-weight:700;box-shadow:var(--sombra-tarjeta)}
 .spy-pcard__tag--viva{padding-left:8px;background:rgba(22,26,25,.82);color:#fff}
+.spy-pcard .spy-pcard__tag.spy-pcard__tag--analizando{top:12px;right:14px;left:auto;bottom:auto;padding-left:8px;background:rgba(22,26,25,.82);color:#fff;max-width:none;display:inline-flex;line-height:normal}
 /* Dos píldoras apiladas, como .pcard__tag + .pcard__fit de la referencia: la segunda sube. */
 .spy-pcard__tag + .spy-pcard__tag{bottom:44px;max-width:calc(100% - 28px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;line-height:26px}
 .spy-pcard__pie{display:flex;align-items:flex-end;gap:10px;padding:12px 14px 14px 16px}
@@ -371,7 +376,17 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-redes{margin:0 0 14px;padding:12px 14px;border-radius:var(--r-md);background:var(--surface-2);font-size:var(--fs-sm)}
 .spy-redes p{margin:0 0 8px;color:var(--dim)}
 .spy-redes-fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0}
-.spy-redes-fila > i{width:8px;height:8px;border-radius:99px;flex:0 0 auto}
+.spy-redes-punto{width:8px;height:8px;border-radius:99px;flex:0 0 auto}
+.spy-redes-cara{width:32px;height:32px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:var(--surface)}
+.spy-redes-texto{display:flex;flex-direction:column;gap:2px;flex:1 1 220px;min-width:0}
+.spy-redes-texto small{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spy-aviso--suave{background:none;padding:0;color:var(--dim)}
+.spy-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
+.spy-mcard{display:flex;flex-direction:column;gap:8px;min-width:0;color:var(--ink);text-decoration:none}
+.spy-mcard__img{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:var(--surface-2)}
+.spy-mcard__img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.spy-mcard b{font-size:var(--fs-sm);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.spy-mcard small{color:var(--dim);font-size:12px}
 .spy-redes-fila a{flex:1 1 220px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-weight:600}
 .spy-franja{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px 10px 16px;
   border-radius:var(--r-md);background:var(--surface-2);font-size:var(--fs-sm)}
@@ -438,42 +453,10 @@ button.spy-campo:hover{color:var(--dim)}
 }
 `;
 
-type Pestana = 'publica' | 'oferta' | 'sitio' | 'anuncios';
+type Pestana = 'publica' | 'miniaturas' | 'oferta' | 'sitio' | 'anuncios';
 
-/**
- * La franja de una línea que ocupa el lugar del onboarding: lo que Foreplay pone en vez de un wizard.
- * Una por pestaña; se cierra y no vuelve.
- */
-const FRANJA: Record<Pestana, { titulo: string; frase: string }> = {
-  publica: { titulo: 'Lo que publica', frase: 'Los días los declara el canal; la etapa la calcula MaKo.' },
-  oferta: { titulo: 'Su oferta', frase: 'La lee la IA de lo que publica. No es una afirmación suya.' },
-  sitio: { titulo: 'Su web', frase: 'Qué tiene su página y con qué mide y cobra.' },
-  anuncios: { titulo: 'Anuncios', frase: 'Meta no entrega los de América Latina por su API: estos los guardaste tú.' },
-};
-
-// `localStorage` puede tirar en una ventana privada: la franja es una comodidad, no un estado.
-const franjaCerrada = (t: Pestana): boolean => {
-  try { return window.localStorage.getItem(`spy.franja.${t}`) === '1'; } catch { return false; }
-};
-const cerrarFranja = (t: Pestana): void => {
-  try { window.localStorage.setItem(`spy.franja.${t}`, '1'); } catch { /* sin almacenamiento, vuelve la próxima */ }
-};
-
-function Franja({ pestana }: { pestana: Pestana }) {
-  const [cerrada, setCerrada] = useState(true);
-  useEffect(() => { setCerrada(franjaCerrada(pestana)); }, [pestana]);
-  if (cerrada) return null;
-  const f = FRANJA[pestana];
-  return (
-    <div className="spy-franja">
-      <strong>{f.titulo}</strong>
-      <span>{f.frase}</span>
-      <button type="button" className="spy-x" aria-label="Cerrar" onClick={() => { cerrarFranja(pestana); setCerrada(true); }}>
-        <Icon name="x" size={13} />
-      </button>
-    </div>
-  );
-}
+// ⚠️ LAS FRANJAS DE UNA LÍNEA SE FUERON (4/11/2026). Martín: «elimina textos innecesarios, como "Lo que publica Los días
+// los declara el canal; la etapa la calcula MaKo."». Explicaban un criterio nuestro que la pantalla ya no muestra.
 
 const inicial = (nombre: string): string => nombre.replace(/^@/, '').charAt(0).toUpperCase() || '·';
 
@@ -491,8 +474,7 @@ function Vacio({ titulo, children, botones, icono }: { titulo: string; children?
 function Esqueleto({ leyendo }: { leyendo: boolean }) {
   return (
     <>
-      {leyendo && <p className="spy-aviso">Leyendo sus canales. Tarda unos segundos.</p>}
-      <div className="spy-pgrid" aria-busy="true">
+      <div className="spy-pgrid" aria-busy={leyendo || true}>
         {Array.from({ length: 8 }, (_, i) => <div key={i} className="spy-esqueleto" />)}
       </div>
     </>
@@ -528,30 +510,57 @@ function ModalCampo({ titulo, placeholder, boton, ocupado, error, onClose, onEnv
   );
 }
 
+/** El ícono de cada opción del desplegable de tipos (AGENTS.md: cada opción de un desplegable lleva el suyo). */
+const ICONO_TIPO: Record<ValorDeContenido, NombreIconoMenu> = {
+  todo: 'ver', reels: 'video', carruseles: 'imagen', largos: 'video', shorts: 'video',
+  'agregar-instagram': 'agregar', 'agregar-youtube': 'agregar',
+};
+
 const NOMBRE_RED: Record<RedOtra, string> = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram' };
 const COLOR_RED: Record<RedOtra, string> = { youtube: 'var(--yt)', tiktok: 'var(--ink)', instagram: 'var(--ig)' };
-type BusquedaDeRedes = { buscando: boolean; candidatos: CandidatoRed[]; aviso?: string };
+type BusquedaDeRedes = { buscando: boolean; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; aviso?: string };
+
+/** La cara de una red encontrada: su foto si la leímos, y si no el punto de su color. */
+function CaraDeRed({ k }: { k: CandidatoVerificado }) {
+  return k.foto
+    // eslint-disable-next-line @next/next/no-img-element -- la sirve el CDN de la red, sin pasar por el optimizador
+    ? <img className="spy-redes-cara" src={k.foto} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.remove(); }} />
+    : <i className="spy-redes-punto" style={{ background: COLOR_RED[k.red] }} aria-hidden />;
+}
 
 /**
- * «¿Es su YouTube?» (ítems 10/11, 3/11/2026). Lo que trajo la búsqueda son CANDIDATOS: nada entra
- * sin el «sí» de la persona, porque buscar por nombre trae a otras —con «Sofia Contreras» Google
- * dio cinco Instagram distintos—. El enlace abre el perfil para que lo mire antes de contestar.
+ * Sus otras redes, SOLAS (Martín, 4/11: «debe ser automático, no un botón, de última que te muestre opciones y te
+ * pregunte si es ese o no»). Lo seguro ya se sumó y se puede deshacer; lo dudoso se pregunta, con su foto y el porqué.
+ * Si no encontró nada, no dice nada: no hay nada que hacer.
  */
-function OtrasRedes({ b, ocupado, onSi, onNo }: { b: BusquedaDeRedes | undefined; ocupado: boolean; onSi: (k: CandidatoRed) => void; onNo: (k: CandidatoRed) => void }) {
+function OtrasRedes({ b, ocupado, onSi, onNo, onDeshacer }: {
+  b: BusquedaDeRedes | undefined; ocupado: boolean;
+  onSi: (k: CandidatoVerificado) => void; onNo: (k: CandidatoVerificado) => void; onDeshacer: (k: CandidatoVerificado) => void;
+}) {
   if (!b) return null;
-  if (b.buscando) return <p className="spy-aviso">Buscando sus otras redes…</p>;
-  if (!b.candidatos.length) return b.aviso ? <p className="spy-aviso">{b.aviso}</p> : null;
+  if (b.buscando) return <p className="spy-aviso spy-aviso--suave">Buscando sus otras redes…</p>;
+  if (!b.sumadas.length && !b.candidatos.length) return b.aviso ? <p className="spy-aviso">{b.aviso}</p> : null;
+  const fila = (k: CandidatoVerificado, rotulo: string, botones: React.ReactNode) => (
+    <div key={`${k.red}|${k.ref}`} className="spy-redes-fila">
+      <CaraDeRed k={k} />
+      <span className="spy-redes-texto">
+        <a href={k.url} target="_blank" rel="noreferrer noopener">{rotulo}</a>
+        {k.porque && <small>{k.porque}</small>}
+      </span>
+      {botones}
+    </div>
+  );
   return (
     <section className="spy-redes" aria-label="Sus otras redes">
-      <p>Encontré estas redes con su nombre. ¿Son de esta persona? Ábrelas para comprobarlo.</p>
-      {b.candidatos.map((k) => (
-        <div key={`${k.red}|${k.ref}`} className="spy-redes-fila">
-          <i style={{ background: COLOR_RED[k.red] }} aria-hidden />
-          <a href={k.url} target="_blank" rel="noreferrer noopener">{NOMBRE_RED[k.red]} · {k.titulo || k.ref}</a>
-          <button type="button" className="spy-boton spy-boton-primario" disabled={ocupado} onClick={() => onSi(k)}>Sí, es esta persona</button>
+      {b.sumadas.map((k) => fila(k, `Sumé su ${NOMBRE_RED[k.red]} · ${k.titulo || k.ref}`,
+        <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onDeshacer(k)}>Deshacer</button>))}
+      {b.candidatos.length > 0 && <p>¿Son suyas?</p>}
+      {b.candidatos.map((k) => fila(k, `${NOMBRE_RED[k.red]} · ${k.titulo || k.ref}`, (
+        <>
+          <button type="button" className="spy-boton spy-boton-primario" disabled={ocupado} onClick={() => onSi(k)}>Es</button>
           <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onNo(k)}>No es</button>
-        </div>
-      ))}
+        </>
+      )))}
     </section>
   );
 }
@@ -603,9 +612,11 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
               onClick={() => onAbrir(c.id)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(c.id); } }}>
               <span className="spy-ccard__cara" style={{ '--flote': flote } as CSSProperties} aria-hidden>
-                {c.avatar || dibujo
+                {/* ⚠️ LA CARICATURA PRIMERO (4/11/2026): «no me hizo la caricatura como habíamos quedado». La que se hizo
+                    sola, después la dibujada de un referente, y recién sin ninguna su foto. */}
+                {c.caricatura || dibujo || c.avatar
                   // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public, no pasa por el optimizador
-                  ? <img src={(c.avatar || dibujo) as string} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
+                  ? <img src={(c.caricatura || dibujo || c.avatar) as string} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
                   : inicial(c.nombre)}
               </span>
               <div className="spy-ccard__cuerpo">
@@ -615,7 +626,7 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
                 </span>
                 <div className="spy-ccard__pie">
                   {r && r.vivas + r.idas > 0 && (
-                    <span className="spy-pildora"><i className="spy-punto spy-punto-vivo" />{r.vivas} a la vista{r.idas ? ` · ${r.idas} ya no` : ''}</span>
+                    <span className="spy-pildora"><i className="spy-punto spy-punto-vivo" />{r.vivas} {r.vivas === 1 ? 'pieza' : 'piezas'}{r.idas ? ` · ${r.idas} borradas` : ''}</span>
                   )}
                   {c.mirado_en && <span className="spy-rango">Revisado {haceCuanto(c.mirado_en)}</span>}
                 </div>
@@ -665,51 +676,32 @@ function CajaMix({ titulo, pie, filas, total }: {
 }
 
 /**
- * El riel de análisis: hasta tres cajas de 336 px al costado de la rejilla.
+ * El riel de análisis: hasta dos cajas de 336 px al costado de la rejilla.
  *
  * ⚠️ ANTES ERA UNA BANDA PLEGADA ARRIBA DE LAS PIEZAS, y por eso arrancaba cerrada: tres columnas
  * de listas empujaban la primera pieza fuera de la pantalla. En la referencia (merrin) el análisis
  * nunca compite con el catálogo: vive en una columna propia a la derecha y por eso puede estar
  * siempre abierto. Esto es lo mismo.
  *
+ * ⚠️ «CON QUÉ ABRE» SE FUE (4/11/2026). Martín: «"Con qué abre" no se entiende qué significa eso, y la IA ya debería
+ * analizar por sí sola todo, sin pedirlo». El gancho que lee la IA ya es el título de cada tarjeta, y el análisis
+ * corre solo (/api/competitor-spy/analizar): no hay botón «Leer con IA».
+ *
  * La sección sin nada que decir NO EXISTE: no se anuncia su ausencia (Semrush).
  */
-function RielAnalisis({ piezas, c, analizando, onAnalizar }: { piezas: PiezaVista[]; c: Competidor; analizando: boolean; onAnalizar: () => void }) {
+function RielAnalisis({ piezas, c }: { piezas: PiezaVista[]; c: Competidor }) {
   const mezcla = useMemo(() => mezclaDeTipos(piezas), [piezas]);
   const destinos = useMemo(() => destinosDe(piezas), [piezas]);
-  const ganchos = useMemo(() => ganchosDe(piezas), [piezas]);
   const frase = fraseDeLectura(piezas, c.mirado_en);
   return (
     <>
       <CajaMix titulo="Qué publica" pie={frase} filas={mezcla} total={piezas.length} />
       <CajaMix titulo="A dónde manda" filas={destinos.slice(0, 6)} total={piezas.length} />
-      <section className="spy-caja">
-        <div className="spy-caja-cabecera"><div><h2>Con qué abre</h2></div></div>
-        {ganchos.length
-          ? (
-            <ul className="spy-mix-filas">
-              {ganchos.slice(0, 8).map((g) => (
-                <li key={g.gancho}>
-                  <span className="spy-mix-nombre"><b title={g.gancho}>{g.gancho}</b></span>
-                  {g.dias != null && (
-                    <span className="spy-pildora"><i className={g.sigue ? 'spy-punto spy-punto-vivo' : 'spy-punto'} />{g.dias} d</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )
-          : (
-            // El control apagado de Meta: se ve, dice por qué y trae su salida.
-            <button type="button" className="spy-boton" disabled={analizando} onClick={onAnalizar}>
-              {analizando ? 'Leyendo con IA…' : 'Leer con IA'}
-            </button>
-          )}
-      </section>
     </>
   );
 }
 
-export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puedeBorrar = false }: {
+export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puedeBorrar = false, ws = null }: {
   iniciales: Competidor[];
   resumenInicial: Record<number, ResumenPiezas>;
   /** El `?competidor=` de la URL. La ficha es una URL: se comparte, se marca y se vuelve. */
@@ -717,6 +709,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   errorInicial: string | null;
   /** Sólo el admin del negocio borra: se lleva lo leído por todo el equipo y no se deshace. */
   puedeBorrar?: boolean;
+  /** El negocio: va en la clave de lo que se recuerda en el navegador (`redes-recordar.ts`). */
+  ws?: number | null;
 }) {
   const [competidores, setCompetidores] = useState<Competidor[]>(iniciales);
   const [resumen, setResumen] = useState(resumenInicial);
@@ -725,27 +719,31 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [trayendo, setTrayendo] = useState(false);
   const [leyendo, setLeyendo] = useState<number | null>(null);
   const [ordenando, setOrdenando] = useState<{ id: number; piezas: PiezaVista[] | null } | null>(null);
-  const [analizando, setAnalizando] = useState(false);
+  /** A quién le está leyendo las piezas la IA, sola y en segundo plano. Sus tarjetas sin análisis dicen «Analizando…». */
+  const [autoAnalisis, setAutoAnalisis] = useState<number | null>(null);
   const [lecturas, setLecturas] = useState<Record<number, LecturaCanalSpy[]>>({});
   const [error, setError] = useState<string | null>(errorInicial);
   const [pestana, setPestana] = useState<Pestana>('publica');
 
   const [textoAlta, setTextoAlta] = useState('');
   const [buscar, setBuscar] = useState('');
-  const [filtros, setFiltros] = useState<FiltroSpy[]>([]);
-  const [orden, setOrden] = useState<OrdenSpy>('mas-tiempo');
+  const [tipo, setTipo] = useState<TipoContenido>('todo');
+  const [orden, setOrden] = useState<OrdenSpy>('mas-vistas');
   const [modal, setModal] = useState<'alta' | 'canal' | 'anuncio' | 'quitar' | null>(null);
   /** A quién se está por dejar de mirar DESDE LA LISTA. En la ficha eso lo maneja `modal`. */
   const [aBorrar, setABorrar] = useState<Competidor | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [errorModal, setErrorModal] = useState<string | null>(null);
-  /** Lo que trajo la búsqueda de sus otras redes, por competidor. Vive en la sesión: nunca se guarda sin el «sí». */
+  /** Lo que trajo la búsqueda de sus otras redes, por competidor. Lo dudoso vive en la sesión: nunca se guarda sin el «Es». */
   const [redes, setRedes] = useState<Record<number, BusquedaDeRedes>>({});
 
   // Qué ficha está abierta AHORA: una lectura que tarda no puede pisar la de otro competidor.
   const actual = useRef(elegido);
   actual.current = elegido;
   const yaLeidos = useRef(new Set<number>());
+  // La lista de ahora, para lo que se decide DESPUÉS de un await (si le faltan redes): el estado del cierre ya es viejo.
+  const listaActual = useRef(competidores);
+  listaActual.current = competidores;
 
   const c = competidores.find((x) => x.id === elegido) ?? null;
 
@@ -781,27 +779,38 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       const p = await traerPiezas(id);
       // Sin piezas no hay nada que ordenar: se ve el estado de siempre («no encontré», «no pude»).
       if (animada) setOrdenando((v) => (v?.id !== id || actual.current !== id ? null : p?.length ? { id, piezas: p } : null));
+      // Lo nuevo lo lee la IA sola, sin que nadie espere (punto 11 del 4/11).
+      if (p && cuantasFaltan(p)) void analizarSolo(id);
     } catch (e) {
       setOrdenando(null);
       throw e;
     } finally {
       setLeyendo((v) => (v === id ? null : v));
     }
+  // `analizarSolo` se declara más abajo y sólo lo usa después de un await: no cambia entre renders.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recargarLista, traerPiezas]);
 
   // Abrir una ficha: trae lo guardado y, si hace falta, lee. Sin botón que haya que encontrar.
   useEffect(() => {
     if (elegido == null) return;
     let vivo = true;
-    setPiezas([]); setError(null); setBuscar(''); setFiltros([]); setPestana('publica'); setTrayendo(true); setOrdenando(null);
-    void traerPiezas(elegido).then((p) => {
+    const id = elegido;
+    setPiezas([]); setError(null); setBuscar(''); setTipo('todo'); setPestana('publica'); setTrayendo(true); setOrdenando(null);
+    void (async () => {
+      const p = await traerPiezas(id);
       if (!vivo) return;
       setTrayendo(false);
-      const quien = competidores.find((x) => x.id === elegido);
-      if (quien && debeLeerAlAbrir(quien, p?.length ?? 0, yaLeidos.current.has(elegido))) void leer(elegido, !p?.length);
-    });
+      const quien = listaActual.current.find((x) => x.id === id);
+      if (quien && debeLeerAlAbrir(quien, p?.length ?? 0, yaLeidos.current.has(id))) await leer(id, !p?.length).catch(() => undefined);
+      else if (p && cuantasFaltan(p)) void analizarSolo(id);
+      // Sus otras redes, solas, DESPUÉS de leer: si no, la búsqueda (que también lee perfiles) compite con la lectura.
+      const ahora = listaActual.current.find((x) => x.id === id);
+      if (vivo && ahora && debeBuscarRedes(ahora, ws)) void buscarRedes(id);
+    })();
     return () => { vivo = false; };
-    // `competidores` afuera a propósito: cada lectura la reescribe, y esto volvería a abrir la ficha.
+    // `competidores` afuera a propósito (se lee de `listaActual`): cada lectura la reescribe, y esto volvería a abrir la
+    // ficha. `buscarRedes` y `analizarSolo` sólo tocan estado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [elegido, traerPiezas, leer]);
 
@@ -833,23 +842,33 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     else irA(id);
   };
 
-  // Sus otras redes (ítems 10/11): se busca SOLA al dar de alta —«con un dato, traer todas sus
-  // redes»— y a pedido desde la miga. Cuesta US$0,00455 y gasta del tope diario: nunca al abrir.
+  // Sus otras redes (puntos 6 del 4/11): se buscan SOLAS, al dar de alta y al abrir la ficha de alguien a quien le falta
+  // una (una vez por semana: `redes-recordar.ts`). Por una RUTA y no una action: tarda hasta 40 s y haría fila.
   const buscarRedes = useCallback(async (id: number) => {
-    setRedes((v) => ({ ...v, [id]: { buscando: true, candidatos: [] } }));
-    const r = await buscarRedesAction(id).catch(() => ({ ok: false as const, error: 'No pude buscar sus otras redes ahora. Prueba en un rato.' }));
+    marcarRedesBuscadas(ws, id);
+    setRedes((v) => ({ ...v, [id]: { buscando: true, sumadas: [], candidatos: [] } }));
+    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[] } | { ok: false; error: string };
+    const r: Resp = await fetch('/api/competitor-spy/redes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(125_000),
+    }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false as const, error: 'No pude buscar sus otras redes ahora.' }));
     setRedes((v) => ({
       ...v,
-      [id]: r.ok
-        ? { buscando: false, candidatos: r.candidatos, aviso: r.candidatos.length ? undefined : 'No encontré otras redes con su nombre. Si las conoces, pégalas a mano.' }
-        : { buscando: false, candidatos: [], aviso: r.error },
+      [id]: r.ok ? { buscando: false, sumadas: r.sumadas, candidatos: r.candidatos } : { buscando: false, sumadas: [], candidatos: [], aviso: r.error },
     }));
+    // Lo que se sumó solo se lee ya: sus piezas tienen que aparecer sin que nadie apriete nada.
+    if (r.ok && r.sumadas.some((k) => k.red !== 'tiktok')) {
+      await recargarLista();
+      yaLeidos.current.delete(id);
+      if (actual.current === id) void leer(id, false);
+    } else if (r.ok && r.sumadas.length) await recargarLista();
+  // `leer` y `recargarLista` son estables (useCallback); `ws` no cambia en la vida de la pantalla.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const quitarCandidatos = (id: number, sale: (k: CandidatoRed) => boolean) =>
-    setRedes((v) => (v[id] ? { ...v, [id]: { ...v[id], candidatos: v[id].candidatos.filter((k) => !sale(k)) } } : v));
+  const quitarDeLasRedes = (id: number, sale: (k: CandidatoVerificado) => boolean) =>
+    setRedes((v) => (v[id] ? { ...v, [id]: { ...v[id], sumadas: v[id].sumadas.filter((k) => !sale(k)), candidatos: v[id].candidatos.filter((k) => !sale(k)) } } : v));
 
-  const confirmarRed = async (k: CandidatoRed) => {
+  const confirmarRed = async (k: CandidatoVerificado) => {
     if (elegido == null) return;
     const id = elegido;
     setOcupado(true); setError(null);
@@ -858,7 +877,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       const r = await sumarCanalAction(id, k.url);
       if (!r.ok) { setError(r.error); return; }
       // De esa red no se ofrece nada más: el resto con su nombre son otras personas.
-      quitarCandidatos(id, (x) => x.red === k.red);
+      quitarDeLasRedes(id, (x) => x.red === k.red);
       // TikTok no se lee: no hay nada que traer, sólo mostrarlo.
       if (k.red === 'tiktok') await recargarLista();
       else await abrirRecienAgregado(id);
@@ -866,6 +885,87 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       setOcupado(false);
     }
   };
+
+  /** «Deshacer» una red que se sumó sola y no era de él: se saca el canal y sus piezas. */
+  const deshacerRed = async (k: CandidatoVerificado) => {
+    if (elegido == null) return;
+    const id = elegido;
+    setOcupado(true); setError(null);
+    try {
+      const r = await quitarCanalAction(id, k.red);
+      if (!r.ok) { setError(r.error); return; }
+      quitarDeLasRedes(id, (x) => x.red === k.red && x.ref === k.ref);
+      await recargarLista();
+      await traerPiezas(id);
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  /**
+   * La IA del negocio lee lo que falta, sola (/api/competitor-spy/analizar). La ruta contesta en el acto y el trabajo
+   * sigue en el servidor; acá sólo se marca quién está en análisis y la pantalla vuelve a pedir las piezas.
+   */
+  const analizarSolo = useCallback(async (id: number) => {
+    type Resp = { ok: boolean; enMarcha?: boolean; faltan?: number; sinIA?: boolean };
+    const r: Resp = await fetch('/api/competitor-spy/analizar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(30_000),
+    }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false }));
+    if (r.ok && r.enMarcha) setAutoAnalisis(id);
+  }, []);
+
+  // ── Las caricaturas, SOLAS (4/11/2026: «Eso debe hacerse en segundo plano de manera automática»). De a una: se le
+  // pide un paso a /api/competitor-spy/caricatura y se vuelve a preguntar cada 15 s mientras esté en marcha; al terminar,
+  // la siguiente. Se salta a los referentes (ya están dibujados) y a quien no tiene foto. Si se cierra la pestaña, lo
+  // pedido sigue en la cola de Flow y la próxima apertura lo recoge.
+  useEffect(() => {
+    let vivo = true;
+    const terminadas = new Set<number>();
+    const correr = async () => {
+      for (let vuelta = 0; vuelta < 60 && vivo; vuelta += 1) {
+        const x = listaActual.current.find((k) => !k.caricatura && k.avatar && !caricaturaDeCompetidor(k) && !terminadas.has(k.id));
+        if (!x) return;
+        type Resp = { ok: boolean; url?: string | null; enMarcha?: boolean };
+        const r: Resp | null = await fetch('/api/competitor-spy/caricatura', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: x.id }), signal: AbortSignal.timeout(65_000),
+        }).then((y) => y.json() as Promise<Resp>).catch(() => null);
+        if (!vivo) return;
+        if (!r?.ok || !r.enMarcha) terminadas.add(x.id);
+        if (r?.url) { await recargarLista(); continue; }
+        await new Promise((ok) => { setTimeout(ok, r?.enMarcha ? 15_000 : 500); });
+      }
+    };
+    // Un respiro al abrir: primero la lista, la lectura y lo que la persona vino a mirar.
+    const t = setTimeout(() => { void correr(); }, 4_000);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [recargarLista]);
+
+  // Mientras la IA lee, se vuelven a pedir las piezas cada 5 s. Se para cuando no falta ninguna, cuando dejó de avanzar
+  // (un minuto sin una nueva) o a los 4 minutos. El trabajo del servidor sigue aunque esto se pare o se cierre la pestaña.
+  useEffect(() => {
+    if (autoAnalisis == null) return;
+    const id = autoAnalisis;
+    let vivo = true;
+    let vueltas = 0;
+    let quietas = 0;
+    let antes = Number.POSITIVE_INFINITY;
+    let t: ReturnType<typeof setTimeout>;
+    const terminar = () => { vivo = false; setAutoAnalisis((v) => (v === id ? null : v)); };
+    const vuelta = async () => {
+      if (!vivo) return;
+      if (actual.current !== id) { terminar(); return; }
+      vueltas += 1;
+      const p = await traerPiezas(id).catch(() => null);
+      if (!vivo) return;
+      const faltan = p ? cuantasFaltan(p) : antes;
+      if (faltan < antes) { quietas = 0; antes = faltan; } else quietas += 1;
+      if (faltan === 0) { terminar(); void recargarLista(); return; }
+      if (vueltas >= 48 || quietas >= 12) { terminar(); return; }
+      t = setTimeout(() => { void vuelta(); }, 5000);
+    };
+    t = setTimeout(() => { void vuelta(); }, 5000);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [autoAnalisis, traerPiezas, recargarLista]);
 
   const sumar = async (valor: string, nombre?: string, deLaBio?: string | null): Promise<number | null> => {
     setOcupado(true); setError(null); setErrorModal(null);
@@ -882,7 +982,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     const id = await sumar(valor, nombre, deLaBio);
     if (id == null) return;
     setModal(null);
-    void buscarRedes(id);
+    // Sus otras redes las busca sola la ficha al abrirse, DESPUÉS de la primera lectura (`debeBuscarRedes`).
     await abrirRecienAgregado(id);
   };
 
@@ -911,20 +1011,6 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       setPestana('anuncios');
     } finally {
       setOcupado(false);
-    }
-  };
-
-  const analizar = async () => {
-    if (elegido == null) return;
-    setError(null); setAnalizando(true);
-    try {
-      const r = await analizarAction(elegido);
-      if (!r.ok) { setError(r.error); return; }
-      await recargarLista();
-      await traerPiezas(elegido);
-      setPestana('oferta');
-    } finally {
-      setAnalizando(false);
     }
   };
 
@@ -975,11 +1061,15 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   // La página que se le cargó, no la última que se guardó: con «Guardar en Spy» puede haber varias.
   const sitio = useMemo(() => piezas.find((p) => p.canal === 'landing' && p.ref === c?.landing_url) ?? piezas.find((p) => p.canal === 'landing') ?? null, [piezas, c?.landing_url]);
   const piezasDelSitio = (sitio?.piezasDePagina ?? []).filter((n) => !sitio?.funnel || !n.startsWith('un video'));
-  const visibles = useMemo(() => ordenarPiezas(filtrarPiezas(flujo, buscar, filtros), orden), [flujo, buscar, filtros, orden]);
+  const visibles = useMemo(() => ordenarPiezas(filtrarPiezas(flujo, buscar, tipo), orden), [flujo, buscar, tipo, orden]);
+  const opcionesTipo = useMemo(() => (c ? opcionesDeContenido(flujo, c) : []), [flujo, c]);
+  // Las miniaturas de sus videos de YouTube con su título, para copiar lo que funciona (pedido del 4/11).
+  const videosYoutube = useMemo(() => ordenarPiezas(flujo.filter((p) => p.canal === 'youtube'), 'mas-vistas'), [flujo]);
 
   // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece.
   const pestanas: Array<{ key: Pestana; rotulo: string; n?: number }> = c ? [
     ...(c.instagram || c.youtube_id || flujo.length || !c.landing_url ? [{ key: 'publica' as const, rotulo: 'Lo que publica', n: flujo.length || undefined }] : []),
+    ...(videosYoutube.length ? [{ key: 'miniaturas' as const, rotulo: 'Miniaturas', n: videosYoutube.length }] : []),
     ...(c.oferta?.promete ? [{ key: 'oferta' as const, rotulo: 'Su oferta' }] : []),
     ...(c.landing_url ? [{ key: 'sitio' as const, rotulo: 'Su web' }] : []),
     ...(anuncios.length ? [{ key: 'anuncios' as const, rotulo: 'Anuncios', n: anuncios.length }] : []),
@@ -993,8 +1083,6 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     : 'hay';
 
   const desde = useMemo(() => piezas.map((p) => p.visto_primera_vez).sort()[0] ?? null, [piezas]);
-  const fechasYoutube = flujo.filter((p) => p.canal === 'youtube' && p.publicada_en).map((p) => p.publicada_en as string).sort();
-  const hayCorte = fechasYoutube.length > 1 && cruzaElCorte(fechasYoutube[0], fechasYoutube[fechasYoutube.length - 1]);
 
   // La línea gris de la cabecera: SÓLO frescura. Nunca promete que lo vigilamos.
   const identidad = c
@@ -1015,14 +1103,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   // Las celdas pastel del riel. Un contador ausente NO es cero: sin dato no hay celda.
   const rc = c ? resumen[c.id] : undefined;
   const celdas = c ? [
-    ...(rc && rc.vivas > 0 ? [{ k: 'vivas', rot: 'A la vista', val: String(rc.vivas), pie: 'siguen arriba' }] : []),
-    ...(rc && rc.idas > 0 ? [{ k: 'idas', rot: 'Ya no están', val: String(rc.idas), pie: 'las bajó' }] : []),
+    ...(rc && rc.vivas > 0 ? [{ k: 'vivas', rot: 'Piezas', val: String(rc.vivas), pie: 'publicadas' }] : []),
+    ...(rc && rc.idas > 0 ? [{ k: 'idas', rot: 'Borradas', val: String(rc.idas), pie: 'las bajó' }] : []),
     ...(c.instagram_seguidores != null ? [{ k: 'ig', rot: 'Seguidores', val: dibujarContador(c.instagram_seguidores), pie: 'en Instagram' }] : []),
     ...(c.youtube_suscriptores != null ? [{ k: 'yt', rot: 'Suscriptores', val: dibujarContador(c.youtube_suscriptores), pie: 'en YouTube' }] : []),
   ] : [];
 
-  const alternar = (f: FiltroSpy) => setFiltros((v) => (v.includes(f) ? v.filter((x) => x !== f) : [...v, f]));
-  const cuantas = (f: FiltroSpy) => flujo.filter((p) => cumpleFiltro(p, f)).length;
 
   const revisarDeNuevo = (
     <button type="button" className="spy-boton" disabled={estaLeyendo || ordenando != null || elegido == null} onClick={() => { if (elegido != null) void leer(elegido); }}>
@@ -1078,7 +1164,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
 
         {!c && competidores.length > 0 && <RejillaCompetidores competidores={competidores} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} puedeBorrar={puedeBorrar} />}
 
-        {c && (
+        {/* ── MIENTRAS LEE Y ORDENA, NADA MÁS EN PANTALLA (punto 14 del 4/11): ni la miga, ni las pestañas, ni sus redes.
+             Primero la criatura sola, después la animación, y recién al terminar el resto. ── */}
+        {c && ordenando?.id === c.id && <PeliculaDeOrden nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)} />}
+
+        {c && ordenando?.id !== c.id && (
           <>
             {/* ── LA CABECERA ENTERA ES UNA MIGA DE 18 px. Copiada de `.crumbs--page` de la ficha
                  de producto de fitlo, que es la pantalla análoga a ésta: un ítem de un catálogo.
@@ -1104,12 +1194,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                   />
                 )
                 : <b>{c.nombre}</b>}
-              {(!c.instagram || !c.youtube_id || !c.tiktok) && !redes[c.id] && (
-                <button type="button" className="spy-migas-accion" onClick={() => void buscarRedes(c.id)}>Buscar sus otras redes</button>
-              )}
             </nav>
 
-            <OtrasRedes b={redes[c.id]} ocupado={ocupado} onSi={(k) => void confirmarRed(k)} onNo={(k) => quitarCandidatos(c.id, (x) => x.red === k.red && x.ref === k.ref)} />
+            <OtrasRedes
+              b={redes[c.id]} ocupado={ocupado}
+              onSi={(k) => void confirmarRed(k)}
+              onNo={(k) => quitarDeLasRedes(c.id, (x) => x.red === k.red && x.ref === k.ref)}
+              onDeshacer={(k) => void deshacerRed(k)}
+            />
 
             {/* Lo que falló al apretar algo se dice acá. El vacío «no pude» ya lo trae entre sus motivos. */}
             {error && !(activa === 'publica' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}</p>}
@@ -1128,12 +1220,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
               </nav>
             )}
 
-            {/* Sin nada abajo, la franja explicaría una pantalla que no está. */}
-            {(activa !== 'publica' || flujo.length > 0) && <Franja pestana={activa} />}
-
-            {ordenando?.id === c.id && activa === 'publica' && <PeliculaDeOrden nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)} />}
-
-            {activa === 'publica' && ordenando?.id !== c.id && (
+            {activa === 'publica' && (
               // ── Las dos columnas de merrin: el catálogo manda y el análisis vive a la derecha.
               //    Sin piezas no hay riel, y entonces la grilla ocupa el ancho entero.
               <div className="spy-cols">
@@ -1146,34 +1233,28 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                           <Icon name="search" size={16} />
                           <input aria-label="Buscar en sus piezas" placeholder="Buscar en sus piezas" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
                         </label>
-                        {(['instagram', 'youtube'] as const).map((f) => {
-                          const cargado = f === 'instagram' ? c.instagram : c.youtube_id;
-                          // El control apagado de Meta: un canal sin cargar no se esconde ni miente; dice qué pasa y trae la salida.
-                          if (!cargado) {
-                            return <button key={f} type="button" className="spy-chip" onClick={() => { setErrorModal(null); setModal('canal'); }}>{NOMBRE_CANAL[f]} · Agregar</button>;
-                          }
-                          const n = cuantas(f);
-                          const motivo = lecturasDe?.find((l) => l.canal === f)?.detalle;
-                          return (
-                            <button key={f} type="button" className="spy-chip" data-activo={filtros.includes(f)} disabled={!n} title={!n ? motivo : undefined} onClick={() => alternar(f)}>
-                              <i style={{ background: f === 'instagram' ? 'var(--ig)' : 'var(--yt)' }} />
-                              {NOMBRE_CANAL[f]}{n > 0 && <span className="spy-badge">{n}</span>}
-                            </button>
-                          );
-                        })}
-                        <button type="button" className="spy-chip" data-activo={filtros.includes('sigue')} disabled={!cuantas('sigue')} onClick={() => alternar('sigue')}>Sigue a la vista <span className="spy-badge">{cuantas('sigue')}</span></button>
-                        <button type="button" className="spy-chip" data-activo={filtros.includes('probado')} disabled={!cuantas('probado')} onClick={() => alternar('probado')}>Probado <span className="spy-badge">{cuantas('probado')}</span></button>
+                        {/* ⚠️ UN DESPLEGABLE DE TIPOS EN VEZ DE CHIPS (4/11/2026). Martín: «"Sigue a la vista" y "Probado" no se
+                            entiende qué hacen, elimínalos... "Agregar Instagram" o la red que falte, ahora se hará en el desplegable».
+                            La red que falta se agrega desde acá: elegirla abre el mismo campo que «Agregar un canal». */}
+                        <Dropdown
+                          ariaLabel="Qué ver"
+                          value={tipo}
+                          width={250}
+                          buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
+                          options={opcionesTipo.map((o) => ({ ...o, icono: ICONO_TIPO[o.value] }))}
+                          onChange={(v) => {
+                            if (v === 'agregar-instagram' || v === 'agregar-youtube') { setErrorModal(null); setModal('canal'); return; }
+                            setTipo(v as TipoContenido);
+                          }}
+                        />
                         <div className="spy-orden">
                           <Dropdown
                             ariaLabel="Ordenar"
                             value={orden}
-                            width={240}
+                            width={200}
                             align="right"
                             buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
-                            options={[
-                              { value: 'mas-tiempo', label: 'Más tiempo a la vista' },
-                              { value: 'mas-nuevo', label: 'Lo más nuevo' },
-                            ]}
+                            options={[...ORDENES]}
                             onChange={(v) => setOrden(v as OrdenSpy)}
                           />
                         </div>
@@ -1184,17 +1265,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                   {/* ── Un solo estado para toda la zona de resultados, jamás uno por canal. ── */}
                   {estado === 'hay' && (
                     <>
-                      <div className="spy-pgrid">{visibles.map((p) => <TarjetaPieza key={p.id} p={p} />)}</div>
-                      <footer className="spy-pie">
-                        {c.mirado_en && <p>Lo que se pudo leer de sus canales públicos el {fechaCorta(c.mirado_en)}.</p>}
-                        <p>{ETAPA_ES_NUESTRO_CRITERIO}</p>
-                        {hayCorte && <p>{AVISO_CORTE_VIEWCOUNT}</p>}
-                      </footer>
+                      {/* ⚠️ SIN PIE DE TEXTO (4/11/2026): «Lo que se pudo leer de sus canales públicos el 4 nov. La etapa la
+                          calcula MaKo…» es lo que Martín pidió sacar. La fecha ya la dice la cabecera («Revisado hace…»). */}
+                      <div className="spy-pgrid">{visibles.map((p) => <TarjetaPieza key={p.id} p={p} analizando={autoAnalisis === c.id && !p.analisis} />)}</div>
                     </>
                   )}
                   {estado === 'cargando' && <Esqueleto leyendo={estaLeyendo} />}
                   {estado === 'sin-coincidencias' && (
-                    <Vacio titulo="Nada coincide" botones={<button type="button" className="spy-boton" onClick={() => { setBuscar(''); setFiltros([]); }}>Quitar filtros</button>}>
+                    <Vacio titulo="Nada coincide" botones={<button type="button" className="spy-boton" onClick={() => { setBuscar(''); setTipo('todo'); }}>Ver todo</button>}>
                       <p>Ninguna de sus {flujo.length} piezas pasa esta búsqueda.</p>
                     </Vacio>
                   )}
@@ -1256,7 +1334,6 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                         sinFlecha
                         botonLabel={<span aria-hidden>⋯</span>}
                         options={[
-                          { value: 'analizar', label: analizando ? 'Leyendo su oferta…' : 'Qué vende y qué ataca' },
                           { value: 'canal', label: 'Agregar un canal' },
                           { value: 'anuncio', label: 'Guardar un anuncio' },
                           // Mismo criterio que el botón de la lista: borrar es del admin, y lo
@@ -1264,8 +1341,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                           ...(puedeBorrar ? [{ value: 'quitar', label: 'Dejar de mirarlo' }] : []),
                         ]}
                         onChange={(v) => {
-                          // «Qué vende y qué ataca» no abre un modal: corre. Por eso sale antes del setModal.
-                          if (v === 'analizar') { if (!analizando && piezas.length) void analizar(); return; }
+                          // ⚠️ «Qué vende y qué ataca» se fue el 4/11/2026: la oferta la lee sola la IA del negocio con
+                          // cada lectura (/api/competitor-spy/analizar). Martín: «sin pedirlo».
                           setErrorModal(null);
                           setModal(v as 'canal' | 'anuncio' | 'quitar');
                         }}
@@ -1283,8 +1360,29 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                     </div>
                   )}
 
-                  {flujo.length > 0 && <RielAnalisis piezas={flujo} c={c} analizando={analizando} onAnalizar={() => void analizar()} />}
+                  {flujo.length > 0 && <RielAnalisis piezas={flujo} c={c} />}
                 </aside>
+              </div>
+            )}
+
+            {/* ── Sus miniaturas de YouTube junto a su título, de la más vista a la menos (pedido de Martín del 4/11:
+                 «un apartado exclusivo para las miniaturas de YT junto a los titulares»). Es lo que se copia de un canal:
+                 la imagen y la frase que hacen que alguien entre. ── */}
+            {activa === 'miniaturas' && (
+              <div className="spy-mgrid">
+                {videosYoutube.map((p) => {
+                  const mini = miniaturaDePieza(p);
+                  return (
+                    <a key={p.id} className="spy-mcard" href={p.url ?? undefined} target="_blank" rel="noreferrer noopener">
+                      <span className="spy-mcard__img">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- la sirve YouTube, sin pasar por nuestro optimizador */}
+                        {mini && <img src={mini} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.remove(); }} />}
+                      </span>
+                      <b>{p.titulo || p.texto?.slice(0, 120) || 'Sin título'}</b>
+                      {p.vistas != null && <small>{dibujarContador(p.vistas)} vistas</small>}
+                    </a>
+                  );
+                })}
               </div>
             )}
 
@@ -1319,7 +1417,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                       {/* ⚠️ El parámetro es `?analizar=`, el que el Web Generator entiende
                           (`derechaDeQuery`, app/web-generator/panel-reglas.ts). Un `?replicar=` no
                           existe en ese contrato: la query se ignora y el botón parece andar. */}
-                      <a href={`/web-generator?analizar=${encodeURIComponent(c.landing_url)}`} className="spy-boton">Analizar y replicar su sitio</a>
+                      <a href={`/web-generator?analizar=${encodeURIComponent(c.landing_url)}`} className="spy-boton">Copiar su sitio</a>
                       <a href={enlaceSusAnuncios(c)} target="_blank" rel="noreferrer noopener" className="spy-boton">Ver sus anuncios</a>
                     </div>
                   </section>

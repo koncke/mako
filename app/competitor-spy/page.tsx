@@ -11,7 +11,7 @@
 import { SpyApp } from './SpyApp';
 import { listarCompetidores, resumenDePiezas } from '@/lib/spy';
 import { requireRolWs } from '@/lib/tab-access';
-import { getRolWsEfectivo } from '@/lib/workspace';
+import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +39,7 @@ export default async function CompetitorSpyPage({ searchParams }: { searchParams
       abierto={Number.isInteger(pedido) && pedido > 0 ? pedido : null}
       errorInicial={r.ok ? null : r.error}
       puedeBorrar={esAdmin}
+      ws={await getWorkspaceActual()}
     />
   );
 }

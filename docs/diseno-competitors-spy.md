@@ -727,3 +727,79 @@ porque completar las filas es lo que permite ordenar «los mejores resultados».
 - El @ que sale de pegar un nombre («Víctor Heras» → @victorheras) se prueba, pero NO va primero: compite por seguidores.
 - «Si tienes el @ exacto es inmediato» no se escribió así: el @ se lee por Apify y tarda unos segundos. Dice «Con su @
   exacto es más rápido».
+
+## 12. La ficha: automática y sin lo que no se entiende (4/11/2026)
+
+> Martín, 4/11 (puntos 5, 6, 11, 13 y 14): «elimina textos innecesarios… Lo de "Buscar sus otras redes" debe ser
+> automático, no un botón… "Con qué abre" no se entiende… la IA ya debería analizar por sí sola todo, sin pedirlo…
+> "Sigue a la vista" y "Probado" no se entiende qué hacen… Si encuentra la web, que la analice automáticamente… Donde
+> sale MaKo, previo a la animación, no debería haber absolutamente nada más en pantalla».
+
+**Sus otras redes, solas** (`/api/competitor-spy/redes`, `buscarOtrasRedes`). Se buscan al abrir la ficha de alguien a
+quien le falta una red, DESPUÉS de la primera lectura, y una vez por semana por competidor y por negocio
+(`redes-recordar.ts`): cada búsqueda es una corrida de Google (US$0,00455) más leer a los candidatos, y lo paga el
+negocio. El criterio (`veredictoDe`):
+
+| Evidencia | Qué pasa |
+|---|---|
+| Se enlazan entre ellos (su bio nombra el @ o el canal, o al revés, o el mismo sitio) | Se suma solo, con «Deshacer» |
+| Misma foto (dHash de 64 bits a ≤10 bits) **y** mismo nombre | Se suma solo, con «Deshacer» |
+| Sólo la foto, o sólo el nombre | Se pregunta: «¿Son suyas?», con su foto y el porqué |
+| Nada en común | No se muestra |
+
+Si con el nombre no aparece una segura, se busca otra vez por su @ («que vaya buscando hasta encontrar»). **No hay IA
+en este paso, a propósito:** comparar fotos y enlaces es medible y gratis; una IA que «razona» sobre dos perfiles
+públicos costaría en cada ficha y no puede verificar más que esto. Si hace falta más criterio, el siguiente paso es
+mandarle las dos fotos a la IA DEL NEGOCIO sólo para los casos «quizás».
+
+**La IA lee sola** (`/api/competitor-spy/analizar` → `analizarCompetidor(…, { soloPendientes })`). Después de cada
+lectura, la pantalla la llama y NO espera: el trabajo sigue en un `after()` del servidor, de a 30 piezas
+(`PIEZAS_POR_ANALISIS`, las de más vistas primero) y hasta 3 tandas por pedido. Las tarjetas sin análisis dicen
+«Analizando…» y la pantalla vuelve a pedir las piezas cada 5 s. **La IA es la del negocio** (`chatCheapCascade`: su
+Claude, después su GPT o su Gemini); antes caía a `chatClaude`, que es la de la plataforma (el veto la frenaba porque
+`spy` no está en `CLAUDE_PERMITIDO`). Sin IA conectada no se dibuja «Analizando»: se ve lo que hay. «Con qué abre» y el
+menú «Qué vende y qué ataca» se fueron: el gancho es el título de cada tarjeta y la oferta sale del mismo análisis.
+
+**Qué ver:** un desplegable de tipos —Todo · Reels · Carruseles e imágenes · Videos de YouTube · Shorts— con cuántas tiene
+cada uno, y al final «Agregar su Instagram» / «Agregar su YouTube» si le falta. Reemplaza a los chips de canal, «Sigue a
+la vista» y «Probado». El orden es «Más vistas» o «Más reciente». La tarjeta dice «Hace N d» (lo orgánico) o «N d al
+aire» (un anuncio): la etapa (Test nuevo · Ganando tracción · Probado) ya no se dibuja.
+
+**Miniaturas** (pedido del 4/11 por el Cerebro: «un apartado exclusivo para las miniaturas de YT junto a los
+titulares»): una pestaña con cada video de YouTube como en YouTube —miniatura 16:9, título y vistas—, de la más vista a
+la menos.
+
+**Su sitio, solo:** se toma de la descripción de su canal o de su bio de Instagram (`sitioDelTexto`: el primer enlace
+que no es una red, un acortador, un Linktree ni un correo) y se lee con su funnel en la misma lectura. El botón que
+quedaba es el de copiarlo: «Copiar su sitio» (abre el Web Generator con `?analizar=`).
+
+**La animación:** mientras se lee y mientras se bajan las miniaturas, en la pantalla está SÓLO `CargandoMako` (la pieza
+común). La animación arranca con todas las miniaturas ya bajadas (o a los 8 s: las que no llegaron entran con su
+texto), y la miga, las pestañas y sus redes aparecen recién al terminar. Las carpetas son los tipos de contenido, no
+«Videos · Probado».
+
+## 13. La caricatura, sola (4/11/2026)
+
+> Martín, 4/11 (por el Cerebro): «me traje a @den.borgg y no me hizo la caricatura como habíamos quedado... Eso debe
+> hacerse en segundo plano de manera automática».
+
+La pantalla le pide a `/api/competitor-spy/caricatura` un paso por vez para cada competidor sin caricatura, de a uno y
+cada 15 s mientras esté en marcha (`lib/spy-caricatura-auto.ts`, con los pasos en `lib/spy-caricatura-reglas.ts`):
+
+1. **Rasgos:** la IA DEL NEGOCIO mira su foto y dice en una línea, en inglés, qué distingue su cabeza (pelo, barba,
+   lentes…). Es lo único que cambia por persona en el prompt aprobado (`promptDeCaricatura`). Sin una cara, no se insiste.
+2. **Cara:** la foto sube a Flow (`caraDelCompetidor`).
+3. **Pedido:** `generar_imagen` por la cola de Flow, con una ruta que la cola le firma al puente (`rutaDeSubida`), así la
+   imagen vuelve a nuestro Storage y no como la url de Flow, que vence en una hora.
+4. **Lista:** se copia al bucket de Spy y se anota en `spy.caricaturas` (app_settings del negocio; sin migración). La
+   tarjeta la usa antes que la caricatura dibujada de un referente y que la foto.
+
+**No se hace** para un referente (sus 22 están dibujadas y aprobadas), sin foto, en la prueba gratis (gastaría una de sus
+imágenes sin pedirlo) ni sin el puente de Flow listo (el pedido quedaría en la cola para siempre). Un pedido que nadie
+toma en 15 minutos se cierra; dos fallos de Flow y se queda con su foto.
+
+**Lo que cuesta:** la imagen, 0 créditos de Flow (`TOPE_CREDITOS.imagen`); los rasgos, una lectura de una foto con la IA
+del negocio.
+
+**Lo que hace falta para que corra en un negocio:** la extensión de MaKo conectada y Google Flow abierto en ese
+navegador (el mismo requisito que el AI Avatar). Sin eso la tarjeta sigue con la foto, sin aviso.

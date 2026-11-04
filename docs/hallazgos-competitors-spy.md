@@ -800,3 +800,63 @@ páginas, y que el lector de perfiles acepte cinco usuarios en una corrida con `
 **Vive en:** lib/spy-buscar-reglas.ts · lib/spy-buscar.ts · app/api/competitor-spy/buscar/route.ts ·
 app/competitor-spy/BuscadorAlta.tsx · lib/instagram-perfil-server.ts (`leerPerfilesEnLote`) · lib/spy-que-es.ts ·
 lib/spy-youtube.ts (`leerCanalCorto`) · tests/spy-buscar.test.ts · tests/instagram-perfil-fuentes.test.ts
+
+## La ficha automática: lo que no daba error (4/11/2026)
+
+> Martín, 4/11: «la IA ya debería analizar por sí sola todo, sin pedirlo… muchas veces aparecen tarjetas vacías sin la
+> miniatura, y segundos después, cuando la animación ya empezó, ahí aparece la miniatura».
+
+**El diagnóstico obvio era el equivocado, dos veces:**
+- ⚠️ **Las tarjetas vacías de la animación no eran miniaturas rotas: eran miniaturas que todavía no habían llegado.** La
+  película esperaba 700 ms a que se pudieran pintar, y empezaba igual. Las de Instagram vienen del CDN de Meta y tardan
+  más que eso. Ahora se bajan TODAS antes de arrancar (`new Image()` con el mismo `referrerPolicy` que la `<img>`, si no el
+  CDN contesta 403), hasta 8 s, y la que no llegó entra con su texto. Mientras tanto se ve sólo la criatura.
+- ⚠️ **Sospeché que un avatar PNG con transparencia rompía la comparación de fotos** (`grayscale().raw()` con dos canales,
+  144 bytes, y `dHash` en null). Lo medí antes de escribirlo como hallazgo: con esta versión de sharp sale un solo canal.
+  Quedó el test con un PNG con alfa, como red, y no la afirmación.
+
+**Tres que callaban:**
+- ⚠️ **El análisis «a pedido» caía a la IA de la plataforma.** Sin la clave de Claude del negocio, `analizarCompetidor`
+  llamaba a `chatClaude`; no se gastaba porque el veto frena `spy`, pero el negocio con sólo su Gemini no podía analizar
+  nada. Ahora es `chatCheapCascade` (su Claude, su GPT, su Gemini) y sin ninguna dice «Conecta tu…».
+- ⚠️ **Mandar siempre «las primeras 40» repetía y pagaba lo ya leído**, y una pieza que la IA no devolvía quedaba
+  pendiente para siempre (cada lectura la volvía a mandar). Ahora van sólo las pendientes, y lo que no volvió se marca
+  leído sin datos (`ANALISIS_SIN_DATOS`). Y el ref se busca sin mayúsculas: un modelo que lo devuelve en minúsculas no
+  encontraba la fila con `.eq('ref', …)`.
+- ⚠️ **Una tanda que no dice qué promete borraba la oferta.** El análisis de 30 reels de una charla devuelve `promete`
+  vacío, y se escribía encima del que había. `ofertaQueQueda` sólo pisa con una que trae algo.
+
+**Regla:** lo que corre solo y en segundo plano necesita una marca de «ya lo hice» que no dependa de que la IA conteste
+bien; si no, lo que falla una vez se paga en cada vuelta.
+
+**Sin probar contra el servicio de verdad:** que el análisis automático con la IA de un negocio real termine en los 300 s
+de la ruta (3 tandas de 30), y la búsqueda de redes completa contra Google y Apify (los dobles salen de las respuestas
+medidas el 3/11).
+
+**Vive en:** lib/spy-analisis-reglas.ts · lib/spy.ts (`analizarCompetidor`, `guardarAnalisis`, el sitio de la bio) ·
+app/api/competitor-spy/analizar/route.ts · app/api/competitor-spy/redes/route.ts · lib/spy-otras-redes.ts ·
+lib/spy-otras-redes-reglas.ts · lib/spy-foto-hash.ts · app/competitor-spy/redes-recordar.ts ·
+app/competitor-spy/OrdenSpy.tsx · app/competitor-spy/SpyApp.tsx · tests/spy-analisis.test.ts · tests/spy-otras-redes.test.ts
+
+## «No me hizo la caricatura»: no fallaba la generación, nadie la pedía (4/11/2026)
+
+> Martín (por el Cerebro): «me traje a @den.borgg y no me hizo la caricatura como habíamos quedado».
+
+**El diagnóstico obvio era el equivocado:** «falla Flow». `pedirCaricatura` (lib/spy-caricatura-flow.ts) estaba escrita
+desde el 3/11 con su prompt aprobado, y **no tenía un solo llamador**: compilaba, tenía sus comentarios y nunca corría. Le
+faltaban dos cosas que nadie tenía: los `rasgos` que el prompt exige y quién la disparara.
+
+**Y debajo había otro que tampoco daba error:** el pedido iba con una ruta propia (`spy/caricaturas/…`) para guardarla en
+el bucket de Spy, pero la cola sólo le firma la subida al puente si la ruta pasa `RUTA_SUBIDA` (`firmarSubidas`,
+lib/flow-cola.ts). Con la propia, el puente no subía nada y lo único que volvía era la url de Flow, que vence en una
+hora. Ahora va con `rutaDeSubida` y el servidor la copia al bucket de Spy.
+
+**Regla:** una función que hace algo caro y lo hace bien no está terminada hasta que alguien la llama; antes de dar por
+«ya existe» una pieza, `grep` de sus llamadores.
+
+**Sin probar contra el servicio de verdad:** la caricatura entera (la IA mirando la foto, el puente de Flow tomando el
+pedido). La nube no llega a ninguno de los dos.
+
+**Vive en:** lib/spy-caricatura-auto.ts · lib/spy-caricatura-reglas.ts · lib/spy-caricatura-flow.ts ·
+app/api/competitor-spy/caricatura/route.ts · lib/spy.ts (`listarCompetidores`) · app/competitor-spy/SpyApp.tsx ·
+tests/spy-caricatura-auto.test.ts

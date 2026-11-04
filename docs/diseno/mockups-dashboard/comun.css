@@ -1,0 +1,149 @@
+/* ═══════════════════════════════════════════════════════════════════════════════════════
+   LAS ANIMACIONES, SACADAS DEL CÓDIGO FUENTE de los demos (1/11/2026).
+   No son estimaciones: están leídas del bundle de Pane y de Lumora, que usan GSAP.
+   Las dos comparten la MISMA biblioteca de entradas; sólo cambia a qué se la aplican.
+
+     título      gsap.fromTo(.ch, {yPercent:115, rotation:6},
+                   {yPercent:0, rotation:0, duration:.85, ease:'power4.out', stagger:.022})
+     tarjetas    {opacity:0, y:40, rotation: i%2?3:-3, scale:.94} → duration .8
+     tiles/KPI   {opacity:0, y:34, scale:.985} → duration .9, ease power3.out, stagger .07
+     textos      {opacity:0, y:12} → duration .55, stagger .045
+     píldoras    {scale:.72, opacity:0} → duration .55, ease back.out(3)
+     chips       {y:-4, scale:1.06} → duration .55, ease back.out(2.4)
+
+   Equivalencias GSAP → CSS:
+     power4.out = cubic-bezier(.165,.84,.44,1) · power3.out = cubic-bezier(.215,.61,.355,1)
+     back.out(3) ≈ cubic-bezier(.34,1.8,.64,1) · back.out(2.4) ≈ cubic-bezier(.34,1.65,.64,1)
+   ═══════════════════════════════════════════════════════════════════════════════════════ */
+:root{
+  --ease:cubic-bezier(.22,.8,.24,1);
+  --p4:cubic-bezier(.165,.84,.44,1);
+  --p3:cubic-bezier(.215,.61,.355,1);
+  --back3:cubic-bezier(.34,1.8,.64,1);
+  --back14:cubic-bezier(.34,1.42,.64,1);  /* back.out(1.4) */
+  --back24:cubic-bezier(.34,1.65,.64,1);
+  --spring:cubic-bezier(.34,1.45,.55,1);
+}
+::view-transition-old(root),::view-transition-new(root){ animation:none; mix-blend-mode:normal }
+::view-transition-old(root){ z-index:1 }
+::view-transition-new(root){ z-index:9999 }
+
+.mk-ctl{position:fixed;bottom:14px;right:16px;z-index:50;display:flex;align-items:center;gap:7px;
+  background:var(--mk-ctl-bg);box-shadow:0 2px 6px #0003,0 14px 34px -22px #0006;border-radius:999px;padding:5px}
+.mk-b{height:32px;padding:0 13px;border-radius:999px;border:0;font:600 12.5px/1 Urbanist,system-ui,sans-serif;
+  color:var(--mk-ctl-fg);background:transparent;cursor:pointer;display:flex;align-items:center;gap:6px;
+  transition:background .2s var(--ease),color .2s var(--ease)}
+.mk-b:hover{background:var(--mk-ctl-hov)}
+.mk-b[aria-pressed="true"]{background:var(--mk-ctl-on);color:var(--mk-ctl-on-fg)}
+.mk-b svg{width:15px;height:15px}
+
+/* ════════ ENTRADA ════════
+   Leida del bundle. La linea de tiempo del CONTENIDO es zc():
+
+     tl.add( titulo_letra_por_letra, 0 )                       {yPercent:115,rotation:6} .85s power4.out stagger .022
+       .fromTo('.head__back', {opacity:0,x:-14}, .6s power3.out, 0)
+       .add( po('.head__sub, .head__actions > *', {y:12, stagger:.06}), .10 )
+       .add( lo('.head .stat',  {y:14, from:.6,  stagger:.06}), .10 )   <- los tiles ESCALAN desde .6
+     y aparte, los numeros:  contar desde 0, duration 1.3, delay i*.06
+
+   ⚠️ En Pane las TARJETAS NO se animan al entrar: el helper `mo` (y:40, rotacion +-3,
+      scale .94, back.out(1.4)) existe en la libreria pero no tiene ni una llamada.
+      Lumora si lo usa. Eso es lo que de verdad separa a las dos.
+
+   El armazon (barra lateral y barra de herramientas) entra aparte, en dd():
+     .side  {x:-30 -> 0, .9s expo.out} + escala desde .4
+     .nav__item  {x:-10, stagger:.035} a los .15
+     .toolbar__tools  {y:-16, from:.45, stagger:.06} a los .10
+   ========================================================================= */
+@keyframes mk-letra    { from{ transform:translateY(115%) rotate(6deg) } }
+@keyframes mk-tarjeta-a{ from{ opacity:0; transform:translateY(40px) rotate(3deg)  scale(.94) } }
+@keyframes mk-tarjeta-b{ from{ opacity:0; transform:translateY(40px) rotate(-3deg) scale(.94) } }
+@keyframes mk-tile     { from{ opacity:0; transform:translateY(34px) scale(.985) } }
+@keyframes mk-escala   { from{ opacity:0; transform:translateY(14px) scale(.6) } }
+@keyframes mk-texto    { from{ opacity:0; transform:translateY(12px) } }
+@keyframes mk-pildora  { from{ opacity:0; transform:scale(.72) } }
+@keyframes mk-chip     { from{ transform:translateY(-4px) scale(1.06) } }
+@keyframes mk-crece    { from{ opacity:0; transform:scaleY(.2) } }
+@keyframes mk-lateral  { from{ opacity:0; transform:translateX(-10px) } }
+
+/* el titulo: identico en las dos */
+:root[data-entrada="si"] .mk-ch{ animation:mk-letra .85s var(--p4) both }
+
+/* ══ PANE ══ las tarjetas NO se animan. Los tiles escalan desde .6 */
+:root[data-estilo="pane"][data-entrada="si"] .tl{ animation:mk-escala .7s var(--back14) both }
+:root[data-estilo="pane"][data-entrada="si"] .tl:nth-of-type(1){animation-delay:.10s}
+:root[data-estilo="pane"][data-entrada="si"] .tl:nth-of-type(2){animation-delay:.16s}
+:root[data-estilo="pane"][data-entrada="si"] .tl:nth-of-type(3){animation-delay:.22s}
+
+/* ══ LUMORA ══ aca si: tarjetas y:40 rot +-3 scale .94 back.out(1.4), stagger .06 */
+:root[data-estilo="lumora"][data-entrada="si"] .card{ animation:mk-tarjeta-a .8s var(--back14) both }
+:root[data-estilo="lumora"][data-entrada="si"] .card:nth-of-type(even){ animation-name:mk-tarjeta-b }
+:root[data-estilo="lumora"][data-entrada="si"] .card:nth-of-type(1){animation-delay:.06s}
+:root[data-estilo="lumora"][data-entrada="si"] .card:nth-of-type(2){animation-delay:.12s}
+:root[data-estilo="lumora"][data-entrada="si"] .card:nth-of-type(3){animation-delay:.18s}
+:root[data-estilo="lumora"][data-entrada="si"] .card:nth-of-type(4){animation-delay:.24s}
+:root[data-estilo="lumora"][data-entrada="si"] .card:nth-of-type(5){animation-delay:.30s}
+:root[data-estilo="lumora"][data-entrada="si"] .tile{ animation:mk-tile .9s var(--p3) both }
+:root[data-estilo="lumora"][data-entrada="si"] .tile:nth-of-type(1){animation-delay:.18s}
+:root[data-estilo="lumora"][data-entrada="si"] .tile:nth-of-type(2){animation-delay:.25s}
+:root[data-estilo="lumora"][data-entrada="si"] .tile:nth-of-type(3){animation-delay:.32s}
+:root[data-estilo="lumora"][data-entrada="si"] .tile:nth-of-type(4){animation-delay:.39s}
+:root[data-estilo="lumora"][data-entrada="si"] .hueco{transform-origin:50% 100%;animation:mk-crece .6s var(--p3) both}
+:root[data-estilo="lumora"][data-entrada="si"] .hueco:nth-child(2){animation-delay:.22s}
+:root[data-estilo="lumora"][data-entrada="si"] .hueco:nth-child(3){animation-delay:.27s}
+:root[data-estilo="lumora"][data-entrada="si"] .hueco:nth-child(4){animation-delay:.32s}
+:root[data-estilo="lumora"][data-entrada="si"] .hueco:nth-child(5){animation-delay:.37s}
+:root[data-estilo="lumora"][data-entrada="si"] .hueco:nth-child(6){animation-delay:.42s}
+:root[data-estilo="lumora"][data-entrada="si"] .hueco:nth-child(7){animation-delay:.47s}
+
+/* comunes: el subtitulo y los botones, y:12 con stagger .06, a los .10 */
+:root[data-entrada="si"] :is(.eyebrow,.estado){ animation:mk-texto .55s var(--p3) both;animation-delay:.10s }
+:root[data-entrada="si"] .btns{ animation:mk-texto .55s var(--p3) both;animation-delay:.16s }
+:root[data-entrada="si"] .fila:nth-of-type(1){animation:mk-texto .55s var(--p3) both;animation-delay:.30s}
+:root[data-entrada="si"] .fila:nth-of-type(2){animation:mk-texto .55s var(--p3) both;animation-delay:.345s}
+:root[data-entrada="si"] .fila:nth-of-type(3){animation:mk-texto .55s var(--p3) both;animation-delay:.39s}
+:root[data-entrada="si"] .fila:nth-of-type(4){animation:mk-texto .55s var(--p3) both;animation-delay:.435s}
+:root[data-entrada="si"] .fila:nth-of-type(5){animation:mk-texto .55s var(--p3) both;animation-delay:.48s}
+:root[data-entrada="si"] :is(.ag,.acc,.rec,.pr,.pe){ animation:mk-texto .55s var(--p3) both;animation-delay:.34s }
+:root[data-entrada="si"] .capsula{animation:mk-pildora .55s var(--back3) both;animation-delay:.1s}
+:root[data-entrada="si"] .chip{animation:mk-chip .55s var(--back24) both;animation-delay:.42s}
+
+/* ====== HOVER - textual de cada referencia ======
+   PANE    .btn--accent:hover{filter:brightness(1.06)} | filas y botones: background var(--fill-hover)
+   LUMORA  .btn--primary:hover{filter:brightness(1.2)} y en OSCURO brightness(.92)
+           .table tbody tr:hover{background:var(--surface-2)} | .chip:hover{border-color:var(--line-2)}
+           .gbars:hover .gbars__bar:not(.is-hi){opacity:.55}  <- al pasar por el grafico, las otras bajan
+   Las dos: enlaces con subrayado y text-underline-offset:3px                                  */
+.btn,.accion,.entrar,.empezar,.mk-b,.pz,.lnk,.acc{transition:background-color .2s var(--ease),color .2s var(--ease),
+  filter .2s var(--ease),border-color .2s var(--ease)}
+.fila,.pr,.pe,.ag{transition:background-color .15s}
+.lnk:hover,.pie:hover{text-decoration:underline;text-underline-offset:3px}
+.chip{transition:border-color .2s var(--ease);border:1px solid transparent}
+.chip:hover{border-color:var(--line-2)}
+.barras i{transition:opacity .2s var(--ease)}
+
+/* PANE */
+:root[data-estilo="pane"] :is(.fila,.pr,.pe,.ag):hover{background:var(--mk-row-hov);border-radius:10px;
+  box-shadow:0 0 0 8px var(--mk-row-hov)}
+:root[data-estilo="pane"] :is(.btn--azul,.accion,.entrar,.empezar):hover{filter:brightness(1.06)}
+:root[data-estilo="pane"] :is(.btn,.acc):hover{background:var(--mk-row-hov)}
+
+/* LUMORA */
+:root[data-estilo="lumora"] :is(.fila,.pr,.pe,.ag):hover{background:var(--surface-2);border-radius:10px;
+  box-shadow:0 0 0 8px var(--surface-2)}
+:root[data-estilo="lumora"][data-tema="claro"] :is(.btn--ink,.accion,.entrar):hover{filter:brightness(1.2)}
+:root[data-estilo="lumora"][data-tema="oscuro"] :is(.btn--ink,.accion,.entrar):hover{filter:brightness(.92)}
+:root[data-estilo="lumora"] :is(.btn,.acc):hover{background:var(--well)}
+:root[data-estilo="lumora"] .barras:hover i:not(.hoy){opacity:.55}
+
+.riel i,.capsula .riel i,.barrita i{transition:width .38s var(--spring)}
+:root[data-hovercard="si"] .card,:root[data-hovercard="si"] .tile{transition:transform .22s var(--ease)}
+:root[data-hovercard="si"] .card:hover,:root[data-hovercard="si"] .tile:hover{transform:translateY(-2px)}
+:focus-visible{outline:2.5px solid var(--acento,#1f58d6);outline-offset:2px}
+
+@keyframes mk-flash{ from{ color:var(--acento,#1f58d6) } }
+.mk-flash{animation:mk-flash 1s var(--ease)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}

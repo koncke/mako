@@ -421,7 +421,11 @@ test('los días al aire de uno que terminó se cuentan hasta que terminó', () =
   const t = tiempoDePieza({ publicada_en: '2026-06-30T00:00:00Z', visto_primera_vez: '2026-11-01T00:00:00Z', dejo_de_verse_en: '2026-08-11T00:00:00Z' }, new Date('2026-11-03T00:00:00Z'));
   assert.equal(t.dias, 42);
   assert.equal(t.sigue, false);
-  assert.match(leer('app/competitor-spy/TarjetaPieza.tsx'), /esAnuncio \? 'al aire' : 'a la vista'/);
+  // Un anuncio dice cuántos días lleva al aire; lo orgánico, hace cuánto se publicó. «a la vista» se fue el 4/11/2026: Martín
+  // no lo entendía («Más tiempo a la vista… le pusiste nombres que no se entienden»).
+  const tarjeta = leer('app/competitor-spy/TarjetaPieza.tsx');
+  assert.match(tarjeta, /\{t\.dias\} d al aire/);
+  assert.doesNotMatch(tarjeta.replace(/^\s*\/\/.*$/gm, ''), /a la vista/);
 });
 
 test('el texto ajeno se le pasa a un modelo marcado como ajeno', () => {
