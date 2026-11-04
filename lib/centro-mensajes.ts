@@ -202,16 +202,23 @@ export const sinOcultos = (lineas: readonly LineaChat[], m: MarcasChat | null | 
   !m?.ocultos.length ? [...lineas] : lineas.filter((l) => { const id = idDeLinea(l); return !id || !m.ocultos.includes(id); });
 
 // ── El menú de un mensaje (mantener apretado, clic derecho o la flechita) ──────────────────────────────────────
-export type OpcionMensaje = { id: 'transcripcion' | 'responder' | 'reenviar' | 'copiar' | 'info' | 'destacar' | 'fijar' | 'eliminar'; label: string };
+export type OpcionMensaje = { id: 'transcripcion' | 'responder' | 'reenviar' | 'copiar' | 'info' | 'destacar' | 'fijar' | 'reportar' | 'eliminar'; label: string };
 /**
  * Las opciones de un mensaje, en el ORDEN de WhatsApp en el iPhone (Responder, Reenviar, Copiar, Info, Destacar, Fijar,
- * Eliminar). «Info» sólo en lo PROPIO, como allá: de lo que contestó el chat no hay entregas que mirar. Destacar y Fijar
- * cambian de nombre si ya lo están.
+ * Reportar, Eliminar). «Info» sólo en lo PROPIO, como allá: de lo que contestó el chat no hay entregas que mirar. Destacar y
+ * Fijar cambian de nombre si ya lo están.
+ *
+ * «REPORTAR» VIVE ACÁ Y NO DEBAJO DEL MENSAJE (4/11/2026, ticket #57; Martín: «Debajo del mensaje de funnel coach me aparecia un
+ * botón de "reportar" eso no tiene sentido»). Play pide denunciar una respuesta de IA sin salir de la app
+ * (app/_chat/ReportarRespuesta.tsx); en el menú del mensaje se sigue pudiendo, sin un renglón debajo de cada respuesta. Lo
+ * decide quien monta el menú (`reportable`): sólo lo que escribió MaKo, nunca lo propio ni un chat de Claude Code.
  */
 export function opcionesDelMensaje(
   m: { id: IdMensaje; propio: boolean; trabajo?: { voz?: unknown } | null }, marcas: MarcasChat,
   /** La transcripción de esta nota de voz ya está abierta (app/admin/operaciones/voces-enviadas.ts). */
   transcripcionAbierta = false,
+  /** Este mensaje se puede reportar (una respuesta de MaKo). Lo propio, nunca. */
+  reportable = false,
 ): OpcionMensaje[] {
   return [
     // Una nota de voz, primero lo que la lee (26/10/2026, Martín: «de ultima en los 3 puntitos ver la transcripción»).
@@ -222,6 +229,7 @@ export function opcionesDelMensaje(
     ...(m.propio ? [{ id: 'info' as const, label: 'Info' }] : []),
     { id: 'destacar', label: marcas.destacados.includes(m.id) ? 'No destacar' : 'Destacar' },
     { id: 'fijar', label: marcas.fijados.includes(m.id) ? 'No fijar' : 'Fijar' },
+    ...(reportable && !m.propio ? [{ id: 'reportar' as const, label: 'Reportar' }] : []),
     { id: 'eliminar', label: 'Eliminar para mí' },
   ];
 }

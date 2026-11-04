@@ -146,6 +146,9 @@ const TRAZOS = {
   escudo: <><path d="M12 3.5 5 6v5.5c0 4.3 2.9 7.6 7 9 4.1-1.4 7-4.7 7-9V6l-7-2.5Z" /><path d="m9 12 2.2 2.2L15.5 10" /></>,
   computadora: <><rect x="4.5" y="5" width="15" height="10.5" rx="1.5" /><path d="M2.5 19h19" /></>,
   celular: <><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></>,
+  // «Reportar» una respuesta de MaKo desde el menú del mensaje (4/11/2026, ticket #57): la bandera de denunciar, como en
+  // los menús de Gemini y de WhatsApp («Reportar»).
+  bandera: <><path d="M5.5 21V4" /><path d="M5.5 4.5h11l-2.2 4 2.2 4h-11" /></>,
 } satisfies Record<string, ReactNode>;
 
 export type NombreIconoMenu = keyof typeof TRAZOS;
