@@ -331,6 +331,34 @@ export function leerVideos(cuerpo: unknown): VideoYoutube[] {
   }).filter((v) => v.id);
 }
 
+/**
+ * De qué canal es cada video: la respuesta de `videos.list` con `part=snippet`, leída. Lo usa la búsqueda por nombre
+ * (lib/spy-buscar.ts): Google devuelve casi siempre VIDEOS de YouTube, no canales, y un video dice de quién es.
+ * Sin repetir canales, en el orden en que vinieron.
+ */
+export function canalesDeVideos(cuerpo: unknown): Array<{ id: string; nombre: string | null }> {
+  const items = esObj(cuerpo) && Array.isArray(cuerpo.items) ? cuerpo.items.filter(esObj) : [];
+  const vistos = new Set<string>();
+  const out: Array<{ id: string; nombre: string | null }> = [];
+  for (const v of items) {
+    const snippet = esObj(v.snippet) ? v.snippet : {};
+    const id = str(snippet.channelId);
+    if (!/^UC[A-Za-z0-9_-]{20,}$/.test(id) || vistos.has(id)) continue;
+    vistos.add(id);
+    out.push({ id, nombre: str(snippet.channelTitle) || null });
+  }
+  return out;
+}
+
+/** Los canales de unos videos (hasta 50 ids): `videos.list` con `snippet`, 1 unidad. Vacío si no se pudo. */
+export async function leerCanalesDeVideos(ids: readonly string[], clave: string, buscar: Buscador): Promise<{ ok: boolean; canales: Array<{ id: string; nombre: string | null }> }> {
+  const limpios = [...new Set(ids.filter((x) => /^[A-Za-z0-9_-]{11}$/.test(x)))].slice(0, LOTE);
+  if (!limpios.length) return { ok: true, canales: [] };
+  if (!clave) return { ok: false, canales: [] };
+  const r = await traer(buscar, 'videos', { part: 'snippet', id: limpios.join(',') }, clave);
+  return r.status >= 200 && r.status < 300 ? { ok: true, canales: canalesDeVideos(r.cuerpo) } : { ok: false, canales: [] };
+}
+
 /** Lo que recibe el lector: el `fetch` entra por parámetro para poder probarlo sin red. */
 export type Buscador = (url: string, init?: RequestInit) => Promise<Response>;
 

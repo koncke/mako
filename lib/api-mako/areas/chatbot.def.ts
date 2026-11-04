@@ -326,13 +326,13 @@ export const DEFS: readonly OperacionDef[] = [
   },
   // CONFIGURACIONES DE UNA AUTOMATIZACIÓN (20/10/2026, Martín, 16/10 punto 5: «"configuraciones" ya no viva para todo
   // Automations, sino para cada chat»): su horario y su goteo, de WhatsApp y de email (lib/config-automatizacion.ts). Lo
-  // mismo que la tuerca del título. Sin http, como las demás nuevas.
+  // mismo que la tuerca del título. Con http desde el 4/11/2026 (la campaña de email de Mauricio desde su Claude: toda la receta por la API).
   {
     id: 'configuracion_automatizacion', area: 'chatbot', tipo: 'lectura',
     titulo: 'Configuración de una automatización',
     descripcion: 'El horario de oficina y el goteo (de WhatsApp y de email) de UNA automatización: el horario suyo si tiene, si no el del negocio (dice cuál vale y de dónde sale). Úsala cuando pregunten a qué hora manda una automatización o cuántos mensajes manda por día. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
-    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB },
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
   {
     id: 'configurar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
@@ -344,15 +344,18 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'desde', tipo: 'number', minimo: 0, maximo: 23.5, descripcion: 'con horario propio: la hora en que abre (9.5 = 9:30).' },
       { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'con horario propio: la hora en que cierra (21 = hasta las 20:59).' },
       { nombre: 'dias', tipo: 'string', max: 40, descripcion: 'con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos.' },
-      { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo, minutos entre dos mensajes por un mismo canal.' },
+      { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: minutos entre dos mensajes por canal.' },
       { nombre: 'goteoArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: WhatsApp arranca con estos por día (con tope).' },
       { nombre: 'goteoArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: y sube esto cada día que llega al suyo.' },
       { nombre: 'sinArranque', tipo: 'boolean', descripcion: 'opcional: true lo saca.' },
-      { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: el tope de mensajes en 24 h por canal (adentro del tope de la línea).' },
+      { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: tope de mensajes en 24 h por canal.' },
       { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo y el tope por día.' },
+      // Las columnas del email (4/11/2026, lib/email-eventos-crm.ts): UN parámetro y corto, a propósito. Con cuatro, la op
+      // creció 600 caracteres y dejó a `cambiar_crons_secuencia` fuera del presupuesto del turno (tests/ops-center-bateria).
+      { nombre: 'columnasEmail', tipo: 'string', descripcion: 'opcional: "enviado=key,abrio=key,clic=key", columnas de su CRM que siguen al email («ninguna» saca).' },
     ],
-    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario y el goteo de esa automatización, uno solo para todos sus canales)',
-    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario, el goteo y las columnas del email de esa automatización)',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'desarchivar_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
@@ -624,7 +627,7 @@ export const DEFS: readonly OperacionDef[] = [
   // LEÍA (`ficha_secuencia_mensajes` trae `disparadores`) y no había cómo cambiarlos sin la pantalla.
   // De PANTALLA y no de chat: cambiar qué la dispara cambia A QUIÉN le escribe, y en una activa la
   // próxima corrida inscribe a la cohorte nueva (el mismo criterio que el trigger de email, diseño §3).
-  // SIN http: exponerlo a un token es otra decisión (el snapshot). Se guarda por la MISMA puerta que
+  // Con http desde el 4/11/2026 (la campaña de email por la API: decidido, el snapshot lo dice). Se guarda por la MISMA puerta que
   // la pantalla (`guardarDisparadores`, lib/disparadores-guardar.ts). `ignorar` y `cron.dias` van como
   // TEXTOS porque el validador no tiene listas de números; el runner los convierte.
   {
@@ -671,7 +674,7 @@ export const DEFS: readonly OperacionDef[] = [
       },
     ],
     reversible: false, escribe: 'reemplaza nutricion_secuencias.disparadores y las columnas del CRON principal (trigger_tipo, etapa, funnel_id, producto_id, etiqueta_id, cron); en una automatización activa, la próxima corrida inscribe con los CRON nuevos',
-    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'agregar_escenario_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
@@ -714,7 +717,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE mandar los mensajes de UN escenario de una secuencia (el camino que recorre un lead por sus condiciones), en orden y marcados [PRUEBA], al teléfono y al email del dueño cargados en Perfil (nunca a un lead), y devuelve un link para confirmarlo. Si tiene más de un escenario, pasa su número (de escenarios_secuencia); con uno solo, no hace falta. Sirve para ver y escuchar la secuencia como la recibe un lead. No toca inscripciones ni métricas. Los pasos de WhatsApp exigen el número vinculado; los de Instagram y Messenger no se prueban en vivo.',
     parametros: [pSecuenciaId, { nombre: 'escenario', tipo: 'number', entero: true, minimo: 1, maximo: 8, descripcion: 'el número del escenario (de escenarios_secuencia). Obligatorio si la secuencia tiene más de uno.' }],
     reversible: false, escribe: 'envía mensajes reales por WhatsApp y email al contacto del dueño y marca estrategia.probada_at',
-    canales: SIN_HTTP, costo: 'externo', gating: { tab: TAB, rolMinimo: 'admin' },
+    canales: TODOS, costo: 'externo', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'guardar_link_video', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
@@ -851,5 +854,31 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'cual', tipo: 'string', obligatorio: true, enum: ['respondieron', 'en_curso', 'entraron'], descripcion: 'cuál número.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // LOS TOPES DE ENVÍO DEL NEGOCIO (4/11/2026, la campaña de email de Mauricio, punto 7): `mako.limites_envio`
+  // (lib/limites-envio.ts). Ya no están en la pantalla (23/10/2026: «No quiero nada para todas las automatizaciones»), pero el
+  // Claude del cliente los tiene que poder leer y cambiar. Van AL FINAL del área, con palabras que no son las del área.
+  {
+    id: 'ver_limites_envio', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Ver los topes de envío',
+    descripcion: 'Los topes del negocio por día y por hora, la rampa del dominio de email (con el tope de hoy), lo que ya salió en 24 h y si el email está frenado por rebotes o quejas.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  {
+    id: 'cambiar_limites_envio', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar los topes de envío',
+    descripcion: 'PROPONE cambiar los topes del negocio (valen para todas): por día y por hora de la línea de WhatsApp, por día de email y su rampa. Mira antes ver_limites_envio.',
+    parametros: [
+      { nombre: 'waDia', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: WhatsApp por día (en 24 h).' },
+      { nombre: 'waHora', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'opcional: WhatsApp por hora de reloj.' },
+      { nombre: 'emailDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: emails por día (en 24 h).' },
+      { nombre: 'emailArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: la rampa del dominio: emails el primer día.' },
+      { nombre: 'emailArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: y cuánto sube cada día que llega a su tope.' },
+      { nombre: 'makoSolasPor24h', tipo: 'number', entero: true, minimo: 0, maximo: 10, descripcion: 'opcional: respuestas que MaKo manda sola a una persona en 24 h (0 = siempre borrador).' },
+      { nombre: 'restaurar', tipo: 'boolean', descripcion: 'opcional: true vuelve todo a lo de fábrica.' },
+    ],
+    reversible: true, escribe: 'guarda mako.limites_envio en app_settings (sólo lo que difiere de lo de fábrica)',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
 ];

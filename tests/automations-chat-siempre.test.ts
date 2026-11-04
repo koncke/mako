@@ -171,11 +171,12 @@ test('3: el motor lee lo de cada automatización UNA vez, estricto, y lo usa por
   const tick = sinComentarios(leer('app/api/cron/nutricion-tick/route.ts'));
   assert.match(tick, /\.like\('key', `\$\{CLAVE_PREFIJO\}%`\)/);
   assert.match(tick, /abrioAlgunaPropia\(propiasDe\.get\(ws\) \?\? \[\], ahora, tz, VENTANA_FRESCA_MIN\)/);
-  // La API de MaKo la declara (leer y configurar), sin http.
+  // La API de MaKo la declara (leer y configurar). Desde el 4/11/2026 también por http: la campaña de email de Mauricio
+  // la arma su Claude con un token (tests/email-campana-secuencia.test.ts), y sin esto no puede elegir las columnas.
   for (const id of ['configuracion_automatizacion', 'configurar_automatizacion']) {
     const d = porId(id);
     assert.ok(d, `falta ${id}`);
-    assert.ok(!(d!.canales as readonly string[]).includes('http'), `${id} sale por http`);
+    assert.ok((d!.canales as readonly string[]).includes('http'), `${id} no sale por http`);
   }
 });
 

@@ -41,6 +41,12 @@ verde, llega sola a `main`.
 | + | (Cerebro, 4/11) Un apartado para las miniaturas de YouTube con su título | Hecho: pestaña «Miniaturas», de la más vista a la menos | `punta/spy-ficha` | — |
 | + | (Cerebro, 4/11) La caricatura, sola y en segundo plano | Hecho: la IA del negocio describe la cara, la foto sube a Flow y la imagen vuelve a nuestro Storage; la tarjeta la usa antes que la foto. Necesita la extensión conectada y Google Flow abierto en ese navegador (como el AI Avatar) | `punta/spy-caricatura` | Toda la caricatura: la IA mirando la foto y el puente tomando el pedido |
 
+## Segunda vuelta (Martín probó en producción, 4/11/2026)
+
+| Qué pidió | Estado | Rama | Sin probar contra el servicio |
+|---|---|---|---|
+| Buscar en YouTube con un nombre de varias palabras, sin @, con @ y por link | Hecho: los videos que trae Google se leen como su canal (`videos.list`), el nombre prueba su @ en YouTube y el grupo de YouTube dice qué pasó si no trae a nadie | `punta/spy-buscar-yt` | Una búsqueda real de «Victor Heras» |
+
 ## El teléfono
 
 Competitors Spy no tiene pantalla propia en el teléfono (`app/m/`): está `EN_CAMINO` en `lib/movil-rutas.ts` desde antes de este

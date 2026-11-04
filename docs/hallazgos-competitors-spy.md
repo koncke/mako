@@ -929,3 +929,29 @@ por nombre, con o sin tildes), el gráfico en pantalla con un competidor real, y
 **Vive en:** lib/spy-detalle.ts · app/competitor-spy/GraficoSpy.tsx · app/competitor-spy/DetallePieza.tsx ·
 app/competitor-spy/precarga.ts · app/api/competitor-spy/copiar/route.ts · lib/spy-analisis-reglas.ts (`faltaAnalisis`) ·
 lib/spy.ts (`leerAnalisis`, `guardarAnalisis`, `leerPieza`) · tests/spy-detalle.test.ts
+
+## «Pongo un espacio y sólo me trae Instagram»: YouTube tiraba los videos de Google (4/11/2026)
+
+> Martín, 4/11: «pongo un espacio… solamente me trae Instagram. Es como que directamente ya no busca a usuarios de
+> YouTube… debería buscarlos, tanto por nombre de usuario, por arroba, por link».
+
+**La causa, medida en el código:** con un nombre de varias palabras, YouTube salía SÓLO de Google (`"nombre"
+site:youtube.com`), y `canalesDeGoogle` tiraba todo resultado que fuera un video (`/watch`, `/shorts`, `youtu.be`)
+porque «un video no dice de qué canal es sin leerlo». Es casi todo lo que Google devuelve para esa consulta: el grupo de
+YouTube quedaba vacío. Y dos más que lo empeoraban: el nombre pegado se probaba como @ en Instagram y no en YouTube, y
+sin la clave de la YouTube Data API la lectura de un canal devolvía `null` igual que «no existe», así que la lista se veía
+completa sin serlo.
+
+**Lo que quedó:** los videos de Google se leen con `videos.list` (1 unidad por todos, sin `search.list`) y se ofrece el
+canal de cada uno; un nombre prueba también su @ en YouTube; y el grupo de YouTube dice qué pasó cuando no trae a nadie
+(«Ningún canal con ese nombre», «No pude buscar en YouTube», «Conecta Apify…»).
+
+**Regla:** un filtro que tira lo que no entiende tiene que medirse contra lo que la fuente devuelve de verdad. «Un video no
+es un canal» era cierto y dejaba la fuente vacía.
+
+**Sin probar contra el servicio:** que Google traiga videos con esa forma para un nombre real, y la lectura de
+`videos.list` con la clave de la plataforma.
+
+**Vive en:** lib/spy-buscar-reglas.ts (`planDeBusqueda`, `videoDeUrl`, `videosDeGoogle`, `youtubeEstado`) ·
+lib/spy-buscar.ts (`leerCanalHallado`, `canalesDeLosVideos`) · lib/spy-youtube.ts (`canalesDeVideos`,
+`leerCanalesDeVideos`) · app/api/competitor-spy/buscar/route.ts · app/competitor-spy/BuscadorAlta.tsx · tests/spy-buscar.test.ts
