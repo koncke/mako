@@ -191,7 +191,10 @@ function revisarCli(o) {
     const m = motivos.join(' · ') || 'no hay veredicto';
     decir(`[veredicto] Sin veredicto que sirva: ${m}. Corre todo, como siempre.`);
     resumen(`Veredicto: ninguno que sirva (${m}). Se corrieron los tests de siempre.`);
-    cerrar({ usar: 'false', tipos_saltear: 'false', sin_probar: '0', origen: 'ninguno' });
+    // ⚠️ `nada_que_repetir` va SIEMPRE, y con una palabra: en una expresión de GitHub una salida que falta es null, y null se compara
+    // con un número como 0. Con «cuantos != '0'» sin veredicto (cuantos ausente) el paso de los tests se salteaba: así llegaron a main
+    // dash-cobranza y spy-paginas-bloqueadas sin correr un test (4/11/2026, corridas 188 y 189). Lo fija tests/punta-condiciones.test.ts.
+    cerrar({ usar: 'false', nada_que_repetir: 'no', tipos_saltear: 'false', sin_probar: '0', origen: 'ninguno' });
     return 0;
   };
 
@@ -269,7 +272,7 @@ function revisarCli(o) {
     `${v.delta ? ` (main se movió en ${v.delta} archivo(s) desde lo probado)` : ' (el árbol es el mismo que se probó)'}` +
     `${v.muestra ? `, ${v.muestra} de muestra` : ''}. Tipos: ${tiposSaltear ? 'los cubre el veredicto' : 'corren acá'}.`);
   resumen(`Veredicto de ${de}: se repiten ${v.lista.length} de ${selMezcla.length} archivos de test; tipos ${tiposSaltear ? 'del veredicto' : 'acá'}.`);
-  cerrar({ usar: 'true', repetir, cuantos: String(v.lista.length), tipos_saltear: String(tiposSaltear), sin_probar: sinProbar, origen: v.origen });
+  cerrar({ usar: 'true', repetir, cuantos: String(v.lista.length), nada_que_repetir: v.lista.length ? 'no' : 'si', tipos_saltear: String(tiposSaltear), sin_probar: sinProbar, origen: v.origen });
   return 0;
 }
 

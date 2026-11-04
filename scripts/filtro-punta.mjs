@@ -110,6 +110,21 @@ export function correrConTope(cmd, args, { ms, cwd = process.cwd(), env = proces
 }
 
 /**
+ * Las variables con que git le dice a un hook DÓNDE está el repo. Desde un worktree, el pre-push recibe `GIT_DIR` con la ruta ABSOLUTA del
+ * repo de verdad, y un test que arma su repo de prueba con `{ ...process.env }` y corre `git init` y `git commit` en una carpeta temporal
+ * le escribe al repo de verdad: el 4/11/2026, desde un worktree, tests/ci-workflow-nuevo.test.ts movió `main` y la rama de la punta, le
+ * cambió el índice al worktree y dejó `core.bare=true` en el config compartido. Desde el clon principal `GIT_DIR` vale `.git` (relativo),
+ * se resuelve contra la carpeta del test y no pasa nada: por eso nadie lo había visto. Los tests no las necesitan: corren con el cwd en
+ * la raíz del árbol y git encuentra el repo solo. Puro.
+ * @param {NodeJS.ProcessEnv} env
+ */
+export function sinElRepoDelHook(env) {
+  const limpio = { ...env };
+  for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_QUARANTINE_PATH', 'GIT_PREFIX', 'NODE_TEST_CONTEXT']) delete limpio[k];
+  return limpio;
+}
+
+/**
  * Corre `tests` en tandas chicas hasta el `hasta`. Lo que una tanda terminó cuenta (un rojo ahí es CONFIRMADO); la tanda que el
  * reloj cortó no cuenta para nada, y las que no arrancaron tampoco. `correr` se inyecta en el test.
  * @param {string[]} tests
@@ -120,7 +135,7 @@ export async function correrTestsConTope(tests, { hasta, ahora = Date.now, corre
   const r = { corridos: 0, casos: 0, rojos: [], sinCorrer: 0 };
   for (let i = 0; i < tests.length; i += TANDA) {
     const tanda = tests.slice(i, i + TANDA);
-    const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
+    const limpio = sinElRepoDelHook(env);
     const x = await correr(process.execPath, ['--import', 'tsx', '--test', `--test-concurrency=${CONCURRENCIA}`, ...tanda], { ms: hasta - ahora(), env: limpio, cwd });
     if (x.vencio) { r.sinCorrer = tests.length - i; break; }
     const res = leerResultado(x.salida);
