@@ -41,6 +41,7 @@ function pc() {
   const correr = (cmd: string, env: Record<string, string> = {}, origen = 'startup') => {
     const r = spawnSync(process.execPath, [SCRIPT, cmd, ...(cmd === 'al-abrir' ? [origen] : [])], {
       encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
       env: {
         PATH: process.env.PATH ?? '', CARTERO_DIR: dir, CARTERO_APP_DIR: app, RUNNER_SESIONES_DIR: sesiones, CUENTA_MARCADOR: marcador,
         CLAUDE_CODE_ACCOUNT_UUID: UUID_5, CLAUDE_CODE_ORGANIZATION_UUID: ORG, ...env,
@@ -98,6 +99,7 @@ function porElHook(origen: string) {
   writeFileSync(join(claude, 'cuenta-activa.txt'), 'claude1\n');
   const r = spawnSync('bash', [HOOK, 'inicio'], {
     encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
     input: JSON.stringify({ session_id: 'prueba', source: origen }),
     env: { PATH: process.env.PATH ?? '', HOME: casa, USERPROFILE: casa, APPDATA: join(casa, 'AppData'), BITACORA_SESIONES: join(casa, 'bitacora.tsv'), CLAUDE_CODE_ACCOUNT_UUID: UUID_5 },
   });

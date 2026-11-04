@@ -43,8 +43,6 @@ import { Muneco, animoDe, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import type { Centro } from './useCentro';
 
-/** «10:52», con el reloj de Argentina (el de Martín). */
-
 /** Cuántos chats se ven antes de «Mostrar más» (como los proyectos de Codex). */
 const VISIBLES = 14;
 
@@ -169,9 +167,6 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
   return (
     <>
-      {sinNoticias != null && (
-        <p className="co-lista__vacio" role="status">{`Sin noticias del Runner desde las ${horaAR(sinNoticias)}`}</p>
-      )}
       {secciones.map(({ clave, titulo, chats: lista }) => {
         const plegada = plegadas.has(clave) && !buscando;
         const todas = enteras.has(clave) || buscando;
