@@ -217,6 +217,8 @@ test('una puerta NUEVA que guarde credenciales tiene que decidir si arranca el h
     'app/api/integraciones/cuentas/route.ts': 'las cuentas de Stripe, Mercado Pago, Calendly y Cal.com: ninguno tiene histórico',
     'lib/cuentas-pago-server.ts': 'el nombre de una cuenta de Stripe o Mercado Pago',
     'lib/cuentas-agenda-server.ts': 'el nombre de una cuenta de Calendly o Cal.com',
+    // 4/11/2026: el secreto del webhook de la cuenta de Resend del negocio (`conectarSeguimiento`). El email no tiene histórico.
+    'lib/email-dominio.ts': 'el secreto del webhook de la cuenta de Resend del negocio',
   };
   // Lo que decide «sin histórico» para las puertas de las cuentas: sus proveedores no tienen. El día que uno lo tenga,
   // esa puerta pasa a PUERTAS y arranca el suyo.
