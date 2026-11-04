@@ -55,6 +55,7 @@ import {
   ComputadoraM, FilaDatoM, FilaM, IconoM, ListaM, SeccionM, SheetM, PieM, SkeletonFilas, useToastM, useConexion,
 } from '@/app/m/_ui';
 import { haptico } from '@/lib/haptico';
+import { PanelGrabar } from '@/app/_components/grabar/GrabarLlamada';
 // «WhatsApp» abre la conversación del lead en Chats (todos sus canales), con la MISMA función que escritorio
 // (17/10/2026; antes iba al hilo de sólo WhatsApp, /m/crm/<id>/chat, que sigue existiendo).
 import { rutaChatsDeLead } from '@/lib/chats-links';
@@ -119,7 +120,7 @@ const ROTULO_RESUMEN: Readonly<Record<string, string>> = {
   entrada: 'Entró', direccion: 'Dirección', sexo: 'Sexo', automatizaciones: 'Automatización',
 };
 
-type Sheet = 'agendar' | 'nota' | 'notas' | 'mover' | 'llamada' | 'respuestas' | null;
+type Sheet = 'agendar' | 'nota' | 'notas' | 'mover' | 'llamada' | 'respuestas' | 'grabar' | null;
 
 /** Cuántas notas se ven en la ficha; las demás (hasta 20) abren en un sheet. */
 const NOTAS_A_LA_VISTA = 3;
@@ -169,7 +170,8 @@ export function FichaLead(p: FichaLeadProps) {
   // Su único canal es el @ (sin email ni teléfono). El link se arma en campo-inline (`linkInstagram`): un usuario que no lo es (un
   // nombre con espacios guardado a mano) no tiene link, y entonces no se dibuja el botón en vez de dibujar uno que no lleva a nada.
   const igHref = p.soloInstagram ? linkInstagram(p.soloInstagram) : null;
-  const nAcciones = 2 + (igHref ? 1 : 0);
+  // Agendar, Nota y Grabar (04/11/2026) siempre; Llamar y WhatsApp, o Instagram si es su único canal.
+  const nAcciones = 3 + (p.soloInstagram ? (igHref ? 1 : 0) : 2);
 
   // La versión de teléfono de cada bloque de escritorio (../ficha-bloques.ts, PIEZA_DE_BLOQUE). Las que se
   // callan sin datos ya vienen filtradas del server; el `&&` de aquí es el cinturón.
@@ -226,7 +228,7 @@ export function FichaLead(p: FichaLeadProps) {
 
   return (
     <>
-      <div className="m-crm-acciones" role="group" aria-label="Acciones" style={p.soloInstagram ? { gridTemplateColumns: `repeat(${nAcciones}, minmax(0, 1fr))` } : undefined}>
+      <div className="m-crm-acciones" role="group" aria-label="Acciones" style={{ gridTemplateColumns: `repeat(${nAcciones}, minmax(0, 1fr))` }}>
         {/* ⚠️ CON EL @ COMO ÚNICO CANAL NO HAY LLAMAR NI WHATSAPP, NI APAGADOS (23/10/2026). Un lead que entró sólo con su @ no
             tiene número: los dos botones de abajo se dibujarían grises con un toast de «Sin teléfono», un botón muerto por cada uno.
             En su lugar va el que sí lleva a algún lado, «Instagram» (el mismo que ofrece la fila de la tabla de escritorio donde las
@@ -259,6 +261,11 @@ export function FichaLead(p: FichaLeadProps) {
             )}
           </>
         )}
+        {/* «Grabar» (04/11/2026, pedido de Martín): el mismo panel que la ficha de escritorio, en una hoja. Una llamada de ESTE
+            teléfono no se graba (lo dice el panel): sirve para una llamada en altavoz desde otro aparato o una charla en persona. */}
+        <button type="button" className="m-crm-accion" onClick={() => setSheet('grabar')} aria-label={`Grabar la llamada con ${p.nombre}`}>
+          <span className="m-crm-accion__c"><IconoMenu nombre="grabar" size={22} /></span>Grabar
+        </button>
         <button type="button" className="m-crm-accion" onClick={() => setSheet('agendar')} aria-label={`${p.agenda.titulo} con ${p.nombre}`}>
           <span className="m-crm-accion__c"><IconoMenu nombre="calendario" size={22} /></span>Agendar
         </button>
@@ -343,6 +350,10 @@ export function FichaLead(p: FichaLeadProps) {
       <ComputadoraM que="Pagos, historial y campos" />
 
       <SheetAgendar {...p} abierto={sheet === 'agendar'} onCerrar={() => setSheet(null)} primerNombre={primerNombre} />
+      {/* Cerrar la hoja NO corta la grabación: sigue en la esquina, con su «Cortar» (app/_components/grabar/grabadora.ts). */}
+      <SheetM id="grabar" abierto={sheet === 'grabar'} onCerrar={() => setSheet(null)} titulo="Grabar llamada" snap="alto">
+        <PanelGrabar leadId={p.id} leadNombre={p.nombre} />
+      </SheetM>
       <SheetNota
         id={p.id}
         abierto={sheet === 'nota'}

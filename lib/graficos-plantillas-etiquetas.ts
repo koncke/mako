@@ -33,6 +33,9 @@ export const ETIQUETAS_DASHBOARD: Readonly<Record<string, EtiquetasPlantilla>> =
   'ia-contenido': {},
   // Por RUBRO: las sugeridas no tienen un eje de rubro (canal, entrada, cobro y cuello), así que no se sugiere; se encuentra por nombre.
   inmobiliaria: {},
+  // Para quien sale a buscar (escribe o llama primero, en frío). NO por el canal «llamadas»: con eso le ganaba el lugar a Marketing a
+  // quien vende por llamada con leads que entran solos de anuncios (tests/plantillas-sugeridas.test.ts, 04/11/2026).
+  'cold-calling': { entrada: ['chat_saliente'] },
 };
 
 /** La galería de General (`PLANTILLAS_GENERAL`). */

@@ -7,6 +7,34 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## Cold Calling: un botón que ES la hoja, y un conjunto que cuenta lo que marcó la persona (4/11/2026, nube)
+
+**Vive en:** `lib/graficos-plantillas-generales.ts` (la plantilla `cold-calling` y su campo `acciones`), `lib/graficos-fuentes-extra.ts`
+y `lib/graficos-datos-extra.ts` (`llamadas_grabadas`), `lib/grabar-llamada-reglas.ts` (`filaDeLlamadaGrabada`), `lib/graficos-acciones.ts`
+(`grabar_llamada`, `arriba`), `lib/graficos-portadas.ts` (`comoDenso`), `app/dashboard/ElementoAccion.tsx`, `app/_components/grabar/GrabarEnFrio.tsx`,
+`tests/cold-calling.test.ts`.
+
+Martín: «un dashboard template que sea "Call Calling"», con el mismo botón de grabar de la ficha del lead. Se leyó como Cold Calling.
+
+- **La composición densa manda los botones AL PIE** (`sueltos` en `comoDenso`): está bien para «Sincronizar llamadas» de Closing y
+  dejaba «Grabar llamada», que es para lo que existe la hoja, al final. Ahora la acción lo declara (`arriba: true` en
+  `ACCIONES_ELEMENTO`) y entra PRIMERA en la fila de números; las demás siguen al pie (el test 4 lo fija con la de Closing).
+  ⚠️ **No a lo ancho**: la primera versión la ponía en una franja de 12 columnas arriba, y `tests/graficos-corbel.test.ts` la frenó
+  («abre con algo a lo ancho»): Martín rechazó el bloque gigante primero. Por eso el molde es Moorly, que abre con números.
+- **Sugerirla por el canal «llamadas» le sacaba el lugar a Marketing** a quien vende por llamada con leads de anuncios (entrantes).
+  Cold Calling es para quien sale a buscar: se sugiere sólo por la entrada «escribes tú primero».
+- **Un botón no pasa por la puerta de la IA**, que es la vara de las piezas de una plantilla general (`deIAHoja` en
+  tests/graficos-ia.test.ts). Por eso va en su propio campo, `acciones`, y el test que cuenta las piezas lo suma.
+- **«Contestaron» sale de lo que marcó la PERSONA al cortar** (no contestó, habló, agendó, no le interesa). Una llamada sin marcar
+  cuenta en «Sin marcar», nunca como «no contestó»: si no, la tasa de contacto baja sola cada vez que alguien se olvida de tocar.
+- **La entidad es el LEAD, no la grabación**: el detalle de un número lista leads y cada uno abre su ficha, donde están sus
+  grabaciones con la transcripción. La ficha de una llamada del Dashboard (`FichaLlamada`) se nombra por un `recording_id` positivo
+  (`contextoDeClic` pide `^\d+$`) y la de una grabación es negativa.
+- **Sin la migración 0390 el conjunto lo dice** («todavía no está lista»), con `SinConexionError`: un «0 llamadas» se lee como un dato.
+- **El color es nuevo (Pizarra)**: los de la tabla ya nombran un tema (el último libre, Noche, lo tomó Inmobiliaria el mismo día) y el magenta es de Instagram.
+- **El teléfono no dibuja los botones de una hoja**: ahí la grabación vive en la ficha del lead. Y una llamada hecha desde ese mismo
+  teléfono no se graba igual (Android e iOS cortan el micrófono), así que Cold Calling se graba desde la computadora.
+
 ## El catálogo copia estructuras, no una sola (1/11/2026)
 
 Martín: «Todos los templates son iguales, no uses siempre el mismo... no me gusta que no haya variedad, si copiamos muchos templates». Las medidas, los moldes y la asignación con su porqué: `docs/diseno/densidad-codeandchill.json`. El motor: `MOLDES` y `comoDenso`, en `lib/graficos-portadas.ts`.

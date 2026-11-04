@@ -171,7 +171,8 @@ test('en las dos puertas, el bloque del nombre cede y la columna del funnel qued
   assert.match(cab, /\.cl-acc\{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex:none; margin-left:auto; \}/);
   assert.match(sinComentarios(cab), /acciones=\{acciones \? <div className="cl-acc">\{acciones\}<\/div> : undefined\}/);
   for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
-    assert.match(sinComentarios(leer(f)), /acciones=\{\s*<>\s*<FunnelYEtapa /, `${f}: el desplegable no va en la columna de la derecha`);
+    // Desde el 04/11/2026 el desplegable comparte su renglón con «Grabar» (a su izquierda), arriba de la columna.
+    assert.match(sinComentarios(leer(f)), /acciones=\{\s*<>\s*<div style=\{\{ display: 'flex', alignItems: 'center', gap: 8 \}\}>\s*<BotonGrabar leadId=\{lead\.id\}[^>]*\/>\s*<FunnelYEtapa /, `${f}: el desplegable no va en la columna de la derecha`);
   }
 });
 
