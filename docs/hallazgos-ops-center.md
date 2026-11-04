@@ -288,8 +288,9 @@ navegador miden igual. El grafo trae `curso`, y con eso la barra lateral, el fil
   curso: con 452 clases salían 318 uniones y el mapa era una telaraña. Se sacan verbos y palabras vacías, una palabra
   en más del 4 % de los títulos no une, y el mapa tiene techo (clases / 4): Marc Verdú queda en 113.
 
-**Lo que quedó sin resolver:** el encuadre mide los PUNTOS, no las etiquetas: un título de sección pegado al borde se
-corta («…HOP RECORDINGS»). Pasa también en el grafo del negocio; se arregla en `ajustar` de `Grafo.tsx`, para los dos.
+**El encuadre mide los PUNTOS, no las etiquetas:** un título de sección pegado al borde salía cortado («…HOP
+RECORDINGS»). En un curso, `ajustar` (`Grafo.tsx`) deja a los costados la mitad del título de sección más largo. En el
+grafo del negocio no se tocó: si pasa ahí, es la misma línea.
 
 **Vive en:** `lib/cerebro-referente-vista.ts` · `app/second-brain/Grafo.tsx` · `app/second-brain/SuSecondBrain.tsx` ·
 `scripts/generar-clases-de-referentes.mjs` · `tests/cerebro-referente-vista.test.ts`.

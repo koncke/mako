@@ -56,11 +56,12 @@ solo en cuanto ve el PNG, y `tests/gurus-ops-center.test.ts` cuenta los de la ga
 ## Rojos que ya estaban en `main` (no son de esta rama)
 
 Medidos en un worktree limpio de `origin/main`, en Linux:
-- `tests/mako-no-puedo-falsos.test.ts` y `tests/ops-center-estrella-desde.test.ts` (2): el hijo importa
-  `lib/mako-doer-acciones.ts` con `--input-type=module` y node contesta que no exporta `MAKO_ACCION_TOOLS` (que sí exporta).
+- 23 archivos de tests (`mako-no-puedo-falsos`, `ops-center-estrella-desde`, `mako-turno-app`, `agenda-whatsapp`,
+  `automatizacion-whatsapp`, `api-mako-cobros`, …): importan `lib/mako-doer-acciones.ts` (o `lib/landing-token.ts`) como ESM
+  y node contesta que no exporta `MAKO_ACCION_TOOLS` (que sí exporta). Iguales en esta rama y en `main`.
 
 ## Lo que quedó sin hacer
 
-- **El encuadre corta un título pegado al borde** («…HOP RECORDINGS»): `ajustar` en `Grafo.tsx` mide los puntos, no las
-  etiquetas. Pasa también en el grafo del negocio.
+- **El encuadre del grafo del NEGOCIO** puede cortar un título pegado al borde: en el de un curso se arregló (`ajustar` en
+  `Grafo.tsx` deja la mitad del título más largo a los costados); en el del negocio no se tocó.
 - Sin migraciones.

@@ -1048,7 +1048,12 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     const anchoU = caja.width / porPixel;
     const altoU = caja.height / porPixel;
     const aire = 24 / porPixel;
-    const k = Math.min((anchoU - 2 * aire) / (bbox.w || 1), (altoU - 2 * aire) / (bbox.h || 1));
+    // El curso de un gurú (4/11/2026): el encuadre mide los PUNTOS, y el título de una sección (en versalitas, centrado en su
+    // punto) puede ser mucho más ancho: pegado al borde salía cortado («…HOP RECORDINGS»). A los costados se deja, además, la
+    // mitad del título de sección más largo (≈ 7,5 px por letra, con tope). Sólo en un curso: el mapa del negocio no cambia.
+    const mitadTitulo = curso ? Math.min(120, Math.max(0, ...nodos.filter((n) => n.id.startsWith('n1:')).map((n) => Math.min(n.etiqueta.length, 34) * 3.75))) : 0;
+    const aireX = (24 + mitadTitulo) / porPixel;
+    const k = Math.min((anchoU - 2 * aireX) / (bbox.w || 1), (altoU - 2 * aire) / (bbox.h || 1));
     kFit.current = k;
     setKFitEstado((prev) => (Math.abs(prev - k) < 1e-6 ? prev : k));
     // ⚠️ CUÁNTAS UNIDADES DE MUNDO ENTRAN EN UN PÍXEL. El <g> se escala DOS veces —por el
@@ -1064,7 +1069,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
     const cyU = encuadre.y + encuadre.lado / 2;
     vista.current = { k, x: cxU - k * bbox.cx, y: cyU - k * bbox.cy };
     pedirPintado();
-  }, [bbox, encuadre, pedirPintado]);
+  }, [bbox, encuadre, pedirPintado, curso, nodos]);
   ajustarRef.current = ajustar;
 
   /** Zoom desde los botones. Va contra el CENTRO del lienzo, no contra el cursor: el
