@@ -235,8 +235,8 @@ Todas las referencias están medidas (capturas a 1440 y 390, `valores.json`, los
 | **Landing** | Corbel · Kestrel | **Corbel: se ofrece** desde el 4/11, en producción (copia y adaptación: `docs/diseno/mockups-dashboard/landing-corbel/`; el componente, `app/dashboard/disenos/HojaLanding.tsx`). Kestrel: por copiar |
 | **VSL y YouTube** | la forma de Hooks, otra fuente | Por copiar (sin referencia propia: la de Hooks) |
 | **Instagram y redes** | Murmura · Kestrel | Por copiar |
-| **Chat Analyst** | Parley · Tend | **Parley: se ofrece** desde el 4/11, en `punta/dash-chat` (copia y adaptación: `docs/diseno/mockups-dashboard/chat-parley/`; el componente, `app/dashboard/disenos/HojaChat.tsx`). Tend: por copiar |
-| **Automatizaciones** | Noria | Por copiar |
+| **Chat Analyst** | Parley · Tend | **Parley: se ofrece** desde el 4/11, en producción (copia y adaptación: `docs/diseno/mockups-dashboard/chat-parley/`; el componente, `app/dashboard/disenos/HojaChat.tsx`). Tend: por copiar |
+| **Automatizaciones** | Noria | **Se ofrece** desde el 4/11, en `punta/dash-auto` (copia y adaptación: `docs/diseno/mockups-dashboard/automatizaciones-noria/`; el componente, `app/dashboard/disenos/HojaAutomatizaciones.tsx`) |
 | **CS Analyst** | Mender · Vitrea | Por copiar (pide las cohortes y los motivos de baja, §7.4) |
 | **Agencia o servicio** | Sunrow · Torque | Por copiar |
 | **Curso o comunidad** | Lumora · Vitrea | Por copiar (pide las cohortes, §7.4) |

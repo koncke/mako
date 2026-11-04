@@ -1336,7 +1336,9 @@ export type Hoja = {
 //   clics y las grabaciones quedan en la grilla: Corbel no tiene dónde dibujarlos).
 // · 'chat' (4/11/2026, la copia de Parley): del Dashboard, con once de las catorce piezas de Chat Analyst (las líneas, las
 //   automatizaciones y la caja de MaKo quedan en la grilla).
-export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat'] as const;
+// · 'automatizaciones' (4/11/2026, la copia de Noria): del Dashboard, con diez de las doce piezas de su plantilla (los fallos y la
+//   tasa de apertura quedan en la grilla: Noria no tiene dónde dibujarlos).
+export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones'] as const;
 export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;

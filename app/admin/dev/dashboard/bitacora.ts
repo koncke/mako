@@ -1091,4 +1091,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '21:30', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Automatizaciones, la undécima hoja copiada: el diseño de Noria con «¿qué corrió y qué falló?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» del Dashboard**, con su miniatura de verdad.',
+      '**El pulso:** los mensajes, qué parte salió bien, la tasa de respuesta y las personas que entraron; día por día, lo que salió y lo que falló, con la línea de una semana antes.',
+      '**El recorrido** de entrar a responder, en cuánto responden y cómo terminaron.',
+      '**Dónde falló**, los **últimos 14 días** de cada automatización en casillas y la **tabla** de las que más mandan.',
+      '**En cuántas horas responden** cada una, y la caja que abre el chat de MaKo.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaAutomatizaciones.tsx · automatizaciones-css.ts · AutomatizacionesVivo.tsx — el diseño',
+      'lib/automatizaciones-diseno.ts — de dónde sale cada número',
+      'lib/automatizaciones-diseno-muestra.ts — los datos de ejemplo de la miniatura',
+      'docs/diseno/mockups-dashboard/automatizaciones-noria/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];
