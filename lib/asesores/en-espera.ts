@@ -14,6 +14,7 @@
 // servidor: las fichas pesan, y el navegador no las usa.
 
 import { FICHA_JUAN_CARRIZO } from './ficha-juan-carrizo';
+import { FICHA_VILMA_NUNEZ } from './ficha-vilma-nunez';
 
 /** Un gurú que espera su caricatura: lo mismo que una fila de `ASESORES`, con su ficha al lado. */
 export type GuruEnEspera = {
@@ -28,6 +29,7 @@ export type GuruEnEspera = {
 
 export const EN_ESPERA: readonly GuruEnEspera[] = [
   { id: 'juan-carrizo', nombre: 'Juan Carrizo', completo: 'Juan Carrizo', especialidad: 'Oferta y valor', curso: 'Aumenta tu valor y ATV ADVANTAGE', ficha: FICHA_JUAN_CARRIZO },
+  { id: 'vilma-nunez', nombre: 'Vilma Núñez', completo: 'Vilma Núñez', especialidad: 'Marketing y crecimiento', curso: 'Certificación en Marketing Digital potenciada por IA', ficha: FICHA_VILMA_NUNEZ },
 ];
 
 /** El tope de una ficha: viaja en cada mensaje del chat (lib/asesores/contexto.ts). Es el mismo de tests/coaches-ops-center.test.ts. */

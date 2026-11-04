@@ -36,7 +36,7 @@ Su FICHA sí se escribe en la nube, de a una, y queda en `lib/asesores/en-espera
 | Gurú | Curso | Ficha |
 |---|---|---|
 | Juan Carrizo | Aumenta tu valor y ATV ADVANTAGE | **escrita** («Oferta y valor», `ficha-juan-carrizo.ts`) |
-| Vilma Núñez | Certificación en Marketing Digital potenciada por IA | pendiente |
+| Vilma Núñez | Certificación en Marketing Digital potenciada por IA | **escrita** («Marketing y crecimiento», `ficha-vilma-nunez.ts`) |
 | Samuel Albaa | Growing Closer (su parte: el setter) | pendiente |
 | Álvaro Luque | The perfect launch | pendiente |
 | Sergio Begueria | Instituto De Marca Personal | pendiente |
