@@ -15,6 +15,8 @@ const JID = '120363000000000010@g.us', JID_SUPER = '120363000000000009@g.us';
 const LINEA = 'mako_superadmin_x';
 const ANA = usuario(101, 'ana@fiesta.test', 'Ana', WS, 'admin');
 const BOB = usuario(102, 'bob@fiesta.test', 'Bob', WS, 'admin');
+/** Entra recién en la última escena (la pregunta a MaKo). */
+const CARLA = usuario(105, 'carla@fiesta.test', 'Carla', WS, 'admin');
 const JOAN = usuario(201, 'joan@ajeno.test', 'Joan', AJENO, 'admin');
 const SOLA = usuario(301, 'sola@singrupo.test', 'Sola', SIN_GRUPO, 'admin');
 const OTRA_DEL_SIN_GRUPO = usuario(302, 'otra@singrupo.test', 'Otra', SIN_GRUPO, 'admin');
@@ -290,6 +292,8 @@ async function main() {
   const unaSola = { deMaKo: deMaKo(SIN_GRUPO), clave: db.mako_doer_buffer.map((f) => f.grupo_jid), evolution: aEvolution() };
   out.personas = { noReply, charla, sinClase, unaSola };
 
+
+
   // ── Lotes ──
   // Dos mensajes de la app en la ventana: una sola respuesta. Con el mismo autor no se pierde quién.
   limpiar(); escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'Una sola respuesta.' });
@@ -484,6 +488,31 @@ async function main() {
     canales: Object.fromEntries(['ver_grupo', 'invitar_al_grupo', 'sacar_del_grupo', 'escribir_en_grupo'].map((id) => [id, porId(id)?.canales])),
   };
   void red; void pg; void pendientes;
+
+  // ── Una pregunta a MaKo no se queda en el 👍 (4/11/2026, Joan en ws13: «mako estas vivo?» → la IA dijo charla → silencio) ──
+  // La clase la pone la escena (lo que contestó la IA); lo demás corre de verdad: las reglas, `preguntaAMaKo` y el turno. Al final y con
+  // una persona que no escribió antes: el tope de mensajes por minuto de Ana ya se gastó arriba, y estas escenas le dejarían a las de
+  // arriba una charla con MaKo que no esperan.
+  db.usuarios.push(CARLA);
+  const unaEscena = async (c: string, respuesta: string, texto: string, porWhatsApp = false) => {
+    limpiar(); escenaNueva({ clase: clase(c, 'lo que dijo'), respuesta });
+    if (porWhatsApp) await manejarEntranteDoer(LINEA, deWhatsApp(`WA${texto.length}${c}`, texto) as never);
+    else await escribir(CARLA, texto);
+    await correrDespues();
+    const persona = filas().find((f) => f.autor_tipo === 'persona');
+    return { deMaKo: deMaKo(), reaccion: persona?.reaccion ?? null, llamadasAlTurno: lo().length, textosPorWhatsApp: aEvolution().filter((x) => x.includes('/message/sendText/')).length };
+  };
+  const preguntaAMaKo: Record<string, unknown> = {
+    vivo: await unaEscena('CHARLA', 'Sí, aquí estoy.', 'mako estas vivo?'),
+    noReplyConPregunta: await unaEscena('NO_REPLY', 'Sí, te escucho.', 'MaKo, ¿me escuchas?'),
+    gracias: await unaEscena('CHARLA', 'No debería salir.', 'MaKo, gracias'),
+    bienAhi: await unaEscena('CHARLA', 'No debería salir.', 'bien ahí'),
+    aJuan: await unaEscena('NO_REPLY', 'No debería salir.', 'Juan, ¿venís?'),
+  };
+  preguntaAMaKo.vivoPorWhatsApp = await unaEscena('CHARLA', 'Acá estoy, por WhatsApp.', 'mako estas vivo?', true);
+  preguntaAMaKo.graciasPorWhatsApp = await unaEscena('CHARLA', 'No debería salir.', 'MaKo, gracias', true);
+  out.preguntaAMaKo = preguntaAMaKo;
+
   await decirYSalir(decirResultado(out));
 }
 

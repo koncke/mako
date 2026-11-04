@@ -59,6 +59,17 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «mako estas vivo?» se quedaba en el 👍: era el clasificador, no la línea (4/11/2026, nube)
+
+**Síntoma:** Joan escribió «mako estas vivo?» en el grupo de un cliente, y MaKo no contestó. Martín lo vio en vivo.
+**El diagnóstico obvio era el equivocado:** parecía la línea caída o la cola trabada, y las dos estaban bien. El turno se procesó: `anthropic_usage` tiene la fila `clase:charlar` con «IA: charla (Saludo preguntando si MaKo está activo) · reglas: consultar». La IA lo leyó como charla y `procesarDoer` cortó en «charla: la reacción alcanza».
+**La regla que queda:** una charla o un «no es para MaKo» que le HABLA a MaKo (lo nombra, lo @menciona o lo cita) y pregunta algo (un «¿» o un «?», o las reglas leen `consultar` por una señal propia) se contesta, corto, con la lectura de las reglas. La regla de Martín del 24/10 («basta con la reacción») sigue para el «ok», el «gracias» y el «bien ahí».
+**Trampa:** el `consultar` del «sin señal clara» del grupo (`enElGrupoSinSenal`) es un respaldo, y le da `consultar` a «MaKo, gracias» y a «bien ahí». Si la señal se lee de `porReglas`, «MaKo, gracias» vuelve a contestar con texto. Se lee de las reglas sobre el mensaje solo (`delMensaje`, sin `sinSenal`).
+**Trampa del test:** las escenas del turno comparten estado (el tope de mensajes por minuto de cada persona, la charla con MaKo), y una escena nueva en el medio puso en rojo a tres de abajo. Va al final, con una persona que no escribió antes.
+**Vive en:** `lib/doer-para-quien.ts` → `preguntaAMaKo`; `lib/mako-doer-in.ts`, después de `clasificarConIA`. Lo fijan `tests/grupos-ops-turno.test.ts` (app y WhatsApp) y `tests/doer-para-quien.test.ts`.
+
+---
+
 ## Para que no nos vuelvan a banear: la persona escribe primero y la línea frena sola (4/11/2026, nube)
 
 Martín, el 4/11, con la línea desbaneada: *«Ya nos desbanearon la cuenta de whatsapp, implementa medidas para que no nos baneen, por
