@@ -117,6 +117,14 @@ modificado, dejó afuera un archivo ajeno stageado, y una segunda corrida no hiz
 **La red sólo salva lo que esté ESCRITO**: si el chat se corta antes de escribir su relevo, no
 hay nada que commitear. Por eso el umbral del 85% sigue siendo la parte que importa.
 
+# Un test nuevo ejecuta el código (4/11/2026)
+
+Copiar una línea en un regex no prueba nada: da rojo con el código bien y verde con el programa roto. De 15 archivos de test rojos, 13 se arreglaron tocando sólo el test (docs/hallazgos-infra.md, «Por qué tardaba horas»).
+- Un test nuevo corre el código y mira el resultado. Una regla sobre todo el repo va a las guardas.
+- Además de «probado rompiéndolo», un cambio sin efecto (renombrar una variable local) tiene que dejarlo verde.
+- Un rojo falso no se arregla editando la línea para que vuelva a coincidir: se convierte en prueba real. Borrarlo pide un segundo lector. Lo de plata, permisos y aislamiento entre clientes nunca se borra sin reemplazo.
+- Tras 2 rojos seguidos de una punta, la tercera no sale sin reproducir el rojo en local.
+
 # Cada punta se chequea sola: rama `punta/<nombre>` (Martín, 3/11/2026)
 
 «Y no podemos hacer que entren en diferentes testeos en github? Entonces se va deployando lo que ya pasó en lugar de
