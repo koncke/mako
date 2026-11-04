@@ -1,0 +1,100 @@
+/* =============================================================================
+   El grupo de la app (3/11/2026): sólo lo que el Ops Center no tenía. Todo con los tokens del tema: se lee en claro y en oscuro.
+   La fila y el panel son los de siempre (centro.css): lo de otra persona es el globo de MaKo con el nombre adentro, como un grupo de WhatsApp.
+   ============================================================================= */
+
+/* Lo de otra persona: a la izquierda, con su colita hacia su inicial. El espejo de `.co-yo`. */
+.co-otro { position: relative; align-self: flex-start; max-width: min(72%, 760px); display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding-left: 36px; }
+.co-otro > .co-mifoto { position: absolute; top: 0; left: 0; background: var(--primary-bg); color: var(--primary-strong); }
+/* La burbuja no pasa del ancho de su fila: la cita va en un renglón, y sin tope la burbuja toma el ancho de la frase (el mismo bug de `.co-yo`, centro.css). */
+.co-otro .ch-plegable, .co-otro .co-burbuja { max-width: 100%; min-width: 0; }
+.co-otro .co-burbuja {
+  position: relative; border-radius: 0 12px 12px 12px; background: var(--surface);
+  box-shadow: 0 1px .5px rgba(11, 20, 26, .13);
+}
+.co-otro .co-burbuja::before {
+  content: ''; position: absolute; top: 0; left: -8px; width: 8px; height: 13px; background: inherit;
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+}
+.co-otro--sigue { margin-top: -10px; }
+.co-otro--sigue .co-burbuja { border-radius: 12px; }
+.co-otro--sigue .co-burbuja::before { display: none; }
+@media (max-width: 720px) { .co-otro { max-width: 88%; } }
+
+/* El nombre arriba del globo. Cuatro colores que se leen en los dos temas (AA contra --surface). */
+.co-autor { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: var(--fs-sm); font-weight: 600; line-height: 1.3; white-space: normal; }
+.co-autor[data-color='0'] { color: var(--good); }
+.co-autor[data-color='1'] { color: var(--warn); }
+.co-autor[data-color='2'] { color: var(--mako-ink, var(--warn)); }
+.co-autor[data-color='3'] { color: var(--primary-strong); }
+.co-autor[data-color='mako'] { color: var(--primary-strong); }
+.co-autor__chip {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px; background: var(--surface-2);
+  font-size: 11px; font-weight: 500; color: var(--dim); white-space: nowrap;
+}
+
+/* El aviso de MaKo: el mismo globo, con su marca al costado y su rótulo. Se distingue de lo que contesta sin leerlo. */
+.co-el__cuerpo:has(> .co-aviso-grupo) { border-left: 3px solid var(--mako, var(--warn)); }
+.co-el:not(.co-trabajando) > .co-el__cuerpo:has(> .co-aviso-grupo)::before { display: none; }
+.co-aviso-grupo {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 3px;
+  font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--mako-ink, var(--warn));
+}
+
+/* Lo que pasó en el grupo: una píldora que no dijo nadie. */
+.co-dia--sistema { max-width: 92%; text-align: center; line-height: 1.35; white-space: normal; }
+.co-dia--sin-leer { background: var(--primary-bg); color: var(--ink); font-weight: 600; }
+
+/* La reacción de MaKo se ve, no se toca: en `.co-yo` y en `.co-otro` cuelga del globo. */
+.co-wa__reaccion--de-mako { display: inline-flex; align-items: center; cursor: default; }
+.co-otro > .co-wa__reaccion--de-mako { align-self: flex-start; margin: -10px 0 0 10px; }
+
+/* «3 mensajes nuevos», pegado abajo mientras se lee arriba. */
+.co-nuevos-grupo {
+  position: sticky; bottom: 8px; z-index: 3; align-self: center; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 32px; padding: 4px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: var(--fs-meta); font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(18, 21, 27, .14);
+}
+.co-nuevos-grupo:hover { background: var(--surface-2); }
+.co-nuevos-grupo:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* La lista: fijado arriba y sin hueco con lo que sigue (17/10/2026: «Todos juntos»). */
+.co-cuenta--grupo + .co-cuenta { margin-top: 0; }
+.gr-alfiler { flex: none; display: inline-flex; align-self: center; color: var(--faint); }
+.gr-previa { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-fila__l2 > .gr-sinleer, .gr-riel .gr-sinleer { flex: none; }
+.gr-sinleer {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 6px;
+  border-radius: 999px; background: var(--good); color: var(--bg); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+/* El renglón con un número sin leer se lee más fuerte, como en WhatsApp. */
+.gr-previa--sinleer { color: var(--ink); }
+.gr-esqueleto { display: flex; align-items: center; gap: 12px; padding: 8px 10px; }
+.gr-esqueleto__texto { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+/* El teléfono: la hora arriba y el número debajo, a la derecha. */
+.gr-riel { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.gr-titulo-m { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.gr-titulo-m > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* El título de la hoja del teléfono se toca: abre los participantes, como en WhatsApp. */
+.gr-titulo-boton { display: flex; align-items: center; gap: 10px; min-width: 0; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.gr-titulo-boton__ver { font-size: var(--fs-meta); font-weight: 400; color: var(--dim); }
+.gr-participantes { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Participantes. */
+.gr-miembros { display: flex; flex-direction: column; gap: 14px; }
+.gr-miembros__nota { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--dim); }
+.gr-miembros__nota--bien { color: var(--good); font-weight: 600; }
+.gr-invitar { display: flex; flex-direction: column; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.gr-invitar__rotulo { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+.gr-invitar__fila { display: flex; align-items: center; gap: 8px; }
+.gr-invitar__fila > .mk-input, .gr-invitar__fila > .mk-inputwrap { flex: 1; min-width: 0; }
+.gr-sugeridos { display: flex; flex-wrap: wrap; gap: 6px; }
+.gr-lista { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.gr-miembro { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 4px 0; }
+.gr-miembro__foto { width: 36px; height: 36px; font-size: 14px; }
+.gr-miembro__texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.gr-miembro__nombre { font-size: var(--fs-md); font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+.gr-miembro__tu { font-weight: 400; color: var(--dim); }
+.gr-miembro__rotulo { font-size: var(--fs-meta); color: var(--faint); }
+.gr-salir { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); }

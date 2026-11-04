@@ -58,6 +58,11 @@ export const VENTANA_AUDIO_MS = reloj(20000);
 export const TOPE_MS = 90000;
 /** Cada cuánto se mira si entró algo nuevo. */
 const LATIDO_MS = reloj(3000);
+/** Lo que dura el candado sin renovarse. `MAKO_DOER_CANDADO_MS` lo ACORTA sólo en un test (como `MAKO_DOER_VENTANA_MS`): nunca lo alarga. */
+const CANDADO_PEDIDO = Number(process.env.MAKO_DOER_CANDADO_MS?.trim() || NaN);
+export const TTL_CANDADO_MS = Number.isFinite(CANDADO_PEDIDO) && CANDADO_PEDIDO > 0 ? Math.min(TOPE_MS + 60000, CANDADO_PEDIDO) : TOPE_MS + 60000;
+/** Cada cuánto se renueva mientras corre el turno. */
+const LATIDO_CANDADO_MS = Math.max(50, Math.floor(Math.min(60_000, TTL_CANDADO_MS / 2.5)));
 
 export type MsgBuffer = {
   id: number;
@@ -99,7 +104,7 @@ export async function encolar(jid: string, msg: { waId: string; texto: string; t
  * que se lleva la fila de vuelta. El candado VENCE solo (`hasta`), así que una
  * invocación que se muere no deja el grupo mudo para siempre.
  */
-export async function reclamar(jid: string, quien: string, ttlMs = TOPE_MS + 60000): Promise<boolean> {
+export async function reclamar(jid: string, quien: string, ttlMs = TTL_CANDADO_MS): Promise<boolean> {
   const db = await getTenantDb();
   const ahora = new Date();
   const hasta = new Date(ahora.getTime() + ttlMs).toISOString();
@@ -113,6 +118,22 @@ export async function reclamar(jid: string, quien: string, ttlMs = TOPE_MS + 600
     .select('grupo_jid');
   if (error) { console.error('[doer-buffer] reclamar:', error.message); return false; }
   return (data ?? []).length > 0;
+}
+
+/**
+ * ⚠️ EL CANDADO SE RENUEVA MIENTRAS EL TURNO CORRE (3/11/2026). Vence a los 150 s y un turno puede pasar de eso (`replicar_landing` corre ~275 s), y la fila sigue `pendiente` hasta el
+ * final: a los 160 s el mensaje siguiente ganaba el candado vencido y la cola traía el pedido de antes, así que MaKo contestaba dos veces y podía repetir lo que hacía. Existía en
+ * WhatsApp; con personas charlando en el grupo se vuelve frecuente. Devuelve la función que lo apaga. Nunca tira.
+ */
+export function renovarCandado(jid: string, quien: string): () => void {
+  const t = setInterval(() => {
+    void (async () => {
+      const db = await getTenantDb();
+      await db.from('mako_doer_lock').update({ hasta: new Date(Date.now() + TTL_CANDADO_MS).toISOString(), updated_at: new Date().toISOString() }).eq('grupo_jid', jid).eq('quien', quien);
+    })().catch((e) => console.error('[doer-buffer] renovar:', e instanceof Error ? e.message : String(e)));
+  }, LATIDO_CANDADO_MS);
+  (t as { unref?: () => void }).unref?.();
+  return () => clearInterval(t);
 }
 
 /** Suelta el candado (siempre, incluso si la corrida falló). */

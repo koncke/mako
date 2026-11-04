@@ -8,6 +8,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
+import { atarInvitacionesAlEntrar } from './grupo-invitaciones';
 import type { Rol, RolWorkspace } from './auth-session';
 
 export type EstadoUsuario = 'invitado' | 'activo' | 'suspendido';
@@ -201,8 +202,12 @@ export async function registrarLogin(
   };
   if (datos.foto_url?.trim()) patch.foto_url = datos.foto_url.trim();
   const db = getSupabaseServer();
-  const { error } = await db.from('usuarios').update(patch).eq('email', correo).neq('estado', 'suspendido');
+  const { data: entro, error } = await db.from('usuarios').update(patch).eq('email', correo).neq('estado', 'suspendido').select('id');
   if (error) console.error(`[usuarios] registrarLogin(${email}): ${error.message}`);
+  // EL GRUPO DE LA APP (4/11/2026): la invitación anotada a este email antes de que tuviera cuenta se ata al ENTRAR, que es cuando consta que el email es
+  // suyo (lib/grupo-invitaciones.ts). Nunca tira: entrar no depende de esto.
+  const id = Number((entro as Array<{ id?: unknown }> | null)?.[0]?.id);
+  if (Number.isSafeInteger(id) && id > 0) await atarInvitacionesAlEntrar(id, correo);
   const nombre = datos.nombre?.trim();
   if (nombre) {
     // El filtro va EN el update, no en una lectura previa: así no hay ventana entre leer y escribir. Llena el

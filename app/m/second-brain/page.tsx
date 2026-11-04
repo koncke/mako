@@ -37,7 +37,7 @@ export const maxDuration = 420;
 const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function SecondBrainPagina({ searchParams }: {
-  searchParams: Promise<{ area?: string | string[]; vista?: string | string[]; panel?: string | string[]; chat?: string | string[]; offer?: string | string[] }>;
+  searchParams: Promise<{ area?: string | string[]; vista?: string | string[]; panel?: string | string[]; chat?: string | string[]; offer?: string | string[]; grupo?: string | string[] }>;
 }) {
   const ctx = await requireMovil({ navKey: 'mako' });
   const veMapa = await esAdminDeTab('second-brain');
@@ -56,6 +56,9 @@ export default async function SecondBrainPagina({ searchParams }: {
   // fila «Second Brain»). Hasta ese día iba directo al grafo. La pregunta es la de la fila del Centro en /m/mas y la de la
   // barra (app/m/layout.tsx), NO `quienOpera`: en el teléfono el super admin siempre lleva el `?ws=` de su negocio, y para
   // `quienOpera` eso ya es «mirando un cliente» (contextoMovil sí distingue su negocio propio). Mirando uno: su chat.
+  // ⚠️ `?grupo=` viaja: es el push de un aviso, y sin él caería en la lista.
+  const grupoPedido = uno(sp.grupo);
+  if (ctx.sesion.rol === 'admin' && !ctx.impersonando && grupoPedido && /^\d{1,15}$/.test(grupoPedido)) redirect(await rutaConWs(`${RUTA_CENTRO_M}?grupo=${grupoPedido}`));
   if (ctx.sesion.rol === 'admin' && !ctx.impersonando) redirect(await rutaConWs(RUTA_CENTRO_M));
 
   // El chat «Onboarding» de quien terminó antes de que existiera, también desde el teléfono (20/10/2026, revisión del
@@ -71,7 +74,7 @@ export default async function SecondBrainPagina({ searchParams }: {
     const [sesiones, centro] = await Promise.all([listarSesiones(persona), datosDelCentroSiOpera().catch(() => null)]);
     const chat = {
       sesionesIniciales: sesiones, hrefMapa: veMapa ? '/m/second-brain/mapa' : null, opcionArmar: OPCION_ARMAR,
-      chatInicial: entero(sp.chat), offerInicial: entero(sp.offer),
+      chatInicial: entero(sp.chat), offerInicial: entero(sp.offer), grupoInicial: entero(sp.grupo),
     };
     return (
       <PantallaM>

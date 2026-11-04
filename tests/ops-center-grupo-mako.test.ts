@@ -1,12 +1,11 @@
 // =============================================================================
-// MaKo en WhatsApp en el Ops Center: el grupo del negocio se LEE ahí, sólo el admin (22/10/2026, OC3)
+// El grupo de WhatsApp en el Ops Center: de la fila de sólo lectura (22/10/2026, OC3) al grupo de la app (3/11/2026)
 // =============================================================================
-// El lector existía desde la tanda 8 (lib/chat-mako-indice.ts → grupoDeMaKo, hiloDelGrupoMaKo) y nadie lo llamaba: 1.375
-// mensajes en 10 negocios que el cliente no veía en ningún lado. Ahora es una fila más de la lista del Ops Center, en la
-// computadora y en el teléfono (el mismo motor, app/second-brain/useChatCliente.ts):
-//   1. la fila sale sólo cuando el servidor da el grupo, con su hora, y entra en el orden y la búsqueda como las demás;
-//   2. el corte de quién lo ve es del SERVIDOR (sólo el admin; el jid nunca sale) y no va a ningún modelo;
-//   3. se lee: sin caja (dónde se contesta), sin el menú de un mensaje, y lo que se escribe no sale; «Ver anteriores» pagina.
+// El 22/10 el grupo de WhatsApp se volvió una fila más de la lista, de sólo lectura y sólo del admin. El 3/11 WhatsApp baneó la línea y Martín pidió el grupo
+// adentro de la app: esa fila se fue, porque saldría doble, y lo que leía queda en «Ver lo anterior de WhatsApp», con el mismo corte (app/api/grupos/[ws]/whatsapp/route.ts).
+//   1. la fila vieja no está, ni en la lista ni en el motor;
+//   2. lo que leía no sale de /api/mako/chat, y no va a ningún modelo;
+//   3. el grupo se escribe, con la caja única.
 //
 // Correr: node --import tsx --test tests/ops-center-grupo-mako.test.ts
 // PROBADO ROMPIÉNDOLO (base 3/0), ver el pie.
@@ -16,57 +15,45 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AVISO_GRUPO, TITULO_GRUPO, listaDelCliente } from '../lib/chat-mako-reglas';
+import { listaDelCliente } from '../lib/chat-mako-reglas';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('1. la fila del grupo: sólo si el servidor la da, con su hora, en el orden y en la búsqueda', () => {
+test('1. la fila vieja del grupo de WhatsApp ya no está: la reemplazó el grupo de la app', () => {
+  // Desde el 3/11/2026 (Martín: «grupos de WhatsApp dentro del Ops Center») el grupo tiene su fila fijada y su motor (tests/grupos-ops-pantalla.test.ts). Con las dos, saldría doble.
   const base = { sesiones: [], offer: [{ id: 7, titulo: 'Sprint', updatedAt: '2026-10-22T10:00:00Z' }], antes: [], busca: '' };
-  assert.ok(!listaDelCliente(base).some((f) => f.origen === 'grupo'), 'sin grupo (un miembro, o un negocio sin grupo), no hay fila');
-  const con = listaDelCliente({ ...base, grupo: { titulo: TITULO_GRUPO, ultimoAt: '2026-10-22T12:00:00Z' } });
-  assert.deepEqual(con.map((f) => f.clave), ['jefe', 'grupo', 'o7'], 'el Cerebro primero y el grupo por su último mensaje');
-  const g = con.find((f) => f.origen === 'grupo')!;
-  assert.deepEqual(g.elegido, { grupo: true });
-  assert.equal(g.titulo, 'MaKo en WhatsApp');
-  assert.deepEqual(listaDelCliente({ ...base, busca: 'whats', grupo: { titulo: TITULO_GRUPO, ultimoAt: null } }).map((f) => f.clave), ['jefe', 'grupo']);
+  assert.deepEqual(listaDelCliente(base).map((f) => f.clave), ['jefe', 'o7'], 'la lista del cliente no sabe de grupos');
+  const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
+  assert.doesNotMatch(motor, /esGrupo|delGrupo|grupoHilo|\?grupo=1|verAnteriores/, 'el motor del cliente, sin la fila vieja');
+  const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
+  assert.doesNotMatch(piezas, /esGrupo|AVISO_GRUPO|verAnteriores/);
+  assert.doesNotMatch(sinComentarios(leer('lib/chat-mako-reglas.ts')), /TITULO_GRUPO|AVISO_GRUPO|\{ grupo: true \}|antesValido/);
 });
 
-test('2. quién lo ve lo decide el servidor (sólo el admin, sin el jid) y no va a ningún modelo', () => {
-  const indice = sinComentarios(leer('lib/chat-mako-indice.ts'));
-  for (const f of ['grupoDeMaKo', 'hiloDelGrupoMaKo']) {
-    const desde = indice.indexOf(`export async function ${f}(`);
-    const cuerpo = indice.slice(desde, indice.indexOf('\n}\n', desde));
-    assert.match(cuerpo, /if \(p\.rol !== 'admin'\) return null;/, `${f}: sólo el admin`);
-  }
-  assert.match(indice, /return \{ titulo: TITULO_GRUPO, ultimoAt: filas\[0\]\?\.created_at \?\? null \};/, 'la fila no lleva el jid');
+test('2. lo que leía el grupo de WhatsApp sólo para el admin sale de /api/mako/chat: lo lee la ruta del grupo, con el mismo corte', () => {
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
-  assert.match(ruta, /if \(sp\.get\('grupo'\)\) return json\(\{ ok: true, grupo: await grupoDeMaKo\(persona\) \}\);/);
-  assert.match(ruta, /const hilo = await hiloDelGrupoMaKo\(persona, antesValido\(sp\.get\('desde'\)\)\);/, 'la página anterior, con la fecha saneada');
-  // Ni la lista ni el hilo de los chats que lee MaKo (decisión 11): lo que se dijo en el grupo no se le da al modelo.
+  assert.doesNotMatch(ruta, /grupoDeMaKo|hiloDelGrupoMaKo|grupoHilo/);
+  assert.doesNotMatch(sinComentarios(leer('lib/chat-mako-indice.ts')), /grupoDeMaKo|hiloDelGrupoMaKo|getGrupoJidMaKo/);
+  const wa = sinComentarios(leer('app/api/grupos/[ws]/whatsapp/route.ts'));
+  assert.match(wa, /if \(ws == null \|\| !quien \|\| quien\.invitado\) return NextResponse\.json\(\{ ok: false, error: 'No existe\.' \}, \{ status: 404 \}\);/, 'a un invitado no: ve desde que entró');
+  assert.doesNotMatch(wa, /grupo_jid|\bjid\b/, 'el jid no sale de acá');
+  // Ni la lista ni el hilo de los chats que lee MaKo (decisión 11): lo que se dijo en el grupo de WhatsApp no se le da al modelo por acá.
   const run = sinComentarios(leer('lib/api-mako/areas/mako.run.ts'));
   assert.doesNotMatch(run, /grupoDeMaKo|hiloDelGrupoMaKo|hiloDelGrupo\(/, 'listar_chats_mako / hilo_chat_mako no leen el grupo');
 });
 
-test('3. se lee: sin caja, sin el menú de un mensaje, y lo escrito no sale; «Ver anteriores» trae la página de antes', () => {
-  const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
-  assert.match(piezas, /if \(k\.esGrupo\) return <p className="co-solo-lectura" role="note">\{AVISO_GRUPO\}<\/p>;/, 'en lugar de la caja, dónde se contesta');
-  assert.match(piezas, /<ContextoWA\.Provider value=\{k\.esGrupo \|\| k\.esAutomatizacion(?: \|\| k\.esEditor)? \? null : k\.accionesWA\}>/, 'sin responder ni reaccionar');
-  assert.match(piezas, /onClick=\{\(\) => void k\.verAnteriores\(\)\}/);
-  assert.equal(AVISO_GRUPO, 'Se contesta en el grupo de WhatsApp.');
-  const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
-  assert.match(motor, /if \(esGrupo \|\| esAutomatizacion \|\| (?:esEditor \|\| )?\(!t && !archivos\.length\) \|\| ocupadoRef\.current/, 'lo que se escribe no va a ningún lado');
-  assert.match(motor, /pedir<\{ grupo: GrupoDeMaKo \| null \}>\(`\$\{RUTA\}\?grupo=1`\)/);
-  assert.match(motor, /`\$\{RUTA\}\?grupoHilo=1&desde=\$\{encodeURIComponent\(desde\)\}`/);
-  // La computadora y el teléfono montan las mismas piezas (tests/ops-center-cliente.test.ts, 4).
+test('3. el grupo se escribe: su caja es la única, y no pasa por el motor del cliente', () => {
+  const caja = sinComentarios(leer('app/_chat/grupo/CajaDelGrupo.tsx'));
+  assert.match(caja, /import \{ CajaChat \} from '@\/app\/_chat\/CajaChat';/);
+  assert.match(caja, /<CajaChat texto=\{texto\}/);
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/m/second-brain/ChatClienteM.tsx']) {
     assert.match(sinComentarios(leer(f)), /<CajaDelCliente k=\{k\}/, f);
   }
 });
 
-// PROBADO ROMPIÉNDOLO (22/10/2026, base 3/0):
-//   · la fila del grupo sin su `grupo` (siempre en la lista)                 → 2/1 (1)
-//   · grupoDeMaKo sin el corte del admin                                      → 2/1 (2)
-//   · la caja del cliente también en el grupo                                 → 2/1 (3)
-//   · `enviar` sin mirar `esGrupo`                                            → 2/1 (3)
+// PROBADO ROMPIÉNDOLO (3/11/2026, base 3/0, reescrito al sacar la fila vieja):
+//   · la fila del grupo otra vez en `listaDelCliente`                                  → 2/1 (1)
+//   · `?grupoHilo` otra vez en la ruta                                                 → 2/1 (2)
+//   · lo de WhatsApp abierto a un invitado                                             → 2/1 (2)

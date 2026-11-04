@@ -62,10 +62,11 @@ test('el acuse de recibo resuelve el workspace por el GRUPO, nunca por la instan
 
   assert.match(acuse, /wsDeGrupoJid\(jid\)/, 'el acuse tiene que resolver el workspace por el jid del grupo');
   assert.match(acuse, /if \(wsGrupo == null\) continue;/, 'fail-closed: un grupo sin dueño reconocido no acusa nada');
-  for (const fn of ['acusesDe', 'cerrarPorAcuse', 'marcarRespondieron']) {
-    assert.match(acuse, new RegExp(`${fn}\\(wsGrupo\\)`), `${fn} tiene que recibir el ws del GRUPO`);
-    assert.doesNotMatch(acuse, new RegExp(`${fn}\\(ws\\)`), `${fn} está usando el ws de la instancia, que para los grupos es siempre el dueño`);
-  }
+  // Desde el 3/11/2026 las tres viven en `acusarDesdeElGrupo` (lib/insistencias.ts), que usan el webhook y el grupo de la app: lo que se fija es qué ws recibe, y que adentro siguen las tres.
+  assert.match(acuse, /acusarDesdeElGrupo\(wsGrupo,/, 'el acuse tiene que recibir el ws del GRUPO');
+  assert.doesNotMatch(acuse, /acusarDesdeElGrupo\(ws,/, 'el acuse está usando el ws de la instancia, que para los grupos es siempre el dueño');
+  const fn = leer('lib/insistencias.ts').split('export async function acusarDesdeElGrupo')[1].split('\n}\n')[0];
+  for (const nombre of ['acusesDe', 'cerrarPorAcuse', 'marcarRespondieron']) assert.match(fn, new RegExp(`${nombre}\\(ws\\)`), `el acuse dejó de llamar a ${nombre}`);
 });
 
 test('wsDeGrupoJid se exporta, así que el acuse y el doer contestan lo MISMO', () => {
