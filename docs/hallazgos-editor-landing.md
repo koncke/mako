@@ -61,6 +61,26 @@ de `capaEncima` más el aviso). `tsc-acotado` sin errores en los 5 archivos.
 
 *29/10/2026 (claude4, la matriz) y 4/11/2026 (nube, al rearmar la etiqueta `rescate/replica-editable-2810` sobre main).*
 
+## Los valores de Tilvo en el chrome: la estructura sigue de Gamma (31/10/2026)
+
+**Vive en:** `app/web-generator/gamma.css` (y los bloques propios: `.gmx` de `BarraFormato.tsx`, `.gmp` de `dialogos/piezas-gma.tsx`,
+`.gma-pb` de `paneles/PanelAgente.tsx`, `.gp` de `MiniaturaLanding.tsx`). Los números: `docs/diseno/`.
+
+- **La regla:** Gamma es un competidor, se le copia la estructura; Code and Chill es una referencia de estilo, se le copian los números
+  (AGENTS.md, «NINGUNA pantalla se diseña de cero», punto 3). Elegí Tilvo porque es la azul de las doce. Los nombres de la escala
+  (`--gma-t500`, `--gma-b600`) quedaron: adentro ya no hay un gris de Gamma.
+- **No tocar `lib/editor-landing/temas.ts` en esta pasada:** los temas son el CONTENIDO de cada cliente. El lienzo sigue claro con el
+  editor en oscuro, y está bien: es su página.
+- **Hay cinco juegos de colores, no uno.** Cambiar `gamma.css` no alcanza: `.gmx`, `.gmp` y `.gma-pb` escriben sus hex a mano y `.gmx` no lee
+  ningún `--gma-*`. Quien cambie la paleta otra vez tiene que pasar por los cinco.
+- **El teléfono no existía:** ni una regla para el editor. A 390 el panel de 340 tapaba todo y el lienzo quedaba en una tira de 40 px. Ahora
+  va apilado (lienzo arriba, chat abajo). Es decisión nuestra, no copia: Tilvo a 390 usa una barra fija abajo, y esto no tiene navegación
+  que poner ahí. La regla va al FINAL de la hoja o el margen del lienzo le gana (`tests/web-generator-valores.test.ts`).
+- **El banco mentía por no cargar `globals.css`.** Sin `--fs-md`, el campo del chat quedaba sin relleno y la caja se veía desalineada; sin el
+  preflight de Tailwind, «Discutir | Editar» salía en Arial. Parecían dos bugs de la app y eran del banco: ahora `server.cjs` los define.
+- **Sin hacer:** el círculo del cambio de tema (450 ms, `docs/diseno/movimiento-codeandchill.md`) vive en el interruptor de la app, no acá.
+  La barra lateral y el resto de la app siguen en Geist: entrar a la tab cambia de letra hasta que el rediseño llegue a todo.
+
 ## Servir otra versión de una página publicada: lo que lee la foto de A y lo que publica el borrador (25/10/2026)
 
 **Vive en:** `lib/editor-landing/pagina-publica.ts`, `lib/editor-landing/publicar.ts`, `lib/editor-landing/pago-landing.ts`,
@@ -3947,3 +3967,34 @@ redirecciones. Nunca contra lo que pegó la persona, nunca contra el `canonical`
 - **`docs/feedback-24-10.md` y `docs/pendientes.md` siguen atrasados** en lo demás: los corrige el Cerebro con la lista de lo que sigue vivo.
 - **Punto 6 (placeholders detrás de otras secciones):** en el banco el «Encabezado 2» de una sección vacía se lee y no queda tapado. No se reprodujo el caso original: se necesita la landing donde lo vio.
 - **Por debajo de ~336 px de barra** (640 de ventana, sin lugar real) sigue sin entrar.
+
+## Las tarjetas siguen la demo de Martín, no el ranking del rubro (29/10/2026, noche)
+
+**Vive en:** `scripts/landing-principal-high-ticket.mts` (`TARJETAS`, `TARJETA_AVATAR`, `REEMPLAZA_A`, `Y_ADEMAS`, `NO_ESTA`) ·
+la llamada con Thiago (Fathom 197943284) y su análisis en el scratchpad del Cerebro (`llamada/como-presento-mako.md` y
+`promesas.md`, sesión 4d1a09d4).
+
+Martín: «revisa cómo le presenté la app a Thiago, qué cosas prioricé, y metelas en la landing de funcionalidades». A la
+tarde, las 9 del taller salieron del ranking del rubro (qué vende un coach o un infoproductor). **El diagnóstico obvio
+(«lo hot es lo que puntúa el mercado») era el equivocado:** lo hot es lo que Martín muestra EN VIVO cuando vende, y en qué
+orden. En la llamada, el scraper, las automatizaciones («un ManyChat 2.0») y replicar una landing fueron en vivo, y los
+dashboards se llevaron el mayor tiempo. Ninguno de los cuatro estaba arriba, y los dashboards ni tenían tarjeta. Al revés:
+el análisis de llamadas tenía tarjeta y ni lo nombró.
+
+- **El orden:** las cuatro en vivo o con más tiempo; después las de peso alto en el orden en que salieron (Plan desde las
+  reuniones, media buyer, editor de video, MaKo en tu WhatsApp); y los chats. El CRM, «QUIERO», el Calendario, School,
+  Canva, el Copywriter, el análisis de llamadas, la app, la API y la seguridad van a «Y además».
+- **Lo que dijo y no se pone:** LinkedIn en Chats y Automations, lanzar campañas desde el chat, el scraper de Instagram y
+  las publicaciones recurrentes no existen (`promesas.md`). `NO_ESTA` frena el script si alguno aparece en la sección. Del
+  media buyer dijo «él solo decide»: eso es sólo en Pro con el piloto prendido, así que la tarjeta dice «te propone» y «En
+  Pro, lo aplica solo».
+- **«Reemplaza a»** nombra sólo lo que MaKo reemplaza hoy: ManyChat, CapCut, Canva, Notion, Trello, Skool y el CRM.
+- **El script se puede volver a correr:** el marco y «Y además» llevan `data-mk` y se sacan antes de ponerlos. La base de
+  cada tarjeta es la ya publicada con su `data-feature`; si no está, la de `de`; y si tampoco, una azul. Medido: una
+  segunda pasada sobre su propia salida da lo mismo.
+- **Sin hacer:** el Avatar está detrás de `--con-avatar` (entra después del editor de video y los chats pasan a «Y
+  además»), y espera un look generado en producción. Automatizaciones, Plan y chats llevan a `#beta`, porque no tienen
+  página propia. /vsl/dashboard y /vsl/mako son textos viejos que no revisé. Con 9 tarjetas, a 390 la última queda sola.
+
+**Regla:** la grilla de la landing sale de cómo Martín presenta MaKo en vivo (el orden y el tiempo de su última demo),
+cruzado con lo que está en producción. El ranking del rubro sirve para desempatar, no para ordenar.

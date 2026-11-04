@@ -41,7 +41,7 @@
 
 import 'server-only';
 
-import { chatClaude, conClaveDelNegocio } from './anthropic';
+import { chatCheapCascade } from './ai-cheap';
 import { HOOK_TYPES, TAG_VOCAB } from './ads-analyst-vocabulario';
 import { leerPerfilInstagram } from './instagram-perfil-server';
 import { nombresDe } from './landing-snapshot';
@@ -58,6 +58,10 @@ import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy
 import { conLectura, funnelDeFila, leerFunnel, type Funnel, type LecturaFunnel } from './spy-funnel';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
+import { sitioDelTexto } from './spy-otras-redes-reglas';
+import { CLAVE_CARICATURAS, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
+import { getSetting } from './settings';
+import { ANALISIS_SIN_DATOS, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta } from './spy-analisis-reglas';
 import { queEs } from './spy-que-es';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { claveDeYoutube } from './youtube';
@@ -84,6 +88,8 @@ export type Competidor = {
   metricas_leidas_en: string | null;
   /** Su foto de perfil, YA BAJADA a nuestro bucket (0362). No vence. En null, la lista dibuja la inicial. */
   avatar: string | null;
+  /** La caricatura que se hizo sola, ya en nuestro bucket. No es una columna: sale de `spy.caricaturas` al listar. */
+  caricatura?: string | null;
   instagram_seguidores: number | null;
   youtube_suscriptores: number | null;
 };
@@ -160,7 +166,9 @@ export async function listarCompetidores(): Promise<{ ok: true; competidores: Co
   const db = await getTenantDb();
   const { data, error } = await db.from('spy_competidores').select(COLUMNAS_COMPETIDOR).order('mirado_en', { ascending: false, nullsFirst: false }).limit(TOPES.competidores);
   if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${error.message}` };
-  return { ok: true, competidores: (data ?? []) as Competidor[] };
+  // La caricatura que se hizo sola (lib/spy-caricatura-auto.ts). Sin poder leerla, la tarjeta usa su foto: no es un error.
+  const caricaturas = caricaturasListas(leerRegistro(await getSetting(CLAVE_CARICATURAS).catch(() => null)));
+  return { ok: true, competidores: ((data ?? []) as Competidor[]).map((c) => ({ ...c, caricatura: caricaturas.get(c.id) ?? null })) };
 }
 
 /** Lo que se le dice a la persona: sin una fuente que lea Instagram, el motivo técnico de Meta no le sirve; sí cuáles son las salidas. */
@@ -178,23 +186,6 @@ export async function leerCompetidor(id: number): Promise<Competidor | null> {
   return data as Competidor;
 }
 
-/**
- * El perfil de alguien que TODAVÍA no se mira: lo que la pantalla del alta muestra para confirmar
- * quién es. La vista previa y el completar solo de las filas pasan por acá, con las MISMAS fuentes.
- *
- * ⚠️ `apify-spy` ES LO QUE FALTABA. La vista previa llamaba con las fuentes por defecto, que no la
- * incluyen: la clave que Martín pegó el 1/11 es la de Spy, y con sólo ésa la vista previa contestaba
- * «no pude leer» aunque hubiera con qué (el mismo bug que el buscador del CRM arregló el 2/11).
- *
- * `reserva` = cuántas lecturas del tope diario NO puede tocar quien llama. La pone el completar solo:
- * son lecturas que nadie pidió con un clic, y no pueden dejar al negocio sin poder agregar a nadie.
- */
-export async function leerPerfilParaElAlta(usuario: string, opts: { reserva?: number } = {}) {
-  return leerPerfilInstagram(usuario, {
-    ws: await getWorkspaceActual(), conPiezas: false,
-    fuentes: ['meta-negocio', 'meta-plataforma', 'apify', 'apify-spy'], reservaApify: opts.reserva,
-  });
-}
 
 /**
  * Agrega un competidor con lo poco que se pegó. El `nombre` es del negocio y no se sobrescribe: si
@@ -305,6 +296,22 @@ export async function quitarCompetidor(id: number): Promise<{ ok: true } | { ok:
   const db = await getTenantDb();
   const { error } = await db.from('spy_competidores').delete().eq('id', id);
   if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude quitarlo: ${error.message}` };
+  return { ok: true };
+}
+
+/**
+ * Le saca UN canal a un competidor: lo que deshace «Sumé su YouTube» cuando no era de él (4/11/2026). Se borran también
+ * las piezas que se leyeron de ese canal: si no, la ficha seguiría mostrando videos de otra persona.
+ */
+export async function quitarCanal(id: number, red: 'instagram' | 'youtube' | 'tiktok'): Promise<{ ok: true } | { ok: false; error: string }> {
+  const db = await getTenantDb();
+  const campo = red === 'youtube' ? 'youtube_id' : red;
+  const { error } = await db.from('spy_competidores').update({ [campo]: null, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude sacarlo: ${error.message}` };
+  if (red !== 'tiktok') {
+    const { error: e2 } = await db.from('spy_piezas').delete().eq('competidor_id', id).eq('canal', red);
+    if (e2) return { ok: false, error: `Saqué el canal, pero no sus piezas: ${e2.message}` };
+  }
   return { ok: true };
 }
 
@@ -536,6 +543,8 @@ export async function mirarCompetidor(
   let seguidores: number | null = c.instagram_seguidores;
   let cara: string | null = c.avatar;
   let suscriptores: number | null = c.youtube_suscriptores;
+  let landing: string | null = c.landing_url;
+  let landingNueva = false;
 
   // ── Instagram: Business Discovery con el juego ancho de campos ──────────────
   if (c.instagram) {
@@ -561,6 +570,12 @@ export async function mirarCompetidor(
       canales.push({ canal: 'instagram', ok: false, piezas: 0, nuevas: 0, detalle: `No pude leer @${c.instagram}: ${detalleDeInstagram(l.motivo, l.detalle)}` });
     } else {
       seguidores = l.perfil.seguidores;
+      // Su sitio, si lo tiene en la bio y todavía no se le cargó uno (Martín, 4/11: «Si encuentra la web, que la analice
+      // automáticamente»). Un Linktree o un acortador no cuentan (`sitioDelTexto`).
+      if (!landing) {
+        const sitio = sitioDelTexto([l.perfil.web, l.perfil.bio].filter(Boolean).join(' '));
+        if (sitio) { landing = sitio; landingNueva = true; }
+      }
       // ⚠️ LA CARA SE BAJA, NO SE APUNTA. `l.perfil.foto` es una URL del CDN de Meta que vence y
       // que además da 403 desde otro dominio (ver lib/spy-miniaturas.ts). Por eso el comentario
       // de instagram-perfil.ts decía «nunca para guardarla»: con el bucket de 0361 ya se puede.
@@ -625,6 +640,19 @@ export async function mirarCompetidor(
         canales.push({ canal: 'youtube', ok: false, piezas: 0, nuevas: 0, detalle: noPudeLeerCanal(l.motivo) });
       } else {
         suscriptores = l.canal.suscriptores;
+        // ⚠️ Y SU SITIO SALE DE LA DESCRIPCIÓN DE SU CANAL si no lo tenía (4/11/2026; Martín: «Si encuentra la web, que la
+        // analice automáticamente»). Se lee en esta misma vuelta, más abajo.
+        if (!landing) {
+          const sitio = sitioDelTexto(l.canal.descripcion);
+          if (sitio) { landing = sitio; landingNueva = true; }
+        }
+        // ⚠️ SU CARA TAMBIÉN SALE DE YOUTUBE (4/11/2026). Un competidor que se agregó por su canal quedaba sin foto —
+        // Martín: «le pongo el link de su canal y no me trae la foto»— y la foto venía en la misma respuesta. Gana la de
+        // Instagram si la hay: es la que la persona reconoce. Se baja al bucket, como la de Instagram.
+        if (l.canal.foto && (!c.instagram || !cara)) {
+          const [bajada] = await guardarMiniaturas([{ canal: 'avatar', ref: c.youtube_id, miniatura: l.canal.foto }]);
+          if (esNuestra(bajada.miniatura)) cara = bajada.miniatura ?? cara;
+        }
         const vistas: PiezaVista[] = l.videos.map((v) => ({
           canal: 'youtube' as const, tipo: 'video' as const, ref: v.id, fuente: 'api' as const,
           url: `https://www.youtube.com/watch?v=${v.id}`,
@@ -650,12 +678,12 @@ export async function mirarCompetidor(
   }
 
   // ── La landing: lo que ya hace `mirarLanding`, apuntado a una página ajena ──
-  if (c.landing_url) {
+  if (landing) {
     try {
       // Se llena mientras se lee. El HTML no vuelve en `m` porque esa respuesta también viaja a la
       // pantalla del Pixel, que no tiene por qué llevar 2 MB de una página.
       const crudo: { html?: string; bundle?: string } = {};
-      const m = await mirarLanding(c.landing_url, undefined, (html, bundle) => { crudo.html = html; crudo.bundle = bundle; });
+      const m = await mirarLanding(landing, undefined, (html, bundle) => { crudo.html = html; crudo.bundle = bundle; });
       // ⚠️ `analisis.ok === false` ES UNA LECTURA QUE FALLÓ, y acá se corta. Guardar la fila con la
       // lista de piezas vacía escribiría «esta landing no tiene nada» sobre una página que no
       // pudimos leer, y la próxima vuelta la línea de tiempo diría que el competidor le sacó el
@@ -667,13 +695,13 @@ export async function mirarCompetidor(
         // Las piezas vienen como un `Set`: VSL, formulario, agenda, botón de WhatsApp, píxeles.
         const piezas = [...m.analisis.piezas];
         const vistas: PiezaVista[] = [{
-          canal: 'landing' as const, tipo: 'landing' as const, ref: c.landing_url, fuente: 'pagina' as const,
-          url: c.landing_url,
-          titulo: hostDe(c.landing_url),
+          canal: 'landing' as const, tipo: 'landing' as const, ref: landing, fuente: 'pagina' as const,
+          url: landing,
+          titulo: hostDe(landing),
           etiquetas: piezas.length ? piezas : null,
         }];
         const g = await guardarVistas(competidorId, vistas);
-        if (!g.error && crudo.html != null) await guardarFunnel(competidorId, c.landing_url, 'pagina', leerFunnel({ html: crudo.html, bundle: crudo.bundle, piezas }));
+        if (!g.error && crudo.html != null) await guardarFunnel(competidorId, landing, 'pagina', leerFunnel({ html: crudo.html, bundle: crudo.bundle, piezas }));
         const cambios = m.cambios.nuevas.length + m.cambios.sacadas.length;
         canales.push({
           canal: 'landing', ok: !g.error, piezas: 1, nuevas: g.nuevas,
@@ -689,6 +717,7 @@ export async function mirarCompetidor(
   await db.from('spy_competidores').update({
     mirado_en: ahora, texto_leido_en: ahora, metricas_leidas_en: ahora,
     instagram_seguidores: seguidores, youtube_suscriptores: suscriptores, avatar: cara, updated_at: ahora,
+    ...(landingNueva ? { landing_url: landing } : {}),
   }).eq('id', competidorId);
   return { ok: canales.some((x) => x.ok), canales };
 }
@@ -807,21 +836,30 @@ export function leerAnalisis(crudo: unknown): Analisis {
 }
 
 /**
- * Analiza a un competidor con lo que ya está guardado. La IA es la DEL NEGOCIO; si no tiene, la de
- * la plataforma (el Plan nunca paga IA, así que la clave de MaKo es el último recurso).
+ * Analiza a un competidor con lo que ya está guardado, con la IA DEL NEGOCIO.
  *
- * No tira nunca: devuelve `{ ok: false, error }`, porque quien llama es un cron o un runner de la
- * API y los dos tienen que poder seguir con el competidor siguiente.
+ * ⚠️ NUNCA CON LA DE MAKO (4/11/2026: «cada negocio paga la suya, y el crédito de Claude de la plataforma no se usa
+ * acá»). Antes, sin la clave de Claude del negocio, caía a `chatClaude` —la de la plataforma, que el veto igual frenaba
+ * porque `spy` no está en `CLAUDE_PERMITIDO`—. Ahora es `chatCheapCascade`: su Claude primero y después su GPT o su
+ * Gemini. Sin ninguna, `sinIA: true` y la pantalla muestra lo que ya tiene, sin «Analizando».
+ *
+ * `soloPendientes` (lo que usa el análisis automático): sólo las piezas que la IA todavía no leyó, de a
+ * `PIEZAS_POR_ANALISIS`, las de más vistas primero. Sin él (el menú «Qué vende y qué ataca» y la API), las primeras 40.
+ *
+ * No tira nunca: devuelve `{ ok: false, error }`, porque quien llama es una ruta en segundo plano o un runner de la API.
  */
 export async function analizarCompetidor(
   competidorId: number,
   queVendeElNegocio: string,
-): Promise<{ ok: true; analisis: Analisis } | { ok: false; error: string; falla?: true }> {
+  opts: { soloPendientes?: boolean } = {},
+): Promise<{ ok: true; analisis: Analisis; leidas: number } | { ok: false; error: string; falla?: true; sinIA?: true }> {
   const c = await leerCompetidor(competidorId);
   if (!c) return { ok: false, error: 'No encontré ese competidor.' };
-  const piezas = await listarPiezas(competidorId);
-  if (!piezas.length) return { ok: false, error: 'Todavía no hay nada leído de ese competidor. Míralo primero.' };
-  const comoTexto = piezas.slice(0, 40).map((p) => {
+  const todas = await listarPiezas(competidorId);
+  if (!todas.length) return { ok: false, error: 'Todavía no hay nada leído de ese competidor. Míralo primero.' };
+  const piezas = opts.soloPendientes ? pendientesDeAnalisis(todas) : todas.slice(0, 40);
+  if (!piezas.length) return { ok: true, analisis: { oferta: c.oferta ?? { promete: '', aQuien: '', precio: null, objecion: '', huecos: [] }, piezas: [] }, leidas: 0 };
+  const comoTexto = piezas.map((p) => {
     const etapa = etapaDePieza(p);
     return [
       `[${p.ref}] ${p.canal}/${p.tipo}`,
@@ -848,29 +886,50 @@ export async function analizarCompetidor(
       // como una instrucción. El copy de un anuncio puede decir cualquier cosa.
       piezas: contenidoNoConfiable(comoTexto, 'piezas_del_competidor'),
     });
-    const suya = await conClaveDelNegocio({ system, user, maxTokens: 4000, feature: 'spy', motivo: 'Analizar a un competidor', timeoutMs: 90_000 });
-    let texto: string;
-    if (suya && 'texto' in suya) texto = suya.texto;
-    else if (suya && 'noPudeLeer' in suya) return { ok: false, error: suya.error };
-    else if (suya) return { ok: false, error: `Tu clave de IA no pudo analizar al competidor: ${suya.error}` };
-    else texto = await chatClaude(system, [{ role: 'user', content: user }], { maxTokens: 4000, feature: 'spy' });
+    const errores: string[] = [];
+    // `pii: false`: lo que se manda es contenido PÚBLICO de un tercero y la oferta del propio negocio, no datos de sus
+    // clientes.
+    const texto = await chatCheapCascade({
+      system, user, json: true, maxTokens: 4000, feature: 'spy', motivo: 'Analizar a un competidor', timeoutMs: 90_000,
+      erroresOut: errores, pii: false,
+    });
+    if (!texto.trim()) {
+      return errores.length
+        ? { ok: false, error: 'Tu IA no pudo analizar al competidor ahora. Vuelve a intentar en un rato.', falla: true }
+        : { ok: false, error: 'Conecta tu Claude, tu GPT o tu Gemini para que MaKo analice sus piezas.', sinIA: true };
+    }
     const analisis = leerAnalisis(objetoJson(texto));
-    await guardarAnalisis(competidorId, analisis);
-    return { ok: true, analisis };
+    await guardarAnalisis(competidorId, analisis, piezas.map((p) => p.ref), c.oferta);
+    return { ok: true, analisis, leidas: piezas.length };
   } catch (e) {
     return { ok: false, error: `No pude analizar al competidor: ${msg(e)}`, falla: true };
   }
 }
 
-/** Guarda la oferta en el competidor y el análisis en cada pieza, con el reloj del TEXTO. */
-async function guardarAnalisis(competidorId: number, a: Analisis): Promise<void> {
+/**
+ * Guarda la oferta en el competidor y el análisis en cada pieza, con el reloj del TEXTO.
+ *
+ * ⚠️ El ref que devuelve la IA se busca entre los ENVIADOS sin mayúsculas: un modelo que lo reescribe en minúsculas no
+ * encuentra la fila con `.eq('ref', …)` y la pieza queda pendiente para siempre. Lo que se mandó y no volvió se marca
+ * leído sin datos (`ANALISIS_SIN_DATOS`), por la misma razón.
+ */
+async function guardarAnalisis(competidorId: number, a: Analisis, enviadas: readonly string[], ofertaAnterior: OfertaLeida | null): Promise<void> {
   const db = await getTenantDb();
   const ahora = new Date().toISOString();
-  await db.from('spy_competidores').update({ oferta: a.oferta, texto_leido_en: ahora, updated_at: ahora }).eq('id', competidorId);
+  const oferta = ofertaQueQueda(a.oferta, ofertaAnterior);
+  await db.from('spy_competidores').update({ ...(oferta ? { oferta } : {}), texto_leido_en: ahora, updated_at: ahora }).eq('id', competidorId);
+  const original = new Map(enviadas.map((r) => [r.trim().toLowerCase(), r]));
   for (const p of a.piezas) {
+    const ref = original.get(p.ref.trim().toLowerCase());
+    if (!ref) continue;
     await db.from('spy_piezas')
       .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas }, texto_leido_en: ahora, updated_at: ahora })
-      .eq('competidor_id', competidorId).eq('ref', p.ref);
+      .eq('competidor_id', competidorId).eq('ref', ref);
+  }
+  const faltan = refsSinRespuesta(enviadas, a.piezas.map((p) => p.ref));
+  if (faltan.length) {
+    await db.from('spy_piezas').update({ analisis: ANALISIS_SIN_DATOS, texto_leido_en: ahora, updated_at: ahora })
+      .eq('competidor_id', competidorId).in('ref', faltan).is('analisis', null);
   }
 }
 
