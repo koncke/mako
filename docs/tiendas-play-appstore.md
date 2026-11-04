@@ -23,7 +23,7 @@ cuentas, revisadas otra vez el 23/10 en las páginas oficiales.
 | Paso de la (a) | Estado | Evidencia |
 |---|---|---|
 | 1. `/.well-known` público | **Hecho**, falta la huella | Dan 200 (medido el 3/11). El de Apple ya lleva el Team ID. `assetlinks.json` sigue vacío hasta tener la huella: la pone `scripts/tiendas-asociar.mjs` |
-| 2. El teléfono no vende | **Hecho el 3/11** | Medido antes: «Tu plan» abría el pago, Agency tenía «Pagar su primer mes», los carteles de la prueba y More ofrecían pasar de plan, y la cuenta pausada, pagar. `tests/tiendas-telefono-no-vende.test.ts` |
+| 2. El teléfono no vende | **Hecho el 3/11** | Medido antes: «Tu plan» abría el pago, Agency tenía «Pagar su primer mes», los carteles de la prueba y More ofrecían pasar de plan, y la cuenta pausada, pagar. `tests/tiendas-telefono-no-vende.test.ts`. Desde el 4/11, MaKo Partners («Ya cobraste») y Agency Dashboard («Falta pagar») no van en ningún teléfono, Android incluido: `TABS_QUE_VENDEN`, `lib/tienda.ts` |
 | 3. Modo iOS | **Hecho el 3/11** | `lib/tienda.ts`: sin Google, sin relleno, y lo que vende no se abre. Mismo test |
 | 4. Borrar la cuenta, `/soporte`, `/eliminar-cuenta`, privacidad | **Hecho el 3/11** | `lib/baja-cuenta.ts`, `tests/baja-cuenta.test.ts`. Hay que agregar una tabla nueva a la base de producción (`0371_bajas_cuenta.sql`), que sólo agrega, antes de subir |
 | 5. La cuenta de revisión | **Escrita en la rama `tiendas-revisor-0311`, sin subir** | Pide la revisión de seguridad. El script que la crea está sin correr |

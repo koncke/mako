@@ -6,7 +6,12 @@
 // provisorio de Planes (que montaba la cartera vieja de /m/partners).
 //
 // ⚠️ EL TELÉFONO NO VENDE (T5, docs/tiendas-play-appstore.md, 3/11/2026): la landing con el precio tampoco se dibuja acá.
-//    Y en la app de iPhone la pantalla no existe (lib/tienda.ts): sin cuentas sería relleno, guía 2.1.
+//
+// ⚠️ HOY NO SE DIBUJA EN NINGÚN TELÉFONO (4/11/2026): vuelve a More antes de leer nada (`esTabQueVende`, lib/tienda.ts).
+//    Lo que dice es plata que se le debe a MaKo: «Falta pagar», «Esperando su pago», «Renovación pendiente», «Quién paga» y
+//    el número de «Pendientes». Hasta ese día salía sólo de la app de iPhone; Android no se distingue de Chrome. Lo de abajo
+//    queda para el día que vuelva sin eso (sacar `agency` de `TABS_QUE_VENDEN`). Entrar a la cuenta de un cliente desde el
+//    teléfono se va con ella: queda en la computadora.
 //
 // ⚠️ La puerta: la key `agency` de More (el admin de cualquier negocio, la misma regla que el menú de la foto) y el rol
 //    (admin), que se pregunta acá igual que en escritorio. El cliente de una agencia no la ve (no hay promociones para él).
@@ -19,7 +24,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { esClienteDeAgencia } from '@/lib/agencia';
 import { cuentasDePartner, partnersDeLaPlataforma } from '@/lib/partners';
 import { estadoAgency } from '@/lib/agency';
-import { esAppIosDelPedido } from '@/lib/tienda-pedido';
+import { esTabQueVende } from '@/lib/tienda';
 import { CabeceraM, ComputadoraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 import { AgencyM, AgenciasM } from './AgencyM';
@@ -28,7 +33,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function AgencyPagina({ searchParams }: { searchParams: Promise<{ cuenta?: string }> }) {
   await requireMovil({ navKey: 'agency' });
-  if (await esAppIosDelPedido()) redirect(await rutaConWs(RUTA_MAS));
+  // En ningún teléfono (lib/tienda.ts). Esta página sólo la ve un teléfono.
+  if (esTabQueVende('agency')) redirect(await rutaConWs(RUTA_MAS));
   const sp = await searchParams;
   const esSuper = (await getSesionAdmin()) != null;
 

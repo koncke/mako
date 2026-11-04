@@ -57,6 +57,8 @@ import { SECCIONES_COMUNIDAD as SECCIONES_COMUNIDAD_CLIENTS } from './clients-ru
 import { rutaDeTabVieja } from './ajustes-secciones';
 // Las tabs de CREACIÓN (17/10/2026): sus filas ocultas y su ida y vuelta viven en ./movil-creacion.ts.
 import { SECCIONES_CREACION, rutaEscritorioCreacion, rutaMovilCreacion, type IdCreacion } from './movil-creacion';
+// Lo que existe para vender MaKo a otros (MaKo Partners, Agency Dashboard) no va en NINGÚN teléfono (4/11/2026, lib/tienda.ts).
+import { sinLoQueVende } from './tienda';
 
 /**
  * Los cinco destinos FIJOS de la barra. `mako` es el OPS CENTER desde el 20/10/2026, en el lugar del medio que era del
@@ -222,6 +224,8 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // reparte entre la cartera de la agencia y los referidos del resto (app/m/partners/page.tsx).
   // MaKo Partners: del menú de la foto desde el 20/10/2026 (nav.ts → USER_NAV), así que su fila de More la arma el menú
   // (`masCompleto`) y acá va OCULTA, como Report a problem y Business settings.
+  // ⚠️ Desde el 4/11/2026 no va en NINGÚN teléfono, ni ella ni Agency (lib/tienda.ts → `TABS_QUE_VENDEN`): More no las
+  //    dibuja y su página vuelve a More. Las filas siguen acá para que un link de escritorio caiga en esa página.
   { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: null, oculta: true },
   // Agency Dashboard (25/10/2026): del menú de la foto, como Partners; su fila la arma el menú. ⚠️ Planes escribió el mismo
   // mapeo en planes-2510: en la integración queda UNA copia.
@@ -627,7 +631,9 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
       { tipo: 'grupo', key: 'pronto', label: 'Coming soon', icon: 'reloj', filas: PRONTO.map((it) => filaDeItem(it, [it.key])) },
     ] });
   }
-  return out;
+  // ⚠️ SIN MaKo Partners NI Agency Dashboard, en cualquier teléfono (4/11/2026): existen para vender MaKo a otros, y el
+  //    teléfono no vende (lib/tienda.ts → `TABS_QUE_VENDEN`). Sus páginas vuelven a More si alguien llega por un link.
+  return sinLoQueVende(out);
 }
 
 /** La sección de More dueña de esta ruta (`/m/ads/123` → Ads Manager), o null. */
