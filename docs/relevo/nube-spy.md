@@ -76,7 +76,7 @@ verde, llega sola a `main`.
 | Los anuncios dentro de Contenido | Hecho: un formato más del desplegable | `punta/spy-ficha-diseno` | — |
 | La animación al entrar: tarjetas que se acomodan y van al gráfico | Hecho: el mismo gesto del gráfico, saliendo de una grilla ordenada (~1,6 s) | `punta/spy-ficha-diseno` | Mirarla en pantalla |
 | Más rápido; medir antes y después | Hecho en la vista de prueba (3,9 s → 3,2 s hasta el gráfico; 2.369 → 1.664 elementos): números y método en docs/hallazgos-competitors-spy.md | `punta/spy-ficha-diseno` | **Medirlo en producción con Den Borg**: la vista de prueba no tiene el CDN de Meta |
-| Anuncios por su Instagram o el nombre del negocio, verificados | En curso | `punta/spy-anuncios` | — |
+| Anuncios por su Instagram o el nombre del negocio, verificados | Hecho: el enlace busca su nombre corto o su @ (nunca una página de enlaces) y un anuncio es suyo sólo por su Página o por mandar a SU web | `punta/spy-anuncios` | Si la frase exacta de la Biblioteca encuentra a la Página por su nombre |
 | Funnel: la oferta y el funnel que usa arriba, con evidencia de un catálogo; sus webs con su vista previa y un desplegable de páginas | En curso: el catálogo está en docs/catalogo-funnels-y-formatos.md | `punta/spy-funnel-tipo` | — |
 | El recorrido que señala lo nuevo | Pendiente | — | — |
 

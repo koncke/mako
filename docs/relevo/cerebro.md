@@ -1,4 +1,30 @@
-# Relevo del Cerebro, 4/11/2026 ~06:00 ART
+# Relevo del Cerebro
+
+## 4/11/2026, ~14:30 UTC (11:30 ART): lo vivo
+
+Cuenta claude5 al 94 % de la ventana de 5 horas (reinicia 14:50 UTC) y 72 % semanal. Medir antes de creerlo: `git log origin/main`, `git for-each-ref refs/remotes/origin/punta`.
+
+**Chats en la nube y qué les encargué, sin confirmar que lo hayan leído:**
+- **Grupos:** el eco de MaKo con dos líneas en un grupo (`punta/doer-eco-dos-lineas`, URGENTE) y el diseño tipo WhatsApp con Participantes e Invitar a la derecha (`punta/grupos-diseno`).
+- **Dashboard:** dejar en «Nueva hoja» sólo las copias reales, modal sin trabarse, miniatura de Closing, tabla de lo que falta (`punta/dash-seleccion`). Después la segunda hoja, con los demos de `punta/dash-demos-resto`.
+- **Competitors Spy:** la tanda del 4/11 de Martín (modal de canales, anuncios por Instagram y dentro de Contenido, Funnel con la oferta arriba, catálogo de formatos y funnels, animación, velocidad, `@herasmedia` que no lee, tope de 45 s en Google).
+- **Campaña de email:** cada negocio trae SU cuenta de Resend, todo por la API con una operación de estado que guía (`punta/email-cuenta-propia`). A Mauricio no se le avisa hasta que llegue.
+- **Funnel Coach:** sacar «Reportar» de debajo del mensaje, «Tu oferta ya está cargada» (ticket #57, `punta/ticket-57`, chocó al llevar a main).
+- **Tickets:** #56 (leads por campaña). Abiertos: #38, #39, #43. #58: lo pidió Joan por audio, agendar el pago de la segunda cuota de Giselle Belanti para el 19/12; lo trabó el eco y hay que pedírselo de nuevo cuando llegue el arreglo.
+- **Chequeo:** bajar Actions, que la nube pase los tests y `punta.yml` no los repita (`punta/actions-sin-repetir`).
+- **Vigilante de aprobaciones:** `punta/vigia-aprobaciones`, relevo en `docs/relevo/nube-aprobaciones.md`.
+
+**Tiendas:** cuenta de revisión creada (usuario 29, negocio 900001). Martín pegó la contraseña. Un agente local quedó completando contacto, Content Rights, compilación nueva, capturas, Target audience y Data safety; si se cortó, retomar desde `docs/tiendas-play-appstore.md`. Nada se envió a revisión. Espera a Martín: 6 testers, DSA de Leandro, crédito de IA del revisor.
+
+**Espera a Martín, además:** instalar el servicio del Runner (`node "$HOME/.claude/operaciones/cartero.mjs" instalar-servicio`), archivar o no las corridas de la guardia, comprar o no las plantillas de Code and Chill, cómo se escribe Samuel Albaa, y el prototipo pendiente.
+
+**Runner:** `local_184238c7…`. La guardia no lo puede reemplazar: una corrida programada no tiene canal de mensajes.
+
+**El vigía:** re-armar `node "$HOME/.claude/guardia/vigia-ci.mjs" esperar` en segundo plano al abrir, y repartir cada rojo a su chat. Martín no quiere avisos de rutina: sólo lo que tenga que hacer o decidir, lo que quedó en producción, lo que se rompió, o lo que pregunte.
+
+---
+
+, 4/11/2026 ~06:00 ART
 
 **Cómo se sube ahora:** cada rama va a `punta/<nombre>` (`.github/workflows/punta.yml`) y llega sola a main con verde. Lo que no lee producción se delega a chats en la nube; se les escribe con SendMessage por su título y no contestan: dejan `docs/relevo/nube-<área>.md`. Un rojo: `node ~/.claude/guardia/vigia-ci.mjs estado`; si es de un chat, se le pasa el error y `visto <id>`.
 
