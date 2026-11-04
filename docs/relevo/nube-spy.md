@@ -63,6 +63,23 @@ verde, llega sola a `main`.
 | «Funnel»: sus webs solas y su OFERTA con el analizador de Offer | Hecho: debajo de su web, el diagnóstico de Offer (las 9 notas, la tesis, lo que hace bien y el puntaje que calcula el código), leído solo al abrir un competidor con web (/api/competitor-spy/oferta), sin botón y con la criatura mientras lee. Con la IA del negocio, sin crédito ni red de la plataforma (`soloDelNegocio`); habla de él en tercera persona (`bloqueOfertaDeOtro`). Una vez y listo: sólo vuelve a la IA si su web cambió. En la API, `su_oferta_con_notas` | `punta/spy-oferta` | Con un negocio real: que el modelo hable en tercera persona y lo que trae una web de verdad |
 | El detalle de cada pieza rehecho, con su transcripción y un botón «Copiar estructura» mejor | Hecho: quién lo publicó (su foto y sus seguidores), sus números con «frente a su mediana», su estructura, su GUION y su texto; «Hacer uno así» con la estrella de MaKo en el pie. El guion de un reel se pide solo al abrir (Apify trae su video fresco, UNA publicación con la clave de Spy y un tope de 40 por día; lo escucha la IA del negocio), con «Transcribiendo…». YouTube: no (abajo) | `punta/spy-detalle-guion` | Que el actor devuelva `videoUrl` con `directUrls` de UN reel, y que la IA de un negocio escuche ese mp4 |
 
+## Tercera vuelta (Martín revisó con Den Borg, 4/11/2026)
+
+| Qué pidió | Estado | Rama | Sin probar contra el servicio |
+|---|---|---|---|
+| «Escribí tal cual @herasmedia y no me trajo al perfil» | Hecho: «Usar @x» lee su perfil (causa medida por el Cerebro) | `punta/spy-medidos` (en `main`) | — |
+| «No pude buscar sus otras redes ahora»: sacar el texto y ver por qué | Hecho: Google por Apify tardaba más de 45 s; la corrida se empieza asíncrona, se anota y se retoma sin pagar otra; sin texto en pantalla | `punta/spy-medidos` (en `main`) | Una búsqueda real que tarde más de 35 s |
+| Que la traída larga no se coma el crédito de Apify | Hecho: lee el crédito del mes, deja US$2 de reserva y usa a lo sumo un cuarto del resto; sin crédito se le dice sólo al admin | `punta/spy-medidos` (en `main`) | La respuesta real de `/v2/users/me/limits` |
+| «Agregar YouTube» con un modal feo y sin búsqueda | Hecho: el mismo buscador, con su nombre y sólo esa red | `punta/spy-ficha-diseno` | — |
+| Volver a todos los competidores, el ⋯ arriba a la derecha | Hecho | `punta/spy-ficha-diseno` | — |
+| La grilla de sus piezas a todo el ancho, sin scroll infinito; un bloque al lado de los formatos | Hecho: por páginas de filas enteras; «Lo que mejor le fue» cierra el riel | `punta/spy-ficha-diseno` | — |
+| Los anuncios dentro de Contenido | Hecho: un formato más del desplegable | `punta/spy-ficha-diseno` | — |
+| La animación al entrar: tarjetas que se acomodan y van al gráfico | Hecho: el mismo gesto del gráfico, saliendo de una grilla ordenada (~1,6 s) | `punta/spy-ficha-diseno` | Mirarla en pantalla |
+| Más rápido; medir antes y después | Hecho en la vista de prueba (3,9 s → 3,2 s hasta el gráfico; 2.369 → 1.664 elementos): números y método en docs/hallazgos-competitors-spy.md | `punta/spy-ficha-diseno` | **Medirlo en producción con Den Borg**: la vista de prueba no tiene el CDN de Meta |
+| Anuncios por su Instagram o el nombre del negocio, verificados | En curso | `punta/spy-anuncios` | — |
+| Funnel: la oferta y el funnel que usa arriba, con evidencia de un catálogo; sus webs con su vista previa y un desplegable de páginas | En curso: el catálogo está en docs/catalogo-funnels-y-formatos.md | `punta/spy-funnel-tipo` | — |
+| El recorrido que señala lo nuevo | Pendiente | — | — |
+
 ### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
 
 Los dos corren en la PC, con la base de producción y la clave de servicio del clon:
