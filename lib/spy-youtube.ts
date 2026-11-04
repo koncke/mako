@@ -95,6 +95,13 @@ export type CanalYoutube = {
   suscriptores: number | null;
   vistasTotales: number | null;
   videos: number | null;
+  /**
+   * La foto del canal (`snippet.thumbnails`), la más grande que haya. Martín, 4/11: «le pongo el link de su canal y
+   * no me trae la foto». Estaba en la misma respuesta de `channels.list` que ya se pagaba, y se tiraba.
+   */
+  foto: string | null;
+  /** Su @ (`snippet.customUrl`, «@victorherasmedia»), o null si no tiene. */
+  handle: string | null;
 };
 
 /** Un video, como lo devuelve `videos.list`. */
@@ -197,8 +204,45 @@ export function leerCanal(status: number, cuerpo: unknown): { ok: true; canal: C
       suscriptores: contadorPublicado(stats.subscriberCount),
       vistasTotales: contadorPublicado(stats.viewCount),
       videos: contadorPublicado(stats.videoCount),
+      foto: mejorMiniatura(snippet.thumbnails, ['high', 'medium', 'default']),
+      handle: /^@[A-Za-z0-9._-]{3,30}$/.test(str(snippet.customUrl)) ? str(snippet.customUrl) : null,
     },
   };
+}
+
+/** La URL https de la miniatura más grande de un `thumbnails` de YouTube, en el orden que se pida. */
+function mejorMiniatura(minis: unknown, orden: readonly string[]): string | null {
+  if (!esObj(minis)) return null;
+  for (const k of orden) {
+    const m = minis[k];
+    const u = esObj(m) ? str(m.url) : '';
+    if (/^https:\/\//.test(u)) return u;
+  }
+  return null;
+}
+
+/** El `?forHandle=` / `?id=` / `?forUsername=` de `channels.list` para lo que apunta a un canal. */
+export const consultaDeCanal = (apunta: NonNullable<Apunta>): Record<string, string> => ('id' in apunta ? { id: apunta.id }
+  : 'handle' in apunta ? { forHandle: `@${apunta.handle}` }
+  : { forUsername: apunta.usuario });
+
+/** El canal al que apunta lo que guarda el alta (`UC…`, `@handle` o `user:x`), o null si no es ninguno. */
+export const apuntaDeRef = (ref: string): NonNullable<Apunta> | null => {
+  const r = (ref ?? '').trim();
+  if (/^UC[A-Za-z0-9_-]{20,}$/.test(r)) return { id: r };
+  if (/^@[A-Za-z0-9._-]{3,30}$/.test(r)) return { handle: r.slice(1) };
+  if (/^user:[A-Za-z0-9._-]{2,40}$/.test(r)) return { usuario: r.slice(5) };
+  return null;
+};
+
+/**
+ * UN canal, sólo para mostrar quién es (nombre, foto, suscriptores): `channels.list` con `snippet,statistics`, 1
+ * unidad. Es lo que necesita la confirmación del alta y la lista del buscador; los videos los lee `traerVideosDelCanal`.
+ */
+export async function leerCanalCorto(apunta: NonNullable<Apunta>, clave: string, buscar: Buscador): Promise<{ ok: true; canal: CanalYoutube } | { ok: false; motivo: MotivoYoutube; detalle: string }> {
+  if (!clave) return { ok: false, motivo: 'sin-clave', detalle: 'No hay clave de la YouTube Data API' };
+  const r = await traer(buscar, 'channels', { part: 'snippet,statistics', ...consultaDeCanal(apunta) }, clave);
+  return leerCanal(r.status, r.cuerpo);
 }
 
 /** El token de la página siguiente de `playlistItems.list`, o null si era la última. */
@@ -304,10 +348,7 @@ export async function traerVideosDelCanal(
   const quiere = Math.max(1, Math.min(cuantos, TOPES.piezasPorVuelta));
 
   // 1. El canal: 1 unidad. `forHandle`/`forUsername` en vez de `search.list`.
-  const porQue: Record<string, string> = 'id' in apunta ? { id: apunta.id }
-    : 'handle' in apunta ? { forHandle: `@${apunta.handle}` }
-    : { forUsername: apunta.usuario };
-  const uno = await traer(buscar, 'channels', { part: 'snippet,statistics,contentDetails', ...porQue }, clave);
+  const uno = await traer(buscar, 'channels', { part: 'snippet,statistics,contentDetails', ...consultaDeCanal(apunta) }, clave);
   const canal = leerCanal(uno.status, uno.cuerpo);
   if (!canal.ok) return canal;
   if (!canal.canal.subidas) {
