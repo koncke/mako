@@ -224,7 +224,7 @@ Todas las referencias están medidas (capturas a 1440 y 390, `valores.json`, los
 | Hoja | Referencia | Estado |
 |---|---|---|
 | **Closing** | Halden | **Se ofrece.** En producción desde el 4/11 (copia: `docs/diseno/mockups-dashboard/closing/`) |
-| **Cobranza** | Coffer | En curso: la copia exacta y la maqueta de MaKo hechas (`docs/diseno/mockups-dashboard/cobranza/`), falta el componente |
+| **Cobranza** | Coffer | **Se ofrece** desde el 4/11 (copia: `docs/diseno/mockups-dashboard/cobranza/`; el componente, `app/dashboard/disenos/HojaCobranza.tsx`) |
 | **Focus** | Pane · Lumora | Las dos maquetas del 1/11 (`focus-pane.html`, `focus-lumora.html`): falta la copia exacta y el componente de cada una |
 | **General** | Orvel · Corbel | Por copiar |
 | **Operación diaria** | Moorly · Torque | Por copiar |

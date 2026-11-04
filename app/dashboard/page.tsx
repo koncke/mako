@@ -171,9 +171,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   // La hoja Closing con DISEÑO PROPIO (la copia de Halden, app/dashboard/disenos/HojaClosing.tsx) lee además la agenda
   // del CRM (las llamadas que vienen) y quién mira (el saludo). La agenda nombra leads: NO para el closer ni el setter
   // (`unica`, su hoja sin los leads); el saludo sí.
-  const hayDisenoClosing = !sinPaginas && (tablero.hojas.some((h) => h.diseno?.id === 'closing') || agregar?.diseno?.id === 'closing');
+  const hayDiseno = (id: string) => !sinPaginas && (tablero.hojas.some((h) => h.diseno?.id === id) || agregar?.diseno?.id === id);
+  const hayDisenoClosing = hayDiseno('closing');
+  // La de Cobranza (la copia de Coffer, app/dashboard/disenos/HojaCobranza.tsx) saluda a quien mira, como Coffer.
+  const hayDisenoCobranza = hayDiseno('cobranza');
   const agendaClosing = hayDisenoClosing && !unica ? agendaParaElClosing(hoy) : Promise.resolve(null);
-  const quienClosing = hayDisenoClosing
+  const quienClosing = hayDisenoClosing || hayDisenoCobranza
     ? variablesDeQuienMira().then((q) => ({ saludo: q.saludo ?? 'Hola', nombre: q.nombre ?? '', fecha: q.fecha ?? '' })).catch(() => null)
     : Promise.resolve(null);
   const [datos, senalesNegocio, closing, caida, agenda, quien] = await Promise.all([
@@ -207,7 +210,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         plantillasInicial={plantillas && !unica}
         avisoClosing={avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida))}
         accionClosing={accionDeLaHojaClosing(closing)}
-        disenos={hayDisenoClosing ? { closing: { agenda, quien } } : null}
+        disenos={hayDisenoClosing || hayDisenoCobranza ? { closing: hayDisenoClosing ? { agenda, quien } : null, cobranza: hayDisenoCobranza ? { quien } : null } : null}
       />
     </Pagina>
   );

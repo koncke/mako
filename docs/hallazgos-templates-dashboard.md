@@ -284,6 +284,19 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
   meses. Y el test pasaba porque le daba ISO: **un test se arma con la forma que da el agregador, no con la que espera el lector.**
 - **Lo que se ofrece se deriva del dato** (`esPlantillaOfrecida`: trae su diseño), no de una lista: lo viejo sigue para quien lo tiene.
 
+## 15. Cobranza: un nombre de archivo que engaña y un chequeo de tipos que no terminó (4/11/2026, chat en la nube)
+
+- **`lib/graficos-plantillas-generales.ts` NO es General.** Sus plantillas («las del resto de MaKo, una por área») entran a
+  `PLANTILLAS_HOJA`, o sea al DASHBOARD; las de General son `lib/general-plantillas.ts`. Se enchufó el saludo de Cobranza en
+  `FocusDeGeneral.tsx` y el test lo cazó buscando la plantilla en `PLANTILLAS_GENERAL` (`undefined`). Antes de montar el diseño de una hoja,
+  `grep -n "PLANTILLAS_GENERALES" lib/graficos-plantillas.ts` dice de qué informe es. **Vive en:** app/dashboard/page.tsx (el saludo de las dos hojas con diseño).
+- **«NO SE PUDO CHEQUEAR (código undefined)» de `scripts/tsc-acotado.mjs` era el tope de heap, no un rojo:** con `EditorInforme.tsx` adentro
+  arrastra media app y no entra en los 2560 MB por defecto. En la nube (15 GB libres, sin otros chats) se corre con `--heap=6000` y da verde.
+  En la PC compartida no se sube a ojo: ahí manda el lock. **Vive en:** scripts/tsc-acotado.mjs.
+- **Copiar un `<a>` de la maqueta como `<button>`** (las filas que abren su cuota) trae `text-align: center`: las clases de esas filas llevan
+  `text-align:left` (la regla de AGENTS.md, «Cambiar la ETIQUETA de un elemento»). Y donde no hay a dónde ir (la pieza no está), va un `div`: un
+  botón que no hace nada se lee como roto. **Vive en:** app/dashboard/disenos/HojaCobranza.tsx (`Toque`).
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

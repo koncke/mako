@@ -20,7 +20,8 @@ test('se ofrece exactamente la plantilla que trae su diseño propio, y ninguna o
     assert.equal(esPlantillaOfrecida(p), conDiseno, `${p.id}: ${conDiseno ? 'trae diseño y no se ofrece' : 'se ofrece sin diseño'}`);
   }
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'closing'), 'Closing (la copia de Halden) se ofrece');
-  for (const viejo of ['marketing', 'comercial', 'cobranza', 'ads-analyst']) assert.ok(!PLANTILLAS_OFRECIDAS.some((p) => p.id === viejo), `${viejo} ya no se ofrece`);
+  assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'cobranza'), 'Cobranza (la copia de Coffer) se ofrece');
+  for (const viejo of ['marketing', 'comercial', 'ads-analyst']) assert.ok(!PLANTILLAS_OFRECIDAS.some((p) => p.id === viejo), `${viejo} ya no se ofrece`);
   assert.ok(PLANTILLAS_GENERAL_OFRECIDAS.every((p) => !!instanciarPlantilla(p).diseno));
 });
 
