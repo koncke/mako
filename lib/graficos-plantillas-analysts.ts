@@ -435,18 +435,35 @@ const CHAT: PlantillaHoja = {
     componentes: [
       // COMPOSICIÓN DEL 31/10/2026 (14 piezas → 8): cuánto entra, qué tan rápido, cuánto espera. «Esperando» queda `numero`: su
       // fecha es `actual`, sin rango. La caja de MaKo va al pie: nace sin correr, y arriba tapaba la pregunta.
-      kpi(id('ch-recibidos'), 'whatsapp', 'recibidos', 'Recibidos', '', 0, 0, { tipo: 'numero_tendencia', comparar: true, invertida: true }),
-      kpi(id('ch-chats'), 'whatsapp', 'chats', 'Chats', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('ch-rapidos'), 'conversaciones', 'pct_rapidos', 'Respondidos en 15 min', '', 6, 4),
-      kpi(id('ch-mediana'), 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('ch-esperando'), 'conversaciones', 'sin_responder', 'Esperando', '', 9, 0, { fecha: 'actual' }),
+      // 4/11/2026 — PARLEY · TEND (docs/templates-dashboard-propuesta.md §7.3): «¿cuánto tardamos en contestar y eso cierra?». Parley
+      // abre con la frase de cuántas veces te escribieron y cuántas respondiste; el ancla es el tiempo de respuesta. Tend pone ese
+      // tiempo por día y lo que rinden las automatizaciones. ⚠️ El setter ve ESTA hoja (HOJA_DE_ROL): todo sale de los chats, los
+      // envíos y las personas en automatizaciones, nunca de los leads ni la plata.
+      {
+        id: id('ch-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'conversaciones', metricas: ['turnos', 'pct_respondidos'], comparar: true,
+        titulo: 'Tus chats', frase: 'Te escribieron {turnos} veces · respondiste el {pct_respondidos} · {pct_respondidos:cambio} que el período anterior',
+        ir: 'chats', x: 0, y: 0, w: 12, h: 3,
+      },
+      kpi(id('ch-mediana'), 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta', '', 0, 3, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('ch-recibidos'), 'whatsapp', 'recibidos', 'Recibidos', '', 3, 3, { tipo: 'numero_tendencia', comparar: true }),
+      kpi(id('ch-chats'), 'whatsapp', 'chats', 'Chats', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('ch-esperando'), 'conversaciones', 'sin_responder', 'Esperando', '', 9, 3, { fecha: 'actual', ir: 'chats' }),
+      kpi(id('ch-rapidos'), 'conversaciones', 'pct_rapidos', 'Respondidos en 15 min', '', 0, 7),
       {
         id: id('ch-por-dia'), clase: 'grafico', tipo: 'serie', fuente: 'whatsapp', dimension: 'dia', metricas: ['recibidos', 'enviados'], titulo: 'Mensajes por día',
-        x: 0, y: 8, w: 12, h: 8, controles: [{ id: id('ch-por-dia-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
+        x: 0, y: 11, w: 12, h: 8, controles: [{ id: id('ch-por-dia-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
-      { id: id('ch-setters'), clase: 'grafico', tipo: 'barras', fuente: 'conversaciones', dimension: 'setter', metricas: ['turnos', 'pct_rapidos'], titulo: 'Por setter', x: 0, y: 16, w: 6, h: 8 },
-      { id: id('ch-lineas'), clase: 'grafico', tipo: 'columnas_apiladas', fuente: 'whatsapp', dimension: 'linea', desglose: 'direccion', metricas: ['mensajes'], titulo: 'Por línea', x: 6, y: 16, w: 6, h: 8 },
-      caja(id('ch-ia'), 'Dónde se enfría el chat', 'En qué momento se enfrían las conversaciones y qué responder mejor', 0, 24, 12, 7),
+      { id: id('ch-setters'), clase: 'grafico', tipo: 'barras', fuente: 'conversaciones', dimension: 'setter', metricas: ['turnos', 'pct_rapidos'], titulo: 'Por setter', x: 0, y: 19, w: 6, h: 8 },
+      { id: id('ch-lineas'), clase: 'grafico', tipo: 'columnas_apiladas', fuente: 'whatsapp', dimension: 'linea', desglose: 'direccion', metricas: ['mensajes'], titulo: 'Por línea', x: 6, y: 19, w: 6, h: 8 },
+      {
+        id: id('ch-rapidos-dia'), clase: 'grafico', tipo: 'serie', fuente: 'conversaciones', dimension: 'dia', metricas: ['pct_rapidos'],
+        titulo: 'Respondidos en 15 min, por día', x: 0, y: 27, w: 6, h: 8,
+      },
+      {
+        id: id('ch-automatizaciones'), clase: 'grafico', tipo: 'barras', fuente: 'inscripciones', fecha: 'alta', dimension: 'automatizacion', metricas: ['tasa_respuesta'],
+        ordenMetrica: 'tasa_respuesta', limite: 8, titulo: 'Te contestan, por automatización', ir: 'automations', x: 6, y: 27, w: 6, h: 8,
+      },
+      caja(id('ch-ia'), 'Dónde se enfría el chat', 'En qué momento se enfrían las conversaciones y qué responder mejor', 0, 35, 12, 7),
     ],
   }),
 };
