@@ -201,8 +201,13 @@ que poder mirar. Se escribe APARTE del mensaje y sin tirar: si fuera en el upser
 mensaje. **La duda sigue abierta:** con el próximo toque de un DM viejo, mirar esa columna. Hasta entonces, «era un payload ajeno»
 es lo que se dedujo, no lo que se vio.
 
-**Sin hacer:** las ocho inscripciones de @leantejado siguen en «respondió»: «Volver a probar» en su ficha las suelta. Un dato que
-rompió un bug nuestro se repara al desplegarse el arreglo (lib/nutricion.ts, el toque del #33).
+**Los datos que rompió, reparados (30/10/2026 17:19, con el arreglo ya desplegado y el «dale» del Cerebro):** ningún camino de
+la app saca una inscripción de «respondió» a como estaba («Volver a probar» sólo marca el desenlace y la deja en
+'respondio'; «Empezar de nuevo» le MANDA el primer DM; «Frenar» cancela). La pausa sólo había escrito `estado` y `updated_at`,
+así que se volvió SÓLO `estado`, en una transacción con compare-and-set contra el `updated_at` del bug: 703 a 707 a 'activa'
+(paradas en nlcjml0, sin próximo envío: esperan el toque y no les sale nada) y 660, 708 y 709 a 'completada'. Las 8 tocadas,
+con una línea en el historial del lead; después, ningún envío ni borrador. Para la próxima: si una pausa por error vuelve a
+pasar, es la misma reparación (medir que nada se movió, y devolver sólo `estado`).
 
 ## Elegir la publicación o el Reel del CRON de comentario (29/10/2026, ticket #25 de Leandro)
 
