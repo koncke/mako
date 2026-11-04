@@ -12,6 +12,8 @@
 import { puerta } from '@/lib/image-editor/server';
 import { borrarBusqueda, guardarBusqueda, guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { crearCarruselDesdeReferencia } from '@/lib/carruseles/crear-servidor';
+import { bibliotecaParaEditar, cambiarBiblioteca, puedeEditarBiblioteca, type BibliotecaParaEditar } from '@/lib/carruseles/biblioteca-servidor';
+import type { CambioBiblioteca } from '@/lib/carruseles/biblioteca';
 import { ordenarCarruseles, tendenciasDeLaSemana, type BusquedaGuardada, type Carrusel, type PasoExplorador } from '@/lib/carruseles/explorar';
 
 type Mal = { ok: false; error: string };
@@ -63,4 +65,32 @@ export async function resumenCarruselesAction(): Promise<
   const semana = tendenciasDeLaSemana(visibles, 6);
   const carruseles = semana.length >= 3 ? semana : ordenarCarruseles(visibles, 'outlier').slice(0, 6);
   return { ok: true, paso: r.paso, frase: r.frase, accion: r.accion, carruseles, semana: semana.length >= 3, total: visibles.length };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La biblioteca de ejemplos (lib/carruseles/biblioteca-servidor.ts): la edita el admin del negocio de la plataforma
+// ─────────────────────────────────────────────────────────────────────────────
+
+const NO_PUEDE: Mal = { ok: false, error: 'La biblioteca de ejemplos la edita la plataforma.' };
+
+/** Lo que ve la plataforma para editar la biblioteca: la lista, los que salieron y los temas. */
+export async function bibliotecaParaEditarAction(): Promise<{ ok: true; biblioteca: BibliotecaParaEditar | null } | Mal> {
+  if ((await puerta()) instanceof Response) return NO_ENTRA;
+  if (!(await puedeEditarBiblioteca())) return NO_PUEDE;
+  try {
+    return { ok: true, biblioteca: await bibliotecaParaEditar() };
+  } catch {
+    return { ok: false, error: 'No pude leer la biblioteca. Vuelve a intentar.' };
+  }
+}
+
+/** Suma, saca o vuelve a sumar un creador o un tema de la biblioteca. */
+export async function cambiarBibliotecaAction(pedido: CambioBiblioteca): Promise<{ ok: true; ya?: string; biblioteca: BibliotecaParaEditar | null } | Mal> {
+  const p = await puerta();
+  if (p instanceof Response) return NO_ENTRA;
+  if (!(await puedeEditarBiblioteca())) return NO_PUEDE;
+  const r = await cambiarBiblioteca(pedido, p.quien);
+  if (!r.ok) return { ok: false, error: r.error };
+  const biblioteca = await bibliotecaParaEditar().catch(() => null);
+  return { ok: true, ...(r.ya ? { ya: r.ya } : {}), biblioteca };
 }

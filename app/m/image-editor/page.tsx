@@ -35,7 +35,7 @@ export default async function ImageEditorPagina({ searchParams }: { searchParams
       <PantallaM>
         {e && e.ok
           ? <ExplorarCarruseles telefono filtrosIniciales={filtrosDeQuery(q)}
-            datos={{ carruseles: e.carruseles, guardados: e.guardados.map((g) => g.id), busquedas: e.busquedas, paso: e.paso, frase: e.frase, accion: e.accion }} />
+            datos={{ carruseles: e.carruseles, guardados: e.guardados.map((g) => g.id), busquedas: e.busquedas, paso: e.paso, frase: e.frase, accion: e.accion, ejemplos: e.ejemplos, avisoBiblioteca: e.avisoBiblioteca }} />
           : <ErrorM frase="No pude leer los carruseles de las cuentas que sigues. Es un problema nuestro: vuelve a intentar." />}
       </PantallaM>
     );

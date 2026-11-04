@@ -766,3 +766,48 @@ un negocio de verdad (el banco usa datos inventados); y la 0391 sin aplicar.
 **Lo que quedó SIN hacer:** que MaKo escriba el texto de cada lámina con los datos del negocio (hoy son guías); «Hacer el mío» y
 «Ver ejemplo» en el teléfono (allí se crea con la plantilla, sin el diálogo); y mirar las fuentes del documento abierto en el
 editor de verdad (el banco dibuja la miniatura, no el lienzo de Doory).
+
+## La biblioteca de ejemplos: lo de todos al lado de lo de cada uno, sin pisarse (4/11/2026, nube)
+
+**Vive en:** `lib/carruseles/biblioteca.ts` (puro), `lib/carruseles/biblioteca-servidor.ts`, `scripts/carruseles-biblioteca.mts`,
+`supabase/migrations/0392_carruseles_biblioteca.sql`, `app/image-editor/carruseles/EditarBiblioteca.tsx`.
+
+- **Los ids de la biblioteca van en NEGATIVO** (`idDeBiblioteca`). El explorador ya usaba el id de `spy_piezas` para los
+  guardados del negocio, «Hacer el mío», el filtro por cuenta (`?de=`) y la API: en negativo, todo eso sigue con UN número sin
+  chocar. Costó dos cambios que no se ven: `sanearGuardados` tiraba los ids `<= 0` y `filtrosDeQuery` también; ahora sólo el
+  cero (que no es ninguno). Un test de cada lado.
+- **El outlier, sólo de las cuentas de la LISTA.** De un tema se leen publicaciones sueltas de cientos de cuentas: no hay
+  mediana de su cuenta, y lo que no se midió no se dice (`outlier: null`, al final del orden por outlier, nunca como cero).
+  Las de la lista se leen enteras y llevan el mismo cálculo de Spy, por eso de ellas se guardan también las imágenes sueltas.
+- **La biblioteca NO necesita la 0391.** El Cerebro creía que sí (para saber cuáles son carruseles y sus láminas): esas columnas
+  son de `spy_piezas`, y la biblioteca guarda `medio` y `laminas` en su propia tabla, al leer. El script lo dice en `estado`.
+- **La clave de Apify es la de Spy, y Spy la sigue usando.** El techo de la corrida es el menor entre lo pedido y lo que deja
+  libre el crédito del mes por encima de `RESERVA_CREDITO_USD` (US$2): con el plan gratis de US$5 y US$1,80 usados, una corrida
+  pedida de US$2 gasta como mucho US$1,20. Sin poder leer el crédito, no se gasta (`techoConCredito` → null). Cada corrida
+  lleva además su `maxTotalChargeUsd`.
+- **El texto vence a los 30 días (`podarVencido`), el tipo y el cierre no:** se clasifican AL GUARDAR (`formatoPorTexto`,
+  `cierreDeTexto`) y quedan en sus columnas.
+- **Sacar a un creador es UNA fila** (`estado = 'excluida'`, con el motivo), valga para la lista o para los temas. Sacar a uno
+  que todavía no está lo anota fuera igual (puede llegar por un tema mañana), y un «sumar» no lo vuelve a meter: hace falta
+  «Volver a sumar» a propósito (`decidirCambio`).
+- **La misma publicación sale UNA vez.** En la base, por `ref` (único); en el explorador, si el negocio sigue en Spy a alguien
+  que también está en la biblioteca, queda la del negocio (`unirConBiblioteca`, por el link sin `?` ni barra final).
+- **El @ de los referentes del Ops Center no está en el repo y no se inventa:** `buscar` del script los busca por nombre en
+  Instagram y lista candidatos; el bueno lo suma una persona con `sumar … --referente <id>`.
+- **En la consola, una palabra que empieza con `#` es un comentario:** `--solo #ventas` le llega al script como `--solo` sin
+  nada. Los comandos del relevo llevan el `#` entre comillas.
+- **Una lectura con tope corta por las VIEJAS si se ordena por id ascendente:** la primera versión leía de a tandas de cuentas y
+  `orden: 'id'`, así que con la biblioteca grande lo nuevo no entraba nunca. Ahora lee de la más nueva a la más vieja (hasta
+  4.000), una vez cada 2 minutos por proceso (es la misma para todos los negocios); los creadores se leen SIEMPRE, así uno que
+  salió deja de verse en el acto. Y al navegador viajan como mucho 800 (`recortarBiblioteca`): sólo carruseles, primero lo de
+  los últimos 14 días y después lo que mejor rindió.
+- **En la tarjeta, «Biblioteca» se cortaba en «Bi…»** al lado del tipo («List…»): va un ícono con su `aria-label` y su `title`.
+  Y los creadores de los temas pueden ser cientos: «Cuentas» muestra los 12 que más tienen y «Ver todos».
+- **Global a propósito** (como `spy_lecturas_canal`): sin `workspace_id`, fuera de `TENANT_TABLES`, RLS prendida sin políticas y
+  el `revoke` también sobre las secuencias. Ningún negocio escribe ahí: la puerta es `puedeEditarBiblioteca` (admin del negocio
+  de la plataforma), en la pantalla, la acción y la API, y `cambiar_biblioteca_carruseles` va en `NO_EN_FLUJOS`.
+
+**Lo que quedó SIN hacer:** correr la primera carga (la nube no llega a Apify ni a la base: el comando está en
+`docs/relevo/nube-carruseles.md`); sumar los @ de los referentes del Ops Center (salen de `buscar`); y las miniaturas que no se
+pudieron bajar en una corrida (por el tiempo de `guardarMiniaturas`) se quedan con la del CDN de Instagram, que vence, hasta la
+próxima lectura de esa fuente (una semana después).

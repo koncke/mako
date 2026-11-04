@@ -93,6 +93,7 @@
 .numeros { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; min-width: 0; font-size: 12.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .formato { padding: 1px 8px; border-radius: 999px; background: var(--surface-2); color: var(--dim); font-size: 11.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .numeros > span:not(.formato) { flex: none; }
+.deBiblio { width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; background: var(--surface-2); color: var(--dim); }
 .original { margin-left: auto; width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: var(--dim); text-decoration: none; flex: none; }
 .original:hover { color: var(--ink); background: var(--velo-hover); }
 .original:focus-visible { outline: none; box-shadow: var(--focus-ring); }
@@ -124,3 +125,31 @@
   .usar { height: 32px; font-size: 12.5px; left: 6px; right: 6px; bottom: 6px; }
   .cuentaFila { flex-wrap: wrap; }
 }
+
+/* ── La biblioteca de ejemplos (4/11/2026): la línea de lo que falta, los títulos de «Cuentas» y el panel de la plataforma ── */
+.nota { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; padding: 9px 12px; border-radius: 10px; background: var(--surface-2); color: var(--dim); font-size: 13px; line-height: 1.45; }
+.nota a { color: var(--primary); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.nota a:hover { text-decoration: underline; }
+.subtitulo { margin: 6px 0 0; font-size: 15px; font-weight: 650; color: var(--ink); }
+.subtitulo2 { margin: 8px 0 0; font-size: 13.5px; font-weight: 650; color: var(--ink); }
+.cuentaFila[data-fuera="si"] .cuentaNombre strong { color: var(--dim); text-decoration: line-through; }
+.textoPeligro { border: 0; background: transparent; color: var(--bad); font: inherit; font-size: 13px; font-weight: 550; cursor: pointer; padding: 6px 6px; border-radius: 8px; white-space: nowrap; }
+.textoPeligro:hover { background: var(--velo-hover); }
+.textoPeligro:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.editar { width: 100%; display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-sizing: border-box; }
+.editar ul { border-radius: 12px; }
+.formulario { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.formulario input { flex: 1 1 160px; min-width: 0; height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; }
+.formulario input:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.formulario .boton:disabled, .botonPeligro:disabled { opacity: .55; cursor: default; }
+.botonPeligro { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 10px; border: 0; background: var(--bad); color: #fff; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.botonPeligro:hover { filter: brightness(.95); }
+.botonPeligro:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.esqueletoLista { display: flex; flex-direction: column; gap: 8px; }
+.esqueletoLista span { height: 44px; border-radius: 10px; background: var(--surface-2); animation: mk-respira 1.2s ease-in-out infinite alternate; }
+@keyframes mk-respira { from { opacity: .55; } to { opacity: 1; } }
+.motivo { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.motivo label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--dim); }
+.motivo input { height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; }
+.motivo input:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.falta { color: var(--bad, #b42318); font-size: 12.5px; }

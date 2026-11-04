@@ -15,9 +15,11 @@
 
 import type { OperacionDef, Gating } from '../tipos';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
-import { IDS_TIPO_CARRUSEL, ORDENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL } from '@/lib/carruseles/opciones';
+import { IDS_TIPO_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL } from '@/lib/carruseles/opciones';
 
 const GATING: Gating = { tab: 'image-editor', rolMinimo: 'admin' };
+/** La biblioteca de ejemplos la edita el admin del negocio de la plataforma (lib/carruseles/biblioteca-servidor.ts). */
+const GATING_PLATAFORMA: Gating = { tab: 'image-editor', rolMinimo: 'admin', soloPlataforma: true };
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 /**
  * Los carruseles que funcionan (4/11/2026) salen de Competitors Spy: dicen a QUIÉN sigue el negocio. Mismo criterio que el
@@ -112,13 +114,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'buscar_carruseles', area: 'imagen', tipo: 'lectura',
     titulo: 'Buscar carruseles que funcionan',
-    descripcion: 'Los carruseles públicos de las cuentas que el negocio sigue en Competitors Spy, con su creador, el link a la publicación original y su outlier (cuántas veces la mediana de su cuenta). Busca por tema o por @cuenta, con filtros y orden. Son referencias: no se copian.',
+    descripcion: 'Los carruseles públicos de las cuentas que el negocio sigue en Competitors Spy y de la biblioteca de ejemplos, con su creador, el link al original y su outlier (cuántas veces la mediana de su cuenta). Busca por tema o por @cuenta. Son referencias: no se copian.',
     parametros: [
       { nombre: 'buscar', tipo: 'string', max: 120, descripcion: 'Palabras del tema, o un @cuenta.' },
       { nombre: 'outlierMinimo', tipo: 'number', minimo: 0, maximo: 10, descripcion: `El piso del outlier (2 = el doble de lo típico de su cuenta). Se redondea a uno de: ${OUTLIER_MINIMOS.join(', ')}.` },
       { nombre: 'periodo', tipo: 'string', enum: PERIODOS_CARRUSEL.map((x) => x.value), descripcion: 'Publicados en los últimos N días, o cuando sea.' },
       { nombre: 'orden', tipo: 'string', enum: ORDENES_CARRUSEL.map((x) => x.value), descripcion: 'outlier (por defecto), nuevos, viejos, interaccion o traidos.' },
       { nombre: 'vista', tipo: 'string', enum: VISTAS_CARRUSEL.map((x) => x.value), descripcion: 'todos, semana (lo de esta semana) o guardados.' },
+      { nombre: 'origen', tipo: 'string', enum: ORIGENES_CARRUSEL.map((x) => x.value), descripcion: 'cuentas (las que sigue), biblioteca (los ejemplos) o todos.' },
       { nombre: 'tope', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'Cuántos devolver (10 por defecto).' },
     ],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: GATING,
@@ -128,7 +131,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Guardar un carrusel como referencia',
     descripcion: 'Guarda (o saca) un carrusel de buscar_carruseles en las referencias guardadas del negocio.',
     parametros: [
-      { nombre: 'carruselId', tipo: 'number', entero: true, obligatorio: true, minimo: 1, descripcion: 'El id que dio buscar_carruseles.' },
+      { nombre: 'carruselId', tipo: 'number', entero: true, obligatorio: true, descripcion: 'El id que dio buscar_carruseles (negativo = de la biblioteca).' },
       { nombre: 'guardar', tipo: 'boolean', descripcion: 'false = sacarlo de los guardados. Por defecto, guardarlo.' },
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: GATING,
@@ -140,12 +143,35 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Crear un carrusel desde una referencia',
     descripcion: 'Crea un diseño nuevo con la ESTRUCTURA de un carrusel de buscar_carruseles (tipo, láminas, con qué abre y qué pide al final), nunca sus palabras: cada lámina trae una guía.',
     parametros: [
-      { nombre: 'carruselId', tipo: 'number', entero: true, obligatorio: true, minimo: 1, descripcion: 'El id que dio buscar_carruseles.' },
+      { nombre: 'carruselId', tipo: 'number', entero: true, obligatorio: true, descripcion: 'El id que dio buscar_carruseles (negativo = de la biblioteca).' },
       { nombre: 'tipo', tipo: 'string', enum: [...IDS_TIPO_CARRUSEL], descripcion: 'Sin esto, el que se entendió de la referencia. Si no encaja con ninguno, pregúntalo.' },
       { nombre: 'laminas', tipo: 'number', entero: true, minimo: 3, maximo: 12, descripcion: 'Sin esto, las de la referencia (dentro del rango del tipo).' },
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: GATING,
     reversible: true,
     escribe: 'insert en image_disenos',
+  },
+  // ── La biblioteca de ejemplos (4/11/2026): la edita sólo el negocio de la plataforma; la ven todos. ──
+  {
+    id: 'ver_biblioteca_carruseles', area: 'imagen', tipo: 'lectura',
+    titulo: 'Ver la biblioteca de ejemplos',
+    descripcion: 'Sólo la plataforma: las cuentas de la lista (y las que salieron, con su motivo), los temas (hashtags) y cuántas publicaciones trajo cada uno.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: GATING_PLATAFORMA,
+  },
+  {
+    id: 'cambiar_biblioteca_carruseles', area: 'imagen', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar la biblioteca de ejemplos',
+    descripcion: 'Sólo la plataforma: suma, saca o vuelve a sumar una cuenta (@) o un tema (#). Sacar una cuenta («lo pidió») borra sus publicaciones de todos los negocios.',
+    parametros: [
+      { nombre: 'que', tipo: 'string', enum: ['cuenta', 'tema'], obligatorio: true, descripcion: 'cuenta (un @) o tema (un #).' },
+      { nombre: 'accion', tipo: 'string', enum: ['sumar', 'sacar', 'volver'], obligatorio: true, descripcion: 'sumar, sacar o volver a sumar.' },
+      { nombre: 'valor', tipo: 'string', obligatorio: true, max: 80, descripcion: 'El @usuario o el #hashtag.' },
+      { nombre: 'nombre', tipo: 'string', max: 120, descripcion: 'Al sumar: cómo se lo nombra.' },
+      { nombre: 'motivo', tipo: 'string', max: 300, descripcion: 'Al sacar una cuenta: por qué (por ejemplo, «lo pidió»).' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: GATING_PLATAFORMA,
+    reversible: true,
+    escribe: 'carruseles_biblioteca_cuentas / _temas (y borra las publicaciones de una cuenta que sale)',
   },
 ];

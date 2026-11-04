@@ -50,7 +50,8 @@ export function FranjaCarruseles() {
       </p>
     );
   }
-  if (r.paso !== 'listo' || r.carruseles.length === 0) {
+  // Con la biblioteca de ejemplos hay carruseles aunque el negocio todavía no siga a nadie: la franja se ve igual.
+  if (r.carruseles.length === 0) {
     if (oculta) return null;
     return (
       <div className={s.linea}>

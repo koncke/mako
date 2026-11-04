@@ -16,6 +16,7 @@ import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { filtrosDeQuery } from '@/lib/carruseles/explorar';
 import { nombreDelNegocio } from '@/lib/carruseles/marca';
+import { puedeEditarBiblioteca } from '@/lib/carruseles/biblioteca-servidor';
 import { requireEditorImagen } from './acceso';
 import { ImageEditorCliente } from './ImageEditorCliente';
 
@@ -27,12 +28,21 @@ export default async function ImageEditorPage({ searchParams }: { searchParams: 
   const ws = await getWorkspaceActual();
   const q = await searchParams;
   const carruseles = (Array.isArray(q.ver) ? q.ver[0] : q.ver) === 'carruseles';
-  const [explorador, negocio] = await Promise.all([carruseles ? leerExplorador() : null, nombreDelNegocio(ws)]);
+  const [explorador, negocio, editaBiblioteca] = await Promise.all([
+    carruseles ? leerExplorador() : null, nombreDelNegocio(ws), carruseles ? puedeEditarBiblioteca().catch(() => false) : false,
+  ]);
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
       <ImageEditorCliente vista={carruseles ? 'carruseles' : 'inicio'} ws={ws} negocio={negocio}
         explorador={explorador && explorador.ok
-          ? { datos: { carruseles: explorador.carruseles, guardados: explorador.guardados.map((g) => g.id), busquedas: explorador.busquedas, paso: explorador.paso, frase: explorador.frase, accion: explorador.accion }, filtros: filtrosDeQuery(q) }
+          ? {
+            datos: {
+              carruseles: explorador.carruseles, guardados: explorador.guardados.map((g) => g.id), busquedas: explorador.busquedas,
+              paso: explorador.paso, frase: explorador.frase, accion: explorador.accion,
+              ejemplos: explorador.ejemplos, avisoBiblioteca: explorador.avisoBiblioteca, puedeEditarBiblioteca: editaBiblioteca,
+            },
+            filtros: filtrosDeQuery(q),
+          }
           : explorador ? { error: true } : null} />
     </Pagina>
   );

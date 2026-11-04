@@ -7,6 +7,9 @@
 //   · `conImagenes` por defecto en true → 2 rojos (lo que se sabe que es una foto suelta no es un carrusel, y la URL inicial);
 //   · `ordenarCarruseles` sin mandar al final lo que no tiene número → 1 rojo (no se afirma un cero);
 //   · `conGuardado` que repite al guardar dos veces → 1 rojo (idempotente).
+// Y la biblioteca de ejemplos (4/11/2026), base 11/0:
+//   · el filtro «De dónde» que no mira el origen → 1 rojo;
+//   · `sanearGuardados` que tira los ids en negativo (los de la biblioteca) → 1 rojo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -59,7 +62,7 @@ test('el outlier es el de Spy: por CUENTA y contra su mediana, no contra todas j
 
 const c = (p: Partial<Carrusel>): Carrusel => ({
   id: ++n, competidorId: 1, creador: { nombre: 'Estudio Lumen', usuario: 'estudio.lumen', foto: null }, url: null, miniatura: null,
-  texto: null, gancho: null, tipoGancho: null, cierre: null, formato: '', medio: 'carrusel', laminas: 6, megusta: 100, comentarios: 10, publicada: dia(3), traida: dia(2), outlier: 1, ...p,
+  texto: null, gancho: null, tipoGancho: null, cierre: null, formato: '', medio: 'carrusel', laminas: 6, megusta: 100, comentarios: 10, publicada: dia(3), traida: dia(2), outlier: 1, origen: 'cuentas', ...p,
 });
 
 test('la búsqueda: con @ es por creador; sin @, TODAS las palabras, sin tildes', () => {
@@ -86,6 +89,12 @@ test('los filtros: piso de outlier, sin imágenes sueltas por defecto, esta sema
   assert.ok(!ids(con({ vista: 'semana' })).includes(todos[5].id), 'esta semana = publicado en los últimos 7 días');
   assert.deepEqual(ids(con({ vista: 'guardados' }, [todos[1].id])), [todos[1].id]);
   assert.deepEqual(ids(con({ largo: 'largos' })), [todos[0].id], 'sin láminas sabidas no entra a un filtro de largo');
+  const ej = c({ origen: 'biblioteca', outlier: null });
+  const mix = [todos[0], ej];
+  const deDonde = (origen: typeof FILTROS_INICIALES.origen) => ids(filtrarCarruseles(mix, { ...FILTROS_INICIALES, origen }, new Set(), AHORA));
+  assert.deepEqual(deDonde('todos'), [todos[0].id, ej.id], 'por defecto, lo de las cuentas Y la biblioteca');
+  assert.deepEqual(deDonde('cuentas'), [todos[0].id]);
+  assert.deepEqual(deDonde('biblioteca'), [ej.id]);
 });
 
 test('el orden: lo que no tiene el número va al final, nunca como un cero; «Más viejos» al revés', () => {
@@ -104,12 +113,12 @@ test('las tendencias de la semana: lo de los últimos 7 días por outlier, con t
 });
 
 test('los filtros viajan en la URL y vuelven iguales; lo que no se entiende vuelve al inicial', () => {
-  const f = { ...FILTROS_INICIALES, q: '@lumen', creadores: [3, 4], outlierMin: 2, periodo: '30' as const, largo: 'medios' as const, formato: 'tutorial' as const, conImagenes: true, orden: 'nuevos' as const, vista: 'semana' as const };
+  const f = { ...FILTROS_INICIALES, q: '@lumen', creadores: [3, -4], origen: 'biblioteca' as const, outlierMin: 2, periodo: '30' as const, largo: 'medios' as const, formato: 'tutorial' as const, conImagenes: true, orden: 'nuevos' as const, vista: 'semana' as const };
   const q = queryDeFiltros(f);
   assert.deepEqual(filtrosDeQuery(new URLSearchParams(q)), f);
   assert.equal(queryDeFiltros(FILTROS_INICIALES), 'ver=carruseles');
   assert.deepEqual(filtrosDeQuery(new URLSearchParams('min=7&orden=raro&vista=x&periodo=2&de=a,-1,5&formato=inventado')),
-    { ...FILTROS_INICIALES, creadores: [5] });
+    { ...FILTROS_INICIALES, creadores: [-1, 5] }, 'un creador en negativo es de la biblioteca; el cero y lo que no es número, no');
   assert.deepEqual(filtrosDeQuery({ q: ['tips'], min: '3' }), { ...FILTROS_INICIALES, q: 'tips', outlierMin: 3 });
 });
 
@@ -122,8 +131,8 @@ test('guardar es idempotente, sacar también; lo roto de la base se descarta', (
   assert.equal(b.lista.length, 1, 'guardar dos veces no lo repite');
   assert.equal(conGuardado(b.lista, 10, false, t).lista.length, 0);
   assert.equal(conGuardado([], 10, false, t).ya, true);
-  assert.deepEqual(sanearGuardados('[{"id":1,"en":"x"},{"id":2,"en":"2026-11-01T00:00:00Z"},{"id":2,"en":"2026-11-02T00:00:00Z"},{"id":-3,"en":"2026-11-01T00:00:00Z"}]'),
-    [{ id: 2, en: '2026-11-01T00:00:00Z' }]);
+  assert.deepEqual(sanearGuardados('[{"id":1,"en":"x"},{"id":2,"en":"2026-11-01T00:00:00Z"},{"id":2,"en":"2026-11-02T00:00:00Z"},{"id":-3,"en":"2026-11-01T00:00:00Z"},{"id":0,"en":"2026-11-01T00:00:00Z"}]'),
+    [{ id: 2, en: '2026-11-01T00:00:00Z' }, { id: -3, en: '2026-11-01T00:00:00Z' }], 'en negativo, uno de la biblioteca; el cero no es ninguno');
   assert.deepEqual(sanearGuardados('no es json'), []);
 });
 
