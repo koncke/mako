@@ -225,8 +225,28 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
   las hojas fue lo contrario de lo que pedía la regla de la casa (AGENTS.md: una referencia de estilo se copia con sus valores).
 - **La vara es la maqueta de Focus** (`docs/diseno/mockups-dashboard/focus-pane.html`, commit `ee224623`): su propia letra
   (Urbanist), su paleta oscura, sus tiles, sus dos columnas iguales con gap 14, medidas del demo.
-- **Sin el demo a la vista no hay copia.** Esta sesión no llega a `demo.codeandchill.store` (403 del proxy); por eso Closing no se
-  empezó. La captura y la medición, con `medidor/capturar.mjs` y `medidor/medir-demo.py`, están en el relevo.
+- **Sin el demo a la vista no hay copia.** Esta sesión no llega a `demo.codeandchill.store` (403 del proxy). Lo destrabó la
+  PC midiendo los demos (`demos/<demo>/`: INFORME, capturas, `valores.json` y estados), y desde ahí se copió Closing (§12).
+
+## 12. Copiar un demo hasta el píxel: cómo se mide la copia (4/11/2026, Closing ← Halden)
+
+**Vive en:** docs/diseno/mockups-dashboard/closing/ (copia.html, closing.html, closing.css, closing.js)
+
+- **Se compara por FRANJAS de tinta dentro de cada tarjeta, relativas a su borde de arriba**, no a ojo ni por coordenadas
+  absolutas. Una diferencia de 3 px arriba se arrastra a todas las filas de abajo y parece que todo está mal; medido contra el
+  borde de cada tarjeta, se ve qué bloque es el que sobra. Con eso la copia de Halden quedó con las dos páginas del mismo alto
+  (1440×959 y 390×2627) y cada bloque a 0-2 px.
+- ⚠️ **Lo que parece la punta de una barra puede ser la flechita de su etiqueta.** El escaneo dio el martes «a 501» y eran los 4 px
+  de la flecha del tooltip, 19 px arriba de la barra: la copia salió con la barra más alta del gráfico. Antes de creerle a un
+  borde, mirar qué otra cosa se dibuja arriba.
+- ⚠️ **`capturar.mjs` mide el teléfono a 390×900 SIN emulación móvil.** Comparar con un viewport de 844 o con `isMobile` mueve todo
+  lo fijo (la barra de abajo cae en otro lugar de la página entera) y no se parece a nada. Se compara con el MISMO viewport.
+- **Halden esconde en la compu las filas que no entran** (la 5.ª de la lista, la 3.ª del asistente) y el teléfono las muestra: una
+  copia de una sola captura pierde lo que la otra muestra.
+- **Lo que se ubica sobre algo que está entrando se mide con `offsetLeft`/`offsetTop`, no con `getBoundingClientRect`**: la tarjeta y
+  la barra todavía tienen su `transform` de partida y la etiqueta quedaba al pie de la barra, adonde la barra arrancaba.
+- **El INFORME corta las líneas largas** (`....`): lo que viene después del corte no está medido. Se copia hasta ahí y lo demás se
+  anota como no copiado (la entrada del título, `bo`, no figura entre los helpers; la cuota y el reloj no tienen entrada).
 
 ## 11. Lo que quedó SIN hacer
 
@@ -240,4 +260,5 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
   la hoja mide cuándo llegó cada uno a su etapa.
 - **Las sugeridas no tienen eje de rubro**: Inmobiliaria no se sugiere sola, se encuentra por nombre.
 - **Sin medir**: el hover y el clic de las plantillas (los `:hover` de cada demo están en el `INFORME.txt` del medidor, que
-  es temporal).
+  es temporal). Para Closing ya están copiados (§12).
+- **Closing todavía no está en producción con su diseño**: la copia y la adaptación son maquetas (§12, el relevo).

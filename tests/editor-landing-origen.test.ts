@@ -430,8 +430,10 @@ test('un prefijo que el matcher del proxy saltea no puede ser un slug (en hola-m
   const m = String(configProxy.matcher[0]);
   const ini = m.indexOf('(?!');
   assert.ok(ini > 0, 'no encontré el lookahead del matcher');
-  // El último tramo es el de las extensiones (`.*\.(?:png|…)$`), desde el 01/11/2026 con `(?!api/)` adelante: no es un prefijo.
-  const finPrefijos = m.slice(ini).search(/\|(?:\(\?!api\/\))?\.\*\\\./);
+  // El último tramo es el de las extensiones: desde el 4/11/2026 un archivo de la raíz o de una carpeta de `public/`
+  // (`(?:[^/]+|(?:anuncios|…)/.*)\.(?:png|…)$`). No es un prefijo: sólo saltea lo que termina en esas extensiones, y
+  // `/<slug>` y `/<slug>/gracias` pasan igual (lo mira la parte compilada de abajo).
+  const finPrefijos = m.slice(ini).search(/\|\(\?:\[\^\/\]\+\|/);
   const alternativas = m.slice(ini + 3, ini + finPrefijos).split('|');
   const conBarra = alternativas.filter((a) => a.endsWith('/')).map((a) => a.slice(0, -1));
   assert.ok(conBarra.includes('cono-tx') && conBarra.includes('cono-doc'), `leí ${JSON.stringify(alternativas)}: esto no leyó el matcher`);

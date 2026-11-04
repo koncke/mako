@@ -1,0 +1,173 @@
+<!doctype html>
+<!-- CLOSING · PASO 2: LA ADAPTACIÓN de la copia de Halden a lo que mide el Closing de MaKo (4/11/2026).
+     La misma hoja (closing.css) y el mismo movimiento (closing.js) que copia.html; cambian los datos, los textos
+     y las piezas que no tienen sentido en MaKo. Los números y los nombres son de EJEMPLO, ficticios.
+     De dónde sale cada número en MaKo: el comentario de cada bloque. Sin la barra de arriba: en MaKo la pone
+     el Dashboard. -->
+<html lang="es" class="antes"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Closing · MaKo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="closing.css">
+</head><body class="en-mako">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/></symbol>
+  <symbol id="i-kanban" viewBox="0 0 24 24"><path d="M5 4v13M12 4v7M19 4v10"/><rect x="3" y="3" width="4" height="15" rx="1.2"/><rect x="10" y="3" width="4" height="9" rx="1.2"/><rect x="17" y="3" width="4" height="12" rx="1.2"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.5 3.3-5.5 6.5-5.5s5.9 2 6.5 5.5"/><path d="M15.5 4.8a3.4 3.4 0 0 1 0 6.4M17.5 14.8c2.1.6 3.6 2.4 4 5.2"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5l-4.6-4.6"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9"/><path d="M10 20a2.2 2.2 0 0 0 4 0"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M8 16L16 8M9.5 8H16v6.5"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6.5" width="12.5" height="11" rx="2.5"/><path d="M15.5 10.5L21 7.5v9l-5.5-3"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3.5l1.9 5.1L19 10.5l-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/><path d="M19 3v3M20.5 4.5h-3"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.6 3.5h2.6l1.3 4-2 1.5a12 12 0 0 0 6.5 6.5l1.5-2 4 1.3v2.6a2 2 0 0 1-2.2 2C10.8 18.9 5.1 13.2 4.6 5.7a2 2 0 0 1 2-2.2"/></symbol>
+  <symbol id="i-logo" viewBox="0 0 28 28"><rect x="1.5" y="1.5" width="25" height="25" rx="8" fill="none" stroke-width="2.4"/><path d="M9.5 8v12M18.5 8v12M9.5 12.5h9" stroke-width="2.6"/><path d="M9.5 16.5h9" stroke-width="2.6"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3.5V8h4.5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20.5V16h-4.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+</svg>
+
+<main class="vista">
+  <div class="cab">
+    <div>
+      <p class="eyebrow">Noviembre · Semana 45 · Miércoles 4</p>
+      <h1 class="titulo">Buen día, Ana</h1>
+      <p class="bajada">Así van tus llamadas de venta este mes.</p>
+    </div>
+    <div class="cab__btns">
+      <!-- la acción que ya existe: sincronizar_llamadas -->
+      <button class="btn btn--ghost"><svg class="ic"><use href="#i-sync"/></svg>Sincronizar<span class="solo-compu"> llamadas</span></button>
+      <a class="btn btn--primary" href="#"><svg class="ic"><use href="#i-arrow"/></svg>Abrir Closing</a>
+    </div>
+  </div>
+
+  <section class="grid">
+    <!-- EL ANCLA (era «Revenue won»): la tasa de cierre del mes, con su diferencia contra el mes anterior.
+         llamadas_venta: tasa_cierre (comparada), ganadas, llamadas. A la derecha, los tres números de siempre:
+         analizadas (llamadas), score (puntaje) y duración (duracion). -->
+    <article class="card hero c7 o-1" data-card>
+      <div class="hero__main">
+        <div class="hero__h">
+          <div>
+            <p class="hero__t">Tasa de cierre este mes</p>
+            <p class="hero__num" data-count data-value="38" data-suffix="%">38%</p>
+            <p class="hero__delta"><span class="pill-up">6 pts <svg class="ic" viewBox="0 0 24 24" style="width:9px;height:9px;stroke-width:3.4"><path d="M6 15l6-6 6 6"/></svg></span>sobre octubre</p>
+          </div>
+          <a class="arrow" href="#" aria-label="Abrir Closing"><svg class="ic"><use href="#i-arrow"/></svg></a>
+        </div>
+        <div class="hero__goal">
+          <div class="goal"><div class="goal__fill" style="width:38%"></div></div>
+          <div class="goal__row"><span><b data-count data-value="11">11</b> de 29 llamadas terminaron en venta</span><span>18 sin cerrar</span></div>
+        </div>
+      </div>
+      <dl class="hero__stats">
+        <div class="stat"><dt>Analizadas</dt><dd data-count data-value="29">29</dd></div>
+        <div class="stat"><dt>Score</dt><dd data-count data-value="7.4" data-decimals="1">7.4</dd></div>
+        <div class="stat"><dt>Duración</dt><dd data-count data-value="42" data-suffix=" min">42 min</dd></div>
+      </dl>
+    </article>
+
+    <!-- CÓMO TERMINARON (era «Open pipeline»): las llamadas del mes partidas por desenlace.
+         llamadas_venta: ganadas − ganadas_r2 (en la primera), ganadas_r2, perdidas y el resto. -->
+    <article class="card c5 o-2" data-card>
+      <div class="card__h"><h2 class="card__t">Cómo terminaron</h2><a class="link" href="#">Ver en el CRM</a></div>
+      <div class="big"><span class="big__n" data-count data-value="29">29</span>
+        <span class="big__s">llamadas · <b>11</b> ganadas · <b>10</b> perdidas</span></div>
+      <div class="stages" aria-hidden="true">
+        <i style="flex:4;background:var(--st-2)"></i><i style="flex:7;background:var(--st-4)"></i><i style="flex:8;background:var(--st-1)"></i><i style="flex:10;background:var(--rosa-st)"></i>
+      </div>
+      <div class="legend">
+        <div class="leg" data-leg><i style="background:var(--st-2)"></i><span>Cerró en la 1.ª</span><b>4</b><small>14% de las llamadas</small></div>
+        <div class="leg" data-leg><i style="background:var(--st-4)"></i><span>Cerró en la 2.ª</span><b>7</b><small>24% de las llamadas</small></div>
+        <div class="leg" data-leg><i style="background:var(--st-1)"></i><span>Sin decisión</span><b>8</b><small>28% de las llamadas</small></div>
+        <div class="leg" data-leg><i style="background:var(--rosa-st)"></i><span>Perdida</span><b>10</b><small>34% de las llamadas</small></div>
+      </div>
+    </article>
+
+    <!-- LAS LLAMADAS DE LA SEMANA (era «Revenue this week»): hechas por día y, hacia adelante, las agendadas.
+         llamadas_venta por dia (hechas) · leads: agendas por fecha de agenda (las que vienen, rayadas). -->
+    <article class="card rev c5 o-4" data-card>
+      <div class="card__h">
+        <div><h2 class="card__t">Llamadas de esta semana</h2><p class="card__s">16 hechas hasta hoy · 9 agendadas</p></div>
+        <div class="legend-mini"><span><i class="sw"></i>Hechas</span><span><i class="sw sw--hatch"></i>Agendadas</span></div>
+      </div>
+      <div class="bars">
+        <div class="bar" data-v="5 llamadas"><div class="bar__track"><div class="bar__fill" style="height:62%"></div></div><span class="bar__l">Lun</span></div>
+        <div class="bar" data-v="7 llamadas" data-tip="1"><div class="bar__track"><div class="bar__fill" style="height:86%"></div></div><span class="bar__l">Mar</span></div>
+        <div class="bar bar--hoy" data-v="4 llamadas"><div class="bar__track"><div class="bar__fill" style="height:50%"></div></div><span class="bar__l">Mié</span></div>
+        <div class="bar bar--plan" data-v="3 agendadas"><div class="bar__track"><div class="bar__fill" style="height:38%"></div></div><span class="bar__l">Jue</span></div>
+        <div class="bar bar--plan" data-v="4 agendadas"><div class="bar__track"><div class="bar__fill" style="height:50%"></div></div><span class="bar__l">Vie</span></div>
+        <div class="bar bar--plan" data-v="2 agendadas"><div class="bar__track"><div class="bar__fill" style="height:25%"></div></div><span class="bar__l">Sáb</span></div>
+        <div class="bar bar--plan" data-v="0 agendadas"><div class="bar__track"><div class="bar__fill" style="height:6%"></div></div><span class="bar__l">Dom</span></div>
+      </div>
+      <span class="tip" aria-hidden="true">7 llamadas</span>
+    </article>
+
+    <!-- LAS ÚLTIMAS LLAMADAS (era «Hot deals»): una fila por llamada, con su desenlace y su score.
+         llamadas_venta por llamada: reunion, closer, puntaje, duracion. -->
+    <article class="card c4 o-5" data-card>
+      <div class="card__h"><h2 class="card__t">Últimas llamadas</h2><a class="link" href="#">Ver todas</a></div>
+      <ul class="deals">
+        <li class="ditem"><span class="tile t-cyan">L</span><div class="ditem__b"><p class="ditem__n">Laura Méndez</p><p class="ditem__m"><i style="background:var(--st-4)"></i>2.ª llamada · ganada · Ana Ruiz</p></div><p class="ditem__v">8.6<small>48 min</small></p></li>
+        <li class="ditem"><span class="tile t-rose">C</span><div class="ditem__b"><p class="ditem__n">Carlos Ibarra</p><p class="ditem__m"><i style="background:var(--rosa-st)"></i>1.ª llamada · perdida · Diego Paz</p></div><p class="ditem__v">5.2<small>31 min</small></p></li>
+        <li class="ditem"><span class="tile t-violet">P</span><div class="ditem__b"><p class="ditem__n">Paola Núñez</p><p class="ditem__m"><i style="background:var(--st-1)"></i>1.ª llamada · sin decisión · Sofía Lara</p></div><p class="ditem__v">7.1<small>44 min</small></p></li>
+        <li class="ditem"><span class="tile t-amber">J</span><div class="ditem__b"><p class="ditem__n">Jorge Salinas</p><p class="ditem__m"><i style="background:var(--st-2)"></i>1.ª llamada · ganada · Ana Ruiz</p></div><p class="ditem__v">8.1<small>39 min</small></p></li>
+        <li class="ditem solo-tel"><span class="tile t-blue">M</span><div class="ditem__b"><p class="ditem__n">Marta Ríos</p><p class="ditem__m"><i style="background:var(--st-1)"></i>2.ª llamada · sin decisión · Lucía Gómez</p></div><p class="ditem__v">6.8<small>52 min</small></p></li>
+      </ul>
+    </article>
+
+    <!-- LA PRÓXIMA LLAMADA (era «Next up»): la reunión que sigue en la agenda, con su link para entrar. -->
+    <article class="card nextup c3 o-3" data-card>
+      <div class="card__h"><h2 class="card__t">Próxima llamada</h2><span class="chip chip--soft">En 2 h 15 min</span></div>
+      <p class="nextup__t">2.ª llamada con Raúl Ortega</p>
+      <p class="nextup__s">Hoy · 14:30 – 15:15 · Ana Ruiz</p>
+      <a class="join" href="#"><svg class="ic"><use href="#i-video"/></svg>Entrar a la llamada</a>
+    </article>
+
+    <!-- CADA CLOSER (era «Quota this quarter»): su tasa de cierre y cuántas ganó de cuántas.
+         llamadas_venta por closer: tasa_cierre, ganadas, llamadas. «Tú» marca a quien mira. -->
+    <article class="card c5 o-7" data-card>
+      <div class="card__h"><h2 class="card__t">Tasa de cierre por closer</h2><a class="link" href="#">Ver el equipo</a></div>
+      <ul class="quota">
+        <li class="lrow"><span class="ava" style="background:#f3cdb8">AR</span><span class="lrow__n">Ana Ruiz <span class="you">Tú</span></span><span class="lrow__v">45% <span>· 5 de 11</span></span><span class="meter"><i class="meter__fill" style="display:block;width:45%"></i></span></li>
+        <li class="lrow"><span class="ava" style="background:#f6e5b9">DP</span><span class="lrow__n">Diego Paz</span><span class="lrow__v">38% <span>· 3 de 8</span></span><span class="meter"><i class="meter__fill" style="display:block;width:38%"></i></span></li>
+        <li class="lrow"><span class="ava" style="background:#cfe0f6">SL</span><span class="lrow__n">Sofía Lara</span><span class="lrow__v">33% <span>· 2 de 6</span></span><span class="meter"><i class="meter__fill" style="display:block;width:33%"></i></span></li>
+        <li class="lrow"><span class="ava" style="background:#d6efd6">LG</span><span class="lrow__n">Lucía Gómez</span><span class="lrow__v">25% <span>· 1 de 4</span></span><span class="meter"><i class="meter__fill" style="display:block;width:25%"></i></span></li>
+      </ul>
+    </article>
+
+    <!-- LO QUE VE MaKo (era «Assist»): lo que se repite en las llamadas que no cerraron.
+         Es la caja de IA «cl-factores-ia» (el closer la lee por su id) sobre llamadas_dimensiones. -->
+    <article class="card c4 o-6" data-card data-id="cl-factores-ia">
+      <div class="card__h"><div class="assist__h"><span class="assist__ic"><svg class="ic"><use href="#i-spark"/></svg></span><h2 class="card__t">Qué decide tus cierres</h2></div><span class="chip chip--amber">3 patrones</span></div>
+      <p class="card__s" style="font-size:13px;margin-top:10px">Lo que se repite en las 18 llamadas sin cerrar</p>
+      <ul class="aitems">
+        <li class="aitem"><span class="tile t-rose">1</span><div class="aitem__b"><p class="aitem__n">Dijo el precio antes del valor</p><p class="aitem__m">En 7 de las 18, casi siempre en la 1.ª</p></div><span class="aitem__v">7</span></li>
+        <li class="aitem"><span class="tile t-sky">2</span><div class="aitem__b"><p class="aitem__n">No pidió la decisión</p><p class="aitem__m">En 5 de las 18: la llamada terminó en «lo pienso»</p></div><span class="aitem__v">5</span></li>
+        <li class="aitem solo-tel"><span class="tile t-sky">3</span><div class="aitem__b"><p class="aitem__n">No agendó la segunda</p><p class="aitem__m">En 4 de las 18, sin fecha para volver a hablar</p></div><span class="aitem__v">4</span></li>
+      </ul>
+      <a class="btn-line" href="#">Ver esas llamadas <svg class="ic"><use href="#i-arrow"/></svg></a>
+    </article>
+
+    <!-- LA DURACIÓN (era «Call session»): el promedio de una llamada, con el reloj de dígitos que ruedan, y la
+         comparación que importa: cuánto duran las que se ganan contra las que se pierden.
+         llamadas_venta: duracion, partida por desenlace. -->
+    <article class="card c3 o-8" data-card>
+      <div class="card__h"><h2 class="card__t">Duración promedio</h2><span class="chip chip--grey">29 llamadas</span></div>
+      <div class="dialer__clock" data-segundos="2532" data-rueda aria-label="Duración promedio 42 minutos 12 segundos">
+        <span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span><span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span><span class="colon">:</span><span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span><span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span><span class="colon">:</span><span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span><span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span>
+      </div>
+      <div class="durs">
+        <span class="dur dur--gana"><svg class="ic"><use href="#i-clock"/></svg>Ganadas <b>47 min</b></span>
+        <span class="dur dur--pierde"><svg class="ic"><use href="#i-clock"/></svg>Perdidas <b>36 min</b></span>
+      </div>
+    </article>
+  </section>
+</main>
+<script src="closing.js"></script>
+</body></html>
