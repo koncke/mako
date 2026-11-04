@@ -315,3 +315,27 @@ Fons, Maffia, Begueria, Luque, Doglio, Seré, Albaa) no hay una sola imagen en n
 (`git log --all -- '*carrizo*.png'`, y así con cada uno). Las caricaturas se hacen con Canva desde la PC; una sesión en
 la nube no tiene Canva. Lo que sí se puede hacer en la nube es su FICHA: queda escrita en `lib/asesores/en-espera.ts`
 y el gurú entra a la galería en cuanto llegue su cara (el test lo avisa).
+
+## Las diez fichas que esperan cara: cómo se escribieron y qué quedó afuera (4/11/2026)
+
+**Vive en:** `lib/asesores/ficha-*.ts` (las diez nuevas), `lib/asesores/en-espera.ts`, `tests/gurus-en-espera.test.ts`.
+
+- **Un subagente por ficha costó ~480-500 mil tokens cada una** (las tres primeras). Las siete siguientes se escribieron a
+  mano leyendo 8 a 12 clases de método por curso, con el índice (`lib/asesores/clases-de-referentes.json`, la clave es el slug
+  de `lib/asesores/cursos.ts`) y las transcripciones de `public/cono-tx/<videoId>.json`, salteando el arranque de cada clase
+  (los primeros 500-2.500 caracteres son saludo). Las clases que más rinden son las de método; las sesiones de preguntas, las
+  entrevistas y las «revisiones de canales» pesan 50-150k y casi no traen marcos.
+- **Lo que los cursos enseñan y la ficha no repite** (cada uno en su «⚠️ NO SE TRASLADA»), por si aparece en el próximo:
+  escasez o urgencia inventada («la única clase en vivo», «este video se borra en 24 horas», descuentos «sólo hoy»); animar a
+  pedir un CRÉDITO para pagar un programa (Maffia); COMPRAR ENLACES, que el curso presenta como lo normal del sector (Fons);
+  revisar un anuncio contra las reglas de Meta para que una promesa exagerada pase el filtro (Doglio, «GPT Anti Ban»); los
+  sorteos y la «escalera de sí» en un webinar; el precio terminado en 7 como truco (Luque); y en todos, los montos propios
+  o de alumnos como expectativa.
+- **Una nota de pendientes daba por hecho que Samuel Albaa enseñaba *setter***: el curso («Growing Closer», con Agustín
+  Nievas) no tiene ni una clase de setter. Su ficha cubre la práctica del closer, distinta de la de Nievas. Antes de escribir
+  la especialidad de un gurú, se lista el temario de SU curso.
+- **El voseo del curso no viaja a la ficha**: los cursos argentinos y españoles dicen «vos» y «vosotros»; la ficha va de tú.
+  El guard de voseo (`tests/puente-panel-copy.test.ts`) sólo ve los archivos que ESTÁN en el índice de git: con una ficha
+  nueva se corre después de `git add -N`, o da verde sin haberla leído. Un título de clase citado tal cual también trae voseo
+  («Vendele…»): se cita el módulo o se parafrasea.
+- **Nadie más leyó las fichas**: las escribí yo, contra las clases citadas. Martín las puede leer antes de que entren.
