@@ -112,7 +112,6 @@ POST /api/compartido/graficos → pública (no usa la sesión)
 POST /api/compartido/guion → pública (no usa la sesión)
 POST /api/compartir → cortada
 POST /api/competitor-spy/analizar → cortada
-POST /api/competitor-spy/caricatura → cortada
 POST /api/competitor-spy/copiar → cortada
 POST /api/competitor-spy/extension → pública (no usa la sesión)
 POST /api/competitor-spy/redes → cortada
