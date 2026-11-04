@@ -106,10 +106,35 @@ select canal, count(*) from spy_piezas where competidor_id = <ese id> group by c
 Si `youtube_id` está y no hay piezas de `youtube`, es exactamente el corte de arriba: al abrir su ficha (ya con
 `punta/spy-canal-sumado`) se lee sola.
 
-**Lo que sigue de esta tanda, en este orden:** el loader del alta sin un cuadro del detalle y con mensajes que cambian; las
-tarjetas de «Todas sus piezas» (que no se estiren y que los chips no pisen nada); los esqueletos por sección; sacar «Piezas · N
-publicadas» de debajo del perfil; y «Sus páginas» sin iframes que no se puedan verificar (el acortador resuelto a su destino, y
-la foto guardada con la extensión cuando la página tiene barrera).
+**Lo que seguía de esta tanda** quedó en la quinta vuelta, abajo.
+
+## Quinta vuelta (el resto de la tanda de Leila, y «Sus páginas», 4/11/2026 noche)
+
+| Qué pidió | Estado | Rama |
+|---|---|---|
+| El alta va derecho al loader, sin un cuadro del detalle, y sus frases cambian cada 3 s («Leyendo sus últimas piezas…», sin afirmar resultados) | En `main` | `punta/spy-alta-loader` |
+| Tarjetas de «Todas sus piezas»: cada una mide lo suyo (sin el bloque crema), el texto sin foto no va debajo de los chips, la píldora lleva sus vistas o sus me gusta (nunca «No lo publica») y la línea no se corta (medido a 1280 y 390) | En `main` | `punta/spy-tarjetas` |
+| Un solo «Piezas»: sale «Piezas · N publicadas» de debajo del perfil, Seguidores llena el ancho, y el número de arriba dice qué cuenta («Contenido corto») | En `main` | `punta/spy-tarjetas` |
+| Esqueletos por sección, sin la criatura: el gráfico, «¿Qué formatos le funcionan?», su oferta y su página. La criatura queda sólo para entrar a un competidor | En `main` | `punta/spy-esqueletos` |
+| «Sus páginas» sin marcos que no se puedan verificar: el acortador se resuelve a su destino (etiqueta `refresh` o `location = …`, hasta 3 saltos), una página que contesta con su «500» no está abierta, y el marco se muestra sólo cuando él mismo avisa que pintó la página. Si no avisa a tiempo, o se va a otra página, queda «Abrir» con su título | Subido | `punta/spy-paginas-verificadas` |
+
+**Sin probar desde la nube: `linktw.in/pywydg` de verdad.** Si redirige por HTTP, ya lo seguía la lectura; si es por JavaScript o
+`refresh`, ahora se sigue; si es una página de «continuar» con un botón, queda «Abrir» (no se muestra un marco sin certeza). Para
+saber cuál es, desde la PC:
+
+```bash
+curl -sL -o /dev/null -w '%{url_effective} %{http_code}\n' https://linktw.in/pywydg
+```
+
+```bash
+curl -s https://linktw.in/pywydg | head -c 1500
+```
+
+**«La foto guardada»: hoy no hay ninguna foto de una página.** La trae la captura con la extensión (lo que sigue, abajo). Mientras,
+sin certeza, «Abrir» con el título de la página.
+
+**Lo que sigue:** «Capturar» en «Sus páginas» con la extensión para las páginas con barrera (la persona la pasa en su navegador;
+no se evade nada). Cuando quede, digo acá qué versión de la extensión queda lista y si pide algún permiso nuevo.
 
 ### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
 

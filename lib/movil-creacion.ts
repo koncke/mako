@@ -70,8 +70,9 @@ export const RUTAS_CREACION: readonly RutaCreacion[] = [
   // `?desde=` = «Editar en el editor» de Video Generator y de AI Avatar; `?plantilla=` = «Utilizar plantilla»
   // (app/video-editor/[proyecto]/page.tsx).
   { base: '/video-editor', sub: '*', querySub: { '*': ['desde', 'plantilla'] } },
-  // /image-editor/presentador es la ventana del presentador: se queda en la computadora.
-  { base: '/image-editor', sub: '*', noSub: ['presentador'] },
+  // /image-editor/presentador es la ventana del presentador: se queda en la computadora. `?ver=carruseles` y sus filtros
+  // (4/11/2026): «Carruseles que funcionan», la misma vista en los dos lados (app/image-editor/carruseles).
+  { base: '/image-editor', query: ['ver', 'q', 'de', 'min', 'periodo', 'largo', 'formato', 'imagenes', 'orden', 'vista'], sub: '*', noSub: ['presentador'] },
   // app/ai-avatar/page.tsx lee `avatar` y `plantilla`; avatares/page.tsx, `plantilla`.
   { base: '/ai-avatar', query: ['avatar', 'plantilla'], sub: ['avatares', 'voces', 'plantillas'], querySub: { avatares: ['plantilla'] } },
   // /reels y /carousels se retiraron el 29/10/2026 (redirigen: al Copywriter y a Image); sus /m también.

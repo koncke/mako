@@ -34,6 +34,9 @@ import { leerHilo, suscribir, type Hilo } from './mako/chat/hilo';
 import { crearDisenoNuevoAction } from './actions';
 import { EJEMPLOS_NUEVO_DISENO, PLANTILLAS_NUEVO_DISENO } from './plantillas-crear';
 import { RUTA_INICIO, rutaDiseno } from './ruta';
+import { ExplorarCarruseles, type DatosExplorador } from './carruseles/ExplorarCarruseles';
+import { FranjaCarruseles } from './carruseles/FranjaCarruseles';
+import type { FiltrosCarrusel } from '@/lib/carruseles/explorar';
 import chat from './mako/chat/chat.module.css';
 import './_doory/styles/tokens.css';
 import './_doory/styles/global.css';
@@ -60,8 +63,11 @@ function ChatDelEditor({ disenoId, volver, carga, onRanura }: {
 
 const rutaDe = (id: string) => `${RUTA_INICIO}/${encodeURIComponent(id)}`;
 
-export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir = null }: {
-  vista: 'inicio' | 'editor';
+export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir = null, explorador = null }: {
+  /** `carruseles`: en el centro, «Carruseles que funcionan» (./carruseles/ExplorarCarruseles.tsx, `?ver=carruseles`). */
+  vista: 'inicio' | 'editor' | 'carruseles';
+  /** Lo del explorador, leído en el server; `{ error }` = no se pudo leer (no es «no hay ninguno»). */
+  explorador?: { datos: DatosExplorador; filtros: FiltrosCarrusel } | { error: true } | null;
   disenoId?: string;
   ws: number | null;
   /** Lo que se sabe del negocio: el panel de plantillas pone primero las sugeridas (mako/plantillas.ts). */
@@ -149,7 +155,7 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
   return (
     // Otro diseño (o la portada) es otra pantalla: la tarjeta vuelve al chat y «Nuevo diseño» se cierra.
     <PantallaCrear
-      key={`${ws ?? 0}:${abierto ?? 'inicio'}`}
+      key={`${ws ?? 0}:${abierto ?? vista}`}
       tab="Image"
       nuevo="Nuevo diseño"
       proyectos={proyectos}
@@ -160,6 +166,8 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       plantillas={PLANTILLAS_NUEVO_DISENO}
       onPlantilla={onPlantilla}
       ejemplos={EJEMPLOS_NUEVO_DISENO}
+      // Arriba de las plantillas, los carruseles que mejor les funcionan a las cuentas que sigue el negocio (4/11/2026).
+      arribaDePlantillas={vista === 'carruseles' ? null : <FranjaCarruseles />}
       chat={abierto && carga !== 'falla'
         ? (volver) => <ChatDelEditor disenoId={abierto} volver={volver} carga={carga} onRanura={setRanura} />
         : undefined}
@@ -170,6 +178,12 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
         <div className="cv" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <PantallaEditor disenoId={abierto} ws={ws} ranuraChat={ranura} salir={salir} onAbierto={alAbrir} onCarga={setCarga} onTitulo={onTitulo} senales={senales} />
         </div>
+      ) : vista === 'carruseles' && explorador ? (
+        'error' in explorador ? (
+          <div role="alert" style={{ margin: 'auto', padding: 24, textAlign: 'center', color: 'var(--dim)' }}>
+            No pude leer los carruseles de las cuentas que sigues. Vuelve a intentar.<ReportarASoporte />
+          </div>
+        ) : <ExplorarCarruseles datos={explorador.datos} filtrosIniciales={explorador.filtros} />
       ) : null}
     </PantallaCrear>
   );

@@ -244,7 +244,8 @@ test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las pie
   const orden = ['co-apertura', 'co-tendencia', 'co-closers', 'co-motivos', 'co-cohortes-mes-tabla'];
   const ys = orden.map((id) => de(id)?.y ?? -1);
   assert.ok(ys.every((y, i) => y >= 0 && (i === 0 || y > ys[i - 1])), `Comercial fuera de orden: ${ys.join(', ')}`);
-  assert.equal(co.componentes.length, 12);
+  // 14 desde el 4/11 (tarde): las dos piezas que lee el diseño de Selvar (lo vendido con lo invertido, y lo vendido por semana).
+  assert.equal(co.componentes.length, 14);
   const kpis = co.componentes.filter(esGrafico).filter((c) => c.tipo === 'numero_tendencia').sort((x, y) => x.y - y.y || x.x - y.x);
   assert.deepEqual(kpis.map((c) => c.id), ['co-tasa', 'co-ticket', 'co-costo-cierre', 'co-ciclo']);
   assert.deepEqual(kpis.map((c) => [c.tipo, c.w, c.h]), Array(4).fill(['numero_tendencia', 3, 4]));

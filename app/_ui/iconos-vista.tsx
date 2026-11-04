@@ -18,7 +18,7 @@
 
 import type { ReactNode } from 'react';
 
-export type VistaIcono = 'tarjetas' | 'tabla' | 'kanban' | 'avance' | 'miembros';
+export type VistaIcono = 'tarjetas' | 'tabla' | 'kanban' | 'avance' | 'miembros' | 'grande' | 'compacta';
 
 export const ICONO_VISTA: Record<VistaIcono, { titulo: string; icono: ReactNode }> = {
   tarjetas: {
@@ -81,6 +81,27 @@ export const ICONO_VISTA: Record<VistaIcono, { titulo: string; icono: ReactNode 
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5" />
         <path d="M16 4.6a3.5 3.5 0 0 1 0 6.8" /><path d="M18.5 14.9c1.7.8 2.7 2.5 3 5.1" />
+      </svg>
+    ),
+  },
+  // Los dos TAMAÑOS de la grilla del explorador de carruseles (4/11/2026, app/image-editor/carruseles): la misma pregunta
+  // («¿cómo miro esto?») con otra respuesta, así que va en este catálogo y no en un botón propio. Dos piezas verticales =
+  // grande (se lee la portada); nueve cuadritos = compacta (se ven muchas a la vez).
+  grande: {
+    titulo: 'Grande',
+    icono: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="8" height="18" rx="1.5" /><rect x="13" y="3" width="8" height="18" rx="1.5" />
+      </svg>
+    ),
+  },
+  compacta: {
+    titulo: 'Compacta',
+    icono: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="4.5" height="4.5" rx="1" /><rect x="9.75" y="3" width="4.5" height="4.5" rx="1" /><rect x="16.5" y="3" width="4.5" height="4.5" rx="1" />
+        <rect x="3" y="9.75" width="4.5" height="4.5" rx="1" /><rect x="9.75" y="9.75" width="4.5" height="4.5" rx="1" /><rect x="16.5" y="9.75" width="4.5" height="4.5" rx="1" />
+        <rect x="3" y="16.5" width="4.5" height="4.5" rx="1" /><rect x="9.75" y="16.5" width="4.5" height="4.5" rx="1" /><rect x="16.5" y="16.5" width="4.5" height="4.5" rx="1" />
       </svg>
     ),
   },

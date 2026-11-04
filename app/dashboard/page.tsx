@@ -67,6 +67,7 @@ import { accionDeLaHojaClosing, avisoDeLaHojaClosing, esHojaClosing } from './av
 import { iaCaidaParaLaHoja } from '@/lib/closing-ia-caida';
 import { avisoDeIaCaida } from '@/lib/closing-ia-caida-reglas';
 import { agendaParaElClosing } from '@/lib/closing-diseno-server';
+import { agendaParaComercial } from '@/lib/comercial-diseno-server';
 import { variablesDeQuienMira } from '../general/datos';
 
 export const dynamic = 'force-dynamic';
@@ -175,12 +176,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const hayDisenoClosing = hayDiseno('closing');
   // La de Cobranza (la copia de Coffer, app/dashboard/disenos/HojaCobranza.tsx) saluda a quien mira, como Coffer.
   const hayDisenoCobranza = hayDiseno('cobranza');
+  // La de Comercial (la copia de Selvar, app/dashboard/disenos/HojaComercial.tsx) lee las llamadas de venta de HOY (su «Hoy», que
+  // nombra leads: tampoco para el closer ni el setter) y saluda a quien mira.
+  const hayDisenoComercial = hayDiseno('comercial');
+  const agendaComercial = hayDisenoComercial && !unica ? agendaParaComercial(hoy) : Promise.resolve(null);
   const agendaClosing = hayDisenoClosing && !unica ? agendaParaElClosing(hoy) : Promise.resolve(null);
-  const quienClosing = hayDisenoClosing || hayDisenoCobranza
+  const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial
     ? variablesDeQuienMira().then((q) => ({ saludo: q.saludo ?? 'Hola', nombre: q.nombre ?? '', fecha: q.fecha ?? '' })).catch(() => null)
     : Promise.resolve(null);
-  const [datos, senalesNegocio, closing, caida, agenda, quien] = await Promise.all([
-    datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales, conClosing, caidaClosing, agendaClosing, quienClosing,
+  const [datos, senalesNegocio, closing, caida, agenda, quien, agendaHoy] = await Promise.all([
+    datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales, conClosing, caidaClosing, agendaClosing, quienClosing, agendaComercial,
   ]);
 
   return (
@@ -210,7 +215,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         plantillasInicial={plantillas && !unica}
         avisoClosing={avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida))}
         accionClosing={accionDeLaHojaClosing(closing)}
-        disenos={hayDisenoClosing || hayDisenoCobranza ? { closing: hayDisenoClosing ? { agenda, quien } : null, cobranza: hayDisenoCobranza ? { quien } : null } : null}
+        disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial ? {
+          closing: hayDisenoClosing ? { agenda, quien } : null,
+          cobranza: hayDisenoCobranza ? { quien } : null,
+          comercial: hayDisenoComercial ? { agenda: agendaHoy, quien } : null,
+        } : null}
       />
     </Pagina>
   );

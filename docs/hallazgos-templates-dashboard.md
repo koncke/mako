@@ -375,6 +375,22 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **Lo que Moorly tiene y MaKo no hace no se inventa:** la caja para agregar un pendiente y la plata de cada etapa del funnel. La entrada de la
   página tampoco está en su INFORME, igual que en Orvel. **Vive en:** lib/operacion-diseno.ts (cabecera).
 
+## 20. Comercial (Selvar): una frase que perdía dos métricas sin avisar y un tope de 14 paneles (4/11/2026, chat en la nube)
+
+- **El saneo de una pieza RECORTA las métricas en silencio.** Una frase lleva hasta 4 (`maxMetricas` del tipo, lib/graficos-catalogo.ts):
+  la plantilla declaraba seis para la apertura y la hoja creada salía con las primeras cuatro, sin un error. El diseño se quedaba sin «no
+  vinieron» y la barra de Selvar mentía. Lo cazó el test del cableado (`tests/dashboard-diseno-comercial.test.ts`), que instancia la
+  plantilla y mira las métricas que QUEDARON, no las declaradas. **Vive en:** lib/graficos-plantillas.ts (COMERCIAL).
+- **Una hoja del Dashboard lleva entre 8 y 14 paneles y una sola frase** (`tests/graficos-corbel.test.ts`). Las piezas que pide un diseño
+  entran en ese tope: lo que se puede calcular (el costo por agenda, el retorno) se calcula en el modelo y no se pide como otra pieza, y
+  «por mes» reusa la Tendencia que ya estaba. **Vive en:** lib/comercial-diseno.ts (`vistaComercial`).
+- **Un atajo de la adaptación con el mismo peso que el del teléfono le gana.** `.dl__row.fila { padding: 0 8px }` (para que la fila que
+  se toca tenga su hover) le pisaba el `padding: 12px 0` del teléfono por especificidad: en la maqueta las filas quedaban pegadas. Va con
+  `padding-left` y `padding-right`, nunca el atajo. **Vive en:** docs/diseno/mockups-dashboard/comercial-selvar/selvar.css.
+- **`.card__h > div { flex: 1 }` también estiraba el selector de Semanas · Meses.** En la captura a media escala se veía bien; medido, el
+  selector ocupaba media tarjeta. Va `:first-child`. **Vive en:** app/dashboard/disenos/comercial-css.ts.
+- **La entrada de la página de Selvar no está en su INFORME** (sólo la del armazón), como en Orvel y Moorly. No se inventó.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

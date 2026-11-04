@@ -77,6 +77,9 @@ export type PropsPantallaCrear = {
   miniatura?: (p: PlantillaCrear, activa: boolean) => ReactNode;
   /** Los ejemplos que se escriben solos en la caja («Un reel de 30 s sobre…»). */
   ejemplos: readonly string[];
+  /** Lo que la tab pone entre la caja y las plantillas de «¿Qué vas a crear hoy?» (Image: los carruseles que funcionan,
+   *  4/11/2026). Sin esto, nada: las demás tabs se ven igual. */
+  arribaDePlantillas?: ReactNode;
   /** Lo escrito en la caja. Sin esto, va al chat de MaKo (al Cerebro, que crea) y la tarjeta vuelve al chat. Si devuelve un
    *  texto, es un error y se muestra debajo de la caja; si no, «Nuevo …» se cierra como al usar una plantilla. */
   onPedido?: (texto: string) => void | string | null | Promise<void | string | null>;
@@ -216,7 +219,7 @@ export function PantallaCrear(p: PropsPantallaCrear) {
         {hayPieza && <div className="cr-pieza" hidden={centro === 'nueva'}>{children}</div>}
         {centro === 'nueva' && (
           <NuevaCrear tab={tab} plantillas={p.plantillas} onPlantilla={p.onPlantilla} titulo={p.tituloPlantillas} miniatura={p.miniatura}
-            ejemplos={p.ejemplos} onPedido={alPedido} onCreado={alCreado} />
+            ejemplos={p.ejemplos} onPedido={alPedido} onCreado={alCreado} arriba={p.arribaDePlantillas} />
         )}
       </div>
     </div>
@@ -320,8 +323,10 @@ function MenuProyecto({ nombre, acciones }: { nombre: string; acciones: readonly
 }
 
 /** «¿Qué vas a crear hoy?»: la caja de siempre (`CajaPedido`, la del Web Generator, Automations y el Dashboard) y las plantillas. */
-export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas', miniatura, ejemplos, onPedido, onCreado }: {
+export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas', miniatura, ejemplos, onPedido, onCreado, arriba }: {
   tab: string; plantillas: readonly PlantillaCrear[]; onPlantilla: PropsPantallaCrear['onPlantilla']; titulo?: string;
+  /** Lo de la tab entre la caja y las plantillas (`arribaDePlantillas`). */
+  arriba?: ReactNode;
   miniatura?: PropsPantallaCrear['miniatura'];
   ejemplos: readonly string[];
   /** Lo escrito en la caja; un texto de vuelta es un error. */
@@ -369,6 +374,7 @@ export function NuevaCrear({ tab, plantillas, onPlantilla, titulo = 'Plantillas'
             bloqueo={appEscritorio.bloqueo} />
         </div>
         {error && <p className="cr-error" role="alert">{error}<ReportarASoporte /></p>}
+        {arriba ?? null}
         {/* Una sección por `grupo`, en el orden en que llegan; sin grupos, una sola con el título de la grilla. */}
         {secciones.map((s, i) => (
           <section key={s.titulo ?? ''} className="cr-plantillas" aria-labelledby={`${idGrilla}-${i}`}>
