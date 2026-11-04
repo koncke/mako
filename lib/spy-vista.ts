@@ -95,8 +95,26 @@ export const rotuloDeTipo = (t: TipoPieza): string => ROTULO_TIPO[t].uno;
  * La de Instagram SÍ vence (CDN de Meta): se reescribe en cada lectura y `TarjetaPieza` esconde la
  * rota con su `onError`. Ver supabase/migrations/0360_spy_miniatura.sql.
  */
-export const miniaturaDePieza = (p: { canal: string; ref: string; miniatura?: string | null }): string | null => (
-  p.miniatura && p.miniatura.startsWith('https://') ? p.miniatura
+/**
+ * ¿La URL del CDN ya venció? Las de Instagram y Facebook traen su vencimiento en `oe` (segundos, en hexadecimal). Vencida, el CDN
+ * contesta 403: no se pide (ni al dibujar ni para guardarla), y la tarjeta sale con su texto. Sin `oe` no se sabe, y se intenta.
+ */
+export function urlVencida(url: string, ahora: number = Date.now()): boolean {
+  try {
+    const oe = new URL(url).searchParams.get('oe');
+    if (!oe || !/^[0-9a-f]{6,10}$/i.test(oe)) return false;
+    return parseInt(oe, 16) * 1000 <= ahora;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * La miniatura que se dibuja. ⚠️ Una del CDN ya vencida es null (4/11/2026, el Cerebro con Den Borg: el gráfico esperaba a cientos
+ * de imágenes que iban a dar 403): la tarjeta entra con su texto sin pedir nada y sin hacer esperar a las demás.
+ */
+export const miniaturaDePieza = (p: { canal: string; ref: string; miniatura?: string | null }, ahora: number = Date.now()): string | null => (
+  p.miniatura && p.miniatura.startsWith('https://') ? (urlVencida(p.miniatura, ahora) ? null : p.miniatura)
     : p.canal === 'youtube' ? `https://i.ytimg.com/vi/${encodeURIComponent(p.ref)}/mqdefault.jpg`
     : null
 );

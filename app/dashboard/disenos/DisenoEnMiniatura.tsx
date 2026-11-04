@@ -22,6 +22,8 @@ import { HojaClosing, type ExtrasClosing } from './HojaClosing';
 import { HojaCobranza } from './HojaCobranza';
 import { HojaFocus } from './HojaFocus';
 import type { VistaFocus } from '@/lib/focus-diseno';
+import { HojaMiDia } from './HojaMiDia';
+import { mesDe, type VistaMiDia } from '@/lib/mi-dia-diseno';
 
 const dia = (hoy: string, n: number) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const resultado = (columnas: string[], totales: Array<number | null>, filas: Resultado['filas'] = [], anterior?: Array<number | null>): DatosPieza => ({
@@ -163,6 +165,65 @@ function vistaFocusMuestra(hoy: string): VistaFocus {
   };
 }
 
+/** «Mi día» de EJEMPLO (los de la maqueta, focus-lumora/mako.html: ficticios), para la miniatura de «Nueva hoja». */
+function vistaMiDiaMuestra(hoy: string): VistaMiDia {
+  const h = (hhmm: string) => Date.parse(`${hoy}T${hhmm}:00Z`);
+  const ev = (id: string, titulo: string, detalle: string, ini: string, fin: string | null, tono: 'sky' | 'pine' | 'clay' | 'lemon', estado: 'paso' | 'ahora' | 'viene') =>
+    ({ tipo: 'evento' as const, id, titulo, detalle, hora: ini, inicio: h(ini), fin: h(fin ?? ini) + (fin ? 0 : 30 * 60_000), tono, estado, href: null, hasta: fin });
+  const eventos = [
+    ev('e1', 'Revisión de creativos', 'Reunión', '09:00', '09:45', 'sky', 'paso'),
+    ev('e2', 'R1 con Carlos Ibarra', 'Llamada', '11:00', '11:30', 'pine', 'ahora'),
+    ev('e3', 'R2 con Laura Méndez', 'Llamada', '12:30', '13:15', 'pine', 'viene'),
+    ev('e4', 'Reel del método', 'Publicación', '17:00', null, 'clay', 'viene'),
+    ev('e5', 'R1 con Jorge Salinas', 'Llamada', '18:00', '18:30', 'pine', 'viene'),
+  ];
+  const [e1, e2, e3, e4, e5] = eventos;
+  const puntos = [1, 5, 6, 8, 9].map((n) => ({ id: `p${n}`, fuente: 'crm' as const, capa: 'llamadas' as const, titulo: '', inicio: `${dia(hoy, n)}T15:00:00Z`, fin: null, diaCompleto: false, href: null }));
+  return {
+    semana: 'Semana 6 del Q4',
+    resumen: { llamadas: 3, tareas: 5, vencidas: 2 },
+    cinta: [e1, { tipo: 'pausa', id: 'pa', inicio: e1.fin, fin: e2.inicio }, e2, { tipo: 'pausa', id: 'pb', inicio: e2.fin, fin: e3.inicio }, e3,
+      { tipo: 'libre', id: 'li', desde: '13:15', dura: '3 h 45 min', inicio: e3.fin, fin: e4.inicio }, e4, e5],
+    proxima: { titulo: 'R2 con Laura Méndez', hora: '12:30', href: null },
+    numeros: [
+      { id: 'llamadas', titulo: 'Llamadas hoy', valor: 3, meter: 0.33, pie: 'Próxima:', destacado: '12:30 · R2 con Laura Méndez' },
+      { id: 'tareas', titulo: 'Tareas de hoy', valor: 5, meter: 0.4, pie: '2 hechas', destacado: '1 vencida' },
+      { id: 'cobros', titulo: 'Cuotas por cobrar', valor: 8, meter: 0.25, pie: 'De 6 clientes', destacado: '2 vencidas' },
+      { id: 'kpis', titulo: 'KPIs del día', valor: 2, meter: 0.5, pie: 'En verde, de 4', destacado: null },
+    ],
+    vence: [
+      { id: 'v1', titulo: 'Mandar la propuesta a Jorge Salinas', detalle: 'Ventas de noviembre · Ayer · Vencida', mes: 'Nov', dia: Number(dia(hoy, -1).slice(8)), tono: 'coral', href: '/plan' },
+      { id: 'v2', titulo: 'Preparar la R2 de Laura Méndez', detalle: 'Ventas de noviembre · Hoy', mes: 'Nov', dia: Number(hoy.slice(8)), tono: 'marigold', href: '/plan' },
+      { id: 'v3', titulo: 'Grabar tres hooks nuevos', detalle: 'Creativos de Meta · Hoy', mes: 'Nov', dia: Number(hoy.slice(8)), tono: 'marigold', href: '/plan' },
+      { id: 'v4', titulo: 'Revisar el guion de la VSL', detalle: 'Nueva VSL · Viernes', mes: 'Nov', dia: Number(dia(hoy, 2).slice(8)), tono: 'pine', href: '/plan' },
+      { id: 'v5', titulo: 'Creativos de Meta', detalle: 'Proyecto · 11/11', mes: 'Nov', dia: Number(dia(hoy, 7).slice(8)), tono: 'clay', href: '/plan' },
+    ],
+    funnel: { id: 1, nombre: 'Programa principal', principal: true, total: 74, etapas: [{ nombre: 'Nuevo', n: 38 }, { nombre: 'Agendó', n: 21 }, { nombre: 'Asistió', n: 9 }, { nombre: 'Propuesta', n: 6 }] },
+    okrs: [{ titulo: 'Facturación', avance: 62, esperado: 58 }, { titulo: 'Ventas', avance: 71, esperado: 58 }, { titulo: 'Leads', avance: 48, esperado: 58 }, { titulo: 'Retención', avance: 80, esperado: 58 }],
+    deben: [
+      { leadId: 1, pagoId: 1, nombre: 'Carlos Méndez', linea: 'US$2,475 · venció hace 67 días', urgencia: 'vencida' },
+      { leadId: 2, pagoId: 2, nombre: 'Lucía Ramos', linea: 'US$5,181 · venció hace 5 días', urgencia: 'vencida' },
+      { leadId: 3, pagoId: 3, nombre: 'Diego Fuentes', linea: 'US$2,007 · vence hoy', urgencia: 'pronto' },
+    ],
+    semaforo: [
+      { titulo: '2 cuotas vencidas sin cobrar', link: 'Ver las cuotas', href: '/crm', nivel: 'rojo' },
+      { titulo: '3 leads sin marcar la asistencia a la R1', link: 'Marcar en el CRM', href: '/crm', nivel: 'ambar' },
+      { titulo: 'La meta del trimestre va a tiempo', link: 'Ver la meta', href: '/plan', nivel: 'verde' },
+    ],
+    mes: mesDe([...puntos, { id: 'hoy', fuente: 'crm', capa: 'llamadas', titulo: '', inicio: `${hoy}T15:00:00Z`, fin: null, diaCompleto: false, href: null }], hoy, 'UTC'),
+    dia: [e1, e2, e3, e4],
+    recordatorios: [
+      { id: 'proxima', titulo: 'R2 con Laura Méndez', detalle: 'Empieza en 1 h 20 min', tono: 'sky', href: '/calendario' },
+      { id: 'vencidas', titulo: '1 tarea vencida', detalle: 'La más vieja, del 3/11', tono: 'marigold', href: '/plan' },
+      { id: 'hueco', titulo: 'Próximo hueco libre', detalle: 'Hoy 13:15–17:00', tono: 'pine', href: '/calendario' },
+    ],
+    aTildar: [
+      { id: 't1', titulo: 'Preparar la R2 de Laura Méndez', cuando: 'Hoy', prio: null, proyecto: { nombre: 'Ventas de noviembre', color: '#1d9a85' } },
+      { id: 't2', titulo: 'Grabar tres hooks nuevos', cuando: 'Hoy', prio: null, proyecto: { nombre: 'Creativos de Meta', color: '#3f84d8' } },
+    ],
+  };
+}
+
 const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<string, DatosPieza>; hoy: string }) => ReactNode> = {
   closing: ({ hoja, datos, hoy }) => (
     // Con sus botones y links, como se ve la hoja (en la miniatura no se tocan: `pointer-events: none`); `quieta` no lee la caja de IA.
@@ -175,6 +236,9 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   foco: ({ hoy }) => (
     <HojaFocus vista={vistaFocusMuestra(hoy)} titulo="Buenos días, Ana" sub="Miércoles 4 de noviembre · 3 llamadas y 7 tareas para hoy" hoy={hoy} tz="UTC"
       ahora={null} metaAccion={<span className="fp-btn fp-btn--accent fp-focus__go">Editar la meta</span>} onGrilla={() => {}} quieta />
+  ),
+  'mi-dia': ({ hoy }) => (
+    <HojaMiDia vista={vistaMiDiaMuestra(hoy)} titulo="Buenos días, Ana" fecha="miércoles 4 de noviembre" tz="UTC" ahora={null} onGrilla={() => {}} quieta />
   ),
 };
 
