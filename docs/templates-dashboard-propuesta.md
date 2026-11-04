@@ -229,7 +229,7 @@ Todas las referencias están medidas (capturas a 1440 y 390, `valores.json`, los
 | **General** | Orvel · Corbel | **Orvel: se ofrece en General como «General»** desde el 4/11, en producción (copia y adaptación: `docs/diseno/mockups-dashboard/general-orvel/`; el componente, `app/dashboard/disenos/HojaGeneral.tsx`). Corbel: por copiar |
 | **Operación diaria** | Moorly · Torque | **Moorly: se ofrece en General como «Operación diaria»** (`operacion`) desde el 4/11, en producción (copia y adaptación: `docs/diseno/mockups-dashboard/operacion-moorly/`; el componente, `app/dashboard/disenos/HojaOperacion.tsx`). Torque: por copiar |
 | **Comercial** | Coffer · Corbel · Prism · Orvel · Pelago · Selvar | **Selvar: se ofrece** desde el 4/11, en producción (copia y adaptación: `docs/diseno/mockups-dashboard/comercial-selvar/`; el componente, `app/dashboard/disenos/HojaComercial.tsx`). Las demás referencias: por copiar |
-| **Marketing** | Kestrel · Ondra | **Kestrel: se ofrece** desde el 4/11, en `punta/dash-marketing` (copia y adaptación: `docs/diseno/mockups-dashboard/marketing-kestrel/`; el componente, `app/dashboard/disenos/HojaMarketing.tsx`). Ondra: por copiar |
+| **Marketing** | Kestrel · Ondra | **Kestrel: se ofrece** desde el 4/11, en producción (copia y adaptación: `docs/diseno/mockups-dashboard/marketing-kestrel/`; el componente, `app/dashboard/disenos/HojaMarketing.tsx`). Ondra: por copiar |
 | **Anuncio ganador** | Vitrea · Prism | Por copiar (pide la confianza de un A/B, §7.4) |
 | **Hooks y retención** | Vitrea · Murmura | Por copiar (pide la retención por segundo, §7.4) |
 | **Landing** | Corbel · Kestrel | Por copiar |

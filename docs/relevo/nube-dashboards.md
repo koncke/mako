@@ -1,6 +1,15 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~18:45 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~19:15 UTC)
+
+- **Marketing está en producción.** Entró a main a las 19:02 (`445a59f64`, la mezcla de `punta/dash-marketing` con `f9b806acc`); el deploy
+  promovido de las 19:06 (`445a59f64`) la contiene. El primer veredicto dio tres rojos de tests que usaban de EJEMPLO piezas que la
+  plantilla de Marketing ya no trae (el costo por cierre, el mapa y la edad): ningún código las buscaba, y los tests se reescribieron para
+  probar lo mismo sin ellas (`15fb1f969`). El segundo, verde: 7.001 tests y el tsc entero.
+- **Lo próximo es Landing (la copia de Corbel).** Anuncio ganador y Hooks, que van antes en la tabla, piden lo que MaKo no mide (la
+  confianza de un A/B entre creativos y la retención por segundo, §7.4): quedan para cuando se mida.
+
+### Lo de las ~18:45 UTC
 
 - **Comercial está en producción.** Entró a main a las 18:11 (`21df3c66a`, la mezcla de `punta/dash-comercial` con `f2806d53e`); el deploy
   promovido de las 18:25 (`5747639cb`) la contiene. La primera corrida del veredicto dio un rojo de verdad: `tests/plantillas-sugeridas.test.ts`
@@ -46,7 +55,7 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
 
-## Marketing: la octava hoja copiada (la de Kestrel), con «¿cuánto cuesta una agenda y de qué anuncio vino?» (punta `dash-marketing`, 4/11/2026)
+## Marketing: la octava hoja copiada (la de Kestrel), con «¿cuánto cuesta una agenda y de qué anuncio vino?» (en producción desde el 4/11/2026, 19:06 UTC)
 
 Las referencias de Marketing eran dos (Kestrel · Ondra, `docs/templates-dashboard-propuesta.md` §7.3); ésta es **Kestrel**, la de la página
 «Realtime overview»: seis números arriba, las tendencias, una tabla con pestañas y dos bloques por red. Ondra queda para otra hoja.
