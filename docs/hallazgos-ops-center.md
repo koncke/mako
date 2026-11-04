@@ -258,3 +258,84 @@ por eso `filasOffer` estaba siempre vacío y Hormozi era un clic muerto SIEMPRE 
 cambia por un puente y node no. Tapando `server-only` en `require.cache` el árbol carga, y el proceso del test
 **sale con código 1 sin escribir una línea**, ni el nombre del test que corría: se ve como «test failed» a nivel de
 archivo. El motor no se dibuja en un test; se mira su fuente y se dibuja `HiloMako`.
+
+## El grafo de un gurú eran puntos iguales: era la FORMA del grafo, no el dibujo (4/11/2026)
+
+**El síntoma.** Martín: «los nodos son todos iguales, no está bien diseñado como el que ya hicimos, que tienen
+diferentes colores, tamaños y que los títulos van apareciendo y desapareciendo por "sección"». Y de la barra lateral:
+«están bastante mal organizadas».
+
+**El diagnóstico obvio era el equivocado.** Parecía un problema de `Grafo.tsx`, y el componente es el MISMO que el del
+negocio. Lo distinto era el dato: `armarReferente` (`lib/cerebro-referente.ts`) cuelga todas las clases de una raíz, en
+UN área y encadenadas. Con un área, todo sale de un color; con todas las clases de grado 3, todas del mismo tamaño
+(`radioNodo` tiene piso de 8 hasta grado 6); y sin nodos `n1:`, el grafo no tiene un nivel 1 cuyo título quede de lejos
+(`entraPorNivel`). La barra lateral contaba «453 cosas que MaKo sabe · 453 de MaKo · 0 tuyas» con una sola sección.
+
+**El arreglo** (`lib/cerebro-referente-vista.ts`, sobre la misma capa que lee el chat, con los MISMOS ids de clase):
+la raíz es el curso, cada módulo es un `n1:` con su color, las clases cuelgan de su módulo, y el tamaño sale de un
+`peso` nuevo de `NodoCerebro`: un PISO que leen las dos copias de `gradosDe` (layout y dibujo), así el servidor y el
+navegador miden igual. El grafo trae `curso`, y con eso la barra lateral, el filtro (sólo «Módulo»), el buscador (sin
+«Buscar con MaKo», que busca en el negocio) y el detalle (sin la pastilla «MaKo») hablan de clases.
+
+**Tres trampas que no se ven leyendo:**
+- **El índice de clases tomaba `subtitulo:` por `titulo:`.** La regex suelta del generador encontraba el subtítulo del
+  CURSO antes que el título de la primera clase: en 18 de 31 cursos la clase 1 se llamaba «33 clases, 2 módulos. Video,
+  transcripción y tus apuntes…», y así la listaba el turno del chat. Ahora se lee bloque por bloque
+  (`scripts/generar-clases-de-referentes.mjs`).
+- **Un curso de 2 módulos con 32 clases en uno es una estrella**, no secciones (Hormozi). Con menos de 4 módulos se usa
+  la sección de adentro (`subgrupo`): Hormozi queda en 8.
+- **Unir clases por una palabra del título une cualquier cosa** si la palabra es «vamos», «creando» o el nombre del
+  curso: con 452 clases salían 318 uniones y el mapa era una telaraña. Se sacan verbos y palabras vacías, una palabra
+  en más del 4 % de los títulos no une, y el mapa tiene techo (clases / 4): Marc Verdú queda en 113.
+
+**El encuadre mide los PUNTOS, no las etiquetas:** un título de sección pegado al borde salía cortado («…HOP
+RECORDINGS»). En un curso, `ajustar` (`Grafo.tsx`) deja a los costados la mitad del título de sección más largo. En el
+grafo del negocio no se tocó: si pasa ahí, es la misma línea.
+
+**Vive en:** `lib/cerebro-referente-vista.ts` · `app/second-brain/Grafo.tsx` · `app/second-brain/SuSecondBrain.tsx` ·
+`scripts/generar-clases-de-referentes.mjs` · `tests/cerebro-referente-vista.test.ts`.
+
+## «Su Second Brain» abría un modal: ahora reemplaza la conversación (4/11/2026)
+
+Martín: «en lugar de "Su Second Brain" que diga "Second Brain de NOMBRE DEL GURU" y que esté alineado a la derecha del
+todo... no debe abrirse un modal, sino que debe reemplazar lo que está en el chat... y en el botón... "Volver al chat"».
+`PanelDeChat` ganó `reemplazo`: lo que ocupa el lugar del hilo y la caja. **La conversación queda montada y escondida**
+(`display: none`), así que al volver sigue donde estaba, con lo escrito en la caja; desmontarla perdía el scroll y el
+borrador. El botón es uno (`BotonSecondBrainDe`) y va último en las acciones con `margin-left: auto`: en el Funnel Coach
+«Ver el plan» va antes, y abrir uno cierra el otro.
+
+**Vive en:** `app/admin/operaciones/PanelChat.tsx` · `app/second-brain/SuSecondBrain.tsx` · `ChatDelReferente.tsx` ·
+`ChatDelCoach.tsx` · `ChatSecondBrain.tsx` · `app/m/second-brain/HojaDelGuru.tsx`.
+
+## Los diez gurús que faltan no tienen caricatura en el repo (4/11/2026)
+
+Martín: «faltan un montón de gurús que nos habían quedado por la mitad que ya habíamos hecho sus caricaturas». Medido:
+los 22 retratos de `public/asesores/` ya están TODOS en la galería, y de los diez que faltan (Carrizo, Núñez, Landa,
+Fons, Maffia, Begueria, Luque, Doglio, Seré, Albaa) no hay una sola imagen en ninguna rama ni etiqueta del repo
+(`git log --all -- '*carrizo*.png'`, y así con cada uno). Las caricaturas se hacen con Canva desde la PC; una sesión en
+la nube no tiene Canva. Lo que sí se puede hacer en la nube es su FICHA: queda escrita en `lib/asesores/en-espera.ts`
+y el gurú entra a la galería en cuanto llegue su cara (el test lo avisa).
+
+## Las diez fichas que esperan cara: cómo se escribieron y qué quedó afuera (4/11/2026)
+
+**Vive en:** `lib/asesores/ficha-*.ts` (las diez nuevas), `lib/asesores/en-espera.ts`, `tests/gurus-en-espera.test.ts`.
+
+- **Un subagente por ficha costó ~480-500 mil tokens cada una** (las tres primeras). Las siete siguientes se escribieron a
+  mano leyendo 8 a 12 clases de método por curso, con el índice (`lib/asesores/clases-de-referentes.json`, la clave es el slug
+  de `lib/asesores/cursos.ts`) y las transcripciones de `public/cono-tx/<videoId>.json`, salteando el arranque de cada clase
+  (los primeros 500-2.500 caracteres son saludo). Las clases que más rinden son las de método; las sesiones de preguntas, las
+  entrevistas y las «revisiones de canales» pesan 50-150k y casi no traen marcos.
+- **Lo que los cursos enseñan y la ficha no repite** (cada uno en su «⚠️ NO SE TRASLADA»), por si aparece en el próximo:
+  escasez o urgencia inventada («la única clase en vivo», «este video se borra en 24 horas», descuentos «sólo hoy»); animar a
+  pedir un CRÉDITO para pagar un programa (Maffia); COMPRAR ENLACES, que el curso presenta como lo normal del sector (Fons);
+  revisar un anuncio contra las reglas de Meta para que una promesa exagerada pase el filtro (Doglio, «GPT Anti Ban»); los
+  sorteos y la «escalera de sí» en un webinar; el precio terminado en 7 como truco (Luque); y en todos, los montos propios
+  o de alumnos como expectativa.
+- **Una nota de pendientes daba por hecho que Samuel Albaa enseñaba *setter***: el curso («Growing Closer», con Agustín
+  Nievas) no tiene ni una clase de setter. Su ficha cubre la práctica del closer, distinta de la de Nievas. Antes de escribir
+  la especialidad de un gurú, se lista el temario de SU curso.
+- **El voseo del curso no viaja a la ficha**: los cursos argentinos y españoles dicen «vos» y «vosotros»; la ficha va de tú.
+  El guard de voseo (`tests/puente-panel-copy.test.ts`) sólo ve los archivos que ESTÁN en el índice de git: con una ficha
+  nueva se corre después de `git add -N`, o da verde sin haberla leído. Un título de clase citado tal cual también trae voseo
+  («Vendele…»): se cita el módulo o se parafrasea.
+- **Nadie más leyó las fichas**: las escribí yo, contra las clases citadas. Martín las puede leer antes de que entren.
