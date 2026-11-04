@@ -77,7 +77,7 @@ const huella = /SHA256:\s*([0-9A-F:]{95})/.exec(execFileSync(java('keytool'), ['
 
 // ── Gradle ───────────────────────────────────────────────────────────────────
 writeFileSync(join(ACA, 'local.properties'), `sdk.dir=${ANDROID_HOME.replace(/\\/g, '/')}\n`);
-execFileSync('cmd.exe', ['/c', 'gradlew.bat', 'bundleRelease', '--no-daemon', '--console=plain', '-Dorg.gradle.jvmargs=-Xmx1536m'], { cwd: ACA, env: entorno, stdio: 'inherit' });
+execFileSync('cmd.exe', ['/c', join(ACA, 'gradlew.bat'), 'bundleRelease', '--no-daemon', '--console=plain', '-Dorg.gradle.jvmargs=-Xmx1536m'], { cwd: ACA, env: entorno, stdio: 'inherit' });
 
 const crudo = join(ACA, 'app', 'build', 'outputs', 'bundle', 'release', 'app-release.aab');
 if (!existsSync(crudo)) salir('Gradle terminó y no está el .aab.');

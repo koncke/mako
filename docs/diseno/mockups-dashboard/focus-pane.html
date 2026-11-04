@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es" data-estilo="pane" data-tema-inicial="oscuro"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="comun.css?v=1793570156">
+<style>
+/* Replica de la disposición de Pane, medida el 1/11/2026 sobre el demo:
+   dos columnas IGUALES + gap 14, y después bloques a todo el ancho.
+   Izquierda: anillos → temporizador → lo que viene. Derecha: mis tareas (alto = los dos primeros de la izq) → la semana. */
+:root{ --r:18px; --r-sm:13px; }
+:root[data-tema="oscuro"]{
+--bg:#0f1012;--card:#17191c;--card-2:#1c1f23;--rim:#ffffff12;--text:#eceef1;--muted:#9fa5ad;--faint:#777e86;
+--azul:#3d7dff;--on-azul:#fff;--well:#ffffff0d;--line:#ffffff14;--gris:#3a3f46;--barra:#3a4a6b;
+--up:#4fbf92;--up-soft:#4fbf9226;--down:#e8795f;--down-soft:#e8795f26;--warn:#e0a94a;--warn-soft:#e0a94a26;
+--mk-ctl-bg:#1c1f23;--mk-ctl-fg:#9fa5ad;--mk-ctl-hov:#ffffff12;--mk-ctl-on:#3d7dff;--mk-ctl-on-fg:#fff;
+--mk-row-hov:#ffffff08;--mk-flash:#3d7dff33;
+}
+/* el claro de MaKo: la paleta mono de Corbel, que es nuestro tema por defecto */
+:root[data-tema="claro"]{
+--bg:#efefed;--card:#fcfcfb;--card-2:#f5f5f2;--rim:#11111114;--text:#121212;--muted:#4f4f4c;--faint:#77776f;
+--azul:#1f58d6;--on-azul:#fff;--well:#1111110d;--line:#11111117;--gris:#c8c8c3;--barra:#b4b4af;
+--up:#22735c;--up-soft:#d5eee4;--down:#b1412a;--down-soft:#f8e1da;--warn:#85580a;--warn-soft:#f5ead2;
+--mk-ctl-bg:#fcfcfb;--mk-ctl-fg:#4f4f4c;--mk-ctl-hov:#1111110f;--mk-ctl-on:#121212;--mk-ctl-on-fg:#fcfcfb;
+--mk-row-hov:#11111108;--mk-flash:#1f58d61f;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:500 14px/1.45 Urbanist,ui-sans-serif,system-ui,sans-serif;padding:26px 30px 44px}
+.h1{font-size:34px;font-weight:600;letter-spacing:-.9px;line-height:36px}
+.estado{font-size:13.5px;color:var(--muted);margin-top:6px}
+.estado b{color:var(--text);font-weight:600}
+.cab{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
+.btns{display:flex;gap:9px;flex:0 0 auto;padding-top:6px}
+.btn{height:38px;padding:0 17px;border-radius:999px;background:var(--card-2);box-shadow:inset 0 0 0 1px var(--rim);
+  display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600}
+.btn--azul{background:var(--azul);color:var(--on-azul);box-shadow:none}
+/* los tres tiles chicos, en línea, como en Pane */
+.tiles{display:flex;gap:12px;margin:18px 0 14px}
+.tl{background:var(--card);box-shadow:inset 0 0 0 1px var(--rim);border-radius:var(--r-sm);padding:11px 15px 12px;min-width:118px}
+.tl span{font-size:12px;color:var(--faint);display:block}
+.tl b{font-size:21px;font-weight:600;letter-spacing:-.4px}
+.tl b i{font-size:12.5px;font-style:normal;color:var(--faint);font-weight:500}
+/* la grilla de Pane */
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.card{background:var(--card);box-shadow:inset 0 0 0 1px var(--rim);border-radius:var(--r);padding:17px 18px;
+  display:flex;flex-direction:column}
+.ancho{margin-top:14px}
+.tit{font-size:15px;font-weight:600;letter-spacing:-.1px}
+.sub{font-size:12.5px;color:var(--faint);margin-top:1px}
+.cabc{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
+.lnk{font-size:12.5px;font-weight:600;color:var(--azul)}
+.pie{margin-top:auto;padding-top:11px;border-top:1px solid var(--line);color:var(--faint);font-size:12.5px;font-weight:600}
+/* anillos */
+.anillos{display:flex;gap:20px;align-items:center}
+.lg{display:flex;gap:9px;align-items:flex-start;margin-bottom:13px}
+.lg:last-child{margin-bottom:0}
+.lg i{width:3px;border-radius:2px;align-self:stretch}
+.lg span{font-size:12px;color:var(--faint);display:block}
+.lg b{font-size:17px;font-weight:600}
+.lg b u{font-size:12px;color:var(--faint);text-decoration:none;font-weight:500}
+/* temporizador */
+.presets{display:flex;gap:3px;background:var(--well);border-radius:999px;padding:3px}
+.pz{height:25px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;display:flex;align-items:center;color:var(--faint)}
+.pz.on{background:var(--text);color:var(--bg)}
+.reloj{font-size:46px;font-weight:600;letter-spacing:-1.6px;line-height:1;font-variant-numeric:tabular-nums;text-align:center}
+.sel{height:40px;border-radius:var(--r-sm);background:var(--well);box-shadow:inset 0 0 0 1px var(--rim);display:flex;
+  align-items:center;justify-content:space-between;padding:0 14px;font-size:13px;margin-top:14px;color:var(--muted)}
+.empezar{height:42px;border-radius:999px;background:var(--azul);color:var(--on-azul);display:flex;align-items:center;
+  justify-content:center;gap:7px;font-size:14px;font-weight:600;margin-top:10px}
+.hoyfoco{display:flex;justify-content:space-between;align-items:center;background:var(--well);border-radius:var(--r-sm);
+  padding:10px 14px;margin-top:12px;font-size:12.5px;color:var(--faint)}
+.hoyfoco b{color:var(--text);font-weight:600}
+/* listas */
+.fila{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line)}
+.fila:last-of-type{border-bottom:0}
+.fila .t{flex:1;min-width:0}
+.fila .t b{font-size:13.5px;font-weight:600;display:block}
+.fila .t span{font-size:12px;color:var(--faint)}
+.pt{font-size:11px;font-weight:600;border-radius:7px;padding:2px 8px;background:var(--well);color:var(--muted);white-space:nowrap}
+.chip{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.chip--d{background:var(--down-soft);color:var(--down)}.chip--w{background:var(--warn-soft);color:var(--warn)}
+.bolita{width:17px;height:17px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line);flex:0 0 auto}
+.accion{height:28px;padding:0 13px;border-radius:999px;background:var(--text);color:var(--bg);font-size:12px;font-weight:600;
+  display:flex;align-items:center;flex:0 0 auto}
+/* lo que viene */
+.proxima{border-radius:var(--r-sm);background:var(--card-2);box-shadow:inset 0 0 0 1px var(--rim);padding:14px 15px}
+.en{font-size:11px;font-weight:700;color:var(--warn);background:var(--warn-soft);border-radius:999px;padding:3px 9px}
+.entrar{height:32px;padding:0 14px;border-radius:999px;background:var(--azul);color:var(--on-azul);font-size:12.5px;
+  font-weight:600;display:flex;align-items:center;gap:6px}
+.av{display:flex}.av i{width:25px;height:25px;border-radius:50%;background:var(--gris);box-shadow:0 0 0 2px var(--card-2);margin-left:-8px}
+.av i:first-child{margin-left:0}
+.hora{font-size:12.5px;color:var(--faint)}
+/* barras */
+.barras{display:flex;align-items:flex-end;gap:8px;height:150px;margin-top:12px}
+.barras div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;height:100%}
+.barras i{display:block;width:100%;border-radius:7px;background:var(--barra)}
+.barras i.hoy{background:var(--azul)}
+.barras span{font-size:11px;color:var(--faint)}
+/* proyectos */
+.pr{display:flex;align-items:center;gap:13px;padding:11px 0;border-bottom:1px solid var(--line)}
+.pr:last-of-type{border-bottom:0}
+.pr .ico{width:30px;height:30px;border-radius:9px;background:var(--well);display:flex;align-items:center;justify-content:center;font-size:14px}
+.pr .t{flex:1}.pr .t b{font-size:13.5px;font-weight:600;display:block}.pr .t span{font-size:12px;color:var(--faint)}
+.riel{width:132px;height:6px;border-radius:999px;background:var(--well);overflow:hidden}
+.riel i{display:block;height:100%;background:var(--azul);border-radius:999px}
+.pct{font-size:12.5px;font-weight:600;width:34px;text-align:right}
+/* ahora mismo */
+.gente{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+.pe{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line)}
+.pe .ava{width:30px;height:30px;border-radius:50%;background:var(--gris);flex:0 0 auto}
+.pe .t b{font-size:13.5px;font-weight:600;display:block}.pe .t span{font-size:12px;color:var(--faint)}
+.pe .est{margin-left:auto;font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;background:var(--up-soft);color:var(--up)}
+</style></head>
+<body>
+
+<div class="cab">
+  <div>
+    <div class="h1">Buen día, Martín</div>
+    <div class="estado">Domingo 1 de noviembre · <b>3 llamadas</b> y <b>6 tareas</b> hoy ·
+      <b style="color:#e8795f">2 agendas de ayer sin contactar</b></div>
+  </div>
+  <div class="btns"><div class="btn">＋ Nueva tarea</div><div class="btn btn--azul">▶ Próxima: 11:30</div></div>
+</div>
+
+<div class="tiles">
+  <div class="tl"><span>Hecho hoy</span><b>2 <i>/ 8</i></b></div>
+  <div class="tl"><span>Foco hoy</span><b>1,1 h</b></div>
+  <div class="tl"><span>Vencidas</span><b>0</b></div>
+</div>
+
+<div class="dos">
+  <!-- ── columna izquierda ── -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+
+    <div class="card">
+      <div class="cabc"><div><div class="tit">Hoy</div><div class="sub">Cerrá los anillos</div></div></div>
+      <div class="anillos">
+        <svg width="124" height="124" viewBox="0 0 124 124">
+          <g fill="none" stroke-linecap="round" stroke-width="12">
+            <circle cx="62" cy="62" r="53" stroke="#ffffff14"/>
+            <circle cx="62" cy="62" r="53" stroke="#e8795f" stroke-dasharray="333" stroke-dashoffset="250" transform="rotate(-90 62 62)"/>
+            <circle cx="62" cy="62" r="38" stroke="#ffffff14"/>
+            <circle cx="62" cy="62" r="38" stroke="#4fbf92" stroke-dasharray="239" stroke-dashoffset="107" transform="rotate(-90 62 62)"/>
+            <circle cx="62" cy="62" r="23" stroke="#ffffff14"/>
+            <circle cx="62" cy="62" r="23" stroke="#3d7dff" stroke-dasharray="145" stroke-dashoffset="97" transform="rotate(-90 62 62)"/>
+          </g></svg>
+        <div>
+          <div class="lg"><i style="background:#e8795f"></i><div><span>Tareas</span><b>2<u> / 8</u></b></div></div>
+          <div class="lg"><i style="background:#4fbf92"></i><div><span>Foco</span><b>1,1 h<u> / 2 h</u></b></div></div>
+          <div class="lg"><i style="background:#3d7dff"></i><div><span>Llamadas</span><b>1<u> / 3</u></b></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cabc"><div><div class="tit">Foco</div><div class="sub">La cápsula lleva el tiempo</div></div>
+        <div class="presets"><div class="pz">15m</div><div class="pz on">25m</div><div class="pz">50m</div></div></div>
+      <div class="reloj">25:00</div>
+      <div class="sub" style="text-align:center;margin-top:5px">Listo</div>
+      <div class="sel"><span>Preparar la R2 de Carlos Ruiz</span><span>▾</span></div>
+      <div class="empezar">▶ Empezar a enfocar</div>
+      <div class="hoyfoco"><span>Enfocado hoy</span><b>1,1 h · 2 sesiones</b></div>
+    </div>
+
+    <div class="card">
+      <div class="cabc"><div><div class="tit">Lo que viene</div><div class="sub">Tu día, de acá a la noche</div></div>
+        <span class="lnk">Calendario</span></div>
+      <div class="proxima">
+        <div style="display:flex;gap:9px;align-items:center;margin-bottom:7px">
+          <span class="en">en 42 min</span><span class="hora">11:30 – 12:15 · videollamada</span></div>
+        <b style="font-size:16px;font-weight:600">R2 con Ana Gómez</b>
+        <div class="sub" style="margin-top:2px">Closer: Luis · vino de Instagram</div>
+        <div style="display:flex;align-items:center;margin-top:12px">
+          <div class="av"><i></i><i></i></div><div class="entrar" style="margin-left:auto">📹 Entrar</div></div>
+      </div>
+      <div class="fila" style="margin-top:4px"><div class="t"><b>R1 con Carlos Ruiz</b><span>Closer: Sofía</span></div>
+        <span class="hora">16:00</span></div>
+      <div class="fila"><div class="t"><b>Revisión de creativos</b><span>Con el equipo</span></div><span class="hora">17:30</span></div>
+      <div class="pie">Abrir el Calendario →</div>
+    </div>
+  </div>
+
+  <!-- ── columna derecha ── -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+
+    <div class="card">
+      <div class="cabc"><div><div class="tit">Mis tareas</div><div class="sub">De hoy y atrasadas</div></div>
+        <span class="lnk">Ver todas</span></div>
+      <div class="fila"><div class="bolita"></div><div class="t"><b>Preparar la R2 de Carlos Ruiz</b>
+        <span><span class="pt">Mentoría Q4</span> hoy</span></div><span class="chip chip--d">Urgente</span></div>
+      <div class="fila"><div class="bolita"></div><div class="t"><b>Grabar 3 hooks nuevos</b>
+        <span><span class="pt">Método 90 días</span> hoy</span></div><span class="chip chip--w">Alta</span></div>
+      <div class="fila"><div class="bolita"></div><div class="t"><b>Revisar el guion de la VSL</b>
+        <span><span class="pt">Lanzamiento</span> hoy</span></div><span class="chip chip--w">Alta</span></div>
+      <div class="fila"><div class="bolita"></div><div class="t"><b>Cerrar la propuesta de Jorge Peña</b>
+        <span><span class="pt">Mentoría Q4</span> hoy</span></div></div>
+      <div class="fila"><div class="bolita"></div><div class="t"><b>Responder la objeción de Marta</b>
+        <span><span class="pt">Mentoría Q4</span> hoy</span></div><span class="chip chip--d">Urgente</span></div>
+      <div class="fila"><div class="bolita"></div><div class="t"><b>Armar el reporte de octubre</b>
+        <span><span class="pt">Agencia</span> hoy</span></div></div>
+      <div class="fila"><div class="bolita" style="background:var(--azul);box-shadow:none"></div>
+        <div class="t"><b style="text-decoration:line-through;color:var(--faint)">Mandarle el contrato a Leila</b>
+        <span><span class="pt">Mentoría Q4</span> 31/10</span></div></div>
+      <div class="pie">Abrir el Plan →</div>
+    </div>
+
+    <div class="card">
+      <div class="cabc"><div><div class="tit">La semana</div><div class="sub">Lo que cerró el equipo</div></div>
+        <span class="lnk">↗</span></div>
+      <div style="display:flex;align-items:baseline;gap:9px">
+        <span style="font-size:30px;font-weight:600;letter-spacing:-1px">25</span>
+        <span class="sub">cerradas · <b style="color:var(--down);font-weight:700">−4%</b> vs la anterior</span></div>
+      <div class="barras">
+        <div><i style="height:46%"></i><span>Lun</span></div>
+        <div><i style="height:30%"></i><span>Mar</span></div>
+        <div><i style="height:58%"></i><span>Mié</span></div>
+        <div><i style="height:86%"></i><span>Jue</span></div>
+        <div><i style="height:22%"></i><span>Vie</span></div>
+        <div><i style="height:12%"></i><span>Sáb</span></div>
+        <div><i class="hoy" style="height:38%"></i><span>Hoy</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── a todo el ancho, como Pane ── -->
+<div class="card ancho">
+  <div class="cabc"><div><div class="tit">Proyectos</div></div><span class="lnk">Ver todos</span></div>
+  <div class="pr"><div class="ico">🚀</div><div class="t"><b>Lanzamiento Mentoría Q4</b><span>En curso · cierra el 9/12</span></div>
+    <div class="riel"><i style="width:47%"></i></div><span class="pct">47%</span></div>
+  <div class="pr"><div class="ico">🎬</div><div class="t"><b>Nuevos creativos de Meta</b><span>En curso · cierra el 11/11</span></div>
+    <div class="riel"><i style="width:45%"></i></div><span class="pct">45%</span></div>
+  <div class="pr"><div class="ico">🧭</div><div class="t"><b>Rehacer la VSL</b><span>En revisión · cierra el 4/11</span></div>
+    <div class="riel"><i style="width:50%"></i></div><span class="pct">50%</span></div>
+  <div class="pr"><div class="ico">📣</div><div class="t"><b>Campaña de fin de año</b><span>Planeando · cierra el 6/1</span></div>
+    <div class="riel"><i style="width:0%"></i></div><span class="pct">0%</span></div>
+  <div class="pie">Abrir el Plan →</div>
+</div>
+
+<div class="card ancho">
+  <div class="cabc"><div><div class="tit">Ahora mismo</div><div class="sub">Quién está en qué</div></div>
+    <span class="lnk">Equipo</span></div>
+  <div class="gente">
+    <div class="pe"><div class="ava"></div><div class="t"><b>Luis Ferreyra</b><span>Closer</span></div>
+      <span class="est">En la R2 de Ana</span></div>
+    <div class="pe"><div class="ava"></div><div class="t"><b>Sofía Mendez</b><span>Closer</span></div>
+      <span class="est">En foco · hasta 12:00</span></div>
+    <div class="pe"><div class="ava"></div><div class="t"><b>Nahuel Díaz</b><span>Media buyer</span></div>
+      <span class="est" style="background:var(--warn-soft);color:var(--warn)">Revisando creativos</span></div>
+    <div class="pe"><div class="ava"></div><div class="t"><b>Camila Rossi</b><span>Setter</span></div>
+      <span class="est">En línea</span></div>
+  </div>
+</div>
+
+<!-- ── el bloque que Pane NO tiene y nosotros sí necesitamos ── -->
+<div class="card ancho" style="box-shadow:inset 0 0 0 1px #e8795f4d">
+  <div class="cabc"><div><div class="tit">Te está esperando</div>
+    <div class="sub">Trabado por vos, no por el cliente · agregado nuestro, no está en Pane</div></div>
+    <span class="chip chip--d">5</span></div>
+  <div class="fila"><div class="bolita"></div><div class="t"><b>Ana Gómez — propuesta sin respuesta</b>
+    <span>R2 hecha el 28/10 · $4.500</span></div><span class="chip chip--d">4 días</span><div class="accion">Escribirle</div></div>
+  <div class="fila"><div class="bolita"></div><div class="t"><b>Carlos Ruiz — no se le mandó el contrato</b>
+    <span>Cerró el 30/10 · $7.200</span></div><span class="chip chip--w">2 días</span><div class="accion">Mandar</div></div>
+  <div class="fila"><div class="bolita"></div><div class="t"><b>2 agendas de ayer sin contactar</b>
+    <span>Del anuncio «Método 90 días»</span></div><span class="chip chip--w">ayer</span><div class="accion">Abrir CRM</div></div>
+  <div class="fila"><div class="bolita"></div><div class="t"><b>Marta Díaz — cuota vencida</b>
+    <span>$300 · venció el viernes</span></div><span class="chip chip--d">3 días</span><div class="accion">Cobrar</div></div>
+  <div class="pie">Abrir el CRM →</div>
+</div>
+
+<script src="comun.js?v=1793570156"></script>
+</body></html>

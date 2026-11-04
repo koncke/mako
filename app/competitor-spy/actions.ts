@@ -14,18 +14,14 @@
 // para estas lecturas y devuelve «no encontré».
 
 import {
-  agregarCompetidor, analizarCompetidor, etapaDePieza, guardarAnuncioPegado, leerCompetidor,
-  listarCompetidores, listarPiezas, mirarCompetidor, quitarCompetidor, resumenDePiezas,
+  agregarCompetidor, etapaDePieza, guardarAnuncioPegado, leerCompetidor,
+  listarCompetidores, listarPiezas, mirarCompetidor, quitarCanal, quitarCompetidor, resumenDePiezas,
   type Competidor, type LecturaCanalSpy, type Pieza, type ResumenPiezas,
 } from '@/lib/spy';
 import { nombresDe } from '@/lib/landing-snapshot';
-import { perfilNegocioTexto } from '@/lib/onboarding';
 import { marcarActosSpy } from '@/lib/spy-actos';
-import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
-import { leerPerfilParaElAlta, queEs } from '@/lib/spy';
+import { getRolWsEfectivo } from '@/lib/workspace';
 import type { CanalSpy, EtapaTendencia } from '@/lib/spy-reglas';
-import { buscarOtrasRedes } from '@/lib/spy-otras-redes';
-import type { CandidatoRed } from '@/lib/spy-otras-redes-reglas';
 
 /** null = entra. `getRolWsEfectivo` da 'admin' al admin del workspace y a la agencia. */
 /**
@@ -107,47 +103,6 @@ export type VistaPrevia = {
   aviso?: string;
 };
 
-/**
- * Lee de quién es lo que se pegó, SIN guardar nada.
- *
- * ⚠️ POR QUÉ EXISTE, y es un pedido explícito de Martín (2/11/2026): «súper importante que lo
- * valides, o sea, que le preguntes al usuario, ¿este es el YouTube de esta persona?, para que no
- * se traiga algo incorrecto». Resolver una persona por su @ o por una búsqueda y guardarla sin
- * preguntar es como se trae a OTRA — ya lo pagamos resolviendo gurús por búsqueda en vez de por
- * handle (docs/hallazgos-ops-center.md).
- *
- * ⚠️ NO SE LLAMA EN CADA TECLA. Leer un perfil de Instagram gasta del tope diario de Apify
- * (`APIFY_TOPE_POR_DIA`): la pantalla la llama cuando la persona termina de escribir, no mientras
- * escribe. Si eso se rompe, el tope se agota en una tarde y nadie puede agregar a nadie.
- *
- * Un perfil que no se puede leer NO frena el alta: se devuelve el aviso y se agrega igual. Lo que
- * se pegó es de quien lo pegó; nosotros sólo ayudamos a confirmarlo.
- */
-export async function vistaPreviaAction(pegado: string): Promise<{ ok: true; vista: VistaPrevia } | { ok: false; error: string }> {
-  const no = await soloMiembro();
-  if (no) return { ok: false, error: no };
-  try {
-    const leido = queEs(pegado);
-    if (!leido) return { ok: false, error: 'No reconocí eso. Pega el @ de Instagram, el enlace de su canal de YouTube o el de su sitio.' };
-    // Sólo Instagram se puede previsualizar sin gastar una lectura cara: YouTube pide una llamada
-    // al canal y la landing habría que bajarla. Para esos dos se confirma con lo que se pegó.
-    if (leido.campo !== 'instagram') return { ok: true, vista: { campo: leido.campo, valor: leido.valor } };
-
-    const l = await leerPerfilParaElAlta(leido.valor);
-    if (!l.ok) {
-      return { ok: true, vista: { campo: leido.campo, valor: leido.valor, aviso: `No pude leer @${leido.valor} para mostrarte quién es. Puedes agregarlo igual.` } };
-    }
-    return {
-      ok: true,
-      vista: {
-        campo: leido.campo, valor: leido.valor,
-        nombre: l.perfil.nombre, foto: l.perfil.foto, seguidores: l.perfil.seguidores,
-        bio: l.perfil.bio ? l.perfil.bio.slice(0, 220) : null, web: l.perfil.web,
-      },
-    };
-  } catch (e) { return { ok: false, error: msg(e) }; }
-}
-
 export async function sumarCompetidorAction(pegado: string, nombre?: string, deLaBio?: string | null): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
   const no = await soloMiembro();
   if (no) return { ok: false, error: no };
@@ -162,23 +117,15 @@ export async function sumarCompetidorAction(pegado: string, nombre?: string, deL
   }
 }
 
-/**
- * Sus OTRAS redes, como CANDIDATOS (ítems 10/11, 3/11/2026). No guarda nada: la pantalla pregunta
- * «¿es su YouTube?» y sólo el «sí» escribe, con `sumarCanalAction` — lo mismo que pegarlo a mano.
- * Martín: «súper importante que lo valides… para que no se traiga algo incorrecto».
- */
-export async function buscarRedesAction(id: number): Promise<{ ok: true; candidatos: CandidatoRed[] } | { ok: false; error: string }> {
+// ⚠️ SUS OTRAS REDES SE BUSCAN EN /api/competitor-spy/redes desde el 4/11/2026, no acá: tardan hasta 40 s y una action
+// hace fila delante de todas las demás de la pantalla.
+
+/** Deshace un canal que se sumó solo y no era de él. */
+export async function quitarCanalAction(id: number, red: 'instagram' | 'youtube' | 'tiktok'): Promise<{ ok: true } | { ok: false; error: string }> {
   const no = await soloMiembro();
   if (no) return { ok: false, error: no };
-  try {
-    const c = await leerCompetidor(id);
-    if (!c) return { ok: false, error: 'No encontré a ese competidor.' };
-    const ws = await getWorkspaceActual();
-    if (ws == null) return { ok: false, error: 'Entra a tu negocio para buscar sus redes.' };
-    return await buscarOtrasRedes(ws, c);
-  } catch (e) {
-    return { ok: false, error: msg(e) };
-  }
+  if (red !== 'instagram' && red !== 'youtube' && red !== 'tiktok') return { ok: false, error: 'Esa red no existe.' };
+  try { return await quitarCanal(id, red); } catch (e) { return { ok: false, error: msg(e) }; }
 }
 
 /** Le suma un canal al competidor que ya está: el upsert por nombre escribe sobre la MISMA fila. */
@@ -217,20 +164,8 @@ export async function revisarAction(id: number, motivo?: 'alta' | 'rutina'): Pro
   }
 }
 
-export async function analizarAction(id: number): Promise<{ ok: true } | { ok: false; error: string }> {
-  const no = await soloMiembro();
-  if (no) return { ok: false, error: no };
-  try {
-    // Lo que vende ESTE negocio es la mitad del análisis: sin eso sale «este competidor promete X»,
-    // que es la Biblioteca de Anuncios con otro CSS. El cruce es lo que ninguna herramienta de
-    // afuera puede hacer, porque ninguna conoce el negocio.
-    const brief = await perfilNegocioTexto().catch(() => '');
-    const r = await analizarCompetidor(id, brief);
-    return r.ok ? { ok: true } : { ok: false, error: r.error };
-  } catch (e) {
-    return { ok: false, error: msg(e) };
-  }
-}
+// ⚠️ `analizarAction` se fue el 4/11/2026: el análisis corre solo (/api/competitor-spy/analizar), y una action de 90 s
+// hacía fila delante de todas las demás de la pantalla.
 
 export async function guardarAnuncioAction(id: number, enlace: string, copy?: string): Promise<{ ok: true; nuevo: boolean } | { ok: false; error: string }> {
   const no = await soloMiembro();
