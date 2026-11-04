@@ -13,7 +13,8 @@ import { piezasAction } from './actions';
 import { listarCompetidores, resumenDePiezas } from '@/lib/spy';
 import { sugeridosDelNegocio } from '@/lib/spy-sugeridos-server';
 import { requireRolWs } from '@/lib/tab-access';
-import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
+import { tabEnCapa } from '@/lib/capas';
+import { getCapaActual, getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,13 +34,14 @@ export default async function CompetitorSpyPage({ searchParams }: { searchParams
   // ⚠️ TODO EN PARALELO, Y LAS PIEZAS DEL QUE SE ABRE YA DESDE ACÁ (4/11/2026, Martín: «que cargue más rápido»). Antes eran cuatro
   // lecturas una detrás de otra, y las piezas recién se pedían después de hidratar, por una action (que además hace fila con las
   // demás). Con el `?competidor=` en la URL, la ficha llega con lo suyo y dibuja sin esperar otra vuelta.
-  const [r, resumen, sugeridos, rol, ws, delAbierto] = await Promise.all([
+  const [r, resumen, sugeridos, rol, ws, delAbierto, capa] = await Promise.all([
     listarCompetidores().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) })),
     resumenDePiezas().catch(() => ({})),
     sugeridosDelNegocio().catch(() => []),
     getRolWsEfectivo(),
     getWorkspaceActual(),
     abierto ? piezasAction(abierto).catch(() => null) : Promise.resolve(null),
+    getCapaActual(),
   ]);
   const esAdmin = rol === 'admin';
   return (
@@ -52,6 +54,8 @@ export default async function CompetitorSpyPage({ searchParams }: { searchParams
       puedeBorrar={esAdmin}
       ws={ws}
       sugeridosIniciales={sugeridos}
+      // La vista previa de sus páginas es la ruta del Diagnóstico del Web Generator, con SU puerta: el admin y esa tab en el plan.
+      conVistaPrevia={esAdmin && tabEnCapa('landing-writer', capa)}
     />
   );
 }

@@ -129,6 +129,11 @@ de todo junto... Esto como regla». Y el 4/11: «que todas las cuentas sigan esa
 3. **GitHub (`punta.yml`) tarda ~14 min** (mediana del 4/11: 30 verdes, de 7 a 22 min; sólo docs, ~1,5 min). Mezcla el main de
    ese momento y corre las guardas, los tests afectados (todos, sin cortar) y el tsc entero. Con verde, lleva la punta a main.
    «En producción» es recién cuando el deploy de Vercel está en «Ready».
+   **En la nube, antes de subir, se saca el veredicto** (4/11/2026; Martín: «Que los chats en la nube hagan los testeos»):
+   `export PATH="$(sh scripts/node24.sh):$PATH"` y `node scripts/veredicto.mjs sacar`. Corre los tests afectados y el tsc entero con
+   Node 24 (el de Actions; con el 22 hay rojos de mentira) y deja un renglón `Veredicto:` en el último commit. GitHub no repite lo
+   que ya pasó sobre ese árbol: corre lo que la mezcla con main pudo cambiar más una muestra, y `sobre-main.yml` vuelve a mirar
+   main. Se sube tal cual: un commit más encima y corre todo. En la PC no se saca: la RAM es de los chats.
 4. **Si da rojo,** queda la marca `ci-rojo/<nombre>`. Se abre la corrida en Actions, se lee el paso rojo, se arregla en la
    misma rama y se vuelve a subir. Un choque de mezcla se arregla con `git merge origin/main`, resolviendo y subiendo (las
    bitácoras de /admin/dev y `docs/hallazgos*.md` se unen solos en GitHub). Después de 2 rojos seguidos, la tercera no sale
