@@ -61,6 +61,7 @@ import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { VIDEOS_POR_LECTURA_COMPLETA, leerCompleto, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
 import { esAgregador, sitioDelTexto } from './spy-otras-redes-reglas';
 import { CLAVE_CARICATURAS, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
+import { encolarAlLeer } from './spy-caricatura-servidor';
 import { seFueron } from './spy-todo-reglas';
 import { FORMATOS, formatoDe } from './spy-detalle';
 import { leerPorPaginas } from './supabase-paginado';
@@ -172,7 +173,7 @@ export async function listarCompetidores(): Promise<{ ok: true; competidores: Co
   const db = await getTenantDb();
   const { data, error } = await db.from('spy_competidores').select(COLUMNAS_COMPETIDOR).order('mirado_en', { ascending: false, nullsFirst: false }).limit(TOPES.competidores);
   if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${error.message}` };
-  // La caricatura que se hizo sola (lib/spy-caricatura-auto.ts). Sin poder leerla, la tarjeta usa su foto: no es un error.
+  // La caricatura que hizo el Runner (la cola: lib/spy-caricatura-cola.ts). Sin poder leerla, la tarjeta usa su foto: no es un error.
   const caricaturas = caricaturasListas(leerRegistro(await getSetting(CLAVE_CARICATURAS).catch(() => null)));
   return { ok: true, competidores: ((data ?? []) as Competidor[]).map((c) => ({ ...c, caricatura: caricaturas.get(c.id) ?? null })) };
 }
@@ -778,6 +779,11 @@ export async function mirarCompetidor(
     instagram_seguidores: seguidores, youtube_suscriptores: suscriptores, avatar: cara, updated_at: ahora,
     ...(landingNueva ? { landing_url: landing } : {}),
   }).eq('id', competidorId);
+  // ⚠️ SU CARICATURA ENTRA A LA COLA AL LEERLO (4/11/2026; Martín: «cada vez que se genere un nuevo competidor, hacer
+  // una especie de levantar un ticket para generar esa imagen»): con su foto ya en NUESTRO Storage, sin IA y sin gastar
+  // nada. La hace el Runner con Canva (lib/spy-caricatura-cola.ts). Si la misma persona ya la tiene, se usa esa.
+  const wsDeLaLectura = await getWorkspaceActual();
+  if (wsDeLaLectura != null) await encolarAlLeer(wsDeLaLectura, c, cara);
   return { ok: canales.some((x) => x.ok), canales };
 }
 

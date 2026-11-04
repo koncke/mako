@@ -136,3 +136,26 @@ export async function guardarMiniaturas<T extends Pieza>(piezas: readonly T[]): 
   }
   return out;
 }
+
+/**
+ * La caricatura ya hecha de alguna de estas cuentas (`refDeCuenta`: `instagram-den.borgg`), o null. Se guarda por
+ * cuenta y no por negocio (lib/spy-caricatura-cola.ts), así que si existe la hizo el Runner para alguien que mira a la
+ * misma persona. Nunca tira: sin poder mirar, se encola igual y el Runner la hace.
+ */
+export async function caricaturaGuardada(refs: readonly string[]): Promise<string | null> {
+  const db = getSupabaseServer();
+  for (const ref of refs) {
+    // El nombre sin la extensión: la caricatura puede ser jpg, png o webp.
+    const nombre = rutaDeMiniatura('caricatura', ref, 'x').split('/').pop()!.replace(/x$/, '');
+    try {
+      const { data, error } = await db.storage.from(BUCKET_MINIATURAS).list('spy/caricatura', { search: nombre, limit: 10 });
+      if (error) continue;
+      const f = (data ?? []).find((o) => o.name.startsWith(nombre));
+      if (!f) continue;
+      const { data: pub } = db.storage.from(BUCKET_MINIATURAS).getPublicUrl(`spy/caricatura/${f.name}`);
+      const v = Date.parse(String((f as { updated_at?: string }).updated_at ?? '')) || 0;
+      if (pub?.publicUrl) return `${pub.publicUrl}?v=${v}`;
+    } catch { /* sin poder mirar: la próxima */ }
+  }
+  return null;
+}
