@@ -44,7 +44,8 @@ test('el modal, la API del Dashboard y la de General leen las ofrecidas, nunca l
 test('la miniatura de una plantilla con diseño es su diseño: un diseño nuevo no compila sin la suya', () => {
   const mini = leer('app/dashboard/disenos/DisenoEnMiniatura.tsx');
   assert.match(mini, /const MINIATURAS: Record<DisenoHoja\['id'\], /, 'la tabla es total sobre DISENOS_HOJA');
-  for (const d of DISENOS_HOJA) assert.match(mini, new RegExp(`\\n  ${d}: \\(`), `${d} tiene su miniatura`);
+  // Un id con guion ('mi-dia') va entre comillas en la tabla: la clave se busca con o sin ellas.
+  for (const d of DISENOS_HOJA) assert.match(mini, new RegExp(`\\n  '?${d}'?: \\(`), `${d} tiene su miniatura`);
   assert.match(leer('app/dashboard/MiniaturaHoja.tsx'), /\{hoja\?\.diseno \? \(/, 'MiniaturaHoja dibuja el diseño cuando la plantilla lo trae');
   assert.match(mini, /quieta \/>/, 'quieta: sin entrada, sin cifras que cuentan, sin leer la caja de IA');
 });

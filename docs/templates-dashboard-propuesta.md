@@ -225,7 +225,7 @@ Todas las referencias están medidas (capturas a 1440 y 390, `valores.json`, los
 |---|---|---|
 | **Closing** | Halden | **Se ofrece.** En producción desde el 4/11 (copia: `docs/diseno/mockups-dashboard/closing/`) |
 | **Cobranza** | Coffer | **Se ofrece** desde el 4/11 (copia: `docs/diseno/mockups-dashboard/cobranza/`; el componente, `app/dashboard/disenos/HojaCobranza.tsx`) |
-| **Focus** | Pane · Lumora | **Pane: se ofrece en General** desde el 4/11 (copia: `docs/diseno/mockups-dashboard/focus-pane/`; el componente, `app/dashboard/disenos/HojaFocus.tsx`). **Lumora: la copia exacta está** desde el 4/11 (`docs/diseno/mockups-dashboard/focus-lumora/`); falta la adaptación a MaKo y su componente |
+| **Focus** | Pane · Lumora | **Pane: se ofrece en General** desde el 4/11 (copia: `docs/diseno/mockups-dashboard/focus-pane/`; el componente, `app/dashboard/disenos/HojaFocus.tsx`). **Lumora: se ofrece en General como «Mi día»** (`mi-dia`) desde el 4/11, en `punta/dash-mi-dia` (copia y adaptación: `docs/diseno/mockups-dashboard/focus-lumora/`; el componente, `app/dashboard/disenos/HojaMiDia.tsx`) |
 | **General** | Orvel · Corbel | Por copiar |
 | **Operación diaria** | Moorly · Torque | Por copiar |
 | **Comercial** | Coffer · Corbel · Prism · Orvel · Pelago · Selvar | Por copiar |

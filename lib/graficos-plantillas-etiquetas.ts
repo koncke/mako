@@ -42,6 +42,7 @@ export const ETIQUETAS_DASHBOARD: Readonly<Record<string, EtiquetasPlantilla>> =
 export const ETIQUETAS_GENERAL: Readonly<Record<string, EtiquetasPlantilla>> = {
   general: {},
   foco: { cuello: ['foco'] },
+  'mi-dia': { cuello: ['foco'] },
   operacion: { cuello: ['sistema', 'delegacion'] },
   servicio: { cobro: ['suscripcion'] },
   curso: { canal: ['carrito', 'webinar'] },

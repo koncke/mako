@@ -108,6 +108,31 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     ],
   },
   {
+    // 4/11/2026 — LUMORA, la otra referencia de Focus (docs/templates-dashboard-propuesta.md §7.3.1): «¿qué tengo hoy y qué me
+    // espera?». Lumora abre con el saludo y la CINTA del día con la línea del ahora, cuatro números con su barrita, lo que vence,
+    // tu funnel hoy, los OKRs contra lo esperado, los que te deben, el semáforo y, al costado, el mes, tu día y los recordatorios.
+    // EL DISEÑO DE LUMORA (app/dashboard/disenos/HojaMiDia.tsx, maquetas en docs/diseno/mockups-dashboard/focus-lumora/): mirando se
+    // dibuja la copia, con los datos de los bloques de General (lib/mi-dia-diseno.ts); editando, estas piezas.
+    id: 'mi-dia', nombre: 'Mi día', emoji: '☀️', buscar: 'Hoy',
+    linea: 'Tu día en una cinta con la línea del ahora, lo que vence, tu funnel, tus OKRs y quién te debe.',
+    subtitulo: '', tema: TEMA, periodo: 'este_mes',
+    diseno: { id: 'mi-dia', piezas: {} },
+    piezas: [
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'leads', fecha: 'agenda', metricas: ['agendas', 'asistencias'], dimension: null, titulo: 'Hoy',
+        frase: 'Hoy tienes {agendas} llamadas agendadas · {asistencias} ya vinieron', controles: [{ tipo: 'periodo', preset: 'hoy', fijo: true }], ir: 'crm',
+      },
+      numero('agendas', 'leads', 'agendas', 'Agendas', { fecha: 'agenda', ir: 'crm' }),
+      numero('cerradas', 'tareas', 'hechas', 'Tareas cerradas', { fecha: 'deadline', ir: 'plan' }),
+      numero('pendiente', 'pagos', 'pendiente', 'Por cobrar', { comparar: false, invertida: true, ir: 'cobranza' }),
+      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago', ir: 'cobranza' }),
+      bloque('agenda', { titulo: 'Tu día' }), bloque('deadlines', { titulo: 'Lo que vence' }),
+      bloque('funnel'), bloque('cobranza', { titulo: 'Los que te deben' }),
+      bloque('objetivos', { titulo: 'Cómo vas con tus OKRs', opciones: { estilo: 'barras', cuales: 'trimestre' } }),
+      bloque('tareas', { titulo: 'Para tildar hoy' }), bloque('semaforo'),
+    ],
+  },
+  {
     // 4/11/2026 — MOORLY · TORQUE (docs/templates-dashboard-propuesta.md §7.3): «¿qué está vencido y a quién llamo?». Moorly abre con
     // lo de hoy y lo que vence; Torque, el tablero de lo que está en curso. Es el caso de la reunión del 12/10 (el
     // Plan, la cobranza y el CRM en la pantalla de lo que se hace hoy).
@@ -226,6 +251,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
 export const PORTADAS_GENERAL: Readonly<Record<string, DefinicionPortada>> = {
   general: { sube: 'cabecera', vecino: 'cabecera', par: ['por-mes', 'semaforo'], molde: 'ledge' },
   foco: { sube: 'objetivos', vecino: 'objetivos', par: ['agenda', 'llamadas', 'tareas', 'deadlines'], molde: 'moorly' },
+  'mi-dia': { sube: 'agenda', vecino: 'agenda', par: ['deadlines', 'funnel', 'cobranza'], molde: 'moorly' },
   operacion: { sube: 'prioridades', cambios: { texto: 'Lo primero de hoy' }, vecino: 'prioridades', par: ['cobranza', 'llamadas', 'agenda', 'deadlines', 'funnel'], molde: 'tilvo' },
   servicio: { sube: 'etapas', vecino: 'etapas', par: ['por-producto', 'contacto'], molde: 'prism' },
   curso: { sube: 'tendencia', vecino: 'tendencia', par: ['avance', 'por-area', 'por-estado', 'por-semana'], molde: 'corbel' },

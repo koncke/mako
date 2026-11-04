@@ -1322,7 +1322,8 @@ export type Hoja = {
  * ⚠️ Catálogo cerrado: un diseño nuevo es una entrada acá y su componente en app/dashboard/disenos/.
  */
 // · 'foco' (4/11/2026, la copia de Pane): es de GENERAL y lee los datos de sus bloques, no piezas (`piezas` vacío).
-export const DISENOS_HOJA = ['closing', 'cobranza', 'foco'] as const;
+// · 'mi-dia' (4/11/2026, la copia de Lumora, la otra referencia de Focus): también de GENERAL, con los datos de sus bloques.
+export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia'] as const;
 export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;
