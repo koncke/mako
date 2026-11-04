@@ -144,6 +144,53 @@ export function redesDe(piezas: readonly Pick<Pieza, 'canal'>[]): Array<{ red: s
   return n.size > 1 ? [{ red: 'todo', n: piezas.length }, ...[...n.entries()].map(([red, k]) => ({ red, n: k })).sort((a, b) => b.n - a.n)] : [];
 }
 
+/**
+ * La proporción REAL de su miniatura (Martín, 4/11): un reel o un short son verticales (9:16), una publicación o un
+ * anuncio cuadrados, un video de YouTube y una web apaisados (16:9). Antes todas eran cuadradas en el gráfico y 4:5 en
+ * las tarjetas, y un video apaisado se veía recortado.
+ */
+export function proporcionDe(p: Pick<Pieza, 'canal' | 'tipo' | 'duracion'>): { ancho: number; alto: number } {
+  const t = tipoDeContenido(p);
+  if (t === 'reels' || t === 'shorts') return { ancho: 9, alto: 16 };
+  if (t === 'largos' || p.canal === 'landing') return { ancho: 16, alto: 9 };
+  return { ancho: 1, alto: 1 };
+}
+
+/** Su miniatura en el gráfico: el lado más largo mide `lado`, y el otro sale de su proporción. */
+export function medidaEnElGrafico(p: Pick<Pieza, 'canal' | 'tipo' | 'duracion'>, lado: number): { ancho: number; alto: number } {
+  const r = proporcionDe(p);
+  return r.ancho >= r.alto
+    ? { ancho: lado, alto: Math.round((lado * r.alto) / r.ancho) }
+    : { ancho: Math.round((lado * r.ancho) / r.alto), alto: lado };
+}
+
+/** Una fila de «¿En qué publica?»: cuántas piezas y qué parte del total. `red` dibuja su logo. */
+export type FilaReparto = { clave: string; rotulo: string; n: number; pct: number; red?: 'instagram' | 'youtube' | 'anuncios' };
+
+const ROTULO_FORMATO = { reels: 'Reels', carruseles: 'Carruseles e imágenes', shorts: 'Shorts', largos: 'Videos largos', anuncios: 'Anuncios' } as const;
+
+/**
+ * «¿En qué publica?», de verdad: por RED y por FORMATO (Martín, 4/11: nada de «100% videos»). Antes se contaba por el tipo
+ * guardado, y un canal de YouTube decía «100% videos» aunque la mitad fueran shorts. Su web no es una publicación: no
+ * entra. Las filas van de la que más tiene a la que menos, y un formato sin piezas no aparece.
+ */
+export function repartoDePublicaciones(piezas: readonly Pick<Pieza, 'canal' | 'tipo' | 'duracion'>[]): { total: number; redes: FilaReparto[]; formatos: FilaReparto[] } {
+  const publicadas = piezas.filter((p) => p.canal !== 'landing');
+  const total = publicadas.length;
+  const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
+  const porRed = new Map<'instagram' | 'youtube' | 'anuncios', number>();
+  const porFormato = new Map<keyof typeof ROTULO_FORMATO, number>();
+  for (const p of publicadas) {
+    if (p.canal === 'instagram' || p.canal === 'youtube' || p.canal === 'anuncios') porRed.set(p.canal, (porRed.get(p.canal) ?? 0) + 1);
+    const f = p.canal === 'anuncios' ? 'anuncios' : tipoDeContenido(p);
+    if (f) porFormato.set(f, (porFormato.get(f) ?? 0) + 1);
+  }
+  const NOMBRE = { instagram: 'Instagram', youtube: 'YouTube', anuncios: 'Anuncios' } as const;
+  const redes = [...porRed.entries()].map(([red, n]) => ({ clave: red, rotulo: NOMBRE[red], n, pct: pct(n), red })).sort((a, b) => b.n - a.n);
+  const formatos = [...porFormato.entries()].map(([f, n]) => ({ clave: f, rotulo: ROTULO_FORMATO[f], n, pct: pct(n) })).sort((a, b) => b.n - a.n);
+  return { total, redes, formatos };
+}
+
 /** Cuántas miniaturas se dibujan como mucho: más no se leen y la animación se traba. En el teléfono, menos. */
 export const MINIATURAS_POR_GRAFICO = 180;
 

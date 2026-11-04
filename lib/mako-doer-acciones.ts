@@ -20,6 +20,7 @@ import { porId } from '@/lib/api-mako/registro';
 import { textoEnteroDelAviso } from '@/lib/ritmo-al-activar';
 import { esAccion } from '@/lib/api-mako/tipos';
 import { rechazoSiNoEsConfirmacionPura } from '@/lib/confirmacion-pura';
+import { salidaDelGrupo } from '@/lib/grupo-salida';
 import { getLead, setPipelineStage, faltantesParaMover, esRequisitosFaltantes, logLeadEvent } from '@/lib/leads';
 import { getFunnelDeLead } from '@/lib/funnels';
 import { eventTypeDeReunion, huecosDisponibles, reservarReunion, linkParaAgendar } from '@/lib/calendly-agenda';
@@ -950,7 +951,7 @@ instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 
         const rechazoATercero = rechazoSiNoEsConfirmacionPura({
           canal: 'whatsapp', aTerceros: defReg && esAccion(defReg) ? defReg.aTerceros : undefined, plata: defReg && esAccion(defReg) ? defReg.plata : undefined, mensaje: mensajeUsuario, titulo: defReg?.titulo ?? target.tipo, resumen: target.resumen,
           enElGrupo: enElGrupo ? { pidio: target.pidio ?? null, confirma: enElGrupo.quien, aMaKo: enElGrupo.aMaKo } : undefined,
-          id: defReg?.id,
+          id: defReg?.id, nacioEnLaApp: target.soloApp, turnoDeLaApp: salidaDelGrupo()?.soloApp,
         });
         if (rechazoATercero) return rechazoATercero;
         if (!(await reclamarPendiente(ws, target.id))) {

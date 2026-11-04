@@ -37,6 +37,11 @@ export type TicketDelGrupo = {
   evidencia?: string;
   /** Lo que el turno YA hizo o propuso de un pedido compuesto (los nombres de las herramientas): lo demás es lo delegado. */
   hecho?: readonly string[];
+  /**
+   * Lo escribió un INVITADO al grupo de la app (lib/grupo-reglas.ts): alguien que no administra ESTE negocio, aunque administre el suyo. Su rol sale de su propio negocio,
+   * y con el actor en email pasaría la guarda de permiso: lo decide Martín, siempre, y no se suma al ticket anterior.
+   */
+  invitado?: boolean;
 };
 
 // Las piezas puras (el número que acaba de nombrar, la respuesta fija) viven en lib/despacho-grupo.ts, sin `server-only`: sus tests
@@ -46,12 +51,13 @@ export { respuestaDelTicket, ticketQueAcabaDeNombrar, type TicketAbierto } from 
 /** Abre el ticket (o lo suma al que MaKo acaba de nombrar). null si no se pudo: quien llama lo dice, no inventa un número. */
 export async function abrirTicketDelGrupo(t: TicketDelGrupo): Promise<TicketAbierto | null> {
   // Un pedido delegado es otra cosa que el ticket recién nombrado: no se suma.
-  const previo = t.delegado ? null : ticketQueAcabaDeNombrar(t.ultimoDeMaKo);
+  const previo = t.delegado || t.invitado ? null : ticketQueAcabaDeNombrar(t.ultimoDeMaKo);
   if (previo && (await sumarAlPedidoDelNegocio(t.ws, previo, `${t.pedido}\n\n(lo sumó MaKo: ${t.clasificacion.porque})`).catch(() => false))) {
     return { id: previo, sumado: true };
   }
-  const identidad = await identidadDelActor(t.ws, t.actor).catch(() => null);
-  if (!identidad) return null;
+  const leida = await identidadDelActor(t.ws, t.actor).catch(() => null);
+  if (!leida) return null;
+  const identidad = t.invitado ? { ...leida, rol: 'invitado' } : leida;
   const titulo = t.resumen.trim() || t.pedido.trim().slice(0, 120);
   const descripcion = [
     // Sin «hazlo» acá (A2 de la revisión de privacidad): la descripción la lee también un pedido que espera a Martín. La orden de
@@ -67,7 +73,7 @@ export async function abrirTicketDelGrupo(t: TicketDelGrupo): Promise<TicketAbie
   // El pedido delegado lleva su propia referencia: el mismo mensaje puede dejar además un ticket (la secundaria TICKET).
   const ref = `wa:${t.ws}:${createHash('sha256').update(`${t.jid}|${t.msgId}${t.delegado ? '|delegado' : ''}`).digest('hex').slice(0, 16)}`;
   const creado = await crearTicket({
-    identidad, tipo: t.delegado ? 'pedido' : null, declaradoPor: 'persona', titulo, descripcion, canal: 'whatsapp', ref,
+    identidad, tipo: t.delegado ? 'pedido' : null, declaradoPor: 'persona', titulo, descripcion, canal: 'whatsapp', ref, ...(t.invitado ? { invitado: true } : {}),
     contexto: { superficie: 'whatsapp', pedido: t.pedido.slice(0, 1000), clasificacion: t.clasificacion, ...(t.delegado ? { delegado: true } : {}) },
   }).catch(() => null);
   if (!creado || !creado.ok) return null;

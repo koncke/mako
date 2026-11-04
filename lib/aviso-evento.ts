@@ -510,6 +510,7 @@ async function avisoALasAgencias(
   return {
     ok: rs.some((r) => r.ok), feedId: null, wa: rs.some((r) => r.wa), deduped: rs.every((r) => r.deduped),
     filas: rs.reduce((n, r) => n + r.filas, 0), llegaron: rs.reduce((n, r) => n + (r.llegaron ?? 0), 0),
+    ...(rs.some((r) => r.enApp) ? { enApp: true as const } : {}),
   };
 }
 

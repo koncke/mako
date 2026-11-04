@@ -90,7 +90,10 @@ test('5. sólo anima lo que se leyó, nunca traba y una relectura sola va callad
   assert.match(spy, /setOrdenando\(\(v\) => \(v\?\.id !== id \|\| actual\.current !== id \? null : p\?\.length \? \{ id, piezas: p \} : null\)\)/, 'sin piezas no hay animación');
   assert.match(spy, /await leer\(id, !p\?\.length\)/, 'una ficha que ya tiene piezas se relee sin correrle la pantalla');
   // Tocar «Revisar» a mitad de la película dejaba la escena sin carpetas, y la página se caía (la revisión del 1/11/2026).
-  assert.equal((spy.match(/disabled=\{estaLeyendo \|\| ordenando != null \|\|/g) ?? []).length, 2);
+  // Desde el 4/11 «Revisar ahora» no existe (Martín: se revisa una vez, sola); el único botón que vuelve a leer es
+  // «Probar de nuevo», el de una lectura que falló, y sigue apagado mientras corre la película.
+  assert.equal((spy.match(/disabled=\{estaLeyendo \|\| ordenando != null \|\|/g) ?? []).length, 1);
+  assert.match(spy, /disabled=\{estaLeyendo \|\| ordenando != null \|\| elegido == null\}[^\n]*\n\s*Probar de nuevo/);
   assert.match(spy, /setTrayendo\(true\); setOrdenando\(null\);/, 'cambiar de ficha corta la película');
   const o = leer('app/competitor-spy/OrdenSpy.tsx');
   assert.match(o, /if \(!total \|\| quieto\(\)\) \{ terminar\.current\(\); return; \}/, 'con «reducir movimiento» no corre');

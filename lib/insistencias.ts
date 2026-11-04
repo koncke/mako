@@ -22,7 +22,7 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace } from './workspace';
-import { INSISTIR_VENTANA, sanearInsistir, proximaSalida, sanearAcuses, ACUSES } from './flujos-tipos';
+import { INSISTIR_VENTANA, sanearInsistir, proximaSalida, sanearAcuses, ACUSES, esAcuse } from './flujos-tipos';
 import { getSetting, setSetting } from './settings';
 import { enviarAlGrupoMaKo } from './mako-grupo';
 import { tzDeWorkspace } from './timezone';
@@ -81,6 +81,25 @@ export async function cerrarPorAcuse(ws: number): Promise<number> {
     console.error('[insistencias] acuse:', e instanceof Error ? e.message : String(e));
     return 0;
   }
+}
+
+/**
+ * EL ACUSE DE RECIBO, DE DONDE VENGA (3/11/2026): el webhook de WhatsApp y el grupo de la app llaman a esto, con el `ws` del GRUPO, nunca el de la instancia. Si alguno de
+ * los textos es un acuse del negocio, se cierran las insistencias vivas y se marcan las corridas. Marca y NO despierta: el condicional se evalúa cuando a la corrida le toca.
+ * Devuelve el texto y cuántas tocó; null si no era un acuse. Una foto o un audio no llegan acá: no acusan.
+ */
+export async function acusarDesdeElGrupo(ws: number, textos: readonly string[]): Promise<{ texto: string; cerradas: number; marcadas: number } | null> {
+  // Las palabras las elige el negocio; sin nada guardado son las de fábrica.
+  const palabras = await acusesDe(ws);
+  const texto = textos.find((t) => t && esAcuse(t, palabras));
+  if (!texto) return null;
+  const cerradas = await cerrarPorAcuse(ws);
+  // ⚠️ EL MISMO ACUSE ES LA SEÑAL DEL CONDICIONAL. Un paso `condicional` con `contestaron` pregunta por esto y por nada más: es la única respuesta que el motor de flujos
+  // puede OBSERVAR, porque sus mensajes salen al grupo del dueño y lo que va al lead sale por la cola de confirmación. Por eso la tarjeta dice «si alguien contestó en el
+  // grupo» y no «si responde el lead» — un rótulo que promete una señal que no existe es el diagrama que miente, con otra cara.
+  const { marcarRespondieron } = await import('./flujo-corridas');
+  const marcadas = await marcarRespondieron(ws);
+  return { texto, cerradas, marcadas };
 }
 
 /**
