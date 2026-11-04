@@ -20,12 +20,14 @@
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
 import { getSettingEstricto } from '@/lib/settings';
-import { getEmailFrom, emailConectado, remitenteEsSandbox, resendConfigurado, getResendDomain, type ResendDnsRecord } from '@/lib/resend';
+import { getEmailFrom, emailConectado, remitenteEsSandbox, resendConfigurado, getResendDomain, puedeAdministrarDominios, type ResendDnsRecord } from '@/lib/resend';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
 import { responderADelNegocio } from '@/lib/email-dominio';
 
 export type EstadoEmail = {
   conectado: boolean; envio_real_habilitado: boolean; remitente_sandbox: boolean; resend_configurado: boolean;
+  /** ¿Hay con qué dar de alta y verificar un dominio? (la key de administración, aparte de la que manda: 4/11/2026) */
+  alta_de_dominios_lista: boolean;
   dominio: string | null; remitente: string; estado_dominio: string | null;
   error_dominio: string | null; registros_dns: ResendDnsRecord[];
   /** registros cuyo status no es «verified» (los que faltan o están pendientes) */
@@ -53,9 +55,10 @@ export async function estadoEmail(): Promise<EstadoEmail> {
       return { dominio: null, id: null, error: e instanceof Error ? e.message : String(e) };
     }
   };
-  const [leido, remitente, conectado, envio, sandbox, keyOk, responderA] = await Promise.all([
+  const [leido, remitente, conectado, envio, sandbox, keyOk, responderA, altaLista] = await Promise.all([
     leerDominio(), getEmailFrom(),
     emailConectado(), envioEmailHabilitado(), remitenteEsSandbox(), resendConfigurado(), responderADelNegocio(),
+    puedeAdministrarDominios(),
   ]);
   const id = leido.id;
   let estado: string | null = null;
@@ -70,6 +73,8 @@ export async function estadoEmail(): Promise<EstadoEmail> {
   }
   return {
     conectado, envio_real_habilitado: envio, remitente_sandbox: sandbox, resend_configurado: keyOk,
+    // ¿Se puede dar de alta y verificar un dominio? Con `false`, conectar_dominio_email contesta que falta la clave de MaKo.
+    alta_de_dominios_lista: altaLista,
     dominio: leido.dominio, remitente, estado_dominio: estado, error_dominio: errorDominio, registros_dns: registros,
     registros_dns_sin_verificar: registros.filter((r) => r.status && r.status !== 'verified').length,
     error_lectura: leido.error,

@@ -158,6 +158,15 @@ async function pasoDeCanal(token: string, c: NonNullable<Awaited<ReturnType<type
 }
 
 /**
+ * Anota que la historia de su Instagram ya está, sin pedirla: la trajo otro camino (un sugerido de la plataforma copia
+ * lo que ella ya leyó, lib/spy-sugeridos.ts). Así la traída larga no arranca ya con la clave del cliente; lo nuevo, a la
+ * semana, como siempre.
+ */
+export async function marcarTraidaHoy(id: number): Promise<void> {
+  await anotar(id, 'instagram', { ultima: new Date().toISOString() });
+}
+
+/**
  * Un paso de las corridas largas de un competidor. Nunca tira: si algo falla, la lectura de siempre sigue andando.
  * Lo llama /api/competitor-spy/todo, con la sesión y el negocio ya resueltos.
  */
