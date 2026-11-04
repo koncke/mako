@@ -77,6 +77,55 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Rearmar etiquetas `rescate/*` desde la nube: el clon miente, Node 22 no comparte y el índice suma filas viejas (4/11/2026)
+
+**Vive en:** `docs/relevo/nube-ramas.md` (el estado de cada etiqueta) · `scripts/unir-indice-hallazgos.py` · `.github/workflows/punta.yml`.
+
+Martín: «haz todo el resto, como los commits sin subir». Once etiquetas `rescate/<rama>` con trabajo que sólo vivía en la PC,
+rearmadas desde la nube sobre `origin/main`, cada una en su `punta/<rama>`.
+
+**Lo que engaña, en el orden en que apareció:**
+- **El clon de la nube es SUPERFICIAL** (`.git/shallow` con 46 injertos). `git merge-base` y `git rev-list --count` contestan
+  sin error y mal: `landing-high-ticket-2910` figuraba con 13 commits y 22 archivos propios y eran 2 y 3, y un diff contra
+  el merge-base mostraba como «borrado» código que main sumó después. Antes de medir una rama: `git fetch --unshallow origin
+  main` y `git rev-parse --is-shallow-repository` en `false`.
+- **El `node` de la nube es el 22; GitHub corre el 24.** Con el 22, los grupos compartidos de `tests-afectados.mjs` salen
+  «NO CORRIÓ: no juzgó NI UN caso · 0 s» (240 archivos) y los repite aislados, uno por uno. El 24 está en `/opt/node24/bin`:
+  `export PATH=/opt/node24/bin:$PATH` antes de correr tests o el tsc acotado (con el 22, `tsc-acotado` salió «código
+  undefined» sin chequear nada; con el 24, limpio).
+- **`unir-indice-hallazgos.py` es para un MERGE: lee `MERGE_HEAD`, y en un cherry-pick no hace nada.** Y la salida obvia —
+  sumar las filas de la que entra que HEAD no tiene— vuelve a meter filas que main reescribió después (pasó con dos filas de
+  `desktop-offline`). Lo que vale es comparar contra el PADRE del commit (`CHERRY_PICK_HEAD^`): se suma sólo lo que el commit
+  agrega, y una fila que el commit cambia reemplaza a la vieja.
+- **«Dejar los dos lados» de un `.md` pierde la línea en blanco entre secciones**: el `## ` que entra queda pegado al último
+  renglón de la anterior. Se mira el borde después de resolver.
+- **Una regla que main sumó después pone roja a la rama sin un solo choque.** `newsletter-2910` traía tres operaciones con
+  `'http'`, y desde el 29/10 main exige su fila en `RUTAS_REST` (`tests/api-mako-rest.test.ts`): merge limpio y test rojo.
+  Por eso cada rama corre sus tests sobre main antes de subir, aunque haya entrado sin choques.
+- **Una rama cuyo relevo dice «falta tests-afectados» trae rojos, aunque sus propios tests pasen.** `replica-editable-2810`
+  daba 48/48 en sus dos archivos y 8 rojos en los afectados: seis por tres ejemplos sumados a la descripción de una
+  operación, que le robaban puntaje a otras en el presupuesto del chat (docs/hallazgos-editor-landing.md → «La réplica
+  editable»). Antes de subir una rama así, los afectados enteros, no sólo los suyos.
+- **Una punta de 20 minutos puede chocar AL FINAL, al llevarla a main.** `desktop-offline-t2-2810` pasó tests y tipos y
+  chocó en `docs/hallazgos.md` porque otra punta entró en el medio. No es un rojo del código: se mezcla `origin/main` con
+  `scripts/unir-indice-hallazgos.py` (en un merge sí sirve) y se vuelve a subir. Con muchas puntas a la vez es lo esperable.
+- **`origin/main..<etiqueta>` cuenta commits, no contenido.** De las 11, `crm-bajas-3010` traía un pendiente que main ya había
+  cerrado (`dbc64bdd`, «Código Inmobiliario, cerrado») y `tickets-leila-0311` un relevo de un código que ya estaba en main.
+  Cada commit se mira contra lo que main ya dice sobre el tema, no sólo contra sus shas.
+- **El AUTOR del último commit de la punta es el autor del deploy.** `punta.yml` mezcla con él, y Vercel BLOQUEA los deploys
+  de `noreply@anthropic.com` (build-deploy, 17/08). La nube viene configurada con ese correo: el 4/11 la mezcla de
+  `punta/spy-busqueda` entró a main así firmada (`9202c22d2`). No dejó producción vieja porque el avance siguiente lo firmó el
+  equipo, pero si queda último en main, producción no avanza y nada lo dice. Se firma con el correo del equipo
+  (`git config user.email`), como el resto del repo; el nombre sigue siendo Claude y el trailer `Claude-Cuenta`, también.
+  **Sin hacer:** que `punta.yml` frene ese correo como ya frena `[bot]` y `noreply@github.com` (cambia un workflow compartido:
+  lo decide Integración).
+- **`pkill -f <patrón>` mata la propia consulta**: el comando que lo corre contiene el patrón. Salió con 144 y se llevó el
+  shell. Es la regla de «se mata por PID propio» otra vez: el PID de una tarea de fondo propia se guarda al lanzarla.
+
+*4/11/2026, nube, al rearmar las etiquetas `rescate/*`.*
+
+---
+
 ## Por qué tardaba horas: casi nada era la máquina, y «el tsc entero no entra» era falso (4/11/2026)
 
 **Síntoma.** Martín: «No entiendo como es posible que tarde tantas horas en correr un simple test». Entre dos verdes pasaron 17 h el 3/11, y del commit a producción la mediana era 5 h.
