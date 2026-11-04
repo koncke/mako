@@ -45,7 +45,7 @@ import { BloqueHilo } from './BloqueHilo';
 import { FormularioEnChat } from './FormularioEnChat';
 import { ACCIONES_FORMULARIO } from './acciones-formulario';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { ReportarRespuesta } from './ReportarRespuesta';
+import { useReportarRespuesta } from './ReportarRespuesta';
 
 const hora = (iso: string | null): string => {
   const t = iso ? Date.parse(iso) : NaN;
@@ -88,6 +88,9 @@ function DeMako({ quien, children, hora = null, ancho = false, m = null, marcas 
 /** Lo de una pantalla adentro de un mensaje de MaKo (22/10/2026, OF4: Offer y el onboarding con el hilo del Ops Center). */
 export type EnMensaje = { arriba?: ReactNode; abajo?: ReactNode };
 
+/** ¿Es una respuesta de MaKo? En un chat con MaKo, todo lo que no escribió la persona (`MenuMensajeWA reportable`). */
+export const esRespuestaDeMaKo = (m: MensajeWA): boolean => !m.propio;
+
 /**
  * El hilo. `onCitar`: la pantalla pone la cita de un mensaje en su caja (Responder); sin él, el menú del clic derecho trae
  * sólo Copiar. Si quien lo monta ya trae su ContextoWA (el Ops Center, el teléfono), se usa el suyo.
@@ -98,9 +101,11 @@ export function HiloMako({ onCitar, ...p }: Parameters<typeof CuerpoHilo>[0] & {
   return <MenuDelMensaje onCitar={onCitar}><CuerpoHilo {...p} /></MenuDelMensaje>;
 }
 
-/** El menú MÍNIMO de un mensaje para un chat embebido: Copiar y, si la pantalla puede, Responder. */
+/** El menú MÍNIMO de un mensaje para un chat embebido: Copiar, si la pantalla puede, Responder, y en lo de MaKo, Reportar. */
 function MenuDelMensaje({ onCitar, children }: { onCitar?: (m: MensajeWA) => void; children: ReactNode }) {
   const [abierto, setAbierto] = useState<{ m: MensajeWA; x: number; y: number } | null>(null);
+  // Lo que no es de la persona, en un chat embebido, lo escribió MaKo: se reporta desde acá (ticket #57, ./ReportarRespuesta.tsx).
+  const rep = useReportarRespuesta();
   const acciones = useMemo<AccionesWA>(() => ({
     // Con el dedo (mantener apretado) no se abre: en Android el `contextmenu` que llega después cerraría el menú de la casa
     // en el mismo gesto (MensajeWA.tsx, «POR QUÉ SE CERRABA SOLO»). Los chats embebidos son de la computadora.
@@ -118,9 +123,17 @@ function MenuDelMensaje({ onCitar, children }: { onCitar?: (m: MensajeWA) => voi
       {abierto && (
         <MenuContextual punto={{ x: abierto.x, y: abierto.y }} titulo={renglonDeCita(abierto.m.texto, 60)} etiqueta="Opciones del mensaje"
           onCerrar={() => setAbierto(null)}
-          onElegir={(id) => { const m = abierto.m; setAbierto(null); if (id === 'copiar') copiar(m); else if (id === 'responder') onCitar?.(m); }}
-          items={[...(onCitar ? [{ id: 'responder', label: 'Responder', icono: 'cita' as const }] : []), { id: 'copiar', label: 'Copiar', icono: 'copiar' as const }]} />
+          onElegir={(id) => {
+            const m = abierto.m; setAbierto(null);
+            if (id === 'copiar') copiar(m); else if (id === 'responder') onCitar?.(m); else if (id === 'reportar') void rep.reportar(m.texto);
+          }}
+          items={[
+            ...(onCitar ? [{ id: 'responder', label: 'Responder', icono: 'cita' as const }] : []),
+            { id: 'copiar', label: 'Copiar', icono: 'copiar' as const },
+            ...(esRespuestaDeMaKo(abierto.m) ? [{ id: 'reportar', label: 'Reportar', icono: 'bandera' as const }] : []),
+          ]} />
       )}
+      {rep.aviso}
     </ContextoWA.Provider>
   );
 }
@@ -233,8 +246,8 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
             <div className="ch-ira">{x.irA.map((l) => <Link key={l.link} className="co-chip" href={l.link}>{`Ir a ${l.titulo}`}</Link>)}</div>
           )}
           {suyo?.abajo}
-          {/* Play: lo que genera la IA se denuncia desde el mismo mensaje, sin salir de la app (./ReportarRespuesta.tsx). */}
-          {x.texto.trim() && <ReportarRespuesta texto={x.texto} />}
+          {/* Play: lo que genera la IA se denuncia desde el mismo mensaje, sin salir de la app: con «Reportar» en el menú del
+              mensaje (clic derecho o mantener apretado), nunca un botón debajo de cada respuesta (ticket #57, ./ReportarRespuesta.tsx). */}
         </DeMako>,
       );
       return;

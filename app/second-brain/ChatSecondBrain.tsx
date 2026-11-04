@@ -89,6 +89,7 @@ import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { useMisTickets } from '@/app/tickets/usarMisTickets';
 import { TicketeraDelCliente } from './TicketeraDelCliente';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
+import { esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { VolverDelGrafo } from './volver';
 import { useChatCliente } from './useChatCliente';
@@ -105,6 +106,7 @@ import { ancla } from '@/app/_ui/guia/ancla';
 import { useAperturaDelCerebro } from './PiezasCliente';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
+import { previaDelCoach } from '@/lib/funnel-plan';
 
 /** Cuántas filas se ven debajo del Cerebro antes de «Mostrar N más». */
 const FILAS_VISIBLES = SUBS_VISIBLES;
@@ -239,7 +241,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // El motor de los chats del cliente (useChatCliente.ts), el mismo del teléfono. En Ops Center la lista es la de Claude Code: un
   // chat con MaKo se abre sólo si la URL lo pide.
   // El coach es uno (4/11/2026): su referente aconseja en su chat y en las conversaciones de oferta que cuelgan de él.
-  const { referente, hayOferta, puedeElegir, elegirReferente } = useCoaches();
+  const { referente, oferta, puedeElegir, elegirReferente } = useCoaches();
   const [eligiendoReferente, setEligiendoReferente] = useState(false);
   const gurusConCharla = useGurusConCharla(guru);
   const delCoach = asesorPorId(referente);
@@ -466,7 +468,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       {verCoach && (
         <div className="co-jefe">
           <FilaDeChat titulo={ORIGEN_FUNNEL_COACH} aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" actual={verFunnel} hace=""
-            previa={<span className="co-fila__coach">{delCoach ? inspiradoEn(delCoach) : hayOferta ? 'Tu oferta y cómo conseguir clientes' : 'Empieza por tu oferta'}</span>}
+            previa={<span className="co-fila__coach">{delCoach ? inspiradoEn(delCoach) : previaDelCoach(oferta)}</span>}
             onElegir={() => elegir({ coach: 'funnel' })} />
           {/* Las conversaciones de oferta (las que colgaban del coach de oferta de antes, y la del onboarding): cuelgan del coach, cada una con su motor. */}
           {filasOffer.length > 0 && <div className="co-jefe__subs">{filasOffer.map((f) => fila(f, true))}</div>}
@@ -624,7 +626,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           // Los fijados, arriba de la conversación (WhatsApp): tocar va al mensaje.
           arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
           despues={<>
-            <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
+            <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} reportable={esRespuestaDeMaKo} />
             {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}
           </>}
           caja={<>
@@ -660,7 +662,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       })}
       {funnelAbierto && (
         <div style={{ display: verFunnel ? 'contents' : 'none' }}>
-          <ChatDelCoach referente={referente} hayOferta={hayOferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} />
+          <ChatDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} />
         </div>
       )}
       {centro && <MenusCentro centro={centro} />}

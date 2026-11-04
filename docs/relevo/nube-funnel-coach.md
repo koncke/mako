@@ -3,8 +3,8 @@
 Pedido de Martín, textual: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach" y que tenga ambas
 funcionalidades dentro... Por defecto, que esté la cara de hormozi.»
 
-**Estado:** subido a `punta/funnel-coach-unico`. Llega sola a `main` si `punta.yml` da verde; «en producción» es recién con el
-deploy de Vercel en «Ready». **Sin migraciones**: lo elegido vive en `app_settings` (`coaches.referentes`), y lo nuevo se guarda al
+**Estado:** el coach único está en `main` (`26c02b09d`, corrida 150 verde). El ticket #57 (abajo) va por `punta/ticket-57`: llega
+sola a `main` si `punta.yml` da verde; «en producción» es recién con el deploy de Vercel en «Ready». **Sin migraciones**: lo elegido vive en `app_settings` (`coaches.referentes`), y lo nuevo se guarda al
 lado de lo de antes. Lo que cambió y por qué, en `docs/hallazgos-ops-center.md` → «Juntar dos coaches».
 
 ## Qué quedó
@@ -16,7 +16,7 @@ lado de lo de antes. Lo que cambió y por qué, en `docs/hallazgos-ops-center.md
 | Sus seis herramientas (`listar_ofertas`, `ver_analisis_oferta`, `guardar_oferta`, `calcular_presupuesto_anuncios`, `ver_plan_funnel`, `guardar_plan_funnel`) viajan siempre, dentro de los 12.000 caracteres. Se sacó la pista que les quitaba el lugar a las demás. | `lib/doer-herramientas.ts` → `propias`, `HERRAMIENTAS_DEL_COACH` |
 | Hormozi de fábrica. Quien ya eligió conserva lo suyo: gana lo del Funnel Coach; si sólo eligió en el Offer Coach, esa. | `lib/asesores/catalogo.ts` → `referenteDelCoach` |
 | Las conversaciones de oferta de antes cuelgan del Funnel Coach y se siguen con su motor, con la cara del mismo referente. La charla con Hormozi de antes queda en la lista de gurús. | `ChatSecondBrain.tsx`, `ChatClienteM.tsx`, `app/api/offer/route.ts` |
-| Quien armó su oferta en una conversación de oferta (aunque no la haya guardado) no vuelve a empezar. | `lib/offer-sesiones.ts` → `hayOfertaArmada`, `lib/funnel-plan.ts` → `hayOfertaParaElCoach` |
+| Quien armó su oferta en una conversación de oferta (aunque no la haya guardado) no vuelve a empezar, y el saludo dice CUÁL usa (ticket #57). | `lib/offer-sesiones.ts` → `ofertaArmada`, `lib/funnel-plan.ts` → `ofertaDelCoach` |
 | El motor del coach es uno para la computadora y el teléfono. | `app/second-brain/useChatDelCoach.ts` (nuevo) |
 
 **Links viejos:** nunca hubo una URL del Offer Coach (su fila abría `?guru=<referente>`, que sigue abriendo ese gurú). La tab
@@ -30,12 +30,37 @@ que mudar antes el análisis con PDF.
    Hormozi». No hay fila de Offer Coach. Las conversaciones de oferta (si las hay) cuelgan de ella.
 2. Abrirlo sin oferta guardada ni armada: dice «Empecemos por tu oferta…». Contestar qué vende y a cuánto: tiene que preguntar de a
    una y, al decirle «guárdala», proponer `guardar_oferta` con su tarjeta.
-3. Con oferta: dice «Tu oferta ya está cargada…». «Tengo 1000 dólares por mes para anuncios»: tiene que usar la calculadora.
+3. Con oferta: dice «Voy a usar tu oferta «…». Si no es esa, dime cuál.» y pregunta el presupuesto. «Tengo 1000 dólares por mes para
+   anuncios»: tiene que usar la calculadora. «No, es la otra»: tiene que buscarla con `listar_ofertas`.
 4. Tocar la criatura: elegir a otro (y a «MaKo»), recargar y ver que quedó. Abrir una conversación de oferta: lleva la misma cara.
 5. En el teléfono (`/second-brain` desde un celular, ws 3): la fila «Funnel Coach» abre su hoja; tocar su cara deja elegir quién
    aconseja ahí adentro; «Ver el plan» y «Second Brain de Hormozi» abren adentro de la hoja.
 
+## Ticket #57 (4/11/2026, `punta/ticket-57`)
+
+Martín, en el ws 9: «Debajo del mensaje de funnel coach me aparecia un botón de "reportar" eso no tiene sentido...», sobre «Tu oferta ya
+está cargada. ¿Cuánto puedes invertir por mes para conseguir clientes?».
+
+- **«Reportar» salió de debajo de cada mensaje** (era `ReportarRespuesta` en `app/_chat/HiloMako.tsx`, la misma pieza en todos los chats
+  con MaKo). Lo había puesto el chat de Tiendas el 3/11 porque Play pide denunciar una respuesta de IA sin salir de la app: por eso NO se
+  borró, se mudó al **menú del mensaje** (clic derecho o mantener apretado) con `reportable` en `MenuMensajeWA`. Los chats de Claude Code
+  del super admin no lo tienen. Si Martín lo quiere fuera también del menú, es otra decisión: choca con lo que pide Play.
+- **El saludo decía «ya está cargada» sin haber leído nada:** `hayOfertaParaElCoach` (mío, del mismo día) tomaba «no pude leer» como «hay».
+  Ahora son tres estados (`ofertaDelCoach`) y con una oferta dice cuál y de dónde: guardada, la del perfil del negocio (la que se siembra
+  sola con el nombre del onboarding, `desde_brief`) o la armada en una conversación sin guardar. El contexto del coach dice lo mismo.
+- **Lo que no se pudo saber desde la nube:** cuál de las dos cosas le pasó al ws 9 (una lectura que falló, o una oferta sembrada desde
+  su perfil). La consulta, abajo.
+
 ## Lo que hay que medir con la base (una sesión local, sólo lectura)
+
+Para el ticket #57: qué oferta tiene el ws 9 y de dónde salió (si `desde_brief` es true, la sembró el onboarding con el nombre del perfil;
+si no hay filas ni conversaciones con conclusiones, lo que vio Martín fue una lectura que falló):
+
+```sql
+select id, nombre, desde_brief, origen, es_principal, activa, created_at from ofertas where workspace_id = 9 order by es_principal desc, orden, id;
+select id, titulo, jsonb_array_length(conclusiones) as versiones, updated_at from offer_sesiones where workspace_id = 9 and conclusiones <> '[]'::jsonb order by updated_at desc limit 5;
+```
+
 
 Cuántos negocios quedaron con lo único que no se puede distinguir (`{"funnel":null,"offer":"hormozi"}`: o eligió MaKo en el Funnel
 Coach o eligió Hormozi en el Offer Coach). Sale Hormozi; si alguno había elegido MaKo, se le vuelve a poner tocando la criatura:
@@ -55,6 +80,7 @@ select workspace_id, value from app_settings where key = 'coaches.referentes' or
 
 ## Rojos que ya estaban en `main` (medidos en un árbol limpio de `origin/main`)
 
-- `tests/funciones-mako.test.ts` (6): `wsEnContexto is not a function` al cargar `lib/api-mako/link.ts`.
+- `tests/funciones-mako.test.ts` (6): `wsEnContexto is not a function` al cargar `lib/api-mako/link.ts`, **sólo con Node 22**: con Node 24
+  (el de Actions, `/opt/node24/bin`) da verde.
 - En la nube, `scripts/tests-afectados.mjs` marca tandas rojas «sin el pie del runner» porque node no ve `MAKO_ACCION_TOOLS` de
   `lib/mako-doer-acciones.ts` como ESM (lo mismo anotó `docs/relevo/nube-gurus.md`).

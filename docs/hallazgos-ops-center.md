@@ -494,10 +494,37 @@ guardadas, quien armó su oferta con el Offer Coach y no tocó «Guardar» leía
   es una decisión de qué compra cada plan.
 - En la nube, el tsc acotado con `lib/doer-herramientas.ts` muere sin memoria con el tope de 2.560 MB (arrastra el registro entero):
   va con `--heap=7000`.
-- `tests/funciones-mako.test.ts` (6) ya está rojo en main (`wsEnContexto is not a function` al cargar lib/api-mako/link.ts), y el
-  runner de `tests-afectados` en la nube marca tandas rojas «sin el pie del runner» por el `MAKO_ACCION_TOOLS` que node no ve como
-  ESM: medido igual en un árbol limpio de main.
+- `tests/funciones-mako.test.ts` (6) da rojo con Node 22 (`wsEnContexto is not a function` al cargar lib/api-mako/link.ts), y el
+  runner de `tests-afectados` en la nube marca tandas rojas «sin el pie del runner» por el `MAKO_ACCION_TOOLS` que node 22 no ve como
+  ESM: medido igual en un árbol limpio de main. **Con Node 24 (el de Actions, `/opt/node24/bin` en la nube) los dos dan verde**: no son
+  rojos de main, son del node viejo de la imagen.
 
 **Vive en:** lib/asesores/catalogo.ts · lib/asesores/contexto.ts · lib/funnel-plan-db.ts · lib/doer-herramientas.ts ·
 app/api/mako/chat/route.ts · app/second-brain/ChatSecondBrain.tsx · app/second-brain/useChatDelCoach.ts ·
 app/m/second-brain/HojaDelCoach.tsx · tests/coaches-ops-center.test.ts
+
+## Ticket #57: «no pude leer» contaba como «hay oferta», y un botón para las tiendas debajo de cada respuesta (4/11/2026)
+
+**Síntoma:** Martín, en el ws 9, tocó «Reportar a Soporte» sobre «Tu oferta ya está cargada. ¿Cuánto puedes invertir por mes para
+conseguir clientes?», y escribió: «Debajo del mensaje de funnel coach me aparecia un botón de "reportar" eso no tiene sentido...».
+
+**Dos causas, las dos de piezas recién hechas:**
+- **El «Reportar» era `ReportarRespuesta`, en `app/_chat/HiloMako.tsx`:** la misma pieza en todos los chats con MaKo. Lo había puesto el
+  chat de Tiendas el 3/11 porque Play pide denunciar una respuesta de IA «without needing to exit the app». Borrarlo rompía eso; se
+  mudó al menú del mensaje (`reportable` en `MenuMensajeWA`, y el menú mínimo de `HiloMako`), como «Reportar» en WhatsApp o Gemini. El
+  menú lo resuelve él, así que ningún chat tiene que sumarlo a su `elegirEnMenu`. Los chats de Claude Code no lo piden.
+- **`hayOfertaParaElCoach` (del coach único, el mismo día) devolvía `true` con una lectura caída.** La idea era no decirle a nadie
+  que le falta una oferta que puede tener; lo que hacía era AFIRMAR que la tiene. Es «no pude leer es un tercer estado» (AGENTS.md)
+  roto por quien acababa de leerlo. Ahora `ofertaDelCoach` (lib/funnel-plan.ts) tiene tres estados, y con «hay» dice cuál y de dónde.
+
+**Lo que no se ve leyendo:**
+- **«Hay oferta» puede ser una que nadie armó:** `seedOfertaDesdeBrief` (lib/ofertas.ts) siembra la principal con el nombre que la
+  persona escribió en el onboarding (`desde_brief`), apenas abre la pantalla de ofertas. El saludo lo dice: «la oferta de tu perfil
+  del negocio». Qué le pasó al ws 9 no se pudo medir desde la nube: la consulta está en docs/relevo/nube-funnel-coach.md.
+- **El saludo del coach no se guarda en el hilo:** sin decírselo al modelo, «no, es la otra» no tenía a qué referirse. El contexto de
+  cada turno del coach lleva el mismo renglón (`ofertaParaElContexto`), de la misma lectura (`laOfertaDelCoach` en la ruta).
+- **El saludo esperaba en «no hay» hasta que llegaba la respuesta** (`hayOferta` arrancaba en `false`): abría diciendo «Empecemos por
+  tu oferta» y medio segundo después cambiaba. Ahora espera a saber (`oferta` en null no saluda).
+
+**Vive en:** app/_chat/ReportarRespuesta.tsx · app/admin/operaciones/MensajeWA.tsx · lib/centro-mensajes.ts · lib/funnel-plan.ts ·
+lib/offer-marco.ts · app/api/mako/chat/route.ts. **Lo fijan:** tests/reportar-en-el-menu.test.ts y tests/coaches-ops-center.test.ts (13).

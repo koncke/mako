@@ -14,7 +14,7 @@
 import { useCallback, useMemo, useState, type ReactNode, type RefObject } from 'react';
 import { MenuMensajeWA, ContextoWA, type AccionesWA, type MenuAbiertoWA } from '@/app/admin/operaciones/MensajeWA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
-import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
+import { HiloMako, type EnMensaje, esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 import { Icon } from '@/app/_components/icons';
@@ -124,7 +124,9 @@ export function HiloDelGrupo({ k, rol, invitacion = false, desdeLeido, campo, nu
           {nuevos === 1 ? '1 mensaje nuevo' : `${nuevos} mensajes nuevos`}
         </button>
       )}
+      {/* «Reportar» (ticket #57): lo que no escribió quien mira se reporta desde el menú, no con un botón debajo (Play, Apple 1.2). */}
       <MenuMensajeWA abierto={menu} marcas={SIN_MARCAS} sin={SIN_EN_EL_MENU} sinReacciones onCerrar={() => setMenu(null)}
+        reportable={esRespuestaDeMaKo} queSeReporta="un mensaje del grupo"
         onElegir={(m, id) => {
           setMenu(null);
           if (id === 'responder') responder(m.id);

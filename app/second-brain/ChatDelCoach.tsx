@@ -19,7 +19,7 @@ import { Modal } from '@/app/_ui';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
-import { HiloMako } from '@/app/_chat/HiloMako';
+import { HiloMako, esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from './PiezasCliente';
 import { ElegirReferente } from './ElegirReferente';
 import { BotonSecondBrainDe, CerebroDelGuru } from './SuSecondBrain';
@@ -27,10 +27,12 @@ import { useChatDelCoach } from './useChatDelCoach';
 import { VistaDelPlan } from './VistaDelPlan';
 import { ORIGEN_FUNNEL_COACH, TAB_FUNNEL_COACH } from '@/lib/chat-mako-reglas';
 import { inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
+import type { OfertaDelCoach } from '@/lib/funnel-plan';
 
-export function ChatDelCoach({ referente, hayOferta, puedeElegir, onReferente, onVolver }: {
+export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVolver }: {
   referente: IdAsesor | null;
-  hayOferta: boolean;
+  /** Con qué oferta abre (lib/funnel-plan.ts → `ofertaDelCoach`); null = todavía no se sabe. */
+  oferta: OfertaDelCoach | null;
   /** Quién tiene al frente es del negocio: sólo su admin toca la criatura. */
   puedeElegir: boolean;
   onReferente: (id: IdAsesor | null) => void;
@@ -38,7 +40,7 @@ export function ChatDelCoach({ referente, hayOferta, puedeElegir, onReferente, o
 }) {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  const { k, r, aspecto, quien, vacio, saludo, plan } = useChatDelCoach({ referente, hayOferta, caja });
+  const { k, r, aspecto, quien, vacio, saludo, plan } = useChatDelCoach({ referente, oferta, caja });
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
 
@@ -65,7 +67,7 @@ export function ChatDelCoach({ referente, hayOferta, puedeElegir, onReferente, o
         reemplazo={mostrandoCerebro && r ? <CerebroDelGuru referente={r} /> : undefined}
         arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={ORIGEN_FUNNEL_COACH} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
         despues={<>
-          <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
+          <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} reportable={esRespuestaDeMaKo} />
           {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}
         </>}
         caja={mostrandoPlan ? null : <div className="co-caja"><CajaDelCliente k={k} campo={caja} seguir={seguirHilo} /></div>}

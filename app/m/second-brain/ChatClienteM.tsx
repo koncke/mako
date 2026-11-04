@@ -24,6 +24,7 @@ import { FilaM, ListaM, SeccionM, SheetM } from '@/app/m/_ui';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
+import { esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
 import { TEXTO_SEGUNDO_RENGLON, partesDelNombre, porJefe } from '@/lib/centro-chats';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { useChatCliente } from '@/app/second-brain/useChatCliente';
@@ -41,6 +42,7 @@ import { useGrupos } from '@/app/_chat/grupo/useGrupos';
 import { useMisTickets } from '@/app/tickets/usarMisTickets';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { previaDelCoach } from '@/lib/funnel-plan';
 
 /** Cuántos chats se ven antes de «Ver todos» (los de ChatsMovil.tsx). */
 const VISIBLES = 10;
@@ -66,7 +68,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   const hilo = useRef<HTMLDivElement>(null);
   // El coach (uno desde el 4/11/2026): quién aconseja, si hay oferta y si esta persona lo puede cambiar. Su referente es también la cara
   // de las conversaciones de oferta, que cuelgan de él.
-  const { referente, hayOferta, puedeElegir, elegirReferente } = useCoaches();
+  const { referente, oferta, puedeElegir, elegirReferente } = useCoaches();
   const delCoach = asesorPorId(referente);
   const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: false, chatInicial, opcionArmar, busca: '', caja, sesionesIniciales, aspectoOffer: delCoach ? aspectoDeReferente(delCoach.id) : null });
   // Su Ticketera: el número de la fila (los que esperan su respuesta).
@@ -144,7 +146,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
             <FilaM chevron={false}
               leading={<Muneco titulo={delCoach?.nombre ?? 'MaKo'} aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" size={40} />}
               titulo={<span className="m-operaciones-texto1">{ORIGEN_FUNNEL_COACH}</span>}
-              segunda={delCoach ? inspiradoEn(delCoach) : hayOferta ? 'Tu oferta y cómo conseguir clientes' : 'Empieza por tu oferta'}
+              segunda={delCoach ? inspiradoEn(delCoach) : previaDelCoach(oferta)}
               onClick={abrirCoach} />
           )}
           {filasOffer.map((f) => fila(f, true))}
@@ -204,12 +206,12 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
         )}
       </SheetM>
       {delGuru && <HojaDelGuru key={delGuru.id} referente={delGuru} onCerrar={() => setGuru(null)} />}
-      {conCoach && <HojaDelCoach referente={referente} hayOferta={hayOferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onCerrar={() => setConCoach(false)} />}
+      {conCoach && <HojaDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onCerrar={() => setConCoach(false)} />}
       {grupo != null && (
         <HojaDelGrupo key={grupo} ws={grupo} grupo={grupos.grupos?.find((f) => f.ws === grupo) ?? null} onCerrar={() => { setGrupo(null); grupos.recargar(); }} onLeido={grupos.anotarLeido}
           onCambio={grupos.recargar} onSalio={() => { setGrupo(null); grupos.recargar(); }} />
       )}
-      <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
+      <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} reportable={esRespuestaDeMaKo} />
     </>
   );
 }
