@@ -2645,3 +2645,26 @@ La segunda revisión de la cuenta de revisión de las tiendas (la contraseña qu
   - Una «Versión de computadora» abierta desde el teléfono sigue mostrando Partners y Agency, que vienen de la punta hermana de Partners.
 
 **Vive en:** lib/cuenta-revision-reglas.ts · lib/revision-guarda.ts · lib/cuenta-revision.ts · proxy.ts · lib/resend.ts · lib/evolution.ts · lib/tickets-db.ts · lib/tickets-runner.ts · lib/agencia.ts · app/api/auth/contrasena/route.ts · app/api/auth/callback/google/route.ts · app/api/ia-pc/codigo/route.ts · scripts/tiendas-cuenta-revision.mts · scripts/tickets.ts · tests/cuenta-revision*.test.ts. *4/11/2026, chat «tiendas» en la nube.*
+
+## Las páginas dinámicas con punto quedan fuera del proxy (4/11/2026)
+
+**Síntoma, medido sin cookie en producción:** `POST /crm/x` da 307 a /login. `POST /crm/x.png` (también `.css`, `.js` y `/m/crm/x.png`)
+da 404 con `X-Matched-Path: /crm/[id]` y `X-Nextjs-Action-Not-Found: 1`: llega al manejador de acciones sin pasar por el proxy.
+
+**Causa:** el matcher de `proxy.ts` saca toda ruta terminada en extensión, salvo `api/`. El `(?!api/)` del 1/11 cubrió las rutas de API y
+no las páginas, y un segmento dinámico acepta cualquier valor, también `x.png`.
+
+**Qué se saltea:** el corte de sesión, el chequeo de Origin y `revisionPuedeEscribir`, la red de la cuenta de revisión que usan terceros.
+
+**El diagnóstico fácil era «hay acciones abiertas», y no se confirmó.** Un grep por el nombre del corte da 273 de 540 acciones sin corte, y
+72 al alcance de las 31 páginas dinámicas. Son casi todas falsos positivos: las que se leyeron (`gcal`, `agency`, `customer-success`,
+`comunidad`, `curso-ficha`, `pendientes`, `image-editor`, `avatar`) cortan con un ayudante propio (`adminDeWorkspaceActual`, `puedeUsarCs`,
+`conActor`, `puerta`, `ctxDeBandeja`, `veEditorVideo`). No se leyeron las 72 ni se ejecutó una acción real.
+
+**Por qué no lo vio el test:** `tests/cuenta-revision-escrituras.test.ts:67-72` llama a `proxy()` directo y saltea el matcher. Un test del
+proxy que no compila el matcher no dice qué pedidos le llegan.
+
+**Sin hacer al escribir esto:** el arreglo (entradas con `has` para `next-action`, multipart y urlencoded, y un test que cruce el matcher con
+cada página dinámica), encargado al chat de Tiendas en `punta/proxy-acciones`. La cuenta de revisión no se crea hasta entonces.
+
+**Vive en:** `proxy.ts:549` · `lib/cuenta-revision-reglas.ts` · `tests/cuenta-revision-escrituras.test.ts`.
