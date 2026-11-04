@@ -64,6 +64,7 @@ import { Dropdown } from '../components/Dropdown';
 import type { NombreIconoMenu } from '../_ui/iconos-menu';
 import { dibujarContador } from '@/lib/spy-reglas';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
+import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
 import {
   ORDENES, canalesDe, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
   fraseDeLectura, haceCuanto, mezclaDeTipos, miniaturaDePieza, opcionesDeContenido, ordenarPiezas, pideConectarMeta,
@@ -601,7 +602,7 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
       <div className="spy-crejilla">
         {competidores.map((c, i) => {
           const r = resumen[c.id];
-          const dibujo = caricaturaDeCompetidor(c);
+          const cara = caraDeTarjeta(c, caricaturaDeCompetidor(c));
           // Los competidores que YA estaban se guardaron con lo que se pegó —un @, el id de un
           // canal—, y esas filas no se arreglan solas: se eligió mostrar su nombre de verdad en vez
           // de reescribirle un dato al negocio.
@@ -617,11 +618,11 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
               onClick={() => onAbrir(c.id)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(c.id); } }}>
               <span className="spy-ccard__cara" style={{ '--flote': flote } as CSSProperties} aria-hidden>
-                {/* ⚠️ LA CARICATURA PRIMERO (4/11/2026): «no me hizo la caricatura como habíamos quedado». La que se hizo
-                    sola, después la dibujada de un referente, y recién sin ninguna su foto. */}
-                {c.caricatura || dibujo || c.avatar
+                {/* ⚠️ LA CARICATURA PRIMERO (4/11/2026): la que hizo el Runner, después la dibujada de un referente, y recién
+                    sin ninguna su foto (`caraDeTarjeta`). Sin la caricatura NO hay cartel ni spinner: la foto y listo. */}
+                {cara
                   // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public, no pasa por el optimizador
-                  ? <img src={(c.caricatura || dibujo || c.avatar) as string} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
+                  ? <img src={cara} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
                   : inicial(c.nombre)}
               </span>
               <div className="spy-ccard__cuerpo">
@@ -982,31 +983,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     if (r.ok && r.enMarcha) setAutoAnalisis(id);
   }, []);
 
-  // ── Las caricaturas, SOLAS (4/11/2026: «Eso debe hacerse en segundo plano de manera automática»). De a una: se le
-  // pide un paso a /api/competitor-spy/caricatura y se vuelve a preguntar cada 15 s mientras esté en marcha; al terminar,
-  // la siguiente. Se salta a los referentes (ya están dibujados) y a quien no tiene foto. Si se cierra la pestaña, lo
-  // pedido sigue en la cola de Flow y la próxima apertura lo recoge.
-  useEffect(() => {
-    let vivo = true;
-    const terminadas = new Set<number>();
-    const correr = async () => {
-      for (let vuelta = 0; vuelta < 60 && vivo; vuelta += 1) {
-        const x = listaActual.current.find((k) => !k.caricatura && k.avatar && !caricaturaDeCompetidor(k) && !terminadas.has(k.id));
-        if (!x) return;
-        type Resp = { ok: boolean; url?: string | null; enMarcha?: boolean };
-        const r: Resp | null = await fetch('/api/competitor-spy/caricatura', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: x.id }), signal: AbortSignal.timeout(65_000),
-        }).then((y) => y.json() as Promise<Resp>).catch(() => null);
-        if (!vivo) return;
-        if (!r?.ok || !r.enMarcha) terminadas.add(x.id);
-        if (r?.url) { await recargarLista(); continue; }
-        await new Promise((ok) => { setTimeout(ok, r?.enMarcha ? 15_000 : 500); });
-      }
-    };
-    // Un respiro al abrir: primero la lista, la lectura y lo que la persona vino a mirar.
-    const t = setTimeout(() => { void correr(); }, 4_000);
-    return () => { vivo = false; clearTimeout(t); };
-  }, [recargarLista]);
+  // ── Las caricaturas NO se piden desde acá (4/11/2026): entran a la cola al leer al competidor y las hace el Runner con
+  // Canva (lib/spy-caricatura-cola.ts). La pantalla sólo dibuja la que ya esté; sin ella, la foto.
 
   // Mientras la IA lee, se vuelven a pedir las piezas cada 5 s. Se para cuando no falta ninguna, cuando dejó de avanzar
   // (un minuto sin una nueva) o a los 4 minutos. El trabajo del servidor sigue aunque esto se pare o se cierre la pestaña.

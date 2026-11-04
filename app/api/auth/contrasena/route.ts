@@ -19,7 +19,7 @@ import { limitePorIp } from '@/lib/limite-publico';
 import { DISPOSITIVO_COOKIE, crearPreauth, destinoSeguro } from '@/lib/auth-session';
 import { ponerPreauth, ponerSesion } from '@/lib/sesion-cookies';
 import { decidirTrasGoogle, requiereSegundoFactor } from '@/lib/mfa-reglas';
-import { CUENTA_DE_REVISION, DIAS_SESION_REVISION, esCuentaDeRevision } from '@/lib/cuenta-revision-reglas';
+import { CUENTA_DE_REVISION, DIAS_SESION_REVISION, WS_REVISION, esCorreoDeRevision, esCuentaDeRevision } from '@/lib/cuenta-revision-reglas';
 import { revisarNegocioDeRevision } from '@/lib/cuenta-revision';
 import { rateLimit } from '@/lib/rate-limit';
 import { correoNormalizado } from '@/lib/contrasena-reglas';
@@ -89,6 +89,14 @@ export async function POST(req: NextRequest) {
     // Que alguien se entere, con desde dónde: un rastro que nadie lee no avisa de una contraseña filtrada. Si no sale, la entrada sigue: quedó anotada arriba.
     await avisarDeRevision('Entró la cuenta de revisión de las tiendas', `Entró desde ${ipDe(req)}. Si no hay una revisión en curso, rota la contraseña con scripts/tiendas-cuenta-revision.mts --rotar.`);
     return res;
+  }
+  // Y si la fila con ese correo, o una de su negocio, dejó de cumplir la regla ENTERA (alguien le cambió el `rol_ws`, el rol o el
+  // negocio), no entra por el camino de todos (4/11/2026, la segunda revisión): sin la marca el proxy no la corta, y sin segundo factor
+  // entraría como un closer común, con una contraseña que tienen terceros.
+  if (esCorreoDeRevision(usuario.email) || usuario.workspace_id === WS_REVISION) {
+    console.error(`[auth] cuenta de revisión: la fila ${usuario.id} ya no es la cuenta de revisión; no entra`);
+    await avisarDeRevision('La cuenta de revisión no pudo entrar', `Su fila cambió (rol, negocio o rol en el negocio) y ya no es la cuenta de revisión. Intento desde ${ipDe(req)}. Revisa quién la tocó.`);
+    return no('No se pudo entrar.', 403);
   }
 
   // ── La MISMA decisión que el callback de Google ───────────────────────────

@@ -11,9 +11,14 @@
 // valor, y una fila que ya la tiene la tiene que poder mostrar.
 
 import { revalidatePath } from 'next/cache';
-import { getTenantDb } from '@/lib/workspace';
+import { adminDeWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { normalizarTelefono } from '@/lib/leads';
 import { getEquipoAction, type MiembroEquipo } from '../crm/actions';
+
+// ⛔ Las tres empiezan pidiendo un admin del negocio (4/11/2026, la segunda revisión de las tiendas): no preguntaban por la sesión ni
+// por el rol, y sin cookie `getTenantDb` cae al ws1. Hoy `TelefonosPanel` no lo monta nadie (las acciones no entran al build), pero
+// el día que vuelva, vuelve con su corte. Es la pantalla de /configuraciones, que es de admin (`requireRolWs([])`).
+const SOLO_ADMIN = 'Sólo un admin del negocio puede ver o cambiar sus teléfonos.';
 
 export type FuenteTelefono = 'chatwoot' | 'whatsapp_api' | 'personal';
 
@@ -32,6 +37,7 @@ export type TelefonosData = {
 };
 
 export async function getTelefonosAction(): Promise<TelefonosData> {
+  if ((await adminDeWorkspaceActual()) == null) throw new Error(SOLO_ADMIN);
   const [db, equipo] = await Promise.all([
     getTenantDb(),
     getEquipoAction().catch(() => [] as MiembroEquipo[]),
@@ -61,6 +67,7 @@ export type TelefonoInput = {
 };
 
 export async function saveTelefonoAction(input: TelefonoInput): Promise<void> {
+  if ((await adminDeWorkspaceActual()) == null) throw new Error(SOLO_ADMIN);
   const numero = input.numero?.trim();
   if (!numero) throw new Error('El número es obligatorio.');
   const db = await getTenantDb();
@@ -82,6 +89,7 @@ export async function saveTelefonoAction(input: TelefonoInput): Promise<void> {
 }
 
 export async function deleteTelefonoAction(id: number): Promise<void> {
+  if ((await adminDeWorkspaceActual()) == null) throw new Error(SOLO_ADMIN);
   const { error } = await (await getTenantDb()).from('workspace_telefonos').delete().eq('id', id);
   if (error) throw new Error(`Error borrando el teléfono: ${error.message}`);
   revalidatePath('/configuraciones');

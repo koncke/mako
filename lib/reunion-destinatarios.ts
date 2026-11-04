@@ -28,6 +28,7 @@ import { getUsuarioActual } from './auth';
 import { wsEnContexto, estaImpersonando, getWorkspaceActual } from './workspace';
 import { findLeadByContacto } from './leads';
 import { enviarAPersonaMaKo } from './mako-grupo';
+import { bloqueoDeEnvioEnRevision } from './revision-guarda';
 import { enviarTexto } from './evolution';
 import { sendEmail } from './resend';
 import { crearPropuesta, type PropuestaTarea } from './plan-propuesta';
@@ -206,7 +207,11 @@ export async function enviarTareasAPersona(opts: {
       // jefe. Con `enviarTexto` sale por la instancia `mako_ws<id>` de quien
       // manda, que es el número que esa persona ya tiene agendado.
       const r = await enviarTexto(tel, texto);
+      // ⛔ La cuenta de revisión de las tiendas no le escribe a nadie (4/11/2026): si la guarda dijo que no, el «no» queda. Caer a la
+      // línea de MaKo era mandarlo igual, por otro número.
+      const enRevision = r.ok ? null : await bloqueoDeEnvioEnRevision('whatsapp', tel);
       if (r.ok) res.wa = { ok: true };
+      else if (enRevision) res.wa = { ok: false, error: enRevision };
       else {
         // El fallback existe para no perder el mensaje cuando el cliente todavía
         // no vinculó su número: ahí sale por MaKo, que es mejor que no salir. Se
