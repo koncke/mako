@@ -1,0 +1,183 @@
+<!doctype html>
+<!-- CLOSING · PASO 1: LA COPIA EXACTA de la raíz de Halden, sin adaptar (4/11/2026).
+     Los textos y números son los del demo, a propósito: sirven para comparar captura contra
+     captura (demos/halden/captura/pagina-1440.png y pagina-390.png). Código nuestro.
+     La adaptación con lo de MaKo es closing.html, con la MISMA hoja (closing.css) y el mismo
+     movimiento (closing.js). -->
+<html lang="es" class="antes"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Closing · copia de Halden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="closing.css">
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/></symbol>
+  <symbol id="i-kanban" viewBox="0 0 24 24"><path d="M5 4v13M12 4v7M19 4v10"/><rect x="3" y="3" width="4" height="15" rx="1.2"/><rect x="10" y="3" width="4" height="9" rx="1.2"/><rect x="17" y="3" width="4" height="12" rx="1.2"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.5 3.3-5.5 6.5-5.5s5.9 2 6.5 5.5"/><path d="M15.5 4.8a3.4 3.4 0 0 1 0 6.4M17.5 14.8c2.1.6 3.6 2.4 4 5.2"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5l-4.6-4.6"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9"/><path d="M10 20a2.2 2.2 0 0 0 4 0"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M8 16L16 8M9.5 8H16v6.5"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6.5" width="12.5" height="11" rx="2.5"/><path d="M15.5 10.5L21 7.5v9l-5.5-3"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3.5l1.9 5.1L19 10.5l-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/><path d="M19 3v3M20.5 4.5h-3"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.6 3.5h2.6l1.3 4-2 1.5a12 12 0 0 0 6.5 6.5l1.5-2 4 1.3v2.6a2 2 0 0 1-2.2 2C10.8 18.9 5.1 13.2 4.6 5.7a2 2 0 0 1 2-2.2"/></symbol>
+  <symbol id="i-logo" viewBox="0 0 28 28"><rect x="1.5" y="1.5" width="25" height="25" rx="8" fill="none" stroke-width="2.4"/><path d="M9.5 8v12M18.5 8v12M9.5 12.5h9" stroke-width="2.6"/><path d="M9.5 16.5h9" stroke-width="2.6"/></symbol>
+</svg>
+
+<header class="top">
+  <a class="brand" href="#"><svg class="brand__logo ic" style="stroke-width:2.4"><use href="#i-logo"/></svg>Halden</a>
+  <nav class="tabs" aria-label="Secciones">
+    <span class="tabs__pill" aria-hidden="true"></span>
+    <a class="tab" href="#" aria-current="page"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</a>
+    <a class="tab" href="#"><svg class="ic"><use href="#i-kanban"/></svg>Pipeline <span class="badge badge--fill">15</span></a>
+    <a class="tab" href="#"><svg class="ic"><use href="#i-users"/></svg>Contacts</a>
+    <a class="tab" href="#"><svg class="ic"><use href="#i-cal"/></svg>Activities <span class="badge badge--soft">3</span></a>
+    <a class="tab" href="#"><svg class="ic"><use href="#i-trend"/></svg>Reports</a>
+  </nav>
+  <div class="top__actions">
+    <label class="search"><svg class="ic"><use href="#i-search"/></svg><span>Search deals &amp; reps</span><kbd class="kbd">CtrlK</kbd></label>
+    <button class="icon-btn icon-btn--buscar" aria-label="Buscar"><svg class="ic"><use href="#i-search"/></svg></button>
+    <button class="icon-btn" aria-label="Tema"><svg class="ic"><use href="#i-sun"/></svg></button>
+    <button class="icon-btn" aria-label="Avisos"><svg class="ic"><use href="#i-bell"/></svg><i class="dot-alert"></i></button>
+    <button class="icon-btn icon-btn--gear" aria-label="Ajustes"><svg class="ic"><use href="#i-gear"/></svg></button>
+    <a class="profile" href="#">AO</a>
+  </div>
+</header>
+
+<main class="vista">
+  <div class="cab">
+    <div>
+      <p class="eyebrow">Q4 · Week 5 · Wednesday, Nov 4</p>
+      <h1 class="titulo">Good morning, Amara</h1>
+      <p class="bajada">Here’s where this quarter’s revenue stands.</p>
+    </div>
+    <div class="cab__btns">
+      <button class="btn btn--ghost"><svg class="ic"><use href="#i-upload"/></svg>Import leads</button>
+      <button class="btn btn--primary"><svg class="ic"><use href="#i-plus"/></svg>New deal</button>
+    </div>
+  </div>
+
+  <section class="grid">
+    <article class="card hero c7 o-1" data-card>
+      <div class="hero__main">
+        <div class="hero__h">
+          <div>
+            <p class="hero__t">Revenue won this quarter</p>
+            <p class="hero__num" data-count data-value="150.1" data-prefix="$" data-suffix="k" data-decimals="1">$150.1k</p>
+            <p class="hero__delta"><span class="pill-up">18% <svg class="ic" viewBox="0 0 24 24" style="width:9px;height:9px;stroke-width:3.4"><path d="M6 15l6-6 6 6"/></svg></span>up on last quarter</p>
+          </div>
+          <a class="arrow" href="#" aria-label="Abrir"><svg class="ic"><use href="#i-arrow"/></svg></a>
+        </div>
+        <div class="hero__goal">
+          <div class="goal"><div class="goal__fill" style="width:75%"></div></div>
+          <div class="goal__row"><span><b data-count data-value="75" data-suffix="%">75%</b> of the $200k goal</span><span>$49.9k to go</span></div>
+        </div>
+      </div>
+      <dl class="hero__stats">
+        <div class="stat"><dt>Win rate</dt><dd data-count data-value="69" data-suffix="%">69%</dd></div>
+        <div class="stat"><dt>Avg deal</dt><dd data-count data-value="13.6" data-prefix="$" data-suffix="k" data-decimals="1">$13.6k</dd></div>
+        <div class="stat"><dt>Deals won</dt><dd data-count data-value="11">11</dd></div>
+      </dl>
+    </article>
+
+    <article class="card c5 o-2" data-card>
+      <div class="card__h"><h2 class="card__t">Open pipeline</h2><a class="link" href="#">Open board</a></div>
+      <div class="big"><span class="big__n" data-count data-value="338.5" data-prefix="$" data-suffix="k" data-decimals="1">$338.5k</span>
+        <span class="big__s"><b>15</b> deals · <b>$175k</b> weighted</span></div>
+      <div class="stages" aria-hidden="true">
+        <i style="flex:9;background:var(--st-1)"></i><i style="flex:21;background:var(--st-2)"></i><i style="flex:39;background:var(--st-3)"></i><i style="flex:31;background:var(--st-4)"></i>
+      </div>
+      <div class="legend">
+        <div class="leg" data-leg><i style="background:var(--st-1)"></i><span>Lead</span><b>$31.7k</b><small>4 deals · 9%</small></div>
+        <div class="leg" data-leg><i style="background:var(--st-2)"></i><span>Qualified</span><b>$71.9k</b><small>4 deals · 21%</small></div>
+        <div class="leg" data-leg><i style="background:var(--st-3)"></i><span>Proposal</span><b>$131.6k</b><small>4 deals · 39%</small></div>
+        <div class="leg" data-leg><i style="background:var(--st-4)"></i><span>Negotiation</span><b>$103.3k</b><small>3 deals · 31%</small></div>
+      </div>
+    </article>
+
+    <article class="card rev c5 o-4" data-card>
+      <div class="card__h">
+        <div><h2 class="card__t">Revenue this week</h2><p class="card__s">$8,600 closed so far · $9,700 forecast</p></div>
+        <div class="legend-mini"><span><i class="sw"></i>Closed</span><span><i class="sw sw--hatch"></i>Forecast</span></div>
+      </div>
+      <div class="bars">
+        <div class="bar" data-v="$2.1k"><div class="bar__track"><div class="bar__fill" style="height:56%"></div></div><span class="bar__l">Mon</span></div>
+        <div class="bar" data-v="$3.9k" data-tip="1"><div class="bar__track"><div class="bar__fill" style="height:86%"></div></div><span class="bar__l">Tue</span></div>
+        <div class="bar bar--hoy" data-v="$2.6k"><div class="bar__track"><div class="bar__fill" style="height:46%"></div></div><span class="bar__l">Wed</span></div>
+        <div class="bar bar--plan" data-v="$3.6k"><div class="bar__track"><div class="bar__fill" style="height:95%"></div></div><span class="bar__l">Thu</span></div>
+        <div class="bar bar--plan" data-v="$2.8k"><div class="bar__track"><div class="bar__fill" style="height:70%"></div></div><span class="bar__l">Fri</span></div>
+        <div class="bar bar--plan" data-v="$1.6k"><div class="bar__track"><div class="bar__fill" style="height:29%"></div></div><span class="bar__l">Sat</span></div>
+        <div class="bar bar--plan" data-v="$1.0k"><div class="bar__track"><div class="bar__fill" style="height:18%"></div></div><span class="bar__l">Sun</span></div>
+      </div>
+      <span class="tip" aria-hidden="true">$3.9k</span>
+    </article>
+
+    <article class="card c4 o-5" data-card>
+      <div class="card__h"><h2 class="card__t">Hot deals</h2><a class="link" href="#">View all</a></div>
+      <ul class="deals">
+        <li class="ditem"><span class="tile t-amber">S</span><div class="ditem__b"><p class="ditem__n">Sundial Health</p><p class="ditem__m"><i style="background:var(--st-3)"></i>Proposal · closes in 26d</p></div><p class="ditem__v">$52.6k<small>55% likely</small></p></li>
+        <li class="ditem"><span class="tile t-cyan">O</span><div class="ditem__b"><p class="ditem__n">Orbitra</p><p class="ditem__m"><i style="background:var(--st-4)"></i>Negotiation · closes in 11d</p></div><p class="ditem__v">$46.2k<small>75% likely</small></p></li>
+        <li class="ditem"><span class="tile t-violet">B</span><div class="ditem__b"><p class="ditem__n">Brightloom</p><p class="ditem__m"><i style="background:var(--st-4)"></i>Negotiation · closes in 6d</p></div><p class="ditem__v">$38.4k<small>75% likely</small></p></li>
+        <li class="ditem"><span class="tile t-blue">C</span><div class="ditem__b"><p class="ditem__n">Cobalt Harbor</p><p class="ditem__m"><i style="background:var(--st-3)"></i>Proposal · closes in 17d</p></div><p class="ditem__v">$21.5k<small>55% likely</small></p></li>
+        <li class="ditem solo-tel"><span class="tile t-violet">L</span><div class="ditem__b"><p class="ditem__n">Larkspur Hotels</p><p class="ditem__m"><i style="background:var(--st-2)"></i>Qualified · closes in 39d</p></div><p class="ditem__v">$31.2k<small>30% likely</small></p></li>
+      </ul>
+    </article>
+
+    <article class="card nextup c3 o-3" data-card>
+      <div class="card__h"><h2 class="card__t">Next up</h2><span class="chip chip--soft">In 6 h 39 min</span></div>
+      <p class="nextup__t">Pricing call with Brightloom</p>
+      <p class="nextup__s">Today · 14:30 – 15:00 · Leah Brandt</p>
+      <a class="join" href="#"><svg class="ic"><use href="#i-video"/></svg>Join call</a>
+    </article>
+
+    <article class="card c5 o-7" data-card>
+      <div class="card__h"><h2 class="card__t">Quota this quarter</h2><a class="link" href="#">Leaderboard</a></div>
+      <ul class="quota">
+        <li class="lrow"><span class="ava" style="background:#f6e5b9">DN</span><span class="lrow__n">Dev Nair</span><span class="lrow__v">$44.3k <span>/ $48.0k</span></span><span class="meter"><i class="meter__fill" style="display:block;width:92%"></i></span></li>
+        <li class="lrow"><span class="ava" style="background:#f3cdb8">AO</span><span class="lrow__n">Amara Osei <span class="you">You</span></span><span class="lrow__v">$49.3k <span>/ $56.0k</span></span><span class="meter"><i class="meter__fill" style="display:block;width:88%"></i></span></li>
+        <li class="lrow"><span class="ava" style="background:#cfe0f6">JL</span><span class="lrow__n">Jonah Lindqvist</span><span class="lrow__v">$25.8k <span>/ $40.0k</span></span><span class="meter"><i class="meter__fill" style="display:block;width:64.5%"></i></span></li>
+        <li class="lrow"><span class="ava" style="background:#d6efd6">MT</span><span class="lrow__n">Mateo Torres</span><span class="lrow__v">$23.2k <span>/ $36.0k</span></span><span class="meter"><i class="meter__fill" style="display:block;width:64.4%"></i></span></li>
+        <li class="lrow"><span class="ava" style="background:#f1dcf2">SK</span><span class="lrow__n">Saskia Kuhn</span><span class="lrow__v">$7.5k <span>/ $20.0k</span></span><span class="meter"><i class="meter__fill" style="display:block;width:37.5%"></i></span></li>
+      </ul>
+    </article>
+
+    <article class="card c4 o-6" data-card>
+      <div class="card__h"><div class="assist__h"><span class="assist__ic"><svg class="ic"><use href="#i-spark"/></svg></span><h2 class="card__t">Assist</h2></div><span class="chip chip--amber">6 at risk</span></div>
+      <p class="card__s" style="font-size:13px;margin-top:10px">$163k could slip this month</p>
+      <ul class="aitems">
+        <li class="aitem"><span class="tile t-rose">H</span><div class="aitem__b"><p class="aitem__n">Dealer network</p><p class="aitem__m">2d past its close date</p></div><span class="aitem__v">$18.7k</span></li>
+        <li class="aitem"><span class="tile t-sky">A</span><div class="aitem__b"><p class="aitem__n">Packaging line sensors</p><p class="aitem__m">Closes in 14d, still in Proposal</p></div><span class="aitem__v">$29.7k</span></li>
+        <li class="aitem solo-tel"><span class="tile t-sky">C</span><div class="aitem__b"><p class="aitem__n">Fleet tracking pilot</p><p class="aitem__m">Closes in 17d, still in Proposal</p></div><span class="aitem__v">$21.5k</span></li>
+      </ul>
+      <a class="btn-line" href="#">Review in pipeline <svg class="ic"><use href="#i-arrow"/></svg></a>
+    </article>
+
+    <article class="card c3 o-8" data-card>
+      <div class="card__h"><h2 class="card__t">Call session</h2><span class="chip chip--grey">7 calls</span></div>
+      <div class="dialer__clock" data-segundos="2532" data-corre aria-label="Session time 00:42:12">
+        <span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span><span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span><span class="colon">:</span><span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span><span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span><span class="colon">:</span><span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span><span class="dg"><span class="dg__col"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span></span>
+      </div>
+      <div class="tbtns">
+        <button class="tbtn" aria-label="Pausar"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path class="fill" d="M8 5.5v13l10-6.5z"/></svg></button>
+        <button class="tbtn tbtn--log" aria-label="Anotar llamada"><svg class="ic"><use href="#i-phone"/></svg></button>
+        <button class="tbtn tbtn--stop" aria-label="Terminar"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><rect class="fill" x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+      </div>
+    </article>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="Secciones">
+  <a href="#" aria-current="page"><svg class="ic"><use href="#i-grid"/></svg>Home</a>
+  <a href="#"><svg class="ic"><use href="#i-kanban"/></svg>Pipeline</a>
+  <a href="#"><svg class="ic"><use href="#i-users"/></svg>Contacts</a>
+  <a href="#"><svg class="ic"><use href="#i-cal"/></svg>Activities</a>
+  <a href="#"><svg class="ic"><use href="#i-trend"/></svg>Reports</a>
+</nav>
+<script src="closing.js"></script>
+</body></html>
