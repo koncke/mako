@@ -95,4 +95,17 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'e5ff29d89', msg: 'Email: la receta para el Claude del cliente, la respuesta de activar con el ritmo, y el relevo', lineas: 419, archivos: 15 }],
     revisar: '/api-mako?tab=docs&art=campana-email',
   },
+  {
+    fecha: '4 nov', hora: '11:25', chat: 'Email por la API', sesion: SESION, cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La clave que da de alta dominios, aparte de la que manda',
+    puntos: [
+      'El Cerebro midió que la clave con que MaKo manda es de **sólo envío**: con ella Mauricio no podía conectar su dominio. **No se le subió el permiso**: dar de alta, leer y verificar un dominio usa `RESEND_ADMIN_API_KEY`, que sólo lee lib/resend-dominios.ts.',
+      '**Sin esa clave no se crea nada**: conectar y verificar el dominio dicen que es un problema de MaKo, y `estado_email` lo muestra.',
+      '**El tope de dominios del plan se dice como tal**, sin culpar al dominio. ⚠️ La forma de ese error no se midió.',
+      'Un negocio con su propia clave de Resend sigue administrando su dominio con la suya.',
+    ],
+    commits: [{ sha: '6b8aae96b', msg: 'Email: la clave de Resend que administra dominios, aparte de la que manda', lineas: 702, archivos: 9 }],
+    revisar: '/email',
+  },
 ];
