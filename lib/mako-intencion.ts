@@ -1586,7 +1586,9 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // «¿pasó el cartero?». Palabras propias y nunca «pedido» suelto, que en un negocio es un pedido de un cliente.
   // Desde el 15/10/2026 el cartero se llama Runner en pantalla (lib/runner.ts): «¿está andando el runner?».
   // MANDAR un pedido no está en el registro (exige la firma del dispositivo): no hay palabra que lo traiga.
-  operaciones: /\b(centro de operaciones|carteros?\b|runners?\b|cola de (?:pedidos|trabajos)|(?:pedidos?|trabajos?) (?:a|al|para|de|del) (?:los |mis |un |el |la )?(?:chats?|centro)\b|chats? de claude)/i,
+  // Y las aprobaciones de las apps de MaKo (4/11/2026, `ver_aprobaciones_pendientes`): «¿qué aprobaciones tenemos pendientes?»,
+  // «¿ya aprobó Apple?». Sólo palabras de TIENDAS y de revisión de apps: «aprobación» suelta es también la de un anuncio (área ads).
+  operaciones: /\b(centro de operaciones|carteros?\b|runners?\b|cola de (?:pedidos|trabajos)|(?:pedidos?|trabajos?) (?:a|al|para|de|del) (?:los |mis |un |el |la )?(?:chats?|centro)\b|chats? de claude|aprobaciones? (?:pendientes?|de (?:las |la )?(?:tiendas?|apps?))|app ?store\b|play ?store\b|google play\b|play console\b|testflight\b|chrome web ?store\b|app review\b|revisi[oó]n de (?:la )?(?:app|tienda|extensi[oó]n)\b|(?:ya )?aprob[oó] (?:apple|google|meta)\b)/i,
   // Competitors Spy (31/10/2026). ⚠️ ES ANGOSTA A PROPÓSITO, y no por prolijidad: el registro entra
   // al turno hasta un presupuesto de 12.000 caracteres y las lecturas del área ANCLADA se suman
   // arriba de eso. Los turnos más pesados del repo son los de anuncios y campañas

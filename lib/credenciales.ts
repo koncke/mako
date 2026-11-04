@@ -562,13 +562,29 @@ export async function listarCredenciales(ws: number): Promise<CredencialMeta[]> 
  * docs/hallazgos-integraciones.md). Martín: «Sí: separá el ws1 de las claves de la plataforma (que salgan del ws9 o del
  * entorno) para que Mauricio pueda conectar su propia IA».
  *
- * Ahora las de IA (`esClaveDeIA`) salen del workspace de la PLATAFORMA (`wsSuperAdmin()`, nunca un 9 a mano). El resto
- * (Meta, Calendly, Fathom, Resend…) sigue saliendo del ws1: moverlas es otra decisión, y está en docs/relevo/ticketera.md.
+ * Ahora las de IA (`esClaveDeIA`) salen del workspace de la PLATAFORMA (`wsSuperAdmin()`, nunca un 9 a mano), y desde el
+ * 4/11/2026 también la de correo de MaKo (`esClaveDeCorreoDeLaPlataforma`, abajo). El resto (Meta, Calendly, Fathom…) sigue
+ * saliendo del ws1: moverlas es otra decisión, y está en docs/relevo/ticketera.md.
  * Nadie compara con un número: se pregunta aquí, y la hidratación lee de la misma función.
  */
 export async function wsDelEntorno(clave: string): Promise<number> {
-  return esClaveDeIA(clave) ? wsSuperAdmin() : OWNER_WS;
+  return saleDeLaPlataforma(clave) ? wsSuperAdmin() : OWNER_WS;
 }
+
+/**
+ * LA CLAVE DE CORREO DE MaKo SALE DE LA PLATAFORMA (4/11/2026, Martín: «Resend free permite hasta 3 dominios, pero eso lo
+ * trae cada user de mako»). Desde ese día cada negocio manda su email con SU cuenta de Resend (lib/email-cuenta.ts), y la
+ * de MaKo sólo manda lo que firma MaKo (`from: REMITENTE_MAKO`). Hasta ese día la `RESEND_API_KEY` de la plataforma vivía
+ * en la fila del ws1 —Mauricio, un CLIENTE— y la hidratación la copiaba al entorno: si él pegaba la suya, los avisos de
+ * MaKo salían por la cuenta de Mauricio. Igual que la IA el 18/10: el ws1 deja de ser la fuente.
+ *
+ * ⚠️ El secreto del webhook de Resend NO está acá: no es del catálogo (no se hidrata) y el de cada negocio vive con OTRO
+ *    nombre (`SECRETO_WEBHOOK_PROPIO`, lib/email-cuenta-reglas.ts), así que no hay fila del ws1 que se pueda confundir.
+ */
+const CORREO_DE_LA_PLATAFORMA: ReadonlySet<string> = new Set(['RESEND_API_KEY']);
+export const esClaveDeCorreoDeLaPlataforma = (clave: string): boolean => CORREO_DE_LA_PLATAFORMA.has(clave);
+/** ¿El entorno de esta clave sale de la fila de la PLATAFORMA (y no del ws1)? La IA desde el 18/10, el correo desde el 4/11. */
+export const saleDeLaPlataforma = (clave: string): boolean => esClaveDeIA(clave) || esClaveDeCorreoDeLaPlataforma(clave);
 
 /**
  * ¿La IA de este NEGOCIO es la que se copia al entorno? Entonces no se le pide que pegue la suya: pasaría a ser la de
@@ -582,37 +598,60 @@ export async function esNegocioDelEntorno(ws: number | null | undefined): Promis
   return ws === fuente && ws !== plataforma;
 }
 
-/** Las dos fuentes del entorno: el ws1 para lo que no es IA, la plataforma para la IA. Cada clave, sólo de la suya. */
-async function fuentesDelEntorno(): Promise<Array<{ ws: number; deIA: boolean }>> {
+/** Las dos fuentes del entorno: el ws1 para el resto, la plataforma para la IA y el correo de MaKo. Cada clave, sólo de la suya. */
+async function fuentesDelEntorno(): Promise<Array<{ ws: number; dePlataforma: boolean }>> {
   const plataforma = await wsSuperAdmin().catch(() => null);
-  if (plataforma == null) console.error('[credenciales] ⚠️ NO SÉ CUÁL ES EL WORKSPACE DE LA PLATAFORMA: las keys de IA no se hidratan; corre con las del entorno de Vercel.');
-  return [{ ws: OWNER_WS, deIA: false }, ...(plataforma == null ? [] : [{ ws: plataforma, deIA: true }])];
+  if (plataforma == null) console.error('[credenciales] ⚠️ NO SÉ CUÁL ES EL WORKSPACE DE LA PLATAFORMA: las keys de IA y la de correo de MaKo no se hidratan; corre con las del entorno de Vercel.');
+  return [{ ws: OWNER_WS, dePlataforma: false }, ...(plataforma == null ? [] : [{ ws: plataforma, dePlataforma: true }])];
 }
 
 export async function hidratarCredenciales(): Promise<void> {
   if (!supabaseConfigurado()) return;
   try {
     let aplicadas = 0;
+    // LA MUDANZA DEL CORREO (4/11/2026): la clave de correo de MaKo pasa de la fila del ws1 a la de la plataforma
+    // (scripts/correo-del-ws1-a-la-plataforma.mts, que corre el Cerebro). Mientras la plataforma no la tenga, el entorno la
+    // sigue tomando del ws1 COMO HASTA HOY —si no, los avisos de MaKo dejarían de salir hasta la mudanza—, y lo dice fuerte.
+    // Sólo si la plataforma se LEYÓ bien y no la tiene: con su lectura caída no se sabe, y la del ws1 puede ser ya la de Mauricio.
+    const legadoDelWs1 = new Map<string, string>();
+    const correoDeLaPlataforma = new Set<string>();
+    let plataformaLeida = false;
     for (const f of await fuentesDelEntorno()) {
       const { data, error } = await getSupabaseServer()
         .from('credenciales').select('clave, valor_enc').eq('workspace_id', f.ws)
         .abortSignal(AbortSignal.timeout(4000));
       if (error) {
         console.error(`[credenciales] hidratación (ws ${f.ws}): ${error.message}`);
-        if (!f.deIA) return;
+        if (!f.dePlataforma) return;
         continue;
       }
+      if (f.dePlataforma) plataformaLeida = true;
       let legibles = 0;
       for (const r of data ?? []) {
         const clave = r.clave as string;
-        if (esClaveDeIA(clave) !== f.deIA) continue; // cada clave, sólo de su fuente (`wsDelEntorno`)
+        if (saleDeLaPlataforma(clave) !== f.dePlataforma) {
+          // cada clave, sólo de su fuente (`wsDelEntorno`); la de correo del ws1 se guarda aparte por la mudanza
+          if (!f.dePlataforma && esClaveDeCorreoDeLaPlataforma(clave)) {
+            const v = descifrar(r.valor_enc as string, f.ws, clave);
+            if (v !== null) legadoDelWs1.set(clave, v);
+          }
+          continue;
+        }
         const valor = descifrar(r.valor_enc as string, f.ws, clave);
         if (valor === null) continue;
-        legibles++;
+        if (esClaveDeIA(clave)) legibles++;
+        if (esClaveDeCorreoDeLaPlataforma(clave)) correoDeLaPlataforma.add(clave);
         if (aplicarAEnv(clave, valor)) aplicadas++;
       }
       // Fuerte y nunca en silencio: sin filas de IA en la plataforma, MaKo corre con lo que traiga Vercel (o sin IA).
-      if (f.deIA && !legibles) console.error(`[credenciales] ⚠️ LA PLATAFORMA (ws ${f.ws}) NO TIENE NINGUNA KEY DE IA LEGIBLE: la IA de MaKo corre sólo con las del entorno de Vercel.`);
+      if (f.dePlataforma && !legibles) console.error(`[credenciales] ⚠️ LA PLATAFORMA (ws ${f.ws}) NO TIENE NINGUNA KEY DE IA LEGIBLE: la IA de MaKo corre sólo con las del entorno de Vercel.`);
+    }
+    if (plataformaLeida) {
+      for (const [clave, valor] of legadoDelWs1) {
+        if (correoDeLaPlataforma.has(clave)) continue;
+        console.error(`[credenciales] ⚠️ LA PLATAFORMA NO TIENE SU ${clave}: sigue saliendo de la fila del ws${OWNER_WS} hasta correr scripts/correo-del-ws1-a-la-plataforma.mts. Mientras tanto Mauricio NO pega la suya.`);
+        if (aplicarAEnv(clave, valor)) aplicadas++;
+      }
     }
     if (aplicadas) console.log(`[credenciales] ${aplicadas} credencial(es) del dueño hidratadas`);
     // Sembrar el índice de ruteo de webhooks del dueño desde el env (idempotente):
@@ -709,9 +748,9 @@ export async function migrarEnvACredenciales(ws: number = OWNER_WS): Promise<num
     let migradas = 0;
     for (const clave of ENVS_METODO) {
       if (NO_MIGRAR_A_WS.has(clave)) continue; // plataforma pura: nunca a la fila de un ws
-      // La IA del entorno es de la PLATAFORMA (`wsDelEntorno`): nunca se copia a la fila de un negocio. Así se sembraron
+      // La IA y el correo del entorno son de la PLATAFORMA (`wsDelEntorno`): nunca se copian a la fila de un negocio. Así se sembraron
       // las copias que el ws1 tenía de las keys de MaKo (18/10/2026).
-      if (esClaveDeIA(clave) && ws !== (await wsDelEntorno(clave))) continue;
+      if (saleDeLaPlataforma(clave) && ws !== (await wsDelEntorno(clave))) continue;
       if (yaEnBase.has(clave)) continue; // la base manda: nunca la pisamos
       const valor = process.env[clave];
       if (!esValorReal(valor)) continue;

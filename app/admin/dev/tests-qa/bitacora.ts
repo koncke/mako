@@ -318,4 +318,35 @@ export const BITACORA: Hito[] = [
       'tests/ci-workflow-nuevo.test.ts — el script sobre repos de git de verdad',
     ],
   },
+  {
+    fecha: '4 nov', hora: '13:30', chat: 'Cerebro', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que Actions no suba tanto: que los chats de la nube corran los tests',
+    pedido: 'Por que actions subió tanto?... Y estamos con 1 sola cuenta, imagina que tengo 5 cuentas... No debe subir tanto el precio ese... No hay otra manera de resolverlo? Que los chats en la nube hagan los testeos o algo así...',
+    puntos: [
+      'Llegó por el Cerebro (session_01LWmw2eawQJnmE1ZcC7K4Xn), con la medición del día: 603 corridas y 4.165 min en noviembre, 2.467 sólo el 4/11.',
+      'Lo pedido, en cinco partes: sólo-documentación sin tests, el veredicto de quien ya corrió los tests atado al árbol, Node 24 en la nube, no repetir lo que ya pasó sobre el mismo árbol, y el número antes y después con 5 cuentas (más si conviene un runner propio, sin contratarlo).',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '14:30', chat: 'Infra', sesion: 'cli_fe9e34df-f0e0-505d-89ab-5b8ddc011a0b', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que ya se probó no se repite en GitHub: una punta de la nube baja de 16 a 7 min',
+    puntos: [
+      'Una sesión de la nube corre los tests y el tsc entero antes de subir, y deja el veredicto en el commit. GitHub sólo repite lo que la mezcla con main pudo cambiar, más una muestra.',
+      'Medido sobre las 87 puntas de código del 4/11: mediana de 16,1 min a 6,8. Por mes, con una cuenta, de ~US$444 a ~US$283; con cinco, de ~US$2.200 a ~US$1.394.',
+      'Al arreglar un rojo, la próxima subida de la misma punta no repite los tests que ya pasaron (vale también para la PC).',
+      'Un veredicto de otro árbol, editado, de otra selección o de Node 22 no pasa. Uno armado a propósito sí, hasta que Martín cargue la clave de los veredictos.',
+      'Lo que no se midió que sirviera: reusar el tsc desde main (236 s con caché, lo mismo que sin ella). La documentación ya no corría tests: eran 7 de 159 corridas.',
+      'Un rojo del chequeo sobre main ahora se ve en la corrida de cada punta, y su resumen dice quién llegó con veredicto.',
+    ],
+    commits: [
+      { sha: '601a0ec2f', msg: 'Lo que ya se probó no se repite en GitHub: el veredicto de la nube y el de Actions', lineas: 882, archivos: 6 },
+    ],
+    archivos: [
+      'scripts/veredicto.mjs — sacar (la nube), revisar y guardar (punta.yml)',
+      'scripts/node24.sh — el Node de Actions en cualquier sesión, con su sha256',
+      'scripts/tests-afectados.mjs — --solo y lo que no dio verde',
+      '.github/workflows/punta.yml y sobre-main.yml',
+      'docs/relevo/nube-metodologia.md → «6» — cómo se usa, los números, las palancas que quedan y el runner propio',
+    ],
+  },
 ];

@@ -211,13 +211,16 @@ test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, le
   }
   const cred = sinComentarios(leer('lib/credenciales.ts'));
   // Rota: `wsDelEntorno` devolviendo el ws1 para la IA → este test falla.
-  assert.match(cred, /export async function wsDelEntorno\(clave: string\): Promise<number> \{\s*return esClaveDeIA\(clave\) \? wsSuperAdmin\(\) : OWNER_WS;\s*\}/);
+  // Desde el 4/11/2026 la fuente la decide `saleDeLaPlataforma` (la IA, y la clave de correo de MaKo): lo fija por
+  // comportamiento tests/email-cuenta-propia.test.ts (la hidratación corrida contra una base de mentira).
+  assert.match(cred, /export async function wsDelEntorno\(clave: string\): Promise<number> \{\s*return saleDeLaPlataforma\(clave\) \? wsSuperAdmin\(\) : OWNER_WS;\s*\}/);
+  assert.match(cred, /export const saleDeLaPlataforma = \(clave: string\): boolean => esClaveDeIA\(clave\) \|\| esClaveDeCorreoDeLaPlataforma\(clave\);/);
   // La hidratación: dos fuentes, y cada clave sólo de la suya; sin filas de IA en la plataforma, lo dice fuerte.
-  assert.match(cred, /return \[\{ ws: OWNER_WS, deIA: false \}, \.\.\.\(plataforma == null \? \[\] : \[\{ ws: plataforma, deIA: true \}\]\)\];/);
+  assert.match(cred, /return \[\{ ws: OWNER_WS, dePlataforma: false \}, \.\.\.\(plataforma == null \? \[\] : \[\{ ws: plataforma, dePlataforma: true \}\]\)\];/);
   // Rota: la hidratación sin el filtro por fuente (el ws1 vuelve a poner su IA en el entorno) → este test falla.
-  assert.match(cred, /if \(esClaveDeIA\(clave\) !== f\.deIA\) continue;/);
+  assert.match(cred, /if \(saleDeLaPlataforma\(clave\) !== f\.dePlataforma\) \{/);
   assert.match(cred, /descifrar\(r\.valor_enc as string, f\.ws, clave\)/);
-  assert.match(cred, /if \(f\.deIA && !legibles\) console\.error\(/, 'sin IA en la plataforma no queda en silencio');
+  assert.match(cred, /if \(f\.dePlataforma && !legibles\) console\.error\(/, 'sin IA en la plataforma no queda en silencio');
   // Las lecturas «del dueño» y el reflejo al entorno preguntan lo mismo; ninguna compara con OWNER_WS a mano.
   assert.match(cred, /if \(ws === \(await wsDelEntorno\(clave\)\)\) aplicarAEnv\(clave, valor\);/, 'guardarCredencial');
   assert.match(cred, /if \(hidratadas\.has\(clave\) && ws === \(await wsDelEntorno\(clave\)\)\) \{/, 'eliminarCredencial');
@@ -227,7 +230,7 @@ test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, le
   assert.match(cred, /if \(esValorReal\(env\) && w === \(await wsDelEntorno\(clave\)\)\) \{/, 'estadoCampo');
   assert.doesNotMatch(cred, /(ws|w) === OWNER_WS && esValorReal|workspace_id', OWNER_WS\)|credDeBase\(OWNER_WS|credWsEstricta\(clave, OWNER_WS\)/, 'nada del entorno compara con OWNER_WS a mano');
   // Rota: la migración del arranque copiando la IA del entorno a la fila del ws1 (así se sembraron las copias) → falla.
-  assert.match(cred, /if \(esClaveDeIA\(clave\) && ws !== \(await wsDelEntorno\(clave\)\)\) continue;/);
+  assert.match(cred, /if \(saleDeLaPlataforma\(clave\) && ws !== \(await wsDelEntorno\(clave\)\)\) continue;/);
   // Las fronteras de Claude ya no miran la fila del ws1.
   for (const f of ['lib/anthropic.ts', 'lib/integraciones.ts']) {
     const s = sinComentarios(leer(f));

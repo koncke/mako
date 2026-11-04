@@ -25,6 +25,7 @@
 
 import { calcularDiagnostico, cifrasConPorcentaje, diagnosticoConFuentes } from './offer-reglas';
 import { esDimensionId, type DiagnosticoOferta, type DimensionId } from './offer-marco';
+import { esAgregador } from './spy-otras-redes-reglas';
 
 /** Una clave por competidor: dos competidores no se pisan, y borrarla es una línea. */
 export const claveOfertaSpy = (competidorId: number): string => `spy.oferta.${competidorId}`;
@@ -43,7 +44,14 @@ export const LEYENDO_VENCE_MS = 10 * 60_000;
 export const ESPERA_TRAS_FALLO_MS = 24 * 60 * 60_000;
 export const FALLOS_HASTA_ESPERAR = 3;
 
+/** Cuánto texto de cada página se GUARDA (para la evidencia de su funnel, lib/spy-funnel-tipo.ts): no el que viaja a la IA. */
+export const TOPE_TEXTO_GUARDADO = 3_000;
+/** Hasta cuántas de sus páginas se ofrecen en el desplegable de «Sus páginas». */
+export const MAX_ENLACES = 8;
+
 export type EstadoOferta = 'leyendo' | 'lista' | 'no-pudo';
+/** Una página suya ya leída: lo que se guarda para su funnel y su vista previa. */
+export type PaginaGuardada = { url: string; titulo: string; texto: string };
 
 export type OfertaDeCompetidor = {
   estado: EstadoOferta;
@@ -64,6 +72,13 @@ export type OfertaDeCompetidor = {
   /** Por qué no se pudo, en una frase para la persona. */
   motivo: string | null;
   fallos: number;
+  /** Las páginas que se leyeron, con su texto recortado (`TOPE_TEXTO_GUARDADO`): la evidencia de su funnel. */
+  paginas: PaginaGuardada[];
+  /**
+   * Todas sus páginas, para el desplegable de «Sus páginas»: su web y, si es una página de enlaces (beacons, linktree), cada
+   * página suya que enlaza (4/11/2026: «Beacons es la fuente de las páginas de Den Borg»).
+   */
+  enlaces: string[];
 };
 
 export type PaginaLeida = { url: string; titulo: string; texto: string };
@@ -92,6 +107,13 @@ export function leerOferta(crudo: string | null | undefined): OfertaDeCompetidor
     cuello: diagnostico && esDimensionId(o.cuello) ? o.cuello : null,
     motivo: esTexto(o.motivo) ? o.motivo : null,
     fallos: typeof o.fallos === 'number' && o.fallos > 0 ? Math.floor(o.fallos) : 0,
+    paginas: Array.isArray(o.paginas)
+      ? (o.paginas as unknown[]).flatMap((x) => {
+        const q = x as Record<string, unknown> | null;
+        return q && esTexto(q.url) && esTexto(q.texto) ? [{ url: q.url, titulo: esTexto(q.titulo) ? q.titulo : '', texto: q.texto.slice(0, TOPE_TEXTO_GUARDADO) }] : [];
+      }).slice(0, MAX_PAGINAS)
+      : [],
+    enlaces: Array.isArray(o.enlaces) ? o.enlaces.filter(esTexto).filter((u) => /^https?:\/\//i.test(u)).slice(0, MAX_ENLACES) : [],
   };
 }
 
@@ -139,6 +161,9 @@ export function hayQueLeer(g: OfertaDeCompetidor | null, webs: readonly string[]
   if (g.estado === 'leyendo') return ahora - ms(g.desde) > LEYENDO_VENCE_MS;
   // Una web nueva (la que encontró la cadena en su bio) se lee aunque la anterior esté al día.
   if (!mismasWebs(g.urls, webs)) return true;
+  // Una lectura de antes del 4/11/2026 no guardaba el texto de sus páginas (la evidencia de su funnel) ni las que enlaza: se vuelve
+  // a leer UNA vez. Con el mismo texto, la huella es la misma y la IA no se vuelve a pagar (`leerSuOferta`).
+  if (g.estado === 'lista' && !g.paginas.length) return true;
   if (g.estado === 'lista') return ahora - ms(g.leidaEn ?? g.desde) >= VUELVE_A_MIRAR_MS;
   return ahora - ms(g.desde) >= esperaTrasFallos(g.fallos);
 }
@@ -165,6 +190,8 @@ export type DepsOferta = {
   diagnosticar: (p: { nombre: string; paginas: PaginaLeida[] }) => Promise<{ ok: true; valor: DiagnosticoOferta } | { ok: false; error: string }>;
   /** Un id para el trabajo. */
   nuevoIntento: () => string;
+  /** Las páginas suyas que enlaza una página de enlaces (beacons, linktree). Vacío si no pudo. */
+  enlacesDe?: (url: string) => Promise<string[]>;
 };
 
 export type Reclamo =
@@ -180,7 +207,7 @@ export async function reclamarLectura(deps: DepsOferta, webs: readonly string[],
   const previa = leerOferta(l.crudo);
   if (!hayQueLeer(previa, webs, ahora)) return { corre: false, actual: previa };
   const actual: OfertaDeCompetidor = {
-    ...(previa ?? { leidaEn: null, huella: null, diagnostico: null, total: null, cuello: null, fallos: 0 }),
+    ...(previa ?? { leidaEn: null, huella: null, diagnostico: null, total: null, cuello: null, fallos: 0, paginas: [], enlaces: [] }),
     estado: 'leyendo',
     intento: deps.nuevoIntento(),
     desde: new Date(ahora).toISOString(),
@@ -209,11 +236,26 @@ export async function leerSuOferta(
     if (!(await deps.cambiarSi(version, JSON.stringify(o)))) return leerOferta((await deps.leer()).crudo) ?? o;
     return o;
   };
-  const fallo = (motivo: string) => escribir({ ...actual, estado: 'no-pudo', motivo, fallos: actual.fallos + 1 });
+  // ⚠️ UNA PÁGINA DE ENLACES NO ES SU WEB: es una lista. Se leen las páginas suyas que enlaza (la de Den Borg es beacons.page, y
+  // sus páginas de verdad —la del evento, la de las entradas— cuelgan de ahí). Las dos listas: lo que se lee (hasta MAX_PAGINAS)
+  // y todo lo que se ofrece en «Sus páginas» (hasta MAX_ENLACES).
+  const aLeer: string[] = [];
+  const enlaces: string[] = [];
+  for (const url of actual.urls) {
+    enlaces.push(url);
+    if (esAgregador(url) && deps.enlacesDe) {
+      const suyas = await deps.enlacesDe(url).catch(() => []);
+      enlaces.push(...suyas);
+      aLeer.push(...suyas);
+    } else aLeer.push(url);
+  }
+  const sinRepetir = (xs: string[]) => xs.filter((u, i) => xs.findIndex((v) => webComparable(v) === webComparable(u)) === i);
+  const conEnlaces = { ...actual, enlaces: sinRepetir(enlaces).slice(0, MAX_ENLACES) };
+  const fallo = (motivo: string) => escribir({ ...conEnlaces, estado: 'no-pudo', motivo, fallos: actual.fallos + 1 });
 
   const paginas: PaginaLeida[] = [];
   const errores: string[] = [];
-  for (const url of actual.urls) {
+  for (const url of sinRepetir(aLeer.length ? aLeer : actual.urls).slice(0, MAX_PAGINAS)) {
     try {
       const p = await deps.bajar(url);
       const texto = p.texto.trim();
@@ -230,9 +272,10 @@ export async function leerSuOferta(
 
   const huella = huellaDe(paginas);
   const leidaEn = new Date(ahora()).toISOString();
+  const guardadas: PaginaGuardada[] = paginas.map((p) => ({ url: p.url, titulo: p.titulo, texto: p.texto.slice(0, TOPE_TEXTO_GUARDADO) }));
   // Su web dice lo mismo que la última vez: el diagnóstico de antes sigue valiendo y la IA no se vuelve a pagar.
   if (previa?.diagnostico && previa.huella === huella) {
-    return escribir({ ...actual, estado: 'lista', leidaEn, huella, diagnostico: previa.diagnostico, total: previa.total, cuello: previa.cuello, motivo: null, fallos: 0 });
+    return escribir({ ...conEnlaces, paginas: guardadas, estado: 'lista', leidaEn, huella, diagnostico: previa.diagnostico, total: previa.total, cuello: previa.cuello, motivo: null, fallos: 0 });
   }
 
   const ia = await deps.diagnosticar({ nombre: c.nombre, paginas });
@@ -243,7 +286,7 @@ export async function leerSuOferta(
   });
   const calculo = calcularDiagnostico(diagnostico.dimensiones);
   return escribir({
-    ...actual, estado: 'lista', leidaEn, huella, diagnostico, total: calculo.total, cuello: calculo.cuello, motivo: null, fallos: 0,
+    ...conEnlaces, paginas: guardadas, estado: 'lista', leidaEn, huella, diagnostico, total: calculo.total, cuello: calculo.cuello, motivo: null, fallos: 0,
   });
 }
 
@@ -251,10 +294,13 @@ export async function leerSuOferta(
 export type VistaOferta =
   | { estado: 'sin-web' }
   | { estado: 'sin-ia' }
-  | { estado: EstadoOferta; diagnostico: DiagnosticoOferta | null; total: number | null; cuello: DimensionId | null; urls: string[]; leidaEn: string | null; motivo: string | null };
+  | {
+    estado: EstadoOferta; diagnostico: DiagnosticoOferta | null; total: number | null; cuello: DimensionId | null; urls: string[]; leidaEn: string | null;
+    motivo: string | null; paginas: PaginaGuardada[]; enlaces: string[];
+  };
 
 export function vistaDeOferta(o: OfertaDeCompetidor | null, webs: readonly string[], opts: { sinIA?: boolean } = {}): VistaOferta {
   if (!webs.length && !o?.diagnostico) return { estado: 'sin-web' };
-  if (!o) return opts.sinIA ? { estado: 'sin-ia' } : { estado: 'leyendo', diagnostico: null, total: null, cuello: null, urls: [...webs], leidaEn: null, motivo: null };
-  return { estado: o.estado, diagnostico: o.diagnostico, total: o.total, cuello: o.cuello, urls: o.urls, leidaEn: o.leidaEn, motivo: o.motivo };
+  if (!o) return opts.sinIA ? { estado: 'sin-ia' } : { estado: 'leyendo', diagnostico: null, total: null, cuello: null, urls: [...webs], leidaEn: null, motivo: null, paginas: [], enlaces: [...webs] };
+  return { estado: o.estado, diagnostico: o.diagnostico, total: o.total, cuello: o.cuello, urls: o.urls, leidaEn: o.leidaEn, motivo: o.motivo, paginas: o.paginas, enlaces: o.enlaces.length ? o.enlaces : o.urls };
 }

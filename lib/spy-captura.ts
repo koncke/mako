@@ -18,7 +18,8 @@
 
 import type { PiezaVista } from './spy';
 import { leerFunnel, piezasDeVideoEn, type LecturaFunnel } from './spy-funnel';
-import { dominioComparable, nombreComparable, TOPES } from './spy-reglas';
+import { dominioComparable, nombreComparable, nombreParaBuscar, TOPES } from './spy-reglas';
+import { esAgregador } from './spy-otras-redes-reglas';
 
 const TOPE_DIRECCIONES = 500;
 const TOPE_LARGO_DIRECCION = 2_000;
@@ -284,19 +285,27 @@ export function anunciosDe(tokens: readonly Token[]): AnuncioLeido[] {
   return [...vistos.values()];
 }
 
-/** De todas las tarjetas, las de este competidor. Una búsqueda por palabra trae las de cualquiera. */
+/**
+ * De todas las tarjetas, las de este competidor. Una búsqueda por palabra trae las de cualquiera, así que cada anuncio se VERIFICA
+ * antes de mostrarse (4/11/2026, Martín con Den Borg: «Y darse cuenta si es o no es... Porque evidentemente no es»):
+ *   · la Página que pauta se llama como él (su nombre entero o el corto, sin lo de después de « - ») o como su @ de Instagram;
+ *   · o es su Página guardada;
+ *   · o el anuncio lleva a SU web. ⚠️ Una página de enlaces (beacons, linktree…) no es su web: es de todos, y del anuncio sólo se
+ *     guarda el DOMINIO al que manda (`destinoDe`), así que «manda a beacons.page» no dice de quién es. Ahí decide la Página.
+ */
 export function anunciosDeQuien(
   anuncios: readonly AnuncioLeido[],
-  quien: { nombre: string; landing_url?: string | null; pagina_anuncios?: string | null },
+  quien: { nombre: string; instagram?: string | null; landing_url?: string | null; pagina_anuncios?: string | null },
   /** La pestaña estaba en la Página de un anunciante: todo lo que se ve es suyo. */
   deUnaPagina: boolean,
 ): { suyos: AnuncioLeido[]; otros: number } {
   if (deUnaPagina) return { suyos: [...anuncios], otros: 0 };
-  const nombre = nombreComparable(quien.nombre);
-  const dominio = quien.landing_url ? dominioComparable(quien.landing_url) : '';
+  const nombres = new Set([nombreComparable(quien.nombre), nombreComparable(nombreParaBuscar(quien.nombre)), nombreComparable(quien.instagram ?? '')].filter((n) => n.length >= 3));
+  const agregador = !!quien.landing_url && esAgregador(quien.landing_url);
+  const dominio = quien.landing_url && !agregador ? dominioComparable(quien.landing_url) : '';
   const pagina = (quien.pagina_anuncios ?? '').toLowerCase();
   const suyos = anuncios.filter((a) => (
-    (!!nombre && !!a.pagina && nombreComparable(a.pagina.nombre) === nombre)
+    (!!a.pagina && (nombres.has(nombreComparable(a.pagina.nombre)) || (!!a.pagina.handle && nombres.has(nombreComparable(a.pagina.handle)))))
     || (!!pagina && a.pagina?.handle?.toLowerCase() === pagina)
     || (!!dominio && !!a.destino && esDelDominio(a.destino, dominio))
   ));

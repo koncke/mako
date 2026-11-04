@@ -1,27 +1,30 @@
 'use client';
 
-// Quién tiene al frente el coach, si hay oferta (con qué arranca) y si esta persona puede cambiarlo (1/11/2026).
+// Quién tiene al frente el coach, con qué oferta arranca (cuál, ticket #57) y si esta persona puede cambiarlo (1/11/2026).
 // UN SOLO COACH desde el 4/11/2026 (Martín: «Junta a "Offer coach" con "Funnel Coach"»): el referente es uno, y el de fábrica es Hormozi.
 // Aparte de ChatSecondBrain.tsx: esa pantalla no hace pedidos propios (tests/ops-center-cliente.test.ts).
 
 import { useCallback, useEffect, useState } from 'react';
 import { REFERENTE_DE_FABRICA, asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
 import type { GuruConCharla } from '@/lib/chat-mako-reglas';
+import { sanearOfertaDelCoach, type OfertaDelCoach } from '@/lib/funnel-plan';
 
 /** Lo que contesta el servidor: un id que no existe nunca rompe (null = MaKo; ausente = el de fábrica, hasta que conteste). */
 const referenteDe = (v: unknown): IdAsesor | null => (v === null ? null : asesorPorId(v)?.id ?? REFERENTE_DE_FABRICA);
 
 export function useCoaches() {
   const [referente, setReferente] = useState<IdAsesor | null>(REFERENTE_DE_FABRICA);
-  const [hayOferta, setHayOferta] = useState(false);
+  // null = todavía no contestó (el saludo espera); si el pedido falla, «no se sabe»: nunca se afirma una oferta sin leerla.
+  const [oferta, setOferta] = useState<OfertaDelCoach | null>(null);
   const [puedeElegir, setPuedeElegir] = useState(false);
   useEffect(() => {
     let vivo = true;
     void fetch('/api/mako/chat?coaches=1', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
-      .then((j: { referente?: unknown; hayOferta?: boolean; puedeElegir?: boolean } | null) => {
-        if (!vivo || !j) return;
+      .then((j: { referente?: unknown; oferta?: unknown; puedeElegir?: boolean } | null) => {
+        if (!vivo) return;
+        setOferta(sanearOfertaDelCoach(j?.oferta));
+        if (!j) return;
         if ('referente' in j) setReferente(referenteDe(j.referente));
-        setHayOferta(!!j.hayOferta);
         setPuedeElegir(!!j.puedeElegir);
       });
     return () => { vivo = false; };
@@ -37,7 +40,7 @@ export function useCoaches() {
         else if (antes !== undefined) setReferente(antes);
       });
   }, []);
-  return { referente, hayOferta, puedeElegir, elegirReferente };
+  return { referente, oferta, puedeElegir, elegirReferente };
 }
 
 /**

@@ -1,30 +1,28 @@
 // =============================================================================
-// resend-dominios — dar de alta, leer y verificar el dominio de envío de un negocio, con la clave que ADMINISTRA (4/11/2026)
+// resend-dominios — dar de alta, leer y verificar el dominio de envío, y conectar el webhook, EN LA CUENTA DEL NEGOCIO
 // =============================================================================
-// El Cerebro midió ese día desde la PC: la key de Resend con que MaKo MANDA en producción es de SÓLO ENVÍO (la fila del ws1,
-// que el arranque pone en el entorno) y el plan de la cuenta tiene un dominio. Con esa key, `conectar_dominio_email` le
-// contestaba a Mauricio «La key de correo de MaKo sólo puede enviar» (#875). El encargo fue no subirle el permiso a la que
-// manda, y separarlas:
-//   · MANDAR (lib/resend.ts, `sendEmail`) sigue con su key de sólo envío, como siempre.
-//   · ADMINISTRAR DOMINIOS (este módulo) usa `RESEND_ADMIN_API_KEY`, una variable de entorno de Vercel. La carga Martín.
+// Desde el 4/11/2026 (Martín: «Resend free permite hasta 3 dominios, pero eso lo trae cada user de mako») cada negocio
+// tiene SU cuenta de Resend, y su dominio y su webhook viven ahí. Este módulo le habla a Resend con la clave de ESA cuenta
+// (lib/email-cuenta.ts → `cuentaDeCorreo`):
+//   · un NEGOCIO: su clave. Tiene que ser «Full access»: con una de sólo envío no se administran dominios, y se le dice
+//     cuál crear (`KEY_SOLO_ENVIO_TUYA`). Sin cuenta propia, nada: la guía de `estado_email` le dice cómo conectarla.
+//   · la PLATAFORMA: `RESEND_ADMIN_API_KEY`, la de administración de MaKo, que queda SÓLO para el dominio de MaKo (la que
+//     MANDA en producción es de sólo envío: el Cerebro lo midió el 4/11). Es una variable de entorno de Vercel, fuera del
+//     catálogo de credenciales a propósito: lo del catálogo lo hidrata el arranque y lo puede pegar quien edita una fila.
 //
-// ⚠️ LA CLAVE DE ADMINISTRACIÓN NO SALE DE ACÁ. Se lee de `process.env` en `claveDeDominios` (privada) y sólo arma el
-// `Authorization` de un pedido a /domains. No está en el catálogo de credenciales (lib/metodo-catalogo.ts), a propósito: lo
-// que está ahí lo hidrata el arranque desde la fila del ws1, que es un CLIENTE, y lo puede pegar quien edita esa fila. Sin
-// la variable, nada se crea: `puedeAdministrarDominios()` frena el alta en `preparar` (lib/email-dominio.ts).
-//
-// ⚠️ Y LA EXCEPCIÓN ES LA DE SIEMPRE (Opción B): un negocio con SU PROPIA key de Resend (distinta de la de la plataforma)
-// tiene el dominio en SU cuenta, y lo administra con la suya; es la que manda sus emails. La del ws1 no es propia: es la de
-// la plataforma (`esDeLaPlataforma`), así que Mauricio va por la de administración. «No pude leer» la key del negocio NO
-// cae a la de MaKo: daría de alta su dominio en otra cuenta. Lo fija tests/resend-clave-admin.test.ts.
+// ⚠️ LAS CLAVES NO SALEN DE ACÁ. Se leen en `claveDeCuenta` (privada) y sólo arman el `Authorization` de un pedido. Y «no
+// pude leer» la del negocio NO cae a ninguna otra: daría de alta su dominio en otra cuenta. Lo fija
+// tests/email-cuenta-propia.test.ts (y tests/resend-clave-admin.test.ts, que la de administración la nombre sólo acá).
 //
 // POST /domains crea el dominio y devuelve los registros DNS (DKIM/SPF) que el cliente carga en su proveedor. GET
 // /domains/{id} da el estado; POST /domains/{id}/verify dispara la verificación; PATCH /domains/{id} prende el seguimiento.
+// GET/POST /webhooks y GET/PATCH /webhooks/{id} (el contrato del SDK oficial resend@6.37.0, `Webhooks`: la documentación no
+// se podía abrir desde la nube) conectan los eventos de su cuenta con MaKo.
 // =============================================================================
 
 import 'server-only';
-import { credDelClienteEstricta, esDeLaPlataforma } from './credenciales';
-import { getWorkspaceActual } from './workspace';
+import { cuentaDeCorreo } from './email-cuenta';
+import { EVENTOS_DEL_WEBHOOK, sinCuentaParaOperar, type EstadoCuenta } from './email-cuenta-reglas';
 import {
   esKeySoloEnvio, esTopeDeDominios, KEY_SOLO_ENVIO_DE_MAKO, KEY_SOLO_ENVIO_TUYA,
   SIN_CLAVE_DE_DOMINIOS, TOPE_DOMINIOS_DE_MAKO, TOPE_DOMINIOS_TUYO,
@@ -54,39 +52,53 @@ export type ResendDomain = {
   clickTracking?: boolean;
 };
 
-export type DomainResult = { ok: true; domain: ResendDomain } | { ok: false; error: string };
+/** `status`: lo que contestó Resend (404 = esa cuenta no tiene ese dominio: se dio de alta en otra). */
+export type DomainResult = { ok: true; domain: ResendDomain } | { ok: false; error: string; status?: number };
 
-type Clave = { key: string; deMako: boolean } | { sinClave: true } | { noPudeLeer: string };
+type Clave =
+  | { key: string; deMako: boolean }
+  | { sinClave: true }                                       // la plataforma, sin la de administración de MaKo
+  | { sinCuenta: Extract<EstadoCuenta, 'sin_cuenta' | 'la_de_mako'> }
+  | { noPudeLeer: string };
 
 /**
- * CON QUÉ CLAVE se administra el dominio del negocio del contexto. La suya si tiene una PROPIA (Opción B); si no, la de
- * administración de MaKo. Privada: la clave no sale de este módulo.
+ * CON QUÉ CLAVE se administra la cuenta de correo del negocio del contexto: la suya, o la de administración de MaKo si es
+ * la plataforma. Privada: la clave no sale de este módulo.
  */
-async function claveDeDominios(): Promise<Clave> {
-  let ws: number | null = null;
-  try { ws = await getWorkspaceActual(); } catch { ws = null; }
-  if (ws != null) {
-    try {
-      const propia = await credDelClienteEstricta('RESEND_API_KEY', ws, { ilegibleTira: true });
-      if (propia && !(await esDeLaPlataforma('RESEND_API_KEY', propia))) return { key: propia, deMako: false };
-    } catch (e) {
-      return { noPudeLeer: e instanceof Error ? e.message : String(e) };
-    }
+async function claveDeCuenta(): Promise<Clave> {
+  const c = await cuentaDeCorreo();
+  if (c.tipo === 'propia') return { key: c.key, deMako: false };
+  if (c.tipo === 'plataforma') {
+    const admin = process.env[VARIABLE_ADMIN]?.trim();
+    return admin ? { key: admin, deMako: true } : { sinClave: true };
   }
-  const admin = process.env[VARIABLE_ADMIN]?.trim();
-  return admin ? { key: admin, deMako: true } : { sinClave: true };
+  if (c.tipo === 'no_pude_leer') return { noPudeLeer: c.error };
+  return { sinCuenta: c.tipo };
 }
 
-/** ¿Hay con qué dar de alta y verificar un dominio? Lo pregunta `preparar` antes de proponer nada. No dice cuál. */
+/** Si se puede administrar la cuenta (dar de alta un dominio, verificarlo, conectar el webhook), o por qué no, en palabras. */
+export type Administracion = { ok: true } | { ok: false; error: string; cuenta: EstadoCuenta | 'sin_clave_de_mako' };
+
+/** Lo pregunta `preparar` antes de proponer nada (lib/email-dominio.ts). No dice cuál clave. */
+export async function administracionDeLaCuenta(): Promise<Administracion> {
+  const c = await claveDeCuenta();
+  if ('key' in c) return { ok: true };
+  if ('sinClave' in c) return { ok: false, error: SIN_CLAVE_DE_DOMINIOS, cuenta: 'sin_clave_de_mako' };
+  if ('noPudeLeer' in c) return { ok: false, error: sinCuentaParaOperar('no_pude_leer'), cuenta: 'no_pude_leer' };
+  return { ok: false, error: sinCuentaParaOperar(c.sinCuenta), cuenta: c.sinCuenta };
+}
+
+/** ¿Hay con qué administrar la cuenta del negocio? */
 export async function puedeAdministrarDominios(): Promise<boolean> {
-  return 'key' in (await claveDeDominios());
+  return (await administracionDeLaCuenta()).ok;
 }
 
 type Respuesta = { ok: boolean; status: number; body: unknown; deMako?: boolean };
 
 async function resendFetch(path: string, init?: RequestInit): Promise<Respuesta> {
-  const c = await claveDeDominios();
+  const c = await claveDeCuenta();
   if ('sinClave' in c) return { ok: false, status: 0, body: { name: 'sin_clave_de_dominios', message: SIN_CLAVE_DE_DOMINIOS } };
+  if ('sinCuenta' in c) return { ok: false, status: 0, body: { name: 'sin_cuenta_propia', message: sinCuentaParaOperar(c.sinCuenta) } };
   if ('noPudeLeer' in c) return { ok: false, status: 0, body: { message: `No pude leer la clave de correo del negocio: ${c.noPudeLeer.slice(0, 120)}` } };
   try {
     const res = await fetch(`${API_BASE}${path}`, {
@@ -173,6 +185,7 @@ export async function createResendDomain(name: string, region = 'sa-east-1'): Pr
     creado = d ? { ok: true, domain: d } : { ok: false, error: 'Resend no devolvió el dominio' };
   } else {
     const tope = esTopeDeDominios(r.status, r.body);
+    // El tope de la cuenta del NEGOCIO es suyo (su plan de Resend, gratis o no) y se le dice en palabras; el de MaKo, nuestro.
     if (tope) console.error(`[resend] el alta de ${name} chocó con el tope de dominios del plan (${r.deMako ? 'cuenta de MaKo' : 'cuenta del negocio'})`);
     creado = { ok: false, error: tope ? (r.deMako ? TOPE_DOMINIOS_DE_MAKO : TOPE_DOMINIOS_TUYO) : errorDeResend(r, `Resend ${r.status}`) };
     // 4xx → puede ser "ya existe": buscarlo por nombre en la cuenta.
@@ -193,7 +206,7 @@ export async function createResendDomain(name: string, region = 'sa-east-1'): Pr
 
 export async function getResendDomain(id: string): Promise<DomainResult> {
   const r = await resendFetch(`/domains/${encodeURIComponent(id)}`);
-  if (!r.ok) return { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
+  if (!r.ok) return { ok: false, error: errorDeResend(r, `Resend ${r.status}`), status: r.status };
   const d = parseDomain(r.body);
   return d ? { ok: true, domain: d } : { ok: false, error: 'respuesta inválida de Resend' };
 }
@@ -218,4 +231,60 @@ export async function listResendDomains(): Promise<{ ok: true; domains: Array<{ 
       status: String((d as { status?: unknown }).status ?? ''),
     })),
   };
+}
+
+/**
+ * ¿Qué contesta Resend a la clave de la cuenta? 'ok' (administra), 'solo_envio' (#875: manda pero no administra),
+ * 'invalida' (401 sin más), o null si no hay clave o no se pudo saber. Es el pedido más barato que la distingue
+ * (GET /domains): lo usa la guía de `estado_email`.
+ */
+export async function probarClaveDeCuenta(): Promise<'ok' | 'solo_envio' | 'invalida' | null> {
+  const r = await resendFetch('/domains');
+  if (r.ok) return 'ok';
+  if (esKeySoloEnvio(r.body)) return 'solo_envio';
+  if (r.status === 401 || r.status === 403) return 'invalida';
+  return null;
+}
+
+/** Lo que devuelve `asegurarWebhookDeCuenta`. El secreto NO sale de lib/email-dominio.ts: lo guarda y no lo devuelve nunca. */
+export type WebhookDeCuenta =
+  | { ok: true; plataforma: true }
+  | { ok: true; plataforma?: false; id: string; secreto: string; creado: boolean }
+  | { ok: false; error: string };
+
+const leerTexto = (o: unknown, k: string): string => (typeof o === 'object' && o && typeof (o as Record<string, unknown>)[k] === 'string' ? String((o as Record<string, unknown>)[k]) : '');
+
+/**
+ * CONECTA LOS EVENTOS DE LA CUENTA DEL NEGOCIO CON MaKo (4/11/2026): un webhook en SU cuenta de Resend que apunta a `url`
+ * (`urlWebhookDeCuenta`, con `?cuenta=<ws>`) y escucha lo que el webhook de MaKo maneja. Idempotente: si ya hay uno con esa
+ * URL, lo reusa (lo prende y le pone los eventos si hace falta) y lee su secreto; si no, lo crea. La plataforma no lleva:
+ * su cuenta es la de MaKo, que ya tiene el webhook de siempre.
+ */
+export async function asegurarWebhookDeCuenta(url: string): Promise<WebhookDeCuenta> {
+  const c = await claveDeCuenta();
+  if ('key' in c && c.deMako) return { ok: true, plataforma: true };
+  const lista = await resendFetch('/webhooks');
+  if (!lista.ok) return { ok: false, error: errorDeResend(lista, `Resend ${lista.status}`) };
+  const data = typeof lista.body === 'object' && lista.body && 'data' in lista.body ? (lista.body as { data?: unknown }).data : null;
+  const existente = (Array.isArray(data) ? data : []).find((w) => leerTexto(w, 'endpoint') === url);
+  const eventos = [...EVENTOS_DEL_WEBHOOK];
+  if (existente) {
+    const id = leerTexto(existente, 'id');
+    const uno = await resendFetch(`/webhooks/${encodeURIComponent(id)}`);
+    if (!uno.ok) return { ok: false, error: errorDeResend(uno, `Resend ${uno.status}`) };
+    const secreto = leerTexto(uno.body, 'signing_secret');
+    if (!secreto) return { ok: false, error: 'Resend no devolvió el secreto del webhook.' };
+    const ev = (uno.body as { events?: unknown }).events;
+    const faltan = !Array.isArray(ev) || eventos.some((e) => !(ev as unknown[]).includes(e));
+    if (leerTexto(uno.body, 'status') !== 'enabled' || faltan) {
+      const p = await resendFetch(`/webhooks/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ status: 'enabled', events: eventos }) });
+      if (!p.ok) return { ok: false, error: errorDeResend(p, `Resend ${p.status}`) };
+    }
+    return { ok: true, id, secreto, creado: false };
+  }
+  const r = await resendFetch('/webhooks', { method: 'POST', body: JSON.stringify({ endpoint: url, events: eventos }) });
+  if (!r.ok) return { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
+  const id = leerTexto(r.body, 'id');
+  const secreto = leerTexto(r.body, 'signing_secret');
+  return id && secreto ? { ok: true, id, secreto, creado: true } : { ok: false, error: 'Resend no devolvió el webhook creado.' };
 }

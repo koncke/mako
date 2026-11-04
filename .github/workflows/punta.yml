@@ -24,6 +24,13 @@
 # (corridas 385 y 389), y «Tipos» viene saliendo OK PARCIAL. Las dos se arreglaron en este commit; tests/punta-ci.test.ts fija
 # que puedan dar un veredicto.
 #
+# ⚠️ Y DESDE EL 4/11/2026 HAY UN CAMINO MÁS, ATADO AL ÁRBOL: EL VEREDICTO (scripts/veredicto.mjs). Martín, por el Cerebro: «Por que
+# actions subió tanto?... Y estamos con 1 sola cuenta, imagina que tengo 5 cuentas... Que los chats en la nube hagan los testeos o algo
+# así...». Una sesión de la nube corre los tests afectados y el tsc entero con Node 24 y lo deja en un renglón `Veredicto:` del último
+# commit; Actions deja el suyo en la caché de la rama. Este flujo lo ata al árbol, a la base y a la selección, y repite SÓLO lo que la
+# mezcla con main pudo cambiar (más una muestra, si es de la nube). Lo que no corrió acá lo vuelve a mirar sobre-main.yml en main: la
+# punta llega «sin probar». Sin veredicto que valga, corre todo como siempre. El detalle, en docs/hallazgos-infra.md → «Actions sin repetir».
+#
 # Costo: quedaban ~2.260 min de Actions para noviembre (medido el 3/11, estimado). Subir el tope es un pago y lo
 # decide Martín. Los pushes a `punta/**` y `ci-rojo/**` NO construyen en Vercel (`git.deploymentEnabled`, en
 # vercel.json): cada build cuesta, y sólo `main` va a producción.
@@ -67,6 +74,14 @@ jobs:
         with:
           node-version: 24
           cache: npm
+
+      # Un rojo de sobre-main.yml lo lanza el bot y no le llega a nadie por mail: se dice acá, en la corrida de cada punta, que es lo
+      # que mira cada chat. Nunca frena: es un aviso.
+      - name: Main está rojo
+        run: |
+          if git ls-remote --exit-code origin refs/heads/ci-rojo/main >/dev/null 2>&1; then
+            echo "::warning title=main está rojo::El chequeo sobre main dio rojo y sigue sin arreglarse. Si esta punta da rojo puede ser por main: queda en espera-main y se relanza sola. Lo de main: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/sobre-main.yml"
+          fi
 
       # ── QUÉ CAMBIÓ LA PUNTA, ANTES DE MEZCLAR ────────────────────────────────────────────────
       # Es la lista de referencia: después de mezclar, la diferencia con main tiene que salir de acá.
@@ -170,14 +185,48 @@ jobs:
             exit 0
           fi
           echo "nada=false" >> "$GITHUB_OUTPUT"
+          echo "main_sha=$(git rev-parse origin/main)" >> "$GITHUB_OUTPUT"
           fuera=$(cat "$RUNNER_TEMP/punta-cambiados.txt" "$RUNNER_TEMP/punta-neto.txt" | { grep -Ev '^docs/.*\.(md|png|jpe?g|webp|gif|pdf|svg|txt|json|jsonl|html)$' || true; })
+          # TEXTO (4/11/2026): lo de arriba más las bitácoras de /admin/dev, AGENTS.md y CLAUDE.md. No lleva tipos: las bitácoras las
+          # chequea tsc-bitacoras en las guardas, y lo demás no compila. Los tests que leen esos archivos corren igual.
+          fuera_texto=$(printf '%s\n' "$fuera" | { grep -Ev '^(app/admin/dev/[^/]+/bitacora\.ts|AGENTS\.md|CLAUDE\.md)?$' || true; })
           if [ -s "$RUNNER_TEMP/punta-cambiados.txt" ] && [ -z "$fuera" ]; then
             echo "solo_docs=true" >> "$GITHUB_OUTPUT"
-            echo "Sólo documentación: se saltean tests y tipos, y main avanza igual." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "texto=true" >> "$GITHUB_OUTPUT"
+            echo "Sólo documentación: corren los tests que la leen, sin tipos, y main avanza igual." | tee -a "$GITHUB_STEP_SUMMARY"
+          elif [ -s "$RUNNER_TEMP/punta-cambiados.txt" ] && [ -z "$fuera_texto" ]; then
+            echo "solo_docs=false" >> "$GITHUB_OUTPUT"
+            echo "texto=true" >> "$GITHUB_OUTPUT"
+            echo "Sólo texto (documentación, bitácoras, AGENTS.md): corren los tests que lo leen, sin el tsc entero." | tee -a "$GITHUB_STEP_SUMMARY"
           else
             echo "solo_docs=false" >> "$GITHUB_OUTPUT"
+            echo "texto=false" >> "$GITHUB_OUTPUT"
           fi
           echo "Le agrega a main $(wc -l < "$RUNNER_TEMP/punta-neto.txt") archivo(s)." | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # ── LO QUE YA SE PROBÓ (4/11/2026, scripts/veredicto.mjs) ─────────────────────────────────────────────
+      # El de la nube viene en el commit; el de Actions, en la caché de ESTA rama (lo deja «Guardar lo que pasó», más abajo). Si
+      # ninguno vale, `usar=false` y todo corre como siempre. Un error de este paso nunca frena la punta: corre todo.
+      - name: El veredicto de la corrida anterior de esta punta
+        if: steps.mezcla.outputs.nada != 'true' && steps.mezcla.outputs.texto != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/veredicto-previo.json
+          key: veredicto-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: veredicto-${{ github.ref_name }}-
+
+      - name: Lo que ya se probó
+        id: veredicto
+        if: steps.mezcla.outputs.nada != 'true' && steps.mezcla.outputs.texto != 'true'
+        # Si Martín carga este secreto (y la misma variable en el entorno de la nube), un veredicto sin su firma no pasa. Sin él, pasa
+        # y el resumen dice «sin firma»: ver la cabecera de scripts/veredicto.mjs.
+        env:
+          MAKO_VEREDICTO_CLAVE: ${{ secrets.MAKO_VEREDICTO_CLAVE }}
+        run: |
+          if ! node scripts/veredicto.mjs revisar --punta "$GITHUB_SHA" --main origin/main --salida "$RUNNER_TEMP/veredicto" --previo "$RUNNER_TEMP/veredicto-previo.json"; then
+            echo "::warning::No pude revisar el veredicto: corre todo, como siempre."
+            echo "usar=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Instalar
         id: instalar
@@ -209,17 +258,27 @@ jobs:
       # que hay de una vez. «Llevar a main» no lleva esa condición: con cualquier paso rojo, se saltea.
       #
       # No se usa PIPESTATUS para que este paso corra igual en `sh` (lo prueba tests/punta-ci.test.ts).
+      #
+      # ⚠️ CON UN VEREDICTO (`USAR=true`) corren sólo los de `--solo`: lo que la mezcla pudo cambiar, lo que el veredicto no tenía en verde y
+      # la muestra. Si no queda ninguno (`cuantos` = 0), este paso no corre: corre el de abajo, que lo dice en el resumen. Así este paso no
+      # tiene un `exit 0` por un costado. Con sólo documentación corren igual los que la leen (barredoras incluidas): un relevo que rompe
+      # una barredora dejaba roja la punta SIGUIENTE, de otro chat.
       - name: Tests afectados por lo que cambió (todos, sin cortar)
-        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.veredicto.outputs.cuantos != '0'"
         timeout-minutes: 30
         # El tiempo de cada archivo de test, al lado del reporte de siempre (scripts/reporter-tiempos.mjs). Lo lee el paso de abajo.
         env:
           MAKO_TIEMPOS_TESTS: ${{ runner.temp }}/tiempos-tests.tsv
+          MAKO_VEREDICTO_CORRIDA: ${{ runner.temp }}/veredicto-corrida.json
+          USAR: ${{ steps.veredicto.outputs.usar }}
+          REPETIR: ${{ steps.veredicto.outputs.repetir }}
         run: |
           set +e
           echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
           SECONDS=0
-          { node scripts/tests-afectados.mjs --base origin/main --concurrencia auto --tanda 100 --compartir; echo $? > "$RUNNER_TEMP/afectados.codigo"; } 2>&1 | tee "$RUNNER_TEMP/afectados.log"
+          solo=""
+          if [ "$USAR" = "true" ]; then solo="--solo $REPETIR"; fi
+          { node scripts/tests-afectados.mjs --base origin/main $solo --concurrencia auto --tanda 100 --compartir; echo $? > "$RUNNER_TEMP/afectados.codigo"; } 2>&1 | tee "$RUNNER_TEMP/afectados.log"
           c=$(cat "$RUNNER_TEMP/afectados.codigo")
           echo "afectados: $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "$c" = "2" ]; then echo "::error::No pude calcular los tests afectados (código 2): sin ese cálculo no hay verde."; exit 2; fi
@@ -229,10 +288,16 @@ jobs:
             exit 1
           fi
 
+      - name: Los tests los cubre el veredicto
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.veredicto.outputs.usar == 'true' && steps.veredicto.outputs.cuantos == '0'"
+        run: |
+          echo "El veredicto cubre los tests de este mismo árbol: no se repite ninguno." | tee -a "$GITHUB_STEP_SUMMARY"
+          printf '{"corridos":[],"noVerdes":[]}' > "$RUNNER_TEMP/veredicto-corrida.json"
+
       # Cuánto tardó cada archivo de test, en el resumen del run (4/11/2026). Para sacar un test de la fase que frena se mide
       # ACÁ, en el runner, no en la PC: ver LENTOS_FUERA_DE_LA_FASE_RAPIDA en tests-afectados.mjs. Nunca da rojo: es un dato.
       - name: Tiempo por archivo de test
-        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
+        if: "!cancelled() && steps.instalar.outcome == 'success'"
         run: node scripts/tiempos-tests.mjs "$RUNNER_TEMP/tiempos-tests.tsv" --top 15 >> "$GITHUB_STEP_SUMMARY" || true
 
       # El tsc entero, con `scripts/tipos-ci.mjs`: 98 es «SIN MEMORIA / sin veredicto», y sale tal cual, rojo. TIPOS_TANDAS es
@@ -242,8 +307,10 @@ jobs:
       # tandas, para un OK PARCIAL. Después de los tests, para que el swap no les cambie los tiempos.
       # ⚠️ 6 GB, NO 10: el disco del runner tiene 11 GB libres y el runner ya trae 3,3 GB de swap. Con 10, después de los tests no quedó
       # lugar ni para el tsbuildinfo: `error TS5033 ... ENOSPC` se contó como un error de tipos, con el chequeo limpio (corrida 18).
+      # ⚠️ Sin tipos acá: con sólo texto, y con un veredicto que ya los cubre sobre este contenido de la punta. Lo segundo llega a main
+      # «sin probar» y sobre-main.yml corre el tsc entero sobre lo que quedó (scripts/veredicto.mjs → `sin_probar`).
       - name: Swap para los tipos
-        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.texto != 'true' && steps.veredicto.outputs.tipos_saltear != 'true'"
         run: |
           sudo fallocate -l 6G /swapfile-tipos
           sudo chmod 600 /swapfile-tipos
@@ -251,7 +318,8 @@ jobs:
           sudo swapon /swapfile-tipos
 
       - name: Tipos
-        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
+        id: tipos
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.texto != 'true' && steps.veredicto.outputs.tipos_saltear != 'true'"
         timeout-minutes: 18
         env:
           TIPOS_TANDAS: '4'
@@ -263,6 +331,31 @@ jobs:
           c=$?
           echo "tipos: $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
           exit $c
+
+      # ── LO QUE PASÓ QUEDA PARA LA PRÓXIMA SUBIDA DE ESTA PUNTA (scripts/veredicto.mjs guardar) ─────────────────
+      # Con rojo también: al arreglar un test, la próxima corrida no repite los cientos que ya pasaron y nada tocó. Va antes de llevar a
+      # main porque mira ESTE árbol, y «Llevar» puede volver a mezclar. Nunca da rojo.
+      - name: Guardar lo que pasó
+        id: guardar
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.texto != 'true'"
+        env:
+          TIPOS: ${{ steps.tipos.outcome }}
+          MAIN_SHA: ${{ steps.mezcla.outputs.main_sha }}
+        run: |
+          t=no
+          if [ "$TIPOS" = "success" ]; then t=ok; fi
+          if node scripts/veredicto.mjs guardar --punta "$GITHUB_SHA" --main "$MAIN_SHA" --corrida "$RUNNER_TEMP/veredicto-corrida.json" --tipos "$t" --salida "$RUNNER_TEMP/veredicto-previo.json" && [ -s "$RUNNER_TEMP/veredicto-previo.json" ]; then
+            echo "hay=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No quedó el veredicto de esta corrida: la próxima subida de la punta corre todo."
+          fi
+
+      - name: Guardar el veredicto en la caché de la rama
+        if: "!cancelled() && steps.guardar.outputs.hay == 'true'"
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/veredicto-previo.json
+          key: veredicto-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       # ── LLEVAR A MAIN ────────────────────────────────────────────────────────────────────────
       # Sin `--force`: un push rechazado no pisa nada. Si otra punta llegó mientras corrían los tests, se mezcla el main
@@ -284,6 +377,8 @@ jobs:
           GIT_AUTHOR_EMAIL: ${{ steps.punta.outputs.autor_correo }}
           GIT_COMMITTER_NAME: ${{ steps.punta.outputs.autor_nombre }}
           GIT_COMMITTER_EMAIL: ${{ steps.punta.outputs.autor_correo }}
+          # Los tipos no corrieron acá porque los cubría un veredicto: lo que llega a main lo mira sobre-main.yml.
+          SIN_PROBAR_VEREDICTO: ${{ steps.veredicto.outputs.sin_probar }}
         run: |
           for intento in 1 2 3 4 5; do
             if ! git fetch --quiet origin +refs/heads/main:refs/remotes/origin/main; then
@@ -306,7 +401,9 @@ jobs:
             fi
             if git push origin "HEAD:refs/heads/main"; then
               echo "main avanzó a $(git rev-parse --short HEAD)." | tee -a "$GITHUB_STEP_SUMMARY"
-              echo "sin_probar=${mezclo:-0}" >> "$GITHUB_OUTPUT"
+              sp=${mezclo:-0}
+              if [ "$SIN_PROBAR_VEREDICTO" = "1" ]; then sp=1; fi
+              echo "sin_probar=$sp" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             echo "::warning::Intento ${intento}: main rechazó el push."

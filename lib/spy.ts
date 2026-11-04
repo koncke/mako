@@ -63,7 +63,7 @@ import { esAgregador, sitioDelTexto } from './spy-otras-redes-reglas';
 import { CLAVE_CARICATURAS, caricaturasListas, leerRegistro } from './spy-caricatura-reglas';
 import { encolarAlLeer } from './spy-caricatura-servidor';
 import { seFueron } from './spy-todo-reglas';
-import { FORMATOS, formatoDe } from './spy-detalle';
+import { FORMATOS, GUIA_DE_FORMATOS, formatoDe } from './spy-detalle';
 import { leerPorPaginas } from './supabase-paginado';
 import { borrarSetting, borrarSettingsConPrefijo, getSetting } from './settings';
 import { claveOfertaSpy } from './spy-oferta';
@@ -839,6 +839,9 @@ REGLAS QUE NO SE NEGOCIAN:
 - No hables de la persona: habla de su oferta y de su contenido. Nada de "guerra", "batalla" ni rivalidades.
 - El guion de los videos NO se leyó (no hay forma legal de transcribir el video de un tercero): trabaja con el título, la descripción y las etiquetas, y no afirmes qué dice el video.
 
+FORMATOS (uno por pieza: lo que la pieza CUENTA, no cómo está filmada):
+{{formatosQueSon}}
+
 Responde SOLO con este JSON, sin texto alrededor:
 {
   "oferta": {
@@ -954,6 +957,7 @@ export async function analizarCompetidor(
       tiposGancho: HOOK_TYPES.join('|'),
       etiquetas: TAG_VOCAB.join(', '),
       formatos: FORMATOS.map((f) => f.value).join('|'),
+      formatosQueSon: GUIA_DE_FORMATOS,
     });
     const user = await renderPrompt('spy.analisis.user', SPY_ANALISIS_USER_TEMPLATE, {
       competidor: c.nombre,

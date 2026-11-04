@@ -16,7 +16,7 @@ import { SheetM } from '@/app/m/_ui';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
-import { HiloMako } from '@/app/_chat/HiloMako';
+import { HiloMako, esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
 import { BotonSecondBrainDe, CerebroDelGuru, rotuloSecondBrain } from '@/app/second-brain/SuSecondBrain';
 import { VistaDelPlan } from '@/app/second-brain/VistaDelPlan';
@@ -24,10 +24,12 @@ import { useChatDelCoach } from '@/app/second-brain/useChatDelCoach';
 import { ASPECTO_MAKO, aspectoDeReferente } from '@/lib/centro-munecos';
 import { ORIGEN_FUNNEL_COACH } from '@/lib/chat-mako-reglas';
 import { ASESORES, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
+import type { OfertaDelCoach } from '@/lib/funnel-plan';
 
-export function HojaDelCoach({ referente, hayOferta, puedeElegir, onReferente, onCerrar }: {
+export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCerrar }: {
   referente: IdAsesor | null;
-  hayOferta: boolean;
+  /** Con qué oferta abre (lib/funnel-plan.ts → `ofertaDelCoach`); null = todavía no se sabe. */
+  oferta: OfertaDelCoach | null;
   /** Quién aconseja es del negocio: sólo su admin lo cambia. */
   puedeElegir: boolean;
   onReferente: (id: IdAsesor | null) => void;
@@ -35,7 +37,7 @@ export function HojaDelCoach({ referente, hayOferta, puedeElegir, onReferente, o
 }) {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  const { k, r, aspecto, quien, vacio, saludo, plan } = useChatDelCoach({ referente, hayOferta, caja });
+  const { k, r, aspecto, quien, vacio, saludo, plan } = useChatDelCoach({ referente, oferta, caja });
   const [vista, setVista] = useState<'plan' | 'cerebro' | 'elegir' | null>(null);
   // La hoja mide su cuerpo después del primer pintado: se baja en el cuadro siguiente (el mismo cuidado que HojaDelGuru.tsx).
   const seguirHoja = useCallback(() => hilo.current?.closest('.m-sheet__cuerpo') as HTMLElement | null, []);
@@ -118,7 +120,7 @@ export function HojaDelCoach({ referente, hayOferta, puedeElegir, onReferente, o
           </div>
         )}
       </SheetM>
-      <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
+      <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} reportable={esRespuestaDeMaKo} />
     </>
   );
 }

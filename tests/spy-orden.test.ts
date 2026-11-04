@@ -94,7 +94,9 @@ test('5. sólo anima lo que se leyó, nunca traba y una relectura sola va callad
   // «Probar de nuevo», el de una lectura que falló, y sigue apagado mientras corre la película.
   assert.equal((spy.match(/disabled=\{estaLeyendo \|\| ordenando != null \|\|/g) ?? []).length, 1);
   assert.match(spy, /disabled=\{estaLeyendo \|\| ordenando != null \|\| elegido == null\}[^\n]*\n\s*Probar de nuevo/);
-  assert.match(spy, /setTrayendo\(true\); setOrdenando\(null\);/, 'cambiar de ficha corta la película');
+  // Desde el 4/11 la ficha que abre la página trae sus piezas del server: «trayendo» sólo si no las trae (`!ini`). Lo que se cuida
+  // es lo mismo: abrir otra ficha corta la película de la anterior.
+  assert.match(spy, /setTrayendo\(!ini\); setOrdenando\(null\);/, 'cambiar de ficha corta la película');
   const o = leer('app/competitor-spy/OrdenSpy.tsx');
   assert.match(o, /if \(!total \|\| quieto\(\)\) \{ terminar\.current\(\); return; \}/, 'con «reducir movimiento» no corre');
   assert.match(o, /className="spyo-saltar" onClick=\{onTerminar\}>Saltar/);

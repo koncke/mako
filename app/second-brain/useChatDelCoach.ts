@@ -8,7 +8,7 @@
 // funnel, en UN chat (lib/asesores/contexto.ts → las fases, y sus herramientas fijas). Lo que hace este motor:
 //   · busca SU conversación (una por persona y negocio, `mako-movil:<persona>:funnel-coach`) y corre el chat único con la cara del
 //     referente que tiene al frente (Hormozi de fábrica; MaKo si eligió MaKo);
-//   · arma el saludo del chat vacío según haya oferta (guardada o armada en una conversación de oferta);
+//   · arma el saludo del chat vacío con la oferta con la que abre, diciendo cuál (guardada o armada; ticket #57);
 //   · relee el plan guardado al entrar y cada vez que MaKo termina (una tarjeta confirmada pudo guardarlo).
 // ⚠️ LO QUE LO HACE COACH NO ES ESTA PANTALLA: lo elige el servidor por `desde.tab` (app/api/mako/chat/route.ts → `contextoDelChat`).
 
@@ -17,14 +17,14 @@ import { useChatCliente } from './useChatCliente';
 import { ASPECTO_MAKO, aspectoDeReferente } from '@/lib/centro-munecos';
 import { ORIGEN_FUNNEL_COACH, TAB_FUNNEL_COACH, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
-import { saludoDelFunnelCoach, sanearPlan, type PlanFunnel } from '@/lib/funnel-plan';
+import { saludoDelFunnelCoach, sanearPlan, type OfertaDelCoach, type PlanFunnel } from '@/lib/funnel-plan';
 import type { Desde } from '@/lib/chat-desde';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
 
 const DESDE: Desde = { tab: ORIGEN_FUNNEL_COACH, entidad: null, modo: null };
 
-export function useChatDelCoach({ referente, hayOferta, caja }: { referente: IdAsesor | null; hayOferta: boolean; caja: RefObject<HTMLTextAreaElement | null> }) {
+export function useChatDelCoach({ referente, oferta, caja }: { referente: IdAsesor | null; oferta: OfertaDelCoach | null; caja: RefObject<HTMLTextAreaElement | null> }) {
   const [elegido, setElegido] = useState<ElegidoChat | null>(null);
   useEffect(() => {
     let vivo = true;
@@ -53,7 +53,8 @@ export function useChatDelCoach({ referente, hayOferta, caja }: { referente: IdA
     return () => { vivo = false; };
   }, [ocupado]);
 
-  const vacio = elegido != null && k.cargado && !k.errorCarga && !k.items.length && !k.trabajo;
-  const saludo = useMemo<ItemHilo[]>(() => [{ k: 'msg', id: 'saludo-fc', role: 'assistant', texto: saludoDelFunnelCoach(hayOferta), at: new Date().toISOString() }], [hayOferta]);
+  // El saludo espera a saber con qué oferta abre (`oferta` null): antes, abría diciendo que no había y medio segundo después que sí.
+  const vacio = elegido != null && oferta != null && k.cargado && !k.errorCarga && !k.items.length && !k.trabajo;
+  const saludo = useMemo<ItemHilo[]>(() => (oferta ? [{ k: 'msg', id: 'saludo-fc', role: 'assistant', texto: saludoDelFunnelCoach(oferta), at: new Date().toISOString() }] : []), [oferta]);
   return { k, r, aspecto, quien, vacio, saludo, plan };
 }
