@@ -21,7 +21,7 @@
 //     versión publicada.
 //   · Meta: `/{app}/permissions` con el token de la app dice qué permisos quedaron APROBADOS (`live`). Lo que está en revisión
 //     o rechazado no lo dice ninguna API (medido el 11/09/2026: docs/hallazgos-ads.md).
-//   · Resend: la lista de dominios con la clave que los administra; se miran sólo los de MaKo (`esDominioDeMako`).
+//   · Resend: la lista de dominios con la clave que los administra (lib/resend-dominios.ts); se miran sólo los de MaKo.
 // =============================================================================
 
 import { createPrivateKey, createSign } from 'node:crypto';
@@ -43,7 +43,11 @@ export type CredencialesVigia = {
 export const CLAVES_ASC = ['ASC_ISSUER_ID', 'ASC_KEY_ID', 'ASC_P8'] as const;
 export const CLAVE_GOOGLE = 'TIENDAS_GOOGLE_CUENTA_SERVICIO';
 export const CLAVE_CWS_PUBLISHER = 'CWS_PUBLISHER_ID';
-export const CLAVE_RESEND_ADMIN = 'RESEND_ADMIN_API_KEY';
+/**
+ * Lo que falta para leer los dominios de Resend, en palabras. ⚠️ No el nombre de la variable: ése lo nombra SÓLO
+ * lib/resend-dominios.ts (tests/resend-clave-admin.test.ts), que es el único que la lee.
+ */
+export const FALTA_RESEND_ADMIN = 'la clave de Resend que administra dominios (variable de Vercel)';
 export const CLAVE_META = 'MAKO_META_APP_SECRET';
 
 export type DominiosResend =
@@ -456,7 +460,7 @@ const ROTULO_DOMINIO: Record<string, string> = {
 async function leerResend(e: Entorno): Promise<Lectura> {
   let r: DominiosResend;
   try { r = await e.dominiosResend(); } catch { return noPude('Resend no contestó'); }
-  if (!r.ok) return r.sinClave ? { tipo: 'sin_credencial', faltan: [CLAVE_RESEND_ADMIN] } : noPude(`Resend: ${r.error.slice(0, 120)}`);
+  if (!r.ok) return r.sinClave ? { tipo: 'sin_credencial', faltan: [FALTA_RESEND_ADMIN] } : noPude(`Resend: ${r.error.slice(0, 120)}`);
   const deMako = r.domains.filter((d) => esDominioDeMako(d.name));
   if (!deMako.length) return { tipo: 'leido', fuente: 'resend-api', estado: 'sin_enviar', detalle: 'La cuenta de Resend no tiene ningún dominio de MaKo' };
   const estados = deMako.map((d) => ({ d, e: estadoDeDominio(d.status) }));

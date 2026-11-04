@@ -348,7 +348,7 @@ export function mensajeDeAvisos(avisos: readonly Aviso[]): { titulo: string; tex
     for (const a of aMano) {
       const it = itemPorId(a.item);
       if (!it) continue;
-      const falta = a.faltan?.length ? ` (para leerlo solo, carga ${a.faltan.join(', ')} en Integraciones)` : '';
+      const falta = a.faltan?.length ? ` (para leerlo solo falta: ${a.faltan.join(', ')})` : '';
       renglones.push(`• ${it.nombre}: ${it.link}${falta}`);
     }
   }

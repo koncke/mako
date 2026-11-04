@@ -18,7 +18,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createVerify, generateKeyPairSync } from 'node:crypto';
 import {
-  leerTodo, LECTORES, versionDeLaFicha, estadoDePlay, PERMISOS_META, type Entorno,
+  leerTodo, LECTORES, versionDeLaFicha, estadoDePlay, PERMISOS_META, FALTA_RESEND_ADMIN, type Entorno,
 } from '../lib/vigia-aprobaciones-fuentes';
 import { vuelta, mensajeDeAvisos } from '../lib/vigia-aprobaciones';
 
@@ -189,7 +189,7 @@ test('Resend: sólo los dominios de MaKo, y uno que falla pide algo', async () =
   assert.equal(l.tipo === 'leido' && l.estado, 'piden_algo');
   assert.ok(l.tipo === 'leido' && !String(l.detalle).includes('negocio-de-un-cliente'), 'el dominio de un cliente no es una aprobación de MaKo');
   const sinClave = await LECTORES['resend-dominios'](entorno(falso([]).f, { dominiosResend: async () => ({ ok: false, error: 'x', sinClave: true }) }), async () => ({ token: 'x' }));
-  assert.deepEqual(sinClave, { tipo: 'sin_credencial', faltan: ['RESEND_ADMIN_API_KEY'] });
+  assert.deepEqual(sinClave, { tipo: 'sin_credencial', faltan: [FALTA_RESEND_ADMIN] });
 });
 
 test('nada tira: sin red, cada lector dice «no pude» o «a mano», y ningún motivo lleva una clave', async () => {

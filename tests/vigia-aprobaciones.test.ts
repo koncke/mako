@@ -102,7 +102,7 @@ test('regla 3: lo que se mira a mano se dice UNA sola vez, con su link y lo que 
   const m = mensajeDeAvisos(r1.avisos)!;
   assert.equal(m.titulo, 'Aprobaciones para mirar a mano');
   assert.match(m.texto, /Esto no lo puedo leer solo/);
-  assert.match(m.texto, /prueba cerrada \(Google Play\): https:\/\/play\.google\.com\/console \(para leerlo solo, carga TIENDAS_GOOGLE_CUENTA_SERVICIO en Integraciones\)/);
+  assert.match(m.texto, /prueba cerrada \(Google Play\): https:\/\/play\.google\.com\/console \(para leerlo solo falta: TIENDAS_GOOGLE_CUENTA_SERVICIO\)/);
   assert.equal(r1.nuevo.items['google-oauth'].estado, undefined, 'a mano no inventa un estado');
   const r2 = vuelta(r1.nuevo, lecturas({ 'play-prueba-cerrada': { tipo: 'sin_credencial', faltan: ['TIENDAS_GOOGLE_CUENTA_SERVICIO'] } }), T0 + HORA);
   assert.deepEqual(r2.avisos, [], 'la segunda vez no se repite');
