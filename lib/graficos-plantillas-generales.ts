@@ -37,6 +37,8 @@ export type PiezaPlantilla = { local: string; controles?: Array<Record<string, u
 
 export type DefinicionGeneral = {
   id: string; nombre: string; emoji: string; linea: string; subtitulo: string;
+  /** Otras palabras con las que se la busca en «Nueva hoja» (el nombre de antes: «Foco de la semana» para Focus). */
+  buscar?: string;
   /** El control de período de arriba de la hoja: lo que muestra de entrada. */
   periodo: Preset;
   piezas: PiezaPlantilla[];
@@ -62,7 +64,7 @@ function aComponente(p: PiezaPlantilla, id: (local: string) => string): Record<s
 /** Una definición → la plantilla de «Nueva hoja». Exportada desde el 14/10/2026: la usan también las de General. */
 export function plantilla(d: DefinicionGeneral): PlantillaHoja {
   return {
-    id: d.id, nombre: d.nombre, emoji: d.emoji, linea: d.linea,
+    id: d.id, nombre: d.nombre, emoji: d.emoji, linea: d.linea, ...(d.buscar ? { buscar: d.buscar } : {}),
     armar: (id) => {
       const componentes = d.piezas
         .map((p) => sanearComponente(aComponente(p, id)))

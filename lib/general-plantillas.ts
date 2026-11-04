@@ -80,17 +80,27 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     ],
   },
   {
-    id: 'foco', nombre: 'Foco de la semana', emoji: '🎯',
-    linea: 'Tus OKRs y lo que hay que hacer para cumplirlos: las tareas, los deadlines y los proyectos.',
+    // 4/11/2026 — PANE · LUMORA (docs/templates-dashboard-propuesta.md §3 y §7.3): «¿en qué estoy ahora y qué me queda hoy?». Deja de
+    // ser «Foco de la semana» (Martín, 1/11: «ya no sería "foco de la semana" solo sería "focus" con otras cosas»): es el DÍA.
+    // Pane abre con la frase de lo que queda, la cápsula del día y «lo que viene»; Lumora, la tira del día con la línea del ahora
+    // (acá «Mi día», en línea de tiempo). El temporizador de foco de Pane NO está: MaKo no mide el tiempo de foco por tarea
+    // (§7.4.6), y un reloj que no guarda nada no se pone. Mockups: docs/diseno/mockups-dashboard/focus-pane.html y focus-lumora.html.
+    id: 'foco', nombre: 'Focus', emoji: '🎯', buscar: 'Foco de la semana',
+    linea: 'Tu día: lo que te queda, la línea del ahora, lo que viene y tus OKRs.',
     subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
-      numero('cerradas', 'tareas', 'hechas', 'Tareas cerradas', { fecha: 'deadline' }),
-      deHoy('abiertas', 'tareas', 'abiertas', 'Te quedan abiertas'),
+      {
+        local: 'apertura', tipo: 'frase', fuente: 'tareas', fecha: 'actual', metricas: ['abiertas', 'avance'], dimension: null, titulo: 'Tu día',
+        frase: 'Te quedan {abiertas} tareas abiertas · tu Plan va {avance}', ir: 'plan',
+      },
+      numero('cerradas', 'tareas', 'hechas', 'Tareas cerradas', { fecha: 'deadline', ir: 'plan' }),
       deHoy('avance', 'proyectos', 'avance_proyectos', 'Avance de proyectos'),
       deHoy('proyectos', 'proyectos', 'proyectos', 'Proyectos'),
+      deHoy('completos', 'proyectos', 'completos', 'Proyectos completos'),
       bloque('objetivos', { titulo: 'Cómo vas con tus OKRs', opciones: { estilo: 'barras', cuales: 'trimestre' } }),
-      bloque('tareas'), bloque('deadlines', { opciones: { dias: '7', que: 'tareas' } }), bloque('semaforo'),
-      bloque('proyectos'), bloque('agenda'),
+      bloque('agenda', { titulo: 'Tu día, de ahora a la noche' }), bloque('llamadas', { titulo: 'Lo que viene', opciones: { dias: '1' } }),
+      bloque('tareas', { titulo: 'Mis tareas' }), bloque('deadlines', { opciones: { dias: '7', que: 'tareas' } }),
+      bloque('proyectos'),
     ],
   },
   {
@@ -179,7 +189,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
 /** Lo que abre cada plantilla de General: su panel principal, al lado de los números (`comoDenso`, lib/graficos-portadas.ts). */
 export const PORTADAS_GENERAL: Readonly<Record<string, DefinicionPortada>> = {
   general: { sube: 'cabecera', vecino: 'cabecera', par: ['por-mes', 'semaforo'], molde: 'ledge' },
-  foco: { sube: 'objetivos', molde: 'moorly' },
+  foco: { sube: 'objetivos', vecino: 'objetivos', par: ['agenda', 'llamadas', 'tareas', 'deadlines'], molde: 'moorly' },
   operacion: { sube: 'prioridades', cambios: { texto: 'Lo primero de hoy' }, molde: 'tilvo' },
   ventas: { sube: 'tendencia', molde: 'wharf' },
   servicio: { sube: 'etapas', molde: 'prism' },
