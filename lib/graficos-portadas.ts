@@ -354,14 +354,14 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
         id: id('automatizaciones-portada'), clase: 'grafico', tipo: 'embudo_barras', fuente: 'envios', metricas: ['envios', 'abiertos', 'respuestas'],
         titulo: '¿Te contestan?',
       }),
-      vecino: 'por-dia', par: ['por-automatizacion', 'desenlace'],
+      vecino: 'por-dia', par: ['por-automatizacion', 'automatizaciones-portada', 'desenlace', 'donde-fallo', 'horas'],
     },
     'ia-contenido': {
       molde: 'corbel', nueva: (id) => ({
         id: id('ia-contenido-portada'), clase: 'grafico', tipo: 'anillo', fuente: 'ia', dimension: 'funcion', metricas: ['costo'],
         ordenMetrica: 'costo', limite: 6, titulo: 'En qué se va la IA',
       }),
-      vecino: 'por-dia', par: ['funciones', 'quien'],
+      vecino: 'por-dia', par: ['ia-contenido-portada', 'funciones', 'modelos', 'quien'],
     },
   };
 }
