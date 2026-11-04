@@ -2607,3 +2607,41 @@ hacia afuera. Las comillas no lo frenan: Excel evalúa una celda entre comillas 
   dos, y rechazan los caracteres de control. El `oauth_next` va en una cookie: Next la codifica al escribirla.
 
 *25/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## La cuenta de revisión de las tiendas: la puerta estaba bien, y lo que abría, no (3/11/2026)
+
+Google Play exige credenciales reutilizables que se salten el OTP. La primera versión se concentró en que nadie más entrara por esa excepción, y eso estaba bien. La revisión adversarial miró lo otro: esa contraseña se la damos a terceros.
+
+- **Síntoma, sin correr nada:** como admin del ws3, invitaba gente, creaba tokens de API que sobreviven a rotar la contraseña, renombraba el negocio con un link adentro y mandaba mails de MaKo a cualquiera; y podía enrolar un TOTP propio, cambiar la contraseña y dejar afuera a los revisores. Rotarla no cerraba nada: `leerSesion` no mira el corte, y la cookie valía 30 días.
+- **El diagnóstico obvio era el equivocado:** «la excepción está atada a un correo y a un negocio de prueba, así que es chica». Lo que hay que medir de una excepción de autenticación es qué puede hacer quien pasa por ella, no quién pasa.
+- **Regla:** la cuenta es closer y no admin (`esCuentaDeRevision` exige `rol_ws`: el nulo vale como admin). El proxy le corta escribir en `SIN_ESCRITURA_EN_REVISION`. Su sesión dura 7 días, muere al rotar la contraseña (`iat` contra `cambiada_at`) y no sobrevive a la base caída. Cada entrada le avisa a equipo@.
+- **Quedó sin hacer (cerrado el 4/11, en la entrada de abajo):** la lista de `SIN_ESCRITURA_EN_REVISION` es negativa, y una ruta nueva que escriba a un tercero no entra sola. **Medir el ws3 antes de correr el script** (lo pide con `--medido`): «Datos de Mau» o «simular» en ese negocio le mostrarían datos de un cliente a quien tenga la contraseña. Lo recomendado es un negocio propio para esta cuenta, que además saca del medio al «App Reviewer» de Meta y al Reset. Ocho contraseñas malas cada 15 minutos bloquean la cuenta 15 minutos (el freno deja verificar 8 y corta el 9.º: `debeFrenar`, corregido el 4/11): se acepta, porque el correo no es público. Falta la revisión del chat de Ciberseguridad.
+
+**Vive en:** lib/mfa-reglas.ts · lib/auth.ts · proxy.ts · app/api/auth/contrasena/route.ts · scripts/tiendas-cuenta-revision.mts · tests/cuenta-revision-tienda.test.ts · rama `tiendas-revisor-0311`. *3/11/2026, chat «tiendas», claude5.*
+
+## La lista de escritura no ve server actions, y el negocio de prueba no es un lugar fijo (4/11/2026)
+
+La segunda revisión de la cuenta de revisión de las tiendas (la contraseña que se les da a los revisores de Google Play y de Apple) encontró cuatro fallas altas sobre la versión del 3/11. Las cuatro salen de dos supuestos que parecían razonables.
+
+- **Síntoma 1, la lista:** el proxy cortaba seis rutas de `/api` (`SIN_ESCRITURA_EN_REVISION`). No veía las **server actions**, que viajan como un POST a cualquier página y que Next reenvía a quien tenga la acción. Con eso, `invitarNuevoAlumnoAction` mandaba un mail desde el remitente de MaKo a cualquier dirección, con el nombre que se le diera en el saludo: sirve para mandar un link con la firma de MaKo. Tampoco veía `/api/whatsapp/evolution/mensajes` (teléfono libre), `/api/chats/email` (`para` libre) ni `/api/compartir`. Y entre el 3/11 y el 4/11 entraron a main `/api/competitor-spy/*`, `/api/ia-permiso` y `app/newsletters/actions.ts`, y la lista no se enteró.
+- **Síntoma 2, el negocio:** la cuenta vivía en el ws 3, el «negocio de prueba». Ahí escriben otras herramientas: `app/api/datos-mau/route.ts` copia datos de Mauricio, que es un cliente; «simular» y el Reset también escriben. Y la agencia (`app/api/agencia/entrar/route.ts`, `contextoDeAgencia`) no miraba el rol: con una fila de cartera, la cuenta entraba a otro negocio.
+- **Síntoma 3, los agentes:** `/api/soporte/reportar` y `app/tickets/acciones.ts` aceptan texto libre, y los tickets los leen chats que suben a main (la regla de Martín del 27/10: «siempre lee todos los tickets e implementalos»). Era una puerta para que un tercero escribiera instrucciones que un chat podía ejecutar.
+- **Síntoma 4, los tests:** 19 aserciones con regex sobre el fuente y 12 sobre funciones puras. Ninguna corría un envío, una entrada ni un ticket.
+- **El diagnóstico obvio era el equivocado (dos veces):**
+  - «Una lista de lo prohibido alcanza si se mantiene». No alcanza, porque lo que se suma después nace abierto. Y las server actions no tienen una ruta que se pueda listar.
+  - «El negocio de prueba es un lugar seguro». No lo es, porque otras herramientas lo llenan con datos de verdad. Un negocio de prueba es un lugar donde se puede ROMPER, no uno donde no hay nada que ver.
+- **Regla, tres capas:**
+  - **Por dónde entra:** el proxy deja que la sesión de revisión lea todo y escriba SÓLO en `PERMITIDO_EN_REVISION` (`lib/cuenta-revision-reglas.ts`). Son rutas exactas, ninguna página, y con `next-action` nada.
+  - **Por dónde sale:** `bloqueoDeEnvioEnRevision` (`lib/revision-guarda.ts`) va en `sendEmail` y en `enviarTexto` / `enviarMedia` / `enviarAudio`. En revisión sólo sale un correo a `EMAIL_MAKO`. Mira la cookie por su firma (con la base caída, `getUsuarioActual` es null) y el negocio del contexto (un cron o un flujo suyo).
+  - **Su negocio:** `WS_REVISION` es propio, fuera de `WS_PRUEBAS`. La entrada exige 0 líneas, 0 credenciales y 0 cartera, y si no, contesta 503. Su ticket se guarda sin despacho, y el Runner y `scripts/tickets.ts` lo saltean.
+- **Y la prueba de la regla:** `tests/cuenta-revision-escrituras.test.ts` enumera toda ruta que escribe y todo `'use server'`, le pega al `proxy()` de verdad y lo compara con un snapshot. Una ruta nueva no pasa hasta que alguien decide. Al mezclar main el mismo día entró `/api/competitor-spy/copiar` y nació cortada. `tests/cuenta-revision.test.ts` corre los envíos, la entrada, los tickets, Google, la computadora, la baja y el script.
+- **`leerSesion` sigue fallando ABIERTA para todos** (la decisión del 3/11): sólo la sesión de revisión cae con la base caída, y sólo ella
+  suma una consulta (su `cambiada_at`). Lo medía un regex sobre la línea del `catch`, que se puso rojo con la decisión intacta. Ahora
+  `tests/sesiones-revocadas.test.ts` (3) corre `getUsuarioActual` con la base caída y andando, y cuenta las consultas.
+- **Lo que esto cuesta, a sabiendas:** el revisor no puede mover un lead, sumar una nota, marcar una tarea ni mandar un mensaje, porque todo eso son server actions o envíos. Puede mirar todo, hablar con MaKo, aceptar el permiso de IA, denunciar y eliminar la cuenta.
+- **Quedó sin hacer:**
+  - El vigía del Cerebro tiene que saltear los tickets de `WS_REVISION`; está escrito en `docs/relevo/nube-tiendas.md`.
+  - Un error del servidor que vea el revisor puede sumar una huella a `errores_app`. Si esa huella después la ve un cliente, su ticket ya existe y quedó sin despacho. Es raro y no se cerró.
+  - Una «Versión de computadora» abierta desde el teléfono sigue mostrando Partners y Agency, que vienen de la punta hermana de Partners.
+
+**Vive en:** lib/cuenta-revision-reglas.ts · lib/revision-guarda.ts · lib/cuenta-revision.ts · proxy.ts · lib/resend.ts · lib/evolution.ts · lib/tickets-db.ts · lib/tickets-runner.ts · lib/agencia.ts · app/api/auth/contrasena/route.ts · app/api/auth/callback/google/route.ts · app/api/ia-pc/codigo/route.ts · scripts/tiendas-cuenta-revision.mts · scripts/tickets.ts · tests/cuenta-revision*.test.ts. *4/11/2026, chat «tiendas» en la nube.*

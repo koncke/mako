@@ -16,6 +16,7 @@ import { credWs, credDelCliente, envCred, esDeLaPlataforma } from './credenciale
 import { getSettingEstricto } from './settings';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
+import { bloqueoDeEnvioEnRevision } from './revision-guarda';
 import { esKeySoloEnvio, KEY_SOLO_ENVIO_DE_MAKO, KEY_SOLO_ENVIO_TUYA } from './resend-errores';
 import {
   remitenteDelNegocio, remitenteDelPaso, sanearRemitente, dominioDe, esDominioDeMako, SIN_EMAIL_PROPIO,
@@ -224,6 +225,10 @@ export type SendEmailParams = {
 // Envía un email por Resend. NO chequea el flag de envío del workspace — eso lo
 // decide el caller (el motor de nutrición / broadcasts), igual que sendWhatsappTemplate.
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
+  // ⚠️ La cuenta de revisión de las tiendas no le escribe a nadie (lib/revision-guarda.ts): esa contraseña la tienen terceros. Va ANTES
+  // de las dos identidades: también corta lo que firmaría MaKo (`invitarNuevoAlumnoAction` mandaba un link a cualquier dirección).
+  const enRevision = await bloqueoDeEnvioEnRevision('email', params.to);
+  if (enRevision) return { ok: false, error: enRevision };
   // ⚠️ DOS IDENTIDADES, Y SE RECONOCEN SÓLO POR LA CONSTANTE (undécima tanda, decisión 3 de la décima: «Quitale a
   // Mauricio que pueda mandar email con MaKo. Nadie debería poder.»):
   //   · HABLA MaKo (`from: REMITENTE_MAKO`: los avisos, los reportes, el acceso a MaKo): sale por la key de la

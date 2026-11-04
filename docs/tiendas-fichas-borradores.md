@@ -97,7 +97,7 @@ Lo que se declara sale del código y de `/privacidad`, medido el 3/11/2026. Si u
 
 > MaKo is a work tool for small sales and marketing teams: CRM, unified inbox, tasks and an AI assistant. Accounts are created by the business on the web. The app does not sell anything and has no purchases.
 >
-> **Demo account** (email and password, no second factor): **[Martín: `cuenta-revision.txt`]**. It belongs to a test workspace with fictitious data, so you can use every feature, including account deletion (in the test workspace it records the request and keeps the account working, so the next review can sign in).
+> **Demo account** (email and password, no second factor): **[Martín: `cuenta-revision.txt`]**. It is a team-member account in its own demo workspace with fictitious data (six sample leads in the CRM). You can browse every screen, open the CRM and the chats, talk to the assistant, accept or decline the AI consent, report a response or a post, and delete the account (in the demo workspace it records the request and keeps the account working, so the next review can sign in). Changing data and sending messages to other people are turned off for this account.
 >
 > **Native features, beyond the website:**
 > 1. Push notifications through APNs: open Account › Notifications and tap Test.

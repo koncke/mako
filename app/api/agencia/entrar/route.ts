@@ -51,6 +51,8 @@ export async function DELETE() {
 export async function POST(req: NextRequest) {
   const sesion = await getUsuarioActual();
   if (!sesion) return NextResponse.json({ ok: false, error: 'no autenticado' }, { status: 401 });
+  // La cuenta de revisión de las tiendas no entra a otro negocio (lib/cuenta-revision-reglas.ts). El proxy ya la corta: esto es por si cambia.
+  if (sesion.mfa === 'revision') return NextResponse.json({ ok: false, error: 'La cuenta de demostración no puede cambiar esto.' }, { status: 403 });
 
   let body: { ws?: unknown; salir?: unknown };
   try { body = (await req.json()) as typeof body; } catch { body = {}; }

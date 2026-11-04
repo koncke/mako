@@ -263,6 +263,8 @@ export function verificarToken(token: string | undefined | null): Sesion | null 
     // con Google, y ahí se pide el segundo paso. Un valor desconocido tampoco vale.
     if (s.mfa !== undefined && !AMRS.includes(s.mfa)) return null;
     if (s.rol === 'admin' && !s.mfa) return null;
+    // La marca de la cuenta de revisión de las tiendas no le sirve a un admin, ni aunque alguien la firmara (lib/mfa-reglas.ts).
+    if (s.rol === 'admin' && s.mfa === 'revision') return null;
     // ⛔ En Vercel, sólo sesiones de una fila REAL (01/11/2026, auditoría de seguridad). Lo único que
     // firma un `sub` que no es un id —y el segundo factor `dev`— es /api/auth/dev-login, que en Vercel
     // es 404. Un token así en producción es uno firmado afuera con el AUTH_SECRET (una `.env.local`
@@ -329,7 +331,7 @@ export function verificarPreauth(token: string | undefined | null): Preauth | nu
     if (typeof p.exp !== 'number' || p.exp * 1000 < Date.now()) return null;
     if (p.rol !== 'admin' && p.rol !== 'usuario') return null;
     if (typeof p.sub !== 'string' || typeof p.email !== 'string') return null;
-    if (p.mfa !== undefined && !AMRS.includes(p.mfa)) return null;
+    if (p.mfa !== undefined && (!AMRS.includes(p.mfa) || p.mfa === 'revision')) return null;
     return { ...p, next: destinoSeguro(p.next) };
   } catch {
     return null;

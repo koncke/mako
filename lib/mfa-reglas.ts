@@ -12,8 +12,11 @@ import { instanteDe } from './cron-aviso';
 
 /** Cómo se probó el segundo factor de una sesión. Viaja FIRMADO en el token. */
 export type Factor = 'totp' | 'passkey' | 'whatsapp' | 'email' | 'recuperacion';
-export type Amr = Factor | 'dispositivo' | 'dev';
-export const AMRS: readonly Amr[] = ['totp', 'passkey', 'whatsapp', 'email', 'recuperacion', 'dispositivo', 'dev'];
+export type Amr = Factor | 'dispositivo' | 'dev' | 'revision';
+export const AMRS: readonly Amr[] = ['totp', 'passkey', 'whatsapp', 'email', 'recuperacion', 'dispositivo', 'dev', 'revision'];
+
+// ── La cuenta de revisión de las tiendas ─────────────────────────────────────
+// Su marca `revision` está en AMRS (arriba); todo lo demás —quién es, qué escribe, qué manda— vive en lib/cuenta-revision-reglas.ts.
 
 // ── La política ──────────────────────────────────────────────────────────────
 

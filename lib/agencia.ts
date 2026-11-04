@@ -254,6 +254,9 @@ export const puedeEntrarAhora = cache(async (agenciaWs: number, clienteWs: numbe
 export const contextoDeAgencia = cache(async (): Promise<number | null> => {
   const sesion = await getUsuarioActual();
   if (!sesion || sesion.rol === 'admin' || sesion.legacy) return null;
+  // La cuenta de revisión de las tiendas no mira otro negocio, ni con una cookie de agencia válida (lib/cuenta-revision-reglas.ts):
+  // su contraseña la tienen terceros, y su negocio se mide sin cartera antes de dar la sesión. Esto es la segunda capa.
+  if (sesion.mfa === 'revision') return null;
   if (!esWsValido(sesion.ws)) return null;
 
   const store = await cookies();

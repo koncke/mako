@@ -137,4 +137,26 @@ export const BITACORA: Hito[] = [
       'scripts/claves-en-el-diff.mjs, scripts/guardas-push.sh — la guarda de claves',
     ],
   },
+  {
+    fecha: '4 nov', hora: '09:40', chat: 'Tiendas: cuenta de revisión', sesion: 'cli_d2b72179-90a8-55cc-b44f-a49a80e160ba', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La cuenta de revisión de las tiendas escribe sólo lo permitido y vive en su propio negocio',
+    puntos: [
+      '**Lista de lo PERMITIDO en el proxy, páginas incluidas**: la sesión de revisión lee todo y escribe sólo en MaKo, el permiso de IA, denunciar, eliminar la cuenta y sus avisos. Las server actions quedan afuera.',
+      '**La guarda de envío** en `sendEmail` y en los tres envíos de WhatsApp: en revisión sólo sale un correo al equipo, también desde un cron de su negocio o con la base caída.',
+      '**Su negocio es propio** (`WS_REVISION`, 900001), fuera de los de prueba. La entrada exige 0 líneas, 0 credenciales y 0 cartera, y no mira otro negocio por la agencia.',
+      '**Sus tickets se guardan sin despacho**, y el Runner y `scripts/tickets.ts` los saltean. No conecta una computadora, Google la rechaza y el «olvidé mi contraseña» no la toca.',
+      'Cada entrada y cada intento fallido avisan a equipo@ con la IP. El script crea su negocio, nunca pisa el archivo de la contraseña y `--rotar` limpia la computadora y los avisos.',
+      '**Cómo se prueba:** después de correr el script (docs/relevo/nube-tiendas.md), entrar con esa cuenta en el teléfono y probar mover un lead (no deja) y hablar con MaKo (sí).',
+    ],
+    archivos: [
+      'lib/cuenta-revision-reglas.ts — quién es, qué escribe y qué manda (puro)',
+      'lib/revision-guarda.ts, lib/resend.ts, lib/evolution.ts — la guarda de envío',
+      'proxy.ts — la lista de lo permitido',
+      'lib/cuenta-revision.ts, app/api/auth/contrasena/route.ts — el negocio limpio antes de dar la sesión',
+      'lib/tickets-db.ts, lib/tickets-runner.ts, scripts/tickets.ts — sin despacho',
+      'scripts/tiendas-cuenta-revision.mts — crea su negocio y su contraseña',
+      'tests/cuenta-revision.test.ts, tests/cuenta-revision-escrituras.test.ts, tests/cuenta-revision-tienda.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/crm',
+  },
 ];

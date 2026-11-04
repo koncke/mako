@@ -66,15 +66,25 @@ frenaba a todas las puntas del tren.
 | 1 | `punta/sin-nombra-20` | sin la regla «nombra 20+»; el tiempo por archivo de test en el resumen | en main |
 | 2 | `punta/filtro-punta` | el filtro chico del pre-push | en main |
 | 3+4 | `punta/despues-del-deploy` | deploy fallido = corrida roja; prueba de humo de 9 GET; vigía cada 8 h | en main |
-| 5 | `punta/sobre-main` | la mezcla sin probar se chequea sola; `ci-rojo/main` y `espera-main/<punta>` se relanzan | en CI (dos rojos: maxBuffer y un choque de índice, los dos arreglados y reproducidos) |
+| 5 | `punta/sobre-main` | la mezcla sin probar se chequea sola; `ci-rojo/main` y `espera-main/<punta>` se relanzan | en main a la cuarta (4085a32d8), después de tres rojos: el `maxBuffer` de un hijo, un choque en el índice y un workflow que el token de Actions no podía subir (ver abajo) |
 | 6 | `punta/redes-de-noche` | suite completa y tsc sin tandas cada noche si entró algo; 36 h sin veredicto = rojo | en main |
 | 7a | `punta/sin-integracion` | el hook rechaza `integracion`, `integracion-retirada.yml`, AGENTS.md sin el tren; el selector ve el hook | en main |
-| 7b+8 | `punta/metodologia` | borra `integracion.yml`; esta regla arriba en AGENTS.md; este relevo | subida después de la 7a |
+| 7b+8 | `punta/metodologia` | borra `integracion.yml`; esta regla arriba en AGENTS.md; este relevo | en main |
 | 9 | `punta/bitacoras-sin-choque` | el driver de las bitácoras y las reglas `merge=` de main para puntas viejas | en main |
 
 La 9 la pidió el Cerebro (`session_01LWmw2eawQJnmE1ZcC7K4Xn`) durante la tanda. No se le pudo contestar: esta sesión de la
 nube no tiene permiso para escribirle a una sesión de la PC (HTTP 401 / «elevated_session_untrusted_device»). Lo que le
 interesa: la 9 ya está en main, así que una punta que quedó roja por un choque de bitácora se arregla relanzándola.
+
+**El tercer rojo de la 5 dejó una regla para todos.** Tests y tipos en verde, y los cinco intentos de llevar a main
+rebotaron: GitHub no deja que el token de Actions suba una versión NUEVA de un workflow, y eso arma la mezcla de la corrida
+cuando la punta y main cambiaron el mismo archivo de `.github/workflows/`. Desde ahí, `scripts/ci-workflow-nuevo.sh` lo
+frena a los ~20 s y dice qué hacer: mezclar `origin/main` en la máquina y volver a subir. A las puntas que no tocan
+workflows no les pasa.
+
+**Y para las sesiones de la nube:** el hook de cierre de la sesión pide que los commits salgan con
+`noreply@anthropic.com` (si no, GitHub los muestra «Unverified»). Una sesión de la nube corre una vez
+`git config user.email noreply@anthropic.com` y `git config user.name Claude` antes de commitear.
 
 ## 4. Lo que quedó sin medir
 
@@ -84,8 +94,9 @@ interesa: la 9 ya está en main, así que una punta que quedó roja por un choqu
   Si pasa, se ve en el primer run.
 - **El filtro en la PC con 8 chats:** el tope de 90 s se midió en la nube (4 CPU, 15 GB libres); en la notebook compartida
   va a entrar menos. No espera RAM: si no hay, avisa y deja subir.
-- **`sobre-main.yml` en el runner:** todavía no corrió ninguno. La estimación (tipos ~4-8 min + barredoras ~2 min + instalar)
-  sale de las piezas, no de una corrida.
+- ✔ **`sobre-main.yml` en el runner, medido:** la primera (run 41805916695, 4/11 09:15 UTC) la lanzó `punta.yml` solo,
+  porque main se movió durante los tests de `punta/sobre-main`, y dio verde en 12,9 min (instalar, tipos enteros y las
+  barredoras compartidas).
 - **El driver de las bitácoras en un choque real de CI:** se probó con git de verdad en los tests y sobre 24 pares reales de
   hitos de la historia de main (24 de 24 bien), no todavía en una corrida.
 
