@@ -271,6 +271,19 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **Un texto de MaKo es más largo que el del demo**: «7 de 18 llamadas de cierre terminaron en venta» partía en dos columnas
   en el teléfono. Se mira cada texto adaptado en 390 antes de darlo por copiado.
 
+## 14. «Nueva hoja» se trababa y la miniatura de Closing no se parecía (4/11/2026, chat en la nube)
+
+- **Síntoma → causa.** «Al abrir ese modal se traba todo»: el modal montaba las 21 miniaturas y, en cuanto se veían, sus gráficos (≈241
+  tarjetas, 33 gráficos a la vista, animados en bucle). Armar las hojas de muestra eran 15 ms: el diagnóstico obvio («arma las 21 hojas») era
+  el equivocado. Medido con el componente de verdad en un arnés: 0,4–0,5 s y una tarea larga de 0,2–0,3 s; con la CPU 4× más lenta, 1,9 s.
+- **La miniatura dibujaba la GRILLA** de la plantilla y la hoja se mira con su DISEÑO: dos cosas distintas con el mismo nombre. Una plantilla
+  con `diseno` se dibuja con su componente (`DisenoEnMiniatura`), quieto.
+- **Los números de muestra de una tarjeta de grilla no sirven para un diseño:** un «puntaje» de muestra salía 50 (la escala es de 0 a 10) y
+  una llamada de 2,5 h. El diseño lleva los suyos, con la forma que lee.
+- **Una etiqueta no es una fecha.** La columna `dia` de una tabla llega como «03/11» (`etiquetaTiempo`): ordenarla como texto mezcla los
+  meses. Y el test pasaba porque le daba ISO: **un test se arma con la forma que da el agregador, no con la que espera el lector.**
+- **Lo que se ofrece se deriva del dato** (`esPlantillaOfrecida`: trae su diseño), no de una lista: lo viejo sigue para quien lo tiene.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

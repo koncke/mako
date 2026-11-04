@@ -2278,4 +2278,50 @@ export const BITACORA: Hito[] = [
       'tests/coaches-ops-center.test.ts (11 roturas, cada una cae) · tests/gurus-ops-center.test.ts',
     ],
   },
+  {
+    fecha: '4 nov', hora: '10:30', chat: 'Grupos de la app', sesion: SESION_GRUPOS, cuenta: 'claude5', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las caricaturas de los gurús que faltan',
+    pedido: 'en los gurus, me siguen faltando un montón que ya habiamos hecho la miniatura',
+    puntos: [
+      'Eran diez con la ficha escrita y sin cara. No estaban en el repo, ni en el disco, ni en los transcripts de las sesiones: había que hacerlas con Canva.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '11:10', chat: 'Grupos de la app', sesion: SESION_GRUPOS, cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los diez gurús que faltaban ya están en la galería, con su caricatura',
+    revisar: '/second-brain',
+    puntos: [
+      '**Entraron los diez:** Juan Carrizo, Vilma Núñez, Samuel Albaa, Álvaro Luque, Sergio Begueria, Romuald Fons, Mateo Maffia, Francisco Doglio, Andy Landa y Gonzalo Seré. La galería pasa de 22 a 32, cada uno con su ficha, su curso y «Inspirado en».',
+      '**Cada cara sale de la foto de perfil del canal de YouTube de la persona**, mirada antes de dibujar, con el prompt aprobado: mismo estilo de figurita, y por persona el pelo, la barba, los anteojos, la prenda lisa y un fondo propio. Ninguna lleva logo. Las diez salieron a la primera.',
+      '**Lo que falta:** la cara grande de la tarjeta de Spy (600 px) es la de 200 px agrandada, porque Canva sólo entrega esa vista: se ve algo blanda. Y el apellido de Samuel puede ser «Alba»: su canal se llama así.',
+    ],
+    archivos: [
+      'public/asesores/<id>.png (200 px) y public/asesores/grandes/<id>.png (600 px) — diez cada una',
+      'lib/asesores/catalogo.ts — ASESORES e IdAsesor · lib/asesores/fichas.ts — FICHAS · lib/asesores/en-espera.ts — ya vacía',
+      'tests/gurus-ops-center.test.ts (los 32) · tests/gurus-en-espera.test.ts — la guarda de las diez fichas · docs/hallazgos-ops-center.md',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '14:10', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que el grupo se vea como uno de WhatsApp',
+    pedido: '«"Participantes" debería estar al final a la derecha, cuida siempre el diseño... Y no veo el botón de invitar allí mismo... Y claro, revisa que el diseño no se rompa al invitar... Que se vea como un grupo de whatsapp normal.»',
+    puntos: ['Llegó por el Cerebro, después de que Martín revisara la pantalla.'],
+  },
+  {
+    fecha: '4 nov', hora: '14:30', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grupo se ve como un grupo de WhatsApp',
+    revisar: '/second-brain',
+    puntos: [
+      '**Arriba:** debajo del nombre, quiénes están, y a la derecha del todo «Invitar» y «Participantes». Un invitado no ve «Invitar».',
+      '**Invitar no hace saltar la ventana:** la lista scrollea adentro, y el aviso queda en su lugar, separado de la lista.',
+      '**En la conversación:** lo tuyo va sin tu foto, lo que MaKo contesta dice a qué mensaje contesta, y el 👍 queda montado sobre el borde del mensaje.',
+      '**En el teléfono:** debajo del nombre, quiénes están, y un «+» para invitar.',
+    ],
+    archivos: [
+      'app/second-brain/ChatDelGrupo.tsx · app/m/second-brain/HojaDelGrupo.tsx · app/_chat/grupo/Participantes.tsx (`useMiembrosDelGrupo`) · grupo.css',
+      'tests/grupos-ops-pantalla.test.ts (20) — ocho roturas en rojo',
+    ],
+  },
 ];

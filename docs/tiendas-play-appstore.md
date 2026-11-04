@@ -33,6 +33,56 @@ cuentas, revisadas otra vez el 23/10 en las páginas oficiales.
 | 9. Push por APNs | **Del lado del servidor, hecho el 3/11** | `lib/push-apns.ts`, `tests/push-apns.test.ts`, contra un servidor HTTP/2 local. Falta la clave, y que llegue a un iPhone |
 | 10. Compilar iOS y armar la ficha | **Textos y feature graphic listos** | `docs/tiendas-fichas-borradores.md`, `nativo/android/feature-graphic.png`. `codemagic.yaml` sigue sin correr. Faltan las capturas, que piden la cuenta de revisión |
 
+## Lo que mostraron las consolas (medido en pantalla el 4/11/2026)
+
+**⚠️ El reloj de los 14 días no lo arranca el `.aab`: lo traba la cuenta de revisión.** El `.aab` ya está en Play y la prueba cerrada igual no puede empezar: los links para anotarse salen «when you publish your app», y «Send app for review» sigue bloqueado hasta completar el dashboard. La cadena, en este orden y sin atajos:
+
+1. Cuenta de revisión → **Sign in details** (es «App access» con otro nombre).
+2. **Target audience** no abre sin el paso 1 («You must complete the Sign in details section»).
+3. **Data safety**: deja guardar borrador, pero su «Save» queda apagado sin el paso 2.
+4. **Capturas** → «Save» de la ficha. Sin ellas da «Your changes couldn't be saved».
+5. «Send app for review» → Google aprueba la prueba cerrada → salen los links → los testers se anotan → corren los 14.
+
+**Play, lo que no estaba escrito:**
+- Pide de 2 a 8 capturas (9:16 o 16:9). Las 4 de 1080 por lado son sólo para que la promocionen.
+- Hasta ese «Save», Publishing overview sigue con el nombre viejo («Provided app name (MaKo)»): el título nuevo vive en el borrador de la ficha.
+- El paso Review de la ficha pide una **AI asset declaration**. Va «Don't label assets»: el ícono y el feature graphic los dibuja `scripts/gen-iconos-tiendas.mjs`, y las capturas son de la app. Se contesta en ese mismo «Save», que hoy falla.
+- En App content no hay ninguna declaración de «AI-generated content» (son 10, y ninguna es ésa), aunque la §4 de los borradores la anuncia.
+- **Managed publishing está apagado:** lo que Google aprueba se publica solo. Para elegir el día, prenderlo antes en Publishing overview.
+- **Trader status, aparte del de Apple:** vence en febrero de 2027, y sin declararlo «your developer profile and apps will be removed from Google Play globally». Puede dejar públicos datos de Martín: lo decide él.
+- Hasta la primera revisión, el tester ve la app como `com.holamako.app (unreviewed)`.
+- Una lista de testers queda para todas las apps de la cuenta. La de la prueba cerrada se llama «MaKo prueba cerrada».
+- La ficha se edita en `/store-listings/default/edit` y la pista en `/tracks/4700906003437332314`. `/main-store-listing` y `/store-presence/...` vuelven al inicio sin avisar.
+
+**Apple, lo que no estaba escrito:**
+- **«Add for Review» sirve para medir:** si falta algo, lista qué falta y no manda nada. El 4/11 pidió la captura de iPhone con Dynamic Island mediana, Content Rights, usuario y contraseña, y nombre, apellido, correo y teléfono de contacto (con «+» y código de país). No nombró la DSA, y sigue en «Set Up».
+- **Content Rights** no está en los borradores: es una declaración legal sobre contenido de terceros (el teléfono muestra chats y anuncios de las cuentas que conecta cada negocio). La contesta Martín.
+- El copyright tampoco estaba: va `2026 Tejado Gonzalvez Leandro Martin` (`RAZON_SOCIAL_MAKO`).
+- La versión venía con «Automatically release». Queda en manual.
+- Con 18+ a mano, Apple calcula 18+ en casi todos y 19+ en Corea, y 17+ en sistemas anteriores a la versión 26.
+- **La compilación 1 no es la que se envía:** salió de `integracion` (1493e55), y después cambió `Info.plist` (891ee15ce). Hay que compilar de nuevo desde main antes de enviar. Codemagic la subió y Apple la procesó («Ready to Submit», vence a los 90 días), pero `submit_to_testflight` falló al pedir la revisión beta externa, porque falta el contacto en TestFlight › Test Information. No frena al grupo interno.
+
+**Dónde están las sesiones:** Apple y Codemagic no están en Claude in Chrome, que cae en el login. Están en el navegador integrado de la app (`mcp__Claude_Browser`). La de Apple venció en menos de 15 horas, y la renueva Martín. Play sí está en Chrome, en `/u/1/`.
+
+**Trampas de las herramientas:**
+- `javascript_tool` de Chrome corta las salidas largas (`[TRUNCATED]`) y bloquea las que traen URLs con query (`[BLOCKED: Cookie/query string data]`): hay que devolver pedazos cortos, sin links.
+- En el navegador integrado, con poca RAM, la captura atrasa varios segundos. Lo guardado se confirma leyendo el valor o recargando la página, no mirando la foto.
+- Su `javascript_tool` corta a los 45 s pero el script sigue corriendo: lo largo se arranca sin esperar y se consulta después. Si se reintenta, se hace dos veces.
+
+**Lo que queda sin hacer:**
+
+| Qué | Quién | Dónde |
+|---|---|---|
+| Correr el script de la cuenta de revisión | El Cerebro, con el sí de Martín | `docs/relevo/nube-tiendas.md` |
+| Con esa cuenta: los pasos 1 a 5 de arriba, y usuario y contraseña en Apple | Martín pega la contraseña; lo demás, un chat | `/app-content/testing-credentials` y la versión 1.0 de Apple |
+| Las capturas de las dos tiendas, del `/m` real con esa cuenta | Un chat | `docs/tiendas-fichas-borradores.md` |
+| Compilar la versión final desde main | Un chat | Codemagic |
+| Sumar testers: hay 6 de 12 | Martín | «MaKo prueba cerrada» |
+| Content Rights, y el contacto de App Review y de TestFlight (lleva teléfono) | Martín | Información de la app, y la versión 1.0 |
+| DSA en Apple: T3 dice que sí a la UE, pero deja públicos la dirección y el teléfono de Leandro. La §6 de los borradores todavía recomienda arrancar sin la UE: ya no vale | Martín | Información de la app |
+| Trader status en Play | Martín | Inicio de Play Console |
+| El crédito de IA para el revisor (R14) | Martín: es plata | `lib/veto-claude.ts` |
+
 ## Qué cambió en las reglas al 3/11/2026 (leído en las páginas oficiales)
 
 - **Play, la prueba cerrada:** sigue en 12 testers y 14 días seguidos, y los 12 tienen que seguir anotados el día que se pide producción. **Data safety y la política se piden también para la prueba cerrada**: sólo la prueba interna está exenta.

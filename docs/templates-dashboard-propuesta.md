@@ -211,6 +211,39 @@ esas pantallas se sientan vivas:
 **Muertas:** CRM y pipeline (lo resuelve Comercial) · Ventas del mes (misma frase que Comercial) ·
 Ads Analyst (se parte en «Anuncio ganador» y «Hooks y retención», que es lo que de verdad hacía).
 
+## 7.3.1 Lo que falta copiar (4/11/2026)
+
+Martín, mirando producción: *«elimina todos los templates viejos y vamos de a poco cargando cuando ya estén… y claro, guarda los
+que debemos hacer aún»*. **«Nueva hoja» ofrece sólo la plantilla que ya tiene su diseño propio copiado** (`esPlantillaOfrecida`,
+lib/graficos-plantillas.ts): una hoja entra sola a la lista el día que su plantilla trae el diseño. Las de la base común siguen en el
+código (las hojas que ya existen no cambian) y no se ofrecen. Esta tabla es la lista de lo que falta; la pantalla no la muestra.
+
+Todas las referencias están medidas (capturas a 1440 y 390, `valores.json`, los estados de cada control y el INFORME de la entrada):
+`docs/diseno/mockups-dashboard/demos/<demo>/`.
+
+| Hoja | Referencia | Estado |
+|---|---|---|
+| **Closing** | Halden | **Se ofrece.** En producción desde el 4/11 (copia: `docs/diseno/mockups-dashboard/closing/`) |
+| **Cobranza** | Coffer | En curso: la copia exacta y la maqueta de MaKo hechas (`docs/diseno/mockups-dashboard/cobranza/`), falta el componente |
+| **Focus** | Pane · Lumora | Las dos maquetas del 1/11 (`focus-pane.html`, `focus-lumora.html`): falta la copia exacta y el componente de cada una |
+| **General** | Orvel · Corbel | Por copiar |
+| **Operación diaria** | Moorly · Torque | Por copiar |
+| **Comercial** | Coffer · Corbel · Prism · Orvel · Pelago · Selvar | Por copiar |
+| **Marketing** | Kestrel · Ondra | Por copiar |
+| **Anuncio ganador** | Vitrea · Prism | Por copiar (pide la confianza de un A/B, §7.4) |
+| **Hooks y retención** | Vitrea · Murmura | Por copiar (pide la retención por segundo, §7.4) |
+| **Landing** | Corbel · Kestrel | Por copiar |
+| **VSL y YouTube** | la forma de Hooks, otra fuente | Por copiar (sin referencia propia: la de Hooks) |
+| **Instagram y redes** | Murmura · Kestrel | Por copiar |
+| **Chat Analyst** | Parley · Tend | Por copiar |
+| **Automatizaciones** | Noria | Por copiar |
+| **CS Analyst** | Mender · Vitrea | Por copiar (pide las cohortes y los motivos de baja, §7.4) |
+| **Agencia o servicio** | Sunrow · Torque | Por copiar |
+| **Curso o comunidad** | Lumora · Vitrea | Por copiar (pide las cohortes, §7.4) |
+| **Productividad** | Fernly · Sunrow | Por copiar |
+| **Contenido e IA** | Orrery | Por copiar |
+| **Inmobiliaria** | Lintel | Por copiar |
+
 ## 7.4 Lo que hay que MEDIR y hoy MaKo no mide
 
 Sin esto, las hojas nuevas nacen vacías:

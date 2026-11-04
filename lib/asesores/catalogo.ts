@@ -19,7 +19,11 @@ export type IdAsesor = 'hormozi' | 'juan-ads' | 'julian-otalora' | 'sofia-contre
   // ── Tercera tanda (2/11/2026): los doce que pidió Martín. El curso de cada uno está localizado
   //    en docs/pendientes-martin.md, verificado contra el `titulo:` del archivo y NO contra el
   //    nombre de la carpeta — eso ya puso dos nombres mal en producción.
-  | 'emilio-puigrredon' | 'julian-alborna';
+  | 'emilio-puigrredon' | 'julian-alborna'
+  // ── Cuarta tanda (4/11/2026): los diez que esperaban su cara (lib/asesores/en-espera.ts). Martín: «en los gurus, me siguen faltando un
+  //    montón que ya habiamos hecho la miniatura». Su foto sale del canal público de cada uno; cómo, en docs/hallazgos-ops-center.md.
+  | 'juan-carrizo' | 'vilma-nunez' | 'samuel-albaa' | 'alvaro-luque' | 'sergio-begueria'
+  | 'romuald-fons' | 'mateo-maffia' | 'francisco-doglio' | 'andy-landa' | 'gonzalo-sere';
 
 export type Asesor = {
   id: IdAsesor;
@@ -64,6 +68,17 @@ export const ASESORES: readonly Asesor[] = [
   { id: 'jordi-segues', nombre: 'Jordi Segués', completo: 'Jordi Segués', especialidad: 'TikTok', curso: 'TikTok 100k' },
   { id: 'emilio-puigrredon', nombre: 'Emilio Puigrredón', completo: 'Emilio Puigrredón', especialidad: 'Embudo en redes', curso: 'Social Funnel' },
   { id: 'julian-alborna', nombre: 'Julián Alborna', completo: 'Julián Alborna', especialidad: 'Contenido que se comparte', curso: 'Inteligencia Viral 2026' },
+  // ── Cuarta tanda (4/11/2026) ──
+  { id: 'juan-carrizo', nombre: 'Juan Carrizo', completo: 'Juan Carrizo', especialidad: 'Oferta y valor', curso: 'Aumenta tu valor y ATV ADVANTAGE' },
+  { id: 'vilma-nunez', nombre: 'Vilma Núñez', completo: 'Vilma Núñez', especialidad: 'Marketing y crecimiento', curso: 'Certificación en Marketing Digital potenciada por IA' },
+  { id: 'samuel-albaa', nombre: 'Samuel Albaa', completo: 'Samuel Albaa', especialidad: 'Práctica del closer', curso: 'Growing Closer' },
+  { id: 'alvaro-luque', nombre: 'Álvaro Luque', completo: 'Álvaro Luque', especialidad: 'Lanzamientos', curso: 'The perfect launch' },
+  { id: 'sergio-begueria', nombre: 'Sergio Begueria', completo: 'Sergio Begueria', especialidad: 'Marca personal y video', curso: 'Instituto De Marca Personal' },
+  { id: 'romuald-fons', nombre: 'Romuald Fons', completo: 'Romuald Fons', especialidad: 'SEO', curso: 'Bigseo Academy' },
+  { id: 'mateo-maffia', nombre: 'Mateo Maffia', completo: 'Mateo Maffia', especialidad: 'Video corto que vende', curso: 'BYF' },
+  { id: 'francisco-doglio', nombre: 'Francisco Doglio', completo: 'Francisco Doglio', especialidad: 'Equipo comercial y webinars', curso: 'ARCADIA' },
+  { id: 'andy-landa', nombre: 'Andy Landa', completo: 'Andy Landa', especialidad: 'Automatizaciones de Instagram', curso: 'ManyChat Master - Instagram' },
+  { id: 'gonzalo-sere', nombre: 'Gonzalo Seré', completo: 'Gonzalo Seré', especialidad: 'Estrategia de contenido', curso: 'Growing Content Specialist' },
 ];
 
 export const asesorPorId = (id: unknown): Asesor | null => ASESORES.find((a) => a.id === id) ?? null;

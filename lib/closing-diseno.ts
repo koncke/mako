@@ -112,12 +112,29 @@ export function desenlaceDe(r: Resultado | null): VistaClosing['desenlace'] {
 }
 
 /** Las últimas llamadas: la tabla de los últimos 14 días, de la más nueva a la más vieja. */
-export function ultimasDe(r: Resultado | null, max = 5): FilaLlamada[] {
+/**
+ * El día de una fila a partir de su columna `dia`: el agregador la escribe como su ETIQUETA («03/11», `etiquetaTiempo`), sin
+ * año. Se lo pone el de hoy, o el anterior si esa fecha cae después de hoy (una tabla de los últimos días no mira al futuro).
+ * ⚠️ Ordenar las etiquetas como texto ponía el 28/10 después del 03/11 (bug de «Últimas llamadas», 4/11/2026).
+ */
+export function diaDeEtiqueta(etiqueta: string | null | undefined, hoy: string): string | null {
+  if (!etiqueta) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(etiqueta)) return etiqueta.slice(0, 10);
+  const m = /^(\d{1,2})\/(\d{1,2})$/.exec(etiqueta.trim());
+  if (!m) return null;
+  const dd = m[1].padStart(2, '0'), mm = m[2].padStart(2, '0');
+  const y = Number(hoy.slice(0, 4));
+  const conAnio = `${y}-${mm}-${dd}`;
+  return conAnio > hoy ? `${y - 1}-${mm}-${dd}` : conAnio;
+}
+
+export function ultimasDe(r: Resultado | null, max = 5, hoy?: string): FilaLlamada[] {
   if (!r) return [];
+  const dia = (et: string | null) => (hoy ? diaDeEtiqueta(et, hoy) : et);
   const iP = r.columnas.findIndex((c) => c.id === 'puntaje'), iD = r.columnas.findIndex((c) => c.id === 'duracion');
   return r.filas
     .map((f) => ({
-      clave: f.clave, ref: f.ref ?? null, nombre: f.etiqueta, reunion: f.extra?.reunion ?? null, closer: f.extra?.closer ?? null, dia: f.extra?.dia ?? null,
+      clave: f.clave, ref: f.ref ?? null, nombre: f.etiqueta, reunion: f.extra?.reunion ?? null, closer: f.extra?.closer ?? null, dia: dia(f.extra?.dia ?? null),
       puntaje: iP < 0 ? null : num(f.valores[iP]), duracion: iD < 0 ? null : num(f.valores[iD]),
     }))
     .sort((a, b) => (b.dia ?? '').localeCompare(a.dia ?? ''))
@@ -152,7 +169,7 @@ export function vistaClosing(hoja: Pick<Hoja, 'diseno'>, datos: Record<string, D
     stats: { analizadas, puntaje: total(res(datos, p.puntaje), 'puntaje'), ganadas: desenlace?.ganadas ?? null },
     desenlace,
     semana: semanaDe(res(datos, p.semana), agenda, hoy),
-    ultimas: ultimasDe(res(datos, p.ultimas)),
+    ultimas: ultimasDe(res(datos, p.ultimas), 5, hoy),
     closers: closersDe(res(datos, p.closers)),
     duracion: { minutos: duracion, llamadas: analizadas },
     proxima: agenda?.proxima ?? null,

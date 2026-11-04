@@ -7,6 +7,16 @@ Acá va lo que costó y no se deduce leyendo el código.
 
 ---
 
+## El grupo, como uno de WhatsApp: lo que se miró con capturas (4/11/2026)
+
+**Cómo se miró sin `next dev`:** un arnés fuera del repo. esbuild empaqueta `ChatDelGrupo` y `HojaDelGrupo` reales para el navegador, el CSS de `app/globals.css` se compila con `@tailwindcss/postcss` (esbuild no entiende `@import "tailwindcss"`), y un `fetch` falso contesta `/api/grupos/7/*`. Chromium saca las capturas a 390 y 1280, en claro y en oscuro (`data-tema="oscuro"` en `<html>`).
+**Trampa del arnés del teléfono:** `SheetM` se monta en `#m-capas`, y todo el CSS del teléfono va con `[data-m]` delante. Sin un `<div id="m-root" data-m>` con su `<div id="m-capas" />` adentro, la hoja sale sin estilos y la caja se ve rota: se diagnostica un bug que no existe. Pasa lo mismo con la columna de la lista en la computadora: con una de ancho fijo, la cabecera a 390 mide 90 px.
+**Lo que se encontró, además de lo pedido:** la respuesta de MaKo no mostraba la cita (`itemsDelGrupo` la pasaba sólo en los mensajes de las personas), y lo propio llevaba la foto de quien mira, que WhatsApp no pone.
+**Trampa del CSS:** el alto fijo con la lista scrolleando adentro va SÓLO en el Modal (`.mk-modal__cuerpo .gr-miembros`). Puesto en `.gr-miembros` a secas, en la hoja del teléfono hacía doble scroll y escondía el «‹» arriba.
+**Vive en:** `app/second-brain/ChatDelGrupo.tsx`, `app/m/second-brain/HojaDelGrupo.tsx`, `app/_chat/grupo/` (`Participantes.tsx` → `useMiembrosDelGrupo`, `grupo.css` → `.gr-hilo`); lo fija `tests/grupos-ops-pantalla.test.ts` (20).
+
+---
+
 ## La lista de grupos no miraba la pestaña (ticket #55, 4/11/2026)
 
 **Síntoma:** el administrador de una agencia, parado en la cuenta de un cliente, veía en la lista los grupos de todos sus otros clientes, y lo reportó como «no debería verse».
@@ -428,6 +438,8 @@ Fons, Maffia, Begueria, Luque, Doglio, Seré, Albaa) no hay una sola imagen en n
 la nube no tiene Canva. Lo que sí se puede hacer en la nube es su FICHA: queda escrita en `lib/asesores/en-espera.ts`
 y el gurú entra a la galería en cuanto llegue su cara (el test lo avisa).
 
+**Resuelto el mismo 4/11:** llegaron las diez caras (la entrada «Las diez caras llegaron», abajo).
+
 ## Las diez fichas que esperan cara: cómo se escribieron y qué quedó afuera (4/11/2026)
 
 **Vive en:** `lib/asesores/ficha-*.ts` (las diez nuevas), `lib/asesores/en-espera.ts`, `tests/gurus-en-espera.test.ts`.
@@ -451,6 +463,47 @@ y el gurú entra a la galería en cuanto llegue su cara (el test lo avisa).
   nueva se corre después de `git add -N`, o da verde sin haberla leído. Un título de clase citado tal cual también trae voseo
   («Vendele…»): se cita el módulo o se parafrasea.
 - **Nadie más leyó las fichas**: las escribí yo, contra las clases citadas. Martín las puede leer antes de que entren.
+
+## Las diez caras llegaron: de dónde salen las fotos, los tamaños y lo que quedó sin hacer (4/11/2026)
+
+Martín: «en los gurus, me siguen faltando un montón que ya habiamos hecho la miniatura». Las diez caras se hicieron con Canva
+y entraron a la galería (22 → 32): fila en `ASESORES`, id en `IdAsesor`, ficha en `FICHAS`, y `EN_ESPERA` quedó vacía.
+
+**De dónde salen las fotos: la foto de perfil del canal público de YouTube de cada uno, sin API ni clave.**
+`youtube.com/results?search_query=<nombre>&sp=EgIQAg%253D%253D` (el filtro «Canal») y `youtube.com/<@handle>` traen un
+`ytInitialData` con el `avatar` hasta 900 px (`yt3.googleusercontent.com/…=s900-c-k-c0x00ffffff-no-rj`): una URL pública
+HTTPS que `upload-asset-from-url` acepta. La búsqueda por nombre devuelve homónimos (de 2 a 5 canales por nombre, con 2 a 150
+suscriptores y la foto por defecto): se elige por suscriptores y descripción, y **se mira la foto antes de dibujar**. Los
+canales: `@Juan_carrizo` (el de testimonios es el mismo), `@vilmanunez` (el canal se llama «Vilma OS»), `@SamuelAlbaa`,
+`@AlvaroLuque`, `@SergioBegueria`, `@RomualdFonsTV`, `@mateomaffia`, `@FranciscoDoglio`, `@InstaCoachAndy`, `@gonzalosere`.
+Lo que ata cada canal a SU curso: «The perfect launch - Alvaro Luque» es colombiano y su canal anuncia el evento en
+Bucaramanga; el de Samuel nombra «Growing Closers»; los títulos de Doglio, Maffia y Carrizo calzan con ARCADIA, BYF y ATV.
+Andy Landa es una MUJER (foto y ficha en femenino): el prompt lleva «woman» y «HER».
+
+**Los tamaños: Canva entrega 200 × 200 aunque el original mida 1264 × 1264, y no hay vuelta.** `get-assets` lo dice
+(`metadata` 1264, `thumbnail` 200) y el thumbnail está firmado: cambiarle `width`/`height` da 403 «Signature invalid».
+`public/asesores/<id>.png` sale tal cual (52-65 KB, bajo el tope de 150). **Los `grandes/` de estos diez son esos 200 agrandados
+a 600 con bicúbica**, no los 1264 reducidos como los de los catorce primeros: en la tarjeta de Spy se ven blandos. Para
+rehacerlos con el original hay que exportarlo desde Canva (un diseño con la imagen y `export-design`); los ids de media de
+las diez, en la cuenta de Martín: Carrizo `MAHZ9QMgCMA`, Núñez `MAHZ9VmRnOs`, Albaa `MAHZ9RL4xtA`, Luque `MAHZ9dvwzmI`,
+Begueria `MAHZ9RFb83U`, Fons `MAHZ9XkypNE`, Maffia `MAHZ9dHCqZc`, Doglio `MAHZ9aZXDhw`, Landa `MAHZ9XMiA54`, Seré `MAHZ9U9vkrc`.
+
+**`get-generate-image-job` devolvió HTTP 409 `{"code":10}` en 6 de 10 al consultarlas todas juntas, y la generación estaba bien:**
+al volver a leer, `SUCCESS`. No se regenera por un 409 (sería pagar dos veces).
+
+**Cada una con un fondo que no repite los 22 que ya había** (magenta, cobalto, azul marino, rojo, durazno, naranja, lima,
+amarillo, periwinkle, rosa viejo), y con la prenda lisa que pide el prompt: ningún logo salió en las diez. Las diez salieron
+a la primera, comparadas una por una con su foto.
+
+**Sin hacer:**
+- **¿«Samuel Albaa» o «Samuel Alba»?** Su canal se llama «Samuel Alba | Ventas»; el @ y el Instagram son «samuelalbaa». El repo
+  dice «Albaa» (viene de la carpeta del curso, como «Jiguera»). Si es «Alba», «Inspirado en Samuel Albaa» publica un apellido
+  mal escrito. No se tocó: el nombre y el id están en 16 archivos (hasta el slug del curso) y no hay cómo confirmarlo desde acá. Se confirma con él o con su sitio.
+- **Los `grandes/` a 600 reales** (arriba).
+- **No se vieron en la app andando:** se midió con los tests (galería de 32, curso de cada uno, peso y existencia de las dos
+  caras). La hoja de contacto se la ve Martín antes que nadie.
+- `tests/gurus-en-espera.test.ts` ya no recorre nada (la lista está vacía): su guarda de las fichas (voseo, «no hables como si
+  fueras él», «NO SE TRASLADA») pasó a un test sobre las diez que ya están en `FICHAS`.
 
 ---
 
