@@ -137,6 +137,11 @@ function BloqueGuion({ guion, onConectado }: { guion: VistaGuion | null; onConec
         <BotonIntegracion servicio="openai" className="spy-boton" onConectado={onConectado}>Conectar GPT</BotonIntegracion>
       </p>
     );
+  } else if (guion.estado === 'sin-gemini') {
+    // ⚠️ SIN «CONECTA TU GEMINI» (Martín, 25/10/2026: «le sigue diciendo que debe conectar su IA de Gemini, cuando dijimos que
+    // todo eso se hace con … su claude o GPT»; lib/conectar-ia-reglas.ts). El guion de un video de YouTube sólo lo hace Gemini:
+    // sin el del negocio, el bloque no se dibuja. Usar la clave de la plataforma es una decisión de Martín (docs/relevo/nube-spy.md).
+    return null;
   } else if (guion.estado === 'sin-clave') {
     cuerpo = (
       <p className="spyd-nota">
@@ -156,6 +161,7 @@ function BloqueGuion({ guion, onConectado }: { guion: VistaGuion | null; onConec
           </button>
         </div>
         {cuerpo}
+        {guion.motivo ? <p className="spyd-nota">{guion.motivo}</p> : null}
       </section>
     );
   } else {
