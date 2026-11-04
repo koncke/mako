@@ -91,6 +91,7 @@ test('las iniciales de una persona', () => {
 
 test('la pieza que manda conserva su id (el closer y la caja de IA la buscan así)', () => {
   const ids = (id: string) => componentesDe(PLANTILLAS_HOJA.find((p) => p.id === id)!).map((c) => c.id);
-  assert.ok(ids('marketing').includes('mk-cac'));
+  // Marketing: la que sube a portada (lib/graficos-portadas.ts, `sube: 'mk-tendencias'`) y las de la firma de la hoja guardada de antes.
+  for (const id of ['mk-tendencias', 'mk-spend', 'mk-funnel', 'mk-anuncios']) assert.ok(ids('marketing').includes(id), id);
   assert.ok(ids('closing').includes('cl-embudo-embudo'));
 });

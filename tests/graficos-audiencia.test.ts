@@ -30,7 +30,6 @@ import {
 } from '../lib/graficos-audiencia';
 import { agregar, SinConexionError, type Fila } from '../lib/graficos-agregar';
 import { sanearGrafico, esGrafico } from '../lib/graficos-catalogo';
-import { tableroInicial } from '../lib/graficos-plantillas';
 // El mapa de México se generalizó a cualquier país (v5): las reglas de México viven en lib/geo-regiones.ts.
 import { ESTADOS_MX as ESTADOS, normalizarRegion, codigoDeRegion as codigoEnPais, ubicarRegiones as ubicarEnPais } from '../lib/geo-regiones';
 const codigoDeRegion = (n: string) => codigoEnPais('MX', n);
@@ -208,9 +207,11 @@ test('las regiones de Meta (medidas) caen cada una en SU estado del GeoJSON, sin
 // Hoy falla (10 ≠ 32): ésa es su rotura. Con el mapa sin recorte (probado forzando `limite: 50`)
 // llegan las 33 y se ubican los 32 estados: pasa. Cuando el mapa quede exento del límite, se saca
 // el `todo`.
-test('el mapa de la hoja Marketing recibe TODOS los estados, no los del límite por defecto', async () => {
-  const mapa = tableroInicial().hojas.flatMap((h) => h.componentes).filter(esGrafico).find((c) => c.tipo === 'mapa');
-  if (!mapa) throw new Error('la plantilla Marketing no tiene un mapa');
+// 4/11/2026 (tarde): la hoja Marketing ya no trae el mapa (la copia de Kestrel no lo tiene); lo que este test cuida es que un mapa SIN
+// `limite` (como lo arma quien lo agrega a mano, o la IA) reciba todos los estados, y eso se prueba con un mapa armado acá.
+test('un mapa sin límite declarado recibe TODOS los estados, no los del límite por defecto', async () => {
+  const mapa = sanearGrafico({ id: 'mapa', tipo: 'mapa', fuente: 'audiencia', dimension: 'region', metricas: ['impresiones'], titulo: 'Dónde están' });
+  if (!mapa || !esGrafico(mapa)) throw new Error('no se pudo armar el mapa');
   const crudas = META.map((region, i) => ({ region, impressions: String(1000 + i), reach: '10', inline_link_clicks: '1', spend: '1' }));
   const r = agregar(mapa, filasDeDesglose(crudas, 'region', RG.desde, aUsd), RG.desde, RG.hasta);
   const ubicados = ubicarRegiones(r.filas.map((f) => ({ etiqueta: f.etiqueta, valor: f.valores[0] ?? 0 })));

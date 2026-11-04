@@ -162,11 +162,11 @@ test('la hoja: por id, por nombre sin acentos, y si no está, las que hay', () =
 
 test('el componente: por id o por título', () => {
   const h = tableroInicial().hojas[0];
-  const c = buscarComponente(h, 'mk-cac');
-  assert.ok(c.ok && c.valor.id === 'mk-cac');
-  // Por el título que se VE: desde el 4/11/2026 el CAC de Marketing se llama «Costo por cierre».
-  const t = buscarComponente(h, 'costo por cierre');
-  assert.ok(t.ok && t.valor.id === 'mk-cac');
+  const c = buscarComponente(h, 'mk-cpl');
+  assert.ok(c.ok && c.valor.id === 'mk-cpl');
+  // Por el título que se VE (desde el 4/11/2026, tarde, Marketing trae los seis números de Kestrel; el costo por cierre vive en Comercial).
+  const t = buscarComponente(h, 'costo por lead');
+  assert.ok(t.ok && t.valor.id === 'mk-cpl');
   const no = buscarComponente(h, 'nada');
   assert.ok(!no.ok && no.disponibles.length === h.componentes.length);
 });
