@@ -42,6 +42,17 @@ export const VISTAS_CARRUSEL = [
 ] as const;
 export type VistaCarrusel = (typeof VISTAS_CARRUSEL)[number]['value'];
 
+/**
+ * De dónde sale cada carrusel: las cuentas que el negocio sigue en Spy, o la biblioteca de ejemplos de la plataforma
+ * (lib/carruseles/biblioteca.ts, 4/11/2026). «Todos» junta los dos.
+ */
+export const ORIGENES_CARRUSEL = [
+  { value: 'todos', label: 'De todos lados' },
+  { value: 'cuentas', label: 'Cuentas que sigues' },
+  { value: 'biblioteca', label: 'Biblioteca de ejemplos' },
+] as const;
+export type OrigenFiltro = (typeof ORIGENES_CARRUSEL)[number]['value'];
+
 /** Los tipos de carrusel de MaKo (lib/carruseles/tipos.ts, que tiene la estructura de cada uno): los ofrece la API. */
 export const IDS_TIPO_CARRUSEL = ['lista', 'tutorial', 'historia', 'antes-despues', 'mito', 'opinion', 'caso', 'preguntas'] as const;
 export type IdTipoCarrusel = (typeof IDS_TIPO_CARRUSEL)[number];

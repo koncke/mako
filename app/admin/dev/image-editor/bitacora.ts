@@ -180,4 +180,34 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/image-editor',
   },
+  {
+    fecha: '4 nov', hora: '19:29', chat: 'Carruseles (nube)', sesion: 'cli_daed829d-dde6-5b48-8dd1-048974536370', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Una biblioteca de carruseles de ejemplo, real desde el primer día',
+    pedido: 'Pedido nuevo de Martín: que el explorador de carruseles en Image tenga ejemplos reales desde el primer día, aunque el negocio no siga a nadie en Spy. QUÉ: una biblioteca de ejemplos compartida, sumada a lo que ya muestra el explorador (lo de las cuentas que sigue el negocio queda igual). DE DÓNDE: directo de cuentas públicas de Instagram, con la misma lectura que ya usa Spy. De topcarousels.com NO sale nada: ni bajar su biblioteca, ni leer su /explore, ni copiar su lista de cuentas. CUENTAS: arranca con los gurús del Ops Center que tengan Instagram. La lista la edita el superadmin, para sumar los @ que pase Martín. CÓMO SE MUESTRA: miniatura, @creador bien visible, link al post original, sus números públicos y el outlier. Nunca como plantilla de MaKo; «Hacer el mío» sigue usando sólo la estructura. El superadmin puede sacar a un creador que lo pida, y sale de todos lados. LECTURA: […] deja un script para correr desde la PC: en seco primero, con techo de gasto en dólares y sin imprimir claves. — Y a las 19:36: Martín la quiere grande […]. DECISIÓN DE MARTÍN (4/11): se muestran como en Spy: públicos, con el @ del creador y el link al original. […] SE SUMA a la lista de cuentas: buscar por tema los carruseles que mejor funcionan (por hashtag, con el mismo acceso de Spy a Apify), quedarse sólo con los carruseles, ordenarlos por rendimiento y clasificarlos por tipo, sin repetidos. Elige tú los temas iniciales, pensando en los negocios de MaKo, y déjalos editables para el superadmin. PRIMERA CARGA: el script recibe los topes por parámetro. Por defecto, hasta 300 carruseles y US$2. […] el script dice cuánto queda antes de gastar y frena sin romper nada si no alcanza.',
+    puntos: [
+      'Llegó por el Cerebro, en dos mensajes (19:29 y 19:36). Lo del medio que se cortó es cómo se sube y qué migración aplica el Cerebro.',
+      'Sigue sin salir nada de topcarousels.com: la biblioteca se lee de Instagram directo, con la misma lectura de Spy.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '20:05', chat: 'Carruseles (nube)', sesion: 'cli_daed829d-dde6-5b48-8dd1-048974536370', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La biblioteca de ejemplos en «Carruseles que funcionan»',
+    puntos: [
+      '«Carruseles que funcionan» muestra, además de lo de las cuentas que sigue el negocio, una biblioteca de ejemplos que ven todos los negocios: con el @ del creador, el link a su publicación, sus números y, de las cuentas de la lista, el outlier.',
+      'Un negocio que no sigue a nadie ya ve ejemplos, con la línea para seguir a las cuentas de su rubro arriba.',
+      'Sale de dos fuentes: una lista de cuentas (se leen enteras) y temas por hashtag, de los que se guardan sólo los carruseles que mejor rinden, clasificados por tipo y sin repetidos.',
+      'Arranca con diez temas para los negocios de MaKo (marketing digital, marca personal, ventas, coaching, agencias, copywriting, cursos…). La plataforma suma y saca cuentas y temas en «Cuentas», y puede sacar a un creador que lo pida: deja de verse en todos lados y no vuelve a entrar.',
+      'La carga la hace un script en la PC: en seco primero, con techo en dólares, deja libres US$2 del crédito para Spy y no imprime la clave. Por defecto, hasta 300 carruseles y US$2.',
+      'MaKo lo puede ver y cambiar por la app y WhatsApp (sólo en el negocio de la plataforma), y buscar_carruseles filtra por de dónde vienen.',
+    ],
+    archivos: [
+      'supabase/migrations/0392_carruseles_biblioteca.sql — las cuentas, los temas y las publicaciones: globales, sin workspace (sin aplicar)',
+      'lib/carruseles/biblioteca.ts — lo puro: ids en negativo, cómo entra al explorador, sacar y volver, el plan de lectura y su techo',
+      'lib/carruseles/biblioteca-servidor.ts — la lee y la edita la plataforma',
+      'scripts/carruseles-biblioteca.mts — la carga desde la PC',
+      'app/image-editor/carruseles/EditarBiblioteca.tsx — el panel de la plataforma en «Cuentas»',
+      'lib/api-mako/areas/imagen.* — ver_biblioteca_carruseles y cambiar_biblioteca_carruseles',
+    ],
+    revisar: '/image-editor?ver=carruseles',
+  },
 ];

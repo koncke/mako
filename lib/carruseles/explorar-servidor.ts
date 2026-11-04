@@ -4,6 +4,8 @@
 // Lee lo que Spy YA trajo de las cuentas que el negocio sigue (`spy_competidores` + `spy_piezas`, por el proxy del
 // inquilino): no llama a Apify ni a Meta ni gasta nada. Las cuentas se suman y se leen en Competitors Spy, con la clave y
 // el tope de crédito de cada negocio (lib/spy.ts). Lo puro, con su test: ./explorar.ts.
+// Y le SUMA la biblioteca de ejemplos de la plataforma (./biblioteca-servidor.ts, 4/11/2026): la misma para todos, con
+// los ids en negativo. Si la biblioteca no se puede leer, el negocio ve lo suyo igual y la pantalla lo dice.
 //
 // Lo que escribe: los guardados y las búsquedas guardadas del NEGOCIO, en dos settings (`carruseles.guardados`,
 // `carruseles.busquedas`). Se lee ESTRICTO antes de escribir (con la base caída, escribir sobre una lectura tolerante
@@ -17,6 +19,8 @@ import { leerPorPaginas } from '../supabase-paginado';
 import { cambiarSettingSi, getSetting, getSettingEstricto } from '../settings';
 import { podarVencido } from '../spy-reglas';
 import { cortarSinPartir } from '../unicode-seguro';
+import { carruselDeLaBiblioteca, carruselesDeLaBiblioteca } from './biblioteca-servidor';
+import { esDeBiblioteca, unirConBiblioteca } from './biblioteca';
 import {
   CLAVE_BUSQUEDAS, CLAVE_GUARDADOS, TOPE_BUSQUEDAS, carruselesDe, conGuardado, filtrosDeQuery, pasoDelExplorador, queryDeFiltros,
   sanearBusquedas, sanearGuardados,
@@ -38,6 +42,10 @@ export type Explorador = {
   paso: PasoExplorador;
   frase: string;
   accion: { texto: string; ruta: string } | null;
+  /** Cuántos carruseles vienen de la biblioteca de ejemplos (los de la plataforma, para todos). */
+  ejemplos: number;
+  /** La biblioteca no se pudo leer: se ve lo del negocio y se dice. */
+  avisoBiblioteca: string | null;
 };
 
 /**
@@ -49,7 +57,7 @@ export async function leerExplorador(): Promise<Explorador | { ok: false; error:
   const comp = await db.from('spy_competidores').select('id, nombre, instagram, avatar').limit(100);
   if (comp.error) {
     // Spy sin tablas (la 0359 sin aplicar) no es un error del negocio: no sigue a nadie todavía.
-    if (comp.error.code === '42P01') return armar([], [], [], { competidores: 0, conInstagram: 0 });
+    if (comp.error.code === '42P01') return armar([], [], [], { competidores: 0, conInstagram: 0 }, await deLaBiblioteca());
     return { ok: false, error: comp.error.message };
   }
   const competidores = (comp.data ?? []) as CompetidorParaCarrusel[];
@@ -67,14 +75,29 @@ export async function leerExplorador(): Promise<Explorador | { ok: false; error:
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
-  const [guardados, busquedas] = await Promise.all([getSetting(CLAVE_GUARDADOS), getSetting(CLAVE_BUSQUEDAS)]);
-  const carruseles = carruselesDe(piezas, competidores).map((c) => ({ ...c, texto: c.texto ? cortarSinPartir(c.texto, TEXTO_EN_PANTALLA) : null }));
-  return armar(carruseles, sanearGuardados(guardados), sanearBusquedas(busquedas), { competidores: competidores.length, conInstagram: conIg.length });
+  const [guardados, busquedas, biblioteca] = await Promise.all([getSetting(CLAVE_GUARDADOS), getSetting(CLAVE_BUSQUEDAS), deLaBiblioteca()]);
+  return armar(carruselesDe(piezas, competidores), sanearGuardados(guardados), sanearBusquedas(busquedas), { competidores: competidores.length, conInstagram: conIg.length }, biblioteca);
 }
 
-function armar(carruseles: Carrusel[], guardados: Guardado[], busquedas: BusquedaGuardada[], cuentas: Explorador['cuentas']): Explorador {
-  const p = pasoDelExplorador({ ...cuentas, carruseles: carruseles.length });
-  return { ok: true, carruseles, guardados, busquedas, cuentas, paso: p.paso, frase: p.frase, accion: p.accion };
+/** La biblioteca de ejemplos, sin tirar: si falla, ninguno y el aviso. */
+async function deLaBiblioteca(): Promise<{ carruseles: Carrusel[]; aviso: string | null }> {
+  try {
+    return { carruseles: await carruselesDeLaBiblioteca(), aviso: null };
+  } catch (e) {
+    console.warn('[carruseles] no pude leer la biblioteca de ejemplos:', e instanceof Error ? e.message : e);
+    return { carruseles: [], aviso: 'No pude leer la biblioteca de ejemplos: ves sólo los de las cuentas que sigues.' };
+  }
+}
+
+function armar(propios: Carrusel[], guardados: Guardado[], busquedas: BusquedaGuardada[], cuentas: Explorador['cuentas'], biblioteca: { carruseles: Carrusel[]; aviso: string | null } = { carruseles: [], aviso: null }): Explorador {
+  // El paso habla de lo del NEGOCIO (qué le falta para ver las cuentas que sigue); la biblioteca se ve igual.
+  const p = pasoDelExplorador({ ...cuentas, carruseles: propios.length });
+  const todos = unirConBiblioteca(propios, biblioteca.carruseles)
+    .map((c) => ({ ...c, texto: c.texto ? cortarSinPartir(c.texto, TEXTO_EN_PANTALLA) : null }));
+  return {
+    ok: true, carruseles: todos, guardados, busquedas, cuentas, paso: p.paso, frase: p.frase, accion: p.accion,
+    ejemplos: todos.filter((c) => c.origen === 'biblioteca').length, avisoBiblioteca: biblioteca.aviso,
+  };
 }
 
 type Escrito<T> = { ok: true; valor: T; ya?: boolean } | { ok: false; error: string };
@@ -101,6 +124,10 @@ async function escribirConCas<T>(
 
 /** ¿La pieza es una publicación de Instagram de ESTE negocio? (el proxy del inquilino ya filtra por workspace). */
 async function esPublicacionDelNegocio(id: number): Promise<boolean | null> {
+  // Uno de la biblioteca de ejemplos (id negativo): vale si es de un creador activo (la ven todos los negocios).
+  if (esDeBiblioteca(id)) {
+    try { return !!(await carruselDeLaBiblioteca(id)); } catch { return null; }
+  }
   const db = await getTenantDb();
   const { data, error } = await db.from('spy_piezas').select('id').eq('id', id).eq('canal', 'instagram').eq('tipo', 'publicacion').maybeSingle();
   if (error) return null;
@@ -109,7 +136,7 @@ async function esPublicacionDelNegocio(id: number): Promise<boolean | null> {
 
 /** Guarda o saca un carrusel de los guardados del negocio. Idempotente: guardar lo que ya está dice `ya`. */
 export async function guardarCarrusel(id: number, guardar: boolean): Promise<Escrito<Guardado[]>> {
-  if (!Number.isSafeInteger(id) || id <= 0) return { ok: false, error: 'Ese carrusel no existe.' };
+  if (!Number.isSafeInteger(id) || id === 0) return { ok: false, error: 'Ese carrusel no existe.' };
   if (guardar) {
     const es = await esPublicacionDelNegocio(id);
     if (es === null) return { ok: false, error: 'No pude comprobar ese carrusel. Vuelve a intentar.' };

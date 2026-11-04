@@ -20,6 +20,8 @@ import { guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servi
 import { crearCarruselDesdeReferencia, referenciaDelNegocio } from '@/lib/carruseles/crear-servidor';
 import { estructuraDe, frasesDe, planDeReferencia } from '@/lib/carruseles/referencia';
 import { esTipoCarrusel } from '@/lib/carruseles/tipos';
+import { bibliotecaParaEditar, cambiarBiblioteca, puedeEditarBiblioteca } from '@/lib/carruseles/biblioteca-servidor';
+import type { CambioBiblioteca } from '@/lib/carruseles/biblioteca';
 import {
   FILTROS_INICIALES, OUTLIER_MINIMOS, filtrarCarruseles, filtrosDeQuery, queryDeFiltros, rotuloFormato, rotuloOutlier, type Carrusel,
 } from '@/lib/carruseles/explorar';
@@ -87,6 +89,8 @@ const linkExplorador = (query: string, ws: number) => linkApp(`/image-editor?${q
 const carruselParaApi = (c: Carrusel) => ({
   id: c.id,
   creador: c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre,
+  // De una cuenta que sigue el negocio, o de la biblioteca de ejemplos de la plataforma.
+  origen: c.origen,
   original: c.url,
   outlier: c.outlier == null ? null : rotuloOutlier(c.outlier),
   laminas: c.laminas,
@@ -230,9 +234,14 @@ export const RUNNERS: Runners = {
       return JSON.stringify({
         paso: r.paso,
         cuentasSeguidas: r.cuentas.competidores, conInstagram: r.cuentas.conInstagram, carruseles: carruseles.length, guardados: r.guardados.length,
+        // Los de la biblioteca de ejemplos (públicos, de la plataforma): se ven aunque el negocio todavía no siga a nadie.
+        deLaBiblioteca: r.ejemplos,
         ...(r.paso === 'listo'
           ? { siguiente: 'Usa buscar_carruseles para ver los que mejor funcionan.', link: linkExplorador('ver=carruseles', ctx.ws) }
-          : { siguiente: r.frase, ...(r.accion ? { donde: linkApp(r.accion.ruta, ctx.ws) } : {}) }),
+          : {
+            siguiente: r.ejemplos ? `Ya puede mirar los ejemplos de la biblioteca con buscar_carruseles. Para ver también los de su rubro: ${r.frase}` : r.frase,
+            ...(r.accion ? { donde: linkApp(r.accion.ruta, ctx.ws) } : {}),
+          }),
       });
     },
   },
@@ -242,9 +251,10 @@ export const RUNNERS: Runners = {
       const r = await leerExplorador();
       if (!r.ok) return JSON.stringify({ error: 'No pude leer los carruseles de las cuentas que sigue el negocio. Vuelve a intentar.' });
       // Sin carruseles todavía, lo que contesta es la guía (en qué paso está), nunca una lista vacía que parezca un cero.
-      if (r.paso !== 'listo') return JSON.stringify({ paso: r.paso, carruseles: [], siguiente: r.frase, ...(r.accion ? { donde: linkApp(r.accion.ruta, ctx.ws) } : {}) });
+      if (!r.carruseles.length) return JSON.stringify({ paso: r.paso, carruseles: [], siguiente: r.frase, ...(r.accion ? { donde: linkApp(r.accion.ruta, ctx.ws) } : {}) });
       const base = filtrosDeQuery(new URLSearchParams({
         q: str(input, 'buscar') ?? '', periodo: str(input, 'periodo') ?? '', orden: str(input, 'orden') ?? '', vista: str(input, 'vista') ?? '',
+        origen: str(input, 'origen') ?? '',
       }));
       const f = { ...FILTROS_INICIALES, ...base, outlierMin: pisoDeOutlier(input.outlierMinimo) };
       const vistos = filtrarCarruseles(r.carruseles, f, new Set(r.guardados.map((g) => g.id)));
@@ -253,7 +263,7 @@ export const RUNNERS: Runners = {
         total: vistos.length,
         carruseles: vistos.slice(0, tope).map(carruselParaApi),
         link: linkExplorador(queryDeFiltros(f), ctx.ws),
-        nota: 'Son publicaciones de otras cuentas: sirven de referencia de estructura. El outlier es cuántas veces la mediana de su cuenta.',
+        nota: 'Son publicaciones públicas de otras cuentas (las que sigue el negocio, o la biblioteca de ejemplos): sirven de referencia de estructura, siempre con su creador. El outlier es cuántas veces la mediana de su cuenta; los que llegaron por un tema no lo llevan.',
       });
     },
   },
@@ -261,7 +271,7 @@ export const RUNNERS: Runners = {
   guardar_carrusel: {
     preparar: async (input): Promise<Preparado> => {
       const id = typeof input.carruselId === 'number' ? input.carruselId : NaN;
-      if (!Number.isSafeInteger(id) || id <= 0) return { error: 'Falta el id del carrusel (de buscar_carruseles).', faltan: ['carruselId'] };
+      if (!Number.isSafeInteger(id) || id === 0) return { error: 'Falta el id del carrusel (de buscar_carruseles).', faltan: ['carruselId'] };
       const guardar = input.guardar !== false;
       const r = await leerExplorador();
       if (!r.ok) return { error: 'No pude leer los carruseles. Vuelve a intentar.', falla: true };
@@ -286,7 +296,7 @@ export const RUNNERS: Runners = {
   crear_carrusel_desde_referencia: {
     preparar: async (input): Promise<Preparado> => {
       const id = typeof input.carruselId === 'number' ? input.carruselId : NaN;
-      if (!Number.isSafeInteger(id) || id <= 0) return { error: 'Falta el id del carrusel (de buscar_carruseles).', faltan: ['carruselId'] };
+      if (!Number.isSafeInteger(id) || id === 0) return { error: 'Falta el id del carrusel (de buscar_carruseles).', faltan: ['carruselId'] };
       if (input.tipo != null && !esTipoCarrusel(input.tipo)) return { error: 'Ese tipo de carrusel no existe en MaKo.', faltan: ['tipo'] };
       let c;
       try { c = await referenciaDelNegocio(id); } catch { return { error: 'No pude leer ese carrusel. Vuelve a intentar.', falla: true }; }
@@ -307,4 +317,58 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Creado (${r.laminas} láminas). Ábrelo aquí: ${url}`, datos: { disenoId: r.id, link: url, bloque } };
     },
   },
+
+  // La biblioteca de ejemplos (4/11/2026): la misma puerta que la pantalla (`puedeEditarBiblioteca`), además de
+  // `soloPlataforma` del registro. La lista y los temas los ven todos los negocios.
+  ver_biblioteca_carruseles: {
+    leer: async () => {
+      if (!(await puedeEditarBiblioteca())) return JSON.stringify({ error: 'La biblioteca de ejemplos la edita la plataforma.' });
+      const b = await bibliotecaParaEditar().catch(() => undefined);
+      if (b === undefined) return JSON.stringify({ error: 'No pude leer la biblioteca. Vuelve a intentar.' });
+      if (b === null) return JSON.stringify({ error: 'La biblioteca todavía no está creada (falta aplicar la migración 0392).' });
+      return JSON.stringify({
+        cuentas: b.cuentas.map((c) => ({ instagram: `@${c.instagram}`, nombre: c.nombre, estado: c.estado, motivo: c.motivo, publicaciones: c.piezas, leida: c.leida_en })),
+        creadoresPorTema: b.porTema,
+        temas: b.temas.map((t) => ({ hashtag: `#${t.hashtag}`, nombre: t.nombre, activo: t.activo, carruseles: t.piezas, leido: t.leido_en })),
+        nota: 'Se lee con el script de la PC (scripts/carruseles-biblioteca.mts). Lo que se suma aparece la próxima vez que corre.',
+      });
+    },
+  },
+
+  cambiar_biblioteca_carruseles: {
+    preparar: async (input): Promise<Preparado> => {
+      if (!(await puedeEditarBiblioteca())) return { error: 'La biblioteca de ejemplos la edita la plataforma.' };
+      const pedido = pedidoDeBiblioteca(input);
+      if ('error' in pedido) return { error: pedido.error, faltan: pedido.faltan };
+      const que = pedido.que === 'cuenta' ? `@${pedido.valor.replace(/^@/, '')}` : `#${pedido.valor.replace(/^#/, '')}`;
+      const resumen = pedido.accion === 'sumar' ? `Sumar ${que} a la biblioteca de ejemplos.`
+        : pedido.accion === 'volver' ? `Volver a sumar ${que} a la biblioteca de ejemplos.`
+        : pedido.que === 'cuenta' ? `Sacar ${que} de la biblioteca de ejemplos («${pedido.motivo}»): sus carruseles dejan de verse en todos los negocios.`
+        : `Apagar el tema ${que}: no se lee más (lo que ya trajo queda).`;
+      return { payload: { ...pedido }, resumen };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      if (!(await puedeEditarBiblioteca())) return { ok: false, resumen: 'La biblioteca de ejemplos la edita la plataforma.' };
+      const pedido = pedidoDeBiblioteca(payload);
+      if ('error' in pedido) return { ok: false, resumen: pedido.error };
+      const r = await cambiarBiblioteca(pedido, QUIEN);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: r.ya ?? 'Listo. Se lee la próxima vez que corre el script de la PC.' };
+    },
+  },
 };
+
+/** El pedido de cambio de la biblioteca desde lo que mandó el modelo (o el payload confirmado). */
+function pedidoDeBiblioteca(input: Record<string, unknown>): CambioBiblioteca | { error: string; faltan: string[] } {
+  const que = input.que === 'tema' ? 'tema' : input.que === 'cuenta' ? 'cuenta' : null;
+  const accion = input.accion === 'sumar' || input.accion === 'sacar' || input.accion === 'volver' ? input.accion : null;
+  const valor = str(input, 'valor');
+  if (!que || !accion || !valor) return { error: 'Falta qué (cuenta o tema), qué hacer y el @ o el #.', faltan: ['que', 'accion', 'valor'] };
+  const nombre = str(input, 'nombre') ?? valor.replace(/^[@#]/, '');
+  if (accion === 'sumar') return que === 'cuenta' ? { que, accion, valor, nombre } : { que, accion, valor, nombre };
+  if (accion === 'sacar' && que === 'cuenta') {
+    const motivo = str(input, 'motivo');
+    return motivo ? { que, accion, valor, motivo } : { error: 'Falta por qué sale la cuenta (por ejemplo, «lo pidió»).', faltan: ['motivo'] };
+  }
+  return que === 'cuenta' ? { que, accion: 'volver', valor } : { que, accion, valor };
+}

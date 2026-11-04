@@ -78,12 +78,14 @@ test('el Generator: el saldo null es «nunca se leyó», una toma por vez, sin p
 });
 
 test('toda operación de video o imagen del registro está en un grupo (o es una lectura que no pide receta)', () => {
-  const LECTURAS_SIN_RECETA = new Set(['listar_proyectos_video', 'ver_proyecto_video', 'listar_plantillas_video', 'ver_avatares', 'listar_disenos_imagen', 'ver_diseno_imagen', 'listar_plantillas_imagen', 'estado_carruseles', 'buscar_carruseles']);
+  const LECTURAS_SIN_RECETA = new Set(['listar_proyectos_video', 'ver_proyecto_video', 'listar_plantillas_video', 'ver_avatares', 'listar_disenos_imagen', 'ver_diseno_imagen', 'listar_plantillas_imagen', 'estado_carruseles', 'buscar_carruseles', 'ver_biblioteca_carruseles']);
   // Guardar un carrusel en las referencias (04/11/2026) no edita ningún diseño: la receta del Image Editor (qué diseño,
   // qué tamaño, los textos que son hechos) no tiene nada que decirle, y su descripción ya dice de dónde sale el id.
   // «Hacer el mío» (crear_carrusel_desde_referencia) crea con guías en cada lámina, sin textos que inventar: lo que falta
   // (el tipo, si la referencia no encaja con ninguno) lo pide su propio `preparar`.
-  const ACCIONES_SIN_RECETA = new Set(['guardar_carrusel', 'crear_carrusel_desde_referencia']);
+  // La biblioteca de ejemplos (cambiar_biblioteca_carruseles) la edita la plataforma: suma o saca una cuenta o un tema y
+  // no toca ningún diseño; lo que falta (el @, el motivo) lo pide su propio `preparar`.
+  const ACCIONES_SIN_RECETA = new Set(['guardar_carrusel', 'crear_carrusel_desde_referencia', 'cambiar_biblioteca_carruseles']);
   const sinGrupo = REGISTRO
     .filter((d) => d.area === 'video' || d.area === 'imagen')
     .map((d) => d.id)

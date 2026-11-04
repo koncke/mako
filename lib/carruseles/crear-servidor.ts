@@ -16,10 +16,16 @@ import { podarVencido } from '../spy-reglas';
 import { documentoDeCarrusel } from './documento';
 import { carruselesDe, type Carrusel, type CompetidorParaCarrusel, type PiezaParaCarrusel } from './explorar';
 import { marcaDelNegocio } from './marca';
+import { esDeBiblioteca } from './biblioteca';
+import { carruselDeLaBiblioteca } from './biblioteca-servidor';
 import { estructuraDe, laminasDesde, notasDe, planDeReferencia } from './referencia';
 
-/** La publicación `id` del negocio como carrusel del explorador; null = no es una de las suyas (o ya no se ve). Tira si no pudo leer. */
+/**
+ * La publicación `id` como carrusel del explorador: una de las cuentas que sigue el negocio, o (con el id en negativo) una
+ * de la biblioteca de ejemplos de un creador activo. null = no es ninguna (o ya no se ve). Tira si no pudo leer.
+ */
 export async function referenciaDelNegocio(id: number): Promise<Carrusel | null> {
+  if (esDeBiblioteca(id)) return carruselDeLaBiblioteca(id);
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   const db = await getTenantDb();
   const p = await db.from('spy_piezas').select('*').eq('id', id).eq('canal', 'instagram').eq('tipo', 'publicacion').maybeSingle();
@@ -40,7 +46,7 @@ export type CreadoDesdeReferencia =
 export async function crearCarruselDesdeReferencia(ws: number, quien: string, id: number, tipo?: unknown, laminas?: unknown): Promise<CreadoDesdeReferencia> {
   let c: Carrusel | null;
   try { c = await referenciaDelNegocio(id); } catch { return { ok: false, error: 'No pude leer ese carrusel. Vuelve a intentar.', falla: true }; }
-  if (!c) return { ok: false, error: 'Ese carrusel no está entre los de las cuentas que sigues en Spy.' };
+  if (!c) return { ok: false, error: 'Ese carrusel no está entre los de las cuentas que sigues ni en la biblioteca de ejemplos.' };
   const e = estructuraDe(c);
   const plan = planDeReferencia(e, tipo, laminas);
   if ('error' in plan) return { ok: false, error: plan.error };

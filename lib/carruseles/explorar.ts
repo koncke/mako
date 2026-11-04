@@ -23,13 +23,17 @@
 import { formatoDe, formatoPorTexto, mejoresPiezas, FORMATOS, type Formato } from '../spy-detalle';
 import type { Medio } from '../spy-medio';
 import { cierreDeTexto, plano, type Cierre } from './texto';
-import { LARGOS_CARRUSEL, ORDENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL, type LargoCarrusel, type OrdenCarrusel, type PeriodoCarrusel, type VistaCarrusel } from './opciones';
+import { LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL, type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type VistaCarrusel } from './opciones';
 
 /** Un carrusel del explorador: una publicación de Instagram de una cuenta que el negocio sigue en Spy. */
 export type Carrusel = {
-  /** El id de la pieza en Spy (`spy_piezas.id`). */
+  /** El id de la pieza en Spy (`spy_piezas.id`). En NEGATIVO, una de la biblioteca de ejemplos: −id es su fila en
+   *  `carruseles_biblioteca_piezas` (./biblioteca.ts). Así guardados, «Hacer el mío» y la API usan un número sin chocar. */
   id: number;
+  /** El competidor en Spy; en negativo, la cuenta de la biblioteca (`carruseles_biblioteca_cuentas`). */
   competidorId: number;
+  /** De dónde sale: las cuentas que el negocio sigue en Spy, o la biblioteca de ejemplos de la plataforma. */
+  origen: OrigenCarrusel;
   /** Quién lo publicó: el nombre que el negocio le puso en Spy, su @ y su cara (la caricatura o la foto que guardó Spy). */
   creador: { nombre: string; usuario: string | null; foto: string | null };
   /** El link a la publicación original en Instagram. */
@@ -66,6 +70,8 @@ export type PiezaParaCarrusel = {
 };
 export type CompetidorParaCarrusel = { id: number; nombre: string; instagram: string | null; avatar?: string | null };
 
+export type OrigenCarrusel = 'cuentas' | 'biblioteca';
+
 const MEDIO_VALIDO = (v: unknown): Medio | null => (v === 'carrusel' || v === 'imagen' || v === 'video' ? v : null);
 
 /**
@@ -73,7 +79,7 @@ const MEDIO_VALIDO = (v: unknown): Medio | null => (v === 'carrusel' || v === 'i
  * no entran (son video corto: otro gráfico en Spy), ni lo que ya no se ve, ni un medio «video». El outlier se calcula por
  * cuenta sobre TODAS sus publicaciones (no sólo las que se muestran): así el número es el mismo que dice Spy.
  */
-export function carruselesDe(piezas: readonly PiezaParaCarrusel[], competidores: readonly CompetidorParaCarrusel[], ahora = Date.now()): Carrusel[] {
+export function carruselesDe(piezas: readonly PiezaParaCarrusel[], competidores: readonly CompetidorParaCarrusel[], ahora = Date.now(), origen: OrigenCarrusel = 'cuentas'): Carrusel[] {
   const porId = new Map(competidores.map((c) => [c.id, c]));
   const porCompetidor = new Map<number, PiezaParaCarrusel[]>();
   for (const p of piezas) {
@@ -92,6 +98,7 @@ export function carruselesDe(piezas: readonly PiezaParaCarrusel[], competidores:
       out.push({
         id: p.id,
         competidorId: cid,
+        origen,
         creador: { nombre: c.nombre, usuario: c.instagram, foto: c.avatar ?? null },
         url: p.url,
         miniatura: p.miniatura,
@@ -120,15 +127,17 @@ export function carruselesDe(piezas: readonly PiezaParaCarrusel[], competidores:
 // Las opciones (orden, outlier, período, largo, vista) viven en ./opciones.ts: sin dependencias, para que la API de MaKo
 // (lib/api-mako/areas/imagen.def.ts) las importe sin arrastrar Spy. Acá se re-exportan.
 export {
-  LARGOS_CARRUSEL, ORDENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL,
-  type LargoCarrusel, type OrdenCarrusel, type PeriodoCarrusel, type VistaCarrusel,
+  LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, VISTAS_CARRUSEL,
+  type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type VistaCarrusel,
 } from './opciones';
 
 export type FiltrosCarrusel = {
   /** Lo que se busca: palabras del tema, o un @creador. */
   q: string;
-  /** Los competidores elegidos (vacío = todos). */
+  /** Los competidores elegidos (vacío = todos). Los de la biblioteca van en negativo, como su id. */
   creadores: number[];
+  /** De las cuentas que sigue el negocio, de la biblioteca de ejemplos, o de los dos. */
+  origen: OrigenFiltro;
   outlierMin: number;
   periodo: PeriodoCarrusel;
   largo: LargoCarrusel;
@@ -140,7 +149,7 @@ export type FiltrosCarrusel = {
 };
 
 export const FILTROS_INICIALES: FiltrosCarrusel = {
-  q: '', creadores: [], outlierMin: 0, periodo: 'todo', largo: 'todos', formato: '', conImagenes: false, orden: 'outlier', vista: 'todos',
+  q: '', creadores: [], origen: 'todos', outlierMin: 0, periodo: 'todo', largo: 'todos', formato: '', conImagenes: false, orden: 'outlier', vista: 'todos',
 };
 
 // `plano` vive en ./texto.ts (lo usa también «Hacer el mío»): se re-exporta acá, donde lo buscaban.
@@ -181,6 +190,7 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
     if (f.vista === 'semana' && !enRango(c.publicada, 7, ahora)) return false;
     if (!f.conImagenes && c.medio === 'imagen') return false;
     if (creadores.size && !creadores.has(c.competidorId)) return false;
+    if (f.origen !== 'todos' && c.origen !== f.origen) return false;
     if (f.outlierMin > 0 && (c.outlier == null || c.outlier < f.outlierMin)) return false;
     if (f.periodo !== 'todo' && !enRango(c.publicada, Number(f.periodo), ahora)) return false;
     if (f.formato && c.formato !== f.formato) return false;
@@ -190,7 +200,10 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
   return ordenarCarruseles(xs, f.vista === 'semana' && f.orden === 'nuevos' ? 'nuevos' : f.orden);
 }
 
-/** El orden. Lo que no tiene el número del orden va al final (no se afirma un cero), y a igual número, lo más nuevo. */
+/**
+ * El orden. Lo que no tiene el número del orden va al final (no se afirma un cero). Entre los que no lo tienen (los de un
+ * tema de la biblioteca no llevan outlier), primero el que más interacción tuvo y después lo más nuevo.
+ */
 export function ordenarCarruseles(xs: readonly Carrusel[], orden: OrdenCarrusel): Carrusel[] {
   const fecha = (iso: string | null) => { const t = Date.parse(iso ?? ''); return Number.isFinite(t) ? t : null; };
   const clave = (c: Carrusel): number | null =>
@@ -201,7 +214,7 @@ export function ordenarCarruseles(xs: readonly Carrusel[], orden: OrdenCarrusel)
   const asc = orden === 'viejos';
   return [...xs].sort((a, b) => {
     const ka = clave(a); const kb = clave(b);
-    if (ka == null && kb == null) return (fecha(b.publicada) ?? 0) - (fecha(a.publicada) ?? 0) || b.id - a.id;
+    if (ka == null && kb == null) return (interaccion(b) ?? -1) - (interaccion(a) ?? -1) || (fecha(b.publicada) ?? 0) - (fecha(a.publicada) ?? 0) || b.id - a.id;
     if (ka == null) return 1;
     if (kb == null) return -1;
     return (asc ? ka - kb : kb - ka) || (fecha(b.publicada) ?? 0) - (fecha(a.publicada) ?? 0) || b.id - a.id;
@@ -260,11 +273,13 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
     return Array.isArray(v) ? v[0] ?? null : v ?? null;
   };
   const min = Number(get('min'));
-  const creadores = (get('de') ?? '').split(',').map(Number).filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 25);
+  // En negativo, una cuenta de la biblioteca (su id); el cero no es nadie.
+  const creadores = (get('de') ?? '').split(',').filter((x) => x.trim() !== '').map(Number).filter((n) => Number.isSafeInteger(n) && n !== 0).slice(0, 25);
   const formato = formatoDe(get('formato') ?? '');
   return {
     q: (get('q') ?? '').slice(0, 120),
     creadores,
+    origen: unoDe(get('origen'), ORIGENES_CARRUSEL, 'todos'),
     outlierMin: (OUTLIER_MINIMOS as readonly number[]).includes(min) ? min : 0,
     periodo: unoDe(get('periodo'), PERIODOS_CARRUSEL, 'todo'),
     largo: unoDe(get('largo'), LARGOS_CARRUSEL, 'todos'),
@@ -280,6 +295,7 @@ export function queryDeFiltros(f: FiltrosCarrusel): string {
   const q = new URLSearchParams({ ver: 'carruseles' });
   if (f.q.trim()) q.set('q', f.q.trim());
   if (f.creadores.length) q.set('de', f.creadores.join(','));
+  if (f.origen !== 'todos') q.set('origen', f.origen);
   if (f.outlierMin) q.set('min', String(f.outlierMin));
   if (f.periodo !== 'todo') q.set('periodo', f.periodo);
   if (f.largo !== 'todos') q.set('largo', f.largo);
@@ -321,7 +337,8 @@ export function sanearGuardados(raw: unknown): Guardado[] {
   for (const g of v) {
     const id = Number((g as Guardado)?.id);
     const en = String((g as Guardado)?.en ?? '');
-    if (!Number.isSafeInteger(id) || id <= 0 || vistos.has(id) || !Number.isFinite(Date.parse(en))) continue;
+    // En negativo, un carrusel de la biblioteca de ejemplos (./biblioteca.ts); el cero no es ninguno.
+    if (!Number.isSafeInteger(id) || id === 0 || vistos.has(id) || !Number.isFinite(Date.parse(en))) continue;
     vistos.add(id);
     out.push({ id, en });
   }
@@ -359,6 +376,7 @@ export function nombreDeBusqueda(f: FiltrosCarrusel, creadores: ReadonlyArray<{ 
   const partes: string[] = [];
   if (f.q.trim()) partes.push(f.q.trim());
   if (f.creadores.length) partes.push(f.creadores.map((id) => creadores.find((c) => c.id === id)?.nombre ?? '').filter(Boolean).join(', '));
+  if (f.origen !== 'todos') partes.push(ORIGENES_CARRUSEL.find((o) => o.value === f.origen)?.label ?? '');
   if (f.vista === 'semana') partes.push('Esta semana');
   if (f.outlierMin) partes.push(`${f.outlierMin}×+`);
   if (f.formato) partes.push(rotuloFormato(f.formato));
