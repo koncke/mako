@@ -242,34 +242,44 @@ const CLOSING: PlantillaHoja = {
       lista(id('cl-closer'), 'closer'),
     ],
     componentes: [
+      // 4/11/2026 — HALDEN · MOORLY · TANDEM (docs/templates-dashboard-propuesta.md §7.3): «¿por qué se cerró o no, y quién cierra
+      // mejor?». Halden abre con la frase de lo ganado y cómo terminaron las llamadas; Moorly, la lista; Tandem, el equipo lado a lado
+      // y el score en el tiempo. ⚠️ El closer ve ESTA hoja (HOJA_DE_ROL): sólo llamadas, nunca la plata ni los leads.
+      {
+        id: id('cl-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'llamadas_venta', metricas: ['llamadas', 'ganadas', 'tasa_cierre'], comparar: true,
+        titulo: 'Tus llamadas', frase: 'Analizaste {llamadas} llamadas de venta · ganaste {ganadas} · cerraste el {tasa_cierre}, {tasa_cierre:cambio} que el período anterior',
+        ir: 'crm', x: 0, y: 0, w: 12, h: 3,
+      },
       // COMPOSICIÓN DEL 31/10/2026 (13 piezas → 10): cuatro números iguales, con la tasa de cierre primero porque es lo que la
       // hoja pregunta. R1 y R2 eran el mismo puntaje con un filtro, y el cruce closer × dimensión vuelve con un clic en la tabla.
-      kpi(id('cl-tasa'), 'llamadas_venta', 'tasa_cierre', 'Tasa de cierre', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
-      kpi(id('cl-puntaje'), 'llamadas_venta', 'puntaje', 'Score promedio', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('cl-analizadas'), 'llamadas_venta', 'llamadas', 'Analizadas', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('cl-duracion'), 'llamadas_venta', 'duracion', 'Duración', '', 9, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('cl-tasa'), 'llamadas_venta', 'tasa_cierre', 'Tasa de cierre', '', 0, 3, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('cl-puntaje'), 'llamadas_venta', 'puntaje', 'Score promedio', '', 3, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('cl-analizadas'), 'llamadas_venta', 'llamadas', 'Analizadas', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('cl-duracion'), 'llamadas_venta', 'duracion', 'Duración', '', 9, 3, { tipo: 'numero_tendencia' }),
       // El embudo (sube a portada: lib/graficos-portadas.ts) y lo que separa las ganadas de las perdidas.
       {
         id: id('cl-embudo-embudo'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'llamadas_venta', metricas: ['r1', 'r2', 'ganadas_r2'],
-        titulo: 'Embudo de llamadas', subtitulo: 'Cuenta llamadas, no personas', x: 0, y: 4, w: 6, h: 10,
+        titulo: 'Embudo de llamadas', subtitulo: 'Cuenta llamadas, no personas', x: 0, y: 7, w: 6, h: 10,
       },
       {
         id: id('cl-factores-barras'), clase: 'grafico', tipo: 'barras', fuente: 'llamadas_dimensiones', dimension: 'dimension', desglose: 'tono',
-        metricas: ['puntaje'], titulo: 'Factores del cierre', x: 6, y: 4, w: 6, h: 10,
+        metricas: ['puntaje'], titulo: 'Factores del cierre', x: 6, y: 7, w: 6, h: 10,
       },
-      caja(id('cl-factores-ia'), 'Qué decide tus cierres', 'Qué decide los cierres: qué hacen distinto las llamadas ganadas', 0, 14, 12, 7,
+      caja(id('cl-factores-ia'), 'Qué decide tus cierres', 'Qué decide los cierres: qué hacen distinto las llamadas ganadas', 0, 17, 12, 7,
         { fuentes: [id('cl-factores-barras')], largo: 'corto', formato: 'vinetas' }),
       // El equipo
       {
         id: id('cl-closers-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'closer', metricas: ['llamadas', 'puntaje', 'ganadas', 'tasa_cierre'],
-        titulo: 'El equipo de closers', x: 0, y: 21, w: 12, h: 10,
+        titulo: 'El equipo de closers', x: 0, y: 24, w: 12, h: 10,
       },
+      { id: id('cl-resultado'), clase: 'grafico', tipo: 'anillo', fuente: 'llamadas', dimension: 'resultado', metricas: ['llamadas'], titulo: 'Cómo terminaron', x: 0, y: 34, w: 6, h: 8 },
+      { id: id('cl-puntaje-semana'), clase: 'grafico', tipo: 'serie', fuente: 'llamadas_venta', dimension: 'semana', metricas: ['puntaje'], titulo: 'El score por semana', x: 6, y: 34, w: 6, h: 8 },
       // 5 · Las llamadas: traer las nuevas (el cron de siempre y este botón) y la lista, con su búsqueda y el
       //     pop-up «Llamada» (la ficha de cada una, con sus tareas).
-      accion(id('cl-llamadas-sync'), 'sincronizar_llamadas', 'Sincronizar llamadas', 0, 31, 3, 2),
+      accion(id('cl-llamadas-sync'), 'sincronizar_llamadas', 'Sincronizar llamadas', 0, 42, 3, 2),
       {
         id: id('cl-llamadas-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'llamada', metricas: ['puntaje', 'duracion'],
-        titulo: 'Las llamadas', limite: 50, x: 0, y: 33, w: 12, h: 16,
+        titulo: 'Las llamadas', limite: 50, x: 0, y: 44, w: 12, h: 16,
         tabla: { buscar: true, columnas: ['closer', 'reunion', 'dia'] },
         alClic: 'popup', popup: popupDe(POPUP_LLAMADA, id, 'cl-llamadas-tabla'),
       },
