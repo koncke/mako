@@ -1080,3 +1080,53 @@ del servidor y no entra en el banco de prueba); usa las mismas clases que la tar
 (`sugeridosAction`, `sumarSugeridoAction`) · app/competitor-spy/page.tsx · app/competitor-spy/SpyApp.tsx
 (`RejillaSugeridos`) · lib/api-mako/areas/spy.def.ts y spy.run.ts (`ver_sugeridos`, `sumar_sugerido`) ·
 tests/spy-sugeridos.test.ts
+
+## Los logos de cada red, uno solo en toda la tab, y «¿En qué publica?» por red y por formato (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11): los mismos logos de Instagram y YouTube que el buscador, en todos lados donde
+> se ve la red de una pieza; y «¿En qué publica?» de verdad, sin «100% videos».
+
+**La causa del «100% videos»:** el reparto contaba por el tipo GUARDADO, y todo lo de YouTube se guarda como `video`
+(shorts y largos por igual): un canal de YouTube daba «100% videos» aunque la mitad fueran shorts. Ahora sale de
+`tipoDeContenido` (reels, carruseles e imágenes, shorts, videos largos, anuncios), y por red con su logo
+(`repartoDePublicaciones`). Su web no es una publicación: no entra al total.
+
+**Los logos:** `LogoRed` vivía adentro del buscador y el resto dibujaba íconos genéricos. Ahora es una pieza
+(app/competitor-spy/LogoRed.tsx) que usan el buscador, las miniaturas del gráfico (en la esquina), sus filtros, el
+detalle de una pieza y «¿En qué publica?». ⚠️ Los logos de marca se dibujan con los `<symbol>` de `<BrandDefs>`: la
+pantalla lo monta una vez, y el detalle también (va por portal). Sin eso, el logo sale vacío y sin error.
+
+**De paso:** «Cada miniatura es un video» se fue (narraba lo que ya se ve); queda «Se ven N de M» sólo cuando hay más
+piezas que miniaturas.
+
+**Vive en:** app/competitor-spy/LogoRed.tsx · lib/spy-detalle.ts (`repartoDePublicaciones`) · app/competitor-spy/GraficoSpy.tsx
+· app/competitor-spy/DetallePieza.tsx · app/competitor-spy/SpyApp.tsx (`RielAnalisis`, `CajaMix`) ·
+app/competitor-spy/BuscadorAlta.tsx · tests/spy-logos.test.ts
+
+## «Contenido» y «Funnel»: dos pestañas, el selector adentro del gráfico y cada miniatura con su proporción (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11), mirando la ficha en producción: sólo dos pestañas; el selector y los filtros
+> adentro de la tarjeta del gráfico; cada miniatura con su proporción real; sin «Revisar ahora»; sin textos que narran
+> lo que ya se ve; y la criatura de MaKo sin la tarjeta blanca detrás mientras analiza.
+
+**Lo que quedó:**
+- **Dos pestañas.** «Contenido» = el gráfico, sus piezas y sus anuncios debajo, con el riel al costado. «Funnel» = su web
+  (con su funnel y «Copiar su sitio») y lo que se leyó de su oferta. «Miniaturas» se fue: las tarjetas de YouTube ya
+  llevan su miniatura apaisada y su título.
+- **El selector y los filtros de red van adentro de la tarjeta del gráfico**, arriba del dibujo.
+- **Proporción real** (`proporcionDe`, `medidaEnElGrafico`): reel y short 9:16, publicación y anuncio 1:1, video largo y
+  web 16:9. En el gráfico el lado más largo mide lo mismo para todas (un video apaisado no ocupa más lugar); en las
+  tarjetas, el `aspect-ratio` de la imagen.
+- **Sin «Revisar ahora».** Queda «Probar de nuevo» sólo cuando una lectura FALLÓ; «no encontré publicaciones» ya no
+  ofrece releer.
+- **Mientras carga, la tarjeta del gráfico no se dibuja** (`data-cargando`): la criatura queda sobre el gris de la página.
+
+**Una trampa que no se ve:** un test (spy-orden, el 5) contaba DOS botones de releer apagados durante la película —
+«Revisar ahora» y «Revisar de nuevo»—; sacar uno lo ponía rojo. Lo que cuidaba no era el número sino que ninguno se
+pueda tocar mientras corre la animación: ahora afirma eso sobre el que queda.
+
+**Sin hacer todavía:** el detalle de una pieza rediseñado con su transcripción (#10), y «Funnel» con el analizador de
+ofertas (#11).
+
+**Vive en:** app/competitor-spy/SpyApp.tsx (`Pestana`, el panel «Contenido») · app/competitor-spy/GraficoSpy.tsx ·
+app/competitor-spy/TarjetaPieza.tsx · lib/spy-detalle.ts (`proporcionDe`, `medidaEnElGrafico`) · tests/spy-contenido.test.ts

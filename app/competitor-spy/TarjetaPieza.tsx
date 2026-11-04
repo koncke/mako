@@ -29,6 +29,7 @@
 // La de Instagram vence (es del CDN de Meta) y se reescribe en cada lectura (lib/spy.ts).
 
 import { contadorDeTarjeta, destinoDePieza, fechaCorta, miniaturaDePieza, rotuloDeTipo, tiempoDePieza } from '@/lib/spy-vista';
+import { proporcionDe } from '@/lib/spy-detalle';
 import type { PiezaVista } from './actions';
 
 /** El color del canal: el mismo en el punto, en el tinte y en el riel, para no leer leyendas. */
@@ -60,7 +61,8 @@ export function TarjetaPieza({ p, analizando = false, onAbrir }: {
 
   const cuerpo = (
     <>
-      <div className="spy-pcard__media">
+      {/* Su proporción real (Martín, 4/11): un reel vertical, una imagen cuadrada, un video de YouTube apaisado. */}
+      <div className="spy-pcard__media" style={{ aspectRatio: `${proporcionDe(p).ancho} / ${proporcionDe(p).alto}` }}>
         {/* ⚠️ EL TEXTO VA SIEMPRE Y LA FOTO ENCIMA. Antes el texto era el `else` de la foto, así que
             una foto que no cargaba dejaba una caja de color VACÍA — que es exactamente lo que vio
             Martín el 2/11: «las miniaturas de IG no se ven, sólo cajas vacías». Ahora la foto que

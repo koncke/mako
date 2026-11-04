@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as TeclaReact, type ReactNode } from 'react';
 import { Icon } from '../_components/icons';
 import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
+import { LogoRed } from './LogoRed';
 import { useConectarIntegracion } from '../_components/ConectarIntegracion';
 import { fotoPorNosotros } from '@/lib/foto-instagram-reglas';
 import { dibujarContador } from '@/lib/spy-reglas';
@@ -133,12 +134,7 @@ const FLECHA = (
 const inicial = (s: string) => s.replace(/^@/, '').charAt(0).toUpperCase() || '?';
 const sinProtocolo = (s: string) => s.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
 
-/** El logo de cada red: el oficial (ServicioVisual.tsx), nunca uno dibujado por nosotros. */
-const LOGO: Record<'instagram' | 'youtube' | 'tiktok', string> = { instagram: 'red-instagram', youtube: 'youtube', tiktok: 'red-tiktok' };
-function LogoRed({ red, box = 18 }: { red: 'instagram' | 'youtube' | 'tiktok' | 'sitio'; box?: number }) {
-  if (red === 'sitio') return <Icon name="web" size={box - 2} />;
-  return <SvcIcon k={LOGO[red]} box={box} size={Math.round(box * 0.62)} radius={Math.round(box * 0.28)} />;
-}
+// El logo de cada red es `LogoRed` (./LogoRed.tsx): el mismo en toda la tab.
 
 /** La cara de una fila: su foto por NUESTRA ruta (directo, el CDN de Instagram la bloquea) o su inicial, y el logo de su red en la esquina. */
 function Cara({ src, nombre, red }: { src: string | null; nombre: string; red?: 'instagram' | 'youtube' | 'tiktok' }) {
