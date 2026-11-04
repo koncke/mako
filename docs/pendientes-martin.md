@@ -189,27 +189,14 @@ Dos causas:
   los seis que hay («sofiacontreras» vs «Sofia Contreras», «hormozi» vs «@AlexHormozi» vs
   «acquisition.com») hay que borrarlos a mano, que ahora se puede desde la tarjeta.
 
-### ⛔ #20 · Por qué sigue apareciendo «Descargar la extensión» (medido el 2/11 ~06:00)
+### ⛔ #20 · Publicar la versión nueva de la extensión
 
-**No es un botón que haya que borrar.** El zip ya está detrás de un flag desde el 27/10
-(`lib/extension-tienda.ts`): si la tienda está al día se ofrece «Añadir a Chrome», y si va atrás
-se ofrece el zip. Lo vigila `tests/extension-sin-zip-con-tienda.test.ts`, probado rompiéndolo.
+**«Descargar» ya no sale (3/11):** toda pantalla lleva a «Agregar a Chrome», también con la tienda
+atrás, así que esto ya no depende de publicar. Lo de acá antes, «ningún cambio de código lo
+arregla», estaba mal: [hallazgos-extension.md](hallazgos-extension.md) dice por qué.
 
-Lo que pasa es que **la tienda va atrás**. Medido con `node scripts/version-en-tienda.mjs`:
-
-| | versión |
-|---|---|
-| Lo que decía `VERSION_EN_TIENDA` | `0.39.1` ← **35 versiones atrás, un dato viejo** |
-| Lo que la Chrome Web Store publica HOY | `0.74.3` |
-| Lo que sirve el repo | `0.74.4` |
-
-**Ya corregí la medición** a `0.74.3`, que es el valor real. Pero la tienda sigue **una versión
-atrás** del repo, así que el flag hace lo correcto al seguir ofreciendo el zip: mandar a Google
-serviría un paquete viejo.
-
-**Para que la descarga desaparezca sola hay que PUBLICAR la 0.74.4 y esperar la aprobación de
-Google.** Ningún cambio de código lo arregla, y forzar el flag a mano mandaría a cada cliente
-nuevo a instalar una versión vieja.
+**Lo que sí sigue pendiente:** la tienda publica la `0.74.3` y el repo tiene la `0.74.5` (medido el
+3/11 con `node scripts/version-en-tienda.mjs`). Lo nuevo no le llega a nadie hasta publicar.
 
 ⚠️ **MEDIDO EL 2/11 ~15:30, Y NO ES LO QUE DECÍA ACÁ ANTES.** Las credenciales SÍ existen —están en
 `C:/dev/mako-api/.env.local`, no en el `.env.local` del worktree, que es lo que me había hecho
@@ -230,7 +217,7 @@ nadie pudo publicar aunque las tres variables estén puestas.
 3. Autorizar una vez para sacar el `CWS_REFRESH_TOKEN` (`scripts/publicar-extension.mjs --ayuda`
    explica los dos pasos).
 
-Hecho eso, publicar es **un comando**, y la descarga desaparece sola en cuanto Google apruebe.
+Hecho eso, publicar es **un comando**, y la versión nueva llega sola en cuanto Google apruebe.
 **Un asistente no puede hacer el paso 1 ni el 3: son el consentimiento OAuth de la cuenta de
 Martín.**
 
