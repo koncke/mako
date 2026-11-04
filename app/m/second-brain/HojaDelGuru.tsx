@@ -16,7 +16,7 @@ import { SheetM } from '@/app/m/_ui';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
-import { HiloMako } from '@/app/_chat/HiloMako';
+import { HiloMako, esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
 import { BotonSecondBrainDe, CerebroDelGuru, rotuloSecondBrain } from '@/app/second-brain/SuSecondBrain';
 import { useChatDelReferente } from '@/app/second-brain/useChatDelReferente';
@@ -87,7 +87,7 @@ export function HojaDelGuru({ referente: r, onCerrar }: { referente: Asesor; onC
           </div>
         )}
       </SheetM>
-      <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
+      <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} reportable={esRespuestaDeMaKo} />
     </>
   );
 }

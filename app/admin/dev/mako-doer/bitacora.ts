@@ -842,4 +842,36 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/doer-para-quien.ts — `preguntaAMaKo` · lib/mako-doer-in.ts — después del clasificador', 'tests/grupos-ops-turno.test.ts (el turno real, tres roturas) · tests/doer-para-quien.test.ts'],
   },
+  {
+    fecha: '4 nov', hora: '13:30', chat: 'Tickets en la nube', sesion: 'cli_c395d4ca-9c38-5214-ae30-582fa23cf9c4', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo te da la lista de los leads de una campaña, con nombre y teléfono',
+    tickets: [56],
+    revisar: '/second-brain',
+    puntos: [
+      'Le pides a MaKo «los leads de la campaña <nombre>» y te pasa la lista con el nombre y el teléfono de cada uno. Alcanza con una parte del nombre de la campaña, sin tildes, y sin decir la fecha.',
+      'En WhatsApp la lista la escribe el sistema, no la IA: los teléfonos llegan exactos y la lista llega entera aunque sea larga.',
+      'Si ninguna campaña se llama así, MaKo te dice cuáles tienes y cuántos leads trajo cada una, en vez de pedirte la fecha.',
+      'Si MaKo te pregunta un dato, ya no agrega «pídemelo otra vez y lo hago» debajo de la pregunta.',
+      '**Cómo se prueba:** en el grupo o en el chat de MaKo, «pásame los leads de la campaña <parte del nombre> con su teléfono».',
+    ],
+    archivos: [
+      'lib/leads-por-campana.ts — qué campaña nombra el texto y la lista que se escribe',
+      'lib/leads-por-campana-server.ts — los leads con su campaña (la misma de la tabla del CRM: `origenAds`)',
+      'lib/mako-tools.ts — `buscar_leads` mira las campañas cuando nadie se llama así · crm.run.ts — `listar_leads` con `campana`',
+      'lib/doer-salida.ts — `preguntaUnDato` · tests/leads-por-campana.test.ts',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '14:50', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo ya no se contesta a sí misma en un grupo con dos líneas suyas',
+    puntos: [
+      '**Lo que pasaba:** en el grupo de Código Inmobiliario hay dos líneas de MaKo. Lo que mandaba una le llegaba a la otra como si lo escribiera una persona, y MaKo se contestaba a sí misma.',
+      '**El caso de Joan:** su audio pedía agendar el pago de una cuota, y se juntó con un aviso de MaKo. MaKo armó la ficha de otra persona.',
+      '**Ahora:** lo que mandó MaKo se reconoce por su mensaje, llegue por la línea que llegue, y no entra a lo que MaKo contesta.',
+      '**Falta:** que Joan vuelva a pedir lo del audio (el pago de la segunda cuota para el 19 de diciembre). El ticket #58 sigue abierto hasta eso.',
+    ],
+    archivos: ['lib/doer-para-quien.ts — `esEcoDeMaKo` · lib/mako-doer-in.ts — `esEcoDeMaKoAhora` y `sinLosEcos`', 'tests/grupos-ops-turno.test.ts (el turno real, tres roturas) · tests/doer-para-quien.test.ts'],
+  },
 ];

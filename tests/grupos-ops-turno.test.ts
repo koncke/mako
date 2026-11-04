@@ -174,6 +174,17 @@ test('sin grupo de WhatsApp: la clave es de la app, la regla de plata sigue, y a
   assert.deepEqual(s.evolution, []);
 });
 
+test('con dos líneas de MaKo en el grupo, MaKo no se contesta a sí misma (4/11/2026, ws13)', () => {
+  const e = R().ecoDeOtraLinea;
+  assert.equal(e.tarde.encolado, true, 'la escena reproduce el caso: el eco entró a la cola antes de que su id llegara al anillo');
+  assert.equal(e.tarde.pedidoAlModelo, true, 'el pedido de Joan sí llega al turno');
+  assert.equal(e.tarde.ecoAlModelo, false, 'lo que mandó MaKo no entra al lote: armaba la ficha de otra persona');
+  assert.equal(e.tarde.procesado, true, 'el eco queda procesado: el cron no lo vuelve a tomar');
+  assert.equal(e.conId.encolado, false, 'con el id ya en el anillo, ni entra a la cola');
+  assert.equal(e.conId.llamadasAlTurno, 0);
+  assert.equal(e.conId.textosPorWhatsApp, 0);
+});
+
 test('una pregunta a MaKo no se queda en el 👍, en la app y en WhatsApp (4/11/2026)', () => {
   const q = R().preguntaAMaKo;
   assert.deepEqual(q.vivo.deMaKo, ['Sí, aquí estoy.'], '«mako estas vivo?» se contesta aunque la IA diga charla');
@@ -376,3 +387,6 @@ test('la API de MaKo: escribir no toca Evolution; leer no sale por WhatsApp ni H
 //   · sin el cambio (la charla se queda en el 👍) → 1 en rojo: «mako estas vivo? se contesta aunque la IA diga charla»
 //   · las reglas con el respaldo del grupo (`porReglas`) → 2 en rojo: «MaKo, gracias no pregunta» y la charla de «personas hablando»
 //   · le habla siempre (sin mirar si lo nombra) → 2 en rojo: «Juan, ¿venís? pregunta, pero no a MaKo» y «personas hablando»
+// PROBADO ROMPIÉNDOLO (4/11/2026, dos líneas de MaKo en el grupo), corriendo este archivo y tests/doer-para-quien.test.ts, base 29/0 y 14/0:
+//   · `esEcoDeMaKo` sólo con `fromMe` → 2 en rojo (este y el 13 de doer-para-quien) · `esEcoDeMaKoAhora` sólo con `fromMe` → 2 en rojo
+//   · el lote sin `sinLosEcos` → 1 en rojo: «MaKo no se contesta a sí misma» (el eco llegaba al turno junto con el pedido de Joan)

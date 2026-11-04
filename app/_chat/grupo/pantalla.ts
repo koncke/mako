@@ -171,7 +171,7 @@ export function itemsDelGrupo(p: {
     if (rolDe(m) === 'assistant') {
       fuera.push({
         ...base, role: 'assistant', texto: negritaDeWhatsApp(texto),
-        grupo: { autor: null, aviso: !!m.avisoTipo, chip, sigue, sinLeer, ...(m.autor.tipo === 'equipo' ? { deParte: m.autor.nombre, color: colorDeAutor(m.autor.nombre) } : {}) },
+        grupo: { autor: null, aviso: !!m.avisoTipo, chip, sigue, cita, sinLeer, ...(m.autor.tipo === 'equipo' ? { deParte: m.autor.nombre, color: colorDeAutor(m.autor.nombre) } : {}) },
       });
     } else {
       fuera.push({
@@ -195,6 +195,12 @@ export function itemsDelGrupo(p: {
 
 /** Un mensaje del servidor por su id de WhatsApp: el menú y el deslizar dan el id de la fila. */
 export const mensajePorIdDeFila = (mensajes: readonly MensajeDelHilo[], id: IdMensaje): MensajeDelHilo | null => mensajes.find((m) => idDelItem(m) === id) ?? null;
+
+/** Quiénes están, como el renglón de WhatsApp debajo del nombre del grupo: los demás y «Tú» al final (4/11/2026). */
+export function quienesEstan(participantes: readonly { nombre: string; propio: boolean }[]): string {
+  const otros = participantes.filter((p) => !p.propio).map((p) => p.nombre.trim()).filter(Boolean);
+  return [...otros, ...(participantes.some((p) => p.propio) ? ['Tú'] : [])].join(', ');
+}
 
 /** Lo que dice el hilo cuando no pudo: nunca lo que dijo la base. */
 export const FRASES_DEL_GRUPO = {

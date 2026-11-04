@@ -33,8 +33,8 @@ import { dibujarContador } from '@/lib/spy-reglas';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { ESPERA_COMPLETAR_MS, coincideCompetidor } from '@/lib/spy-alta-reglas';
 import {
-  cualesCompletar, esperaDe, filasDeLaBusqueda, planDeBusqueda, pedidosDelPlan,
-  type CanalHallado, type FilaBusqueda, type PerfilHallado, type RespuestasBusqueda,
+  cualesCompletar, esperaDe, filasDeLaBusqueda, gruposPermitidos, nombreParaBuscar, planDeBusqueda, pedidosDelPlan,
+  type BuscarPara, type CanalHallado, type FilaBusqueda, type PerfilHallado, type RespuestasBusqueda,
 } from '@/lib/spy-buscar-reglas';
 import type { Competidor } from '@/lib/spy';
 import type { VistaPrevia } from './actions';
@@ -162,8 +162,13 @@ const PREGUNTA: Record<VistaPrevia['campo'], string> = {
 const vistaDePerfil = (p: PerfilHallado): VistaPrevia => ({ campo: 'instagram', valor: p.usuario, nombre: p.nombre, foto: p.foto, seguidores: p.seguidores, bio: p.bio ?? null, web: p.web ?? null });
 const vistaDeCanal = (c: CanalHallado): VistaPrevia => ({ campo: 'youtube_id', valor: c.ref, nombre: c.nombre, foto: c.foto, seguidores: c.suscriptores });
 
-export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, onClose, onAgregar, onAbrir }: {
+export function BuscadorAlta({ textoInicial = '', para = null, competidores, ocupado, error, onClose, onAgregar, onAbrir }: {
   textoInicial?: string;
+  /**
+   * Sumarle un canal a alguien que ya se mira («Agregar su YouTube»): el MISMO buscador, arrancado con su nombre y con sólo sus
+   * redes (o sólo la pedida). `onAgregar` recibe lo elegido y lo suma a esa ficha.
+   */
+  para?: BuscarPara | null;
   competidores: Competidor[];
   ocupado: boolean;
   error: string | null;
@@ -173,7 +178,8 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
   /** Alguien que ya se mira: se abre su ficha en vez de agregarlo otra vez. */
   onAbrir: (id: number) => void;
 }) {
-  const [texto, setTexto] = useState(textoInicial);
+  const [texto, setTexto] = useState(textoInicial || (para ? nombreParaBuscar(para.nombre) : ''));
+  const permitidos = useMemo(() => gruposPermitidos(para), [para]);
   const [activoK, setActivoK] = useState<string | null>(null);
   // Lo que contestó cada pedido, por su clave. Vive lo que el modal: escribir otra cosa y volver no paga dos veces.
   const [resp, setResp] = useState<RespuestasBusqueda>({});
@@ -269,7 +275,7 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
   const filas: FilaBusqueda[] = useMemo(() => [
     ...mirados.map((c): FilaBusqueda => ({ k: `c:${c.id}`, tipo: 'mirado', grupo: 'mirados', competidorId: c.id })),
     ...busqueda.filas,
-  ], [mirados, busqueda.filas]);
+  ].filter((f) => permitidos.has(f.grupo)), [mirados, busqueda.filas, permitidos]);
   const iEncontrado = filas.findIndex((f) => f.k === activoK);
   const iActivo = filas.length ? (iEncontrado >= 0 ? iEncontrado : 0) : -1;
   const idFila = (i: number) => `${idLista}-${i}`;
@@ -317,7 +323,9 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
   const elegir = (f: FilaBusqueda) => {
     if (f.tipo === 'mirado') onAbrir(f.competidorId);
     else if (f.tipo === 'perfil') elegirPerfil(f.perfil);
-    else if (f.tipo === 'usar') void irAConfirmar(`@${f.usuario}`, { campo: 'instagram', valor: f.usuario });
+    // ⚠️ «Usar @x tal como lo escribiste» TAMBIÉN LEE SU PERFIL (4/11/2026, Cerebro con @herasmedia): antes confirmaba sin leer
+    // y la tarjeta salía con una letra «H», sin foto ni seguidores. Va por el mismo camino que un perfil hallado.
+    else if (f.tipo === 'usar') elegirPerfil({ usuario: f.usuario, nombre: null, foto: null, seguidores: null });
     else if (f.tipo === 'canal') void irAConfirmar(f.canal.url, vistaDeCanal(f.canal));
     else if (f.tipo === 'directo') void irAConfirmar(f.pegar, { campo: f.campo, valor: f.valor });
     else void irAConfirmar(t, { campo: 'nombre', valor: f.nombre });
@@ -414,7 +422,7 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
       <>
         <style>{CSS}</style>
         <div className="spy-velo" onClick={onClose} />
-        <div ref={cajaRef} tabIndex={-1} className="spy-finder" role="dialog" aria-modal="true" aria-label="Mirar a alguien más" onKeyDown={cicloDelTab}>
+        <div ref={cajaRef} tabIndex={-1} className="spy-finder" role="dialog" aria-modal="true" aria-label={para ? `Agregar un canal a ${para.nombre}` : 'Mirar a alguien más'} onKeyDown={cicloDelTab}>
           <div className="spy-finder__in">
             <button type="button" className="spy-finder__volver" aria-label="Volver a la lista" onClick={volver}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
@@ -569,7 +577,7 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
     { id: 'nombre', nombre: 'Sin redes' },
   ];
   let i = 0;
-  const bloques = GRUPOS.map((g) => {
+  const bloques = GRUPOS.filter((g) => permitidos.has(g.id)).map((g) => {
     const deEste = filas.filter((f) => f.grupo === g.id);
     if (!deEste.length && !g.cargando && !g.aviso) return null;
     const desde = i;
@@ -591,7 +599,7 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
     <>
       <style>{CSS}</style>
       <div className="spy-velo" onClick={onClose} />
-      <div ref={cajaRef} tabIndex={-1} className="spy-finder" role="dialog" aria-modal="true" aria-label="Mirar a alguien más" onKeyDown={cicloDelTab}>
+      <div ref={cajaRef} tabIndex={-1} className="spy-finder" role="dialog" aria-modal="true" aria-label={para ? `Agregar un canal a ${para.nombre}` : 'Mirar a alguien más'} onKeyDown={cicloDelTab}>
         <div className="spy-finder__in">
           <Icon name="search" size={20} />
           <input
@@ -600,8 +608,8 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
             value={texto}
             onChange={(e) => { setTexto(e.target.value); setActivoK(null); }}
             onKeyDown={onTecla}
-            placeholder="Nombre, @, canal de YouTube o sitio"
-            aria-label="Buscar a quién mirar"
+            placeholder={para?.red === 'youtube' ? 'Su nombre, su @ o el enlace de su canal' : para?.red === 'instagram' ? 'Su nombre o su @' : 'Nombre, @, canal de YouTube o sitio'}
+            aria-label={para ? `Agregar un canal a ${para.nombre}` : 'Buscar a quién mirar'}
             role="combobox"
             aria-autocomplete="list"
             aria-expanded={filas.length > 0}

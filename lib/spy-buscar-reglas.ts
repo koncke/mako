@@ -520,3 +520,20 @@ export function filasDeLaBusqueda(plan: PlanDeBusqueda, resp: RespuestasBusqueda
     algoPedido: claves.length > 0 && claves.every((k) => resp[k] !== undefined),
   };
 }
+
+// ── Sumarle un canal a alguien que ya se mira (4/11/2026) ─────────────────────────────────────────────────────────────
+// Martín: «Le di a "Agregar YouTube" y el modal que me sale es uno feo... Debe ser el mismo de siempre para buscar su YouTube,
+// este ni siquiera tiene la funcionalidad de búsqueda». Es el MISMO buscador, arrancado con su nombre y con sólo sus redes.
+
+/** Para quién se busca un canal: su nombre y, si se pidió una red, sólo esa. */
+export type BuscarPara = { nombre: string; red?: 'instagram' | 'youtube' | null };
+
+/** Qué grupos ofrece el buscador. Para sumarle un canal a alguien, ni «Ya los miras» ni «Sin redes»: sólo sus redes. */
+export function gruposPermitidos(para?: BuscarPara | null): ReadonlySet<FilaBusqueda['grupo']> {
+  if (!para) return new Set(['mirados', 'instagram', 'youtube', 'tiktok', 'sitio', 'nombre']);
+  if (para.red) return new Set([para.red]);
+  return new Set(['instagram', 'youtube', 'tiktok', 'sitio']);
+}
+
+/** Su nombre para buscar: vive en lib/spy-reglas.ts (lo usan también la Biblioteca de anuncios y la verificación). */
+export { nombreParaBuscar } from './spy-reglas';

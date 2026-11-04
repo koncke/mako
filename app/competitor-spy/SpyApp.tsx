@@ -93,6 +93,8 @@ import { DetallePieza } from './DetallePieza';
 import { grupoDe, repartoDePublicaciones } from '@/lib/spy-detalle';
 import { PeliculaDeOrden } from './OrdenSpy';
 import { BuscadorAlta } from './BuscadorAlta';
+import { Flecha, GrillaPiezas } from './GrillaPiezas';
+import { MejoresPiezas } from './MejoresPiezas';
 
 const CSS = `
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -177,28 +179,38 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-pestana[data-activa=true] .spy-badge{background:var(--mako-bg);color:var(--mako-ink)}
 
 /* ── Las dos columnas de merrin: el catálogo manda y el análisis va a un riel de 336. ── */
-.spy-cols{display:grid;grid-template-columns:minmax(0,1fr) 336px;gap:var(--gap);align-items:start}
+.spy-cols{display:grid;grid-template-columns:minmax(0,1fr) 336px;gap:var(--gap);align-items:stretch}
+.spy-cols__izq{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
+/* Las dos columnas terminan en la misma línea: si el riel es más alto, se estira la última caja del gráfico (sus formatos); si
+   el gráfico es más alto, se estira «Lo que mejor le fue». Nunca queda un hueco al lado de una caja. */
+.spy-cols__izq > .spyg{flex:1 1 auto}
+.spy-cols__izq > .spyg > .spyg-caja:last-child{flex:1 1 auto}
 .spy-riel{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
 
-/* --- La miga: TODA la cabecera de la ficha. 18 px. Copiada de .crumbs--page de fitlo. --- */
-.spy-migas{display:flex;align-items:center;gap:8px;min-width:0;margin:8px 0 16px;
-  font-size:var(--fs-sm);font-weight:600;color:var(--faint);white-space:nowrap}
-.spy-migas button{display:inline-flex;align-items:center;gap:8px;border:0;background:none;padding:0;
-  font:inherit;color:inherit;cursor:pointer}
-.spy-migas button:hover{color:var(--ink)}
-.spy-migas b{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink);font-weight:600}
-.spy-migas i{display:inline-block;width:5px;height:5px;border-right:1.5px solid var(--faint);
-  border-top:1.5px solid var(--faint);transform:rotate(45deg);flex:0 0 auto}
+/* --- Volver a todos: un botón de verdad, con la flecha y las caras de los demás (4/11/2026). --- */
+.spy-volver{display:flex;align-items:center;gap:10px;min-width:0;margin:6px 0 18px;flex-wrap:wrap}
+.spy-volver__atras{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 8px 0 10px;border:0;border-radius:99px;
+  background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);color:var(--ink);font:inherit;font-size:var(--fs-sm);
+  font-weight:600;cursor:pointer;transition:box-shadow .15s ease,transform .15s ease}
+.spy-volver__atras:hover{box-shadow:inset 0 0 0 1px var(--border-strong,var(--dim))}
+.spy-volver__atras:active{transform:scale(.98)}
+.spy-volver__atras > span:not(.spy-volver__caras){padding-right:4px}
+.spy-volver__caras{display:flex;padding-left:4px}
+.spy-volver__caras span{display:grid;place-items:center;width:26px;height:26px;margin-left:-8px;border-radius:50%;overflow:hidden;
+  background:var(--surface-2);box-shadow:0 0 0 2px var(--surface);color:var(--dim);font-size:11px;font-weight:700}
+.spy-volver__caras span:first-child{margin-left:0}
+.spy-volver__caras img{width:100%;height:100%;object-fit:cover}
 
 /* --- La identidad abre el riel, como la .pd-info abre la columna de al lado. --- */
-.spy-ficha{display:flex;flex-direction:column;gap:12px;padding:18px 20px 20px;border-radius:var(--r-lg);
+.spy-ficha{position:relative;display:flex;flex-direction:column;gap:12px;padding:18px 20px 20px;border-radius:var(--r-lg);
   background:var(--surface);box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta)}
 .spy-ficha small{display:block;color:var(--faint);font-size:var(--fs-sm);font-weight:600}
 .spy-ficha h1{margin:4px 0 0;font-size:var(--fs-kpi);font-weight:600;line-height:1.1;letter-spacing:-.02em}
-.spy-ficha__quien{display:flex;align-items:center;gap:14px;min-width:0}
+.spy-ficha__quien{display:flex;align-items:center;gap:14px;min-width:0;padding-right:40px}
 .spy-ficha__foto{flex:none;width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--surface-2);box-shadow:0 0 0 2px var(--surface),0 0 0 3px var(--border)}
 .spy-ficha__datos{display:flex;flex-wrap:wrap;gap:6px}
-.spy-ficha__acciones{display:flex;gap:8px}
+/* El ⋯ arriba a la derecha de la tarjeta, donde se lo busca (Martín, 4/11: «los 3 puntos están abajo, no tiene sentido»). */
+.spy-ficha__acciones{position:absolute;top:12px;right:12px;display:flex;gap:8px}
 .spy-ficha__acciones .spy-boton:first-child{flex:1}
 
 /* ── Celdas pastel de datos: .kpi. Sin deltas, porque Spy lee UNA vez. ── */
@@ -338,8 +350,45 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-ccard__sub{display:block;margin-top:2px;color:var(--faint);font-size:var(--fs-sm)}
 .spy-ccard__pie{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .spy-sugeridos{margin-top:calc(var(--gap) * 2)}
-.spy-anuncios{margin-top:calc(var(--gap) * 2)}
-.spy-anuncios h2{margin:0 0 12px;font-size:var(--fs-sect);font-weight:600}
+/* --- Todas sus piezas: a todo el ancho y por páginas (GrillaPiezas.tsx). --- */
+.spy-todas{margin-top:calc(var(--gap) * 2)}
+.spy-todas__titulo{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.spy-todas__titulo h2{margin:0;font-size:var(--fs-sect);font-weight:600;letter-spacing:-.01em}
+.spy-trayendo{display:inline-flex;align-items:center;gap:7px;color:var(--faint);font-size:var(--fs-meta);font-weight:600}
+.spy-trayendo i{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:spy-latido 1.4s ease-in-out infinite}
+@keyframes spy-latido{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+.spy-pgrid--ancha{gap:16px}
+.spy-pgrid__celda{min-width:0;display:flex}
+.spy-pgrid__celda > *{flex:1;min-width:0}
+.spy-paginas{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:20px;flex-wrap:wrap}
+.spy-paginas__cuenta{color:var(--faint);font-size:var(--fs-sm);font-weight:600;font-variant-numeric:tabular-nums}
+.spy-paginas__botones{display:flex;align-items:center;gap:4px}
+.spy-paginas__n,.spy-paginas__flecha{display:grid;place-items:center;min-width:36px;height:36px;padding:0 8px;border:0;border-radius:10px;
+  background:none;color:var(--dim);font:inherit;font-size:var(--fs-sm);font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer;
+  transition:background .15s ease,color .15s ease}
+.spy-paginas__n:hover,.spy-paginas__flecha:hover:not(:disabled){background:var(--surface-2);color:var(--ink)}
+.spy-paginas__n[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.spy-paginas__flecha:disabled{opacity:.35;cursor:default}
+.spy-paginas__salto{min-width:24px;text-align:center;color:var(--faint)}
+
+/* --- Lo que mejor le fue: cierra el riel y se estira hasta donde terminan los formatos (MejoresPiezas.tsx). --- */
+.spy-mejores{position:relative;flex:1 1 auto;min-height:250px}
+.spy-mejores__tarjeta{position:absolute;inset:0;display:flex;flex-direction:column;padding:18px 20px 12px;border-radius:var(--r-lg);
+  background:var(--surface);box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta);overflow:hidden}
+.spy-mejores h3{margin:0 0 10px;font-size:var(--fs-card);font-weight:600;line-height:1.25}
+.spy-mejores ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column}
+.spy-mejores li button{display:flex;align-items:center;gap:12px;width:100%;height:60px;padding:0 8px;margin:0 -8px;border:0;border-radius:12px;
+  background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background .15s ease}
+.spy-mejores li button:hover{background:var(--surface-2)}
+.spy-mejores__mini{position:relative;flex:none;width:44px;height:44px;border-radius:10px;overflow:hidden;background:var(--surface-2)}
+.spy-mejores__mini img{width:100%;height:100%;object-fit:cover}
+.spy-mejores__red{position:absolute;right:2px;bottom:2px;line-height:0}
+.spy-mejores__texto{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.spy-mejores__texto b{font-size:var(--fs-sm);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spy-mejores__texto small{color:var(--faint);font-size:var(--fs-meta);font-weight:600}
+.spy-mejores__veces{flex:none;padding:3px 8px;border-radius:99px;background:var(--surface-2);color:var(--dim);font-size:var(--fs-meta);
+  font-weight:700;font-variant-numeric:tabular-nums}
+.spy-mejores__veces[data-alto="true"]{background:var(--ok-bg,var(--t3));color:var(--ok-ink,var(--t-ink))}
 .spy-sugeridos .spy-phead h2{margin:0;font-size:var(--fs-sect);font-weight:600;letter-spacing:-.015em}
 /* El borrar vive EN la tarjeta: para sacar un duplicado ya no hay que entrar al competidor. */
 .spy-ccard__borrar{position:absolute;top:12px;right:12px;display:grid;place-items:center;
@@ -452,6 +501,9 @@ button.spy-campo:hover{color:var(--dim)}
   .spy-cols{grid-template-columns:minmax(0,1fr)}
   .spy-riel{flex-direction:row;flex-wrap:wrap}
   .spy-riel > *{flex:1 1 280px}
+  /* En una columna sola no hay nada que llenar: la tarjeta fluye y muestra 5 (MejoresPiezas lee la variable). */
+  .spy-mejores{--mejores-fluye:1;min-height:0}
+  .spy-mejores__tarjeta{position:static}
 }
 @media (max-width:760px){
   .spy-barra{padding:10px 14px}
@@ -462,7 +514,10 @@ button.spy-campo:hover{color:var(--dim)}
   .spy-pcard__texto b{font-size:var(--fs-sm)}
   .spy-pcard__num{padding:4px 9px}
   .spy-pcard__num small{display:none}
-  .spy-riel{flex-direction:column}
+  /* En columna y SIN envolver: con wrap y la base de 280 px de arriba, cada tarjeta del riel quedaba con un hueco abajo
+     (medido: los seguidores, 223 px de alto para 107 de contenido). */
+  .spy-riel{flex-direction:column;flex-wrap:nowrap}
+  .spy-riel > *{flex:0 0 auto}
   .spy-solo-ancho{display:none}
 }
 `;
@@ -527,13 +582,13 @@ function ModalCampo({ titulo, placeholder, boton, ocupado, error, onClose, onEnv
 
 /** El ícono de cada opción del desplegable de tipos (AGENTS.md: cada opción de un desplegable lleva el suyo). */
 const ICONO_TIPO: Record<ValorDeContenido, NombreIconoMenu> = {
-  todo: 'ver', reels: 'video', carruseles: 'imagen', largos: 'video', shorts: 'video',
+  todo: 'ver', reels: 'video', carruseles: 'imagen', largos: 'video', shorts: 'video', anuncios: 'anuncio',
   'agregar-instagram': 'agregar', 'agregar-youtube': 'agregar',
 };
 
 const NOMBRE_RED: Record<RedOtra, string> = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram' };
 const COLOR_RED: Record<RedOtra, string> = { youtube: 'var(--yt)', tiktok: 'var(--ink)', instagram: 'var(--ig)' };
-type BusquedaDeRedes = { buscando: boolean; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; aviso?: string };
+type BusquedaDeRedes = { buscando: boolean; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[] };
 
 /** La cara de una red encontrada: su foto si la leímos, y si no el punto de su color. */
 function CaraDeRed({ k }: { k: CandidatoVerificado }) {
@@ -548,13 +603,19 @@ function CaraDeRed({ k }: { k: CandidatoVerificado }) {
  * pregunte si es ese o no»). Lo seguro ya se sumó y se puede deshacer; lo dudoso se pregunta, con su foto y el porqué.
  * Si no encontró nada, no dice nada: no hay nada que hacer.
  */
+/** Cuántas veces se vuelve a pedir una búsqueda de redes que sigue corriendo, y cada cuánto. */
+const VUELTAS_REDES = 6;
+const ESPERA_REDES_MS = 15_000;
+
 function OtrasRedes({ b, ocupado, onSi, onNo, onDeshacer }: {
   b: BusquedaDeRedes | undefined; ocupado: boolean;
   onSi: (k: CandidatoVerificado) => void; onNo: (k: CandidatoVerificado) => void; onDeshacer: (k: CandidatoVerificado) => void;
 }) {
-  if (!b) return null;
-  if (b.buscando) return <p className="spy-aviso spy-aviso--suave">Buscando sus otras redes…</p>;
-  if (!b.sumadas.length && !b.candidatos.length) return b.aviso ? <p className="spy-aviso">{b.aviso}</p> : null;
+  // ⚠️ SIN TEXTO MIENTRAS BUSCA NI CUANDO NO PUDO (Martín, 4/11/2026: «Elimina textos innecesarios como "No pude buscar sus
+  // otras redes ahora. Prueba en un rato."»). Se busca en segundo plano; lo que aparece, aparece. Lo que no terminó se vuelve a
+  // pedir solo (`pendiente`, lib/spy-google-corrida.ts).
+  if (!b || b.buscando) return null;
+  if (!b.sumadas.length && !b.candidatos.length) return null;
   const fila = (k: CandidatoVerificado, rotulo: string, botones: React.ReactNode) => (
     <div key={`${k.red}|${k.ref}`} className="spy-redes-fila">
       <CaraDeRed k={k} />
@@ -578,6 +639,15 @@ function OtrasRedes({ b, ocupado, onSi, onNo, onDeshacer }: {
       )))}
     </section>
   );
+}
+
+/**
+ * Una cara que no cargó cae a su foto de perfil, y recién sin foto se saca. Antes se sacaba de una: si la caricatura fallaba
+ * (vencida, un permiso del bucket), la tarjeta quedaba sin cara aunque tuviera su foto (4/11/2026, el Cerebro con Den Borg).
+ */
+function caerAFoto(img: HTMLImageElement, foto: string | null | undefined): void {
+  if (foto && img.getAttribute('src') !== foto) { img.src = foto; return; }
+  img.remove();
 }
 
 function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBorrar }: {
@@ -631,7 +701,7 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
                     sin ninguna su foto (`caraDeTarjeta`). Sin la caricatura NO hay cartel ni spinner: la foto y listo. */}
                 {cara
                   // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public, no pasa por el optimizador
-                  ? <img src={cara} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
+                  ? <img src={cara} alt="" loading="lazy" onError={(e) => { caerAFoto(e.currentTarget, c.avatar); }} />
                   : inicial(c.nombre)}
               </span>
               <div className="spy-ccard__cuerpo">
@@ -774,11 +844,13 @@ function RielAnalisis({ piezas, c }: { piezas: PiezaVista[]; c: Competidor }) {
   );
 }
 
-export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [] }: {
+export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = null, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [] }: {
   iniciales: Competidor[];
   resumenInicial: Record<number, ResumenPiezas>;
   /** El `?competidor=` de la URL. La ficha es una URL: se comparte, se marca y se vuelve. */
   abierto: number | null;
+  /** Las piezas del `abierto`, leídas en el server junto con todo lo demás: la ficha dibuja sin otra vuelta al abrir. */
+  piezasIniciales?: { id: number; piezas: PiezaVista[] } | null;
   errorInicial: string | null;
   /** Sólo el admin del negocio borra: se lleva lo leído por todo el equipo y no se deshace. */
   puedeBorrar?: boolean;
@@ -791,7 +863,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [sugeridos, setSugeridos] = useState<Sugerido[]>(sugeridosIniciales);
   const [resumen, setResumen] = useState(resumenInicial);
   const [elegido, setElegido] = useState<number | null>(abierto ?? (iniciales.length === 1 ? iniciales[0].id : null));
-  const [piezas, setPiezas] = useState<PiezaVista[]>([]);
+  // Las del server se usan UNA vez, sólo para el competidor con que se abrió la página.
+  const inicialesDePiezas = useRef(piezasIniciales);
+  const [piezas, setPiezas] = useState<PiezaVista[]>(() => (piezasIniciales && piezasIniciales.id === (abierto ?? null) ? piezasIniciales.piezas : []));
   const [trayendo, setTrayendo] = useState(false);
   const [leyendo, setLeyendo] = useState<number | null>(null);
   const [ordenando, setOrdenando] = useState<{ id: number; piezas: PiezaVista[] | null } | null>(null);
@@ -804,7 +878,6 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   /** Por qué la traída larga no trajo todo, por competidor (4/11/2026: «si una corrida larga no terminó, la pantalla lo dice»). */
   const [avisoTodo, setAvisoTodo] = useState<Record<number, string>>({});
   /** Cuántas tarjetas se dibujan: con cientos de piezas, de a 60 (una grilla de 500 imágenes traba la pantalla). */
-  const [mostrar, setMostrar] = useState(60);
   const [lecturas, setLecturas] = useState<Record<number, LecturaCanalSpy[]>>({});
   const [error, setError] = useState<string | null>(errorInicial);
   // El gráfico va primero: es el detalle de cada competidor (punto 7 del 4/11/2026).
@@ -817,6 +890,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [tipo, setTipo] = useState<TipoContenido>('todo');
   const [orden, setOrden] = useState<OrdenSpy>('mas-vistas');
   const [modal, setModal] = useState<'alta' | 'canal' | 'anuncio' | 'quitar' | null>(null);
+  /** «Agregar su YouTube» busca sólo en YouTube; el «Agregar un canal» del menú, en todas sus redes. */
+  const [redCanal, setRedCanal] = useState<'instagram' | 'youtube' | null>(null);
+  const abrirCanal = (red: 'instagram' | 'youtube' | null) => { setErrorModal(null); setRedCanal(red); setModal('canal'); };
   /** A quién se está por dejar de mirar DESDE LA LISTA. En la ficha eso lo maneja `modal`. */
   const [aBorrar, setABorrar] = useState<Competidor | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -885,9 +961,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     if (elegido == null) return;
     let vivo = true;
     const id = elegido;
-    setPiezas([]); setError(null); setBuscar(''); setTipo('todo'); setPestana('contenido'); setTrayendo(true); setOrdenando(null); setMostrar(60);
+    const ini = inicialesDePiezas.current?.id === id ? inicialesDePiezas.current : null;
+    inicialesDePiezas.current = null;
+    if (!ini) setPiezas([]);
+    setError(null); setBuscar(''); setTipo('todo'); setPestana('contenido'); setTrayendo(!ini); setOrdenando(null);
     void (async () => {
-      const p = await traerPiezas(id);
+      const p = ini ? ini.piezas : await traerPiezas(id);
       if (!vivo) return;
       setTrayendo(false);
       const quien = listaActual.current.find((x) => x.id === id);
@@ -939,17 +1018,24 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
 
   // Sus otras redes (puntos 6 del 4/11): se buscan SOLAS, al dar de alta y al abrir la ficha de alguien a quien le falta
   // una (una vez por semana: `redes-recordar.ts`). Por una RUTA y no una action: tarda hasta 40 s y haría fila.
-  const buscarRedes = useCallback(async (id: number) => {
-    marcarRedesBuscadas(ws, id);
-    setRedes((v) => ({ ...v, [id]: { buscando: true, sumadas: [], candidatos: [] } }));
-    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web?: string | null } | { ok: false; error: string };
+  const buscarRedes = useCallback(async (id: number, vuelta = 0) => {
+    if (vuelta === 0) {
+      marcarRedesBuscadas(ws, id);
+      setRedes((v) => ({ ...v, [id]: { buscando: true, sumadas: [], candidatos: [] } }));
+    }
+    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web?: string | null; pendiente?: boolean } | { ok: false; error: string };
     const r: Resp = await fetch('/api/competitor-spy/redes', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(125_000),
-    }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false as const, error: 'No pude buscar sus otras redes ahora.' }));
+    }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false as const, error: '' }));
+    // Google todavía corre: lo encontrado se muestra y se vuelve a pedir solo, sin texto. La corrida se retoma sin pagar otra.
+    const sigue = r.ok && r.pendiente && vuelta < VUELTAS_REDES;
     setRedes((v) => ({
       ...v,
-      [id]: r.ok ? { buscando: false, sumadas: r.sumadas, candidatos: r.candidatos } : { buscando: false, sumadas: [], candidatos: [], aviso: r.error },
+      [id]: r.ok
+        ? { buscando: false, sumadas: [...(v[id]?.sumadas ?? []).filter((k) => !r.sumadas.some((x) => x.red === k.red && x.ref === k.ref)), ...r.sumadas], candidatos: r.candidatos }
+        : { buscando: false, sumadas: v[id]?.sumadas ?? [], candidatos: [] },
     }));
+    if (sigue) setTimeout(() => { if (actual.current === id) void buscarRedes(id, vuelta + 1); }, ESPERA_REDES_MS);
     // Lo que se sumó solo se lee ya: sus piezas tienen que aparecer sin que nadie apriete nada.
     // Su web encontrada también se lee ya (su funnel y su oferta, solos).
     if (r.ok && (r.sumadas.some((k) => k.red !== 'tiktok') || r.web)) {
@@ -1013,10 +1099,10 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false }));
     if (r.ok && r.enMarcha) setTrayendoTodo(id);
     // El motivo, en palabras: antes se tiraba y la ficha quedaba con lo de la lectura de siempre sin decir por qué.
-    const aviso = !r.ok ? null : avisoDeTraida(r.porque);
+    const aviso = !r.ok ? null : avisoDeTraida(r.porque, { admin: puedeBorrar });
     setAvisoTodo((v) => { const n = { ...v }; if (aviso) n[id] = aviso; else delete n[id]; return n; });
     return r;
-  }, []);
+  }, [puedeBorrar]);
 
   // Mientras la corrida larga está en marcha, se pregunta cada 20 s; al terminar, se traen las piezas nuevas y la IA las
   // lee sola. Se para a los 15 minutos: la corrida sigue en Apify y la próxima apertura la recoge.
@@ -1225,11 +1311,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   // La página que se le cargó, no la última que se guardó: con «Guardar en Spy» puede haber varias.
   const sitio = useMemo(() => piezas.find((p) => p.canal === 'landing' && p.ref === c?.landing_url) ?? piezas.find((p) => p.canal === 'landing') ?? null, [piezas, c?.landing_url]);
   const piezasDelSitio = (sitio?.piezasDePagina ?? []).filter((n) => !sitio?.funnel || !n.startsWith('un video'));
-  const visibles = useMemo(() => ordenarPiezas(filtrarPiezas(flujo, buscar, tipo), orden), [flujo, buscar, tipo, orden]);
+  // La grilla de abajo: lo que publica Y sus anuncios, como un formato más (Martín, 4/11: «los anuncios deberían estar en
+  // "Contenido", igual que el resto»). Antes los anuncios eran una sección aparte, al final de todo.
+  const contenido = useMemo(() => [...flujo, ...anuncios], [flujo, anuncios]);
+  const visibles = useMemo(() => ordenarPiezas(filtrarPiezas(contenido, buscar, tipo), orden), [contenido, buscar, tipo, orden]);
   // Otra búsqueda, otro tipo u otro orden vuelven a las primeras 60.
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- es un reinicio por cambio de filtro, no un cálculo
-  useEffect(() => { setMostrar(60); }, [buscar, tipo, orden]);
-  const opcionesTipo = useMemo(() => (c ? opcionesDeContenido(flujo, c) : []), [flujo, c]);
+  const opcionesTipo = useMemo(() => (c ? opcionesDeContenido(contenido, c) : []), [contenido, c]);
   const ofertaDe = c ? ofertas[c.id] : undefined;
   const ofertaConDiagnostico = !!ofertaDe && 'diagnostico' in ofertaDe && !!ofertaDe.diagnostico;
   // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece. Y son DOS (Martín, 4/11): las de antes
@@ -1243,7 +1330,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const lecturasDe = elegido != null ? lecturas[elegido] ?? null : null;
   const estaLeyendo = leyendo != null && leyendo === elegido;
   const estado = c
-    ? estadoDeResultados({ leyendo: estaLeyendo, trayendo, visibles: visibles.length, total: flujo.length, hayCanales: canalesDe(c), lecturas: lecturasDe })
+    ? estadoDeResultados({ leyendo: estaLeyendo, trayendo, visibles: visibles.length, total: contenido.length, hayCanales: canalesDe(c), lecturas: lecturasDe })
     : 'hay';
 
   const desde = useMemo(() => piezas.map((p) => p.visto_primera_vez).sort()[0] ?? null, [piezas]);
@@ -1313,7 +1400,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
           <Dropdown
             ariaLabel="Más acciones"
             value=""
-            width={210}
+            width={40}
+            menuMinAncho={210}
             align="right"
             resetAfterSelect
             sinFlecha
@@ -1328,8 +1416,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
             onChange={(v) => {
               // ⚠️ «Qué vende y qué ataca» se fue el 4/11/2026: la oferta la lee sola la IA del negocio con
               // cada lectura (/api/competitor-spy/analizar). Martín: «sin pedirlo».
+              if (v === 'canal') { abrirCanal(null); return; }
               setErrorModal(null);
-              setModal(v as 'canal' | 'anuncio' | 'quitar');
+              setModal(v as 'anuncio' | 'quitar');
             }}
             buttonStyle={{ height: 40, width: 40, justifyContent: 'center', padding: 0, borderRadius: 12 }}
           />
@@ -1346,6 +1435,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       )}
 
       {flujo.length > 0 && <RielAnalisis piezas={flujo} c={c} />}
+      <MejoresPiezas piezas={flujo} onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })} />
     </aside>
   ) : null;
 
@@ -1408,20 +1498,38 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                  título con tres botones (85) + pestañas (43) + herramientas (42) + conteo (18).
                  Quedan TRES, y las dos primeras son chicas: miga (18) + pestañas (42) +
                  herramientas (42). El conteo se fue porque la pestaña ya lo dice en su badge. ── */}
-            <nav className="spy-migas" aria-label="Dónde estás">
-              <button type="button" onClick={() => irA(null)}>Competidores</button>
-              <i aria-hidden />
-              {competidores.length > 1
-                ? (
-                  <Dropdown
-                    ariaLabel="Cambiar de competidor"
-                    value={String(c.id)}
-                    options={competidores.map((x) => ({ value: String(x.id), label: x.nombre }))}
-                    onChange={(v) => irA(Number(v))}
-                    buttonStyle={{ border: 0, background: 'none', padding: 0, height: 18, fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink)' }}
-                  />
-                )
-                : <b>{c.nombre}</b>}
+            {/* ── VOLVER, A LA VISTA (Martín, 4/11/2026: «no queda claro como volver para atrás a todos los competidores, rediseña esa
+                 parte»). Era una miga de 18 px en gris. Ahora es un botón de verdad, con la flecha y las caras de los demás —se lee
+                 «a todos tus competidores» sin texto de más—, y al lado el cambio directo a otro. Copiado del «←» de la cabecera de un
+                 ítem en Shopify y Linear: la vuelta es lo primero de la izquierda. ── */}
+            <nav className="spy-volver" aria-label="Dónde estás">
+              <button type="button" className="spy-volver__atras" onClick={() => irA(null)}>
+                <Flecha a="izquierda" size={18} />
+                <span>Competidores</span>
+                {competidores.length > 1 && (
+                  <span className="spy-volver__caras" aria-hidden>
+                    {competidores.filter((x) => x.id !== c.id).slice(0, 4).map((x) => {
+                      const cara = caraDeTarjeta(x, caricaturaDeCompetidor(x));
+                      return (
+                        <span key={x.id}>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public */}
+                          {cara ? <img src={cara} alt="" onError={(e) => { caerAFoto(e.currentTarget, x.avatar); }} /> : inicial(x.nombre)}
+                        </span>
+                      );
+                    })}
+                  </span>
+                )}
+              </button>
+              {competidores.length > 1 && (
+                <Dropdown
+                  ariaLabel="Cambiar de competidor"
+                  value={String(c.id)}
+                  width={280}
+                  options={competidores.map((x) => ({ value: String(x.id), label: nombreDeTarjeta(x) }))}
+                  onChange={(v) => irA(Number(v))}
+                  buttonStyle={{ height: 40, borderRadius: 99, padding: '0 14px', fontSize: 'var(--fs-sm)', fontWeight: 600, maxWidth: 320 }}
+                />
+              )}
             </nav>
 
             <OtrasRedes
@@ -1449,119 +1557,116 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
             )}
 
             {activa === 'contenido' && (
-              // ── Las dos columnas de merrin: el gráfico y sus piezas a la izquierda, el riel a la derecha.
-              <div className="spy-cols">
-                <div>
-                  {/* El gráfico: el detalle de cada competidor (punto 7 del 4/11/2026, lib/spy-detalle.ts). */}
-                  {(flujo.length > 0 || anuncios.length > 0) && (
-                    <GraficoSpy
-                      c={c} piezas={piezas} analizando={autoAnalisis === c.id}
-                      onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })}
-                      onAgregarRed={() => { setErrorModal(null); setModal('canal'); }}
-                      onWeb={() => setPestana('funnel')}
-                    />
-                  )}
-                  {flujo.length > 0 && (
-                    <>
-                      {/* La barra de herramientas de fitlo: campo ancho, chips y el orden a la derecha. */}
-                      <div className="spy-herramientas">
-                        <label className="spy-buscar">
-                          <Icon name="search" size={16} />
-                          <input aria-label="Buscar en sus piezas" placeholder="Buscar en sus piezas" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
-                        </label>
-                        {/* ⚠️ UN DESPLEGABLE DE TIPOS EN VEZ DE CHIPS (4/11/2026). Martín: «"Sigue a la vista" y "Probado" no se
-                            entiende qué hacen, elimínalos... "Agregar Instagram" o la red que falte, ahora se hará en el desplegable».
-                            La red que falta se agrega desde acá: elegirla abre el mismo campo que «Agregar un canal». */}
-                        <Dropdown
-                          ariaLabel="Qué ver"
-                          value={tipo}
-                          width={250}
-                          buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
-                          options={opcionesTipo.map((o) => ({ ...o, icono: ICONO_TIPO[o.value] }))}
-                          onChange={(v) => {
-                            if (v === 'agregar-instagram' || v === 'agregar-youtube') { setErrorModal(null); setModal('canal'); return; }
-                            setTipo(v as TipoContenido);
-                          }}
-                        />
-                        <div className="spy-orden">
-                          <Dropdown
-                            ariaLabel="Ordenar"
-                            value={orden}
-                            width={200}
-                            align="right"
-                            buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
-                            options={[...ORDENES]}
-                            onChange={(v) => setOrden(v as OrdenSpy)}
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
+              <>
+                {/* ── Arriba, las dos columnas: el gráfico y sus formatos a la izquierda, el riel a la derecha (que termina con «Lo que
+                     mejor le fue», estirado hasta donde terminan los formatos). Abajo, a todo el ancho, todas sus piezas por páginas. ── */}
+                <div className="spy-cols">
+                  <div className="spy-cols__izq">
+                    {/* El gráfico: el detalle de cada competidor (punto 7 del 4/11/2026, lib/spy-detalle.ts). */}
+                    {(flujo.length > 0 || anuncios.length > 0) && (
+                      <GraficoSpy
+                        c={c} piezas={piezas} analizando={autoAnalisis === c.id}
+                        onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })}
+                        onAgregarRed={(red) => abrirCanal(red)}
+                        onWeb={() => setPestana('funnel')}
+                      />
+                    )}
 
-                  {trayendoTodo === c.id && <p className="spy-aviso spy-aviso--suave" aria-live="polite">Trayendo todo lo que publicó…</p>}
-                  {trayendoTodo !== c.id && avisoTodo[c.id] && <p className="spy-aviso spy-aviso--suave" aria-live="polite">{avisoTodo[c.id]}</p>}
+                    {/* ── Un solo estado para toda la zona, jamás uno por canal. Con piezas, la grilla de abajo. ── */}
+                    {estado === 'cargando' && !contenido.length && <Esqueleto leyendo={estaLeyendo} />}
+                    {estado === 'sin-canales' && (
+                      <Vacio titulo={`Dime dónde mirar a ${c.nombre}`} botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => abrirCanal(null)}>Agregar un canal</button>}>
+                        <p>Su @, su canal de YouTube o su sitio.</p>
+                      </Vacio>
+                    )}
+                    {estado === 'leido-sin-nada' && (
+                      <Vacio titulo={`No encontré publicaciones de ${c.nombre}`}>
+                        <p>Leímos sus canales {c.mirado_en ? `el ${fechaCorta(c.mirado_en)} ` : ''}y no había nada público.</p>
+                      </Vacio>
+                    )}
+                    {estado === 'no-pudo' && (
+                      <Vacio
+                        titulo={`No pude leer a ${c.nombre}`}
+                        botones={(
+                          <>
+                            {pideConectarMeta(lecturasDe) && (
+                              <BotonIntegracion servicio="meta" className="spy-boton spy-boton-primario" onConectado={() => void leer(c.id)}>
+                                <Icon name="plug" size={14} /> Conectar Meta
+                              </BotonIntegracion>
+                            )}
+                            {pideConectarMeta(lecturasDe) && (
+                              <BotonIntegracion servicio="apify-instagram" className="spy-boton" onConectado={() => void leer(c.id)}>
+                                Conectar Apify
+                              </BotonIntegracion>
+                            )}
+                            {revisarDeNuevo}
+                          </>
+                        )}
+                      >
+                        {motivos}
+                      </Vacio>
+                    )}
+                  </div>
 
-                  {/* ── Un solo estado para toda la zona de resultados, jamás uno por canal. ── */}
-                  {estado === 'hay' && (
-                    <>
-                      {/* ⚠️ SIN PIE DE TEXTO (4/11/2026): «Lo que se pudo leer de sus canales públicos el 4 nov. La etapa la
-                          calcula MaKo…» es lo que Martín pidió sacar. La fecha ya la dice la cabecera («Revisado hace…»). */}
-                      <div className="spy-pgrid">{visibles.slice(0, mostrar).map((p) => <TarjetaPieza key={p.id} p={p} analizando={autoAnalisis === c.id && !p.analisis} onAbrir={() => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })} />)}</div>
-                      {visibles.length > mostrar && (
-                        <div className="spy-vermas"><button type="button" className="spy-boton" onClick={() => setMostrar((n) => n + 60)}>Ver más · {visibles.length - mostrar}</button></div>
-                      )}
-                    </>
-                  )}
-                  {estado === 'cargando' && <Esqueleto leyendo={estaLeyendo} />}
-                  {estado === 'sin-coincidencias' && (
-                    <Vacio titulo="Nada coincide" botones={<button type="button" className="spy-boton" onClick={() => { setBuscar(''); setTipo('todo'); }}>Ver todo</button>}>
-                      <p>Ninguna de sus {flujo.length} piezas pasa esta búsqueda.</p>
-                    </Vacio>
-                  )}
-                  {estado === 'sin-canales' && (
-                    <Vacio titulo={`Dime dónde mirar a ${c.nombre}`} botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => { setErrorModal(null); setModal('canal'); }}>Agregar un canal</button>}>
-                      <p>Su @, su canal de YouTube o su sitio.</p>
-                    </Vacio>
-                  )}
-                  {estado === 'leido-sin-nada' && (
-                    <Vacio titulo={`No encontré publicaciones de ${c.nombre}`}>
-                      <p>Leímos sus canales {c.mirado_en ? `el ${fechaCorta(c.mirado_en)} ` : ''}y no había nada público.</p>
-                    </Vacio>
-                  )}
-                  {estado === 'no-pudo' && (
-                    <Vacio
-                      titulo={`No pude leer a ${c.nombre}`}
-                      botones={(
-                        <>
-                          {pideConectarMeta(lecturasDe) && (
-                            <BotonIntegracion servicio="meta" className="spy-boton spy-boton-primario" onConectado={() => void leer(c.id)}>
-                              <Icon name="plug" size={14} /> Conectar Meta
-                            </BotonIntegracion>
-                          )}
-                          {pideConectarMeta(lecturasDe) && (
-                            <BotonIntegracion servicio="apify-instagram" className="spy-boton" onConectado={() => void leer(c.id)}>
-                              Conectar Apify
-                            </BotonIntegracion>
-                          )}
-                          {revisarDeNuevo}
-                        </>
-                      )}
-                    >
-                      {motivos}
-                    </Vacio>
-                  )}
-
-                  {/* Sus anuncios, debajo de lo que publica (eran una pestaña aparte). */}
-                  {anuncios.length > 0 && (
-                    <section className="spy-anuncios" aria-label="Anuncios">
-                      <h2>Anuncios</h2>
-                      <div className="spy-pgrid">{anuncios.map((p) => <TarjetaPieza key={p.id} p={p} onAbrir={() => setAbierta({ p, todas: anuncios })} />)}</div>
-                    </section>
-                  )}
+                  {riel}
                 </div>
 
-                {riel}
-              </div>
+                {contenido.length > 0 && (
+                  <GrillaPiezas
+                    piezas={visibles}
+                    reinicio={`${c.id}|${buscar}|${tipo}|${orden}`}
+                    tarjeta={(p) => (
+                      <TarjetaPieza p={p} analizando={autoAnalisis === c.id && !p.analisis && p.canal !== 'anuncios'}
+                        onAbrir={() => setAbierta({ p, todas: p.canal === 'anuncios' ? anuncios : piezas.filter((x) => grupoDe(x) === grupoDe(p)) })} />
+                    )}
+                    vacio={(
+                      <Vacio titulo="Nada coincide" botones={<button type="button" className="spy-boton" onClick={() => { setBuscar(''); setTipo('todo'); }}>Ver todo</button>}>
+                        <p>Ninguna de sus {contenido.length} piezas pasa esta búsqueda.</p>
+                      </Vacio>
+                    )}
+                    cabecera={(
+                      <>
+                        <div className="spy-todas__titulo">
+                          <h2>Todas sus piezas</h2>
+                          {trayendoTodo === c.id && <span className="spy-trayendo" aria-live="polite"><i aria-hidden />Trayendo más</span>}
+                        </div>
+                        {trayendoTodo !== c.id && avisoTodo[c.id] && <p className="spy-aviso spy-aviso--suave" aria-live="polite">{avisoTodo[c.id]}</p>}
+                        {/* La barra de herramientas de fitlo: campo ancho, el tipo (los anuncios son uno más) y el orden a la derecha. */}
+                        <div className="spy-herramientas">
+                          <label className="spy-buscar">
+                            <Icon name="search" size={16} />
+                            <input aria-label="Buscar en sus piezas" placeholder="Buscar en sus piezas" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
+                          </label>
+                          {/* ⚠️ UN DESPLEGABLE DE TIPOS EN VEZ DE CHIPS (4/11/2026). La red que falta se agrega desde acá: elegirla abre el
+                              buscador de esa red. */}
+                          <Dropdown
+                            ariaLabel="Qué ver"
+                            value={tipo}
+                            width={250}
+                            buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
+                            options={opcionesTipo.map((o) => ({ ...o, icono: ICONO_TIPO[o.value] }))}
+                            onChange={(v) => {
+                              if (v === 'agregar-instagram' || v === 'agregar-youtube') { abrirCanal(v === 'agregar-youtube' ? 'youtube' : 'instagram'); return; }
+                              setTipo(v as TipoContenido);
+                            }}
+                          />
+                          <div className="spy-orden">
+                            <Dropdown
+                              ariaLabel="Ordenar"
+                              value={orden}
+                              width={200}
+                              align="right"
+                              buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
+                              options={[...ORDENES]}
+                              onChange={(v) => setOrden(v as OrdenSpy)}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  />
+                )}
+              </>
             )}
 
             {activa === 'funnel' && c.landing_url && (
@@ -1614,7 +1719,16 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
           onAbrir={(id) => { setModal(null); irA(id); }}
         />
       )}
-      {modal === 'canal' && c && <ModalCampo titulo={`Agregar un canal a ${c.nombre}`} placeholder="Su @, su canal de YouTube o su sitio" boton="Agregar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void sumarCanal(v)} />}
+      {/* «Agregar su YouTube» es el MISMO buscador de siempre, con su nombre ya escrito y sólo esa red (Martín, 4/11/2026: «Debe ser
+          el mismo de siempre para buscar su YouTube, este ni siquiera tiene la funcionalidad de búsqueda»). */}
+      {modal === 'canal' && c && (
+        <BuscadorAlta
+          para={{ nombre: c.nombre, red: redCanal }} competidores={competidores} ocupado={ocupado} error={errorModal}
+          onClose={() => setModal(null)}
+          onAgregar={(v) => void sumarCanal(v)}
+          onAbrir={(id) => { setModal(null); irA(id); }}
+        />
+      )}
       {modal === 'anuncio' && c && <ModalCampo titulo="Guardar un anuncio" placeholder="Enlace del anuncio en la Biblioteca de Anuncios" boton="Guardar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void guardarAnuncio(v)} />}
       {aBorrar && (
         <ConfirmModal

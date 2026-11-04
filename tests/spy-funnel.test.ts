@@ -241,3 +241,14 @@ test('la pantalla la dibuja desde la fila de la landing y con el enlace', () => 
   assert.match(f, /if \(!u\) return null;/);
   assert.match(f, /Desde afuera no se ve/);
 });
+
+// Martín, 4/11/2026: «la buscó como su página [su web], cuando debió buscarla por su Instagram, todo el mundo publicita con su cuenta
+// personal, o de última con el nombre del negocio». Verificado rompiéndolo: con el dominio primero, la búsqueda de Den Borg es
+// "beacons.page" (54 anuncios de cualquiera) y cae.
+test('«Ver sus anuncios» busca su nombre (o su @), nunca una página de enlaces', () => {
+  const q = (c: Parameters<typeof enlaceSusAnuncios>[0]) => new URL(enlaceSusAnuncios(c)).searchParams.get('q');
+  assert.equal(q({ nombre: 'Den Borg - Estrategia de Marca Personal', instagram: 'den.borgg', landing_url: 'https://beacons.page/denborg' }), '"Den Borg"');
+  assert.equal(q({ nombre: '', instagram: '@den.borgg', landing_url: 'https://beacons.page/denborg' }), '"den.borgg"');
+  assert.equal(q({ nombre: '', instagram: null, landing_url: 'https://linktr.ee/alguien' }), '""', 'una página de enlaces no es su web');
+  assert.equal(q({ nombre: '', landing_url: 'https://www.acquisition.com/x' }), '"acquisition.com"', 'sin nombre ni @, su web propia');
+});

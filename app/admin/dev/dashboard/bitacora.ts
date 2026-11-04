@@ -893,4 +893,29 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '13:27', chat: 'Dashboards (nube)', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Nueva hoja: sólo lo copiado de verdad, la miniatura igual a la hoja y el modal que no se traba',
+    pedido: 'En dashboards, mejora la eficiencia al "crear nueva hoja", al abrir ese modal se traba todo... Y en "Closing" la minuatura no es para nada igual... Te pido que elimines todos los templetas viejos y vamos de a poco cargando cuando ya estén... Carga los de FOCUS que ya teniamos, y no se si ya teniamos otros más... Y claro, guarda los que debemos hacer aún...',
+    puntos: ['Llegó por el Cerebro, después de revisar producción (la hora es la de cuando llegó a este chat).'],
+  },
+  {
+    fecha: '4 nov', hora: '13:50', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Nueva hoja» abre al instante y ofrece sólo las plantillas copiadas de verdad',
+    puntos: [
+      '**Sólo lo copiado:** «Nueva hoja» ofrece la plantilla que ya tiene su diseño propio (hoy Closing). Las de antes salen de la lista; las hojas que ya se crearon con ellas no cambian.',
+      '**La miniatura de Closing es la hoja:** se dibuja con el mismo diseño de Halden que se ve al abrirla, con números de ejemplo.',
+      '**Abre al instante:** de 0,4–0,5 s con una trabada de 0,2–0,3 s a 0,1 s sin trabada; en una máquina 4 veces más lenta, de 1,9 s a 0,4 s.',
+      '**La API de MaKo** ofrece y crea las mismas plantillas que la pantalla.',
+      '**Lo que falta copiar** quedó en una lista (docs/templates-dashboard-propuesta.md); la pantalla no muestra «próximamente».',
+    ],
+    archivos: [
+      'lib/graficos-plantillas.ts — qué plantillas se ofrecen (las que traen su diseño)',
+      'app/dashboard/disenos/DisenoEnMiniatura.tsx — la miniatura con el diseño de verdad',
+      'app/dashboard/NuevaHoja.tsx · MiniaturaHoja.tsx — la galería',
+      'docs/templates-dashboard-propuesta.md — lo que falta copiar',
+    ],
+    revisar: '/dashboard',
+  },
 ];
