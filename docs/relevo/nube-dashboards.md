@@ -8,7 +8,11 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
 - **Cobranza (`punta/dash-cobranza`)**: la corrida 171 dio rojo por una palabra, un «acá» en el vacío de los planes de pago
   (`tests/puente-panel-copy.test.ts`). Está corregido en `5936606b` y subido de nuevo. El otro rojo de esa corrida, `coaches-ops-center`, fue FLAKY:
   pasó aislado y no es de esta punta. Revisé el resto de los textos de la hoja.
-- **Focus (`punta/dash-focus`)**: la sección de abajo. Sale DESPUÉS de Cobranza, porque la rama la contiene.
+- **Cobranza, segunda corrida (180, `5936606b`): los tests en VERDE** (6.940 de 705 archivos), y el paso «Tipos» cortado por tiempo a los 18
+  minutos (en la 171 tardó 10). No es un error de tipos, pero son dos rojos seguidos: antes de la tercera corrí el `tsc` entero en la nube
+  sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
+- **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
+  con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
 
 ## Focus: la tercera hoja copiada (la de Pane), con lo que MaKo sabe del día (punta `dash-focus`, 4/11/2026)
 
