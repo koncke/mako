@@ -51,6 +51,7 @@ verde, llega sola a `main`.
 | Sugeridos: los competidores de la plataforma en todos los negocios | Hecho: bloque «Sugeridos» con «Sumar» (copia lo ya leído: no gasta la clave del cliente; sin anuncios ni oferta); en la API, `ver_sugeridos` y `sumar_sugerido`. Sólo los del negocio de la plataforma, nunca los de otro cliente | `punta/spy-sugeridos` | Verlo en pantalla con los de verdad: un negocio cualquiera tiene que ver a los del 9 (Den Borg, Víctor Heras…) y sumarlos sin que suba el uso de su Apify |
 | Logos de cada red en toda la tab, y «¿En qué publica?» por red y formato | Hecho: el mismo logo del buscador en las miniaturas del gráfico, sus filtros, el detalle y el reparto; el reparto por red (con logo) y por formato, sin «100% videos»; se fue «Cada miniatura es un video» | `punta/spy-contenido` | — (dibujado con datos de prueba en escritorio y teléfono) |
 | Dos pestañas («Contenido» y «Funnel»), selector adentro del gráfico, proporción real de cada miniatura, sin «Revisar ahora» ni textos que narran, la criatura sin tarjeta blanca | Hecho | `punta/spy-contenido` | La ficha con un competidor de verdad: que «Funnel» aparezca sólo con web u oferta |
+| La foto real de perfil en la ficha del competidor (Sofía Contreras) | Hecho: la ficha abierta muestra su foto de perfil al lado del nombre; la lista sigue con la caricatura (criterio: la caricatura es la cara de la tab, la foto es la persona) | `punta/spy-contenido` | — |
 
 ### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
 

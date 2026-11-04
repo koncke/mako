@@ -13,6 +13,7 @@
 //   · el selector afuera de la tarjeta del gráfico             → 3
 //   · la tarjeta del gráfico sin `data-cargando`               → 3
 //   · las tarjetas de piezas sin su proporción                 → 3
+//   · la ficha con la caricatura en vez de su foto             → 4
 // Correr: node --import tsx --test tests/spy-contenido.test.ts
 // =============================================================================
 
@@ -60,4 +61,12 @@ test('3. el selector y los filtros adentro de la tarjeta del gráfico; sin tarje
   assert.match(g, /const m = medidaEnElGrafico\(p, telefono \? 30 : 42\);/);
   const t = sinComentarios(leer('app/competitor-spy/TarjetaPieza.tsx'));
   assert.match(t, /className="spy-pcard__media" style=\{\{ aspectRatio: `\$\{proporcionDe\(p\)\.ancho\} \/ \$\{proporcionDe\(p\)\.alto\}` \}\}/);
+});
+
+test('4. la ficha abierta muestra su foto REAL de perfil; la lista, su caricatura', () => {
+  const app = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
+  const ficha = app.slice(app.indexOf('<section className="spy-ficha">'), app.indexOf('</section>', app.indexOf('<section className="spy-ficha">')));
+  assert.match(ficha, /<img className="spy-ficha__foto" src=\{c\.avatar\}/, 'la foto de su perfil, no `caraDeTarjeta`');
+  assert.doesNotMatch(ficha, /caraDeTarjeta|caricatura/);
+  assert.match(app, /const cara = caraDeTarjeta\(c, caricaturaDeCompetidor\(c\)\);/, 'en la lista sigue la caricatura');
 });

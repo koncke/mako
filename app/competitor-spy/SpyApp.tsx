@@ -193,6 +193,8 @@ button.spy-campo:hover{color:var(--dim)}
   background:var(--surface);box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta)}
 .spy-ficha small{display:block;color:var(--faint);font-size:var(--fs-sm);font-weight:600}
 .spy-ficha h1{margin:4px 0 0;font-size:var(--fs-kpi);font-weight:600;line-height:1.1;letter-spacing:-.02em}
+.spy-ficha__quien{display:flex;align-items:center;gap:14px;min-width:0}
+.spy-ficha__foto{flex:none;width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--surface-2);box-shadow:0 0 0 2px var(--surface),0 0 0 3px var(--border)}
 .spy-ficha__datos{display:flex;flex-wrap:wrap;gap:6px}
 .spy-ficha__acciones{display:flex;gap:8px}
 .spy-ficha__acciones .spy-boton:first-child{flex:1}
@@ -1259,9 +1261,17 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
           RIEL YA NO DEPENDE DE QUE HAYA PIEZAS: si dependiera, un competidor sin nada
           leído se quedaría sin nombre y sin el botón de revisarlo. */}
       <section className="spy-ficha">
-        <div>
-          {anteTitulo && <small>{anteTitulo}</small>}
-          <h1>{c.nombre}</h1>
+        {/* ⚠️ SU FOTO REAL, NO LA CARICATURA (Martín, 4/11, con Sofía Contreras): en la lista va la caricatura —se reconoce
+            de un vistazo y es la cara de la tab—; acá, abierta su ficha, va la foto de su perfil, que es la persona. */}
+        <div className="spy-ficha__quien">
+          {c.avatar && (
+            // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket, no pasa por el optimizador
+            <img className="spy-ficha__foto" src={c.avatar} alt="" onError={(e) => { e.currentTarget.remove(); }} />
+          )}
+          <div>
+            {anteTitulo && <small>{anteTitulo}</small>}
+            <h1>{c.nombre}</h1>
+          </div>
         </div>
         {identidad && <small className="spy-rango">{identidad}</small>}
         <div className="spy-ficha__acciones">
