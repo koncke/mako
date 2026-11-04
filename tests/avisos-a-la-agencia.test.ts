@@ -203,6 +203,6 @@ test('La pantalla de la cuenta pausada no le pide plata a quien no la debe', () 
   assert.equal(ofrece(null, 'renovacion-sin-autorizar'), false);
   assert.equal(leOfrecePagar({ esAgencia: false, corte: null, quienPaga: null }), false, 'una pausa a mano es «escríbenos»');
   const pagina = readFileSync(join(RAIZ, 'app/cuenta-pausada/page.tsx'), 'utf8');
-  assert.match(pagina, /const porPago = leOfrecePagar\(\{ esAgencia, corte, quienPaga \}\);/, 'el botón de pagar lo decide esa regla');
+  assert.match(pagina, /const porPago = !telefono && leOfrecePagar\(\{ esAgencia, corte, quienPaga \}\);/, 'el botón de pagar lo decide esa regla; en un teléfono no se vende');
   assert.match(pagina, /corte\?\.vigente && quienPaga !== 'no-se' \? corte : null/, 'sin saber quién paga, el texto tampoco habla de plata');
 });
