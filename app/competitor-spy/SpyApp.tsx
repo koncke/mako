@@ -939,6 +939,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [redes, setRedes] = useState<Record<number, BusquedaDeRedes>>({});
   /** Los canales recién sumados que se están trayendo: su pastilla dice «Trayendo…» hasta que lleguen sus piezas. */
   const [trayendoRedes, setTrayendoRedes] = useState<Record<number, readonly PasoLectura[]>>({});
+  /** El competidor que se acaba de agregar y todavía no se leyó: su ficha abre con el loader puesto (`abrirRecienAgregado`). */
+  const altaEnCurso = useRef<number | null>(null);
 
   // Qué ficha está abierta AHORA: una lectura que tarda no puede pisar la de otro competidor.
   const actual = useRef(elegido);
@@ -1079,14 +1081,20 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     const ini = inicialesDePiezas.current?.id === id ? inicialesDePiezas.current : null;
     inicialesDePiezas.current = null;
     if (!ini) setPiezas([]);
-    setError(null); setBuscar(''); setTipo('todo'); setPestana('contenido'); setTrayendo(!ini); setOrdenando(null);
+    // El loader del alta ya está puesto (`abrirRecienAgregado`): no se saca, o se ve un cuadro del detalle antes de él.
+    const esAlta = altaEnCurso.current === id;
+    setError(null); setBuscar(''); setTipo('todo'); setPestana('contenido'); setTrayendo(!ini);
+    setOrdenando((v) => (esAlta && v?.id === id ? v : null));
     void (async () => {
       const p = ini ? ini.piezas : await traerPiezas(id);
       if (!vivo) return;
       setTrayendo(false);
       setFichaLista(id);
       const quien = listaActual.current.find((x) => x.id === id);
-      if (quien && debeLeerAlAbrir(quien, p?.length ?? 0, yaLeidos.current.has(id))) await leer(id, !p?.length).catch(() => undefined);
+      // Recién agregado, con `'alta'`: sirve la lectura que ya pagó otro negocio (ítem 13).
+      if (quien && debeLeerAlAbrir(quien, p?.length ?? 0, yaLeidos.current.has(id))) await leer(id, esAlta || !p?.length, esAlta ? 'alta' : undefined).catch(() => undefined);
+      else if (esAlta) setOrdenando((v) => (v?.id === id && !v.piezas ? null : v));
+      if (altaEnCurso.current === id) altaEnCurso.current = null;
       else {
         if (p && cuantasFaltan(p)) void analizarSolo(id);
         void traerTodo(id);
@@ -1113,10 +1121,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     return () => window.removeEventListener('popstate', alVolver);
   }, []);
 
-  const irA = useCallback((id: number | null, origen?: Caja) => {
+  // `alta`: un competidor recién agregado no tiene tarjeta de donde salir; lo primero que se ve es el loader de su lectura
+  // (`abrirRecienAgregado`), no la entrada de su caricatura.
+  const irA = useCallback((id: number | null, origen?: Caja, o?: { alta?: boolean }) => {
     setElegido(id);
     setFichaLista(null);
-    setEntrada(id != null && !quieto() ? { id, origen: origen ?? null, fase: 'esperando' } : null);
+    setEntrada(id != null && !quieto() && !o?.alta ? { id, origen: origen ?? null, fase: 'esperando' } : null);
     // El detalle abierto es de una pieza del que se deja: se cierra, y el otro abre en su gráfico.
     setAbierta(null);
     setPaginaElegida(null);
@@ -1128,13 +1138,20 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   }, []);
 
   const abrirRecienAgregado = async (id: number) => {
+    // ⚠️ DIRECTO AL LOADER (4/11/2026; Martín, con el alta de Leila: «por un momento me aparecieron los bloques del detail en
+    // lugar del loader de mako directamente»). El loader se pone ANTES de navegar, y la ficha lo encuentra puesto: no hay un
+    // solo cuadro del detalle entre el «Agregar» y MaKo leyendo.
+    // Primero la lista (la ficha necesita a su competidor) y después, en el MISMO tick, el loader y la navegación: React los
+    // dibuja juntos, así que el primer cuadro de la ficha ya es el loader.
     await recargarLista();
+    if (!quieto()) setOrdenando({ id, piezas: null });
+    setPasosLectura({ id, pasos: [] });
     // Se lee aunque la ficha ya estuviera abierta: puede haber sumado un canal.
     yaLeidos.current.delete(id);
     // Recién agregado: va con motivo `'alta'`, que es donde el ítem 13 ahorra de verdad — si otro
     // negocio ya leyó este canal hace poco, no se gasta un crédito en volver a leerlo.
     if (actual.current === id) void leer(id, true, 'alta');
-    else irA(id);
+    else { altaEnCurso.current = id; irA(id, undefined, { alta: true }); }
   };
 
   /** Lee SÓLO los canales recién sumados (ver `buscarRedes`), con su pastilla en «Trayendo…», y una vez más si se cortó. */

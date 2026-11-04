@@ -90,6 +90,9 @@ test('4. la película: sobre el fondo de la página, con la lista a la vista y s
   assert.match(html, /data-estado="hecho"[^>]*>.*Mirando su Instagram</);
   assert.match(html, /data-estado="ahora"[^>]*>.*Leyendo su YouTube…/);
   assert.doesNotMatch(html, /Investigando su web/, 'lo que no pasó no se dibuja');
+  // Antes del primer paso, una frase GENÉRICA de avance (el Cerebro, 4/11 tarde: «se permiten mensajes genéricos de avance… sin
+  // afirmar resultados que no pasaron»; antes, sin pasos, sólo la criatura).
   const vacio = renderToStaticMarkup(createElement(PeliculaDeOrden, { nombre: 'Den Borg', piezas: null, onTerminar: () => {}, pasos: [] }));
-  assert.doesNotMatch(vacio, /class="spyo-pasos"/, 'sin pasos, sólo la criatura');
+  assert.match(vacio, /data-estado="ahora"[^>]*>.*Preparando su ficha…/);
+  assert.doesNotMatch(vacio, /Mirando su Instagram/, 'no dice que mira lo que todavía no empezó');
 });
