@@ -1,6 +1,14 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~22:10 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~22:40 UTC)
+
+- **CS Analyst está en producción.** Entró a main a las 22:21 (`b42c446d9`, la mezcla de `punta/dash-cs` con `923d70e8b`, su veredicto:
+  7.034 tests y el tsc entero); el deploy de ese mismo commit quedó listo a las 22:33. El primer veredicto dio un rojo de verdad: la hoja
+  enlazaba `/customer-success`, la ruta vieja, y ahora usa `RUTA_CLIENTES` (lib/clients-rutas.ts).
+- **Sigo con Productividad (la copia de Fernly)**: la copia de la página está casi igual a la captura en 1440 y en 390; falta la
+  adaptación con las piezas de la plantilla.
+
+### Lo de las ~22:10 UTC
 
 - **Automatizaciones está en producción.** Entró a main a las 21:41 (`a866b40be`, la punta `dash-auto` tal cual, con su veredicto: 7.026 tests
   y el tsc entero); el deploy promovido de las 22:01 (`50a2c9f52`) la contiene. El primer veredicto dio un rojo de verdad: la hoja de Noria
@@ -97,7 +105,7 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
 
-## CS Analyst: la duodécima hoja copiada (la de Mender), con «¿quién necesita atención?» (punta `dash-cs`, 4/11/2026)
+## CS Analyst: la duodécima hoja copiada (la de Mender), con «¿quién necesita atención?» (en producción desde el 4/11/2026, 22:33)
 
 La referencia de CS Analyst es Mender (`docs/templates-dashboard-propuesta.md` §7.3; Vitrea, la otra, queda por copiar): la página «Cases
 overview» de Mender (una app de soporte): la barra de arriba y un riel, el tablero «Case pipeline» con cuatro carriles (New, Working, Waiting
@@ -994,7 +1002,7 @@ Lo que comparten todas:
 | VSL y YouTube | `vsl-analyst` | la forma de Hooks, otra fuente | ¿quién llega al final y ésos compran más? | Llegan al final | `punta/dash-vsl` |
 | Chat Analyst | `chat-analyst` | Parley · Tend | ¿cuánto tardamos en contestar? | Tiempo de respuesta | `punta/dash-chat` |
 | Closing | `closing` | Halden · Moorly · Tandem | ¿por qué se cerró o no, y quién cierra mejor? | Tasa de cierre | `punta/dash-closing` |
-| CS Analyst | `cs-analyst` | Mender · Vitrea | ¿quién necesita atención, y cuántos se van? | Se dieron de baja | `punta/dash-cs` |
+| CS Analyst | `cs-analyst` | Mender · Vitrea | ¿quién necesita atención, y cuántos se van? | Se dieron de baja | en producción (`b42c446d9`) |
 | Productividad | `productividad` | Fernly · Sunrow | ¿qué avanza y qué se estancó? | Avance global | `punta/dash-productividad` |
 | Automatizaciones | `automatizaciones` | Noria | ¿qué salió, qué falló y en cuánto responden? | Fallaron | `punta/dash-automatizaciones` |
 | Contenido e IA | `ia-contenido` | Orrery | ¿cuánta IA gastamos y en qué? | Costo de la IA | `punta/dash-ia-contenido` |
