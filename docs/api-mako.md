@@ -43,7 +43,7 @@
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
-- **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `configurar_horario_envio`
+- **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `escribir_en_grupo` · `configurar_horario_envio`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `duplicar_curso` · `renombrar_curso` · `eliminar_curso` · `restaurar_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso` · `crear_alumno_curso`
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion`
@@ -17479,7 +17479,7 @@ curl -L \
 
 ## Cuenta, equipo y notificaciones — `equipo`
 
-Tab **Settings** (`/perfil`). 7 lecturas · 7 acciones.
+Tab **Settings** (`/perfil`). 7 lecturas · 8 acciones.
 
 ### `GET /api/v1/equipo/negocio` — Datos del negocio
 
@@ -17801,6 +17801,35 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/equipo/negocio" \
   -d '{"nombre":"NOMBRE"}'
+```
+
+### `POST /api/v1/equipo/grupo/mensajes` — Escribir en el grupo
+
+PROPONE escribir un mensaje en el grupo del negocio dentro de la app, firmado por MaKo (queda pendiente hasta el «sí»). Le suena a quienes están en el grupo. NO sale por WhatsApp.
+
+- **Ruta por operación:** `POST /api/v1/equipo/escribir_en_grupo`
+- **Token detallado:** permiso `equipo=write` (Lectura y escritura en «Cuenta, equipo y notificaciones»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** grupo_mensajes, y un aviso al celular de quienes están en el grupo
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `texto` | string | sí | el mensaje, tal como se va a leer. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/equipo/grupo/mensajes" \
+  -d '{"texto":"TEXTO"}'
 ```
 
 ### `PATCH /api/v1/equipo/negocio/horario-envio` — Cambiar el horario de oficina

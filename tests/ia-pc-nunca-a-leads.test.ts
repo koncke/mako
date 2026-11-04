@@ -234,7 +234,7 @@ test('7. el grupo del DUEÑO llega a la puerta sólo con `delGrupo`, el teléfon
   for (const nombre of ['encolarTurno', 'esperarALaPc']) {
     assert.equal((doer.match(new RegExp(`\\b${nombre}\\b`, 'g')) ?? []).length, 2, `el doer nombra \`${nombre}\` fuera del import y de su único uso`);
   }
-  assert.match(doer, /await encolarTurno\(delGrupo\.pc, SESION_DEL_GRUPO, \{[^}]*\}, espera, \{ delGrupo: \{ telefono: delGrupo\.telefono \} \}\);/,
+  assert.match(doer, /await encolarTurno\(delGrupo\.pc, SESION_DEL_GRUPO, \{[^}]*\}, espera, \{ delGrupo: delGrupo\.email \? \{ email: delGrupo\.email \} : \{ telefono: delGrupo\.telefono \?\? '' \} \}\);/,
     'el doer llama la puerta sin `delGrupo`');
   // La PC y el teléfono salen de quién escribió según WhatsApp (`participant`), nunca de lo que dice el mensaje, y un lote de
   // varias personas no va.
@@ -246,7 +246,7 @@ test('7. el grupo del DUEÑO llega a la puerta sólo con `delGrupo`, el teléfon
   assert.match(doer, /\.\.\.\(autores\.size !== 1 \|\| autores\.has\(''\) \? \{ loteDeVarios: true \} : \{\}\),/, 'un lote de varias personas no queda marcado');
   // Y la puerta, para el grupo, no le cree al doer: mira el teléfono contra el perfil y contra quien conectó esa PC.
   const puerta = cuerpo(de('lib/ia-pc.ts'), 'export async function encolarTurno(');
-  assert.match(puerta, /if \(o\.delGrupo\) \{\s*if \(!\(await esLaPersonaDelGrupo\(d, o\.delGrupo\.telefono\)\)\) \{\s*throw new SinLaPersona\(/);
+  assert.match(puerta, /else if \(o\.delGrupo\) \{\s*if \(!\(await esLaPersonaDelGrupo\(d, o\.delGrupo\.telefono\)\)\) \{\s*throw new SinLaPersona\(/);
 });
 
 // 25/10/2026 (tanda 4 de docs/conexiones-y-ayuda.md): base 7 / 0; rotas, una por vez —el doer llama la puerta sin `delGrupo`,

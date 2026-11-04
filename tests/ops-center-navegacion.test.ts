@@ -78,7 +78,7 @@ test('4. el clic cambia la vista EN EL ACTO, y la vista sale de la URL (23/10/20
   assert.match(sb, /: <CargandoMako que="tu Second Brain" alto="100%" \/>\}/, 'mientras llega el grafo, su loader (no el chat del Cerebro)');
   assert.match(sb, /const estadoPanel = \(\) => \(\{ ticketera: ticketera != null, mapa: verMapa, nuevo: nuevoCentro \}\);/);
   // Un link a la página pelada (el ícono del Ops Center en la barra de la app) vuelve a la entrada, no al último chat.
-  assert.match(sb, /if \(qs \|\| !antes \|\| \(!urlPelada\(elegidoRef\.current\) && !guruRef\.current\)\) return;\s*setGuru\(null\);/);
+  assert.match(sb, /if \(qs \|\| !antes \|\| \(!urlPelada\(elegidoRef\.current\) && !guruRef\.current && grupoRef\.current == null\)\) return;\s*setGuru\(null\);/);
   assert.match(sb, /setElegido\(k\.lista\[0\]\?\.elegido \?\? null\);/, 'el cliente, al Cerebro');
 });
 

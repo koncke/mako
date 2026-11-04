@@ -240,8 +240,8 @@ test('quién la pidió va en el payload y sale al leerla: ni la bandeja lo muest
   // El cableado: la pendiente lo guarda al crearse y lo saca al leerse; los dos caminos que proponen lo pasan, y las dos puertas
   // lo comparan con quien confirma.
   const pend = leer('lib/mako-pendientes.ts');
-  assert.match(pend, /const payloadCrudo = conQuienPidio\(dataCruda\.payload \?\? \{\}, dataCruda\.pidio\);/);
-  assert.match(pend, /const \{ payload, pidio \} = sinQuienPidio\(/);
+  assert.match(pend, /const payloadCrudo = conQuienPidio\(dataCruda\.payload \?\? \{\}, dataCruda\.pidio, salidaDelGrupo\(\)\?\.soloApp\);/);
+  assert.match(pend, /const \{ payload, pidio, soloApp \} = sinQuienPidio\(/);
   const api = leer('lib/api-mako/acciones.ts');
   assert.match(api, /pidio: ctx\.enElGrupo\?\.quien,/);
   assert.match(api, /enElGrupo: ctx\.enElGrupo \? \{ pidio: p\.pidio \?\? null, confirma: ctx\.enElGrupo\.quien, aMaKo: ctx\.enElGrupo\.aMaKo \} : undefined,/);
@@ -255,7 +255,7 @@ test('quién la pidió va en el payload y sale al leerla: ni la bandeja lo muest
   // dueño, donde la @ es él) o la cita a un mensaje de MaKo por su id (la verificación de 9cef25dba).
   assert.match(doer, /aMaKo: data\.paraQuien \? !!data\.paraQuien\.leHabla\n\s*: \(quien\.aMaKo && !lineaDelDueno\) \|\| nombraAMaKo\(textoDirecto\) \|\| nombraAMaKo\(texto\) \|\| \(await citaAMaKo\(data\)\),/);
   assert.equal((doer.match(/leHabla: await leHablaAMaKo\(/g) ?? []).length, 2, 'un lote no dice si su último le habla a MaKo');
-  assert.match(doer, /async function citaAMaKo\(data: MsgIn\): Promise<boolean> \{\n\s*const \{ id \} = citaDe\([^\n]*\n\s*return !!id && \(await idsEnviados\(/);
+  assert.match(doer, /async function citaAMaKo\(data: MsgIn\): Promise<boolean> \{\n\s*const \{ id \} = citaDe\([^\n]*\n[\s\S]{0,400}?return !!id && \(await idsEnviados\(/);
   assert.match(doer, /if \(await esEcoDeMaKoAhora\(instance, jid, key\)\) return \{ engaged: false, skip: 'eco de mi propia respuesta' \};\n[^\n]*\n\s*await anotarLineaDelDueno\(instance\);/);
   assert.match(doer, /sinElLlamadoAMaKo\(textoDirecto, lineaDelDueno \? null : await numeroDeLaLinea\(instance\)\)/);
   assert.match(doer, /mensajeUsuario: texto, enElGrupo,/);

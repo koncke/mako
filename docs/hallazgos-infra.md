@@ -30,6 +30,13 @@ Falla en la dirección peligrosa: dice «no lo elegía» en todos los casos. Es 
 
 **Ver una pantalla sin levantar `next dev`.** Arrancar local escribe en producción, y por eso una pantalla nueva se quedaba sin mirar hasta el despliegue. Sirve un arnés fuera del repo: `esbuild` empaqueta el componente real, un plugin cambia `./actions` por funciones falsas con un caso por `?e=` y los componentes con server actions por un stub, `globals.css` da los tokens reales, y `python -m http.server` lo sirve. Dos trampas: hay que definir `window.process` antes del bundle (`next/link` lo lee) y `esbuild` no resuelve bien con una ruta relativa larga a otro disco, se le da un alias. Con eso se ven los cuatro estados en escritorio, teléfono y oscuro sin tocar la base. No prueba las server actions ni la sesión.
 
+**El mismo arnés, con la pantalla ENTERA y el teléfono (el grupo de la app, 4/11/2026).** Sirve también para `ChatSecondBrain`, `ChatClienteM`, `ShellM` y `SheetM` de verdad: un plugin cambia cada archivo `'use server'` por funciones vacías (saca los nombres con una regex) y `next/navigation`, `next/link` y `next/dynamic` por stubs. Tres trampas:
+- Un `useRouter` de mentira que devuelve un objeto nuevo en cada render da «Maximum update depth» en `ShellM`, y parece un bug de la pantalla. El de Next es estable: el stub, una constante.
+- El tema del teléfono lo pisa `ShellM`: se elige con `localStorage['mako.modo']`, no con `data-tema`. Con `data-tema` la foto «en oscuro» sale clara.
+- `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream` hacen grabar de verdad en Chrome sin ventana: se vio salir la nota, ya en MP3, hasta el POST.
+
+**`tests/hook-en-node.ts` tiene `useCallback = (fn) => fn`.** Un efecto colgado de una función memorizada corre en CADA dibujo. Con un motor que carga en un efecto y marca `leyendo`, el sondeo no salía nunca y el test decía que el motor estaba roto. El hilo del grupo pasa su propio React, con `useCallback` de verdad (`REACT_CON_MEMO`, tests/grupos-ops-pantalla.test.ts). Sin arreglar en el arnés común: los otros tests dependen de cómo está.
+
 **Un SIN CHEQUEAR por RAM no acusa a los archivos.** La compuerta de esa punta (7.829 tests, 0 rojos, 66 min) dejó 18
 sin juzgar, con un mínimo de 0,3 GB libres: el vigía bajó sus tandas y el veredicto nombra a todos los de la tanda. Repetidos
 de a tres y esperando 2 GB libres, los primeros seis dieron 91 verdes y 0 rojos. No se separó qué lo resolvió, la tanda más
@@ -247,6 +254,25 @@ casos y ningún error que leer.
   `attachment.queued_command` (en `e680c815`, 266 en cola contra 183 de tipo user).
 - **El marcador de la cuenta miente al volver a una cuenta vieja:** el hook decía claude2 al 99 % y era claude5 al 27 %. La
   huella es el `resetsAt` semanal de `get_usage`.
+
+## Sin RAM para el tipado: partir en tandas no baja nada, y pedir los errores de lo tocado sí (3/11/2026)
+
+- **Síntoma.** `tsc-acotado` dio 99 nueve veces seguidas sobre los 74 archivos del grupo de la app, con 3 a 4 GB libres. El vigía
+  mata por debajo de ~1,2 GB libres, y cada corrida llegaba a 2,3-2,7 GB.
+- **El diagnóstico obvio era el equivocado: «son muchos archivos, se parte en tandas».** Partir no bajó nada: tres archivos
+  livianos con heap de 1,5 GB murieron sin memoria (134), igual que los 74 con 3 GB. `tsc -p` chequea TODA la clausura de imports,
+  no lo que le nombrás: 74 archivos arman un programa de 3.403.
+- **Lo que sí baja:** armar el programa con la API y pedir los errores sólo de los tocados
+  (`ts.createProgram` + `programa.getSemanticDiagnostics(sf)` por archivo). El chequeador resuelve el resto a medida que lo necesita.
+  Medido sobre los mismos 74: **21 s y 1,5 GB de heap**; sumando 338 consumidores, 36 s y 2,2 GB. Con una sonda de errores a propósito
+  en la lista, para que un 0 valga: los nombró. Y sube a los consumidores, que el acotado no.
+- **Lo que no prueba:** los errores DENTRO de la clausura que no está en la lista. Cuando la RAM dio (5 GB libres, `--heap=3900`),
+  el acotado de verdad dio 0 sobre los mismos 74: coincidieron, una vez.
+- **«`pass 0, fail 1`, sin una línea de error» no es un rojo.** `d6b-rutas` y `frontera-use-client` daban eso en `node --test`, y el
+  vigía los había matado (lo dice `guardia.log`, con la hora). Solos y con RAM: 9/0 y 3/0.
+- **La guardia cuenta menciones, no procesos:** un `head` más un `node --test` del mismo archivo suman 3 `.test.ts` y frena como
+  tanda. Un nombre de archivo con `tsc` adentro también frena. No es un error: se separan los comandos.
+- **Sin hacer:** sumar esa forma a `scripts/tsc-acotado.mjs` como opción (`--solo-lo-tocado`) y que el brief del VERDE la nombre.
 
 ## Subir el tope de la función cambió el error por uno peor, y la clave «global» de Next deja la home afuera (3/11/2026)
 

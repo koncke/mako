@@ -18,7 +18,8 @@ import { checkCronAuth } from '@/lib/cron-auth';
 import { flushHuerfanos } from '@/lib/mako-doer-in';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300;
+// 420 como el turno (tests/mako-doer-plazo.test.ts): si el autollamado del grupo de la app falla, esta red es la única, y con 300 cortaba lo pesado.
+export const maxDuration = 420;
 
 export async function GET(request: NextRequest) {
   const unauth = checkCronAuth(request);

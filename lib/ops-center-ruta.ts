@@ -14,7 +14,7 @@ export const RUTA_OPS_CENTER = '/admin/operaciones';
 export const RUTA_GRAFO_OPS_CENTER = `${RUTA_OPS_CENTER}?panel=mapa`;
 
 /** Lo que dice la URL de que ya pide algo concreto: ese pedido se respeta y no se le pone el grafo. */
-const PIDE_ALGO = ['panel', 'chat', 'centro', 'ticketera', 'area'] as const;
+const PIDE_ALGO = ['panel', 'chat', 'centro', 'ticketera', 'area', 'grupo'] as const;
 
 /**
  * El destino de un `/second-brain?…` para el super admin: el Ops Center con la misma query (menos `ws`, que cada puerta
