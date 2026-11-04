@@ -322,6 +322,8 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 }
 .co-cab__volver { display: none; }
 .co-cab__texto { min-width: 0; display: flex; flex-direction: column; }
+/* El renglón chico debajo del nombre (en un grupo, quiénes están: 4/11/2026). */
+.co-cab__sub { font-size: var(--fs-meta); color: var(--dim); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .co-cab__titulo {
   margin: 0;
   font-size: var(--fs-md);

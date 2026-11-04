@@ -860,7 +860,7 @@ export const AREAS: AreaDev[] = [
     slug: 'mako-doer', titulo: 'MaKo Doer', familia: 'MaKo',
     estado: 'parcial', agente: true,
     alcance: 'El agente que ESCUCHA en los grupos de WhatsApp y actúa: decide si contesta (modo libre vs. ventana), muestra «escribiendo…», elige el tier del modelo por turno y corre el loop de tools. NO es el chat dentro de la app (eso es «Preguntale a MaKo»).',
-    vive: ['lib/mako-doer-in.ts', 'lib/mako-router.ts', 'lib/mako-intencion.ts', 'lib/mako-doer-acciones.ts', 'lib/mako-doer-buffer.ts', 'lib/mako-doer-conv.ts', 'lib/respuesta-doer.ts', 'lib/puntos-mensaje.ts', 'lib/vcard.ts', 'app/api/webhooks/evolution/route.ts', 'app/api/admin/mako-doer/route.ts', 'app/api/cron/doer-flush/route.ts', 'lib/mako-bot.ts', 'lib/mako-bot-reglas.ts', 'lib/mako-salida.ts', 'lib/mako-salida-drivers.ts'],
+    vive: ['lib/mako-doer-in.ts', 'lib/mako-router.ts', 'lib/mako-intencion.ts', 'lib/mako-doer-acciones.ts', 'lib/mako-doer-buffer.ts', 'lib/mako-doer-conv.ts', 'lib/respuesta-doer.ts', 'lib/puntos-mensaje.ts', 'lib/vcard.ts', 'app/api/webhooks/evolution/route.ts', 'app/api/admin/mako-doer/route.ts', 'app/api/cron/doer-flush/route.ts', 'lib/mako-bot.ts', 'lib/mako-bot-reglas.ts', 'lib/mako-salida.ts', 'lib/mako-salida-drivers.ts', 'lib/leads-por-campana.ts', 'lib/leads-por-campana-server.ts', 'tests/leads-por-campana.test.ts'],
     proyectos: ['Agente: MaKo Doer'],
   },
   {

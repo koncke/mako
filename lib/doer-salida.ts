@@ -409,6 +409,18 @@ export function noLoPuedeHacer(texto: string): boolean {
 /** La línea que va después de sacar una promesa o un «hecho» sin respaldo: `normal`, o ninguna si MaKo no lo puede hacer. */
 const laVerdad = (textoEntero: string, normal: string): string | null => (noLoPuedeHacer(textoEntero) ? null : normal);
 /**
+ * ¿Lo que QUEDA termina preguntándole un dato a la persona? («¿De qué fecha es la campaña?», «¿Cuál de las dos?»). Entonces lo que
+ * sigue es SU respuesta, y la promesa que se sacó («Con eso te armo la lista») dependía de ella: «pídemelo otra vez y lo hago»
+ * debajo de una pregunta le pide repetir algo que no tiene que repetir (ticket #56, 4/11/2026: Natalia lo leyó así). Sólo una
+ * pregunta ABIERTA (qué, cuál, cuándo, cuánto, dónde, quién, cómo): «¿Te sirve?» no pide nada, y ahí la línea sigue.
+ */
+export function preguntaUnDato(queda: string): boolean {
+  const ultima = oraciones(queda).flat().map((o) => o.trim()).filter((o) => /\p{L}/u.test(o)).pop() ?? '';
+  if (!/[?]\s*[*_»"')\]]*\s*$/.test(ultima)) return false;
+  const pregunta = norm(ultima.slice(ultima.lastIndexOf('¿') + 1));
+  return /^(?:(?:y|de|a|en|con|para|por|desde|hasta)\s+)?(?:que|cual|cuales|cuando|cuanto|cuanta|cuantos|cuantas|donde|quien|quienes|como)\b/.test(pregunta);
+}
+/**
  * La nota que va cuando MaKo dice que HIZO algo y el código no ve nada que lo respalde (1.5; la tercera revisión,
  * 21/10/2026). ⚠️ LA ORACIÓN NO SE BORRA: borrar una verdad («sí, ya te la agendé» después de confirmar la tarjeta) es peor
  * que dejar pasar una mentira, porque le dice al cliente «no hice nada» sobre algo que sí se hizo. Las dos versiones que
@@ -728,12 +740,12 @@ export function sanearSalida(textoEntero: string, { corrioHerramientas, hecho, b
     const sinEspera = prometidas.length ? sinLaUltima(texto, prometidas[0]) : texto;
     const queda = sinOraciones(sinEspera, (o) => groseriasDe(o).length > 0);
     if (!prometidas.length) return { texto: queda ?? SIN_GROSERIA, promesas: prometidas, groserias };
-    const demas = laVerdad(texto, SIN_HACER_LO_DEMAS);
+    const demas = queda && preguntaUnDato(queda) ? null : laVerdad(texto, SIN_HACER_LO_DEMAS);
     return { texto: queda ? (demas ? `${queda}\n\n${demas}` : queda) : laVerdad(texto, SIN_HACER) ?? SIN_HACER_SIN_PROMESA, promesas: prometidas, groserias };
   }
   const sacada = sinOraciones(texto, (o) => (prometidas.length > 0 && promesasDe(o).length > 0) || groseriasDe(o).length > 0);
   if (prometidas.length) {
-    const verdad = laVerdad(texto, SIN_HACER);
+    const verdad = sacada && preguntaUnDato(sacada) ? null : laVerdad(texto, SIN_HACER);
     return { texto: sacada ? (verdad ? `${sacada}\n\n${verdad}` : sacada) : verdad ?? SIN_HACER_SIN_PROMESA, promesas: prometidas, groserias };
   }
   return { texto: sacada ?? SIN_GROSERIA, promesas: prometidas, groserias };

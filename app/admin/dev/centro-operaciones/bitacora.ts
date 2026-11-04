@@ -2301,4 +2301,27 @@ export const BITACORA: Hito[] = [
       'tests/gurus-ops-center.test.ts (los 32) · tests/gurus-en-espera.test.ts — la guarda de las diez fichas · docs/hallazgos-ops-center.md',
     ],
   },
+  {
+    fecha: '4 nov', hora: '14:10', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que el grupo se vea como uno de WhatsApp',
+    pedido: '«"Participantes" debería estar al final a la derecha, cuida siempre el diseño... Y no veo el botón de invitar allí mismo... Y claro, revisa que el diseño no se rompa al invitar... Que se vea como un grupo de whatsapp normal.»',
+    puntos: ['Llegó por el Cerebro, después de que Martín revisara la pantalla.'],
+  },
+  {
+    fecha: '4 nov', hora: '14:30', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grupo se ve como un grupo de WhatsApp',
+    revisar: '/second-brain',
+    puntos: [
+      '**Arriba:** debajo del nombre, quiénes están, y a la derecha del todo «Invitar» y «Participantes». Un invitado no ve «Invitar».',
+      '**Invitar no hace saltar la ventana:** la lista scrollea adentro, y el aviso queda en su lugar, separado de la lista.',
+      '**En la conversación:** lo tuyo va sin tu foto, lo que MaKo contesta dice a qué mensaje contesta, y el 👍 queda montado sobre el borde del mensaje.',
+      '**En el teléfono:** debajo del nombre, quiénes están, y un «+» para invitar.',
+    ],
+    archivos: [
+      'app/second-brain/ChatDelGrupo.tsx · app/m/second-brain/HojaDelGrupo.tsx · app/_chat/grupo/Participantes.tsx (`useMiembrosDelGrupo`) · grupo.css',
+      'tests/grupos-ops-pantalla.test.ts (20) — ocho roturas en rojo',
+    ],
+  },
 ];
