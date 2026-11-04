@@ -69,6 +69,8 @@ import type { Formato } from '@/lib/graficos-constructores';
 import type { SalidaCaja, VistaCaja } from '@/lib/graficos-ia-elemento';
 import { moverComponente, type Movida } from '@/lib/graficos-mover';
 import { inicioDibujado } from '@/lib/chat-bloques-dashboard';
+import { IDS_DESTINO, destinoDe } from '@/lib/graficos-destinos';
+import { metricasDeFrase } from '@/lib/graficos-frase';
 
 /** Para comparar lo que escribe una persona: sin acentos, sin mayúsculas, sin espacios de más. */
 export const normalizar = (s: string): string =>
@@ -313,6 +315,10 @@ export type EntradaGrafico = {
   mako?: boolean;
   /** Lo que el botón de MaKo responde primero al abrirse (`makoIA.pedido`, 13/10/2026); '' lo saca. */
   pedidoMako?: string;
+  /** El «Ver … →» del pie (un id de lib/graficos-destinos.ts); '' lo saca. */
+  ir?: string;
+  /** El patrón de una `frase` (lib/graficos-frase.ts); '' vuelve a la que se arma sola. */
+  frase?: string;
 };
 export type GraficoArmado = { ok: true; grafico: Grafico; notas: string[] } | ({ ok: false } & ErrorPedido);
 
@@ -418,12 +424,23 @@ export function armarGrafico(e: EntradaGrafico, base: Grafico | null, lugar: { x
     ...(e.orden !== undefined ? { ordenAsc: e.orden === 'asc' } : {}),
     // El botón de MaKo: desde el 13/10/2026 se guardan los dos valores (ausente = lo del tipo, `conMako`).
     ...(e.mako !== undefined ? { mako: e.mako } : {}),
+    // El pie y la frase: '' los saca (el saneo tira lo que no vale).
+    ...(e.ir !== undefined ? { ir: e.ir || undefined } : {}),
+    ...(e.frase !== undefined ? { frase: e.frase || undefined } : {}),
     // Lo que responde primero: cambia el pedido y conserva las sugerencias que tenía (`sanearGrafico` lo recorta).
     ...(e.pedidoMako !== undefined ? { makoIA: { pedido: e.pedidoMako, sugerencias: base?.makoIA?.sugerencias ?? [] } } : {}),
     // Un tipo nuevo cambia el orden de las métricas: la de orden se reinicia si ya no está.
     ordenMetrica: base?.ordenMetrica && mets.includes(base.ordenMetrica) ? base.ordenMetrica : null,
     ...(base ? {} : { x: lugar.x, y: lugar.y, w: info.w, h: info.h }),
   };
+  // El pie y la frase se validan con lo que dicen, no en silencio: un destino que no existe o una llave que no es una métrica
+  // del gráfico se rechazan con lo que sí vale.
+  if (e.ir && !destinoDe(e.ir)) return noVale(`El destino ${comillas(e.ir)} no existe.`, IDS_DESTINO);
+  if (e.frase) {
+    if (info.id !== 'frase') return noVale(`Sólo un gráfico de tipo ${comillas('frase')} lleva frase.`);
+    const fuera = metricasDeFrase(e.frase).filter((x) => !mets.includes(x));
+    if (fuera.length) return noVale(`La frase nombra ${lista(fuera.map(comillas))}, que no ${fuera.length === 1 ? 'es una métrica' : 'son métricas'} del gráfico.`, mets);
+  }
   const g = sanearGrafico(raw);
   // Defensa: lo validado tiene que sobrevivir al saneo. Si no, se dice en vez de dibujar otra cosa.
   if (!g || g.tipo !== info.id || g.fuente !== fuente.id || g.dimension !== dimension || g.desglose !== desglose

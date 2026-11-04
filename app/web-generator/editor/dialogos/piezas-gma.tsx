@@ -9,7 +9,8 @@
 // azul claro, menús de radio 16), NO con los de app/_ui (memoria «Copiar una app TAL
 // CUAL»). Diseño: docs/diseno-editor-landing.md (D3: el chrome vive bajo `.gma`).
 //
-// Medidas y colores: los MEDIDOS en gamma-tokens.md §9 y gamma-ui.md §1 (titanium para
+// Medidas: las MEDIDAS en gamma-tokens.md §9 y gamma-ui.md §1. Los colores, desde el 31/10/2026, los de Tilvo
+// (docs/diseno/, ver gamma.css). Lo que sigue es lo que se midió de Gamma (titanium para
 // los grises, deepocean para el azul): botón primario #0540AD alto 32 radio 24, pestaña
 // 600 14px #002253 con activo #D0E6FE, menú de radio 16 con ítems de 28 px y radio 6,
 // título de modal 22px/700 deepocean-950. La fuente de la UI de Gamma (PP Mori) no está
@@ -155,17 +156,17 @@ export function Icono({ nombre, tam = 16, grosor = 1.8, style }: { nombre: strin
 export const CSS_GMP = [
   // Tokens. `:where` deja la especificidad en cero: si gamma.css (paquete H) define la
   // fuente de `.gma`, gana la suya.
-  ':where(.gmp){font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
-  '.gmp{--gmp-fondo:#ffffff;--gmp-elevado:#ffffff;--gmp-suave:#f5f5f6;--gmp-hover:#ececed;--gmp-borde:#dfdfe0;--gmp-borde-fuerte:#cacacb;' +
-    '--gmp-tinta:#252527;--gmp-texto:#4d4d51;--gmp-tenue:#8b8b90;--gmp-titulo:#002253;--gmp-azul:#0540ad;--gmp-azul-hover:#0740df;' +
-    '--gmp-sobre-azul:#ffffff;--gmp-azul-claro:#d0e6fe;--gmp-sobre-azul-claro:#002253;--gmp-azul-linea:#2c88f7;--gmp-ok:#2c8c2c;--gmp-error:#dc2626;' +
-    '--gmp-velo:rgba(19,19,20,.48);--gmp-sombra-menu:0 8px 16px rgba(0,0,0,.15);' +
-    '--gmp-sombra-caja:0 20px 25px -5px rgba(0,0,0,.12),0 10px 10px -5px rgba(0,0,0,.05);color:var(--gmp-texto);font-size:14px;line-height:1.45;' +
+  ':where(.gmp){font-family:"Urbanist",system-ui,-apple-system,"Segoe UI",sans-serif}',
+  '.gmp{--gmp-fondo:#fbfcfd;--gmp-elevado:#fbfcfd;--gmp-suave:#f3f5f8;--gmp-hover:#1218260d;--gmp-borde:#12182614;--gmp-borde-fuerte:#12182626;' +
+    '--gmp-tinta:#121826;--gmp-texto:#2f3747;--gmp-tenue:#5a6477;--gmp-titulo:#121826;--gmp-azul:#1f55d6;--gmp-azul-hover:#1946b8;' +
+    '--gmp-sobre-azul:#ffffff;--gmp-azul-claro:#dbe6fb;--gmp-sobre-azul-claro:#1a49bf;--gmp-azul-linea:#1f55d6;--gmp-ok:#176a3d;--gmp-error:#b42a26;' +
+    '--gmp-velo:#12182673;--gmp-sombra-menu:0 2px 6px #12182612,0 28px 60px -24px #12182657;' +
+    '--gmp-sombra-caja:0 2px 6px #12182612,0 28px 60px -24px #12182657;color:var(--gmp-texto);font-size:14px;line-height:1.45;' +
     '-webkit-font-smoothing:antialiased}',
-  // Modo oscuro de MaKo: las superficies «elevation» medidas de Gamma.
-  '[data-tema="oscuro"] .gmp{--gmp-fondo:#1d1f22;--gmp-elevado:#212327;--gmp-suave:#2f3339;--gmp-hover:#3d444c;--gmp-borde:#3d444c;--gmp-borde-fuerte:#515c68;' +
-    '--gmp-tinta:#f5f5f6;--gmp-texto:#dfdfe0;--gmp-tenue:#aeaeb2;--gmp-titulo:#f5f5f6;--gmp-azul:#84c1fa;--gmp-azul-hover:#aad5fe;--gmp-sobre-azul:#002253;' +
-    '--gmp-azul-claro:rgba(132,193,250,.18);--gmp-sobre-azul-claro:#d0e6fe;--gmp-velo:rgba(0,0,0,.62);--gmp-sombra-menu:0 8px 16px rgba(0,0,0,.45)}',
+  // Modo oscuro de MaKo: los valores de Tilvo en oscuro (docs/diseno/tilvo-oscuro-y-piezas.json).
+  '[data-tema="oscuro"] .gmp{--gmp-fondo:#151a22;--gmp-elevado:#151a22;--gmp-suave:#11151c;--gmp-hover:#e8ecf314;--gmp-borde:#e8ecf314;--gmp-borde-fuerte:#e8ecf329;' +
+    '--gmp-tinta:#e8ecf3;--gmp-texto:#c6ccd7;--gmp-tenue:#99a2b3;--gmp-titulo:#e8ecf3;--gmp-azul:#6e98ff;--gmp-azul-hover:#8eafff;--gmp-sobre-azul:#0b1222;' +
+    '--gmp-azul-claro:#6e98ff24;--gmp-sobre-azul-claro:#9ab7ff;--gmp-velo:rgba(0,0,0,.62);--gmp-sombra-menu:0 2px 6px #0006,0 30px 70px -24px #000c}',
   '.gmp *,.gmp *::before,.gmp *::after{box-sizing:border-box}',
   '.gmp button{font-family:inherit}',
   '.gmp :focus-visible{outline:2px solid var(--gmp-azul-linea);outline-offset:2px}',

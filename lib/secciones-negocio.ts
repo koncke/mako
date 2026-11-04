@@ -90,3 +90,36 @@ export function vistaValida(area: AreaId, vista: string | null | undefined): str
 /** Las áreas que la tabla nombra, todas de AREAS (lo fija el test). */
 export const AREAS_NOMBRADAS: readonly AreaId[] = [...new Set(Object.values(DONDE_SE_EDITA).map((d) => d.area))]
   .filter((a) => AREAS.some((x) => x.id === a));
+
+// ── Dónde se corrige cada DATO del negocio, con el nombre que la persona LEE (tickets #46 y #48 de Leila, 3/11/2026) ──
+// «¿Dónde actualizo mis datos? El 7 a 9 ahora es 7:30 a 9:30» y MaKo contestó que la ruta «no la tenía confirmada»: ningún
+// lugar le decía a un chat dónde se edita el precio, qué incluye o el horario. Y donde sí lo decía, mandaba a «Documentos»,
+// cuando el campo se lee y se corrige en «La oferta → El brief» (CamposNegocio: «Toca cualquier dato para corregirlo»).
+// Los nombres son los de la pantalla: «Second Brain» en la barra del Ops Center, el área del mapa (AREAS) y su sub-pestaña
+// (AreasHub.tsx). tests/mako-no-puedo-falsos.test.ts (el 17) mira que cada nombre esté de verdad en esas pantallas.
+export type DatoDelNegocio = 'brief' | 'ofertas' | 'productos' | 'cliente';
+
+export const DATOS_DEL_NEGOCIO: Readonly<Record<DatoDelNegocio, { area: AreaId; vista?: string; nombres: readonly string[]; que: string }>> = {
+  brief: { area: 'oferta', vista: 'brief', nombres: ['La oferta', 'El brief'], que: 'lo que MaKo usa para escribir de tu oferta principal: a qué te dedicas, el precio, qué incluye (días, horario, sesiones), la promesa y la garantía' },
+  ofertas: { area: 'oferta', vista: 'entidad', nombres: ['La oferta', 'La oferta'], que: 'tus ofertas: el precio en USD y cómo se presenta, los bonos, la urgencia y en qué funnels se vende cada una' },
+  productos: { area: 'productos', nombres: ['Productos'], que: 'el catálogo que usa el CRM para cargar cada venta, con su precio' },
+  cliente: { area: 'cliente', nombres: ['Cliente ideal'], que: 'a quién le vendes: qué le duele, qué quiere y qué objeta' },
+};
+
+/** El link al dato (`?area=` y `?vista=`, los mismos que valida VistaCerebro). */
+export function rutaDato(d: DatoDelNegocio): string {
+  const x = DATOS_DEL_NEGOCIO[d];
+  return `${SB.ruta}?area=${x.area}${x.vista ? `&vista=${x.vista}` : ''}`;
+}
+
+/** «Ops Center → Second Brain → La oferta → El brief»: el camino con los nombres de la pantalla. */
+export function lugarDato(d: DatoDelNegocio): string {
+  return [SB.tab, 'Second Brain', ...DATOS_DEL_NEGOCIO[d].nombres].join(' → ');
+}
+
+/** Dónde se corrige un campo del perfil, por su clave: lo de la oferta en «El brief», lo del cliente en «Cliente ideal». */
+export function datoDeCampo(key: string): DatoDelNegocio | null {
+  if (key === 'negocio_que_hace' || key.startsWith('oferta_')) return 'brief';
+  if (key.startsWith('avatar_')) return 'cliente';
+  return null;
+}

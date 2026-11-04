@@ -52,8 +52,12 @@ export type Mirada = {
  * un cron hay que envolver en `runWithWorkspace(ws, …)` o el snapshot de un
  * cliente termina escrito en el workspace de Mauricio.
  */
-export async function mirarLanding(url: string, vigentes?: readonly string[]): Promise<Mirada> {
-  const analisis = await analizarLanding(url, fetchSeguro);
+export async function mirarLanding(
+  url: string,
+  vigentes?: readonly string[],
+  alLeer?: (html: string, bundle: string) => void,
+): Promise<Mirada> {
+  const analisis = await analizarLanding(url, fetchSeguro, alLeer);
 
   // La puerta. `ok:false` o `error` cubre el 403, el timeout, el DNS que no
   // resuelve y la página que devolvió algo que no es HTML. En todos esos casos

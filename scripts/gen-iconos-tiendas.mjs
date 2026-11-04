@@ -30,4 +30,16 @@ await sharp(Buffer.from(icono)).flatten({ background: '#191712' }).removeAlpha()
 for (const f of ['splash-2732x2732.png', 'splash-2732x2732-1.png', 'splash-2732x2732-2.png']) {
   await sharp(Buffer.from(arranque)).flatten({ background: '#F4F6F9' }).removeAlpha().png().toFile(`${SALIDA}/Splash.imageset/${f}`);
 }
-console.log('Listo: el ícono de 1024 y las tres pantallas de arranque en', SALIDA);
+
+// El feature graphic de Play (3/11/2026): 1024×500 sin transparencia, con el fondo y la estrella del ícono. Play lo tapa con un botón de
+// «play» si hay video, y lo recorta en algunos lados: lo importante va al centro, sin letra chica.
+const feature = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs>${dorado}<linearGradient id="f" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#28231B"/><stop offset="1" stop-color="#191712"/></linearGradient></defs>
+  <rect width="1024" height="500" fill="url(#f)"/>
+  <g transform="translate(250 250) scale(0.86) translate(-256 -256)"><path d="${ESTRELLA}" fill="url(#d)"/></g>
+  <text x="390" y="262" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="108" font-weight="700" fill="#F7F4EC">MaKo</text>
+  <text x="394" y="322" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="34" fill="#CFC8B8">CRM, chats e IA en un solo lugar</text>
+</svg>`;
+await sharp(Buffer.from(feature)).flatten({ background: '#191712' }).removeAlpha().png().toFile('nativo/android/feature-graphic.png');
+
+console.log('Listo: el ícono de 1024 y las tres pantallas de arranque en', SALIDA, ', y el feature graphic en nativo/android');

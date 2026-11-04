@@ -10,7 +10,8 @@
 //   2. crearPendiente / crearPropuesta: el push sólo tras el insert que salió bien.
 //   3. lib/push.ts: el par VAPID se LEE del workspace de plataforma y nunca se genera.
 //   4. La suscripción se ata a la PERSONA (no a la pestaña) y el endpoint pasa la guarda.
-//   5. public/sw.js: sin 'fetch', y todo push muestra una notificación con su tag.
+//   5. public/sw.js: nunca guarda una respuesta del servidor (desde el 28/10/2026 tiene 'fetch' para MaKo sin conexión,
+//      sólo con el cascarón), y todo push muestra una notificación con su tag.
 //   6. La frontera: ningún 'use client' importa lib/push.ts, y lib/push-cliente.ts no importa nada.
 //   7. El feed: toda consulta a `notificaciones` lleva su workspace; la ruta no corta al ws1.
 //   8. Las piezas de configuración: /sw.js en PUBLICOS (sólo leer) y sus cabeceras.
@@ -27,7 +28,8 @@
 //   · el push de crearPropuesta antes del insert                          → 10 / 1
 //   · lib/push.ts generando el par (`generateVAPIDKeys`)                  → 10 / 1
 //   · la suscripción atada con `getWorkspaceActual`                       → 10 / 1
-//   · sw.js con un `addEventListener('fetch'`                              → 10 / 1
+//   · sw.js con un `addEventListener('fetch'`                              → 10 / 1  (hasta el 28/10/2026; desde ahí,
+//     un segundo `cache.put` de lo que vuelve de una navegación → 10 / 1)
 //   · un `.from('notificaciones')` sin workspace en lib/notificaciones.ts → 10 / 1
 //   · /api/notificaciones con `esWorkspaceDueno` de vuelta                → 10 / 1
 // =============================================================================
@@ -132,9 +134,19 @@ test('4. la suscripción se ata a la PERSONA, con la guarda del endpoint', () =>
   }
 });
 
-test('5. public/sw.js: sin handler fetch, y todo push muestra una notificación con su tag', () => {
+test('5. public/sw.js: nunca guarda una respuesta del servidor, y todo push muestra una notificación con su tag', () => {
   const src = sinComentarios(leer('public/sw.js'));
-  assert.doesNotMatch(src, /addEventListener\(\s*['"]fetch['"]/, 'un caché offline sirve el HTML de una cuenta a otra');
+  // Hasta el 28/10/2026 no había handler 'fetch'. MaKo sin conexión lo suma sin romper la regla («un caché sirve el HTML de
+  // una cuenta a otra»): el ÚNICO cache.put es el de la lista fija del cascarón, pedida sin cookies. Lo corre de verdad
+  // tests/sin-conexion.test.ts (5a-5d).
+  // Los DOS put viven en guardarCascaron: la lista fija y la hora en que se bajó (un número; la verificación de 90d6410eb).
+  const puts = [...src.matchAll(/\.put\(/g)];
+  assert.equal(puts.length, 2, 'un caché offline sirve el HTML de una cuenta a otra');
+  const guardar = bloque(src, 'async function guardarCascaron', '\n}\n');
+  assert.equal([...guardar.matchAll(/\.put\(/g)].length, 2, 'los únicos put son los del cascarón');
+  assert.match(guardar, /cache\.put\(MARCA_RENOVADO, new Response\(String\(ultimaRenovacion\)\)\)/);
+  assert.match(guardar, /ARCHIVOS_CASCARON\.map/);
+  assert.match(guardar, /credentials: 'omit'/);
   const push = bloque(src, "addEventListener('push'", "addEventListener('notificationclick'");
   assert.match(push, /showNotification\(/, 'un push sin notificación hace que Safari revoque la suscripción');
   assert.match(push, /renotify: true/);
@@ -169,7 +181,9 @@ test('6. la frontera: ningún use client importa lib/push.ts, y el módulo del n
   }
   assert.deepEqual(culpables, [], 'un use client importa lib/push.ts (server-only, trae web-push y las claves)');
   const cliente = sinComentarios(leer('lib/push-cliente.ts'));
-  assert.doesNotMatch(cliente, /^\s*import\s/m, 'lib/push-cliente.ts tiene que quedar sin dependencias');
+  // Sólo lib/nativo.ts (3/11/2026): adentro de la app de iPhone no hay Web Push, y ese módulo tampoco arrastra nada del servidor.
+  assert.doesNotMatch(cliente.replace(/^import \{[^}]*\} from '\.\/nativo';$/m, ''), /^\s*import\s/m, 'lib/push-cliente.ts tiene que quedar sin dependencias');
+  assert.deepEqual([...sinComentarios(leer('lib/nativo.ts')).matchAll(/^import [^\n]* from '([^']+)';$/gm)].map((m) => m[1]), ['./tienda']);
   assert.doesNotMatch(cliente, /^\s*['"]use client['"]/m, 'no es un componente: con la directiva sus exports serían referencias de cliente');
 });
 

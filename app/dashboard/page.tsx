@@ -57,6 +57,7 @@ import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { informeGeneralInicial } from '@/lib/general-plantillas';
 import { PARAM_PLANTILLAS, hojaGeneralPedida, informeDePedida, type HojaCorta } from '@/lib/dashboard-focus';
+import { PLANTILLAS_GENERAL } from '@/lib/general-plantillas';
 import { EditorInforme } from './EditorInforme';
 import { FocusDeGeneral } from './FocusDeGeneral';
 import { textoProbar } from '@/lib/experimentos-catalogo';
@@ -105,10 +106,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const [lecturaDash, lecturaGeneral] = conFocus ? await Promise.all([leerTablero(), leerInformeGeneral()]) : [null, null];
   if (lecturaDash && lecturaGeneral && !plantillas) {
     const idsGeneral = (lecturaGeneral.tablero.hojas.length ? lecturaGeneral.tablero.hojas : informeGeneralInicial().hojas).map((h) => h.id);
-    if (informeDePedida(pedida, idsGeneral, lecturaDash.tablero.hojas.map((h) => h.id), true) === 'general') {
+    if (informeDePedida(pedida, idsGeneral, lecturaDash.tablero.hojas.map((h) => h.id), true, PLANTILLAS_GENERAL.map((x) => x.id)) === 'general') {
       return (
         <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <FocusDeGeneral lectura={lecturaGeneral} hojaPedida={hojaGeneralPedida(pedida, idsGeneral)} hoy={hoy} hojasDashboard={hojasDe(lecturaDash).map(corta)} senales={senales} />
+          <FocusDeGeneral lectura={lecturaGeneral} hojaPedida={hojaGeneralPedida(pedida, idsGeneral)} plantillaPedida={pedida} hoy={hoy} hojasDashboard={hojasDe(lecturaDash).map(corta)} senales={senales} />
         </Pagina>
       );
     }

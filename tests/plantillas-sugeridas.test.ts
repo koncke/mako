@@ -93,7 +93,7 @@ test('una plantilla de un canal no se le sugiere a quien vende por otro (los eje
 test('empatadas, manda el orden de la galería', () => {
   const s = { ...NADA, cobros: ['suscripcion' as const] };
   assert.deepEqual(sugeridas(ordenarConSugeridas(PLANTILLAS_HOJA, ETIQUETAS_DASHBOARD, s)), ['cs-analyst', 'cobranza']);
-  assert.deepEqual(sugeridas(ordenarConSugeridas(PLANTILLAS_GENERAL, ETIQUETAS_GENERAL, s)), ['cobros', 'servicio']);
+  assert.deepEqual(sugeridas(ordenarConSugeridas(PLANTILLAS_GENERAL, ETIQUETAS_GENERAL, s)), ['servicio']);
 });
 
 test(`nunca más de ${MAX_SUGERIDAS}: si la mitad dice «Sugerido», no dice nada`, () => {
@@ -163,7 +163,7 @@ test('las etiquetas usan valores del catálogo, y cada valor tiene su porqué', 
 
 test('la galería ordena la lista ENTERA, filtra después, y dibuja «Sugerido»', () => {
   const g = leer('app', 'dashboard', 'NuevaHoja.tsx');
-  assert.match(g, /ordenarConSugeridas\(\s*informe === 'general' \? PLANTILLAS_GENERAL : PLANTILLAS_HOJA, informe === 'general' \? ETIQUETAS_GENERAL : ETIQUETAS_DASHBOARD, senales,\s*\)/);
+  assert.match(g, /ordenarConSugeridas\(\s*catalogo, conTodas \? ETIQUETAS_UNICAS : informe === 'general' \? ETIQUETAS_GENERAL : ETIQUETAS_DASHBOARD, senales,\s*\)/);
   assert.match(g, /filtrarPlantillasHoja\(ordenadas\.map\(\(x\) => x\.plantilla\), busca\)/, 'se filtra lo ya ordenado');
   assert.match(g, /\{sugerida && <span className="nh-sugerido" title=\{sugerida\}>Sugerido<\/span>\}/);
 });
@@ -175,8 +175,8 @@ test('las páginas leen las señales en el server y el editor se las pasa a las 
     assert.match(pagina, /senales=\{senales(Negocio)?\}/);
   }
   const ed = leer('app', 'dashboard', 'EditorInforme.tsx');
-  assert.match(ed, /<CrearHoja [^>]*senales=\{senales\} \/>/);
-  assert.match(ed, /<NuevaHoja [^>]*senales=\{senales\} \/>/);
+  assert.match(ed, /<CrearHoja [^>]*senales=\{senales\} conTodas=\{!!unido\} \/>/);
+  assert.match(ed, /<NuevaHoja [^>]*senales=\{senales\} conTodas=\{!!unido\} \/>/);
 });
 
 test('las señales se leen de lo guardado, sin IA, con la regla pura', () => {

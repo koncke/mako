@@ -47,7 +47,7 @@ import { runnerDe } from './runners';
 import { distintoAlRevisar, validarInput } from './validar';
 import { vistaDe } from './vista';
 import { canalKeyDe, canalDeClave, etiquetaDeCanal, puedeConfirmar, PREFIJO_APP, PREFIJO_FLUJO } from './canal';
-import { esAccion, type AccionDef, type Ctx, type Ejecutado } from './tipos';
+import { esAccion, type AccionDef, type AccionRun, type Ctx, type Ejecutado } from './tipos';
 import { rechazoSiNoEsConfirmacionPura } from '@/lib/confirmacion-pura';
 import { anotarEnHiloDeOrigen } from '@/lib/chat-hilo-origen';
 import { bloqueDeResultado } from '@/lib/chat-bloques';
@@ -179,7 +179,7 @@ export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado
     if ('error' in prep) return { ok: false, resumen: prep.error };
     // Igual que al confirmar una pendiente: lo que se sabe sin escribir se mira antes de marcarla aplicada.
     const falta = await run.faltaParaConfirmar?.(prep.payload, ctx);
-    if (falta) return { ok: false, resumen: falta };
+    if (falta) return { ok: false, resumen: typeof falta === 'string' ? falta : falta.yaNoVale };
 
     const mia = await marcarAplicada(propuestaId, { en_curso: true, por: ctx.actor ?? null });
     if (!mia) return { ok: false, resumen: 'Esta propuesta ya se estaba aplicando.' };
@@ -323,7 +323,12 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   // Lo que se puede saber sin escribir se mira ANTES de reclamar: reclamar quema la pendiente, y un «sí» que no se puede cumplir
   // (una escritura firmada que llega sin nadie que firme) no la puede dejar en `error`: sigue ahí para quien sí la confirma.
   if (registrada) {
-    const falta = await (run as { faltaParaConfirmar?: (payload: Record<string, unknown>, ctx: Ctx) => Promise<string | null> }).faltaParaConfirmar?.(p.payload, ctx);
+    const falta = await (run as Pick<AccionRun, 'faltaParaConfirmar'>).faltaParaConfirmar?.(p.payload, ctx);
+    // La que ya no se puede cumplir nunca se cierra: viva, el «sí» siguiente chocaba con la que se pidió de nuevo (B12).
+    if (falta && typeof falta !== 'string') {
+      await resolverPendiente(ctx.ws, p.id, 'error', falta.yaNoVale, { soloSiPendiente: true });
+      return { error: falta.yaNoVale };
+    }
     if (falta) return { error: falta };
   }
 

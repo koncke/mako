@@ -58,6 +58,13 @@ export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
     falta: { adjuntos: 'no corresponde: es un arranque guionado, el texto es la respuesta del paso', voz: 'no corresponde: ídem' },
   },
   {
+    archivo: 'app/newsletters/NewslettersApp.tsx', chat: 'la apertura del Newsletter (cada cuánto sale y de qué trata; sólo de la plataforma mientras esté en PRONTO)',
+    falta: {
+      adjuntos: 'no corresponde: es una apertura guiada de dos preguntas, el texto es la respuesta del paso (como el arranque del Media Buyer)',
+      voz: 'no corresponde: ídem',
+    },
+  },
+  {
     archivo: 'app/ads-manager/Hoy.tsx', chat: 'la orden de una línea del Media Buyer',
     falta: {
       adjuntos: 'no corresponde: la orden va al MaKo de la tab, que tiene la caja entera', voz: 'no corresponde: ídem',

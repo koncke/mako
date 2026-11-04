@@ -63,7 +63,8 @@ const MINIMA = 45;
 test('el ACENTO de una plantilla nunca es un color del semáforo', () => {
   const sem = semaforo();
   for (const p of PLANTILLAS_TEMA) {
-    const acento = p.paleta[0].toLowerCase();
+    // Las paletas de Corbel son variables (cambian en oscuro): se mide su color claro, que es el respaldo de la variable.
+    const acento = (/#[0-9a-f]{6}/i.exec(p.paleta[0])?.[0] ?? p.paleta[0]).toLowerCase();
     for (const [tok, hex] of Object.entries(sem)) {
       const d = distancia(acento, hex);
       assert.ok(
@@ -92,11 +93,11 @@ test('el color de un KPI sale de su SIGNIFICADO, no de la paleta de la hoja', ()
 });
 
 test('un acento elegido a mano cambia la serie 0 y NADA más', () => {
-  const tema = sanearTema({ plantilla: 'mako', acento: '#d0504a' });
+  const tema = sanearTema({ plantilla: 'vieja', acento: '#d0504a' });
   const paleta = paletaDe(tema);
   assert.equal(paleta[0], '#d0504a', 'el acento es el primer color de la serie');
   // Los otros siete siguen siendo los de la plantilla: elegir un acento no repinta la paleta entera.
-  assert.deepEqual(paleta.slice(1), PALETA_MAKO.slice(1));
+  assert.deepEqual(paleta.slice(1), PLANTILLAS_TEMA.find((p) => p.id === 'vieja')!.paleta.slice(1));
 });
 
 test('la regla está DICHA en la pantalla, no escondida en una guía', () => {

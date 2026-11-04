@@ -28,6 +28,8 @@ adentro de un repo: `fuenteGit` llama a git sin carpeta y fuera de uno revienta.
 Set de PARES: `has('tests/x.test.ts')` da siempre `false`, y `size` sigue dando el número correcto, así que no se nota.
 Falla en la dirección peligrosa: dice «no lo elegía» en todos los casos. Es `sel.tests.has(...)` y `sel.tests.get(...)`.
 
+**Ver una pantalla sin levantar `next dev`.** Arrancar local escribe en producción, y por eso una pantalla nueva se quedaba sin mirar hasta el despliegue. Sirve un arnés fuera del repo: `esbuild` empaqueta el componente real, un plugin cambia `./actions` por funciones falsas con un caso por `?e=` y los componentes con server actions por un stub, `globals.css` da los tokens reales, y `python -m http.server` lo sirve. Dos trampas: hay que definir `window.process` antes del bundle (`next/link` lo lee) y `esbuild` no resuelve bien con una ruta relativa larga a otro disco, se le da un alias. Con eso se ven los cuatro estados en escritorio, teléfono y oscuro sin tocar la base. No prueba las server actions ni la sesión.
+
 **Un SIN CHEQUEAR por RAM no acusa a los archivos.** La compuerta de esa punta (7.829 tests, 0 rojos, 66 min) dejó 18
 sin juzgar, con un mínimo de 0,3 GB libres: el vigía bajó sus tandas y el veredicto nombra a todos los de la tanda. Repetidos
 de a tres y esperando 2 GB libres, los primeros seis dieron 91 verdes y 0 rojos. No se separó qué lo resolvió, la tanda más
@@ -74,6 +76,216 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 [corridas-multiagente.md](corridas-multiagente.md). La regla de la cosecha, en `AGENTS.md`.
 
 ---
+
+## Rearmar etiquetas `rescate/*` desde la nube: el clon miente, Node 22 no comparte y el índice suma filas viejas (4/11/2026)
+
+**Vive en:** `docs/relevo/nube-ramas.md` (el estado de cada etiqueta) · `scripts/unir-indice-hallazgos.py` · `.github/workflows/punta.yml`.
+
+Martín: «haz todo el resto, como los commits sin subir». Once etiquetas `rescate/<rama>` con trabajo que sólo vivía en la PC,
+rearmadas desde la nube sobre `origin/main`, cada una en su `punta/<rama>`.
+
+**Lo que engaña, en el orden en que apareció:**
+- **El clon de la nube es SUPERFICIAL** (`.git/shallow` con 46 injertos). `git merge-base` y `git rev-list --count` contestan
+  sin error y mal: `landing-high-ticket-2910` figuraba con 13 commits y 22 archivos propios y eran 2 y 3, y un diff contra
+  el merge-base mostraba como «borrado» código que main sumó después. Antes de medir una rama: `git fetch --unshallow origin
+  main` y `git rev-parse --is-shallow-repository` en `false`.
+- **El `node` de la nube es el 22; GitHub corre el 24.** Con el 22, los grupos compartidos de `tests-afectados.mjs` salen
+  «NO CORRIÓ: no juzgó NI UN caso · 0 s» (240 archivos) y los repite aislados, uno por uno. El 24 está en `/opt/node24/bin`:
+  `export PATH=/opt/node24/bin:$PATH` antes de correr tests o el tsc acotado (con el 22, `tsc-acotado` salió «código
+  undefined» sin chequear nada; con el 24, limpio).
+- **`unir-indice-hallazgos.py` es para un MERGE: lee `MERGE_HEAD`, y en un cherry-pick no hace nada.** Y la salida obvia —
+  sumar las filas de la que entra que HEAD no tiene— vuelve a meter filas que main reescribió después (pasó con dos filas de
+  `desktop-offline`). Lo que vale es comparar contra el PADRE del commit (`CHERRY_PICK_HEAD^`): se suma sólo lo que el commit
+  agrega, y una fila que el commit cambia reemplaza a la vieja.
+- **«Dejar los dos lados» de un `.md` pierde la línea en blanco entre secciones**: el `## ` que entra queda pegado al último
+  renglón de la anterior. Se mira el borde después de resolver.
+- **Una regla que main sumó después pone roja a la rama sin un solo choque.** `newsletter-2910` traía tres operaciones con
+  `'http'`, y desde el 29/10 main exige su fila en `RUTAS_REST` (`tests/api-mako-rest.test.ts`): merge limpio y test rojo.
+  Por eso cada rama corre sus tests sobre main antes de subir, aunque haya entrado sin choques.
+- **Una rama cuyo relevo dice «falta tests-afectados» trae rojos, aunque sus propios tests pasen.** `replica-editable-2810`
+  daba 48/48 en sus dos archivos y 8 rojos en los afectados: seis por tres ejemplos sumados a la descripción de una
+  operación, que le robaban puntaje a otras en el presupuesto del chat (docs/hallazgos-editor-landing.md → «La réplica
+  editable»). Antes de subir una rama así, los afectados enteros, no sólo los suyos.
+- **Una punta de 20 minutos puede chocar AL FINAL, al llevarla a main.** `desktop-offline-t2-2810` pasó tests y tipos y
+  chocó en `docs/hallazgos.md` porque otra punta entró en el medio. No es un rojo del código: se mezcla `origin/main` con
+  `scripts/unir-indice-hallazgos.py` (en un merge sí sirve) y se vuelve a subir. Con muchas puntas a la vez es lo esperable.
+- **`origin/main..<etiqueta>` cuenta commits, no contenido.** De las 11, `crm-bajas-3010` traía un pendiente que main ya había
+  cerrado (`dbc64bdd`, «Código Inmobiliario, cerrado») y `tickets-leila-0311` un relevo de un código que ya estaba en main.
+  Cada commit se mira contra lo que main ya dice sobre el tema, no sólo contra sus shas.
+- **El AUTOR del último commit de la punta es el autor del deploy.** `punta.yml` mezcla con él, y Vercel BLOQUEA los deploys
+  de `noreply@anthropic.com` (build-deploy, 17/08). La nube viene configurada con ese correo: el 4/11 la mezcla de
+  `punta/spy-busqueda` entró a main así firmada (`9202c22d2`). No dejó producción vieja porque el avance siguiente lo firmó el
+  equipo, pero si queda último en main, producción no avanza y nada lo dice. Se firma con el correo del equipo
+  (`git config user.email`), como el resto del repo; el nombre sigue siendo Claude y el trailer `Claude-Cuenta`, también.
+  **Sin hacer:** que `punta.yml` frene ese correo como ya frena `[bot]` y `noreply@github.com` (cambia un workflow compartido:
+  lo decide Integración).
+- **`pkill -f <patrón>` mata la propia consulta**: el comando que lo corre contiene el patrón. Salió con 144 y se llevó el
+  shell. Es la regla de «se mata por PID propio» otra vez: el PID de una tarea de fondo propia se guarda al lanzarla.
+
+*4/11/2026, nube, al rearmar las etiquetas `rescate/*`.*
+
+---
+
+## Por qué tardaba horas: casi nada era la máquina, y «el tsc entero no entra» era falso (4/11/2026)
+
+**Síntoma.** Martín: «No entiendo como es posible que tarde tantas horas en correr un simple test». Entre dos verdes pasaron 17 h el 3/11, y del commit a producción la mediana era 5 h.
+
+**El diagnóstico obvio era el equivocado, dos veces.**
+- Parecía que los tests eran lentos. De la espera de cada commit (31/10-3/11, n=354), la corrida verde era el 5 %, o el 18 % sin el tapón del 31/10. El build de Vercel, 2,6 min. Lo demás: main 56 de 99,5 h sin verde, armar lotes, repetir por rojos, y un tren cada 30 min sobre un chequeo de 34 que se cancelaba solo (25 canceladas, 400 min).
+- Parecía que el tsc entero no entraba en el runner. Murió en 52 corridas a los ~357 s, y desde el 22/10 cada OK era PARCIAL. No era el tamaño: era el tope de heap de 6.144 MB sin swap. Con swap y `TIPOS_HEAP_MB=12288` terminó en 248 s, con 6.187 MB vivos y 9.812 archivos (run 41779840011), y en 148 s adentro de una punta. Es un veredicto completo en menos tiempo que el intento que moría. `punta.yml` lo usa desde ahora, con las tandas de respaldo. `tipos-respaldo.yml` nunca había llegado a correr el tsc: la primera vez que lo hizo, dio esto.
+- ⚠️ `error TS5033 ... ENOSPC` no es un error de tipos, aunque el paso lo cuente así. El disco del runner tiene 11 GB libres: con 10 GB de swap, después de los tests no entró ni el `tsconfig.tsbuildinfo` (corrida 18). Van 6 GB, sumados a los 3,3 que el runner ya trae.
+- La primera corrida entera de la suite semanal desde el 19/10 dio verde: 18.425 tests, 0 rojos, 25 min (run 41779837302).
+
+**Los rojos.** De los ~18.100 casos, 25 % sólo lee código como texto, y 3.364 copian una línea en un regex. En las 17 rojas #371-#398 fallaron 15 archivos de test: 13 se arreglaron tocando sólo el test. En la literatura se llama change-detector test (Google, 2015): da rojo con el código bien y verde con el programa roto. Ejemplo de lo segundo: `tests/agencia-cobro.test.ts`, «una agencia ve SÓLO sus cobros», sólo pide que exista un texto.
+
+**Pero no todo rojo es falso.** Según quién clasifica, 3 a 10 de 51 corridas rojas eran daño real: Creem (#301), el permiso de una tab (#330-336). La punta 14 cazó una ruta pública sin tope. Por eso borrar un test necesita un segundo lector, y lo de plata, permisos y aislamiento se convierte, no se borra.
+
+**Lo que engaña la próxima vez:**
+- «De 16 incidentes, el chequeo no frenó ninguno» es sesgo: la lista sólo trae lo que se escapó, y 9 de los 16 pasaron cuando no corría ningún chequeo.
+- Los «3 min directo a main» salieron con `--no-verify`. Con el hook no se repiten: un arreglo urgente es rollback y punta.
+- «Un rojo no frena a nadie» vale con main verde. Una barredora roja en main pone rojas a todas las puntas.
+- El filtro local por chat se sacó a propósito el 22/10: eran N chequeos en fila. Devolverlo entero vuelve a la fila.
+- Apagar las barredoras cuando no se tocó código ahorra casi nada, y deja sin la guarda de número de migración. Una punta de sólo SQL elige 0 tests, y el paso exige más de 0.
+- 8 de 10 verdes de punta llegaron a main con una mezcla sin tests ni tipos (filtrar el log por `##[warning]`: el texto también está en el script impreso). No se midió si alguna rompió algo.
+- Una prueba de humo por HTTP sin sesión no habría visto ninguno de los 16 incidentes: las pantallas redirigen a /login y el React falla en el navegador. Sirve como alarma de caída total. Rollback sólo aplicaba a 2 de 16.
+- Merge queue no existe en un repo privado de cuenta personal: pide organización y Enterprise Cloud.
+- Vercel construye cada avance de main (10 de 10 esa noche), en la máquina de 30 núcleos. La memoria decía 8 GB.
+- En Git Bash, `git show rama:.github/x` falla sin `MSYS_NO_PATHCONV=1`.
+
+**Sin hacer:**
+- ✔ Hecho (4/11, `punta/sin-nombra-20`): sacada la regla «nombra 20+». 37 tests dejaron de correr en toda punta; siguen corriendo cuando cambia algo que nombran. Replay sobre 67 rojos reales de 45 corridas (las 21 de antes + integracion #360-#398 + puntas 1 y 14, ahora en `docs/fallos-ci-integracion.jsonl`): 67/67 con la regla y 67/67 sin ella, y ninguno dependía de ella. Cada punta escribe además el tiempo de cada archivo de test en el resumen del run (`scripts/reporter-tiempos.mjs`, sin tocar el reporte de siempre).
+- ✔ Hecho (4/11, `punta/filtro-punta`): `scripts/filtro-punta.mjs`, que el pre-push corre en un push a `punta/*` después de las guardas. Los tests de lo tocado (los toca, lo nombran o lo importan directo) en tandas de 6 y los tipos de lo tocado, con tope de 90 s, sin candado y sin esperar RAM. Frena sólo con un rojo confirmado; lo que no entra, avisa y deja subir. Elige sobre lo COMMITEADO (lo que no se commiteó no viaja). Medido en la nube (4 CPU, 15 GB): habría frenado los dos rojos de puntas de ese día, en 54 s (TS2339) y en 4 s (TS2769), y sobre cinco commits reales de otros chats corrió sus tests en 4-6 s. ⚠️ Los tipos casi nunca entran: el tsc «acotado» de un archivo de app/ o lib/ arrastra ~1.400 archivos y tarda 131 s (3,2 GB); si lo tocado arrastra más de 400 se saltean con aviso (sólo entran tests y scripts chicos), y los chequea el tsc entero de la punta. ⚠️ Sin medir en la PC con 8 chats: el hook es compartido y hay que copiarlo a mano en cada clon (docs/relevo/nube-metodologia.md).
+- ✔ Hecho (4/11, `punta/despues-del-deploy`): `.github/workflows/despues-del-deploy.yml`. Un deploy de producción que falla deja una corrida ROJA; uno que sale bien pasa la prueba de humo (`scripts/humo-produccion.mjs`: 9 GET a hola-mako.com, uno de ellos lee la base por el camino del Pixel, sin escribir nada; sólo alarma, nunca rollback; no ve lo que está detrás de la sesión). Escucha `repository_dispatch` (`vercel.deployment.*`) y `deployment_status`, porque desde la nube no se pudo leer la doc de Vercel (vercel.com no resuelve) ni medir si `github.silent` corta alguno. Por eso un vigía, cada 8 h, da rojo si main recibió commits en 48 h y no llegó ni un evento. ⚠️ Sin medir: si llegan, y si el runner de GitHub pasa el firewall de Vercel en hola-mako.com.
+- ✔ Hecho (4/11, `punta/sobre-main`): `.github/workflows/sobre-main.yml` corre los tipos enteros y las 230 barredoras compartidas (`tests-afectados.mjs --barredoras`: 2.198 tests, 107 s en la nube) sobre main. Lo lanza punta.yml SÓLO cuando empujó una mezcla que no probó (main se movió durante sus tests); si empujó lo que probó, ya pasó lo mismo. ⚠️ Un push con el GITHUB_TOKEN no dispara `push`: por eso es un `workflow_dispatch` explícito. Rojo → `ci-rojo/main`; mientras existe, cada punta roja deja `espera-main/<punta>`. Verde (de sobre-main, o de una punta que llega con su mezcla probada) → `scripts/ci-main-verde.sh` borra la marca y relanza esas puntas una vez, si su rama sigue en el commit rojo. `espera-main/**` no construye en Vercel.
+- ✔ Hecho (4/11, `punta/redes-de-noche`): `semanal-tests.yml` (~25 min) y `tipos-respaldo.yml` (~5 min) corren CADA NOCHE si main se movió desde su último VEREDICTO (verde o rojo; no «desde ayer»: una noche cancelada no deja hueco). El vigía de `despues-del-deploy.yml` da rojo si una de las dos lleva 36 h sin veredicto con commits nuevos en main. La suite deja además la tabla de los 20 archivos más lentos. Peor caso de minutos: ~30 por noche con cambios, ~900 al mes.
+- ✔ Hecho (4/11, `punta/sin-integracion` y `punta/metodologia`): retirada la rama `integracion`, en el orden pedido. Primero el hook la rechaza con el comando de la punta, y `integracion-retirada.yml` da rojo en ~5 s al que empuja sin el hook nuevo. Después, AGENTS.md sin el tren, con UNA sección corta arriba («Cómo se sube lo terminado»), los tests leyendo `punta.yml` y, recién al final, `integracion.yml` borrado. Los comandos por clon y los tiempos medidos: docs/relevo/nube-metodologia.md.
+- ✔ Hecho (4/11, `punta/bitacoras-sin-choque`, pedido del Cerebro): las puntas verdes que perdían «Llevar a main» por chocar al final de la misma `app/admin/dev/<área>/bitacora.ts`. Lo resuelve un merge driver de git (`scripts/unir-bitacora.mjs`, `merge=bitacora`): si cada lado sólo insertó elementos completos en el mismo lugar, deja los dos; cualquier otro choque sigue siendo choque. `merge=union` no servía: arma un objeto con la mitad de cada hito. Medido sobre la historia de main: 24 de 24 pares reales bien.
+- Las guardas sobre la forma de los tests (`tanda-no-la-mata-un-test-lento` y compañía) son barredoras, y el filtro del pre-push no corre barredoras: un test nuevo que lanza un hijo sin `maxBuffer` pasa el filtro y da rojo en la punta (le pasó a `punta/sobre-main`). Hasta que el filtro las sume cuando cambia un `tests/*.test.ts`, correrlas a mano: `node scripts/tests-afectados.mjs --base origin/main`.
+- Rollback: procedimiento y ensayo real, con el sí de Martín. Sin probar por API.
+- Tabla por test (rojos, falsas alarmas, tiempo); reglas en ast-grep; convertir `tests/agencia-cobro.test.ts`.
+- Plata: Actions, US$60-128 por mes según corridas por día, sin factura a la vista. Vercel, sin leer: US$57-134 según documentación.
+
+**Lo que se aprendió construyéndolo (4/11/2026):**
+- **Un archivo sin extensión era invisible para `tests-afectados`.** `resolverNombre` probaba `.ts`, `.mjs`… y nunca el nombre tal cual, así que un cambio al hook de pre-push no corría NINGUNO de los cinco tests que lo leen. Ahora un archivo de git sin extensión se nombra tal cual (test con rotura).
+- **Una punta vieja mezcla con SUS atributos, no con los de main.** `docs/hallazgos*.md merge=union` estaba en main y `punta/sobre-main` chocó igual en el índice: git lee el `.gitattributes` del árbol que mezcla. `punta.yml` copia ahora las líneas `merge=` de main a `.git/info/attributes` antes de mezclar.
+- **Un cambio en AGENTS.md no entra nunca en el filtro:** lo leen 46 tests, el cambio arrastra ~50 y en 90 s no termina ninguna tanda. No es un bug: avisa «FILTRO A MEDIAS», deja subir y lo chequea GitHub.
+- **Una guarda más ancha que lo que cuida termina pidiendo que la aflojen.** `punta-ci` prohibía CUALQUIER `git config` para cuidar al autor, y el driver de las bitácoras se configura con `git config merge.*`. Se afinó a `user.*` y al bot, con los casos malos dentro del test para probar que los sigue viendo.
+- **El token de Actions puede subir un workflow que ya está en el repo, pero no CREAR una versión nueva.** `punta/sobre-main` dio tests y tipos en verde y rebotó cinco veces al llevar a main: «refusing to allow a GitHub App to create or update workflow `punta.yml` without `workflows` permission». Las mezclas de ese día que sí entraron (9b155e3f0, 65ac4c4fc) cambiaban workflows respecto de un padre, pero cada archivo quedaba igual al del otro; la rechazada armaba un `punta.yml` que no estaba en ninguno de los dos, porque la punta y main lo habían cambiado. No frena a las puntas que no tocan workflows. `scripts/ci-workflow-nuevo.sh` lo detecta a los ~20 s, y la salida es mezclar main en la máquina, con el token de una persona.
+- **Las guardas de 6 s y el filtro de 7 s son lo que se paga en cada push; una punta roja cuesta ~14 min.** El filtro frenó un rojo de verdad (`punta-ci`) antes de subir, el mismo día que se estrenó.
+
+---
+
+## Un test con hijo da «test failed» sin un solo caso: el hijo heredó el contexto del corredor (3/11/2026)
+
+**Síntoma:** corrido suelto, `node --import tsx tests/x.test.ts` da 11 de 11. Con `--test` da `✖ tests/x.test.ts — 'test failed'`, cero
+casos y ningún error que leer.
+
+**Causa:** `node --test` les pone `NODE_TEST_CONTEXT` a sus hijos, y un `execFileSync` adentro de un test lo hereda. Un hijo que importa
+`node:test` (por `mock.module`) se cree test anidado y le ensucia el reporte al padre.
+
+**La regla:** un hijo lanzado desde un test va con `env: { ...process.env, NODE_TEST_CONTEXT: undefined }`.
+
+## Un push directo a main puede dejar la referencia de la API vieja, y entonces la guarda frena TODOS los push (3/11/2026)
+
+- **Síntoma:** «tengo varios push que estaban fallando». `scripts/guardas-push.sh` contestaba «docs/api-mako.md quedó viejo»
+  en cualquier rama, también al subir una etiqueta, aunque esa rama no tocara la API.
+- **Causa:** los arreglos de emergencia del 2-3/11 subieron a main con `--no-verify`, que saltea también las guardas. Tocaron
+  `lib/api-mako/areas/*.def.ts` sin regenerar la referencia. Desde ahí, main estaba «rojo» para el próximo que pusheara.
+- **Regla:** quien sube con `--no-verify` corre antes `sh scripts/guardas-push.sh origin`. Y si un push choca con esa guarda
+  en algo que no tocó, se regenera con `node --import tsx scripts/generar-api-doc.mjs` y se commitea: no es un error suyo.
+
+## Cada punta a su propia corrida: lo que engaña al partir un tren (3/11/2026)
+
+**Síntoma.** Ocho corridas rojas seguidas de `integracion` frenaron 47 commits, porque el tren corta en el primer grupo rojo. Martín: *«se va deployando lo que ya pasó en lugar de todo junto... Esto como regla»*. Quedó `.github/workflows/punta.yml`, atado por `tests/punta-ci.test.ts`, y el tren se partió en ramas `punta/<nombre>`.
+
+**Una punta cortada del tren trae el tren adentro.** `1dd2f0508` se anotó como «la punta de tiendas», y `git merge-base` con main se ve normal. `git log origin/main..1dd2f0508` da 27 commits: arriba de `b071c5f84` están la vigilancia, el freno, la extensión y los gurús, y sólo los últimos seis son de tiendas. Empujarla habría llevado todo eso a main sin que nadie lo decidiera. La rama se armó con esos seis por cherry-pick, y entraron limpios.
+- **Regla:** antes de subir una punta se mira `git log origin/main..<punta>`, no el merge-base. Si trae commits ajenos, se separa.
+- Lo mismo con el sha anotado: «la vigilancia es `e9ac1b519`» dejaba afuera `59f6b29cc`, el commit de arriba. Y brain-docs (#44) ya estaba en main.
+
+**Lo que no se puede separar se dice en el documento que lo recibe.** La cosecha del ban (`8156484ed`) se escribe adentro de la entrada que trae la vigilancia, y la decisión de la UE edita una fila que tiendas reescribió. Parecían sólo documentación y ninguna aplica sobre main sola: van con su punta.
+
+**Después de mezclar main, `tests-afectados --base origin/main` compara bien, aunque parezca que no.** `leerCambios` hace `merge-base origin/main HEAD` y compara ese commit contra el disco. Mezclado, ese ancestro ES main: la lista es lo que la punta le agrega, sin lo que trajo main. Lo que engaña está en otro lado: **el script sale con 0 cuando dice «Nada cambió» o «Ningún test mira lo cambiado»**. Por eso el paso exige la línea `VERDE · N tests` con N mayor que cero. Y su código 2 no se puede tratar como en `integracion`, que lo deja pasar porque después corre el resto: acá no hay resto.
+
+**Cuatro detalles que dan un rojo raro o un verde falso:**
+- `npm ci` va DESPUÉS de mezclar. Antes, si main sumó una dependencia, los tests corren contra la lista vieja.
+- Ningún `git fetch --depth=1` en un flujo que mezcla. `integracion.yml` lo tiene y no le hace daño porque su HEAD desciende de main; acá deja a main sin historia y la mezcla muere con «unrelated histories».
+- El tope de minutos del JOB lo deja cancelado, y `if: failure()` no corre: un cuelgue no dejaría marca. Por eso los pasos largos llevan su propio tope.
+- **Una rama nueva construye en Vercel** salvo que `git.deploymentEnabled` la apague, y eso se lee de `vercel.json` en el commit subido. Por eso el cambio va en el mismo commit que `punta.yml`.
+
+**El autor de la mezcla.** Una mezcla hecha en Actions sale de github-actions[bot], y Vercel puede bloquear a un autor que no es del equipo: main avanzaría sin llegar a producción. Autor y committer se toman del último commit de la punta, y sólo en los dos pasos que mezclan: en un `GITHUB_ENV` alcanzarían también a los tests que arman repos de prueba.
+
+**Dos puntas que agregan en el mismo renglón chocan, y se arregla moviendo el renglón.** Tickets y vigilancia agregaban en el mismo lugar del índice, de `hallazgos-comunicacion.md` y al final de la bitácora. Corriendo la entrada de una, las dos llegan solas. ⚠️ `merge=union` no sirve para una bitácora: el choque arranca adentro del objeto del hito, y la unión deja un solo objeto con las claves repetidas.
+
+**Las dos redes que el flujo da por hechas estaban muertas: que un flujo exista no es que dé un veredicto.** `punta.yml` no corre «los demás» porque los corre `semanal-tests.yml`, y su «Tipos» sale OK PARCIAL (el tsc entero muere a los ~360 s) porque el entero lo corre `tipos-respaldo.yml`. Un test miraba que el archivo existiera. Medido con la API el 3/11: la semanal dio su único verde el 19/10 (657 s); el 2/11 la canceló su propio techo de 20 min a los 1.165 s, sin veredicto y sin mail, porque la suite casi se duplicó. El respaldo nunca dio uno: el 26/10 no había minutos, y el 2/11 murió en `fallocate -l 10G /swapfile` con «Text file busy», porque el runner ya trae ese archivo en uso. Y hacen falta: «los demás» cazó rojos de verdad en `integracion` (corridas 385 y 389).
+- **Regla:** antes de sacar un chequeo «porque lo cubre la red», se mira la última corrida de esa red con la API, no el archivo.
+- **Un job cancelado por su techo no avisa.** Los pasos largos llevan un tope propio, menor que el del job, para que un cuelgue sea un fallo.
+- **Un test puede fijar la red muerta:** `tests/semanal-tests-ci.test.ts` exigía `<= 25` minutos: subir el techo, que es lo que el propio workflow mandaba hacer, daba rojo.
+
+**Un tope medido en una sola corrida da rojos falsos.** «Tipos» tenía 12 min en `punta.yml`. En 19 corridas de `integracion` tardó de 603 a 727 s, y 727 ya pasa de 720. Quedó en 18, y el job en 55, para que la suma de sus pasos entre.
+
+**Sin hacer, o sin medir:**
+- **Una mezcla hecha en el último paso no pasa por tests ni tipos:** si main se movió mientras corrían, repite sólo las guardas y lo avisa con un `::warning::`. Dos puntas que no chocan como texto pueden romperse entre sí. Lo caza la corrida de la punta siguiente, que mezcla ese main y corre tipos, o el semanal.
+- **El primer push:** el 2/11 el `GITHUB_TOKEN` llevó a main cambios de un workflow por fast-forward (corridas 372 y 377). Una mezcla NUEVA hecha en el job con un workflow distinto del de main no está medida. Si GitHub la rechaza, sale rojo y no toca main. Conviene que la primera punta salga con main quieto.
+- **Un choque de `docs/hallazgos.md` en Actions es rojo:** `scripts/unir-indice-hallazgos.py` lo resolvería solo, pero mezclar por su cuenta en el job se decide aparte. Mientras tanto, cuesta ~20 s y una mezcla a mano.
+- **`punta.yml` nunca corrió en GitHub:** lo probado es el paso a paso con git de verdad sobre un repo de prueba, no el runner. La primera corrida hay que mirarla.
+- **La semanal y el respaldo con el arreglo no corrieron:** se disparan a mano (`workflow_dispatch`) apenas lleguen a main. Sin eso, el primer veredicto es el del lunes. Si el tsc entero con swap no entra en sus 27 min, el respaldo sigue sin red y lo dice en rojo.
+- **`tests/grupo-leandro-2910.test.ts` no corre en ninguna punta, aunque la punta lo afecte:** `LENTOS_FUERA_DE_LA_FASE_RAPIDA` (scripts/tests-afectados.mjs) lo saca de los afectados contando con `--resto`, y en `punta.yml` no hay `--resto`. Sólo lo ve la semanal.
+- **Un rojo de la semanal sólo manda un mail:** no deja marca en git como `ci-rojo/*`, así que un vigía hecho con git no lo ve.
+- **Con varias puntas a la vez, la mezcla sin tests es lo normal:** cada corrida tarda ~28 min y terminan juntas, así que casi todas hacen su última mezcla sin tests ni tipos (avisan con el `::warning::`). Y la última no tiene «punta siguiente» que la cace.
+- **`--first-parent` de main ya no es la línea de main:** la mezcla deja a la punta de primer padre. `scripts/avisar-arreglo-al-grupo.mts` recorre así los últimos commits; falla cerrado (dice NO) mientras se construye el commit de arriba.
+- **«Sólo docs» de `integracion.yml` sigue con `grep -v '^docs/'`:** ahí un `docs/x.ts` todavía cuenta como documentación.
+
+## Sin RAM para el tipado, el camino es `integracion`, sin `--no-verify` (3/11/2026)
+
+- `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:integracion` corre las guardas, no pide RAM, y Actions corre tipos y tests y
+  avanza main si da verde (~40 min). Cada chat local abierto son ~0,7 GB: con dos chats, 5,4 GB libres ya no aparecen.
+- **Medir ramas no ve lo que importa:** `git cherry` con `+` no prueba que falte algo (`37b1f13e9` daba `+` con el contenido en
+  main); `git diff --stat` con tres puntos infla las ramas viejas (sirve `git log main..rama --no-merges` y `git merge-tree`);
+  y lo sin commitear o una rama remota sin relevo no aparece: así pasaron 5 días los arreglos de cobros y 2 los de seguridad.
+- **Dos migraciones con el mismo número no dan conflicto** (pasó otra vez con la 0360).
+- **Filtrar un transcript por `type=user` pierde mensajes:** los que Martín escribe con el chat ocupado llegan como
+  `attachment.queued_command` (en `e680c815`, 266 en cola contra 183 de tipo user).
+- **El marcador de la cuenta miente al volver a una cuenta vieja:** el hook decía claude2 al 99 % y era claude5 al 27 %. La
+  huella es el `resetsAt` semanal de `get_usage`.
+
+## Subir el tope de la función cambió el error por uno peor, y la clave «global» de Next deja la home afuera (3/11/2026)
+
+- **Síntoma:** cinco deploys seguidos murieron con `The Vercel Function "admin/docs" is 274.32mb uncompressed which exceeds the maximum uncompressed size limit of 250mb`. Se prendió `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` en el proyecto, y entonces el deploy empezó a fallar **más tarde y peor**: `Build Completed in /vercel/output [4m]` y después `ENOSPC` en «Deploying outputs...». Producción seguía sirviendo el commit de la noche anterior sin estar caída, así que nada avisaba.
+- **El diagnóstico obvio era el equivocado.** «La función pesa de más» invitaba a recortar lo que la función incluye a mano: los `.md` de `/admin/docs`. **Medido: sacando todos los `hallazgos-*.md` la función quedaba en ~264 MB, igual por encima del tope.** Los 19,6 MB de documentación no eran el problema. El reporte del contenedor lo dijo recién cuando falló por disco: el archivo más grande del build es `node_modules/onnxruntime-node/bin/napi-v3/linux/x64/libonnxruntime_providers_cuda.so`, **327 MB**, el proveedor de CUDA de onnxruntime. En Vercel no hay GPU: no se puede usar ni queriendo.
+- **Causa:** `@huggingface/transformers` es dependencia de producción y arrastra `onnxruntime-node`, que trae los binarios de **todas** las plataformas (208 MB en Windows, sin el de CUDA; en Linux le suma los 327 MB). Nadie lo usa en el servidor: lo importa un solo archivo, `app/video-editor/_opencut/services/transcription/worker.ts`, que es un **Web Worker** —Whisper transcribe en la máquina del usuario— más un `.d.ts` del editor de imágenes que sólo declara tipos. Entraba al bundle por ser dependencia, nunca por uso.
+- **Lo que quedó:** `outputFileTracingExcludes` en `next.config.ts` lo saca del bundle de todas las funciones, y `scripts/sacar-cuda-de-onnx.mjs` (enganchado como `prebuild`) lo borra del **disco** del contenedor, que es lo que se llenaba. Son dos cosas distintas: excluirlo del trazado no lo saca de `node_modules`.
+- **La trampa que cuesta un build entero:** la doc de Next presenta `'/*'` como «a global key» para estas opciones. **Medido con su propio picomatch: `'/*'` NO empareja la ruta `'/'`.** Con esa clave la home seguía empaquetando los ~500 MB y el resto de la app no — la peor versión, porque el deploy falla igual y el patrón parece correcto. Va `'/**'`. Lo encontró `tests/build-excluye-ia-del-navegador.test.ts` antes de pushear, no Vercel 40 minutos después.
+- **Y otra:** las claves se comparan con `picomatch(glob, { dot: true, contains: true })`, así que alcanza con estar *contenido* — no es que `*` cruce la barra. Pero los **valores** de `outputFileTracingExcludes` se resuelven con `path.join(dir, exclude)` **sin normalizar las barras**, mientras los de `outputFileTracingIncludes` sí (`include.replace(/\\/g, '/')`, en `next/dist/build/collect-build-traces.js`). En Windows la exclusión **no hace nada, en silencio**: un build local no sirve para comprobarla. Por eso el test mide en `path.posix` sobre `/vercel/path0`.
+- **Lo que sigue sin resolverse:** la salida son 2001 MB y `node_modules` 1847 MB. También pesan en el disco el pack de `.git` (236 MB) y `@next/swc-linux-x64-gnu` (124 MB), que no se pueden tocar desde el repo.
+- **Y la salida que sugiere Vercel no existe.** Su mensaje de error remata con «consider enabling Enhanced Builds». Medido por API el 3/11: el proyecto `mako` ya construye en `buildMachineType: "turbo"` con `elasticConcurrencyEnabled: true` — era `enhanced` el 17/10, o sea que **la máquina ya pasó la que el error recomienda**. Bajar el peso es el único camino desde el repo. ⚠️ Cuando un mensaje de error sugiere pagar más, antes de pasarle la decisión a Martín hay que **medir en qué máquina corre hoy**: el texto del error no lo sabe.
+- **Lo que faltaba medir, y ya se puede:** `VERCEL_BUILD_SYSTEM_REPORT=1` quedó puesta en el proyecto (production y preview, 3/11). Sin ella el reporte del contenedor devuelve `unknown` justo en «Input source code» y «Build cache», que son los dos números que faltan para saber qué llena el disco. Es diagnóstico: no cambia el comportamiento del build.
+- **El `prebuild` cuelga de un default:** el `buildCommand` del proyecto es `null`, o sea `npm run build`, y eso es lo que dispara el `prebuild`. Si alguien lo pone en `next build` a secas, el borrado de los 327 MB deja de correr **sin un solo aviso**.
+
+## Los 16 errores ajenos del tsc acotado no eran del repo (1/11/2026)
+
+- **Síntoma:** `tsc-acotado` sobre una rama del Dashboard daba 16 errores en `app/conocimientos/Compartir.tsx` (`jsx`) y en `app/video-editor/_opencut` (`FrameRate`, `opencut_wasm_bg.js`). Actions, con el chequeo entero, no los marca.
+- **Causa:** el acotado arma su lista con `files` y `include: []`, así que un `.d.ts` ambiente que nadie importa no entra: el de `styled-jsx` y `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts`. Medido en `main`: esos dos archivos solos dan los errores; con los dos `.d.ts` en la lista, cero.
+- **Regla:** un error del acotado en un archivo que tu rama no toca se mira primero así, antes de arreglarlo. Si hay otro `declare module` así, va a `GLOBALES_DE_NEXT`, en `scripts/tsc-acotado.mjs`.
+
+## Se mata por PID propio, nunca por nombre: dos `taskkill` contra todos los `python.exe` (31/10/2026, cerca de las 22:15–22:20)
+
+**Si a un chat se le murió un Python en esa franja, puede haber sido esto.** Lo corrió el chat de Competitors Spy para apagar el servidor estático de su arnés. No se puede descartar, y por eso queda con la hora.
+
+**Qué se corrió**, con la descripción que se le puso a cada uno:
+
+| Comando | Descripción | Salida |
+|---|---|---|
+| `taskkill //F //IM python.exe //FI "WINDOWTITLE eq *"` | «No hacer nada destructivo: comprobación vacía del arnés» | descartada con `>/dev/null` |
+| `taskkill //FI "IMAGENAME eq python.exe" //FI "WINDOWTITLE eq *"` | «Ver qué procesos de Python siguen vivos, sin matar nada» | descartada con `\| head -0` |
+
+**Qué se sabe y qué no.** Después de los dos seguían vivos el servidor propio (PID 412300) y otro Python que corre desde el 27/10 (PID 78652). **Eso no prueba que no haya caído ninguno:** sólo dice que esos dos no cayeron. La respuesta de `taskkill` era la única evidencia de a quién le pegó, y se tiró. Tampoco está medido por qué esos dos sobrevivieron al filtro.
+
+**Tres errores, y cada uno vale por separado:**
+- **Matar por nombre le pega a los de otros.** En esta PC hay una docena de chats sobre el mismo clon: `python.exe` y `node.exe` no son de nadie. Lo correcto estaba a mano: era una tarea de fondo propia, y `TaskStop` la apagó sin tocar nada más.
+- **La descripción decía lo que se esperaba, no lo que el comando hacía.** Decir «sin matar nada» sobre un `taskkill` es una afirmación que el comando no puede sostener. Quien aprueba o lee después ve la descripción, no el comando: es la misma enfermedad de una medición que mide otra cosa.
+- **Se descartó la salida de un comando con efectos.** Un `>/dev/null` en una lectura ahorra ruido; en un comando que mata procesos borra lo único que permite saber qué pasó.
+
+**Regla:** se mata por el PID que uno mismo lanzó o con `TaskStop`, nunca con `/IM`, `pkill` ni un filtro por nombre. La descripción de un comando dice lo que hace. Y si tiene efectos, su salida se lee.
 
 ## CINCO causas distintas para el mismo síntoma, y cada una tapaba a la siguiente (31/10/2026)
 
@@ -5817,7 +6029,8 @@ personal que sirve `/api/agente/skill`.
 
 **PUBLICADO** en https://github.com/mbustos-digital/mako-plugin. El paso 2 del tutorial
 es ahora `/plugin marketplace add mbustos-digital/mako-plugin` + `/plugin install
-mako@mako`.
+mako@mako`. Martín (ticket #41, 03/11/2026) lo quiere en SU cuenta y con MaKo de autor: ver
+«Pasar el plugin a `koncke/mako-plugin`», abajo.
 
 ⚠️ **Sin `gh` igual se puede.** No está instalado en este entorno y no hay `GH_TOKEN`,
 pero Git Credential Manager sí tiene guardada una credencial de GitHub —la misma con la
@@ -5871,6 +6084,20 @@ publicado sin que nadie lo vuelva a decidir.**
 
 La contrapartida es la que se buscaba: una mejora de la skill llega a todos los clientes
 con un `git push` al repo público, en vez de que cada uno la reinstale.
+
+### Pasar el plugin a `koncke/mako-plugin`: lo que no se ve desde `plugin/` (03/11/2026)
+
+**Vive en:** `scripts/generar-plugin.mjs` · `plugin/` · `app/_components/TutorialAgente.tsx`.
+
+- **⚠️ `plugin/` al día no quiere decir publicado.** El pre-push cuida la copia de ESTE repo. Al público lo sube una persona a mano, y nadie lo
+  hizo desde el 11/08/2026: 16 commits tocaron la skill de `plugin/` después. Quien instaló `mbustos-digital/mako-plugin` corre la skill de agosto.
+  «Sale publicado sin que nadie lo vuelva a decidir», escrito arriba, no pasa. SIN HACER: que algo publique solo; si no, `koncke/mako-plugin` va a quedar igual de viejo.
+- **El repo viejo no se borra:** hay gente que ya lo instaló.
+- **PUBLICADO el 3/11/2026** en https://github.com/koncke/mako-plugin (público, autor `MaKo`, con el sí de Martín en el chat del Cerebro). `marketplace add koncke/mako-plugin` e `install mako@mako` andan contra GitHub, medido. `TutorialAgente.tsx` cambia recién ahora: lo hace el chat de Tickets (#41).
+- **Lo probado sin publicar:** en una carpeta `CLAUDE_CONFIG_DIR` aparte, `claude plugin validate`, `marketplace add` e `install mako@mako` andan contra una copia local.
+  Falta el `marketplace add koncke/mako-plugin` de verdad.
+- **Autor:** el commit del repo público va con `MaKo <equipo@hola-mako.com>` y sin los trailers de Claude. Es lo que ven los usuarios, y lo pidió Martín.
+- ⚠️ La copia a publicar va con finales de línea LF: `plugin/` sale en CRLF de un checkout de Windows.
 
 ## El bug estaba dormido desde julio y lo despertó un DATO, no un commit
 
@@ -8615,11 +8842,12 @@ proceso, como en la notebook.
 - **si en la semana no entró ningún commit a main, no hace nada**: el primer paso lo mira con la API de GitHub *antes* de bajar el repo, y se
   factura 1 minuto en vez de 11;
 - **una sola fase**: sin guardas, sin tipos (los corre `integracion` en cada subida);
-- **`timeout-minutes: 20`**: un test colgado no se come el mes (20 × 5 lunes = 100 min como mucho).
+- **`timeout-minutes: 55`** (eran 20, ver abajo): un test colgado no se come el mes (55 × 5 lunes = 275 min como mucho).
 
-⚠️ **Sin medir**: el workflow no puede correr hasta que esté en `main` (un `schedule` sólo vale desde la rama por defecto), así que los ~11
-min son la estimación del Cerebro. El primer run (se dispara a mano con `workflow_dispatch`) escribe los segundos en el resumen del run:
-si pasa de 20 min, subir el techo; si tarda mucho menos, bajarlo.
+⚠️ **Medido con la API el 3/11/2026**: 657 s el 19/10; el 26/10 no había minutos; el 2/11 la canceló su propio techo de 20 min a los 1.165 s,
+sin veredicto y sin mail. La suite casi se duplicó (2.052 archivos; `--resto`, con las barredoras compartidas, tardó 21 min 45 s en la corrida
+385). El techo subió a 55, con 50 en el paso: un cuelgue es un fallo del paso y no un job cancelado. **Cuánto tarda con el techo nuevo está sin
+medir**: se escribe en el resumen del run. Si roza los 50 min se suben los dos: desde `punta.yml` es la única corrida que ve «los demás».
 
 **Qué NO hacerle**: no sumarle `--compartir` (es lo que corre `integracion`; la semanal existe para no hacerlo), no engancharla a `push`, y no
 leer su rojo como «main está roto»: no frena nada (main avanza por `integracion`). Un rojo ahí es un test que depende del orden o del
@@ -10106,3 +10334,238 @@ desconocida con producción esperando.
 **La regla:** cuando el coche que está corriendo lleva algo que producción necesita YA, no se pushea encima. Se mira cuánto
 le falta (`run_started_at` + 35 min es el techo conocido), se avisa a quien armó el coche grande, y se sube después. Al
 revés también vale: si lo urgente todavía no salió, conviene que viaje en el coche MÁS CHICO posible, no sumarlo al tren.
+
+## Comprobar que un deploy SALIÓ: la huella sirve, pero sólo de la página que el cambio TOCA (01/11/2026)
+
+**Vive en:** el vigía del Cerebro (`vigia-deploy.sh` en el scratchpad de la sesión) y en cualquiera que quiera
+saber si Vercel publicó.
+
+**Por qué hace falta una huella.** `main` avanzando no es un deploy, y la app no expone su commit: el sha vive
+en `VERCEL_GIT_COMMIT_SHA`, que sólo se lee del lado del servidor (`lib/tickets-cierre.ts:205`), y el
+`x-vercel-id` del encabezado es por PEDIDO, no por despliegue. Lo que sí cambia con cada build son los nombres
+con hash de los chunks de `/_next/static/chunks/`. La huella es el md5 de esa lista.
+
+**La trampa, y me la comí dos veces la misma noche.** La lista de chunks es **la de ESA página**. El 31/10 el
+vigía estaba apuntado a `/planes/pro` y el cambio que esperaba era el espaciado de los kanban, que toca
+`app/crm/`, `app/plan/board/` y `app/customer-success/`. Ninguno de esos archivos entra en `/planes/pro`: la
+huella quedó idéntica (`8297d6f02861` antes y después), el vigía esperó sus 30 minutos y **se quedó mudo**.
+Mudo, no equivocado — que es la peor forma, porque «no avisó» se lee como «todavía no pasó».
+
+**La regla:** la huella se toma de una página que el cambio TOQUE. Los tokens de `globals.css` tocan todas y por
+eso ahí funcionó; un cambio de una tab sólo toca la suya, y si esa tab pide sesión, no hay página pública que
+sirva de testigo y hay que comprobarlo de otra forma. El vigía ahora toma la ruta como segundo argumento.
+
+**Es la misma familia que la regla de `AGENTS.md`** («una medición que mide OTRA COSA se ve idéntica a una que
+pasa»), con el agravante de que acá el instrumento no devuelve un número equivocado: no devuelve nada.
+
+## `tsc-acotado` muere con 134 aunque haya RAM libre: era el tope del proceso (1/11/2026)
+
+**Síntoma:** «NO SE PUDO CHEQUEAR (código 134)», salida 99, repetido. Se leyó siempre como falta de memoria de la máquina, y se esperó a que se liberara.
+
+- ⚠️ **El diagnóstico obvio era el equivocado.** Murió también con 5 y 6 GB libres, porque el default del proceso es 2,5 GB (`--heap`, scripts/tsc-acotado.mjs). Con 67 archivos no alcanza. **`--heap=4096` pasó limpio.** Explica una pila de «99» anotados como RAM de la PC.
+- **Con 134, antes de esperar: subir `--heap`.** Con la máquina en menos de 5 GB libres sí es RAM, y ahí no sirve.
+- **El arnés de esbuild no reemplaza este chequeo:** borra los tipos sin mirarlos. Un componente con el mismo nombre que un tipo importado (`OrdenSpy`) dio la animación andando perfecta y un rojo de tipos.
+
+**Y lo de correr «los tests de lo que toqué»:** no alcanza cuando se tocan archivos que otros tests fijan por su forma. `tests/chat-ia.test.ts` exige que la elección de IA vaya pegada al turno, y una línea en el medio lo rompió; ninguno de los 210 elegidos a mano lo miraba. Antes de pasar una punta va la compuerta, no una lista hecha a ojo.
+---
+
+## Matar la tarea de Bash NO mata el push, y el candado se queda tomado (1/11/2026)
+
+**El síntoma.** `git push origin HEAD:integracion` se pasó de los 120 s del tool y se fue a background. Diez
+minutos después `integracion` no se había movido y el archivo de salida tenía **0 bytes**. Lo di por colgado,
+lo maté y lo relancé. Dos veces. A la tercera el log dijo la verdad:
+
+```
+candado: 2 delante tuyo · lo tiene «wt-push-q · tren-dash (claude1) antes-de-subir --sin-condiciones --cortar
+         — 01/11 12:07» hace 15 min · llevo 0 min
+```
+
+**Hacía fila detrás de mí mismo.**
+
+**Las tres trampas, encadenadas.**
+
+1. **El push a `integracion` no es un push: es la compuerta local.** `.git/hooks/pre-push` corre
+   `scripts/antes-de-subir.mjs` (16 guardas + tsc acotado + tests afectados) ANTES de mandar un byte. Con 2,5 GB
+   libres eso pagina y tarda bastante más que los 120 s del tool. **No está colgado: está trabajando.**
+2. **La salida no aparece hasta el final si hay un pipe.** `git push ... | tail -6` guarda todo en el buffer de
+   `tail` hasta que el comando termina, asi que el archivo de la tarea mide 0 bytes mientras la compuerta corre.
+   Un 0 bytes se lee igual que un cuelgue. Se redirige con `>` a un archivo y se mira ahi.
+3. **Matar la tarea de Bash deja al hijo vivo, y el hijo es el que tiene el candado.** `antes-de-subir.mjs`
+   sigue corriendo huerfano y no suelta `candado-pesado.mjs`. Cada relanzamiento suma un proceso mas a la fila
+   detras del huerfano. Es la misma familia que «Monitor no mata el proceso».
+
+**La regla que queda.** Antes de dar por muerto un push a `integracion`: mirar si el proceso sigue vivo, y de
+quien es hijo.
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+  Where-Object { $_.CommandLine -like '*antes-de-subir*' } |
+  ForEach-Object { $p = $_.ParentProcessId
+    $n = (Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName
+    "{0} padre={1} ({2}) {3}" -f $_.ProcessId, $p, $(if ($n) { $n } else { 'MUERTO' }), $_.CreationDate }
+```
+
+Si el padre existe, **el push esta vivo y hay que esperarlo**. Si dice `MUERTO`, es un huerfano que retiene el
+candado y se mata **por PID** (nunca por nombre: hay otros `node` legitimos, incluidos los hijos del push que SI
+sirve). Y nunca se relanza un push del mismo commit: el segundo quema la compuerta entera para despues no
+empujar nada, con el candado en la mano y los demas chats detras.
+
+**Y el vigia que mira ese push tiene su propia trampa, de la misma familia.** `head_sha=` de la API de
+Actions quiere los **40 caracteres**: con un sha abreviado devuelve `workflow_runs: []`, que no es un error
+sino una lista vacia, y el vigia la lee como «SIN RUN para esta cabeza». Un run que SI esta corriendo parece
+no existir, y el tren queda mudo sin que nadie se entere. `scripts`/`vigia-run.sh` ahora expande cualquier sha
+corto con `git rev-parse` y, si no puede, **corta gritando** (`SHA INSERVIBLE`, salida 4) en vez de callarse.
+Probado rompiendolo: con `deadbeef` grita, con 40 ceros dice SIN RUN, y con el sha corto de verdad espera.
+
+---
+
+## Un error de tipos no se ve hasta 25 minutos después, y pushear tres veces no adelanta: reinicia el reloj (2/11/2026)
+
+**El síntoma.** Rediseño terminado, cinco suites de tests en verde a mano, tres pushes seguidos
+«para que Martín lo viera cuanto antes». A los 23 minutos Actions se puso **roja** y `main` nunca
+avanzó. Nada de lo que corrí acá lo podía haber visto.
+
+**Las tres causas, que se suman:**
+
+1. **El tsc NO corre en la notebook.** Desde el 15/10/2026 vive en Actions: pide 3-4 GB (en CI el
+   pico fue 4.049 MB sobre 9.694 archivos) y la máquina ronda los 3 GB libres. O sea: **un error de
+   tipos es invisible localmente**, y `next.config.ts` tiene `ignoreBuildErrors: true`, así que
+   tampoco lo caza un build. Los dos que salieron eran de una línea cada uno —un `number` donde iba
+   una medida CSS en texto, y un `string | null` contra un `string | undefined`— y ninguno rompía
+   una pantalla.
+2. **`concurrency: group: integracion` cancela el run viejo con cada push.** Es correcto (se chequea
+   sólo el último commit), pero significa que **pushear de a tres seguidos no adelanta nada: pone el
+   reloj en cero**. Acá: #324 murió a los 13 min, #325 a los 2, y recién #326 llegó a terminar. Se
+   perdieron ~15 minutos de cola por no esperar.
+3. **Un run verde tarda 26-36 minutos.** No es una espera de dos minutos: es el ciclo entero.
+
+**La regla que queda:** cuando el push es para que alguien VEA algo, **se junta todo en un commit y
+se pushea UNA vez**. Y entre el push y el deploy hay media hora, así que lo que se muestra mientras
+tanto no puede ser «está en producción»: es la vista previa local, dicho como tal.
+
+**Y la segunda regla, que es la que ahorra el ciclo entero:** antes de pushear, releer los tipos de
+lo nuevo a mano, sobre todo **las props que se pasan a componentes de `app/_ui`** —ahí es donde una
+medida se declara `string` y uno pasa un número— y **todo lo que viene de `lib/` devolviendo `null`**
+contra una prop opcional, que en TS es `undefined` y NO acepta `null`. Son los dos moldes exactos de
+los dos errores.
+
+**Dónde mirar cuando pasa:** `github.com/koncke/mako/actions/workflows/integracion.yml`. El resumen
+del job dice «Tipos: ERRORES DE TIPOS» con el conteo, y las anotaciones traen archivo y línea.
+
+**Vive en:** .github/workflows/integracion.yml · scripts/tipos-por-tandas.mjs ·
+.git/hooks/pre-push (el push a `main` corre el tsc ENTERO local: pide 6,3 GB y se cuelga; el camino
+es `integracion`, y `MAKO_SIN_ANTES_DE_SUBIR=1` sólo vale para esa rama)
+
+## «Limpio» no es «a salvo»: un worktree sin subir se lee como limpio (2/11/2026)
+
+**El síntoma:** la sesión de los 20 dashboards avisó que su rama `dashboard-denso-0111` —3.430
+líneas, 5 de 20 hojas hechas— vivía SÓLO en el worktree `C:/dev/wt-dashboard-3110`, sin upstream y
+sin estar en ningún remoto. El worktree estaba **limpio**, porque el commit ya se había hecho.
+
+**La causa real:** la regla de barrido de worktrees es «sólo los limpios, subidos y sin uso 24 h»,
+pero «limpio» se verifica con `git status` y «subido» NO se verifica con nada parecido. Un worktree
+que commiteó y no pusheó da `git status` vacío: **pasa el chequeo de limpio y pierde el trabajo.**
+Los dos adjetivos suenan al mismo chequeo y son dos chequeos distintos.
+
+**La regla que queda:** antes de borrar un worktree hay que mirar si su rama existe en un REMOTO
+(`git -C <wt> rev-parse --verify origin/<rama>`, o que la rama tenga upstream y no esté adelante),
+no si el working tree está limpio. Un commit local no es un respaldo.
+
+**Y el dato que lo hace barato de arreglar:** subir una rama que NO es `integracion` **no dispara
+Actions**. `.github/workflows/integracion.yml:28` escucha `branches: [integracion]` y nada más, así
+que `git push -u origin <rama>` no gasta minutos ni cancela el run en curso. O sea que poner a salvo
+el trabajo de otro chat es gratis: no hay motivo para dejarlo sólo en un disco.
+
+**Vive en:** la regla de barrido de worktrees · .github/workflows/integracion.yml:28
+
+## Un vigía sobre git NO puede ver un rojo de Actions: sólo la ausencia de verde (2/11/2026)
+
+**El síntoma, dos veces en la misma noche:** armé un Monitor para avisar cuando un run cerrara, y
+las dos veces **Martín se enteró del rojo antes que yo**. La segunda me lo dijo así: «falló en
+GitHub, siempre deberías saber cuándo falla».
+
+**La causa real, y es estructural:** el watch miraba `origin/main`. Actions avanza `main` SÓLO
+cuando el run sale verde; cuando sale rojo **no escribe nada en git**. O sea que el vigía no
+distingue «rojo» de «todavía corriendo»: ve lo mismo en los dos casos. Un watch construido sobre git
+puede confirmar el éxito y **nunca** puede detectar el fallo.
+
+⚠️ **Y el latido que le puse encima no alcanzaba**, porque lo redacté como una duda («o tarda, o
+salió rojo») y lo puse a los 18 minutos. Con los tiempos medidos de este repo eso es tarde:
+
+| | cuánto tarda, medido el 2/11 |
+|---|---|
+| un run que **falla** | **5–12 min** (#360: 7m40s · #362: 5m07s · #363: ~11m · #364 rojo: 5m) |
+| un run que sale **verde** | **25–50 min**, y uno pasó la hora |
+
+**Entonces el silencio a los 12 minutos ya es sospechoso, y a los 15 es casi seguro un rojo.**
+
+### La regla que queda
+
+1. **Después de cada push a `integracion`, ir a mirar el run a los ~8 minutos.** No delegar la
+   PRIMERA mirada a un watch que no puede ver fallos.
+2. El latido del Monitor va **cada 6 minutos**, no cada 18, y su texto dice **«ir a mirar AHORA»**,
+   no «o tarda, o salió rojo». Un evento que suena a duda no mueve a nadie.
+3. **Dónde mirar:** `github.com/koncke/mako/actions/workflows/integracion.yml` → el run → el **LOG
+   DEL JOB**, línea **«Rojos:»**. El resumen del run sólo dice `afectados: NNN s (código 1)` y no
+   nombra ningún test.
+4. **Lo que lo arreglaría de verdad** es leer la conclusión del run, no el estado de git. Hoy no se
+   puede desde bash: **`gh` no está instalado en esta máquina** (verificado: no está en el PATH de
+   bash ni de PowerShell, y no hay `~/.config/gh`). Con `gh` instalado, el watch correcto es
+   `gh run watch` o un poll de `gh run list --json conclusion`, que sí ve el rojo.
+
+**Vive en:** la forma de armar un Monitor sobre Actions · .github/workflows/integracion.yml
+
+## El rojo ahora se anuncia EN GIT, igual que el verde (2/11/2026)
+
+**El síntoma, tres veces en una noche:** Martín se enteró de que Actions había fallado antes que
+yo. La tercera me lo dijo así: «volvió a fallar y no te diste cuenta… haz que no vuelva a pasar,
+crea un proceso para ver cuándo falla».
+
+**La causa real era una ASIMETRÍA, no un descuido:** cuando el run sale VERDE escribe en git —avanza
+`main`—; cuando sale ROJO no escribía nada. Cualquier vigía hecho con git veía **exactamente lo
+mismo** en «rojo» que en «todavía corriendo». Y git es lo único que hay acá: **`gh` no está
+instalado en esta máquina** (verificado: ni en el PATH de bash ni en el de PowerShell, y no hay
+`~/.config/gh`).
+
+⚠️ **Intenté taparlo con una heurística de tiempos y me salió mal, que es el hallazgo que más
+vale.** Medí cuatro rojos, vi que morían entre los 5 y los 12 minutos, y escribí la regla «si a los
+12 minutos sigue callado, probablemente esté verde». Con esa regla **ensanché el vigía a 48 minutos
+justo antes de que ese mismo run muriera a los ~15**. Cuatro datos no son una distribución, y una
+heurística sobre el síntoma no arregla una asimetría.
+
+**El arreglo, en el workflow:** un paso con `if: failure()` que pushea la cabeza que falló a la rama
+`ci-ultimo-rojo`. El rojo deja su propia marca en el remoto y **un `git fetch` la ve**.
+
+```
+git fetch origin --quiet
+git rev-parse --verify origin/ci-ultimo-rojo   # ¿cuál fue el último commit que puso rojo a Actions?
+```
+
+· Es una RAMA y no un tag: se pisa sola en cada rojo y siempre dice el último, mientras que los tags
+  hay que borrarlos a mano y se acumulan.
+· Apunta al COMMIT que falló, así que `git log origin/ci-ultimo-rojo -1` dice qué se estaba subiendo.
+· `if: failure()` y no `always()`: con `always()` se movería también en los verdes y volveríamos a
+  no poder distinguirlos.
+
+**Cómo queda el vigía, ahora que sí hay señal:** compara las dos cosas en la misma vuelta —si `main`
+alcanzó la cabeza, es VERDE; si `ci-ultimo-rojo` apunta a la cabeza, es ROJO— y no hace falta
+adivinar nada con el reloj.
+
+**Vive en:** .github/workflows/integracion.yml (paso «Dejar la marca del rojo en el remoto»)
+
+## El deploy roto del 2-3/11: las transcripciones viajaban en TODAS las funciones (3/11/2026, Cerebro claude2)
+
+**El síntoma:** 10 deploys seguidos en ERROR durante ~6 h, con Actions en verde. Primero «`admin/docs` is 274 MB, exceeds 250 MB»; con `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` el error cambió a ENOSPC en «Deploying outputs...» (salida de 2001 MB).
+
+**El diagnóstico obvio era el equivocado, DOS veces.** Se culpó al catálogo de cursos (`be38d9156`) y después a `onnxruntime-node` (`bc7503e89`). Los dos arreglos eran reales y ninguno movió el número: `/admin/docs` siguió en 274 MB.
+
+**La causa, medida con `VERCEL_ANALYZE_BUILD_OUTPUT=1`:** hasta `/api/promo-entrada` y el middleware pesaban **217 MB**. `lib/cerebro-referente-server.ts` (2/11) lee `public/cono-tx/<id>.json` con `readFile(path.join(process.cwd(), "public", "cono-tx", …))`, y el trazado metió la carpeta ENTERA —**164 MB en 9.719 archivos**— en cada función. El reporte no la lista como «large dependency», porque cada archivo pesa menos de 1 MB.
+
+**El arreglo:** el primer intento (`a5782a860`) fue `./public/cono-tx/**` en `outputFileTracingExcludes`, y **NO ANDUVO**: Turbopack ignora esa exclusión para lo que traza él, y las funciones siguieron con la carpeta. Lo que sí resuelve (`730e1b44e`) es que `textoDeClase` no toque fs: pide `APP_BASE_URL/cono-tx/<id>.json` al CDN. Sin `readFile`, no hay nada que trazar.
+
+**Las reglas que quedan:**
+- **Desde el servidor no se lee `public/` con fs**: lo que vive en `public/` se pide al CDN. Un `readFile` con ruta armada en tiempo de ejecución mete la carpeta entera en el bundle, y **con Turbopack `outputFileTracingExcludes` no lo saca**.
+- **El primer paso ante un deploy roto es `VERCEL_ANALYZE_BUILD_OUTPUT=1`** (ya quedó puesta): dice el peso por función y por dependencia, y evita perseguir hipótesis.
+- **Si una función mínima pesa más de 100 MB, el problema es compartido**, no de la ruta que nombra el error.
+- `VERCEL_SUPPORT_LARGE_FUNCTIONS` quedó **apagada**: tapaba el tope, pero llenaba el disco del contenedor.
+- **Para que salga rápido, push directo a `main`:** Vercel construye en el acto. `integracion` pasa primero por los ~40 min de Actions.

@@ -50,7 +50,7 @@ export type Desvio = { tipo: 'nada' } | { tipo: 'movil'; destino: string } | { t
  * el proxy le servía Today en la URL /inicio. Prefijos con barra: «/login» no atrapa «/logins».
  */
 const SE_ABREN_IGUAL = [
-  '/login', '/logout', '/onboarding', '/privacidad', '/terminos', '/compartido', '/mi-curso',
+  '/login', '/logout', '/onboarding', '/privacidad', '/terminos', '/soporte', '/eliminar-cuenta', '/compartido', '/mi-curso',
   '/integraciones/escuchando', '/vsl', '/api', '/inicio',
 ];
 

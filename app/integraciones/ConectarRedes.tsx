@@ -102,6 +102,15 @@ export default function ConectarRedes() {
                     : esLaQueSigue ? `Sigue aquí: conecta tu ${REDES[red].etiqueta}.` : REDES[red].ayuda}
                 </span>
               </span>
+              {/* ⚠️ «VOLVER A CONECTAR» TAMBIÉN CON LA CUENTA SANA (1/11/2026, Martín). Un permiso nuevo entra sólo re-autorizando: con «Conectar otra» y nada
+                  más, lo ya conectado se quedaba sin camino, y por eso Instagram no entraba. El mismo error de arreglar lo que pasa AL CONECTAR y olvidarse
+                  de lo conectado. */}
+              {!esAnuncios && sana && (
+                <Button size="sm" variant="secondary" loading={activaAhora} disabled={ocupado} data-reconectar-zernio={red}
+                  onClick={() => z.conectar(red, { reconectarId: sana.accountId })}>
+                  Volver a conectar
+                </Button>
+              )}
               <Button size="sm" variant={e?.estado === 'conectada' ? 'secondary' : 'primary'} loading={activaAhora} disabled={ocupado}
                 data-conectar-zernio={red} onClick={() => z.conectar(red, { reconectarId: vencida?.accountId ?? (esAnuncios ? sana?.accountId : null) ?? null })}>
                 {e?.estado === 'conectada' ? (esAnuncios ? 'Volver a conectar' : 'Conectar otra') : e?.estado === 'vencida' ? 'Reconectar' : 'Conectar'}

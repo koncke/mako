@@ -46,11 +46,16 @@ import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
 import { ElegirMuneco } from '@/app/admin/operaciones/ElegirMuneco';
 import { guardarMunecoAction } from '@/app/admin/operaciones/acciones';
-import { aspectoDe, elegidoPara, esCriaturaDeMako, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
+import { aspectoDe, aspectoDeReferente, elegidoPara, esCriaturaDeMako, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
+import { asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
+import { GaleriaDeGurus } from '@/app/second-brain/GaleriaDeGurus';
+import { useGurusConCharla } from '@/app/second-brain/useCoaches';
+import { HojaDelGuru } from '@/app/m/second-brain/HojaDelGuru';
 
 const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 const metaDe = (c: ChatCentro) => ESTADO[c.estado];
 import { copiar, type useFirma } from '@/app/admin/operaciones/mandar';
+import { NO_PUDE_COPIAR } from '@/lib/copiar-texto';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import type { Centro } from '@/app/admin/operaciones/useCentro';
@@ -119,13 +124,13 @@ const edad = (t: number | null, ahora: number): string => {
  * La hoja del chat NUEVO del teléfono (17/10/2026): un chat vacío con su caja pegada abajo, como el de WhatsApp. Con el primer
  * mensaje, MaKo decide dónde va y cómo se llama (ChatNuevo.tsx); nada de formularios. La lógica es la de la computadora.
  */
-function HojaChatNuevo({ centro, onCerrar, onAbrir }: { centro: Centro; onCerrar: () => void; onAbrir: (clave: string) => void }) {
+function HojaChatNuevo({ centro, onCerrar, onAbrir, onGuru }: { centro: Centro; onCerrar: () => void; onAbrir: (clave: string) => void; onGuru: (id: IdAsesor) => void }) {
   const chatNuevo = useChatNuevo(centro, onAbrir);
   return (
     <SheetM abierto onCerrar={onCerrar} snap="alto"
       titulo={<span className="m-operaciones-titulo"><span className="m-operaciones-titulo__muneco"><CriaturaChatNuevo n={chatNuevo} /></span><span className="m-operaciones-titulo__texto"><TituloChatNuevo n={chatNuevo} /></span></span>}
       pie={<CajaChatNuevo n={chatNuevo} movil />}>
-      <div className="m-operaciones-hilo"><CuerpoChatNuevo n={chatNuevo} /></div>
+      <div className="m-operaciones-hilo"><CuerpoChatNuevo n={chatNuevo} alPie={<GaleriaDeGurus onElegir={onGuru} />} /></div>
     </SheetM>
   );
 }
@@ -209,6 +214,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
   // «Nuevo chat» (Martín, 17/10/2026: «jamás debe abrir un modal»): una hoja de chat vacía, con su caja (ChatNuevo.tsx).
   const [nuevoChat, setNuevoChat] = useState(false);
+  // El chat con un gurú: su hoja, con su motor (HojaDelGuru.tsx). Una sola a la vez: sale de «Nuevo chat» y de su fila.
+  const [guru, setGuru] = useState<IdAsesor | null>(null);
+  const delGuru = asesorPorId(guru);
+  const gurusConCharla = useGurusConCharla(guru, !parte);
   const [renombre, setRenombre] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ aspecto: Aspecto; guardando: boolean } | null>(null);
   const toast = useToastM();
@@ -322,7 +331,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     if (id.startsWith('reaccion:')) { const e = id.slice('reaccion:'.length); void centro.marcar(elegido, { tipo: 'reaccion', id: m.id, emoji: marcas.reacciones[m.id] === e ? null : e }); return; }
     if (id === 'transcripcion') { if (m.trabajo) alternarTranscripcion(m.trabajo.id); return; }
     if (id === 'responder') { accionesWA.responder(m); return; }
-    if (id === 'copiar') { void copiar(m.texto).then((ok) => toast(ok ? 'Copiado' : 'No pude copiar')); return; }
+    if (id === 'copiar') { void copiar(m.texto).then((ok) => toast(ok ? 'Copiado' : NO_PUDE_COPIAR)); return; }
     if (id === 'reenviar' || id === 'info') { setPanelWA({ tipo: id, m }); return; }
     if (id === 'destacar') { void centro.marcar(elegido, { tipo: 'destacar', id: m.id, si: !marcas.destacados.includes(m.id) }); return; }
     if (id === 'fijar') { void centro.marcar(elegido, { tipo: 'fijar', id: m.id, si: !marcas.fijados.includes(m.id) }); return; }
@@ -339,7 +348,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const enviando = centro.enviando;
   const copiarClave = async () => {
     if (!firma.clave) return;
-    toast(await copiar(firma.clave.spki) ? 'Copiado: pégalo en el Runner' : 'No pude copiar');
+    toast(await copiar(firma.clave.spki) ? 'Copiado: pégalo en el Runner' : NO_PUDE_COPIAR);
   };
   const crearClave = async () => { toast((await firma.crear()) ? 'Token creado' : 'No pude crear tu Token'); };
 
@@ -410,12 +419,24 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
       {/* «Nuevo chat», arriba de todos (NuevoChat.tsx), en la MISMA lista que los chats. Sólo en el Centro: en el Second
           Brain, «Nuevo chat» es el de MaKo. */}
       {!parte && centro && nuevoChat && !elegido && (
-        <HojaChatNuevo centro={centro} onCerrar={() => setNuevoChat(false)} onAbrir={(clave) => { setNuevoChat(false); abrirEstable(clave); }} />
+        <HojaChatNuevo centro={centro} onCerrar={() => setNuevoChat(false)} onAbrir={(clave) => { setNuevoChat(false); abrirEstable(clave); }}
+          onGuru={(id) => { setNuevoChat(false); setGuru(id); }} />
       )}
+      {delGuru && <HojaDelGuru key={delGuru.id} referente={delGuru} onCerrar={() => setGuru(null)} />}
       {conLista && (
         <SeccionM titulo={tituloChats}>
           <ListaM etiqueta={tituloChats}>
             {!parte && <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => setNuevoChat(true)} navegacion />}
+            {/* El historial de los gurús: esta lista es la de Claude Code, y sus chats no salen en ella. */}
+            {!parte && gurusConCharla.map(({ id, at }) => {
+              const g = asesorPorId(id);
+              return g && (
+                <FilaM key={id} chevron={false} leading={<Muneco titulo={g.nombre} aspecto={aspectoDeReferente(id)} animo="despierto" size={40} />}
+                  titulo={<span className="m-operaciones-texto1">{g.nombre}</span>}
+                  riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edad(at ? Date.parse(at) : null, ahora)}</span></span>}
+                  onClick={() => setGuru(id)} />
+              );
+            })}
             {filas.map((f) => (f.tipo === 'mas'
               ? <FilaM key={`mas-${f.k}`} titulo={`Ver los ${f.n} chats`} onClick={() => setEnteras((s) => new Set(s).add(f.k))} navegacion />
               : <FilaChatM key={f.c.clave} c={f.c} sub={f.sub}

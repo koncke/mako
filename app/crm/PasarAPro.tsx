@@ -9,10 +9,13 @@
 
 import Link from '@/app/_ui/Link';
 import { SANS } from '@/app/_ui';
+import { esTelefono } from '@/lib/telefono';
 import { RUTA_CAMBIAR_PLAN, textoTope } from '@/lib/topes-plan';
 
 /** El link «Pasar a Pro», al lado de un error de tope. */
 export function PasarAPro() {
+  // El teléfono no vende (T5, docs/tiendas-play-appstore.md): el alta de un lead se dibuja también en /m. Sale después de un error, nunca en el primer dibujo.
+  if (typeof navigator !== 'undefined' && esTelefono(navigator.userAgent)) return null;
   return (
     <Link href={RUTA_CAMBIAR_PLAN} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 650, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
       Pasar a Pro

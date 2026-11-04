@@ -131,6 +131,17 @@ export async function agenciasDeCliente(clienteWs: number): Promise<FilaCarteraU
 }
 
 /**
+ * LAS AGENCIAS QUE LLEVAN HOY A ESTE CLIENTE: sólo las aprobadas, porque una pendiente todavía no entra a su cuenta y una revocada
+ * ya no (31/10/2026, los avisos del ticket #37). ⚠️ TIRA SI NO SE PUDO LEER: acá `[]` manda el aviso al cliente, y «no sé» no puede
+ * significar eso (por lo mismo que `esClienteDeAgencia`).
+ */
+export async function agenciasAprobadasDe(clienteWs: number): Promise<number[]> {
+  const filas = await leerCarteraDeCliente(clienteWs);
+  if (!filas) throw new Error(`no pude leer la cartera del cliente ${clienteWs}`);
+  return filas.filter((f) => f.estado === 'aprobado').map((f) => Number(f.agencia_ws));
+}
+
+/**
  * ¿ES ESTE WORKSPACE CLIENTE DE ALGUNA AGENCIA? — sí / no / **no sé**.
  *
  * ⚠️ ES LA PREGUNTA QUE HAY QUE HACER PARA DECIDIR UNA PANTALLA O UN PERMISO, y
@@ -243,6 +254,9 @@ export const puedeEntrarAhora = cache(async (agenciaWs: number, clienteWs: numbe
 export const contextoDeAgencia = cache(async (): Promise<number | null> => {
   const sesion = await getUsuarioActual();
   if (!sesion || sesion.rol === 'admin' || sesion.legacy) return null;
+  // La cuenta de revisión de las tiendas no mira otro negocio, ni con una cookie de agencia válida (lib/cuenta-revision-reglas.ts):
+  // su contraseña la tienen terceros, y su negocio se mide sin cartera antes de dar la sesión. Esto es la segunda capa.
+  if (sesion.mfa === 'revision') return null;
   if (!esWsValido(sesion.ws)) return null;
 
   const store = await cookies();

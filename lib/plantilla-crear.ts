@@ -36,7 +36,8 @@
 //     pedacitos de una categoría (`PLANTILLAS_REEMPLAZADAS`) contestan 400 nombrando la que las reemplaza. NUNCA se
 //     crea la nueva en silencio: quien pidió la vieja (una pantalla en caché, la API) tiene que saber qué va a crear.
 //     «Ya la tienes» se fue con el recordatorio: ya no es una plantilla (vive en «Un Lead Agendó Llamada»).
-//   · «SE LE PUSO [UNA ETIQUETA]» (`cron.pide: 'etiqueta'`, la bienvenida al newsletter): la etiqueta es del
+//   · «SE LE PUSO [UNA ETIQUETA]» (`cron.pide: 'etiqueta'`; la bienvenida al newsletter la usó hasta el 29/10/2026, hoy
+//     arranca con la etapa «Suscripto» del CRM Newsletter): la etiqueta es del
 //     negocio y la elige la pantalla; entra por `guardarDisparadores` como una etapa (`disparadorDeEleccion`). Sin
 //     elegir, nace con el CRON a elegir.
 //

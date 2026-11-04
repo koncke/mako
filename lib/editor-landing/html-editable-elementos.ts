@@ -17,7 +17,30 @@ import { ICONOS, existeIcono, svgIcono } from './iconos';
 
 /** Un atributo entre comillas dobles o simples, o sin comillas: lo que puede traer una etiqueta. */
 const ATTR = `(?:[^>"']|"[^"]*"|'[^']*')*`;
-const ENLACE = new RegExp(`<a\\b${ATTR}>([\\s\\S]*?)<\\/a\\s*>`, 'gi');
+/**
+ * Un enlace o un BOTÓN (28/10/2026, la réplica editable: el llamado a la acción de una página hecha en React suele ser un
+ * `<button>`, y en la copia no llevaba a ningún lado ni se podía hacer que lleve). `m[1]` es la etiqueta; `m[2]`, lo de adentro.
+ */
+const ENLACE = new RegExp(`<(a|button)\\b${ATTR}>([\\s\\S]*?)<\\/\\1\\s*>`, 'gi');
+/** Lo que un `<button>` trae y un `<a>` no debe llevar (lo mismo que `comoEnlace` del editor: diseno-elemento-acciones.ts). */
+const DE_BOTON = ['type', 'disabled', 'form', 'formaction', 'formmethod', 'formenctype', 'formtarget', 'formnovalidate', 'name', 'value', 'popovertarget', 'popovertargetaction'];
+
+/**
+ * Un `<button>` como `<a>` (con sus atributos de estilo y lo de adentro), para que pueda llevar a algún lado. Sin
+ * subrayado y con la manito; si no tiene clase (se ve como el botón del navegador), en bloque en línea como era.
+ */
+function botonComoEnlace(completo: string, interior: string): { tag: string; cierre: string } {
+  let tag = apertura(completo).replace(/^<button\b/i, '<a');
+  for (const a of DE_BOTON) tag = conAtributo(tag, a, null);
+  tag = tag.replace(new RegExp(`\\son[a-z]+\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>"']+)`, 'gi'), '');
+  if ((atributoDe(tag, 'role') ?? '').toLowerCase() === 'button') tag = conAtributo(tag, 'role', null);
+  const fuera = ['text-decoration', 'cursor', ...(atributoDe(tag, 'class') ? [] : ['display'])];
+  const nuevas = ['text-decoration:none', 'cursor:pointer', ...(atributoDe(tag, 'class') ? [] : ['display:inline-block'])];
+  let estilo = atributoDe(tag, 'style');
+  for (const d of nuevas) { estilo = conDeclaracion(estilo, fuera.filter((f) => d.startsWith(f + ':')), d); }
+  tag = conAtributo(tag, 'style', estilo);
+  return { tag, cierre: completo.slice(apertura(completo).length + interior.length).replace(/^<\/button\s*>/i, '</a>') };
+}
 const IMAGEN = new RegExp(`<img\\b${ATTR}>`, 'gi');
 const REPRODUCTOR = new RegExp(`<iframe\\b${ATTR}>`, 'gi');
 const VIDEO = new RegExp(`<video\\b${ATTR}>([\\s\\S]*?)<\\/video\\s*>`, 'gi');
@@ -63,7 +86,7 @@ export function elementosDeHtmlEditable(html: string): ElementoDeDiseno[] {
   let n = 0;
   for (const m of html.matchAll(ENLACE)) {
     const tag = apertura(m[0]);
-    out.push({ tipo: 'enlace', n: ++n, texto: textoVisible(m[1]), destino: atributoDe(tag, 'href'), nuevaPestana: atributoDe(tag, 'target') === '_blank', pos: m.index ?? 0 });
+    out.push({ tipo: 'enlace', n: ++n, texto: textoVisible(m[2]), destino: atributoDe(tag, 'href'), nuevaPestana: atributoDe(tag, 'target') === '_blank', pos: m.index ?? 0 });
   }
   n = 0;
   for (const m of html.matchAll(IMAGEN)) out.push({ tipo: 'imagen', n: ++n, src: atributoDe(m[0], 'src') ?? '', alt: atributoDe(m[0], 'alt'), pos: m.index ?? 0 });
@@ -105,7 +128,10 @@ function enLaEnesima(html: string, re: RegExp, n: number, cambio: (completo: str
 export function conEnlaceDeDiseno(html: string, n: number, cambio: { destino?: string | null; nuevaPestana?: boolean; texto?: string; fondo?: string; colorTexto?: string }): string | Falla {
   return enLaEnesima(html, ENLACE, n, (completo, m) => {
     let tag = apertura(completo);
-    let adentro = m[1];
+    let adentro = m[2];
+    // Un `<button>` con destino pasa a ser un `<a>` (un botón no lleva a ningún lado); sin destino, sigue siendo botón.
+    let cierre = completo.slice(tag.length + m[2].length);
+    if (m[1].toLowerCase() === 'button' && cambio.destino) ({ tag, cierre } = botonComoEnlace(completo, m[2]));
     if (cambio.destino !== undefined) tag = conAtributo(tag, 'href', cambio.destino);
     // Los colores del botón (27/10/2026, lo mismo que «Botón» del editor: botones-diseno.ts), con !important: la hoja de un
     // diseño suele escribir el color del botón así y un estilo sin él no ganaría.
@@ -122,7 +148,7 @@ export function conEnlaceDeDiseno(html: string, n: number, cambio: { destino?: s
       if (nuevo === null) return { error: 'No pude cambiar el texto de ese botón.' };
       adentro = nuevo;
     }
-    return rearmar(completo, m[1], tag, adentro);
+    return tag + adentro + cierre;
   });
 }
 
@@ -132,9 +158,60 @@ export function conDeclaracion(estilo: string | null, fuera: readonly string[], 
   return [...quedan, nueva].join(';');
 }
 
-/** El HTML con la imagen `n` mostrando `src` (sin `srcset`, que mostraría la vieja en otras pantallas). */
+/** Lo que, en una imagen, le gana al `src` en el navegador: el `srcset`, sus `sizes` y lo de la carga perezosa. */
+const LE_GANAN_AL_SRC = ['srcset', 'sizes', 'data-src', 'data-srcset', 'data-lazy-src', 'data-original'];
+const PICTURE = new RegExp(`<picture\\b${ATTR}>([\\s\\S]*?)<\\/picture\\s*>`, 'gi');
+const MARCA_CAMBIO = 'data-gm-cambio';
+
+/**
+ * El HTML con la imagen `n` mostrando `src`. Sin `srcset`, `sizes` ni lo de la carga perezosa, y sin los `<source>` de su
+ * `<picture>` (28/10/2026, la réplica editable): las copias idénticas los traen de la página original, y cualquiera de
+ * esos le gana al `src`: se cambiaba la imagen y se seguía viendo la de antes.
+ */
 export function conImagenDeDiseno(html: string, n: number, src: string): string | Falla {
-  return enLaEnesima(html, IMAGEN, n, (tag) => conAtributo(conAtributo(tag, 'srcset', null), 'src', src));
+  const marcada = enLaEnesima(html, IMAGEN, n, (tag) => {
+    let t = tag;
+    for (const a of LE_GANAN_AL_SRC) t = conAtributo(t, a, null);
+    return conAtributo(conAtributo(t, 'src', src), MARCA_CAMBIO, '1');
+  });
+  if (typeof marcada !== 'string') return marcada;
+  const sinFuentes = marcada.replace(PICTURE, (completo, adentro: string) =>
+    adentro.includes(MARCA_CAMBIO) ? rearmar(completo, adentro, apertura(completo), adentro.replace(FUENTE, '')) : completo);
+  return sinFuentes.replace(new RegExp(`\\s${MARCA_CAMBIO}="1"`), '');
+}
+
+/**
+ * El HTML sin el botón o enlace `n`, o sin la imagen `n` (con su `<picture>`, si lo tiene: si no, quedarían los `<source>`
+ * mostrando la de antes). Para «sacá el botón de iniciar sesión» desde el chat (28/10/2026).
+ */
+export function sinElementoDeDiseno(html: string, tipo: 'enlace' | 'imagen', n: number): string | Falla {
+  if (tipo === 'enlace') return enLaEnesima(html, ENLACE, n, () => '');
+  const marcada = enLaEnesima(html, IMAGEN, n, (tag) => conAtributo(tag, MARCA_CAMBIO, '1'));
+  if (typeof marcada !== 'string') return marcada;
+  const sinPicture = marcada.replace(PICTURE, (completo, adentro: string) => (adentro.includes(MARCA_CAMBIO) ? '' : completo));
+  return sinPicture.replace(new RegExp(`<img\\b(?:[^>"']|"[^"]*"|'[^']*')*\\s${MARCA_CAMBIO}="1"(?:[^>"']|"[^"]*"|'[^']*')*>`, 'i'), '');
+}
+
+/**
+ * El HTML con OTRO botón o imagen igual justo después del `n` (28/10/2026: «agregá un botón de WhatsApp al lado del de
+ * empezar», desde el chat). La copia va sin `id` (dos iguales confunden); una imagen en un `<picture>` se copia con él.
+ * La copia es la `n + 1`.
+ */
+export function conCopiaDeElementoDeDiseno(html: string, tipo: 'enlace' | 'imagen', n: number): string | Falla {
+  if (tipo === 'enlace') {
+    return enLaEnesima(html, ENLACE, n, (completo) => completo + conAtributo(apertura(completo), 'id', null) + completo.slice(apertura(completo).length));
+  }
+  const marcada = enLaEnesima(html, IMAGEN, n, (tag) => conAtributo(tag, MARCA_CAMBIO, '1'));
+  if (typeof marcada !== 'string') return marcada;
+  const sinId = (s: string) => s.replace(new RegExp(`(<(?:img|picture)\\b${ATTR})\\sid\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>"']+)`, 'gi'), '$1');
+  let hecho = false;
+  const conPicture = marcada.replace(PICTURE, (completo, adentro: string) => {
+    if (hecho || !adentro.includes(MARCA_CAMBIO)) return completo;
+    hecho = true;
+    return completo + sinId(completo);
+  });
+  const doble = hecho ? conPicture : marcada.replace(new RegExp(`<img\\b${ATTR}\\s${MARCA_CAMBIO}="1"${ATTR}>`, 'i'), (tag) => tag + sinId(tag));
+  return doble.replace(new RegExp(`\\s${MARCA_CAMBIO}="1"`, 'g'), '');
 }
 
 /**
@@ -190,7 +267,7 @@ function textoJunto(html: string, desde: number, hasta: number): string {
   for (const m of html.matchAll(ENLACE)) {
     const i = m.index ?? 0;
     if (i <= desde && i + m[0].length >= hasta) {
-      const t = textoVisible(m[1]);
+      const t = textoVisible(m[2]);
       if (t) return corto(t);
     }
   }

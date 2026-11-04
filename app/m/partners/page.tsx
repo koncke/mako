@@ -10,6 +10,11 @@
 //
 // ⚠️ La puerta: la key `partners` de la fila de More (el admin de CUALQUIER negocio, la misma regla que la barra) y el rol
 //    (admin), que se pregunta acá igual que en la página de escritorio.
+//
+// ⚠️ HOY NO SE DIBUJA EN NINGÚN TELÉFONO (4/11/2026, Martín): vuelve a More antes de leer nada (`esTabQueVende`,
+//    lib/tienda.ts). En la clasificación de edad de Google Play se contestó que la app no da premios en dinero, y este panel
+//    dice «Ya cobraste». Android no se distingue de Chrome, así que sale de todos (hasta ese día, sólo de la app de iPhone).
+//    Lo de abajo queda para el día que vuelva: sacar `partners` de `TABS_QUE_VENDEN` la devuelve. La computadora no cambia.
 
 import './partners.css';
 import { redirect } from 'next/navigation';
@@ -24,6 +29,7 @@ import { ProgramaM, ReferidosM } from './ReferidosM';
 import { altaDePartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
 import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS } from '@/lib/partners-reglas';
 import { RUTA_MAS } from '@/lib/movil-rutas';
+import { esTabQueVende } from '@/lib/tienda';
 import { LandingPartners } from '@/app/mako-partners/LandingPartners';
 import { AltaPartner } from '@/app/partners/AltaPartner';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
@@ -35,6 +41,8 @@ const cobraEnLinea = () => ofertasDeLosPlanes().then((o) => o.some((x) => x.cobr
 
 export default async function PartnersPagina({ searchParams }: { searchParams: Promise<{ alta?: string; landing?: string; cuenta?: string }> }) {
   await requireMovil({ navKey: 'partners' });
+  // En ningún teléfono: es un programa para vender MaKo a otros (T5, lib/tienda.ts). Esta página sólo la ve un teléfono.
+  if (esTabQueVende('partners')) redirect(await rutaConWs(RUTA_MAS));
   const sp = await searchParams;
   const ws = await getWorkspaceActual();
   if (ws == null) redirect(await rutaConWs('/m/cs'));

@@ -214,6 +214,19 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'diagnostico-fase', test: /\bdiagnostico de fase\b/, areas: ['negocio'], relevancia: 'guardar diagnostico fase', actua: true, ganaAlLead: true },
   { id: 'pasar-guion', test: /^pasa\s+(?:el|los)\s+guion(?:es)?\b/, areas: ['contenido'], relevancia: 'mover estado guion anuncio', actua: true },
   { id: 'formatos-creativo', test: /\bformatos? de creativos?\b/, areas: ['contenido'], relevancia: 'elegir formato creativo anuncio', actua: true },
+  // ── Lo que MaKo NEGABA teniéndolo (tickets #46, #47 y #48 de Leila, 3/11/2026): la palabra de la persona no era la del nombre
+  //    de la operación, la herramienta no viajaba y MaKo contestaba «no lo puedo hacer desde este chat».
+  // «hoy el precio está en pesos y quiero pasarlo a dólares»: guardar_oferta y guardar_producto PROPONEN el precio con un link.
+  //   El precio de lo que se VENDE (una moneda, la oferta, el producto), nunca el de un experimento, el de una secuencia («cuando
+  //   pregunta el precio en la secuencia») ni la moneda del negocio (`cambiar_moneda_negocio`): con «precio» suelto les sacaba lugar.
+  { id: 'precio-oferta', test: /^(?=[\s\S]*\bprecios?\b)(?=[\s\S]*\b(?:pesos|dolares|dlls|usd|mxn|ofertas?|productos?|programa|mentoria|curso|servicio)\b)(?![\s\S]*\b(?:experimentos?|secuencias?|moneda)\b)/, areas: ['negocio', 'crm'], relevancia: 'guardar oferta listar ofertas guardar producto listar productos' },
+  // «del diagnóstico me mandan un WhatsApp que tiene que disparar una secuencia»: crear_automatizacion_con_ia la CREA, con su
+  // disparador por etiqueta. Una secuencia de EMAILS es de `secuencia-email`, no de acá.
+  { id: 'crear-secuencia', test: /\bdispar\w*\b[^.\n]{0,40}\bsecuencias?\b|\bsecuencias?\b[^.\n]{0,40}\bdispar\w*|\b(?:cre\w+|arm\w+|nuevas?)\b[^.\n]{0,25}\bsecuencias?\b(?![^.\n]{0,30}\b(?:emails?|mails?|correos?)\b)/, areas: ['chatbot'], relevancia: 'crear automatizacion con ia crear automatizacion desde plantilla', actua: true },
+  // «¿dónde actualizo mis datos?»: listar_capacidades_mako trae la pantalla de cada dato (datos-negocio) y las lecturas, su link.
+  { id: 'donde-se-edita', test: /\bdonde\b[^.\n?]{0,25}\b(?:actualiz|cambi|edit|modific|corrig|corrij)\w*|\b(?:actualiz|cambi|edit|modific|corrig|corrij)\w*\b[^.\n]{0,20}\b(?:mis|los) datos\b/, areas: ['negocio', 'mako'], relevancia: 'listar capacidades mako ver perfil negocio listar ofertas listar productos' },
+  // «Activa la función "Aprende solo" en el Second Brain» (#45): cambiar_aprende_solo lo propone y listar_capacidades_mako dice dónde está.
+  { id: 'aprende-solo', test: /\baprender? solo\b/, areas: ['mako'], relevancia: 'cambiar aprende solo listar capacidades mako' },
   // ── Web Generator (tanda 6) ──
   { id: 'seccion-landing', test: /\bseccion(?:es)?\b[^.\n]{0,40}\b(?:arriba|abajo|primero|ultimo|al final|al principio|antes|despues)\b|\b(?:mover|mueve|move\w*|borr\w+|ocult\w+|elimin\w+|sac\w+)\b[^.\n]{0,15}\bseccion/, areas: ['landing'], relevancia: 'acomodar seccion landing', actua: true },
   { id: 'enlace-landing', test: /\b(?:link|enlace)\b[^.\n]{0,15}\b(?:vsl|agenda)\b/, areas: ['landing'], relevancia: 'poner enlace landing', actua: true },
@@ -228,6 +241,10 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'area-negocio', test: /\bmuletillas?\b|\blead magnets?\b|\bquiz\b|\barchivero\b|\bplan de mako\b|\bmi plan\b/, areas: ['negocio'], relevancia: '' },
   { id: 'area-ads', test: /\bpublicos\b|\bpublico\s+(?:frio|caliente|similar|objetivo)\b|\bretargeting\b|\bformularios? instantaneos?\b|\bguion(?:es)?\b|\bangulos?\b|\bvocabulario\b/, areas: ['ads'], relevancia: '' },
   { id: 'area-partners', test: /\bpartners?\b/, areas: ['cs'], relevancia: 'llevar partners' },
+  // Un documento para el Second Brain (ticket #44, 3/11/2026): «te cargo un documento con toda la información que necesitas
+  // saber de mi negocio, analizalo e incorporalo al second brain» salía `consultar` («que necesitas» parecía una pregunta), y
+  // en `consultar` no viaja la tarjeta que lo guarda. Sin «borrar»: borrar un documento es de `borrar_documento_archivero`.
+  { id: 'documento-al-cerebro', test: /\b(?:incorpor|sum|carg|guard|sub|agreg)\w*\b[^.\n]{0,60}\b(?:second brain|segundo cerebro|archivero)\b|\bte (?:cargo|paso|mando|comparto|dejo|subo) (?:un|el|este|mi) (?:documento|archivo|pdf|docx|word)\b/, areas: ['negocio'], relevancia: 'sumar documento second brain', actua: true },
   { id: 'sabes-del-negocio', test: /\bque (?:sabes|sabe|conoces|conoce|hay) (?:de|sobre) mi (?:negocio|empresa|marca)\b/, areas: ['negocio'], relevancia: 'contexto negocio perfil' },
   // ── Video, imagen y AI Avatar (las frases del chat de video: frases-video-imagen-1-2.json) ──
   { id: 'musica-video', test: /\bmusica\b/, areas: ['video'], relevancia: 'cambiar volumen video', actua: true },

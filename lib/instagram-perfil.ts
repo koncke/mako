@@ -98,8 +98,28 @@ export const POSTS_A_LEER = 6;
 /** Los campos de Business Discovery que se piden. */
 export const CAMPOS_PERFIL = `username,name,profile_picture_url,biography,website,followers_count,media_count,media.limit(${POSTS_A_LEER}){caption,timestamp,media_type}`;
 
-/** Cuántas publicaciones pide Competitors Spy: las últimas 25 alcanzan para ver qué le funciona. */
+/**
+ * Cuántas publicaciones le pide Competitors Spy A META, en el `media.limit()` de Business Discovery.
+ *
+ * ⚠️ NO SE SUBE SIN PODER MEDIRLO. En la Graph API un campo o un límite que Meta no acepte hace
+ * fallar la consulta ENTERA, y Business Discovery no tiene credencial desde el 22/10/2026: sólo
+ * una conexión de cliente (ws11) la tiene y hoy le funciona. Subir este número a ciegas es apostar
+ * la lectura de ese cliente a una corazonada.
+ */
 export const PIEZAS_A_LEER = 25;
+
+/**
+ * Cuántas publicaciones se quedan del camino de APIFY, que es otra cosa y por eso es otro número.
+ *
+ * ⚠️ ACÁ NO SE PIDE NADA MÁS: el actor YA DEVUELVE todas las que trajo, y lo único que hacíamos
+ * era tirar a la basura lo que pasaba de 25 — que es por lo que Martín veía doce o veinticinco
+ * piezas y nunca más (2/11/2026: «veo que no trae más de 50 publicaciones»). Subirlo no gasta una
+ * llamada más ni un crédito más de Apify: aprovecha lo que ya se pagó.
+ *
+ * El tope sigue existiendo porque cada pieza se guarda, se le baja la miniatura y se dibuja: sin
+ * ninguno, un perfil con miles de publicaciones haría trabajar a la lectura sin que nadie lo mire.
+ */
+export const PIEZAS_DE_APIFY = 100;
 
 /**
  * El juego ANCHO de campos, para Competitors Spy: el de arriba más los contadores, el permalink, la
@@ -206,15 +226,38 @@ export const APIFY_ACTOR_PERFIL = 'apify~instagram-profile-scraper';
 export const APIFY_TOPE_USD = 0.02;
 /** Cuántas lecturas por Apify por negocio y por día (el buscador del alta pregunta mientras se escribe). */
 export const APIFY_TOPE_POR_DIA = 40;
+/**
+ * Cuántas lecturas por día gasta un negocio con SU clave de Spy (`APIFY_CLAVE_DE_SPY`), separado del tope de arriba.
+ *
+ * ⚠️ SUBIÓ DE 40 A 150 EL 4/11/2026, y no es un descuido: Martín pidió que buscar por nombre traiga «los mejores
+ * resultados» con sus seguidores, y eso se completa leyendo las primeras filas (`leerPerfilesEnLote`, una corrida
+ * para las cinco). Con 40 —compartidas con las búsquedas— alcanzaba para tres búsquedas por día. Lo que cuesta,
+ * con el precio de la tienda de Apify (no medido desde la nube): ~US$2,60 cada 1.000 perfiles, o sea **~US$0,39 por
+ * día en el peor caso**, que paga el negocio con su clave. El techo por corrida sigue en `APIFY_TOPE_USD`.
+ */
+export const TOPE_LECTURAS_SPY_POR_DIA = 150;
+/**
+ * Cuántas CORRIDAS de búsqueda por día y por negocio. Una búsqueda por nombre gasta dos: Google (dos páginas,
+ * US$0,009) y el buscador de Instagram (US$0,012), medidos el 3/11/2026. **60 corridas = 30 búsquedas, peor caso
+ * US$0,65 por día.** Va aparte de las lecturas: si compartieran el cupo, buscar dejaría al negocio sin poder agregar
+ * a nadie.
+ */
+export const TOPE_BUSQUEDAS_SPY_POR_DIA = 60;
 /** Desde cuántas letras un @ se le pregunta a Apify: «@flo» trae a cualquiera y se paga igual. */
 export const APIFY_MIN_LETRAS = 5;
+/**
+ * LA CLAVE DE COMPETITORS SPY (1/11/2026, Martín: «conectar Apify para que Spy pueda leer Instagram»). Es otra que `APIFY_TOKEN` a propósito:
+ * ésa quedó dormida con el retiro del Leads Scraper (tests/leads-scraper-retirado.test.ts), y si esta fuera la misma, pegarla despertaría también
+ * el buscador del alta del CRM y Offer, que preguntan mientras se escribe. Ésta la paga el negocio que la pegó y sólo la lee Spy.
+ */
+export const APIFY_CLAVE_DE_SPY = 'APIFY_INSTAGRAM_TOKEN';
 
 /**
  * Lo que devuelve el actor (`run-sync-get-dataset-items`: una lista, un ítem por perfil). Una lista vacía o un ítem sin
  * `username` es que la cuenta no existe; uno con `error` (el actor lo pone así) también. Una cuenta PRIVADA trae la bio pero
  * no las publicaciones.
  */
-export function leerPerfilDeApify(usuario: string, items: unknown): LecturaInstagram {
+export function leerPerfilDeApify(usuario: string, items: unknown, conPiezas = false): LecturaInstagram {
   if (!Array.isArray(items)) return { ok: false, motivo: 'error', detalle: 'Apify no devolvió una lista' };
   const p = items.find((x): x is Record<string, unknown> => esObj(x) && str(x.username).toLowerCase() === usuario.toLowerCase());
   if (!p || p.error) return { ok: false, motivo: 'no-esta', detalle: p ? str(p.error) || 'sin el perfil' : 'sin resultados' };
@@ -226,7 +269,38 @@ export function leerPerfilDeApify(usuario: string, items: unknown): LecturaInsta
       bio: str(p.biography), web: str(p.externalUrl) || null,
       seguidores: num(p.followersCount), publicaciones: num(p.postsCount),
       posts: posts.map((m) => ({ fecha: str(m.timestamp).slice(0, 10), tipo: str(m.type), texto: str(m.caption) })).filter((m) => m.texto).slice(0, POSTS_A_LEER),
+      ...(conPiezas ? { piezas: posts.map(piezaDeApify).filter((m) => m.ref).slice(0, PIEZAS_DE_APIFY) } : {}),
     },
+  };
+}
+
+/** Un número del actor. ⚠️ Con los «me gusta» ocultos el actor manda -1: eso es «no se sabe», nunca un número. */
+const contadorDeApify = (v: unknown): number | null => { const n = num(v); return n != null && n >= 0 ? n : null; };
+
+/**
+ * Las publicaciones que devuelve `apify~instagram-scraper` con `resultsType: posts` (la corrida larga de Competitors Spy,
+ * lib/spy-todo.ts): son ítems con la misma forma que `latestPosts` del lector de perfiles. Sin un código, no es una pieza.
+ */
+export function piezasDeApify(items: unknown): PiezaInstagram[] {
+  return (Array.isArray(items) ? items.filter(esObj) : []).map(piezaDeApify).filter((m) => m.ref);
+}
+
+/** Una publicación del actor, con la misma forma que las de Business Discovery: Competitors Spy no distingue de dónde vino. */
+function piezaDeApify(m: Record<string, unknown>): PiezaInstagram {
+  const permalink = str(m.url);
+  const esReel = str(m.productType) === 'clips' || str(m.type) === 'Video';
+  return {
+    ref: str(m.shortCode) || refDePermalink(permalink),
+    fecha: str(m.timestamp).slice(0, 10),
+    tipo: str(m.type),
+    formato: esReel ? 'REELS' : 'FEED',
+    audio: null,
+    texto: str(m.caption),
+    permalink: /^https:\/\//.test(permalink) ? permalink : null,
+    miniatura: /^https:\/\//.test(str(m.displayUrl)) ? str(m.displayUrl) : null,
+    vistas: contadorDeApify(m.videoViewCount ?? m.videoPlayCount),
+    megusta: contadorDeApify(m.likesCount),
+    comentarios: contadorDeApify(m.commentsCount),
   };
 }
 

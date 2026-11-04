@@ -132,6 +132,18 @@ test('el server y la hoja (leyendo el fuente)', () => {
   assert.match(h, /\{AVISO_QR\}/, 'el aviso del QR');
 });
 
+// Martín, 2/11/2026: «que se vea lindo, con el formato de cada red social, como lo tenemos en Automations».
+test('el modal de la difusión: un canal a la vista, sin perder lo escrito en los otros', () => {
+  const h = sinComentarios(leer('app/automations/difusion/HojaDifusion.tsx'));
+  assert.match(h, /<Modal ancho=\{1040\}/, 'el modal de la casa: Escape, el foco y la pila son suyos');
+  assert.match(h, /display: visible \? 'flex' : 'none'/, 'el canal que no se ve sigue montado: lo que quedó en su barra no se pierde');
+  assert.match(h, /const activo = viendo && canales\.includes\(viendo\) \? viendo : CANALES_DIFUSION\.find\(\(c\) => canales\.includes\(c\)\) \?\? null;/, 'apagar el que se ve no deja el panel vacío');
+  assert.match(h, /onClick=\{\(\) => \{ if \(on\) setViendo\(c\); else alternar\(c\); \}\}/, 'tocar una fila apagada la prende');
+  assert.match(h, /problemaDeDifusion\(\{ canales: \[c\], mensajes, alcance: \{ llegan: 1 \} \}\)/, 'el ✓ mide el mensaje de ESE canal, no el alcance');
+  assert.doesNotMatch(h, /CabeceraWhatsApp|CabeceraSocialPanel|SalidaWhatsApp/, 'elegir número o cuenta mentiría: la difusión no los guarda');
+  assert.doesNotMatch(h, /SvcIcon/, 'pinta con un símbolo que el CRM no monta: un cuadrado liso');
+});
+
 // =============================================================================
 // La verificación del Cerebro sobre 69b49a31c (29/10/2026): tres medias y una baja de la difusión.
 // =============================================================================

@@ -100,7 +100,7 @@ test('el número que dio WhatsApp viaja como jid completo, que Evolution no toca
   const grupo = sinComentarios(leer('../lib/mako-grupo.ts'));
   assert.match(grupo, /const destino = chequeo\.canonico \? jidCanonico\(chequeo\.canonico\) : num;/);
   assert.match(grupo, /participants: \[destino\]/, 'el alta del dueño volvió a mandar el número crudo');
-  assert.match(grupo, /enviarInvitacionGrupo\(ws, destino\)/, 'la invitación del dueño volvió a mandar el número crudo');
+  assert.match(grupo, /enviarInvitacionGrupo\(ws, destino[,)]/, 'la invitación del dueño volvió a mandar el número crudo');
 });
 
 test('con la línea vieja muerta, la mudanza COMPRUEBA con la nueva en vez de cortar', () => {

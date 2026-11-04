@@ -2747,6 +2747,8 @@ const FUENTE_META: Record<FuenteTipo, { label: string; icon: () => ReactNode; ac
   'meet': chipDeGrabador('meet'),
   'readai': chipDeGrabador('readai'),
   otter: chipDeGrabador('otter'),
+  // Una llamada grabada desde MaKo (04/11/2026, lib/grabar-llamada.ts): no tiene logo de afuera.
+  grabadora: { label: 'Llamada grabada', icon: () => <span>🎙️</span>, accent: true },
   whatsapp: { label: 'WhatsApp', icon: () => <SvcIcon k="whatsapp" size={11} box={16} radius={4} />, accent: true },
   archivo: { label: 'Archivo', icon: () => <span>📄</span>, accent: false },
   'claude-code': { label: 'Claude Code', icon: () => <span style={{ fontFamily: MONO, fontWeight: 700 }}>‹╱›</span>, accent: false },
@@ -3712,7 +3714,7 @@ function ColumnaKanban({ clave: e, estado: estadoCol, propia, claveDe, editarAlM
       // gesto miden estos rectángulos UNA vez y después no vuelven a leer layout.
       data-columna={e}
       aria-label={`${label}: ${items.length}`}
-      style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: encima ? 'var(--primary-bg)' : FONDO_COLUMNA, border: 'none', borderRadius: 26, padding: '12px 10px 10px', boxShadow: encima ? `inset 0 0 0 2px ${color}` : 'none', transition: 'background .12s, box-shadow .12s' }}>
+      style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: encima ? 'var(--primary-bg)' : FONDO_COLUMNA, border: 'none', borderRadius: 18, padding: 10, boxShadow: encima ? `inset 0 0 0 2px ${color}` : 'none', transition: 'background .12s, box-shadow .12s' }}>
       <ColHeader label={label} color={color} count={items.length}
         // «Columnas editables como en el CRM» (Martín, 18/10 pt 9): el NOMBRE, sólo el admin y sólo en el tablero del
         // negocio que mira (`board.columnas`, ./useBoard.ts).
@@ -3723,7 +3725,7 @@ function ColumnaKanban({ clave: e, estado: estadoCol, propia, claveDe, editarAlM
         // lead" de donde está en las columnas y lo pongas dentro de los 3 puntos de cada columna», y lo que se pide en un
         // lugar vale en todos. Nace en ESTA columna, como antes (decisión 4 del 16/10/2026).
         onNueva={() => onNew(estadoCol, propia ? e : null)} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minHeight: 30, paddingRight: 2 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 30, paddingRight: 2 }}>
         {/* ⛔ ACÁ VIVÍA «＋ Nueva tarea», una card gris punteada arriba de cada columna (16/10/2026), y se fue el 21/10/2026
             al «⋯» de la cabecera (`onNueva`), como «Nuevo lead» en el CRM. */}
         {items.length === 0 && !hueco(0) && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}

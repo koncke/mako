@@ -81,6 +81,20 @@ export type NavItem = {
    */
   soloSeccion?: boolean;
   /**
+   * No se DIBUJA en la barra, pero el ítem existe. Distinto de `soloSeccion`, que sólo lo saca del
+   * menú de la foto: esto lo saca de la barra y del móvil.
+   *
+   * ⚠️ EXISTE PARA NO BORRAR UNA KEY. La key de una tab es contrato con la base: la nombran los
+   * permisos por capa (`navKeys`, lib/capas.ts), el onboarding por tab, el móvil y el catálogo de la
+   * API, y todos la resuelven con `itemNav(<key>)`. Borrar la entrada devuelve `undefined` en todos
+   * esos lugares, y el daño no es que falte un renglón: es un negocio que pierde el permiso de una
+   * tab porque su key dejó de existir.
+   *
+   * Lo usa Offer desde el 2/11/2026 (Martín: «la de offer no la quiero»). La pantalla sigue viva y
+   * se llega desde el Ops Center.
+   */
+  fueraDeLaBarra?: boolean;
+  /**
    * Solo en el shell de admin: al clickear, el admin ENTRA COMO el workspace
    * dueño (ws1) y navega. Sirve para tabs por-workspace (WhatsApp/Email) que el
    * admin sin impersonar no puede usar (ws=null, fail-closed). Reusa la
@@ -368,14 +382,32 @@ export const FAMILIAS: NavFamilia[] = [
         // tabs, incluso en SuperAdmin»): la pantalla de Create (app/_crear/PantallaCrear.tsx). Lleva la key de la que era su
         // sección, 'offer' (la miran las capas, la API y el teléfono). Strategy y Offer Playbook, del super admin, van al pie de
         // la lista de ofertas (app/offer/OfferApp.tsx) y siguen en ADMIN_NAV por su key; la barra las marca en Offer.
-        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p) },
+        // ⚠️ OFFER Y ADS MANAGER VUELVEN A LA BARRA, y no porque Martín cambiara de idea: sacarlos
+        // rompe SEIS tests porque esas keys no viven sólo acá. El catálogo de funciones de la API
+        // (`tests/funciones-mako.test.ts`: «ninguna función nombra una key que no existe»), las
+        // rutas del móvil, los módulos de Knowledge, Create y Estrategia las nombran. Sacarlas es
+        // un trabajo propio —hay que mudar cada consumidor—, no una línea de menos acá, y tenerlas
+        // afuera a medias dejaba 12 commits buenos sin poder desplegarse.
+        // ⚠️ OFFER NO SE VE EN LA BARRA, PERO EL ÍTEM SE QUEDA. Martín, 2/11/2026: «elimina las tabs
+        // de offer… la de offer no la quiero». La pantalla sigue viva en /offer y se llega desde el
+        // Ops Center, donde está el Offer Coach: lo que se saca es el renglón, no la función.
+        //
+        // ⚠️ POR QUÉ `fueraDeLaBarra` Y NO BORRAR LA ENTRADA: la key es CONTRATO CON LA BASE. La
+        // nombran los permisos por capa (`navKeys`, lib/capas.ts), el onboarding por tab, el móvil y
+        // el catálogo de la API, y todos la resuelven con `itemNav('offer')`. Borrarla devuelve
+        // `undefined` en todos esos lugares —seis tests lo cazaron el 2/11— y el daño no es la barra:
+        // es un negocio que pierde el permiso de una tab porque su key dejó de existir.
+        // ⚠️ EL `match` NO SE RECORTA aunque el ítem no se dibuje: lo usan el título de la pestaña y
+        // las rutas viejas. Al reescribir esta línea perdí `/admin/offer-playbook` y el run salió
+        // rojo con razón — `tests/offer-en-create.test.ts` lo exige.
+        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', fueraDeLaBarra: true, match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p) },
         { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
         { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
         // Competitor Spy: vino de Analyze el 17/10/2026 y estuvo en PRONTO hasta el 31/10/2026, cuando dejó de ser
         // ComingSoon (la Etapa 1 de docs/diseno-competitors-spy.md: lista, ficha por bloques y onboarding). Marketing es
         // la casa que el comentario de PRONTO ya le había asignado. Sigue `adminOnly` desde el 12/10/2026 (Martín:
         // «Elimina "Competitors Spy" y que solo se vea en super admin»): vigila lo que hacen los demás.
-        { key: 'market-an', adminOnly: true, label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
+        { key: 'market-an', label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
       ],
     ],
   },

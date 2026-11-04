@@ -133,7 +133,7 @@ test('P1: «A quién cobrarle» va por CRM: una fila por trato, y el bloque filt
 });
 
 // Rotura: `funnelsDeLaHoja` sin `conVista` (ignora lo elegido mirando): 10 / 1.
-test('P1: el «Funnel» de arriba de la hoja llega a «A quién cobrarle», y la plantilla «Cobros» nace con él', () => {
+test('P1: el «Funnel» de arriba de la hoja llega a «A quién cobrarle», y la plantilla «Cobranza» nace con él', () => {
   const hoja = { controles: [{ id: 'p', tipo: 'periodo' }, { id: 'f', tipo: 'lista', campo: 'producto', valores: null, texto: '' }] } as unknown as Hoja;
   assert.equal(funnelsDeLaHoja(hoja, {}), null, 'en «Todos», nada');
   assert.deepEqual(funnelsDeLaHoja(hoja, { f: { valores: ['Renovación', 'Sprint 3 días'] } }), ['Renovación', 'Sprint 3 días']);
@@ -141,8 +141,8 @@ test('P1: el «Funnel» de arriba de la hoja llega a «A quién cobrarle», y la
   assert.match(prov, /case 'cobranza': return <BloqueCobranza d=\{d\.cobranza\} elegidos=\{funnelsDeCobranza\(g, d, hoja\)\}/);
   assert.match(prov, /const propios = funnelsDeBloque\(g\);\s*if \(propios\.length \|\| !hoja\?\.funnels\?\.length \|\| !d\.funnels\.ok\) return propios;/, 'los propios del bloque mandan; si no, los de la hoja');
   assert.match(sinComentarios(leer('app/dashboard/Elemento.tsx')), /<ElementoGeneral e=\{e\} hoja=\{ctx\?\.hoja \?\? null\} vista=\{ctx\?\.vista \?\? null\} \/>/);
-  const plantillas = sinComentarios(leer('lib/general-plantillas.ts'));
-  const cobros = plantillas.slice(plantillas.indexOf("id: 'cobros'"), plantillas.indexOf("id: 'anuncios'"));
+  const plantillas = sinComentarios(leer('lib/graficos-plantillas-generales.ts'));
+  const cobros = plantillas.slice(plantillas.indexOf("id: 'cobranza'"), plantillas.indexOf("id: 'automatizaciones'"));
   assert.match(cobros, /controles: \[\{ tipo: 'lista', campo: 'producto', valores: null \}\]/);
   // Y el desplegable ofrece TODOS los CRMs, también los que todavía no tienen pagos (la renovación antes de su primer cobro).
   assert.match(sinComentarios(leer('lib/graficos-datos.ts')), /if \(campo\.id === 'producto'\) \{\s*const prods = await productosCrm\(\)/);

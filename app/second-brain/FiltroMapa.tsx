@@ -60,7 +60,7 @@ const AUTORIA_OPS: Array<{ id: Autoria; label: string }> = [
   { id: 'falta', label: 'Sin completar' },
 ];
 
-export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, conteoAutoria, tax = TAXONOMIA_NEGOCIO }: {
+export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, conteoAutoria, tax = TAXONOMIA_NEGOCIO, soloModulos = false }: {
   filtro: EstadoFiltro;
   onFiltro: (f: EstadoFiltro) => void;
   abierto: PanelAbierto;
@@ -69,6 +69,9 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
    *  dice cuánto hay detrás obliga a probar de a uno. */
   conteoArea: Partial<Record<string, number>>;
   conteoAutoria: { mako: number; usuario: number; falta: number };
+  /** El curso de un gurú (4/11/2026): una sola carpeta (el curso) y nadie del negocio escribió nada, así que sólo se filtra por
+   *  módulo. Ofrecer «Carpeta» con una opción y «Quién lo escribió» sobre un curso eran dos filtros que no filtraban nada. */
+  soloModulos?: boolean;
   /** Las carpetas y secciones de ESTE grafo (la del negocio, o las dos capas del super admin juntas). */
   tax?: Taxonomia;
 }) {
@@ -123,7 +126,7 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
   const activa = (cat: CategoriaFiltro) =>
     cat === 'capa' ? capaElegida !== null : cat === 'carpeta' ? filtro.carpetas.size > 0 : cat === 'area' ? filtro.areas.size > 0 : filtro.autoria !== 'todos';
 
-  const CATS: Array<{ cat: CategoriaFiltro; label: string }> = [
+  const CATS: Array<{ cat: CategoriaFiltro; label: string }> = soloModulos ? [{ cat: 'area', label: 'Módulo' }] : [
     // Las CAPAS (sólo el super admin): desarrollo, ventas, marketing... son carpetas; la capa las marca de una vez.
     ...(capas ? [{ cat: 'capa' as const, label: 'Capa' }] : []),
     { cat: 'carpeta', label: 'Carpeta' },
@@ -135,7 +138,7 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
     <span ref={caja} style={{ position: 'relative', flex: 'none' }}>
       <button
         type="button"
-        onClick={() => onAbrir(abierto ? null : 'root')}
+        onClick={() => onAbrir(abierto ? null : soloModulos ? 'area' : 'root')}
         aria-expanded={!!abierto}
         aria-label="Filtrar el Second Brain"
         style={{
@@ -192,7 +195,7 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
               </>
             ) : (
               <>
-                <button type="button" onClick={() => onAbrir('root')} style={volverBtn}>‹ volver</button>
+                {!soloModulos && <button type="button" onClick={() => onAbrir('root')} style={volverBtn}>‹ volver</button>}
 
                 {/* El aviso de que la lista está recortada. Sin él, entrar a «Carpeta»
                     con una sección elegida y ver dos opciones donde había cinco se lee
@@ -240,6 +243,12 @@ export function FiltroMapa({ filtro, onFiltro, abierto, onAbrir, conteoArea, con
                     colaTono={conteoArea[a.id] ? 'var(--faint)' : 'var(--warn)'}
                   />
                 ))}
+
+                {soloModulos && n > 0 && (
+                  <button type="button" onClick={limpiar} style={{ ...filaBase, justifyContent: 'center', marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 10, color: 'var(--primary)', fontWeight: 600 }}>
+                    Ver todos los módulos
+                  </button>
+                )}
 
                 {abierto === 'autoria' && AUTORIA_OPS.filter((o) => o.id !== 'falta' || conteoAutoria.falta > 0 || filtro.autoria === 'falta').map((o) => (
                   <Radio

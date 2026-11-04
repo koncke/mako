@@ -1,7 +1,8 @@
 // El banco del editor web: el EditorLanding REAL compilado con esbuild, fetch simulado y sin base.
 // Uso: node scripts/banco-editor-web/build.mjs && node scripts/banco-editor-web/server.cjs → http://127.0.0.1:4577
 // (`/?corto=1`, `/?publicada=1`, `/?doc=<archivo sin .json en esta carpeta>`; `/foto`: las fotos del chat por el cargador del motor).
-// Detalle: docs/hallazgos-editor-landing.md, «El feedback del 24/10».
+// `/landing?doc=<json>`: la landing de venta real, sin base y sin cargar el video (landing.tsx, extraer-landing.mjs, capturar.mjs).
+// Detalle: docs/hallazgos-editor-landing.md, «El feedback del 24/10» y «Los valores de Tilvo».
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -51,7 +52,7 @@ const plugin = {
 };
 
 const r = await esbuild.build({
-  entryPoints: [path.join(AQUI, 'entrada.tsx'), path.join(AQUI, 'foto.ts')],
+  entryPoints: [path.join(AQUI, 'entrada.tsx'), path.join(AQUI, 'foto.ts'), path.join(AQUI, 'landing.tsx')],
   bundle: true,
   outdir: path.join(AQUI, 'salida'),
   format: 'esm',

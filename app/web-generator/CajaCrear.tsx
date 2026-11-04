@@ -632,7 +632,7 @@ const CSS_CAJA = `
 .gp .gp-cc-link-accion { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .gp .gp-cc-link-accion .gp-pildora { border-color: var(--gp-azul-200); background: var(--gp-azul-50); color: var(--gp-azul-600); font-weight: 600; }
 .gp .gp-cc-link-accion .gp-pildora:hover:not(:disabled) { background: var(--gp-azul-100); }
-[data-tema="oscuro"] .gp .gp-cc-link-accion .gp-pildora { border-color: #0540ad; background: #0b2e79; color: #aad5fe; }
+[data-tema="oscuro"] .gp .gp-cc-link-accion .gp-pildora { border-color: #6e98ff4d; background: #6e98ff24; color: #9ab7ff; }
 .gp .gp-cc-linea > .gp-cc-chip { max-width: min(100%, 280px); }
 
 /* La miniatura del archivo (punto 6): una tarjetita adentro del cuadro, con su ✕ en la esquina. */

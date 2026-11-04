@@ -104,8 +104,8 @@ const PROPIAS_DESPUES: ReglaDeClave[] = [
   //     40 caracteres en la misma línea, y «Clave de Mistral 👇» con la clave abajo —como se pega en WhatsApp— pasaba
   //     entera (segunda revisión del lote 1).
   //   · xAI (`xai-`), Perplexity (`pplx-`), Hugging Face (`hf_`) y Together (`tgp_v1_`), con su prefijo y un largo de clave.
-  // Apify se tapa igual, pero sin servicio desde el 25/10/2026: la integración se fue y no hay «Conectar» que ofrecer.
-  { nombre: 'apify', re: /\bapify_api_[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: null },
+  // Desde el 1/11/2026 ofrece conectar la de Competitors Spy, que es para lo único que se usa hoy. La del Leads Scraper no volvió.
+  { nombre: 'apify', re: /\bapify_api_[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: 'apify-instagram' },
   { nombre: 'deepseek', re: /\bsk-[a-f0-9]{32}\b/g, con: CLAVE_TAPADA, servicio: null },
   { nombre: 'xai', re: /\bxai-[A-Za-z0-9]{40,}/g, con: CLAVE_TAPADA, servicio: null },
   { nombre: 'perplexity', re: /\bpplx-[A-Za-z0-9]{40,}/g, con: CLAVE_TAPADA, servicio: null },

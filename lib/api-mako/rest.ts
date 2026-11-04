@@ -119,6 +119,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // el cuerpo). La papelera: GET la lista, POST manda, y recuperar es una «recuperación» nueva.
   ['POST', '/crm/en-bloque/columna', 'pasar_en_bloque_otra_columna'],
   ['POST', '/crm/en-bloque/funnel', 'pasar_en_bloque_otro_funnel'],
+  ['POST', '/crm/en-bloque/otro-crm', 'agregar_en_bloque_a_crm'],
   ['GET', '/crm/papelera', 'ver_papelera_crm'],
   ['GET', '/crm/bajas', 'ver_bajas_de_leads'],
   ['GET', '/crm/nombres', 'ver_nombres_del_crm'],
@@ -320,6 +321,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/email/ajustes/envio-real', 'envio_email_habilitado'],
   ['PUT', '/email/ajustes/envio-real', 'activar_envio_real_email'],
   ['GET', '/email/ajustes/remitente', 'remitente_email'],
+  ['PUT', '/email/ajustes/remitente', 'fijar_remitente_email'],
   ['GET', '/email/broadcasts', 'listar_broadcasts'],
   ['POST', '/email/broadcasts', 'crear_broadcast'],
   ['DELETE', '/email/broadcasts/{id}', 'eliminar_broadcast'],
@@ -330,10 +332,15 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/email/broadcasts/{id}/programacion', 'cancelar_programacion_broadcast'],
   ['PUT', '/email/broadcasts/{id}/programacion', 'programar_broadcast'],
   ['GET', '/email/disparadores', 'listar_triggers_email'],
+  ['POST', '/email/dominio-envio', 'conectar_dominio_email'],
   ['POST', '/email/dominio-envio/verificaciones', 'verificar_dominio_envio'],
   ['GET', '/email/estado', 'estado_email'],
   ['GET', '/email/etapas', 'listar_etapas_email'],
   ['GET', '/email/kpis', 'kpis_email'],
+  // El Newsletter (29/10/2026): una edición es un broadcast; probarla, programarla y enviarla van por /email/broadcasts/{id}.
+  ['GET', '/email/newsletter', 'ver_newsletter'],
+  ['PATCH', '/email/newsletter', 'configurar_newsletter'],
+  ['POST', '/email/newsletter/ediciones', 'crear_edicion_newsletter'],
   ['GET', '/email/secuencias', 'listar_secuencias_email'],
   ['POST', '/email/secuencias', 'crear_secuencia_email'],
   ['GET', '/email/secuencias/{id}', 'ficha_secuencia_email'],
@@ -560,6 +567,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/closing/scores-mensuales', 'tendencia_score'],
   // ── negocio ───────────────────────────────────────────────────────────────
   ['GET', '/negocio/archivero/documentos', 'ver_archivero'],
+  ['POST', '/negocio/archivero/documentos', 'sumar_documento_second_brain'],
   ['DELETE', '/negocio/archivero/documentos/{id}', 'borrar_documento_archivero'],
   ['GET', '/negocio/avatares', 'listar_avatares_negocio'],
   ['PATCH', '/negocio/avatares', 'editar_avatar_negocio'],
@@ -808,6 +816,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // ── mako ──────────────────────────────────────────────────────────────────
   ['GET', '/mako/bandejas', 'resumen_bandejas_confirmacion'],
   ['GET', '/mako/capacidades', 'listar_capacidades_mako'],
+  ['PUT', '/mako/aprende-solo', 'cambiar_aprende_solo'],
   ['GET', '/mako/pendientes', 'listar_pendientes'],
   ['DELETE', '/mako/pendientes/{id}', 'cancelar_accion'],
   ['GET', '/mako/pendientes/{id}', 'ver_pendiente'],

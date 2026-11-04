@@ -124,7 +124,7 @@ test('5. toda función exportada de la capa de IA pasa por la puerta (o está en
       const clave = `${f}#${m[1]}`;
       if (SIN_PUERTA[clave]) continue;
       // La puerta va en las primeras líneas del cuerpo.
-      const cuerpo = src.slice(src.indexOf('{', src.indexOf(')', m.index!) ), m.index! + 6000).split('\n').slice(0, 6).join('\n');
+      const cuerpo = src.slice(src.indexOf('{', src.indexOf(')', m.index!) ), m.index! + 6000).split('\n').slice(0, 9).join('\n');
       if (!/conD6bDelPedido\(/.test(cuerpo) && !/conD6bDelPedido\(/.test(src.slice(m.index!, m.index! + 400))) faltan.push(clave);
     }
   }

@@ -56,7 +56,12 @@ function escena(k: string): Escena {
   return cache![k];
 }
 const ESCRIBEN = /^(crear|mover|cambiar|editar|borrar|eliminar|agendar|pausar|activar|confirmar|cancelar|levantar|proponer|enviar|mandar|cargar|agregar|guardar|actualizar|marcar)_/;
-const FIJA = /^Abrí el ticket #(\d+): Arreglar los dos problemas de la automatización 680\. Lo toma el equipo y te aviso por aquí cuando esté\.$/;
+// ⚠️ 2/11/2026 — LA RESPUESTA TERMINA CON EL LINK PARA MIRAR CÓMO VA, y esto se puso rojo al
+// sumarlo (run #362). Joan preguntó por WhatsApp «¿cómo van esos tickets?» y no tenía forma de
+// saberlo: la frase terminaba en «te aviso por aquí cuando esté». El link es parte del contrato
+// ahora, así que se exige, no se tolera. Y sale con `&ws=`: la app le pega el negocio al link para
+// que abra en el workspace correcto (`conWs`, lib/ws-tab.ts), así que el final no se ancla.
+const FIJA = /^Abrí el ticket #(\d+): Arreglar los dos problemas de la automatización 680\. Lo toma el equipo y te aviso por aquí cuando esté\. Mira el progreso de tu ticket aquí: \S*\/tickets\?t=\1\b/;
 
 test('1. TICKET: lo abre el código, con la respuesta fija, sin turno; lo que sigue se suma', () => {
   const e = escena('ticket');
@@ -72,7 +77,8 @@ test('1. TICKET: lo abre el código, con la respuesta fija, sin turno; lo que si
   assert.equal(String(FIJA.exec(e.salio[0])?.[1]), String(t.id), 'el número lo escribe el código, el del ticket de verdad');
   const s = escena('sumado');
   assert.equal(s.turno.length, 0);
-  assert.equal(s.salio[0], `Lo sumé al ticket #${t.id}: El DM de rechazo tampoco sale. Lo toma el equipo y te aviso por aquí cuando esté.`);
+  // Lo que se SUMA a un ticket que ya existe también dice dónde mirarlo, y apunta al MISMO número.
+  assert.match(s.salio[0], new RegExp(`^Lo sumé al ticket #${t.id}: El DM de rechazo tampoco sale\\. Lo toma el equipo y te aviso por aquí cuando esté\\. Mira el progreso de tu ticket aquí: \\S*/tickets\\?t=${t.id}\\b`));
   assert.equal(s.tickets.length, 1, 'abrió otro en vez de sumarlo');
 });
 
@@ -97,7 +103,7 @@ test('3. PREGUNTA: sólo lecturas, con su bloque y sin la muletilla; con un repo
   const t = escena('preguntaYTicket');
   assert.equal(t.turno.length, 1);
   assert.match(t.turno[0].system, /el ticket lo abre el código después de tu respuesta/);
-  assert.match(t.salio[0], /^Hoy no entró ningún lead nuevo\.\n\nAbrí el ticket #\d+: El botón de pagar no anda\. Lo toma el equipo y te aviso por aquí cuando esté\.$/);
+  assert.match(t.salio[0], /^Hoy no entró ningún lead nuevo\.\n\nAbrí el ticket #(\d+): El botón de pagar no anda\. Lo toma el equipo y te aviso por aquí cuando esté\. Mira el progreso de tu ticket aquí: \S*\/tickets\?t=\1\b/);
   assert.equal(t.tickets.length, 1);
   const r = escena('relleno');
   assert.deepEqual([r.salio, r.r.skip], [[], 'era todo relleno: la reacción alcanza']);

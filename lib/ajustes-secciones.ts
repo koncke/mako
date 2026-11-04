@@ -57,11 +57,16 @@ export function gruposAjustes(cuenta: SeccionAjustes[], negocio: SeccionAjustes[
 /**
  * En una «vista de otro» (la agencia o el super admin parados en un cliente) el perfil que se ve es el
  * del CLIENTE, pero la seguridad, los avisos y la app son de quien MIRA: no se ofrecen ahí.
+ *
+ * ⚠️ `administra`: NOTIFICACIONES SÍ (3/11/2026, ticket #49 de Joan: «no puedo ver las notificaciones dentro de la cuenta de un
+ * cliente»). Desde el 25/10/2026 a quién le avisa MaKo lo del NEGOCIO vive adentro de esta sección, y el filtro de abajo, que se
+ * escribió cuando esta sección era sólo de la persona, la dejó sin entrada para la agencia y para el super admin parados en un
+ * cliente. La pantalla y su API andaban: faltaba el renglón. Mirando a otro, la pantalla muestra sólo WhatsApp y Email.
  */
-export function seccionesCuenta(deOtro: boolean, activa?: string): SeccionAjustes[] {
+export function seccionesCuenta(deOtro: boolean, activa?: string, administra = false): SeccionAjustes[] {
   // La activa se queda siempre: entrar por el link a /perfil/seguridad mirando a un cliente es tu propia
   // seguridad, y un índice sin la sección en la que estás no dice dónde estás.
-  return deOtro ? SECCIONES_CUENTA.filter((s) => s.key === 'info' || s.key === activa) : SECCIONES_CUENTA;
+  return deOtro ? SECCIONES_CUENTA.filter((s) => s.key === 'info' || s.key === activa || (administra && s.key === 'notificaciones')) : SECCIONES_CUENTA;
 }
 
 /** Qué secciones del negocio puede ver quien mira. Lo resuelve el server (lib/ajustes-negocio.ts). */

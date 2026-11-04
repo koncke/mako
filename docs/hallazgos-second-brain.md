@@ -3012,3 +3012,21 @@ alcanza porque no es el único camino.
 
 Y el corolario: **el nombre de un nodo de capa es parte de su costo.** Un módulo llamado como
 un dato del negocio compite con ese dato en todo lector que lo nombre.
+
+---
+
+## `recuperar` NO trae el cuerpo de un nodo si no se lo pide por id: colgar una capa no alcanza (3/11/2026)
+
+**El síntoma.** El curso entero de un gurú se colgó como capa del grafo del turno, «porque `recuperar`
+trae el cuerpo de una clase si la pregunta la nombra». Tests en verde y el chat **no vio nunca una
+palabra del curso**: veía «Título — 18 mil caracteres».
+
+**La causa real:** `lineaDe` (`lib/cerebro-recuperar.ts`) pone el `cuerpo` sólo en modo `entera`, que es
+**un id pedido con profundidad 0**. El turno no pide ids. Y la herramienta que sí los pide
+(`recuperar_del_segundo_cerebro`) lee `grafoParaChat()`, donde esa capa no estaba: el id que el turno
+mostraba devolvía el índice del negocio.
+
+**La regla que queda:** un texto largo que tiene que llegar al modelo NO viaja como `cuerpo` de una capa:
+va en un bloque propio que elige los TRAMOS pertinentes con su presupuesto (`cursoParaElTurno`,
+`lib/cerebro-referente.ts`). Y si se ofrece «pídelo por id», la herramienta tiene que poder resolver ese id
+(`conLosCursosDe` cuelga el curso cuando el id empieza con `ref:`).

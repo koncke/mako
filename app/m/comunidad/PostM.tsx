@@ -26,6 +26,7 @@ import { Ico } from '@/app/_comunidad/iconos';
 import type { ComentarioVista, PostDetalle, PostVista } from '@/lib/comunidad-tipos';
 import { TOPE_COMENTARIO, haceCuanto } from '@/lib/comunidad-reglas';
 import { ErrorM, SheetM, SkeletonFilas, useConexion, useToastM } from '@/app/m/_ui';
+import { ReportarRespuesta } from '@/app/_chat/ReportarRespuesta';
 import {
   R, T, conCambioEnHilo, conComentario, entradaComentario, metaDePost, respondiendoA, textoDeRespuesta,
   type Respondiendo,
@@ -205,6 +206,8 @@ export function HojaPostM({ abierta, postId, base, onCerrar }: {
               onCambio={(likes, meGusta) => cambiar({ likes, meGusta })} />
             <span className="m-comunidad-accion m-comunidad-accion--quieta"><Ico n="comentario" size={20} /><span>{post.comentarios}</span></span>
           </div>
+          {/* Lo que publica otra persona se denuncia desde acá, sin salir de la app (Play, contenido de usuarios). */}
+          <ReportarRespuesta que="una publicación de Community" texto={`#${post.id} ${post.titulo}`} />
 
           <div className="m-comunidad-coms">
             {post.hilo.map((c) => (
@@ -256,6 +259,7 @@ function ComentarioM({ c, chico = false, cerrado, onResponder, onLike }: {
           <LikeM objetivo={`c:${c.id}`} likes={c.likes} meGusta={c.meGusta} puede={c.puedoLikear}
             onCambio={(likes, meGusta) => onLike(c.id, likes, meGusta)} />
           {!cerrado && <button type="button" className="m-comunidad-accion" onClick={onResponder}>{R.responder}</button>}
+          <ReportarRespuesta que="un comentario de Community" texto={`#${c.id}`} />
         </div>
       </div>
     </div>

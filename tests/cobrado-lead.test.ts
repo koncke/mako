@@ -35,6 +35,20 @@ const lead = (e: Partial<EntradaCobrado>): EntradaCobrado => ({
   ventaTipo: 'unico', montoCierreUsd: null, suscripcionMontoUsd: null, suscripcionMeses: null, fechaCierre: null, pagos: [], cobros: [], hoy: HOY, ...e,
 });
 
+// Ticket #53: el semáforo es lo que lee la API de MaKo (`cobranza_lead`). Sin cierre, tampoco le dice «Al día» a MaKo.
+// ROMPIÉNDOLO (04/11/2026, base 13 de 13): sin el renglón `sinCierre` del semáforo → 1 fallo; `sinCierre` también para la pasarela → 1 fallo.
+test('#53: una mensualidad manual sin fecha de cierre no está al día; la de la pasarela sigue contándose sola', () => {
+  const cobrada = { monto_usd: 40, pagado: true, fecha_esperada: '2026-09-14', fecha_pago: '2026-09-18' };
+  const sin = cobradoDelLead(lead({ ventaTipo: 'suscripcion', suscripcionMontoUsd: 40, pagos: [cobrada] }));
+  assert.deepEqual(sin.semaforo, { tono: 'gris', texto: 'Sin fecha de cierre' });
+  assert.equal(sin.suscripcion?.sinCierre, true);
+  const con = cobradoDelLead(lead({ ventaTipo: 'suscripcion', suscripcionMontoUsd: 40, fechaCierre: '2026-08-11', pagos: [cobrada] }));
+  assert.equal(con.suscripcion?.sinCierre, false);
+  const pasarela = cobradoDelLead(lead({ ventaTipo: 'suscripcion', suscripcionMontoUsd: 40, pagos: [cobrada], cobros: [{ tipo: 'suscripcion', estado: 'pagado', suscripcion_estado: 'activa', motivo: null }] }));
+  assert.equal(pasarela.suscripcion?.sinCierre, false, 'la pasarela dice si se cobró: no depende del cierre');
+  assert.equal(pasarela.semaforo.tono, 'verde');
+});
+
 test('⚠️ una mensualidad activa con lo registrado cobrado está «Al día · próxima el …», no «Pagada por completo»', () => {
   const c = cobradoDelLead(lead({
     ventaTipo: 'suscripcion', suscripcionMontoUsd: 800, fechaCierre: '2026-08-05',

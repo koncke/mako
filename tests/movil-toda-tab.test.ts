@@ -27,6 +27,8 @@
 //   · sin la excepción de MaKo Partners del super admin                       → 4 / 1 (la diferencia es real)
 //   · `masCompleto` sin saltear lo que está en la barra por su ruta            → 4 / 1 (General salía otra vez en Operate,
 //     visto a 390 px: General es la portada y no tiene key en DESTINOS_MOVIL)
+//   · (4/11/2026) `masCompleto` sin `sinLoQueVende`                           → 4 / 1 (More dibuja Partners y Agency al admin
+//     de un negocio y al de una agencia)
 // =============================================================================
 
 import test from 'node:test';
@@ -41,6 +43,7 @@ import { tituloDe } from '../lib/titulo-tab';
 import {
   EN_CAMINO, SOLO_ESCRITORIO, barraMovil, destinoActivo, masCompleto, rutaEscritorio, rutaInterna, rutaMovil, type FilaMas, type RolMovil,
 } from '../lib/movil-rutas';
+import { esTabQueVende } from '../lib/tienda';
 
 const RAIZ = join(__dirname, '..');
 
@@ -133,15 +136,17 @@ const PERSONAS: { nombre: string; rol: RolMovil; capa: string; adminShell: boole
  * puedeVerKey) es más estricta que la sidebar y la página lo sacaría. Una diferencia nueva falla hasta que se anota acá.
  */
 const MAS_ESTRICTO_EN_EL_TELEFONO: Record<string, string> = {
-  // `soloCapas`: la sidebar se la muestra al super admin en cualquier capa; la puerta del teléfono, sólo con capa agencia
-  // (docs/relevo/mako-mobile.md, «Lo que falta» de Mobile 2).
-  'super admin|MaKo Partners': 'puedeVerKey no sabe del super admin',
+  // (Hasta el 4/11/2026: 'super admin|MaKo Partners', porque `puedeVerKey` no sabe del super admin. Desde ese día MaKo
+  // Partners no va en ningún teléfono y lo cubre la regla de abajo, `esTabQueVende`.)
 };
 
 test('More tiene un lugar para cada tab que la sidebar le muestra a cada persona (o la barra la tiene)', () => {
   const faltan: string[] = [];
   const rotas: string[] = [];
   const repetidas: string[] = [];
+  // Lo que existe para vender MaKo a otros (MaKo Partners, Agency Dashboard) NO va en ningún teléfono (4/11/2026, lib/tienda.ts):
+  // es la única diferencia con la sidebar que no se cuenta como falta, y si More la dibuja, falla.
+  const vende: string[] = [];
   for (const p of PERSONAS) {
     const vista: VistaNav = { adminShell: p.adminShell, rolWs: p.rol ?? '', capa: p.capa };
     // Lo que dibuja la sidebar (Sidebar.tsx): las tabs resueltas, los ítems de los desplegables, el menú de la foto sin
@@ -158,6 +163,7 @@ test('More tiene un lugar para cada tab que la sidebar le muestra a cada persona
     const barra = lugares.map((b) => b.href);
     for (const it of sidebar) {
       const enMas = filas.some((f) => f.label === it.label);
+      if (esTabQueVende(it.key)) { if (enMas) vende.push(`${p.nombre}: ${it.label}`); continue; }
       const destino = rutaMovil(it.href);
       // «Está en la barra» = un lugar de la barra es el DUEÑO de esa ruta (`destinoActivo`): las hojas del Dashboard
       // (/m/dashboard) son del lugar «Dashboard» desde el 17/10/2026 noche, aunque su raíz sea /m/hoy.
@@ -181,6 +187,7 @@ test('More tiene un lugar para cada tab que la sidebar le muestra a cada persona
     }
   }
   assert.deepEqual(faltan, [], 'tabs de la sidebar sin lugar en More ni en la barra');
+  assert.deepEqual(vende, [], 'More dibuja una tab que vende MaKo a otros: el teléfono no vende (lib/tienda.ts)');
   assert.deepEqual(rotas, [], 'filas de More que llevan a una pantalla que no existe');
   assert.deepEqual([...new Set(repetidas)], [], 'More repite lo que ya está en la barra o en More');
 });

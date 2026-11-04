@@ -104,14 +104,20 @@ const NOTA_PROPUESTA =
 async function proponerEnElEditor(o: OperacionApi, input: Record<string, unknown>, ctx: Ctx): Promise<Propuesto> {
   // Por id o por nombre: en un turno de WhatsApp la acción entra y la lista de proyectos puede no entrar (medido el 16/10).
   const cual = await resolverProyecto(ctx.ws, str(input, 'proyecto') ?? '');
-  if (!cual.ok) return { error: 'motivo' in cual ? `No se puede proponer: ${cual.motivo}.` : cual.sinTabla ? 'Los proyectos del editor todavía no se guardan en MaKo.' : 'No se pudo leer el proyecto.' };
+  // Las dos primeras son REGLAS (el pedido no alcanza, la tabla todavía no existe): sin la marca. La base caída, no.
+  if (!cual.ok) {
+    if ('motivo' in cual) return { error: `No se puede proponer: ${cual.motivo}.` };
+    if (cual.sinTabla) return { error: 'Los proyectos del editor todavía no se guardan en MaKo.' };
+    return { error: 'No se pudo leer el proyecto.', falla: true };
+  }
   const proyecto = cual.proyecto;
   const v = operacionDesdeInput(o, input);
   if (!v.ok) return { error: `No se puede proponer: ${v.motivo}.` };
   const r = await proponerOperacion({ ws: ctx.ws, canal: ctx.canal, canalKey: ctx.canalKey, actor: ctx.actor ?? null, proyecto, titulo: o.titulo, op: v.op });
   if (!r.ok) {
     if ('motivo' in r) return { error: `No se puede proponer: ${r.motivo}.` };
-    return { error: r.sinTabla ? 'Las propuestas del Video Editor todavía no se guardan en MaKo.' : 'No se pudo dejar la propuesta.' };
+    if (r.sinTabla) return { error: 'Las propuestas del Video Editor todavía no se guardan en MaKo.' };
+    return { error: 'No se pudo dejar la propuesta.', falla: true };
   }
   // La tarjeta «Original | Modificado» que dibuja el chat del Ops Center (bloque G4, lib/chat-bloques.ts), con «Aceptar
   // en el editor» en ESA propuesta. La arma el código con la copia del proyecto, nunca el modelo. En WhatsApp no se

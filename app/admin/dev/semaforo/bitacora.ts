@@ -77,6 +77,20 @@ export const BITACORA: Hito[] = [
       { sha: "5b3ad721", msg: "La alerta avisa cada 1 hora, y una vez por CUENTA (no por workspace)", lineas: 85, archivos: 4 },
     ],
   },
+  {
+    fecha: "31 oct", hora: "23:30", chat: "Planes de MaKo, suscripción y Partners", cuenta: "claude1",
+    sesion: "local_2218b568-c2aa-417e-891f-0c67e8feb5d2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La alerta de la cuenta publicitaria del cliente de una agencia le llega a la agencia, y no a su grupo",
+    puntos: [
+      "**El ticket #37**: lo que le llegó a Natalia no era el plan de MaKo sino su cuenta PUBLICITARIA de Meta en período de gracia, media hora, el 31/10 y el 25/10. Ahora le llega a Código Inmobiliario, con su nombre: «La cuenta publicitaria de *Natalia* está EN PERÍODO DE GRACIA», y el link a MaKo Partners. A todas las agencias, igual; la que no tiene grupo la recibe por correo, y si la agencia está pausada sigue siendo del cliente.",
+      "Es por clase de aviso: «tu WhatsApp se desconectó» sigue siendo del cliente. Y si no se puede saber de quién es la cuenta, no sale y lo reintenta: nunca cae al grupo del cliente.",
+      "**El plan:** si rechazan la renovación de un cliente de agencia, la agencia recibe un correo con su nombre y qué hacer, una vez por período. La pausa le llega a ella, y al cliente sólo si se paga él; si paga la agencia, o no se puede saber, /cuenta-pausada ya no le ofrece pagar.",
+      "**Sin mirar en producción:** ninguna alerta real pasó todavía por acá; lo probado es el camino entero contra una base y un WhatsApp de mentira. El corte de acceso sigue apagado, así que hoy el correo avisa una pausa que no pasa.",
+    ],
+    archivos: ["lib/avisos-catalogo.ts (aLaAgencia) · lib/aviso-evento.ts · lib/plantillas-automatizaciones.ts · lib/plan-deuda.ts · lib/cobros.ts", "tests/avisos-a-la-agencia.test.ts (57 roturas)"],
+    tickets: [37],
+  },
 ];
 
 export const PARTES: Parte[] = [

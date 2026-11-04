@@ -25,6 +25,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { DISPOSITIVO_COOKIE, crearPreauth, destinoSeguro } from '@/lib/auth-session';
 import { ponerPreauth, ponerSesion } from '@/lib/sesion-cookies';
 import { decidirTrasGoogle, requiereSegundoFactor } from '@/lib/mfa-reglas';
+import { WS_REVISION, esCorreoDeRevision } from '@/lib/cuenta-revision-reglas';
 import { obligatorioDesdeDe } from '@/lib/mfa-obligatorio';
 import { requiereCrearContrasena } from '@/lib/contrasena-reglas';
 import { tieneContrasena } from '@/lib/contrasena';
@@ -170,7 +171,8 @@ export async function GET(req: NextRequest) {
     });
     const ui = (await uiRes.json()) as { email?: string; email_verified?: boolean; name?: string; picture?: string };
     const email = typeof ui.email === 'string' ? ui.email.toLowerCase() : '';
-    if (!email || ui.email_verified === false) return fail('no-autorizado');
+    // `!== true` y no `=== false` (01/11/2026): un userinfo que no dice nada no es un correo verificado.
+    if (!email || ui.email_verified !== true) return fail('no-autorizado');
 
     const usuario = await resolverConFallback(email);
     if (!usuario) {
@@ -196,6 +198,11 @@ export async function GET(req: NextRequest) {
       res.cookies.set({ name: 'oauth_next', value: '', maxAge: 0, path: '/' });
       return res;
     }
+
+    // ⛔ La cuenta de revisión de las tiendas entra SÓLO con contraseña (4/11/2026). Por acá salía una sesión sin la marca `revision`:
+    // sin la lista de lo permitido del proxy, sin la guarda de envío y con la vida de 30 días. Cualquiera con el buzón de ese correo
+    // en Google la tenía. Tampoco entra por acá nadie de su negocio (lib/cuenta-revision-reglas.ts).
+    if (esCorreoDeRevision(email) || esCorreoDeRevision(usuario.email) || usuario.workspace_id === WS_REVISION) return fail('no-autorizado');
 
     // usuario.id === 0 es el admin de fallback (DB no disponible): no persiste
     // login y su sesión no se re-chequea contra la base (sub break-glass).

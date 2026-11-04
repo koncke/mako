@@ -31,6 +31,7 @@ import { inicialesM } from './_ui/formato';
 import { leerPerfil } from '@/lib/perfil';
 import { AvisoPruebaM } from './_prueba/PruebaM';
 import { estadoDePrueba } from '@/lib/prueba-uso';
+import { esAppIosDelPedido } from '@/lib/tienda-pedido';
 
 /**
  * El viewport del teléfono. `viewport-fit: cover` es lo que hace que
@@ -40,7 +41,7 @@ import { estadoDePrueba } from '@/lib/prueba-uso';
  * NUNCA maximum-scale ni user-scalable=no: el zoom es accesibilidad, y lo que lo
  * disparaba (inputs de menos de 16 px) se arregla en app/m/m.css.
  *
- * `themeColor` es el hex de --bg del tema claro (#F4F6F9, app/globals.css): el
+ * `themeColor` es el hex de --bg del tema claro (#efefed, app/globals.css): el
  * encabezado de la v2 es --bg, y la barra del sistema tiene que ser del mismo color.
  * Una meta no puede leer un `var()`, por eso es el único hex de /m. Con el oscuro
  * (que la persona elige), ShellM le escribe el --bg resuelto.
@@ -50,7 +51,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
-  themeColor: '#F4F6F9',
+  themeColor: '#efefed',
 };
 
 export default async function LayoutMovil({ children }: { children: ReactNode }) {
@@ -68,6 +69,7 @@ export default async function LayoutMovil({ children }: { children: ReactNode })
   const foto = perfil && !perfil.vista.deOtro ? perfil.perfil.avatarUrl.trim() || null : null;
   // LA VERSIÓN DE PRUEBA (25/10/2026): una línea arriba de cada pantalla mientras dura (una lectura, cacheada por pedido).
   const prueba = ctx?.ws != null ? await estadoDePrueba(ctx.ws) : null;
+  const appIos = await esAppIosDelPedido();
 
   return (
     <div id="m-root" data-m>
@@ -83,6 +85,7 @@ export default async function LayoutMovil({ children }: { children: ReactNode })
         badges={badges}
         usuario={ctx ? { iniciales: inicialesM(ctx.sesion.nombre, ctx.sesion.email), foto } : null}
         cliente={ctx?.impersonando ? { nombre: ctx.clienteNombre ?? 'Cliente' } : null}
+        appIos={appIos}
       >
         {prueba?.enPrueba && <AvisoPruebaM dias={prueba.dias} plan={prueba.plan ?? 'tu plan'} despues={prueba.despues} />}
         {children}

@@ -30,6 +30,13 @@
 //    obliga a recorrer el archivo, ahí sabe la duración, y se vuelve al principio. Mientras tanto, la que
 //    trae la biblioteca (`duracion`).
 
+// ⚠️ LA VELOCIDAD (ticket #50 de Leandro, 4/11/2026: «no puedo aumentar la velocidad de los audios de WhatsApp»): en el iPhone el
+//    `<audio controls>` nativo no la ofrece, y el teléfono usaba ése. El botón da la vuelta 1× · 1,5× · 2×, como WhatsApp, y lo elegido
+//    vale para el próximo audio (`velocidadElegida`, mientras la app siga abierta). La compacta no lo lleva: no entra.
+// ⚠️ UN AUDIO NO SE CORTA PORQUE LE RENOVARON LA FIRMA. `/m/chats` y /chats releen el hilo cada 15 s, y cada lectura firma de nuevo la URL
+//    del Storage: el mismo archivo con otro `?token=`. Tomarlo como otro audio paraba lo que estaba sonando. Si la firma guardada vence (1 h),
+//    el error prueba con la última que llegó (`mismoArchivo`).
+
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 const fmt = (s: number) => {
@@ -49,6 +56,32 @@ export function tiempoDelReproductor(actual: number, total: number, sonando: boo
   return fmt(total);
 }
 
+/** Las velocidades que da la vuelta el botón. */
+export const VELOCIDADES = [1, 1.5, 2] as const;
+export const siguienteVelocidad = (v: number): number => VELOCIDADES[(VELOCIDADES.findIndex((x) => x === v) + 1) % VELOCIDADES.length];
+export const rotuloVelocidad = (v: number): string => `${String(v).replace('.', ',')}×`;
+/** Lo que eligió la persona: el próximo audio arranca así. */
+let velocidadElegida = 1;
+
+/**
+ * Pone la velocidad en el `<audio>`. `defaultPlaybackRate` también: Safari vuelve a ésa cada vez que carga el archivo, y en el teléfono carga
+ * recién al tocar ▶. Pura con el elemento inyectado (test).
+ */
+export function aplicarVelocidad(el: Pick<HTMLMediaElement, 'playbackRate' | 'defaultPlaybackRate'>, v: number): void {
+  el.defaultPlaybackRate = v;
+  el.playbackRate = v;
+}
+
+/** ¿Es el mismo archivo con otra firma? Sólo cambia el `token` del Storage. Otra query (`?adjunto=`, `?ws=`) es otro audio. Pura (test). */
+export function mismoArchivo(a: string, b: string): boolean {
+  if (a === b) return true;
+  const sinFirma = (s: string): string | null => {
+    try { const u = new URL(s, 'http://x.test'); if (!u.searchParams.has('token')) return null; u.searchParams.delete('token'); return u.href; } catch { return null; }
+  };
+  const x = sinFirma(a);
+  return x != null && x === sinFirma(b);
+}
+
 function IconoPlay({ tam }: { tam: number }) {
   return <svg width={tam} height={tam} viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a.8.8 0 0 0 1.2.7l11-6.8a.8.8 0 0 0 0-1.4l-11-6.8A.8.8 0 0 0 8 5.2z" fill="currentColor" /></svg>;
 }
@@ -56,7 +89,7 @@ function IconoPausa({ tam }: { tam: number }) {
   return <svg width={tam} height={tam} viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" /><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" /></svg>;
 }
 
-export function AudioPlay({ src, style, compacto = false, duracion, color = 'var(--wa)' }: {
+export function AudioPlay({ src: srcQueLlega, style, compacto = false, duracion, color = 'var(--wa)', velocidad: conVelocidad = true }: {
   src: string;
   /** El ancho va acá: en px adentro de algo que se ajusta a su contenido (ver la cabecera). */
   style?: CSSProperties;
@@ -66,6 +99,8 @@ export function AudioPlay({ src, style, compacto = false, duracion, color = 'var
   duracion?: number | null;
   /** El color del ▶ y del avance (el verde de WhatsApp por default). */
   color?: string;
+  /** El botón 1× · 1,5× · 2×. false donde se escucha lo que uno mismo acaba de grabar: la barra del grabador no tiene ancho de sobra. */
+  velocidad?: boolean;
 }) {
   const ref = useRef<HTMLAudioElement>(null);
   const [sonando, setSonando] = useState(false);
@@ -74,8 +109,11 @@ export function AudioPlay({ src, style, compacto = false, duracion, color = 'var
   const [roto, setRoto] = useState(false);
   // Otro audio en el mismo reproductor: lo de antes no se queda (el patrón de «ajustar el estado
   // cuando cambia una prop», en el render y no en un efecto).
-  const [deSrc, setDeSrc] = useState(src);
-  if (deSrc !== src) { setDeSrc(src); setSonando(false); setActual(0); setTotal(0); setRoto(false); }
+  const [src, setDeSrc] = useState(srcQueLlega);
+  if (src !== srcQueLlega && !mismoArchivo(src, srcQueLlega)) { setDeSrc(srcQueLlega); setSonando(false); setActual(0); setTotal(0); setRoto(false); }
+  const ultimaFirma = useRef(srcQueLlega);
+  ultimaFirma.current = srcQueLlega;
+  const [velocidad, setVelocidad] = useState(velocidadElegida);
 
   useEffect(() => {
     const el = ref.current;
@@ -100,9 +138,14 @@ export function AudioPlay({ src, style, compacto = false, duracion, color = 'var
     };
     const alAvanzar = () => { if (!escaneando) setActual(el.currentTime); };
     const alTerminar = () => { setSonando(false); setActual(0); try { el.currentTime = 0; } catch { /* noop */ } };
-    const alPlay = () => setSonando(true);
+    const alPlay = () => { aplicarVelocidad(el, velocidadElegida); setVelocidad(velocidadElegida); setSonando(true); };
     const alPausa = () => setSonando(false);
-    const alError = () => { setRoto(true); setSonando(false); };
+    const alError = () => {
+      setSonando(false);
+      // La firma guardada venció y ya llegó otra: se prueba con ésa, una vez (si falla, ya es la misma y queda roto).
+      if (ultimaFirma.current !== el.getAttribute('src')) { setDeSrc(ultimaFirma.current); return; }
+      setRoto(true);
+    };
 
     el.addEventListener('loadedmetadata', alMetadata);
     el.addEventListener('durationchange', leerTotal);
@@ -137,6 +180,12 @@ export function AudioPlay({ src, style, compacto = false, duracion, color = 'var
     try { el.currentTime = Math.max(0, Math.min(dur, v)); setActual(el.currentTime); } catch { /* noop */ }
   };
 
+  const cambiarVelocidad = () => {
+    velocidadElegida = siguienteVelocidad(velocidad);
+    setVelocidad(velocidadElegida);
+    if (ref.current) aplicarVelocidad(ref.current, velocidadElegida);
+  };
+
   const boton = compacto ? 26 : 34;
   return (
     <div data-reproductor style={{ display: 'flex', alignItems: 'center', gap: compacto ? 6 : 9, minWidth: 0, width: '100%', height: compacto ? 34 : 40, ...style }}>
@@ -153,6 +202,13 @@ export function AudioPlay({ src, style, compacto = false, duracion, color = 'var
       <span style={{ flex: 'none', fontSize: compacto ? 11 : 12, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums', minWidth: compacto ? 28 : 32, textAlign: 'right' }}>
         {roto ? '—' : tiempoDelReproductor(actual, dur, sonando)}
       </span>
+      {conVelocidad && !compacto && (
+        <button type="button" data-no-pan onClick={(e) => { e.stopPropagation(); cambiarVelocidad(); }} disabled={roto}
+          aria-label={`Velocidad del audio: ${rotuloVelocidad(velocidad)}`} title="Cambiar la velocidad"
+          style={{ flex: 'none', minWidth: 38, height: 40, padding: 0, border: 'none', background: 'none', color: 'var(--ink)', cursor: roto ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation' }}>
+          <span style={{ padding: '3px 7px', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 11.5, fontWeight: 600, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{rotuloVelocidad(velocidad)}</span>
+        </button>
+      )}
     </div>
   );
 }

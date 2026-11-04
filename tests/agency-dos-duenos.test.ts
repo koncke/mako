@@ -189,7 +189,6 @@ test('LOS NUEVE USOS de `esClienteDeAgencia` resuelven el «no sé» por el lado
     ['lib/partners-programa.ts', 'hacerse partner por la API'],
     // Upsells: con «no sé», no se ofrece.
     ['app/configuraciones/plan/page.tsx', '«Pasar a Pro» en «Tu plan»'],
-    ['app/m/mas/page.tsx', '«Pasar a Pro» en el menú del teléfono'],
     ['app/no-esta-en-tu-plan/page.tsx', '«Pasar a Pro» en el cartel del candado'],
     // La frontera que alimenta a la barra: resuelve el «no sé» y devuelve boolean.
     ['lib/vista-de-otro.ts', 'lo que la barra le esconde, vía /api/auth/me'],

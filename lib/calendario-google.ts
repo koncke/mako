@@ -16,6 +16,9 @@
 
 import 'server-only';
 import { tokenDelCalendario } from './google-calendar';
+
+// El área `calendario` de la API no importa lib/google-calendar.ts, que lee la agenda (tests/calendario.test.ts): esto sólo dice si se puede escribir.
+export { agendaParaEscribir } from './google-calendar';
 import { instanteDe } from './cron-aviso';
 import {
   calendarioDeGoogle, cuerpoEventoGoogle, eventoDeGoogle, ordenarCalendarios,

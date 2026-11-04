@@ -8,9 +8,8 @@
 //
 // Qué NO está acá, a propósito:
 //   · listar_secuencias_nutricion / proponer_toggle_nutricion → área chatbot.
-//   · Conectar / desconectar el dominio y fijar el remitente: la lógica vive inline
-//     en app/api/email/dominio/route.ts (la titularidad del dominio es una consulta
-//     cross-workspace deliberada) y no hay función de lib que la encapsule.
+//   · Desconectar el dominio: sólo desde /email. Conectarlo y fijar el remitente SÍ están (4/11/2026,
+//     `conectar_dominio_email` y `fijar_remitente_email`, al final): la lógica se mudó a lib/email-dominio.ts.
 //   · Generar el copy con IA: vive inline en app/api/email/generar/route.ts.
 //   · Dar de baja a un lead: no hay función scopeada por lead en lib/.
 //
@@ -34,6 +33,14 @@ const SEGMENTOS_EMAIL = ['activos', 'no-agenda', 'no-paga', 'no-show', 'post-age
 
 const TAB = { tab: 'email' } as const;
 const TAB_ADMIN = { tab: 'email', rolMinimo: 'admin' } as const;
+// El Newsletter (29/10/2026): su tab abre con `requireRolWs([])`, así que cada operación pide el admin (AGENTS.md, «Una
+// capacidad nueva de MaKo se DECLARA en el registro de la API»). Una EDICIÓN es un broadcast: programarla, probarla y
+// enviarla van por las de broadcast, con su id.
+// ⚠️ `soloPlataforma` mientras esté en PRONTO (la revisión del 30/10/2026, M1): `tab` deja pasar al admin de cualquier negocio
+// con capa completo o agencia. Se saca junto con la puerta de la tab (app/newsletters/puerta.ts), en el go-live del email.
+const TAB_NEWSLETTER = { tab: 'newsletters', rolMinimo: 'admin', soloPlataforma: true } as const;
+/** Las etapas del CRM del newsletter a las que se le escribe (lib/newsletter-reglas.ts; la baja no). */
+const ETAPAS_NEWSLETTER_API = ['lead', 'nl_lee', 'nl_dormido', 'ganado'] as const;
 const CANALES_TODOS = ['whatsapp', 'app', 'http'] as const;
 const CANALES_SIN_HTTP = ['whatsapp', 'app'] as const;
 
@@ -90,6 +97,12 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Detalle de un broadcast',
     descripcion: 'Un broadcast por id con su copy completo (asunto, preheader, cuerpo), segmento, estado, fechas y stats. Úsala antes de proponer editarlo, programarlo, enviarlo o borrarlo. Necesita el id de listar_broadcasts.',
     parametros: [idBroadcast], salida: 'json', canales: CANALES_TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'ver_newsletter', area: 'email', tipo: 'lectura',
+    titulo: 'El newsletter del negocio',
+    descripcion: 'El newsletter: cada cuánto sale y de qué trata, su CRM de suscriptos (cuántos hay en Suscripto, Lee, Dormido, Dado de baja y Compró), las ediciones (id, asunto, estado, fecha, y enviados, aperturas, clics y bajas de las que salieron), la fecha que MaKo propone para la próxima y si el envío real está prendido. Úsala cuando pregunten por el newsletter, sus suscriptos o cómo rindió una edición. Una edición es un broadcast: con su id, ficha_broadcast trae el copy entero.',
+    parametros: [], salida: 'json', canales: CANALES_TODOS, costo: 'gratis', gating: TAB_NEWSLETTER,
   },
   {
     id: 'listar_segmentos_email', area: 'email', tipo: 'lectura',
@@ -196,7 +209,34 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'dispara la verificación del dominio en Resend (no escribe en la base)',
   },
 
+  // ── El Newsletter (29/10/2026) ──────────────────────────────────────────────
+  {
+    id: 'configurar_newsletter', area: 'email', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Configurar el newsletter',
+    descripcion: 'Propone fijar cada cuánto sale el newsletter del negocio, de qué trata y cuántas ediciones seguidas sin abrir pasan a alguien a «Dormido». Con la frecuencia y el tema puestos, crea el CRM «Newsletter» de los suscriptos si todavía no existe (etapas Suscripto, Lee, Dormido, Dado de baja y Compró). Solo toca lo que se mande. No manda nada. El newsletter NO es una automatización: las ediciones se crean con crear_edicion_newsletter.',
+    parametros: [
+      { nombre: 'frecuencia', tipo: 'string', enum: ['semanal', 'quincenal', 'mensual'], descripcion: 'Cada cuánto sale: semanal, quincenal (cada 15 días) o mensual.' },
+      { nombre: 'tema', tipo: 'string', max: 200, descripcion: 'De qué trata, con las palabras del negocio («Consejos de mi rubro», «Novedades de la clínica»).' },
+      { nombre: 'dormido_tras', tipo: 'number', entero: true, minimo: 1, maximo: 12, descripcion: 'Cuántas ediciones seguidas sin abrir pasan a un suscripto a «Dormido». Sin mandar: 3.' },
+    ],
+    canales: CANALES_TODOS, costo: 'gratis', gating: TAB_NEWSLETTER,
+    reversible: true, escribe: 'guarda newsletter.config en app_settings y, la primera vez, crea el CRM «Newsletter» en funnels (sin producto)',
+  },
+
   // ── Acciones por pantalla ───────────────────────────────────────────────────
+  {
+    id: 'crear_edicion_newsletter', area: 'email', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
+    titulo: 'Crear una edición del newsletter',
+    descripcion: 'Propone crear una edición del newsletter en BORRADOR, para todo el CRM «Newsletter» (menos las bajas) o para una etapa. No manda nada: después se prueba con enviar_prueba_broadcast, se programa con programar_broadcast (queda en el Calendario) o se envía con enviar_broadcast, con el id que devuelve. Sale desde el dominio del negocio. Pide el newsletter configurado (configurar_newsletter).',
+    parametros: [
+      { nombre: 'asunto', tipo: 'string', descripcion: 'Asunto. Acepta {nombre}, {empresa}, {nombre_completo}, {apellido}.', obligatorio: true, max: 200 },
+      { nombre: 'preheader', tipo: 'string', descripcion: 'Texto de vista previa.', max: 200 },
+      { nombre: 'cuerpo', tipo: 'string', descripcion: 'Cuerpo en texto plano, con las mismas variables que el asunto.', obligatorio: true, max: 20000 },
+      { nombre: 'etapa', tipo: 'string', enum: ETAPAS_NEWSLETTER_API, descripcion: 'Sólo a una etapa del CRM: lead (Suscripto), nl_lee (Lee), nl_dormido (Dormido) o ganado (Compró). Sin mandar: a todos menos las bajas.' },
+    ],
+    canales: CANALES_TODOS, costo: 'gratis', gating: TAB_NEWSLETTER,
+    reversible: true, escribe: 'inserta un broadcast en estado borrador en email_broadcasts con el segmento del CRM del newsletter',
+  },
   {
     id: 'editar_pasos_secuencia_email', area: 'email', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Reescribir los emails de una secuencia',
@@ -293,5 +333,31 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: CANALES_TODOS, costo: 'dinero', gating: TAB_ADMIN,
     reversible: false, escribe: 'guarda envio_email_enabled del negocio en app_settings; prendido, los envíos siguientes salen por Resend',
+  },
+  // ── El dominio y el remitente, por la API (4/11/2026) ───────────────────────────────────────────────────────────
+  // La campaña de email de Mauricio desde su Claude: lo primero que pide es su dominio, y sólo se conectaba en /email.
+  // La lógica es la de la pantalla (lib/email-dominio.ts). Al final del área: una nueva no le saca el lugar a otra.
+  {
+    id: 'conectar_dominio_email', area: 'email', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Conectar el dominio de envío',
+    descripcion: 'Propone dar de alta el dominio propio del negocio (minegocio.com) para que sus correos salgan desde él, y devuelve los registros DNS que hay que cargar en su proveedor (GoDaddy, Cloudflare…). Prende el seguimiento de aperturas y clics. Si ya había otro, lo reemplaza. Un dominio de MaKo o de otro negocio no se puede. Después: verificar_dominio_envio y fijar_remitente_email.',
+    parametros: [
+      { nombre: 'dominio', tipo: 'string', obligatorio: true, max: 253, descripcion: 'el dominio, sin https:// ni @ (minegocio.com).' },
+    ],
+    canales: CANALES_TODOS, costo: 'externo', gating: TAB_ADMIN,
+    reversible: false, escribe: 'da de alta el dominio en la cuenta de Resend de MaKo, le prende el seguimiento de aperturas y clics, y guarda resend_domain y resend_domain_id del negocio',
+  },
+  {
+    id: 'fijar_remitente_email', area: 'email', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Fijar el remitente',
+    descripcion: 'Propone con qué nombre y dirección salen los correos del negocio («De:», Mauricio <hola@minegocio.com>) y, si se pide, adónde llegan las respuestas de los leads (responderA: puede ser un Gmail). Exige el dominio verificado (estado_email).',
+    parametros: [
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el nombre que ven los leads.' },
+      { nombre: 'local', tipo: 'string', obligatorio: true, max: 64, descripcion: 'lo de antes del @ (hola, mauricio).' },
+      { nombre: 'responderA', tipo: 'string', max: 254, descripcion: 'opcional: la dirección donde llegan las respuestas.' },
+      { nombre: 'sinResponderA', tipo: 'boolean', descripcion: 'opcional: true para que las respuestas vuelvan al remitente.' },
+    ],
+    canales: CANALES_TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda resend_from (el «De:») y resend_reply_to (adónde van las respuestas) del negocio',
   },
 ];

@@ -9,7 +9,7 @@
 // rojo parecido, que es cómo se termina con dos avisos que no significan lo mismo.
 // =============================================================================
 
-import type { CSSProperties } from 'react';
+import { useSyncExternalStore, type CSSProperties } from 'react';
 import type { BoardTask } from './types';
 // El rotulo y el predicado de una tarea RECURRENTE salen del modulo de datos, no de acá:
 // «una cosa, un lugar». Nadie escribe `t.recurrente` suelto en una pantalla — si mañana
@@ -256,6 +256,16 @@ export const hoyISO = (): string => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+const nadaQueEscuchar = () => () => {};
+/**
+ * false en el server y mientras React hidrata; true apenas hidrató, sin un segundo render a la vista ni un efecto.
+ *
+ * ⚠️ «FALTAN 4 DÍAS» NO SE PUEDE DIBUJAR EN EL SERVER (ticket #52 de Leila, 4/11/2026, React #418 en /plan). `hoyISO` es la fecha de LA MÁQUINA:
+ * el server corre en UTC y el navegador en la zona de la persona. A las 22:39 en Cancún, el server ya está en el día siguiente: «faltan 4 días»
+ * en el HTML y «faltan 5 días» en el navegador. Pasa de noche, sólo con una carga completa y sólo si hay una tarjeta con fecha.
+ */
+export const useEnElNavegador = (): boolean => useSyncExternalStore(nadaQueEscuchar, () => true, () => false);
+
 export function fechaConDia(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   if (!y || !m || !d) return iso;
@@ -333,6 +343,7 @@ export function LineaDeadline({ iso, hoy, hecho = false, tam = 10.5, mono = true
   color?: string;
   style?: CSSProperties;
 }) {
+  const enElNavegador = useEnElNavegador();
   // Sin ISO no hay plazo que calcular, así que la guarda va ANTES de cualquier cuenta.
   if (!iso) return (
     <span title={SIN_FECHA} aria-label={SIN_FECHA}
@@ -348,7 +359,8 @@ export function LineaDeadline({ iso, hoy, hecho = false, tam = 10.5, mono = true
     </span>
   );
 
-  const p = plazoTexto(diasHasta(iso, hoy));
+  // En el server y al hidratar, la fecha sola: el plazo depende de la zona de la máquina (`useEnElNavegador`).
+  const p = enElNavegador ? plazoTexto(diasHasta(iso, hoy)) : null;
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, fontFamily: mono ? MONO : undefined, fontSize: tam, color, ...style }}>
       {/* El que CEDE es la FECHA. Si el ancho no alcanza, lo que no se puede perder es
@@ -361,7 +373,7 @@ export function LineaDeadline({ iso, hoy, hecho = false, tam = 10.5, mono = true
           5 días»: es el atraso, que crece sin tope («999 días atrasado», 17 caracteres
           contra los 10 fijos de la fecha). Con `flex: none` + `nowrap` esa fila no entraba
           en ningún ancho — empujaba la fila entera en vez de recortarse. */}
-      <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', color: p.color, fontWeight: p.fuerte ? 700 : 500, whiteSpace: 'nowrap' }}>· {p.texto}</span>
+      {p && <span style={{ flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', color: p.color, fontWeight: p.fuerte ? 700 : 500, whiteSpace: 'nowrap' }}>· {p.texto}</span>}
     </span>
   );
 }

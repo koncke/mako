@@ -24,9 +24,10 @@ import { getCapaActual, getWorkspaceActual } from './workspace';
 import { getEstadoOnboarding, pendientesDeOnboarding } from './onboarding-state';
 import { integracionConectada } from './credenciales';
 import { getEstadoVerificacionContacto } from './mako-grupo';
+import { avisosDeQuienEntra } from './avisos-telefono';
 
 export type PendienteOnboarding = {
-  paso: PasoOnboarding;
+  paso: PasoOnboarding | 'avisos';
   /** Qué le falta, en su idioma. Sale del catálogo (lib/capas.ts). */
   que: string;
   /** Dónde lo resuelve, con el nombre de la tab y su ruta. */
@@ -50,11 +51,15 @@ export async function pendientesOnboarding(): Promise<PendienteOnboarding[]> {
 
   const capa = capaDef(await getCapaActual());
   const estado = await getEstadoOnboarding();
+  // Los avisos en el teléfono (3/11/2026): quien terminó el onboarding antes de que existiera este paso no pasó por él, y sin esto no se puede sacar a nadie de los grupos.
+  // Se pregunta en vivo: activarlos apaga el recordatorio solo. Sólo a quien le llegan los avisos (`usuarioPropio` y `aplica`).
+  const avisos = estado.status === 'done' ? await avisosDeQuienEntra() : { aplica: false, listos: false };
+  const delTelefono: PendienteOnboarding[] = avisos.aplica && !avisos.listos ? [{ paso: 'avisos', que: 'Activar los avisos en tu teléfono', donde: 'Notificaciones', ruta: '/perfil/notificaciones' }] : [];
 
   // Solo se preguntan los que el cliente REALMENTE postergó: sin esto, un workspace
   // recién creado dispararía un ping a Meta y otro a WhatsApp en cada visita a /general.
   const candidatos = capa.onboarding.filter((p) => esPostergable(p) && estado.steps[p]?.postergado && !estado.steps[p]?.done);
-  if (candidatos.length === 0) return [];
+  if (candidatos.length === 0) return delTelefono;
 
   const verificadores = {
     // TODAS las requeridas por su capa, no solo Meta: una capa con dos integraciones
@@ -71,6 +76,7 @@ export async function pendientesOnboarding(): Promise<PendienteOnboarding[]> {
   );
   const sigueFaltando = new Map(faltan);
 
-  return pendientesDeOnboarding(estado, capa.onboarding, (p) => sigueFaltando.get(p) === true)
+  const postergados: PendienteOnboarding[] = pendientesDeOnboarding(estado, capa.onboarding, (p) => sigueFaltando.get(p) === true)
     .map((paso) => ({ paso, ...POSTERGABLE_TXT[paso as keyof typeof POSTERGABLE_TXT] }));
+  return [...postergados, ...delTelefono];
 }

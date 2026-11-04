@@ -12,8 +12,11 @@ import { instanteDe } from './cron-aviso';
 
 /** Cómo se probó el segundo factor de una sesión. Viaja FIRMADO en el token. */
 export type Factor = 'totp' | 'passkey' | 'whatsapp' | 'email' | 'recuperacion';
-export type Amr = Factor | 'dispositivo' | 'dev';
-export const AMRS: readonly Amr[] = ['totp', 'passkey', 'whatsapp', 'email', 'recuperacion', 'dispositivo', 'dev'];
+export type Amr = Factor | 'dispositivo' | 'dev' | 'revision';
+export const AMRS: readonly Amr[] = ['totp', 'passkey', 'whatsapp', 'email', 'recuperacion', 'dispositivo', 'dev', 'revision'];
+
+// ── La cuenta de revisión de las tiendas ─────────────────────────────────────
+// Su marca `revision` está en AMRS (arriba); todo lo demás —quién es, qué escribe, qué manda— vive en lib/cuenta-revision-reglas.ts.
 
 // ── La política ──────────────────────────────────────────────────────────────
 
@@ -159,7 +162,15 @@ export type Canal = 'whatsapp' | 'email';
  */
 export const CANALES_CODIGO: readonly Canal[] = [];
 
+/**
+ * ⛔ EL CÓDIGO POR WHATSAPP NO SALE NUNCA DESDE MaKo (4/11/2026). Mandarle un código a un número es escribirle primero, y eso es lo
+ * que pesó en el ban de la línea del 3/11 (docs/hallazgos-comunicacion.md). Por eso no alcanza con la lista vacía: aunque alguien lo
+ * sume a `CANALES_CODIGO`, esto contesta que no. El día que el 2FA use WhatsApp, va al revés: la persona le escribe a MaKo desde su
+ * número (lib/verificacion-entrante.ts), y es otra función. Nadie queda afuera: la app de autenticación, la llave de acceso y los
+ * códigos de recuperación no dependen de WhatsApp, y el correo de respaldo es el otro camino de la tanda 2.
+ */
 export function canalDisponible(canal: Canal, disponibles: readonly Canal[] = CANALES_CODIGO): boolean {
+  if (canal === 'whatsapp') return false;
   return disponibles.includes(canal);
 }
 
@@ -344,9 +355,7 @@ export function enmascarar(destino: string): string {
  * ⚠️ Mira el user-agent, que lo escribe el navegador: es una regla de PRODUCTO, no de
  * seguridad. Lo que protege la cuenta es la firma de la llave, no esta función.
  */
-export function esTelefono(userAgent: string | null | undefined): boolean {
-  return /iPhone|iPod|iPad|Android/i.test(String(userAgent ?? ''));
-}
+export { esTelefono } from './telefono';
 
 // ── Passkeys: para qué dominio valen ─────────────────────────────────────────
 

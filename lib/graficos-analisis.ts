@@ -177,6 +177,8 @@ export const DIMENSIONES_PUBLICAS: Readonly<Record<string, readonly string[]>> =
   cartera: ['producto', 'estado', 'senal', 'tramo_contacto'],
   conversaciones: ['linea', 'etapa', 'con_lead'],
   ubicacion: ['pais', 'region', 'ciudad', 'pagina'],
+  // Cold Calling (04/11/2026). Afuera: `lead` (una persona) y `autor` (el equipo, como el closer).
+  llamadas_grabadas: ['resultado', 'origen', 'estado'],
 };
 
 /** ¿Esta dimensión viaja con sus etiquetas? Las de tiempo siempre; las demás, sólo si están en la lista. */

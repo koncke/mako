@@ -37,13 +37,16 @@ const MONO = "'Geist Mono', monospace";
 
 export type EstadoIA = { pensando: boolean; ids: string[] | null; explico: string };
 
-export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLimpiarIA, resultados, total, portalTo }: {
+export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLimpiarIA, resultados, total, portalTo, rotulo = 'Buscar un dato' }: {
   q: string;
   onQ: (v: string) => void;
   campos: CampoCerebro[];
   onCampos: (v: CampoCerebro[]) => void;
   ia: EstadoIA;
-  onBuscarIA: (texto: string) => void;
+  /** «Buscar con MaKo». Sin esto, no se ofrece: en el Second Brain de un gurú (4/11/2026) MaKo buscaría en el negocio, no en su curso. */
+  onBuscarIA?: (texto: string) => void;
+  /** Lo que dice el campo vacío: «Buscar un dato» (el negocio) o «Buscar una clase» (el curso de un gurú). */
+  rotulo?: string;
   onLimpiarIA: () => void;
   /** Cuántos nodos matchean ahora mismo. Va al lado del campo: sin el número, buscar en
    *  «el contenido» hace aparecer resultados de más y parece que se rompió. */
@@ -109,10 +112,10 @@ export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLi
           onChange={(e) => onQ(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') { e.preventDefault(); onQ(''); onLimpiarIA(); return; }
-            if (e.key === 'Enter' && e.shiftKey && hayTexto) { e.preventDefault(); onBuscarIA(q); }
+            if (e.key === 'Enter' && e.shiftKey && hayTexto && onBuscarIA) { e.preventDefault(); onBuscarIA(q); }
           }}
-          placeholder={conIA ? 'Buscando con MaKo…' : 'Buscar un dato'}
-          aria-label="Buscar un dato en el Second Brain"
+          placeholder={conIA ? 'Buscando con MaKo…' : rotulo}
+          aria-label={`${rotulo} en el Second Brain`}
           style={{ flex: 1, minWidth: 0, height: 28, padding: '0 0 0 10px', border: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 12.5, outline: 'none', fontFamily: SANS }}
         />
 
@@ -124,7 +127,7 @@ export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLi
 
         {/* Pedirle a MaKo. Solo con algo escrito, y es lo que el dueño pidió textual: «al
             escribir algo recién ahí sale la búsqueda por IA». */}
-        {hayTexto && !conIA && (
+        {hayTexto && !conIA && onBuscarIA && (
           <button type="button" onClick={() => onBuscarIA(q)} title="Buscar con MaKo (Shift+Enter)" aria-label="Buscar con MaKo"
             style={{ ...mini, color: 'var(--accent)' }}>✦</button>
         )}

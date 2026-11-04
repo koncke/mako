@@ -465,6 +465,20 @@ export function altoTeclado(innerHeight: number, vv: { height: number; offsetTop
   return Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
 }
 
+/** Menos que esto no es un teclado (la barra de Safari que se esconde): no cambia cómo se ve la franja de abajo. */
+const MIN_TECLADO_PX = 120;
+
+/**
+ * El teclado, para lo que va pegado abajo. `corrimiento` es lo que hay que subirlo (`altoTeclado`), y es 0 si iOS ya corrió la pantalla
+ * para mostrar el campo: por eso no dice si el teclado está abierto. `abierto` y `reserva` sí, por lo que le falta a la pantalla visible.
+ */
+export function tecladoDelComposer(innerHeight: number, vv: { height: number; offsetTop: number } | null | undefined): { corrimiento: number; abierto: boolean; reserva: number } {
+  if (!vv) return { corrimiento: 0, abierto: false, reserva: 0 };
+  const falta = Math.max(0, Math.round(innerHeight - vv.height));
+  const abierto = falta >= MIN_TECLADO_PX;
+  return { corrimiento: altoTeclado(innerHeight, vv), abierto, reserva: abierto ? falta : 0 };
+}
+
 // ── El micrófono ─────────────────────────────────────────────────────────────
 
 /** Mantener más de esto = nota de voz; menos = un toque (dictado al campo). */

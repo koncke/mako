@@ -437,8 +437,8 @@ export const RUNNERS_EDITOR: Runners = {
         const link = linkEditor(id, ctx.ws);
         return {
           ok: true,
-          resumen: `Listo: ${r.resumen ? `${r.resumen} ` : ''}(${r.cambiadas} cambiada(s), ${r.nuevas} nueva(s)), sin publicar. La versión de antes es la ${r.versionAntes} (restaurar_version_landing la vuelve). Se revisa en el editor: ${link}`,
-          datos: { id, version: r.doc.version, version_antes: r.versionAntes, cambiadas: r.cambiadas, nuevas: r.nuevas, link },
+          resumen: `Listo: ${r.resumen ? `${r.resumen} ` : ''}(${r.cambiadas} cambiada(s), ${r.nuevas} nueva(s)${r.quitadas ? `, ${r.quitadas} sacada(s)` : ''}${r.reordenada ? ', en otro orden' : ''}), sin publicar. La versión de antes es la ${r.versionAntes} (restaurar_version_landing la vuelve). Se revisa en el editor: ${link}`,
+          datos: { id, version: r.doc.version, version_antes: r.versionAntes, cambiadas: r.cambiadas, nuevas: r.nuevas, quitadas: r.quitadas, reordenada: r.reordenada, link },
         };
       } catch (e) {
         return { ok: false, resumen: resumenDeError('editar con IA', e) };

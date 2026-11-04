@@ -38,6 +38,18 @@ export function Microfono({ valor, onValor, onError, apagado }: {
 }
 
 /**
+ * El micrófono que GRABA, al lado de la flecha: lo adjuntado sin nada escrito (`micAlLadoDeLaFlecha`, ticket #51). `onGrabar` arranca
+ * la sesión de la nota que sale con lo adjuntado (CajaChat.tsx).
+ */
+export function BotonGrabar({ onGrabar, apagado }: { onGrabar: () => void; apagado?: boolean }) {
+  return (
+    <button type="button" className="co-enviar co-enviar--mic" onClick={onGrabar} disabled={apagado} aria-label="Grabar una nota de voz" title="Grabar una nota de voz">
+      <Icon name="mic" size={18} />
+    </button>
+  );
+}
+
+/**
  * EL BOTÓN DE LA CAJA ES UNO, COMO EN WHATSAPP (17/10/2026; Martín: «el botón de audio y el de enviar son UNO»): el micrófono
  * cuando no hay nada para mandar, y la flecha apenas hay texto o un adjunto. Mientras dicta sigue siendo el micrófono (lo
  * dictado va entrando en la caja y la flecha le sacaría el botón de terminar); al terminar, pasa a la flecha.

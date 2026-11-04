@@ -283,7 +283,6 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
   // pasara a decir "Desconectando…". Cada acción muestra SU propio progreso.
   const [busyEvo, setBusyEvo] = useState<null | 'conectar' | 'desconectar'>(null);
   const [qrEvo, setQrEvo] = useState<{ base64: string | null } | null>(null);
-  const [codigo, setCodigo] = useState('');
   // A dónde se manda el código. Se resuelve solo en el server (el número
   // recién vinculado por QR); solo se pide si no hay ninguno.
   const [destino, setDestino] = useState<string | null>(null);
@@ -296,6 +295,9 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
   const [telNumero, setTelNumero] = useState('');
   const telefono = telNumero.replace(/\D/g, '') ? unirTelefono(telLada, telNumero) : '';
   const [codigoEnviado, setCodigoEnviado] = useState(false);
+  /** El link `wa.me` para que la persona le escriba a MaKo desde el número vinculado (4/11/2026: MaKo no le escribe primero). */
+  const [linkWa, setLinkWa] = useState<string | null>(null);
+  const [otroNumero, setOtroNumero] = useState<string | null>(null);
   const [verificado, setVerificado] = useState(false);
 
   // ── Paso contexto: elegir QUÉ chats puede leer, y el resultado ──
@@ -507,20 +509,30 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
         return;
       }
       if (j.destino) setDestino(String(j.destino));
+      if (j.yaVerificado) { setVerificado(true); return; }
+      setLinkWa(typeof j.link === 'string' ? j.link : null);
+      setOtroNumero(null);
       setPideNumero(false);
       setCodigoEnviado(true);
     } finally { setBusy(false); }
   }
-  async function verificarCodigo() {
-    setBusy(true); setErr(null);
-    try {
-      const j = await (await fetch('/api/chat-agent/onboarding/prueba', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verificar', codigo }),
-      })).json();
-      if (!j.ok) { setErr(j.error || 'El código no coincide.'); return; }
-      setVerificado(true);
-    } finally { setBusy(false); }
-  }
+  // ¿Ya llegó su mensaje? Lo confirma el webhook; acá se pregunta cada 4 s con la pestaña a la vista.
+  useEffect(() => {
+    if (pasoKey !== 'wa_no_oficial_prueba' || !codigoEnviado || verificado) return;
+    let vivo = true;
+    const t = window.setInterval(() => {
+      if (document.hidden) return;
+      void fetch('/api/chat-agent/onboarding/prueba', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verificar' }),
+      }).then((r) => r.json()).then((j: { ok?: boolean; whatsapp?: { estado?: string; otroNumero?: string | null } | null }) => {
+        if (!vivo) return;
+        if (j.ok) { setVerificado(true); return; }
+        setOtroNumero(j.whatsapp?.estado === 'otro-numero' ? j.whatsapp.otroNumero ?? null : null);
+        if (j.whatsapp?.estado === 'vencido') { setCodigoEnviado(false); setLinkWa(null); }
+      }).catch(() => { /* la próxima vuelta pregunta otra vez */ });
+    }, 4000);
+    return () => { vivo = false; window.clearInterval(t); };
+  }, [pasoKey, codigoEnviado, verificado]);
 
   // ── Paso voz: biblioteca + qué audio cubre cada situación ──
   const cargarAudios = useCallback(async () => {
@@ -1173,23 +1185,30 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
               <button onClick={() => void enviarCodigo()} disabled={busy || (pideNumero && telefono.replace(/\D/g, '').length < 8)}
                 style={{ ...btnDark, display: 'inline-flex', alignItems: 'center', gap: 8, opacity: pideNumero && telefono.replace(/\D/g, '').length < 8 ? 0.5 : 1 }}>
                 <span aria-hidden style={{ display: 'inline-flex' }}><Icon name="plug" size={16} /></span>
-                {busy ? 'Enviando…' : 'Enviar código de verificación'}
+                {busy ? 'Preparando…' : 'Verificar mi WhatsApp'}
               </button>
               {!pideNumero && (
-                <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>Llega al número que acabas de vincular.</div>
+                <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>Le mandas un mensaje a MaKo desde el número que vinculaste.</div>
               )}
             </>
           ) : (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
               {destino && (
                 <div style={{ flexBasis: '100%', fontSize: 12.5, color: 'var(--faint)', textAlign: 'center' }}>
-                  Enviado a <strong style={{ color: 'var(--dim)' }}>+{destino}</strong>
+                  Mándalo desde el <strong style={{ color: 'var(--dim)' }}>+{destino}</strong>. Ya va escrito.
                 </div>
               )}
-              <input value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" inputMode="numeric" autoFocus
-                style={{ ...inp, width: 130, textAlign: 'center', letterSpacing: '.3em', fontFamily: MONO }} />
-              <button onClick={() => void verificarCodigo()} disabled={busy || codigo.length < 4} style={{ ...btnDark, opacity: codigo.length < 4 ? 0.5 : 1 }}>Verificar</button>
-              <button onClick={() => void enviarCodigo()} disabled={busy} style={btn}>Reenviar</button>
+              {otroNumero && (
+                <div style={{ flexBasis: '100%', fontSize: 12.5, color: 'var(--dim)', textAlign: 'center' }}>
+                  Llegó desde el +{otroNumero}. Mándalo desde el número que vinculaste.
+                </div>
+              )}
+              {linkWa ? (
+                <a href={linkWa} target="_blank" rel="noopener noreferrer" style={{ ...btnDark, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Abrir WhatsApp</a>
+              ) : (
+                <button onClick={() => void enviarCodigo()} disabled={busy} style={btnDark}>Pedir otro</button>
+              )}
+              <div style={{ flexBasis: '100%', fontSize: 12, color: 'var(--faint)', textAlign: 'center' }}>Cuando llegue, sigo solo.</div>
             </div>
           )}
         </div>

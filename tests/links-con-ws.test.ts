@@ -62,7 +62,7 @@ test('el link de un aviso al grupo sale con el ws del negocio: el texto y el pie
   // Los dos envíos al grupo de un negocio pasan por ahí.
   const src = readFileSync('lib/mako-grupo.ts', 'utf8').replace(/\r\n/g, '\n');
   assert.match(src, /const texto = linksConWs\(texto0, ws, APP_BASE_URL\);/);
-  assert.match(src, /return enviarPartesAJid\(jid, partesConLinksDeWs\(partes, ws, APP_BASE_URL\), d\);/);
+  assert.match(src, /const r = await enviarPartesAJid\(jid, partesConLinksDeWs\(partes, ws, APP_BASE_URL\), d\);/);
 });
 
 // ── El dominio que el modelo inventa (28/10/2026, «hola-malo.com/crm/2761» a Código Inmobiliario, conv 1502) ─────────────

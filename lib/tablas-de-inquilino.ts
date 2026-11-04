@@ -94,6 +94,9 @@ export const TABLAS_DE_INQUILINO = [
   'leads_papelera',
   // Lo que se borró (mig 0356). ⚠️ Vaciar `leads` escribe acá (es un trigger): `vaciarTablas` la barre otra vez al final.
   'leads_bajas',
+  // Las llamadas grabadas desde MaKo (mig 0390, 04/11/2026): la ficha del lead y Cold Calling. Las partes se van también con su
+  // llamada (on delete cascade), y van igual acá: tienen su `workspace_id`.
+  'llamadas_grabadas', 'llamadas_grabadas_partes',
   'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv',
   'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily',
   // El Media Buyer (mig 0332, 25/10/2026): su configuración y el registro de sus decisiones, por negocio. No van en
@@ -127,6 +130,9 @@ export const TABLAS_DE_INQUILINO = [
   'replay_lotes', 'replay_sesiones',
   'retros', 'review_queue', 'script_analyses',
   'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares',
+  // Lo escrito sin conexión que ya se subió (MaKo sin conexión, T2, mig 0346, 28/10/2026): la llave de idempotencia de cada
+  // cambio. No va en TENANT_TABLES: la lee app/_sin-conexion/acciones.ts con la PERSONA (usuario_id) y el id del cambio.
+  'sin_conexion_aplicadas',
   // Competitors Spy (mig 0359): los competidores que vigila el negocio y sus piezas. Vaciar el
   // negocio o borrarlo se los lleva; `spy_piezas` también se va con su competidor (on delete cascade).
   'spy_competidores', 'spy_piezas',

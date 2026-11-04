@@ -44,7 +44,7 @@ test('4. el doer: lo saltea antes del turno (leyendo la memoria sólo si hace fa
   assert.match(doer, /if \(nombraAMaKo\(texto\) \|\| quien\.aMaKo \|\| delLote\?\.nombra\) return null;/, 'una @mención a MaKo dejó de contar como nombrarla');
   assert.match(doer, /const pideUnSi = async \(\) => \(await hayPendientes\(\)\) \|\| \(await makoAcabaDePreguntar\(wsData, jid\)\);/);
   assert.match(doer, /return \(await pideUnSi\(\)\) \? null : candidato;/, 'el «ok» después de una pregunta de MaKo dejó de ser un sí');
-  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxParaElEquipo, )?(?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado\]/);
+  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxCita, )?(?:ctxParaElEquipo, )?(?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado\]/);
 });
 
 // La revisión adversarial de 92d23e11d: elegir a MaKo con la @ manda el jid de su línea, no la palabra «mako», y quedaba callado.
@@ -230,7 +230,7 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
     const cuerpo = grupo.slice(grupo.indexOf(f), grupo.indexOf('\n}\n', grupo.indexOf(f)));
     assert.match(cuerpo, /await enviarTextoVozMaKo\(jid, texto/, `${f} no sale por enviarTextoVozMaKo`);
   }
-  assert.match(grupo, /if \(opts\.bienvenida !== false\) await enviarTextoVozMaKo\(jid, mensajeBienvenidaMaKo\(opts\.nombre\)\);/);
+  assert.match(grupo, /if \(opts\.bienvenida !== false\) await enviarTextoVozMaKo\(jid, deLaAgencia \? [^;]*mensajeBienvenidaMaKo\(opts\.nombre\)\);/);
   // El anillo, con compare-and-set y la lectura estricta (un error al leer no lo vacía), y nunca tira.
   const anotar = grupo.slice(grupo.indexOf('export async function anotarEnviadosAlGrupo('), grupo.indexOf('const delAnillo'));
   assert.match(anotar, /const raw = await getSettingEstricto\(KEY_ENVIADOS\(jid\)\);/);
@@ -252,12 +252,12 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
   assert.match(grupo, /const KEY_ENVIADOS = \(jid: string\) => `mako\.doer\.sent\.\$\{jid\}`;/, 'el anillo cambió de clave: el doer ya no ve lo anotado antes');
   // El doer usa ESE anillo (uno solo) y nunca toma la línea de MaKo por la del dueño.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const idsEnviados = idsEnviadosAlGrupo;\n[^\n]*\n\s*const registrarEnviados = anotarEnviadosConTope;/);
+  assert.match(doer, /const idsEnviados = idsEnviadosAlGrupo;\n(?:\/\/[^\n]*\n)+\s*const registrarEnviados = \(ws: number, jid: string, ids: readonly string\[\]\): Promise<void> => \(jid\.endsWith\('@g\.us'\) \? anotarEnviadosConTope\(ws, jid, ids\) : Promise\.resolve\(\)\);/);
   assert.doesNotMatch(doer, /KEY_SENT/);
   // La voz, leída ESTRICTA (la otra convierte un error en «mako_ws1»): sin leerla no se anota ni se guarda en memoria.
-  assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*const deMaKo = voz === instance;\n\s*const visto = deMaKo \? NaN :/);
+  assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*const deMaKo = vozPropiaDeMaKo\(voz\) === instance;\n\s*const visto = deMaKo \? NaN :/);
   assert.match(doer, /if \(voz !== null\) LINEA_DEL_DUENO\.set\(/);
-  assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*if \(voz === null \|\| voz === instance\) return;/);
+  assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*if \(voz === null \|\| vozPropiaDeMaKo\(voz\) === instance\) return;/);
   assert.doesNotMatch(doer, /instanciaVoz\(\)\.catch/, 'la voz se lee sin estricto');
 });
 
@@ -281,7 +281,7 @@ test('13. el eco de MaKo en SU línea se saltea aunque su id no esté en el anil
   assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: '', voz: '' }), false);
   // El doer: UNA función para los dos chequeos, la voz leída estricta, y el eco cortado antes de encolar y del 👍.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const \[voz, enviados\] = await Promise\.all\(\[instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\), idsEnviados\(OWNER_WS, jid\)\]\);\n\s*return esEcoDeMaKo\(\{ fromMe: true, msgId: key\.id \?\? '', instancia: instance, voz, enviados \}\);/);
+  assert.match(doer, /const \[voz, enviados\] = await Promise\.all\(\[instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\), idsEnviados\(OWNER_WS, jid\)\]\);\n\s*return esEcoDeMaKo\(\{ fromMe: true, msgId: key\.id \?\? '', instancia: instance, voz: vozPropiaDeMaKo\(voz\), enviados \}\);/);
   assert.equal((doer.match(/await esEcoDeMaKoAhora\(instance, jid, (?:data\.key|key)\)/g) ?? []).length, 2, 'los dos chequeos no usan la misma función');
   assert.doesNotMatch(doer, /enviados\.includes\(msgId\)|idsEnviados\(OWNER_WS, jid\)\)\.includes\(msgId\)/, 'volvió un chequeo del eco suelto');
   const buffer = doer.slice(doer.indexOf('async function bufferearYResponder('));

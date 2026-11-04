@@ -78,8 +78,8 @@ test('el resultado de ejemplo de cada gráfico tiene la forma del suyo, y es det
 test('el lugar de cada componente es la cuenta de la grilla del editor', () => {
   // La grilla: 1180 de página, 24 de aire a cada lado, 12 columnas con 16 entre ellas, filas de 30.
   const col = (1180 - 48 - 11 * 16) / 12;
-  assert.deepEqual(lugarEnMiniatura({ x: 0, y: 0, w: 12, h: 1 }), { left: 24, top: 66, width: 1180 - 48, height: 30 });
-  assert.deepEqual(lugarEnMiniatura({ x: 6, y: 2, w: 6, h: 7 }), { left: 24 + 6 * (col + 16), top: 66 + 2 * 46, width: 6 * col + 5 * 16, height: 7 * 30 + 6 * 16 });
+  assert.deepEqual(lugarEnMiniatura({ x: 0, y: 0, w: 12, h: 1 }), { left: 24, top: 24, width: 1180 - 48, height: 30 });
+  assert.deepEqual(lugarEnMiniatura({ x: 6, y: 2, w: 6, h: 7 }), { left: 24 + 6 * (col + 16), top: 24 + 2 * 46, width: 6 * col + 5 * 16, height: 7 * 30 + 6 * 16 });
   // Dos de media hoja lado a lado llenan la fila sin pisarse.
   const a = lugarEnMiniatura({ x: 0, y: 0, w: 6, h: 4 });
   const b = lugarEnMiniatura({ x: 6, y: 0, w: 6, h: 4 });

@@ -1,0 +1,364 @@
+# =============================================================================
+# punta → main: cada punta se chequea sola, y llega a main sola si da verde
+# =============================================================================
+# Martín, 3/11/2026, con 47 commits frenados por ocho corridas rojas seguidas de `integracion`: «Y no podemos hacer
+# que entren en diferentes testeos en github? Entonces se va deployando lo que ya pasó en lugar de todo junto...
+# Esto como regla». Memoria: `cada-punta-se-chequea-sola`.
+#
+# Por qué: el tren junta todo y corta en el primer grupo rojo. Una punta con un test viejo deja afuera a las que
+# estaban bien, y cada error aparecía recién al arreglar el anterior. Acá una punta roja vuelve a su chat y no frena
+# a nadie más.
+#
+# Cómo se usa: se pushea a una rama `punta/<nombre>`. Este flujo mezcla el main de ese momento, chequea LO QUE LA
+# PUNTA CAMBIÓ y, si da verde, empuja a `main`. Un retoque seguido de la misma punta cancela la corrida vieja
+# (`concurrency`): no se pagan dos.
+#
+# ⚠️ «LOS DEMÁS» TESTS NO VAN ACÁ. Son los que lo cambiado no puede romper, y corren una vez por semana en
+# `semanal-tests.yml`. Lo decidió Martín el 21/10/2026 (memoria `chequeo-github-modular`): «Lo que vaya a main no
+# puede dar un OK falso; un chequeo completo nocturno o semanal queda de red». Por eso este flujo sí exige los
+# afectados, las guardas y los tipos, y no tiene ningún camino que los dé por buenos sin haberlos visto correr.
+#
+# ⚠️ ESA RED NO ESTABA DANDO VEREDICTO (medido con la API el 3/11/2026), y sin `--resto` es la única que ve esos tests.
+# semanal-tests.yml: el 2/11 la canceló su propio techo de 20 min, sin veredicto y sin mail. tipos-respaldo.yml: nunca dio uno
+# (26/10 sin minutos, 2/11 murió en `fallocate /swapfile`). Y hacen falta: en `integracion`, «los demás» cazó rojos de verdad
+# (corridas 385 y 389), y «Tipos» viene saliendo OK PARCIAL. Las dos se arreglaron en este commit; tests/punta-ci.test.ts fija
+# que puedan dar un veredicto.
+#
+# Costo: quedaban ~2.260 min de Actions para noviembre (medido el 3/11, estimado). Subir el tope es un pago y lo
+# decide Martín. Los pushes a `punta/**` y `ci-rojo/**` NO construyen en Vercel (`git.deploymentEnabled`, en
+# vercel.json): cada build cuesta, y sólo `main` va a producción.
+# =============================================================================
+name: punta → main
+
+on:
+  push:
+    branches: ['punta/**']
+  # Lo usa scripts/ci-main-verde.sh para RELANZAR una punta que dio rojo mientras main estaba rojo, cuando main vuelve a verde
+  # (sobre-main.yml). Se lanza sobre la rama de la punta: todo lo de abajo lee GITHUB_REF_NAME y HEAD, igual que con un push.
+  workflow_dispatch:
+
+concurrency:
+  group: punta-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  # Para lanzar sobre-main.yml y relanzar las puntas que esperaban (workflow_dispatch con el GITHUB_TOKEN: es la excepción que sí
+  # dispara otra corrida; un push hecho con él no dispara nada).
+  actions: write
+
+jobs:
+  chequear-y-llevar:
+    runs-on: ubuntu-latest
+    # ⚠️ El tope del JOB, cuando se pasa, lo deja CANCELADO (así terminó el 30/10 la corrida de `integracion` que llegó a
+    # los 30 min), y `if: failure()` no corre en un job cancelado: un cuelgue no dejaría la marca del rojo. Por eso los
+    # dos pasos largos llevan su propio tope: ahí es un fallo del paso. Y por eso éste tiene que ser mayor que la suma de
+    # los dos (30 + 18) más lo demás (~5 min: el checkout solo llegó a 139 s), o el job se corta antes que el paso.
+    timeout-minutes: 55
+    steps:
+      # fetch-depth 0: `git merge` y tests-afectados necesitan el ancestro común con main.
+      # ⚠️ En este archivo no se usa `--depth` en ningún fetch: un `git fetch --depth=1 origin main` vuelve el clon
+      # superficial, main queda sin historia y la mezcla muere con «refusing to merge unrelated histories».
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # ── QUÉ CAMBIÓ LA PUNTA, ANTES DE MEZCLAR ────────────────────────────────────────────────
+      # Es la lista de referencia: después de mezclar, la diferencia con main tiene que salir de acá.
+      #
+      # ⚠️ Sin `|| true` ni `|| echo ''` en los git de este paso: «no pude calcular» tiene que ser rojo. Una lista
+      # vacía por un error se leería como «no hay nada que chequear».
+      #
+      # ⚠️ EL AUTOR. La mezcla no puede salir firmada por github-actions[bot]: Vercel puede bloquear el despliegue de
+      # un autor que no es del equipo, y main avanzaría sin que nada llegue a producción. Autor y committer de la
+      # mezcla son los del último commit de la punta. Si ese commit ya es de un bot, se frena acá.
+      - name: Lo que cambió la punta
+        id: punta
+        run: |
+          if ! git rev-parse --verify --quiet origin/main >/dev/null; then
+            echo "::error::No encuentro origin/main: no puedo calcular lo que cambió la punta."
+            exit 1
+          fi
+          if ! base=$(git merge-base origin/main HEAD); then
+            echo "::error::La punta no comparte historia con main: no puedo calcular lo que cambió."
+            exit 1
+          fi
+          git diff --name-only --no-renames "$base" HEAD > "$RUNNER_TEMP/punta-cambiados.txt"
+          echo "La punta cambió $(wc -l < "$RUNNER_TEMP/punta-cambiados.txt") archivo(s) desde ${base}." | tee -a "$GITHUB_STEP_SUMMARY"
+
+          nombre=$(git log -1 --format=%an HEAD)
+          correo=$(git log -1 --format=%ae HEAD)
+          if [ -z "$nombre" ] || [ -z "$correo" ]; then
+            echo "::error::No pude leer el autor del último commit de la punta."
+            exit 1
+          fi
+          case "$nombre $correo" in
+            *'[bot]'*|*noreply@github.com*)
+              echo "::error::El último commit de la punta es de «$nombre»: Vercel puede no desplegar a ese autor. Sube un commit de una persona del equipo."
+              exit 1
+              ;;
+          esac
+          echo "autor_nombre=$nombre" >> "$GITHUB_OUTPUT"
+          echo "autor_correo=$correo" >> "$GITHUB_OUTPUT"
+
+      # ── LAS BITÁCORAS SE UNEN SOLAS (4/11/2026; scripts/unir-bitacora.mjs) ─────────────────────────────────────
+      # Dos puntas del mismo día agregan su hito al final de la MISMA app/admin/dev/<área>/bitacora.ts: para git es un
+      # choque, y puntas verdes perdían «Llevar a main» por eso. El driver deja los dos hitos si cada lado sólo AGREGÓ
+      # elementos completos en el mismo lugar; cualquier otro choque sigue siendo un choque. Se copia de MAIN (una punta
+      # vieja todavía no lo tiene) y el atributo va a .git/info/attributes (su .gitattributes tampoco lo tiene). Vale para
+      # las dos mezclas: la de acá abajo y la de «Llevar a main», que después corre las guardas (tsc-bitacoras incluido).
+      # Y las reglas de mezcla de MAIN (las líneas `merge=` de su .gitattributes) valen también para una punta vieja que no
+      # las tiene: sin eso, `docs/hallazgos*.md merge=union` no corría y punta/sobre-main chocó en el índice (4/11/2026).
+      - name: Las bitácoras se unen solas al mezclar
+        run: |
+          attrs="$(git rev-parse --git-dir)/info/attributes"
+          mkdir -p "$(dirname "$attrs")"
+          git show origin/main:.gitattributes 2>/dev/null | grep -E '[[:space:]]merge=' >> "$attrs" || true
+          driver="$RUNNER_TEMP/unir-bitacora.mjs"
+          if ! git show origin/main:scripts/unir-bitacora.mjs > "$driver" 2>/dev/null && ! cp scripts/unir-bitacora.mjs "$driver" 2>/dev/null; then
+            echo "::warning::Sin scripts/unir-bitacora.mjs: un choque en una bitácora queda como choque."
+            exit 0
+          fi
+          git config merge.bitacora.name "las bitácoras: dos hitos al final, los dos"
+          git config merge.bitacora.driver "node $driver %O %A %B %P"
+          echo 'app/admin/dev/*/bitacora.ts merge=bitacora' >> "$attrs"
+
+      # ── MEZCLAR EL MAIN DE ESTE MOMENTO ──────────────────────────────────────────────────────
+      # Lo que se chequea es lo que va a quedar en main, no la punta como salió de su chat.
+      #
+      # ⚠️ ANTES de `npm ci`: si main sumó una dependencia, instalar antes de mezclar deja el node_modules viejo y los
+      # tests corren contra otra lista. Y un choque se ve a los ~20 s, sin pagar la instalación.
+      #
+      # ⚠️ QUÉ VE tests-afectados DESPUÉS DE MEZCLAR (comprobado en `leerCambios` y en tests/punta-ci.test.ts): con
+      # `--base origin/main` hace `git merge-base origin/main HEAD` y compara ese commit contra el disco. Mezclado, el
+      # ancestro ES origin/main, así que la lista es exactamente lo que la punta le agrega a main: no entra lo que
+      # trajo main, y no entra lo de la punta que main ya tiene igual. Sólo queda vacía si el árbol es igual al de
+      # main, y ese caso se corta acá (`nada`): no hay nada para chequear ni para llevar.
+      #
+      # `solo_docs` mira las DOS listas: lo que cambió la punta y lo que le queda de diferencia con main.
+      # ⚠️ Y SÓLO LO QUE NO SE COMPILA NI SE EJECUTA: tsconfig.json incluye `**/*.ts`, así que un `docs/x.ts` entra al tsc y, sin
+      # chequear, dejaría rojos los Tipos de todas las puntas que siguen; y docs/ ya tiene un `.mjs` y un `.js`. Una extensión que
+      # no está en la lista corre todo.
+      - name: Mezclar main en la punta
+        id: mezcla
+        env:
+          GIT_AUTHOR_NAME: ${{ steps.punta.outputs.autor_nombre }}
+          GIT_AUTHOR_EMAIL: ${{ steps.punta.outputs.autor_correo }}
+          GIT_COMMITTER_NAME: ${{ steps.punta.outputs.autor_nombre }}
+          GIT_COMMITTER_EMAIL: ${{ steps.punta.outputs.autor_correo }}
+        run: |
+          antes=$(git rev-parse HEAD)
+          if ! git merge --no-edit -m "Merge origin/main en $GITHUB_REF_NAME" origin/main; then
+            choques=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
+            git merge --abort || true
+            echo "::error::La punta no se pudo mezclar con main. Archivos en choque: ${choques:-ninguno, mira el log de este paso}. No se chequeó nada. Mezcla origin/main en la punta, resuelve y vuelve a subir (el índice docs/hallazgos.md: python -I scripts/unir-indice-hallazgos.py .)."
+            exit 1
+          fi
+          # La punta y main cambiaron el mismo workflow: GitHub no dejaría subir la mezcla (scripts/ci-workflow-nuevo.sh).
+          sh scripts/ci-workflow-nuevo.sh "$antes"
+          git diff --name-only --no-renames origin/main HEAD > "$RUNNER_TEMP/punta-neto.txt"
+          if [ ! -s "$RUNNER_TEMP/punta-neto.txt" ]; then
+            echo "nada=true" >> "$GITHUB_OUTPUT"
+            echo "solo_docs=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::El árbol de la punta es igual al de main: no hay nada para chequear ni para llevar."
+            echo "La punta no le agrega nada a main: no se chequea ni se empuja." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "nada=false" >> "$GITHUB_OUTPUT"
+          fuera=$(cat "$RUNNER_TEMP/punta-cambiados.txt" "$RUNNER_TEMP/punta-neto.txt" | { grep -Ev '^docs/.*\.(md|png|jpe?g|webp|gif|pdf|svg|txt|json|jsonl|html)$' || true; })
+          if [ -s "$RUNNER_TEMP/punta-cambiados.txt" ] && [ -z "$fuera" ]; then
+            echo "solo_docs=true" >> "$GITHUB_OUTPUT"
+            echo "Sólo documentación: se saltean tests y tipos, y main avanza igual." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "solo_docs=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Le agrega a main $(wc -l < "$RUNNER_TEMP/punta-neto.txt") archivo(s)." | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Instalar
+        id: instalar
+        if: steps.mezcla.outputs.nada != 'true'
+        run: npm ci --no-audit --no-fund
+
+      - name: Tipos de las rutas
+        if: steps.mezcla.outputs.nada != 'true'
+        run: npx next typegen
+
+      # ⚠️ Corren también en una punta de sólo docs, a diferencia de `integracion`: son ~10 s, y son lo único que ve una
+      # clave pegada en un documento (claves-en-el-diff) o una referencia generada que quedó vieja (docs/api-mako.md).
+      - name: Guardas del push
+        if: steps.mezcla.outputs.nada != 'true'
+        run: sh scripts/guardas-push.sh origin
+
+      # ── LOS TESTS AFECTADOS, TODOS ───────────────────────────────────────────────────────────
+      # ⚠️ SIN `--cortar`: un rojo muestra TODOS los rojos de la punta. El 3/11 cada error aparecía recién al arreglar el
+      # anterior, y cada vuelta costó ~10 min. Acá no se ahorra nada cortando: la punta es chica y el rojo es sólo suyo.
+      #
+      # ⚠️ EN `integracion` EL CÓDIGO 2 («no pude calcular») ES `exit 0` PORQUE DESPUÉS CORRE EL RESTO. ACÁ NO HAY RESTO:
+      # el 2 tiene que ser rojo, igual que el 99 («no corrió»).
+      #
+      # ⚠️ Y EL 0 SOLO NO ALCANZA. El script también sale con 0 cuando dice «Nada cambió» o «Ningún test mira lo cambiado».
+      # A esta altura el árbol difiere de main (si no, `nada` ya lo cortó), así que eso sería un cálculo roto dando un
+      # verde. Se exige la línea final del verde, con tests adentro.
+      #
+      # ⚠️ Corren aunque una guarda haya dado rojo, y Tipos aunque estos den rojo (`!cancelled()`): un rojo muestra todo lo
+      # que hay de una vez. «Llevar a main» no lleva esa condición: con cualquier paso rojo, se saltea.
+      #
+      # No se usa PIPESTATUS para que este paso corra igual en `sh` (lo prueba tests/punta-ci.test.ts).
+      - name: Tests afectados por lo que cambió (todos, sin cortar)
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
+        timeout-minutes: 30
+        # El tiempo de cada archivo de test, al lado del reporte de siempre (scripts/reporter-tiempos.mjs). Lo lee el paso de abajo.
+        env:
+          MAKO_TIEMPOS_TESTS: ${{ runner.temp }}/tiempos-tests.tsv
+        run: |
+          set +e
+          echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
+          SECONDS=0
+          { node scripts/tests-afectados.mjs --base origin/main --concurrencia auto --tanda 100 --compartir; echo $? > "$RUNNER_TEMP/afectados.codigo"; } 2>&1 | tee "$RUNNER_TEMP/afectados.log"
+          c=$(cat "$RUNNER_TEMP/afectados.codigo")
+          echo "afectados: $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$c" = "2" ]; then echo "::error::No pude calcular los tests afectados (código 2): sin ese cálculo no hay verde."; exit 2; fi
+          if [ "$c" != "0" ]; then exit "$c"; fi
+          if ! grep -Eq 'VERDE · [1-9][0-9]* tests' "$RUNNER_TEMP/afectados.log"; then
+            echo "::error::tests-afectados salió con 0 sin correr ningún test, y la punta sí difiere de main: eso no es un verde."
+            exit 1
+          fi
+
+      # Cuánto tardó cada archivo de test, en el resumen del run (4/11/2026). Para sacar un test de la fase que frena se mide
+      # ACÁ, en el runner, no en la PC: ver LENTOS_FUERA_DE_LA_FASE_RAPIDA en tests-afectados.mjs. Nunca da rojo: es un dato.
+      - name: Tiempo por archivo de test
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
+        run: node scripts/tiempos-tests.mjs "$RUNNER_TEMP/tiempos-tests.tsv" --top 15 >> "$GITHUB_STEP_SUMMARY" || true
+
+      # El tsc entero, con `scripts/tipos-ci.mjs`: 98 es «SIN MEMORIA / sin veredicto», y sale tal cual, rojo. TIPOS_TANDAS es
+      # el respaldo si el entero muere por memoria, y su OK sale «OK PARCIAL» con un aviso (historia en `git log -- .github/workflows/integracion.yml`, borrado el 4/11/2026).
+      # ⚠️ EL ENTERO NO MORÍA POR GRANDE: moría contra el tope de 6.144 MB, sin swap. Con 10 GB de swap y tope de 12.288 MB terminó en
+      # 248 s, con 6.187 MB vivos y sin parcial (run 41779840011, 4/11/2026, n=1). Antes eran ~360 s de intento que muere más ~270 de
+      # tandas, para un OK PARCIAL. Después de los tests, para que el swap no les cambie los tiempos.
+      # ⚠️ 6 GB, NO 10: el disco del runner tiene 11 GB libres y el runner ya trae 3,3 GB de swap. Con 10, después de los tests no quedó
+      # lugar ni para el tsbuildinfo: `error TS5033 ... ENOSPC` se contó como un error de tipos, con el chequeo limpio (corrida 18).
+      - name: Swap para los tipos
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
+        run: |
+          sudo fallocate -l 6G /swapfile-tipos
+          sudo chmod 600 /swapfile-tipos
+          sudo mkswap /swapfile-tipos
+          sudo swapon /swapfile-tipos
+
+      - name: Tipos
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
+        timeout-minutes: 18
+        env:
+          TIPOS_TANDAS: '4'
+          TIPOS_HEAP_MB: '12288'
+        run: |
+          set +e
+          SECONDS=0
+          node scripts/tipos-ci.mjs
+          c=$?
+          echo "tipos: $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $c
+
+      # ── LLEVAR A MAIN ────────────────────────────────────────────────────────────────────────
+      # Sin `--force`: un push rechazado no pisa nada. Si otra punta llegó mientras corrían los tests, se mezcla el main
+      # nuevo y se vuelve a intentar, hasta 5 veces. Si choca, rojo.
+      #
+      # ⚠️ LO QUE ESTE BUCLE NO COMPRUEBA: después de una mezcla de acá, sólo se repiten las guardas (~10 s). Los tests y
+      # los tipos corrieron contra el main anterior: dos puntas que no chocan como texto pueden romperse entre sí. Lo
+      # caza la corrida de la punta siguiente (mezcla ese main y corre tipos) y el semanal. El bucle lo avisa con un
+      # ::warning::, para que no se lea como un chequeo entero.
+      #
+      # ⚠️ Un primer push que TRAE punta.yml: el 2/11 (corridas 372 y 377) el GITHUB_TOKEN llevó a main cambios de un
+      # workflow por fast-forward, y se aceptó. Una mezcla NUEVA hecha acá con un workflow distinto del de main no está
+      # medida: si GitHub la rechaza, el bucle agota sus 5 intentos y sale rojo, sin tocar main.
+      - name: Llevar a main (sin forzar)
+        id: llevar
+        if: steps.mezcla.outputs.nada != 'true'
+        env:
+          GIT_AUTHOR_NAME: ${{ steps.punta.outputs.autor_nombre }}
+          GIT_AUTHOR_EMAIL: ${{ steps.punta.outputs.autor_correo }}
+          GIT_COMMITTER_NAME: ${{ steps.punta.outputs.autor_nombre }}
+          GIT_COMMITTER_EMAIL: ${{ steps.punta.outputs.autor_correo }}
+        run: |
+          for intento in 1 2 3 4 5; do
+            if ! git fetch --quiet origin +refs/heads/main:refs/remotes/origin/main; then
+              echo "::warning::Intento ${intento}: no pude leer main."
+              sleep $((intento * 5))
+              continue
+            fi
+            if ! git merge-base --is-ancestor origin/main HEAD; then
+              antes=$(git rev-parse HEAD)
+              if ! git merge --no-edit -m "Merge origin/main en $GITHUB_REF_NAME" origin/main; then
+                choques=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
+                git merge --abort || true
+                echo "::error::Mientras corrían los tests main se movió, y ahora la punta choca en: ${choques}. Mezcla origin/main en la punta, resuelve y vuelve a subir."
+                exit 1
+              fi
+              echo "::warning::main se movió durante los tests: esta mezcla pasó por las guardas, no por los tests ni los tipos."
+              sh scripts/ci-workflow-nuevo.sh "$antes" || exit 1
+              sh scripts/guardas-push.sh origin || exit 1
+              mezclo=1
+            fi
+            if git push origin "HEAD:refs/heads/main"; then
+              echo "main avanzó a $(git rev-parse --short HEAD)." | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "sin_probar=${mezclo:-0}" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::warning::Intento ${intento}: main rechazó el push."
+            sleep $((intento * 5))
+          done
+          echo "::error::Después de 5 intentos no pude llevar la punta a main: no se forzó nada."
+          exit 1
+
+      # ── MAIN DESPUÉS DE ESTA PUNTA (4/11/2026, sobre-main.yml) ─────────────────────────────────────────────────────
+      # · Si lo que llegó a main es una mezcla que NO se probó (main se movió durante los tests): se lanza sobre-main.yml, que corre
+      #   tipos y barredoras sobre esa mezcla. Es lo único que la ve: 8 de 10 verdes llegaban así.
+      # · Si llegó lo mismo que se probó y main estaba marcado rojo (`ci-rojo/main`): este árbol acaba de pasar tipos y barredoras,
+      #   o sea que main volvió a verde. ci-main-verde.sh borra la marca y relanza las puntas que dieron rojo mientras tanto.
+      # Ninguno de los dos pone rojo este verde: lanzar y relanzar son favores.
+      - name: Main después de esta punta
+        if: steps.llevar.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SIN_PROBAR: ${{ steps.llevar.outputs.sin_probar }}
+        run: |
+          if [ "$SIN_PROBAR" = "1" ]; then
+            if gh workflow run sobre-main.yml --ref main; then
+              echo "La mezcla que llegó a main no pasó por los tests: la chequea sobre-main.yml." | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::No pude lanzar sobre-main.yml: la mezcla de main queda sin chequear hasta la próxima punta."
+            fi
+          elif git ls-remote --exit-code origin refs/heads/ci-rojo/main >/dev/null 2>&1; then
+            sh scripts/ci-main-verde.sh origin
+          fi
+          exit 0
+
+      # El verde borra la marca de un rojo anterior de esta punta: una marca vieja se leería como un rojo vigente.
+      - name: Borrar la marca de un rojo anterior
+        run: |
+          punta="${GITHUB_REF_NAME#punta/}"
+          if git ls-remote --exit-code origin "refs/heads/ci-rojo/$punta" >/dev/null; then
+            git push origin --delete "refs/heads/ci-rojo/$punta" || echo "::warning::No pude borrar la marca vieja ci-rojo/$punta."
+          fi
+
+      # ── EL ROJO SE ANUNCIA EN GIT, IGUAL QUE EL VERDE (Martín, 2/11/2026; el porqué, en el historial de integracion.yml) ────
+      # Una rama POR PUNTA, y nunca en main: un rojo de una punta no puede pisar la marca de otra. Apunta al commit que se
+      # subió ($GITHUB_SHA) y no a HEAD: acá HEAD puede ser una mezcla que no existe en ningún otro lado.
+      # `if: failure()` y no `always()`: si no, un verde también movería la marca.
+      - name: Dejar la marca del rojo en ci-rojo/<punta>
+        if: failure()
+        run: |
+          punta="${GITHUB_REF_NAME#punta/}"
+          git push origin --force "$GITHUB_SHA:refs/heads/ci-rojo/$punta"
+          echo "::notice::Marca dejada en origin/ci-rojo/$punta → $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # Con main rojo, este rojo puede no ser de la punta: queda esperando, y ci-main-verde.sh la relanza cuando main vuelva a verde.
+          if git ls-remote --exit-code origin refs/heads/ci-rojo/main >/dev/null 2>&1; then
+            git push origin --force "$GITHUB_SHA:refs/heads/espera-main/$punta" || true
+            echo "::notice::main está rojo: si este rojo es por main, la punta se relanza sola cuando main vuelva a verde."
+          fi

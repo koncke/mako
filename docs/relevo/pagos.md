@@ -45,6 +45,28 @@ docs/hallazgos-pagos.md → «El plan por TRAMOS». Sin migración. Copiado de l
   y la **migración 0347, APLICADA en producción el 29/10** (el Cerebro, con el sí de Martín: «Sí, cambialo»): la diferencia de un
   cobro a medias queda en la moneda de la cuota. VERDE de la punta 1e491702e mandado; va al tren siguiente, después de que
   Integración la re-verifique con sus guiones de C:/dev/revisiones/scratch-805a/.
+- **29/10, 15 h:** el plan por tramos y `armar_plan_por_tramos` están EN PRODUCCIÓN (main 1cf06eba9); los hitos [13, 26]
+  cierran los tickets. 7f79a4e6c entró en el tren-ac. La tercera vuelta de Integración
+  (C:/dev/revisiones/2910-reverificacion-pagos-tramos-7f79a4e6c.md) dejó seis bajas, B8 a B13, arregladas encima en esta rama
+  (lo aprendido, en docs/hallazgos-pagos.md, «La tercera vuelta»). Se quedó sin commitear: sigue en el 3/11, abajo.
+- **3/11/2026 (chat «Cobros: cuotas», cuenta `claude5`):** B8 a B13 sólo vivían en esta PC; commiteados (32d93c59c) y con
+  origin/main traído (752 commits; sólo chocó la fila de Pagos de docs/hallazgos.md). Nada de esto está en main: la punta la sube el
+  Cerebro. Lo aprendido, en docs/hallazgos-pagos.md, «El rescate de la tercera vuelta».
+  **Corrido:** los 4 que toca el cambio, los 160 que nombran un archivo cambiado y 22 de los que lo importan, de a uno. **Sin correr:**
+  las 197 barredoras y los otros 321 que importan: los corre el tren (`tests-afectados --listar` da 704 de 2045).
+  **Rojos que no son de esta punta** (ninguno de sus archivos está en el diff contra main; no se corrieron sobre main):
+  tests/api-mako-registro.test.ts (el título de `listar_capacidades_mako`, y docs/api-mako.md viejo en Ads),
+  tests/leads-scraper-retirado.test.ts (lib/spy-otras-redes.ts) y tests/progreso.test.ts (tres hitos de «Tickets de Leila» sin `sesion`).
+- **DECISIÓN DE MARTÍN, SIN TOMAR. Una cuota en pesos cobrada entera, ¿queda saldada aunque los dólares declarados den menos?**
+  Caso: cuota de MXN 12.000 (US$600); entran los 12.000 y se declaran US$500 porque la tasa se movió. Hoy queda una cuota nueva de
+  US$100 en dólares, y entra a lo pendiente y a la cobranza de alguien que pagó lo pactado. El aviso de fábrica va al grupo del
+  negocio; al cliente le llega si el negocio editó ese flujo o si el dueño le cree al aviso. Sin medir: cuántas filas así hay hoy.
+  - **A. Los pesos enteros saldan la cuota.** Sin diferencia y sin migración: se toca `cobrarCuota` (lib/pagos.ts), el resumen de
+    `marcar_pago_cobrado` (lib/api-mako/areas/crm.run.ts) y el «Faltan» del modal (piezas.tsx). Lo cobrado en dólares queda en
+    US$500, y el historial tiene que decir «diferencia de tasa», no «descuento». Es lo que recomienda este chat: el cliente cumplió.
+  - **B. Como está.** Quien cobra elige en cada caso: «Quedan pendientes» o «Es un descuento». Por la API, sin aclarar, queda pendiente, y
+    el resumen lo dice antes del «sí». Sirve si el negocio realmente cobra en dólares y los pesos son sólo el medio de pago.
+  Se le pregunta a Martín por el Cerebro; no hay código escrito para ninguna de las dos.
 
 ## 23/10/2026 · el primer cobro real, antes del lanzamiento (chat «Cobros», cuenta `claude1`)
 

@@ -26,6 +26,7 @@ import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
 import { PARAM_APP } from '@/lib/app-escritorio-reglas';
 import { previewDeDestino } from '@/lib/preview-links';
 import { APP_BASE_URL } from '@/lib/app-url';
+import { esAppIosDelPedido } from '@/lib/tienda-pedido';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,6 +95,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   // con `?app=1` (app/_components/PuertaDeLaApp.tsx) se entra aunque el navegador tenga una sesión abierta, que puede ser de
   // otro. Sin esto, «Ya tienes la sesión abierta» llevaba adentro solo y la puerta volvía a mandar acá.
   const deLaApp = uno(sp[PARAM_APP]) === '1';
+  // La app de iPhone entra con correo, contraseña y 2FA: Google prohíbe su OAuth en un WebView (T6, lib/tienda.ts).
+  const sinGoogle = await esAppIosDelPedido();
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#14161B', padding: '20px' }}>
       <div style={{ width: '100%', maxWidth: '380px', background: '#F5F7FA', borderRadius: '18px', border: '1px solid rgba(0,0,0,.08)', padding: '34px 30px', boxShadow: '0 12px 40px rgba(0,0,0,.35)' }}>
@@ -115,13 +118,15 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <>
             <a
               href={RUTA_ALUMNO}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '14px', padding: '12px', borderRadius: '11px', background: '#2F6FED', color: '#fff', fontSize: '15px', fontWeight: 600, textDecoration: 'none', boxSizing: 'border-box' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '14px', padding: '12px', borderRadius: '11px', background: 'var(--primary)', color: 'var(--on-primary)', fontSize: '15px', fontWeight: 600, textDecoration: 'none', boxSizing: 'border-box' }}
             >
               Ir a tu programa
             </a>
-            <a href="/api/auth/google?next=%2Finicio" style={{ display: 'block', marginTop: '14px', textAlign: 'center', fontSize: '13px', color: '#5B6472' }}>
-              Entrar con otra cuenta
-            </a>
+            {!sinGoogle && (
+              <a href="/api/auth/google?next=%2Finicio" style={{ display: 'block', marginTop: '14px', textAlign: 'center', fontSize: '13px', color: '#5B6472' }}>
+                Entrar con otra cuenta
+              </a>
+            )}
           </>
         ) : (
           <>
@@ -129,7 +134,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             {/* La vuelta del link del alumno (venció, intentos, fallo): arriba de todo, en una frase. */}
             {motivoAlumno && <div style={{ marginBottom: '16px', fontSize: '13px', color: '#b91c1c', background: '#fdecec', border: '1px solid #f5c2c2', borderRadius: '10px', padding: '10px 12px' }}>{motivoAlumno}</div>}
             <Suspense fallback={<div style={{ height: '46px', borderRadius: '11px', background: 'rgba(0,0,0,.05)' }} />}>
-              <LoginForm />
+              <LoginForm sinGoogle={sinGoogle} />
             </Suspense>
             {/* «Soy alumno: entrar con mi email» (item 9): plegado, para no competir con el botón de
                 Google de quien sí es usuario; abierto si se vuelve de un link que no abrió. */}

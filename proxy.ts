@@ -27,6 +27,8 @@ import { HEADER_DOMINIO, RUTA_DOMINIO, consultaDelDominio, decidirHost, hostDeCa
 import { decidirLEnApp, decidirLandings, redireccionEnElHost } from './lib/editor-landing/origen-landings';
 import { MOVIL_ACTIVO, pedidoMovil } from './lib/movil-desvio';
 import { VISTA_COOKIE, tipoDeDispositivo, vaAMovil } from './lib/movil-dispositivo';
+import { esAppIos, esRutaDeVenta } from './lib/tienda';
+import { revisionPuedeEscribir } from './lib/cuenta-revision-reglas';
 
 // La lista de rutas públicas vive en lib/rutas-publicas.ts, no acá: es la condición
 // que decide qué entra sin sesión, y adentro de un middleware ningún test la puede
@@ -370,6 +372,12 @@ export function proxy(req: NextRequest) {
   const mudanza = respuestaMudanza(req, pathname);
   if (mudanza) return mudanza;
 
+  // La app de iPhone no abre lo que vende (T5 y guía 3.1.1(a), lib/tienda.ts): ni la landing, ni los planes, ni un link de
+  // pago. Sin la marca del user agent no cambia nada: el comprador de un negocio paga desde su navegador.
+  if (esAppIos(req.headers.get('user-agent')) && esRutaDeVenta(pathname)) {
+    return NextResponse.redirect(new URL('/inicio', req.url));
+  }
+
   // La raíz es la landing pública de venta. Se chequea aparte y no dentro de
   // PUBLICOS: meter '/' en esa lista se lee como "todo es público" aunque el
   // prefijo '//' no matchee nada. Solo lectura — no hay nada que postear acá.
@@ -447,6 +455,9 @@ export function proxy(req: NextRequest) {
   const sesion = verificarToken(req.cookies.get(SESSION_COOKIE)?.value);
   if (sesion) {
     if (esAdminRoute && sesion.rol !== 'admin') return denegarRol(req, pathname);
+    // La cuenta de revisión de las tiendas: esa contraseña la tienen terceros. Lee todo; escribe SÓLO lo de la lista de lo permitido,
+    // páginas incluidas (un POST a una página es una server action: lib/cuenta-revision-reglas.ts, `PERMITIDO_EN_REVISION`).
+    if (sesion.mfa === 'revision' && !revisionPuedeEscribir(pathname, req.method, req.headers.has('next-action'))) return NextResponse.json({ ok: false, error: 'La cuenta de demostración no puede cambiar esto.' }, { status: 403 });
     return seguirOMovil(req, pathname, sesion.rol === 'admin');
   }
 
@@ -531,6 +542,9 @@ function denegarRol(req: NextRequest, pathname: string) {
 // proxy todo lo que empezara con `favicon` + cualquier carácter + `ico`. En hola-mako.site el primer
 // segmento es el slug, y `favicon-ico-promo` es uno válido: caía en el 404 de la APP en vez de su
 // landing (revisión de la tanda 4; el test compila el matcher como Next y lo cruza con slugs).
+// ⛔ `(?!api/)` (01/11/2026, auditoría de seguridad): una ruta de API que termina en `.png` o `.js` (un
+// `/api/x/<id>.png`) quedaba FUERA del proxy, o sea sin el gate de sesión ni el chequeo de Origin. Hoy todas
+// las rutas dinámicas repiten su corte, así que no era explotable; lo era la primera que se olvidara.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|cono-tx/|cono-doc/|ve/|\\.well-known/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|cono-tx/|cono-doc/|ve/|\\.well-known/|(?!api/).*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
 };

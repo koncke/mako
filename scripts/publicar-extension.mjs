@@ -128,7 +128,7 @@ Y después
      node scripts/version-en-tienda.mjs
 
      lee la ficha PÚBLICA y te dice la línea a pegar en lib/extension-tienda.ts.
-     Con eso el botón de instalar pasa solo a «Añadir a Chrome».
+     Con eso MaKo sabe qué versión se lleva quien toca «Agregar a Chrome».
 
   ⚠️ El --estado de este script NO sirve para eso: lee el BORRADOR, así que se
      pone al día apenas termina la subida y no cuando Google aprueba.
@@ -360,7 +360,6 @@ console.log(`\n✓ La ${version} entró a REVISIÓN de Google.`);
 console.log('  No está publicada todavía: la revisión tarda de horas a días y puede rechazarla.');
 console.log(`  Cómo va: node scripts/publicar-extension.mjs --estado`);
 console.log('  Qué se sirve hoy: node scripts/version-en-tienda.mjs');
-console.log('  Cuando Google apruebe, esa medición actualiza VERSION_EN_TIENDA y el',
-  ' camino de instalación pasa solo a la tienda.');
-console.log('     lib/extension-tienda.ts. Hasta que no se toque ese flag, MaKo le sigue');
-console.log('     ofreciendo el ZIP a todo el mundo y la tienda no sirve de nada.');
+console.log('  Cuando Google apruebe, esa medición actualiza VERSION_EN_TIENDA en');
+console.log('     lib/extension-tienda.ts. Hasta que no se toque, MaKo cree que la tienda');
+console.log('     sigue en la versión anterior: las funciones que piden la nueva lo dicen.');

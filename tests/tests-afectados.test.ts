@@ -27,7 +27,7 @@ import { sinModulo } from '../scripts/modulos-ts.mjs';
 import { heapPara } from '../scripts/antes-de-subir.mjs';
 import {
   agrupar, alcanceTsc, clavesDe, compartible, concurrenciaAuto, correrTests, especificadores, leerResultado, motivoBarredora, pisoRam,
-  resolver, resolverNombre, rutasNombradas, rutasSinExtension, seleccionar, sinComentarios, UMBRAL_NOMBRA_MUCHOS,
+  resolver, resolverNombre, rutasNombradas, rutasSinExtension, seleccionar, sinComentarios,
 } from '../scripts/tests-afectados.mjs';
 
 const existeEn = (...rutas: string[]) => { const s = new Set(rutas); return (r: string) => s.has(r); };
@@ -105,6 +105,13 @@ test('rutasSinExtension + resolverNombre: `leer(\'lib/nutricion\')` apunta a lib
   assert.deepEqual(reales.sort(), ['lib/flujo/index.ts', 'lib/nutricion.ts']);
 });
 
+test('resolverNombre: un archivo sin extensión (el hook de pre-push) se nombra tal cual, y una carpeta sigue yendo a su index', () => {
+  const src = `const fuente = leer('scripts/claude-hooks/pre-push'); join(raiz, 'lib', 'flujo');`;
+  const existe = existeEn('scripts/claude-hooks/pre-push', 'lib/flujo/index.ts');
+  const reales = [...rutasSinExtension(src)].map((t) => resolverNombre(t, existe)).filter(Boolean);
+  assert.deepEqual(reales.sort(), ['lib/flujo/index.ts', 'scripts/claude-hooks/pre-push']);
+});
+
 test('clavesDe: la ruta entera, las colas de 2+ segmentos, y el nombre solo sólo si es distintivo', () => {
   const unico = (b: string) => b === 'PanelProbar.tsx' || b === 'nav.ts';
   assert.deepEqual(clavesDe('app/automations/PanelProbar.tsx', unico), ['app/automations/PanelProbar.tsx', 'automations/PanelProbar.tsx', 'PanelProbar.tsx']);
@@ -113,14 +120,27 @@ test('clavesDe: la ruta entera, las colas de 2+ segmentos, y el nombre solo sól
   assert.deepEqual(clavesDe('package.json', () => true), ['package.json'], 'un archivo de la raíz sólo se llama de una manera');
 });
 
-test('motivoBarredora: ls-files, readdir, git grep y «nombra muchos» corren siempre; leer un archivo, no', () => {
+test('motivoBarredora: ls-files, readdir y git grep corren siempre; leer un archivo (o veinte), no', () => {
   assert.equal(motivoBarredora("execFileSync('git', ['ls-files', 'app'])"), 'git ls-files');
   assert.equal(motivoBarredora('for (const n of readdirSync(join(raiz, dir))) {}'), 'recorre carpetas');
   assert.equal(motivoBarredora("execFileSync('git', ['grep', '-n', 'x'])"), 'git grep');
-  const muchos = Array.from({ length: UMBRAL_NOMBRA_MUCHOS }, (_, i) => `leer('lib/f${i}.ts');`).join('\n');
-  assert.match(motivoBarredora(muchos) ?? '', /^nombra 20 archivos/);
   assert.equal(motivoBarredora("readFileSync('lib/uno.ts', 'utf8')"), null);
   assert.equal(motivoBarredora("import { readdirSync } from 'node:fs'; // sólo importado"), null, 'importar readdirSync sin llamarlo no barre');
+});
+
+// ⚠️ «NOMBRA 20+» SE SACÓ EL 4/11/2026 (motivoBarredora). Lo que importa no es el motivo: es que el test que lee 25 archivos
+// siga corriendo cuando CUALQUIERA de los 25 cambia, y deje de correr cuando no cambió ninguno. Probado rompiéndolo: con la regla
+// de vuelta («>= 20 → barre») el segundo assert da rojo (el test sale elegido con 0 cambios suyos); sin la regla NOMBRAN, el primero.
+test('un test que nombra 25 archivos corre si cambia uno de los 25, y no corre si cambió otra cosa', () => {
+  const nombrados = Array.from({ length: 25 }, (_, i) => `lib/f${i}.ts`);
+  const test25 = nombrados.map((f) => `readFileSync('${f}', 'utf8');`).join('\n');
+  const archivos = ['tests/lee-veinticinco.test.ts', 'lib/otro.ts', ...nombrados];
+  const leer = (r: string) => (r === 'tests/lee-veinticinco.test.ts' ? test25 : 'export const x = 1;');
+  const tocaUno = seleccionar({ cambiados: ['lib/f17.ts'], archivos, leer });
+  assert.deepEqual(tocaUno.tests.get('tests/lee-veinticinco.test.ts')?.map((r) => r.tipo), ['nombra'], 'cambió un archivo que lee: corre, por NOMBRA');
+  const tocaOtro = seleccionar({ cambiados: ['lib/otro.ts'], archivos, leer });
+  assert.equal(tocaOtro.tests.has('tests/lee-veinticinco.test.ts'), false, 'no cambió nada de lo que lee: no corre (ya no es barredora)');
+  assert.equal(tocaOtro.barredoras.size, 0);
 });
 
 test('leerResultado: los totales del runner de node y los archivos rojos', () => {

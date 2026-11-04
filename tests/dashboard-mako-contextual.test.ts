@@ -107,7 +107,7 @@ test('cada opción del menú tiene su acción en la pantalla (ninguna se dibuja 
 // Sin la de los campos de texto → 1 fallo.
 test('el clic derecho cubre la tab entera y no le roba el suyo a un campo de texto ni a un menú que ya tiene el propio', () => {
   const editor = sinComentarios(leer('app/dashboard/EditorInforme.tsx'));
-  assert.match(editor, /<div className=\{`lk lk-app[^`]*`\} onContextMenu=\{alClicDerecho\}>/);
+  assert.match(editor, /<div className=\{`lk lk-app[^`]*`\} onContextMenu=\{alClicDerecho\} data-paleta=\{paleta\}>/);
   const fn = editor.slice(editor.indexOf('const alClicDerecho = '), editor.indexOf('const elegirContextual = '));
   assert.match(fn, /if \(e\.defaultPrevented \|\| t\.closest\('\[role="menu"\], \[role="dialog"\], \[role="listbox"\], \.lk-flotante'\)\) return;/);
   assert.match(fn, /if \(t\.closest\('input, textarea, select, \[contenteditable="true"\], \[contenteditable=""\]'\)\) return;/);

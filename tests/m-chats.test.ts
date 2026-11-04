@@ -27,6 +27,11 @@ import { diasDelHilo, diaEnZona } from '../app/m/chats/hilo-modelo';
 import { rutaEscritorio, rutaMovil } from '../lib/movil-rutas';
 import type { ConteosBandeja } from '../lib/chats-reglas';
 import type { MensajeChat } from '../lib/chats-tipos';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { previewDe } from '../app/chats/lista-reglas';
+import { BurbujaChatM } from '../app/m/chats/[clave]/BurbujaChatM';
+import { LO_ULTIMO_FUE_COMENTAR, eventoDelComentario } from '../lib/canal-social';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -123,4 +128,33 @@ test('«WhatsApp» de la ficha del teléfono abre la conversación en Chats, con
   const ficha = sinComentarios(leer('app/m/crm/[id]/FichaLead.tsx'));
   assert.match(ficha, /href=\{rutaChatsDeLead\(p\.id\)\} aria-label=\{`WhatsApp con/);
   assert.equal(rutaMovil('/chats?lead=12'), rutaHiloM('lead:12'), 'y en el teléfono ese link es la conversación');
+});
+
+// Ticket #50 (Leandro, 4/11/2026): 293 de sus 356 chats de Instagram son gente que sólo comentó. La fila decía «(Mensaje no compatible)» y
+// el hilo «Todavía no hay mensajes»: parecía que no cargaban.
+// ROMPIÉNDOLO (4/11/2026, base 11 de 11 en este archivo): `ultimoTipo: 'otro'` → 1 fallo («(Mensaje no compatible)»); `eventoDelComentario` sin
+// su fecha → 1 fallo (el día no se arma: el evento se pierde); sin el `if` de `comentarioAt` → 1 fallo. Sin efecto (un paréntesis de más): 0 fallos.
+test('#50: quien sólo comentó dice «Comentó una publicación» en la fila y en el hilo, en su día', () => {
+  assert.equal(previewDe({ ...LO_ULTIMO_FUE_COMENTAR, ultimaFecha: null }), 'Comentó una publicación');
+  assert.equal(segundaLinea({ ...LO_ULTIMO_FUE_COMENTAR, ultimaFecha: null, ultimoEntrante: true }), 'Comentó una publicación', 'lo hizo la persona: sin «Tú:»');
+  // Un adjunto que de verdad no se reconoce sigue diciéndose por su tipo.
+  assert.equal(previewDe({ ultimoTexto: null, ultimoTipo: 'otro', ultimaFecha: null }), '(Mensaje no compatible)');
+
+  assert.equal(eventoDelComentario({ id: 7, comentarioAt: null }), null, 'sin comentario no se inventa');
+  const ev = eventoDelComentario({ id: 472, comentarioAt: '2026-11-03T21:03:03.976Z' });
+  assert.ok(ev);
+  const dias = diasDelHilo([ev], 'America/Buenos_Aires', new Date('2026-11-03T21:10:00Z'));
+  assert.deepEqual(dias.map((d) => d.etiqueta), ['Hoy']);
+  assert.deepEqual(dias[0].items.map((i) => [i.tipo, i.texto, i.hora]), [['evento', 'Comentó una publicación', '18:03']]);
+});
+
+// Ticket #50: la velocidad en el teléfono. ROMPIÉNDOLO (4/11/2026): la burbuja con el `<audio controls>` de antes → 1 fallo.
+test('#50: el audio de un chat en el teléfono se escucha con el reproductor de la casa, que tiene la velocidad', () => {
+  const [dia] = diasDelHilo([{
+    id: 'wa:1', tipo: 'mensaje', canal: 'whatsapp', cuenta: null, saliente: false, autor: null, texto: null, formato: 'audio',
+    mediaUrl: 'https://x.test/a.ogg?token=t', mediaMime: 'audio/ogg', fecha: '2026-11-03T20:35:00.000Z', status: null, error: null,
+  }], 'America/Buenos_Aires', new Date('2026-11-03T21:10:00Z'));
+  const html = renderToStaticMarkup(createElement(BurbujaChatM, { m: dia.items[0] }));
+  assert.ok(html.includes('aria-label="Velocidad del audio: 1×"'), html.slice(0, 300));
+  assert.ok(!html.includes(' controls'), 'sin los controles nativos');
 });

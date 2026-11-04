@@ -2120,4 +2120,60 @@ export const BITACORA: Hito[] = [
       'tests/centro-estado-pc.test.ts',
     ],
   },
+  {
+    fecha: '3 nov', hora: '20:20', chat: 'Tickets de clientes', sesion: 'local_d010fa87-9186-469e-83de-d431a71f64d8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Copiar en el Ops Center funciona aunque el navegador no deje',
+    puntos: [
+      'Copiar podía fallar con «No pude copiar», sobre todo desde la app de Claude: el navegador no dejaba y no había otro camino. Ahora prueba un segundo camino y copia igual.',
+      'Si tampoco se puede, el aviso dice que lo copies a mano. Nunca dice «Copiado» si no se copió.',
+      'No lo pudimos reproducir en la app: si te vuelve a pasar, usa «Reportar a Soporte».',
+      '**Cómo se prueba:** en el Ops Center, copia un mensaje y pégalo.',
+    ],
+    archivos: [
+      'lib/copiar-texto.ts — un solo camino, el de copiarTexto',
+      'app/admin/operaciones/mandar.ts — copiar',
+      'tests/copiar-texto.test.ts — 5 roturas, cada una cae',
+    ],
+    revisar: '/admin/operaciones',
+    tickets: [36],
+  },
+  {
+    fecha: '4 nov', hora: '04:00', chat: 'Gurús del Ops Center', sesion: 'cli_396482b1-2ab5-5c71-a91f-b88d681a11a5', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Los gurús que faltan, y su Second Brain en el lugar del chat y bien diseñado',
+    pedido: 'En Ops Center, faltan un montón de gurus que nos habia quedado por la mitad que ya habiamos hecho sus caricaturas... Y en lugar de "Su Second Brain" que diga "Second Brain de NOMBRE DEL GURU" y que esté alineado a la derecha del todo... Cuando le doy click no debe abrirse un modal, sino que debe reemplazar lo que está en el chat para mostar su second brain, y en el botón de "Second Brain de..." que esté "Volver al chat". Y dentro revisa la sidebar de cada second brain, estan bastante mal organizadas... Y los nodos son todos iguales, no esta bien diseñado como el que ya hicimos, que tienen diferentes colores, tamaños y que los titulos van apareciendo y desapareciendo por "sección", no esta bien organizado eso...',
+    puntos: [
+      'Llegó por el chat de la nube que abrió el Cerebro, con las reglas de los gurús: «Inspirado en» a la vista, nunca dice ser esa persona, y las tácticas engañosas de los cursos quedan fuera de la ficha.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '04:30', chat: 'Gurús del Ops Center', sesion: 'cli_396482b1-2ab5-5c71-a91f-b88d681a11a5', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Second Brain de cada gurú: en el lugar del chat, con sus módulos de colores y una barra lateral que dice qué curso es',
+    revisar: '/second-brain?guru=hormozi',
+    puntos: [
+      '**«Second Brain de Hormozi»**, a la derecha del todo de la cabecera. Al tocarlo, su grafo ocupa el lugar de la conversación y el botón dice «Volver al chat». Al volver, el chat sigue donde estaba. Igual en el teléfono.',
+      '**Los puntos ya no son iguales:** cada módulo del curso es una sección con su color y su título de lejos; al acercarte aparecen las clases. El curso es lo más grande, después cada módulo, y una clase larga se ve más grande que una corta.',
+      '**La barra lateral:** de quién es el curso, cuántas clases y módulos, y la lista de módulos para ir a cada uno. Tocar una clase muestra cómo empieza, su número, su módulo y cuánto dura.',
+      '**Arreglado de paso:** en 18 de 31 cursos la primera clase tenía de título el subtítulo del curso, también en lo que lee el chat.',
+      '**Los diez gurús que faltan no tienen caricatura en el repo:** sus fichas se escriben en la nube y quedan listas para entrar cuando llegue su cara.',
+    ],
+    archivos: [
+      'lib/cerebro-referente-vista.ts · lib/cerebro-modelo.ts — peso · lib/cerebro-layout.ts y lib/cerebro-areas.ts — gradosDe',
+      'app/second-brain/SuSecondBrain.tsx · Grafo.tsx (modo curso) · FiltroMapa.tsx · BuscadorCerebro.tsx · app/admin/operaciones/PanelChat.tsx — reemplazo',
+      'scripts/generar-clases-de-referentes.mjs · lib/asesores/en-espera.ts · tests/cerebro-referente-vista.test.ts (8 roturas) · tests/gurus-en-espera.test.ts',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '08:25', chat: 'Gurús del Ops Center', sesion: 'cli_396482b1-2ab5-5c71-a91f-b88d681a11a5', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las fichas de los diez gurús que faltan: listas para entrar cuando llegue su caricatura',
+    puntos: [
+      '**Escritas las diez:** Juan Carrizo, Vilma Núñez, Samuel Albaa, Álvaro Luque, Sergio Begueria, Romuald Fons, Mateo Maffia, Francisco Doglio, Andy Landa y Gonzalo Seré, cada una leyendo de 8 a 12 clases de su curso.',
+      '**Lo que el curso enseña y el chat no repite** queda fuera de cada ficha: urgencia inventada, pedir un crédito para pagar, comprar enlaces y los montos propios como promesa.',
+      '**Falta sólo su cara:** cuando llegue la caricatura, el gurú entra a la galería y el test lo avisa.',
+    ],
+    archivos: [
+      'lib/asesores/ficha-*.ts (diez) · lib/asesores/en-espera.ts — EN_ESPERA',
+      'docs/relevo/nube-gurus.md · docs/hallazgos-ops-center.md',
+    ],
+  },
 ];

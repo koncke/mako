@@ -17,7 +17,9 @@ export const PARTES: Parte[] = [
   { titulo: 'Cambiar el número sin dejarla muda', detalle: 'El número nuevo se vincula AL LADO, queda admin en cada grupo (comprobado releyéndolo) y recién ahí MaKo se muda', estado: 'hecha' },
   { titulo: 'Tu número, como línea de tu negocio', detalle: 'Tu WhatsApp personal para atender clientes: se ve en /whatsapp y «Sale por» lo puede elegir', estado: 'hecha' },
   { titulo: 'Pasar MaKo al número nuevo', detalle: 'El número nuevo ya está vinculado · la primera pasada dio 0 de 6 (Evolution le borraba el 9) · falta volver a vincular tu número, o sumarlo desde el teléfono, y reintentar', estado: 'sigue' },
+  { titulo: 'MaKo por tu número, con un botón', detalle: 'Con el …2605 baneado (3 nov), la voz pasa a tu línea sin escanear nada, y se apaga desde este panel · sólo habla en los grupos donde ya estás', estado: 'hecha' },
   { titulo: 'Soltar las líneas viejas', detalle: 'Las dos líneas con tu número que fueron de MaKo siguen vinculadas y el webhook las ignora · ocupan dispositivos de tu WhatsApp', estado: 'cola' },
+  { titulo: 'Si se cae una línea, avisa la otra', detalle: 'Se miran las líneas cada 3 minutos · un mensaje por caída y otro al volver, por la que sigue viva · si caen todas, o hay una sola, por mail · falta probarlo con una caída real', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -101,6 +103,92 @@ export const BITACORA: Hito[] = [
     ],
     archivos: [
       'lib/canal-vigilante.ts — `EMAILS_ALERTA_VOZ = [EMAIL_MAKO]`',
+    ],
+  },
+  {
+    fecha: '3 nov', hora: '—', chat: 'Línea de MaKo', sesion: 'local_6d962fa2-6fff-4783-b032-d5e0c04560c1', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Se desconectó la línea de MaKo',
+    pedido: 'veo que MaKo la linea principal se desconecto, seria bueno evitar que eso pase... Encontrar la forma de evitarlo.. Y si llega a pasar tengo mi linea secundaria para avisarme a mi mismo',
+    puntos: [
+      'Después, con el teléfono abierto: «Esta cuenta ya no puede usar WhatsApp Business», por spam. Y: «No entiendo porque me banearon, por los grupos? Si justamente son grupos con clientes».',
+    ],
+  },
+  {
+    fecha: '3 nov', hora: '17:39', chat: 'Línea de MaKo', sesion: 'local_6d962fa2-6fff-4783-b032-d5e0c04560c1', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'WhatsApp baneó la línea: si se cae una, avisa la otra',
+    puntos: [
+      '⚠️ **No fue la RAM, ni el volumen, ni el automático de la agencia que se acababa de desplegar.** El último alta fue 9 s antes del 403, y salió de una persona guardando Notificaciones. WhatsApp no dice por qué banea: es lo más cercano, no una causa probada.',
+      '**Un 403 no se reconecta ni se evita.** Evolution reintenta solo todo lo demás. Lo que se puede es enterarse en minutos, una vez, con el link: las dos líneas se miran cada 3 minutos, y por mail si caen las dos.',
+      '**La vigilancia no mueve la voz:** sólo avisa, un mensaje por caída. Y por pedido de Martín la voz ya está en su número: con una sola línea no se avisa a sí misma, va por mail, y el link lleva a esa línea, no a escanear el número baneado. Falta probarlo con una caída real.',
+    ],
+    commits: [
+      { sha: '406fed299', msg: 'Si se cae una línea de WhatsApp de Martín avisa la otra, un mensaje por caída, y por mail si caen las dos', lineas: 1132, archivos: 11 },
+    ],
+    archivos: [
+      'lib/lineas-de-mako.ts — qué se avisa y por dónde, puro y con test',
+      'lib/lineas-de-mako-vigilante.ts · app/api/cron/vigia-lineas-mako — la vigilancia con la red enchufada, cada 3 minutos',
+      'docs/hallazgos-comunicacion.md — lo medido del ban y los costos de la API oficial',
+    ],
+  },
+  {
+    fecha: '3 nov', hora: '17:30', chat: 'Cerebro', cuenta: 'claude5', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'WhatsApp baneó el …2605: MaKo pasa a tu número, con un botón para apagarlo',
+    pedido: 'por ahora que siga toda la comunicación por mi otro WhatsApp. Es decir, que mi otro WhatsApp pueda crear los grupos, etcétera... de última yo en SuperAdmin con un botoncito o algo deshabilitar',
+    puntos: [
+      '**Sin QR:** la línea de su negocio ya estaba vinculada. Se le abren los grupos y la voz apunta a ella; el canal no se toca, porque «Desconectar» borra la línea del canal.',
+      '⚠️ **Sólo donde ya está:** admin en 6 grupos. En los 8 que creó el …2605, WhatsApp contesta `forbidden` y nadie más puede sumarlo.',
+      '⚠️ **El eco:** en la voz, todo `fromMe` era MaKo, así que el dueño hablándole desde su teléfono se tiraba. Con una línea de negocio decide el anillo.',
+    ],
+    archivos: [
+      'lib/mako-canal.ts — `usarNumeroPersonalComoVoz`',
+      'lib/doer-para-quien.ts — `vozPropiaDeMaKo`',
+    ],
+  },
+  {
+    fecha: '3 nov', hora: '20:20', chat: 'Tickets de clientes', sesion: 'local_d010fa87-9186-469e-83de-d431a71f64d8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo entiende qué mensaje citas y busca en lo que se habló antes en el grupo',
+    puntos: [
+      'Si le contestas a un mensaje anterior citándolo, MaKo sabe de cuál hablas, aunque sea de hace días.',
+      'Puede buscar en los mensajes anteriores de tu grupo: «¿qué te dije del precio la semana pasada?». Busca sólo en ese grupo.',
+      'Guarda lo que le hablaron a MaKo: la charla entre ustedes puede no estar, y te lo dice si no lo encuentra.',
+      '**Cómo se prueba:** en tu grupo, cita un mensaje viejo y pregúntale algo sobre él.',
+    ],
+    archivos: [
+      'lib/doer-equipo.ts — `bloqueDeLaCita` y `conElTextoCitado`',
+      'lib/mako-doer-conv.ts — `textoPorIdDeWhatsApp` y `buscarEnElGrupo`',
+      'lib/api-mako/areas/mako.def.ts · mako.run.ts — buscar_en_el_grupo',
+      'tests/cita-y-busqueda-en-el-grupo.test.ts — 8 roturas, cada una cae',
+    ],
+    tickets: [40],
+  },
+  {
+    fecha: '4 nov', hora: '—', chat: 'WhatsApp sin ban (nube)', sesion: 'cli_9e4287f8-a741-5483-aea2-368f75752652', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que no nos vuelvan a banear',
+    pedido: 'Ya nos desbanearon la cuenta de whatsapp, implementa medidas para que no nos baneen, por ejemplo, en el onboarding, en lugar de nosotros enviarle un codigo de seguridad, pedirles que ellos nos envien un mensaje primero y ahí enviarles su codigo... O algo así, revisa todo.',
+    puntos: ['Con la línea desbaneada el 4/11. Que el código lo manden ellos, y revisar cada envío de las líneas.'],
+  },
+  {
+    fecha: '4 nov', hora: '04:31', chat: 'WhatsApp sin ban (nube)', sesion: 'cli_9e4287f8-a741-5483-aea2-368f75752652', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo ya no le escribe primero a nadie, y si WhatsApp avisa, la línea frena sola',
+    puntos: [
+      '**El onboarding:** en vez de mandarte un código, MaKo te da un botón «Abrir WhatsApp» con el mensaje escrito. Lo mandas y la conversación sigue sola.',
+      '**Nada a un número que nunca escribió:** ni el código, ni la invitación al grupo por mensaje, ni las tareas de una reunión.',
+      '**Si WhatsApp avisa que una línea manda demasiado o la restringe**, esa línea frena sola un rato y llega un mail. Vale también para las líneas de los clientes.',
+      '**Topes nuevos:** 10 altas en grupos por día por línea, y el mismo texto a no más de 5 grupos por hora.',
+      '**Cómo se prueba:** en el negocio de prueba (ws 3), hacer el onboarding y mandar el mensaje desde el teléfono. Falta probarlo con WhatsApp de verdad.',
+    ],
+    archivos: [
+      'lib/mako-salida-reglas.ts — las reglas de lo que no sale, puras',
+      'lib/verificacion-entrante.ts — el código que manda la persona',
+      'lib/linea-freno.ts — el freno de todas las líneas',
+      'tests/whatsapp-anti-ban.test.ts — 24, probado rompiéndolo',
+      'docs/hallazgos-comunicacion.md — la tabla de cada envío y qué dice Meta',
     ],
   },
 ];

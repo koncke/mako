@@ -18,7 +18,9 @@
 //   · La lectura de un @ de Instagram por Apify que paga la PLATAFORMA (lib/instagram-perfil-server.ts, 22/10/2026) es del
 //     CRM, no la integración del negocio: queda DORMIDA (no hay clave en ningún lado y la tarjeta para cargarla se fue). Si se
 //     saca o se reemplaza lo decide el CRM: docs/hallazgos-integraciones.md, «El Leads Scraper se retiró».
-//   · Una clave de Apify pegada en el chat se sigue TAPANDO (lib/claves-en-el-chat.ts), sin servicio: no hay «Conectar».
+//   · Una clave de Apify pegada en el chat se sigue TAPANDO (lib/claves-en-el-chat.ts). Desde el 1/11/2026 ofrece conectar `apify-instagram`.
+//   · ⚠️ `apify-instagram` (1/11/2026) NO ES EL SCRAPER QUE VUELVE: es otra clave (`APIFY_INSTAGRAM_TOKEN`) para leer el perfil público de un competidor en
+//     Competitors Spy. No genera leads, no entra al CRM y no despierta `APIFY_TOKEN`. Abajo hay un test que fija ese límite: si crece, este guard falla.
 //   · Hotmart como plataforma de CURSOS (scripts/hotmart-*.mjs, app/conocimientos/) es otra cosa: bajar cursos al archivo.
 //
 // ⚠️ SE BUSCA UN NOMBRE PROPIO DEL SCRAPER, NO LA PALABRA: «prospecto» es vocabulario del CRM y «Skool» es el modelo de la
@@ -157,9 +159,58 @@ test('la API de MaKo y el menú del CRM: sin prospectos', () => {
   assert.doesNotMatch(sinComentarios(leer('app/crm/layout-reglas.ts')), /prospectos/, 'la puerta de la pantalla sigue en el layout');
 });
 
-test('una clave de Apify pegada se tapa igual, pero ya no ofrece conectar nada', () => {
+test('una clave de Apify pegada se tapa igual, y sólo ofrece conectar la de Competitors Spy', () => {
   const src = sinComentarios(leer('lib/claves-en-el-chat.ts'));
-  assert.match(src, /\{ nombre: 'apify', re: \/\\bapify_api_\[A-Za-z0-9\]\{20,\}\/g, con: CLAVE_TAPADA, servicio: null \}/);
+  assert.match(src, /\{ nombre: 'apify', re: \/\\bapify_api_\[A-Za-z0-9\]\{20,\}\/g, con: CLAVE_TAPADA, servicio: 'apify-instagram' \}/);
+});
+
+test('la clave de Competitors Spy sólo lee Instagram: no es la vuelta del scraper de leads', () => {
+  const quienes = (patron: string) => execFileSync('git', ['grep', '-l', '--untracked', '-E', patron, '--', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 50_000_000 })
+    .split(/\r?\n/).map((f) => f.trim()).filter((f) => EXT.test(f) && !HISTORIA.some((h) => h.test(f)));
+  // ⚠️ 2/11/2026 — EL ALTA DEL CRM AHORA SÍ PUEDE GASTARLA, Y ES UN CAMBIO DE DECISIÓN, NO UN
+  // DESCUIDO. Hasta el 1/11 la regla era «Apify: sólo Spy» y este guard decía, textual, «el alta
+  // del CRM y Offer siguen sin poder gastarla». Martín el 2/11: «ya con Apify debería funcionar el
+  // traer el perfil escribiendo el @, eso también en el CRM».
+  //
+  // Qué significa en plata, que es lo que esta lista cuida: el buscador de @ del CRM, cuando ni
+  // Meta ni Google traen nada, lee UN perfil por @ EXACTO con `APIFY_CLAVE_DE_SPY`, que es la clave
+  // DEL NEGOCIO. Tiene el mismo tope diario que Spy (`APIFY_TOPE_POR_DIA`) y la pantalla espera a
+  // que la persona deje de escribir, así que no se gasta por tecla. Lo que NO vuelve es el scraper
+  // de leads: eso es una búsqueda masiva, se llamaba `apify` a secas, y los asserts de abajo siguen
+  // exigiendo que no exista.
+  //
+  // Si esto no era lo que Martín quiso decir, lo que se saca es `'apify-spy'` de las fuentes en
+  // app/api/crm/instagram-buscar/route.ts y se vuelve a poner este guard como estaba.
+  assert.deepEqual(quienes('APIFY_INSTAGRAM_TOKEN|APIFY_CLAVE_DE_SPY').sort(), [
+    'app/api/crm/instagram-buscar/route.ts',
+    'lib/instagram-perfil-server.ts', 'lib/instagram-perfil.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-catalogo.ts', 'lib/metodo-verificar.ts',
+    // 4/11/2026: el buscador de Spy por red (Google y el buscador de Instagram por nombre). Es Spy, con la misma clave, sin
+    // escribir nada: candidatos que la persona confirma. Su cupo es aparte (`TOPE_BUSQUEDAS_SPY_POR_DIA`).
+    'lib/spy-buscar.ts',
+    // 3/11/2026: buscar sus otras redes (ítems 10/11 de Spy). Es Spy, con la misma clave y sin escribir nada: candidatos que la persona confirma.
+    'lib/spy-otras-redes.ts',
+    // 4/11/2026: las corridas largas de Spy (puntos 8 y 10: todas sus publicaciones y sus anuncios). Es Spy, con la misma
+    // clave: lee el contenido PÚBLICO de un competidor que el negocio eligió y lo guarda en `spy_piezas`. No entra a `leads`.
+    'lib/spy-todo.ts',
+  ]);
+  // La fuente la piden Spy y el alta del CRM. Offer sigue sin poder gastarla.
+  assert.deepEqual(quienes("'apify-spy'").sort(), [
+    'app/api/crm/instagram-buscar/route.ts', 'lib/instagram-perfil-server.ts', 'lib/spy-buscar.ts', 'lib/spy.ts',
+  ]);
+  assert.doesNotMatch(leer('app/api/offer/route.ts'), /apify-spy/, 'Offer no gasta la clave de Spy');
+  // ⚠️ 3/11/2026 — SE SUMÓ UN SEGUNDO ACTOR DE APIFY Y NO ES LA VUELTA DEL SCRAPER.
+  // `apify~instagram-scraper` (lib/instagram-buscar-apify.ts) busca perfiles por NOMBRE para que la
+  // lista ofrezca candidatos sin que haya que escribir el @ —pedido de Martín del 2/11—. Lo que
+  // sigue retirado es otra cosa: traer LISTAS de leads a la base. La diferencia que importa:
+  //   · acá se piden 8 candidatos, una persona elige UNO y lo demás se descarta;
+  //   · no entra ningún lead a `leads` por este camino;
+  //   · va topeado por corrida y por el tope diario que ya existía.
+  // Si alguna vez esto empieza a volcar resultados a la base sin que alguien elija, ES el scraper
+  // de vuelta y hay que frenarlo.
+  assert.doesNotMatch(leer('lib/instagram-buscar-apify.ts'), /from\('leads'\)|insert\(/, 'el buscador por nombre NO escribe leads: eso sería el scraper de vuelta');
+  // La tarjeta es otra: la del scraper se llamaba `apify` y no volvió.
+  assert.equal(DEFS.some((d) => d.key === 'apify'), false);
+  assert.equal(DEFS.filter((d) => d.key === 'apify-instagram').length, 1);
 });
 
 test('el guard sabe leer: cada patrón reconoce lo que busca y no acusa por prosa', () => {

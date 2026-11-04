@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA, EXTENSION_URL_ZIP } from "./lib/extension-tienda";
+import { EXTENSION_URL_TIENDA } from "./lib/extension-tienda";
 import { CABECERAS_HTML_LIBRE, CABECERAS_PAGINA_AFUERA } from "./lib/editor-landing/html-libre";
 import { PATRON_HOSTS_DE_LA_APP, PATRON_HOSTS_DE_MAKO } from "./lib/editor-landing/dominios-reglas";
 
@@ -43,6 +43,46 @@ const nextConfig: NextConfig = {
   // local, en CI y en Vercel.
   turbopack: {
     root: __dirname,
+  },
+  // El motor de IA que corre SOLO en el navegador, fuera de todas las funciones (3/11/2026).
+  //
+  // Esa noche el deploy falló cinco veces por el tope de 250MB de una función y, al habilitar
+  // `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`, el error cambió a otro peor: el build TERMINA bien
+  // («Build Completed in /vercel/output [4m]») y muere en «Deploying outputs...» con ENOSPC —
+  // el contenedor se queda sin disco. Medido en ese log: salida 2001 MB, node_modules 1847 MB,
+  // y el archivo más grande del contenedor es
+  //     327 MB  node_modules/onnxruntime-node/bin/napi-v3/linux/x64/libonnxruntime_providers_cuda.so
+  // El paquete trae los binarios de TODAS las plataformas (208 MB en Windows, sin el de CUDA)
+  // y en Linux le suma el proveedor de CUDA, que en Vercel no se puede usar: no hay GPU.
+  //
+  // Y no hace falta NADA de eso en el servidor: `@huggingface/transformers` lo importa un solo
+  // archivo, app/video-editor/_opencut/services/transcription/worker.ts, que es un Web Worker
+  // (Whisper transcribe en la máquina del usuario), más un `.d.ts` del editor de imágenes que
+  // sólo declara tipos. `onnxruntime-node` entra al bundle como dependencia de transformers,
+  // nunca porque alguien lo use.
+  //
+  // ⚠️ LAS CLAVES SON GLOBS DE RUTA y las compara picomatch con `{ contains: true }`
+  // (next/dist/build/collect-build-traces.js), así que `'/**'` alcanza a `/admin/docs`: no es que
+  // `*` cruce la barra, es que basta con estar contenido.
+  //
+  // ⚠️ Y VA `'/**'`, NO `'/*'`, que es la clave que la doc de Next presenta como «global». Medido
+  // con su propio picomatch: `'/*'` NO empareja la ruta `'/'` —la raíz— porque exige algo después
+  // de la barra. Con esa clave la home seguía empaquetando los 500 MB y el resto de la app no, que
+  // es la peor versión: el deploy falla igual y el patrón parece correcto. Lo encontró el test.
+  //
+  // ⚠️ EN WINDOWS ESTA EXCLUSIÓN NO HACE NADA, en silencio. Next normaliza las barras de los
+  // INCLUDES (`include.replace(/\\/g, '/')`) y NO las de los EXCLUDES: el patrón queda
+  // `C:\...\node_modules\onnxruntime-node\**` y picomatch nunca lo empareja. Corre donde
+  // importa —el contenedor de Vercel es Linux—, pero un build local no sirve para comprobarla.
+  outputFileTracingExcludes: {
+    '/**': [
+      './node_modules/onnxruntime-node/**',
+      './node_modules/onnxruntime-web/**',
+      // 164 MB de transcripciones (9.719 archivos): lib/cerebro-referente-server.ts las lee con
+      // readFile y el trazado las metía en TODAS las funciones. En producción se leen del CDN.
+      './public/cono-tx/**',
+      './node_modules/@huggingface/transformers/**',
+    ],
   },
   // /admin/docs renderiza los .md del repo (AGENTS.md + docs/*.md) en vez de
   // tener una copia propia. Para que la función serverless los encuentre, los
@@ -142,43 +182,13 @@ const nextConfig: NextConfig = {
       // control que este redirect existe para tener se pierde justo con la gente
       // que ya lo usó.
       //
-      // ⚠️ EL DESTINO SÍ PASA POR EL GATE, aunque el redirect corra antes.
-      //
-      // Acá decía lo contrario, y ESE COMENTARIO es lo que hizo que nadie lo
-      // mirara: «no hace falta sumarlo a PUBLICOS, los redirects corren ANTES del
-      // proxy, así que el gate ni se entera». La premisa es cierta (doc de Next,
-      // «Execution order») y la conclusión es falsa. El redirect no sirve el
-      // archivo: manda un 307 y el navegador PIDE EL DESTINO DE NUEVO. Ese segundo
-      // pedido es un request nuevo y entra al proxy como cualquier otro.
-      //
-      // Medido en producción el 30/08/2026:
-      //     /extension        → 307 a /mako-puente.zip
-      //     /mako-puente.zip  → 307 a /login?next=%2Fmako-puente.zip
-      //
-      // CONSECUENCIA VIGENTE, elegida a propósito: el zip no está en `PUBLICOS` ni
-      // exento del matcher, así que quien abra este link SIN SESIÓN cae en el
-      // login. No es un olvido — se evaluó abrirlo (el zip no lleva secretos y la
-      // extensión ya está publicada en la Chrome Web Store, o sea que su código ya
-      // es distribuible) y se decidió que no.
-      //
-      // Y el link no queda roto: `destinoSeguro` conserva el `?next`, así que
-      // después de entrar el archivo se baja solo. Sirve para gente CON cuenta,
-      // que es toda la que puede usar la extensión —sin token de MaKo no hace
-      // nada—; para alguien sin cuenta es un login, no una descarga.
-      //
-      // Si alguna vez se abre: `'/mako-puente.zip'` a `PUBLICOS`, ruta EXACTA.
-      // NUNCA sumar `zip` a las extensiones exentas del matcher de proxy.ts, que
-      // abriría también cualquier .zip que caiga en public/ después.
-      // Lo fija `tests/redirects-gate.test.ts`.
-      //
-      // ⚠️ El destino SIGUE AL FLAG, no es la tienda a secas. Mientras se itera, la
-      // tienda tiene una versión vieja —cada subida pasa por revisión— y este link
-      // se comparte por mail y por WhatsApp: si apuntara siempre a la tienda,
-      // sería el único camino que lleva a la rota, y encima el que no se puede
-      // corregir después de mandado.
+      // ⚠️ SIEMPRE LA TIENDA (Martín, 3/11/2026: «ya no se descarga nada»), también con la tienda
+      // una versión atrás del repo. Acá el destino seguía a un flag y caía en el zip, y este link se
+      // comparte por mail y por WhatsApp. El zip quedó para desarrollo, en /mako-puente.zip, y sigue
+      // detrás del login a propósito (lo fija `tests/redirects-gate.test.ts`).
       {
         source: '/extension',
-        destination: EXTENSION_EN_TIENDA ? EXTENSION_URL_TIENDA : EXTENSION_URL_ZIP,
+        destination: EXTENSION_URL_TIENDA,
         permanent: false,
       },
     ].map(enLaApp);
@@ -213,7 +223,19 @@ const nextConfig: NextConfig = {
       {
         source: '/:path*',
         has: [{ type: 'host', value: PATRON_HOSTS_DE_MAKO }],
-        headers: [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' }],
+        headers: [
+          // `preload` (01/11/2026, auditoría de seguridad): deja anotar hola-mako.com en la lista de HSTS de los
+          // navegadores (hstspreload.org, lo anota Martín). Con eso ni la PRIMERA visita viaja por http.
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          // Lo que la APP no usa nunca, apagado también para lo que se cuele en ella (una extensión, un iframe ajeno,
+          // un XSS). Sólo en los hosts de MaKo, como el HSTS: una landing de un cliente enmarca reproductores y
+          // pasarelas que piden permisos propios. Cámara, micrófono, ubicación y compartir pantalla quedan para la app
+          // misma (las notas de voz, el Video Editor); pantalla completa y reproducción automática no se tocan.
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(self), microphone=(self), geolocation=(self), display-capture=(self), usb=(), serial=(), hid=(), bluetooth=(), midi=(), magnetometer=(), gyroscope=(), browsing-topics=(), interest-cohort=()',
+          },
+        ],
       },
       // Lo que se sirve ADENTRO de un iframe de una página nuestra (editor de landings, tanda 2):
       // el «HTML personalizado» de una landing (/l/html/<docId>/<bloque>, T6) y la página de afuera
@@ -249,6 +271,17 @@ const nextConfig: NextConfig = {
           { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
           { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
           { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self'" },
+        ],
+      },
+      // El cascarón de MaKo sin conexión (public/sin-conexion/, 28/10/2026): estático e igual para todos. `no-cache` para que el
+      // service worker lo renueve al día (public/sw.js → guardarCascaron); la CSP, la misma que el service worker le pone al
+      // devolverlo sin red: sólo lo propio, sin scripts en línea ni nada de afuera. El bloque global de arriba sigue aplicando.
+      {
+        source: '/sin-conexion/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache' },
+          { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'none'" },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
         ],
       },
     ];

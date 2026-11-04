@@ -27,6 +27,13 @@
   o estilos en línea idénticos a los del prototipo, para fidelidad pixel-perfect.
 */
 
+/* LA LETRA DE TODA LA APP ES URBANIST (31/10/2026, Corbel: docs/diseno/tokens-corbel.json), DECLARADA COMO «Geist». Hay 357
+   'Geist' escritos a mano en 223 archivos (estilos en línea y constantes): cambiarlos chocaría con todos los chats, y esto
+   es un solo lugar. Por eso la hoja de Google de app/layout.tsx ya no pide Geist: si la pidiera, pelearía con estas dos.
+   Las URL son las que da https://fonts.googleapis.com/css2?family=Urbanist:wght@100..900. */
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url(https://fonts.gstatic.com/s/urbanist/v18/L0x-DF02iFML4hGCyMqrbS10ig.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url(https://fonts.gstatic.com/s/urbanist/v18/L0x-DF02iFML4hGCyMqlbS0.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
 :root {
   /* ═══════════════════════════════════════════════════════════════════════
      UN SOLO SIGNIFICADO POR COLOR  (tarea #518 del rediseño)
@@ -36,8 +43,9 @@
 
        DORADO  → MaKo. Marca (logo, chispa) Y «acá intervino la inteligencia»
                  (detectó, analizó, recomienda, ejecutó). Nada más.
-       AZUL    → vos actuás. Botones, links, foco, selección, confirmar algo
-                 no destructivo.
+       NEGRO   → vos actuás. Botones, links, foco, selección, confirmar algo
+                 no destructivo. (31/10/2026: era azul; el blanco y negro de Corbel
+                 lo pidió Martín. Los valores: docs/diseno/tokens-corbel.json.)
        VERDE   → resultado favorable o completado.
        NARANJA → warning. Deliberadamente ANARANJADO para que NO se confunda
                  con el dorado de marca (antes eran #A8770F/#E8B30B: dos golds).
@@ -50,22 +58,21 @@
        los estados semánticos: viven en --tag-*.
      · Nadie define su propio hex dorado. Si lo necesitás, es var(--mako).
 
-     Los neutros son fríos (blanco/gris azulado), no cálidos, para el mismo
-     look limpio de la landing /vsl. */
-  --bg: #F4F6F9;
-  --surface: #FFFFFF;
-  --surface-2: #F5F7FA;
+     Los neutros son los de Corbel Mono: un gris apenas cálido, medido de su demo. */
+  --bg: #efefed;
+  --surface: #fcfcfb;
+  --surface-2: #f0f0ef;
   /* EL BLOQUE DE UNA COLUMNA DE KANBAN (CRM, Clients, Plan, teléfono), el del prototipo coherencia-1710. NO es
      `--surface-2`: ése es #F5F7FA sobre una página #F4F6F9 —el mismo color— y la columna no se veía (Martín, 20/10:
      «que las columnas no sean invisibles»). Un tono que se lee CONTRA el fondo; lo mide tests/tarjetas-familia.test.ts. */
-  --fondo-columna: rgba(216, 222, 233, .55);
+  --fondo-columna: rgba(17, 17, 17, .06);
   /* El velo del hover: se pinta ENCIMA del fondo que tenga el boton, sea cual sea.
      Ver `.crm-hover` en app/_ui/ui.css: un color solido no serviria, porque hay
      botones azules, rojos, crema y transparentes en la misma barra. */
-  --velo-hover: rgba(18, 21, 27, .055);
-  --border: #EAECF1;
-  --border-strong: #DCE0E7;
-  --ink: #12151B;
+  --velo-hover: rgba(17, 17, 17, .06);
+  --border: #11111117;
+  --border-strong: #1111112b;
+  --ink: #121212;
   /* ⚠️ LOS TRES NIVELES DE TEXTO PASAN AA, Y ESO SE MIDIO. El 01/09/2026, sobre la
      app RENDERIZADA (no leyendo el CSS): `--faint` daba **2,46:1** sobre
      `--surface-2` y 2,64 sobre blanco, contra un minimo de 4,5. Se usa 1.158 veces
@@ -88,15 +95,15 @@
      ⚠️ SI ALGUNO SE ACLARA DE NUEVO, SE MIDE. La formula es la de WCAG y el numero
      no es opinable; lo que si era opinable —y ya se decidio— es que el texto
      secundario de un producto que se usa en un telefono al sol tiene que leerse. */
-  --dim: #454C57;
-  --faint: #66707F;
-  --sidebar: #14161B;
-  --sidebar-2: #1E212A;
+  --dim: #4f4f4c;
+  --faint: #636360;
+  --sidebar: #121212;
+  --sidebar-2: #202020;
   /* La línea que se dibuja SOBRE el fondo oscuro: dos escalones por encima, no un
      gris claro bajado de opacidad. Sale del grafo del Second Brain, donde una arista
      con `opacity` sobre un gris claro se ve lavada y sucia; Obsidian usa un color
      opaco a dos escalones del fondo (#3f3f3f sobre #1e1e1e) y por eso se lee limpio. */
-  --sidebar-line: #383D47;
+  --sidebar-line: #2e2e2e;
 
   /* ── Paleta de GRUPO del grafo del Second Brain ────────────────────────
      Son el equivalente de los seis slots `color-fill-1…6` de Obsidian: una
@@ -130,8 +137,8 @@
      workspace más chico). Verde azulado: no colisiona con --mako ni con --warn-fill. */
   --grafo-funnel: #8FD3C4;
   --grafo-voz: #D9CE8F;
-  --sidebar-text: #949CAA;
-  --on-sidebar: #F3F5F8;
+  --sidebar-text: #a9a9a5;
+  --on-sidebar: #ededeb;
   /* La CARA de las criaturas del Ops Center (ojos, boca) y su rubor (20/10/2026, feedback del 18/10 pt 10: «no quiero
      que cambien las criaturas de color»). Iban con --ink y --bad, que se dan vuelta en oscuro: los ojos quedaban
      blancos sobre cuerpos pastel. Los cuerpos son pasteles fijos (--grafo-*, --mako) pensados para un ojo OSCURO
@@ -144,13 +151,13 @@
      candidato puso la barra clara: el selector Kanban/Tabla usaba --on-sidebar
      sobre un fondo --ink y quedó texto oscuro sobre fondo oscuro, ratio 1,00.
      Un token con nombre de LUGAR no se puede usar por su VALOR. */
-  --on-ink: #F3F5F8;
+  --on-ink: #f6f6f4;
 
   /* ── Acción · azul /vsl (#2F6FED) ── */
-  --primary: #2F6FED;
-  --primary-strong: #245FD6;
-  --primary-bg: #EAF1FE;
-  --primary-weak: #9DBBF5;
+  --primary: #121212;
+  --primary-strong: #202020;
+  --primary-bg: #e4e4e1;
+  --primary-weak: #a3a39e;
   /* ⚠️ LA TINTA QUE VA ENCIMA DE --primary, Y TIENE QUE SER UN TOKEN.
      En claro el azul es oscuro y el blanco da 4,55:1; en oscuro el MISMO token sube a
      #7FA6F8 para poder leerse como texto, y ahí un `#fff` clavado encima da 2,41:1 —
@@ -160,7 +167,7 @@
      legible de la pantalla en las once pantallas del recorrido. Es la misma familia
      que --on-sidebar y --on-ink: un color que EXISTE PARA un fondo se declara al lado
      de ese fondo, o se queda viejo cuando el fondo cambia. */
-  --on-primary: #FFFFFF;
+  --on-primary: #ffffff;
 
   /* ── MaKo · el dorado maestro ─────────────────────────────────────────
      UN solo hex: #F2B01E, el del logo entregado y el de la landing /vsl.
@@ -185,17 +192,17 @@
   --accent: var(--mako-ink);
   --accent-soft: var(--mako);
 
-  --good: #1E9E57;
-  --good-bg: #E7F5EC;
+  --good: #22735c;
+  --good-bg: #d5eee4;
   /* Warning ANARANJADO, no dorado: la única forma de que «cuidado» no se lea
      como «MaKo». --warn es el legible (texto/borde), --warn-fill el relleno. */
-  --warn: #B4530E;
-  --warn-bg: #FDEEE1;
-  --warn-fill: #EE7B1C;
-  --bad: #D0504A;
-  --bad-bg: #FBEAEA;
-  --card-pad: 28px;
-  --sect-gap: 22px;
+  --warn: #85580a;
+  --warn-bg: #f5ead2;
+  --warn-fill: #85580a;
+  --bad: #b1412a;
+  --bad-bg: #f8e1da;
+  --card-pad: 20px;
+  --sect-gap: 16px;
   /* Hasta dónde crece una pantalla antes de centrarse. Lo lee `Pagina` y nadie
      más: una pantalla no elige su ancho, y si el tope cambia, cambia acá. */
   --pagina-max: 1280px;
@@ -218,12 +225,12 @@
      excepcionalmente secundaria», y hoy hay 2.392 de 3.815 `fontSize:` en
      línea por debajo de 14. No hay token para eso a propósito. */
   --fs-meta: 12px;
-  --fs-sm: 13px;
+  --fs-sm: 12.5px;
   --fs-md: 14px;
-  --fs-card: 15.5px;
-  --fs-sect: 21px;
-  --fs-page: 30px;
-  --fs-kpi: 34px;
+  --fs-card: 15px;
+  --fs-sect: 20px;
+  --fs-page: 34px;
+  --fs-kpi: 26px;
   --touch: 40px;
 
   /* Anillo de foco: uno solo para toda la app (accesibilidad de teclado).
@@ -239,9 +246,9 @@
 
   /* Radios: cambiarlos acá los cambia en los 1.158 botones, que es el punto. */
   --r-sm: 8px;
-  --r-md: 11px;
-  --r-lg: 14px;
-  --r-xl: 18px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-xl: 28px;
 
   /* Acentos por etapa de WhatsApp/Email (burbujas) */
   --wa: #1E9E57;
@@ -275,10 +282,12 @@
      la suya. Las tres curvas son las de Emil Kowalski: ease-out fuerte para
      entrar y salir, ease-in-out para mover en pantalla, y la del drawer de iOS
      (Ionic) para los sheets. Nunca ease-in en la interfaz: arranca lento justo
-     cuando el ojo está mirando. */
-  --ease-out: cubic-bezier(.23, 1, .32, 1);
-  --ease-in-out: cubic-bezier(.77, 0, .175, 1);
-  --ease-drawer: cubic-bezier(.32, .72, 0, 1);
+     cuando el ojo está mirando.
+     31/10/2026: UNA sola curva para todo, la de Corbel (sale rápido y frena largo). Quedan los tres nombres porque
+     los usa toda la app. */
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-in-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-drawer: cubic-bezier(.2, .8, .2, 1);
   --dur-press: 120ms;
   --dur-pop: 180ms;
   --dur-sheet: 320ms;
@@ -292,6 +301,10 @@
      panel del fondo: /m elige `--scrim-oscuro` con el tema (app/m/m.css). */
   --scrim: rgba(0, 0, 0, .4);
   --scrim-oscuro: rgba(0, 0, 0, .55);
+  /* Las sombras de Corbel (docs/diseno/tokens-corbel.json): el tinte no es negro puro y lo oscuro lleva las suyas. */
+  --sombra-tarjeta: 0 1px 0 #fffc inset, 0 22px 44px -30px #00000038;
+  --sombra-pop: 0 24px 60px -18px #14283857, 0 2px 6px #14283814;
+  --sombra-modal: 0 24px 60px -18px #14283857, 0 2px 6px #14283814;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -325,14 +338,14 @@
 [data-tema="oscuro"] {
   /* En oscuro el velo ACLARA: uno negro sobre una superficie oscura no se ve. */
   --velo-hover: rgba(255, 255, 255, .07);
-  --bg: #22262E;
-  --surface: #2A2F39;
-  --surface-2: #333944;
-  --fondo-columna: rgba(0, 0, 0, .16);
-  --border: #383D47;
-  --border-strong: #4A5160;
-  --ink: #F3F5F8;
-  --on-ink: #22262E;
+  --bg: #0b0b0b;
+  --surface: #161616;
+  --surface-2: #262626;
+  --fondo-columna: rgba(255, 255, 255, .07);
+  --border: #ffffff16;
+  --border-strong: #ffffff29;
+  --ink: #ededeb;
+  --on-ink: #111111;
   /* Los mismos tres niveles, medidos contra los fondos de ESTE tema. Fallaban igual
      que en claro, por el otro lado: `--faint` daba **3,08:1** sobre `--surface-2` y
      3,56 sobre `--surface`. Aca hay que ACLARAR, no oscurecer.
@@ -344,19 +357,19 @@
      ⚠️ Y ESTE ES EL TEMA DEL /video-generator, que monta `<TemaOscuro/>`. O sea que
      el texto que dice cuanto dura cada anuncio y de que formato es —lo unico que
      distingue una tarjeta de otra— venia a 4,02:1. Medido ahi mismo. */
-  --dim: #C4CAD2;
-  --faint: #9EA4AE;
+  --dim: #a9a9a5;
+  --faint: #8e8e8a;
 
   /* El azul de acción de claro (#2F6FED) da 3,3:1 acá: ilegible. Sube. */
-  --primary: #7FA6F8;
-  --primary-strong: #9DBBF5;
-  --primary-bg: #26324A;
-  --primary-weak: #4B6693;
+  --primary: #ededeb;
+  --primary-strong: #ffffff;
+  --primary-bg: #ffffff1a;
+  --primary-weak: #6c6c68;
   /* Y al subir el azul, la tinta de encima se DA VUELTA: blanco sobre #7FA6F8 da
      2,41:1; el fondo del lienzo da 6,29:1 (medido). Es la regla de esta hoja aplicada
      al revés — acá lo que sube de luminosidad es la superficie, así que lo que va
      encima tiene que bajar. */
-  --on-primary: #22262E;
+  --on-primary: #111111;
 
   /* En oscuro el dorado LEGIBLE es el dorado. --mako-ink (#8F6709) existe para
      fondo claro y acá da 2,97:1. No se inventa un cuarto dorado: apunta al único. */
@@ -364,18 +377,21 @@
   --mako-bg: #2E2614;
   --mako-border: #4E4020;
 
-  --good: #4FC98A;
-  --good-bg: #17301F;
-  --warn: #EFA05A;
-  --warn-bg: #33230F;
-  --bad: #EF8B85;
-  --bad-bg: #351C1B;
+  --good: #6fd3b0;
+  --good-bg: #6fd3b021;
+  --warn: #e8bd62;
+  --warn-bg: #e8bd6221;
+  --bad: #f2937c;
+  --bad-bg: #f2937c21;
 
   /* El anillo de foco traía un halo interno de var(--surface) que en claro es
      blanco. Sobre oscuro pintaba un aro blanco puro: el mismo bug que el
      comentario de --focus-ring dice haber arreglado, al revés. El halo es el
      FONDO, no la superficie. */
   --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+  --sombra-tarjeta: 0 1px 0 #ffffff0d inset, 0 24px 48px -30px #000c;
+  --sombra-pop: 0 24px 60px -18px #000000b3, 0 0 0 1px #ffffff14;
+  --sombra-modal: 0 24px 60px -18px #000000b3, 0 0 0 1px #ffffff14;
 }
 
 /* Pantalla TÁCTIL de cualquier ancho (un iPad horizontal, 1024-1366 px): 44 px de
@@ -406,10 +422,10 @@
     --fs-md: 16px;
     --fs-card: 16.5px;
     --fs-sect: 20px;
-    --fs-page: 26px;
-    --fs-kpi: 30px;
+    --fs-page: 28px;
+    --fs-kpi: 22px;
     --touch: 44px;
-    --card-pad: 18px;
+    --card-pad: 16px;
     --sect-gap: 16px;
   }
 }
@@ -425,10 +441,10 @@
   --fs-md: 16px;
   --fs-card: 16.5px;
   --fs-sect: 20px;
-  --fs-page: 26px;
-  --fs-kpi: 30px;
+  --fs-page: 28px;
+  --fs-kpi: 22px;
   --touch: 44px;
-  --card-pad: 18px;
+  --card-pad: 16px;
   --sect-gap: 16px;
   /* Sólo de /m (v2): el TÍTULO GRANDE nativo de cada pantalla. 26 px (--fs-page) se lee
      «página web»; iOS usa 34. 32 entra «Customer Success» en una línea a 390 px. No va en
@@ -1402,3 +1418,7 @@ details[open] > summary .chev {
    `flex: none` para que no se achique cuando el rótulo cede el ancho, y sin el
    `vertical-align` del marcador genérico, que ahí adentro no aplica. */
 .mk-det--prio > summary::before { flex: none; align-self: center; vertical-align: baseline; }
+
+/* El barrido de claro a oscuro (app/_components/barrido-tema.ts): sin apagar el fundido que el navegador trae por defecto, el círculo queda tapado. */
+::view-transition-old(root),
+::view-transition-new(root) { mix-blend-mode: normal; animation: none; }

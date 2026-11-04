@@ -30,6 +30,7 @@
 // =============================================================================
 
 import 'server-only';
+import { exigirPermisoIa } from '@/lib/ia-permiso';
 import { CLAUDE_EN_PAUSA, chatClaudeTools, permisoDeLaClaveDelNegocio, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
@@ -42,15 +43,16 @@ import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@
 import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, laPersonaEstaAdentro, modeloPc, pcUsable, probarSuClaveTrasLaPc, PROVEEDORES_PC, RESERVA_RESPALDO_MS, type FalloDeLaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
 import { IA_DE_LA_PC, MODELO_SU_OPENAI_DEFAULT, NOMBRE_MODELO_IA, type EleccionIA } from '@/lib/chat-ia-reglas';
 import { claveDeIAPropia, negocioConSuIA } from '@/lib/ia-del-negocio';
-import { PROVS_SU_IA, entrarSoloSuIA } from '@/lib/solo-su-ia';
+import { entrarSoloSuIA } from '@/lib/solo-su-ia';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import { esAccion, type Ctx } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
-import { clasificarIntencion, makoPreguntoAlgo } from '@/lib/mako-intencion';
+import { clasificarIntencion, makoPreguntoAlgo, nombraGoogleCalendar } from '@/lib/mako-intencion';
+import { permisoCalendarioGoogle } from '@/lib/google-calendar';
 import { lineaDeOfrecibles, preguntoReunionOTarea } from '@/lib/doer-herramientas';
 import { recetasDelTurno } from '@/lib/doer-recetas';
-import { bloqueAgendaGoogle, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
+import { bloqueAgendaGoogle, hechoGoogleCalendar, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
 import { crearMemoDeAcciones, MARGEN_RELOJ_MS } from '@/lib/turno-sin-duplicar';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { avisoDePuntos } from '@/lib/puntos-mensaje';
@@ -61,7 +63,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
-import { TABS_CON_CHAT_PROPIO } from '@/lib/chat-mako-reglas';
+import { esTabConChatPropio } from '@/lib/chat-mako-reglas';
 import {
   createSession, getSession, listSessions, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
   renameSession, tituloDesde, type ChartSession, type ChartMsg, type ChartMsgConBloques,
@@ -70,7 +72,8 @@ import { adjuntosVisibles, audioDeBloques, leerRef, rutaDeVozDelChat, sanearBloq
 import { urlAudio } from '@/lib/offer-reglas';
 import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, esPorQueGuardado, type Bloque } from '@/lib/chat-bloques';
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, subirNotaDeVozDelChat, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
-import { recortarMensaje, textoParaTitulo, textosParaArchivar } from '@/lib/chat-pegado';
+import { pedidoDelMensaje, recortarMensaje, textoParaTitulo, textosParaArchivar } from '@/lib/chat-pegado';
+import { puedeArchivarConSuIA } from '@/lib/archivero-ingesta';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila, plano } from '@/lib/bandeja-filas';
 import { descartarPropuesta, getPropuesta, propuestasPendientesDelChat } from '@/lib/propuestas';
@@ -167,7 +170,7 @@ export async function nuevaSesion(persona: PersonaChat): Promise<SesionChat> {
  * (vacía, sin título: el primer turno se lo pone). Sin `crear`, null si todavía no habló. La tab es de una lista cerrada.
  */
 export async function sesionDeTab(persona: PersonaChat, tab: string, crear: boolean): Promise<SesionChat | null> {
-  if (!TABS_CON_CHAT_PROPIO.includes(tab)) return null;
+  if (!esTabConChatPropio(tab)) return null;
   const clave = `${persona.chartKey}:${tab}`;
   return runWithWorkspace(persona.ws, async () => {
     const ya = (await listSessions(clave)).sort((a, b) => a.id - b.id)[0];
@@ -304,6 +307,8 @@ export const NOTA_SIN_VOZ = 'Escuché tu audio pero no le entendí nada: grábal
  */
 export async function escucharNotaDelChat(persona: PersonaChat, sessionId: number, bytes: Uint8Array):
   Promise<{ ok: true; texto: string } | { ok: false; error: string; status: 404 | 422 | 424 }> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   return runWithWorkspace(persona.ws, async () => {
     // El chat es de quien la manda ANTES de escucharla: si no, cada nota a un chat ajeno gastaba la IA y volvía 404 (revisión).
     if (!(await sesionDe(persona, sessionId))) return { ok: false, error: 'No encuentro ese chat.', status: 404 };
@@ -348,6 +353,15 @@ const SIN_TOOLS_APP = `EN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el 
 export type EntradaTurnoApp = {
   mensaje: string;
   adjuntos?: AdjuntoListo[];
+  /**
+   * Quién es el REFERENTE de este chat (su `IdAsesor`), si tiene uno al frente.
+   *
+   * ⚠️ NO ES LO MISMO QUE `contexto`, y por eso viaja aparte (2/11/2026). `contexto` lleva su FICHA
+   * —cómo piensa, 5.200 caracteres, en CADA mensaje—; esto sólo dice QUIÉN es, para que el Second
+   * Brain cuelgue su curso ENTERO como capa y traiga la clase que la pregunta pida, sin que el
+   * curso viaje en cada turno (lib/cerebro-para-chat.ts, lib/cerebro-referente.ts).
+   */
+  referente?: string | null;
   /**
    * Lo que la PANTALLA ata a esta conversación: hoy, la ficha de un lead en «MaKo Analyst»
    * (lib/mako-analyst-lead.ts, 12/10/2026: «un chat con la IA que por defecto tenga atado los
@@ -436,23 +450,8 @@ async function iaPropiaDelTurno(): Promise<number | null> {
   }
 }
 
-/**
- * ¿Hay con qué pasar un archivo a El Archivero sin la cascada barata? Su clave de Claude (la puerta 2 del veto), su OpenAI
- * o su Gemini (`PROVS_SU_IA`, IA16). Sólo se pregunta con «sólo su IA» (D6b): ahí, sin ninguna, El Archivero no corre y se
- * dice.
- * `pausa`: tiene su clave de Claude pero la plataforma la pausó y no hay OpenAI: se dice eso, no que falta la clave.
- */
-async function puedeArchivarConSuIA(): Promise<'si' | 'no' | 'pausa'> {
-  try {
-    const claude = await permisoDeLaClaveDelNegocio('El Archivero');
-    if (claude && 'permiso' in claude) return 'si';
-    const { provsDe } = await import('@/lib/ai-cheap');
-    for (const p of PROVS_SU_IA) if ((await provsDe(p as never)).length > 0) return 'si';
-    return claude && 'pausa' in claude ? 'pausa' : 'no';
-  } catch {
-    return 'no';
-  }
-}
+// `puedeArchivarConSuIA` (¿hay con qué pasar un archivo a El Archivero sin la cascada barata?) se mudó a
+// lib/archivero-ingesta.ts el 3/11/2026: la API (`sumar_documento_second_brain`) pregunta lo mismo.
 
 /** Las IA que el negocio tiene guardadas en SU fila (`credDelCliente`, sin el entorno), para abrirle la que ya eligió. */
 async function iaConFila(): Promise<string[]> {
@@ -474,6 +473,9 @@ const AVISO_NO_LEI = (nombre: string) => `No pude leer «${nombre}».`;
  * ni archivos tira: eso lo frena antes quien llama.
  */
 export async function turnoApp(persona: PersonaChat, sessionId: number, entrada: EntradaTurnoApp): Promise<RespuestaTurno | null> {
+  // Antes de todo: el turno puede salir por la PC del cliente, que no pasa por las puertas de lib/anthropic.ts ni de lib/ai-cheap.ts.
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   // Desde acá corre el plazo de la ruta: lo que se hace DESPUÉS de responder (El Archivero) se mide contra esto.
   const inicio = Date.now();
   return runWithWorkspace(persona.ws, async () => {
@@ -602,7 +604,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const claveAgenda = `mako.doer.agenda.${canalKey}`;
     const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());
     const ultimoDeMako = previos.slice(-2).reverse().find((r) => r.role === 'assistant')?.content ?? null;
-    const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${pistaDesde(desde)}${adjuntos.length ? textoMemoria : textoPersona}`;
+    // Con un texto pegado se clasifica lo que la persona ESCRIBIÓ: el documento es dato, no el pedido (#44, `pedidoDelMensaje`).
+    const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${pistaDesde(desde)}${adjuntos.length ? textoMemoria : pedidoDelMensaje(textoPersona)}`;
     const intencion = clasificarIntencion(textoClasificar, {
       // Por la app MaKo sólo PROPONE y la persona confirma: ante la duda se actúa, no se anota (D1 = A, lib/mako-intencion.ts).
       canal: 'app',
@@ -671,7 +674,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // El system se arma DESPUÉS de las tools: depende de ellas. Lo que el Second Brain sabe de la pregunta lo trae el servidor ANTES
     // del modelo y sin IA (lib/cerebro-para-chat.ts, 28/10/2026), en paralelo y con la plata según el rol: no depende de que el
     // modelo pida una herramienta. `paqueteParaElTurno` nunca tira.
-    const segundoCerebroP = paqueteParaElTurno(textoPersona || textoMemoria, { sinPlata: persona.rol !== 'admin' });
+    const segundoCerebroP = paqueteParaElTurno(textoPersona || textoMemoria, { sinPlata: persona.rol !== 'admin', referente: entrada.referente });
     const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria, sinNumerosDelNegocio: persona.rol !== 'admin' });
     const segundoCerebro = await segundoCerebroP;
     const tz = tools.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : null;
@@ -686,10 +689,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Lo que en una pregunta no viaja pero se ofrece (27/10/2026, `ofrecibles`): sin esto MaKo decía «no puedo».
     // En modo «analizar» no (la revisión del 28/10/2026): con el «sí» lo que escribe tampoco viaja (`herramientasDelModo`).
     const ctxOfrece = turno.ofrece && turno.ofrecibles?.length && desde?.modo !== 'analizar' ? `\n\n${lineaDeOfrecibles(turno.ofrecibles)}` : '';
+    // Si nombra Google Calendar, el estado real de la conexión y si a ESTA persona le alcanza el rol (ticket #42).
+    const ctxGoogle = nombraGoogleCalendar(textoPersona) ? hechoGoogleCalendar({ ...(await permisoCalendarioGoogle()), rol: persona.rol }) : '';
     const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
     const ctxAtado = (entrada.contexto ?? '').trim();
     const ctxDesde = contextoDesde(desde);
-    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxOfrece}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${segundoCerebro ? `\n\n${segundoCerebro}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
+    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxOfrece}${ctxGoogle}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${segundoCerebro ? `\n\n${segundoCerebro}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
 
     // ── Las herramientas ───────────────────────────────────────────────────────
     const runRegistro = runnerDelRegistro(ctx);

@@ -3,19 +3,17 @@
 # pre-push — copia versionada de .git/hooks/pre-push (los hooks NO se versionan:
 # si se reclona el repo, se copia este archivo ahí y `chmod +x`).
 # =============================================================================
-# Desde el 15/10/2026 el TYPECHECK COMPLETO corre en GitHub Actions
-# (.github/workflows/integracion.yml), no en la notebook: se pushea a la rama
-# `integracion`, Actions corre tipos + guardas + tests, y si da verde avanza
-# `main` por fast-forward. Medido ese día: con 10-20 chats la máquina quedaba en
-# 240 MB libres y el tsc de 3-4 GB moría o hacía caer a los demás.
+# CÓMO SE SUBE (4/11/2026): a una rama `punta/<nombre>`. GitHub (.github/workflows/punta.yml) mezcla el main
+# de ese momento, corre guardas, tests afectados y el tsc entero, y si da verde la lleva a main sola.
 #
-# Este hook queda LIVIANO, pero no desaparece:
-#   - Push a `main` (el camino de emergencia, si Actions no corre): corre el tsc
-#     local COMPLETO por el lock, como antes. Así `main` nunca recibe código sin
-#     chequear, venga por donde venga.
-#   - Push a `integracion`: scripts/antes-de-subir.mjs (las guardas + el tsc
-#     ACOTADO + los tests afectados; ver abajo). Actions corre además todo.
-#   - Push a cualquier otra rama: sólo las guardas baratas (scripts/guardas-push.sh).
+# Este hook:
+#   - Push a `punta/*`: las guardas baratas (scripts/guardas-push.sh) y el FILTRO CHICO (scripts/filtro-punta.mjs:
+#     los tests y los tipos de lo tocado, 90 s como mucho, sin candado; ver abajo).
+#   - Push a `integracion`: RECHAZADO. El tren y .github/workflows/integracion.yml se retiraron el 4/11/2026: un
+#     push ahí ya no lo chequea nadie ni llega a main. El mensaje dice a qué punta va.
+#   - Push a `main` (la emergencia, sólo con el sí de Martín): corre el tsc local COMPLETO por el lock, como antes.
+#     Así `main` nunca recibe código sin chequear, venga por donde venga.
+#   - Push a cualquier otra rama: sólo las guardas baratas.
 #
 # Saltearlo a propósito: git push --no-verify (no lo hagas salvo emergencia).
 # =============================================================================
@@ -26,52 +24,26 @@ REMOTO="${1:-origin}"
 # stdin trae una línea por ref: <ref local> <sha local> <ref remota> <sha remota>
 A_MAIN=0
 A_INTEGRACION=0
-SHA_INTEGRACION=""
+A_PUNTA=0
+SHA_PUNTA=""
 while read -r _ref_local sha_local ref_remota _sha_remota; do
   [ "$ref_remota" = "refs/heads/main" ] && A_MAIN=1
-  if [ "$ref_remota" = "refs/heads/integracion" ]; then A_INTEGRACION=1; SHA_INTEGRACION="$sha_local"; fi
+  [ "$ref_remota" = "refs/heads/integracion" ] && A_INTEGRACION=1
+  # Un borrado de rama (sha 000…) no sube nada que chequear.
+  case "$ref_remota" in refs/heads/punta/*) [ "$sha_local" != "0000000000000000000000000000000000000000" ] && { A_PUNTA=1; SHA_PUNTA="$sha_local"; } ;; esac
 done
 
-# ⚠️ PUSH A `integracion` (17/10/2026): corre scripts/antes-de-subir.mjs — las guardas, el tsc ACOTADO de lo cambiado y los
-# TESTS AFECTADOS (barredoras + los que nombran o importan un archivo cambiado). De 90 runs de Actions, 16 fallaron, y 12 eran un
-# test de otra área que nadie había corrido (cada uno costó ~15 min). Cuesta minutos acá (con 2 procesos y esperando RAM, nunca
-# cayéndose) a cambio de no gastar un run de Actions en un rojo que se veía antes. Va con --cortar: frena en la primera tanda roja.
-# Se usa el script del worktree que se pushea (un árbol viejo sin él sigue como antes: lo cubre Actions, que también corre los
-# afectados primero). Saltearlo a propósito: MAKO_SIN_ANTES_DE_SUBIR=1 git push …  (o --no-verify; no lo hagas salvo emergencia).
-if [ "$A_INTEGRACION" -eq 1 ] && [ "$A_MAIN" -eq 0 ] && [ "${MAKO_SIN_ANTES_DE_SUBIR:-}" != "1" ] && [ -f scripts/antes-de-subir.mjs ]; then
-  if [ "$SHA_INTEGRACION" != "$(git rev-parse HEAD)" ]; then
-    echo "[pre-push] El push a integracion no sube HEAD: antes-de-subir mira HEAD, no lo que se sube. Lo chequea Actions."
-  else
-    echo "[pre-push] Push a integracion: antes-de-subir (guardas + tipos acotados + tests afectados)…"
-    # La línea VERDE/ROJO queda como ÚLTIMA línea de la salida del push (se lee sin abrir nada más).
-    LINEA="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/antes-de-subir-$$.txt")"
-    MAKO_LINEA_VEREDICTO="$LINEA" node scripts/antes-de-subir.mjs --sin-condiciones --cortar
-    ANTES=$?
-    VEREDICTO="$(cat "$LINEA" 2>/dev/null)"
-    rm -f "$LINEA"
-    # 99 = «no se pudo chequear»: falta de RAM, el turno del candado que no tocó, o un proceso de tests que murió SIN ejecutar un
-    # test (30/10/2026: un grupo de 495 barredoras murió a los 25 min con 0,7 GB libres y el veredicto los listó como 495 rojos).
-    # NO es un test roto ni un error de tipos. La línea del veredicto —la última de este push— dice cuál de los tres fue.
-    if [ "$ANTES" -eq 99 ]; then
-      echo ""
-      echo "  ✖ PUSH BLOQUEADO: antes-de-subir NO pudo chequear (la línea de abajo dice qué). Esto NO es un rojo del código."
-      echo "    Cerrá unos chats de Claude y volvé a pushear, o MAKO_SIN_ANTES_DE_SUBIR=1 git push …: lo chequea Actions."
-      echo ""
-      [ -n "$VEREDICTO" ] && echo "$VEREDICTO"
-      exit 1
-    fi
-    if [ "$ANTES" -ne 0 ]; then
-      echo ""
-      echo "  ✖ PUSH BLOQUEADO: antes-de-subir dio ROJO."
-      echo "    Arreglalo y volvé a pushear: así Actions no gasta un run (~15 min) en lo mismo."
-      echo ""
-      [ -n "$VEREDICTO" ] && echo "$VEREDICTO"
-      exit 1
-    fi
-    echo "[pre-push] ✓ antes-de-subir en verde (las guardas ya corrieron adentro)."
-    [ -n "$VEREDICTO" ] && echo "$VEREDICTO"
-    exit 0
-  fi
+# ⚠️ PUSH A `integracion` (4/11/2026): RECHAZADO. El tren (integracion.yml, «Cerebro › Integración», antes-de-subir en la fila)
+# se retiró: cada punta se chequea sola en GitHub (punta.yml) y llega a main sola. Un push a `integracion` ya no lo mira nadie ni
+# avanza main, y un push que nadie mira es un push mudo: por eso se frena acá, en vez de dejarlo salir y que no pase nada.
+if [ "$A_INTEGRACION" -eq 1 ]; then
+  echo ""
+  echo "  ✖ PUSH BLOQUEADO: la rama integracion se retiró el 4/11/2026 (el tren ya no existe)."
+  echo "    Subí tu trabajo a una punta, y GitHub la chequea y la lleva a main sola:"
+  echo "      git push origin HEAD:punta/<nombre>"
+  echo "    (<nombre> = el área o la tarea: punta/crm-ficha, punta/pagos-cuotas…)"
+  echo ""
+  exit 1
 fi
 
 if [ "$A_MAIN" -eq 1 ]; then
@@ -106,8 +78,8 @@ if [ "$A_MAIN" -eq 1 ]; then
   if [ "$TIPOS" -eq 99 ]; then
     echo ""
     echo "  ✖ PUSH BLOQUEADO: no se pudo chequear los tipos (mirá el motivo de arriba)."
-    echo "    NO es un error de tipos. Pusheá a la rama integracion: el chequeo lo"
-    echo "    corre GitHub Actions y avanza main solo si da verde."
+    echo "    NO es un error de tipos. Subilo a una punta: git push origin HEAD:punta/<nombre>"
+    echo "    GitHub corre el tsc entero y lo lleva a main sólo si da verde."
     echo ""
     exit 1
   fi
@@ -123,7 +95,7 @@ if [ "$A_MAIN" -eq 1 ]; then
   fi
   echo "[pre-push] ✓ Tipos OK."
 else
-  echo "[pre-push] Sin tsc local: lo corre GitHub Actions en la rama integracion antes de que llegue a main."
+  echo "[pre-push] Sin tsc local: si es una punta, lo corre GitHub (punta.yml) antes de que llegue a main."
 fi
 
 GUARDAS="$REPO/scripts/guardas-push.sh"
@@ -132,4 +104,26 @@ if [ ! -f "$GUARDAS" ]; then
   exit 1
 fi
 sh "$GUARDAS" "$REMOTO" || exit 1
+
+# ⚠️ PUSH A `punta/*` (4/11/2026): el FILTRO CHICO, scripts/filtro-punta.mjs del árbol que se sube. Los tests de lo tocado (el
+# cambio los toca, lo nombran o lo importan directo) y los tipos de lo tocado, con un TOPE de 90 s, sin candado y sin esperar RAM.
+# NO es antes-de-subir: no hace fila, no corre barredoras ni importadores lejanos (eso lo corre la punta en GitHub). Frena SÓLO con
+# un rojo confirmado; si no entra en el tope, no hay RAM u otro tsc está corriendo, avisa y DEJA SUBIR (nunca 99).
+# Medido el 4/11: habría frenado los dos rojos de ese día en la PC, en 54 s y en 4 s, en vez de una corrida de GitHub cada uno.
+# Saltearlo a propósito (un falso rojo del filtro: un tsc acotado que inventa un error de un paquete): MAKO_SIN_FILTRO=1 git push …
+if [ "$A_PUNTA" -eq 1 ] && [ "${MAKO_SIN_FILTRO:-}" != "1" ] && [ -f scripts/filtro-punta.mjs ]; then
+  if [ "$SHA_PUNTA" != "$(git rev-parse HEAD)" ]; then
+    echo "[pre-push] El push a la punta no sube HEAD: el filtro mira HEAD. Lo chequea la punta en GitHub."
+  else
+    node scripts/filtro-punta.mjs
+    if [ $? -eq 1 ]; then
+      echo ""
+      echo "  ✖ PUSH BLOQUEADO: el filtro de la punta dio ROJO (la línea de arriba dice qué)."
+      echo "    Arreglalo y volvé a pushear: en GitHub este rojo cuesta una corrida entera (10-25 min)."
+      echo "    Si es un falso rojo del filtro (un tipo de un paquete que el tsc acotado no ve): MAKO_SIN_FILTRO=1 git push …"
+      echo ""
+      exit 1
+    fi
+  fi
+fi
 exit 0

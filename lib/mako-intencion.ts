@@ -858,6 +858,20 @@ const PRELUDIO = /^(?:[\s,.:;!¡¿?-]*(?:mako|che|porfa|por favor|oye|ey|hola|bu
 /** Dónde se agenda: «en el calendario», «en mi agenda». Con un verbo de agendar, alcanza para saber que es la agenda. */
 const LUGAR_AGENDA = /\b(?:calendario|calendar|agenda)\b/;
 
+// ── GOOGLE CALENDAR, NOMBRADO (ticket #42, Código Inmobiliario, 3/11/2026) ───────────────────────────────────────────────
+// «De hecho si tienes acceso al google calendar…, esa respuesta que diste está mal»: la herramienta existe y la agenda del negocio
+// está conectada desde el 8/10, pero nombrar el lugar sólo traía el área `integraciones`. Sin `crm` no viajaba
+// `proponer_agendar_agenda`, y «agrégalo a mi google calendar» caía en charla: MaKo contestaba que no tenía acceso.
+// Sobre el texto sin tildes. «el calendario» a secas es el de MaKo, y un «content calendar» no es una agenda.
+const LUGAR_GOOGLE = /\b(?:google\s+calendar(?:io)?|calendario\s+de\s+google|agenda\s+de\s+google|gcal|(?<!content\s)calendar)\b/;
+/** Poner algo en la agenda, con el lugar nombrado: «agrégalo a mi google calendar», «sumame esto al calendar». */
+const VERBO_A_GOOGLE = /\b(?:agrega|carga|suma|anota|mete|pasa|crea|arma|guarda|registra|sube|pon|pone)(?:me|le|les|nos)?(?:lo|la|los|las)?\b/;
+const MODAL_A_GOOGLE = /\b(?:puedes|podes|podrias|podras|puede|podria|quiero|queria|necesito|hay que|vamos a)\s+(?:me\s+|nos\s+|le\s+)?(?:agregar|cargar|sumar|anotar|meter|pasar|crear|armar|guardar|registrar|subir|poner)(?:me|le|les|nos)?(?:lo|la|los|las)?\b/;
+/** «tienes acceso al google calendar», «puedes configurarlo en google calendar»: pregunta o reclama lo que MaKo puede. */
+const QUE_PUEDE = /\b(?:acceso|puedes|podes|podrias|puede|podria)\b/;
+/** ¿El texto nombra Google Calendar? Lo miran los dos turnos para decir el estado real de la conexión (lib/agenda-sin-ia.ts). */
+export const nombraGoogleCalendar = (texto: string): boolean => LUGAR_GOOGLE.test(norm(texto));
+
 /**
  * Lo que escribió la persona en un LOTE, sin el encabezado que le pone el doer
  * (`unirMensajes`, lib/mako-doer-buffer.ts: «[Te mandó 2 mensajes seguidos… carga TODAS las
@@ -904,6 +918,7 @@ function esPedidoAgenda(n: string): boolean {
   if (/^(?:re)?agendar\b/.test(t) && !t.includes('\n') && reunion && tiempo && !OTRO_INFINITIVO.test(t)) return true;
   // «agendar» sólo quiere decir una cosa: con un día, una hora, una reunión o el calendario alcanza.
   if (agendar && (tiempo || reunion || LUGAR_AGENDA.test(t))) return true;
+  if (LUGAR_GOOGLE.test(t) && (VERBO_A_GOOGLE.test(t) || MODAL_A_GOOGLE.test(t))) return true;
   // «cambiá», «pasá», «cancelá» quieren decir muchas: hace falta la reunión, y además un
   // día u hora, o que el mensaje ARRANQUE con el verbo (ahí es una orden, no una idea).
   return sobre && reunion && (tiempo || VERBO_SOBRE_REUNION.test(t.slice(0, 14)) || /^(?:me |nos )?(?:puedes|podes|podrias)/.test(t));
@@ -1395,7 +1410,7 @@ export function clasificarIntencion(
   // 8) Pregunta por un dato. Gana sobre el imperativo («decime cuántos leads
   //    entraron») porque el contrato es el mismo y el tier es más barato: sin
   //    esto, cada «decime…» se iba a Opus.
-  if (PREGUNTA.test(t) || (pedido && INTERROGATIVO.test(t))) {
+  if (PREGUNTA.test(t) || (pedido && INTERROGATIVO.test(t)) || (LUGAR_GOOGLE.test(nPersona) && QUE_PUEDE.test(nPersona))) {
     return { intencion: 'consultar', dudosa: false, porque: 'pregunta por un dato', ...deLaApp };
   }
   // 8-bis) Pedido de datos sin forma de pregunta («un reporte de mis resultados de
@@ -1505,7 +1520,7 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // «agend» no hay borde de palabra.
   // `evento` y «qué tengo hoy / a las 12»: es como se pregunta por el día en la agenda de
   // Google («Y a las 12hs que tengo?», ws13, 08/10/2026), y sin esto no viajaba agenda_del_dia.
-  crm: /\b(leads?|contactos?|prospectos?|etapas?|funnel|embudo|agend|reagend|reuni[oó]n|visitas?|citas?|calendario|evento\b|qu[eé] tengo (?:hoy|ma[ñn]ana|el |esta|a las)|a las \d{1,2}\S* qu[eé] tengo|huecos?|horarios?\s+(?:\S+\s+){0,2}libres?|libres?\s+(?:el|la|este|esta|ma[ñn]ana|hoy|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b|disponibilidad|r1|r2|juntas?|calific|pipeline|ficha)/i,
+  crm: /\b(leads?|contactos?|prospectos?|etapas?|funnel|embudo|agend|reagend|reuni[oó]n|visitas?|citas?|calendario|calendar\b|gcal\b|evento\b|qu[eé] tengo (?:hoy|ma[ñn]ana|el |esta|a las)|a las \d{1,2}\S* qu[eé] tengo|huecos?|horarios?\s+(?:\S+\s+){0,2}libres?|libres?\s+(?:el|la|este|esta|ma[ñn]ana|hoy|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b|disponibilidad|r1|r2|juntas?|calific|pipeline|ficha)/i,
   plan: /\b(tareas?|plan\b|tablero|proyectos?|checklist|deadline|perro guardi)/i,
   ads: /\b(campa[ñn]as?|anuncios?|ads\b|meta ads|presupuesto|adsets?|conjuntos?|creativos?|pauta|cpl|cpm|ctr|guion(es)? de anuncio)/i,
   // La bandeja unificada (14/10/2026): «quién me escribió», los chats sin responder, cerrar o posponer uno, y los DMs
@@ -1565,7 +1580,7 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // «¿qué me recomiendas?», «dame un consejo», «¿qué debería mejorar?» (26/10/2026, MaKo recomienda): traen `que_recomienda_mako`
   // (y la corrección, `decidir_recomendacion`, cuando la regla 3-bis-rec la marca como acción). Las raíces, sin el final: «recomendás»,
   // «recomiendes», «sugerencia», «sugieres».
-  mako: /\b(pendientes?|propuestas?|qu[eé] (pod[eé]s|puedes) hacer|capacidades|recomend|recomiend|suger|sugier|consejos?\b|qu[eé] (?:deber[ií]a|tendr[ií]a que) (?:mejorar|cambiar|hacer))/i,
+  mako: /\b(pendientes?|propuestas?|qu[eé] (pod[eé]s|puedes) hacer|capacidades|aprender? solo|recomend|recomiend|suger|sugier|consejos?\b|qu[eé] (?:deber[ií]a|tendr[ií]a que) (?:mejorar|cambiar|hacer))/i,
   // El Centro de Operaciones (15/10/2026): sólo dos LECTURAS y sólo para la plataforma (`soloPlataforma`), así que
   // nombrarlas desde un cliente no le suma nada (lo saca `gatingOk`). Para Martín sí: «¿cómo van mis pedidos del centro?»,
   // «¿pasó el cartero?». Palabras propias y nunca «pedido» suelto, que en un negocio es un pedido de un cliente.

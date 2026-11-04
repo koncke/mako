@@ -51,7 +51,7 @@ test('y si el matcher cambia, /.well-known está en PUBLICOS y sólo se lee', ()
 });
 
 test('los dos archivos son JSON válido, y el de Apple (sin extensión) se sirve como application/json', () => {
-  assert.deepEqual(JSON.parse(leer('public', '.well-known', 'assetlinks.json')), []);
+  assert.ok(Array.isArray(JSON.parse(leer('public', '.well-known', 'assetlinks.json'))));
   const apple = JSON.parse(leer('public', '.well-known', 'apple-app-site-association')) as { applinks?: { details?: unknown } };
   assert.ok(Array.isArray(apple.applinks?.details), 'iOS espera applinks.details');
   const conf = leer('next.config.ts');

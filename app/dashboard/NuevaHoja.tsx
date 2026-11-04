@@ -55,7 +55,7 @@
 //    solo MIENTRAS la caja no tiene el foco (decimoquinta tanda de Automations, punto 6); con el foco puesto al abrir,
 //    no se movería nunca. «Nueva automatización» tampoco lo pone.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
 import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
@@ -77,6 +77,12 @@ import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { dashPegado, hojaConIdsNuevos, rotuloDashPegado } from '@/lib/graficos-copia';
 import { leerDashPegado } from './copia-dash-cliente';
 import { CSS_MINIATURA, MiniaturaHoja, hojaDeMuestra } from './MiniaturaHoja';
+import { CSS_CORBEL } from '@/lib/graficos-corbel';
+import { ContextoGeneral, type ContextoDeGeneral } from './ElementoGeneral';
+import { muestraDeBloque } from '../general/ProveedorGeneral';
+import { CSS_BLOQUES } from '../general/bloques/comun';
+import { CABECERA_MUESTRA } from '../general/bloques/muestras';
+import type { DatosGeneral } from '../general/datos-tipos';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
@@ -150,6 +156,24 @@ const CSS = `
 @media (prefers-reduced-motion: reduce){.nh-mini,.nh-usar{transition:none}}
 `;
 
+/**
+ * UNA SOLA GALERÍA (Martín, 1/11/2026: «arriba a la derecha en la tab de dashboard dice "templates" y hay otros templates cuando
+ * todos deberían estar en el mismo lugar de "nueva hoja"»). Los dos informes siguen siendo dos (lib/dashboard-focus.ts): una plantilla
+ * del otro lleva a su editor, que la suma al abrir (`?hoja=`, app/dashboard/page.tsx). Sólo quien tiene los dos (`conTodas`).
+ */
+const IDS_GENERAL = new Set(PLANTILLAS_GENERAL.map((p) => p.id));
+const CATALOGO_UNICO = [...PLANTILLAS_GENERAL, ...PLANTILLAS_HOJA];
+const ETIQUETAS_UNICAS = { ...ETIQUETAS_GENERAL, ...ETIQUETAS_DASHBOARD };
+/** Las miniaturas de General en el Dashboard: sin los datos de verdad, que allá no se leen. Lo que no tiene ejemplo dice su título. */
+const SIN_LEER = { ok: false, error: '' } as const;
+const MUESTRAS_SIN_DATOS: ContextoDeGeneral = {
+  dibujar: () => null,
+  configurar: () => null,
+  muestra: (p, op) => muestraDeBloque(p, { cabecera: CABECERA_MUESTRA, kpis: SIN_LEER, pendientes: SIN_LEER } as unknown as DatosGeneral, op),
+  variables: {},
+  funnels: null,
+};
+
 type PropsCrearHoja = {
   /** La hoja nueva, saneada y con ids nuevos. `aviso`: lo primero que MaKo ajustó (o lo que se vació al pegar), para el toast. */
   onCrear: (h: Hoja, aviso?: string) => void;
@@ -169,14 +193,16 @@ type PropsCrearHoja = {
    * lib/plantillas-sugeridas.ts). Lo lee la página en el server. null o ausente = el orden de siempre.
    */
   senales?: SenalesNegocio | null;
+  /** Tiene los dos informes (el Dashboard unido): la galería trae las plantillas de los dos. */
+  conTodas?: boolean;
 };
 
 /** El modal «Nueva hoja»: la misma pieza que la pantalla en blanco, adentro del Modal de la casa. */
-export function NuevaHoja({ onCerrar, onCrear, onRellenar, enBlanco = 'Página nueva', informe = 'dashboard', senales = null }: PropsCrearHoja & { onCerrar: () => void }) {
+export function NuevaHoja({ onCerrar, onCrear, onRellenar, enBlanco = 'Página nueva', informe = 'dashboard', senales = null, conTodas = false }: PropsCrearHoja & { onCerrar: () => void }) {
   const cerrar = useCerrarEstable(onCerrar);
   return (
     <Modal titulo="Nueva hoja" ancho={980} sinFiletes onCerrar={cerrar}>
-      <CrearHoja onCrear={onCrear} onRellenar={onRellenar} onListo={cerrar} enBlanco={enBlanco} informe={informe} senales={senales} />
+      <CrearHoja onCrear={onCrear} onRellenar={onRellenar} onListo={cerrar} enBlanco={enBlanco} informe={informe} senales={senales} conTodas={conTodas} />
     </Modal>
   );
 }
@@ -185,7 +211,7 @@ export function NuevaHoja({ onCerrar, onCrear, onRellenar, enBlanco = 'Página n
  * «¿Qué vas a crear hoy?» y las plantillas: el cuerpo del modal y la pantalla en blanco (14/10/2026). `onListo`: lo
  * que pasa después de crear (el modal se cierra; en la pantalla en blanco no hace falta, el editor ya muestra la hoja).
  */
-export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nueva', informe = 'dashboard', senales = null }: PropsCrearHoja & { onListo?: () => void }) {
+export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nueva', informe = 'dashboard', senales = null, conTodas = false }: PropsCrearHoja & { onListo?: () => void }) {
   // Las props de AHORA para los handlers asincrónicos (un `onCrear` de hace un minuto cerraría sobre
   // el informe de entonces).
   const props = useRef({ onCrear, onRellenar, enBlanco, onListo });
@@ -258,6 +284,8 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
    */
   const armarPlantilla = (p: PlantillaHoja) => {
     if (pensando) return;
+    // Es del otro informe: la suma su editor al abrir.
+    if (conTodas && IDS_GENERAL.has(p.id) !== (informe === 'general')) { window.location.assign(`/dashboard?hoja=${encodeURIComponent(p.id)}`); return; }
     const h = instanciarPlantilla(p);
     crear(h);
     void rellenarPlantilla(p, h);
@@ -378,19 +406,25 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
 
   // LAS SUGERIDAS PRIMERO (lib/plantillas-sugeridas.ts): se ordena la galería ENTERA y después se filtra lo buscado,
   // que conserva el orden. Ordenar lo filtrado le daría el «Sugerido» a otra cuando la búsqueda deja afuera a las tres.
+  const catalogo = conTodas ? CATALOGO_UNICO : informe === 'general' ? PLANTILLAS_GENERAL : PLANTILLAS_HOJA;
   const ordenadas = useMemo(() => ordenarConSugeridas(
-    informe === 'general' ? PLANTILLAS_GENERAL : PLANTILLAS_HOJA, informe === 'general' ? ETIQUETAS_GENERAL : ETIQUETAS_DASHBOARD, senales,
-  ), [informe, senales]);
+    catalogo, conTodas ? ETIQUETAS_UNICAS : informe === 'general' ? ETIQUETAS_GENERAL : ETIQUETAS_DASHBOARD, senales,
+  ), [catalogo, conTodas, informe, senales]);
   const porque = useMemo(() => new Map(ordenadas.flatMap((x) => (x.porque ? [[x.plantilla.id, x.porque] as const] : []))), [ordenadas]);
   const plantillas = useMemo(() => filtrarPlantillasHoja(ordenadas.map((x) => x.plantilla), busca), [busca, ordenadas]);
   /** La página de muestra de cada plantilla (sus ids fijos: la misma en el server y en el navegador). Sin datos. */
-  const muestras = useMemo(() => new Map((informe === 'general' ? PLANTILLAS_GENERAL : PLANTILLAS_HOJA).map((p) => [p.id, hojaDeMuestra(p)] as const)), [informe]);
+  const muestras = useMemo(() => new Map(catalogo.map((p) => [p.id, hojaDeMuestra(p)] as const)), [catalogo]);
   const segundos = desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0;
+  /** En el Dashboard, los bloques de General de las miniaturas necesitan sus ejemplos y su hoja de estilos. */
+  const conMuestras = (tarjetas: ReactNode) => (conTodas && informe !== 'general'
+    ? <ContextoGeneral valor={MUESTRAS_SIN_DATOS}><style>{CSS_BLOQUES}</style>{tarjetas}</ContextoGeneral>
+    : tarjetas);
 
   return (
     <>
       <style>{CSS_MINIATURA}</style>
       <style>{CSS}</style>
+      <style>{CSS_CORBEL}</style>
       <div data-nueva-hoja="" style={S.todo}>
         {/* 1 · ¿Qué vas a crear hoy? (la caja de Automations y del Landing Generator, la MISMA) */}
         <div className="gp cp-casa" data-pedido-mako="">
@@ -448,7 +482,7 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
               <span className="nh-nombre" title={copiado.nombre}>Pegar «{copiado.nombre}»</span>
             </button>
           )}
-          {plantillas.map((p) => {
+          {conMuestras(plantillas.map((p) => {
             // «Sugerido», chico y gris (Martín: «un texto sutil»); el porqué va en el title y en lo que lee un lector.
             const sugerida = porque.get(p.id) ?? null;
             return (
@@ -466,7 +500,7 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
                 </span>
               </button>
             );
-          })}
+          }))}
         </div>
         {!plantillas.length && <div style={S.sinResultados}>Ninguna plantilla con eso</div>}
       </div>

@@ -132,6 +132,14 @@ export function estadoDeCuenta(e: { cobrado: Cobrado; pagos: readonly CuotaDelLe
         accion: { tipo: 'registrar-mes', boton: 'Registrar el mes cobrado' },
       };
     }
+    // Sin cierre no hay meses que contar (`sinCierre`, lib/cobrado-lead.ts): se dice lo que se sabe, nunca «Al día» (ticket #53).
+    if (s.sinCierre && !proxima) {
+      const ultimo = e.pagos.filter((q) => q.pagado && q.fecha_pago).map((q) => (q.fecha_pago as string).slice(0, 10)).sort().pop();
+      const pago = ultimo ? `Último pago el ${ddmm(ultimo, hoy)} · ` : '';
+      return e.ganado
+        ? { ...base, titular: 'Sin fecha de cierre', tono: 'ambar', detalle: `${pago}${s.mensualidadTexto}`, accion: null }
+        : { ...base, titular: 'Sin venta activa', tono: 'gris', detalle: `${pago}era de ${s.mensualidadTexto}`, accion: null };
+    }
     const cuando = proxima?.fecha_esperada ?? s.proximaRenovacion;
     return { ...base, titular: 'Al día', tono: 'verde', detalle: `${s.mensualidadTexto}${cuando ? ` · próxima el ${ddmm(cuando, hoy)}` : ''}`, accion: accionDeProxima(proxima) };
   }

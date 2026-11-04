@@ -31,13 +31,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { BarraGrabacion, useGrabacionVoz, type GrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
-import { altoDelCampo, conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
+import { altoDelCampo, conVinetas, enterEnLista, estaAbajo, micAlLadoDeLaFlecha } from '@/lib/centro-caja';
 import { ListaAdjuntos, MasCaja, alPegar, alSoltar, traeArchivos, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { useAdjuntosQueSeLeen } from './adjuntos-que-se-leen';
 import { ESPERA_PARA_ADJUNTAR, adjuntosQuietos, juntarAdjuntos } from './juntar-adjuntos';
 import { useAvisarAdjuntos } from './soltar-en-la-caja';
 import { capturaParaOfrecer, firmaDeCaptura } from '@/app/admin/operaciones/pegar';
-import { BotonMandar } from '@/app/admin/operaciones/Microfono';
+import { BotonGrabar, BotonMandar } from '@/app/admin/operaciones/Microfono';
 import { BotonEmojis } from '@/app/admin/operaciones/Emojis';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones/ConLinks';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -139,7 +139,7 @@ function CajaConVoz(p: PropsCajaChat & { voz: NonNullable<PropsCajaChat['voz']> 
   return <Caja p={p} grabacion={grabacion} />;
 }
 
-function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: GrabacionVoz | null; nota?: NotaQueSeManda | null }) {
+function Caja({ p, grabacion: deLaPantalla, nota = null }: { p: PropsCajaChat; grabacion: GrabacionVoz | null; nota?: NotaQueSeManda | null }) {
   const { texto, onTexto, ocupado = false, altoMax = 220 } = p;
   // TODA CAJA TOMA TODO LO QUE MaKo SABE LEER (ticket #16, ./adjuntos-que-se-leen.ts): lo que la pantalla toma (su `accept`)
   // va a SUS adjuntos; lo demás (un Word en el Second Brain, que sólo toma fotos y PDF; cualquier cosa donde la pantalla no
@@ -147,6 +147,13 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   const leidos = useAdjuntosQueSeLeen({ activo: !p.sinAdjuntos, texto, onTexto, onMandar: p.onMandar, onError: p.onErrorMic, tope: p.topeTexto, conversacion: p.conversacion });
   const deLaCaja = juntarAdjuntos(p.adjuntos, p.sinAdjuntos ? undefined : leidos.adjuntos);
   const onMandar = leidos.mandar;
+  // ⚠️ CON ALGO ADJUNTADO, LA NOTA ES EL TEXTO DE ESE MENSAJE (ticket #51 de Leandro, 4/11/2026). La nota «de siempre» de cada pantalla
+  // sale sola (`voz`, `onGrabada`) y lo adjuntado se quedaba en la caja: MaKo contestaba el audio sin haber visto la imagen. Ésta se
+  // transcribe y sale por el `onMandar` de todas, el que ya lleva texto y archivos juntos, sin tocar ningún motor. Es otra sesión, y la
+  // arranca SÓLO el micrófono que está al lado de la flecha: sin adjuntos, nada cambia.
+  const conAdjuntos = useNotaQueSeManda({ texto, onTexto, onMandar, onError: p.onErrorMic ?? p.voz?.onError });
+  const grabandoConAdjuntos = conAdjuntos.grabacion.fase === 'grabando' || !!conAdjuntos.grabacion.revision;
+  const grabacion = grabandoConAdjuntos ? conAdjuntos.grabacion : deLaPantalla;
   // La pantalla sabe que la caja está leyendo (y que dejó de leer, también si la caja se va en el medio). Hasta que lo leído le
   // LLEGA (`entregando`): avisar al terminar de leer, un dibujo antes, dejaba una ventana en la que el ticket de Soporte salía sin
   // ese mensaje (la verificación de 5ddf1672a).
@@ -159,7 +166,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
     return () => avisarLeyendo.current?.(false);
   }, [leyendoParaLaPantalla]);
   // Pasando a texto una nota de voz, o leyendo lo adjuntado: la caja está saliendo (el botón gira y no se escribe encima).
-  const transcribiendo = !!nota?.transcribiendo;
+  const transcribiendo = !!nota?.transcribiendo || conAdjuntos.transcribiendo;
   const enviando = !!p.enviando || transcribiendo || leidos.leyendo;
   const apagado = !!p.apagado;
   // QUIETA, LO ADJUNTADO NO SE TOCA (28/10/2026, la revisión de 0453923ab): saliendo, apagada o bloqueada, ni se quita nada
@@ -315,6 +322,9 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
           />
         </div>
         {p.alFinal}
+        {/* Lo adjuntado sin nada escrito: también se puede explicar hablando (ticket #51). */}
+        {!p.bloqueo && !enviando && micAlLadoDeLaFlecha({ adjuntos: adjuntos?.items.length ?? 0, texto, hayAlgoMas: p.hayAlgoMas })
+          && <BotonGrabar onGrabar={() => void conAdjuntos.grabacion.start()} apagado={quieto || recien || !!p.voz?.apagada} />}
         {/* Bloqueada, lo que la destraba va en el lugar del micrófono. Si no: con nada que mandar, el botón GRABA; con algo, la flecha. */}
         {p.bloqueo ? p.bloqueo.boton : grabacion && !hayQueMandar && !enviando ? (
           <button type="button" className="co-enviar co-enviar--mic" onClick={() => void grabacion.start()} disabled={quieto || recien || !!p.voz?.apagada}
@@ -331,6 +341,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
       {p.estado !== undefined && <p className="co-caja__estado" aria-live="polite">{p.estado ?? ''}</p>}
       {/* Por qué no salió la nota, si la pantalla no tiene dónde decirlo (`onErrorMic`). */}
       {nota?.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{nota.error}<ReportarASoporte /></p>}
+      {conAdjuntos.error && !p.onErrorMic && !p.voz?.onError && <p className="co-caja__estado" role="alert">{conAdjuntos.error}<ReportarASoporte /></p>}
       {/* Lo adjuntado que no se pudo tomar o leer, con el porqué (./adjuntos-que-se-leen.ts). */}
       {leidos.leyendo && <p className="co-caja__estado" aria-live="polite">Leyendo lo que adjuntaste…</p>}
       {leidos.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{leidos.error}<ReportarASoporte /></p>}

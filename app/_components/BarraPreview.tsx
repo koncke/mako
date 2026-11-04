@@ -87,7 +87,7 @@ export function BarraPreview({ ruta, expandida, familias = FAMILIAS, pie = true,
               <NavLink key={it.key} item={it} active={it.match(ruta)} expanded={expandida} />
             ))}
             <div style={identidadStyle(expandida, false)}>
-              <Identidad open={expandida} nombre="Mauricio Bustos" subrotulo="Cuenta" />
+              <Identidad open={expandida} nombre="Tu negocio" subrotulo="Cuenta" />
             </div>
           </div>
         )}

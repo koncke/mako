@@ -5,6 +5,60 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## Un 404 de simple-icons se leyó como «esta marca no tiene logo» (1/11/2026)
+
+**Vive en:** `app/_components/ServicioVisual.tsx` (el mapa `ICON`, `SvcIcon`, `BrandDefs`) ·
+`public/logos/` · guards: `tests/zernio-todas-las-redes.test.ts` («cada logo servido como archivo
+existe en public/logos»), `tests/integracion-tres-registros.test.ts`.
+
+**El síntoma.** Martín: «muchos logos, como por ejemplo el de Appify, no son los logos reales de
+esas empresas. Fíjate en integraciones tienen que ser todos los logos reales». Eran **trece de
+cuarenta y cinco**.
+
+**El diagnóstico obvio era el equivocado.** El archivo ya tenía la regla correcta escrita arriba
+—«acá solo van logos OFICIALES; si no conseguimos el vector, va un letter-mark»— y la regla se
+estaba cumpliendo al pie de la letra. El problema no era la regla: era **dónde se buscaba**. Seis
+logos estaban dibujados a ojo (Apify, Groq, Gemini, ElevenLabs, YouTube y la «G» de Google) y siete
+iban con inicial «porque no hay vector» (Creem, tl;dv, Fireflies, Otter, Read AI, bunny.net y Google
+Business). Los trece tenían su logo publicado. Lo que había pasado es que **un 404 de simple-icons
+se leyó como «no existe»**, cuando simple-icons es un atajo, no la fuente — y además retira marcas:
+Google Business estaba en la 11 y no está en la 13.
+
+**El orden de búsqueda que sí funciona** (quedó escrito arriba del mapa, que es donde lo lee el que
+agrega un servicio):
+
+1. el `<link rel="icon">` de la **propia página** de la empresa — ahí estaban Apify (`/icon0.svg`,
+   tres formas planas) y Groq (`/favicon.svg`, que es un RAYO, no una «G»);
+2. su **carpeta de marca** — ahí estaba Creem, en `/new-branding/Logo/SVG/`, después de que el
+   31/10 se diera por perdida porque creem.io no tiene `theme-color` ni manifest;
+3. el **CDN del dueño de la marca** — `fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg` para
+   la «G», `gstatic.com/images/branding/product/` para Google Business;
+4. el **wordmark del sitio**, recortado al glifo con `viewBox` — Fireflies, bunny.net, Read AI;
+5. recién acá simple-icons;
+6. y sólo después, el letter-mark.
+
+**La regla que queda: un logo que no se puede pegar como trazo entra como ARCHIVO, no como dibujo.**
+`IconDef` ganó dos campos. `img` apunta a un archivo oficial de `public/logos/`, para lo que no se
+puede copiar a mano sin reescribirlo: degradés con sus `<defs>` (Fireflies son 8 trazos y 8
+`<linearGradient>`; bunny.net, 9), un wordmark que ES la marca (tl;dv) y lo que la empresa sólo
+publica en PNG (Otter, Google Business). `lleno` dice que el archivo trae su propio fondo y sus
+esquinas —un ícono de app— y entonces OCUPA el tile en vez de ir centrado adentro; se decide mirando
+si las esquinas del PNG son transparentes: Otter es un cuadrado azul lleno, Google Business es un
+toldo sobre transparente y va en tile blanco con borde.
+
+**La trampa del guard.** El test de las redes afirmaba `sym: '…'` o `letter: '…'` por tarjeta. Con
+`img` había que ampliarlo, y ahí se le agregó lo que de verdad protege: **que el archivo EXISTA**.
+Una ruta mal escrita no falla en ningún lado — deja la tarjeta con una imagen rota, que se lee como
+que la integración está mal, no como que falta un archivo. Probado rompiéndolo: con
+`public/logos/bunny.svg` renombrado, el test cae y dice `falta public/logos/bunny.svg`.
+
+**Lo que queda sin hacer:** `LogoMeet` (`ServicioVisual.tsx`) sigue siendo un dibujo propio — su
+propio comentario lo dice, «Dibujo propio y simple». Es la cámara de Meet al lado del texto «Asignar
+evento», no un tile de /integraciones, así que no entró en esta pasada; el mark oficial ya está
+pegado como `ic-googlemeet` y de ahí se puede sacar.
+
+---
+
 ## La clave de API no es la suscripción, y Gemini no se saca de la vista (27/10/2026)
 
 **Vive en:** `app/integraciones/TusCuentasIA.tsx` (`ClavesDeApi`, `estadoDeClave`, `CLAVES_RETIRADAS`) ·

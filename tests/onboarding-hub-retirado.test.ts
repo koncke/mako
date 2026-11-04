@@ -121,7 +121,8 @@ test('ningún archivo de producto vuelve a mandar a /onboarding, salvo los que v
   const tolerados = new Set(AL_WIZARD.map((x) => x.archivo));
   const malos: string[] = [];
   for (const f of archivos) {
-    if (f.startsWith('app/onboarding/') || f.startsWith('app/admin/dev/') || f === 'app/admin/docs/catalogo.ts') continue;
+    // lib/estrella-rutas.ts nombra la ruta para NO poner una estrella ahí: no manda a nadie.
+    if (f.startsWith('app/onboarding/') || f.startsWith('app/admin/dev/') || f === 'app/admin/docs/catalogo.ts' || f === 'lib/estrella-rutas.ts') continue;
     if (!existsSync(join(RAIZ, f))) continue;
     const src = sinComentarios(leer(f));
     // Una CADENA que arranca con /onboarding (no /api/onboarding ni ../onboarding/Componente).

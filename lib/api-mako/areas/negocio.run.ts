@@ -44,7 +44,7 @@ import { getWorkspace } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { CAPACIDADES_PASARELA, NOMBRE_PASARELA } from '@/lib/cobros-tipos';
-import { lugarSeccion } from '@/lib/secciones-negocio';
+import { lugarSeccion, lugarDato, rutaDato, datoDeCampo, type DatoDelNegocio } from '@/lib/secciones-negocio';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { getSetting } from '@/lib/settings';
@@ -60,7 +60,7 @@ import { cuantosEnEntrega } from '@/lib/entrega-servicio';
 import { fraseEntregaAlBorrar } from '@/lib/servicio-etapas';
 import { sugerirProductos } from '@/lib/productos-ia';
 import { construirCerebro } from '@/lib/cerebro-grafo';
-import { grafoParaChat } from '@/lib/cerebro-para-chat';
+import { conLosCursosDe, grafoParaChat } from '@/lib/cerebro-para-chat';
 import { construirVault } from '@/lib/vault';
 import { indiceDelCerebro, recuperar } from '@/lib/cerebro-recuperar';
 import { matchNodo, type CampoCerebro } from '@/lib/buscar-cerebro';
@@ -88,6 +88,8 @@ const json = (x: unknown): string => JSON.stringify(x);
 const errorLectura = (msg: string): SalidaLectura => ({ content: msg, isError: true });
 const str = (input: Record<string, unknown>, k: string): string => (typeof input[k] === 'string' ? (input[k] as string).trim() : '');
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+/** Menos que esto no es un documento (`sumar_documento_second_brain`): es una frase, y para eso está guardar_campo_perfil. */
+const MIN_DOCUMENTO = 120;
 
 /** preparar() de la pantalla genérica no puede lanzar: se envuelve. */
 const seguro = (fn: (input: Record<string, unknown>, ctx: Ctx) => Promise<Preparado>) =>
@@ -200,7 +202,10 @@ export const RUNNERS: Runners = {
     leer: async (_input, ctx) => {
       const campos = await camposPerfil(ctx.ws);
       const huecos = campos.filter((c) => c.valor == null).length;
-      return json({ campos, total: campos.length, huecos, nota: '`pregunta` es cómo se le pide el dato al dueño, no el dato. `valor: null` = nunca se cargó.' });
+      // Ticket #48 (3/11/2026): MaKo leía el precio y el horario y no sabía en qué pantalla se corrigen. Cada campo lo dice,
+      // con el nombre que la persona lee y el link (lib/secciones-negocio.ts, DATOS_DEL_NEGOCIO).
+      const conDonde = campos.map((c) => { const d = datoDeCampo(c.key); return d ? { ...c, se_corrige_en: dondeSeEdita(d, ctx.ws) } : c; });
+      return json({ campos: conDonde, total: campos.length, huecos, nota: '`pregunta` es cómo se le pide el dato al dueño, no el dato. `valor: null` = nunca se cargó. `se_corrige_en` es la pantalla donde la persona lo corrige tocándolo.' });
     },
   },
 
@@ -676,9 +681,12 @@ export const RUNNERS: Runners = {
 
   recuperar_del_segundo_cerebro: {
     leer: async (input) => {
-      const p = recuperar(await grafoParaChat(), {
+      const ids = Array.isArray(input.ids) ? (input.ids as unknown[]).map(String) : [];
+      // Un id `ref:<gurú>:<video>` es una clase del curso de un referente (lib/cerebro-referente.ts): su
+      // capa no está en el grafo del negocio, así que se cuelga acá, sólo cuando se la pide (3/11/2026).
+      const p = recuperar(await conLosCursosDe(await grafoParaChat(), ids), {
         pregunta: str(input, 'pregunta'),
-        ids: Array.isArray(input.ids) ? (input.ids as unknown[]).map(String) : [],
+        ids,
         profundidad: typeof input.profundidad === 'number' ? input.profundidad : undefined,
         presupuesto: typeof input.presupuesto === 'number' ? input.presupuesto : undefined,
       });
@@ -728,7 +736,8 @@ export const RUNNERS: Runners = {
       const campo = campos.find((c) => c.key === key);
       if (!campo) return { error: `«${key}» no es un campo del perfil de este negocio.`, disponibles: campos.map((c) => c.key) };
       if (!valor) return { error: 'Falta el valor.', faltan: ['valor'] };
-      if (await campoOcupado(key)) return { error: `«${campo.pregunta}» ya tiene valor. Corregir un dato cargado se hace en ${lugarSeccion('archivero')}, no por aquí.` };
+      // Ticket #46/#48 (3/11/2026): mandaba a «Documentos»; el precio y lo que incluye se leen y se corrigen en «El brief».
+      if (await campoOcupado(key)) { const d = datoDeCampo(key); return { error: `«${campo.pregunta}» ya tiene valor. Lo corriges tocándolo en ${d ? lugarDato(d) : lugarSeccion('archivero')}${d ? ` (${linkApp(rutaDato(d), ctx.ws)})` : ''}, no por aquí.` }; }
       return { payload: { key, valor }, resumen: `Completar en el perfil «${campo.pregunta}»: ${valor.slice(0, 200)}` };
     }),
     ejecutar: sinLanzar(async (payload) => {
@@ -1021,7 +1030,7 @@ export const RUNNERS: Runners = {
   // ⚠️ listar_ofertas NO siembra la oferta principal desde el perfil, como sí hace el GET de la pantalla
   // (`seedOfertaDesdeBrief`): una lectura no escribe. Sin ofertas, dice cuál es la del perfil.
   listar_ofertas: {
-    leer: async () => {
+    leer: async (_input, ctx) => {
       const [ofertas, ligasFunnel, ligasProducto, funnels, productos, answers] = await Promise.all([
         listarOfertas(), ofertasDeFunnels(), productosDeOfertas(), leerFunnels().catch(() => null), listProductos(), respuestasDelPerfil(),
       ]);
@@ -1032,6 +1041,7 @@ export const RUNNERS: Runners = {
         const delPerfil = resolverOfertaPrincipal(null, answers).campos;
         return json({
           ofertas: [],
+          se_editan_en: { ofertas: dondeSeEdita('ofertas', ctx.ws), lo_que_usa_mako: dondeSeEdita('brief', ctx.ws) },
           oferta_del_perfil: delPerfil.nombre ? delPerfil : null,
           nota: delPerfil.nombre
             ? 'Todavía no hay ofertas guardadas: MaKo usa la oferta del perfil del negocio (oferta_del_perfil). Se guarda como oferta con guardar_oferta.'
@@ -1039,6 +1049,7 @@ export const RUNNERS: Runners = {
         });
       }
       return json({
+        se_editan_en: { ofertas: dondeSeEdita('ofertas', ctx.ws), lo_que_usa_mako: dondeSeEdita('brief', ctx.ws) },
         ofertas: ofertas.map((o) => {
           // En la que sale del perfil, los cinco campos del perfil se leen de ahí (la misma regla que usan los prompts).
           const c = o.desde_brief ? resolverOfertaPrincipal(o, answers).campos : null;
@@ -1074,7 +1085,7 @@ export const RUNNERS: Runners = {
       // ⚠️ La oferta que sale del perfil: escribir esos campos en la fila NO cambia lo que MaKo usa para escribir
       // (`resolverOfertaPrincipal` los lee del perfil). Decirlo antes del «sí» es lo único honesto.
       if (actual?.desde_brief && Object.keys(cambios).some((k) => CAMPOS_DEL_PERFIL.includes(k))) {
-        resumen += ` Ojo: esta oferta sale del perfil del negocio, y lo que MaKo usa para escribir (promesa, precio, incluye y garantía) sigue saliendo del perfil, que se corrige en ${lugarSeccion('archivero')}.`;
+        resumen += ` Ojo: esta oferta sale del perfil del negocio, y lo que MaKo usa para escribir (promesa, precio, incluye y garantía) sigue saliendo del perfil, que se corrige en ${lugarDato('brief')}.`;
       }
       return { payload: { id: actual?.id ?? null, nombre: actual ? undefined : resultado.nombre, ...cambios }, resumen };
     }),
@@ -1139,4 +1150,64 @@ export const RUNNERS: Runners = {
       return `## Knowledge › ${m.nombre}\n${m.que}\n\n${texto}`;
     },
   },
+  // ── Sumar un documento desde un chat (ticket #44): la ingesta de lib/archivero-ingesta.ts, la misma de la pantalla ──
+  sumar_documento_second_brain: {
+    preparar: seguro(async (input, ctx) => {
+      const { documentoDelChat, nombrePegado, caracteres } = await import('@/lib/chat-pegado');
+      const { texto, cortado, nombre: delArchivo } = documentoDelChat(str(input, 'texto'));
+      if (texto.length < MIN_DOCUMENTO) return { error: 'Eso es muy corto para ser un documento: pídele que lo pegue o lo adjunte entero.' };
+      const nombre = (str(input, 'nombre') || delArchivo || nombrePegado(texto, 60)).slice(0, 120);
+      const { listFiles } = await import('@/lib/archivero');
+      const { idDeContenido, documentoYaArchivado, camposDelModelo } = await import('@/lib/archivero-registro');
+      const bytes = new TextEncoder().encode(texto);
+      if (documentoYaArchivado(await listFiles(), { id: idDeContenido(ctx.ws, bytes), nombre, tamano: bytes.byteLength })) {
+        return { error: `«${nombre}» ya está en el Second Brain: no se vuelve a guardar.`, yaEstaba: true };
+      }
+
+      const { conQueSeExtrae, camposDeExtraccion } = await import('@/lib/archivero-ingesta');
+      const corte = cortado ? ' ⚠️ Llegó CORTADO: se guarda lo que llegó; pídele el resto y súmalo como otro documento.' : '';
+      if ((await conQueSeExtrae(ctx.ws)) === 'servidor') {
+        return {
+          payload: { nombre, texto, ...(cortado ? { cortado: true } : {}) },
+          resumen: `Sumar «${nombre}» al Second Brain (${caracteres(texto)}): MaKo saca de ahí lo que va en tu perfil al guardarlo. Lo que editaste a mano no se toca.${corte}`,
+        };
+      }
+      // Su Claude en la computadora y ninguna clave: el servidor no tiene con qué extraer (D6b). Lo extrae el modelo del
+      // turno, que es SU IA, con las claves del perfil; lo que no es una clave del perfil no entra.
+      const fields = await camposDeExtraccion();
+      const rotulo = new Map(fields.map((f) => [f.key, f.label]));
+      if (!Array.isArray(input.campos) || !input.campos.length) {
+        return { error: 'Este negocio usa su propio Claude, así que lo lees tú: saca del documento lo que va en el perfil con estas claves (sólo lo que dice) y vuelve a llamarla con `campos` y `resumen`.', disponibles: fields };
+      }
+      const campos = camposDelModelo(input.campos, new Set(rotulo.keys()));
+      const n = Object.keys(campos).length;
+      if (!n) return { error: 'Ninguna de esas claves es del perfil: usa las de `disponibles`.', disponibles: fields };
+      return {
+        payload: { nombre, texto, campos, resumen: str(input, 'resumen').slice(0, 2000), ...(cortado ? { cortado: true } : {}) },
+        resumen: `Sumar «${nombre}» al Second Brain (${caracteres(texto)}) con ${n} dato${n === 1 ? '' : 's'} para tu perfil: ${Object.keys(campos).map((k) => rotulo.get(k)).join('; ')}. Lo que editaste a mano no se toca.${corte}`,
+      };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const { sumarTextoAlArchivero } = await import('@/lib/archivero-ingesta');
+      const { conSuIADelNegocio } = await import('@/lib/ia-del-negocio');
+      const nombre = String(payload.nombre ?? '');
+      const texto = String(payload.texto ?? '');
+      const campos = payload.campos && typeof payload.campos === 'object' && !Array.isArray(payload.campos)
+        ? Object.fromEntries(Object.entries(payload.campos as Record<string, unknown>).map(([k, v]) => [k, String(v ?? '')]))
+        : null;
+      // Sin `campos` extrae el servidor, y adentro de D6b: con su clave, nunca con la red gratis.
+      const r = campos
+        ? await sumarTextoAlArchivero(ctx.ws, { nombre, texto, extraido: { campos, razonamiento: String(payload.resumen ?? '') } })
+        : await conSuIADelNegocio(ctx.ws, () => sumarTextoAlArchivero(ctx.ws, { nombre, texto }));
+      if (!r.ok) return { ok: false, resumen: `No se guardó: ${r.motivo}.` };
+      if (r.yaEstaba) return { ok: true, resumen: `«${r.nombre}» ya estaba en el Second Brain: no se guardó dos veces.`, datos: { id: r.id } };
+      const corte = payload.cortado ? ' Llegó cortado: falta el resto, que se suma como otro documento.' : '';
+      return { ok: true, resumen: `«${r.nombre}» quedó en el Second Brain (El Archivero) y aportó ${r.aportadas} dato${r.aportadas === 1 ? '' : 's'} a tu perfil.${corte}`, datos: { id: r.id, aportadas: r.aportadas } };
+    }),
+  },
 };
+
+/** Dónde se edita un dato del negocio, para la salida de una lectura: el camino con los nombres de pantalla y el link. */
+function dondeSeEdita(d: DatoDelNegocio, ws: number): { lugar: string; link: string } {
+  return { lugar: lugarDato(d), link: linkApp(rutaDato(d), ws) };
+}

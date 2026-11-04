@@ -113,6 +113,8 @@ export type Cobrado = {
     /** Los meses que cubre lo cobrado, de a una cobrada (`mesesDeUnaCobrada`): una mensualidad, uno; un adelanto, sus meses.
      *  Es con lo que se cuenta `sinRegistrar`, y desde dónde vence el primer mes sin registrar («A quién cobrar»). */
     mesesCubiertos: number;
+    /** Una manual sin fecha de cierre: no hay desde cuándo contar los meses, y `sinRegistrar` en 0 no quiere decir «al día». */
+    sinCierre: boolean;
   };
   /** Lo cobrado en su moneda ORIGINAL, donde no fue en dólares (`pagos.moneda` + `monto_original`). */
   monedas: Array<{ moneda: string; monto: number }>;
@@ -326,6 +328,11 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
       if (suscripcionMeses) esperadas = Math.min(esperadas, suscripcionMeses);
       sinRegistrar = Math.max(0, esperadas - mesesCubiertos);
     }
+    // ⚠️ SIN CIERRE NO HAY MESES QUE CONTAR, Y «AL DÍA» NO ES EL VALOR POR DEFECTO (ticket #53, Leila, 04/11/2026). Sacar a un
+    // cliente de Ganado borra su `fecha_cierre` (lib/lead-desenlace.ts: la venta sólo vive con `cerro`). `sinRegistrar` quedaba
+    // en 0 porque no se contaba, y la cuenta caía al último renglón: un cliente que decía «Falta registrar 2 meses» pasó a
+    // «Al día», en verde, en el mismo clic que lo sacó de Ganado. Una cuota con fecha sí se puede medir: ésa no entra acá.
+    const sinCierre = fuente === 'manual' && estado === 'activa' && !fechaCierre;
     const totalUsd = suscripcionMonto && suscripcionMeses ? redondo(suscripcionMonto * suscripcionMeses) : null;
     const pct = totalUsd ? Math.min(100, Math.round((cobradoUsd / totalUsd) * 100)) : null;
     const cuando = proxima?.fecha ?? proximaRenovacion;
@@ -336,6 +343,7 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
       : estado === 'terminada' ? { tono: 'gris', texto: `Terminó el ${ddmm(finPlazo as string, hoy)}` }
       : cobradas.length === 0 && impagas.length === 0 ? { tono: 'gris', texto: 'Sin cobros registrados' }
       : sinRegistrar > 0 ? { tono: 'ambar', texto: sinRegistrar === 1 ? 'Falta registrar 1 mes' : `Falta registrar ${sinRegistrar} meses` }
+      : sinCierre && !proxima ? { tono: 'gris', texto: 'Sin fecha de cierre' }
       : { tono: 'verde', texto: cuando ? `Al día · próxima el ${ddmm(cuando, hoy)}` : 'Al día' };
     return {
       ...base,
@@ -355,6 +363,7 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
         fuente,
         sinRegistrar,
         mesesCubiertos,
+        sinCierre,
       },
       cuadra: null,
     };

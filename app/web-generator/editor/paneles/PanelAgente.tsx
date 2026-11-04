@@ -99,6 +99,7 @@ import {
   MOTIVO_ANTES_DE_IA, anclasResueltas, diffTarjetas, idDe, planDeAplicacion, resumenDeCambios, tarjetasDelDoc, tocadasDesde,
   type CambioSeccion,
 } from '../diff-tarjetas';
+import { trQuitarYOrdenar } from '../insertar';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
@@ -127,9 +128,9 @@ export {
 // que gamma.css no tiene (el azul más claro de las burbujas, el verde, el ámbar) se define acá.
 
 const CSS_PANELES_B = `
-.gma-pb{--pb-fondo:var(--gma-superficie,#ffffff);--pb-sup:var(--gma-superficie-2,#f5f5f6);--pb-sup2:var(--gma-superficie-3,#ececed);--pb-borde:var(--gma-borde,#dfdfe0);--pb-texto:var(--gma-texto-fuerte,#38383c);--pb-tenue:var(--gma-texto,#4d4d51);--pb-suave:var(--gma-tenue,#8b8b90);--pb-titulo:#002253;--pb-azul:var(--gma-primario,#0540ad);--pb-azul-hover:var(--gma-primario-hover,#0740df);--pb-azul-txt:var(--gma-sobre-primario,#ffffff);--pb-vivo:var(--gma-seleccion,#2c88f7);--pb-celeste:var(--gma-b50,#ebf3fe);--pb-celeste2:var(--gma-secundario,#d0e6fe);--pb-tinta:var(--gma-sobre-secundario,#002253);--pb-ok:#266d28;--pb-ok-bg:#e2f7e1;--pb-mal:var(--gma-rojo,#b91c1c);--pb-mal-bg:var(--gma-rojo-fondo,#fef2f2);--pb-ambar:#9b5500;--pb-ambar-bg:#fff3c6;--pb-sombra:var(--gma-sombra-menu,0 8px 16px rgba(0,0,0,.15));font-family:var(--gma-fuente,'Geist',system-ui,sans-serif);color:var(--pb-texto);font-size:14px;line-height:1.45;font-weight:400;-webkit-font-smoothing:antialiased}
-[data-tema="oscuro"] .gma-pb{--pb-titulo:#f5f5f6;--pb-celeste:#0b2e79;--pb-tinta:#d0e6fe;--pb-ok:#96e096;--pb-ok-bg:#1a561c;--pb-ambar:#fec500;--pb-ambar-bg:#4a3500;--pb-sombra:0 8px 16px rgba(0,0,0,.45)}
-[data-tema="oscuro"] .gma-pb:not(.gma){--pb-fondo:#1d1f22;--pb-sup:#212327;--pb-sup2:#2f3339;--pb-borde:#3d444c;--pb-texto:#dfdfe0;--pb-tenue:#cacacb;--pb-suave:#aeaeb2;--pb-azul:#84c1fa;--pb-azul-hover:#aad5fe;--pb-azul-txt:#002253;--pb-vivo:#63acf7;--pb-celeste2:#3d444c;--pb-mal:#fca5a5;--pb-mal-bg:#450a0a}
+.gma-pb{--pb-fondo:var(--gma-superficie,#ffffff);--pb-sup:var(--gma-superficie-2,#f5f5f6);--pb-sup2:var(--gma-superficie-3,#ececed);--pb-borde:var(--gma-borde,#dfdfe0);--pb-texto:var(--gma-texto-fuerte,#38383c);--pb-tenue:var(--gma-texto,#4d4d51);--pb-suave:var(--gma-tenue,#8b8b90);--pb-titulo:#121826;--pb-azul:var(--gma-primario,#0540ad);--pb-azul-hover:var(--gma-primario-hover,#0740df);--pb-azul-txt:var(--gma-sobre-primario,#ffffff);--pb-vivo:var(--gma-seleccion,#2c88f7);--pb-celeste:var(--gma-b50,#ebf3fe);--pb-celeste2:var(--gma-secundario,#d0e6fe);--pb-tinta:var(--gma-sobre-secundario,#002253);--pb-ok:#176a3d;--pb-ok-bg:#1d7a481f;--pb-mal:var(--gma-rojo,#b91c1c);--pb-mal-bg:var(--gma-rojo-fondo,#fef2f2);--pb-ambar:#8a5a00;--pb-ambar-bg:#c98a142b;--pb-sombra:var(--gma-sombra-menu,0 8px 16px rgba(0,0,0,.15));font-family:var(--gma-fuente,'Geist',system-ui,sans-serif);color:var(--pb-texto);font-size:14px;line-height:1.45;font-weight:500;-webkit-font-smoothing:antialiased}
+[data-tema="oscuro"] .gma-pb{--pb-titulo:#e8ecf3;--pb-celeste:#6e98ff24;--pb-tinta:#9ab7ff;--pb-ok:#6fcf97;--pb-ok-bg:#6fcf9724;--pb-ambar:#e6b45c;--pb-ambar-bg:#e6b45c24;--pb-sombra:0 2px 6px #0006,0 30px 70px -24px #000c}
+[data-tema="oscuro"] .gma-pb:not(.gma){--pb-fondo:#151a22;--pb-sup:#11151c;--pb-sup2:#232a37;--pb-borde:#e8ecf329;--pb-texto:#e8ecf3;--pb-tenue:#c6ccd7;--pb-suave:#99a2b3;--pb-azul:#6e98ff;--pb-azul-hover:#8eafff;--pb-azul-txt:#0b1222;--pb-vivo:#6e98ff;--pb-celeste2:#6e98ff24;--pb-mal:#f2877b;--pb-mal-bg:#f2877b24}
 .gma-pb *,.gma-pb *::before,.gma-pb *::after{box-sizing:border-box}
 .gma-pb-ico{display:inline-flex;flex:none;align-items:center;justify-content:center;line-height:0}
 .gma-pb-ico svg{display:block}
@@ -258,7 +259,24 @@ export type Propuesta = {
   tarjetas: JsonNodo[];
   /** Después de cuál va una nueva si en la respuesta no la precede ninguna existente. */
   anclaNuevas: string | null;
+  /** Lo que cambia de la LISTA (28/10/2026, `EdicionIA`): las que se sacan, el orden nuevo y las copias. */
+  quitar?: string[];
+  orden?: string[];
+  copias?: Record<string, string>;
 };
+
+/** Las opciones de `planDeAplicacion` que salen de una propuesta. */
+export const opcionesDePlan = (p: Propuesta) => ({ anclaNuevas: p.anclaNuevas, quitar: p.quitar, orden: p.orden, copias: p.copias });
+
+/** ¿La respuesta de «editar» propone algo? Además de tarjetas, puede sacar secciones o reordenarlas. */
+export const proponeAlgo = (r: { tarjetas: JsonNodo[]; quitar?: string[]; orden?: string[] }) => r.tarjetas.length > 0 || !!r.quitar?.length || !!r.orden?.length;
+
+/** Lo de la LISTA que trae la respuesta de «editar», para la propuesta. */
+export const listaDeRespuesta = (r: { quitar?: string[]; orden?: string[]; copias?: Record<string, string> }) => ({
+  ...(r.quitar?.length ? { quitar: r.quitar } : {}),
+  ...(r.orden?.length ? { orden: r.orden } : {}),
+  ...(r.copias && Object.keys(r.copias).length ? { copias: r.copias } : {}),
+});
 
 export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'sin-version' | 'aplicada' | 'descartada' | 'restaurada';
 
@@ -296,7 +314,7 @@ export async function aceptarPropuesta(ctxVivo: () => CtxAceptar, propuesta: Pro
   // Las anclas pendientes de la IA (`#t-formulario`, `#t-seccion-N`) se resuelven contra la página
   // que va a quedar, no contra la sección suelta que se convirtió en el server.
   const tarjetas = anclasResueltas(propuesta.tarjetas, propuesta.enviadas, actuales);
-  const plan = planDeAplicacion(actuales, tarjetas, { anclaNuevas: propuesta.anclaNuevas });
+  const plan = planDeAplicacion(actuales, tarjetas, opcionesDePlan(propuesta));
   // UN paso de deshacer cuando se puede: `reemplazarTarjetas` (EditorLanding.tsx) hace todo en una
   // transacción y pone lo que trae un id desconocido «después de la última reemplazada». Si todas
   // las nuevas van justo ahí, va todo en esa llamada; si no, una llamada por lugar (cada una es su
@@ -311,6 +329,11 @@ export async function aceptarPropuesta(ctxVivo: () => CtxAceptar, propuesta: Pro
     if (plan.reemplazos.length) ctx.reemplazarTarjetas(plan.reemplazos);
     for (const g of plan.inserciones) ctx.insertarTarjetas(g.tarjetas, g.despuesDe);
     pasos = (plan.reemplazos.length ? 1 : 0) + plan.inserciones.length;
+  }
+  // Lo que cambia de la LISTA (sacar, reordenar), con todo lo de arriba ya puesto: un paso más.
+  if (plan.quitadas.length || plan.reordenada) {
+    const tr = trQuitarYOrdenar(editor.state, plan.quitadas, plan.reordenada ? plan.resultado.map(idDe) : null);
+    if (tr) { editor.view.dispatch(tr); pasos++; }
   }
   // Si el documento no cambió, no se aplicó (el armazón no aplica en medio de un cambio de página,
   // o el esquema rechazó una sección): decir «Aplicado» sería mentir.
@@ -356,7 +379,7 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
 }) {
   const { tema, editor, config } = useEditorLanding();
   const [vista, setVista] = useState<'original' | 'modificado'>('modificado');
-  const plan = useMemo(() => planDeAplicacion(propuesta.enviadas, propuesta.tarjetas, { anclaNuevas: propuesta.anclaNuevas }), [propuesta]);
+  const plan = useMemo(() => planDeAplicacion(propuesta.enviadas, propuesta.tarjetas, opcionesDePlan(propuesta)), [propuesta]);
   const diff = useMemo(() => diffTarjetas(propuesta.enviadas, plan.resultado), [propuesta, plan]);
   const antesPorId = useMemo(() => new Map(propuesta.enviadas.map((t) => [idDe(t), t] as const)), [propuesta]);
   const despuesPorId = useMemo(() => new Map(plan.resultado.map((t) => [idDe(t), t] as const)), [plan]);
@@ -587,8 +610,8 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
   if (!r.ok) {
     msg = { id: ++ultimoId, de: 'mako', texto: r.error === MUCHO_PARA_EDITAR ? MUCHO_SIN_FOCO : r.error, error: !cortadoPorUsuario(r) };
   } else if ('tarjetas' in r) {
-    msg = r.tarjetas.length
-      ? { id: ++ultimoId, de: 'mako', texto: aviso + (r.resumen || 'Listo.'), estado: 'pendiente', propuesta: { paginaId: ctx.paginaActual, enviadas: deUna ? [deUna] : enviadas, tarjetas: r.tarjetas, anclaNuevas: deUna ? idDe(deUna) : null } }
+    msg = proponeAlgo(r)
+      ? { id: ++ultimoId, de: 'mako', texto: aviso + (r.resumen || 'Listo.'), estado: 'pendiente', propuesta: { paginaId: ctx.paginaActual, enviadas: deUna ? [deUna] : enviadas, tarjetas: r.tarjetas, anclaNuevas: deUna ? idDe(deUna) : null, ...listaDeRespuesta(r) } }
       : { id: ++ultimoId, de: 'mako', texto: aviso + (r.resumen || 'Sin cambios.') };
   } else msg = { id: ++ultimoId, de: 'mako', texto: 'Respuesta inválida', error: true };
   terminar(msg, ...burbujas);

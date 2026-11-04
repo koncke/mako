@@ -22,6 +22,7 @@
 // Modelos e IDs por env (rotan seguido, no hardcodear). Claude sigue para el
 // razonamiento fino y el copywriting con voz de marca (lib/anthropic.ts).
 
+import { exigirPermisoIa } from '@/lib/ia-permiso';
 import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import { aprenderFormatoSiLoRechaza, paramsDeSalida } from '@/lib/ai-cheap-techo';
@@ -537,6 +538,8 @@ async function modelosDisponibles(p: Prov): Promise<string> {
 export type EsfuerzoBarato = 'minimal' | 'low' | 'medium' | 'high';
 
 export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string; clave?: string; timeoutMs?: number; esfuerzo?: EsfuerzoBarato; /** De qué workspace sale la KEY. SOLO lo pasa la red de plataforma; sin esto, la del workspace en curso (el BYOK de siempre). */ wsKey?: number }): Promise<string> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheap(opts));
   // `clave` elige CUÁL cuenta del proveedor (GEMINI_API_KEY vs _2 vs _3). La pone la
@@ -729,6 +732,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
    */
   quienOut?: Partial<QuienContesto> }): Promise<string> {
   const anotarQuien = (q: QuienContesto) => { if (opts.quienOut) Object.assign(opts.quienOut, q); };
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapCascade(opts));
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
@@ -1128,6 +1133,8 @@ function bloquesParaClaude(o: DocOpts): Array<Record<string, unknown>> {
 }
 
 export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; provider: ProvName | 'anthropic' }> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => leerDocumentoIA(opts));
   const errores: string[] = [];
@@ -1352,6 +1359,8 @@ export async function chatCheapTools(
     hastaMs?: number;
   } = {},
 ): Promise<CheapToolsResult> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapTools(system, messages, tools, runTool, opts));
   const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
@@ -1646,6 +1655,8 @@ export async function chatCheapToolsCascade(
     toolChoicePrimerPaso?: 'required'; erroresOut?: string[];
   } = {},
 ): Promise<CheapToolsResult | null> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapToolsCascade(system, messages, tools, runTool, opts));
   const pedidos = soloSuIA() ? (PROVS_SU_IA as ProvName[]) : deTexto(opts.provs ?? CASCADA_TOOLS);
@@ -1907,6 +1918,8 @@ export class SttSinEscucha extends Error {
  *      el texto que lee el cliente se elige con los suyos (lib/fallo-ia-texto.ts).
  */
 export async function transcribirAudio(base64: string, mime: string, opts?: SttOpts): Promise<string> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts?.feature)) return conD6bDelPedido(opts?.feature, () => transcribirAudio(base64, mime, opts));
   const o = opts ?? {};

@@ -33,9 +33,10 @@ import { enviarDm, responderComentario, responderComentarioEnPublico, esRechazoD
 import {
   decidirSalida, decidirRespuestaPublica, plataformaDe, problemaDeAdjunto, tipoAdjuntoZernio, NOMBRE_CANAL, COLS_CONVERSACION_SOCIAL,
   conversacionDelPaso, conversacionDeFila, conversacionesPorLead, pedidoDeSeguimiento, canalDePlataforma, TOPE_TEXTO_SOCIAL,
-  filasDeCharlaSocial, TOPE_CHARLA_SOCIAL,
+  filasDeCharlaSocial, TOPE_CHARLA_SOCIAL, LO_ULTIMO_FUE_COMENTAR,
   type CanalSocial, type ConversacionesPorLead, type FilaConversacionSocial, type EntranteSocial, type SalienteSocial,
 } from './canal-social';
+export { eventoDelComentario } from './canal-social';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
 import { aplicarVariables } from './template-vars';
@@ -384,6 +385,8 @@ export type ConversacionSocialChat = {
   /** El nombre que se puede mostrar sin lead: `@usuario` o «Contacto de Instagram». */
   nombre: string;
   ultimaFecha: string | null;
+  /** Su último comentario (se guarda el último, sin el texto). El hilo lo dice como un evento (`eventoDelComentario`). */
+  comentarioAt: string | null;
   /** Lo último que hizo LA PERSONA (un mensaje, un clic en un anuncio, un comentario). */
   ultimaEntrante: string | null;
   ultimoTexto: string | null;
@@ -477,9 +480,10 @@ async function conUltimoMensaje(filas: readonly FilaConversacionSocial[]): Promi
       destino: username ? `@${username}` : null,
       nombre: username ? `@${username}` : `Contacto de ${NOMBRE_CANAL[canal]}`,
       ultimaFecha,
+      comentarioAt: f.comentario_at ?? null,
       ultimaEntrante,
-      ultimoTexto: fueComentario ? 'Comentó una publicación' : fueMensaje && m ? (m.texto ?? null) : null,
-      ultimoTipo: fueComentario ? 'otro' : fueMensaje && m ? (m.texto?.trim() ? 'text' : (tipoDelAdjunto(m.adjuntos) ?? 'text')) : null,
+      ultimoTexto: fueComentario ? LO_ULTIMO_FUE_COMENTAR.ultimoTexto : fueMensaje && m ? (m.texto ?? null) : null,
+      ultimoTipo: fueComentario ? LO_ULTIMO_FUE_COMENTAR.ultimoTipo : fueMensaje && m ? (m.texto?.trim() ? 'text' : (tipoDelAdjunto(m.adjuntos) ?? 'text')) : null,
       ultimoEntrante: fueMensaje && m ? m.direccion === 'entrante' : true,
       total: total.get(id) ?? 0,
       puedeEscribir: puede,

@@ -25,6 +25,7 @@ import postgres from 'postgres';
 import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
+import { WS_REVISION } from '../lib/cuenta-revision-reglas';
 import { esTipo, ROTULO_ESTADO_CLIENTE, estadoParaElCliente, leerTriage, sanearContexto, type EstadoTicket } from '../lib/tickets-reglas';
 
 config({ path: resolve(process.cwd(), '.env.local') });
@@ -71,11 +72,20 @@ async function linkDeAdjunto(path: string): Promise<string | null> {
   } catch { return null; }
 }
 
+/**
+ * Un ticket de la cuenta de revisión de las tiendas (lib/cuenta-revision-reglas.ts, 4/11/2026): esa contraseña la tienen terceros, así
+ * que lo que dice lo puede haber escrito cualquiera. No se imprime su texto, no se toma y no se implementa: se guardó sin despacho y lo
+ * mira Martín en la Ticketera.
+ */
+const AVISO_REVISION = (id: number) => `\n⛔ TICKET #${id}: es de la cuenta de revisión de las tiendas (ws ${WS_REVISION}). Su texto lo puede haber escrito`
+  + ' cualquiera con esa contraseña: no se lee acá, no se toma y no se implementa. Lo mira Martín en la Ticketera.\n';
+
 async function ver(id: number) {
   const db = sql();
   try {
     const [t] = await db`select t.*, w.nombre as negocio from tickets t join workspaces w on w.id = t.workspace_id where t.id = ${id}`;
     if (!t) { console.error(`No existe el ticket #${id}.`); process.exitCode = 1; return; }
+    if (Number(t.workspace_id) === WS_REVISION) { console.log(AVISO_REVISION(id)); return; }
     const ev = await db`select at, actor, tipo, texto, datos from ticket_eventos where ticket_id = ${id} order by at`;
     const triage = leerTriage(t.triage);
     const ctx = sanearContexto(t.contexto);
@@ -128,8 +138,9 @@ async function ver(id: number) {
 async function pendientes() {
   const db = sql();
   try {
-    const curso = await db`select id, titulo, prioridad, despacho, created_at from tickets where estado = 'en_curso' order by prioridad = 'urgente' desc, created_at`;
-    const espera = await db`select count(*)::int as n from tickets where estado = 'esperando_decision'`;
+    // Sin los de la cuenta de revisión de las tiendas: no son trabajo de ningún chat (AVISO_REVISION).
+    const curso = await db`select id, titulo, prioridad, despacho, created_at from tickets where estado = 'en_curso' and workspace_id <> ${WS_REVISION} order by prioridad = 'urgente' desc, created_at`;
+    const espera = await db`select count(*)::int as n from tickets where estado = 'esperando_decision' and workspace_id <> ${WS_REVISION}`;
     console.log(`\nEN CURSO (${curso.length}):`);
     for (const t of curso) console.log(`  #${t.id}  [${t.prioridad}] ${t.titulo}  — ${t.despacho === 'runner' ? 'bug del triage' : 'aprobado por Martín'} · ${fecha(t.created_at)}`);
     console.log(`\nEsperando la decisión de Martín: ${espera[0].n}\n`);
@@ -163,6 +174,13 @@ async function main() {
   if (cmd === 'mensaje') return mensaje(args[0]);
   const db = sql();
   try {
+    // Ninguna escritura sobre un ticket de la cuenta de revisión de las tiendas (salvo una nota): no se toma, no se arregla, no se
+    // reclasifica. Lo decide Martín en la Ticketera.
+    if (['tomar', 'reclasificar', 'arreglado'].includes(cmd ?? '')) {
+      const id = numeroDe(args[0]);
+      const [t] = await db`select workspace_id from tickets where id = ${id}`;
+      if (t && Number(t.workspace_id) === WS_REVISION) { console.error(AVISO_REVISION(id)); process.exitCode = 1; return; }
+    }
     if (cmd === 'tomar') {
       const id = numeroDe(args[0]);
       const chat = opcion('chat') ?? quien();

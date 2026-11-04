@@ -46,6 +46,8 @@ import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { runWithWorkspace } from '@/lib/workspace';
 import { filaDeRendimiento } from '@/lib/ads-rendimiento';
 import { calcularPresupuestoAds } from '@/lib/calculadora-presupuesto-ads';
+import { ROTULO_FUNNEL, sanearPlan } from '@/lib/funnel-plan';
+import { guardarPlanFunnel, leerPlanFunnel } from '@/lib/funnel-plan-db';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { getMetaAccountHealth, type NodoEstado } from '@/lib/meta-health';
 // El aviso «es N veces el actual» vive en UN lugar con la tabla del Ads Manager: era la
@@ -402,6 +404,25 @@ export const RUNNERS: Runners = {
     },
   },
 
+  ver_plan_funnel: {
+    leer: async () => {
+      const plan = await leerPlanFunnel();
+      return J(plan ?? { plan: null, nota: 'Este negocio todavía no guardó un plan del funnel.' });
+    },
+  },
+  guardar_plan_funnel: {
+    preparar: async (input) => {
+      const plan = sanearPlan(input);
+      if (!plan) return { error: 'Falta qué funnel se eligió.' };
+      return { payload: { ...plan }, resumen: `Guardar el plan del funnel: ${ROTULO_FUNNEL[plan.funnel]}` };
+    },
+    ejecutar: async (p) => {
+      const plan = sanearPlan(p, new Date().toISOString());
+      if (!plan) return { ok: false, resumen: 'No sé qué funnel guardar.' };
+      await guardarPlanFunnel(plan);
+      return { ok: true, resumen: `Guardé el plan: ${ROTULO_FUNNEL[plan.funnel]}. Lo ves con «Ver el plan».` };
+    },
+  },
   calcular_presupuesto_anuncios: {
     leer: async (input) => {
       const evento = str(input, 'evento') === 'venta' ? 'venta' : 'lead';
@@ -874,13 +895,27 @@ export const RUNNERS: Runners = {
         const url = linkDeDescarga(str(input, 'link'));
         if (!url) return { error: 'Ese link no sirve: pásame el link de Google Drive del archivo (compartido con cualquiera con el enlace) o uno https directo.', faltan: ['link'] };
         try {
-          const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(60_000) });
+          // ⛔ Se baja por `bajarWebSegura` (01/11/2026, auditoría de seguridad): con `fetch` y
+          // `redirect: 'follow'` un link público que redirige a 169.254.169.254 o a 127.0.0.1 se bajaba desde
+          // nuestro servidor (SSRF). Cada salto pasa por `validarDestino` y el pedido va a la IP ya validada
+          // (sin rebinding). El techo es el de un video de anuncio, no el de una web: se lee hasta un byte
+          // de más para saber si se pasó.
+          const [{ bajarWebSegura, pedirClavado }, { validarDestino: validar }] = await Promise.all([
+            import('@/lib/archivero-bajada'), import('@/lib/landing-fetch'),
+          ]);
+          const limites = { maxBytes: MAX_VIDEO_BYTES + 1, timeoutMs: 60_000 };
+          let r: Awaited<ReturnType<typeof bajarWebSegura>>;
+          try {
+            r = await bajarWebSegura(url, { validar, pedir: (u, ips) => pedirClavado(u, ips, undefined, limites) });
+          } catch (err) {
+            // Un salto a una dirección privada, o demasiados redirects: es el link, no una falla nuestra.
+            return { error: `Ese link no se puede bajar: ${err instanceof Error ? err.message : String(err)}` };
+          }
           // Un 403 o un 404 es cómo está compartido (una regla, no una falla nuestra): la persona lo arregla.
-          if (!r.ok) return { error: `Ese archivo no se deja bajar (${r.status}): si es de Drive, compártelo con «cualquiera con el enlace».` };
-          const mime = (r.headers.get('content-type') || '').split(';')[0];
-          const largo = Number(r.headers.get('content-length') || 0);
-          if (largo > MAX_VIDEO_BYTES) return { error: 'El archivo pasa los 100 MB: súbelo desde el Media Buyer en la app.' };
-          archivo = { bytes: new Uint8Array(await r.arrayBuffer()), mime, nombre: url.split('/').pop() || 'archivo' };
+          if (r.status < 200 || r.status >= 300) return { error: `Ese archivo no se deja bajar (${r.status}): si es de Drive, compártelo con «cualquiera con el enlace».` };
+          const mime = (r.tipo || '').split(';')[0];
+          if (r.cuerpo.byteLength > MAX_VIDEO_BYTES) return { error: 'El archivo pasa los 100 MB: súbelo desde el Media Buyer en la app.' };
+          archivo = { bytes: new Uint8Array(r.cuerpo), mime, nombre: url.split('/').pop() || 'archivo' };
         } catch (err) { return { error: `No pude bajar el archivo (${err instanceof Error ? err.message : String(err)}).`, falla: true }; }
       } else return { error: 'origen es «mensaje» o «link».', faltan: ['origen'] };
       const tipo = tipoDelArchivo(archivo.mime, archivo.nombre);

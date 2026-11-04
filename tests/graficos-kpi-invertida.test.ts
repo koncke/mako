@@ -69,21 +69,22 @@ test('ninguna fila de ninguna plantilla lleva más de UNA invertida', () => {
   assert.ok(filasConInvertida >= 2, `esperaba al menos 2 filas con su ancla, encontré ${filasConInvertida}`);
 });
 
-test('Marketing y Comercial: su fila de arriba tiene EXACTAMENTE una, y es la que contesta la hoja', () => {
+test('Marketing y Comercial: sus cuatro primeros números tienen EXACTAMENTE una, y es la que contesta la hoja', () => {
   const esperado: Record<string, string> = {
-    // Marketing pregunta «¿el gasto en anuncios vuelve?».
-    marketing: 'ROAS cash',
-    // Comercial pregunta «¿cuánta plata entró?» — el cobrado, no el vendido.
-    comercial: 'Cash Collected',
+    // Marketing pregunta «¿cuánto cuesta una agenda y de qué anuncio vino?» (4/11/2026, docs/templates-dashboard-propuesta.md §7.3).
+    marketing: 'Costo por agenda',
+    // Comercial pregunta «¿convierte, y a qué costo?» (4/11/2026): la tasa de cierre. Lo cobrado se mudó a Cobranza.
+    comercial: 'Tasa de cierre',
   };
   for (const [idPlantilla, titulo] of Object.entries(esperado)) {
     const p = PLANTILLAS_HOJA.find((x) => x.id === idPlantilla);
     assert.ok(p, `no encontré la plantilla «${idPlantilla}»`);
     const kpis = kpisDe(instanciarPlantilla(p!));
-    const arriba = [...filasDe(kpis).entries()].sort((a, b) => a[0] - b[0])[0]?.[1] ?? [];
-    assert.ok(arriba.length >= 3, `la fila de arriba de «${idPlantilla}» tiene ${arriba.length} KPIs; la regla habla de filas de 3 o 4`);
+    // De a 2 × 2 (1/11/2026, lib/graficos-portadas.ts): los cuatro primeros son dos filas de dos, y siguen siendo un solo grupo.
+    const arriba = [...kpis].sort((a, b) => a.y - b.y || a.x - b.x).slice(0, 4);
+    assert.equal(arriba.length, 4, `«${idPlantilla}» tiene ${arriba.length} KPIs`);
     const invertidas = arriba.filter((k) => k.invertida);
-    assert.equal(invertidas.length, 1, `«${idPlantilla}»: su fila de arriba necesita UN ancla, tiene ${invertidas.length}`);
+    assert.equal(invertidas.length, 1, `«${idPlantilla}»: necesita UN ancla, tiene ${invertidas.length}`);
     assert.equal(invertidas[0].titulo, titulo);
   }
 });

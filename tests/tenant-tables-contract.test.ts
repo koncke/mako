@@ -135,6 +135,8 @@ const FUERA_DEL_PROXY: Record<string, string> = {
   prueba_asignaciones: 'quién vio qué rama: lib/pruebas/store.ts, siempre con el workspace_id filtrado a mano',
   prueba_lecturas: 'los números diarios de una prueba: lib/pruebas/store.ts, siempre con el workspace_id filtrado a mano',
   prueba_historial: 'el porqué de cada decisión de una prueba: lib/pruebas/store.ts, siempre con el workspace_id filtrado a mano',
+  // MaKo sin conexión, T2 (mig 0346, 28/10/2026): la idempotencia de lo escrito sin conexión.
+  sin_conexion_aplicadas: 'lo ya subido de la cola sin conexión: app/_sin-conexion/acciones.ts con el cliente de servicio, la persona (usuario_id) y el id del cambio',
 };
 /** En TENANT_TABLES y no en TABLAS_DE_INQUILINO, con su porqué. */
 const EN_EL_SET_SIN_SER_TABLA: Record<string, string> = {

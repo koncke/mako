@@ -14,6 +14,37 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## «No tengo una herramienta» era la mitad: el documento ya se archivaba solo, y D6b lo frenaba (3/11/2026, ticket #44)
+
+**El síntoma.** Una clienta (ws 23) pegó su documento maestro en el chat del Second Brain con «analizalo e incorporalo al
+second brain». MaKo contestó «desde este chat no tengo una herramienta que escriba ahí» y abrió el ticket.
+
+**El diagnóstico obvio era el equivocado, o la mitad.** «Falta exponer la ingesta del Archivero» (la deuda de
+`negocio.def.ts` del 16/09) era cierto, pero el chat YA archivaba solo todo pegado largo del admin (#884,
+`archivarPegadosDelChat`). No corrió por **D6b**: el negocio tiene su Claude en la COMPUTADORA y ninguna clave, así que
+`puedeArchivarConSuIA()` dice que no y el servidor no tiene con qué extraer (mandarlo a la red gratis es lo prohibido). El
+mensaje quedó con «[…se cortó aquí por largo]» SIN «quedó en El Archivero»: el documento entero se perdió en el corte
+(12.000 caracteres) y a la clienta le faltaba desde el punto 10. Se ve en `chart_chats`, no en el ticket.
+
+**Y había dos trampas más en el camino del chat**, las dos medidas con el turno real (`clasificarIntencion` +
+`herramientasDelChat`):
+- **El documento pegado se clasificaba como material dictado** (títulos, listas): «sumá este documento al second brain» + el
+  pegado salía `capturar` y no viajaba NINGUNA herramienta. Lo pegado es dato: se clasifica lo escrito (`pedidoDelMensaje`).
+- **«te cargo un documento con toda la información que necesitas saber…» salía `consultar`** («que necesitas» cuenta como
+  pregunta), y en `consultar` no viajan acciones. Familia `documento-al-cerebro` (lib/mako-intencion-app.ts).
+
+**Lo que queda:**
+- Un negocio con su IA sólo en la computadora NO tiene IA en el servidor: todo lo que extrae en el servidor (El Archivero,
+  el panorama) se le cae. El camino es que extraiga el **modelo del turno**, que es su IA, y la persona vea el resultado antes
+  del «sí» (`sumar_documento_second_brain` pide los `campos` con `disponibles`).
+- Un texto que el modelo copia de un pegado se limpia sólo de las marcas (`documentoDelChat`): su id sale del contenido y
+  tiene que dar el mismo que el que el chat archivó solo, o se guarda dos veces. Un pegado CORTADO se sabe cortado.
+
+**Sin hacer:** con su Claude en la computadora, el pegado largo se sigue cortando en 12.000 y lo que pasa de ahí se pierde
+(lib/chat-pegado.ts, `TOPE_PEGADOS_MENSAJE`; lib/mako-turno-app.ts, `recortarMensaje`): la tarjeta lo dice y pide el resto,
+pero guardar el texto ENTERO sin extraer (para que el modelo lo lea después) no está. Y el #43 (lo mismo por WhatsApp,
+sobre el cerebro de otro workspace): el plan en docs/relevo/brain-docs.md.
+
 ## Recuperar margen: sólo cuenta lo que va ANTES, y el recorte tiene que llegar al ticket (31/10/2026)
 
 **El síntoma:** `cambiar_crons_secuencia` entraba en los 12.000 caracteres con 119 de margen, y el recorte se avisaba con un
@@ -138,6 +169,64 @@ salida del test para que el próximo lo vea antes de que el ruteo se caiga, no d
   contrato.
 
 ---
+
+## Un test que lee línea por línea no ve la falla que vive en una CONSTANTE (31/10/2026, claude1)
+
+**El síntoma.** Llegó como «`tests/guarda-por-defecto` está rojo en `origin/integracion` desde el 27/10, y lleva cuatro días
+así, por `lib/api-mako/areas/video-estudio.run.ts:528`». Medido en un worktree recién checkouteado de `origin/integracion`
+(47de7dd2a): **4 pasan, 0 fallan**. Esa línea ya tenía `falla: true`: la puso `03dcbbc26` ese mismo día a las 04:07 («Los tres
+rojos que quedaron sueltos entre chats, los tres de una línea»), seis horas antes. Un rojo que se mide en una rama vieja
+describe el árbol de ESE día, no el de `integracion` de ahora — y entre chats, el que lo arregla no es el que lo reportó.
+
+**La causa real, que sí estaba.** El mismo bug, en tres líneas que el detector del test **no puede ver**, y con 17 acciones
+en vez de una:
+
+| dónde | el error | lo ve el test |
+|---|---|---|
+| `video-estudio.run.ts:81`, el helper `anuncio()` | `return { error: NO_LEI }` con la base caída | **no**: el texto vive en una constante |
+| `video-estudio.run.ts:192`, `preparar` de `crear_anuncio_con_guion` | idem, `NO_LEI` | **no**: misma razón |
+| `video.run.ts:107` y `:114`, `proponerEnElEditor` | «No se pudo leer el proyecto.» / «No se pudo dejar la propuesta.» | **no**: comparten línea con una regla, en un ternario |
+
+Las **dos cegueras** del detector (`fallasLiterales()`, tests/guarda-por-defecto.test.ts), las dos por leer línea por línea:
+
+1. **El texto en una CONSTANTE.** El detector pide el literal «No pude» / «No se pudo» abierto por una comilla y
+   **pegado al `error:`**, en el mismo renglón. `{ error: NO_LEI }` no calza, y `NO_LEI` es «No pude leer tus anuncios
+   (falló la base)» — una falla nuestra de libro. Es la forma más natural de escribir un mensaje que se usa dos veces.
+2. **La falla que comparte línea con una regla.** `{ error: a ? 'Los proyectos del editor todavía no se guardan en MaKo.' :
+   'No se pudo dejar la propuesta.' }` mezcla una regla y una falla en un renglón: marcarlo entero marcaría la regla. Se parte
+   en `if`s, un `return` por caso, y la marca va sólo en el de la falla.
+
+Y encima el filtro de dueños es por **igualdad exacta** (`['preparar','proponer','revisando','seguro']`): `anuncio()` y
+`proponerEnElEditor` son helpers, el caso que esta misma guarda ya tenía anotado en «Sin hacer» (la entrada del 28/10, más
+abajo) para doce helpers de otras áreas. `video-estudio.run.ts` no estaba en esa lista porque nació el 27/10 en
+`nube/video-generator-2710` y se mergeó el 30/10, después de escribirla.
+
+**Lo medido** (el caso quedó en el scratchpad; lee el texto y la regla de la fuente, no de memoria): el `falla` viaja porque
+los diez `preparar` devuelven el objeto ENTERO (`if ('error' in a) return a;`, 12 veces con `conToma` y `conEscena`). Con la
+marca, el cuerpo que arma `ejecutar.ts` da `esGuardaDeHerramienta = false` → **abre ticket**; sin ella, `true` → se toma por
+regla y **no abre ninguno**. Eran 17 acciones del estudio de video (diez que llaman a `anuncio()` directo y siete por
+`conToma`/`conEscena`): con la base caída, todas contestaban «No pude leer tus anuncios» y ninguna abría ticket.
+
+**Lo que NO lleva la marca, y está bien:** `anuncioDe()` de `video.run.ts` devuelve el mismo «No pude leer el historial» pero
+sólo lo consumen `leer` — y el error de una LECTURA ya es falla salvo que traiga `falta` (`ejecutar.ts`), así que ya abría
+ticket. `SIN_PUENTE`, `PUENTE_VIEJO` y «todavía no se guardan en MaKo» son reglas. Y los errores que un `preparar` REENVÍA de
+una Action (`{ error: l.error }` de `cargar_guion_propio`) no se pueden clasificar en el sitio: el texto lo decide la Action,
+y marcarlos a ciegas convertiría reglas en fallas.
+
+**Sin hacer (medido el 31/10 sobre los 87 archivos de lib/api-mako/areas/).** De la ceguera (1) no queda ninguna: `NO_LEI` era la única constante así
+en todo `lib/api-mako/areas/`. De la (2) quedan **16 renglones en 8 archivos**, todos en caminos de `preparar`/`proponer` o en
+helpers que devuelven entero: `ads.helpers.ts:118` y `:162`, `chatbot.run.ts:342`, `crm.run.ts:634` `:1234` `:1247` `:1250`
+`:1285` `:1288` `:1633` `:2157`, `landing-editor.run.ts:92` y `:679`, `landing.run.ts:1164`, `mako.run.ts:420`,
+`plan.run.ts:1141`. **No están auditados**: la mayoría es `x.error ?? 'No pude leer…'` (el fallback de un error reenviado,
+que es falla salvo que la lib describa un pedido mal hecho), alguno es regla (`chatbot.run.ts:342` dice «No encontré esa
+publicación») y `landing-editor.run.ts` resuelve por otra vía (`siFallaNuestra`). Hay que mirarlos de a uno, con el criterio
+de arriba, y no a ciegas: marcar una regla como falla abre un ticket por cada «no» legítimo.
+
+**La regla que queda.** Un test que decide por el TEXTO de una línea no ve la falla que se escribió en otra forma, y su verde
+no dice «no hay fallas sin marcar» sino «ninguna está escrita como yo la busco». Dos consecuencias para quien escribe un área:
+el mensaje de una falla va **literal en el `return`** (si se repite, va la constante Y la marca en cada uso), y **una línea
+nunca mezcla una regla con una falla**. Y antes de creer un rojo ajeno: medirlo en un árbol recién checkouteado de la rama que
+lo nombra — acá el rojo ya no existía y el bug seguía, tres renglones más allá.
 
 ## El choque del registro se UNE; el de `NO_EN_FLUJOS` se une o abre un agujero (30/10/2026, rescate de video-generator)
 

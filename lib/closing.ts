@@ -316,7 +316,7 @@ export async function conQueAnalizaElClosing(): Promise<'su-clave' | 'plataforma
   return (await credWs('ANTHROPIC_API_KEY').catch(() => null)) ? 'plataforma' : 'no';
 }
 
-export const SYSTEM_ANALISIS = `Eres MaKo, analista de cierres de Mauricio Bustos (consultoría/coaching ejecutivo que vende un programa de mentoría a dueños de negocio). Analizas grabaciones de reuniones para evaluar el desempeño del closer.
+export const SYSTEM_ANALISIS = `Eres MaKo, analista de cierres de este negocio. Analizas grabaciones de reuniones para evaluar el desempeño del closer.
 
 Tu primera tarea es CLASIFICAR la llamada. Distingue con cuidado:
 
@@ -731,6 +731,47 @@ export async function processCandidate(
   return { status: row.status, category: row.category };
 }
 
+/** La fila de `leads` → lo que el análisis sabe del lead. UNA traducción: la usan las dos puertas que fijan el lead. */
+function aLeadMatch(row: Record<string, unknown>): LeadMatch {
+  return {
+    id: Number(row.id), nombre: String(row.nombre ?? ''), empresa: (row.empresa as string | null) ?? null,
+    email: (row.email as string | null) ?? null, closer: (row.closer as string | null) ?? null,
+    estado_lead: (row.estado_lead as string | null) ?? null,
+    fecha_junta_1: (row.fecha_junta_1 as string | null) ?? null, fecha_junta_2: (row.fecha_junta_2 as string | null) ?? null,
+    fecha_cierre: (row.fecha_cierre as string | null) ?? null, fecha_inicio_servicio: (row.fecha_inicio_servicio as string | null) ?? null,
+  };
+}
+
+/**
+ * Analiza UNA reunión que YA trae su transcripción y cuyo lead se SABE: la Grabadora de MaKo (lib/grabar-llamada.ts, 04/11/2026),
+ * que se grabó desde la ficha de ese lead o desde Cold Calling con el lead elegido. No barre los grabadores ni adivina el lead por
+ * email: lo dijo quien grabó. Guarda la fila con `lead_id` fijado, como «Analizar la llamada» de la ficha.
+ *
+ * Lo que falla en SU cuenta de Claude no deja una fila en error (vuelve en `suCuenta`, como `processCandidate`): quien llama lo
+ * dice en la grabación y el dueño puede volver a intentar.
+ */
+export async function analizarReunionDeLead(m: Reunion, leadId: number): Promise<{ status: ClosingStatus; error: string | null; suCuenta?: FalloDeSuCuenta }> {
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase
+    .from('leads')
+    .select('id, nombre, empresa, email, closer, estado_lead, fecha_junta_1, fecha_junta_2, fecha_cierre, fecha_inicio_servicio')
+    .eq('id', leadId)
+    .maybeSingle();
+  if (error) throw new Error(`Error leyendo lead ${leadId}: ${error.message}`);
+  if (!data) throw new Error('Lead no encontrado');
+  const lead = aLeadMatch(data as Record<string, unknown>);
+  const res = await analyzeMeeting(m, lead);
+  if (!res.ok) {
+    const suCuenta = res.deSuClave ? falloDeSuCuenta(res.error) : null;
+    if (suCuenta) return { status: 'error', error: res.error, suCuenta };
+    await upsertRow({ ...descartadaRow(m, lead, 'sin_clasificar'), status: 'error', error: res.error });
+    return { status: 'error', error: res.error };
+  }
+  const row = analyzedRow(m, lead, res.analysis, res.model);
+  await upsertRow(row);
+  return { status: row.status, error: null };
+}
+
 /**
  * Analiza las llamadas grabadas de UN lead — para el botón "Analizar la llamada"
  * de la tab Insights. Busca en los grabadores las reuniones del lead (por email O por el
@@ -748,13 +789,7 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
   if (error) throw new Error(`Error leyendo lead ${leadId}: ${error.message}`);
   if (!lr) throw new Error('Lead no encontrado');
   const row = lr as Record<string, unknown>;
-  const lead: LeadMatch = {
-    id: Number(row.id), nombre: String(row.nombre ?? ''), empresa: (row.empresa as string | null) ?? null,
-    email: (row.email as string | null) ?? null, closer: (row.closer as string | null) ?? null,
-    estado_lead: (row.estado_lead as string | null) ?? null,
-    fecha_junta_1: (row.fecha_junta_1 as string | null) ?? null, fecha_junta_2: (row.fecha_junta_2 as string | null) ?? null,
-    fecha_cierre: (row.fecha_cierre as string | null) ?? null, fecha_inicio_servicio: (row.fecha_inicio_servicio as string | null) ?? null,
-  };
+  const lead = aLeadMatch(row);
   const normUrl = (u: string) => u.trim().replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase();
   const emailNorm = (lead.email ?? '').trim().toLowerCase();
   const shareSet = new Set(((row.fathom_links as Array<{ url?: string }> | null) ?? []).map((f) => normUrl(f.url ?? '')).filter(Boolean));

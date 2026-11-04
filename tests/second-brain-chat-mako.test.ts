@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ORIGEN_SECOND_BRAIN, TABS_CON_CHAT_PROPIO, TAB_SECOND_BRAIN, origenDeClave, saludoDelSecondBrain } from '../lib/chat-mako-reglas';
+import { ORIGEN_SECOND_BRAIN, TABS_CON_CHAT_PROPIO, TAB_SECOND_BRAIN, esTabConChatPropio, origenDeClave, referenteDeTab, saludoDelSecondBrain } from '../lib/chat-mako-reglas';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -33,13 +33,31 @@ test('2. una conversación por persona y negocio, que el Ops Center lista como �
   assert.equal(TAB_SECOND_BRAIN, 'second-brain');
   // La lista es en POSITIVO: una tab nueva entra a propósito. El 27/10/2026 entró el estudio de Video Generator (su chat al
   // costado, tests/video-estudio-chat.test.ts).
-  assert.deepEqual([...TABS_CON_CHAT_PROPIO], ['second-brain', 'video-generator'], 'la ruta no crea conversaciones de una tab cualquiera');
+  assert.deepEqual([...TABS_CON_CHAT_PROPIO], ['second-brain', 'video-generator', 'funnel-coach'], 'la ruta no crea conversaciones de una tab cualquiera');
   assert.equal(origenDeClave('mako-movil:u8:second-brain'), ORIGEN_SECOND_BRAIN, 'el grupo del Ops Center (y `claveDeTab` la deja seguir)');
   assert.equal(origenDeClave('mako-movil:u8'), null, 'las de la persona no son de una tab');
   assert.equal(origenDeClave('mako-movil:u8:otra-cosa'), null);
   const srv = sinComentarios(leer('lib/mako-turno-app.ts'));
   const f = srv.slice(srv.indexOf('export async function sesionDeTab('), srv.indexOf('export async function sesionDeTab(') + 700);
-  assert.match(f, /if \(!TABS_CON_CHAT_PROPIO\.includes\(tab\)\) return null;/);
+  // 3/11/2026 (#16): la guarda es `esTabConChatPropio`, que suma la conversación con cada GURÚ (`referente-<id>`) a la lista fija,
+  // y sólo la de un gurú que existe: la ruta sigue sin crear conversaciones de una tab cualquiera.
+  assert.match(f, /if \(!esTabConChatPropio\(tab\)\) return null;/);
+  for (const t of TABS_CON_CHAT_PROPIO) assert.ok(esTabConChatPropio(t), t);
+  assert.ok(esTabConChatPropio('referente-julian-alborna'), 'la conversación con un gurú es una tab con chat propio');
+  assert.ok(!esTabConChatPropio('referente-nadie'), 'un gurú que no existe no abre una conversación');
+  assert.ok(!esTabConChatPropio('x:referente-julian-alborna'), 'una clave entera no es una tab');
+  assert.ok(!esTabConChatPropio('otra-cosa'));
+  assert.equal(origenDeClave('mako-movil:u8:referente-julian-alborna'), 'Julián Alborna', 'sin origen, `claveDeTab` no la deja escribir');
+  assert.equal(referenteDeTab('mako-movil:u8:referente-emilio-puigrredon'), 'emilio-puigrredon', 'el servidor saca al gurú de la CLAVE');
+  assert.equal(referenteDeTab('mako-movil:u8'), null);
+  // Y el servidor lo usa: lo que hace gurú a un chat es la clave de su conversación, no la pantalla (retomada desde la lista,
+  // sigue siendo con él). Con su ficha en el contexto y su id para que el turno traiga su curso.
+  const rutaGuru = sinComentarios(leer('app/api/mako/chat/route.ts'));
+  assert.match(rutaGuru, /const guru = referenteDeTab\(quien\.chartKey\);\s*if \(guru\) return \{ contexto: `\$\{CONTEXTO_SECOND_BRAIN\}\\n\\n\$\{contextoDeReferente\(guru\)\}`, referente: guru \};/,
+    'el chat de un gurú no lleva su ficha o no le pasa su id al turno');
+  // Y la herramienta que pide una clase por id la encuentra: sin `conLosCursosDe`, el id `ref:` que el turno muestra devuelve el índice.
+  assert.match(sinComentarios(leer('lib/api-mako/areas/negocio.run.ts')), /recuperar\(await conLosCursosDe\(await grafoParaChat\(\), ids\), \{/,
+    'recuperar_del_segundo_cerebro no cuelga el curso del gurú que se le pide por id');
   assert.match(f, /const clave = `\$\{persona\.chartKey\}:\$\{tab\}`;/, 'la clave sale de la persona de la sesión, no del pedido');
   assert.match(f, /return runWithWorkspace\(persona\.ws,/, 'en el negocio de la sesión');
   assert.match(f, /return crear \? aSesion\(await createSession\(clave, null, ''\)\) : null;/);

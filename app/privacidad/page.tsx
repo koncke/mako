@@ -27,7 +27,8 @@
 // como prefijo (lo puso la página de la extensión), así que esta ruta lo hereda.
 
 import { EMAIL_MAKO } from '@/lib/app-url';
-import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
+import { RAZON_SOCIAL_MAKO, PUBLICA_EN_PLAY } from '@/lib/titular-mako';
+import { PLAZO_BAJA_DIAS } from '@/lib/baja-cuenta-reglas';
 import { H, H3, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 import { loginPideAgenda } from '@/lib/google-login-agenda';
 
@@ -38,7 +39,7 @@ export const metadata = {
   description: 'Qué datos usa MaKo, con quién se comparten y qué puedes hacer con ellos.',
 };
 
-const ACTUALIZADO = '12 de octubre de 2026';
+const ACTUALIZADO = '4 de noviembre de 2026';
 
 // ⚠️ LOS TRES DATOS QUE NO SALEN DEL CÓDIGO. Una política con el responsable
 // equivocado es peor que no tenerla: es el único dato que le dice a una persona A
@@ -89,15 +90,15 @@ export default function Page() {
       <H id="tus-datos">Qué datos tuyos guardamos</H>
       <H3>Al crear la cuenta</H3>
       <p>
-        Se entra <strong>solo con Google</strong>.{' '}
+        Se entra <strong>con Google o con tu correo y una contraseña</strong>.{' '}
         {agendaAlEntrar
           ? <>Ese acceso pide los permisos de identidad (<code>openid email profile</code>) y, en la misma pantalla de Google, tu
             calendario (más abajo, en «Google»: lo puedes destildar y entras igual). De la identidad se guardan cuatro cosas: tu{' '}</>
           : <>Ese acceso pide únicamente los permisos de identidad (<code>openid email profile</code>) y de ahí se guardan
             cuatro cosas: tu{' '}</>}
         <strong>correo</strong>, tu <strong>nombre</strong>, la <strong>dirección de tu foto</strong>{' '}
-        de perfil de Google y la <strong>fecha de tu último ingreso</strong>. No se guarda tu
-        contraseña — MaKo nunca la ve.
+        de perfil de Google y la <strong>fecha de tu último ingreso</strong>. Tu contraseña de Google,
+        MaKo nunca la ve. La de MaKo se guarda como un resumen irreversible, nunca el texto.
       </p>
       <p>
         No cualquiera con una cuenta de Google entra: tu correo tiene que estar dado de alta.
@@ -350,7 +351,18 @@ export default function Page() {
           <strong>Proveedores de inteligencia artificial</strong> — Anthropic (Claude), Google
           (Gemini), OpenAI, Groq, Mistral y Cerebras. Reciben el texto de cada pedido, que según
           la función puede incluir la ficha de un contacto, una conversación o el análisis de una
-          llamada. Los eventos de tu Google Calendar no se les mandan.
+          llamada. Los eventos de tu Google Calendar no se les mandan. <strong>En la app de iPhone te lo
+          preguntamos antes</strong>, una vez, y sin tu permiso no sale nada de lo que pides desde ahí.
+        </li>
+        <li>
+          <strong>El audio del micrófono</strong> — cuando dictas o mandas una nota de voz, el audio va al
+          proveedor de IA que la transcribe (OpenAI, Groq o Google). No guardamos lo que dictas: sólo el
+          texto que resulta. Una nota de voz en un chat se guarda con ese chat.
+        </li>
+        <li>
+          <strong>Google y Apple, para los avisos</strong> — si los activas, guardamos el identificador que
+          tu teléfono nos da para mandarte notificaciones, y el texto del aviso pasa por su servicio
+          (Firebase en Android y en el navegador, APNs en iPhone). Se borra al apagarlos o al eliminar tu cuenta.
         </li>
         <li><strong>Google</strong> — para entrar y, si la conectas, para tu agenda.</li>
         <li><strong>Resend</strong> — el envío de correos.</li>
@@ -403,13 +415,17 @@ export default function Page() {
       <p>
         Con honestidad: <strong>hoy no hay borrado automático</strong>. Lo que cargas se guarda
         mientras tengas la cuenta abierta, y no existe todavía un proceso que elimine datos por
-        antigüedad. Tampoco existe un botón de «borrar mi cuenta» ni de «descargar mis datos» —
-        estamos construyéndolos.
+        antigüedad.
       </p>
       <p>
-        Mientras tanto, <strong>eso se hace a mano y lo hacemos nosotros</strong>: escríbenos a{' '}
-        <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a> y borramos o te entregamos tus datos. No
-        es un trámite, es un correo.
+        <strong>Puedes eliminar tu cuenta cuando quieras</strong>, desde la app o la computadora. Se
+        borra en hasta {PLAZO_BAJA_DIAS} días y te avisamos por correo al terminar: los pasos y qué se
+        borra están en <a href="/eliminar-cuenta">Eliminar tu cuenta</a>. Quedan los comprobantes de lo
+        que pagaste, el tiempo que pida la ley.
+      </p>
+      <p>
+        Todavía no hay un botón de «descargar mis datos»: escríbenos a{' '}
+        <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a> y te los entregamos. No es un trámite, es un correo.
       </p>
       <p>
         Dos avisos concretos: borrar un contacto del CRM <strong>no</strong> borra hoy todo lo
@@ -460,7 +476,8 @@ export default function Page() {
 
       <H id="contacto">Quiénes somos y cómo contactarnos</H>
       <p>
-        Responsable del tratamiento: <strong>{RESPONSABLE}</strong>. Los servidores están en la
+        Responsable del tratamiento: <strong>{RESPONSABLE}</strong>. Quién publica la app: en la App Store,{' '}
+        <strong>{RAZON_SOCIAL_MAKO}</strong>; en Google Play, <strong>{PUBLICA_EN_PLAY}</strong>. Los servidores están en la
         infraestructura de nuestros proveedores (Vercel y Supabase), lo que puede implicar que tus
         datos se traten fuera de tu país.
       </p>

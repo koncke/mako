@@ -44,8 +44,9 @@ export const TITULO_CUENTA = TITULO_TU_CUENTA;
 /** La pantalla de onboarding pendiente: sin barra y sin «volver». */
 export const RUTA_CONFIGURAR = '/m/configurar';
 
-// El Dashboard: desde el 20/10/2026 es una fila de More (el Ops Center tomó su lugar en la barra), así que ya no se busca
-// en DESTINOS_MOVIL. Sigue siendo la vuelta de Avisos y de una ruta que nadie declaró: existe para todos.
+// El Dashboard: la vuelta de Avisos y de una ruta que nadie declaró (existe para todos). Desde el 04/11/2026 vuelve a ser un
+// lugar de la barra (donde estaba Plan) para quien lo ve; si no, sigue siendo una fila de More, así que no se busca en
+// DESTINOS_MOVIL: su `href` en la barra cambia por rol (`destinoDashboard`).
 const HOY: LugarBarra = { href: HOME_MOVIL, label: TITULO_HOME_MOVIL };
 const MAS: PadreM = { href: RUTA_MAS, label: DESTINOS_MOVIL.find((d) => d.href === RUTA_MAS)!.label };
 
@@ -159,8 +160,9 @@ export function nivel(pathname: string | null | undefined, barra: readonly Lugar
   const p = limpia(pathname);
   if (!esRutaMovil(p) || p === '/m' || p === RUTA_CONFIGURAR) return 0;
   if (raizDeBarra(p, barra)) return 0;
-  // La campana de Avisos se abre desde el Dashboard, que es una fila de More desde el 20/10/2026: uno más adentro que él.
-  if (dentro(p, RUTA_INBOX)) return 2;
+  // La campana de Avisos se abre desde el Dashboard: uno más adentro que él (raíz de la barra desde el 04/11/2026; fila de
+  // More del 20/10 al 04/11, y sin él en la barra de este rol, todavía).
+  if (dentro(p, RUTA_INBOX)) return raizDeBarra(HOME_MOVIL, barra) ? 1 : 2;
   const dueno = duenoDe(p, barra);
   if (!dueno) return 1;
   const base = raizDeBarra(dueno.href, barra) ? 0 : 1;

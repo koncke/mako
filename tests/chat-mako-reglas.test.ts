@@ -44,8 +44,8 @@ test('la búsqueda de la barra: sin mayúsculas ni tildes, y el título de lo qu
 });
 
 test('un sub-chat lleva al jefe en el nombre (la convención «Jefe › Sub», de la que sale su muñeco)', () => {
-  assert.equal(nombreDeSub(s(2, 'Precios', '')), `${JEFE_SECOND_BRAIN} › Precios`);
-  assert.equal(nombreDeSub({ titulo: null }), `${JEFE_SECOND_BRAIN} › ${SIN_TITULO}`);
+  assert.equal(nombreDeSub(s(2, 'Precios', '')), 'Ops Center › Precios');
+  assert.equal(nombreDeSub({ titulo: null }), `Ops Center › ${SIN_TITULO}`);
 });
 
 test('la edad corta de una fila', () => {

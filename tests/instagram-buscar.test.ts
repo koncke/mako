@@ -255,6 +255,7 @@ test('un FALLO no se guarda en la caché: sólo lo que una fuente CONTESTÓ', ()
   // decida que es una respuesta.
   const escrituras = [...RUTA.matchAll(/(?<!function )guardarCache\(([^;]*)\);/g)].map((m) => m[1].replace(/\s+/g, ' '));
   assert.deepEqual(escrituras, [
+    'clave, hallados',                          // Apify encontró perfiles (sólo con resultados: vacío no se guarda)
     'clave, null',                              // la página del negocio no tiene Instagram (Meta contestó)
     'clave, id',                                // su cuenta de Instagram
     '`mx:${ws}`, motivo',                       // leerla dio token, permiso o límite: se pausa con su motivo (#844)

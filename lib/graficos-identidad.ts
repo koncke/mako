@@ -59,6 +59,8 @@ export const IDENTIDADES: readonly Identidad[] = [
   { id: 'durazno', nombre: 'Durazno', fondo: '#FFBE9C', tinta: '#3A1708', forma: 'arco' },
   { id: 'magenta', nombre: 'Magenta', fondo: '#C42B7F', tinta: '#FFFFFF', forma: 'circulo' },
   { id: 'noche', nombre: 'Noche', fondo: '#12161F', tinta: '#FFFFFF', forma: 'arco' },
+  // Cold Calling (04/11/2026): un color nuevo, porque los demás ya nombran un tema (el Noche, la Inmobiliaria; el magenta, Instagram).
+  { id: 'pizarra', nombre: 'Pizarra', fondo: '#475569', tinta: '#FFFFFF', forma: 'circulo' },
 ];
 
 const POR_ID: ReadonlyMap<string, Identidad> = new Map(IDENTIDADES.map((x) => [x.id, x]));
@@ -101,21 +103,27 @@ export function tintaSobre(fondo: string): string {
   return contraste(blanca, fondo) >= contraste(oscura, fondo) ? blanca : oscura.toUpperCase();
 }
 
-/** El color de cada plantilla del Dashboard (lib/graficos-plantillas.ts), por su id. */
+/**
+ * El color de cada plantilla del Dashboard (lib/graficos-plantillas.ts), por su id. Desde el 31/10/2026 se ve sólo con el
+ * estilo «Clásica»: el de por defecto pinta la portada de negro (`acentoDePortada`, lib/graficos-temas.ts).
+ */
 export const COLOR_DASHBOARD: Readonly<Record<string, string>> = {
   marketing: 'azul-meta',
   comercial: 'dorado',
   'ads-analyst': 'coral',
+  'hooks-retencion': 'azul-oscuro',
   landing: 'celeste',
   'vsl-analyst': 'rojo-play',
   'chat-analyst': 'verde-wa',
   closing: 'violeta',
   'cs-analyst': 'teal',
   productividad: 'lima',
-  crm: 'azul-oscuro',
   cobranza: 'ambar',
   automatizaciones: 'indigo',
   'ia-contenido': 'durazno',
+  // La primera por rubro (4/11/2026): el último color libre del Dashboard. En General, Noche es la General; son galerías distintas.
+  inmobiliaria: 'noche',
+  'cold-calling': 'pizarra',
 };
 
 /**
@@ -124,15 +132,8 @@ export const COLOR_DASHBOARD: Readonly<Record<string, string>> = {
  */
 export const COLOR_GENERAL: Readonly<Record<string, string>> = {
   general: 'noche',
-  bienvenida: 'durazno',
   foco: 'lima',
   operacion: 'indigo',
-  ventas: 'dorado',
-  cobros: 'ambar',
-  anuncios: 'azul-meta',
-  'funnel-llamadas': 'violeta',
-  'funnel-whatsapp': 'verde-wa',
-  lanzamiento: 'rojo-play',
   servicio: 'teal',
   curso: 'celeste',
   instagram: 'magenta',

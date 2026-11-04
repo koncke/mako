@@ -16,6 +16,7 @@
 
 /* El segmentado de hojas, debajo del título grande. */
 .m-dash-seg { padding-top: 4px; }
+.m-dash-frase { margin: 6px 0 2px; font-size: var(--fs-card); line-height: 1.4; color: var(--ink); }
 
 /* ── El gráfico ─────────────────────────────────────────────────────────── */
 .m-dash-graf {

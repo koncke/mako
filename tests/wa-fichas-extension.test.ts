@@ -308,5 +308,6 @@ test('10. la política de privacidad dice lo que hace: cada sitio del manifest, 
   assert.match(pol, /abre también la\{' '\}\s+<strong>información de contacto de cada miembro<\/strong>/, 'la política no dice que lee el perfil de cada miembro');
   assert.match(pol, /<strong>sólo llena lo que está vacío<\/strong>/);
   assert.match(pol, /registro de tus últimas 30 extracciones/);
-  assert.match(pol, /const ACTUALIZADO = '27 de octubre de 2026'/, 'la política cambió y la fecha no');
+  // 3/11/2026 (0.75.0): «Guardar en Spy» (lo que dice lo mira tests/spy-captura.test.ts).
+  assert.match(pol, /const ACTUALIZADO = '3 de noviembre de 2026'/, 'la política cambió y la fecha no');
 });

@@ -544,6 +544,12 @@ export function mismoTelefono(a: string | null | undefined, b: string | null | u
 /** El número que ven las personas: «#12». */
 export const numero = (id: number) => `#${id}`;
 
+/**
+ * ¿Esta `ref` es de un ticket que abrió el SISTEMA por la persona (un automático, un error, lo que no existe)? Vive acá y no
+ * en lib/tickets-db.ts (que la re-exporta) porque también la pregunta el correo de avance (lib/tickets-avance.ts), que es puro.
+ */
+export const esRefDelSistema = (ref: string | null | undefined): boolean => !!ref && /^(?:np|error|no-existe):/.test(ref);
+
 // ── Lo que ve el CLIENTE de su ticket ─────────────────────────────────────────────────────────────────────────────
 // Nada interno: ni el veredicto del triage, ni la nota de Martín para el Cerebro, ni la entrega del Runner. Un ticket
 // del cliente es lo que mandó, en qué anda (cinco palabras) y la conversación con el equipo, como en Intercom.

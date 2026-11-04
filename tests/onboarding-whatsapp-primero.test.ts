@@ -85,8 +85,9 @@ test('4. las trampas de adelantarlo', () => {
   const chat = leer('app/onboarding/ChatArranque.tsx');
   assert.match(chat, /useState\(!inicial\.introVista && \(inicial\.etapa === 'telefono' \|\| inicial\.etapa === 'nombre'\)\)/, 'sin esto, la entrada de MaKo no sale nunca');
   const ruta = leer('app/api/onboarding/arranque/route.ts');
-  assert.match(ruta, /enviarCodigoVerificacion\(g\.ws, digitos, e\.negocio \|\| ''\)/, 'con «tu negocio» el grupo nace «MaKo <> tu negocio»: vacío, usa el nombre del workspace');
-  assert.match(leer('lib/mako-grupo.ts'), /const nombre = v\.nombre\?\.trim\(\) \|\| \(await getWorkspace\(ws\)\.catch\(\(\) => null\)\)\?\.nombre \|\| 'tu negocio';/);
+  // Que con el nombre vacío el grupo nazca con el del workspace lo prueba EJECUTANDO tests/whatsapp-anti-ban.test.ts («sin el nombre del
+  // negocio todavía…»). Acá, que la ruta lo pase vacío y no «tu negocio».
+  assert.match(ruta, /pedirMensajeDeVerificacion\(g\.ws, digitos, e\.negocio \|\| ''\)/, 'con «tu negocio» el grupo nace «MaKo <> tu negocio»: vacío, usa el nombre del workspace');
   // Al decir el negocio, el grupo que ya nació toma el nombre; sin grupo, no se crea uno vacío.
   assert.match(ruta, /if \(patch\.negocio && \(await getGrupoJidMaKo\(g\.ws\)\.catch\(\(\) => null\)\)\) await asegurarGrupoMaKo\(g\.ws, \{ nombre: patch\.negocio \}\)/);
   // Y el contacto de los reportes, que nació sin nombre.
@@ -142,3 +143,21 @@ test('6. el WhatsApp del pago: arranca cargado, editable, y nada lo usa hasta el
 // por el largo: de ahí «tengo 5491155551234 clientes»); lo escrito sin pedir el número, 5/1; «ahora no» escrito sin valer, 5/1. Con el test 6 (base 7/0): un país desconocido con el de por defecto, 6/1;
 // cualquier cosa aceptada como número, 6/1; leído en todas las etapas, 6/1; otra clave, 6/1; la tarjeta sin recibirlo, 6/1; la ruta usándolo, 6/1;
 // el alta con otra clave en lib/origen-cuenta.ts, 6/1.
+
+// 4/11/2026: MaKo no le escribe primero a nadie. En una verificación entrante el chat no dice «Te mandé un código»: pide que la persona
+// le escriba, con la tarjeta del link, y lo escrito en la caja no se toma como código. Probado rompiéndolo: con el texto de antes, 1 fallo.
+test('6. la verificación entrante: MaKo pide el mensaje, no manda un código', () => {
+  const e: EstadoArranque = { telefono: 'codigo', telefonoNumero: '+5491130000111', telefonoEntrante: true };
+  const ultimo = mensajesDeArranque(e, H).antes.at(-1)!;
+  assert.equal(ultimo.tarjeta, 'whatsapp');
+  assert.doesNotMatch(ultimo.texto, /Te mandé/);
+  assert.match(ultimo.texto, /mándame un mensaje desde el \+5491130000111/);
+  assert.deepEqual(ultimo.opciones, [CAMBIAR_NUMERO, AHORA_NO]);
+  const tipeado = leerRespuesta(e, H, { texto: 'K7P2QX' });
+  assert.equal(tipeado.ok, false);
+  // Cambiar el número saca también la marca: el próximo pedido es otro.
+  const cambio = leerRespuesta(e, H, { opcion: 0, opcionTexto: CAMBIAR_NUMERO });
+  assert.ok(cambio.ok && 'patch' in cambio && cambio.patch.telefonoEntrante === undefined && 'telefonoEntrante' in cambio.patch);
+  // Un pedido de antes (MaKo mandó el código) sigue igual.
+  assert.match(mensajesDeArranque({ telefono: 'codigo', telefonoNumero: '+5491130000111' }, H).antes.at(-1)!.texto, /Te mandé un código/);
+});

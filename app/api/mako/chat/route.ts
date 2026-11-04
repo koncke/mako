@@ -40,17 +40,24 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { TEXTO_SIN_PERMISO_IA, esSinPermisoIa } from '@/lib/ia-permiso-reglas';
 import {
   personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, sesionDeTab, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
   urlDeVozDelChat, escucharNotaDelChat,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
-import { CONTEXTO_SECOND_BRAIN, antesValido, appDeEscritorio, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
+import { CONTEXTO_SECOND_BRAIN, ORIGEN_FUNNEL_COACH, antesValido, appDeEscritorio, referenteDeTab, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
+import { contextoDeReferente, contextoDelFunnelCoach, pistaDelFunnelCoach } from '@/lib/asesores/contexto';
+import { asesorPorId, sanearReferentes } from '@/lib/asesores/catalogo';
+// Ya viene con el turno (lib/mako-turno-app.ts lo importa): estático, así la guarda de las rutas sin IA lo ve (tests/d6b-rutas.test.ts).
+import { cursoDe } from '@/lib/cerebro-para-chat';
+import { guardarReferentes, leerPlanFunnel, leerReferentes } from '@/lib/funnel-plan-db';
+import { listarOfertas } from '@/lib/ofertas';
 import { tipoDeDispositivo } from '@/lib/movil-dispositivo';
-import { sanearDesde } from '@/lib/chat-desde';
+import { sanearDesde, type Desde } from '@/lib/chat-desde';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeLosEditores, chatsDeOffer, claveDeAntes, conTemas, hiloDeAutomatizacion, hiloDeEditor, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
+import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeLosEditores, chatsDeOffer, claveDeAntes, conTemas, gurusConCharla, hiloDeAutomatizacion, hiloDeEditor, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 import type { PersonaChat } from '@/lib/mako-turno-app';
 import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
 import { sanearCambio } from '@/lib/centro-mensajes';
@@ -115,6 +122,26 @@ async function personaDelChat(persona: PersonaChat, sessionId: number, antes: un
   return chartKey ? { ...persona, chartKey } : null;
 }
 
+/**
+ * Con qué contexto corre el turno. El Funnel Coach (1/11/2026) es el mismo turno, con SU contexto y buscando sus herramientas aunque la
+ * persona escriba sólo un número. ⚠️ UNA PIEZA PARA LOS DOS CAMINOS DE ESTA RUTA (JSON y con archivos): escrito en cada uno, un PDF
+ * adjunto al Funnel Coach lo dejaba hablando como el Ops Center.
+ */
+async function contextoDelChat(quien: PersonaChat, desde: Desde | null, mensaje: string): Promise<{ contexto: string; pista?: string; referente?: string | null }> {
+  // El chat con un GURÚ (3/11/2026, #16): su ficha en cada mensaje y su curso en el Second Brain del turno. Lo dice la CLAVE de la
+  // conversación (`…:referente-<id>`, lib/chat-mako-reglas.ts), no la pantalla: retomada desde la lista, sigue siendo con él.
+  const guru = referenteDeTab(quien.chartKey);
+  if (guru) return { contexto: `${CONTEXTO_SECOND_BRAIN}\n\n${contextoDeReferente(guru)}`, referente: guru };
+  if (desde?.tab !== ORIGEN_FUNNEL_COACH) return { contexto: CONTEXTO_SECOND_BRAIN };
+  const { funnel } = await runWithWorkspace(quien.ws, () => leerReferentes());
+  // ⚠️ `referente` ES OTRA COSA QUE `contexto`, y por eso viaja aparte (2/11/2026). El contexto
+  // lleva la FICHA —cómo piensa, 5.200 caracteres, en CADA mensaje—; `referente` sólo dice QUIÉN
+  // es, para que el Second Brain pueda colgar su curso entero como capa y traer la clase que la
+  // pregunta pida (lib/cerebro-para-chat.ts). Martín: «que el segundo cerebro de estos gurús tenga
+  // todo el contexto».
+  return { contexto: contextoDelFunnelCoach(funnel), pista: pistaDelFunnelCoach(mensaje), referente: funnel };
+}
+
 export async function GET(req: NextRequest) {
   const persona = await personaDelRequest();
   if ('error' in persona) return json({ ok: false, error: persona.error }, persona.status);
@@ -123,6 +150,27 @@ export async function GET(req: NextRequest) {
     if (sp.get('sesiones')) return json({ ok: true, sesiones: await listarSesiones(persona) });
     // La conversación de una tab con chat propio (el Second Brain, 23/10/2026), si ya existe: se lee, no se crea.
     if (sp.has('deTab')) return json({ ok: true, sesion: await sesionDeTab(persona, sp.get('deTab') ?? '', false) });
+    // Los coaches del Ops Center (1/11/2026, lib/asesores/): quién tiene cada uno al frente, si hay oferta y el plan guardado.
+    // El Second Brain de UN gurú, para dibujarlo (#18, 3/11/2026): su curso como grafo, acomodado aquí. SIN el texto de las clases:
+    // el de Alborna son 742 mil caracteres y el grafo dibuja títulos. El texto lo lee el chat (lib/cerebro-para-chat.ts → `cursoDe`).
+    if (sp.has('cerebroDe')) {
+      const id = asesorPorId(sp.get('cerebroDe'))?.id;
+      const c = id ? await cursoDe(id) : null;
+      if (!c) return json({ ok: false, error: 'Este gurú todavía no tiene su curso cargado.' }, 404);
+      // Con la forma del grafo del negocio (4/11/2026): sus módulos como secciones, con color y tamaño (lib/cerebro-referente-vista.ts).
+      // Sin el texto de las clases: sólo el principio de cada una.
+      const [{ layoutCerebro }, { vistaDeReferente }] = await Promise.all([import('@/lib/cerebro-layout'), import('@/lib/cerebro-referente-vista')]);
+      const vista = vistaDeReferente(c.a, c.capa);
+      const { posiciones, encuadre } = layoutCerebro(vista.nodos, vista.aristas);
+      return json({ ok: true, cerebro: { ...vista, posiciones, encuadre } });
+    }
+    if (sp.has('gurusConCharla')) return json({ ok: true, gurus: await gurusConCharla(persona) });
+    if (sp.has('coaches')) {
+      const [referentes, ofertas] = await runWithWorkspace(persona.ws, () => Promise.all([leerReferentes(), listarOfertas(true).catch(() => null)]));
+      // Si la base no contestó no se sabe, y no se le dice a nadie que le falta una oferta que puede tener.
+      return json({ ok: true, referentes, hayOferta: ofertas == null || ofertas.length > 0, puedeElegir: persona.rol === 'admin' });
+    }
+    if (sp.has('planFunnel')) return json({ ok: true, plan: await runWithWorkspace(persona.ws, () => leerPlanFunnel()) });
     // Y las cuentas que el «+» de la caja deja elegir para ESTE chat (8b, lib/chat-ia.ts): sin ellas, el selector no se dibuja.
     // Sólo la app de escritorio (25/10/2026): la pregunta de los chats con caja propia (app/_chat/useAppDeEscritorio.tsx), sin
     // las cuentas ni la IA conectada, que esos chats no dibujan.
@@ -270,16 +318,18 @@ export async function POST(req: NextRequest) {
       // Desde dónde escribe (OC6): la estrella de una tab lo manda como JSON en el form.
       const desde = sanearDesde((() => { try { return JSON.parse(String(form.get('desde') ?? 'null')); } catch { return null; } })());
       // Con qué IA corre (8b): lo que eligió en el «+», validado contra lo que se le ofrecería ahora; si no, Automático.
+      const delChat = await contextoDelChat(quien, desde, mensaje);
       const ia = await eleccionDelPedido(quien, form.get('ia'));
-      const r = await turnoApp(quien, sessionId, { mensaje, adjuntos: v.adjuntos, voz, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde, ia });
+      const r = await turnoApp(quien, sessionId, { mensaje, adjuntos: v.adjuntos, voz, contexto: delChat.contexto, pista: delChat.pista, referente: delChat.referente, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde, ia });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       return json({ ...r });
     } catch (e) {
+      if (esSinPermisoIa(e)) return json({ ok: false, error: TEXTO_SIN_PERMISO_IA, necesitaPermisoIa: true }, 403);
       console.error('[api/mako/chat] POST multipart', e instanceof Error ? e.message : String(e));
       return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
     }
   }
-  let body: { action?: unknown; tab?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown; ia?: unknown };
+  let body: { action?: unknown; tab?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown; ia?: unknown; referentes?: unknown };
   try { body = await req.json(); } catch { return json({ ok: false, error: 'Pedido inválido.' }, 400); }
   try {
     if (body.action === 'new') {
@@ -289,6 +339,16 @@ export async function POST(req: NextRequest) {
         return sesion ? json({ ok: true, sesion }) : json({ ok: false, error: 'Esa pantalla no tiene su chat.' }, 400);
       }
       return json({ ok: true, sesion: await nuevaSesion(persona) });
+    }
+    // Quién tiene al frente un coach: del negocio, así que sólo su admin lo cambia.
+    if (body.action === 'referente') {
+      if (persona.rol !== 'admin') return json({ ok: false, error: 'Lo cambia quien administra el negocio.' }, 403);
+      const referentes = await runWithWorkspace(persona.ws, async () => {
+        const nuevos = sanearReferentes({ ...(await leerReferentes()), ...(body.referentes && typeof body.referentes === 'object' ? body.referentes : {}) });
+        await guardarReferentes(nuevos);
+        return nuevos;
+      });
+      return json({ ok: true, referentes });
     }
     // Las marcas de la persona en un mensaje (el menú del clic derecho): suyas, en su negocio (lib/chat-mako-marcas-db.ts).
     if (body.action === 'marcar') {
@@ -310,8 +370,9 @@ export async function POST(req: NextRequest) {
       // pasaba (/api/m/mako); el MaKo Analyst de un lead, que no la pasa, es otra ruta.
       // Desde dónde escribe (OC6, lib/chat-desde.ts): la tab, la entidad y el modo de la estrella; saneado, nunca tal cual.
       // Con qué IA corre (8b): lo que eligió en el «+», validado contra lo que se le ofrecería ahora; si no, Automático.
+      const delChat = await contextoDelChat(quien, sanearDesde(body.desde), mensaje);
       const ia = await eleccionDelPedido(quien, body.ia);
-      const r = await turnoApp(quien, sessionId, { mensaje, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde: sanearDesde(body.desde), ia });
+      const r = await turnoApp(quien, sessionId, { mensaje, contexto: delChat.contexto, pista: delChat.pista, referente: delChat.referente, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde: sanearDesde(body.desde), ia });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       // Un fallo del modelo NO es un error HTTP: el mensaje quedó guardado y el aviso viaja adentro.
       return json({ ...r });
@@ -328,6 +389,7 @@ export async function POST(req: NextRequest) {
 
     return json({ ok: false, error: 'Pedido inválido.' }, 400);
   } catch (e) {
+    if (esSinPermisoIa(e)) return json({ ok: false, error: TEXTO_SIN_PERMISO_IA, necesitaPermisoIa: true }, 403);
     console.error('[api/mako/chat] POST', e instanceof Error ? e.message : String(e));
     return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
   }

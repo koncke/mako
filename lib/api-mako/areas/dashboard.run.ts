@@ -960,6 +960,8 @@ export const RUNNERS: Runners = {
         ...(input.hasta !== undefined ? { hasta: str(input, 'hasta') } : {}),
         titulo: str(input, 'titulo'), ...(input.comparar !== undefined ? { comparar: input.comparar === true } : {}),
         ...(typeof input.mako === 'boolean' ? { mako: input.mako } : {}),
+        ...(str(input, 'ir') ? { ir: str(input, 'ir') } : {}),
+        ...(str(input, 'frase') ? { frase: str(input, 'frase') } : {}),
       }, null);
       if (!a.ok) return { error: a.error, disponibles: a.disponibles };
       let g: Grafico = a.grafico;
@@ -1010,6 +1012,8 @@ export const RUNNERS: Runners = {
         ...(input.comparar !== undefined ? { comparar: input.comparar === true } : {}),
         ...(typeof input.mako === 'boolean' ? { mako: input.mako } : {}),
         ...(input.pedido_mako !== undefined ? { pedidoMako: str(input, 'pedido_mako') === '-' ? '' : str(input, 'pedido_mako') } : {}),
+        ...(input.ir !== undefined ? { ir: str(input, 'ir') === '-' ? '' : str(input, 'ir') } : {}),
+        ...(input.frase !== undefined ? { frase: str(input, 'frase') === '-' ? '' : str(input, 'frase') } : {}),
       };
       const a = armarGrafico(e, g);
       if (!a.ok) return { error: a.error, disponibles: a.disponibles };
@@ -1045,6 +1049,7 @@ export const RUNNERS: Runners = {
       dif('limite', nuevo.limite, g.limite, t); dif('comparar', nuevo.comparar, g.comparar, t);
       dif('mako', conMako(nuevo), conMako(g), t);
       dif('pedido_mako', nuevo.makoIA?.pedido ?? '', g.makoIA?.pedido ?? '', (v) => (v ? comillas(String(v)) : '-'));
+      dif('ir', nuevo.ir ?? '', g.ir ?? '', t); dif('frase', nuevo.frase ?? '', g.frase ?? '', (v) => (v ? comillas(String(v)) : '-'));
       if (JSON.stringify(filtrosFijosDe(nuevo)) !== JSON.stringify(filtrosFijosDe(g))) cambios.push('los filtros que lo definen');
       return {
         cambio: { op: 'reemplazar_componente', hojaId: h.id, componente: nuevo },

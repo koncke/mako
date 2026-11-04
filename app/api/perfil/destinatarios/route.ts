@@ -35,7 +35,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const cerrada = await soloAdmin();
   if (cerrada) return cerrada;
-  let body: Partial<Destinatarios>;
+  let body: Partial<Destinatarios> & { ws?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -44,6 +44,13 @@ export async function POST(req: NextRequest) {
   const ws = await getWorkspaceActual();
   if (ws == null) {
     return Response.json({ ok: false, error: 'Elige un cliente para configurar sus destinatarios.' }, { status: 400 });
+  }
+  // ⚠️ LA PANTALLA DICE DE QUÉ NEGOCIO LEYÓ LA LISTA, Y SI YA NO ES ÉSTE NO SE GUARDA (3/11/2026). La cookie de la agencia dura 8 horas
+  // (AGENCIA_HORAS) y sin ella el pedido cae, sin error, en la cuenta PROPIA de la agencia: con la pestaña del cliente abierta desde la
+  // mañana, guardar pisaba la lista de la agencia con la del cliente y sumaba al cliente al grupo de la agencia. Sin `ws` en el pedido
+  // (una pestaña de antes de este cambio) se guarda como siempre.
+  if (typeof body.ws === 'number' && body.ws !== ws) {
+    return Response.json({ ok: false, error: 'Esta pantalla era de otra cuenta. Recarga la página.' }, { status: 409 });
   }
   try {
     const wsRow = await getWorkspace(ws);

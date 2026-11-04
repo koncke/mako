@@ -43,7 +43,7 @@ export function YaLogueado({ nombre, email }: { nombre: string; email: string })
         onClick={() => { setYendo(true); router.replace(DESTINO); }}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%',
-          padding: '12px', borderRadius: '11px', border: 'none', background: '#2F6FED',
+          padding: '12px', borderRadius: '11px', border: 'none', background: 'var(--primary)',
           color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', boxSizing: 'border-box',
         }}
       >

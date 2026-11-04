@@ -19,14 +19,15 @@
 // Lo que vive acá:
 //   · ESPERA 500 ms después de la última tecla y pide 3 letras: la búsqueda por nombre gasta una de las
 //     100 gratis del día de la plataforma. El pedido anterior se CANCELA al tipear (AbortController) y
-//     lleva su tope (17 s: la ruta corta a los 15): un `fetch` sin `signal` es un giro eterno.
+//     lleva su tope (62 s: la ruta corta a los 60, porque Apify tarda ~20 s): un `fetch` sin `signal` es un giro eterno.
 //   · Una respuesta sólo se dibuja si es la del texto que está escrito AHORA (`resp.texto`): una vieja
 //     que llega tarde no pisa la lista.
 //   · NADA SE INVENTA: sin resultados, la lista dice POR QUÉ (#844, `avisoSinResultados`): por nombre no hay
 //     fuente, y por @ Meta no muestra cuentas personales, o el negocio no tiene Meta conectado, o Meta no
 //     contestó. «Sin resultados» a secas mentía: Martín buscó su @ exacto y lo leyó como un bug. Si lo
 //     escrito es un @, ofrece «Usar @x» (lo que la persona escribió, no una cuenta que alguien vio).
-//   · La foto es una URL del CDN de Meta que VENCE: se muestra y no se guarda. Si no carga, iniciales.
+//   · La foto es una URL del CDN de Meta que VENCE: se muestra y no se guarda. Si no carga, iniciales. Se dibuja por NUESTRA ruta
+//     (`fotoPorNosotros`): directo, el CDN la bloquea en silencio y las iniciales parecían una cuenta sin foto (3/11/2026).
 //
 // ⚠️ LA LISTA VA EN UN PORTAL (position: fixed sobre el body), como el Dropdown de la casa: el alta vive
 // adentro de un Modal con su propio scroll, y una lista absoluta adentro se cortaba en el borde. El lado
@@ -68,12 +69,13 @@ import {
   AVISO_SIN_INSTAGRAM, AVISO_SIN_META, ESPERA_MS, alcanzaParaBuscar, avisoSinResultados, esConexionMeta, esEstadoMeta, perfilManual, pideConectarMeta,
   urlDePerfil, usuarioDeTexto, type ConexionMeta, type EstadoMeta, type PerfilIg,
 } from '@/lib/instagram-buscar';
+import { fotoPorNosotros } from '@/lib/foto-instagram-reglas';
 
 export type { PerfilIg };
 
 const SANS = "'Geist', sans-serif";
-/** El tope de la ruta (15 s) + un margen. */
-const TOPE_MS = 17_000;
+/** El tope de la ruta (60 s) + un margen. */
+const TOPE_MS = 62_000;
 /** El alto de diseño de la lista: con él se decide el lado, y es su máximo. */
 const ALTO_LISTA = 360;
 
@@ -82,22 +84,59 @@ const campo: CSSProperties = {
   background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none',
 };
 
-type Respuesta =
-  | { texto: string; perfiles: PerfilIg[]; porNombre: boolean | null; meta: EstadoMeta | null }
+export type Respuesta =
+  | { texto: string; perfiles: PerfilIg[]; porNombre: boolean | null; meta: EstadoMeta | null; limite: boolean }
   | { texto: string; fallo: true };
 
 type Lugar = { top?: number; bottom?: number; left: number; width: number; alto: number };
 
 /** La foto del perfil, o sus iniciales si no tiene o si la URL ya venció. */
 function Foto({ perfil, size, rota, onRota }: { perfil: PerfilIg; size: number; rota: boolean; onRota: () => void }) {
-  if (perfil.foto && !rota) {
+  const src = rota ? null : fotoPorNosotros(perfil.foto);
+  if (src) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={perfil.foto} alt="" width={size} height={size} referrerPolicy="no-referrer" onError={onRota}
+      <img src={src} alt="" width={size} height={size} onError={onRota}
         style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none', display: 'block' }} />
     );
   }
   return <Avatar name={perfil.nombre ?? perfil.usuario} size={size} />;
+}
+
+/**
+ * LA búsqueda: espera, cancela lo viejo y tiene tope (ver la cabecera). Salió del componente el 3/11/2026 para que el modal
+ * de Competitors Spy use ESTA y no otra: su lista se dibuja distinto, pero buscar se hace de una sola manera.
+ */
+export function useBusquedaInstagram(consulta: string, buscable: boolean, ronda: number, alLlegar?: () => void) {
+  const [resp, setResp] = useState<Respuesta | null>(null);
+  const alLlegarRef = useRef(alLlegar);
+  useLayoutEffect(() => { alLlegarRef.current = alLlegar; });
+
+  useEffect(() => {
+    if (!buscable) return;
+    let vigente = true;
+    const ctrl = new AbortController();
+    const espera = setTimeout(async () => {
+      const tope = setTimeout(() => ctrl.abort(), TOPE_MS);
+      try {
+        const r = await fetch(`/api/crm/instagram-buscar?q=${encodeURIComponent(consulta)}`, { signal: ctrl.signal });
+        const j = (await r.json().catch(() => null)) as { ok?: boolean; perfiles?: unknown; porNombre?: unknown; meta?: unknown; limite?: unknown } | null;
+        if (!vigente) return;
+        if (!r.ok || !j?.ok || !Array.isArray(j.perfiles)) throw new Error(`HTTP ${r.status}`);
+        const perfiles = (j.perfiles as PerfilIg[]).filter((p) => p && typeof p.usuario === 'string' && p.usuario);
+        setResp({ texto: consulta, perfiles, porNombre: typeof j.porNombre === 'boolean' ? j.porNombre : null, meta: esEstadoMeta(j.meta) ? j.meta : null, limite: j.limite === true });
+        alLlegarRef.current?.();
+      } catch {
+        // Lo cancelado por una tecla nueva no es un fallo: `vigente` ya es false.
+        if (vigente) setResp({ texto: consulta, fallo: true });
+      } finally {
+        clearTimeout(tope);
+      }
+    }, ESPERA_MS);
+    return () => { vigente = false; clearTimeout(espera); ctrl.abort(); };
+  }, [buscable, consulta, ronda]);
+
+  return [resp, setResp] as const;
 }
 
 export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial, enLaFicha }: {
@@ -120,7 +159,6 @@ export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial, enLa
   enLaFicha?: { confirmar: (texto: string) => void; cancelar: () => void };
 }) {
   const [texto, setTexto] = useState(textoInicial ?? '');
-  const [resp, setResp] = useState<Respuesta | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [activo, setActivo] = useState(0);
   const [rotas, setRotas] = useState<ReadonlySet<string>>(() => new Set());
@@ -141,6 +179,7 @@ export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial, enLa
 
   const consulta = texto.trim();
   const buscable = !valor && tocado && alcanzaParaBuscar(consulta);
+  const [resp, setResp] = useBusquedaInstagram(consulta, buscable, ronda, () => setActivo(0));
 
   // ¿El negocio puede buscar en Meta? Una vez por campo, al enfocarlo; y otra, `fresco`, después de conectar. Sin
   // respuesta no se dice nada: el campo sigue sirviendo para escribir el @.
@@ -173,30 +212,6 @@ export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial, enLa
     el.focus();
     el.setSelectionRange(el.value.length, el.value.length);
   }, [enFicha]);
-
-  useEffect(() => {
-    if (!buscable) return;
-    let vigente = true;
-    const ctrl = new AbortController();
-    const espera = setTimeout(async () => {
-      const tope = setTimeout(() => ctrl.abort(), TOPE_MS);
-      try {
-        const r = await fetch(`/api/crm/instagram-buscar?q=${encodeURIComponent(consulta)}`, { signal: ctrl.signal });
-        const j = (await r.json().catch(() => null)) as { ok?: boolean; perfiles?: unknown; porNombre?: unknown; meta?: unknown } | null;
-        if (!vigente) return;
-        if (!r.ok || !j?.ok || !Array.isArray(j.perfiles)) throw new Error(`HTTP ${r.status}`);
-        const perfiles = (j.perfiles as PerfilIg[]).filter((p) => p && typeof p.usuario === 'string' && p.usuario);
-        setResp({ texto: consulta, perfiles, porNombre: typeof j.porNombre === 'boolean' ? j.porNombre : null, meta: esEstadoMeta(j.meta) ? j.meta : null });
-        setActivo(0);
-      } catch {
-        // Lo cancelado por una tecla nueva no es un fallo: `vigente` ya es false.
-        if (vigente) setResp({ texto: consulta, fallo: true });
-      } finally {
-        clearTimeout(tope);
-      }
-    }, ESPERA_MS);
-    return () => { vigente = false; clearTimeout(espera); ctrl.abort(); };
-  }, [buscable, consulta, ronda]);
 
   // Lo que se dibuja sale del texto de AHORA: una respuesta de otro texto no cuenta.
   const actual = resp && resp.texto === consulta ? resp : null;
@@ -397,7 +412,7 @@ export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial, enLa
             }}
           >
             {buscando && (
-              <div style={nota}><Spinner size={14} /> Buscando…</div>
+              <div style={nota}><Spinner size={14} /> Buscando en Instagram…</div>
             )}
             {!buscando && fallo && (
               <div style={nota}>No pude buscar{manual ? '' : '. Escribe el @ exacto'}</div>

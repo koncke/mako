@@ -100,6 +100,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     lead_magnet: set(valoresDelLeadMagnet([{ nombre: 'Plantilla', enlace: 'https://ejemplo.com/p' }])),
     momento: set(valoresDelMomento(Date.parse('2026-10-09T15:00:00Z'), 'America/Mexico_City')),
     negocio: new Set(['negocio']),
+    // El cliente de la agencia que recibe el aviso (ticket #37): lo pone `agenciasDelClienteParaAvisar` (lib/avisos.ts).
+    clienteagencia: new Set(['cliente_nombre', 'cliente_link']),
     links: new Set(Object.keys(RUTA_DE_LINK)),
     // «Lo que arma MaKo» (11/10/2026) lo pone el emisor de un evento de MaKo (`ejecutarPaso`, lib/flujos.ts),
     // como la cuota la pone el cron de cobranza: lo fija tests/aviso-evento.test.ts leyendo ese fuente.

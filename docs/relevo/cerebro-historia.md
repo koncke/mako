@@ -1,3 +1,100 @@
+<!-- Pisado el 1/11/2026 por el relevo de claude1 -->
+
+## ⏩ LEER PRIMERO — 30/10/2026 ~14:30, el Cerebro de claude3 (`local_428051c1`, CIERRE al 95 %)
+
+**ACTUALIZACIÓN 30/10 ~14:30, CIERRE de claude3 (semana al 95 %): esto pisa lo de abajo donde choque.**
+- **tren-ai EN PRODUCCIÓN** (mako-gr9maew7i, main 9e24e7935): #33, #34, #35, el despachante de WhatsApp (#30), Video pasos 1
+  y 2, y los emails.
+- **Calendario/Classroom quedó AFUERA** por 4 rojos de Clients; uno es una guarda: el super admin sin impersonar no ve fichas.
+  - Devolución: `C:/Users/marti/AppData/Roaming/Claude/side-session-notes/local_428051c1-0369-4df2-ae6b-bcb42f63b64b/integracion-cal-classroom-devuelto.md`.
+  - `recorrido-k-3010` @ 246bae899 (K2 ALTO, el botón de MaKo que tapa en 4 pantallas) sale de esa rama y espera detrás.
+- **Los tickets con hito se cierran y AVISAN SOLOS** (miralo en `avisado_at`). No se manda aviso manual de esos.
+  - Leila (#31/#32) quedó avisada a las 06:45Z, y su aviso manual se canceló.
+  - Falta confirmar `avisado_at` de #33, #34 y #35.
+- **Hecho:**
+  - el cartero 1.24.0, instalado;
+  - las migraciones 0349, 0351, 0352 y 0331, y el índice de la 0048, aplicadas.
+- **Leandro:** Automations (local_7f005343) está soltando sus 8 inscripciones con 8 compare-and-set, aprobados: 703-707 vuelven
+  a «activa», y 660, 708 y 709 a «completada». Hay que verificar su tabla y archivarlo.
+- **La fila, en orden:**
+  1. Calendario, con su devolución, y después recorrido-k;
+  2. Agency;
+  3. Newsletter;
+  4. T2 Onboarding y las tandas por tab;
+  5. los workflows pausados;
+  6. la cabecera del Video;
+  7. el resto del recorrido.
+  El detalle está en por-repartir.md.
+
+El registro fino está en `C:/dev/cerebro-herramientas/tickets/por-repartir.md`: lo último, abajo, despacho por despacho.
+**SP** = `C:/Users/marti/AppData/Local/Temp/claude/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4d1a09d4-c870-4075-94b3-7d1450a71bcc/scratchpad/`.
+
+**Reglas nuevas de Martín (30/10, en memoria):**
+- «No me hagas preguntas que podés resolver vos mismo». Las migraciones que sólo agregan y los datos que rompió un bug nuestro
+  se hacen sin preguntar (`aprobacion-prod-en-el-chat`).
+- N3: cualquiera del grupo de WhatsApp de un negocio puede pausar o prender sus campañas (`campanas-desde-el-grupo-cualquiera`).
+
+**Hecho hoy:**
+- **Trenes ag y ah en producción.** main = 88700b981, mako-ou9xtjw1c.
+  - ag: Leila #31/#32. Su aviso queda programado a las 14:33 por el tope de avisos (un cron de esta sesión; si se cerró, se manda a
+    mano con el comando de por-repartir.md).
+  - ah: la iniciativa de MaKo, la barra del Reproductor y Zernio N1/N8.
+- **Migraciones aplicadas y medidas:**
+  - 0352, 0351 y 0349 (con el sí de Martín);
+  - 0331 completa y el índice idx_notif_tipo_created de la 0048, que nunca habían corrido.
+- **Gmail, 2.ª pasada:** 70 remitentes y unos 5.050 emails.
+  - Mandada en PDF al grupo «MaKo <> Mauricio Bustos».
+  - Rama `conocimiento-email-3010` @ 2b9b9d7b7, en el tren-ai.
+- **El aviso del #30 a Leandro salió:** la guía de Instagram en la API.
+
+**Corriendo — tren-ai** (Integración, barrido completo).
+- Lleva los tickets de clientes:
+  - #34: el 429 de Zernio es una pausa y no «reconectar» (43897f1df);
+  - #35: la hora de las reuniones en la ficha que lee MaKo (7d51f24c2, que contiene el despachante cc2aaa6ce);
+  - #33: un toque de botón nunca es «respondió» (da015ebd5).
+- Lleva además Calendario (7162c94aa), Video pasos 1 y 2 (0e27cb66f) y los emails.
+
+**Al Ready del tren-ai:**
+1. **Avisos:**
+   - Código Inmobiliario: #34 en el ws17 y #35 en el ws13;
+   - Leandro (ws10): #33 y la promesa falsa del #30. El tope de 3 por día del ws10 libera un lugar a las 17:12 ART.
+2. **Soltar las 8 inscripciones de @leantejado** (lead 5437, ws10) que el bug del #33 dejó en «respondió». Lo hace Automations
+   (local_7f005343, archivado) con «Volver a probar» por inscripción.
+
+**En curso:** Calendario (local_18ef0a3f), con el recorrido visual.
+- K2 ALTO: el botón flotante de MaKo tapa la casilla de los calendarios de Google. Se arregla en el layout compartido y cierra
+  también P1, C3 y D4.
+- Además K1, K3, K4 y K5.
+- Tiene el commit listo y espera su tsc. Su sha va al tren siguiente.
+
+**En fila (abrir de a uno, con ≥4,5 GB libres; nunca dos tests-afectados juntos: hoy el vigía mató 4 barredoras):**
+1. **Agency (Thiago):** 3 rojos.
+   - Una guarda de suplantación en /api/auth/me.
+   - Se perdió el `aprobada &&` en lib/partners.ts.
+   - Las zonas de México, como dato.
+   - Devolución en `C:/Users/marti/AppData/Roaming/Claude/side-session-notes/local_428051c1-0369-4df2-ae6b-bcb42f63b64b/integracion-agency-thiago-devuelto.md`.
+   - Chat local_e5c96952.
+2. **Newsletter:** M1 (la tab y la API pasan para cualquier admin), el doble envío, lo programado con el email apagado y archivar
+   el CRM. La devolución está al lado de la de Agency. Chat local_3058f25f. Hoy no hay riesgo: nadie tiene el email prendido.
+3. **El recorrido visual:** repartir los otros 22 hallazgos (`SP/recorrido/hallazgos.md`) y relanzar Create y «resto» (14 chats sin
+   mirar).
+4. **T2 Onboarding** (recomendarFunnel, la bienvenida y la pregunta de entrada) y las tandas T3–T17 de la iniciativa por tab:
+   `git show origin/main:docs/mako-iniciativa/plan.md`.
+5. **Workflows pausados:**
+   - conocimiento modular: `SP/iniciativa/conocimiento-workflow.js`, `resumeFromRunId: "wf_0b80b79c-462"`;
+   - lead magnet / spy: `SP/iniciativa/leadmagnet-spy-workflow.js`, `resumeFromRunId: "wf_d804ebee-14e"`.
+6. **Video, paso 3 (la cabecera):** el banco no arma por código de servidor. Relevo del Video en motion-imagen-2610 @ c45142425.
+7. **Lo que quedó sin hacer:**
+   - Zernio: gastar menos al conectar; alerta-critica no lee a quien conecta (docs/hallazgos-integraciones.md).
+   - #33: la API nombra el paso por posición; guardar el payload del postback (docs/hallazgos-chatbot.md).
+
+**Para Martín:** nada que decidir. La extensión de Chrome está publicada (0.74.3). Meta sigue en revisión (~10/11; la verificación
+de acceso vence el 20/12) y Google está aprobado. El panel de la tienda de Chrome pide re-iniciar sesión, pero sólo hace falta para
+la próxima versión.
+
+
+---
+
 # Historia del relevo del Cerebro (lo que fue «LEER PRIMERO» y los cierres viejos)
 
 ---

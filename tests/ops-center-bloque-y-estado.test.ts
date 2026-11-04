@@ -237,8 +237,8 @@ test('10. la cabecera de la estrella es el Cerebro desde el primer cuadro, con s
   assert.equal(esCriaturaDeMako(SIN_TITULO), false, '«Chat nuevo» era la redonda');
   const hook = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(hook, /const vaAlCerebro = !filaAbierta && elegido == null && entrarAlCerebro && chatInicial == null;/);
-  assert.match(hook, /const nombre = filaAbierta\?\.titulo \?\? \(vaAlCerebro \? JEFE_SECOND_BRAIN\n/);
-  assert.match(hook, /const nombreMuneco = filaAbierta\?\.criatura \?\? \(idOffer != null \? criaturaDeOffer\(nombre\) : nombre\);/, 'la criatura sale del nombre');
+  assert.match(hook, /const nombre = quien\?\.nombre \?\? filaAbierta\?\.titulo \?\? \(vaAlCerebro \? NOMBRE_JEFE\n/);
+  assert.match(hook, /const nombreMuneco = quien\?\.nombre \?\? filaAbierta\?\.criatura \?\? \(vaAlCerebro \? JEFE_SECOND_BRAIN : idOffer != null \? criaturaDeOffer\(nombre\) : nombre\);/, 'el nombre ya no da la estrella: se pide');
   // La estrella y el Ops Center del cliente entran al Cerebro: los dos lo dibujan así desde el principio.
   assert.match(sinComentarios(leer('app/_chat/MakoEnLaTab.tsx')), /useChatCliente\(\{ elegido, setElegido, activo: true, entrarAlCerebro: true,/);
   assert.match(sinComentarios(leer('app/_chat/MakoEnLaTab.tsx')), /cabecera=\{\{ clave: 'cerebro', titulo: k\.nombre, criatura: k\.nombreMuneco,/);

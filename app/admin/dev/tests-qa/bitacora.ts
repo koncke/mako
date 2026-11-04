@@ -269,4 +269,53 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-generativa.md → «`composer.ts` y `Composer.tsx` en la misma carpeta» — reemplaza el «lo que quedó sin hacer» por lo medido',
     ],
   },
+  {
+    fecha: '4 nov', hora: '06:30', chat: 'Infra', sesion: 'cli_fe9e34df-f0e0-505d-89ab-5b8ddc011a0b', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Aplicar la investigación de buenas prácticas, y que todas las cuentas sigan esa metodología',
+    pedido: 'De la investigación de buenas practicas para que todo sea mas eficiente, aplicalo, y que todas las cuentas sigan esa metodologia...',
+    puntos: [
+      'Ocho cosas, cada una en su punta: sacar «nombra 20+», el filtro chico del pre-push, el aviso de deploy fallido y la prueba de humo, el chequeo sobre main, las redes de cada noche, retirar el tren y la regla arriba en AGENTS.md.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '08:40', chat: 'Infra', sesion: 'cli_fe9e34df-f0e0-505d-89ab-5b8ddc011a0b', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada punta se chequea sola en ~14 min, el pre-push frena lo roto en segundos y el tren se retiró',
+    puntos: [
+      'Lo terminado se sube a su punta y GitHub la lleva a main: mediana de 14 min (30 verdes del 4/11), 1,5 min si es sólo documentación. Antes, una corrida roja del tren frenaba a todos durante 3 a 38 min.',
+      'El pre-push corre las guardas (6 s) y los tests y tipos de lo tocado, con un tope de 90 s. El mismo día frenó un rojo de verdad antes de subir.',
+      'Lo que la punta no corre lo ve otra red, y todas dan una corrida ROJA: la suite y el tsc entero cada noche, la mezcla que llegó a main sin probar, un deploy que falla y un sitio caído.',
+      'Una punta roja por culpa de main espera y se relanza sola cuando main vuelve a verde.',
+      'Dos puntas que agregan su hito al final de la misma bitácora ya no chocan (lo pidió el Cerebro).',
+      'La regla, corta y arriba de todo en AGENTS.md; los comandos para instalar el hook en cada clon y los tiempos medidos, en docs/relevo/nube-metodologia.md.',
+    ],
+    commits: [
+      { sha: '5c69a142c', msg: 'Las puntas dejan de correr 37 tests que no miran lo cambiado, y dicen cuánto tarda cada archivo', lineas: 294, archivos: 8 },
+      { sha: '547460dc3', msg: 'Un deploy de producción que falla deja una corrida roja, y uno que sale bien pasa la prueba de humo', lineas: 563, archivos: 6 },
+      { sha: 'f05e360c0', msg: 'Antes de subir una punta, el pre-push corre los tests y los tipos de lo tocado en 90 s como mucho', lineas: 367, archivos: 4 },
+      { sha: '66f76432d', msg: 'El filtro de la punta mira lo commiteado, y no arranca un tsc que no va a entrar en 90 s', lineas: 98, archivos: 3 },
+      { sha: 'd3b61da0a', msg: 'La mezcla que llega a main sin probar se chequea sola, y las puntas rojas por main se relanzan solas', lineas: 380, archivos: 8 },
+      { sha: 'aed3a9256', msg: 'Las dos redes corren cada noche si entró algo a main, y 36 h sin veredicto es una corrida roja', lineas: 194, archivos: 7 },
+      { sha: 'a43aab8dc', msg: 'La rama integracion se retiró: el hook rechaza el push ahí y un push que se escapa da una corrida roja', lineas: 490, archivos: 11 },
+      { sha: '8309a9daa', msg: 'Dos puntas que agregan su hito al final de la misma bitácora ya no chocan: el driver deja los dos', lineas: 361, archivos: 4 },
+    ],
+    archivos: [
+      'scripts/tests-afectados.mjs — sin «nombra 20+», el modo --barredoras y los archivos sin extensión',
+      'scripts/filtro-punta.mjs y scripts/claude-hooks/pre-push — el filtro de 90 s y el rechazo a integracion',
+      '.github/workflows/punta.yml, sobre-main.yml, despues-del-deploy.yml, semanal-tests.yml, tipos-respaldo.yml, integracion-retirada.yml',
+      'scripts/unir-bitacora.mjs — el merge driver de las bitácoras',
+      'docs/relevo/nube-metodologia.md — los comandos por clon, los tiempos y lo que falta medir',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '09:20', chat: 'Infra', sesion: 'cli_fe9e34df-f0e0-505d-89ab-5b8ddc011a0b', cuenta: 'nube', actor: 'claude', tipo: 'correccion',
+    titulo: 'Si una punta y main cambian el mismo workflow, la corrida lo frena a los 20 s en vez de rebotar al final',
+    puntos: [
+      'GitHub no deja que el token de Actions suba una versión nueva de un workflow: una punta con todo en verde rebotaba cinco veces al llevar a main.',
+      'Ahora la corrida lo detecta al mezclar y dice qué hacer: mezclar main en la máquina y volver a subir. A las puntas que no tocan workflows no les pasa.',
+    ],
+    archivos: [
+      'scripts/ci-workflow-nuevo.sh — qué workflows quedan en una versión que no está en ninguno de los dos padres',
+      'tests/ci-workflow-nuevo.test.ts — el script sobre repos de git de verdad',
+    ],
+  },
 ];

@@ -336,8 +336,14 @@ export async function moverEtapaEnProducto(leadId: number, funnelId: number, eta
 /**
  * Agrega VARIOS leads a un producto (la acción en lote, «traer» de otro producto, las
  * campañas). Saltea a los que ya están. Devuelve los ids que agregó, para el deshacer.
+ *
+ * ⚠️ NO LOS SACA DE DONDE ESTÁN: es AGREGAR (una fila de `lead_funnel` en este CRM), nunca mover la casa. Por eso la
+ * campaña de email de Mauricio (4/11/2026, `agregar_en_bloque_a_crm` de la API de MaKo) usa ésta y no
+ * `pasarLoteAOtroFunnel`, que los saca del origen.
+ * `hasta` (4/11/2026): la hora en ms en que deja de empezar tandas. Lo que no llegó vuelve en `pendientes`, para que
+ * quien llama lo diga y se pida de nuevo (por HTTP la ruta corta a los 60 s). `yaEstaban`: los que ya eran de este CRM.
  */
-export async function agregarLoteAProducto(leadIds: number[], funnelId: number, porQue: string, opts?: { autor?: string }): Promise<{ agregados: number[]; fallaron: number }> {
+export async function agregarLoteAProducto(leadIds: number[], funnelId: number, porQue: string, opts?: { autor?: string; hasta?: number }): Promise<{ agregados: number[]; fallaron: number; pendientes: number[]; yaEstaban: number }> {
   const funnels = await listarFunnels();
   if (!funnels.some((f) => f.id === funnelId)) throw new Error('Ese funnel no existe.');
   const etapa = etapaDeEntrada(await etapasDeProducto(funnelId));
@@ -347,18 +353,22 @@ export async function agregarLoteAProducto(leadIds: number[], funnelId: number, 
   const autor = await autorDelMovimiento(opts?.autor);
   const ids = [...new Set(leadIds.map(Number).filter((n) => Number.isFinite(n) && n > 0))];
   const agregados: number[] = [];
-  let fallaron = 0;
+  const pendientes: number[] = [];
+  let fallaron = 0, yaEstaban = 0;
   for (let i = 0; i < ids.length; i += 200) {
     const tanda = ids.slice(i, i + 200);
+    if (opts?.hasta != null && Date.now() > opts.hasta) { pendientes.push(...tanda); continue; }
     // Los que YA están: por casa (funnel_id) o por fila. A ésos no se les escribe nada.
     const { data: casas, error: ec } = await db.from('leads').select('id, funnel_id').in('id', tanda);
     if (ec) { fallaron += tanda.length; continue; }
     const { data: filas, error: ef } = await db.from('lead_funnel').select('lead_id').eq('funnel_id', funnelId).in('lead_id', tanda);
     if (ef) { fallaron += tanda.length; continue; }
     const yaFila = new Set(((filas ?? []) as Array<{ lead_id: number | string }>).map((f) => Number(f.lead_id)));
-    const candidatos = ((casas ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>)
+    const leidas = (casas ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>;
+    const candidatos = leidas
       .filter((l) => casaReal(l.funnel_id == null ? null : Number(l.funnel_id), defaultId) !== funnelId && !yaFila.has(Number(l.id)))
       .map((l) => Number(l.id));
+    yaEstaban += leidas.length - candidatos.length;
     // Los que tienen pagos de una casa vieja que era ESTE CRM se saltean (cuarta revisión, M1): se cuentan como fallados.
     let huerfanos: Set<number>;
     try { huerfanos = await pagosHuerfanosDe(candidatos, funnelId); } catch { fallaron += candidatos.length; continue; }
@@ -379,7 +389,7 @@ export async function agregarLoteAProducto(leadIds: number[], funnelId: number, 
       if (ea) console.error('[lead-funnel] historial falló:', ea.message);
     }
   }
-  return { agregados, fallaron };
+  return { agregados, fallaron, pendientes, yaEstaban };
 }
 
 /** Deshace un `agregarLoteAProducto`: borra SÓLO las filas que ese lote creó. */

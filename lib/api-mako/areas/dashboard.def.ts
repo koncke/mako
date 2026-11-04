@@ -44,6 +44,8 @@
 import type { Gating, OperacionDef, Parametro } from '../tipos';
 import { AJUSTES_TEMA } from '@/lib/graficos-temas';
 import { ANCHOS, LUGARES } from '@/lib/graficos-mover';
+import { IDS_DESTINO } from '@/lib/graficos-destinos';
+import { TOPE_FRASE } from '@/lib/graficos-frase';
 
 /** Los ajustes del estilo de una hoja (17/10/2026), del mismo catálogo que el panel «Estilo de la hoja». */
 const CAMPOS_AJUSTES: readonly Parametro[] = AJUSTES_TEMA.map((a) => ({
@@ -109,6 +111,8 @@ const filtros: Parametro = {
 };
 const titulo: Parametro = { nombre: 'titulo', tipo: 'string', max: 80, rotulo: 'Título', descripcion: 'El título que se ve arriba. Sin título, se arma solo con la métrica y la dimensión; al editar, «-» lo saca.' };
 // El rótulo dice «IA» y no «MaKo»: tests/editor-acciones.test.ts frena una mayúscula pegada («aK») en un rótulo.
+const ir: Parametro = { nombre: 'ir', tipo: 'string', rotulo: 'Ver en', enum: [...IDS_DESTINO], descripcion: 'El «Ver … →» del pie de la tarjeta: la pantalla de MaKo donde se trabaja ese número.' };
+const frase: Parametro = { nombre: 'frase', tipo: 'string', max: TOPE_FRASE, rotulo: 'Frase', descripcion: 'Sólo el tipo frase: la oración con sus métricas entre llaves, en tramos separados por « · » («Entraron {cobrado} · {agendas} agendas»). {metrica:cambio} = cuánto cambió contra el período anterior (pide comparar). Un tramo sin dato no se muestra.' };
 const mako: Parametro = { nombre: 'mako', tipo: 'boolean', rotulo: 'Botón de IA', descripcion: 'true = la tarjeta lleva el botón para preguntarle a MaKo; false = va sin. Sin esto, como está (de entrada sólo lo llevan las tendencias en el tiempo, los embudos y la dispersión).' };
 
 // ── Las operaciones ──────────────────────────────────────────────────────────────────────────
@@ -346,7 +350,7 @@ export const DEFS: readonly OperacionDef[] = [
       periodo(' Es el período PROPIO del gráfico (un filtro que lo define). «auto» o sin esto = el filtro de período de la hoja.'), desde, hasta, titulo,
       { ...filtros, descripcion: 'Los filtros que DEFINEN el gráfico («sólo R1», «sin agendas»): no se dibujan en la tarjeta y quien mira no los cambia. Uno por campo.' },
       { nombre: 'comparar', tipo: 'boolean', rotulo: 'Comparar', descripcion: 'true = muestra el cambio contra el período anterior.' },
-      mako,
+      mako, ir, frase,
       { nombre: 'lugar', tipo: 'string', rotulo: 'Lugar', enum: ['abajo', 'arriba'], descripcion: 'Dónde va: abajo de todo (default) o arriba de todo.' },
     ],
     confirmacion: 'chat', reversible: true,
@@ -368,6 +372,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'comparar', tipo: 'boolean', rotulo: 'Comparar', descripcion: 'true = muestra el cambio contra el período anterior.' },
       mako,
       { nombre: 'pedido_mako', tipo: 'string', max: 600, rotulo: 'Qué responde el botón', descripcion: 'Lo que el botón de MaKo de este gráfico responde primero al abrirse («por qué subió o bajó, y qué hacer»). «-» lo saca (vuelve el análisis de siempre).' },
+      { ...ir, enum: [...IDS_DESTINO, '-'], descripcion: `${ir.descripcion} «-» lo saca.` }, { ...frase, descripcion: `${frase.descripcion} «-» vuelve a la que se arma sola.` },
       { ...filtros, vaciaEsValor: true, descripcion: 'Los filtros que DEFINEN el gráfico: no se dibujan y ganan sobre los de la hoja en el mismo campo. Reemplaza los que tenía; una lista vacía los saca.' },
     ],
     confirmacion: 'chat', reversible: true,

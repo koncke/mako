@@ -13,7 +13,7 @@
 // ⚠️ Va en PUBLICOS de lib/rutas-publicas.ts: el revisor la abre sin cuenta.
 
 import { EMAIL_MAKO } from '@/lib/app-url';
-import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
+import { RAZON_SOCIAL_MAKO, PUBLICA_EN_PLAY } from '@/lib/titular-mako';
 import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
 import { H, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 
@@ -24,7 +24,7 @@ export const metadata = {
   description: 'Las condiciones de uso de MaKo: qué hace, qué esperamos de ti y qué no prometemos.',
 };
 
-const ACTUALIZADO = '15 de octubre de 2026';
+const ACTUALIZADO = '4 de noviembre de 2026';
 
 // ⚠️ Los mismos tres datos que en /privacidad, y por el mismo motivo: no salen
 // del código. Si cambian, cambian en los dos lugares. El responsable sale de la
@@ -226,8 +226,8 @@ export default function Page() {
       <H id="baja">10. Dar de baja</H>
       <p>
         Puedes dejar de usar MaKo cuando quieras. Para cerrar tu cuenta y que borremos tus datos,
-        escríbenos a <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>: hoy ese paso lo hacemos
-        nosotros a mano, y está explicado en la <a href="/privacidad">política de privacidad</a>.
+        toca «Eliminar mi cuenta» en la app o escríbenos a <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>:
+        los pasos y qué se borra están en <a href="/eliminar-cuenta">Eliminar tu cuenta</a>.
       </p>
       <p>
         Antes de irte, desconecta tus integraciones y revoca los permisos que le diste a MaKo en
@@ -252,7 +252,8 @@ export default function Page() {
       <H id="ley">12. Ley aplicable</H>
       <p>
         Estos términos se rigen por las leyes de {JURISDICCION}, y cualquier disputa se resuelve
-        ante sus tribunales. Responsable del servicio: <strong>{RESPONSABLE}</strong>. Contacto:{' '}
+        ante sus tribunales. Responsable del servicio: <strong>{RESPONSABLE}</strong>. Quién publica la app: en la App
+        Store, <strong>{RAZON_SOCIAL_MAKO}</strong>; en Google Play, <strong>{PUBLICA_EN_PLAY}</strong>. Contacto:{' '}
         <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>.
       </p>
     </LegalShell>

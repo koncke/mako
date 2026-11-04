@@ -1,0 +1,211 @@
+/* ═══════════════════════════════════════════════════════════════════════════════════
+   LOS TOKENS DE MAKO — paleta mono, leída de Corbel el 31/10/2026 a 1440×900.
+   Fuente: docs/diseno/tokens-corbel.json. No inventar valores acá: si falta uno,
+   se mide en el demo y se agrega al JSON primero.
+
+   Lo que define la familia:  Urbanist · cuerpo 14/1.45 peso 500 · radio 22
+                              grilla de 12 columnas con gap 16 · paleta mono
+   ⚠️ La curva de Corbel NO es la de las otras doce plantillas:
+      Corbel  cubic-bezier(.2,.8,.2,1)      las demás  cubic-bezier(.22,1,.36,1)
+   ═══════════════════════════════════════════════════════════════════════════════════ */
+:root{
+  /* tipografía */
+  --fuente:"Urbanist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --fs-2xs:11px; --fs-xs:12px; --fs-sm:12.5px; --fs-md:13.5px; --fs-base:14px;
+  --fs-lg:15px;  --fs-xl:17px; --fs-2xl:20px;  --fs-3xl:22px;  --fs-4xl:26px;
+  --fs-display:34px;
+  /* radios y espaciado */
+  --r-xs:8px; --r-sm:14px; --r:22px; --r-lg:28px;
+  --gap:16px;            /* entre tarjetas, medido */
+  --cols:12;             /* la grilla */
+  --ease-corbel:cubic-bezier(.2,.8,.2,1);
+}
+
+/* ── CLARO: el tema por defecto de MaKo ── */
+:root[data-tema="claro"]{
+  --bg:#efefed; --surface:#fcfcfb; --float:#fcfcfb;
+  --glass:#ffffffa3; --glass-2:#ffffffc7; --glass-3:#fffffff0;
+  --text:#121212; --muted:#4f4f4c; --faint:#636360;
+  --line:#11111117; --line-2:#1111112b; --rim:#ffffffeb; --well:#1111110f;
+  --primary:#121212; --on-primary:#fff; --primary-2:#a3a39e; --primary-soft:#e4e4e1;
+  --ink-btn:#121212; --on-ink-btn:#f6f6f4;
+  --dock:#121212; --on-dock:#f6f6f4;
+  --ocean:#121212; --on-ocean:#f3f7f8;
+  --sky:#121212; --mint:#fff; --lemon:#e2e2de; --coral:#d2d2cd; --on-tile:#14202a;
+  --c1:#121212; --c2:#b4b4af; --c3:#6a6a66; --c4:#8e8e89; --c5:#c8c8c3;
+  --up:#22735c; --up-soft:#d5eee4;
+  --down:#b1412a; --down-soft:#f8e1da;
+  --warn:#85580a; --warn-soft:#f5ead2;
+  --sea:#3f3f3c; --hatch:#00000029; --hatch-bg:#00000009;
+  --heat-0:#e8e8e5; --heat-1:#d0d0cc; --heat-2:#a6a6a1; --heat-3:#696965; --heat-4:#121212;
+  --mesh-a:#e1e1de; --mesh-b:#f9f9f7; --mesh-c:#e6e6e3;
+  --shadow:0 1px 0 #fffc inset,0 22px 44px -30px #00000038;
+  --shadow-lift:0 1px 2px #14202a0d,0 14px 30px -16px #1c3c524d;
+  --shadow-pop:0 24px 60px -18px #14283857,0 2px 6px #14283814;
+  /* la barra de control del mockup */
+  --mk-ctl-bg:#fcfcfb; --mk-ctl-fg:#4f4f4c; --mk-ctl-hov:#1111110f;
+  --mk-ctl-on:#121212; --mk-ctl-on-fg:#fcfcfb; --mk-row-hov:#11111108;
+}
+
+/* ── OSCURO ── */
+:root[data-tema="oscuro"]{
+  --bg:#0b0b0b; --surface:#161616; --float:#1a1a1a;
+  --glass:#ffffff0b; --glass-2:#ffffff14; --glass-3:#202020;
+  --text:#ededeb; --muted:#a9a9a5; --faint:#8e8e8a;
+  --line:#ffffff16; --line-2:#ffffff29; --rim:#ffffff13; --well:#ffffff11;
+  --primary:#ededeb; --on-primary:#111; --primary-2:#6c6c68; --primary-soft:#ffffff1a;
+  --ink-btn:#ededeb; --on-ink-btn:#111;
+  --dock:#ffffff14; --on-dock:#ededeb;
+  --ocean:#222; --on-ocean:#f3f7f8;
+  --sky:#f0f0ee; --mint:#d6d6d2; --lemon:#c2c2bd; --coral:#ababa6; --on-tile:#14202a;
+  --c1:#ededeb; --c2:#6c6c68; --c3:#a9a9a5; --c4:#8e8e8a; --c5:#c4c4bf;
+  --up:#6fd3b0; --up-soft:#6fd3b021;
+  --down:#f2937c; --down-soft:#f2937c21;
+  --warn:#e8bd62; --warn-soft:#e8bd6221;
+  --sea:#c4c4bf; --hatch:#ffffff33; --hatch-bg:#ffffff0a;
+  --heat-0:#1a1a1a; --heat-1:#2e2e2e; --heat-2:#4c4c4a; --heat-3:#8a8a86; --heat-4:#ededeb;
+  --mesh-a:#ffffff0d; --mesh-b:#ffffff06; --mesh-c:#ffffff09;
+  --shadow:0 1px 0 #ffffff0d inset,0 24px 48px -30px #000c;
+  --shadow-lift:0 1px 2px #0000004d,0 14px 32px -16px #000000bf;
+  --shadow-pop:0 24px 60px -18px #000000b3,0 0 0 1px #ffffff14;
+  --mk-ctl-bg:#1a1a1a; --mk-ctl-fg:#a9a9a5; --mk-ctl-hov:#ffffff14;
+  --mk-ctl-on:#ededeb; --mk-ctl-on-fg:#111; --mk-row-hov:#ffffff08;
+}
+
+/* ═══════════ EL ESQUELETO DE UNA HOJA ═══════════
+   Corbel no tiene portada y su bloque negro es el SEGUNDO: nunca encabezado y
+   nunca a lo ancho en escritorio (medido). La fila de KPI son 4 tiles y su orden
+   de izquierda a derecha es negra · blanca · gris · gris oscuro — eso es lo que
+   hace que la fila se lea sin mirar el número. */
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);
+  font:500 var(--fs-base)/1.45 var(--fuente);padding:26px 30px 44px;
+  -webkit-font-smoothing:antialiased}
+
+.h1{font-size:var(--fs-display);font-weight:600;letter-spacing:-.936px;line-height:38.94px}
+.estado{font-size:var(--fs-md);color:var(--muted);margin-top:7px;max-width:76ch}
+.estado b{color:var(--text);font-weight:600}
+.cab{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
+.btns{display:flex;gap:9px;flex:0 0 auto;padding-top:6px}
+
+.btn{height:40px;padding:0 16px;border-radius:999px;background:var(--glass);
+  box-shadow:inset 0 0 0 1px var(--rim);display:flex;align-items:center;gap:7px;
+  font-size:var(--fs-md);font-weight:600;cursor:pointer;white-space:nowrap}
+.btn--ink{background:var(--ink-btn);color:var(--on-ink-btn);box-shadow:none}
+
+/* la grilla de 12 */
+.rejilla{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap);
+  align-items:start;margin-top:18px}
+.c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}
+.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}
+.c9{grid-column:span 9}.c12{grid-column:span 12}
+
+.card{background:var(--glass);box-shadow:inset 0 0 0 1px var(--rim),var(--shadow);
+  border-radius:var(--r);padding:20px;display:flex;flex-direction:column}
+.card--ink{background:var(--ocean);color:var(--on-ocean);box-shadow:none}
+.card--ink .sub,.card--ink .faint{color:#f3f7f8b3}
+.card--aviso{box-shadow:inset 0 0 0 1px var(--down),var(--shadow)}
+
+.tit{font-size:var(--fs-lg);font-weight:600;letter-spacing:-.075px;line-height:21.75px}
+.sub{font-size:var(--fs-sm);font-weight:500;color:var(--faint);margin-top:2px}
+.cabc{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:15px}
+.lnk{font-size:var(--fs-sm);font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+/* ⭐ el hallazgo de Corbel: cada bloque termina en el lugar donde se TRABAJA ese
+   número. El tablero informa y manda; no es una copia del CRM. Va en todas las hojas. */
+.pie{margin-top:auto;padding-top:11px;border-top:1px dashed var(--line-2);
+  color:var(--muted);font-size:var(--fs-sm);font-weight:600;cursor:pointer}
+
+/* la fila de KPI: 4 tiles con el orden de contraste medido */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--gap)}
+.tile{border-radius:var(--r);padding:18px 20px 16px;display:flex;flex-direction:column;gap:12px;
+  box-shadow:inset 0 0 0 1px var(--rim)}
+.tile--1{background:var(--sky);color:var(--on-primary)}
+.tile--2{background:var(--mint);color:#121212}
+.tile--3{background:var(--lemon);color:#121212}
+.tile--4{background:var(--coral);color:#121212}
+.tile .rot{font-size:var(--fs-sm);font-weight:600;opacity:.72}
+.tile .num{font-size:var(--fs-4xl);font-weight:600;letter-spacing:-.52px;line-height:28.6px;white-space:nowrap}
+.tile .meta{font-size:var(--fs-sm);display:flex;flex-wrap:wrap;gap:6px;align-items:center;opacity:.74}
+.tile .pie{border-top-color:#8884;opacity:.8}
+
+/* el delta: el color de estado al 16 % */
+.delta{font-size:var(--fs-2xs);font-weight:700;border-radius:999px;padding:0 7px 0 5px;
+  height:20px;display:inline-flex;align-items:center;gap:2px}
+.delta--up{background:var(--up-soft);color:var(--up)}
+.delta--down{background:var(--down-soft);color:var(--down)}
+.delta--warn{background:var(--warn-soft);color:var(--warn)}
+
+/* listas */
+.fila{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line)}
+.fila:last-of-type{border-bottom:0}
+.fila .t{flex:1;min-width:0}
+.fila .t b{font-size:var(--fs-md);font-weight:600;display:block}
+.fila .t span{font-size:var(--fs-xs);color:var(--faint)}
+.chip{font-size:var(--fs-2xs);font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.chip--d{background:var(--down-soft);color:var(--down)}
+.chip--w{background:var(--warn-soft);color:var(--warn)}
+.chip--u{background:var(--up-soft);color:var(--up)}
+.chip--n{background:var(--well);color:var(--muted)}
+.accion{height:28px;padding:0 13px;border-radius:999px;background:var(--ink-btn);
+  color:var(--on-ink-btn);font-size:var(--fs-xs);font-weight:600;display:flex;
+  align-items:center;flex:0 0 auto;cursor:pointer}
+
+/* el selector dentro del bloque (los recortes de tiempo viven ACÁ, no en un filtro global) */
+.seg{display:flex;gap:3px;background:var(--well);border-radius:999px;padding:3px;flex:0 0 auto}
+.seg b{height:26px;padding:0 11px;border-radius:999px;font-size:var(--fs-xs);font-weight:600;
+  display:flex;align-items:center;color:var(--faint);cursor:pointer}
+.seg b.on{background:var(--ink-btn);color:var(--on-ink-btn)}
+
+/* barras verticales */
+.barras{display:flex;align-items:flex-end;gap:8px;height:150px;margin-top:14px}
+.barras>div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;height:100%}
+.barras i{display:block;width:100%;border-radius:7px;background:var(--c2);transform-origin:50% 100%}
+.barras i.hoy{background:var(--c1)}
+.barras span{font-size:var(--fs-2xs);color:var(--faint)}
+
+/* barras horizontales con MARCA DE META (el gesto de Prism) */
+.gl{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.gl>div{display:flex;align-items:center;gap:10px}
+.gl span{font-size:var(--fs-xs);color:var(--faint);width:96px;flex:0 0 auto}
+.gl .riel{flex:1;height:10px;border-radius:999px;background:var(--well);position:relative;overflow:hidden}
+.gl .riel i{display:block;height:100%;background:var(--c1);border-radius:999px;transform-origin:0 50%}
+.gl .meta-marca{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);opacity:.45}
+.gl b{font-size:var(--fs-sm);font-weight:600;width:52px;text-align:right}
+
+.riel{height:6px;border-radius:999px;background:var(--well);overflow:hidden}
+.riel i{display:block;height:100%;background:var(--c1);border-radius:999px;transform-origin:0 50%}
+
+/* el veredicto EN PALABRAS al lado del número (gesto de Prism y Corbel) */
+.veredicto{font-size:var(--fs-sm);color:var(--muted);margin-top:6px}
+.veredicto b{color:var(--text);font-weight:600}
+
+/* la tarjeta que avisa que NO obedece al filtro de fecha (honestidad del dato, Prism) */
+.nofiltra{font-size:var(--fs-2xs);font-weight:700;color:var(--faint);background:var(--well);
+  border-radius:999px;padding:3px 9px;white-space:nowrap}
+
+/* la barra de control del mockup (no es parte del diseño: es para que Martín pruebe) */
+.mk-ctl{position:fixed;bottom:14px;right:16px;z-index:50;display:flex;align-items:center;gap:7px;
+  background:var(--mk-ctl-bg);box-shadow:0 2px 6px #0003,0 14px 34px -22px #0006;
+  border-radius:999px;padding:5px}
+.mk-b{height:32px;padding:0 13px;border-radius:999px;border:0;
+  font:600 12.5px/1 var(--fuente);color:var(--mk-ctl-fg);background:transparent;cursor:pointer;
+  display:flex;align-items:center;gap:6px}
+.mk-b:hover{background:var(--mk-ctl-hov)}
+.mk-b[aria-pressed="true"]{background:var(--mk-ctl-on);color:var(--mk-ctl-on-fg)}
+.mk-b svg{width:15px;height:15px}
+
+@media (max-width:1320px){ .c4{grid-column:span 5} .c8{grid-column:span 7} }
+@media (max-width:1100px){
+  .rejilla>*{grid-column:span 12}
+  .kpis{grid-template-columns:repeat(2,1fr);gap:10px}
+}
+@media (max-width:700px){
+  body{padding:16px 14px 104px}
+  .h1{font-size:28px;line-height:32px}
+  .cab{flex-direction:column}
+  .card{padding:16px}
+  .tile{padding:14px;gap:8px}
+  .tile .num{font-size:var(--fs-3xl);line-height:24.2px}
+  .tile .mini{display:none}
+  .btn{height:44px}
+}

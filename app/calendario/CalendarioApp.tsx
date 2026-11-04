@@ -534,6 +534,7 @@ function lineasDeAviso(f: FallosCalendario, g: GoogleDelCalendario | null): Arra
   if (f.plan) out.push({ texto: 'No pude leer los deadlines del Plan.', mal: true });
   if (f.recurrentes) out.push({ texto: 'No pude leer lo que se repite.', mal: true });
   if (f.cobros) out.push({ texto: 'No pude leer los cobros.', mal: true });
+  if (f.newsletters) out.push({ texto: 'No pude leer las ediciones del newsletter.', mal: true });
   if (f.objetivos) out.push({ texto: 'No pude leer los Objetivos.', mal: true });
   if (f.google === 'error') out.push({ texto: 'No pude leer tu Google Calendar.', mal: true });
   if (f.google === 'sin-conexion') out.push({ texto: 'Conecta tu Google Calendar para ver sus eventos aquí.', mal: false, servicio: 'google', link: 'Conectar' });

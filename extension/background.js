@@ -21,6 +21,7 @@
 // guarda en `chrome.storage.local`. A MaKo solo le viaja el RESULTADO.
 
 const MAKO = 'https://hola-mako.com';
+
 const FLOW_BASE = 'https://aisandbox-pa.googleapis.com';
 const SITE_KEY = '6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV';
 
@@ -2262,7 +2263,7 @@ async function conectar(forzar) {
   await chrome.storage.local.set({ emparejando: true, emparejandoDesde: Date.now(), emparejarError: '' });
   try {
     let tabs = [];
-    try { tabs = await chrome.tabs.query({ url: `${MAKO}/*` }); } catch { tabs = []; }
+    try { tabs = await pestanasDeMaKo(); } catch { tabs = []; }
 
     // ⚠️ SE PRUEBAN TODAS, NO LA PRIMERA QUE CONTESTE ALGO.
     //
@@ -2410,7 +2411,7 @@ async function prepararEscenario() {
   // ── 2. MaKo, y queda al frente ────────────────────────────────────────────
   let tabMako = null;
   try {
-    const tabs = await chrome.tabs.query({ url: `${MAKO}/*` });
+    const tabs = await pestanasDeMaKo();
     tabMako = tabs.find((t) => String(t.url || '').includes('/video-generator')) || tabs[0] || null;
   } catch { tabMako = null; }
 
@@ -2445,7 +2446,7 @@ async function prepararEscenario() {
  */
 async function recargarMako() {
   let tabs = [];
-  try { tabs = await chrome.tabs.query({ url: `${MAKO}/*` }); } catch { tabs = []; }
+  try { tabs = await pestanasDeMaKo(); } catch { tabs = []; }
   const t = tabs.find((x) => x.active) || tabs[0];
   if (!t) return { ok: false };
   try {
@@ -2518,6 +2519,37 @@ function esperarCarga(tabId) {
 // comentarios con una regex que, ante esa secuencia dentro de un texto, se come todo el código que sigue hasta el próximo
 // cierre de comentario (rompió tres tests ajenos, 24/10/2026). La URL se ve: hay permiso del sitio.
 const WA_WEB = 'https://web.whatsapp.com/';
+// ⛔ QUIÉN PUEDE PEDIRLE COSAS A LA EXTENSIÓN (01/11/2026, auditoría de seguridad). El puente corre en hola-mako.com y,
+// para desarrollar, en localhost. Dos agujeros: (1) una página en localhost —cualquier servidor que corra en la PC del
+// cliente— podía pedir las fichas de WhatsApp o contestar el emparejado con un token suyo; (2) la ventana de lectura del
+// Landing Generator (`/api/landing-generator/diagnostico/pagina`) sirve el HTML de una página AJENA en hola-mako.com, con
+// el puente adentro. Ahora: localhost sólo con la extensión cargada sin empaquetar (`installType: 'development'`), y en
+// hola-mako.com nunca las rutas que sirven contenido ajeno (`/api/`, `/l/`). El manifiesto las excluye también.
+let instalacionDeDesarrollo = false;
+try { chrome.management?.getSelf?.().then((i) => { instalacionDeDesarrollo = i?.installType === 'development'; }, () => {}); } catch { /* sin management: no es de desarrollo */ }
+function esUrlDeMaKo(url) {
+  // Sin `new URL`: el worker lo tiene, pero los tests cargan este bloque en un contexto sin él. El host se compara
+  // EXACTO (un «hola-mako.com@otro.com» trae usuario y no pasa), y sin «//» en la regex (los tests quitan comentarios).
+  const m = /^(https?):[/][/]([^/?#]+)([^?#]*)/.exec(String(url || ''));
+  if (!m) return false;
+  const camino = m[3] || '/';
+  if (camino.startsWith('/api/') || camino.startsWith('/l/')) return false;
+  const host = m[2].toLowerCase();
+  if (m[1] === 'https' && host === 'hola-mako.com') return true;
+  return instalacionDeDesarrollo && m[1] === 'http' && (host === 'localhost' || host.startsWith('localhost:'));
+}
+/** ¿Este pedido lo puede hacer quien lo manda? El popup (una página de la extensión, sin pestaña) o una pestaña de MaKo. */
+function pedidoPermitido(sender) {
+  if (!sender?.tab && sender?.id === chrome.runtime?.id) return true;
+  return esUrlDeMaKo(sender?.url || sender?.tab?.url);
+}
+/** Las pestañas de la app de MaKo: sin la ventana de lectura ni las páginas que sirven HTML de terceros. */
+async function pestanasDeMaKo() {
+  // El patrón se arma en dos pedazos: «barra-asterisco» dentro de un texto rompe el quitador de comentarios de los tests.
+  const tabs = await chrome.tabs.query({ url: 'https://hola-mako.com/' + '*' });
+  return tabs.filter((t) => esUrlDeMaKo(t.url));
+}
+
 /** Cuánto se espera a que la persona escanee el QR de WhatsApp Web (0.72.3). */
 const ESPERA_QR_MS = 5 * 60000;
 const esPestanaDeWhatsapp = (t) => !!t && t.id != null && typeof t.url === 'string' && t.url.startsWith('https://web.whatsapp.com/');
@@ -3048,6 +3080,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   }
 
   if (msg?.tipo === 'WA_FICHAS_PEDIDO') {
+    if (!pedidoPermitido(_s)) { responder({ ok: false, error: 'origen' }); return false; }
     const origen = _s?.tab?.id;
     const pedidoId = typeof msg.id === 'string' ? msg.id : '';
     // «Extraer» (0.72.0): a la vista, con el desplegable y su registro. Sin `visible` (la 0.71), sólo se lee la base.
@@ -3149,6 +3182,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   // extensión no contestó». Ahora la pantalla pide los perfiles de a tandas (`perfilesEnTandas`, lib/wa-fichas-cliente.ts:
   // 12 por pedido, ~1 minuto), con el MISMO id de la extracción, y cada tanda es un pedido corto.
   if (msg?.tipo === 'WA_PERFILES_PEDIDO') {
+    if (!pedidoPermitido(_s)) { responder({ ok: false, error: 'origen' }); return false; }
     const origen = _s?.tab?.id;
     const id = typeof msg.id === 'string' ? msg.id : '';
     const grupo = typeof msg.grupo === 'string' ? msg.grupo.slice(0, 120) : '';
@@ -3197,6 +3231,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
 
   // La pantalla de MaKo cuenta cómo sigue (guardando, el final): al registro. Al terminar, de vuelta a MaKo.
   if (msg?.tipo === 'WA_EXTRACCION') {
+    if (!pedidoPermitido(_s)) { responder({ ok: false, error: 'origen' }); return false; }
     const id = typeof msg.id === 'string' ? msg.id : '';
     const c = {};
     for (const k of ['fase', 'estado', 'texto']) if (typeof msg[k] === 'string') c[k] = msg[k].slice(0, 400);
@@ -3219,6 +3254,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
 
   // «Parar», desde el desplegable: corta el recorrido en WhatsApp Web y el guardado en MaKo.
   if (msg?.tipo === 'WA_PARAR') {
+    if (!pedidoPermitido(_s)) { responder({ ok: false, error: 'origen' }); return false; }
     const id = typeof msg.id === 'string' ? msg.id : '';
     const viva = extraccionesVivas.get(id);
     if (viva) {
@@ -3234,6 +3270,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   // Cómo está WhatsApp Web, para el desplegable (0.72.3, como el estado de Flow): SÓLO MIRA. Sin pestaña, sin despertar ni
   // inyectar nada; una dormida o sin el script dice «se está preparando» y se arregla al extraer.
   if (msg?.tipo === 'WA_ESTADO') {
+    if (!pedidoPermitido(_s)) { responder({ ok: false, error: 'origen' }); return false; }
     void (async () => {
       try {
         const tab = (await chrome.tabs.query({})).find(esPestanaDeWhatsapp);
@@ -3248,6 +3285,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
 
   // «Ir a WhatsApp Web» desde MaKo (para iniciar la sesión, 25/10/2026): la pestaña que hay, al frente; si no hay, una nueva.
   if (msg?.tipo === 'WA_ENFOCAR') {
+    if (!pedidoPermitido(_s)) { responder({ ok: false, error: 'origen' }); return false; }
     void (async () => {
       try {
         const tabs = await chrome.tabs.query({});

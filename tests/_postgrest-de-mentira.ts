@@ -129,10 +129,11 @@ export function crearPostgrest(o: {
         });
       }
       // `.like('ref', 'np:11:%')` suelto (27/10/2026, los tickets automáticos y el tope del tercero): `%` y `*` son el comodín.
-      else if (v.startsWith('like.') || v.startsWith('not.like.')) {
+      else if (v.startsWith('like.') || v.startsWith('not.like.') || v.startsWith('ilike.')) {
         const no = v.startsWith('not.');
-        const patron = v.slice(no ? 9 : 5);
-        const re = new RegExp(`^${patron.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '.').replace(/[%*]/g, '.*')}$`);
+        const ilike = v.startsWith('ilike.');
+        const patron = v.slice(ilike ? 6 : no ? 9 : 5);
+        const re = new RegExp(`^${patron.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '.').replace(/[%*]/g, '.*')}$`, ilike ? 'i' : '');
         out.push((f) => (val(f) != null && re.test(String(val(f)))) !== no);
       }
       else if (k === 'or' && /^\(.+\)$/.test(v) && o.orCompleto) {

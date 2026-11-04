@@ -182,7 +182,52 @@ decía mal, y un hueco que venía de antes:
     con ella; lo leído vuelve al campo de la pantalla (`onTexto`), que vive afuera, y no se manda. Con `conversacion`, queda
     guardado para volver.
 
+## Los referentes del Ops Center: qué se decidió y qué quedó afuera (1/11/2026)
+
+**Pedido** (Martín): caricaturas de los grandes referentes, elegibles como las de MaKo, con agentes alimentados por las transcripciones de los
+cursos y sus canales de YouTube. Le plantearon el reparo de la cara y el nombre de personas reales y lo decidió: son caricaturas, no fotos.
+
+- **«Elegible como las de MaKo» se resolvió con el mismo gesto:** tocar la criatura del chat abre la galería (`app/second-brain/ElegirReferente.tsx`).
+  Lo que se elige es la cara Y la ficha con la que aconseja; por eso no se guarda en `operaciones.munecos`, que es sólo del dibujo.
+- **Reglas que no son un recorte:** «Inspirado en» a la vista, y el contexto le prohíbe decir que es esa persona o inventarle una cita (`lib/asesores/contexto.ts`).
+- ⚠️ **Las caras cambiaron dos veces.** Martín rechazó dos tandas de SVG dibujados a mano, y aprobó las de `public/asesores/<id>.png`, generadas con IA a partir de fotos públicas, después de ocho vueltas: «esos sí me gustan». Eso deja atrás el «dibujo, nunca foto procesada» del principio: se parecen más, y por eso el riesgo por la imagen de personas reales es mayor. Es su decisión.
+- **Por qué están así, el estado del chat sin parpadeo y qué no perder al regenerarlas:** docs/hallazgos-ops-center.md.
+- ⚠️ **Dos caminos de `/api/mako/chat` llaman al turno, JSON y con archivos.** Poner el contexto del coach sólo en el primero dejaba a un PDF adjunto hablando como
+  el Ops Center. Lo cazó un test que miraba otra cosa. Ahora es una pieza: `contextoDelChat`.
+- **Son catorce, y el criterio fue de cuántos hay material real** (Martín: «Haz de muchos, no solo de hormozi»): 130 cursos con transcripción en `public/cono-tx/`. Andrew Tate y Jordan Belfort están en Knowledge y no entran. Un referente nuevo es: su ficha, una línea en `catalogo.ts` y su imagen en `public/asesores/`.
+- ⚠️ **El contexto del coach REEMPLAZA a `CONTEXTO_SECOND_BRAIN`, y ahí vivía la frase que anula la voz del teléfono.** Sin copiarla, el turno armaba un plan «en 2-5 líneas».
+- ⚠️ **La pista va pegada adelante del mensaje, y las reglas de «sí» y «no» están ancladas al principio** (lib/mako-intencion.ts). Una respuesta corta va sin pista (`pistaDelFunnelCoach`).
+- ⚠️ **Un chat con motor propio adentro de otra pantalla no puede desmontarse a mitad de un turno:** el guard de navegación mira el motor de la pantalla, no el suyo. Queda montado y escondido.
+- **Sofía Contreras, Marcos Razzetti y Víctor Heras** los pidió Martín por nombre. El Funnel Coach sin referente sólo carga los de `enElFunnel`: cada ficha son
+  5.000 caracteres en el system, y con todas serían 30.000.
+
+**Sin hacer: YouTube.** Está el lector oficial (`lib/spy-youtube.ts`), que trae títulos y descripciones. ⚠️ **No trae lo que se dice en el video:**
+la API oficial sólo le da los subtítulos al dueño del canal. Bajarlos igual es lo que AGENTS.md y la memoria del 29/10 llaman el segundo
+permiso: el de la licencia no habilita los términos del proveedor. Es una decisión de Martín, que pidió «scrapear»; no se resolvió de oficio.
+Y guardar títulos en el repo tampoco sirve: los Developer Policies piden refrescar a los 30 días (por eso Spy poda, `podarVencido`).
+
+**Vive en:** lib/asesores/ · app/second-brain/ChatDelCoach.tsx · app/second-brain/ElegirReferente.tsx · app/admin/operaciones/Retratos.tsx ·
+tests/coaches-ops-center.test.ts.
+
+## La estrella flota otra vez, y en todas las tabs (1/11/2026)
+
+**Pedido** (Martín): *«no me gusta que el botoncito de la estrella de MaKo esté en la sidebar principal. Eso ponerlo como antes que
+esté flotando. Dentro de la misma página, independientemente de qué tab estemos»*.
+
+- ⚠️ **No es la `estrella: true` de `app/_components/nav.ts`.** Eso es el ícono de la entrada «Ops Center», que pidió él el 18/10 y
+  sigue. El botón que molestaba era la ranura del pie de la barra (la entrada de abajo).
+- ⚠️ **«22 pantallas montan MakoEnLaTab» era falso:** medido, siete. General, Chats, Spy o Integraciones no tenían estrella. La monta
+  ahora la barra (`app/_chat/EstrellaDeLaApp.tsx`) salvo donde hay un chat de MaKo a la vista (`lib/estrella-rutas.ts`), y se retira
+  si la tab tiene la suya (`app/_chat/estrella-propia.ts`): nunca dos.
+- **La de la barra no se abre sola ni dice su corto.** Si no, la primera visita a cada tab nueva abría el panel encima.
+- **Sin hacer, y es el costo de la decisión:** vuelve lo de la entrada de abajo. El botón de 56 px tapa el rincón de abajo a la izquierda
+  de la tab (una fecha del Plan, la última tarjeta de una etapa del CRM, el eje de un gráfico). Se resuelve tab por tab, cuando moleste.
+
+**Vive en:** app/_chat/MakoEnLaTab.tsx · app/_chat/EstrellaDeLaApp.tsx · lib/estrella-rutas.ts · tests/estrella-en-toda-tab.test.ts.
+
 ## El botón de MaKo tapaba el rincón de cinco pantallas: vive en la barra, no encima de la tab (30/10/2026)
+
+**⚠️ REVERTIDO el 1/11/2026, por pedido de Martín (entrada de arriba).** Queda por el diagnóstico de qué tapa.
 
 **Síntoma** (el recorrido visual de producción, Chrome de Martín): el botón de la estrella (56×56, `position: fixed`, al lado de la
 barra) tapaba la casilla de un calendario de Google en /calendario (K2, ALTO: no se podía tocar), «Venció…» en Llamadas a 1024, una

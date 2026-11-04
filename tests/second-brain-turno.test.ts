@@ -103,14 +103,30 @@ test('2. el bloque va sólo con una vista local: una pregunta que no nombra nada
 test('3. el turno lo trae en paralelo, al final del system, con la plata según el rol, sin esperar de más ni caerse', () => {
   const t = fuente('lib/mako-turno-app.ts');
   // Arranca ANTES de armar el system (en paralelo) y se espera después: los dos a la vez.
-  assert.match(t, /const segundoCerebroP = paqueteParaElTurno\(textoPersona \|\| textoMemoria, \{ sinPlata: persona\.rol !== 'admin' \}\);\s*const base = await buildSystemPrompt\([^\n]*\);\s*const segundoCerebro = await segundoCerebroP;/,
+  // ⚠️ 2/11/2026 — LAS OPCIONES YA NO SE FIJAN PALABRA POR PALABRA. Antes el regex pedía el objeto
+  // EXACTO `{ sinPlata: persona.rol !== 'admin' }` y se puso rojo al sumarle `referente` (la capa
+  // del gurú, que cuelga su curso entero). Lo que este test cuida es otra cosa y sigue intacto: que
+  // la llamada arranque ANTES de armar el system y se espere DESPUÉS —o sea, en paralelo— y que
+  // lleve el filtro de la plata por rol. Fijar el objeto entero convierte cualquier opción nueva en
+  // un rojo que no dice nada.
+  assert.match(t, /const segundoCerebroP = paqueteParaElTurno\(textoPersona \|\| textoMemoria, \{[^}]*sinPlata: persona\.rol !== 'admin'[^}]*\}\);\s*const base = await buildSystemPrompt\([^\n]*\);\s*const segundoCerebro = await segundoCerebroP;/,
     'el Second Brain no viaja en el turno, no va en paralelo o no lleva el filtro del rol');
   assert.match(t, /const system = `[^\n]*\$\{segundoCerebro \? `\\n\\n\$\{segundoCerebro\}` : ''\}\$\{ctxDesde \? `\\n\\n\$\{ctxDesde\}` : ''\}\$\{ctxAtado \? `\\n\\n\$\{ctxAtado\}` : ''\}`;/, 'el bloque no va en el system, o no va antes de ctxDesde y del contexto atado');
   const c = fuente('lib/cerebro-para-chat.ts');
   const p = c.slice(c.indexOf('export async function paqueteParaElTurno('), c.indexOf('async function armar('));
   assert.match(p, /Promise\.race\(\[\s*grafoParaChat\(\),\s*new Promise<null>\(\(r\) => setTimeout\(\(\) => r\(null\), ESPERA_GRAFO_TURNO_MS\)\),/, 'el turno espera al grafo sin tope');
   assert.match(c, /export const ESPERA_GRAFO_TURNO_MS = 2_500;/, 'la espera al grafo no es de 2,5 s');
-  assert.match(p, /const delRol = o\.sinPlata \? sinLaPlata\(grafo\) : grafo;/, 'la plata no se filtra por el rol');
+  // El filtro de la plata se aplica a lo que haya en la mano, que desde el 2/11/2026 puede traer la
+  // capa del referente colgada (`conReferente`). Lo que importa es que `sinPlata` siga decidiendo,
+  // no sobre qué variable: fijar el nombre convierte cualquier capa nueva en un rojo que no dice nada.
+  assert.match(p, /const delRol = o\.sinPlata \? sinLaPlata\((\w+)\) : \1;/, 'la plata no se filtra por el rol');
+  // ⚠️ 3/11/2026 — EL CURSO DEL REFERENTE YA NO SE CUELGA DEL GRAFO: va en un bloque aparte, en
+  // paralelo con el del negocio. Colgado del grafo viajaba por `recuperar`, que nunca pone el cuerpo de
+  // un nodo sin pedirlo por id: el chat veía los títulos de las clases y ni una palabra del curso. Lo
+  // que este assert cuida es que vaya en paralelo (no espera al grafo) y que lo decida el referente
+  // del chat, no la pregunta (lib/cerebro-referente.ts → `cursoParaElTurno`).
+  assert.match(p, /await Promise\.all\(\[\s*paqueteDelNegocio\(q, o\),\s*o\.referente \? cursoParaElTurnoDe\(o\.referente, q\) : Promise\.resolve\(''\),\s*\]\)/,
+    'el curso del referente no va aparte y en paralelo con el negocio');
   assert.match(p, /const q = preguntaDelTurno\(pregunta\);\s*if \(!q\) return '';/, 'el turno busca con el mensaje entero');
   // Desde el 31/10/2026 hay DOS capas que se filtran por lo que pregunta el turno, así que son tres asserts y no uno:
   // las funciones (lib/cerebro-funciones.ts), Knowledge (lib/cerebro-knowledge.ts) y la búsqueda con su tope. Juntas en

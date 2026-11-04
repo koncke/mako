@@ -302,9 +302,16 @@ export type PedidoIA =
   | { accion: 'disenos'; tarjeta: JsonNodo; params?: Partial<ParamsGeneracion> }
   | { accion: 'notas'; tarjeta: JsonNodo };
 
+/**
+ * Lo que vuelve de «editar» (lib/editor-landing/ia.ts): las tarjetas que cambian y las nuevas, y lo que cambia de la LISTA
+ * (28/10/2026, Martín: «sacá la sección de precios»): las que se sacan (`quitar`), el orden nuevo (`orden`, con los ids que
+ * quedan) y las COPIAS (`copias`: id de la nueva → id de la que copia, que va justo debajo). Lo aplica `planDeAplicacion`.
+ */
+export type EdicionIA = { tarjetas: JsonNodo[]; resumen?: string; quitar?: string[]; orden?: string[]; copias?: Record<string, string> };
+
 export type RespuestaIA =
   | { ok: true; esquema: Esquema }
-  | { ok: true; tarjetas: JsonNodo[]; resumen?: string }
+  | ({ ok: true } & EdicionIA)
   | { ok: true; texto: string }
   | { ok: true; opciones: JsonNodo[] }
   | { ok: true; notas: string }

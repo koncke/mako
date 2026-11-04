@@ -452,8 +452,8 @@ function PieLegal() {
   const link: React.CSSProperties = { color: '#6B7280', textDecoration: 'underline' };
   return (
     <div style={{
-      background: '#FFFFFF', padding: '0 28px 30px', textAlign: 'center',
-      fontFamily: "'Geist', sans-serif", fontSize: 13.5, color: '#6B7280',
+      background: 'transparent', padding: '0 28px 30px', textAlign: 'center',
+      fontFamily: 'inherit', fontSize: 13.5, color: '#6B7280',
       display: 'flex', flexWrap: 'wrap', gap: '6px 18px', justifyContent: 'center', alignItems: 'center',
     }}>
       <a href="/privacidad" style={link}>Privacidad</a>

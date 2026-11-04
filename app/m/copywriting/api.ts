@@ -69,27 +69,5 @@ export async function valorarGuion(guion: string): Promise<ResultadoValorar> {
   }
 }
 
-/**
- * Copiar al portapapeles. Devuelve si copió DE VERDAD (escritorio lo aprendió: sin clipboard el catch
- * se tragaba el error y el botón decía «Copiado» igual). Sin la API (un navegador viejo, un contexto
- * que no la da), el camino de siempre: un textarea seleccionado y `execCommand('copy')`.
- */
-export async function copiarTexto(texto: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(texto); return true; }
-  } catch { /* cae al camino viejo */ }
-  try {
-    const t = document.createElement('textarea');
-    t.value = texto;
-    t.setAttribute('readonly', '');
-    t.style.position = 'fixed'; t.style.opacity = '0'; t.style.top = '0'; t.style.left = '0';
-    document.body.appendChild(t);
-    t.select();
-    t.setSelectionRange(0, texto.length);
-    const ok = document.execCommand('copy');
-    document.body.removeChild(t);
-    return ok;
-  } catch {
-    return false;
-  }
-}
+/** Copiar al portapapeles: vive en lib/copiar-texto.ts, un solo camino para las pantallas de acá y el Ops Center (ticket #36). */
+export { copiarTexto } from '@/lib/copiar-texto';

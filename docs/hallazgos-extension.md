@@ -5,6 +5,33 @@ lo que la página de MaKo le pide a la extensión (`lib/wa-fichas-cliente.ts`). 
 es de la extensión en sí (la API, los créditos, el motor) está en [hallazgos-generativa.md](hallazgos-generativa.md). El índice
 es [hallazgos.md](hallazgos.md).
 
+## «Descargar» volvía con cada versión: qué se ofrece no puede colgar de la versión (3/11/2026)
+
+**Síntoma.** Martín: «Aún la extensión de mako me pide "Descargar"...», ya con la 0.74.3 aprobada en la tienda.
+**El diagnóstico obvio era el equivocado.** `docs/pendientes-martin.md` decía «hay que publicar la 0.74.4; ningún cambio de código
+lo arregla, el flag hace lo correcto». Publicar no lo arregla nunca: el repo sube en cada push y la tienda sólo cuando alguien
+publica y Google aprueba, así que «repo adelante de la tienda» es el estado normal. Se midió de nuevo el mismo día y ya era 0.74.5.
+El «modo de falla seguro» del flag (`EXTENSION_EN_TIENDA`) sólo era seguro para el repo: para el cliente, el zip pide Modo de
+desarrollador, una carpeta que no se borra y no se actualiza más.
+**Regla.** Toda pantalla lleva a «Agregar a Chrome». La versión vieja se protege aparte, y por función:
+- una función que pide más versión lo dice en una línea (`lineaDeVersion`), y no manda a actualizar si la tienda no la tiene;
+- «quedó vieja» compara contra lo que la persona PUEDE tener (`VERSION_EN_TIENDA`), nunca contra el repo. Comparar contra el repo
+  era un aviso sin salida para quien ya tenía la última de la tienda. Por lo mismo, `app/` no usa `EXTENSION_VERSION`: `/perfil/instalar`
+  decía «Versión 0.74.5» arriba de un botón que da la 0.74.3.
+**Trampas que no se ven leyendo la pantalla:**
+- **El desplegable de una copia vive en SU carpeta.** El puente contestaba `versionEsperada: EXTENSION_VERSION`, y con eso toda copia
+  sin la última se trababa en «Actualiza… quita MaKo y vuelve a cargarla descomprimida» (extension/popup.js). Ese texto no se puede
+  cambiar desde acá. Ahora el puente contesta `'0'`, y avisa la web. No sirve mandarlo vacío: `anotarVersionEsperada` no pisa con
+  vacío y lo guardado la seguiría trabando. La de la tienda nunca se trabó (`update_url`), por eso se veía sólo en las copias.
+- **Una copia y la de la tienda conviven:** tienen id distinto. Si queda la vieja, sigue latiendo con su versión. Por eso el
+  instructivo empieza por «Quitar» para quien viene de una copia.
+- **`Icon name="descargar"` en «Agregar a Chrome» sigue diciendo «descargar»:** el test frena el ícono también.
+**Vive en:** lib/extension-tienda.ts · app/extension/instalar/ · app/perfil/instalar/ · app/video-generator/puente-avisos.tsx,
+OnboardingVideoGen.tsx, extension-instalada.tsx · app/_components/AvisoExtensionVieja.tsx · `/extension` en next.config.ts ·
+`versionEsperada` en app/api/flow/puente/route.ts · tests/extension-sin-zip-con-tienda.test.ts.
+
+---
+
 ## «Extraer» no volvía a MaKo: la memoria de un service worker no es un dato (30/10/2026, 0.74.4)
 
 **Síntoma.** Martín: «aun no veo... que cuando termina de scrapear debe regresar a la app de mako». `volverAMako` estaba desde la 0.74.0.
@@ -82,7 +109,8 @@ aviso final, el worker revivía con el mapa vacío y no volvía.
 
 ## Cómo le llega una versión nueva a Martín (y qué pide Chrome)
 
-- Hoy `EXTENSION_EN_TIENDA = false`: se sirve el ZIP (`public/mako-puente-<v>.zip`, lo arma `node scripts/zip-extension.mjs`
+- A los clientes les llega desde la Chrome Web Store, cuando Google aprueba. El ZIP es de desarrollo
+  (`public/mako-puente-<v>.zip`, lo arma `node scripts/zip-extension.mjs`
   junto con la huella y `lib/extension-version.ts`; `guardas-push` frena un ZIP viejo). Martín usa la carpeta desempaquetada
   `C:\Users\marti\OneDrive\Escritorio\mako-puente`: se reemplazan los archivos y se toca «Recargar» en `chrome://extensions`.
 - **⚠️ El ZIP se arma con los archivos del DISCO y `--check` lo compara contra HEAD.** Con `core.autocrlf=true`, la copia del
@@ -333,23 +361,16 @@ desplegable · `AvisoExtensionVieja` (app/_components) · tests/wa-extraer-072 (
   va en la esquina de toda la app (con sesión), y lleva al instructivo. Que se actualice SOLA pide la tienda de Chrome al
   día (`VERSION_EN_TIENDA`, lib/extension-tienda.ts): una descomprimida no se actualiza nunca. Es un paso de Martín.
 
-## La Chrome Web Store: la versión publicada se MIDE, y cada versión nueva la apaga (27/10/2026)
+## La Chrome Web Store: la versión publicada se MIDE (27/10/2026)
 
-**Vive en:** `VERSION_EN_TIENDA` → `EXTENSION_EN_TIENDA` (lib/extension-tienda.ts) · scripts/version-en-tienda.mjs · la rama
-`tienda-cws-2710` · tests/extension-sin-zip-con-tienda, extension-tienda-al-dia · la ficha para subir, en
+**Vive en:** `VERSION_EN_TIENDA` (lib/extension-tienda.ts) · scripts/version-en-tienda.mjs ·
+tests/extension-sin-zip-con-tienda · la ficha para subir, en
 feedback/chrome-web-store/ficha-y-permisos.md (fuera del repo).
 
 - **Tres números para el mismo dato, y dos eran recuerdos.** El pedido decía «la tienda tiene la 0.1.0» (una memoria), el
   código decía 0.5.0 (medido el 02/09) y lo medido el 27/10 con `node scripts/version-en-tienda.mjs` fue la **0.39.1**. La
   versión de la tienda se mide antes de decidir, nunca se copia de un comentario. Y `publicar-extension.mjs --estado` no
   sirve para esto: devuelve el borrador (lo último que se subió), no lo que Google aprobó.
-- **Cada versión nueva de la extensión apaga la tienda** hasta que se sube y Google la aprueba: `EXTENSION_EN_TIENDA` es
-  «la tienda no va atrás del paquete», así que la 0.74.4 la vuelve a apagar sola (y la app vuelve a ofrecer el zip, que es
-  el modo de falla seguro). Por eso `tienda-cws-2710` (VERSION_EN_TIENDA = 0.74.3 y los avisos a la tienda) se mezcla SÓLO
-  con la ficha pública en 0.74.3, medida.
-- **Con la tienda al día, nadie ve el .zip** (Martín, 27/10): el instructivo, el perfil, los avisos y `/extension` ya le
-  preguntan al flag. tests/extension-sin-zip-con-tienda frena una pantalla nueva que enlace el zip sin preguntar (probado
-  rompiéndolo en 4 lugares). El zip queda para desarrollo: la carpeta de Martín y `/mako-puente.zip`.
 - **Google compara la ficha contra el manifest y contra la política.** Al escribir la ficha se vio que /privacidad/extension
   no decía que, desde la 0.73, la extensión abre el perfil de cada miembro (71d0e5682 lo corrigió). Antes de subir una
   versión, releer la política contra lo que hace esa versión.
@@ -377,14 +398,29 @@ feedback/chrome-web-store/ficha-y-permisos.md (fuera del repo).
   `public/mako-puente.zip` no se versiona: en el tren no existe. Para subir desde el tren hay que cargar las `CWS_*` en el
   entorno (dotenv no pisa lo que ya está) y poner el zip; el de la tienda está en feedback/chrome-web-store/.
 
+## Subir a la tienda por el panel: lo que corrige la subida de la 0.74.5 (3/11/2026)
+
+- **La sesión de Google no dura:** a los 5 días pidió de nuevo la contraseña en ese perfil. «Martín entra UNA vez» era falso: puede tocar en cada subida.
+- **El zip ya se versiona:** `git show origin/main:public/mako-puente-<versión>.zip`. Un `git archive` pelado no sirve: `manifestParaPaquete` (`scripts/zip-extension.mjs`) le saca los `localhost` al manifest, porque un permiso sin uso es motivo de rechazo.
+- **Rutas del panel:** las pestañas cuelgan de `/edit/` (`/edit/status`, `/edit/package`, `/edit/privacy`, `/edit/listing`); sin `/edit/` dan 404.
+- **Subir:** «Upload new package» abre un `input[type=file]`, `DOM.setFileInputFiles` anda, y el panel salta a Store listing sin avisar: la versión se confirma recargando Package.
+- **Cerrar ese Chrome con `Browser.close` por CDP:** `taskkill` sin `/F` no alcanza, y forzarlo arriesga las cookies recién guardadas. Cliente CDP: `scripts/cdp-tienda.mjs`.
+- **Google avisa que la revisión puede tardar semanas:** al aprobar, `node scripts/version-en-tienda.mjs` y actualizar `VERSION_EN_TIENDA` en `lib/extension-tienda.ts`.
+
 ## Sin hacer
 
-- **La 0.74.3 está EN REVISIÓN desde el 29/10 ~01:35 ART** (paquete, descripción, 5 capturas, ícono, mosaico chico y
-  privacidad nuevos; «publicar solo al aprobarse» tildado). Quedó el mosaico GRANDE viejo (1400x560, «Tus anuncios… Google
-  Flow»): opcional, reemplazarlo en la próxima versión. Cuando Google apruebe: medir con `node scripts/version-en-tienda.mjs`
-  y recién ahí mezclar `tienda-cws-2710`.
+- **Publicar la 0.74.5:** la tienda sigue en la 0.74.3 (medido el 3/11), así que lo de la 0.74.4 y la 0.74.5 no le llega a nadie
+  que instale desde ahí. Ya no le devuelve el zip a nadie, pero sigue pendiente. Quedó el mosaico GRANDE viejo (1400x560, «Tus
+  anuncios… Google Flow»): opcional, reemplazarlo en la próxima versión. La rama `tienda-cws-2710` ya no hace falta.
 - **Volver a crear la credencial de la API de la tienda** (`--ayuda`, pasos 1 a 4; la autorización es de Martín), para que
   cada versión nueva se suba con un comando.
+- **Sacar la pantalla «Actualiza la extensión» de extension/popup.js** en la próxima versión que se suba. Con `versionEsperada: '0'`
+  ya no se muestra, y no se tocó ahora para no sumar una versión más que la tienda no tiene.
+- **Las copias con una versión igual o más nueva que la tienda** no ven ningún aviso: siguen sin actualizarse solas hasta que la
+  tienda las pase, y recién ahí se les pide cambiarla. No se las empuja antes, y no se midió cuántas son (`flow_puentes.version`
+  dice la versión, no si es copia).
+- **No se recorrió en un navegador:** el instructivo y el perfil se dibujan en el test (`renderToStaticMarkup`), y el botón del
+  Video Generator se lee en el fuente. Mirarlo en producción, con Chrome sin la extensión, la primera vez que se pueda.
 
 - **Cuántos llegan sin teléfono** (Aaron: WhatsApp esconde números en grupos): medirlo en un grupo con la pantalla de
   «Traer de grupo» (`sinNumero`) y en el registro, antes de construir nada.
@@ -403,3 +439,17 @@ feedback/chrome-web-store/ficha-y-permisos.md (fuera del repo).
 - **El panel del contacto** (categoría, web, correo, estado, catálogo): `business-profile` no los trae (sólo bots). Medir
   antes de construir.
 - **El rubro filtrable en el CRM**: hoy no llega por ningún camino gratis (las tablas no traen la categoría).
+
+## Leer un sitio ajeno sin que Chrome desactive la extensión (03/11/2026, Cerebro)
+
+Para «Guardar en Spy» alcanza con `activeTab`: lee la pestaña sólo al tocar el ícono. Según la documentación de Chrome no muestra advertencia, y por eso no debería desactivar la extensión al actualizar; sin medir. Un permiso de sitios, en cambio, sí la desactiva hasta que cada cliente lo acepte. Igual pasa por revisión, y la descripción y `app/privacidad/extension/page.tsx` ya lo dicen (0.75.0). Detalle: docs/hallazgos-competitors-spy.md, entrada «Guardar en Spy».
+
+## Probar la extensión de verdad sin una persona y sin producción (03/11/2026, Chrome 156)
+
+Un test con `vm` prueba las reglas; esto prueba el permiso, el clic y la inyección. Costó cuatro vueltas, y es corto:
+
+- **Cargarla:** `--remote-debugging-pipe --enable-unsafe-extension-debugging` y `Extensions.loadUnpacked`. Con Chrome oficial, `--load-extension` ya no sirve. Siempre `--headless=new --mute-audio`, y cerrar por su PID.
+- **El clic en el ícono:** `Extensions.triggerAction`, y ⚠️ **sobre el target de tipo `tab`, no `page`** («Action can only be triggered on a tab target»): sale de `Target.getTargets` con `filter: [{ type: 'tab', exclude: false }]`. Eso sí otorga `activeTab`. `chrome.action.openPopup` no: es el control negativo.
+- ⚠️ **El desplegable llega como `other`, sin dirección y pausado** con `waitForDebuggerOnStart`; recién después dice que es `popup.html`. Buscarlo por la URL no lo encuentra nunca. Y cualquier otro target hay que soltarlo con `Runtime.runIfWaitingForDebugger`: un worker sin soltar contesta «chrome is not defined».
+- **Sin tocar producción:** `--host-resolver-rules=MAP hola-mako.com 127.0.0.1:9` (el worker con un token de mentira no le habla a nadie) y `Fetch.enable` en el desplegable ANTES de soltarlo, para contestar lo que iría a MaKo con el intérprete real.
+- La herramienta de edición volvió a escribir `\u0300` como el carácter literal (ver «Ningún archivo trae un no carácter»). En la extensión, `\p{M}` y `\p{Cf}` no tienen ese problema.

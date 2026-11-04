@@ -2895,9 +2895,10 @@ export function CrmBoard({
           handleDrop(c.key, antes);
           limpiarArrastreTarjeta();
         }}
-        /* LA COLUMNA DE LA FAMILIA (17/10/2026, prototipo docs/prototipos/coherencia-1710.html): 26 de radio, fondo
+        /* LA COLUMNA DE LA FAMILIA (17/10/2026, prototipo docs/prototipos/coherencia-1710.html; las medidas, de Merrin el
+           31/10/2026: docs/diseno/espaciado-kanban.json): 18 de radio, fondo
            suave y sin bordes duros; la banda la dice el punto del título. Soltar encima la marca con un contorno azul. */
-        style={{ flex: 'none', width: 304, background: dragOverCol === c.key && dragId != null ? 'var(--primary-bg)' : FONDO_COLUMNA, border: 'none', borderRadius: 26, display: 'flex', flexDirection: 'column', minHeight: 0, transition: 'background .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? 'inset 0 0 0 2px var(--primary)' : 'none', opacity: arrastrandoCol === c.key ? 0.55 : 1, ...marcaCol }}
+        style={{ flex: 'none', width: 304, background: dragOverCol === c.key && dragId != null ? 'var(--primary-bg)' : FONDO_COLUMNA, border: 'none', borderRadius: 18, display: 'flex', flexDirection: 'column', minHeight: 0, transition: 'background .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? 'inset 0 0 0 2px var(--primary)' : 'none', opacity: arrastrandoCol === c.key ? 0.55 : 1, ...marcaCol }}
       >
         {/* ⚠️ EL CONTADOR VA DESPUÉS DEL TÍTULO, y el lugar de la derecha es para el menú.
             Pedido de Martín: «en el lugar donde hoy está el 14 que estén 3 puntitos para
@@ -2913,7 +2914,7 @@ export function CrmBoard({
           draggable={seArrastraCol(c) && renombrando !== c.key}
           onDragStart={(e) => agarrarCol(e, c.key)}
           onDragEnd={limpiarDragCol}
-          style={{ display: 'flex', alignItems: hayPlataEnColumnas ? 'flex-start' : 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 6px', cursor: seArrastraCol(c) && renombrando !== c.key ? 'grab' : 'default' }}
+          style={{ display: 'flex', alignItems: hayPlataEnColumnas ? 'flex-start' : 'center', justifyContent: 'space-between', gap: 8, padding: '14px 14px 10px', cursor: seArrastraCol(c) && renombrando !== c.key ? 'grab' : 'default' }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 'none' }}>
@@ -3012,7 +3013,7 @@ export function CrmBoard({
             </span>
           )}
         </div>
-        <div data-carril style={{ flex: 1, minHeight: 0, padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+        <div data-carril style={{ flex: 1, minHeight: 0, padding: '0 10px 10px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
           {/* ⚠️ ACÁ HUBO UN PLACEHOLDER «＋ Nuevo lead» arriba de cada carril (29/09/2026) y se fue el 21/10/2026 al «⋯» de
               la columna: «Quiero que elimines el botón de "nuevo lead" de donde está en las columnas y lo pongas dentro de
               los 3 puntos de cada columna» (Martín). El alta sigue pasando por el mismo camino que soltar una tarjeta
@@ -3457,12 +3458,12 @@ export function CrmBoard({
               style={{ flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8 }}>
               {/* LAS COLUMNAS, TODAS DEL MISMO ALTO Y HASTA EL FONDO (22/10/2026, ver `ALTO_TABLERO`): la fila estira a
                   cada columna al alto del tablero, y el que scrollea es el carril de tarjetas de adentro. */}
-              <div style={{ display: 'flex', gap: 14, alignItems: 'stretch', width: 'max-content', height: '100%' }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', width: 'max-content', height: '100%' }}>
                 {columnasKanban.map((c) => (
                   <Fragment key={c.key}>
                     {renderColumn(c)}
                     {creandoTras === c.key && (
-                      <div role="status" aria-live="polite" style={{ flex: 'none', width: 304, background: FONDO_COLUMNA, borderRadius: 26, padding: '18px 16px', display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
+                      <div role="status" aria-live="polite" style={{ flex: 'none', width: 304, background: FONDO_COLUMNA, borderRadius: 18, padding: '18px 16px', display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
                         <Spinner size={15} /> Creando la etapa…
                       </div>
                     )}

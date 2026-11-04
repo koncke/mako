@@ -261,6 +261,11 @@ export const CSS = `
    y no se sabía qué número era (visto en producción, 15/10/2026). Ahí va en dos renglones. */
 .lk-pila > .lk-comp--kpi .lk-comp-tit > span:first-child { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .lk-comp-sub { margin-top: -6px; font-size: 13px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lk-comp-ir { flex: none; align-self: flex-start; margin-top: auto; font-size: 13px; font-weight: 500; color: var(--dim); text-decoration: none; white-space: nowrap; }
+a.lk-comp-ir:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.lk-comp--portada .lk-comp-ir { color: inherit; opacity: .8; }
+/* La oración de apertura (tipo «frase», lib/graficos-frase.ts) va sin marco: es la primera línea de la hoja, no una tarjeta más. */
+.lk-comp--frase { background: transparent; border-color: transparent; box-shadow: none; padding-left: 2px; padding-right: 2px; }
 .lk-comp-acciones { flex: none; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 70%; cursor: default; }
 .lk-mako { display: inline-flex; transition: opacity .15s; }
 .lk-comp--kpi .lk-mako { opacity: 0; }

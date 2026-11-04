@@ -81,8 +81,10 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_capacidades_mako', area: 'mako', tipo: 'lectura',
     datosDeClientes: false,
-    titulo: 'Qué se hace dentro de MaKo',
-    descripcion: 'El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: las funciones de este negocio (qué hace cada una, qué no hace y qué app reemplaza) y, por cada capacidad, la tab, el link absoluto, qué se hace ahí y los pasos. Úsala cuando pregunten «¿qué puedes hacer?», «¿dónde hago X?» o antes de mandar a alguien a resolver algo afuera: los links salen de aquí, nunca escritos a mano. Solo trae las tabs que tiene este negocio; para un miembro del equipo en la app el filtro por rol es aproximado (no distingue closer de setter).',
+    // Ticket #48 (3/11/2026): «¿dónde actualizo mis datos?» no emparejaba con el título de antes («Qué se hace dentro de
+    // MaKo»): la búsqueda es por palabras y el título pesa doble. Lleva «dónde» y «datos» porque así lo pregunta la gente.
+    titulo: 'Qué hace MaKo y dónde editar datos',
+    descripcion: 'El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: las funciones de este negocio (qué hace cada una, qué no hace y qué app reemplaza) y, por cada capacidad, la tab, el link absoluto, qué se hace ahí y los pasos; con datos-negocio, la pantalla donde se corrige cada dato del negocio (precio, qué incluye, horario, ofertas, productos). Úsala cuando pregunten «¿qué puedes hacer?», «¿dónde hago X?», «¿dónde actualizo mis datos?» o antes de mandar a alguien a resolver algo afuera: los links salen de aquí, nunca escritos a mano. Solo trae las tabs que tiene este negocio; para un miembro del equipo en la app el filtro por rol es aproximado (no distingue closer de setter).',
     parametros: [{ nombre: 'id', tipo: 'string', enum: CAPACIDADES.map((c) => c.id), descripcion: 'id de UNA capacidad para traer solo esa. Sin id, trae todas.' }],
     salida: 'json', canales: TODOS, costo: 'gratis',
   },
@@ -146,5 +148,29 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
     escribe: 'la memoria de recomendaciones del negocio (qué se aceptó o descartó, y por qué)',
+  },
+  {
+    // Ticket #45 (Leila, 3/11/2026): «Activa la función "Aprende solo" en el Second Brain». El interruptor es el de su pantalla
+    // (lib/recolector.ts): sólo lee conversaciones y escribe en el conocimiento del negocio; ningún mensaje sale. Va la puerta de
+    // la pantalla: el admin del negocio.
+    id: 'cambiar_aprende_solo', area: 'mako', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Prender o apagar «Aprende solo»',
+    descripcion: 'PROPONE prender o apagar «Aprende solo», el botón de la cabecera del Mapa en el Second Brain (queda pendiente hasta el «sí»). Prendido, MaKo aprende solo de las conversaciones de WhatsApp del negocio con sus leads y lo suma al Second Brain; no manda ningún mensaje. Úsala cuando pidan «activa Aprende solo» o «apaga Aprende solo».',
+    parametros: [
+      { nombre: 'prendido', tipo: 'boolean', obligatorio: true, descripcion: 'true para prenderlo, false para apagarlo.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+    escribe: 'el interruptor de «Aprende solo» del negocio',
+  },
+  {
+    // Ticket #40 (Leila, 3/11/2026): «deberías tener acceso a todos los mensajes anteriores». Lee SÓLO el grupo del turno (sale de
+    // `ctx.canalKey`, nunca de un parámetro) y, como lee conversaciones, no viaja a la red gratis (`llevaDatosDeClientes`).
+    id: 'buscar_en_el_grupo', area: 'mako', tipo: 'lectura',
+    titulo: 'Buscar en los mensajes de este grupo',
+    descripcion: 'Busca en los mensajes anteriores de ESTE grupo de WhatsApp, sin límite de fecha: lo que la gente le dijo a MaKo y lo que MaKo contestó, con su fecha. Úsala cuando pregunten por algo que se dijo antes de la charla de hoy («¿qué te dije del precio la semana pasada?», «busca el mensaje donde hablamos de Juan»). Sólo guarda lo que le hablaron a MaKo: la charla del equipo entre ellos puede no estar.',
+    parametros: [
+      { nombre: 'texto', tipo: 'string', obligatorio: true, max: 120, descripcion: 'Las palabras a buscar (hasta 4): un nombre, un tema. Tienen que estar todas en el mensaje.', ejemplo: 'precio mentoría' },
+    ],
+    salida: 'json', canales: ['whatsapp'], costo: 'gratis',
   },
 ];

@@ -457,7 +457,7 @@ export const DEFS: readonly OperacionDef[] = [
       // están en los avisos de ver_ficha_funnel, y la traducción (lib/ficha/api.ts) valida y devuelve los que hay.
       { nombre: 'aviso', tipo: 'string', max: 30, descripcion: 'en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel).' },
       { nombre: 'avisa', tipo: 'boolean', descripcion: 'en aviso: true para que avise, false para que no.' },
-      { nombre: 'tema', tipo: 'string', enum: PLANTILLAS_TEMA.map((p) => p.id), descripcion: 'en estilo: la plantilla de estilo, la misma del Dashboard.' },
+      { nombre: 'tema', tipo: 'string', enum: PLANTILLAS_TEMA.map((p) => p.id), descripcion: 'en estilo: la plantilla, la misma del Dashboard.' },
       { nombre: 'acento', tipo: 'string', max: 7, descripcion: 'en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo.' },
       { nombre: 'tipografia', tipo: 'string', enum: TIPOGRAFIAS.map((t) => t.id), descripcion: 'en estilo: la tipografía de toda la ficha.' },
       { nombre: 'densidad', tipo: 'string', enum: DENSIDADES.map((x) => x.id), descripcion: 'en densidad: el tamaño de las tarjetas.' },
@@ -1459,6 +1459,24 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'vuelve a crear cada lead con todo lo que tenía y lo saca de la papelera (leads_papelera)',
+  },
+  // ── AGREGAR EN BLOQUE A OTRO CRM, SIN SACARLOS DEL SUYO (4/11/2026) ─────────────────────────────────────────────
+  // La campaña de email de Mauricio: «un CRM nuevo "Email Marketing" con esos leads», a todos «menos lo que están en
+  // ganado». `pasar_en_bloque_otro_funnel` no sirve: los SACA del origen. Ésta es `agregarLoteAProducto` (lib/lead-funnel.ts),
+  // la de la barra del tablero. Antes de `armar_tab_ficha`, que va última a propósito.
+  {
+    id: 'agregar_en_bloque_a_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat', lenta: true,
+    titulo: 'Agregar varios a otro CRM',
+    descripcion: 'PROPONE sumar EN BLOQUE leads a otro CRM, en su columna de entrada, con UNA confirmación para todos (queda pendiente hasta el «sí»). NO los saca de donde están: siguen en su CRM de siempre. Los ids (leadIds, hasta 5.000) o todos los del negocio (todos), menos los que estén en excluirEstados (ganado) y, con soloConEmail, los que no tienen email. Los que ya están en ese CRM se saltean. No manda nada. Solo el administrador.',
+    parametros: [
+      { nombre: 'haciaEmbudoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el CRM donde se suman, por el id de su embudo (de ver_funnel o crear_crm).' },
+      { nombre: 'leadIds', tipo: 'string[]', max: 5000, descripcion: 'los ids de los leads. Sin esto, todos.' },
+      { nombre: 'todos', tipo: 'boolean', descripcion: 'todos los leads del negocio (con los filtros de abajo).' },
+      { nombre: 'excluirEstados', tipo: 'string[]', max: 5, descripcion: 'los estados que NO se suman: ganado, perdido, descalificado, no_responde o abierto.' },
+      { nombre: 'soloConEmail', tipo: 'boolean', descripcion: 'sumar sólo a los que tienen email.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'suma cada lead al CRM (una fila en lead_funnel, en su columna de entrada) con su historial; no lo saca del suyo',
   },
   // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
   // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp

@@ -13,6 +13,8 @@
 //      hace andar el producto, como la IA de la plataforma); si la plataforma no tiene, el negocio con la suya (la misma
 //      que usa su Leads Scraper). Cada corrida, topeada; y un tope por negocio y por día (el alta pregunta mientras se
 //      escribe). El tope vive en memoria de la instancia: es un freno, no una cuenta exacta.
+//   4. `apify-spy` (1/11/2026): la clave del propio negocio para Competitors Spy (`APIFY_CLAVE_DE_SPY`). Sólo si quien llama la pide por
+//      nombre, y hoy la pide sólo lib/spy.ts: no es la fuente 3, y no despierta nada del Leads Scraper retirado.
 // Sin ninguna fuente que conteste, `ok: false` con el motivo: quien llama lo DICE (nunca inventa un perfil).
 // NUNCA TIRA.
 // =============================================================================
@@ -22,7 +24,8 @@ import { credDelCliente, credWs, credWsEstricta } from './credenciales';
 import { wsSuperAdmin } from './workspace';
 import { motivoDeErrorGraph, usuarioDeTexto } from './instagram-buscar';
 import {
-  APIFY_ACTOR_PERFIL, APIFY_MIN_LETRAS, APIFY_TOPE_POR_DIA, APIFY_TOPE_USD, campoDesconocido, CAMPOS_PERFIL, CAMPOS_PERFIL_PIEZAS,
+  APIFY_ACTOR_PERFIL, APIFY_CLAVE_DE_SPY, APIFY_MIN_LETRAS, APIFY_TOPE_POR_DIA, APIFY_TOPE_USD, campoDesconocido, CAMPOS_PERFIL, CAMPOS_PERFIL_PIEZAS,
+  TOPE_BUSQUEDAS_SPY_POR_DIA, TOPE_LECTURAS_SPY_POR_DIA,
   leerPerfilDeApify, leerPerfilDeMeta,
   type LecturaInstagram, type MotivoInstagram,
 } from './instagram-perfil';
@@ -33,7 +36,7 @@ const TOPE_META_MS = 12_000;
 const TOPE_APIFY_MS = 60_000;
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export type FuenteInstagram = 'meta-negocio' | 'meta-plataforma' | 'apify';
+export type FuenteInstagram = 'meta-negocio' | 'meta-plataforma' | 'apify' | 'apify-spy';
 export type LecturaConFuente = (LecturaInstagram & { ok: true; fuente: FuenteInstagram }) | Extract<LecturaInstagram, { ok: false }>;
 
 // ── Caché por negocio y por @ (24 h lo que se sabe; 10 min un error) y el tope de Apify por día ──
@@ -89,7 +92,7 @@ async function porMeta(usuario: string, token: string, pagina: string, campos: s
 }
 
 /** Apify, con un token. 401/403 → sin permiso; 402/429 → límite (sin saldo o frenado). */
-async function porApify(usuario: string, token: string): Promise<LecturaInstagram> {
+async function porApify(usuario: string, token: string, conPiezas = false): Promise<LecturaInstagram> {
   const q = new URLSearchParams({ maxItems: '1', maxTotalChargeUsd: String(APIFY_TOPE_USD) });
   const r = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR_PERFIL}/run-sync-get-dataset-items?${q}`, {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -99,8 +102,27 @@ async function porApify(usuario: string, token: string): Promise<LecturaInstagra
   if (r.status === 401 || r.status === 403) return { ok: false, motivo: 'sin-permiso', detalle: `Apify: HTTP ${r.status}` };
   if (r.status === 402 || r.status === 429) return { ok: false, motivo: 'limite', detalle: `Apify: HTTP ${r.status}` };
   if (r.status < 200 || r.status >= 300) return { ok: false, motivo: 'error', detalle: `Apify: HTTP ${r.status}` };
-  return leerPerfilDeApify(usuario, cuerpo);
+  return leerPerfilDeApify(usuario, cuerpo, conPiezas);
 }
+
+/**
+ * Anota UNA búsqueda por nombre en el tope de hoy de la clave de Spy del negocio. false = ya no queda.
+ *
+ * ⚠️ LA CABECERA DE lib/instagram-buscar-apify.ts DECÍA QUE EL TOPE LA CUBRÍA Y NO ERA CIERTO: `leerPerfilInstagram` contaba sus
+ * lecturas y la búsqueda corría sin contar nada, así que escribir nombres no tenía techo.
+ */
+export function gastarBusquedaDeSpy(ws: number): boolean {
+  // ⚠️ DESDE EL 4/11/2026 LAS BÚSQUEDAS TIENEN SU PROPIO CUPO (`b<ws>`), separado de las lecturas por @ (`s<ws>`):
+  // compartiéndolo, buscar nombres dejaba al negocio sin poder agregar a nadie el resto del día.
+  const cuenta = `b${ws}|${hoy()}`;
+  const usadas = apifyHoy.get(cuenta) ?? 0;
+  if (usadas >= TOPE_BUSQUEDAS_SPY_POR_DIA) return false;
+  apifyHoy.set(cuenta, usadas + 1);
+  return true;
+}
+
+/** ¿Este negocio ya gastó las búsquedas de hoy con su clave de Spy? Para que la pantalla no diga «no hay nadie» cuando es esto. */
+export const topeDeSpyAgotado = (ws: number): boolean => (apifyHoy.get(`b${ws}|${hoy()}`) ?? 0) >= TOPE_BUSQUEDAS_SPY_POR_DIA;
 
 /** Cuánto «dice» un fallo: el mejor gana para contarle al dueño qué pasó. */
 const PESO: Record<MotivoInstagram, number> = { 'no-esta': 5, 'sin-permiso': 4, limite: 3, 'sin-cuenta': 2, error: 1, 'sin-conexion': 0 };
@@ -110,7 +132,11 @@ const PESO: Record<MotivoInstagram, number> = { 'no-esta': 5, 'sin-permiso': 4, 
  * plataforma no tiene, su Apify). `fuentes` = cuáles probar (el alta ya preguntó a Meta con sus candidatos: sólo Apify).
  */
 export async function leerPerfilInstagram(
-  usuario: string, opts: { ws?: number | null; fuentes?: readonly FuenteInstagram[]; conPiezas?: boolean } = {},
+  usuario: string, opts: {
+    ws?: number | null; fuentes?: readonly FuenteInstagram[]; conPiezas?: boolean;
+    /** Cuántas lecturas del tope diario NO puede tocar esta llamada. Lo que nadie pidió con un clic deja margen. */
+    reservaApify?: number;
+  } = {},
 ): Promise<LecturaConFuente> {
   // El @ se valida ACÁ también (B3): entra a la expansión de campos de Graph, con el token de la plataforma.
   if (usuarioDeTexto(usuario) !== usuario) return { ok: false, motivo: 'no-esta', detalle: 'no es un usuario de Instagram' };
@@ -120,7 +146,19 @@ export async function leerPerfilInstagram(
   // contesta a Competitors Spy sin los números, y la ficha diría «no publica sus me gusta» sobre
   // una cuenta que sí los publica — un dato inventado por una caché.
   const campos = opts.conPiezas ? CAMPOS_PERFIL_PIEZAS : CAMPOS_PERFIL;
-  const clave = `${ws ?? '-'}|${usuario}|${fuentes.join(',')}|${opts.conPiezas ? 'anchas' : 'angostas'}`;
+  // ⚠️ SI TIENE LA CLAVE DE SPY TAMBIÉN ENTRA EN LA CLAVE DE LA CACHÉ: un fallo se recuerda 10 minutos, y sin esto, pegar la clave y tocar «Revisar
+  // ahora» seguía contestando «no pude» aunque ya hubiera con qué.
+  const claveDeSpy = fuentes.includes('apify-spy') && ws != null ? await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null) : null;
+  // ⚠️ CON RESERVA ES OTRA CLAVE: un «tope» de quien tiene reserva no puede tapar 10 minutos a quien sí puede leer. Sin esto, la fila
+  // que no se completó le contestaba «no pude» a la vista previa que la persona pidió con un clic.
+  const reserva = opts.reservaApify ?? 0;
+  const clave = `${ws ?? '-'}|${usuario}|${fuentes.join(',')}|${opts.conPiezas ? 'anchas' : 'angostas'}|${reserva}|${claveDeSpy ? 'spy' : ''}`;
+  // ⚠️ LO LEÍDO BIEN SE COMPARTE ENTRE QUIENES LLAMAN, sea cual sea su lista de fuentes (3/11/2026). La clave de arriba lleva la lista,
+  // así que el buscador (`meta-plataforma,apify,apify-spy`) y la vista previa (`meta-negocio,…`) pagaban DOS veces a la misma persona:
+  // escribir su @ gastaba una lectura y confirmarla, otra. Un perfil leído es el mismo perfil venga de la fuente que venga.
+  const claveLeido = `${ws ?? '-'}|${usuario}|leido|${opts.conPiezas ? 'anchas' : 'angostas'}`;
+  const leido = cache.get(claveLeido);
+  if (leido && leido.hasta > Date.now()) return leido.lectura;
   const ya = cache.get(clave);
   if (ya && ya.hasta > Date.now()) return ya.lectura;
   let peor: Extract<LecturaInstagram, { ok: false }> = { ok: false, motivo: 'sin-conexion', detalle: 'ninguna fuente para leer Instagram' };
@@ -134,17 +172,32 @@ export async function leerPerfilInstagram(
   const guardar = (l: LecturaConFuente): LecturaConFuente => {
     const sabe = l.ok || (l.motivo === 'no-esta' && noEstaDeApify);
     guardarEnCache(clave, { hasta: Date.now() + (sabe ? 24 * 3600_000 : 10 * 60_000), lectura: l });
+    if (l.ok) guardarEnCache(claveLeido, { hasta: Date.now() + 24 * 3600_000, lectura: l });
     return l;
   };
+  // Meta leyó el perfil pero sin las publicaciones: sirve, pero si otra fuente las trae, gana ella.
+  let sinPiezas: LecturaConFuente | null = null;
   try {
     const plataforma = await wsSuperAdmin();
     for (const f of fuentes) {
+      if (f === 'apify-spy') {
+        if (!claveDeSpy) continue;
+        const cuenta = `s${ws}|${hoy()}`;
+        const usadas = apifyHoy.get(cuenta) ?? 0;
+        if (usadas >= TOPE_LECTURAS_SPY_POR_DIA - reserva) { anotar({ ok: false, motivo: 'limite', detalle: `tope de ${TOPE_LECTURAS_SPY_POR_DIA} lecturas por día` }); continue; }
+        apifyHoy.set(cuenta, usadas + 1);
+        const l = await porApify(usuario, claveDeSpy, opts.conPiezas).catch((e): LecturaInstagram => ({ ok: false, motivo: 'error', detalle: msg(e) }));
+        if (l.ok) return guardar({ ...l, fuente: 'apify-spy' });
+        anotar(l, true);
+        continue;
+      }
       if (f === 'meta-negocio' || f === 'meta-plataforma') {
         const w = f === 'meta-negocio' ? ws : plataforma;
         if (w == null || (f === 'meta-plataforma' && w === ws)) continue;
         const [token, pagina] = await Promise.all([credWs('META_ACCESS_TOKEN', w), credWs('META_PAGE_ID', w)]);
         if (!token || !pagina) continue;
         const l = await porMeta(usuario, token, pagina, campos).catch((e): LecturaInstagram => ({ ok: false, motivo: 'error', detalle: msg(e) }));
+        if (l.ok && opts.conPiezas && !l.perfil.piezas && claveDeSpy) { sinPiezas = { ...l, fuente: f }; continue; }
         if (l.ok) return guardar({ ...l, fuente: f });
         anotar(l);
         continue;
@@ -162,7 +215,7 @@ export async function leerPerfilInstagram(
       if (!token) continue;
       const cuenta = `${deLaPlataforma ? `p${plataforma}` : `n${ws}`}|${hoy()}`;
       const usadas = apifyHoy.get(cuenta) ?? 0;
-      if (usadas >= APIFY_TOPE_POR_DIA) { anotar({ ok: false, motivo: 'limite', detalle: `tope de ${APIFY_TOPE_POR_DIA} lecturas por día` }); continue; }
+      if (usadas >= APIFY_TOPE_POR_DIA - reserva) { anotar({ ok: false, motivo: 'limite', detalle: `tope de ${APIFY_TOPE_POR_DIA} lecturas por día` }); continue; }
       apifyHoy.set(cuenta, usadas + 1);
       const l = await porApify(usuario, token).catch((e): LecturaInstagram => ({ ok: false, motivo: 'error', detalle: msg(e) }));
       if (l.ok) return guardar({ ...l, fuente: 'apify' });
@@ -171,6 +224,68 @@ export async function leerPerfilInstagram(
   } catch (e) {
     anotar({ ok: false, motivo: 'error', detalle: msg(e) });
   }
+  if (sinPiezas) return guardar(sinPiezas);
   if (peor.motivo !== 'no-esta' && peor.motivo !== 'sin-conexion') console.warn(`[instagram] no pude leer @${usuario}: ${peor.motivo} (${peor.detalle})`);
   return guardar(peor);
+}
+
+/**
+ * Varios perfiles en UNA corrida de Apify, con la clave de Spy del negocio (4/11/2026). Es lo que completa las
+ * primeras filas del buscador con su foto y sus seguidores para poder ordenarlas.
+ *
+ * ⚠️ ANTES ERAN CINCO CORRIDAS, UNA POR FILA (`/api/competitor-spy/perfil`): cinco arranques del actor, cinco
+ * esperas, y cinco lecturas del cupo. El actor acepta una lista de usuarios y cobra por perfil, así que una corrida
+ * con cinco cuesta lo mismo y arranca una sola vez.
+ *
+ * Comparte la caché de `leerPerfilInstagram` (la clave `leido` angosta): lo que se completó acá, la confirmación lo
+ * encuentra sin volver a pagarlo. Cada perfil cuenta una lectura del cupo, y con `reserva` nunca agota el día.
+ * NUNCA TIRA: lo que no se pudo leer vuelve como `ok: false`.
+ */
+export async function leerPerfilesEnLote(
+  usuarios: readonly string[], opts: { ws: number; reserva?: number },
+): Promise<Map<string, LecturaConFuente>> {
+  const out = new Map<string, LecturaConFuente>();
+  const pedir: string[] = [];
+  for (const crudo of usuarios) {
+    const u = usuarioDeTexto(crudo);
+    if (!u || u !== crudo || out.has(u) || pedir.includes(u)) continue;
+    const leido = cache.get(`${opts.ws}|${u}|leido|angostas`);
+    if (leido && leido.hasta > Date.now()) out.set(u, leido.lectura);
+    else pedir.push(u);
+  }
+  if (!pedir.length) return out;
+  const token = await credDelCliente(APIFY_CLAVE_DE_SPY, opts.ws).catch(() => null);
+  const sinLeer = (motivo: MotivoInstagram, detalle: string) => { for (const u of pedir) out.set(u, { ok: false, motivo, detalle }); return out; };
+  if (!token) return sinLeer('sin-conexion', 'sin la clave de Spy');
+  const cuenta = `s${opts.ws}|${hoy()}`;
+  const usadas = apifyHoy.get(cuenta) ?? 0;
+  const quedan = TOPE_LECTURAS_SPY_POR_DIA - (opts.reserva ?? 0) - usadas;
+  if (quedan <= 0) return sinLeer('limite', `tope de ${TOPE_LECTURAS_SPY_POR_DIA} lecturas por día`);
+  const lote = pedir.slice(0, quedan);
+  apifyHoy.set(cuenta, usadas + lote.length);
+  try {
+    const q = new URLSearchParams({ maxItems: String(lote.length), maxTotalChargeUsd: String(Math.max(APIFY_TOPE_USD, APIFY_TOPE_USD * lote.length)) });
+    const r = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR_PERFIL}/run-sync-get-dataset-items?${q}`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usernames: lote }), signal: AbortSignal.timeout(TOPE_APIFY_MS), cache: 'no-store',
+    });
+    const cuerpo = await r.json().catch(() => null);
+    if (r.status < 200 || r.status >= 300) {
+      const motivo: MotivoInstagram = r.status === 401 || r.status === 403 ? 'sin-permiso' : r.status === 402 || r.status === 429 ? 'limite' : 'error';
+      for (const u of lote) out.set(u, { ok: false, motivo, detalle: `Apify: HTTP ${r.status}` });
+    } else {
+      for (const u of lote) {
+        const l = leerPerfilDeApify(u, cuerpo);
+        if (l.ok) {
+          const conFuente: LecturaConFuente = { ...l, fuente: 'apify-spy' };
+          guardarEnCache(`${opts.ws}|${u}|leido|angostas`, { hasta: Date.now() + 24 * 3600_000, lectura: conFuente });
+          out.set(u, conFuente);
+        } else out.set(u, l);
+      }
+    }
+  } catch (e) {
+    for (const u of lote) out.set(u, { ok: false, motivo: 'error', detalle: msg(e) });
+  }
+  for (const u of pedir.slice(lote.length)) out.set(u, { ok: false, motivo: 'limite', detalle: `tope de ${TOPE_LECTURAS_SPY_POR_DIA} lecturas por día` });
+  return out;
 }

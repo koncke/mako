@@ -37,6 +37,8 @@ import { atarFunnels, esPiezaGeneral, funnelsDeBloque, sanearOpciones, type Opci
 import { sanearPropuesta, type PropuestaExperimento } from './experimentos-catalogo';
 import { idDeParte, idLibre, migrarBloquesV5 } from './graficos-migrar-v5';
 import { identidadDe } from './graficos-identidad';
+import { destinoDe } from './graficos-destinos';
+import { TOPE_FRASE } from './graficos-frase';
 
 export { AREAS };
 export type { Area, ClaseDim, Dimension, Formato, Fuente, Metrica };
@@ -424,6 +426,9 @@ export const ENTIDADES: Readonly<Record<string, InfoEntidad>> = {
   // Los factores del cierre: una fila por llamada y dimensión; la entidad es la LLAMADA (`r.llamada`). Abierta
   // desde una barra (una dimensión), cada llamada tiene UNA fila: `con_puntaje` vale 1, no es una columna.
   llamadas_dimensiones: { entidad: 'llamada', plural: 'Llamadas', ref: 'llamada', nombre: ['llamada'], linea: ['closer', 'tono'], ids: { llamada: 'llamada' }, unidad: ['con_puntaje'] },
+  // Las llamadas grabadas con el botón «Grabar» (Cold Calling): la entidad es el LEAD, no la grabación. Un lead llamado tres veces es
+  // una fila con sus tres llamadas, y abre su ficha (ahí están las grabaciones, con su transcripción).
+  llamadas_grabadas: { entidad: 'lead', plural: 'Leads', ref: 'lead', nombre: ['lead'], linea: ['resultado', 'autor'], ids: { lead: 'lead' }, unidad: ['leads_llamados'] },
 };
 
 /** A qué lista abre un número: qué conjunto se lee, con qué fecha, qué métrica decide quién entra y qué columnas se muestran. */
@@ -593,6 +598,9 @@ export const TIPOS: readonly InfoTipo[] = [
   t('tarjetas', 'Tarjetas', 'Tabla', 'categoria', 'no', 1, 4, 12, 10),
   // El mapa de calor de la landing: sólo sobre los toques (decisión 1 de Martín: la página en vivo).
   { ...t('mapa_calor', 'Mapa de calor de página', 'Mapa', 'ninguna', 'no', 1, 1, 12, 24, true), soloFuentes: ['toques'] },
+  // 4/11/2026 — LA ORACIÓN DE APERTURA (lib/graficos-frase.ts): hasta cuatro números del conjunto escritos adentro de una
+  // frase («Entraron {cobrado} · {agendas} agendas»). Las referencias de codeandchill abren cada hoja así.
+  t('frase', 'Frase con datos', 'Cuadro de resultados', 'ninguna', 'no', 1, 4, 12, 3),
 ];
 export const GRUPOS: readonly Grupo[] = [...new Set(TIPOS.map((x) => x.grupo))];
 
@@ -1065,6 +1073,16 @@ export type Grafico = {
    * color y su título va gigante; lo de adentro se dibuja sobre el color. Ausente = una tarjeta como las demás.
    */
   portada?: string;
+  /**
+   * 4/11/2026 — El «Ver … →» del pie de la tarjeta: el id de un destino de lib/graficos-destinos.ts (la tab donde se TRABAJA
+   * ese número). Ausente = sin pie. Una lista cerrada: el camino y el rótulo los escribe el código.
+   */
+  ir?: string;
+  /**
+   * 4/11/2026 — El patrón de una `frase` (lib/graficos-frase.ts): «Entraron {cobrado} · {agendas} agendas». Sólo en ese
+   * tipo; ausente = la frase que se arma sola con sus métricas.
+   */
+  frase?: string;
   x: number; y: number; w: number; h: number;
 };
 
@@ -1544,7 +1562,7 @@ export function sanearGrafico(raw: unknown, ctx: ContextoSaneo = {}): Grafico | 
   }
 
   // ── Lo opcional de v5: sólo lo que no vale lo de siempre (un gráfico de antes guarda lo mismo que antes).
-  const extra: Pick<Grafico, 'mako' | 'makoIA' | 'alClic' | 'popup' | 'barra' | 'secundaria' | 'ocultarSiCero' | 'invertida' | 'ejes' | 'referencias' | 'colorPor' | 'tabla' | 'mapa' | 'portada'> = {};
+  const extra: Pick<Grafico, 'mako' | 'makoIA' | 'alClic' | 'popup' | 'barra' | 'secundaria' | 'ocultarSiCero' | 'invertida' | 'ejes' | 'referencias' | 'colorPor' | 'tabla' | 'mapa' | 'portada' | 'ir' | 'frase'> = {};
   // 13/10/2026: se guardan los DOS valores (ausente = lo que dice `makoPorDefecto` según el tipo, ver `conMako`).
   if (typeof o.mako === 'boolean') extra.mako = o.mako;
   const makoIA = sanearMakoIA(o.makoIA);
@@ -1569,6 +1587,11 @@ export function sanearGrafico(raw: unknown, ctx: ContextoSaneo = {}): Grafico | 
   if (mapa) extra.mapa = mapa;
   // La portada, sólo con una identidad que existe y nunca adentro de un pop-up (no es la hoja).
   if (!ctx.enPopup && identidadDe(o.portada)) extra.portada = o.portada as string;
+  // El pie «Ver … →»: sólo un destino de la lista cerrada (lib/graficos-destinos.ts). Lo demás, sin pie.
+  const ir = destinoDe(o.ir);
+  if (ir) extra.ir = ir.id;
+  // El patrón de la frase: sólo en ese tipo, y con su tope.
+  if (tipo === 'frase') { const f = texto(o.frase, TOPE_FRASE); if (f) extra.frase = f; }
 
   return {
     id,

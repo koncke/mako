@@ -68,6 +68,7 @@ import {
 import { DISCUTIR_SYSTEM as COPYWRITER_DISCUTIR_SYSTEM, DISCUTIR_USER as COPYWRITER_DISCUTIR_USER } from './copywriter/ia-reglas';
 import { EDITAR_SYSTEM as COPYWRITER_EDITAR_SYSTEM, EDITAR_USER as COPYWRITER_EDITAR_USER } from './copywriter/ia-editar';
 import { ADAPTAR_USER as COPYWRITER_ADAPTAR_USER, EXPERTO_COPY as COPYWRITER_EXPERTO } from './copywriter/experto';
+import { PROMPTS_NEWSLETTER } from './newsletter-ia-reglas';
 import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
@@ -395,7 +396,7 @@ export const REGISTRY: Group[] = [
         label: 'Copy de email marketing (system)', kind: 'system', dynamic: true,
         variables: [v('perfil', 'el perfil del negocio del workspace'), v('voz', 'la guía de voz destilada del Chatbot'), v('funnel', 'el funnel REAL del workspace')], scope: 'full', sensitive: true,
         default: EMAIL_GEN_SYSTEM_TEMPLATE,
-        context: 'Este prompt tenía hardcodeado "escribiendo para Mauricio Bustos (Negocio que Escala™)" y su link de Calendly, para TODOS los workspaces: cualquier cliente que tocara "generar" recibía copy del negocio de otro. Conserva los slots {{perfil}}/{{voz}}/{{funnel}} y el bloque PROHIBIDO INVENTAR — sin él vuelven los links inventados y el dialecto por default (voseo a una audiencia mexicana).',
+        context: 'Este prompt tenía escrito a mano el nombre del negocio de un cliente y su link de Calendly, para TODOS los workspaces: cualquier cliente que tocara "generar" recibía copy del negocio de otro. Conserva los slots {{perfil}}/{{voz}}/{{funnel}} y el bloque PROHIBIDO INVENTAR — sin él vuelven los links inventados y el dialecto por default (voseo a una audiencia mexicana).',
       },
     ],
   },
@@ -807,6 +808,30 @@ export const REGISTRY: Group[] = [
         variables: [v('instruccion', 'lo que pidió la persona'), v('alcance', 'todo el diseño o los elementos elegidos'), v('diseno', 'el diseño: páginas y elementos con su referencia, medidas, textos y colores')], scope: 'full', sensitive: false,
         default: CHAT_IMAGEN_USER_TEMPLATE,
         context: 'Le pasa a MaKo la instrucción y el diseño actual. Conserva los slots: {{instruccion}} y {{diseno}} llegan delimitados como dato no confiable.',
+      },
+    ],
+  },
+  {
+    // El Newsletter (29/10/2026, lib/newsletter-ia.ts; los defaults viven en lib/newsletter-ia-reglas.ts). Las keys y los
+    // slots los fija tests/newsletter.test.ts contra PROMPTS_NEWSLETTER.
+    group: 'Newsletter',
+    icon: '📰',
+    blurb: 'MaKo en la tab Newsletters: cuando la persona contesta de qué trata su newsletter, propone el asunto y la idea de la próxima edición. Nunca manda nada: la edición se escribe en el Copywriter.',
+    entries: [
+      {
+        key: PROMPTS_NEWSLETTER.propuestaSystem.key, source: 'override',
+        label: 'La próxima edición (system)', kind: 'system', dynamic: false,
+        variables: [], scope: 'full', sensitive: false,
+        default: PROMPTS_NEWSLETTER.propuestaSystem.tpl,
+        context: 'Cómo propone MaKo la próxima edición. Conserva la forma del JSON ({"asunto","idea"}) y la regla de no inventar datos del negocio.',
+      },
+      {
+        key: PROMPTS_NEWSLETTER.propuestaUser.key, source: 'override',
+        label: 'Tema + negocio (user)', kind: 'user', dynamic: true,
+        variables: [v('tema', 'de qué trata el newsletter, con las palabras del negocio'), v('frecuencia', 'cada cuánto sale'), v('anteriores', 'los asuntos de las ediciones anteriores'), v('negocio', 'lo que hace falta del Second Brain')],
+        scope: 'full', sensitive: false,
+        default: PROMPTS_NEWSLETTER.propuestaUser.tpl,
+        context: 'Le pasa a MaKo el tema y el negocio. Conserva los slots: llegan delimitados como dato no confiable.',
       },
     ],
   },
@@ -1494,10 +1519,11 @@ export const REGISTRY: Group[] = [
         variables: [
           v('tiposGancho', 'los tipos de gancho con que se clasifica una pieza, separados por «|» (el mismo vocabulario del Ads Analyst)'),
           v('etiquetas', 'las etiquetas con que se agrupa una pieza, separadas por coma'),
+          v('formatos', 'los formatos de una pieza (POV, Storytime, Antes y después…), separados por «|»: con ellos se arma «¿Qué formatos le funcionan?» en el detalle'),
         ],
         scope: 'static-only', sensitive: true,
         default: SPY_ANALISIS_SYSTEM_TEMPLATE,
-        context: 'El cerebro de Competitor Spy: con lo que se leyó del competidor y lo que vende el negocio, dice qué promete, a quién, con qué precio si lo publica, qué objeción ataca, y qué ataca él que el negocio no menciona. CUATRO REGLAS QUE NO SE TOCAN, porque cada una evita un dato inventado: trabajar sólo con lo que está en los datos (si un campo no está, va vacío); no estimar NINGÚN número (facturación, visitas, conversión y alcance no existen en los datos, y un estimado presentado como real es peor que un campo vacío); no hablar de la persona ni enmarcar nada como una pelea (la política III.L de YouTube lo prohíbe explícitamente); y no afirmar qué DICE un video, porque el guion no se leyó — no hay forma legal de transcribir el video de un tercero, así que sólo hay título, descripción y etiquetas. Conserva el esquema JSON y los slots {{tiposGancho}} y {{etiquetas}}, que son el vocabulario compartido con el Ads Analyst: si se cambian por otros, «lo que hace la competencia» y «lo que hacemos nosotros» dejan de ser comparables.',
+        context: 'El cerebro de Competitor Spy: con lo que se leyó del competidor y lo que vende el negocio, dice qué promete, a quién, con qué precio si lo publica, qué objeción ataca, y qué ataca él que el negocio no menciona. CUATRO REGLAS QUE NO SE TOCAN, porque cada una evita un dato inventado: trabajar sólo con lo que está en los datos (si un campo no está, va vacío); no estimar NINGÚN número (facturación, visitas, conversión y alcance no existen en los datos, y un estimado presentado como real es peor que un campo vacío); no hablar de la persona ni enmarcar nada como una pelea (la política III.L de YouTube lo prohíbe explícitamente); y no afirmar qué DICE un video, porque el guion no se leyó — no hay forma legal de transcribir el video de un tercero, así que sólo hay título, descripción y etiquetas. Conserva el esquema JSON y los slots {{tiposGancho}}, {{etiquetas}} y {{formatos}} (sin el formato, el detalle no puede decir qué formatos le funcionan), que son el vocabulario compartido con el Ads Analyst: si se cambian por otros, «lo que hace la competencia» y «lo que hacemos nosotros» dejan de ser comparables.',
       },
       {
         key: 'spy.analisis.user', source: 'override',

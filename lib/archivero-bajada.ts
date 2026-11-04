@@ -51,7 +51,9 @@ export const TIMEOUT_WEB_MS = 12_000;
 export const MAX_SALTOS_WEB = 5;
 
 export type DestinoValidado = { ok: true; url: URL; ips: string[] } | { ok: false; error: string };
-export type RespuestaWeb = { status: number; location: string | null; cuerpo: Buffer };
+export type RespuestaWeb = { status: number; location: string | null; cuerpo: Buffer; tipo?: string | null };
+/** Techo y plazo de un pedido (por defecto, los de una web: 3 MB y 12 s). Un video de anuncio pide más. */
+export type LimitesPedido = { maxBytes?: number; timeoutMs?: number };
 export type DepsBajada = {
   /** `validarDestino` de lib/landing-fetch.ts: esquema http(s) + TODAS las IPs públicas. */
   validar(url: string): Promise<DestinoValidado>;
@@ -64,7 +66,7 @@ export type DepsBajada = {
  * la forma clásica de saltearse un chequeo que sólo mira la primera URL. Devuelve el cuerpo y el
  * status final; tira con un texto para la persona si un salto no es público o son demasiados.
  */
-export async function bajarWebSegura(url: string, deps: DepsBajada): Promise<{ status: number; cuerpo: Buffer; final: string }> {
+export async function bajarWebSegura(url: string, deps: DepsBajada): Promise<{ status: number; cuerpo: Buffer; final: string; tipo: string | null }> {
   let actual = url;
   for (let salto = 0; salto <= MAX_SALTOS_WEB; salto++) {
     const check = await deps.validar(actual);
@@ -75,7 +77,7 @@ export async function bajarWebSegura(url: string, deps: DepsBajada): Promise<{ s
       actual = new URL(res.location, check.url).toString();
       continue;
     }
-    return { status: res.status, cuerpo: res.cuerpo, final: check.url.toString() };
+    return { status: res.status, cuerpo: res.cuerpo, final: check.url.toString(), tipo: res.tipo ?? null };
   }
   throw new Error('La web redirige demasiadas veces.');
 }
@@ -95,7 +97,9 @@ function lookupClavado(ips: string[]): LookupFunction {
  * lo leído, como antes se recortaba) y un plazo que cubre también el cuerpo. El nombre sigue
  * viajando en el SNI y en el Host, así que TLS y los virtual hosts andan igual.
  */
-export function pedirClavado(url: URL, ips: string[], ua = 'Mozilla/5.0 (compatible; MaKoBot/1.0)'): Promise<RespuestaWeb> {
+export function pedirClavado(url: URL, ips: string[], ua = 'Mozilla/5.0 (compatible; MaKoBot/1.0)', limites: LimitesPedido = {}): Promise<RespuestaWeb> {
+  const maxBytes = limites.maxBytes ?? MAX_BYTES_WEB;
+  const timeoutMs = limites.timeoutMs ?? TIMEOUT_WEB_MS;
   return new Promise((resolve, reject) => {
     const esHttps = url.protocol === 'https:';
     const pedir = esHttps ? pedidoHttps : pedidoHttp;
@@ -113,19 +117,20 @@ export function pedirClavado(url: URL, ips: string[], ua = 'Mozilla/5.0 (compati
         if (cerrado) return;
         cerrado = true;
         const loc = res.headers.location;
-        resolve({ status: res.statusCode ?? 0, location: Array.isArray(loc) ? loc[0] ?? null : loc ?? null, cuerpo: Buffer.concat(trozos) });
+        const tipo = res.headers['content-type'];
+        resolve({ status: res.statusCode ?? 0, location: Array.isArray(loc) ? loc[0] ?? null : loc ?? null, cuerpo: Buffer.concat(trozos), tipo: tipo ?? null });
       };
       res.on('data', (c: Buffer) => {
         if (cerrado) return;
-        const resta = MAX_BYTES_WEB - bytes;
+        const resta = maxBytes - bytes;
         trozos.push(c.length > resta ? c.subarray(0, resta) : c);
         bytes += c.length;
-        if (bytes >= MAX_BYTES_WEB) { terminar(); res.destroy(); }
+        if (bytes >= maxBytes) { terminar(); res.destroy(); }
       });
       res.on('end', terminar);
       res.on('error', fallar);
     });
-    const plazo = setTimeout(() => { req.destroy(); fallar(new Error(`La web tardó más de ${TIMEOUT_WEB_MS / 1000}s en responder.`)); }, TIMEOUT_WEB_MS);
+    const plazo = setTimeout(() => { req.destroy(); fallar(new Error(`La web tardó más de ${timeoutMs / 1000}s en responder.`)); }, timeoutMs);
     req.on('close', () => clearTimeout(plazo));
     req.on('error', (e) => fallar(new Error(`No se pudo conectar con la web: ${e.message}`)));
     req.end();

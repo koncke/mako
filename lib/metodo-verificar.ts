@@ -212,6 +212,29 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
 
   // IA8 (22/10/2026): sin Cerebras, Mistral ni OpenRouter: se sacaron del producto (docs/hallazgos-ia.md).
 
+  // Apple no tiene un «¿anda esta clave?» sin mandar un aviso de verdad: se mira lo que se puede sin tocar a nadie, campo por
+  // campo (se guardan de a uno): los dos ids y que la .p8 sea una clave privada. La prueba real es «Probar avisos» en un iPhone.
+  async 'apple-push'(v) {
+    const id = /^[A-Z0-9]{10}$/;
+    const keyId = (v.APNS_KEY_ID ?? '').trim();
+    const teamId = (v.APNS_TEAM_ID ?? '').trim();
+    const p8 = (v.APNS_P8 ?? '').trim();
+    if (!keyId && !teamId && !p8) return { ok: false, error: 'Falta la clave de Apple Push.' };
+    if (keyId && !id.test(keyId)) return { ok: false, error: 'El Key ID son 10 letras y números.' };
+    if (teamId && !id.test(teamId)) return { ok: false, error: 'El Team ID son 10 letras y números.' };
+    if (p8) {
+      const { clavesApnsDe } = await import('./push-apns-reglas');
+      const { createPrivateKey } = await import('node:crypto');
+      const c = clavesApnsDe({ keyId: keyId || 'AAAAAAAAAA', teamId: teamId || 'AAAAAAAAAA', p8 });
+      try {
+        if (!c) throw new Error('sin clave');
+        createPrivateKey(c.p8);
+      } catch {
+        return { ok: false, error: 'No pude leer la clave .p8. Pega el archivo entero.' };
+      }
+    }
+    return { ok: true, detalle: 'El formato está bien. Se comprueba de verdad con el primer aviso.' };
+  },
   async github(v) {
     const tk = v.GITHUB_TOKEN;
     if (!tk) return { ok: false, error: 'Falta el token.' };
@@ -260,6 +283,13 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
    * **422 «Field required»**. O sea que se comprueba la operación que se va a
    * usar —la regla de la casa— sin crear una voz ni consumir cuota.
    */
+  // Quién es esa cuenta: no corre ningún actor, así que comprobar la clave no gasta nada.
+  async 'apify-instagram'(v) {
+    const r = await fetchJson('https://api.apify.com/v2/users/me', { headers: { Authorization: `Bearer ${v.APIFY_INSTAGRAM_TOKEN}` } });
+    if (r.status === 401 || r.status === 403) return { ok: false, error: 'Ese token no entra a Apify.' };
+    if (r.status !== 200) return { ok: false, error: `Apify respondió ${r.status}.` };
+    return { ok: true };
+  },
   async elevenlabs(v) {
     const h = { 'xi-api-key': v.ELEVENLABS_API_KEY };
     const json = { ...h, accept: 'application/json' };

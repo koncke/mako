@@ -67,6 +67,10 @@ const TODOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
   // 28/10/2026: Instagram o Zernio frenan los mensajes de un negocio (el tope, docs/hallazgos-chatbot.md). Nace PRENDIDA.
   // Faltaba: el paso documentado (`--eventos=social_tope`) tiraba «no está en la mudanza» (verificación de 69b49a31c).
   { plantilla: 'mako-social-tope', evento: 'social_tope' },
+  // 31/10/2026, ticket #37: la cuenta publicitaria del cliente de una agencia le llega a la agencia. La fila va ANTES del deploy: el
+  // código de antes no la lee, y con el nuevo sin la fila esa alerta no le sale a nadie.
+  { plantilla: 'mako-meta-cuenta-frenada-agencia', evento: 'meta_cuenta_frenada_agencia' },
+  { plantilla: 'mako-meta-cuenta-recuperada-agencia', evento: 'meta_cuenta_recuperada_agencia' },
 ];
 // POR TANDAS DE DEPLOY (16/10/2026): la fila de un evento cuyo código todavía no está en producción no correría, así
 // que se mudan sólo los desplegados. Sin `--eventos`, todos.

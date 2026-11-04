@@ -24,7 +24,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  TOPE_AFECTADOS, conAfectado, esRuido, huellaDe, rutaPatron, rutaSinDatos, sanearReporte, sinDatos, ticketDeError,
+  TOPE_AFECTADOS, conAfectado, esHidratacion, esRuido, huellaDe, pistasDeHidratacion, rutaPatron, rutaSinDatos, sanearReporte, sinDatos, ticketDeError,
   type ReporteError,
 } from '../lib/errores-app-reglas';
 import { CANALES, clasificar, pruebaDeProduccion, textoArregloAlGrupo } from '../lib/tickets-reglas';
@@ -167,4 +167,46 @@ test('la tabla nace con RLS y el revoke, y el canal `sistema` dice lo mismo en l
   assert.match(sql, /ORDEN DE DESPLIEGUE: ANTES del deploy/);
   assert.ok((CANALES as readonly string[]).includes('sistema'));
   assert.match(sql, /check \(canal in \('chat_app', 'chat_movil', 'whatsapp', 'formulario', 'api', 'sistema'\)\)/);
+});
+
+// ── El HTML que no coincidió (ticket #39, 1/11/2026) ───────────────────────────────────────
+
+test('un error de hidratación no se anuncia como pantalla rota: React la vuelve a dibujar y se sigue trabajando', () => {
+  const m = 'Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message';
+  const r = { origen: 'navegador', nombre: 'Error', mensaje: m, ruta: '/crm?funnel=17' } as const;
+  assert.ok(esHidratacion(m));
+  assert.ok(!esHidratacion('Minified React error #310'), 'otro error de React sí es una pantalla rota');
+  const t = ticketDeError(r);
+  assert.doesNotMatch(t.titulo, /rompió/);
+  assert.doesNotMatch(t.descripcion, /rompió/);
+  assert.match(t.descripcion, /Puedes seguir trabajando/);
+  assert.match(ticketDeError({ ...r, mensaje: 'Minified React error #310' }).titulo, /rompió/);
+});
+
+test('las pistas dicen qué tocó la página, sin un solo texto de la página', () => {
+  const nodo = (tagName: string) => ({ tagName });
+  const doc = {
+    documentElement: { className: 'translated-ltr', lang: 'es' },
+    getElementsByTagName: (q: string) => (q === 'font' ? [nodo('FONT'), nodo('FONT')] : [nodo('DIV'), nodo('FONT'), nodo('GRAMMARLY-EXTENSION')]),
+  } as unknown as Document;
+  assert.equal(pistasDeHidratacion(doc, 'de-DE'), 'font=2; traducida=si; lang=es; navegador=de-DE; ajenas=grammarly-extension');
+});
+
+// Ticket #52: con esto, «font=0 y ninguna ajena» (el criterio de docs/hallazgos-ticketera.md para decir «es nuestro») se puede leer de verdad.
+// ROMPIÉNDOLO (4/11/2026): sin el filtro → 1 fallo.
+test('la etiqueta que pone Next en toda página no es ajena', () => {
+  const doc = {
+    documentElement: { className: '', lang: 'es' },
+    getElementsByTagName: (q: string) => (q === 'font' ? [] : [{ tagName: 'DIV' }, { tagName: 'NEXT-ROUTE-ANNOUNCER' }]),
+  } as unknown as Document;
+  assert.equal(pistasDeHidratacion(doc, 'es-US'), 'font=0; traducida=no; lang=es; navegador=es-US; ajenas=');
+});
+
+test('las pistas pasan el saneo y llegan al ticket; lo que no parece una pista, no', () => {
+  const base = { origen: 'navegador', nombre: 'Error', mensaje: 'Minified React error #418' };
+  const pista = 'font=2; traducida=si; lang=es; navegador=de-DE; ajenas=';
+  const r = sanearReporte({ ...base, pistas: pista })!;
+  assert.equal(r.pistas, pista);
+  assert.equal(ticketDeError(r).contexto.pistas, pista);
+  assert.equal(sanearReporte({ ...base, pistas: 'Hola <b>Ana</b> ana@correo.com' })!.pistas, undefined);
 });

@@ -7,7 +7,7 @@
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
-import { partirMemoria } from '@/lib/doer-hilo';
+import { palabrasDeBusqueda, partirMemoria } from '@/lib/doer-hilo';
 
 export type TurnoConv = { role: 'user' | 'assistant'; content: string };
 
@@ -62,6 +62,38 @@ export async function ultimaDeMaKo(ws: number, grupoJid: string): Promise<string
 }
 
 export type FilaConv = { role: 'user' | 'assistant'; content: string; created_at: string };
+
+/**
+ * El texto de un mensaje de ESTE grupo por su id de WhatsApp (ticket #40): lo que MaKo guardó cuando la cita no trae el texto.
+ * Sin fecha: citar un mensaje de hace 10 días es justo el caso. null si no está; tira si la base no contesta.
+ */
+export async function textoPorIdDeWhatsApp(ws: number, grupoJid: string, waMessageId: string): Promise<string | null> {
+  return runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('mako_doer_conv').select('content')
+      .eq('grupo_jid', grupoJid).eq('wa_message_id', waMessageId).order('created_at', { ascending: false }).limit(1);
+    if (error) throw new Error(error.message);
+    return (data?.[0] as { content?: string } | undefined)?.content ?? null;
+  });
+}
+
+/**
+ * Busca en lo guardado de ESTE grupo (ticket #40, `buscar_en_el_grupo`): las filas con TODAS las palabras, de la más nueva a la
+ * más vieja. Sin fecha. Estricto, como `hiloDelGrupo`: si la base no contesta, tira; un «no encontré» tiene que ser verdad.
+ */
+export async function buscarEnElGrupo(ws: number, grupoJid: string, texto: string, limite = 12): Promise<FilaConv[]> {
+  const palabras = palabrasDeBusqueda(texto);
+  if (!palabras.length) return [];
+  return runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    let q = db.from('mako_doer_conv').select('role, content, created_at').eq('grupo_jid', grupoJid);
+    for (const p of palabras) q = q.ilike('content', `%${p}%`);
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(limite);
+    if (error) throw new Error(`buscarEnElGrupo falló: ${error.message}`);
+    return ((data ?? []) as Array<{ role: string; content: string; created_at: string }>)
+      .map((r) => ({ role: r.role === 'assistant' ? 'assistant' : 'user', content: r.content, created_at: r.created_at }));
+  });
+}
 
 /**
  * LA MEMORIA DEL GRUPO PARA UN TURNO (26/10/2026, lib/doer-hilo.ts): la charla reciente como TURNOS (los últimos `turnos` de

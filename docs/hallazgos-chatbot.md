@@ -201,8 +201,13 @@ que poder mirar. Se escribe APARTE del mensaje y sin tirar: si fuera en el upser
 mensaje. **La duda sigue abierta:** con el próximo toque de un DM viejo, mirar esa columna. Hasta entonces, «era un payload ajeno»
 es lo que se dedujo, no lo que se vio.
 
-**Sin hacer:** las ocho inscripciones de @leantejado siguen en «respondió»: «Volver a probar» en su ficha las suelta. Un dato que
-rompió un bug nuestro se repara al desplegarse el arreglo (lib/nutricion.ts, el toque del #33).
+**Los datos que rompió, reparados (30/10/2026 17:19, con el arreglo ya desplegado y el «dale» del Cerebro):** ningún camino de
+la app saca una inscripción de «respondió» a como estaba («Volver a probar» sólo marca el desenlace y la deja en
+'respondio'; «Empezar de nuevo» le MANDA el primer DM; «Frenar» cancela). La pausa sólo había escrito `estado` y `updated_at`,
+así que se volvió SÓLO `estado`, en una transacción con compare-and-set contra el `updated_at` del bug: 703 a 707 a 'activa'
+(paradas en nlcjml0, sin próximo envío: esperan el toque y no les sale nada) y 660, 708 y 709 a 'completada'. Las 8 tocadas,
+con una línea en el historial del lead; después, ningún envío ni borrador. Para la próxima: si una pausa por error vuelve a
+pasar, es la misma reparación (medir que nada se movió, y devolver sólo `estado`).
 
 ## Elegir la publicación o el Reel del CRON de comentario (29/10/2026, ticket #25 de Leandro)
 
@@ -7996,3 +8001,23 @@ pantalla no cambia), y el envío más su línea en el historial salen con `after
 lo que sigue después de responder (el mismo molde que `seguirDespuesDeResponder`). Fuera de un pedido (un script) se manda
 en el acto, como siempre. Si la función muere antes de mandar, la fila ya está vencida y la toma el tick.
 **Regla:** lo que mueve una persona no espera un envío; el envío no cambia el «entró / no entró».
+
+## El modal de difusión: el «formato de cada red» ya estaba, faltaba el marco (2/11/2026)
+
+**Síntoma.** Martín: «que se vea lindo, con el formato de cada red social, como lo tenemos en Automations». El pedido apuntaba a `app/crm/AccionesLoteLeads.tsx` y `app/crm/seleccion-difusion.ts`.
+
+**El diagnóstico obvio era el equivocado, dos veces.** Esos dos archivos sólo ponen la selección: el modal es `app/automations/difusion/HojaDifusion.tsx`. Y la hoja ya usaba los MISMOS editores de cada canal: reusarlos no cambiaba nada. Lo que no tenía era lo que los rodea en el lienzo: logo y nombre arriba, un panel con alto, y el chat llenándolo. Apilados en 560 px, con rótulos en mayúscula, cada editor quedaba con el chat en 110 px.
+
+**Dónde vive y la regla.**
+- **Los editores crecen solos si su padre es una columna flex con alto** (`flex: 1 1 auto`). Adentro de un `display: grid` quedan en su mínimo: el chat mide 110 px y sobra medio panel.
+- **`SvcIcon` no sirve fuera de una pantalla que monte `BrandDefs`:** pinta con `<use>` de un símbolo. El CRM no lo monta, y sin él queda un cuadrado de color, sin error. Por eso la hoja usa `IconoCanal` y `LogoSocial`, que traen su dibujo.
+- **La cabecera del lienzo no se copia entera:** `CabeceraWhatsApp` y `CabeceraSocialPanel` traen el desplegable de número o cuenta, y la difusión no los guarda (`MensajesDifusion`). Se vería bien y mentiría: elegir otro número no cambiaría por dónde sale.
+- **Un `<style>` suelto adentro de `Modal` cuenta como un bloque:** `.mk-modal__cuerpo > * + *` le pone un filete a lo que sigue. Va adentro del único hijo.
+- **Un canal a la vista, y los otros ocultos sin desmontar:** lo que quedó sin enviar en la barra de un editor se perdería al mirar otro canal.
+
+**Cómo se miró sin levantar la app.** Una maqueta con el componente real y las actions falsas (esbuild + Chrome headless mudo), en escritorio, en oscuro y en un iframe de 390 px. Con eso aparecieron el logo liso, el chat de 110 px y el doble filete, que ningún test veía.
+
+**Sin hacer.**
+- Elegir por qué número o cuenta sale una difusión: hoy el motor usa la línea que le toca. Vive en `lib/difusion.ts` y `MensajesDifusion`.
+- Sin mirar en el CRM de verdad, con datos reales: punto 11 de `docs/relevo/automations.md`.
+

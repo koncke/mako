@@ -45,6 +45,7 @@ import { BloqueHilo } from './BloqueHilo';
 import { FormularioEnChat } from './FormularioEnChat';
 import { ACCIONES_FORMULARIO } from './acciones-formulario';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { ReportarRespuesta } from './ReportarRespuesta';
 
 const hora = (iso: string | null): string => {
   const t = iso ? Date.parse(iso) : NaN;
@@ -216,6 +217,8 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
             <div className="ch-ira">{x.irA.map((l) => <Link key={l.link} className="co-chip" href={l.link}>{`Ir a ${l.titulo}`}</Link>)}</div>
           )}
           {suyo?.abajo}
+          {/* Play: lo que genera la IA se denuncia desde el mismo mensaje, sin salir de la app (./ReportarRespuesta.tsx). */}
+          {x.texto.trim() && <ReportarRespuesta texto={x.texto} />}
         </DeMako>,
       );
       return;

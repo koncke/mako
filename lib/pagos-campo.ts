@@ -1298,6 +1298,11 @@ export function tramosDeCuotas(lugares: readonly CuotaDelLead[], hoy: string): {
   return { desde: armadas.find((a) => a.fecha)?.fecha ?? hoy, tramos };
 }
 
+/** Lo que dice una cuota sin cobrar: su monto en dólares, su vencimiento, su moneda y su monto en ella. Si cambia, es otra. */
+const firmaDe = (monto: number, fecha: string | null, moneda: string | null, original: number | null): string =>
+  `${centavos(monto)}|${fecha ?? ''}|${moneda ?? ''}|${moneda && original != null ? centavos(original) : ''}`;
+export const firmaDeCuota = (q: CuotaDelLead): string => { const a = armadaDe(q); return firmaDe(a.monto_usd, a.fecha, a.moneda, a.monto_original); };
+
 /**
  * ⚠️ LO QUE LA PERSONA NO CAMBIÓ VA «TAL CUAL» (`quedaComoEsta`): la lista es el plan ENTERO, y mandarla entera le reescribía su
  * valor de cuando se abrió el editor a una cuota que otra pestaña (o MaKo) cambió en el medio. Es la misma trampa que el plan
@@ -1306,10 +1311,8 @@ export function tramosDeCuotas(lugares: readonly CuotaDelLead[], hoy: string): {
  * existe, no se vuelve a crear.
  */
 export function soloLoQueCambio(cuotas: readonly CuotaParaGuardar[], abiertas: readonly CuotaDelLead[]): Array<CuotaParaGuardar & { quedaComoEsta?: true }> {
-  const firma = (monto: number, fecha: string | null, moneda: string | null, original: number | null) =>
-    `${centavos(monto)}|${fecha ?? ''}|${moneda ?? ''}|${moneda && original != null ? centavos(original) : ''}`;
-  const vistas = new Map(abiertas.filter((q) => !q.pagado).map((q) => { const a = armadaDe(q); return [q.id, firma(a.monto_usd, a.fecha, a.moneda, a.monto_original)]; }));
-  return cuotas.map((c) => (c.id != null && vistas.get(c.id) === firma(c.monto, c.fecha, monedaDeCuota(c.moneda), c.montoOriginal ?? null) ? { ...c, quedaComoEsta: true as const } : c));
+  const vistas = new Map(abiertas.filter((q) => !q.pagado).map((q) => [q.id, firmaDeCuota(q)]));
+  return cuotas.map((c) => (c.id != null && vistas.get(c.id) === firmaDe(c.monto, c.fecha, monedaDeCuota(c.moneda), c.montoOriginal ?? null) ? { ...c, quedaComoEsta: true as const } : c));
 }
 
 /** El anticipo como lo pide el plan (el #0): su monto en dólares, su moneda y su fecha. */
@@ -1472,19 +1475,46 @@ export function cuotasQueQuedan(existentes: readonly CuotaExistente[], plan: Pla
   return out.sort((a, b) => a.numero - b.numero);
 }
 
+/** Una cuota sin cobrar como se vio al proponer: su id y su firma (`firmaDeCuota`). */
+export type CuotaVista = { id: number; firma: string };
+
+/** Las impagas que se vieron (los `vistos` del plan), con su firma: lo que viaja en la propuesta de MaKo. */
+export function cuotasVistas(pagos: readonly CuotaDelLead[], ids: readonly number[]): CuotaVista[] {
+  const por = new Map(pagos.map((q) => [q.id, q]));
+  return ids.map((id) => { const q = por.get(id); return { id, firma: q ? firmaDeCuota(q) : '' }; });
+}
+
+/** `vistas` leído de la propuesta guardada. null: no tiene esa forma, es de antes de la firma (revisión de 7f79a4e6c, B9: sin
+ *  `vistas`, el «sí» iba con la regla vieja y pisaba lo que se armó después). */
+export function cuotasVistasDe(x: unknown): CuotaVista[] | null {
+  if (!Array.isArray(x)) return null;
+  const out: CuotaVista[] = [];
+  for (const v of x) {
+    const o = v && typeof v === 'object' ? (v as { id?: unknown; firma?: unknown }) : null;
+    const id = Number(o?.id);
+    if (!o || !Number.isInteger(id) || typeof o.firma !== 'string') return null;
+    out.push({ id, firma: o.firma });
+  }
+  return out;
+}
+
 /**
  * ⚠️ EL «SÍ» VALE SOBRE LO QUE SE VIO AL PROPONER (revisión de 805afb460, N1). Una propuesta de MaKo vive 2 h; armada sobre un
  * lead sin cuotas, su «sí» pisaba el plan de 6 cuotas que alguien armó en la ficha mientras tanto (3 se reescribían y 3 se borraban),
- * y contestaba «Listo». Las impagas que se leyeron al proponer (`vistas`) viajan en la propuesta: si una ya no está sin cobrar, o
- * apareció una del plan que no estaba, el plan cambió y no se escribe nada. Devuelve qué decir, o null. Pura.
+ * y contestaba «Listo». Las impagas que se leyeron al proponer (`vistas`) viajan en la propuesta CON SU FIRMA: si una ya no está
+ * sin cobrar, si cambió (revisión de 7f79a4e6c, B8: la #2 pasada a MXN 18.000 en la ficha, con el mismo id, se pisaba con los
+ * US$600 propuestos), o si apareció una del plan que no estaba, el plan cambió y no se escribe nada. Devuelve qué decir, o null. Pura.
  */
-export function planCambioDesde(pagos: readonly CuotaDelLead[], vistas: ReadonlySet<number>): string | null {
+export function planCambioDesde(pagos: readonly CuotaDelLead[], vistas: readonly CuotaVista[]): string | null {
   const impagas = pagos.filter((q) => !q.pagado && !noEsDeuda(q));
-  const siguen = new Set(impagas.map((q) => q.id));
-  const ida = [...vistas].find((id) => !siguen.has(id));
-  const nueva = impagas.find((q) => esCuotaDelPlan(q) && !vistas.has(q.id));
-  if (ida == null && !nueva) return null;
+  const siguen = new Map(impagas.map((q) => [q.id, q]));
+  const ids = new Set(vistas.map((v) => v.id));
+  const ida = vistas.find((v) => !siguen.has(v.id))?.id;
+  const nueva = impagas.find((q) => esCuotaDelPlan(q) && !ids.has(q.id));
+  const otra = vistas.map((v) => { const q = siguen.get(v.id); return q && firmaDeCuota(q) !== v.firma ? q : null; }).find(Boolean) ?? null;
+  if (ida == null && !nueva && !otra) return null;
   const q = ida != null ? pagos.find((x) => x.id === ida) : null;
-  const que = ida != null ? (q?.pagado ? `se cobró «${nombreCuota(q.numero)}»` : q ? `«${nombreCuota(q.numero)}» ya no es una cuota por cobrar` : 'se quitó una cuota') : `apareció «${nombreCuota((nueva as CuotaDelLead).numero)}»`;
+  const que = ida != null ? (q?.pagado ? `se cobró «${nombreCuota(q.numero)}»` : q ? `«${nombreCuota(q.numero)}» ya no es una cuota por cobrar` : 'se quitó una cuota')
+    : nueva ? `apareció «${nombreCuota(nueva.numero)}»` : `cambió «${nombreCuota((otra as CuotaDelLead).numero)}»`;
   return `El plan de cuotas cambió desde que lo propuse (${que}): no guardé nada. Pídemelo de nuevo y lo armo sobre lo que hay ahora.`;
 }

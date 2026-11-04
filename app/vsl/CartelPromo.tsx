@@ -9,6 +9,8 @@
 //   · Mientras la consulta no contesta o falla, no hay cartel: la landing se vende igual a precio normal.
 //   · Va en el flujo y `sticky` arriba, una sola franja en el teléfono: no flota sobre el botón de comprar. «Ver planes» lleva a
 //     `#precios` con `scroll-margin`, para que la franja no le tape el título a los precios.
+//   · Los valores (31/10/2026, docs/diseno/tokens-4-y-cierre.json): el naranja es el `--now` de Fitlo, el color que esa tienda reserva
+//     para «esto es ahora». Sobre la tinta llega a 5:1. El reloj es lo ÚNICO del cartel que lo usa: por eso se ve sin buscarlo.
 // =============================================================================
 
 import { useEffect, useState } from 'react';
@@ -16,12 +18,12 @@ import { PROMO_ENTRADA, precioPrimerMes, textoReloj, textoUsd, type EstadoPromo 
 
 const CSS = `
 .mk-promo { position: sticky; top: 0; z-index: 60; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 14px;
-  box-sizing: border-box; padding: 8px 16px; background: #12151B; color: #fff; font-size: 15px; line-height: 1.3; }
-.mk-promo-titulo { font-weight: 700; }
-.mk-promo-precios { color: #C8CEDA; font-size: 14px; }
-.mk-promo-reloj { font-variant-numeric: tabular-nums; font-weight: 800; color: #FFD400; }
-.mk-promo-ir { flex: none; padding: 5px 14px; border-radius: 999px; background: #2F6FED; color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; }
-.mk-promo-ir:hover { background: #1F5AD0; }
+  box-sizing: border-box; padding: 8px 16px; background: #121826; color: #fff; font-size: 15px; line-height: 1.3; }
+.mk-promo-titulo { font-weight: 600; }
+.mk-promo-precios { color: #c6ccd7; font-size: 14px; }
+.mk-promo-reloj { font-variant-numeric: tabular-nums; font-weight: 700; color: #e2603a; }
+.mk-promo-ir { flex: none; padding: 5px 14px; border-radius: 999px; background: #1f55d6; color: #fff; font-size: 13.5px; font-weight: 600; text-decoration: none; }
+.mk-promo-ir:hover { background: #1946b8; }
 .mk-promo-ir:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 #precios { scroll-margin-top: 72px; }
 @media (max-width: 640px) {

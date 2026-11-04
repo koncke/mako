@@ -41,8 +41,8 @@ test('toda integración que pide credenciales tiene su VERIFICADOR', () => {
   const pings = leer('../lib/metodo-verificar.ts');
   const sinPing: string[] = [];
   for (const key of keysDelMetodo()) {
-    // El registro de pings son métodos de un objeto: `async <key>(v) {`.
-    if (!new RegExp(`async ${key}\\s*\\(`).test(pings)) sinPing.push(key);
+    // El registro de pings son métodos de un objeto: `async <key>(v) {`. Una clave con guion va entre comillas (`apify-instagram`, 1/11/2026).
+    if (!new RegExp(`async '?${key}'?\\s*\\(`).test(pings)) sinPing.push(key);
   }
   assert.deepEqual(
     sinPing, [],

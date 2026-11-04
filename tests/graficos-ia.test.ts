@@ -250,8 +250,9 @@ test('acomodar: sin superposiciones, adentro de 12 columnas y en el orden en que
 
 // r6: 1 fallo.
 test('las plantillas generales pasan por la MISMA puerta que la IA: cero correcciones', () => {
-  // v5: «WhatsApp y MaKo» y «Customer Success» se fueron (son las hojas Chat Analyst y CS Analyst): quedan 4.
-  assert.ok(DEFINICIONES_GENERALES.length >= 4 && DEFINICIONES_GENERALES.length <= 8, `${DEFINICIONES_GENERALES.length} generales`);
+  // v5: «WhatsApp y MaKo» y «Customer Success» se fueron (son las hojas Chat Analyst y CS Analyst); el 4/11/2026, «CRM y pipeline»
+  // (la absorbe Comercial). Quedan 3 o más.
+  assert.ok(DEFINICIONES_GENERALES.length >= 3 && DEFINICIONES_GENERALES.length <= 8, `${DEFINICIONES_GENERALES.length} generales`);
   for (const d of DEFINICIONES_GENERALES) {
     const r = deIAHoja({ nombre: d.nombre, emoji: d.emoji, periodo: d.periodo, componentes: d.piezas.map(({ local: _l, controles: _c, ...p }) => p) });
     assert.deepEqual(r.errores, [], `${d.id}: ${r.errores.join(' | ')}`);
@@ -269,7 +270,11 @@ test('cada plantilla general: válida, con su período arriba, sin superposicion
     assert.ok(/\p{Extended_Pictographic}/u.test(p.emoji), `${p.id}: el emoji`);
     const a = instanciarPlantilla(p);
     const b = instanciarPlantilla(p);
-    assert.equal(a.componentes.length, d.piezas.length, `${p.id}: el saneo se comió una pieza`);
+    // La sección plegada de «Más detalle» es una pieza más que las escritas (31/10/2026, `comoCorbel`), y una portada nueva, otra.
+    const extras = a.componentes.filter((c) => (c as { tipo?: unknown }).tipo === 'seccion').length;
+    const nueva = componentesDe(p).filter((c) => /-portada$/.test(c.id)).length;
+    // Los botones (`acciones`, el «Grabar llamada» de Cold Calling) van aparte de las piezas: también cuentan.
+    assert.equal(a.componentes.length, d.piezas.length + (d.acciones?.length ?? 0) + extras + nueva, `${p.id}: el saneo se comió una pieza`);
     assert.equal(a.controles[0]?.tipo, 'periodo', `${p.id}: sin el período arriba`);
     assert.equal(a.controles[0].preset, d.periodo);
     assert.equal(sinSuperposicion(a.componentes), null, `${p.id}: ${sinSuperposicion(a.componentes)}`);

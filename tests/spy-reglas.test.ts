@@ -46,7 +46,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -242,15 +242,51 @@ test('la Ad Library sólo entrega anuncios comerciales de la Unión Europea y el
 // 7. La migración: la columna es lo que vuelve a meter el bug
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('la migración 0359 no tiene dónde guardar la foto de perfil', () => {
+/** Todas las migraciones que tocan las tablas del spy: el guard de la foto las mira a todas. */
+function migracionesDelSpy(): string[] {
+  const dir = join(RAIZ, 'supabase/migrations');
+  return readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .map((f) => readFileSync(join(dir, f), 'utf8'))
+    .filter((sql) => /spy_(competidores|piezas)/.test(sql));
+}
+
+test('ninguna migración del spy guarda la FOTO DE PERFIL, que es la que se vería rota', () => {
   // `profile_picture_url` de Instagram es una URL del CDN de Meta que VENCE. No tener la columna es
   // más fuerte que acordarse: un avatar roto semanas después es un defecto que Martín ya marcó dos
   // veces.
-  const sql = sinComentariosSql(leer('supabase/migrations/0359_competitors_spy.sql'));
+  //
+  // ⚠️ EL GUARD MIRABA UNA SOLA MIGRACIÓN, y eso lo volvía esquivable sin querer: la columna
+  // prohibida podía entrar por la migración siguiente y el test seguía verde. Ahora mira TODAS las
+  // del spy.
+  const sql = sinComentariosSql(migracionesDelSpy().join('\n'));
   const columnas = [...sql.matchAll(/^\s{2}([a-z_]+)\s+(?:text|bigint|integer|timestamptz|jsonb|text\[\])/gm)].map((m) => m[1]);
-  assert.ok(columnas.length > 20, `el lector de columnas de la migración dejó de encontrarlas (vio ${columnas.length}): el guard no está mirando nada`);
-  const deFoto = columnas.filter((c) => /foto|avatar|picture|imagen|thumb/.test(c));
-  assert.deepEqual(deFoto, [], `apareció una columna donde guardar una imagen del CDN de Meta, que vence: ${deFoto.join(', ')}`);
+  assert.ok(columnas.length > 20, `el lector de columnas de las migraciones dejó de encontrarlas (vio ${columnas.length}): el guard no está mirando nada`);
+  const deFoto = columnas.filter((c) => /foto|avatar|picture/.test(c));
+  assert.deepEqual(deFoto, [], `apareció una columna donde guardar la foto de perfil, que vence: ${deFoto.join(', ')}`);
+});
+
+test('la miniatura de una PIEZA sí se guarda, y se reescribe en cada lectura para que no se pudra', () => {
+  // La distinción con la foto de perfil, que es la que justifica la diferencia:
+  //   · el avatar se dibuja SIEMPRE, también sobre un competidor que nadie volvió a leer en semanas;
+  //   · la miniatura vive en una grilla que se RELEE (`debeLeerAlAbrir` relee la ficha de más de un
+  //     día), y `TarjetaPieza` ya esconde la imagen rota con su `onError`.
+  // Lo que sostiene esa diferencia es que se REESCRIBA en cada lectura. Si alguien la moviera a los
+  // campos que sólo se escriben al insertar, la miniatura quedaría congelada y empezaría a romperse
+  // — y el síntoma sería una grilla sin fotos, igual que antes de este cambio pero sin aviso.
+  const spy = leer('lib/spy.ts');
+  const comun = spy.slice(spy.indexOf('const comun = (v: PiezaVista)'), spy.indexOf('const soloAlInsertar') + 1 || spy.length);
+  assert.match(comun, /miniatura: v\.miniatura \?\? null,/, 'la miniatura dejó de escribirse en cada lectura');
+
+  // Y que el mapeo de Instagram la siga copiando: ahí se perdía antes (un reel llegaba sin imagen).
+  assert.match(spy, /miniatura: p\.miniatura,/, 'el mapeo de Instagram volvió a tirar la miniatura');
+
+  // La pantalla prefiere la que guardó la fuente y recién después deriva la de YouTube.
+  const vista = leer('lib/spy-vista.ts');
+  const fn = vista.slice(vista.indexOf('export const miniaturaDePieza'));
+  const iPropia = fn.indexOf('p.miniatura');
+  const iYoutube = fn.indexOf('i.ytimg.com');
+  assert.ok(iPropia > -1 && iYoutube > -1 && iPropia < iYoutube, 'la miniatura propia tiene que ganarle a la derivada de YouTube');
 });
 
 test('ningún contador de la migración 0359 lleva «default 0»', () => {
@@ -303,7 +339,7 @@ test('la pantalla mira el mercado, no ataca a una persona', () => {
   // La política III.L de YouTube prohíbe enmarcar una comparación como «war» o «battle», o como una
   // rivalidad que incite hostigamiento. Se mira el copy, sin los comentarios: los comentarios citan
   // esas palabras para explicar la regla y nadie los lee desde la app.
-  for (const archivo of ['app/competitor-spy/SpyApp.tsx', 'app/competitor-spy/OnboardingSpy.tsx']) {
+  for (const archivo of ['app/competitor-spy/SpyApp.tsx', 'app/competitor-spy/TarjetaPieza.tsx', 'app/competitor-spy/GraficoSpy.tsx', 'app/competitor-spy/DetallePieza.tsx']) {
     const copy = sinComentarios(leer(archivo)).toLowerCase();
     assert.ok(copy.length > 500, `${archivo}: después de sacar los comentarios no quedó copy que revisar, así que el guard no miró nada`);
     for (const palabra of PALABRAS_DE_DUELO) {

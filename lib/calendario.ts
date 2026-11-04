@@ -37,12 +37,13 @@ import { tablasDe } from './tablero-de-capa';
 import { listObjectives } from './objectives';
 import { esRecurrente, recurrenciaDe, textoRepeticionCorto } from './plan-recurrentes';
 import {
-  itemDeFila, filaDeEntrada, quartersDelRango, proximasVeces, itemDeCuota, MAX_LOTE, esTipoEvento, esFormato, TOPE_TITULO, TOPE_NOTAS,
+  itemDeFila, filaDeEntrada, quartersDelRango, proximasVeces, itemDeCuota, itemDeEdicion, MAX_LOTE, esTipoEvento, esFormato, TOPE_TITULO, TOPE_NOTAS,
   type ItemCalendario, type FilaEvento, type EntradaEvento,
 } from './calendario-modelo';
 import type { LlamadaDeVenta } from './calendario-llamadas';
 import { bloqueoEnLaRed, esSinMigracion, leerPublicaciones } from './calendario-publicar';
 import { rutaValida, TOPE_TEXTO, type DatosPublicacion } from './calendario-publicar-reglas';
+import { PREFIJO_SEGMENTO_NEWSLETTER } from './newsletter-reglas';
 
 export type FallosCalendario = {
   propios?: boolean;
@@ -52,6 +53,7 @@ export type FallosCalendario = {
   plan?: boolean;
   recurrentes?: boolean;
   cobros?: boolean;
+  newsletters?: boolean;
   objetivos?: boolean;
 };
 
@@ -73,13 +75,14 @@ export async function leerCalendario(desde: string, hasta: string, tz: string): 
   const hastaIso = inicioDelDia(hasta, tz);
   const fallos: FallosCalendario = {};
   const meta: { google: GoogleDelCalendario | null } = { google: null };
-  const [propios, crm, google, plan, recurrentes, cobros, objetivos, series] = await Promise.all([
+  const [propios, crm, google, plan, recurrentes, cobros, newsletters, objetivos, series] = await Promise.all([
     leerPropios(desdeIso, hastaIso).catch((e) => { console.error('[calendario] propios:', msg(e)); fallos.propios = true; return [] as ItemCalendario[]; }),
     leerCrm(desde, hasta, desdeIso, hastaIso, tz).catch((e) => { console.error('[calendario] crm:', msg(e)); fallos.crm = true; return [] as ItemCalendario[]; }),
     leerGoogle(desdeIso, hastaIso, tz, fallos, meta),
     leerPlan(desde, hasta, tz).catch((e) => { console.error('[calendario] plan:', msg(e)); fallos.plan = true; return [] as ItemCalendario[]; }),
     leerRecurrentes(desde, hasta, tz).catch((e) => { console.error('[calendario] recurrentes:', msg(e)); fallos.recurrentes = true; return [] as ItemCalendario[]; }),
     leerCobros(desde, hasta, tz).catch((e) => { console.error('[calendario] cobros:', msg(e)); fallos.cobros = true; return [] as ItemCalendario[]; }),
+    leerNewsletters(desdeIso, hastaIso).catch((e) => { console.error('[calendario] newsletters:', msg(e)); fallos.newsletters = true; return [] as ItemCalendario[]; }),
     leerObjetivos(desde, hasta, tz).catch((e) => { console.error('[calendario] objetivos:', msg(e)); fallos.objetivos = true; return [] as ItemCalendario[]; }),
     // Las próximas veces de las Publicaciones que se repiten (29/10/2026, lib/calendario-recurrentes.ts): en la capa «Se repite».
     import('./calendario-recurrentes').then((m) => m.seriesParaDibujar(desde, hasta, desdeIso, tz))
@@ -87,10 +90,33 @@ export async function leerCalendario(desde: string, hasta: string, tz: string): 
   ]);
   // Los de Google van TODOS: si una reunión del CRM y su evento de Google son la misma, lo decide la pantalla según qué
   // calendarios están prendidos (`sinDuplicarLlamadas`). Apagando las llamadas del CRM, el de Google tiene que verse.
-  return { items: [...propios, ...crm, ...google, ...plan, ...recurrentes, ...cobros, ...objetivos, ...series], fallos, google: meta.google };
+  return { items: [...propios, ...crm, ...google, ...plan, ...recurrentes, ...cobros, ...newsletters, ...objetivos, ...series], fallos, google: meta.google };
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * Las ediciones del newsletter (29/10/2026): un broadcast cuyo segmento es el CRM del newsletter (lib/newsletter-reglas.ts).
+ * Se leen de donde viven, como el CRM y el Plan: la programada por su fecha de salida, la enviada por cuándo salió. Dos
+ * lecturas y no un `or`: los instantes llevan `:` y `.`, que la sintaxis del `or` de PostgREST reserva.
+ */
+async function leerNewsletters(desdeIso: string, hastaIso: string): Promise<ItemCalendario[]> {
+  const db = await getTenantDb();
+  type Fila = { id: number; asunto: string | null; estado: string; programado_at: string | null; enviado_at: string | null };
+  const cols = 'id, asunto, estado, programado_at, enviado_at';
+  const [programadas, enviadas] = await Promise.all([
+    leerTodo<Fila>(db, 'email_broadcasts', cols, { orden: 'id', eq: { estado: 'programado' }, filtros: (q) => q.like('segmento', `${PREFIJO_SEGMENTO_NEWSLETTER}%`).gte('programado_at', desdeIso).lt('programado_at', hastaIso) }),
+    leerTodo<Fila>(db, 'email_broadcasts', cols, { orden: 'id', filtros: (q) => q.like('segmento', `${PREFIJO_SEGMENTO_NEWSLETTER}%`).gte('enviado_at', desdeIso).lt('enviado_at', hastaIso) }),
+  ]);
+  const vistas = new Map<number, Fila>();
+  for (const f of [...programadas, ...enviadas]) vistas.set(Number(f.id), f);
+  const out: ItemCalendario[] = [];
+  for (const f of vistas.values()) {
+    const it = itemDeEdicion({ id: Number(f.id), asunto: f.asunto ?? '', estado: f.estado, programadoAt: f.programado_at, enviadoAt: f.enviado_at });
+    if (it) out.push(it);
+  }
+  return out;
+}
 
 async function leerPropios(desdeIso: string, hastaIso: string): Promise<ItemCalendario[]> {
   const db = await getTenantDb();

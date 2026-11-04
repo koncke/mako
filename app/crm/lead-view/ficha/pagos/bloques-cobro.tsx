@@ -746,7 +746,7 @@ export function Suscripcion(props: PropsBloque) {
     ctx.releer();
     show('Suscripción reactivada');
   };
-  const estado = s.estado === 'activa' ? { tono: 'verde' as const, txt: 'Activa' } : s.estado === 'cancelada' ? { tono: 'gris' as const, txt: 'Cancelada' } : { tono: 'gris' as const, txt: 'Terminó' };
+  const estado = s.sinCierre ? { tono: 'gris' as const, txt: ganado(ctx) ? 'Sin fecha de cierre' : 'Sin venta activa' } : s.estado === 'activa' ? { tono: 'verde' as const, txt: 'Activa' } : s.estado === 'cancelada' ? { tono: 'gris' as const, txt: 'Cancelada' } : { tono: 'gris' as const, txt: 'Terminó' };
 
   return (
     <Tarjeta titulo={titulo} marca={marcaDato('monto')} derecha={<Semaforo tono={s.renovacionFallida ? 'rojo' : estado.tono}>{s.renovacionFallida ? 'Falló la renovación' : estado.txt}</Semaforo>}>

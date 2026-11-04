@@ -45,11 +45,14 @@
 //   reinicia el aprendizaje del conjunto.)
 // =============================================================================
 
+import { FUNNELS } from '@/lib/funnel-plan';
 import type { Gating, OperacionDef, Parametro } from '../tipos';
 import { CTAS as CTAS_SUBIDA } from '@/lib/media-buyer/creativos';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
+/** Lo del Funnel Coach (1/11/2026): vive en el Ops Center, que está en todas las capas. Con la tab del Ads Manager, un negocio sin ella tenía un coach sin calculadora ni plan. */
+const G_COACH: Gating = { tab: 'mako', rolMinimo: 'admin' };
 
 /** Lecturas del Ads Manager (la page exige admin del workspace y la capa con la tab). */
 const G_MANAGER: Gating = { tab: 'ads-manager', integracion: 'meta', rolMinimo: 'admin' };
@@ -112,7 +115,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'avatares', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'Cuántos avatares tiene armados. Default 3.' },
       { nombre: 'funcionalidades', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'Cuántas funcionalidades, razones u ofertas tiene para mostrar. Default 3.' },
     ],
-    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'ads-manager', rolMinimo: 'admin' },
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: G_COACH,
   },
   {
     id: 'listar_conjuntos_meta', area: 'ads', tipo: 'lectura',
@@ -1020,5 +1023,31 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'activo', tipo: 'boolean', obligatorio: true, descripcion: 'true: salen activos y gastan del presupuesto del conjunto; false: en pausa.' },
     ],
     canales: ['http'], costo: 'dinero', gating: G_MEDIA_BUYER,
+  },
+  // El plan del funnel (1/11/2026, docs/funnel-coach.md §3): el Funnel Coach lo guarda y su botón «Ver el plan» lo muestra.
+  {
+    id: 'ver_plan_funnel', area: 'ads', tipo: 'lectura',
+    datosDeClientes: false,
+    titulo: 'Ver el plan del funnel',
+    descripcion: 'El plan del funnel guardado de este negocio: qué funnel, por qué, inversión, creativos, ángulos, landings y pasos. Sin parámetros.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: G_COACH,
+  },
+  {
+    id: 'guardar_plan_funnel', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    datosDeClientes: false,
+    escribe: 'reemplaza el plan del funnel del negocio en app_settings',
+    titulo: 'Guardar el plan del funnel',
+    descripcion: 'PROPONE guardar el plan del funnel decidido con la persona. Reemplaza el anterior. Sin esto el plan sólo existe en el chat.',
+    parametros: [
+      { nombre: 'funnel', tipo: 'string', obligatorio: true, enum: FUNNELS, descripcion: 'El funnel elegido.' },
+      { nombre: 'porque', tipo: 'string', max: 600, descripcion: 'Por qué ese, con lo que dijo la persona.' },
+      { nombre: 'presupuestoMensual', tipo: 'number', minimo: 0, descripcion: 'Inversión por mes, en dólares.' },
+      { nombre: 'creativos', tipo: 'number', entero: true, minimo: 0, descripcion: 'Cuántos creativos.' },
+      { nombre: 'angulos', tipo: 'number', entero: true, minimo: 0, descripcion: 'Cuántos ángulos.' },
+      { nombre: 'landings', tipo: 'number', entero: true, minimo: 0, descripcion: 'Cuántas landings (2 = prueba A/B).' },
+      { nombre: 'pasos', tipo: 'string[]', max: 12, descripcion: 'Los pasos a ejecutar, en orden.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: G_COACH,
   },
 ];

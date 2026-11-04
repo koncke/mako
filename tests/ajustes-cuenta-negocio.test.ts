@@ -47,6 +47,8 @@ test('las dos listas: el orden y los rótulos que aprobó Martín', () => {
   // Mirando a un cliente, «Tu cuenta» muestra su perfil; lo tuyo sólo si es donde estás parado.
   assert.deepEqual(seccionesCuenta(true, 'info').map((s) => s.key), ['info']);
   assert.deepEqual(seccionesCuenta(true, 'seguridad').map((s) => s.key), ['info', 'seguridad']);
+  // Quien administra ese negocio sí ve Notificaciones: ahí vive a quién le avisa MaKo (ticket #49, tests/agencia-grupos.test.ts).
+  assert.deepEqual(seccionesCuenta(true, 'info', true).map((s) => s.key), ['info', 'notificaciones']);
 });
 
 test('el ?tab= viejo de los avisos ya mandados cae en su sección, con el ?ws= del cliente', () => {

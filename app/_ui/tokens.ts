@@ -13,7 +13,7 @@
 // Regla: si estás por escribir un número de diseño a mano, buscalo primero acá.
 // Si no está y lo vas a usar más de una vez, agregalo.
 
-/** Familias tipográficas. La app entera es Geist (ver app/layout.tsx). */
+/** Familias tipográficas. «Geist» es Urbanist desde el 31/10/2026: el @font-face de app/globals.css. */
 export const SANS = "'Geist', system-ui, sans-serif";
 /** Mono: números, códigos, etiquetas en mayúscula con tracking. Nunca prosa. */
 export const MONO = "'Geist Mono', monospace";
@@ -112,16 +112,16 @@ export const TOUCH = 'var(--touch)';
 
 /** Sombras: sólo tres niveles. Card → menú flotante → modal. */
 export const shadow = {
-  card: '0 1px 2px rgba(18,21,27,.05)',
-  pop: '0 16px 40px rgba(18,21,27,.22)',
-  modal: '0 30px 70px rgba(18,21,27,.35)',
+  card: 'var(--sombra-tarjeta)',
+  pop: 'var(--sombra-pop)',
+  modal: 'var(--sombra-modal)',
 } as const;
 
 /** Anillo de foco de teclado. Uno solo en toda la app. */
 export const FOCUS = 'var(--focus-ring)';
 
 /** Transición estándar de estados (hover, foco, activo). */
-export const EASE = 'background .14s ease, border-color .14s ease, color .14s ease, box-shadow .14s ease';
+export const EASE = 'background .14s var(--ease-out), border-color .14s var(--ease-out), color .14s var(--ease-out), box-shadow .14s var(--ease-out)';
 
 /**
  * Los tonos SEMÁNTICOS: los cinco significados de la regla de color. Cualquier

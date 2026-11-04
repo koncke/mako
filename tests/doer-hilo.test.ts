@@ -239,7 +239,7 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
   assert.match(doer, /query: consultaDelTurno\(texto, conHilo\.hilo\)/);
   assert.match(doer, /bloqueYaSeHablo\(\s*memoria\.antes,\s*await accionesDelGrupo\(wsData, jid, DIAS_DE_HECHOS\)/, 'lo de antes no llega a los hechos');
   // Los hechos y lo que mostraste van al system del turno y NUNCA al de la red de la plataforma, que corre sin datos de clientes.
-  assert.match(doer, /const conMemoria = baseDelSystem === base \? \[(?:bloqueQuienEscribe\(data\.pushName\), )?(?:ctxParaElEquipo, )?(?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado\]\.filter\(Boolean\)/);
+  assert.match(doer, /const conMemoria = baseDelSystem === base \? \[(?:bloqueQuienEscribe\(data\.pushName\), )?(?:ctxCita, )?(?:ctxParaElEquipo, )?(?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado\]\.filter\(Boolean\)/);
   // Lo que mostraron las herramientas: se anota cada salida y se guarda al final del turno, si no fue un cartel.
   assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n(?:[^\n]*(?:escribioDelTurno\+\+|leyoDelTurno = true);\n)*\s*\/\/ Los ids que mostró[^\n]*\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
   assert.match(doer, /if \(!avisoDeSistema && refsDelTurno\.length\) await setSetting\(CLAVE_REFS\(jid\), unirRefs\(refsGuardadas, refsDelTurno, Date\.now\(\)\)\)/);

@@ -304,7 +304,7 @@ test('5. `listarPlantillas` deja afuera los tres eventos en las dos vistas, y la
   // (16/10/2026: y el reporte de los lunes, que pasó a ser una automatización de la plataforma, «MaKo por email».)
   // (16/10/2026, tarde: «WhatsApp cerró la sesión» es su propio aviso, `wa-desvinculado`: docs/inventario-nada-por-detras.md.)
   // (28/10/2026: y el tope de Instagram o Zernio que frenó los mensajes de un negocio, `social-tope`.)
-  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['closing-ia-caida', 'cuota-vencida', 'curso-recordatorio-clases', 'dashboard-analisis-listo', 'flow-puente-ausente', 'landing-cambio', 'lead-de-landing', 'lead-formulario-meta', 'lead-fusionado', 'meta-cuenta-frenada', 'meta-cuenta-recuperada', 'oferta-lista', 'pago-recibido', 'prueba-grabada', 'prueba-recibida', 'reporte-semanal', 'reunion-cancelada', 'reunion-nuevo-agendado', 'reunion-ocurrio-fathom', 'reunion-recordatorio', 'reunion-tareas-al-plan', 'seguridad-contrasena-cambiada', 'seguridad-contrasena-restablecer', 'tracking-apagado', 'social-tope', 'tracking-desactualizado', 'wa-desconectado', 'wa-desvinculado', 'wa-mensaje-entrante', 'wa-reconectado'].sort());
+  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['closing-ia-caida', 'cuota-vencida', 'curso-recordatorio-clases', 'dashboard-analisis-listo', 'flow-puente-ausente', 'landing-cambio', 'lead-de-landing', 'lead-formulario-meta', 'lead-fusionado', 'meta-cuenta-frenada', 'meta-cuenta-frenada-agencia', 'meta-cuenta-recuperada', 'meta-cuenta-recuperada-agencia', 'oferta-lista', 'pago-recibido', 'prueba-grabada', 'prueba-recibida', 'reporte-semanal', 'reunion-cancelada', 'reunion-nuevo-agendado', 'reunion-ocurrio-fathom', 'reunion-recordatorio', 'reunion-tareas-al-plan', 'seguridad-contrasena-cambiada', 'seguridad-contrasena-restablecer', 'tracking-apagado', 'social-tope', 'tracking-desactualizado', 'wa-desconectado', 'wa-desvinculado', 'wa-mensaje-entrante', 'wa-reconectado'].sort());
   assert.deepEqual(AVISOS_DEL_CLIENTE, [], '«Todos arrancan vacíos»: un mensaje de MaKo del cliente es una automatización');
   // El reporte de los lunes es del super admin: desde el 16/10/2026, su automatización de la plataforma (sólo email).
   assert.ok(AVISOS_SOLO_SUPERADMIN.includes('reporte-semanal'));
@@ -335,8 +335,8 @@ test('5. Configuraciones › Notificaciones ya no monta la lista de mensajes (ni
   const panel = fuente('app/perfil/NotificacionesPanel.tsx');
   assert.doesNotMatch(panel, /PlantillasView|enlaceAMensajeMako|editarEnChatbot|\/api\/perfil\/plantillas/);
   // Sin la prop de los mensajes: desde el 25/10/2026 (Settings copiada de Linear) son el canal abierto, si administra el
-  // negocio y la zona de su «No molestar» — ninguna de mensajes.
-  assert.match(panel, /export function NotificacionesPanel\(\{ canal, admin, zona \}: \{/);
+  // negocio, la zona de su «No molestar» y si mira a otro — ninguna de mensajes.
+  assert.match(panel, /export function NotificacionesPanel\(\{ canal, admin, zona, deOtro = false \}: \{/);
   assert.doesNotMatch(fuente('app/configuraciones/notificaciones/page.tsx'), /mensajesEnChatbot/);
   assert.doesNotMatch(fuente('app/configuraciones/page.tsx'), /mensajesEnChatbot/);
 });

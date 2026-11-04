@@ -16,13 +16,10 @@ import { COLOR_DASHBOARD, COLOR_GENERAL, IDENTIDADES, contraste, identidadDe, in
 import { ALTO_PORTADA, cerrarHueco } from '../lib/graficos-portadas';
 import { PLANTILLAS_HOJA, componentesDe } from '../lib/graficos-plantillas';
 import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
-import { esElemento, esGrafico, sanearComponente, sanearHoja, type Componente, type Hoja } from '../lib/graficos-catalogo';
+import { sanearComponente, sanearHoja, type Hoja } from '../lib/graficos-catalogo';
 import type { PlantillaHoja } from '../lib/graficos-plantillas';
 
 const hojaDe = (p: PlantillaHoja): Hoja => sanearHoja({ ...p.armar((l) => l), plantilla: p.id }, 0) as Hoja;
-const portadaDe = (h: Hoja): Componente | undefined => h.componentes.find((c) => (c as { portada?: string }).portada);
-/** La FORMA de una portada: el tipo de gráfico, o el bloque de General que es. */
-const formaDe = (c: Componente): string => (esGrafico(c) ? c.tipo : esElemento(c) ? `${c.tipo}:${c.general?.pieza ?? ''}` : '?');
 
 test('la tabla de colores: adentro de una galería ninguno se repite, y todos existen', () => {
   for (const [nombre, tabla, galeria] of [['Dashboard', COLOR_DASHBOARD, PLANTILLAS_HOJA], ['General', COLOR_GENERAL, PLANTILLAS_GENERAL]] as const) {
@@ -33,7 +30,8 @@ test('la tabla de colores: adentro de una galería ninguno se repite, y todos ex
 });
 
 test('el MISMO TEMA lleva el MISMO COLOR en las dos galerías', () => {
-  const pares: Array<[string, string]> = [['chat-analyst', 'funnel-whatsapp'], ['marketing', 'anuncios'], ['cobranza', 'cobros'], ['vsl-analyst', 'lanzamiento'], ['closing', 'funnel-llamadas'], ['cs-analyst', 'servicio'], ['comercial', 'ventas']];
+  // 4/11/2026: «Ventas del mes» se fue (la absorbe Comercial): queda el par de la cartera.
+  const pares: Array<[string, string]> = [['cs-analyst', 'servicio']];
   for (const [d, g] of pares) assert.equal(COLOR_DASHBOARD[d], COLOR_GENERAL[g], `${d} y ${g}`);
   assert.equal(COLOR_GENERAL.instagram, 'magenta', 'el magenta es de Instagram');
   assert.ok(!Object.values(COLOR_DASHBOARD).includes('magenta'), 'y ninguna del Dashboard lo usa');
@@ -47,40 +45,18 @@ test('la tinta se lee sobre su color: 4,5 la letra, y 3 los grises de la portada
   }
 });
 
-for (const [nombre, galeria] of [['Dashboard', PLANTILLAS_HOJA], ['General', PLANTILLAS_GENERAL]] as const) {
-  test(`${nombre}: cada plantilla abre con su portada, arriba de todo y a lo ancho, con su color`, () => {
-    for (const p of galeria) {
-      const h = hojaDe(p);
-      const portada = portadaDe(h);
-      assert.ok(portada, `${p.id} no tiene portada`);
-      assert.deepEqual([portada.x, portada.y, portada.w], [0, 0, 12], `${p.id}: la portada no está arriba a lo ancho`);
-      assert.ok(portada.h >= 8, `${p.id}: una portada de ${portada.h} filas no es la portada`);
-      assert.ok(h.componentes.every((c) => c === portada || c.y >= portada.y + portada.h), `${p.id}: algo se mete en la portada`);
-      assert.equal(h.componentes.filter((c) => (c as { portada?: string }).portada).length, 1, `${p.id}: UNA portada`);
+// Desde el 1/11/2026 ninguna plantilla trae portada: lib/graficos-portadas.ts, `comoDenso`, y tests/graficos-corbel.test.ts. El saneo
+// y el dibujo siguen entendiéndola, porque hay hojas guardadas con la suya.
+test('ninguna plantilla se pisa', () => {
+  for (const p of [...PLANTILLAS_HOJA, ...PLANTILLAS_GENERAL]) {
+    const cs = hojaDe(p).componentes;
+    for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
+      const a = cs[i]; const b = cs[j];
+      const cruzan = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      assert.ok(!cruzan, `${p.id}: ${a.id} (${a.x},${a.y} ${a.w}×${a.h}) pisa a ${b.id} (${b.x},${b.y} ${b.w}×${b.h})`);
     }
-  });
-
-  test(`${nombre}: las portadas tienen formas distintas (el color nunca es lo único que las separa)`, () => {
-    const formas = galeria.map((p) => formaDe(portadaDe(hojaDe(p))!));
-    // Dos portadas con el mismo tipo tienen que ser OTRA cosa: otros datos (dos números de temas distintos se separan por
-    // el titular y el color). Lo que no puede pasar es que más de dos compartan forma: eso era la galería de antes.
-    const cuenta = new Map<string, number>();
-    for (const f of formas) cuenta.set(f, (cuenta.get(f) ?? 0) + 1);
-    const repetidas = [...cuenta].filter(([, n]) => n > 2);
-    assert.deepEqual(repetidas, [], `${nombre}: ${formas.join(', ')}`);
-  });
-
-  test(`${nombre}: ninguna plantilla se pisa`, () => {
-    for (const p of galeria) {
-      const cs = hojaDe(p).componentes;
-      for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
-        const a = cs[i]; const b = cs[j];
-        const cruzan = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-        assert.ok(!cruzan, `${p.id}: ${a.id} (${a.x},${a.y} ${a.w}×${a.h}) pisa a ${b.id} (${b.x},${b.y} ${b.w}×${b.h})`);
-      }
-    }
-  });
-}
+  }
+});
 
 test('el hueco que deja la portada: una fila de números se reparte el ancho, y lo de abajo sube', () => {
   const n = (id: string, x: number) => ({ id, clase: 'grafico', tipo: 'numero', x, y: 0, w: 3, h: 4 });
@@ -113,9 +89,8 @@ test('las iniciales de una persona', () => {
   assert.equal(iniciales('  '), '·');
 });
 
-test('la portada de cada hoja del Dashboard conserva el id de la pieza que sube (el closer y la caja de IA la buscan así)', () => {
-  const mk = componentesDe(PLANTILLAS_HOJA.find((p) => p.id === 'marketing')!);
-  assert.equal(portadaDe({ componentes: mk } as Hoja)?.id, 'mk-cac');
-  const cl = componentesDe(PLANTILLAS_HOJA.find((p) => p.id === 'closing')!);
-  assert.equal(portadaDe({ componentes: cl } as Hoja)?.id, 'cl-embudo-embudo');
+test('la pieza que manda conserva su id (el closer y la caja de IA la buscan así)', () => {
+  const ids = (id: string) => componentesDe(PLANTILLAS_HOJA.find((p) => p.id === id)!).map((c) => c.id);
+  assert.ok(ids('marketing').includes('mk-cac'));
+  assert.ok(ids('closing').includes('cl-embudo-embudo'));
 });

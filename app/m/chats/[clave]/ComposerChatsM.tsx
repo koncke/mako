@@ -20,6 +20,11 @@
 // persona). Con la pestaña a la vista, el hilo se vuelve a pedir cada 15 s (lo que hace escritorio).
 // Pegado abajo por portal a #m-pie: PantallaM corre la página al tirar para refrescar, y algo fijo adentro
 // se correría con el gesto (app/m/_ui/LEEME.md).
+//
+// ⚠️ EL TECLADO DE iOS NO ACHICA EL LAYOUT (ticket #51 de Leandro, 4/11/2026, la captura IMG_2572): este composer era el único
+// pegado abajo que no lo medía. Quedaba flotando a mitad de pantalla con el hueco del área segura, y por debajo se veía pasar el hilo,
+// a través de la barra translúcida del teclado de iOS 26. Con el teclado arriba: se corre lo que mide, sin el área segura, y su fondo
+// tapa lo que queda debajo (`tecladoDelComposer`, app/m/mako/chat-ui.ts; lo mismo que ComposerOfferM). Y el hilo deja ese lugar al final.
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -31,6 +36,7 @@ import { claveIdentidad, cuerpoTextoWhatsApp, esCanalMaKo, identidadInicial, mot
 import { useConexion, useToastM } from '@/app/m/_ui';
 import type { IdentidadCanal } from '@/lib/chats-tipos';
 import { haptico } from '@/lib/haptico';
+import { tecladoDelComposer } from '@/app/m/mako/chat-ui';
 import { CADA_MS_HILO } from '../modelo';
 
 const alFinal = () => window.scrollTo({ top: document.documentElement.scrollHeight });
@@ -53,6 +59,8 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
   const [pie, setPie] = useState<HTMLElement | null>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const escribiendo = useRef(false);
+  const [enfocado, setEnfocado] = useState(false);
+  const [teclado, setTeclado] = useState({ corrimiento: 0, abierto: false, reserva: 0 });
 
   // La identidad: la elegida si sigue existiendo (los canales llegan de nuevo con cada refresco), si no la inicial.
   const ident = useMemo(
@@ -62,6 +70,26 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
   const motivo = motivoNoEnvio(ident, bloqueado);
 
   useEffect(() => { setPie(document.getElementById('m-pie')); alFinal(); }, []);
+  // El teclado de iOS, con el campo enfocado (mirar siempre se confundiría con el zoom de dos dedos).
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const apagado = { corrimiento: 0, abierto: false, reserva: 0 };
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!vv || !enfocado) { setTeclado(apagado); return; }
+    const medir = () => setTeclado(tecladoDelComposer(window.innerHeight, vv));
+    medir();
+    vv.addEventListener('resize', medir);
+    vv.addEventListener('scroll', medir);
+    return () => { vv.removeEventListener('resize', medir); vv.removeEventListener('scroll', medir); };
+  }, [enfocado]);
+  // El hilo deja el lugar del teclado al final, y al abrirse se ve lo último.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    if (teclado.reserva) raiz.style.setProperty('--m-chats-teclado', `${teclado.reserva}px`);
+    else raiz.style.removeProperty('--m-chats-teclado');
+    return () => { raiz.style.removeProperty('--m-chats-teclado'); };
+  }, [teclado.reserva]);
+  useEffect(() => { if (teclado.abierto) alFinal(); }, [teclado.abierto]);
   // Leída al abrir (y no en cada refresco: la marca es de quien MIRA el hilo, una vez por visita).
   useEffect(() => { void postJson('/api/chats/estado', { clave, accion: 'leido' }); }, [clave]);
   // Lo nuevo llega solo, con la pestaña a la vista y sin un envío en curso.
@@ -103,7 +131,8 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
   };
 
   const cuerpo = (
-    <div className="m-chats-composer" data-m-sin-barra>
+    <div className="m-chats-composer" data-m-sin-barra data-teclado={teclado.abierto ? '' : undefined}
+      style={teclado.corrimiento ? { transform: `translateY(${-teclado.corrimiento}px)` } : undefined}>
       {error && <p className="m-chats-error">{error}</p>}
       {canales.length > 1 && (
         <label className="m-chats-canal">
@@ -121,8 +150,12 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
           placeholder={!enLinea ? 'Sin conexión' : motivo ?? 'Responder'}
           value={texto}
           disabled={!enLinea || enviando || !!motivo}
-          onFocus={() => { escribiendo.current = true; }}
-          onBlur={() => { escribiendo.current = enviando; }}
+          onFocus={() => { escribiendo.current = true; setEnfocado(true); }}
+          onBlur={() => {
+            escribiendo.current = enviando;
+            // Tocar Enviar no cuenta como salir del campo (ComposerOfferM): la franja no se mueve bajo el dedo.
+            window.setTimeout(() => { if (document.activeElement !== area.current) setEnfocado(false); }, 0);
+          }}
           onChange={(e) => {
             setTexto(e.target.value);
             const el = e.target; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`;

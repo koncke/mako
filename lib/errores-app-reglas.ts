@@ -32,6 +32,8 @@ export type ReporteError = {
   ruta?: string;
   navegador?: string;
   pantalla?: string;
+  /** Cuando el HTML del servidor no coincidió: lo que puede haberlo tocado antes de hidratar (`pistasDeHidratacion`). */
+  pistas?: string;
   /** El hilo del chat de MaKo donde falló (origen `mako`): ahí le llega el aviso de que está arreglado. */
   hilo?: string;
   /** Lo que intentó MaKo en palabras de la persona («Mover un lead de etapa»): sólo para el título. La huella usa `nombre`. */
@@ -87,6 +89,8 @@ export function sanearReporte(x: unknown): ReporteError | null {
   if (navegador) r.navegador = navegador;
   const pantalla = corta(o.pantalla, 20);
   if (/^\d{2,5}x\d{2,5}$/.test(pantalla)) r.pantalla = pantalla;
+  const pistas = corta(o.pistas, 200);
+  if (/^[\w =;,.-]+$/.test(pistas)) r.pistas = pistas;
   const etiqueta = sinDatos(corta(o.etiqueta, 80));
   if (r.origen === 'mako' && etiqueta) r.etiqueta = etiqueta;
   const hilo = corta(o.hilo, 12);
@@ -176,14 +180,37 @@ export function huellaDe(r: Pick<ReporteError, 'origen' | 'nombre' | 'mensaje' |
 }
 
 /** El título del ticket, en palabras de quien lo lee (el cliente también lo ve en «Tus tickets»). */
-export function tituloDeError(r: Pick<ReporteError, 'origen' | 'nombre' | 'ruta' | 'etiqueta'>): string {
+export function tituloDeError(r: Pick<ReporteError, 'origen' | 'nombre' | 'mensaje' | 'ruta' | 'etiqueta'>): string {
   if (r.origen === 'mako') return `MaKo no pudo «${r.etiqueta || r.nombre}»`.slice(0, 140);
   // El nombre de la pantalla como lo ve el cliente en la barra («CRM», «General»), no la ruta («/crm/:id»): este título lo
   // lee en «Tus tickets» y en el aviso a su grupo. Sale de lib/titulo-tab.ts, el mismo de la pestaña del navegador.
   const pantalla = r.ruta ? tituloDe(r.ruta.split('?')[0]).replace(/^MaKo - /, '').trim() : '';
   const donde = pantalla && pantalla !== 'MaKo' ? `la pantalla «${pantalla}»` : 'una pantalla de MaKo';
   if (r.origen === 'servidor') return `Falló ${donde}`.slice(0, 140);
-  return `${donde.charAt(0).toUpperCase()}${donde.slice(1)} se rompió`.slice(0, 140);
+  return `${donde.charAt(0).toUpperCase()}${donde.slice(1)} ${esHidratacion(r.mensaje) ? 'se volvió a dibujar sola' : 'se rompió'}`.slice(0, 140);
+}
+
+/**
+ * ¿El HTML del servidor no coincidió con el del navegador? (React #418, #423, #425.) NO ES UNA PANTALLA ROTA: React vuelve a dibujar en el
+ * navegador y se sigue trabajando. Ticket #39, 1/11/2026: «La pantalla CRM se rompió», y la persona movió un lead un minuto después.
+ */
+export const esHidratacion = (mensaje: string): boolean => /Minified React error #(418|423|425)\b|Hydration failed/i.test(mensaje);
+
+/**
+ * Lo que puede haber tocado la página antes de hidratar. Un caso suelto no se reproduce, y sin esto nunca se sabe: `<font>` es el traductor
+ * del navegador, una etiqueta con guion que no es nuestra es una extensión. Sólo cantidades y nombres de etiqueta: ningún texto de la página.
+ * `next-route-announcer` la pone Next en toda página: contarla decía «ajenas» de un caso sin ninguna (ticket #52, 4/11/2026).
+ */
+export function pistasDeHidratacion(doc: Pick<Document, 'documentElement' | 'getElementsByTagName'>, idioma: string): string {
+  const html = doc.documentElement;
+  const etiquetas = new Set([...doc.getElementsByTagName('*')].map((n) => n.tagName.toLowerCase()).filter((n) => n.includes('-') && n !== 'next-route-announcer'));
+  return [
+    `font=${doc.getElementsByTagName('font').length}`,
+    `traducida=${/translated-/.test(html.className) ? 'si' : 'no'}`,
+    `lang=${html.lang}`,
+    `navegador=${idioma}`,
+    `ajenas=${[...etiquetas].slice(0, 5).join(',')}`,
+  ].join('; ').replace(/[^\w =;,.-]/g, '').slice(0, 200);
 }
 
 /** Lo que va al ticket: el título, una descripción para el cliente y el contexto técnico (para Martín y el Cerebro). */
@@ -192,12 +219,15 @@ export function ticketDeError(r: ReporteError, veces = 1): { titulo: string; des
     titulo: tituloDeError(r),
     descripcion: r.origen === 'mako'
       ? 'MaKo lo detectó solo: intentó hacerlo y falló. El equipo ya lo está viendo.'
-      : 'MaKo lo detectó solo: se rompió una pantalla de la app. El equipo ya lo está viendo.',
+      : esHidratacion(r.mensaje)
+        ? 'MaKo lo detectó solo: la pantalla se volvió a dibujar al abrir. Puedes seguir trabajando; el equipo ya lo está viendo.'
+        : 'MaKo lo detectó solo: se rompió una pantalla de la app. El equipo ya lo está viendo.',
     contexto: {
       error: `${r.nombre}: ${r.mensaje}${r.digest ? ` (digest ${r.digest})` : ''}${veces > 1 ? ` · ${veces} veces` : ''}`,
       ...(r.origen === 'mako' ? { herramienta: r.nombre } : {}),
       ...(r.ruta ? { ruta: r.ruta } : {}),
       ...(r.navegador ? { navegador: r.navegador } : {}),
+      ...(r.pistas ? { pistas: r.pistas } : {}),
       ...(r.pantalla ? { pantalla: r.pantalla } : {}),
       chat: { donde: `error-${r.origen}`, ...(r.hilo ? { hilo: r.hilo } : {}) },
     },

@@ -53,6 +53,7 @@ import { useEditorLanding } from '../contexto';
 import { EstilosG2, Flotante, Icono, SelectorDestino, VAR_COLOR, eliminarBloqueConDeshacer, noRobaFoco } from '../BarraFormato';
 import { SelectorIcono } from '../SelectorIcono';
 import { PanelInsertar } from './InsertadoVista';
+import { PanelContenidoDiseno } from './PanelContenidoDiseno';
 import { COLORES_TEMA, NODO, TOPES, esHex } from '@/lib/editor-landing/doc';
 import { ANCHO_COPIA_ESCRITORIO, ATTR_RAIZ_EDITABLE, CLASE_LIBRE, documentoEditable, envoltoriosValidos, escalaDeCopia } from '@/lib/editor-landing/html-editable';
 import { srcVideo } from '@/lib/editor-landing/especificacion';
@@ -64,6 +65,14 @@ import { ALLOW_EMBED, REFERRER_EMBED, SANDBOX_EMBED, embedDe } from '@/lib/embed
 import { activarDiseno, avisarDiseno, disenoActivo, soltarDiseno, useDisenoActivo } from '../puente-diseno';
 import { animarRedDeMako } from '../red-de-mako';
 import { colorDeBoton, conMarcas, esBotonDeDiseno, ponerColorDeBoton, ponerTextoDeBoton, textoDeBoton } from '../botones-diseno';
+import {
+  agregarElemento, capaEncima, comoEnlace, deAfuera, duplicarElemento, fotoDeEstilo, fuentesDeLaPagina, igualarEstilo, imagenDeFondo, limpiarParaCambiar,
+  moverElemento, nombreDeElemento, nuevaImagen, nuevoBoton, nuevoTexto, ponerColor, ponerFuente, ponerImagenDeFondo, quitarElemento,
+  type ElementoDiseno,
+} from '@/lib/editor-landing/diseno-elemento-acciones';
+
+/** Un elemento del DOM del iframe, visto por las acciones de cualquier elemento (que no conocen el DOM real). */
+const comoDiseno = (el: Element): ElementoDiseno => el as unknown as ElementoDiseno;
 
 const RESPIRO_MS = 500;
 const SONDEO_MS = 800;
@@ -178,6 +187,12 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const [panelBoton, setPanelBoton] = useState<{ ancla: HTMLElement; a: HTMLAnchorElement } | null>(null);
   const [video, setVideo] = useState<{ ancla: HTMLElement; el: HTMLElement } | null>(null);
   const [icono, setIcono] = useState<{ ancla: HTMLElement; el: SVGElement } | null>(null);
+  /** «Elemento» (28/10/2026, la réplica editable): el panel de CUALQUIER elemento elegido. */
+  const [panelElemento, setPanelElemento] = useState<{ ancla: HTMLElement } | null>(null);
+  /** «Contenido» (28/10/2026): la lista de TODO lo de la sección, también lo oculto y lo tapado (PanelContenidoDiseno.tsx). */
+  const [panelContenido, setPanelContenido] = useState<{ ancla: HTMLElement } | null>(null);
+  /** Sube con cada cambio del panel «Elemento»: lo vuelve a dibujar con lo que quedó. */
+  const [, setVuelta] = useState(0);
   /** El tipo del elemento elegido: su botón de la barrita se marca. */
   const [tipo, setTipo] = useState<TipoElemento | null>(null);
   /** El enlace elegido se ve como un botón (la barrita ofrece «Botón»). */
@@ -224,6 +239,22 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   /** La caja entera que se ve (con los envoltorios): su alto es el del iframe. */
   const cajaLibre = () => documento()?.querySelector('.' + CLASE_LIBRE) ?? null;
 
+  /** Elige un elemento: lo marca, y la barrita marca el control de su tipo (o sólo «Elemento», si no tiene uno propio). */
+  const elegir = (el: Element | null) => {
+    if (elegido.current && elegido.current !== el) elegido.current.removeAttribute('data-gmx-sel');
+    elegido.current = el;
+    if (el) el.setAttribute('data-gmx-sel', '');
+    const t = tipoDeElemento(el);
+    setTipo(t);
+    setEsBoton(t === 'enlace' && !!el && esBotonDeDiseno(el));
+    setElegidoEl(el);
+  };
+  // Las escuchas del iframe se ponen UNA vez al cargar: leen esto, que es siempre lo último.
+  const elegirVivo = useRef(elegir);
+  elegirVivo.current = elegir;
+  const raizVivo = useRef(raiz);
+  raizVivo.current = raiz;
+
   // Las capas vivas, con su lugar de ahora (se mueven si el diseño cambia de alto o de ancho).
   const medirVivos = useCallback(() => {
     const d = documento();
@@ -259,13 +290,34 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     copia.querySelectorAll('canvas[data-animacion]').forEach((el) => { el.removeAttribute('width'); el.removeAttribute('height'); });
     return copia.innerHTML;
   };
+  /**
+   * Los envoltorios con la RAÍZ como está ahora (28/10/2026): en una copia, la raíz de la sección es el envoltorio de más
+   * adentro, y su HTML no está en `html` (que es lo de ADENTRO). Sin esto, el fondo o el color que se le ponía a «la
+   * sección» desde «Elemento» se perdía al guardar. null = sin envoltorios, o igual que antes.
+   */
+  const envVivo = useRef(envoltorios);
+  envVivo.current = envoltorios;
+  const envoltoriosDeAhora = (): string[] | null => {
+    const env = envVivo.current;
+    const r = raiz();
+    if (!env?.length || !r || !r.hasAttribute(ATTR_RAIZ_EDITABLE)) return null;
+    const sola = r.cloneNode(false) as HTMLElement;
+    sola.removeAttribute(ATTR_RAIZ_EDITABLE);
+    sola.removeAttribute('data-gmx-sel');
+    const entera = sola.outerHTML;
+    const abre = entera.slice(0, entera.lastIndexOf('</'));
+    const nuevos = envoltoriosValidos([...env.slice(0, -1), abre]);
+    return nuevos && nuevos.join('') !== env.join('') ? nuevos : null;
+  };
   const guardar = useCallback(() => {
     if (reloj.current) { clearTimeout(reloj.current); reloj.current = null; }
     const v = leer();
-    if (v === null || v === emitido.current) return;
+    if (v === null) return;
+    const env = envoltoriosDeAhora();
+    if (v === emitido.current && !env) return;
     if (v.length > TOPES.htmlEditable) { ctx.avisar('Sección muy grande'); return; }
     emitido.current = v;
-    updateAttributes({ html: v });
+    updateAttributes(env ? { html: v, envoltorios: env } : { html: v });
   }, [ctx, updateAttributes]); // eslint-disable-line react-hooks/exhaustive-deps
   const guardarVivo = useRef(guardar);
   guardarVivo.current = guardar;
@@ -321,12 +373,13 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     d.addEventListener('mousedown', (e) => {
       activarDiseno({ doc: d, guardar: () => guardarVivo.current() });
       marcarSeccion();
-      if (elegido.current) elegido.current.removeAttribute('data-gmx-sel');
-      elegido.current = elementoEnPunto(d, e.target as Element | null, e.clientX, e.clientY) as Element | null;
-      if (elegido.current) elegido.current.setAttribute('data-gmx-sel', '');
-      setTipo(tipoDeElemento(elegido.current));
-      setEsBoton(tipoDeElemento(elegido.current) === 'enlace' && !!elegido.current && esBotonDeDiseno(elegido.current));
-      setElegidoEl(elegido.current);
+      // Lo que tiene control propio (un enlace, una imagen, un video, un ícono); si no, el elemento tocado (un título, una
+      // caja, un texto): CUALQUIER cosa se elige, para el panel «Elemento» (28/10/2026). Fuera de la sección (los envoltorios
+      // de una copia, el fondo del iframe), la sección misma.
+      const tocado = e.target as Element | null;
+      const r = raizVivo.current();
+      const conControl = elementoEnPunto(d, tocado, e.clientX, e.clientY) as Element | null;
+      elegirVivo.current(conControl ?? (tocado && r && r.contains(tocado) ? tocado : r));
     });
     // La barra «Texto» de arriba lee la selección de ACÁ (../puente-diseno.ts).
     d.addEventListener('selectionchange', () => { if (disenoActivo()?.doc === d) avisarDiseno(); });
@@ -379,7 +432,9 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     if (!img) return;
     const url = await ctx.elegirImagen();
     if (!url) return;
-    img.removeAttribute('srcset');
+    // Sin `srcset`, la carga perezosa ni los `<source>` de su `<picture>`: cualquiera le gana al `src` y se seguía viendo la de
+    // antes (las copias idénticas traen todo eso de la página original).
+    limpiarParaCambiar(comoDiseno(img));
     img.src = url;
     guardar();
     medir();
@@ -403,8 +458,17 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     if (!a) return;
     if (esBotonDeDiseno(a)) setPanelBoton({ ancla, a }); else setEnlace({ ancla, a });
   };
-  /** A dónde lleva un botón o enlace, con el selector del botón de un bloque (pestaña nueva incluida). */
-  const ponerDestino = (a: HTMLAnchorElement, href: string | null, nueva: boolean) => {
+  /**
+   * A dónde lleva un botón o enlace, con el selector del botón de un bloque (pestaña nueva incluida). Un `<button>` de la
+   * página pasa a ser un `<a>` con lo suyo (28/10/2026): un `<button>` no puede llevar a ningún lado.
+   */
+  const ponerDestino = (el: HTMLAnchorElement, href: string | null, nueva: boolean) => {
+    const win = el.ownerDocument.defaultView;
+    const antes = win ? fotoDeEstilo(win.getComputedStyle(el)) : null;
+    const a = (comoEnlace(comoDiseno(el)) as unknown as HTMLAnchorElement | null) ?? el;
+    // El `<a>` nuevo se ve IGUAL que el botón: lo que la hoja le daba por ser `<button>` pasa a su `style`.
+    if (a !== el && antes && win) igualarEstilo(comoDiseno(a), antes, fotoDeEstilo(win.getComputedStyle(a)));
+    if (a !== el) elegir(a);
     if (href) a.setAttribute('href', href); else a.removeAttribute('href');
     if (href && nueva) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer'); }
     else { a.removeAttribute('target'); a.removeAttribute('rel'); }
@@ -450,6 +514,95 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     setIcono(null);
     guardar();
   };
+  // ── «Elemento» (28/10/2026, Martín: «Debe ser todo editable»): cualquier elemento, con lo que la persona espera de un
+  //    editor de páginas (diseno-elemento-acciones.ts). Sin elegir nada, actúa sobre la sección.
+  const elementoActual = (): Element | null => {
+    const el = elegido.current;
+    return el && el.isConnected ? el : raiz();
+  };
+  const despuesDeCambiar = () => { guardar(); medir(); setVuelta((v) => v + 1); };
+  const accionElemento = (que: 'afuera' | 'duplicar' | 'antes' | 'despues' | 'quitar') => {
+    const el = elementoActual();
+    const r = raiz();
+    if (!el || !r) return;
+    if (que === 'afuera') {
+      const p = deAfuera(comoDiseno(el), comoDiseno(r));
+      if (p) elegir(p as unknown as Element);
+      setVuelta((v) => v + 1);
+      return;
+    }
+    if (que === 'duplicar') elegir(duplicarElemento(comoDiseno(el)) as unknown as Element);
+    else if (que === 'antes' || que === 'despues') {
+      if (!moverElemento(comoDiseno(el), que)) { ctx.avisar(que === 'antes' ? 'Ya es el primero' : 'Ya es el último'); return; }
+    } else if (!quitarElemento(comoDiseno(el), comoDiseno(r))) {
+      ctx.avisar('La sección entera se quita con «Eliminar sección»');
+      return;
+    } else elegir(null);
+    despuesDeCambiar();
+  };
+  const colorElemento = (cual: 'texto' | 'fondo', v: string | null) => {
+    const el = elementoActual();
+    if (!el || !ponerColor(comoDiseno(el), cual, v)) return;
+    despuesDeCambiar();
+  };
+  const fuenteElemento = (f: string | null) => {
+    const el = elementoActual();
+    if (!el || !ponerFuente(comoDiseno(el), f)) return;
+    despuesDeCambiar();
+  };
+  const fondoImagenElemento = async (que: 'cambiar' | 'quitar') => {
+    const el = elementoActual();
+    if (!el) return;
+    if (que === 'quitar') { ponerImagenDeFondo(comoDiseno(el), null); despuesDeCambiar(); return; }
+    const url = await ctx.elegirImagen();
+    if (!url || !el.isConnected) return;
+    const cs = el.ownerDocument.defaultView?.getComputedStyle(el);
+    if (!ponerImagenDeFondo(comoDiseno(el), url, { size: cs?.backgroundSize ?? '', position: cs?.backgroundPosition ?? '' })) { ctx.avisar('Imagen no válida'); return; }
+    despuesDeCambiar();
+    // Quedó puesta; si una capa de la página la tapa, se dice (si no, se lee como que no hizo nada).
+    const win = el.ownerDocument.defaultView;
+    if (win && capaEncima([win.getComputedStyle(el, '::before'), win.getComputedStyle(el, '::after')])) ctx.avisar('Una capa de la página la tapa');
+  };
+
+  /** Un texto, un botón o una imagen NUEVOS debajo del elegido (o al final de la sección): «elementos sueltos». */
+  const agregarNuevo = async (que: 'texto' | 'boton' | 'imagen') => {
+    const el = elementoActual();
+    const r = raiz();
+    const d = documento();
+    if (!el || !r || !d) return;
+    let nuevo: ElementoDiseno;
+    if (que === 'imagen') {
+      const url = await ctx.elegirImagen();
+      if (!url || !el.isConnected) return;
+      nuevo = nuevaImagen(d as unknown as ElementoDiseno['ownerDocument'], url);
+    } else if (que === 'boton') nuevo = nuevoBoton(d as unknown as ElementoDiseno['ownerDocument'], comoDiseno(r));
+    else nuevo = nuevoTexto(d as unknown as ElementoDiseno['ownerDocument']);
+    agregarElemento(comoDiseno(el), comoDiseno(r), nuevo);
+    const nodo = nuevo as unknown as Element;
+    elegir(nodo);
+    // Un texto nuevo queda elegido para escribir encima; un botón, con su panel para decir a dónde lleva.
+    if (que === 'texto') { d.getSelection()?.selectAllChildren(nodo); (d.body as HTMLElement).focus(); }
+    despuesDeCambiar();
+  };
+
+  // ── «Contenido»: lo que se cambia desde la lista va por los MISMOS caminos que con el elemento elegido.
+  const quitarDeLista = (el: Element) => {
+    const r = raiz();
+    if (!r || !quitarElemento(comoDiseno(el), comoDiseno(r))) return;
+    if (elegido.current && !elegido.current.isConnected) elegir(null);
+    despuesDeCambiar();
+  };
+  const destinoDeLista = (el: Element) => {
+    const ancla = panelContenido?.ancla;
+    elegir(el);
+    setPanelContenido(null);
+    if (ancla) abrirEnlace(ancla);
+  };
+  const verDeLista = (el: Element) => {
+    elegir(el);
+    (el as HTMLElement).scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  };
+
   const eliminar = () => {
     const pos = getPos();
     if (typeof pos === 'number') eliminarBloqueConDeshacer(editor, pos, ctx.avisar);
@@ -460,7 +613,7 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     return COLORES_TEMA.map((c) => vars[VAR_COLOR[c]]).filter((v): v is string => !!v);
   }, [ctx.tema]);
 
-  const abierto = !!codigo || !!enlace || !!panelBoton || !!video || !!icono;
+  const abierto = !!codigo || !!enlace || !!panelBoton || !!video || !!icono || !!panelElemento || !!panelContenido;
   const mostrarBarra = editable && (esActivo || abierto);
   /** Un botón de la barrita: sólo el ícono (la barra cabe entre los controles de la sección) y su nombre en el tooltip. */
   const boton = (nombre: string, ico: ReactNode, alClic: (ancla: HTMLElement) => void, marcado?: boolean, texto?: string) => (
@@ -486,6 +639,10 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
             {boton('Enlace', <Icono nombre="enlace" />, abrirEnlace, tipo === 'enlace')}
             {boton('Video', <Icono nombre="video" />, (a) => void cambiarVideo(a), tipo === 'video')}
             {boton('Ícono', <Icono nombre="estrella" />, abrirIcono, tipo === 'icono')}
+            {/* CUALQUIER elemento (o la sección): quitar, duplicar, mover, colores, fondo y fuente; y elegir el de afuera. */}
+            {boton('Elemento', <Icono nombre="capas" />, (el) => setPanelElemento((p) => (p ? null : { ancla: el })), !!panelElemento, 'Elemento')}
+            {/* TODO lo de la sección en una lista: también lo que la copia dejó oculto (respuestas, menús, pestañas) o tapado. */}
+            {boton('Contenido', <Icono nombre="lista" />, (el) => { guardar(); setPanelContenido((p) => (p ? null : { ancla: el })); }, !!panelContenido, 'Contenido')}
             <span className="gmx-nv-sep" />
             {boton('Código', <Icono nombre="codigo" />, (el) => { guardar(); setCodigo((p) => (p ? null : { ancla: el })); })}
             {boton('Eliminar sección', <IconoBorrar size={16} />, eliminar)}
@@ -546,6 +703,25 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
       )}
       {icono && (
         <SelectorIcono ancla={icono.ancla} valor={null} onElegir={(n) => ponerIcono(icono.el, n)} onCerrar={() => setIcono(null)} />
+      )}
+      {panelElemento && elementoActual() && raiz() && (
+        <Flotante ancla={panelElemento.ancla} onCerrar={() => setPanelElemento(null)} etiqueta="Elemento" ancho={320}>
+          <PanelElemento el={elementoActual() as Element} raiz={raiz() as Element} raizGuardable={!!envoltorios?.length} colores={coloresDelTema}
+            onAccion={accionElemento} onColor={colorElemento} onFuente={fuenteElemento}
+            onFondoImagen={(q) => void fondoImagenElemento(q)} onAgregar={(q) => void agregarNuevo(q)} />
+        </Flotante>
+      )}
+      {panelContenido && raiz() && (
+        <Flotante ancla={panelContenido.ancla} onCerrar={() => setPanelContenido(null)} etiqueta="Contenido" ancho={360}>
+          <PanelContenidoDiseno raiz={raiz() as Element} onCambio={conRespiro}
+            onCambiarImagen={(img) => { elegir(img); void cambiarImagen(); }}
+            onQuitar={quitarDeLista}
+            onFondo={(el, q) => { elegir(el); void fondoImagenElemento(q); }}
+            onDestino={destinoDeLista}
+            onVer={verDeLista}
+            onIcono={(el, b) => { elegir(el); abrirIcono(b); }}
+            onVideo={(el, b) => { elegir(el); void cambiarVideo(b); }} />
+        </Flotante>
       )}
     </NodeViewWrapper>
   );
@@ -612,6 +788,106 @@ function PanelBoton({ a, colores, onCambio, onDestino }: {
       <SelectorDestino valor={a.getAttribute('href')} nuevaPestana={a.getAttribute('target') === '_blank'}
         onElegir={(href, nueva) => onDestino(href, nueva)}
         onQuitar={a.getAttribute('href') ? () => onDestino(null, false) : undefined} />
+    </div>
+  );
+}
+
+/**
+ * «Elemento» de un diseño (28/10/2026, Martín: «Debe ser todo editable»): CUALQUIER elemento elegido —o la sección, sin
+ * elegir nada—, con lo que se espera de un editor de páginas: elegir el de afuera (de un logo a su enlace, de una tarjeta a
+ * su caja), duplicar, mover entre sus hermanos y quitar; el color del texto, el fondo (color o imagen) y la fuente, de las
+ * que la página ya carga. Cada cambio va a su HTML (lib/editor-landing/diseno-elemento-acciones.ts).
+ */
+function PanelElemento({ el, raiz, raizGuardable, colores, onAccion, onColor, onFuente, onFondoImagen, onAgregar }: {
+  el: Element;
+  raiz: Element;
+  /** En una copia la raíz es su envoltorio y se guarda; en un diseño de MaKo es la caja del editor y no. */
+  raizGuardable: boolean;
+  colores: readonly string[];
+  onAccion: (que: 'afuera' | 'duplicar' | 'antes' | 'despues' | 'quitar') => void;
+  onColor: (cual: 'texto' | 'fondo', v: string | null) => void;
+  onFuente: (f: string | null) => void;
+  onFondoImagen: (que: 'cambiar' | 'quitar') => void;
+  /** Un elemento NUEVO debajo de éste (o al final de la sección). */
+  onAgregar: (que: 'texto' | 'boton' | 'imagen') => void;
+}) {
+  const v = el.ownerDocument.defaultView;
+  const cs = v?.getComputedStyle(el);
+  const esRaiz = el === raiz;
+  const conImagen = !!imagenDeFondo(cs?.backgroundImage);
+  // Las fuentes que la página YA carga: las de sus elementos (hasta 400, para no recorrer una página entera).
+  const fuentes = useMemo(() => {
+    const todos = Array.from(el.ownerDocument.querySelectorAll('body *')).slice(0, 400);
+    return fuentesDeLaPagina(todos.map((x) => v?.getComputedStyle(x).fontFamily ?? ''));
+  }, [el.ownerDocument, v]);
+  const hex = (rgb: string | undefined) => {
+    const m = /rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)/.exec(rgb ?? '');
+    return m ? '#' + [m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, '0')).join('') : '#000000';
+  };
+  const accion = (que: Parameters<typeof onAccion>[0], rotulo: string, ico: ReactNode, apagado?: boolean) => (
+    <button type="button" className="gmx-btn gma-tip" data-tip={rotulo} aria-label={rotulo} disabled={apagado}
+      onMouseDown={(e) => e.preventDefault()} onClick={() => onAccion(que)}>
+      {ico}
+    </button>
+  );
+  const fila = (cual: 'texto' | 'fondo', rotulo: string, actual: string | undefined) => (
+    <>
+      <span className="gmx-rotulo">{rotulo}</span>
+      <div className="gmx-muestras">
+        {colores.map((c) => (
+          <button key={c} type="button" className="gmx-muestra" title={c} aria-label={`${rotulo}: ${c}`}
+            style={{ background: c }} onMouseDown={(e) => e.preventDefault()} onClick={() => onColor(cual, c)} />
+        ))}
+        <input type="color" aria-label={`${rotulo}: otro`} value={hex(actual)} onChange={(e) => onColor(cual, e.target.value.toLowerCase())} />
+        <button type="button" className="gmx-muestra gmx-muestra-nada" title="Como estaba" aria-label={`${rotulo}: como estaba`}
+          onMouseDown={(e) => e.preventDefault()} onClick={() => onColor(cual, null)} />
+      </div>
+    </>
+  );
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <strong style={{ fontSize: 13 }}>{nombreDeElemento(el as unknown as ElementoDiseno, raiz as unknown as ElementoDiseno)}</strong>
+        <button type="button" className="gmx-chip" disabled={esRaiz} onMouseDown={(e) => e.preventDefault()} onClick={() => onAccion('afuera')}>
+          Elegir el de afuera
+        </button>
+      </div>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {accion('duplicar', 'Duplicar', <Icono nombre="duplicar" />, esRaiz)}
+        {accion('antes', 'Subir', <Icono nombre="flecha-arriba" />, esRaiz)}
+        {accion('despues', 'Bajar', <Icono nombre="flecha-abajo" />, esRaiz)}
+        {accion('quitar', 'Quitar', <IconoBorrar size={16} />, esRaiz)}
+      </div>
+      <span className="gmx-rotulo">{esRaiz ? 'Agregar al final' : 'Agregar debajo'}</span>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {([['texto', 'Texto'], ['boton', 'Botón'], ['imagen', 'Imagen']] as const).map(([q, rotulo]) => (
+          <button key={q} type="button" className="gmx-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => onAgregar(q)}>{rotulo}</button>
+        ))}
+      </div>
+      {esRaiz && !raizGuardable ? (
+        <span className="gmx-nota">El fondo de esta sección se cambia eligiendo lo de adentro, o con «Código».</span>
+      ) : (<>
+      {fila('texto', 'Color del texto', cs?.color)}
+      {fila('fondo', 'Fondo', cs?.backgroundColor)}
+      <span className="gmx-rotulo">Imagen de fondo</span>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button type="button" className="gmx-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => onFondoImagen('cambiar')}>
+          {conImagen ? 'Cambiar' : 'Poner una'}
+        </button>
+        {conImagen && (
+          <button type="button" className="gmx-chip" onMouseDown={(e) => e.preventDefault()} onClick={() => onFondoImagen('quitar')}>Quitar</button>
+        )}
+      </div>
+      {fuentes.length > 0 && (
+        <>
+          <span className="gmx-rotulo">Fuente</span>
+          <select className="gmx-campo" aria-label="Fuente" value="" onChange={(e) => onFuente(e.target.value || null)}>
+            <option value="">{(cs?.fontFamily ?? '').split(',')[0].replace(/["']/g, '') || 'La de la página'}</option>
+            {fuentes.map((f) => <option key={f} value={f}>{f.split(',')[0].replace(/["']/g, '')}</option>)}
+          </select>
+        </>
+      )}
+      </>)}
     </div>
   );
 }

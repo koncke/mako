@@ -14,19 +14,33 @@
 // Contesta lo mismo si el correo no existe, no tiene contraseña o no coincide, y tarda lo mismo.
 // =============================================================================
 
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { limitePorIp } from '@/lib/limite-publico';
 import { DISPOSITIVO_COOKIE, crearPreauth, destinoSeguro } from '@/lib/auth-session';
 import { ponerPreauth, ponerSesion } from '@/lib/sesion-cookies';
 import { decidirTrasGoogle, requiereSegundoFactor } from '@/lib/mfa-reglas';
+import { CUENTA_DE_REVISION, DIAS_SESION_REVISION, esCuentaDeRevision } from '@/lib/cuenta-revision-reglas';
+import { revisarNegocioDeRevision } from '@/lib/cuenta-revision';
+import { rateLimit } from '@/lib/rate-limit';
+import { correoNormalizado } from '@/lib/contrasena-reglas';
+import { avisarDePlataforma } from '@/lib/invitaciones';
+import { EMAIL_MAKO } from '@/lib/app-url';
 import { obligatorioDesdeDe } from '@/lib/mfa-obligatorio';
-import { dispositivoValido, mfaActivoReal, registrarEvento } from '@/lib/mfa';
+import { anotarEntradaDeRevision, dispositivoValido, mfaActivoReal, registrarEvento } from '@/lib/mfa';
 import { registrarLogin } from '@/lib/usuarios';
 import { comprobarContrasena } from '@/lib/contrasena';
 
 export const dynamic = 'force-dynamic';
 
 const no = (error: string, status = 400) => NextResponse.json({ ok: false, error }, { status });
+
+/** La IP de quien pide, para los avisos de la cuenta de revisión (la primera de x-forwarded-for, que en Vercel es la del cliente). */
+const ipDe = (req: NextRequest): string => req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'una IP desconocida';
+
+/** Un aviso a equipo@ sobre la cuenta de revisión. No tira: si no sale, lo que pasó igual quedó en `mfa_eventos` o en el log. */
+async function avisarDeRevision(asunto: string, cuerpo: string): Promise<void> {
+  await avisarDePlataforma({ to: EMAIL_MAKO, asunto, preheader: cuerpo.slice(0, 90), tag: 'login-revision-tienda', cuerpo }).catch(() => {});
+}
 
 function origenValido(req: NextRequest): boolean {
   const origin = req.headers.get('origin');
@@ -43,10 +57,39 @@ export async function POST(req: NextRequest) {
   const next = destinoSeguro(typeof body.next === 'string' ? body.next : '/inicio');
 
   const r = await comprobarContrasena(body.email, body.contrasena);
-  if (!r.ok) return no(r.error, r.status);
+  if (!r.ok) {
+    // Un intento fallido con el correo de la cuenta de revisión también avisa (4/11/2026): esa contraseña la tienen terceros, y alguien
+    // probando es lo primero que hay que saber. Con tope, para que una ráfaga no llene la casilla. La respuesta es la misma de siempre, y
+    // el aviso sale DESPUÉS de contestar (`after`): esperarlo acá haría tardar más a ese correo, y eso contaría que existe.
+    if (correoNormalizado(body.email) === CUENTA_DE_REVISION.email && rateLimit('aviso-revision-fallido', 6, 60 * 60_000)) {
+      const ip = ipDe(req);
+      after(() => avisarDeRevision('Intento fallido en la cuenta de revisión de las tiendas', `Alguien probó una contraseña que no es (${r.status === 429 ? 'ya frenado: demasiados intentos' : 'no coincide'}) desde ${ip}. Si no es un revisor, rota la contraseña con scripts/tiendas-cuenta-revision.mts --rotar.`));
+    }
+    return no(r.error, r.status);
+  }
   const usuario = r.usuario;
   const sub = String(usuario.id);
   const nombre = usuario.nombre ?? '';
+
+  // ── La cuenta de revisión de las tiendas: la ÚNICA sin segundo factor (lib/cuenta-revision-reglas.ts) ───
+  // Sólo con contraseña (el callback de Google la rechaza), con el freno de intentos de siempre, y con su negocio LIMPIO: sin líneas de
+  // WhatsApp, sin credenciales y sin cartera de agencia (si no, 503: un tercero no entra a un negocio con algo de verdad adentro). Y con
+  // su rastro antes de dar la sesión: sin rastro, no entra.
+  if (esCuentaDeRevision(usuario)) {
+    const negocio = await revisarNegocioDeRevision();
+    if (!negocio.limpio) {
+      console.error(`[auth] cuenta de revisión: su negocio no está limpio (${negocio.falta.join(' · ')})`);
+      await avisarDeRevision('La cuenta de revisión no pudo entrar', `Su negocio no está limpio: ${negocio.falta.join(' · ')}. Intento desde ${ipDe(req)}.`);
+      return no('No se pudo entrar.', 503);
+    }
+    if (!(await anotarEntradaDeRevision(usuario.id, `ip ${ipDe(req)}`))) return no('No se pudo entrar.', 503);
+    await registrarLogin(usuario.email, { nombre: usuario.nombre, foto_url: usuario.foto_url ?? undefined });
+    const res = NextResponse.json({ ok: true, ir: next });
+    if (!ponerSesion(res, { sub, email: usuario.email, nombre, rol: usuario.rol, mfa: 'revision' }, DIAS_SESION_REVISION)) return no('El login no está configurado.', 500);
+    // Que alguien se entere, con desde dónde: un rastro que nadie lee no avisa de una contraseña filtrada. Si no sale, la entrada sigue: quedó anotada arriba.
+    await avisarDeRevision('Entró la cuenta de revisión de las tiendas', `Entró desde ${ipDe(req)}. Si no hay una revisión en curso, rota la contraseña con scripts/tiendas-cuenta-revision.mts --rotar.`);
+    return res;
+  }
 
   // ── La MISMA decisión que el callback de Google ───────────────────────────
   const mfaActivo = await mfaActivoReal(usuario.id, !!usuario.mfa_activo);

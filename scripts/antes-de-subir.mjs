@@ -106,7 +106,7 @@
 // esos árboles con `--solo tipos`, reproduce el error: TS2554 en crm-campo-inline.test.ts); 51 y 52 los frena scripts/modulos-ts.mjs
 // (el archivo del error NO cambió: chocaba con dos scripts globales que sí). Los «tests elegidos» son 14-45 % de la suite cuando
 // la base es el último verde del Cerebro (que junta ~8 puntas): no es azar — 11 de 25 rojos son barredoras que corren SIEMPRE, y
-// los otros 14 los elige lo que tocaron. Por eso corre acá y en Actions primero, y el resto después (integracion.yml).
+// los otros 14 los elige lo que tocaron. Por eso corre acá y en Actions primero, y el resto después (antes integracion.yml; hoy la suite de cada noche, semanal-tests.yml).
 // =============================================================================
 
 import { spawnSync, execFileSync } from 'node:child_process';

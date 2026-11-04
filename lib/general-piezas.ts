@@ -270,7 +270,10 @@ export const numeroDe = (v: string): number => (v === 'todas' ? Infinity : Math.
  */
 // 15/10/2026: + las tarjetas (los anuncios ganadores, las personas) y el indicador, que son las PORTADAS de Anuncios, Agencia
 // y Contenido (lib/general-plantillas.ts, `PORTADAS_GENERAL`): una hoja de General no puede traer lo que su galería no ofrece.
-export const TIPOS_GENERAL = ['numero', 'numero_tendencia', 'bala', 'indicador', 'serie', 'columnas', 'barras', 'anillo', 'tabla', 'tabla_barras', 'tarjetas'] as const;
+// 4/11/2026: la oración de apertura (`frase`, lib/graficos-frase.ts) entra en lugar del indicador, con la que abren Focus, General
+// y Operación diaria. El indicador era la portada de Anuncios y Contenido, que salieron el 1/11: ninguna plantilla de General
+// lo usa, y la galería sigue en un cuarto de los tipos (tests/general-bloques.test.ts). Una hoja que ya lo tenía lo sigue dibujando.
+export const TIPOS_GENERAL = ['numero', 'numero_tendencia', 'bala', 'serie', 'columnas', 'barras', 'anillo', 'tabla', 'tabla_barras', 'tarjetas', 'frase'] as const;
 
 /**
  * Los conjuntos de datos de General («Añadir datos» y el panel de un gráfico). El mismo pedido: «si vamos a quitar la

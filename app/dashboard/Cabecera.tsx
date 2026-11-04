@@ -28,9 +28,15 @@
 // ⚠️ EL DESPLEGABLE se abre con el ▾ (no con el título, que se edita con el clic); sin poder editar, el
 //    título mismo es el botón. Y si no hay a dónde ir (una sola hoja y sin «Nueva hoja», como en un link
 //    compartido de una hoja), no hay ▾: un desplegable de una opción es un control que no hace nada.
+// ⚠️ CON LOS CHIPS DEL DASHBOARD UNIDO, EL TÍTULO NO VA (1/11/2026). Martín: «Revisa todo lo que tenemos "por defecto"... Como por
+//    ejemplo el propio titulo de la hoja, que en muchos dashboards no van por el diseño, bueno, que no vaya». Esa barra usa `propia`
+//    con los chips a la izquierda, y el nombre sólo sale en el PDF. Editando vuelve esta fila: es donde se cambian. Sin chips (el
+//    closer, un link compartido) el título se queda: sería lo único que dice en qué hoja estás.
 
 import { useCallback, useState, type ReactNode } from 'react';
+import { esLaDeFocus, nombreQueSeVe, type InformeDashboard } from '@/lib/dashboard-focus';
 import { EditableInline } from '@/app/_components/EditableInline';
+import Link from '@/app/_ui/Link';
 import { NuevoPlaceholder } from '@/app/automations/NuevoPlaceholder';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { conBuscador } from '@/app/components/dropdown-reglas';
@@ -49,7 +55,7 @@ export function BarraSuperior({ hoja, propia = null, editable, conHojas, hojasAb
    * Un informe SIN HOJAS (24/10/2026, las Métricas de una automatización): la mitad izquierda la pone la pantalla (su
    * título, que es el único) y acá no va el de la hoja, ni su ▾, ni su subtítulo. `titulo` sale sólo en el PDF.
    */
-  propia?: { izquierda: ReactNode; titulo: string } | null;
+  propia?: { izquierda: ReactNode; titulo: string; detalle?: string } | null;
   /** Se puede guardar: el emoji, el título y el subtítulo se editan con un clic, mirando o editando. */
   editable: boolean;
   /** Hay a dónde ir: más de una hoja, o «Nueva hoja». Sin eso no hay desplegable. */
@@ -70,6 +76,7 @@ export function BarraSuperior({ hoja, propia = null, editable, conHojas, hojasAb
         <div className="lk-top-izq lk-solo-imprimir">
           <div className="lk-top-textos">
             <h1 className="lk-top-tit">{propia.titulo}</h1>
+            {propia.detalle ? <p className="lk-top-sub">{propia.detalle}</p> : null}
             <p className="lk-cab-periodo">{periodo}</p>
           </div>
         </div>
@@ -161,8 +168,12 @@ export type AccionesHoja = {
  *     a otro lado señalaría la hoja equivocada.
  * `acciones` en null = no se puede guardar (el closer, un link compartido): sólo se elige.
  */
-export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva, archivadas = [], onRestaurar, onBorrarArchivada }: {
+export function MenuHojas({ hojas, otras = [], activa, puedeNueva, acciones, onIr, onNueva, archivadas = [], onRestaurar, onBorrarArchivada, informe }: {
   hojas: readonly Hoja[];
+  /** Qué informe se está mirando: decide si la primera hoja se llama «Focus» en vez de su nombre guardado. */
+  informe?: InformeDashboard;
+  /** Las hojas del otro informe del Dashboard unido: se abren, y lo que se les hace se hace estando en ellas. */
+  otras?: readonly { id: string; nombre: string; emoji?: string; href: string }[];
   activa: string;
   puedeNueva: boolean;
   acciones: AccionesHoja | null;
@@ -181,8 +192,11 @@ export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva, 
   const cerrarOpciones = useCallback(() => setOpciones(null), []);
   const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   const busca = norm(q.trim());
-  const visibles = hojas.filter((h) => !busca || norm(h.nombre).includes(busca));
-  const deOpciones = opciones ? hojas.find((h) => h.id === opciones.id) : undefined;
+  // El nombre que se ve (y por el que se busca) sale de la MISMA regla que los chips, no del campo guardado.
+  const conNombre = hojas.map((h, i) => ({ ...h, visto: nombreQueSeVe(h.nombre, informe, i), deFocus: esLaDeFocus(informe, i) }));
+  const visibles = conNombre.filter((h) => !busca || norm(h.visto).includes(busca));
+  const otrasVisibles = otras.filter((h) => !busca || norm(h.nombre).includes(busca));
+  const deOpciones = opciones ? conNombre.find((h) => h.id === opciones.id) : undefined;
   /** Abre (o cierra, si ya estaba abierto) el submenú de una hoja, anclado a SU fila. */
   const alternarOpciones = (id: string, fila: HTMLElement | null) => {
     if (!fila) return;
@@ -200,8 +214,10 @@ export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva, 
     );
     return (
       <Flotante ancla={opciones.ancla} onCerrar={cerrarOpciones} ancho={210} lado="derecha" anidado>
-        <div className="lk-lista" role="menu" aria-label={`Opciones de ${deOpciones.nombre}`}>
-          {op('Renombrar', 'renombrar', () => setRenombrando(deOpciones.id))}
+        <div className="lk-lista" role="menu" aria-label={`Opciones de ${deOpciones.visto}`}>
+          {/* La de Focus no se renombra: su nombre guardado no lo mira nadie —el chip dice «Focus» igual—, así que
+              ofrecerlo promete un cambio que no se ve. */}
+          {op('Renombrar', 'renombrar', () => setRenombrando(deOpciones.id), deOpciones.deFocus)}
           {op('Duplicar', 'duplicar', () => acciones.onDuplicar(deOpciones.id), hojas.length >= MAX_HOJAS)}
           {op('Copiar dashboard', 'copiar', () => acciones.onCopiar(deOpciones.id))}
           {op('Subir', 'arriba', () => acciones.onMover(deOpciones.id, -1), i <= 0)}
@@ -220,7 +236,7 @@ export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva, 
           <NuevoPlaceholder chico texto="Nueva hoja" onClick={onNueva} style={{ height: 36 }} />
         </span>
       )}
-      {conBuscador(hojas.length) && (
+      {conBuscador(hojas.length + otras.length) && (
         <div className="lk-buscar lk-buscar--lista"><SvgLupa /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar" aria-label="Buscar una hoja" /></div>
       )}
       {visibles.map((h) => {
@@ -241,19 +257,28 @@ export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva, 
         return (
           <div key={h.id} className="lk-hoja-fila" data-activa={esActiva || undefined} data-opciones={abiertas || undefined}
             onContextMenu={(e) => { if (!acciones) return; e.preventDefault(); alternarOpciones(h.id, e.currentTarget); }}>
-            <button type="button" role="menuitemradio" aria-checked={esActiva} className="lk-opcion lk-hoja-op" onClick={() => onIr(h.id)} title={h.nombre}>
+            <button type="button" role="menuitemradio" aria-checked={esActiva} className="lk-opcion lk-hoja-op" onClick={() => onIr(h.id)} title={h.visto}>
               <span className="lk-hoja-marca">{esActiva && <IconoMenu nombre="check" size={15} />}</span>
               {h.emoji && <span aria-hidden>{h.emoji}</span>}
-              <span className="lk-hoja-nombre">{h.nombre}</span>
+              <span className="lk-hoja-nombre">{h.visto}</span>
             </button>
             {acciones && (
-              <button type="button" className="lk-hoja-mas" aria-label={`Opciones de ${h.nombre}`} aria-haspopup="menu" aria-expanded={abiertas}
+              <button type="button" className="lk-hoja-mas" aria-label={`Opciones de ${h.visto}`} aria-haspopup="menu" aria-expanded={abiertas}
                 onClick={(e) => alternarOpciones(h.id, e.currentTarget.parentElement)}>⋮</button>
             )}
           </div>
         );
       })}
-      {!visibles.length && busca && <div className="lk-hojas-vacio">Ninguna hoja se llama así.</div>}
+      {otrasVisibles.map((h) => (
+        <div key={h.id} className="lk-hoja-fila">
+          <Link href={h.href} className="lk-opcion lk-hoja-op" title={h.nombre}>
+            <span className="lk-hoja-marca" />
+            {h.emoji && <span aria-hidden>{h.emoji}</span>}
+            <span className="lk-hoja-nombre">{h.nombre}</span>
+          </Link>
+        </div>
+      ))}
+      {!visibles.length && !otrasVisibles.length && busca && <div className="lk-hojas-vacio">Ninguna hoja se llama así.</div>}
       {submenu}
       {/* «Archivados», sutil y al pie (como «Limpiar filtros» en el CRM): lo eliminado, para restaurarlo o borrarlo para
           siempre. Borrar pide un segundo clic sobre el mismo botón, que dice la consecuencia. */}

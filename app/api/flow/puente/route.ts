@@ -38,7 +38,7 @@ import {
   LIMITES, clasificarFalla, clasificarFallaDelNavegador, VARIANTES_MEDIA,
   KEY_VARIANTE_VIDEO, type MotivoFalla,
 } from '@/lib/flow-protocolo';
-import { EXTENSION_VERSION } from '@/lib/extension-version';
+import { VERSION_ESPERADA_DEL_PUENTE } from '@/lib/extension-tienda';
 import { conPlantillaDeFabrica } from '@/lib/plantilla-fabrica';
 
 export const dynamic = 'force-dynamic';
@@ -455,18 +455,10 @@ export async function POST(req: NextRequest) {
     ...(pedirPlantillas ? { pedirPlantillas: true } : {}),
     // Para que un navegador nuevo abra el proyecto correcto sin que nadie lo busque.
     ...(projectIdGuardado ? { projectId: projectIdGuardado } : {}),
-    // ⚠️ LA VERSIÓN QUE DEBERÍA ESTAR CORRIENDO.
-    //
-    // El latido ya decía la suya desde hace días; lo que faltaba era la vuelta.
-    // Sin esto la extensión no tiene forma de saber que quedó vieja, y el único
-    // que se entera es el que mira la pantalla — o sea, nadie, hasta que algo
-    // falla por una razón que no se parece a «tu extensión es de hace tres
-    // horas».
-    //
-    // Con esto, una instalación DESCOMPRIMIDA se reinicia sola y vuelve leyendo
-    // los archivos nuevos. Es la diferencia entre que actualizar sea un trámite y
-    // que no exista.
-    versionEsperada: EXTENSION_VERSION,
+    // ⚠️ NO ES LA VERSIÓN DE VERDAD, A PROPÓSITO (3/11/2026). Con ella, el desplegable de una
+    // copia descomprimida atrasada se trababa pidiendo «vuelve a cargarla descomprimida», un
+    // texto que vive en su carpeta y no se puede cambiar. Lib/extension-tienda.ts dice por qué.
+    versionEsperada: VERSION_ESPERADA_DEL_PUENTE,
   });
 }
 

@@ -60,6 +60,8 @@ export const ESTADO_COBRADO = 'Cobrado';
 export const DIMENSIONES_PERSONA: readonly string[] = [
   'leads.lead', 'pagos.cliente', 'entrega.cliente', 'llamadas.llamada', 'llamadas_venta.llamada', 'tareas.tarea',
   'cobranza.cliente', 'cartera.cliente', 'ejecucion.tarea', 'llamadas_dimensiones.llamada',
+  // Las llamadas grabadas en MaKo (Cold Calling, 04/11/2026): cada fila es su lead.
+  'llamadas_grabadas.lead',
 ];
 
 export type AccionId = 'abrir_ficha' | 'marcar_cobrada' | 'ver_anuncio' | 'ver_llamada' | 'abrir_tarea';
@@ -165,7 +167,7 @@ export function filasPorId(filas: readonly FilaDetalle[], id: IdEntidad): Map<st
  *     no tiene la capa a mano, y un campo que nadie lee es una regla escrita en ningún lado.
  * El test (tests/graficos-ia-elemento.test.ts) exige que cada `puerta.ruta` exista y pase por `puertaClosing`.
  */
-export type AccionElementoId = 'sincronizar_llamadas' | 'reanalizar_llamada' | 'revisar_llamada' | 'abrir_ficha';
+export type AccionElementoId = 'sincronizar_llamadas' | 'reanalizar_llamada' | 'revisar_llamada' | 'abrir_ficha' | 'grabar_llamada';
 export type AccionElementoDef = {
   id: AccionElementoId;
   /** El rótulo por default del botón (quien arma la hoja lo puede cambiar). */
@@ -174,11 +176,16 @@ export type AccionElementoDef = {
   escribe: boolean;
   /** Lo que pasa si se confirma, en una frase: va pegado al botón (sólo las que escriben). */
   consecuencia?: string;
-  tipo: 'post' | 'revisar' | 'ficha';
+  tipo: 'post' | 'revisar' | 'ficha' | 'grabar';
   /** La ruta que ya existe y su tope (el `maxDuration` de la ruta más un margen). */
   puerta?: { ruta: string; topeMs: number; cuerpo: (ref: string | null) => Record<string, unknown> | null };
   /** Lo que dice mientras corre, con cuánto puede tardar (un giro mudo de minutos se lee colgado). */
   enCurso?: string;
+  /**
+   * La acción ES la hoja (Grabar llamada en Cold Calling): la composición densa la pone PRIMERA, como una tarjeta de la fila de números,
+   * no al pie con los botones sueltos (`comoDenso`, lib/graficos-portadas.ts). Sin esto, el botón que la hoja viene a ofrecer quedaba al final.
+   */
+  arriba?: boolean;
 };
 
 export const ACCIONES_ELEMENTO: readonly AccionElementoDef[] = [
@@ -198,6 +205,9 @@ export const ACCIONES_ELEMENTO: readonly AccionElementoDef[] = [
   },
   { id: 'revisar_llamada', titulo: 'Revisar', donde: 'llamada', escribe: false, tipo: 'revisar' },
   { id: 'abrir_ficha', titulo: 'Abrir la ficha', donde: 'entidad', escribe: false, tipo: 'ficha' },
+  // Martín, 04/11/2026: la plantilla Cold Calling, «con el mismo botón de grabar». Abre el buscador de leads y la MISMA grabadora de la
+  // ficha (app/_components/grabar/): no escribe nada al tocarlo (grabar empieza adentro, después de «Avísale que estás grabando»).
+  { id: 'grabar_llamada', titulo: 'Grabar llamada', donde: 'hoja', escribe: false, tipo: 'grabar', arriba: true },
 ];
 
 export const accionElementoDe = (id: string | null | undefined): AccionElementoDef | undefined => ACCIONES_ELEMENTO.find((a) => a.id === id);

@@ -37,7 +37,7 @@ const campo: CSSProperties = {
 };
 const primario: CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '10px', padding: '12px',
-  borderRadius: '11px', border: 0, background: '#2F6FED', color: '#fff', fontSize: '15px', fontWeight: 600,
+  borderRadius: '11px', border: 0, background: 'var(--primary)', color: 'var(--on-primary)', fontSize: '15px', fontWeight: 600,
   cursor: 'pointer', boxSizing: 'border-box',
 };
 const nota: CSSProperties = { marginTop: '12px', fontSize: '13px', color: '#5B6472', textAlign: 'center' };

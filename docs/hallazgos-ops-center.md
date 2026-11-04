@@ -1,0 +1,341 @@
+# Hallazgos — Ops Center (los coaches y sus referentes)
+
+La casa de varios chats: el central, el Funnel Coach y el Offer Coach. Quién aconseja de qué está en
+`lib/asesores/catalogo.ts`, su ficha destilada en `lib/asesores/fichas.ts`, la caricatura en
+`public/asesores/<id>.png` y se elige tocando la criatura, en `app/second-brain/ElegirReferente.tsx`.
+Acá va lo que costó y no se deduce leyendo el código.
+
+---
+
+## Dos fotos parecidas dan dos muñecos IDÉNTICOS, y el estilo no es el culpable (1/11/2026)
+
+**El síntoma.** Las caricaturas de Marcos Razzetti y Víctor Heras salieron indistinguibles. Martín:
+«entre marcos razzetti y victor heras no hay diferencia».
+
+**El diagnóstico obvio era el equivocado.** Parecía el prompt, o el estilo. No: **las dos fotos de
+origen son casi la misma foto** — los dos morochos de treinta y pico, barba corta, saco azul marino,
+fondo neutro, misma pose. Y el estilo de figurita encima normaliza la cabeza a una esfera y los ojos a
+dos óvalos iguales, así que la identidad queda colgando de tres cosas: pelo, barba y ropa. Cuando esas
+tres también coinciden, los dos muñecos son el mismo muñeco.
+
+**La regla que queda: un prompt por persona, que NOMBRE lo que la diferencia.** No un prompt común con
+el nombre cambiado. Para cada uno se mira la foto y se escribe qué tiene de propio — volumen y forma del
+pelo, borde y densidad de la barba, color de la camisa — **y además se le da un color de fondo propio**:
+a 92 px, que es como se ven en la pantalla, el fondo es lo primero que el ojo separa.
+
+**⚠️ Y lo que NO se toca: la forma de la cabeza.** Para separar a Razzetti le puse «cabeza ancha y
+redonda» y Martín lo cazó en el acto: «su cara se ensanchó muchísimo». Exagerar el cráneo rompe el
+parecido, que es justo lo que la caricatura tiene que conservar. La diferencia va en pelo, barba, ropa y
+fondo; nunca en el ancho de la cara.
+
+## El canal que devuelve la búsqueda puede ser OTRA PERSONA (1/11/2026)
+
+Buscar el nombre en `search.list` de YouTube y agarrar el primer resultado trajo a una Sofía Contreras
+que no era. Martín: «Esa no es sofia contreras». **Se resuelve por `forHandle`, no por búsqueda**, y se
+contrasta con los suscriptores y con lo que el referente hace: `@sofiacontreras` (178 mil, Mastery Haus)
+es ella; `@marcosrazzettii` (29,2 mil) es él y no los cuatro homónimos de 1 a 155 suscriptores;
+`@derekchamizo` se llama «YouTube Millonario», que no aparece buscando su nombre.
+**Antes de dibujar, las fotos se le muestran a Martín en una hoja de contacto.** Un dibujo de la persona
+equivocada se descubre recién cuando él pregunta «¿ése quién es?», y para entonces ya se gastó.
+
+## Tres de los catorce usan gorra con marca, y uno una remera con logo (1/11/2026)
+
+Hormozi, Derek Chamizo y Guille Collado posan con gorra de marca; Marc Verdú con una remera con logo.
+El prompt pide **explícitamente** gorra y remera LISAS, «no text, no logos, no brand marks anywhere».
+Si alguna se regenera, eso no se puede perder: el producto dice «Inspirado en», no reproduce marcas de
+nadie.
+
+## Un PNG no parpadea, y los ojos decían el estado del chat (1/11/2026)
+
+Los retratos dibujados a mano tenían `.mun-ojos`: parpadeaban y decían si el chat trabajaba, como la criatura de MaKo. Un PNG no.
+
+**Decidido: una sola cara en todos lados, y el estado por afuera de la foto** (`app/admin/operaciones/Retratos.tsx`): un anillo que late mientras trabaja, y la foto apagada si está cansada o dormida. Flotar sigue. Conservar el SVG para el chat activo era mostrarle a la misma persona dos caras, y una que Martín ya rechazó: por eso se borraron.
+
+**Lo que se pierde, a sabiendas:** el parpadeo. Choca con su regla del 21/10 («las criaturas, siempre, donde sea que estén deben tener su animación de movimiento, y parpadeo»), y si lo extraña, hay que resolverlo con otra imagen, no con otro código.
+
+## El prompt aprobado de las caricaturas no estaba escrito en ningún lado (1/11/2026)
+
+Las catorce caras salieron de ocho vueltas de prueba y error, y el prompt que Martín aprobó quedó
+**sólo adentro de las llamadas a la herramienta**: para recuperarlo hubo que rastrear un transcript
+de 173 MB. Una caricatura nueva, o regenerar una, sin ese texto empieza de cero las ocho vueltas.
+Queda acá, literal. Lo único que cambia por persona es el tramo de «Make him unmistakable».
+
+```
+Collectible vinyl toy caricature figure of the man in the reference photo — glossy toy-figurine
+look like a Funko/Pop Mart collectible. HEAD AND SHOULDERS ONLY, tightly cropped, centered, facing
+forward. Oversized head but keeping HIS OWN face shape — do not widen or round out the face, do not
+puff up the cheeks. Eyes NORMAL SIZE and normally proportioned, open and bright, glossy with a small
+catchlight — NOT oversized, NOT anime. Make him unmistakable: <PELO · BARBA · ANTEOJOS O GORRA ·
+PIEL · GESTO, lo que lo separa de los demás>. Wearing <PRENDA LISA, sin texto ni logo>. Smooth
+glossy vinyl surfaces, soft studio product lighting with gentle reflections. Plain <COLOR PROPIO>
+background. No text, no logos, no brand marks anywhere.
+```
+
+Se genera con la foto de referencia subida (`upload-asset-from-url` → `generate-image` con
+`imageReferences`). Las fotos están en el scratchpad de la sesión, en `refs/<id>.jpg`, y la hoja de
+contacto que se le muestra a Martín la arma `hoja.py`.
+
+## El nombre del curso es el nombre de la CARPETA, y puede estar mal (1/11/2026)
+
+**El síntoma.** Al sumar seis referentes nuevos, antes de dibujar se buscó a cada uno para sacarle
+la foto. Dos no cerraron:
+
+- **«Jaime Jiguera» no existe.** Es **Jaime HIGUERA**, el fundador de E-com Growth Partners. El
+  apellido mal escrito venía de la carpeta del curso y ya había entrado al repo en dos lugares más
+  (`lib/offer-autores.ts` y `docs/offer-marco.md`), así que se corrigió en los cinco archivos a la
+  vez. La pantalla dice «Inspirado en \<completo\>»: un apellido mal escrito se publica con el
+  nombre de nadie.
+- **«Tino Mossu» sí es él**, aunque la transcripción automática escriba **«Teo»** cada vez que se
+  nombra (13 veces contra 7 de «Tino» en las primeras veinte clases, y «Mossu» cero). Suenan casi
+  igual en español. Confirmado por fuera del curso: Crónica y Forbes Argentina lo ubican en Merlo,
+  CEO de Factor Studios, fundador de «la U del Closer» en diciembre de 2023.
+
+**La regla que queda: el nombre de un referente se verifica CONTRA EL MUNDO antes de dibujarlo, no
+contra la carpeta.** Y la transcripción automática no sirve para nombres propios: confirma el
+método, no quién lo firma. Es la misma familia de error que la Sofía Contreras equivocada, pero una
+capa antes — ahí se dibujó a otra persona; acá se habría publicado a una persona que no existe.
+
+## Cuál de los 130 cursos de Knowledge sirve, y por qué el título engaña (1/11/2026)
+
+**El pedido.** Martín: «hay un montón de cursos que podríamos aprovechar de los que tenemos en
+Knowledge... Implementa la mayor cantidad posible que tenga sentido, obviamente, de algunos, por
+ejemplo, de trading o de e-commerce o de cosas que no tienen sentido para MaKo, pero el resto sí».
+
+**Lo que hay.** 130 cursos, uno por archivo en `app/conocimientos/curso-<slug>.ts`, con el nombre de
+cada clase en `grupo`/`titulo` y la transcripción en `public/cono-tx/<videoId>.json` (9.719
+archivos). **Leer los `grupo` de un curso cuesta un segundo y dice de qué se trata de verdad**; las
+transcripciones pesan 60-130 KB por clase y sólo hacen falta para destilar la ficha.
+
+**El título miente, y es lo que más tiempo ahorra saber:**
+
+- **«Belikethealgo»** suena a algoritmo y contenido orgánico: sus módulos son *orderblocks*,
+  *imbalances*, rango de Asia y sesión de Londres. Es **trading**.
+- **«Master Escala 100k»** (186 clases) suena a escalar un negocio: es **dropshipping** con Shopify.
+- **«PROGRAMA RAIO»** (201 clases) es *interactive storytelling* para aprender inglés.
+- **«DominIA Academy»** (159 clases) no es IA para vender: es ingeniería de automatizaciones con n8n.
+- **«Growing Content Specialist»** es para el EMPLEADO que edita, no para el dueño del negocio.
+
+**Dónde se cortó.** MaKo es ticket alto (coaches, agencias, consultorías), así que afuera quedaron
+e-commerce, dropshipping, importación, Amazon FBA, trading, inmobiliario, afiliados, canales de
+YouTube automatizados, los cursos de herramienta (Canva, CapCut, edición, ChatGPT, HeyGen) y los de
+mentalidad. Afuera también los que no tienen autor con nombre (**un referente sin persona no se
+puede dibujar ni atribuir**): «Club de Negocios», «MIDAS CONCEPT», los de «Lathos club».
+Entraron seis: Felipe Vergara (anuncios), Jaime Higuera (socio de crecimiento), Adrià Solà Pastor
+(comunicación), Augusto Bianchi (llamadas de ticket alto), Tino Mossu (objeciones y seguimiento) y
+Jordi Seguís (TikTok).
+
+**Un curso puede entrar A MEDIAS, y hay que decirlo en la ficha.** Growth Partner enseña el modelo de
+socio (fijo + porcentaje, nicho, oferta, setting, llamada) a clientes de e-commerce: el modelo se
+traslada a ticket alto y su catálogo de ofertas de entrada —producto gratis pagando el envío, set de
+prueba— no. Va anotado adentro de la ficha, que es donde el chat lo va a leer.
+
+**Y hay cursos que enseñan cosas que MaKo no puede aconsejar.** En Five Stars los alumnos cuentan
+que cerraron con plazos de 24 h y cupos inventados; en «La universidad del Closer» la respuesta
+universal se formula como «si te puedo GARANTIZAR que…» y se proponen catorce contactos por semana;
+en el Instituto de Comunicación se improvisa un estudio de una universidad como ejemplo.
+`lib/asesores/contexto.ts` ya prohíbe la escasez inventada y las promesas de ingresos, pero **la
+prohibición genérica no alcanza cuando el marco entero se apoya en eso**: cada una lleva su línea
+`⚠️ NO SE TRASLADA` con la versión usable.
+
+**El tope de 5.200 caracteres no es decorativo.** `tests/coaches-ops-center.test.ts` lo afirma
+porque la ficha entra entera al system del turno. Las seis salieron entre 5.600 y 7.000 y hubo que
+recortarlas: primero las citas de clase a una por marco, después viñetas de la cola (CÓMO HABLA,
+QUÉ PREGUNTA). **Nunca un marco**: la cola repite el tono que los marcos ya dejan claro.
+⚠️ Y el recorte automático de la última viñeta se comió el acento invertido que cierra el template
+en dos archivos — el error sale recién al importar, como «Unterminated string literal». Si se
+recorta por script, hay que contar los acentos invertidos después.
+
+## Lo que quedó sin hacer
+
+- **La foto de Ximena Fukuda es una toma de escenario** donde la cara es chica: su parecido es el más
+  flojo de los catorce. Si aparece una foto de frente, vale regenerarla.
+- **No se probaron en la app de verdad:** el anillo y las cuatro caras apagadas se miraron con el `Muneco` real en una página suelta, no en un chat con sesión.
+
+---
+
+## Un grep que no encuentra no significa que no esté: tres errores seguidos por lo mismo (2/11/2026)
+
+**El síntoma.** Tres veces en dos días afirmé que un curso «no está en Knowledge» y las tres veces
+estaba. Vilma Núñez, Emilio Puigrredón y Mateo Maffia.
+
+**La causa es siempre la misma, y no es Knowledge: es tratar un grep vacío como un hecho.**
+Un grep que no devuelve nada significa «mi patrón no coincidió», nunca «no existe». Las tres formas
+que tomó:
+
+1. **Vilma Núñez** — busqué en los `curso-*.ts` y ahí su curso se llama otra cosa. **El mapa
+   `TITULO` de `app/conocimientos/catalogo.ts` RENOMBRA**, y es el autoritativo: ahí es
+   «Certificación en Marketing Digital potenciada por IA - Vilma Núñez (Convierte Más)».
+2. **Emilio Puigrredón** — busqué «Puigrredon» sin tilde. El archivo dice **Puigrredón**.
+3. **Mateo Maffia** — busqué «Mafia», que es como lo escribió Martín. El archivo dice **Maffia**,
+   con dos efes. Y encima `TITULO` lo renombra a **«BYF»** a secas, sin el nombre.
+
+**La regla que queda:** se busca por **el pedazo más corto e inequívoco del apellido** (`Puig`,
+`Maffi`, `Vilma`) y recién después se confirma contra el campo `titulo:` del archivo del curso.
+Nunca por el nombre tal como lo escribió quien pidió la tarea, y nunca por el nombre de la carpeta.
+
+**El error espejo, que ya costó dos nombres mal escritos en producción:** sacar el nombre de la
+persona del nombre de la carpeta. Así salieron «Jaime Jiguera» (es **Higuera**) y «Jordi Sigues»
+(es **Segués**). **El nombre de un ser humano se lee del `titulo:`, nunca de un slug.**
+
+**Vive en:** app/conocimientos/catalogo.ts (el mapa `TITULO`, ~línea 805) · lib/asesores/catalogo.ts
+
+---
+
+## El curso de un gurú: el disco de la función no tiene `public/`, y la pantalla no decide quién contesta (3/11/2026)
+
+**El síntoma que no se veía.** La capa del curso estaba «cableada» y con tests en verde, pero el lector
+hacía `readFile(process.cwd()/public/cono-tx/<videoId>.json)` dentro de un `try/catch` que devuelve
+`null`. En Vercel la función sólo lleva lo que se IMPORTA (`next.config.ts`, `outputFileTracingIncludes`:
+«un readFileSync no es un import»); `public/` lo sirve el CDN. Resultado posible: **cada clase `null`, el
+gurú sin curso y ningún error**. Y la otra punta es peor: si el trazado SÍ siguiera la ruta, arrastraría
+`public/cono-tx` entero — **187 MB medidos**, contra un tope de 250 MB por función: el deploy roto del 2/11
+por otra puerta.
+
+**La regla que queda:** un archivo de `public/` se lee **por HTTP** (`APP_BASE_URL` + la ruta pública,
+`lib/cerebro-referente-server.ts`), nunca con `fs` desde una función. Y lo que se lee por red se memoiza
+**sólo si llegó**: un curso a medias no se guarda, para que un corte no deje a un gurú vacío hasta el
+próximo deploy.
+
+**Quién contesta lo decide la CLAVE de la conversación, no la pantalla.** El chat con un gurú es una
+tab con chat propio (`mako-movil:<persona>:referente-<id>`, `lib/chat-mako-reglas.ts`) y el servidor saca
+al gurú de esa clave (`app/api/mako/chat/route.ts` → `contextoDelChat`). Si lo dijera la pantalla (como
+el Funnel Coach, por `desde.tab`), la misma conversación abierta desde la lista del Ops Center contestaría
+como MaKo a secas. ⚠️ Y `origenDeClave` tiene que reconocer la clave nueva: sin origen, `claveDeTab` la
+rechaza y la conversación **no se puede escribir**.
+
+**No va en `armar()`**, aunque el tablero lo decía: `armar` es el grafo del NEGOCIO, en caché por
+workspace; el referente es de cada CHAT. Colgado ahí, el curso de uno viajaba en el chat de todos.
+
+**Lo que quedó sin hacer:** el #15 (la tab de gurús y el modal que se vio roto) no se tocó.
+
+---
+
+## «No responde con su base»: el turno estaba bien, faltaba el mapa. Probar con UNO no prueba a los 22 (3/11/2026)
+
+**El síntoma.** Martín: «Cuando le escribo a algun guru, aun no me respondo con su base de conocimientos».
+
+**El diagnóstico obvio era el equivocado.** Ya se había arreglado el turno (los tramos del curso en un bloque
+propio) y probado con el curso real de Alborna: 41/41 clases. Pero `CURSO_DE_REFERENTE`
+(`lib/asesores/cursos.ts`) tenía **3 de los 22 gurús** de la galería. Con los otros 19, Hormozi incluido,
+`cursoDe` devolvía `null`: el chat seguía con la ficha, el Second Brain decía «todavía no tiene su curso» y **no
+había un solo error**. Se probó con el gurú que justo estaba en el mapa.
+
+**La regla que queda:** lo que se ofrece en una galería se prueba con TODA la galería, no con un ejemplo.
+`tests/gurus-ops-center.test.ts` corre el camino real con los 22 (`tests/_gurus-curso-hijo.ts`), y
+`tests/asesores-cursos.test.ts` compara el mapa con el encabezado de cada ficha, que dice de qué archivo se
+destiló. Sumar un gurú es tres cosas: su ficha, su línea en el mapa y regenerar el índice
+(`node scripts/generar-clases-de-referentes.mjs`).
+
+**Lo que pesa cada curso, medido el 3/11:** de 0,08 MB (Puigrredón) a 9,77 MB (Adrià Sola); 45 MB los 22. Marc
+Verdú son 452 clases. Por eso la lectura va de a 16 pedidos y el turno espera 12 s: pasado el plazo sigue con la
+ficha y la lectura termina por detrás. Contra el CDN real, en frío y desde la PC de Martín: Hormozi 33/33 en 975 ms,
+Adrià Sola 158/158 en 2,8 s y Verdú 452/452 en 6,6 s. Elegir los tramos tarda de 6 a 788 ms por turno. Dos clases de Five Stars
+y dos de Marca Personal 5.0 no tienen transcripción: un 404 no es un curso «a medias» (rearmarlo era en cada turno).
+
+## La burbuja no tiene dueño si el chat se abre sin la lista (3/11/2026)
+
+**El síntoma.** «El que responde es una criatura de mako, no la foto del guru». La cabecera sí traía su cara.
+
+**La causa.** `HiloDelCliente` dibuja con `k.nombreMuneco` y `k.aspectoMuneco`, que salen de `filaAbierta`, la
+fila de la lista. Un chat con `activo: false` (el del gurú, el Funnel Coach) no tiene lista: el aspecto daba
+`null` y el nombre «Sin título», y de ahí salía una criatura sorteada. El Funnel Coach con un gurú al frente
+tenía el mismo bug y nadie lo había visto. **La regla:** quien abre un chat sin lista le pasa `quien` a
+`useChatCliente` (el mismo que usa su saludo); si no, su hilo no sabe quién contesta.
+
+## El gurú no va en `ElegidoChat`, y queda montado (3/11/2026)
+
+`ElegidoChat` es lo elegido en el motor de la PANTALLA; el gurú tiene su propio motor
+(`useChatDelReferente.ts`). Sumarle `{ guru }` obligaba a tocar cada `'coach' in e` y no arreglaba nada: lo que
+hacía falta era que la fila llamara a `abrirGuru` en vez de buscar una conversación que podía no existir
+(`queAbreElOfferCoach`, `lib/chat-mako-reglas.ts`). Como el Funnel Coach, **una vez abierto queda montado y
+escondido**: desmontado a mitad de un turno, la respuesta llegaba a nadie.
+
+**El super admin no ve sus chats con gurús en su lista**, que es la de Claude Code (`k` corre con `activo: false`):
+por eso `filasOffer` estaba siempre vacío y Hormozi era un clic muerto SIEMPRE para él. Su historial sale de
+`?gurusConCharla=1` y va debajo de los coaches, igual para el cliente.
+
+**Trampa de los tests:** `useChatCliente` llega a `lib/auth.ts` (`server-only`) por una server action, que Next
+cambia por un puente y node no. Tapando `server-only` en `require.cache` el árbol carga, y el proceso del test
+**sale con código 1 sin escribir una línea**, ni el nombre del test que corría: se ve como «test failed» a nivel de
+archivo. El motor no se dibuja en un test; se mira su fuente y se dibuja `HiloMako`.
+
+## El grafo de un gurú eran puntos iguales: era la FORMA del grafo, no el dibujo (4/11/2026)
+
+**El síntoma.** Martín: «los nodos son todos iguales, no está bien diseñado como el que ya hicimos, que tienen
+diferentes colores, tamaños y que los títulos van apareciendo y desapareciendo por "sección"». Y de la barra lateral:
+«están bastante mal organizadas».
+
+**El diagnóstico obvio era el equivocado.** Parecía un problema de `Grafo.tsx`, y el componente es el MISMO que el del
+negocio. Lo distinto era el dato: `armarReferente` (`lib/cerebro-referente.ts`) cuelga todas las clases de una raíz, en
+UN área y encadenadas. Con un área, todo sale de un color; con todas las clases de grado 3, todas del mismo tamaño
+(`radioNodo` tiene piso de 8 hasta grado 6); y sin nodos `n1:`, el grafo no tiene un nivel 1 cuyo título quede de lejos
+(`entraPorNivel`). La barra lateral contaba «453 cosas que MaKo sabe · 453 de MaKo · 0 tuyas» con una sola sección.
+
+**El arreglo** (`lib/cerebro-referente-vista.ts`, sobre la misma capa que lee el chat, con los MISMOS ids de clase):
+la raíz es el curso, cada módulo es un `n1:` con su color, las clases cuelgan de su módulo, y el tamaño sale de un
+`peso` nuevo de `NodoCerebro`: un PISO que leen las dos copias de `gradosDe` (layout y dibujo), así el servidor y el
+navegador miden igual. El grafo trae `curso`, y con eso la barra lateral, el filtro (sólo «Módulo»), el buscador (sin
+«Buscar con MaKo», que busca en el negocio) y el detalle (sin la pastilla «MaKo») hablan de clases.
+
+**Tres trampas que no se ven leyendo:**
+- **El índice de clases tomaba `subtitulo:` por `titulo:`.** La regex suelta del generador encontraba el subtítulo del
+  CURSO antes que el título de la primera clase: en 18 de 31 cursos la clase 1 se llamaba «33 clases, 2 módulos. Video,
+  transcripción y tus apuntes…», y así la listaba el turno del chat. Ahora se lee bloque por bloque
+  (`scripts/generar-clases-de-referentes.mjs`).
+- **Un curso de 2 módulos con 32 clases en uno es una estrella**, no secciones (Hormozi). Con menos de 4 módulos se usa
+  la sección de adentro (`subgrupo`): Hormozi queda en 8.
+- **Unir clases por una palabra del título une cualquier cosa** si la palabra es «vamos», «creando» o el nombre del
+  curso: con 452 clases salían 318 uniones y el mapa era una telaraña. Se sacan verbos y palabras vacías, una palabra
+  en más del 4 % de los títulos no une, y el mapa tiene techo (clases / 4): Marc Verdú queda en 113.
+
+**El encuadre mide los PUNTOS, no las etiquetas:** un título de sección pegado al borde salía cortado («…HOP
+RECORDINGS»). En un curso, `ajustar` (`Grafo.tsx`) deja a los costados la mitad del título de sección más largo. En el
+grafo del negocio no se tocó: si pasa ahí, es la misma línea.
+
+**Vive en:** `lib/cerebro-referente-vista.ts` · `app/second-brain/Grafo.tsx` · `app/second-brain/SuSecondBrain.tsx` ·
+`scripts/generar-clases-de-referentes.mjs` · `tests/cerebro-referente-vista.test.ts`.
+
+## «Su Second Brain» abría un modal: ahora reemplaza la conversación (4/11/2026)
+
+Martín: «en lugar de "Su Second Brain" que diga "Second Brain de NOMBRE DEL GURU" y que esté alineado a la derecha del
+todo... no debe abrirse un modal, sino que debe reemplazar lo que está en el chat... y en el botón... "Volver al chat"».
+`PanelDeChat` ganó `reemplazo`: lo que ocupa el lugar del hilo y la caja. **La conversación queda montada y escondida**
+(`display: none`), así que al volver sigue donde estaba, con lo escrito en la caja; desmontarla perdía el scroll y el
+borrador. El botón es uno (`BotonSecondBrainDe`) y va último en las acciones con `margin-left: auto`: en el Funnel Coach
+«Ver el plan» va antes, y abrir uno cierra el otro.
+
+**Vive en:** `app/admin/operaciones/PanelChat.tsx` · `app/second-brain/SuSecondBrain.tsx` · `ChatDelReferente.tsx` ·
+`ChatDelCoach.tsx` · `ChatSecondBrain.tsx` · `app/m/second-brain/HojaDelGuru.tsx`.
+
+## Los diez gurús que faltan no tienen caricatura en el repo (4/11/2026)
+
+Martín: «faltan un montón de gurús que nos habían quedado por la mitad que ya habíamos hecho sus caricaturas». Medido:
+los 22 retratos de `public/asesores/` ya están TODOS en la galería, y de los diez que faltan (Carrizo, Núñez, Landa,
+Fons, Maffia, Begueria, Luque, Doglio, Seré, Albaa) no hay una sola imagen en ninguna rama ni etiqueta del repo
+(`git log --all -- '*carrizo*.png'`, y así con cada uno). Las caricaturas se hacen con Canva desde la PC; una sesión en
+la nube no tiene Canva. Lo que sí se puede hacer en la nube es su FICHA: queda escrita en `lib/asesores/en-espera.ts`
+y el gurú entra a la galería en cuanto llegue su cara (el test lo avisa).
+
+## Las diez fichas que esperan cara: cómo se escribieron y qué quedó afuera (4/11/2026)
+
+**Vive en:** `lib/asesores/ficha-*.ts` (las diez nuevas), `lib/asesores/en-espera.ts`, `tests/gurus-en-espera.test.ts`.
+
+- **Un subagente por ficha costó ~480-500 mil tokens cada una** (las tres primeras). Las siete siguientes se escribieron a
+  mano leyendo 8 a 12 clases de método por curso, con el índice (`lib/asesores/clases-de-referentes.json`, la clave es el slug
+  de `lib/asesores/cursos.ts`) y las transcripciones de `public/cono-tx/<videoId>.json`, salteando el arranque de cada clase
+  (los primeros 500-2.500 caracteres son saludo). Las clases que más rinden son las de método; las sesiones de preguntas, las
+  entrevistas y las «revisiones de canales» pesan 50-150k y casi no traen marcos.
+- **Lo que los cursos enseñan y la ficha no repite** (cada uno en su «⚠️ NO SE TRASLADA»), por si aparece en el próximo:
+  escasez o urgencia inventada («la única clase en vivo», «este video se borra en 24 horas», descuentos «sólo hoy»); animar a
+  pedir un CRÉDITO para pagar un programa (Maffia); COMPRAR ENLACES, que el curso presenta como lo normal del sector (Fons);
+  revisar un anuncio contra las reglas de Meta para que una promesa exagerada pase el filtro (Doglio, «GPT Anti Ban»); los
+  sorteos y la «escalera de sí» en un webinar; el precio terminado en 7 como truco (Luque); y en todos, los montos propios
+  o de alumnos como expectativa.
+- **Una nota de pendientes daba por hecho que Samuel Albaa enseñaba *setter***: el curso («Growing Closer», con Agustín
+  Nievas) no tiene ni una clase de setter. Su ficha cubre la práctica del closer, distinta de la de Nievas. Antes de escribir
+  la especialidad de un gurú, se lista el temario de SU curso.
+- **El voseo del curso no viaja a la ficha**: los cursos argentinos y españoles dicen «vos» y «vosotros»; la ficha va de tú.
+  El guard de voseo (`tests/puente-panel-copy.test.ts`) sólo ve los archivos que ESTÁN en el índice de git: con una ficha
+  nueva se corre después de `git add -N`, o da verde sin haberla leído. Un título de clase citado tal cual también trae voseo
+  («Vendele…»): se cita el módulo o se parafrasea.
+- **Nadie más leyó las fichas**: las escribí yo, contra las clases citadas. Martín las puede leer antes de que entren.

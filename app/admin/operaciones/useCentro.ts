@@ -56,6 +56,7 @@ import { conLoQueSale, enviosEnCurso, escucharEnvios, idDeEnvioLocal, ponerEnCam
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { TEXTO_SOLO_ADJUNTOS, copiar, problemaAntesDeMandar, subirAdjuntos, useFirma } from './mandar';
+import { NO_PUDE_COPIAR } from '@/lib/copiar-texto';
 
 const REFRESCO_MS = 8000;
 /** Una lista vacía que no cambia entre renders: las piezas memorizadas comparan por identidad. */
@@ -764,7 +765,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // Los avisos dicen qué hacer, cortos (Martín, 15/10/2026: «Jamás pongas mensajes no claros»). Después de crear el
   // Token, el paso siguiente (pegárselo al Runner) ya lo dice la caja.
   const copiarConAviso = async (t: string, aviso: string) => {
-    if (await copiar(t)) avisar(aviso, 'good'); else avisar('No pude copiar', 'bad');
+    if (await copiar(t)) avisar(aviso, 'good'); else avisar(NO_PUDE_COPIAR, 'bad');
   };
   const crearClave = async () => {
     const c = await firma.crear();

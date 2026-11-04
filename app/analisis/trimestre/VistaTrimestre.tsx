@@ -538,7 +538,7 @@ export function VistaTrimestre() {
         </div>
         <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <li style={{ maxWidth: '78ch' }}>
-            <b>Fuente:</b> base de datos de MaKo en Supabase, workspace 1 (Mauricio Bustos), leída
+            <b>Fuente:</b> base de datos de MaKo en Supabase, workspace 1, leída
             en modo solo lectura el {diaLargo(PERIODO.leido)}. Meta a nivel anuncio
             vía <Mono>marketing_metrics_daily</Mono>; el resto de <Mono>leads</Mono>,{' '}
             <Mono>landing_visits</Mono>, <Mono>vsl_events</Mono>, <Mono>pagos</Mono> y la vista de

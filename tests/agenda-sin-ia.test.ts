@@ -376,7 +376,7 @@ const NO_DEVUELVEN_DATOS = [
   'GCAL_SCOPE_LECTURA', 'GCAL_SCOPE_ESCRITURA', 'GCAL_SCOPE', 'googleRedirectUri',
   'guardarRefreshTokenGoogle', 'desconectarGoogleCalendar', 'googleCalendarConectado',
   // de QUIÉN es la agenda y si se puede escribir: la misma cuenta que da el scope `email`
-  'googleCalendarDueno', 'emailDelCalendario', 'permisoCalendarioGoogle',
+  'googleCalendarDueno', 'emailDelCalendario', 'permisoCalendarioGoogle', 'agendaParaEscribir',
   // la zona horaria del calendario: es la del negocio, no un dato de un tercero
   'tzDelCalendarioGoogle',
 ];

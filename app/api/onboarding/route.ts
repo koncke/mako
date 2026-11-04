@@ -14,7 +14,7 @@ import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
 import { wsDelOnboarding } from '@/lib/onboarding-guard';
 import { capaDef, esPasoOnboarding, type PasoOnboarding } from '@/lib/capas';
-import { enviarCodigoVerificacion, verificarCodigoContacto, getEstadoVerificacionContacto } from '@/lib/mako-grupo';
+import { estadoVerificacionEntrante, pedirMensajeDeVerificacion, verificarCodigoContacto, getEstadoVerificacionContacto } from '@/lib/mako-grupo';
 import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-catalogo';
 import { credWs, estadoCampo, guardarCredencial, IdentificadorOcupadoError, RemitenteNoPropioError, integracionConectada } from '@/lib/credenciales';
 import { verificarServicio } from '@/lib/metodo-verificar';
@@ -329,9 +329,10 @@ export async function POST(req: NextRequest) {
       }
 
       // Contacto de reportes, PASO 1: guarda nombre/email, y el teléfono queda
-      // sujeto a verificación — no lo tomamos como bueno hasta que el cliente
-      // cargue el código que MaKo le manda por WhatsApp (el grupo "MaKo <>
-      // {cliente}" se crea/sincroniza acá mismo, junto con el envío del código).
+      // sujeto a verificación — no lo tomamos como bueno hasta que el cliente le
+      // ESCRIBA a MaKo desde ese número (4/11/2026: MaKo no le escribe primero a
+      // nadie). Devuelve el link `wa.me` con el texto escrito; el grupo "MaKo <>
+      // {cliente}" se arma cuando llega su mensaje (lib/mako-grupo.ts).
       case 'contacto-enviar-codigo': {
         const c = body.contacto ?? {};
         const telefono = (c.telefono ?? '').trim();
@@ -342,16 +343,20 @@ export async function POST(req: NextRequest) {
           telefono,
         });
         const wsRow = await getWorkspace(ws);
-        const r = await enviarCodigoVerificacion(ws, telefono, wsRow?.nombre ?? 'tu negocio');
+        const r = await pedirMensajeDeVerificacion(ws, telefono, wsRow?.nombre ?? 'tu negocio');
         if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: 422 });
-        return NextResponse.json({ ok: true, yaVerificado: r.yaVerificado });
+        return NextResponse.json(r.yaVerificado ? { ok: true, yaVerificado: true } : { ok: true, yaVerificado: false, link: r.link, numeroLinea: r.numeroLinea });
       }
 
-      // Contacto de reportes, PASO 2: confirma el código de 6 dígitos que llegó al
-      // grupo de WhatsApp. Recién acá el teléfono queda dado por bueno.
+      // Contacto de reportes, PASO 2: ¿ya llegó su mensaje? Sin `codigo`, lo lee (lo confirma el webhook). Con `codigo`, sólo
+      // un pedido de antes del 4/11 (MaKo ya le había mandado el código).
       case 'contacto-verificar-codigo': {
         const codigo = (body.codigo ?? '').trim();
-        if (!codigo) return NextResponse.json({ ok: false, error: 'Ingresa el código.' }, { status: 400 });
+        if (!codigo) {
+          const v = await estadoVerificacionEntrante(ws);
+          if (!v) return NextResponse.json({ ok: false, error: 'Ingresa el código.' }, { status: 400 });
+          return v.estado === 'verificado' ? NextResponse.json({ ok: true }) : NextResponse.json({ ok: false, esperando: true, whatsapp: v }, { status: 409 });
+        }
         const r = await verificarCodigoContacto(ws, codigo);
         if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: 422 });
         return NextResponse.json({ ok: true });

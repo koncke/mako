@@ -1299,7 +1299,7 @@ export async function generarConIA(p: PedidoGenerarIA): Promise<ResultadoGenerar
 
 export type PedidoEditarIA = { docId: number; instruccion: string; seccionId?: string | null; paginaId?: string | null };
 export type ResultadoEditarIA =
-  | { ok: true; doc: { id: number; titulo: string; version: number }; versionAntes: number; resumen: string | null; cambiadas: number; nuevas: number }
+  | { ok: true; doc: { id: number; titulo: string; version: number }; versionAntes: number; resumen: string | null; cambiadas: number; nuevas: number; quitadas: number; reordenada: boolean }
   | (FallaHttp & { conflicto?: boolean; sinCambios?: true });
 
 /**
@@ -1326,9 +1326,10 @@ export async function editarConIA(p: PedidoEditarIA): Promise<ResultadoEditarIA>
     const dif = await import('@/app/web-generator/editor/diff-tarjetas');
     const r = await ia.editar({ instruccion: p.instruccion, tarjetas: enviadas, alcance: activa ? 'seccion' : 'landing', params: { formato: formatoDe(doc.config) } });
     if (!r.ok) return falla(r.error, r.status === 400 ? 400 : 502);
-    if (!r.tarjetas.length) return { ...falla(r.resumen || 'MaKo no propuso cambios.', 422), sinCambios: true };
+    if (!r.tarjetas.length && !r.quitar?.length && !r.orden?.length) return { ...falla(r.resumen || 'MaKo no propuso cambios.', 422), sinCambios: true };
     const propuestas = dif.anclasResueltas(r.tarjetas, enviadas, todas);
-    const plan = dif.planDeAplicacion(todas, propuestas, { anclaNuevas: activa ? dif.idDe(activa) : null });
+    // Lo que cambia de la LISTA (sacar, reordenar, duplicar: `EdicionIA`), con las MISMAS reglas que la pantalla.
+    const plan = dif.planDeAplicacion(todas, propuestas, { anclaNuevas: activa ? dif.idDe(activa) : null, quitar: r.quitar, orden: r.orden, copias: r.copias });
     const contenido = { ...doc.contenido, paginas: doc.contenido.paginas.map((x) => (x.id === pagina.id ? { ...x, doc: docPagina(plan.resultado) } : x)) };
     // La versión de antes ANTES de tocar nada: sin ella no hay vuelta atrás, y no se aplica.
     const v = await guardarVersion(p.docId, dif.MOTIVO_ANTES_DE_IA);
@@ -1342,6 +1343,8 @@ export async function editarConIA(p: PedidoEditarIA): Promise<ResultadoEditarIA>
       resumen: r.resumen ?? null,
       cambiadas: plan.reemplazos.length,
       nuevas: plan.inserciones.reduce((n, x) => n + x.tarjetas.length, 0),
+      quitadas: plan.quitadas.length,
+      reordenada: plan.reordenada,
     };
   } catch (e) {
     return falla(msg(e), 500);

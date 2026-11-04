@@ -36,5 +36,5 @@ export async function gruposDeAjustes(deOtro: boolean | undefined, activa?: stri
   const otro = deOtro ?? await estaImpersonando().catch(() => false);
   const rol = await getRolWsEfectivo().catch(() => null);
   const negocio = rol === 'admin' ? seccionesNegocio(await disponiblesNegocio()) : null;
-  return gruposAjustes(seccionesCuenta(otro, activa), negocio);
+  return gruposAjustes(seccionesCuenta(otro, activa, rol === 'admin'), negocio);
 }

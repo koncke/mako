@@ -55,6 +55,8 @@ const PUBLICAS: Array<{ ruta: string; porque: string }> = [
   // `/instagram?conectado=1` (el redirect_uri del OAuth de Zernio) salió el 06/10/2026
   // con la tab Instagram: ya no hay quien arme esa URL, y una excusa sin dueño termina
   // tapando un link futuro que empiece igual.
+  // 03/11/2026, con los referentes: lib/cerebro-referente-server.ts lee la transcripción del CDN porque `public/cono-tx` no puede entrar a las funciones.
+  { ruta: '/cono-tx/', porque: 'un asset estático que lee el SERVIDOR: no es un link que se le manda a nadie.' },
   { ruta: '/replay/', porque: 'un asset estático que baja el navegador de un visitante de la landing de un cliente.' },
   // 11/10/2026, con la pasarela de pagos: `linkDelCobro` / `linkDeRetorno` (lib/cobros.ts). Sin esta
   // fila: 1 fallo / 2 pases, nombrando `lib/cobros.ts:56 → /pagar/${token}`; restaurada, 3 pases.

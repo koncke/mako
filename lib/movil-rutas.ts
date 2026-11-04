@@ -57,15 +57,21 @@ import { SECCIONES_COMUNIDAD as SECCIONES_COMUNIDAD_CLIENTS } from './clients-ru
 import { rutaDeTabVieja } from './ajustes-secciones';
 // Las tabs de CREACIÓN (17/10/2026): sus filas ocultas y su ida y vuelta viven en ./movil-creacion.ts.
 import { SECCIONES_CREACION, rutaEscritorioCreacion, rutaMovilCreacion, type IdCreacion } from './movil-creacion';
+// Lo que existe para vender MaKo a otros (MaKo Partners, Agency Dashboard) no va en NINGÚN teléfono (4/11/2026, lib/tienda.ts).
+import { sinLoQueVende } from './tienda';
 
 /**
  * Los cinco destinos FIJOS de la barra. `mako` es el OPS CENTER desde el 20/10/2026, en el lugar del medio que era del
  * Dashboard (`hoy`, que pasó a More): la misma id que su fila de More, así que More no la repite.
+ *
+ * ⚠️ 04/11/2026, EL DASHBOARD VUELVE A LA BARRA EN EL LUGAR DE PLAN (Martín: «en mobile, en lugar de "Plan" en la bottom
+ * bar, pon "Dashboard"»). Lleva la MISMA id que su fila de More (`dashboard`), como el Ops Center, así que More no la
+ * repite; abre el Dashboard de cada uno (`destinoDashboard`). Plan pasa a ser la primera fila de lo diario en More.
  */
-export type DestinoMovil = 'crm' | 'chats' | 'mako' | 'plan' | 'mas';
+export type DestinoMovil = 'crm' | 'chats' | 'mako' | 'dashboard' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas =
-  | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
+  | 'plan' | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
   | 'video' | 'copywriting' | 'ai-avatar' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'agency' | 'mako'
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
@@ -175,7 +181,9 @@ export const DESTINOS_MOVIL: readonly DefDestino[] = [
   // de la sidebar (nav.ts → MAKO_NAV): la ven el admin, el closer y el setter. Para el super admin sin mirar un cliente,
   // `barraMovil` le cambia el destino por el Centro.
   { id: 'mako', label: 'Ops Center', href: RUTA_OPS_CENTER_M, icon: 'cerebro', navKey: 'mako', criatura: true },
-  { id: 'plan', label: 'Plan', href: '/m/plan', icon: 'todo', navKey: 'todo' },
+  // El Dashboard (04/11/2026), donde estaba Plan. `href` es el de quien ve General (el Dashboard UNIDO, /m/hoy); al closer y
+  // al setter `barraMovil` les pone SU hoja (/m/dashboard). La regla de quién lo ve es `destinoDashboard`, no sólo la key.
+  { id: 'dashboard', label: 'Dashboard', href: HOME_MOVIL, icon: 'graphics', navKey: 'graphics' },
   { id: 'mas', label: 'More', href: RUTA_MAS, icon: 'mas', navKey: null },
 ];
 
@@ -196,6 +204,8 @@ export const TITULO_INBOX = 'Avisos';
  * MOVIL_ACTIVO prendido). Sin app/m/<carpeta>/page.tsx, todo eso es un 404 (el mismo test lo nombra).
  */
 export const SECCIONES_MAS: readonly DefSeccionMas[] = [
+  // Plan (04/11/2026): dejó la barra para el Dashboard y encabeza lo diario, como en la sidebar (Plan · Chats · Dashboard).
+  { id: 'plan', label: 'Plan', href: '/m/plan', icon: 'todo', navKey: 'todo', familia: 'diario' },
   // Lo diario (Plan y Chats están en la barra; adentro de Chats se configuran WhatsApp y Email). Las HOJAS del Dashboard
   // (/m/dashboard). ⚠️ UN SOLO «Dashboard» en More (24/10/2026, Martín: «En mobile aparecen 2 dashboards»): quien tiene el
   // Dashboard unido (ve General) lo abre en /m/hoy, con estas hojas en su segmentado, y esta fila no sale; quien no (el closer,
@@ -214,6 +224,8 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // reparte entre la cartera de la agencia y los referidos del resto (app/m/partners/page.tsx).
   // MaKo Partners: del menú de la foto desde el 20/10/2026 (nav.ts → USER_NAV), así que su fila de More la arma el menú
   // (`masCompleto`) y acá va OCULTA, como Report a problem y Business settings.
+  // ⚠️ Desde el 4/11/2026 no va en NINGÚN teléfono, ni ella ni Agency (lib/tienda.ts → `TABS_QUE_VENDEN`): More no las
+  //    dibuja y su página vuelve a More. Las filas siguen acá para que un link de escritorio caiga en esa página.
   { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: null, oculta: true },
   // Agency Dashboard (25/10/2026): del menú de la foto, como Partners; su fila la arma el menú. ⚠️ Planes escribió el mismo
   // mapeo en planes-2510: en la integración queda UNA copia.
@@ -361,7 +373,23 @@ export function puedeVerKey(key: string, rol: RolMovil, capa: string | null | un
 
 /** Los destinos FIJOS que este rol y esta capa ven, en el orden de la barra. */
 export function destinosVisibles(rol: RolMovil, capa: string | null | undefined): DefDestino[] {
-  return DESTINOS_MOVIL.filter((d) => d.navKey === null || puedeVerKey(d.navKey, rol, capa));
+  return DESTINOS_MOVIL.filter((d) => {
+    if (d.id === 'dashboard') return destinoDashboard(rol, capa) != null;
+    return d.navKey === null || puedeVerKey(d.navKey, rol, capa);
+  });
+}
+
+/**
+ * Adónde lleva el lugar «Dashboard» de la barra para este rol, o null si no tiene ninguno (y su hueco lo llena More).
+ * La MISMA regla con la que More armaba su fila antes del 04/11/2026 (`masCompleto`): quien ve General tiene el
+ * Dashboard UNIDO (/m/hoy: Focus y las hojas en el mismo segmentado); quien no (el closer, el setter), SU hoja
+ * (/m/dashboard), si su negocio tiene la tab de esa hoja.
+ */
+export function destinoDashboard(rol: RolMovil, capa: string | null | undefined): string | null {
+  if (!rol) return null;
+  if (puedeVerKey('general', rol, capa)) return HOME_MOVIL;
+  const hojas = SECCIONES_MAS.find((s) => s.id === 'dashboard');
+  return hojas && veSeccion(hojas, rol, capa) ? hojas.href : null;
 }
 
 /**
@@ -399,7 +427,8 @@ export function barraMovil(rol: RolMovil, capa: string | null | undefined, centr
   for (const d of DESTINOS_MOVIL) {
     if (d.id === 'mas') continue;
     if (visibles.has(d.id)) {
-      out.push({ id: d.id, label: d.label, href: d.id === 'mako' && centro ? RUTA_CENTRO_M : d.href, icon: d.icon, ...(d.criatura ? { criatura: true as const } : {}) });
+      const href = d.id === 'mako' && centro ? RUTA_CENTRO_M : d.id === 'dashboard' ? (destinoDashboard(rol, capa) ?? d.href) : d.href;
+      out.push({ id: d.id, label: d.label, href, icon: d.icon, ...(d.criatura ? { criatura: true as const } : {}) });
       continue;
     }
     const s = reserva.shift();
@@ -539,7 +568,10 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
   const enBarra = new Set(DESTINOS_MOVIL.map((d) => d.navKey).filter((k): k is string => k != null));
   // Lo que ya está en la barra de ESTE rol, por su ruta del teléfono: General no tiene key en DESTINOS_MOVIL (es la
   // portada, `navKey: null`) y sin esto aparecía otra vez en su familia (visto a 390 px el 17/10/2026).
-  const barra = new Set(barraMovil(rol, capa, adminShell).map((b) => b.href));
+  const deLaBarra = barraMovil(rol, capa, adminShell);
+  const barra = new Set(deLaBarra.map((b) => b.href));
+  // El Dashboard en la barra (04/11/2026) es EL Dashboard de esta persona, abra /m/hoy o su hoja: More no suma otro.
+  const dashboardEnBarra = deLaBarra.some((b) => b.id === 'dashboard');
   FAMILIAS.forEach((f) => {
     const familia = FAMILIAS_MAS.find((x) => x.id === f.key);
     if (!familia) return;
@@ -555,7 +587,7 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
     // una puerta). Sin ninguna de las dos, la portada.
     const unido = familia.id === 'diario' && puedeVerKey('general', rol, capa);
     const conHojas = familia.id === 'diario' && deFamilia.some((s) => s.id === 'dashboard');
-    if (familia.id === 'diario' && rol && !barra.has(HOME_MOVIL) && (unido || !conHojas)) {
+    if (familia.id === 'diario' && rol && !dashboardEnBarra && !barra.has(HOME_MOVIL) && (unido || !conHojas)) {
       filas.push({ tipo: 'pantalla', key: 'hoy', label: TITULO_HOME_MOVIL, icon: 'graphics', href: HOME_MOVIL, seccion: null });
     }
     if (unido) for (const s of deFamilia) if (s.id === 'dashboard') usadas.add(s.id);
@@ -599,7 +631,9 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
       { tipo: 'grupo', key: 'pronto', label: 'Coming soon', icon: 'reloj', filas: PRONTO.map((it) => filaDeItem(it, [it.key])) },
     ] });
   }
-  return out;
+  // ⚠️ SIN MaKo Partners NI Agency Dashboard, en cualquier teléfono (4/11/2026): existen para vender MaKo a otros, y el
+  //    teléfono no vende (lib/tienda.ts → `TABS_QUE_VENDEN`). Sus páginas vuelven a More si alguien llega por un link.
+  return sinLoQueVende(out);
 }
 
 /** La sección de More dueña de esta ruta (`/m/ads/123` → Ads Manager), o null. */
@@ -625,7 +659,10 @@ export function destinoActivo(
   // El Ops Center del medio (20/10/2026) es dueño de todo lo suyo: el chat (y /m/mako, que redirige ahí), el grafo
   // (/m/second-brain/mapa) y, para el super admin, también el Centro, aunque su lugar abra el otro.
   if (barra.some((d) => d.id === 'mako') && (dentro(p, RUTA_OPS_CENTER_M) || dentro(p, '/m/mako') || dentro(p, RUTA_CENTRO_M))) return 'mako';
-  // El Dashboard y su campana (Avisos) son filas de More desde que el Ops Center tomó su lugar (20/10/2026).
+  // El Dashboard en la barra (04/11/2026) es dueño de lo suyo, abra la portada o la hoja de un rol: /m/hoy, las hojas
+  // (/m/dashboard) y su campana (Avisos).
+  if (barra.some((d) => d.id === 'dashboard') && (dentro(p, HOME_MOVIL) || dentro(p, '/m/dashboard') || dentro(p, RUTA_INBOX))) return 'dashboard';
+  // Sin él en la barra, el Dashboard y su campana son filas de More (como del 20/10/2026 al 04/11/2026).
   if (dentro(p, HOME_MOVIL) || dentro(p, RUTA_INBOX)) return 'mas';
   if (seccionDeRuta(p) || dentro(p, '/m/cuenta')) return 'mas';
   return null;

@@ -221,15 +221,15 @@ async function main() {
   const DUENO = 1;
   const ENV_COBRO = [...STRIPE, ...MP];
   for (const k of ENV_COBRO) delete process.env[k];
-  delete process.env.X_PRUEBA_HIDRATA;
+  delete process.env.ZERNIO_API_KEY;
   await descubrirMercadoPago(DUENO, TOKEN_A, 'test');
   await descubrirStripe(DUENO, KEY_A, 'test');
-  sembrar(DUENO, 'X_PRUEBA_HIDRATA', 'si');
+  sembrar(DUENO, 'ZERNIO_API_KEY', 'si');
   await hidratarCredenciales();
   out.envDelDueno = {
     r: { ok: true },
     creds: Object.fromEntries(ENV_COBRO.map((k) => [k, process.env[k] ?? null])),
-    log: [`control=${process.env.X_PRUEBA_HIDRATA ?? ''}`, `guardadas=${(await Promise.all(ENV_COBRO.map((k) => credDelCliente(k, DUENO)))).filter(Boolean).length}`],
+    log: [`control=${process.env.ZERNIO_API_KEY ?? ''}`, `guardadas=${(await Promise.all(ENV_COBRO.map((k) => credDelCliente(k, DUENO)))).filter(Boolean).length}`],
   };
 
   process.stdout.write(`\n@@RESULTADO@@${JSON.stringify(out)}`);

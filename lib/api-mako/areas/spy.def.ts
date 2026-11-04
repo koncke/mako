@@ -95,4 +95,15 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'guarda ese anuncio en la ficha de ese competidor, marcado como traído por una persona (tabla spy_piezas)',
     canales: CANALES, costo: 'gratis', gating: PUERTA,
   },
+  {
+    id: 'dejar_de_mirar', area: 'spy', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    datosDeClientes: false,
+    titulo: 'Dejar de mirar a alguien',
+    descripcion: 'PROPONE sacar a alguien del radar. Se borra lo que se leyó de él.',
+    parametros: [
+      { nombre: 'id', tipo: 'number', obligatorio: true, entero: true, minimo: 1, rotulo: 'A quién', descripcion: 'El id que devuelve listar_vigilados.' },
+    ],
+    escribe: 'borra a ese competidor y lo que se leyó de él en este negocio (tablas spy_competidores y spy_piezas)',
+    canales: CANALES, costo: 'gratis', gating: PUERTA,
+  },
 ];

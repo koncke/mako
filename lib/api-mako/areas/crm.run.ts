@@ -24,7 +24,9 @@ import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, avisoCambioDeTipo, columnaConTipo, tipo
 import { cambiarTipoDeEtapa } from '@/lib/etapa-tipo-server';
 import { editarEtapa, conteosDelEmbudo, idsDeColumna } from '@/lib/etapas-crm-server';
 import { pasarEnBloqueAColumna } from '@/lib/crm-bloque-server';
-import { previaDePasar, pasarLoteAOtroFunnel } from '@/lib/lead-funnel';
+import { previaDePasar, pasarLoteAOtroFunnel, agregarLoteAProducto, etapasDeProducto } from '@/lib/lead-funnel';
+import { filtrarParaAgregar, type FilaParaAgregar } from '@/lib/agregar-en-bloque';
+import { leerTodo } from '@/lib/supabase-paginado';
 import { aPasar, avisosDePasar, etapaSugerida, etapasElegibles } from '@/lib/pasar-funnel-reglas';
 import { mandarLeadsAPapelera, recuperarLeadsDePapelera, listarPapeleraDeLeads } from '@/lib/leads-papelera';
 import { leerBajasDeLeads } from '@/lib/leads-bajas';
@@ -79,7 +81,8 @@ import {
   vinculoPorId as vinculoCobroPorId, vinculosDelNegocio,
 } from '@/lib/cobro-etapa-server';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
-import { centavos, diferenciaPendiente, dolaresALaTasaDeLaCuota, type RestoDeCobro } from '@/lib/pagos-diferencia';
+import { centavos, diferenciaPendiente, dolaresALaTasaDeLaCuota, restoEnLaMonedaDeLaCuota, type RestoDeCobro } from '@/lib/pagos-diferencia';
+import { formatoMonto } from '@/lib/pasarela-moneda';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { esEsencialDe } from '@/lib/plan-esencial';
@@ -92,7 +95,7 @@ import { listPendientes, resolverConfirmacion } from '@/lib/mako-confirmaciones'
 import { evaluarAutoWorkspace } from '@/lib/crm-auto';
 import { crmAutoHabilitado, setCrmAuto, KEY_CRM_AUTO } from '@/lib/envio-flags';
 import {
-  horariosLibresDeGoogle, permisoCalendarioGoogle, crearEventoDeReunion, moverEventoDeReunion,
+  horariosLibresDeGoogle, permisoCalendarioGoogle, agendaParaEscribir, crearEventoDeReunion, moverEventoDeReunion,
   proximasReunionesCon, choquesEnAgenda, eventosDelDia, cambiarEventoDeReunion, cancelarEventoDeReunion,
 } from '@/lib/google-calendar';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -126,6 +129,7 @@ import {
 } from '@/lib/etiquetas';
 import { limpiarNombreEtiqueta, claveNombre, colorValido, emojiValido, consecuenciaDeArchivar, autorPublico } from '@/lib/etiquetas-reglas';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
+import { lugarDato, rutaDato } from '@/lib/secciones-negocio';
 import { ofertasDelLead, asignarOfertaAlLead, crearOfertaParaLead } from '@/lib/oferta-lead';
 import { validarOfertaNueva } from '@/lib/oferta-modelo';
 import { usuarioInstagram, esLinkDeGrabacion, ERROR_LINK_GRABACION } from '@/app/crm/campo-inline';
@@ -242,14 +246,6 @@ async function instanteEnZona(ws: number, fecha: unknown, hora: unknown): Promis
   if (!iso) return { error: 'No pude armar esa fecha y hora.' };
   if (Date.parse(iso) < Date.now() + 5 * 60_000) return { error: `El ${cuando(iso, tz)} ya pasó o es en menos de 5 minutos.` };
   return { iso, tz };
-}
-
-/** null si se puede escribir en la agenda; si no, el motivo para la persona. */
-async function agendaParaEscribir(): Promise<string | null> {
-  const p = await permisoCalendarioGoogle();
-  if (!p.conectado) return 'Este negocio no tiene una agenda de Google conectada. Se conecta desde Calendario (o con el link de link_configurar_integracion, servicio google).';
-  if (!p.puedeMover) return 'La agenda de Google está conectada con permiso de solo lectura: hay que reconectarla en Integraciones para poder agendar o mover.';
-  return null;
 }
 
 /**
@@ -548,6 +544,30 @@ async function seleccionEnBloque(input: Record<string, unknown>): Promise<
   };
 }
 const quedan = (pendientes: readonly number[]) => (pendientes.length ? ` Quedan ${pendientes.length} que no llegué a tocar: pídemelo de nuevo y sigo con ésos.` : '');
+
+// ── AGREGAR EN BLOQUE A OTRO CRM (4/11/2026) ────────────────────────────────────────
+const ESTADOS_LEAD = ['abierto', 'ganado', 'perdido', 'descalificado', 'no_responde'];
+/** La columna de entrada del CRM (donde `agregarLoteAProducto` los deja), si no manda sola. `{crm}` lo pone quien llama. */
+async function entradaQueNoManda(funnelId: number): Promise<{ key: string; label: string } | { error: string }> {
+  const { etapas } = await etapasParaTraer(funnelId);
+  const key = etapaDeEntrada(await etapasDeProducto(funnelId));
+  const e = etapas.find((x) => x.key === key);
+  if (!e) return { error: 'El CRM «{crm}» no tiene columnas.' };
+  if (e.manda) return { error: `En «{crm}», la columna de entrada «${e.label}» tiene una automatización activa (o una etiqueta que dispara una): si los sumo, les escribe a todos en la próxima vuelta. Paúsala antes (proponer_toggle_nutricion) y vuelve a pedirlo.` };
+  return { key: e.key, label: e.label };
+}
+/** Lo que hace falta de cada lead para filtrar. `null` = todos los del negocio (paginado: más de 1.000 no se trunca). */
+async function leadsParaAgregar(ids: readonly number[] | null): Promise<FilaParaAgregar[]> {
+  const db = await getTenantDb();
+  if (ids == null) return leerTodo<FilaParaAgregar>(db, 'leads', 'id, estado_lead, email', { orden: 'id' });
+  const out: FilaParaAgregar[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from('leads').select('id, estado_lead, email').in('id', ids.slice(i, i + 200));
+    if (error) throw new Error(error.message);
+    out.push(...((data ?? []) as FilaParaAgregar[]));
+  }
+  return out;
+}
 
 // ── los runners ───────────────────────────────────────────────────────────────
 
@@ -855,7 +875,7 @@ export const RUNNERS: Runners = {
           texto: cob.texto, estado: cob.semaforo.texto, tono: cob.semaforo.tono,
           cobrado_usd: cob.cobradoUsd, total_usd: cob.totalUsd, pendiente_usd: cob.pendienteUsd, vencido_usd: cob.vencidoUsd, porcentaje: cob.pct,
           proxima: cob.proxima ? { pago_id: cob.proxima.pagoId, vence: cob.proxima.fecha, monto_usd: cob.proxima.montoUsd } : null,
-          ...(cob.suscripcion ? { suscripcion: { estado: cob.suscripcion.estado, mensualidad: cob.suscripcion.mensualidadTexto, fin_del_plazo: cob.suscripcion.finPlazo, proxima_renovacion: cob.suscripcion.proximaRenovacion, renovacion_fallida: cob.suscripcion.renovacionFallida, cobra: cob.suscripcion.fuente, meses_sin_registrar: cob.suscripcion.sinRegistrar } } : {}),
+          ...(cob.suscripcion ? { suscripcion: { estado: cob.suscripcion.sinCierre ? 'sin_fecha_de_cierre' : cob.suscripcion.estado, mensualidad: cob.suscripcion.mensualidadTexto, fin_del_plazo: cob.suscripcion.finPlazo, proxima_renovacion: cob.suscripcion.proximaRenovacion, renovacion_fallida: cob.suscripcion.renovacionFallida, cobra: cob.suscripcion.fuente, meses_sin_registrar: cob.suscripcion.sinRegistrar } } : {}),
           ...(cob.monedas.length ? { en_otras_monedas: cob.monedas } : {}),
           ...(cob.baja ? { baja_del_cliente: { quedo_sin_cobrar_usd: cob.baja.usd, desde: cob.baja.at, nota: 'Se dio de baja: lo que no pagó no es deuda ni se le recuerda. Se deshace con baja_del_cliente (deshacer: true).' } } : {}),
           ...(cob.cuadra && !cob.cuadra.cuadra && !cob.baja ? { no_cuadra: `El plan suma USD ${cob.cuadra.diferenciaUsd > 0 ? 'más' : 'menos'} que el cierre (diferencia ${cob.cuadra.diferenciaUsd}).` } : {}),
@@ -1064,9 +1084,11 @@ export const RUNNERS: Runners = {
     },
   },
   listar_productos: {
-    leer: async (input) => {
+    leer: async (input, ctx) => {
       const ps = await listProductos(input.soloActivos === true);
       return json({
+        // Ticket #48 (3/11/2026): dónde se edita el catálogo, con el nombre de pantalla (lib/secciones-negocio.ts).
+        se_editan_en: { lugar: lugarDato('productos'), link: linkApp(rutaDato('productos'), ctx.ws) },
         moneda: 'USD', productos: ps.map((p) => ({ id: p.id, nombre: p.nombre, tipo: p.tipo, monto_usd: p.monto_usd, suscripcion_meses: p.suscripcion_meses, promesa: p.promesa, incluye: p.incluye, garantia: p.garantia, activo: p.activo })),
         ...(ps.length ? {} : { nota: 'El catálogo está vacío.' }),
       });
@@ -1491,6 +1513,54 @@ export const RUNNERS: Runners = {
       const ya = r.yaEstaban ? ` (${r.yaEstaban} ya estaban ahí)` : '';
       const mal = r.fallaron ? ` ${r.fallaron} no se pudieron (${r.motivos.slice(0, 2).join(' · ')}).` : '';
       return { ok: r.pasados.length > 0, resumen: `Listo: ${r.pasados.length} a «${String(payload.destino)}» · «${String(payload.label)}»${ya}.${mal}${quedan(r.pendientes)}` };
+    }),
+  },
+  // AGREGAR EN BLOQUE (4/11/2026, la campaña de email de Mauricio): suma a otro CRM SIN sacarlos del suyo.
+  agregar_en_bloque_a_crm: {
+    preparar: async (input) => {
+      const crms = await productosCrm().catch(() => null);
+      if (!crms) return { error: NO_LEI_PRODUCTOS, falla: true };
+      const hacia = crms.find((p) => p.embudoId === n(input.haciaEmbudoId));
+      if (!hacia) return { error: `El CRM #${String(input.haciaEmbudoId)} no es de este negocio.`, disponibles: crms.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
+      const todos = b(input.todos) === true;
+      const pedidos = idsDe(input.leadIds);
+      if (!todos && !pedidos.length) return { error: 'Dime los leads (leadIds) o todos (todos: true).', faltan: ['leadIds'] };
+      const excluir = new Set((Array.isArray(input.excluirEstados) ? input.excluirEstados : []).map((x) => String(x).trim().toLowerCase()).filter(Boolean));
+      const raros = [...excluir].filter((e) => !ESTADOS_LEAD.includes(e));
+      if (raros.length) return { error: `Estos estados no existen: ${raros.join(', ')}.`, disponibles: ESTADOS_LEAD };
+      const soloConEmail = b(input.soloConEmail) === true;
+      // ⚠️ LA COLUMNA DE ENTRADA NO PUEDE MANDAR SOLA (AGENTS.md, «Traer leads de a muchos a una ETAPA»): con una automatización
+      // activa ahí (o una etiqueta vinculada), sumar a 1.000 es escribirles a los 1.000 en la próxima vuelta. Se pausa antes.
+      let entrada;
+      try { entrada = await entradaQueNoManda(hacia.embudoId); } catch { return { error: 'No pude leer las columnas de ese CRM. Intenta de nuevo.', falla: true }; }
+      if ('error' in entrada) return { error: entrada.error.replace('{crm}', hacia.nombre) };
+      let filas: FilaParaAgregar[];
+      try { filas = await leadsParaAgregar(todos ? null : pedidos); } catch { return { error: 'No pude leer a esos leads. Intenta de nuevo.', falla: true }; }
+      const elegidos = filtrarParaAgregar(filas, { excluir, soloConEmail });
+      if (!filas.length) return { error: todos ? 'Este negocio no tiene leads.' : 'Ninguno de esos leads es de este negocio (búscalos con buscar_leads).' };
+      if (!elegidos.ids.length) return { error: `No queda ninguno para sumar: ${elegidos.afuera.join(', ')}.`, yaEstaba: true };
+      const fuera = todos ? 0 : pedidos.length - filas.length;
+      return {
+        payload: { ids: elegidos.ids, hacia: hacia.embudoId, destino: hacia.nombre, columna: entrada.label },
+        resumen: `Sumar ${elegidos.ids.length} ${elegidos.ids.length === 1 ? 'lead' : 'leads'} a «${hacia.nombre}», en «${entrada.label}»: ${await quienesSon(elegidos.ids)}. `
+          + `Siguen en su CRM de siempre, y los que ya están en «${hacia.nombre}» se saltean.${elegidos.afuera.length ? ` Quedan afuera: ${elegidos.afuera.join(', ')}.` : ''}${fuera ? ` ${fuera} de los que nombraste no están en este negocio.` : ''} No se le escribe a nadie.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('sumar los leads al CRM', async () => {
+      // Lo mismo que se miró al proponer, otra vez: entre el «sí» y ahora pudieron prender una automatización en la entrada.
+      const entrada = await entradaQueNoManda(Number(payload.hacia));
+      if ('error' in entrada) return { ok: false, resumen: entrada.error.replace('{crm}', String(payload.destino)) };
+      const r = await agregarLoteAProducto(idsDe(payload.ids), Number(payload.hacia), `Sumado a «${String(payload.destino)}» por MaKo`, {
+        autor: autorDe(ctx), hasta: plazoEnBloque(ctx),
+      });
+      invalidar('leads');
+      const ya = r.yaEstaban ? ` (${r.yaEstaban} ya estaban ahí)` : '';
+      const mal = r.fallaron ? ` ${r.fallaron} no se pudieron.` : '';
+      return {
+        ok: r.agregados.length > 0 || r.yaEstaban > 0,
+        resumen: `Listo: ${r.agregados.length} sumados a «${String(payload.destino)}» · «${String(payload.columna)}»${ya}. Siguen en su CRM de siempre.${mal}${quedan(r.pendientes)}`,
+        datos: { agregados: r.agregados.length, yaEstaban: r.yaEstaban, fallaron: r.fallaron, pendientes: r.pendientes },
+      };
     }),
   },
   mandar_en_bloque_a_papelera: {
@@ -2483,9 +2553,13 @@ export const RUNNERS: Runners = {
       const resto: RestoDeCobro = input.resto === 'descuento' ? 'descuento' : 'pendiente';
       const falta = diferenciaPendiente(Number(pago.monto_usd), montoUsd, { yaPagada: false, resto });
       const distinto = montoUsd != null && montoUsd !== Number(pago.monto_usd);
+      // Cobrada a medias en la moneda de la cuota, la diferencia queda en ESA moneda (mig 0347): se dice así (revisión de 7f79a4e6c,
+      // B13: decía «los 300 USD que faltan» y quedaban MXN 6.000).
+      const enSuMoneda = restoEnLaMonedaDeLaCuota(pago, cobro);
+      const faltan = (usd: number) => (enSuMoneda ? `${formatoMonto(enSuMoneda.monto, enSuMoneda.moneda)} (${usd} USD)` : `${usd} USD`);
       const extra = !distinto ? '' : falta > 0
-        ? ` por ${montoUsd} USD: los ${falta} USD que faltan quedan como una cuota nueva pendiente`
-        : montoUsd! < Number(pago.monto_usd) ? ` por ${montoUsd} USD: los ${centavos(Number(pago.monto_usd) - montoUsd!)} USD que faltan son un descuento` : ` por ${montoUsd} USD`;
+        ? ` por ${montoUsd} USD: los ${faltan(falta)} que faltan quedan como una cuota nueva pendiente`
+        : montoUsd! < Number(pago.monto_usd) ? ` por ${montoUsd} USD: los ${faltan(centavos(Number(pago.monto_usd) - montoUsd!))} que faltan son un descuento` : ` por ${montoUsd} USD`;
       // Cobrada en otra moneda, o con método o concepto: el resumen lo dice (es lo único que la persona mira antes del «sí»).
       const conDatos = cobro.moneda != null || cobro.concepto != null || cobro.metodo != null;
       const como = pagado && conDatos ? ` — ${textoDelCobro(montoUsd ?? Number(pago.monto_usd), cobro)}` : '';
@@ -2518,10 +2592,11 @@ export const RUNNERS: Runners = {
         // Alguien la cobró entre la propuesta y el «sí»: no se tocó nada (ni el historial).
         if (r.yaEstaba) return { ok: true, resumen: YA_ESTABA_COBRADA };
         const plata = textoDelCobro(r.monto ?? r.original, { ...cobro, moneda: r.moneda, montoOriginal: r.montoOriginal });
-        const nota = `Cuota cobrada (${fechaPago}) · ${plata}${r.monto != null && r.monto !== r.original ? ` (era de USD ${r.original})` : ''}${r.pendiente != null ? ` · quedan USD ${r.pendiente} pendientes` : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : ''}`;
+        const enSuMoneda = r.pendienteEnSuMoneda ? `${formatoMonto(r.pendienteEnSuMoneda.monto, r.pendienteEnSuMoneda.moneda)} ` : '';
+        const nota = `Cuota cobrada (${fechaPago}) · ${plata}${r.monto != null && r.monto !== r.original ? ` (era de USD ${r.original})` : ''}${r.pendiente != null ? ` · quedan ${enSuMoneda ? `${enSuMoneda}(USD ${r.pendiente})` : `USD ${r.pendiente}`} pendientes` : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : ''}`;
         await logLeadEvent(Number(payload.leadId), 'Pago registrado', nota, autorDe(ctx));
         invalidar('pagos', 'leads');
-        return { ok: true, resumen: `Listo: cuota cobrada el ${fechaPago} por ${plata}${r.pendiente != null ? `; quedan ${r.pendiente} USD pendientes en una cuota nueva` : ''}.` };
+        return { ok: true, resumen: `Listo: cuota cobrada el ${fechaPago} por ${plata}${r.pendiente != null ? `; quedan ${enSuMoneda ? `${enSuMoneda}(${r.pendiente} USD)` : `${r.pendiente} USD`} pendientes en una cuota nueva` : ''}.` };
       }
       const { quitada, porLink, yaEstaba } = await marcarPago(Number(payload.pagoId), pagado, fechaPago);
       if (porLink) { invalidar('pagos', 'leads'); return { ok: true, resumen: yaCobradaPorLink(porLink) }; }

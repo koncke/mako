@@ -5,8 +5,8 @@
 // =============================================================================
 // Leila (Fathom 876470842-07) estaba en la 0.70 con la 0.74 vigente, y el «Extraer» del CRM no le andaba como a Martín. El
 // aviso de extensión vieja existía, pero sólo en las pantallas de video (app/video-generator/extension-instalada.tsx), y ella
-// no las abre. Una instalada DESCOMPRIMIDA no se actualiza sola (ahí está explicado por qué el ↻ de Chrome no alcanza): hasta
-// que la tienda de Chrome sirva la última, lo que queda es decirlo donde la persona esté, con el paso para ponerla al día.
+// no las abre. Una instalada DESCOMPRIMIDA no se actualiza sola (ahí está explicado por qué el ↻ de Chrome no alcanza): lo que
+// queda es decirlo donde la persona esté, con el paso para cambiarla por la de la tienda.
 //
 // Mismo molde que «Actualiza el Pixel» (AvisoPixelViejo): una tarjeta en la esquina, que lleva al instructivo. Sólo si la
 // extensión ESTÁ instalada y va atrás (`useExtensionVieja`, que ya descuenta la de la tienda). Sin extensión, nada.
@@ -16,7 +16,7 @@ import Link from '@/app/_ui/Link';
 import { esVistaSinChrome } from './PublicRouteGate';
 import { useVistaMovil } from './VistaMovil';
 import { useExtensionInstalada, useExtensionVieja } from '@/app/video-generator/extension-instalada';
-import { EXTENSION_VERSION } from '@/lib/extension-version';
+import { VERSION_EN_TIENDA } from '@/lib/extension-tienda';
 
 const SANS = "'Geist', sans-serif";
 
@@ -30,7 +30,7 @@ export function AvisoExtensionVieja() {
     || pathname.startsWith('/video-generator') || pathname.startsWith('/extension');
   if (fuera || typeof instalada !== 'string' || !vieja) return null;
 
-  const porque = `Tienes la extensión de MaKo ${instalada} y la nueva es la ${EXTENSION_VERSION}. Son tres minutos: se quita la vieja y se carga la nueva.`;
+  const porque = `Tienes la extensión de MaKo ${instalada} y la actual es la ${VERSION_EN_TIENDA}. Quítala y agrégala desde la Chrome Web Store.`;
   return (
     <Link href="/extension/instalar" title={porque} aria-label={porque}
       style={{

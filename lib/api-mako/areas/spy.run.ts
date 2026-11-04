@@ -20,9 +20,11 @@ import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import {
   agregarCompetidor, analizarCompetidor, AUN_SIN_TABLAS, etapaDePieza, guardarAnuncioPegado,
-  leerCompetidor, listarCompetidores, listarPiezas, mirarCompetidor, queEs,
+  leerCompetidor, listarCompetidores, listarPiezas, mirarCompetidor, queEs, quitarCompetidor,
 } from '@/lib/spy';
 import { perfilNegocioTexto } from '@/lib/onboarding';
+import { contenidoNoConfiable } from '@/lib/prompt-render';
+import { funnelDeFila, funnelEnPalabras } from '@/lib/spy-funnel';
 import { dibujarContador, NOMBRE_CANAL, NOMBRE_ETAPA, NOMBRE_FUENTE, SIN_ANUNCIOS_EN_ESTE_PAIS, adLibraryCubreComercial, type CanalSpy } from '@/lib/spy-reglas';
 
 const json = (o: unknown): string => JSON.stringify(o);
@@ -85,7 +87,7 @@ export const RUNNERS: Runners = {
       const comoQueda = nombre || (leido.campo === 'nombre' ? leido.valor : leido.valor.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]);
       return {
         payload: { pegado, nombre: nombre || null },
-        resumen: `Empezar a mirar a «${comoQueda}» (${leido.campo === 'instagram' ? `@${leido.valor} en Instagram` : leido.campo === 'youtube_id' ? 'su canal de YouTube' : leido.campo === 'landing_url' ? 'su sitio' : 'por nombre, sin canales todavía'})`,
+        resumen: `Empezar a mirar a «${comoQueda}» (${leido.campo === 'instagram' ? `@${leido.valor} en Instagram` : leido.campo === 'youtube_id' ? 'su canal de YouTube' : leido.campo === 'tiktok' ? `@${leido.valor} en TikTok` : leido.campo === 'landing_url' ? 'su sitio' : 'por nombre, sin canales todavía'})`,
       };
     },
     ejecutar: async (p) => seguro('sumarlo al radar', async () => {
@@ -139,9 +141,12 @@ export const RUNNERS: Runners = {
         const delCanal = piezas.filter((p) => p.canal === canalUno);
         if (!delCanal.length) continue;
         out.push('', `### ${NOMBRE_CANAL[canalUno]}`);
+        // Todo lo de abajo es de un tercero: el copy de un anuncio puede decir cualquier cosa, y esta
+        // respuesta se la lee un modelo. Va marcado, igual que en `analizarCompetidor`.
+        const lineas: string[] = [];
         for (const p of delCanal.slice(0, 15)) {
           const etapa = etapaDePieza(p);
-          out.push([
+          lineas.push([
             `- ${p.titulo || p.texto?.slice(0, 90) || p.ref}`,
             `vistas ${dibujarContador(p.vistas)}`,
             `me gusta ${dibujarContador(p.megusta)}`,
@@ -150,7 +155,10 @@ export const RUNNERS: Runners = {
             etapa ? NOMBRE_ETAPA[etapa].rotulo.toLowerCase() : 'no se sabe desde cuándo',
             NOMBRE_FUENTE[p.fuente].toLowerCase(),
           ].join(' · '));
+          const funnel = p.canal === 'landing' ? funnelDeFila(p.funnel) : null;
+          if (funnel) lineas.push(...funnelEnPalabras(funnel).map((l) => `  - ${l}`));
         }
+        out.push(contenidoNoConfiable(lineas.join('\n'), 'piezas_del_competidor'));
       }
       // Si pidió los anuncios y el país no está cubierto, se dice por qué no hay nada que traer en
       // vez de dejar una sección vacía que se lee como «no pauta».
@@ -190,6 +198,20 @@ export const RUNNERS: Runners = {
     }),
   },
 
+  dejar_de_mirar: {
+    preparar: async (input) => {
+      const c = await elCompetidor(input.id);
+      if (!c.ok) return { error: c.error };
+      return { payload: { id: c.c.id, nombre: c.c.nombre }, resumen: `Dejar de mirar a «${c.c.nombre}» y borrar lo que se leyó de él` };
+    },
+    ejecutar: async (p) => seguro('dejar de mirarlo', async () => {
+      const id = idDe(p.id);
+      if (id == null) return { ok: false, resumen: 'No sé a quién dejar de mirar.' };
+      const r = await quitarCompetidor(id);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: ya no miro a «${String(p.nombre ?? '')}».` };
+    }),
+  },
   guardar_anuncio_visto: {
     preparar: async (input) => {
       const c = await elCompetidor(input.id);

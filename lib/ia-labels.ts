@@ -42,6 +42,7 @@ export const IA_FEATURE_LABEL: Record<string, string> = {
   'landing-editor': 'Editor de landings · generar',
   'landing-editor-ia': 'Editor de landings · editar con IA',
   'copywriter-ia': 'Copywriter · MaKo en el guion',
+  'newsletter-ia': 'Newsletter · la idea de la próxima edición',
   'ads-rename': 'Ordenar nombres de anuncios',
   // Voz / transcripción
   'stt-nota-voz': 'Transcripción de nota de voz',

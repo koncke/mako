@@ -6,6 +6,81 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## La réplica editable: lo que se mide, lo que se arregló sin la copia y lo que no se pudo ver (29/10 y 4/11/2026)
+
+**Vive en:** `lib/editor-landing/diseno-elemento-acciones.ts` (`ponerColor`, `ponerImagenDeFondo`, `capaEncima`) ·
+`lib/editor-landing/diseno-contenido.ts` (la lista de «Contenido») · `app/web-generator/editor/nodos/PanelContenidoDiseno.tsx` ·
+`app/web-generator/editor/nodos/HtmlEditableVista.tsx` · `tests/replica-editable.test.ts`.
+
+Martín: «Es super importante que la replica de las landing, no solo replique, sino que luego sea editable absolutamente
+todo... Sino, no tendrá sentido replicarla, seria como hacer una captura... Debe ser todo editable».
+
+**La matriz del 29/10 (claude4, sobre las 5 copias del ws9: #68 respond, #69 reportei, #70 holo, #71 masterads, #72
+closermood).** Por «Contenido» se llegaba a TODO texto, imagen y botón del censo de las 5 (#68 247/128/178 · #69 218/93/245 ·
+#70 504/169/55 · #71 99/57/13 · #72 145/0/15); con el clic, bastante menos (lo oculto sólo está en la lista). Duplicar, mover,
+quitar, fuente, destino de un botón e imagen andaban en todas las secciones y sobrevivían al saneo. Quedaron dos ❌ y dos huecos.
+
+**Lo que se arregló el 4/11, en la nube y sin la base de producción (las copias viven ahí):**
+- **«Contenido» no listaba íconos ni videos**, y la matriz no lo había medido: `contenidoDeDiseno` salteaba el `<svg>` y no
+  miraba `<video>`, `<iframe>` ni `[data-calendly]`. Un ícono o un video OCULTO (el de una pestaña que no se ve) no se podía
+  cambiar ni quitar. Ahora hay pestañas «Íconos» y «Videos», con «Cambiar» (el mismo selector que al elegirlos con un clic) y
+  «Quitar». Lo de adentro de un reproductor es suyo y no se lista aparte. Los FONDOS ya estaban.
+- **El color del texto va también a `-webkit-text-fill-color`.** Un título con degradado (`background-clip: text` con el
+  relleno transparente, el truco de casi toda landing de SaaS) se pinta con el relleno: cambiar sólo `color` movía el valor
+  calculado y en pantalla no pasaba nada. Es la causa PROBABLE del ❌ de la sección 10 de la #68 («ni el texto ni el fondo
+  cambian»), no la comprobada. Sólo en «Elemento» del editor: el camino del chat y de la API para un botón
+  (`conEnlaceDeDiseno`) sigue con `color` solo, porque un botón con degradado es raro y su test fija el estilo exacto.
+- **Una imagen de fondo tapada por una capa de la página ya no queda muda.** El ❌ de la sección 13 de la #69 («la imagen de
+  fondo no se ve») huele a un `::before`/`::after` con fondo encima: un estilo en línea no llega a un seudo-elemento, así que lo
+  que se puede hacer es AVISAR. `capaEncima` lo detecta con el `getComputedStyle` de los dos seudo-elementos y el editor dice
+  «Una capa de la página la tapa». Una caja HIJA que tapa no se detecta.
+
+**Y la rama traía 8 rojos que nadie había visto** (sus tests afectados nunca corrieron: el relevo lo decía «FALTA»). Seis
+salían de UNA frase: la réplica sumó a la descripción de `editar_landing_con_ia` tres ejemplos («quita la sección de precios»,
+«pon los testimonios arriba de todo», «duplica la del hero»), y esas palabras le subieron el puntaje contra los pedidos de
+quitar un botón y de animar, que dejaron de traer `acomodar_bloque_landing` y la lista de secciones (ops-center-bateria,
+ops-center-clasificador-app, mako-intencion-landing, api-mako-landing-animacion). Se volvió a la descripción de main: la
+IA igual saca, reordena y duplica, porque eso lo dice la gramática, no la descripción. Es la regla de AGENTS.md («las
+descripciones no repiten las raíces de OTRAS operaciones») cumplida tarde. Los otros dos fijaban líneas que la réplica
+reescribió (el clic que elige y la frase de la gramática): se reescribieron para afirmar lo que cuidan.
+
+**Probado rompiéndolo (4/11):** 16 roturas, 16 rojas (las 3 de las aserciones reescritas, y sacar el ícono de la lista, el corte del reproductor, la agenda, el
+relleno al poner y al sacar, el relleno puesto en el fondo, el cableado de `onIcono`, las pestañas, y las cuatro condiciones
+de `capaEncima` más el aviso). `tsc-acotado` sin errores en los 5 archivos.
+
+**Lo que NO se pudo ver, y queda para una sesión con la base:**
+- Si los dos ❌ se van de verdad en la #68 y la #69: hace falta abrirlas en el editor real.
+- Una sospecha más para el ❌ de la #68: la matriz leía el color calculado APENAS después de ponerlo. Con un
+  `transition: color …` en la hoja de la página, ese valor es todavía el de antes. Si ése era el caso, el ❌ era de la medición.
+- Las capturas 1440/390 de las 5 copias (`C:/dev/revisiones/replica-editable/capturas/`, en la PC) no se miraron.
+- El chat de punta a punta en #70–#72 (`chat-e2e-2`) no corrió. Por el chat, la imagen depende de Openverse, que tarda 11–20 s
+  contra un corte de 12 s (`lib/imagenes-stock.ts`): decidir si se suma otro proveedor de fotos.
+- El chat ve sólo 60 botones por sección (`TOPE_ELEMENTOS_DISENO`, ia-bloques.ts): #68 secc 0 tiene 91 y #69 secc 1 tiene 71.
+  Por «Contenido» sí se llega.
+- Las copias #68–#72 siguen en el ws9 como material de prueba: van a la papelera cuando esto se dé por cerrado.
+
+*29/10/2026 (claude4, la matriz) y 4/11/2026 (nube, al rearmar la etiqueta `rescate/replica-editable-2810` sobre main).*
+
+## Los valores de Tilvo en el chrome: la estructura sigue de Gamma (31/10/2026)
+
+**Vive en:** `app/web-generator/gamma.css` (y los bloques propios: `.gmx` de `BarraFormato.tsx`, `.gmp` de `dialogos/piezas-gma.tsx`,
+`.gma-pb` de `paneles/PanelAgente.tsx`, `.gp` de `MiniaturaLanding.tsx`). Los números: `docs/diseno/`.
+
+- **La regla:** Gamma es un competidor, se le copia la estructura; Code and Chill es una referencia de estilo, se le copian los números
+  (AGENTS.md, «NINGUNA pantalla se diseña de cero», punto 3). Elegí Tilvo porque es la azul de las doce. Los nombres de la escala
+  (`--gma-t500`, `--gma-b600`) quedaron: adentro ya no hay un gris de Gamma.
+- **No tocar `lib/editor-landing/temas.ts` en esta pasada:** los temas son el CONTENIDO de cada cliente. El lienzo sigue claro con el
+  editor en oscuro, y está bien: es su página.
+- **Hay cinco juegos de colores, no uno.** Cambiar `gamma.css` no alcanza: `.gmx`, `.gmp` y `.gma-pb` escriben sus hex a mano y `.gmx` no lee
+  ningún `--gma-*`. Quien cambie la paleta otra vez tiene que pasar por los cinco.
+- **El teléfono no existía:** ni una regla para el editor. A 390 el panel de 340 tapaba todo y el lienzo quedaba en una tira de 40 px. Ahora
+  va apilado (lienzo arriba, chat abajo). Es decisión nuestra, no copia: Tilvo a 390 usa una barra fija abajo, y esto no tiene navegación
+  que poner ahí. La regla va al FINAL de la hoja o el margen del lienzo le gana (`tests/web-generator-valores.test.ts`).
+- **El banco mentía por no cargar `globals.css`.** Sin `--fs-md`, el campo del chat quedaba sin relleno y la caja se veía desalineada; sin el
+  preflight de Tailwind, «Discutir | Editar» salía en Arial. Parecían dos bugs de la app y eran del banco: ahora `server.cjs` los define.
+- **Sin hacer:** el círculo del cambio de tema (450 ms, `docs/diseno/movimiento-codeandchill.md`) vive en el interruptor de la app, no acá.
+  La barra lateral y el resto de la app siguen en Geist: entrar a la tab cambia de letra hasta que el rediseño llegue a todo.
+
 ## Servir otra versión de una página publicada: lo que lee la foto de A y lo que publica el borrador (25/10/2026)
 
 **Vive en:** `lib/editor-landing/pagina-publica.ts`, `lib/editor-landing/publicar.ts`, `lib/editor-landing/pago-landing.ts`,
@@ -3892,3 +3967,34 @@ redirecciones. Nunca contra lo que pegó la persona, nunca contra el `canonical`
 - **`docs/feedback-24-10.md` y `docs/pendientes.md` siguen atrasados** en lo demás: los corrige el Cerebro con la lista de lo que sigue vivo.
 - **Punto 6 (placeholders detrás de otras secciones):** en el banco el «Encabezado 2» de una sección vacía se lee y no queda tapado. No se reprodujo el caso original: se necesita la landing donde lo vio.
 - **Por debajo de ~336 px de barra** (640 de ventana, sin lugar real) sigue sin entrar.
+
+## Las tarjetas siguen la demo de Martín, no el ranking del rubro (29/10/2026, noche)
+
+**Vive en:** `scripts/landing-principal-high-ticket.mts` (`TARJETAS`, `TARJETA_AVATAR`, `REEMPLAZA_A`, `Y_ADEMAS`, `NO_ESTA`) ·
+la llamada con Thiago (Fathom 197943284) y su análisis en el scratchpad del Cerebro (`llamada/como-presento-mako.md` y
+`promesas.md`, sesión 4d1a09d4).
+
+Martín: «revisa cómo le presenté la app a Thiago, qué cosas prioricé, y metelas en la landing de funcionalidades». A la
+tarde, las 9 del taller salieron del ranking del rubro (qué vende un coach o un infoproductor). **El diagnóstico obvio
+(«lo hot es lo que puntúa el mercado») era el equivocado:** lo hot es lo que Martín muestra EN VIVO cuando vende, y en qué
+orden. En la llamada, el scraper, las automatizaciones («un ManyChat 2.0») y replicar una landing fueron en vivo, y los
+dashboards se llevaron el mayor tiempo. Ninguno de los cuatro estaba arriba, y los dashboards ni tenían tarjeta. Al revés:
+el análisis de llamadas tenía tarjeta y ni lo nombró.
+
+- **El orden:** las cuatro en vivo o con más tiempo; después las de peso alto en el orden en que salieron (Plan desde las
+  reuniones, media buyer, editor de video, MaKo en tu WhatsApp); y los chats. El CRM, «QUIERO», el Calendario, School,
+  Canva, el Copywriter, el análisis de llamadas, la app, la API y la seguridad van a «Y además».
+- **Lo que dijo y no se pone:** LinkedIn en Chats y Automations, lanzar campañas desde el chat, el scraper de Instagram y
+  las publicaciones recurrentes no existen (`promesas.md`). `NO_ESTA` frena el script si alguno aparece en la sección. Del
+  media buyer dijo «él solo decide»: eso es sólo en Pro con el piloto prendido, así que la tarjeta dice «te propone» y «En
+  Pro, lo aplica solo».
+- **«Reemplaza a»** nombra sólo lo que MaKo reemplaza hoy: ManyChat, CapCut, Canva, Notion, Trello, Skool y el CRM.
+- **El script se puede volver a correr:** el marco y «Y además» llevan `data-mk` y se sacan antes de ponerlos. La base de
+  cada tarjeta es la ya publicada con su `data-feature`; si no está, la de `de`; y si tampoco, una azul. Medido: una
+  segunda pasada sobre su propia salida da lo mismo.
+- **Sin hacer:** el Avatar está detrás de `--con-avatar` (entra después del editor de video y los chats pasan a «Y
+  además»), y espera un look generado en producción. Automatizaciones, Plan y chats llevan a `#beta`, porque no tienen
+  página propia. /vsl/dashboard y /vsl/mako son textos viejos que no revisé. Con 9 tarjetas, a 390 la última queda sola.
+
+**Regla:** la grilla de la landing sale de cómo Martín presenta MaKo en vivo (el orden y el tiempo de su última demo),
+cruzado con lo que está en producción. El ranking del rubro sirve para desempatar, no para ordenar.

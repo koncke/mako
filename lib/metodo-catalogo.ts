@@ -426,6 +426,29 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   // IA8 (22/10/2026): Cerebras, Mistral y OpenRouter se sacaron (docs/hallazgos-ia.md). ⚠️ Sin su método, una fila ya
   // guardada no se puede borrar ni revelar desde la pantalla (ENVS_METODO): queda inerte; borrarla es SQL.
   {
+    key: 'apple-push',
+    nombre: 'Apple Push',
+    categoria: 'Desarrollo',
+    soloPlataforma: true,
+    // De la PLATAFORMA, como GitHub: la app de iPhone es una sola, con el id `com.holamako.app`. lib/push-apns.ts lee estas tres del ws de plataforma.
+    paraQue: 'Los avisos de la app de iPhone. Sin esto, los iPhones no reciben notificaciones (Android y la computadora siguen igual).',
+    campos: [
+      { env: 'APNS_KEY_ID', label: 'Key ID', secreto: false, placeholder: 'ABC123DEFG', nota: 'Los 10 caracteres que Apple muestra al lado de la clave.' },
+      { env: 'APNS_TEAM_ID', label: 'Team ID', secreto: false, placeholder: 'XYZ987WVUT', nota: 'Los 10 caracteres de Membership, en developer.apple.com/account.' },
+      { env: 'APNS_P8', label: 'La clave (.p8)', secreto: true, placeholder: '-----BEGIN PRIVATE KEY-----…', nota: 'Abre el archivo .p8 con el Bloc de notas y pega todo. Apple la deja bajar UNA sola vez.' }, // claves-en-el-diff: ok
+    ],
+    tutorial: {
+      url: 'https://developer.apple.com/account/resources/authkeys/list',
+      urlLabel: 'Apple Developer → Keys',
+      pasos: [
+        'Entra a developer.apple.com/account/resources/authkeys/list con tu cuenta de Apple.',
+        'Toca «+», ponle de nombre «MaKo push» y marca «Apple Push Notifications service (APNs)».',
+        'Toca «Continue» y «Register», y baja el archivo .p8: Apple lo deja bajar UNA sola vez. Guárdalo.',
+        'Carga los tres campos de arriba: cada uno tiene su «?» con dónde está.',
+      ],
+    },
+  },
+  {
     key: 'github',
     nombre: 'GitHub',
     categoria: 'Desarrollo',
@@ -732,12 +755,12 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     key: 'youtube',
     nombre: 'YouTube',
     categoria: 'Datos',
-    paraQue: 'Views del VSL alojado en YouTube (si tu VSL vive ahí).',
+    paraQue: 'Sólo para contar las vistas de TU VSL, si vive en YouTube. Para leer a tus competidores no hace falta nada, y tu canal se conecta en Zernio.',
     campos: [
       // La clave ya NO se pide (27/10/2026, pedido del Cerebro, feedback 876470842-22): las vistas de un video son públicas y
       // MaKo las lee con la suya (`claveDeYoutube`, lib/youtube.ts), y el canal se conecta con el login de Zernio
       // (lib/zernio-redes.ts). «Conectado» pasa a ser tener el video del VSL; quien ya tenía su clave la sigue usando.
-      { env: 'YOUTUBE_API_KEY', label: 'API key', secreto: true, opcional: true, retirado: true, placeholder: 'AIza…', nota: 'Ya no hace falta: MaKo lee las vistas con su clave. Déjala sólo si quieres usar tu propia cuota.' },
+      { env: 'YOUTUBE_API_KEY', label: 'Tu API key (no hace falta)', secreto: true, opcional: true, retirado: true, placeholder: 'AIza…', nota: 'MaKo lee YouTube con su clave. Déjala sólo si quieres usar tu propia cuota.' },
       { env: 'YOUTUBE_VSL_VIDEO_ID', label: 'ID del video del VSL', placeholder: 'dQw4w9WgXcQ', nota: 'Lo que va después de v= en youtube.com/watch?v=ESTO, o de la barra en youtu.be/ESTO. Si hay un &, corta ahí.' },
       { env: 'YOUTUBE_OAUTH_CLIENT_ID', label: 'OAuth Client ID', opcional: true, placeholder: '…apps.googleusercontent.com', nota: 'Opcional: déjalo vacío. Solo hace falta para la retención y las vistas diarias de TU canal.' },
       { env: 'YOUTUBE_OAUTH_CLIENT_SECRET', label: 'OAuth Client secret', secreto: true, opcional: true, placeholder: 'GOCSPX-…', nota: 'Opcional. Va de a pares con el "OAuth Client ID". Empieza con GOCSPX- y se ve UNA sola vez.' },
@@ -751,6 +774,24 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Pégalo en "ID del video del VSL" y guarda: MaKo lee sus vistas cada día, sin claves.',
         'Para conectar tu canal: en la tarjeta de Zernio, en "YouTube", toca "Conectar" y entra con Google.',
         'Los tres campos "OAuth" son opcionales: solo dan la retención de tu canal. Déjalos vacíos.',
+      ],
+    },
+  },
+  {
+    key: 'apify-instagram',
+    nombre: 'Apify',
+    categoria: 'Datos',
+    paraQue: 'Lee el perfil y las publicaciones públicas de los competidores que miras en Competitors Spy, cuando Meta no puede. Corre con tu cuenta.',
+    campos: [
+      { env: 'APIFY_INSTAGRAM_TOKEN', label: 'API token', secreto: true, placeholder: 'apify_api_…', nota: 'Es TU cuenta: Apify cobra por perfil leído. MaKo la usa sólo para Competitors Spy, con un tope de 40 lecturas por día.' },
+    ],
+    tutorial: {
+      url: 'https://console.apify.com/settings/integrations',
+      urlLabel: 'Apify → Settings → API & Integrations',
+      pasos: [
+        'Entra a console.apify.com con tu cuenta. El plan gratis alcanza para empezar.',
+        'Ve a «Settings» → «API & Integrations» y copia tu «Personal API token» (empieza con apify_api_).',
+        'Pégalo en "API token" y guarda. MaKo comprueba que funcione sin gastar nada.',
       ],
     },
   },
@@ -1418,6 +1459,33 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://dashboard.stripe.com/apikeys',
     urlLabel: 'Stripe → API keys',
+  },
+  APNS_KEY_ID: {
+    pasos: [
+        'Para qué sirve: junto con el Team ID y la clave .p8, es lo que le permite a MaKo avisar en un iPhone.',
+        'Entra a developer.apple.com/account/resources/authkeys/list y abre la clave «MaKo push».',
+        'Copia el «Key ID», los 10 caracteres de esa pantalla, y pégalo en este campo.',
+      ],
+    url: 'https://developer.apple.com/account/resources/authkeys/list',
+    urlLabel: 'Apple Developer → Keys',
+  },
+  APNS_TEAM_ID: {
+    pasos: [
+        'Para qué sirve: le dice a Apple de qué cuenta de desarrollador sale el aviso.',
+        'Entra a developer.apple.com/account y baja hasta «Membership details».',
+        'Copia el «Team ID», los 10 caracteres, y pégalo en este campo.',
+      ],
+    url: 'https://developer.apple.com/account',
+    urlLabel: 'Apple Developer → Membership',
+  },
+  APNS_P8: {
+    pasos: [
+        'Para qué sirve: es la clave con la que MaKo firma cada aviso a un iPhone.',
+        'Abre con el Bloc de notas el archivo .p8 que bajaste al crear la clave.',
+        'Copia todo, desde -----BEGIN hasta -----END, y pégalo en este campo.',
+      ],
+    url: 'https://developer.apple.com/account/resources/authkeys/list',
+    urlLabel: 'Apple Developer → Keys',
   },
   CREEM_API_KEY: {
     pasos: [

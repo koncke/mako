@@ -507,8 +507,10 @@ export type AccionRun = {
   /** Lo que se puede saber SIN escribir y haría fallar a `ejecutar` (por ejemplo: «esto sale firmado y este pedido no trae a
    *  nadie que firme»). Lo pregunta `confirmarPendiente` ANTES de reclamar la pendiente, y la pantalla genérica antes de
    *  marcarla aplicada: reclamar la quema (queda en `error`), y un «sí» que no se puede cumplir no puede dejarla así para
-   *  quien sí la podía confirmar (regla 3 de AGENTS.md: lo que se sabe sin escribir falla antes). Devuelve el motivo, o null. */
-  faltaParaConfirmar?: (payload: Record<string, unknown>, ctx: Ctx) => Promise<string | null>;
+   *  quien sí la podía confirmar (regla 3 de AGENTS.md: lo que se sabe sin escribir falla antes). Devuelve el motivo, o null.
+   *  `{ yaNoVale }`: la propuesta no se va a poder cumplir NUNCA (el plan de cuotas cambió desde que se propuso): se cierra con
+   *  ese motivo. Viva, el «sí» pelado de WhatsApp a la que se pide de nuevo chocaba con ella (revisión de 7f79a4e6c, B12). */
+  faltaParaConfirmar?: (payload: Record<string, unknown>, ctx: Ctx) => Promise<string | { yaNoVale: string } | null>;
   /** SOLO las `pantalla` con pantalla PROPIA (leads → /crm/revisar, tareas →
    *  /plan/revisar, borradores → /whatsapp): dejan la propuesta en su tabla y
    *  devuelven el link. Sin esto, una `pantalla` va a la genérica /mako/revisar/<id>. */

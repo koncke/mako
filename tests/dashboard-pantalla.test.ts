@@ -406,8 +406,9 @@ test('los filtros van en la topbar: afuera del lienzo que scrolla, y una sola ve
   assert.doesNotMatch(CSS, /\.lk-controles\b/, 'volvió la fila de controles adentro del lienzo');
   const vuelta = EDITOR.slice(EDITOR.indexOf('return (\n    <div className={`lk lk-app'));
   const top = bloque(vuelta, '<BarraSuperior', '<div className="lk-cuerpo">');
-  assert.match(top, /derecha=\{\([\s\S]*<BarraControles\b/, 'los filtros no están en la topbar');
-  assert.equal((vuelta.match(/<BarraControles\b/g) ?? []).length, 1, 'los filtros se dibujan dos veces');
+  assert.match(top, /derecha=\{herramientas\}/, 'los filtros no están en la topbar');
+  assert.match(bloque(EDITOR, 'const herramientas = (', 'return (\n    <div className={`lk lk-app'), /<BarraControles\b/);
+  assert.equal((EDITOR.match(/<BarraControles\b/g) ?? []).length, 1, 'los filtros se dibujan dos veces');
   assert.doesNotMatch(bloque(vuelta, '<div className="lk-lienzo"', '{sel && ('), /<BarraControles\b/, 'los filtros volvieron al lienzo');
 });
 

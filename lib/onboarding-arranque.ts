@@ -42,6 +42,7 @@ import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
 import type { PropuestaCrm } from './onboarding-crm';
 import { RUTA_AUTOMATIONS } from './ruta-automations';
 import { NOTA_DE_VOZ } from './chat-mako-reglas';
+import { AVISOS_LISTOS, AVISOS_SIN_SOPORTE, PIDE_AVISOS, PREGUNTA_AVISOS } from './avisos-telefono-reglas';
 import {
   DICE_NO, DICE_SI, MONEDA_DOLAR, MONEDA_LOCAL, NO_DE_UNA_PALABRA, NOMBRA_LO_PREGUNTADO, PUEDE_SER_NOMBRE, SI_DE_UNA_PALABRA, TRAS_EL_NO,
 } from './onboarding-frases';
@@ -103,6 +104,8 @@ export type EstadoArranque = {
   /** El teléfono de los avisos: 'codigo' = se mandó el código y falta cargarlo. */
   telefono?: 'codigo' | 'verificado' | 'postergado';
   telefonoNumero?: string;
+  /** Desde el 4/11/2026 la persona le ESCRIBE a MaKo (lib/verificacion-entrante.ts): 'codigo' = falta que mande el mensaje. Sin esto, MaKo le mandó el código. */
+  telefonoEntrante?: boolean;
   /** La conversación de Offer donde vive la oferta (modo 'oferta'). */
   sesionId?: number;
   /** El chat «Onboarding» del Ops Center con esta conversación (20/10/2026): se crea una vez, al terminar. */
@@ -118,6 +121,8 @@ export type EstadoArranque = {
   hiloCreando?: { at: string; por: string };
   /** Ya vio la animación del principio: no se repite al recargar. */
   introVista?: boolean;
+  /** «Mi teléfono no puede» (3/11/2026): la única salida del paso de los avisos, y sólo la ofrece un navegador que no los recibe. Que los active se MIDE, no se guarda. */
+  avisos?: 'sin-soporte';
 };
 
 /** Lo que el server MIDE (nunca se guarda: estado vivo, no recordado). */
@@ -147,14 +152,18 @@ export type HechosArranque = {
   conTelefono: boolean;
   /** El onboarding ya está cerrado. */
   terminado: boolean;
+  /** El paso de los avisos aplica (lib/avisos-telefono.ts). Sin esto, no existe: mirando a otro, o con el push apagado, no se traba a nadie. */
+  conAvisos?: boolean;
+  /** Tiene un TELÉFONO con los avisos activados. Medido en cada lectura. */
+  avisosListos?: boolean;
 };
 
 export type EtapaArranque =
   | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'pdf' | 'cobro' | 'crm'
-  | 'telefono' | 'codigo' | 'cierre' | 'listo';
+  | 'telefono' | 'codigo' | 'avisos' | 'cierre' | 'listo';
 
 /** `pdf`: el PDF con lo que vende (la ruta lo arma con las piezas de la conversación). */
-export type TarjetaArranque = 'crm' | 'telefono' | 'pdf' | 'listo';
+export type TarjetaArranque = 'crm' | 'telefono' | 'whatsapp' | 'avisos' | 'pdf' | 'listo';
 
 /** Un mensaje del chat de arranque (los de la conversación de la oferta son los de Offer, aparte). */
 export type MensajeArranque = {
@@ -170,6 +179,8 @@ export const OBJETIVOS_SUGERIDOS = ['Conseguir mis primeros clientes', 'Vender m
 export const AHORA_NO = 'Ahora no';
 /** La respuesta que se dibuja (y se anota) al cargar el código del WhatsApp: el código no se guarda. */
 export const CODIGO_CARGADO = 'Listo, ya lo cargué.';
+/** Lo mismo, cuando la persona le escribió a MaKo (4/11/2026): no cargó nada en la app. */
+export const MENSAJE_MANDADO = 'Listo, ya te escribí.';
 export const CAMBIAR_NUMERO = 'Cambiar número';
 export const VER_OTROS_TIPOS = 'Ver otros tipos';
 /** La primera respuesta del CRM (18/10/2026, Martín, punto 10: «las respuestas rápidas tiene que ser ‹Sí, es correcto› u
@@ -977,6 +988,8 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
   }
   if (!e.origen) return 'origen';
   if (h.modo === 'oferta' && !e.interes) return 'interes';
+  // OBLIGATORIO (Martín, 3/11/2026): la app es el canal de los avisos, así que sin el teléfono activado no se entra. Lo último, cuando ya invirtió el tiempo: un permiso pedido de entrada se niega.
+  if (h.conAvisos && !h.avisosListos && e.avisos !== 'sin-soporte') return 'avisos';
   return 'cierre';
 }
 
@@ -1029,6 +1042,11 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
       preguntarConOpciones(lista, preguntar, e, { msg: 'interes', pregunta: 'interes' }, '¿Qué te gustaría que MaKo resuelva primero?',
         INTERESES.map((i) => i.label), elegido >= 0 ? elegido : undefined);
       if (etapa === 'interes') return true;
+    }
+    if (h.conAvisos) {
+      lista.push({ id: 'arr-avisos', de: 'mako', texto: PREGUNTA_AVISOS, ...(etapa === 'avisos' ? { tarjeta: 'avisos' as const } : {}) });
+      if (etapa === 'avisos') return true;
+      lista.push({ id: 'arr-avisos-r', de: 'yo', texto: e.avisos === 'sin-soporte' && !h.avisosListos ? AVISOS_SIN_SOPORTE : AVISOS_LISTOS });
     }
     return false;
   };
@@ -1133,9 +1151,13 @@ function mensajesDelTelefono(e: EstadoArranque, etapa: EtapaArranque): MensajeAr
   else if (e.telefono === 'codigo' || e.telefono === 'verificado') out.push({ id: 'arr-telefono-r', de: 'yo', texto: e.telefonoNumero || 'Mi WhatsApp' });
   if (etapa === 'telefono') return out;
   if (e.telefono === 'codigo' || e.telefono === 'verificado') {
-    out.push({ id: 'arr-codigo', de: 'mako', texto: `Te mandé un código de 6 dígitos por WhatsApp${e.telefonoNumero ? ` al ${e.telefonoNumero}` : ''}. Escríbelo aquí.`, ...(etapa === 'codigo' ? { opciones: [CAMBIAR_NUMERO, AHORA_NO] } : {}) });
+    // MaKo no le escribe primero a nadie (4/11/2026): la persona le manda el mensaje desde su WhatsApp, con el texto escrito.
+    const texto = e.telefonoEntrante
+      ? `Para confirmar tu WhatsApp, mándame un mensaje desde ${e.telefonoNumero ? `el ${e.telefonoNumero}` : 'ese número'}. Ya va escrito: sólo envíalo.`
+      : `Te mandé un código de 6 dígitos por WhatsApp${e.telefonoNumero ? ` al ${e.telefonoNumero}` : ''}. Escríbelo aquí.`;
+    out.push({ id: 'arr-codigo', de: 'mako', texto, ...(etapa === 'codigo' ? { opciones: [CAMBIAR_NUMERO, AHORA_NO], ...(e.telefonoEntrante ? { tarjeta: 'whatsapp' as const } : {}) } : {}) });
     if (etapa === 'codigo') return out;
-    if (e.telefono === 'verificado') out.push({ id: 'arr-codigo-r', de: 'yo', texto: CODIGO_CARGADO });
+    if (e.telefono === 'verificado') out.push({ id: 'arr-codigo-r', de: 'yo', texto: e.telefonoEntrante ? MENSAJE_MANDADO : CODIGO_CARGADO });
   }
   return out;
 }
@@ -1384,14 +1406,15 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: true, patch: { faseResp: propias, ...escritas }, ...(completa ? { fase: completa, ...(siguiente.canal ? { faseCanal: siguiente.canal } : {}) } : {}) };
   }
   if (etapa === 'codigo') {
-    if (opcion === CAMBIAR_NUMERO) return { ok: true, patch: { telefono: undefined, telefonoNumero: undefined } };
+    if (opcion === CAMBIAR_NUMERO) return { ok: true, patch: { telefono: undefined, telefonoNumero: undefined, telefonoEntrante: undefined } };
     if (opcion === AHORA_NO) return { ok: true, patch: { telefono: 'postergado' } };
-    return { ok: false, error: 'Escribe el código de 6 dígitos.' };
+    return { ok: false, error: e.telefonoEntrante ? 'Mándame el mensaje por WhatsApp: aquí no hace falta escribir nada.' : 'Escribe el código de 6 dígitos.' };
   }
   if (etapa === 'telefono') {
     if (normal(texto).trim() === normal(AHORA_NO)) return { ok: true, patch: { telefono: 'postergado' } };
     return { ok: false, error: PIDE_TELEFONO };
   }
+  if (etapa === 'avisos') return { ok: false, error: PIDE_AVISOS };
   if (etapa === 'crm') {
     if (opcion === VER_OTROS_TIPOS) return { ok: true, patch: { crmVerTodos: true } };
     if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false, e.crmPropuesta).tipos[0].id } };

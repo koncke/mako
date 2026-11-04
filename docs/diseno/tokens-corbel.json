@@ -1,0 +1,131 @@
+{
+  "_que_es": "Los valores REALES de Corbel, leídos de la demo el 31/10/2026 con el navegador (getComputedStyle a 1440 × 900). Es la plantilla «tipo blanco y negro, la más sólida» que Martín eligió como estilo por defecto del Dashboard. NO estaba en los otros cuatro JSON de esta carpeta: los doce de ahí son otra lista.",
+  "_como_se_leyo": "demo.codeandchill.store/corbel/ → javascript_tool. La demo abre en oscuro; lo claro se leyó poniendo data-theme=light en <html>, y las cuatro paletas poniendo data-palette. Si un valor no coincide dentro de un mes, la demo cambió: se vuelve a leer, no se adivina.",
+  "url": "https://demo.codeandchill.store/corbel/",
+
+  "esqueleto": {
+    "font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "cuerpo": { "font-size": "14px", "font-weight": "500", "line-height": "1.45" },
+    "escala": { "--fs-2xs": "11px", "--fs-xs": "12px", "--fs-sm": "12.5px", "--fs-md": "13.5px", "--fs-base": "14px", "--fs-lg": "15px", "--fs-xl": "17px", "--fs-2xl": "20px", "--fs-3xl": "22px", "--fs-4xl": "26px", "--fs-display": "34px" },
+    "radios": { "--r-xs": "8px", "--r-sm": "14px", "--r": "22px", "--r-lg": "28px" },
+    "--ease": "cubic-bezier(.2, .8, .2, 1)",
+    "_ease_nota": "⚠️ NO es la de las otras doce (.22, 1, .36, 1).",
+    "separacion": { "entre tarjetas": "16px", "grilla": "12 columnas", "fila KPI": "4 columnas iguales" }
+  },
+
+  "piezas": {
+    "tarjeta": { "background": "var(--glass)", "box-shadow": "inset 0 0 0 1px var(--rim), var(--shadow)", "border-radius": "22px", "padding": "20px", "border": "ninguno" },
+    "titulo_de_tarjeta": { "font-size": "15px", "font-weight": "600", "letter-spacing": "-0.075px", "line-height": "21.75px", "color": "var(--text)" },
+    "resumen_al_lado_del_titulo": { "font-size": "12.5px", "font-weight": "500", "color": "var(--faint)" },
+    "titulo_de_pagina": { "font-size": "37.44px", "font-weight": "600", "letter-spacing": "-0.936px", "line-height": "38.94px" },
+    "kpi": {
+      "caja": { "border-radius": "22px", "padding": "18px 20px 16px", "gap": "12px", "alto": "162px", "sombra": "ninguna" },
+      "rotulo": "h2, con el ícono de información al lado",
+      "valor": { "font-size": "26px", "font-weight": "600", "letter-spacing": "-0.52px", "line-height": "28.6px", "white-space": "nowrap" },
+      "meta": { "font-size": "12.5px", "color": "tinta al 70 %", "flex-wrap": "wrap", "gap": "6px" },
+      "delta": { "font-size": "11px", "font-weight": "700", "border-radius": "999px", "padding": "0 7px 0 5px", "alto": "20px", "fondo": "el color de estado al 16 %" },
+      "mini": { "width": "84px", "height": "44px", "align": "abajo a la derecha" },
+      "link_del_pie": { "color": "var(--muted)", "border-top": "1px dashed var(--line-2)", "padding-top": "10px" },
+      "_orden": "De izquierda a derecha: tile--sky (negra), tile--mint (blanca), tile--lemon (gris), tile--coral (gris más oscuro). Es lo que hace que la fila se lea sin mirar el número."
+    },
+    "tarjeta_negra": { "clase": "tile--ocean", "background": "var(--ocean)", "color": "var(--on-ocean)", "muted": "--on-ocean al 70 %" },
+    "valor_grande_del_indicador": { "font-size": "34px", "font-weight": "600", "letter-spacing": "-1.19px", "line-height": "34px" },
+    "columnas": {
+      "riel": { "width": "min(30px, 66%)", "border-radius": "999px", "overflow": "hidden" },
+      "relleno": { "background": "repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 7px), var(--hatch-bg)", "border-radius": "999px" },
+      "hover": "background-color: color-mix(in srgb, var(--primary) 12%, transparent)",
+      "elegida": "relleno negro con degradado hacia abajo; el rótulo de abajo pasa a var(--text) y 600",
+      "rotulo": { "font-size": "11px", "color": "var(--faint)" }
+    },
+    "globo": { "background": "var(--ink-btn)", "color": "var(--on-ink-btn)", "border-radius": "12px", "padding": "10px 12px", "font-size": "12px", "box-shadow": "var(--shadow-pop)" },
+    "selector": { "background": "var(--well)", "border-radius": "999px", "padding": "3px", "boton": { "height": "32px", "font-size": "12.5px", "font-weight": "600", "padding": "0 14px", "color": "var(--muted)" }, "pastilla": { "background": "var(--glass-3)", "box-shadow": "0 2px 8px #1428381a" }, "chico": { "height": "28px", "font-size": "12px", "padding": "0 11px" } },
+    "boton_negro": { "background": "var(--ink-btn)", "color": "var(--on-ink-btn)", "height": "40px", "border-radius": "999px", "padding": "0 16px", "font-size": "13.5px", "font-weight": "600", "gap": "7px" }
+  },
+
+  "paletas": {
+    "_nota": "Martín: un estilo por defecto (mono) y los demás se eligen. Corbel trae estas cuatro; la frase de su panel: los colores de estado conservan su significado en cada paleta (--up/--down/--warn son iguales en las cuatro).",
+    "mono": {
+      "claro": {
+        "--bg": "#efefed", "--surface": "#fcfcfb", "--float": "#fcfcfb",
+        "--glass": "#ffffffa3", "--glass-2": "#ffffffc7", "--glass-3": "#fffffff0",
+        "--text": "#121212", "--muted": "#4f4f4c", "--faint": "#636360",
+        "--line": "#11111117", "--line-2": "#1111112b", "--rim": "#ffffffeb", "--well": "#1111110f",
+        "--primary": "#121212", "--on-primary": "#fff", "--primary-2": "#a3a39e", "--primary-soft": "#e4e4e1",
+        "--ink-btn": "#121212", "--on-ink-btn": "#f6f6f4", "--dock": "#121212", "--on-dock": "#f6f6f4",
+        "--ocean": "#121212", "--on-ocean": "#f3f7f8", "--sky": "#121212", "--mint": "#fff", "--lemon": "#e2e2de", "--coral": "#d2d2cd", "--on-tile": "#14202a",
+        "--c1": "#121212", "--c2": "#b4b4af", "--c3": "#6a6a66", "--c4": "#8e8e89", "--c5": "#c8c8c3",
+        "--up": "#22735c", "--up-soft": "#d5eee4", "--down": "#b1412a", "--down-soft": "#f8e1da", "--warn": "#85580a", "--warn-soft": "#f5ead2",
+        "--sea": "#3f3f3c", "--hatch": "#00000029", "--hatch-bg": "#00000009",
+        "--heat-0": "#e8e8e5", "--heat-1": "#d0d0cc", "--heat-2": "#a6a6a1", "--heat-3": "#696965", "--heat-4": "#121212",
+        "--mesh-a": "#e1e1de", "--mesh-b": "#f9f9f7", "--mesh-c": "#e6e6e3",
+        "--shadow": "0 1px 0 #fffc inset, 0 22px 44px -30px #00000038",
+        "--shadow-lift": "0 1px 2px #14202a0d, 0 14px 30px -16px #1c3c524d",
+        "--shadow-pop": "0 24px 60px -18px #14283857, 0 2px 6px #14283814"
+      },
+      "oscuro": {
+        "--bg": "#0b0b0b", "--surface": "#161616", "--float": "#1a1a1a",
+        "--glass": "#ffffff0b", "--glass-2": "#ffffff14", "--glass-3": "#202020",
+        "--text": "#ededeb", "--muted": "#a9a9a5", "--faint": "#8e8e8a",
+        "--line": "#ffffff16", "--line-2": "#ffffff29", "--rim": "#ffffff13", "--well": "#fff1",
+        "--primary": "#ededeb", "--on-primary": "#111", "--primary-2": "#6c6c68", "--primary-soft": "#ffffff1a",
+        "--ink-btn": "#ededeb", "--on-ink-btn": "#111", "--dock": "#ffffff14", "--on-dock": "#ededeb",
+        "--ocean": "#222", "--on-ocean": "#f3f7f8", "--sky": "#f0f0ee", "--mint": "#d6d6d2", "--lemon": "#c2c2bd", "--coral": "#ababa6", "--on-tile": "#14202a",
+        "--c1": "#ededeb", "--c2": "#6c6c68", "--c3": "#a9a9a5", "--c4": "#8e8e8a", "--c5": "#c4c4bf",
+        "--up": "#6fd3b0", "--up-soft": "#6fd3b021", "--down": "#f2937c", "--down-soft": "#f2937c21", "--warn": "#e8bd62", "--warn-soft": "#e8bd6221",
+        "--hatch": "#fff3", "--hatch-bg": "#ffffff0a",
+        "--heat-0": "#1a1a1a", "--heat-1": "#2e2e2e", "--heat-2": "#4c4c4a", "--heat-3": "#8a8a86", "--heat-4": "#ededeb",
+        "--mesh-a": "#ffffff0d", "--mesh-b": "#ffffff06", "--mesh-c": "#ffffff09",
+        "--shadow": "0 1px 0 #ffffff0d inset, 0 24px 48px -30px #000c",
+        "--shadow-lift": "0 1px 2px #0000004d, 0 14px 32px -16px #000000bf",
+        "--shadow-pop": "0 24px 60px -18px #000000b3, 0 0 0 1px #ffffff14"
+      }
+    },
+    "pastel": {
+      "claro": { "--bg": "#e6ecef", "--surface": "#fbfcfd", "--glass": "#ffffff80", "--glass-2": "#ffffffa8", "--text": "#14202a", "--muted": "#4c5a65", "--faint": "#5f6d78", "--primary": "#2a6f9a", "--primary-soft": "#d6e8f5", "--c1": "#2a6f9a", "--c2": "#8ec3ea", "--c3": "#2f9a7e", "--c4": "#df7659", "--c5": "#cf9426", "--ocean": "#1f4d6a", "--sky": "#a9d2f1", "--mint": "#a7e1ca", "--lemon": "#f1e08f", "--coral": "#f6b4a3", "--hatch": "#2a6f9a38", "--hatch-bg": "#2a6f9a0d", "--heat-0": "#e3ebef", "--heat-4": "#2a6f9a", "--dock": "#14202a", "--line": "#14202a17", "--line-2": "#14202a29", "--rim": "#ffffffd1", "--mesh-a": "#bcd9f2", "--mesh-b": "#bfe6d6", "--mesh-c": "#f6cfc7" },
+      "oscuro": { "--bg": "#0c1216", "--surface": "#172129", "--float": "#1a242b", "--glass": "#ffffff0d", "--glass-2": "#ffffff16", "--text": "#e8eef1", "--muted": "#a7b3bb", "--faint": "#8d9aa3", "--primary": "#79b6e3", "--primary-soft": "#79b6e326", "--c1": "#79b6e3", "--c2": "#b8daf3", "--c3": "#5fcaa8", "--c4": "#f09a82", "--c5": "#e7b552", "--ocean": "#24597a", "--sky": "#a9d2f1", "--mint": "#a7e1ca", "--lemon": "#f1e08f", "--coral": "#f6b4a3", "--hatch": "#8cc3eb42", "--hatch-bg": "#8cc3eb0f", "--heat-0": "#172128", "--heat-4": "#8ec3ea" }
+    },
+    "ocean": {
+      "claro": { "--bg": "#e4ebf0", "--surface": "#fbfcfd", "--glass": "#ffffff80", "--glass-2": "#ffffffa8", "--text": "#14202a", "--muted": "#4c5a65", "--faint": "#5f6d78", "--primary": "#2a6f9a", "--primary-soft": "#d6e8f5", "--c1": "#2a6f9a", "--c2": "#8ec3ea", "--c3": "#2f9a7e", "--c4": "#df7659", "--c5": "#cf9426", "--ocean": "#173f5f", "--sky": "#9fcbef", "--mint": "#9fdce0", "--lemon": "#cfe3f5", "--coral": "#8fc6d6", "--hatch": "#2a6f9a38", "--hatch-bg": "#2a6f9a0d", "--heat-0": "#e3ebef", "--heat-4": "#2a6f9a", "--mesh-a": "#b4d3ef", "--mesh-b": "#b6e2e6", "--mesh-c": "#cfe0f3" },
+      "oscuro": { "--bg": "#0a1118", "--ocean": "#1e4c70", "--sky": "#9fcbef", "--mint": "#9fdce0", "--lemon": "#cfe3f5", "--coral": "#8fc6d6", "--mesh-a": "#3c82c857", "--mesh-b": "#28a0aa3d", "--mesh-c": "#5a8cd229", "_resto": "igual a pastel/oscuro" }
+    },
+    "sage": {
+      "claro": { "--bg": "#e9ebe4", "--surface": "#fbfcfd", "--glass": "#ffffff80", "--glass-2": "#ffffffa8", "--text": "#14202a", "--muted": "#4c5a65", "--faint": "#5f6d78", "--primary": "#2f6b4f", "--primary-soft": "#dcede3", "--c1": "#2f6b4f", "--c2": "#9ccdb2", "--c3": "#5c9a3e", "--c4": "#d0864f", "--c5": "#c79a2a", "--ocean": "#234a3a", "--sky": "#bfe0c4", "--mint": "#a9dcc6", "--lemon": "#ece2a8", "--coral": "#e9c9a7", "--hatch": "#2f6b4f38", "--hatch-bg": "#2f6b4f0d", "--heat-0": "#e5ebe3", "--heat-4": "#2f6b4f", "--mesh-a": "#cfe3c8", "--mesh-b": "#e6e2c6", "--mesh-c": "#c9e2d6" },
+      "oscuro": { "--bg": "#0c120f", "--surface": "#172129", "--float": "#1a242b", "--text": "#e8eef1", "--muted": "#a7b3bb", "--faint": "#8d9aa3", "--primary": "#8fd1ad", "--primary-soft": "#8fd1ad26", "--c1": "#8fd1ad", "--c2": "#c9e8d3", "--c3": "#a6d36f", "--c4": "#f0a576", "--c5": "#e7c159", "--ocean": "#2a5845", "--sky": "#bfe0c4", "--mint": "#a9dcc6", "--lemon": "#ece2a8", "--coral": "#e9c9a7", "--hatch": "#96d7af42", "--hatch-bg": "#96d7af0f", "--heat-0": "#151d18", "--heat-4": "#8fd1ad", "--mesh-a": "#50a06e47", "--mesh-b": "#c8b45a24", "--mesh-c": "#3c968233" }
+    }
+  },
+  "telefono": {
+    "_como_se_leyo": "A 390 × 844, con el navegador emulando un teléfono (31/10/2026). La demo tarda en dibujar: se leyó después de ver las tarjetas.",
+    "pagina": { "padding": "16px 14px 104px", "titulo": "28px / 600", "separacion": "16px" },
+    "kpi": { "grilla": "2 columnas, gap 10px", "caja": "176 × 146, padding 14px, gap 8px, radio 22px", "valor": "22px / 600, line-height 24.2px", "rotulo": "12.5px / 600", "mini": "oculto (display: none)" },
+    "tarjeta": { "padding": "16px", "titulo": "15px / 600" },
+    "selector": { "alto": "46px", "boton": "40px" },
+    "boton": { "alto": "44px" },
+    "riel": { "ancho": "16px (min(30px, 66%) de una columna de 24px)", "rotulo": "11px" },
+    "dock": { "ancho": "322px", "alto": "56px", "padding": "6px", "radio": "999px" },
+    "letra": "14px de base, igual que en la computadora. Acá se dejó la escala móvil de MaKo (16px de base): está fijada a propósito y es la que no dispara el zoom del teléfono."
+  },
+  "composicion_de_pagina": {
+    "_como_se_leyo": "#/dashboard, en claro, con getComputedStyle sobre el DOM (31/10/2026). ⚠️ DEPENDE DEL ANCHO: a menos de 1100 colapsa a una columna, y ese colapso no es su diseño. Quien mida en un panel angosto mide la otra rama.",
+    "escritorio_1440": {
+      "alto_del_tablero": "806px, sin el encabezado",
+      "grilla": "12 columnas, gap 16px",
+      "filas": [
+        { "bloque": "db-kpis", "columnas": 12, "alto": "162px", "fondo": "transparente", "adentro": "4 tiles de 313 px" },
+        { "bloque": "db-perf", "columnas": 4, "alto": "354px", "fondo": "negro rgb(18, 18, 18)" },
+        { "bloque": "db-an", "columnas": 8, "alto": "354px", "fondo": "vidrio rgba(255, 255, 255, .64)" },
+        { "bloque": "db-heatc", "columnas": 7, "alto": "258px", "fondo": "vidrio" },
+        { "bloque": "db-vis", "columnas": 5, "alto": "258px", "fondo": "vidrio" }
+      ]
+    },
+    "cortes": {
+      "ancho <= 1320": "negro 5 + gráfico 7; db-heatc y db-vis a 12",
+      "ancho <= 1100": "todo a 12: 339 + 284 + 354 + 258 + 254 px; números de a 2",
+      "ancho <= 700": "el mapa de calor se ajusta",
+      "ancho <= 560": "sin el texto del chip; el anillo arriba"
+    },
+    "lo_que_hay_que_saber": "No hay portada, y el negro es el segundo bloque: nunca encabezado y nunca a lo ancho en escritorio. Cinco bloques."
+  },
+
+
+  "_falta_medir": ["el degradado exacto de la columna elegida (se ve negro con la base que se apaga hacia arriba: mirar `.db-col.is-on .db-col__fill`)"]
+}

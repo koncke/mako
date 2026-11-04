@@ -34,3 +34,11 @@ scripts/guardas-push.sh text eol=lf
 
 # La mezcla con fin de línea normalizado (25/10/2026, docs/hallazgos-infra.md): con CRLF, `sh` falla en la primera línea.
 scripts/mezcla-eol.sh text eol=lf
+docs/hallazgos*.md merge=union
+
+# Las bitácoras de /admin/dev (4/11/2026): dos puntas que agregan su hito al FINAL del mismo array chocan siempre, y
+# merge=union arma un objeto con la mitad de cada hito. El driver (scripts/unir-bitacora.mjs) deja los dos si cada lado
+# sólo agregó hitos en el mismo lugar. punta.yml lo configura solo; en la PC, una vez por clon:
+#   git config merge.bitacora.driver "node scripts/unir-bitacora.mjs %O %A %B %P"
+# Sin esa configuración, git mezcla como siempre.
+app/admin/dev/*/bitacora.ts merge=bitacora

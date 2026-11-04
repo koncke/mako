@@ -128,6 +128,10 @@ export const SLIDES: Record<string, Slide[]> = {
     // app/marketing/page.tsx (KPI "Costo / VSL View")
     { t: 'Cuánto te cuesta un view', d: 'El gasto de ads dividido por los views del VSL, como una métrica más del tablero.' },
   ],
+  'apify-instagram': [
+    { t: 'Lee a tus competidores', d: 'El perfil y las publicaciones públicas de Instagram, con sus números, en Competitors Spy.' },
+    { t: 'Corre con tu cuenta', d: 'Apify cobra por perfil leído, y MaKo no pasa de 40 lecturas por día.' },
+  ],
   youtube: [
     // lib/queries.ts: "YouTube aporta la historia, Panda el presente"
     { t: 'La historia del VSL', d: 'Si tu VSL vivió en YouTube, sus views se unifican con los de Panda en una sola serie.' },

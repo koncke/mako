@@ -1,1 +1,15 @@
-[]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.holamako.app",
+      "sha256_cert_fingerprints": [
+        "A9:1A:48:C0:DD:34:DC:22:7E:A4:05:39:C2:C8:08:E4:B7:D7:AA:5A:56:0C:D9:A9:EA:BD:C8:D2:AE:A9:06:81",
+        "47:A7:19:7B:E2:FD:7C:2A:87:E8:EA:E8:7E:3A:8E:9C:2D:37:D8:76:B1:C7:01:E1:24:8F:EF:2E:6E:D4:AD:D7"
+      ]
+    }
+  }
+]

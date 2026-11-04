@@ -83,10 +83,12 @@ export const RECETA = {
 
 /** Grado de cada nodo (cuántas aristas lo tocan). Alimenta el radio y el ranking de
  *  etiquetas: en un grafo, «importante» es «muy conectado». */
-export function gradosDe(nodos: readonly Pick<NodoCerebro<string>, 'id'>[], aristas: AristaCerebro[]): Record<string, number> {
+export function gradosDe(nodos: readonly (Pick<NodoCerebro<string>, 'id'> & { peso?: number })[], aristas: AristaCerebro[]): Record<string, number> {
   const g: Record<string, number> = {};
   for (const n of nodos) g[n.id] = 0;
   for (const a of aristas) { if (a.de in g) g[a.de]++; if (a.a in g) g[a.a]++; }
+  // El `peso` es un PISO (lib/cerebro-modelo.ts): la raíz y los módulos de un curso se ven grandes con pocas aristas.
+  for (const n of nodos) if (typeof n.peso === 'number' && n.peso > g[n.id]) g[n.id] = n.peso;
   return g;
 }
 

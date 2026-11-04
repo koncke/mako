@@ -21,30 +21,28 @@ export const ETIQUETAS_DASHBOARD: Readonly<Record<string, EtiquetasPlantilla>> =
   marketing: { entrada: ['formulario_anuncio', 'landing'] },
   comercial: { canal: ['llamadas', 'conversaciones'], cuello: ['conversion'] },
   'ads-analyst': { entrada: ['formulario_anuncio'] },
+  'hooks-retencion': { entrada: ['formulario_anuncio'] },
   landing: { entrada: ['landing', 'carrito'], canal: ['carrito'] },
   closing: { canal: ['llamadas'], entrada: ['agenda_sola'] },
   productividad: { cuello: ['sistema', 'delegacion', 'foco'] },
   'vsl-analyst': { entrada: ['landing'], canal: ['webinar'] },
   'cs-analyst': { cobro: ['suscripcion'] },
   'chat-analyst': { canal: ['conversaciones'], entrada: ['chat_entrante', 'chat_saliente'] },
-  crm: { cuello: ['conversion'] },
   cobranza: { cobro: ['suscripcion'] },
   automatizaciones: { entrada: ['chat_entrante', 'chat_saliente'], cuello: ['sistema'] },
   'ia-contenido': {},
+  // Por RUBRO: las sugeridas no tienen un eje de rubro (canal, entrada, cobro y cuello), así que no se sugiere; se encuentra por nombre.
+  inmobiliaria: {},
+  // Para quien sale a buscar (escribe o llama primero, en frío). NO por el canal «llamadas»: con eso le ganaba el lugar a Marketing a
+  // quien vende por llamada con leads que entran solos de anuncios (tests/plantillas-sugeridas.test.ts, 04/11/2026).
+  'cold-calling': { entrada: ['chat_saliente'] },
 };
 
 /** La galería de General (`PLANTILLAS_GENERAL`). */
 export const ETIQUETAS_GENERAL: Readonly<Record<string, EtiquetasPlantilla>> = {
   general: {},
-  bienvenida: {},
   foco: { cuello: ['foco'] },
   operacion: { cuello: ['sistema', 'delegacion'] },
-  ventas: { cobro: ['unico'] },
-  cobros: { cobro: ['suscripcion'] },
-  anuncios: { entrada: ['formulario_anuncio', 'landing'] },
-  'funnel-llamadas': { canal: ['llamadas'], entrada: ['agenda_sola'] },
-  'funnel-whatsapp': { canal: ['conversaciones'], entrada: ['chat_entrante', 'chat_saliente'] },
-  lanzamiento: { canal: ['webinar'], entrada: ['landing'] },
   servicio: { cobro: ['suscripcion'] },
   curso: { canal: ['carrito', 'webinar'] },
   instagram: { entrada: ['formulario_anuncio'] },

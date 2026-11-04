@@ -37,8 +37,10 @@ import {
 } from 'recharts';
 import { Spinner, TABULAR } from '@/app/_ui';
 import { destinoDetalle, dimensionDe, fuenteDe, metricaDe, tipoDe, tonoDe, type Efectivo, type Formato, type Grafico as G } from '@/lib/graficos-catalogo';
+import { esGrafico as esPiezaGrafico, type Componente } from '@/lib/graficos-catalogo';
 import { alternarSerie, serieOculta, type SelDetalle } from '@/lib/graficos-acciones';
-import { colorDeTono, estiloEfectivo, fondoDeTarjeta, pinturaDe, type Procedencia, type TemaHoja } from '@/lib/graficos-temas';
+import { acentoDePortada, colorDeTono, estiloEfectivo, fondoDeTarjeta, pintaPortada, pinturaDe, type Procedencia, type TemaHoja } from '@/lib/graficos-temas';
+import { tilesDeHoja } from '@/lib/graficos-corbel';
 import { DefsRayado } from './graficos/Vocabulario';
 import { identidadEfectiva, paletaDePortada, PAPEL, DIMENSIONES_PERSONA, MAXIMO_PORTADA } from '@/lib/graficos-identidad';
 import {
@@ -58,6 +60,7 @@ import { Tabla, extraDe } from './graficos/Tabla';
 import { BarrasGordas } from './graficos/BarrasGordas';
 import { BarraProporcion } from './graficos/BarraProporcion';
 import { Tramos } from './graficos/Tramos';
+import { Frase } from './graficos/Frase';
 import { Tarjetas } from './graficos/Tarjetas';
 import { Dispersion } from './graficos/Dispersion';
 import { puntoActivo, puntosDe } from './graficos/puntos';
@@ -90,7 +93,12 @@ export type EstadoDatos = { cargando: boolean; error?: string; resultado?: Resul
  * la línea de tiempo están en el grupo «Cuadro de resultados» del catálogo pero son GRÁFICOS: van con la
  * tarjeta de cualquier gráfico.
  */
-export const esTarjetaNumero = (tipo: string) => tipoDe(tipo)?.grupo === 'Cuadro de resultados' && tipo !== 'barra_proporcion' && tipo !== 'tramos';
+export const esTarjetaNumero = (tipo: string) => tipoDe(tipo)?.grupo === 'Cuadro de resultados' && tipo !== 'barra_proporcion' && tipo !== 'tramos' && tipo !== 'frase';
+
+/** El tile de cada número de la hoja, con el estilo de Corbel: lo usan los dos que dibujan una tarjeta (el editor y la miniatura). */
+export const tilesDeComponentes = (comps: readonly Componente[]) => tilesDeHoja(comps.map((c) => ({
+  id: c.id, x: c.x, y: c.y, esNumero: esPiezaGrafico(c) && esTarjetaNumero(c.tipo), invertida: esPiezaGrafico(c) && !!c.invertida, portada: c.w <= 6 ? (c as { portada?: unknown }).portada : undefined,
+})));
 
 /**
  * ¿La tarjeta se esconde? (`Grafico.ocultarSiCero`: la fila de MRR que el bloque Revenue mostraba sólo con
@@ -252,9 +260,10 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
     if (estado.error) return <Mensaje>{estado.error}</Mensaje>;
     // La PORTADA (lib/graficos-identidad.ts): las series en tonos de su tinta, sin cuadrícula, y el halo de las etiquetas
     // y los puntos es su color (no el de la tarjeta del tema). El color es el de la hoja si eligió uno (#859).
-    const portada = identidadEfectiva(g.portada, tema.acento);
+    const acentoPortada = acentoDePortada(tema);
+    const portada = pintaPortada(g, tema) ? identidadEfectiva(g.portada, acentoPortada) : null;
     const e0 = estiloEfectivo(tema);
-    const e = portada ? { ...e0, colores: paletaDePortada(portada.id, tema.acento) ?? e0.colores, cuadricula: false } : e0;
+    const e = portada ? { ...e0, colores: paletaDePortada(portada.id, acentoPortada) ?? e0.colores, cuadricula: false } : e0;
     const halo = portada ? portada.fondo : fondoDeTarjeta(tema);
     const fuente = fuenteDe(g.fuente);
     const dim = fuente ? dimensionDe(fuente, g.dimension) : undefined;
@@ -325,6 +334,8 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
       return <BarraProporcion r={r} colorDe={colorDe} compacto={e.compacto} alMetrica={(i) => abrirMetrica(r.columnas[i]?.id)} />;
     }
     if (g.tipo === 'tramos') return <Tramos r={r} color={c(0)} compacto={e.compacto} alMetrica={(i) => abrirMetrica(r.columnas[i]?.id)} />;
+    // La oración de apertura (lib/graficos-frase.ts): sus números van ENTEROS salvo que el tema abrevie.
+    if (g.tipo === 'frase') return <Frase r={r} patron={g.frase} compacto={e.compacto} />;
 
     // ── Cuadros de resultados: la KPI de las tabs viejas ──
     if (info?.grupo === 'Cuadro de resultados' || g.tipo === 'serie_sparkline') {
@@ -345,10 +356,11 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
       const secundaria = r.secundaria ? `${fmtValor(r.secundaria.valor, r.secundaria.formato, compacto)} ${enMinuscula(r.secundaria.nombre)}` : null;
       const grande = (
         <NumeroGrande texto={texto} tam={tam} chip={chip} monoChip={e.kpiEtiqueta === 'mono'} secundaria={secundaria} altoLibre={altoLibreKpi}
-          maximo={portada ? MAXIMO_PORTADA : undefined}
+          maximo={portada ? e.kpiMaximoPortada ?? MAXIMO_PORTADA : e.kpiMaximo}
           // Como antes: el número toma el color del filete sólo cuando hay algo (un «US$0» no va en verde). Sobre una portada,
           // la tinta: el color ya lo pone la tarjeta.
-          color={v == null ? 'var(--faint)' : portada ? 'var(--ink)' : tono && v > 0 ? tono : 'var(--ink)'} />
+          // Con Corbel, siempre la tinta: lo que significa el número lo dice su chip, y un número verde sobre el negro pelea con todo.
+          color={v == null ? 'var(--faint)' : portada || e.kpiMaximo ? 'var(--ink)' : tono && v > 0 ? tono : 'var(--ink)'} />
       );
       // El subtítulo («por 1,000 impresiones») en la letra de la hoja y en hasta dos renglones: en mono y cortado a uno se leía
       // como un dato técnico («por 1,000 impre…»).
@@ -403,7 +415,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
       const alPaso = (i: number) => abrirMetrica(r.columnas[i]?.id);
       // El relleno de los trapecios es el primer color del tema ACLARADO (el azul claro de la tab vieja).
       // Sobre una portada, los trapecios son de papel (blancos) y más grandes: el aclarado del primer color se perdía en el fondo.
-      if (g.tipo === 'embudo_vertical') return <EmbudoVertical pasos={pasos} base={portada ? PAPEL : aclarar(c(0), 0.5)} compacto={e.compacto} alPaso={alPaso} grande={!!portada} />;
+      if (g.tipo === 'embudo_vertical') return <EmbudoVertical pasos={pasos} base={portada ? PAPEL : e.kpiMaximo ? 'var(--cb-lemon)' : aclarar(c(0), 0.5)} compacto={e.compacto} alPaso={alPaso} grande={!!portada} />;
       if (g.tipo === 'embudo') {
         const abreAlguno = r.columnas.some((col) => metricaAbre(col.id));
         const maxPaso = Math.max(1, ...pasos.map((p) => p.valor));
@@ -590,7 +602,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <YAxis tick={EJE} tickFormatter={tick(col.formato)} tickCount={EJES.marcasY} width={anchoEjeY(datos.map((d) => fmtValor(d.base + d.alto, col.formato, true)))} axisLine={false} tickLine={false} hide={!ejes} />
                 <Tooltip contentStyle={TIP} cursor={{ fill: 'var(--surface-2)' }} formatter={(_v, _n, it) => [fmt((it?.payload as { v?: number })?.v ?? null, col.formato), col.nombre]} />
                 <Bar dataKey="base" stackId="c" fill="transparent" {...anim} />
-                <Bar dataKey="alto" stackId="c" radius={[e.radioBarra, e.radioBarra, 0, 0]} maxBarSize={BARRA.maxVertical} {...anim}>
+                <Bar dataKey="alto" stackId="c" radius={[e.radioBarra, e.radioBarra, 0, 0]} maxBarSize={e.anchoBarra ?? BARRA.maxVertical} {...anim}>
                   {datos.map((d, i) => <Cell key={i} fill={i === datos.length - 1 ? c(0) : d.sube ? 'var(--good)' : 'var(--bad)'} />)}
                 </Bar>
               </BarChart>
@@ -767,7 +779,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 {ley}
                 {s.claves.map((k, i) => (i < nBarras ? (
                   <Bar key={k} yAxisId={eje(s.formatos[i])} dataKey={k} name={s.nombres[i]} fill={c(i)} stackId={g.tipo === 'combinado_apilado' ? 'a' : undefined}
-                    hide={oculta(k, s.claves)} radius={g.tipo === 'combinado_apilado' && k !== ultimaBarra ? 0 : [e.radioBarra, e.radioBarra, 0, 0]} {...anim} maxBarSize={BARRA.maxVertical} />
+                    hide={oculta(k, s.claves)} radius={g.tipo === 'combinado_apilado' && k !== ultimaBarra ? 0 : [e.radioBarra, e.radioBarra, 0, 0]} {...anim} maxBarSize={e.anchoBarra ?? BARRA.maxVertical} />
                 ) : (
                   <Line key={k} yAxisId={eje(s.formatos[i])} type="monotone" dataKey={k} name={s.nombres[i]} stroke={c(i)} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round"
                     dot={puntosDe(s.datos, k, c(i), halo)} activeDot={puntoActivo(c(i), halo)} hide={oculta(k, s.claves)} {...anim} />
@@ -807,7 +819,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
               {s.claves.map((k, i) => (
                 <Bar key={k} yAxisId="a" dataKey={k} name={s.nombres[i]} fill={relleno(i, s.nombres[i])} stackId={apilada ? 'a' : undefined}
                   hide={oculta(k, s.claves)} cursor={cursorGrupo} onClick={grupoAbre ? (_d: unknown, j: number) => abrirGrupo(s.datos[j]?.__clave, k) : undefined}
-                  radius={radio(k)} {...anim} {...(horizontal ? { barSize: BARRA.horizontal } : { maxBarSize: BARRA.maxVertical })}>
+                  radius={radio(k)} {...anim} {...(horizontal ? { barSize: BARRA.horizontal } : { maxBarSize: e.anchoBarra ?? BARRA.maxVertical })}>
                   {/* Una sola métrica: cada categoría con el color que declara su dimensión, «Otros» en gris, y si no, uno solo. */}
                   {unaSola && s.datos.map((d, j) => <Cell key={j} fill={rellenoDe(colorFijo(String(d.etiqueta)) ?? c(0))} />)}
                 </Bar>
@@ -863,7 +875,7 @@ function NumeroGrande({ texto, tam, color, chip, monoChip, secundaria, altoLibre
   return (
     <div ref={ref} style={{ containerType: 'inline-size', width: '100%', minWidth: 0 }}>
       <div style={{ display: 'flex', flexDirection: enLinea ? 'row' : 'column', alignItems: enLinea ? 'center' : 'flex-start', gap: enLinea ? ENTRE_NUMERO_Y_CHIP : 8 }}>
-        <span style={{ fontWeight: ESCALA_EPICA.peso, fontSize: tamano, lineHeight: 0.95, letterSpacing: ESCALA_EPICA.tracking, color, fontVariantNumeric: TABULAR, whiteSpace: 'nowrap' }}>{texto}</span>
+        <span className="gr-numero-val" style={{ fontWeight: ESCALA_EPICA.peso, fontSize: tamano, lineHeight: 0.95, letterSpacing: ESCALA_EPICA.tracking, color, fontVariantNumeric: TABULAR, whiteSpace: 'nowrap' }}>{texto}</span>
         {chip && (
           // La comparación habla en la letra de la etiqueta del tema: en mono sólo si la etiqueta va en mono (en el tema
           // «General», que es para leer de una pasada, «↑ 1,3×» en mono se leía como un dato técnico).

@@ -13,3 +13,10 @@
 // el verificador de un tercero puede no ejecutar JavaScript. Lo fija
 // tests/razon-social-sitio.test.ts renderizando la landing sin correr sus efectos.
 export const RAZON_SOCIAL_MAKO = 'Tejado Gonzalvez Leandro Martin';
+
+// Quién publica la app en cada tienda (4/11/2026; Martín: «Si, el responsable legal es Leandro»). En la App Store la cuenta
+// es de Leandro, así que el vendedor que muestra Apple es RAZON_SOCIAL_MAKO. En Google Play la cuenta es de Martín, y Google
+// muestra su nombre legal aunque el nombre público sea MaKo: sin esta línea, un revisor ve en la ficha a alguien que las
+// páginas legales no nombran. El responsable del tratamiento y del servicio sigue siendo RAZON_SOCIAL_MAKO.
+// Lo fija tests/tiendas-quien-publica.test.ts renderizando /privacidad y /terminos.
+export const PUBLICA_EN_PLAY = 'Martín Carballo Koncke';

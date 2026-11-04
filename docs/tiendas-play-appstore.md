@@ -3,10 +3,45 @@
 Pedido de Martín (22/10, 09:48): «quiero trabajar en subir la app a la Play y app store».
 Fuentes oficiales al final, cada una con su fecha. Medido sobre origin/main `f6bd295e7` y sobre producción el 22/10; las
 cuentas, revisadas otra vez el 23/10 en las páginas oficiales.
-**23/10, 02:17, Martín: «Sí, a mi nombre ahora».** No hay empresa registrada, así que no hay D-U-N-S: las dos cuentas son
-PERSONALES, a nombre de Martín Koncke. Esta versión del plan ya está escrita así. Los pasos de Martín, cortos y en orden, están en
-la (b).
-**Para Martín (5 minutos): el resumen, la §0 y la (b).** La (a) y la (c) son para el chat de código.
+**23/10, 02:17, Martín: «Sí, a mi nombre ahora».** No hay empresa registrada, así que no hay D-U-N-S: las dos cuentas son PERSONALES.
+**3/11/2026, Martín: «Sí, a propósito»: la de Apple va a nombre de Leandro Tejado** (con su gmail), y la de Play, a nombre de Martín
+(`martinkoncke@gmail.com`). En cada tienda el vendedor es el nombre legal de su titular. Los pasos, cortos y en orden, están en la (b).
+**Para Martín (5 minutos): «Dónde estamos», la §0 y la (b).** La (a) y la (c) son para el chat de código. Los textos para pegar: [tiendas-fichas-borradores.md](tiendas-fichas-borradores.md).
+
+## Dónde estamos (medido el 3/11/2026, sobre la rama `tiendas-0311`)
+
+**Lo único que le queda a Martín, en orden.** Lo demás lo hace un chat de código.
+
+1. ~~Decidir qué responsable dicen las páginas legales.~~ **Decidido el 4/11/2026** (Martín: «Si, el responsable legal es Leandro»). `/privacidad` y `/terminos` siguen nombrando a «Tejado Gonzalvez Leandro Martin» (`lib/titular-mako.ts`), y suman una línea con quién publica en cada tienda: ese mismo nombre en la App Store y «Martín Carballo Koncke» en Google Play (`PUBLICA_EN_PLAY`). Lo fija `tests/tiendas-quien-publica.test.ts`.
+2. **Terminar las verificaciones de Play Console.** La cuenta personal ya está abierta (3/11/2026, con martinkoncke@gmail.com y el nombre público MaKo). Google está revisando la identidad (unos días); faltan el teléfono Android con la app Play Console y el número de contacto. Hasta entonces la consola no deja crear la app, y **el reloj de los 14 días todavía no arrancó**. Cuando llegue el mail, aceptar los términos del Android SDK para compilar el `.aab`.
+3. **Juntar de 15 a 16 testers con Android**, en un Grupo de Google (paso 4 de la (b)).
+4. **Crear la app en Play y pegar los borradores:** `docs/tiendas-fichas-borradores.md`. Data safety y la política van **antes** de la prueba cerrada: Play los pide también ahí. Después, subir el `.aab`. Desde ese día corren los 14.
+5. **Apple Developer, a nombre de Leandro Tejado:** aprobada el 3/11/2026 (Team ID `99V2VV9FP2`, ya en `apple-app-site-association`, en `codemagic.yaml` y en el proyecto), con `com.holamako.app` registrado, y la app creada en App Store Connect (SKU `mako-ios`, Apple ID `6830383006`, idioma principal Spanish (Mexico)). Las claves ya existen, y falta cargarlas (lo hace Martín: los `.p8` quedan fuera del repo y un chat no los lee). En Integraciones › Apple Push: `APNS_KEY_ID` = `2T63A9DQMC`, `APNS_TEAM_ID` = `99V2VV9FP2` y el `.p8` en «La clave». Y la API key en Codemagic, con su cuenta (paso 2 de la (b)).
+6. **Elegir qué IA usa el negocio de la cuenta de revisión** (`WS_REVISION`, el 900001) para que el revisor pueda probarla: hoy no tiene ninguna. No puede ser una credencial (su entrada exige 0 credenciales): el camino es asignarle un crédito de Claude de la plataforma en `CREDITO_DE_UN_NEGOCIO` (`lib/veto-claude.ts`), como el del ws1, mientras dure la revisión. Es plata: lo decide Martín (`docs/relevo/nube-tiendas.md`).
+7. **A los 14 días, pedir el acceso a producción** en Play, con el borrador completo con lo que haya pasado.
+
+| Paso de la (a) | Estado | Evidencia |
+|---|---|---|
+| 1. `/.well-known` público | **Hecho**, falta la huella | Dan 200 (medido el 3/11). El de Apple ya lleva el Team ID. `assetlinks.json` sigue vacío hasta tener la huella: la pone `scripts/tiendas-asociar.mjs` |
+| 2. El teléfono no vende | **Hecho el 3/11** | Medido antes: «Tu plan» abría el pago, Agency tenía «Pagar su primer mes», los carteles de la prueba y More ofrecían pasar de plan, y la cuenta pausada, pagar. `tests/tiendas-telefono-no-vende.test.ts`. Desde el 4/11, MaKo Partners («Ya cobraste») y Agency Dashboard («Falta pagar») no van en ningún teléfono, Android incluido: `TABS_QUE_VENDEN`, `lib/tienda.ts` |
+| 3. Modo iOS | **Hecho el 3/11** | `lib/tienda.ts`: sin Google, sin relleno, y lo que vende no se abre. Mismo test |
+| 4. Borrar la cuenta, `/soporte`, `/eliminar-cuenta`, privacidad | **Hecho el 3/11** | `lib/baja-cuenta.ts`, `tests/baja-cuenta.test.ts`. Hay que agregar una tabla nueva a la base de producción (`0371_bajas_cuenta.sql`), que sólo agrega, antes de subir |
+| 5. La cuenta de revisión | **Código en main desde `punta/tiendas-revisor` (4/11); el script, sin correr** | La segunda revisión (4/11) encontró cuatro fallas altas y se cerraron: una lista de lo PERMITIDO en el proxy (páginas incluidas), la guarda de envío, un negocio propio (`WS_REVISION`) y los tickets sin despacho (`docs/hallazgos-seguridad.md`). El comando y lo que trae, en `docs/relevo/nube-tiendas.md`. Lo corre el Cerebro con el sí de Martín |
+| 6. IA: el permiso y la denuncia | **Hecho el 3/11** | `lib/ia-permiso.ts`, `app/_chat/ReportarRespuesta.tsx`, `tests/ia-permiso.test.ts`. Sólo en iPhone: ver R7 |
+| 7. Android (TWA) | **Proyecto listo, falta compilar** | Generado el 3/11 con `targetSdkVersion 36`. `nativo/android/compilar.mjs` arma el `.aab` firmado. **No se compila todavía** (el Cerebro, 3/11): va cuando llegue el mail de Google con la identidad aprobada, con el sí de Martín a los términos del Android SDK y una ventana de RAM |
+| 8. iOS: guardar, compartir, links, hápticos, sin conexión | **Del lado de la web, hecho el 3/11** | `lib/nativo.ts`, `tests/tiendas-nativo-web.test.ts`. Falta mirarlo en TestFlight |
+| 9. Push por APNs | **Del lado del servidor, hecho el 3/11** | `lib/push-apns.ts`, `tests/push-apns.test.ts`, contra un servidor HTTP/2 local. Falta la clave, y que llegue a un iPhone |
+| 10. Compilar iOS y armar la ficha | **Textos y feature graphic listos** | `docs/tiendas-fichas-borradores.md`, `nativo/android/feature-graphic.png`. `codemagic.yaml` sigue sin correr. Faltan las capturas, que piden la cuenta de revisión |
+
+## Qué cambió en las reglas al 3/11/2026 (leído en las páginas oficiales)
+
+- **Play, la prueba cerrada:** sigue en 12 testers y 14 días seguidos, y los 12 tienen que seguir anotados el día que se pide producción. **Data safety y la política se piden también para la prueba cerrada**: sólo la prueba interna está exenta.
+- **Android, verificación de desarrollador:** nueva. Rige desde el 30/09/2026 en Brasil, Indonesia, Singapur y Tailandia, y en todo el mundo en 2027. Argentina no aparece. Para quien publica en Play, «no new action» en la mayoría de los casos, y el id se registra solo al crear la app. A mirar en Settings › Developer Account al abrir la cuenta.
+- **Android, API:** sigue en 36 para apps nuevas. La prórroga al 1/11/2026 era para actualizar apps viejas, y ya pasó. El proyecto generado da 36.
+- **Apple, guías:** actualizadas el 16/10/2026. La 4.2 no cambió. Se suma al plan la **1.2** (contenido de usuarios: denunciar, bloquear y moderar): riesgo R13.
+- **Apple, edades:** 4+, 9+, 13+, 16+ y 18+, y desde septiembre de 2026 la pregunta de redes sociales es obligatoria. «Unrestricted web access» da 16+: por eso la app navega sólo hola-mako.com.
+- **Apple, capturas:** la obligatoria es la de iPhone con Dynamic Island mediana (1179×2556 o 1206×2622). Con la de 1320×2868 no hace falta la de Face ID grande. Desde abril de 2027, las de iPhone Duo para apps con el SDK de iOS 27.1.
+- **Apple, otros:** desde el 9/9/2026, iOS 13 como mínimo. Xcode 26 sigue obligatorio. Capacitor sigue diciendo que `server.url` no es para producción (R12).
 
 ## En 6 líneas
 
@@ -19,8 +54,8 @@ la (b).
 - **Camino crítico, que es de Martín:** las cuentas, PERSONALES (sin D-U-N-S). En Play, la cuenta personal pide **14 días
   seguidos de prueba cerrada con 12 testers** antes de poder pedir producción, y el reloj arranca con el primer AAB: es lo que
   más tarda. En Apple, después de pagar llega la confirmación por email (si no llega en 24 horas, se escribe a soporte).
-- **Medido hoy:** `/.well-known/assetlinks.json` y `/.well-known/apple-app-site-association` devuelven **307 → /login**,
-  porque el matcher de `proxy.ts` no los exime. Sin eso no anda ni la TWA ni los links universales. Es el primer arreglo.
+- **`/.well-known/assetlinks.json` y `/.well-known/apple-app-site-association`** devolvían 307 a /login el 22/10; dan 200 desde
+  ese arreglo. Sin eso no anda ni la TWA ni los links universales.
 - **No hay `Mac`, no hay iPhone propio** (Martín usa Android). Para TestFlight hace falta alguien con iPhone. Y Apple
   verifica la identidad con su app **Apple Developer**, que corre en iPhone, iPad o Mac: sin uno, el alta va por la web y, si
   pide la verificación, se usa un iPhone prestado de punta a punta o se le pide otro método a soporte (paso 2 de la (b)).
@@ -29,9 +64,9 @@ la (b).
 
 | # | Decisión | Recomendación |
 |---|---|---|
-| T1 | ¿Cuenta **personal** o de **empresa**, en las dos tiendas? | **DECIDIDO (23/10, 02:17): PERSONAL**, a nombre de Martín Koncke: no hay empresa registrada ni D-U-N-S. El vendedor que se ve es «Martín Koncke» en las dos. En Play se ven su nombre legal, su país y el email de desarrollador (va `equipo@hola-mako.com`); la dirección completa sólo si la app cobra, y no cobra (T5). Cuando haya sociedad, las dos tiendas dejan pasar la cuenta a la empresa. |
+| T1 | ¿Cuenta **personal** o de **empresa**, en las dos tiendas? | **DECIDIDO: PERSONAL**, sin empresa registrada ni D-U-N-S (23/10, 02:17). **Apple, a nombre de Leandro Tejado, y Play, a nombre de Martín** (3/11/2026, Martín: «Sí, a propósito»). El vendedor que se ve es el nombre legal de cada titular (ver «Dónde estamos», punto 1). En Play se ven su nombre legal, su país y el email de desarrollador (va `equipo@hola-mako.com`); la dirección completa sólo si la app cobra, y no cobra (T5). Cuando haya sociedad, las dos tiendas dejan pasar la cuenta a la empresa. |
 | T2 | El id de la app (`com.holamako.app`). Una vez publicado **no se cambia**. | `com.holamako.app` en las dos. |
-| T3 | ¿Se publica en la UE? España es UE, y el ws19 está en Madrid. | **Sigue abierta.** Con cuenta personal, la ficha «trader» de Apple en la UE muestra SU dirección, SU teléfono y SU email. Si no quiere su domicilio público: o se publica en la UE más adelante, o con una dirección comercial (una oficina virtual o un coworking). |
+| T3 | ¿Se publica en la UE? España es UE, y el ws19 está en Madrid. | **DECIDIDO (3/11/2026, Martín): se publica en la UE**, «sin problemas», con los datos de Leandro como vendedor (la cuenta de Apple es suya). |
 | T4 | ¿Qué borra «Eliminar mi cuenta»? Para el dueño de un negocio, ¿es el workspace entero? ¿En cuánto tiempo? | Para el dueño, el workspace entero. Plazo de hasta 30 días, con un email al terminar. Pasa por la doble confirmación de la D2. |
 | T5 | ¿El teléfono vende? (plan, saldo de IA, precios, links de pago) | **No, en ningún lado.** Apple y Google prohíben vender algo digital sin su cobro, o mandar a pagar afuera. La compra queda en la computadora. Es lo más simple y lo más robusto (ver el riesgo R2). |
 | T6 | ¿Cómo se entra en iPhone? | Con correo, contraseña y 2FA, **sin el botón de Google** (ver R3). Sign in with Apple puede venir más adelante. |
@@ -48,7 +83,7 @@ la (b).
    - Cuando la consola lo pida, **verificar la identidad** con su DNI o pasaporte.
    - Instalar la app **Play Console** en su Samsung y **verificar el teléfono** desde ahí.
    - Avisarnos: subimos el primer AAB a la prueba cerrada y desde ese día corren los 14.
-2. **Apple Developer Program, cuenta INDIVIDUAL (USD 99 por año).**
+2. **Apple Developer Program, cuenta INDIVIDUAL (USD 99 por año), a nombre de Leandro Tejado** (con su gmail): aprobada el 3/11/2026. Lo que dice abajo vale para esa cuenta, y el nombre legal es el de Leandro.
    - Un Apple Account con su **nombre legal** (sin apodos): si no tiene, se crea en account.apple.com.
    - Prender la **verificación en dos pasos** en account.apple.com → «Mejorar la seguridad de la cuenta», con su número de
      teléfono.
@@ -60,7 +95,7 @@ la (b).
      Apple Developer Support. Tenerlo previsto antes de empezar.
    - Ya aprobada: crear en App Store Connect la **API key** (rol App Manager, la usa Codemagic) y la **clave de APNs (.p8)**
      (la usa `lib/push.ts`), y cargarlas él en `credenciales` del workspace de plataforma. **El chat nunca las ve en texto.**
-   - **La misma cuenta firma el instalador de Mac:** el certificado «Developer ID Application» y otra clave de App Store
+   - **La misma cuenta firma el instalador de Mac** (y ahí también el nombre que se ve es el de Leandro): el certificado «Developer ID Application» y otra clave de App Store
      Connect, «MaKo notarización» (acceso Developer), que nunca va a un chat ni a `credenciales`. Los pasos:
      docs/plan-instalador-escritorio.md › «Firmar la Mac: lo que hace Martín» (del chat «IA del cliente»).
 3. **Codemagic.** Abrir la cuenta con su GitHub. El plan gratis trae 500 minutos de macOS por mes; después, USD 0,095 por minuto.
@@ -119,11 +154,11 @@ cosecha en `docs/hallazgos-mobile.md`.
    - En `app/privacidad/page.tsx:381` hoy dice que **no existe** el botón: hay que corregirlo, y sumar la lista de
      proveedores de IA, el audio del micrófono y los tokens de push.
    - **Hecho cuando** las dos páginas dan 200 sin sesión y el borrado deja una marca que el SuperAdmin ve.
-5. **La cuenta de revisión.** Es un usuario del ws3 (Prueba) con el onboarding completo, datos ficticios y entrada por
-   correo y contraseña.
+5. **La cuenta de revisión.** Es un closer de su PROPIO negocio (`WS_REVISION`, 4/11: no el ws3, donde «Datos de Mau» y
+   «simular» dejan datos de verdad), con leads de ejemplo y entrada por correo y contraseña.
    - Google exige **credenciales reutilizables que se salten el 2FA**. Los códigos de recuperación son de un solo uso y no
      alcanzan.
-   - Hace falta una excepción **atada a ESE email Y al ws3**, que quede registrada en cada login. **La revisa el chat de
+   - Hace falta una excepción **atada a ESE email Y a su negocio**, que quede registrada en cada login. **La revisa el chat de
      Ciberseguridad antes de subir.**
    - **Hecho cuando** el test prueba que cualquier otro usuario o workspace sigue pidiendo 2FA, y lo prueba rompiéndolo.
 6. **IA: el permiso y la denuncia.**
@@ -199,13 +234,15 @@ envoltorio.
 | R2 | **Vender sin IAP o sin Play Billing**, o mandar a pagar afuera | Las dos | T5: el teléfono no vende ni muestra precios ni links de pago (3.1.1 y 3.1.1(a); en Play, la política de pagos prohíbe desviar al usuario). La 3.1.3(f) no aplica: es para VoIP, almacenamiento, email y hosting. |
 | R3 | **4.8: login con Google sin una alternativa equivalente**, y Google **prohíbe su OAuth en un WebView** («embedded user-agent») | Apple | En iOS no hay botón de Google (T6, paso 3). Se entra con correo, contraseña y 2FA, que ya existe desde el 15/10. Quien entraba con Google arma su contraseña en `/login/restablecer`. |
 | R4 | **No se puede borrar la cuenta** (5.1.1(v); política de borrado de Play) | Las dos | Paso 4. Apple no acepta «escribinos un email», y desactivar la cuenta no alcanza: hay que borrarla. |
-| R5 | **El revisor no puede entrar** (2.1(a); Play pide credenciales reutilizables que se salten el OTP) | Las dos | Paso 5, con el onboarding hecho. Hoy el onboarding pendiente del ws3 tapa `/m`. |
+| R5 | **El revisor no puede entrar** (2.1(a); Play pide credenciales reutilizables que se salten el OTP) | Las dos | Paso 5. La cuenta es closer, y el onboarding sólo tapa la app a un admin (`onboardingPendiente`): no hace falta cerrarlo. |
 | R6 | **Contenido de relleno**: «Coming soon» y «En la computadora» (2.1) | Apple | El modo iOS los esconde (paso 3). |
-| R7 | **IA sin permiso** (5.1.2(i)) y sin forma de denunciar (Play) | Las dos | Paso 6. |
+| R7 | **IA sin permiso** (5.1.2(i)) y sin forma de denunciar (Play) | Las dos | Paso 6. El permiso se exige sólo con la marca de la app de iPhone: es lo que pide Apple, la TWA no se puede distinguir de Chrome, y cortarlo en el navegador rompería la IA de los clientes de hoy. Lo automático de un negocio (sus crons, su bot) no tiene a quién preguntarle: lo cuenta la política. |
 | R8 | **La TWA abre con barra de URL**: Asset Links con la huella equivocada o con una redirección | Play | Paso 1: las dos huellas y sin 307. Hoy da 307. |
 | R9 | **Target API viejo** (36, desde el 31/08/2026) o **Xcode viejo** (26, desde el 28/04/2026) | Las dos | Paso 7 y paso 10. |
 | R10 | **Las capturas no muestran la app real**, o muestran datos de clientes (2.3) | Las dos | Se capturan del `/m` real con el ws3 ficticio. |
 | R11 | **Se ve roto en iPad**: una app sólo de iPhone igual corre en iPad y el revisor puede probarla ahí | Apple | Mirar `/m` a 768 px antes de enviar. |
+| R13 | **Contenido de usuarios sin bloquear** (1.2): Community no tiene cómo bloquear a alguien desde el teléfono | Apple | En iPhone no va (paso 3). En Android, Reportar desde la publicación y el comentario. Volver a sumarla a iPhone pide bloquear y moderar desde el teléfono. |
+| R14 | **El revisor entra a una IA vacía**: el negocio de revisión no tiene ninguna, y el chat contesta «No hay ninguna IA conectada» | Las dos | Asignarle un crédito de Claude de la plataforma (`CREDITO_DE_UN_NEGOCIO`) mientras dure la revisión: una credencial no sirve, porque la entrada exige 0. Es una decisión de plata de Martín («Dónde estamos», punto 6). |
 | R12 | Capacitor dice que `server.url` **«no está pensado para producción»** | Apple | Es un riesgo técnico aceptado: lo usan muchas apps así. `errorPath` cubre la falta de red. Si molesta, la alternativa es un envoltorio WKWebView propio en Swift, con más código y sin plugins. |
 
 ## Cómo encaja con lo que ya existe
@@ -221,7 +258,14 @@ envoltorio.
 - **«El teléfono DESTILA el escritorio».** Las tiendas sólo **esconden** (la compra y lo que está «en camino») y suman
   capacidades del aparato. Nunca tienen una pantalla propia. El guardián `tests/movil-toda-tab.test.ts` sigue valiendo.
 
-## Fuentes (consultadas el 22/10/2026; las de las cuentas personales, otra vez el 23/10/2026; la fecha entre paréntesis es la que muestra cada página)
+## Fuentes (consultadas el 22/10/2026; las de las cuentas personales, otra vez el 23/10/2026; todas, de nuevo el 3/11/2026; la fecha entre paréntesis es la que muestra cada página)
+
+**Lo que se sumó el 3/11/2026:**
+- Verificación de desarrollador de Android (efectiva el 30/09/2026): developer.android.com/developer-verification y su guía de Play Console, …/guides/google-play-console.
+- Verificar el teléfono en Play Console: support.google.com/googleplay/android-developer/answer/14316361 (sin fecha).
+- Target API para apps nuevas y prórroga: …/answer/11926878 (sin fecha).
+- App Review Guidelines: «Last Updated: October 16, 2026». Lo que viene: developer.apple.com/news/upcoming-requirements. Pregunta de redes sociales en las edades: developer.apple.com/news/?id=tlur8uvi (9/7/2026).
+- Valores y definiciones de las edades: developer.apple.com/help/app-store-connect/reference/app-information/age-ratings-values-and-definitions. Capturas, trader y App Privacy, leídas el mismo día en sus páginas de arriba.
 
 **Las cuentas personales (23/10/2026):**
 - Play, la prueba de las cuentas personales: «at least 12 testers… opted in continuously for at least 14 days», para las

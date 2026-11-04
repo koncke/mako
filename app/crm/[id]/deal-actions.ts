@@ -227,22 +227,24 @@ export type PagoManualInput = {
  * y sin `moneda` es USD: es lo que manda la pantalla de hoy. El valor inicial del selector es la moneda del negocio
  * (`monedaDelNegocioAction`, app/crm/[id]/pagos-campo-actions.ts), no una suposición del server.
  */
-export async function marcarPagoManualAction(pagoId: number, leadId: number, datos: PagoManualInput): Promise<{ pendiente: number | null; porLink: Pasarela | null; yaEstaba: boolean }> {
+export async function marcarPagoManualAction(pagoId: number, leadId: number, datos: PagoManualInput): Promise<{ pendiente: number | null; pendienteEnSuMoneda: { moneda: string; monto: number } | null; porLink: Pasarela | null; yaEstaba: boolean }> {
   if (!(await haySesion())) throw new Error(SIN_SESION);
   // La regla y la escritura viven en lib/pagos.ts (`cobrarCuota`): la usa también la API de MaKo.
   const r = await cobrarCuota(pagoId, leadId, datos);
   // Ya estaba cobrada (otra pestaña, otra persona): no se tocó nada, ni el historial.
-  if (r.yaEstaba) return { pendiente: null, porLink: null, yaEstaba: true };
+  if (r.yaEstaba) return { pendiente: null, pendienteEnSuMoneda: null, porLink: null, yaEstaba: true };
   // El link de la cuota ya se había cobrado: quedó cobrada con ESE pago, y el historial ya lo dice la pasarela.
   if (r.porLink) {
     bust(TAG.pagos, TAG.leads);
     revalidarLead(leadId);
     revalidatePath('/dashboard');
     revalidatePath('/general');
-    return { pendiente: null, porLink: r.porLink, yaEstaba: false };
+    return { pendiente: null, pendienteEnSuMoneda: null, porLink: r.porLink, yaEstaba: false };
   }
+  // La diferencia en la moneda de la cuota (mig 0347), como quedó (revisión de 7f79a4e6c, B13).
+  const enSuMoneda = r.pendienteEnSuMoneda ? `${formatoMonto(r.pendienteEnSuMoneda.monto, r.pendienteEnSuMoneda.moneda)} (USD ${r.pendiente})` : `USD ${r.pendiente}`;
   const resto = r.pendiente != null
-    ? ` · quedan USD ${r.pendiente} pendientes`
+    ? ` · quedan ${enSuMoneda} pendientes`
     : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : '';
   // En otra moneda, o con método o concepto, la línea dice cómo se cobró: «MXN 8,600 (USD 500) · Transferencia».
   const e = etiquetaDePago(datos);
@@ -254,7 +256,7 @@ export async function marcarPagoManualAction(pagoId: number, leadId: number, dat
   revalidarLead(leadId);
   revalidatePath('/dashboard');
   revalidatePath('/general');
-  return { pendiente: r.pendiente, porLink: null, yaEstaba: false };
+  return { pendiente: r.pendiente, pendienteEnSuMoneda: r.pendienteEnSuMoneda, porLink: null, yaEstaba: false };
 }
 
 /**

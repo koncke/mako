@@ -105,7 +105,7 @@ test('la MISMA API que escritorio, y refrescar vuelve a leer', () => {
   assert.match(equipo, /fetch\('\/api\/equipo'/);
   const notif = leer('app/m/configuraciones/notificaciones/NotificacionesNegocioM.tsx');
   assert.match(notif, /fetch\('\/api\/perfil\/destinatarios'/);
-  assert.match(notif, /JSON\.stringify\(\{ telefonos, emails \}\)/, 'guarda las DOS listas, como DestinatariosCanal');
+  assert.match(notif, /JSON\.stringify\(\{ telefonos, emails, \.\.\.\(wsLeido != null \? \{ ws: wsLeido \} : \{\}\) \}\)/, 'guarda las DOS listas, como DestinatariosCanal');
   // Abre con lo que leyó el SERVER, con la MISMA función que la ruta (17/10/2026, «que el teléfono ande más rápido»), y
   // se monta con `key` nuevo en cada pasada del server: tirar hacia abajo trae lo nuevo. Si el server no leyó, la pide.
   const lecturas: [string, string, string, RegExp][] = [

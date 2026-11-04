@@ -45,10 +45,17 @@ import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from '@/lib/disparadore
 import { publicarPasos, duplicadaDeLaActivacion, DuplicadaError, type PasoSecuencia } from '@/lib/nutricion';
 import { avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { remitenteEsSandbox, emailConectado, displayNameDe, verifyResendDomain, getResendDomain, remitenteDelNegocioActual, SANDBOX_FROM } from '@/lib/resend';
+import { remitenteEsSandbox, emailConectado, displayNameDe, remitenteDelNegocioActual, SANDBOX_FROM } from '@/lib/resend';
 import type { MotivoSinRemitente } from '@/lib/email-remitente';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
 import { zonaDelNegocio } from '@/lib/timezone';
+import { prepararConexion, conectarDominio, prepararRemitente, fijarRemitente, verificarDominio } from '@/lib/email-dominio';
+import type { RegistroDns } from '@/lib/email-dominio-reglas';
+import {
+  anclaDeLaProxima, asegurarCrmNewsletter, conteoPorEtapa, crearEdicion, crmDelNewsletter, guardarConfigNewsletter,
+  leerConfigNewsletter, listarEdiciones, suscriptosDe,
+} from '@/lib/newsletter';
+import { ETAPAS_NEWSLETTER, FRECUENCIAS, proximaEdicion, type EtapaNewsletter, type Frecuencia } from '@/lib/newsletter-reglas';
 import {
   estadoEmail, alcanceEnvioReal, dominioIdDelWorkspace,
   secuenciasArchivadas, leadDelWorkspace, historialEmailLead, bajasEmail,
@@ -330,6 +337,35 @@ export const RUNNERS: Runners = {
     },
   },
 
+  ver_newsletter: {
+    leer: async () => {
+      const cfg = await leerConfigNewsletter();
+      const crm = await crmDelNewsletter(cfg);
+      const envio_real = await envioEmailHabilitado();
+      if (!crm) {
+        return json({
+          configurado: false, frecuencia: cfg.frecuencia, tema: cfg.tema, envio_real,
+          nota: 'Este negocio todavía no armó su newsletter: se configura con configurar_newsletter (frecuencia y tema) o en la tab Newsletters.',
+        });
+      }
+      const [subs, eds] = await Promise.all([suscriptosDe(crm.id), listarEdiciones(crm.id)]);
+      const conteo = conteoPorEtapa(subs);
+      return json({
+        configurado: true, frecuencia: cfg.frecuencia, tema: cfg.tema, dormido_tras: cfg.dormidoTras, envio_real,
+        crm: { id: crm.id, nombre: crm.nombre },
+        suscriptos: Object.fromEntries(ETAPAS_NEWSLETTER.map((e) => [e.label, conteo[e.key] ?? 0])),
+        proxima_edicion: proximaEdicion(cfg.frecuencia, anclaDeLaProxima(eds)),
+        ediciones: eds.map((e) => ({
+          id: e.id, asunto: e.asunto, estado: e.estado, etapa: e.etapa,
+          programado_at: e.estado === 'programado' ? e.programado_at : null, enviado_at: e.enviado_at,
+          enviados: e.metricas.enviados, simulados: e.metricas.simulados, abiertos: e.metricas.abiertos, clics: e.metricas.clics, bajas: e.metricas.bajas,
+          en_el_copywriter: !!e.copy_doc_id,
+        })),
+        nota: 'Dado de baja cuenta también a quien se dio de baja del email aunque su tarjeta no se haya movido todavía. Aperturas, clics y bajas cuentan sólo lo enviado de verdad: con el envío apagado las ediciones quedan «simulado».',
+      });
+    },
+  },
+
   estado_email: {
     leer: async () => {
       const e = await estadoEmail();
@@ -398,6 +434,63 @@ export const RUNNERS: Runners = {
   },
 
   // ── acciones por chat ──────────────────────────────────────────────────────
+
+  configurar_newsletter: {
+    preparar: async (input) => {
+      const frecuencia = str(input, 'frecuencia');
+      const tema = str(input, 'tema');
+      const dormido = num(input, 'dormido_tras');
+      if (frecuencia === undefined && tema === undefined && dormido == null) return { error: 'No hay nada que cambiar: manda frecuencia, tema o dormido_tras.', faltan: ['frecuencia', 'tema'] };
+      if (frecuencia !== undefined && !FRECUENCIAS.some((f) => f.id === frecuencia)) return { error: `La frecuencia «${frecuencia}» no existe.`, disponibles: FRECUENCIAS.map((f) => f.id) };
+      const partes = [
+        frecuencia ? `sale ${FRECUENCIAS.find((f) => f.id === frecuencia)!.label.toLowerCase()}` : null,
+        tema ? `trata de «${tema}»` : null,
+        dormido != null ? `pasa a «Dormido» quien no abre ${dormido} seguidas` : null,
+      ].filter(Boolean);
+      return {
+        payload: { ...(frecuencia ? { frecuencia } : {}), ...(tema !== undefined ? { tema } : {}), ...(dormido != null ? { dormido_tras: dormido } : {}) },
+        resumen: `Configurar el newsletter: ${partes.join(', ')}. Con la frecuencia y el tema, se crea el CRM «Newsletter» si no existe. No manda nada.`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const cfg = await guardarConfigNewsletter({
+        ...(typeof payload.frecuencia === 'string' ? { frecuencia: payload.frecuencia as Frecuencia } : {}),
+        ...(typeof payload.tema === 'string' ? { tema: payload.tema } : {}),
+        ...(typeof payload.dormido_tras === 'number' ? { dormidoTras: payload.dormido_tras } : {}),
+      });
+      const crm = cfg.frecuencia && cfg.tema ? await asegurarCrmNewsletter() : null;
+      return {
+        ok: true,
+        resumen: crm ? `Newsletter configurado. Los suscriptos están en el CRM «${crm.nombre}».` : 'Newsletter configurado. Falta la frecuencia o el tema para crear su CRM.',
+        datos: { frecuencia: cfg.frecuencia, tema: cfg.tema, dormido_tras: cfg.dormidoTras, crm_id: crm?.id ?? null },
+      };
+    },
+  },
+
+  crear_edicion_newsletter: {
+    preparar: async (input) => {
+      const crm = await crmDelNewsletter();
+      if (!crm) return { error: 'Este negocio todavía no armó su newsletter: primero configurar_newsletter (frecuencia y tema).' };
+      const asunto = str(input, 'asunto');
+      const cuerpo = str(input, 'cuerpo');
+      if (!asunto || !cuerpo) return { error: 'Una edición necesita asunto y cuerpo.', faltan: [...(!asunto ? ['asunto'] : []), ...(!cuerpo ? ['cuerpo'] : [])] };
+      const etapa = str(input, 'etapa');
+      const label = etapa ? ETAPAS_NEWSLETTER.find((e) => e.key === etapa)?.label : null;
+      return {
+        payload: { asunto, preheader: str(input, 'preheader') ?? null, cuerpo, etapa: etapa ?? null },
+        resumen: `Crear la edición «${asunto}» del newsletter en borrador, para ${label ? `los de «${label}»` : `todo el CRM «${crm.nombre}» (menos las bajas)`}. No manda nada.`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const crm = await crmDelNewsletter();
+      if (!crm) return { ok: false, resumen: 'El CRM del newsletter ya no está (lo archivaron): no creé la edición.' };
+      const id = await crearEdicion(crm.id, {
+        asunto: String(payload.asunto ?? ''), preheader: typeof payload.preheader === 'string' ? payload.preheader : null,
+        cuerpo: String(payload.cuerpo ?? ''), etapa: typeof payload.etapa === 'string' ? (payload.etapa as EtapaNewsletter) : null,
+      });
+      return { ok: true, resumen: `Edición #${id} del newsletter creada en borrador. Se prueba con enviar_prueba_broadcast y se programa con programar_broadcast.`, datos: { id } };
+    },
+  },
 
   crear_secuencia_email: {
     preparar: async (input) => {
@@ -514,18 +607,18 @@ export const RUNNERS: Runners = {
       if (!id) return { error: 'Este negocio no tiene un dominio de envío cargado: primero hay que agregarlo en /email.' };
       return { payload: {}, resumen: 'Pedirle a Resend que revise los registros DNS del dominio de envío del negocio.' };
     },
+    // La MISMA verificación que /email (lib/email-dominio.ts, 4/11/2026): de paso, prende el seguimiento de aperturas y clics
+    // de un dominio que lo tenía apagado (uno dado de alta antes de ese día).
     ejecutar: async (): Promise<Ejecutado> => {
-      const id = await dominioIdDelWorkspace();
-      if (!id) return { ok: false, resumen: 'Este negocio ya no tiene un dominio de envío cargado.' };
-      const v = await verifyResendDomain(id);
-      if (!v.ok) return { ok: false, resumen: `Resend rechazó la verificación: ${v.error ?? 'sin detalle'}.` };
-      const d = await getResendDomain(id);
-      if (!d.ok) return { ok: true, resumen: `Verificación pedida a Resend. No se pudo leer el estado nuevo (${d.error}); puede tardar unos minutos.` };
-      const pendientes = d.domain.records.filter((r) => r.status && r.status !== 'verified').length;
+      const v = await verificarDominio();
+      if (!v.ok) return { ok: false, resumen: v.status === 400 ? 'Este negocio ya no tiene un dominio de envío cargado.' : `Resend rechazó la verificación: ${v.error}.` };
+      if (!v.dominio) return { ok: true, resumen: 'Verificación pedida a Resend. No se pudo leer el estado nuevo; puede tardar unos minutos.' };
+      const pendientes = v.registros.filter((r) => r.estado && r.estado !== 'verified').length;
+      const seguimiento = v.seguimiento === true ? ' Prendí las aperturas y los clics.' : typeof v.seguimiento === 'string' ? ` No pude prender las aperturas y los clics (${v.seguimiento}).` : '';
       return {
         ok: true,
-        resumen: `Verificación pedida. Dominio ${d.domain.name}: ${d.domain.status}${pendientes ? `, ${pendientes} registro(s) DNS sin verificar` : ''}. Puede tardar unos minutos en actualizarse.`,
-        datos: { dominio: d.domain.name, estado: d.domain.status },
+        resumen: `Verificación pedida. Dominio ${v.dominio}: ${v.estado}${pendientes ? `, ${pendientes} registro(s) DNS sin verificar` : ''}. Puede tardar unos minutos en actualizarse.${seguimiento}`,
+        datos: { dominio: v.dominio, estado: v.estado, ...(pendientes ? { registros: v.registros } : {}) },
       };
     },
   },
@@ -789,4 +882,50 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: on ? 'Envío real de email prendido.' : 'Envío real de email apagado: todo queda simulado.' };
     },
   },
+
+  // ── El dominio y el remitente, por la API (4/11/2026): la MISMA lógica que /email (lib/email-dominio.ts) ──────────────
+  conectar_dominio_email: {
+    preparar: async (input, ctx) => {
+      const p = await prepararConexion(ctx.ws, input.dominio);
+      if (!p.ok) return { error: p.error };
+      return {
+        payload: { dominio: p.dominio },
+        resumen: `Conectar ${p.dominio} para mandar los correos del negocio${p.reemplaza ? ` (reemplaza a ${p.reemplaza})` : ''}: te devuelvo los registros DNS que hay que cargar, y quedan prendidas las aperturas y los clics.`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const r = await conectarDominio(ctx.ws, payload.dominio);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      const seguimiento = r.seguimiento === true ? 'Aperturas y clics: prendidos.' : `No pude prender las aperturas y los clics (${r.seguimiento}): se vuelve a intentar al verificar.`;
+      return {
+        ok: true,
+        resumen: `Dominio ${r.dominio} conectado (${r.estado}). Carga estos registros en el proveedor del dominio y después pide verificar_dominio_envio: ${textoRegistros(r.registros)}. ${seguimiento}`,
+        datos: { dominio: r.dominio, estado: r.estado, registros: r.registros, seguimiento: r.seguimiento === true },
+      };
+    },
+  },
+  fijar_remitente_email: {
+    preparar: async (input, ctx) => {
+      const pedido = { local: input.local, nombre: input.nombre, ...(input.sinResponderA === true ? { responderA: null } : input.responderA !== undefined ? { responderA: input.responderA } : {}) };
+      const p = await prepararRemitente(ctx.ws, pedido);
+      if (!p.ok) return { error: p.error };
+      const resp = p.responderA === undefined ? '' : p.responderA === null ? ' Las respuestas vuelven al remitente.' : ` Las respuestas llegan a ${p.responderA}.`;
+      return { payload: pedido, resumen: `Los correos del negocio salen como «${p.from}».${resp}` };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const r = await fijarRemitente(ctx.ws, { local: payload.local, nombre: payload.nombre, ...('responderA' in payload ? { responderA: payload.responderA } : {}) });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return {
+        ok: true,
+        resumen: `Listo: los correos salen como «${r.from}»${r.responderA ? ` y las respuestas llegan a ${r.responderA}` : ''}.`,
+        datos: { remitente: r.from, responderA: r.responderA },
+      };
+    },
+  },
 };
+
+/** Los registros DNS en una línea cada uno, para el resumen que lee la persona (o su Claude). */
+function textoRegistros(rs: readonly RegistroDns[]): string {
+  if (!rs.length) return 'Resend no devolvió registros todavía (pídelos con estado_email)';
+  return rs.map((r) => `${r.tipo} ${r.nombre} → ${r.valor}${r.prioridad != null ? ` (prioridad ${r.prioridad})` : ''}`).join(' · ');
+}

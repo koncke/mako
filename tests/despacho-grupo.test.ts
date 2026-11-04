@@ -391,8 +391,8 @@ test('15. M3: el DEBUG lo habilita quien escribe (con su teléfono), y `diagnost
   assert.equal(doer.split('actorDeWhatsApp(quienPide, data.pushName)').length - 1, 2, 'las dos delegaciones van con quien pide');
   assert.ok(!doer.includes('actorDeWhatsApp(key?.participant, data.pushName)'), 'un actor sin el teléfono de participantAlt');
   // El modelo nunca la tiene: las herramientas del turno salen de `sinDiagnostico`.
-  assert.ok(doer.includes('const sinDiagnostico = conFuncion.filter((t) => t.name !== DIAGNOSTICAR_NEGOCIO);'));
-  assert.doesNotMatch(doer.slice(doer.indexOf('const leidas = '), doer.indexOf('const tools = leidas;')), /conFuncion/);
+  assert.ok(doer.includes('const sinDiagnostico = conBusqueda.filter((t) => t.name !== DIAGNOSTICAR_NEGOCIO);'));
+  assert.doesNotMatch(doer.slice(doer.indexOf('const leidas = '), doer.indexOf('const tools = leidas;')), /conFuncion|conBusqueda/);
 });
 
 test('16. M1 por las otras dos puertas: lo que escribe el Cerebro de un pedido delegado no va crudo al turno ni a /tickets', () => {

@@ -17,7 +17,6 @@ import {
   useToastM, type TonoPildora,
 } from '@/app/m/_ui';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import Link from '@/app/_ui/Link';
 
 type Rol = 'admin' | 'closer' | 'setter';
 export type Miembro = {
@@ -25,7 +24,7 @@ export type Miembro = {
   estado: 'invitado' | 'activo' | 'suspendido'; rol_ws: Rol | null; ultimo_login: string | null;
   invitacion_enviada_at: string | null;
 };
-/** `pasarAPro`: el tope de usuarios del plan (lib/tope-equipo-reglas.ts): el cartel lleva el link para pasar a Pro. */
+/** `pasarAPro`: el tope de usuarios del plan (lib/tope-equipo-reglas.ts). El teléfono sólo dice que llegó: no vende (T5). */
 type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null; pasarAPro?: string };
 
 /** Los roles en el orden y con los rótulos de la computadora (`ROL_OPTS` de EquipoView.tsx). */
@@ -193,18 +192,18 @@ function HojaInvitar({ abierta, onCerrar, onInvitado }: { abierta: boolean; onCe
   const [email, setEmail] = useState('');
   const [rol, setRol] = useState<Rol>('setter');
   const [error, setError] = useState<string | null>(null);
-  // El tope del plan no es un error para reportar: va aparte, con «Pasar a Pro».
-  const [tope, setTope] = useState<{ texto: string; href: string } | null>(null);
+  // El tope del plan no es un error para reportar: va aparte, sin «Pasar a Pro» (el teléfono no vende, T5).
+  const [tope, setTope] = useState(false);
   const [mandando, setMandando] = useState(false);
-  useEffect(() => { if (abierta) { setError(null); setTope(null); } }, [abierta]);
+  useEffect(() => { if (abierta) { setError(null); setTope(false); } }, [abierta]);
   const invitar = async () => {
     if (mandando) return;
     const destino = email.trim();
     if (!destino) { setError('Falta el email'); return; }
-    setMandando(true); setError(null); setTope(null);
+    setMandando(true); setError(null); setTope(false);
     try {
       const j = await post({ action: 'invitar', email: destino, nombre: nombre.trim(), rol_ws: rol });
-      if (!j.ok && j.pasarAPro) { haptico('error'); setTope({ texto: j.error ?? 'Llegaste al tope de tu plan.', href: j.pasarAPro }); return; }
+      if (!j.ok && j.pasarAPro) { haptico('error'); setTope(true); return; }
       if (!j.ok) { haptico('error'); setError(j.error ?? 'No se pudo invitar.'); return; }
       haptico('success');
       setNombre(''); setEmail(''); setRol('setter');
@@ -231,7 +230,7 @@ function HojaInvitar({ abierta, onCerrar, onInvitado }: { abierta: boolean; onCe
         <span>Rol</span>
         <SegmentadoM etiqueta="Rol" valor={rol} opciones={ROLES} onCambio={setRol} />
       </div>
-      {tope && <p className="m-configuraciones-aviso" data-tono="warn" role="status">{tope.texto} <Link href={tope.href}>Pasar a Pro</Link></p>}
+      {tope && <p className="m-configuraciones-aviso" data-tono="warn" role="status">Llegaste al tope de tu plan.</p>}
       {error && <p className="m-configuraciones-aviso" data-tono="bad" role="alert">{error}<ReportarASoporte /></p>}
     </SheetM>
   );

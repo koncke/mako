@@ -28,6 +28,9 @@ import { renameSession, type ChartSession } from '@/lib/chart-chats';
 import { canalKeyDeSesion } from '@/lib/mako-turno-app-reglas';
 import { linkApp } from '@/lib/app-url';
 import { linkPantalla } from '../link';
+import { revalidatePath } from 'next/cache';
+import { cambiarRecolector, resumenDelRecolector } from '@/lib/recolector';
+import { buscarEnElGrupo } from '@/lib/mako-doer-conv';
 import { decidirRecomendacion, leerMemoriaDelNegocio, recomendacionesDe, senalesDelNegocio } from '@/lib/recomendaciones';
 import { claveDe, clavesValidas, deSenal, decisionVigente, esDecision, esSuperficie, ultimaDecision, type Superficie } from '@/lib/recomendaciones-reglas';
 
@@ -391,6 +394,40 @@ export const RUNNERS: Runners = {
         ...(r.fallas.length ? { no_se_pudo_leer: r.fallas.map((f) => f.fuente) } : {}),
         ...(r.recomendaciones.length ? {} : { nota: 'Con los datos de hoy no hay nada que valga la pena recomendar. Dilo así: no inventes un consejo.' }),
       });
+    },
+  },
+  // Ticket #40: sólo el grupo del turno. Un «no encontré» dice qué se guarda, para no sonar a que nunca se dijo.
+  buscar_en_el_grupo: {
+    leer: async (input, ctx) => {
+      if (ctx.canal !== 'whatsapp' || !ctx.canalKey) return fallo('Esto se usa sólo dentro de un grupo de WhatsApp.');
+      const texto = str(input, 'texto');
+      if (!texto) return fallo('Falta qué buscar.');
+      const filas = await buscarEnElGrupo(ctx.ws, ctx.canalKey, texto);
+      return json({
+        mensajes: filas.map((f) => ({ de: f.role === 'assistant' ? 'MaKo' : 'la persona', fecha: f.created_at.slice(0, 10), texto: f.content.slice(0, 600) })),
+        ...(filas.length ? {} : { nota: 'No está entre lo guardado. MaKo guarda lo que le hablaron a ella: la charla del equipo entre ellos puede no estar. Dilo así, no digas que nunca se habló.' }),
+      });
+    },
+  },
+  // Ticket #45: el interruptor de la pantalla (app/second-brain/recolector-actions.ts). El estado sale de la misma lectura que ella.
+  cambiar_aprende_solo: {
+    preparar: async (input) => {
+      if (typeof input.prendido !== 'boolean') return { error: 'Falta si se prende o se apaga «Aprende solo».', faltan: ['prendido'] };
+      const resumen = await resumenDelRecolector();
+      if (!resumen) return { error: 'No pude leer cómo está «Aprende solo». Intenta de nuevo.', falla: true };
+      if (resumen.estado.prendido === input.prendido) return { error: `«Aprende solo» ya está ${input.prendido ? 'prendido' : 'apagado'}.`, yaEstaba: true };
+      return {
+        payload: { prendido: input.prendido },
+        resumen: input.prendido
+          ? 'Prender «Aprende solo»: MaKo aprende de tus conversaciones de WhatsApp con leads y lo suma al Second Brain, sin mandar ningún mensaje.'
+          : 'Apagar «Aprende solo»: MaKo deja de aprender de tus conversaciones de WhatsApp. Lo que ya aprendió se queda.',
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const prendido = (payload as { prendido?: unknown }).prendido === true;
+      await cambiarRecolector(prendido);
+      try { revalidatePath('/second-brain'); } catch { /* fuera de un request: vence sola */ }
+      return { ok: true, resumen: `«Aprende solo» quedó ${prendido ? 'prendido' : 'apagado'}. Lo ves en la cabecera del Mapa del Second Brain: ${linkApp('/second-brain', ctx.ws)}` };
     },
   },
   decidir_recomendacion: {

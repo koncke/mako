@@ -80,7 +80,7 @@
 }
 .m-chats-hilo-cabeza > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-chats-hilo-cabeza .m-lnk { flex: none; min-height: 44px; display: inline-flex; align-items: center; }
-.m-chats-hilo { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 calc(130px + env(safe-area-inset-bottom, 0px)); }
+.m-chats-hilo { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 calc(130px + env(safe-area-inset-bottom, 0px) + var(--m-chats-teclado, 0px)); }
 .m-chats-hilo__dia { align-self: center; margin: 10px 0 2px; font-size: var(--fs-meta); color: var(--dim); }
 .m-chats-burbuja {
   max-width: 85%; padding: 10px 13px 6px; border-radius: 14px; display: flex; flex-direction: column; gap: 6px;
@@ -90,7 +90,6 @@
 .m-chats-burbuja--mia { align-self: flex-end; background: var(--primary-bg); border-top-right-radius: 4px; }
 .m-chats-burbuja__asunto { font-weight: 600; }
 .m-chats-burbuja__img { display: block; max-width: 100%; max-height: 320px; border-radius: 10px; }
-.m-chats-burbuja__audio { width: 240px; max-width: 100%; }
 .m-chats-burbuja__archivo { color: var(--primary-strong); font-weight: 500; text-decoration: underline; }
 .m-chats-burbuja__hora { display: block; text-align: right; font-size: 12.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .m-chats-nota {
@@ -107,6 +106,11 @@
   padding: 8px calc(var(--m-gutter) + env(safe-area-inset-right, 0px)) calc(8px + var(--m-abajo, env(safe-area-inset-bottom, 0px))) calc(var(--m-gutter) + env(safe-area-inset-left, 0px));
   background: var(--bg); border-top: 1px solid var(--border);
 }
+/* Con el teclado de iOS arriba (ComposerChatsM): sin el área segura, y lo de debajo no se ve pasar por la barra translúcida del teclado. */
+.m-chats-composer[data-teclado] { padding-bottom: 8px; }
+.m-chats-composer[data-teclado]::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 50vh; background: var(--bg); pointer-events: none;
+}
 .m-chats-composer > * { max-width: 560px; margin-left: auto; margin-right: auto; }
 [data-m] .m-chats-error, .m-chats-composer .m-chats-error { margin: 0 0 8px; font-size: var(--fs-sm); line-height: 1.4; color: var(--ink); }
 .m-chats-canal { display: flex; align-items: center; gap: 8px; min-height: 36px; margin-bottom: 6px; font-size: var(--fs-sm); color: var(--dim); }
@@ -120,7 +124,8 @@
   padding: 10px 16px; border-radius: 22px; border: 1px solid var(--border-strong);
   background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; line-height: 1.4; resize: none;
 }
-.m-chats-composer textarea:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* Como la caja del chat con MaKo en el teléfono (.m-operaciones-caja): el anillo de dos capas se leía como un error sobre el campo. */
+.m-chats-composer textarea:focus-visible { outline: none; border-color: var(--primary-weak); }
 .m-chats-enviar {
   flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
   border: 0; border-radius: 999px; background: var(--primary); color: var(--on-primary);

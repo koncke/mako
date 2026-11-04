@@ -1,10 +1,17 @@
 // =============================================================================
 // /m/agency — Agency Dashboard en el teléfono (la URL que se ve es /agency: LAS MISMAS RUTAS)
 // =============================================================================
-// Destila la tab de escritorio (app/agency/page.tsx, 25/10/2026): la landing hasta que el negocio se suma (la misma, que
-// en el teléfono se apila), y después las cuentas de MaKo de sus clientes con lo que espera cada una y «Nuevo cliente»
-// con quién paga. Pedir sumar gente a un equipo queda en la computadora. Reemplaza el /m/agency provisorio de Planes
-// (que montaba la cartera vieja de /m/partners).
+// Destila la tab de escritorio (app/agency/page.tsx, 25/10/2026): las cuentas de MaKo de los clientes del negocio, con lo que
+// espera cada una. Abrir una cuenta, pagarla y sumar gente a un equipo quedan en la computadora. Reemplaza el /m/agency
+// provisorio de Planes (que montaba la cartera vieja de /m/partners).
+//
+// ⚠️ EL TELÉFONO NO VENDE (T5, docs/tiendas-play-appstore.md, 3/11/2026): la landing con el precio tampoco se dibuja acá.
+//
+// ⚠️ HOY NO SE DIBUJA EN NINGÚN TELÉFONO (4/11/2026): vuelve a More antes de leer nada (`esTabQueVende`, lib/tienda.ts).
+//    Lo que dice es plata que se le debe a MaKo: «Falta pagar», «Esperando su pago», «Renovación pendiente», «Quién paga» y
+//    el número de «Pendientes». Hasta ese día salía sólo de la app de iPhone; Android no se distingue de Chrome. Lo de abajo
+//    queda para el día que vuelva sin eso (sacar `agency` de `TABS_QUE_VENDEN`). Entrar a la cuenta de un cliente desde el
+//    teléfono se va con ella: queda en la computadora.
 //
 // ⚠️ La puerta: la key `agency` de More (el admin de cualquier negocio, la misma regla que el menú de la foto) y el rol
 //    (admin), que se pregunta acá igual que en escritorio. El cliente de una agencia no la ve (no hay promociones para él).
@@ -17,20 +24,19 @@ import { getSesionAdmin } from '@/lib/auth';
 import { esClienteDeAgencia } from '@/lib/agencia';
 import { cuentasDePartner, partnersDeLaPlataforma } from '@/lib/partners';
 import { estadoAgency } from '@/lib/agency';
-import { precioClienteDeAgencia } from '@/lib/agencia-cobro';
-import { quienPagaSugerido } from '@/lib/agency-reglas';
-import { CabeceraM, ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
+import { esTabQueVende } from '@/lib/tienda';
+import { CabeceraM, ComputadoraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
 import { RUTA_MAS } from '@/lib/movil-rutas';
-import { LandingAgency } from '@/app/agency/LandingAgency';
 import { AgencyM, AgenciasM } from './AgencyM';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AgencyPagina({ searchParams }: { searchParams: Promise<{ landing?: string; cuenta?: string }> }) {
+export default async function AgencyPagina({ searchParams }: { searchParams: Promise<{ cuenta?: string }> }) {
   await requireMovil({ navKey: 'agency' });
+  // En ningún teléfono (lib/tienda.ts). Esta página sólo la ve un teléfono.
+  if (esTabQueVende('agency')) redirect(await rutaConWs(RUTA_MAS));
   const sp = await searchParams;
   const esSuper = (await getSesionAdmin()) != null;
-  const precio = await precioClienteDeAgencia().catch(() => ({ usd: 47, mp: null }));
 
   // El super admin sin cliente: todas las agencias, como en la computadora.
   if (esSuper && !(await estaImpersonando())) {
@@ -54,11 +60,11 @@ export default async function AgencyPagina({ searchParams }: { searchParams: Pro
   if (!esSuper && deAgencia !== false) redirect(await rutaConWs('/m'));
 
   const estado = await estadoAgency(ws);
-  if (!estado.esAgency || sp.landing === '1') {
+  if (!estado.esAgency) {
     return (
       <PantallaM>
         <CabeceraM titulo="Agency Dashboard" padre={{ href: RUTA_MAS, label: 'More' }} />
-        <LandingAgency estado={estado} usd={precio.usd} volver="/agency" sinMarco />
+        <VacioM frase="Agency Dashboard se usa en la computadora." />
       </PantallaM>
     );
   }
@@ -75,9 +81,8 @@ export default async function AgencyPagina({ searchParams }: { searchParams: Pro
   const cuenta = /^[1-9]\d{0,11}$/.test(sp.cuenta ?? '') ? Number(sp.cuenta) : null;
   return (
     <PantallaM>
-      <AgencyM cuentas={cartera.cuentas} usd={cartera.precio.usd} pagaSugerida={quienPagaSugerido(estado.perfil)}
-        puedeAbrir={admin} superAdmin={esSuper} cuentaInicial={cuenta} />
-      <ComputadoraM que="Sumar personas al equipo de una cuenta" />
+      <AgencyM cuentas={cartera.cuentas} puedeAbrir={admin} superAdmin={esSuper} cuentaInicial={cuenta} />
+      <ComputadoraM que="Abrir la cuenta de un cliente y sumar personas a su equipo" />
     </PantallaM>
   );
 }

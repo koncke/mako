@@ -33,6 +33,7 @@ import { EditarObjetivo, EditarCapacidad } from '../EditarObjetivo';
 import type { DatosGeneral } from '../datos-tipos';
 import { Cabeza, DeQueFunnels, Fallo, Placeholder } from './comun';
 import { META_MUESTRA, FOCO_MUESTRA } from './muestras';
+import { useFraseQueEntra } from './frase-que-entra';
 
 type Cab = Extract<DatosGeneral['cabecera'], { ok: true }>['d'];
 
@@ -181,10 +182,12 @@ export function MuestraMetaObjetivo({ d, op }: { d: DatosGeneral['cabecera']; op
 
 function CuerpoAccion({ foco, conRazon }: { foco: Foco; conRazon: boolean }) {
   const [abierto, setAbierto] = useState(false);
+  const caja = useFraseQueEntra(`${foco.accion}|${conRazon}|${abierto}`);
   // La frase y UN botón (la acción del teléfono): el porqué y los cuatro campos del contrato (#523) quedan para quien
-  // los pide con «El porqué: Se ve». Centrada en el alto (`gb-centro`): al lado de la Meta objetivo mide lo mismo.
+  // los pide con «El porqué: Se ve». Centrada en el alto (`gb-centro`): al lado de la Meta objetivo mide lo mismo. El detalle
+  // abierto es lo único que puede pasarse de la tarjeta, y quien lo abrió lo tiene que poder leer: ahí sí hay scroll.
   return (
-    <div className="gb-centro">
+    <div ref={caja} className="gb-centro" style={abierto ? { overflowY: 'auto' } : undefined}>
       <p className="gb-frase">{foco.accion}</p>
       {conRazon && <p className="gb-d" style={{ margin: 'clamp(10px, 2cqi, 16px) 0 0' }}>{foco.razon}</p>}
       <div style={{ paddingTop: 'clamp(16px, 4cqi, 30px)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>

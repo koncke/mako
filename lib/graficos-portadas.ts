@@ -26,6 +26,7 @@
 // =============================================================================
 
 import { COLOR_DASHBOARD } from './graficos-identidad';
+import { accionElementoDe } from './graficos-acciones';
 
 type Crudo = Record<string, unknown>;
 type Id = (local: string) => string;
@@ -36,8 +37,10 @@ const COLS = 12;
 
 /** La portada de una plantilla: una pieza que ya tenía (`sube`, por su id local) o una nueva. */
 export type DefinicionPortada =
-  | { sube: string; cambios?: Crudo }
-  | { nueva: (id: Id) => Crudo };
+  | ({ sube: string; cambios?: Crudo } & Composicion)
+  | ({ nueva: (id: Id) => Crudo } & Composicion);
+/** Lo que se pide por su id local: el gráfico principal (`vecino`) y los paneles que van primero (`par`). Sin decirlo, los elige el orden. */
+type Composicion = { vecino?: string; par?: readonly string[]; molde?: NombreMolde };
 
 /** ¿Este id (con el prefijo que le pone `armar`) es el local `local`? */
 const esLocal = (id: unknown, local: string) => typeof id === 'string' && (id === local || id.endsWith(`-${local}`) || id.endsWith(local));
@@ -119,13 +122,211 @@ export function conPortada(hoja: Crudo, def: DefinicionPortada | undefined, colo
   };
 }
 
-/** El pop-up del anuncio, para las tarjetas de anuncios de una portada (lo arma lib/graficos-plantillas-analysts.ts). */
-type PopupDe = (id: Id, base: string) => Crudo;
+/**
+ * Los altos, en filas de la grilla: 168, 352 y 306 px. Medidos a 1440 en Wharf y Ledge (docs/diseno/densidad-codeandchill.json).
+ */
+export const ALTO_NUMEROS = 4;
+export const ALTO_PROTAGONISTA = 8;
+export const ALTO_MEDIANO = 7;
+const ALTO_ANCHO = 9;
+/** El gráfico principal, si la plantilla no lo dice: el de una serie en el tiempo, como el Revenue de Wharf. */
+const ES_TENDENCIA: ReadonlySet<unknown> = new Set(['serie', 'columnas', 'area', 'lineas', 'combinado', 'combinado_apilado']);
+/** Lo que necesita el ancho: en un tercio se le cortan las columnas, o no se lee. */
+const VA_A_LO_ANCHO: ReadonlySet<unknown> = new Set(['tabla', 'tarjetas', 'mapa', 'mapa_calor']);
+
+/**
+ * LAS ESTRUCTURAS QUE COPIAMOS (Martín, 1/11/2026: «Todos los templates son iguales, no uses siempre el mismo... no me gusta que no haya
+ * variedad, si copiamos muchos templates»). Cada plantilla toma la de una referencia, elegida por lo que mide: la asignación y su porqué
+ * están en docs/diseno/densidad-codeandchill.json. Lo compartido son los tokens, la letra y lo que significan los colores; la forma no.
+ * Cada paso es una fila que llena las 12 columnas con lo que haya; lo que no entró sigue abajo, de a tres.
+ *   · `p+2x2`  el principal (6) y cuatro números de a dos (3 + 3).
+ *   · `p+mm`   el principal (6) y dos paneles chicos (3 + 3).
+ *   · `p8+m`   el principal (8) y un panel al lado (4).
+ *   · `m+p8`   un panel (4) y el principal (8).
+ *   · `p12`    el principal a lo ancho.
+ *   · `n`      hasta cuatro números en fila.
+ *   · `n2x2`   cuatro números anchos y bajos, de a dos (6 + 6).
+ *   · `mmm`, `m84`, `m75`, `m66`  paneles.
+ *   · `a`      lo que necesita el ancho.
+ * ⚠️ Ninguna abre con el principal a lo ancho, aunque seis de las medidas lo hacen (Merrin, Wynlo, Kerfa, Coffra, Corvane, Kinlo): Martín
+ *    rechazó «el bloque gigante primero». Por eso esas no están acá.
+ */
+type PasoMolde = 'p+2x2' | 'p+mm' | 'p8+m' | 'm+p8' | 'p12' | 'n' | 'n2x2' | 'mmm' | 'm84' | 'm75' | 'm66' | 'a';
+export const MOLDES = {
+  wharf: ['p+2x2', 'mmm', 'a'],
+  ledge: ['p+2x2', 'm84', 'mmm'],
+  prism: ['p+mm', 'n', 'mmm', 'mmm', 'm75'],
+  tilvo: ['p8+m', 'n2x2', 'a', 'm66', 'm84'],
+  moorly: ['n2x2', 'p12', 'm66', 'm66', 'm66'],
+  corbel: ['n', 'm+p8', 'm75', 'mmm'],
+} as const satisfies Readonly<Record<string, readonly PasoMolde[]>>;
+export type NombreMolde = keyof typeof MOLDES;
+/** Un número ancho y bajo (`n2x2`): 122 px, los 124 a 133 de Tilvo, Coffra, Ledra y Moorly. */
+const ALTO_NUMERO_BAJO = 3;
+/** La oración de apertura: dos renglones de frase con su título arriba. */
+export const ALTO_FRASE = 3;
+
+/**
+ * Arma la hoja con su molde. Los títulos de sección no van: en la referencia el título vive en la tarjeta. Los ids no cambian: el closer y
+ * la caja de IA buscan las piezas por id. Las hojas GUARDADAS no pasan por acá.
+ * ⚠️ Lo que antes se plegaba en «Más detalle» (31/10) va a la vista: Martín autorizó rehacer el catálogo y los referentes tienen de 9 a 12.
+ */
+export function comoDenso(hoja: Crudo, def: DefinicionPortada | undefined, id: Id): Crudo {
+  const comps = (Array.isArray(hoja.componentes) ? (hoja.componentes as Crudo[]) : []).filter((c) => c.tipo !== 'seccion');
+  // ⚠️ POR `id(local)` Y NO SÓLO POR EL NOMBRE: una hoja creada desde la galería (`instanciarPlantilla`) lleva ids nuevos, que no
+  // terminan en el local. Sin esto, la miniatura mostraba una composición y la hoja creada salía con otra, sin error.
+  const esEse = (c: Crudo, nombre: string) => c.id === id(nombre) || esLocal(c.id, nombre);
+  const porLugar = (a: Crudo, b: Crudo) => num(a.y) - num(b.y) || num(a.x) - num(b.x);
+  const vieja = def && 'sube' in def ? comps.find((c) => esEse(c, def.sube)) : undefined;
+  const pieza: Crudo | undefined = def && 'sube' in def ? (vieja && { ...vieja, ...(def.cambios ?? {}) }) : def?.nueva(id);
+  const todas = [...(pieza ? [pieza] : []), ...comps.filter((c) => c !== vieja).sort(porLugar)];
+  // LA ACCIÓN QUE ES LA HOJA (`arriba`, lib/graficos-acciones.ts: «Grabar llamada» en Cold Calling) va PRIMERA, como una tarjeta más de
+  // la fila de números (nunca a lo ancho: Martín rechazó «el bloque gigante primero»). Los demás botones sueltos (Sincronizar llamadas)
+  // siguen al pie.
+  const esArriba = (c: Crudo) => c.tipo === 'accion' && !!accionElementoDe((c.accion as { id?: string } | undefined)?.id)?.arriba;
+  const deArriba = todas.filter(esArriba);
+  const sueltos = todas.filter((c) => c.tipo === 'accion' && !esArriba(c));
+  // LA ORACIÓN DE APERTURA (tipo `frase`, lib/graficos-frase.ts) abre la hoja, a lo ancho y antes del molde: así abren las
+  // referencias (Orvel, Pane, Noria: la frase primero, el primer panel después). No compite por ser el principal.
+  const frases = todas.filter((c) => c.tipo === 'frase');
+  const lista = todas.filter((c) => c.tipo !== 'accion' && c.tipo !== 'frase');
+
+  // Los números: la que la plantilla dio vuelta abre, que es donde va el negro.
+  const numeros = [...deArriba, ...lista.filter(esNumero).sort((a, b) => Number(!!b.invertida) - Number(!!a.invertida))];
+  const otros = lista.filter((c) => !esNumero(c));
+  const nombrado = def?.vecino ? otros.find((c) => esEse(c, def.vecino!)) : undefined;
+  const elegibles = otros.filter((c) => !VA_A_LO_ANCHO.has(c.tipo));
+  const principal = nombrado ?? elegibles.find((c) => ES_TENDENCIA.has(c.tipo)) ?? elegibles[0] ?? otros[0];
+  const sinPrincipal = otros.filter((c) => c !== principal);
+  const nombrados = (def?.par ?? []).map((n) => sinPrincipal.find((c) => esEse(c, n))).filter((c): c is Crudo => !!c);
+  const medianos = [...nombrados, ...sinPrincipal.filter((c) => !nombrados.includes(c))].filter((c) => !VA_A_LO_ANCHO.has(c.tipo));
+  const anchos = sinPrincipal.filter((c) => VA_A_LO_ANCHO.has(c.tipo));
+
+  const puestas: Crudo[] = [];
+  // El subtítulo de la plantilla se queda en los paneles (4/11/2026, docs/templates-dashboard-propuesta.md §1.3: «cada bloque
+  // tiene título Y un subtítulo en castellano llano»). En un número no: le comería el alto, y su definición va en el título.
+  const poner = (c: Crudo, x: number, y: number, w: number, h: number) =>
+    puestas.push({ ...c, x, y, w, h, subtitulo: esNumero(c) || typeof c.subtitulo !== 'string' ? '' : c.subtitulo });
+  let y = 0;
+  for (const f of frases) { poner(f, 0, y, COLS, ALTO_FRASE); y += ALTO_FRASE; }
+  let conPrincipal: Crudo | undefined = principal;
+  const tomarPrincipal = () => { const c = conPrincipal; conPrincipal = undefined; return c; };
+  /** Una fila de paneles: toma hasta `anchos` y reparte las 12 columnas entre los que haya. */
+  const filaDe = (columnas: readonly number[], h: number) => {
+    const lote = medianos.splice(0, columnas.length);
+    if (!lote.length) return;
+    let x = 0;
+    lote.forEach((c, i) => {
+      const w = lote.length === columnas.length ? columnas[i] : Math.round(COLS / lote.length);
+      poner(c, x, y, w, h);
+      x += w;
+    });
+    y += h;
+  };
+  const filaDeNumeros = (cuantos: number) => {
+    const lote = numeros.splice(0, cuantos);
+    lote.forEach((c, i) => {
+      const x = Math.round((i * COLS) / lote.length);
+      poner(c, x, y, Math.round(((i + 1) * COLS) / lote.length) - x, ALTO_NUMEROS);
+    });
+    if (lote.length) y += ALTO_NUMEROS;
+  };
+  /** El principal de 6 con dos pisos al lado, cada uno de 3 + 3. */
+  const conPisos = (al: readonly Crudo[]) => {
+    const p = tomarPrincipal();
+    const desde = p ? 6 : 0;
+    const ancho = (COLS - desde) / 2;
+    if (p) poner(p, 0, y, al.length ? 6 : COLS, ALTO_PROTAGONISTA);
+    if (al.length === 1) poner(al[0], desde, y, COLS - desde, ALTO_PROTAGONISTA);
+    else if (al.length === 2) al.forEach((c, i) => poner(c, desde + i * ancho, y, ancho, ALTO_PROTAGONISTA));
+    else if (al.length === 3) {
+      poner(al[0], desde, y, ancho, ALTO_NUMEROS);
+      poner(al[1], desde + ancho, y, ancho, ALTO_NUMEROS);
+      poner(al[2], desde, y + ALTO_NUMEROS, ancho * 2, ALTO_NUMEROS);
+    } else al.forEach((c, i) => poner(c, desde + (i % 2) * ancho, y + Math.floor(i / 2) * ALTO_NUMEROS, ancho, ALTO_NUMEROS));
+    if (p || al.length) y += ALTO_PROTAGONISTA;
+  };
+  const pasos: Readonly<Record<PasoMolde, () => void>> = {
+    'p+2x2': () => conPisos(numeros.splice(0, 4)),
+    'p+mm': () => conPisos(medianos.splice(0, 2)),
+    'p8+m': () => {
+      const p = tomarPrincipal();
+      const [m] = medianos.splice(0, 1);
+      if (p) poner(p, 0, y, m ? 8 : COLS, ALTO_PROTAGONISTA);
+      if (m) poner(m, p ? 8 : 0, y, p ? 4 : COLS, ALTO_PROTAGONISTA);
+      if (p || m) y += ALTO_PROTAGONISTA;
+    },
+    'm+p8': () => {
+      const p = tomarPrincipal();
+      const [m] = medianos.splice(0, 1);
+      if (m) poner(m, 0, y, p ? 4 : COLS, ALTO_PROTAGONISTA);
+      if (p) poner(p, m ? 4 : 0, y, m ? 8 : COLS, ALTO_PROTAGONISTA);
+      if (p || m) y += ALTO_PROTAGONISTA;
+    },
+    p12: () => {
+      const p = tomarPrincipal();
+      if (p) { poner(p, 0, y, COLS, ALTO_ANCHO); y += ALTO_ANCHO; }
+    },
+    n: () => filaDeNumeros(4),
+    n2x2: () => {
+      const lote = numeros.splice(0, 4);
+      lote.forEach((c, i) => {
+        const solo = lote.length % 2 === 1 && i === lote.length - 1;
+        poner(c, (i % 2) * 6, y + Math.floor(i / 2) * ALTO_NUMERO_BAJO, solo ? COLS : 6, ALTO_NUMERO_BAJO);
+      });
+      y += Math.ceil(lote.length / 2) * ALTO_NUMERO_BAJO;
+    },
+    mmm: () => filaDe([4, 4, 4], ALTO_MEDIANO),
+    m84: () => {
+      // Una tabla se lee en las 8.
+      const i = anchos.findIndex((c) => c.tipo !== 'mapa_calor');
+      if (i < 0 || !medianos.length) { filaDe([8, 4], ALTO_PROTAGONISTA); return; }
+      const [c] = anchos.splice(i, 1);
+      const h = Math.max(ALTO_PROTAGONISTA, altoDeAncho(c));
+      poner(c, 0, y, 8, h);
+      poner(medianos.shift()!, 8, y, 4, h);
+      y += h;
+    },
+    m75: () => filaDe([7, 5], ALTO_MEDIANO),
+    m66: () => filaDe([6, 6], ALTO_MEDIANO),
+    a: () => {
+      // El mapa de calor mide 24 filas: va al final, no entre los paneles.
+      const i = anchos.findIndex((x) => x.tipo !== 'mapa_calor');
+      if (i < 0) return;
+      const [c] = anchos.splice(i, 1);
+      const h = altoDeAncho(c);
+      poner(c, 0, y, COLS, h);
+      y += h;
+    },
+  };
+  for (const paso of MOLDES[def?.molde ?? 'wharf']) pasos[paso]();
+
+  // Lo que no entró en el molde: el principal si nadie lo pidió, y el resto de a tres.
+  if (conPrincipal) pasos.p12();
+  while (numeros.length) filaDeNumeros(4);
+  while (medianos.length >= 3) pasos.mmm();
+  if (medianos.length === 2) pasos.m84();
+  if (medianos.length === 1 && anchos.length) {
+    // Uno suelto va al lado de la primera tabla.
+    const c = anchos.shift()!;
+    const h = Math.max(ALTO_PROTAGONISTA, altoDeAncho(c));
+    poner(c, 0, y, 8, h);
+    poner(medianos.shift()!, 8, y, 4, h);
+    y += h;
+  } else if (medianos.length === 1) filaDe([COLS], ALTO_MEDIANO);
+  while (anchos.some((c) => c.tipo !== 'mapa_calor')) pasos.a();
+  for (const c of anchos.splice(0)) { poner(c, 0, y, COLS, altoDeAncho(c)); y += altoDeAncho(c); }
+  sueltos.forEach((c, i) => poner(c, i * 3, y, 3, num(c.h) || 2));
+  return { ...hoja, componentes: puestas };
+}
+
+/** El alto de lo que va a lo ancho: el mapa de calor pide el suyo, y lo demás entre 8 y 12. */
+const altoDeAncho = (c: Crudo) => (c.tipo === 'mapa_calor' ? num(c.h) || ALTO_ANCHO : Math.max(ALTO_PROTAGONISTA, Math.min(num(c.h) || ALTO_ANCHO, 12)));
 
 /**
  * Las portadas del Dashboard, por plantilla. Lo que contesta cada una:
  *   · Marketing — ¿cuánto me cuesta un cliente? El CAC solo, gigante.
- *   · Comercial — ¿cuánto entró y cuánto falta? La barra cobrado / pendiente.
+ *   · Comercial — ¿convierte, y a qué costo? La tendencia con los cuatro números de la conversión al lado.
  *   · Ads Analyst — ¿qué anuncio funciona? Los ganadores como pósters, con su miniatura de Meta.
  *   · Landing — ¿qué miran y qué tocan? El mapa de calor: la página con el calor encima.
  *   · VSL Analyst — ¿dónde se van del video? La curva de retención.
@@ -133,50 +334,47 @@ type PopupDe = (id: Id, base: string) => Crudo;
  *   · Closing — ¿cuántas llamadas se ganan? R1 → R2 → ganadas, en columnas.
  *   · CS Analyst — ¿a quién atiendo? Las personas que piden atención.
  *   · Productividad — ¿cómo van mis proyectos? El avance de cada proyecto activo (la matriz, abajo: pide proyectos evaluados).
- *   · CRM — ¿dónde se me caen los leads? El embudo del lead al cierre.
- *   · Cobranza — ¿a quién le cobro? La lista con «Marcar cobrada».
+ *   · Cobranza — ¿qué plata está prometida y no entró? Lo que entra por semana, con los cuatro números al lado.
  *   · Automatizaciones — ¿me contestan? Enviados → abiertos → respondieron.
  *   · Contenido e IA — ¿en qué se va la IA? El anillo con el costo en el centro.
+ *   · Cold Calling — ¿cuántas contestan y cuántas agendan? El botón de grabar arriba y el anillo de cómo terminan.
  */
-export function portadasDashboard(popupAnuncio: PopupDe): Readonly<Record<string, DefinicionPortada>> {
+export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>> {
   return {
-    marketing: { sube: 'mk-cac', cambios: { titulo: 'Cada cliente te cuesta', comparar: true } },
-    comercial: { sube: 'co-revenue-barra', cambios: { titulo: 'Lo que entró y lo que falta cobrar' } },
-    'ads-analyst': {
-      nueva: (id) => ({
-        // Los GUIONES de la hoja (no el conjunto de Meta): traen su miniatura y respetan los filtros de ángulo y tipo de la hoja.
-        id: id('ad-portada'), clase: 'grafico', tipo: 'tarjetas', fuente: 'guiones', dimension: 'guion', metricas: ['agendas', 'cpa'],
-        ordenMetrica: 'agendas', barra: 'agendas', limite: 4, titulo: 'Tus anuncios ganadores',
-        alClic: 'popup', popup: popupAnuncio(id, 'ad-portada'),
-      }),
+    // Con su línea abajo: la tarjeta negra de Corbel nunca es un número solo en un rectángulo vacío.
+    // Con su línea abajo: la tarjeta negra de Corbel nunca es un número solo en un rectángulo vacío.
+    marketing: { molde: 'prism', sube: 'mk-tendencias', vecino: 'mk-tendencias', par: ['mk-funnel', 'mk-plataforma'] },
+    comercial: { molde: 'ledge', sube: 'co-tendencia', vecino: 'co-tendencia', par: ['co-funnel-embudo', 'co-motivos', 'co-por-oferta', 'co-origen'] },
+    'ads-analyst': { molde: 'prism', sube: 'ad-cuadrante-dispersion', vecino: 'ad-cuadrante-dispersion', par: ['ad-veredicto', 'ad-confianza'] },
+    'hooks-retencion': { molde: 'tilvo', sube: 'hk-video', vecino: 'hk-video', par: ['hk-gancho', 'hk-formato-cta', 'hk-avatar', 'hk-semana', 'hk-ia'] },
+    landing: { molde: 'tilvo', sube: 'la-scroll', cambios: { titulo: 'Hasta dónde bajan' }, vecino: 'la-visitas-dia', par: ['la-clics', 'la-origen'] },
+    'vsl-analyst': {
+      molde: 'corbel', nueva: (id) => ({ id: id('vs-mitad'), clase: 'grafico', tipo: 'indicador', fuente: 'retencion_vsl', metricas: ['tasa_50'], maximo: 100, titulo: 'Ven la mitad del video' }),
+      vecino: 'vs-curva', par: ['vs-mitad', 'vs-tramos', 'vs-videos'],
     },
-    landing: { sube: 'la-mapa-mapa', cambios: { titulo: 'Qué miran y qué tocan' } },
-    'vsl-analyst': { sube: 'vs-curva', cambios: { titulo: 'Dónde se van del video' } },
-    'chat-analyst': { sube: 'ch-rapidos', cambios: { tipo: 'indicador', maximo: 100, titulo: 'Respondes en 15 minutos' } },
-    closing: { sube: 'cl-embudo-embudo', cambios: { tipo: 'embudo_columnas', titulo: 'Cuántas llamadas se ganan' } },
-    'cs-analyst': {
-      nueva: (id) => ({
-        id: id('cs-portada'), clase: 'grafico', tipo: 'tarjetas', fuente: 'cartera', dimension: 'cliente', metricas: ['atencion', 'deuda_vencida_usd', 'sesiones'],
-        ordenMetrica: 'atencion', barra: 'deuda_vencida_usd', limite: 4, tabla: { columnas: ['senal', 'tramo_contacto'] }, titulo: 'Quién te necesita hoy',
-      }),
-    },
-    // El avance de cada proyecto activo, no la matriz: la matriz sólo dibuja los proyectos EVALUADOS (impacto y esfuerzo), y
-    // en producción (ws1, 15/10) no había ninguno: la portada era un bloque vacío. La matriz sigue abajo.
-    productividad: { sube: 'pr-avance-proyecto', cambios: { titulo: 'Cómo van tus proyectos', limite: 8 } },
-    crm: { sube: 'embudo', cambios: { titulo: 'Dónde se caen tus leads' } },
-    cobranza: { sube: 'a-quien', cambios: { titulo: 'A quién cobrarle', limite: 6 } },
+    'chat-analyst': { molde: 'corbel', sube: 'ch-rapidos', cambios: { tipo: 'indicador', maximo: 100, titulo: 'Respondes en 15 minutos' }, vecino: 'ch-por-dia', par: ['ch-rapidos', 'ch-setters', 'ch-lineas'] },
+    closing: { molde: 'wharf', sube: 'cl-embudo-embudo', cambios: { tipo: 'embudo_columnas', titulo: 'Cuántas llamadas se ganan' }, vecino: 'cl-factores-barras', par: ['cl-factores-ia', 'cl-embudo-embudo', 'cl-resultado'] },
+    'cs-analyst': { molde: 'moorly', sube: 'cs-etapas', cambios: { titulo: 'Dónde está cada cliente' }, vecino: 'cs-tabla', par: ['cs-motivos', 'cs-senal', 'cs-contacto', 'cs-etapas', 'cs-semanas', 'cs-ia'] },
+    productividad: { molde: 'moorly', sube: 'pr-piramide-barras', cambios: { titulo: 'Pirámide de prioridad' }, vecino: 'pr-avance-proyecto', par: ['pr-huele-mal', 'pr-matriz-burbujas'] },
+    cobranza: { molde: 'wharf', sube: 'semanas', vecino: 'semanas', par: ['urgencia', 'barra', 'por-funnel'] },
     automatizaciones: {
-      nueva: (id) => ({
+      molde: 'ledge', nueva: (id) => ({
         id: id('automatizaciones-portada'), clase: 'grafico', tipo: 'embudo_barras', fuente: 'envios', metricas: ['envios', 'abiertos', 'respuestas'],
         titulo: '¿Te contestan?',
       }),
+      vecino: 'por-dia', par: ['por-automatizacion', 'automatizaciones-portada', 'desenlace', 'donde-fallo', 'horas'],
     },
+    inmobiliaria: { molde: 'wharf', sube: 'por-semana', vecino: 'por-semana', par: ['por-proyecto', 'origen', 'etapa', 'motivos'] },
     'ia-contenido': {
-      nueva: (id) => ({
+      molde: 'corbel', nueva: (id) => ({
         id: id('ia-contenido-portada'), clase: 'grafico', tipo: 'anillo', fuente: 'ia', dimension: 'funcion', metricas: ['costo'],
         ordenMetrica: 'costo', limite: 6, titulo: 'En qué se va la IA',
       }),
+      vecino: 'por-dia', par: ['ia-contenido-portada', 'funciones', 'modelos', 'quien'],
     },
+    // Cold Calling (04/11/2026): ¿cuántas contestan? «Grabar llamada» y los tres números de a dos (Moorly), las llamadas por día a lo
+    // ancho, y cómo terminan al lado de quién llamó. El botón entra como la primera tarjeta (`arriba` en lib/graficos-acciones.ts).
+    'cold-calling': { molde: 'moorly', sube: 'como-terminan', vecino: 'por-dia', par: ['como-terminan', 'quien'] },
   };
 }
 

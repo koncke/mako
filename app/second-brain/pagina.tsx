@@ -35,7 +35,7 @@ import '@/app/admin/runway/decisiones.css';
 import '@/app/tickets/bandeja/bandeja.css';
 
 /** `?offer=` y `?antes=` (21/10/2026): la conversación de Offer o el chat de antes abierto, que se siguen en el Ops Center. */
-export type QuerySecondBrain = { chat?: string; offer?: string; antes?: string; panel?: string; area?: string; centro?: string; ticketera?: string; recorrido?: string };
+export type QuerySecondBrain = { coach?: string; chat?: string; offer?: string; antes?: string; panel?: string; area?: string; centro?: string; ticketera?: string; recorrido?: string };
 
 /** ¿La URL pide el Mapa? `?panel=mapa`, o un `?area=` de los links de siempre. */
 export const pideElMapa = (q: QuerySecondBrain): boolean => q.panel === 'mapa' || !!q.area;
@@ -89,7 +89,7 @@ export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio }: {
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* En modo CLARO desde el 16/10/2026 («pon en white mode la tab de Second Brain», Martín). */}
-      <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={chat} offerInicial={enteroDe(q.offer)} antesInicial={enteroDe(q.antes)}
+      <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={chat} offerInicial={enteroDe(q.offer)} antesInicial={enteroDe(q.antes)} funnelInicial={q.coach === 'funnel'}
         opcionArmar={OPCION_ARMAR} centro={centro}
         centroInicial={centro ? claveCentro : null} ticketeraInicial={ticketera} inicio={inicio} />
     </Pagina>

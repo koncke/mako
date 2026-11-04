@@ -16,6 +16,7 @@ import { credWs, credDelCliente, envCred, esDeLaPlataforma } from './credenciale
 import { getSettingEstricto } from './settings';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
+import { bloqueoDeEnvioEnRevision } from './revision-guarda';
 import { esKeySoloEnvio, KEY_SOLO_ENVIO_DE_MAKO, KEY_SOLO_ENVIO_TUYA } from './resend-errores';
 import {
   remitenteDelNegocio, remitenteDelPaso, sanearRemitente, dominioDe, esDominioDeMako, SIN_EMAIL_PROPIO,
@@ -178,8 +179,31 @@ export function verifyUnsubscribeToken(leadId: number, token: string): boolean {
   const b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
-export function buildUnsubscribeUrl(leadId: number): string {
-  return `${APP_BASE_URL}/api/email/unsubscribe?lead=${leadId}&t=${unsubscribeToken(leadId)}`;
+/**
+ * El link de baja. Con `broadcastId`, la baja queda atribuida a ese envío (`email_broadcast_envios.baja_at`: las bajas de
+ * cada edición del newsletter). El `b` no va firmado y no hace falta: el token es del LEAD, y con un `b` cambiado sólo se
+ * estampa la fila de ese mismo lead en otro envío, si la tiene.
+ */
+export function buildUnsubscribeUrl(leadId: number, broadcastId?: number | null): string {
+  const b = broadcastId != null && Number.isSafeInteger(broadcastId) && broadcastId > 0 ? `&b=${broadcastId}` : '';
+  return `${APP_BASE_URL}/api/email/unsubscribe?lead=${leadId}&t=${unsubscribeToken(leadId)}${b}`;
+}
+
+// ── La baja de los correos de AVANCE de los tickets (4/11/2026) ──────────────
+// Es por PERSONA (`usuarios.id`), no por lead: lo que se apaga es «los avances de MIS tickets» (lib/tickets-avance.ts).
+// El mismo secreto que la baja de un lead, con OTRO prefijo adentro de la firma: un token de baja de un lead no sirve para
+// apagarle los correos a la persona con ese mismo número, ni al revés.
+export function tokenBajaTickets(usuarioId: number): string {
+  return crypto.createHmac('sha256', unsubSecret()).update(`tickets-email:${usuarioId}`).digest('hex').slice(0, 32);
+}
+export function verificarBajaTickets(usuarioId: number, token: string): boolean {
+  if (!unsubSecret()) return false;
+  const a = Buffer.from(token || '');
+  const b = Buffer.from(tokenBajaTickets(usuarioId));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+export function linkBajaTickets(usuarioId: number): string {
+  return `${APP_BASE_URL}/api/email/unsubscribe/tickets?u=${usuarioId}&t=${tokenBajaTickets(usuarioId)}`;
 }
 
 export type SendEmailResult = { ok: true; id: string } | { ok: false; error: string };
@@ -201,6 +225,10 @@ export type SendEmailParams = {
 // Envía un email por Resend. NO chequea el flag de envío del workspace — eso lo
 // decide el caller (el motor de nutrición / broadcasts), igual que sendWhatsappTemplate.
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
+  // ⚠️ La cuenta de revisión de las tiendas no le escribe a nadie (lib/revision-guarda.ts): esa contraseña la tienen terceros. Va ANTES
+  // de las dos identidades: también corta lo que firmaría MaKo (`invitarNuevoAlumnoAction` mandaba un link a cualquier dirección).
+  const enRevision = await bloqueoDeEnvioEnRevision('email', params.to);
+  if (enRevision) return { ok: false, error: enRevision };
   // ⚠️ DOS IDENTIDADES, Y SE RECONOCEN SÓLO POR LA CONSTANTE (undécima tanda, decisión 3 de la décima: «Quitale a
   // Mauricio que pueda mandar email con MaKo. Nadie debería poder.»):
   //   · HABLA MaKo (`from: REMITENTE_MAKO`: los avisos, los reportes, el acceso a MaKo): sale por la key de la
@@ -361,6 +389,9 @@ export type ResendDomain = {
   status: string;            // 'not_started' | 'pending' | 'verified' | 'failure' | 'temporary_failure'
   region?: string;
   records: ResendDnsRecord[];
+  /** El seguimiento de aperturas y de clics del dominio (`open_tracking` / `click_tracking`). Ausente = Resend no lo dijo. */
+  openTracking?: boolean;
+  clickTracking?: boolean;
 };
 
 export type DomainResult = { ok: true; domain: ResendDomain } | { ok: false; error: string };
@@ -404,39 +435,69 @@ function errMsg(body: unknown, fallback: string): string {
 
 function parseDomain(body: unknown): ResendDomain | null {
   if (typeof body !== 'object' || !body || !('id' in body)) return null;
-  const d = body as { id?: unknown; name?: unknown; status?: unknown; region?: unknown; records?: unknown };
+  const d = body as { id?: unknown; name?: unknown; status?: unknown; region?: unknown; records?: unknown; open_tracking?: unknown; click_tracking?: unknown };
   return {
     id: String(d.id ?? ''),
     name: String(d.name ?? ''),
     status: String(d.status ?? 'pending'),
     region: d.region ? String(d.region) : undefined,
     records: Array.isArray(d.records) ? (d.records as ResendDnsRecord[]) : [],
+    ...(typeof d.open_tracking === 'boolean' ? { openTracking: d.open_tracking } : {}),
+    ...(typeof d.click_tracking === 'boolean' ? { clickTracking: d.click_tracking } : {}),
   };
 }
 
 const REGIONES_VALIDAS = new Set(['us-east-1', 'eu-west-1', 'sa-east-1', 'ap-northeast-1']);
 
+/**
+ * PRENDE EL SEGUIMIENTO DE APERTURAS Y DE CLICS del dominio (4/11/2026, la campaña de Mauricio: «si ya lo abrió me lo pones
+ * aquí»). Sin esto Resend no manda `email.opened` ni `email.clicked`, y el webhook no tiene nada que marcar: la columna
+ * «Abrió» quedaría vacía para siempre, sin un error. Medido ese día: en hola-mako.com los dos estaban apagados.
+ *
+ * El contrato es el de la API de Resend (`PATCH /domains/{id}` con `open_tracking` y `click_tracking`, booleanos; contesta
+ * `{ id, object: 'domain' }`), leído del SDK oficial (resend@6.37.0, `Domains.update`): la página de la documentación no se
+ * podía abrir desde la nube. Se pide aunque ya estén prendidos: es idempotente. `{ ok: false }` lleva el motivo en palabras.
+ */
+export async function prenderSeguimiento(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const r = await resendFetch(`/domains/${encodeURIComponent(id)}`, {
+    method: 'PATCH', body: JSON.stringify({ open_tracking: true, click_tracking: true }),
+  });
+  return r.ok ? { ok: true } : { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
+}
+
+/** Lo que devuelve `createResendDomain`: el dominio y si se pudo prender el seguimiento (`true`, o el motivo). */
+export type CreacionDominio = { ok: true; domain: ResendDomain; seguimiento: true | string } | { ok: false; error: string };
+
 // Crea el dominio. Si ya existe en la cuenta (ej: re-conectar en la prueba E2E),
 // lo busca en la lista y lo devuelve — idempotente para el onboarding. El caller
-// (route de dominio) valida la TITULARIDAD por workspace antes de adoptarlo.
+// (lib/email-dominio.ts) valida la TITULARIDAD por workspace antes de adoptarlo.
 // El fallback por lista corre ante cualquier 4xx (no dependemos del wording del
 // mensaje de error de Resend).
-export async function createResendDomain(name: string, region = 'sa-east-1'): Promise<DomainResult> {
+// ⚠️ Y SIEMPRE PRENDE EL SEGUIMIENTO (`prenderSeguimiento`), también al adoptar uno que ya estaba: un dominio dado de alta
+// antes del 4/11 nace con los dos apagados. Si el seguimiento falla, el dominio queda igual y el motivo vuelve en `seguimiento`.
+export async function createResendDomain(name: string, region = 'sa-east-1'): Promise<CreacionDominio> {
   const reg = REGIONES_VALIDAS.has(region) ? region : 'sa-east-1';
-  const r = await resendFetch('/domains', { method: 'POST', body: JSON.stringify({ name, region: reg }) });
+  const r = await resendFetch('/domains', { method: 'POST', body: JSON.stringify({ name, region: reg, open_tracking: true, click_tracking: true }) });
+  let creado: DomainResult;
   if (r.ok) {
     const d = parseDomain(r.body);
-    return d ? { ok: true, domain: d } : { ok: false, error: 'Resend no devolvió el dominio' };
-  }
-  // 4xx → puede ser "ya existe": buscarlo por nombre en la cuenta.
-  if (r.status >= 400 && r.status < 500) {
-    const lista = await listResendDomains();
-    if (lista.ok) {
-      const existente = lista.domains.find((d) => d.name.toLowerCase() === name.toLowerCase());
-      if (existente) return getResendDomain(existente.id);
+    creado = d ? { ok: true, domain: d } : { ok: false, error: 'Resend no devolvió el dominio' };
+  } else {
+    creado = { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
+    // 4xx → puede ser "ya existe": buscarlo por nombre en la cuenta.
+    if (r.status >= 400 && r.status < 500) {
+      const lista = await listResendDomains();
+      if (lista.ok) {
+        const existente = lista.domains.find((d) => d.name.toLowerCase() === name.toLowerCase());
+        if (existente) creado = await getResendDomain(existente.id);
+      }
     }
   }
-  return { ok: false, error: errorDeResend(r, `Resend ${r.status}`) };
+  if (!creado.ok) return creado;
+  const s = await prenderSeguimiento(creado.domain.id);
+  return s.ok
+    ? { ok: true, domain: { ...creado.domain, openTracking: true, clickTracking: true }, seguimiento: true }
+    : { ok: true, domain: creado.domain, seguimiento: s.error };
 }
 
 export async function getResendDomain(id: string): Promise<DomainResult> {

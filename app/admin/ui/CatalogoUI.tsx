@@ -247,7 +247,7 @@ export function CatalogoUI({ tabInicial }: { tabInicial?: string }) {
           <Status tono="mako" solido>MaKo detectó</Status>
         </Fila>
         <Fila label="Otros">
-          <Avatar name="Mauricio Bustos" />
+          <Avatar name="Ana Pérez" />
           <Avatar name="Leandro" size={40} />
           <Tooltip text="Costo por lead: gasto dividido leads del período."><span style={{ borderBottom: '1px dashed var(--faint)', cursor: 'help', fontSize: 'var(--fs-sm)' }}>CPL</span></Tooltip>
         </Fila>

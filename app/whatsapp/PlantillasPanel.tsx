@@ -690,7 +690,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
 
             <div>
               <label style={labelBase}>Pie (opcional, máx 60, sin variables)</label>
-              <input value={edit.footer ?? ''} maxLength={60} onChange={(e) => patchEdit({ footer: e.target.value })} placeholder="Equipo Mauricio Bustos" style={inputBase} />
+              <input value={edit.footer ?? ''} maxLength={60} onChange={(e) => patchEdit({ footer: e.target.value })} placeholder="Equipo de tu negocio" style={inputBase} />
             </div>
 
             {edit.params.length > 0 && (

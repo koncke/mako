@@ -43,6 +43,7 @@ import {
   type CampoFormulario, type JsonNodo, type TipoGrafico, type TonoRecuadro, type VarianteOptimizado,
 } from '@/lib/editor-landing/doc';
 import type { OpcionesImagen } from './contexto';
+import { ordenarPorIds } from './diff-tarjetas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El JSON de cada bloque (puro)
@@ -351,6 +352,32 @@ export function trBorrarTarjeta(state: EditorState, id: string): { tr: Transacti
   }
   cursorAdentro(tr, Math.min(s.pos, Math.max(0, tr.doc.content.size - 1)));
   return { tr, pos: s.pos, nodo: s.nodo, reemplazo };
+}
+
+/**
+ * Lo que la IA cambia de la LISTA de secciones (28/10/2026, `planDeAplicacion`: `quitadas` y el orden de `resultado`), en
+ * UNA transacción: saca las de `quitar` y deja las de `orden` en ese orden, en los lugares que ocupan (`ordenarPorIds`).
+ * Sólo sacar borra cada una (los demás nodos no se tocan); reordenar reescribe la lista. Nunca deja el documento sin
+ * secciones. null si no cambia nada.
+ */
+export function trQuitarYOrdenar(state: EditorState, quitar: readonly string[], orden: readonly string[] | null): Transaction | null {
+  const fuera = new Set(quitar);
+  const idDe = (n: NodoPM) => (n.type.name === NODO.tarjeta ? String(n.attrs.id ?? '') : '');
+  const todas: NodoPM[] = [];
+  state.doc.forEach((n) => { todas.push(n); });
+  const quedan = todas.filter((n) => !fuera.has(idDe(n)) || !idDe(n));
+  if (!quedan.some((n) => n.type.name === NODO.tarjeta)) return null;
+  const finales = orden?.length ? ordenarPorIds(quedan, idDe, orden) : quedan;
+  if (finales.length === todas.length && finales.every((n, i) => n === todas[i])) return null;
+  const tr = state.tr;
+  if (finales.length === quedan.length && finales.every((n, i) => n === quedan[i])) {
+    // Sólo sacar: de atrás para adelante, así las posiciones de las que faltan no se corren.
+    const borrar = seccionesDe(state.doc).filter((s) => fuera.has(s.id)).reverse();
+    for (const s of borrar) tr.delete(s.pos, s.pos + s.nodo.nodeSize);
+  } else {
+    tr.replaceWith(0, state.doc.content.size, finales);
+  }
+  return tr.docChanged ? tr.scrollIntoView() : null;
 }
 
 /** Funde la sección con la de arriba: el contenido pasa a la de arriba, que conserva su estilo. */

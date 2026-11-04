@@ -1,7 +1,7 @@
 # =============================================================================
 # medir tipos — UNA medición en Actions de cómo se reparte la memoria del chequeo de tipos
 # =============================================================================
-# Por qué (21/10/2026): el paso «Tipos» de integracion.yml pasó de ~2 GB a 5,06 GB de memoria viva en ocho días (run 203: vivo_mb=5062 de un tope de 6.144, 7.723 archivos). El runner tiene 7,9 GB y el
+# Por qué (21/10/2026): el paso «Tipos» de integracion.yml (hoy punta.yml) pasó de ~2 GB a 5,06 GB de memoria viva en ocho días (run 203: vivo_mb=5062 de un tope de 6.144, 7.723 archivos). El runner tiene 7,9 GB y el
 # programa crece ~1 GB por semana: subir el tope otra vez es esperar al próximo OOM. El arreglo de fondo se elige con UN número que sólo se puede medir acá (hacen falta ≥ 7 GB libres): cuánto baja el pico
 # por proceso si el chequeo se reparte en 2, 3 o 4 tandas, si partir tests/ del resto alcanza, y qué archivos son los más lentos de chequear. scripts/medir-tipos.mjs lo mide y lo deja en el log y en el
 # resumen del run (líneas `MEDIDA-TIPOS …` y una tabla).
@@ -46,7 +46,7 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
-      # Igual que integracion.yml: tsc ve los tipos de las rutas que deja `.next/` y el next-env.d.ts, que están en .gitignore.
+      # Igual que punta.yml: tsc ve los tipos de las rutas que deja `.next/` y el next-env.d.ts, que están en .gitignore.
       - name: Tipos de las rutas
         run: npx next typegen
 

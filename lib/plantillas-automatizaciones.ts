@@ -227,6 +227,14 @@ function mako(id: string, texto: string, siguiente: string | null): PasoDePlanti
  * LA MISMA TARJETA, «LO MANDA IGUAL» FUERA DEL HORARIO DE OFICINA (16/10/2026): una alerta que no puede esperar a la mañana.
  * Esperando, las tres del techo se apilaban de noche y salían juntas a las 9 con los datos de la noche (revisión de B3).
  */
+/**
+ * LA MISMA TARJETA PARA UNA AGENCIA (31/10/2026, ticket #37). Sin su grupo sale por correo al equipo: el cliente ya no recibe esta
+ * alerta, y sin esto quedaba sólo en la campanita de la agencia, gastando el techo sin que nadie la viera.
+ */
+function makoUrgenteAgencia(id: string, texto: string): PasoDePlantilla {
+  return { ...RELLENO, id, siguiente: null, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO, fueraDeHorario: 'igual', sinGrupo: 'email' }, [{ tipo: 'texto', cuerpo: texto }]) } };
+}
+
 function makoUrgente(id: string, texto: string, siguiente: string | null): PasoDePlantilla {
   return { ...RELLENO, id, siguiente, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO, fueraDeHorario: 'igual' }, [{ tipo: 'texto', cuerpo: texto }]) } };
 }
@@ -610,16 +618,18 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       mako('er_mk', 'Te escribieron por email: {{nombre_completo}}.\n👉 {{link_lead}}', null),
     ],
   },
-  // El newsletter SEMANAL no está: un lead entra UNA vez a cada automatización (mig 0034), así que un Recurrente semanal
-  // le llegaría una sola vez a cada suscriptor. Lo que existe es el envío masivo de /email.
+  // El newsletter NO es una automatización (Martín, 29/10/2026: «Sí, armalo así»): una automatización tiene final y un
+  // lead entra UNA vez a cada una (mig 0034); las EDICIONES viven en la tab Newsletters (lib/newsletter.ts). Acá queda
+  // SÓLO la bienvenida, y desde ese día arranca con la etapa «Suscripto» del CRM Newsletter: antes pedía una etiqueta,
+  // y a los suscriptos no los etiqueta nadie (entran al CRM por la landing, la importación o desde otro CRM).
   {
     id: 'email-newsletter',
     nombre: 'Alguien Se Suscribió',
     emoji: '📰',
-    linea: 'Tres correos de bienvenida a quien se suscribe: el saludo, a los 2 días y a los 5.',
+    linea: 'Tres correos de bienvenida a quien entra a tu newsletter: el saludo, a los 2 días y a los 5.',
     origen: 'galería v2 (décima tanda)',
     objetivo: 'captar',
-    cron: { pide: 'etiqueta', ayuda: 'La etiqueta que le pones a quien se suscribe.' },
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa «Suscripto» de tu CRM Newsletter.' },
     pasos: [
       email('nl_1', '¡Gracias por suscribirte!', 'Esto es lo que vas a recibir.',
         'Hola {{nombre}}:\n\nGracias por suscribirte. Cada tanto te vamos a escribir con ideas y novedades que te pueden servir.\n\nSi tienes una pregunta, responde este correo: lo leemos.', 'nl_espera_2d', { revisar: false }),
@@ -652,23 +662,23 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
  * tests/alerta-critica.test.ts. Uno que no está acá cae al «Si no», que dice el estado tal cual y NO inventa qué hacer.
  * Pedido del dueño (12/8): la CAUSA, no el síntoma — «suspendida por falta de pago» dice qué hacer, «frenada» no.
  */
-const CAUSA_DE_LA_CUENTA: ReadonlyArray<{ id: string; estado: string; titular: string; queHacer: string }> = [
-  { id: 'impago', estado: 'Saldo impago', titular: 'Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*', queHacer: 'Paga el saldo que debes en el Business Manager de Meta.' },
-  { id: 'deshabilitada', estado: 'Deshabilitada', titular: 'Meta *DESHABILITÓ* tu cuenta publicitaria', queHacer: 'Entra al Business Manager y pide la revisión de la cuenta.' },
-  { id: 'riesgo', estado: 'En revisión de riesgo', titular: 'Meta puso tu cuenta *EN REVISIÓN DE RIESGO*', queHacer: 'No toques nada estos días: ni presupuestos ni anuncios nuevos.' },
-  { id: 'liquidacion', estado: 'Pendiente de liquidación', titular: 'Tu cuenta quedó *PENDIENTE DE LIQUIDACIÓN*', queHacer: 'Meta está esperando que se salde la cuenta. Revisa el método de pago.' },
-  { id: 'gracia', estado: 'En período de gracia', titular: 'Tu cuenta está *EN PERÍODO DE GRACIA*: se frena en cualquier momento', queHacer: 'Regulariza el pago AHORA, antes de que corte.' },
-  { id: 'cierre', estado: 'Pendiente de cierre', titular: 'Tu cuenta publicitaria está *POR CERRARSE*', queHacer: 'Entra ya al Business Manager: si se cierra, se pierde el historial.' },
-  { id: 'cerrada', estado: 'Cerrada', titular: 'Tu cuenta publicitaria está *CERRADA*', queHacer: 'Hay que apelar en el Business Manager o abrir una cuenta nueva.' },
+const CAUSA_DE_LA_CUENTA: ReadonlyArray<{ id: string; estado: string; titular: string; queHacer: string; titularAgencia: string; queHacerAgencia?: string }> = [
+  { id: 'impago', estado: 'Saldo impago', titular: 'Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*', queHacer: 'Paga el saldo que debes en el Business Manager de Meta.', titularAgencia: 'La cuenta publicitaria de *{{cliente_nombre}}* está *SUSPENDIDA POR FALTA DE PAGO*', queHacerAgencia: 'Hay que pagar el saldo que debe en el Business Manager de Meta.' },
+  { id: 'deshabilitada', estado: 'Deshabilitada', titular: 'Meta *DESHABILITÓ* tu cuenta publicitaria', queHacer: 'Entra al Business Manager y pide la revisión de la cuenta.', titularAgencia: 'Meta *DESHABILITÓ* la cuenta publicitaria de *{{cliente_nombre}}*' },
+  { id: 'riesgo', estado: 'En revisión de riesgo', titular: 'Meta puso tu cuenta *EN REVISIÓN DE RIESGO*', queHacer: 'No toques nada estos días: ni presupuestos ni anuncios nuevos.', titularAgencia: 'Meta puso la cuenta publicitaria de *{{cliente_nombre}}* *EN REVISIÓN DE RIESGO*' },
+  { id: 'liquidacion', estado: 'Pendiente de liquidación', titular: 'Tu cuenta publicitaria quedó *PENDIENTE DE LIQUIDACIÓN*', queHacer: 'Meta está esperando que se salde la cuenta. Revisa el método de pago.', titularAgencia: 'La cuenta publicitaria de *{{cliente_nombre}}* quedó *PENDIENTE DE LIQUIDACIÓN*' },
+  { id: 'gracia', estado: 'En período de gracia', titular: 'Tu cuenta publicitaria está *EN PERÍODO DE GRACIA*: Meta la frena en cualquier momento', queHacer: 'Regulariza el pago en Meta AHORA, antes de que corte.', titularAgencia: 'La cuenta publicitaria de *{{cliente_nombre}}* está *EN PERÍODO DE GRACIA*: Meta la frena en cualquier momento', queHacerAgencia: 'Hay que regularizar el pago en Meta AHORA, antes de que corte.' },
+  { id: 'cierre', estado: 'Pendiente de cierre', titular: 'Tu cuenta publicitaria está *POR CERRARSE*', queHacer: 'Entra ya al Business Manager: si se cierra, se pierde el historial.', titularAgencia: 'La cuenta publicitaria de *{{cliente_nombre}}* está *POR CERRARSE*' },
+  { id: 'cerrada', estado: 'Cerrada', titular: 'Tu cuenta publicitaria está *CERRADA*', queHacer: 'Hay que apelar en el Business Manager o abrir una cuenta nueva.', titularAgencia: 'La cuenta publicitaria de *{{cliente_nombre}}* está *CERRADA*' },
 ];
 
 /**
  * El texto de la alerta: cada dato en su renglón, y un renglón sin su dato se va solo (el motivo de Meta, cuando no agrega
  * nada). «Sin entregar» es un DATO que pone el cron sólo si Meta lo confirmó (`anuncios_entrega`), nunca una frase fija.
  */
-const textoCuentaFrenada = (titular: string, queHacer: string | null): string => [
+const textoCuentaFrenada = (titular: string, queHacer: string | null, link = '{{link_integraciones}}'): string => [
   `🚨 ${titular}`, '📉 Anuncios: {{anuncios_entrega}}', '🕐 Hace {{anuncios_hace}} que está así.', '⚠️ Motivo de Meta: {{anuncios_motivo_meta}}',
-  ...(queHacer ? [`✅ ${queHacer}`] : []), '👉 {{link_integraciones}}', '', '— MaKo',
+  ...(queHacer ? [`✅ ${queHacer}`] : []), `👉 ${link}`, '', '— MaKo',
 ].join('\n');
 
 /** El techo de fábrica de la alerta: cuántas veces avisa por incidente (editable en la CONDITION de la fila). */
@@ -786,6 +796,25 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // LA MISMA ALERTA, A LA AGENCIA (31/10/2026, ticket #37): el cliente de una agencia no la recibe (`aLaAgencia`,
+    // lib/avisos-catalogo.ts). El mismo techo y un texto por estado, que nombra al cliente: «tu cuenta» en el grupo de la agencia
+    // no dice de quién es. El link es a MaKo Partners, porque `{{link_integraciones}}` sería el de la propia agencia.
+    id: 'mako-meta-cuenta-frenada-agencia',
+    nombre: 'Meta Frenó Cuenta de Cliente de Agencia',
+    emoji: '🚨',
+    linea: 'Avisa a una agencia que Meta frenó la cuenta publicitaria de su cliente, por qué y qué hacer, hasta 3 veces.',
+    origen: 'el cron de las alertas críticas (meta-cuenta-frenada), cuando la cuenta es de un cliente de una agencia aprobada',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'meta_cuenta_frenada_agencia' },
+    pasos: [
+      condicion('mfa_tope', [[[{ campo: 'dato:anuncios_vez', op: 'menor_igual', valor: TOPE_AVISOS_CUENTA_FRENADA }], 'mfa_estado']], null),
+      condicion('mfa_estado', CAUSA_DE_LA_CUENTA.map((c) => [[{ campo: 'dato:anuncios_estado', valor: c.estado }], `mfa_${c.id}`] as const), 'mfa_otro'),
+      ...CAUSA_DE_LA_CUENTA.map((c) => makoUrgenteAgencia(`mfa_${c.id}`, textoCuentaFrenada(c.titularAgencia, c.queHacerAgencia ?? c.queHacer, '{{cliente_link}}'))),
+      makoUrgenteAgencia('mfa_otro', textoCuentaFrenada('*La cuenta publicitaria de {{cliente_nombre}} tiene un problema*\n📋 Estado en Meta: {{anuncios_estado}}', null, '{{cliente_link}}')),
+    ],
+  },
+  {
     // Y su contracara (16/10/2026): el incidente que se venía avisando se resolvió.
     id: 'mako-meta-cuenta-recuperada',
     nombre: 'Volvió la Cuenta Publicitaria',
@@ -797,6 +826,19 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'meta_cuenta_recuperada' },
     pasos: [
       makoUrgente('mr_mk', '✅✅ *LISTO, YA ESTÁ ENTREGANDO* ✅✅\n\n🟢 Tu cuenta publicitaria volvió a la normalidad.\n🔕 Dejo de avisarte.\n\n— MaKo', null),
+    ],
+  },
+  {
+    id: 'mako-meta-cuenta-recuperada-agencia',
+    nombre: 'Volvió Cuenta de Cliente de Agencia',
+    emoji: '✅',
+    linea: 'Avisa a una agencia que la cuenta publicitaria de su cliente volvió a entregar (sólo si se le había avisado).',
+    origen: 'el cron de las alertas críticas (meta-cuenta-recuperada), cuando la cuenta es de un cliente de una agencia aprobada',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'meta_cuenta_recuperada_agencia' },
+    pasos: [
+      makoUrgenteAgencia('mra_mk', '✅ La cuenta publicitaria de *{{cliente_nombre}}* volvió a la normalidad.\n🔕 Dejo de avisarte.\n\n— MaKo'),
     ],
   },
   {

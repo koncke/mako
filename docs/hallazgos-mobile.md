@@ -1940,3 +1940,49 @@ clientes» (claude5).*
 
 **Vive en:** app/m/_ui/hoja-historial.ts (salió de SheetM.tsx tal cual) · app/m/crm/TableroCrm.tsx ·
 app/m/inbox/InboxM.tsx · app/m/calendario/CalendarioM.tsx · *29/10/2026, chat «CRM y Chats» (claude3), hotfix `hotfix-ticket27-2910`.*
+
+## Lo que no se veía de la app de las tiendas: el teléfono vendía, y borrar un negocio no borraba todo (3/11/2026)
+
+Los pasos del plan de las tiendas, medidos contra el código. Estado y fuentes: [tiendas-play-appstore.md](tiendas-play-appstore.md).
+
+- **El «hecho cuando» del plan no medía nada.** Decía `git grep` de checkout, Stripe o MercadoPago en `app/m`, y daba limpio con el teléfono vendiendo: «Tu plan» abría el pago con `window.location.href = r.link`, Agency con `href={c.cobro.pagar}`, y los carteles de la prueba, More, Equipo, `/no-esta-en-tu-plan`, `EmpezarPlanYa` y `/cuenta-pausada` lo ofrecían con otras palabras. **Regla:** una guarda de esto busca lo que se le OFRECE a la persona, no el nombre de la pasarela (`tests/tiendas-telefono-no-vende.test.ts`). Y varias pantallas de escritorio también se abren en el teléfono: la guarda de `app/m` no las ve.
+- **`eliminarWorkspace` no borraba los archivos**, aunque su cabecera lo prometía: `vaciarTablas` sólo toca tablas. Tampoco cortaba el WhatsApp en Evolution ni la voz clonada en ElevenLabs; eso lo hacía sólo el reset del negocio de prueba. Con «Eliminar mi cuenta» eso era prometerle a Apple un borrado que no pasaba. **Regla:** las dos salidas comparten `cerrarLoDeAfuera` y `borrarArchivos`, y lo de afuera va ANTES de vaciar, porque sus ids viven en las tablas.
+- **Pedirlo no borra.** Un toque apaga la cuenta y deja la marca; borra el super admin, con el nombre escrito a mano. Y el negocio de prueba anota sin apagar nada: si no, un revisor toca el botón y el siguiente ya no entra.
+- **La puerta del permiso de IA no podía ir en `conD6bDelPedido`, la puerta obvia:** el turno entra con `entrarSoloSuIA` y la saltea. Va antes, en cada función pública de la capa, y en `turnoApp`, porque el turno también sale por la PC del cliente, que no pasa por ninguna.
+- **`a.click(); URL.revokeObjectURL(url);` en la misma línea** es lo que hace casi todo el repo, y en WKWebView `<a download>` no anda. Un `fetch` del blob llega tarde. **Regla:** `lib/nativo.ts` guarda el blob al crearlo y parcha `click` adentro de la app. Un `<a download>` nuevo ya está cubierto.
+- **Lo que encontró la revisión adversarial, y ningún test veía.** (1) Un `<div>` de menos en `PostM.tsx` rompía el build entero: los tests leen el texto, no parsean. Ahora parsean todo `app/m`. (2) Quedaba un cartel de pago, en el layout raíz: `sinCartel` mira `esVistaSinChrome`, y con LAS MISMAS RUTAS un teléfono dice `/crm`. (3) `avisarDePlataforma` no tira: devuelve `enviado`, y los `.catch` no veían nada. (4) El borrado no llegaba a `chats-email`, `lead-notas`, `portadas` ni a las fotos de los contactos, y un error de `list` se leía como «no hay archivos». (5) `borrarVoz` corría con la clave de quien llama, no la del negocio (BYOK): daba 404, y eso se lee como «ya no estaba». (6) Dos admins: lo que uno confirmó («tu negocio sigue») no era lo que se ejecutaba. **Regla:** el POST de algo irreversible manda lo que la persona leyó, y si cambió da 409.
+- **La puerta del permiso no va en la clave:** en `elevenKey` frenaba también a quien quería BORRAR su voz clonada. Va donde sale algo al proveedor. Y `embed` frenado es «sin con qué»: si tira otro error, `embedRow` deja la fila en error.
+- **Un test le mandó un pedido de verdad a Apple** (claves de prueba, token inventado; contestó 403 y no llegó a nadie). El JWT vivía en la misma memoria que las claves, así que firmar «de paso» las dejaba cargadas para el siguiente `clavesApns()`. Son dos memorias. Y una guarda probada rompiéndola no debe tocar esa rama.
+- **Las roturas que el test no vio dijeron más que las que vio.** Tres: «More deja pasar Agency» (con el super admin esa fila no sale), «un trozo que no es múltiplo de 3» (el mock decodificaba de a trozos) e «instalarDescargas sin preguntar» (la tapaba otra pregunta).
+- **Para probar `headers()` afuera de Next** hace falta `globalThis.AsyncLocalStorage` ANTES de cargar los storages, y correr adentro de `workAsyncStorage` y `workUnitAsyncStorage`: `tests/_ia-permiso-hijo.ts`. Un control que lee el user agent de vuelta evita medir «sin pedido» sin querer.
+- **Las filas de APNs no tocaron la tabla:** `endpoint` es `apns:<token>`, y `p256dh`/`auth` llevan una marca. Una columna `tipo` en el `SELECT` de `enviarPush` habría dejado sin avisos a todos si el deploy llegaba antes que el cambio en la base.
+- **Cada tienda tiene otro titular** (3/11, Martín: «Sí, a propósito»): Apple a nombre de Leandro Tejado y Play a nombre de Martín. Las páginas legales nombran a `RAZON_SOCIAL_MAKO`, que coincide con Apple y no con Play: el plan lo pone primero.
+- **El ws3 no tiene IA:** el revisor entraría a un chat que contesta «No hay ninguna IA conectada» (riesgo R14).
+- **La excepción de 2FA vive en la rama `tiendas-revisor-0311`**, sin subir: `lib/mfa-reglas.ts` (`esCuentaDeRevision`), con su fila revisada en cada pedido y su rastro antes de dar la sesión.
+
+**Sin hacer:** el `.aab` (`nativo/android`, pide aceptar los términos del Android SDK y una ventana de RAM) · correr `scripts/tiendas-cuenta-revision.mts` después de la revisión · mirar en TestFlight guardar, links, push y modo avión · un `href` con `?download=1` sin el atributo `download` (`app/crm/lead-view/ficha/pagos/bloques-deal.tsx`) puede no bajar en WKWebView · las capturas y el feature graphic · bloquear y moderar desde el teléfono, para volver a sumar Community a iPhone · que MaKo no cite precios en el chat dentro de la app: su contexto no distingue · `textoTope` (`lib/topes-plan.ts`) todavía dice «Pasa a MaKo Pro» sin link en pantallas del teléfono: sólo le sale a quien paga por la pasarela al llegar a un tope, no a la cuenta de revisión · `enviarApns` abre una conexión por aviso, y Apple prefiere una compartida: con pocos iPhones no molesta, y con muchos hay que compartirla · sin las claves de VAPID tampoco sale APNs (`enviarPush` corta antes): hoy están.
+
+**Vive en:** lib/tienda.ts · lib/baja-cuenta.ts · lib/ia-permiso.ts · lib/nativo.ts · lib/push-apns.ts · scripts/tiendas-asociar.mjs · *3/11/2026, chat «tiendas», claude5.*
+
+---
+
+## «Me saca el botón de audio» y el campo que flota: dos cosas en un ticket (#51 de Leandro, 4/11/2026)
+
+**El micrófono.** El botón de la caja es UNO (Martín, 17/10): micrófono sin nada, flecha con algo. Un adjunto lo volvía flecha, y quien quería
+explicar una captura hablando no podía. Mostrarlo no alcanzaba: cada pantalla manda su nota por su camino (`voz`, `onGrabada`) y lo adjuntado
+se queda en la caja, así que MaKo habría contestado el audio sin ver la imagen. **La salida no toca ningún motor:** con lo adjuntado, esa nota se
+transcribe y sale por el `onMandar` de la pantalla, el que ya lleva texto y archivos juntos. Es una sesión aparte en `Caja`, y la arranca sólo el
+micrófono de al lado de la flecha. Lo que se pierde: en ESE mensaje no queda el audio para escuchar, sólo lo que se entendió.
+
+**El campo que flota (captura IMG_2572).** El diagnóstico obvio es «falta medir el teclado», y faltaba, pero no alcanza: **con la pantalla ya corrida
+por Safari, `altoTeclado` da 0.** Por eso `tecladoDelComposer` separa lo que hay que subir (`corrimiento`) de si el teclado está (`abierto`, por lo que
+le falta a la pantalla visible). Y lo que se veía por debajo no era un error de capas: el teclado de iOS 26 tiene una barra translúcida (^ v ✓), y se ve
+pasar lo que haya atrás. El fondo del composer se extiende por debajo.
+
+**La regla:** un composer pegado abajo en /m mide el teclado con `tecladoDelComposer`, y su fondo sigue por debajo. Una caja nueva sale de `CajaChat`.
+
+**Sin hacer:** `VistaAdjuntos` (la vista previa a pantalla completa: Offer en el teléfono, los hilos de `ChatHilo`) sigue sin micrófono.
+**No se pudo ver:** nada de esto se probó en un iPhone: el teclado de iOS no se reproduce sin el teléfono.
+
+**Vive en:** `Caja` (app/_chat/CajaChat.tsx) · `micAlLadoDeLaFlecha` (lib/centro-caja.ts) · `tecladoDelComposer` (app/m/mako/chat-ui.ts) ·
+app/m/chats/[clave]/ComposerChatsM.tsx · tests/caja-nota-con-adjuntos.test.ts.

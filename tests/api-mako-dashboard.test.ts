@@ -164,8 +164,8 @@ test('el componente: por id o por título', () => {
   const h = tableroInicial().hojas[0];
   const c = buscarComponente(h, 'mk-cac');
   assert.ok(c.ok && c.valor.id === 'mk-cac');
-  // Por el título que se VE: desde el 15/10/2026 el CAC es la portada de Marketing, «Cada cliente te cuesta».
-  const t = buscarComponente(h, 'cada cliente te cuesta');
+  // Por el título que se VE: desde el 4/11/2026 el CAC de Marketing se llama «Costo por cierre».
+  const t = buscarComponente(h, 'costo por cierre');
   assert.ok(t.ok && t.valor.id === 'mk-cac');
   const no = buscarComponente(h, 'nada');
   assert.ok(!no.ok && no.disponibles.length === h.componentes.length);

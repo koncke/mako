@@ -21,8 +21,14 @@
 //     el `?ws=`): adentro de un pop-up, la ficha del CRM (LeadEditModal, z 80) quedaría DEBAJO del pop-up (la pila
 //     arranca en 130), y un `window.open` a mano perdería la pestaña del cliente que se está mirando (AGENTS.md).
 //     La de una LLAMADA sí se abre encima: FichaLlamada es un Modal de la pila, montado en el <body>.
+//   · «Grabar llamada» (Cold Calling, 04/11/2026) abre un Modal con el buscador de leads y la grabadora de la ficha
+//     (app/_components/grabar/GrabarEnFrio.tsx), cargado con `next/dynamic`: la grabadora no viaja en el bundle del Dashboard
+//     hasta que alguien toca el botón. No escribe nada al tocarlo: la grabación empieza adentro, después del aviso.
 
 import { useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
+import { Modal } from '@/app/_ui/Modal';
 import { Button, ButtonLink, Spinner, Toast, useToast } from '@/app/_ui';
 import type { Elemento } from '@/lib/graficos-catalogo';
 import {
@@ -33,7 +39,9 @@ import { FichaLlamada } from './entidades/FichaLlamada';
 import { Capa } from './piezas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
-type Abierto = { tipo: 'llamada'; id: number; revisar: boolean } | null;
+type Abierto = { tipo: 'llamada'; id: number; revisar: boolean } | { tipo: 'grabar' } | null;
+
+const GrabarEnFrio = dynamic(() => import('@/app/_components/grabar/GrabarEnFrio').then((m) => m.GrabarEnFrio), { ssr: false });
 
 export function ElementoAccion({ e, contexto, editando, soloLectura = false, onCambio }: {
   e: Elemento;
@@ -59,6 +67,7 @@ export function ElementoAccion({ e, contexto, editando, soloLectura = false, onC
   const correr = async () => {
     setConfirmando(false);
     setError(null);
+    if (a.tipo === 'grabar') { setAbierto({ tipo: 'grabar' }); return; }
     if (a.tipo === 'revisar' || (a.tipo === 'ficha' && contexto?.tipo === 'llamada')) {
       setAbierto({ tipo: 'llamada', id: Number(contexto!.ref), revisar: a.tipo === 'revisar' });
       return;
@@ -110,6 +119,12 @@ export function ElementoAccion({ e, contexto, editando, soloLectura = false, onC
       )}
       {abierto?.tipo === 'llamada' && (
         <FichaLlamada recordingId={abierto.id} revisarAlAbrir={abierto.revisar} onCerrar={() => setAbierto(null)} onCambio={onCambio} />
+      )}
+      {abierto?.tipo === 'grabar' && typeof document !== 'undefined' && createPortal(
+        <Modal titulo="Grabar llamada" anidada onCerrar={() => { setAbierto(null); onCambio?.(); }} ancho={520}>
+          <GrabarEnFrio />
+        </Modal>,
+        document.body,
       )}
       {toast && <Capa><Toast state={toast} onClose={clear} /></Capa>}
     </Centro>

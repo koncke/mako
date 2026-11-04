@@ -20,12 +20,11 @@ import type { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { runWithWorkspace } from '@/lib/workspace';
 import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
-import { extraerDeArchivo, generarPanorama } from '@/lib/onboarding';
-import { leerDocumentoIA, docsIADisponible } from '@/lib/ai-cheap';
+import { leerArchivo, extraerParaArchivero, sumarAlPanorama, camposDeExtraccion } from '@/lib/archivero-ingesta';
 import { muroConocido, textoInsuficiente, sinDatosDelNegocio } from '@/lib/archivero-webs';
 import {
-  flatFields, insertFile, subirBinario, getFile, deleteFileRow, borrarBinario, buildEstado, resolverWsAdmin,
-  getPanorama, setPanorama, listFiles,
+  insertFile, subirBinario, getFile, deleteFileRow, borrarBinario, buildEstado, resolverWsAdmin,
+  setPanorama, listFiles,
 } from '@/lib/archivero';
 import { getSupabaseServer } from '@/lib/supabase';
 import { validarDestino } from '@/lib/landing-fetch';
@@ -36,65 +35,8 @@ export const runtime = 'nodejs';
 export const maxDuration = 300;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
-const MAX_ARCHIVO_BYTES = 25 * 1024 * 1024;
-// ⚠️ ACÁ HABÍA TRES CORTES `if (!(await docsIADisponible()))` que devolvían «Carga tu API key de
-// Gemini» ANTES de llamar a la IA, y con eso la red de la plataforma de este archivo no corría nunca
-// para un cliente sin keys. Desde el 15/10/2026 un cliente nuevo no trae una API (el paso de la IA
-// del wizard es opcional) y El Archivero es bloqueante: con los cortes puestos, se quedaba trabado
-// acá. Se sacaron el 16/10/2026; lo fija tests/onboarding-sin-api.test.ts.
-//
-// Así que "sinIA" ya no significa «había key y falló»: puede ser la red de la plataforma, sin keys
-// propias. El mensaje lo distingue, y a quien no tiene IA propia le dice cómo dejar de depender de la
-// red (sin acusarlo: no hizo nada mal). Si extraerDeArchivo pudo interpretar por qué (cuota, key
-// vencida, timeout), eso va primero.
-const mensajeSinIA = async (nombre: string, motivo?: string): Promise<string> => {
-  if (motivo) return `No pude analizar "${nombre}": ${motivo}`;
-  if (await docsIADisponible().catch(() => false)) return `Tu IA está conectada pero no pudo analizar "${nombre}" ahora mismo. Prueba de nuevo en un momento.`;
-  return `No pude analizar "${nombre}" ahora mismo. Prueba de nuevo en un momento.`;
-};
-const LEER_DOC = 'Transcribe TODO el texto legible de este documento, tal cual, sin resumir ni omitir nada. Si es una imagen o captura, describe también lo que se ve. Devuelve solo el texto.';
-
-async function leerArchivo(file: File): Promise<{ texto: string; warning?: string }> {
-  const name = file.name.toLowerCase();
-  if (file.size > MAX_ARCHIVO_BYTES) return { texto: '', warning: `"${file.name}" es muy grande (más de 25 MB), lo salté.` };
-  const buf = Buffer.from(await file.arrayBuffer());
-  if (name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.markdown') || (file.type || '').startsWith('text/')) {
-    return { texto: buf.toString('utf8') };
-  }
-  if (name.endsWith('.docx')) {
-    try { const mammoth = (await import('mammoth')).default; return { texto: (await mammoth.extractRawText({ buffer: buf })).value }; }
-    catch (e) { return { texto: '', warning: `No pude leer "${file.name}" (.docx): ${msg(e)}` }; }
-  }
-  const esPdf = name.endsWith('.pdf') || (file.type || '') === 'application/pdf';
-  const esImg = /\.(png|jpe?g|webp|gif)$/.test(name) || (file.type || '').startsWith('image/');
-  if (esPdf) {
-    // 1) Capa de texto (la mayoría de los PDFs la tienen): rápida, confiable y sin
-    //    gastar visión. Antes TODO PDF iba por visión y un PDF de texto volvía vacío.
-    try {
-      // pdfjs (dentro de unpdf) usa Math.sumPrecise, que no existe en Node <22.
-      const M = Math as unknown as { sumPrecise?: (a: number[]) => number };
-      if (typeof M.sumPrecise !== 'function') M.sumPrecise = (a) => a.reduce((x, y) => x + y, 0);
-      const { extractText, getDocumentProxy } = await import('unpdf');
-      const pdf = await getDocumentProxy(new Uint8Array(buf));
-      const { text } = await extractText(pdf, { mergePages: true });
-      if (text && text.trim().length > 80) return { texto: text };
-    } catch { /* sin capa de texto → probamos visión (PDF escaneado) */ }
-    // 2) PDF escaneado (imágenes) → visión.
-    try {
-      const dataUrl = `data:application/pdf;base64,${buf.toString('base64')}`;
-      const { text } = await leerDocumentoIA({ dataUrl, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"`, redDePlataforma: true });
-      return { texto: text };
-    } catch (e) { return { texto: '', warning: `No pude leer "${file.name}": ${msg(e)}` }; }
-  }
-  if (esImg) {
-    try {
-      const dataUrl = `data:${file.type || 'image/jpeg'};base64,${buf.toString('base64')}`;
-      const { text } = await leerDocumentoIA({ dataUrl, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"`, redDePlataforma: true });
-      return { texto: text };
-    } catch (e) { return { texto: '', warning: `No pude leer "${file.name}": ${msg(e)}` }; }
-  }
-  return { texto: '', warning: `"${file.name}": formato no soportado (sube .txt, .md, .docx, .pdf o una imagen).` };
-}
+// La lectura, la extracción y el panorama viven en lib/archivero-ingesta.ts desde el 3/11/2026 (ticket #44): la API los
+// usa para sumar un documento desde un chat. Esta ruta hace lo mismo que antes.
 
 // Procesa UN archivo ya subido a storage (direct-upload). Corre dentro de
 // runWithWorkspace(ws). Chequea que el path pertenezca al ws (anti-IDOR).
@@ -122,16 +64,12 @@ async function procesarDirecto(ws: number, body: { fileId?: string; path?: strin
     if (warning) warnings.push(warning);
     else if (!texto.trim()) warnings.push(`No pude sacar texto de "${nombre}".`);
     else {
-      const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
-      const { campos, razonamiento, sinIA, motivoSinIA } = await extraerDeArchivo(texto, fields, 24000);
-      if (sinIA) warnings.push(await mensajeSinIA(nombre, motivoSinIA));
-      else { await insertFile(ws, { id: fileId, nombre, mime, tamano, storage_path: path, razonamiento, campos, origen: 'archivero' }); textoOk = texto; leido = true; }
+      const ex = await extraerParaArchivero(texto, nombre);
+      if (!ex.ok) warnings.push(ex.warning);
+      else { await insertFile(ws, { id: fileId, nombre, mime, tamano, storage_path: path, razonamiento: ex.razonamiento, campos: ex.campos, origen: 'archivero' }); textoOk = texto; leido = true; }
     }
     if (!leido) await getSupabaseServer().storage.from('archivero').remove([path]).catch(() => {}); // binario huérfano
-    else {
-      try { const pano = await generarPanorama([textoOk], await getPanorama()); if (pano) await setPanorama(pano); }
-      catch (e) { console.error('[archivero] panorama (no fatal):', msg(e)); }
-    }
+    else await sumarAlPanorama([textoOk]);
     // NOTA: ya NO auto-generamos avatares/razones al subir docs. Mauricio pidió que
     // MaKo SIEMPRE pregunte (segmentación) antes de armar los avatares → la generación
     // se hace en el paso "Avatares" (con preguntas), no en silencio acá.
@@ -206,18 +144,16 @@ async function procesarLink(ws: number, body: { url?: string }): Promise<Respons
     if (warning) warnings.push(warning);
     else if (pobre) warnings.push(pobre);
     else {
-      const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
-      const { campos, razonamiento, sinIA, motivoSinIA } = await extraerDeArchivo(texto, fields, 24000);
-      const vacia = sinDatosDelNegocio(host, campos);
-      if (sinIA) warnings.push(await mensajeSinIA(host, motivoSinIA));
+      const ex = await extraerParaArchivero(texto, host);
+      const vacia = ex.ok ? sinDatosDelNegocio(host, ex.campos) : null;
+      if (!ex.ok) warnings.push(ex.warning);
       // Cero datos NO es una lectura: la fila se mostraba como documento leído
       // y el texto del muro entraba al panorama del negocio (tarea #201).
       else if (vacia) warnings.push(vacia);
       else {
-        await insertFile(ws, { id: randomUUID(), nombre: titulo || host, mime: 'text/html', tamano: texto.length, storage_path: url, razonamiento, campos, origen: 'link' });
+        await insertFile(ws, { id: randomUUID(), nombre: titulo || host, mime: 'text/html', tamano: texto.length, storage_path: url, razonamiento: ex.razonamiento, campos: ex.campos, origen: 'link' });
         leido = true;
-        try { const pano = await generarPanorama([texto], await getPanorama()); if (pano) await setPanorama(pano); }
-        catch (e) { console.error('[archivero] panorama link (no fatal):', msg(e)); }
+        await sumarAlPanorama([texto]);
       }
     }
     await buildEstado(true);
@@ -258,7 +194,7 @@ export async function POST(req: NextRequest) {
 
   return runWithWorkspace(ws, () => conSuIADelNegocio(ws, async () => {
     try {
-      const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
+      const fields = await camposDeExtraccion();
       const warnings: string[] = [];
       const textos: string[] = [];
       let leidos = 0;
@@ -266,22 +202,19 @@ export async function POST(req: NextRequest) {
         const { texto, warning } = await leerArchivo(file);
         if (warning) { warnings.push(warning); continue; }
         if (!texto.trim()) { warnings.push(`No pude sacar texto de "${file.name}".`); continue; }
-        const { campos, razonamiento, sinIA, motivoSinIA } = await extraerDeArchivo(texto, fields, 24000);
-        if (sinIA) { warnings.push(await mensajeSinIA(file.name, motivoSinIA)); continue; }
+        const ex = await extraerParaArchivero(texto, file.name, fields);
+        if (!ex.ok) { warnings.push(ex.warning); continue; }
         const id = randomUUID();
         const buf = Buffer.from(await file.arrayBuffer());
         const path = await subirBinario(ws, id, buf, file.type || '');
-        await insertFile(ws, { id, nombre: file.name, mime: file.type || '', tamano: file.size, storage_path: path, razonamiento, campos, origen: 'archivero' });
+        await insertFile(ws, { id, nombre: file.name, mime: file.type || '', tamano: file.size, storage_path: path, razonamiento: ex.razonamiento, campos: ex.campos, origen: 'archivero' });
         textos.push(texto);
         leidos++;
       }
       if (leidos === 0) return Response.json({ ok: false, error: 'No pude leer ninguno de los archivos.', warnings, ...(await buildEstado(false)) }, { status: 422 });
       // Panorama libre: lo que la IA entendió de TODO. Regenera con los docs de esta
       // tanda + el panorama previo (acumula entre subidas). Best-effort, no bloquea.
-      try {
-        const pano = await generarPanorama(textos, await getPanorama());
-        if (pano) await setPanorama(pano);
-      } catch (e) { console.error('[archivero] panorama falló (no fatal):', msg(e)); }
+      await sumarAlPanorama(textos);
       // avatares/razones NO se generan acá: se hacen en el paso Avatares (con preguntas).
       await buildEstado(true);
       return Response.json({ ok: true, warnings, ...(await buildEstado(false)) });

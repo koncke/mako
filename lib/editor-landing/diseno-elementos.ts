@@ -25,8 +25,11 @@ export function tipoDeElemento(el: { tagName?: string; getAttribute?: (n: string
   // La agenda de un diseño (`[data-calendly]`, una caja que la página publicada llena con Calendly) se cambia con el
   // mismo control que un reproductor: «Video», pegando el enlace.
   if (el?.getAttribute?.('data-calendly') != null) return 'video';
+  // Un `<button>` (o algo con `role="button"`) es un botón para la persona (28/10/2026, la réplica editable): se le cambia
+  // el texto, los colores y a dónde lleva (al ponerle destino pasa a ser un `<a>`: diseno-elemento-acciones.ts → comoEnlace).
+  if (el?.getAttribute?.('role') === 'button') return 'enlace';
   switch (String(el?.tagName ?? '').toLowerCase()) {
-    case 'a': return 'enlace';
+    case 'a': case 'button': return 'enlace';
     case 'img': return 'imagen';
     case 'iframe': case 'video': return 'video';
     case 'svg': return 'icono';
@@ -47,7 +50,7 @@ export function elementoEnPunto(doc: DocumentoMin, tocado: ElementoMin | null, x
   // La agenda primero: su ficha del editor (vista-embeds.ts) trae un ícono que, si no, se elegiría como ícono.
   const agenda = tocado?.closest?.('[data-calendly]') ?? null;
   if (agenda) return agenda;
-  const directo = tocado?.closest?.('svg, img, a') ?? null;
+  const directo = tocado?.closest?.('svg, img, a, button, [role="button"]') ?? null;
   if (directo) return directo;
   const videos = doc.querySelectorAll('iframe, video');
   for (let i = 0; i < videos.length; i++) {

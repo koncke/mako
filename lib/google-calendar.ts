@@ -394,6 +394,14 @@ export async function permisoCalendarioGoogle(): Promise<PermisoCalendario> {
   }
 }
 
+/** null si se puede escribir en la agenda; si no, el motivo para la persona. */
+export async function agendaParaEscribir(): Promise<string | null> {
+  const p = await permisoCalendarioGoogle();
+  if (!p.conectado) return 'Este negocio no tiene una agenda de Google conectada. Se conecta desde Calendario (o con el link de link_configurar_integracion, servicio google).';
+  if (!p.puedeMover) return 'La agenda de Google está conectada con permiso de solo lectura: hay que reconectarla en Integraciones para poder agendar o mover.';
+  return null;
+}
+
 /** Por qué salió como salió. La UI decide con esto si ofrece reconectar. */
 // 'no-encontrado' existe para quien pide MOVER sin permiso para crear
 // (`crearSiNoExiste: false`, el camino de WhatsApp): ahí no encontrar el evento es

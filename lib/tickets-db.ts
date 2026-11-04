@@ -20,13 +20,18 @@ import { lineaDeAdjuntos, type AdjuntoTicket } from './tickets-adjuntos';
 import { getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
+import { WS_REVISION, esCorreoDeRevision } from './cuenta-revision-reglas';
+import { ENTREGA_MAX_INTENTOS } from './tickets-aviso';
 import {
   TOPE_AUTOMATICOS_POR_DIA, TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, delegadoQueDecideMartin, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket, type Triage,
-  ESTADOS, PRIORIDADES, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
+  ESTADOS, PRIORIDADES, esRefDelSistema, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
 } from './tickets-reglas';
 
 const T = 'tickets';
+
+/** El porqué de un ticket de la cuenta de revisión de las tiendas: va en el triage (lo ve Martín) y en `cerebro_motivo`. */
+export const PORQUE_SIN_DESPACHO_REVISION = 'Es de la cuenta de revisión de las tiendas: se guarda sin despacho y no lo toma ningún chat.';
 const T_EV = 'ticket_eventos';
 const FALTA_TABLA = new Set(['42P01', 'PGRST205']);
 export const faltaTabla = (e: { code?: string | null } | null | undefined): boolean => !!e && FALTA_TABLA.has(e.code ?? '');
@@ -280,7 +285,13 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   // la revisión de privacidad): por lo que pidió (el título y lo que escribió), no por la descripción, que trae lo de antes.
   const decideMartin = contexto.delegado ? delegadoQueDecideMartin(`${titulo}\n${contexto.pedido ?? ''}`, n.identidad) : null;
   // Un negocio con la regla de Martín (Leandro, 26/10/2026: lib/tickets-reglas.ts → APROBADOS_POR_REGLA) no espera su aprobación.
-  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto, adjuntos: n.adjuntos?.length ?? 0 }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia, decideMartin }); // Leila (27/10)
+  let triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto, adjuntos: n.adjuntos?.length ?? 0 }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia, decideMartin }); // Leila (27/10)
+  // ⛔ LA CUENTA DE REVISIÓN DE LAS TIENDAS (4/11/2026): su contraseña la tienen terceros, y lo que escribe en un ticket lo leen chats que
+  // suben a main (la regla de Martín del 27/10: «siempre lee todos los tickets e implementalos»). Se guarda SIN DESPACHO: ni al arreglo
+  // automático, ni al Cerebro (queda «no entregado» con los intentos agotados, y el Runner además la saltea por su negocio:
+  // lib/tickets-runner.ts). Lo lee Martín en la Ticketera, con el porqué a la vista.
+  const deRevision = n.identidad.ws === WS_REVISION || esCorreoDeRevision(n.identidad.email);
+  if (deRevision) triage = { ...triage, autoArreglo: false, porque: [...triage.porque, PORQUE_SIN_DESPACHO_REVISION] };
   const estado = estadoInicial(triage);
   const { data, error } = await db.from(T).insert({
     ref,
@@ -289,6 +300,7 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
     tipo: triage.tipo, titulo, descripcion, canal: n.canal, contexto,
     estado, prioridad: triage.prioridad, triage,
     despacho: triage.autoArreglo ? 'runner' : null,
+    ...(deRevision ? { cerebro_estado: 'no_entregado', cerebro_intentos: ENTREGA_MAX_INTENTOS, cerebro_motivo: PORQUE_SIN_DESPACHO_REVISION } : {}),
   }).select('id').single();
   if (error) {
     if (error.code === '23505' && n.ref) return crearTicket({ ...n }); // otro pedido con el mismo ref ganó: devuelve ése
@@ -303,8 +315,8 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
 /** Los estados de un ticket cerrado (un automático cerrado abre uno nuevo si vuelve a pasar). */
 const CERRADOS: readonly EstadoTicket[] = ['resuelto', 'rechazado', 'duplicado'];
 
-/** ¿Esta `ref` es de un ticket que abrió el SISTEMA por la persona (un automático, un error, lo que no existe)? */
-export const esRefDelSistema = (ref: string | null | undefined): boolean => !!ref && /^(?:np|error|no-existe):/.test(ref);
+/** ¿Esta `ref` es de un ticket que abrió el SISTEMA por la persona? Vive en lib/tickets-reglas.ts (también la usa el correo de avance). */
+export { esRefDelSistema };
 
 /**
  * Cierra el ticket automático ABIERTO con esa `ref` (o su sufijo): lo del proveedor o la configuración, cuando vuelve a andar

@@ -56,9 +56,11 @@ local de la PC de Martín ni sus chats: lo esencial de eso está acá abajo.
 
 ## Cómo se sube (resumen de AGENTS.md)
 
-- Se pushea a la rama **`integracion`**; `.github/workflows/integracion.yml` corre tipos, guardas y tests y, si da
-  verde, avanza `main` por fast-forward; Vercel despliega `main`. Nunca directo a `main`. Si el fast-forward choca,
-  mergea `origin/main` en tu rama (sin rebase) y vuelve a pushear.
+- Se pushea a **`punta/<nombre>`** (`git push origin HEAD:punta/<nombre>`): `.github/workflows/punta.yml` mezcla main,
+  corre guardas, tests afectados y tipos y, si da verde, lleva la punta a `main`; Vercel despliega `main`. Nunca directo a
+  `main`, y `integracion` se retiró el 4/11/2026 (da rojo). Si da rojo, queda `ci-rojo/<nombre>`: leé el paso rojo de la
+  corrida, arreglá en la misma rama y volvé a subir. El detalle y los tiempos, en AGENTS.md («Cómo se sube lo terminado») y
+  en docs/relevo/nube-metodologia.md.
 - Antes de pushear: `node scripts/tsc-bitacoras.mjs`, `node scripts/rutas-windows-en-tests.mjs`, los tests del área
   (`node --import tsx --test tests/<x>.test.ts`) y SIEMPRE tests/puente-panel-copy.test.ts y tests/progreso.test.ts.
 - Un test nuevo se prueba ROMPIENDO el código, con los números en su comentario («base 3/0 → 2/1»).

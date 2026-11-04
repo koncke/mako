@@ -1,0 +1,474 @@
+{
+  "_que_es": "Cuántos paneles tiene la vista principal de los dashboards que Martín señaló (Wharf, Ledge, Fathom, Prism), y de qué tamaño. Medido el 1/11/2026.",
+  "_como_se_leyo": "demo.codeandchill.store/<demo>/ a 1440 × 1000, con el navegador, sin transiciones ni animaciones. Paneles: los elementos con fondo o borde y radio ≥ 8 que no están adentro de otro. Con el panel del navegador oculto, una captura o una transición mienten.",
+  "_el_pedido": "Martín, 1/11/2026: «Los templates se siguen viendo como antes, con el bloque gigante primero... Olvida eso de una vez... Quiero reconstruirlo todo... Si tenemos que combinar templates, eliminar algunos, crear nuevos... Lo que sea, pero quiero que se vean mas como los que hemos copiado.»",
+  "demos": {
+    "wharf": {
+      "url": "https://demo.codeandchill.store/wharf/",
+      "paneles": 9,
+      "alto_pagina": 1397,
+      "ancho_contenido": 1104,
+      "filas": [
+        {
+          "y": 123,
+          "paneles": [
+            "636x377 Revenue (área)",
+            "220x182 Orders",
+            "220x182 Items sold",
+            "220x182 Running low",
+            "220x182 Average order"
+          ],
+          "nota": "Los cuatro números van de a 2 × 2 al lado del gráfico, con su línea."
+        },
+        {
+          "y": 520,
+          "paneles": [
+            "359x306 Order pipeline",
+            "359x306 Revenue by channel",
+            "359x306 Top sellers"
+          ]
+        },
+        {
+          "y": 846,
+          "paneles": [
+            "1104x540 Recent activity (tabla)"
+          ]
+        }
+      ]
+    },
+    "ledge": {
+      "url": "https://demo.codeandchill.store/ledge/",
+      "paneles": 10,
+      "alto_pagina": 1159,
+      "ancho_contenido": 1249,
+      "filas": [
+        {
+          "y": 182,
+          "paneles": [
+            "625x341 Sales today",
+            "304x163 Orders today",
+            "304x163 Average order",
+            "304x163 Units sold today",
+            "304x163 Stock value"
+          ],
+          "nota": "6 + 3 + 3 exactos, dos filas de números."
+        },
+        {
+          "y": 539,
+          "paneles": [
+            "838x457 Net sales",
+            "411x457 Sales by category"
+          ]
+        },
+        {
+          "y": 1012,
+          "paneles": [
+            "411 Best sellers",
+            "411 Running low",
+            "411 Latest orders"
+          ],
+          "nota": "Dieron 83 de alto al medir: no se juzgó su alto."
+        }
+      ]
+    },
+    "prism": {
+      "url": "https://demo.codeandchill.store/prism/",
+      "paneles": 11,
+      "alto_pagina": 1000,
+      "ancho_contenido": 1440,
+      "nota": "Entra entera en la pantalla, sin scroll.",
+      "filas": [
+        {
+          "y": 90,
+          "paneles": [
+            "696x280 Revenue",
+            "342x280 Traffic sources",
+            "342x280 Revenue by region"
+          ]
+        },
+        {
+          "y": 383,
+          "paneles": [
+            "460x233 Campaign ROAS",
+            "460x233 Key metrics",
+            "460x233 Platform health"
+          ]
+        },
+        {
+          "y": 628,
+          "paneles": [
+            "460x203 Quarterly revenue",
+            "460x203 Signups & activations",
+            "460x203 Active customers"
+          ]
+        },
+        {
+          "y": 843,
+          "paneles": [
+            "814x155 Checkout latency",
+            "578x155 Feed"
+          ]
+        }
+      ]
+    },
+    "fathom": {
+      "url": "https://demo.codeandchill.store/fathom/",
+      "paneles": 7,
+      "alto_pagina": 1000,
+      "nota": "Una terminal de trading en tres columnas (240, 816, 272), de alto fijo. No sirve de molde para un informe.",
+      "filas": [
+        {
+          "y": 68,
+          "paneles": [
+            "240x250 Available",
+            "816x532 Price chart",
+            "272x296 Watchlist"
+          ]
+        },
+        {
+          "y": 330,
+          "paneles": [
+            "240x470 Pairs",
+            "272x612 Order book",
+            "816x376 Market"
+          ]
+        }
+      ]
+    },
+    "merrin": {
+      "url": "https://demo.codeandchill.store/merrin/",
+      "paneles": 8,
+      "alto_pagina": 2754,
+      "filas": [
+        "852x505",
+        "417x343 + 417x343",
+        "417x368 + 417x329",
+        "852x283",
+        "852x458",
+        "852x449"
+      ]
+    },
+    "tilvo": {
+      "url": "https://demo.codeandchill.store/tilvo/",
+      "paneles": 11,
+      "alto_pagina": 2476,
+      "filas": [
+        "595x568 + 340x568",
+        "468x128 × 2",
+        "468x128 × 2",
+        "953x307",
+        "468x449 × 2",
+        "595x554 + 340x554"
+      ]
+    },
+    "pacely": {
+      "url": "https://demo.codeandchill.store/pacely/",
+      "paneles": 11,
+      "alto_pagina": 2428,
+      "filas": [
+        "424x128 × 2",
+        "424x128 × 2",
+        "865x416",
+        "865x298",
+        "424x373 + 424x365",
+        "865x317",
+        "462x267 + 385x455"
+      ]
+    },
+    "wynlo": {
+      "url": "https://demo.codeandchill.store/wynlo/",
+      "paneles": 10,
+      "alto_pagina": 2647,
+      "filas": [
+        "865x417",
+        "203x128 × 4",
+        "865x452",
+        "865x412",
+        "424x432 + 424x381",
+        "865x514"
+      ]
+    },
+    "coffra": {
+      "url": "https://demo.codeandchill.store/coffra/",
+      "paneles": 10,
+      "alto_pagina": 3218,
+      "filas": [
+        "879x575",
+        "879x489",
+        "431x124 × 2",
+        "431x124 × 2",
+        "431x504",
+        "879x467",
+        "431x323",
+        "879x280"
+      ]
+    },
+    "corvane": {
+      "url": "https://demo.codeandchill.store/corvane/",
+      "paneles": 9,
+      "alto_pagina": 2049,
+      "filas": [
+        "880x413",
+        "880x210",
+        "432x109 × 2",
+        "432x109 × 2",
+        "880x520",
+        "432x361 + 432x343"
+      ]
+    },
+    "kerfa": {
+      "url": "https://demo.codeandchill.store/kerfa/",
+      "paneles": 10,
+      "alto_pagina": 2252,
+      "filas": [
+        "969x529",
+        "477x277 × 2",
+        "477x140 × 2",
+        "477x140 × 2",
+        "969x401",
+        "477x328 + 477x410"
+      ]
+    },
+    "kinlo": {
+      "url": "https://demo.codeandchill.store/kinlo/",
+      "paneles": 7,
+      "alto_pagina": 2884,
+      "filas": [
+        "877x448",
+        "877x288",
+        "430x527 × 2",
+        "877x471",
+        "877x403",
+        "877x459"
+      ]
+    },
+    "ledra": {
+      "url": "https://demo.codeandchill.store/ledra/",
+      "paneles": 9,
+      "alto_pagina": 2290,
+      "filas": [
+        "428x133 × 2",
+        "428x133 × 2",
+        "866x572",
+        "425x581",
+        "498x252 + 351x252",
+        "425x311"
+      ]
+    },
+    "covry": {
+      "url": "https://demo.codeandchill.store/covry/",
+      "paneles": 9,
+      "alto_pagina": 1831,
+      "filas": [
+        "637x510 + 300x510",
+        "469x128 × 2",
+        "469x128 × 2",
+        "469x383 × 2",
+        "953x325"
+      ]
+    },
+    "moorly": {
+      "url": "https://demo.codeandchill.store/moorly/",
+      "paneles": 12,
+      "alto_pagina": 2533,
+      "filas": [
+        "474x126 × 2",
+        "474x126 × 2",
+        "964x426",
+        "474x423 × 2",
+        "474x406 × 2",
+        "474x389 × 2",
+        "474x250"
+      ]
+    }
+  },
+  "contra_corbel": "Corbel, medido el 31/10 (composicion_de_pagina en tokens-corbel.json): 5 paneles y 806 px. La referencia es un rango, y Martín señala la punta densa.",
+  "molde": {
+    "regla": "Wharf, Ledge y Prism abren con un gráfico de media hoja y otras piezas al lado.",
+    "en_la_grilla_de_makos": "12 columnas, filas de 30 px y 16 px de separación: alto(h) = 30h + 16(h - 1).",
+    "filas": [
+      {
+        "que": "un gráfico + cuatro números de a 2 × 2",
+        "columnas": "6 + 3 + 3",
+        "alto": "8 el gráfico (352 px), 4 cada número (168 px)",
+        "medido": "Wharf 377 y 182, Ledge 341 y 163"
+      },
+      {
+        "que": "tres paneles iguales",
+        "columnas": "4 + 4 + 4",
+        "alto": "7 (306 px)",
+        "medido": "Wharf 306"
+      },
+      {
+        "que": "una tabla a lo ancho, u 8 + 4",
+        "columnas": "12, u 8 + 4",
+        "alto": "8 a 12",
+        "medido": "Wharf 540, Ledge 457"
+      }
+    ],
+    "paneles": "9 a 11"
+  },
+  "lo_que_la_referencia_no_tiene": {
+    "_la_regla": "Cerebro, 1/11/2026: para cada cosa que está por defecto, la pregunta no es «¿la sacamos?» sino «¿la referencia la tiene?». Martín: «Revisa todo lo que tenemos «por defecto» y se libre de cambiarlo todo... Como por ejemplo el propio titulo de la hoja».",
+    "titulo_de_pagina_adentro_de_la_vista": "Corbel no lo tiene: una barra y después las tarjetas, cada una con su título.",
+    "titulos_de_seccion_sueltos_sobre_el_fondo": "Tampoco: el título vive en la tarjeta."
+  },
+  "demos_no_son_molde": {
+    "fitlo": "Es una tienda (27 tarjetas de producto), no un tablero.",
+    "fathom": "Una terminal de alto fijo."
+  },
+  "familias": {
+    "_que_es": "Las estructuras que salen de lo medido, y cuáles se usan. Ids en MOLDES, lib/graficos-portadas.ts.",
+    "wharf": {
+      "fila1": "principal 6 + cuatro números de a 2 × 2",
+      "sigue": "4 + 4 + 4, tabla ancha",
+      "medidas": [
+        "wharf"
+      ]
+    },
+    "ledge": {
+      "fila1": "principal 6 + cuatro números de a 2 × 2",
+      "sigue": "8 + 4, 4 + 4 + 4",
+      "medidas": [
+        "ledge"
+      ]
+    },
+    "prism": {
+      "fila1": "principal 6 + dos chicos",
+      "sigue": "números, 4 + 4 + 4, 4 + 4 + 4, 7 + 5",
+      "medidas": [
+        "prism"
+      ]
+    },
+    "tilvo": {
+      "fila1": "principal 8 + panel 4",
+      "sigue": "cuatro números bajos de a dos, ancho, 6 + 6, 8 + 4",
+      "medidas": [
+        "tilvo",
+        "covry"
+      ]
+    },
+    "moorly": {
+      "fila1": "cuatro números bajos de a dos",
+      "sigue": "principal a lo ancho, 6 + 6 varias veces",
+      "medidas": [
+        "moorly",
+        "ledra",
+        "pacely"
+      ]
+    },
+    "corbel": {
+      "fila1": "cuatro números en fila",
+      "sigue": "4 + 8, 7 + 5",
+      "medidas": [
+        "corbel"
+      ]
+    },
+    "no_se_usa": {
+      "fila1": "un gráfico a lo ancho",
+      "medidas": [
+        "merrin",
+        "wynlo",
+        "kerfa",
+        "coffra",
+        "corvane",
+        "kinlo"
+      ],
+      "por_que": "Es lo más común de lo medido, pero Martín rechazó «el bloque gigante primero» (1/11/2026)."
+    }
+  },
+  "asignacion": {
+    "_la_regla": "Martín, 1/11/2026: «Todos los templates son iguales, no uses siempre el mismo... no me gusta que no haya variedad». Cada plantilla toma una estructura por lo que mide, no al azar. Sale de acá el `molde` de lib/graficos-portadas.ts y lib/general-plantillas.ts.",
+    "dashboard": {
+      "marketing": [
+        "prism",
+        "Muchas piezas chicas y ocho números: arriba la tendencia con dos gráficos, sin una tabla que mande."
+      ],
+      "comercial": [
+        "ledge",
+        "La tendencia con la plata al lado, y la cobranza en 8 + 4 que es donde se lee la tabla."
+      ],
+      "ads-analyst": [
+        "prism",
+        "Muchos paneles chicos de anuncios para comparar de un vistazo."
+      ],
+      "hooks-retencion": [
+        "tilvo",
+        "El video que cae con el gancho al lado: en qué parte se van y qué hook los retuvo."
+      ],
+      "landing": [
+        "tilvo",
+        "Las visitas con el embudo al lado, y el mapa de calor pide el ancho."
+      ],
+      "vsl-analyst": [
+        "corbel",
+        "Una sola curva manda, la de retención, y el indicador en un tercio."
+      ],
+      "chat-analyst": [
+        "corbel",
+        "Un reloj en un tercio al lado de la serie: pocas piezas y una pregunta."
+      ],
+      "closing": [
+        "wharf",
+        "Las llamadas son una tabla larga: pide la tabla ancha."
+      ],
+      "cs-analyst": [
+        "moorly",
+        "Primero cuántos clientes piden atención, después listas de a dos."
+      ],
+      "productividad": [
+        "moorly",
+        "Cuatro números de avance arriba y los proyectos de a dos."
+      ],
+      "cobranza": [
+        "wharf",
+        "A quién cobrarle es una tabla larga con acciones: pide la tabla ancha."
+      ],
+      "automatizaciones": [
+        "ledge",
+        "Los mensajes en el tiempo con sus cuatro números, y la tabla por automatización en 8 + 4."
+      ],
+      "ia-contenido": [
+        "corbel",
+        "El anillo del costo en un tercio al lado de la serie."
+      ],
+      "inmobiliaria": [
+        "wharf",
+        "Los interesados por semana con cuatro números, y quién vende es una tabla que pide el ancho."
+      ],
+      "cold-calling": [
+        "moorly",
+        "El botón de grabar y los tres números de la tanda de a dos, y las llamadas por día a lo ancho."
+      ]
+    },
+    "general": {
+      "general": [
+        "ledge",
+        "La meta con la plata del mes al lado, y las tareas en 8 + 4."
+      ],
+      "foco": [
+        "moorly",
+        "Cuatro números del Plan y los OKR a lo ancho, que son filas largas."
+      ],
+      "operacion": [
+        "tilvo",
+        "Las prioridades con el panel de cobros al lado: lo que se hace hoy."
+      ],
+      "servicio": [
+        "prism",
+        "Varias listas chicas para atender a varios clientes."
+      ],
+      "curso": [
+        "corbel",
+        "Un panel de avance en un tercio al lado de la serie."
+      ],
+      "instagram": [
+        "prism",
+        "Instagram contra Facebook, con región, edad y género chicos."
+      ]
+    }
+  },
+  "miniaturas_en_movimiento": {
+    "como_lo_hace_la_tienda": "No dibuja nada en vivo: cada tarjeta es un <video muted loop preload=\"none\"> con un póster JPG, 16:9, de media.codeandchill.store/reels/. Doce en una grilla no cuestan nada porque son doce videos sin cargar."
+  }
+}

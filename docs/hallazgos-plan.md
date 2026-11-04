@@ -7421,3 +7421,26 @@ serían interinos sumados.
     ancestro (`git merge-base --is-ancestor`);
   - que el código siga vivo: los archivos del commit en ese sha. Si falta uno, se mira si lo borró un revert o un
     reemplazo (`git log --diff-filter=DR -1 -- <archivo>`).
+
+---
+
+## «La pantalla Plan se volvió a dibujar sola» NO era la falsa alarma del #39 (ticket #52, 4/11/2026)
+
+**Síntoma:** ticket automático con React #418 (`args[]=text`) en /plan. Parecía la falsa alarma del #39 («Una sola vez en toda la historia no es un dato roto»).
+**La medición dice otra cosa:** `errores_app` 3 veces en 31 minutos (03:39 a 04:10 UTC), sólo Leila, y siguió trabajando (registró un pago a las 04:57 y movió un lead
+a las 05:00): la pantalla no se rompió. Pero sus `pistas` son `font=0` y ninguna extensión, y el criterio del #39 era «entonces sí es nuestro».
+
+**Causa:** `hoyISO()` en el render de `LineaDeadline`. Es la fecha de la máquina: a las 22:39 de Cancún, el server (UTC) ya está en el día siguiente, y la misma tarjeta da
+«faltan 4 días» en el HTML y «faltan 5 días» en el navegador. Cuadra todo: entró a las 03:39:39 y el error es de las 03:39:53; hace falta una carga completa (navegando no
+se hidrata) y una tarjeta con fecha (`experimento_tareas` con deadline: sólo ws11 y ws1). **No se vio en un navegador**: se midió con la pieza de verdad en las dos zonas.
+
+**La regla:** en un componente que se dibuja en el server, nada que dependa del reloj o de la zona va en el primer render. `useEnElNavegador` (app/plan/board/piezas.tsx) o
+un efecto. `fechaConDia` sí puede: parsea el ISO a mano.
+
+**Y una trampa de la pista:** `ajenas=next-route-announcer` parecía una extensión: la pone Next en toda página. Ya no se cuenta.
+
+**Sin hacer:** `CeldaFecha` (la tabla, editable) también calcula con `hoy`, pero sólo en atributos (`title`, color): no da #418. El #39 (Brigitte, /crm, `args[]=HTML`) sigue abierto
+y sin causa: no es éste.
+
+**Vive en:** `useEnElNavegador`, `LineaDeadline`, `hoyISO` (app/plan/board/piezas.tsx) · `pistasDeHidratacion` (lib/errores-app-reglas.ts) ·
+tests/plan-plazo-hidratacion.test.ts.

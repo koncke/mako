@@ -25,7 +25,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
-import { vaciarTablas } from './reset-workspace';
+import { borrarArchivos, cerrarLoDeAfuera, vaciarTablas } from './reset-workspace';
 import { motivoNoEliminable, type ContextoBorrado } from './borrado-workspace';
 import { getWorkspace, wsSuperAdmin } from './workspace';
 import { clientesAprobados } from './agencia-cartera';
@@ -79,9 +79,13 @@ export async function eliminarWorkspace(
     return { ok: false, error: 'Adentro de ese cliente están los únicos admins de la plataforma. Nombra otro admin antes de borrarlo.' };
   }
 
-  // ── 2. Vaciar las 89 tablas de inquilino.
+  // ── 2. Lo de afuera (su WhatsApp en Evolution, su voz en ElevenLabs), antes de vaciar: los ids para encontrarlos viven en las tablas.
+  avisos.push(...await cerrarLoDeAfuera(id));
+
+  // ── 2b. Vaciar las 89 tablas de inquilino, y sus archivos.
   const vaciado = await vaciarTablas(id);
   avisos.push(...vaciado.avisos);
+  avisos.push(...(await borrarArchivos(id)).avisos);
 
   // ── 3. Desligar lo que apunta a este workspace DESDE OTRO INQUILINO.
   //

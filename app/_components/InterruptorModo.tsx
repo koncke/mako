@@ -23,7 +23,8 @@
 // (Nord la guarda en `sessionStorage` y la olvida al cerrar).
 // =============================================================================
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type MouseEvent } from 'react';
+import { conBarrido } from './barrido-tema';
 import { ATTR_MODO, LS_MODO } from '@/lib/temas-candidatos';
 
 const FUERA = 30;
@@ -72,7 +73,7 @@ export function InterruptorModo({ compacto = false, variante = 'barra' }: { comp
     };
   }, []);
 
-  const alternar = useCallback(() => aplicarModo(!oscuro), [oscuro]);
+  const alternar = useCallback((e: MouseEvent<HTMLButtonElement>) => conBarrido(e.currentTarget, () => aplicarModo(!oscuro)), [oscuro]);
   const rotulo = oscuro ? 'Pasar a modo claro' : 'Pasar a modo oscuro';
 
   if (variante === 'cabecera') {

@@ -783,6 +783,10 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 @keyframes mun-parpadeo { 0%, 90%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.12); } }
 @keyframes mun-flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.4px); } }
 @keyframes mun-respira { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+/* El retrato de un referente no tiene ojos que parpadeen: mientras trabaja, late su anillo (Retratos.tsx). */
+.mun-anillo { animation: mun-anillo 1.5s ease-in-out infinite; }
+@keyframes mun-anillo { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .mun-anillo { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .mun-cuerpo, .mun-ojos--parpadeo { animation: none !important; } }
 
 /* Lo que el empleado espera de Martín (la Ticketera): una línea arriba de la caja y su palabra en la fila. */
@@ -1765,3 +1769,78 @@ a.co-link:hover { color: var(--primary-strong); }
   border: 2px dashed var(--primary); border-radius: 12px; background: color-mix(in srgb, var(--primary) 8%, var(--surface));
   font-size: var(--fs-md); font-weight: 600; color: var(--primary-strong);
 }
+
+/* Los referentes (1/11/2026, app/second-brain/ElegirReferente.tsx): sin la columna de piezas de ElegirMuneco, cada mosaico con su nombre. */
+/* ── Elegir referente ────────────────────────────────────────────────────────────────────────────
+   Martín, 1/11/2026, con una captura del modal abierto desde la cuenta de Mauricio: «se ve bastante
+   feo, porque chiquitito el modal de los gurús y tiene 3 scrolls diferentes dentro del modal. Tiene
+   un scroll de izquierda a derecha que no debería tenerlo nunca, y tiene 2 scrolls de arriba a abajo».
+
+   ⚠️ LOS TRES SALÍAN DEL MISMO LADO: esta pantalla heredó el armado de `ElegirMuneco`, que se hizo
+   para UNAS POCAS CARITAS SIN TEXTO. Acá hay veintiún fichas y cada una lleva nombre y especialidad.
+
+   · El de IZQUIERDA A DERECHA lo producía `repeat(3, 1fr)` adentro de una columna de ~390 px (640 de
+     modal menos la del retrato y los gaps): cada ficha quedaba de ~120 px, «Agencias: captar clientes»
+     no entraba, y `overflow-y: auto` scrollea en LOS DOS ejes cuando el contenido también desborda a
+     lo ancho. Ahora las columnas se calculan por ancho MÍNIMO: nunca sobra a lo ancho, entren las que
+     entren. Es la línea que no hay que volver a fijar en un número de columnas.
+   · El cuadrado era parte del mismo problema: `aspect-ratio: 1` (la regla base) ahoga tres renglones
+     de texto. Acá la ficha mide lo que mide su contenido.
+   · El SEGUNDO vertical era el cuerpo del modal: `.co-elegir` traía `min-height: 360px` y la columna
+     del retrato lo empujaba más allá del alto de la caja. Con el alto fijo del modal y `min-height: 0`
+     acá, adentro no desborda nada y el único scroll es el de las fichas.
+   El retrato queda pegado arriba mientras la lista corre: si se fuera con el scroll, elegir una ficha
+   de abajo no mostraría a quién elegiste. */
+.co-elegir--referentes { grid-template-columns: minmax(0, 1fr) 260px; min-height: 0; height: 100%; }
+/* ⚠️ LOS 18 px QUE SOBRABAN. `.mk-modal__cuerpo > *` le pone `padding: 18px 0` a su hijo (ui.css), y
+   el de abajo se lo saca `:last-child`, así que quedaban 18 de arriba. Con `height: 100%` acá, eso es
+   exactamente 18 px más de lo que entra: el cuerpo scrolleaba por esos 18 y ésa era la segunda barra
+   vertical. Medido así, no deducido. */
+.mk-modal__cuerpo > .co-elegir--referentes { padding-top: 0; }
+/* 124 y no 132: con 132 entraban CUATRO por fila por seis píxeles (el ancho útil son 694 y cinco
+   columnas pedían 700). El mínimo es arbitrario, el ancho de la caja no: baja el mínimo. */
+.co-elegir--referentes .co-elegir__mosaicos { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 10px; }
+.co-elegir--referentes .co-elegir__retrato { align-self: start; position: sticky; top: 0; }
+.co-elegir__mosaico--referente { aspect-ratio: auto; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; font-size: var(--fs-sm); font-weight: 600; text-align: center; }
+.co-elegir__mosaico--referente small { display: block; font-weight: 400; color: var(--dim); line-height: 1.3; }
+.co-elegir__inspirado { font-size: var(--fs-sm); color: var(--dim); text-align: center; line-height: 1.4; }
+/* En angosto el retrato se va arriba y las fichas ocupan todo: el mínimo baja para que sigan entrando
+   dos por fila en un teléfono, y nunca una sola columna gigante. */
+@media (max-width: 720px) {
+  .co-elegir--referentes { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .co-elegir--referentes .co-elegir__retrato { position: static; }
+  .co-elegir--referentes .co-elegir__mosaicos { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+}
+.co-cab__inspirado { font-size: var(--fs-sm); color: var(--dim); white-space: nowrap; }
+.co-fila__coach { display: block; overflow: hidden; font-size: var(--fs-sm); color: var(--dim); text-overflow: ellipsis; white-space: nowrap; }
+/* El plan del funnel: lo guardado, en vez del chat (app/second-brain/ChatDelCoach.tsx). */
+.fc-plan { display: flex; flex-direction: column; gap: 16px; max-width: 640px; margin: 0 auto; padding: 8px 0 24px; }
+.fc-plan__datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 0; }
+.fc-plan__datos div { padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
+.fc-plan__datos dt { font-size: var(--fs-sm); color: var(--dim); }
+.fc-plan__datos dd { margin: 2px 0 0; font-weight: 600; }
+.fc-plan__porque { margin: 0; line-height: 1.5; }
+.fc-plan__pasos { margin: 0; padding-left: 20px; line-height: 1.6; }
+
+/* Los gurús, a la vista en «Nuevo chat» (app/second-brain/GaleriaDeGurus.tsx). Con ellos abajo, la portada sube: si no, quedan bajo el pliegue. */
+:is(.co-hilo, .m-operaciones-hilo):has(.co-gurus) .co-portada { margin-top: 3vh; }
+.co-gurus { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 760px; margin: 22px auto 16px; }
+.co-gurus__titulo { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); text-align: center; }
+.co-gurus__grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; }
+.co-gurus__uno { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.co-gurus__uno:hover { background: var(--velo-hover); }
+.co-gurus__uno:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-gurus__texto { display: flex; flex-direction: column; min-width: 0; }
+.co-gurus__nombre { overflow: hidden; font-size: var(--fs-sm); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.co-gurus__texto small { overflow: hidden; color: var(--dim); text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 480px) {
+  .co-gurus__grilla { grid-template-columns: minmax(0, 1fr); }
+}
+/* La cabecera del chat de un gurú en un panel angosto: «Inspirado en» cede antes que el nombre y que su Second Brain. */
+.co-cab .co-cab__inspirado { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.co-cab .co-chip { flex-shrink: 0; }
+/* «Second Brain de <gurú>» / «Volver al chat» (app/second-brain/SuSecondBrain.tsx): a la derecha del todo de la cabecera (Martín,
+   4/11/2026). Lo que reemplaza a la conversación ocupa su lugar entero (PanelChat.tsx → `reemplazo`). */
+.co-cab .co-cab__cerebro { margin-left: auto; }
+.co-reemplazo { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 12px; background: var(--bg); }
+.co-reemplazo > * { flex: 1; min-height: 0; }

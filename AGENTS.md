@@ -33,7 +33,7 @@ falsa: proponer `mauricio@hola-mako.com` como remitente de MaKo.
 que esté todo el contexto de todo el trabajo desde que se inició en esa cuenta... Así yo paso a la siguiente y le digo
 "Continua" y ya sabe»). Al 97% cada chat dejó su relevo commiteado y el hook del corte anotó dónde: el `.tsv` más nuevo
 de `~/.claude/relevos-cuenta/` dice qué chats cortaron, en qué carpeta, rama y transcript. Se lee eso, el
-`docs/relevo/cerebro.md` de `C:/dev/wt-push-q` (puede estar en la rama del tren y no en main: `git log -5` primero) y el
+`docs/relevo/cerebro.md` de `C:/dev/wt-push-q` (puede estar en una punta y no en main todavía: `git log -5` primero) y el
 relevo de cada chat (`git -C <carpeta> show HEAD:docs/relevo/<chat>.md`), y se sigue sin preguntar. Un workflow que
 quedó corriendo dejó lo suyo en el `journal.jsonl` que nombra el relevo: otra cuenta no lo puede reanudar, sí leer.
 
@@ -117,6 +117,40 @@ modificado, dejó afuera un archivo ajeno stageado, y una segunda corrida no hiz
 **La red sólo salva lo que esté ESCRITO**: si el chat se corta antes de escribir su relevo, no
 hay nada que commitear. Por eso el umbral del 85% sigue siendo la parte que importa.
 
+# Cómo se sube lo terminado: a su punta, y GitHub la lleva a main (todas las cuentas, 4/11/2026)
+
+Martín, 3/11: «Y no podemos hacer que entren en diferentes testeos en github? Entonces se va deployando lo que ya pasó en lugar
+de todo junto... Esto como regla». Y el 4/11: «que todas las cuentas sigan esa metodologia». Vale para la PC y la nube.
+
+1. **Se sube** con `git push origin HEAD:punta/<nombre>`, un nombre por trabajo. A `main` va sólo una emergencia, con el sí
+   de Martín. `integracion` se retiró: el hook la rechaza y GitHub da rojo. Nunca `--no-verify`.
+2. **El pre-push tarda menos de 2 minutos:** las guardas (6 s medidos en la nube) y el filtro chico, que corre los tests y los tipos de lo tocado
+   con un tope de 90 s. Frena sólo con un rojo confirmado; lo que no entra en el tope lo avisa y deja subir.
+3. **GitHub (`punta.yml`) tarda ~14 min** (mediana del 4/11: 30 verdes, de 7 a 22 min; sólo docs, ~1,5 min). Mezcla el main de
+   ese momento y corre las guardas, los tests afectados (todos, sin cortar) y el tsc entero. Con verde, lleva la punta a main.
+   «En producción» es recién cuando el deploy de Vercel está en «Ready».
+4. **Si da rojo,** queda la marca `ci-rojo/<nombre>`. Se abre la corrida en Actions, se lee el paso rojo, se arregla en la
+   misma rama y se vuelve a subir. Un choque de mezcla se arregla con `git merge origin/main`, resolviendo y subiendo (las
+   bitácoras de /admin/dev y `docs/hallazgos*.md` se unen solos en GitHub). Después de 2 rojos seguidos, la tercera no sale
+   sin reproducir el rojo en local. Con `main` rojo (`ci-rojo/main`), la punta espera en `espera-main/<nombre>` y se relanza
+   sola cuando main vuelve a verde. **Si la punta cambia un workflow (`.github/workflows/`) que main también cambió, se mezcla
+   main en la máquina antes de subir:** el token de Actions no puede subir una versión nueva de un workflow, y la corrida lo
+   frena a los ~20 s (`scripts/ci-workflow-nuevo.sh`; antes rebotaba al final, con todo en verde).
+5. **Lo que la punta no corre lo ve otra red:** los demás tests y el tsc sin tandas, cada noche si entró algo a main
+   (`semanal-tests.yml`, `tipos-respaldo.yml`); la mezcla que llegó a main sin probar, `sobre-main.yml`; un deploy que falla
+   o un sitio caído, `despues-del-deploy.yml`. Las cinco dan una corrida ROJA, nunca un silencio.
+6. **Cada clon y cada cuenta de la PC instala el hook una vez** (no se versiona): los comandos exactos, en
+   [docs/relevo/nube-metodologia.md](docs/relevo/nube-metodologia.md). Una punta cortada de otra se mira con
+   `git log origin/main..<punta>`: si trae commits ajenos, se separa o los lleva a todos.
+
+# Un test nuevo ejecuta el código (4/11/2026)
+
+Copiar una línea en un regex no prueba nada: da rojo con el código bien y verde con el programa roto. De 15 archivos de test rojos, 13 se arreglaron tocando sólo el test (docs/hallazgos-infra.md, «Por qué tardaba horas»).
+- Un test nuevo corre el código y mira el resultado. Una regla sobre todo el repo va a las guardas.
+- Además de «probado rompiéndolo», un cambio sin efecto (renombrar una variable local) tiene que dejarlo verde.
+- Un rojo falso no se arregla editando la línea para que vuelva a coincidir: se convierte en prueba real. Borrarlo pide un segundo lector. Lo de plata, permisos y aislamiento entre clientes nunca se borra sin reemplazo.
+- Tras 2 rojos seguidos de una punta, la tercera no sale sin reproducir el rojo en local.
+
 # El typecheck NO corre en el build: lo bloquea un hook de pre-push
 
 `next build` tiene `typescript.ignoreBuildErrors: true` (ver next.config.ts). **No es
@@ -130,33 +164,19 @@ gobierna la factura es el **tamaño de la máquina de build**, no la duración. 
 está en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «La factura de builds no mide
 TIEMPO».
 
-**Desde el 15/10/2026 el chequeo completo corre en GitHub Actions, no en la notebook.** Se
-pushea a la rama **`integracion`**, nunca directo a `main`:
-`.github/workflows/integracion.yml` corre tipos, las guardas del push y los tests sobre ese
-commit, y si todo da verde **avanza `main` hasta él por fast-forward** (si `main` se movió
-por otro lado, el fast-forward se rechaza solo: hay que rebasar `integracion` sobre
-`origin/main`). Por qué: el `tsc` pide 3-5 GB y la notebook de 16 GB la comparten 10-20 chats;
-ese día el push del coordinador murió con 240 MB libres. El runner tiene su propia RAM.
+**El chequeo completo corre en GitHub, en cada punta** (`.github/workflows/punta.yml`; cómo se sube, arriba de todo en este
+archivo). Corre el `tsc` ENTERO con 6 GB de swap y 12 GB de tope de heap (148 s en una punta, 248 s solo; antes del 4/11 moría
+contra 6.144 MB sin swap y cada OK era PARCIAL). Por qué no en la PC: el `tsc` entero pide 5-6 GB y la notebook de 16 GB la
+comparten 8-20 chats. Hasta el 4/11/2026 esto era la rama `integracion` y su workflow: se retiraron (el hook rechaza el push ahí).
 
-- **Costo: cero.** El repo es privado de la cuenta Free `hola-mako`: 2.000 minutos de Actions
-  por mes y **sin medio de pago**. Si se acaban, los runs no corren y no se cobra nada — pero
-  `main` deja de avanzar. `concurrency` cancela el run viejo cuando llega un push nuevo, así
-  que se chequea sólo la punta.
-- **El push a `integracion` NO genera deploy en Vercel** (`git.deploymentEnabled` en
+- **Costo:** un minuto de Actions cuesta **US$0,006** (runner Linux de 2 núcleos). Una punta verde son ~14 min (mediana del 4/11/2026).
+- **Un push a `punta/**`, `ci-rojo/**` o `espera-main/**` NO genera deploy en Vercel** (`git.deploymentEnabled` en
   `vercel.json`): cada build cuesta, y sólo `main` va a producción.
-- **El pre-push local queda liviano pero no desaparece** (`scripts/claude-hooks/pre-push`):
-  a cualquier rama corre sólo las guardas baratas (`scripts/guardas-push.sh`, la MISMA lista
-  que corre Actions); a **`integracion`** corre `antes-de-subir` (guardas + tipos acotados +
-  tests afectados; ver la sección de abajo; `MAKO_SIN_ANTES_DE_SUBIR=1` lo saltea); a **`main`**
-  corre además el `tsc` local completo por el lock, como antes. Así `main` no recibe código sin chequear, venga por donde venga, y pushear directo a
-  `main` es el camino de emergencia (si Actions no corre o se acabaron los minutos).
-  **Si ese `tsc` no consigue su RAM (99), el hook chequea TODO el repo en 3 tandas** (`scripts/tipos-respaldo-push.mjs`,
-  programa entero, sin `--raices`) y deja pasar sólo si las TRES dan 0; una tanda que no termina es otro 99 (22/10/2026:
-  el `tsc` entero pide 6,3 GB libres y con la app de Claude abierta la PC no pasa de 6,1). Sale «OK por tandas», no
-  «OK»: la red completa sigue siendo Actions. **`--no-verify` a `main` sólo con el sí de Martín, lote por lote.**
-- ⚠️ **No medido todavía:** cuántos minutos gasta un run, que los tests den verde en Linux
-  igual que en Windows (algunos pueden depender de archivos que sólo existen en la notebook),
-  y que Vercel despliegue el fast-forward que hace Actions. **El primer run hay que mirarlo.**
+- **El pre-push local** (`scripts/claude-hooks/pre-push`): a cualquier rama corre las guardas baratas (`scripts/guardas-push.sh`,
+  la MISMA lista que corre la punta); a **`punta/*`** además el filtro chico (`scripts/filtro-punta.mjs`: tests y tipos de lo
+  tocado, 90 s como mucho); a **`integracion`** lo rechaza; a **`main`** (la emergencia) corre el `tsc` local completo por el lock.
+  **Si ese `tsc` no consigue su RAM (99), el hook chequea TODO el repo en 3 tandas** (`scripts/tipos-respaldo-push.mjs`) y deja
+  pasar sólo si las TRES dan 0. **`--no-verify` a `main` sólo con el sí de Martín, lote por lote.**
 
 ⚠️ **Los hooks de git NO se versionan.** Si se reclona el repo, el hook desaparece **en
 silencio**. Si `.git/hooks/pre-push` no existe o es el viejo, se copia la versión del repo:
@@ -207,16 +227,16 @@ CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM li
 línea `TIPOS-MEDIDA` con la memoria viva real (`vivo_pct`; un warning desde el 80 %). **Subir el tope otra vez no es el arreglo:** con esos números se decide partir el programa, buscar
 qué infla los tipos o pedir un runner mayor (docs/hallazgos-infra.md → «El paso "Tipos" de Actions se quedó sin memoria»). **El arreglo de fondo en marcha (21/10):** el chequeo repartido en TANDAS
 (`scripts/tipos-por-tandas.mjs`: cada proceso ata el programa entero y chequea un pedazo; `TIPOS_TANDAS=K` en el paso «Tipos»; probado contra el tsc como oráculo, **pero NO es «lo mismo que el tsc» en todos los casos**: el checker cachea algunos errores —TS2589 una instanciación profunda, TS2303 un alias circular— y los atribuye al primer archivo que los dispara; si ese es de OTRA tanda el error se pierde y el paso decía «OK» donde el tsc da exit 2 (repartiendo por nombre; ahora se reparte en el orden del programa y esas dos repros dan error, pero con un ciclo de imports que cruce tandas puede volver a pasar: es «igual salvo ciclos raros», y sólo el tsc entero lo garantiza) y la medición que elige K, UNA vez en Actions
-(`.github/workflows/medir-tipos.yml`, rama `medir-tipos`, `scripts/medir-tipos.mjs`). **Medido (run 39603272529): `TIPOS_TANDAS=4` en el paso «Tipos» de `integracion.yml`** — pico por proceso 3.535 MB (58 % del tope) contra 5.065 del tsc entero, a cambio de ~68 s por run.
+(`.github/workflows/medir-tipos.yml`, rama `medir-tipos`, `scripts/medir-tipos.mjs`). **Medido (run 39603272529): `TIPOS_TANDAS=4` en el paso «Tipos»** (hoy en `punta.yml` y `sobre-main.yml`) — pico por proceso 3.535 MB (58 % del tope) contra 5.065 del tsc entero, a cambio de ~68 s por run.
 No se sube el tope. ⚠️ Es una prórroga de **semanas**: el piso (el programa atado, 2.406 MB = 47 % del pico) crece con el repo y no se reparte; lo que dura es bajarlo (project references). Cuando el warning del 80 % salte, no se sube K a ciegas: de 3 a 4 tandas el pico bajó sólo 150 MB.
 **DESDE EL 21/10 NOCHE «Tipos» ES SIEMPRE EL TSC ENTERO** (criterio del Cerebro: el paso que frena el push no da un OK falso): `TIPOS_TANDAS=4` es sólo el RESPALDO si el entero muere por memoria, y su OK sale **«OK PARCIAL»** (`parcial=1`, aviso, resumen), nunca limpio; las tandas pierden errores cacheados (en este repo lib/ es un ciclo de 580 archivos partido entre ellas). `TIPOS_SOLO_TANDAS=1` salta el intento del entero (siempre parcial).
-**El respaldo del tsc entero:** `.github/workflows/tipos-respaldo.yml` corre el tsc SIN tandas (con 10 GB de swap) una vez por semana; si da errores de tipos y `integracion` dio verde (o dio «OK PARCIAL»), las tandas perdieron un error: se corrige el código Y se avisa al chat Infra (docs/hallazgos-infra.md → «El checker cachea un error…»).
+**El respaldo del tsc entero:** `.github/workflows/tipos-respaldo.yml` corre el tsc SIN tandas (con 6 GB de swap) cada noche si entró algo a main; si da errores de tipos y la punta dio verde (o dio «OK PARCIAL»), las tandas perdieron un error: se corrige el código Y se avisa al chat Infra (docs/hallazgos-infra.md → «El checker cachea un error…»).
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
 "salía con 1 sin errores"».
 
 Reglas para cualquier agente que trabaje acá:
-- **Se pushea a `integracion`; a `main` lo avanza Actions con el verde.** Directo a `main`
-  sólo en emergencia, y ahí el pre-push corre el `tsc` local completo.
+- **Se sube a `punta/<nombre>`; a `main` la lleva `punta.yml` con el verde.** Directo a `main`
+  sólo en emergencia (con el sí de Martín), y ahí el pre-push corre el `tsc` local completo.
 - **Nunca** uses `git push --no-verify` (saltea el único chequeo de tipos que queda).
 - Antes de pushear, si tocaste rutas nuevas, corré `npm run build` una vez: el hook usa
   `tsc --noEmit`, que solo valida los tipos generados de rutas si `.next/types` está fresco.
@@ -374,10 +394,10 @@ manda el navegador o un texto que se redacta son datos, no rutas.
 
 ⚠️ **Si el árbol compartido tiene trabajo ajeno que no compila, se pushea desde un worktree
 limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, un junction a
-`node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:integracion` desde ahí, y
-después `git worktree remove --force` + `git worktree prune`. Desde el 15/10 casi no hace
-falta: un push a `integracion` ya no corre el `tsc` sobre el árbol de trabajo, y Actions
-chequea el COMMIT, no el disco.
+`node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:punta/<nombre>` desde ahí, y
+después `git worktree remove --force` + `git worktree prune`. Casi no hace falta: un push a una
+punta no corre el `tsc` entero sobre el árbol de trabajo (el filtro elige sobre lo COMMITEADO), y
+GitHub chequea el COMMIT, no el disco.
 
 ⚠️ **Y en ese worktree `npm run build` NO corre tal cual**: con `node_modules` como junction,
 Turbopack aborta con «Symlink [project]/node_modules is invalid, it points out of the filesystem
@@ -407,123 +427,51 @@ el test del título quedó roto en `main`. **Si tocás `nav.ts`, los títulos de
 catálogo o cualquier cosa que un test mire por su NOMBRE, corré `npm test` antes de
 pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y la mayoría
 de los cambios no los necesita — pero los renombres, sí. (17/10/2026: «acordarse a mano» costó 16
-runs rojos de 90; ahora hay una herramienta que elige los tests sola — ver la sección de abajo.)
+runs rojos de 90; ahora la punta y el filtro eligen los tests solos — ver la sección de abajo.)
 
-# Cómo se sube: la punta pasa en el acto y «Cerebro › Integración» chequea el TREN (desde el 22/10/2026)
+# Qué elige `tests-afectados` y cómo corre (lo usan la punta, sobre-main, el filtro y la suite de la noche)
 
-**La regla de hoy** (22/10/2026; Martín: «Organiza los push y que salgan todos… para pushear es un montón de tiempo, podríamos
-optimizarlo»). Cada punta corría su `antes-de-subir` completo en la fila del candado y después Integración repetía los tests
-afectados: dos chequeos de lo mismo. El primero, con 8 chats y 1-2 GB libres, tardaba HORAS (ops-lista, 4 h en la fila). Ahora:
-1. **El chat de área** corre los tests que escribió o tocó (`node --import tsx --test tests/<…>.test.ts`), con el árbol
-   commiteado y `origin/main` mergeado, y le pasa el sha a Integración EN EL ACTO, **«sin tipos»**. No corre `antes-de-subir`,
-   ni hace la fila, ni corre `tsc`: **en la máquina hay UN solo `tsc`, el del tren** (22/10, medido: con el `tsc` del tren, el
-   de un chat y el de un workflow a la vez, el vigía mataba los tres por debajo de 0,9 GB y cada `.tsx` salía 99).
-2. **Integración corre UN chequeo por TREN**, sobre el lote ya mergeado: los tests afectados del lote
-   (`scripts/tests-afectados.mjs --base origin/main`) y las guardas (`sh scripts/guardas-push.sh origin`, que es la etapa de
-   guardas de `antes-de-subir`). **Tests y guardas en verde es la condición del tren.** Si algo da rojo, devuelve SÓLO esa punta
-   y el tren sale sin ella. **La batería del ruteo se corre además SOLA** (`node --import tsx --test
-   tests/ops-center-bateria.test.ts`): en la tanda compartida (`--test-isolation=none`) pasa por el estado que dejan otros tests,
-   y así llegó a main el rojo de OC1 (22/10, docs/hallazgos-infra.md). Sin `--cortar`: un rojo cortaba el resto del chequeo.
-   **Los tipos son RED, no traba** (22/10, decisión del Cerebro sobre el «que avance siempre, no quiero limitaciones» de Martín).
-   Medido: con 8 chats abiertos quedan 1,6 GB libres de 15,7 aun con todo lo pesado frenado (las sesiones de Claude y sus node
-   suman ~8 GB), y las 3 tandas de INF1 piden 5,3; esta PC no tipa nunca. Un error de tipos no rompe la ejecución (Next
-   transpila sin tipos y el build no los mira) y lo que sí rompe lo cazan los tests. Después de cada push, Integración corre en
-   segundo plano el `tsc` acotado de lo que entró, de a un archivo, cuando haya RAM. Lo que dé error vuelve como arreglo al
-   chat dueño y sale en el tren siguiente. La red completa vuelve con GitHub Actions o, a la noche con pocos chats, con las 3
-   tandas (`node scripts/tipos-respaldo-push.mjs`).
-3. **El tren sale cada 30 min** con todo lo que llegó, o antes si trae un cliente roto. No se espera a juntar más.
-4. Integración le pasa el sha al Cerebro y el Cerebro sube en el acto (sin minutos de Actions, con `--no-verify`: ver
-   «Sin minutos de Actions» en docs/hallazgos-infra.md). **Sin minutos, subir `integracion` NO avanza `main`**: después de
-   cada push, `git ls-remote origin refs/heads/main` y el Ready de Vercel. El 23/10, el arreglo de un cliente quedó en
-   `integracion` creyendo que Actions lo subía (docs/hallazgos-operaciones.md, «El cambio de cuenta del 23/10»).
+> Hasta el 4/11/2026 acá vivía el TREN («Cerebro › Integración», la rama `integracion`, `antes-de-subir` en la fila del candado).
+> Se retiró: cómo se sube hoy está arriba de todo en este archivo. `scripts/antes-de-subir.mjs` y su cola siguen en el repo para
+> quien quiera el chequeo local completo, pero ya no son parte de subir. La historia: docs/hallazgos-infra.md.
 
-Lo que sigue describe `antes-de-subir`: ahora es la herramienta de Integración para el tren (y de un jefe con RAM de sobra que
-quiera adelantarse), no el peaje de cada punta. **La regla anterior** (17/10/2026; Martín: «asegúrate por todos los medios de
-que no vuelva a ocurrir nunca más») pedía, antes de pasar una punta, con el árbol commiteado y `origin/main` mergeado:
+`scripts/tests-afectados.mjs` elige los tests que un cambio PUEDE romper, sin lista a mano:
+- **las barredoras**: los que usan `git ls-files`, `git grep` o `readdir`/`glob`. Corren SIEMPRE (un cambio en cualquier lado las
+  rompe y no se les puede preguntar «¿tocaste lo mío?»). ⚠️ «Nombra 20+ archivos» YA NO es barrer (4/11/2026): esos tests corren
+  cuando cambia uno de los que nombran. Replay sobre 67 rojos reales: 67/67 con y sin esa regla;
+- **los que NOMBRAN un archivo cambiado como texto** — `readFileSync('lib/nutricion.ts')`, `join(raiz, 'app', 'automations',
+  'PanelProbar.tsx')`, o `'lib/nutricion'` sin extensión —: no hay `import`, por eso un grafo de imports solo no alcanza (run 89).
+  Los comentarios no cuentan;
+- **los que IMPORTAN uno cambiado, directo o por la cadena** (run 80: editor-acciones, a dos saltos del registro);
+- y los que el cambio mismo toca.
 
-```sh
-node scripts/antes-de-subir.mjs --rapido
-```
-
-**Era el mínimo obligatorio** y tardaba ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
-rojos reales: 3 min 28 s y los tres salieron; la misma punta tardaba 26 min antes de compartir procesos). Corre las guardas, los
-tests que **nombran o importan DIRECTO** un archivo cambiado, **todas las barredoras** y los **tipos de lo cambiado si entran en RAM
-sin esperar** (20 s; si no, lo dice en la línea y los decide Actions; `--sin-tipos` los apaga); le deja a Actions los importadores a dos
-saltos o más (el replay: 19 de los 20 rojos de «Tests» y los 5 de «Tipos»). Los tipos van por defecto porque 3 de los 25 rojos de Actions
-fueron errores de tipos de archivos cambiados. Sin `--rapido` es el chequeo COMPLETO (todos los saltos
-y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); «Cerebro › Integración» lo usa para
-el push a `integracion`, y un jefe con tiempo puede correrlo también.
-
-Hasta el 22/10 el jefe le pasaba a Integración **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta; desde el tren,
-la punta va sin ella (el chequeo es el del tren).
-Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
-mes: 140 de los 2.000 gratis en dos días).
+Modos: `--base origin/main` (la punta), `--barredoras` (sobre-main: todas las que barren, sin mirar el cambio), `--resto` (los
+demás), `--listar --explicar` (ver qué elige y por qué, sin correr nada). Con `MAKO_TIEMPOS_TESTS=<archivo>` deja el tiempo de cada
+archivo (`scripts/reporter-tiempos.mjs`); la punta y la suite de la noche lo ponen en el resumen del run.
 
 ⚠️ **La palabra ROJO sale SÓLO con algo confirmado roto, y hay una tercera línea: `SIN CHEQUEAR <sha>: … — NO es un rojo del
 código` (exit 99)** (30/10/2026). Un archivo cuyo proceso murió sin ejecutar un test NO se sabe si está roto, y ponerlo detrás de
 «ROJO» manda a buscar fantasmas: ese día un grupo compartido de 495 barredoras murió a los 25 min sin correr un solo test y el
 veredicto escribió los 495 nombres como rojos, con dos rojos de verdad escondidos entre ellos. El exit **99** es «no pude
 chequear» —falta de RAM, el turno del candado que no tocó, o un proceso que murió sin juzgar nada—, no un rojo del código: cerrá
-chats o pusheá dejándole el chequeo a Actions. **Y toda línea que no sea un VERDE lleva pegada la RAM MÍNIMA de la corrida y la
+chats o subí la punta y dejale el chequeo a GitHub. **Y toda línea que no sea un VERDE lleva pegada la RAM MÍNIMA de la corrida y la
 ruta del DETALLE** (`~/.claude/antes-de-subir/<fecha>-<sha>/`, que se conserva con rojo o 99 y se borra con verde): con 0,7 GB
 libres a un rojo no se le cree, y el log del reintento aislado es lo único que separa al caído por memoria del roto de verdad. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
 
-Corre, de lo más barato a lo más caro, y frena en el primer rojo (`--todo` sigue):
-1. **Las guardas del push** (`scripts/guardas-push.sh`, las mismas del pre-push y de Actions — incluida «todo `.ts` es un
-   módulo»: un `.ts` sin `import`/`export` es un script global para `tsc` y choca con otros, runs 51 y 52).
-2. **El `tsc` ACOTADO de lo que cambiaste** (un test que llama con dos argumentos a una firma que pide uno, run 31; una bitácora
-   sin `puntos`, run 10). `--importadores` suma a los que lo importan, un nivel, pero **no es el default**: el 17/10, con ~14 chats
-   abiertos, ese alcance (188 archivos) pedía 4,3 GB y la PC tenía 1,3 libres, y el primer push del Cerebro se trabó ahí. El tsc
-   completo de Actions, que corre justo después de los afectados, cubre a los importadores. **Si no entra en 90 s** (RAM o lock),
-   no espera 15 min ni sale con 99: dice «tipos: los chequea Actions», sigue con los tests y la línea final es
-   `VERDE <sha> (tipos: los chequea Actions)`. Con el mismo lock y el mismo piso de RAM que
-   `typecheck-lock.mjs`: de a un `tsc` por máquina. **Sólo bloquean los errores de esos archivos**: `tsc` compila además lo que
-   importan, y ahí un archivo suelto no ve los tipos que AGREGA otro (`declare module`), así que los de arrastre se muestran y los
-   decide Actions.
-3. **Los tests AFECTADOS** (`scripts/tests-afectados.mjs`), elegidos solos, sin lista a mano:
-   - **todas las barredoras**: los que usan `git ls-files`, `git grep`, `readdir`/`glob`, o nombran 20+ archivos. Corren
-     SIEMPRE (puente-panel-copy, zona-negocio, progreso, fuentes-sin-next-font): un cambio en cualquier lado las rompe y
-     no se les puede preguntar «¿tocaste lo mío?»;
-   - **los que NOMBRAN un archivo cambiado como texto** — `readFileSync('lib/nutricion.ts')`, `join(raiz, 'app',
-     'automations', 'PanelProbar.tsx')`, o `'lib/nutricion'` sin extensión —: no hay `import`, por eso un grafo de
-     imports solo no alcanza (run 89). Los comentarios no cuentan (`AGENTS.md` citado en un comentario «nombraba» a 167);
-   - **los que IMPORTAN uno cambiado, directo o por la cadena** (run 80: editor-acciones, a dos saltos del registro);
-   - y los que el cambio mismo toca.
-
 ⚠️ **Los archivos NUEVOS sin `git add` son invisibles para las guardas que barren con `git ls-files`** (run 80: `lib/campanita.ts`
-era nuevo y la guarda de voseo no lo veía en el worktree del jefe). `antes-de-subir` corre los tests con un ÍNDICE
-TEMPORAL (`GIT_INDEX_FILE`, copia del real + `git add -N`) para que vean lo mismo que verán en Actions, sin tocar el
-tuyo. Pero **el VERDE sólo vale con el árbol LIMPIO** (lo que probaste tiene que ser lo que viaja) y con `origin/main`
-mergeado: si no, la última línea es un `ROJO` que lo dice.
+era nuevo y la guarda de voseo no lo veía en el worktree del jefe). `tests-afectados` corre los tests con un ÍNDICE
+TEMPORAL (`GIT_INDEX_FILE`, copia del real + `git add -N`) para que vean lo mismo que verán en GitHub, sin tocar el
+tuyo. El filtro del pre-push, en cambio, elige sobre lo COMMITEADO (lo que no se commiteó no viaja) y avisa si el árbol está sucio.
 
 ⚠️ **`node --test` SIN `--test-concurrency` lanza un proceso por núcleo.** El 17/10/2026, a la 01:05, una tanda de 8 archivos de
 tests así se llevó la RAM de la PC y se cayó la app con todos los chats. El script corre 2 a la vez, en tandas de 6, y
 **espera RAM** antes de cada una (el piso se deriva: zona roja del vigía + lo que pide cada proceso). Nunca corras
 `node --test tests/*.test.ts` a mano en esta máquina.
 
-⚠️ **El candado de lo pesado ahora tiene COLA y vive DENTRO de `antes-de-subir`** (20/10/2026). Antes era `mkdir C:/dev/pesado.lock`
-a mano y cada chat reintentaba en su loop: ganaba el que preguntaba más seguido (Pagos esperó casi 2 h), y el que esperaba 40 min
-volvía con `origin/main` adelantado y su VERDE salía ROJO sólo por «te faltan N commits». Ahora **no tomes el candado a mano para
-correr `antes-de-subir`: la herramienta se anota sola** en `C:/dev/pesado.cola/` (turnos por hora de llegada: entra el más VIEJO), lo
-toma con el mismo `mkdir` de siempre (por eso un `mkdir` a mano y la cola **se excluyen entre sí**), lo firma (`quien.txt` + `dueno.json`:
-chat, cuenta, sha, pid, desde) y lo suelta al terminar, también con Ctrl+C. **Al tomarlo hace `git fetch` + `merge origin/main`** (merge,
-nunca rebase: el commit del jefe no se reescribe) y el `VERDE <sha>` vale para el sha NUEVO; si el merge choca, aborta (la rama queda
-como estaba), suelta el candado y el `ROJO` nombra los archivos — mergeá a mano y volvé a correr.
-- **Ver la fila sin tocar nada:** `node scripts/antes-de-subir.mjs --cola` (quién lo tiene, desde cuándo, y los que esperan en orden).
-- **Al soltar, el candado se ENTREGA** (21/10): con alguien esperando, `soltar` reescribe `dueno.json` con el pid del primero de la fila que siga vivo y NO
-  borra el directorio, así un `mkdir` a mano justo en ese instante falla y no se le cuela a la cola (le ganó por 2 s al chat de `wt-crm-ficha2`). El que
-  recibe se entera con el mismo sondeo de siempre (0,4 s); si nadie lo recibe en 30 s (el siguiente está colgado) se libera. Con la fila vacía se borra.
-- **Un proceso muerto no traba:** un turno se limpia si su pid no vive o si no late hace 10 min; un dueño, si su pid no vive o si pasó
-  `MAKO_PESADO_VENCE_MIN` (90). Un candado tomado a mano no tiene pid y no se le puede preguntar si vive, así que con alguien esperando se
-  suelta: **al instante si es de tu mismo worktree** (el quien.txt empieza con `<worktree> · <rama>`), a los 10 min si no hay ningún
-  proceso pesado vivo (`tsc`, `node --test`, `next build`, vitest…), o a los 30 min pase lo que pase. Queda en `pesado.log`.
-- **No tomes el candado a mano y después corras `antes-de-subir`** (21/10: el `mkdir` de `wt-crm-ficha2` ganó la carrera justo al soltarse el
-  anterior y su propio `antes-de-subir` se anotó DETRÁS de ese candado: 27 min y 7 chats parados). Ahora la cola reconoce el candado a mano
-  de tu worktree y lo toma, pero es un parche: el diseño es que `antes-de-subir` hace la fila solo. Si tomaste el candado a mano de verdad
-  (un `tsc` suelto, un build) y corrés `antes-de-subir` con otro nombre, usá `--ya-tengo-el-candado`. `MAKO_SIN_COLA=1` lo saltea; en Actions no se usa.
-- **Las guardas del push corren ANTES de hacer fila** (~10 s, livianas) y vuelven a correr al tomar el candado, ya con `origin/main` mergeado: el 21/10
-  una guarda frenó un VERDE en 7 s pero después de 25 min de espera. Un `ROJO` de guarda dice «no hice fila por esto».
-- Un `SIN CHEQUEAR: esperé el candado…` no es un rojo del código (sale con 99): la fila estaba larga.
+⚠️ **`node --test` SIN `--test-concurrency` lanza un proceso por núcleo.** El 17/10/2026, a la 01:05, una tanda de 8 archivos de
+tests así se llevó la RAM de la PC y se cayó la app con todos los chats. El script corre 2 a la vez, en tandas de 6, y
+**espera RAM** antes de cada una (el piso se deriva: zona roja del vigía + lo que pide cada proceso). Nunca corras
+`node --test tests/*.test.ts` a mano en esta máquina.
 
 ⚠️ **Por qué es rápido: las BARREDORAS corren JUNTAS en un proceso** (`--test-isolation=none`, con `scripts/cache-lecturas.cjs`
 memorizando las lecturas de archivos). El costo de las barredoras no era el regex: ~68 leen los mismos ~5.400 archivos y, con
@@ -531,8 +479,7 @@ memorizando las lecturas de archivos). El costo de las barredoras no era el rege
 **Todo rojo de un proceso compartido se repite aislado antes de contarlo** (puede ser interferencia: `editor-landing-origen` falló
 una vez porque otro test dejó algo en el entorno). Un test que toca `process.env`, un global, `Module._load` o el directorio de
 trabajo NUNCA se comparte (regex `PELIGRO_COMPARTIR` en `tests-afectados.mjs`): **si escribís un test que hace eso, va en su
-proceso solo, sin tocar nada.** El riesgo que queda es un FALSO verde por contagio, y por eso Actions sigue corriendo cada test en
-su proceso.
+proceso solo, sin tocar nada.** El riesgo que queda es un FALSO verde por contagio, y por eso la suite de cada noche corre cada test en su proceso.
 ⚠️ **LO SEGURO NO ES LO QUE CONVIENE** (31/10/2026, medido): hasta ese día compartía proceso todo test que fuera SEGURO compartir, y
 eran 1.850 — de los cuales **227 barren de verdad y 1.623 no releen nada**, así que no ahorraban nada y pagaban la carga del grupo.
 Y la carga es lo que tarda: con `--test-isolation=none` node importa TODOS los archivos antes de correr el primer test (medido con
@@ -555,25 +502,10 @@ cuando el hijo se pase, tiene que ponerse rojo TU archivo, que se nombra, no mor
 `MAKO_DOER_VENTANA_MS` (`lib/mako-doer-buffer.ts`, sólo puede acortar): esperarla de verdad costaba 8-20 s **por escena** y hacía
 que dos archivos tardaran 234 y 236 s.
 
-**Actions hace lo mismo, primero** (`.github/workflows/integracion.yml`): guardas → tests afectados contra `origin/main`
-→ tipos → los demás tests. La suma de las dos fases es la suite entera y ninguno corre dos veces; si el script no puede
-calcular, la segunda fase cae a `npm test`. Medido con la API (`/actions/runs/{id}/timing`, 17/10): un run ROJO cuesta ~2 min
-facturables (run 94: 107 s; antes 5-10). El VERDE (run 95: 781 s) subió de ~11 a 14 porque `--concurrencia auto` dejaba el default de
-node (núcleos − 1 = UN proceso en un runner de 2 vCPU): ahora `auto` usa todos los núcleos, la segunda fase va en UNA sola corrida
-de `node --test`, y un archivo que sólo falla con varios procesos se repite solo y, si pasa, sale como FLAKY (no frena, pero se ve).
-Eso bajó el verde de 14 a 12 min (run 102: 683 s), no a los ~9 estimados. El job del 102, paso por paso: checkout 15 s, setup-node 4, `npm ci` 29,
-guardas 10, afectados 279 (489 archivos: 0,57 s por archivo), tipos 154, los demás 182 (653 archivos: 0,28 s por archivo) — runner de 2 CPU y 7,9 GB.
-El doble por archivo de los afectados son las ~150 barredoras (~1,2 s de reloj cada una), y los 0,28 s de los demás son sobre todo el ARRANQUE de cada
-archivo (node + `tsx`), que sólo se evita compartiendo proceso. **El experimento que sigue** (a medir con el próximo run verde; estimación sin medir en
-Linux: ~7-9 min): en Actions las DOS fases comparten todo lo compartible (`--compartir`) — en la fase 1 siguen aislados los tests que el cambio mismo toca
-y los que tocan el entorno, y las tandas son de 100 (había 6 GB libres) —. Si un run da un rojo raro o el tiempo no baja, `--sin-compartir` en esos dos pasos
-del workflow lo deja como era. Contrapeso del riesgo (el falso verde por contagio, que Actions ya no vería por sí sola): correr `npm test` completo, aislado,
-de vez en cuando (a mano o programado: ~11 min por vez).
-
-**La prueba de que sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los 21 runs rojos de Actions
-(`docs/fallos-ci-integracion.jsonl`) sobre el árbol exacto de la cabeza que falló y con la base real (el último verde):
-**25/25 rojos salen**. Un run rojo nuevo se suma a ese archivo y se vuelve a correr: si no sale, el script todavía no está.
-El porqué de cada decisión y lo que NO cubre: [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «Los rojos de Actions».
+**La prueba de que la selección sirve es un replay**: `node scripts/replay-fallos-ci.mjs` repite los rojos reales de GitHub
+(`docs/fallos-ci-integracion.jsonl`: 45 corridas, 67 rojos, al 4/11/2026) sobre el árbol exacto de la cabeza que falló y con la
+base real (el último verde): **67/67 rojos salen**. Un rojo nuevo se suma a ese archivo y se vuelve a correr: si no sale, el script
+todavía no está. El porqué de cada decisión: [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «Los rojos de Actions».
 
 # El build de Vercel tiene un tope de memoria que NO está en el repo
 
@@ -609,6 +541,34 @@ trabó la cola, y tres pushes salieron verdes **sin llegar a producción**. Se c
   gratis para probar: `NEXT_TURBOPACK_USE_WORKER=0` corre Turbopack en el hilo principal y deja
   un solo heap con el tope de 4 GB en vez de dos (no medido: puede ser más lento). **Subir la máquina de build cuesta plata y lo
   decide Martín.**
+
+# Lo que corre SÓLO en el navegador no viaja en las funciones del servidor
+
+Una dependencia pesada que usa únicamente código del cliente (un Web Worker, un `wasm`, un editor)
+igual entra al bundle de **todas** las funciones: el trazado sigue el árbol de `node_modules`, no el
+uso. El 3/11/2026 eso costó cinco deploys: `@huggingface/transformers` arrastra `onnxruntime-node`,
+que en Linux trae un proveedor de **CUDA de 327 MB** —en Vercel no hay GPU— y lo usa un solo Web
+Worker que transcribe en la máquina del usuario. Primero reventó el tope de 250 MB de una función y,
+al habilitar `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`, el build empezó a terminar bien y a morir en
+«Deploying outputs...» con `ENOSPC`.
+
+- **Al sumar una dependencia así, excluirla en el mismo commit**: `outputFileTracingExcludes` en
+  `next.config.ts`, con un test que lo sostenga (`tests/build-excluye-ia-del-navegador.test.ts`).
+- ⚠️ **La clave es `'/**'`, no `'/*'`**, aunque la doc de Next presente `'/*'` como «global».
+  Medido con su propio picomatch: `'/*'` **no empareja la ruta `'/'`**, así que la home se queda con
+  todo el peso y el patrón parece correcto. Es la forma en que esto se rompe sin avisar.
+- ⚠️ **Excluir del trazado no lo saca del disco** del contenedor, y el disco es lo que se llenó:
+  para eso está `scripts/sacar-cuda-de-onnx.mjs`, enganchado como `prebuild`.
+- ⚠️ **En Windows la exclusión no hace nada, en silencio**: Next normaliza las barras de los
+  `Includes` y no las de los `Excludes` (`next/dist/build/collect-build-traces.js`). Un build local
+  no sirve para comprobarla; el test mide en `path.posix`.
+- **La máquina de build ya pasó Enhanced**: medido el 3/11/2026 por API, el proyecto `mako` construye
+  en `buildMachineType: "turbo"` con `elasticConcurrencyEnabled: true` (era `enhanced` el 17/10). Así
+  que «activar Enhanced Builds», lo que sugiere el propio mensaje de Vercel, **ya está hecho y
+  superado**: bajar el peso es el único camino desde el repo.
+- El `buildCommand` del proyecto es `null`, o sea el default de Next: **`npm run build`**, que es lo
+  que hace correr el `prebuild`. Si alguien lo cambia a `next build` a secas, el `prebuild` deja de
+  correr **sin avisar** y vuelve el `ENOSPC`.
 
 # Para validar lo tuyo sin el tsc completo: `node scripts/tsc-acotado.mjs`
 
@@ -1217,7 +1177,7 @@ vuelve a empujar el relleno: medido, 14 de 37 tarjetas. **Y para marcar hecha un
 > Lo dijo al ver que los botones de Instagram de Automations estaban en producción y Leandro, que configura con su Claude, no
 > los podía leer ni editar por la API. Por eso:
 > - **Toda entrega al Cerebro dice qué quedó declarado en la API** (operación por operación) o por qué no corresponde. Sin esa
->   línea, la punta vuelve al chat para el tren siguiente.
+>   línea, la punta no está terminada: vuelve a su chat antes de subirla.
 > - **Leer Y cambiar:** no alcanza con que la API pueda crear algo; lo que la pantalla deja leer o editar, la API también.
 > - **Lo que ya está en producción sin API es un hueco abierto**, no una decisión: se cierra en el área que corresponde.
 
@@ -1278,6 +1238,9 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
 - **Todo envío al grupo de MaKo declara su `memoria`** (`enviarAlGrupoMaKo(ws, texto, memoria)`, lib/mako-grupo.ts): 'mako' si lo
   dice MaKo (queda en la conversación), 'equipo' si lo dice el equipo (al anillo del equipo, nunca como turno de MaKo), null si
   quien llama ya lo guarda. Sin eso, el turno no sabe a qué le contestan (28/10/2026, tests/grupo-ve-el-grupo.test.ts).
+- **Todo lo que MaKo le manda a una PERSONA por WhatsApp sale por `lib/mako-salida.ts`**, que no deja escribirle a quien no escribió en las últimas 24 horas (3/11/2026, «no va a mandar ni
+  mensajes a nadie»). Nunca `instanciaVoz()` ni `enviarAGrupoJid` de lib/mako-grupo.ts para un número: la voz puede ser el WhatsApp personal de Martín. El bot no tiene línea por defecto y `mako_ws<n>` no puede serlo. La cañería
+  (Evolution o la API oficial) vive en `lib/mako-salida-drivers.ts` y no decide nada (docs/hallazgos-comunicacion.md, tests/mako-bot.test.ts).
 - **En el grupo de WhatsApp no van MAKO_NUCLEO ni la persona de consultor**: el system del grupo es `buildSystemPrompt` con
   `canal: 'grupo'` (NUCLEO_GRUPO, lib/nucleo-grupo.ts, fijo y primero). Todo texto nuevo del turno del grupo va ahí o en
   DOER_WA_VOZ, nunca en MAKO_NUCLEO, que es del dashboard y de la app (28/10/2026, tests/banco-grupo.test.ts).
@@ -1345,9 +1308,13 @@ Ocho cosas que no se ven en el código y ya mordieron:
    `confirmarPendiente` pregunta ANTES de reclamar (y la pantalla genérica, antes de marcarla aplicada);
    sin eso, un «sí» por un token clásico o por WhatsApp dejaba la pendiente en `error` para el admin que
    sí la podía confirmar (comunidad, 17/10/2026).
-   **El «sí» puede llegar 2 h después:** lo que el `resumen` dio por visto (las cuotas, los ids) VIAJA en el payload, y
-   `faltaParaConfirmar` rechaza si cambió. Y el `resumen` de lo que mueve plata dice lo que va a QUEDAR, no lo pedido:
-   las cuotas cobradas y las que no se pueden tocar (`armar_plan_por_tramos`, 29/10/2026, docs/hallazgos-pagos.md).
+   **El «sí» puede llegar 2 h después:** lo que el `resumen` dio por visto (cada cuota COMO ESTABA, con su firma: no
+   alcanza con los ids) VIAJA en el payload, y `faltaParaConfirmar` rechaza si cambió. Y el `resumen` de lo que mueve plata
+   dice lo que va a QUEDAR, no lo pedido: las cuotas cobradas, las que no se pueden tocar y lo que queda aparte
+   (`armar_plan_por_tramos`, 29/10/2026, docs/hallazgos-pagos.md).
+   **Lo que no se va a poder cumplir NUNCA se cierra:** `faltaParaConfirmar` devuelve `{ yaNoVale }` (el plan cambió, la
+   propuesta es de una versión anterior) y `confirmarPendiente` la deja en `error`; un texto suelto la deja viva para
+   quien sí puede. Y cambiar la forma de un payload es RECHAZAR los de antes, nunca «si no viene, la regla vieja».
 4. **Una acción de pantalla no tiene gemela de chat.** Si queda una tool vieja en
    `MAKO_ACCION_TOOLS` con el mismo nombre, el doer de WhatsApp la prefiere y pide un «sí».
    Al pasar una operación a `pantalla`, se saca la vieja; `confirmarPendiente` cierra sin
@@ -2017,6 +1984,12 @@ código nuevo:
       una función que existe ni prometer una que no. Lo fija tests/funciones-mako.test.ts. ES LA FUENTE: una capacidad de
       lib/mako-capacidades.ts (el «cómo se hace» del Perro) toma su tab de ahí, y `listar_capacidades_mako` devuelve esas
       funciones; un catálogo nuevo AL LADO no va.
+    - **El catálogo, las rutas y las herramientas usan el nombre que la persona LEE en la pantalla** (tickets #45 a #48 de
+      Leila, 3/11/2026): con «Aprender solo» por «Aprende solo», «automatización» por «secuencia» o «Documentos» por «El
+      brief», MaKo NIEGA lo que sí tiene, que es peor que no tenerlo. Dónde se corrige un dato del negocio sale de
+      `DATOS_DEL_NEGOCIO` / `lugarDato` (lib/secciones-negocio.ts), nunca escrito a mano. Si un pedido real no trae su
+      herramienta, se mide con el turno de verdad (`herramientasDelChat`, no la lista `noViajaron` del ticket, que trae sólo
+      las 6 de más puntaje) y la familia nueva de lib/mako-intencion-app.ts lleva su frase literal en un test.
   - **EL CHAT DE MaKo SON TRES PIEZAS JUNTAS, en toda la app** (23/10/2026; Martín: «Tienes que UNIFICAR los chats con MaKo en
     toda la app»): el PANEL (`app/admin/operaciones/PanelChat.tsx` → `PanelDeChat`: la cabecera con la criatura, arrastrar y
     soltar, la columna del hilo y el lugar de la caja), el HILO (`app/_chat/HiloMako.tsx`) y la CAJA (abajo). Lo propio de cada
@@ -2115,15 +2088,12 @@ código nuevo:
     no las veía. Se pasaron acá el 19/10.
     - **El orden lo decide el chat, sin preguntar:** cliente roto > plata y riesgo > lo que traba a Martín > lo que traba
       a otro chat > feature > pulido (el mismo orden de docs/pendientes.md).
-    - **EL CEREBRO SON DOS CHATS** (21/10/2026 noche, pedido de Martín). **«Cerebro»** reparte y habla con Martín: abre los
-      jefes (o le da el visto bueno a Integración para abrirlos) y le pasa a Martín los bullets de lo que llegó a producción.
-      **«Cerebro › Integración»** es el ÚNICO que integra y sube (`integracion` → `main`), en `C:/dev/wt-push-q`, y le
-      reporta al Cerebro, no a Martín. Las puntas («VERDE sin pushear») van a Integración. Donde este documento dice que
-      «el Cerebro» integra, sube o recibe una punta, se lee «Cerebro › Integración».
+    - **«Cerebro» reparte y habla con Martín**: abre los jefes y le pasa a Martín los bullets de lo que llegó a producción.
+      ⚠️ Desde el 4/11/2026 **no hay «Cerebro › Integración» ni tren**: cada jefe sube su trabajo a `punta/<nombre>` y GitHub lo
+      chequea y lo lleva a main solo (cómo, arriba de todo en este archivo).
     - **El Cerebro DELEGA** (Martín, 17/10 ~23:30: «¿por qué no delegás?»). Lo de un área lo hace el jefe que la conoce.
-      Se reparte de a uno, según la RAM libre (la guardia frena con menos de 2,5 GB) y la cuota; Integración junta las
-      puntas y sube.
-    - **«En producción» es sólo lo desplegado.** Un commit en `integracion`, o con el run verde y el deploy sin «Ready»,
+      Se reparte de a uno, según la RAM libre (la guardia frena con menos de 2,5 GB) y la cuota; cada jefe sube su punta.
+    - **«En producción» es sólo lo desplegado.** Un commit en una punta, o con el run verde y el deploy sin «Ready»,
       todavía no lo está. Ni el «Ya está» ni un cierre del Plan salen antes.
     - **Lo que toca plata, seguridad o envíos a clientes pasa una revisión adversarial antes de subir.** La punta llega
       marcada «⚠️ REVISAR». Lo que encuentre la revisión vuelve al jefe como una punta aparte, con su test.
@@ -2144,12 +2114,6 @@ código nuevo:
       Second Brain de cualquier negocio, el del super admin incluido, es UN grafo: lo que separa la vista son los filtros
       (pedido ya el 17/10 y el 18/10, pt 4). Se verifica mirando lo que se DIBUJA, no el código: dos raíces o dos racimos
       separados también son dos cerebros.
-    - **UN VERDE QUE SÓLO DICE «TE FALTAN N COMMITS DE MAIN» SE MANDA IGUAL** (20/10/2026). Pasa cuando pasaron todos los tests y
-      las guardas, y lo único rojo es `tu rama no tiene origin/main mergeado` (scripts/antes-de-subir.mjs:276). Se manda el sha
-      diciéndolo, y el merge lo hace el Cerebro, con Actions chequeando los tipos.
-      - El candado `C:/dev/pesado.lock` no tiene cola, y con pushes seguidos un chat que espera siempre queda atrás. El 20/10 Onboarding
-        corrió su VERDE tres veces y Pagos esperó dos horas.
-      - Esto deja de hacer falta cuando el candado tenga cola y se mergee main al tomarlo (encargado a Infra el 20/10).
     - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
       turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
       the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:
@@ -2159,20 +2123,21 @@ código nuevo:
       nube se sube antes a origin: la nube no ve los worktrees de la PC.
     - **AL INICIAR UNA CUENTA NUEVA, PRIMERO ESTO, EN ORDEN** (21/10/2026; Martín: «eso siempre primero al iniciar una nueva
       cuenta»): medir la cuenta (`get_usage`); abrir el Runner, para que el uso salga en el Ops Center y los mensajes
-      lleguen; archivar los chats viejos de esa cuenta; abrir el Cerebro y «Cerebro › Integración» frescos desde
+      lleguen; archivar los chats viejos de esa cuenta; abrir el Cerebro fresco desde
       `docs/relevo/cerebro.md` («LEER PRIMERO»); y los jefes de a uno, cuando tienen trabajo. Recién después, lo demás.
-    - **A LOS DOS CEREBROS SE LES ESCRIBE POR NOMBRE** («Cerebro» para un pedido o una pregunta, «Cerebro › Integración»
-      para una punta, con ListAgents), no por id (21/10/2026): cada cuenta los abre de nuevo y el id del anterior da «not found». Si un mensaje no se entrega, la punta queda igual arriba de `docs/relevo/<área>.md`
-      y en la nota del chat: el Cerebro la lee de ahí, no espera.
+    - **AL CEREBRO SE LE ESCRIBE POR NOMBRE** («Cerebro», con ListAgents), no por id (21/10/2026): cada cuenta lo abre de
+      nuevo y el id del anterior da «not found». Una punta no se le pasa a nadie: se sube a `punta/<nombre>` y GitHub la
+      lleva a main. Si un mensaje no se entrega, lo que había que decir queda arriba de `docs/relevo/<área>.md` y en la
+      nota del chat: el Cerebro lo lee de ahí, no espera.
     - **A LO SUMO ~8 CHATS ABIERTOS** (21/10/2026; la PC tiene 16 GB). Un jefe con su punta en producción y su relevo
       commiteado se archiva, y se reabre desde `docs/relevo/<área>.md` cuando vuelve a tener trabajo. Lo que es sólo código
       (no lee la base ni usa el Chrome de Martín) va a la nube: deja su rama en origin y su punta arriba de su relevo.
-    - **NADA TERMINADO QUEDA SIN NOMBRAR EN «PENDIENTE DE INTEGRAR»** (21/10/2026): el relevamiento del cambio de cuenta
-      encontró dos ramas terminadas (`mako-wa`, 15 commits; `infra-tests-afectados`) que ningún relevo nombraba. Una rama
-      con su VERDE va al relevo del Cerebro el mismo día, aunque se integre después.
+    - **NADA TERMINADO QUEDA SIN SUBIR** (21/10/2026; desde el 4/11, a su punta): el relevamiento del cambio de cuenta
+      encontró dos ramas terminadas (`mako-wa`, 15 commits; `infra-tests-afectados`) que ningún relevo nombraba. Lo
+      terminado se sube a `punta/<nombre>` el mismo día, y si queda rojo, su `ci-rojo/<nombre>` lo nombra.
   - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
     está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
-    además de ponerlo en Review»). Cuando «Cerebro › Integración» le avisa a un jefe que su punta llegó a producción, el jefe:
+    además de ponerlo en Review»). Cuando la punta de un jefe llegó a producción (la corrida de `punta.yml` verde y el deploy de Vercel en «Ready»), el jefe:
     - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba: el primer renglón
       («Ya está: …») es el título de la tarjeta y lo demás su detalle. Desde el 17/10/2026 (la C) Review se fue: el
       «Ya está» se dibuja como una tarjeta en la conversación, con «Revisar» en esa ruta (o en la tab de su área),
@@ -2185,11 +2150,11 @@ código nuevo:
     nada escrito... Siempre debe enviar un mensaje tipo "Voy a trabajar en..."»). Lo primero que escribe un chat al
     tomar un pedido es una línea, en palabras de producto, con qué va a hacer y para qué. Recién después arrancan las
     herramientas.
-    **Y la punta va a «Cerebro › Integración» EN EL ACTO, y el chequeo completo es uno por TREN** (22/10/2026; reemplaza el
-    «VERDE obligatorio» del 17/10, porque la fila del candado con 8 chats tardaba horas). El jefe corre los tests que escribió
-    o tocó y pasa el sha «sin tipos» (en la máquina hay UN solo `tsc`, el del tren). Integración junta lo que llegó, corre
-    tipos, tests afectados y guardas sobre el lote mergeado, devuelve sólo la punta que dé rojo y el tren sale cada
-    30 min (antes si trae un cliente roto). La sección «Cómo se sube» (más arriba, junto al pre-push) lo detalla.
+    **Y lo terminado se sube EN EL ACTO a su punta, y el chequeo completo lo hace GitHub** (4/11/2026; reemplaza el tren del
+    22/10, que con 8 chats tardaba horas y frenaba a todos por el rojo de uno). El jefe hace `git push origin
+    HEAD:punta/<nombre>`: el pre-push corre las guardas y el filtro chico (tests y tipos de lo tocado, 90 s como mucho), y
+    `punta.yml` corre tipos, tests afectados y guardas sobre la mezcla con main y la lleva a main si da verde. Un rojo deja
+    `ci-rojo/<nombre>` y vuelve a su chat. Cómo se sube, arriba de todo en este archivo.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
@@ -2542,7 +2507,7 @@ chat de Automations (4de3fe769), rechazaba TODA respuesta: «¿Qué hace esta au
 El test fijaba la regla TAL COMO SE ESCRIBIÓ («en Editar, contestar es un error») y sólo probaba la falla que se buscaba (los
 textos pegados de la llamada). El arnés lo veía, y se corrió después del deploy.
 
-- **El arnés va ANTES de pasar el sha a Integración, no después del deploy.** El de Automations:
+- **El arnés va ANTES de subir la punta, no después del deploy.** El de Automations:
   `scripts/probar-chats/automations.mts` (rama `probar-chats-automations`), corrido en un worktree de TU rama, cada caso al
   menos 2 veces (la IA no es determinista). Un caso cortado por la cuota de IA («No tienes ninguna IA gratis conectada») no
   mide nada: se repite.
@@ -2696,7 +2661,7 @@ con la sesión que firma cuándo se entró (`iat`); un enlace nuevo que abra la 
 
 La 0.3.2 de «MaKo en tu computadora» se desplegó el 21/10/2026 sin sus ejecutables en el bucket `ia-pc`: a todo cliente
 nuevo el instalador le contestó «No pude preparar la descarga», con un 200, y nada lo marcó (IA1/IA2,
-docs/hallazgos-ia.md). **Antes de subir un cambio de `VERSION_PC` (lib/ia-pc-reglas.ts), Integración corre
+docs/hallazgos-ia.md). **Antes de subir a su punta un cambio de `VERSION_PC` (lib/ia-pc-reglas.ts), el chat que lo hizo corre
 `npx tsx --conditions=react-server scripts/ia-pc/verificar-binarios.mts --env <.env.local del clon>`** (sólo lee: lista y
 firma). Si dice «⛔ falta», primero `scripts/ia-pc/publicar-binarios.mts --aplicar` (escribe en el Storage de producción:
 con el OK de Martín), después el deploy. Y una ruta que no puede servir lo que el código pide deja su fila en
@@ -3951,6 +3916,10 @@ excepción del código— apaga así la integración de todos: pasó el 11/09 y 
 (tres cancelaciones del anfitrión en un minuto, y 4 reservas perdidas). Lo transitorio (la base
 caída) va 5xx; lo que va a fallar igual en el próximo intento va **2xx y se registra** donde se
 pueda leer. Es la otra mitad de «un 200 es un ACK» (`docs/hallazgos-infra.md` → «Webhooks»).
+
+⚠️ **Y UNA CLAVE FUERA DEL CATÁLOGO NO LLEGA A `process.env`** (03/11/2026): la hidratación copia sólo lo que declara
+`SERVICIOS_METODO`, las keys de IA y sus rótulos (`puedeHidratarse`). Una clave nueva con fila en el ws1 y sin entrada en el catálogo
+se queda en un `console.warn` por arranque, y quien la lea de `process.env` ve vacío. Se declara en el catálogo, o se lee con `credWs`.
 
 ⚠️ **Y LA LECTURA QUE DECIDE DE QUIÉN ES EL EVENTO VA ESTRICTA** (`wsPorIdentificadorEstricto`,
 `credWsEstricta`). `wsPorIdentificador` y `credWs` no leen el `error` de supabase-js: con la base
@@ -6193,6 +6162,21 @@ exige sesión adentro** — su id viaja en todas las páginas. Lo fija
 `tests/acciones-sin-sesion.test.ts`. El detalle, en
 [docs/hallazgos-seguridad.md](docs/hallazgos-seguridad.md).
 
+# Una ruta nueva que escribe se clasifica para la cuenta de revisión de las tiendas (4/11/2026)
+
+La cuenta con la que entran los revisores de Google Play y App Store tiene una contraseña que manejan terceros. Puede leer toda la app, pero
+escribe sólo lo que está en `PERMITIDO_EN_REVISION` (`lib/cuenta-revision-reglas.ts`). Ninguna página está en esa lista, así que las server
+actions quedan cortadas todas. `tests/cuenta-revision-escrituras.test.ts` recorre cada `route.ts` de `app/api` que escribe y cada archivo
+`'use server'`, le pega al proxy de verdad y compara con su snapshot.
+
+- **Una ruta nueva nace cortada**, y el test da rojo hasta que regeneres la lista:
+  `MAKO_REGENERAR_SNAPSHOT=1 node --import tsx --test tests/cuenta-revision-escrituras.test.ts`.
+- **Si el revisor la tiene que poder usar,** se suma a la lista con su porqué. Tiene que ser algo que pidan Apple o Google y que toque sólo lo suyo.
+- **Un mensaje a un tercero** (un mail, un WhatsApp) sale por `sendEmail` o por `enviarTexto` / `enviarMedia` / `enviarAudio`, que ya
+  traen la guarda. Si un camino nuevo manda por otro lado, llama a `bloqueoDeEnvioEnRevision` (`lib/revision-guarda.ts`).
+- **El negocio de esa cuenta es `WS_REVISION`**, propio y fuera de `WS_PRUEBAS`: ninguna herramienta de prueba copia datos ahí.
+- Por qué y cómo se crea: `docs/relevo/nube-tiendas.md` y docs/hallazgos-seguridad.md («La lista de escritura no ve server actions»).
+
 # La página esconde por rol y la API no: el corte va ADENTRO de la ruta
 
 Auditoría del 14/10/2026: siete hallazgos tenían esta forma. `proxy.ts` sólo exige SESIÓN (el rol, únicamente en
@@ -6490,8 +6474,27 @@ en el prompt de **todos los negocios, en todos los turnos**. Una entrada para un
 plataforma queda pendiente para siempre y MaKo le dice al dueño que lo primero es ir a
 configurar algo que no puede abrir (31/10/2026, al construir Knowledge; docs/hallazgos-onboarding.md).
 
-La regla del producto sigue siendo que **toda tab tiene onboarding**. Lo que se agrega es la
-pregunta previa: **¿de quién es esa pantalla?** Si es de la plataforma, no va al catálogo. Y si
+⚠️ **ESA REGLA CAMBIÓ EL 01/11/2026 Y ESTA PARTE MANDA. Martín, textual, mirando Competitors Spy:**
+*«Le pusiste un onboarding a competitors, cuando ya habiamos dicho que nada debe tener onboarding…
+Limitas la experiencia del usuario»*. Lo que rechaza no es la ayuda: es la **PUERTA**.
+
+**NINGÚN wizard tapa una tab.** `PuertaSpy` mostraba el onboarding EN LUGAR de la tab hasta que
+alguien apretaba salir; quedan tres iguales —`PuertaCopyGen` (ads-writer), `PuertaVideoGen`
+(video-generator) y `OnboardingCarousels`— y **22 áreas con algún onboarding**. Una tab abre
+mostrando la tab, siempre, aunque esté vacía.
+
+**Qué ocupa su lugar, y son dos cosas distintas:**
+1. **Una franja de UNA línea adentro del contenido, con una «×» que la cierra y no vuelve.** Dice qué
+   hace esa pantalla, no cómo configurarla.
+2. **MaKo pide lo que le falta CUANDO le hace falta** (la regla de que MaKo abre preguntando), en su chat, no en un
+   pasillo previo. Si para leer a un competidor hace falta Meta, el botón «Conectar Meta» va en el estado
+   de error de esa lectura, con el motivo real al lado — no tres pasos antes, por las dudas.
+
+**Y lo que el onboarding hacía bien NO se tira: el estado.** Que una tab sepa si está conectada le sirve a
+MaKo. Pero va como **DATO**, igual que abajo, no como un paso pendiente que reclama: «tiene 0 competidores»
+es un hecho; «no completó el onboarding de Spy» es un reproche a alguien que entró a trabajar.
+
+**La pregunta previa que sí sigue valiendo: ¿de quién es esa pantalla?** Si es de la plataforma, no va al catálogo. Y si
 su estado igual le sirve a MaKo, va **el DATO y no el flag** —algo que sea verdad para cualquiera
 que lo lea—, como el conteo de fichas por módulo de Knowledge (`estadoDeLosModulos`, `lib/knowledge.ts`).
 
@@ -7336,7 +7339,7 @@ primera y la segunda las decide quien organiza, y la tercera la contesta la regl
 escrita (cliente roto > plata > traba a Martín > features).
 
 - **Se decide, se hace, y se cuenta después en una línea.** Abrir chats, archivarlos, agruparlos,
-  renombrarlos, elegir qué sube al tren y qué espera, qué se mide primero: todo eso es del Cerebro.
+  renombrarlos, elegir qué se sube primero y qué espera, qué se mide primero: todo eso es del Cerebro.
 - **Lo que SÍ va a Martín es la lista cerrada de la Ticketera** (la sección de acá abajo): precio y alcance
   comercial, lo que se le manda o se le cobra a un cliente real, accesos de personas, seguridad
   irreversible, gasto de IA por unidad, fechas. Fuera de esa lista, se elige.
@@ -11171,6 +11174,11 @@ nunca vigila, y devuelve SÓLO lo que se le pidió (la agenda de la persona no s
 aislado, no en MAIN. Lo que lee tiene que estar dicho en `app/privacidad/extension/page.tsx`, con la fecha actualizada. Lo
 hace cumplir tests/wa-fichas-extension.test.ts; el porqué, docs/hallazgos-extension.md.
 
+La otra lectura de un sitio ajeno es «Guardar en Spy» (3/11/2026): `extension/spy-leer.js` no es un content script, lo inyecta el desplegable con `activeTab` cuando la
+persona toca el botón, y **no interpreta nada**: lo que decide qué es un anuncio o un píxel vive en el servidor (`lib/spy-captura.ts`), para que un cambio de diseño ajeno
+se arregle con un deploy y no con otra revisión de Chrome. Un permiso de sitios nuevo, en cambio, **desactiva la extensión** a cada cliente hasta que lo acepte: no se pide.
+Lo hace cumplir tests/spy-captura.test.ts.
+
 Y en `extension/*.js`, **ninguna barra-asterisco dentro de un texto** (un patrón de URL de Chrome la tiene al final): los
 tests de la extensión quitan comentarios con una regex que no distingue textos, y esa secuencia se come el código que sigue
 hasta el próximo cierre de comentario. Rompe tests que no tienen nada que ver, que es lo más caro de diagnosticar.
@@ -11414,9 +11422,9 @@ que en la rama de verdad ya no existen.
 Antes de escribir una línea, y son cuatro comandos:
 
 ```sh
-git fetch origin integracion main
-git rev-list --count HEAD..origin/integracion        # cuánto te falta (si no es 0, no estás ahí)
-git log --oneline -5 origin/integracion -- <la carpeta que vas a tocar>
+git fetch origin main
+git rev-list --count HEAD..origin/main               # cuánto te falta (si no es 0, no estás ahí)
+git log --oneline -5 origin/main -- <la carpeta que vas a tocar>
 grep -rln "<el nombre de la feature>" lib/ app/      # ¿ya existe?
 ```
 
@@ -11430,3 +11438,30 @@ Dos cuentas del mismo presupuesto se desincronizan y la pantalla y el chat termi
 números distintos: es «una cosa, un lugar» con la versión nueva de uno mismo como el segundo
 lugar. Lo que se descarta se DICE en la cosecha, con lo que quedó medido, para que el próximo no
 lo vuelva a construir.
+
+# El teléfono no vende, y lo que sale de la app de iPhone pasa por sus puertas (3/11/2026)
+
+Apple y Google prohíben vender algo digital sin su cobro, o mandar a pagar afuera, y Apple pide permiso antes de mandarle datos a una IA de terceros. Plan: `docs/tiendas-play-appstore.md`.
+
+- **En `app/m/**` no se ofrece comprar, pagar ni subir de plan**, ni con un link ni con un botón ni con palabras (`tests/tiendas-telefono-no-vende.test.ts`). Una pantalla de escritorio que el teléfono también abre pregunta `esTelefono`. Los cobros de un negocio a SUS clientes son otra cosa, y se quedan.
+- **Lo que existe para vender MaKo a otros (MaKo Partners, Agency Dashboard) no va en NINGÚN teléfono** (4/11/2026): More no lo dibuja y su página de `app/m` vuelve a More. Una tab nueva así se suma a `TABS_QUE_VENDEN` (lib/tienda.ts).
+- **La app de iPhone se reconoce por la marca del user agent** (`esAppIos`, `esAppIosDelPedido`, lib/tienda.ts). Android no tiene modo: la TWA es Chrome. Es una regla de producto, nunca de seguridad.
+- **Una función nueva que le manda algo a una IA** llama a `exigirPermisoIa()` antes de salir (lib/ia-permiso.ts), o sale por una que ya lo hace. `tests/ia-permiso.test.ts` enumera las puertas.
+- **Lo que necesita el aparato** va por `lib/nativo.ts`, con `window.Capacitor.Plugins`: la web no importa los plugins. Un `<a download>` ya funciona ahí solo.
+- **Lo que publica un usuario para otros** (Community) pide denunciar y bloquear desde la app (Apple 1.2): por eso no va en iPhone.
+
+# Una edición del newsletter es un BROADCAST del CRM «Newsletter» (29/10/2026)
+
+Martín aprobó el modelo el 29/10/2026 («Sí, armalo así»): los suscriptos son un CRM «Newsletter» (Suscripto → Lee →
+Dormido → Dado de baja) y las ediciones viven en la tab `/newsletters`. **Regla para código nuevo:**
+- **Una edición es un broadcast** (`email_broadcasts`) con segmento `newsletter:<funnelId>[:<etapa>]`: crear, probar,
+  programar y enviar pasan por lib/email-marketing.ts, nunca por un envío propio. Que sea una edición se DERIVA del
+  segmento (`segmentoNewsletter`, lib/newsletter-reglas.ts); no hay columna aparte.
+- **Los suscriptos se leen con `suscriptosDe`** (lib/newsletter.ts): la casa (`leads.funnel_id`) Y los agregados
+  (`lead_funnel`). «Suscripto» es la clave canónica `lead`.
+- **Lee y Dormido se CALCULAN** (`etapaPorLectura`): sólo cuentan los envíos `enviado`, una edición sin NINGUNA apertura no
+  mide (key propia o webhook sin configurar) y la baja, «Compró» y las salidas no las mueve la lectura.
+- **El newsletter no es una automatización.** La única es la bienvenida: la plantilla `email-newsletter` de la galería,
+  con el CRON en la etapa «Suscripto». Nada crea esa fila solo (`tests/automatizaciones-solo-plantillas.test.ts`).
+- **Con el envío apagado no se «envía»** (quema la edición: queda `enviado` con todo `simulado`): se prueba al email de
+  quien la pide y se programa. Lo fija tests/newsletter.test.ts; el porqué, en docs/hallazgos-newsletters.md.

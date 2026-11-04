@@ -16,9 +16,10 @@
 // tests lo miran? La respuesta sale del código, no de una lista a mano que se desactualiza.
 //
 // QUE ELIGE (todo se detecta solo, mirando el texto de cada test):
-//   1. BARREDORAS: los tests que recorren el repo — usan `git ls-files`, hacen readdir/glob, o
-//      nombran 20+ archivos. Corren SIEMPRE: un cambio en cualquier lado las puede romper, y por
-//      eso no se les puede preguntar «¿tocaste lo mío?» (run 80 y 82).
+//   1. BARREDORAS: los tests que recorren el repo — usan `git ls-files`, `git grep` o hacen readdir/glob.
+//      Corren SIEMPRE: un cambio en cualquier lado las puede romper, y por eso no se les puede preguntar
+//      «¿tocaste lo mío?» (run 80 y 82). ⚠️ «Nombra 20+ archivos» ya NO es barrer (4/11/2026): ver
+//      `motivoBarredora`.
 //   2. NOMBRAN: el test escribe la ruta de un archivo cambiado como texto (`readFileSync('app/
 //      automations/PanelProbar.tsx')`, o `join(raiz, 'app', 'automations', 'PanelProbar.tsx')`):
 //      lo lee, y fija su forma (run 85).
@@ -63,8 +64,6 @@ export const SALIDA_SIN_CORRER = 99;   // misma convención que scripts/typechec
 const EXT_CODIGO = ['.ts', '.tsx', '.mts', '.cts', '.mjs', '.cjs', '.js', '.jsx'];
 export const ES_CODIGO = /\.(?:[cm]?[jt]s|[jt]sx)$/;
 export const ES_TEST = /^tests\/[^/]+\.test\.ts$/;     // el mismo glob que `npm test`
-/** Un test que nombra tantos archivos los está LEYENDO en lote (medido: 37 de 1.106 con ≥20 que no barren por otro lado). */
-export const UMBRAL_NOMBRA_MUCHOS = 20;
 
 // -----------------------------------------------------------------------------
 // 0. Los comentarios no son dependencias
@@ -168,8 +167,14 @@ export function rutasSinExtension(src) {
   return salida;
 }
 
-/** `lib/nutricion` → `lib/nutricion.ts`, si existe. */
+/**
+ * `lib/nutricion` → `lib/nutricion.ts`, si existe. Y un archivo que NO lleva extensión (`scripts/claude-hooks/pre-push`) se
+ * nombra tal cual: hasta el 4/11/2026 eso daba null, y un cambio al hook de pre-push no corría ninguno de los tests que lo
+ * leen (integracion-ci, filtro-punta, typecheck-lock). `existe` es la lista de archivos de git, no el disco: una carpeta
+ * (`lib/flujo`) no está ahí y sigue yendo a su `index`.
+ */
 export function resolverNombre(t, existe) {
+  if (existe(t)) return t;
   for (const e of EXT_CODIGO) if (existe(t + e)) return t + e;
   for (const e of EXT_CODIGO) if (existe(`${t}/index${e}`)) return `${t}/index${e}`;
   return null;
@@ -195,12 +200,20 @@ export function clavesDe(ruta, basenameUnico) {
 // 3. Las barredoras
 // -----------------------------------------------------------------------------
 
-/** ¿Este test recorre el repo en vez de mirar un archivo? Devuelve el porqué, o null. */
-export function motivoBarredora(src, nombradas = rutasNombradas(src)) {
+/**
+ * ¿Este test recorre el repo en vez de mirar un archivo? Devuelve el porqué, o null.
+ *
+ * ⚠️ «NOMBRA 20+ ARCHIVOS» SE SACÓ EL 4/11/2026 (docs/hallazgos-infra.md → «Por qué tardaba horas»). Un test que nombra 20
+ * archivos los LEE, pero no BARRE: sabe cuáles son, y la regla 2 (NOMBRAN) ya lo elige cuando cualquiera de los 20 cambia. Con la
+ * regla, 37 tests corrían en TODAS las puntas sin que nada suyo cambiara, y entre ellos el más lento, `tests/tipos-por-tandas.test.ts`
+ * (nombra 132). Lo que se pierde es lo que el test mira por un camino que no nombra (un import de lo nombrado, una lectura
+ * armada en tiempo de ejecución): eso lo ve la suite de cada noche (semanal-tests.yml), que dio verde entera el 4/11 (run 41779837302).
+ * Medido antes de sacarla: el replay de los rojos reales (scripts/replay-fallos-ci.mjs) da lo mismo con y sin la regla.
+ */
+export function motivoBarredora(src) {
   if (/ls-files/.test(src)) return 'git ls-files';
   if (/\bgit\s+grep\b|\[\s*['"]grep['"]/.test(src)) return 'git grep';
   if (/\b(?:readdirSync|readdir|opendirSync|opendir|globSync|glob)\s*\(/.test(src)) return 'recorre carpetas';
-  if (nombradas.size >= UMBRAL_NOMBRA_MUCHOS) return `nombra ${nombradas.size} archivos`;
   return null;
 }
 
@@ -227,7 +240,7 @@ export const compartible = (src) => !PELIGRO_COMPARTIR.test(src);
  *   cambiados: lo que el cambio toca (incluye borrados); archivos: lo que existe ahora (incluye
  *   lo nuevo sin git); leer: el texto de un archivo de código; profundidad: cuántos saltos de import se siguen
  *   (default: todos; `--profundidad 3` es la palanca si el tiempo aprieta: ver el replay, qué rojos salen a cada profundidad).
- * @returns {{ tests: Map<string, {tipo: string, detalle: string}[]>, sinRed: string[], totalTests: number, importadoPor: Map<string, Set<string>>, aumentan: Set<string>, compartibles: Set<string> }}
+ * @returns {{ tests: Map<string, {tipo: string, detalle: string}[]>, sinRed: string[], totalTests: number, importadoPor: Map<string, Set<string>>, aumentan: Set<string>, compartibles: Set<string>, barredoras: Map<string, string> }}
  */
 export function seleccionar({ cambiados, archivos, leer, profundidad = Infinity }) {
   const existentes = new Set(archivos);
@@ -265,7 +278,7 @@ export function seleccionar({ cambiados, archivos, leer, profundidad = Infinity 
     // Un test que LANZA un script o un hijo (`spawn('node', ['tests/_x-hijo.ts'])`) depende de todo lo que ese
     // hijo importa. Sólo ayudantes (`tests/_*`) y scripts: nombrar a OTRO test no es correrlo.
     for (const a of archivosNombrados) if (ES_CODIGO.test(a) && /^(?:tests\/_|scripts\/)/.test(a)) arista(a, f);
-    const m = motivoBarredora(src, nombradas);
+    const m = motivoBarredora(src);
     // Quién puede correr en un proceso COMPARTIDO: todo test que no toca estado global (ver `compartible`). Medido el 17/10/2026: los
     // 1.050 compartibles de los 1.125 tests, en 2 procesos, dieron 10.905 casos, 0 rojos y 0 interferencias, en 260 s (separados, ~50 min en
     // esa misma PC cargada). El riesgo conocido es un FALSO VERDE por contagio (un test que pasa sólo por lo que dejó otro): lo cubre Actions,
@@ -771,11 +784,21 @@ export function porQueSeMato(r, archivos = []) {
     : `estuvo ${min(r.sinAvanceMs ?? TOPE_SIN_AVANCE_MS)} sin terminar un solo caso: un test se colgó.${cual}`;
 }
 
+/**
+ * El reporte de TIEMPO POR ARCHIVO (4/11/2026), sólo si se pidió con `MAKO_TIEMPOS_TESTS=<archivo.tsv>` (lo prende punta.yml). Va AL
+ * LADO del spec, que sigue saliendo por stdout igual que siempre: todo lo de acá lo lee con regex. Comprobado con node 24: la salida
+ * con `--test-reporter=spec` explícito es la misma que la de por default, letra por letra. Ver scripts/reporter-tiempos.mjs.
+ */
+const REPORTER_TIEMPOS = pathToFileURL(fileURLToPath(new URL('./reporter-tiempos.mjs', import.meta.url))).href;
+export const banderasDeTiempos = (env) => (env.MAKO_TIEMPOS_TESTS
+  ? ['--test-reporter=spec', '--test-reporter-destination=stdout', `--test-reporter=${REPORTER_TIEMPOS}`, '--test-reporter-destination=stdout']
+  : []);
+
 function correrTanda(archivos, concurrencia, env) {
   const bandera = concurrencia > 0 ? [`--test-concurrency=${concurrencia}`] : [];    // 0 = el de node (Actions)
   // Sin NODE_TEST_CONTEXT: si esto se llama desde adentro de un test, node cree que el hijo es un test ANIDADO y deja de imprimir el reporte.
   const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
-  return lanzarVigilado(['--import', 'tsx', '--test', ...bandera, ...archivos], { archivos: archivos.length, env: limpio, sinAvanceMs: sinAvanceDe(archivos) });
+  return lanzarVigilado(['--import', 'tsx', '--test', ...bandera, ...banderasDeTiempos(limpio), ...archivos], { archivos: archivos.length, env: limpio, sinAvanceMs: sinAvanceDe(archivos) });
 }
 
 // Las barredoras que sólo leen corren JUNTAS en un proceso que memoriza las lecturas (scripts/cache-lecturas.cjs): medido el 17/10/2026,
@@ -801,7 +824,7 @@ export const pisoCompartido = (grupos, total = 24 * grupos) => ZONA_ROJA_VIGIA_G
 function correrGrupoCompartido(archivos, env) {
   const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
   const NODE_OPTIONS = `${limpio.NODE_OPTIONS ?? ''} --require ${JSON.stringify(CACHE_LECTURAS)}`.trim();
-  return lanzarVigilado(['--import', 'tsx', '--test', '--test-isolation=none', ...archivos], { archivos: archivos.length, env: { ...limpio, NODE_OPTIONS }, sinAvanceMs: sinAvanceDe(archivos) });
+  return lanzarVigilado(['--import', 'tsx', '--test', '--test-isolation=none', ...banderasDeTiempos(limpio), ...archivos], { archivos: archivos.length, env: { ...limpio, NODE_OPTIONS }, sinAvanceMs: sinAvanceDe(archivos) });
 }
 
 /** Lo que el runner de node imprime al final: «ℹ tests N … ℹ fail M», y «test at <archivo>» por cada rojo. */
@@ -1020,6 +1043,7 @@ function leerArgs(argv) {
     else if (k === '--explicar') o.explicar = true;
     else if (k === '--cortar') o.cortar = true;
     else if (k === '--resto') o.resto = true;
+    else if (k === '--barredoras') o.barredoras = true;
     else if (k === '--ayuda' || k === '-h') o.ayuda = true;
     else { process.stderr.write(`  [tests-afectados] no conozco «${argv[i]}» (mirá --ayuda)\n`); o.ayuda = true; }
   }
@@ -1032,6 +1056,7 @@ const AYUDA = `node scripts/tests-afectados.mjs [--base origin/main] [--listar] 
   Elige los tests que lo cambiado desde --base puede romper (barredoras, nombran un archivo cambiado, importan uno) y los corre.
   --profundidad N: sólo sigue N saltos de import (por default todos). Es la palanca si el tiempo aprieta, con el costo de dejar afuera a los más lejanos.
   --resto: corre LOS DEMÁS (todos menos los afectados): Actions corre primero los afectados y después éstos, y así no se repite ninguno.
+  --barredoras: corre TODAS las que barren el repo, sin mirar qué cambió (el chequeo sobre main de .github/workflows/sobre-main.yml).
   Salida: 0 verde · 1 rojo · 2 no se pudo calcular · 99 no corrió (falta RAM).`;
 
 const ETIQUETA = { cambio: 'los toca el cambio', nombra: 'nombran un archivo cambiado', barre: 'barren el repo (corren siempre)', importa: 'importan un archivo cambiado' };
@@ -1077,7 +1102,7 @@ async function main(argv) {
     return 2;
   }
   const { cambios, sel } = plan;
-  if (cambios.cambiados.length === 0 && !o.resto) { out(`[tests-afectados] Nada cambió respecto de ${o.base}: no hay tests que correr.`); return 0; }
+  if (cambios.cambiados.length === 0 && !o.resto && !o.barredoras) { out(`[tests-afectados] Nada cambió respecto de ${o.base}: no hay tests que correr.`); return 0; }
 
   // ⚠️ EL BARRIDO COMPLETO (`--resto`) NO SE CORRE EN ESTA MÁQUINA. Decisión de Martín por el Cerebro, 31/10/2026, y va acá —en la
   // herramienta— y no en un documento, porque la regla escrita no alcanzó: el 31/10 TRES chats distintos llegaron a menos de 0,3 GB
@@ -1088,7 +1113,7 @@ async function main(argv) {
     process.stderr.write('\n  ✖ NO CORRO EL BARRIDO COMPLETO EN ESTA MÁQUINA (--resto son los ~1.900 tests del repo).\n');
     process.stderr.write('    El 31/10/2026 tres chats llegaron a menos de 0,3 GB libres corriéndolo y uno a CERO: con la RAM en cero se\n');
     process.stderr.write('    cuelga la app de Claude y se caen TODOS los chats con lo que tengan sin commitear. **Esto lo corre Actions**,\n');
-    process.stderr.write('    que tiene memoria dedicada, en el paso «Tests (los demás)» de .github/workflows/integracion.yml.\n');
+    process.stderr.write('    que tiene memoria dedicada, cada noche en .github/workflows/semanal-tests.yml (la suite entera, aislada).\n');
     process.stderr.write('    Acá: `node scripts/tests-afectados.mjs` (los tests de lo tocado, que piden tres veces menos).\n');
     process.stderr.write('    Si de verdad hace falta y sabés lo que cuesta: MAKO_BARRIDO_AQUI=1.\n\n');
     return SALIDA_SIN_CORRER;
@@ -1113,6 +1138,15 @@ async function main(argv) {
       lista = lista.filter((t) => !vale(t));
       out(`  ↳ ${compartidos.length} barredoras corren juntas en procesos compartidos; ${lista.length} aisladas (no barren, o tocan el entorno o un global)`);
     }
+    if (o.listar) return 0;
+  } else if (o.barredoras) {
+    // `--barredoras` (4/11/2026, .github/workflows/sobre-main.yml): TODAS las que barren el repo, sobre el árbol tal cual, sin mirar
+    // qué cambió. Es lo que una MEZCLA rompe sin que ninguna de las dos puntas lo vea: cada una corrió las barredoras sobre su árbol, y
+    // el de main es otro. Las que sólo leen van juntas con `--compartir`, como en la punta.
+    const todas = [...sel.barredoras.keys()].filter((t) => !LENTOS_FUERA_DE_LA_FASE_RAPIDA.has(t)).sort();
+    compartidos = o.compartir ? todas.filter((t) => sel.compartibles.has(t)) : [];
+    lista = todas.filter((t) => !compartidos.includes(t));
+    out(`[tests-afectados] --barredoras: las ${todas.length} que barren el repo (${compartidos.length} compartidas, ${lista.length} aisladas)`);
     if (o.listar) return 0;
   } else {
     imprimirPlan(plan, o, out);

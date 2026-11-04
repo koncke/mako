@@ -19,11 +19,13 @@ import { avisarContrasenaCambiada } from '@/lib/contrasena-cambio-aviso';
 import { limitePorIp } from '@/lib/limite-publico';
 import { getSupabaseServer } from '@/lib/supabase';
 import { buscarUsuarioPorEmail } from '@/lib/usuarios';
+import { revocarSesiones } from '@/lib/sesiones-revocadas';
 import { correoNormalizado, problemaDeContrasena } from '@/lib/contrasena-reglas';
 import { guardarContrasena } from '@/lib/contrasena';
 import { crearLinkDeRestablecer, leerLinkDeRestablecer, sumarIntentoAlLink, gastarLink } from '@/lib/contrasena-restablecer';
 import { estadoMfa, cantidadFactores, intentar, intentoOk, verificarTotpLogin, usarCodigoRecuperacion, registrarEvento, MENSAJE_FRENADO } from '@/lib/mfa';
 import { avisarPedidoDeRestablecer } from '@/lib/restablecer-aviso';
+import { esCorreoDeRevision } from '@/lib/cuenta-revision-reglas';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,7 +65,9 @@ export async function POST(req: NextRequest) {
     const email = correoNormalizado(body.email);
     try {
       const u = email && !frenadoPedir ? await buscarUsuarioPorEmail(email) : null;
-      if (u && u.id > 0 && u.estado !== 'suspendido') {
+      // La cuenta de revisión de las tiendas no cambia su contraseña por correo: la rota el script, y la que tienen Play y Apple tiene que
+      // seguir valiendo (lib/cuenta-revision-reglas.ts). Contesta lo mismo que siempre: no cuenta qué correos existen.
+      if (u && u.id > 0 && u.estado !== 'suspendido' && !esCorreoDeRevision(u.email)) {
         const r = await crearLinkDeRestablecer(u.id);
         if (r && 'link' in r) {
           const uid = u.id;
@@ -127,6 +131,9 @@ export async function POST(req: NextRequest) {
     const g = await guardarContrasena(l.usuarioId, body.contrasena, cuenta);
     if (!g.ok) return no(g.nuestro ? 'No se pudo guardar. Pide otro link.' : g.error);
     await registrarEvento(l.usuarioId, 'contrasena-restablecer', true);
+    // Restablecer anota el corte de TODAS las sesiones abiertas (01/11/2026): quien restablece suele hacerlo
+    // porque perdió el control de la cuenta. ⚠️ Hasta que `leerSesion` lo lea no cierra ninguna (lib/sesiones-revocadas.ts).
+    await revocarSesiones(l.usuarioId);
     const uid = l.usuarioId;
     after(() => avisarContrasenaCambiada(uid).then(() => undefined));
     return NextResponse.json({ ok: true });

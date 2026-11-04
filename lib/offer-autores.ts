@@ -1585,7 +1585,7 @@ export const AUTORES_OFERTA: readonly AutorOferta[] = [
     cita: null
   },
   {
-    autor: "Jaime Jiguera",
+    autor: "Jaime Higuera",
     curso: "Growth Partner",
     carpeta: "growth-partner",
     tesis: "Para un socio de crecimiento, la oferta se arma antes de salir a vender y se resume en una misión de una línea; ante una objeción se ajusta la estructura del trato, nunca se baja el valor.",

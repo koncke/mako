@@ -22,6 +22,7 @@ import { cookieVistaEscritorio } from '@/lib/movil-dispositivo';
 import { FilaM } from './FilaM';
 import { PieM } from './Piezas';
 import { SheetM } from './SheetM';
+import { useShellM } from './contexto';
 
 /**
  * Abre UNA pantalla de escritorio en este teléfono: la cookie de vista con SU ruta y la URL con su `?ws=`. Desde el
@@ -45,6 +46,9 @@ export function FilaEnComputadoraM({ titulo, href, motivo, icono, leading }: {
 }) {
   const ws = useWs();
   const [abierta, setAbierta] = useState(false);
+  // En la app de iPhone no se dibuja: Apple la lee como relleno (guía 2.1, lib/tienda.ts).
+  const { appIos } = useShellM();
+  if (appIos) return null;
   return (
     <>
       <FilaM navegacion icono={leading ? undefined : icono} leading={leading} titulo={titulo} segunda="En la computadora" onClick={() => setAbierta(true)} />

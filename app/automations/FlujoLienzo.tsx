@@ -1417,15 +1417,18 @@ function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos
   const porEmail = esPorEmail(paramsAhora);
   // UN EVENTO DE LA PLATAFORMA (15/10/2026, `EventoMako.plataforma`): la tarjeta le llega al grupo del NEGOCIO que lo emitió
   // (`negocioWs`, lib/flujos.ts), no al tuyo. Nada por detrás: lo dice.
-  const aNegocio = EVENTOS_MAKO.find((e) => e.subtipo === eventoMako)?.plataforma === true;
+  const delEvento = EVENTOS_MAKO.find((e) => e.subtipo === eventoMako);
+  const aNegocio = delEvento?.plataforma === true;
+  // Los del cliente de una agencia (31/10/2026, ticket #37): el que recibe la tarjeta es otro, y el lienzo también lo dice.
+  const aAgencia = delEvento?.trae.includes('clienteagencia') === true;
   return (
     <>
-    {aNegocio && <div data-mako-a-negocio style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>{porEmail ? 'Le llega por email al equipo del negocio del evento.' : 'Le llega al grupo del negocio del evento.'}</div>}
+    {aNegocio && <div data-mako-a-negocio style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>{aAgencia ? 'Le llega a la agencia del negocio del evento.' : `${porEmail ? 'Le llega por email al equipo del negocio del evento.' : 'Le llega al grupo del negocio del evento.'}${delEvento?.conAgencia ? ' Si es cliente de una agencia, le llega a ella, con otro texto.' : ''}`}</div>}
     {porEmail && <AsuntoDeMako params={paramsAhora} busy={busy} onCambio={cambiarEnvio} />}
     {/* Por email, un solo texto: sin la Voz de MaKo, sin archivos (y con eso, sin varios mensajes ni minutos). */}
     <EditorMensajeWhatsApp
       key={porEmail ? 'email' : 'grupo'}
-      paso={dto} autor="MaKo" vozMako={!porEmail} placeholder={porEmail ? 'Texto del correo' : aNegocio ? 'Mensaje para el negocio' : 'Mensaje para tu equipo'}
+      paso={dto} autor="MaKo" vozMako={!porEmail} placeholder={porEmail ? 'Texto del correo' : aAgencia ? 'Mensaje para la agencia' : aNegocio ? 'Mensaje para el negocio' : 'Mensaje para tu equipo'}
       audios={[]} permiteAudio={false} permiteAdjuntos={!porEmail} adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
       datos={datos} redactaCon={contexto} permiteIA paraGuion={paraGuion} disparador={disparador} negocio={negocio}
       onPartirConEspera={porEmail ? undefined : (i, m) => onPasos((prev) => { const r = partirConEspera(prev, id, i, m); return r.ok ? r.pasos : prev; }, true)}

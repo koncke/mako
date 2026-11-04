@@ -20,29 +20,69 @@ import { GLIFO_SOCIAL } from '@/lib/canal-social';
 // (ver BrandDefs). Si no conseguimos el vector oficial de un servicio, NO se
 // dibuja uno "parecido": va un letter-mark (la inicial en Geist sobre el color de
 // marca real). Un logo inventado es peor que una inicial honesta.
-export type IconDef = { sym?: string; letter?: string; bg: string; bd?: string; fg?: string };
+//
+// ⚠️ DÓNDE BUSCAR, Y EN QUÉ ORDEN. El 01/11/2026 Martín reportó que «muchos logos, como por
+// ejemplo el de Appify, no son los logos reales de esas empresas», y seis lo eran: Apify, Groq,
+// Gemini, ElevenLabs, YouTube y la «G» de Google estaban dibujados a ojo. Otros siete iban con
+// letter-mark «porque no hay vector». Los trece tenían su logo publicado. El error no fue dibujar:
+// fue dar por agotada la búsqueda después de un 404 de simple-icons. El orden que sí funciona:
+//   1. el <link rel="icon"> de la PROPIA página de la empresa (ahí estaban Apify y Groq),
+//   2. su carpeta de marca (ahí estaba Creem: /new-branding/Logo/SVG/…),
+//   3. el CDN del dueño de la marca (ahí estaban la «G» y Google Business: fonts.gstatic.com y
+//      gstatic.com/images/branding),
+//   4. el wordmark del sitio, recortado al glifo con viewBox (Fathom, Fireflies, bunny.net, Read AI),
+//   5. simple-icons — que es un ATAJO, no la fuente, y retira marcas (Google Business estaba en la 11
+//      y no está en la 13),
+//   6. recién acá, el letter-mark.
+// Un 404 en el paso 5 no dice «no hay logo»: dice «no está en ese atajo».
+/**
+ * `sym`    el trazo oficial, pegado como <symbol> acá abajo. Lo más liviano: no pide un request.
+ * `img`    un ARCHIVO oficial en /public/logos. Es para los logos que no se pueden pegar como un
+ *          trazo sin reescribirlos: degradés con sus <defs> (Fireflies, bunny.net, Read AI), un
+ *          wordmark que ES la marca (tl;dv) y los que la empresa sólo publica en PNG (Otter,
+ *          Google Business). Dibujar «algo parecido» es justo lo que la regla de arriba prohíbe,
+ *          así que el archivo entra tal cual y el viewBox sólo lo recorta al glifo.
+ * `lleno`  el archivo trae SU propio fondo y sus esquinas (un ícono de app, como el de Otter):
+ *          ocupa el tile entero en vez de ir centrado adentro.
+ */
+export type IconDef = { sym?: string; letter?: string; img?: string; lleno?: boolean; bg: string; bd?: string; fg?: string };
 export const ICON: Record<string, IconDef> = {
   meta: { sym: 'ic-meta', bg: '#0866FF' },
   whatsapp: { sym: 'ic-whatsapp', bg: '#25D366' },
   email: { sym: 'ic-resend', bg: '#000000' },      // Resend brand: negro
   anthropic: { sym: 'ic-anthropic', bg: '#CC785C' },
   openai: { sym: 'ic-openai', bg: '#000000' },
-  groq: { sym: 'ic-groq', bg: '#F55036' },
-  gemini: { sym: 'ic-gemini', bg: '#1B72E8' },     // Google Gemini: spark blanco sobre azul
+  // Groq: el RAYO, que es su marca de verdad (groq.com/favicon.svg). Hasta el 01/11/2026 iba una «G»
+  // dibujada a mano, y encima sobre un rojo que no es el suyo (#F55036; el de su propio ícono es #F43E01).
+  groq: { sym: 'ic-groq', bg: '#F43E01' },
+  gemini: { sym: 'ic-gemini', bg: '#1B72E8' },     // Google Gemini: su spark OFICIAL, blanco sobre azul
   // ElevenLabs: logo negro sobre claro → tile blanco con borde (como panda/google).
   elevenlabs: { sym: 'ic-elevenlabs', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
+  'apify-instagram': { sym: 'ic-apify-instagram', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   fathom: { sym: 'ic-fathom', bg: '#000000' },     // fathom.video: mark celeste sobre negro
   // Los otros grabadores de reuniones (26/10/2026, lib/grabadores). Loom, Zoom y Google Meet: los marks oficiales de
   // simple-icons 13.21.0 en blanco sobre el color de marca que declara la misma fuente (Loom #625DF5, Zoom #0B5CFF, Google
-  // Meet #00897B). tl;dv, Fireflies, Otter y Read AI no están en simple-icons (404): letter-mark sobre el color que se
-  // midió en su propio ícono (tl;dv #1818F8, Fireflies #C83088); Otter y Read AI, sin un ícono que se pudiera leer, en neutro.
+  // Meet #00897B).
+  //
+  // ⚠️ tl;dv, Fireflies, Otter y Read AI iban con letter-mark porque NO están en simple-icons, y de ahí se
+  // concluyó que no había vector. El 01/11/2026 (Martín: «muchos logos, como por ejemplo el de Appify, no son los
+  // logos reales de esas empresas») se buscó en el lugar correcto —la página de cada empresa— y los cuatro tenían
+  // su logo publicado. simple-icons es un atajo, no la fuente: lo que manda es la marca.
   loom: { sym: 'ic-loom', bg: '#625DF5' },
   zoom: { sym: 'ic-zoom', bg: '#0B5CFF' },
   meet: { sym: 'ic-googlemeet', bg: '#00897B' },
-  tldv: { letter: 'T', bg: '#1818F8' },
-  fireflies: { letter: 'F', bg: '#C83088' },
-  otter: { letter: 'O', bg: '#334155' },
-  readai: { letter: 'R', bg: '#334155' },
+  // tl;dv: su logo ES el wordmark «tl;dv» (tldv.io/logo-tldv.svg), en su azul #1D1DFF. No publican un glifo
+  // aparte que se pueda recortar, así que va el archivo entero.
+  tldv: { img: 'tldv.svg', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
+  // Fireflies: los cuatro cuadrados en su degradé rosa→azul (fireflies.ai/images/logo-full-color.svg, recortado
+  // al glifo con viewBox y sin el wordmark). Son 8 trazos y 8 <linearGradient>: por eso archivo y no <symbol>.
+  fireflies: { img: 'fireflies.svg', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
+  // Otter: su ícono de app, el único formato en que publican la marca (otter.ai, apple-icon.png). Trae su propio
+  // azul y sus esquinas redondeadas → `lleno`: el archivo ES el tile.
+  otter: { img: 'otter.png', lleno: true, bg: 'transparent' },
+  // Read AI: el cuadrado redondeado con su degradé, del lockup oficial (ReadAILogo_HorizontalLockup_Color,
+  // recortado al ícono). También trae su fondo → `lleno`.
+  readai: { img: 'readai.svg', lleno: true, bg: 'transparent' },
   calendly: { sym: 'ic-calendly', bg: '#006BFF' },
   // ⚠️ CAL.COM NO ES CALENDLY, y sin esta entrada caía en el FALLBACK de `iconFor`
   // —que es Supabase— así que la tarjeta de la agenda de un cliente mostraba el
@@ -57,16 +97,18 @@ export const ICON: Record<string, IconDef> = {
   // borde (igual que google). Con un bg de color el logo se rompe.
   panda: { sym: 'ic-panda', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   // Los otros alojadores de video (25/10/2026): los marks oficiales de simple-icons 13.21.0 en blanco sobre el color de
-  // marca que declara la misma fuente (Vimeo #1AB7EA, Wistia #58B7FE, Cloudflare #F38020). Bunny no está en simple-icons
-  // (404): letter-mark sobre el naranja de bunny.net (#FD8D32, el de su página).
+  // marca que declara la misma fuente (Vimeo #1AB7EA, Wistia #58B7FE, Cloudflare #F38020).
   vimeo: { sym: 'ic-vimeo', bg: '#1AB7EA' },
   wistia: { sym: 'ic-wistia', bg: '#58B7FE' },
-  bunny: { letter: 'B', bg: '#FD8D32' },
+  // bunny.net: el conejo de su logotipo (bunny.net/static/bunnynet-dark-….svg, recortado al glifo con viewBox y
+  // sin el wordmark). Nueve trazos con degradé → archivo. Iba un letter-mark «B» por el 404 de simple-icons.
+  bunny: { img: 'bunny.svg', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   cloudflare: { sym: 'ic-cloudflare', bg: '#F38020' },
   youtube: { sym: 'ic-youtube', bg: '#FF0000' },
   supabase: { sym: 'ic-supabase', bg: '#1F2937' },
   // GitHub: el mark oficial en blanco sobre su negro de marca (#181717).
   github: { sym: 'ic-github', bg: '#181717' },
+  'apple-push': { sym: 'ic-apple', bg: '#000000' },
   // El Pixel de MaKo es de MaKo: su logo es la ESTRELLA, dorada sobre el negro del ícono de la app (25/10/2026, Martín: «Revisa
   // bien el logo de todas»). Era una ventana genérica sobre violeta: el ícono de nadie.
   landing: { sym: 'ic-mako', bg: '#14161B' },
@@ -74,11 +116,11 @@ export const ICON: Record<string, IconDef> = {
   // declara la misma fuente (simple-icons 13.21.0: Stripe #635BFF, Mercado Pago #00B1EA).
   stripe: { sym: 'ic-stripe', bg: '#635BFF' },
   mercadopago: { sym: 'ic-mercadopago', bg: '#00B1EA' },
-  // Creem (31/10/2026): LETTER-MARK, siguiendo la regla de arriba. No está en simple-icons, y en creem.io no hay
-  // `theme-color`, ni manifest, ni un hex de marca que se pueda leer (su CSS es todo variables de Tailwind). Sin el
-  // vector ni el color oficiales, una inicial honesta en el neutro (como Otter y Read AI) es mejor que inventarle un
-  // logo o un color. Cuando se consiga el SVG oficial, se cambia por `sym`.
-  creem: { letter: 'C', bg: '#334155' },
+  // Creem: su ícono oficial, en su negro #151617. El 31/10/2026 iba un letter-mark porque se lo buscó en
+  // simple-icons (404) y en los metadatos de creem.io (no hay `theme-color` ni manifest) y se dio por perdido. Sí
+  // está publicado, en su propia carpeta de marca: /new-branding/Logo/SVG/«creem logo icon_black.svg».
+  // Logo oscuro sobre claro → tile blanco con borde, como google, panda y calcom.
+  creem: { sym: 'ic-creem', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   // Zernio: su marca OFICIAL (25/10/2026, Martín: «la de Zernio no es el correcto»). Hasta ese día iba un letter-mark sobre un
   // violeta (#6D4AFF) que no es el suyo: su ícono es la marca blanca sobre rojo anaranjado #EB3514 (zernio.com/icon.svg).
   zernio: { sym: 'ic-zernio', bg: '#EB3514' },
@@ -88,14 +130,17 @@ export const ICON: Record<string, IconDef> = {
   messenger: { sym: 'ic-messenger', bg: 'linear-gradient(45deg, #0099FF 0%, #A033FF 60%, #FF5280 90%, #FF7061 100%)' },
   // Las tarjetas de cada red social (29/10/2026, `red-<red>`, lib/zernio-redes.ts): los marks oficiales de simple-icons 13.21.0 en
   // blanco sobre el color de marca que declara la misma fuente (Facebook #0866FF, LinkedIn #0A66C2, Pinterest #BD081C, Reddit
-  // #FF4500; TikTok, X y Threads #000000). Google Business no está en simple-icons (404): inicial sobre el azul de Google (#4285F4).
+  // #FF4500; TikTok, X y Threads #000000).
   'red-facebook': { sym: 'ic-facebook', bg: '#0866FF' },
   'red-instagram': { sym: 'ic-instagram', bg: 'linear-gradient(45deg, #FEDA75 0%, #FA7E1E 25%, #D62976 50%, #962FBF 75%, #4F5BD5 100%)' },
   'red-tiktok': { sym: 'ic-tiktok', bg: '#000000' },
   'red-linkedin': { sym: 'ic-linkedin', bg: '#0A66C2' },
   'red-twitter': { sym: 'ic-x', bg: '#000000' },
   'red-threads': { sym: 'ic-threads', bg: '#000000' },
-  'red-googlebusiness': { letter: 'G', bg: '#4285F4' },
+  // Google Business: el toldo de la ficha. Google lo publica en SU propio CDN de marca
+  // (gstatic.com/images/branding/product/2x/google_my_business_48dp.png) y sólo en PNG; en simple-icons está
+  // retirado. Iba una «G» sobre azul, que es el logo de Google, no el de la ficha de un negocio.
+  'red-googlebusiness': { img: 'googlebusiness.png', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   'red-pinterest': { sym: 'ic-pinterest', bg: '#BD081C' },
   'red-reddit': { sym: 'ic-reddit', bg: '#FF4500' },
   // ⚠️ CLAUDE Y ANTHROPIC SON DOS MARCAS Y LLEVAN DOS LOGOS DISTINTOS.
@@ -133,7 +178,10 @@ export function SvcIcon({ k, size = 21, box = 34, radius = 9 }: { k: string; siz
           renderer es exactamente lo que hace que el catálogo deje de ser la fuente
           única — el que agrega un servicio mira `ICON` y no se entera de que hay una
           excepción escondida acá abajo. */}
-      {ic.letter
+      {ic.img
+        /* eslint-disable-next-line @next/next/no-img-element -- un logo de 34 px servido de /public: next/image acá sólo suma un wrapper y una ida al optimizador. */
+        ? <img src={`/logos/${ic.img}`} alt="" width={ic.lleno ? box : size} height={ic.lleno ? box : size} style={{ display: 'block', borderRadius: ic.lleno ? radius : undefined }} />
+        : ic.letter
         ? <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: Math.round(box * 0.46), lineHeight: 1, letterSpacing: '-0.03em', color: ic.fg ?? '#fff' }}>{ic.letter}</span>
         : <svg width={size} height={size} viewBox="0 0 24 24"><use href={`#${ic.sym}`} /></svg>}
     </span>
@@ -175,6 +223,7 @@ export function BrandDefs() {
   return (
     <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true"><defs>
       <linearGradient id="mkGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#F0C60A" /><stop offset="100%" stopColor="#C8870C" /></linearGradient>
+      <symbol id="ic-apple" viewBox="0 0 24 24"><path fill="#fff" d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></symbol>
       <symbol id="ic-github" viewBox="0 0 16 16"><path fill="#fff" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></symbol>
       <symbol id="ic-meta" viewBox="0 0 24 24"><g transform="scale(1.5)"><path fill="#fff" fillRule="evenodd" d={PATH_META} /></g></symbol>
       <symbol id="ic-whatsapp" viewBox="0 0 24 24"><path fill="#fff" d="M12 3.8a8.1 8.1 0 0 0-6.94 12.26L4 20.2l4.25-1.1A8.1 8.1 0 1 0 12 3.8zm4.72 11.43c-.2.56-1.17 1.07-1.62 1.11-.44.04-.86.2-2.9-.6-2.45-.97-4-3.46-4.12-3.62-.12-.16-.98-1.3-.98-2.48s.62-1.76.84-2c.22-.24.48-.3.64-.3h.46c.15 0 .35-.06.54.41l.66 1.6c.05.11.09.24.02.38l-.3.46-.32.35c-.1.1-.21.22-.09.43.12.2.54.9 1.16 1.45.8.71 1.47.93 1.68 1.04.2.11.32.09.44-.05l.63-.73c.16-.2.32-.16.54-.08l1.53.72c.22.11.37.16.42.25.06.09.06.53-.14 1.05z" /></symbol>
@@ -198,11 +247,32 @@ export function BrandDefs() {
       <symbol id="ic-claude" viewBox="0 0 24 24"><RafagaClaude /></symbol>
       <symbol id="ic-anthropic" viewBox="0 0 24 24"><path fill="#fff" d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.541Zm-.3712 10.2223 2.2914-5.9456 2.2914 5.9456Z" /></symbol>
       <symbol id="ic-openai" viewBox="0 0 24 24"><path fill="#fff" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.1419.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997z" /></symbol>
-      <symbol id="ic-groq" viewBox="0 0 24 24"><path fill="#fff" d="M12 3.4a5.9 5.9 0 0 0 0 11.8h1.9v-2.3H12a3.6 3.6 0 1 1 3.6-3.6v5.1c0 1.9-1.6 3.4-3.5 3.4a3.5 3.5 0 0 1-2.5-1l-1.6 1.6a5.8 5.8 0 0 0 4.1 1.7c3.2 0 5.8-2.5 5.8-5.7V9.2A5.9 5.9 0 0 0 12 3.4z" /></symbol>
-      {/* Gemini — spark de 4 puntas (mark oficial de Google Gemini). */}
-      <symbol id="ic-gemini" viewBox="0 0 24 24"><path fill="#fff" d="M12 2c.35 5.28 4.72 9.65 10 10-5.28.35-9.65 4.72-10 10-.35-5.28-4.72-9.65-10-10C7.28 11.65 11.65 7.28 12 2z" /></symbol>
-      {/* ElevenLabs — mark oficial: dos barras verticales "| |" negras sobre blanco. */}
-      <symbol id="ic-elevenlabs" viewBox="0 0 24 24"><rect x="8" y="6" width="3" height="12" rx="1.3" fill="#000" /><rect x="13" y="6" width="3" height="12" rx="1.3" fill="#000" /></symbol>
+      {/* Groq — su mark oficial, pegado tal cual de groq.com/favicon.svg (bajado el 01/11/2026): un RAYO.
+          Lo de antes era una «G» dibujada a mano, que no es su logo. El viewBox es el del cuadrado de
+          marca del archivo (0.54 0.39 32 32), así que el rayo queda encuadrado como ellos lo encuadran. */}
+      <symbol id="ic-groq" viewBox="0.54 0.39 32 32"><path fill="#fff" d="m18.445 4.406-9.468 13.74 7.341.665-1.69 9.578 9.469-13.74-7.342-.664 1.69-9.579Z" /></symbol>
+      {/* Gemini — el spark oficial, pegado tal cual (simple-icons 13.21.0 `googlegemini`, fuente declarada
+          gemini.google.com). El de antes era un rombo de cuatro puntas hecho con rectas: el real tiene los
+          lados CÓNCAVOS (arcos), que es lo que le da la forma de destello y no de estrella. */}
+      <symbol id="ic-gemini" viewBox="0 0 24 24"><path fill="#fff" d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81" /></symbol>
+      {/* Apify — su ícono OFICIAL, pegado tal cual de apify.com/icon0.svg (bajado el 01/11/2026).
+          Son DOS CUÑAS que bajan desde arriba (azul #246DFF y verde #20A34E) y un triángulo naranja
+          (#F86606) abajo: el logo real. Lo que había eran tres barras inclinadas dibujadas a mano, con
+          un verde (#97D700) que tampoco es el suyo. 01/11/2026, Martín: «muchos logos, como por ejemplo
+          el de Appify, no son los logos reales de esas empresas». El viewBox recorta al contenido
+          (78,22 → 1001,78 en los dos ejes), que es el encuadre del propio archivo. */}
+      <symbol id="ic-apify-instagram" viewBox="78 78 924 924">
+        <path fill="#246DFF" d="M607.859 78.2218H987.785C995.513 78.2218 1001.78 84.4868 1001.78 92.2151V672.834C1001.78 686.742 983.69 692.134 976.075 680.496L596.15 99.877C590.06 90.5703 596.737 78.2218 607.859 78.2218Z" />
+        <path fill="#20A34E" d="M472.141 78.2218H92.215C84.4867 78.2218 78.2217 84.4868 78.2217 92.2151V672.834C78.2217 686.742 96.3094 692.134 103.924 680.496L483.85 99.877C489.94 90.5703 483.263 78.2218 472.141 78.2218Z" />
+        <path fill="#F86606" d="M533.491 543.086L101.895 977.927C93.1302 986.758 99.3849 1001.78 111.826 1001.78H968.529C980.919 1001.78 987.197 986.863 978.535 978.003L553.429 543.161C547.969 537.576 538.993 537.542 533.491 543.086Z" />
+      </symbol>
+      {/* ElevenLabs — su mark oficial, pegado tal cual (simple-icons 13.21.0 `elevenlabs`, fuente declarada
+          elevenlabs.io/press): dos barras que ocupan TODO el alto y tienen las esquinas rectas. Las de
+          antes eran dos rectángulos redondeados de medio alto, dibujados a ojo. */}
+      <symbol id="ic-elevenlabs" viewBox="0 0 24 24"><path fill="#000" d="M4.6035 0v24h4.9317V0zm9.8613 0v24h4.9317V0z" /></symbol>
+      {/* Creem — su ícono oficial, pegado tal cual de creem.io/new-branding/Logo/SVG/«creem logo icon_black.svg»
+          (bajado el 01/11/2026), en su negro #151617. */}
+      <symbol id="ic-creem" viewBox="0 0 121 121"><path fill="#151617" d="M22.1102 11C24.1187 11.0001 25.9669 12.0982 26.9281 13.8619L51.2059 58.4106C52.5699 60.9134 55.7048 61.8368 58.2077 60.473C60.7108 59.109 61.6342 55.9742 60.2701 53.4712L41.5466 19.113C39.554 15.4566 42.2004 11 46.3645 11H103.806C107.885 11 110.539 15.2933 108.715 18.9416L65.0579 106.254C63.0356 110.298 57.2654 110.298 55.2431 106.254L11.5863 18.9416C9.76212 15.2933 12.4156 11 16.4946 11H22.1102Z" /></symbol>
       {/* Fathom (fathom.video, el grabador de reuniones) — mark oficial, extraído de su
           propio wordmark: cdn.prod.website-files.com/…/68e7961f4ff1cd5e326512f7_logo-wordmark-new.svg
           Verificado contra su favicon (mark #00BEFF/#007299 sobre negro).
@@ -228,8 +298,15 @@ export function BrandDefs() {
           es el mismo recorte que ya lleva ic-panda. */}
       <symbol id="ic-calcom" viewBox="8.9 9.1 38 38"><path fill="#292929" d="M18.628 36.781c2.846 0 4.946-1.096 6.183-2.59l-2.38-2.03c-.957 1.05-2.147 1.587-3.733 1.587-3.22 0-5.204-2.427-5.204-5.413 0-2.987 1.984-5.46 5.134-5.46 1.47 0 2.683.513 3.663 1.54l2.31-2.007c-1.47-1.75-3.313-2.567-5.973-2.567-5.04 0-8.517 3.803-8.517 8.493 0 4.667 3.663 8.447 8.517 8.447ZM31.69 36.781c2.17 0 3.267-.91 3.92-2.286v1.983h3.057V24.344H35.54v1.914c-.653-1.307-1.75-2.17-3.85-2.17-3.337 0-5.997 2.87-5.997 6.37s2.66 6.323 5.997 6.323Zm-2.847-6.346c0-1.89 1.354-3.5 3.36-3.5 2.077 0 3.407 1.633 3.407 3.523 0 1.89-1.33 3.477-3.407 3.477-2.006 0-3.36-1.657-3.36-3.5ZM41.472 36.478h3.15V19.444h-3.15v17.034Z" /></symbol>
       <symbol id="ic-calendly" viewBox="0 0 24 24"><path fill="#fff" d="M19.655 14.262c.281 0 .557.023.828.064 0 .005-.005.01-.005.014-.105.267-.234.534-.381.786l-1.219 2.106c-1.112 1.936-3.177 3.127-5.411 3.127h-2.432c-2.23 0-4.294-1.191-5.412-3.127l-1.218-2.106a6.251 6.251 0 0 1 0-6.252l1.218-2.106C6.736 4.832 8.8 3.641 11.035 3.641h2.432c2.23 0 4.294 1.191 5.411 3.127l1.219 2.106c.147.252.271.519.381.786 0 .004.005.009.005.014-.267.041-.543.064-.828.064-1.816 0-2.501-.607-3.291-1.306-.764-.676-1.711-1.517-3.44-1.517h-1.029c-1.251 0-2.387.455-3.2 1.278-.796.805-1.233 1.904-1.233 3.099v1.411c0 1.196.437 2.295 1.233 3.099.813.823 1.949 1.278 3.2 1.278h1.034c1.729 0 2.676-.841 3.439-1.517.791-.703 1.471-1.306 3.287-1.301Zm.005-3.237c.399 0 .794-.036 1.179-.11-.002-.004-.002-.01-.002-.014-.073-.414-.193-.823-.349-1.218.731-.12 1.407-.396 1.986-.819 0-.004-.005-.013-.005-.018-.331-1.085-.832-2.101-1.489-3.03-.649-.915-1.435-1.719-2.331-2.395-1.867-1.398-4.088-2.138-6.428-2.138-1.448 0-2.855.28-4.175.841-1.273.543-2.423 1.315-3.407 2.299S2.878 6.552 2.341 7.83c-.557 1.324-.842 2.726-.842 4.175 0 1.448.281 2.855.842 4.174.542 1.274 1.314 2.423 2.298 3.407s2.129 1.761 3.407 2.299c1.324.556 2.727.841 4.175.841 2.34 0 4.561-.74 6.428-2.137a10.815 10.815 0 0 0 2.331-2.396c.652-.929 1.158-1.949 1.489-3.03 0-.004.005-.014.005-.018-.579-.423-1.255-.699-1.986-.819.161-.395.276-.804.349-1.218.005-.009.005-.014.005-.023.869.166 1.692.506 2.404 1.035.685.505.552 1.075.446 1.416C22.184 20.437 17.619 24 12.221 24c-6.625 0-12-5.375-12-12s5.37-12 12-12c5.398 0 9.963 3.563 11.471 8.464.106.341.239.915-.446 1.421-.717.529-1.535.873-2.404 1.034.128.716.128 1.45 0 2.166-.387-.074-.782-.11-1.182-.11-4.184 0-3.968 2.823-6.736 2.823h-1.029c-1.899 0-3.15-1.357-3.15-3.095v-1.411c0-1.738 1.251-3.094 3.15-3.094h1.034c2.768 0 2.552 2.823 6.731 2.827Z" /></symbol>
-      <symbol id="ic-youtube" viewBox="0 0 24 24"><path fill="#fff" d="M21.6 7.2c-.2-.9-.9-1.6-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4c-.9.2-1.6.9-1.8 1.8C2 8.8 2 12 2 12s0 3.2.4 4.8c.2.9.9 1.6 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4c.9-.2 1.6-.9 1.8-1.8.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5 3z" /></symbol>
-      <symbol id="ic-google" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.6 12.23c0-.63-.06-1.25-.16-1.84H12v3.48h5.4a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.89-1.74 2.97-4.3 2.97-7.16z" /><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.42l-3.23-2.5c-.9.6-2.05.95-3.39.95-2.6 0-4.8-1.76-5.59-4.12H3.07v2.58A10 10 0 0 0 12 22z" /><path fill="#FBBC05" d="M6.41 13.91a5.99 5.99 0 0 1 0-3.82V7.51H3.07a10 10 0 0 0 0 8.98z" /><path fill="#EA4335" d="M12 6.58c1.47 0 2.79.5 3.83 1.5l2.86-2.87A9.96 9.96 0 0 0 12 2 10 10 0 0 0 3.07 7.51l3.34 2.58C7.2 8.34 9.4 6.58 12 6.58z" /></symbol>
+      {/* YouTube — su mark oficial, pegado tal cual (simple-icons 13.21.0 `youtube`, fuente declarada
+          youtube.com/howyoutubeworks/resources/brand-resources). El de antes era un rectángulo con un
+          triángulo, redondeado a ojo: ni las esquinas ni el play eran los suyos. */}
+      <symbol id="ic-youtube" viewBox="0 0 24 24"><path fill="#fff" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" /></symbol>
+      {/* La «G» de Google — los cuatro trazos oficiales, pegados tal cual del PROPIO CDN de logos de
+          producto de Google (fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg, bajado el
+          01/11/2026). Los de antes eran los mismos cuatro colores con una geometría aproximada: la
+          abertura de la «G» y el largo de la barra no coincidían con el logo real. */}
+      <symbol id="ic-google" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></symbol>
       {/* Panda Video — logo OFICIAL. Salió del SVG inline de su sitio: es un sitio
           Framer y el logo vive dentro del sprite #svg-templates, no como archivo
           suelto (ojo: los .svg de framerusercontent son un PNG envuelto en <image>,

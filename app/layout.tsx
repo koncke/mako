@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Suspense, type CSSProperties } from 'react';
 import './globals.css';
 import { Sidebar } from './_components/Sidebar';
+import { AparicionDeTab } from './_components/AparicionDeTab';
 import { NotificationsProvider } from './_components/NotificationsProvider';
 import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
@@ -9,10 +10,13 @@ import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { AvisoPixelViejo } from './_components/AvisoPixelViejo';
 import { AvisoExtensionVieja } from './_components/AvisoExtensionVieja';
 import { AvisoMoraPlan } from './_components/AvisoMoraPlan';
+import { GrabacionEnCurso } from './_components/grabar/GrabacionEnCurso';
 import { CartelPagoCliente } from './_components/CartelPagoCliente';
 import { EsquinaAvisos } from './_components/EsquinaAvisos';
 import { FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRouteGate';
 import { CentinelaArranque } from './_components/CentinelaArranque';
+import { PuenteNativo } from './_components/PuenteNativo';
+import { CopiaSinConexion } from './_components/CopiaSinConexion';
 import { SeccionesTab } from './_components/SeccionesTab';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
@@ -148,12 +152,11 @@ export default async function RootLayout({
   return (
     <html lang="es" className="h-full antialiased" {...(vista ? { 'data-barra-agencia': '1' } : {})}>
       <body>
-        {/* Geist vía CDN: deja que los estilos en línea del diseño usen
-            font-family:'Geist' / 'Geist Mono' tal cual. */}
+        {/* «Geist» es Urbanist desde el 31/10/2026 (el @font-face de app/globals.css), por eso de acá sólo sale la mono. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
         {/* Notificaciones de WhatsApp a nivel app: badge del sidebar + sonido +
@@ -193,9 +196,16 @@ export default async function RootLayout({
             interruptor de la barra. Va ANTES del taller de paletas: el script tiene que correr antes del primer pintado.
             Sólo con sesión: una página pública no se pinta con la preferencia de nadie. */}
         {sesion && <ModoArranque />}
+        {/* La app de iPhone: guardar y compartir, los links universales y el toque en un aviso. Sin sesión también: los códigos
+            de recuperación se bajan en /login/2fa. Afuera de la app no hace nada (lib/nativo.ts). */}
+        <PuenteNativo />
         {/* Si la app muere arriba de app/global-error.tsx (la pantalla «This page couldn't load» de Next), avisa el error
             real y recarga UNA vez (21/10/2026, Martín en su Android: «siempre que entro me sale el reload»). Sin React. */}
         {sesion && <CentinelaArranque />}
+        {/* MaKo sin conexión (28/10/2026, docs/diseno-mako-desktop-sin-conexion.md): renueva la copia cifrada del CRM y del Plan
+            en un navegador donde la persona lo activó. No pinta nada; sin activar, no hace nada. Sólo en la computadora y
+            nunca mirando la cuenta de otro (lo de un cliente no se guarda en la PC de quien lo inspecciona). */}
+        {sesion?.email && !telefono && !vista && <CopiaSinConexion email={sesion.email} />}
         {sesion && <ModoDelUsuario />}
         {esAdmin && <TemaCandidato />}
         {/* La zona del negocio sale de la ubicación de SUS admins (decisión 4 de la décima, 11/10/2026). No pinta
@@ -273,6 +283,9 @@ export default async function RootLayout({
                 {sesion && <AvisoExtensionVieja />}
                 {/* La renovación del plan de MaKo que no entró: cuánto, cuándo se pausa, y a pagar (23/10/2026). */}
                 {sesion && <AvisoMoraPlan />}
+                {/* La llamada que se está grabando (04/11/2026): el reloj y «Cortar» desde cualquier pantalla, aunque se haya cerrado
+                    la ficha. Sin grabación no dibuja nada (app/_components/grabar/GrabarLlamada.tsx). */}
+                {sesion && <GrabacionEnCurso />}
                 <MakoConfirmGate />
               </EsquinaAvisos>
               {/* Las secciones de las tabs unificadas (Video, Image, Copywriting): una barra, acá, para
@@ -288,6 +301,7 @@ export default async function RootLayout({
               {/* El pago de un cliente de agencia que paga su propia cuenta, al terminar su onboarding (Agency Dashboard,
                   25/10/2026). Encima de todo y también en el teléfono: el primer mes no se cierra. */}
               {sesion && <CartelPagoCliente />}
+              <AparicionDeTab />
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}

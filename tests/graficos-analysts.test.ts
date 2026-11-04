@@ -97,6 +97,7 @@ import {
 } from '../lib/graficos-catalogo';
 import { FUENTES_EXTRA } from '../lib/graficos-fuentes-extra';
 import { PLANTILLAS_ANALYSTS } from '../lib/graficos-plantillas-analysts';
+import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
 import {
   CLOSER_CONJUNTOS, HOJA_DE_ROL, PLANTILLAS_HOJA, SETTER_CONJUNTOS, closerPuedePedir, componentesDe, conHojaAgregada, destinoDeClosing,
   firmaDe, fuentesDeCampoCloser, fuentesDeCampoDeRol, hojaDeRol, hojaDestino, informeCloser, informeDeRol, instanciarPlantilla,
@@ -118,8 +119,11 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 
 type Crudo = Record<string, unknown> & { id: string; clase?: string; tipo?: string; controles?: Array<Record<string, unknown>> };
 
-/** Las siete, en el orden del CAMINO del negocio que tenía el desplegable (el anuncio, la página, el video, el chat, la llamada, el cliente, el tablero). */
-const IDS_ANALYSTS = ['ads-analyst', 'landing', 'vsl-analyst', 'chat-analyst', 'closing', 'cs-analyst', 'productividad'];
+/**
+ * En el orden del CAMINO del negocio que tenía el desplegable (el anuncio, la página, el video, el chat, la llamada, el cliente, el
+ * tablero). Desde el 4/11/2026 el anuncio son dos hojas: cuál gana (`ads-analyst`, «Anuncio ganador») y en qué parte se van (Hooks).
+ */
+const IDS_ANALYSTS = ['ads-analyst', 'hooks-retencion', 'landing', 'vsl-analyst', 'chat-analyst', 'closing', 'cs-analyst', 'productividad'];
 
 test('cada plantilla de Analysts sobrevive al saneo SIN PERDER NADA (componentes, métricas, dimensiones, controles)', () => {
   assert.deepEqual(PLANTILLAS_ANALYSTS.map((p) => p.id), IDS_ANALYSTS);
@@ -431,7 +435,7 @@ test('hojaDestino: lo agregado no repite ids de otra hoja (ni adentro de un pop-
   // Las generales repiten nombres locales (`por-dia` está en tres): con ids fijos, dos hojas
   // compartirían lo elegido mirando y los datos guardados por id.
   let t = tableroInicial();
-  for (const id of ['crm', 'automatizaciones', 'ia-contenido', 'cobranza', 'cs-analyst', 'chat-analyst', 'vsl-analyst', 'closing', 'ads-analyst']) {
+  for (const id of ['landing', 'automatizaciones', 'ia-contenido', 'cobranza', 'cs-analyst', 'chat-analyst', 'vsl-analyst', 'closing', 'ads-analyst']) {
     const d = hojaDestino(t, id);
     assert.ok(d.agregar, id);
     assert.equal(d.agregar!.id, id, `${id}: la hoja perdió el id que nombra el link`);
@@ -469,6 +473,12 @@ test('las plantillas que se fueron llevan a las que las reemplazan (WhatsApp →
   // Agregada, el link viejo la encuentra (no agrega otra).
   assert.deepEqual(hojaDestino(conHojaAgregada(ini, d.agregar), 'whatsapp'), { hojaId: 'chat-analyst', agregar: null });
   assert.deepEqual(hojaDestino(conHojaAgregada(ini, d.agregar), 'customer-success').agregar?.id, 'cs-analyst');
+  // 4/11/2026: «CRM y pipeline» y «Ventas del mes» (de General) las absorbe Comercial, que ya está en el informe inicial.
+  for (const vieja of ['crm', 'ventas']) {
+    assert.equal(plantillaHojaDe(vieja)?.id, 'comercial', vieja);
+    assert.deepEqual(hojaDestino(ini, vieja), { hojaId: 'comercial', agregar: null }, vieja);
+  }
+  assert.ok(![...PLANTILLAS_HOJA, ...PLANTILLAS_GENERAL].some((p) => p.id === 'crm' || p.id === 'ventas'), 'volvió una plantilla absorbida');
 });
 
 test('cada link a una hoja que manda el producto abre ESA hoja en el informe inicial (ninguno cae en la primera)', () => {

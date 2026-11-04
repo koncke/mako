@@ -383,7 +383,7 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'competitor-spy', titulo: 'Competitor Spy', familia: 'Analyze',
     estado: 'parcial', verEnApp: '/competitor-spy',
-    alcance: 'Vigilar lo que hacen los demás (anuncios y ofertas de la competencia); es la única de Analyze que no analiza un activo propio. Está la Etapa 1 de docs/diseno-competitors-spy.md: lista, ficha por bloques y onboarding. /market-analyst es la ruta vieja que redirige y la nav key sigue siendo \'market-an\'.',
+    alcance: 'Vigilar lo que hacen los demás (anuncios y ofertas de la competencia); es la única de Analyze que no analiza un activo propio. Está la Etapa 1 de docs/diseno-competitors-spy.md: buscador fijo, ficha con pestañas y una rejilla, sin onboarding. /market-analyst es la ruta vieja que redirige y la nav key sigue siendo \'market-an\'.',
     vive: ['app/competitor-spy/page.tsx', 'app/competitor-spy/SpyApp.tsx', 'lib/spy.ts', 'lib/spy-reglas.ts', 'app/market-analyst/page.tsx'],
     proyectos: ['Feature: Competitor Spy'],
   },
@@ -660,12 +660,11 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'newsletters', titulo: 'Newsletters', familia: 'Sales Machine',
-    estado: 'por-construir', verEnApp: '/newsletters',
-    alcance: 'Escribir newsletters recurrentes a la lista. ComingSoon sin backend.',
-    // Una newsletter, mirada desde el código, es un broadcast que se repite: el envío
-    // a una lista, la baja y el dominio por cliente ya existen. Sin estas rutas el
-    // historial del área eran commits del sidebar y ninguno de un envío.
-    vive: ['app/newsletters/page.tsx', 'app/_components/ComingSoon.tsx', 'app/_components/nav.ts', 'app/api/email/broadcasts', 'lib/email-marketing.ts', 'lib/resend.ts', 'lib/plan-proyectos-catalogo.ts'],
+    estado: 'parcial', verEnApp: '/newsletters',
+    alcance: 'El newsletter (aprobado el 29/10/2026): los suscriptos son un CRM «Newsletter» (Suscripto → Lee → Dormido → Dado de baja) y las ediciones, broadcasts de ese CRM que se escriben en el Copywriter, quedan en el Calendario y salen desde el dominio del negocio. Sólo el super admin la ve mientras el envío de email esté apagado.',
+    // Una edición, mirada desde el código, es un broadcast cuyo segmento es el CRM del newsletter: el envío, la baja y el
+    // dominio por cliente son los de siempre. Sin estas rutas el historial del área eran commits del sidebar.
+    vive: ['app/newsletters', 'lib/newsletter.ts', 'lib/newsletter-reglas.ts', 'lib/newsletter-ia.ts', 'lib/newsletter-copy.ts', 'app/_components/nav.ts', 'app/api/email/broadcasts', 'app/api/email/unsubscribe', 'app/api/cron/email-broadcasts', 'lib/email-marketing.ts', 'lib/resend.ts', 'lib/plan-proyectos-catalogo.ts'],
     nota: 'Es la única de las ocho tabs de Sales Machine sin proyecto propio en lib/plan-proyectos-catalogo.ts: la fila «Sales Email» dice que cubre «el generador de emails de venta y las newsletters para el cliente», así que una tarea de newsletter no tiene lugar propio donde rutearse.',
   },
   {
@@ -860,7 +859,7 @@ export const AREAS: AreaDev[] = [
     slug: 'mako-doer', titulo: 'MaKo Doer', familia: 'MaKo',
     estado: 'parcial', agente: true,
     alcance: 'El agente que ESCUCHA en los grupos de WhatsApp y actúa: decide si contesta (modo libre vs. ventana), muestra «escribiendo…», elige el tier del modelo por turno y corre el loop de tools. NO es el chat dentro de la app (eso es «Preguntale a MaKo»).',
-    vive: ['lib/mako-doer-in.ts', 'lib/mako-router.ts', 'lib/mako-intencion.ts', 'lib/mako-doer-acciones.ts', 'lib/mako-doer-buffer.ts', 'lib/mako-doer-conv.ts', 'lib/respuesta-doer.ts', 'lib/puntos-mensaje.ts', 'lib/vcard.ts', 'app/api/webhooks/evolution/route.ts', 'app/api/admin/mako-doer/route.ts', 'app/api/cron/doer-flush/route.ts'],
+    vive: ['lib/mako-doer-in.ts', 'lib/mako-router.ts', 'lib/mako-intencion.ts', 'lib/mako-doer-acciones.ts', 'lib/mako-doer-buffer.ts', 'lib/mako-doer-conv.ts', 'lib/respuesta-doer.ts', 'lib/puntos-mensaje.ts', 'lib/vcard.ts', 'app/api/webhooks/evolution/route.ts', 'app/api/admin/mako-doer/route.ts', 'app/api/cron/doer-flush/route.ts', 'lib/mako-bot.ts', 'lib/mako-bot-reglas.ts', 'lib/mako-salida.ts', 'lib/mako-salida-drivers.ts'],
     proyectos: ['Agente: MaKo Doer'],
   },
   {
@@ -1165,6 +1164,7 @@ export const AREAS: AreaDev[] = [
     vive: [
       'app/tickets/page.tsx', 'app/tickets/soporte/', 'lib/soporte-chat.ts', 'lib/soporte-reporte.ts', 'app/api/soporte/reportar/route.ts', 'app/_ui/ReportarASoporte.tsx', 'app/tickets/acciones.ts', 'app/tickets/tickets.css', 'app/tickets/bandeja/',
       'lib/tickets-reglas.ts', 'lib/tickets-db.ts', 'lib/tickets-cierre.ts', 'lib/tickets-aviso.ts', 'lib/tickets-runner.ts',
+      'lib/tickets-avance.ts', 'lib/tickets-avance-email.ts', 'app/api/email/unsubscribe/tickets/route.ts', 'supabase/migrations/0364_ticket_avance_por_email.sql', 'tests/tickets-avance.test.ts', 'tests/tickets-avance-email.test.ts', 'tests/_tickets-avance-email-hijo.ts',
       'lib/api-mako/areas/tickets.def.ts', 'lib/api-mako/areas/tickets.run.ts', 'app/api/cron/tickets/route.ts', 'scripts/tickets.ts',
       'lib/errores-app.ts', 'lib/errores-app-reglas.ts', 'app/api/errores/route.ts', 'app/_components/ReportarErrores.tsx', 'supabase/migrations/0313_errores_app.sql', 'tests/errores-app.test.ts', 'tests/tickets-cartero.test.ts',
       'supabase/migrations/0311_tickets_usuarios.sql', 'tests/tickets.test.ts', 'tests/tickets-triage.test.ts', 'docs/diseno-ticketera-usuarios.md',

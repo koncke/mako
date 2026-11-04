@@ -172,6 +172,15 @@ export async function registrarEvento(usuarioId: number | null, tipo: string, ok
     .then(() => {}, () => {});
 }
 
+/**
+ * La entrada de la cuenta de revisión de las tiendas, anotada ANTES de dar la sesión. A diferencia de `registrarEvento`, dice si quedó: es la única
+ * entrada sin segundo factor, y una sin rastro no se da (app/api/auth/contrasena/route.ts).
+ */
+export async function anotarEntradaDeRevision(usuarioId: number, detalle: string): Promise<boolean> {
+  const { error } = await sb().from('mfa_eventos').insert({ usuario_id: usuarioId, tipo: 'login-revision-tienda', ok: true, detalle: detalle.slice(0, 300) });
+  return !error;
+}
+
 /** El tipo de las filas que cuenta el freno. Un código de 6 dígitos se puede adivinar; una
  *  firma de passkey, no: por eso las passkeys no pasan por acá (y el que tiene la cuenta
  *  de Google no puede dejar al dueño sin su llave mandando códigos malos). */

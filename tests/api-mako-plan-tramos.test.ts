@@ -28,6 +28,13 @@
 //   · N3: la base de mentira deja la diferencia en dólares / la 0347 sin sus pesos          → 1 / 11 cada una
 //   · N4: el anticipo sobre uno cobrado se promete / B6: el choque de dos «sí», crudo        → 1 / 11 cada una
 //   · B7 («Las cuota del plan»): falla su test en tests/pagos-tramos.test.ts (1 / 24).
+// Y la tercera vuelta (B8 a B13), sobre los 16 de acá (3/11/2026, con main traído), una rotura por vez:
+//   · B8: no comparar la firma                                                                        → 1 / 15
+//   · B9: `faltaParaConfirmar` deja pasar la de antes / `ejecutar` la cumple / sin vistas vale vacías  → 1 / 15 cada una
+//   · B10: el #0 cobrado sin su columna / B11: no se nombra lo de aparte / la venta no lo descuenta    → 1 / 15 cada una
+//   · B12: la que ya no vale sigue viva                                                                → 1 / 15
+//   · B13: la regla siempre en dólares / `cobrarCuota` sin los pesos / el resumen en dólares           → 1 / 15 cada una
+//   · la firma sin la fecha, o sin la moneda y su monto: 0 fallos acá. Los atrapa «B8 · cada dato…» de tests/pagos-tramos.test.ts.
 // Correr: node --import tsx --test tests/api-mako-plan-tramos.test.ts
 // =============================================================================
 
@@ -57,6 +64,11 @@ type Salida = {
   queda: Paso & { pagos: Fila[] };
   anticipoCobrado: { error?: string; resumen?: string };
   dosSi: { dos: Array<{ ok: boolean; resumen: string }>; pagos: Fila[] };
+  firma: { vistas: unknown; falta: string | null; ejec: { ok: boolean; resumen: string }; pagos: Fila[] };
+  deAntes: { casos: Array<{ falta: string | null; ejec: { ok: boolean; resumen: string } }>; pagos: Fila[] };
+  carla: { error?: string; resumen?: string };
+  aparte: { error?: string; resumen?: string };
+  cerrada: { viejo: { error?: string }; nuevo: Record<string, unknown>; estados: string[]; pagos: Fila[] };
   red: string[];
 };
 let salida: Salida | null = null;
@@ -113,7 +125,7 @@ test('3. una implementación: la regla de la ficha y la escritura de lib/pagos.t
   assert.match(cuerpo, /const r = await guardarPlanPorTramos\(/);
   const lib = leer('lib/pagos.ts');
   const guardar = lib.slice(lib.indexOf('export async function guardarPlanPorTramos('), lib.indexOf('export type ResultadoPlan'));
-  assert.match(guardar, /guardarCuotasPorId\(leadId, armado\.deseadas, \{ vistos: vistas \?\? new Set\(armado\.vistos\), protegidasPrimero: true, sobreLoVisto: true \}\)/, 'no guarda como la ficha, sobre lo que se vio');
+  assert.match(guardar, /guardarCuotasPorId\(leadId, armado\.deseadas, \{ vistos: new Set\(p\.vistas\.map\(\(v\) => v\.id\)\), protegidasPrimero: true, sobreLoVisto: true \}\)/, 'no guarda como la ficha, sobre lo que se vio');
   assert.match(guardar, /await asegurarLeadDelNegocio\(leadId\);/);
   const campo = leer('lib/pagos-campo.ts');
   assert.match(campo, /const encima = cuotasDelPlanPorTramos\(\{ pagos: p\.pagos, protegidas: p\.protegidas, anticipo: p\.anticipo, lista: armado\.cuotas, planConInicial: p\.planConInicial \}\);/);
@@ -180,7 +192,8 @@ test('8. A1 en el server: cobrar a medias por la API una cuota en pesos, sin los
   assert.doesNotMatch(leida, /cobrada_en/);
   const s = correr().aMedias;
   // Lo que se confirma dice lo que se va a escribir: US$300 y la diferencia pendiente (decía «USD 600»).
-  assert.match(s.prep.resumen ?? '', /por 300 USD: los 300 USD que faltan quedan como una cuota nueva pendiente/, s.prep.resumen);
+  // B13 (revisión de 7f79a4e6c): con la 0347 la diferencia queda en pesos, y los textos lo dicen («los 300 USD que faltan»).
+  assert.match(s.prep.resumen ?? '', /por 300 USD: los \$ 6\.000 MXN \(300 USD\) que faltan quedan como una cuota nueva pendiente/, s.prep.resumen);
   assert.equal((s.ejec as { ok?: boolean } | null)?.ok, true, JSON.stringify(s.prep));
   const cobrada = s.pagos.find((q) => q.pagado);
   assert.deepEqual(cobrada && [cobrada.monto_usd, cobrada.moneda, cobrada.monto_original], [300, 'MXN', 6000], 'la cuota quedó cobrada entera: se perdían 6.000 pesos');
@@ -189,13 +202,15 @@ test('8. A1 en el server: cobrar a medias por la API una cuota en pesos, sin los
   // N3 (revisión de 805afb460): la diferencia queda en la moneda de la cuota, lo pactado menos lo cobrado (mig 0347, copiada en
   // tests/_postgrest-de-mentira.ts). Antes quedaba «US$300» y el recordatorio le pedía dólares a quien paga en pesos.
   assert.deepEqual(resto.map((q) => [q.moneda, q.monto_original]), [['MXN', 6000]], 'la diferencia quedó en dólares');
+  assert.match((s.ejec as { resumen?: string } | null)?.resumen ?? '', /quedan \$ 6\.000 MXN \(300 USD\) pendientes en una cuota nueva/);
 });
 
 test('9. N1: el «sí» a una propuesta vieja no pisa un plan armado después (ni una cuota cobrada en el medio), y lo dice', () => {
   const s = correr().siViejo;
   assert.deepEqual(s.vistas, [], 'la propuesta no guarda lo que vio');
   assert.equal(s.sinCambios, null, 'sin cambios, el «sí» pasa');
-  assert.match(s.falta ?? '', /El plan de cuotas cambió desde que lo propuse \(apareció «Cuota 1»\): no guardé nada/, 'el «sí» viejo no se frena antes de reclamar la pendiente');
+  // `yaNoVale`: además de frenarse antes de reclamarla, la pendiente se cierra (B12).
+  assert.match(s.falta ?? '', /^yaNoVale: El plan de cuotas cambió desde que lo propuse \(apareció «Cuota 1»\): no guardé nada/, 'el «sí» viejo no se frena antes de reclamar la pendiente');
   // Y si llega igual a ejecutar (la carrera entre el control y la escritura), no escribe.
   assert.equal(s.ejec.ok, false);
   assert.deepEqual(s.pagos.map((q) => q.monto_usd), [1000, 1000, 1000, 1000, 1000, 1000], 'pisó las 6 cuotas de la ficha');
@@ -235,4 +250,42 @@ test('12. N3: la migración 0347 deja la diferencia en la moneda de la cuota, co
   const firma = 'public\\.cobrar_cuota_con_resto\\(bigint, bigint, bigint, date, text, numeric, text, numeric, boolean, numeric, date, numeric\\)';
   assert.match(sql, new RegExp(`revoke execute on function ${firma} from public, anon, authenticated;`));
   assert.match(sql, new RegExp(`grant execute on function ${firma} to service_role;`));
+});
+
+test('13. B8: una cuota que cambió de monto o de moneda entre la propuesta y el «sí» (el mismo id) no se pisa', () => {
+  const s = correr().firma;
+  const vistas = s.vistas as Array<{ id: number; firma: string }>;
+  assert.deepEqual(vistas.map((v) => v.id), [31, 32, 33], 'la propuesta no guarda lo que vio');
+  assert.ok(vistas.every((v) => typeof v.firma === 'string' && v.firma.length > 0), 'sin la firma de cada cuota, un cambio con el mismo id pasa');
+  assert.match(s.falta ?? '', /^yaNoVale: El plan de cuotas cambió desde que lo propuse \(cambió «Cuota 2»\): no guardé nada/, s.falta ?? '');
+  assert.equal(s.ejec.ok, false, s.ejec.resumen);
+  assert.deepEqual(s.pagos.map((q) => [q.numero, q.monto_usd, q.moneda, q.monto_original]), [[1, 500, null, null], [2, 900, 'MXN', 18000], [3, 500, null, null]], 'pisó los MXN 18.000 de la ficha');
+});
+
+test('14. B9: una propuesta sin las vistas con su firma (de antes) no se cumple con la regla vieja: se pide de nuevo', () => {
+  const s = correr().deAntes;
+  assert.equal(s.casos.length, 2);
+  for (const c of s.casos) {
+    assert.match(c.falta ?? '', /^yaNoVale: Esta propuesta es de una versión anterior de MaKo: no guardé nada/, c.falta ?? '');
+    assert.equal(c.ejec.ok, false);
+    assert.match(c.ejec.resumen, /versión anterior de MaKo/);
+  }
+  assert.deepEqual(s.pagos.map((q) => q.monto_usd), [500, 500, 500], 'una propuesta de antes escribió');
+});
+
+test('15. B10 y B11: el anticipo sobre un #0 cobrado sin su columna no se promete; la diferencia que queda aparte se nombra', () => {
+  const s = correr();
+  assert.match(s.carla.error ?? '', /El anticipo de Carla ya está cobrado: no se pide otro/, s.carla.resumen ?? '');
+  const r = s.aparte.resumen ?? '';
+  assert.match(r, /Total: US\$ 1\.250\. Ya cobrado: US\$ 250\. Aparte del plan queda sin cobrar: Cuota 4 US\$ 250 \(10\/11\/2026\)\./, r || (s.aparte.error ?? ''));
+  assert.doesNotMatch(r, /La venta dice/, 'con lo de aparte, el plan y la venta dicen lo mismo (US$1.500)');
+});
+
+test('16. B12: el «sí» a una propuesta que ya no vale la cierra, y el «sí» pelado siguiente de WhatsApp no choca con ella', () => {
+  const s = correr().cerrada;
+  assert.match(s.viejo.error ?? '', /El plan de cuotas cambió desde que lo propuse \(apareció «Cuota 1»\)/, JSON.stringify(s.viejo));
+  assert.doesNotMatch(JSON.stringify(s.nuevo), /aclara cuál/, 'la vieja seguía viva');
+  assert.deepEqual(s.estados, ['error', 'ejecutada']);
+  assert.deepEqual(s.pagos.map((q) => [q.numero, q.monto_usd, q.fecha_esperada]), [[1, 2500, '2026-10-28'], [2, 2500, '2026-11-28'], [3, 2500, '2026-12-28']]);
+  assert.deepEqual(correr().red, [], 'nada sale a la red');
 });

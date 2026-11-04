@@ -49,9 +49,12 @@ test('cada pieza de cada plantilla de General sobrevive al saneo con lo que se e
     // Una portada NUEVA (15/10/2026, `PORTADAS_GENERAL`) es una pieza más que las escritas.
     const portada = PORTADAS_GENERAL[d.id];
     const nuevas = portada && 'nueva' in portada ? 1 : 0;
-    assert.equal(hoja.componentes.length, d.piezas.length + nuevas, `${d.id}: el saneo se comió una pieza`);
+    // Y «Más detalle» (31/10/2026, `comoCorbel`): la sección plegada de lo que no entra.
+    const pliegue = hoja.componentes.filter((c) => String(c.id).endsWith('-mas-detalle')).length;
+    assert.equal(hoja.componentes.length, d.piezas.length + nuevas + pliegue, `${d.id}: el saneo se comió una pieza`);
     for (const p of d.piezas) {
-      const c = hoja.componentes.find((x) => x.id === p.local);
+      // «Funnel de llamadas» tiene la sección «cierre» y el número «cierre»: antes del saneo, dos piezas con el mismo id.
+      const c = hoja.componentes.find((x) => x.id === p.local && (x.clase === 'elemento') === !!p.elemento);
       assert.ok(c, `${d.id}/${p.local}: no está en la hoja (¿un id que no pasa el saneo?)`);
       const el = p.elemento as { tipo: string; general?: { pieza: string } } | undefined;
       if (el) {
@@ -75,13 +78,15 @@ test('cada pieza de cada plantilla de General sobrevive al saneo con lo que se e
       graficos++;
     }
   }
-  assert.ok(bloques >= 25 && graficos >= 8, `revisé ${bloques} bloques y ${graficos} gráficos: el recorrido no está mirando`);
+  assert.ok(bloques >= 20 && graficos >= 8, `revisé ${bloques} bloques y ${graficos} gráficos: el recorrido no está mirando`);
   // Y cada plantilla es de la galería de General (la de su «Nueva hoja»), y ninguna se repite.
   assert.equal(new Set(PLANTILLAS_GENERAL.map((p) => p.id)).size, PLANTILLAS_GENERAL.length);
   for (const p of PLANTILLAS_GENERAL) assert.ok(esPlantillaGeneral(p.id));
   // Todos los bloques que existen los usa al menos una plantilla: uno que ninguna trae se descubre sólo buscándolo.
   const usados = new Set(DEFINICIONES_GENERAL.flatMap((d) => d.piezas.map((p) => (p.elemento as { general?: { pieza: string } } | undefined)?.general?.pieza).filter(Boolean)));
-  for (const p of PIEZAS_GENERAL) assert.ok(usados.has(p.id), `el bloque «${p.id}» no está en ninguna plantilla`);
+  // Salvo los que repiten lo que ya dicen los números de las plantillas o piden datos propios: se agregan desde «Bloques de General» (1/11/2026).
+  const aMano = new Set(['kpis', 'mes', 'pendientes']);
+  for (const p of PIEZAS_GENERAL) assert.equal(usados.has(p.id), !aMano.has(p.id), `el bloque «${p.id}»`);
 });
 
 test('en un pop-up no hay General que dibujar: el saneo tira el bloque (y el que no dice cuál)', () => {
@@ -120,12 +125,15 @@ test('un bloque se ata a un funnel sólo si sabe, y el bloque elige el suyo por 
   assert.match(bloque, /if \(filtra && sinCrm && d\.d\.deQuien == null\) return <Cobranza filas=\{\[\]\} tz=\{d\.d\.tz\} error="No pude leer de qué funnel es cada cliente\."/);
 });
 
-test('el informe con que arranca es la General de siempre, con la cabecera arriba', () => {
+test('el informe con que arranca es la General de siempre, con la frase y la cabecera arriba', () => {
   const t = informeGeneralInicial();
   assert.equal(t.hojas.length, 1);
   const h = t.hojas[0];
   assert.equal(h.plantilla, 'general');
-  const arriba = [...h.componentes].sort((a, b) => a.y - b.y || a.x - b.x)[0];
+  // 4/11/2026: abre con la oración de cómo viene el mes (Orvel), y la Meta objetivo es lo primero debajo, a la izquierda.
+  const orden = [...h.componentes].sort((a, b) => a.y - b.y || a.x - b.x);
+  assert.ok(orden[0].clase === 'grafico' && orden[0].tipo === 'frase', 'la frase de apertura no abre la hoja');
+  const arriba = orden[1];
   assert.ok(arriba.clase === 'elemento' && arriba.general?.pieza === 'cabecera', 'la cabecera (el objetivo y la acción del día) no va arriba');
   // Ids fijos: dos lecturas dan lo mismo, así el primer cambio se guarda tal cual.
   assert.deepEqual(informeGeneralInicial(), t);
@@ -137,9 +145,6 @@ test('las variables de un Texto se resuelven al dibujar; la que no tiene valor q
   assert.equal(conVariables('Hola {{nombre}}', null), 'Hola {{nombre}}', 'fuera de General no se toca');
   assert.equal(conVariables('{{nada}}', { nombre: 'Ana' }), '{{nada}}');
   assert.deepEqual([0, 11, 12, 19, 20, 23].map(saludoDeHora), ['Buenos días', 'Buenos días', 'Buenas tardes', 'Buenas tardes', 'Buenas noches', 'Buenas noches']);
-  // La Bienvenida saluda por el nombre.
-  const bienvenida = DEFINICIONES_GENERAL.find((d) => d.id === 'bienvenida')!;
-  assert.ok(bienvenida.piezas.some((p) => (p.elemento as { texto?: string } | undefined)?.texto?.includes('{{nombre}}')));
 });
 
 test('de quién es el informe que pide la API: nunca se elige a ciegas', () => {

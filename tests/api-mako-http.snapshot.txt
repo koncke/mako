@@ -14,6 +14,7 @@ agregar_bloque_general
 agregar_bloque_landing
 agregar_capa_efecto_video
 agregar_dependencia_plan
+agregar_en_bloque_a_crm
 agregar_escenario_secuencia
 agregar_etapa
 agregar_filtro_dashboard
@@ -77,6 +78,7 @@ buscar_tareas_plan
 buscar_tutorial
 calificar_decision_media_buyer
 cambiar_animacion_landing
+cambiar_aprende_solo
 cambiar_botones_mensaje
 cambiar_cobro_partners
 cambiar_codigo_partners
@@ -124,6 +126,7 @@ comparar_agendas_meta_crm
 compartir_borrador_landing
 compartir_documento_copywriter
 conectar_componentes_dashboard
+conectar_dominio_email
 configurar_aviso_whatsapp
 configurar_bloque_general
 configurar_boton_landing
@@ -131,6 +134,7 @@ configurar_formulario_landing
 configurar_horario_envio
 configurar_landing
 configurar_navegacion_landing
+configurar_newsletter
 configurar_reporte
 configurar_seccion_landing
 configurar_seccion_reporte
@@ -159,6 +163,7 @@ crear_contacto_chatwoot_lead
 crear_crm
 crear_diseno_imagen
 crear_documento_copywriter
+crear_edicion_newsletter
 crear_etiqueta
 crear_evento_calendario
 crear_evento_comunidad
@@ -278,6 +283,7 @@ ficha_lead
 ficha_secuencia_email
 ficha_secuencia_mensajes
 fijar_post_comunidad
+fijar_remitente_email
 fijar_zona_horaria_workspace
 generar_avatares
 generar_conclusiones_dashboard
@@ -586,6 +592,7 @@ subir_creativos_media_buyer
 sugerencias_crm
 sugerir_kpis
 sugerir_productos
+sumar_documento_second_brain
 tendencia_score
 tipos_de_crm
 topes_media_buyer
@@ -672,6 +679,7 @@ ver_miembro_comunidad
 ver_moneda_negocio
 ver_montaje_anuncio
 ver_mrr_activo
+ver_newsletter
 ver_nombres_del_crm
 ver_novedades_pixel
 ver_objetivo_principal

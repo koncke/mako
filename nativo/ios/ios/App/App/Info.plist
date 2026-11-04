@@ -48,7 +48,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>MaKo usa la cámara para que saques una foto o un video y lo mandes en un chat o lo subas a tus creativos.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>MaKo usa el micrófono para que le dictes a MaKo y grabes notas de voz.</string>
+	<string>MaKo usa el micrófono para que le dictes a MaKo, grabes notas de voz y grabes tus llamadas con clientes.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>MaKo guarda en tus fotos los videos y las imágenes que descargues.</string>
 	<key>UILaunchStoryboardName</key>

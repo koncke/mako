@@ -36,6 +36,7 @@ import { loQueSePide } from '@/lib/datos-aviso';
 import { profundidadModales } from '@/app/_components/pila-modales';
 import { FichaCambioProvider } from './lead-view/ficha-cambio';
 import { EtiquetasDelLead, versionDeEtiquetas } from './lead-view/EtiquetasDelLead';
+import { BotonGrabar } from '@/app/_components/grabar/GrabarLlamada';
 
 const SANS = "'Geist', sans-serif";
 
@@ -221,9 +222,13 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
           fotoEmail={fotoEmail}
           onCerrar={onClose}
           junto={<EtiquetasDelLead compacto leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />}
+          /* «Grabar» la llamada (04/11/2026, pedido de Martín): al lado del funnel, en la MISMA pieza que la ruta. */
           acciones={
             <>
-              <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={stageKey} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <BotonGrabar leadId={lead.id} leadNombre={lead.nombre ?? ''} />
+                <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={stageKey} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />
+              </div>
               {datos && (
                 <DatosSinMarcarCard leadId={lead.id} datos={datos} onSolucionar={solucionarDato} onCambio={releer} abrirAlMontar={verDatosAlAbrir || avisosAlAbrir}
                   ignorarSiempre={avisosAlAbrir ? { funnelId: lead.funnel_id ?? null } : undefined} />

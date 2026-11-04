@@ -15,13 +15,14 @@
 //   'descartar-nuevo'→ suelta ese número nuevo (se escaneó el teléfono equivocado).
 //   'pasar' {forzar} → deja al número nuevo admin en los grupos y muda MaKo a él.
 //   'personal'       → el QR de tu número, como línea de tu negocio.
+//   'voz-personal' {activar} → MaKo habla por tu número, o deja de hacerlo.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import {
   estadoCanalMaKo, conectarCanalMaKo, usarCanalComoVoz, desconectarCanalMaKo,
   estadoNumeroNuevo, vincularNumeroNuevo, descartarNumeroNuevo, pasarMaKoANumeroNuevo,
-  estadoNumeroPersonal, vincularNumeroPersonal,
+  estadoNumeroPersonal, vincularNumeroPersonal, usarNumeroPersonalComoVoz,
 } from '@/lib/mako-canal';
 
 export const dynamic = 'force-dynamic';
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
-  let body: { action?: string; forzar?: boolean };
+  let body: { action?: string; forzar?: boolean; activar?: boolean };
   try { body = (await req.json()) as typeof body; } catch { body = {}; }
 
   switch (body.action) {
@@ -71,6 +72,10 @@ export async function POST(req: NextRequest) {
     }
     case 'personal': {
       const r = await vincularNumeroPersonal().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
+      return NextResponse.json(r, { status: r.ok ? 200 : 500 });
+    }
+    case 'voz-personal': {
+      const r = await usarNumeroPersonalComoVoz(body.activar === true).catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
       return NextResponse.json(r, { status: r.ok ? 200 : 500 });
     }
     default:

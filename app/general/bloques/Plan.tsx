@@ -37,7 +37,7 @@ import { marcarHechaAction } from '@/app/m/plan/acciones';
 import { fondoPortada } from '@/lib/portadas';
 import { opcionDe, numeroDe, type OpcionesElegidas } from '@/lib/general-piezas';
 import type { DatosGeneral } from '../datos-tipos';
-import { Cabeza, Fallo, Placeholder } from './comun';
+import { MasEnElPlan, useFilasFuera, Cabeza, Fallo, Placeholder } from './comun';
 import { hoyMuestra, proyectosMuestra, tareasMuestra } from './muestras';
 
 const ProyectoCardTile = dynamic(() => import('@/app/plan/board/BoardShell').then((m) => m.ProyectoCardTile));
@@ -207,12 +207,20 @@ function ListaTareas({ tareas, etiquetas, hoy, vista, conProyecto, onOpen, onOpe
       </div>
     );
   }
+  return <FilasDeTareas tareas={tareas} de={de} hoy={hoy} onOpen={onOpen} onCompletar={onCompletar} />;
+}
+
+function FilasDeTareas({ tareas, de, hoy, onOpen, onCompletar }: { tareas: BoardTask[]; de: (t: BoardTask) => Label[]; hoy: string; onOpen: (id: string) => void; onCompletar: (t: BoardTask) => void }) {
+  const { lista, fuera } = useFilasFuera(tareas);
   return (
-    <div className="gb-cabe">
+    <>
+    <div ref={lista} className="gb-cabe">
       {tareas.map((t, i) => (
         <FilaTarea key={t.id} t={t} puesto={i + 1} proyecto={de(t)[0] ?? null} hoy={hoy} onOpen={() => onOpen(t.id)} onCompletar={() => onCompletar(t)} />
       ))}
     </div>
+    <MasEnElPlan fuera={fuera} />
+    </>
   );
 }
 
@@ -364,8 +372,10 @@ function vencimientos(tareas: BoardTask[], proyectos: Label[], etiquetas: Label[
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 function ListaVence({ items, hoy, onOpen }: { items: Vence[]; hoy: string; onOpen: (v: Vence) => void }) {
+  const { lista, fuera } = useFilasFuera(items);
   return (
-    <div className="gb-cabe">
+    <>
+    <div ref={lista} className="gb-cabe">
       {items.map((v) => {
         const p = plazoTexto(diasHasta(v.deadline, hoy));
         const [, m, dd] = v.deadline.split('-').map(Number);
@@ -389,6 +399,8 @@ function ListaVence({ items, hoy, onOpen }: { items: Vence[]; hoy: string; onOpe
         );
       })}
     </div>
+    <MasEnElPlan fuera={fuera} />
+    </>
   );
 }
 

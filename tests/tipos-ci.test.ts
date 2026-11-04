@@ -289,7 +289,8 @@ test('de punta a punta: un OOM DE VERDAD (tope de 30 MB) da exit 98 y «SIN MEMO
 // ---------------------------------------------------------------------------------------------------------------------------------
 
 test('el paso «Tipos» del workflow llama a tipos-ci.mjs, y propaga su exit (no lo traga)', () => {
-  const wf = readFileSync(join(RAIZ, '.github', 'workflows', 'integracion.yml'), 'utf8').replace(/\r\n/g, '\n');
+  // 4/11/2026: integracion.yml se retiró; el paso «Tipos» que frena es el de punta.yml.
+  const wf = readFileSync(join(RAIZ, '.github', 'workflows', 'punta.yml'), 'utf8').replace(/\r\n/g, '\n');
   const paso = /- name: Tipos\n([\s\S]*?)(?=\n      - name: )/.exec(wf)?.[1] ?? '';
   const codigo = paso.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
   assert.match(codigo, /node scripts\/tipos-ci\.mjs/, 'el paso corre el script que dice qué pasó');

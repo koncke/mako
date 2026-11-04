@@ -69,6 +69,9 @@ async function main() {
     red.splice(0);
     const antes = cola().length;
     const r = await f();
+    // El 👍 sale SIN esperar (lib/mako-doer-in.ts: `reaccion`): se deja que termine antes de contar, o cae en el paso siguiente.
+    // Desde el 4/11/2026 cada escritura mira primero el freno de la línea (lib/linea-freno.ts), y eso lo corría un poco.
+    await new Promise((res) => setTimeout(res, 30));
     out[k] = { r, entro: cola().length > antes, reacciones: reacciones(), superAdmin: alSuperAdmin() };
   };
 

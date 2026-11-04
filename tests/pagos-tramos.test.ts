@@ -32,6 +32,10 @@
 //   · M2: los cambios a mano sin la moneda:                                                                       1 fallo
 //   · M3: `planCambiadoAfuera` no ve la otra pestaña / el server avisa y escribe igual:                           1 fallo cada una
 //   · B4: el tope de 60 sin el anticipo / B5: el total en dos monedas que se lee doble:                           1 fallo cada una
+// Y la tercera vuelta (3/11/2026), una rotura por vez:
+//   · B8, la firma sin la fecha / sin la moneda:                                                                  1 fallo cada una
+//   · B8, la firma sin el monto en su moneda: 2 fallos · sin los dólares: 3 fallos
+//   · B13, la regla siempre en dólares:                                                                           1 fallo
 // =============================================================================
 
 import { test } from 'node:test';
@@ -40,12 +44,12 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import {
-  aplicarCambios, armadaDe, avisoDeConservadas, cambiosContra, cuotasDeTramos, cuotasDelPlanPorTramos, lineasDeCuotas, lugaresDelPlan, monedaDeCuota,
-  planCambiadoAfuera, reconciliarCuotas, soloLoQueCambio, tramosDeCuotas, type AnticipoPlan, type CambioDeCuota, type CuotaArmada, type CuotaDelLead,
+  aplicarCambios, armadaDe, avisoDeConservadas, cambiosContra, cuotasDeTramos, cuotasDelPlanPorTramos, cuotasVistas, lineasDeCuotas, lugaresDelPlan, monedaDeCuota,
+  planCambiadoAfuera, planCambioDesde, reconciliarCuotas, soloLoQueCambio, tramosDeCuotas, type AnticipoPlan, type CambioDeCuota, type CuotaArmada, type CuotaDelLead,
   type CuotaExistente, type PlanDeCuotas, type Proteccion, type TramoPlan,
 } from '../lib/pagos-campo';
 import { disparosDeCobranza } from '../lib/cobranza';
-import { diferenciaPendiente, dolaresALaTasaDeLaCuota } from '../lib/pagos-diferencia';
+import { diferenciaPendiente, dolaresALaTasaDeLaCuota, restoEnLaMonedaDeLaCuota } from '../lib/pagos-diferencia';
 import { noEsDeuda } from '../lib/cobrado-lead';
 
 const raiz = join(__dirname, '..');
@@ -477,4 +481,39 @@ test('B7 · con la única cuota del plan cobrada, el aviso está bien escrito', 
   assert.ok(a.ok);
   const r = cuotasDelPlanPorTramos({ pagos, protegidas: new Set(), anticipo: null, lista: a.cuotas, planConInicial: false });
   assert.ok(!r.ok && r.error === 'La cuota del plan ya está cobrada: agrega cuotas para cobrar más.', r.ok ? 'armó' : r.error);
+});
+
+// El test 13 de tests/api-mako-plan-tramos.test.ts cambia monto y moneda A LA VEZ: sacándole a la firma la fecha, o la moneda con
+// su monto, seguía verde (3/11/2026). Correr la fecha de una cuota es la edición más común de la ficha.
+test('B8 · cada dato de la cuota cuenta para el «sí»: la fecha sola, los dólares solos, la moneda sola, el monto en ella solo', () => {
+  const cuota: Fila = { id: 32, numero: 2, monto_usd: 600, fecha_esperada: '2026-12-01', pagado: false, moneda: 'MXN', monto_original: 12000 };
+  const otra: Fila = { id: 33, numero: 3, monto_usd: 600, fecha_esperada: '2027-01-01', pagado: false, moneda: 'MXN', monto_original: 12000 };
+  const vistas = cuotasVistas([cuota, otra], [cuota.id, otra.id]);
+  assert.equal(planCambioDesde([cuota, otra], vistas), null, 'sin cambios, el «sí» pasa');
+  const ediciones: Array<[string, Partial<Fila>]> = [
+    ['la fecha', { fecha_esperada: '2026-12-15' }],
+    ['los dólares', { monto_usd: 650 }],
+    ['la moneda', { moneda: 'ARS' }],
+    ['el monto en su moneda', { monto_original: 15000 }],
+  ];
+  for (const [que, edicion] of ediciones) {
+    assert.match(planCambioDesde([{ ...cuota, ...edicion }, otra], vistas) ?? '', /cambió «Cuota 2»/, `editar sólo ${que} se pisaba`);
+  }
+});
+
+test('B13 · la diferencia de un cobro a medias en pesos se dice en pesos: la misma regla que la 0347, en la ficha y en la API', () => {
+  const cuota = { monto_usd: 600, moneda: 'MXN', monto_original: 12000 };
+  assert.deepEqual(restoEnLaMonedaDeLaCuota(cuota, { moneda: 'MXN', montoOriginal: 6000 }), { moneda: 'MXN', monto: 6000 });
+  assert.deepEqual(restoEnLaMonedaDeLaCuota(cuota, { moneda: 'mxn', montoOriginal: 4000.5 }), { moneda: 'MXN', monto: 7999.5 });
+  // Lo que la 0347 deja en dólares: cobrada en otra moneda, la cuota sin pesos, o los pesos enteros (aunque a otra tasa).
+  assert.equal(restoEnLaMonedaDeLaCuota(cuota, { moneda: 'USD', montoOriginal: 300 }), null);
+  assert.equal(restoEnLaMonedaDeLaCuota({ moneda: 'MXN', monto_original: null }, { moneda: 'MXN', montoOriginal: 6000 }), null);
+  assert.equal(restoEnLaMonedaDeLaCuota(cuota, { moneda: 'MXN', montoOriginal: 12000 }), null);
+  assert.equal(restoEnLaMonedaDeLaCuota({ moneda: null, monto_original: null }, { moneda: null, montoOriginal: null }), null);
+  // El modal «Marcar pagada» y lo que contesta la ficha al guardar la dicen así (decían «Faltan $300»).
+  const modal = fuente('app/crm/lead-view/ficha/pagos/piezas.tsx');
+  assert.match(modal, /const faltaEnSuMoneda = falta > 0 && p\.ok \? restoEnLaMonedaDeLaCuota\(cuota, p\) : null;/);
+  assert.match(modal, /Faltan \{faltaEnSuMoneda \? `\$\{formatoMonto\(faltaEnSuMoneda\.monto, faltaEnSuMoneda\.moneda\)\}/);
+  assert.match(fuente('lib/pagos.ts'), /pendienteEnSuMoneda: pend > 0 \? restoEnLaMonedaDeLaCuota\(fila, \{ moneda: enMoneda\?\.moneda, montoOriginal: enMoneda\?\.montoOriginal \}\) : null,/);
+  assert.match(fuente('app/crm/[id]/deal-actions.ts'), /return \{ pendiente: r\.pendiente, pendienteEnSuMoneda: r\.pendienteEnSuMoneda, porLink: null, yaEstaba: false \};/);
 });

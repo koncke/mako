@@ -20,6 +20,72 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Grabar» la llamada desde la ficha: lo que el navegador deja grabar y lo que no (4/11/2026, nube)
+
+Pedido de Martín: «quiero que implementes el botón de "grabar" en el detail de un lead». El botón está al lado del funnel en
+el pop-up y en la ruta del lead, y en el teléfono es la tercera acción de la ficha. Graba en el navegador, sube el audio al lead
+y MaKo lo transcribe y lo analiza con el Closing por detrás. Relevo, migración y qué se probó con audio: [relevo/nube-grabar.md](relevo/nube-grabar.md).
+
+- **Un pedazo de un `MediaRecorder` con `timeslice` no se abre solo.** Sólo el primero trae la cabecera (EBML en webm,
+  `ftyp` en mp4), así que un trozo del medio no se puede transcribir ni reproducir por su lado. Por eso la grabadora **reinicia
+  el grabador cada `SEGUNDOS_POR_PARTE` (3 min)** y cada parte es un archivo entero. Medido en Chromium con un micrófono falso
+  (`scripts/probar-grabadora-navegador.mjs`): tres partes, las tres empiezan con EBML, decodifican y suman lo grabado.
+  Además, una llamada de una hora no entra en un pedido a Vercel (~4,5 MB) y con partes lo grabado hasta un corte ya está guardado.
+- **Lo que no se puede grabar se dice en UNA línea, antes de empezar (`queSeGraba`).** Medido en la documentación, no en un
+  aparato: Android le da silencio a cualquier app mientras hay una llamada telefónica, e iOS le corta el micrófono a la página.
+  O sea que **una llamada de ese mismo teléfono no se graba**: va en otro aparato y en altavoz. El otro lado de una llamada por
+  computadora sólo se oye si se comparte la pestaña, y eso lo dan **Chrome y Edge de computadora** (`getDisplayMedia` con
+  audio; Safari y Firefox no). Sin pestaña, se graba sólo el micrófono y la línea lo dice.
+- **La mezcla de micrófono y pestaña se arma con un `AudioContext` creado EN el clic.** Creado después de un `await`, la regla
+  de autoplay lo deja suspendido y la grabación sale MUDA sin un error. ⚠️ Chromium sin pantalla no aplica esa regla, así que
+  esto **no se pudo probar rompiéndolo**: la prueba con audio sólo dice que la mezcla trae el tono de la pestaña (1 kHz) y la voz.
+- **Grabar no puede depender de que la ficha siga abierta.** La grabación vive en un store del módulo
+  (`app/_components/grabar/grabadora.ts`, con `useSyncExternalStore`) y un aviso flotante en la esquina
+  (`GrabacionEnCurso`, montado en el layout) la muestra y la corta desde cualquier pantalla. Lo que tarda (transcribir y
+  analizar) corre en un `after()` de la ruta, adentro de `conSuIADelNegocio`: la persona sigue trabajando.
+- **Cada parte escribe SU transcripción en SU fila** (`llamadas_grabadas_partes`). En un jsonb de la llamada, dos partes que
+  terminan a la vez se pisan. El análisis espera a que estén todas (`queSigue`).
+- **La grabadora es un grabador más (`'grabadora'` en `GrabadorId`), con clave NEGATIVA** (`claveDeGrabacion`): así el
+  Closing ata el análisis a ESA llamada y `leerReunion` la encuentra como a una de Fathom. Pero **no es una tarjeta de
+  /integraciones**: no hay nada que conectar. `tests/grabadores.test.ts` exigía una tarjeta por grabador; la excepción quedó
+  escrita ahí, afirmando que NO tiene tarjeta.
+- **Sin IA, el audio queda guardado y la pantalla lo dice** (`SIN_IA_PARA_TRANSCRIBIR`, `SIN_CLAUDE_PARA_ANALIZAR`), con un
+  botón que abre «Tus cuentas de IA» ahí mismo. ⚠️ No con `LinkIntegracion` a `?abrir=ia`: `ia` está en `SIN_MODAL_SUELTO`
+  (`tests/integracion-sin-salir.test.ts`), así que el link sacaba de la ficha. Va `<TusCuentasIA conectar />` en un `Modal`.
+- **«Cómo terminó» lo dice la PERSONA con un toque** (no contestó, habló, agendó, no le interesa). Es lo que cuenta Cold
+  Calling, y no lo adivina un modelo.
+- **La transcripción de una llamada no sale por HTTP.** `grabaciones_en_mako_de_un_lead` (lectura) y
+  `como_termino_grabacion` (acción de chat) están en el área `closing` de la API de MaKo, sin `'http'`: son conversaciones de
+  personas.
+- **El tipo de una parte se mira en sus primeros bytes** (`mimeDeBytes`), no en lo que manda el navegador.
+- **Sin hacer:** no se probó en un teléfono, en Safari ni en la app de iPhone; la transcripción y el análisis no se probaron
+  con IA de verdad (la nube no tiene claves). Está en el relevo.
+
+## El desplegable de Instagram no salía nunca: Apify tarda 20 s y la ruta se cortaba a los 15 (3/11/2026)
+
+- **Síntoma:** Martín, en el alta de Competitors Spy: «cuando busco competidores no me sale el desplegable con opciones como
+  en Instagram». Estaba dado por hecho desde el 2/11 («PROBADO contra el actor de verdad»).
+- **Causa:** se probó el actor de Apify SUELTO (`scripts/probar-busqueda-apify.mjs`), nunca la ruta. Medido el 3/11: la
+  búsqueda tarda ~20 s; `app/api/crm/instagram-buscar/route.ts` tenía `maxDuration = 15` y el componente cortaba a los 17 s.
+  Vercel mataba la función antes de que Apify contestara. Va al último, después de Meta y de Google, así que sólo le pasa a
+  la búsqueda por nombre, que es la que se había pedido.
+- **Regla:** cuando se suma una fuente lenta a una ruta, se revisa el `maxDuration` de la ruta y el tope del cliente. Lo ata
+  `tests/instagram-buscar-tiempos.test.ts`. Y «probado» es por el camino que usa la persona, no la pieza suelta.
+- **Y había una segunda causa, la que Martín vio al probar el arreglo:** «leila» o «@leila» son una sola palabra, así que
+  `usuarioDeTexto` los toma por un usuario y la ruta pedía sólo ese @ EXACTO. La búsqueda de Apify corría únicamente con dos
+  palabras o más: se probó con «leila hormozi» y nadie probó lo que escribe una persona. Ahora corren las dos a la vez.
+- **Sin hacer:** Apify trae el @ en la `url` pero no el nombre ni la foto, y tarda: no es «mientras escribo» como Instagram.
+
+## El espaciado de los kanban es el de Merrin (31/10/2026)
+
+**Vive en:** `app/crm/CrmBoard.tsx`, `app/crm/loading.tsx`, `app/_ui/TarjetaKanban.tsx`, `app/plan/board/BoardShell.tsx`, `app/customer-success/KanbanEntrega.tsx`. Los valores: `docs/diseno/espaciado-kanban.json`.
+
+- **Sale de Merrin, no de Corbel:** Corbel no tiene kanban, y Merrin es el CRM de la referencia. Por eso la columna va en 18 y la tarjeta en 14, aunque las tarjetas del Dashboard vayan en 22.
+- **El ancho de 304 no se copió.** Sus columnas miden 208 porque reparten cinco en 1113; las nuestras son las de la tanda del CRM.
+- **El relleno de la columna del CRM vive en sus hijos**, no en la columna: la cabecera lleva 14, 14 y 10 (el 10 de Merrin más los 4 de su cabecera) y el carril 0, 10 y 10. Así el carril puede scrollear de borde a borde.
+- **`app/crm/loading.tsx` tiene que medir lo mismo que el tablero:** si no, salta al terminar de cargar. Lo mide `tests/kanban-espaciado.test.ts`.
+- **El teléfono no cambió** (`app/m/m.css`): el kanban de Merrin no se midió a 390.
+
 ## ¿Qué pasó con estos leads? La papelera andaba; lo que no existía era el renglón (30/10/2026)
 
 **Vive en:** supabase/migrations/0356_leads_bajas.sql (aplicada el 30/10) · lib/leads-bajas.ts · lib/leads-bajas-reglas.ts · la API
@@ -11700,3 +11766,71 @@ mover-etapa-rapido, pagina-vieja, crm-lotes-sin-tope, funnel-ganado-intermedio, 
 - **La etapa de Ganado usada como paso del medio (MK-19):** la renombraron «Calificado» y cada lead que caía ahí quedaba
   como CLIENTE (su clave es `ganado`). Los avisos del funnel lo tocaban de costado (el tipo, el orden) sin decir la
   consecuencia. Ahora se marca si hay etapas abiertas después de ella o si su nombre es de un paso y no de una venta.
+
+## Una credencial que no existe no da error: la fuente se SALTA (2/11/2026)
+
+**El síntoma, y el pedido:** Martín, 2/11 — «ya con Apify debería funcionar el traer el perfil escribiendo
+el @, eso también en el CRM». Yo iba a construir el buscador.
+
+**El diagnóstico obvio era el equivocado, y por eso vale anotarlo.** El buscador del @ del CRM **ya
+estaba, entero, desde el 12/10**: `app/crm/new/InstagramBuscador.tsx` (464 líneas), con desplegable,
+fotos de perfil, portal, Escape y Enter atajados, y también en la ficha del lead
+(`InstagramEditable`). Y el respaldo por @ EXACTO con Apify **también estaba, desde el 22/10**, en
+`app/api/crm/instagram-buscar/route.ts`. No faltaba una línea de interfaz.
+
+**La causa real: pedía una credencial que no existe en ningún lado.** Hay DOS claves de Apify:
+
+| fuente | credencial | dónde vive | estado |
+|---|---|---|---|
+| `apify` | `APIFY_TOKEN` | plataforma (estricta), si no el negocio | **medido el 22/10: en ninguno** |
+| `apify-spy` | `APIFY_CLAVE_DE_SPY` | el negocio | **la que Martín pegó el 1/11** |
+
+La ruta pedía `fuentes: ['meta-plataforma', 'apify']`. O sea que llamaba por la llave que nadie
+tenía teniendo la otra al lado.
+
+⚠️ **Y FALLABA EN SILENCIO, que es lo que lo hizo invisible durante once días.** En
+`lib/instagram-perfil-server.ts` una fuente sin credencial no tira error: hace `continue`. El
+buscador no decía «no hay clave de Apify» — decía «sin resultados, escribí el @ a mano», que es
+exactamente lo que diría si la cuenta no existiera. **Un `continue` por credencial faltante y un
+«no lo encontré» se ven iguales desde la pantalla.**
+
+**La regla que queda:** cuando una función elige entre varias fuentes por credencial, lo que hay que
+mirar no es si el código de la fuente está — es **cuál credencial pide, con qué nombre exacto, y si
+ese nombre está puesto en algún lado**. Dos fuentes del mismo proveedor con dos nombres de
+credencial distintos es la forma en que esto se esconde. Buscar el `continue`, no el `throw`.
+
+**El arreglo:** `fuentes: ['meta-plataforma', 'apify', 'apify-spy']`. `apify-spy` va ÚLTIMA a
+propósito: `apify` la paga la plataforma y `apify-spy` el negocio, así que invertirlas le cobra al
+cliente algo que estaba cubierto. Lo cuida `tests/crm-instagram-clave-de-spy.test.ts`, probado
+rompiéndolo cuatro veces.
+
+**Vive en:** app/api/crm/instagram-buscar/route.ts · lib/instagram-perfil-server.ts
+(`leerPerfilInstagram`, `APIFY_CLAVE_DE_SPY`) · app/crm/new/InstagramBuscador.tsx
+
+## La foto del buscador de Instagram NUNCA se vio, y parecía «una cuenta sin foto» (3/11/2026)
+
+**Síntoma:** el pedido del 12/10 era «me salten las opciones con las fotos de perfil». El buscador las pedía, y en la
+lista salían iniciales. Se leyó como que Instagram no devolvía la foto, o que esa cuenta no tenía.
+
+**Causa real, medida en producción el 3/11 buscando @leilahormozi:** la foto llegaba (`foto` con su URL del CDN), el `<img>`
+la pedía, y la consola decía **`net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`**. El CDN contesta con
+**`Cross-Origin-Resource-Policy: same-origin`**: no deja usar sus imágenes desde otra página. Salta el `onError`, y el `onError`
+dibuja las iniciales: **es indistinguible de un perfil sin foto**, y nadie mira la consola de un buscador que «anda». La misma
+URL pedida desde el servidor contesta 200, `image/jpeg`, 3,9 KB: esa cabecera sólo la aplica un navegador.
+
+**El diagnóstico obvio era el equivocado:** `referrerPolicy="no-referrer"` estaba puesto para esto y no alcanza; lo que corta
+no es quién la pide sino desde dónde se usa. Y `guardarFotoDeInstagram`, que copia la foto al crear el lead, sí anda porque
+corre en el servidor, donde esa regla no existe. Por eso la tarjeta del lead tenía foto y el buscador que la mostraba, no.
+
+**La regla:** una foto de `*.cdninstagram.com` o `*.fbcdn.net` se dibuja con `fotoPorNosotros` (lib/foto-instagram-reglas.ts),
+que la pasa por `/api/crm/instagram-foto`. Esa ruta pide sesión y sólo baja de esos hosts, también después de una redirección;
+sin eso sería un proxy abierto con nuestra IP. Y no devuelve SVG, que se serviría desde nuestro dominio con sus scripts.
+
+**Otra forma de lo mismo:** un `onError` que dibuja un respaldo prolijo convierte cualquier fallo en «no había dato». Si la
+pantalla se ve bien con y sin el dato, medí en la consola antes de creerle.
+
+**Lo que quedó SIN hacer:** cualquier otro `<img>` que dibuje esa URL directo tiene el mismo problema. Revisé los dos
+buscadores (`app/crm/new/InstagramBuscador.tsx`, `app/competitor-spy/BuscadorAlta.tsx`), no toda la app.
+
+**Vive en:** lib/foto-instagram-reglas.ts · app/api/crm/instagram-foto/route.ts · app/crm/new/InstagramBuscador.tsx
+

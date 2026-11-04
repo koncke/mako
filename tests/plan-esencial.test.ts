@@ -57,7 +57,7 @@ test('3. la puerta de la página manda al cartel con «Pasar a Pro», y la barra
   assert.match(acceso, /if \(!tabEnCapa\(nav, capa\)\)[^\n]*\n\s*if \(esNavSoloPro\(nav\) && \(await esEsencialDeLaSesion\(\)\)\) redirect\(await rutaConWs\(`\/no-esta-en-tu-plan\?tab=\$\{encodeURIComponent\(nav\)\}&pro=1`\)\);/);
   assert.match(sinComentarios(leer('lib/movil-guard.ts')), /if \(opts\.navKey && esNavSoloPro\(opts\.navKey\) && \(await esEsencialDeLaSesion\(\)\)\) redirect\(/);
   // El cliente de una agencia (29/10/2026): «Ver mi plan» (tests/cliente-de-agencia-y-partners-2910.test.ts).
-  assert.match(sinComentarios(leer('app/no-esta-en-tu-plan/page.tsx')), /label: pro && !deAgencia \? ROTULO_PASAR_A_PRO : 'Ver mi plan'/);
+  assert.match(sinComentarios(leer('app/no-esta-en-tu-plan/page.tsx')), /label: pro && !deAgencia && !telefono \? ROTULO_PASAR_A_PRO : 'Ver mi plan'/);
   // Desde el 23/10/2026 se lee junto con lo demás (un Promise.all: tests/rendimiento-pedido.test.ts) y viaja tal cual.
   const me = sinComentarios(leer('app/api/auth/me/route.ts'));
   assert.match(me, /const \[ws, impersonando, vista, rolWs, capa, planEsencial, clienteDeAgencia\] = await Promise\.all\(\[\n\s*getWorkspaceActual\(\), estaImpersonando\(\), vistaDeOtro\(\), getRolWsEfectivo\(\), getCapaActual\(\), esEsencialDeLaSesion\(\),/);
@@ -66,7 +66,7 @@ test('3. la puerta de la página manda al cartel con «Pasar a Pro», y la barra
   assert.match(barra, /const esPro = \(key: string\): boolean \| 'agencia' => \(planEsencial && esNavSoloPro\(key\) \? \(clienteDeAgencia \? 'agencia' : true\) : false\);/);
   assert.equal((barra.match(/pro=\{esPro\(it\.key\)\}/g) ?? []).length, 3, 'las tres filas de la barra (suelta, en familia y en el desplegable)');
   assert.match(barra, /\{expanded && pro && <Candado \/>\}/);
-  assert.match(sinComentarios(leer('app/m/mas/page.tsx')), /esencial && esNavSoloPro\(f\.key\) \? \{ segunda: deAgencia \? 'De MaKo Pro' : `De MaKo Pro · \$\{ROTULO_PASAR_A_PRO\}` \}/);
+  assert.match(sinComentarios(leer('app/m/mas/page.tsx')), /esencial && esNavSoloPro\(f\.key\) \? \{ segunda: 'De MaKo Pro' \}/);
 });
 
 // ⚠️ 23/10/2026: el tope se pregunta ADENTRO de `setSecuenciaActiva` (la única puerta que prende), no en cada ruta.

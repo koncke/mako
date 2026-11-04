@@ -19,7 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { HOJA_FOCUS, HREF_TEMPLATES, NOMBRE_FOCUS, hojaDesdeGeneral, hojaGeneralPedida, informeDePedida, pestanasDelDashboard } from '../lib/dashboard-focus';
+import { HOJA_FOCUS, NOMBRE_FOCUS, chipsQueEntran, hojaDesdeGeneral, hojaGeneralPedida, informeDePedida, pestanasDelDashboard } from '../lib/dashboard-focus';
 import { conLaQuery } from '../lib/ajustes-secciones';
 import { rutaMovil } from '../lib/movil-rutas';
 import { opcionesDeHojas } from '../app/m/hoy/modelo';
@@ -69,7 +69,7 @@ test('/general lleva a /dashboard con la query entera: el ?ws= del cliente y la 
   assert.doesNotMatch(src, /EditorInforme|leerInformeGeneral/, 'la página vieja volvió a dibujar');
   assert.equal(conLaQuery('/dashboard', { ws: '3', hoja: hojaDesdeGeneral(undefined) }), '/dashboard?ws=3&hoja=focus');
   assert.equal(conLaQuery('/dashboard', { hoja: hojaDesdeGeneral('g-cobros'), ws: '3' }), '/dashboard?hoja=g-cobros&ws=3');
-  assert.equal(HREF_TEMPLATES, '/dashboard?plantillas=1');
+
 });
 
 test('la página del Dashboard: Focus sólo para quien veía /general, y cada editor con su `key`', () => {
@@ -77,7 +77,7 @@ test('la página del Dashboard: Focus sólo para quien veía /general, y cada ed
   assert.match(src, /const conFocus = rol === 'admin' && tabEnCapa\('general', capa\);/);
   assert.match(src, /conFocus \? await Promise\.all\(\[leerTablero\(\), leerInformeGeneral\(\)\]\) : \[null, null\]/);
   assert.match(src, /if \(lecturaDash && lecturaGeneral && !plantillas\) \{/);
-  assert.match(src, /informeDePedida\(pedida, idsGeneral, lecturaDash\.tablero\.hojas\.map\(\(h\) => h\.id\), true\) === 'general'/);
+  assert.match(src, /informeDePedida\(pedida, idsGeneral, lecturaDash\.tablero\.hojas\.map\(\(h\) => h\.id\), true, PLANTILLAS_GENERAL\.map\(\(x\) => x\.id\)\) === 'general'/);
   assert.match(src, /<EditorInforme\s+key="dashboard"/);
   assert.match(src, /unido=\{otrasDeGeneral \? \{ otras: otrasDeGeneral \} : null\}/);
   // El closer y el setter no leen General ni ven la tira (`otrasDeGeneral` es null sin Focus).
@@ -85,12 +85,13 @@ test('la página del Dashboard: Focus sólo para quien veía /general, y cada ed
   assert.match(leer('app/dashboard/FocusDeGeneral.tsx'), /<EditorInforme\s+key="general"[\s\S]*?informe="general"[\s\S]*?unido=\{\{ otras: hojasDashboard \}\}/);
 });
 
-test('el editor dibuja la tira con las hojas que hay en pantalla, y «Templates» abre la galería en el lugar', () => {
+test('el editor dibuja la tira con las hojas que hay en pantalla, y el último chip abre el desplegable', () => {
   const src = leer('app/dashboard/EditorInforme.tsx');
   assert.match(src, /const pestanas = unido \? \(esGeneral \? pestanasDelDashboard\(propias, unido\.otras\) : pestanasDelDashboard\(unido\.otras, propias\)\) : null;/);
   // 32f430356 (tipos, 24/10) le pasa a la tira `informeGeneralODashboard` (el mismo informe, con el tipo de los dos del Dashboard).
   assert.match(src, /<PestanasDashboard pestanas=\{pestanas\} actual=\{hoja\.id\} informe=\{informeGeneralODashboard\} onIr=\{irAHoja\}/);
-  assert.match(src, /onTemplates=\{esGeneral \|\| !guardable \? null : \(\) => \{ setMenu\(null\); setNuevaHoja\(true\); \}\}/);
+  assert.match(src, /onMenu=\{\(ancla\) => alternarMenu\('hojas', ancla\)\}/);
+  assert.doesNotMatch(src, /onTemplates/, 'volvió el botón «Templates»: todas las plantillas van en «Nueva hoja»');
   assert.match(src, /const \[nuevaHoja, setNuevaHoja\] = useState\(\(\) => plantillasInicial && /);
 });
 
@@ -114,5 +115,56 @@ test('en la tira, una pestaña del editor montado cambia en el lugar; una del ot
   const src = leer('app/dashboard/PestanasDashboard.tsx');
   assert.match(src, /return p\.informe === informe\s*\? <button [^>]*onClick=\{\(\) => \{ if \(!elegida\) onIr\(p\.id\); \}\}/);
   assert.match(src, /: <Link key=\{`\$\{p\.informe\}:\$\{p\.id\}`\} href=\{p\.href\}/);
-  assert.match(src, /: <Link href=\{HREF_TEMPLATES\}/);
+  assert.doesNotMatch(src, /Templates<\//, 'volvió el botón «Templates»');
+});
+
+// ── El último chip (1/11/2026) ─────────────────────────────────────────────────────────────
+
+test('los chips: si entran todos, ninguno adentro del último', () => {
+  assert.deepEqual(chipsQueEntran([80, 80, 80], 500, 100, 8, 0), { visibles: [0, 1, 2], fuera: [] });
+  // Justo: 3 × (80 + 8) + 100 = 364.
+  assert.deepEqual(chipsQueEntran([80, 80, 80], 364, 100, 8, 0).fuera, []);
+  assert.deepEqual(chipsQueEntran([80, 80, 80], 363, 100, 8, 0).fuera, [2]);
+});
+
+test('los chips: los que no entran se juntan en el último, en orden', () => {
+  assert.deepEqual(chipsQueEntran([80, 80, 80, 80, 80], 300, 100, 8, 0), { visibles: [0, 1], fuera: [2, 3, 4] });
+});
+
+test('los chips: la hoja abierta entra siempre: es lo que dice dónde estás', () => {
+  const r = chipsQueEntran([80, 80, 80, 80, 80], 300, 100, 8, 4);
+  assert.ok(r.visibles.includes(4), 'la abierta quedó adentro del desplegable');
+  assert.deepEqual(r, { visibles: [0, 4], fuera: [1, 2, 3] });
+  // Una abierta más ancha desplaza a las que hagan falta.
+  assert.deepEqual(chipsQueEntran([80, 80, 80, 170], 300, 100, 8, 3), { visibles: [3], fuera: [0, 1, 2] });
+});
+
+test('los chips: sin lugar para ninguno, igual se ve la abierta', () => {
+  assert.deepEqual(chipsQueEntran([80, 80], 50, 100, 8, 1), { visibles: [1], fuera: [0] });
+});
+
+test('la barra con chips no dibuja el título de la hoja; editando vuelve, que es donde se cambia', () => {
+  const src = leer('app/dashboard/EditorInforme.tsx');
+  assert.match(src, /\{pestanas && !cabeceraPropia \? \(/);
+  assert.match(src, /izquierda: <PestanasDashboard /);
+  assert.match(src, /\{editando && !enBlanco && \(\s*<BarraSuperior hoja=\{hojaTop\} editable=\{guardable\}/);
+});
+
+test('el desplegable trae también las hojas del otro informe', () => {
+  assert.match(leer('app/dashboard/EditorInforme.tsx'), /otras=\{pestanas\?\.filter\(\(p\) => p\.informe !== informeGeneralODashboard\) \?\? \[\]\}/);
+});
+
+test('una sola galería: quien tiene los dos informes ve las plantillas de los dos', () => {
+  const g = leer('app/dashboard/NuevaHoja.tsx');
+  assert.match(g, /const CATALOGO_UNICO = \[\.\.\.PLANTILLAS_GENERAL, \.\.\.PLANTILLAS_HOJA\];/);
+  assert.match(g, /const catalogo = conTodas \? CATALOGO_UNICO :/);
+  // Una del otro informe la suma su editor al abrir.
+  assert.match(g, /if \(conTodas && IDS_GENERAL\.has\(p\.id\) !== \(informe === 'general'\)\) \{ window\.location\.assign/);
+  assert.equal(informeDePedida('foco', ['g1'], ['d1'], true, ['foco']), 'general');
+  assert.equal(informeDePedida('marketing', ['g1'], ['d1'], true, ['foco']), 'dashboard');
+  // Sin Focus (el closer, el setter), nunca General.
+  assert.equal(informeDePedida('foco', ['g1'], ['d1'], false, ['foco']), 'dashboard');
+  const f = leer('app/dashboard/FocusDeGeneral.tsx');
+  assert.match(f, /hojaAgregada=\{agregar\}/);
+  assert.match(f, /const nacida = plantilla && !enBlanco \? base\.hojas\.find\(\(h\) => h\.plantilla === plantilla\.id\) : undefined;/);
 });

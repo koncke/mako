@@ -11,6 +11,7 @@ import { TITULO_CUENTA } from '@/lib/ajustes-secciones';
 import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina } from '../_ui/Ajustes';
 import { InformacionPersonal } from './InformacionPersonal';
+import { EliminarCuenta } from './EliminarCuenta';
 import { nombreDelNegocioAction } from '@/app/configuraciones/negocio-actions';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,7 @@ export default async function PerfilPage() {
   return (
     <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(vista.deOtro, 'info')} activa="info">
       <InformacionPersonal inicial={perfil} vista={vista} negocio={negocio} />
+      {!vista.deOtro && <EliminarCuenta />}
     </AjustesPagina>
   );
 }

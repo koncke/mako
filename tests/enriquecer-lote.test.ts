@@ -191,7 +191,7 @@ test('8. la barra de lote del tablero: «Completar» sólo para el admin, con pr
   // MaKo", si le apreto debería automáticamente salirme el desplegable»): abre la instalación y espera (tests/wa-fichas-071).
   assert.match(barra, /value: 'whatsapp', label: 'Desde mi WhatsApp', icono: 'whatsapp',\n/);
   assert.doesNotMatch(barra, /disabled: extWa !== 'si'/, 'la opción volvió a ser un texto muerto');
-  assert.match(barra, /extWa === 'vieja' \? 'Actualiza la extensión de MaKo' : 'Instala la extensión de MaKo'/);
+  assert.match(barra, /extWa === 'vieja' \? lineaDeVersion\(VERSION_FICHAS, 'Actualiza la extensión de MaKo'\) : 'Instala la extensión de MaKo'/);
   // Las dos preguntan antes; «Datos de empresa» cuenta ANTES de preguntar.
   assert.match(barra, /if \(v === 'whatsapp'\) \{\n\s+if \(extWa === 'si'\) \{ setPide\(\{ tipo: 'whatsapp' \}\); return; \}/);
   assert.match(barra, /const c = await completarPerfilesDeLeadsAction\(\{ ids, soloContar: true \}\);/);

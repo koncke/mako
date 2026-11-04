@@ -34,6 +34,11 @@ aprobar: es el caso real de ese texto):
 9. **El teclado en el cartel** (Cliente de Prueba, cambió `app/_ui/Confirm.tsx`, que usan todos los carteles): con Tab hasta «Poner goteo» y Enter, abre Configuraciones y NO prende.
    Enter recién abierto sigue confirmando. Mientras descarta, Escape no cierra. Después de descartar, Enter no hace nada hasta ir con Tab a un botón. Con Tab a un botón de atrás del velo, Enter confirma y no lo clickea. Mirar también un cartel de otra pantalla, por ejemplo borrar algo: Enter sigue andando.
 10. **Variantes y arranque gradual** (rama `aut-variantes-3110`, en el Cliente de Prueba): en el CRM, «⋯» de una columna › Mandar mensaje: ↻ al lado del mensaje escrito abre «＋ Otra forma de decirlo»; «Arrancar de a poco» viene tildado, con 20 y 20, y la duración y la confirmación lo dicen; con tope 60, avisa que la línea llega hasta 40. En Configuraciones de una automatización: «Arranque gradual» sólo con «Tope por día» prendido. Corregir el texto con variantes avisa, con «Deshacer». A 375 de ancho no se corta el popover. **No se ve en pantalla:** que le toque una de las tres a cada lead y que el segundo día suba: se mira en los envíos de la automatización con una difusión de prueba, con un número que se pueda arriesgar.
+11. **El modal de difusión** (rama `difusion-modal-0211`, en el Cliente de Prueba): en el CRM, «⋯» de una columna › Mandar mensaje. Mirar los tres canales con su logo, que tocar una fila cambie el panel, que lo escrito en WhatsApp siga ahí al volver de Email, y el ✓ al escribir. En el teléfono, una columna. Nada se manda hasta confirmar.
+
+**Datos del #33 reparados (30/10/2026 17:19, cuenta 3, sesión local_7f005343):** las 8 inscripciones de @leantejado (lead 5437, ws10)
+volvieron a como estaban antes del toque (703-707 'activa' esperando el toque; 660, 708 y 709 'completada'). No se repara de nuevo:
+el detalle, en docs/hallazgos-chatbot.md → «Los datos que rompió, reparados».
 
 ## 30/10/2026 mañana, cuenta 3 (claude3, al 92 %), sesión local_7f005343: el ticket #33 de Leandro
 

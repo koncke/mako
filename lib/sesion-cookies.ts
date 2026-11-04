@@ -19,12 +19,14 @@ const base = () => ({ secure: process.env.NODE_ENV === 'production', sameSite: '
 export function ponerSesion(
   res: NextResponse,
   s: { sub: string; email: string; nombre: string; rol: Rol; mfa?: Amr },
+  vidaDias: number = SESSION_DIAS,
 ): boolean {
-  const token = crearToken({ sub: s.sub, email: s.email, nombre: s.nombre, rol: s.rol, ...(s.mfa ? { mfa: s.mfa } : {}) });
+  const token = crearToken({ sub: s.sub, email: s.email, nombre: s.nombre, rol: s.rol, ...(s.mfa ? { mfa: s.mfa } : {}) }, vidaDias);
   if (!token) return false;
-  const dias = 60 * 60 * 24 * SESSION_DIAS;
+  const dias = 60 * 60 * 24 * vidaDias;
   res.cookies.set({ name: SESSION_COOKIE, value: token, httpOnly: true, maxAge: dias, ...base() });
-  res.cookies.set({ name: EMAIL_COOKIE, value: s.email, httpOnly: false, maxAge: dias, ...base() });
+  // HttpOnly desde el 01/11/2026: es un dato personal y ningún script de la app lo lee (se buscó).
+  res.cookies.set({ name: EMAIL_COOKIE, value: s.email, httpOnly: true, maxAge: dias, ...base() });
   // El paso intermedio se cierra en el mismo movimiento: vivo después de entrar no sirve
   // para nada y es una credencial más dando vueltas.
   sacarPreauth(res);

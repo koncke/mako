@@ -14,6 +14,8 @@ import { PermissionState } from '@/app/_ui/Estados';
 import { esClienteDeAgencia } from '@/lib/agencia';
 import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
+import { headers } from 'next/headers';
+import { esTelefono } from '@/lib/telefono';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -39,11 +41,13 @@ export default async function NoEstaEnTuPlanPage({ searchParams }: { searchParam
   const ws = pro ? await getWorkspaceActual() : null;
   // ⚠️ `!== false` (P15, 30/10/2026): con el «no sé» de `esClienteDeAgencia` va «Ver mi plan», no «Pasar a Pro».
   const deAgencia = (await esClienteDeAgencia(ws)) !== false;
+  // El teléfono no vende (T5, docs/tiendas-play-appstore.md): «Ver mi plan», y su pantalla no tiene cómo comprar.
+  const telefono = esTelefono((await headers()).get('user-agent'));
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 16px 60px', display: 'grid', placeItems: 'start center' }}>
       <div style={{ width: '100%', maxWidth: 520 }}>
         <PermissionState motivo="plan" que={nombreDeTab(key)}
-          accion={{ label: pro && !deAgencia ? ROTULO_PASAR_A_PRO : 'Ver mi plan', href: plan }} secundaria={{ label: 'Ir al inicio', href: inicio }} />
+          accion={{ label: pro && !deAgencia && !telefono ? ROTULO_PASAR_A_PRO : 'Ver mi plan', href: plan }} secundaria={{ label: 'Ir al inicio', href: inicio }} />
       </div>
     </main>
   );

@@ -47,6 +47,7 @@ import { MoverEtapaConfirm } from '../MoverEtapaConfirm';
 import { pideWizardAlElegir } from '../mover-etapa';
 import { loQueSePide } from '@/lib/datos-aviso';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
+import { BotonGrabar } from '@/app/_components/grabar/GrabarLlamada';
 
 const SANS = "'Geist', sans-serif";
 
@@ -186,9 +187,13 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
         fotoEmail={fotoEmail}
         marco
         junto={<EtiquetasDelLead compacto leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />}
+        /* «Grabar» la llamada (04/11/2026, pedido de Martín): al lado del funnel, como en el pop-up. */
         acciones={
           <>
-            <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={currentStage} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BotonGrabar leadId={lead.id} leadNombre={lead.nombre ?? ''} />
+              <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={currentStage} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />
+            </div>
             {datos && (
               <DatosSinMarcarCard leadId={lead.id} datos={datos} onSolucionar={solucionarDato} onCambio={() => router.refresh()} />
             )}

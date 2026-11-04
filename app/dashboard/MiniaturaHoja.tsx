@@ -33,14 +33,16 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { esElemento, esGrafico, sanearHoja, tituloDe, type Componente, type Elemento, type Hoja } from '@/lib/graficos-catalogo';
 import type { PlantillaHoja } from '@/lib/graficos-plantillas';
-import { paletaDe, varsDeTema } from '@/lib/graficos-temas';
+import { acentoDePortada, paletaDe, paletaDeEscena, pintaPortada, varsDeTema } from '@/lib/graficos-temas';
 import { PAGINA_MINIATURA, lugarEnMiniatura, resultadoDeMuestra } from '@/lib/graficos-muestra';
 import { VARIABLES_TEXTO, conVariables, esPiezaGeneral, piezaGeneral } from '@/lib/general-piezas';
 import { CuerpoGrafico, esTarjetaNumero } from './Grafico';
+import { destinoDe } from '@/lib/graficos-destinos';
 import { TAMANOS_TEXTO } from './Elemento';
 import { CuerpoSeccion } from './Seccion';
 import { PiezaGeneralDeMuestra, useVariablesInforme } from './ElementoGeneral';
 import { marcoDePortada } from '@/lib/graficos-identidad';
+import { tilesDeComponentes } from './Grafico';
 
 /** El ancho de la página que se dibuja (px): la grilla y el lugar de cada componente salen de `lugarEnMiniatura`. */
 const ANCHO_REF = PAGINA_MINIATURA.ancho;
@@ -58,19 +60,21 @@ const hoyLocal = (): string => {
 };
 
 /** Un componente, como lo dibuja la hoja. `vivo`: ya montado y a la vista (los cuerpos entran recién ahí). */
-function Pieza({ c, hoja, vivo, hoy }: { c: Componente; hoja: Hoja; vivo: boolean; hoy: string }): ReactNode {
+function Pieza({ c, hoja, vivo, hoy, tile }: { c: Componente; hoja: Hoja; vivo: boolean; hoy: string; tile?: string }): ReactNode {
   const variables = useVariablesInforme();
   // La portada (lib/graficos-identidad.ts): la misma tarjeta pintada que en la hoja (con el color de la hoja, si tiene).
-  const portada = marcoDePortada(c, hoja.tema.acento);
+  const portada = pintaPortada(c, hoja.tema) ? marcoDePortada(c, acentoDePortada(hoja.tema)) : null;
   const conPortada = (clase: string): string => (portada ? `${clase} ${portada.clase}` : clase);
   const estilo = { flex: 1, ...(portada?.estilo ?? {}) } as CSSProperties;
   if (esGrafico(c)) {
     const kpi = esTarjetaNumero(c.tipo);
     return (
-      <div className={conPortada(`lk-comp${kpi ? ' lk-comp--kpi' : ''}`)} style={estilo} data-forma={portada?.forma}>
+      <div className={conPortada(`lk-comp${kpi ? ' lk-comp--kpi' : ''}${c.tipo === 'frase' && !portada ? ' lk-comp--frase' : ''}`)} style={estilo} data-forma={portada?.forma} data-tile={tile}>
         <div className="lk-comp-cab"><div className="lk-comp-tit"><span>{tituloDe(c)}</span></div></div>
         {!kpi && c.subtitulo && <div className="lk-comp-sub">{c.subtitulo}</div>}
         {vivo && <CuerpoGrafico g={c} estado={{ cargando: false, resultado: resultadoDeMuestra(c, hoy) }} tema={hoja.tema} />}
+        {/* El «Ver … →» del pie, como en la hoja (lib/graficos-destinos.ts). En la miniatura no se toca. */}
+        {destinoDe(c.ir) && <span className="lk-comp-ir">{destinoDe(c.ir)!.rotulo} →</span>}
       </div>
     );
   }
@@ -123,10 +127,14 @@ function Pieza({ c, hoja, vivo, hoy }: { c: Componente; hoja: Hoja; vivo: boolea
  * La página: el nombre de la hoja arriba (como su barra) y cada componente en su lugar. Lo que no entra en la
  * proporción de la tarjeta se corta abajo, como la miniatura de una landing (que muestra su primera sección).
  */
+/** Cada miniatura arranca en otro momento: juntas parecerían una sola animación, y son más caras en el mismo cuadro. */
+const demoraDe = (id: string) => [...id].reduce((s, ch) => (s * 31 + ch.charCodeAt(0)) % 41, 0) / 10;
+
 export function MiniaturaHoja({ hoja, proporcion = '16 / 10' }: { hoja: Hoja | null; proporcion?: string }) {
   const caja = useRef<HTMLDivElement>(null);
   const [escala, setEscala] = useState<number | null>(null);
   const [vivo, setVivo] = useState(false);
+  const [enVista, setEnVista] = useState(false);
   const [hoy, setHoy] = useState('');
 
   useEffect(() => {
@@ -137,12 +145,15 @@ export function MiniaturaHoja({ hoja, proporcion = '16 / 10' }: { hoja: Hoja | n
     setHoy(hoyLocal());
     const ro = new ResizeObserver(medir);
     ro.observe(nodo);
-    // Los cuerpos entran cuando la miniatura se ve, y se quedan.
+    // Los cuerpos entran cuando la miniatura se ve, y se quedan. El movimiento, sólo mientras se ve.
     const io = new IntersectionObserver((xs) => { if (xs.some((x) => x.isIntersecting)) { setVivo(true); io.disconnect(); } }, { rootMargin: '200px' });
     io.observe(nodo);
-    return () => { ro.disconnect(); io.disconnect(); };
+    const mira = new IntersectionObserver((xs) => setEnVista(xs.some((x) => x.isIntersecting)));
+    mira.observe(nodo);
+    return () => { ro.disconnect(); io.disconnect(); mira.disconnect(); };
   }, []);
 
+  const tiles = hoja && paletaDeEscena(hoja.tema) ? tilesDeComponentes(hoja.componentes) : null;
   const pagina: CSSProperties = {
     ...(hoja ? varsDeTema(hoja.tema) : {}),
     width: ANCHO_REF,
@@ -151,12 +162,11 @@ export function MiniaturaHoja({ hoja, proporcion = '16 / 10' }: { hoja: Hoja | n
   } as CSSProperties;
 
   return (
-    <div ref={caja} className="mh" style={{ aspectRatio: proporcion }}>
+    <div ref={caja} className="mh" style={{ aspectRatio: proporcion, '--mh-demora': `${demoraDe(hoja?.id ?? '')}s` } as CSSProperties} data-paleta={hoja ? paletaDeEscena(hoja.tema) : undefined} data-en-vista={enVista || undefined}>
       {hoja && (
         <div className="mh-pagina" style={pagina}>
-          <div className="mh-cabeza"><span aria-hidden>{hoja.emoji}</span> {hoja.nombre}</div>
           {hoja.componentes.map((c) => {
-            return <div key={c.id} className="mh-pos" style={lugarEnMiniatura(c)}><Pieza c={c} hoja={hoja} vivo={vivo && !!hoy} hoy={hoy} /></div>;
+            return <div key={c.id} className="mh-pos" style={lugarEnMiniatura(c)}><Pieza c={c} hoja={hoja} vivo={vivo && !!hoy} hoy={hoy} tile={tiles?.get(c.id)} /></div>;
           })}
         </div>
       )}
@@ -166,9 +176,17 @@ export function MiniaturaHoja({ hoja, proporcion = '16 / 10' }: { hoja: Hoja | n
 
 // Sin backticks acá adentro: es un template literal. Sólo tokens de la casa (se dan vuelta en oscuro).
 export const CSS_MINIATURA = `
+/* EN MOVIMIENTO (Martín, 1/11/2026: «las preview se deben ver en movimiento»). La tienda que copiamos usa videos grabados: acá la miniatura
+   ya es la hoja de verdad en chico, así que se le anima lo que ya está dibujado, sólo mientras se ve y cada una con su demora. */
+@keyframes mh-traza{0%{stroke-dashoffset:3000}30%,100%{stroke-dashoffset:0}}
+@keyframes mh-crece{0%{transform:scaleY(0)}24%,100%{transform:scaleY(1)}}
+@keyframes mh-aparece{0%{opacity:0}26%,100%{opacity:1}}
+.mh[data-en-vista] .recharts-line-curve,.mh[data-en-vista] .recharts-area-curve{stroke-dasharray:3000;animation:mh-traza 7s var(--ease,ease) var(--mh-demora,0s) infinite}
+.mh[data-en-vista] .recharts-area-area,.mh[data-en-vista] .recharts-pie-sector{animation:mh-aparece 7s ease-out var(--mh-demora,0s) infinite}
+.mh[data-en-vista] .recharts-bar-rectangle path{transform-box:fill-box;transform-origin:bottom;animation:mh-crece 7s var(--ease,ease) var(--mh-demora,0s) infinite}
+@media (prefers-reduced-motion: reduce){.mh[data-en-vista] *{animation:none !important}}
 .mh{position:relative;width:100%;overflow:hidden;background:var(--bg);border-radius:10px;pointer-events:none;user-select:none}
 .mh-pagina{position:absolute;left:0;top:0;transform-origin:top left;font-family:var(--dash-letra,inherit);color:var(--ink)}
-.mh-cabeza{position:absolute;left:24px;top:18px;right:24px;font-size:24px;font-weight:700;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
 .mh-pos{position:absolute;display:flex;min-width:0;min-height:0}
 .mh-pos > .lk-comp{min-height:0}
 .mh .gen-pieza{overflow:hidden}

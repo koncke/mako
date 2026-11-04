@@ -72,7 +72,7 @@ test('2. quien marca lo DICE y no ofrece «Deshacer» (sería desmarcar el cobro
   assert.match(marcar, /const \{ quitada, porLink, yaEstaba \} = await marcarPago\(pagoId, pagado, fechaPago\);\s*if \(yaEstaba\) return \{ quitada: false, yaEstaba: true \};/,
     'ya estaba: vuelve ANTES del historial');
   const deal = sinComentarios(leer('app/crm/[id]/deal-actions.ts'));
-  assert.match(deal, /const r = await cobrarCuota\(pagoId, leadId, datos\);\s*if \(r\.yaEstaba\) return \{ pendiente: null, porLink: null, yaEstaba: true \};/);
+  assert.match(deal, /const r = await cobrarCuota\(pagoId, leadId, datos\);\s*if \(r\.yaEstaba\) return \{ pendiente: null, pendienteEnSuMoneda: null, porLink: null, yaEstaba: true \};/);
   // Las cuatro listas que marcan desde afuera de la ficha: sin Deshacer cuando ya estaba.
   for (const [f, dice] of [
     ['app/general/Cobranza.tsx', "if (r.yaEstaba) show('Ya estaba cobrada');"],

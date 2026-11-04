@@ -191,7 +191,12 @@ test('las respuestas: texto libre, una opción, el código y «ahora no»', () =
   assert.deepEqual(leerRespuesta(tel, conTel, { opcion: 0 }), { ok: true, patch: { telefono: 'postergado' } });
   assert.equal(mensajesDeArranque(tel, conTel).antes.find((m) => m.id === 'arr-telefono')?.opciones?.[0], AHORA_NO);
   const cod = { ...tel, telefono: 'codigo' as const, telefonoNumero: '+5215512345678' };
-  assert.deepEqual(leerRespuesta(cod, conTel, { opcion: 0 }), { ok: true, patch: { telefono: undefined, telefonoNumero: undefined } });
+  // Cambiar el número también olvida que se pidió por mensaje entrante: el número nuevo se vuelve a pedir de cero.
+  assert.deepEqual(leerRespuesta(cod, conTel, { opcion: 0 }), { ok: true, patch: { telefono: undefined, telefonoNumero: undefined, telefonoEntrante: undefined } });
+  const entrante = { ...cod, telefonoEntrante: true };
+  assert.deepEqual(leerRespuesta(entrante, conTel, { opcion: 0 }), { ok: true, patch: { telefono: undefined, telefonoNumero: undefined, telefonoEntrante: undefined } });
+  const tipeado = leerRespuesta(entrante, conTel, { texto: 'ABC123' });
+  assert.equal(tipeado.ok, false, 'con el mensaje entrante el código no se tipea en la app');
   assert.equal(mensajesDeArranque(cod, conTel).antes.find((m) => m.id === 'arr-codigo')?.opciones?.[0], CAMBIAR_NUMERO);
 });
 

@@ -23,7 +23,7 @@ import { RedDeBloque } from '@/app/dashboard/RedDeBloque';
 import { sanearTema, varsDeTema } from '@/lib/graficos-temas';
 import type { BloqueGrafico } from '@/lib/chat-bloques-dashboard';
 
-const TEMA = sanearTema(null);
+const TEMA = sanearTema({ plantilla: 'vieja' });
 
 const CSS = `
 .ch-grafico{padding:12px 14px 10px}

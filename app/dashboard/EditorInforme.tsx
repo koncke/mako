@@ -88,7 +88,8 @@ import ReactGridLayout, { useContainerWidth, verticalCompactor, type Layout } fr
 import { absoluteStrategy } from 'react-grid-layout/core';
 import 'react-grid-layout/css/styles.css';
 import { Banner, Modal, Toast, useToast } from '@/app/_ui';
-import { useWs } from '@/app/_ui/Link';
+import Link, { useWs } from '@/app/_ui/Link';
+import { destinoDe } from '@/lib/graficos-destinos';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
@@ -104,20 +105,22 @@ import {
   sanearComponente, sanearControlVista, sanearControles, sanearElemento, tituloDe, tonoDe,
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
-import { colorDeTono, estiloEfectivo, letrasDe, paletaDe, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
+import { acentoDePortada, colorDeTono, estiloEfectivo, letrasDe, paletaDe, paletaDeEscena, pintaPortada, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
+import { CSS_CORBEL } from '@/lib/graficos-corbel';
 import { FILAS_PORTADA_EN_PILA, acentoDeBloque, marcoDePortada } from '@/lib/graficos-identidad';
 import { conHojaAgregada } from '@/lib/graficos-plantillas';
 import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
 import { useGeneral } from './ElementoGeneral';
 import { RedDeBloque } from './RedDeBloque';
 import { PestanasDashboard } from './PestanasDashboard';
+import { acomodoPorAncho } from '@/lib/graficos-acomodo';
 import { PARAM_PLANTILLAS, pestanasDelDashboard, type HojaCorta, type InformeDashboard } from '@/lib/dashboard-focus';
 import { aGuardado, aVista, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, type GrupoSeccion } from '@/lib/graficos-secciones';
 import { conectorNuevo, puedeConectar, sinConectoresDe } from '@/lib/graficos-conectores';
 import type { Resultado } from '@/lib/graficos-agregar';
 import type { DatosGrafico } from '@/lib/graficos-datos';
 import { accionInicial, entidadDeGrafico, piezaInicial, type SelDetalle } from '@/lib/graficos-acciones';
-import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, type EstadoDatos } from './Grafico';
+import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, tilesDeComponentes, type EstadoDatos } from './Grafico';
 import { CuerpoElemento, IconoElemento, PropsElemento, type ContextoElemento } from './Elemento';
 import { CrearHoja, NuevaHoja } from './NuevaHoja';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
@@ -506,6 +509,8 @@ export function EditorInforme({
   const estilo = useMemo(() => estiloEfectivo(hoja.tema), [hoja.tema]);
   const colores = useMemo(() => paletaDe(hoja.tema), [hoja.tema]);
   const varsTema = useMemo(() => varsDeTema(hoja.tema) as CSSProperties, [hoja.tema]);
+  const paleta = paletaDeEscena(hoja.tema);
+  const tiles = useMemo(() => (paleta ? tilesDeComponentes(hoja.componentes) : null), [paleta, hoja.componentes]);
 
   // ── Deshacer / rehacer (y Ctrl+Z / Ctrl+Y, sólo editando y nunca debajo de un recorrido) ─────────
   const pila = usePilaDeshacer<Tablero>((estado) => {
@@ -1058,10 +1063,12 @@ export function EditorInforme({
     if (!editando) for (const c of lienzo.componentes) if (esGrafico(c) && c.ocultarSiCero && ocultaSiCero(c, datos[c.id] ?? { cargando: true })) out.add(c.id);
     return out;
   }, [noSePiden, editando, lienzo.componentes, datos]);
-  const layout: Layout = useMemo(
-    () => aVista(layoutGuardado.filter((it) => !noSeDibujan.has(it.i) || noSePiden.has(it.i)), grupos, plegadas),
-    [layoutGuardado, noSeDibujan, noSePiden, grupos, plegadas],
-  );
+  // El acomodo según el ancho (lib/graficos-acomodo.ts): se calcula al dibujar y nunca se guarda. Editando, el de verdad, que es el que se edita.
+  const numerosDeLaHoja = useMemo(() => new Set(lienzo.componentes.filter((c) => esGrafico(c) && esTarjetaNumero(c.tipo)).map((c) => c.id)), [lienzo.componentes]);
+  const layout: Layout = useMemo(() => {
+    const visto = aVista(layoutGuardado.filter((it) => !noSeDibujan.has(it.i) || noSePiden.has(it.i)), grupos, plegadas);
+    return editando || imprimiendo ? visto : acomodoPorAncho(visto, width, (id) => numerosDeLaHoja.has(id));
+  }, [layoutGuardado, noSeDibujan, noSePiden, grupos, plegadas, editando, imprimiendo, width, numerosDeLaHoja]);
   const visibles = useMemo(() => lienzo.componentes.filter((c) => !noSeDibujan.has(c.id)), [lienzo.componentes, noSeDibujan]);
   const fondos = useMemo(() => fondosDe(grupos, plegadas), [grupos, plegadas]);
   const cajasDibujadas = useMemo(() => new Map(layout.map((it) => [it.i, { x: it.x, y: it.y, w: it.w, h: it.h }] as const)), [layout]);
@@ -1227,7 +1234,7 @@ export function EditorInforme({
     // 3 × 6 (alto para acompañar al embudo en el escritorio) eran 276 px de celular para un número.
     // La PORTADA (lib/graficos-identidad.ts): la tarjeta se pinta con su color —el de la hoja, si eligió uno (#859)—; en la
     // pila mide menos que en el escritorio.
-    const portada = marcoDePortada(c, hoja.tema.acento);
+    const portada = pintaPortada(c, hoja.tema) ? marcoDePortada(c, acentoDePortada(hoja.tema)) : null;
     const alto: CSSProperties = enPila ? (altoLibre ? { height: 'auto', minHeight: altoDe(Math.min(c.h, 3)) } : { height: altoDe(portada ? Math.min(c.h, FILAS_PORTADA_EN_PILA) : c.h) }) : {};
     // #859: lo que un bloque de General pinta RELLENO (barras, botones, los números del Plan) toma el color de la hoja
     // (`--gb-acento`, app/general/bloques/comun.tsx). Los links de texto siguen en `--primary`: un acento claro sobre la
@@ -1274,7 +1281,7 @@ export function EditorInforme({
     // lo ancho, no de a dos como los otros números.
     // La INVERTIDA no se da vuelta sobre una portada (que ya trae su propio fondo y su tinta): dos
     // inversiones encimadas no son más jerarquía, son un fondo que pelea con el otro.
-    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', enPila && solosPila.has(c.id) && 'lk-comp--solo', kpi && !portada && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && !portada && 'lk-comp--filete', c.invertida && !portada && 'lk-comp--invertida', portada?.clase, (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
+    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', enPila && solosPila.has(c.id) && 'lk-comp--solo', kpi && !portada && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && !portada && 'lk-comp--filete', c.invertida && !portada && 'lk-comp--invertida', c.tipo === 'frase' && !portada && 'lk-comp--frase', portada?.clase, (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
     // La barra de búsqueda de una tabla (interfaz I2): lo escrito va a la VISTA, en el control de su barra
     // (`idBusquedaDe`/`conBusqueda`, ./exportar.ts). Sin ese control (sobre el campo ya hay otro filtro), no hay barra.
     const conBarra = !!c.tabla?.buscar && !!idBusquedaDe(c);
@@ -1282,7 +1289,7 @@ export function EditorInforme({
     // número, no (son listas de personas: /api/graficos le contesta 403).
     const popupDelCloser = soloLectura && !compartido && !editando && c.alClic === 'popup' && c.popup ? (s: SelDetalle) => abrirPopup(c, s) : undefined;
     return (
-      <div key={c.id} data-comp={c.id} className={clases} style={{ ...base, ...(tono ? { '--lk-filete': tono } : {}) } as CSSProperties} onClick={alClic} data-forma={portada?.forma}
+      <div key={c.id} data-comp={c.id} className={clases} style={{ ...base, ...(tono ? { '--lk-filete': tono } : {}) } as CSSProperties} onClick={alClic} data-forma={portada?.forma} data-tile={tiles?.get(c.id)}
         data-recorrido={c.id === primerGrafico ? (editando ? 'dash-componente' : 'dash-grafico') : undefined}>
         <div className="lk-comp-cab">
           <div className="lk-comp-tit">
@@ -1335,6 +1342,15 @@ export function EditorInforme({
           // `est` es un objeto nuevo en cada render).
           return <RedDeBloque nombre={tituloDe(c)} reiniciarCon={[c, datos[c.id]]}>{conAcciones}</RedDeBloque>;
         })()}
+        {/* El «Ver … →» del pie (lib/graficos-destinos.ts): la tab donde se TRABAJA este número. Editando no navega (se está
+            acomodando la hoja), y en un link compartido no va: sin sesión, la tab no abre. */}
+        {(() => {
+          const d = destinoDe(c.ir);
+          if (!d || compartido) return null;
+          return editando
+            ? <span className="lk-comp-ir">{d.rotulo} →</span>
+            : <Link className="lk-comp-ir lk-no-arrastrar" href={d.ruta} onClick={(e) => e.stopPropagation()}>{d.rotulo} →</Link>;
+        })()}
       </div>
     );
   };
@@ -1352,25 +1368,9 @@ export function EditorInforme({
     .map((h) => ({ id: h.id, nombre: h.nombre, emoji: h.emoji }));
   const pestanas = unido ? (esGeneral ? pestanasDelDashboard(propias, unido.otras) : pestanasDelDashboard(unido.otras, propias)) : null;
 
-  return (
-    <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`} onContextMenu={alClicDerecho}>
-      <span ref={anclaContextual} aria-hidden style={{ position: 'fixed', left: 0, top: 0, width: 0, height: 0, pointerEvents: 'none' }} />
-      {lecturaFallo && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local">No pude leer tu informe. Los cambios no se guardan.</Banner></div>}
-      {conflicto && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local" accion={{ label: 'Recargar', onClick: recargar }}>Cambió en otra pestaña. Lo de aquí no se guarda.</Banner></div>}
-
-      {/* ── Arriba de todo, el Dashboard unido: «Focus», las hojas y «Templates» (./PestanasDashboard.tsx) ── */}
-      {pestanas && (
-        <PestanasDashboard pestanas={pestanas} actual={hoja.id} informe={informeGeneralODashboard} onIr={irAHoja}
-          onTemplates={esGeneral || !guardable ? null : () => { setMenu(null); setNuevaHoja(true); }} />
-      )}
-
-      {/* ── La topbar, como la de Looker: el título de la hoja (con su desplegable) y a la derecha los
-             filtros, Compartir, Editar y el ⋮ ── */}
-      <BarraSuperior
-        hoja={hojaTop} propia={cabeceraPropia ? { izquierda: cabeceraPropia.izquierda, titulo: cabeceraPropia.titulo } : null} editable={guardable && !enBlanco} conHojas={enBlanco ? guardable && !!tablero.archivadas?.length : puedeNuevaHoja || tablero.hojas.length > 1 || (guardable && !!tablero.archivadas?.length)}
-        hojasAbierto={menu?.tipo === 'hojas'} emojiAbierto={menu?.tipo === 'emoji'} periodo={periodoDeHoja(hojaTop, vista, hoy)}
-        onHojas={(ancla) => alternarMenu('hojas', ancla)} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera}
-        derecha={(
+  const conHojas = enBlanco ? guardable && !!tablero.archivadas?.length : puedeNuevaHoja || tablero.hojas.length > 1 || (guardable && !!tablero.archivadas?.length);
+  /** Lo de la derecha de la barra: la búsqueda, los filtros, Editar y el ⋮. */
+  const herramientas = (
           <>
             {/* La búsqueda y los filtros de la hoja, SIEMPRE a la vista (punto 7); agregarlos y quitarlos, sólo editando.
                 EN GENERAL TAMBIÉN desde el 17/10/2026 (#858, Martín en la revisión del 16/10, 1:10:12: «al momento de crear
@@ -1416,8 +1416,38 @@ export function EditorInforme({
               </button>
             )}
           </>
-        )}
-      />
+  );
+
+  return (
+    <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`} onContextMenu={alClicDerecho} data-paleta={paleta}>
+      <span ref={anclaContextual} aria-hidden style={{ position: 'fixed', left: 0, top: 0, width: 0, height: 0, pointerEvents: 'none' }} />
+      {lecturaFallo && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local">No pude leer tu informe. Los cambios no se guardan.</Banner></div>}
+      {conflicto && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local" accion={{ label: 'Recargar', onClick: recargar }}>Cambió en otra pestaña. Lo de aquí no se guarda.</Banner></div>}
+
+      {/* ── La barra: con el Dashboard unido, UNA fila con los chips y las herramientas, sin el título de la hoja (./Cabecera.tsx).
+             Editando vuelve la fila del título, que es donde se cambia. Sin chips (el closer, un link), la topbar de siempre. ── */}
+      {pestanas && !cabeceraPropia ? (
+        <>
+          <BarraSuperior
+            hoja={hojaTop} editable={false} conHojas={false} hojasAbierto={false} emojiAbierto={false} periodo={periodoDeHoja(hojaTop, vista, hoy)}
+            propia={{
+              titulo: hojaTop.nombre, detalle: hojaTop.subtitulo,
+              izquierda: <PestanasDashboard pestanas={pestanas} actual={hoja.id} informe={informeGeneralODashboard} onIr={irAHoja} conMenu={conHojas}
+                puedeNueva={puedeNuevaHoja && !enBlanco} menuAbierto={menu?.tipo === 'hojas'} onMenu={(ancla) => alternarMenu('hojas', ancla)} detalleActual={hojaTop.subtitulo} />,
+            }}
+            onHojas={() => {}} onEmoji={() => {}} onCambiar={cambiarCabecera} derecha={herramientas} />
+          {editando && !enBlanco && (
+            <BarraSuperior hoja={hojaTop} editable={guardable} conHojas={false} hojasAbierto={false} emojiAbierto={menu?.tipo === 'emoji'} periodo={periodoDeHoja(hojaTop, vista, hoy)}
+              onHojas={() => {}} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera} derecha={null} />
+          )}
+        </>
+      ) : (
+        <BarraSuperior
+          hoja={hojaTop} propia={cabeceraPropia ? { izquierda: cabeceraPropia.izquierda, titulo: cabeceraPropia.titulo } : null} editable={guardable && !enBlanco} conHojas={conHojas}
+          hojasAbierto={menu?.tipo === 'hojas'} emojiAbierto={menu?.tipo === 'emoji'} periodo={periodoDeHoja(hojaTop, vista, hoy)}
+          onHojas={(ancla) => alternarMenu('hojas', ancla)} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera}
+          derecha={herramientas} />
+      )}
 
       {/* ── La barra de edición: DEBAJO de la topbar (la topbar no se mueve al apretar Editar), en el orden
              de la de Looker. Agregar un filtro está en la topbar, al lado de los filtros (sólo editando). ── */}
@@ -1506,7 +1536,7 @@ export function EditorInforme({
               // pongas ahí el "¿Qué vas a crear hoy?"». La caja y, abajo, las plantillas como páginas: la portada del Landing
               // Generator. Es la MISMA pieza que el modal «Nueva hoja» (`CrearHoja`, ./NuevaHoja.tsx), sin foco al abrir.
               <div className="lk-en-blanco lk-en-blanco-crear" onClick={(e) => e.stopPropagation()}>
-                {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informeGeneralODashboard} senales={senales} />}
+                {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informeGeneralODashboard} senales={senales} conTodas={!!unido} />}
               </div>
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
@@ -1674,11 +1704,11 @@ export function EditorInforme({
           </div>
         </Flotante>
       )}
-      {/* El desplegable del título: «Nueva hoja» primera, y las hojas (punto 1). */}
+      {/* El desplegable de las hojas: «Nueva hoja» primera, y las hojas (punto 1). */}
       {menu?.tipo === 'hojas' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300}>
           <MenuHojas
-            hojas={enBlanco ? [] : tablero.hojas} activa={hoja.id} puedeNueva={puedeNuevaHoja && !enBlanco}
+            hojas={enBlanco ? [] : tablero.hojas} otras={pestanas?.filter((p) => p.informe !== informeGeneralODashboard) ?? []} activa={hoja.id} puedeNueva={puedeNuevaHoja && !enBlanco} informe={informeGeneralODashboard}
             acciones={guardable ? { onRenombrar: renombrarHoja, onDuplicar: duplicarHoja, onCopiar: copiarHoja, onMover: moverHoja, onEliminar: eliminarHoja } : null}
             archivadas={guardable ? tablero.archivadas ?? [] : []}
             onRestaurar={(id) => { setMenu(null); restaurarHoja(id); }}
@@ -1726,7 +1756,7 @@ export function EditorInforme({
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
       {modalDatos && <ModalDatos onElegir={anadirFuente} onCerrar={cerrarModalDatos} soloFuentes={esGeneral ? FUENTES_GENERAL : undefined} />}
-      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} senales={senales} />}
+      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} senales={senales} conTodas={!!unido} />}
       {gDetalle && esGrafico(gDetalle) && detalle && (
         <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivosHoja[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
           onCerrar={cerrarDetalle} onCambio={refrescar} onFiltrar={filtrarPor} />
@@ -1744,6 +1774,7 @@ export function EditorInforme({
       <Toast state={toast} onClose={clear} />
       <style>{CSS}</style>
       <style>{CSS_EDICION}</style>
+      <style>{CSS_CORBEL}</style>
     </div>
   );
 }

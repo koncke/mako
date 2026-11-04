@@ -79,11 +79,65 @@ test('la caché es por negocio, un «no está» de Meta dura poco, y la platafor
 });
 
 // rotura (el alta no pregunta a Apify): 1 fallo. rotura (Offer sin el negocio): 1 fallo.
+// El buscador de Competitors Spy (3/11/2026). Roturas en docs/hallazgos-competitors-spy.md.
+test('la misma persona se paga una vez aunque cambie la lista de fuentes, y sólo dentro del negocio', () => {
+  assert.equal(aApify(r.leeElBuscador).length, 1);
+  assert.equal(r.leeElBuscador.fuente, 'apify-spy');
+  assert.deepEqual(aApify(r.leeLaVista), [], 'la vista previa no vuelve a pagar lo que el buscador ya leyó');
+  assert.equal(r.leeLaVista.ok, true);
+  assert.equal(aApify(r.otroNegocio).length, 1, 'otro negocio no lee de la caché de éste');
+  assert.equal(aApify(r.quienPidePiezas).length, 1, 'una lectura sin piezas no le contesta a quien las pide');
+});
+
+test('la reserva frena antes del cupo de la clave de Spy, y no le tapa nada a quien no la tiene', () => {
+  const x = r as unknown as { topeLecturasSpy: number };
+  assert.ok(x.topeLecturasSpy > APIFY_TOPE_POR_DIA, 'la clave de Spy tiene su propio cupo, más ancho');
+  assert.deepEqual(aApify(r.conReservaFrena), [], 'con el cupo menos la reserva ya gastado, no sale');
+  assert.equal(r.conReservaFrena.motivo, 'limite');
+  assert.equal(aApify(r.sinReservaLee).length, 1, 'el «limite» de arriba no se cachea para quien la pidió con un clic');
+  assert.equal(r.sinReservaLee.ok, true);
+  assert.equal(aApify(r.conReservaAunLee).length, 1, 'con una menos todavía hay margen: el freno es exacto');
+});
+
+test('las búsquedas por nombre tienen SU cupo: agotarlo no deja sin leer un @ (4/11/2026)', () => {
+  const x = r as unknown as { busquedasDelDia: number; topeBusquedasSpy: number; topeAgotadoAntes: boolean; topeAgotadoDespues: boolean };
+  assert.equal(x.busquedasDelDia, x.topeBusquedasSpy);
+  assert.equal(x.topeAgotadoAntes, false);
+  assert.equal(x.topeAgotadoDespues, true);
+  assert.equal(aApify(r.leerConBusquedasAgotadas).length, 1, 'gastadas las búsquedas, una lectura igual sale');
+  assert.equal(r.leerConBusquedasAgotadas.ok, true);
+});
+
+test('varias filas en UNA corrida: cada perfil cuenta, y lo leído no se vuelve a pagar', () => {
+  const x = r as unknown as { loteCorridas: number; loteOk: string[]; loteContadas: number; loteRepetidoCorridas: number; loteConReservaOk: number; loteConReservaLimite: number };
+  assert.equal(x.loteCorridas, 1, 'tres usuarios, una corrida');
+  assert.deepEqual(x.loteOk, ['lote_a', 'lote_b']);
+  assert.equal(x.loteContadas, 3, 'cada perfil pedido cuenta una lectura del cupo');
+  assert.deepEqual(aApify(r.despuesDelLote), [], 'la confirmación encuentra lo que leyó el lote: no se paga dos veces');
+  assert.equal(r.despuesDelLote.ok, true);
+  assert.equal(x.loteRepetidoCorridas, 0, 'pedir otra vez lo ya leído no sale a la red');
+  assert.equal(x.loteConReservaOk, 1, 'con un solo lugar antes de la reserva entra uno');
+  assert.equal(x.loteConReservaLimite, 2, 'y los otros vuelven como «limite», sin pasarse del cupo');
+});
+
 test('el alta de un lead y Offer usan LA misma función (sin copiarla)', () => {
   const alta = sinComentarios(leer('app/api/crm/instagram-buscar/route.ts'));
   assert.match(alta, /import \{ leerPerfilInstagram \} from '@\/lib\/instagram-perfil-server';/);
-  assert.match(alta, /if \(!meta\.perfiles\.length && !google\?\.perfiles\.length\) \{[\s\S]{0,200}leerPerfilInstagram\(u, \{ ws, fuentes: \['meta-plataforma', 'apify'\] \}\)/);
+  // ⚠️ 2/11/2026 — ESTA LÍNEA PEDÍA LA LISTA EXACTA `['meta-plataforma', 'apify']` Y SE PUSO ROJA
+  // al sumarle `'apify-spy'` (run #360). El rojo era correcto: la lista cambió. Pero fijar el array
+  // entero convierte cualquier fuente NUEVA en un fallo, y lo que este test cuida es otra cosa —que
+  // el alta llame a LA función compartida en vez de copiarla—. Ahora se piden las dos condiciones
+  // que importan: que la llamada esté en el respaldo, y que pruebe las DOS claves de Apify, porque
+  // `apify` lee `APIFY_TOKEN` (que no está en ningún negocio) y la que hoy existe la prueba
+  // `apify-spy`. Ver `tests/crm-instagram-clave-de-spy.test.ts` y docs/hallazgos-crm.md.
+  const respaldo = /if \(!meta\.perfiles\.length && !google\?\.perfiles\.length\) \{[\s\S]{0,200}leerPerfilInstagram\(u, \{ ws, fuentes: \[([^\]]*)\] \}\)/.exec(alta);
+  assert.ok(respaldo, 'el alta tiene que leer el perfil por @ exacto cuando ni Meta ni Google trajeron nada');
+  assert.match(respaldo[1], /'meta-plataforma'/);
+  assert.match(respaldo[1], /'apify'/);
+  assert.match(respaldo[1], /'apify-spy'/);
   const offer = sinComentarios(leer('app/api/offer/route.ts'));
   assert.match(offer, /const perfil = await leerPerfilInstagram\(ig, \{ ws: await getWorkspaceActual\(\) \}\);/);
-  assert.doesNotMatch(leer('lib/instagram-perfil-server.ts'), /export async function leerPerfil(?!Instagram)/, 'una sola función exportada que lee');
+  // Una sola función que lee UN perfil. `leerPerfilesEnLote` (4/11/2026) es otra capacidad —varios en una corrida— y
+  // comparte la caché y el lector de la respuesta: no es una copia.
+  assert.doesNotMatch(leer('lib/instagram-perfil-server.ts'), /export async function leerPerfil(?!Instagram|esEnLote)/, 'una sola función exportada que lee');
 });

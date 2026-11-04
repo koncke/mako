@@ -55,12 +55,24 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Chatear con MaKo: preguntar, pedir cosas y aprobar lo que propone sin salir del hilo',
       'Juntar las conversaciones con MaKo de cada tab',
       'El Second Brain: tu oferta, tus clientes, tu funnel y tu mensaje conectados en un mapa, con lo que cargaste y lo que MaKo dedujo',
-      'Aprender solo de tus conversaciones de WhatsApp con leads, si lo prendes',
+      // ⚠️ EL NOMBRE DE PANTALLA VA TEXTUAL, y es el ticket #45 (3/11/2026). Leila Fittipaldi pidió
+      // «activa la función "Aprende solo" en el Second Brain» y MaKo le contestó **que no existe**
+      // —existe desde el 25/10, es el botón de la cabecera del Mapa (app/second-brain/AprendeSolo.tsx)—.
+      // La entrada decía «Aprender solo», en infinitivo, y la búsqueda es por palabras: nunca
+      // emparejó con lo que la clienta escribió. La regla: **el catálogo usa el nombre que la
+      // persona LEE en la pantalla**, no una forma parecida; si no, MaKo niega lo que sí tiene.
+      '«Aprende solo» (el botón de la cabecera del Mapa): aprender solo de tus conversaciones de WhatsApp con leads, si lo prendes, y ver de qué fuentes aprende, cuándo fue la última vez y cuánto entró',
+      // El ticket #44 (3/11/2026): una clienta pegó su documento maestro en el chat y MaKo le dijo que no tenía cómo
+      // guardarlo. El nombre va TEXTUAL, el de la tarjeta que confirma la persona.
+      '«Sumar un documento al Second Brain»: le pegas o adjuntas un documento en el chat (un texto, un .docx), MaKo lo guarda en El Archivero, saca lo que va en tu perfil y te lo muestra antes de que digas que sí',
+      // Ticket #48 (3/11/2026): «¿dónde actualizo mis datos?» y MaKo no sabía la pantalla. Los nombres, los de pantalla
+      // (lib/secciones-negocio.ts, DATOS_DEL_NEGOCIO; tests/mako-no-puedo-falsos.test.ts los busca en AreasHub y AREAS).
+      'Corregir los datos de tu negocio en el mapa: en «La oferta» → «El brief», el precio, qué incluye y el horario de tu oferta principal (tocas el dato y lo corriges); en «La oferta» → «La oferta», tus ofertas; en «Productos», el catálogo con su precio',
       'Hablar primero: la primera vez te pregunta qué te falta (hoy, conectar tu IA), con botones que andan sin la app',
       'Enseñarte la pestaña señalando, con el resto un poco opaco y el chat a la vista (el «?» de arriba)',
     ],
     noHace: ['No es el chat con tus leads: eso es Chats', 'Todavía no: la guía señalando en las otras pestañas ni con tu IA (por ahora, sólo el Ops Center y sin IA)'],
-    alias: ['ops center', 'second brain', 'segundo cerebro', 'cerebro', 'mapa', 'grafo', 'chat con mako'],
+    alias: ['ops center', 'second brain', 'segundo cerebro', 'cerebro', 'mapa', 'grafo', 'chat con mako', 'mis datos', 'datos del negocio', 'el brief'],
     conecta: [{ a: 'crm', motivo: 'Lo que sabe de tus clientes sale del CRM' }, { a: 'offer', motivo: 'Tu oferta vive en Offer y el mapa la muestra' }],
     estado: 'lista', slugDev: 'second-brain', fuentes: [AREAS, 'docs/diseno-second-brain-grafo.md'],
   },
@@ -147,6 +159,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     que: 'Las automatizaciones que conversan por ti: un agente que contesta por WhatsApp, email, Instagram y Messenger, le recuerda la reunión al lead, lo mueve de etapa y te lo pasa cuando hace falta una persona.',
     hace: [
       'Crear una automatización desde la galería de plantillas',
+      // Ticket #47 (3/11/2026): MaKo decía que sólo podía activar o pausar. crear_automatizacion_con_ia la arma desde un pedido.
+      'Crear una secuencia nueva pidiéndosela a MaKo en palabras, con su disparador (una etapa, una etiqueta que se le agrega al lead o un evento): nace pausada',
       'Ramas, condiciones, horarios, etiquetas y acciones',
       'Recordarle al lead la reunión agendada',
       'Secuencias de nutrición que MaKo escribe en la voz del negocio',
@@ -187,14 +201,16 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     que: 'Tu oferta, trabajada en un chat: MaKo te pregunta por cada pieza, la diagnostica con una rúbrica y escribe la oferta nueva, descargable en PDF.',
     hace: ['Preguntarte por cada pieza de la oferta', 'Diagnosticarla con una rúbrica', 'Escribir la oferta nueva y descargarla en PDF', 'Proponer probar un cambio como experimento'],
     alias: ['offer', 'oferta', 'propuesta de valor', 'precio', 'garantia', 'bonos'],
-    conecta: [{ a: 'landing-writer', motivo: 'La landing vende la oferta' }, { a: 'crm', motivo: 'Los productos y sus precios' }],
+    // Ticket #46 (3/11/2026): «precio» lleva acá, y el precio no se corrige en Offer: se corrige en el Second Brain.
+    noHace: ['No es donde se corrige el precio, qué incluye o el horario: eso es el Second Brain, en «La oferta» → «El brief»'],
+    conecta: [{ a: 'landing-writer', motivo: 'La landing vende la oferta' }, { a: 'crm', motivo: 'Los productos y sus precios' }, { a: 'mako', motivo: 'El precio y lo que incluye se corrigen en el Second Brain, en «La oferta» → «El brief»' }],
     estado: 'parcial', slugDev: 'offer-analyst', fuentes: [AREAS],
   },
   {
     keys: ['market-an'],
     que: 'Lo que hacen tus competidores, en un solo lugar: sumas a cada uno con sus canales y MaKo lee su sitio, su Instagram y su YouTube, con los números que pudo medir. Una lectura que falló se dice, nunca es un cero.',
     hace: ['Sumar competidores con sus canales', 'Leer su sitio, su Instagram y su YouTube', 'Guardar los anuncios que pegues', 'Decir desde cuándo está a la vista cada pieza, desde que MaKo la vio'],
-    noHace: ['Todavía no: revisar solo todos los días (hoy se aprieta «Revisar ahora»)', 'Todavía no: traer los anuncios de Meta sin pegarlos', 'Todavía no: analizar sus ángulos y ganchos contra tu oferta'],
+    noHace: ['Todavía no: revisar solo todos los días (lee al agregar y al abrir la ficha)', 'Todavía no: traer los anuncios de Meta sin pegarlos', 'Todavía no: analizar sus ángulos y ganchos contra tu oferta'],
     alias: ['competitor spy', 'competitors spy', 'competencia', 'competidores', 'espiar a la competencia', 'market analyst'],
     conecta: [{ a: 'ads-writer', motivo: 'Lo que le funciona a la competencia alimenta tus anuncios' }, { a: 'landing-writer', motivo: 'Replicar la landing de un competidor' }],
     estado: 'parcial', slugDev: 'competitor-spy', fuentes: [AREAS, 'docs/diseno-competitors-spy.md'],
@@ -329,6 +345,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     keys: ['partners', 'agency'],
     que: 'MaKo Partners y Agency Dashboard: los referidos que traes a MaKo y, si te sumas como agencia con el plan Pro, las cuentas de MaKo de tus clientes.',
     hace: ['Ver tus referidos', 'Sumarte como agencia (con el plan Pro activo)', 'Las cuentas de MaKo de tus clientes'],
+    // 4/11/2026: el teléfono no vende, y éstas existen para vender MaKo a otros (lib/tienda.ts → TABS_QUE_VENDEN).
+    noHace: ['No están en el teléfono: se usan en la computadora'],
     alias: ['partners', 'referidos', 'agency', 'agencia'],
     estado: 'parcial', fuentes: ['app/_components/nav.ts'],
   },

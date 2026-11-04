@@ -17,6 +17,12 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **MaKo no le escribe primero a nadie, y una línea que WhatsApp frena se calla sola** (4/11/2026). El código del onboarding lo manda la
+  persona por `wa.me`; la invitación por DM y el mensaje a una persona salen sólo a quien escribió; y un «rate-overlimit», 463 o 403
+  frena la línea y avisa por mail. Ver «Para que no nos vuelvan a banear», abajo, con la tabla de cada envío.
+- **Un jid de una persona nunca sale por la voz, y el bot no tiene línea por defecto** (3/11/2026): la voz es el WhatsApp personal de Martín, y ahí contestaría a su familia. Todo lo que MaKo le manda a una persona pasa por `lib/mako-salida.ts`, que mira las 24 horas. Ver «Los avisos en el teléfono y el bot 1 a 1», abajo.
+- **WhatsApp baneó la línea de MaKo, y no fue por volumen** (3/11/2026). Evolution reintenta solo todo menos 401, 402, 403 y 406, y desde el servidor un ban y un
+  cambio de teléfono se ven igual: lo dice el teléfono. Nunca se mueve ese tráfico a otra línea. Ver «WhatsApp BANEÓ la línea de MaKo», abajo.
 - **Un fallo de producción se ubica contra el PUSH antes de diagnosticarlo** (29/10/2026). La nota de voz de Leandro que «Groq no
   escuchó» llegó 45 s antes de que Groq estuviera subido: la atendió la versión de antes. Ver «MaKo con Leandro, 28 y 29/10», abajo.
 - **«No guarda contexto» era el TURNO, no la memoria** (26/10/2026). El modelo veía la charla, pero la intención y las
@@ -53,6 +59,259 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## Para que no nos vuelvan a banear: la persona escribe primero y la línea frena sola (4/11/2026, nube)
+
+Martín, el 4/11, con la línea desbaneada: *«Ya nos desbanearon la cuenta de whatsapp, implementa medidas para que no nos baneen, por
+ejemplo, en el onboarding, en lugar de nosotros enviarle un codigo de seguridad, pedirles que ellos nos envien un mensaje primero y ahí
+enviarles su codigo... O algo así, revisa todo.»*
+
+**Vive en:** `lib/mako-salida-reglas.ts` (las reglas, puras) · `lib/verificacion-entrante.ts` (el código entrante, puro) ·
+`lib/linea-freno.ts` (el freno de todas las líneas) · `lib/mako-grupo.ts` (`pedirMensajeDeVerificacion`, `confirmarPorMensajeEntrante`,
+`enviarTextoVozMaKo`, `enviarInvitacionGrupo`, `cupoAltaDeLinea`) · `app/api/webhooks/evolution/route.ts` · `app/onboarding/ChatArranque.tsx`
+(`TarjetaWhatsapp`) · `app/automations/OnboardingChatAgent.tsx` · `lib/mfa-reglas.ts` · `tests/whatsapp-anti-ban.test.ts`.
+
+### Qué cambió
+
+- **El onboarding ya no le escribe a nadie.** La pantalla da un link `wa.me` a la línea de MaKo con el texto escrito («Hola MaKo, mi
+  código es K7P2QX»). La persona lo manda; el webhook lo lee antes que el bot y que el espejo del inbox, y confirma el número de QUIEN
+  LO MANDÓ. MaKo no contesta nada por WhatsApp: la conversación sigue sola en la app (pregunta cada 4 s). Recién confirmado, el dueño entra
+  al grupo. Vale para los tres caminos: el chat de arranque, `/api/onboarding` (`contacto-*`) y la prueba de Automations.
+- **El 2FA nunca manda un código por WhatsApp**, aunque alguien lo sume a `CANALES_CODIGO` (`canalDisponible`). Ya estaba apagado (tanda
+  1); ahora no se puede prender por error. Nadie queda afuera: la app de autenticación, la llave de acceso y los códigos de recuperación no
+  dependen de WhatsApp, y el correo de respaldo sigue siendo el camino de la tanda 2 (por una automatización del SuperAdmin, sin construir).
+- **Las seis reglas, en un lugar** (`lib/mako-salida-reglas.ts`): no escribirle primero a quien nunca escribió; sin invitación por DM a
+  un desconocido (ahora tampoco con `mako.grupos.automatico` en `si`); altas con tope (nuevo: 10 por día por línea); ritmo con variación
+  y el mismo texto a no más de 5 chats por hora por la línea de MaKo; sin links en el primer mensaje a quien no escribió; y el freno.
+- **El freno** (`lib/linea-freno.ts`): si Evolution contesta «rate-overlimit», 463 o 403 a una escritura, la línea frena sola (30 min,
+  24 h y 6 h) y se avisa UNA vez por mail (`avisarPorEmail`) al equipo de MaKo y a los destinatarios del negocio de esa línea. Mientras
+  tanto, ninguna escritura de esa línea llega a Evolution; leer sigue andando. El motor de los clientes la saltea y reprograma lo que
+  tocaba para la hora del freno (no 24 h después).
+
+### La tabla: cada envío por la línea de MaKo (relevado sobre `5aaf3d69`)
+
+| Qué manda | A quién | ¿Esa persona ya le escribió? | Qué cambió el 4/11 |
+|---|---|---|---|
+| Código de verificación (arranque, `/api/onboarding`, prueba de Automations) | el número tipeado | No | **Ya no sale.** La persona le escribe a MaKo con `wa.me`. |
+| Alta del dueño en su grupo al verificar (`setNumeroDuenoYSync`) | el dueño | Ahora sí: acaba de escribir el código | Sale recién después de su mensaje. Tope por línea: 2 cada 10 min y 10 por día. |
+| Altas de Notificaciones (teléfonos 2..N), del detalle del grupo (`mako-chat`) y de la mudanza de voz | gente del negocio | No siempre | Siguen (las pide una persona), con el tope nuevo de 10 por día por línea. |
+| Invitación por DM con el link del grupo, cuando el alta falla | persona suelta | Sólo si escribió | **Nunca a quien no escribió**, aunque lo automático esté prendido. La pantalla da el link. |
+| `enviarAPersonaMaKo` (respaldo de `/api/plan-reunion`: tareas con link) | teléfono tipeado | No | **Bloqueado** salvo que haya escrito; vuelve «MaKo no le escribe primero…». |
+| Tarjeta «MaKo en WhatsApp» por partes (`enviarPartesAJid`) y reacciones (`reaccionarMensaje`) | grupo | — | A una persona, sólo si escribió. |
+| Avisos, insistencias, flujos, tickets y aviso de arreglo al grupo (`enviarAlGrupoMaKo`) | grupo del negocio | — | El mismo texto, a no más de 5 chats por hora. Ritmo de la casa. Freno. |
+| Bienvenida al crear el grupo, grupo SuperAdmin | grupo | — | Freno. |
+| `/api/admin/avisos-demo` (~50 mensajes a 250 ms) | grupo de pruebas | — | **Con el ritmo de la casa** (2-4 s entre uno y otro) y el `jid` tiene que ser un grupo. |
+| `adoptarJid` de `/api/admin/mako-grupo` | — | — | Tiene que terminar en `@g.us`: si no, todos los avisos le llegaban a esa persona. |
+| Vigilante de líneas (aviso con link a la secundaria) | el número propio de Martín | Es su número | Sin cambios. Sale por `enviarTexto`, así que el freno lo alcanza. |
+| Bot 1 a 1 (`lib/mako-salida.ts`) | persona | Sí: ventana de 24 h | Freno de la línea; ritmo de la casa. Sigue apagado. |
+
+**Las líneas de los clientes** (sus números, `evolution_instancias`):
+
+| Qué manda | A quién | ¿Escribió? | Qué cambió el 4/11 |
+|---|---|---|---|
+| Motor: secuencias, flujos, difusiones, goteo | leads (prospección) | No | **Sólo el freno**, con aviso por mail. Ya tenían 40 por día, 6 por hora y 20 h por persona; la difusión, uno cada 3 min y 40 por día. |
+| «Si responde» y el setter que contesta solo | quien acaba de escribir | Sí | Freno. |
+| Recordatorio de reunión (con link), mensajes del curso (con link), bandeja a mano, borradores, pruebas | lead / cliente | Depende | Freno. |
+
+⚠️ **Lo que NO se aplicó a los clientes, a propósito:** «sin links en el primer mensaje» y «el mismo texto a muchos». Prospectar y mandar
+una difusión son lo que venden esas líneas: aplicarlas sería apagarles algo que hoy les funciona sin decírselo. La regla está escrita
+(`primerMensajeOk` con `puedeEscribirPrimero`) para cuando se decida avisarlo en el editor; hoy no la llama nadie.
+
+### Qué dice Meta y qué es folclore (investigado el 4/11; los dominios de Meta no abrieron desde la nube: frases de los extractos del buscador)
+
+| Afirmación | Fuente | Clase |
+|---|---|---|
+| El envío masivo o automatizado y los clientes no oficiales van contra los términos | [Términos](https://www.whatsapp.com/legal/terms-of-service), [Messaging Guidelines](https://www.whatsapp.com/legal/messaging-guidelines) | Meta |
+| Vincular por apps no oficiales «may put your account at risk» | [FAQ linked devices](https://faq.whatsapp.com/378279804439436) | Meta |
+| Una cuenta restringida no puede escribirle a contactos nuevos, crear grupos ni agregar miembros; sugiere anuncios de comunidad en vez de repetir en grupos | [FAQ restricted accounts](https://faq.whatsapp.com/717472490411581) | Meta |
+| Sólo se contacta a quien dio su número y su permiso, y se respeta el «basta» | [Business Policy](https://business.whatsapp.com/policy) | Meta |
+| La calidad de un número baja con bloqueos, denuncias y silencios | [Messaging limits (Cloud API)](https://developers.facebook.com/documentation/business-messaging/whatsapp/messaging-limits) | Meta (API oficial) |
+| Un código (OTP) por la API oficial sólo sale como plantilla de autenticación | [Authentication templates](https://developers.facebook.com/documentation/business-messaging/whatsapp/templates/authentication-templates/authentication-templates) | Meta (API oficial) |
+| Una cuenta nueva que manda en ráfaga se banea; la falta de «escribiendo» es una señal | White paper «Stopping Abuse» (2019) | Meta, viejo |
+| Tope mensual a quien escribe a no-contactos que no contestan; lo contestado no cuenta | [TechCrunch, 17/10/2025](https://techcrunch.com/2025/10/17/whatsapp-will-curb-the-number-of-messages-people-and-businesses-can-send-without-a-response) citando a WhatsApp | Prensa |
+| 463 = límite a escribirle a desconocidos, por una cuenta restringida | [Baileys #2441](https://github.com/WhiskeySockets/Baileys/issues/2441) (equipo de Baileys) | Librería |
+| «rate-overlimit» como respuesta del servidor | issues de Baileys (#796, #1061), sin documentación | Librería, sin doc |
+| Calentar el número, X mensajes por día, delays de N segundos, variar el texto, no poner links en el primer mensaje, foto de perfil, proxies | blogs y vendedores | **Folclore** |
+
+**Los números de este código son nuestros, no de Meta:** 10 altas por día, 5 chats con el mismo texto, 30 min / 6 h / 24 h de freno. Lo
+de no escribir primero, no invitar a desconocidos y frenar ante una restricción sí cuelga de lo que dice Meta.
+
+### ⚠️ Lo que parecía y no era, y las trampas
+
+- **El código en la pantalla no prueba nada: lo que prueba es el NÚMERO que lo manda.** Por eso una verificación entrante no se confirma
+  tipeando el código en la app (`decidirCodigoTipeado`), y desde otro número no se confirma: queda `otroNumero` y la pantalla lo dice.
+- **El mensaje llega a la voz, que hoy es `mako_ws9`: el WhatsApp personal de Martín.** Antes los clientes nuevos recibían el código de
+  ese número; ahora le escriben ahí. El webhook saca ese mensaje del bot y del espejo del inbox del ws9: es un mensaje del sistema, no una
+  charla. Si la voz vuelve a una línea propia, el link cambia solo (`lineaQueRecibe`).
+- **Un `@lid` sin el número alternativo no se confirma**: no se sabe quién es. Queda «Ahora no» para seguir.
+- **Una lectura del freno que falla NO frena** (es una red, no la puerta); escribirlo, sí se intenta siempre. Lo leído se guarda 20 s por
+  línea en memoria del proceso.
+- **Un 403 POR PARTICIPANTE adentro de un 200 no es una señal**: es la privacidad de quien no deja que lo sumen. Tampoco un 403 al leer un
+  grupo donde la línea no es admin. Sólo un 403 al MANDAR un mensaje.
+- **El tope de 40 por día es del motor, no de la línea**: la bandeja a mano, las pruebas, los recordatorios, el curso y los borradores
+  aprobados no cuentan (relevamiento del 4/11). El freno sí los alcanza a todos, porque está en `evFetch`.
+- **En el negocio de la plataforma (ws9), un envío sin línea sale por la de MaKo** (`lineasParaMandar` → `lineaDeMaKoPara`). Nada de eso
+  pasa por la puerta del bot.
+- **`lib/api-mako/flujo.ts` llama a `enviarBorrador` directo** y se saltea el bloqueo, el goteo y el camino que mira `borrador-camino`. No es
+  de este ban, pero es un agujero: anotado.
+
+### Sin hacer, o sin medir
+
+- **Nada se probó contra un WhatsApp de verdad**: sólo con Evolution de mentira (`tests/_whatsapp-anti-ban-hijo.ts`). Qué falta probar, en
+  `docs/relevo/nube-whatsapp.md`.
+- **No se sabe qué devuelve Evolution 2.3.7 para un 463**, ni si un «rate-overlimit» al mandar llega igual que al leer grupos (500 con el
+  texto adentro). La señal se busca en el cuerpo entero; si llega con otra forma, no frena.
+- **Las altas de Notificaciones no exigen que esa persona haya escrito antes.** Exigirlo cambia lo que una persona pide y Martín pidió que
+  siga andando: es su decisión.
+- **El aviso del freno sale por mail, no por la app.** Hoy casi nadie tiene los avisos del teléfono activados.
+
+---
+
+## Los avisos en el teléfono y el bot 1 a 1: lo que hay que saber antes de sacar a MaKo de los grupos (3/11/2026, claude5)
+
+Martín, después del ban: *«conservar el chat de MaKo en WhatsApp con un bot ahí que responde automáticamente, pero no va a crear ni grupos de WhatsApp y no va a mandar ni mensajes a nadie»*, y los avisos por la app.
+
+**Vive en:** `lib/mako-salida.ts` (la puerta: todo lo que MaKo le manda a una persona) · `lib/mako-salida-drivers.ts` (las dos cañerías) · `lib/mako-bot.ts` y `lib/mako-bot-reglas.ts` (el bot) · `lib/avisos-telefono.ts` y `app/onboarding/TarjetaAvisos.tsx` (el paso del onboarding) · `lib/app-tiendas.ts` y `app/app/` (el link único `/app`, el del QR). El corte de los grupos está en la rama `avisos-bot-corte-0311`, sin integrar: espera al grupo de avisos del Ops Center (rama `grupos-ops-0311`, del Cerebro), que es a donde va a parar lo que hoy sale por WhatsApp.
+
+### ⚠️ Lo que parecía y no era
+
+- **«Nadie recibe avisos» no era un bug del push.** `push_suscripciones` tenía 0 filas porque nadie los había activado: el único camino era una hoja adentro de Notificaciones en el teléfono, y nada llevaba ahí. Las claves, `/sw.js` y las rutas ya estaban. Se arregla pidiéndolo, no tocando el envío.
+- **Los reportes no pasaban por `emitirAviso`:** salían por `despacharReporte`, sin push. Lo que se suma en `emitirAviso` no los alcanza.
+- **Un paso que se hace en otro dispositivo es una carrera.** El teléfono activa los avisos y la computadora lo ve a los 4 segundos: los dos llegan al cierre del onboarding juntos, y `cerrarArranque` no es atómico (oferta y producto repetidos). Por eso el cierre se reclama (`onboarding.cerrando`) y el que pierde sólo relee.
+
+### Lo que encontró armar el corte (rama `avisos-bot-corte-0311`), para quien lo monte
+
+- **`emitirAviso` no es la única salida al grupo.** Las automatizaciones, las insistencias, los tickets y el aviso de arreglo llaman directo a `enviarAlGrupoMaKo`. Con el corte se habrían perdido callados. `memoria` los distingue: `null` es `emitirAviso`, que ya escribió la bandeja.
+- **El freno de altas no frena todo.** Con `mako.grupos.altas` = `no`, `asegurarGrupoMaKo` sobre un grupo que ya existe le cambia igual el nombre, la descripción y la foto: tráfico contra WhatsApp. Por eso la última puerta del corte está en `ev()`, por donde pasa todo el archivo.
+- **`enviarCodigoVerificacion` escribe primero por DM y no pasa por las puertas de los grupos.** Con el corte, el onboarding tiene que dejar de pedir el WhatsApp.
+- **Las insistencias, en la app, serían un push cada N minutos que no se puede parar:** ahí no hay dónde contestar «ok».
+- **El resumen de la mañana marca «enviado» sólo con `res.wa`:** sin grupo, queda pendiente para siempre.
+- **«Apagar los dos canales» tiene dueño.** Lo primero que se probó fue dejar el aviso en la app, y `tests/email-y-canales.test.ts` lo frenó: la pantalla promete «este mensaje no sale», y quien silenció un aviso no quiere un push.
+
+### Las reglas
+
+- **El bot no tiene línea por defecto.** `mako.bot.instancia` vacío o `mako.bot.activo` distinto de `si`: apagado. Hoy está apagado.
+- **⛔ `mako_ws<n>` nunca es la línea del bot** (`lineaPuedeSerDelBot`). `mako_ws9` es el WhatsApp personal de Martín, y hoy es la voz: contestaría a su familia. Con esa línea configurada, el bot queda apagado y lo dice en el log.
+- **⛔ Nunca escribe primero: lo mira la puerta, no quien llama.** `enviarAlChat` no manda nada sin una fila de `mako_bot_contactos` con menos de 24 horas. Sin poder leerla, tampoco. El turno del doer llega a la puerta sin saberlo: sus `enviarAGrupoJid` y `reaccionarMensaje` desvían todo jid que no sea de un grupo.
+- **Un mensaje de hace más de 10 minutos no se contesta ni abre la ventana** (`mensajeReciente`). Es defensa: no se midió qué reentrega Evolution al reconectar esta línea, pero contestar eso sería escribirle de la nada a gente que ya se olvidó. Sin fecha legible, tampoco.
+- **«No pude leer» no es «no tiene cuenta».** Si la base no contesta, no se le vende nada: podría ser un cliente.
+- **Sólo quien administra ve datos.** El teléfono es la única prueba de quién es, y un setter no tiene por qué ver por acá lo que su rol no ve en la app: recibe el turno sin datos ni herramientas.
+- **⚠️ Para dar acceso, `mismoContacto` no alcanza** (`esSuTelefono`). Compara los últimos 10 dígitos, y para bloquear está bien que dos países se junten: falla cerrado. Acá fallaría abierto: un número de otro país vería un negocio ajeno. Si los dos traen país, tiene que ser el mismo.
+- **⚠️ Una cola huérfana de un chat NO corre el doer porque esté en un workspace.** Ventas encola en la plataforma, y `flushHuerfanos` corría el turno con los datos de la plataforma para un desconocido (`huerfanoDelChat`).
+- **`mako_doer_conv.grupo_jid` no hizo falta tocarla:** es un jid. La memoria, las pendientes y la cola de un chat funcionan por el mismo campo, separadas por negocio.
+- **Los settings del anillo y de `mako.doer.last.<jid>` viven en el ws1, que es un cliente:** un chat no los escribe, para que un teléfono ajeno no quede ahí.
+- **En un chat, un saludo se contesta** (`esSaludoDeChat`). En un grupo el 👍 alcanza, y `charlar` y `no_reply` se quedaban callados. Un «ok» o un «gracias» siguen con el 👍.
+- **La regla de IA de Meta** (`SOLO_MAKO_Y_EL_NEGOCIO`, sólo fuentes secundarias, ver abajo): va en ventas, en el turno sin datos y en el del doer. Ventas no tiene herramientas: no puede tocar nada aunque se lo pidan.
+- **Una agencia:** el negocio que nombra el mensaje; si no, el que venía usando; si no, se pregunta UNA vez y lo que escribió se contesta después de elegir, en un solo turno. Al cambiar de negocio lo dice: contestar sobre el equivocado es lo peor que puede pasar.
+
+### Qué pasa en iPhone hasta que exista la app de la tienda
+
+Web Push existe sólo con MaKo **agregada a inicio** (iOS 16.4 o más), abierta desde su ícono, y ahí la sesión es otra: hay que volver a entrar. En una pestaña de Safari no hay manera. El onboarding le muestra esos pasos. Quien no pueda toca «Mi teléfono no puede» (lo único que saltea el paso, y sólo aparece en un navegador que no los recibe) y sigue viendo sus avisos adentro de MaKo.
+
+**El link único es `/app`,** y el QR del onboarding apunta a él. Un iPhone va a su tienda, un Android a la suya y una computadora ve el QR. Mientras una tienda no tenga la app, ese teléfono ve la guía para agregarla a la pantalla de inicio; publicarla es cambiar `publicada` de esa tienda, en `lib/app-tiendas.ts`. ⚠️ Un iPad moderno se presenta como una Mac: el server le da el QR, y recién la pantalla sabe que es táctil.
+
+**Cuando exista la app de la tienda:** en Android es una TWA y el Web Push sigue igual. En iPhone es Capacitor, un WebView sin Web Push: lleva APNs (`lib/push-apns.ts`, rama `tiendas-0311`). `lib/push-cliente.ts` va solo por ahí adentro de la app, y una fila de APNs queda con `plataforma = 'ios'`, así que `TarjetaAvisos` y la detección no cambian. ⚠️ Adentro de la app, `soportaPush()` y `permiso()` dan «no»: para saber qué mostrar se pregunta `estadoSuscripcion()`.
+
+### Sin hacer
+
+- **El corte de los grupos:** rama `avisos-bot-corte-0311`, con sus tests. Se monta sobre el grupo del Ops Center, y lo que iba a la app (`avisoSoloEnLaApp`) pasa a ir a ese grupo. Cuándo prenderlo lo mide `GET /api/admin/corte-grupos`, que está en esa rama: qué negocios activos no tienen a ningún admin con un teléfono activado.
+- **El bot nunca habló con un WhatsApp de verdad:** no hay línea. El …2605 está baneado y el …3479 es el personal de Martín. Probado sólo con Evolution de mentira (`tests/mako-bot.test.ts`). Para probarlo: una línea propia, `mako.bot.instancia`, `mako.bot.activo` = `si` y `mako.bot.solo` con un número (`["549..."]`), que deja a todos los demás afuera.
+- **La tabla `mako_bot_contactos` hay que crearla** (`supabase/migrations/0367_mako_bot_contactos.sql`, sólo agrega). Sin ella la puerta no deja salir nada.
+- **El botón «hablar por WhatsApp» de la landing no existe:** la landing vive en el Web Generator y falta el número.
+- **La regla de tema no se midió con el modelo:** está en los tres prompts, y sólo se probó que viaja. No hay banco de casos «te pido una receta».
+- **Lo de la API oficial:** el envío está en `salidaCloud`, con `mako.bot.salida` = `cloud` y la credencial `WHATSAPP_CLOUD`, pero NO se probó contra Meta. Falta la ENTRADA (su webhook) y bajar los audios por su API: `fetchMediaBase64EnInstancia` es de Evolution. El `escribiendo` no hace nada sin el id del mensaje.
+- **Un contacto de ventas no entra al CRM de la plataforma.** No se usó el espejo (`guardarMensajeUpsert`) a propósito: corre efectos del negocio, y en el ws9 pueden salir por el WhatsApp personal de Martín. Hoy el equipo se entera por la bandeja (`bot-contacto-nuevo`, `bot-pide-persona`), y la charla queda en `mako_doer_conv` del ws de la plataforma.
+- **Nadie vigila la línea del bot:** `vigilarVozMaKo` mira la voz. Si cae, nadie avisa.
+- **Los chats del negocio con sus leads siguen por su línea no oficial** aunque se usen desde la app. Decisión aparte de Martín: esto no la toca.
+
+---
+
+## WhatsApp BANEÓ la línea de MaKo: no fue el volumen, no fue la RAM, y el 403 no se reconecta (3/11/2026, claude5)
+
+Martín: *«veo que MaKo la linea principal se desconecto, seria bueno evitar que eso pase... Y si llega a pasar tengo mi linea secundaria
+para avisarme a mi mismo»*. Abrió el teléfono: *«Esta cuenta ya no puede usar WhatsApp Business»*, por spam. Y: *«No entiendo porque me
+banearon, por los grupos? Si justamente son grupos con clientes»*.
+
+**Vive en:** `lib/lineas-de-mako.ts` (qué se avisa y por dónde, puro) · `lib/lineas-de-mako-vigilante.ts` · `app/api/cron/vigia-lineas-mako` (cada 3 min) ·
+`lib/evolution.ts` (`fotoDeLinea`, `reabrirSesion`). El freno de altas en grupos, en su punta aparte: `lib/altas-en-grupos.ts`.
+
+**Lo medido, en sólo lectura (hora ART):**
+- 16:30:59: se le avisa a Joan que su ticket #49 está listo (Notificaciones de un cliente vuelve a tener renglón).
+- 16:36:22 a 16:36:56, guardando Notificaciones de un cliente: grupo nuevo, bienvenida, un alta que WhatsApp no dejó, y por eso una
+  invitación por DM con link a alguien que nunca le había escrito a la línea.
+- 16:39:27: guardando Notificaciones de otro cliente, un alta más en otro grupo.
+- **16:39:36: `close`, código 403, `Connection Failure`, `location: rva`.** El número sigue dando `exists: true`.
+
+**⚠️ Tres diagnósticos obvios que eran los equivocados:**
+1. *«Es la RAM de Railway».* Las otras líneas vinculadas siguieron `open`, y sus últimas reconexiones no coinciden, cuando un reinicio las reconecta
+   todas juntas. No se miró Railway (sin sesión no hay métricas): se descartó por los efectos.
+2. *«Falta reconexión automática».* Ya está adentro de Evolution: `codesToNotReconnect = [401, 403, 402, 406]` (fuente de la 2.3.7) y lo demás lo reintenta solo.
+3. *«Fue el automático de la agencia que se desplegó recién».* Corrió y no agregó a nadie: Joan ya era participante, y la bienvenida no trae «Sumé también a…».
+   El link lleva el texto por defecto de `agregarParticipanteGrupo`, no el del automático. Salió de una **persona** guardando Notificaciones
+   (`setDestinatarios`). Para WhatsApp son lo mismo: una API agregando gente. **Apagar sólo el automático no habría cambiado nada.**
+
+**Tampoco fue el volumen.** Del 20/10 al 3/11: 376 textos y 133 reacciones a 13 grupos, y 7 mensajes a personas sueltas. Los últimos 4 días, 15, 18, 13 y 13 textos,
+contra un pico de 54 el 29/10.
+
+**Lo que sí pesa, sin poder probar que sea la causa** (WhatsApp no dice por qué banea, y los reportes de spam no se ven):
+- 826 de 837 salientes salieron por la API y 11 del teléfono: una línea casi sin uso humano, de 27 días.
+- Las altas y la invitación son lo más cercano en el tiempo: 9 s la última.
+- ⚠️ **El tope de contactos es por negocio** (`lib/mako-linea-tope.ts`, 5 por hora) **y la línea es una sola.** Una agencia que trabaja sobre varios clientes no lo
+  acumula. Ese día no habría saltado igual: fueron 3.
+
+**Qué significa el 403:** whatsmeow lo nombra `MainDeviceGone`, con dos notas: *«this is now called LOCKED in the whatsapp web code»* y *«seems to happen for both bans and
+switching phones»*. **Desde el servidor no se distingue un ban de un cambio de teléfono: lo dice el teléfono.** Por eso el aviso manda a mirarlo antes de escanear.
+
+**No se puede evitar del todo:** una línea por Baileys va contra las condiciones de WhatsApp, y esto les puede pasar también a las líneas de los clientes.
+
+**Las trampas que quedan:**
+- ⚠️ **Mover la voz a otra línea expone a esa línea.** Cambió el mismo día: a las 17:16 ART, por pedido textual de Martín, la voz quedó en su número (`mako.voz.instancia = mako_ws9`), con los grupos en esa línea. El vigilante no la mueve ni lleva su tráfico. Y con la voz ahí, principal y secundaria son la misma: se vigila ésa, y si cae el aviso va por mail, no a sí misma.
+- **`/agencia?canal=1` sólo reconecta el canal.** Con la voz en una línea de negocio, ese link ofrece escanear el número baneado: el aviso lleva a `/whatsapp` de esa línea.
+- **La secundaria no la vigilaba nadie.** `vigilarLineasClientes` saltea el negocio de la plataforma y `vigilarVozMaKo` sólo mira la voz.
+- **`/instance/fetchInstances` no dice lo mismo que `/chat/*` para una instancia que no existe:** 404 `Instance "x" not found`, no «does not exist».
+- **`enviarTexto` sin línea, en la plataforma, sale por la de MaKo** (`lineasParaMandar`): la que se acaba de caer. El vigilante la nombra siempre.
+- **El código de caída queda guardado.** `mako_ws11` está `open` con un 401 del 09/10. Sólo `close` más el código prueba un cierre. `connecting` con 403 existe (`mako_ws1`, 08/09), y no se
+  distingue de un corte con un código viejo: se avisa como «cortada», con el link y sin mandar a escanear.
+- **Sobre una línea `close`, `logout` y `restart` rechazan** y sólo `connect` abre un socket. Por eso «Conectar por QR» sobre un 403 puede terminar en `rotarCanal`: una instancia con otro nombre. Las marcas van por ROL.
+- **La sonda es tráfico real contra WhatsApp.** El estado se lee de la base de Evolution cada 3 minutos; la sonda, cada 12, salvo con una caída abierta.
+- **El onboarding depende de la voz:** el código de verificación sale por DM con `instanciaVoz()`. Del ban a las 17:16 ART un cliente nuevo no podía terminarlo; con la voz en el otro número, sí.
+- **`avisos_cola` y `flujo_corridas` no tenían nada pendiente:** no hay ráfaga guardada para cuando vuelva una línea. Lo que se intenta ahora rebota en Evolution sin llegar a WhatsApp.
+
+**Lo que la dejó muda no fue el ban, fue el admin único.** El número personal (…3479) es admin en los 6 grupos que existían al mudarse el 07/10. Los 8 creados después sólo tienen al …2605: `group/participants` contesta 404 `forbidden`, y nadie más puede sumarlo. MaKo queda muda ahí aunque tenga otra línea viva. Martín eligió esperar la apelación y no rehacerlos.
+
+**Mover la voz sin QR** (`usarNumeroPersonalComoVoz`, con botón en /agencia):
+- ⚠️ El canal NO se mueve: `desconectarCanalMaKo` borra la línea del canal, y con el canal ahí borraría su WhatsApp personal.
+- ⚠️ En la voz, todo `fromMe` era MaKo: el dueño hablándole desde su teléfono se tiraba por eco. En una línea `mako_ws<n>` decide el anillo (`vozPropiaDeMaKo`).
+- ⚠️ `lineaDeMaKoPara` daba el canal caído como línea por defecto de la plataforma: con la voz en el negocio devuelve null.
+- El doer sólo contesta los grupos que reconoce `wsDeGrupoJid`, así que abrirle los grupos a su línea ignora sus grupos personales.
+
+**Trampas de Evolution, medidas ese día:**
+- `fetchAllGroups` contestó 500 `rate-overlimit`. Leído como lista vacía daba «no está en ningún grupo», y era falso: se pregunta grupo por grupo, con pausa.
+- `group/create` exige al menos un participante. Para probar sin terceros, el propio número sirve.
+
+**Las opciones, con lo leído el 3/11** (grupos medidos: 5 de 13, con 2 a 4 personas; ~750 textos por mes):
+- **Cloud API de a uno, con plantillas de utilidad:** no pide cuenta oficial. US$6-20 por mes si llega sólo al dueño.
+- **Cloud API con grupos:** exige cuenta oficial (OBA), máximo 8, se entra sólo por link (no hay endpoint para agregar) y hay que rehacer los grupos. Se cobra por persona que recibe: US$19-59 por mes a 3 por grupo.
+- Tarifas de una tabla de terceros de julio de 2026 (Argentina ~US$0,026, México ~US$0,0085), no del tarifario de Meta. De Meta sí: desde el 1/10/2026 la plantilla de utilidad se cobra también dentro de la ventana, y lo que no es plantilla es gratis hasta 1.000 por mes y por número, contando cada persona de un grupo.
+- ⚠️ Desde el 15/1/2026 Meta prohíbe en esta API a los proveedores cuyo producto principal es un asistente de IA. Hay que leer esos términos contra lo que hace MaKo en un grupo: acá sólo hay fuentes secundarias.
+- **Las líneas de los clientes por la API oficial** (30 días a 03/11; tarifa de Argentina vigente desde el 01/10/2026, de Zernio y SleekFlow, que citan a Meta): salieron 21.917 mensajes, 2.956 fuera de la ventana. Marketing US$0,0618; lo demás US$0,026. Da **US$470/mes** si todo pasa por la API (de US$0,62 a US$137 por línea). Con coexistencia lo escrito desde el teléfono es gratis y `wa_mensajes` no lo separa: el piso medible son las secuencias, 803 envíos, ~US$50.
+- ⚠️ **No medir la línea de MaKo con `mako_doer_conv`:** dio ~US$11 porque deja afuera casi la mitad de lo que sale y cuenta cada grupo como una persona. La medida buena es la base de Evolution: hasta ~US$60/mes.
+- ⚠️ **El dato que circula ya venció:** las respuestas dentro de las 24 h fueron gratis hasta el 30/09/2026.
+- **Si MaKo sólo contesta** (la idea de Martín del 03/11: la app como canal principal, WhatsApp 1 a 1, sin grupos y sin escribir primero), no hace falta plantilla ni cuenta oficial. Con ~270 consultas por mes y 2 a 3 mensajes por consulta: US$0 hoy, ~US$80-135 con 100 negocios, ~US$300-460 con 300.
+- ⚠️ **Hoy `push_suscripciones` tiene 0 filas:** nadie tiene avisos de la app. Sin grupos no llegaría ningún aviso hasta resolver eso (ver «Los avisos en el teléfono y el bot 1 a 1», arriba).
+- **Se pierde del todo por la vía oficial:** leer los grupos del cliente, sumar gente directo, escribirle a quien no dio permiso y el historial de más de 6 meses (documentado por Meta). Etiquetas del WhatsApp, foto de perfil del contacto y preguntar si un número tiene WhatsApp: no aparecen en lo que expone la API, pero no se encontró un documento de Meta que lo diga. Coexistencia sólo para WhatsApp Business app, no para una cuenta personal.
+
+**Sin hacer, o sin medir:**
+- **No se probó con una caída real.** Con la voz en la línea de Martín hoy no hay «la otra», así que el aviso va por mail. Si vuelve a haber dos líneas: **no sé si un mensaje a uno mismo hace sonar el teléfono**. Por eso el mail de la voz sigue saliendo cada hora (`vigilarVozMaKo`).
+- **El puente por mail sale de `emitirAviso`, sólo si el envío al grupo falla, una vez** (punta del freno, `fallaElEnvio`). Quedan afuera los pasos viejos de automatizaciones que llaman directo a `enviarAlGrupoMaKo`, y las insistencias.
+- **Lo que quedó apagado o con tope, en la punta del freno:** el alta automática del equipo de agencia y la invitación por DM a quien nunca le escribió a la línea (`mako.grupos.automatico`), `mako.grupos.altas` = `no` como freno de emergencia, y 2 altas de números distintos cada 10 minutos por línea (`lib/mako-linea-tope.ts`). Lo que pide una persona sigue andando: Martín lo pidió textual.
+- **Una zombi (`open` que no responde) sólo se arregla con QR o reiniciando Evolution** (medido el 11/09): la vigilancia avisa, no la cura.
+- **No se tocó `syncFullHistory` ni el heap:** no tienen que ver con este ban. El heap sigue en docs/hallazgos-infra.md, «Evolution: TODOS los números en UN proceso de Node».
+- **La cantidad de gente en 8 de los 13 grupos:** la línea de Martín no está en 7 y el otro dio 404. Con esa línea no se puede preguntar por grupos ajenos, y tampoco se usaron las de los clientes.
+- **Sumar una segunda línea como admin al crear cada grupo** (`lib/mako-grupo.ts`): es lo que habría evitado los 8 grupos mudos.
+- **La apelación del número** la hace Martín desde el teléfono.
+
+---
+
 ## «Este lead no es de esta cuenta»: todo lo que sale al grupo lleva el `?ws=`, y el link de Leila era el del EJEMPLO (28/10/2026, Leila 1)
 
 **El síntoma** (Leila, ws11, 27/10): reenvió «Mira el resumen del lead: hola-mako.com/crm/482/resumen» y al abrirlo, «Este
@@ -79,6 +338,23 @@ real; y si la IA del aviso falla, `generarMensajeAviso` devuelve la referencia t
 aviso que se emite con `contexto` y una plantilla sin editar.
 
 ---
+
+## El texto citado no entraba al turno, y lo de hace más de 7 días no existía (ticket #40, Leila, 3/11/2026)
+
+**Síntoma:** «deberías tener acceso a todos los mensajes anteriores y saber cuando un usuario hace mención a un mensaje».
+
+**Causa:** `citaDelMensaje` (lib/doer-equipo.ts) sólo decidía si le contestaban al equipo, y `textoCitado` no tenía quién lo usara. Sólo el
+audio citado entraba al turno. La memoria son 12 turnos de 14 h y hechos de 7 días.
+
+**La trampa que decidió el diseño:** copiar el camino del audio (`conElAudioCitado`, el texto dentro de `texto`) rompe el caso más común:
+un «sí» citando la propuesta de MaKo deja de ser un «sí» para el clasificador. Por eso la cita va en el system (`bloqueDeLaCita`, dentro de
+`conMemoria`, nunca a la red gratis) y sólo en un lote de varios va en el texto de cada mensaje. El mensaje sintético de un lote no trae cita.
+
+**La regla:** sumarle contexto al turno se hace en el system, no en `texto`: `texto` es lo que clasifica.
+
+**Sin hacer:** `mako_doer_conv` guarda lo que le hablaron a MaKo, y la charla del equipo entre ellos puede no estar: `buscar_en_el_grupo` lo
+dice en su nota. Las respuestas de MaKo se guardan casi siempre sin `wa_message_id`: citar a MaKo depende de que WhatsApp traiga el texto, y lo
+trae en la forma común. No se midió cuántas citas llegan sin texto.
 
 ## «No me respondiste lo de este audio»: el aviso de arreglo salió y el audio CITADO no se escucha (28/10/2026)
 
@@ -12210,3 +12486,89 @@ entrada de Integración en docs/hallazgos-ticketera.md (rama `tren-ae-con-wa`).
   contador, no hay uno por negocio). B1: notas internas del mismo negocio en los puntos de un hito de un ticket. B2: `sanearContexto`
   acepta `delegado: true` venga de donde venga (hoy ningún camino del cliente lo deja pasar). B4: el banco versiona nombres reales.
   Si el perfil de Martín no tiene su teléfono, su DEBUG baja a una PREGUNTA hasta cargarlo.
+
+## «Período de gracia» no era el plan de MaKo: era la cuenta de Meta (31/10/2026, ticket #37)
+
+**El pedido de Martín:** «Las alertas siempre deberían llegarle a Código Inmobiliario y en general a todas las agencias de esta
+manera… pero no debería llegarlo al grupo de WhatsApp del cliente final». El aviso era el de Natalia, cliente de esa agencia.
+
+**El diagnóstico obvio era el equivocado, y lo tuvimos tres:** MaKo, el Cerebro y este chat arrancamos leyendo «período de gracia» como la
+gracia del plan (`GRACIA_DIAS`, `lib/plan-acceso-reglas.ts`). Lo que le llegó es `meta-cuenta-frenada`: el estado 9 de la cuenta
+PUBLICITARIA (`lib/meta-health.ts`), que Meta abrió y cerró en 30 minutos (incidente 112; y el 111 el 25/10, igual). El que lo aclara es
+`notificaciones`, no el código del plan: se mide qué le llegó ANTES de elegir dónde cortar. Y el texto ayudaba al error: decía «Tu
+cuenta está EN PERÍODO DE GRACIA», sin «publicitaria», igual que la de MaKo.
+
+**La causa del malentendido es el texto, antes que el destino.** Un aviso sobre la cuenta publicitaria que no la nombra se lee como la
+suscripción, y MaKo mismo le contestó a Martín hablando de «cobro». Corregirlo no depende de un deploy: es editar la fila viva.
+
+**La prueba de que un aviso SALIÓ al grupo es su turno en `mako_doer_conv`, con su `wa_message_id`:** `guardarTurno` corre sólo con `env.ok`
+(`lib/avisos.ts`). Las otras dos que parecen servir contestan mal, y las usamos para decirle a Martín que no había salido:
+- **`notificaciones.canal_wa` es una columna muerta que se lee como una medición:** «no» en 1.012 de 1.012 filas de 30 días, de todos los
+  negocios (medido el 31/10). Una columna que contesta siempre lo mismo es peor que una que falta: la que falta se nota.
+- **`wa_mensajes` no guarda los grupos de MaKo:** 0 filas del grupo de Natalia desde siempre, con cuatro avisos entregados (25/10 y 31/10).
+- Lo que sí dice la campanita es lo que NO llegó: `payload.salida` en `no_llego` o `sin_grupo`. Sin ese campo, no afirma que llegó.
+
+**Es por CLASE, y es otro aviso, no un desvío.** `aLaAgencia` en la entrada del catálogo (`lib/avisos-catalogo.ts`) nombra el aviso que sale
+en su lugar; lo aplica `emitirPorEvento`, por donde pasan los dos caminos. «Tu WhatsApp se desconectó» sigue siendo del cliente. Son dos
+filas nuevas de la plataforma porque el texto no puede ser el mismo: a la agencia hay que decirle de quién es. Si sólo se cambia el
+destino, salen dos trampas sin un error: `{{link_integraciones}}` queda con el `?ws=` de la AGENCIA, y «tu cuenta» pasa a ser la suya.
+
+**Tres cosas que quedan por regla:**
+- **«No sé» no cae al cliente.** `agenciasDeCliente` da `[]` cuando falla la lectura (es para dibujar) y con eso una base caída le contaba
+  una deuda ajena al cliente. Para decidir, `agenciasAprobadasDe`, que tira; el cron lo reintenta en la vuelta siguiente porque `ok: false`
+  no deja marca (`marcaTrasEmitir`).
+- **El deploy sin las filas no avisa a nadie, y al cliente tampoco.** Sin fila no sale (desde el 16/10), y acá no hay caída: las filas
+  van ANTES del deploy. `porDefecto: 'on'` no es decorativo: sin él, la mudanza crea la fila PAUSADA.
+- **Cambiar el texto de la plantilla no cambia lo que sale.** La plantilla sólo se copia al crear la fila: la #261 viva sigue diciendo
+  «Tu cuenta está EN PERÍODO DE GRACIA» y «Tu cuenta quedó PENDIENTE DE LIQUIDACIÓN» hasta que alguien la edite.
+
+**El lado del plan, medido:** un cobro de agencia nunca da `mora` (`vigenciaDeClienteDeAgencia`: una suscripción activa es «al día»
+aunque rechacen la tarjeta), así que el cartel de la mora nunca le salió a un cliente de agencia; yo había dicho lo contrario antes de leer
+esa función. Lo que faltaba es que la agencia se enterara: `avisarRechazoALaAgencia`, una vez por período, y la pausa
+(`avisarSuspension`) a la agencia siempre y al cliente sólo si paga él (`agency.quien_paga`).
+
+**Sumar un valor a un tipo o una plantilla rompe tests lejanos:** el commit corrió 13 archivos y salió con dos rojos que vio la revisión
+(`tests/datos-mensaje.test.ts`, que exige quién pone cada dato, y `tests/plantillas-automatizaciones.test.ts`, los topes del nombre). Se corre
+todo lo que importa esos módulos, no los que uno se acuerda.
+
+**Quedó sin hacer:**
+- **Mirá dónde se resuelve antes de escribir «lo resuelves en…».** El primer borrador del correo mandaba a MaKo Partners, y ahí una renovación
+  rechazada no tiene ningún botón (`cobrosParaLaAgencia` sólo lista pendientes y fallidos). Por eso dice qué hacer: cambiar la tarjeta en la pasarela.
+- El correo del rechazo dice «se va a pausar su cuenta», como pidió Martín y como dice el cartel de la mora, pero el corte está APAGADO
+  (`CORTE_DE_ACCESO_PRENDIDO`): hoy no se pausa. El día que se prenda ya es cierto; hasta entonces es un aviso más fuerte que los hechos.
+- `avisarSuspension` no corre mientras el corte esté apagado: esa rama sólo la vio el test.
+- El rechazo sale por correo, como todo lo del plan, y no por el grupo de la agencia: `lib/plan-deuda.ts`. Dos avisos simultáneos de la
+  pasarela pueden mandar dos correos: `esRenovacionFallida` mira la copia leída, y ese `actualizar` no es compare-and-set.
+- **Lo que quedó sin resolver en la alerta de Meta**, medido el 31/10 con una sola agencia y sin clientes de dos, y por eso no se tocó:
+  - El recordatorio diario se decide con la zona del CLIENTE (`lib/alerta-critica.ts`): a una agencia de otra zona le puede llegar de madrugada.
+  - La marca de insistencia es por incidente, no por destino: un incidente abierto al desplegar (o al aprobar una agencia) arrastra los avisos que
+    vio el cliente, y la agencia puede recibir un «volvió a la normalidad» sin la alerta. Con dos agencias, la que no recibió no se reintenta.
+  - La cuenta compartida la avisa el workspace de menor id (`cuentasYaAvisadas`), y ese decide también el destino: una cuenta compartida entre un
+    cliente directo y uno de agencia puede avisarle a uno solo.
+  - Una agencia que bajó de capa sigue recibiendo la alerta con un link a MaKo Partners que ya no la deja entrar.
+
+---
+
+## «No puedo ver mis chats de Instagram»: no eran chats (#50 de Leandro, 4/11/2026)
+
+**Síntoma:** las filas de Instagram dicen «(Mensaje no compatible)» y al abrirlas, «Todavía no hay mensajes. Escribe el primero». El diagnóstico obvio
+es que el hilo de Instagram no carga en el teléfono. **No: los mensajes que existen se ven.** Medido en ws10: 356 personas, **293 sin un solo mensaje**, y
+las 293 con `comentario_id`, sin `zernio_conversation_id` ni `ultimo_mensaje_at`. Comentaron una publicación; nunca escribieron.
+
+**Causa:** `conUltimoMensaje` les pone el texto «Comentó una publicación» con tipo `otro`, y después `previewDe` (que dice un adjunto por su tipo, nunca
+por su texto) lo reemplazó por «(Mensaje no compatible)». Dos reglas correctas por separado. Y en el hilo el comentario no estaba.
+
+**La regla:** un texto que escribe el código para una fila va con tipo `text`. `otro` es para lo que de verdad no se reconoce.
+
+**Sin hacer:** el TEXTO del comentario no se guarda (`filaDe`, lib/zernio-entrante.ts: llega en el evento y se usa sólo para disparar). Mostrarlo pide una
+columna en `ig_conversaciones`: una migración, la decide Martín. Y el hilo sigue sin lo que manda el motor (vive en `nutricion_envios`).
+
+## Un audio se cortaba solo cada 15 s en el teléfono (#50, 4/11/2026)
+
+Leandro pidió la velocidad, y el `<audio controls>` del iPhone no la ofrece. Al pasar al reproductor de la casa (`AudioPlay`) apareció lo otro: `/m/chats` relee el
+hilo cada 15 s y **cada lectura firma de nuevo la URL del Storage**. Un `src` que cambia recarga el audio y lo para. Por código pasaba igual con el nativo
+(no se midió en un teléfono), y con la velocidad se habría vuelto a 1× cada 15 s. **La regla:** dos URLs firmadas del mismo archivo son el mismo audio
+(`mismoArchivo`: sólo cambia el `token`; otra query es otro archivo). Si la guardada vence, el error prueba con la última.
+
+**Vive en:** `LO_ULTIMO_FUE_COMENTAR`, `eventoDelComentario` (lib/canal-social.ts) · `previewDe` (app/chats/lista-reglas.ts) ·
+`AudioPlay` (app/whatsapp/_shared/AudioPlay.tsx) · tests/m-chats.test.ts · tests/whatsapp-sexta-tanda.test.ts.

@@ -6,6 +6,10 @@
 // Las palabras de la computadora (PlanPanel.tsx): «Activo», «Baja pedida», «De baja»; qué pasa con Stripe (sigues hasta el
 // fin del mes pagado) y con Mercado Pago (deja de cobrarse desde ya). La baja corta plata: un toque abre la hoja y
 // el segundo, que dice qué pasa, la pide. No se reintenta sola (AGENTS.md: en lo que gasta plata, el default es NO).
+//
+// ⚠️ EL TELÉFONO NO VENDE (T5, docs/tiendas-play-appstore.md, 3/11/2026): ni el precio ni «Empezar mi plan ya». Apple y Google
+//    prohíben vender algo digital sin su cobro o mandar a pagar afuera. Dar de baja se queda: eso no es una compra.
+//    tests/tiendas-telefono-no-vende.test.ts lo fija.
 // =============================================================================
 
 import { CAPACIDADES_PASARELA } from '@/lib/cobros-tipos';
@@ -13,7 +17,7 @@ import { useState } from 'react';
 import { Button } from '@/app/_ui/Button';
 import { useRouter } from '@/app/_ui/Link';
 import { haptico } from '@/lib/haptico';
-import { darmeDeBajaAction, empezarPlanYaAction } from '@/app/configuraciones/plan/actions';
+import { darmeDeBajaAction } from '@/app/configuraciones/plan/actions';
 import type { SuscripcionVisible } from '@/app/configuraciones/plan/PlanPanel';
 import { FilaM, ListaM, PieM, PildoraM, SheetM, VacioM, type TonoPildora } from '@/app/m/_ui';
 
@@ -28,14 +32,6 @@ export function PlanM({ plan, suscripcion, emailMako, gratisHasta }: { plan: str
     : suscripcion.cancelada ? { texto: 'De baja', tono: 'warn' } : suscripcion.baja ? { texto: 'Baja pedida', tono: 'warn' }
       : enPrueba ? { texto: 'En prueba', tono: 'good' } : { texto: 'Activo', tono: 'good' };
 
-  // «Empezar mi plan ya» (25/10/2026): abre el pago desde hoy; la prueba se cancela recién cuando ese pago entra.
-  const empezarYa = async () => {
-    if (corriendo) return;
-    setCorriendo(true); setAviso(null);
-    const r = await empezarPlanYaAction().catch(() => ({ ok: false as const, resumen: 'No pudimos abrir el pago. Prueba otra vez.' }));
-    if (r.ok) { window.location.href = r.link; return; }
-    haptico('error'); setAviso({ ok: false, texto: r.resumen }); setCorriendo(false);
-  };
   const puedeDarseDeBaja = !!suscripcion && !suscripcion.cancelada && !suscripcion.baja && !aviso?.ok;
   const hastaElFinDelMes = !!suscripcion && CAPACIDADES_PASARELA[suscripcion.proveedor].bajaAlFinDelPeriodo;
 
@@ -52,12 +48,8 @@ export function PlanM({ plan, suscripcion, emailMako, gratisHasta }: { plan: str
     <>
       <ListaM>
         <FilaM icono="tag" titulo={plan}
-          segunda={!suscripcion ? (gratisHasta ? `Gratis hasta el ${gratisHasta}` : 'Acordado con MaKo') : enPrueba ? `Prueba gratis hasta el ${suscripcion.prueba!.hasta}: ese día se cobra ${suscripcion.monto}.` : suscripcion.primerMes ?? `${suscripcion.monto} por mes`}
+          segunda={!suscripcion ? (gratisHasta ? `Gratis hasta el ${gratisHasta}` : 'Acordado con MaKo') : enPrueba ? `Prueba gratis hasta el ${suscripcion.prueba!.hasta}` : undefined}
           pill={estado ? <PildoraM tono={estado.tono}>{estado.texto}</PildoraM> : undefined} />
-        {enPrueba && puedeDarseDeBaja && (
-          <FilaM icono="tag" titulo="Empezar mi plan ya" segunda={`Pagas ${suscripcion!.monto} desde hoy, sin los topes de la prueba.`}
-            onClick={() => { void empezarYa(); }} />
-        )}
         {suscripcion?.baja && <FilaM icono="notepencil" titulo="Tu baja" segunda={suscripcion.baja} />}
       </ListaM>
       {!suscripcion && (

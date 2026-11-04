@@ -73,7 +73,7 @@ test('2. F2a: el bloque del equipo, los de 7 días y hasta 6, con su fecha; va e
   assert.equal(bloqueDelEquipo(null, ahora, TZ), '');
   assert.equal(bloqueDelEquipo('no es json', ahora, TZ), '');
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxParaElEquipo, )?ctxContacto, ctxEquipo, ctxPedidos, ctxYaSeHablo, ctxMostrado\]/, 'el turno no ve lo del equipo o los pedidos');
+  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxCita, )?(?:ctxParaElEquipo, )?ctxContacto, ctxEquipo, ctxPedidos, ctxYaSeHablo, ctxMostrado\]/, 'el turno no ve lo del equipo o los pedidos');
   assert.match(NUCLEO_GRUPO, /el bloque LO QUE EL EQUIPO DE MaKo ESCRIBIÓ EN ESTE GRUPO/);
 });
 

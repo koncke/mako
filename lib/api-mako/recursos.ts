@@ -26,6 +26,7 @@ export function recursoDe(operacion: string): string | undefined {
 /** Los recursos cuyo nombre no sale de poner acentos y mayúscula. */
 const TITULOS: Record<string, string> = {
   'agente-claude': 'Agente de Claude',
+  'aprende-solo': 'Aprende solo',
   'borradores-mensaje': 'Borradores de mensaje',
   'borradores-plantilla': 'Borradores de plantilla',
   'casos-ensayo': 'Casos de ensayo',

@@ -29,6 +29,8 @@
 
 import 'server-only';
 import { createHash } from 'node:crypto';
+import { exigirPermisoIa } from '@/lib/ia-permiso';
+import { esSinPermisoIa } from '@/lib/ia-permiso-reglas';
 
 const GEMINI = 'https://generativelanguage.googleapis.com/v1beta';
 const OPENAI = 'https://api.openai.com/v1';
@@ -93,6 +95,9 @@ export function hashText(s: string): string {
 export async function embed(
   text: string, tipo: 'documento' | 'consulta' = 'documento', opts: { deMako?: boolean; embebedor?: Embebedor | null } = {},
 ): Promise<{ modelo: ModeloEmbedding; vector: number[] }> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i)). Es lo mismo que no tener con qué: se busca por palabras, y
+  // una fila no queda en error por una decisión de la persona.
+  await exigirPermisoIa().catch((e) => { if (esSinPermisoIa(e)) throw new SinEmbebedor(POR_PALABRAS); throw e; });
   const e = opts.embebedor !== undefined ? opts.embebedor : await embebedorDelNegocio({ deMako: opts.deMako });
   if (!e || !e.claves.length) throw new SinEmbebedor(POR_PALABRAS);
   const input = text.trim().slice(0, 8000);

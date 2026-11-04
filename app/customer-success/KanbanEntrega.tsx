@@ -828,10 +828,10 @@ const CSS = `
    blanco. La cabecera y el boton de alta se quedan fijos; lo que corre son las tarjetas. */
 .ke-col {
   flex: 0 0 304px; display: flex; flex-direction: column; gap: 8px;
-  /* La columna de la familia de tarjetas (17/10/2026): 26 de radio y fondo suave, sin borde duro. */
+  /* La columna de la familia de tarjetas (17/10/2026): fondo suave, sin borde duro. Las medidas, de Merrin (docs/diseno/espaciado-kanban.json). */
   /* El valor de FONDO_COLUMNA (lib/tarjeta-kanban), escrito y no interpolado: la llave de cierre de una interpolación corta las reglas que leen los tests. */
   background: var(--fondo-columna); border: 1px solid transparent;
-  border-radius: 26px; padding: 12px 10px 10px; min-height: 248px; max-height: 68vh;
+  border-radius: 18px; padding: 10px; min-height: 248px; max-height: 68vh;
   transition: background .12s, border-color .12s;
 }
 /* ⚠️ LA TARJETA SE DA VUELTA ADENTRO DE LA COLUMNA, y acá, no en TarjetaEntidad: esa
@@ -856,7 +856,7 @@ const CSS = `
 /* ⚠️ El min-height en 0 NO ES DECORATIVO: sin el, un hijo flex no baja de su alto de
    contenido y el overflow no recorta nada — la columna crece y vuelve el scroll de la
    tab. El padding derecho deja aire para la barra sin que tape el borde de la tarjeta. */
-.ke-cards { list-style: none; margin: 0; padding: 0 2px 0 0; display: flex; flex-direction: column; gap: 10px;
+.ke-cards { list-style: none; margin: 0; padding: 0 2px 0 0; display: flex; flex-direction: column; gap: 8px;
   flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
 /* El envoltorio que se arrastra. La tarjeta de adentro trae su propia caja.
    El position relative es para el numero que lleva la copia (ke-lleva), que se cuelga

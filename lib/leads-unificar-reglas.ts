@@ -156,6 +156,8 @@ export const TABLAS_QUE_SE_MUDAN: ReadonlyArray<{ tabla: string; col: string; qu
   { tabla: 'lead_respuestas', col: 'lead_id', que: 'respuestas de formularios y agenda', uno: 'respuesta de formularios y agenda' },
   { tabla: 'lead_insights', col: 'lead_id', que: 'análisis de llamadas', uno: 'análisis de llamada' },
   { tabla: 'closing_analyses', col: 'lead_id', que: 'grabaciones analizadas', uno: 'grabación analizada' },
+  // Las grabadas desde MaKo (mig 0390): sin índice único con el lead, se mudan.
+  { tabla: 'llamadas_grabadas', col: 'lead_id', que: 'llamadas grabadas en MaKo', uno: 'llamada grabada en MaKo' },
   { tabla: 'chat_agent_handoffs', col: 'lead_id', que: 'pases a una persona', uno: 'pase a una persona' },
   { tabla: 'insistencias', col: 'lead_id', que: 'insistencias', uno: 'insistencia' },
   { tabla: 'cobros', col: 'lead_id', que: 'cobros', uno: 'cobro' },

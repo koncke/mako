@@ -711,4 +711,101 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain',
   },
+  // ── 3 nov: los tickets #46, #47 y #48 de Leila — MaKo negaba lo que SÍ tiene, o no sabía dónde vive en la pantalla ──
+  // La causa de los tres es la del #45: la palabra de la persona no era la del nombre de la herramienta, y no viajaba al
+  // turno (las familias de lib/mako-intencion-app.ts). Los puntos los lee la clienta en el aviso: en su idioma, sin lo interno.
+  {
+    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo ya te propone cambiar el precio de tu oferta o de un producto, en vez de decirte que no puede',
+    puntos: [
+      'Le pedías a MaKo pasar el precio de pesos a dólares y te contestaba que desde el chat no podía. Sí puede: te propone el cambio de la oferta o del producto y te deja un link para confirmarlo.',
+      'Y te dice dónde corregirlo tú: en el Second Brain, «La oferta» → «El brief».',
+      '**Cómo se prueba:** en el Ops Center, «quiero pasar el precio de mi oferta a dólares».',
+    ],
+    archivos: [
+      'lib/mako-intencion-app.ts — la familia `precio-oferta`',
+      'tests/mako-no-puedo-falsos.test.ts — el 14',
+    ],
+    revisar: '/second-brain',
+    tickets: [46],
+  },
+  {
+    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo te arma una secuencia nueva con su disparador por etiqueta',
+    puntos: [
+      'Le pediste que el WhatsApp del diagnóstico disparara una secuencia y te dijo que sólo podía activar o pausar las que ya existen. Sí puede crearla: la arma con su disparador (por ejemplo, cuando se le agrega una etiqueta al lead) y nace en pausa, sin escribirle a nadie hasta que la actives.',
+      '**Cómo se prueba:** en el Ops Center, «créame una secuencia que arranque cuando se agrega la etiqueta diagnóstico».',
+    ],
+    archivos: [
+      'lib/mako-intencion-app.ts — la familia `crear-secuencia`',
+      'lib/api-mako/areas/chatbot.def.ts — crear_automatizacion_con_ia dice «secuencia», «disparador» y «etiqueta»',
+      'tests/mako-no-puedo-falsos.test.ts — el 15',
+    ],
+    revisar: '/automations',
+    tickets: [47],
+  },
+  {
+    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo sabe en qué pantalla se corrige cada dato de tu negocio',
+    puntos: [
+      'Preguntaste dónde actualizar tus datos y MaKo no lo sabía. Ahora te lo dice con el nombre que ves: en el Second Brain, «La oferta» → «El brief» para el precio, qué incluye y el horario; «La oferta» → «La oferta» para tus ofertas; y «Productos» para el catálogo con su precio. Con el link que te abre esa pantalla.',
+      '**Cómo se prueba:** en el Ops Center, «¿dónde actualizo mis datos?».',
+    ],
+    archivos: [
+      'lib/secciones-negocio.ts — `DATOS_DEL_NEGOCIO`, `lugarDato`, `rutaDato`',
+      'lib/mako-capacidades.ts — la capacidad datos-negocio',
+      'lib/api-mako/areas/negocio.run.ts · crm.run.ts — ver_perfil_negocio, listar_ofertas y listar_productos dicen dónde se edita',
+      'tests/mako-no-puedo-falsos.test.ts — el 16 y el 17',
+    ],
+    revisar: '/second-brain',
+    tickets: [48],
+  },
+  {
+    fecha: '3 nov', hora: '04:30', chat: 'Second Brain: documentos desde el chat (#44)', sesion: 'local_d010fa87-9186-469e-83de-d431a71f64d8', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: le pegas o adjuntas un documento en el chat y MaKo lo suma al Second Brain',
+    pedido: 'Código Inmobiliario (ticket #44): «te cargo un documento con toda la información que necesitas saber de mi negocio, analízalo e incorpóralo al second brain». MaKo le contestó que no tenía una herramienta que escribiera ahí.',
+    puntos: [
+      'Nueva tarjeta «Sumar un documento al Second Brain»: MaKo guarda el documento en El Archivero, saca lo que va en tu perfil y te lo muestra antes de que digas que sí. Lo que editaste a mano no se toca.',
+      'Con tu propio Claude en la computadora, lo lee tu Claude: la tarjeta muestra cada dato que va a tu perfil.',
+      'Si el chat cortó el documento por largo, la tarjeta lo dice y te pide el resto como otro documento. El mismo documento dos veces no se guarda dos veces.',
+      'MaKo entiende el pedido aunque venga con el documento pegado: antes lo leía como una lista de ideas y no traía ninguna herramienta.',
+      '**Cómo se prueba:** en /second-brain, pegar un documento largo con «súmalo al second brain» y confirmar la tarjeta; el documento aparece en El Archivero.',
+    ],
+    commits: [
+      { sha: '27a0e7565', msg: 'La ingesta de El Archivero sale de su ruta a lib/archivero-ingesta.ts', lineas: 341, archivos: 6 },
+      { sha: 'b97ff33c6', msg: 'Ticket #44: MaKo suma al Second Brain un documento pegado en el chat', lineas: 347, archivos: 13 },
+    ],
+    archivos: [
+      'lib/archivero-ingesta.ts — la ingesta de El Archivero, la misma para su pantalla y para la API',
+      'lib/api-mako/areas/negocio.def.ts · negocio.run.ts — sumar_documento_second_brain',
+      'lib/chat-pegado.ts — documentoDelChat y pedidoDelMensaje',
+      'lib/mako-intencion-app.ts — la familia documento-al-cerebro',
+      'tests/sumar-documento-second-brain.test.ts — 8 roturas, cada una cae',
+    ],
+    revisar: '/second-brain',
+    tickets: [44],
+  },
+  {
+    fecha: '3 nov', hora: '20:20', chat: 'Tickets de clientes', sesion: 'local_d010fa87-9186-469e-83de-d431a71f64d8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo te prende «Aprende solo» desde el chat',
+    puntos: [
+      'Le pediste activar «Aprende solo» y te contestó que no existía. Sí existe: ahora te lo prende desde el chat, con tu «sí», y también lo apaga.',
+      'Y sabe dónde está: en el Second Brain, en la cabecera del Mapa.',
+      'Con «Aprende solo» prendido, MaKo aprende de tus conversaciones de WhatsApp con leads. No manda ningún mensaje.',
+      '**Cómo se prueba:** en el Ops Center, «activa Aprende solo».',
+    ],
+    archivos: [
+      'lib/mako-capacidades.ts — la capacidad aprende-solo',
+      'lib/mako-intencion-app.ts — la familia aprende-solo',
+      'lib/api-mako/areas/mako.def.ts · mako.run.ts — cambiar_aprende_solo',
+      'tests/aprende-solo-en-el-chat.test.ts — en un negocio que no es la plataforma; 6 roturas, cada una cae',
+    ],
+    revisar: '/second-brain',
+    tickets: [45],
+  },
 ];

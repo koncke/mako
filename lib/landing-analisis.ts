@@ -552,7 +552,12 @@ export type Buscador = (url: string, init?: RequestInit) => Promise<Response>;
 const UA_COMO_NAVEGADOR = 'Mozilla/5.0 (compatible; MaKoPixel/1.0; +https://hola-mako.com)';
 const UA_BOT = 'MaKoPixel/1.0 (+https://hola-mako.com)';
 
-export async function analizarLanding(url: string, fetchImpl: Buscador): Promise<AnalisisLanding> {
+export async function analizarLanding(
+  url: string,
+  fetchImpl: Buscador,
+  /** Para quien necesita más que las piezas (Competitors Spy): el HTML y los scripts que ya se bajaron. */
+  alLeer?: (html: string, bundle: string) => void,
+): Promise<AnalisisLanding> {
   if (!url) return VACIO(url, 'Sin dirección');
   try {
     const ctrl = new AbortController();
@@ -582,6 +587,7 @@ export async function analizarLanding(url: string, fetchImpl: Buscador): Promise
     // único que cambia es de dónde sale. Se bajan como máximo 3 scripts propios y
     // se corta a 3 MB: el punto es encontrar marcas, no leer el programa.
     const extra = await bundlesDe(url, html, fetchImpl).catch(() => '');
+    alLeer?.(html, extra);
     return analizarHtml(url, html, extra);
   } catch (e) {
     const msg = e instanceof Error && e.name === 'AbortError'

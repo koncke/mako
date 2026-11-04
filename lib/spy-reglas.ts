@@ -68,9 +68,9 @@ export const NOMBRE_CANAL: Record<CanalSpy, string> = {
  *   · `pagina`    — se bajó la página pública y se leyó (la landing del competidor).
  *   · `pegado`    — lo trajo la persona: pegó el link de un anuncio que estaba mirando. No hay
  *                   recolección automatizada, así que no hay riesgo de términos.
- *   · `recorrido` — un recorrido a la vista en el navegador de la persona (Etapa 4, y sólo si
- *                   Martín lo decide: por la letra de los Automated Data Collection Terms de Meta
- *                   sigue siendo recolección automatizada). Hoy ninguna pieza entra así.
+ *   · `recorrido` — la leyó la extensión en el navegador de la persona, con un clic y sólo lo que
+ *                   la página ya dibujó («Guardar en Spy», decidido por Martín el 3/11/2026, §9.1 del
+ *                   plan). El nombre viene de cuando era un recorrido: no recorre nada.
  */
 export const FUENTES_PIEZA = ['api', 'pagina', 'pegado', 'recorrido'] as const;
 export type FuentePieza = (typeof FUENTES_PIEZA)[number];
@@ -80,7 +80,7 @@ export const NOMBRE_FUENTE: Record<FuentePieza, string> = {
   api: 'De la API oficial',
   pagina: 'De su página pública',
   pegado: 'Lo pegaste tú',
-  recorrido: 'De un recorrido en tu navegador',
+  recorrido: 'Lo guardaste desde tu navegador',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -417,6 +417,28 @@ export function diasCorriendo(
   return dias < 0 ? null : dias;
 }
 
+/**
+ * Tacha de una fila lo que ya venció, al LEERLA. Son las dos retenciones de los Developer Policies
+ * de YouTube, y se aplican acá porque es el único lugar por donde pasan todas las lecturas: una poda
+ * que vive sólo en un cron deja la fila vieja a la vista hasta que el cron corra.
+ *
+ * El texto a los 30 días SIEMPRE; las métricas a los 36 meses con la enmienda III.L y a los 30 días
+ * sin ella. Lo que se tacha queda `null`, que es «no lo sé» — no «no lo tiene».
+ *
+ * ⚠️ LOS ANUNCIOS NO SE PODAN. Estas retenciones son de YouTube y alcanzaban a todos los canales. Un
+ * anuncio llega porque la persona lo trajo con un clic y nadie lo vuelve a leer solo: a los 30 días
+ * quedaba una tarjeta sin texto y sin forma de recuperarlo. Tampoco tiene métricas: Meta no las publica.
+ */
+export function podarVencido<T extends Record<string, unknown>>(fila: T, ahora: Date = new Date()): T {
+  if (fila.canal === 'anuncios') return { ...fila };
+  const out: Record<string, unknown> = { ...fila };
+  const tTexto = typeof fila.texto_leido_en === 'string' ? fila.texto_leido_en : null;
+  if (tTexto && textoVencido(tTexto, ahora)) { out.titulo = null; out.texto = null; out.etiquetas = null; out.analisis = null; }
+  const tMetricas = typeof fila.metricas_leidas_en === 'string' ? fila.metricas_leidas_en : null;
+  if (tMetricas && metricasVencidas(tMetricas, ahora)) { out.vistas = null; out.megusta = null; out.comentarios = null; }
+  return out as T;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. Lo que la pantalla NO dice de una persona
 // ─────────────────────────────────────────────────────────────────────────────
@@ -476,6 +498,20 @@ export const TIPOS_POR_CANAL: Record<CanalSpy, readonly TipoPieza[]> = {
 };
 
 /** Topes de lo que se guarda de una pieza, para que un texto largo no reviente una fila. */
+/**
+ * El nombre reducido a lo que lo hace comparable: sin tildes, sin espacios, sin puntos ni @, todo
+ * en minúsculas. «Sofia Contreras», «sofiacontreras» y «@Sofia.Contreras» dan lo mismo.
+ *
+ * ⚠️ ES SÓLO PARA COMPARAR. Lo que se guarda y se muestra es el nombre tal como lo escribió la
+ * persona: nadie quiere ver «sofiacontreras» en su lista.
+ */
+export const nombreComparable = (s: string): string =>
+  (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/** El dominio de una landing, para comparar: sin protocolo, sin www, sin barra final ni query. */
+export const dominioComparable = (s: string): string =>
+  (s ?? '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];
+
 export const TOPES = {
   /** El @ de Instagram, el id de un canal de YouTube o el id de la Biblioteca de Anuncios. */
   ref: 200,
@@ -490,3 +526,32 @@ export const TOPES = {
   /** Cuántas piezas se traen de un canal por vuelta. */
   piezasPorVuelta: 50,
 } as const;
+
+/** Lo que `queEs` (lib/spy.ts) devuelve: el canal que se reconoció en lo que se pegó. */
+export type CanalLeido = { campo: 'instagram' | 'youtube_id' | 'tiktok' | 'landing_url' | 'nombre'; valor: string };
+
+/**
+ * Qué canal NUEVO aporta el link de la bio de Instagram, si aporta alguno.
+ *
+ * Es la mitad gratis del ítem 10 («con un dato, traer todas sus redes», 2/11/2026): la vista previa
+ * ya lee el link de la bio para mostrar quién es, y al guardar se tiraba a la basura.
+ *
+ * Vive acá y no en `lib/spy.ts` por una razón concreta: `spy.ts` importa `server-only` y ningún test
+ * puede importarlo, así que una decisión escondida ahí sólo se puede cuidar leyendo el archivo como
+ * texto. Acá se EJECUTA.
+ *
+ * Qué descarta, y por qué cada uno:
+ *   · `null`/vacío — no hay bio, o el perfil no se pudo leer.
+ *   · `nombre` — la bio tenía texto, no un link. El nombre lo pone el negocio, no su biografía.
+ *   · `instagram` — su bio enlaza a otra cuenta de Instagram (o a la suya). Ya estamos agregando esa
+ *     red: guardarla como «landing» pondría instagram.com en el canal de su página de venta.
+ *   · el MISMO campo que se pegó — si pegaron su sitio y su bio enlaza su sitio, no hay nada nuevo.
+ */
+export function canalDeLaBio(deLaBio: CanalLeido | null | undefined, yaPegado: CanalLeido['campo']): CanalLeido | null {
+  if (!deLaBio) return null;
+  // TikTok entra desde el 3/11/2026 (0365): antes `queEs` lo clasificaba como sitio y un link a su
+  // TikTok en la bio terminaba guardado como su LANDING.
+  if (deLaBio.campo !== 'landing_url' && deLaBio.campo !== 'youtube_id' && deLaBio.campo !== 'tiktok') return null;
+  if (deLaBio.campo === yaPegado) return null;
+  return deLaBio;
+}

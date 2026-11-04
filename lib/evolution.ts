@@ -23,7 +23,11 @@ import { elegirLinea, esLineaDelWorkspace, instanceNameDeWs, nombreLineaNueva, l
 import { lineaDeMaKoPara, ETIQUETA_LINEA_MAKO } from './linea-plataforma';
 import { queryDeWebhook } from './evolution-firma';
 import { numeroParaWhatsApp, motivoConPista } from './numero-whatsapp';
+import { bloqueoDeEnvioEnRevision } from './revision-guarda';
 import { topeParaLineaNueva, type TopeLineaNueva } from './tope-lineas';
+import { antesDeEscribir, trasEscribir } from './linea-freno';
+import { pausaDeEscritura } from './mako-salida-reglas';
+import type { FotoLinea } from './lineas-de-mako';
 
 // El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
 // test). Se re-exporta para que ningún import cambie.
@@ -64,6 +68,10 @@ type EvResult<T> = { ok: true; data: T } | { ok: false; error: string; status: n
 
 async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: number): Promise<EvResult<T>> {
   if (!evolutionConfigurado()) return { ok: false, error: 'Evolution no configurado', status: 0 };
+  // ⛔ LA LÍNEA FRENADA NO ESCRIBE (4/11/2026, lib/linea-freno.ts): WhatsApp avisó que estaba en riesgo, y seguir insistiendo
+  // es lo que termina en un ban. Sale con el motivo y sin status (no llegó a Evolution).
+  const frenada = await antesDeEscribir(path).catch(() => null);
+  if (frenada) return { ok: false, error: frenada, status: 0, motivo: frenada };
   try {
     const res = await fetch(`${BASE}${path}`, {
       ...init,
@@ -86,6 +94,9 @@ async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: n
       // crudo de Evolution es un array JSON que no le dice nada a nadie (revisión del 11/09).
       // `detalle` lleva lo que Evolution dijo de verdad, anidado en `response.message`: sin eso
       // la sonda nunca veía el «Connection Closed» (ver `mensajeEvolution`).
+      // Un «rate-overlimit», un 463 o un 403 al mandar frenan la línea y avisan una vez (lib/linea-freno.ts). Se espera: el
+      // próximo envío de la misma tanda ya tiene que encontrarla frenada.
+      await trasEscribir(path, res.status, body).catch(() => null);
       return { ok: false, error: msg, status: res.status, detalle: mensajeEvolution(body, res.status), motivo: motivoDeEvolution(res.status, body) };
     }
     return { ok: true, data: body as T };
@@ -162,11 +173,11 @@ async function setSettings(instance: string): Promise<void> {
 // MaKo. Por defecto las instancias ignoran grupos (regla anti-ban del PDF); esto
 // se activa a propósito solo en la línea que le da voz a MaKo. Mantiene el resto
 // de los ajustes anti-ban igual.
-export async function permitirGruposEnInstancia(instance: string): Promise<{ ok: boolean; error?: string }> {
+export async function permitirGruposEnInstancia(instance: string, permitir = true): Promise<{ ok: boolean; error?: string }> {
   const r = await evFetch(`/settings/set/${encodeURIComponent(instance)}`, {
     method: 'POST',
     body: JSON.stringify({
-      rejectCall: false, msgCall: '', groupsIgnore: false,
+      rejectCall: false, msgCall: '', groupsIgnore: !permitir,
       // Mismo valor que setSettings: este endpoint PISA los ajustes enteros,
       // así que dejarlo en false acá apagaría el historial por la ventana.
       alwaysOnline: false, readMessages: false, readStatus: false, syncFullHistory: true,
@@ -557,6 +568,38 @@ export async function motivoCaida(instance: string, topeMs?: number): Promise<Mo
   };
 }
 
+/**
+ * Lo que Evolution tiene guardado de una línea, sin hablar con WhatsApp (lib/lineas-de-mako.ts). null = no se pudo preguntar.
+ *
+ * ⚠️ ESTA RUTA NO DICE «does not exist». Medido el 03/11/2026: una instancia que no existe da 404 `Instance "x" not found`,
+ * así que `esInstanciaInexistente` (hecha para `/chat/fetchBusinessProfile`) acá contesta que sí existe.
+ */
+export async function fotoDeLinea(instance: string, topeMs?: number): Promise<FotoLinea | null> {
+  const r = await evFetch<Array<Record<string, unknown>>>(`/instance/fetchInstances?instanceName=${encodeURIComponent(instance)}`, undefined, topeMs);
+  const sinInstancia: FotoLinea = { existe: false, estado: null, codigo: null, cuando: null, numero: null };
+  if (!r.ok) return r.status === 404 && /instance .*not found/i.test(r.detalle ?? '') ? sinInstancia : null;
+  if (!Array.isArray(r.data)) return null;
+  const it = r.data.find((i) => (i.name ?? i.instanceName) === instance);
+  if (!it) return sinInstancia;
+  const codigo = it.disconnectionReasonCode == null ? null : Number(it.disconnectionReasonCode);
+  const jid = String((it.ownerJid as string) || '');
+  return {
+    existe: true,
+    estado: String(it.connectionStatus ?? '') || null,
+    codigo: Number.isFinite(codigo) ? codigo : null,
+    cuando: (it.disconnectionAt as string | null | undefined) ?? null,
+    numero: jid.replace(/@.*/, '').replace(/:.*/, '').replace(/\D/g, '') || null,
+  };
+}
+
+/**
+ * Vuelve a abrir el socket de una línea con la sesión que ya tiene: no borra nada. Con `open` y `connecting`, Evolution no hace
+ * nada (controlador de la 2.3.7). Quién y cuándo lo llama lo decide `decidirReapertura`: nunca sobre un 401, 402, 403 o 406.
+ */
+export async function reabrirSesion(instance: string, topeMs?: number): Promise<void> {
+  await evFetch(`/instance/connect/${encodeURIComponent(instance)}`, undefined, topeMs);
+}
+
 /** A quién se le pide el perfil de empresa en `sondearSocket`. Cualquier número sirve: lo que
  *  exige el socket es la PREGUNTA, no la respuesta. Es la línea de MaKo, para no preguntarle
  *  nunca a WhatsApp por un tercero. */
@@ -894,6 +937,8 @@ async function lineaDeEnvio(linea?: string | null): Promise<{ ok: true; instance
 // `sinVistaPrevia` (17/10/2026, #869): los links salen como texto, sin la tarjeta que Evolution arma sola
 // (`linkPreview: false` de /message/sendText). Sin la opción, lo de siempre (con tarjeta).
 export async function enviarTexto(telefono: string, texto: string, linea?: string | null, opts: { sinVistaPrevia?: boolean } = {}): Promise<EnvioResult> {
+  const enRevision = await bloqueoDeEnvioEnRevision('whatsapp', telefono); // la cuenta de revisión no le escribe a nadie
+  if (enRevision) return { ok: false, error: enRevision };
   const l = await lineaDeEnvio(linea);
   if (!l.ok) return l;
   const instance = l.instance;
@@ -901,8 +946,7 @@ export async function enviarTexto(telefono: string, texto: string, linea?: strin
   if (!n.ok) return n;
   const num = n.numero;
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
-  const base = Math.min(1500 + texto.length * 45, 9000);
-  const delay = Math.round(base * (0.8 + Math.random() * 0.4)); // ±20% jitter
+  const delay = pausaDeEscritura(texto.length); // «escribiendo…» proporcional al largo, con variación (lib/mako-salida-reglas.ts)
   const r = await evFetch<{ key?: { id?: string; remoteJid?: string } }>(
     `/message/sendText/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ number: num, text: texto, delay, ...(opts.sinVistaPrevia ? { linkPreview: false } : {}) }) },
@@ -921,6 +965,8 @@ export async function enviarMedia(
   caption?: string,
   linea?: string | null,
 ): Promise<EnvioResult> {
+  const enRevision = await bloqueoDeEnvioEnRevision('whatsapp', telefono); // la cuenta de revisión no le escribe a nadie
+  if (enRevision) return { ok: false, error: enRevision };
   const l = await lineaDeEnvio(linea);
   if (!l.ok) return l;
   const instance = l.instance;
@@ -929,7 +975,7 @@ export async function enviarMedia(
   const num = n.numero;
   const media64 = soloB64(media.base64);
   if (!media64) return { ok: false, error: 'archivo vacío' };
-  const delay = Math.round(Math.min(1200 + Math.floor(media64.length / 120), 6000) * (0.8 + Math.random() * 0.4));
+  const delay = pausaDeEscritura(media64.length, 'media');
   const body: Record<string, unknown> = { number: num, mediatype: media.tipo, mimetype: media.mimetype, media: media64, delay };
   if (media.fileName) body.fileName = media.fileName;
   if (caption) body.caption = caption;
@@ -944,6 +990,8 @@ export async function enviarMedia(
 // Envía una NOTA DE VOZ (PTT) por el no oficial. sendWhatsAppAudio (no sendMedia)
 // para que salga como nota de voz; el delay muestra "grabando audio…" nativo.
 export async function enviarAudio(telefono: string, base64: string, linea?: string | null): Promise<EnvioResult> {
+  const enRevision = await bloqueoDeEnvioEnRevision('whatsapp', telefono); // la cuenta de revisión no le escribe a nadie
+  if (enRevision) return { ok: false, error: enRevision };
   const l = await lineaDeEnvio(linea);
   if (!l.ok) return l;
   const instance = l.instance;
@@ -952,7 +1000,7 @@ export async function enviarAudio(telefono: string, base64: string, linea?: stri
   const num = n.numero;
   const audio64 = soloB64(base64);
   if (!audio64) return { ok: false, error: 'audio vacío' };
-  const delay = Math.round(Math.min(2000 + Math.floor(audio64.length / 90), 8000) * (0.8 + Math.random() * 0.4));
+  const delay = pausaDeEscritura(audio64.length, 'audio');
   const r = await evFetch<{ key?: { id?: string; remoteJid?: string } }>(
     `/message/sendWhatsAppAudio/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ number: num, audio: audio64, delay, encoding: true }) },

@@ -13,12 +13,16 @@
 // SIN imports de valores: lo usan la pantalla ('use client') y los tests.
 
 import type { MensajeChat, SesionChat } from './mako-turno-app-reglas';
+import { asesorPorId, type IdAsesor } from './asesores/catalogo';
 import type { MensajeChatMako } from './automatizacion-chat';
 
 /** El nombre del jefe del chat con MaKo: «Cerebro», con la estrella de MaKo (lib/centro-munecos.ts → esCriaturaDeMako), como el
  *  del Ops Center del super admin (21/10/2026, Martín: «El chat principal, al igual que SuperAdmin, debe ser "Cerebro" y tener la
  *  criatura de MaKo»). Hasta ese día era «Second Brain», con la gota. El nombre de la constante quedó de antes. */
 export const JEFE_SECOND_BRAIN = 'Cerebro';
+/** Lo que se LEE en la fila y en la cabecera (1/11/2026, Martín: «el chat principal de Ops Center, que ya no se llama cerebro»).
+ *  `JEFE_SECOND_BRAIN` sigue siendo de qué nombre sale la estrella (lib/centro-munecos.ts → esCriaturaDeMako). */
+export const NOMBRE_JEFE = 'Ops Center';
 /** El título de una conversación que todavía no tiene: el modelo se lo pone después del primer turno. */
 export const SIN_TITULO = 'Chat nuevo';
 
@@ -42,7 +46,7 @@ export function arbolDelJefe(sesiones: readonly SesionChat[]): ArbolDelJefe {
 export const tituloDe = (s: Pick<SesionChat, 'titulo'>): string => s.titulo?.trim() || SIN_TITULO;
 
 /** El nombre completo de un sub-chat, con la convención del jefe («Cerebro › Precios»). */
-export const nombreDeSub = (s: Pick<SesionChat, 'titulo'>): string => `${JEFE_SECOND_BRAIN} › ${tituloDe(s)}`;
+export const nombreDeSub = (s: Pick<SesionChat, 'titulo'>): string => `${NOMBRE_JEFE} › ${tituloDe(s)}`;
 
 /** La búsqueda de la barra: sin mayúsculas ni tildes. El jefe se ve siempre (es la casa). */
 const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
@@ -260,7 +264,7 @@ export function seEscondeDeOffer(s: { id: number; updatedAt: string }, copiada: 
 /** Lo elegido en la barra: una conversación con MaKo, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»), una conversación de Offer, o un chat de Claude Code (su clave del Centro). */
 export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number } | { grupo: true }
-  | { automatizacion: number } | { editor: TipoEditor; clave: string };
+  | { automatizacion: number } | { editor: TipoEditor; clave: string } | { coach: 'funnel' };
 
 /** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). El grupo no tiene motor: se lee. */
 export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'grupo' | 'automations' | 'editor';
@@ -277,6 +281,8 @@ export type FilaDelCliente = {
   origen: OrigenDeFila;
   /** La fila JEFE de un grupo que no tiene chat propio (`jefeDelGrupo`): abre el más reciente de los suyos, y no es «el abierto». */
   jefeDeGrupo?: true;
+  /** La conversación con un gurú (`…:referente-<id>`): lleva su cara y se abre en su chat (ChatDelReferente.tsx). */
+  guru?: IdAsesor;
 };
 
 /** `tema`: de qué se trata, para nombrar lo que no tiene título y distinguir dos que se llaman igual (lo pone el servidor:
@@ -303,6 +309,9 @@ export function origenDeClave(clave: string | null | undefined): string | null {
   if (/^mako-movil:[^:]+:lead:\d+$/.test(k)) return 'Ficha';
   if (k.endsWith(`:${TAB_SECOND_BRAIN}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_SECOND_BRAIN;
   if (k.endsWith(`:${TAB_VIDEO_GENERATOR}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_VIDEO_GENERATOR;
+  if (k.endsWith(`:${TAB_FUNNEL_COACH}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_FUNNEL_COACH;
+  // La de un gurú: su nombre es el origen («Julián Alborna › tema»). Sin esto, `claveDeTab` la rechaza y no se puede escribir.
+  if (/^mako-movil:[^:]+:referente-[a-z-]+$/.test(k)) { const a = asesorPorId(referenteDeTab(k)); if (a) return a.nombre; }
   if (/^(dashboard:|comercial-|marketing-(?!ad-))/.test(k)) return 'Dashboard';
   if (/^(ad-detail-|mkt-campaign-|marketing-ad-)/.test(k)) return 'Ads';
   if (/^whatsapp-/.test(k)) return 'Automations';
@@ -350,7 +359,53 @@ export const ORIGEN_SECOND_BRAIN = 'Second Brain';
 export const TAB_VIDEO_GENERATOR = 'video-generator';
 export const ORIGEN_VIDEO_GENERATOR = 'Video Generator';
 /** Las tabs con una conversación propia por persona: lo único que acepta la ruta para crearla. */
-export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN, TAB_VIDEO_GENERATOR];
+/** El Funnel Coach (1/11/2026, docs/funnel-coach.md): su fila está fija debajo del Ops Center, así que no se repite en el resto. */
+export const TAB_FUNNEL_COACH = 'funnel-coach';
+export const ORIGEN_FUNNEL_COACH = 'Funnel Coach';
+export const ORIGEN_OFFER_COACH = 'Offer Coach';
+export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN, TAB_VIDEO_GENERATOR, TAB_FUNNEL_COACH];
+
+// ── El chat con un GURÚ (3/11/2026, #16: «elegir un gurú desde Nuevo chat») ─────────────────────────────────────────
+// UNA conversación por persona, negocio y gurú (`mako-movil:<persona>:referente-<id>`), como la del Funnel Coach: elegir otra
+// vez al mismo gurú la retoma. ⚠️ LO QUE LO HACE GURÚ ES LA CLAVE, NO LA PANTALLA: el servidor saca el referente de la clave
+// de la conversación (app/api/mako/chat/route.ts → `contextoDelChat`), así que retomarla desde la lista del Ops Center sigue
+// siendo con él. Si lo decidiera la pantalla, la misma conversación abierta desde la lista contestaría como MaKo a secas.
+export const PREFIJO_TAB_REFERENTE = 'referente-';
+export const tabDeReferente = (id: IdAsesor): string => `${PREFIJO_TAB_REFERENTE}${id}`;
+/** El referente de una tab (`referente-<id>`) o del final de una clave (`…:referente-<id>`); null si no es de un gurú que existe. */
+export function referenteDeTab(tab: string | null | undefined): IdAsesor | null {
+  const t = String(tab ?? '').split(':').pop() ?? '';
+  return t.startsWith(PREFIJO_TAB_REFERENTE) ? asesorPorId(t.slice(PREFIJO_TAB_REFERENTE.length))?.id ?? null : null;
+}
+/** ¿Esta tab tiene una conversación propia por persona? Las de la lista fija y la de cada gurú (lo único que acepta la ruta). */
+export const esTabConChatPropio = (tab: string): boolean => TABS_CON_CHAT_PROPIO.includes(tab) || (!tab.includes(':') && referenteDeTab(tab) != null);
+
+/**
+ * Qué abre tocar la fila del Offer Coach (3/11/2026, Martín: «Cuando le doy a "Hormozi" no se abre nada»). Con un gurú al frente, SU
+ * chat, ahí mismo y aunque nunca le haya escrito: es lo que dice la fila. Sus conversaciones de Offer siguen debajo, cada una en su
+ * fila. Sin gurú (eligió «MaKo»), la conversación de Offer más reciente; sin ninguna, elegir uno: la fila nunca es un clic muerto.
+ */
+export function queAbreElOfferCoach(o: { referente: IdAsesor | null; offer: ElegidoChat | null }): { guru: IdAsesor } | { elegido: ElegidoChat } | { elegir: true } {
+  if (o.referente) return { guru: o.referente };
+  return o.offer ? { elegido: o.offer } : { elegir: true };
+}
+
+/** Un gurú con el que la persona ya habló: su conversación y cuándo fue lo último. */
+export type GuruConCharla = { id: IdAsesor; at: string | null };
+
+/**
+ * Los gurús que van en la barra, debajo de los coaches, lo más reciente arriba: con los que ya habló y el que tiene abierto, aunque
+ * todavía no le haya escrito (si no, abrirlo no se vería en la lista). El del Offer Coach no se repite: ya tiene su fila.
+ */
+export function gurusDeLaBarra(o: { conCharla: readonly GuruConCharla[]; abierto: IdAsesor | null; delOffer: IdAsesor | null; busca: string }): GuruConCharla[] {
+  const b = normal(o.busca);
+  const yaEsta = o.conCharla.some((g) => g.id === o.abierto);
+  return [...o.conCharla, ...(o.abierto && !yaEsta ? [{ id: o.abierto, at: null }] : [])]
+    .filter((g) => g.id !== o.delOffer && (!b || normal(asesorPorId(g.id)?.nombre ?? '').includes(b)))
+    .map((g, i) => ({ g, i, t: ms(g.at) ?? Number.MAX_SAFE_INTEGER }))
+    .sort((x, y) => y.t - x.t || x.i - y.i)
+    .map((x) => x.g);
+}
 
 /** El saludo del Second Brain con la conversación vacía, con el nombre de pila de quien mira (sin nombre, sin el «NOMBRE»). */
 export function saludoDelSecondBrain(nombre: string | null | undefined): string {
@@ -494,7 +549,7 @@ export function listaDelCliente(p: {
 }): FilaDelCliente[] {
   const { jefe, subs } = arbolDelJefe(p.sesiones);
   const cerebro: FilaDelCliente = {
-    clave: 'jefe', elegido: jefe ? { id: jefe.id } : { virtual: 'jefe' }, titulo: JEFE_SECOND_BRAIN, criatura: JEFE_SECOND_BRAIN,
+    clave: 'jefe', elegido: jefe ? { id: jefe.id } : { virtual: 'jefe' }, titulo: NOMBRE_JEFE, criatura: JEFE_SECOND_BRAIN,
     actividad: ms(jefe?.updatedAt), origen: 'mako',
   };
   const b = normal(p.busca);
@@ -506,7 +561,10 @@ export function listaDelCliente(p: {
       const titulo = base === TITULO_ONBOARDING || base === SECCION_OFFER ? base : conOrigen(SECCION_OFFER, base);
       return { clave: `o${o.id}`, elegido: { offer: o.id }, titulo, criatura: criaturaDeOffer(base), actividad: ms(o.updatedAt), origen: 'offer' };
     }),
-    ...p.antes.map((a): FilaDelCliente => {
+    ...p.antes.filter((a) => (a.origen ?? origenDeClave(a.clave)) !== ORIGEN_FUNNEL_COACH).map((a): FilaDelCliente => {
+      // La de un gurú es UNA por persona: se llama como él, sin «› tema», y no arma un grupo con una sola fila.
+      const delGuru = asesorPorId(referenteDeTab(a.clave));
+      if (delGuru) return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo: delGuru.nombre, criatura: delGuru.nombre, actividad: ms(a.updatedAt), origen: 'antes', guru: delGuru.id };
       // Con su origen adelante (OC4): «CRM › …», «Dashboard › …», «Ficha · Ana › …». La criatura es la de su área.
       const origen = a.origen ?? origenDeClave(a.clave);
       // Sin título (medido el 22/10: la mitad de los del CRM, y los análisis de los gráficos), su tema: lo primero que se dijo. Sin

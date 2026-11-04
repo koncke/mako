@@ -238,9 +238,6 @@
   box-shadow: 0 4px 16px rgba(18, 21, 27, .16);
 }
 .ch-tab-mako:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(18, 21, 27, .2); }
-/* EN LA BARRA (30/10/2026): montado en la ranura del pie de la barra de la app, no flota: no tapa el rincón de ninguna tab. */
-.ch-tab-mako.ch-tab-mako--en-barra { position: static; width: 48px; height: 48px; margin-bottom: 10px; box-shadow: none; }
-.ch-tab-mako.ch-tab-mako--en-barra:hover { transform: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent); }
 .ch-tab-mako:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 /* ⚠️ UN BLOQUE FLOTANTE, NO UN CUADRADO DE BORDE A BORDE (25/10/2026, punto 12 de Martín: «cuando ya lo venimos haciendo tipo
    bloque flotante con cuadros un poco redondeados... Unifica ese diseño»). Es el marco del panel de MaKo del Dashboard (`.an`,

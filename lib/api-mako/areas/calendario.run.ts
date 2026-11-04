@@ -17,7 +17,7 @@ import { linkDeAgenda } from '@/lib/agenda-link';
 import { anticipacionDeLaAgenda } from '@/lib/agenda-anticipacion';
 import { getWorkspace } from '@/lib/workspace';
 import { tableroDeCapa } from '@/lib/tablero-de-capa';
-import { crearEventoGoogle } from '@/lib/calendario-google';
+import { agendaParaEscribir, crearEventoGoogle } from '@/lib/calendario-google';
 import { cuerpoEventoGoogle, type EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
 import {
   FALTA_MIGRACION_PUBLICAR, listasParaProgramar, programarPublicaciones, revisarParaProgramar, type RevisionProgramar,
@@ -161,6 +161,9 @@ export const RUNNERS: Runners = {
       if (!e.fecha) return { error: 'Falta la fecha (YYYY-MM-DD).', faltan: ['fecha'] };
       const c = cuerpoEventoGoogle(e, await zonaDelCalendario());
       if (!c.ok) return { error: c.error };
+      // Sin conexión o con permiso de sólo lectura se dice ANTES del «sí» cuál falta (ticket #42): no se propone lo que no se puede crear.
+      const sinAgenda = await agendaParaEscribir();
+      if (sinAgenda) return { error: sinAgenda };
       const cuando = `${e.fecha}${e.hora ? ` a las ${e.hora}` : ' (todo el día)'}${e.hora && e.duracionMin ? `, ${e.duracionMin} min` : ''}`;
       return { payload: { ...e }, resumen: `Crear en tu Google Calendar: «${e.titulo.trim()}», ${cuando}.` };
     },

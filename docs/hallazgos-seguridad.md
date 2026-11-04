@@ -17,6 +17,7 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ## Lo que más muerde acá
 
+- **(01/11/2026) La auditoría completa: el `.env` de producción del Estudio estaba en GitHub** (`.en-7`, commit `d1e2820`, en `main` de `leandro-tejado/estudio-video`: **repo privado**, medido el 03/11), un token sin fila valía como super admin en producción, las sesiones no se podían cerrar y la extensión atendía a cualquier página de localhost → [Auditoría del 01/11/2026](#auditoría-del-01112026-lo-hecho-y-lo-que-queda).
 - **(28/10/2026) Un link ya puede ESCRIBIR en un negocio** (un guion del Copywriter, sin cuenta): `puedeEditar` no lo usaba nadie (el de Classroom es otra función con el mismo nombre), lo que la función del server le contesta al dueño no se reenvía a un link, y el editor del link nunca guarda por la ruta de la tab → [Un guion del Copywriter se EDITA por link](#un-guion-del-copywriter-se-edita-por-link-la-primera-ruta-pública-que-escribe-en-un-negocio-28102026).
 - **(21/10/2026) Los CSV que exporta la app se abrían como FÓRMULA en Excel y en Sheets**: cinco exportadores tenían cada uno su escape, cuatro sin defensa, y la más expuesta era la de leads del CRM (nombres que vienen de formularios públicos: un lead llamado «=HYPERLINK(…)»). Ahora hay UN helper (`lib/csv-celda.ts`) y un test que rompe Actions si una exportación arma el suyo → [Inyección de fórmulas en los CSV](#inyección-de-fórmulas-en-los-csv-que-exporta-la-app-cinco-exportadores-cinco-escapes-y-cuatro-sin-defensa-21102026).
 - **(21/10/2026) «Desde la 0280 las funciones nuevas nacen cerradas» era falso**: el EXECUTE de PUBLIC viene del default GLOBAL de Postgres y un `alter default privileges … in schema` no lo saca, así que toda función creada después (la 0310, la 0318) nació ejecutable por la clave anon. Cerrado con la 0319 (default global + bucle sobre el catálogo) y un test que exige el revoke en toda migración → [El EXECUTE de PUBLIC es un default GLOBAL](#el-execute-de-public-es-un-default-global-desde-la-0280-nacen-cerradas-era-falso-21102026).
@@ -33,6 +34,109 @@ arregladas, y donde el rescate lo sabía, lo dice.
 - Un `notFound()` corta el cuerpo y **deja el `<title>` puesto**: el guard funciona y la pantalla igual cuenta que existe → [Superficie expuesta](#notfound-no-tapa-los-metadatos-el-title-se-sirve-igual).
 
 ---
+
+## Auditoría del 01/11/2026: lo hecho y lo que queda
+
+**Vive en:** `lib/auth-session.ts` · `lib/auth.ts` · `lib/sesiones-revocadas.ts` · `lib/cripto-credenciales.ts` ·
+`lib/credenciales.ts` · `proxy.ts` · `next.config.ts` · `extension/background.js` · `scripts/claves-en-el-diff.mjs` ·
+en el Estudio `src/lib/sesiones/analisis-auto.ts`, `src/lib/terminal.ts`, `src/lib/auth/puente.ts` · en el workspace
+`.claude/hooks/sync-repos.sh`.
+
+Pedido de Martín (la bitácora de auth-session lo tiene textual): blindar MaKo «en todos los sentidos». Relevo con tres
+lectores y los centrales verificados a mano. Sesión en la nube, sin acceso a producción: nada de lo de abajo se midió
+contra la base ni contra Vercel, salvo lo que dice 03/11/2026.
+
+**El hallazgo más caro no era de MaKo.** El sync automático del VPS (`sync-repos.sh`) hace `add -A` y su guarda miraba
+NOMBRES: `.en-7`, una copia del `.env` de producción del Estudio, pasó el filtro y el `.gitignore` y llegó a `main`
+con ocho claves (Anthropic, OpenAI, OpenRouter, Resend, `DATABASE_URL` con contraseña, el token de servidor-code,
+AudD, Syncthing). **Un nombre se llama de cualquier forma; el valor de una clave no**: el sync ahora escanea el
+CONTENIDO de lo stageado, y MaKo tiene la misma guarda en el push. ⚠️ Sacarlo del árbol no lo saca de la historia: **hay
+que rotar las ocho**, y eso es de Martín (lo medido, abajo en «El `.en-7` del Estudio»).
+
+**Lo que se cerró en código** (cada uno con su test, probado rompiéndolo):
+- **Token sin fila en Vercel.** `leerSesion` devolvía tal cual una sesión con `sub` no numérico, y `mfa: 'dev'` era un
+  segundo factor válido: con el `AUTH_SECRET` de producción en una `.env.local`, el dev-login fabricaba super admin
+  por 30 días. `verificarToken` los rechaza con `VERCEL` puesto (no con NODE_ENV: `next start` local sigue).
+- **Sesiones que no se cerraban: A MEDIAS.** `usuarios.sesiones_desde` (mig 0366, salió como 0360 y repetía número con `0360_spy_miniatura`, sin conflicto de texto):
+  restablecer y cambiar la contraseña ANOTAN el corte, y nadie lo lee todavía (abajo, «Cerrar sesiones»).
+- **Tag GCM corto.** `setAuthTag` acepta 4 bytes; medido: un criptograma con los 4 primeros bytes del tag ABRÍA.
+- **Hidratación por exclusión.** Cualquier fila del ws1 fuera de `INFRA_ENV` pisaba `process.env` en cada boot,
+  `CRON_SECRET` incluido. Ahora sólo el catálogo de integraciones, las keys de IA y sus rótulos.
+- **SSRF** en «crear anuncio desde un link» (`ads.run.ts`, `redirect: 'follow'` sin validar). No se usó
+  `fetchSeguro` porque topea en 3 MB y un video de anuncio llega a 100.
+- **Matcher**: `/api/…/x.png` quedaba fuera del proxy. Hoy no era explotable; lo era la primera ruta que se olvidara.
+- **Extensión**: el puente corría en la ventana de lectura del Landing Generator (HTML ajeno en hola-mako.com) y en
+  cualquier localhost, y los pedidos de fichas de WhatsApp no miraban quién los hacía.
+- **Estudio**: el análisis automático abría Claude con `--dangerously-skip-permissions` sin la llave de lanzar
+  (cualquier invitado le daba órdenes con el texto de un reel); la sesión heredaba `DATABASE_URL` y compañía; y el
+  puente de Tailscale creía su cabecera aunque el pedido viniera por Cloudflare.
+
+**Trampas que costaron una vuelta:**
+- ⚠️ El chequeo de tipos acotado (`tsc-acotado.mjs`) salía «NO SE PUDO CHEQUEAR (código undefined)» en la nube con
+  14 GB libres; el `tsc` completo corrió bien (3 errores, todos de `tests/graficos-*` y previos).
+- ⚠️ El arnés de los tests del worker carga pedazos de `background.js` en un contexto sin `URL` y les quita los
+  comentarios con una regex: una regex con «//» o un texto con «barra-asterisco» rompe tests ajenos. El corte por origen se escribió
+  sin `new URL` y sin esas secuencias.
+- ⚠️ Un escáner de claves sobre el árbol entero da 82 líneas, todas datos de prueba (`'sk-ant-api03-cuenta1-' +
+  'a'.repeat(40)`). `pareceInventada` las separa por forma (repeticiones, palabras, pocos caracteres distintos);
+  frenar cada test nuevo enseñaría a saltear la guarda.
+
+**Lo que NO se tocó, a propósito (necesita medir producción o decide Martín):**
+- **Calendly sin clave propia cae a la de plataforma** (`webhooks/calendly/route.ts`): pasar a 401 deshabilitaría la
+  suscripción de quien hoy depende de eso. Primero contar cuántos workspaces loguean «usando la de plataforma».
+- **`rol_ws` vacío = admin** (`lib/workspace.ts`): puede haber dueños viejos con la columna vacía. Medir antes.
+- **Comunidad sin corte de rol** (`actor.ts`): dentro de un mismo negocio; decisión de producto.
+- **App de escritorio**: verificar el sha256 de los binarios antes de ejecutarlos, firmar Windows y notarizar la Mac,
+  y revisar los entitlements de `firmar-mac.mjs` (Bun puede necesitarlos: probar en una Mac).
+- **CSP con nonce** (`script-src`), COOP y límites de pedidos durables (hoy en memoria por instancia).
+- **Tokens de API sin vencimiento** y el camino de texto plano del token clásico.
+- **Lo de cuentas** (de Martín): 2FA con llave en GitHub, Vercel, Supabase, Google, Meta, pasarelas y el registrador;
+  Secret Scanning con Push Protection en GitHub; DNSSEC, CAA y DMARC `p=reject`; anotar hola-mako.com en
+  hstspreload.org; rotar los secretos de webhook que se repartieron a clientes.
+
+### Cerrar sesiones: el corte se anota y nadie lo lee (03/11/2026)
+
+**Vive en:** `lib/auth.ts` (`leerSesion`) · `lib/sesiones-revocadas.ts` · `lib/usuarios.ts` (`COLS`) · `supabase/migrations/0366_sesiones_desde.sql`.
+
+- **⚠️ «Cambiar la contraseña cierra las otras sesiones» NO rige, ni con la 0366 aplicada.** Restablecer, cambiar y `sesiones-cerrar`
+  escriben `sesiones_desde`, pero lo único que decide si una sesión vale es `leerSesion`, y no lee la columna. La respuesta
+  dice `corteAnotado`, no «cerradas», y no hay ningún botón.
+- **Por qué `leerSesion` quedó como estaba** (el Cerebro, 03/11): la nube la había dado vuelta a «falla cerrada», y eso invierte una
+  decisión escrita a propósito: con un bache de Supabase, todos los clientes quedan sin sesión. Además sumaba una consulta por pedido
+  sin caché. `tests/sesiones-revocadas.test.ts` lo fija: el `catch` devuelve la sesión firmada y `lib/auth.ts` no importa nada de las sesiones revocadas.
+- **SIN HACER, y la salida que no repite ninguna de las dos objeciones:** leer la columna en la MISMA consulta de `buscarUsuarioPorEmail`
+  (sumarla a `COLS`) y mirar `sesionRevocada(firmada.iat, u.sesiones_desde)`. Sin consulta nueva y con el `catch` intacto.
+- **⚠️ La trampa de esa salida: primero la 0366, después el código.** Con la columna en `COLS` y sin la migración, `buscarUsuarioPorEmail` tira
+  42703 para TODOS, también en el login. La tolerancia de `revocarSesiones` no cubre eso.
+
+### Lo que la hidratación deja de copiar al entorno, medido (03/11/2026)
+
+**Vive en:** `lib/credenciales.ts` (`puedeHidratarse`, `aplicarAEnv`) · `lib/metodo-catalogo.ts`.
+
+**El obvio («quedan afuera, se rompen») era el equivocado: no se rompe nada.** Producción, filas de `credenciales` del ws1, sólo los nombres: 38 filas.
+22 se siguen copiando, 4 son de IA (salen de la plataforma, no del ws1), 3 de Stripe ya estaban afuera y **9 dejan de llegar**, cada una con un
+`console.warn` por arranque:
+
+| Clave | Última escritura | Quién la lee hoy |
+|---|---|---|
+| `CEREBRAS_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY` | 03/08 | Nadie la usa: proveedores en `PROVS_SACADOS` (22/10), `provDe` no entrega cuentas suyas. Sólo entran a las huellas de `huellasDeLaPlataforma` |
+| `CHATWOOT_ACCOUNT_ID`, `CHATWOOT_API_TOKEN`, `CHATWOOT_BASE_URL`, `CHATWOOT_WA_INBOX_ID` | 09/10 | Nadie: ningún archivo de `app`, `lib`, `worker` ni `scripts` las nombra |
+| `WHOP_API_KEY`, `WHOP_WEBHOOK_SECRET` | 11/08 | Nadie: `WHOP` aparece en un solo comentario (`roadmap-cs.ts`) |
+
+- Se buscó también por nombre armado (`process.env[cl]`, `clavesAProbar`), no sólo el literal. No se midió el entorno de Vercel: sin `vercel` en esta PC.
+- **Las nueve filas siguen en la base**, cifradas. Borrarlas es escribir en producción: no se tocó.
+- **Lo que queda para adelante:** una clave nueva con fila y sin entrada en el catálogo no llega a `process.env` (regla en AGENTS.md → «Una integracion son TRES registros»).
+
+### El `.en-7` del Estudio: en un repo PRIVADO y todavía en `main` (03/11/2026)
+
+**Vive en:** `leandro-tejado/estudio-video`, `main`, `.en-7`.
+
+- **«Publicado» era de más: el repo es privado.** Sin cuenta, el repo, el archivo y el commit dan 404. Con la cuenta de Martín: `private: true`,
+  creado el 17/09/2026, 0 forks, dos colaboradores (`koncke` escribe, `leandro-tejado` administra), y ningún `PublicEvent` en los últimos 100 eventos (no prueba que nunca lo haya sido).
+- **Sigue en `main`.** Un solo commit lo toca: `d1e2820`, 28/10, el sync del VPS, que lo agregó. Nadie lo sacó.
+- **⛔ Si las ocho siguen vigentes: SIN MEDIR.** El modo automático de Claude Code frenó el script que las probaba («Credential Exploration»), así que el
+  archivo no se llegó a abrir y ninguna clave se usó. No se le buscó la vuelta: se mide si Martín lo autoriza, o se ve en el panel de cada proveedor.
+- **SIN HACER, de Martín:** rotar las ocho y sacar el archivo. Si el repo se abre algún día, sacarlo del árbol no alcanza: queda en la historia.
 
 ## «Se puso todo difuminado y MaKo me pide un código» (Leandro, 24/10): NO es el 2FA de MaKo (27/10/2026, sin reproducir)
 
@@ -2503,3 +2607,41 @@ hacia afuera. Las comillas no lo frenan: Excel evalúa una celda entre comillas 
   dos, y rechazan los caracteres de control. El `oauth_next` va en una cookie: Next la codifica al escribirla.
 
 *25/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## La cuenta de revisión de las tiendas: la puerta estaba bien, y lo que abría, no (3/11/2026)
+
+Google Play exige credenciales reutilizables que se salten el OTP. La primera versión se concentró en que nadie más entrara por esa excepción, y eso estaba bien. La revisión adversarial miró lo otro: esa contraseña se la damos a terceros.
+
+- **Síntoma, sin correr nada:** como admin del ws3, invitaba gente, creaba tokens de API que sobreviven a rotar la contraseña, renombraba el negocio con un link adentro y mandaba mails de MaKo a cualquiera; y podía enrolar un TOTP propio, cambiar la contraseña y dejar afuera a los revisores. Rotarla no cerraba nada: `leerSesion` no mira el corte, y la cookie valía 30 días.
+- **El diagnóstico obvio era el equivocado:** «la excepción está atada a un correo y a un negocio de prueba, así que es chica». Lo que hay que medir de una excepción de autenticación es qué puede hacer quien pasa por ella, no quién pasa.
+- **Regla:** la cuenta es closer y no admin (`esCuentaDeRevision` exige `rol_ws`: el nulo vale como admin). El proxy le corta escribir en `SIN_ESCRITURA_EN_REVISION`. Su sesión dura 7 días, muere al rotar la contraseña (`iat` contra `cambiada_at`) y no sobrevive a la base caída. Cada entrada le avisa a equipo@.
+- **Quedó sin hacer (cerrado el 4/11, en la entrada de abajo):** la lista de `SIN_ESCRITURA_EN_REVISION` es negativa, y una ruta nueva que escriba a un tercero no entra sola. **Medir el ws3 antes de correr el script** (lo pide con `--medido`): «Datos de Mau» o «simular» en ese negocio le mostrarían datos de un cliente a quien tenga la contraseña. Lo recomendado es un negocio propio para esta cuenta, que además saca del medio al «App Reviewer» de Meta y al Reset. Ocho contraseñas malas cada 15 minutos bloquean la cuenta 15 minutos (el freno deja verificar 8 y corta el 9.º: `debeFrenar`, corregido el 4/11): se acepta, porque el correo no es público. Falta la revisión del chat de Ciberseguridad.
+
+**Vive en:** lib/mfa-reglas.ts · lib/auth.ts · proxy.ts · app/api/auth/contrasena/route.ts · scripts/tiendas-cuenta-revision.mts · tests/cuenta-revision-tienda.test.ts · rama `tiendas-revisor-0311`. *3/11/2026, chat «tiendas», claude5.*
+
+## La lista de escritura no ve server actions, y el negocio de prueba no es un lugar fijo (4/11/2026)
+
+La segunda revisión de la cuenta de revisión de las tiendas (la contraseña que se les da a los revisores de Google Play y de Apple) encontró cuatro fallas altas sobre la versión del 3/11. Las cuatro salen de dos supuestos que parecían razonables.
+
+- **Síntoma 1, la lista:** el proxy cortaba seis rutas de `/api` (`SIN_ESCRITURA_EN_REVISION`). No veía las **server actions**, que viajan como un POST a cualquier página y que Next reenvía a quien tenga la acción. Con eso, `invitarNuevoAlumnoAction` mandaba un mail desde el remitente de MaKo a cualquier dirección, con el nombre que se le diera en el saludo: sirve para mandar un link con la firma de MaKo. Tampoco veía `/api/whatsapp/evolution/mensajes` (teléfono libre), `/api/chats/email` (`para` libre) ni `/api/compartir`. Y entre el 3/11 y el 4/11 entraron a main `/api/competitor-spy/*`, `/api/ia-permiso` y `app/newsletters/actions.ts`, y la lista no se enteró.
+- **Síntoma 2, el negocio:** la cuenta vivía en el ws 3, el «negocio de prueba». Ahí escriben otras herramientas: `app/api/datos-mau/route.ts` copia datos de Mauricio, que es un cliente; «simular» y el Reset también escriben. Y la agencia (`app/api/agencia/entrar/route.ts`, `contextoDeAgencia`) no miraba el rol: con una fila de cartera, la cuenta entraba a otro negocio.
+- **Síntoma 3, los agentes:** `/api/soporte/reportar` y `app/tickets/acciones.ts` aceptan texto libre, y los tickets los leen chats que suben a main (la regla de Martín del 27/10: «siempre lee todos los tickets e implementalos»). Era una puerta para que un tercero escribiera instrucciones que un chat podía ejecutar.
+- **Síntoma 4, los tests:** 19 aserciones con regex sobre el fuente y 12 sobre funciones puras. Ninguna corría un envío, una entrada ni un ticket.
+- **El diagnóstico obvio era el equivocado (dos veces):**
+  - «Una lista de lo prohibido alcanza si se mantiene». No alcanza, porque lo que se suma después nace abierto. Y las server actions no tienen una ruta que se pueda listar.
+  - «El negocio de prueba es un lugar seguro». No lo es, porque otras herramientas lo llenan con datos de verdad. Un negocio de prueba es un lugar donde se puede ROMPER, no uno donde no hay nada que ver.
+- **Regla, tres capas:**
+  - **Por dónde entra:** el proxy deja que la sesión de revisión lea todo y escriba SÓLO en `PERMITIDO_EN_REVISION` (`lib/cuenta-revision-reglas.ts`). Son rutas exactas, ninguna página, y con `next-action` nada.
+  - **Por dónde sale:** `bloqueoDeEnvioEnRevision` (`lib/revision-guarda.ts`) va en `sendEmail` y en `enviarTexto` / `enviarMedia` / `enviarAudio`. En revisión sólo sale un correo a `EMAIL_MAKO`. Mira la cookie por su firma (con la base caída, `getUsuarioActual` es null) y el negocio del contexto (un cron o un flujo suyo).
+  - **Su negocio:** `WS_REVISION` es propio, fuera de `WS_PRUEBAS`. La entrada exige 0 líneas, 0 credenciales y 0 cartera, y si no, contesta 503. Su ticket se guarda sin despacho, y el Runner y `scripts/tickets.ts` lo saltean.
+- **Y la prueba de la regla:** `tests/cuenta-revision-escrituras.test.ts` enumera toda ruta que escribe y todo `'use server'`, le pega al `proxy()` de verdad y lo compara con un snapshot. Una ruta nueva no pasa hasta que alguien decide. Al mezclar main el mismo día entró `/api/competitor-spy/copiar` y nació cortada. `tests/cuenta-revision.test.ts` corre los envíos, la entrada, los tickets, Google, la computadora, la baja y el script.
+- **`leerSesion` sigue fallando ABIERTA para todos** (la decisión del 3/11): sólo la sesión de revisión cae con la base caída, y sólo ella
+  suma una consulta (su `cambiada_at`). Lo medía un regex sobre la línea del `catch`, que se puso rojo con la decisión intacta. Ahora
+  `tests/sesiones-revocadas.test.ts` (3) corre `getUsuarioActual` con la base caída y andando, y cuenta las consultas.
+- **Lo que esto cuesta, a sabiendas:** el revisor no puede mover un lead, sumar una nota, marcar una tarea ni mandar un mensaje, porque todo eso son server actions o envíos. Puede mirar todo, hablar con MaKo, aceptar el permiso de IA, denunciar y eliminar la cuenta.
+- **Quedó sin hacer:**
+  - El vigía del Cerebro tiene que saltear los tickets de `WS_REVISION`; está escrito en `docs/relevo/nube-tiendas.md`.
+  - Un error del servidor que vea el revisor puede sumar una huella a `errores_app`. Si esa huella después la ve un cliente, su ticket ya existe y quedó sin despacho. Es raro y no se cerró.
+  - Una «Versión de computadora» abierta desde el teléfono sigue mostrando Partners y Agency, que vienen de la punta hermana de Partners.
+
+**Vive en:** lib/cuenta-revision-reglas.ts · lib/revision-guarda.ts · lib/cuenta-revision.ts · proxy.ts · lib/resend.ts · lib/evolution.ts · lib/tickets-db.ts · lib/tickets-runner.ts · lib/agencia.ts · app/api/auth/contrasena/route.ts · app/api/auth/callback/google/route.ts · app/api/ia-pc/codigo/route.ts · scripts/tiendas-cuenta-revision.mts · scripts/tickets.ts · tests/cuenta-revision*.test.ts. *4/11/2026, chat «tiendas» en la nube.*

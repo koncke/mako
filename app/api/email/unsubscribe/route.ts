@@ -4,11 +4,17 @@
 // GET  ?lead=N&t=token → marca leads.email_opt_out=true y muestra confirmación.
 // POST (List-Unsubscribe-Post=One-Click) → idem, responde 200 sin HTML.
 // El token evita que alguien dé de baja a otro lead cambiando el id en la URL.
+//
+// Con `&b=<broadcast>` (los links desde el 29/10/2026), la baja además queda atribuida a ESE envío
+// (`email_broadcast_envios.baja_at`, mig 0351: las bajas de cada edición del newsletter) y, si el lead está en el CRM
+// del newsletter, su tarjeta pasa a «Dado de baja» en el acto (lib/newsletter.ts). Las dos cosas van DESPUÉS de la baja
+// y nunca la frenan: lo que importa es que no le llegue otro correo.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { verifyUnsubscribeToken } from '@/lib/resend';
+import { runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,9 +35,35 @@ async function darDeBaja(req: NextRequest): Promise<{ ok: boolean; error?: strin
   if (!Number.isFinite(leadId) || !token) return { ok: false, error: 'link inválido' };
   if (!verifyUnsubscribeToken(leadId, token)) return { ok: false, error: 'token inválido' };
   const supabase = getSupabaseServer();
-  const { error } = await supabase.from('leads').update({ email_opt_out: true }).eq('id', leadId);
+  const { data, error } = await supabase.from('leads').update({ email_opt_out: true }).eq('id', leadId).select('workspace_id');
   if (error) return { ok: false, error: error.message };
+  await despuesDeLaBaja(leadId, Number(url.searchParams.get('b')), Number(((data ?? []) as Array<{ workspace_id: number | null }>)[0]?.workspace_id));
   return { ok: true };
+}
+
+/**
+ * Lo que sigue a la baja: la estampa en el envío de donde vino y la tarjeta del newsletter. Nunca tira ni cambia la
+ * respuesta: la baja ya está escrita.
+ */
+async function despuesDeLaBaja(leadId: number, broadcastId: number, ws: number): Promise<void> {
+  if (Number.isSafeInteger(broadcastId) && broadcastId > 0) {
+    try {
+      const { error } = await getSupabaseServer().from('email_broadcast_envios')
+        .update({ baja_at: new Date().toISOString() })
+        .eq('broadcast_id', broadcastId).eq('lead_id', leadId).is('baja_at', null);
+      if (error) console.error(`[unsubscribe] la baja del lead ${leadId} en el envío ${broadcastId}: ${error.message}`);
+    } catch (e) {
+      console.error(`[unsubscribe] la baja del lead ${leadId} en el envío ${broadcastId}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  if (Number.isSafeInteger(ws) && ws > 0) {
+    try {
+      const { conciliarLeadDelNewsletter } = await import('@/lib/newsletter');
+      await runWithWorkspace(ws, () => conciliarLeadDelNewsletter(leadId));
+    } catch (e) {
+      console.error(`[unsubscribe] la tarjeta del newsletter del lead ${leadId}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 }
 
 export async function GET(req: NextRequest) {

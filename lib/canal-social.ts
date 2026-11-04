@@ -21,6 +21,7 @@
 // acá es la PRE-guarda; lo que manda es la respuesta de Zernio (lib/canal-zernio.ts).
 
 import { usuarioDeTexto } from './instagram-buscar';
+import type { MensajeChat } from './chats-tipos';
 
 export const CANALES_SOCIALES = ['instagram', 'messenger'] as const;
 export type CanalSocial = (typeof CANALES_SOCIALES)[number];
@@ -204,6 +205,23 @@ export const ventanaDesde = (iso: string): string => new Date(ms(iso) + VENTANA_
 // (o no) por otra.
 
 /** Las columnas de `ig_conversaciones` que leen el envío y las condiciones. */
+/**
+ * Lo que dice la bandeja cuando lo último de la persona fue COMENTAR (ticket #50 de Leandro, 4/11/2026). Medido en su negocio: 293 de sus
+ * 356 «chats de Instagram» son personas que sólo comentaron una publicación, sin un solo mensaje. El texto del comentario no se guarda.
+ * ⚠️ VA COMO 'text' Y NO COMO 'otro': `previewDe` (app/chats/lista-reglas.ts) dice un adjunto por su tipo, y 'otro' se leía
+ * «(Mensaje no compatible)» en cada fila. Con eso y un hilo vacío («Escribe el primero»), parecía que los chats no cargaban.
+ */
+export const LO_ULTIMO_FUE_COMENTAR = { ultimoTexto: 'Comentó una publicación', ultimoTipo: 'text' } as const;
+
+/** El comentario en el hilo, como un evento en su fecha: sin esto, abrir a quien sólo comentó dice que no hay nada. null sin comentario. */
+export function eventoDelComentario(s: { id: number; comentarioAt: string | null }): MensajeChat | null {
+  if (!s.comentarioAt) return null;
+  return {
+    id: `comentario:${s.id}`, tipo: 'evento', canal: null, cuenta: null, saliente: false, autor: null, texto: LO_ULTIMO_FUE_COMENTAR.ultimoTexto,
+    formato: 'text', mediaUrl: null, mediaMime: null, fecha: s.comentarioAt, status: null, error: null,
+  };
+}
+
 export const COLS_CONVERSACION_SOCIAL = 'id, lead_id, plataforma, zernio_conversation_id, zernio_account_id, igsid, username, ventana_expira_at, comentario_id, comentario_post_id, comentario_at, comentario_respondido_at, ultimo_mensaje_at';
 
 /** Una fila de `ig_conversaciones` (mig 0242): la persona en UNA plataforma y UNA cuenta. */

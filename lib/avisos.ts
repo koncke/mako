@@ -291,7 +291,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     const porPartes = canal.wa && salida ? await enviarPartesAlGrupoMaKo(ws, salida) : null;
     const env = canal.wa
       ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto)
-        : porPartes ? (porPartes.ok ? { ok: true as const, id: porPartes.ids[porPartes.ids.length - 1] ?? '' } : { ok: false as const, error: porPartes.error ?? 'no salió', ...(porPartes.sinGrupo ? { sinGrupo: true as const } : {}) })
+        : porPartes ? (porPartes.ok ? { ok: true as const, id: porPartes.ids[porPartes.ids.length - 1] ?? '' } : { ok: false as const, error: porPartes.error ?? 'no salió', ...(porPartes.sinGrupo ? { sinGrupo: true as const } : {}), ...(porPartes.fallaElEnvio ? { fallaElEnvio: true as const } : {}) })
           // La memoria la guarda este mismo aviso, abajo (con las partes que salieron): `null`.
           : await enviarAlGrupoMaKo(ws, texto, null))
       : { ok: false as const, id: undefined, error: undefined };
@@ -301,6 +301,9 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     const sinGrupo: SinGrupo | undefined = canal.wa && a.alDueno !== true && !env.ok && 'sinGrupo' in env && env.sinGrupo
       ? (a.sinGrupo === 'email' ? 'email' : 'app') : undefined;
     if (sinGrupo === 'email' && !canal.email) email = await enviarAvisoPorEmail(a, texto);
+    // ⚠️ EL PUENTE (3/11/2026): el envío al grupo FALLÓ, con grupo y todo (la línea caída, o la voz que no está en ese grupo). Sale una vez, por acá, y con la
+    // línea viva no se fuerza nada: si el grupo lo recibió, el mail sigue siendo sólo de quien lo prendió. «No pude leer cuál es el grupo» no cuenta: no se intentó.
+    if (canal.wa && !env.ok && 'fallaElEnvio' in env && env.fallaElEnvio && !email) email = await enviarAvisoPorEmail(a, texto);
     if (sinGrupo) console.warn(`[avisos] ${a.tipo}: el negocio no tiene grupo de MaKo (ws ${ws}) — ${sinGrupo === 'email' ? `por email: ${email ? 'salió' : 'no salió'}` : 'quedó en la app'}`);
     else if (canal.wa && !env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
     // La fila de la campanita dice si NO LLEGÓ al grupo, y por qué (17/10/2026). Se reescribe el payload entero: el update
@@ -485,6 +488,23 @@ export function avisoDelCatalogo(id: string): AvisoCatalogo | undefined {
  * lib/reunion-recordatorio.ts): un cron que itera inquilinos no está adentro del contexto de cada uno, y un
  * error TIRA — «no pude leer las automatizaciones» no es «no tiene».
  */
+/** Las agencias aprobadas de un negocio, con lo que el aviso a cada una cita de él. Tira si no se pudo leer. */
+async function agenciasDelClienteParaAvisar(ws: number): Promise<Array<{ ws: number; datos: Record<string, string> }>> {
+  const [{ agenciasAprobadasDe }, { getSupabaseServer }, { linkApp }] = await Promise.all([import('./agencia'), import('./supabase'), import('./app-url')]);
+  const agencias = await agenciasAprobadasDe(ws);
+  if (!agencias.length) return [];
+  const { data, error } = await getSupabaseServer().from('workspaces').select('id, nombre, estado').in('id', [ws, ...agencias]);
+  if (error) throw new Error(error.message);
+  const filas = (data ?? []) as Array<{ id: number; nombre?: string | null; estado?: string | null }>;
+  // Una agencia pausada no lo va a leer: la alerta sigue siendo del cliente, que es quien puede hacer algo.
+  const vivas = agencias.filter((a) => filas.find((f) => Number(f.id) === a)?.estado === 'activo');
+  if (!vivas.length) return [];
+  const nombre = String(filas.find((f) => Number(f.id) === ws)?.nombre ?? '').trim();
+  // Sin el nombre no se puede accionar: «la cuenta de tu cliente» no le dice cuál. Es un «no sé», no un aviso a medias.
+  if (!nombre) throw new Error(`el negocio ${ws} no tiene nombre`);
+  return vivas.map((a) => ({ ws: a, datos: { cliente_nombre: nombre, cliente_link: linkApp('/partners', a) } }));
+}
+
 async function depsDelEvento(): Promise<DepsEvento> {
   const [{ ejecutarPasos }, { getSupabaseServer }] = await Promise.all([import('./flujos'), import('./supabase')]);
   return {
@@ -498,6 +518,7 @@ async function depsDelEvento(): Promise<DepsEvento> {
     },
     emitirAviso,
     reclamar: reclamarEspaciado,
+    agenciasDelCliente: agenciasDelClienteParaAvisar,
     correr: async (flujoId, pasos, ws, ctx) => {
       // Lo que LLEGÓ en esta vuelta (16/10/2026): lo cuenta `ejecutarPasos` en `entregas`.
       const entregas = { llegaron: 0 };

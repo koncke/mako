@@ -360,4 +360,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/plan',
   },
+  {
+    fecha: '4 nov', hora: '04:40', chat: 'Tickets 04/11', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La pantalla Plan ya no se vuelve a dibujar sola de noche',
+    puntos: [
+      'De noche, la fecha del servidor ya es la de mañana y la de tu computadora no: «faltan 4 días» contra «faltan 5 días» en la misma tarjeta, y la pantalla se volvía a dibujar. No se perdía nada.',
+      'El plazo se calcula ahora sólo en tu navegador, con tu fecha.',
+    ],
+    archivos: [
+      'app/plan/board/piezas.tsx — `useEnElNavegador`, `LineaDeadline`',
+      'lib/errores-app-reglas.ts — `pistasDeHidratacion` no cuenta la etiqueta de Next',
+      'tests/plan-plazo-hidratacion.test.ts · tests/errores-app.test.ts',
+    ],
+    revisar: '/plan?ws=3',
+    tickets: [52],
+  },
 ];

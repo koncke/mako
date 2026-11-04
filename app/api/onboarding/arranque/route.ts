@@ -5,7 +5,9 @@
 // POST → { action: 'intro' }                 ya vio la animación del principio
 //        { action: 'responder', texto?, opcion? }   la respuesta a la pregunta de la etapa actual
 //        { action: 'sesion', sesionId }      la conversación de la oferta que se abrió en el funnel principal
-//        { action: 'telefono', telefono }    manda el código por WhatsApp
+//        { action: 'telefono', telefono }    prepara el link para que la persona le escriba a MaKo (MaKo no le escribe primero)
+//        { action: 'whatsapp' }              ¿ya llegó su mensaje? Si llegó, avanza; si no, contesta corto (la pantalla lo pregunta cada pocos segundos)
+//        { action: 'avisos', sinSoporte? }   vuelve a mirar si el teléfono tiene los avisos; `sinSoporte` es «Mi teléfono no puede»
 //        { action: 'cerrar' }                deja escrito el perfil, el producto y la oferta, y cierra los pasos
 //
 // La conversación de la OFERTA no pasa por acá: va por /api/offer (turnos, archivos, armar la oferta), la
@@ -17,16 +19,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { wsDelOnboarding } from '@/lib/onboarding-guard';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { desbloquearOnboarding, frenoDeArranque } from '@/lib/onboarding-guardia-server';
-import { getSettingEstricto } from '@/lib/settings';
+import { borrarSettingSi, cambiarSettingSi, getSettingEstricto } from '@/lib/settings';
 import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfil';
 import { setDiagnosticoFase } from '@/lib/fase-store';
-import { asegurarGrupoMaKo, enviarCodigoVerificacion, getGrupoJidMaKo, verificarCodigoContacto } from '@/lib/mako-grupo';
+import { asegurarGrupoMaKo, estadoVerificacionEntrante, getGrupoJidMaKo, pedirMensajeDeVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
 import { leerSesion } from '@/lib/offer-sesiones';
 import { idDelFunnelDefault } from '@/lib/funnels';
 import { estaImpersonando } from '@/lib/workspace';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
-import { CODIGO_CARGADO, etapaDeArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { AVISOS_SIN_SOPORTE } from '@/lib/avisos-telefono-reglas';
+import { CODIGO_CARGADO, MENSAJE_MANDADO, etapaDeArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
 import { loQueContesto } from '@/lib/onboarding-historial';
 import {
   FaltaParaCerrar, anotarRespuesta, asegurarFunnelPrincipal, hechosConfirmados, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
@@ -36,6 +39,10 @@ import {
 export const dynamic = 'force-dynamic';
 // El CRM a medida le pide a la IA al llegar a su pregunta (`propuestaDeCrm`, con su plazo de 45 s).
 export const maxDuration = 120;
+
+/** El reclamo del cierre: más que `maxDuration`, para que no venza con el otro todavía corriendo. */
+const CLAVE_CERRANDO = 'onboarding.cerrando';
+const VENCE_CIERRE_MS = 3 * 60_000;
 
 const no = (status: number, error: string) => NextResponse.json({ ok: false, error }, { status });
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -69,7 +76,7 @@ export async function POST(req: NextRequest) {
   // Quién escribe, SÓLO para la guardia (la ráfaga por usuario): nunca para los datos del negocio (el contacto de los
   // reportes es el del negocio, ver 'telefono').
   const usuarioGuardia = (await getUsuarioActual().catch(() => null))?.email ?? null;
-  // Manda el código al WhatsApp que dio: desde su tarjeta o escrito en la caja del chat.
+  // Prepara el pedido para el WhatsApp que dio (desde su tarjeta o escrito en la caja del chat): la persona le escribe a MaKo, MaKo no le escribe.
   const pedirCodigo = async (e: EstadoArranque, h: Awaited<ReturnType<typeof hechosDelArranque>>, confirmado: Awaited<ReturnType<typeof hechosConfirmados>>, digitos: string) => {
     // El contacto de los reportes es el del NEGOCIO: lo que ya tenía guardado, o el email del admin
     // del negocio (el perfil que se está mirando). Nunca el de quien está logueado: el super admin o
@@ -83,9 +90,9 @@ export async function POST(req: NextRequest) {
       telefono: digitos,
     });
     // Sin el negocio todavía (el WhatsApp va primero): vacío, y el grupo nace con el nombre del workspace (`verificarCodigoContacto`).
-    const r = await enviarCodigoVerificacion(g.ws, digitos, e.negocio || '');
+    const r = await pedirMensajeDeVerificacion(g.ws, digitos, e.negocio || '');
     if (!r.ok) return no(422, r.error);
-    await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}` });
+    await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}`, telefonoEntrante: r.yaVerificado ? undefined : true });
     await anotarRespuesta(e, h, `+${digitos}`, confirmado);
     // Ya verificado: la conversación dibuja el código como cargado sin pedirlo, y ésa es su respuesta (segunda revisión).
     if (r.yaVerificado) await anotarRespuesta({ ...e, telefono: 'verificado', telefonoNumero: `+${digitos}` }, h, CODIGO_CARGADO, confirmado);
@@ -184,17 +191,51 @@ export async function POST(req: NextRequest) {
       }
 
       case 'telefono': {
-        // Cada pedido manda un código por WhatsApp: la ráfaga y el bloqueo también valen acá.
+        // Cada pedido arma un código: la ráfaga y el bloqueo también valen acá.
         const frenoTel = await frenoDeArranque({ req, ws: g.ws, usuario: usuarioGuardia });
         if (frenoTel) return NextResponse.json({ ok: false, error: frenoTel.error, ...(frenoTel.bloqueado ? { bloqueado: true } : {}), vista: await vistaArranque() }, { status: frenoTel.status });
         const e = await estadoEstricto();
         const h = await hechosDelArranque(e);
         const confirmado = await hechosConfirmados(h);
+        // «Pedir otro» desde la tarjeta del mensaje (venció, o no se pudo armar): otro código para el mismo número, sin anotar otra respuesta.
+        if (etapaDeArranque(e, h) === 'codigo' && e.telefonoEntrante && e.telefonoNumero) {
+          const r = await pedirMensajeDeVerificacion(g.ws, e.telefonoNumero.replace(/\D/g, ''), e.negocio || '');
+          if (!r.ok) return no(422, r.error);
+          if (r.yaVerificado) await guardarEstadoArranque({ telefono: 'verificado' });
+          return listo();
+        }
         if (etapaDeArranque(e, h) !== 'telefono') return no(409, 'Ahora no estoy esperando tu teléfono.');
         const crudo = typeof body.telefono === 'string' ? body.telefono : '';
         const digitos = crudo.replace(/\D/g, '');
         if (digitos.length < 8) return no(422, 'Escribe tu número completo, con el código de país.');
         return await pedirCodigo(e, h, confirmado, digitos);
+      }
+
+      // ¿Ya llegó su mensaje por WhatsApp? Lo confirma el webhook (lib/mako-grupo.ts → confirmarPorMensajeEntrante); acá sólo
+      // se lee y, si llegó, la conversación avanza. Sin novedad contesta corto: la pantalla lo pregunta cada pocos segundos.
+      case 'whatsapp': {
+        const e = await estadoEstricto();
+        if (e.telefono !== 'codigo' || !e.telefonoEntrante) return NextResponse.json({ ok: true, sigue: false });
+        const v = await estadoVerificacionEntrante(g.ws);
+        if (v?.estado !== 'verificado') return NextResponse.json({ ok: true, sigue: true, whatsapp: v });
+        const h = await hechosDelArranque(e);
+        const confirmado = await hechosConfirmados(h);
+        // El número que lo mandó es el que quedó probado (`decidirLlegada` exige que sea el mismo que dio).
+        await guardarEstadoArranque({ telefono: 'verificado' });
+        await anotarRespuesta(e, h, MENSAJE_MANDADO, confirmado);
+        return listo();
+      }
+
+      // El paso de los avisos: que estén activados se MIDE (`avisosDeQuienEntra`), así que releer ya lo hace avanzar. «Mi teléfono no puede» es lo único que se guarda.
+      case 'avisos': {
+        const e = await estadoEstricto();
+        const h = await hechosDelArranque(e);
+        if (body.sinSoporte === true && etapaDeArranque(e, h) === 'avisos') {
+          const confirmado = await hechosConfirmados(h);
+          await guardarEstadoArranque({ avisos: 'sin-soporte' });
+          await anotarRespuesta(e, h, AVISOS_SIN_SOPORTE, confirmado);
+        }
+        return listo();
       }
 
       // Que exista el funnel principal antes de abrir la conversación de la oferta (la pantalla lo pide
@@ -221,8 +262,18 @@ export async function POST(req: NextRequest) {
       }
 
       case 'cerrar': {
-        const r = await cerrarArranque();
-        return listo(r.avisos.length ? { aviso: r.avisos.join(' ') } : {}, { cierre: true });
+        // ⚠️ DOS DISPOSITIVOS A LA VEZ (3/11/2026): con el paso de los avisos, el teléfono activa y la computadora lo ve a los 4 segundos, así que los dos llegan al cierre juntos.
+        // `cerrarArranque` no es atómico: dos a la vez dejaban la oferta y el producto repetidos. Gana uno; el otro relee hasta verlo terminado. Vence solo: si el que ganó murió, se puede volver a intentar.
+        const marca = new Date().toISOString();
+        const previa = await getSettingEstricto(CLAVE_CERRANDO);
+        const vigente = !!previa && Date.now() - Date.parse(previa) < VENCE_CIERRE_MS;
+        if (vigente || !(await cambiarSettingSi(CLAVE_CERRANDO, previa, marca))) return NextResponse.json({ ok: true, enCurso: true, vista: await vistaArranque() });
+        try {
+          const r = await cerrarArranque();
+          return listo(r.avisos.length ? { aviso: r.avisos.join(' ') } : {}, { cierre: true });
+        } finally {
+          await borrarSettingSi(CLAVE_CERRANDO, marca).catch(() => {});
+        }
       }
 
       default:

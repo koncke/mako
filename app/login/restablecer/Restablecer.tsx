@@ -14,8 +14,8 @@ import { CampoCodigo } from '../2fa/CampoCodigo';
 
 type Abierto = { cuenta: string; pideFactor: boolean; metodos: { totp: boolean; recuperacion: boolean } };
 
-const btn: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '12px', borderRadius: '11px', border: 'none', background: '#2F6FED', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', boxSizing: 'border-box' };
-const link: CSSProperties = { background: 'none', border: 'none', padding: 0, color: '#2F6FED', fontSize: '13px', cursor: 'pointer' };
+const btn: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '12px', borderRadius: '11px', border: 'none', background: 'var(--primary)', color: 'var(--on-primary)', fontSize: '15px', fontWeight: 600, cursor: 'pointer', boxSizing: 'border-box' };
+const link: CSSProperties = { background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: '13px', cursor: 'pointer' };
 const campo: CSSProperties = { width: '100%', padding: '12px', borderRadius: '11px', border: '1px solid rgba(0,0,0,.18)', background: '#fff', color: '#14161B', fontSize: '15px', boxSizing: 'border-box', outline: 'none', marginBottom: '8px' };
 const campoCodigo: CSSProperties = { ...campo, fontSize: '18px', letterSpacing: '4px', textAlign: 'center' };
 const titulo: CSSProperties = { fontWeight: 700, fontSize: '17px', color: '#14161B', marginBottom: '4px' };

@@ -45,7 +45,9 @@ test('1. el jefe es «Cerebro», con la estrella de MaKo, y la lista es UNA: lo 
   });
   assert.deepEqual(lista.map((f) => f.clave), ['jefe', 'o14', 's8', 's9', 'a2'], 'el Cerebro arriba y el resto por actividad, mezclados');
   assert.deepEqual(lista[0].elegido, { id: 3 });
-  assert.equal(lista[0].titulo, 'Cerebro');
+  // Se lee «Ops Center» desde el 1/11/2026 (Martín: «ya no se llama cerebro»); la estrella sigue saliendo de `JEFE_SECOND_BRAIN`.
+  assert.equal(lista[0].titulo, 'Ops Center');
+  assert.equal(lista[0].criatura, JEFE_SECOND_BRAIN);
   assert.deepEqual(lista.map((f) => f.origen), ['mako', 'offer', 'mako', 'mako', 'antes'], 'cada uno sabe a qué motor va');
   assert.equal(lista[1].criatura, criaturaDeOffer('Mi oferta'), 'la de Offer lleva la criatura de Offer');
   assert.equal(lista[3].titulo, 'Chat nuevo');

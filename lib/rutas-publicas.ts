@@ -48,6 +48,10 @@ export const PUBLICOS = [
   // (hasheado en flow_puentes) y no mira la cookie para nada. Es la ruta EXACTA,
   // no el prefijo `/api/flow`: ahí van a convivir rutas de la app con sesión.
   '/api/flow/puente',
+  // «Guardar en Spy» (3/11/2026): también lo llama la EXTENSIÓN, y si no estuviera acá el chequeo de Origin
+  // del proxy la cortaría con 403 (el pedido viene de `chrome-extension://`). Se autentica con el token del
+  // puente y no mira la cookie para nada. Ruta EXACTA: abajo de /api/competitor-spy hay rutas con sesión.
+  '/api/competitor-spy/extension',
   // El worker de montaje: corre en un contenedor propio, no en un navegador, asi
   // que no tiene cookie de sesion. Se autentica con `MONTAJE_WORKER_TOKEN` en un
   // bearer, comparado en tiempo constante, y sin ese secreto configurado la ruta
@@ -73,6 +77,10 @@ export const PUBLICOS = [
   // piden para aprobar la cuenta ANTES del primer cobro, y la lee quien está por pagar: las dos
   // la abren sin cuenta de MaKo. Es una página: sólo GET (`esPublicaSoloLeer`).
   '/reembolsos',
+  // Las que piden las tiendas (3/11/2026, docs/tiendas-play-appstore.md): Play exige un link web para eliminar la cuenta, y Apple
+  // una URL de soporte. Sus revisores las abren sin cuenta. Son páginas: sólo GET (`esPublicaSoloLeer`), y no leen la sesión.
+  '/eliminar-cuenta',
+  '/soporte',
   // ── El comprador de un link de pago (11/10/2026) ──────────────────────────────
   // `/pagar/<token>` (route handler: redirige al checkout de Stripe o Mercado Pago) y
   // `/pagar/<token>/listo` (adonde vuelve desde la pasarela). Las abre un COMPRADOR, que no tiene
@@ -99,6 +107,9 @@ export const PUBLICOS = [
   '/api/planes/comprar',
   // El reloj del 50% de la landing de venta: lo abre quien no tiene cuenta. No lee la sesión ni la base, y mira el Origin.
   '/api/promo-entrada',
+  // El link único para instalar MaKo (lib/app-tiendas.ts): el QR del onboarding apunta acá, y quien escanea puede no tener sesión en ese teléfono. Es una página: sólo
+  // GET (`esPublicaSoloLeer`). No lee la sesión ni la base: lo único que mira es el dispositivo.
+  '/app',
   // El link de MaKo Partners (`/r/<código>`, sólo GET): deja la cookie de quién lo mandó y lleva a
   // /planes. No lee la sesión.
   '/r',
@@ -120,6 +131,12 @@ export const PUBLICOS = [
   // estático sin datos de nadie. Mismo caso que '/m.js': el matcher del proxy ya excluye todo
   // camino que termina en `.js`, y está acá por si eso cambia. Sólo GET/HEAD/OPTIONS.
   '/sw.js',
+  // El cascarón de MaKo sin conexión (public/sin-conexion/, 28/10/2026): lo baja el service worker SIN cookies
+  // (`credentials: 'omit'`) para tenerlo cuando no hay red, y se abre a mano desde «Probar». Es estático e IGUAL para todos:
+  // lo de cada persona está cifrado en su navegador (docs/diseno-mako-desktop-sin-conexion.md). El matcher ya excluye
+  // `.js` y `.css`; el HTML pasa por el proxy y, sin esto, sin sesión volvía un login que el service worker no guarda.
+  // No es /api/: sólo se lee (`esPublicaSoloLeer`).
+  '/sin-conexion',
   '/api/og',
   '/vsl',
   '/vsl-assets',

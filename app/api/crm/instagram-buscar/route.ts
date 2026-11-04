@@ -4,7 +4,7 @@
 // GET ?estado=1 → { ok, conexion: ConexionMeta } (22/10/2026): ¿el negocio puede buscar en Meta? Sin buscar a nadie
 //   (`conexionDeMeta`, abajo). El buscador lo pregunta al enfocar el campo, para ofrecer «Conectar Meta» ANTES de que se
 //   escriba el @ a ciegas. `&fresco=1` (después de conectar) olvida lo guardado en la caché de ese negocio.
-// GET ?q=<texto> → { ok, perfiles: PerfilIg[], porNombre, meta }
+// GET ?q=<texto> → { ok, perfiles: PerfilIg[], porNombre, meta, limite }
 //   · perfiles   — lo que contestaron Meta y Google, sin repetidos, Meta primero (hasta 8).
 //   · porNombre  — true si Google contestó: el buscador por NOMBRE está andando. Con false (sin las
 //                  claves de la plataforma, sin cuota o caído) la pantalla pide el @ exacto cuando
@@ -29,6 +29,10 @@
 //      también), por LA función de Instagram (`leerPerfilInstagram` de lib/instagram-perfil-server.ts, la misma que lee el
 //      perfil en el onboarding y en Offer). La paga la plataforma; si no tiene key, el negocio. Medido el 22/10/2026: ni
 //      Google ni Apify tienen claves en ningún negocio, y sólo 1 de 11 conexiones de Meta tiene permisos de Instagram.
+//      ⚠️ 2/11/2026 — SE PRUEBAN LAS DOS CLAVES DE APIFY, no una. `apify` lee `APIFY_TOKEN`; la clave que Martín pegó
+//      el 1/11 es `APIFY_CLAVE_DE_SPY` (del negocio) y sólo la prueba la fuente `apify-spy`. Este buscador pedía la
+//      primera, que no está en ninguna parte, así que el respaldo por @ exacto nunca corría aunque hubiera con qué.
+//      Lo cuida `tests/crm-instagram-clave-de-spy.test.ts`.
 //
 // ⚠️ LA SESIÓN SE CHEQUEA ACÁ y no sólo en el gate de proxy.ts: sin AUTH_SECRET el gate queda inactivo
 // (local) y `getWorkspaceActual()` sin cookie cae al ws 1, que es un cliente. La ruta NO va en
@@ -50,10 +54,14 @@ import {
   clavesQueOlvida, tocaRefrescar, type AnotadoFresco,
 } from '@/lib/instagram-buscar';
 import { leerPerfilInstagram } from '@/lib/instagram-perfil-server';
+import { gastarBusquedaDeSpy, topeDeSpyAgotado } from '@/lib/instagram-perfil-server';
 
 export const dynamic = 'force-dynamic';
-/** Meta (6 s) y después Google (6 s) en el peor caso; el componente corta a los 17 s. */
-export const maxDuration = 15;
+/**
+ * Meta (6 s), Google (6 s) y después Apify, que busca por nombre y tarda ~20 s (tope 45 s). Con 15 s Vercel cortaba
+ * antes de que Apify contestara y el desplegable no salía nunca (3/11/2026). tests/instagram-buscar-tiempos.test.ts.
+ */
+export const maxDuration = 60;
 
 const GRAPH = 'https://graph.facebook.com';
 const ver = () => process.env.META_API_VERSION || 'v24.0';
@@ -95,6 +103,24 @@ function guardarCache(clave: string, valor: unknown, ttl = TTL_MS): void {
   // Map conserva el orden de inserción: el primero es el más viejo.
   if (cache.size >= TOPE_CACHE) cache.delete(cache.keys().next().value as string);
   cache.set(clave, { hasta: Date.now() + ttl, valor });
+}
+
+/**
+ * La búsqueda por nombre de Apify (~20 s, US$0,012), con la clave de Spy del negocio. Lo encontrado se guarda: seguir
+ * tipeando y volver a la misma palabra no se paga dos veces. Sin clave o sin resultados, lista vacía.
+ */
+async function buscarConApify(texto: string, ws: number): Promise<PerfilIg[]> {
+  const clave = `ax:${ws}:${texto.toLowerCase()}`;
+  const ya = leerCache<PerfilIg[]>(clave);
+  if (ya) return ya;
+  const { buscarPerfilesApify } = await import('@/lib/instagram-buscar-apify');
+  const { APIFY_CLAVE_DE_SPY } = await import('@/lib/instagram-perfil');
+  const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
+  if (!token) return [];
+  if (!gastarBusquedaDeSpy(ws)) return [];
+  const hallados = await buscarPerfilesApify(texto, token);
+  if (hallados.length) guardarCache(clave, hallados);
+  return hallados;
 }
 
 // ── 1. Meta: Business Discovery ───────────────────────────────────────────────
@@ -307,19 +333,53 @@ export async function GET(req: NextRequest) {
     // Ni la Meta del negocio ni Google: la Meta de la PLATAFORMA (30/10/2026: el día que su página tenga el Instagram de MaKo
     // vinculado y su token `instagram_basic`, anda sin tocar nada, con foto, para el negocio sin Instagram propio) y, si no, el @
     // exacto por Apify (cuentas personales también). Con caché y tope por día.
+    // ⚠️ `apify-spy` VA ACÁ, Y ES EL ARREGLO DEL 2/11/2026. Martín: «ya con Apify debería funcionar el traer el perfil
+    // escribiendo el @, eso también en el CRM». No faltaba código: faltaba pedir la clave que EXISTE. `apify` lee
+    // `APIFY_TOKEN` —que el 22/10 no estaba en ningún negocio ni en la plataforma—, y la clave que Martín pegó el
+    // 1/11 es `APIFY_CLAVE_DE_SPY`, del negocio, que sólo se prueba con la fuente `apify-spy`. O sea que este
+    // respaldo pedía una llave que nadie tenía teniendo la otra al lado. Va ÚLTIMA a propósito: primero la de la
+    // plataforma (gratis para el negocio) y recién después la suya, como manda el resto del lector.
     if (!meta.perfiles.length && !google?.perfiles.length) {
       const u = usuarioDeTexto(texto) as string;
-      const l = await leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify'] });
-      if (l.ok) meta = { ...meta, perfiles: [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] };
+      // ⚠️ UNA PALABRA TAMBIÉN ES UNA BÚSQUEDA (3/11/2026). Martín: «no me trae el desplegable al buscar». «leila» y
+      // «@leila» parecen un usuario y venían por acá: se pedía sólo el @ EXACTO, y la búsqueda de Apify corría únicamente
+      // con dos o más palabras. Las dos a la vez: el exacto, si existe, va primero.
+      // CON «@» ES SÓLO EL EXACTO (Martín: «si busco el @ exacto, no me puede traer sin tardar esos 20 segundos directamente la
+      // foto?»): quien escribe el @ ya sabe a quién busca, y esperar la búsqueda por nombre era el tiempo de sobra.
+      const [l, hallados] = await Promise.all([
+        leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify', 'apify-spy'] }),
+        texto.startsWith('@') ? Promise.resolve<PerfilIg[]>([]) : buscarConApify(u, ws),
+      ]);
+      const exacto: PerfilIg[] = l.ok ? [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] : [];
+      const perfiles = combinarPerfiles(exacto, hallados);
+      if (perfiles.length) meta = { ...meta, perfiles, ...(hallados.length ? { estado: 'encontro' as const } : {}) };
     }
   } else {
     [meta, google] = await Promise.all([buscarEnMeta(candidatos, ws), buscarEnGoogle(texto)]);
+    // ── BUSCAR POR NOMBRE, SIN @ (3/11/2026) ──────────────────────────────────────────────────
+    // Martín: «si yo busco sin arroba, también debería empezar a salir resultados».
+    //
+    // ⚠️ ESTA ES LA RAMA DEL NOMBRE y antes se quedaba sin salida: Meta sólo adivina handles a
+    // partir del texto, y Google **no tiene claves en ningún negocio** (medido el 3/11 contra
+    // producción: `GOOGLE_CSE_KEY` y `GOOGLE_CSE_CX` no están cargadas en ninguno). Así que
+    // escribir «leila» no traía nada y la lista salía vacía.
+    //
+    // ⚠️ Es OTRO actor que el de la lectura por @ —`apify~instagram-scraper`, no
+    // `instagram-profile-scraper`— porque aquél no busca. Cuesta US$1,50 por 1.000 resultados:
+    // **US$0,012 la búsqueda** (lib/instagram-buscar-apify.ts). Va al final, sólo si las otras dos
+    // no trajeron nada, y con el mismo tope por corrida.
+    if (!meta.perfiles.length && !google.perfiles.length) {
+      const hallados = await buscarConApify(texto, ws);
+      if (hallados.length) meta = { ...meta, perfiles: hallados, estado: 'encontro' };
+    }
   }
 
   return Response.json({
     ok: true,
     perfiles: combinarPerfiles(meta.perfiles, google?.perfiles ?? []),
     meta: meta.estado,
+    // Sin resultados porque se acabó el tope de hoy: la pantalla lo dice en vez de «no encontré a nadie».
+    limite: !meta.perfiles.length && !google?.perfiles.length && topeDeSpyAgotado(ws),
     // false = Google no pudo contestar (sin claves, sin cuota, caído): sin resultados, la pantalla
     // pide el @ exacto. null = no se le preguntó.
     porNombre: google ? google.respondio : null,

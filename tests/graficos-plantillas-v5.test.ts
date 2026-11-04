@@ -139,7 +139,8 @@ test('cada gráfico de cada plantilla pasa el saneo SIN cambiar de conjunto, tip
 
 test('lo que DEFINE una tarjeta va FIJO, y el período propio también salvo el que mira hacia adelante (a la vista)', () => {
   // Los dos que miran hacia ADELANTE con su período a la vista (decisión de la tanda v5).
-  const VISIBLES: Readonly<Record<string, string>> = { 'co-revenue-pendiente': 'este_mes_completo', 'co-cobranza-tabla': 'este_mes_completo' };
+  // Y desde el 4/11/2026 «Lo que vence, por semana» de Productividad: los próximos 30 días.
+  const VISIBLES: Readonly<Record<string, string>> = { 'co-revenue-pendiente': 'este_mes_completo', 'co-cobranza-tabla': 'este_mes_completo', 'pr-vence': 'prox30' };
   const malos: string[] = [];
   let fijos = 0;
   for (const { hoja } of CRUDAS) {
@@ -154,12 +155,13 @@ test('lo que DEFINE una tarjeta va FIJO, y el período propio también salvo el 
     }
   }
   assert.deepEqual(malos, []);
-  // Los que el pedido nombra: R1/R2, «Sin agendas», «Muestra chica», «Activo»; y los de las hojas nuevas.
+  // Los que el pedido nombra: «Sin agendas», «Muestra chica», «Activo»; y los de las hojas nuevas.
   const de = (hoja: string, comp: string) => CRUDAS.find((x) => x.id === hoja)!.hoja.componentes.find((c) => c.id === comp)?.controles ?? [];
-  for (const [h, c] of [['closing', 'cl-r1'], ['closing', 'cl-r2'], ['ads-analyst', 'ad-sin-retorno'], ['ads-analyst', 'ad-muestra'], ['productividad', 'pr-avance-proyecto'], ['cs-analyst', 'cs-sesiones'], ['comercial', 'co-funnel-embudo']]) {
+  for (const [h, c] of [['ads-analyst', 'ad-sin-retorno'], ['productividad', 'pr-avance-proyecto'], ['cs-analyst', 'cs-sesiones'], ['comercial', 'co-funnel-embudo']]) {
     assert.ok(de(h, c).some((k) => k.tipo === 'lista' && k.fijo === true), `${h}/${c}: sin su filtro de definición`);
   }
-  assert.ok(fijos >= 25, `encontré ${fijos} controles fijos: el recorrido no está mirando`);
+  // Bajó con las composiciones del 31/10/2026 (menos piezas). Es la guarda de que el recorrido mira algo, no una cuota.
+  assert.ok(fijos >= 6, `encontré ${fijos} controles fijos: el recorrido no está mirando`);
 });
 
 test('ningún nombre de un cliente real, en ninguna plantilla (tampoco en los pop-ups)', () => {

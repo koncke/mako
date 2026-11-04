@@ -7,6 +7,10 @@
 // Las llaman la página (/onboarding, para el primer dibujo) y la ruta (/api/onboarding/arranque).
 // =============================================================================
 
+import QRCode from 'qrcode';
+import { linkApp } from './app-url';
+import { RUTA_APP } from './app-tiendas';
+import { avisosDeQuienEntra } from './avisos-telefono';
 import 'server-only';
 import { capaDef } from './capas';
 import { cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from './settings';
@@ -20,7 +24,8 @@ import { getPerfil, setPerfil } from './perfil';
 import { getDiagnosticoFase, getDiagnosticoFaseEstricto } from './fase-store';
 import { PREGUNTAS, esCanal } from './fase-diagnostico';
 import { getEstadoOnboarding, getEstadoOnboardingEstricto, cerrarPasosOnboarding, type OnboardingState } from './onboarding-state';
-import { getEstadoVerificacionContacto } from './mako-grupo';
+import { estadoVerificacionEntrante, getEstadoVerificacionContacto } from './mako-grupo';
+import type { VistaEntrante } from './verificacion-entrante';
 import { getContactoReportes } from './perfil';
 import { integracionConectada } from './credenciales';
 import { leerSesion, leerFila, guardarComoOferta } from './offer-sesiones';
@@ -266,7 +271,7 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
   const pasosCapa = [...capa.onboarding];
   const modo: ModoArranque = pasosCapa.includes('productos') ? 'oferta' : 'plan';
   let sesionCaida = false;
-  const [perfil, w, diag, sesion, onb, verif, contacto, meta] = await Promise.all([
+  const [perfil, w, diag, sesion, onb, verif, contacto, meta, avisos] = await Promise.all([
     getPerfil().catch(() => null),
     ws != null ? getWorkspace(ws).catch(() => null) : Promise.resolve(null),
     getDiagnosticoFase().catch(() => null),
@@ -275,6 +280,7 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     ws != null ? getEstadoVerificacionContacto(ws).catch(() => null) : Promise.resolve(null),
     getContactoReportes().catch(() => null),
     integracionConectada('meta').catch(() => false),
+    avisosDeQuienEntra(),
   ]);
   const precioDicho = sesion ? sinMarca(sesion.piezas?.precio?.valor) : '';
   // Verificado = el teléfono GUARDADO es el mismo que se verificó (el mismo criterio que el wizard).
@@ -298,6 +304,8 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     faseOffer: sesion ? (({ respuestas, canal }) => ({ respuestas, canal }))(estadoDiagnostico(sesion.mensajes, { canal: null, yaGuardado: false })) : null,
     conCrm: modo === 'oferta',
     conTelefono: pasosCapa.includes('tabs'),
+    conAvisos: avisos.aplica,
+    avisosListos: avisos.listos,
     terminado: onb.status === 'done',
     pasosCapa,
     telefonoVerificado,
@@ -328,10 +336,14 @@ export type VistaArranque = {
   funnelDefaultId: number | null;
   introVista: boolean;
   nombre: string;
+  /** El QR de la tarjeta de los avisos, sólo en esa etapa: lleva a instalar MaKo en el teléfono de quien lo escanea (`/app`). */
+  avisosQr: string | null;
   /** El número que se está verificando (para la tarjeta del teléfono). */
   telefonoNumero: string;
   /** El WhatsApp que dio al pagar, sólo dígitos: la tarjeta arranca con él y lo manda un toque. Vacío si no dio ninguno. */
   telefonoDelPago: string;
+  /** El mensaje que la persona le manda a MaKo para confirmar su WhatsApp (4/11/2026), sólo en esa etapa: el link `wa.me` y si ya llegó. */
+  whatsapp: VistaEntrante | null;
   /** El tipo de CRM elegido, para la tarjeta. */
   crmTipo: TipoCrmId | null;
   /** El CRM a medida que armó MaKo (lib/onboarding-crm.ts): la tarjeta muestra sus etapas con esos nombres. */
@@ -385,8 +397,13 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
     funnelDefaultId: h.modo === 'oferta' ? await idDelFunnelDefault().catch(() => null) : null,
     introVista: !!e.introVista,
     nombre: e.nombre ?? '',
+    // Al link único (lib/app-tiendas.ts): lleva a la tienda de ese teléfono o, si todavía no está, a instalarla. Al entrar con su cuenta, sigue en este mismo paso.
+    avisosQr: etapa === 'avisos' ? await QRCode.toDataURL(linkApp(RUTA_APP, null), { margin: 1, width: 336 }).catch(() => null) : null,
     telefonoNumero: e.telefonoNumero ?? '',
     telefonoDelPago: etapa === 'telefono' ? (await getSetting(CLAVE_WHATSAPP_DEL_PAGO).catch(() => null)) ?? '' : '',
+    whatsapp: etapa === 'codigo' && e.telefonoEntrante
+      ? await getWorkspaceActual().then((ws) => (ws == null ? null : estadoVerificacionEntrante(ws))).catch(() => null)
+      : null,
     crmTipo: e.crmTipo ?? null,
     crmPropuesta: e.crmPropuesta ?? null,
     canal: h.canalNegocio,

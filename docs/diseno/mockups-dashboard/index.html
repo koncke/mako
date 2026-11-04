@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Los 20 templates del Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:600 14px Urbanist,system-ui,sans-serif;background:#111;display:flex;flex-direction:column}
+.barra{display:flex;align-items:center;gap:7px;padding:9px 14px;background:#17191c;color:#eceef1;
+  flex:0 0 auto;flex-wrap:wrap}
+.et{font-size:12px;color:#9fa5ad;margin-right:3px;letter-spacing:.3px;text-transform:uppercase}
+.tb{height:31px;padding:0 13px;border-radius:999px;background:#ffffff12;color:#cfd4da;display:flex;
+  align-items:center;gap:6px;cursor:pointer;font-size:12.5px;border:0;font-family:inherit;font-weight:600}
+.tb:hover{background:#ffffff1f}
+.tb.on{background:#f0f0ee;color:#111}
+.tb.pend{opacity:.38;cursor:not-allowed}
+.tb small{font-size:10.5px;opacity:.6;font-weight:600}
+.nota{margin-left:auto;font-size:11.5px;color:#777e86;font-weight:500}
+iframe{flex:1;width:100%;border:0;background:#efefed}
+</style></head>
+<body>
+<div class="barra" id="b">
+  <span class="et">Hechos</span>
+</div>
+<iframe id="v" src="general.html" title="vista del template"></iframe>
+<script>
+/* Las 20 hojas decididas el 1/11/2026 (docs/templates-dashboard-propuesta.md §7.3).
+   Cada una dice de qué referencia sale, porque es lo que hay que poder revisar. */
+const HOJAS = [
+  ['general.html',      'General',            'Orvel · Corbel',              1],
+  ['comercial.html',    'Comercial',          'Coffer · Corbel · Prism',     1],
+  ['cobranza.html',     'Cobranza',           'Coffer · Corvane · Talvo',    1],
+  ['landing.html',      'Landing',            'Corbel · Kestrel',            1],
+  ['focus-pane.html',   'Focus · A',          'Pane',                        1],
+  ['focus-lumora.html', 'Focus · B',          'Lumora',                      1],
+  ['',                  'Operación diaria',   'Moorly · Torque',             0],
+  ['',                  'Marketing',          'Kestrel · Ondra',             0],
+  ['',                  'Anuncio ganador',    'Vitrea · Prism',              0],
+  ['',                  'Hooks y retención',  'Vitrea · Murmura',            0],
+  ['',                  'VSL y YouTube',      'por definir',                 0],
+  ['',                  'Instagram y redes',  'Murmura · Kestrel',           0],
+  ['',                  'Chat Analyst',       'Parley · Tend',               0],
+  ['',                  'Closing',            'Halden · Moorly · Tandem',    0],
+  ['',                  'Automatizaciones',   'Noria',                       0],
+  ['',                  'CS Analyst',         'Mender · Vitrea',             0],
+  ['',                  'Agencia o servicio', 'Sunrow · Torque',             0],
+  ['',                  'Curso o comunidad',  'Lumora · Vitrea',             0],
+  ['',                  'Productividad',      'Fernly · Sunrow',             0],
+  ['',                  'Contenido e IA',     'Orrery',                      0],
+  ['',                  'Inmobiliaria',       'Lintel',                      0],
+];
+const b = document.getElementById('b'), v = document.getElementById('v');
+let pendienteAbierto = false;
+HOJAS.forEach(([src, nombre, ref, hecha], i) => {
+  if (!hecha && !pendienteAbierto) {
+    const s = document.createElement('span');
+    s.className = 'et'; s.style.marginLeft = '10px';
+    s.textContent = 'Faltan';
+    b.appendChild(s);
+    pendienteAbierto = true;
+  }
+  const el = document.createElement('button');
+  el.className = 'tb' + (hecha ? '' : ' pend') + (src === 'general.html' ? ' on' : '');
+  el.innerHTML = nombre + ' <small>' + ref + '</small>';
+  el.title = hecha ? ('Referencia: ' + ref) : ('Todavía no construida · referencia: ' + ref);
+  if (hecha) el.addEventListener('click', () => {
+    document.querySelectorAll('.tb').forEach(x => x.classList.toggle('on', x === el));
+    v.src = src;
+  });
+  b.appendChild(el);
+});
+const n = document.createElement('span');
+n.className = 'nota';
+n.textContent = HOJAS.filter(h => h[3]).length + ' de ' + HOJAS.length +
+  ' · el movimiento está leído del bundle de cada referencia, no estimado';
+b.appendChild(n);
+</script>
+</body></html>

@@ -645,8 +645,9 @@ test('el workflow de medición corre SÓLO en la rama medir-tipos (o a mano), co
   for (const n of solo.filter((x) => experimentos().find((e) => e.nombre === x)?.pesos)) assert.ok(solo.indexOf('tandas-1') >= 0 && solo.indexOf('tandas-1') < solo.indexOf(n), `tandas-1 va antes que ${n}`);
 });
 
-test('el paso «Tipos» de integracion.yml pide las TANDAS que se midieron (4) y las entiende tipos-ci; y sigue sin tocar nada fuera del paso', () => {
-  const wf = readFileSync(join(REPO, '.github', 'workflows', 'integracion.yml'), 'utf8').replace(/\r\n/g, '\n');
+// 4/11/2026: integracion.yml se retiró; el paso «Tipos» que frena una subida es el de punta.yml (y el de sobre-main.yml, igual).
+test('el paso «Tipos» de punta.yml pide las TANDAS que se midieron (4) y las entiende tipos-ci; y sigue sin tocar nada fuera del paso', () => {
+  const wf = readFileSync(join(REPO, '.github', 'workflows', 'punta.yml'), 'utf8').replace(/\r\n/g, '\n');
   const codigo = wf.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
   const paso = /- name: Tipos\n([\s\S]*?)(?=\n      - name: )/.exec(codigo)?.[1] ?? '';
   const pedido = /env:\s*\n\s+TIPOS_TANDAS: '(\d+)'/.exec(paso)?.[1];
@@ -655,21 +656,21 @@ test('el paso «Tipos» de integracion.yml pide las TANDAS que se midieron (4) y
   assert.match(paso, /node scripts\/tipos-ci\.mjs/, 'sigue corriendo el script que dice qué pasó');
   assert.match(paso, /exit \$c/, 'y propaga su exit');
   assert.doesNotMatch(paso, /TIPOS_SOLO_TANDAS|TIPOS_HEAP_ENTERO_MB/, '«Tipos» es el tsc ENTERO: las tandas son sólo el respaldo si muere por memoria (OK PARCIAL); el paso no salta el entero ni le achica el heap');
-  assert.match(wf, /DESDE LA NOCHE DEL 21\/10\/2026 «Tipos» ES SIEMPRE EL TSC ENTERO/, 'y el workflow lo dice (la promesa de «igual al tsc» ya no vale para las tandas)');
+  assert.ok(Number(/TIPOS_HEAP_MB: '(\d+)'/.exec(paso)?.[1]) > 8192, '«Tipos» es el tsc ENTERO con swap (las tandas son el respaldo si muere por memoria): el tope de heap pasa la RAM del runner');
   assert.doesNotMatch(codigo.replace(paso, ''), /TIPOS_TANDAS/, 'las tandas son sólo del paso «Tipos»: ningún otro paso las hereda');
 });
 
-test('el tsc de respaldo (tipos-respaldo.yml): UNA vez por semana, barato, sólo lectura, el tsc ENTERO (sin tandas) con swap — y no corre por push ni toca el camino a producción', () => {
+test('el tsc de respaldo (tipos-respaldo.yml): CADA NOCHE, barato, sólo lectura, el tsc ENTERO (sin tandas) con swap — y no corre por push ni toca el camino a producción', () => {
   const wf = readFileSync(join(REPO, '.github', 'workflows', 'tipos-respaldo.yml'), 'utf8').replace(/\r\n/g, '\n');
   const codigo = wf.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
-  assert.match(codigo, /schedule:\s*\n\s+- cron: '\d+ \d+ \* \* [0-6]'\n/, 'una vez por semana: un día de la semana fijo, no todos los días');
+  // 4/11/2026: de semanal a CADA NOCHE, si entró algo a main desde el último veredicto (lo corre tests/semanal-tests-ci.test.ts).
+  assert.match(codigo, /schedule:\s*\n\s+- cron: '\d+ \d+ \* \* \*'\n/, 'una vez por día, a una hora fija');
   assert.equal((codigo.match(/- cron:/g) ?? []).length, 1, 'un solo horario');
   assert.doesNotMatch(codigo, /^\s{2}(push|pull_request)\b/m, 'nunca por push ni por pull request: los minutos del mes son 2.000');
   assert.match(codigo, /permissions:\s*\n\s+contents: read/, 'sólo lectura');
   assert.doesNotMatch(codigo, /contents: write|git push|--force|gh pr|gh api -X/, 'no escribe nada');
   assert.ok(Number(/timeout-minutes:\s*(\d+)/.exec(codigo)?.[1]) <= 30, 'techo duro de 30 minutos: si se cuelga no se come el mes');
-  assert.match(codigo, /nuevos=.*commits\?sha=main&since=/, 'antes de instalar nada mira si entró algo a main esta semana');
-  assert.match(codigo, /correr=no/, '…y si no entró nada, no corre');
+  // Qué decide ese primer paso (main contra el último veredicto) lo CORRE tests/semanal-tests-ci.test.ts con un gh de mentira.
   assert.doesNotMatch(codigo, /TIPOS_TANDAS|TIPOS_RAICES/, 'es el tsc ENTERO: sin tandas ni raíces (el de las tandas ya corre en cada subida)');
   assert.ok(Number(/TIPOS_HEAP_MB: '(\d+)'/.exec(codigo)?.[1]) > 8192, 'el tope de heap pasa de la RAM del runner (7,9 GB): hay swap');
   const orden = ['swapon', 'npx next typegen', 'node scripts/tipos-ci.mjs'].map((x) => codigo.indexOf(x));
@@ -678,7 +679,7 @@ test('el tsc de respaldo (tipos-respaldo.yml): UNA vez por semana, barato, sólo
   assert.match(codigo, /exit \$c/, 'el exit del paso es el de tipos-ci: un rojo avisa');
   const pasos = (codigo.split('\n    steps:\n')[1] ?? '').split('\n      - ').filter(Boolean);
   assert.ok(pasos.length >= 6, `los pasos: ${pasos.length}`);
-  assert.match(pasos[0], /¿Hubo cambios en la semana\?/, 'el primero es el que mira si hubo cambios');
+  assert.match(pasos[0], /¿Hubo cambios desde el último veredicto\?/, 'el primero es el que mira si hubo cambios');
   assert.deepEqual(pasos.slice(1).filter((p) => !p.includes("if: steps.cambios.outputs.correr == 'si'")), [], 'todo paso que gasta minutos lleva el `if` de «hubo cambios»: sin cambios en la semana se factura 1 minuto');
 });
 

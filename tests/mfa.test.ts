@@ -221,6 +221,13 @@ test('ningún canal manda códigos todavía', () => {
   assert.equal(canalDisponible('email', ['email']), true);
 });
 
+// 4/11/2026: MaKo no le escribe primero a nadie por WhatsApp, y un código por WhatsApp es eso. Aunque alguien lo sume a la lista,
+// sigue apagado (lib/mfa-reglas.ts). Probado rompiéndolo: sin el `if (canal === 'whatsapp')`, 1 fallo.
+test('el código por WhatsApp no sale aunque esté en la lista', () => {
+  assert.equal(canalDisponible('whatsapp', ['whatsapp', 'email']), false);
+  assert.equal(canalDisponible('email', ['whatsapp', 'email']), true);
+});
+
 test('lib/mfa.ts no tiene un emisor propio, y corta antes de crear un desafío', () => {
   const src = sinComentarios(leer('lib/mfa.ts'));
   // El código sale en la tanda 2 por una automatización del SuperAdmin; nunca por acá, y

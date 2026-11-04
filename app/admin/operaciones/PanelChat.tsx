@@ -117,7 +117,7 @@ export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, a
  * sobre ella (el menú de un mensaje, sus modales); `caja`, la caja de escribir (o la caja quieta que dice por qué no se
  * puede), y `estado`, la línea de abajo de la caja.
  */
-export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, estado, children }: {
+export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, estado, reemplazo, children }: {
   cabecera: CabeceraChat;
   /** Lo que se suelta sobre la conversación se adjunta (lo mismo que el «+»). Sin esto, no recibe archivos. */
   adjuntos?: AdjuntosDeCaja;
@@ -127,6 +127,10 @@ export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, e
   despues?: ReactNode;
   caja: ReactNode;
   estado: string;
+  /** Lo que ocupa el lugar de la conversación ENTERA, hilo y caja (4/11/2026: el Second Brain de un gurú, Martín: «no debe abrirse
+   *  un modal, sino que debe reemplazar lo que está en el chat»). La conversación queda montada y escondida: al volver sigue donde
+   *  estaba, con lo escrito en la caja. */
+  reemplazo?: ReactNode;
   children: ReactNode;
 }) {
   /** Se está arrastrando un archivo sobre la conversación: se dibuja dónde soltarlo (18/10/2026). */
@@ -144,7 +148,8 @@ export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, e
       {soltando && <div className="co-soltar" aria-hidden>{destino()?.puede ? 'Suelta para adjuntar' : destino()?.espera ?? 'Este chat no recibe archivos'}</div>}
       <CabeceraDeChat {...cabecera} />
       <div className="co-cuerpo">
-        <div className="co-conv">
+        {reemplazo != null && <div className="co-reemplazo">{reemplazo}</div>}
+        <div className="co-conv" style={reemplazo != null ? { display: 'none' } : undefined}>
           {arriba}
           <div className="co-hilo" ref={hilo} data-recorrido="sb-hilo">
             <div className="co-hilo__col">{children}</div>

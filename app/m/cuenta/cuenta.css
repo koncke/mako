@@ -79,3 +79,9 @@
 [data-m] .m-cuenta-ajustes .aj-cabecera:not(:has(.aj-volver)) { display: none; }
 [data-m] .m-cuenta-ajustes .aj-boton { min-height: 44px; }
 [data-m] .m-cuenta-ajustes .aj-fila { min-height: 60px; }
+
+/* «Eliminar mi cuenta» (app/m/cuenta/EliminarCuentaM.tsx): la fila roja y el cuerpo de su hoja. */
+[data-m] .m-cuenta-rojo { color: var(--bad); font-weight: 600; }
+[data-m] .m-cuenta-baja { display: grid; gap: 10px; padding: 4px 0 8px; font-size: var(--fs-md); line-height: 1.5; color: var(--ink); }
+[data-m] .m-cuenta-baja p { margin: 0; }
+[data-m] .m-cuenta-baja__mal { color: var(--bad); }

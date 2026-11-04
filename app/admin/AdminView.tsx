@@ -47,6 +47,7 @@ import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
 import { PedidosDeIngreso } from './PedidosDeIngreso';
+import { BajasDeCuenta } from './BajasDeCuenta';
 import { ROLES_ALTA, ROTULO_ROL } from '@/lib/agencia-altas';
 import { ROTULO_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 import { PlanBoard } from '../plan/PlanBoard';
@@ -937,6 +938,8 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* ── Quien pidió eliminar su cuenta: le dijimos una fecha (3/11/2026, lib/baja-cuenta.ts) ──────── */}
+      <BajasDeCuenta vuelta={workspaces.length} />
       {/* ── Lo que una agencia pidió mirar, y todavía no firmaste ──────────── */}
       <AprobacionesDeAgencia workspaces={workspaces} recargar={recargar} estado={agenciasEstado} />
       {/* ── Quien quiere entrar y no tiene cuenta (30/10/2026): abre el alta de siempre, ya cargada ── */}

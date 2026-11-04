@@ -36,7 +36,7 @@ import { CLAVE_MENSAJE_MAKO, VARIABLES_AVISO, citaSecreto, tokensDe, variablesPa
 // Puro: la CONDITION sobre los datos del evento (16/10/2026).
 import { datoDeCampo, soloDatosDelEvento } from './dato-evento';
 import type { DatosDeLaCondicion } from './condiciones-catalogo';
-import { textoLoArmaElCodigo, type AvisoCatalogo } from './avisos-catalogo';
+import { CATALOGO_AVISOS, textoLoArmaElCodigo, type AvisoCatalogo } from './avisos-catalogo';
 // Puro: la tarjeta «MaKo en WhatsApp» por partes (undécima tanda). Qué partes tiene y si sale tal cual.
 import { esTarjetaTalCual, esperaQueAbra, partesDeMako, textoDePartes, esPorEmail, asuntoDeMako, problemaDeEmailMako, sinGrupoDeMako } from './mako-tarjeta';
 
@@ -94,6 +94,7 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     ...(ev.trae.includes('reunionplan') ? { conReunionPlan: true } : {}),
     ...(ev.trae.includes('iacaida') ? { conIaCaida: true } : {}),
     ...(ev.trae.includes('tope') ? { conTope: true } : {}),
+    ...(ev.trae.includes('clienteagencia') ? { conClienteAgencia: true } : {}),
   };
 }
 
@@ -471,6 +472,11 @@ export type DepsEvento = {
   correr: (flujoId: string, pasos: Paso[], ws: number, ctx: CtxFlujo) => Promise<{ llegaron: number } | void>;
   /** El ws de la PLATAFORMA (`wsSuperAdmin`): de él son las filas de un evento `plataforma`. */
   wsPlataforma?: () => Promise<number>;
+  /**
+   * Las agencias APROBADAS de este negocio, con lo que el aviso a cada una cita de él (`datosDelClienteParaAgencia`). `[]` = no es
+   * cliente de ninguna. TIRA si no se pudo leer: «no sé» no es «no tiene agencia» (`avisoALasAgencias`).
+   */
+  agenciasDelCliente?: (ws: number) => Promise<Array<{ ws: number; datos: Record<string, string> }>>;
   log?: (m: string) => void;
 };
 
@@ -478,6 +484,35 @@ export type DepsEvento = {
  * `filas`: cuántas automatizaciones corrieron. Cero = no salió nada (ninguna prendida, o ninguna con este evento): desde el
  * 16/10/2026 no hay camino viejo que lo mande igual (docs/inventario-nada-por-detras.md).
  */
+/**
+ * EL AVISO DE UN CLIENTE DE AGENCIA, A SU AGENCIA (31/10/2026, ticket #37). A TODAS las aprobadas: la cuenta publicitaria la lleva
+ * cada una que lo administra, y ninguna le cobra Meta a la otra. null = no es cliente de ninguna, sigue su camino de siempre.
+ * ⚠️ «NO SÉ» NO CAE AL CLIENTE: sin poder leer la cartera, nada sale y contesta `ok: false`, que el cron reintenta en la vuelta
+ * siguiente (`marcaTrasEmitir`). Decirle a un cliente que su cuenta se corta por una deuda de la que no sabe nada le puede costar
+ * el cliente a la agencia; y lo mismo una agencia sin su fila: no sale, no se desvía.
+ */
+async function avisoALasAgencias(
+  idAviso: string, ws: number, opts: OptsEvento, deps: DepsEvento, log: (m: string) => void,
+): Promise<ResultadoEvento | null> {
+  const nada: ResultadoEvento = { ok: false, feedId: null, wa: false, deduped: false, filas: 0 };
+  const aviso = CATALOGO_AVISOS.find((c) => c.id === idAviso);
+  if (!aviso || !deps.agenciasDelCliente) { log(`[aviso-evento] ${idAviso} (ws ${ws}): no sé a qué agencia avisarle`); return nada; }
+  let agencias: Array<{ ws: number; datos: Record<string, string> }>;
+  try { agencias = await deps.agenciasDelCliente(ws); } catch (e) {
+    log(`[aviso-evento] ${idAviso} (ws ${ws}): no pude leer sus agencias, no sale — ${e instanceof Error ? e.message : String(e)}`);
+    return nada;
+  }
+  if (!agencias.length) return null;
+  const rs: ResultadoEvento[] = [];
+  for (const a of agencias) {
+    rs.push(await emitirPorEvento(aviso, a.ws, { ...opts, datos: { ...opts.datos, ...a.datos } }, deps));
+  }
+  return {
+    ok: rs.some((r) => r.ok), feedId: null, wa: rs.some((r) => r.wa), deduped: rs.every((r) => r.deduped),
+    filas: rs.reduce((n, r) => n + r.filas, 0), llegaron: rs.reduce((n, r) => n + (r.llegaron ?? 0), 0),
+  };
+}
+
 export type ResultadoEvento = EmitirAvisoResult & {
   filas: number;
   /**
@@ -509,12 +544,16 @@ export function filaDeIdCorrida(avisoId: string): number | null {
  *   4. CADA FILA corre sus pasos (`pasosDelEvento`) en el runner; una con problema se saltea con su log.
  */
 export async function emitirPorEvento(
-  cat: Pick<AvisoCatalogo, 'id' | 'titulo' | 'categoria' | 'semaforo'>,
+  cat: Pick<AvisoCatalogo, 'id' | 'titulo' | 'categoria' | 'semaforo' | 'aLaAgencia'>,
   ws: number,
   opts: OptsEvento,
   deps: DepsEvento,
 ): Promise<ResultadoEvento> {
   const log = deps.log ?? ((m: string) => console.warn(m));
+  if (cat.aLaAgencia) {
+    const aAgencias = await avisoALasAgencias(cat.aLaAgencia, ws, opts, deps, log);
+    if (aAgencias) return aAgencias;
+  }
   const evento = eventoDeAviso(cat.id);
   if (!evento) return { ok: false, feedId: null, wa: false, deduped: false, filas: 0 };
   // UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, `EventoMako.plataforma`): lo emite el negocio `ws`, pero lo corren las

@@ -46,6 +46,7 @@ import { datosSinMarcarDeLead, leerInsumosDatosLead } from '@/lib/datos-del-lead
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
 import type { Lead } from '@/lib/leads';
+import type { ContactoCopia } from '@/lib/sin-conexion/reglas';
 import { filaDeAutomatizaciones, piezasDelTelefono, resumenDelTelefono, saldoDelTelefono, tabsQueVe, tonoDeAutomatizaciones, type PiezaPuesta, type ResumenTelefono, type SaldoTelefono } from './ficha-bloques';
 import { enAutomatizaciones } from '@/lib/automatizaciones-del-lead';
 import { fechaCorta, vistaDeEnAutomatizacion, type TonoTarjeta } from '@/app/crm/automatizacion-lead';
@@ -291,6 +292,8 @@ export type TarjetaCrmM = {
    * Viaja el usuario y no el `instagram` de todos los leads: sólo el de quien lo necesita. null = tiene otro canal.
    */
   soloInstagram: string | null;
+  /** Sólo con `conContacto` (MaKo sin conexión, 28/10/2026): lo que dibuja la ficha sin conexión. El teléfono no lo pide. */
+  contacto?: ContactoCopia;
 };
 
 /** «Próximo» (17/10/2026, la destacada del prototipo): la próxima reunión que todavía no pasó. */
@@ -314,7 +317,11 @@ export type TableroCrmM = {
 const BANDA_ORDEN = ['pipeline', 'nutricion', 'salidas'];
 
 /** El tablero de un funnel. null = no se pudo leer. */
-export async function tableroCrm(funnelPedido: number | null): Promise<TableroCrmM | null> {
+/**
+ * `op` (MaKo sin conexión, 28/10/2026, app/api/sin-conexion/copia): `tope` las tarjetas por columna (el teléfono, 40) y
+ * `conContacto` el email, la empresa, el origen, cuándo llegó, la reunión y el monto de cada una. Sin `op`, lo del teléfono.
+ */
+export async function tableroCrm(funnelPedido: number | null, op: { tope?: number; conContacto?: boolean } = {}): Promise<TableroCrmM | null> {
   try {
     const ws = await getWorkspaceActual();
     const [tz, hoy, funnels] = await Promise.all([
@@ -347,7 +354,7 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
     const tarjetas: TarjetaCrmM[] = [];
     const ahoraMs = Date.now();
     for (const [col, cs] of porCol) {
-      for (const c of cs.slice(0, TOPE_COLUMNA)) {
+      for (const c of cs.slice(0, op.tope ?? TOPE_COLUMNA)) {
         const monto = c.monto > 0 ? plataCorta(c.monto) : (c.ingresoEstimado ?? 0) > 0 ? `≈ ${plataCorta(c.ingresoEstimado ?? 0)}` : null;
         const empresa = c.company?.trim();
         tarjetas.push({
@@ -362,6 +369,12 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
           foto: c.foto ?? null,
           telefono: c.telefonoNorm ?? null,
           soloInstagram: soloInstagram({ email: c.email, telefonoNorm: c.telefonoNorm, instagram: c.instagram }),
+          ...(op.conContacto ? {
+            contacto: {
+              email: c.email?.trim() || null, empresa: empresa && empresa !== SIN_EMPRESA ? empresa : null,
+              origen: llegoPor(c.canal, c.origin) || null, creado: c.createdISO || null, reunion: c.fechaJ1 ?? null, monto: c.monto,
+            },
+          } : {}),
         });
       }
     }

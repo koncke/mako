@@ -82,12 +82,13 @@ test('NINGÚN mail de un cliente firma con el nombre visible del remitente: los 
   // Y el permiso no queda colgado: si ya no firma así, la excepción se va.
   for (const f of FIRMA_CON_REMITENTE_PERMITIDA) assert.ok(firmanConRemitente.includes(f), `${f} ya no firma con su remitente: sacalo de la lista`);
 
-  // Los broadcasts: el envío y su prueba, los DOS con la firma del negocio.
+  // Los broadcasts: el envío, su prueba y su vista previa (la de la tab Newsletters, 29/10/2026), los TRES con la firma
+  // del negocio.
   const mk = sinComentarios(leer('lib/email-marketing.ts'));
   const fn = mk.slice(mk.indexOf('async function firmaDelNegocioActual('), mk.indexOf('\n}\n', mk.indexOf('async function firmaDelNegocioActual(')));
   assert.ok(fn.length > 60 && fn.length < 400, `el recorte de firmaDelNegocioActual mide ${fn.length}`);
   assert.match(fn, /return ws \? firmaDelPie\(\(await getWorkspace\(ws\)\)\?\.nombre\) : '';/, 'la firma de los broadcasts no es el negocio');
-  assert.deepEqual([...mk.matchAll(/fromName: ([^,}]+)/g)].map((m) => m[1]!.trim()), ['await firmaDelNegocioActual()', 'fromNameWs']);
+  assert.deepEqual([...mk.matchAll(/fromName: ([^,}]+)/g)].map((m) => m[1]!.trim()), ['await firmaDelNegocioActual()', 'await firmaDelNegocioActual()', 'fromNameWs']);
   assert.match(mk, /const fromNameWs = await firmaDelNegocioActual\(\);/);
 
   // La prueba de verdad de «Probar»: la misma firma que el envío.

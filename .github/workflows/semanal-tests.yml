@@ -1,6 +1,13 @@
 # =============================================================================
-# La suite entera, AISLADA, una vez por semana (decidido el 17/10/2026, 15:40 UTC)
+# La suite entera, AISLADA, CADA NOCHE si entró algo a main (antes: una vez por semana, decidido el 17/10/2026)
 # =============================================================================
+# ⚠️ 4/11/2026: pasa de semanal a CADA NOCHE (docs/hallazgos-infra.md → «Por qué tardaba horas»). Desde que las puntas no corren
+# «los demás» tests, ésta es la única red que los ve, y una semana entre veredictos es demasiado: un rojo de un lunes se
+# veía el lunes siguiente. Sigue barata: si main no se movió desde el último VEREDICTO (verde o rojo), no corre
+# (el primer paso, con la API: 1 minuto facturado). Medido: ~25 min por corrida (run 41779837302, 18.425 tests). Si pasa
+# 36 h sin veredicto con commits nuevos, el vigía de despues-del-deploy.yml da rojo (scripts/ci-redes-al-dia.sh).
+# Lo de abajo es la historia de cuando era semanal; los números de minutos cambian (~25 × días con cambios).
+#
 # Por qué: desde que el run de `integracion` corre los tests COMPARTIENDO proceso (`--compartir`, tests-afectados.mjs) para
 # bajar de ~50 a ~8 min, un test que ensucia el estado global (variables de entorno, un mock que no restaura, el reloj)
 # puede dar verde dentro del grupo y rojo solo, o al revés. Una vez por semana, `npm test` corre cada archivo en SU proceso,
@@ -10,20 +17,25 @@
 #   · UNA corrida por semana (lunes 04:17 AR), nunca por push ni por pull request;
 #   · si en la semana no entró NINGÚN commit a main, no hace nada (el primer paso lo mira con la API en segundos, antes de
 #     bajar el repo ni instalar nada: se factura 1 minuto en vez de ~11);
-#   · una sola fase: sin guardas, sin tipos (los corre `integracion` en cada subida), sin `next typegen`;
-#   · `timeout-minutes: 20` es el techo duro: si algo se cuelga no se come el mes (20 × 5 lunes = 100 min como mucho).
-# Medido en el primer run: el tiempo de la suite se escribe en el resumen del run. Tarda más de 20 min → subir el techo
+#   · una sola fase: sin guardas, sin tipos (los corren `punta.yml` e `integracion` en cada subida), sin `next typegen`;
+#   · `timeout-minutes: 55` es el techo duro: si algo se cuelga no se come el mes (55 × 5 lunes = 275 min como mucho).
+#
+# ⚠️ MEDIDO con la API (3/11/2026): 657 s el 19/10; el 2/11 la CANCELÓ su propio techo de 20 min a los 1.165 s, sin veredicto y
+# sin mail. La suite casi se duplicó en dos semanas (2.052 archivos; `--resto` tardó 21 min 45 s, y eso con las barredoras
+# compartidas). Desde que `punta.yml` no corre «los demás», ésta es la ÚNICA corrida que los ve: un techo que no le alcanza es
+# no tener red. El paso lleva su propio tope, menor que el del job: un cuelgue es un FALLO del paso, no un job cancelado. Cuánto
+# tarda se escribe en el resumen del run: si roza los 50 min, se suben los dos
 # (docs/hallazgos-infra.md → «La suite entera, una vez por semana»).
 #
-# Un rojo acá NO frena nada (main avanza por `integracion`): avisa. GitHub manda el mail de un run que falló a quien editó
+# Un rojo acá NO frena nada (main avanza por `punta.yml` e `integracion`): avisa. GitHub manda el mail de un run que falló a quien editó
 # este archivo por última vez; el resumen del run trae la lista de los tests rojos.
 # =============================================================================
-name: suite completa (semanal)
+name: suite completa (cada noche)
 
 on:
   schedule:
-    # Lunes 07:17 UTC = 04:17 AR. Un minuto "raro" a propósito: a las en punto GitHub encola de más y se atrasa.
-    - cron: '17 7 * * 1'
+    # Todos los días 07:17 UTC = 04:17 AR. Un minuto "raro" a propósito: a las en punto GitHub encola de más y se atrasa.
+    - cron: '17 7 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -36,27 +48,33 @@ permissions:
 jobs:
   suite-completa:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 55
     steps:
-      # Antes de gastar nada: ¿entró algo a main desde la última vez? A mano (workflow_dispatch) corre siempre.
-      - name: ¿Hubo cambios en la semana?
+      # Antes de gastar nada: ¿entró algo a main desde el último VEREDICTO (verde o rojo) de este workflow? «Desde el último
+      # veredicto» y no «desde ayer»: una noche cancelada o sin minutos no deja un hueco. Si la API no contesta, corre (no saber no
+      # es «no hubo cambios»). A mano (workflow_dispatch) corre siempre. Lo corre tests/semanal-tests-ci.test.ts con un gh de mentira.
+      - name: ¿Hubo cambios desde el último veredicto?
         id: cambios
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENTO: ${{ github.event_name }}
+          WF: semanal-tests.yml
         run: |
-          desde=$(date -u -d '8 days ago' +%Y-%m-%dT%H:%M:%SZ)
-          nuevos=$(gh api "repos/${{ github.repository }}/commits?sha=main&since=${desde}&per_page=1" --jq 'length')
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${nuevos}" != "0" ]; then
-            echo "correr=si" >> "$GITHUB_OUTPUT"
-          else
+          main=$(gh api "repos/$REPO/commits/main" --jq .sha 2>/dev/null || true)
+          ultimo=$(gh api "repos/$REPO/actions/workflows/$WF/runs?status=completed&per_page=30" --jq '[.workflow_runs[] | select(.conclusion == "success" or .conclusion == "failure")][0].head_sha // ""' 2>/dev/null || true)
+          if [ "$EVENTO" != "workflow_dispatch" ] && [ -n "$main" ] && [ "$main" = "$ultimo" ]; then
             echo "correr=no" >> "$GITHUB_OUTPUT"
-            echo "Sin commits en main desde ${desde}: no se corre la suite." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "main sigue en $main, el último commit que se juzgó: no se corre." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "correr=si" >> "$GITHUB_OUTPUT"
+            echo "main en ${main:-?} · último veredicto en ${ultimo:-ninguno} · evento $EVENTO: corre." | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Sin `ref: main`: el commit del disparo (GITHUB_SHA) es el que queda como head_sha de la corrida, y es contra ése que
+      # la noche siguiente compara el primer paso. Con `ref: main` se chequearía uno más nuevo que el que queda anotado.
       - uses: actions/checkout@v4
         if: steps.cambios.outputs.correr == 'si'
-        with:
-          ref: main
 
       - uses: actions/setup-node@v4
         if: steps.cambios.outputs.correr == 'si'
@@ -72,11 +90,15 @@ jobs:
       # (el runner trae 2 CPU y ~7 GB; el default de node, núcleos − 1, serían UNO solo).
       - name: Suite entera, cada test en su proceso
         if: steps.cambios.outputs.correr == 'si'
+        timeout-minutes: 50
+        # El tiempo de cada archivo, al lado del spec de siempre (scripts/reporter-tiempos.mjs): la tabla va al resumen.
+        env:
+          MAKO_TIEMPOS_TESTS: ${{ runner.temp }}/tiempos-tests.tsv
         run: |
           SECONDS=0
           echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
           set +e
-          npm test -- --test-concurrency=2 2>&1 | tee suite.log
+          npm test -- --test-concurrency=2 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/reporter-tiempos.mjs --test-reporter-destination=stdout 2>&1 | tee suite.log
           c=${PIPESTATUS[0]}
           set -e
           {
@@ -85,5 +107,7 @@ jobs:
             echo ""
             echo "Tests rojos:"
             grep -E '^✖ ' suite.log | sort -u | head -40 || true
+            echo ""
+            node scripts/tiempos-tests.mjs "$RUNNER_TEMP/tiempos-tests.tsv" --top 20 || true
           } >> "$GITHUB_STEP_SUMMARY"
           exit $c

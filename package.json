@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -H 127.0.0.1",
+    "prebuild": "node scripts/sacar-cuda-de-onnx.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

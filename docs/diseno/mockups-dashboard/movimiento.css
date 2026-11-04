@@ -1,0 +1,269 @@
+/* ═══════════════════════════════════════════════════════════════════════════════════════
+   EL MOVIMIENTO — LEÍDO DEL CÓDIGO FUENTE de los demos, no medido del resultado.
+   1/11/2026. Fuente: el bundle de cada demo (ver docs/hallazgos-dashboard.md).
+
+   POR QUÉ SE LEE EL FUENTE Y NO SE MIDE: estas plantillas animan con GSAP, que
+   escribe estilos EN LÍNEA por requestAnimationFrame. No aparecen en @keyframes, ni
+   en Element.animate, ni en getAnimations(), ni en el estilo computado en reposo.
+   Un cero medido con el vocabulario equivocado no es un cero.
+
+   LA FAMILIA COMPARTE UNA LIBRERÍA y cada plantilla elige (a) los valores y (b) a qué
+   SELECTORES se la aplica. Eso último es lo que de verdad las separa: Pane tiene el
+   helper de tarjetas de Lumora en su librería y NO lo llama ni una vez.
+
+   Equivalencias GSAP → CSS, ya resueltas:
+     power4.out = cubic-bezier(.165,.84,.44,1)   power3.out = cubic-bezier(.215,.61,.355,1)
+     power2.out = cubic-bezier(.215,.61,.355,1)  expo.out   = cubic-bezier(.16,1,.3,1)
+     power3.inOut = cubic-bezier(.645,.045,.355,1)
+     back.out(1.4)=cubic-bezier(.34,1.42,.64,1)  back.out(1.5)=cubic-bezier(.34,1.46,.64,1)
+     back.out(1.6)=cubic-bezier(.34,1.5,.64,1)   back.out(2)  =cubic-bezier(.34,1.56,.64,1)
+     back.out(2.2)=cubic-bezier(.34,1.62,.64,1)  back.out(2.4)=cubic-bezier(.34,1.65,.64,1)
+     back.out(2.5)=cubic-bezier(.34,1.68,.64,1)  back.out(2.6)=cubic-bezier(.34,1.72,.64,1)
+     back.out(3)  =cubic-bezier(.34,1.8,.64,1)
+     elastic.out(1,.3) ≈ cubic-bezier(.2,1.6,.3,1)  (el ÚNICO elástico de la familia)
+   ═══════════════════════════════════════════════════════════════════════════════════════ */
+:root{
+  --p4:cubic-bezier(.165,.84,.44,1);
+  --p3:cubic-bezier(.215,.61,.355,1);
+  --p2:cubic-bezier(.215,.61,.355,1);
+  --expo:cubic-bezier(.16,1,.3,1);
+  --p3io:cubic-bezier(.645,.045,.355,1);
+  --b14:cubic-bezier(.34,1.42,.64,1);
+  --b15:cubic-bezier(.34,1.46,.64,1);
+  --b16:cubic-bezier(.34,1.5,.64,1);
+  --b2:cubic-bezier(.34,1.56,.64,1);
+  --b22:cubic-bezier(.34,1.62,.64,1);
+  --b24:cubic-bezier(.34,1.65,.64,1);
+  --b25:cubic-bezier(.34,1.68,.64,1);
+  --b26:cubic-bezier(.34,1.72,.64,1);
+  --b3:cubic-bezier(.34,1.8,.64,1);
+  --elastic:cubic-bezier(.2,1.6,.3,1);
+  --ease:cubic-bezier(.22,.8,.24,1);
+}
+
+/* El cambio de tema NO lo animan ni Pane ni Lumora. El círculo que se abre desde el
+   botón lo hacen fitlo, merrin, corbel, coffer y orvel: clipPath de circle(0px at X Y)
+   a circle(R at X Y). Las dos reglas de abajo apagan el cruzado por defecto del
+   navegador: sin ellas el barrido queda tapado por un fundido y se ve sucio. */
+::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
+::view-transition-old(root){z-index:1}
+::view-transition-new(root){z-index:9999}
+
+/* ══════════════════════════ LAS FORMAS ══════════════════════════
+   Una por gesto. El `from` es literal del bundle; el `to` es el estado en reposo. */
+@keyframes mk-letra       { from{ transform:translateY(115%) rotate(6deg) } }
+@keyframes mk-letra-c     { from{ transform:translateY(110%) rotate(5deg) } }   /* corbel */
+@keyframes mk-letra-plana { from{ transform:translateY(115%) } }                /* coffer: sin rotación */
+@keyframes mk-letra-fade  { from{ transform:translateY(100%); opacity:0 } }     /* prism */
+
+@keyframes mk-tile        { from{ opacity:0; transform:translateY(26px) scale(.985) } }  /* corbel */
+@keyframes mk-tile-34     { from{ opacity:0; transform:translateY(34px) scale(.985) } }  /* coffer 1.ª vez */
+@keyframes mk-tile-14     { from{ opacity:0; transform:translateY(14px) scale(.985) } }  /* coffer al volver */
+@keyframes mk-card-orvel  { from{ opacity:0; transform:translateY(30px) scale(.97) } }
+@keyframes mk-card-cof-a  { from{ opacity:0; transform:translateY(30px) rotate(1deg) } }
+@keyframes mk-card-cof-b  { from{ opacity:0; transform:translateY(30px) rotate(-1.2deg) } }
+@keyframes mk-card-lum-a  { from{ opacity:0; transform:translateY(40px) rotate(3deg)  scale(.94) } }
+@keyframes mk-card-lum-b  { from{ opacity:0; transform:translateY(40px) rotate(-3deg) scale(.94) } }
+@keyframes mk-iris        { from{ opacity:0; transform:translateY(30px) scale(.97);
+                                  clip-path:inset(36% round var(--r)) } }               /* pane */
+
+@keyframes mk-texto      { from{ opacity:0; transform:translateY(10px) } }   /* corbel Si */
+@keyframes mk-texto-8    { from{ opacity:0; transform:translateY(8px) } }
+@keyframes mk-texto-14   { from{ opacity:0; transform:translateY(14px) } }
+@keyframes mk-texto-16   { from{ opacity:0; transform:translateY(16px) } }   /* prism */
+@keyframes mk-texto-22   { from{ opacity:0; transform:translateY(22px) } }   /* .main de corbel */
+@keyframes mk-arriba     { from{ opacity:0; transform:translateY(-14px) } }  /* barra superior */
+@keyframes mk-lateral    { from{ opacity:0; transform:translateX(-8px) } }   /* orvel nav */
+@keyframes mk-lateral-14 { from{ opacity:0; transform:translateX(-14px) } }
+@keyframes mk-lateral-x6 { from{ opacity:0; transform:translateX(-6px) } }   /* etiqueta de barra */
+@keyframes mk-dock       { from{ opacity:0; transform:translateX(-90px) } }
+@keyframes mk-dock-movil { from{ opacity:0; transform:translateY(90px) } }
+
+@keyframes mk-pildora    { from{ opacity:0; transform:scale(.6) } }          /* corbel Ci */
+@keyframes mk-sello      { from{ opacity:0; transform:scale(0) } }           /* coffer stamp */
+@keyframes mk-chip       { from{ transform:translateY(-3px) scale(1.05) } }  /* corbel wi */
+@keyframes mk-icono      { from{ transform:scale(.72) } }                    /* corbel ki */
+@keyframes mk-menu       { from{ opacity:0; transform:translateY(-14px) scale(.97) } }
+@keyframes mk-globo      { from{ opacity:0; transform:scale(.9) } }
+@keyframes mk-vivo       { from{ opacity:0; transform:translateY(-8px) scale(.9) } }  /* .live */
+@keyframes mk-achica     { from{ opacity:0; transform:scale(1.08) } }        /* prism: entra achicándose */
+
+@keyframes mk-barra-x    { from{ transform:scaleX(0) } }
+@keyframes mk-barra-y    { from{ transform:scaleY(0) } }
+@keyframes mk-aparece    { from{ opacity:0 } }
+
+/* ══════════ EL ESCALONADO ══════════
+   GSAP escalona solo; en CSS hace falta el índice. base.js le pone --i a cada hijo
+   de un grupo marcado, así el HTML queda limpio y el stagger sale del CSS.
+
+   ⚠️ EL DELAY VA DENTRO DEL SHORTHAND, no en una regla aparte. El atajo `animation:`
+   incluye animation-delay, así que una regla global `[data-mk]{animation-delay:…}`
+   queda PISADA en cuanto una regla más específica usa el atajo: los delays se van
+   todos a 0 y la entrada pasa de escalonada a simultánea. Se ve perfecto en el CSS
+   y mal en la pantalla. Por eso el calc se repite en cada receta, vía --paso. */
+[data-mk]{ --paso:calc(var(--d,0s) + var(--i,0) * var(--stg,0s)) }
+
+:root[data-entrada="no"] [data-mk]{ animation:none !important }
+
+/* ──────────────── el TÍTULO: la máscara es obligatoria ────────────────
+   ⚠️ Cada letra necesita overflow:hidden. Sin la máscara se ven todas desde el
+   primer cuadro y sólo «flotan»: el gesto desaparece.
+   Coffer parte primero por PALABRA y después por letra, así el salto de línea no
+   corta una letra al medio. comun.js hace las dos cosas. */
+.mk-palabra{display:inline-block;white-space:nowrap}
+.mk-mascara{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.08em}
+.mk-ch{display:inline-block;will-change:transform}
+:root[data-entrada="si"] .mk-ch{animation:mk-letra .85s var(--p4) both}
+:root[data-entrada="si"][data-estilo="corbel"] .mk-ch{animation:mk-letra-c .8s var(--p4) both}
+:root[data-entrada="si"][data-estilo="coffer"] .mk-ch{animation:mk-letra-plana .85s var(--p4) both}
+:root[data-entrada="si"][data-estilo="prism"]  .mk-ch{animation:mk-letra-fade .45s var(--p3) both}
+
+/* ════════════════════ CORBEL ════════════════════
+   La entrada de la página, de su chunk dashboard-*.js (función Ee):
+     r = primera ? 1 : .6       i = primera ? .15 : .05
+     .db-bar > *   Si  {y:8}            stagger .05       delay i
+     .db > .card   xi  {y:26 scale.985} stagger .07r      delay i+.05
+     .db-kpi       Si  {y:14}           stagger .08r      delay i+.12
+     .db-gl i      scaleX:0  1.1r expo.out  stagger .06r  delay i+.4r   origen 0 50%
+     .db-gl span   {op0 x:-6} .6         stagger .05r     delay i+.45r
+     .db-col__x    {op0 y:6}  .5         stagger .03r     delay i+.5r
+     .db-avg       {op0}      .6                          delay i+1.3r  ← LA ÚLTIMA
+     anillo        strokeDasharray 0 100 → k·100  1.4 power3.inOut      delay i
+   ⚠️ Y el detalle de calidad que repite toda la familia: cuando NO es la primera
+      visita la entrada corre al 60 % y con menos delay. Coffer hace lo mismo con
+      otra forma: y:34 la primera vez, y:14 al volver. */
+:root[data-estilo="corbel"]{ --d-base:.15s }
+[data-mk="bar"]   { animation:mk-texto-8  .6s  var(--p3) var(--paso)   both; --d:.15s; --stg:.05s }
+[data-mk="card"]  { animation:mk-tile     .9s  var(--expo) var(--paso) both; --d:.20s; --stg:.07s }
+[data-mk="kpi"]   { animation:mk-texto-14 .6s  var(--p3) var(--paso)   both; --d:.27s; --stg:.08s }
+[data-mk="glbar"] { animation:mk-barra-x  1.1s var(--expo) var(--paso) both; --d:.55s; --stg:.06s;
+                    transform-origin:0 50% }
+[data-mk="gllab"] { animation:mk-lateral-x6 .6s var(--p3) var(--paso)  both; --d:.60s; --stg:.05s }
+[data-mk="ejex"]  { animation:mk-texto-8  .5s  var(--p3) var(--paso)   both; --d:.65s; --stg:.03s }
+[data-mk="avg"]   { animation:mk-aparece  .6s  linear var(--paso)      both; --d:1.45s }
+[data-mk="bary"]  { animation:mk-barra-y  1.1s var(--expo) var(--paso) both; --d:.55s; --stg:.06s;
+                    transform-origin:50% 100% }
+[data-mk="fila"]  { animation:mk-texto-8  .45s var(--p3) var(--paso)   both; --d:.34s; --stg:.025s }
+[data-mk="chip"]  { animation:mk-chip     .55s var(--b24) var(--paso)  both; --d:.42s; --stg:.03s }
+[data-mk="pild"]  { animation:mk-pildora  .6s  var(--b26) var(--paso)  both; --d:.30s; --stg:.05s }
+[data-mk="icono"] { animation:mk-icono    .55s var(--b3) var(--paso)   both; --d:.30s; --stg:.04s }
+[data-mk="globo"] { animation:mk-globo    .5s  var(--b2) var(--paso)   both; --d:1.90s }
+[data-mk="vivo"]  { animation:mk-vivo     .6s  var(--b2) var(--paso)   both; --d:.40s }
+[data-mk="texto"] { animation:mk-texto    .6s  var(--p3) var(--paso)   both; --d:.22s; --stg:.045s }
+[data-mk="main"]  { animation:mk-texto-22 1.1s var(--expo) var(--paso) both; --d:.05s }
+[data-mk="sello"] { animation:mk-sello    .4s  var(--b25) var(--paso)  both; --d:.50s; --stg:.035s }
+[data-mk="menu"]  { animation:mk-menu     .4s  var(--b16) var(--paso)  both }
+
+/* el anillo y la línea del gráfico se DIBUJAN (Corbel · gesto que no teníamos):
+   sparkline  strokeDasharray 100 100, offset 100 → 0   1.3s power3.inOut
+   el área    opacity 0 → 1   .8s   delay +.6
+   el punto   scale 0 → 1     .5s back.out(3)  delay +1.15 */
+@keyframes mk-traza { from{ stroke-dashoffset:var(--largo,100) } }
+[data-mk="traza"]{ stroke-dasharray:var(--largo,100) var(--largo,100);
+  animation:mk-traza 1.3s var(--p3io) var(--paso) both; --d:.15s }
+[data-mk="area"] { animation:mk-aparece .8s linear var(--paso) both; --d:.75s }
+@keyframes mk-punto{ from{ transform:scale(0) } }
+[data-mk="punto"]{ animation:mk-punto .5s var(--b3) var(--paso) both; --d:1.30s; transform-box:fill-box;
+  transform-origin:50% 50% }
+@keyframes mk-anillo{ from{ stroke-dasharray:0 100 } }
+[data-mk="anillo"]{ animation:mk-anillo 1.4s var(--p3io) var(--paso) both; --d:.15s }
+
+/* ════════════════════ COFFER ════════════════════ */
+:root[data-estilo="coffer"] [data-mk="card"]{ animation:mk-card-cof-a .9s var(--p3) var(--paso) both; --stg:.06s }
+:root[data-estilo="coffer"] [data-mk="card"]:nth-of-type(even){ animation-name:mk-card-cof-b }
+:root[data-estilo="coffer"] [data-mk="kpi"] { animation:mk-tile-34 .9s var(--p3) var(--paso) both; --stg:.06s }
+:root[data-estilo="coffer"] [data-mk="fila"]{ animation:mk-texto-8 .4s var(--p3) var(--paso) both; --stg:.035s }
+:root[data-estilo="coffer"] [data-mk="glbar"]{ animation:mk-barra-x .9s var(--p3io) var(--paso) both }
+
+/* ════════════════════ ORVEL ════════════════════ */
+:root[data-estilo="orvel"] [data-mk="card"]{ animation:mk-card-orvel .6s var(--b15) var(--paso) both; --stg:.06s }
+:root[data-estilo="orvel"] [data-mk="bar"] { animation:mk-lateral .4s var(--p3) var(--paso) both; --stg:.05s }
+:root[data-estilo="orvel"] [data-mk="menu"]{ animation:mk-menu .38s var(--b16) var(--paso) both }
+
+/* ════════════════════ PANE ════════════════════
+   Las tarjetas se abren DESDE EL CENTRO como un iris: clipPath inset(36%) → inset(0).
+   Los tiles escalan desde .6. Las tarjetas de Lumora (rotación ±3) NO se usan acá. */
+:root[data-estilo="pane"] [data-mk="card"]{ animation:mk-iris .9s var(--expo) var(--paso) both; --stg:.06s }
+:root[data-estilo="pane"] [data-mk="kpi"] { animation:mk-escala .7s var(--b14) var(--paso) both; --stg:.06s }
+@keyframes mk-escala{ from{ opacity:0; transform:translateY(14px) scale(.6) } }
+
+/* ════════════════════ LUMORA ════════════════════ */
+:root[data-estilo="lumora"] [data-mk="card"]{ animation:mk-card-lum-a .8s var(--b14) var(--paso) both; --stg:.06s }
+:root[data-estilo="lumora"] [data-mk="card"]:nth-of-type(even){ animation-name:mk-card-lum-b }
+
+/* ════════════════════ PRISM ════════════════════ */
+:root[data-estilo="prism"] [data-mk="card"]{ animation:mk-texto-16 .75s var(--p3) var(--paso) both; --stg:.06s }
+:root[data-estilo="prism"] [data-mk="kpi"] { animation:mk-achica .7s var(--p2) var(--paso) both; --stg:.06s }
+
+/* ══════════════════════ EL ARMAZÓN ══════════════════════
+   Corbel: .mesh opacity 1.2 power2.out en 0 · la barra de arriba {y:-14} stg .06 en .05
+           el dock {x:-90} .9 power3.out en .1 (móvil {y:90}) · .main {op0 y:22} 1.1 en .05
+           .live {op0 y:-8 scale.9} .6 back.out(2) en .4 */
+[data-mk="top"] { animation:mk-arriba .5s var(--p3) var(--paso) both; --d:.05s; --stg:.06s }
+[data-mk="side"]{ animation:mk-dock .9s var(--p3) var(--paso) both; --d:.10s }
+[data-mk="navit"]{ animation:mk-lateral-14 .45s var(--p3) var(--paso) both; --d:.25s; --stg:.025s }
+@media (max-width:700px){ [data-mk="side"]{ animation-name:mk-dock-movil } }
+
+/* ══════════════════════ HOVER / ACTIVE / FOCUS ══════════════════════
+   Textual de cada referencia. El movimiento va MÁS RÁPIDO que el color (.18 vs .2):
+   es al revés de lo que sale por defecto y es parte de por qué se siente preciso. */
+.btn,.accion,.lnk,.pie,.seg b,.mk-b,.chip{
+  transition:background-color .2s var(--ease),color .2s var(--ease),
+             filter .2s var(--ease),border-color .2s var(--ease),transform .18s ease-out}
+.fila,.pr,.pe{transition:background-color .15s}
+.lnk:hover,.pie:hover{text-decoration:underline;text-underline-offset:3px}
+.barras i,.gl .riel i{transition:opacity .2s var(--ease)}
+.riel i{transition:width .38s cubic-bezier(.34,1.45,.55,1)}
+
+/* PANE   .btn--accent:hover{filter:brightness(1.06)} · filas y botones: var(--fill-hover)
+          la perilla del interruptor se ESTIRA a 33px con :active · focus-visible 2.5px */
+:root[data-estilo="pane"] :is(.fila,.pr,.pe):hover{background:var(--mk-row-hov);
+  border-radius:10px;box-shadow:0 0 0 8px var(--mk-row-hov)}
+:root[data-estilo="pane"] :is(.btn--ink,.accion):hover{filter:brightness(1.06)}
+
+/* LUMORA .btn--primary:hover{filter:brightness(1.2)} y en OSCURO brightness(.92)
+          .table tbody tr:hover{background:var(--surface-2)}
+          .gbars:hover .gbars__bar:not(.is-hi){opacity:.55}  ← las otras barras se apagan */
+:root[data-estilo="lumora"][data-tema="claro"]  :is(.btn--ink,.accion):hover{filter:brightness(1.2)}
+:root[data-estilo="lumora"][data-tema="oscuro"] :is(.btn--ink,.accion):hover{filter:brightness(.92)}
+
+/* el gesto se copia a todas: al pasar por el gráfico, las otras barras bajan */
+.barras:hover i:not(.hoy),.gl:hover .riel i{opacity:.55}
+.barras:hover i:hover,.barras i.hoy,.gl>div:hover .riel i{opacity:1}
+
+:is(.fila,.pr,.pe):hover{background:var(--mk-row-hov);border-radius:10px;
+  box-shadow:0 0 0 8px var(--mk-row-hov)}
+.btn:hover,.lnk:hover,.seg b:not(.on):hover{background:var(--well)}
+.btn--ink:hover,.accion:hover{filter:brightness(1.08)}
+.chip:hover{filter:brightness(1.06)}
+/* [data-lift] de Corbel: la tarjeta se levanta 3px, y sólo con puntero fino */
+@media (hover:hover) and (pointer:fine){
+  :root[data-hovercard="si"] .card,:root[data-hovercard="si"] .tile{
+    transition:transform .22s var(--ease),box-shadow .22s var(--ease)}
+  :root[data-hovercard="si"] .card:hover,:root[data-hovercard="si"] .tile:hover{
+    transform:translateY(-3px)}
+}
+:focus-visible{outline:2.5px solid var(--text);outline-offset:2px;border-radius:6px}
+
+/* ══════════ LO QUE DICE ALGO (no adorno) ══════════
+   El flash de un número que cambió es de COLOR, no de fondo. 1 s. */
+@keyframes mk-flash{ from{ color:var(--up) } }
+.mk-flash{animation:mk-flash 1s var(--ease)}
+/* el punto que respira: esto está vivo */
+@keyframes mk-respira{ 0%,100%{opacity:.4} 50%{opacity:1} }
+.vivo-punto{animation:2.2s ease-in-out infinite mk-respira}
+/* el número que flota y se va (Corbel: Ti / float-up) */
+@keyframes mk-flota{
+  0%  { opacity:0; transform:translate(-50%,6px) scale(.9) }
+  28% { opacity:1; transform:translate(-50%,-12px) scale(1) }
+  100%{ opacity:0; transform:translate(-50%,-38px) scale(1) }
+}
+.mk-flota{position:fixed;animation:mk-flota 1.15s var(--b2) both;font-weight:700;
+  font-size:var(--fs-sm);pointer-events:none;z-index:60}
+/* el sacudón del error: el ÚNICO elástico de la familia (coffer, corvane, prism) */
+@keyframes mk-sacude{ from{ transform:translateX(-6px) } }
+.mk-sacude{animation:mk-sacude .5s var(--elastic)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}

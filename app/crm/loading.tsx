@@ -45,15 +45,15 @@ export default function CargandoCrm() {
 
       {/* KANBAN — mismas columnas de 304, mismo gap, del alto del tablero. */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', paddingBottom: 8 }}>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'stretch', height: '100%' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', height: '100%' }}>
           {COLUMNAS.map((tarjetas, i) => (
-            <div key={i} style={{ flex: 'none', width: 304, background: 'var(--fondo-columna)', borderRadius: 26, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div key={i} style={{ flex: 'none', width: 304, background: 'var(--fondo-columna)', borderRadius: 18, padding: '14px 10px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                 <Skeleton w={i % 2 ? 96 : 122} h={12} />
                 <Skeleton w={24} h={16} radius={999} />
               </div>
               {Array.from({ length: tarjetas }).map((_, k) => (
-                <div key={k} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <div key={k} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 12px 10px', display: 'flex', flexDirection: 'column', gap: 7 }}>
                   <Skeleton w={k % 3 === 0 ? '78%' : '58%'} h={14} />
                   <Skeleton w="42%" h={11} />
                 </div>

@@ -58,7 +58,7 @@ import {
   escribirVenta, getPagosByLead, guardarMonedaDelNegocio, guardarPlanPorTramos, monedaDelNegocio, proteccionesDeCuotas, type CambioCampoDeal,
 } from '@/lib/pagos';
 import {
-  aplicarObligacion, armadaDe, avisoDeConservadas, cuotaExistenteDe, cuotasQueQuedan, esCampoLeadDeal, esParteObligacion, esSeccionDeal,
+  aplicarObligacion, armadaDe, avisoDeConservadas, cuotaExistenteDe, cuotasQueQuedan, cuotasVistas, cuotasVistasDe, esCampoLeadDeal, esParteObligacion, esSeccionDeal,
   lineasDeCuotas, nombreCuota, obligacionesDe, patchDeVenta, planCambioDesde, planPorTramosDelServer, plataDeCuota, reconciliarCuotas,
   rotuloCampoDeal, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, type AnticipoPlan, type CambioObligacion, type CambioVenta,
   type CuotaQueQueda, type FilaVenta, type PlanDeCuotas, type TramoPlan,
@@ -787,27 +787,34 @@ export const RUNNERS: Runners = {
       if (!plan.ok) return { error: plan.error };
       // Un anticipo nuevo sobre uno cobrado no se crea (`cuotasDelPlanPorTramos`): prometerlo era confirmar plata que no queda
       // como deuda (revisión de 805afb460, N4). La ficha ni lo deja escribir.
-      if (input.anticipo !== undefined && plan.inicialCobrado) return { error: `El anticipo de ${lead.nombre} ya está cobrado: no se pide otro. Para cobrar algo más, agrégalo como un tramo.` };
+      // Y un #0 cobrado con la columna vacía (revisión de 7f79a4e6c, B10): el anticipo pedido quedaba como una cuota de hoy.
+      const ceroCobrado = pagos.some((q) => q.numero === 0 && q.pagado && !noEsDeuda(q));
+      if (input.anticipo !== undefined && (plan.inicialCobrado || ceroCobrado)) return { error: `El anticipo de ${lead.nombre} ya está cobrado: no se pide otro. Para cobrar algo más, agrégalo como un tramo.` };
       // Lo que se confirma es lo que QUEDA: la reconciliación del server sobre lo leído, sin escribir (N2).
       const existentes = pagos.map((q) => cuotaExistenteDe(q, protMapa.get(q.id) ?? []));
       const reconciliado = reconciliarCuotas(existentes, plan.deseadas, 'porId', { vistos: new Set(plan.vistos), protegidasPrimero: true });
       return {
-        // `vistas`: las impagas leídas acá. El «sí» puede llegar 2 h después, y vale sólo sobre esto (N1, `faltaParaConfirmar`).
-        payload: { leadId: lead.id, primeraCuota: desde, tramos, anticipo, vistas: plan.vistos },
+        // `vistas`: las impagas leídas acá, con su firma. El «sí» puede llegar 2 h después, y vale sólo sobre esto (N1 y B8,
+        // `faltaParaConfirmar`).
+        payload: { leadId: lead.id, primeraCuota: desde, tramos, anticipo, vistas: cuotasVistas(pagos, plan.vistos) },
         resumen: resumenDelPlan(lead, cuotasQueQuedan(existentes, reconciliado), reconciliado, anticipo != null || planConInicial),
       };
     },
     // Antes de reclamar la pendiente (lib/api-mako/acciones.ts): si el plan cambió desde la propuesta, el «sí» no la quema.
+    // Una que cambió, o una de antes de la firma (B9), no se cumple nunca: se cierra (`yaNoVale`, B12).
     faltaParaConfirmar: async (payload, ctx) => {
-      if (!Array.isArray(payload.vistas)) return null;
+      const vistas = cuotasVistasDe(payload.vistas);
+      if (!vistas) return { yaNoVale: PROPUESTA_DE_ANTES };
       const pagos = await runWithWorkspace(ctx.ws, () => getPagosByLead(Number(payload.leadId))).catch(() => null);
       if (!pagos) return 'No pude revisar si el plan de cuotas cambió. Prueba de nuevo en un rato.';
-      return planCambioDesde(pagos, new Set((payload.vistas as unknown[]).map(Number)));
+      const cambio = planCambioDesde(pagos, vistas);
+      return cambio ? { yaNoVale: cambio } : null;
     },
     ejecutar: (payload, ctx) => seguro('armar el plan', async () => {
+      const vistas = cuotasVistasDe(payload.vistas);
+      if (!vistas) return { ok: false, resumen: PROPUESTA_DE_ANTES };
       const r = await guardarPlanPorTramos(Number(payload.leadId), {
-        desde: String(payload.primeraCuota), tramos: (payload.tramos as TramoPlan[]) ?? [], anticipo: (payload.anticipo as AnticipoPlan | null) ?? null,
-        vistas: Array.isArray(payload.vistas) ? (payload.vistas as unknown[]).map(Number) : null,
+        desde: String(payload.primeraCuota), tramos: (payload.tramos as TramoPlan[]) ?? [], anticipo: (payload.anticipo as AnticipoPlan | null) ?? null, vistas,
       }, autorDe(ctx));
       invalidarPagos();
       return {
@@ -896,6 +903,8 @@ export const RUNNERS: Runners = {
 
 // ── el plan por tramos ────────────────────────────────────────────────────────
 
+/** Una propuesta sin `vistas` con su firma es de antes (revisión de 7f79a4e6c, B9): con la regla vieja, su «sí» pisaba lo de después. */
+const PROPUESTA_DE_ANTES = 'Esta propuesta es de una versión anterior de MaKo: no guardé nada. Pídeme el plan de nuevo y lo armo sobre lo que hay ahora.';
 const esDia = (f: string | null): f is string => !!f && /^\d{4}-\d{2}-\d{2}$/.test(f);
 const dmy = (f: string): string => `${f.slice(8, 10)}/${f.slice(5, 7)}/${f.slice(0, 4)}`;
 const plataDe = (c: { monto_usd: number; moneda: string | null; monto_original: number | null }): string =>
@@ -915,8 +924,9 @@ function tramoDeInput(t: Record<string, unknown>): TramoPlan {
 
 /**
  * Lo que la persona confirma: el plan como QUEDA (`cuotasQueQuedan`, revisión de 805afb460, N2), no lo pedido. Cada cuota del plan
- * con su fecha y su monto, la cobrada y la que no se puede cambiar dichas; el total, lo ya cobrado, lo que no se toca y por qué, y
- * la venta si no dice lo mismo. `conAnticipo`: el #0 es el anticipo. Con más de 24 cuotas, las 12 primeras y las 2 últimas.
+ * con su fecha y su monto, la cobrada y la que no se puede cambiar dichas; el total, lo ya cobrado, lo que queda sin cobrar APARTE
+ * del plan (la diferencia de un cobro a medias: no se nombraba, y la venta parecía no cerrar, revisión de 7f79a4e6c, B11), lo que no
+ * se toca y por qué, y la venta si no dice lo mismo. `conAnticipo`: el #0 es el anticipo. Con más de 24 cuotas, las 12 primeras y las 2 últimas.
  */
 type LeadDelResumen = { nombre: string; monto_cierre_usd?: number | null };
 function resumenDelPlan(lead: LeadDelResumen, quedan: readonly CuotaQueQueda[], plan: PlanDeCuotas, conAnticipo: boolean): string {
@@ -929,14 +939,16 @@ function resumenDelPlan(lead: LeadDelResumen, quedan: readonly CuotaQueQueda[], 
   const suma = (xs: readonly CuotaQueQueda[]) => Math.round(xs.reduce((t, q) => t + Number(q.monto_usd), 0) * 100) / 100;
   const total = suma(delPlan);
   const cobrado = suma(delPlan.filter((q) => q.pagado));
+  const aparte = quedan.filter((q) => !q.delPlan && !q.pagado);
   const noSeToca = avisoDeConservadas(plan);
   const venta = Number(lead.monto_cierre_usd) || 0;
   return [
     `Plan de ${lead.nombre}: ${cuotas.length} cuota(s)${anticipo ? ` y un anticipo de ${plataDe(anticipo)}${anticipo.fecha_esperada ? ` el ${dmy(anticipo.fecha_esperada)}` : ''}${como(anticipo)}` : ''}.`,
     `Cuotas: ${vistas.join(' · ')}.`,
     `Total: ${formatoMonto(total, 'USD')}.${cobrado ? ` Ya cobrado: ${formatoMonto(cobrado, 'USD')}.` : ''}`,
+    aparte.length ? `Aparte del plan queda sin cobrar: ${aparte.map((q) => `${nombreCuota(q.numero)} ${plataDe(q)}${q.fecha_esperada ? ` (${dmy(q.fecha_esperada)})` : ''}`).join(' · ')}.` : '',
     noSeToca ? `No se puede cambiar: ${noSeToca}.` : '',
     'Reemplaza las cuotas sin cobrar del plan.',
-    Math.abs(venta - total) >= 0.01 ? `La venta dice ${venta ? formatoMonto(venta, 'USD') : 'que no tiene monto'}: el plan no la cambia (eso es editar_venta_lead).` : '',
+    Math.abs(venta - total - suma(aparte)) >= 0.01 ? `La venta dice ${venta ? formatoMonto(venta, 'USD') : 'que no tiene monto'}: el plan no la cambia (eso es editar_venta_lead).` : '',
   ].filter(Boolean).join(' ');
 }

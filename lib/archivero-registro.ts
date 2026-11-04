@@ -197,3 +197,21 @@ export async function insertarConOrigen(
   avisar(`[archivero] falta archivero_files.origen (mig 0316): «${String(fila.nombre ?? '')}» entra sin su origen`);
   return (await insertar(fila)).error;
 }
+
+/**
+ * Los campos del perfil que sacó el MODELO de un turno (`sumar_documento_second_brain`, ticket #44, 3/11/2026): cuando el
+ * negocio sólo tiene su Claude en la computadora, el servidor no tiene con qué extraer y lo hace el modelo, que es su IA.
+ * Entra SÓLO lo que es una clave del perfil y trae valor, con el tope de un campo. Una clave inventada, o la de otra
+ * sección, no llega al brief: lo lee todo MaKo.
+ */
+export function camposDelModelo(filas: unknown, validas: ReadonlySet<string>): Record<string, string> {
+  const lista = Array.isArray(filas) ? filas : filas && typeof filas === 'object' ? Object.entries(filas).map(([clave, valor]) => ({ clave, valor })) : [];
+  const out: Record<string, string> = {};
+  for (const f of lista) {
+    if (!f || typeof f !== 'object') continue;
+    const clave = String((f as Record<string, unknown>).clave ?? '').trim();
+    const valor = String((f as Record<string, unknown>).valor ?? '').trim().slice(0, 2000);
+    if (validas.has(clave) && valor) out[clave] = valor;
+  }
+  return out;
+}

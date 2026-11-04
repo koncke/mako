@@ -24,7 +24,7 @@ import { cifrar, descifrar, versionCripto } from './cripto-credenciales';
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual, wsSuperAdmin, WS_NINGUNO } from './workspace';
 import { OWNER_WS } from './auth-session';
-import { ENVS_METODO, servicioDeEnv, servicioMetodo } from './metodo-catalogo';
+import { ENVS_METODO, SERVICIOS_METODO, servicioDeEnv, servicioMetodo } from './metodo-catalogo';
 import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs, soltarIdentificador, normalizar } from './webhook-routing';
 import { CUENTA_PRINCIPAL, baseDeClave, cuentaDeClave } from './cuentas-integracion';
 import { PASARELAS, type Pasarela } from './cobros-tipos';
@@ -781,9 +781,26 @@ export const esClaveDePasarela = (clave: string): boolean => CLAVES_DE_PASARELA.
  * ediciones del panel quedaban mudas para esas libs).
  * true si cambió algo.
  */
+/**
+ * La lista de lo que SÍ puede pisar el entorno (01/11/2026, auditoría de seguridad). Hasta ese día la hidratación era
+ * una lista de EXCLUSIÓN (INFRA_ENV + pasarelas): cualquier otra fila de la base —una zombie de un catálogo viejo, o
+ * una escrita por un script— pisaba `process.env` en cada boot, y con eso `CRON_SECRET`, `RESEND_WEBHOOK_SECRET` o
+ * cualquier secreto de plataforma que no estuviera en la lista. Ahora entra sólo lo que el catálogo de integraciones
+ * declara (con su cuenta extra `__C2`), las keys de IA y sus rótulos. Una fila fuera de la lista se ANOTA, no se aplica.
+ */
+const ENVS_DEL_CATALOGO: ReadonlySet<string> = new Set(SERVICIOS_METODO.flatMap((sv) => sv.campos.map((c) => c.env)));
+export function puedeHidratarse(clave: string): boolean {
+  if (INFRA_ENV.has(clave) || esClaveDePasarela(clave)) return false;
+  return ENVS_DEL_CATALOGO.has(baseDeClave(clave)) || esClaveDeIA(clave) || esClaveDeCuenta(clave);
+}
+
 function aplicarAEnv(clave: string, valor: string): boolean {
   if (INFRA_ENV.has(clave)) return false;
   if (esClaveDePasarela(clave)) return false;
+  if (!puedeHidratarse(clave)) {
+    console.warn(`[credenciales] fila «${clave}» fuera del catálogo: no se copia al entorno`);
+    return false;
+  }
   hidratadas.add(clave);
   if (process.env[clave] === valor) return false;
   process.env[clave] = valor;

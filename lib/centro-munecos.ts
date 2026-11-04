@@ -15,6 +15,8 @@
 // (`CLAVE_MUNECOS`), y lo que no se eligió sale del nombre (`aspectoDe`), igual en el server y en el navegador.
 // ⚠️ SIN `server-only`: lo usan las pantallas, el server y los tests.
 
+import type { IdAsesor } from './asesores/catalogo';
+
 // LA CRIATURA (17/10/2026, la F del feedback de Martín: «"Su muñeco" pasa a llamarse "Criatura". Tiene 9 cuerpos, 9 colores
 // y 9 caras»). Las piezas nuevas van AL FINAL de cada lista: el que no se eligió sale de su nombre con las de antes
 // (`DE_SIEMPRE`), así ningún chat cambia de cara por haber más opciones.
@@ -37,10 +39,14 @@ export const CARAS = ['sonrisa', 'risa', 'dientes', 'tranquila', 'asombro', 'len
 /** Las piezas con las que se sortea el que no se eligió: las de antes del 17/10/2026 (ver arriba). */
 const DE_SIEMPRE = { formas: FORMAS.slice(0, 7), caras: CARAS.slice(0, 6) } as const;
 export type CaraMuneco = (typeof CARAS)[number];
-export type Aspecto = { forma: Forma; color: Color; cara: CaraMuneco };
+/** `retrato`: un referente (lib/asesores/catalogo.ts): se dibuja su retrato (app/admin/operaciones/Retratos.tsx) en vez del cuerpo y
+ *  la cara. No se elige con las piezas ni se guarda acá: `sanearAspecto` no lo deja pasar. */
+export type Aspecto = { forma: Forma; color: Color; cara: CaraMuneco; retrato?: IdAsesor };
 export type MunecosElegidos = Record<string, Aspecto>;
 /** La criatura de MaKo: la estrella dorada, sonriendo. */
 export const ASPECTO_MAKO: Aspecto = { forma: FORMA_MAKO, color: COLOR_MAKO, cara: 'sonrisa' };
+/** La criatura de un chat con un referente al frente: su caricatura. */
+export const aspectoDeReferente = (retrato: IdAsesor): Aspecto => ({ forma: 'circulo', color: '--grafo-voz', cara: 'sonrisa', retrato });
 
 export const ROTULO_FORMA: Record<Forma, string> = {
   circulo: 'Círculo', cuadrado: 'Cuadrado', hexagono: 'Hexágono', triangulo: 'Triángulo', frijol: 'Frijol', gota: 'Gota', pildora: 'Píldora',

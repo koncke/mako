@@ -486,6 +486,22 @@ export function bloqueAgendaGoogle(nombres: readonly string[]): string {
   return `\n\nAGENDA DE GOOGLE: tú NO ves la agenda. El sistema le muestra a la persona, directo, los horarios, las reuniones y los choques. No escribas horarios ni títulos de la agenda, ni afirmes que un horario está libre o que no hay nada.\n${lineas.join('\n')}`;
 }
 
+/**
+ * Lo que MaKo puede en Google Calendar en ESTE negocio, como un hecho (ticket #42, Código Inmobiliario, 3/11/2026). MaKo contestó
+ * «no tengo acceso a crear eventos en tu Google Calendar» con la agenda conectada: sin este dato lo deducía de las herramientas
+ * que viajan en el turno, y en una pregunta las que escriben no viajan. Dice sólo el estado de la conexión, nada de la agenda.
+ * Sin conexión, sin permiso de escribir o sin rol, dice CUÁL falta: nunca «no se puede». Por WhatsApp el grupo corre como admin
+ * (`rol: 'admin'`, lib/mako-doer-in.ts), así que el rol sólo pesa en el chat de la app.
+ */
+export function hechoGoogleCalendar(p: { conectado: boolean; puedeMover: boolean; rol: 'admin' | 'miembro' }): string {
+  const faltan: string[] = [];
+  if (!p.conectado) faltan.push('la conexión: este negocio no tiene su Google Calendar conectado (se conecta desde la computadora, en Settings → Integrations)');
+  else if (!p.puedeMover) faltan.push('el permiso: está conectado sólo para leer, hay que reconectarlo en Settings → Integrations');
+  if (p.rol !== 'admin') faltan.push('el rol: crear eventos es de quien administra el negocio, y esta persona no lo es (lo crea un admin, o le cambia el rol)');
+  if (faltan.length) return `\n\nGOOGLE CALENDAR: hoy no se pueden crear eventos porque falta ${faltan.join(', y ')}. Di eso, con esa causa. ⛔ No digas que MaKo no tiene esa función ni que no puede: la tiene.`;
+  return '\n\nGOOGLE CALENDAR: está conectado en este negocio y SÍ puedes crear eventos ahí. Con el título, la fecha y la hora propones el evento, y con su «sí» queda en su Google Calendar. ⛔ Nunca digas que no tienes acceso ni que no puedes. Lo único que no haces es leerle la agenda: los horarios y los choques se los muestra el sistema.';
+}
+
 // ── El pedido que queda abierto en el grupo ──────────────────────────────────
 
 /**

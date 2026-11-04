@@ -1,0 +1,111 @@
+# =============================================================================
+# Chequeo sobre main: los tipos enteros y las barredoras, sobre la MEZCLA que llegó a main sin probar
+# =============================================================================
+# Por qué (docs/hallazgos-infra.md → «Por qué tardaba horas»): 8 de 10 verdes de punta llegaron a main con una mezcla que nadie
+# probó. punta.yml mezcla el main del momento, corre los tests y los tipos, y si al empujar main ya se había movido, mezcla
+# OTRA VEZ y empuja sólo con las guardas (su `::warning::`). Dos puntas que no chocan como texto se pueden romper entre sí, y
+# lo veía recién la punta siguiente.
+#
+# CUÁNDO CORRE, y es lo que cuida los minutos:
+#   · punta.yml lo lanza (`workflow_dispatch`) SÓLO cuando empujó una mezcla que no probó. Si empujó lo mismo que probó, ese
+#     árbol ya pasó tipos y barredoras: no hay nada que repetir.
+#   · un push a main a mano (el camino de emergencia). Un push hecho con el GITHUB_TOKEN de punta.yml NO dispara `push`: por
+#     eso el lanzamiento es explícito.
+#   · `concurrency` sin cancelar: corre uno y espera UNO; el que espera chequea el main que haya cuando arranca (checkout de
+#     `main`, no del commit que lo lanzó), así que tres mezclas seguidas son dos corridas, no tres.
+#
+# QUÉ CORRE: los tipos enteros (como la punta: swap, 12 GB de tope, tandas de respaldo) y todas las barredoras compartidas
+# (`tests-afectados.mjs --barredoras`): son las que una mezcla rompe sin que ninguna de las dos puntas lo vea. Los demás tests
+# los ve la suite de cada noche.
+#
+# QUÉ DEJA: rojo → la marca `ci-rojo/main` (la lee punta.yml: una punta que da rojo mientras existe deja `espera-main/<punta>`
+# y se relanza sola). Verde → `scripts/ci-main-verde.sh`: borra la marca y relanza las que esperaban. Sin minutos de deploy:
+# `ci-rojo/**` y `espera-main/**` no construyen en Vercel (vercel.json).
+# =============================================================================
+name: chequeo sobre main
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: sobre-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  mezcla-de-main:
+    runs-on: ubuntu-latest
+    # Mayor que la suma de los pasos largos (18 + 15) más lo demás: si se pasa un paso, es un fallo del paso y deja la marca.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar
+        run: npm ci --no-audit --no-fund
+
+      - name: Tipos de las rutas
+        run: npx next typegen
+
+      - name: Swap para los tipos
+        run: |
+          sudo fallocate -l 6G /swapfile-tipos
+          sudo chmod 600 /swapfile-tipos
+          sudo mkswap /swapfile-tipos
+          sudo swapon /swapfile-tipos
+
+      - name: Tipos
+        timeout-minutes: 18
+        env:
+          TIPOS_TANDAS: '4'
+          TIPOS_HEAP_MB: '12288'
+        run: |
+          set +e
+          SECONDS=0
+          node scripts/tipos-ci.mjs
+          c=$?
+          echo "tipos sobre main $(git rev-parse --short HEAD): $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $c
+
+      # ⚠️ El 0 solo no alcanza, igual que en punta.yml: se exige la línea del verde con tests adentro.
+      - name: Barredoras, compartidas
+        if: "!cancelled()"
+        timeout-minutes: 15
+        env:
+          MAKO_TIEMPOS_TESTS: ${{ runner.temp }}/tiempos-tests.tsv
+        run: |
+          set +e
+          SECONDS=0
+          { node scripts/tests-afectados.mjs --barredoras --base HEAD --concurrencia auto --tanda 100 --compartir; echo $? > "$RUNNER_TEMP/barredoras.codigo"; } 2>&1 | tee "$RUNNER_TEMP/barredoras.log"
+          c=$(cat "$RUNNER_TEMP/barredoras.codigo")
+          echo "barredoras sobre main: $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$c" != "0" ]; then exit "$c"; fi
+          if ! grep -Eq 'VERDE · [1-9][0-9]* tests' "$RUNNER_TEMP/barredoras.log"; then
+            echo "::error::tests-afectados --barredoras salió con 0 sin correr ningún test: eso no es un verde."
+            exit 1
+          fi
+
+      - name: Main está verde
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: sh scripts/ci-main-verde.sh origin
+
+      - name: Main está rojo
+        if: failure()
+        run: |
+          sha=$(git rev-parse HEAD)
+          git push --force origin "$sha:refs/heads/ci-rojo/main"
+          echo "::error::La mezcla de main $(git rev-parse --short HEAD) dio rojo (tipos o barredoras). Las puntas que den rojo mientras tanto se relanzan solas cuando main vuelva a verde."

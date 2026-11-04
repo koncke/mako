@@ -50,7 +50,7 @@ const WS1 = {
 test('1. cada chat dice de dónde viene y de qué se trata: nunca «Chat de antes», y los repetidos se distinguen', () => {
   const lista = listaDelCliente(WS1);
   const titulos = lista.map((f) => f.titulo);
-  assert.equal(titulos[0], 'Cerebro');
+  assert.equal(titulos[0], 'Ops Center');
   assert.ok(!titulos.some((t) => /chat de antes/i.test(t)), 'nunca «Chat de antes»');
   assert.deepEqual(titulos.slice(1), [
     'Offer › Sprint de Diseño para la Ejecución Empresarial',
@@ -113,8 +113,8 @@ test('3. cada chat con SU criatura: variadas (no todas círculos), las mismas al
   assert.notDeepEqual(aspectoDeChat('o13'), aspectoDeChat('o1'), 'dos «Mi oferta», dos criaturas');
   assert.deepEqual(aspectoDe('Cerebro', aspectoDeChat('jefe')), ASPECTO_MAKO, 'el Cerebro es la estrella aunque le pasen otra');
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
-  assert.match(motor, /aspecto: f\.clave === 'jefe' \? null : aspectoDeChat\(f\.clave\)/);
-  assert.match(motor, /const aspectoMuneco = filaAbierta\?\.aspecto \?\? null;/);
+  assert.match(motor, /aspecto: f\.clave === 'jefe' \? null : f\.guru \? aspectoDeReferente\(f\.guru\) : f\.origen === 'offer' && aspectoOffer \? aspectoOffer : aspectoDeChat\(f\.clave\)/);
+  assert.match(motor, /const aspectoMuneco = quien\?\.aspecto \?\? filaAbierta\?\.aspecto \?\? null;/);
   assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /criatura=\{f\.criatura\} aspecto=\{f\.aspecto\}/);
   assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /criatura: k\.nombreMuneco, aspecto: k\.aspectoMuneco/, 'la cabecera, la misma');
   assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /quien=\{\{ nombre: k\.nombreMuneco, aspecto: k\.aspectoMuneco \}\}/, 'el hilo, la misma');

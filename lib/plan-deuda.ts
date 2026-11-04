@@ -15,6 +15,9 @@
 //       – Si no (MP pasó los reintentos, o la suscripción ya no cobra): un cobro ÚNICO por los meses debidos (`meses`,
 //         mig 0330), atado al negocio (`alta_ws`). Y si la suscripción ya no cobra, después se reactiva el plan.
 //   · `avisarSuspension`: el mail a los admins del negocio cuando se pausa.
+//   · `agenciaDelCobro`: la cuenta del cliente de una agencia (31/10/2026, ticket #37). A la agencia le llegan el rechazo y la pausa;
+//     si la paga ELLA, al cliente no le llega ninguno y /cuenta-pausada no le ofrece pagar: no es suya. Si la paga él, los dos.
+//     El cartel de la mora no hace falta tocarlo: un cobro de agencia nunca da `mora` (`vigenciaDeClienteDeAgencia`).
 //
 // ⚠️ TODO EN EL WORKSPACE DE LA PLATAFORMA (los cobros son de MaKo) y con `credDelCliente` (nunca el env: lib/cobros.ts).
 // =============================================================================
@@ -30,6 +33,8 @@ import { buscarPagosMp, leerCuentaMp } from './mercadopago-api';
 import { facturasStripe, suscripcionStripe } from './pasarela-plan-api';
 import { formatoMonto } from './pasarela-moneda';
 import { avisarDePlataforma } from './invitaciones';
+import { KEY_QUIEN_PAGA, quienPagaDe, type QuienPaga } from './agency-reglas';
+import { NOMBRE_PASARELA, type Pasarela } from './cobros-tipos';
 import { vigenciaDe, corteDe, type FilaCobroLugar } from './plan-acceso';
 import { diaDeSuspension, mesesDespuesDe, type CorteGuardado, type Deuda } from './plan-acceso-reglas';
 
@@ -238,9 +243,87 @@ async function adminsDe(ws: number): Promise<string[]> {
     .filter((u) => u.email && (u.rol_ws === 'admin' || u.rol_ws == null)).map((u) => u.email!.toLowerCase()))];
 }
 
+/**
+ * El cobro del plan de un cliente de una agencia APROBADA: cuál, de quién y quién lo paga (`agency.quien_paga`). null si no lo es:
+ * un cobro propio, o una agencia que ya lo soltó. ⚠️ TIRA si no se pudo leer: «no sé» no es «no es de agencia», y lo otro le manda
+ * al cliente una deuda ajena.
+ */
+export async function agenciaDelCobro(cobroId: number): Promise<{ agenciaWs: number; clienteWs: number; paga: QuienPaga; proveedor: Pasarela } | null> {
+  if (!(cobroId > 0)) return null; // El `cobroId` 0 / -1 de un corte que no viene de un cobro (lib/plan-acceso.ts).
+  const db = getSupabaseServer();
+  const { data: c, error: e1 } = await db.from('cobros').select('agencia_ws, cliente_ws, proveedor').eq('id', cobroId).maybeSingle();
+  if (e1) throw new Error(e1.message);
+  const fila = c as { agencia_ws?: number | null; cliente_ws?: number | null; proveedor: Pasarela } | null;
+  if (fila?.agencia_ws == null || fila.cliente_ws == null) return null;
+  const [agenciaWs, clienteWs] = [Number(fila.agencia_ws), Number(fila.cliente_ws)];
+  const [cart, quien] = await Promise.all([
+    db.from('agencia_clientes').select('estado').eq('agencia_ws', agenciaWs).eq('cliente_ws', clienteWs).maybeSingle(),
+    db.from('app_settings').select('value').eq('workspace_id', clienteWs).eq('key', KEY_QUIEN_PAGA).maybeSingle(),
+  ]);
+  if (cart.error) throw new Error(cart.error.message);
+  if (quien.error) throw new Error(quien.error.message);
+  if ((cart.data as { estado?: string } | null)?.estado !== 'aprobado') return null;
+  return { agenciaWs, clienteWs, paga: quienPagaDe((quien.data as { value?: unknown } | null)?.value), proveedor: fila.proveedor };
+}
+
+/**
+ * Le avisa a los admins de la agencia lo que le pasó a la cuenta de su cliente, con su nombre. ⚠️ MaKo Partners es donde ve sus cuentas,
+ * NO donde se resuelve: de una renovación rechazada no ofrece ningún botón (`cobrosParaLaAgencia`). Por eso la frase dice qué hacer.
+ */
+async function avisarALaAgencia(a: { agenciaWs: number; clienteWs: number }, m: { asunto: (cliente: string) => string; preheader: string; frase: (cliente: string) => string; tag: string }): Promise<void> {
+  const { data } = await getSupabaseServer().from('workspaces').select('nombre').eq('id', a.clienteWs).maybeSingle();
+  const cliente = String((data as { nombre?: string | null } | null)?.nombre ?? '').trim() || `la cuenta ${a.clienteWs}`;
+  const cuerpo = ['Hola,', '', m.frase(cliente), '', 'Tus cuentas están en MaKo Partners:', linkApp('/partners', a.agenciaWs)].join('\n');
+  const admins = await adminsDe(a.agenciaWs);
+  // Quien llama ya no lo vuelve a intentar: lo que no salió tiene que quedar dicho.
+  if (!admins.length) console.error(`[plan-deuda] agencia ${a.agenciaWs}: sin admins para avisarle de la cuenta ${a.clienteWs} (${m.tag})`);
+  for (const to of admins) {
+    const r = await avisarDePlataforma({ to, asunto: m.asunto(cliente), preheader: m.preheader, cuerpo, tag: m.tag })
+      .catch((e) => ({ enviado: false, error: msg(e) }));
+    if (!r.enviado) console.error(`[plan-deuda] agencia ${a.agenciaWs}: no salió el aviso de la cuenta ${a.clienteWs}: ${r.error ?? 'sin detalle'}`);
+  }
+}
+
+/**
+ * La renovación de un cliente de agencia se rechazó: que la agencia lo sepa antes de la pausa, y no por el cliente. Lo llama
+ * `aplicarPagoFallido`, una vez por rechazo de cada período. Nunca tira: el aviso del pago sigue su camino.
+ */
+export async function avisarRechazoALaAgencia(cobroId: number): Promise<void> {
+  try {
+    const a = await agenciaDelCobro(cobroId);
+    if (!a) return;
+    await avisarALaAgencia(a, {
+      tag: 'agencia-rechazo', preheader: 'Si no entra, su cuenta se va a pausar.',
+      asunto: (cliente) => `No entró el pago de ${cliente}`,
+      frase: (cliente) => `No pudimos cobrar la renovación de MaKo de ${cliente}. ${NOMBRE_PASARELA[a.proveedor]} lo reintenta solo: ${a.paga === 'cliente' ? 'la paga tu cliente, avísale que cambie ahí la tarjeta de esa suscripción' : 'para que entre, cambia ahí la tarjeta de esa suscripción'}. Si no entra, se va a pausar su cuenta.`,
+    });
+  } catch (e) {
+    console.error(`[plan-deuda] el cobro ${cobroId}: no pude avisarle a la agencia: ${msg(e)}`);
+  }
+}
+
 /** El mail de la pausa a los admins del negocio. Una vez por corte (lo llama quien cortó, que ganó el compare-and-set). */
 export async function avisarSuspension(ws: number, c: CorteGuardado): Promise<void> {
   if (c.motivo === 'renovacion-sin-autorizar') return; // eso lo resuelve la agencia, que ya lo ve en MaKo Partners
+  let deAgencia: Awaited<ReturnType<typeof agenciaDelCobro>>;
+  try { deAgencia = await agenciaDelCobro(c.cobroId); } catch (e) {
+    // Este aviso sale UNA vez por corte, así que no se puede dejar para la próxima: va uno que no habla de plata, porque esa deuda
+    // puede ser de su agencia, y /cuenta-pausada le dice el resto.
+    console.error(`[plan-deuda] ws=${ws} pausado: no sé si lo paga una agencia: ${msg(e)}`);
+    for (const to of await adminsDe(ws)) {
+      await avisarDePlataforma({ to, asunto: 'Tu cuenta de MaKo está pausada', preheader: 'Tus datos están guardados.', tag: 'plan-pausado', cuerpo: ['Hola,', '', 'Tu cuenta de MaKo quedó pausada. Tus datos están guardados y no se borra nada. Aquí ves cómo volver a entrar:', linkApp('/cuenta-pausada', ws)].join('\n') })
+        .catch((e2) => console.warn(`[plan-deuda] ws=${ws} no pude avisar la pausa a un admin: ${msg(e2)}`));
+    }
+    return;
+  }
+  if (deAgencia) {
+    await avisarALaAgencia(deAgencia, {
+      tag: 'agencia-pausa', preheader: 'Sus datos están guardados.',
+      asunto: (cliente) => `La cuenta de ${cliente} quedó pausada`,
+      frase: (cliente) => `La cuenta de ${cliente} quedó pausada porque se terminó lo pagado de su plan de MaKo. Sus datos están guardados y no se borra nada.`,
+    });
+    if (deAgencia.paga === 'agencia') return;
+  }
   const a = await adminsDe(ws);
   if (!a.length) return;
   const debe = c.deuda?.monto != null && c.deuda.moneda ? ` Lo que quedó pendiente es ${formatoMonto(c.deuda.monto, c.deuda.moneda)}.` : '';

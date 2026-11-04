@@ -78,6 +78,14 @@ export const CATALOGO_GRABADORES: Readonly<Record<GrabadorId, Grabador>> = {
     queDa: { transcripcion: true, aviso: false, resumen: false, emails: false },
     aviso: 'Leer las transcripciones de Meet pide un permiso de Google que MaKo todavía no tiene aprobado (y sólo anda con Google Workspace Business Standard o superior).',
   },
+  // La grabación que se hace DESDE MaKo (04/11/2026, el botón «Grabar» de la ficha del lead y de Cold Calling). No es una
+  // integración: no se conecta, no tiene tarjeta en Integraciones y los crons no la listan (sin lector en `LECTORES`). Lo que el
+  // Closing pide por su clave lo contesta lib/grabadores/grabadora.ts, con la tabla `llamadas_grabadas`. Sin emails: el lead
+  // ya viene de la ficha.
+  grabadora: {
+    id: 'grabadora', nombre: 'Grabadora de MaKo', dominios: [], conectable: false,
+    queDa: { transcripcion: true, aviso: false, resumen: false, emails: false },
+  },
 };
 
 export const nombreDeGrabador = (g: GrabadorId): string => CATALOGO_GRABADORES[g]?.nombre ?? g;
@@ -120,6 +128,7 @@ export function grabadorDelLink(url: string | null | undefined): GrabadorId | nu
 
 /** Los nombres para una lista en un texto: «Fathom, Loom, tl;dv, Fireflies.ai, Zoom, Otter.ai, Read AI y Google Meet». */
 export function listaDeGrabadores(soloConectables = false): string {
-  const n = GRABADORES.filter((g) => !soloConectables || CATALOGO_GRABADORES[g].conectable).map(nombreDeGrabador);
+  // La Grabadora de MaKo no es un grabador de afuera: la lista nombra lo que se CONECTA.
+  const n = GRABADORES.filter((g) => g !== 'grabadora' && (!soloConectables || CATALOGO_GRABADORES[g].conectable)).map(nombreDeGrabador);
   return n.length > 1 ? `${n.slice(0, -1).join(', ')} y ${n.at(-1)}` : (n[0] ?? '');
 }

@@ -1,0 +1,386 @@
+DELETE /api/admin/impersonate → sólo admin (el rol la corta antes, también a un closer)
+DELETE /api/ads-analyst/valorar → cortada
+DELETE /api/agencia/entrar → cortada
+DELETE /api/chat-agent/adjuntos → cortada
+DELETE /api/chat-agent/audios → cortada
+DELETE /api/compartir → cortada
+DELETE /api/email/broadcasts → cortada
+DELETE /api/image-editor/disenos/1 → cortada
+DELETE /api/image-editor/subidos/1 → cortada
+DELETE /api/landing-analyst/view → cortada
+DELETE /api/onboarding/archivero → cortada
+DELETE /api/onboarding/persona → cortada
+DELETE /api/onboarding/voz → cortada
+DELETE /api/push/suscripcion → PERMITIDA
+DELETE /api/v1/1/1 → pública (no usa la sesión)
+DELETE /api/v1/1/1/a/b → pública (no usa la sesión)
+DELETE /api/video-editor/proyectos → cortada
+DELETE /api/whatsapp/templates/drafts → cortada
+PATCH /api/compartir → cortada
+PATCH /api/email/broadcasts → cortada
+PATCH /api/email/secuencias → cortada
+PATCH /api/image-editor/disenos/1 → cortada
+PATCH /api/onboarding/fase → cortada
+PATCH /api/v1/1/1 → pública (no usa la sesión)
+PATCH /api/v1/1/1/a/b → pública (no usa la sesión)
+PATCH /api/video-editor/propuestas → cortada
+PATCH /api/whatsapp/secuencias → cortada
+PATCH /api/whatsapp/templates/drafts → cortada
+POST /api/admin/agencia → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/agencia/altas → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/avisos-demo → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/bajas-cuenta → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/cliente-diseno → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/fathom-auto → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/guion-angulos → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/guion-estructuras → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/impersonate → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/mako-canal → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/mako-chats → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/mako-chats/grupo → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/mako-doer → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/mako-grupo → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/modelos → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/pedidos-ingreso → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/plantillas → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/usuarios → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/workspaces → sólo admin (el rol la corta antes, también a un closer)
+POST /api/ads-analyst/analyze → cortada
+POST /api/ads-analyst/angle-override → cortada
+POST /api/ads-analyst/angles → cortada
+POST /api/ads-analyst/avatar-override → cortada
+POST /api/ads-analyst/avatares → cortada
+POST /api/ads-analyst/sync → cortada
+POST /api/ads-analyst/valorar → cortada
+POST /api/ads-manager/creative-signurl → cortada
+POST /api/agencia/altas → cortada
+POST /api/agencia/entrar → cortada
+POST /api/agencia/reinvitar → cortada
+POST /api/agente/lead → pública (no usa la sesión)
+POST /api/agente/plan → pública (no usa la sesión)
+POST /api/agente/telemetria → pública (no usa la sesión)
+POST /api/agente/token → cortada
+POST /api/alumno/entrar → pública (no usa la sesión)
+POST /api/alumno/link → pública (no usa la sesión)
+POST /api/anthropic-usage → cortada
+POST /api/aperturas → PERMITIDA
+POST /api/auth/2fa → pública (no usa la sesión)
+POST /api/auth/contrasena → pública (no usa la sesión)
+POST /api/auth/logout → pública (no usa la sesión)
+POST /api/auth/restablecer → pública (no usa la sesión)
+POST /api/automations/ai-step/armar → cortada
+POST /api/automations/ai-step/ensayo → cortada
+POST /api/automations/ai-step/voz → cortada
+POST /api/automations/metricas → cortada
+POST /api/automations/voz-mako → cortada
+POST /api/centro/plan → cortada
+POST /api/chart-insights → cortada
+POST /api/chat-agent/adjuntos → cortada
+POST /api/chat-agent/audios → cortada
+POST /api/chat-agent/onboarding → cortada
+POST /api/chat-agent/onboarding/contexto → cortada
+POST /api/chat-agent/onboarding/ensayo → cortada
+POST /api/chat-agent/onboarding/guion-audio → cortada
+POST /api/chat-agent/onboarding/prueba → cortada
+POST /api/chat-agent/pruebas → cortada
+POST /api/chat-agent/redactar → cortada
+POST /api/chat-agent/secuencias → cortada
+POST /api/chat-agent/secuencias/archivo → cortada
+POST /api/chat-agent/secuencias/ia → cortada
+POST /api/chat-agent/secuencias/ia/falta → cortada
+POST /api/chat-agent/secuencias/objetivos → cortada
+POST /api/chat-agent/simulador → cortada
+POST /api/chat/leer-archivo → cortada
+POST /api/chats/asignar → cortada
+POST /api/chats/comentario → cortada
+POST /api/chats/email → cortada
+POST /api/chats/estado → cortada
+POST /api/chats/etapa → cortada
+POST /api/chats/lead → cortada
+POST /api/chats/social → cortada
+POST /api/checklist-coach → cortada
+POST /api/closing/analizar-lead → cortada
+POST /api/closing/analyze → cortada
+POST /api/closing/revise → cortada
+POST /api/closing/sync → cortada
+POST /api/compartido/comunidad → pública (no usa la sesión)
+POST /api/compartido/curso/entrega → pública (no usa la sesión)
+POST /api/compartido/curso/progreso → pública (no usa la sesión)
+POST /api/compartido/curso/soporte → pública (no usa la sesión)
+POST /api/compartido/curso/tarea → pública (no usa la sesión)
+POST /api/compartido/graficos → pública (no usa la sesión)
+POST /api/compartido/guion → pública (no usa la sesión)
+POST /api/compartir → cortada
+POST /api/competitor-spy/analizar → cortada
+POST /api/competitor-spy/caricatura → cortada
+POST /api/competitor-spy/copiar → cortada
+POST /api/competitor-spy/extension → pública (no usa la sesión)
+POST /api/competitor-spy/redes → cortada
+POST /api/competitor-spy/todo → cortada
+POST /api/copywriter → cortada
+POST /api/copywriter/ia → cortada
+POST /api/crm-auto → cortada
+POST /api/crm/analyst → cortada
+POST /api/crm/etiquetas → cortada
+POST /api/crm/ficha/armar → cortada
+POST /api/crm/importar-leads → cortada
+POST /api/crm/llamadas-grabadas → cortada
+POST /api/crm/mako → cortada
+POST /api/cuenta/eliminar → PERMITIDA
+POST /api/datos-mau → cortada
+POST /api/dev/group-photo → cortada
+POST /api/email/broadcasts → cortada
+POST /api/email/dominio → cortada
+POST /api/email/generar → cortada
+POST /api/email/unsubscribe → pública (no usa la sesión)
+POST /api/email/unsubscribe/tickets → pública (no usa la sesión)
+POST /api/equipo → cortada
+POST /api/errores → cortada
+POST /api/experimentos → cortada
+POST /api/extract-contract → cortada
+POST /api/extract-deal-fiscal → cortada
+POST /api/extract-fiscal → cortada
+POST /api/extract-receipt → cortada
+POST /api/flow/puente → pública (no usa la sesión)
+POST /api/graficos → cortada
+POST /api/graficos/analisis → cortada
+POST /api/graficos/copia → cortada
+POST /api/graficos/editar → cortada
+POST /api/graficos/ia → cortada
+POST /api/graficos/ia-elemento → cortada
+POST /api/graficos/imagen → cortada
+POST /api/graficos/plantilla → cortada
+POST /api/hilo-de-tab → PERMITIDA
+POST /api/ia-del-negocio/modelo → cortada
+POST /api/ia-del-negocio/probar-clave → cortada
+POST /api/ia-pc/codigo → cortada
+POST /api/ia-pc/confirmar → pública (no usa la sesión)
+POST /api/ia-pc/desconectar → cortada
+POST /api/ia-pc/emparejar → pública (no usa la sesión)
+POST /api/ia-pc/latido → pública (no usa la sesión)
+POST /api/ia-pc/mcp → pública (no usa la sesión)
+POST /api/ia-pc/modelo → cortada
+POST /api/ia-pc/soltar → pública (no usa la sesión)
+POST /api/ia-pc/turno/1 → pública (no usa la sesión)
+POST /api/ia-permiso → PERMITIDA
+POST /api/image-editor/disenos → cortada
+POST /api/image-editor/ia → cortada
+POST /api/image-editor/subidos → cortada
+POST /api/integraciones/credencial → cortada
+POST /api/integraciones/cuentas → cortada
+POST /api/integraciones/meta-zernio → cortada
+POST /api/landing-analyst/analyze → cortada
+POST /api/landing-analyst/sync → cortada
+POST /api/landing-generator → cortada
+POST /api/landing-generator/diagnostico → cortada
+POST /api/landing-generator/diagnostico/aplicar → cortada
+POST /api/landing-generator/diagnostico/pagina → cortada
+POST /api/landing-generator/dominio → cortada
+POST /api/landing-generator/ia → cortada
+POST /api/landing-generator/imagenes → cortada
+POST /api/landing-generator/importar → cortada
+POST /api/landing-generator/pagar → pública (no usa la sesión)
+POST /api/landing-generator/replicar → cortada
+POST /api/landing-generator/replicar/leer → cortada
+POST /api/m/mako → PERMITIDA
+POST /api/mako-doer → cortada
+POST /api/mako-guardian → cortada
+POST /api/mako/chat → PERMITIDA
+POST /api/mako/config-prompts → cortada
+POST /api/mako/copywriting → cortada
+POST /api/mako/fases → cortada
+POST /api/mako/knowledge → cortada
+POST /api/mako/knowledge/transcribe → cortada
+POST /api/mako/nutricion → cortada
+POST /api/mako/onboarding → cortada
+POST /api/mako/onboarding/extract → cortada
+POST /api/mako/pedidos → cortada
+POST /api/mako/prompts → cortada
+POST /api/mako/propuesta → cortada
+POST /api/mako/recomendaciones → cortada
+POST /api/mako/voz → PERMITIDA
+POST /api/media-buyer → cortada
+POST /api/meta-write → cortada
+POST /api/metodo → sólo admin (el rol la corta antes, también a un closer)
+POST /api/metodo/verificar → sólo admin (el rol la corta antes, también a un closer)
+POST /api/montaje/worker → pública (no usa la sesión)
+POST /api/notificaciones → PERMITIDA
+POST /api/offer → cortada
+POST /api/onboarding → cortada
+POST /api/onboarding/archivero → cortada
+POST /api/onboarding/archivero/manual → cortada
+POST /api/onboarding/archivero/preguntas → cortada
+POST /api/onboarding/archivero/upload-url → cortada
+POST /api/onboarding/arranque → cortada
+POST /api/onboarding/avatares → cortada
+POST /api/onboarding/entregable → cortada
+POST /api/onboarding/extraccion → cortada
+POST /api/onboarding/fase → cortada
+POST /api/onboarding/ofertas → cortada
+POST /api/onboarding/persona → cortada
+POST /api/onboarding/personalidad → cortada
+POST /api/onboarding/plan-arranque → cortada
+POST /api/onboarding/productos → cortada
+POST /api/onboarding/razones → cortada
+POST /api/onboarding/voz → cortada
+POST /api/operaciones/adjuntos → cortada
+POST /api/operaciones/cartero → pública (no usa la sesión)
+POST /api/pagar/email → pública (no usa la sesión)
+POST /api/perfil → cortada
+POST /api/perfil/avatar → cortada
+POST /api/perfil/destinatarios → cortada
+POST /api/perfil/notif-inapp → PERMITIDA
+POST /api/perfil/notif-push → PERMITIDA
+POST /api/perfil/plantilla → cortada
+POST /api/perfil/plantillas → cortada
+POST /api/perfil/seguridad → cortada
+POST /api/plan-board → cortada
+POST /api/plan-buscar → cortada
+POST /api/plan-dictado → cortada
+POST /api/plan-fathom → cortada
+POST /api/plan-propuesta → cortada
+POST /api/plan-reunion → cortada
+POST /api/plan/pagar → cortada
+POST /api/plan/snapshot → cortada
+POST /api/planes/comprar → pública (no usa la sesión)
+POST /api/portadas → cortada
+POST /api/promo-entrada → pública (no usa la sesión)
+POST /api/push/prueba → PERMITIDA
+POST /api/push/suscripcion → PERMITIDA
+POST /api/recorridos → PERMITIDA
+POST /api/regenerate-transcript → cortada
+POST /api/second-brain/buscar → cortada
+POST /api/second-brain/exportar → cortada
+POST /api/soporte/reportar → PERMITIDA
+POST /api/tickets/adjuntos → cortada
+POST /api/todo → cortada
+POST /api/track/optin → pública (no usa la sesión)
+POST /api/track/replay → pública (no usa la sesión)
+POST /api/track/vsl → pública (no usa la sesión)
+POST /api/v1/1/1 → pública (no usa la sesión)
+POST /api/v1/1/1/a/b → pública (no usa la sesión)
+POST /api/video-editor/ia → cortada
+POST /api/video-editor/tts → cortada
+POST /api/webhooks/calcom → pública (no usa la sesión)
+POST /api/webhooks/calendly → pública (no usa la sesión)
+POST /api/webhooks/creem → pública (no usa la sesión)
+POST /api/webhooks/email-entrante → pública (no usa la sesión)
+POST /api/webhooks/evolution → pública (no usa la sesión)
+POST /api/webhooks/fathom → pública (no usa la sesión)
+POST /api/webhooks/fireflies → pública (no usa la sesión)
+POST /api/webhooks/mercadopago → pública (no usa la sesión)
+POST /api/webhooks/meta-leads → pública (no usa la sesión)
+POST /api/webhooks/resend → pública (no usa la sesión)
+POST /api/webhooks/stripe → pública (no usa la sesión)
+POST /api/webhooks/tldv → pública (no usa la sesión)
+POST /api/webhooks/zernio → pública (no usa la sesión)
+POST /api/webhooks/zoom → pública (no usa la sesión)
+POST /api/whatsapp/advisor → cortada
+POST /api/whatsapp/envio → cortada
+POST /api/whatsapp/evolution → cortada
+POST /api/whatsapp/evolution/block → cortada
+POST /api/whatsapp/evolution/borradores → cortada
+POST /api/whatsapp/evolution/labels → cortada
+POST /api/whatsapp/evolution/mensajes → cortada
+POST /api/whatsapp/templates/drafts → cortada
+POST /api/whatsapp/templates/media → cortada
+POST /api/whatsapp/templates/validate → cortada
+POST /api/zernio → cortada
+PUT /api/image-editor/chat → cortada
+PUT /api/image-editor/disenos/1/miniatura → cortada
+PUT /api/v1/1/1 → pública (no usa la sesión)
+PUT /api/v1/1/1/a/b → pública (no usa la sesión)
+PUT /api/video-editor/chat → cortada
+PUT /api/video-editor/proyectos → cortada
+acción app/_chat/bloques/cobranza-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/_components/zona-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/_sin-conexion/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/admin/cobros/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/admin/operaciones/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/admin/runway/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/ads-writer/onboarding-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/agency/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/ai-avatar/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/api-mako/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/automations/automatizaciones-del-lead-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/automations/config-automatizacion-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/automations/difusion/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/calendario/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/competitor-spy/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/configuraciones/gcal-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/configuraciones/horario-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/configuraciones/negocio-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/configuraciones/plan/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/configuraciones/telefonos-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/conocimientos/ajustes-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/creaciones/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/[id]/cobros-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/[id]/deal-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/[id]/pagos-campo-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/agenda-evento-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/agendar-r2-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/auto-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/calificacion-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/campanas-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/cobro-etapa-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/curso-al-ganar-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/datos-sin-marcar-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/enriquecer-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/ficha-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/grupo-wa-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/insights-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/lead-cabecera-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/lead-funnel-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/lead-view/ficha/pagos/cuotas-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/lead-view/ficha/pagos/documento-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/lead-view/ficha/resumen/bloques-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/lead-view/ficha/resumen/charla-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/lead-view/tz-workspace.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/mako-confirm-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/nombres-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/notas-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/nuevo-crm-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/oferta-lead-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/orden-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/producto-cierre-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/reuniones-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/revisar/[id]/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/tarjeta-campos-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/unificar-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/customer-success/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/customer-success/comunidad/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/customer-success/curso-ficha-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/customer-success/curso/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/customer-success/curso/adjuntos-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/customer-success/curso/invitar-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/customer-success/curso/modulos-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/customer-success/tarjeta-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/general/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/image-editor/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/integraciones/landing-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/integraciones/landing-config-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/integraciones/prueba-lead-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/integraciones/servicio-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/m/crm/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/m/image-editor/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/m/inbox/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/m/mako/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/m/plan/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/mako/pendientes/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/mako/revisar/[id]/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/newsletters/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/partners/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/plan/board/columnas-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/plan/board/tarjeta-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/second-brain/recolector-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/stories/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/tickets/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/tickets/bandeja/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/video-editor/avatar/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/video-generator/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/video-generator/cargar-guiones-action.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/video-generator/estudio/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/video-generator/onboarding-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/video-generator/puente-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/video-generator/video-action.ts → cortada (ninguna página acepta un POST de esta cuenta)

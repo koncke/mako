@@ -16,6 +16,8 @@ diseños.»*
 
 ## ⚠️ El límite, y por qué este documento está escrito así
 
+> **Corregido el 31/10/2026:** lo de abajo fue el error de la primera vuelta. Una referencia que manda Martín se copia con sus valores (`AGENTS.md`). Los valores están en `docs/diseno/`.
+
 **codeandchill.store es una tienda: lo que vende es el código.** No se bajó, no se copió y
 no se pegó nada de su HTML, CSS, JS, fuentes ni imágenes, y no se leyó su fuente. Lo único
 que se hizo es **mirar las demos, tocarlas y describir el patrón con palabras nuestras**.

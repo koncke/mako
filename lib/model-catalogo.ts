@@ -231,6 +231,10 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // El Copywriter (28/10/2026, lib/copywriter/ia.ts, docs/diseno-copywriter.md): el mismo trato que landing-editor-ia.
   // GRATIS, Claude vetado sin fila en CLAUDE_PERMITIDO: «Editar» vuelve como PROPUESTA que la persona acepta o descarta.
   { feature: 'copywriter-ia', label: 'MaKo en el Copywriter (guiones de ads, reels, stories y YouTube)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'El chat al costado del guion: «Discutir» contesta sin tocarlo y «Editar» lo escribe en el documento, bloque por bloque, como una propuesta. Lee el guion, sus propiedades y lo que hace falta del Second Brain. Sin PII.' },
+  // El Newsletter (29/10/2026, lib/newsletter-ia.ts): la idea de la próxima edición cuando la persona contesta de qué trata.
+  // El mismo trato que copywriter-ia: GRATIS, Claude vetado sin fila; lo que vuelve es una PROPUESTA que se escribe en el
+  // Copywriter, nunca un envío.
+  { feature: 'newsletter-ia', label: 'La idea de la próxima edición del newsletter', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Al contestar de qué trata el newsletter, MaKo propone el asunto y la idea de la próxima edición, con lo que hace falta del Second Brain y los asuntos de las anteriores. Sin PII.' },
   // El chat del Video Editor (lib/editor-video/ia.ts): el mismo trato que landing-editor-ia
   // (decisión del 15/10/2026). GRATIS, Claude vetado sin fila en CLAUDE_PERMITIDO, ni de
   // respaldo: lo que vuelve es una PROPUESTA que la persona mira antes de aplicar, así que un

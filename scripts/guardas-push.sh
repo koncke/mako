@@ -4,7 +4,7 @@
 # =============================================================================
 # Los corren DOS lugares y por eso viven acá, versionados: el pre-push local
 # (.git/hooks/pre-push, que no se versiona) y GitHub Actions
-# (.github/workflows/integracion.yml). Hasta el 15/10/2026 la lista vivía sólo
+# (.github/workflows/punta.yml; antes integracion.yml, retirado el 4/11/2026). Hasta el 15/10/2026 la lista vivía sólo
 # adentro del hook: una copia por máquina y otra en AGENTS.md, y Actions habría
 # sido la tercera. El porqué de cada uno, en AGENTS.md → «El typecheck NO corre en
 # el build». Uso: sh scripts/guardas-push.sh <remoto>   (el remoto, para hooks-en-orden)
@@ -19,6 +19,18 @@ if [ -f scripts/tsc-bitacoras.mjs ]; then
     echo ""
     echo "  X PUSH BLOQUEADO: una bitácora de /admin/dev no compila (el error está arriba)."
     echo "  Casi siempre es un hito sin \`puntos\` o con un campo mal escrito."
+    echo ""
+    exit 1
+  fi
+fi
+
+# Ninguna clave real llega a GitHub (01/11/2026, auditoría de seguridad): el 28/10 el sync del VPS publicó en el repo del
+# Estudio un `.en-7` —una copia del .env de producción con otro nombre— y nada lo vio. Esto mira las líneas AGREGADAS de
+# lo que se publica (commits, no el disco) y frena si alguna tiene la forma de una clave. ~1 s, sin tsx.
+if [ -f scripts/claves-en-el-diff.mjs ]; then
+  echo "[pre-push] Chequeando que no viaje ninguna clave..."
+  if ! node scripts/claves-en-el-diff.mjs; then
+    echo "  X PUSH BLOQUEADO: una linea con forma de clave (arriba, donde). Si es real, sacala y ROTALA."
     echo ""
     exit 1
   fi

@@ -172,9 +172,12 @@ test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Pa
   for (const rolWs of ['closer', 'setter']) {
     assert.equal(puedeVerItem(partners!, { adminShell: false, rolWs, capa: 'completo' }), false, `el ${rolWs} la vería`);
   }
+  // En el teléfono NO (4/11/2026, Martín: el teléfono no vende en ningún teléfono; lib/tienda.ts → TABS_QUE_VENDEN). Hasta ese
+  // día su fila salía del menú de la foto. El resto del menú sigue ahí.
   for (const capa of ['agencia', 'completo']) {
     const menuMas = masCompleto('admin', capa, false).find((g) => g.id === 'menu')?.filas.map((f) => f.label) ?? [];
-    assert.ok(menuMas.includes('MaKo Partners'), `en el teléfono (${capa}) no está con el menú de la foto`);
+    assert.ok(!menuMas.includes('MaKo Partners'), `en el teléfono (${capa}) volvió MaKo Partners`);
+    assert.ok(menuMas.includes('Report a problem'), `en el teléfono (${capa}) se vació el menú de la foto`);
   }
   // Plegada, la marca centrada como los íconos.
   assert.match(sb, /justifyContent: open \? 'space-between' : 'center', flex: 'none' \}\}>\s*<Marca open=\{open\} \/>/);
@@ -193,7 +196,7 @@ test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Pa
   const ui = leer('app/_ui/ui.css');
   assert.match(ui, /:root:not\(\[data-tema="oscuro"\]\):not\(\[data-tema-candidato\]\) \[data-sidebar\] \{\s*--sidebar: #FFFFFF;/);
   assert.match(ui, /\.mk-navrow:hover \{ background: var\(--sidebar-hover, /);
-  assert.match(leer('app/globals.css'), /:root \{[\s\S]*?--sidebar: #14161B;/);
+  assert.match(leer('app/globals.css'), /:root \{[\s\S]*?--sidebar: #121212;/);
   assert.match(sb, /<MakoWord base="var\(--on-sidebar\)">MaKo<\/MakoWord>/);
   // Las criaturas no cambian de color: la cara va con tokens que ningún tema redefine.
   const muneco = sinComentarios(leer('app/admin/operaciones/Muneco.tsx'));
@@ -232,10 +235,11 @@ test('la cara: la foto real en el botón de la barra y en el More del teléfono 
   assert.match(mas, /href=\{RUTA_CUENTA\}/, 'la cara no abre My Profile');
 });
 
-test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Plan · More, y More con las familias de la sidebar', () => {
-  // El del medio es el Ops Center desde el 20/10/2026 (pedido bb885d5f); hasta ese día, el Dashboard.
-  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'Ops Center', 'Plan', 'More']);
-  assert.deepEqual(barraMovil('admin', 'completo').map((b) => b.label), ['CRM', 'Chats', 'Ops Center', 'Plan', 'More']);
+test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Dashboard · More, y More con las familias de la sidebar', () => {
+  // El del medio es el Ops Center desde el 20/10/2026 (pedido bb885d5f); hasta ese día, el Dashboard. Desde el 04/11/2026
+  // el Dashboard vuelve, en el lugar de Plan (Martín: «en lugar de "Plan" en la bottom bar, pon "Dashboard"»).
+  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'Ops Center', 'Dashboard', 'More']);
+  assert.deepEqual(barraMovil('admin', 'completo').map((b) => b.label), ['CRM', 'Chats', 'Ops Center', 'Dashboard', 'More']);
   // More: las familias por su KEY (con cuatro, cruzarlas por posición perdía Create).
   const mas = masCompleto('admin', 'completo', false);
   assert.deepEqual(mas.filter((g) => FAMILIAS_MAS.some((f) => f.id === g.id)).map((g) => g.titulo), ['Today', 'Sales', 'Marketing', 'Create']);
@@ -243,10 +247,18 @@ test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Plan · Mor
   // las hojas en su segmentado; la fila de las hojas sobra. El closer tiene como Dashboard SU hoja, como en la computadora.
   const diario = (rol: 'admin' | 'closer') => masCompleto(rol, 'completo', false).find((g) => g.id === 'diario')!.filas
     .filter((f) => f.tipo !== 'grupo' && (f.href === '/m/hoy' || f.href === '/m/dashboard')).map((f) => [f.label, f.tipo === 'grupo' ? null : f.href]);
-  assert.deepEqual(diario('admin'), [['Dashboard', '/m/hoy']]);
-  assert.deepEqual(diario('closer'), [['Dashboard', '/m/dashboard']]);
+  // 04/11/2026: ese Dashboard está en la BARRA (el unido para quien ve General, su hoja para el closer), y More no suma
+  // ninguno: con uno en la barra y otro en More volvían los dos «Dashboard». Plan es la fila de lo diario.
+  assert.deepEqual(diario('admin'), []);
+  assert.deepEqual(diario('closer'), []);
+  assert.equal(barraMovil('admin', 'completo').find((b) => b.id === 'dashboard')?.href, '/m/hoy');
+  assert.equal(barraMovil('closer', 'completo').find((b) => b.id === 'dashboard')?.href, '/m/dashboard');
+  for (const rol of ['admin', 'closer'] as const) {
+    const filas = masCompleto(rol, 'completo', false).find((g) => g.id === 'diario')!.filas;
+    assert.ok(filas.some((f) => f.label === 'Plan' && f.tipo === 'pantalla' && f.href === '/m/plan'), `${rol}: Plan sigue a un toque, en More`);
+  }
   // «Agency Dashboard» (25/10/2026) es otra tab, la de las agencias: no es el segundo Dashboard que cuida esto.
-  assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label) && f.label !== 'Agency Dashboard').length, 1, 'More vuelve a tener dos «Dashboard»');
+  assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label) && f.label !== 'Agency Dashboard').length, 0, 'More repite el Dashboard de la barra');
   const create = mas.find((g) => g.id === 'create')!;
   // AI Avatar, de Pro desde el 29/10/2026: una fila más de Create, como en la sidebar.
   assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting', 'AI Avatar']);
@@ -367,10 +379,16 @@ test('nada se rompe: cada destino de la barra y de lo que dejó de ser fila tien
 test('todos los workspaces: la misma barra para el super admin, un cliente y un setter, filtrada por la misma regla', () => {
   const visibles = (v: VistaNav) => FAMILIAS.map((f) => [f.label, f.bloques.flat().map((t) => resolverTab(t, v)).filter(Boolean).map((t) => t!.label)]);
   // El admin de un cliente completo: las dos familias, sin nada del super admin.
+  // ⚠️ Competitor Spy ENTRÓ acá el 2/11/2026: dejó de ser `adminOnly`. Martín: «todos los usuarios
+  //    no pueden ver la nueva tab y eso ya debería estar disponible... no tiene sentido que uno
+  //    analice a Alex Hormozi y luego otro vuelva a analizar al mismo».
   assert.deepEqual(visibles(CLIENTE), [
     ['Today', ['Plan', 'Chats', 'Dashboard']],
     ['Sales', ['CRM', 'Calendar', 'Automations', 'Classroom']],
-    ['Marketing', ['Offer', 'Web Generator', 'Ads Manager']],
+    // ⚠️ 2/11/2026 — OFFER YA NO SE DIBUJA. Martín: «la de offer no la quiero». El ítem SIGUE
+    // EXISTIENDO con su key —es contrato con la base— y se oculta con `fueraDeLaBarra`
+    // (lib/nav-visibilidad.ts). Ads Manager NO se tocó, por pedido suyo.
+    ['Marketing', ['Web Generator', 'Ads Manager', 'Competitor Spy']],
     ['Create', ['Video', 'Image', 'Copywriting', 'AI Avatar']],
   ]);
   // El setter: lo que su rol tiene anotado, en las mismas familias.

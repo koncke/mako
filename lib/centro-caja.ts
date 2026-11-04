@@ -41,6 +41,14 @@ export function conVinetas(t: string, cursor: number): { texto: string; cursor: 
 }
 
 /**
+ * ¿AL LADO DE LA FLECHA VA TAMBIÉN EL MICRÓFONO? (ticket #51 de Leandro, 4/11/2026: «cuando adjunto una imagen ya no tengo el botón
+ * de audio»). El botón de la caja es UNO (Martín, 17/10: micrófono sin nada, flecha con algo), y un adjunto lo volvía flecha: quien
+ * manda una captura y la quiere explicar hablando no podía. Con lo adjuntado y NADA escrito van los dos; con texto, la flecha sola.
+ */
+export const micAlLadoDeLaFlecha = (e: { adjuntos: number; texto: string; hayAlgoMas?: boolean }): boolean =>
+  e.adjuntos > 0 && !e.texto.trim() && !e.hayAlgoMas;
+
+/**
  * Enter dentro de una lista: sigue con el ítem siguiente («• » o el número que sigue); en un ítem VACÍO, corta la lista
  * (le saca la viñeta). null = el renglón no es de una lista: Enter hace lo de siempre (manda).
  * `conUno: false` (la computadora, donde Enter manda): con UN solo ítem que es una PREGUNTA, Enter manda. «1. ¿Cuántos

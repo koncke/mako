@@ -115,7 +115,8 @@ test('mirando a un cliente, lo tuyo se esconde SÓLO junto con la salida', () =>
 test('«Tu negocio»: la regla del menú de la foto, y sus secciones DIRECTO en la lista', () => {
   const pagina = sinComentarios(leer('app/m/cuenta/page.tsx'));
   assert.match(pagina, /const verNegocio = puedeVerKey\('configuraciones', ctx\.rol, ctx\.capa\);/);
-  assert.match(pagina, /const negocio = verNegocio\s*\?\s*seccionesNegocio\(await disponiblesNegocio\(\)\)\.map/);
+  // Mirando a un cliente, primero «Notificaciones» (ticket #49, tests/agencia-grupos.test.ts).
+  assert.match(pagina, /const negocio = verNegocio\s*\?\s*\[\.\.\.notifDelNegocio, \.\.\.seccionesNegocio\(await disponiblesNegocio\(\)\)\]\.map/);
   const cuenta = sinComentarios(leer('app/m/cuenta/CuentaM.tsx'));
   // 26/10/2026 (Martín: «"tu negocio" sin un desplegable, directamente allí»): una fila por sección, no una que abre otra pantalla.
   assert.match(cuenta, /\{datos\.negocio && datos\.negocio\.length > 0 && \(\s*<SeccionM titulo=\{GRUPO_NEGOCIO\}>\s*<ListaM etiqueta=\{GRUPO_NEGOCIO\}>\s*\{datos\.negocio\.map/);

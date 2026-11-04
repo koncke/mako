@@ -17,9 +17,7 @@
 
 import { useEffect, useState } from 'react';
 import { Alert } from '@/app/_ui';
-import { EXTENSION_VERSION } from '@/lib/extension-version';
-// El link al zip tiene un solo dueño y no es este archivo: definirlo acá sería
-// una segunda constante con el mismo nombre esperando a que alguien cambie una.
+import { VERSION_EN_TIENDA, copiaQuedoVieja } from '@/lib/extension-tienda';
 // La comparación vive en su propio módulo, sin React: su GEMELA está en
 // `extension/background.js` y hace falta un test que las corra a las dos.
 import { esMasVieja } from '@/lib/version-comparar';
@@ -66,15 +64,14 @@ export function useExtensionDeLaTienda(): boolean | null {
  * componente dejaba vivo el peor síntoma: a quien instaló desde la tienda se le
  * escondía para siempre el único aviso accionable que tenía.
  *
- * Las dos mitades:
- *  · va atrás de lo que sirve el zip — `esMasVieja`, ordenada y no una igualdad;
+ * Las dos mitades están en `copiaQuedoVieja` (lib/extension-tienda.ts):
+ *  · va atrás de lo que da la TIENDA, no de lo que tiene el repo;
  *  · y NO vino de la tienda, porque ahí la actualiza Chrome y no la persona.
  */
 export function useExtensionVieja(instalada: string | false | null): boolean {
   const deLaTienda = useExtensionDeLaTienda();
   if (typeof instalada !== 'string') return false;
-  if (deLaTienda === true) return false;
-  return esMasVieja(instalada, EXTENSION_VERSION);
+  return copiaQuedoVieja(instalada, deLaTienda);
 }
 
 /**
@@ -155,18 +152,10 @@ export const ID_AVISO_EXTENSION = 'mk-aviso-extension-vieja';
 /**
  * El aviso de que la extensión quedó vieja. Se dibuja solo cuando lo está.
  *
- * ⚠️ EL TEXTO DICE QUE RECARGAR NO ALCANZA, y esa frase es el hallazgo entero.
- *
  * Una extensión instalada DESCOMPRIMIDA no se actualiza nunca: el botón ↻ de
  * `chrome://extensions` vuelve a leer LA MISMA CARPETA, no baja nada de ningún
- * lado. Si esa carpeta no cambió, recargar no puede cambiar nada — y desde afuera
- * se ve idéntico a un botón roto.
- *
- * Costó tres rondas. La primera se arregló haciendo que la extensión se
- * reiniciara sola, que era el diagnóstico correcto y el remedio incompleto:
- * `chrome.runtime.reload()` también vuelve a leer la misma carpeta vieja. Lo que
- * faltaba no era automatizar la recarga, era decir que hay que REEMPLAZAR LOS
- * ARCHIVOS.
+ * lado. La salida ya no es reemplazar archivos: es cambiarla, una vez, por la de la
+ * tienda, que de ahí en adelante actualiza Chrome. Por eso dice «quítala y agrégala».
  */
 export function AvisoExtensionVieja({ instalada, compacto = false }: {
   instalada: string | false | null;
@@ -194,17 +183,13 @@ export function AvisoExtensionVieja({ instalada, compacto = false }: {
       tabIndex={-1}
       style={{ marginBottom: compacto ? 0 : 12, width: '100%', maxWidth: 900, outline: 'none' }}
     >
-      {/* ⚠️ LLEVA AL INSTRUCTIVO, no al zip. Y ya no dice «reemplaza los archivos»:
-          esa instrucción tiene un paso que quien la ejecuta no puede verificar
-          —cuál es «la misma carpeta»— y falló tres veces. Los pasos verificables
-          viven en /extension/instalar, en UN solo lugar: escritos acá y allá se
-          separan, como se separó todo lo demás que este repo escribió dos veces. */}
+      {/* ⚠️ LLEVA AL INSTRUCTIVO. Los pasos viven en /extension/instalar, en UN solo
+          lugar: escritos acá y allá se separan, como se separó todo lo demás que este
+          repo escribió dos veces. */}
       <Alert tono="warn" accion={{ label: 'Ver cómo actualizar', href: '/extension/instalar' }}>
         <strong>Tu extensión quedó vieja.</strong> Tienes la <code>{instalada}</code> y la
-        actual es la <code>{EXTENSION_VERSION}</code>. Son tres minutos: se quita la vieja
-        y se carga la nueva.{' '}
-        <strong>El botón ↻ de Chrome no alcanza</strong>: vuelve a leer la misma
-        carpeta, no descarga nada.
+        actual es la <code>{VERSION_EN_TIENDA}</code>. Quítala y agrégala desde la Chrome
+        Web Store: de ahí en adelante se actualiza sola.
       </Alert>
     </div>
   );

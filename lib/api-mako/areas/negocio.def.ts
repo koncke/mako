@@ -37,7 +37,7 @@ import { CANALES } from '@/lib/fase-diagnostico';
 import { AREAS as AREAS_MODELO_CEREBRO } from '@/lib/cerebro-modelo';
 import { PERSONALIDAD_PREGUNTAS } from '@/lib/personalidad';
 // Dónde se corrige cada sección hoy (el hub de /onboarding se retiró el 15/10/2026): datos puros.
-import { lugarSeccion } from '@/lib/secciones-negocio';
+import { lugarSeccion, lugarDato } from '@/lib/secciones-negocio';
 // El catálogo de módulos de Knowledge: datos puros, sin server-only (el enum de keys sale de ahí y no de una copia).
 import { MODULOS_KNOWLEDGE } from '@/lib/knowledge-modulos';
 // Los pasos del arranque y de las tabs que se cierran desde afuera, y las urgencias de una oferta: datos puros
@@ -444,7 +444,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'guardar_campo_perfil', area: 'negocio', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Completar un campo del perfil',
-    descripcion: 'PROPONE completar UN campo VACÍO del perfil del negocio (clave de ver_perfil_negocio) con lo que dijo la persona. Solo huecos: si el campo ya tiene valor se rechaza, y corregirlo se hace en ' + lugarSeccion('archivero') + '. Lo guardado a mano gana sobre lo que MaKo saque después de los documentos. Deja un link para revisar el texto exacto y confirmar.',
+    descripcion: 'PROPONE completar UN campo VACÍO del perfil del negocio (clave de ver_perfil_negocio) con lo que dijo la persona. Solo huecos: si el campo ya tiene valor se rechaza, y la persona lo corrige tocándolo en ' + lugarDato('brief') + ' (precio, qué incluye, horario de la oferta) o en ' + lugarDato('cliente') + ' (lo del cliente). Lo guardado a mano gana sobre lo que MaKo saque después de los documentos. Deja un link para revisar el texto exacto y confirmar.',
     parametros: [
       { nombre: 'key', tipo: 'string', obligatorio: true, max: 80, descripcion: 'Clave del campo (de ver_perfil_negocio), por ejemplo «oferta_garantia».' },
       { nombre: 'valor', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'El valor, en palabras de la persona.' },
@@ -693,5 +693,33 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'pregunta', tipo: 'string', obligatorio: true, max: 500, descripcion: 'Qué se está por escribir o contestar, en las palabras del dueño.' },
     ],
     salida: 'markdown', canales: TODOS, costo: 'ia',
+  },
+
+  // ── Sumar un documento desde un chat (3/11/2026, ticket #44) ──
+  //
+  // La deuda anotada arriba («la lógica vive INLINE en la ruta») se pagó: la ingesta está en lib/archivero-ingesta.ts. Un
+  // cliente pegó su documento maestro en el chat del Second Brain y MaKo le contestó «no tengo una herramienta que escriba
+  // ahí». Va AL FINAL, y su título no repite «perfil» ni «Archivero» (las palabras del área): las lleva la descripción.
+  // Un negocio que sólo tiene SU Claude en la computadora no tiene con qué extraer en el servidor (D6b): ahí el preparar
+  // devuelve las claves del perfil y el modelo del turno —que ES su IA— manda los `campos`; la persona los ve antes del «sí».
+  {
+    id: 'sumar_documento_second_brain', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Sumar un documento al Second Brain',
+    descripcion: 'PROPONE guardar en El Archivero un documento que la persona pegó o adjuntó (un .docx, un texto) para que MaKo lo incorpore: queda en el Second Brain y saca de ahí lo que va en el perfil del negocio, sin tocar lo editado a mano. Úsala cuando pidan cargar, guardar, analizar o incorporar un documento. El texto va ENTERO y tal cual. Si contesta con `disponibles`, saca tú los campos con esas claves y vuelve a llamarla con `campos` y `resumen`. Se deshace con borrar_documento_archivero.',
+    parametros: [
+      { nombre: 'texto', rotulo: 'Documento', tipo: 'string', obligatorio: true, max: 60000, descripcion: 'El documento entero, tal cual llegó: sin resumir, sin corregir y sin las marcas [[texto pegado]].' },
+      { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', max: 120, descripcion: 'Cómo se llama (el nombre del archivo, si vino uno).' },
+      {
+        nombre: 'campos', rotulo: 'Para el perfil', tipo: 'object[]', max: 80,
+        descripcion: 'SÓLO si la herramienta te lo pidió con `disponibles`: lo que dice el documento para cada clave. Sin inventar: lo que no dice, no va.',
+        campos: [
+          { nombre: 'clave', tipo: 'string', obligatorio: true, max: 80, descripcion: 'Una clave de `disponibles`.' },
+          { nombre: 'valor', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'Lo que dice el documento, en sus palabras.' },
+        ],
+      },
+      { nombre: 'resumen', rotulo: 'Qué es', tipo: 'string', max: 2000, descripcion: 'Sólo con `campos`: qué es el documento y qué aporta, en dos o tres frases.' },
+    ],
+    canales: TODOS, costo: 'ia', gating: { rolMinimo: 'admin' },
+    escribe: 'una fila en archivero_files (el texto queda como su archivo), el panorama del negocio y el perfil recalculado (lo editado a mano gana)',
   },
 ];

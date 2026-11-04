@@ -587,8 +587,8 @@ export function DialogoBorradores({ onCerrar, ws, ahora }: { onCerrar: () => voi
 
 export const CSS_GP = `
 .gp {
-  --gp-azul-50: #ebf3fe; --gp-azul-100: #d0e6fe; --gp-azul-200: #aad5fe; --gp-azul-300: #84c1fa;
-  --gp-azul-500: #2c88f7; --gp-azul-600: #0858f7; --gp-azul-800: #0540ad; --gp-azul-950: #002253;
+  --gp-azul-50: #1f55d61a; --gp-azul-100: #dbe6fb; --gp-azul-200: #8eafff; --gp-azul-300: #9ab7ff;
+  --gp-azul-500: #1f55d6; --gp-azul-600: #1f55d6; --gp-azul-800: #1a49bf; --gp-azul-950: #121826;
   --gp-fondo: var(--gma-fondo-app, #f5f5f6);
   --gp-superficie: var(--gma-superficie, #ffffff);
   --gp-superficie-2: var(--gma-superficie-2, #f5f5f6);
@@ -596,8 +596,8 @@ export const CSS_GP = `
   --gp-borde-suave: var(--gma-superficie-3, #ececed);
   --gp-hover: var(--gma-hover, #ececed);
   --gp-texto: var(--gma-texto-fuerte, #38383c);
-  --gp-tenue: #66666b; --gp-debil: #8b8b90; --gp-titulo: #002253;
-  --gp-activo-fondo: #ebf3fe; --gp-activo-texto: #0858f7;
+  --gp-tenue: #5a6477; --gp-debil: #6c7a94; --gp-titulo: #121826;
+  --gp-activo-fondo: #dbe6fb; --gp-activo-texto: #1a49bf;
   --gp-primario: var(--gma-primario, #0540ad);
   --gp-primario-hover: var(--gma-primario-hover, #0740df);
   --gp-primario-texto: var(--gma-sobre-primario, #ffffff);
@@ -610,16 +610,16 @@ export const CSS_GP = `
   --gp-menu-fondo: var(--gma-menu, #ffffff);
   --gp-menu-texto: var(--gma-sobre-menu, #38383c);
   --gp-sombra-menu: var(--gma-sombra-menu, 0 8px 16px rgba(0,0,0,.15));
-  --gp-sombra-tarjeta: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+  --gp-sombra-tarjeta: var(--gma-sombra-md, 0 1px 2px #1218260d, 0 10px 26px -16px #12182638);
   --gp-sombra-xl: var(--gma-sombra-xl, 0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04));
   --gp-cielo: linear-gradient(0deg, #FFFFFF 4%, #AFE7FC 48%, #A8D1FF 71%, #CDDAFA 85%, #FFFBF2 100%);
   color: var(--gp-texto);
 }
 /* Oscuro: lo que lee de --gma-* ya se da vuelta solo (gamma.css); acá van los tokens propios. */
 [data-tema="oscuro"] .gp {
-  --gp-tenue: #aeaeb2; --gp-debil: #8b8b90; --gp-titulo: #f5f5f6;
-  --gp-activo-fondo: #0b2e79; --gp-activo-texto: #aad5fe;
-  --gp-peligro: #f87171;
+  --gp-tenue: #99a2b3; --gp-debil: #99a2b3; --gp-titulo: #e8ecf3;
+  --gp-activo-fondo: #6e98ff24; --gp-activo-texto: #9ab7ff;
+  --gp-peligro: #f2877b;
   --gp-lila-fondo: #2a2346; --gp-lila-num: #acbef5;
   --gp-cielo: linear-gradient(0deg, #131314 4%, #0b2e79 62%, #002253 100%);
 }

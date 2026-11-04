@@ -345,7 +345,10 @@ test('la puerta: desconectar frena la herramienta en la fila, y una PC ocupada n
 
 test('El Archivero con su Claude en pausa dice la pausa, no «necesito tu clave»', () => {
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(t, /async function puedeArchivarConSuIA\(\): Promise<'si' \| 'no' \| 'pausa'>/);
-  assert.match(t, /return claude && 'pausa' in claude \? 'pausa' : 'no';/);
+  // La pregunta se mudó a lib/archivero-ingesta.ts el 3/11/2026 (la API pregunta lo mismo, ticket #44).
+  const ingesta = sinComentarios(leer('lib/archivero-ingesta.ts'));
+  assert.match(ingesta, /async function puedeArchivarConSuIA\(\): Promise<'si' \| 'no' \| 'pausa'>/);
+  assert.match(ingesta, /return claude && 'pausa' in claude \? 'pausa' : 'no';/);
+  assert.match(t, /import \{ puedeArchivarConSuIA \} from '@\/lib\/archivero-ingesta';/);
   assert.match(t, /avisos\.push\(puede === 'pausa' \? AVISO_ARCHIVERO_EN_PAUSA : AVISO_SIN_ARCHIVERO\)/);
 });

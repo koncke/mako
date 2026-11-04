@@ -45,11 +45,37 @@
 //    leen `Cabeza` y `TituloBloque`: un bloque que dibuje su propio <h2> no se entera.
 // =============================================================================
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { useFunnelsGeneral, useTituloPropio } from '../../dashboard/ElementoGeneral';
 import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
 import { iniciales as inicialesDe } from '@/lib/unicode-seguro';
+
+/**
+ * LO QUE NO ENTRA SE DICE (31/10/2026). `gb-cabe` sólo dibuja filas enteras: la que no entra se va a una columna que no se
+ * ve. Martín perdía deadlines sin saberlo, y en «Tareas prioritarias» de cinco entraban tres. Esto cuenta las que quedaron
+ * afuera, para que la lista lo diga (`MasEnElPlan`). Se vuelve a contar si cambia el alto de la tarjeta.
+ */
+export function useFilasFuera(cuantas: unknown) {
+  const lista = useRef<HTMLDivElement>(null);
+  const [fuera, setFuera] = useState(0);
+  useLayoutEffect(() => {
+    const nodo = lista.current;
+    if (!nodo) return;
+    const medir = () => { const hijos = [...nodo.children] as HTMLElement[]; setFuera(hijos.filter((h) => h.offsetLeft > (hijos[0]?.offsetLeft ?? 0)).length); };
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(nodo);
+    return () => ro.disconnect();
+  }, [cuantas]);
+  return { lista, fuera };
+}
+
+/** La línea que dice cuántas filas no entraron. */
+export function MasEnElPlan({ fuera }: { fuera: number }) {
+  if (fuera <= 0) return null;
+  return <Link href="/plan" className="gb-cab-link" style={{ flex: 'none', marginLeft: 0, paddingTop: 8 }}>y {fuera} más en el Plan</Link>;
+}
 
 export const CSS_BLOQUES = `
 .gb{--gb-losa:color-mix(in srgb,var(--ink) 4.5%,transparent);--gb-losa-2:color-mix(in srgb,var(--ink) 8%,transparent);
@@ -70,7 +96,7 @@ a.gb-losa:hover,button.gb-losa:hover,.gb-losa[role=button]:hover{background:var(
 .gb-fila:first-child{border-top:none;padding-top:2px}
 .gb-cabe{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-start;overflow:hidden}
 .gb-cabe>*{flex:none;width:100%;box-sizing:border-box}
-.gb-centro{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center}
+.gb-centro{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:safe center}
 .gb-ph{position:relative;flex:1;min-height:110px;display:flex;flex-direction:column}
 .gb-ph-fondo{flex:1;opacity:.5;filter:saturate(.6);pointer-events:none;user-select:none;overflow:hidden;
   -webkit-mask-image:linear-gradient(180deg,#000 50%,transparent 96%);mask-image:linear-gradient(180deg,#000 50%,transparent 96%)}

@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "MaKo",
-  "version": "0.74.4",
-  "description": "Conecta tu navegador con MaKo: lleva a tu CRM los contactos de tus grupos de WhatsApp y genera anuncios con tu Google Flow.",
+  "version": "0.75.0",
+  "description": "Conecta tu navegador con MaKo: tus contactos de WhatsApp al CRM, anuncios con tu Google Flow y competidores con un clic.",
   "permissions": [
     "storage",
     "alarms",
     "webRequest",
-    "scripting"
+    "scripting",
+    "activeTab"
   ],
   "host_permissions": [
     "https://hola-mako.com/*",
@@ -62,7 +63,11 @@
       "js": [
         "mako-puente.js"
       ],
-      "run_at": "document_start"
+      "run_at": "document_start",
+      "exclude_matches": [
+        "https://hola-mako.com/api/*",
+        "https://hola-mako.com/l/*"
+      ]
     },
     {
       "matches": [
