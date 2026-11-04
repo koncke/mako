@@ -28,6 +28,8 @@ export type CanalNoOficial = {
   fuente: 'sonda' | 'fila';
   /** Lo que queda escrito en el `fallo` cuando no está listo. */
   motivo: string | null;
+  /** Cuándo reintentar, si no es lo de siempre (24 h): una línea frenada por WhatsApp vuelve a la hora del freno (lib/linea-freno.ts). */
+  reintentarHoras?: number;
 };
 
 export function canalNoOficial(sondeo: Sondeo | null, estadoFila: string | null | undefined): CanalNoOficial {

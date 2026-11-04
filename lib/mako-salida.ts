@@ -4,7 +4,9 @@
 // Martín, 3/11/2026: «no va a crear ni grupos de WhatsApp y no va a mandar ni mensajes a nadie». Acá se hace cumplir, en el único lugar por el que se sale:
 //   · con el bot apagado o sin su línea, no sale nada;
 //   · sólo a quien escribió hace menos de 24 horas (`mako_bot_contactos`). Sin su fila, o sin poder leerla, no sale nada: ante la duda, se calla;
-//   · nunca por la línea de un negocio (`lineaPuedeSerDelBot`): `mako_ws9` es el WhatsApp personal de Martín.
+//   · nunca por la línea de un negocio (`lineaPuedeSerDelBot`): `mako_ws9` es el WhatsApp personal de Martín;
+//   · nunca por una línea frenada (lib/linea-freno.ts), y con el ritmo y las reglas de lib/mako-salida-reglas.ts, que son las de
+//     TODAS las líneas (4/11/2026: «implementa medidas para que no nos baneen»).
 //
 // La cañería (Evolution o la API oficial) es una pieza aparte (lib/mako-salida-drivers.ts) y se elige con `mako.bot.salida`.
 // El turno del doer llega acá sin saberlo: sus `enviarAGrupoJid` y `reaccionarMensaje` (lib/mako-doer-in.ts) desvían todo jid que no sea de un grupo.
@@ -17,6 +19,8 @@ import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { KEY_BOT_ACTIVO, KEY_BOT_INSTANCIA, KEY_BOT_SALIDA, KEY_BOT_SOLO, dentroDeLaVentana, lineaPuedeSerDelBot } from './mako-bot-reglas';
 import { salidaCloud, salidaEvolution, type EnvioChat, type SalidaWhatsApp } from './mako-salida-drivers';
+import { frenoDeLinea, trasEscribir } from './linea-freno';
+import { textoDelFreno } from './mako-salida-reglas';
 
 export type { EnvioChat } from './mako-salida-drivers';
 
@@ -66,7 +70,7 @@ async function canalDeSalida(c: ConfigBot): Promise<SalidaWhatsApp | null> {
   }
   const base = process.env.EVOLUTION_BASE_URL, clave = process.env.EVOLUTION_API_KEY;
   if (!base || !clave || !c.instancia) return null;
-  return salidaEvolution({ base, clave, instancia: c.instancia });
+  return salidaEvolution({ base, clave, instancia: c.instancia, observar: trasEscribir });
 }
 
 /** La puerta para los tres: bot prendido, cañería lista y ventana abierta. */
@@ -75,6 +79,9 @@ async function salidaPara(jid: string): Promise<{ s: SalidaWhatsApp } | { error:
   const c = await configDelBot();
   if (!c.activo) return { error: 'el bot está apagado' };
   if (!(await ventanaAbierta(jid))) return { error: `no le escribió en las últimas 24 horas: ${jid}`, fueraDeVentana: true };
+  // La línea frenada no escribe (lib/linea-freno.ts): WhatsApp avisó que estaba en riesgo.
+  const freno = c.salida === 'evolution' && c.instancia ? await frenoDeLinea(c.instancia) : null;
+  if (freno) return { error: textoDelFreno(freno) };
   const s = await canalDeSalida(c);
   return s ? { s } : { error: 'la salida del bot no tiene con qué mandar' };
 }

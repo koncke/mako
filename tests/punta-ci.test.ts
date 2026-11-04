@@ -147,7 +147,12 @@ test('la mezcla la firma el autor de la punta, nunca el bot', () => {
     for (const v of ['GIT_AUTHOR_NAME', 'GIT_COMMITTER_NAME']) assert.ok(t.includes(`${v}: \${{ steps.punta.outputs.autor_nombre }}`), `«${nombre}» sin ${v}`);
     for (const v of ['GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_EMAIL']) assert.ok(t.includes(`${v}: \${{ steps.punta.outputs.autor_correo }}`), `«${nombre}» sin ${v}`);
   }
-  assert.doesNotMatch(CODIGO, /git config|user\.name|github-actions\[bot\]/, 'el autor sale sólo del último commit de la punta');
+  // Afinada el 4/11/2026, no aflojada: prohibía CUALQUIER `git config`, y el driver de las bitácoras (merge.bitacora.*) no
+  // toca al autor. Sigue frenando todo lo que lo pisa: `git config [--global] user.*`, `-c user.name=…` y el bot.
+  assert.doesNotMatch(CODIGO, /git config[^\n]*\buser\.|user\.(?:name|email)|github-actions\[bot\]/, 'el autor sale sólo del último commit de la punta');
+  for (const malo of ['git config user.name x', 'git config --global user.email x@y', 'git -c user.name=x commit', 'github-actions[bot]']) {
+    assert.match(malo, /git config[^\n]*\buser\.|user\.(?:name|email)|github-actions\[bot\]/, `la guarda sigue viendo «${malo}»`);
+  }
 });
 
 test('ningún fetch vuelve superficial el clon: la mezcla necesita la historia', () => {

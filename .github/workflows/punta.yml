@@ -106,6 +106,28 @@ jobs:
           echo "autor_nombre=$nombre" >> "$GITHUB_OUTPUT"
           echo "autor_correo=$correo" >> "$GITHUB_OUTPUT"
 
+      # ── LAS BITÁCORAS SE UNEN SOLAS (4/11/2026; scripts/unir-bitacora.mjs) ─────────────────────────────────────
+      # Dos puntas del mismo día agregan su hito al final de la MISMA app/admin/dev/<área>/bitacora.ts: para git es un
+      # choque, y puntas verdes perdían «Llevar a main» por eso. El driver deja los dos hitos si cada lado sólo AGREGÓ
+      # elementos completos en el mismo lugar; cualquier otro choque sigue siendo un choque. Se copia de MAIN (una punta
+      # vieja todavía no lo tiene) y el atributo va a .git/info/attributes (su .gitattributes tampoco lo tiene). Vale para
+      # las dos mezclas: la de acá abajo y la de «Llevar a main», que después corre las guardas (tsc-bitacoras incluido).
+      # Y las reglas de mezcla de MAIN (las líneas `merge=` de su .gitattributes) valen también para una punta vieja que no
+      # las tiene: sin eso, `docs/hallazgos*.md merge=union` no corría y punta/sobre-main chocó en el índice (4/11/2026).
+      - name: Las bitácoras se unen solas al mezclar
+        run: |
+          attrs="$(git rev-parse --git-dir)/info/attributes"
+          mkdir -p "$(dirname "$attrs")"
+          git show origin/main:.gitattributes 2>/dev/null | grep -E '[[:space:]]merge=' >> "$attrs" || true
+          driver="$RUNNER_TEMP/unir-bitacora.mjs"
+          if ! git show origin/main:scripts/unir-bitacora.mjs > "$driver" 2>/dev/null && ! cp scripts/unir-bitacora.mjs "$driver" 2>/dev/null; then
+            echo "::warning::Sin scripts/unir-bitacora.mjs: un choque en una bitácora queda como choque."
+            exit 0
+          fi
+          git config merge.bitacora.name "las bitácoras: dos hitos al final, los dos"
+          git config merge.bitacora.driver "node $driver %O %A %B %P"
+          echo 'app/admin/dev/*/bitacora.ts merge=bitacora' >> "$attrs"
+
       # ── MEZCLAR EL MAIN DE ESTE MOMENTO ──────────────────────────────────────────────────────
       # Lo que se chequea es lo que va a quedar en main, no la punta como salió de su chat.
       #

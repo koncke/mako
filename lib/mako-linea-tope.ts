@@ -33,6 +33,13 @@ export const VENTANA_LINEA_MIN = 60;
  */
 export const TOPE_ALTAS_POR_LINEA = 2;
 export const VENTANA_ALTAS_LINEA_MIN = 10;
+/**
+ * ⚠️ Y POR DÍA (4/11/2026). 2 cada 10 minutos dejaba sumar 288 personas en un día por la misma línea. Una cuenta que WhatsApp
+ * restringe pierde justo esto («agregar miembros», FAQ «About restricted accounts»). El número es nuestro: Meta no publica un tope.
+ * Lo que se gasta acá es lo mismo que arriba (altas e invitaciones, de todos los negocios), y el mismo número no gasta dos veces.
+ */
+export const TOPE_ALTAS_DIA_LINEA = 10;
+export const VENTANA_ALTAS_DIA_LINEA_MIN = 24 * 60;
 export const SIN_CUPO_ALTAS_LINEA = 'Esta línea ya sumó gente recién. Prueba en unos minutos, o pásale tú el link del grupo.';
 
 /** Lo que el tope necesita de la base (en producción, lib/espaciado.ts). */

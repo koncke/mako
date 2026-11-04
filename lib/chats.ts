@@ -45,7 +45,7 @@ import { enTandas } from './ids-con-filas';
 import { tzActual } from './timezone';
 import { fuentesEmail, hiloEmail, leadDeEmail } from './chats-email';
 import {
-  listarConversacionesSociales, conversacionesSocialesDe, buscarConversacionesSociales, mensajesSociales,
+  listarConversacionesSociales, conversacionesSocialesDe, buscarConversacionesSociales, mensajesSociales, eventoDelComentario,
   type ConversacionSocialChat,
 } from './canal-zernio';
 import {
@@ -853,6 +853,8 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
   if (social?.length) {
     const deSocial = await mensajesSociales(social.map((s) => s.id)).catch(falla('instagram'));
     mensajes.push(...(deSocial ?? []));
+    // Quien sólo comentó no tiene mensajes: el comentario se dice en el hilo (ticket #50).
+    for (const s of social) { const ev = eventoDelComentario(s); if (ev) mensajes.push(ev); }
   }
 
   // Notas y cambios del lead, y los eventos de la conversación.

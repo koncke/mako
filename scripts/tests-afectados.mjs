@@ -167,8 +167,14 @@ export function rutasSinExtension(src) {
   return salida;
 }
 
-/** `lib/nutricion` → `lib/nutricion.ts`, si existe. */
+/**
+ * `lib/nutricion` → `lib/nutricion.ts`, si existe. Y un archivo que NO lleva extensión (`scripts/claude-hooks/pre-push`) se
+ * nombra tal cual: hasta el 4/11/2026 eso daba null, y un cambio al hook de pre-push no corría ninguno de los tests que lo
+ * leen (integracion-ci, filtro-punta, typecheck-lock). `existe` es la lista de archivos de git, no el disco: una carpeta
+ * (`lib/flujo`) no está ahí y sigue yendo a su `index`.
+ */
 export function resolverNombre(t, existe) {
+  if (existe(t)) return t;
   for (const e of EXT_CODIGO) if (existe(t + e)) return t + e;
   for (const e of EXT_CODIGO) if (existe(`${t}/index${e}`)) return `${t}/index${e}`;
   return null;
@@ -1107,7 +1113,7 @@ async function main(argv) {
     process.stderr.write('\n  ✖ NO CORRO EL BARRIDO COMPLETO EN ESTA MÁQUINA (--resto son los ~1.900 tests del repo).\n');
     process.stderr.write('    El 31/10/2026 tres chats llegaron a menos de 0,3 GB libres corriéndolo y uno a CERO: con la RAM en cero se\n');
     process.stderr.write('    cuelga la app de Claude y se caen TODOS los chats con lo que tengan sin commitear. **Esto lo corre Actions**,\n');
-    process.stderr.write('    que tiene memoria dedicada, en el paso «Tests (los demás)» de .github/workflows/integracion.yml.\n');
+    process.stderr.write('    que tiene memoria dedicada, cada noche en .github/workflows/semanal-tests.yml (la suite entera, aislada).\n');
     process.stderr.write('    Acá: `node scripts/tests-afectados.mjs` (los tests de lo tocado, que piden tres veces menos).\n');
     process.stderr.write('    Si de verdad hace falta y sabés lo que cuesta: MAKO_BARRIDO_AQUI=1.\n\n');
     return SALIDA_SIN_CORRER;
