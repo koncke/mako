@@ -36,7 +36,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  agregarElemento, colorValido, comoEnlace, deAfuera, duplicarElemento, fuentesDeLaPagina, igualarEstilo, imagenDeFondo, limpiarParaCambiar,
+  agregarElemento, capaEncima, colorValido, comoEnlace, deAfuera, duplicarElemento, fuentesDeLaPagina, igualarEstilo, imagenDeFondo, limpiarParaCambiar,
   moverElemento, nombreDeElemento, nuevaImagen, nuevoBoton, ponerColor, ponerFuente, ponerImagenDeFondo, quitarElemento, MARCA_ELEGIDO,
   type ElementoDiseno,
 } from '../lib/editor-landing/diseno-elemento-acciones';
@@ -157,8 +157,14 @@ test('1b. colores, imagen de fondo y fuente: valores válidos y nada más en el 
   assert.equal(el.style.get('background-color'), '#16a34a !important');
   assert.equal(el.style.get('background-image'), 'none !important', 'un color de fondo tapa el degradado de la hoja');
   ponerColor(el, 'texto', '#fff');
+  // 4/11/2026: el relleno también; un título con degradado (`background-clip: text`) se pinta con él, no con `color`.
+  assert.equal(el.style.get('color'), '#fff !important');
+  assert.equal(el.style.get('-webkit-text-fill-color'), '#fff !important', 'sin el relleno, un texto con degradado no cambia en pantalla');
   ponerColor(el, 'texto', null);
   assert.equal(el.style.get('color'), undefined, '«Como estaba» lo saca');
+  assert.equal(el.style.get('-webkit-text-fill-color'), undefined, '«Como estaba» saca también el relleno');
+  ponerColor(el, 'fondo', '#000');
+  assert.equal(el.style.get('-webkit-text-fill-color'), undefined, 'un color de FONDO no toca el relleno del texto');
   assert.equal(imagenDeFondo('linear-gradient(red, blue), url("https://cdn.x.com/f.png")'), 'https://cdn.x.com/f.png');
   assert.equal(imagenDeFondo('none'), null);
   assert.equal(ponerImagenDeFondo(el, 'javascript:alert(1)'), false);
@@ -172,6 +178,21 @@ test('1b. colores, imagen de fondo y fuente: valores válidos y nada más en el 
   assert.equal(ponerFuente(el, '"Inter", sans-serif'), true);
   assert.deepEqual(fuentesDeLaPagina(['"Inter", sans-serif', 'Inter, sans-serif', 'serif', 'Manrope', 'inherit', 'x;y']), ['"Inter", sans-serif', 'Manrope'],
     'sin repetir por la primera familia, sin las genéricas, sin lo inválido');
+});
+
+test('1e. una capa de la página encima del fondo (::before / ::after con fondo) se detecta, para avisar (4/11/2026)', () => {
+  const capa = (o: Partial<{ content: string; position: string; backgroundColor: string; backgroundImage: string; opacity: string }>) =>
+    ({ content: '""', position: 'absolute', backgroundColor: 'rgba(0, 0, 0, 0)', backgroundImage: 'none', opacity: '1', ...o });
+  assert.equal(capaEncima([capa({ backgroundColor: 'rgb(10, 20, 30)' })]), true, 'un velo de color encima');
+  assert.equal(capaEncima([null, capa({ backgroundImage: 'linear-gradient(red, blue)' })]), true, 'un degradado en el ::after');
+  assert.equal(capaEncima([capa({})]), false, 'una capa transparente no tapa');
+  assert.equal(capaEncima([capa({ content: 'none', backgroundColor: 'red' })]), false, 'sin content no existe');
+  assert.equal(capaEncima([capa({ position: 'static', backgroundColor: 'red' })]), false, 'en el flujo no está encima');
+  assert.equal(capaEncima([capa({ opacity: '0', backgroundColor: 'red' })]), false, 'invisible no tapa');
+  assert.equal(capaEncima([]), false);
+  const vista = sinComentarios(leer('app/web-generator/editor/nodos/HtmlEditableVista.tsx'));
+  assert.match(vista, /capaEncima\(\[win\.getComputedStyle\(el, '::before'\), win\.getComputedStyle\(el, '::after'\)\]\)\) ctx\.avisar\(/,
+    'el editor lo dice después de poner la imagen de fondo');
 });
 
 test('1c. un <button> pasa a ser un <a> con lo suyo; un <a> queda; un texto no se convierte', () => {
@@ -443,12 +464,17 @@ test('6. «Contenido»: cada texto, imagen, fondo, enlace y campo, en orden, y l
     el('input', { type: 'hidden', value: 'x' }),
     el('script', {}, tx('alert(1)')),
     el('svg', {}, el('text', {}, tx('ícono'))),
+    // 4/11/2026: los íconos y los videos también, ocultos o no; lo de adentro de un reproductor es suyo.
+    el('div', { hidden: '' }, el('svg', { class: 'ico-oculto' })),
+    el('video', { src: 'https://x.com/demo.mp4' }, el('source', { src: 'https://x.com/demo.webm' })),
+    el('iframe', { src: 'https://www.youtube.com/embed/abc' }),
+    el('div', { 'data-calendly': 'https://calendly.com/x/30min' }, el('svg', {}), el('p', {}, tx('Agenda'))),
   );
   const c = contenidoDeDiseno(raiz, {
     oculto: (n) => (n as Nodo).attrs?.hidden !== undefined,
     fondo: (n) => ((n as Nodo).attrs?.class === 'hero-bg' ? 'https://x.com/fondo.jpg' : null),
   });
-  const resumen = c.items.map((it) => `${it.tipo}:${it.tipo === 'texto' ? it.valor : it.tipo === 'imagen' ? it.alt : it.tipo === 'fondo' ? it.url : it.tipo === 'enlace' ? it.texto : it.ayuda}${it.oculto ? ' (oculto)' : ''}`);
+  const resumen = c.items.map((it) => `${it.tipo}:${it.tipo === 'texto' ? it.valor : it.tipo === 'imagen' ? it.alt : it.tipo === 'fondo' ? it.url : it.tipo === 'enlace' ? it.texto : it.tipo === 'campo' ? it.ayuda : it.tipo === 'video' ? it.src : ''}${it.oculto ? ' (oculto)' : ''}`);
   assert.deepEqual(resumen, [
     'texto:Preguntas frecuentes',
     'texto:¿Puedo cancelar?',
@@ -460,7 +486,12 @@ test('6. «Contenido»: cada texto, imagen, fondo, enlace y campo, en orden, y l
     'texto:Argentina',
     'texto:México',
     'campo:Tu email',
-  ], 'sin el script, el ícono dibujado ni el campo oculto');
+    'icono:',
+    'icono: (oculto)',
+    'video:https://x.com/demo.mp4',
+    'video:https://www.youtube.com/embed/abc',
+    'video:https://calendly.com/x/30min',
+  ], 'sin el script, el texto de adentro de un ícono, el campo oculto ni lo de adentro de un reproductor');
   assert.equal(c.recortado, false);
   // Un texto se cambia con los espacios de sus bordes (no se pega a lo de al lado); vacío no.
   const nodo = respuesta.hijos[0];
@@ -474,6 +505,11 @@ test('6. «Contenido»: cada texto, imagen, fondo, enlace y campo, en orden, y l
   assert.match(vista, /boton\('Contenido', <Icono nombre="lista" \/>/);
   assert.match(vista, /onCambiarImagen=\{\(img\) => \{ elegir\(img\); void cambiarImagen\(\); \}\}/, 'cambiar una imagen de la lista limpia su srcset como siempre');
   assert.match(vista, /onCambio=\{conRespiro\}/, 'escribir en la lista guarda');
+  // Cambiar un ícono o un video de la lista va por el MISMO selector que al elegirlo con un clic.
+  assert.match(vista, /onIcono=\{\(el, b\) => \{ elegir\(el\); abrirIcono\(b\); \}\}/);
+  assert.match(vista, /onVideo=\{\(el, b\) => \{ elegir\(el\); void cambiarVideo\(b\); \}\}/);
+  const panel = sinComentarios(leer('app/web-generator/editor/nodos/PanelContenidoDiseno.tsx'));
+  assert.match(panel, /\{ id: 'icono', nombre: 'Íconos' \}, \{ id: 'video', nombre: 'Videos' \}/, 'las dos pestañas existen');
 });
 
 // ── 7. Lo que faltaba: <button>, elementos nuevos, duplicar por el chat ─────

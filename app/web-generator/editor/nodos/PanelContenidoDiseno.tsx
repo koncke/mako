@@ -9,6 +9,8 @@
 // todo: cada texto (se escribe ahí mismo), cada imagen y cada imagen de fondo (cambiar, quitar, su texto alternativo), cada
 // enlace o botón (a dónde lleva, quitar) y cada campo (su texto de ayuda). Lo oculto lleva su marca. «Ver» elige el
 // elemento en la sección (y la barrita ofrece lo suyo). Lo junta lib/editor-landing/diseno-contenido.ts.
+// 4/11/2026: también los ÍCONOS y los VIDEOS (un reproductor o la agenda), con «Cambiar» (el mismo selector que al elegirlos
+// con un clic) y «Quitar». Hasta ahí, uno oculto no se podía tocar.
 // =============================================================================
 
 import { useMemo, useState, type ReactNode } from 'react';
@@ -16,9 +18,10 @@ import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { contenidoDeDiseno, ponerTextoDeNodo, type ItemContenido, type NodoContenido } from '@/lib/editor-landing/diseno-contenido';
 import { imagenDeFondo } from '@/lib/editor-landing/diseno-elemento-acciones';
 
-type Pestana = 'texto' | 'imagen' | 'enlace' | 'campo';
+type Pestana = 'texto' | 'imagen' | 'enlace' | 'campo' | 'icono' | 'video';
 const PESTANAS: { id: Pestana; nombre: string }[] = [
   { id: 'texto', nombre: 'Textos' }, { id: 'imagen', nombre: 'Imágenes' }, { id: 'enlace', nombre: 'Enlaces' }, { id: 'campo', nombre: 'Campos' },
+  { id: 'icono', nombre: 'Íconos' }, { id: 'video', nombre: 'Videos' },
 ];
 
 /** ¿Se ve? Él y los de afuera, hasta la sección: `display`, `visibility`, la opacidad y el tamaño cero. */
@@ -33,7 +36,7 @@ function ocultoEn(win: Window | null): (el: NodoContenido) => boolean {
   };
 }
 
-export function PanelContenidoDiseno({ raiz, onCambio, onCambiarImagen, onQuitar, onFondo, onDestino, onVer }: {
+export function PanelContenidoDiseno({ raiz, onCambio, onCambiarImagen, onQuitar, onFondo, onDestino, onVer, onIcono, onVideo }: {
   raiz: Element;
   /** Un texto, un alt o un texto de ayuda cambió: guardar (con respiro) y medir. */
   onCambio: () => void;
@@ -42,6 +45,9 @@ export function PanelContenidoDiseno({ raiz, onCambio, onCambiarImagen, onQuitar
   onFondo: (el: Element, que: 'cambiar' | 'quitar') => void;
   onDestino: (el: Element, ancla: HTMLElement) => void;
   onVer: (el: Element) => void;
+  /** Cambiar un ícono o un video de la lista: el mismo selector que al elegirlo con un clic, al lado del botón. */
+  onIcono: (el: Element, ancla: HTMLElement) => void;
+  onVideo: (el: Element, ancla: HTMLElement) => void;
 }) {
   const [pestana, setPestana] = useState<Pestana>('texto');
   const [buscar, setBuscar] = useState('');
@@ -55,7 +61,7 @@ export function PanelContenidoDiseno({ raiz, onCambio, onCambiarImagen, onQuitar
   const q = buscar.trim().toLowerCase();
   const coincide = (it: ItemContenido) => !q || [
     it.tipo === 'texto' ? it.valor : '', it.tipo === 'imagen' ? it.alt + ' ' + it.src : '', it.tipo === 'fondo' ? it.url : '',
-    it.tipo === 'enlace' ? it.texto + ' ' + (it.href ?? '') : '', it.tipo === 'campo' ? it.ayuda : '',
+    it.tipo === 'enlace' ? it.texto + ' ' + (it.href ?? '') : '', it.tipo === 'campo' ? it.ayuda : '', it.tipo === 'video' ? it.src : '',
   ].join(' ').toLowerCase().includes(q);
   const lista = de(pestana).filter(coincide);
   const otraVuelta = () => setVuelta((v) => v + 1);
@@ -91,7 +97,9 @@ export function PanelContenidoDiseno({ raiz, onCambio, onCambiarImagen, onQuitar
               {it.tipo === 'fondo' && chico('Cambiar', () => onFondo(el, 'cambiar'))}
               {it.tipo === 'fondo' && chico('Quitar fondo', () => { onFondo(el, 'quitar'); otraVuelta(); })}
               {it.tipo === 'enlace' && chico('A dónde lleva', (b) => onDestino(el, b))}
-              {(it.tipo === 'imagen' || it.tipo === 'enlace' || it.tipo === 'campo') && chico('Quitar', () => { onQuitar(el); otraVuelta(); }, <IconoBorrar size={14} />)}
+              {it.tipo === 'icono' && chico('Cambiar', (b) => onIcono(el, b))}
+              {it.tipo === 'video' && chico('Cambiar', (b) => onVideo(el, b))}
+              {(it.tipo === 'imagen' || it.tipo === 'enlace' || it.tipo === 'campo' || it.tipo === 'icono' || it.tipo === 'video') && chico('Quitar', () => { onQuitar(el); otraVuelta(); }, <IconoBorrar size={14} />)}
             </div>
           );
           if (it.tipo === 'texto') {
@@ -117,6 +125,16 @@ export function PanelContenidoDiseno({ raiz, onCambio, onCambiarImagen, onQuitar
               <div key={'e' + i} style={{ display: 'flex', flexDirection: 'column', gap: 4, borderTop: i ? '1px solid var(--gmx-borde)' : undefined, paddingTop: i ? 6 : 0 }}>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{it.texto || 'Sin texto'}</span>
                 <span className="gmx-nota" style={{ wordBreak: 'break-all' }}>{it.href || 'No lleva a ningún lado'}</span>
+                {pie}
+              </div>
+            );
+          }
+          if (it.tipo === 'icono' || it.tipo === 'video') {
+            const nombre = it.tipo === 'icono' ? 'Ícono' : el.tagName.toLowerCase() === 'video' ? 'Video' : el.hasAttribute('data-calendly') ? 'Agenda' : 'Reproductor';
+            return (
+              <div key={(it.tipo === 'icono' ? 'o' : 'v') + i} style={{ display: 'flex', flexDirection: 'column', gap: 4, borderTop: i ? '1px solid var(--gmx-borde)' : undefined, paddingTop: i ? 6 : 0 }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{nombre} {i + 1}</span>
+                {it.tipo === 'video' && <span className="gmx-nota" style={{ wordBreak: 'break-all' }}>{it.src || 'Sin dirección'}</span>}
                 {pie}
               </div>
             );

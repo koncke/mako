@@ -9,6 +9,9 @@
 // Esto es la lista de «Contenido» de la barrita (app/web-generator/editor/nodos/HtmlEditableVista.tsx): cada texto, cada
 // imagen (también las de fondo), cada enlace o botón y cada campo de la sección, en orden, visibles u ocultos, para
 // cambiarlos ahí mismo. No toca nada: junta.
+// 4/11/2026 (nube, al rearmar la etiqueta rescate/replica-editable-2810): también cada ÍCONO (un `<svg>`) y cada VIDEO (un
+// `<video>`, un reproductor en `<iframe>` o la agenda de `[data-calendly]`). La matriz del 29/10 dejó dicho que no se sabía si
+// la lista los traía, y no los traía: un ícono o un video oculto (el de una pestaña que no se ve) no se podía cambiar ni quitar.
 // ⚠️ Sin `window` ni `document`: lo de afuera (si algo se ve, su imagen de fondo) lo dice quien llama, con el
 //    `getComputedStyle` del iframe. Lo prueba tests/replica-editable.test.ts con un DOM de mentira.
 // =============================================================================
@@ -29,7 +32,9 @@ export type ItemContenido =
   | { tipo: 'imagen'; el: NodoContenido; src: string; alt: string; oculto: boolean }
   | { tipo: 'fondo'; el: NodoContenido; url: string; oculto: boolean }
   | { tipo: 'enlace'; el: NodoContenido; texto: string; href: string | null; oculto: boolean }
-  | { tipo: 'campo'; el: NodoContenido; ayuda: string; oculto: boolean };
+  | { tipo: 'campo'; el: NodoContenido; ayuda: string; oculto: boolean }
+  | { tipo: 'icono'; el: NodoContenido; oculto: boolean }
+  | { tipo: 'video'; el: NodoContenido; src: string; oculto: boolean };
 
 export type ContenidoDiseno = { items: ItemContenido[]; recortado: boolean };
 
@@ -74,6 +79,12 @@ export function contenidoDeDiseno(
     if (CRUDOS.has(t) && t !== 'svg') return;
     const oculto = ocultoArriba || (n !== raiz && !!op.oculto?.(n));
     if (n !== raiz) {
+      if (t === 'svg') sumar({ tipo: 'icono', el: n, oculto });
+      if (t === 'video' || t === 'iframe' || atributo(n, 'data-calendly') !== null) {
+        sumar({ tipo: 'video', el: n, src: atributo(n, 'src') ?? atributo(n, 'data-calendly') ?? '', oculto });
+        // Lo de adentro de un reproductor (sus `<source>`, la ficha de la agenda) es suyo: se cambia con él.
+        return;
+      }
       if (t === 'img') sumar({ tipo: 'imagen', el: n, src: atributo(n, 'src') ?? '', alt: atributo(n, 'alt') ?? '', oculto });
       if (t === 'a' || t === 'button' || atributo(n, 'role') === 'button') {
         sumar({ tipo: 'enlace', el: n, texto: juntar(textoDe(n)) || juntar(atributo(n, 'aria-label') ?? ''), href: atributo(n, 'href'), oculto });

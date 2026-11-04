@@ -130,12 +130,24 @@ export function colorValido(v: string): boolean {
   return /^#[0-9a-f]{3,8}$/i.test(s) || /^(rgba?|hsla?|oklch|oklab|lab|lch|color)\([^()]*\)$/i.test(s) || /^[a-z]{3,20}$/i.test(s);
 }
 
-/** El color del texto o del fondo del elemento. `null` lo saca (vuelve a lo que diga la hoja). */
+/**
+ * El color del texto o del fondo del elemento. `null` lo saca (vuelve a lo que diga la hoja).
+ * ⚠️ El del TEXTO va también a `-webkit-text-fill-color` (4/11/2026): un título con degradado (`background-clip: text` y
+ *    el relleno transparente, el truco de casi toda landing de SaaS) se pinta con el RELLENO, no con `color`, así que cambiar
+ *    sólo `color` cambiaba el valor calculado y en pantalla no se veía nada. En un texto común el relleno ya es `currentColor`:
+ *    ponerle el mismo valor no cambia nada. Es la causa probable del ❌ de la sección 10 de la copia #68 (matriz del 29/10),
+ *    sin verificar contra esa copia: vive en la base de producción.
+ */
 export function ponerColor(el: ElementoDiseno, cual: 'texto' | 'fondo', valor: string | null): boolean {
   const prop = cual === 'texto' ? 'color' : 'background-color';
-  if (valor === null) { el.style.removeProperty(prop); return true; }
+  if (valor === null) {
+    el.style.removeProperty(prop);
+    if (cual === 'texto') el.style.removeProperty('-webkit-text-fill-color');
+    return true;
+  }
   if (!colorValido(valor)) return false;
   el.style.setProperty(prop, valor.trim(), 'important');
+  if (cual === 'texto') el.style.setProperty('-webkit-text-fill-color', valor.trim(), 'important');
   // Un fondo de color tapa un degradado de la hoja (`background-image`): elegir un color es querer ESE color.
   if (cual === 'fondo') el.style.setProperty('background-image', 'none', 'important');
   return true;
@@ -158,6 +170,24 @@ export function ponerImagenDeFondo(el: ElementoDiseno, url: string | null, acomo
   if (acomodo?.size !== undefined && (!acomodo.size || acomodo.size === 'auto')) el.style.setProperty('background-size', 'cover');
   if (acomodo?.position !== undefined && (!acomodo.position || acomodo.position === '0% 0%')) el.style.setProperty('background-position', 'center');
   return true;
+}
+
+/** Lo que hace falta de un `::before` o `::after` calculado para saber si tapa el fondo del elemento. */
+export type CapaPseudo = { content: string; position: string; backgroundColor: string; backgroundImage: string; opacity: string };
+
+/**
+ * ¿Una capa de la página (`::before` o `::after` con fondo, puesta encima) tapa el fondo del elemento? (4/11/2026)
+ * El ❌ de la sección 13 de la copia #69 (matriz del 29/10): la imagen de fondo quedaba puesta y no se veía. La sospecha es
+ * una capa así; sin la copia (vive en la base de producción) no se pudo medir. Con esto el editor no queda mudo: lo dice.
+ * Un estilo en línea no llega a un seudo-elemento, así que lo que se puede hacer es avisar.
+ */
+export function capaEncima(capas: readonly (CapaPseudo | null | undefined)[]): boolean {
+  const transparente = (c: string) => !c || c === 'transparent' || /^rgba\(.*,\s*0(\.0+)?\)$/i.test(c.replace(/\s+/g, ' '));
+  return capas.some((c) => !!c
+    && c.content !== 'none' && c.content !== 'normal' && c.content !== ''
+    && (c.position === 'absolute' || c.position === 'fixed')
+    && Number(c.opacity || '1') >= 0.05
+    && (c.backgroundImage !== 'none' && !!c.backgroundImage || !transparente(c.backgroundColor)));
 }
 
 /** Una familia de fuente que va al `style`: nombres y comas, nada más. */

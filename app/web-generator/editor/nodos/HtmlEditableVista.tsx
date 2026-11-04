@@ -66,7 +66,7 @@ import { activarDiseno, avisarDiseno, disenoActivo, soltarDiseno, useDisenoActiv
 import { animarRedDeMako } from '../red-de-mako';
 import { colorDeBoton, conMarcas, esBotonDeDiseno, ponerColorDeBoton, ponerTextoDeBoton, textoDeBoton } from '../botones-diseno';
 import {
-  agregarElemento, comoEnlace, deAfuera, duplicarElemento, fotoDeEstilo, fuentesDeLaPagina, igualarEstilo, imagenDeFondo, limpiarParaCambiar,
+  agregarElemento, capaEncima, comoEnlace, deAfuera, duplicarElemento, fotoDeEstilo, fuentesDeLaPagina, igualarEstilo, imagenDeFondo, limpiarParaCambiar,
   moverElemento, nombreDeElemento, nuevaImagen, nuevoBoton, nuevoTexto, ponerColor, ponerFuente, ponerImagenDeFondo, quitarElemento,
   type ElementoDiseno,
 } from '@/lib/editor-landing/diseno-elemento-acciones';
@@ -559,6 +559,9 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     const cs = el.ownerDocument.defaultView?.getComputedStyle(el);
     if (!ponerImagenDeFondo(comoDiseno(el), url, { size: cs?.backgroundSize ?? '', position: cs?.backgroundPosition ?? '' })) { ctx.avisar('Imagen no válida'); return; }
     despuesDeCambiar();
+    // Quedó puesta; si una capa de la página la tapa, se dice (si no, se lee como que no hizo nada).
+    const win = el.ownerDocument.defaultView;
+    if (win && capaEncima([win.getComputedStyle(el, '::before'), win.getComputedStyle(el, '::after')])) ctx.avisar('Una capa de la página la tapa');
   };
 
   /** Un texto, un botón o una imagen NUEVOS debajo del elegido (o al final de la sección): «elementos sueltos». */
@@ -715,7 +718,9 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
             onQuitar={quitarDeLista}
             onFondo={(el, q) => { elegir(el); void fondoImagenElemento(q); }}
             onDestino={destinoDeLista}
-            onVer={verDeLista} />
+            onVer={verDeLista}
+            onIcono={(el, b) => { elegir(el); abrirIcono(b); }}
+            onVideo={(el, b) => { elegir(el); void cambiarVideo(b); }} />
         </Flotante>
       )}
     </NodeViewWrapper>

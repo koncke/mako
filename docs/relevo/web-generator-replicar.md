@@ -1,5 +1,13 @@
 # Relevo: «Web Generator: replicar landings» (claude3, desde el 29/10 ~01:50) — antes claude4, cierre al 95 %
 
+> **4/11/2026 (nube, rearmado de la etiqueta `rescate/replica-editable-2810` sobre main, rama `punta/replica-editable-2810`).**
+> Los 24 commits entraron sin choques. Lo de las secciones 000, 00, 0, 1 y 3 ya está en main (la landing High Ticket, la foto,
+> el blanco, MaKo sin conexión va por su propia punta). De la 2 (la réplica editable) se hizo, sin la base de producción:
+> «Contenido» con íconos y videos, el color del texto que gana también a un degradado, y el aviso cuando una capa de la página
+> tapa la imagen de fondo. Tests 21/21, 13 roturas rojas, tsc-acotado limpio. **NO se pudo ver:** los dos ❌ en las copias #68 y
+> #69, las capturas y el chat de punta a punta en #70–#72. El detalle y lo que falta: docs/hallazgos-editor-landing.md → «La
+> réplica editable». Lo de abajo es la historia de la PC, con sus rutas `C:/dev/…`.
+
 Pegar en un chat nuevo: `Leé docs/relevo/web-generator-replicar.md y seguimos desde ahí.` Las órdenes llegan del Cerebro
 (con claude3: `local_428051c1-0369-4df2-ae6b-bcb42f63b64b`; el de claude4 era `local_797d5445-…`). Nada de esto está pusheado (sube el Cerebro). Notas largas en la carpeta
 compartida (`…/side-session-notes/local_797d5445-…/desktop-offline-2810.md`, `replicar-landings-2810.md`). Scripts en el
