@@ -233,3 +233,14 @@ test('la poda tiene su cron, y un fallo no se ve igual que «no había nada»', 
 });
 
 // PROBADO ROMPIÉNDOLO: ver docs/hallazgos-competitors-spy.md («El modal de Spy»).
+
+// «Escribí tal cual @herasmedia y no me trajo al perfil» (Martín, 4/11/2026; el Cerebro lo midió en el código): la fila «Usar @x»
+// confirmaba sin leer, y salía una letra «H». Va por `elegirPerfil`, que lee con `/api/competitor-spy/buscar?fuente=ig`.
+// Verificado rompiéndolo: con la línea de antes (`irAConfirmar(...)` sin leer) este test cae.
+test('«Usar @x tal como lo escribiste» lee su perfil, igual que un perfil hallado', () => {
+  const spy = sinComentarios(leer('app/competitor-spy/BuscadorAlta.tsx'));
+  const elegir = spy.slice(spy.indexOf('const elegir = (f: FilaBusqueda) => {'), spy.indexOf('const volver ='));
+  const usar = elegir.split('\n').find((l) => l.includes("f.tipo === 'usar'")) ?? '';
+  assert.match(usar, /elegirPerfil\(\{ usuario: f\.usuario/, 'la fila «Usar @x» va por el camino que lee el perfil');
+  assert.doesNotMatch(usar, /irAConfirmar/, 'confirmar sin leer deja la tarjeta sin foto ni seguidores');
+});

@@ -97,7 +97,7 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'buscar_leads', area: 'crm', tipo: 'lectura',
     titulo: 'Buscar leads por texto',
     descripcion: 'Busca leads del negocio por nombre, teléfono, email o empresa y devuelve una lista compacta (id, nombre, estado, etapa y etapa_nombre —la etapa en la que la ve el equipo y cómo se llama—, fechas de reuniones, monto de cierre en USD, closer y setter). Es el primer paso antes de cualquier otra operación sobre un lead: de aquí sale el leadId. Compara el texto tal cual (sensible a acentos) y devuelve como máximo 20 resultados.',
-    parametros: [{ nombre: 'texto', tipo: 'string', obligatorio: true, max: 200, descripcion: 'texto a buscar en nombre, teléfono, email o empresa.' }],
+    parametros: [{ nombre: 'texto', tipo: 'string', obligatorio: true, max: 200, descripcion: 'texto a buscar en nombre, teléfono, email o empresa. Si ningún lead se llama así y es el nombre (o una parte) de una campaña de Meta, vuelven los leads de esa campaña con su teléfono; con más de 20 personas, dice cuántas quedaron afuera.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
@@ -160,7 +160,10 @@ export const DEFS: readonly OperacionDef[] = [
       fechaIso('desde', 'YYYY-MM-DD, inclusive.'),
       fechaIso('hasta', 'YYYY-MM-DD, inclusive.'),
       { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'nombre del closer o setter tal como figura en el lead, o SIN_ASIGNAR para los que no tienen ninguno.' },
-      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 100, descripcion: 'cuántas filas devolver (default 30, máximo 100).' },
+      // ⚠️ La campaña se dice en el PARÁMETRO y no en la descripción (ticket #56, 4/11/2026): en la descripción, «campaña» y
+      // «Meta» puntúan, y le sacaron el lugar a `ver_rendimiento_anuncios` y a `editar_contacto_lead` (tests/ops-center-bateria).
+      { nombre: 'campana', tipo: 'string', max: 200, descripcion: 'la campaña de Meta de la que vinieron: su nombre o una parte (sin importar tildes ni mayúsculas), o su id. No hace falta la fecha. Si ninguna se llama así, vuelven las parecidas.' },
+      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'cuántas filas devolver (default 30; con campana, 200; máximo 500).' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
