@@ -133,6 +133,16 @@ test('⛔ la cita no sale del negocio ni de antes de entrar: 404, y no se escrib
   assert.equal(c.filasConCitaMala, 0);
 });
 
+test('una cuenta creada después no entra sola; volver a invitarla la deja entrar, sin sacarla antes', () => {
+  const c = R().cuentaDespues;
+  assert.equal(c.sola, 404, 'no consta que el email esté verificado');
+  assert.equal(c.reinvitar, 200);
+  assert.equal(c.entra, 200, 'la pantalla dice «hay que invitarlo de nuevo», y eso contestaba ok sin hacer nada');
+  assert.equal(c.usuario, 604);
+  assert.equal(c.desdeIgualAlMayor, true, 've desde que se lo invitó de vuelta, no desde la invitación vieja');
+  assert.equal(c.noCorreDesde, true, 'con cuenta y adentro, volver a invitarlo no cambia nada');
+});
+
 test('sacar: sólo quien administra; el invitado se sale él; y al salir deja de leer en el acto', () => {
   const s = R().sacar;
   assert.equal(s.invitadoSacaAOtro, 404);
@@ -247,3 +257,5 @@ test('lo de antes, de WhatsApp: sólo quien administra, sin el jid y sin copiar 
 //   · la clave entra entera → 1 en rojo: «escribir: tope por minuto, reintento sin duplicar, clave tap»
 //   · una foto entre personas despierta a MaKo → 1 en rojo: «escribir: tope por minuto, reintento sin duplicar, clave tap»
 //   · la nota pide IA → 1 en rojo: «escribir: tope por minuto, reintento sin duplicar, clave tap»
+
+// PROBADO ROMPIÉNDOLO (4/11/2026, la revisión): volver a invitar no le abre la puerta a la cuenta nueva → 1 en rojo; volver a invitar le corre `desde_id` a quien ya está → 1 en rojo.

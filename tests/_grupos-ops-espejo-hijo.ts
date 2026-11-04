@@ -123,6 +123,12 @@ async function main() {
   await copiarAlGrupo(WS, { texto: 'Un aviso de MaKo', de: 'mako' });
   await webhook(eco('ECO1', 'Un aviso de MaKo'));
   out.ecoAntesDelId = foto().map((f) => ({ autor: f.autor, wa: f.wa }));
+  // Lo que se copia como texto porque el hilo no lo dibuja (un video, un Word): su eco dice otra cosa, y con el eco ganándole al id salía una burbuja doble.
+  await limpiar(); escenaNueva();
+  await copiarAlGrupo(WS, { texto: '', de: 'mako', partes: [{ tipo: 'media', media: { tipo: 'video', mimetype: 'video/mp4' }, base64: 'AAAA', caption: 'Mira el resumen' }, { tipo: 'media', media: { tipo: 'document', mimetype: 'application/msword', fileName: 'plan.doc' }, base64: 'AAAA', caption: '' }] as never });
+  await webhook({ key: { id: 'ECOV', fromMe: true, remoteJid: JID }, message: { videoMessage: { caption: 'Mira el resumen', mimetype: 'video/mp4' } }, pushName: 'Martín', messageTimestamp: ahora() });
+  await webhook({ key: { id: 'ECOD', fromMe: true, remoteJid: JID }, message: { documentMessage: { mimetype: 'application/msword', fileName: 'plan.doc' } }, pushName: 'Martín', messageTimestamp: ahora() });
+  out.ecoDeVideo = foto().map((f) => ({ autor: f.autor, wa: f.wa }));
   // ⚠️ Con un link: la copia lo guarda con `?ws=`, y lo que manda el doer va crudo.
   await limpiar(); escenaNueva();
   const dicho = 'Abrí el ticket. Mira el progreso aquí: https://hola-mako.com/tickets?t=5';

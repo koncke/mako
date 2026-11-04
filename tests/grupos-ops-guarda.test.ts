@@ -193,9 +193,31 @@ test('quien reintenta con el resultado del aviso cuenta `enApp` como que llegó'
   assert.match(leer('lib/aviso-evento.ts'), /rs\.some\(\(r\) => r\.enApp\)/);
 });
 
+/**
+ * LOS BLOQUES DEL SYSTEM DEL TURNO DEL GRUPO. Una semilla sólo atrapa lo que alguien sembró: un bloque nuevo que le cuente algo del negocio a un invitado (¿tiene Google Calendar conectado?, ¿qué citó?) da verde en
+ * tests/grupos-ops-turno.test.ts. Así que la lista es fija, y sumar uno obliga a decidirlo: con `hayInvitado`, vacío, salvo que no diga nada del negocio.
+ */
+const BLOQUES_DEL_SYSTEM = ['DEEP_LINKS', 'LARGO_WHATSAPP', 'aviso', 'baseDelSystem', 'bloqueTools', 'conMemoria', 'ctxAgenda', 'ctxFalla', 'ctxHoy', 'ctxPend', 'ctxPuntos', 'reglaDeLasMarcas', 'soloLeer'];
+
+test('⛔ un bloque nuevo en el system del turno del grupo se decide para un invitado', () => {
+  const doer = sinComentarios(readFileSync(join(RAIZ, 'lib/mako-doer-in.ts'), 'utf8'));
+  const armado = /const armado = `.*$/m.exec(doer)?.[0] ?? '';
+  assert.ok(armado, 'no encuentro el system del turno: esta guarda dejó de mirar');
+  const bloques = [...new Set([...armado.matchAll(/\$\{\s*(\w+)/g)].map((m) => m[1]))].sort();
+  assert.deepEqual(bloques, BLOQUES_DEL_SYSTEM, 'cambió lo que entra al system: si el bloque nuevo dice algo del negocio, con `hayInvitado` va vacío (como `ctxFalla` y `ctxPuntos`); después se suma acá');
+  // Los que traen algo del negocio, vacíos con un invitado.
+  assert.match(doer, /const conMemoria = hayInvitado \? \(bloqueQuienEscribe/, 'la memoria del turno le llegaría a un invitado');
+  assert.match(doer, /const ctxFalla = hayInvitado \? ''/, 'el estado de las claves del negocio le llegaría a un invitado');
+  assert.match(doer, /const ctxPuntos = hayInvitado \? ''/);
+  assert.match(doer, /const vigentes = hayInvitado \? \[\]/, 'las pendientes (`ctxPend`) le llegarían a un invitado');
+  assert.match(doer, /const agendaAbierta = hayInvitado \? null/, 'la agenda abierta (`ctxAgenda`) le llegaría a un invitado');
+});
+
 // PROBADO ROMPIÉNDOLO (3/11/2026): una rotura por vez sobre el código real, corriendo este archivo, y restaurada. Las 5 dieron rojo:
 //   · un archivo nuevo le pega a Evolution → 1 en rojo: «⛔ TODO lo que sale a un grupo pasa por la copia»
 //   · un llamador nuevo de enviarAGrupoJid → 1 en rojo: «⛔ TODO lo que sale a un grupo pasa por la copia»
 //   · enviarAlGrupoSuperAdmin no copia → 1 en rojo: «⛔ TODO lo que sale a un grupo pasa por la copia»
 //   · enviarAlGrupoMaKo no copia → 1 en rojo: «⛔ TODO lo que sale a un grupo pasa por la copia»
 //   · la prueba no copia → 1 en rojo: «⛔ TODO lo que sale a un grupo pasa por la copia»
+
+//   · (4/11/2026) un bloque nuevo en el system (`${ctxGoogle}`) → 1 en rojo: «un bloque nuevo en el system del turno del grupo»

@@ -152,8 +152,10 @@ export function filaAlHilo(f: FilaGrupo, quien: { usuarioId: number; invitado: b
   };
 }
 
-/** El texto de un mensaje para comparar la copia con su eco: lo que no es contenido no cuenta. */
-export const textoParaComparar = (t: string | null | undefined): string => String(t ?? '').replace(/\s+/g, ' ').trim();
+/** Lo que el hilo guarda como texto porque no lo dibuja (`copiarAlGrupo`), y lo que dice su eco (lib/grupo-espejo.ts): el mismo video o archivo, con otras palabras. */
+const ARCHIVO_COMO_TEXTO = /\((?:un video|video en WhatsApp|un archivo(?:: [^)]*)?|archivo en WhatsApp(?:: [^)]*)?)\)$/;
+/** El texto de un mensaje para comparar la copia con su eco: lo que no es contenido no cuenta. Sin igualar los archivos, una tarjeta con video salía con una burbuja de más. */
+export const textoParaComparar = (t: string | null | undefined): string => String(t ?? '').trim().replace(ARCHIVO_COMO_TEXTO, '(archivo)').replace(/\s+/g, ' ').trim();
 
 /**
  * El mensaje de la app con la forma del de WhatsApp (molde: la acción «probar» de /api/admin/mako-doer). Sin base64: el doer lo baja de

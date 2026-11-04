@@ -31,6 +31,8 @@ export type DondeNoPude = {
   ruta?: string;
   /** Lo que la persona escribió en ese turno. */
   pedido?: string;
+  /** Lo escribió un invitado al grupo de la app, que no administra este negocio: como lo de un tercero, lo decide Martín (`crearTicket`). */
+  invitado?: boolean;
 };
 
 /** Lo que se sabe de lo que falló: la operación (su nombre humano), el error que vio el CÓDIGO y lo que contestó MaKo. */
@@ -53,8 +55,10 @@ async function identidadParaElTicket(d: DondeNoPude): Promise<Identidad | null> 
 /** Levanta (o suma al que ya hay) el ticket de esta causa. null si no hay causa o no se pudo (sin tirar). */
 export async function ticketDeNoPude(causa: CausaNoPude, d: DondeNoPude, det: DetalleNoPude = {}): Promise<TicketNoPude | null> {
   try {
-    const identidad = await identidadParaElTicket(d);
-    if (!identidad) return null;
+    const leida = await identidadParaElTicket(d);
+    if (!leida) return null;
+    // ⛔ El rol de un invitado sale de SU negocio, y este ticket es del grupo: «Hola Martín, desde ayer ya no carga» entraría directo al arreglo con el texto de alguien de afuera.
+    const identidad = d.invitado ? { ...leida, rol: 'invitado' } : leida;
     const ref = refDeNoPude({ ws: d.ws, superficie: d.superficie, conv: d.conv, causa, clave: causa === 'ejecucion' || causa === 'herramienta' || causa === 'ruteo' ? det.herramienta ?? det.operacion : det.queNoPudo });
     const pedido = (d.pedido ?? '').trim();
     const noViajaron = det.noViajaron?.() ?? [];
@@ -64,7 +68,7 @@ export async function ticketDeNoPude(causa: CausaNoPude, d: DondeNoPude, det: De
       det.respuestaMako ? `Lo que contestó MaKo: «${det.respuestaMako.trim().slice(0, 1200)}»` : '',
     ].filter(Boolean).join('\n') || 'MaKo le dijo a la persona que no pudo.';
     const creado = await crearTicket({
-      identidad, tipo: tipoDelNoPude(causa), declaradoPor: 'sistema', sistema: true,
+      identidad, tipo: tipoDelNoPude(causa), declaradoPor: 'sistema', sistema: true, ...(d.invitado ? { invitado: true } : {}),
       automatico: { clave: prefijoAutomatico(d.ws).slice(0, -1) },
       titulo: tituloDelNoPude(causa, d.superficie, det.operacion),
       descripcion,

@@ -20,7 +20,7 @@ import { taparClaves, CLAVE_TAPADA } from '@/lib/claves-en-el-chat';
 import { avisoClaveTapadaEnElGrupo, soloLaClave } from '@/lib/doer-claves';
 import { esSoloEmoji } from '@/lib/reaccion-emoji';
 import { esMp3, validarAdjuntos } from '@/lib/mako-adjuntos';
-import { encolar } from '@/lib/mako-doer-buffer';
+import { encolar, pendientes } from '@/lib/mako-doer-buffer';
 import { acusarDesdeElGrupo } from '@/lib/insistencias';
 import { accesoAlGrupo, miembrosDelGrupo, type PersonaDelGrupo } from '@/lib/grupo-puerta';
 import { cartelParaLaApp } from '@/lib/grupo-salida';
@@ -28,7 +28,7 @@ import {
   anotarQueAbrio, avisarMiembros, borrarArchivoDelGrupo, claveDeConversacion, escribirDePersona, escribirSistema, filaParaPersona, guardarArchivoDelGrupo, hostsDeMaKo, leerHilo, mensajesDelDia,
 } from '@/lib/grupo-app';
 import {
-  TOPE_MENSAJES_POR_MINUTO, TOPE_TURNOS_INVITADO_POR_DIA, filaAlHilo, msgDeFila, nombraAMaKoEnElTexto, tieneAudioLaFila, tieneMediaLaFila, type AdjuntoGrupo, type FilaGrupo,
+  TOPE_MENSAJES_POR_MINUTO, TOPE_TURNOS_INVITADO_POR_DIA, filaAlHilo, leerParticipanteDeApp, msgDeFila, nombraAMaKoEnElTexto, tieneAudioLaFila, tieneMediaLaFila, type AdjuntoGrupo, type FilaGrupo,
 } from '@/lib/grupo-reglas';
 
 export const dynamic = 'force-dynamic';
@@ -75,6 +75,19 @@ async function leerPedido(req: NextRequest): Promise<Pedido | null> {
 }
 
 /**
+ * ¿Esta persona tiene algo esperando en la cola de MaKo? Entonces su foto sin nombrarla es de ese pedido: «mako, ¿qué dicen estas fotos?» con tres archivos son tres POST, y sólo el primero la nombra. Sin
+ * esto, lo demás no entraba a la cola, el último POST no disparaba el turno (`sigue`) y MaKo contestaba a los 3 minutos, por el cron, mirando una sola foto. Lo de OTRA persona en la cola no cuenta, y lo
+ * suyo de hace más de un minuto tampoco: la foto que le manda a un compañero mientras MaKo termina de contestarle otra cosa no es para MaKo.
+ */
+async function sigueSuPedido(ws: number, quien: PersonaDelGrupo): Promise<boolean> {
+  const clave = await claveDeConversacion(ws).catch(() => null);
+  if (!clave) return false;
+  const cola = await runWithWorkspace(ws, () => pendientes(clave)).catch(() => []);
+  const corte = Date.now() - 60_000;
+  return cola.some((m) => Date.parse(m.created_at) > corte && leerParticipanteDeApp((m.payload as { key?: { participant?: string } } | null)?.key?.participant)?.email === quien.email);
+}
+
+/**
  * ¿ESTE MENSAJE VA A LA COLA DE MaKo? Personas hablando entre ellas: MaKo no se mete. Sólo emojis o sólo una clave, no. Una foto o un PDF sin nombrar a MaKo tampoco, salvo que sea la única persona
  * del grupo: en WhatsApp un adjunto es deliberado, y en un chat entre personas es la charla. Un invitado, con su tope del día, contado en la base: gasta la IA del negocio dueño del grupo.
  */
@@ -83,7 +96,7 @@ async function vaALaCola(ws: number, quien: PersonaDelGrupo, f: FilaGrupo, citad
   if (!f.adjunto && (!f.texto.trim() || esSoloEmoji(f.texto))) return false;
   if (tieneMediaLaFila(f) && !nombraAMaKoEnElTexto(f.texto) && citada?.autor_tipo !== 'mako') {
     const m = await miembrosDelGrupo(ws).catch(() => null);
-    if (!m || m.conCuenta.length + m.invitadosSinCuenta.length > 1) return false;
+    if ((!m || m.conCuenta.length + m.invitadosSinCuenta.length > 1) && !(await sigueSuPedido(ws, quien))) return false;
   }
   if (quien.invitado) {
     const hoy = await mensajesDelDia(ws, quien.usuarioId);
@@ -146,7 +159,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   }
   const fila = r.fila;
   const mensaje = filaAlHilo(fila, { usuarioId: quien.usuarioId, invitado: quien.invitado, hosts: hostsDeMaKo() });
-  if (r.repetida) return NextResponse.json({ ok: true, mensaje, repetida: true });
+  // Un reintento ya subió su archivo otra vez: el de la fila es el de antes.
+  if (r.repetida) {
+    if (adjunto?.path) await borrarArchivoDelGrupo(adjunto.path);
+    return NextResponse.json({ ok: true, mensaje, repetida: true });
+  }
 
   const soloClave = tapado.tapadas > 0 && soloLaClave(tapado.texto) && !adjunto;
   if (tapado.tapadas > 0) {
@@ -170,9 +187,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
   }
   after(async () => {
-    await avisarMiembros(ws, fila);
-    // `sigue`: vienen más archivos de este mismo envío, y la respuesta es por todos. Se dispara con el último; si no llega, lo levanta el cron.
-    if (encolado && !pedido.sigue) await dispararTurno(ws, Number(fila.id));
+    // `sigue`: vienen más archivos de este mismo envío, y la respuesta es por todos. Se dispara con el último; si no llega, lo levanta el cron. A la vez que el push: uno que tarda no le demora el turno a MaKo.
+    await Promise.all([avisarMiembros(ws, fila), encolado && !pedido.sigue ? dispararTurno(ws, Number(fila.id)) : null]);
   });
   return NextResponse.json({ ok: true, mensaje });
 }

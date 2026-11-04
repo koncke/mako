@@ -239,6 +239,8 @@ async function main() {
   });
   const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
   const word = await multipart(DUENO, NEGOCIO, { archivo: new File([new Uint8Array([0x50, 0x4b, 3, 4, 1, 2, 3])], 'plan.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }) });
+  // Lo que escribió arriba sigue en la cola (acá no corre el turno): con algo suyo esperando, su foto sería de ese pedido (`sigueSuPedido`).
+  db.mako_doer_buffer.splice(0);
   const cola1 = db.mako_doer_buffer.length;
   const foto = await multipart(DUENO, NEGOCIO, { archivo: new File([PNG], 'foto.png', { type: 'image/png' }) });
   const colaFoto = db.mako_doer_buffer.length - cola1;
@@ -281,6 +283,21 @@ async function main() {
   await sacar(DUENO, NEGOCIO, { email: 'cris@cerrada.test' });
   await invitar(DUENO, NEGOCIO, 'cris@cerrada.test');
   out.whatsapp = { dueno: waDueno, sinJid: !JSON.stringify(waDueno.body).includes('jid-siete'), invitado: (await verWa(SIN_RELACION)).status, closerInvitado: { hilo: (await verHilo(closerInvitado, NEGOCIO)).status, wa: (await verWa(closerInvitado)).status }, filasNuevas: db.grupo_mensajes.length - cuantasFilas };
+
+  // ── La cuenta creada después: no entra sola, y volver a invitarla la deja entrar SIN sacarla antes (la pantalla dice «invítalo de nuevo») ──
+  await invitar(DUENO, NEGOCIO, 'tarde@nuevo.test');
+  const TARDE = usuario(604, 'tarde@nuevo.test', 'Tarde', OTRO, 'closer');
+  db.usuarios.push(TARDE);
+  const tardeSola = (await verHilo(TARDE, NEGOCIO)).status;
+  const mayorAlVolver = Math.max(...db.grupo_mensajes.filter((f) => f.workspace_id === NEGOCIO).map((f) => Number(f.id)));
+  const reinvitar = await invitar(DUENO, NEGOCIO, 'tarde@nuevo.test');
+  const filaTarde = db.grupo_invitados.find((f) => f.workspace_id === NEGOCIO && f.email === 'tarde@nuevo.test');
+  out.cuentaDespues = { sola: tardeSola, reinvitar: reinvitar.status, entra: (await verHilo(TARDE, NEGOCIO)).status, usuario: filaTarde?.usuario_id, desdeIgualAlMayor: Number(filaTarde?.desde_id) === mayorAlVolver };
+  // Con cuenta y ya adentro, volver a invitar no le corre `desde_id`.
+  const desdeAntes = db.grupo_invitados.find((f) => f.workspace_id === NEGOCIO && f.email === 'tarde@nuevo.test')?.desde_id;
+  db.grupo_mensajes.push(mensaje(95000, NEGOCIO, { texto: 'uno más' }));
+  await invitar(DUENO, NEGOCIO, 'tarde@nuevo.test');
+  (out.cuentaDespues as Record<string, unknown>).noCorreDesde = db.grupo_invitados.find((f) => f.workspace_id === NEGOCIO && f.email === 'tarde@nuevo.test')?.desde_id === desdeAntes;
 
   void pedidosDeSesion; void escena;
   await decirYSalir(decirResultado(out));

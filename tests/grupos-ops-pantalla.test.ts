@@ -247,7 +247,7 @@ test('9. el hilo: lo de otra persona a la izquierda con su nombre, lo propio a l
   assert.equal((h.match(/co-aviso-grupo/g) ?? []).length, 1, 'un solo aviso: lo que contesta MaKo no lleva la marca');
   assert.match(h, /<strong[^>]*>(?:<[^>]+>)*venta/, 'el *negrita* de WhatsApp, en negrita');
   assert.doesNotMatch(h, /\*Ventas|\*venta/, 'sin los asteriscos');
-  assert.match(h, /co-otro[^>]*>.*Joan.*WhatsApp.*Hola/s, 'el nombre adentro, y de dónde vino');
+  assert.match(h, /co-otro[^>]*>[\s\S]*Joan[\s\S]*WhatsApp[\s\S]*Hola/, 'el nombre adentro, y de dónde vino');
   assert.equal((h.match(/class="co-otro[ "]/g) ?? []).length, 2, 'los dos de Joan a la izquierda');
   assert.equal((h.match(/class="co-otro co-otro--sigue/g) ?? []).length, 1, 'el segundo seguido, sin repetir la inicial');
   assert.equal((h.match(/class="co-yo/g) ?? []).length, 1, 'sólo lo propio a la derecha');
