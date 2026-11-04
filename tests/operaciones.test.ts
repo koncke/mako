@@ -404,7 +404,7 @@ test('MaKo reclama sólo lo que el cartero dice que la PC alcanza, y nunca un ch
   // Y el ciclo los usa para reclamar pedidos y avisos (no la lista de vivos).
   const src = sinComentarios(leer('lib/operaciones.ts'));
   const ciclo = src.slice(src.indexOf('export async function cicloCartero'));
-  assert.match(ciclo, /const vivos = sanearEntregables\(e\.entregables, chats\)/);
+  assert.match(ciclo, /const vivos = servicio \? \[\] : sanearEntregables\(e\.entregables, chats\)/);
   assert.match(ciclo, /\.in\('destino', vivos\)/);
   assert.match(src, /if \(!mio\?\.vivo \|\| !entregables\.has\(mio\.local\)\) continue;/);
 });

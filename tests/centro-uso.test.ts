@@ -172,8 +172,9 @@ test('MaKo guarda la cuota que sube el Runner, y una vuelta sin medición no bor
   const src = readFileSync(join(RAIZ, 'lib/operaciones.ts'), 'utf8');
   // 20/10/2026: `let`, porque la huella de la semana la anula si es de otra cuenta (tests/cartero-medir.test.ts).
   assert.ok(src.includes('let cuota = sanearCuota(e.uso);'), 'lo que sube se sanea');
-  assert.ok(src.includes('...(cuota ? { cuota } : {})'), 'sin medición, la columna no se toca');
-  assert.ok(src.includes("select('cuenta, visto_at, version, chats, claves, cuota')"), 'se lee');
+  // Desde el 30/10/2026 la fila la arma `filaDeLaVuelta`, y su test está en tests/centro-cartel-pc.test.ts.
+  assert.ok(readFileSync(join(RAIZ, 'lib/operaciones-reglas.ts'), 'utf8').includes('...(v.cuota ? { cuota: v.cuota } : {})'), 'sin medición, la columna no se toca');
+  assert.ok(src.includes("leer('cuenta, visto_at, runner_visto_at, servicio, version, chats, claves, cuota')"), 'se lee');
   assert.ok(src.includes('cuota: sanearCuota(f.cuota)'), 'lo que se lee también se sanea');
 });
 

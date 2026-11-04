@@ -33,6 +33,7 @@ export const PERMITIDOS = new Map([
   ['tests/vista-adjuntos.test.ts', 'la extensión de un nombre de archivo: se parsea, no se abre'],
   ['tests/decisiones-aviso.test.ts', 'el cwd de una sesión de Claude Code, como lo guarda la ficha: se compara como texto'],
   ['tests/operaciones.test.ts', 'el cwd de una sesión de Claude Code, como lo guarda la ficha: se compara como texto'],
+  ['tests/cartero-servicio.test.ts', 'el cwd de una sesión, las carpetas del Runner y un CARTERO_DIR de prueba: enCwds y programaReg los miran como texto, no se abren'],
   ['tests/cartero-carpetas.test.ts', 'el cwd de una sesión de Claude Code y las carpetas del Runner: enCwds los compara como texto, no se abren'],
   ['tests/centro-uso.test.ts', 'el cwd de una sesión de Claude Code y las carpetas del Runner: enCwds los compara como texto, no se abren'],
   ['tests/centro-turnos.test.ts', 'el cwd de una sesión de Claude Code: enCwds lo compara como texto y carpetaDelCwd arma con él el nombre de la carpeta del transcript, no se abre'],

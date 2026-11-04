@@ -159,4 +159,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '4 nov', hora: '11:11', chat: 'Tiendas: cuenta de revisión', sesion: 'cli_d2b72179-90a8-55cc-b44f-a49a80e160ba', cuenta: 'nube', actor: 'claude', tipo: 'correccion',
+    titulo: 'Las páginas con extensión y toda server action pasan por el proxy',
+    puntos: [
+      '**El hueco que encontró la revisión**: `POST /crm/x.png` con `Next-Action` no pasaba por el proxy (sin sesión, sin Origin, sin el corte de la cuenta de revisión). El matcher saltea sólo archivos de la raíz o de una carpeta de `public/` nombrada, y lo que Next llama server action pasa siempre.',
+      '**El test compila el matcher como Next** y lo cruza con cada ruta dinámica, cada archivo de `public/` y el criterio de acciones de Next. Probado rompiéndolo.',
+      '**La cuenta de revisión no escribe por la línea de MaKo**, una fila tocada no entra, y el script de la cuenta sale con error si la limpieza falla. Nuevo script para cortarla o borrarla.',
+    ],
+    archivos: [
+      'proxy.ts — el matcher',
+      'tests/proxy-matcher-completo.test.ts — el matcher compilado contra cada ruta',
+      'lib/linea-freno.ts, lib/mako-salida.ts, lib/reunion-destinatarios.ts — la guarda en la línea de MaKo',
+      'app/api/auth/contrasena/route.ts — la fila tocada',
+      'scripts/tiendas-cuenta-revision.mts, scripts/tiendas-cuenta-revision-revertir.mts — crear y revertir',
+    ],
+    commits: [{ sha: 'c0513f606', msg: 'Proxy: las acciones y las páginas dinámicas con extensión pasan por el control', lineas: 426, archivos: 20 }],
+    revisar: '/crm',
+  },
 ];
