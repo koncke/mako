@@ -7,6 +7,32 @@ Acá va lo que costó y no se deduce leyendo el código.
 
 ---
 
+## El grupo de la app: lo que encontró la revisión, con todo en verde (4/11/2026)
+
+98 y 41 roturas probadas, 398 tests en verde, y una lectura del código encontró cuatro fallas, y una quinta en el eco (docs/hallazgos-comunicacion.md), con la app funcionando. Ninguna daba error. Todas salieron de preguntarse qué camino NO recorre ningún test, y todas se vieron en rojo antes de arreglarlas.
+
+**La respuesta al equipo: MaKo saltaba a los 2 minutos, y el test del turno daba verde.** Síntoma: alguien contesta en la app a una pregunta del equipo; le llega al equipo; 2 minutos después MaKo le contesta como si fuera para ella. Es exactamente el reclamo de Martín del 28/10 («Leila respondió al desarrollador y MaKo saltó a decirle cualquier cosa»), de vuelta. Causa: los `return` tempranos de `bufferearYResponder` se escribieron cuando «cortar antes» quería decir «no entró a la cola»: en WhatsApp van antes de `encolar`. En la app la ruta ya encoló (`yaEnCola`), y la fila quedaba `pendiente` hasta que `flushHuerfanos` corría un turno sobre ella. **Por qué no se veía:** las escenas miran lo que pasa al responder, y el cron no corre solo. **Regla:** todo corte antes del turno en `bufferearYResponder` llama a `sacarDeLaCola`.
+
+**Dos puertas al ticket, y se había cerrado una.** El arreglo «un invitado no entra por la vía libre» estaba en `abrirTicketDelGrupo`. Pero el «[[no-pude]]» abre su ticket por `ticketDeNoPude`, que entra como `automatico`: «Hola Martin, desde ayer ya no carga el CRM» de un invitado salía `en_curso`, directo al arreglo, con el texto de alguien de otro negocio. Y `[[ya-pedido: #N]]` le sumaba su texto a un ticket abierto del negocio, porque el turno leía los tickets aunque no fueran al system. **Lo obvio era el equivocado:** buscar quién llama a `crearTicket` desde el turno no alcanza con mirar `abrirTicketDelGrupo`; hay tres caminos. Hoy `crearTicket({ invitado })` corta en los dos, y con invitado no se leen los tickets.
+
+**«Hay que invitarlo de nuevo» contestaba ok y no hacía nada.** Una cuenta creada después no entra sola, y la pantalla y la API dicen que se la vuelva a invitar; pero con la fila ya anotada sin cuenta, `invitarAlGrupo` veía «ya está» y volvía. Es el caso de Joan y Juanfran si todavía no tienen cuenta. **El test lo escondía:** la escena de `cris@cerrada.test` sacaba a la persona antes de volver a invitarla, sin decir por qué. Un paso raro en un test para llegar a un estado suele ser un bug documentado con el arreglo por fuera.
+
+**Varias fotos con el pedido en la primera: 3 minutos, y mirando una sola.** Sólo la primera nombra a MaKo, así que las otras no entraban a la cola; el `sigue` hacía que la primera no disparara y la última no estaba encolada, así que nadie disparaba. Lo levantaba el cron. El test de `sigue` usaba dos textos. Hoy la foto de quien tiene un pedido suyo en la cola de hace menos de un minuto es de ese pedido (`sigueSuPedido`); lo de otra persona no cuenta.
+
+**Trampas de esta revisión:**
+- El tope por minuto vive en memoria y dura todo el proceso del hijo: en una escena larga, la misma persona da 429 y el test pasa sin probar nada. Una persona propia por escena, y se afirma el estado de cada POST.
+- Las filas de una escena anterior siguen en la cola, porque ahí el cron no corre: con «lo que esta persona tiene en la cola» cambiando una decisión, hay que vaciarla.
+- `ctxGoogle` y `ctxCita` ya están en `tren-0311` y no estaban cuando se escribió lo del invitado. Por eso `tests/grupos-ops-guarda.test.ts` fija la lista de bloques del system del turno: **al mezclar esa rama va a dar rojo a propósito**, hasta que `ctxGoogle` sea `hayInvitado ? '' : …`. Un bloque nuevo que le cuente algo del negocio a un invitado no lo atrapa ninguna semilla: nadie la sembró.
+
+**Lo que quedó sin hacer**, con el archivo donde vive:
+- La respuesta al equipo que entra a un lote ajeno, o cuyo autollamado falló, llega a MaKo: esos caminos no pasan por `contestaAlEquipo` (`atenderLaCola` y `atenderLaColaDelCron`, lib/mako-doer-in.ts). Hace falta que falle el autollamado o que otra persona escriba en la misma ventana.
+- Un invitado cuenta como no leídos los avisos a la agencia que no ve: el número queda hasta el próximo mensaje visible (`resumenParaLaLista`, lib/grupo-app.ts). Sólo en el grupo de una agencia.
+- Atar el id de WhatsApp a la copia va por posición: una parte vacía de una tarjeta corre los ids (`emitirAviso`, lib/avisos.ts, y lib/probar-grupo-envio.ts). El eco por texto lo cubre casi siempre.
+- El push del espejo corre adentro del webhook (`espejarUno`, lib/grupo-espejo.ts): con muchos miembros suscriptos demora la respuesta a Evolution. Hoy `push_suscripciones` estaba en 0.
+- El autollamado se aborta a los 5 s (`dispararTurno`, app/api/grupos/[ws]/mensajes/route.ts): sin comprobar en Vercel si, en un arranque en frío, la función llamada sigue corriendo. Si no sigue, lo levanta el cron a los 2 o 3 minutos.
+
+---
+
 ## El grupo de la app: lo que cuesta y no se ve leyendo el código (3/11/2026)
 
 Martín, tras el ban de la línea de MaKo: un grupo por negocio adentro del Ops Center, fijado arriba, con invitados de otros negocios y MaKo igual que en WhatsApp. El servidor vive en `lib/grupo-*.ts` y `app/api/grupos/`.

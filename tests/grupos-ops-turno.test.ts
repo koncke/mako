@@ -239,6 +239,40 @@ test('el archivo y la nota de voz, del bucket; sin IA, la nota queda y MaKo lo d
   assert.deepEqual(r.citaAudio.alModelo, [true], 'el modelo no recibió lo que dice el audio citado');
 });
 
+test('⚠️ la respuesta al equipo, desde la app: queda para el equipo, y MaKo no la contesta ni al rato, por el cron', () => {
+  const a = R().alEquipo;
+  assert.deepEqual(a.cola, ['procesado'], 'la ruta ya la encoló: sin sacarla, el cron corre un turno sobre ella (en WhatsApp nunca entra a la cola)');
+  assert.deepEqual(a.deMaKo, [], 'es lo que Martín reclamó el 28/10: «Leila respondió al desarrollador y MaKo saltó a decirle cualquier cosa»');
+  assert.equal(a.llamadas, 0);
+  assert.equal(a.alEquipo, 1, 'la respuesta le tiene que llegar al equipo');
+  assert.deepEqual(a.conPedido.deMaKo, ['Te respondo.'], 'si además le pide algo a MaKo, va a los dos');
+  assert.deepEqual(a.conPedido.cola, ['procesado']);
+});
+
+test('⛔ «Hola Martín» de un invitado: el ticket automático tampoco entra por la vía libre', () => {
+  const n = R().noPude;
+  assert.equal(n.admin.length, 1);
+  assert.equal(n.admin[0].auto, true, 'el control: de quien administra, un bug evidente va directo al arreglo');
+  assert.equal(n.invitado.length, 1, 'el ticket se abre igual: adentro del grupo, MaKo se lo pasa al equipo');
+  assert.equal(n.invitado[0].auto, false, 'el texto de alguien de otro negocio le llegaría al Runner como un arreglo');
+  assert.equal(n.invitado[0].despacho, null);
+});
+
+test('⛔ un invitado no suma nada a un ticket del negocio con [[ya-pedido]], y la marca no se le muestra', () => {
+  const y = R().yaPedido;
+  assert.equal(y.admin, 1, 'el control: de quien administra, se suma');
+  assert.equal(y.invitado.eventos, 0, 'lo que escribe alguien de otro negocio entraría al ticket');
+  assert.ok(y.invitado.deMaKo.every((t: string) => !t.includes('[[')), `la marca llegó al hilo: ${y.invitado.deMaKo}`);
+});
+
+test('⚠️ varias fotos de un envío: la respuesta es por todas y no espera al cron; una foto suelta sigue sin despertarla', () => {
+  const f = R().fotos;
+  assert.deepEqual(f.estados, [200, 200, 200, 200], 'un 429 del tope por minuto haría pasar esto sin probar nada');
+  assert.deepEqual(f.tresFotos.cola, ['procesado', 'procesado', 'procesado'], 'sólo la primera nombra a MaKo y sólo la última dispara: quedaba hasta 3 min sin respuesta y mirando una foto');
+  assert.deepEqual(f.tresFotos.deMaKo, ['Veo las tres.']);
+  assert.equal(f.fotoDeOtra, 0, 'lo que otra persona tiene en la cola no convierte la foto de Ana en un pedido a MaKo');
+});
+
 test('la computadora de quien escribe: sólo si es quien la conectó', () => {
   assert.deepEqual(R().pc, { conOtro: 'SinLaPersona', conEl: 'encoló' });
   const doer = readFileSync(join(RAIZ, 'lib/mako-doer-in.ts'), 'utf8');
@@ -297,3 +331,10 @@ test('la API de MaKo: escribir no toca Evolution; leer no sale por WhatsApp ni H
 //   · la plataforma con su clave de app → 1 en rojo: «sin poder leer la clave, la fila queda y no se encola; el gr»
 //   · ver_grupo por WhatsApp → 1 en rojo: «la API de MaKo: escribir no toca Evolution; leer no sale por»
 //   · escribir por la API va a WhatsApp → 1 en rojo: «la API de MaKo: escribir no toca Evolution; leer no sale por»
+// PROBADO ROMPIÉNDOLO (4/11/2026, la revisión): una por vez, sobre el código real y restaurada, y las 7 en rojo:
+//   · `sacarDeLaCola` no saca nada → 1 en rojo: «la respuesta al equipo, desde la app»
+//   · `ticketDeNoPude` sin `invitado` → 1 en rojo: «Hola Martín de un invitado»
+//   · el turno del invitado lee los tickets → 1 en rojo: «un invitado no suma nada a un ticket»
+//   · la foto no sigue el pedido → 1 en rojo: «varias fotos de un envío»
+//   · la foto sigue el pedido de cualquiera → 1 en rojo: «varias fotos de un envío»
+//   · el invitado con herramientas → 3 en rojo; con el system entero → 1 en rojo; lo de la app sale por WhatsApp → 5 en rojo

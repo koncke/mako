@@ -242,7 +242,7 @@ export type NuevoDePersona = {
 /** El mensaje de una persona en la app. Con el mismo `cliente_id` devuelve la fila de antes: un reintento del navegador no duplica. */
 export async function escribirDePersona(n: NuevoDePersona): Promise<{ fila: FilaGrupo; repetida: boolean } | { error: string }> {
   const r = await insertar(n.ws, {
-    autor_tipo: 'persona', usuario_id: n.quien.usuarioId, autor_nombre: autorDePersona(n.quien.nombre, n.quien.email.split('@')[0] || 'Alguien'),
+    autor_tipo: 'persona', usuario_id: n.quien.usuarioId, autor_nombre: autorDePersona(n.quien.nombre),
     canal: 'app', texto: n.texto, adjunto: n.adjunto ?? null, responde_a: n.respondeA ?? null, cliente_id: n.clienteId ?? null,
   });
   if ('fila' in r) return { fila: r.fila, repetida: false };
@@ -440,7 +440,7 @@ export type Resultado = { ok: true } | { ok: false; status: number; error: strin
  * ⚠️ LA RESPUESTA ES IDÉNTICA TENGA O NO CUENTA, y el aviso sale después de responder: sin eso, invitar sirve para averiguar quién usa MaKo.
  * ⚠️ `desde_id` se lee con chequeo de error y, si falla, NO se escribe nada: `getSupabaseServer` no tira, devuelve `{ data: null }`, y un 0 le abriría al
  * invitado el historial entero sin que nada lo diga. Un grupo vacío da 0 de verdad.
- * ⚠️ Una cuenta creada después NO entra sola: no consta que el email esté verificado. Se invita de nuevo.
+ * ⚠️ Una cuenta creada después NO entra sola: no consta que el email esté verificado. Se invita de nuevo, sin sacarla antes: la fila anotada sin cuenta se vuelve a escribir, con su cuenta y viendo desde hoy.
  * No toca `usuarios` ni `/api/equipo`, que rechaza un email que ya existe.
  */
 export async function invitarAlGrupo(ws: number, emailCrudo: string, invito: { usuarioId: number | null; nombre: string }): Promise<Resultado> {
@@ -450,11 +450,15 @@ export async function invitarAlGrupo(ws: number, emailCrudo: string, invito: { u
   if (ws === (await wsSuperAdmin().catch(() => ws))) return { ok: false, status: 404, error: 'No existe.' };
   const { data: previa, error: ePrevia } = await db().from('grupo_invitados').select('email, salio_at, avisado_at, usuario_id').eq('workspace_id', ws).eq('email', email).maybeSingle();
   if (ePrevia) return { ok: false, status: 500, error: 'No pude invitar: vuelve a intentarlo.' };
-  const yaEsta = previa && !(previa as { salio_at?: string | null }).salio_at;
+  const vigente = !!previa && !(previa as { salio_at?: string | null }).salio_at;
+  const yaEsta = vigente && (previa as { usuario_id?: number | null }).usuario_id != null;
   if (!yaEsta) {
-    const { count, error } = await db().from('grupo_invitados').select('email', { count: 'exact', head: true }).eq('workspace_id', ws).is('salio_at', null);
-    if (error) return { ok: false, status: 500, error: 'No pude invitar: vuelve a intentarlo.' };
-    if ((count ?? 0) >= TOPE_INVITADOS) return { ok: false, status: 409, error: `Este grupo ya tiene ${TOPE_INVITADOS} invitados.` };
+    // Quien ya está anotado sin cuenta ya cuenta en el tope: volver a invitarlo no suma a nadie.
+    if (!vigente) {
+      const { count, error } = await db().from('grupo_invitados').select('email', { count: 'exact', head: true }).eq('workspace_id', ws).is('salio_at', null);
+      if (error) return { ok: false, status: 500, error: 'No pude invitar: vuelve a intentarlo.' };
+      if ((count ?? 0) >= TOPE_INVITADOS) return { ok: false, status: 409, error: `Este grupo ya tiene ${TOPE_INVITADOS} invitados.` };
+    }
     if (invito.usuarioId != null) {
       const corte = new Date(Date.now() - 3600_000).toISOString();
       const { count: hora, error: eHora } = await db().from('grupo_invitados').select('email', { count: 'exact', head: true }).eq('invito_usuario_id', invito.usuarioId).gt('invitado_at', corte);

@@ -1153,6 +1153,15 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   const audio = audioDe(data);
   const adjunto = adjuntoDe(data);
   const texto = textoDe(data).trim();
+  /**
+   * ⚠️ LO QUE CORTA ACÁ, ANTES DEL TURNO, NO SE QUEDA EN LA COLA (4/11/2026, la revisión del grupo de la app). En WhatsApp estos cortes van antes de `encolar`, así que nunca entran; en la app la ruta ya
+   * encoló (`yaEnCola`), y sin esto la fila seguía `pendiente`: a los 2 minutos `flushHuerfanos` corría un turno sobre ella, y MaKo le contestaba lo que era para el equipo. Nunca tira.
+   */
+  const sacarDeLaCola = async (): Promise<void> => {
+    if (!o.yaEnCola || !msgId) return;
+    const cola = await pendientes(jid).catch(() => [] as MsgBuffer[]);
+    await marcarProcesados(cola.filter((m) => m.wa_message_id === msgId).map((m) => m.id)).catch(() => {});
+  };
   // ── REACCIONES ───────────────────────────────────────────────────────────
   //
   // Pedido del dueño (25/8/2026): risa o corazón a los stickers, y un 👍 a cada
@@ -1175,6 +1184,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     await reaccionarMensaje(jid, data.key, reaccionPara(pista)).catch(() => false);
     // Un sticker no se contesta con palabras: la reacción ES la respuesta. Si
     // además traía texto (un emoji suelto no), sigue el camino normal.
+    await sacarDeLaCola();
     if (!soloEmoji || !texto) return { engaged: true, skip: 'sticker/gif: reaccionado' };
     return { engaged: true, skip: 'emoji suelto: reaccionado' };
   }
@@ -1200,6 +1210,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   // La re-entrega de una respuesta al equipo ya avisada no entra: con la ventana ya cerrada, iría a MaKo (nunca pasó por la cola,
   // que es lo que deduplica las demás).
   if (msgId && conLaAvisada(await runWithWorkspace(wsData, () => getSetting(CLAVE_RESPUESTAS_AVISADAS)).catch(() => null), msgId).yaEstaba) {
+    await sacarDeLaCola();
     return { engaged: false, skip: 'respuesta al equipo (re-entrega)' };
   }
   const alEquipo = await contestaAlEquipo(wsData, instance, jid, data, texto, !audio && !adjunto);
@@ -1215,6 +1226,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       await cerrarLaPreguntaDelEquipo(wsData, alEquipo.delEquipo.id).catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude cerrar la pregunta del equipo: ${e instanceof Error ? e.message : String(e)}`));
     }
     // Si además le pide algo a MaKo, va a los dos: el equipo ya lo tiene, y MaKo contesta el pedido.
+    if (!texto || !pideAlgoAMaKo(texto)) await sacarDeLaCola();
     if (!texto || !pideAlgoAMaKo(texto)) return { engaged: false, skip: 'respuesta al equipo' };
   }
 
@@ -1599,7 +1611,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     if (modo === 'ventana') await abrirVentana(OPS, jid);
 
     // Feedback inmediato: "escribiendo…" mientras razona (best-effort).
-    void escribiendo(instance, jid, 12000);
+    // Un turno sólo de la app, no: puede tener línea si lo arrancó un mensaje de WhatsApp y le tocó la parte del invitado (`partesPorPermiso`).
+    if (!soloApp) void escribiendo(instance, jid, 12000);
 
     // ACUSE INSTANTÁNEO (feedback jul-19): la primera señal tiene que ser CASI inmediata. Desde el 24/10/2026 es el 👍
     // de `bufferearYResponder`, al llegar el mensaje (antes, además, un texto que acá llegaba 8 segundos tarde); con
@@ -1609,7 +1622,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // la instancia si el webhook no lo adjuntó inline).
     /** Dónde pasó, para el ticket automático de lo que MaKo no pudo (lib/no-pude-server.ts): este grupo y quien escribe. */
     const dondeDelGrupo = (pedido: string): DondeNoPude => ({
-      ws: wsData, actor: actorDeWhatsApp(participante, data.pushName) ?? null, superficie: 'whatsapp', conv: jid, canal: 'whatsapp', pedido,
+      ws: wsData, actor: actorDeWhatsApp(participante, data.pushName) ?? null, superficie: 'whatsapp', conv: jid, canal: 'whatsapp', pedido, ...(hayInvitado ? { invitado: true } : {}),
     });
     // El llamado a MaKo no es contenido (`sinElLlamadoAMaKo`): «@MaKo sí» es un «sí», para el clasificador y para la puerta.
     // En la línea del dueño, la @ a la línea es él: no se saca (`esLineaDelDueno`).
@@ -1900,7 +1913,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     );
     // LO QUE EL NEGOCIO YA PIDIÓ (F2b, lib/pedidos-del-negocio.ts): sus tickets abiertos y los resueltos de hace poco, de
     // cualquier persona del negocio. Sin poder leerlos, sin el bloque.
-    const leidos = await ticketsDelNegocio(wsData).catch(() => null);
+    // ⛔ Un invitado, no: además de no ir al system, `[[ya-pedido: #N]]` le sumaría su texto a ese ticket.
+    const leidos = hayInvitado ? null : await ticketsDelNegocio(wsData).catch(() => null);
     // Lo que salió en PRODUCCIÓN para los resueltos (29/10/2026, el #30 de Leandro: «¿lo actualizaste en la documentación API?» se
     // contestó con «no tengo acceso»): el hito de la bitácora que nombra cada ticket. Sólo si hay alguno resuelto, con un import
     // aparte (las bitácoras de todas las áreas no viajan en cada turno), y sin poder leerlo, sin eso.

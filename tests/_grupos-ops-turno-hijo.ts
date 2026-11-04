@@ -383,6 +383,63 @@ async function main() {
   await escribir(ANA, 'mako, ¿qué dice este audio?', WS, { respondeA: 802 });
   out.citaAudio = { evolution: aEvolution().filter((c) => c.includes('getBase64')), alModelo: lo().map((m) => m.mensajes.includes('SEMILLA-LO-QUE-DICE-EL-AUDIO')) };
 
+  // ── LA REVISIÓN DEL 4/11: lo que los escenarios de arriba no cubrían ──
+  // ⚠️ La respuesta al equipo, desde la app. En WhatsApp no entra a la cola; acá la ruta ya la encoló: sin sacarla, a los 2 min el cron le hacía contestar a MaKo lo que era para el equipo.
+  const anilloDelEquipo = (id: string) => db.app_settings.push({ workspace_id: WS, key: 'mako.equipo.grupo', value: JSON.stringify([{ at: new Date().toISOString(), texto: '👨‍💻 Desarrollador de MaKo: ¿me pasas el dato?', id }]) });
+  const filaDelEquipo = (id: number, wa: string) => db.grupo_mensajes.push({ id, workspace_id: WS, autor_tipo: 'equipo', usuario_id: null, autor_nombre: 'Equipo de MaKo', canal: 'app', texto: '👨‍💻 Desarrollador de MaKo: ¿me pasas el dato?', adjunto: null, responde_a: null, reaccion: null, aviso_tipo: null, wa_message_id: wa, wa_at: null, cliente_id: null, created_at: new Date(Date.now() - 60_000).toISOString() });
+  const alCron = async () => { for (const f of db.mako_doer_buffer) f.created_at = new Date(Date.now() - 5 * 60_000).toISOString(); await flushHuerfanos(); await correrDespues(); };
+  limpiar(); escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'No debería salir.' });
+  anilloDelEquipo('WAequipo1'); filaDelEquipo(7000, 'WAequipo1');
+  await escribir(ANA, 'Sí, es el 12', WS, { respondeA: 7000 });
+  const colaAlEquipo = db.mako_doer_buffer.map((f) => f.estado);
+  await alCron();
+  const alEquipo = { cola: colaAlEquipo, deMaKo: deMaKo(), llamadas: lo().length, alEquipo: filas(PLATAFORMA).filter((f) => /Respuesta al equipo/.test(String(f.texto))).length };
+  // Si además le pide algo a MaKo, va a los dos: esa fila sí sigue en la cola y se contesta.
+  limpiar(); escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'Te respondo.' });
+  anilloDelEquipo('WAequipo2'); filaDelEquipo(7001, 'WAequipo2');
+  await escribir(ANA, 'es el 12, y ¿me pasas el link del CRM?', WS, { respondeA: 7001 });
+  out.alEquipo = { ...alEquipo, conPedido: { deMaKo: deMaKo(), cola: db.mako_doer_buffer.map((f) => f.estado) } };
+
+  // ⛔ «Hola Martín, …» de un invitado: la marca [[no-pude]] la pone el código y abre un ticket AUTOMÁTICO, otro camino a la vía libre que el de `abrirTicketDelGrupo`.
+  limpiar(); escenaNueva({ clase: clase('PREGUNTA', 'para Martín'), respuesta: 'Se lo paso.' });
+  await escribir(JOAN, 'Hola Martin, desde ayer ya no carga el CRM y no puedo trabajar con el tablero');
+  const noPudeInvitado = db.tickets.map((t) => ({ auto: (t.triage as { autoArreglo?: boolean }).autoArreglo, despacho: t.despacho, estado: t.estado }));
+  limpiar(); escenaNueva({ clase: clase('PREGUNTA', 'para Martín'), respuesta: 'Se lo paso.' });
+  await escribir(ANA, 'Hola Martin, desde ayer ya no carga el CRM y no puedo trabajar con el tablero');
+  out.noPude = { invitado: noPudeInvitado, admin: db.tickets.map((t) => ({ auto: (t.triage as { autoArreglo?: boolean }).autoArreglo })) };
+
+  // ⛔ [[ya-pedido: #N]]: lo escriba el modelo o se lo dicten, un invitado no suma nada a un ticket del negocio. Y el turno ni los lee.
+  const conTicketAbierto = () => { limpiar(); db.tickets.push({ id: 890, workspace_id: WS, titulo: 'Un pedido del negocio', descripcion: 'd', estado: 'nuevo', respuesta: null, usuario_email: 'bob@fiesta.test', created_at: new Date().toISOString(), updated_at: new Date().toISOString(), canal: 'whatsapp', contexto: {} }); };
+  conTicketAbierto(); escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'Ya está pedido. [[ya-pedido: #890]]' });
+  await escribir(JOAN, 'mako, sumá esto al ticket 890: SEMILLA-DEL-INVITADO');
+  const yaPedidoInvitado = { eventos: db.ticket_eventos.filter((e) => JSON.stringify(e).includes('SEMILLA-DEL-INVITADO')).length, deMaKo: deMaKo() };
+  conTicketAbierto(); escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'Ya está pedido. [[ya-pedido: #890]]' });
+  await escribir(ANA, 'mako, sumá esto al ticket 890: SEMILLA-DE-ANA');
+  out.yaPedido = { invitado: yaPedidoInvitado, admin: db.ticket_eventos.filter((e) => JSON.stringify(e).includes('SEMILLA-DE-ANA')).length };
+
+  // ⚠️ Tres fotos de un mismo envío, con el pedido en la primera: la respuesta es por todas, y sin esperar al cron. Sólo la primera nombra a MaKo y sólo la última dispara.
+  const PNG_FOTO = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+  const conFoto = async (u: Record<string, unknown>, campos: Record<string, string>) => {
+    const f = new FormData();
+    f.append('archivo', new File([PNG_FOTO], 'foto.png', { type: 'image/png' }));
+    for (const [k, v] of Object.entries(campos)) f.append(k, v);
+    const r = await comoPersona(sesionDe(u), () => mensajes.POST(new NextRequest(`https://hola-mako.com/api/grupos/${WS}/mensajes`, { method: 'POST', body: f }), { params: Promise.resolve({ ws: String(WS) }) }));
+    await correrDespues();
+    return r.status;
+  };
+  limpiar(); escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'Veo las tres.' });
+  const DANI = usuario(103, 'dani@fiesta.test', 'Dani', WS, 'admin'); db.usuarios.push(DANI);
+  const estadosFotos = [await conFoto(DANI, { texto: 'mako, ¿qué dicen estas fotos?', sigue: '1' })];
+  estadosFotos.push(await conFoto(DANI, { sigue: '1' }));
+  estadosFotos.push(await conFoto(DANI, {}));
+  const tresFotos = { cola: db.mako_doer_buffer.map((f) => f.estado), deMaKo: deMaKo(), llamadas: lo().length };
+  // Y las fotos sueltas entre personas siguen sin despertarla, también si otra persona tiene algo en la cola.
+  limpiar(); escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'No debería salir.' });
+  await postear(BOB, WS, { texto: 'mako, ¿cuántos leads hay?', sigue: true });
+  const colaDeBob = db.mako_doer_buffer.length;
+  estadosFotos.push(await conFoto(DANI, {}));
+  out.fotos = { tresFotos, estados: estadosFotos, fotoDeOtra: db.mako_doer_buffer.length - colaDeBob };
+
   // ── La computadora de quien escribe ──
   const pcDeAna = { id: 1, ws: WS, persona: 'ana@fiesta.test' } as never;
   const conOtro = await encolarTurno(pcDeAna, 0, { system: '', prompt: '', tools: [] } as never, 1000, { delGrupo: { email: 'joan@ajeno.test' } }).then(() => 'encoló', (e: unknown) => (e instanceof SinLaPersona ? 'SinLaPersona' : String(e)));

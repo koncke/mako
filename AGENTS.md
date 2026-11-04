@@ -2449,7 +2449,7 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
   `grupo_leidos` van en FUERA_DEL_PROXY; los ids son globales, así que toda lectura por id lleva `workspace_id`, y para un invitado también `id > desde_id`. **Un invitado no le saca datos del negocio a MaKo**:
   su turno corre con `hayInvitado` (system `lean`, sin historial, sin pendientes, sin herramientas, sin escribir la memoria, y sus tickets los decide Martín). Quien toque lo que entra al system del turno del
   grupo mira esa rama: tests/grupos-ops-turno.test.ts siembra perfil, plata, tickets, pendientes y charla, y exige que no le lleguen. El turno de MaKo sobre un mensaje de la app corre en OTRA invocación
-  (/api/cron/grupo-turno), sin la sesión de quien escribió, igual que el webhook.
+  (/api/cron/grupo-turno), sin la sesión de quien escribió, igual que el webhook. **Todo corte antes del turno en `bufferearYResponder` llama a `sacarDeLaCola`:** en WhatsApp esos `return` van antes de encolar, y en la app la fila ya está en la cola y, sin sacarla, a los 2 minutos el cron le corre un turno. **Un bloque nuevo en el system del turno del grupo (`armado`, lib/mako-doer-in.ts) se decide para un invitado:** tests/grupos-ops-guarda.test.ts fija la lista, porque un bloque que le cuente algo del negocio no lo atrapa ninguna semilla. **Y lo que abra un ticket desde el turno pasa `invitado`:** son tres caminos (`abrirTicketDelGrupo`, `ticketDeNoPude`, `[[ya-pedido]]`).
 
 ## Y una regla de un canal de MaKo puesta SÓLO en el prompt no es regla (29/10/2026)
 

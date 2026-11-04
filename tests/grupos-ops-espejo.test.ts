@@ -95,6 +95,10 @@ test('⚠️ el eco no duplica: la copia se encuentra por su texto, aunque le ga
   assert.deepEqual(r.dosIguales, ['ECO6', 'ECO7'], 'dos avisos iguales se atan en orden');
 });
 
+test('⚠️ el eco de un video o un Word de una tarjeta no duplica: el hilo los guarda como texto, y dicen otra cosa', () => {
+  assert.deepEqual(R().ecoDeVideo, [{ autor: 'mako', wa: 'ECOV' }, { autor: 'mako', wa: 'ECOD' }], 'una tarjeta con video salía con una burbuja de más');
+});
+
 test('sin copia: el anillo dice de quién es; fuera del anillo, es la persona dueña de la línea', () => {
   const r = R();
   assert.deepEqual(r.ecoDelAnillo, [{ autor: 'mako', nombre: 'MaKo' }, { autor: 'equipo', nombre: 'Equipo de MaKo' }]);
@@ -131,3 +135,5 @@ test('el acuse del webhook sigue cerrando, por la función que comparte con la a
 //   · el espejo llama al doer → 1 en rojo: «una persona en WhatsApp: una fila con su nombre, ANTES del t»
 //   · el webhook sin espejo → 12 en rojo: «una persona en WhatsApp: una fila con su nombre, ANTES del t»
 //   · sin el anillo, todo fromMe es persona → 1 en rojo: «sin copia: el anillo dice de quién es; fuera del anillo, es»
+
+// PROBADO ROMPIÉNDOLO (4/11/2026, la revisión): el eco de un video sin igualar → 1 en rojo: «el eco de un video o un Word».
