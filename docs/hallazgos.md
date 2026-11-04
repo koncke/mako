@@ -13,6 +13,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 
 | Área | Documento | Qué cubre |
 |---|---|---|
+| Comunicación | [hallazgos-comunicacion.md](hallazgos-comunicacion.md) | **«No puedo ver mis chats de Instagram» (#50, 4/11)**: no eran chats: 293 de 356 sólo comentaron, y `previewDe` convertía su texto en «(Mensaje no compatible)». **El audio se cortaba cada 15 s en el teléfono**: cada lectura del hilo firma de nuevo la URL. |
 | MaKo Mobile | [hallazgos-mobile.md](hallazgos-mobile.md) | **«Me saca el botón de audio» y el campo que flota (#51, 4/11)**: mostrar el micrófono no alcanzaba: esa nota sale por el `onMandar`, junto con lo adjuntado. Con la pantalla ya corrida por Safari, `altoTeclado` da 0: «abierto» se mide aparte. |
 | Tab Pagos de la ficha | [hallazgos-pagos.md](hallazgos-pagos.md) | **«Figuran al día y no pagan desde agosto» (#53, 4/11)**: parecía una regla mal hecha y eran dos cosas: un dato (cargado como pago único) y el clic que saca de Ganado, que borra el cierre y deja «Al día» como valor por defecto. Quien sale de Ganado sale de «A quién cobrar». |
 | Competitors Spy | [hallazgos-competitors-spy.md](hallazgos-competitors-spy.md) | **«Guardar en Spy» (03/11)**: `openPopup` no otorga `activeTab`; `performance` ve lo mismo desde el mundo aislado; una búsqueda por dominio trae un tercio de anuncios ajenos; las plataformas son íconos sin texto y el id de la Página no está en lo dibujado; una pestaña a medias no marca nada como bajado. Sin hacer: verlo escrito en el ws3 y publicar la 0.75.0. |
