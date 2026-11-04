@@ -13,6 +13,8 @@
 // ⚠️ NO SE ELIGEN NI SE CONTESTAN DESDE ACÁ: sin cara, su fila sería un disco vacío (tests/coaches-ops-center.test.ts). Sólo el
 // servidor: las fichas pesan, y el navegador no las usa.
 
+import { FICHA_JUAN_CARRIZO } from './ficha-juan-carrizo';
+
 /** Un gurú que espera su caricatura: lo mismo que una fila de `ASESORES`, con su ficha al lado. */
 export type GuruEnEspera = {
   id: string;
@@ -24,7 +26,9 @@ export type GuruEnEspera = {
   ficha: string;
 };
 
-export const EN_ESPERA: readonly GuruEnEspera[] = [];
+export const EN_ESPERA: readonly GuruEnEspera[] = [
+  { id: 'juan-carrizo', nombre: 'Juan Carrizo', completo: 'Juan Carrizo', especialidad: 'Oferta y valor', curso: 'Aumenta tu valor y ATV ADVANTAGE', ficha: FICHA_JUAN_CARRIZO },
+];
 
 /** El tope de una ficha: viaja en cada mensaje del chat (lib/asesores/contexto.ts). Es el mismo de tests/coaches-ops-center.test.ts. */
 export const TOPE_FICHA = 5_200;

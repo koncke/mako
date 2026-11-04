@@ -9,6 +9,7 @@
 // PROBADO ROMPIÉNDOLO (4/11/2026), con el archivo en 3 / 0, una rotura por vez y restaurada:
 //   1. `problemasDeLaFicha` sin la regla del voseo                                → 2 / 1: «una ficha mala no pasa»
 //   2. `problemasDeLaFicha` sin la regla de «no hables como si fueras él»        → 2 / 1: «una ficha mala no pasa»
+//   3. la ficha de Juan Carrizo con «vos sabés» adentro                          → 2 / 1: «cada ficha en espera»
 // Correr: node --import tsx --test tests/gurus-en-espera.test.ts
 // =============================================================================
 
