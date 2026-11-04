@@ -1323,7 +1323,8 @@ export type Hoja = {
  */
 // · 'foco' (4/11/2026, la copia de Pane): es de GENERAL y lee los datos de sus bloques, no piezas (`piezas` vacío).
 // · 'mi-dia' (4/11/2026, la copia de Lumora, la otra referencia de Focus): también de GENERAL, con los datos de sus bloques.
-export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia'] as const;
+// · 'general' (4/11/2026, la copia de Orvel): de GENERAL, con los datos de sus bloques y dos piezas (`meses` y `deben`).
+export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general'] as const;
 export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;
