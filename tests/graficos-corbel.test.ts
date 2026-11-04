@@ -229,7 +229,9 @@ test('CADA PLANTILLA TIENE SU ESTRUCTURA: la asignación escrita es la que se us
   assert.deepEqual([...usos.keys()].sort(), Object.keys(MOLDES).sort(), 'cada molde se usa, y no hay uno que no exista');
   assert.ok(Math.max(...usos.values()) <= 4, `una estructura domina: ${[...usos]}`);
   // Y se ve: lo que abre cada hoja no es siempre lo mismo.
-  const aperturas = new Set(PLANTILLAS_TODAS.map((p) => formaDe(componentesDe(p) as never).split(' / ')[0]));
+  // La frase de apertura (4/11/2026) es una línea a lo ancho que abre casi todas: la estructura empieza DEBAJO de ella.
+  const sinFrase = (c: Array<Record<string, any>>) => c.filter((x) => x.tipo !== 'frase');
+  const aperturas = new Set(PLANTILLAS_TODAS.map((p) => formaDe(sinFrase(componentesDe(p) as never)).split(' / ')[0]));
   assert.ok(aperturas.size >= 4, `abren igual: ${[...aperturas]}`);
   const formas = new Set(PLANTILLAS_TODAS.map((p) => formaDe(componentesDe(p) as never)));
   assert.ok(formas.size >= 8, `${formas.size} formas distintas en ${PLANTILLAS_TODAS.length} plantillas`);

@@ -299,34 +299,50 @@ const PRODUCTIVIDAD: PlantillaHoja = {
     controles: [],
     // COMPOSICIÓN DEL 31/10/2026 (15 piezas → 8): siete números en cuatro anchos pasan a una fila de cuatro, el avance por
     // proyecto es lo primero, y las tres tablas de 4 columnas (donde se cortaba el nombre de la tarea) son una sola a lo ancho.
+    // 4/11/2026 — FERNLY · SUNROW (docs/templates-dashboard-propuesta.md §7.3): «¿qué avanza y qué se estancó?». Fernly abre con la
+    // frase de cuánto hay en marcha y el avance de cada proyecto; Sunrow, lo que vence por semana y lo que queda en cada proyecto.
     componentes: [
-      kpi(id('pr-avance'), 'proyectos', 'avance_proyectos', 'Avance global', '', 0, 0, { invertida: true }),
-      kpi(id('pr-estancadas'), 'ejecucion', 'estancadas', 'Estancadas', '', 3, 0),
-      kpi(id('pr-alta-sin'), 'ejecucion', 'alta_sin_deadline', 'Alta sin deadline', '', 6, 0),
-      kpi(id('pr-cumplimiento'), 'ejecucion', 'cumplimiento', 'A tiempo', '', 9, 0),
+      {
+        id: id('pr-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'ejecucion', fecha: 'actual', metricas: ['activas', 'en_curso', 'hechas'],
+        titulo: 'Tu tablero', frase: 'Tienes {activas} tareas activas · {en_curso} en curso · {hechas} ya hechas', ir: 'plan', x: 0, y: 0, w: 12, h: 3,
+      },
+      kpi(id('pr-avance'), 'proyectos', 'avance_proyectos', 'Avance global', '', 0, 3, { invertida: true, ir: 'plan' }),
+      kpi(id('pr-estancadas'), 'ejecucion', 'estancadas', 'Estancadas', '', 3, 3),
+      kpi(id('pr-alta-sin'), 'ejecucion', 'alta_sin_deadline', 'Alta sin deadline', '', 6, 3),
+      kpi(id('pr-cumplimiento'), 'ejecucion', 'cumplimiento', 'A tiempo', '', 9, 3),
       // Una barra de avance por proyecto (la barra de progreso de la tab), los activos. Sube a portada: lib/graficos-portadas.ts.
       {
         id: id('pr-avance-proyecto'), clase: 'grafico', tipo: 'barras', fuente: 'proyectos', dimension: 'proyecto',
         metricas: ['avance_proyectos'], ordenMetrica: 'avance_proyectos', limite: 50,
-        titulo: 'Avance por proyecto', x: 0, y: 4, w: 12, h: 10,
+        titulo: 'Avance por proyecto', ir: 'plan', x: 0, y: 7, w: 12, h: 10,
         controles: [fijo(id('pr-avance-estado'), 'proyectos.estado', ['Activo'])],
       },
       // ¿Qué hago primero? La matriz (burbujas con los cuadrantes de la tab) y la pirámide, del mismo alto.
       {
         id: id('pr-matriz-burbujas'), clase: 'grafico', tipo: 'burbujas', fuente: 'proyectos', dimension: 'proyecto', metricas: ['esfuerzo', 'impacto', 'tareas'],
-        titulo: 'Impacto × Esfuerzo', colorPor: 'cuadrante', limite: 50, x: 0, y: 14, w: 6, h: 10,
+        titulo: 'Impacto × Esfuerzo', colorPor: 'cuadrante', limite: 50, x: 0, y: 17, w: 6, h: 10,
         ejes: { xMin: 0, xMax: 100, yMin: 0, yMax: 100 },
         // [arriba-izq, arriba-der, abajo-izq, abajo-der] con x = esfuerzo, y = impacto (los de la tab vieja).
         referencias: { x: 50, y: 50, rotulos: ['Quick wins', 'Apuestas', 'Relleno', 'Trampas'] },
       },
       {
         id: id('pr-piramide-barras'), clase: 'grafico', tipo: 'barras', fuente: 'ejecucion', dimension: 'prioridad', metricas: ['activas'],
-        titulo: 'Pirámide de prioridad', x: 6, y: 14, w: 6, h: 10,
+        titulo: 'Pirámide de prioridad', x: 6, y: 17, w: 6, h: 10,
+      },
+      // Lo que viene: lo que vence en las próximas semanas (mira hacia ADELANTE, con su período a la vista) y lo que queda abierto
+      // en cada proyecto.
+      {
+        id: id('pr-vence'), clase: 'grafico', tipo: 'columnas', fuente: 'tareas', fecha: 'deadline', dimension: 'semana', metricas: ['abiertas'],
+        titulo: 'Lo que vence, por semana', x: 0, y: 27, w: 6, h: 8, controles: [periodoVisible(id('pr-vence-p'), 'prox30')],
+      },
+      {
+        id: id('pr-queda'), clase: 'grafico', tipo: 'barras', fuente: 'tareas', fecha: 'actual', dimension: 'proyecto', metricas: ['abiertas'],
+        ordenMetrica: 'abiertas', limite: 10, titulo: 'Lo que queda en cada proyecto', x: 6, y: 27, w: 6, h: 8,
       },
       // ¿Qué huele mal? La misma lista con las tres columnas juntas: lo quieto arriba.
       {
         id: id('pr-huele-mal'), clase: 'grafico', tipo: 'tabla', fuente: 'ejecucion', dimension: 'tarea', metricas: ['dias_quieta', 'movidas_deadline', 'activas'],
-        ordenMetrica: 'dias_quieta', limite: 20, titulo: 'Lo que huele mal', x: 0, y: 24, w: 12, h: 10,
+        ordenMetrica: 'dias_quieta', limite: 20, titulo: 'Lo que huele mal', x: 0, y: 35, w: 12, h: 10,
         controles: [fijo(id('pr-huele-mal-f1'), 'ejecucion.estado', ['Activa'])],
       },
     ],
