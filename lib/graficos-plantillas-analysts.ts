@@ -299,34 +299,50 @@ const PRODUCTIVIDAD: PlantillaHoja = {
     controles: [],
     // COMPOSICIÓN DEL 31/10/2026 (15 piezas → 8): siete números en cuatro anchos pasan a una fila de cuatro, el avance por
     // proyecto es lo primero, y las tres tablas de 4 columnas (donde se cortaba el nombre de la tarea) son una sola a lo ancho.
+    // 4/11/2026 — FERNLY · SUNROW (docs/templates-dashboard-propuesta.md §7.3): «¿qué avanza y qué se estancó?». Fernly abre con la
+    // frase de cuánto hay en marcha y el avance de cada proyecto; Sunrow, lo que vence por semana y lo que queda en cada proyecto.
     componentes: [
-      kpi(id('pr-avance'), 'proyectos', 'avance_proyectos', 'Avance global', '', 0, 0, { invertida: true }),
-      kpi(id('pr-estancadas'), 'ejecucion', 'estancadas', 'Estancadas', '', 3, 0),
-      kpi(id('pr-alta-sin'), 'ejecucion', 'alta_sin_deadline', 'Alta sin deadline', '', 6, 0),
-      kpi(id('pr-cumplimiento'), 'ejecucion', 'cumplimiento', 'A tiempo', '', 9, 0),
+      {
+        id: id('pr-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'ejecucion', fecha: 'actual', metricas: ['activas', 'en_curso', 'hechas'],
+        titulo: 'Tu tablero', frase: 'Tienes {activas} tareas activas · {en_curso} en curso · {hechas} ya hechas', ir: 'plan', x: 0, y: 0, w: 12, h: 3,
+      },
+      kpi(id('pr-avance'), 'proyectos', 'avance_proyectos', 'Avance global', '', 0, 3, { invertida: true, ir: 'plan' }),
+      kpi(id('pr-estancadas'), 'ejecucion', 'estancadas', 'Estancadas', '', 3, 3),
+      kpi(id('pr-alta-sin'), 'ejecucion', 'alta_sin_deadline', 'Alta sin deadline', '', 6, 3),
+      kpi(id('pr-cumplimiento'), 'ejecucion', 'cumplimiento', 'A tiempo', '', 9, 3),
       // Una barra de avance por proyecto (la barra de progreso de la tab), los activos. Sube a portada: lib/graficos-portadas.ts.
       {
         id: id('pr-avance-proyecto'), clase: 'grafico', tipo: 'barras', fuente: 'proyectos', dimension: 'proyecto',
         metricas: ['avance_proyectos'], ordenMetrica: 'avance_proyectos', limite: 50,
-        titulo: 'Avance por proyecto', x: 0, y: 4, w: 12, h: 10,
+        titulo: 'Avance por proyecto', ir: 'plan', x: 0, y: 7, w: 12, h: 10,
         controles: [fijo(id('pr-avance-estado'), 'proyectos.estado', ['Activo'])],
       },
       // ¿Qué hago primero? La matriz (burbujas con los cuadrantes de la tab) y la pirámide, del mismo alto.
       {
         id: id('pr-matriz-burbujas'), clase: 'grafico', tipo: 'burbujas', fuente: 'proyectos', dimension: 'proyecto', metricas: ['esfuerzo', 'impacto', 'tareas'],
-        titulo: 'Impacto × Esfuerzo', colorPor: 'cuadrante', limite: 50, x: 0, y: 14, w: 6, h: 10,
+        titulo: 'Impacto × Esfuerzo', colorPor: 'cuadrante', limite: 50, x: 0, y: 17, w: 6, h: 10,
         ejes: { xMin: 0, xMax: 100, yMin: 0, yMax: 100 },
         // [arriba-izq, arriba-der, abajo-izq, abajo-der] con x = esfuerzo, y = impacto (los de la tab vieja).
         referencias: { x: 50, y: 50, rotulos: ['Quick wins', 'Apuestas', 'Relleno', 'Trampas'] },
       },
       {
         id: id('pr-piramide-barras'), clase: 'grafico', tipo: 'barras', fuente: 'ejecucion', dimension: 'prioridad', metricas: ['activas'],
-        titulo: 'Pirámide de prioridad', x: 6, y: 14, w: 6, h: 10,
+        titulo: 'Pirámide de prioridad', x: 6, y: 17, w: 6, h: 10,
+      },
+      // Lo que viene: lo que vence en las próximas semanas (mira hacia ADELANTE, con su período a la vista) y lo que queda abierto
+      // en cada proyecto.
+      {
+        id: id('pr-vence'), clase: 'grafico', tipo: 'columnas', fuente: 'tareas', fecha: 'deadline', dimension: 'semana', metricas: ['abiertas'],
+        titulo: 'Lo que vence, por semana', x: 0, y: 27, w: 6, h: 8, controles: [periodoVisible(id('pr-vence-p'), 'prox30')],
+      },
+      {
+        id: id('pr-queda'), clase: 'grafico', tipo: 'barras', fuente: 'tareas', fecha: 'actual', dimension: 'proyecto', metricas: ['abiertas'],
+        ordenMetrica: 'abiertas', limite: 10, titulo: 'Lo que queda en cada proyecto', x: 6, y: 27, w: 6, h: 8,
       },
       // ¿Qué huele mal? La misma lista con las tres columnas juntas: lo quieto arriba.
       {
         id: id('pr-huele-mal'), clase: 'grafico', tipo: 'tabla', fuente: 'ejecucion', dimension: 'tarea', metricas: ['dias_quieta', 'movidas_deadline', 'activas'],
-        ordenMetrica: 'dias_quieta', limite: 20, titulo: 'Lo que huele mal', x: 0, y: 24, w: 12, h: 10,
+        ordenMetrica: 'dias_quieta', limite: 20, titulo: 'Lo que huele mal', x: 0, y: 35, w: 12, h: 10,
         controles: [fijo(id('pr-huele-mal-f1'), 'ejecucion.estado', ['Activa'])],
       },
     ],
@@ -406,23 +422,36 @@ const CS: PlantillaHoja = {
     componentes: [
       // COMPOSICIÓN DEL 31/10/2026 (15 piezas → 9): la cartera ES la hoja. Los de `cartera` van como `numero`: su fecha es
       // `actual`, sin rango, y una línea saldría plana en cero. La caja de MaKo va al pie: nace sin correr, y arriba tapaba la pregunta.
-      kpi(id('cs-atencion'), 'cartera', 'atencion', 'Necesitan atención', '', 0, 0, { invertida: true }),
-      kpi(id('cs-clientes'), 'cartera', 'clientes', 'Clientes', '', 3, 0),
-      kpi(id('cs-deuda'), 'cartera', 'deuda_vencida_usd', 'Deuda vencida', '', 6, 0),
-      kpi(id('cs-sesiones'), 'llamadas', 'llamadas', 'Sesiones', '', 9, 0, {
+      // 4/11/2026 — MENDER · VITREA (docs/templates-dashboard-propuesta.md §7.3): «¿quién necesita atención y por qué se van?». Mender
+      // abre con la frase de cuántos piden atención y lo que deben; Vitrea, por qué piden atención y la señal de cada uno. El ancla es
+      // cuántos se dieron de baja. ⚠️ El `motivo` de la cartera es el de la SEÑAL (la regla que la prendió), no el de una baja: el motivo
+      // de baja no se guarda todavía (docs/templates-dashboard-propuesta.md §7.4), así que la hoja no dice «por qué se van».
+      {
+        id: id('cs-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'cartera', fecha: 'actual', metricas: ['atencion', 'clientes', 'deuda_vencida_usd'],
+        titulo: 'Tu cartera', frase: '{atencion} de tus {clientes} clientes piden atención · deben {deuda_vencida_usd} vencidos', ir: 'clients', x: 0, y: 0, w: 12, h: 3,
+      },
+      kpi(id('cs-bajas'), 'cartera', 'clientes', 'Se dieron de baja', '', 0, 3, { invertida: true, controles: [fijo(id('cs-bajas-c'), 'cartera.estado', ['Baja'])] }),
+      kpi(id('cs-pausados'), 'cartera', 'clientes', 'En pausa', '', 3, 3, { controles: [fijo(id('cs-pausados-c'), 'cartera.estado', ['Pausado'])] }),
+      kpi(id('cs-cuotas'), 'cartera', 'cuotas_vencidas', 'Cuotas vencidas', '', 6, 3, { ir: 'cobranza' }),
+      kpi(id('cs-sesiones'), 'llamadas', 'llamadas', 'Sesiones', '', 9, 3, {
         tipo: 'numero_tendencia', comparar: true, controles: [fijo(id('cs-sesiones-c'), 'llamadas.categoria', [ENTREGA])],
       }),
       {
         id: id('cs-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'cartera', dimension: 'cliente', metricas: ['atencion', 'deuda_vencida_usd', 'sesiones'],
-        ordenMetrica: 'atencion', limite: 50, titulo: 'Cada cliente', x: 0, y: 4, w: 12, h: 10,
+        ordenMetrica: 'atencion', limite: 50, tabla: { columnas: ['senal', 'estado', 'tramo_contacto'] }, titulo: 'Cada cliente', ir: 'clients', x: 0, y: 7, w: 12, h: 10,
       },
-      { id: id('cs-etapas'), clase: 'grafico', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Dónde está cada cliente', x: 0, y: 14, w: 6, h: 8 },
-      { id: id('cs-contacto'), clase: 'grafico', tipo: 'barras', fuente: 'cartera', dimension: 'tramo_contacto', metricas: ['clientes'], titulo: 'Hace cuánto no hablan', x: 6, y: 14, w: 6, h: 8 },
+      { id: id('cs-etapas'), clase: 'grafico', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Dónde está cada cliente', x: 0, y: 17, w: 6, h: 8 },
+      { id: id('cs-contacto'), clase: 'grafico', tipo: 'barras', fuente: 'cartera', dimension: 'tramo_contacto', metricas: ['clientes'], titulo: 'Hace cuánto no hablan', x: 6, y: 17, w: 6, h: 8 },
+      {
+        id: id('cs-motivos'), clase: 'grafico', tipo: 'barras', fuente: 'cartera', dimension: 'motivo', metricas: ['clientes'], titulo: 'Por qué piden atención',
+        x: 0, y: 25, w: 6, h: 8, controles: [fijo(id('cs-motivos-c'), 'cartera.senal', ['Atención'])],
+      },
+      { id: id('cs-senal'), clase: 'grafico', tipo: 'anillo', fuente: 'cartera', dimension: 'senal', metricas: ['clientes'], titulo: 'Cómo están', x: 6, y: 25, w: 6, h: 8 },
       {
         id: id('cs-semanas'), clase: 'grafico', tipo: 'serie', fuente: 'llamadas', dimension: 'semana', metricas: ['llamadas'], titulo: 'Sesiones por semana',
-        x: 0, y: 22, w: 12, h: 8, controles: [fijo(id('cs-semanas-c'), 'llamadas.categoria', [ENTREGA])],
+        x: 0, y: 33, w: 12, h: 8, controles: [fijo(id('cs-semanas-c'), 'llamadas.categoria', [ENTREGA])],
       },
-      caja(id('cs-ia'), 'Quién necesita atención', 'Qué señales de la cartera piden atención y qué conviene hacer esta semana', 0, 30, 12, 7),
+      caja(id('cs-ia'), 'Quién necesita atención', 'Qué señales de la cartera piden atención y qué conviene hacer esta semana', 0, 41, 12, 7),
     ],
   }),
 };
