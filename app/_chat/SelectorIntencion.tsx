@@ -59,7 +59,7 @@ export function SelectorIntencion({ valor, onCambio, deshabilitado = false }: {
           <button key={o.id} type="button" role="radio" aria-checked={valor === o.id} disabled={deshabilitado}
             title={AYUDA_INTENCION[o.id]} onClick={() => onCambio(o.id)}
             style={{
-              border: 'none', borderRadius: 999, padding: '4px 12px', fontSize: 12.5, fontWeight: 600, cursor: deshabilitado ? 'default' : 'pointer',
+              border: 'none', borderRadius: 999, padding: '4px 12px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, cursor: deshabilitado ? 'default' : 'pointer',
               background: valor === o.id ? 'var(--surface)' : 'transparent', color: valor === o.id ? 'var(--ink)' : 'var(--dim)',
               boxShadow: valor === o.id ? '0 1px 2px rgba(18,21,27,.10)' : 'none',
             }}>

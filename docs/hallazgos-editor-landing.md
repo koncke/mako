@@ -6,6 +6,26 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## Los valores de Tilvo en el chrome: la estructura sigue de Gamma (31/10/2026)
+
+**Vive en:** `app/web-generator/gamma.css` (y los bloques propios: `.gmx` de `BarraFormato.tsx`, `.gmp` de `dialogos/piezas-gma.tsx`,
+`.gma-pb` de `paneles/PanelAgente.tsx`, `.gp` de `MiniaturaLanding.tsx`). Los números: `docs/diseno/`.
+
+- **La regla:** Gamma es un competidor, se le copia la estructura; Code and Chill es una referencia de estilo, se le copian los números
+  (AGENTS.md, «NINGUNA pantalla se diseña de cero», punto 3). Elegí Tilvo porque es la azul de las doce. Los nombres de la escala
+  (`--gma-t500`, `--gma-b600`) quedaron: adentro ya no hay un gris de Gamma.
+- **No tocar `lib/editor-landing/temas.ts` en esta pasada:** los temas son el CONTENIDO de cada cliente. El lienzo sigue claro con el
+  editor en oscuro, y está bien: es su página.
+- **Hay cinco juegos de colores, no uno.** Cambiar `gamma.css` no alcanza: `.gmx`, `.gmp` y `.gma-pb` escriben sus hex a mano y `.gmx` no lee
+  ningún `--gma-*`. Quien cambie la paleta otra vez tiene que pasar por los cinco.
+- **El teléfono no existía:** ni una regla para el editor. A 390 el panel de 340 tapaba todo y el lienzo quedaba en una tira de 40 px. Ahora
+  va apilado (lienzo arriba, chat abajo). Es decisión nuestra, no copia: Tilvo a 390 usa una barra fija abajo, y esto no tiene navegación
+  que poner ahí. La regla va al FINAL de la hoja o el margen del lienzo le gana (`tests/web-generator-valores.test.ts`).
+- **El banco mentía por no cargar `globals.css`.** Sin `--fs-md`, el campo del chat quedaba sin relleno y la caja se veía desalineada; sin el
+  preflight de Tailwind, «Discutir | Editar» salía en Arial. Parecían dos bugs de la app y eran del banco: ahora `server.cjs` los define.
+- **Sin hacer:** el círculo del cambio de tema (450 ms, `docs/diseno/movimiento-codeandchill.md`) vive en el interruptor de la app, no acá.
+  La barra lateral y el resto de la app siguen en Geist: entrar a la tab cambia de letra hasta que el rediseño llegue a todo.
+
 ## Servir otra versión de una página publicada: lo que lee la foto de A y lo que publica el borrador (25/10/2026)
 
 **Vive en:** `lib/editor-landing/pagina-publica.ts`, `lib/editor-landing/publicar.ts`, `lib/editor-landing/pago-landing.ts`,
