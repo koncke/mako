@@ -14,6 +14,7 @@ export const PARTES: Parte[] = [
   { titulo: 'El CRM de la campaña', detalle: 'agregar_en_bloque_a_crm suma sin sacar de su CRM · la secuencia de email atada a un CRM inscribe a los agregados', estado: 'hecha' },
   { titulo: 'La tarjeta sigue al email', detalle: 'columnasEmail por automatización: enviado, abrió, clic · nunca hacia atrás ni desde Ganado · quien compra no recibe el siguiente', estado: 'hecha' },
   { titulo: 'El ritmo y la reputación', detalle: 'rampa del dominio 50 → 100 · freno por rebotes (5 %) y quejas (0,3 %) · topes por la API · el aviso al activar dice la campaña entera', estado: 'hecha' },
+  { titulo: 'Cada negocio con su cuenta de Resend', detalle: 'su clave, su dominio y su webhook en su cuenta · la API guía el camino entero (estado_email) · la clave de MaKo sale de la plataforma, no del ws1', estado: 'hecha' },
   { titulo: 'Probado con un envío real', detalle: 'Nada de esto salió todavía a un buzón de verdad: ver docs/relevo/nube-email.md', estado: 'sigue' },
 ];
 
@@ -107,5 +108,27 @@ export const BITACORA: Hito[] = [
     ],
     commits: [{ sha: '6b8aae96b', msg: 'Email: la clave de Resend que administra dominios, aparte de la que manda', lineas: 702, archivos: 9 }],
     revisar: '/email',
+  },
+  {
+    fecha: '4 nov', hora: '12:01', chat: 'Email por la API', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Cada negocio trae su cuenta de Resend, y la API lo guía',
+    pedido: 'Resend free permite hasta 3 dominios, pero eso lo trae cada user de mako. — todo esto es súper importante que lo pueda hacer por API, es decir, que la API tiene que tener información y, por ejemplo, si detecta que no tiene [Resend] conectado, que le vaya guiando. Eso todo tiene que solucionarse por API siempre para que cualquier usuario lo pueda manejar desde su [Claude]',
+    puntos: [
+      'Llegó por el Cerebro, en dos mensajes, después del relevo de las 12:01 (la hora es la de ese commit: los mensajes no traen la suya). Gana sobre lo de la mañana: MaKo no aloja dominios de clientes en su cuenta, Mauricio incluido.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '14:37', chat: 'Email por la API', sesion: SESION, cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada negocio manda con su cuenta de Resend, y la API guía el camino entero',
+    puntos: [
+      '**El email de un negocio sale sólo con SU clave de Resend.** Sin ella no sale y dice por qué; nunca cae a la de MaKo. Lo que firma MaKo sale con la de MaKo, desde cualquier negocio.',
+      '**Su dominio y su webhook viven en su cuenta**: al conectar el dominio, MaKo crea en su cuenta el aviso que trae las aperturas, los clics y los rebotes, y guarda su secreto. Esos eventos sólo tocan las filas de ese negocio.',
+      '**`estado_email` guía**: en qué paso está, qué hacer ahora, qué operación sigue y el link al lugar de MaKo donde se pega la clave (la API no recibe claves). Probado el camino entero sólo con la API, de «sin cuenta» a «listo».',
+      '**La clave de correo de MaKo deja de salir de la fila del ws1** (Mauricio podrá pegar la suya). Hasta correr la mudanza, el arranque la sigue tomando del ws1, así los avisos no se cortan.',
+    ],
+    commits: [{ sha: 'f0589d4db', msg: 'Email: cada negocio manda con SU cuenta de Resend, y la API guía el camino entero', lineas: 1726, archivos: 32 }],
+    revisar: '/api-mako?tab=docs&art=campana-email',
   },
 ];

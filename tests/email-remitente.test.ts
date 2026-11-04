@@ -242,9 +242,12 @@ test('remitenteDelNegocio: los workspaces medidos, hoy y después del script', (
 });
 
 test('remitenteDelNegocio: vía DOMINIO, sólo el dominio que ESE workspace reclamó', () => {
-  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'Valle <Hola@Valle.MX>', resendDominio: 'valle.mx' })),
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'Valle <Hola@Valle.MX>', resendDominio: 'valle.mx', keyPropia: true })),
     { puede: true, from: 'Valle <hola@valle.mx>', via: 'dominio' }, 'sale saneado');
-  assert.equal(remitenteDelNegocio(con({ resendFrom: 'Valle <hola@valle.mx>', resendDominio: 'VALLE.mx' })).puede, true, 'el dominio sin mayúsculas');
+  assert.equal(remitenteDelNegocio(con({ resendFrom: 'Valle <hola@valle.mx>', resendDominio: 'VALLE.mx', keyPropia: true })).puede, true, 'el dominio sin mayúsculas');
+  // 4/11/2026 (cada negocio con su cuenta de Resend): el dominio reclamado SIN cuenta propia ya no manda. Antes se
+  // verificaba en la cuenta de MaKo y salía con la key de MaKo.
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'Valle <hola@valle.mx>', resendDominio: 'valle.mx' })), { puede: false, motivo: 'sin-cuenta-propia' }, 'sin su cuenta de Resend');
   assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'Valle <hola@valle.mx>', resendDominio: 'otro.mx' })), { puede: false, motivo: 'otro-dominio' });
   assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'Valle <hola@valle.mx>' })), { puede: false, motivo: 'otro-dominio' }, 'sin dominio reclamado');
   assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'a@mail.valle.mx', resendDominio: 'valle.mx' })), { puede: false, motivo: 'otro-dominio' }, 'un subdominio no es el dominio');
@@ -264,8 +267,8 @@ test('remitenteDelNegocio: el de MaKo, sólo la plataforma y sólo si lo reclam�
   // Una credencial con el de MaKo, aun con key propia y aun en la plataforma: nunca.
   assert.deepEqual(remitenteDelNegocio(con({ credFrom: 'MaKo <equipo@hola-mako.com>', keyPropia: true })), { puede: false, motivo: 'de-mako' });
   assert.deepEqual(remitenteDelNegocio(con({ credFrom: 'MaKo <equipo@hola-mako.com>', keyPropia: true, plataforma: true })), { puede: false, motivo: 'de-mako' });
-  // Un dominio parecido no es de MaKo.
-  assert.equal(remitenteDelNegocio(con({ resendFrom: 'a@hola-makos.com', resendDominio: 'hola-makos.com' })).puede, true);
+  // Un dominio parecido no es de MaKo (con su cuenta de Resend, que desde el 4/11/2026 pide la vía del dominio).
+  assert.equal(remitenteDelNegocio(con({ resendFrom: 'a@hola-makos.com', resendDominio: 'hola-makos.com', keyPropia: true })).puede, true);
 });
 
 test('remitenteDelNegocio: primero el dominio; si no pasa, la cuenta propia; el motivo es el de la primera', () => {

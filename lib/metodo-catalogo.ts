@@ -319,15 +319,16 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       { env: 'RESEND_API_KEY', label: 'API key', secreto: true, placeholder: 're_…', nota: 'Empieza con re_. En resend.com → "API Keys" → "Create API Key", con permiso "Full access". Se ve UNA sola vez.' },
       { env: 'RESEND_FROM', label: 'Remitente', opcional: true, sinEsto: 'Sin remitente, tus correos solo te llegan a ti.', placeholder: 'Tu negocio <hola@tudominio.com>', nota: 'Tu nombre y tu correo entre < >, de tu dominio verificado en Resend. Por ejemplo: Tu negocio <hola@tunegocio.com>.' },
     ],
+    // 4/11/2026: cada negocio manda con SU cuenta de Resend (lib/email-cuenta.ts), y el dominio lo da de alta MaKo en esa
+    // cuenta (la pestaña Email, o `conectar_dominio_email` por la API). Lo único técnico que hace la persona es la clave.
     tutorial: {
-      url: 'https://resend.com/domains',
-      urlLabel: 'Resend → Domains',
+      url: 'https://resend.com/api-keys',
+      urlLabel: 'Resend → API Keys',
       pasos: [
-        'Entra a resend.com → "Domains" → "Add Domain" y escribe tu dominio (por ejemplo tunegocio.com).',
-        'Copia sus 3 registros (1 MX con prioridad 10 y 2 TXT) en la sección DNS de donde compraste tu dominio.',
-        'Ojo: el nombre va sobre send.tudominio.com. Después toca "Verify DNS Records" hasta que diga "Verified".',
-        'En "API Keys" toca "Create API Key" con "Full access", copia la key (re_…, se ve UNA vez) y pégala en "API key".',
-        'En "Remitente" escribe Tu negocio <hola@tunegocio.com>, con tu dominio. Vacío, el correo solo te llega a ti.',
+        'Crea tu cuenta gratis en resend.com: tus emails salen desde ahí.',
+        'En "API Keys" toca "Create API Key" con permiso "Full access" y copia la key (re_…, se ve UNA vez).',
+        'Pégala en "API key" y toca Guardar.',
+        'Tu dominio lo conecta MaKo en la pestaña Email: te da los registros DNS para cargar donde lo compraste.',
       ],
     },
   },
@@ -445,6 +446,52 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Toca «+», ponle de nombre «MaKo push» y marca «Apple Push Notifications service (APNs)».',
         'Toca «Continue» y «Register», y baja el archivo .p8: Apple lo deja bajar UNA sola vez. Guárdalo.',
         'Carga los tres campos de arriba: cada uno tiene su «?» con dónde está.',
+      ],
+    },
+  },
+  // ── El vigía de las aprobaciones (4/11/2026, lib/vigia-aprobaciones-server.ts) ── De la PLATAFORMA, como Apple Push: el vigía
+  // lee estas claves del ws de plataforma y SÓLO LEE (en qué está la app en cada tienda). Con ellas no se publica nada.
+  {
+    key: 'app-store-connect',
+    nombre: 'App Store Connect',
+    categoria: 'Desarrollo',
+    soloPlataforma: true,
+    paraQue: 'MaKo mira cada hora si Apple aprobó, rechazó o pide algo de la app de iPhone, y te avisa sólo cuando cambia.',
+    campos: [
+      { env: 'ASC_ISSUER_ID', label: 'Issuer ID', secreto: false, placeholder: '00000000-0000-0000-0000-000000000000', nota: 'El código largo con guiones que Apple muestra arriba de la lista de claves.' },
+      { env: 'ASC_KEY_ID', label: 'Key ID', secreto: false, placeholder: 'ABC123DEFG', nota: 'Los 10 caracteres al lado del nombre de la clave.' },
+      { env: 'ASC_P8', label: 'La clave (.p8)', secreto: true, placeholder: '-----BEGIN PRIVATE KEY-----…', nota: 'Abre el archivo .p8 con el Bloc de notas y pega todo. Apple la deja bajar UNA sola vez.' }, // claves-en-el-diff: ok
+    ],
+    tutorial: {
+      url: 'https://appstoreconnect.apple.com/access/integrations/api',
+      urlLabel: 'App Store Connect → Integraciones',
+      pasos: [
+        'Entra a App Store Connect, abre «Usuarios y acceso» y su pestaña «Integraciones».',
+        'En «Claves del equipo» toca «+», ponle de nombre «MaKo vigía» y el acceso «Developer».',
+        'Toca «Generar» y baja el archivo .p8: Apple lo deja bajar UNA sola vez. Guárdalo.',
+        'Carga los tres campos de arriba: cada uno tiene su «?» con dónde está.',
+      ],
+    },
+  },
+  {
+    key: 'tiendas-google',
+    nombre: 'Google Play y Chrome Web Store',
+    categoria: 'Desarrollo',
+    soloPlataforma: true,
+    paraQue: 'MaKo mira cada hora si Google aprobó, rechazó o pide algo de la app de Android y de la extensión, y te avisa sólo cuando cambia.',
+    campos: [
+      { env: 'TIENDAS_GOOGLE_CUENTA_SERVICIO', label: 'Cuenta de servicio (JSON)', secreto: true, placeholder: '{"type": "service_account", …}', nota: 'Abre el archivo .json de la cuenta de servicio con el Bloc de notas y pega todo.' },
+      { env: 'CWS_PUBLISHER_ID', label: 'Publisher ID de la Chrome Web Store', secreto: false, opcional: true, placeholder: 'El id de tu cuenta de la tienda', nota: 'Sin esto, de la extensión sólo se lee la versión publicada.' },
+    ],
+    tutorial: {
+      url: 'https://console.cloud.google.com/iam-admin/serviceaccounts?project=mako-500317',
+      urlLabel: 'Google Cloud → Cuentas de servicio',
+      pasos: [
+        'En el proyecto de Google Cloud de MaKo, crea una cuenta de servicio con el nombre «MaKo vigía».',
+        'En su pestaña «Claves» toca «Agregar clave» › «JSON»: se baja el archivo. Guárdalo.',
+        'Habilita las APIs «Google Play Android Developer» y «Chrome Web Store».',
+        'Invita su email en Play Console, en «Usuarios y permisos», sólo para ver la app.',
+        'Súmala en el panel de la Chrome Web Store, en Cuenta, y carga los dos campos de arriba.',
       ],
     },
   },
@@ -1140,7 +1187,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   RESEND_API_KEY: {
     pasos: [
         'Para qué sirve: deja a MaKo mandar tus correos de seguimiento y tus reportes desde tu cuenta de Resend.',
-        'Entra a resend.com → "API Keys" y toca "Create API Key".',
+        'Entra a resend.com (la cuenta es gratis) → "API Keys" y toca "Create API Key".',
         'En "Permission" elige "Full access": con "Sending access" MaKo marca la conexión como fallada.',
         'Copia la key (re_…, se ve UNA vez) y pégala en este campo.',
         'Para no caer en spam, tu dominio va verificado en "Domains": los pasos están en el "?" de "Remitente".',
@@ -1486,6 +1533,25 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://developer.apple.com/account/resources/authkeys/list',
     urlLabel: 'Apple Developer → Keys',
+  },
+  ASC_ISSUER_ID: {
+    pasos: [
+        'Para qué sirve: le dice a Apple de qué equipo es la clave con la que MaKo mira la app de iPhone.',
+        'Entra a App Store Connect, abre «Usuarios y acceso» y su pestaña «Integraciones».',
+        'Copia el «Issuer ID», arriba de la lista de claves, y pégalo en este campo.',
+      ],
+    url: 'https://appstoreconnect.apple.com/access/integrations/api',
+    urlLabel: 'App Store Connect → Integraciones',
+  },
+  TIENDAS_GOOGLE_CUENTA_SERVICIO: {
+    pasos: [
+        'Para qué sirve: con esta cuenta MaKo lee, sin publicar nada, en qué está la app de Android y la extensión.',
+        'En Google Cloud, en «Cuentas de servicio», abre «MaKo vigía» y su pestaña «Claves».',
+        'Toca «Agregar clave» › «JSON»: se baja un archivo.',
+        'Abre ese archivo con el Bloc de notas y pega todo en este campo.',
+      ],
+    url: 'https://console.cloud.google.com/iam-admin/serviceaccounts?project=mako-500317',
+    urlLabel: 'Google Cloud → Cuentas de servicio',
   },
   CREEM_API_KEY: {
     pasos: [

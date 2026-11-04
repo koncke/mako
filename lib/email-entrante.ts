@@ -137,13 +137,19 @@ function aLaBandeja(ws: number, resendId: string, leadId: number | null): void {
 }
 
 /** Un `email.received` ya verificado: de quién es, de qué lead, y el disparo. */
-export async function recibirEmailEntrante(raw: unknown): Promise<RespuestaEntrante> {
+export async function recibirEmailEntrante(
+  raw: unknown,
+  /** `cuenta`: llegó por la cuenta de Resend de UN negocio (4/11/2026, el webhook con `?cuenta=`): sólo puede ser suyo. */
+  opts: { cuenta?: number } = {},
+): Promise<RespuestaEntrante> {
   const email = leerEmailRecibido(raw);
   if (!email) return responder(200, { ok: true, ignorado: 'no es un email recibido' });
 
   // 2. De quién es.
   let reclamados: DominioReclamado[];
   try { reclamados = await dominiosReclamados(); } catch (e) { return falloDeRuteo(e, email.para[0] ?? null); }
+  // Por la cuenta de un negocio, sólo SUS dominios: un email a un dominio de otro negocio no le dispara nada a ése.
+  if (opts.cuenta != null) reclamados = reclamados.filter((r) => Number(r.ws) === opts.cuenta);
   const destino = workspaceDelEmail(email.para, reclamados);
 
   // 3. La fila: la deduplicación y el rastro. Sin workspace también queda escrita, con su motivo.
