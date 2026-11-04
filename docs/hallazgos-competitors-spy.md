@@ -1375,3 +1375,17 @@ User-Agent de Chrome: un desafío que pide ejecutar JavaScript.
 Lo fijan `tests/landing-desafio-bot.test.ts` (qué es y qué no es un desafío, y dónde lo pregunta landing-fetch) y
 `tests/spy-paginas-sin-cartel.test.ts` (la pantalla no dibuja el iframe sin preguntar; la ruta sólo mira las páginas suyas y no
 devuelve el porqué), los dos probados rompiéndolos.
+## Tercera vuelta: el recorrido de lo nuevo (4/11/2026)
+
+**Vive en:** `app/competitor-spy/recorrido-spy.ts` (los pasos), `app/competitor-spy/SpyApp.tsx` (el `Recorrido` y el «?»).
+
+Martín: «Si puedes poner la animación que ya tenemos tipo tutorial, donde se pone opaco y va señalando las cosas del feedback». Es el
+Recorrido de la casa (`app/_ui/Recorrido.tsx`): seis pasos, cada uno con su `data-recorrido` en la pantalla.
+
+- **Un paso sin su marca se saltea SOLO, sin un error**: el recorrido queda corto y nadie se entera. Por eso
+  `tests/spy-recorrido.test.ts` busca la marca de cada paso en los componentes.
+- **El id lleva la fecha** (`spy-ficha-0411`): es la clave de «ya lo vio», y uno reusado no se le muestra a quien vio el anterior.
+- ⚠️ **Probar un test rompiendo el código se restaura de MEMORIA**: un `git checkout -- <archivo>` para deshacer la rotura se llevó
+  también la marca recién escrita en `GrillaPiezas.tsx` (sin commitear). Se notó porque el test siguió rojo; se volvió a poner.
+- ⚠️ **El primer CI dio rojo por «acá»**: `tests/puente-panel-copy.test.ts` barre el copy de toda la app y pide español neutro
+  («aquí»). No es un test de Spy, así que correr `tests/spy-*.test.ts` no lo ve: con texto nuevo de pantalla, se corre ese también.

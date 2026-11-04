@@ -129,7 +129,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'estado_email', area: 'email', tipo: 'lectura',
     titulo: 'Estado del canal email',
-    descripcion: 'Diagnóstico del canal: si el email está conectado (hay key y remitente propio), si el envío real está prendido, si el remitente sigue en sandbox (solo entrega al dueño de la cuenta de Resend), el dominio cargado, el remitente actual y el estado del dominio en Resend (verified, pending…) con cada registro DNS y su estado, más cuántos faltan verificar. Úsala ante cualquier «¿por qué no salen los mails?» o antes de proponer prender el envío real.',
+    descripcion: 'LA GUÍA del email del negocio: en qué paso está (`paso`: sin_cuenta, la_de_mako, clave_solo_envio, sin_dominio, dns_pendiente, sin_seguimiento, sin_remitente, envio_apagado, listo), qué tiene que hacer AHORA (`que_hacer`, para decírselo), la operación que sigue (`siguiente`) y, si falta pegar su clave de Resend, el link al lugar de MaKo donde se pega (`link_conectar`; la clave nunca se pide por el chat). Cada negocio manda con SU cuenta de Resend, que es gratis. Trae también el dominio, sus registros DNS y su estado, el remitente y el envío real. Úsala PRIMERO ante cualquier pedido de email, y de nuevo después de cada paso.',
     parametros: [], salida: 'json', canales: CANALES_TODOS, costo: 'externo', gating: { ...TAB_ADMIN, integracion: 'email' },
   },
   {
@@ -343,12 +343,12 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'conectar_dominio_email', area: 'email', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Conectar el dominio de envío',
-    descripcion: 'Propone dar de alta el dominio propio del negocio (minegocio.com) para que sus correos salgan desde él, y devuelve los registros DNS que hay que cargar en su proveedor (GoDaddy, Cloudflare…). Prende el seguimiento de aperturas y clics. Si ya había otro, lo reemplaza. Un dominio de MaKo o de otro negocio no se puede. Después: verificar_dominio_envio y fijar_remitente_email.',
+    descripcion: 'Propone dar de alta el dominio propio del negocio (minegocio.com) en SU cuenta de Resend, y devuelve los registros DNS que hay que cargar en su proveedor (GoDaddy, Cloudflare…). Prende el seguimiento de aperturas y clics y conecta los eventos de su cuenta con MaKo. Si ya había otro, lo reemplaza. Pide su clave de Resend ya pegada en MaKo (estado_email dice cómo). Un dominio de MaKo o de otro negocio no se puede. Después: verificar_dominio_envio y fijar_remitente_email.',
     parametros: [
       { nombre: 'dominio', tipo: 'string', obligatorio: true, max: 253, descripcion: 'el dominio, sin https:// ni @ (minegocio.com).' },
     ],
     canales: CANALES_TODOS, costo: 'externo', gating: TAB_ADMIN,
-    reversible: false, escribe: 'da de alta el dominio en la cuenta de Resend de MaKo, le prende el seguimiento de aperturas y clics, y guarda resend_domain y resend_domain_id del negocio',
+    reversible: false, escribe: 'da de alta el dominio en la cuenta de Resend del negocio, le prende el seguimiento de aperturas y clics, crea en su cuenta el webhook hacia MaKo, y guarda resend_domain, resend_domain_id y el secreto de ese webhook',
   },
   {
     id: 'fijar_remitente_email', area: 'email', tipo: 'accion', confirmacion: 'chat',
@@ -362,5 +362,13 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: CANALES_TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'guarda resend_from (el «De:») y resend_reply_to (adónde van las respuestas) del negocio',
+  },
+  {
+    id: 'conectar_seguimiento_email', area: 'email', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Conectar el seguimiento',
+    descripcion: 'Propone conectar los avisos de la cuenta de Resend del negocio con MaKo: quién abre, hace clic o rebota. Sin eso las tarjetas del CRM no siguen al email y los rebotes no frenan el envío. conectar_dominio_email ya lo hace; esto es para un dominio de antes o si ahí falló. Es idempotente.',
+    parametros: [],
+    canales: CANALES_TODOS, costo: 'externo', gating: TAB_ADMIN,
+    reversible: false, escribe: 'crea (o reusa) en la cuenta de Resend del negocio el webhook hacia MaKo, y guarda su secreto en el negocio',
   },
 ];

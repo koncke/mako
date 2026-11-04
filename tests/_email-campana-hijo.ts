@@ -51,11 +51,16 @@ const pg = crearPostgrest({
 const db = pg.db as Record<string, Fila[]>;
 
 // ── Resend de mentira ──────────────────────────────────────────────────────────────────────
+// Desde el 4/11/2026 (cada negocio con su cuenta de Resend) las CUENTAS están separadas: un dominio o un webhook es de la
+// clave que lo creó, y otra clave no lo ve (404). `re_solo_envio` es una clave de sólo envío: manda, y /domains y /webhooks
+// le contestan `restricted_api_key`, como Resend.
 type Pedido = { metodo: string; path: string; body: Record<string, unknown> | null; clave: string | null };
 const resend: Pedido[] = [];
 const dominios = new Map<string, Fila>();
+const webhooks = new Map<string, Fila>();
 let estadoDelDominio = 'not_started';
 const otros: string[] = [];
+const CLAVE_SOLO_ENVIO = 're_solo_envio';
 const json = (status: number, b: unknown, extra: Record<string, string> = {}) =>
   new Response(JSON.stringify(b), { status, headers: { 'content-type': 'application/json', ...extra } });
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
@@ -65,11 +70,15 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
     const metodo = (init.method ?? 'GET').toUpperCase();
     const body = typeof init.body === 'string' && init.body ? JSON.parse(init.body) as Record<string, unknown> : null;
     const auth = new Headers(init.headers).get('authorization');
-    resend.push({ metodo, path: u.pathname, body, clave: auth?.replace(/^Bearer /, '') ?? null });
+    const clave = auth?.replace(/^Bearer /, '') ?? null;
+    resend.push({ metodo, path: u.pathname, body, clave });
+    if (clave === CLAVE_SOLO_ENVIO && !u.pathname.startsWith('/emails')) {
+      return json(401, { statusCode: 401, name: 'restricted_api_key', message: 'This API key is restricted to only send emails' });
+    }
     if (u.pathname === '/domains' && metodo === 'POST') {
       const name = String(body?.name);
       const d: Fila = {
-        id: `dom-${name}`, name, status: 'not_started', region: 'sa-east-1', open_tracking: false, click_tracking: false,
+        id: `dom-${name}`, name, status: 'not_started', region: 'sa-east-1', open_tracking: false, click_tracking: false, cuenta: clave,
         records: [
           { record: 'DKIM', name: 'resend._domainkey', type: 'TXT', value: 'p=MIGf', ttl: 'Auto', status: 'not_started' },
           { record: 'SPF', name: 'send', type: 'MX', value: 'feedback-smtp.sa-east-1.amazonses.com', priority: 10, ttl: 'Auto', status: 'not_started' },
@@ -78,17 +87,38 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
       dominios.set(String(d.id), d);
       return json(201, d);
     }
+    if (u.pathname === '/domains' && metodo === 'GET') {
+      return json(200, { object: 'list', data: [...dominios.values()].filter((d) => d.cuenta === clave).map((d) => ({ id: d.id, name: d.name, status: estadoDelDominio })) });
+    }
     const m = /^\/domains\/([^/]+)(\/verify)?$/.exec(u.pathname);
     if (m) {
       const d = dominios.get(decodeURIComponent(m[1]));
-      if (!d) return json(404, { message: 'Domain not found' });
+      if (!d || d.cuenta !== clave) return json(404, { statusCode: 404, name: 'not_found', message: 'Domain not found' });
       if (m[2] && metodo === 'POST') return json(200, { object: 'domain', id: d.id });
       if (metodo === 'PATCH') {
         if (typeof body?.open_tracking === 'boolean') d.open_tracking = body.open_tracking;
         if (typeof body?.click_tracking === 'boolean') d.click_tracking = body.click_tracking;
         return json(200, { object: 'domain', id: d.id });
       }
-      return json(200, { ...d, status: estadoDelDominio, object: 'domain' });
+      const { cuenta: _c, ...publico } = d;
+      return json(200, { ...publico, status: estadoDelDominio, object: 'domain' });
+    }
+    if (u.pathname === '/webhooks' && metodo === 'GET') {
+      return json(200, { object: 'list', has_more: false, data: [...webhooks.values()].filter((w) => w.cuenta === clave).map((w) => ({ id: w.id, endpoint: w.endpoint, status: w.status, events: w.events, created_at: ahora() })) });
+    }
+    if (u.pathname === '/webhooks' && metodo === 'POST') {
+      const id = `wh-${webhooks.size + 1}`;
+      const secreto = `whsec_${Buffer.from(`secreto-de-${clave}-${id}`).toString('base64')}`;
+      webhooks.set(id, { id, endpoint: body?.endpoint, events: body?.events, status: 'enabled', signing_secret: secreto, cuenta: clave });
+      return json(201, { object: 'webhook', id, signing_secret: secreto });
+    }
+    const w = /^\/webhooks\/([^/]+)$/.exec(u.pathname);
+    if (w) {
+      const wh = webhooks.get(decodeURIComponent(w[1]));
+      if (!wh || wh.cuenta !== clave) return json(404, { statusCode: 404, name: 'not_found', message: 'Webhook not found' });
+      if (metodo === 'PATCH') { Object.assign(wh, body ?? {}); return json(200, { object: 'webhook', id: wh.id }); }
+      const { cuenta: _c, ...publico } = wh;
+      return json(200, { object: 'webhook', created_at: ahora(), ...publico });
     }
     if (u.pathname === '/emails' && metodo === 'POST') return json(200, { id: `em-${resend.length}` });
     return json(404, { message: 'sin mock' });
@@ -98,6 +128,15 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
 }) as typeof fetch;
 
 const PLATAFORMA = 9, NEGOCIO = 3, OTRO = 5;
+/** La clave de la cuenta de Resend PROPIA del negocio (4/11/2026): sin ella, su email no sale. */
+const CLAVE_NEGOCIO = 're_del_negocio';
+/** La persona pega su clave en el modal de MaKo (Integraciones → Resend): queda cifrada en SU fila, como la guarda el modal. */
+async function cuentaPropia(ws: number, valor = CLAVE_NEGOCIO): Promise<void> {
+  const { cifrarSecreto } = await import('../lib/credenciales');
+  db.credenciales = db.credenciales.filter((f) => !(Number(f.workspace_id) === ws && f.clave === 'RESEND_API_KEY'));
+  pg.db.credenciales = db.credenciales;
+  db.credenciales.push({ workspace_id: ws, clave: 'RESEND_API_KEY', valor_enc: cifrarSecreto(valor, ws, 'RESEND_API_KEY'), servicio: 'email', updated_by: 'prueba', updated_at: ahora() });
+}
 
 type Ctx = { ws: number; canal: 'http'; canalKey: string; alcance: 'ejecutar'; rol: 'admin'; actor: string };
 type Runner = {
@@ -181,54 +220,55 @@ async function escenarioDominio(): Promise<Record<string, unknown>> {
   return out;
 }
 
-// ── Las dos keys de Resend (4/11/2026): la que administra dominios y la que manda ───────────────────────────────────
-// El Cerebro: «no le subas el permiso a la clave que envía. Separalo». Se mira el `Authorization` de cada pedido a Resend.
+// ── Las keys de Resend (4/11/2026): cada negocio con la suya; la de administración de MaKo, sólo para el dominio de MaKo ──
+// Se mira el `Authorization` de cada pedido a Resend: de quién es cada pedido lo dice la clave que lo firmó.
 async function escenarioClaves(): Promise<Record<string, unknown>> {
   const { runWithWorkspace } = await import('../lib/workspace');
   const { runnerDe } = await import('../lib/api-mako/runners');
   const marketing = await import('../lib/email-marketing');
   const { sendEmail } = await import('../lib/resend');
   const { REMITENTE_MAKO } = await import('../lib/app-url');
-  const { estadoEmail } = await import('../lib/api-mako/areas/email.helpers');
   const conectar = runnerDe('conectar_dominio_email') as unknown as Runner;
   const verificar = runnerDe('verificar_dominio_envio') as unknown as Runner;
   const enNegocio = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  const enPlataforma = <T,>(fn: () => Promise<T>) => runWithWorkspace(PLATAFORMA, fn);
   const out: Record<string, unknown> = {};
-  const porRuta = () => ({
-    dominios: [...new Set(resend.filter((p) => p.path.startsWith('/domains')).map((p) => p.clave))],
-    envios: [...new Set(resend.filter((p) => p.path.startsWith('/emails')).map((p) => p.clave))],
-  });
+  const desde = (i: number) => resend.slice(i);
+  const clavesDe = (ps: Pedido[], pref: string) => [...new Set(ps.filter((p) => p.path.startsWith(pref)).map((p) => p.clave))];
 
   db.workspaces.push({ id: PLATAFORMA, nombre: 'MaKo', capa: 'superadmin', estado: 'activo' });
   db.workspaces.push({ id: NEGOCIO, nombre: 'Elevate', capa: 'completo', estado: 'activo' });
 
-  // 1) Sin la clave de administración: no se propone nada, no se le pide nada a Resend y no se escribe nada.
+  // 1) La plataforma sin la de administración: no se administra el dominio de MaKo, el error es de MaKo y nada sale a Resend.
   const admin = process.env.RESEND_ADMIN_API_KEY;
   delete process.env.RESEND_ADMIN_API_KEY;
-  out.sinClave = await enNegocio(() => conectar.preparar!({ dominio: 'elevate.com.mx' }, ctx(NEGOCIO)));
-  db.app_settings.push({ workspace_id: NEGOCIO, key: 'resend_domain', value: 'elevate.com.mx' }, { workspace_id: NEGOCIO, key: 'resend_domain_id', value: 'dom-elevate.com.mx' });
-  out.sinClaveVerificar = await enNegocio(() => verificar.preparar!({}, ctx(NEGOCIO)));
-  out.sinClaveEstado = (await enNegocio(() => estadoEmail())) as unknown as Record<string, unknown>;
-  db.app_settings = db.app_settings.filter((f) => !(Number(f.workspace_id) === NEGOCIO && String(f.key).startsWith('resend_domain')));
-  pg.db.app_settings = db.app_settings;
-  out.sinClaveSettings = db.app_settings.filter((f) => Number(f.workspace_id) === NEGOCIO).map((f) => f.key);
-  out.sinClavePedidos = resend.filter((p) => p.path.startsWith('/domains')).length;
+  let i = resend.length;
+  out.platSinClave = await enPlataforma(() => conectar.preparar!({ dominio: 'hola-mako.com' }, ctx(PLATAFORMA)));
+  out.platSinClavePedidos = desde(i).length;
   process.env.RESEND_ADMIN_API_KEY = admin;
 
-  // 2) Con ella: el alta, el seguimiento y la verificación van con la de administración.
+  // 2) Con ella: el dominio de MaKo, con la de administración.
+  i = resend.length;
+  const pp = await enPlataforma(() => conectar.preparar!({ dominio: 'hola-mako.com' }, ctx(PLATAFORMA)));
+  out.platConectar = await enPlataforma(() => conectar.ejecutar!(pp.payload as Record<string, unknown>, ctx(PLATAFORMA)));
+  out.clavesPlataforma = clavesDe(desde(i), '/');
+
+  // 3) El negocio con SU cuenta: el dominio, la verificación, el webhook y su email, con la suya. El aviso de MaKo, con la de MaKo.
+  await cuentaPropia(NEGOCIO);
+  i = resend.length;
   const prep = await enNegocio(() => conectar.preparar!({ dominio: 'elevate.com.mx' }, ctx(NEGOCIO)));
   out.conectar = await enNegocio(() => conectar.ejecutar!(prep.payload as Record<string, unknown>, ctx(NEGOCIO)));
   estadoDelDominio = 'verified';
   const pv = await enNegocio(() => verificar.preparar!({}, ctx(NEGOCIO)));
   out.verificar = await enNegocio(() => verificar.ejecutar!(pv.payload as Record<string, unknown>, ctx(NEGOCIO)));
-  out.conClaveEstado = (await enNegocio(() => estadoEmail())) as unknown as Record<string, unknown>;
-
-  // 3) Y lo que MANDA sigue con la suya: un broadcast del negocio y un aviso de MaKo.
   db.app_settings.push({ workspace_id: NEGOCIO, key: 'resend_from', value: 'Elevate <hola@elevate.com.mx>' });
   db.email_broadcasts.push({ id: 42, workspace_id: NEGOCIO, asunto: 'Hola {nombre}', preheader: '', cuerpo: 'Texto', segmento: 'activos', estado: 'borrador' });
   out.prueba = await enNegocio(() => marketing.enviarBroadcastPrueba(42, 'mauricio@personal.test'));
-  out.aviso = await runWithWorkspace(PLATAFORMA, () => sendEmail({ to: 'martin@prueba.test', from: REMITENTE_MAKO, subject: 'Aviso', html: '<p>Hola</p>', text: 'Hola' }));
-  out.claves = porRuta();
+  const delNegocio = desde(i);
+  i = resend.length;
+  out.aviso = await enNegocio(() => sendEmail({ to: 'martin@prueba.test', from: REMITENTE_MAKO, subject: 'Aviso', html: '<p>Hola</p>', text: 'Hola' }));
+  out.clavesNegocio = { administrar: [...new Set(delNegocio.filter((p) => !p.path.startsWith('/emails')).map((p) => p.clave))], envios: clavesDe(delNegocio, '/emails') };
+  out.clavesAviso = clavesDe(desde(i), '/emails');
   out.otros = otros;
   return out;
 }
@@ -565,10 +605,177 @@ async function escenarioTopes(): Promise<Record<string, unknown>> {
   return out;
 }
 
+// ── El camino ENTERO por la API, de «no tengo cuenta de Resend» a «listo» (4/11/2026) ──────────────────────────────────
+// Martín: «todo esto es súper importante que lo pueda hacer por API… si detecta que no tiene [Resend] conectado, que le vaya
+// guiando». Sólo llamadas a los runners de la API, en el orden que dice `siguiente`. Lo único que no es la API es pegar la
+// clave: eso lo hace la persona en el modal de MaKo (la API no recibe claves), y acá se simula como lo guarda el modal.
+async function escenarioCuenta(): Promise<Record<string, unknown>> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { runnerDe } = await import('../lib/api-mako/runners');
+  const marketing = await import('../lib/email-marketing');
+  const en = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  const r = (id: string) => runnerDe(id) as unknown as Runner;
+  const estado = async () => {
+    const x = await en(() => r('estado_email').leer!({}, ctx(NEGOCIO)));
+    return JSON.parse(typeof x === 'string' ? x : x.content) as Record<string, unknown>;
+  };
+  const pasoA = (e: Record<string, unknown>) => ({ paso: e.paso, siguiente: e.siguiente, link: e.link_conectar, que_hacer: e.que_hacer, instruccion: e.instruccion });
+  const correr = async (id: string, input: Record<string, unknown> = {}) => {
+    const p = await en(() => r(id).preparar!(input, ctx(NEGOCIO)));
+    if (!p.payload) return { preparar: p };
+    return { preparar: p, ejecutar: await en(() => r(id).ejecutar!(p.payload as Record<string, unknown>, ctx(NEGOCIO))) };
+  };
+  const out: Record<string, unknown> = {};
+  const camino: Array<Record<string, unknown>> = [];
+
+  db.workspaces.push({ id: PLATAFORMA, nombre: 'MaKo', capa: 'superadmin', estado: 'activo' });
+  db.workspaces.push({ id: NEGOCIO, nombre: 'Elevate', capa: 'completo', estado: 'activo' });
+  db.workspaces.push({ id: OTRO, nombre: 'Otro', capa: 'completo', estado: 'activo' });
+
+  // 0) Sin cuenta: la guía lo dice, con el link al modal; conectar el dominio guía igual, y no se le pide nada a Resend.
+  camino.push(pasoA(await estado()));
+  let i = resend.length;
+  out.conectarSinCuenta = (await correr('conectar_dominio_email', { dominio: 'elevate.com.mx' })).preparar;
+  out.remitenteSinCuenta = (await correr('fijar_remitente_email', { nombre: 'Mauricio', local: 'hola' })).preparar;
+  out.seguimientoSinCuenta = (await correr('conectar_seguimiento_email')).preparar;
+  out.pedidosSinCuenta = resend.length - i;
+  out.settingsSinCuenta = db.app_settings.filter((f) => Number(f.workspace_id) === NEGOCIO).map((f) => f.key);
+
+  // 1) Pega la de MaKo (una copia vieja): no es suya.
+  await cuentaPropia(NEGOCIO, 're_de_la_plataforma');
+  camino.push(pasoA(await estado()));
+
+  // 2) Pega una de sólo envío: la guía pide una «Full access», y conectar el dominio frena ANTES de proponer.
+  await cuentaPropia(NEGOCIO, CLAVE_SOLO_ENVIO);
+  camino.push(pasoA(await estado()));
+  out.conectarSoloEnvio = (await correr('conectar_dominio_email', { dominio: 'elevate.com.mx' })).preparar;
+
+  // 3) La suya, «Full access»: sin dominio → conectar_dominio_email (y con él, el webhook de SU cuenta).
+  await cuentaPropia(NEGOCIO);
+  camino.push(pasoA(await estado()));
+  i = resend.length;
+  out.conectar = await correr('conectar_dominio_email', { dominio: 'elevate.com.mx' });
+  out.webhooksCreados = [...webhooks.values()].map((w) => ({ endpoint: w.endpoint, events: w.events, cuenta: w.cuenta }));
+  out.clavesConectar = [...new Set(resend.slice(i).map((p) => p.clave))];
+  out.secretoGuardado = db.credenciales.filter((f) => Number(f.workspace_id) === NEGOCIO && f.clave === 'RESEND_WEBHOOK_SECRET_PROPIO').length;
+  camino.push(pasoA(await estado()));                    // dns_pendiente → verificar_dominio_envio
+  estadoDelDominio = 'verified';
+  out.verificar = await correr('verificar_dominio_envio');
+  // Sin el secreto guardado, la guía pide el seguimiento (un dominio conectado antes del 4/11): conectar_seguimiento_email.
+  const guardado = db.credenciales.filter((f) => Number(f.workspace_id) === NEGOCIO && f.clave === 'RESEND_WEBHOOK_SECRET_PROPIO');
+  db.credenciales = db.credenciales.filter((f) => !guardado.includes(f));
+  pg.db.credenciales = db.credenciales;
+  camino.push(pasoA(await estado()));                    // sin_seguimiento
+  out.seguimiento = await correr('conectar_seguimiento_email');
+  out.webhooksTrasSeguimiento = webhooks.size;            // reusó el que había: no creó otro
+  camino.push(pasoA(await estado()));                    // sin_remitente → fijar_remitente_email
+  out.remitente = await correr('fijar_remitente_email', { nombre: 'Mauricio', local: 'hola', responderA: 'mauricio@personal.test' });
+  camino.push(pasoA(await estado()));                    // envio_apagado → activar_envio_real_email (lo confirma la persona)
+  out.activarPrep = (await en(() => r('activar_envio_real_email').preparar!({ on: true }, ctx(NEGOCIO))));
+  // La persona confirma en MaKo: la pantalla de /mako/revisar corre el `ejecutar` de la propuesta.
+  out.activar = await en(() => r('activar_envio_real_email').ejecutar!({ on: true }, ctx(NEGOCIO)));
+  camino.push(pasoA(await estado()));                    // listo
+  out.camino = camino;
+
+  // 4) Su email sale con SU clave, desde su dominio.
+  db.email_broadcasts.push({ id: 43, workspace_id: NEGOCIO, asunto: 'Hola', preheader: '', cuerpo: 'Texto', segmento: 'activos', estado: 'borrador' });
+  i = resend.length;
+  out.prueba = await en(() => marketing.enviarBroadcastPrueba(43, 'mauricio@personal.test'));
+  out.envio = resend.slice(i).filter((p) => p.path === '/emails').map((p) => ({ clave: p.clave, from: p.body?.from }));
+
+  // 5) Sus eventos llegan por el webhook de SU cuenta, firmados con SU secreto, y tocan sólo SUS filas.
+  const secreto = String([...webhooks.values()][0]?.signing_secret ?? '');
+  const base = 'https://app.test/api/webhooks/resend';
+  db.nutricion_envios.push({ id: 9101, workspace_id: NEGOCIO, lead_id: 501, secuencia_id: null, proveedor_id: 'em-del-negocio', abierto_at: null, clic_at: null, rebotado_at: null, queja_at: null, estado: 'enviado' });
+  db.nutricion_envios.push({ id: 9102, workspace_id: OTRO, lead_id: 502, secuencia_id: null, proveedor_id: 'em-de-otro', abierto_at: null, clic_at: null, rebotado_at: null, queja_at: null, estado: 'enviado' });
+  db.leads.push({ id: 502, workspace_id: OTRO, nombre: 'Lead de otro', email: 'b@otro.test', estado_lead: 'abierto', email_opt_out: false, created_at: ahora() });
+  out.eventoSuyo = await eventoFirmado(secreto, `${base}?cuenta=${NEGOCIO}`, { type: 'email.opened', data: { email_id: 'em-del-negocio' } });
+  out.abiertoSuyo = db.nutricion_envios.find((f) => Number(f.id) === 9101)?.abierto_at != null;
+  out.eventoAjeno = await eventoFirmado(secreto, `${base}?cuenta=${NEGOCIO}`, { type: 'email.bounced', data: { email_id: 'em-de-otro', bounce: { type: 'Permanent' } } });
+  out.ajenoIntacto = { rebote: db.nutricion_envios.find((f) => Number(f.id) === 9102)?.rebotado_at ?? null, baja: db.leads.find((l) => Number(l.id) === 502)?.email_opt_out };
+  out.firmaDeOtro = await eventoFirmado(SECRETO_WEBHOOK, `${base}?cuenta=${NEGOCIO}`, { type: 'email.opened', data: { email_id: 'em-del-negocio' } });
+  out.suyoSinCuenta = await eventoFirmado(secreto, base, { type: 'email.opened', data: { email_id: 'em-del-negocio' } });
+  out.cuentaSinSecreto = await eventoFirmado(secreto, `${base}?cuenta=${OTRO}`, { type: 'email.opened', data: { email_id: 'em-de-otro' } });
+  out.cuentaMala = await eventoFirmado(secreto, `${base}?cuenta=abc`, { type: 'email.opened', data: { email_id: 'em-del-negocio' } });
+  // El secreto no sale nunca: ni en lo que contesta la API ni en lo que lee la persona.
+  out.secretoEnLaSalida = JSON.stringify({ camino, ...out }).includes(secreto.slice(6, 30));
+
+  // 6) Un dominio que vivía en OTRA cuenta (la de MaKo, antes del 4/11): la guía lo dice y manda a conectarlo de nuevo.
+  dominios.set('dom-viejo.com', { id: 'dom-viejo.com', name: 'viejo.com', status: 'verified', records: [], cuenta: 're_de_la_plataforma' });
+  db.app_settings = db.app_settings.filter((f) => !(Number(f.workspace_id) === NEGOCIO && String(f.key).startsWith('resend_domain')));
+  db.app_settings.push({ workspace_id: NEGOCIO, key: 'resend_domain', value: 'viejo.com' }, { workspace_id: NEGOCIO, key: 'resend_domain_id', value: 'dom-viejo.com' });
+  pg.db.app_settings = db.app_settings;
+  out.enOtraCuenta = pasoA(await estado());
+  return out;
+}
+
+async function eventoFirmado(secreto: string, url: string, evt: Record<string, unknown>): Promise<{ status: number; body: unknown }> {
+  const { createHmac } = await import('node:crypto');
+  const { POST } = await import('../app/api/webhooks/resend/route');
+  const raw = JSON.stringify({ created_at: ahora(), ...evt, data: { created_at: ahora(), ...(evt.data as object) } });
+  const id = `msg_${++eventoN}`;
+  const ts = String(Math.floor(Date.now() / 1000));
+  const llave = secreto.startsWith('whsec_') ? Buffer.from(secreto.slice(6), 'base64') : Buffer.from('');
+  const firma = createHmac('sha256', llave).update(`${id}.${ts}.${raw}`).digest('base64');
+  const req = new Request(url, { method: 'POST', body: raw, headers: { 'svix-id': id, 'svix-timestamp': ts, 'svix-signature': `v1,${firma}` } });
+  const res = await POST(req as never);
+  return { status: res.status, body: await res.json() };
+}
+
+// ── El ws1 deja de ser la fuente de la clave de correo de MaKo (4/11/2026) ───────────────────────────────────────────────
+// La hidratación del arranque, corrida de verdad contra la base de mentira. 'antes': la plataforma todavía no tiene su
+// fila (sigue la del ws1, como hasta hoy). 'despues': la mudanza corrió y Mauricio pegó la suya. 'caida': la lectura de la
+// plataforma falla: la del ws1 NO se toma (podría ser ya la de Mauricio).
+async function escenarioWs1(caso: 'antes' | 'despues' | 'caida'): Promise<Record<string, unknown>> {
+  const cred = await import('../lib/credenciales');
+  const { cuentaDeCorreo } = await import('../lib/email-cuenta');
+  const { runWithWorkspace, OWNER_WS } = await import('../lib/workspace');
+  const { sendEmail } = await import('../lib/resend');
+  const { REMITENTE_MAKO } = await import('../lib/app-url');
+  delete process.env.RESEND_API_KEY;                     // como en producción: la de MaKo sale de una fila, no de Vercel
+  db.workspaces.push({ id: PLATAFORMA, nombre: 'MaKo', capa: 'superadmin', estado: 'activo' });
+  db.workspaces.push({ id: OWNER_WS, nombre: 'Mauricio', capa: 'completo', estado: 'activo' });
+  const fila = (ws: number, clave: string, valor: string) => db.credenciales.push({ workspace_id: ws, clave, valor_enc: cred.cifrarSecreto(valor, ws, clave), servicio: 'email', updated_by: 'prueba', updated_at: ahora() });
+  if (caso === 'despues') { fila(PLATAFORMA, 'RESEND_API_KEY', 're_de_la_plataforma'); fila(OWNER_WS, 'RESEND_API_KEY', 're_de_mauricio'); }
+  else fila(OWNER_WS, 'RESEND_API_KEY', 're_de_mako_en_el_ws1');
+  db.app_settings.push({ workspace_id: OWNER_WS, key: 'resend_domain', value: 'mauricio.com' }, { workspace_id: OWNER_WS, key: 'resend_from', value: 'Mauricio <hola@mauricio.com>' });
+  if (caso === 'caida') {
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (e: RequestInfo | URL, init?: RequestInit) => {
+      const u = new URL(typeof e === 'string' ? e : e instanceof URL ? e.href : (e as Request).url);
+      if (u.host === 'supa.test' && u.pathname.endsWith('/credenciales') && u.search.includes(`workspace_id=eq.${PLATAFORMA}`)) return json(500, { message: 'base caída' });
+      return real(e, init);
+    }) as typeof fetch;
+  }
+  await cred.credencialesListas();
+  const out: Record<string, unknown> = {
+    entorno: process.env.RESEND_API_KEY ?? null,
+    fuenteCorreo: await cred.wsDelEntorno('RESEND_API_KEY'),
+    fuenteIA: await cred.wsDelEntorno('GEMINI_API_KEY'),
+    fuenteMeta: await cred.wsDelEntorno('META_ACCESS_TOKEN'),
+    cuentaWs1: (await cuentaDeCorreo(OWNER_WS)).tipo,
+    filasWs1: db.credenciales.filter((f) => Number(f.workspace_id) === OWNER_WS).map((f) => f.clave),
+  };
+  if (caso === 'despues') {
+    const i = resend.length;
+    out.aviso = await runWithWorkspace(OWNER_WS, () => sendEmail({ to: 'martin@prueba.test', from: REMITENTE_MAKO, subject: 'Aviso', html: '<p>Hola</p>', text: 'Hola' }));
+    out.claveAviso = resend.slice(i).map((p) => p.clave);
+    const j = resend.length;
+    out.suyo = await runWithWorkspace(OWNER_WS, () => sendEmail({ to: 'lead@cliente.test', subject: 'Hola', html: '<p>Hola</p>', text: 'Hola' }));
+    out.claveSuyo = resend.slice(j).map((p) => p.clave);
+  }
+  return out;
+}
+
 async function main() {
-  const escenarios: Record<string, () => Promise<Record<string, unknown>>> = { dominio: escenarioDominio, claves: escenarioClaves, lote: escenarioLote, secuencia: escenarioSecuencia, columnas: escenarioColumnas, topes: escenarioTopes };
+  const escenarios: Record<string, () => Promise<Record<string, unknown>>> = {
+    dominio: escenarioDominio, claves: escenarioClaves, lote: escenarioLote, secuencia: escenarioSecuencia, columnas: escenarioColumnas, topes: escenarioTopes,
+    cuenta: escenarioCuenta, 'ws1-antes': () => escenarioWs1('antes'), 'ws1-despues': () => escenarioWs1('despues'), 'ws1-caida': () => escenarioWs1('caida'),
+  };
   const fn = escenarios[ESC];
   if (!fn) throw new Error(`escenario desconocido: ${ESC}`);
+  // Desde el 4/11/2026 el email de un negocio sale SÓLO con su cuenta de Resend: la campaña de Mauricio la tiene.
+  if (['dominio', 'lote', 'secuencia', 'columnas', 'topes'].includes(ESC)) await cuentaPropia(NEGOCIO);
   const out = await fn();
   out.otros = otros;
   out.sinMock = [...pg.sinMock];

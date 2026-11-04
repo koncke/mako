@@ -67,6 +67,8 @@ import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { LogoRed } from './LogoRed';
+import { BotonRecorrido, Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
+import { PASOS_SPY, RECORRIDO_SPY } from './recorrido-spy';
 import type { Sugerido } from '@/lib/spy-sugeridos';
 import {
   ORDENES, canalesDe, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
@@ -191,6 +193,8 @@ button.spy-campo:hover{color:var(--dim)}
 
 /* --- Volver a todos: un botón de verdad, con la flecha y las caras de los demás (4/11/2026). --- */
 .spy-volver{display:flex;align-items:center;gap:10px;min-width:0;margin:6px 0 18px;flex-wrap:wrap}
+.spy-volver__grupo{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap}
+.spy-volver__ayuda{margin-left:auto;display:flex}
 .spy-volver__atras{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 8px 0 10px;border:0;border-radius:99px;
   background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);color:var(--ink);font:inherit;font-size:var(--fs-sm);
   font-weight:600;cursor:pointer;transition:box-shadow .15s ease,transform .15s ease}
@@ -888,6 +892,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [pestana, setPestana] = useState<Pestana>('contenido');
   /** La pieza abierta en su detalle, con las de su gráfico (para su puesto). */
   const [abierta, setAbierta] = useState<{ p: PiezaVista; todas: readonly PiezaVista[] } | null>(null);
+  // El recorrido de lo nuevo (Martín, 4/11: «la animación que ya tenemos tipo tutorial»). Es el de la casa; sólo con una ficha abierta.
+  const recorrido = useRecorrido(RECORRIDO_SPY);
   /** La página que se mira en «Sus páginas»: la elige el desplegable o una cita de su funnel. */
   const [paginaElegida, setPaginaElegida] = useState<string | null>(null);
 
@@ -1419,7 +1425,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
           </div>
         </div>
         {identidad && <small className="spy-rango">{identidad}</small>}
-        <div className="spy-ficha__acciones">
+        <div className="spy-ficha__acciones" data-recorrido="spy-acciones">
           {/* «Revisar ahora» se fue (Martín, 4/11): se revisa una vez, solo, y lo nuevo entra en segundo plano. */}
           <Dropdown
             ariaLabel="Más acciones"
@@ -1527,6 +1533,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                  «a todos tus competidores» sin texto de más—, y al lado el cambio directo a otro. Copiado del «←» de la cabecera de un
                  ítem en Shopify y Linear: la vuelta es lo primero de la izquierda. ── */}
             <nav className="spy-volver" aria-label="Dónde estás">
+              <span className="spy-volver__grupo" data-recorrido="spy-volver">
               <button type="button" className="spy-volver__atras" onClick={() => irA(null)}>
                 <Flecha a="izquierda" size={18} />
                 <span>Competidores</span>
@@ -1554,6 +1561,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                   buttonStyle={{ height: 40, borderRadius: 99, padding: '0 14px', fontSize: 'var(--fs-sm)', fontWeight: 600, maxWidth: 320 }}
                 />
               )}
+              </span>
+              {/* El recorrido de lo nuevo (recorrido-spy.ts): sale solo la primera vez, y se vuelve a ver con el «?». */}
+              <span className="spy-volver__ayuda"><BotonRecorrido onClick={recorrido.reabrir} objetivo="spy-recorrido" /></span>
             </nav>
 
             <OtrasRedes
@@ -1573,7 +1583,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
             {pestanas.length > 1 && (
               <nav className="spy-pestanas" role="tablist">
                 {pestanas.map((p) => (
-                  <button key={p.key} type="button" role="tab" aria-selected={activa === p.key} className="spy-pestana" data-activa={activa === p.key} onClick={() => setPestana(p.key)}>
+                  <button key={p.key} type="button" role="tab" aria-selected={activa === p.key} className="spy-pestana" data-activa={activa === p.key} data-recorrido={`spy-tab-${p.key}`} onClick={() => setPestana(p.key)}>
                     {p.rotulo}{p.n != null && <span className="spy-badge">{p.n}</span>}
                   </button>
                 ))}
@@ -1720,6 +1730,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
         )}
       </div>
 
+      {/* Sólo con una ficha abierta: en la lista no hay qué señalar. Un paso sin su objetivo en pantalla se saltea solo. */}
+      {c && <Recorrido id={RECORRIDO_SPY} pasos={PASOS_SPY} abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />}
       {abierta && c && (
         <DetallePieza
           p={piezas.find((x) => x.id === abierta.p.id) ?? abierta.p} nombre={c.nombre} todas={abierta.todas}

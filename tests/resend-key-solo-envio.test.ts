@@ -33,10 +33,11 @@ const hijo = (deMako: boolean): { crear: { ok: boolean; error?: string }; verifi
   const codigo = `
 import { mock } from 'node:test';
 const real = (m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'default' && k !== 'module.exports'));
-const cred = await import(${url('lib/credenciales.ts')});
-// 4/11/2026: los dominios van con la key de ADMINISTRACIÓN (lib/resend-dominios.ts) salvo un negocio con key propia (Opción B).
+const cuenta = await import(${url('lib/email-cuenta.ts')});
+// 4/11/2026 (cada negocio con su cuenta de Resend): un negocio administra con la SUYA; la plataforma, con la de ADMINISTRACIÓN
+// de MaKo (lib/resend-dominios.ts). De quién es la cuenta lo dice lib/email-cuenta.ts.
 process.env.RESEND_ADMIN_API_KEY = 're_admin';
-mock.module(${url('lib/credenciales.ts')}, { exports: { ...real(cred), credWs: async () => 're_k', envCred: async () => 're_k', credDelClienteEstricta: async () => 're_k', esDeLaPlataforma: async () => ${deMako} } });
+mock.module(${url('lib/email-cuenta.ts')}, { exports: { ...real(cuenta), cuentaDeCorreo: async () => (${deMako} ? { tipo: 'plataforma', ws: 9, key: 're_k' } : { tipo: 'propia', ws: 3, key: 're_k' }) } });
 globalThis.fetch = async () => new Response(JSON.stringify(${JSON.stringify(RESTRINGIDA)}), { status: 401, headers: { 'Content-Type': 'application/json' } });
 const { runWithWorkspace } = await import(${url('lib/workspace.ts')});
 const { createResendDomain, verifyResendDomain } = await import(${url('lib/resend.ts')});

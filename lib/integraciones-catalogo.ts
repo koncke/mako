@@ -92,6 +92,9 @@ export const DEFS: Def[] = [
   // no funciona — es el error clásico que la skill add-provider-integration advierte.
   // Los avisos de la app de iPhone (lib/push-apns.ts), de la plataforma como GitHub: la app es una sola. El formulario y su tutorial, en lib/metodo-catalogo.ts.
   { key: 'apple-push', nombre: 'Apple Push', categoria: 'Desarrollo', descripcion: 'Los avisos de la app de iPhone. Sin esto, los iPhones no reciben notificaciones.', envs: ['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_P8'], soloPlataforma: true },
+  // El vigía de las aprobaciones (lib/vigia-aprobaciones-server.ts): sólo LEE en qué está cada app en su tienda. De la plataforma, como Apple Push.
+  { key: 'app-store-connect', nombre: 'App Store Connect', categoria: 'Desarrollo', descripcion: 'Avisa si Apple aprueba, rechaza o pide algo de la app de iPhone.', envs: ['ASC_ISSUER_ID', 'ASC_KEY_ID', 'ASC_P8'], soloPlataforma: true },
+  { key: 'tiendas-google', nombre: 'Google Play y Chrome Web Store', categoria: 'Desarrollo', descripcion: 'Avisa si Google aprueba, rechaza o pide algo de la app de Android y de la extensión.', envs: ['TIENDAS_GOOGLE_CUENTA_SERVICIO', 'CWS_PUBLISHER_ID'], soloPlataforma: true },
   { key: 'github', nombre: 'GitHub', categoria: 'Desarrollo', descripcion: 'Lee los commits de main para proponer cerrar las tareas de desarrollo ya hechas.', envs: ['GITHUB_TOKEN', 'GITHUB_REPO'], soloPlataforma: true },
   { key: 'fathom', nombre: 'Fathom', categoria: 'Reuniones', descripcion: 'Grabaciones y transcripciones de llamadas (Closing).', envs: ['FATHOM_API_KEY'] },
   // Los otros grabadores de reuniones (26/10/2026, Martín: «implementa otras integraciones de grabadores de reuniones,

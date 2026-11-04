@@ -22,7 +22,10 @@ export function esKeySoloEnvio(body: unknown): boolean {
 export const KEY_SOLO_ENVIO_DE_MAKO = `La key de correo de MaKo sólo puede enviar: no puede dar de alta ni verificar tu dominio. Es un problema de MaKo, no tuyo: escríbenos a ${EMAIL_MAKO}.`;
 
 /** La key del negocio no administra dominios: cuál crear y dónde pegarla. */
-export const KEY_SOLO_ENVIO_TUYA = 'Tu key de Resend sólo puede enviar. Crea una con «Full access» en resend.com/api-keys y pégala en Integraciones → Email.';
+export const KEY_SOLO_ENVIO_TUYA = 'Tu clave de Resend sólo puede enviar. Crea una con «Full access» en resend.com/api-keys y pégala en Integraciones → Resend.';
+
+/** Resend no reconoce la clave del negocio (la borró, o se copió mal): cuál crear y dónde pegarla. */
+export const CLAVE_INVALIDA_TUYA = 'Resend dice que tu clave no es válida (la borraste o se copió mal). Crea una con «Full access» en resend.com/api-keys y pégala en Integraciones → Resend.';
 
 // =============================================================================
 // La clave que ADMINISTRA dominios y el tope de dominios del plan (4/11/2026)
@@ -32,13 +35,13 @@ export const KEY_SOLO_ENVIO_TUYA = 'Tu key de Resend sólo puede enviar. Crea un
 // ANTES de crear nada, y el texto dice de quién es el problema.
 
 /** Falta la clave de administración de MaKo: no es de la persona, y se lo decimos así. */
-export const SIN_CLAVE_DE_DOMINIOS = `MaKo todavía no puede dar de alta ni verificar dominios de correo: le falta su clave para administrarlos. Es un problema de MaKo, no tuyo: escríbenos a ${EMAIL_MAKO}.`;
+export const SIN_CLAVE_DE_DOMINIOS = `MaKo todavía no puede dar de alta ni verificar su propio dominio de correo: le falta su clave para administrarlo. Es un problema de MaKo: escríbenos a ${EMAIL_MAKO}.`;
 
 /** La cuenta de MaKo llegó al tope de dominios de su plan. No dice nada del dominio de la persona: no se llegó a mirar. */
 export const TOPE_DOMINIOS_DE_MAKO = `La cuenta de correo de MaKo llegó al tope de dominios de su plan, así que no se pudo dar de alta el tuyo. No es por tu dominio: es un problema de MaKo. Escríbenos a ${EMAIL_MAKO}.`;
 
 /** La cuenta de Resend del negocio llegó al tope de dominios de su plan. */
-export const TOPE_DOMINIOS_TUYO = 'Tu cuenta de Resend llegó al tope de dominios de su plan. No es por tu dominio: sube el plan en resend.com o borra un dominio que no uses.';
+export const TOPE_DOMINIOS_TUYO = 'Tu cuenta de Resend llegó al tope de dominios de su plan (el gratis trae pocos). No es por tu dominio: en resend.com borra uno que no uses, o sube el plan.';
 
 // Los errores tipados que NO son el tope: con éstos, el texto no se lee (un 401 de key que dice «domain» no es un tope).
 const NO_ES_TOPE = new Set(['restricted_api_key', 'invalid_api_key', 'missing_api_key', 'not_found', 'invalid_region', 'method_not_allowed']);
