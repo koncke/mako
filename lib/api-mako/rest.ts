@@ -336,6 +336,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/email/estado', 'estado_email'],
   ['GET', '/email/etapas', 'listar_etapas_email'],
   ['GET', '/email/kpis', 'kpis_email'],
+  // El Newsletter (29/10/2026): una edición es un broadcast; probarla, programarla y enviarla van por /email/broadcasts/{id}.
+  ['GET', '/email/newsletter', 'ver_newsletter'],
+  ['PATCH', '/email/newsletter', 'configurar_newsletter'],
+  ['POST', '/email/newsletter/ediciones', 'crear_edicion_newsletter'],
   ['GET', '/email/secuencias', 'listar_secuencias_email'],
   ['POST', '/email/secuencias', 'crear_secuencia_email'],
   ['GET', '/email/secuencias/{id}', 'ficha_secuencia_email'],

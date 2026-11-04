@@ -178,8 +178,14 @@ export function verifyUnsubscribeToken(leadId: number, token: string): boolean {
   const b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
-export function buildUnsubscribeUrl(leadId: number): string {
-  return `${APP_BASE_URL}/api/email/unsubscribe?lead=${leadId}&t=${unsubscribeToken(leadId)}`;
+/**
+ * El link de baja. Con `broadcastId`, la baja queda atribuida a ese envío (`email_broadcast_envios.baja_at`: las bajas de
+ * cada edición del newsletter). El `b` no va firmado y no hace falta: el token es del LEAD, y con un `b` cambiado sólo se
+ * estampa la fila de ese mismo lead en otro envío, si la tiene.
+ */
+export function buildUnsubscribeUrl(leadId: number, broadcastId?: number | null): string {
+  const b = broadcastId != null && Number.isSafeInteger(broadcastId) && broadcastId > 0 ? `&b=${broadcastId}` : '';
+  return `${APP_BASE_URL}/api/email/unsubscribe?lead=${leadId}&t=${unsubscribeToken(leadId)}${b}`;
 }
 
 // ── La baja de los correos de AVANCE de los tickets (4/11/2026) ──────────────
