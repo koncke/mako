@@ -206,4 +206,29 @@ export const BITACORA: Hito[] = [
       '⚠️ Sin hacer: nada verifica solo que producción sirva el commit de `origin/main`. Hoy son tres pasos a mano y hay que acordarse',
     ],
   },
+  // ── noviembre: las etiquetas rescate/* rearmadas desde la nube ────────────
+  {
+    fecha: '4 nov', hora: '06:45', chat: 'Rescate de ramas (nube)', sesion: 'cli_109047b0-8d03-5975-8d5a-3718ed2b31fe', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Subir lo que quedó sólo en la PC',
+    pedido: 'haz todo el resto, como los commits sin subir',
+    puntos: [
+      'Llegó con el brief de la sesión que subió las once etiquetas `rescate/<rama>`: cada una a su `punta/<rama>`, de la más chica a la más grande, sin juntarlas, sin aplicar migraciones y con `replica-editable-2810` al final.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '08:20', chat: 'Rescate de ramas (nube)', sesion: 'cli_109047b0-8d03-5975-8d5a-3718ed2b31fe', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las once etiquetas de rescate, una por una: nueve a su punta, una descartada y una anotada',
+    puntos: [
+      'El estado de cada una, con su commit en main o por qué no, está en docs/relevo/nube-ramas.md.',
+      '`crm-bajas-3010` se descartó: traía un pendiente que main ya había cerrado. `motion-imagen-2610` queda anotada: Motion está suspendido y no está en main.',
+      'Al rearmar, dos reglas que main sumó después dieron rojo sin un solo choque (la ruta REST de las operaciones HTTP y la lista de cajas de chat). Se arreglaron en el Newsletter.',
+      'La cosecha, en docs/hallazgos-infra.md: el clon de la nube es superficial, el node de la nube es el 22, el índice se resuelve contra el padre del commit y el autor del último commit es el del deploy.',
+    ],
+    archivos: [
+      'docs/relevo/nube-ramas.md — una línea por etiqueta',
+      'docs/hallazgos-infra.md → «Rearmar etiquetas rescate/* desde la nube»',
+    ],
+  },
 ];
