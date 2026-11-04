@@ -17,7 +17,7 @@
 // que enlaza. Va AL FINAL de la pestaña y no tiene nada debajo.
 // =============================================================================
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CargandoMako } from '@/app/_ui/CargandoMako';
 import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
@@ -42,7 +42,9 @@ const CSS = `
 .spy-navegador__cuerpo{position:relative;height:min(720px,72vh);background:#fff}
 .spy-navegador__cuerpo iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
 .spy-navegador__carga{position:absolute;inset:0;display:grid;place-items:center;background:var(--surface)}
-.spy-navegador__sin{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:28px 24px;color:var(--dim);font-size:var(--fs-md)}
+.spy-navegador__sin{display:grid;place-items:center;min-height:220px;padding:28px 24px}
+.spy-navegador__abrir{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 22px;border-radius:99px;background:var(--ink);color:var(--bg);font-weight:600;text-decoration:none}
+.spy-navegador__abrir:hover{opacity:.9}
 @media (max-width:760px){
   .spy-navegador__puntos{display:none}
   .spy-navegador__cuerpo{height:min(560px,70vh)}
@@ -60,7 +62,8 @@ export function nombreDePagina(url: string): string {
   }
 }
 
-export function SusPaginas({ enlaces, titulos, elegida, onElegir, conVistaPrevia }: {
+export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, conVistaPrevia }: {
+  competidorId: number;
   /** Sus páginas: su web primero y las que enlaza. */
   enlaces: readonly string[];
   /** El título de cada página que se leyó (por url). */
@@ -76,6 +79,26 @@ export function SusPaginas({ enlaces, titulos, elegida, onElegir, conVistaPrevia
   const [cargo, setCargo] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- una página nueva vuelve a mostrar la carga
   useEffect(() => { setCargo(false); }, [url]);
+  // ⚠️ SI LA PÁGINA NO DEJA LEERLA, NO SE DIBUJA EL ERROR (4/11/2026: la captura de Martín decía «La página respondió 403: está
+  // bloqueando la lectura automática»). La ruta del iframe dibuja su error ADENTRO del iframe y desde acá no se ve: se pregunta
+  // antes (/api/competitor-spy/pagina, la misma lectura de siempre). Si abre, el iframe; si no, «Abrir» en el navegador de la
+  // persona. Mientras pregunta, la carga de la casa. Una vez por página en esta visita.
+  const [abre, setAbre] = useState<Record<string, 'abierta' | 'no-pudo'>>({});
+  const preguntadas = useRef(new Set<string>());
+  useEffect(() => {
+    if (!conVistaPrevia || !url || preguntadas.current.has(url)) return;
+    preguntadas.current.add(url);
+    fetch('/api/competitor-spy/pagina', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: competidorId, url }),
+      signal: AbortSignal.timeout(35_000),
+    })
+      .then((r) => r.json())
+      .then((j: { estado?: string } | null) => (j?.estado === 'abierta' ? 'abierta' as const : 'no-pudo' as const))
+      .catch(() => 'no-pudo' as const)
+      .then((e) => setAbre((m) => ({ ...m, [url]: e })));
+  }, [conVistaPrevia, url, competidorId]);
+  const estado = url ? abre[url] : undefined;
+  const conAbrirGrande = !conVistaPrevia || estado === 'no-pudo';
   const opciones = useMemo(() => enlaces.map((u) => ({ value: u, label: titulos.get(u) ? `${titulos.get(u)} · ${nombreDePagina(u)}` : nombreDePagina(u) })), [enlaces, titulos]);
   if (!url) return null;
 
@@ -103,10 +126,16 @@ export function SusPaginas({ enlaces, titulos, elegida, onElegir, conVistaPrevia
           <span className="spy-navegador__acciones">
             {/* ⚠️ El parámetro es `?analizar=`, el que el Web Generator entiende (`derechaDeQuery`, app/web-generator/panel-reglas.ts). */}
             <a href={`/web-generator?analizar=${encodeURIComponent(url)}`} className="spy-boton">Copiar su sitio</a>
-            <a href={url} target="_blank" rel="noreferrer noopener" className="spy-boton">Abrir</a>
+            {!conAbrirGrande && <a href={url} target="_blank" rel="noreferrer noopener" className="spy-boton">Abrir</a>}
           </span>
         </div>
-        {conVistaPrevia ? (
+        {conAbrirGrande ? (
+          <div className="spy-navegador__sin">
+            <a href={url} target="_blank" rel="noreferrer noopener" className="spy-navegador__abrir"><Icon name="web" size={16} />Abrir</a>
+          </div>
+        ) : !estado ? (
+          <div className="spy-navegador__cuerpo"><div className="spy-navegador__carga"><CargandoMako que="su página" alto={240} size={56} /></div></div>
+        ) : (
           <div className="spy-navegador__cuerpo">
             <iframe
               key={url}
@@ -119,10 +148,6 @@ export function SusPaginas({ enlaces, titulos, elegida, onElegir, conVistaPrevia
               onLoad={() => setCargo(true)}
             />
             {!cargo && <div className="spy-navegador__carga"><CargandoMako que="su página" alto={240} size={56} /></div>}
-          </div>
-        ) : (
-          <div className="spy-navegador__sin">
-            <p style={{ margin: 0 }}>Ábrela para verla entera.</p>
           </div>
         )}
       </div>

@@ -1718,7 +1718,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                 {estaLeyendo && !susPaginas.length
                   ? <Esqueleto leyendo />
                   : (
-                    <SusPaginas
+                    <SusPaginas competidorId={c.id}
                       enlaces={susPaginas} titulos={titulosDePaginas} elegida={paginaElegida}
                       onElegir={setPaginaElegida} conVistaPrevia={conVistaPrevia}
                     />

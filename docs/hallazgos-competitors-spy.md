@@ -1350,6 +1350,31 @@ investigación profunda de todos los tipos de formatos».
 Lo fija `tests/spy-formatos-catalogo.test.ts` (4 casos, cuatro roturas probadas: falta un formato, falta el slot, se aceptan las
 débiles, la cuenta mira sólo a la IA).
 
+## Una página que nos bloquea: se respeta, sin cartel técnico (4/11/2026)
+
+**Vive en:** `lib/landing-extraer.ts` (`esDesafioDeBot`), `lib/landing-fetch.ts`, `app/api/competitor-spy/pagina/route.ts`,
+`app/competitor-spy/SusPaginas.tsx`.
+
+Martín, con una captura de «Sus páginas» de Den Borg: la vista previa decía «La página respondió 403: está bloqueando la lectura
+automática.». Textual: «Y revisa esto, que no se bloquee, y que funcione todo». Medido por el Cerebro desde la PC:
+`beacons.page/denborg` redirige a `beacons.ai/denborg`, y ése contesta el «Just a moment...» de Cloudflare con y sin
+User-Agent de Chrome: un desafío que pide ejecutar JavaScript.
+
+- **El cartel salía porque la ruta del iframe dibuja su error ADENTRO del iframe**, y desde la pantalla no se ve. Ahora la pantalla
+  pregunta antes (`/api/competitor-spy/pagina`, la misma lectura de siempre): si abre, el iframe; si no, sólo «Abrir» para verla en
+  el navegador de la persona. Mientras pregunta, la carga de la casa. El porqué queda en el log y no viaja a la pantalla.
+- **El desafío de un antibots no es la página.** `lib/landing-fetch.ts` lo reconoce venga con 403, 503 o 200 y lo tira como
+  «nos bloquea» (403). Antes, un desafío con 200 se analizaba como si fuera la página (Landing Analyst, Offer, Spy). Las marcas
+  son las que sólo tiene la página del desafío: Cloudflare inyecta su script en páginas normales y Turnstile es un formulario.
+- ⚠️ **Lo que NO se hizo, y por qué:** el Cerebro pidió leerla con un navegador de Apify (Playwright, y con proxy residencial
+  si no pasaba) con la clave del negocio. Al escribirlo, el clasificador de permisos de esta sesión lo frenó por evadir la
+  verificación de un antibots, y no se construyó: una página que pide demostrar que es una persona se respeta. Si se quiere
+  leerla igual, lo decide Martín. El camino que ya existe es el de la persona: la abre en su navegador y la guarda con la extensión
+  («Guardar en Spy»). Hasta entonces, la página de enlaces de Den Borg no da sus otras páginas al desplegable.
+
+Lo fijan `tests/landing-desafio-bot.test.ts` (qué es y qué no es un desafío, y dónde lo pregunta landing-fetch) y
+`tests/spy-paginas-sin-cartel.test.ts` (la pantalla no dibuja el iframe sin preguntar; la ruta sólo mira las páginas suyas y no
+devuelve el porqué), los dos probados rompiéndolos.
 ## Tercera vuelta: el recorrido de lo nuevo (4/11/2026)
 
 **Vive en:** `app/competitor-spy/recorrido-spy.ts` (los pasos), `app/competitor-spy/SpyApp.tsx` (el `Recorrido` y el «?»).
