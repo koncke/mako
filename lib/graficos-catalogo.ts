@@ -33,6 +33,7 @@ import {
   type Area, type ClaseDim, type Dimension, type Formato, type Fuente, type Metrica,
 } from './graficos-constructores';
 import { FUENTES_EXTRA } from './graficos-fuentes-extra';
+import { DIAS_SEMANA, FRANJAS_HORA } from './visitas-momento';
 import { COLORES_ATRASO, TRAMOS_ATRASO } from './graficos-datos-puro';
 import { atarFunnels, esPiezaGeneral, funnelsDeBloque, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from './general-piezas';
 import { sanearPropuesta, type PropuestaExperimento } from './experimentos-catalogo';
@@ -145,7 +146,10 @@ const FUENTES_BASE: readonly Fuente[] = [
     id: 'visitas', nombre: 'Visitas a la landing', area: 'Marketing',
     descripcion: 'Cada visita a tus páginas con el Pixel de MaKo: de dónde vino y a qué página.',
     fechas: [{ id: 'fecha', nombre: 'Fecha' }],
-    dimensiones: [...TIEMPO, cat('pagina', 'Página'), cat('origen', 'De dónde vino'), cat('prueba', 'Variante')],
+    // `dia_semana` y `franja` (4/11/2026, la hoja Landing copiada de Corbel): cuándo entra la gente, en la zona del negocio y con
+    // su orden fijo (lib/visitas-momento.ts). Un día o una franja sin visitas sale en cero: la franja vacía es un dato.
+    dimensiones: [...TIEMPO, cat('pagina', 'Página'), cat('origen', 'De dónde vino'), cat('prueba', 'Variante'),
+      { ...cat('dia_semana', 'Día de la semana'), valores: DIAS_SEMANA }, { ...cat('franja', 'Franja horaria'), valores: FRANJAS_HORA }],
     metricas: [m('visitas', 'Visitas'), dist('visitantes', 'Visitantes')],
   },
   {
@@ -1328,7 +1332,9 @@ export type Hoja = {
 //   meses y `deben`).
 // · 'comercial' (4/11/2026, la copia de Selvar): del Dashboard, con las piezas de su plantilla y las llamadas de venta de hoy.
 // · 'marketing' (4/11/2026, la copia de Kestrel): del Dashboard, con las doce piezas de su plantilla (nada aparte).
-export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing'] as const;
+// · 'landing' (4/11/2026, la copia de Corbel): del Dashboard, con diez de las trece piezas de su plantilla (el mapa de calor, los
+//   clics y las grabaciones quedan en la grilla: Corbel no tiene dónde dibujarlos).
+export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing'] as const;
 export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;

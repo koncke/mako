@@ -1,6 +1,23 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~19:15 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~20:25 UTC)
+
+- **Landing está en producción.** Entró a main a las 20:11 (`cbe8c2f6d`, la punta `dash-landing` tal cual, con su veredicto: 7.035 tests y
+  el tsc entero); el deploy promovido de las 20:11 la contiene. El primer veredicto dio un rojo de verdad: la guarda del voseo encontró
+  «acá» en los tres vacíos de la hoja, y se cambió por «aquí» antes de subir.
+- **Lo próximo es Chat Analyst (la copia de Parley).** «Instagram y redes», que va antes en la tabla, no tiene plantilla en el código: queda
+  para cuando la tenga.
+
+### Lo de las ~20:00 UTC
+
+- **Landing (la copia de Corbel) va en `punta/dash-landing`**: la sección de abajo. Es la novena hoja copiada. Suma dos dimensiones a la
+  fuente `visitas` (el día de la semana y la franja horaria, con la zona del negocio) para el «Cuándo entran» de Corbel.
+- **De paso, un arreglo en Comercial (en producción):** tres reglas de su hoja de estilos no aplicaban nunca (las llamadas que ya pasaron
+  no se apagaban y las filas que se tocan perdían su margen). Las armaba mal el mismo armador que se usa para cada copia: una clase pegada a
+  otra (`.fila.is-past`) no llevaba el prefijo. Está en `docs/hallazgos-templates-dashboard.md` §22.
+- **La nota de que Marketing está en producción** entró a main a las 19:31 (`a8ac06e62`).
+
+### Lo de las ~19:15 UTC
 
 - **Marketing está en producción.** Entró a main a las 19:02 (`445a59f64`, la mezcla de `punta/dash-marketing` con `f9b806acc`); el deploy
   promovido de las 19:06 (`445a59f64`) la contiene. El primer veredicto dio tres rojos de tests que usaban de EJEMPLO piezas que la
@@ -54,6 +71,65 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## Landing: la novena hoja copiada (la de Corbel), con «¿hasta dónde bajan y dónde hacen clic?» (punta `dash-landing`, 4/11/2026)
+
+Las referencias de Landing eran dos (Corbel · Kestrel, `docs/templates-dashboard-propuesta.md` §7.3); ésta es **Corbel**, la página
+«Dashboard» de Corbel Supply Co.: cuatro números de colores, un medidor, columnas por mes, una grilla de horarios y un anillo.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «Landing»** con su miniatura de verdad (la plantilla vieja no se ofrecía desde el mediodía).
+- **Arriba:** el saludo y, donde Corbel dice «1,290 live now», **las visitas de hoy** (el Pixel no cuenta presencia: no se inventa un «en
+  vivo»). Debajo, el período, una frase de un renglón («Entraron 1,341 visitas de 1,059 personas, 12% más que el período anterior»),
+  «Ver la grilla» y «Abrir tus páginas».
+- **Los cuatro números de Corbel**, con su cambio y su dibujo chico: **Visitas** (las últimas tres columnas), **Llegan a la mitad** (su
+  línea; el cambio en puntos), **Llegan al final** (el anillo: de los que llegan a la mitad, cuántos siguen hasta el final) y **Tocan un
+  botón** (sus barras de los últimos diez días). Cada uno con su link: tus páginas, la grilla (el embudo y los clics) o el diagnóstico.
+- **El medidor** («Sales performance»): el **puntaje del diagnóstico** de tus páginas, su veredicto en palabras (Bien armada · Se puede
+  mejorar · Hay que arreglarla) y el porqué («La más floja es /vsl (64 de 100); la mejor, /clase-gratis (81)»). Sin diagnóstico, lo dice y
+  lleva a analizar la página.
+- **Las columnas** («Revenue»): las visitas (o las personas: el selector cambia de verdad) de los últimos doce días del período, la de hoy
+  en negro, el promedio punteado y la burbuja de hoy (con «en curso» en lugar del cambio: un día a medias contra uno entero mentiría).
+- **«Cuándo entran»** («Visits by time»): las visitas por franja (0 a 8, 8 a 12, 12 a 16 y 16 a 24 h) y día de la semana, en cinco tonos,
+  **con la hora del negocio**.
+- **«De dónde llegan»** («Total visits»): las visitas con su cambio y el reparto entre orígenes (los dos primeros y «Otros», que siempre
+  suman el total), con el anillo del primero. Tocar un origen abre lo de siempre de su pieza.
+
+**Lo que se copió de Corbel, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/landing-corbel/copia.html`) sale de lo medido del demo: `valores.json`, las capturas, los
+  estados de los controles y el INFORME. **Nada del código de la tienda, ni el cartel «BUY THIS TEMPLATE».**
+- **Las cajas de la copia caen EXACTAS a 1440** (los cuatro números 316×162 en y 218; el medidor 427×354 y las columnas 871×354 en y 395; la
+  burbuja 164×105 en 1217,453; la grilla 760×258 y el anillo 538×258 en y 765) **y a 1 px a 390** (los números 176×141; el medidor 362×333;
+  las columnas 362×346; la grilla 362×218; el anillo 362×414 contra 413). También los controles: las pestañas (391 a 1105), el botón
+  «Dashboard» (395, 99 de ancho), las celdas de la grilla (82×31 desde 228).
+- **La letra de Corbel es Urbanist, la misma que en MaKo se llama «Geist»**: el componente usa la de la app y no carga nada.
+- **El movimiento, del INFORME (trae la entrada de la página):** la barra sube (y 8, .6 s, cada .05 s, desde .15 s), las tarjetas suben
+  (y 26, escala .985, .9 s, expo.out, cada .07 s, desde .2 s) y los números de arriba después (y 14, .6 s, cada .08 s, desde .27 s); los
+  números cuentan desde 0 (1,3 s, power3.out, desde .45 s); las barritas suben (1 s, cada .08 s), la línea se dibuja (1,3 s), su área
+  aparece (.8 s, desde 1,05 s) y su punto crece (.5 s, back.out(3), desde 1,6 s); el anillo se llena (1,4 s) y el medidor corre hasta su
+  puntaje (1,7 s, power3.inOut); las líneas guía se dibujan (1,1 s, cada .06 s, desde .55 s), sus rótulos entran (x −6), los días suben (y
+  6, cada .03 s), el promedio aparece a 1,45 s y la burbuja a 2,05 s (escala .9, back.out(2)); los gajos del anillo corren de a uno (1,1 s,
+  cada .18 s, desde .85 s); el fondo (tres manchas) se mueve 14, 18 y 22 s ida y vuelta. Con el mouse, una tarjeta sube 3 px (.45 s).
+- **⚠️ Lo que el INFORME no dice y está SUPUESTO:** cómo suben las columnas del gráfico (como las barritas: .9 s, expo.out, cada .04 s,
+  desde .7 s) y cómo entran las celdas de la grilla (crecen de .6 a 1, .6 s, back.out(2.6), como el «pop» de la casa). Las funciones de esos
+  dos bloques no están en el extracto del INFORME.
+
+**Lo que Corbel tiene y MaKo no hace, y no está:** la marca, las pestañas y el dock (los pone la app), el selector de canal (Online / In
+store: en su lugar, el período), el pronóstico del mes que viene (la columna punteada), la meta del anillo (el anillo es una proporción
+medida) y el «live now». **La plantilla no perdió nada:** el mapa de calor de los toques, los clics por botón y las grabaciones siguen en
+la grilla («Ver la grilla»); Corbel no tiene dónde dibujarlos. Se sumó una pieza («Cuándo entran»: 13 de 14).
+
+**Lo del medio (761 a 1240, que Corbel no mide):** de 1041 a 1240 —el lienzo de MaKo al lado de la barra lateral— los cuatro números siguen
+en fila y «vs. el anterior» se va (como en el teléfono de Corbel); de 761 a 1040, los números van de a dos y la grilla y el anillo a lo ancho.
+
+**Dónde vive:**
+- El modelo: `lib/landing-diseno.ts`, puro. Los datos de ejemplo: `lib/landing-diseno-muestra.ts`. El día y la franja de una visita:
+  `lib/visitas-momento.ts` (los usa `filasVisitas` con `tzActual()`, la zona del negocio).
+- El dibujo: `app/dashboard/disenos/HojaLanding.tsx`; lo vivo, `LandingVivo.tsx`; la hoja de estilos, `landing-css.ts` (la arma
+  `scratchpad/corbel/armar-cb.py` desde `landing-corbel/corbel.css`: todo con el prefijo `cb-`).
+- La plantilla: `lib/graficos-plantillas-analysts.ts` (LANDING, trece piezas, `diseno.id = 'landing'`); `DISENOS_HOJA` en
+  `lib/graficos-catalogo.ts`, y las dos dimensiones nuevas de `visitas`, ahí mismo.
+- Los tests: `tests/dashboard-diseno-landing.test.ts` (8, probado rompiéndolo de siete maneras: cada rotura sola da rojo).
 
 ## Marketing: la octava hoja copiada (la de Kestrel), con «¿cuánto cuesta una agenda y de qué anuncio vino?» (en producción desde el 4/11/2026, 19:06 UTC)
 

@@ -31,7 +31,8 @@ import { LECTORES_EXTRA, noEsDelNegocio } from './graficos-datos-extra';
 export type { Rango };
 import { conversorGastoMeta } from './moneda-meta';
 import { hoyEnTijuana, lunesDeFecha } from './date-utils';
-import { hoyEnWorkspace } from './timezone';
+import { hoyEnWorkspace, tzActual } from './timezone';
+import { momentoDeVisita } from './visitas-momento';
 import { campoDe, fuenteDe, sanearGrafico, type Grafico } from './graficos-catalogo';
 import { filasAudiencia } from './graficos-audiencia';
 import {
@@ -126,9 +127,21 @@ async function filasPresupuesto(rg: Rango): Promise<Fila[]> {
  */
 type FVisita = { id: number; created_at: string; visitor_id: string | null; landing_url: string | null; referrer: string | null; prueba: string | null };
 async function filasVisitas(rg: Rango): Promise<Fila[]> {
-  const rows = await leer<FVisita>('landing_visits', 'id, created_at, visitor_id, landing_url, referrer, prueba', rg, { col: 'created_at', ts: true });
+  // El día de la semana y la franja salen con la zona del NEGOCIO (`tzActual`, que nunca tira): la hora de una visita es la de quien
+  // atiende la página. ⚠️ La fecha (`f`) sigue con la de siempre (`fechaTj`), como todo el lector: cambiarla es otra decisión.
+  const [rows, tz] = await Promise.all([
+    leer<FVisita>('landing_visits', 'id, created_at, visitor_id, landing_url, referrer, prueba', rg, { col: 'created_at', ts: true }),
+    tzActual(),
+  ]);
   return rows.filter((x) => !noEsDelNegocio(x))
-    .map((x) => ({ f: fechaTj(x.created_at), d: { pagina: ruta(x.landing_url), origen: host(x.referrer), prueba: txt(x.prueba) }, v: { visitas: 1 }, u: { visitantes: txt(x.visitor_id) } }))
+    .map((x) => {
+      const m = momentoDeVisita(x.created_at, tz);
+      return {
+        f: fechaTj(x.created_at),
+        d: { pagina: ruta(x.landing_url), origen: host(x.referrer), prueba: txt(x.prueba), dia_semana: m?.dia ?? null, franja: m?.franja ?? null },
+        v: { visitas: 1 }, u: { visitantes: txt(x.visitor_id) },
+      };
+    })
     .filter((x) => enRango(x.f, rg));
 }
 

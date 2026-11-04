@@ -1051,4 +1051,25 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '20:00', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Landing, la novena hoja copiada: el diseño de Corbel con «¿hasta dónde bajan y dónde hacen clic?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» del Dashboard**, con su miniatura de verdad.',
+      '**Los cuatro números de Corbel:** visitas, los que llegan a la mitad, los que llegan al final (con el anillo de cuántos siguen) y los que tocan un botón.',
+      '**El medidor:** el puntaje del diagnóstico de tus páginas, su veredicto en palabras y cuál es la más floja.',
+      '**Las visitas día por día**, con la de hoy en negro, el promedio y el selector de visitas o personas.',
+      '**Cuándo entran:** las visitas por franja horaria y día de la semana, con la hora de tu negocio.',
+      '**De dónde llegan:** los orígenes con el anillo del primero.',
+      '**De paso, en Comercial:** las llamadas que ya pasaron vuelven a verse apagadas.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaLanding.tsx · landing-css.ts · LandingVivo.tsx — el diseño',
+      'lib/landing-diseno.ts — de dónde sale cada número',
+      'lib/visitas-momento.ts — el día y la franja de una visita, en la zona del negocio',
+      'docs/diseno/mockups-dashboard/landing-corbel/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];

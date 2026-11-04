@@ -181,9 +181,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const hayDisenoComercial = hayDiseno('comercial');
   // La de Marketing (la copia de Kestrel, app/dashboard/disenos/HojaMarketing.tsx) sólo saluda a quien mira: lo demás sale de sus piezas.
   const hayDisenoMarketing = hayDiseno('marketing');
+  // La de Landing (la copia de Corbel, app/dashboard/disenos/HojaLanding.tsx), igual: sólo saluda a quien mira.
+  const hayDisenoLanding = hayDiseno('landing');
   const agendaComercial = hayDisenoComercial && !unica ? agendaParaComercial(hoy) : Promise.resolve(null);
   const agendaClosing = hayDisenoClosing && !unica ? agendaParaElClosing(hoy) : Promise.resolve(null);
-  const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing
+  const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding
     ? variablesDeQuienMira().then((q) => ({ saludo: q.saludo ?? 'Hola', nombre: q.nombre ?? '', fecha: q.fecha ?? '' })).catch(() => null)
     : Promise.resolve(null);
   const [datos, senalesNegocio, closing, caida, agenda, quien, agendaHoy] = await Promise.all([
@@ -217,11 +219,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         plantillasInicial={plantillas && !unica}
         avisoClosing={avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida))}
         accionClosing={accionDeLaHojaClosing(closing)}
-        disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing ? {
+        disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding ? {
           closing: hayDisenoClosing ? { agenda, quien } : null,
           cobranza: hayDisenoCobranza ? { quien } : null,
           comercial: hayDisenoComercial ? { agenda: agendaHoy, quien } : null,
           marketing: hayDisenoMarketing ? { quien } : null,
+          landing: hayDisenoLanding ? { quien } : null,
         } : null}
       />
     </Pagina>
