@@ -9,9 +9,14 @@ llamadas en frío): con el botón de grabar adentro y los números de una tanda 
 
 | Pedazo | Punta | Estado |
 |---|---|---|
-| 1. En el teléfono, «Dashboard» en el lugar de «Plan» | `punta/grabar-barra-dashboard` (`4b8468849`) | **En `main`** |
-| 2. «Grabar» en la ficha del lead (computadora y teléfono) | `punta/grabar-ficha` | Subida a su punta |
-| 3. La plantilla Cold Calling del Dashboard | `punta/grabar-cold-calling` (encima de la 2) | Subida a su punta |
+| 1. En el teléfono, «Dashboard» en el lugar de «Plan» | `punta/grabar-barra-dashboard` (`4b8468849`) | **En producción** |
+| 2. «Grabar» en la ficha del lead (computadora y teléfono) | `punta/grabar-ficha` (`891ee15ce`) | **En producción** (entró con la 3) |
+| 3. La plantilla Cold Calling del Dashboard | `punta/grabar-cold-calling` (`f07198cdb`) | **En producción** |
+
+Las tres están en el deploy de producción `1b7a4bc3` (4/11, 09:04 UTC, «vercel.deployment.success»). La corrida de
+`punta/grabar-ficha` pasó tests, guardas y el `tsc` entero, y falló sólo al llevar a main porque main se había movido (un choque
+en la bitácora del CRM). Se resolvió en la 3, que la llevaba adentro: la marca `ci-rojo/grabar-ficha` quedó vieja y no es un rojo
+del código. **Lo único que falta para que se use: aplicar la migración 0390** (abajo).
 
 ## 1. La barra del teléfono
 
