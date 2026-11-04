@@ -12,7 +12,7 @@
 // EL MENÚ: Responder y Copiar. Sin reacciones, fijar, destacar ni eliminar: guardados por persona, nadie más los vería, y en un grupo eso engaña (fuera de esta versión).
 
 import { useCallback, useMemo, useState, type ReactNode, type RefObject } from 'react';
-import { MenuMensajeWA, ContextoWA, type AccionesWA, type MenuAbiertoWA } from '@/app/admin/operaciones/MensajeWA';
+import { CitaEnBurbuja, MenuMensajeWA, ContextoWA, type AccionesWA, type MenuAbiertoWA } from '@/app/admin/operaciones/MensajeWA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { HiloMako, type EnMensaje, esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
@@ -42,6 +42,8 @@ function enMensajeDeMako(x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null {
         {g.aviso && <span className="co-aviso-grupo"><Icon name="bell" size={12} />Aviso</span>}
         {!g.sigue && !g.aviso && <span className="co-autor" data-color={g.color ?? 'mako'}>{nombre}{g.chip && <span className="co-autor__chip">{g.chip}</span>}</span>}
         {g.aviso && g.chip && <span className="co-autor__chip">{g.chip}</span>}
+        {/* Lo que MaKo contesta a un mensaje lleva su cita, como lo de las personas (4/11/2026: «Sí, aquí estoy» no decía a qué). */}
+        {g.cita && <CitaEnBurbuja de={g.cita.de} texto={g.cita.texto} lineas={[]} citado={g.cita.id} />}
         {!!x.archivos?.length && <ArchivosHilo archivos={x.archivos} />}
         {x.voz && <AudioPlay src={x.voz.url} duracion={x.voz.secs} color="var(--primary)" style={{ width: 240 }} />}
       </>
@@ -106,6 +108,8 @@ export function HiloDelGrupo({ k, rol, invitacion = false, desdeLeido, campo, nu
   const hayAlgo = items.length > 0;
   return (
     <ContextoWA.Provider value={acciones}>
+      {/* `display: contents`: no cambia el armado del hilo, y deja darle al grupo su estilo de WhatsApp (grupo.css, `.gr-hilo`). */}
+      <div className="gr-hilo">
       {k.hayAntes && (
         <button type="button" className="co-anteriores" onClick={() => void k.verAnteriores()} disabled={k.trayendo}>{k.trayendo ? 'Trayendo…' : 'Ver anteriores'}</button>
       )}
@@ -124,6 +128,7 @@ export function HiloDelGrupo({ k, rol, invitacion = false, desdeLeido, campo, nu
           {nuevos === 1 ? '1 mensaje nuevo' : `${nuevos} mensajes nuevos`}
         </button>
       )}
+      </div>
       {/* «Reportar» (ticket #57): lo que no escribió quien mira se reporta desde el menú, no con un botón debajo (Play, Apple 1.2). */}
       <MenuMensajeWA abierto={menu} marcas={SIN_MARCAS} sin={SIN_EN_EL_MENU} sinReacciones onCerrar={() => setMenu(null)}
         reportable={esRespuestaDeMaKo} queSeReporta="un mensaje del grupo"

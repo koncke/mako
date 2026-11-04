@@ -231,7 +231,8 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
       </>;
       filas.push(otro
         ? <FilaDeOtro key={x.id} m={wa(x)} nombre={otro} sigue={g?.sigue} despues={notas}>{cuerpo}</FilaDeOtro>
-        : <FilaMia key={x.id} m={wa(x)} marcas={marcas} despues={notas}>{cuerpo}</FilaMia>);
+        // En un grupo, lo tuyo va sin tu foto, como en WhatsApp (4/11/2026): la foto es de los demás.
+        : <FilaMia key={x.id} m={wa(x)} marcas={marcas} despues={notas} foto={g ? <></> : undefined}>{cuerpo}</FilaMia>);
       return;
     }
     if (x.k === 'msg') {

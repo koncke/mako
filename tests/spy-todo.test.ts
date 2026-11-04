@@ -146,3 +146,48 @@ test('7. YouTube completo pagina hasta el final, sin cortar en los primeros larg
   assert.equal(leerCompleto(0), true);
   assert.equal(leerCompleto(500), false);
 });
+
+// ── El crédito del mes de Apify (4/11/2026) ───────────────────────────────────────────────────────────────────────────
+// El Cerebro lo midió: la cuenta de un negocio en plan FREE tiene US$5 por mes y llevaba US$1,17 gastados; una traída larga de
+// 300 publicaciones costó US$0,69. «Hacé que spy-todo no se coma el crédito: con el crédito agotado, dilo sólo al administrador
+// y sin cartel de error.» Verificado rompiéndolo: sin la reserva (`libre = tope - usado`), «queda poco» deja pasar la corrida y cae.
+
+import { ajustarAlCredito, avisoDeTraida, creditoDeApify, esFaltaDeCredito, RESERVA_CREDITO_USD } from '../lib/spy-todo-reglas';
+import { readFileSync as leerArchivo } from 'node:fs';
+import { join as unir } from 'node:path';
+
+test('la traída larga se achica a lo que deja el crédito, nunca baja de la reserva, y sin saberlo sigue como siempre', () => {
+  const primera = pedidoDePublicaciones(undefined);
+  // El caso medido: US$5 de tope, US$1,17 usado. Queda US$1,83 sobre la reserva; la traída usa a lo sumo un cuarto.
+  const medido = ajustarAlCredito(primera, { usado: 1.17, tope: 5 });
+  assert.ok(medido && medido.techoUsd <= (5 - 1.17 - RESERVA_CREDITO_USD) * 0.25 + 1e-9, 'no se come el crédito del mes');
+  assert.ok(medido && medido.cuantas < primera.cuantas && medido.cuantas >= 20);
+  // Queda poco: espera.
+  assert.equal(ajustarAlCredito(primera, { usado: 4.5, tope: 5 }), null);
+  assert.equal(ajustarAlCredito(primera, { usado: 5, tope: 5 }), null);
+  // Con crédito de sobra, el pedido de siempre.
+  assert.deepEqual(ajustarAlCredito(primera, { usado: 0, tope: 49 }), primera);
+  // «No pude saber» no es «sin crédito».
+  assert.deepEqual(ajustarAlCredito(primera, null), primera);
+});
+
+test('el crédito se lee de la respuesta de Apify; sin los dos números, null', () => {
+  assert.deepEqual(creditoDeApify({ data: { limits: { maxMonthlyUsageUsd: 5 }, current: { monthlyUsageUsd: 1.17 } } }), { usado: 1.17, tope: 5 });
+  assert.equal(creditoDeApify({ data: { limits: {} } }), null);
+  assert.equal(creditoDeApify(null), null);
+  assert.equal(esFaltaDeCredito(402, null), true);
+  assert.equal(esFaltaDeCredito(403, { error: { type: 'not-enough-usage-to-run-paid-actor', message: 'x' } }), true);
+  assert.equal(esFaltaDeCredito(500, { error: { type: 'internal-error' } }), false);
+});
+
+test('sin crédito, sólo el admin lo lee, y no es un cartel de error', () => {
+  assert.equal(avisoDeTraida('sin-credito', { admin: false }), null);
+  assert.match(avisoDeTraida('sin-credito', { admin: true }) ?? '', /crédito de Apify/);
+  const src = leerArchivo(unir(import.meta.dirname, '..', 'lib/spy-todo.ts'), 'utf8');
+  const paso = src.slice(src.indexOf('async function pasoDeCanal('), src.indexOf('export async function tieneClaveDeSpy('));
+  const iCredito = paso.indexOf('ajustarAlCredito(');
+  const iReserva = paso.indexOf('reservarCorrida()');
+  assert.ok(iCredito > 0 && iReserva > iCredito, 'primero el crédito, después la corrida del día: sin crédito no se gasta la cuota');
+  const app = leerArchivo(unir(import.meta.dirname, '..', 'app/competitor-spy/SpyApp.tsx'), 'utf8');
+  assert.match(app, /avisoDeTraida\(r\.porque, \{ admin: puedeBorrar \}\)/);
+});

@@ -233,3 +233,13 @@ test('7. el camino de antes (IA del negocio + Flow) no existe, la pantalla no pi
   assert.match(guardar, /anotarFallo\(deps, ws, id, /);
   assert.equal(CLAVE_CARICATURAS, 'spy.caricaturas');
 });
+
+// Una caricatura que no carga (vencida, un permiso del bucket) cae a su foto de perfil: antes la tarjeta quedaba sin cara.
+// Verificado rompiéndolo: con el `remove()` de antes este test cae.
+test('una cara que no carga cae a su foto, y recién sin foto se saca', () => {
+  const app = readFileSync(new URL('../app/competitor-spy/SpyApp.tsx', import.meta.url), 'utf8');
+  assert.match(app, /const cara = caraDeTarjeta\(c, caricaturaDeCompetidor\(c\)\);/);
+  assert.match(app, /<img src=\{cara\} alt="" loading="lazy" onError=\{\(e\) => \{ caerAFoto\(e\.currentTarget, c\.avatar\); \}\} \/>/);
+  const fn = app.slice(app.indexOf('function caerAFoto('), app.indexOf('function RejillaCompetidores('));
+  assert.ok(fn.indexOf('img.src = foto') > 0 && fn.indexOf('img.src = foto') < fn.indexOf('img.remove()'), 'primero la foto, después sacarla');
+});

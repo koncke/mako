@@ -2279,6 +2279,29 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '4 nov', hora: '14:10', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que el grupo se vea como uno de WhatsApp',
+    pedido: '«"Participantes" debería estar al final a la derecha, cuida siempre el diseño... Y no veo el botón de invitar allí mismo... Y claro, revisa que el diseño no se rompa al invitar... Que se vea como un grupo de whatsapp normal.»',
+    puntos: ['Llegó por el Cerebro, después de que Martín revisara la pantalla.'],
+  },
+  {
+    fecha: '4 nov', hora: '14:30', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grupo se ve como un grupo de WhatsApp',
+    revisar: '/second-brain',
+    puntos: [
+      '**Arriba:** debajo del nombre, quiénes están, y a la derecha del todo «Invitar» y «Participantes». Un invitado no ve «Invitar».',
+      '**Invitar no hace saltar la ventana:** la lista scrollea adentro, y el aviso queda en su lugar, separado de la lista.',
+      '**En la conversación:** lo tuyo va sin tu foto, lo que MaKo contesta dice a qué mensaje contesta, y el 👍 queda montado sobre el borde del mensaje.',
+      '**En el teléfono:** debajo del nombre, quiénes están, y un «+» para invitar.',
+    ],
+    archivos: [
+      'app/second-brain/ChatDelGrupo.tsx · app/m/second-brain/HojaDelGrupo.tsx · app/_chat/grupo/Participantes.tsx (`useMiembrosDelGrupo`) · grupo.css',
+      'tests/grupos-ops-pantalla.test.ts (20) — ocho roturas en rojo',
+    ],
+  },
+  {
     fecha: '4 nov', hora: '13:10', chat: 'Funnel Coach único', sesion: 'cli_135a1a29-c4ee-5d70-b52c-72bc63a68c64', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
     titulo: 'Ticket #57: «Reportar» debajo de cada mensaje no tiene sentido, y el saludo de la oferta',
     pedido: 'Debajo del mensaje de funnel coach me aparecia un botón de "reportar" eso no tiene sentido...',

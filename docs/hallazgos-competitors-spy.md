@@ -1203,3 +1203,25 @@ enlace), cuánto pesa un reel de verdad y que la IA de un negocio escuche un mp4
 **Vive en:** lib/spy-transcripcion.ts · lib/spy-transcripcion-servidor.ts · app/api/competitor-spy/transcribir/route.ts ·
 lib/spy-todo.ts (`videoDeUnaPublicacion`, `tieneClaveDeSpy`) · lib/spy-todo-reglas.ts · app/competitor-spy/DetallePieza.tsx ·
 lib/spy-detalle.ts (`vecesSuMediana`) · tests/spy-guion.test.ts
+
+## Tercera vuelta (Martín revisó con Den Borg, 4/11/2026): lo que el Cerebro midió desde la PC
+
+**Vive en:** `app/competitor-spy/BuscadorAlta.tsx`, `lib/spy-otras-redes.ts`, `lib/spy-google-corrida.ts`, `lib/spy-cadena.ts`,
+`lib/spy-todo.ts`, `lib/spy-todo-reglas.ts`, `app/competitor-spy/SpyApp.tsx`.
+
+- **«Escribí tal cual @herasmedia y no me trajo al perfil».** La fila «Usar @x · Tal como lo escribiste» confirmaba sin leer: la
+  tarjeta salía con una letra «H». No era Apify (40 de 40 corridas `SUCCEEDED`, el perfil se lee en 10 s): era el `elegir` del
+  buscador. Ahora va por `elegirPerfil`, el mismo camino de un perfil hallado. Lo fija `tests/spy-buscador-alta.test.ts`.
+- **«No pude buscar sus otras redes ahora».** El actor de Google tardó 57 y 48 s (las dos `SUCCEEDED`) y nosotros cortábamos a
+  los 45: Apify terminaba y cobraba, y el resultado pagado se tiraba. Ahora la corrida se EMPIEZA asíncrona y se sigue 35 s; si no
+  terminó, queda anotada en el negocio (`spy.google.<huella>`, sin el texto buscado) y el pedido siguiente la RETOMA sin pagar
+  otra. La pantalla vuelve a pedir sola, sin texto. ⚠️ El cupo del día se gasta al EMPEZAR, no al retomar: por eso `gastar` pasó
+  de la cadena a la búsqueda. Lo fija `tests/spy-google-corrida.test.ts`.
+  - **La regla que queda:** con un proveedor que cobra por corrida, un `run-sync` con un timeout nuestro tira lo pagado cuando
+    tarda más. Se empieza asíncrona y se anota el `run` antes de esperarla.
+- **El crédito de Apify del negocio.** Plan FREE: US$5 por mes; una traída larga de 300 publicaciones costó US$0,69. La traída
+  larga ahora lee `GET /v2/users/me/limits` y se achica a un cuarto de lo que queda por encima de una reserva de US$2 (lo de todos
+  los días: leer, dar de alta, transcribir); si no alcanza, espera. Un 402 al empezar también es «sin crédito». Se le dice sólo al
+  admin y sin cartel de error. Sin poder leer el crédito, sigue como siempre (no es «sin crédito»). Lo fija `tests/spy-todo.test.ts`.
+- **La caricatura de Den Borg.** El camino de la tarjeta está bien y tiene su test de punta a punta. El hueco era otro: si la
+  imagen no cargaba, la tarjeta quedaba sin cara. Ahora cae a su foto de perfil (`caerAFoto`).

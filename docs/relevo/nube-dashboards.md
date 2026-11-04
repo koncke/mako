@@ -1,5 +1,55 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
+## «Nueva hoja»: sólo lo copiado, la miniatura de verdad y el modal que no se traba (punta `dash-seleccion`, 4/11/2026)
+
+El pedido de Martín (por el Cerebro, después de revisar producción), textual: *«En dashboards, mejora la eficiencia al "crear nueva
+hoja", al abrir ese modal se traba todo... Y en "Closing" la minuatura no es para nada igual... Te pido que elimines todos los templetas
+viejos y vamos de a poco cargando cuando ya estén... Carga los de FOCUS que ya teniamos, y no se si ya teniamos otros más... Y claro,
+guarda los que debemos hacer aún...»*. El Cerebro: primero los puntos 1 (sólo lo copiado), 4 (la miniatura) y 5 (el modal), en una subida.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» ofrece sólo lo copiado de verdad:** hoy Closing (la copia de Halden). Las plantillas de antes salen de la lista; las hojas
+  que ya se crearon con ellas no cambian. Lo que falta copiar está en una tabla (`docs/templates-dashboard-propuesta.md` §7.3.1), no en la pantalla.
+- **La miniatura de Closing es la hoja:** se dibuja con el MISMO componente de Halden que se ve al abrirla, con números de ejemplo
+  (`docs/diseno/mockups-dashboard/closing/captura/miniatura-vs-producto.png`: la miniatura a la izquierda, la hoja a la derecha).
+- **El modal abre al instante.**
+- **La API de MaKo** ofrece y crea las mismas: `ver_catalogo_dashboard` lista sólo las ofrecidas, `crear_hoja_dashboard` con una plantilla
+  vieja contesta «no se ofrece» con las que sí, y `listar_hojas_general` / `crear_hoja_general` igual (hoy General no ofrece ninguna:
+  se crea con un pedido). Sin operaciones nuevas.
+
+**El modal, medido** (el componente de verdad, `NuevaHoja`, montado en un arnés con Chromium; del clic al primer cuadro, y las tareas largas
+del hilo principal). La causa era montar las 21 miniaturas con sus gráficos de una (≈241 tarjetas y 33 gráficos a la vista); armar las hojas
+de muestra cuesta 15 ms y no era:
+
+| | Antes | Después |
+|---|---|---|
+| Plantillas en la galería | 21 | 1 (Closing) |
+| Primer cuadro | 410–540 ms | 92–107 ms |
+| Tareas largas al abrir | 1, de 200–300 ms | ninguna |
+| Con la CPU 4 veces más lenta: primer cuadro | 1.890–1.950 ms | 392–396 ms |
+| Con la CPU 4 veces más lenta: bloqueo | 1.237 ms (la mayor, 1.178) | 163–222 ms, después del primer cuadro |
+
+Lo que queda al 4× es la miniatura de Closing montándose cuando se ve, con el modal ya dibujado. **No se midió en la app con datos**: la nube
+no tiene la base. Lo primero en producción es abrir «Nueva hoja» y mirarlo.
+
+**Cómo está hecho:**
+- **Qué se ofrece se DERIVA:** `esPlantillaOfrecida` (lib/graficos-plantillas.ts) = la plantilla trae `diseno`. `PLANTILLAS_OFRECIDAS` y
+  `PLANTILLAS_GENERAL_OFRECIDAS` las leen el modal y la API. Una hoja copiada nueva entra sola.
+- **La miniatura con diseño** es `app/dashboard/disenos/DisenoEnMiniatura.tsx`: el componente del diseño, `quieta` (sin la entrada, sin cifras que
+  cuentan, sin leer la caja de IA) y con números de ejemplo con la forma que lee el diseño (los genéricos de la grilla se leían raros: un
+  puntaje de 50). La tabla `MINIATURAS` es total sobre `DISENOS_HOJA`: el diseño de Cobranza no compila sin su miniatura.
+- **De paso, un bug de Closing en producción:** «Últimas llamadas» ordenaba la columna del día como TEXTO, y el agregador la escribe «dd/mm»
+  (sin año): el 28/10 quedaba después del 03/11. `diaDeEtiqueta` (lib/closing-diseno.ts) le pone el año. El test le pasaba fechas ISO, que la
+  tabla no da: por eso pasaba.
+
+**Lo que sigue (del Cerebro):** el punto 2 (cargar las de Focus: las maquetas de Pane y Lumora del 1/11 se hacen copia exacta y componente,
+como Closing) y la segunda hoja, Cobranza, de a una.
+
+**⚠️ Cobranza a medias, NO subida:** la copia exacta de Coffer (al píxel a 1440 y 390), la maqueta de MaKo, los tramos de atraso en `pagos`, la
+plantilla con su diseño y `lib/cobranza-diseno.ts` están SÓLO en el commit `824f67be` de la rama local `dash-cobranza-copia`, en el contenedor de
+esta sesión: el proxy rechazó subirla como etiqueta (403), y una rama `claude/*` dispara un preview de Vercel (que es plata: lo decide Martín).
+Falta el componente (`HojaCobranza.tsx`), su miniatura y la subida; es lo próximo de este chat.
+
 ## 📬 Para el Cerebro: Closing está en producción (4/11/2026, 12:49 UTC)
 
 El mensaje no salió: la sesión de la nube no puede escribirle a una sesión de la PC (`elevated_session_untrusted_device`).

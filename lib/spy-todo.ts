@@ -24,10 +24,10 @@ import { guardarVistas, leerCompetidor, vistaDeInstagram } from './spy';
 import { anunciosDeQuien, piezaDeAnuncio } from './spy-captura';
 import { enlaceSusAnuncios } from './spy-funnel';
 import {
-  ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, APIFY_ACTOR_PUBLICACIONES, CLAVE_DIA, CLAVE_DIA_TRANSCRIPCIONES,
+  ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, ajustarAlCredito, creditoDeApify, esFaltaDeCredito, APIFY_ACTOR_PUBLICACIONES, CLAVE_DIA, CLAVE_DIA_TRANSCRIPCIONES,
   CLAVE_TAREAS, CORRIDAS_LARGAS_POR_DIA, TRANSCRIPCIONES_POR_DIA, USD_POR_ANUNCIO, USD_POR_PUBLICACION, anuncioDeApify,
   entradaDeAnuncios, entradaDePublicaciones, entradaDeUnaPublicacion, estadoDeCorrida, leerTareas, pedidoDePublicaciones,
-  tocaPedir, usadasHoy, videoDelItem, type TareaLarga, type TareasDeCompetidor,
+  tocaPedir, usadasHoy, videoDelItem, type CreditoApify, type TareaLarga, type TareasDeCompetidor,
 } from './spy-todo-reglas';
 
 const API = 'https://api.apify.com/v2';
@@ -78,14 +78,23 @@ async function reservarCorrida(clave = CLAVE_DIA, tope = CORRIDAS_LARGAS_POR_DIA
   return false;
 }
 
-/** Empieza una corrida. null = no se pudo (sin saldo, sin permiso, Apify caído): se vuelve a intentar otro día. */
-async function empezar(token: string, actor: string, entrada: unknown, maxItems: number, techoUsd: number): Promise<{ run: string; dataset: string } | null> {
+/** El crédito del mes de la cuenta de Apify del negocio. null = no se pudo saber (no es «sin crédito»). */
+async function creditoDelMes(token: string): Promise<CreditoApify | null> {
+  const r = await apify(token, '/users/me/limits').catch(() => null);
+  return r && r.status === 200 ? creditoDeApify(r.cuerpo) : null;
+}
+
+/**
+ * Empieza una corrida. null = no se pudo (sin permiso, Apify caído): se vuelve a intentar otro día. 'sin-credito' = Apify dijo
+ * que la cuenta no tiene crédito: tampoco se insiste, y la pantalla se lo dice sólo al admin.
+ */
+async function empezar(token: string, actor: string, entrada: unknown, maxItems: number, techoUsd: number): Promise<{ run: string; dataset: string } | 'sin-credito' | null> {
   const q = new URLSearchParams({ maxItems: String(maxItems), maxTotalChargeUsd: String(techoUsd) });
   const r = await apify(token, `/acts/${actor}/runs?${q}`, { method: 'POST', cuerpo: entrada }).catch(() => null);
   const d = (r?.cuerpo as { data?: { id?: unknown; defaultDatasetId?: unknown } } | null)?.data;
   if (!r || r.status < 200 || r.status >= 300 || typeof d?.id !== 'string' || typeof d?.defaultDatasetId !== 'string') {
     console.error(`[spy-todo] no pude empezar ${actor}: HTTP ${r?.status ?? '—'}`);
-    return null;
+    return r && esFaltaDeCredito(r.status, r.cuerpo) ? 'sin-credito' : null;
   }
   return { run: d.id, dataset: d.defaultDatasetId };
 }
@@ -139,16 +148,19 @@ async function pasoDeCanal(token: string, c: NonNullable<Awaited<ReturnType<type
     return { enMarcha: false, nuevas };
   }
   if (!tocaPedir(t, Date.now())) return { enMarcha: false, nuevas: 0 };
+  // ⚠️ EL CRÉDITO DEL MES MANDA (4/11/2026): la traída larga se achica a lo que deja libre, o espera. Antes de gastar la
+  // corrida del día: sin crédito no se reserva nada.
+  const credito = await creditoDelMes(token);
+  const pedido = canal === 'instagram'
+    ? ajustarAlCredito(pedidoDePublicaciones(t), credito)
+    : ajustarAlCredito({ cuantas: ANUNCIOS_POR_CORRIDA, desde: null, techoUsd: Math.max(0.1, Math.round(ANUNCIOS_POR_CORRIDA * USD_POR_ANUNCIO * 100) / 100) }, credito);
+  if (!pedido) return { enMarcha: false, nuevas: 0, porque: 'sin-credito' };
   if (!(await reservarCorrida())) return { enMarcha: false, nuevas: 0, porque: 'limite' };
 
-  let corrida: { run: string; dataset: string } | null;
-  if (canal === 'instagram') {
-    const p = pedidoDePublicaciones(t);
-    corrida = await empezar(token, APIFY_ACTOR_PUBLICACIONES, entradaDePublicaciones(c.instagram as string, p), p.cuantas, p.techoUsd);
-  } else {
-    const techo = Math.max(0.1, Math.round(ANUNCIOS_POR_CORRIDA * USD_POR_ANUNCIO * 100) / 100);
-    corrida = await empezar(token, APIFY_ACTOR_ANUNCIOS, entradaDeAnuncios(enlaceSusAnuncios(c)), ANUNCIOS_POR_CORRIDA, techo);
-  }
+  const corrida = canal === 'instagram'
+    ? await empezar(token, APIFY_ACTOR_PUBLICACIONES, entradaDePublicaciones(c.instagram as string, pedido), pedido.cuantas, pedido.techoUsd)
+    : await empezar(token, APIFY_ACTOR_ANUNCIOS, entradaDeAnuncios(enlaceSusAnuncios(c)), ANUNCIOS_POR_CORRIDA, pedido.techoUsd);
+  if (corrida === 'sin-credito') return { enMarcha: false, nuevas: 0, porque: 'sin-credito' };
   if (!corrida) {
     // Sin poder empezar (sin saldo, sin permiso): no se insiste hasta mañana.
     await anotar(c.id, canal, { ...(t ?? {}), ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });

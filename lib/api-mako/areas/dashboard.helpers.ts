@@ -49,7 +49,7 @@ import {
   type Componente, type ConfigIA, type Conector, type ControlVista, type Elemento, type FiltroDim, type Fuente, type Grafico, type Hoja,
   type Preset, type Tablero,
 } from '@/lib/graficos-catalogo';
-import { PLANTILLAS_HOJA, tableroInicial } from '@/lib/graficos-plantillas';
+import { PLANTILLAS_OFRECIDAS, tableroInicial } from '@/lib/graficos-plantillas';
 import { ETIQUETAS_DASHBOARD } from '@/lib/graficos-plantillas-etiquetas';
 import { ordenarConSugeridas, type SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { firmaDeHoja } from '@/lib/graficos-ia-edicion';
@@ -1087,7 +1087,8 @@ const conjuntoJson = (f: Fuente, detalle: boolean) => ({
  * mismo porqué que la galería de «Nueva hoja». Sin señales, el orden de siempre y ninguna marcada.
  */
 export const plantillasDelCatalogo = (senales?: SenalesNegocio | null): Array<{ id: string; nombre: string; emoji: string; linea: string; sugerida?: string }> =>
-  ordenarConSugeridas(PLANTILLAS_HOJA, ETIQUETAS_DASHBOARD, senales)
+  // Sólo las que se ofrecen (las que traen su diseño copiado: lib/graficos-plantillas.ts), como «Nueva hoja».
+  ordenarConSugeridas(PLANTILLAS_OFRECIDAS, ETIQUETAS_DASHBOARD, senales)
     .map(({ plantilla: x, porque }) => ({ id: x.id, nombre: x.nombre, emoji: x.emoji, linea: x.linea, ...(porque ? { sugerida: porque } : {}) }));
 
 /** El catálogo en JSON (toda la lista, o una sección, o un conjunto con su detalle). `senales`: para ordenar las plantillas. */
