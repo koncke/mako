@@ -133,6 +133,8 @@ export type AnuncioLeido = {
   /** El día que dice que terminó. `null` = sigue, o no lo dice. */
   hasta: string | null;
   pagina: { nombre: string; handle: string | null } | null;
+  /** El id de su Página en Meta, si lo trae (el actor de Apify sí). Es lo que la identifica: el nombre lo puede repetir otro. */
+  paginaId?: string | null;
   texto: string | null;
   titulo: string | null;
   destino: string | null;
@@ -307,6 +309,8 @@ export function anunciosDeQuien(
   const suyos = anuncios.filter((a) => (
     (!!a.pagina && (nombres.has(nombreComparable(a.pagina.nombre)) || (!!a.pagina.handle && nombres.has(nombreComparable(a.pagina.handle)))))
     || (!!pagina && a.pagina?.handle?.toLowerCase() === pagina)
+    // Su Página por su id (el que se aprendió de una corrida verificada): lo único que no repite nadie.
+    || (/^\d{5,25}$/.test(pagina) && !!a.paginaId && a.paginaId === pagina)
     || (!!dominio && !!a.destino && esDelDominio(a.destino, dominio))
   ));
   return { suyos, otros: anuncios.length - suyos.length };

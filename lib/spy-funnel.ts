@@ -377,7 +377,29 @@ export function busquedaDeSusAnuncios(c: { nombre?: string | null; instagram?: s
  * parte el dominio en dos palabras y da ~24.000 anuncios de cualquiera (el primero, de Naukri.com); con
  * `keyword_exact_phrase` y `"acquisition.com"`, los de Alex Hormozi. Sin esto el enlace abre, y miente.
  */
-export function enlaceSusAnuncios(c: { pagina_anuncios?: string | null; landing_url?: string | null; nombre?: string | null; instagram?: string | null; pais?: string | null }): string {
+/**
+ * Todas las formas de buscarlo en la Biblioteca, en orden y sin repetir (4/11/2026; el Cerebro, con Víctor Heras: por su nombre
+ * dio 0, «probá por su @ o por el nombre de la Página… si sigue en 0, dilo»). Su nombre, su @ y el dominio de su web.
+ */
+export function busquedasDeSusAnuncios(c: { nombre?: string | null; instagram?: string | null; landing_url?: string | null }): string[] {
+  const out: string[] = [];
+  const sumar = (t: string | null | undefined) => {
+    const v = (t ?? '').replace(/^@/, '').trim();
+    if (v.length >= 3 && !out.some((x) => x.toLowerCase() === v.toLowerCase())) out.push(v);
+  };
+  sumar(nombreParaBuscar(c.nombre ?? ''));
+  sumar(c.instagram);
+  if (c.landing_url && !esAgregador(c.landing_url)) {
+    try { sumar(new URL(c.landing_url).hostname.replace(/^www\./, '')); } catch { /* sin web, nada */ }
+  }
+  return out;
+}
+
+export function enlaceSusAnuncios(
+  c: { pagina_anuncios?: string | null; landing_url?: string | null; nombre?: string | null; instagram?: string | null; pais?: string | null },
+  /** Otra forma de buscarlo (`busquedasDeSusAnuncios`). Sin esto, la primera. Con su Página, no se usa. */
+  termino?: string,
+): string {
   const p = new URLSearchParams({ active_status: 'active', ad_type: 'all', country: (c.pais ?? '').toUpperCase() || 'ALL', media_type: 'all' });
   const pagina = (c.pagina_anuncios ?? '').trim();
   if (/^\d{5,25}$/.test(pagina)) {
@@ -385,7 +407,7 @@ export function enlaceSusAnuncios(c: { pagina_anuncios?: string | null; landing_
     p.set('view_all_page_id', pagina);
   } else {
     p.set('search_type', 'keyword_exact_phrase');
-    p.set('q', `"${busquedaDeSusAnuncios(c) ?? (c.nombre ?? '').trim()}"`);
+    p.set('q', `"${termino?.trim() || busquedaDeSusAnuncios(c) || (c.nombre ?? '').trim()}"`);
   }
   return `https://www.facebook.com/ads/library/?${p.toString()}`;
 }

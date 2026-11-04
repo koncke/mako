@@ -73,14 +73,23 @@ export function usadasHoy(crudo: string | null, dia: string): number {
 }
 
 /**
- * ⚠️ APAGADO HASTA MEDIR EL ACTOR DE ANUNCIOS. La forma de su respuesta no se pudo leer desde la nube (apify.com no
- * contesta): `anuncioDeApify` acepta los nombres que se vieron en sus ejemplos públicos, pero una corrida real es la que
- * dice si traen algo. Se prende con `scripts/probar-anuncios-apify.mjs` corrido UNA vez desde la PC (docs/relevo/nube-spy.md).
+ * PRENDIDO el 4/11/2026, con la medición del Cerebro desde la PC (`scripts/probar-anuncios-apify.mjs`, ws 9): por «Alex Hormozi»,
+ * 10 ítems leídos por `anuncioDeApify` a US$0,0058 cada uno (dentro del techo de `USD_POR_ANUNCIO`), y el primero era de OTRA
+ * Página («Skool»): por eso nada se guarda sin verificar de quién es (`anunciosDeQuien`, y su Página por id cuando se aprende).
+ * Por «Víctor Heras», 0 ítems y US$0: se prueban sus otras búsquedas (`siguienteDeAnuncios`).
  */
-export const ANUNCIOS_POR_APIFY = false;
+export const ANUNCIOS_POR_APIFY = true;
 
 /** Una corrida en marcha de un canal, o la fecha de la última que terminó. */
-export type TareaLarga = { run?: string; dataset?: string; pedidaEn?: string; ultima?: string };
+export type TareaLarga = {
+  run?: string; dataset?: string; pedidaEn?: string; ultima?: string;
+  /** Anuncios: cuál de sus búsquedas (`busquedasDeSusAnuncios`) se está probando. Sin esto, la primera. */
+  busqueda?: number;
+  /** Anuncios: la corrida en marcha va por ESTA Página (su id): todo lo que traiga es suyo. Sin esto, va por una palabra. */
+  pagina?: string;
+  /** Anuncios: el día que se probaron todas sus búsquedas y no pautaba. Es un dato, no un error. */
+  sinAnuncios?: string;
+};
 export type TareasDeCompetidor = { instagram?: TareaLarga; anuncios?: TareaLarga };
 export type RegistroTareas = Record<string, TareasDeCompetidor>;
 
@@ -98,6 +107,9 @@ function tarea(v: unknown): TareaLarga | undefined {
   if (/^[A-Za-z0-9]{6,40}$/.test(str(v.dataset))) t.dataset = str(v.dataset);
   if (fecha(v.pedidaEn)) t.pedidaEn = v.pedidaEn as string;
   if (fecha(v.ultima)) t.ultima = v.ultima as string;
+  if (Number.isInteger(v.busqueda) && (v.busqueda as number) >= 0 && (v.busqueda as number) < 10) t.busqueda = v.busqueda as number;
+  if (/^\d{5,25}$/.test(str(v.pagina))) t.pagina = str(v.pagina);
+  if (fecha(v.sinAnuncios)) t.sinAnuncios = v.sinAnuncios as string;
   // Una corrida sin su dataset no se puede leer: es como si no estuviera.
   if (t.run && !t.dataset) delete t.run;
   return t;
@@ -255,8 +267,10 @@ export function anuncioDeApify(crudo: unknown): AnuncioLeido | null {
   const activo = primero(crudo, 'isActive', 'is_active');
   const nombre = str(primero(crudo, 'pageName', 'page_name')) || str(primero(snap, 'pageName', 'page_name'));
   const handle = str(primero(snap, 'pageProfileUri', 'page_profile_uri')).match(/facebook\.com\/([^/?#]+)/i)?.[1] ?? null;
+  const paginaId = str(String(primero(crudo, 'pageID', 'pageId', 'page_id') ?? primero(snap, 'pageId', 'page_id') ?? ''));
   return {
     id,
+    paginaId: /^\d{5,25}$/.test(paginaId) ? paginaId : null,
     desde: fechaDeAnuncio(primero(crudo, 'startDate', 'start_date', 'startDateFormatted')),
     hasta: activo === false ? fechaDeAnuncio(primero(crudo, 'endDate', 'end_date', 'endDateFormatted')) : null,
     pagina: nombre ? { nombre, handle } : null,
@@ -265,6 +279,25 @@ export function anuncioDeApify(crudo: unknown): AnuncioLeido | null {
     destino,
     miniatura,
   };
+}
+
+/**
+ * Qué sigue después de una corrida de anuncios (4/11/2026; el Cerebro midió en ws 9: por «Alex Hormozi» el primero era de la Página
+ * «Skool», y por «Víctor Heras» 0 ítems y US$0). Con anuncios SUYOS, se guardan. Con ninguno suyo y otra forma de buscarlo, se prueba
+ * esa (una corrida vacía cuesta US$0). Probadas todas, no pauta: es un dato, se dice en su lugar y se vuelve a mirar a la semana.
+ * Una corrida por su Página no tiene «otra forma»: si vino vacía, no pauta.
+ */
+export function siguienteDeAnuncios(o: { suyos: number; busqueda: number; busquedas: number; porPagina: boolean }):
+  { que: 'guardar' } | { que: 'probar'; busqueda: number } | { que: 'no-pauta' } {
+  if (o.suyos > 0) return { que: 'guardar' };
+  if (!o.porPagina && o.busqueda + 1 < o.busquedas) return { que: 'probar', busqueda: o.busqueda + 1 };
+  return { que: 'no-pauta' };
+}
+
+/** Su Página, aprendida de anuncios YA verificados: si todos vienen de la misma (con su id), ésa. Si no, ninguna. */
+export function paginaDeSusAnuncios(suyos: ReadonlyArray<{ paginaId?: string | null }>): string | null {
+  const ids = new Set(suyos.map((a) => a.paginaId).filter((x): x is string => !!x && /^\d{5,25}$/.test(x)));
+  return ids.size === 1 ? [...ids][0] : null;
 }
 
 // ── Lo que cuenta como «lo borró» ────────────────────────────────────────────

@@ -202,6 +202,8 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-riel{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
 
 /* --- Volver a todos: un botón de verdad, con la flecha y las caras de los demás (4/11/2026). --- */
+.spy-sin-anuncios{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.spy-sin-anuncios a{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:2px}
 .spy-volver{display:flex;align-items:center;gap:10px;min-width:0;margin:6px 0 18px;flex-wrap:wrap}
 .spy-volver__grupo{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap}
 .spy-volver__ayuda{margin-left:auto;display:flex}
@@ -890,6 +892,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [trayendoTodo, setTrayendoTodo] = useState<number | null>(null);
   /** Por qué la traída larga no trajo todo, por competidor (4/11/2026: «si una corrida larga no terminó, la pantalla lo dice»). */
   const [avisoTodo, setAvisoTodo] = useState<Record<number, string>>({});
+  /** Los que no pautan: se probaron todas sus búsquedas en la Biblioteca y no hay anuncios suyos. La fecha en que se miró. */
+  const [sinAnuncios, setSinAnuncios] = useState<Record<number, string>>({});
   /** Cuántas tarjetas se dibujan: con cientos de piezas, de a 60 (una grilla de 500 imágenes traba la pantalla). */
   const [lecturas, setLecturas] = useState<Record<number, LecturaCanalSpy[]>>({});
   const [error, setError] = useState<string | null>(errorInicial);
@@ -1187,7 +1191,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
    * Apify que empieza el servidor y no se espera (/api/competitor-spy/todo). Si está en marcha, se vuelve a preguntar.
    */
   const traerTodo = useCallback(async (id: number) => {
-    type Resp = { ok: boolean; enMarcha?: boolean; nuevas?: number; porque?: string };
+    type Resp = { ok: boolean; enMarcha?: boolean; nuevas?: number; porque?: string; anuncios?: 'no-pauta'; anunciosMirados?: string };
     const r: Resp = await fetch('/api/competitor-spy/todo', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(65_000),
     }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false }));
@@ -1195,6 +1199,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     // El motivo, en palabras: antes se tiraba y la ficha quedaba con lo de la lectura de siempre sin decir por qué.
     const aviso = !r.ok ? null : avisoDeTraida(r.porque, { admin: puedeBorrar });
     setAvisoTodo((v) => { const n = { ...v }; if (aviso) n[id] = aviso; else delete n[id]; return n; });
+    if (r.ok) setSinAnuncios((v) => { const n = { ...v }; if (r.anuncios === 'no-pauta' && r.anunciosMirados) n[id] = r.anunciosMirados; else delete n[id]; return n; });
     return r;
   }, [puedeBorrar]);
 
@@ -1775,6 +1780,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                           {trayendoTodo === c.id && <span className="spy-trayendo" aria-live="polite"><i aria-hidden />Trayendo más</span>}
                         </div>
                         {trayendoTodo !== c.id && avisoTodo[c.id] && <p className="spy-aviso spy-aviso--suave" aria-live="polite">{avisoTodo[c.id]}</p>}
+                        {/* ⚠️ NO PAUTAR ES UN DATO, NO UN ERROR (el Cerebro, 4/11/2026): se probaron todas sus búsquedas y no hay anuncios
+                            suyos. Se dice en el lugar de sus anuncios, con la Biblioteca a un clic, sin cartel. */}
+                        {!anuncios.length && sinAnuncios[c.id] && (
+                          <p className="spy-aviso spy-aviso--suave spy-sin-anuncios">
+                            <Icon name="ads" size={14} />Sin anuncios activos en Meta · lo miré el {fechaCorta(sinAnuncios[c.id])}
+                            <a href={enlaceSusAnuncios(c)} target="_blank" rel="noreferrer noopener">Ver la Biblioteca</a>
+                          </p>
+                        )}
                         {/* La barra de herramientas de fitlo: campo ancho, el tipo (los anuncios son uno más) y el orden a la derecha. */}
                         <div className="spy-herramientas">
                           <label className="spy-buscar">
