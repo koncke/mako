@@ -68,6 +68,7 @@ import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { LogoRed } from './LogoRed';
 import { OtrasRedes, type BusquedaDeRedes } from './OtrasRedes';
+import { sinCanalesRepetidos } from '@/lib/spy-otras-redes-reglas';
 import { BotonRecorrido, Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
 import { PASOS_SPY, RECORRIDO_SPY } from './recorrido-spy';
 import type { Sugerido } from '@/lib/spy-sugeridos';
@@ -459,22 +460,25 @@ button.spy-campo:hover{color:var(--dim)}
    debajo de la pantalla. Ahora: el alto de los botones de la miga (40 px), lo que no entra se corta con «…», y cada pastilla
    ocupa el lugar libre de la fila; sólo con muchas baja de renglón. --- */
 .spy-migas .spy-migas-accion{margin-left:auto;color:var(--accent)}
-.spy-redes{display:contents}
-.spy-redes-fila{display:inline-flex;align-items:center;gap:8px;height:40px;max-width:100%;min-width:0;padding:0 4px 0 6px;
+.spy-redes{display:flex;align-items:center;gap:10px;min-width:0;flex:0 1 auto}
+.spy-redes-fila{display:inline-flex;align-items:center;gap:8px;height:40px;max-width:100%;min-width:0;flex:0 1 auto;padding:0 4px 0 6px;
   border-radius:99px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);font-size:var(--fs-sm);
   animation:spy-redes-entra .32s cubic-bezier(.2,.8,.2,1) both}
 @keyframes spy-redes-entra{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.spy-redes-fila{animation:none}}
-.spy-redes-logo{display:inline-flex;flex:0 0 auto}
-.spy-redes-cara{width:24px;height:24px;margin-left:-12px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:var(--surface-2);
+.spy-redes-cara{position:relative;display:inline-flex;width:28px;height:28px;flex:0 0 auto}
+.spy-redes-cara img{width:28px;height:28px;border-radius:50%;object-fit:cover;background:var(--surface-2)}
+.spy-redes-cara[data-con-foto='si'] .spy-redes-logo{position:absolute;right:-4px;bottom:-3px;display:inline-flex;border-radius:5px;
   box-shadow:0 0 0 2px var(--surface)}
+.spy-redes-cara[data-con-foto='no'] .spy-redes-logo{display:inline-flex;margin:2px}
 .spy-redes-texto{display:flex;align-items:center;gap:6px;min-width:0;max-width:340px;white-space:nowrap}
 .spy-redes-texto b{flex:0 0 auto;font-weight:600;color:var(--ink)}
-.spy-redes-texto a{display:inline-flex;align-items:center;gap:3px;min-width:0;color:var(--dim);font-weight:600;text-decoration:none}
+.spy-redes-texto a{display:inline-flex;align-items:center;gap:3px;min-width:72px;flex:0 1 auto;color:var(--dim);font-weight:600;text-decoration:none}
 .spy-redes-texto a span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .spy-redes-texto a svg{flex:0 0 auto;opacity:.7}
 .spy-redes-texto a:hover{color:var(--ink);text-decoration:underline}
-.spy-redes-texto small{flex:0 0 auto;color:var(--faint);font-size:12px}
+/* Lo primero que cede es el detalle (suscriptores, el porqué): su nombre se lee siempre. */
+.spy-redes-texto small{flex:0 100 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--faint);font-size:12px}
 .spy-redes-fila[data-red='youtube']{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--yt) 28%,var(--border))}
 .spy-redes-fila[data-red='instagram']{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ig) 28%,var(--border))}
 .spy-redes-trae{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 4px;color:var(--dim);font-size:var(--fs-sm);
@@ -484,7 +488,10 @@ button.spy-campo:hover{color:var(--dim)}
 @keyframes spy-redes-gira{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spy-redes-trae i{animation:none}}
 .spy-redes-fila .spy-boton{height:32px;padding:0 12px;flex:0 0 auto}
-@media (max-width:560px){.spy-redes-fila{width:100%}.spy-redes-texto{flex:1 1 auto;max-width:none}.spy-redes-texto small{display:none}}
+/* La fila de la miga NO se parte en la computadora (Martín, con Federico Cristofari: la segunda pastilla bajaba de renglón y empujaba
+   el «?» y las pestañas): las pastillas se achican (su nombre con «…») y el «?» queda al final. En el teléfono, cada una en su renglón. */
+@media (min-width:561px){.spy-volver{flex-wrap:nowrap}.spy-volver__grupo{flex:0 0 auto}}
+@media (max-width:560px){.spy-redes{flex-wrap:wrap;width:100%}.spy-redes-fila{width:100%}.spy-redes-texto{flex:1 1 auto;max-width:none}.spy-redes-texto small{display:none}}
 .spy-aviso--suave{background:none;padding:0;color:var(--dim)}
 .spy-vermas{display:flex;justify-content:center;margin:18px 0 6px}
 .spy-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
@@ -1107,7 +1114,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     setRedes((v) => ({
       ...v,
       [id]: r.ok
-        ? { buscando: false, sumadas: [...(v[id]?.sumadas ?? []).filter((k) => !r.sumadas.some((x) => x.red === k.red && x.ref === k.ref)), ...r.sumadas], candidatos: r.candidatos }
+        ? {
+          buscando: false,
+          sumadas: sinCanalesRepetidos([...r.sumadas, ...(v[id]?.sumadas ?? [])]),
+          // Sin repetidos y sin preguntar por una red que ya se sumó (Martín, con Federico Cristofari: «2 veces saltó el cartel de
+          // YouTube. Eso no debe pasar»).
+          candidatos: sinCanalesRepetidos(r.candidatos).filter((k) => ![...r.sumadas, ...(v[id]?.sumadas ?? [])].some((x) => x.red === k.red)),
+        }
         : { buscando: false, sumadas: v[id]?.sumadas ?? [], candidatos: [] },
     }));
     if (sigue) setTimeout(() => { if (actual.current === id) void buscarRedes(id, vuelta + 1); }, ESPERA_REDES_MS);
