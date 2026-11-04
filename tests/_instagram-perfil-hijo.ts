@@ -46,9 +46,10 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   }
   if (u.host === 'api.apify.com') {
     const body = JSON.parse(String(init.body ?? '{}')) as { usernames?: string[] };
-    const usuario = body.usernames?.[0] ?? '';
     if (apifyCae) return json({ error: 'caído' }, 500);
-    return json(apifyTrae ? [{ username: usuario, fullName: 'Por Apify', biography: 'bio de Apify', latestPosts: [{ caption: 'un post', timestamp: '2026-10-20T00:00:00Z', type: 'Image' }] }] : [], 201);
+    // Con varios usuarios (`leerPerfilesEnLote`) devuelve uno por cada uno, salvo los que empiezan con «noexiste_».
+    const usuarios = (body.usernames ?? []).filter((x) => !x.startsWith('noexiste_'));
+    return json(apifyTrae ? usuarios.map((usuario) => ({ username: usuario, fullName: 'Por Apify', biography: 'bio de Apify', followersCount: 1234, latestPosts: [{ caption: 'un post', timestamp: '2026-10-20T00:00:00Z', type: 'Image' }] })) : [], 201);
   }
   return json({ error: 'red de mentira' }, 500);
 }) as typeof fetch;
@@ -145,21 +146,42 @@ async function main() {
   await correr('otroNegocio', 'compartida_ok', { ws: 3, fuentes: LA_DEL_ALTA });
   // Pero una lectura sin piezas no le contesta a quien las pide.
   await correr('quienPidePiezas', 'compartida_ok', { ws: 8, fuentes: LA_DEL_ALTA, conPiezas: true });
-  // La reserva: con 25 gastadas de 40 y una reserva de 15, no sale; y ese freno no le tapa nada a quien no la tiene.
-  apifyHoy.set(cuentaDel8, 25);
+  // La reserva: con el cupo de la clave de Spy (150) menos la reserva (15) ya gastado, no sale; y ese freno no le tapa
+  // nada a quien no la tiene.
+  const { TOPE_LECTURAS_SPY_POR_DIA, TOPE_BUSQUEDAS_SPY_POR_DIA } = await import('../lib/instagram-perfil');
+  out.topeLecturasSpy = TOPE_LECTURAS_SPY_POR_DIA;
+  out.topeBusquedasSpy = TOPE_BUSQUEDAS_SPY_POR_DIA;
+  apifyHoy.set(cuentaDel8, TOPE_LECTURAS_SPY_POR_DIA - 15);
   await correr('conReservaFrena', 'reserva_ok', { ws: 8, fuentes: LA_DEL_ALTA, reservaApify: 15 });
   await correr('sinReservaLee', 'reserva_ok', { ws: 8, fuentes: LA_DEL_ALTA });
-  apifyHoy.set(cuentaDel8, 24);
+  apifyHoy.set(cuentaDel8, TOPE_LECTURAS_SPY_POR_DIA - 16);
   await correr('conReservaAunLee', 'reserva_margen', { ws: 8, fuentes: LA_DEL_ALTA, reservaApify: 15 });
-  // La búsqueda por nombre cuenta en el mismo tope que las lecturas.
-  const { gastarBusquedaDeSpy, topeDeSpyAgotado } = await import('../lib/instagram-perfil-server');
+  // ⚠️ 4/11/2026: las búsquedas por nombre tienen SU cupo. Gastarlo no deja al negocio sin poder leer un @.
+  const { gastarBusquedaDeSpy, topeDeSpyAgotado, leerPerfilesEnLote } = await import('../lib/instagram-perfil-server');
   apifyHoy.clear();
   let busquedas = 0;
   out.topeAgotadoAntes = topeDeSpyAgotado(8);
-  for (let i = 0; i < 45; i++) if (gastarBusquedaDeSpy(8)) busquedas++;
+  for (let i = 0; i < TOPE_BUSQUEDAS_SPY_POR_DIA + 5; i++) if (gastarBusquedaDeSpy(8)) busquedas++;
   out.busquedasDelDia = busquedas;
   out.topeAgotadoDespues = topeDeSpyAgotado(8);
-  await correr('leerSinCupo', 'sin_cupo_ok', { ws: 8, fuentes: LA_DEL_ALTA });
+  await correr('leerConBusquedasAgotadas', 'sin_cupo_ok', { ws: 8, fuentes: LA_DEL_ALTA });
+
+  // I (4/11/2026): varias filas en UNA corrida, que comparte la caché con la lectura de uno.
+  apifyHoy.clear();
+  pedidos.length = 0;
+  const lote = await leerPerfilesEnLote(['lote_a', 'lote_b', 'noexiste_c'], { ws: 8 });
+  out.loteCorridas = pedidos.filter((p) => p.startsWith('api.apify.com')).length;
+  out.loteOk = [...lote].filter(([, l]) => l.ok).map(([u]) => u).sort();
+  out.loteContadas = apifyHoy.get(cuentaDel8) ?? 0;
+  await correr('despuesDelLote', 'lote_a', { ws: 8, fuentes: LA_DEL_ALTA });
+  pedidos.length = 0;
+  await leerPerfilesEnLote(['lote_a', 'lote_b'], { ws: 8 });
+  out.loteRepetidoCorridas = pedidos.filter((p) => p.startsWith('api.apify.com')).length;
+  // Con reserva y UN lugar libre: entra uno, y los otros dos vuelven como «limite» (no se pasa del cupo).
+  apifyHoy.set(cuentaDel8, TOPE_LECTURAS_SPY_POR_DIA - 15 - 1);
+  const conReserva = await leerPerfilesEnLote(['res_a', 'res_b', 'res_c'], { ws: 8, reserva: 15 });
+  out.loteConReservaOk = [...conReserva].filter(([, l]) => l.ok).length;
+  out.loteConReservaLimite = [...conReserva].filter(([, l]) => !l.ok && l.motivo === 'limite').length;
   process.stdout.write(`${JSON.stringify(out)}\n`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
