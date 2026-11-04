@@ -19,7 +19,7 @@
 //      `paqueteParaElTurno` que no lee el curso con `sinPlata`                             → 14 / 1: «con la cuenta de un cliente»
 //   4. `useChatCliente` sin `quien` en `aspectoMuneco`                                      → cae «la burbuja lleva su cara»
 //      la fila de la lista sin `guru`                                                       → cae «el historial»
-//   5. `ChatDelCoach` sin `BotonSuSecondBrain`                                              → cae «su Second Brain, en los chats donde aconseja»
+//   5. `ChatDelCoach` sin `BotonSecondBrainDe` (4/11: era `BotonSuSecondBrain`, un modal)   → cae «su Second Brain, en los chats donde aconseja»
 // Correr: node --import tsx --test tests/gurus-ops-center.test.ts
 // =============================================================================
 
@@ -133,7 +133,7 @@ function correr() {
     sinReferente: boolean;
     deOffer: { conCurso: boolean; largo: number };
     tarde: { ms: number; vacio: boolean };
-    grafo: { nodos: number; posiciones: number; ms: number; kb: number };
+    grafo: { nodos: number; modulos: number; posiciones: number; ms: number; kb: number };
   };
 }
 
@@ -224,17 +224,19 @@ test('4. el teléfono usa el mismo motor, con su cara en el título', () => {
 // ── 5. Su Second Brain, visible ───────────────────────────────────────────────────────────────────────
 
 test('5. su Second Brain, en los chats donde aconseja un gurú, en la computadora y en el teléfono', () => {
-  assert.match(leer('app/second-brain/ChatDelReferente.tsx'), /<BotonSuSecondBrain referente=\{r\} \/>/, 'el suyo');
-  assert.match(leer('app/second-brain/ChatDelCoach.tsx'), /\{r && <BotonSuSecondBrain referente=\{r\} \/>\}/, 'el Funnel Coach');
-  assert.match(leer('app/second-brain/ChatSecondBrain.tsx'), /<BotonSuSecondBrain referente=\{delOffer\} \/>/, 'una conversación de Offer');
+  // «Second Brain de <gurú>» y, abierto, «Volver al chat»: lo que hace el botón y el reemplazo lo corre tests/cerebro-referente-vista.test.ts.
+  assert.match(leer('app/second-brain/ChatDelReferente.tsx'), /<BotonSecondBrainDe referente=\{r\} viendo=\{viendoCerebro\}/, 'el suyo');
+  assert.match(leer('app/second-brain/ChatDelCoach.tsx'), /\{r && <BotonSecondBrainDe referente=\{r\} viendo=\{mostrandoCerebro\}/, 'el Funnel Coach');
+  assert.match(leer('app/second-brain/ChatSecondBrain.tsx'), /<BotonSecondBrainDe referente=\{delOffer\} viendo=\{viendoCerebroOffer\}/, 'una conversación de Offer');
   const m = leer('app/m/second-brain/HojaDelGuru.tsx');
-  assert.match(m, /onClick=\{\(\) => setViendoCerebro\(true\)\}>Su Second Brain</);
-  assert.match(m, /<CerebroDelGuru referente=\{r\} \/>/, 'adentro de la hoja: una hoja sobre otra la reemplaza');
+  assert.match(m, /<BotonSecondBrainDe referente=\{r\} viendo=\{false\} onCambiar=\{setViendoCerebro\} \/>/);
+  assert.match(m, /<CerebroDelGuru referente=\{r\} movil \/>/, 'adentro de la hoja: una hoja sobre otra la reemplaza');
 });
 
 test('5. el grafo del curso más largo se arma, con cada clase en su lugar y sin el texto', { timeout: 250_000 }, () => {
   const { grafo } = curso();
-  assert.equal(grafo.nodos, 453, 'la raíz y las 452 clases de Marc Verdú');
+  assert.ok(grafo.modulos > 1, 'sus módulos son las secciones del mapa');
+  assert.equal(grafo.nodos, 1 + grafo.modulos + 452, 'la raíz, un nodo por módulo y las 452 clases de Marc Verdú');
   assert.equal(grafo.posiciones, grafo.nodos);
   assert.ok(grafo.kb < 900, `el grafo pesa ${grafo.kb} KB: ¿viajó el texto de las clases?`);
 });

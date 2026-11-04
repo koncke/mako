@@ -132,6 +132,7 @@ configurar_formulario_landing
 configurar_horario_envio
 configurar_landing
 configurar_navegacion_landing
+configurar_newsletter
 configurar_reporte
 configurar_seccion_landing
 configurar_seccion_reporte
@@ -160,6 +161,7 @@ crear_contacto_chatwoot_lead
 crear_crm
 crear_diseno_imagen
 crear_documento_copywriter
+crear_edicion_newsletter
 crear_etiqueta
 crear_evento_calendario
 crear_evento_comunidad
@@ -674,6 +676,7 @@ ver_miembro_comunidad
 ver_moneda_negocio
 ver_montaje_anuncio
 ver_mrr_activo
+ver_newsletter
 ver_nombres_del_crm
 ver_novedades_pixel
 ver_objetivo_principal
