@@ -84,6 +84,38 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Sin veredicto, la punta llegó a main sin correr un test: `null != '0'` es falso en GitHub (4/11/2026)
+
+**Vive en:** `.github/workflows/punta.yml` (las condiciones de «Tests afectados…» y «Los tests los cubre el veredicto») ·
+`scripts/veredicto.mjs` (`revisar`, la salida `nada_que_repetir`) · `tests/_expresion-actions.ts` · `tests/veredicto.test.ts`.
+
+**Síntoma.** En la corrida 188 (dash-cobranza) y la 189 (spy-paginas-bloqueadas) los dos pasos de tests salieron «skipped» y la
+punta llegó a main verde. Las dos puntas llegaron sin correr un test, con sólo las guardas y el tsc.
+
+**Causa.** El paso de los tests corría con `steps.veredicto.outputs.cuantos != '0'`. Sin veredicto, `revisar` no escribía `cuantos`. En
+una expresión de GitHub, una salida que falta es **null**, y dos tipos distintos se comparan pasándolos a número: null → 0 y `'0'` → 0. O
+sea `null != '0'` es **falso**, y el paso se salteaba en cada punta sin veredicto, que es casi todas. Lo escribí yo, en el cambio del
+veredicto (601a0ec2f). Su primera corrida pasó porque traía veredicto, y `cuantos` estaba escrito.
+
+**Por qué no lo vio el test.** `tests/veredicto.test.ts` fijaba el TEXTO de la condición («`if: ".*cuantos != '0'"`»), así que daba
+verde con el bug adentro. Es la regla de la casa («un test nuevo ejecuta el código»), incumplida por quien la escribió esa misma mañana.
+
+**Lo que quedó.**
+- La condición compara contra una PALABRA, nunca contra un número: `nada_que_repetir != 'si'`. Con una salida que falta, `null != 'si'`
+  pasa a `0 != NaN`, que es verdadero: los tests corren. `revisar` la escribe siempre, y el respaldo del paso también.
+- `tests/_expresion-actions.ts` evalúa una condición `if:` con las reglas de GitHub: la igualdad floja, null y '' como 0, NaN distinto
+  de todo y los strings sin mayúsculas. El test corre `revisar` de verdad en cada caso y EVALÚA las dos condiciones de punta.yml sobre
+  sus salidas: sin veredicto, con algo que repetir, con nada que repetir, con el paso sin correr y con el paso fallado. Siempre corre
+  exactamente UNO de los dos pasos.
+- Una guarda en el mismo test: ningún workflow compara una salida de un paso contra un número.
+- Probado rompiéndolo: con la condición vieja caen 2 de 14, y sin la marca en el camino del veredicto cae «nada que repetir».
+
+**Lo que llegó a main sin tests**, medido: las dos puntas de arriba (de 3a40e2edf a 494c52133). Sus tests afectados se corrieron sobre
+main ese mismo día, con el resultado en `docs/relevo/nube-metodologia.md` → «6».
+
+**La regla que generaliza: en un `if:` de Actions, una salida de un paso se compara con una palabra.** Con un número, una salida que
+falta vale 0. Y se prueba EVALUANDO la condición, no leyéndola.
+
 ## Actions sin repetir: los minutos se iban en tests que ya habían pasado, no en la documentación (4/11/2026)
 
 **Vive en:** `scripts/veredicto.mjs` · `scripts/node24.sh` · `scripts/tests-afectados.mjs` (`--solo`, `MAKO_VEREDICTO_CORRIDA`) ·

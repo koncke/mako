@@ -226,6 +226,7 @@ jobs:
           if ! node scripts/veredicto.mjs revisar --punta "$GITHUB_SHA" --main origin/main --salida "$RUNNER_TEMP/veredicto" --previo "$RUNNER_TEMP/veredicto-previo.json"; then
             echo "::warning::No pude revisar el veredicto: corre todo, como siempre."
             echo "usar=false" >> "$GITHUB_OUTPUT"
+            echo "nada_que_repetir=no" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Instalar
@@ -260,11 +261,13 @@ jobs:
       # No se usa PIPESTATUS para que este paso corra igual en `sh` (lo prueba tests/punta-ci.test.ts).
       #
       # ⚠️ CON UN VEREDICTO (`USAR=true`) corren sólo los de `--solo`: lo que la mezcla pudo cambiar, lo que el veredicto no tenía en verde y
-      # la muestra. Si no queda ninguno (`cuantos` = 0), este paso no corre: corre el de abajo, que lo dice en el resumen. Así este paso no
+      # la muestra. Si no queda ninguno (`nada_que_repetir` = si), este paso no corre: corre el de abajo, que lo dice en el resumen. Así este paso no
       # tiene un `exit 0` por un costado. Con sólo documentación corren igual los que la leen (barredoras incluidas): un relevo que rompe
       # una barredora dejaba roja la punta SIGUIENTE, de otro chat.
       - name: Tests afectados por lo que cambió (todos, sin cortar)
-        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.veredicto.outputs.cuantos != '0'"
+        # ⚠️ NUNCA una salida contra un número («cuantos != '0'»): una salida que falta es null, y GitHub compara null con un número
+        # como 0. Sin veredicto este paso se salteaba entero (corridas 188 y 189, 4/11/2026). Lo fija tests/punta-condiciones.test.ts.
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.veredicto.outputs.nada_que_repetir != 'si'"
         timeout-minutes: 30
         # El tiempo de cada archivo de test, al lado del reporte de siempre (scripts/reporter-tiempos.mjs). Lo lee el paso de abajo.
         env:
@@ -289,7 +292,7 @@ jobs:
           fi
 
       - name: Los tests los cubre el veredicto
-        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.veredicto.outputs.usar == 'true' && steps.veredicto.outputs.cuantos == '0'"
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.veredicto.outputs.usar == 'true' && steps.veredicto.outputs.nada_que_repetir == 'si'"
         run: |
           echo "El veredicto cubre los tests de este mismo árbol: no se repite ninguno." | tee -a "$GITHUB_STEP_SUMMARY"
           printf '{"corridos":[],"noVerdes":[]}' > "$RUNNER_TEMP/veredicto-corrida.json"

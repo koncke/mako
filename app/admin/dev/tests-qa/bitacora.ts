@@ -349,4 +349,20 @@ export const BITACORA: Hito[] = [
       'docs/relevo/nube-metodologia.md → «6» — cómo se usa, los números, las palancas que quedan y el runner propio',
     ],
   },
+  {
+    fecha: '4 nov', hora: '15:50', chat: 'Infra', sesion: 'cli_fe9e34df-f0e0-505d-89ab-5b8ddc011a0b', cuenta: 'nube', actor: 'claude', tipo: 'correccion',
+    titulo: 'Sin veredicto, las puntas llegaban a main sin correr los tests: ya corren',
+    puntos: [
+      'Desde el cambio del veredicto, una punta sin veredicto se salteaba el paso de los tests. Llegaron así dos a main: el Dashboard de Cobranza y las páginas bloqueadas de Spy.',
+      'La causa: la condición comparaba una salida con un número, y en GitHub una salida que falta vale 0. Ahora compara con una palabra.',
+      'El test ahora EVALÚA la condición con las reglas de GitHub, sobre lo que el veredicto escribe en cada caso. El de antes miraba el texto y daba verde con el error adentro.',
+      'Los tests de lo que llegó sin ellos se corrieron sobre main el mismo día.',
+    ],
+    archivos: [
+      '.github/workflows/punta.yml — las dos condiciones de los tests',
+      'scripts/veredicto.mjs — revisar escribe siempre nada_que_repetir',
+      'tests/_expresion-actions.ts — evalúa un if: de Actions como GitHub',
+      'tests/veredicto.test.ts — qué paso de tests corre en cada caso',
+    ],
+  },
 ];
