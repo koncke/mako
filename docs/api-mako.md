@@ -1512,7 +1512,7 @@ Busca leads del negocio por nombre, teléfono, email o empresa y devuelve una li
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `texto` | string | sí | texto a buscar en nombre, teléfono, email o empresa. |
+| `texto` | string | sí | texto a buscar en nombre, teléfono, email o empresa. Si ningún lead se llama así y es el nombre (o una parte) de una campaña de Meta, vuelven los leads de esa campaña con su teléfono; con más de 20 personas, dice cuántas quedaron afuera. |
 
 ```bash
 curl -L \
@@ -1635,7 +1635,8 @@ Lista la cartera filtrada por etapa EFECTIVA (la misma que pinta el tablero, no 
 | `desde` | string | no | YYYY-MM-DD, inclusive. |
 | `hasta` | string | no | YYYY-MM-DD, inclusive. |
 | `persona` | string | no | nombre del closer o setter tal como figura en el lead, o SIN_ASIGNAR para los que no tienen ninguno. |
-| `limite` | number | no | cuántas filas devolver (default 30, máximo 100). |
+| `campana` | string | no | la campaña de Meta de la que vinieron: su nombre o una parte (sin importar tildes ni mayúsculas), o su id. No hace falta la fecha. Si ninguna se llama así, vuelven las parecidas. |
+| `limite` | number | no | cuántas filas devolver (default 30; con campana, 200; máximo 500). |
 
 ```bash
 curl -L \

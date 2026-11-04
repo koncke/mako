@@ -84,6 +84,7 @@ Cada arreglo, probado rompiéndolo: los números están al pie de cada test. Lo 
 
 ## Lo que sigue abierto
 
+- **El diseño, como un grupo de WhatsApp** (`punta/grupos-diseno`): quiénes están debajo del nombre, Invitar y Participantes a la derecha, el modal sin saltos, la cita de MaKo y el 👍 sobre el borde. Mirado con capturas en Chromium (claro y oscuro, 390 y 1280), no en la app con sesión.
 - **El 4/11 a la tarde entraron dos arreglos más:**
   - El ticket #55: dentro de la cuenta de un cliente, la agencia ve sólo el grupo de ese cliente.
   - «mako estas vivo?» ya no se queda en el 👍: una pregunta que le habla a MaKo se contesta (`preguntaAMaKo`).
