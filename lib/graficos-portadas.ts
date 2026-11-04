@@ -345,8 +345,8 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
       vecino: 'vs-curva', par: ['vs-mitad', 'vs-tramos', 'vs-videos'],
     },
     'chat-analyst': { molde: 'corbel', sube: 'ch-rapidos', cambios: { tipo: 'indicador', maximo: 100, titulo: 'Respondes en 15 minutos' }, vecino: 'ch-por-dia', par: ['ch-rapidos', 'ch-setters', 'ch-lineas'] },
-    closing: { molde: 'wharf', sube: 'cl-embudo-embudo', cambios: { tipo: 'embudo_columnas', titulo: 'Cuántas llamadas se ganan' }, vecino: 'cl-factores-barras', par: ['cl-closers-tabla', 'cl-factores-ia'] },
-    'cs-analyst': { molde: 'moorly', sube: 'cs-etapas', cambios: { titulo: 'Dónde está cada cliente' }, vecino: 'cs-semanas', par: ['cs-tabla', 'cs-contacto'] },
+    closing: { molde: 'wharf', sube: 'cl-embudo-embudo', cambios: { tipo: 'embudo_columnas', titulo: 'Cuántas llamadas se ganan' }, vecino: 'cl-factores-barras', par: ['cl-factores-ia', 'cl-embudo-embudo', 'cl-resultado'] },
+    'cs-analyst': { molde: 'moorly', sube: 'cs-etapas', cambios: { titulo: 'Dónde está cada cliente' }, vecino: 'cs-tabla', par: ['cs-motivos', 'cs-senal', 'cs-contacto', 'cs-etapas', 'cs-semanas', 'cs-ia'] },
     productividad: { molde: 'moorly', sube: 'pr-piramide-barras', cambios: { titulo: 'Pirámide de prioridad' }, vecino: 'pr-avance-proyecto', par: ['pr-huele-mal', 'pr-matriz-burbujas'] },
     cobranza: { molde: 'wharf', sube: 'semanas', vecino: 'semanas', par: ['urgencia', 'barra', 'por-funnel'] },
     automatizaciones: {
@@ -354,7 +354,7 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
         id: id('automatizaciones-portada'), clase: 'grafico', tipo: 'embudo_barras', fuente: 'envios', metricas: ['envios', 'abiertos', 'respuestas'],
         titulo: '¿Te contestan?',
       }),
-      vecino: 'por-dia', par: ['por-automatizacion', 'desenlace'],
+      vecino: 'por-dia', par: ['por-automatizacion', 'automatizaciones-portada', 'desenlace', 'donde-fallo', 'horas'],
     },
     'ia-contenido': {
       molde: 'corbel', nueva: (id) => ({

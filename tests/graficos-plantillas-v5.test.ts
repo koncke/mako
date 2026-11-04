@@ -139,7 +139,8 @@ test('cada gráfico de cada plantilla pasa el saneo SIN cambiar de conjunto, tip
 
 test('lo que DEFINE una tarjeta va FIJO, y el período propio también salvo el que mira hacia adelante (a la vista)', () => {
   // Los dos que miran hacia ADELANTE con su período a la vista (decisión de la tanda v5).
-  const VISIBLES: Readonly<Record<string, string>> = { 'co-revenue-pendiente': 'este_mes_completo', 'co-cobranza-tabla': 'este_mes_completo' };
+  // Y desde el 4/11/2026 «Lo que vence, por semana» de Productividad: los próximos 30 días.
+  const VISIBLES: Readonly<Record<string, string>> = { 'co-revenue-pendiente': 'este_mes_completo', 'co-cobranza-tabla': 'este_mes_completo', 'pr-vence': 'prox30' };
   const malos: string[] = [];
   let fijos = 0;
   for (const { hoja } of CRUDAS) {
