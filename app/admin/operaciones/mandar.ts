@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MAX_NOMBRE_ADJUNTO, MAX_TEXTO, MIMES_ADJUNTO, armarFirmable, mimeDeArchivoCentro, nuevoPayload, type AdjuntoPedido, type Alcance, type Esfuerzo, type MimeAdjunto, type Modelo, type VozDelPedido } from '@/lib/operaciones-reglas';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
+import { copiarTexto } from '@/lib/copiar-texto';
 import { TEXTO_SOLO_ADJUNTOS } from '@/lib/centro-caja';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
 import { encolarPedidoAction } from './acciones';
@@ -173,12 +174,5 @@ async function subirDirecto(archivos: readonly File[]): Promise<{ ok: true; adju
   }
 }
 
-/** Copiar al portapapeles sin romper si el navegador no deja (http, permisos). */
-export async function copiar(texto: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(texto);
-    return true;
-  } catch {
-    return false;
-  }
-}
+/** Copiar al portapapeles sin romper si el navegador no deja (http, permisos): el camino de lib/copiar-texto.ts (ticket #36). */
+export const copiar = copiarTexto;

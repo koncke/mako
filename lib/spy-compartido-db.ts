@@ -91,18 +91,19 @@ export const DIAS_DE_PODA = DIAS_QUE_SE_GUARDA;
  * `workspace_id`. Esto es sólo la copia compartida que ahorra una lectura; sin ella, la próxima se
  * paga, que es exactamente como estaba antes de la migración 0363.
  *
- * ⚠️ NO HAY CRON QUE LA LLAME TODAVÍA. Se expone para que la enganche quien agregue uno
- * (`.claude/skills/add-cron-job`). Mientras tanto la tabla crece, y crece poco: una fila por canal
- * mirado, con sus piezas. No es urgente, pero tampoco es infinito.
+ * La llama el cron diario app/api/cron/spy-poda.
+ *
+ * ⚠️ UN FALLO NO ES «NO HABÍA NADA QUE BORRAR»: devolvía 0 en los dos casos, y un cron que se cae todos
+ * los días se veía igual que uno sin trabajo. Vuelve el motivo, para que el cron conteste 500.
  */
-export async function podarLecturasCompartidas(ahoraMs = Date.now()): Promise<number> {
+export async function podarLecturasCompartidas(ahoraMs = Date.now()): Promise<{ podadas: number; error: string | null }> {
   const limite = new Date(ahoraMs - DIAS_DE_PODA * 24 * 3600_000).toISOString();
   try {
     const db = await getTenantDb();
     const { data, error } = await db.from(T).delete().lt('leido_en', limite).select('ref');
-    if (error) return 0;
-    return (data ?? []).length;
-  } catch {
-    return 0;
+    if (error) return { podadas: 0, error: error.message };
+    return { podadas: (data ?? []).length, error: null };
+  } catch (e) {
+    return { podadas: 0, error: e instanceof Error ? e.message : String(e) };
   }
 }

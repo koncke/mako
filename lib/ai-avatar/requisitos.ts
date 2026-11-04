@@ -18,6 +18,8 @@
 // SIN `server-only` y sin 'use client': lo usan app/ai-avatar/Estudio.tsx y app/m/ai-avatar/EstudioM.tsx.
 
 import type { EstadoPuente } from '../flow-cola';
+import { lineaDeVersion } from '../extension-tienda';
+import { MOTOR_INTERFAZ_DESDE } from '../flow-interfaz';
 
 /** Lo que el servidor sabe del puente del negocio (actions.ts → `puenteParaAvatar`). */
 export type PuenteVisto = {
@@ -82,7 +84,7 @@ export function requisitosAvatar(p: {
       id: 'actualizar',
       titulo: 'Actualiza la extensión de MaKo',
       hecho: false,
-      ayuda: 'La que tienes no sabe poner tu cara en el avatar.',
+      ayuda: lineaDeVersion(MOTOR_INTERFAZ_DESDE, 'La que tienes no sabe poner tu cara en el avatar.'),
       enlace: { texto: 'Cómo actualizarla', href: RUTA_INSTALAR },
     });
   }

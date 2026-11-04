@@ -1,11 +1,6 @@
 'use client';
 
-// La lista numerada de un instructivo, con su botón de descarga en el paso 1.
-//
-// ⚠️ LOS NÚMEROS Y EL NOMBRE DEL ARCHIVO NO SE ESCRIBEN A MANO: entran como props
-// desde `EXTENSION_VERSION` y `EXTENSION_URL_ZIP`. Un instructivo con la versión
-// hardcodeada es el mismo bug de contrato que este repo acaba de pagar en el
-// código, escrito en prosa — y peor, porque nadie lo compila.
+// La lista numerada de un instructivo, con su botón «Agregar a Chrome» en el paso 1.
 
 import { ButtonLink } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
@@ -29,13 +24,10 @@ function conNegritas(t: string) {
  */
 type Paso = string | { texto: string; figura: React.ReactNode };
 
-export function Pasos({ pasos, zip, botonTexto = 'Descargar la extensión', conBoton = true }: {
+export function Pasos({ pasos, href, conBoton = true }: {
   pasos: Paso[];
-  /** A dónde va el botón: el zip, o la ficha de la tienda. */
-  zip: string;
-  /** La versión, sólo para que el llamador no pueda olvidarse de pasarla. */
-  version: string;
-  botonTexto?: string;
+  /** A dónde va el botón: la ficha de la tienda. */
+  href: string;
   /**
    * ⚠️ EL SEGUNDO INSTRUCTIVO NO LLEVA BOTÓN. Con `true` en los dos, la página
    * mostraba DOS botones azules idénticos —y el de abajo caía entre el paso 1 y
@@ -73,16 +65,16 @@ export function Pasos({ pasos, zip, botonTexto = 'Descargar la extensión', conB
               el primero. */}
           {i === 0 && conBoton && (
             <div style={{ marginTop: 9 }}>
-              {/* `ButtonLink` y no `Button`: es una descarga, así que el clic
-                  derecho, «abrir en otra pestaña» y el historial tienen que
-                  funcionar como en cualquier link. Y va por `app/_ui/Link`, que
-                  es lo que preserva el `?ws=` de la pestaña. */}
+              {/* `ButtonLink` y no `Button`: el clic derecho, «abrir en otra
+                  pestaña» y el historial tienen que funcionar como en cualquier
+                  link. En otra pestaña para que estos pasos sigan acá al volver. */}
               <ButtonLink
                 variant="primary"
-                href={zip}
-                icon={<Icon name="descargar" size={16} />}
+                href={href}
+                newTab
+                icon={<Icon name="plus" size={16} />}
               >
-                {botonTexto}
+                Agregar a Chrome
               </ButtonLink>
             </div>
           )}

@@ -103,7 +103,8 @@ import { TANDA_AGREGAR, enTandas } from './traer-seleccion';
 import { TANDA_ETIQUETAS_LOTE } from '@/lib/etiquetas-reglas';
 import { SelectorEtiqueta, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { TOPE_LOTE_COMPLETAR, TOPE_PERFILES_DIA, fichaLimpia, minutosDePerfiles, type FichaWa } from '@/lib/grupo-wa-reglas';
-import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
+import { VERSION_FICHAS, alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
+import { lineaDeVersion } from '@/lib/extension-tienda';
 import { useExtensionFichas } from './usar-extension-fichas';
 import { completarFichasDeLeadsAction, completarPerfilesDeLeadsAction, pedidosDeFichasAction } from './enriquecer-actions';
 import { correrPerfiles, gruposEnWhatsappDichos, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles } from './enriquecer-cliente';
@@ -742,7 +743,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
                 {
                   // No va gris sin la extensión (25/10/2026): tocarla abre la instalación y arranca sola al volver.
                   value: 'whatsapp', label: 'Desde mi WhatsApp', icono: 'whatsapp',
-                  sub: extWa === 'si' ? 'Nombre, empresa y grupos en común' : extWa === 'vieja' ? 'Actualiza la extensión de MaKo' : 'Instala la extensión de MaKo',
+                  sub: extWa === 'si' ? 'Nombre, empresa y grupos en común' : extWa === 'vieja' ? lineaDeVersion(VERSION_FICHAS, 'Actualiza la extensión de MaKo') : 'Instala la extensión de MaKo',
                 },
                 { value: 'empresa', label: 'Datos de empresa', icono: 'web', sub: 'Web, Instagram, correo y dirección' },
               ]}

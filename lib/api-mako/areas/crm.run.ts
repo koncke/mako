@@ -93,7 +93,7 @@ import { listPendientes, resolverConfirmacion } from '@/lib/mako-confirmaciones'
 import { evaluarAutoWorkspace } from '@/lib/crm-auto';
 import { crmAutoHabilitado, setCrmAuto, KEY_CRM_AUTO } from '@/lib/envio-flags';
 import {
-  horariosLibresDeGoogle, permisoCalendarioGoogle, crearEventoDeReunion, moverEventoDeReunion,
+  horariosLibresDeGoogle, permisoCalendarioGoogle, agendaParaEscribir, crearEventoDeReunion, moverEventoDeReunion,
   proximasReunionesCon, choquesEnAgenda, eventosDelDia, cambiarEventoDeReunion, cancelarEventoDeReunion,
 } from '@/lib/google-calendar';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -244,14 +244,6 @@ async function instanteEnZona(ws: number, fecha: unknown, hora: unknown): Promis
   if (!iso) return { error: 'No pude armar esa fecha y hora.' };
   if (Date.parse(iso) < Date.now() + 5 * 60_000) return { error: `El ${cuando(iso, tz)} ya pasó o es en menos de 5 minutos.` };
   return { iso, tz };
-}
-
-/** null si se puede escribir en la agenda; si no, el motivo para la persona. */
-async function agendaParaEscribir(): Promise<string | null> {
-  const p = await permisoCalendarioGoogle();
-  if (!p.conectado) return 'Este negocio no tiene una agenda de Google conectada. Se conecta desde Calendario (o con el link de link_configurar_integracion, servicio google).';
-  if (!p.puedeMover) return 'La agenda de Google está conectada con permiso de solo lectura: hay que reconectarla en Integraciones para poder agendar o mover.';
-  return null;
 }
 
 /**

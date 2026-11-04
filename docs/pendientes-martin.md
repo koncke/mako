@@ -189,27 +189,14 @@ Dos causas:
   los seis que hay («sofiacontreras» vs «Sofia Contreras», «hormozi» vs «@AlexHormozi» vs
   «acquisition.com») hay que borrarlos a mano, que ahora se puede desde la tarjeta.
 
-### ⛔ #20 · Por qué sigue apareciendo «Descargar la extensión» (medido el 2/11 ~06:00)
+### ⛔ #20 · Publicar la versión nueva de la extensión
 
-**No es un botón que haya que borrar.** El zip ya está detrás de un flag desde el 27/10
-(`lib/extension-tienda.ts`): si la tienda está al día se ofrece «Añadir a Chrome», y si va atrás
-se ofrece el zip. Lo vigila `tests/extension-sin-zip-con-tienda.test.ts`, probado rompiéndolo.
+**«Descargar» ya no sale (3/11):** toda pantalla lleva a «Agregar a Chrome», también con la tienda
+atrás, así que esto ya no depende de publicar. Lo de acá antes, «ningún cambio de código lo
+arregla», estaba mal: [hallazgos-extension.md](hallazgos-extension.md) dice por qué.
 
-Lo que pasa es que **la tienda va atrás**. Medido con `node scripts/version-en-tienda.mjs`:
-
-| | versión |
-|---|---|
-| Lo que decía `VERSION_EN_TIENDA` | `0.39.1` ← **35 versiones atrás, un dato viejo** |
-| Lo que la Chrome Web Store publica HOY | `0.74.3` |
-| Lo que sirve el repo | `0.74.4` |
-
-**Ya corregí la medición** a `0.74.3`, que es el valor real. Pero la tienda sigue **una versión
-atrás** del repo, así que el flag hace lo correcto al seguir ofreciendo el zip: mandar a Google
-serviría un paquete viejo.
-
-**Para que la descarga desaparezca sola hay que PUBLICAR la 0.74.4 y esperar la aprobación de
-Google.** Ningún cambio de código lo arregla, y forzar el flag a mano mandaría a cada cliente
-nuevo a instalar una versión vieja.
+**Lo que sí sigue pendiente:** la tienda publica la `0.74.3` y el repo tiene la `0.74.5` (medido el
+3/11 con `node scripts/version-en-tienda.mjs`). Lo nuevo no le llega a nadie hasta publicar.
 
 ⚠️ **MEDIDO EL 2/11 ~15:30, Y NO ES LO QUE DECÍA ACÁ ANTES.** Las credenciales SÍ existen —están en
 `C:/dev/mako-api/.env.local`, no en el `.env.local` del worktree, que es lo que me había hecho
@@ -230,7 +217,7 @@ nadie pudo publicar aunque las tres variables estén puestas.
 3. Autorizar una vez para sacar el `CWS_REFRESH_TOKEN` (`scripts/publicar-extension.mjs --ayuda`
    explica los dos pasos).
 
-Hecho eso, publicar es **un comando**, y la descarga desaparece sola en cuanto Google apruebe.
+Hecho eso, publicar es **un comando**, y la versión nueva llega sola en cuanto Google apruebe.
 **Un asistente no puede hacer el paso 1 ni el 3: son el consentimiento OAuth de la cuenta de
 Martín.**
 
@@ -483,9 +470,9 @@ mío.
 | 13 | **Spy compartido entre usuarios** | **EMPEZADO: la base está** | migración `0363` **ya aplicada en producción** (tabla global `spy_lecturas_canal`, sin `workspace_id` a propósito, RLS prendida sin políticas como las otras de Spy) + `lib/spy-compartido.ts` con la regla, probada rompiéndola. ⚠️ **FALTA EL CABLEADO**: que `mirarCompetidor` la consulte antes de llamar a Apify/YouTube y la refresque después. Ver abajo |
 | 14 | **Los 12 referentes** (fichas + caricaturas) | **2 de 12** | Puigrredón y Alborna hechos. La receta, abajo |
 | 15 | **El diseño de la tab principal de gurús** (no el detalle) | pendiente | |
-| 16 | **Elegir un gurú desde «nuevo chat»** | pendiente | hoy sólo `funnel` y `offer` |
-| 17 | **Base de conocimiento por gurú** | pendiente | |
-| 18 | **Botón de Second Brain por gurú** | pendiente | las piezas ya existen |
+| 16 | **Elegir un gurú desde «nuevo chat»** | **HECHO** (rama `gurus-0311`) | los gurús a la vista en Nuevo chat (`GaleriaDeGurus.tsx`), en la computadora y el teléfono, cliente y super admin; tocar uno abre su chat ahí mismo. Una conversación por persona y gurú, y el servidor saca al gurú de la CLAVE |
+| 17 | **Base de conocimiento por gurú** | **HECHO, los 22** (rama `gurus-0311`) | el turno trae los TRAMOS del curso que hablan de la pregunta (`cursoParaElTurno`); antes no viajaba ni una palabra, y el mapa tenía 3 de 22. Leído del CDN. Ver `docs/hallazgos-ops-center.md` y `docs/hallazgos-second-brain.md` |
+| 18 | **Botón de Second Brain por gurú** | **HECHO** (rama `gurus-0311`) | «Su Second Brain» en el chat del gurú, el Funnel Coach y una conversación de Offer, y adentro de la hoja en el teléfono: el grafo de su curso (`?cerebroDe=`) |
 | 19 | **Modal de «mensaje de difusión» del CRM** con formato por red | **HECHO, esperando el tren** | rama `difusion-modal-0211`, punta `6bf0a40a8`, ya en el remoto. ⚠️ **Vive en `app/automations/difusion/HojaDifusion.tsx`**, NO en `app/crm/AccionesLoteLeads.tsx` ni `app/crm/seleccion-difusion.ts` — esos dos sólo ponen la selección, y el ítem los nombraba mal. No trae selector de número/cuenta: la difusión no lo guarda y mentiría |
 | 20 | **Instalar extensión: sacar la descarga** | **TRABADO, no es código** | el zip YA está detrás de un flag; falta PUBLICAR en la tienda. Ver abajo |
 | 21 | **Probar punta a punta la clave de Apify de ws 9** | pendiente | |

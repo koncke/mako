@@ -49,7 +49,7 @@
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
 - **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos`
-- **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion`
+- **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion` · `cambiar_aprende_solo`
 
 ## General — `general`
 
@@ -20200,7 +20200,7 @@ curl -L \
 
 ## MaKo (pendientes, propuestas, chats) — `mako`
 
-Tab **Second Brain** (`/second-brain`). 7 lecturas · 1 acciones · 2 controles.
+Tab **Second Brain** (`/second-brain`). 7 lecturas · 2 acciones · 2 controles.
 
 ### `GET /api/v1/mako/pendientes` — Acciones pendientes de confirmar
 
@@ -20364,7 +20364,7 @@ El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: las funciones de est
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `id` | string (ads-publicar \\| creativos \\| copy-ads \\| oferta-revisar \\| landing-diagnosticar \\| landing-escribir \\| crm-lead \\| wa-conversar \\| nutricion \\| email \\| metricas \\| llamadas \\| guiones-ads \\| guion-valorar \\| experimento \\| contexto \\| datos-negocio \\| conectar \\| funnel \\| objetivo \\| equipo) | no | id de UNA capacidad para traer solo esa. Sin id, trae todas. |
+| `id` | string (ads-publicar \\| creativos \\| copy-ads \\| oferta-revisar \\| landing-diagnosticar \\| landing-escribir \\| crm-lead \\| wa-conversar \\| nutricion \\| email \\| metricas \\| llamadas \\| guiones-ads \\| guion-valorar \\| experimento \\| contexto \\| aprende-solo \\| datos-negocio \\| conectar \\| funnel \\| objetivo \\| equipo) | no | id de UNA capacidad para traer solo esa. Sin id, trae todas. |
 
 ```bash
 curl -L \
@@ -20428,4 +20428,33 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/mako/recomendaciones/decisiones" \
   -d '{"clave":"CLAVE","decision":"hecha"}'
+```
+
+### `PUT /api/v1/mako/aprende-solo` — Prender o apagar «Aprende solo»
+
+PROPONE prender o apagar «Aprende solo», el botón de la cabecera del Mapa en el Second Brain (queda pendiente hasta el «sí»). Prendido, MaKo aprende solo de las conversaciones de WhatsApp del negocio con sus leads y lo suma al Second Brain; no manda ningún mensaje. Úsala cuando pidan «activa Aprende solo» o «apaga Aprende solo».
+
+- **Ruta por operación:** `POST /api/v1/mako/cambiar_aprende_solo`
+- **Token detallado:** permiso `mako=write` (Lectura y escritura en «MaKo (pendientes, propuestas, chats)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el interruptor de «Aprende solo» del negocio
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `prendido` | boolean | sí | true para prenderlo, false para apagarlo. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/mako/aprende-solo" \
+  -d '{"prendido":true}'
 ```
