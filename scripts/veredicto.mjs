@@ -73,9 +73,14 @@ export function escribirRenglon(c, clave = '') {
   return [...CAMPOS, 'suma', ...(clave ? ['firma'] : [])].map((k) => `${k}=${t[k]}`).join(' ');
 }
 
-/** Lee un renglón. null si no tiene la forma (un campo repetido, uno sin `=`, uno que no conozco). */
+/**
+ * Lee un renglón. null si no tiene la forma (un campo repetido, uno sin `=`, uno que no conozco).
+ * @param {unknown} s
+ * @returns {Record<string, string> | null}
+ */
 export function leerRenglon(s) {
   if (typeof s !== 'string') return null;
+  /** @type {Record<string, string>} */
   const o = {};
   for (const tok of s.trim().split(/\s+/).filter(Boolean)) {
     const i = tok.indexOf('=');

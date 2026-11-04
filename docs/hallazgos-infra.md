@@ -131,6 +131,9 @@ el main de 12 min antes de que subiera: es lo que tardan los tests y el tsc en l
 - **Dos guardas cazaron mi primera versión.** El paso de los tests tenía un `exit 0` para «el veredicto cubre todo», que
   `tests/punta-ci.test.ts` prohíbe en un paso que frena; ahora lo decide la condición del paso. Y un test leía el JSON de un hijo
   sin `maxBuffer` (`tests/tanda-no-la-mata-un-test-lento.test.ts`).
+- **El primer veredicto real se negó a salir, y estaba bien.** El tsc entero de `sacar` encontró 17 errores de tipos en
+  `tests/veredicto.test.ts`. Los tests corren con tsx, que no chequea tipos, y el filtro del pre-push no llega al tsc. En GitHub
+  habría sido una punta roja de ~14 min; en la nube fueron 4 y no costaron nada.
 - **El `/opt/node24` que dejó otra sesión no está en la tuya**: cada contenedor de la nube es nuevo. `scripts/node24.sh` lo baja
   una vez, comprueba el sha256 contra SHASUMS256.txt de nodejs.org y lo deja en `~/.cache/mako-node`.
 - **docs.github.com y www.hetzner.com están fuera de la red de la nube** (el proxy rechaza la conexión): los precios del runner propio

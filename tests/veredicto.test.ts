@@ -82,10 +82,13 @@ test('aRepetir: lo afectado y lo que no estaba en verde, más la muestra que est
 
 const BARRE = ['ls', 'files'].join('-');   // armado: si este archivo lo dijera entero, tests-afectados lo tomaría por una barredora
 
+/** Lo que se le pasa de más a un hijo (una clave, una salida de GitHub). */
+type Entorno = Record<string, string>;
+
 function entorno(dir: string): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {};
+  const env: NodeJS.ProcessEnv = { NODE_ENV: 'test' };
   for (const [k, v] of Object.entries(process.env)) if (!k.startsWith('GIT_') && !k.startsWith('MAKO_') && !k.startsWith('GITHUB_') && k !== 'CI') env[k] = v;
-  return { ...env, HOME: dir, GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
+  return { ...env, NODE_ENV: 'test', HOME: dir, GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
 }
 
 /** main con 10 tests que importan lib/a, uno que importa lib/c, uno de lib/compartida (que importan a y c) y una barredora. */
@@ -137,7 +140,9 @@ function conVeredicto(r: R, o: { node?: string; clave?: string; sel?: string[]; 
 }
 
 /** Como punta.yml: mezcla origin/main sobre la punta y corre `revisar`. */
-function revisar(r: R, punta: string, o: { previo?: object; env?: NodeJS.ProcessEnv } = {}) {
+type Revision = { usar?: string; cuantos?: string; tipos_saltear?: string; sin_probar?: string; origen?: string; repetir: string[] | null; salida: string };
+
+function revisar(r: R, punta: string, o: { previo?: object; env?: Entorno } = {}): Revision {
   r.g('checkout', '-q', '--detach', punta);
   r.g('merge', '-q', '--no-edit', '-m', 'mezcla de la corrida', 'origin/main');
   const out = join(r.fuera, 'salida');
@@ -147,10 +152,11 @@ function revisar(r: R, punta: string, o: { previo?: object; env?: NodeJS.Process
   if (o.previo) { writeFileSync(join(r.fuera, 'previo.json'), JSON.stringify(o.previo)); args.push('--previo', join(r.fuera, 'previo.json')); }
   const s = spawnSync(process.execPath, [SCRIPT, ...args], { cwd: r.dir, env: { ...r.env, GITHUB_OUTPUT: gh, ...o.env }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   assert.equal(s.status, 0, s.stdout + s.stderr);
-  const outputs = Object.fromEntries(readFileSync(gh, 'utf8').split('\n').filter(Boolean).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
+  const outputs: Record<string, string> = Object.fromEntries(readFileSync(gh, 'utf8').split('\n').filter(Boolean).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
   const repetir = outputs.usar === 'true' ? readFileSync(outputs.repetir, 'utf8').split('\n').filter(Boolean) : null;
   r.g('checkout', '-q', 'punta');
-  return { ...outputs, repetir, salida: s.stdout };
+  const res: Revision = { usar: outputs.usar, cuantos: outputs.cuantos, tipos_saltear: outputs.tipos_saltear, sin_probar: outputs.sin_probar, origen: outputs.origen, repetir, salida: s.stdout };
+  return res;
 }
 
 const A = Array.from({ length: 10 }, (_, i) => `tests/a${i}.test.ts`);
@@ -190,7 +196,7 @@ test('el de la nube, con main movido: barredoras y lo que cruza; no lo que mira 
 
 test('no pasa: otro árbol, editado, otra selección, Node 22, base que no es de main, y sin firma con la clave en GitHub', { skip: !hayGit && 'sin git' }, () => {
   const cambio = { 'lib/a.ts': "import { y } from './compartida.ts';\nexport const x = y; // otra\n" };
-  const caso = (preparar: (r: R) => string, env?: NodeJS.ProcessEnv) => { const r = repo(); r.enPunta(cambio); return revisar(r, preparar(r), { env }); };
+  const caso = (preparar: (r: R) => string, env?: Entorno) => { const r = repo(); r.enPunta(cambio); return revisar(r, preparar(r), { env }); };
   const no = (s: ReturnType<typeof revisar>, re: RegExp) => { assert.equal(s.usar, 'false', s.salida); assert.match(s.salida, re); };
 
   no(caso((r) => { conVeredicto(r); return r.enPunta({ 'lib/a.ts': 'export const x = 1;\n' }, 'otro commit encima'); }), /no trae un veredicto/);
@@ -260,7 +266,7 @@ test('node24.sh: con el 24 en el PATH lo usa; con otro, el que dejó una vez ant
     mkdirSync(carpeta, { recursive: true });
     writeFileSync(join(carpeta, 'node'), `#!/bin/sh\necho ${version.split('.')[0]}\n`, { mode: 0o755 });
   };
-  const correr = (path: string, cache: string) => spawnSync('sh', [join(RAIZ, 'scripts/node24.sh')], { encoding: 'utf8', env: { PATH: `${path}:/usr/bin:/bin`, HOME: dir, MAKO_NODE_CACHE: cache } });
+  const correr = (path: string, cache: string) => spawnSync('sh', [join(RAIZ, 'scripts/node24.sh')], { encoding: 'utf8', env: { NODE_ENV: 'test', PATH: `${path}:/usr/bin:/bin`, HOME: dir, MAKO_NODE_CACHE: cache } });
   falso(join(dir, 'con24'), '24.1.0');
   const a = correr(join(dir, 'con24'), join(dir, 'cache-vacia'));
   assert.equal(a.status, 0, a.stderr);
