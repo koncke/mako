@@ -2228,4 +2228,15 @@ export const BITACORA: Hito[] = [
       'docs/relevo/nube-grupos.md · docs/hallazgos-ops-center.md',
     ],
   },
+  {
+    fecha: '4 nov', hora: '12:10', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los grupos de la app, en producción',
+    revisar: '/second-brain',
+    puntos: [
+      '**Ya está en producción:** el grupo del negocio en el Ops Center, con los avisos, MaKo contestando y los invitados.',
+      '**Falta probarlo con una sesión real** en el Cliente de Prueba: los pasos, en docs/relevo/nube-grupos.md.',
+    ],
+    commits: [{ sha: 'b6e290fe', msg: 'Merge origin/main en punta/grupos-app', lineas: 6114, archivos: 83 }],
+  },
 ];
