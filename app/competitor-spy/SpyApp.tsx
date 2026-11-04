@@ -96,6 +96,9 @@ import { GraficoSpy } from './GraficoSpy';
 import { DetallePieza } from './DetallePieza';
 import { grupoDe, repartoDePublicaciones } from '@/lib/spy-detalle';
 import { PeliculaDeOrden } from './OrdenSpy';
+import { EntradaFicha, cajaDelCentro, centroDe, type Caja, type FaseEntrada } from './EntradaFicha';
+import { quieto } from './precarga';
+import { sumarPasos, type PasoLectura } from '@/lib/spy-lectura-pasos';
 import { BuscadorAlta } from './BuscadorAlta';
 import { Flecha, GrillaPiezas } from './GrillaPiezas';
 import { MejoresPiezas } from './MejoresPiezas';
@@ -161,6 +164,12 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-mas:hover{background:var(--surface-2)}
 
 .spy-cuerpo{max-width:var(--pagina-max);margin:0 auto;padding:10px 22px 40px}
+/* La entrada a la ficha (EntradaFicha.tsx): mientras la caricatura espera, la ficha se arma escondida (se puede medir); al salir,
+   aparece mientras sus tarjetitas salen de la caricatura. */
+.spy-cuerpo[data-entrando='esperando'] > :not(.spye){opacity:0;pointer-events:none}
+.spy-cuerpo[data-entrando='saliendo'] > :not(.spye){animation:spyAparece .42s cubic-bezier(.32,.72,0,1) both}
+@keyframes spyAparece{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.spy-cuerpo[data-entrando] > *{opacity:1;animation:none}}
 
 /* ── El encabezado de página: .phead. Un título grande y una línea gris. Lo que
       antes eran seis píldoras grises en fila ahora es esa línea. ── */
@@ -443,15 +452,27 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-aviso{margin:0 0 14px;padding:11px 14px;border-radius:var(--r-md);background:var(--surface-2);
   color:var(--dim);font-size:var(--fs-sm);line-height:1.5}
 .spy-error{background:var(--bad-bg);color:var(--bad)}
-/* --- Sus otras redes: una PREGUNTA, no un dato. Se ve sólo si hay algo que confirmar. --- */
+/* --- Sus otras redes: una PREGUNTA, no un dato. Se ve sólo si hay algo que confirmar.
+   UNA PASTILLA DE UN RENGLÓN POR CANAL, en la fila de la miga (4/11/2026, Martín con Víctor Heras: «mira como se bugea todo
+   el diseño»). Antes era una caja debajo de la miga, y la regla de su enlace (flex 1 1 220px) —escrita cuando el enlace era hijo
+   directo de la fila— quedó adentro de una columna, donde esos 220 px son ALTO: cada canal medía 249 px y empujaba Contenido
+   debajo de la pantalla. Ahora: el alto de los botones de la miga (40 px), lo que no entra se corta con «…», y cada pastilla
+   ocupa el lugar libre de la fila; sólo con muchas baja de renglón. --- */
 .spy-migas .spy-migas-accion{margin-left:auto;color:var(--accent)}
-.spy-redes{margin:0 0 14px;padding:12px 14px;border-radius:var(--r-md);background:var(--surface-2);font-size:var(--fs-sm)}
-.spy-redes p{margin:0 0 8px;color:var(--dim)}
-.spy-redes-fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0}
-.spy-redes-punto{width:8px;height:8px;border-radius:99px;flex:0 0 auto}
-.spy-redes-cara{width:32px;height:32px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:var(--surface)}
-.spy-redes-texto{display:flex;flex-direction:column;gap:2px;flex:1 1 220px;min-width:0}
-.spy-redes-texto small{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spy-redes{display:contents}
+.spy-redes-fila{display:inline-flex;align-items:center;gap:8px;height:40px;max-width:100%;min-width:0;padding:0 4px 0 6px;
+  border-radius:99px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);font-size:var(--fs-sm);
+  animation:spy-redes-entra .32s cubic-bezier(.2,.8,.2,1) both}
+@keyframes spy-redes-entra{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.spy-redes-fila{animation:none}}
+.spy-redes-punto{width:10px;height:10px;margin:0 4px;border-radius:99px;flex:0 0 auto}
+.spy-redes-cara{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:var(--surface-2)}
+.spy-redes-texto{display:flex;align-items:baseline;gap:6px;min-width:0;max-width:300px;white-space:nowrap}
+.spy-redes-texto a{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink);font-weight:600;text-decoration:none}
+.spy-redes-texto a:hover{text-decoration:underline}
+.spy-redes-texto small{flex:0 0 auto;color:var(--faint);font-size:12px}
+.spy-redes-fila .spy-boton{height:32px;padding:0 12px;flex:0 0 auto}
+@media (max-width:560px){.spy-redes-fila{width:100%}.spy-redes-texto{flex:1 1 auto;max-width:none}.spy-redes-texto small{display:none}}
 .spy-aviso--suave{background:none;padding:0;color:var(--dim)}
 .spy-vermas{display:flex;justify-content:center;margin:18px 0 6px}
 .spy-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
@@ -460,7 +481,6 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-mcard__img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .spy-mcard b{font-size:var(--fs-sm);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .spy-mcard small{color:var(--dim);font-size:12px}
-.spy-redes-fila a{flex:1 1 220px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-weight:600}
 .spy-franja{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px 10px 16px;
   border-radius:var(--r-md);background:var(--surface-2);font-size:var(--fs-sm)}
 .spy-franja strong{font-weight:700}
@@ -622,22 +642,22 @@ function OtrasRedes({ b, ocupado, onSi, onNo, onDeshacer }: {
   // pedir solo (`pendiente`, lib/spy-google-corrida.ts).
   if (!b || b.buscando) return null;
   if (!b.sumadas.length && !b.candidatos.length) return null;
-  const fila = (k: CandidatoVerificado, rotulo: string, botones: React.ReactNode) => (
-    <div key={`${k.red}|${k.ref}`} className="spy-redes-fila">
+  // Una pastilla por canal: su cara, «YouTube · su nombre» (el porqué al pasar el mouse, o al lado si es una pregunta) y sus botones.
+  const fila = (k: CandidatoVerificado, rotulo: string, porque: string | null, botones: React.ReactNode) => (
+    <div key={`${k.red}|${k.ref}`} className="spy-redes-fila" title={k.porque || undefined}>
       <CaraDeRed k={k} />
       <span className="spy-redes-texto">
         <a href={k.url} target="_blank" rel="noreferrer noopener">{rotulo}</a>
-        {k.porque && <small>{k.porque}</small>}
+        {porque && <small>{porque}</small>}
       </span>
       {botones}
     </div>
   );
   return (
     <section className="spy-redes" aria-label="Sus otras redes">
-      {b.sumadas.map((k) => fila(k, `Sumé su ${NOMBRE_RED[k.red]} · ${k.titulo || k.ref}`,
+      {b.sumadas.map((k) => fila(k, `Sumé su ${NOMBRE_RED[k.red]} · ${k.titulo || k.ref}`, null,
         <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onDeshacer(k)}>Deshacer</button>))}
-      {b.candidatos.length > 0 && <p>¿Son suyas?</p>}
-      {b.candidatos.map((k) => fila(k, `${NOMBRE_RED[k.red]} · ${k.titulo || k.ref}`, (
+      {b.candidatos.map((k) => fila(k, `¿Es su ${NOMBRE_RED[k.red]}? · ${k.titulo || k.ref}`, k.porque || null, (
         <>
           <button type="button" className="spy-boton spy-boton-primario" disabled={ocupado} onClick={() => onSi(k)}>Es</button>
           <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onNo(k)}>No es</button>
@@ -646,6 +666,9 @@ function OtrasRedes({ b, ocupado, onSi, onNo, onDeshacer }: {
     </section>
   );
 }
+
+/** Adónde termina la caricatura de la entrada: la foto de la ficha (si no tiene foto, se funde en el centro). */
+const destinoDeEntrada = () => document.querySelector('.spy-ficha__foto');
 
 /**
  * Una cara que no cargó cae a su foto de perfil, y recién sin foto se saca. Antes se sacaba de una: si la caricatura fallaba
@@ -658,7 +681,8 @@ function caerAFoto(img: HTMLImageElement, foto: string | null | undefined): void
 
 function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBorrar }: {
   competidores: Competidor[]; resumen: Record<number, ResumenPiezas>;
-  onAbrir: (id: number) => void; onBorrar: (c: Competidor) => void; puedeBorrar: boolean;
+  /** `origen`: la caja de su caricatura, para que la entrada a la ficha salga de ahí (EntradaFicha.tsx). */
+  onAbrir: (id: number, origen?: Caja) => void; onBorrar: (c: Competidor) => void; puedeBorrar: boolean;
 }) {
   const desdes = Object.values(resumen).map((r) => r.desde).filter((d): d is string => !!d).sort();
   return (
@@ -700,7 +724,10 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
           const canales = [c.instagram ? 'Instagram' : null, c.youtube_id ? 'YouTube' : null, c.tiktok ? 'TikTok' : null, c.landing_url ? 'Su web' : null].filter(Boolean).join(' · ');
           return (
             <div key={c.id} className="spy-ccard" role="button" tabIndex={0}
-              onClick={() => onAbrir(c.id)}
+              onClick={(e) => {
+                const r = e.currentTarget.querySelector('.spy-ccard__cara')?.getBoundingClientRect();
+                onAbrir(c.id, r ? { left: r.left, top: r.top, width: r.width, height: r.height } : undefined);
+              }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(c.id); } }}>
               <span className="spy-ccard__cara" style={{ '--flote': flote } as CSSProperties} aria-hidden>
                 {/* ⚠️ LA CARICATURA PRIMERO (4/11/2026): la que hizo el Runner, después la dibujada de un referente, y recién
@@ -871,12 +898,22 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [sugeridos, setSugeridos] = useState<Sugerido[]>(sugeridosIniciales);
   const [resumen, setResumen] = useState(resumenInicial);
   const [elegido, setElegido] = useState<number | null>(abierto ?? (iniciales.length === 1 ? iniciales[0].id : null));
+  // ── ENTRAR A UN COMPETIDOR ES EL LOADER (EntradaFicha.tsx). Con un link directo también: nace en el centro. La ficha queda
+  // escondida (`data-entrando`) mientras su caricatura espera, y aparece cuando sus tarjetitas salen de ella. ──
+  const [entrada, setEntrada] = useState<{ id: number; origen: Caja | null; fase: FaseEntrada } | null>(() => {
+    const id = abierto ?? (iniciales.length === 1 ? iniciales[0].id : null);
+    return id != null ? { id, origen: null, fase: 'esperando' } : null;
+  });
+  /** La ficha que ya tiene sus piezas en pantalla: hasta entonces, «sin gráfico» no se sabe. */
+  const [fichaLista, setFichaLista] = useState<number | null>(null);
   // Las del server se usan UNA vez, sólo para el competidor con que se abrió la página.
   const inicialesDePiezas = useRef(piezasIniciales);
   const [piezas, setPiezas] = useState<PiezaVista[]>(() => (piezasIniciales && piezasIniciales.id === (abierto ?? null) ? piezasIniciales.piezas : []));
   const [trayendo, setTrayendo] = useState(false);
   const [leyendo, setLeyendo] = useState<number | null>(null);
   const [ordenando, setOrdenando] = useState<{ id: number; piezas: PiezaVista[] | null } | null>(null);
+  /** Lo que la lectura animada ya hizo, en orden («Mirando su Instagram…»): lo dibuja la película mientras espera. */
+  const [pasosLectura, setPasosLectura] = useState<{ id: number; pasos: Array<PasoLectura | 'piezas'> } | null>(null);
   /** A quién le está leyendo las piezas la IA, sola y en segundo plano. Sus tarjetas sin análisis dicen «Analizando…». */
   const [autoAnalisis, setAutoAnalisis] = useState<number | null>(null);
   // Su oferta, con el analista de Offer (lib/spy-oferta.ts): la trae sola /api/competitor-spy/oferta.
@@ -922,6 +959,22 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
 
   const c = competidores.find((x) => x.id === elegido) ?? null;
 
+  // ⚠️ EL RECORRIDO SE ABRE CON LA FICHA QUIETA, Y MIENTRAS ESTÁ ABIERTO LA PÁGINA NO SE SCROLLEA A MANO (4/11/2026, el Cerebro con
+  // Den Borg: «el primer cuadro salió con el texto vacío» y «al hacer scroll, el recorrido sigue pero el foco se pierde; que no se
+  // pueda scrollear o que lo siga»). Mientras se traen sus piezas o corre la película, la pantalla cambia debajo de la tarjeta; se
+  // espera a que termine. Y con la rueda, el recorte seguía al objetivo hasta afuera de la pantalla: ahora la mueve sólo el
+  // recorrido (su `scrollIntoView` funciona igual con `overflow: hidden`).
+  // Y no durante la entrada (EntradaFicha.tsx): la ficha todavía está escondida y el velo taparía la caricatura.
+  const recorridoListo = !!c && !trayendo && ordenando == null && !(entrada && entrada.id === c.id);
+  const recorridoAbierto = recorrido.abierto && recorridoListo;
+  useEffect(() => {
+    if (!recorridoAbierto) return;
+    const raiz = document.documentElement;
+    const antes = raiz.style.overflow;
+    raiz.style.overflow = 'hidden';
+    return () => { raiz.style.overflow = antes; };
+  }, [recorridoAbierto]);
+
   const recargarLista = useCallback(async () => {
     const r = await competidoresAction();
     if (r.ok) { setCompetidores(r.competidores); setResumen(r.resumen); }
@@ -944,8 +997,28 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     yaLeidos.current.add(id);
     setLeyendo(id);
     if (animada) setOrdenando({ id, piezas: null });
+    // Mientras lee, lo que está leyendo DE VERDAD (lib/spy-lectura-pasos.ts): la lectura anota cada canal y esto lo pregunta
+    // por una ruta, que no hace fila detrás de la acción. Sin la marca, la acción no anota nada.
+    const marca = animada ? `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}` : undefined;
+    let mirando = !!marca;
+    if (marca) {
+      setPasosLectura({ id, pasos: [] });
+      void (async () => {
+        while (mirando) {
+          type R = { ok: boolean; pasos?: PasoLectura[] };
+          const r: R | null = await fetch(`/api/competitor-spy/lectura?id=${id}&marca=${marca}`, { cache: 'no-store', signal: AbortSignal.timeout(8000) })
+            .then((x) => x.json() as Promise<R>).catch(() => null);
+          if (!mirando) break;
+          if (r?.ok && r.pasos?.length) setPasosLectura((v) => (v?.id === id ? { id, pasos: sumarPasos(v.pasos, r.pasos!) } : v));
+          await new Promise((ok) => setTimeout(ok, 600));
+        }
+      })();
+    }
     try {
-      const r = await revisarAction(id, motivo);
+      const r = await revisarAction(id, motivo, marca);
+      mirando = false;
+      // Leído: ahora se juntan sus piezas (y la película baja sus miniaturas). También es de verdad.
+      if (marca) setPasosLectura((v) => (v?.id === id ? { id, pasos: sumarPasos(v.pasos, ['piezas']) } : v));
       if (r.error) setError(r.error);
       // Siempre queda algo en `lecturas`, también si la acción falló: es lo que saca a la pantalla
       // del esqueleto, y una lista vacía se dibuja como «no pude», nunca como «no hay».
@@ -962,6 +1035,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       setOrdenando(null);
       throw e;
     } finally {
+      mirando = false;
       setLeyendo((v) => (v === id ? null : v));
     }
   // `analizarSolo` se declara más abajo y sólo lo usa después de un await: no cambia entre renders.
@@ -981,6 +1055,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       const p = ini ? ini.piezas : await traerPiezas(id);
       if (!vivo) return;
       setTrayendo(false);
+      setFichaLista(id);
       const quien = listaActual.current.find((x) => x.id === id);
       if (quien && debeLeerAlAbrir(quien, p?.length ?? 0, yaLeidos.current.has(id))) await leer(id, !p?.length).catch(() => undefined);
       else {
@@ -1007,8 +1082,10 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     return () => window.removeEventListener('popstate', alVolver);
   }, []);
 
-  const irA = useCallback((id: number | null) => {
+  const irA = useCallback((id: number | null, origen?: Caja) => {
     setElegido(id);
+    setFichaLista(null);
+    setEntrada(id != null && !quieto() ? { id, origen: origen ?? null, fase: 'esperando' } : null);
     // El detalle abierto es de una pieza del que se deja: se cierra, y el otro abre en su gráfico.
     setAbierta(null);
     setPaginaElegida(null);
@@ -1357,6 +1434,21 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   ] : [];
   const activa: Pestana = pestanas.some((p) => p.key === pestana) ? pestana : (pestanas[0]?.key ?? 'contenido');
 
+  // ── La entrada a la ficha (EntradaFicha.tsx): cuándo la caricatura deja de esperar. Con gráfico, cuando sus miniaturas se bajaron
+  // (`onListo` del gráfico). Sin gráfico (nada leído, otra pestaña), apenas están sus piezas. Si arranca la película de una primera
+  // lectura, ella tiene su propia criatura. Y nunca más de 9 s: una espera que no termina no es un loader. ──
+  const entrando = !!entrada && !!c && entrada.id === c.id;
+  const conGrafico = activa === 'contenido' && (flujo.length > 0 || anuncios.length > 0);
+  useEffect(() => {
+    if (!entrada || entrada.fase !== 'esperando' || !c || c.id !== entrada.id) return;
+    // «Reducir movimiento»: no hay entrada (el estado inicial no lo puede saber en el server).
+    if (quieto()) { setEntrada(null); return; }
+    const salir = () => setEntrada((v) => (v && v.id === entrada.id && v.fase === 'esperando' ? { ...v, fase: 'saliendo' } : v));
+    if (ordenando?.id === c.id || (fichaLista === c.id && !trayendo && !conGrafico)) { salir(); return; }
+    const t = window.setTimeout(salir, 9000);
+    return () => window.clearTimeout(t);
+  }, [entrada, c, ordenando, fichaLista, trayendo, conGrafico]);
+
   const lecturasDe = elegido != null ? lecturas[elegido] ?? null : null;
   const estaLeyendo = leyendo != null && leyendo === elegido;
   const estado = c
@@ -1495,7 +1587,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       </div>
       )}
 
-      <div className="spy-cuerpo">
+      <div className="spy-cuerpo" data-entrando={entrando ? entrada?.fase : undefined}>
+        {entrando && entrada && (
+          <EntradaFicha
+            src={caraDeTarjeta(c, caricaturaDeCompetidor(c))} inicial={inicial(c.nombre)} origen={entrada.origen} fase={entrada.fase}
+            destino={destinoDeEntrada} onFin={() => setEntrada(null)}
+          />
+        )}
         {!c && error && <p className="spy-aviso spy-error">{error}</p>}
 
         {/* ── Cero competidores: un bloque, cuatro elementos, nunca cuatro cajas. ── */}
@@ -1514,7 +1612,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
 
         {/* ── MIENTRAS LEE Y ORDENA, NADA MÁS EN PANTALLA (punto 14 del 4/11): ni la miga, ni las pestañas, ni sus redes.
              Primero la criatura sola, después la animación, y recién al terminar el resto. ── */}
-        {c && ordenando?.id === c.id && <PeliculaDeOrden nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)} />}
+        {c && ordenando?.id === c.id && (
+          <PeliculaDeOrden
+            nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)}
+            pasos={pasosLectura?.id === c.id ? pasosLectura.pasos : []}
+          />
+        )}
 
         {c && ordenando?.id !== c.id && (
           <>
@@ -1562,16 +1665,16 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                 />
               )}
               </span>
+              {/* Sus otras redes, en la MISMA fila: una pastilla por canal, sin empujar el contenido (ver `.spy-redes`). */}
+              <OtrasRedes
+                b={redes[c.id]} ocupado={ocupado}
+                onSi={(k) => void confirmarRed(k)}
+                onNo={(k) => quitarDeLasRedes(c.id, (x) => x.red === k.red && x.ref === k.ref)}
+                onDeshacer={(k) => void deshacerRed(k)}
+              />
               {/* El recorrido de lo nuevo (recorrido-spy.ts): sale solo la primera vez, y se vuelve a ver con el «?». */}
               <span className="spy-volver__ayuda"><BotonRecorrido onClick={recorrido.reabrir} objetivo="spy-recorrido" /></span>
             </nav>
-
-            <OtrasRedes
-              b={redes[c.id]} ocupado={ocupado}
-              onSi={(k) => void confirmarRed(k)}
-              onNo={(k) => quitarDeLasRedes(c.id, (x) => x.red === k.red && x.ref === k.ref)}
-              onDeshacer={(k) => void deshacerRed(k)}
-            />
 
             {/* Lo que falló al apretar algo se dice acá. El vacío «no pude» ya lo trae entre sus motivos. */}
             {error && !(activa === 'contenido' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}</p>}
@@ -1600,6 +1703,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                     {(flujo.length > 0 || anuncios.length > 0) && (
                       <GraficoSpy
                         c={c} piezas={piezas} analizando={autoAnalisis === c.id}
+                        retener={entrando && entrada?.fase === 'esperando'}
+                        desde={entrando && entrada?.fase === 'saliendo' ? centroDe(cajaDelCentro(window.innerWidth, window.innerHeight)) : null}
+                        onListo={() => setEntrada((v) => (v && v.id === c.id && v.fase === 'esperando' ? { ...v, fase: 'saliendo' } : v))}
                         onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })}
                         onAgregarRed={(red) => abrirCanal(red)}
                         onWeb={() => setPestana('funnel')}
@@ -1718,7 +1824,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                 {estaLeyendo && !susPaginas.length
                   ? <Esqueleto leyendo />
                   : (
-                    <SusPaginas
+                    <SusPaginas competidorId={c.id}
                       enlaces={susPaginas} titulos={titulosDePaginas} elegida={paginaElegida}
                       onElegir={setPaginaElegida} conVistaPrevia={conVistaPrevia}
                     />
@@ -1731,7 +1837,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       </div>
 
       {/* Sólo con una ficha abierta: en la lista no hay qué señalar. Un paso sin su objetivo en pantalla se saltea solo. */}
-      {c && <Recorrido id={RECORRIDO_SPY} pasos={PASOS_SPY} abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />}
+      {c && <Recorrido id={RECORRIDO_SPY} pasos={PASOS_SPY} abierto={recorridoAbierto} onCerrar={recorrido.onCerrar} />}
       {abierta && c && (
         <DetallePieza
           p={piezas.find((x) => x.id === abierta.p.id) ?? abierta.p} nombre={c.nombre} todas={abierta.todas}

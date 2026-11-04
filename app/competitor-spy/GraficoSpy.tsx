@@ -114,7 +114,7 @@ function Miniatura({ p, bajada }: { p: PiezaVista; bajada: boolean }) {
   return url ? <img src={url} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.remove(); }} /> : null;
 }
 
-export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb }: {
+export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb, retener = false, desde = null, onListo }: {
   c: { nombre: string; instagram: string | null; youtube_id: string | null };
   /** Todo lo suyo: el gráfico elige lo que le toca (`grupoDe`). */
   piezas: readonly PiezaVista[];
@@ -125,6 +125,12 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
   onAgregarRed: (red: 'instagram' | 'youtube') => void;
   /** «Su web» no es un gráfico: lleva a la pestaña de su web. */
   onWeb: () => void;
+  /** Mientras la entrada de la ficha espera (EntradaFicha.tsx): el gráfico se prepara y no anima todavía. */
+  retener?: boolean;
+  /** De dónde salen las tarjetitas en la entrada (el centro de la caricatura, en la pantalla). null = la grilla de siempre. */
+  desde?: { x: number; y: number } | null;
+  /** Las miniaturas ya se bajaron: la entrada puede seguir. */
+  onListo?: () => void;
 }) {
   const telefono = useTelefono();
   const opciones = useMemo(() => opcionesDeGrafico(piezas, c), [piezas, c]);
@@ -168,6 +174,9 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
   }, [firma]);
   const listo = aBajar.every((id) => precarga.intentadas.has(id));
   const bajadas = listo ? precarga.ok : null;
+  const avisar = useRef(onListo);
+  avisar.current = onListo;
+  useEffect(() => { if (listo) avisar.current?.(); }, [listo]);
 
   // ── La entrada: las tarjetas se ACOMODAN y después VAN AL GRÁFICO (4/11/2026). Martín: «quiero que al entrar a un competidor se
   // vea la animación de las tarjetas acomodándose y yendo al gráfico». Antes entraban volando desde una columna a la izquierda.
@@ -178,12 +187,30 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
   const animado = useRef<string | null>(null);
   const clave = `${grupo}|${redActiva}`;
   useLayoutEffect(() => {
-    if (!listo || !plot.current || animado.current === clave) return;
+    if (!listo || retener || !plot.current || animado.current === clave) return;
     animado.current = clave;
     if (quieto()) return;
     const els = [...plot.current.querySelectorAll<HTMLElement>('[data-pt]')];
     const caja = plot.current.getBoundingClientRect();
     if (!caja.width || !els.length) return;
+    // ⚠️ ENTRANDO A LA FICHA, SALEN DE LA CARICATURA (4/11/2026, Martín: «de esa caricatura salen todas las tarjetitas de los reels
+    // y youtube… Eso funciona como un loader»): cada una nace chiquita en `desde` y vuela a su día y sus vistas, de la que más rinde
+    // a la que menos. Sin grilla intermedia: la caricatura ya hizo de espera.
+    if (desde) {
+      const orden = [...els].sort((a, b) => Number(b.dataset.valor) - Number(a.dataset.valor));
+      const escalon = Math.min(12, 620 / Math.max(1, orden.length));
+      const anims = orden.map((el, i) => {
+        const r = el.getBoundingClientRect();
+        const dx = desde.x - (r.left + r.width / 2);
+        const dy = desde.y - (r.top + r.height / 2);
+        return el.animate([
+          { transform: `translate(${dx}px,${dy}px) scale(.25)`, opacity: 0 },
+          { opacity: 1, offset: 0.18 },
+          { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        ], { duration: 820, delay: 90 + i * escalon, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' });
+      });
+      return () => anims.forEach((a) => a.cancel());
+    }
     // El orden de la grilla: de la que más rinde a la que menos (la de arriba a la izquierda es la mejor).
     const orden = [...els].sort((a, b) => Number(b.dataset.valor) - Number(a.dataset.valor));
     const r0 = orden.map((el) => el.getBoundingClientRect());
@@ -207,7 +234,9 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
       ], { duration: 1100, delay: i * escalon, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'backwards' });
     });
     return () => anims.forEach((a) => a.cancel());
-  }, [listo, clave, telefono]);
+  // `desde` se lee al arrancar: cambiarlo después no vuelve a animar (la entrada es una vez por gráfico).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listo, clave, telefono, retener]);
 
   if (!grupo) {
     return null;

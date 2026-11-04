@@ -349,4 +349,41 @@ export const BITACORA: Hito[] = [
       'docs/relevo/nube-metodologia.md → «6» — cómo se usa, los números, las palancas que quedan y el runner propio',
     ],
   },
+  {
+    fecha: '4 nov', hora: '15:50', chat: 'Infra', sesion: 'cli_fe9e34df-f0e0-505d-89ab-5b8ddc011a0b', cuenta: 'nube', actor: 'claude', tipo: 'correccion',
+    titulo: 'Sin veredicto, las puntas llegaban a main sin correr los tests: ya corren',
+    puntos: [
+      'Desde el cambio del veredicto, una punta sin veredicto se salteaba el paso de los tests. Llegaron así dos a main: el Dashboard de Cobranza y las páginas bloqueadas de Spy.',
+      'La causa: la condición comparaba una salida con un número, y en GitHub una salida que falta vale 0. Ahora compara con una palabra.',
+      'El test ahora EVALÚA la condición con las reglas de GitHub, sobre lo que el veredicto escribe en cada caso. El de antes miraba el texto y daba verde con el error adentro.',
+      'Los tests de lo que llegó sin ellos se corrieron sobre main el mismo día: un rojo real, una ruta nueva de Spy sin clasificar para la cuenta de revisión de las tiendas. Quedó cortada, que es lo seguro.',
+      'Al subirlo desde un worktree, un test del pre-push le escribió al repo de verdad (movió ramas y lo dejó «bare»). Se restauró, y el filtro ya no les pasa a los tests las variables de git del hook.',
+    ],
+    archivos: [
+      '.github/workflows/punta.yml — las dos condiciones de los tests',
+      'scripts/veredicto.mjs — revisar escribe siempre nada_que_repetir',
+      'tests/_workflow.ts — evaluar y correPaso: un if: de Actions como lo evalúa GitHub',
+      'tests/veredicto.test.ts — qué paso de tests corre en cada caso',
+      'scripts/filtro-punta.mjs — sinElRepoDelHook: sin GIT_DIR para los tests del pre-push',
+      'tests/filtro-punta.test.ts — un worktree, el GIT_DIR del hook y un test que hace git init',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '16:30', chat: 'Infra', sesion: 'cli_fe9e34df-f0e0-505d-89ab-5b8ddc011a0b', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un tsc que no termina a tiempo ya no se lee como un rojo del chat: se dice y se relanza una vez',
+    puntos: [
+      'Llegó por el Cerebro: la Cobranza del Dashboard quedó roja porque los tipos se cortaron a los 18 minutos, sin un solo error.',
+      'No era el código ni las demos de docs/ (el tsc no lee ninguna). El mismo código tardó 7,6 min con la máquina recién prendida y no terminó después de 10 min de tests.',
+      'Los tipos corren antes que los tests. Si a los 14 min no terminaron, se dice «SIN TIEMPO, no son errores de tipos», con la memoria de ese momento, y la corrida se relanza sola una vez, sin marcar la punta en rojo.',
+      'Cada minuto queda una línea con la memoria y el swap: si vuelve a pasar, el log dice por qué.',
+    ],
+    archivos: [
+      'scripts/tipos-ci.mjs — TIPOS_TOPE_S, el 97 «SIN TIEMPO» y las líneas TIPOS-RAM',
+      '.github/workflows/punta.yml — Tipos antes de los tests, el swap afuera después, y el paso que relanza',
+      '.github/workflows/sobre-main.yml — lo mismo, sin marcar main en rojo',
+      'tests/tipos-ci-tiempo.test.ts — el corte con un tsc de verdad, y las condiciones evaluadas',
+      'tests/_workflow.ts — un solo evaluador de if:, con la igualdad de GitHub',
+      'docs/relevo/nube-metodologia.md → «7» — lo medido',
+    ],
+  },
 ];

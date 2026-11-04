@@ -21,6 +21,7 @@ import { credDelCliente } from './credenciales';
 import { APIFY_CLAVE_DE_SPY, piezasDeApify } from './instagram-perfil';
 import { cambiarSettingSi, getSettingEstricto } from './settings';
 import { guardarVistas, leerCompetidor, vistaDeInstagram } from './spy';
+import { rellenarMiniaturas } from './spy-miniaturas-relleno';
 import { anunciosDeQuien, piezaDeAnuncio } from './spy-captura';
 import { enlaceSusAnuncios } from './spy-funnel';
 import {
@@ -77,6 +78,9 @@ async function reservarCorrida(clave = CLAVE_DIA, tope = CORRIDAS_LARGAS_POR_DIA
   }
   return false;
 }
+
+/** Una del tope del día de `clave` (el guion de un video de YouTube: `CLAVE_DIA_GUIONES_YT`). Compare-and-set en la base. */
+export const reservarDelDia = (clave: string, tope: number): Promise<boolean> => reservarCorrida(clave, tope);
 
 /** El crédito del mes de la cuenta de Apify del negocio. null = no se pudo saber (no es «sin crédito»). */
 async function creditoDelMes(token: string): Promise<CreditoApify | null> {
@@ -220,6 +224,8 @@ export async function avanzarTodo(ws: number, id: number): Promise<EstadoTodo> {
   try {
     const c = await leerCompetidor(id);
     if (!c) return { enMarcha: false, nuevas: 0 };
+    // Las miniaturas que la traída anterior no alcanzó a bajar, mientras su URL sirve (no gasta la clave de Spy: es el CDN de la red).
+    await rellenarMiniaturas(id);
     const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
     if (!token) return { enMarcha: false, nuevas: 0, porque: 'sin-clave' };
     const tareas = leerTareas(await getSettingEstricto(CLAVE_TAREAS))[String(id)] ?? {};

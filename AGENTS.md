@@ -397,6 +397,12 @@ se deriva de ahí— o `join(tmpdir(), …)`. Lo frena en el push `scripts/rutas
 error, salvo que el archivo esté en su lista `PERMITIDOS` con el motivo — un nombre de archivo que
 manda el navegador o un texto que se redacta son datos, no rutas.
 
+⚠️ **Y un test que arma su PROPIO repo de git arranca su env SIN las variables `GIT_*` de afuera.** En el pre-push de un
+WORKTREE, git deja `GIT_DIR` con la ruta absoluta del repo de verdad, y un `{ ...process.env }` se la pasa al `git init` del test:
+el 4/11/2026, tests/ci-workflow-nuevo.test.ts movió main y la rama de la punta, cambió el índice del worktree y dejó
+`core.bare=true`. Desde el clon principal `GIT_DIR` vale `.git` y no pasa nada, por eso no se veía. El filtro del pre-push ya las
+saca (`sinElRepoDelHook`, scripts/filtro-punta.mjs); el molde del test es `entorno()` de tests/veredicto.test.ts.
+
 ⚠️ **Si el árbol compartido tiene trabajo ajeno que no compila, se pushea desde un worktree
 limpio — nunca con `--no-verify`.** `git worktree add --detach <ruta> main`, un junction a
 `node_modules` (`New-Item -ItemType Junction`), `git push origin HEAD:punta/<nombre>` desde ahí, y

@@ -84,6 +84,99 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## «Tipos» cortado a los 18 min sin un error: era la máquina después de los tests, no el código (4/11/2026)
+
+**Vive en:** `scripts/tipos-ci.mjs` (`TIPOS_TOPE_S`, `SALIDA_SIN_TIEMPO`, `TIPOS-RAM`) · `.github/workflows/punta.yml` (Tipos antes de
+los tests, «Sacar el swap de los tipos», «Relanzar si la máquina no llegó a los tipos») · `.github/workflows/sobre-main.yml` ·
+`tests/tipos-ci-tiempo.test.ts` · `tests/_workflow.ts` (`correPaso`).
+
+**Síntoma.** Corrida 180 (dash-cobranza): «The action 'Tipos' has timed out after 18 minutes», sin una línea del tsc. Era un tsc que
+tarda de 129 a 532 s, y la punta quedó con su marca ci-rojo como si el chat la hubiera roto.
+
+**El diagnóstico obvio era el equivocado.** El Cerebro sospechaba de `docs/diseno/mockups-dashboard/demos` (1.350 archivos de ese
+día) dentro de un `include` ancho del tsconfig. Medido: de 10.093 archivos del programa, **0 son de `docs/`**.
+
+**Lo que se midió:**
+- El MISMO árbol, en la corrida 188, terminó en **456 s** con la máquina recién prendida. Ahí no corrió ningún test antes, por el bug
+  de la entrada de abajo.
+- En la 180 corrió después de 639 s de tests (705 archivos, RAM libre mínima 4,3 GB) y no terminó.
+- En la 191, después de 584 s de tests, tardó 574 s.
+- Local, con la memoria limitada a la del runner (cgroup de 7.931 MB): 249 s, con un pico de 7.464 MB. Al tsc le sobran ~470 MB.
+- Con 1,2 GB ocupados por un proceso QUIETO, 254 s: el kernel manda al swap a ese proceso y no al tsc.
+
+Lo que dejan los tests pesados (que no se midió) alcanza para que el tsc no termine. n=1.
+
+**Lo que quedó:**
+- **Tipos va antes de los tests.** El swap se saca después del tsc, así los tests corren con el disco entero, como antes.
+- **El script corta el tsc a los 14 min** (`TIPOS_TOPE_S`, por debajo del `timeout-minutes` del paso) y sale **97 «SIN TIEMPO — NO son
+  errores de tipos»**, con la memoria y el swap de ese momento. Es otro número que el 98 a propósito: un SIN MEMORIA no se arregla con
+  otra corrida, un SIN TIEMPO casi siempre sí.
+- **Una línea `TIPOS-RAM` por minuto**, y una foto de la memoria y los procesos antes del tsc. La próxima vez, el log dice si fue el swap.
+- **La corrida se relanza UNA vez sola**, sin dejar la marca ci-rojo:
+  - sólo si el tsc no terminó y las guardas y los tests no dieron rojo;
+  - la relanzada lleva `relanzo=maquina` y no se vuelve a relanzar;
+  - usa el veredicto de Actions que acaba de guardar, así que no repite los tests que pasaron.
+- sobre-main.yml hace lo mismo y no marca main en rojo por un SIN TIEMPO.
+
+**Dos trampas al probarlo:**
+- La primera versión del test de punta a punta medía sólo el TIEMPO (< 30 s) y daba verde sin el `kill`: con la máquina libre, el
+  proyecto lento igual termina en ~8 s. Lo que prueba el corte es que el tsc no llegó a imprimir sus diagnósticos.
+- Un test que se cuelga y cae por su `timeout` sale «cancelled», no «fail». Al probar una rotura, se mira el EXIT del archivo.
+
+## Sin veredicto, la punta llegó a main sin correr un test: `null != '0'` es falso en GitHub (4/11/2026)
+
+**Vive en:** `.github/workflows/punta.yml` (las condiciones de «Tests afectados…» y «Los tests los cubre el veredicto») ·
+`scripts/veredicto.mjs` (`revisar`, la salida `nada_que_repetir`) · `tests/_workflow.ts` (`evaluar`, `correPaso`) · `tests/veredicto.test.ts`.
+
+**Síntoma.** En la corrida 188 (dash-cobranza) y la 189 (spy-paginas-bloqueadas) los dos pasos de tests salieron «skipped» y la
+punta llegó a main verde. Las dos puntas llegaron sin correr un test, con sólo las guardas y el tsc.
+
+**Causa.** El paso de los tests corría con `steps.veredicto.outputs.cuantos != '0'`. Sin veredicto, `revisar` no escribía `cuantos`. En
+una expresión de GitHub, una salida que falta es **null**, y dos tipos distintos se comparan pasándolos a número: null → 0 y `'0'` → 0. O
+sea `null != '0'` es **falso**, y el paso se salteaba en cada punta sin veredicto, que es casi todas. Lo escribí yo, en el cambio del
+veredicto (601a0ec2f). Su primera corrida pasó porque traía veredicto, y `cuantos` estaba escrito.
+
+**Por qué no lo vio el test.** `tests/veredicto.test.ts` fijaba el TEXTO de la condición («`if: ".*cuantos != '0'"`»), así que daba
+verde con el bug adentro. Es la regla de la casa («un test nuevo ejecuta el código»), incumplida por quien la escribió esa misma mañana.
+
+**Lo que quedó.**
+- La condición compara contra una PALABRA, nunca contra un número: `nada_que_repetir != 'si'`. Con una salida que falta, `null != 'si'`
+  pasa a `0 != NaN`, que es verdadero: los tests corren. `revisar` la escribe siempre, y el respaldo del paso también.
+- `tests/_workflow.ts` (`evaluar`) evalúa una condición `if:` con las reglas de GitHub: la igualdad floja, null y '' como 0, NaN distinto
+  de todo y los strings sin mayúsculas. El test corre `revisar` de verdad en cada caso y EVALÚA las dos condiciones de punta.yml sobre
+  sus salidas: sin veredicto, con algo que repetir, con nada que repetir, con el paso sin correr y con el paso fallado. Siempre corre
+  exactamente UNO de los dos pasos.
+- Una guarda en el mismo test: ningún workflow compara una salida de un paso contra un número.
+- Probado rompiéndolo: con la condición vieja caen 2 de 14, y sin la marca en el camino del veredicto cae «nada que repetir».
+- ⚠️ El evaluador que ya había en `tests/_workflow.ts` comparaba con `===`, así que con él `null != '0'` daba verdadero: habría tapado
+  este mismo bug. Ahora usa la igualdad floja de GitHub, y es el único (el `tests/_expresion-actions.ts` que se escribió para el
+  arreglo se fundió ahí, con las funciones de estado y la condición de un PASO).
+
+**Lo que llegó a main sin tests**, medido: las dos puntas de arriba (de 3a40e2edf a 494c52133). Sus tests afectados se corrieron sobre
+main ese mismo día, con el resultado en `docs/relevo/nube-metodologia.md` → «6».
+
+**La regla que generaliza: en un `if:` de Actions, una salida de un paso se compara con una palabra.** Con un número, una salida que
+falta vale 0. Y se prueba EVALUANDO la condición, no leyéndola.
+
+**Lo que encontró correr sus tests sobre main** (802 archivos de los que tocaron las dos puntas, 10.243 tests): un solo rojo, real.
+spy-paginas-bloqueadas sumó `POST /api/competitor-spy/pagina` sin clasificarla para la cuenta de revisión de las tiendas
+(tests/cuenta-revision-escrituras.test.ts). Nace cortada, que es lo seguro, así que se regeneró la lista con la ruta cortada.
+
+**Y al subir el arreglo desde un worktree apareció otro: un test le escribió al repo de verdad.** En el pre-push de un worktree, git
+deja `GIT_DIR` con la ruta absoluta del repo. tests/ci-workflow-nuevo.test.ts arma su repo de prueba con `{ ...process.env }`, así que
+su `git init` y sus commits fueron al repo de verdad:
+- movieron `main` y la rama de la punta;
+- cambiaron el índice del worktree;
+- dejaron `core.bare=true` en el config compartido, y `git worktree list` mostraba el clon como «(bare)».
+
+Se restauró con los reflogs. Desde el clon principal `GIT_DIR` vale `.git` (relativo) y se resuelve contra la carpeta del test, por eso
+nadie lo había visto.
+- El filtro del pre-push ahora le saca esas variables a los tests que corre (`sinElRepoDelHook`, scripts/filtro-punta.mjs), y el test
+  las saca él mismo.
+- tests/filtro-punta.test.ts lo prueba de punta a punta: un repo, un worktree, el `GIT_DIR` absoluto y un test que hace `git init`.
+- ⚠️ La primera rotura de ese test daba verde por la razón equivocada: devolver el env tal cual dejaba también `NODE_TEST_CONTEXT`, y
+  así el test peligroso no arrancaba. Ahora se exige que haya corrido.
+
 ## Actions sin repetir: los minutos se iban en tests que ya habían pasado, no en la documentación (4/11/2026)
 
 **Vive en:** `scripts/veredicto.mjs` · `scripts/node24.sh` · `scripts/tests-afectados.mjs` (`--solo`, `MAKO_VEREDICTO_CORRIDA`) ·

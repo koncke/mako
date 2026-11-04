@@ -104,6 +104,24 @@ export class ErrorDeLectura extends Error {
   }
 }
 
+// ── El desafío de un antibots (4/11/2026) ─────────────────────────────────────
+// Martín, con la página de enlaces de un competidor: «Y revisa esto, que no se bloquee». Medido por el Cerebro: beacons.ai
+// contesta 403 con el «Just a moment...» de Cloudflare, una página que pide EJECUTAR JavaScript para dejar pasar. Con otro
+// User-Agent no pasa. Y el mismo desafío puede venir con un 503 o hasta con un 200: leído como la página, sería un análisis de
+// «Just a moment». Se reconoce por marcas que sólo tiene la página del desafío. ⚠️ NO por `/cdn-cgi/challenge-platform/scripts/`
+// ni por Turnstile: Cloudflare inyecta ese script en páginas NORMALES y Turnstile es un formulario cualquiera.
+const MARCAS_DE_DESAFIO: readonly RegExp[] = [
+  /<title>\s*(?:just a moment\.*|attention required!?\s*\|\s*cloudflare|un momento\.*|checking your browser[^<]*|access denied[^<]*\|\s*cloudflare)\s*<\/title>/i,
+  /window\._cf_chl_opt|cf-browser-verification|\/cdn-cgi\/challenge-platform\/h\/[^"']*\/(?:orchestrate\/)?chl_page/i,
+  /captcha-delivery\.com|geo\.captcha-delivery|_Incapsula_Resource|px-captcha|perimeterx\.net\/[^"']*captcha/i,
+];
+
+/** ¿Es la página de un antibots que pide comprobar que es una persona, y no la página? Mira sólo el principio del HTML. */
+export function esDesafioDeBot(html: string): boolean {
+  const inicio = (html ?? '').slice(0, 30_000);
+  return MARCAS_DE_DESAFIO.some((re) => re.test(inicio));
+}
+
 /** ¿Este error de bajar la página se resuelve leyéndola en el navegador de la persona? */
 export function bloqueaLaLectura(e: unknown): boolean {
   return e instanceof ErrorDeLectura && (ESTADOS_QUE_BLOQUEAN as readonly number[]).includes(e.status);
