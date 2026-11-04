@@ -46,6 +46,29 @@ verde, llega sola a `main`.
 | Qué pidió | Estado | Rama | Sin probar contra el servicio |
 |---|---|---|---|
 | Buscar en YouTube con un nombre de varias palabras, sin @, con @ y por link | Hecho: los videos que trae Google se leen como su canal (`videos.list`), el nombre prueba su @ en YouTube y el grupo de YouTube dice qué pasó si no trae a nadie | `punta/spy-buscar-yt` | Una búsqueda real de «Victor Heras» |
+| Den Borg con 12 de 500, sin su YouTube ni su web | Hecho: la traída larga avanza sola cada hora (`/api/cron/spy-todo`), una corrida vacía se vuelve a pedir mañana y la pantalla dice por qué no trajo todo; sus otras redes salen en cadena (lo que enlaza su bio y su página de enlaces → su mismo usuario → Google sólo si falta), y su web sale de adentro de beacons/linktr.ee | `punta/spy-cadena` | beacons.page real; la forma de los ítems de error de Apify; el cron en Vercel |
+
+### Qué medir en la base de producción (te lo pido, Cerebro): el competidor 13 del ws 11, que quedó en 12
+
+Todo es lectura. Con eso se sabe cuál de las tres causas le tocó (la corrida nunca se recogió, terminó vacía, o no hay clave):
+
+```sql
+-- 1) Su traída larga: corrida, dataset y cuándo se pidió / terminó (entrada "13" → "instagram")
+select value from app_settings where workspace_id = 11 and key = 'spy.todo';
+-- 2) ¿El negocio tiene la clave de Spy?
+select count(*) from credenciales where workspace_id = 11 and clave = 'APIFY_INSTAGRAM_TOKEN';
+-- 3) Su @ y qué hay guardado, por fuente
+select instagram, youtube_id, landing_url from spy_competidores where id = 13;
+select canal, fuente, count(*) from spy_piezas where competidor_id = 13 group by 1, 2;
+```
+
+Y con el `run` y el `dataset` de (1), contra Apify con la clave de ese negocio: `GET /v2/actor-runs/<run>` (`status`,
+`stats.itemCount`) y `GET /v2/datasets/<dataset>/items?limit=1` (si el primer ítem trae `error` / `errorDescription`, Instagram
+no le dio nada: la cadena nueva lo vuelve a pedir al otro día y lo dice en pantalla). Si (1) no tiene entrada "13", la traída
+nunca se pidió: con el cron, la pide sola en la próxima hora.
+
+**Lo que paga el cron:** cada negocio, con su clave de Spy, lo mismo que pagaría abriendo la ficha: como mucho 6 corridas largas
+por día (ahora contadas en la base, `spy.todo.dia`), cada una con su techo en dólares, y una por competidor por semana.
 
 ## El teléfono
 
@@ -63,5 +86,5 @@ pantalla del teléfono, monta `GraficoSpy` tal cual.
 
 ## Migraciones que faltan aplicar
 
-Ninguna. Lo nuevo que se guarda vive en `app_settings` del negocio (`spy.todo`, las corridas largas; `spy.caricaturas`, las
-caricaturas) y en las columnas que ya existían (`spy_piezas.analisis` lleva ahora su `formato`, dentro del mismo jsonb).
+Ninguna. Lo nuevo que se guarda vive en `app_settings` del negocio (`spy.todo`, las corridas largas; `spy.todo.dia`, cuántas
+empezó hoy; `spy.caricaturas`, las caricaturas) y en las columnas que ya existían (`spy_piezas.analisis` lleva ahora su `formato`, dentro del mismo jsonb).
