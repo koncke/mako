@@ -154,20 +154,27 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
   },
   {
     id: 'ia-contenido', nombre: 'Contenido e IA', emoji: '✨',
-    linea: 'Cuánto usas la IA y para qué, y los videos e imágenes que MaKo le pidió a Flow.',
+    linea: 'Cuánta IA gastas y en qué, y los videos e imágenes que MaKo le pidió a Flow.',
     subtitulo: 'La IA y la producción de contenido.', periodo: 'ult30',
     piezas: [
       // COMPOSICIÓN DEL 31/10/2026: cuánto se usa, cuánto cuesta, cuánto cuesta cada una y cuánto salió. Se fue «Por proveedor»: ninguna
       // hoja lo dibuja desde acá, y los videos e imágenes van como tabla, con su tasa de éxito adentro.
+      // 4/11/2026 — ORRERY (docs/templates-dashboard-propuesta.md §7.3): «¿cuánta IA gastamos y en qué?». Abre con la frase de cuántas
+      // veces se usó; el ancla es el costo, el anillo dice en qué función se va y el modelo cuál cuesta más.
+      {
+        local: 'resumen', tipo: 'frase', fuente: 'ia', metricas: ['llamadas'], dimension: null, titulo: 'Tu IA', comparar: true,
+        frase: 'Usaste la IA {llamadas} veces · {llamadas:cambio} que el período anterior',
+      },
       { local: 'costo', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['costo'], dimension: null, titulo: 'Costo de la IA', comparar: true, invertida: true },
-      { local: 'llamadas', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['llamadas'], dimension: null, titulo: 'Llamadas a la IA', comparar: true },
       { local: 'costo-prom', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['costo_prom'], dimension: null, titulo: 'Costo por llamada' },
-      { local: 'pedidos', tipo: 'numero_tendencia', fuente: 'flow', metricas: ['trabajos'], dimension: null, titulo: 'Pedidos a Flow' },
-      { local: 'por-dia', tipo: 'serie', fuente: 'ia', dimension: 'dia', metricas: ['llamadas'], titulo: 'Llamadas por día', controles: AGRUPAR_AUTO },
+      { local: 'pedidos', tipo: 'numero_tendencia', fuente: 'flow', metricas: ['trabajos'], dimension: null, titulo: 'Pedidos a Flow', ir: 'video-generator' },
+      { local: 'listos', tipo: 'numero_tendencia', fuente: 'flow', metricas: ['tasa_exito'], dimension: null, titulo: 'Salieron bien' },
+      { local: 'por-dia', tipo: 'serie', fuente: 'ia', dimension: 'dia', metricas: ['costo'], titulo: 'Lo gastado por día', controles: AGRUPAR_AUTO },
       { local: 'funciones', tipo: 'barras', fuente: 'ia', dimension: 'funcion', metricas: ['llamadas'], ordenMetrica: 'llamadas', titulo: 'Para qué se usa' },
+      { local: 'modelos', tipo: 'barras', fuente: 'ia', dimension: 'modelo', metricas: ['costo'], ordenMetrica: 'costo', limite: 6, titulo: 'Qué modelo cuesta más' },
       // Vivía en «WhatsApp y MaKo», que se fue en v5: lo que tu equipo le pide a MaKo es uso de la IA.
       { local: 'quien', tipo: 'barras', fuente: 'mako_chat', dimension: 'quien', metricas: ['mensajes'], titulo: 'Quién le escribe a MaKo' },
-      { local: 'flow', tipo: 'tabla_barras', fuente: 'flow', dimension: 'tipo', metricas: ['trabajos', 'listos', 'fallidos', 'tasa_exito'], barra: 'trabajos', titulo: 'Videos e imágenes' },
+      { local: 'flow', tipo: 'tabla_barras', fuente: 'flow', dimension: 'tipo', metricas: ['trabajos', 'listos', 'fallidos', 'tasa_exito'], barra: 'trabajos', titulo: 'Videos e imágenes', ir: 'video-generator' },
     ],
   },
 ];

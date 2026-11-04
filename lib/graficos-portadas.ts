@@ -361,7 +361,7 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
         id: id('ia-contenido-portada'), clase: 'grafico', tipo: 'anillo', fuente: 'ia', dimension: 'funcion', metricas: ['costo'],
         ordenMetrica: 'costo', limite: 6, titulo: 'En qué se va la IA',
       }),
-      vecino: 'por-dia', par: ['funciones', 'quien'],
+      vecino: 'por-dia', par: ['ia-contenido-portada', 'funciones', 'modelos', 'quien'],
     },
   };
 }
