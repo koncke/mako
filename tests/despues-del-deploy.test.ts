@@ -75,3 +75,28 @@ test('el vigía da rojo si main recibió commits y no llegó ni un evento de Ver
   assert.equal(correrPaso(YML, '¿Llegan los eventos de Vercel?', { antes: ghQue(3, 2), env }).codigo, 0);
   assert.equal(correrPaso(YML, '¿Llegan los eventos de Vercel?', { antes: ghQue(0, 0), env }).codigo, 0);
 });
+
+// ── La alarma de las redes de cada noche (4/11/2026) ─────────────────────────────────────────────────────────────────────
+// `gh` de mentira: el último veredicto de cada red (una fecha, o nada) y los commits de main desde esa fecha.
+// Probado rompiéndolo: con el `-ge "$limite"` cambiado por `-le`, un veredicto de hace 2 h da alarma; con `alarma=1` sacado, el
+// rojo de 40 h no da rojo. Los dos casos caen.
+const hace = (h: number) => new Date(Date.now() - h * 3600_000).toISOString().replace(/\.\d+Z$/, 'Z');
+const ghRedes = (semanal: string, respaldo: string, commits: number) =>
+  `gh() { case "$*" in *semanal-tests.yml*) echo "${semanal}";; *tipos-respaldo.yml*) echo "${respaldo}";; *commits*) echo ${commits};; esac; }`;
+const redes = (semanal: string, respaldo: string, commits: number) =>
+  correrPaso(YML, '¿Las redes de cada noche dan veredicto?', { antes: ghRedes(semanal, respaldo, commits), env: { GH_TOKEN: 'x', REPO: 'koncke/mako' } });
+
+test('las redes: veredicto en las últimas 36 h, verde; 40 h sin veredicto con commits nuevos, rojo y dice cuál', { skip: !hayBash && 'sin bash' }, () => {
+  assert.equal(redes(hace(2), hace(3), 5).codigo, 0, 'las dos dieron veredicto hace poco');
+  const muda = redes(hace(40), hace(3), 5);
+  assert.equal(muda.codigo, 1, muda.salida);
+  assert.match(muda.salida, /::error::semanal-tests\.yml no da veredicto/);
+  assert.doesNotMatch(muda.salida, /::error::tipos-respaldo/);
+  const nunca = redes(hace(1), '', 2);
+  assert.equal(nunca.codigo, 1, 'nunca dio veredicto y main se movió: también es muda');
+});
+
+test('las redes: 40 h sin veredicto pero main no se movió, no es alarma (no había nada que juzgar)', { skip: !hayBash && 'sin bash' }, () => {
+  const r = redes(hace(40), hace(40), 0);
+  assert.equal(r.codigo, 0, r.salida);
+});
