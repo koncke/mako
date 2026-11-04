@@ -974,4 +974,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '16:45', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'General, la quinta hoja copiada: el diseño de Orvel con cómo viene el negocio',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» de General**, con su miniatura de verdad: una hoja crema, con un brillo dorado arriba, como Orvel.',
+      '**La frase del mes:** lo que entró, las cuotas vencidas y los leads por marcar, con link al CRM.',
+      '**«Este mes»:** lo cobrado contra el mismo período del mes pasado, la barra contra la proyección, cuatro renglones y la meta del trimestre.',
+      '**«Lo que entró y lo que invertiste»:** las dos líneas mes a mes (6M · 12M) y lo que quedó.',
+      '**Te necesita, lo que vence, te deben, tu funnel hoy, las próximas llamadas y la salud del negocio**, con las mismas cuentas que las otras hojas.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaGeneral.tsx · general-css.ts — el diseño',
+      'app/dashboard/disenos/GeneralVivo.tsx — los datos de General y de dos piezas',
+      'lib/general-diseno.ts — de dónde sale cada número',
+      'docs/diseno/mockups-dashboard/general-orvel/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];

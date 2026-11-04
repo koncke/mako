@@ -199,6 +199,20 @@ corrida fallida de la máquina. Dejalo medido en tu relevo.»
 | Local, con la memoria limitada a la del runner (7.931 MB) | 249 s, con un pico de 7.464 MB (al runner le quedan ~470 MB de margen) |
 | Lo mismo, con 1,2 GB ocupados por otro proceso quieto | 254 s: el kernel mandó al swap al proceso quieto, no al tsc |
 
+**La primera medición de Actions con las líneas `TIPOS-RAM`** (sobre-main 45, tsc con la máquina recién prendida, 253 s, verde):
+
+| s | disponible | swap usado | tsc en RAM | tsc en swap |
+|---|---|---|---|---|
+| 60 | 510 MB | 0 | 6.407 MB | 0 |
+| 120 | 157 MB | 2.287 MB | 6.504 MB | 1.510 MB |
+| 180 | 119 MB | 4.608 MB | 6.786 MB | 1.035 MB |
+| 240 | 123 MB | 4.549 MB | 6.996 MB | 832 MB |
+
+O sea que **ni con la máquina recién prendida entra en la RAM**: a los 2 min ya tiene 1,5 GB en el swap y le quedan ~120 MB a la
+máquina. Termina porque el swap alcanza. Con lo que dejan los tests encima, se pasa. Ordenar los pasos y cortar a tiempo lo vuelve
+robusto, pero **no le da margen**: el programa crece ~1 GB por semana (hallazgos-infra, «El paso "Tipos" se quedó sin memoria»). Lo
+que lo arregla es achicar lo que carga el tsc (project references), o un runner de 16 GB, que es una decisión de plata de Martín.
+
 **Conclusión, con n=1:** no es el código ni `docs/`. El tsc pide casi toda la RAM del runner, y lo que dejan los tests pesados lo
 empuja. Que un proceso quieto ocupe memoria no alcanza para frenarlo (lo de arriba); no se midió qué dejaron los tests de la 180.
 
