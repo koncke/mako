@@ -49,7 +49,8 @@ import { remitenteEsSandbox, emailConectado, displayNameDe, remitenteDelNegocioA
 import type { MotivoSinRemitente } from '@/lib/email-remitente';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
 import { zonaDelNegocio } from '@/lib/timezone';
-import { prepararConexion, conectarDominio, prepararRemitente, fijarRemitente, verificarDominio, prepararVerificacion } from '@/lib/email-dominio';
+import { prepararConexion, conectarDominio, conectarSeguimiento, prepararRemitente, fijarRemitente, verificarDominio, prepararVerificacion, type Falla } from '@/lib/email-dominio';
+import { PARA_LA_API } from '@/lib/email-cuenta-reglas';
 import { listarFunnels } from '@/lib/funnels';
 import { etapasDeProducto } from '@/lib/lead-funnel';
 import { etapaDeEntrada, nombreVisible } from '@/lib/lead-funnel-reglas';
@@ -395,15 +396,18 @@ export const RUNNERS: Runners = {
   },
 
   estado_email: {
+    // LA GUÍA (4/11/2026): `paso`, `que_hacer` y `siguiente` salen de `guiaDelEmail` (lib/email-cuenta-reglas.ts). La
+    // `instruccion` es para el modelo: la clave NUNCA se pide por el chat (se pega en el modal de MaKo, con su link).
     leer: async () => {
       const e = await estadoEmail();
       return json({
         ...e,
+        instruccion: `Dile a la persona lo de que_hacer, en sus palabras.${e.link_conectar ? ' Pásale link_conectar TAL CUAL: abre el lugar de MaKo donde pega su clave. NUNCA le pidas la clave por el chat.' : ''}${e.siguiente && e.siguiente !== 'estado_email' ? ` Después corre ${e.siguiente}.` : e.siguiente === 'estado_email' ? ' Cuando te diga que ya lo hizo, vuelve a correr estado_email.' : ''}`,
         nota: e.error_lectura
-          ? 'No se pudo leer la configuración del dominio en la base (dominio y estado_dominio quedan null por eso, no porque falten). Reintenta en un momento.'
+          ? 'No se pudo leer la configuración de email en la base (lo que quedó null es por eso, no porque falte). Reintenta en un momento.'
           : e.error_dominio
-          ? 'No se pudo leer el dominio en Resend (estado_dominio queda null por eso, no porque falte el dominio). Con una key de solo envío, Resend no deja consultar dominios.'
-          : e.dominio ? 'estado_dominio «verified» es el único que permite fijar un remitente propio.' : 'Este negocio no cargó un dominio de envío: se configura en /email.',
+          ? 'No se pudo leer el dominio en Resend (estado_dominio queda null por eso, no porque falte el dominio).'
+          : e.dominio ? 'estado_dominio «verified» es el único que permite fijar un remitente propio.' : 'Este negocio no cargó un dominio de envío.',
       });
     },
   },
@@ -658,9 +662,9 @@ export const RUNNERS: Runners = {
   verificar_dominio_envio: {
     preparar: async () => {
       const id = await dominioIdDelWorkspace();
-      if (!id) return { error: 'Este negocio no tiene un dominio de envío cargado: primero hay que agregarlo en /email.' };
+      if (!id) return { error: 'Este negocio no tiene un dominio de envío cargado: primero hay que conectarlo (conectar_dominio_email; estado_email dice el paso).' };
       const listo = await prepararVerificacion();
-      if (!listo.ok) return { error: listo.error, ...(listo.nuestra ? { falla: true as const } : {}) };
+      if (!listo.ok) return sinPoder(listo);
       return { payload: {}, resumen: 'Pedirle a Resend que revise los registros DNS del dominio de envío del negocio.' };
     },
     // La MISMA verificación que /email (lib/email-dominio.ts, 4/11/2026): de paso, prende el seguimiento de aperturas y clics
@@ -920,7 +924,7 @@ export const RUNNERS: Runners = {
     preparar: async (input) => {
       const on = input.on === true;
       const [actual, conectado, alcance] = await Promise.all([envioEmailHabilitado(), emailConectado(), alcanceEnvioReal()]);
-      if (on && !conectado) return { error: 'El email no está conectado (falta la key o el negocio no tiene remitente propio): primero hay que verificar su dominio y fijar el remitente en /email. Revisa remitente_email.' };
+      if (on && !conectado) return { error: 'Todavía no se puede prender: al email del negocio le falta un paso (su cuenta de Resend, su dominio verificado o su remitente). estado_email dice cuál y qué hacer.' };
       const activas = alcance.secuencias_con_email;
       const programados = alcance.broadcasts_programados;
       const ya = actual === on ? ` Ya estaba ${on ? 'prendido' : 'apagado'}.` : '';
@@ -943,20 +947,21 @@ export const RUNNERS: Runners = {
   conectar_dominio_email: {
     preparar: async (input, ctx) => {
       const p = await prepararConexion(ctx.ws, input.dominio);
-      if (!p.ok) return { error: p.error, ...(p.nuestra ? { falla: true as const } : {}) };
+      if (!p.ok) return sinPoder(p);
       return {
         payload: { dominio: p.dominio },
-        resumen: `Conectar ${p.dominio} para mandar los correos del negocio${p.reemplaza ? ` (reemplaza a ${p.reemplaza})` : ''}: te devuelvo los registros DNS que hay que cargar, y quedan prendidas las aperturas y los clics.`,
+        resumen: `Conectar ${p.dominio} en tu cuenta de Resend para mandar los correos del negocio${p.reemplaza ? ` (reemplaza a ${p.reemplaza})` : ''}: te devuelvo los registros DNS que hay que cargar, quedan prendidas las aperturas y los clics, y conecto el seguimiento de tu cuenta con MaKo.`,
       };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
       const r = await conectarDominio(ctx.ws, payload.dominio);
       if (!r.ok) return { ok: false, resumen: r.error };
       const seguimiento = r.seguimiento === true ? 'Aperturas y clics: prendidos.' : `No pude prender las aperturas y los clics (${r.seguimiento}): se vuelve a intentar al verificar.`;
+      const webhook = r.webhook === true ? 'El seguimiento de tu cuenta quedó conectado con MaKo.' : `No pude conectar el seguimiento de tu cuenta (${r.webhook}): pide conectar_seguimiento_email.`;
       return {
         ok: true,
-        resumen: `Dominio ${r.dominio} conectado (${r.estado}). Carga estos registros en el proveedor del dominio y después pide verificar_dominio_envio: ${textoRegistros(r.registros)}. ${seguimiento}`,
-        datos: { dominio: r.dominio, estado: r.estado, registros: r.registros, seguimiento: r.seguimiento === true },
+        resumen: `Dominio ${r.dominio} conectado (${r.estado}). Carga estos registros en el proveedor del dominio y después pide verificar_dominio_envio: ${textoRegistros(r.registros)}. ${seguimiento} ${webhook}`,
+        datos: { dominio: r.dominio, estado: r.estado, registros: r.registros, seguimiento: r.seguimiento === true, webhook: r.webhook === true },
       };
     },
   },
@@ -964,7 +969,7 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const pedido = { local: input.local, nombre: input.nombre, ...(input.sinResponderA === true ? { responderA: null } : input.responderA !== undefined ? { responderA: input.responderA } : {}) };
       const p = await prepararRemitente(ctx.ws, pedido);
-      if (!p.ok) return { error: p.error };
+      if (!p.ok) return sinPoder(p);
       const resp = p.responderA === undefined ? '' : p.responderA === null ? ' Las respuestas vuelven al remitente.' : ` Las respuestas llegan a ${p.responderA}.`;
       return { payload: pedido, resumen: `Los correos del negocio salen como «${p.from}».${resp}` };
     },
@@ -978,7 +983,41 @@ export const RUNNERS: Runners = {
       };
     },
   },
+  // El seguimiento de SU cuenta (4/11/2026): el webhook que trae a MaKo las aperturas, los clics y los rebotes. Lo hace
+  // conectar_dominio_email solo; esto es para un dominio conectado antes, o si ahí falló. El secreto nunca vuelve.
+  conectar_seguimiento_email: {
+    preparar: async () => {
+      const a = await prepararVerificacion();
+      if (!a.ok) return sinPoder(a);
+      const e = await estadoEmail();
+      if (e.cuenta === 'plataforma') return { error: 'La cuenta de MaKo ya tiene su seguimiento de siempre: no hay nada que conectar.', yaEstaba: true };
+      return {
+        payload: {},
+        resumen: e.seguimiento_webhook
+          ? 'Revisar el seguimiento de tu cuenta de Resend con MaKo (ya estaba conectado: lo dejo prendido y con todos los eventos).'
+          : 'Conectar el seguimiento de tu cuenta de Resend con MaKo: crea en tu cuenta el aviso que trae las aperturas, los clics y los rebotes. No toca tus correos ni tu dominio.',
+      };
+    },
+    ejecutar: async (_payload, ctx): Promise<Ejecutado> => {
+      const r = await conectarSeguimiento(ctx.ws, ctx.actor ?? null);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return {
+        ok: true,
+        resumen: r.plataforma ? 'La cuenta de MaKo ya tiene su seguimiento de siempre.' : r.creado ? 'Listo: el seguimiento de tu cuenta de Resend quedó conectado con MaKo.' : 'Listo: el seguimiento de tu cuenta ya estaba y quedó prendido, con todos los eventos.',
+        datos: { creado: r.creado },
+      };
+    },
+  },
 };
+
+/**
+ * Lo que contesta una operación que no puede seguir por la cuenta de correo (4/11/2026): sin SU cuenta de Resend, el texto
+ * que guía y `falta: { servicio: 'email' }` (el código pone el link al modal); una falla nuestra, con `falla`.
+ */
+function sinPoder(f: Falla): Extract<Preparado, { error: string }> {
+  if (f.sinCuenta) return { error: `${f.error} ${PARA_LA_API}`, falta: { servicio: 'email' } };
+  return { error: f.error, ...(f.nuestra ? { falla: true as const } : {}) };
+}
 
 /** Los registros DNS en una línea cada uno, para el resumen que lee la persona (o su Claude). */
 function textoRegistros(rs: readonly RegistroDns[]): string {

@@ -6,30 +6,36 @@
 // app/api/email/dominio/route.ts: la API no tenía cómo conectarlo ni cómo fijar el «De». Ahora la lógica vive acá y la
 // usan las dos entradas: la pantalla de /email (la ruta) y la API (`conectar_dominio_email`, `fijar_remitente_email`).
 //
-// Opción A: la cuenta de Resend es la de MaKo; cada negocio da de alta y verifica SU dominio adentro. El estado vive en
-// `app_settings` del negocio del CONTEXTO (quien llama corre adentro de `runWithWorkspace`):
+// DESDE EL 4/11/2026 CADA NEGOCIO CON SU CUENTA DE RESEND (Martín: «Resend free permite hasta 3 dominios, pero eso lo trae
+// cada user de mako»): el dominio se da de alta y se verifica en la cuenta DEL NEGOCIO, con su clave (lib/resend-dominios.ts
+// → lib/email-cuenta.ts), y ahí mismo se conecta el webhook que trae sus aperturas, clics y rebotes (`conectarSeguimiento`,
+// con su secreto guardado en su fila). Hasta ese día era la «Opción A»: todos adentro de la cuenta de MaKo. El estado vive
+// en `app_settings` del negocio del CONTEXTO (quien llama corre adentro de `runWithWorkspace`):
 //   resend_domain     → el nombre del dominio
-//   resend_domain_id  → el id del dominio en Resend
+//   resend_domain_id  → el id del dominio en SU cuenta de Resend
 //   resend_from       → el remitente («Nombre <hola@dominio.com>»)
 //   resend_reply_to   → adónde van las RESPUESTAS de los leads (4/11/2026, «que te envíe a tu email personal»)
 //
-// ⚠️ NUNCA la key de Resend del negocio: la fila del ws 1 es la de la PLATAFORMA (lib/credenciales.ts), y una key de
-// Mauricio ahí desviaría los avisos de MaKo a su cuenta. Su email sale de SU dominio, verificado en la cuenta de MaKo.
+// ⚠️ Sin cuenta propia no se crea nada: `prepararConexion`, `prepararVerificacion` y `prepararRemitente` frenan ANTES, con el
+// texto que guía (`sinCuentaParaOperar`) y `sinCuenta` (la API lo devuelve como `falta: { servicio: 'email' }`).
+// ⚠️ La plataforma administra el dominio de MaKo con `RESEND_ADMIN_API_KEY` (la que manda es de sólo envío); sin ella frena
+//    con un error que dice que es de MaKo (`nuestra`).
 // ⚠️ Y el email de MaKo no es de ningún negocio: el dominio de MaKo sólo lo conecta la plataforma (`esDominioDeMako`).
-// ⚠️ Y LA CLAVE QUE ADMINISTRA DOMINIOS NO ES LA QUE MANDA (4/11/2026): la de producción es de sólo envío y así se queda. El
-// alta, la lectura y la verificación usan `RESEND_ADMIN_API_KEY` (lib/resend-dominios.ts, el único que la lee). Sin ella,
-// `prepararConexion` y `prepararVerificacion` frenan ANTES de crear nada, con un error que dice que es de MaKo (`nuestra`).
 // =============================================================================
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import {
-  createResendDomain, getResendDomain, verifyResendDomain, prenderSeguimiento, puedeAdministrarDominios,
+  createResendDomain, getResendDomain, verifyResendDomain, prenderSeguimiento,
   getEmailFrom, emailConectado, remitenteEsSandbox, resendConfigurado,
   type ResendDomain,
 } from './resend';
-import { SIN_CLAVE_DE_DOMINIOS } from './resend-errores';
+import { administracionDeLaCuenta, asegurarWebhookDeCuenta, probarClaveDeCuenta, type Administracion } from './resend-dominios';
+import { CLAVE_INVALIDA_TUYA, KEY_SOLO_ENVIO_TUYA } from './resend-errores';
+import { guardarCredencial } from './credenciales';
+import { APP_BASE_URL } from './app-url';
+import { SECRETO_WEBHOOK_PROPIO, urlWebhookDeCuenta } from './email-cuenta-reglas';
 import { envioEmailHabilitado, setEnvioEmail } from './envio-flags';
 import { EMAIL_MAKO } from './app-url';
 import { esDominioDeMako, NO_ES_TUYO } from './email-remitente';
@@ -42,19 +48,28 @@ import {
 /** El setting de la dirección de respuestas. */
 export const KEY_RESPONDER_A = 'resend_reply_to';
 
-/** `nuestra`: la falla es de MaKo (una clave que falta), no de lo que pidió la persona. La API la marca `falla: true`. */
-export type Falla = { ok: false; error: string; status: number; nuestra?: true };
+/**
+ * `nuestra`: la falla es de MaKo (una clave que falta, una lectura caída), no de lo que pidió la persona: la API la marca
+ * `falla: true`. `sinCuenta`: al negocio le falta conectar SU cuenta de Resend: la API la devuelve como
+ * `falta: { servicio: 'email' }`, y el texto ya dice cómo.
+ */
+export type Falla = { ok: false; error: string; status: number; nuestra?: true; sinCuenta?: true };
 const falla = (error: string, status: number): Falla => ({ ok: false, error, status });
-const sinClave = (): Falla => ({ ok: false, error: SIN_CLAVE_DE_DOMINIOS, status: 503, nuestra: true });
+function sinAdministracion(a: Exclude<Administracion, { ok: true }>): Falla {
+  if (a.cuenta === 'sin_clave_de_mako' || a.cuenta === 'no_pude_leer') return { ok: false, error: a.error, status: 503, nuestra: true };
+  return { ok: false, error: a.error, status: 409, sinCuenta: true };
+}
 
-/** LO QUE SE PUEDE SABER SIN ESCRIBIR antes de verificar: que haya con qué hablarle a Resend de dominios. */
+/** LO QUE SE PUEDE SABER SIN ESCRIBIR antes de verificar: que haya con qué hablarle a SU cuenta de Resend. */
 export async function prepararVerificacion(): Promise<{ ok: true } | Falla> {
-  return (await puedeAdministrarDominios()) ? { ok: true } : sinClave();
+  const a = await administracionDeLaCuenta();
+  return a.ok ? { ok: true } : sinAdministracion(a);
 }
 
 /**
- * TITULARIDAD (anti-spoofing entre negocios): con la cuenta única de Resend, un dominio de un negocio B no lo puede
- * adoptar el A. Lo reclama el `resend_domain` de cada negocio: consulta entre workspaces a propósito (`getSupabaseServer`),
+ * TITULARIDAD (anti-spoofing entre negocios): un dominio que ya reclamó el negocio B no lo puede reclamar el A. Nació con la
+ * cuenta única de Resend (hasta el 4/11/2026), y sigue: con una cuenta por negocio la prueba de verdad es el DNS, pero el
+ * remitente de B no puede quedar a nombre de A en MaKo mientras tanto. Lo reclama el `resend_domain` de cada negocio: consulta entre workspaces a propósito (`getSupabaseServer`),
  * porque la titularidad es global. Tira si no puede leer: «no pude preguntar» no es «es tuyo».
  */
 async function reclamadoPorOtroWs(dominio: string, ws: number): Promise<boolean> {
@@ -126,18 +141,28 @@ export async function prepararConexion(ws: number, raw: unknown): Promise<{ ok: 
   if (!dominio) return falla(DOMINIO_INVALIDO, 400);
   if (esDominioDeMako(dominio) && !(await esPlataforma(ws))) return falla(NO_ES_TUYO, 403);
   if (await reclamadoPorOtroWs(dominio, ws)) return falla(`Ese dominio ya está conectado en otro negocio. Si es tuyo, escríbenos a ${EMAIL_MAKO}.`, 403);
-  // Sin la clave que administra dominios no se crea nada: ni el dominio en Resend ni una línea en los settings.
-  if (!(await puedeAdministrarDominios())) return sinClave();
+  // Sin SU cuenta de Resend (o, en la plataforma, sin la clave que administra el de MaKo) no se crea nada: ni el dominio en
+  // Resend ni una línea en los settings.
+  const a = await administracionDeLaCuenta();
+  if (!a.ok) return sinAdministracion(a);
+  // Una clave de SÓLO ENVÍO (o una que Resend ya no reconoce) no da de alta nada: se dice ANTES de proponer, con cuál crear.
+  const clave = await probarClaveDeCuenta();
+  if (clave === 'solo_envio') return { ok: false, error: KEY_SOLO_ENVIO_TUYA, status: 409, sinCuenta: true };
+  if (clave === 'invalida') return { ok: false, error: CLAVE_INVALIDA_TUYA, status: 409, sinCuenta: true };
   const previo = (await getSettingEstricto('resend_domain'))?.trim() || null;
   return { ok: true, dominio, reemplaza: previo && previo !== dominio ? previo : null };
 }
 
-export type Conexion = { ok: true; dominio: string; estado: string; registros: RegistroDns[]; seguimiento: true | string };
+export type Conexion = {
+  ok: true; dominio: string; estado: string; registros: RegistroDns[]; seguimiento: true | string;
+  /** El webhook de SU cuenta (las aperturas, los clics y los rebotes llegan a MaKo): `true`, o el motivo por el que no. */
+  webhook: true | string;
+};
 
 /**
- * DA DE ALTA EL DOMINIO del negocio en la cuenta de Resend de MaKo y lo guarda. Devuelve los registros DNS que hay que
- * cargar en el proveedor del dominio. Si ya estaba en la cuenta (volver a conectarlo), lo adopta: es idempotente.
- * `seguimiento`: `true` si quedaron prendidas las aperturas y los clics, o el motivo por el que no.
+ * DA DE ALTA EL DOMINIO del negocio en SU cuenta de Resend y lo guarda, y conecta el webhook de esa cuenta. Devuelve los
+ * registros DNS que hay que cargar en el proveedor del dominio. Si ya estaba en la cuenta (volver a conectarlo), lo
+ * adopta: es idempotente. `seguimiento`: `true` si quedaron prendidas las aperturas y los clics, o el motivo por el que no.
  */
 export async function conectarDominio(ws: number, raw: unknown): Promise<Conexion | Falla> {
   const p = await prepararConexion(ws, raw);
@@ -146,7 +171,28 @@ export async function conectarDominio(ws: number, raw: unknown): Promise<Conexio
   if (!r.ok) return falla(r.error, 502);
   await setSetting('resend_domain', r.domain.name);
   await setSetting('resend_domain_id', r.domain.id);
-  return { ok: true, dominio: r.domain.name, estado: r.domain.status, registros: registrosParaCargar(r.domain.records), seguimiento: r.seguimiento };
+  // El webhook no frena el alta: si falla, el dominio queda y el motivo vuelve (la guía lo pide después).
+  const w = await conectarSeguimiento(ws);
+  return {
+    ok: true, dominio: r.domain.name, estado: r.domain.status, registros: registrosParaCargar(r.domain.records), seguimiento: r.seguimiento,
+    webhook: w.ok ? true : w.error,
+  };
+}
+
+/**
+ * CONECTA LOS EVENTOS DE SU CUENTA DE RESEND CON MaKo (4/11/2026): crea (o reusa) el webhook en SU cuenta, que apunta a
+ * `/api/webhooks/resend?cuenta=<ws>`, y guarda su secreto en la fila del negocio (`SECRETO_WEBHOOK_PROPIO`). Sin esto sus
+ * emails salen igual, pero MaKo no se entera de quién abre, hace clic o rebota: las tarjetas no se mueven y el freno por
+ * rebotes no corre. El secreto NUNCA vuelve: ni en el resultado, ni en un log. La plataforma usa el webhook de siempre.
+ */
+export async function conectarSeguimiento(ws: number, actor: string | null = null): Promise<{ ok: true; creado: boolean; plataforma?: true } | Falla> {
+  const a = await administracionDeLaCuenta();
+  if (!a.ok) return sinAdministracion(a);
+  const w = await asegurarWebhookDeCuenta(urlWebhookDeCuenta(APP_BASE_URL, ws));
+  if (!w.ok) return falla(w.error, 502);
+  if (w.plataforma) return { ok: true, creado: false, plataforma: true };
+  await guardarCredencial(ws, SECRETO_WEBHOOK_PROPIO, w.secreto, 'email', actor ?? 'sistema:conectar-seguimiento');
+  return { ok: true, creado: w.creado };
 }
 
 /**
@@ -182,6 +228,9 @@ export type PedidoRemitente = {
  * tenerlo cargado), que no sea uno de MaKo y que lo pedido sea válido. Devuelve lo que se va a guardar.
  */
 export async function prepararRemitente(ws: number, p: PedidoRemitente): Promise<{ ok: true; from: string; responderA: string | null | undefined } | Falla> {
+  // Sin SU cuenta, el dominio no se puede mirar en vivo: decir «no está verificado» mandaría a cargar DNS de más.
+  const a = await administracionDeLaCuenta();
+  if (!a.ok) return sinAdministracion(a);
   const [dominio, dominioId] = await Promise.all([getSettingEstricto('resend_domain'), getSettingEstricto('resend_domain_id')]);
   if (!dominio?.trim() || !dominioId?.trim()) return falla('Primero conecta y verifica tu dominio.', 400);
   // Y si el dominio cargado es el de MaKo (el ws 1 lo tuvo de cuando era el de la plataforma), tampoco.
@@ -232,7 +281,7 @@ export async function cambiarEnvio(on: boolean): Promise<{ ok: true } | Falla> {
   return { ok: true };
 }
 
-/** Limpia SÓLO la config del negocio; el dominio sigue en la cuenta de Resend (borrarlo allá es a mano). */
+/** Limpia SÓLO la config del negocio; el dominio y el webhook siguen en su cuenta de Resend (borrarlos allá es a mano). */
 export async function desconectarDominio(): Promise<void> {
   await setSetting('resend_domain', '');
   await setSetting('resend_domain_id', '');

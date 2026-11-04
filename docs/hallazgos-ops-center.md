@@ -438,6 +438,8 @@ Fons, Maffia, Begueria, Luque, Doglio, Seré, Albaa) no hay una sola imagen en n
 la nube no tiene Canva. Lo que sí se puede hacer en la nube es su FICHA: queda escrita en `lib/asesores/en-espera.ts`
 y el gurú entra a la galería en cuanto llegue su cara (el test lo avisa).
 
+**Resuelto el mismo 4/11:** llegaron las diez caras (la entrada «Las diez caras llegaron», abajo).
+
 ## Las diez fichas que esperan cara: cómo se escribieron y qué quedó afuera (4/11/2026)
 
 **Vive en:** `lib/asesores/ficha-*.ts` (las diez nuevas), `lib/asesores/en-espera.ts`, `tests/gurus-en-espera.test.ts`.
@@ -461,6 +463,47 @@ y el gurú entra a la galería en cuanto llegue su cara (el test lo avisa).
   nueva se corre después de `git add -N`, o da verde sin haberla leído. Un título de clase citado tal cual también trae voseo
   («Vendele…»): se cita el módulo o se parafrasea.
 - **Nadie más leyó las fichas**: las escribí yo, contra las clases citadas. Martín las puede leer antes de que entren.
+
+## Las diez caras llegaron: de dónde salen las fotos, los tamaños y lo que quedó sin hacer (4/11/2026)
+
+Martín: «en los gurus, me siguen faltando un montón que ya habiamos hecho la miniatura». Las diez caras se hicieron con Canva
+y entraron a la galería (22 → 32): fila en `ASESORES`, id en `IdAsesor`, ficha en `FICHAS`, y `EN_ESPERA` quedó vacía.
+
+**De dónde salen las fotos: la foto de perfil del canal público de YouTube de cada uno, sin API ni clave.**
+`youtube.com/results?search_query=<nombre>&sp=EgIQAg%253D%253D` (el filtro «Canal») y `youtube.com/<@handle>` traen un
+`ytInitialData` con el `avatar` hasta 900 px (`yt3.googleusercontent.com/…=s900-c-k-c0x00ffffff-no-rj`): una URL pública
+HTTPS que `upload-asset-from-url` acepta. La búsqueda por nombre devuelve homónimos (de 2 a 5 canales por nombre, con 2 a 150
+suscriptores y la foto por defecto): se elige por suscriptores y descripción, y **se mira la foto antes de dibujar**. Los
+canales: `@Juan_carrizo` (el de testimonios es el mismo), `@vilmanunez` (el canal se llama «Vilma OS»), `@SamuelAlbaa`,
+`@AlvaroLuque`, `@SergioBegueria`, `@RomualdFonsTV`, `@mateomaffia`, `@FranciscoDoglio`, `@InstaCoachAndy`, `@gonzalosere`.
+Lo que ata cada canal a SU curso: «The perfect launch - Alvaro Luque» es colombiano y su canal anuncia el evento en
+Bucaramanga; el de Samuel nombra «Growing Closers»; los títulos de Doglio, Maffia y Carrizo calzan con ARCADIA, BYF y ATV.
+Andy Landa es una MUJER (foto y ficha en femenino): el prompt lleva «woman» y «HER».
+
+**Los tamaños: Canva entrega 200 × 200 aunque el original mida 1264 × 1264, y no hay vuelta.** `get-assets` lo dice
+(`metadata` 1264, `thumbnail` 200) y el thumbnail está firmado: cambiarle `width`/`height` da 403 «Signature invalid».
+`public/asesores/<id>.png` sale tal cual (52-65 KB, bajo el tope de 150). **Los `grandes/` de estos diez son esos 200 agrandados
+a 600 con bicúbica**, no los 1264 reducidos como los de los catorce primeros: en la tarjeta de Spy se ven blandos. Para
+rehacerlos con el original hay que exportarlo desde Canva (un diseño con la imagen y `export-design`); los ids de media de
+las diez, en la cuenta de Martín: Carrizo `MAHZ9QMgCMA`, Núñez `MAHZ9VmRnOs`, Albaa `MAHZ9RL4xtA`, Luque `MAHZ9dvwzmI`,
+Begueria `MAHZ9RFb83U`, Fons `MAHZ9XkypNE`, Maffia `MAHZ9dHCqZc`, Doglio `MAHZ9aZXDhw`, Landa `MAHZ9XMiA54`, Seré `MAHZ9U9vkrc`.
+
+**`get-generate-image-job` devolvió HTTP 409 `{"code":10}` en 6 de 10 al consultarlas todas juntas, y la generación estaba bien:**
+al volver a leer, `SUCCESS`. No se regenera por un 409 (sería pagar dos veces).
+
+**Cada una con un fondo que no repite los 22 que ya había** (magenta, cobalto, azul marino, rojo, durazno, naranja, lima,
+amarillo, periwinkle, rosa viejo), y con la prenda lisa que pide el prompt: ningún logo salió en las diez. Las diez salieron
+a la primera, comparadas una por una con su foto.
+
+**Sin hacer:**
+- **¿«Samuel Albaa» o «Samuel Alba»?** Su canal se llama «Samuel Alba | Ventas»; el @ y el Instagram son «samuelalbaa». El repo
+  dice «Albaa» (viene de la carpeta del curso, como «Jiguera»). Si es «Alba», «Inspirado en Samuel Albaa» publica un apellido
+  mal escrito. No se tocó: el nombre y el id están en 16 archivos (hasta el slug del curso) y no hay cómo confirmarlo desde acá. Se confirma con él o con su sitio.
+- **Los `grandes/` a 600 reales** (arriba).
+- **No se vieron en la app andando:** se midió con los tests (galería de 32, curso de cada uno, peso y existencia de las dos
+  caras). La hoja de contacto se la ve Martín antes que nadie.
+- `tests/gurus-en-espera.test.ts` ya no recorre nada (la lista está vacía): su guarda de las fichas (voseo, «no hables como si
+  fueras él», «NO SE TRASLADA») pasó a un test sobre las diez que ya están en `FICHAS`.
 
 ---
 
@@ -504,10 +547,37 @@ guardadas, quien armó su oferta con el Offer Coach y no tocó «Guardar» leía
   es una decisión de qué compra cada plan.
 - En la nube, el tsc acotado con `lib/doer-herramientas.ts` muere sin memoria con el tope de 2.560 MB (arrastra el registro entero):
   va con `--heap=7000`.
-- `tests/funciones-mako.test.ts` (6) ya está rojo en main (`wsEnContexto is not a function` al cargar lib/api-mako/link.ts), y el
-  runner de `tests-afectados` en la nube marca tandas rojas «sin el pie del runner» por el `MAKO_ACCION_TOOLS` que node no ve como
-  ESM: medido igual en un árbol limpio de main.
+- `tests/funciones-mako.test.ts` (6) da rojo con Node 22 (`wsEnContexto is not a function` al cargar lib/api-mako/link.ts), y el
+  runner de `tests-afectados` en la nube marca tandas rojas «sin el pie del runner» por el `MAKO_ACCION_TOOLS` que node 22 no ve como
+  ESM: medido igual en un árbol limpio de main. **Con Node 24 (el de Actions, `/opt/node24/bin` en la nube) los dos dan verde**: no son
+  rojos de main, son del node viejo de la imagen.
 
 **Vive en:** lib/asesores/catalogo.ts · lib/asesores/contexto.ts · lib/funnel-plan-db.ts · lib/doer-herramientas.ts ·
 app/api/mako/chat/route.ts · app/second-brain/ChatSecondBrain.tsx · app/second-brain/useChatDelCoach.ts ·
 app/m/second-brain/HojaDelCoach.tsx · tests/coaches-ops-center.test.ts
+
+## Ticket #57: «no pude leer» contaba como «hay oferta», y un botón para las tiendas debajo de cada respuesta (4/11/2026)
+
+**Síntoma:** Martín, en el ws 9, tocó «Reportar a Soporte» sobre «Tu oferta ya está cargada. ¿Cuánto puedes invertir por mes para
+conseguir clientes?», y escribió: «Debajo del mensaje de funnel coach me aparecia un botón de "reportar" eso no tiene sentido...».
+
+**Dos causas, las dos de piezas recién hechas:**
+- **El «Reportar» era `ReportarRespuesta`, en `app/_chat/HiloMako.tsx`:** la misma pieza en todos los chats con MaKo. Lo había puesto el
+  chat de Tiendas el 3/11 porque Play pide denunciar una respuesta de IA «without needing to exit the app». Borrarlo rompía eso; se
+  mudó al menú del mensaje (`reportable` en `MenuMensajeWA`, y el menú mínimo de `HiloMako`), como «Reportar» en WhatsApp o Gemini. El
+  menú lo resuelve él, así que ningún chat tiene que sumarlo a su `elegirEnMenu`. Los chats de Claude Code no lo piden.
+- **`hayOfertaParaElCoach` (del coach único, el mismo día) devolvía `true` con una lectura caída.** La idea era no decirle a nadie
+  que le falta una oferta que puede tener; lo que hacía era AFIRMAR que la tiene. Es «no pude leer es un tercer estado» (AGENTS.md)
+  roto por quien acababa de leerlo. Ahora `ofertaDelCoach` (lib/funnel-plan.ts) tiene tres estados, y con «hay» dice cuál y de dónde.
+
+**Lo que no se ve leyendo:**
+- **«Hay oferta» puede ser una que nadie armó:** `seedOfertaDesdeBrief` (lib/ofertas.ts) siembra la principal con el nombre que la
+  persona escribió en el onboarding (`desde_brief`), apenas abre la pantalla de ofertas. El saludo lo dice: «la oferta de tu perfil
+  del negocio». Qué le pasó al ws 9 no se pudo medir desde la nube: la consulta está en docs/relevo/nube-funnel-coach.md.
+- **El saludo del coach no se guarda en el hilo:** sin decírselo al modelo, «no, es la otra» no tenía a qué referirse. El contexto de
+  cada turno del coach lleva el mismo renglón (`ofertaParaElContexto`), de la misma lectura (`laOfertaDelCoach` en la ruta).
+- **El saludo esperaba en «no hay» hasta que llegaba la respuesta** (`hayOferta` arrancaba en `false`): abría diciendo «Empecemos por
+  tu oferta» y medio segundo después cambiaba. Ahora espera a saber (`oferta` en null no saluda).
+
+**Vive en:** app/_chat/ReportarRespuesta.tsx · app/admin/operaciones/MensajeWA.tsx · lib/centro-mensajes.ts · lib/funnel-plan.ts ·
+lib/offer-marco.ts · app/api/mako/chat/route.ts. **Lo fijan:** tests/reportar-en-el-menu.test.ts y tests/coaches-ops-center.test.ts (13).

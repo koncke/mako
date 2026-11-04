@@ -486,7 +486,8 @@ function CampanaEmail({ d }: { d: DatosArticulos }) {
     '- La campaña: <cuántos emails, cada cuánto y a quiénes; por ejemplo, 14 emails, uno cada 24 h, a todos menos los que ya compraron>.',
     '',
     'Hazlo en este orden, y espera mi OK donde lo digo:',
-    '1. El dominio: POST /api/v1/email/dominio-envio con {"dominio": "..."}. Muéstrame los registros DNS que devuelve y espera a que te diga que los cargué. Después, POST /api/v1/email/dominio-envio/verificaciones hasta que diga verificado.',
+    '0. Primero, y después de cada paso: GET /api/v1/email/estado. Te dice en qué paso estoy («paso»), qué tengo que hacer («que_hacer») y qué sigue («siguiente»). Si todavía no conecté mi cuenta de Resend, explícame cómo crearla y dame el link de «link_conectar» para pegar mi clave en MaKo. NUNCA me pidas la clave por el chat.',
+    '1. El dominio: POST /api/v1/email/dominio-envio con {"dominio": "..."}. Lo da de alta en mi cuenta de Resend y conecta el seguimiento. Muéstrame los registros DNS que devuelve y espera a que te diga que los cargué. Después, POST /api/v1/email/dominio-envio/verificaciones hasta que diga verificado. Si el estado dice «sin_seguimiento», PUT /api/v1/email/seguimiento.',
     '2. El remitente: PUT /api/v1/email/ajustes/remitente con nombre, local (lo de antes de la @, por ejemplo «hola») y responderA.',
     '3. El CRM: GET /api/v1/crm/tipos y crea uno «Email Marketing» con POST /api/v1/crm/embudos. Súmale las columnas «Enviado», «Abrió» y «Hizo clic» con POST /api/v1/crm/etapas (con su embudoId). GET /api/v1/crm/etapas?embudoId=... te da sus keys.',
     '4. Los leads: POST /api/v1/crm/en-bloque/otro-crm con {"haciaEmbudoId": ..., "todos": true, "excluirEstados": ["ganado", "perdido", "descalificado", "no_responde"], "soloConEmail": true}. Si vuelve con «pendientes», repítelo con esos leadIds. Dime cuántos entraron.',
@@ -505,7 +506,16 @@ function CampanaEmail({ d }: { d: DatosArticulos }) {
         <li>Un <strong>token detallado</strong> con <strong>Lectura y escritura</strong> en «Email», «CRM» y «Chatbot y secuencias».</li>
         <li><strong>Claude</strong> con la posibilidad de hacer pedidos a una API: Claude Code, o Claude con una herramienta que llame a URLs.</li>
         <li>Un <strong>dominio tuyo</strong> donde puedas cargar registros DNS. El email de tu negocio sale sólo de tu dominio, nunca del de MaKo.</li>
+        <li>Tu <strong>cuenta de Resend</strong>, que es gratis. Tus emails salen desde ahí, con tu clave. Si no la tienes, Claude te guía.</li>
       </ul>
+
+      <h2 id="resend">Tu cuenta de Resend</h2>
+      <ol>
+        <li>Crea tu cuenta gratis en resend.com.</li>
+        <li>En «API Keys» toca «Create API Key», elige el permiso <strong>Full access</strong> y copia la clave: empieza con re_ y se ve una sola vez.</li>
+        <li>Pégala en MaKo, en <Link href="/integraciones?abrir=email">Integraciones → Resend</Link>. Nunca se la pases a Claude por el chat.</li>
+      </ol>
+      <p>El plan gratis de Resend trae pocos dominios. Si tu cuenta llega al tope, MaKo te lo dice al conectar el dominio.</p>
 
       <h2 id="token">1. Crea el token</h2>
       <p>En <Link href="/api-mako?tab=tokens&v=nuevo">Tokens → Generar nuevo token</Link>: ponle un nombre («Campaña de email»), un vencimiento corto y, en Permisos, <strong>Lectura y escritura</strong> en esas tres áreas. Copia el token: se ve una sola vez.</p>

@@ -1020,18 +1020,24 @@ export async function procesarBroadcastsProgramados(): Promise<{ procesados: num
 // mueve la tarjeta del CRM de la automatización (`moverPorEventoEmail`, lib/email-eventos-crm.ts) en el workspace de la
 // FILA. Sólo la primera vez que se marca: un segundo «abrió» del mismo email no mueve nada.
 export type FilaEventoEmail = { tabla: 'nutricion_envios' | 'email_broadcast_envios'; id: number; workspace_id: number | null; lead_id: number | null; secuencia_id: number | null };
-export async function marcarEventoEmail(proveedorId: string, tipo: 'abierto' | 'clic' | 'rebote' | 'queja', whenISO: string): Promise<FilaEventoEmail | null> {
+export async function marcarEventoEmail(
+  proveedorId: string, tipo: 'abierto' | 'clic' | 'rebote' | 'queja', whenISO: string,
+  /** Sólo las filas de ESTE negocio: el evento llegó por la cuenta de Resend de un negocio (4/11/2026, el webhook con `?cuenta=`). */
+  soloWs?: number,
+): Promise<FilaEventoEmail | null> {
   const supabase = getSupabaseServer();
   // El rebote y la queja (4/11/2026, mig 0380, el freno de lib/email-reputacion.ts). Sin la columna, el update da error y
   // vuelve null: el webhook sigue (da de baja al lead igual) y el freno no tiene qué contar.
   const col = ({ abierto: 'abierto_at', clic: 'clic_at', rebote: 'rebotado_at', queja: 'queja_at' } as const)[tipo];
   let fila: FilaEventoEmail | null = null;
   for (const tabla of ['nutricion_envios', 'email_broadcast_envios'] as const) {
-    const { data, error } = await supabase
+    let q = supabase
       .from(tabla)
       .update({ [col]: whenISO })
       .eq('proveedor_id', proveedorId)
-      .is(col, null)
+      .is(col, null);
+    if (soloWs != null) q = q.eq('workspace_id', soloWs);
+    const { data, error } = await q
       .select(tabla === 'nutricion_envios' ? 'id, workspace_id, lead_id, secuencia_id' : 'id, workspace_id, lead_id');
     const r = (!error ? ((data ?? []) as unknown as Array<Record<string, unknown>>) : [])[0];
     if (r && !fila) {
@@ -1061,14 +1067,19 @@ export async function moverPorEventoDeEmail(fila: FilaEventoEmail | null, tipo: 
 // Rebote/queja → además de loguear, da de baja al lead (supresión). Igual que
 // marcarEventoEmail: sin scope, el proveedor_id identifica la fila exacta y el
 // update de leads va por PK global.
-export async function suprimirPorRebote(proveedorId: string): Promise<void> {
+// Con `soloWs` (el evento llegó por la cuenta de Resend de un negocio, 4/11/2026), sólo un envío y un lead de ESE negocio.
+export async function suprimirPorRebote(proveedorId: string, soloWs?: number): Promise<void> {
   const supabase = getSupabaseServer();
   // Encontrar el lead por el proveedor_id en cualquiera de los dos logs.
   for (const tabla of ['nutricion_envios', 'email_broadcast_envios'] as const) {
-    const { data } = await supabase.from(tabla).select('lead_id').eq('proveedor_id', proveedorId).limit(1);
+    let q = supabase.from(tabla).select('lead_id').eq('proveedor_id', proveedorId);
+    if (soloWs != null) q = q.eq('workspace_id', soloWs);
+    const { data } = await q.limit(1);
     const leadId = ((data ?? []) as Array<{ lead_id: number | null }>)[0]?.lead_id;
     if (leadId) {
-      await supabase.from('leads').update({ email_opt_out: true }).eq('id', leadId);
+      let u = supabase.from('leads').update({ email_opt_out: true }).eq('id', leadId);
+      if (soloWs != null) u = u.eq('workspace_id', soloWs);
+      await u;
       return;
     }
   }

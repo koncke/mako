@@ -29,6 +29,7 @@ import { guionesGuardados } from '@/lib/spy-transcripcion-servidor';
 import { FUENTE_PUNTAJE, dimensionLabel } from '@/lib/offer-marco';
 import { contenidoNoConfiable } from '@/lib/prompt-render';
 import { funnelDeFila, funnelEnPalabras } from '@/lib/spy-funnel';
+import { clasificarFunnel, fuentesDeEvidencia } from '@/lib/spy-funnel-tipo';
 import { dibujarContador, NOMBRE_CANAL, NOMBRE_ETAPA, NOMBRE_FUENTE, SIN_ANUNCIOS_EN_ESTE_PAIS, adLibraryCubreComercial, type CanalSpy } from '@/lib/spy-reglas';
 
 const json = (o: unknown): string => JSON.stringify(o);
@@ -142,6 +143,18 @@ export const RUNNERS: Runners = {
       }
       if (!piezas.length) {
         out.push('', c.c.mirado_en ? 'Se lo revisó y no hay piezas guardadas.' : 'Todavía no se lo revisó.');
+      }
+      // Qué funnel usa (4/11/2026), lo mismo que la pestaña Funnel: sale del catálogo y de lo que dicen sus piezas y sus páginas, sin IA.
+      // Con un canal pedido no se dice: con una parte de sus piezas, el «no se ve» sería falso.
+      if (!canal && piezas.length) {
+        const v = await ofertaGuardada(c.c.id).catch(() => null);
+        const lectura = clasificarFunnel(fuentesDeEvidencia(piezas, v && 'paginas' in v ? v.paginas : []));
+        const f = lectura.principal;
+        out.push('', f ? `**Su funnel:** ${f.label} (${f.que ?? ''})` : '**Su funnel:** no se ve en lo que publica.');
+        if (f) {
+          out.push(contenidoNoConfiable(f.evidencias.map((e) => `- ${e.etiqueta}: «${e.cita}»`).join('\n'), 'evidencia_del_funnel'));
+          if (lectura.otros.length) out.push(`**También usa:** ${lectura.otros.map((o) => o.label).join(' · ')}`);
+        }
       }
       for (const canalUno of (canal ? [canal] : (['instagram', 'youtube', 'landing', 'anuncios'] as const))) {
         const delCanal = piezas.filter((p) => p.canal === canalUno);

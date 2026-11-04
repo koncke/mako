@@ -19,21 +19,59 @@ import type { Pieza } from './spy';
 import type { TipoGuion } from './copywriter/tipos';
 import { cortarSinPartir } from './unicode-seguro';
 import { tipoDeContenido } from './spy-vista';
+import { FORMATOS_DEL_CATALOGO } from './spy-catalogo-datos';
+import { regexDeFrase, textoComparable } from './spy-funnel-tipo';
 
-/** Los formatos que la IA del negocio le pone a cada pieza al analizarla (`analizarCompetidor`, lib/spy.ts). */
+/**
+ * Los formatos que la IA del negocio le pone a cada pieza al analizarla (`analizarCompetidor`, lib/spy.ts). Son los del CATÁLOGO
+ * (docs/catalogo-funnels-y-formatos.md, §3: Martín, 4/11/2026, «una investigación profunda de todos los tipos de formatos»), con sus
+ * mismos ids y nombres: tests/spy-formatos-catalogo.test.ts falla si se separan. Escritos acá como literales para que `Formato` sea
+ * una unión que el compilador ve.
+ */
 export const FORMATOS = [
-  { value: 'pov', label: 'POV' },
-  { value: 'storytime', label: 'Storytime' },
-  { value: 'antes-despues', label: 'Antes y después' },
   { value: 'tutorial', label: 'Tutorial' },
   { value: 'lista', label: 'Lista o tips' },
-  { value: 'opinion', label: 'Opinión' },
-  { value: 'resena', label: 'Reseña' },
+  { value: 'storytime', label: 'Storytime' },
+  { value: 'pov', label: 'POV' },
+  { value: 'antes-despues', label: 'Antes y después' },
   { value: 'testimonio', label: 'Testimonio' },
+  { value: 'caso-de-exito', label: 'Caso de éxito' },
+  { value: 'opinion', label: 'Opinión' },
+  { value: 'mito', label: 'Mito vs realidad' },
+  { value: 'resena', label: 'Reseña' },
   { value: 'detras', label: 'Detrás de escena' },
-  { value: 'entrevista', label: 'Entrevista' },
+  { value: 'recap-evento', label: 'Recap de evento' },
+  { value: 'entrevista', label: 'Entrevista o podcast' },
+  { value: 'preguntas', label: 'Preguntas y respuestas' },
+  { value: 'reaccion', label: 'Reacción' },
+  { value: 'tendencia', label: 'Tendencia o meme' },
+  { value: 'frase', label: 'Frase' },
+  { value: 'promo', label: 'Promoción directa' },
   { value: 'otro', label: 'Otro' },
 ] as const;
+
+/** Qué es cada formato, una línea por formato, del catálogo: lo lee la IA al clasificar (`{{formatosQueSon}}` del analista). */
+export const GUIA_DE_FORMATOS = FORMATOS.map((f) => `- ${f.value}: ${FORMATOS_DEL_CATALOGO.find((e) => e.id === f.value)?.que ?? f.label}`).join('\n');
+
+// «7 errores», «5 tips», «3 claves»: la lista se nombra con un número delante (la compuesta del catálogo).
+const LISTA_NUMERADA = /(?<![\p{L}\p{N}])\d{1,2}\s+(?:errores|tips|consejos|claves|pasos|razones|cosas|habitos|herramientas|senales|mistakes|ways)(?![\p{L}\p{N}])/u;
+
+/**
+ * El formato que la pieza DICE de sí misma, sin IA: una frase fuerte del catálogo («antes y después», «storytime», «POV») o una
+ * lista numerada. Sirve para lo que la IA no clasificó (sin IA conectada, o analizado antes del catálogo y quedó «otro»). Las
+ * débiles no cuentan acá: «antes» y «después» aparecen en cualquier texto. Sin nada claro, vacío.
+ */
+export function formatoPorTexto(texto: string | null | undefined): Formato | '' {
+  const n = textoComparable(texto ?? '');
+  if (!n.trim()) return '';
+  for (const f of FORMATOS) {
+    if (f.value === 'otro') continue;
+    const e = FORMATOS_DEL_CATALOGO.find((x) => x.id === f.value);
+    if (e?.fuertes?.some((frase) => regexDeFrase(frase).test(n))) return f.value;
+    if (f.value === 'lista' && LISTA_NUMERADA.test(n)) return 'lista';
+  }
+  return '';
+}
 export type Formato = (typeof FORMATOS)[number]['value'];
 export const esFormato = (v: unknown): v is Formato => typeof v === 'string' && FORMATOS.some((f) => f.value === v);
 const rotuloFormato = (v: Formato): string => FORMATOS.find((f) => f.value === v)?.label ?? v;
@@ -53,6 +91,9 @@ export function formatoDe(v: unknown): Formato | '' {
 
 type PiezaDelGrafico = Pick<Pieza, 'id' | 'canal' | 'tipo' | 'vistas' | 'megusta' | 'publicada_en' | 'visto_primera_vez' | 'dejo_de_verse_en'> & {
   analisis?: { gancho?: string; formato?: string } | null;
+  /** Para leer el formato del texto cuando la IA no lo dijo (`formatoPorTexto`). */
+  titulo?: string | null;
+  texto?: string | null;
 };
 
 /** Qué número usa el gráfico: las vistas si hay en la mayoría; si no, los «me gusta». Un anuncio, los días al aire. */
@@ -263,6 +304,39 @@ export function vecesSuMediana(id: number, piezas: readonly PiezaDelGrafico[], a
   return Math.round((v / med) * 10) / 10;
 }
 
+/** Una pieza de «Lo que mejor le fue»: su número, en qué métrica, y cuántas veces la mediana de SU grupo. */
+export type PiezaDestacada = { id: number; valor: number; metrica: Metrica; veces: number };
+
+/**
+ * Lo que mejor le fue (4/11/2026, el bloque al lado de «¿Qué formatos le funcionan?»: Martín, «debería ir otro bloque con algo
+ * más... porque sino queda vacío»). Se ordena por cuántas veces la mediana de SU grupo hizo cada pieza (un short y un video
+ * largo no se comparan en vistas crudas), y a igual veces, por su número. Sin los anuncios (días al aire no es rendimiento),
+ * y sin grupos de menos de 3 piezas con número.
+ */
+export function mejoresPiezas(piezas: readonly (PiezaDelGrafico & Pick<Pieza, 'duracion'>)[], tope: number, ahora: number = Date.now()): PiezaDestacada[] {
+  const porGrupo = new Map<string, PiezaDelGrafico[]>();
+  for (const p of piezas) {
+    const g = grupoDe(p);
+    if (!g || g === 'anuncios') continue;
+    const del = porGrupo.get(g);
+    if (del) del.push(p);
+    else porGrupo.set(g, [p]);
+  }
+  const out: PiezaDestacada[] = [];
+  for (const grupo of porGrupo.values()) {
+    const m = metricaDe(grupo);
+    if (m === 'días al aire') continue;
+    const vs = grupo.map((p) => valorDe(p, m, ahora)).filter((v): v is number => v != null);
+    const med = vs.length >= 3 ? mediana(vs) : null;
+    if (!med) continue;
+    for (const p of grupo) {
+      const v = valorDe(p, m, ahora);
+      if (v != null) out.push({ id: p.id, valor: v, metrica: m, veces: Math.round((v / med) * 10) / 10 });
+    }
+  }
+  return out.sort((a, b) => b.veces - a.veces || b.valor - a.valor).slice(0, Math.max(0, tope));
+}
+
 /** Una fila de «¿Qué formatos le funcionan?»: el formato, sus piezas ubicadas por su número, su mediana y su mejor gancho. */
 export type FilaFormato = {
   formato: Formato; rotulo: string; n: number; mediana: number; veces: number; gancho: string | null;
@@ -273,8 +347,8 @@ export type FilaFormato = {
 export const PIEZAS_POR_FORMATO = 2;
 
 /**
- * Los formatos, del que más rinde al que menos (por la mediana de cada uno contra la de todas). Sólo con piezas que la IA
- * ya etiquetó; sin ninguna, no hay filas y la sección no se dibuja.
+ * Los formatos, del que más rinde al que menos (por la mediana de cada uno contra la de todas). El formato es el que dijo la IA;
+ * si no dijo ninguno (o dijo «otro»), el que la pieza dice de sí misma (`formatoPorTexto`). Sin ninguno, no hay filas.
  */
 export function formatosDe(piezas: readonly PiezaDelGrafico[], ahora: number = Date.now()): FilaFormato[] {
   const m = metricaDe(piezas);
@@ -283,8 +357,9 @@ export function formatosDe(piezas: readonly PiezaDelGrafico[], ahora: number = D
   if (!general) return [];
   const grupos = new Map<Formato, typeof conValor>();
   for (const x of conValor) {
-    const f = x.p.analisis?.formato;
-    if (!esFormato(f) || f === 'otro') continue;
+    const dicho = x.p.analisis?.formato;
+    const f = esFormato(dicho) && dicho !== 'otro' ? dicho : formatoPorTexto(`${x.p.titulo ?? ''}\n${x.p.texto ?? ''}`);
+    if (!f || f === 'otro') continue;
     grupos.set(f, [...(grupos.get(f) ?? []), x]);
   }
   const todos = conValor.map((x) => x.v);

@@ -235,6 +235,64 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     }
     return { ok: true, detalle: 'El formato está bien. Se comprueba de verdad con el primer aviso.' };
   },
+  // El vigía de las aprobaciones (lib/vigia-aprobaciones-fuentes.ts): con las tres claves, la misma lectura que hace cada hora.
+  // Un 403 es la clave sin acceso a la app (el rol), no una clave rota: se dice cuál de las dos.
+  async 'app-store-connect'(v) {
+    const issuerId = (v.ASC_ISSUER_ID ?? '').trim();
+    const keyId = (v.ASC_KEY_ID ?? '').trim();
+    if (!/^[0-9a-f-]{36}$/i.test(issuerId)) return { ok: false, error: 'El Issuer ID es el código largo con guiones.' };
+    if (!/^[A-Z0-9]{10}$/.test(keyId)) return { ok: false, error: 'El Key ID son 10 letras y números.' };
+    const { pemPkcs8 } = await import('./push-apns-reglas');
+    const { jwtAsc } = await import('./vigia-aprobaciones-fuentes');
+    const { APPLE_ID_APP } = await import('./vigia-aprobaciones');
+    const p8 = pemPkcs8(v.ASC_P8);
+    let jwt: string;
+    try {
+      if (!p8) throw new Error('sin clave');
+      jwt = jwtAsc({ issuerId, keyId, p8 }, Date.now());
+    } catch {
+      return { ok: false, error: 'No pude leer la clave .p8. Pega el archivo entero.' };
+    }
+    const { status, body } = await fetchJson(`https://api.appstoreconnect.apple.com/v1/apps/${APPLE_ID_APP}?fields[apps]=name,bundleId`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+    });
+    if (status === 401) return { ok: false, error: 'Apple no aceptó la clave: revisa el Issuer ID, el Key ID y que la clave no esté revocada.' };
+    if (status === 403) return { ok: false, error: 'La clave no tiene acceso a la app de MaKo: dale el acceso «Developer».' };
+    if (status === 404) return { ok: false, error: 'Apple no encuentra la app de MaKo con esta clave: ¿es del equipo de la cuenta de Apple de MaKo?' };
+    if (status >= 400) return { ok: false, error: `App Store Connect respondió ${status}.` };
+    const nombre = String(((body.data as { attributes?: { name?: unknown } } | undefined)?.attributes?.name) ?? '');
+    return { ok: true, facts: nombre ? [{ k: 'App', v: nombre, c: 'ok' as const }] : [] };
+  },
+  async 'tiendas-google'(v) {
+    const crudo = (v.TIENDAS_GOOGLE_CUENTA_SERVICIO ?? '').trim();
+    let sa: { client_email: string; private_key: string; private_key_id?: string; token_uri?: string };
+    try {
+      const j = JSON.parse(crudo) as Record<string, unknown>;
+      if (typeof j.client_email !== 'string' || typeof j.private_key !== 'string') throw new Error('incompleta');
+      sa = {
+        client_email: j.client_email, private_key: j.private_key,
+        private_key_id: typeof j.private_key_id === 'string' ? j.private_key_id : undefined,
+        token_uri: typeof j.token_uri === 'string' ? j.token_uri : undefined,
+      };
+    } catch {
+      return { ok: false, error: 'No es el archivo .json de una cuenta de servicio. Pégalo entero, con las llaves.' };
+    }
+    const { jwtCuentaServicio } = await import('./vigia-aprobaciones-fuentes');
+    let jwt: string;
+    try { jwt = jwtCuentaServicio(sa, Date.now()); } catch { return { ok: false, error: 'No pude leer la clave privada del archivo .json.' }; }
+    const r = await fetch(sa.token_uri || 'https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }).toString(),
+      cache: 'no-store', signal: timeout(),
+    });
+    if (!r.ok) return { ok: false, error: `Google no aceptó la cuenta de servicio (${r.status}): ¿la clave está activa?` };
+    return {
+      ok: true,
+      facts: [{ k: 'Cuenta', v: sa.client_email, c: 'ok' as const }],
+      detalle: 'La cuenta entra. Que pueda leer cada tienda depende de haberla invitado en Play Console y sumado en la Chrome Web Store.',
+    };
+  },
   async github(v) {
     const tk = v.GITHUB_TOKEN;
     if (!tk) return { ok: false, error: 'Falta el token.' };

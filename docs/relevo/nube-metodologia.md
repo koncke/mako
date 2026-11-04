@@ -104,3 +104,80 @@ workflows no les pasa.
 
 - Las ramas `claude/*` de las sesiones de la nube pueden estar disparando previews de Vercel (`vercel.json` sólo apaga
   `integracion`, `punta/**`, `ci-rojo/**` y `espera-main/**`). No se tocó: es plata y es tuyo decidirlo.
+
+## 6. Que la nube haga los tests: el veredicto (4/11/2026, tarde)
+
+Martín, por el Cerebro: «Por que actions subió tanto?... Y estamos con 1 sola cuenta, imagina que tengo 5 cuentas... No debe
+subir tanto el precio ese... No hay otra manera de resolverlo? Que los chats en la nube hagan los testeos o algo así...».
+
+**Cómo se usa, en una sesión de la nube, con todo commiteado:**
+
+```bash
+export PATH="$(sh scripts/node24.sh):$PATH"
+```
+
+```bash
+node scripts/veredicto.mjs sacar
+```
+
+```bash
+git push origin HEAD:punta/<nombre>
+```
+
+`sacar` corre los tests afectados y el tsc entero con Node 24 (el de Actions) y deja un renglón `Veredicto:` en el último commit,
+o en un commit vacío si ése ya estaba subido. **Se sube tal cual:** un commit más encima, aunque sea un relevo, y GitHub corre todo.
+En la PC no se saca: la RAM es de los chats, y GitHub chequea esas puntas como siempre.
+
+**Qué hace GitHub con él** (`punta.yml`, paso «Lo que ya se probó»): lo ata al árbol, a la base y a la selección. Recalcula qué
+tests le tocaban a la punta y exige el mismo hash. Después mezcla main y repite SÓLO:
+- lo que mira algo que cambió entre lo probado y lo mezclado (las barredoras, siempre que cambió algo);
+- lo que el veredicto no tenía en verde;
+- una muestra: los tests que la punta toca más 4.
+
+No corre el tsc, y la punta llega a main «sin probar»: `sobre-main.yml` corre el tsc entero y las barredoras sobre main. Sin
+veredicto que valga, corre todo como siempre, y el resumen de la corrida dice por qué. Actions además guarda su propio veredicto en
+la caché de la rama: al arreglar un rojo, la próxima subida no repite lo que ya pasó.
+
+**Qué tiene en cuenta y qué no:** frena el veredicto de otro árbol, el editado a mano, el de otra selección, el de Node 22 y el de una
+base que no es de main (cada caso tiene su test en `tests/veredicto.test.ts`). NO frena a quien arma uno a propósito sin correr
+nada: el algoritmo es público. Para eso hace falta una clave que tengan sólo las sesiones y GitHub: el secreto `MAKO_VEREDICTO_CLAVE`
+en el repo y la misma variable en el entorno de la nube. Con la clave en GitHub, uno sin firma no pasa. Cargarla es de Martín.
+
+**Los números** (4/11/2026; 87 puntas de código que dieron verde ese día, repetidas como si la nube hubiera sacado su veredicto
+12 min antes de subir):
+
+| | Sin veredicto | Con veredicto |
+|---|---|---|
+| Una punta de código de la nube | mediana 16,1 min | mediana 6,8 min (media 5,8) |
+| Lo que se repite en GitHub | 690 archivos de test (una punta típica) | 251 (mediana): lo que mira a la vez algo de la punta y algo de main |
+| El tsc entero en la punta | 4,5 min | no corre: lo mira sobre-main en main |
+| Una punta de la PC | ~14 min | igual: en la PC no se saca veredicto |
+| Una de sólo documentación | 1,4 min, sin ningún test | ~3,5 min: corren los tests que la leen |
+
+Lo que no baja más es el registro de la API. `lib/api-mako/registro.ts` importa todas las áreas, y la punta y main casi siempre
+tocan algo que llega ahí. Entonces los ~400 tests que lo importan corren otra vez.
+
+**Por mes** (a US$0,006 el minuto de Linux 2 núcleos, sin contar los minutos que incluya el plan de GitHub; con el ritmo del 4/11,
+que es el de una cuenta; el 65 % de las puntas las sube la nube; sobre-main no crece con las cuentas porque corre una y espera una):
+
+| | Hoy | Con el veredicto |
+|---|---|---|
+| 1 cuenta | ~74.000 min ≈ US$444 | ~47.000 min ≈ US$283 |
+| 5 cuentas | ~367.000 min ≈ US$2.200 | ~232.000 min ≈ US$1.394 |
+
+Además, la nube ve sus propios rojos antes de subir. Ese día fueron 16 rojos de más de 4 min, 262 min, que con el veredicto no
+llegan a GitHub. Eso no está restado arriba: son hasta ~US$15 por mes y por cuenta.
+
+**Si sigue siendo mucho, las dos palancas que quedan** (no aplicadas; las decide Martín o el Cerebro):
+1. **Que una punta con veredicto no repita lo que cruza con main**, y dejarle eso a sobre-main (barredoras y tsc) y a la suite de la
+   noche. Una punta de la nube bajaría a ~1,5 min, y el mes a ~US$210 con 1 cuenta y ~US$1.040 con 5. El costo: una mezcla que rompe
+   un test que no es barredora se ve recién a la noche, y mientras tanto da rojo en la punta de otro chat.
+2. **Un runner propio** (no contratado). Hoy, 159 corridas en ~6 h son ~6 corridas a la vez en las horas pico, así que hacen falta
+   varias máquinas, no una. El tsc entero pide ~7 GB, así que cada una necesita 16 GB. Precios que se pudieron ver hoy, de un buscador
+   y no de la página oficial (docs.github.com y www.hetzner.com están fuera de la red de la nube):
+   - Hetzner CX33 (4 vCPU, 8 GB) ~€8,5 al mes, CAX21 (Arm, 4 vCPU, 8 GB) ~€10,5. Los de 16 GB no se pudieron ver.
+   - GitHub anunció US$0,002 por minuto para los runners propios desde marzo de 2026. Según esas fuentes, lo postergó sin fecha.
+   - Con 5 cuentas y el veredicto, serían ~6-8 máquinas de 16 GB, más ese cargo si llega (~US$460 al mes con 232.000 min).
+   Conviene recién con varias cuentas, y le suma a Martín una máquina que mantener. Antes de decidir: medir una semana con el
+   veredicto puesto.
+

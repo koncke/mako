@@ -1520,6 +1520,7 @@ export const REGISTRY: Group[] = [
           v('tiposGancho', 'los tipos de gancho con que se clasifica una pieza, separados por «|» (el mismo vocabulario del Ads Analyst)'),
           v('etiquetas', 'las etiquetas con que se agrupa una pieza, separadas por coma'),
           v('formatos', 'los formatos de una pieza (POV, Storytime, Antes y después…), separados por «|»: con ellos se arma «¿Qué formatos le funcionan?» en el detalle'),
+          v('formatosQueSon', 'qué es cada formato, una línea por formato, del catálogo investigado (docs/catalogo-funnels-y-formatos.md)'),
         ],
         scope: 'static-only', sensitive: true,
         default: SPY_ANALISIS_SYSTEM_TEMPLATE,

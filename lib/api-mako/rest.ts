@@ -334,6 +334,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/email/disparadores', 'listar_triggers_email'],
   ['POST', '/email/dominio-envio', 'conectar_dominio_email'],
   ['POST', '/email/dominio-envio/verificaciones', 'verificar_dominio_envio'],
+  ['PUT', '/email/seguimiento', 'conectar_seguimiento_email'],
   ['GET', '/email/estado', 'estado_email'],
   ['GET', '/email/etapas', 'listar_etapas_email'],
   ['GET', '/email/kpis', 'kpis_email'],

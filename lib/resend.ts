@@ -12,7 +12,8 @@
 import 'server-only';
 import { verificarFirmaSvix } from './standard-webhooks';
 import crypto from 'node:crypto';
-import { credWs, credDelCliente, envCred, esDeLaPlataforma } from './credenciales';
+import { credDelCliente } from './credenciales';
+import { cuentaDeCorreo, keyDeCorreoDelNegocio, keyDeCorreoDeLaPlataforma } from './email-cuenta';
 import { getSettingEstricto } from './settings';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
@@ -34,45 +35,36 @@ const ENDPOINT = `${API_BASE}/emails`;
 // remitente. Sin nombre, quien lo dibuja cae al nombre del negocio. Lo fija tests/email-remitente.test.ts.
 export const SANDBOX_FROM = 'onboarding@resend.dev';
 
-// ── Config por workspace (Opción A: cuenta única de MaKo) ────────────────────
-// La API key es LA DE MAKO (env global) para todos los workspaces — cada cliente
-// solo verifica SU dominio dentro de esa cuenta. credWs primero: si un cliente
-// grande carga su propia RESEND_API_KEY en credenciales, esa gana (Opción B).
-// Excepción deliberada al aislamiento de credWs (que jamás da env a un cliente):
-// acá el fallback compartido es el modelo de negocio, no un leak.
-// OJO Opción B a medias: el webhook de eventos valida UN solo signing secret
-// (el de la cuenta de MaKo) — un cliente con key propia pierde tracking de
-// abiertos/clics/rebotes hasta soportar secrets por workspace (pendiente F2).
+// ── CADA NEGOCIO MANDA CON SU CUENTA DE RESEND (4/11/2026) ──────────────────────
+// Martín: «Resend free permite hasta 3 dominios, pero eso lo trae cada user de mako». Hasta ese día la key de MaKo era la
+// de todos (la «Opción A»: cada cliente verificaba su dominio adentro de la cuenta de MaKo) y la propia de un cliente
+// grande ganaba si la cargaba (la «Opción B», con el tracking a medias). Desde ese día:
+//   · el email de un NEGOCIO sale SÓLO con su clave (lib/email-cuenta.ts → `cuentaDeCorreo`). Sin ella no sale y dice
+//     por qué (`SIN_EMAIL_PROPIO`); nunca cae a la de MaKo. Sus aperturas, clics y rebotes llegan por el webhook de SU
+//     cuenta, con SU secreto (app/api/webhooks/resend/route.ts, `?cuenta=`).
+//   · la PLATAFORMA manda con la de MaKo, que es su cuenta.
+//   · lo que FIRMA MaKo (`from: REMITENTE_MAKO`) sale por la de MaKo desde cualquier negocio.
+// La key de MaKo sale de la fila de la plataforma, no del ws1 (lib/credenciales.ts → `esClaveDeCorreoDeLaPlataforma`).
 async function resendKey(): Promise<string | null> {
-  const propia = await credWs('RESEND_API_KEY');
-  if (propia) return propia;
-  // ⚠️ envCred y NO process.env (09/10/2026, lo encontró la sesión de Customer Success): la key
-  // de la PLATAFORMA vive en las credenciales del dueño y llega a process.env recién cuando termina
-  // la hidratación del arranque. Leída antes, daba null, y el invitar del curso le pedía al cliente
-  // que conectara SU correo para tapar una falla nuestra («RESEND_API_KEY no configurada»).
-  const compartida = await envCred('RESEND_API_KEY');
-  return compartida && compartida.trim() ? compartida : null;
+  return keyDeCorreoDelNegocio();
 }
 
 /**
  * La key de la PLATAFORMA, siempre: la de lo que HABLA MaKo (`from: REMITENTE_MAKO`).
  *
- * ⚠️ NO `resendKey()` (undécima tanda, 11/10/2026): ésa empieza por la key PROPIA del workspace del contexto, así
- *    que adentro de un negocio con su cuenta de Resend (ws10, ws11) un aviso de MaKo salía por la cuenta del
- *    CLIENTE, donde hola-mako.com no existe, y Resend lo rechazaba (PLAUSIBLE: no se mandó nada para probarlo).
- *    Hoy la key de la plataforma vive en la fila del ws1 y el boot la hidrata a process.env (lib/credenciales.ts).
+ * ⚠️ NO `resendKey()` (undécima tanda, 11/10/2026): ésa es la del negocio del contexto, así que adentro de un negocio
+ *    con su cuenta de Resend un aviso de MaKo saldría por la cuenta del CLIENTE, donde hola-mako.com no existe.
  */
 async function keyDeLaPlataforma(): Promise<string | null> {
-  const k = await envCred('RESEND_API_KEY');
-  return k && k.trim() ? k : null;
+  return keyDeCorreoDeLaPlataforma();
 }
 
 /**
  * EL REMITENTE DEL NEGOCIO del workspace actual, con su veredicto (`remitenteDelNegocio`, lib/email-remitente.ts,
  * puro y con test). Lee el setting `resend_from` y `resend_domain` del workspace, y la credencial `RESEND_FROM`
  * DEL CLIENTE (`credDelCliente`: `credWs` le daría al ws1 —`OWNER_WS`, un CLIENTE— el del env de la plataforma).
- *   · `keyPropia`: su `RESEND_API_KEY` cargada Y distinta de la de la plataforma (`esDeLaPlataforma` mira el env Y la
- *     fila del dueño: la del ws1 es la de la plataforma y la del ws4 una copia).
+ *   · `keyPropia`: manda con SU cuenta de Resend (`cuentaDeCorreo`, lib/email-cuenta.ts): su clave, distinta de la de
+ *     MaKo, o la de MaKo si es la plataforma. Desde el 4/11/2026 es la condición de las DOS vías.
  *   · `plataforma`: sólo se pregunta si el candidato es de un dominio de MaKo.
  * ⚠️ UN ERROR DE LECTURA = NO PUEDE: «no pude leer» no es «tiene remitente», y un mail que no sale se dice;
  *    uno que sale con el remitente equivocado, no.
@@ -84,9 +76,11 @@ export async function remitenteDelNegocioActual(): Promise<VeredictoRemitente> {
       getSettingEstricto('resend_domain'),
       credDelCliente('RESEND_FROM'), // la fila del workspace; nunca el env de la plataforma
     ]);
-    const conCred = !!credFrom && credFrom.trim() !== '';
-    const keyCliente = conCred ? await credDelCliente('RESEND_API_KEY') : null;
-    const keyPropia = !!keyCliente && !(await esDeLaPlataforma('RESEND_API_KEY', keyCliente));
+    // ¿Manda con SU cuenta? La suya, o la de MaKo si es la plataforma (lib/email-cuenta.ts). Sin cuenta, ninguna vía
+    // pasa (4/11/2026): ni la del dominio, que antes se verificaba en la cuenta de MaKo.
+    const cuenta = await cuentaDeCorreo();
+    if (cuenta.tipo === 'no_pude_leer') throw new Error(cuenta.error);
+    const keyPropia = cuenta.tipo === 'propia' || cuenta.tipo === 'plataforma';
     const candidato = sanearRemitente(resendFrom);
     const plataforma = candidato && esDominioDeMako(dominioDe(candidato)) ? await enLaPlataforma() : false;
     return remitenteDelNegocio({ resendFrom, resendDominio, credFrom, keyPropia, plataforma });
@@ -237,7 +231,8 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
   //     el corte de la décima miraba sólo lo que llegaba SIN `from`, y un `from` explícito se lo salteaba.
   const hablaMako = params.from === REMITENTE_MAKO;
   const key = hablaMako ? await keyDeLaPlataforma() : await resendKey();
-  if (!key) return { ok: false, error: 'RESEND_API_KEY no configurada' };
+  // Sin la de MaKo es un problema de MaKo; sin la del negocio, que conecte SU cuenta (4/11/2026: nunca la de MaKo).
+  if (!key) return { ok: false, error: hablaMako ? 'RESEND_API_KEY no configurada' : SIN_EMAIL_PROPIO };
 
   let from: string;
   if (hablaMako) from = REMITENTE_MAKO;
@@ -292,10 +287,10 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
 
 // ── Lo que LLEGA (Receiving), para la bandeja de Chats (17/10/2026) ──────────
 // El webhook `email.received` trae sólo el SOBRE (lib/email-entrante-reglas.ts): el cuerpo y los adjuntos se piden
-// aparte, con la key con que se MANDA (`resendKey`: la propia del negocio o la de la plataforma).
-// ⚠️ NO MEDIDO (4/11/2026): el dominio ya no se reclama con ésa sino con la de administración (lib/resend-dominios.ts), y la
-// de producción es de sólo envío. Si Resend tampoco deja LEER lo recibido con una key de sólo envío, esto contesta
-// `restricted_api_key`: hay que medirlo antes de mudarlo, y mudarlo es decidir que la de administración sale de su módulo.
+// aparte, con la key de la cuenta del negocio (`resendKey`: la suya, o la de MaKo si es la plataforma). Desde el 4/11/2026
+// cada negocio tiene la suya con «Full access» (la guía la pide así), así que esto lee en SU cuenta.
+// ⚠️ NO MEDIDO: si Resend no deja LEER lo recibido con una key de sólo envío, la plataforma (cuya key de envío es de sólo
+// envío) contestaría `restricted_api_key`. Hay que medirlo con un email recibido real antes de decidir nada.
 //   GET /emails/receiving/{id}                          → html, text, subject, from, to, message_id, attachments[]
 //   GET /emails/receiving/{email_id}/attachments/{id}   → download_url (firmada, vence en `expires_at`)
 // Los usa lib/chats-email.ts. Leen; no mandan nada.
@@ -308,7 +303,7 @@ export type EmailRecibido = {
 
 async function getDeResend(ruta: string): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; error: string }> {
   const key = await resendKey();
-  if (!key) return { ok: false, error: 'RESEND_API_KEY no configurada' };
+  if (!key) return { ok: false, error: SIN_EMAIL_PROPIO };
   try {
     const res = await fetch(`${API_BASE}${ruta}`, { headers: { Authorization: `Bearer ${key}` }, cache: 'no-store', signal: AbortSignal.timeout(20_000) });
     const text = await res.text();
@@ -370,9 +365,10 @@ export async function getAdjuntoRecibido(emailId: string, adjuntoId: string): Pr
 // Se re-exporta para que los siete call sites sigan importando de donde siempre.
 export { renderEmailHtml, escapeHtml, linkify, bodyToHtml, marcasAHtml, type RenderEmailParams } from './email-html';
 
-// ── API de Domains: vive en lib/resend-dominios.ts, con su PROPIA clave (4/11/2026) ──────────────────────────────────
-// La key con que se MANDA es de sólo envío (medido en producción) y así se queda: dar de alta, leer y verificar dominios
-// usa `RESEND_ADMIN_API_KEY`, que sólo lee ese módulo. Se re-exporta para que los que importan de acá sigan igual.
+// ── API de Domains: vive en lib/resend-dominios.ts (4/11/2026) ───────────────────────────────────────────────────────────
+// Habla con la cuenta DEL NEGOCIO (su clave, «Full access»). La plataforma administra el dominio de MaKo con
+// `RESEND_ADMIN_API_KEY`, que sólo lee ese módulo (la que manda es de sólo envío). Se re-exporta para que los que
+// importan de acá sigan igual.
 export {
   createResendDomain, getResendDomain, verifyResendDomain, listResendDomains, prenderSeguimiento, puedeAdministrarDominios,
   type ResendDnsRecord, type ResendDomain, type DomainResult, type CreacionDominio,

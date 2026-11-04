@@ -1,24 +1,19 @@
 // =============================================================================
-// La key de Resend que ADMINISTRA dominios, aparte de la que MANDA (4/11/2026)
+// Las keys de Resend: cada negocio con la SUYA, y la de administración de MaKo sólo para el dominio de MaKo (4/11/2026)
 // =============================================================================
-// El Cerebro midió desde la PC que la key con que MaKo manda en producción es de sólo envío, y con ella Mauricio (ws 1, un
-// cliente) no podía conectar su dominio por la API. El encargo: «no le subas el permiso a la clave que envía. Separalo.
-// Lo que administra dominios usa una variable de entorno aparte, `RESEND_ADMIN_API_KEY`. Lo que envía sigue con su clave
-// de sólo envío. Sin esa variable, `conectar_dominio_email` contesta un error claro y no prende nada. […] Si Resend
-// contesta por el tope del plan, que el error lo diga, sin culpar al dominio».
+// Primero (mañana del 4/11) el Cerebro midió que la key con que MaKo manda en producción es de sólo envío, y el encargo fue
+// separar la que administra dominios (`RESEND_ADMIN_API_KEY`) de la que manda. A la tarde Martín cambió el modelo: «Resend
+// free permite hasta 3 dominios, pero eso lo trae cada user de mako». Desde entonces cada negocio administra y manda con SU
+// cuenta (lib/email-cuenta.ts), y la de administración de MaKo queda SÓLO para el dominio de MaKo (la plataforma). El camino
+// entero por la API, el webhook y el ws1 los fija tests/email-cuenta-propia.test.ts; esto fija qué clave firma cada pedido.
 //
 // Corre el código REAL: el escenario «claves» de tests/_email-campana-hijo.ts (runners de la API, lib/email-dominio.ts,
 // lib/resend*.ts y un broadcast, contra una base en memoria y un Resend que anota el `Authorization` de cada pedido), y un
-// hijo con las credenciales de mentira para la key propia de un negocio y el tope del plan.
+// hijo con la cuenta de mentira para cada caso (propia, plataforma, ninguna, ilegible) y el tope del plan.
 //
-// PROBADO ROMPIÉNDOLO (4/11/2026, `romper.py`; base 6 / 0). Pasan / fallan:
-//   R1 el aviso de MaKo sale con la de administración (`keyDeLaPlataforma` lee RESEND_ADMIN_API_KEY)  → 4 / 2
-//   R2 sin la de administración, los dominios caen a la que manda (`process.env.RESEND_API_KEY`)      → 4 / 2
-//   R3 `prepararConexion` sin preguntar si hay con qué (se propone, y falla recién al confirmar)        → 5 / 1
-//   R4 «no pude leer» la key del negocio cae a la de MaKo (el `catch` sigue de largo)                  → 5 / 1
-//   R5 el tope del plan vuelve al texto crudo de Resend                                                → 5 / 1
-//   R6 `claveDeDominios` exportada                                                                     → 5 / 1
-//   Y un cambio sin efecto (renombrar la variable local de la clave) → 6 / 0.
+// PROBADO ROMPIÉNDOLO (4/11/2026, `romper.py`; base 6 / 0). Pasan / fallan: el negocio administra con la de administración →
+// 4 / 2; la plataforma con la que manda → 4 / 2; el aviso de MaKo con la del negocio → 5 / 1; «no pude leer» la cuenta cae a la de
+// administración → 5 / 1.
 //
 // Correr: node --import tsx --test tests/resend-clave-admin.test.ts
 // =============================================================================
@@ -32,6 +27,7 @@ import { pathToFileURL } from 'node:url';
 import {
   esTopeDeDominios, SIN_CLAVE_DE_DOMINIOS, TOPE_DOMINIOS_DE_MAKO, TOPE_DOMINIOS_TUYO, KEY_SOLO_ENVIO_DE_MAKO,
 } from '../lib/resend-errores';
+import { sinCuentaParaOperar } from '../lib/email-cuenta-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (rel: string): string => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -41,48 +37,43 @@ const url = (rel: string): string => JSON.stringify(pathToFileURL(join(RAIZ, rel
 // cuerpo real, se suma acá tal cual.
 const TOPE = { statusCode: 403, name: 'validation_error', message: 'You have reached the maximum number of domains allowed on your plan. Upgrade to add more.' };
 
-// ── 1) El código real, por la API: sin la clave no se prende nada; con ella, cada pedido va con la suya ────────────
+// ── 1) El código real, por la API: qué clave firma cada pedido ──────────────────────────────────────────────────────────
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_email-campana-hijo.ts'), 'claves'], {
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'], timeout: 120_000,
 });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<string, any>;
 
-test('sin RESEND_ADMIN_API_KEY, conectar y verificar el dominio contestan un error de MaKo y no prenden nada', () => {
-  assert.deepEqual(R.sinClave, { error: SIN_CLAVE_DE_DOMINIOS, falla: true }, 'conectar_dominio_email: no se propone nada');
-  assert.deepEqual(R.sinClaveVerificar, { error: SIN_CLAVE_DE_DOMINIOS, falla: true }, 'verificar_dominio_envio: tampoco');
-  assert.match(SIN_CLAVE_DE_DOMINIOS, /problema de MaKo, no tuyo/);
-  assert.equal(R.sinClavePedidos, 0, 'no se le pidió nada de dominios a Resend');
-  assert.deepEqual(R.sinClaveSettings, [], 'ni una línea en los settings del negocio');
-  assert.equal(R.sinClaveEstado.alta_de_dominios_lista, false, 'estado_email lo dice');
-  assert.equal(R.sinClaveEstado.error_dominio, SIN_CLAVE_DE_DOMINIOS, 'y el error del dominio dice por qué, no «no hay dominio»');
+test('la plataforma: sin RESEND_ADMIN_API_KEY su dominio no se toca (error de MaKo); con ella, va con esa', () => {
+  assert.deepEqual(R.platSinClave, { error: SIN_CLAVE_DE_DOMINIOS, falla: true }, 'conectar_dominio_email: no se propone nada');
+  assert.match(SIN_CLAVE_DE_DOMINIOS, /problema de MaKo/);
+  assert.equal(R.platSinClavePedidos, 0, 'no se le pidió nada a Resend');
+  assert.equal(R.platConectar.ok, true, R.platConectar.resumen);
+  assert.deepEqual(R.clavesPlataforma, ['re_admin_de_la_plataforma'], 'el dominio de MaKo, con la de administración: nunca con la que manda');
 });
 
-test('con ella, lo que administra dominios va con la de administración y lo que MANDA sigue con la suya', () => {
+test('un negocio administra y manda con SU cuenta; el aviso de MaKo sale con la de MaKo, también desde el negocio', () => {
   assert.equal(R.conectar.ok, true, R.conectar.resumen);
   assert.equal(R.verificar.ok, true, R.verificar.resumen);
-  assert.equal(R.conClaveEstado.alta_de_dominios_lista, true);
   assert.equal(R.prueba.ok, true, 'el broadcast de prueba del negocio salió');
   assert.equal(R.aviso.ok, true, 'el aviso de MaKo salió');
-  assert.deepEqual(R.claves.dominios, ['re_admin_de_la_plataforma'], 'todo /domains con la de administración');
-  assert.deepEqual(R.claves.envios, ['re_de_la_plataforma'], 'todo /emails con la que manda: nunca la de administración');
+  assert.deepEqual(R.clavesNegocio.administrar, ['re_del_negocio'], 'dominio, verificación y webhook en SU cuenta: ni la de MaKo ni la de administración');
+  assert.deepEqual(R.clavesNegocio.envios, ['re_del_negocio'], 'su email, con la suya');
+  assert.deepEqual(R.clavesAviso, ['re_de_la_plataforma'], 'lo que firma MaKo, con la de MaKo');
   assert.deepEqual(R.otros, [], 'nada salió a la red real');
 });
 
-// ── 2) La key propia de un negocio (Opción B), «no pude leer» y el tope del plan ─────────────────────────────────────
-type Caso = { propia: 'suya' | 'ninguna' | 'tira'; alta: 'ok' | 'tope' | 'tope-ya-estaba' | 'nombre-malo' };
+// ── 2) La cuenta de cada caso (propia, plataforma, ninguna, ilegible) y el tope del plan ──────────────────────────────────
+type Caso = { cuenta: 'suya' | 'plataforma' | 'ninguna' | 'tira'; alta: 'ok' | 'tope' | 'tope-ya-estaba' | 'nombre-malo' };
 const hijo = (c: Caso): { r: { ok: boolean; error?: string }; claves: string[] } => {
   const codigo = `
 import { mock } from 'node:test';
 const real = (m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'default' && k !== 'module.exports'));
 process.env.RESEND_ADMIN_API_KEY = 're_admin';
 const caso = ${JSON.stringify(c)};
-const cred = await import(${url('lib/credenciales.ts')});
-mock.module(${url('lib/credenciales.ts')}, { exports: { ...real(cred),
-  credWs: async () => 're_envio', envCred: async () => 're_envio',
-  credDelClienteEstricta: async () => { if (caso.propia === 'tira') throw new Error('base caída'); return caso.propia === 'suya' ? 're_suya' : null; },
-  esDeLaPlataforma: async (_k, v) => v === 're_envio',
-} });
+const cuenta = await import(${url('lib/email-cuenta.ts')});
+const CUENTAS = { suya: { tipo: 'propia', ws: 3, key: 're_suya' }, plataforma: { tipo: 'plataforma', ws: 9, key: 're_envio' }, ninguna: { tipo: 'sin_cuenta', ws: 3 }, tira: { tipo: 'no_pude_leer', ws: 3, error: 'base caída' } };
+mock.module(${url('lib/email-cuenta.ts')}, { exports: { ...real(cuenta), cuentaDeCorreo: async () => CUENTAS[caso.cuenta] } });
 const claves = [];
 const json = (status, b) => new Response(JSON.stringify(b), { status, headers: { 'Content-Type': 'application/json' } });
 const DOM = { id: 'd1', name: 'negocio-uno.com', status: 'not_started', records: [] };
@@ -108,24 +99,27 @@ console.log(JSON.stringify({ r, claves: [...new Set(claves)] }));
   return JSON.parse(out.trim().split('\n').pop()!);
 };
 
-test('un negocio con SU key de Resend administra su dominio con la suya; «no pude leerla» no cae a la de MaKo', () => {
-  const suya = hijo({ propia: 'suya', alta: 'ok' });
+test('con SU cuenta, su clave; la plataforma, la de administración; sin cuenta o sin poder leerla, nada sale a Resend', () => {
+  const suya = hijo({ cuenta: 'suya', alta: 'ok' });
   assert.equal(suya.r.ok, true);
-  assert.deepEqual(suya.claves, ['re_suya'], 'su dominio vive en su cuenta: ni la de MaKo ni la que manda');
-  const ninguna = hijo({ propia: 'ninguna', alta: 'ok' });
-  assert.deepEqual(ninguna.claves, ['re_admin'], 'sin key propia, la de administración (nunca la que manda)');
-  const tira = hijo({ propia: 'tira', alta: 'ok' });
+  assert.deepEqual(suya.claves, ['re_suya'], 'su dominio vive en su cuenta: ni la de MaKo ni la de administración');
+  assert.deepEqual(hijo({ cuenta: 'plataforma', alta: 'ok' }).claves, ['re_admin'], 'el de MaKo, con la de administración (nunca la que manda)');
+  const ninguna = hijo({ cuenta: 'ninguna', alta: 'ok' });
+  assert.deepEqual(ninguna.r, { ok: false, error: sinCuentaParaOperar('sin_cuenta') }, 'sin su cuenta, la guía; nunca la de MaKo');
+  assert.deepEqual(ninguna.claves, [], 'ni un pedido: su dominio caería en la cuenta de MaKo');
+  const tira = hijo({ cuenta: 'tira', alta: 'ok' });
   assert.equal(tira.r.ok, false);
   assert.match(tira.r.error!, /No pude leer la clave de correo del negocio/);
-  assert.deepEqual(tira.claves, [], 'no se le pidió nada a Resend: con la de MaKo, su dominio caería en otra cuenta');
+  assert.deepEqual(tira.claves, [], '«no pude leer» no cae a ninguna otra clave');
 });
 
-test('el tope de dominios del plan se dice como tal, sin culpar al dominio; y si ya estaba en la cuenta, se adopta', () => {
-  assert.deepEqual(hijo({ propia: 'ninguna', alta: 'tope' }).r, { ok: false, error: TOPE_DOMINIOS_DE_MAKO });
-  assert.deepEqual(hijo({ propia: 'suya', alta: 'tope' }).r, { ok: false, error: TOPE_DOMINIOS_TUYO });
+test('el tope de dominios del plan se dice como tal y es de la cuenta que lo tiene; si ya estaba en la cuenta, se adopta', () => {
+  assert.deepEqual(hijo({ cuenta: 'plataforma', alta: 'tope' }).r, { ok: false, error: TOPE_DOMINIOS_DE_MAKO });
+  assert.deepEqual(hijo({ cuenta: 'suya', alta: 'tope' }).r, { ok: false, error: TOPE_DOMINIOS_TUYO }, 'el de su cuenta (gratis o no) es suyo, y se dice en palabras');
   for (const t of [TOPE_DOMINIOS_DE_MAKO, TOPE_DOMINIOS_TUYO]) assert.match(t, /No es por tu dominio/);
-  assert.equal(hijo({ propia: 'ninguna', alta: 'tope-ya-estaba' }).r.ok, true, 'volver a conectar uno que ya está no choca con el tope');
-  assert.deepEqual(hijo({ propia: 'ninguna', alta: 'nombre-malo' }).r, { ok: false, error: 'Invalid domain name' }, 'un nombre inválido no es el tope');
+  assert.match(TOPE_DOMINIOS_TUYO, /Tu cuenta de Resend/);
+  assert.equal(hijo({ cuenta: 'suya', alta: 'tope-ya-estaba' }).r.ok, true, 'volver a conectar uno que ya está no choca con el tope');
+  assert.deepEqual(hijo({ cuenta: 'suya', alta: 'nombre-malo' }).r, { ok: false, error: 'Invalid domain name' }, 'un nombre inválido no es el tope');
 });
 
 test('qué cuenta como el tope del plan: nombra el dominio Y un tope; una key o un nombre malo no', () => {
@@ -159,10 +153,11 @@ test('RESEND_ADMIN_API_KEY la nombra sólo lib/resend-dominios.ts, y ese módulo
   const src = leer('lib/resend-dominios.ts');
   const exportados = [...src.matchAll(/^export (?:async function|function|const|let|type)\s+(\w+)/gm)].map((m) => m[1]).sort();
   assert.deepEqual(exportados, [
-    'CreacionDominio', 'DomainResult', 'ResendDnsRecord', 'ResendDomain',
-    'createResendDomain', 'getResendDomain', 'listResendDomains', 'prenderSeguimiento', 'puedeAdministrarDominios', 'verifyResendDomain',
-  ], 'un export nuevo se decide acá: ninguno puede devolver la clave');
+    'Administracion', 'CreacionDominio', 'DomainResult', 'ResendDnsRecord', 'ResendDomain', 'WebhookDeCuenta',
+    'administracionDeLaCuenta', 'asegurarWebhookDeCuenta', 'createResendDomain', 'getResendDomain', 'listResendDomains', 'prenderSeguimiento',
+    'probarClaveDeCuenta', 'puedeAdministrarDominios', 'verifyResendDomain',
+  ], 'un export nuevo se decide acá: ninguno puede devolver la clave (el SECRETO del webhook sí vuelve, y sólo lo guarda lib/email-dominio.ts)');
   assert.doesNotMatch(src, /^export\s*\{/m, 'sin listas de exports que esquiven el conteo');
-  assert.match(src, /^async function claveDeDominios\(/m, 'la que lee la clave es privada');
+  assert.match(src, /^async function claveDeCuenta\(/m, 'la que lee la clave es privada');
   assert.match(src, /^import 'server-only';/m);
 });

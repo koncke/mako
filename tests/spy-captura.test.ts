@@ -453,3 +453,23 @@ test('ningún texto nombra lo que no se nombra', () => {
   assert.doesNotMatch(sinComentarios(leer('extension/popup.js')), /['"`][^'"`]*\bFB\b[^'"`]*['"`]/);
   assert.doesNotMatch(leer('app/competitor-spy/SuFunnel.tsx'), /\bFB\b/);
 });
+
+// «En su biblioteca de anuncios la buscó como su página [su web], cuando debió buscarla por su Instagram... Y darse cuenta si es o
+// no es... Porque evidentemente no es» (Martín con Den Borg, 4/11/2026). Su web era beacons.page: cualquier anuncio que manda a
+// Beacons contaba como suyo. Verificado rompiéndolo: con el dominio de antes (sin mirar si es una página de enlaces), cae.
+test('un anuncio es suyo por su Página (su nombre corto o su @), nunca por mandar a una página de enlaces', () => {
+  const ad = (id: string, pagina: string | null, handle: string | null, destino: string | null) =>
+    ({ id, desde: null, hasta: null, pagina: pagina ? { nombre: pagina, handle } : null, texto: null, titulo: null, destino, miniatura: null });
+  const den = { nombre: 'Den Borg - Estrategia de Marca Personal', instagram: 'den.borgg', landing_url: 'https://beacons.page/denborg' };
+  const todos = [
+    ad('1', 'Den Borg', null, 'beacons.page'),
+    ad('2', 'Coach Cualquiera', null, 'beacons.page'),
+    ad('3', 'Marca Personal Den', 'den.borgg', null),
+    ad('4', 'Otra', null, 'denborg.com'),
+  ];
+  const r = anunciosDeQuien(todos, den, false);
+  assert.deepEqual(r.suyos.map((a) => a.id), ['1', '3'], 'por su nombre corto y por su @; nunca por mandar a Beacons');
+  assert.equal(r.otros, 2);
+  // Con su web propia, mandar ahí sí lo dice.
+  assert.deepEqual(anunciosDeQuien(todos, { ...den, landing_url: 'https://denborg.com/evento' }, false).suyos.map((a) => a.id), ['1', '3', '4']);
+});

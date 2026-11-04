@@ -1225,3 +1225,142 @@ lib/spy-detalle.ts (`vecesSuMediana`) · tests/spy-guion.test.ts
   admin y sin cartel de error. Sin poder leer el crédito, sigue como siempre (no es «sin crédito»). Lo fija `tests/spy-todo.test.ts`.
 - **La caricatura de Den Borg.** El camino de la tarjeta está bien y tiene su test de punta a punta. El hueco era otro: si la
   imagen no cargaba, la tarjeta quedaba sin cara. Ahora cae a su foto de perfil (`caerAFoto`).
+
+## Tercera vuelta: la ficha de un competidor rediseñada (4/11/2026)
+
+**Vive en:** `app/competitor-spy/SpyApp.tsx`, `app/competitor-spy/GrillaPiezas.tsx`, `app/competitor-spy/MejoresPiezas.tsx`,
+`app/competitor-spy/BuscadorAlta.tsx`, `app/competitor-spy/GraficoSpy.tsx`, `app/competitor-spy/page.tsx`, `app/competitor-spy/precarga.ts`,
+`lib/spy-vista.ts`, `lib/spy-detalle.ts`, `lib/spy-buscar-reglas.ts`.
+
+Martín, con Den Borg en producción. Lo que se hizo, pedido por pedido (lo fija `tests/spy-ficha-tercera.test.ts`):
+
+- **«Agregar YouTube» abría un campo con un botón.** Ahora es el MISMO buscador del alta (`BuscadorAlta` con `para`): arranca con
+  su nombre sin lo que va después de « - » (`nombreParaBuscar`) y muestra sólo la red pedida (`gruposPermitidos`); desde el menú,
+  sólo sus redes, sin «Ya los miras» ni «Sin redes».
+- **Volver a todos los competidores** era una miga de 18 px en gris. Ahora es un botón con la flecha y las caras de los demás, y al
+  lado el cambio directo a otro (copiado del «←» de la cabecera de un ítem en Shopify y Linear).
+- **El ⋯ del perfil, arriba a la derecha.** ⚠️ El `Dropdown` de la casa toma `width` para el BOTÓN: con `width={210}` el ⋯ quedaba
+  encima del texto. Va `width={40}` y `menuMinAncho={210}`.
+- **La grilla de sus piezas: a todo el ancho y por páginas** (`GrillaPiezas`). Antes vivía al lado del riel y crecía de a 60: con
+  160 piezas, 13.600 px de página. Ahora una página son filas enteras (`columnasQueEntran` × 3), y el paginador nunca esconde
+  una sola página detrás de «…» (`botonesDePaginas`).
+- **«Lo que mejor le fue», al lado de los formatos.** Cierra el riel y se estira hasta donde terminan los formatos; si el riel es
+  más alto, se estiran los formatos. ⚠️ Para que la caja se estire sin empujar la grilla, la tarjeta va en `position: absolute`
+  dentro de una caja `flex: 1`: en flujo normal le sumaría su alto a la columna y nunca «llegaría» al final. Se ordena por cuántas
+  veces la mediana de SU grupo hizo cada pieza (`mejoresPiezas`): un short y un video largo no se comparan en vistas crudas.
+- **Los anuncios, dentro de Contenido**, como un formato más del desplegable (`tipoEnLaGrilla`). `tipoDeContenido` no los nombra a
+  propósito: lo usan los gráficos, que los agrupan aparte.
+- **La entrada:** las miniaturas se acomodan en una grilla en el centro, de la mejor a la peor, y cada una vuela a su lugar en el
+  gráfico (~1,6 s, el mismo gesto de antes con otro origen). La película de «ordenar» (6 s) sigue sólo después de una lectura pedida.
+- **En el teléfono**, el riel con `flex-wrap: wrap` en columna hacía que la base de 280 px fuera un ALTO: las tarjetas quedaban con
+  un hueco abajo (los seguidores, 223 px para 107 de contenido). Va `nowrap`.
+
+### La velocidad, medida (vista de prueba, no producción)
+
+Con la misma vista de la ficha (`SpyApp` con 166 piezas de Den Borg inventadas), con una demora simulada de 700 ms para traer las
+piezas y miniaturas que tardan entre 0,2 y 2,8 s, en Chromium a 1440 px, 3 vueltas cada una:
+
+| | Gráfico dibujado | Elementos en la página | Tarjetas en la grilla |
+|---|---|---|---|
+| Antes | 3,84 – 3,99 s | 2.369 | 66 |
+| Después | 3,17 – 3,22 s | 1.664 | 15 |
+
+Lo que bajó: las piezas del competidor abierto llegan con la página (antes se pedían por una action DESPUÉS de hidratar, y las
+actions hacen fila), las cuatro lecturas del server van en paralelo, y la grilla dibuja una página y no 60 tarjetas. Lo que NO
+mide esta vista: la red real del CDN de Meta. Por eso el tope de espera de las miniaturas bajó de 8 a 3 s (las que no llegan entran
+con su texto, sin cajas vacías). ⚠️ En producción hay que medir lo mismo con un competidor real: es lo que pidió el Cerebro.
+
+## Tercera vuelta: sus anuncios por su nombre, y verificados (4/11/2026)
+
+**Vive en:** `lib/spy-funnel.ts` (`busquedaDeSusAnuncios`, `enlaceSusAnuncios`), `lib/spy-captura.ts` (`anunciosDeQuien`).
+
+Martín, con Den Borg: «En su biblioteca de anuncios la buscó como su página [su web], cuando debió buscarla por su Instagram, todo
+el mundo publicita con su cuenta personal, o de última con el nombre del negocio... Y darse cuenta si es o no es». La captura del
+Cerebro: la Biblioteca abierta con `q="beacons.page"`, 54 anuncios de cualquiera.
+
+- **La causa era doble.** El enlace buscaba el dominio de su web ANTES que su nombre, y su web era una página de enlaces (Beacons):
+  es de todos. Y la verificación (`anunciosDeQuien`) daba por suyo cualquier anuncio que mandara a ese dominio, así que una captura
+  de esa búsqueda guardaba anuncios ajenos. Además comparaba la Página con su nombre ENTERO («Den Borg - Estrategia de Marca
+  Personal»), que ninguna Página tiene.
+- **Ahora:** el enlace busca su nombre corto (el de su perfil, sin lo que va después de « - »: así se llama la Página con que pauta),
+  después su @, y su web sólo si es SUYA. Un anuncio es suyo por su Página (el nombre entero, el corto o su @), por su Página
+  guardada, o por mandar a SU web; mandar a una página de enlaces no dice nada (del anuncio sólo se guarda el dominio al que manda).
+- ⚠️ **No medido:** si la búsqueda por frase exacta de la Biblioteca encuentra a la Página por su nombre o sólo el texto de los
+  anuncios. Lo que sí está garantizado es que lo que se GUARDA pasa la verificación. Con su Página guardada (`pagina_anuncios`
+  con un id) el enlace va directo a ella.
+- **La regla que queda:** un dominio identifica a alguien sólo si es suyo. Una página de enlaces, un checkout (Hotmart) o una
+  plataforma (Skool) son de miles: antes de comparar por dominio, se pregunta `esAgregador`.
+
+Lo fijan `tests/spy-captura.test.ts` y `tests/spy-funnel.test.ts` (los dos, probados rompiéndolos).
+
+## Tercera vuelta: qué funnel usa, con evidencia, y sus páginas al final (4/11/2026)
+
+**Vive en:** `docs/catalogo-funnels-y-formatos.md` (la investigación, con fuentes, y su tabla §4), `lib/spy-catalogo-leer.ts`,
+`lib/spy-catalogo-datos.ts` (GENERADO con `node --import tsx scripts/spy-catalogo-a-codigo.mts`), `lib/spy-funnel-tipo.ts`,
+`lib/spy-oferta.ts` (`enlaces`, `paginas`), `app/competitor-spy/SuFunnelTipo.tsx`, `SuOferta.tsx`, `SusPaginas.tsx`.
+
+Martín, con Den Borg: «Quiero que se analice qué funnel utiliza... denborg es obvio que hace funnel de eventos presenciales... la
+oferta debería ir arriba... no pongas nada abajo de las web». El Cerebro: la clasificación sale del catálogo y con evidencia de sus
+piezas, no por adivinanza.
+
+- **El catálogo es la fuente y el código lo lee, no lo copia.** 22 funnels y 19 formatos, cada uno con frases fuertes, débiles, lo
+  que lo descarta y los hosts que lo delatan. La tabla del documento se convierte en `lib/spy-catalogo-datos.ts` con un script, y
+  `tests/spy-funnel-tipo.test.ts` falla si los dos se separan. Una línea de «qué es» por funnel (`que:`) es lo que se dibuja.
+- **Sin evidencia, «no sé».** Una frase fuerte alcanza; sin fuerte hacen falta dos débiles distintas de DOS piezas distintas (un post
+  con «conferencia» y «speakers» puede ser la conferencia de otro). Una pieza que dice «por Zoom» baja sus fuertes a débiles, sus
+  palabras sueltas no cuentan y no confirma como «otra pieza»: sin eso, dos posts de un seminario online daban «evento presencial».
+- **La compuesta que decide a Den Borg es «fecha + entradas»** («22 de noviembre… últimos boletos»): ninguna frase fija la cubre.
+- **Su página de enlaces no es su web: es una lista.** De Beacons o Linktree se leen las páginas que enlaza (hasta 3) y se guardan
+  todas (hasta 8) para «Sus páginas». Leer la página de enlaces daba un diagnóstico de su lista de botones.
+- **Una lectura de antes no tenía el texto de sus páginas** (la evidencia del funnel): `hayQueLeer` la vuelve a leer UNA vez. Con el
+  mismo texto la huella es la misma y la IA no se paga de nuevo; con una página de enlaces sí (ahora se leen otras páginas).
+- **La vista previa es la del Diagnóstico del Web Generator** (`srcPaginaDiagnostico`, `sandbox="allow-scripts"`), con su puerta: el
+  admin y esa tab en el plan (`conVistaPrevia`, la pide la página). Sin eso, la tarjeta con «Abrir».
+- **La oferta, partida en dos:** arriba, al lado del funnel, el puntaje en un anillo, la tesis como titular, lo más flojo, lo que
+  vende y lo que ataca y tu oferta no dice; abajo, las 9 notas. La tesis va una vez (al diagnóstico de abajo se le pasa sin ella).
+- **Por API:** `que_esta_haciendo` dice qué funnel usa, con su evidencia marcada como contenido de un tercero.
+- ⚠️ **Trampa de la verificación:** una captura de página entera de Playwright dibuja en blanco un iframe que sí cargó; se mira con
+  la página quieta (`fullPage: false`) y bajando hasta él.
+- ⚠️ **No medido:** los formatos nuevos del catálogo (caso de éxito, mito, recap de evento…) todavía no los usa el análisis de piezas
+  (`FORMATOS`, lib/spy-detalle.ts): va en otra punta. Y lo que diga el funnel con un competidor real hay que mirarlo en producción.
+
+Lo fija `tests/spy-funnel-tipo.test.ts` (11 casos, nueve roturas probadas: catálogo, compuesta, descarte, débiles de dos piezas,
+host, landing repetida, página de enlaces, la vuelta y «nada debajo de sus páginas»).
+
+## Tercera vuelta: los formatos del catálogo, para la IA y sin ella (4/11/2026)
+
+**Vive en:** `lib/spy-detalle.ts` (`FORMATOS`, `GUIA_DE_FORMATOS`, `formatoPorTexto`, `formatosDe`), `lib/spy.ts` (el prompt del
+analista), `lib/prompt-registry.ts` (el slot `formatosQueSon`), `app/competitor-spy/DetallePieza.tsx`.
+
+Martín: «Tanto para funnels como para formatos de contenido al momento de clasificar "lo que le funciona" quiero que hagas una
+investigación profunda de todos los tipos de formatos».
+
+- **Los formatos son los 19 del catálogo** (§3 del documento: tutorial, lista, storytime, POV, antes y después, testimonio, caso
+  de éxito, opinión, mito, reseña, detrás de escena, recap de evento, entrevista, preguntas, reacción, tendencia, frase, promoción
+  y otro). Antes eran 11 y la IA no sabía qué era cada uno: recibía sólo los ids. Ahora recibe una línea por formato
+  (`{{formatosQueSon}}`). Un prompt editado en /configuraciones antes de esto no tiene el slot: sigue andando con los ids.
+- **Lo que la IA no clasificó se lee del texto, sólo con una frase clara** del catálogo («POV:», «antes y después», «7 errores»).
+  Las débiles no cuentan: «antes de grabar… después» no es un antes y después. Sirve sin IA conectada y para lo analizado antes,
+  que quedó «otro». El detalle de la pieza dice el mismo formato que la cuenta.
+- ⚠️ **Lo que costó esta vuelta:** el `tsc` acotado se corrió con una LISTA de archivos escrita a mano y dejó afuera
+  `lib/api-mako/areas/spy.run.ts`, donde un script de Python había escrito un `\n` real adentro de un texto: la punta salió sin
+  compilar (se arregló en `00b329e8`). **Se corre con `--rama`**, que toma todo lo que la rama cambió. Y en un script que escribe
+  código, un `\n` que tiene que quedar escrito va `\\n` (o el texto entre comillas triples crudas).
+
+Lo fija `tests/spy-formatos-catalogo.test.ts` (4 casos, cuatro roturas probadas: falta un formato, falta el slot, se aceptan las
+débiles, la cuenta mira sólo a la IA).
+
+## Tercera vuelta: el recorrido de lo nuevo (4/11/2026)
+
+**Vive en:** `app/competitor-spy/recorrido-spy.ts` (los pasos), `app/competitor-spy/SpyApp.tsx` (el `Recorrido` y el «?»).
+
+Martín: «Si puedes poner la animación que ya tenemos tipo tutorial, donde se pone opaco y va señalando las cosas del feedback». Es el
+Recorrido de la casa (`app/_ui/Recorrido.tsx`): seis pasos, cada uno con su `data-recorrido` en la pantalla.
+
+- **Un paso sin su marca se saltea SOLO, sin un error**: el recorrido queda corto y nadie se entera. Por eso
+  `tests/spy-recorrido.test.ts` busca la marca de cada paso en los componentes.
+- **El id lleva la fecha** (`spy-ficha-0411`): es la clave de «ya lo vio», y uno reusado no se le muestra a quien vio el anterior.
+- ⚠️ **Probar un test rompiendo el código se restaura de MEMORIA**: un `git checkout -- <archivo>` para deshacer la rotura se llevó
+  también la marca recién escrita en `GrillaPiezas.tsx` (sin commitear). Se notó porque el test siguió rojo; se volvió a poner.
+- ⚠️ **El primer CI dio rojo por «acá»**: `tests/puente-panel-copy.test.ts` barre el copy de toda la app y pide español neutro
+  («aquí»). No es un test de Spy, así que correr `tests/spy-*.test.ts` no lo ve: con texto nuevo de pantalla, se corre ese también.

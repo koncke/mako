@@ -10,6 +10,10 @@
 //   1. `problemasDeLaFicha` sin la regla del voseo                                → 2 / 1: «una ficha mala no pasa»
 //   2. `problemasDeLaFicha` sin la regla de «no hables como si fueras él»        → 2 / 1: «una ficha mala no pasa»
 //   3. la ficha de Juan Carrizo con «vos sabés» adentro                          → 2 / 1: «cada ficha en espera»
+// (4/11/2026, el mismo día) Llegaron las diez caras y entraron a la galería: `EN_ESPERA` quedó vacía, y el primer test no recorre nada. Para que
+// las diez fichas no pierdan la guarda de voseo, de «no hables como si fueras él» y de «NO SE TRASLADA», el último test corre la misma
+// `problemasDeLaFicha` sobre las que ya están en `FICHAS`. Probado rompiéndolo: la ficha de Juan Carrizo con «vos sabés» adentro → cae «las diez
+// que ya entraron».
 // Correr: node --import tsx --test tests/gurus-en-espera.test.ts
 // =============================================================================
 
@@ -18,7 +22,8 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { EN_ESPERA, problemasDeLaFicha, type GuruEnEspera } from '../lib/asesores/en-espera';
-import { ASESORES } from '../lib/asesores/catalogo';
+import { ASESORES, asesorPorId } from '../lib/asesores/catalogo';
+import { FICHAS } from '../lib/asesores/fichas';
 import { CURSO_DE_REFERENTE } from '../lib/asesores/cursos';
 import { marcasDeVoseo } from '../lib/voseo';
 
@@ -48,4 +53,17 @@ test('una ficha mala no pasa: voseo, sin el aviso de no ser él, sin su curso, s
 test('con su PNG subido, el test pide pasarlo a la galería', () => {
   const g = EN_ESPERA[0] ?? { id: 'x', nombre: 'X', completo: 'X Y', especialidad: 'Algo', curso: 'Un curso', ficha: '' };
   assert.ok(problemasDeLaFicha(g, { marcasDeVoseo, hayPng: true }).some((x) => x.includes('pásalo a ASESORES')));
+});
+
+const LAS_DIEZ = ['juan-carrizo', 'vilma-nunez', 'samuel-albaa', 'alvaro-luque', 'sergio-begueria', 'romuald-fons', 'mateo-maffia', 'francisco-doglio', 'andy-landa', 'gonzalo-sere'];
+
+test('las diez que ya entraron a la galería siguen cumpliendo lo que se les pidió esperando', () => {
+  for (const id of LAS_DIEZ) {
+    const a = asesorPorId(id);
+    assert.ok(a, `${id} no está en ASESORES`);
+    assert.ok(hayPng(id), `${id}: sin su PNG`);
+    assert.ok(existsSync(join(RAIZ, 'public', 'asesores', 'grandes', `${id}.png`)), `${id}: sin su cara grande (la tarjeta de Spy)`);
+    const g: GuruEnEspera = { id: a.id, nombre: a.nombre, completo: a.completo, especialidad: a.especialidad, curso: a.curso, ficha: FICHAS[a.id] };
+    assert.deepEqual(problemasDeLaFicha(g, { marcasDeVoseo, hayPng: false }), [], id);
+  }
 });
