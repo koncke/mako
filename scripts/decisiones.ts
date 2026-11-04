@@ -36,7 +36,7 @@ import { resolve } from 'node:path';
 import { config } from 'dotenv';
 import { sanearPublicada, textoDeRespuesta, filaADecision, type Publicada } from '../app/admin/runway/decisiones';
 import { explicarAviso, filaAviso } from '../lib/decisiones-aviso';
-import { carteroVivo, sanearChats, todosLosChats, type VistaCartero } from '../lib/operaciones-reglas';
+import { carteroVivo, sanearChats, todosLosChats, vistoDeLaFila, type VistaCartero } from '../lib/operaciones-reglas';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 const conn = urlDeLaBase();
@@ -89,10 +89,12 @@ async function publicar(archivo: string) {
  *  no se puede leer, se dice «sin cartero» (no se adivina que hay uno). */
 async function vistaCarteros(): Promise<{ chats: ReturnType<typeof todosLosChats>; hayCartero: boolean }> {
   try {
-    const k = await sql`select cuenta, visto_at, chats from operaciones_carteros`;
-    const vistas: VistaCartero[] = k.map((x) => ({
-      cuenta: String(x.cuenta), vistoAt: x.visto_at ? new Date(x.visto_at as string).toISOString() : null, chats: sanearChats(x.chats),
-    }));
+    // `select *`: sin la mig 0355 no hay `runner_visto_at`, y `vistoDeLaFila` lo distingue por la clave.
+    const k = await sql`select * from operaciones_carteros`;
+    const vistas: VistaCartero[] = k.map((x) => {
+      const { vistoAt } = vistoDeLaFila(x);
+      return { cuenta: String(x.cuenta), vistoAt: vistoAt ? new Date(vistoAt).toISOString() : null, chats: sanearChats(x.chats) };
+    });
     return { chats: todosLosChats(vistas), hayCartero: vistas.some((v) => carteroVivo(v, Date.now())) };
   } catch {
     return { chats: [], hayCartero: false };

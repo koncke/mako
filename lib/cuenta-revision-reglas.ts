@@ -47,6 +47,9 @@ export function esCuentaDeRevision(u: { email?: string | null; workspace_id?: nu
     && u.rol_ws === CUENTA_DE_REVISION.rolWs;
 }
 
+/** El nombre de su negocio. Lo pone scripts/tiendas-cuenta-revision.mts al crearlo, y el de revertir no borra un 900001 que se llame distinto. */
+export const NOMBRE_NEGOCIO_REVISION = 'Negocio de demostración';
+
 /** Una semana: el revisor vuelve a entrar con la misma contraseña, y una cookie copiada se muere sola. */
 export const DIAS_SESION_REVISION = 7;
 
@@ -74,11 +77,12 @@ export function sesionDeRevisionVigente(iatSegundos: number | null | undefined, 
  * Lo que queda es lo que el revisor tiene que poder probar (hablar con MaKo, el permiso de IA, denunciar, eliminar la cuenta, los avisos
  * del teléfono) y lo que guarda SÓLO lo suyo (qué vio, qué cerró). Cada ruta, exacta: nada de prefijos.
  * ⚠️ Sumar una es decidir que un tercero con la contraseña la use: tests/cuenta-revision-escrituras.test.ts la lista con su veredicto.
+ * Y sólo lo que un CLOSER puede usar: `/api/mako/voz` (la guía de voz del negocio, no el micrófono) y `/api/notificaciones` son de admin y
+ * salieron el 4/11 (la segunda revisión): una entrada que el rol corta igual sólo agranda la lista.
  */
 export const PERMITIDO_EN_REVISION: Readonly<Record<string, string>> = {
   '/api/m/mako': 'hablar con MaKo en el teléfono',
   '/api/mako/chat': 'hablar con MaKo en la computadora o el iPad',
-  '/api/mako/voz': 'dictarle a MaKo con el micrófono (lo nativo que mira Apple)',
   '/api/ia-permiso': 'aceptar o negar el permiso de IA (Apple 5.1.2(i))',
   '/api/soporte/reportar': 'denunciar una respuesta o una publicación (Play y Apple 1.2); el ticket se guarda sin despacho',
   '/api/cuenta/eliminar': 'eliminar la cuenta (Apple 5.1.1(v)); en su negocio se anota y no se borra',
@@ -86,7 +90,6 @@ export const PERMITIDO_EN_REVISION: Readonly<Record<string, string>> = {
   '/api/push/prueba': 'el aviso de prueba a su propio teléfono',
   '/api/perfil/notif-push': 'prender o apagar sus avisos',
   '/api/perfil/notif-inapp': 'prender o apagar sus avisos adentro de la app',
-  '/api/notificaciones': 'marcar sus avisos como leídos',
   '/api/aperturas': 'lo que MaKo ya le preguntó (su memoria de «Ahora no»)',
   '/api/recorridos': 'qué guías ya vio',
   '/api/hilo-de-tab': 'su chat con MaKo en una tab',
