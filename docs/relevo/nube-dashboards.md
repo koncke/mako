@@ -1,11 +1,17 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~22:40 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~23:20 UTC)
+
+- **Productividad está en producción.** Entró a main (`54b2922fc`, la punta `dash-productividad` tal cual, con su veredicto:
+  7.044 tests y el tsc entero); el deploy de ese commit se promovió a las 23:09. Es la decimotercera hoja copiada (Fernly).
+- **Sigo con Contenido e IA (la copia de Orrery)**: la copia de la página ya calza con la captura en 1440 y en 390; falta la adaptación.
+
+### Lo de las ~22:40 UTC
 
 - **CS Analyst está en producción.** Entró a main a las 22:21 (`b42c446d9`, la mezcla de `punta/dash-cs` con `923d70e8b`, su veredicto:
   7.034 tests y el tsc entero); el deploy de ese mismo commit quedó listo a las 22:33. El primer veredicto dio un rojo de verdad: la hoja
   enlazaba `/customer-success`, la ruta vieja, y ahora usa `RUTA_CLIENTES` (lib/clients-rutas.ts).
-- **Productividad (la copia de Fernly) va en `punta/dash-productividad`**: la sección de abajo. Es la decimotercera hoja copiada. No suma
+- **Productividad (la copia de Fernly) estaba en `punta/dash-productividad`** (hoy en producción): la sección de abajo. Es la decimotercera hoja copiada. No suma
   piezas a la plantilla: el diseño dibuja nueve de las once; la matriz de impacto × esfuerzo y lo que queda en cada proyecto siguen en la
   grilla.
 
@@ -106,7 +112,7 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
 
-## Productividad: la decimotercera hoja copiada (la de Fernly), con «¿qué avanza y qué se estancó?» (punta `dash-productividad`, 4/11/2026)
+## Productividad: la decimotercera hoja copiada (la de Fernly), con «¿qué avanza y qué se estancó?» (en producción desde el 4/11/2026, 23:09)
 
 La referencia de Productividad es Fernly (`docs/templates-dashboard-propuesta.md` §7.3; Sunrow, la otra, queda por copiar): la página
 «Dashboard» de Fernly (un gestor de proyectos): la barra lateral y la de arriba, cuatro tarjetas de números, «Project Analytics» (siete
@@ -1060,7 +1066,7 @@ Lo que comparten todas:
 | Chat Analyst | `chat-analyst` | Parley · Tend | ¿cuánto tardamos en contestar? | Tiempo de respuesta | `punta/dash-chat` |
 | Closing | `closing` | Halden · Moorly · Tandem | ¿por qué se cerró o no, y quién cierra mejor? | Tasa de cierre | `punta/dash-closing` |
 | CS Analyst | `cs-analyst` | Mender · Vitrea | ¿quién necesita atención, y cuántos se van? | Se dieron de baja | en producción (`b42c446d9`) |
-| Productividad | `productividad` | Fernly · Sunrow | ¿qué avanza y qué se estancó? | Avance global | `punta/dash-productividad` |
+| Productividad | `productividad` | Fernly · Sunrow | ¿qué avanza y qué se estancó? | Avance global | en producción (`54b2922fc`) |
 | Automatizaciones | `automatizaciones` | Noria | ¿qué salió, qué falló y en cuánto responden? | Fallaron | `punta/dash-automatizaciones` |
 | Contenido e IA | `ia-contenido` | Orrery | ¿cuánta IA gastamos y en qué? | Costo de la IA | `punta/dash-ia-contenido` |
 | Inmobiliaria (nueva, por rubro) | `inmobiliaria` | Lintel (sólo su Overview) | ¿cuántos visitan, cuántos compran y en qué proyecto? | Compran, de los que visitan | `punta/dash-inmobiliaria` |

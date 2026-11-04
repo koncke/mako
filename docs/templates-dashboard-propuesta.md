@@ -240,7 +240,7 @@ Todas las referencias están medidas (capturas a 1440 y 390, `valores.json`, los
 | **CS Analyst** | Mender · Vitrea | **Mender: en producción** desde el 4/11 (main `b42c446d9`) (copia y adaptación: `docs/diseno/mockups-dashboard/cs-mender/`; el componente, `app/dashboard/disenos/HojaCs.tsx`). Dice por qué PIDEN atención, no por qué se van (el motivo de baja, §7.4). Vitrea: por copiar |
 | **Agencia o servicio** | Sunrow · Torque | Por copiar |
 | **Curso o comunidad** | Lumora · Vitrea | Por copiar (pide las cohortes, §7.4) |
-| **Productividad** | Fernly · Sunrow | **Fernly: se ofrece** desde el 4/11, en `punta/dash-productividad` (copia y adaptación: `docs/diseno/mockups-dashboard/productividad-fernly/`; el componente, `app/dashboard/disenos/HojaProductividad.tsx`). Sin el cronómetro ni quién trabaja en qué, que MaKo no mide; la tarjeta oscura dice cuántas activas hay por prioridad. Sunrow: por copiar |
+| **Productividad** | Fernly · Sunrow | **Fernly: en producción** desde el 4/11 (main `54b2922fc`) (copia y adaptación: `docs/diseno/mockups-dashboard/productividad-fernly/`; el componente, `app/dashboard/disenos/HojaProductividad.tsx`). Sin el cronómetro ni quién trabaja en qué, que MaKo no mide; la tarjeta oscura dice cuántas activas hay por prioridad. Sunrow: por copiar |
 | **Contenido e IA** | Orrery | Por copiar |
 | **Inmobiliaria** | Lintel | Por copiar |
 
