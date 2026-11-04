@@ -159,3 +159,19 @@ export async function caricaturaGuardada(refs: readonly string[]): Promise<strin
   }
   return null;
 }
+
+/**
+ * La foto de una página capturada con la extensión (lib/spy-pagina-capturada-servidor.ts), en `spy/pagina/<ws>/<competidor>/`.
+ * Devuelve su URL pública con un sello (la misma página va a la misma ruta, y sin el sello la pantalla mostraría la de antes de su
+ * caché), o `null` si no subió.
+ */
+export async function subirFotoDePagina(ruta: string, bytes: Uint8Array, mime: string): Promise<string | null> {
+  const db = getSupabaseServer();
+  const { error } = await db.storage.from(BUCKET_MINIATURAS).upload(ruta, bytes, { contentType: mime, upsert: true, cacheControl: '60' });
+  if (error) {
+    console.warn(`[spy-miniaturas] no subió la foto de ${ruta}: ${error.message}`);
+    return null;
+  }
+  const { data } = db.storage.from(BUCKET_MINIATURAS).getPublicUrl(ruta);
+  return data?.publicUrl ? `${data.publicUrl}?v=${Date.now()}` : null;
+}

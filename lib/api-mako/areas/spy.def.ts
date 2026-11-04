@@ -139,4 +139,16 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: CANALES, costo: 'gratis', gating: PUERTA,
   },
+  {
+    // «Capturar» en «Sus páginas» (4/11/2026): lo capturado con la extensión, en el navegador de la persona, de las páginas que el
+    // servidor no puede leer. Capturar no se hace por acá: hace falta la persona, su navegador y su toque en el ícono de MaKo.
+    id: 'paginas_capturadas', area: 'spy', tipo: 'lectura',
+    datosDeClientes: false,
+    titulo: 'Sus páginas capturadas',
+    descripcion: 'Las páginas suyas que se guardaron con la extensión: título, cuándo, su foto y su texto. Lee lo ya hecho.',
+    parametros: [
+      { nombre: 'id', tipo: 'number', obligatorio: true, entero: true, minimo: 1, rotulo: 'Cuál', descripcion: 'El id que devuelve listar_vigilados.' },
+    ],
+    salida: 'json', canales: CANALES, costo: 'gratis', gating: PUERTA,
+  },
 ];

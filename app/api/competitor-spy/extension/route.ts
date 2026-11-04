@@ -15,6 +15,8 @@ import { workspaceDeToken } from '@/lib/flow-cola';
 import { limitePorClave } from '@/lib/limite-publico';
 import { leerCaptura } from '@/lib/spy-captura';
 import { fichasParaLaExtension, guardarCaptura } from '@/lib/spy-captura-db';
+import { leerCapturaDePagina } from '@/lib/spy-pagina-capturada';
+import { guardarPaginaCapturada } from '@/lib/spy-pagina-capturada-servidor';
 import { runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +41,17 @@ export async function POST(req: NextRequest) {
   return runWithWorkspace(ws, async () => {
     try {
       if (cuerpo.accion === 'lista') return NextResponse.json({ ok: true, competidores: await fichasParaLaExtension() });
+      // «Capturar» en «Sus páginas» (4/11/2026): la página que Spy pidió, en la pestaña que abrió la extensión, después del toque
+      // de la persona en el ícono (lib/spy-pagina-capturada.ts).
+      if (cuerpo.accion === 'pagina') {
+        const id = Number(cuerpo.competidorId);
+        const url = typeof cuerpo.url === 'string' ? cuerpo.url.trim() : '';
+        const captura = leerCapturaDePagina(cuerpo.captura);
+        if (!Number.isInteger(id) || id <= 0 || !/^https?:\/\//i.test(url) || !captura) {
+          return NextResponse.json({ ok: false, motivo: 'falla', error: 'No puedo guardar esta página.' }, { status: 400 });
+        }
+        return NextResponse.json(await guardarPaginaCapturada(id, url, captura, cuerpo.foto));
+      }
       if (cuerpo.accion !== 'guardar') return NextResponse.json({ ok: false, error: 'pedido desconocido' }, { status: 400 });
       const captura = leerCaptura(cuerpo.captura);
       if (!captura) return NextResponse.json({ ok: false, error: 'No puedo guardar esta página.' }, { status: 400 });
