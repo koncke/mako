@@ -96,6 +96,8 @@ import { GraficoSpy } from './GraficoSpy';
 import { DetallePieza } from './DetallePieza';
 import { grupoDe, repartoDePublicaciones } from '@/lib/spy-detalle';
 import { PeliculaDeOrden } from './OrdenSpy';
+import { EntradaFicha, cajaDelCentro, centroDe, type Caja, type FaseEntrada } from './EntradaFicha';
+import { quieto } from './precarga';
 import { sumarPasos, type PasoLectura } from '@/lib/spy-lectura-pasos';
 import { BuscadorAlta } from './BuscadorAlta';
 import { Flecha, GrillaPiezas } from './GrillaPiezas';
@@ -162,6 +164,12 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-mas:hover{background:var(--surface-2)}
 
 .spy-cuerpo{max-width:var(--pagina-max);margin:0 auto;padding:10px 22px 40px}
+/* La entrada a la ficha (EntradaFicha.tsx): mientras la caricatura espera, la ficha se arma escondida (se puede medir); al salir,
+   aparece mientras sus tarjetitas salen de la caricatura. */
+.spy-cuerpo[data-entrando='esperando'] > :not(.spye){opacity:0;pointer-events:none}
+.spy-cuerpo[data-entrando='saliendo'] > :not(.spye){animation:spyAparece .42s cubic-bezier(.32,.72,0,1) both}
+@keyframes spyAparece{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.spy-cuerpo[data-entrando] > *{opacity:1;animation:none}}
 
 /* ── El encabezado de página: .phead. Un título grande y una línea gris. Lo que
       antes eran seis píldoras grises en fila ahora es esa línea. ── */
@@ -659,6 +667,9 @@ function OtrasRedes({ b, ocupado, onSi, onNo, onDeshacer }: {
   );
 }
 
+/** Adónde termina la caricatura de la entrada: la foto de la ficha (si no tiene foto, se funde en el centro). */
+const destinoDeEntrada = () => document.querySelector('.spy-ficha__foto');
+
 /**
  * Una cara que no cargó cae a su foto de perfil, y recién sin foto se saca. Antes se sacaba de una: si la caricatura fallaba
  * (vencida, un permiso del bucket), la tarjeta quedaba sin cara aunque tuviera su foto (4/11/2026, el Cerebro con Den Borg).
@@ -670,7 +681,8 @@ function caerAFoto(img: HTMLImageElement, foto: string | null | undefined): void
 
 function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBorrar }: {
   competidores: Competidor[]; resumen: Record<number, ResumenPiezas>;
-  onAbrir: (id: number) => void; onBorrar: (c: Competidor) => void; puedeBorrar: boolean;
+  /** `origen`: la caja de su caricatura, para que la entrada a la ficha salga de ahí (EntradaFicha.tsx). */
+  onAbrir: (id: number, origen?: Caja) => void; onBorrar: (c: Competidor) => void; puedeBorrar: boolean;
 }) {
   const desdes = Object.values(resumen).map((r) => r.desde).filter((d): d is string => !!d).sort();
   return (
@@ -712,7 +724,10 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
           const canales = [c.instagram ? 'Instagram' : null, c.youtube_id ? 'YouTube' : null, c.tiktok ? 'TikTok' : null, c.landing_url ? 'Su web' : null].filter(Boolean).join(' · ');
           return (
             <div key={c.id} className="spy-ccard" role="button" tabIndex={0}
-              onClick={() => onAbrir(c.id)}
+              onClick={(e) => {
+                const r = e.currentTarget.querySelector('.spy-ccard__cara')?.getBoundingClientRect();
+                onAbrir(c.id, r ? { left: r.left, top: r.top, width: r.width, height: r.height } : undefined);
+              }}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(c.id); } }}>
               <span className="spy-ccard__cara" style={{ '--flote': flote } as CSSProperties} aria-hidden>
                 {/* ⚠️ LA CARICATURA PRIMERO (4/11/2026): la que hizo el Runner, después la dibujada de un referente, y recién
@@ -883,6 +898,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [sugeridos, setSugeridos] = useState<Sugerido[]>(sugeridosIniciales);
   const [resumen, setResumen] = useState(resumenInicial);
   const [elegido, setElegido] = useState<number | null>(abierto ?? (iniciales.length === 1 ? iniciales[0].id : null));
+  // ── ENTRAR A UN COMPETIDOR ES EL LOADER (EntradaFicha.tsx). Con un link directo también: nace en el centro. La ficha queda
+  // escondida (`data-entrando`) mientras su caricatura espera, y aparece cuando sus tarjetitas salen de ella. ──
+  const [entrada, setEntrada] = useState<{ id: number; origen: Caja | null; fase: FaseEntrada } | null>(() => {
+    const id = abierto ?? (iniciales.length === 1 ? iniciales[0].id : null);
+    return id != null ? { id, origen: null, fase: 'esperando' } : null;
+  });
+  /** La ficha que ya tiene sus piezas en pantalla: hasta entonces, «sin gráfico» no se sabe. */
+  const [fichaLista, setFichaLista] = useState<number | null>(null);
   // Las del server se usan UNA vez, sólo para el competidor con que se abrió la página.
   const inicialesDePiezas = useRef(piezasIniciales);
   const [piezas, setPiezas] = useState<PiezaVista[]>(() => (piezasIniciales && piezasIniciales.id === (abierto ?? null) ? piezasIniciales.piezas : []));
@@ -941,7 +964,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   // pueda scrollear o que lo siga»). Mientras se traen sus piezas o corre la película, la pantalla cambia debajo de la tarjeta; se
   // espera a que termine. Y con la rueda, el recorte seguía al objetivo hasta afuera de la pantalla: ahora la mueve sólo el
   // recorrido (su `scrollIntoView` funciona igual con `overflow: hidden`).
-  const recorridoListo = !!c && !trayendo && ordenando == null;
+  // Y no durante la entrada (EntradaFicha.tsx): la ficha todavía está escondida y el velo taparía la caricatura.
+  const recorridoListo = !!c && !trayendo && ordenando == null && !(entrada && entrada.id === c.id);
   const recorridoAbierto = recorrido.abierto && recorridoListo;
   useEffect(() => {
     if (!recorridoAbierto) return;
@@ -1031,6 +1055,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       const p = ini ? ini.piezas : await traerPiezas(id);
       if (!vivo) return;
       setTrayendo(false);
+      setFichaLista(id);
       const quien = listaActual.current.find((x) => x.id === id);
       if (quien && debeLeerAlAbrir(quien, p?.length ?? 0, yaLeidos.current.has(id))) await leer(id, !p?.length).catch(() => undefined);
       else {
@@ -1057,8 +1082,10 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     return () => window.removeEventListener('popstate', alVolver);
   }, []);
 
-  const irA = useCallback((id: number | null) => {
+  const irA = useCallback((id: number | null, origen?: Caja) => {
     setElegido(id);
+    setFichaLista(null);
+    setEntrada(id != null && !quieto() ? { id, origen: origen ?? null, fase: 'esperando' } : null);
     // El detalle abierto es de una pieza del que se deja: se cierra, y el otro abre en su gráfico.
     setAbierta(null);
     setPaginaElegida(null);
@@ -1407,6 +1434,21 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   ] : [];
   const activa: Pestana = pestanas.some((p) => p.key === pestana) ? pestana : (pestanas[0]?.key ?? 'contenido');
 
+  // ── La entrada a la ficha (EntradaFicha.tsx): cuándo la caricatura deja de esperar. Con gráfico, cuando sus miniaturas se bajaron
+  // (`onListo` del gráfico). Sin gráfico (nada leído, otra pestaña), apenas están sus piezas. Si arranca la película de una primera
+  // lectura, ella tiene su propia criatura. Y nunca más de 9 s: una espera que no termina no es un loader. ──
+  const entrando = !!entrada && !!c && entrada.id === c.id;
+  const conGrafico = activa === 'contenido' && (flujo.length > 0 || anuncios.length > 0);
+  useEffect(() => {
+    if (!entrada || entrada.fase !== 'esperando' || !c || c.id !== entrada.id) return;
+    // «Reducir movimiento»: no hay entrada (el estado inicial no lo puede saber en el server).
+    if (quieto()) { setEntrada(null); return; }
+    const salir = () => setEntrada((v) => (v && v.id === entrada.id && v.fase === 'esperando' ? { ...v, fase: 'saliendo' } : v));
+    if (ordenando?.id === c.id || (fichaLista === c.id && !trayendo && !conGrafico)) { salir(); return; }
+    const t = window.setTimeout(salir, 9000);
+    return () => window.clearTimeout(t);
+  }, [entrada, c, ordenando, fichaLista, trayendo, conGrafico]);
+
   const lecturasDe = elegido != null ? lecturas[elegido] ?? null : null;
   const estaLeyendo = leyendo != null && leyendo === elegido;
   const estado = c
@@ -1545,7 +1587,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       </div>
       )}
 
-      <div className="spy-cuerpo">
+      <div className="spy-cuerpo" data-entrando={entrando ? entrada?.fase : undefined}>
+        {entrando && entrada && (
+          <EntradaFicha
+            src={caraDeTarjeta(c, caricaturaDeCompetidor(c))} inicial={inicial(c.nombre)} origen={entrada.origen} fase={entrada.fase}
+            destino={destinoDeEntrada} onFin={() => setEntrada(null)}
+          />
+        )}
         {!c && error && <p className="spy-aviso spy-error">{error}</p>}
 
         {/* ── Cero competidores: un bloque, cuatro elementos, nunca cuatro cajas. ── */}
@@ -1655,6 +1703,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                     {(flujo.length > 0 || anuncios.length > 0) && (
                       <GraficoSpy
                         c={c} piezas={piezas} analizando={autoAnalisis === c.id}
+                        retener={entrando && entrada?.fase === 'esperando'}
+                        desde={entrando && entrada?.fase === 'saliendo' ? centroDe(cajaDelCentro(window.innerWidth, window.innerHeight)) : null}
+                        onListo={() => setEntrada((v) => (v && v.id === c.id && v.fase === 'esperando' ? { ...v, fase: 'saliendo' } : v))}
                         onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })}
                         onAgregarRed={(red) => abrirCanal(red)}
                         onWeb={() => setPestana('funnel')}
