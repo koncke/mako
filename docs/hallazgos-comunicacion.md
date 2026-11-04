@@ -169,6 +169,23 @@ aviso que se emite con `contexto` y una plantilla sin editar.
 
 ---
 
+## El texto citado no entraba al turno, y lo de hace más de 7 días no existía (ticket #40, Leila, 3/11/2026)
+
+**Síntoma:** «deberías tener acceso a todos los mensajes anteriores y saber cuando un usuario hace mención a un mensaje».
+
+**Causa:** `citaDelMensaje` (lib/doer-equipo.ts) sólo decidía si le contestaban al equipo, y `textoCitado` no tenía quién lo usara. Sólo el
+audio citado entraba al turno. La memoria son 12 turnos de 14 h y hechos de 7 días.
+
+**La trampa que decidió el diseño:** copiar el camino del audio (`conElAudioCitado`, el texto dentro de `texto`) rompe el caso más común:
+un «sí» citando la propuesta de MaKo deja de ser un «sí» para el clasificador. Por eso la cita va en el system (`bloqueDeLaCita`, dentro de
+`conMemoria`, nunca a la red gratis) y sólo en un lote de varios va en el texto de cada mensaje. El mensaje sintético de un lote no trae cita.
+
+**La regla:** sumarle contexto al turno se hace en el system, no en `texto`: `texto` es lo que clasifica.
+
+**Sin hacer:** `mako_doer_conv` guarda lo que le hablaron a MaKo, y la charla del equipo entre ellos puede no estar: `buscar_en_el_grupo` lo
+dice en su nota. Las respuestas de MaKo se guardan casi siempre sin `wa_message_id`: citar a MaKo depende de que WhatsApp traiga el texto, y lo
+trae en la forma común. No se midió cuántas citas llegan sin texto.
+
 ## «No me respondiste lo de este audio»: el aviso de arreglo salió y el audio CITADO no se escucha (28/10/2026)
 
 **Síntoma.** El Cerebro le avisó a Leandro (negocio 10) a las 16:39 «ya quedó solucionado lo de las notas de voz». A las

@@ -207,4 +207,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/calendario',
   },
+  {
+    fecha: '3 nov', hora: '20:20', chat: 'Tickets de clientes', sesion: 'local_d010fa87-9186-469e-83de-d431a71f64d8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo ya no dice que no tiene acceso a tu Google Calendar',
+    puntos: [
+      'Tenías razón: MaKo sí puede crear eventos en tu Google Calendar, y te dijo que no. Ahora te lo propone y, con tu «sí», queda en tu agenda.',
+      'Lo entiende también cuando lo dices de otra forma, como «agrégalo a mi google calendar».',
+      'Si un día no se puede, te dice exactamente qué falta: conectar tu cuenta de Google, darle permiso de escribir o que lo haga quien administra el negocio.',
+      '**Cómo se prueba:** en tu grupo, «crea un evento en mi Google Calendar mañana a las 9».',
+    ],
+    archivos: [
+      'lib/mako-intencion.ts — `LUGAR_GOOGLE`, el área crm y la consulta del reclamo',
+      'lib/agenda-sin-ia.ts — `hechoGoogleCalendar`',
+      'lib/google-calendar.ts — `agendaParaEscribir`, la misma para las dos herramientas',
+      'tests/agenda-google-grupo.test.ts — por el turno del grupo y con los runners reales en canal whatsapp; 8 roturas, cada una cae',
+    ],
+    revisar: '/calendario',
+    tickets: [42],
+  },
 ];

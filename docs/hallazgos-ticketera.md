@@ -4,6 +4,17 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## El hito de commit no cierra, y `arreglado` puede quedar antes del deploy (3/11/2026)
+
+**Síntoma:** el ticket #45 quedó dado por resuelto en el relevo y el #44 figuraba `arreglado` con «Ya puedes cargar documentos…» sin que la
+función estuviera en producción.
+
+**Causa:** un ticket se cierra SOLO con el hito `tickets: [n]` en la bitácora, cuando el deploy lo trae (lib/tickets-cierre.ts). Un
+«Ticket #45» en el mensaje de un commit no cierra nada. Y `scripts/tickets.ts arreglado` guarda el texto para el cliente aunque el arreglo no
+se haya subido.
+
+**La regla:** el hito con `tickets: [n]` va en el MISMO commit que el arreglo, y `arreglado` se escribe recién con la rama en main.
+
 ## «La pantalla se rompió» era una pantalla que se volvió a dibujar sola (ticket #39, 1/11/2026)
 
 - **Síntoma:** un ticket automático de prioridad alta, «La pantalla CRM se rompió», con React #418. La persona movió un lead de etapa menos de dos minutos después (`lead_audit`).

@@ -38,7 +38,7 @@ export async function DashboardHeader({
             Dashboard Marketing
           </h1>
           <p className="mt-1 text-lg" style={{ color: 'var(--text-dim)' }}>
-            Mauricio Bustos · Datos actualizados a {fmtFechaCorta(fechaAyer)}
+            Datos actualizados a {fmtFechaCorta(fechaAyer)}
           </p>
         </div>
         {/* Filtro de fecha global (Fase C) + acceso a Leads, arriba a la derecha */}

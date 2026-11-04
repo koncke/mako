@@ -11765,3 +11765,31 @@ rompiéndolo cuatro veces.
 
 **Vive en:** app/api/crm/instagram-buscar/route.ts · lib/instagram-perfil-server.ts
 (`leerPerfilInstagram`, `APIFY_CLAVE_DE_SPY`) · app/crm/new/InstagramBuscador.tsx
+
+## La foto del buscador de Instagram NUNCA se vio, y parecía «una cuenta sin foto» (3/11/2026)
+
+**Síntoma:** el pedido del 12/10 era «me salten las opciones con las fotos de perfil». El buscador las pedía, y en la
+lista salían iniciales. Se leyó como que Instagram no devolvía la foto, o que esa cuenta no tenía.
+
+**Causa real, medida en producción el 3/11 buscando @leilahormozi:** la foto llegaba (`foto` con su URL del CDN), el `<img>`
+la pedía, y la consola decía **`net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`**. El CDN contesta con
+**`Cross-Origin-Resource-Policy: same-origin`**: no deja usar sus imágenes desde otra página. Salta el `onError`, y el `onError`
+dibuja las iniciales: **es indistinguible de un perfil sin foto**, y nadie mira la consola de un buscador que «anda». La misma
+URL pedida desde el servidor contesta 200, `image/jpeg`, 3,9 KB: esa cabecera sólo la aplica un navegador.
+
+**El diagnóstico obvio era el equivocado:** `referrerPolicy="no-referrer"` estaba puesto para esto y no alcanza; lo que corta
+no es quién la pide sino desde dónde se usa. Y `guardarFotoDeInstagram`, que copia la foto al crear el lead, sí anda porque
+corre en el servidor, donde esa regla no existe. Por eso la tarjeta del lead tenía foto y el buscador que la mostraba, no.
+
+**La regla:** una foto de `*.cdninstagram.com` o `*.fbcdn.net` se dibuja con `fotoPorNosotros` (lib/foto-instagram-reglas.ts),
+que la pasa por `/api/crm/instagram-foto`. Esa ruta pide sesión y sólo baja de esos hosts, también después de una redirección;
+sin eso sería un proxy abierto con nuestra IP. Y no devuelve SVG, que se serviría desde nuestro dominio con sus scripts.
+
+**Otra forma de lo mismo:** un `onError` que dibuja un respaldo prolijo convierte cualquier fallo en «no había dato». Si la
+pantalla se ve bien con y sin el dato, medí en la consola antes de creerle.
+
+**Lo que quedó SIN hacer:** cualquier otro `<img>` que dibuje esa URL directo tiene el mismo problema. Revisé los dos
+buscadores (`app/crm/new/InstagramBuscador.tsx`, `app/competitor-spy/BuscadorAlta.tsx`), no toda la app.
+
+**Vive en:** lib/foto-instagram-reglas.ts · app/api/crm/instagram-foto/route.ts · app/crm/new/InstagramBuscador.tsx
+

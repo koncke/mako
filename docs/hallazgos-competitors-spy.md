@@ -631,3 +631,84 @@ LANDING** — `queEs` clasificaba tiktok.com como un sitio cualquiera. Ahora Tik
 
 **Regla:** de una red que el competidor YA tiene no se ofrece nada. El que está lo eligió el
 negocio; los demás con su nombre son otra gente.
+
+## El modal de Spy: copiar es elegir la pieza por lo que HACE (3/11/2026)
+
+**Síntoma:** Martín, 3/11 — «No se mejoró ni el modal, sigue horrible el diseño... Y no tiene sentido que tenga 2
+tabs». El #8 figuraba HECHO: se había arreglado cómo FUNCIONA y no cómo se VE.
+
+**Lo medido en producción antes de tocar nada:** la caja medía 480×254 con **`padding: 0`**. `ModalShell` no pone aire
+y `.spy-modal` tampoco: el texto iba pegado a los bordes en TODOS los modales de la tab. Era un bug, no un gusto. Y el
+campo gris no era nuestro: venía de `campo` en `InstagramBuscador.tsx`, que en el alta del CRM combina con el formulario.
+
+**El diagnóstico obvio era el equivocado:** «copiar un modal» manda a copiar el modal de `merrin` («New customer»), que
+es un formulario, y un formulario es lo que había. La pieza que hace lo mismo que esto —escribir, ver filas, elegir— es
+**su buscador de ⌘K (`.finder`)**, y ése no se llama modal en ningún lado. Medidas en
+[diseno/referencia-spy.md](diseno/referencia-spy.md). **Regla: la referencia se elige por lo que hace, no por cómo se
+llama** (es el mismo hallazgo de fitlo, una tienda de ropa, un nivel más abajo).
+
+### Cuatro cosas que gastaban del tope sin que nadie lo viera
+
+El tope (`APIFY_TOPE_POR_DIA`, 40) es lo que deja a un negocio sin poder agregar a nadie, y ninguna de estas da error:
+
+- ⚠️ **La búsqueda por nombre no contaba.** La cabecera de `lib/instagram-buscar-apify.ts` decía que el tope la cubría
+  («peor caso US$0,48 por día»), pero sólo `leerPerfilInstagram` contaba. Escribir nombres no tenía techo. Ahora pasa por
+  `gastarBusquedaDeSpy`, y sin cupo la pantalla lo dice en vez de «no encontré a nadie» (`limite`).
+- ⚠️ **La misma persona se pagaba dos veces.** La clave de la caché lleva la lista de fuentes, y el buscador y la vista
+  previa piden listas distintas: escribir su @ gastaba una lectura y confirmarla, otra. `claveLeido` comparte lo leído bien
+  entre todos. Lleva el ancho (`anchas`/`angostas`): una lectura sin piezas no puede contestarle a quien pide piezas, o
+  diría «no publica sus me gusta» de quien sí los publica.
+- ⚠️ **Un tope con reserva habría tapado a la vista previa.** `reservaApify` hace fallar antes a lo que nadie pidió con un
+  clic, y ese fallo se cachea 10 minutos. Con la misma clave, la fila que no se completó le contestaba «no pude» a quien
+  la elegía. La reserva entra en la clave.
+- ⚠️ **Un link de su perfil se buscaba como un NOMBRE.** `usuarioDeTexto` no acepta enlaces, así que la ruta gastaba 20 s de
+  búsqueda en un texto que ya decía quién es. `queSeHace` manda `@usuario`, y a quien ya se mira no se lo busca.
+
+### Y dos más que no son de plata
+
+- ⚠️ **La vista previa no podía leer con la clave de Spy.** Llamaba con las fuentes por defecto, que no incluyen `apify-spy`,
+  y con sólo esa clave contestaba «no pude leer» habiendo con qué. El mismo bug que el CRM arregló el 2/11: **una lista de
+  fuentes por defecto es un lector distinto en cada llamada**. Ahora hay `leerPerfilParaElAlta`, y la lista vive ahí.
+- ⚠️ **Completar va por una ruta, no por una server action.** Next pone en FILA las actions de una pantalla: cinco lecturas
+  de ~10 s habrían dejado esperando el «Sí, agregar», sin nada que lo explique. Un `fetch` no hace fila y se cancela.
+
+### Y la búsqueda no trae a quien buscás
+
+Medido en producción con «leila hormozi»: Apify trajo @leila.hormozi.1368, @leihormoz, @leillahormozi y
+@leila_hormozi63, sin una sola foto, y **a la verdadera no**. @leilahormozi existe y se lee en 5 s. Por eso con un nombre se
+prueba además su @ pegado (`usuarioDelNombre`), y esa fila sale sólo si la cuenta existe: lo dice la lectura, no una suposición.
+
+**Lo que NO se pudo medir:** qué negocios tienen cada clave de Apify, porque leer `credenciales` lo frenó el permiso de
+la sesión; el código pide las dos. `spy_lecturas_canal` estaba en **0 filas** el 3/11: la poda todavía no tiene qué borrar, y
+`anotarAhorro` tampoco tiene con qué medirse.
+
+**Vive en:** app/competitor-spy/BuscadorAlta.tsx · lib/spy-alta-reglas.ts · lib/spy-que-es.ts ·
+lib/instagram-perfil-server.ts · app/api/competitor-spy/perfil · app/api/cron/spy-poda · tests/spy-buscador-alta.test.ts
+
+**Probado rompiéndolo:** 39 roturas, una por vez y restaurada, y las 39 dieron rojo (`tests/spy-buscador-alta.test.ts` y `tests/instagram-perfil-fuentes.test.ts`, más
+`tests/cron-registrado.test.ts` para la agenda). Sacarle a `cualesCompletar` el tope, que lea lo ya completo o que repita lo
+pedido; la foto directa al CDN en las dos pantallas; el proxy abierto o que siga una redirección; el campo gris; la barra que
+guarda sin confirmar; la búsqueda sin contar; el cron caído que contesta 200.
+
+## Unfunnelizer: qué copiar para Spy, y lo que Spy ya guarda y tira (03/11/2026, Cerebro)
+
+Martín: «investiga esto para copiarlo en la extension de MaKo» y «Obvio que esto va para la funcionalidad de Competitors Spy». Se investigó sin instalarla: ficha, documentos y el código de MaKo. Se copia la función, nunca su código, textos ni imágenes.
+
+**Lo que se encontró en casa:**
+- ⚠️ Los píxeles ya se leen y se tiran: `pixelesMetaDe` (`lib/landing-analisis.ts:389`) guarda `meta-px:` en `etiquetas`, y `nombresDe` los descarta al dibujar.
+- ⚠️ Las columnas de anuncios están y nadie las llena: `diasCorriendo` y `etapaDeTendencia` existen, pero `guardarAnuncioPegado` (`lib/spy.ts:691`) sólo guarda enlace y copy, y `pagina_anuncios` no la escribe nadie.
+- ⚠️ La poda de YouTube alcanza a todos los canales: `podarVencido` borraría a los 30 días lo leído de la Biblioteca, que no se relee. Y por eso `etiquetas` no sirve para datos nuevos: hace falta una columna propia.
+- `RE_CHECKOUT` (`lib/landing-conversion.ts:50`) ya reconoce Stripe, Hotmart y Mercado Pago, pero Spy no lo usa. VTurb y Vidalytics no aparecen en ningún lado.
+- ⚠️ No tocar `HOSTS_VIDEO` para esto: es el flujo del Pixel de los clientes, y esa cabecera avisa del riesgo de mandarles avisos falsos.
+
+**La regla que queda:**
+- Lo que se lee con la extensión se interpreta en el SERVIDOR: si cambia el diseño de un sitio, se arregla con un deploy y no con otra revisión de Chrome.
+- `activeTab` no muestra advertencia, así que no debería desactivar la extensión a los clientes al actualizar (deducido de la documentación de Chrome, sin medir). Un permiso de sitios sí.
+- Lo leído de Meta NO entra en `spy_lecturas_canal`: compartirlo entre negocios sería justo la transferencia a terceros que prohíben sus términos.
+
+**Qué NO se copia:** la descarga de VSL, el «fetch-relay» contra el hotlink, el modo Brute y la página desbloqueada. La política de Chrome prohíbe facilitar esa descarga y eludir muros, y reincidir puede cerrar la cuenta que distribuye la extensión a los clientes que pagan.
+
+**Sin hacer:**
+- Tanda A, en el servidor (`lib/spy-funnel.ts`, desde `mirarCompetidor`, `lib/spy.ts:520`): píxeles, checkout y VSL en la pestaña «Su web» (`SpyApp.tsx:1297`). 1-2 días, sin revisión de Chrome.
+- Tanda B, «Guardar en Spy» en la extensión: 3-4 días más la revisión. ⚠️ Antes de subirla hay que corregir `app/privacidad/extension/page.tsx`, que afirma «No accede a ningún sitio fuera de…», y la descripción de la ficha. Depende de la decisión abierta en `docs/diseno-competitors-spy.md` §9.1, por los términos de Meta.
+- Sin comprobar: si `performance` ve los recursos desde el mundo aislado, si `chrome.action.openPopup` otorga `activeTab`, y el HTML actual de la Biblioteca.

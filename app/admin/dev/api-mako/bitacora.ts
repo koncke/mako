@@ -525,4 +525,22 @@ export const BITACORA: Hito[] = [
       'tests/horas-del-negocio.test.ts',
     ],
   },
+  {
+    fecha: '3 nov', hora: '20:20', chat: 'Tickets de clientes', sesion: 'local_d010fa87-9186-469e-83de-d431a71f64d8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los comandos para instalar el plugin de MaKo ya no nombran a otra persona',
+    puntos: [
+      'El plugin de MaKo ahora se instala desde la cuenta de MaKo: `/plugin marketplace add koncke/mako-plugin`.',
+      'Revisamos toda la app y sacamos el nombre que había quedado en otros textos: una propuesta, un ejemplo de un curso, un texto de ayuda.',
+      'Y los análisis de guiones y de llamadas ya no le dicen a la IA a qué se dedica otro negocio.',
+      '**Cómo se prueba:** en Settings → Integrations, abre el tutorial de Claude y mira los dos comandos.',
+    ],
+    archivos: [
+      'app/_components/TutorialAgente.tsx — los dos comandos',
+      'lib/ads-analyst.ts · lib/closing.ts — los prompts',
+      'tests/sin-nombre-de-un-cliente.test.ts — frena el nombre en cualquier pantalla o prompt; 4 roturas, cada una cae',
+    ],
+    revisar: '/integraciones',
+    tickets: [41],
+  },
 ];

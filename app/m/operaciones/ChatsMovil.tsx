@@ -55,6 +55,7 @@ import { HojaDelGuru } from '@/app/m/second-brain/HojaDelGuru';
 const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 const metaDe = (c: ChatCentro) => ESTADO[c.estado];
 import { copiar, type useFirma } from '@/app/admin/operaciones/mandar';
+import { NO_PUDE_COPIAR } from '@/lib/copiar-texto';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import type { Centro } from '@/app/admin/operaciones/useCentro';
@@ -330,7 +331,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     if (id.startsWith('reaccion:')) { const e = id.slice('reaccion:'.length); void centro.marcar(elegido, { tipo: 'reaccion', id: m.id, emoji: marcas.reacciones[m.id] === e ? null : e }); return; }
     if (id === 'transcripcion') { if (m.trabajo) alternarTranscripcion(m.trabajo.id); return; }
     if (id === 'responder') { accionesWA.responder(m); return; }
-    if (id === 'copiar') { void copiar(m.texto).then((ok) => toast(ok ? 'Copiado' : 'No pude copiar')); return; }
+    if (id === 'copiar') { void copiar(m.texto).then((ok) => toast(ok ? 'Copiado' : NO_PUDE_COPIAR)); return; }
     if (id === 'reenviar' || id === 'info') { setPanelWA({ tipo: id, m }); return; }
     if (id === 'destacar') { void centro.marcar(elegido, { tipo: 'destacar', id: m.id, si: !marcas.destacados.includes(m.id) }); return; }
     if (id === 'fijar') { void centro.marcar(elegido, { tipo: 'fijar', id: m.id, si: !marcas.fijados.includes(m.id) }); return; }
@@ -347,7 +348,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const enviando = centro.enviando;
   const copiarClave = async () => {
     if (!firma.clave) return;
-    toast(await copiar(firma.clave.spki) ? 'Copiado: pégalo en el Runner' : 'No pude copiar');
+    toast(await copiar(firma.clave.spki) ? 'Copiado: pégalo en el Runner' : NO_PUDE_COPIAR);
   };
   const crearClave = async () => { toast((await firma.crear()) ? 'Token creado' : 'No pude crear tu Token'); };
 
