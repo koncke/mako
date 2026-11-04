@@ -202,21 +202,30 @@ const LANDING: PlantillaHoja = {
     componentes: [
       // COMPOSICIÓN DEL 31/10/2026: entran, bajan, tocan. El mapa de calor sube a portada (lib/graficos-portadas.ts). Lo de fondo va en
       // una sección plegada: 400 px de grabaciones no compiten con la pregunta de la hoja, y «lo plegado sale de la grilla».
-      kpi(id('la-visitas'), 'visitas', 'visitas', 'Visitas', '', 0, 0, { tipo: 'numero_tendencia', comparar: true, invertida: true }),
-      kpi(id('la-personas'), 'visitas', 'visitantes', 'Personas distintas', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('la-mitad-pagina'), 'scroll', 'pct_50', 'Llegan a la mitad', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('la-tocan'), 'clics', 'personas', 'Tocan un botón', '', 9, 0, { tipo: 'numero_tendencia' }),
-      { id: id('la-mapa-mapa'), clase: 'grafico', tipo: 'mapa_calor', fuente: 'toques', metricas: ['toques'], titulo: 'Mapa de calor', x: 0, y: 4, w: 12, h: 24 },
+      // 4/11/2026 — CORBEL · KESTREL (docs/templates-dashboard-propuesta.md §7.3): «¿hasta dónde bajan y dónde hacen clic?». Abre con la
+      // frase de cuánta gente entró y si son más o menos que antes (Kestrel); el ancla es «Llegan a la mitad», que es lo que la hoja
+      // pregunta, y cada número lleva a donde se arregla la página (Corbel).
+      {
+        id: id('la-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'visitas', metricas: ['visitas', 'visitantes'], comparar: true,
+        titulo: 'Tu página', frase: 'Entraron {visitas} visitas de {visitantes} personas · {visitas:cambio} que el período anterior',
+        ir: 'web-generator', x: 0, y: 0, w: 12, h: 3,
+      },
+      // Las visitas y las personas ya las dice la frase: los números son lo que pasa ADENTRO de la página.
+      kpi(id('la-mitad-pagina'), 'scroll', 'pct_50', 'Llegan a la mitad', '', 0, 3, { tipo: 'numero_tendencia', invertida: true, ir: 'web-generator' }),
+      kpi(id('la-final'), 'scroll', 'pct_100', 'Llegan al final', '', 3, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('la-tocan'), 'clics', 'personas', 'Tocan un botón', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('la-puntaje'), 'landing_analisis', 'puntaje', 'Puntaje de la página', '', 9, 3, { fecha: 'actual', ir: 'web-generator' }),
+      { id: id('la-mapa-mapa'), clase: 'grafico', tipo: 'mapa_calor', fuente: 'toques', metricas: ['toques'], titulo: 'Mapa de calor', x: 0, y: 7, w: 12, h: 24 },
       {
         id: id('la-visitas-dia'), clase: 'grafico', tipo: 'serie', fuente: 'visitas', dimension: 'dia', metricas: ['visitas', 'visitantes'],
-        titulo: 'Visitas por día', x: 0, y: 28, w: 8, h: 9, controles: [{ id: id('la-visitas-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
+        titulo: 'Visitas por día', x: 0, y: 31, w: 8, h: 9, controles: [{ id: id('la-visitas-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
-      { id: id('la-origen'), clase: 'grafico', tipo: 'barras', fuente: 'visitas', dimension: 'origen', metricas: ['visitas'], limite: 10, titulo: 'De dónde llegan', x: 8, y: 28, w: 4, h: 9 },
-      { id: id('la-scroll'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'scroll', metricas: ['medidos', 'llegaron_25', 'llegaron_50', 'llegaron_75', 'llegaron_100'], titulo: 'Hasta dónde bajan', x: 0, y: 37, w: 5, h: 10 },
-      { id: id('la-clics'), clase: 'grafico', tipo: 'barras', fuente: 'clics', dimension: 'destino', metricas: ['clics'], ordenMetrica: 'clics', limite: 10, titulo: 'Qué botón tocan', x: 5, y: 37, w: 7, h: 10 },
-      { id: id('la-grab-pagina'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'replays', dimension: 'pagina', metricas: ['grabaciones', 'duracion', 'visitantes'], barra: 'grabaciones', titulo: 'Grabaciones por página', x: 0, y: 48, w: 12, h: 8 },
+      { id: id('la-origen'), clase: 'grafico', tipo: 'barras', fuente: 'visitas', dimension: 'origen', metricas: ['visitas'], limite: 10, titulo: 'De dónde llegan', x: 8, y: 31, w: 4, h: 9 },
+      { id: id('la-scroll'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'scroll', metricas: ['medidos', 'llegaron_25', 'llegaron_50', 'llegaron_75', 'llegaron_100'], titulo: 'Hasta dónde bajan', x: 0, y: 40, w: 5, h: 10 },
+      { id: id('la-clics'), clase: 'grafico', tipo: 'barras', fuente: 'clics', dimension: 'destino', metricas: ['clics'], ordenMetrica: 'clics', limite: 10, titulo: 'Qué botón tocan', x: 5, y: 40, w: 7, h: 10 },
+      { id: id('la-grab-pagina'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'replays', dimension: 'pagina', metricas: ['grabaciones', 'duracion', 'visitantes'], barra: 'grabaciones', titulo: 'Grabaciones por página', x: 0, y: 51, w: 12, h: 8 },
       // El diagnóstico que MaKo guardó de cada página (analizar es una tarea: vive en Landing Generator).
-      { id: id('la-diagnostico'), clase: 'grafico', tipo: 'barras', fuente: 'landing_analisis', fecha: 'actual', dimension: 'pagina', metricas: ['puntaje'], ordenMetrica: 'puntaje', titulo: 'Diagnóstico de cada página', x: 0, y: 56, w: 12, h: 8 },
+      { id: id('la-diagnostico'), clase: 'grafico', tipo: 'barras', fuente: 'landing_analisis', fecha: 'actual', dimension: 'pagina', metricas: ['puntaje'], ordenMetrica: 'puntaje', titulo: 'Diagnóstico de cada página', ir: 'web-generator', x: 0, y: 59, w: 12, h: 8 },
     ],
   }),
 };
@@ -233,34 +242,44 @@ const CLOSING: PlantillaHoja = {
       lista(id('cl-closer'), 'closer'),
     ],
     componentes: [
+      // 4/11/2026 — HALDEN · MOORLY · TANDEM (docs/templates-dashboard-propuesta.md §7.3): «¿por qué se cerró o no, y quién cierra
+      // mejor?». Halden abre con la frase de lo ganado y cómo terminaron las llamadas; Moorly, la lista; Tandem, el equipo lado a lado
+      // y el score en el tiempo. ⚠️ El closer ve ESTA hoja (HOJA_DE_ROL): sólo llamadas, nunca la plata ni los leads.
+      {
+        id: id('cl-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'llamadas_venta', metricas: ['llamadas', 'ganadas', 'tasa_cierre'], comparar: true,
+        titulo: 'Tus llamadas', frase: 'Analizaste {llamadas} llamadas de venta · ganaste {ganadas} · cerraste el {tasa_cierre}, {tasa_cierre:cambio} que el período anterior',
+        ir: 'crm', x: 0, y: 0, w: 12, h: 3,
+      },
       // COMPOSICIÓN DEL 31/10/2026 (13 piezas → 10): cuatro números iguales, con la tasa de cierre primero porque es lo que la
       // hoja pregunta. R1 y R2 eran el mismo puntaje con un filtro, y el cruce closer × dimensión vuelve con un clic en la tabla.
-      kpi(id('cl-tasa'), 'llamadas_venta', 'tasa_cierre', 'Tasa de cierre', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
-      kpi(id('cl-puntaje'), 'llamadas_venta', 'puntaje', 'Score promedio', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('cl-analizadas'), 'llamadas_venta', 'llamadas', 'Analizadas', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('cl-duracion'), 'llamadas_venta', 'duracion', 'Duración', '', 9, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('cl-tasa'), 'llamadas_venta', 'tasa_cierre', 'Tasa de cierre', '', 0, 3, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('cl-puntaje'), 'llamadas_venta', 'puntaje', 'Score promedio', '', 3, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('cl-analizadas'), 'llamadas_venta', 'llamadas', 'Analizadas', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('cl-duracion'), 'llamadas_venta', 'duracion', 'Duración', '', 9, 3, { tipo: 'numero_tendencia' }),
       // El embudo (sube a portada: lib/graficos-portadas.ts) y lo que separa las ganadas de las perdidas.
       {
         id: id('cl-embudo-embudo'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'llamadas_venta', metricas: ['r1', 'r2', 'ganadas_r2'],
-        titulo: 'Embudo de llamadas', subtitulo: 'Cuenta llamadas, no personas', x: 0, y: 4, w: 6, h: 10,
+        titulo: 'Embudo de llamadas', subtitulo: 'Cuenta llamadas, no personas', x: 0, y: 7, w: 6, h: 10,
       },
       {
         id: id('cl-factores-barras'), clase: 'grafico', tipo: 'barras', fuente: 'llamadas_dimensiones', dimension: 'dimension', desglose: 'tono',
-        metricas: ['puntaje'], titulo: 'Factores del cierre', x: 6, y: 4, w: 6, h: 10,
+        metricas: ['puntaje'], titulo: 'Factores del cierre', x: 6, y: 7, w: 6, h: 10,
       },
-      caja(id('cl-factores-ia'), 'Qué decide tus cierres', 'Qué decide los cierres: qué hacen distinto las llamadas ganadas', 0, 14, 12, 7,
+      caja(id('cl-factores-ia'), 'Qué decide tus cierres', 'Qué decide los cierres: qué hacen distinto las llamadas ganadas', 0, 17, 12, 7,
         { fuentes: [id('cl-factores-barras')], largo: 'corto', formato: 'vinetas' }),
       // El equipo
       {
         id: id('cl-closers-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'closer', metricas: ['llamadas', 'puntaje', 'ganadas', 'tasa_cierre'],
-        titulo: 'El equipo de closers', x: 0, y: 21, w: 12, h: 10,
+        titulo: 'El equipo de closers', x: 0, y: 24, w: 12, h: 10,
       },
+      { id: id('cl-resultado'), clase: 'grafico', tipo: 'anillo', fuente: 'llamadas', dimension: 'resultado', metricas: ['llamadas'], titulo: 'Cómo terminaron', x: 0, y: 34, w: 6, h: 8 },
+      { id: id('cl-puntaje-semana'), clase: 'grafico', tipo: 'serie', fuente: 'llamadas_venta', dimension: 'semana', metricas: ['puntaje'], titulo: 'El score por semana', x: 6, y: 34, w: 6, h: 8 },
       // 5 · Las llamadas: traer las nuevas (el cron de siempre y este botón) y la lista, con su búsqueda y el
       //     pop-up «Llamada» (la ficha de cada una, con sus tareas).
-      accion(id('cl-llamadas-sync'), 'sincronizar_llamadas', 'Sincronizar llamadas', 0, 31, 3, 2),
+      accion(id('cl-llamadas-sync'), 'sincronizar_llamadas', 'Sincronizar llamadas', 0, 42, 3, 2),
       {
         id: id('cl-llamadas-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'llamada', metricas: ['puntaje', 'duracion'],
-        titulo: 'Las llamadas', limite: 50, x: 0, y: 33, w: 12, h: 16,
+        titulo: 'Las llamadas', limite: 50, x: 0, y: 44, w: 12, h: 16,
         tabla: { buscar: true, columnas: ['closer', 'reunion', 'dia'] },
         alClic: 'popup', popup: popupDe(POPUP_LLAMADA, id, 'cl-llamadas-tabla'),
       },
@@ -314,40 +333,54 @@ const PRODUCTIVIDAD: PlantillaHoja = {
   }),
 };
 
-// ── VSL Analyst (v5, punto 22) ───────────────────────────────────────────────────────────────
-// Todo sale del PIXEL (vsl_events, su resumen y los leads con visitor_id), nada de Panda ni YouTube: las vistas
-// de `negocio` salen de una tabla que sólo tiene un cliente. Sin `comparar` en los números del video: cada uno
+// ── VSL y YouTube (v5, punto 22; se llama así desde el 4/11/2026) ─────────────────────────────
+// Lo del video sale del PIXEL (vsl_events, su resumen y los leads con visitor_id). Las vistas y su costo salen de
+// `negocio` (YouTube del video marcado VSL más los plays de Panda), que hoy sólo tiene un cliente: para los demás
+// esos dos números quedan sin dato. Sin `comparar` en los números del video: cada uno
 // sería una lectura más de los eventos, que es lo más pesado del Dashboard (hallazgos-graficos.md, «La hoja
 // Landing tardaba 51 s»).
 
 const VSL: PlantillaHoja = {
-  id: 'vsl-analyst', nombre: 'VSL Analyst', emoji: '🎥',
+  // 4/11/2026 — se llama «VSL y YouTube» (docs/templates-dashboard-propuesta.md §7.3): la MISMA forma que Hooks y retención, con otra
+  // fuente. Pregunta «¿quién llega al final y ésos compran más?». Las vistas del VSL ya suman las de YouTube (el video marcado VSL) y los
+  // plays de Panda (`negocio.vistas_vsl`), con su costo. El id sigue siendo `vsl-analyst`: las hojas guardadas y /vsl-analyst lo usan.
+  id: 'vsl-analyst', nombre: 'VSL y YouTube', emoji: '🎥', buscar: 'VSL Analyst video de ventas',
   linea: 'Quién le da play a tu video, dónde se va, y si los que lo ven más agendan y compran más.',
   armar: (id: Id) => ({
-    id: id('vsl-analyst'), nombre: 'VSL Analyst', emoji: '🎥', subtitulo: 'Tu video de ventas: quién lo ve, hasta dónde, y qué pasa después.',
+    id: id('vsl-analyst'), nombre: 'VSL y YouTube', emoji: '🎥', subtitulo: 'Tu video de ventas: quién lo ve, hasta dónde, y qué pasa después.',
     controles: [
       { id: id('vs-periodo'), tipo: 'periodo', preset: 'ult30' },
       lista(id('vs-pagina'), 'pagina'),
       lista(id('vs-video'), 'video'),
     ],
     componentes: [
+      {
+        // Sin `comparar`: cada comparación es una lectura más de los eventos del video, lo más pesado del Dashboard.
+        id: id('vs-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'retencion_vsl', metricas: ['arrancaron', 'llegaron_final'],
+        titulo: 'Tu video', frase: '{arrancaron} personas le dieron play · {llegaron_final} lo vieron entero',
+        ir: 'web-generator', x: 0, y: 0, w: 12, h: 3,
+      },
       // COMPOSICIÓN DEL 31/10/2026: play, llegan al final, agendan. La curva es LA forma del dato (sube a portada); el embudo de los
       // mismos cortes se fue, y las tasas por video viven como columnas. La caja de MaKo va al pie: arriba tapaba la pregunta.
-      kpi(id('vs-final'), 'retencion_vsl', 'tasa_final', 'Llegan al final', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
-      kpi(id('vs-play'), 'retencion_vsl', 'arrancaron', 'Le dieron play', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('vs-play-rate'), 'vsl', 'play_rate', 'Le dan play', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('vs-agendaron'), 'vsl', 'agendaron', 'Agendaron', '', 9, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('vs-final'), 'retencion_vsl', 'tasa_final', 'Llegan al final', '', 0, 3, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('vs-vistas'), 'negocio', 'vistas_vsl', 'Vistas del VSL', '', 3, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('vs-costo-vista'), 'negocio', 'costo_vsl', 'Costo por vista', '', 6, 3, { tipo: 'numero_tendencia', ir: 'ads-manager' }),
+      kpi(id('vs-agendaron'), 'vsl', 'agendaron', 'Agendaron', '', 9, 3, { tipo: 'numero_tendencia', ir: 'crm' }),
       // La curva de la tab vieja (el bloque curva_vsl): cuántos siguen en cada corte del video.
-      { id: id('vs-curva'), clase: 'grafico', tipo: 'area', fuente: 'retencion_vsl', dimension: 'corte', metricas: ['siguen'], titulo: 'Dónde se van', x: 0, y: 4, w: 12, h: 10 },
+      { id: id('vs-curva'), clase: 'grafico', tipo: 'area', fuente: 'retencion_vsl', dimension: 'corte', metricas: ['siguen'], titulo: 'Dónde se van', x: 0, y: 7, w: 12, h: 10 },
       {
         id: id('vs-tramos'), clase: 'grafico', tipo: 'columnas', fuente: 'vsl_leads', fecha: 'alta', dimension: 'tramo_visto', metricas: ['leads', 'agendas', 'cierres'],
-        titulo: '¿Los que más ven, más compran?', x: 0, y: 14, w: 7, h: 10,
+        titulo: '¿Los que más ven, más compran?', x: 0, y: 17, w: 7, h: 10,
       },
       {
         id: id('vs-videos'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'retencion_vsl', dimension: 'video', metricas: ['arrancaron', 'tasa_25', 'tasa_50', 'tasa_final'],
-        ordenMetrica: 'arrancaron', barra: 'arrancaron', titulo: 'Por video', x: 7, y: 14, w: 5, h: 10,
+        ordenMetrica: 'arrancaron', barra: 'arrancaron', titulo: 'Por video', x: 7, y: 17, w: 5, h: 10,
       },
-      caja(id('vs-ia'), 'Qué dice tu video', 'En qué parte del video se va la gente, y si los que lo ven más agendan más', 0, 24, 12, 6),
+      {
+        id: id('vs-vistas-semana'), clase: 'grafico', tipo: 'columnas', fuente: 'negocio', dimension: 'semana', metricas: ['vistas_vsl'],
+        titulo: 'Vistas por semana', x: 0, y: 27, w: 12, h: 8,
+      },
+      caja(id('vs-ia'), 'Qué dice tu video', 'En qué parte del video se va la gente, y si los que lo ven más agendan más', 0, 35, 12, 6),
     ],
   }),
 };
@@ -412,18 +445,35 @@ const CHAT: PlantillaHoja = {
     componentes: [
       // COMPOSICIÓN DEL 31/10/2026 (14 piezas → 8): cuánto entra, qué tan rápido, cuánto espera. «Esperando» queda `numero`: su
       // fecha es `actual`, sin rango. La caja de MaKo va al pie: nace sin correr, y arriba tapaba la pregunta.
-      kpi(id('ch-recibidos'), 'whatsapp', 'recibidos', 'Recibidos', '', 0, 0, { tipo: 'numero_tendencia', comparar: true, invertida: true }),
-      kpi(id('ch-chats'), 'whatsapp', 'chats', 'Chats', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('ch-rapidos'), 'conversaciones', 'pct_rapidos', 'Respondidos en 15 min', '', 6, 4),
-      kpi(id('ch-mediana'), 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('ch-esperando'), 'conversaciones', 'sin_responder', 'Esperando', '', 9, 0, { fecha: 'actual' }),
+      // 4/11/2026 — PARLEY · TEND (docs/templates-dashboard-propuesta.md §7.3): «¿cuánto tardamos en contestar y eso cierra?». Parley
+      // abre con la frase de cuántas veces te escribieron y cuántas respondiste; el ancla es el tiempo de respuesta. Tend pone ese
+      // tiempo por día y lo que rinden las automatizaciones. ⚠️ El setter ve ESTA hoja (HOJA_DE_ROL): todo sale de los chats, los
+      // envíos y las personas en automatizaciones, nunca de los leads ni la plata.
+      {
+        id: id('ch-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'conversaciones', metricas: ['turnos', 'pct_respondidos'], comparar: true,
+        titulo: 'Tus chats', frase: 'Te escribieron {turnos} veces · respondiste el {pct_respondidos} · {pct_respondidos:cambio} que el período anterior',
+        ir: 'chats', x: 0, y: 0, w: 12, h: 3,
+      },
+      kpi(id('ch-mediana'), 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta', '', 0, 3, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('ch-recibidos'), 'whatsapp', 'recibidos', 'Recibidos', '', 3, 3, { tipo: 'numero_tendencia', comparar: true }),
+      kpi(id('ch-chats'), 'whatsapp', 'chats', 'Chats', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('ch-esperando'), 'conversaciones', 'sin_responder', 'Esperando', '', 9, 3, { fecha: 'actual', ir: 'chats' }),
+      kpi(id('ch-rapidos'), 'conversaciones', 'pct_rapidos', 'Respondidos en 15 min', '', 0, 7),
       {
         id: id('ch-por-dia'), clase: 'grafico', tipo: 'serie', fuente: 'whatsapp', dimension: 'dia', metricas: ['recibidos', 'enviados'], titulo: 'Mensajes por día',
-        x: 0, y: 8, w: 12, h: 8, controles: [{ id: id('ch-por-dia-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
+        x: 0, y: 11, w: 12, h: 8, controles: [{ id: id('ch-por-dia-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
-      { id: id('ch-setters'), clase: 'grafico', tipo: 'barras', fuente: 'conversaciones', dimension: 'setter', metricas: ['turnos', 'pct_rapidos'], titulo: 'Por setter', x: 0, y: 16, w: 6, h: 8 },
-      { id: id('ch-lineas'), clase: 'grafico', tipo: 'columnas_apiladas', fuente: 'whatsapp', dimension: 'linea', desglose: 'direccion', metricas: ['mensajes'], titulo: 'Por línea', x: 6, y: 16, w: 6, h: 8 },
-      caja(id('ch-ia'), 'Dónde se enfría el chat', 'En qué momento se enfrían las conversaciones y qué responder mejor', 0, 24, 12, 7),
+      { id: id('ch-setters'), clase: 'grafico', tipo: 'barras', fuente: 'conversaciones', dimension: 'setter', metricas: ['turnos', 'pct_rapidos'], titulo: 'Por setter', x: 0, y: 19, w: 6, h: 8 },
+      { id: id('ch-lineas'), clase: 'grafico', tipo: 'columnas_apiladas', fuente: 'whatsapp', dimension: 'linea', desglose: 'direccion', metricas: ['mensajes'], titulo: 'Por línea', x: 6, y: 19, w: 6, h: 8 },
+      {
+        id: id('ch-rapidos-dia'), clase: 'grafico', tipo: 'serie', fuente: 'conversaciones', dimension: 'dia', metricas: ['pct_rapidos'],
+        titulo: 'Respondidos en 15 min, por día', x: 0, y: 27, w: 6, h: 8,
+      },
+      {
+        id: id('ch-automatizaciones'), clase: 'grafico', tipo: 'barras', fuente: 'inscripciones', fecha: 'alta', dimension: 'automatizacion', metricas: ['tasa_respuesta'],
+        ordenMetrica: 'tasa_respuesta', limite: 8, titulo: 'Te contestan, por automatización', ir: 'automations', x: 6, y: 27, w: 6, h: 8,
+      },
+      caja(id('ch-ia'), 'Dónde se enfría el chat', 'En qué momento se enfrían las conversaciones y qué responder mejor', 0, 35, 12, 7),
     ],
   }),
 };
