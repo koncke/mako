@@ -202,21 +202,30 @@ const LANDING: PlantillaHoja = {
     componentes: [
       // COMPOSICIÓN DEL 31/10/2026: entran, bajan, tocan. El mapa de calor sube a portada (lib/graficos-portadas.ts). Lo de fondo va en
       // una sección plegada: 400 px de grabaciones no compiten con la pregunta de la hoja, y «lo plegado sale de la grilla».
-      kpi(id('la-visitas'), 'visitas', 'visitas', 'Visitas', '', 0, 0, { tipo: 'numero_tendencia', comparar: true, invertida: true }),
-      kpi(id('la-personas'), 'visitas', 'visitantes', 'Personas distintas', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('la-mitad-pagina'), 'scroll', 'pct_50', 'Llegan a la mitad', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('la-tocan'), 'clics', 'personas', 'Tocan un botón', '', 9, 0, { tipo: 'numero_tendencia' }),
-      { id: id('la-mapa-mapa'), clase: 'grafico', tipo: 'mapa_calor', fuente: 'toques', metricas: ['toques'], titulo: 'Mapa de calor', x: 0, y: 4, w: 12, h: 24 },
+      // 4/11/2026 — CORBEL · KESTREL (docs/templates-dashboard-propuesta.md §7.3): «¿hasta dónde bajan y dónde hacen clic?». Abre con la
+      // frase de cuánta gente entró y si son más o menos que antes (Kestrel); el ancla es «Llegan a la mitad», que es lo que la hoja
+      // pregunta, y cada número lleva a donde se arregla la página (Corbel).
+      {
+        id: id('la-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'visitas', metricas: ['visitas', 'visitantes'], comparar: true,
+        titulo: 'Tu página', frase: 'Entraron {visitas} visitas de {visitantes} personas · {visitas:cambio} que el período anterior',
+        ir: 'web-generator', x: 0, y: 0, w: 12, h: 3,
+      },
+      // Las visitas y las personas ya las dice la frase: los números son lo que pasa ADENTRO de la página.
+      kpi(id('la-mitad-pagina'), 'scroll', 'pct_50', 'Llegan a la mitad', '', 0, 3, { tipo: 'numero_tendencia', invertida: true, ir: 'web-generator' }),
+      kpi(id('la-final'), 'scroll', 'pct_100', 'Llegan al final', '', 3, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('la-tocan'), 'clics', 'personas', 'Tocan un botón', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('la-puntaje'), 'landing_analisis', 'puntaje', 'Puntaje de la página', '', 9, 3, { fecha: 'actual', ir: 'web-generator' }),
+      { id: id('la-mapa-mapa'), clase: 'grafico', tipo: 'mapa_calor', fuente: 'toques', metricas: ['toques'], titulo: 'Mapa de calor', x: 0, y: 7, w: 12, h: 24 },
       {
         id: id('la-visitas-dia'), clase: 'grafico', tipo: 'serie', fuente: 'visitas', dimension: 'dia', metricas: ['visitas', 'visitantes'],
-        titulo: 'Visitas por día', x: 0, y: 28, w: 8, h: 9, controles: [{ id: id('la-visitas-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
+        titulo: 'Visitas por día', x: 0, y: 31, w: 8, h: 9, controles: [{ id: id('la-visitas-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
-      { id: id('la-origen'), clase: 'grafico', tipo: 'barras', fuente: 'visitas', dimension: 'origen', metricas: ['visitas'], limite: 10, titulo: 'De dónde llegan', x: 8, y: 28, w: 4, h: 9 },
-      { id: id('la-scroll'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'scroll', metricas: ['medidos', 'llegaron_25', 'llegaron_50', 'llegaron_75', 'llegaron_100'], titulo: 'Hasta dónde bajan', x: 0, y: 37, w: 5, h: 10 },
-      { id: id('la-clics'), clase: 'grafico', tipo: 'barras', fuente: 'clics', dimension: 'destino', metricas: ['clics'], ordenMetrica: 'clics', limite: 10, titulo: 'Qué botón tocan', x: 5, y: 37, w: 7, h: 10 },
-      { id: id('la-grab-pagina'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'replays', dimension: 'pagina', metricas: ['grabaciones', 'duracion', 'visitantes'], barra: 'grabaciones', titulo: 'Grabaciones por página', x: 0, y: 48, w: 12, h: 8 },
+      { id: id('la-origen'), clase: 'grafico', tipo: 'barras', fuente: 'visitas', dimension: 'origen', metricas: ['visitas'], limite: 10, titulo: 'De dónde llegan', x: 8, y: 31, w: 4, h: 9 },
+      { id: id('la-scroll'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'scroll', metricas: ['medidos', 'llegaron_25', 'llegaron_50', 'llegaron_75', 'llegaron_100'], titulo: 'Hasta dónde bajan', x: 0, y: 40, w: 5, h: 10 },
+      { id: id('la-clics'), clase: 'grafico', tipo: 'barras', fuente: 'clics', dimension: 'destino', metricas: ['clics'], ordenMetrica: 'clics', limite: 10, titulo: 'Qué botón tocan', x: 5, y: 40, w: 7, h: 10 },
+      { id: id('la-grab-pagina'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'replays', dimension: 'pagina', metricas: ['grabaciones', 'duracion', 'visitantes'], barra: 'grabaciones', titulo: 'Grabaciones por página', x: 0, y: 51, w: 12, h: 8 },
       // El diagnóstico que MaKo guardó de cada página (analizar es una tarea: vive en Landing Generator).
-      { id: id('la-diagnostico'), clase: 'grafico', tipo: 'barras', fuente: 'landing_analisis', fecha: 'actual', dimension: 'pagina', metricas: ['puntaje'], ordenMetrica: 'puntaje', titulo: 'Diagnóstico de cada página', x: 0, y: 56, w: 12, h: 8 },
+      { id: id('la-diagnostico'), clase: 'grafico', tipo: 'barras', fuente: 'landing_analisis', fecha: 'actual', dimension: 'pagina', metricas: ['puntaje'], ordenMetrica: 'puntaje', titulo: 'Diagnóstico de cada página', ir: 'web-generator', x: 0, y: 59, w: 12, h: 8 },
     ],
   }),
 };
