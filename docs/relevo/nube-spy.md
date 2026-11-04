@@ -9,11 +9,19 @@ probar» hay que mirarlo en el negocio de prueba (ws 3) una vez desplegado.
 **Los 14 puntos están en `main`**, por etapas: `punta/spy-busqueda` (1, 2, 3, 4, 12), `punta/spy-ficha` (5, 6, 11, 13,
 14), `punta/spy-caricatura`, `punta/spy-todo` (8, 10) y `punta/spy-detalle` (7, 9). Cada una pasó `punta.yml` en verde.
 
+**Segunda vuelta, también en `main`:** `punta/spy-buscar-yt`, `punta/spy-cadena`, `punta/spy-caricatura-cola`,
+`punta/spy-sugeridos`, `punta/spy-contenido`, `punta/spy-oferta` (el Funnel con su oferta) y `punta/spy-detalle-guion` (el
+detalle de cada pieza con su guion). Los tres rojos que reportó el Cerebro sobre `punta/spy-oferta` (run 41826292011)
+quedaron arreglados antes de entrar: `cuenta-revision-escrituras` (las rutas nuevas, `oferta` y `transcribir`, van como
+**cortadas**), `red-primera-semana` (`soloDelNegocio` apaga el crédito y la red de la plataforma sin cortar la función) e
+`integracion-sin-salir` (los «Conectar» son el modal de la casa, `BotonIntegracion`).
+
 Lo que espera a Martín:
-1. Mirar en el ws 3, con un competidor real, el gráfico, el detalle de una pieza y la página que arma «Copiar estructura».
+1. Mirar en el ws 3, con un competidor real, el gráfico, la pestaña Funnel con su oferta y el detalle de una pieza con su
+   guion («Transcribiendo…» y después el texto).
 2. Prender los anuncios: correr una vez desde la PC `scripts/probar-anuncios-apify.mjs` y, si los trae bien y el costo cabe,
    cambiar `ANUNCIOS_POR_APIFY` a `true` (diseño §14).
-3. La caricatura necesita la extensión conectada y Google Flow abierto en ese navegador: mirarla con la extensión puesta.
+3. El guion de los videos de YouTube (abajo, «Decisiones que esperan a Martín»).
 
 ## Cómo se sube
 
