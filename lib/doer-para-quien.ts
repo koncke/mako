@@ -78,6 +78,8 @@ export function sinElLlamadoAMaKo(texto: string, numeroLinea: string | null): st
       const antes = r;
       r = r.replace(/^\s*@(\d{8,15})(?!\d)[\s,:.!]*/, esLaLinea).replace(/[\s,]*@(\d{8,15})(?!\d)[\s.!]*$/, esLaLinea).trim();
       r = r.replace(/^mako[\s,:.!¡]+/iu, '').trim();
+      // «@MaKo sí» escrito en la app: allá no hay menciones por número, y sin esto no sería una confirmación pura.
+      r = r.replace(/^\s*@mako\b[\s,:.!¡]*/iu, '').replace(/[\s,]*@mako\b[\s.!]*$/iu, '').trim();
       if (r === antes) break;
     }
     // También un acuse que confirma solo («@MaKo ok», «mako listo»): la puerta de plata y terceros lo repregunta igual (no es puro).

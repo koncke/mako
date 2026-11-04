@@ -51,6 +51,9 @@ import { asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
 import { GaleriaDeGurus } from '@/app/second-brain/GaleriaDeGurus';
 import { useGurusConCharla } from '@/app/second-brain/useCoaches';
 import { HojaDelGuru } from '@/app/m/second-brain/HojaDelGuru';
+import { HojaDelGrupo } from '@/app/m/second-brain/HojaDelGrupo';
+import { FilasDelGrupoM } from '@/app/m/second-brain/FilasDelGrupoM';
+import { useGrupos } from '@/app/_chat/grupo/useGrupos';
 
 const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 const metaDe = (c: ChatCentro) => ESTADO[c.estado];
@@ -173,13 +176,15 @@ function mismaFila(a: PropsFilaChatM, b: PropsFilaChatM): boolean {
     && edad(a.c.actividad, a.ahora) === edad(b.c.actividad, b.ahora);
 }
 
-export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, munecos, onMunecos, decisiones, responder, parte, tituloChats = 'Chats', abierto: abiertoFuera, onAbierto, centro }: {
+export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, munecos, onMunecos, decisiones, responder, parte, tituloChats = 'Chats', abierto: abiertoFuera, onAbierto, centro, grupoInicial = null }: {
   /** El motor del Centro (useCentro.ts): con él, la caja elige la cuenta, el modelo y el esfuerzo (17/10/2026), igual que
    *  la de la computadora (PiezasCentro.tsx → SelectoresDeEnvio), y la lista y la conversación salen de SUS mapas
    *  memorizados (`previas`, `enCursos`, `lineasDe`): calcularlas acá en cada toque era lo que hacía lento el «atrás». */
   centro: Centro;
   /** Sólo las filas o sólo la hoja de la conversación (ver arriba); sin esto, las dos. */
   parte?: 'lista' | 'hoja';
+  /** `?grupo=`: el grupo que se abre al entrar (el push de un aviso). */
+  grupoInicial?: number | null;
   /** El título de la sección de los jefes (en el Second Brain, «Claude Code»: «Chats» ahí son los de MaKo). */
   tituloChats?: string;
   /** El chat abierto, cuando lo lleva el padre (las dos partes por separado). */
@@ -218,6 +223,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const [guru, setGuru] = useState<IdAsesor | null>(null);
   const delGuru = asesorPorId(guru);
   const gurusConCharla = useGurusConCharla(guru, !parte);
+  // El grupo de la plataforma (3/11/2026). `!parte`: en dos partes lo dibuja la lista del cliente, y esto no se pide.
+  const grupos = useGrupos(!parte);
+  const [grupo, setGrupo] = useState<number | null>(grupoInicial);
   const [renombre, setRenombre] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ aspecto: Aspecto; guardando: boolean } | null>(null);
   const toast = useToastM();
@@ -316,7 +324,22 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const trabado = deLaApp.length > 0;
   const vivo = useMemo(() => (elegido ? { chat: elegido, carteros, trabado } : undefined), [elegido, carteros, trabado]);
 
-  if (!chats.length) return parte === 'hoja' ? null : <VacioM frase="Conecta un Runner desde la computadora para ver tus chats aquí." />;
+  // El grupo (3/11/2026): sólo sin `parte`. En dos partes, esta lista va debajo de la del cliente (SecondBrainCentroM.tsx), que ya lo dibuja: saldría doble.
+  const hojaDelGrupo = !parte && grupo != null ? (
+    <HojaDelGrupo key={grupo} ws={grupo} grupo={grupos.grupos?.find((f) => f.ws === grupo) ?? null} onCerrar={() => { setGrupo(null); grupos.recargar(); }} onLeido={grupos.anotarLeido}
+      onCambio={grupos.recargar} onSalio={() => { setGrupo(null); grupos.recargar(); }} />
+  ) : null;
+  if (!chats.length) {
+    if (parte === 'hoja') return null;
+    // Sin chats de Claude Code el grupo sigue: no depende de un Runner.
+    return (
+      <>
+        {hojaDelGrupo}
+        {!parte && <ListaM etiqueta="Grupo"><FilasDelGrupoM g={grupos} abierto={grupo} onAbrir={setGrupo} /></ListaM>}
+        <VacioM frase="Conecta un Runner desde la computadora para ver tus chats aquí." />
+      </>
+    );
+  }
 
   // La sesión a la que va: la de la cuenta elegida (o la automática) si está el motor; si no, la del chat.
   const destino = elegido ? (centro ? centro.destinoDeChat(elegido) : elegido) : null;
@@ -423,10 +446,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
           onGuru={(id) => { setNuevoChat(false); setGuru(id); }} />
       )}
       {delGuru && <HojaDelGuru key={delGuru.id} referente={delGuru} onCerrar={() => setGuru(null)} />}
+      {hojaDelGrupo}
       {conLista && (
         <SeccionM titulo={tituloChats}>
           <ListaM etiqueta={tituloChats}>
             {!parte && <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => setNuevoChat(true)} navegacion />}
+            {/* Fijado, el primero de los chats (Martín: «que esté posicionado arriba»). */}
+            {!parte && <FilasDelGrupoM g={grupos} abierto={grupo} onAbrir={setGrupo} />}
             {/* El historial de los gurús: esta lista es la de Claude Code, y sus chats no salen en ella. */}
             {!parte && gurusConCharla.map(({ id, at }) => {
               const g = asesorPorId(id);

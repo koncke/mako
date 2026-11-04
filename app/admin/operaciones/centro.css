@@ -1142,6 +1142,9 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
    una raya entre cuenta y cuenta, sin una tarjeta gris por cuenta. Arriba de cada una, el logo, el nombre y el email a la izquierda,
    y a la derecha el Runner y, debajo, «Medido hace X» (antes un renglón suelto al final). El marcado no cambia de orden: lo acomoda
    la grilla (`display: contents` en la fila de arriba). */
+.co-uso__pc { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; font-size: var(--fs-sm); color: var(--ink); overflow-wrap: anywhere; }
+.co-uso__pc > .co-punto { flex: none; }
+.co-uso__pc-hacer { display: block; font-size: var(--fs-xs, 12px); color: var(--dim); }
 .co-uso__lista { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
 .co-uso__cuenta { padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; }
 .co-uso__cuenta + .co-uso__cuenta { border-top: 1px solid var(--border); }

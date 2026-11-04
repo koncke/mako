@@ -23,6 +23,7 @@ import {
   leerCompetidor, listarCompetidores, listarPiezas, mirarCompetidor, queEs, quitarCompetidor,
 } from '@/lib/spy';
 import { perfilNegocioTexto } from '@/lib/onboarding';
+import { sugeridosDelNegocio, sumarSugeridoAlNegocio } from '@/lib/spy-sugeridos-server';
 import { contenidoNoConfiable } from '@/lib/prompt-render';
 import { funnelDeFila, funnelEnPalabras } from '@/lib/spy-funnel';
 import { dibujarContador, NOMBRE_CANAL, NOMBRE_ETAPA, NOMBRE_FUENTE, SIN_ANUNCIOS_EN_ESTE_PAIS, adLibraryCubreComercial, type CanalSpy } from '@/lib/spy-reglas';
@@ -229,6 +230,41 @@ export const RUNNERS: Runners = {
       const r = await guardarAnuncioPegado(id, String(p.enlace ?? ''), typeof p.copy === 'string' ? p.copy : undefined);
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: r.nuevo ? 'Guardado. Desde hoy cuento cuántos días lleva a la vista.' : 'Ese anuncio ya estaba guardado: actualicé la última vez que se vio.' };
+    }),
+  },
+
+  // ── Los sugeridos: SÓLO los de la plataforma (lib/spy-sugeridos.ts). El mismo camino que la pantalla.
+  ver_sugeridos: {
+    leer: async (): Promise<SalidaLectura> => {
+      const lista = await sugeridosDelNegocio();
+      return json({
+        ok: true,
+        sugeridos: lista.map((x) => ({
+          id: x.id, nombre: x.nombre,
+          instagram: x.instagram ? `@${x.instagram}` : null, youtube: x.youtube_id, sitio: x.landing_url,
+          seguidores: dibujarContador(x.seguidores), suscriptores: dibujarContador(x.suscriptores),
+        })),
+        total: lista.length,
+      });
+    },
+  },
+
+  sumar_sugerido: {
+    preparar: async (input) => {
+      const id = idDe(input.id);
+      if (id == null) return { error: 'Dime cuál: el id que devuelve ver_sugeridos.' };
+      let lista: Awaited<ReturnType<typeof sugeridosDelNegocio>>;
+      try { lista = await sugeridosDelNegocio(); } catch { return { error: 'No pude leer los sugeridos.', falla: true }; }
+      const s = lista.find((x) => x.id === id);
+      if (!s) return { error: 'Ese no está entre los sugeridos, o ya lo miras.' };
+      return { payload: { id }, resumen: `Sumar a «${s.nombre}» con lo que ya se leyó de él (no gasta nada)` };
+    },
+    ejecutar: async (p) => seguro('sumarlo', async () => {
+      const id = idDe(p.id);
+      if (id == null) return { ok: false, resumen: 'No sé cuál sumar.' };
+      const r = await sumarSugeridoAlNegocio(id);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: quedó en el radar, con ${r.piezas} publicaciones ya leídas.`, datos: { id: r.id } };
     }),
   },
 };

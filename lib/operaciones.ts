@@ -32,8 +32,8 @@ import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'no
 import { getSupabaseServer } from './supabase';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from './claves-en-el-chat';
 import {
-  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, UUID_RE, claveIdDe, sanearAbre, estadoDeCierre, fotosDeFirmado, leerFirmable, nombresDeAdjuntos, vozDeFirmado, sanearAcuses, sanearChats,
-  sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido, type VozDelPedido,
+  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, UUID_RE, claveIdDe, faltaColumnaDeLaVuelta, filaDeLaVuelta, sanearAbre, sanearServicio, vistoDeLaFila, estadoDeCierre, fotosDeFirmado, leerFirmable, nombresDeAdjuntos, vozDeFirmado, sanearAcuses, sanearChats,
+  sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido, type ServicioPc, type VozDelPedido,
 } from './operaciones-reglas';
 import { cuentaDeLaSemana, sanearCuota, type Cuota } from './centro-uso';
 import { MOTIVO_VENCIO, VENCE_PEDIDO_MS } from './centro-limbo';
@@ -49,6 +49,7 @@ import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesit
 import { borrarAdjuntosDe } from './operaciones-adjuntos';
 import { acusarTicket, acusarTicketNuevo, ticketsNuevosParaElCartero, ticketsNuevosSinEntregar, ticketsParaElCartero, ticketsSinEntregar, type TicketNuevoParaEntregar, type TicketParaEntregar } from './tickets-runner';
 import { VERSION_CARTERO_TICKETS, VERSION_CARTERO_TICKETS_NUEVOS, esElCerebro, versionAlMenos } from './tickets-aviso';
+import { LIMBO_TOPE, VERSION_CARTERO_LIMBO, avisosDeLimbo, type AvisoDeLimbo } from './limbo-al-cerebro';
 
 const T_PEDIDOS = 'operaciones_pedidos';
 const T_CARTEROS = 'operaciones_carteros';
@@ -80,7 +81,12 @@ export type Pedido = {
 
 export type Cartero = {
   cuenta: string;
+  /** ⚠️ La última vuelta de un RUNNER (`runner_visto_at`, 30/10/2026): es lo que pregunta todo el que lo lee (`carteroVivo`). */
   vistoAt: string | null;
+  /** La última vuelta de cualquiera, también del servicio de la PC (`visto_at`): «¿hay noticias de la PC?» (lib/centro-chats.ts). */
+  noticiasAt?: string | null;
+  /** Lo que dijo de sí mismo el servicio de la PC en su última vuelta. null = nunca subió, o falta la mig 0355. */
+  servicio?: (ServicioPc & { visto_at: string | null }) | null;
   version: string | null;
   chats: ChatCartero[];
   claves: string[];
@@ -129,16 +135,23 @@ export async function listarPedidos(limite = 100): Promise<Pedido[]> {
 
 export async function leerCarteros(): Promise<EstadoCarteros> {
   const db = getSupabaseServer();
-  const [{ data: filas, error: e1 }, { data: tok, error: e2 }] = await Promise.all([
-    db.from(T_CARTEROS).select('cuenta, visto_at, version, chats, claves, cuota').order('cuenta'),
+  const leer = async (cols: string) => {
+    const { data, error } = await db.from(T_CARTEROS).select(cols).order('cuenta');
+    return { filas: (data ?? []) as unknown as Array<Record<string, unknown>>, error };
+  };
+  const [primera, { data: tok, error: e2 }] = await Promise.all([
+    leer('cuenta, visto_at, runner_visto_at, servicio, version, chats, claves, cuota'),
     db.from(T_TOKEN).select('token_pista, creado_at').eq('id', 1).maybeSingle(),
   ]);
+  // Sin la mig 0355 se lee como antes: `vistoDeLaFila` usa `visto_at` para las dos preguntas.
+  const { filas, error: e1 } = faltaColumnaDeLaVuelta(primera.error) ? await leer('cuenta, visto_at, version, chats, claves, cuota') : primera;
   if (e1) throw new Error(`no pude leer los carteros: ${e1.message}`);
   if (e2) throw new Error(`no pude leer el token: ${e2.message}`);
   return {
-    carteros: (filas ?? []).map((f) => ({
+    carteros: filas.map((f) => ({
       cuenta: f.cuenta as string,
-      vistoAt: (f.visto_at as string | null) ?? null,
+      ...vistoDeLaFila(f),
+      servicio: f.servicio && typeof f.servicio === 'object' ? (f.servicio as Cartero['servicio']) : null,
       version: (f.version as string | null) ?? null,
       chats: sanearChats(f.chats),
       claves: sanearClaves(f.claves),
@@ -208,6 +221,17 @@ export async function cancelarPedido(id: string): Promise<boolean> {
 }
 
 /**
+ * ¿Ya se puede instalar el servicio de la PC? El orden es migración → deploy → `instalar-servicio` (docs/diseno-cartero-servicio.md §2.6): un
+ * servidor sin las columnas lee cada vuelta del servicio como «hay Runner». Esto lo contesta un servidor con el código nuevo y las columnas.
+ */
+export async function servicioListoEnMako(): Promise<boolean> {
+  const { error } = await getSupabaseServer().from(T_CARTEROS).select('runner_visto_at, servicio').limit(1);
+  if (faltaColumnaDeLaVuelta(error)) return false;
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+/**
  * Dar de baja un mensaje del cartel de los que no salieron (30/10/2026, lib/centro-limbo.ts): lo que espera, y también lo que ya venció,
  * que `cancelarPedido` no mira. Con compare-and-set: si la PC lo tomó entretanto, salió y no se toca.
  */
@@ -258,6 +282,10 @@ export type SalidaCiclo = {
   ticketsNuevos: TicketNuevoParaEntregar[];
   /** Si no se pudieron calcular (p. ej., falta la migración de `cerebro_*`): lo demás sale igual. */
   ticketsNuevosError: string | null;
+  /** Los mensajes de Martín que esperan un chat cerrado, para que la PC se lo diga al Cerebro con un texto FIJO (cartero 1.26.0,
+   *  lib/limbo-al-cerebro.ts). Sólo id, cuenta y fecha: ni su texto ni el título de su chat. */
+  limbo: AvisoDeLimbo[];
+  limboError: string | null;
 };
 
 const T_DECISIONES = 'admin_decisiones';
@@ -308,6 +336,26 @@ async function avisosParaElCartero(
     if (out.length >= AVISOS_POR_VUELTA) break;
   }
   return out;
+}
+
+/**
+ * Lo que espera un chat cerrado, si este Runner tiene el Cerebro abierto (cartero 1.26.0). Si no lo tiene, no se pierde: la lista se
+ * calcula de nuevo en cada vuelta, y sale en la que lo tenga.
+ * ⚠️ SIN `texto` NI `destino_titulo` en el select: no están firmados para el Cerebro, y lo que no se lee no viaja.
+ */
+async function limboParaElCartero(version: string | null, chatsDeEste: readonly ChatCartero[], entregables: ReadonlySet<string>, ahora: number): Promise<AvisoDeLimbo[]> {
+  if (!versionAlMenos(version, VERSION_CARTERO_LIMBO)) return [];
+  const cerebro = chatsDeEste.find((c) => c.vivo && esElCerebro(c.titulo) && entregables.has(c.local));
+  if (!cerebro) return [];
+  const db = getSupabaseServer();
+  const [{ data: pedidos, error: e1 }, { data: filas, error: e2 }] = await Promise.all([
+    db.from(T_PEDIDOS).select('id, created_at, destino, destino_cuenta, estado').eq('estado', 'escrito').order('created_at', { ascending: true }).limit(LIMBO_TOPE),
+    // `cuenta` y `visto_at`: una foto vieja no dice «cerrado» (`comoEstaElDestino`). `visto_at` existe sin la mig 0355.
+    db.from(T_CARTEROS).select('cuenta, visto_at, chats'),
+  ]);
+  if (e1) throw new Error(e1.message);
+  if (e2) throw new Error(e2.message);
+  return avisosDeLimbo(pedidos ?? [], (filas ?? []).map((f) => ({ cuenta: f.cuenta as string, noticiasAt: f.visto_at as string | null, chats: sanearChats(f.chats) })), cerebro.local, ahora);
 }
 
 /**
@@ -394,8 +442,12 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   }
   const ahoraIso = new Date().toISOString();
 
-  const { error: eUp } = await db.from(T_CARTEROS)
-    .upsert({ cuenta, visto_at: ahoraIso, version, chats, claves, updated_at: ahoraIso, ...(cuota ? { cuota } : {}) }, { onConflict: 'cuenta' });
+  // Quién da esta vuelta (cartero 1.25.0): el servicio de la PC, o un Runner. Una del servicio dice que la PC está, nunca que hay quien entregue.
+  const servicio = sanearServicio(e.servicio);
+  const escribir = filaDeLaVuelta({ cuenta, version, chats, claves, cuota, servicio, ahoraIso });
+  let { error: eUp } = await db.from(T_CARTEROS).upsert(escribir.fila, { onConflict: 'cuenta' });
+  // Sin la mig 0355 la vuelta sigue como antes. ⚠️ Con el servicio instalado y sin la migración, «hay Runner» miente: va ANTES de instalarlo.
+  if (faltaColumnaDeLaVuelta(eUp)) ({ error: eUp } = await db.from(T_CARTEROS).upsert(escribir.sinColumnas, { onConflict: 'cuenta' }));
   if (eUp) throw new Error(eUp.message);
   // El nombre y el email de la cuenta (cartero 1.15.2, la G): de cuentas.tsv de la PC. Sólo escribe si cambió; si falla, la
   // vuelta sigue (el Uso dice «Cuenta N»).
@@ -488,7 +540,8 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   await borrarAdjuntosDe(terminados);
 
   // Lo que ESTE cartero puede entregar ahora: pedidos escritos para uno de SUS chats vivos que la PC alcanza.
-  const vivos = sanearEntregables(e.entregables, chats);
+  // ⚠️ El servicio no reclama, diga lo que diga su lista: sin un chat, lo tomado se pierde (la PC igual lo devuelve).
+  const vivos = servicio ? [] : sanearEntregables(e.entregables, chats);
   const pedidos: PedidoParaEntregar[] = [];
   if (vivos.length) {
     const { data: cand, error: eCand } = await db.from(T_PEDIDOS).select('id')
@@ -503,7 +556,7 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   }
   // Los chats NUEVOS de esta cuenta (cartero 1.11.0, «un clic»): sólo a un cartero que dice que los abre (`abre`: una
   // terminal de esa cuenta y el permiso local prendido). Sin eso quedan escritos, y la pantalla dice qué hacer.
-  if (sanearAbre(e.abre).includes(cuenta) && pedidos.length < POR_VUELTA) {
+  if (!servicio && sanearAbre(e.abre).includes(cuenta) && pedidos.length < POR_VUELTA) {
     const { data: nuevos, error: eNuevos } = await db.from(T_PEDIDOS).select('id')
       .eq('estado', 'escrito').eq('destino', DESTINO_NUEVO).eq('destino_cuenta', cuenta)
       .order('created_at', { ascending: true }).limit(POR_VUELTA - pedidos.length);
@@ -541,5 +594,14 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   } catch (err) {
     ticketsNuevosError = err instanceof Error ? err.message.slice(0, 200) : 'error';
   }
-  return { pedidos, avisos, avisosError, tickets, ticketsError, ticketsNuevos, ticketsNuevosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
+  // Lo que espera un chat cerrado (cartero 1.26.0): si falla, lo demás sale igual. ⚠️ `hayParaElCartero` NO lo cuenta: MaKo no sabe qué
+  // avisó la PC (lleva ella la cuenta), así que `vigilar` saldría en cada vuelta. No es urgente: sale en la vuelta del cron.
+  let limbo: AvisoDeLimbo[] = [];
+  let limboError: string | null = null;
+  try {
+    if (vivos.length) limbo = await limboParaElCartero(version, chats, new Set(vivos), Date.parse(ahoraIso));
+  } catch (err) {
+    limboError = err instanceof Error ? err.message.slice(0, 200) : 'error';
+  }
+  return { pedidos, avisos, avisosError, tickets, ticketsError, ticketsNuevos, ticketsNuevosError, limbo, limboError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
 }

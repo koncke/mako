@@ -43,7 +43,7 @@ import { getSupabaseServer } from './supabase';
 import { credWsEstricta } from './credenciales';
 import { wsSuperAdmin } from './workspace';
 import { EMAIL_MAKO } from './app-url';
-import { enSilencio, normalizarPush, quierePush, rolPushDeFila, PUSH_SOLO_ADMINS } from './notif-catalogo';
+import { enSilencio, normalizarPush, quierePush, quierePushDelGrupo, rolPushDeFila, PUSH_SOLO_ADMINS } from './notif-catalogo';
 import { accionTrasError, armarPayloadPush, wsDelLink, type PayloadPush } from './push-payload';
 import { accionTrasErrorApns, armarApns, esEndpointApns } from './push-apns-reglas';
 import { clavesApns, enviarApns } from './push-apns';
@@ -320,4 +320,39 @@ export async function pushPorDetras(ws: number, e: EntradaPush, sigueVigente?: (
     return;
   } catch { /* sin pedido en curso (un script): en línea */ }
   await trabajo();
+}
+
+/**
+ * El push del GRUPO (lib/grupo-app.ts, `avisarMiembros`), a una lista de PERSONAS que pueden ser de otro negocio (3/11/2026).
+ * `enviarPush` no sirve porque filtra por `usuarios.workspace_id`: un invitado o el admin de la agencia no entran. `enviarPushAUsuario` no sirve porque saltea
+ * las preferencias. Acá: no suspendida, con el grupo prendido (`quierePushDelGrupo`) y fuera de su «No molestar». El link va SIN `?ws=`: un invitado abriría
+ * SU negocio; el motor del grupo ignora la pestaña. Nunca tira.
+ */
+export async function enviarPushAMiembros(ids: readonly number[], e: EntradaPush): Promise<ResultadoPush> {
+  const unicos = [...new Set(ids.filter((n) => Number.isSafeInteger(n) && n > 0))];
+  if (!unicos.length) return VACIO();
+  try {
+    const claves = await clavesVapid();
+    if (!claves) return VACIO('sin-claves');
+    const db = getSupabaseServer();
+    const { data: filas, error: errU } = await db.from('usuarios').select('id, perfil, estado').in('id', unicos).neq('estado', 'suspendido');
+    if (errU) { console.error(`[push] ${e.tipo}: no pude leer a los miembros:`, errU.message); return VACIO('error'); }
+    const quienes = ((filas ?? []) as Array<{ id: number; perfil: unknown }>).filter((u) => {
+      const perfil = (u.perfil && typeof u.perfil === 'object' ? u.perfil : {}) as Record<string, unknown>;
+      return quierePushDelGrupo(perfil.notifPush, typeof perfil.timezone === 'string' ? perfil.timezone : '');
+    }).map((u) => Number(u.id));
+    if (!quienes.length) return VACIO();
+    const { data: subsRaw, error: errS } = await db.from('push_suscripciones').select('id, usuario_id, endpoint, p256dh, auth, fallos').in('usuario_id', quienes);
+    if (errS) return { ...VACIO(esTablaAusente(errS) ? 'sin-tabla' : 'error'), destinatarios: quienes.length };
+    const subs = (subsRaw ?? []) as FilaSuscripcion[];
+    const conTelefono = new Set(subs.map((s) => Number(s.usuario_id)));
+    const sinSuscripciones = quienes.filter((id) => !conTelefono.has(id)).length;
+    if (!subs.length) return { enviados: 0, fallidos: 0, sinSuscripciones, destinatarios: quienes.length };
+    const payload = armarPayloadPush({ tipo: e.tipo, titulo: e.titulo, cuerpo: e.cuerpo, ruta: e.ruta, tag: e.tag, badge: e.badge }, null);
+    const r = await despachar(subs, payload, e, claves);
+    return { ...r, sinSuscripciones, destinatarios: quienes.length };
+  } catch (err) {
+    console.error(`[push] ${e.tipo}: enviarPushAMiembros falló:`, err instanceof Error ? err.message : String(err));
+    return VACIO('error');
+  }
 }

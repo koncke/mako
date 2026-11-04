@@ -95,7 +95,7 @@ copia versionada en [`scripts/claude-hooks/`](../scripts/claude-hooks/) para rep
 | `~/.claude/uso-semanal.txt` | El último % semanal medido. Lo escribe el modelo |
 | `~/.claude/umbrales-avisados.tsv` | Qué chat ya recibió qué umbral esta semana |
 | `~/.claude/bitacora-sesiones.tsv` | Arranque y cierre de cada sesión, con su cuenta |
-| `~/.claude/cuenta-activa.txt` | `claude1` o `claude2`. Lo declara Martín |
+| `~/.claude/cuenta-activa.txt` | La cuenta activa. Lo corrige cada chat que arranca, con el uuid de la app (`scripts/operaciones/runner-salud.mjs`, 4/11/2026) |
 
 ## Cómo replicarlo en la otra cuenta
 

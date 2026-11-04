@@ -237,7 +237,7 @@ test('el 👍 va sólo a lo que MaKo va a contestar (prendido y enganchado), com
   // Desde el 27/10/2026 la regla recibe a quién mencionan (una @mención a la línea de MaKo es nombrarla, tests/doer-para-quien).
   // Y desde el 28/10/2026, no al «sí» que le contesta a otra persona de la cola (`contestaAOtroEnLaCola`, tests/doer-para-quien).
   assert.match(BUFFER, /const engancha = activo && !soloClave && \(!!audio \|\| !!adjunto \|\| \(\(await enganchaElTexto\(wsData, jid, texto, await mencionadosEn\(instance, data\)\)\)\n\s*&& !\(await contestaAOtroEnLaCola\(wsData, instance, jid, msgId, texto\)\)\)\);/);
-  assert.match(BUFFER, new RegExp(`const reaccion = engancha \\? ${REACCION.replace(/[().]/g, '\\$&')}`));
+  assert.match(BUFFER, new RegExp(`const reaccion = engancha && !deLaApp \\? ${REACCION.replace(/[().]/g, '\\$&')}`));
   // La regla del texto es la de `procesarDoer`: el modo, el nombre, la ventana y las pendientes.
   const regla = cuerpo('async function enganchaElTexto(');
   for (const parte of ["=== 'libre'", 'nombraAMaKo(texto)', 'ventanaVigente(', 'pendientesVigentes(']) assert.ok(regla.includes(parte), parte);
@@ -261,7 +261,8 @@ test('el texto que reemplaza al 👍 sale SÓLO si el 👍 falló, y el turno no
   assert.ok(SI_NO_REACCIONO.includes('acuseSinReaccion('), 'el texto no es el de `acuseSinReaccion`');
   assert.match(SI_NO_REACCIONO, /\}\)\(\)\.catch\(\(\) => \(\{ dijoEspera: false \}\)\);/, 'el acuse puede rechazar y tirar el turno');
   // Los dos caminos del lote le pasan el acuse a `procesarDoer`.
-  assert.equal([...BUFFER.matchAll(/procesarDoer\(wsData, instance, [^\n]*, \{ acuse \}\);/g)].length, 2);
+  // `linea` y no `instance` desde el 3/11/2026: un turno que arrancó en el grupo de la app no tiene línea, y puede traer en el lote uno de WhatsApp.
+  assert.equal([...BUFFER.matchAll(/procesarDoer\(wsData, linea, [^\n]*, \{ acuse \}\);/g)].length, 2);
 });
 
 test('la espera con palabras va en `procesarDoer`, con el pedido entero, ANTES de armar el system, y sólo si lleva tiempo', () => {

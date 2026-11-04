@@ -11564,9 +11564,23 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
   dejó de llamar «API key inválida» a una key que manda (`metodo-verificar.ts`).
 - Medido el 17/10: ws10 y ws11 tienen su propia key con acceso completo (ws11 con su dominio en `failed`); ws3 y ws13,
   ninguna.
+- **4/11/2026: se separaron las dos keys en vez de subirle el permiso a la que manda** (encargo del Cerebro, que midió
+  desde la PC que la de producción sigue siendo de sólo envío y que el plan de Resend tiene un dominio). Dar de alta, leer
+  y verificar dominios usa `RESEND_ADMIN_API_KEY`, una variable de Vercel que sólo lee `lib/resend-dominios.ts`; mandar
+  sigue con la de siempre. Tres cosas que no se ven en el código:
+  - ⚠️ **No va en el catálogo de credenciales, a propósito.** Lo que está ahí lo hidrata el arranque desde la fila del ws1
+    (un cliente), pisando el entorno de Vercel: así quedó de sólo envío la de producción. Fuera del catálogo, la variable
+    de Vercel llega intacta.
+  - **Un negocio con SU key (ws10, ws11) administra su dominio con la suya**: su dominio vive en su cuenta. «No pude leer
+    su key» NO cae a la de MaKo, porque daría de alta su dominio en otra cuenta.
+  - **El tope de dominios del plan se reconoce por el TEXTO, sin medir**: resend.com no resuelve desde la nube y el SDK no
+    tiene un código para eso. Cuando se vea el cuerpo real, se suma a `tests/resend-clave-admin.test.ts`.
+  - ⚠️ **Leer lo RECIBIDO** (`getDeResend`, la bandeja de Chats) sigue con la key que manda. Si Resend no deja leer con una
+    de sólo envío, eso también falla: no se midió, y mudarlo es sacar la de administración de su módulo.
 
-**Vive en:** `lib/resend.ts` (`resendFetch`, `errorDeResend`) · `lib/resend-errores.ts` · `lib/metodo-verificar.ts`
-(`email`) · `lib/credenciales.ts` (`aplicarAEnv`) · test: `tests/resend-key-solo-envio.test.ts`
+**Vive en:** `lib/resend-dominios.ts` (`claveDeDominios`, `resendFetch`, `errorDeResend`) · `lib/resend-errores.ts` ·
+`lib/email-dominio.ts` (`prepararConexion`, `prepararVerificacion`) · `lib/metodo-verificar.ts` (`email`) ·
+`lib/credenciales.ts` (`aplicarAEnv`) · tests: `tests/resend-key-solo-envio.test.ts`, `tests/resend-clave-admin.test.ts`
 
 ## «Nada por detrás», lote 2: la reunión cancelada de Calendly, mudada y con freno (17/10/2026)
 
@@ -12611,3 +12625,22 @@ hilo cada 15 s y **cada lectura firma de nuevo la URL del Storage**. Un `src` qu
 
 **Vive en:** `LO_ULTIMO_FUE_COMENTAR`, `eventoDelComentario` (lib/canal-social.ts) · `previewDe` (app/chats/lista-reglas.ts) ·
 `AudioPlay` (app/whatsapp/_shared/AudioPlay.tsx) · tests/m-chats.test.ts · tests/whatsapp-sexta-tanda.test.ts.
+## La copia al grupo de la app va ANTES de WhatsApp, y el eco se encuentra por el texto (3/11/2026)
+
+Lo que sale solo a un grupo pasa por `copiarAlGrupo` (`lib/grupo-app.ts`), y `tests/grupos-ops-guarda.test.ts` frena un envío nuevo que la saltee. No hay un punto de copia solo: `ev()` es demasiado bajo (ya tiene el jid), `enviarTextoVozMaKo` también lleva DMs, y `enviarPartesAJid` lo llama `enviarPartesAlGrupoMaKo` (copia doble). Son las puertas.
+
+**La copia antes del envío duplica con quien reintenta, y ése es el caso normal hoy.** Con la voz fuera de 7 u 8 grupos, `avisarUno`, `avisos-resumen`, `aviso-arreglo`, `lineas-vigilante` y `llegoLaTarjeta` reintentan: cada corrida sumaba una burbuja. `enviarAlGrupoMaKo` devuelve `{ ok: true, id: 'app:<fila>', enApp: true }` y `EmitirAvisoResult` suma `enApp`, sin tocar `wa`: así sigue el puente por mail, necesario porque `push_suscripciones` tenía 0 filas. **`resultadoDelAviso` era el que nadie había listado:** leía `wa:false` y contestaba «No salió», el motor disparaba el aviso de respaldo (doble burbuja y doble push), y en el rastro quedaba «Evolution 400 en mako_ws9». Hay que re-barrer `\.wa\b` cada vez que se sume un consumidor.
+
+**Sin WhatsApp, un aviso no entraba a la memoria ni insistía:** `emitirAviso` lo hacía sólo con `env.ok`. MaKo preguntaba «¿lo cargo?» en la app, contestaban «sí», y el doer no sabía a qué. Ahora con `env.ok || copia`, y la clave de la conversación. ⚠️ **Un aviso `alDueno` se emite con el `ws` del cliente:** con esa clave le quedaba en la memoria del cliente, y MaKo le repetía avisos de agencia sobre él. Su clave es la del grupo de la plataforma. ⚠️ **La insistencia, sólo si alguien usa el grupo** (`alguienAbrioElGrupo`): sin nadie en la app, el «ok» del grupo de WhatsApp no llega al webhook si la línea no está, y las repeticiones siguen hasta el techo en un hilo que nadie abrió.
+
+**El eco no se puede emparejar con el anillo:** con la voz en `mako_ws<n>`, `vozPropiaDeMaKo` da null y sólo decide el anillo, que ya perdió carreras. Como la fila existe antes del envío, el eco busca su texto entre las copias sin id de los últimos 10 min. ⚠️ **Hay que normalizar los dos lados con `linksConWs`:** el doer manda `/tickets?t=5` crudo y la copia lo guarda con `&ws=13`; sin eso no empareja, y si el eco le ganó al anillo sale una burbuja `persona` a nombre de Martín, porque la voz es su número.
+
+**El espejo es sincrónico y nunca llama al doer**, y por eso MaKo no contesta dos veces: el doer sigue entrando sólo por su `after`. La puerta es `wsDelGrupoOficial`, nunca el ws de la instancia: la voz trae TODOS los grupos del número de Martín, y los de prueba de la allowlist darían la plataforma. La fila se escribe antes de bajar la media: si no, el texto que venía detrás de una foto queda arriba de ella. Lo viejo que reentrega Evolution al reconectar (`wa_at` de más de 10 min) entra y no suena. Sin validar los bytes, un HTML con nombre de PDF se serviría en línea desde el storage.
+
+**El 👍 en la app sale DESPUÉS del clasificador.** Al llegar, dos personas charlando recibían el pulgar y después silencio. Y sin clasificador (el negocio sin su Claude y el crédito agotado), en la app no hay @menciones que lo atajen: «Juan, mirá esto» iba a turno completo y, sin IA, al cartel, la oferta de ayuda y un ticket, por cada tanda de 8 s. Con el texto de la app, si nadie lo nombra, no lo cita y no hay pendiente, MaKo no aparece, salvo que sea la única persona del grupo. **Una foto o un PDF sin nombrar a MaKo tampoco van a la cola:** es la diferencia con WhatsApp, donde un adjunto es deliberado. Es una decisión para el Cerebro.
+
+**Lo que el hilo guarda como texto no empareja con su eco (4/11).** Una tarjeta con un video: el hilo guarda «(un video)», porque no lo dibuja, y el eco dice «(video en WhatsApp)». En una tarjeta de varias partes el id se ata recién al final y el eco llega antes, así que no era una carrera rara: era lo normal, y salía una burbuja de más. `textoParaComparar` (lib/grupo-reglas.ts) los iguala.
+
+**`bufferearYResponder` tiene una segunda puerta (4/11).** Sus `return` tempranos (la respuesta al equipo, el emoji suelto) suponían que el mensaje no había entrado a la cola, y por WhatsApp es cierto. Desde la app la ruta ya encoló: sin `sacarDeLaCola`, el cron corría un turno a los 2 minutos sobre lo que era para el equipo. El detalle, en docs/hallazgos-ops-center.md.
+
+**Lo que no tiene arreglo sin otra decisión:** en los grupos donde la línea no está, Evolution no entrega nada: se ve lo que MaKo manda y lo escrito en la app, no lo que esas personas escriban en WhatsApp. Y un turno de WhatsApp puede citar lo escrito en la app, porque la memoria va por jid: es el costo de que el «sí» de un lado vea lo del otro.

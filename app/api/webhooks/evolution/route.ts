@@ -25,9 +25,8 @@ import { lineaPuedeSerDelBot } from '@/lib/mako-bot-reglas';
 import { configDelBot } from '@/lib/mako-salida';
 import { upsertContacto } from '@/lib/evolution-contactos';
 import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels';
-import { cerrarPorAcuse, acusesDe } from '@/lib/insistencias';
-import { marcarRespondieron } from '@/lib/flujo-corridas';
-import { esAcuse } from '@/lib/flujos-tipos';
+import { acusarDesdeElGrupo } from '@/lib/insistencias';
+import { espejarDeWhatsApp } from '@/lib/grupo-espejo';
 import { verificarFirma } from '@/lib/evolution-firma';
 
 /**
@@ -277,26 +276,10 @@ export async function POST(req: NextRequest) {
             for (const [jid, delGrupo] of porJid) {
               const wsGrupo = await wsDeGrupoJid(jid);
               if (wsGrupo == null) continue;
-              // Las palabras las elige el negocio; sin nada guardado son las de fábrica.
-              const palabras = await acusesDe(wsGrupo);
-              const texto = delGrupo
-                .map((m) => textoDeMensaje(m))
-                .find((t) => t && esAcuse(t, palabras));
-              if (!texto) continue;
-              const n = await cerrarPorAcuse(wsGrupo);
-              // ⚠️ EL MISMO ACUSE ES LA SEÑAL DEL CONDICIONAL. Un paso `condicional`
-              // con `contestaron` pregunta por esto y por nada más: es la única
-              // respuesta que el motor de flujos puede OBSERVAR, porque sus mensajes
-              // salen al grupo del dueño y lo que va al lead sale por la cola de
-              // confirmación. Por eso la tarjeta dice «si alguien contestó en el
-              // grupo» y no «si responde el lead» — un rótulo que promete una señal
-              // que no existe es el diagrama que miente, con otra cara.
-              //
-              // Marca y NO despierta: adelantar un delay porque alguien escribió «ok»
-              // manda el mensaje antes de tiempo. La condición se evalúa cuando a la
-              // corrida le toca, con la marca ya puesta.
-              const m = await marcarRespondieron(wsGrupo);
+              const acuse = await acusarDesdeElGrupo(wsGrupo, delGrupo.map((m) => textoDeMensaje(m)));
               // Tapado: un acuse es corto (≤40), y una clave `AIza…` suelta tiene 39 (revisión del lote 1).
+              if (!acuse) continue;
+              const { texto, cerradas: n, marcadas: m } = acuse;
               if (n || m) console.log(`[webhook:evolution] acuse «${taparClaves(texto).texto}» en ${jid} → ${n} insistencia(s) cerrada(s) y ${m} corrida(s) marcada(s) en ws${wsGrupo}`);
             }
           } catch (e) { console.error('[webhook:evolution] acuse:', e instanceof Error ? e.message : String(e)); }
@@ -307,6 +290,11 @@ export async function POST(req: NextRequest) {
           }
         });
       }
+
+      // ── EL ESPEJO AL GRUPO DE LA APP (3/11/2026, lib/grupo-espejo.ts) ─────────────────────────────────────────────────────────────
+      // Lo que entra por el grupo de WhatsApp se ve también en la app. SINCRÓNICO (como el de abajo: `after` no es durable), y antes del turno del doer, que corre en el `after`
+      // de arriba: así la respuesta de MaKo queda debajo de lo que contesta. Nunca llama al doer: por eso MaKo no contesta dos veces. Nunca tira.
+      if (grupos.length) await espejarDeWhatsApp(instance, grupos);
 
       // ── LOS GRUPOS QUE SE GUARDAN (lib/grupos-guardados.ts: Makito), 27/10/2026 (MK-01) ───────────────────────────────
       // ⚠️ NUNCA SE GUARDABAN. El pedido del 27/09 se dio por hecho, pero los grupos se separaban acá arriba y sólo los 1-a-1

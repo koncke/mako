@@ -443,6 +443,49 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: SOLO_APP, costo: 'gratis',
   },
+  // ── El grupo del negocio dentro de la app (3/11/2026, lib/grupo-app.ts) ──
+  // ⛔ `ver_grupo` SÓLO POR LA APP. Por WhatsApp, cualquiera del grupo (N3, `rol: admin`) le sacaría al grupo de WhatsApp lo escrito sólo en la app: el requisito 5, y expone a quien escribió creyendo que lo leía
+  // sólo ese grupo. Por HTTP, tampoco: «conversaciones de personas no salen por HTTP» (AGENTS.md y la decisión 2 de arriba). `escribir_en_grupo` sí sale por HTTP, con token `ejecutar`: no devuelve datos de nadie.
+  // Un invitado no llega a ninguna: su turno corre sin herramientas (lib/mako-doer-in.ts).
+  {
+    id: 'ver_grupo', area: 'equipo', tipo: 'lectura',
+    titulo: 'Ver el grupo de MaKo',
+    descripcion: 'El grupo del negocio dentro de la app: su nombre, quiénes están y por qué (administran, su agencia, invitados) y los últimos mensajes con su autor. Un invitado que todavía no abrió el grupo sale con su email, sin nombre: el nombre diría que esa cuenta existe.',
+    parametros: [
+      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 100, descripcion: 'cuántos mensajes traer, los últimos (30 si se omite).' },
+    ],
+    salida: 'json', canales: SOLO_APP, costo: 'gratis', gating: ADMIN,
+  },
+  {
+    id: 'invitar_al_grupo', area: 'equipo', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
+    titulo: 'Invitar a alguien al grupo',
+    descripcion: 'PROPONE invitar a una persona al grupo del negocio por su email exacto, también si es de otro negocio, y deja un link para confirmar. Ve lo que cae en el grupo desde hoy, también avisos de ventas y cobros, y puede hablar con MaKo ahí; no entra al resto del negocio. No crea cuentas: si el email no tiene cuenta en MaKo, queda anotado, le llega el email, y entra al grupo la primera vez que entre a MaKo con ese email. Nunca dice si esa cuenta existe.',
+    escribe: 'grupo_invitados, un email a la persona, y un aviso al teléfono si tiene cuenta',
+    parametros: [
+      { nombre: 'email', tipo: 'string', max: 320, obligatorio: true, descripcion: 'el email exacto de la persona.' },
+    ],
+    canales: SIN_HTTP, costo: 'externo', gating: ADMIN,
+  },
+  {
+    id: 'sacar_del_grupo', area: 'equipo', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
+    titulo: 'Sacar a alguien del grupo',
+    descripcion: 'PROPONE sacar del grupo del negocio a una persona invitada y deja un link para confirmar. Deja de ver el grupo en el acto. Quien entra por administrar el negocio o su agencia no se saca.',
+    escribe: 'grupo_invitados',
+    parametros: [
+      { nombre: 'email', tipo: 'string', max: 320, obligatorio: true, descripcion: 'el email exacto de la persona invitada.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: ADMIN,
+  },
+  {
+    id: 'escribir_en_grupo', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: false, aTerceros: true,
+    titulo: 'Escribir en el grupo',
+    descripcion: 'PROPONE escribir un mensaje en el grupo del negocio dentro de la app, firmado por MaKo (queda pendiente hasta el «sí»). Le suena a quienes están en el grupo. NO sale por WhatsApp.',
+    escribe: 'grupo_mensajes, y un aviso al celular de quienes están en el grupo',
+    parametros: [
+      { nombre: 'texto', tipo: 'string', max: 4000, obligatorio: true, descripcion: 'el mensaje, tal como se va a leer.' },
+    ],
+    canales: ['app', 'http'], costo: 'gratis', gating: ADMIN,
+  },
   {
     id: 'configurar_horario_envio', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar el horario de oficina',

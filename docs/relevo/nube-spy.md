@@ -39,7 +39,7 @@ verde, llega sola a `main`.
 | 7 | El detalle de cada competidor como el video: todo en un gráfico, uno por tipo de contenido | Hecho: pestaña «Gráfico», la primera; desplegable Contenido corto · Contenido largo · Carruseles e imágenes · Anuncios · Su web; números arriba, filtro de redes, cada miniatura en su día y sus vistas (escala log), entrando volando desde una columna; «¿Qué formatos le funcionan?» con la mediana de cada formato y la lectura escrita por el código. Sin «Anatomía del guion» ni retención: no hay datos públicos (diseño §15) | `punta/spy-detalle` | Mirarlo en pantalla con un competidor real; que la IA del negocio devuelva el formato |
 | 9 | «Copiar estructura» de un reel, un YouTube, un carrusel o una web | Hecho: tocar una miniatura o una tarjeta abre su detalle con «Copiar estructura», que arma una página del Copywriter del tipo que corresponde (con su estructura y su texto citado); sin el Copywriter, el texto queda copiado. La web va al Web Generator («Copiar su sitio») | `punta/spy-detalle` | La página nueva del Copywriter en producción |
 | + | (Cerebro, 4/11) Un apartado para las miniaturas de YouTube con su título | Hecho: pestaña «Miniaturas», de la más vista a la menos | `punta/spy-ficha` | — |
-| + | (Cerebro, 4/11) La caricatura, sola y en segundo plano | Hecho: la IA del negocio describe la cara, la foto sube a Flow y la imagen vuelve a nuestro Storage; la tarjeta la usa antes que la foto. Necesita la extensión conectada y Google Flow abierto en ese navegador (como el AI Avatar) | `punta/spy-caricatura` | Toda la caricatura: la IA mirando la foto y el puente tomando el pedido |
+| + | (Cerebro, 4/11) La caricatura, sola y en segundo plano | **Reemplazado por la cola del Runner** (segunda vuelta, abajo): el camino de la IA del negocio + Flow se borró | `punta/spy-caricatura` → `punta/spy-caricatura-cola` | — |
 
 ## Segunda vuelta (Martín probó en producción, 4/11/2026)
 
@@ -47,6 +47,50 @@ verde, llega sola a `main`.
 |---|---|---|---|
 | Buscar en YouTube con un nombre de varias palabras, sin @, con @ y por link | Hecho: los videos que trae Google se leen como su canal (`videos.list`), el nombre prueba su @ en YouTube y el grupo de YouTube dice qué pasó si no trae a nadie | `punta/spy-buscar-yt` | Una búsqueda real de «Victor Heras» |
 | Den Borg con 12 de 500, sin su YouTube ni su web | Hecho: la traída larga avanza sola cada hora (`/api/cron/spy-todo`), una corrida vacía se vuelve a pedir mañana y la pantalla dice por qué no trajo todo; sus otras redes salen en cadena (lo que enlaza su bio y su página de enlaces → su mismo usuario → Google sólo si falta), y su web sale de adentro de beacons/linktr.ee | `punta/spy-cadena` | beacons.page real; la forma de los ítems de error de Apify; el cron en Vercel |
+| La caricatura la hace el Runner con Canva (Martín: «levantar un ticket para generar esa imagen») | Hecho: al leer un competidor con su foto ya en nuestro Storage queda pendiente en `spy.caricaturas`; el Runner la lista y la guarda con dos scripts (contrato abajo). Sin la caricatura, la tarjeta muestra su foto sin cartel ni spinner. Se borró la rama de la IA del negocio + Flow (motor, ruta y bucle de la pantalla) | `punta/spy-caricatura-cola` | Los scripts contra la base de verdad: la primera prueba es Den Borg (ws 9, competidor 17) |
+| Sugeridos: los competidores de la plataforma en todos los negocios | Hecho: bloque «Sugeridos» con «Sumar» (copia lo ya leído: no gasta la clave del cliente; sin anuncios ni oferta); en la API, `ver_sugeridos` y `sumar_sugerido`. Sólo los del negocio de la plataforma, nunca los de otro cliente | `punta/spy-sugeridos` | Verlo en pantalla con los de verdad: un negocio cualquiera tiene que ver a los del 9 (Den Borg, Víctor Heras…) y sumarlos sin que suba el uso de su Apify |
+| Logos de cada red en toda la tab, y «¿En qué publica?» por red y formato | Hecho: el mismo logo del buscador en las miniaturas del gráfico, sus filtros, el detalle y el reparto; el reparto por red (con logo) y por formato, sin «100% videos»; se fue «Cada miniatura es un video» | `punta/spy-contenido` | — (dibujado con datos de prueba en escritorio y teléfono) |
+| Dos pestañas («Contenido» y «Funnel»), selector adentro del gráfico, proporción real de cada miniatura, sin «Revisar ahora» ni textos que narran, la criatura sin tarjeta blanca | Hecho | `punta/spy-contenido` | La ficha con un competidor de verdad: que «Funnel» aparezca sólo con web u oferta |
+| La foto real de perfil en la ficha del competidor (Sofía Contreras) | Hecho: la ficha abierta muestra su foto de perfil al lado del nombre; la lista sigue con la caricatura (criterio: la caricatura es la cara de la tab, la foto es la persona) | `punta/spy-contenido` | — |
+
+### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
+
+Los dos corren en la PC, con la base de producción y la clave de servicio del clon:
+
+```bash
+node --env-file=<clon>/.env.local --import tsx scripts/spy-caricaturas-pendientes.mjs
+```
+
+Imprime un JSON con `pendientes` (`[{ ws, id, foto }]`: sólo eso, sin nombre ni nada traído de afuera; la foto es una URL
+pública de nuestro Storage), `rendidas` (`[{ ws, id, foto, fallos, motivo }]`: fallaron 3 veces y ya no se intentan) y
+`masVieja` (desde cuándo espera la pendiente más vieja). Una persona que miran varios negocios sale una sola vez. Sólo lee.
+
+```bash
+node --env-file=<clon>/.env.local --import tsx scripts/spy-caricatura-guardar.mjs <ws> <id> <archivo>
+```
+
+Sube la imagen (JPG, PNG o WebP; cuadrada, de 128 px o más, hasta 2 MB) a `spy-miniaturas/spy/caricatura/<red>-<usuario>`
+y la marca lista en ese competidor **y en la misma persona (misma red y mismo usuario) de cualquier otro negocio**: no se
+genera otra. Un negocio que agrega después a la misma persona la recibe al leerla, sin entrar a la cola. El tamaño se lee
+del archivo: el conector de Canva entrega 200 × 200 y eso alcanza (la tarjeta mide ~250 px; las fotos de Instagram ya
+llegaban en 150 o 320).
+
+```bash
+node --env-file=<clon>/.env.local --import tsx scripts/spy-caricatura-guardar.mjs <ws> <id> --fallo "<motivo>"
+```
+
+Anota que Canva no pudo. No se reintenta en cadena: vuelve a la lista al día siguiente, y a los 3 fallos queda en
+`rendidas`. **Sin Canva conectado en la cuenta de Claude del Runner no se anota nada**: la pendiente espera, sin error y
+sin cartel en la pantalla, y lo único que lo delata es `masVieja` creciendo (para el super admin).
+
+**La receta** (medida por ti el 4/11 con Den Borg, ~30 s): `upload-asset-from-url` con la foto → `generate-image` con
+`imageReferences` y `SQUARE_1_1` → `get-generate-image-job` hasta `SUCCESS` → `get-assets` con el media id. El prompt es
+el aprobado (docs/hallazgos-ops-center.md), pero «the man» no va fijo: género, pelo, barba, anteojos, piel, gesto, prenda
+lisa y color de fondo los completa el Runner mirando la foto (Den Borg es una mujer).
+
+**La primera prueba:** Den Borg del ws 9 (competidor 17), con la imagen que ya generaste:
+`spy-caricatura-guardar.mjs 9 17 <archivo>`. Tiene que decir «Marcada en N competidor(es)» y la tarjeta mostrarla al
+recargar Spy.
 
 ### Qué medir en la base de producción (te lo pido, Cerebro): el competidor 13 del ws 11, que quedó en 12
 

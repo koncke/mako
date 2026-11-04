@@ -5,6 +5,7 @@ DELETE /api/chat-agent/adjuntos → cortada
 DELETE /api/chat-agent/audios → cortada
 DELETE /api/compartir → cortada
 DELETE /api/email/broadcasts → cortada
+DELETE /api/grupos/1/miembros → cortada
 DELETE /api/image-editor/disenos/1 → cortada
 DELETE /api/image-editor/subidos/1 → cortada
 DELETE /api/landing-analyst/view → cortada
@@ -113,7 +114,6 @@ POST /api/compartido/graficos → pública (no usa la sesión)
 POST /api/compartido/guion → pública (no usa la sesión)
 POST /api/compartir → cortada
 POST /api/competitor-spy/analizar → cortada
-POST /api/competitor-spy/caricatura → cortada
 POST /api/competitor-spy/copiar → cortada
 POST /api/competitor-spy/extension → pública (no usa la sesión)
 POST /api/competitor-spy/redes → cortada
@@ -127,6 +127,7 @@ POST /api/crm/ficha/armar → cortada
 POST /api/crm/importar-leads → cortada
 POST /api/crm/llamadas-grabadas → cortada
 POST /api/crm/mako → cortada
+POST /api/cron/grupo-turno → pública (no usa la sesión)
 POST /api/cuenta/eliminar → PERMITIDA
 POST /api/datos-mau → cortada
 POST /api/dev/group-photo → cortada
@@ -151,6 +152,9 @@ POST /api/graficos/ia → cortada
 POST /api/graficos/ia-elemento → cortada
 POST /api/graficos/imagen → cortada
 POST /api/graficos/plantilla → cortada
+POST /api/grupos/1/leido → cortada
+POST /api/grupos/1/mensajes → cortada
+POST /api/grupos/1/miembros → cortada
 POST /api/hilo-de-tab → PERMITIDA
 POST /api/ia-del-negocio/modelo → cortada
 POST /api/ia-del-negocio/probar-clave → cortada
@@ -200,13 +204,13 @@ POST /api/mako/pedidos → cortada
 POST /api/mako/prompts → cortada
 POST /api/mako/propuesta → cortada
 POST /api/mako/recomendaciones → cortada
-POST /api/mako/voz → PERMITIDA
+POST /api/mako/voz → cortada
 POST /api/media-buyer → cortada
 POST /api/meta-write → cortada
 POST /api/metodo → sólo admin (el rol la corta antes, también a un closer)
 POST /api/metodo/verificar → sólo admin (el rol la corta antes, también a un closer)
 POST /api/montaje/worker → pública (no usa la sesión)
-POST /api/notificaciones → PERMITIDA
+POST /api/notificaciones → cortada
 POST /api/offer → cortada
 POST /api/onboarding → cortada
 POST /api/onboarding/archivero → cortada

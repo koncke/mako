@@ -10,6 +10,7 @@
 
 import { SpyApp } from './SpyApp';
 import { listarCompetidores, resumenDePiezas } from '@/lib/spy';
+import { sugeridosDelNegocio } from '@/lib/spy-sugeridos-server';
 import { requireRolWs } from '@/lib/tab-access';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 
@@ -28,6 +29,8 @@ export default async function CompetitorSpyPage({ searchParams }: { searchParams
   await requireRolWs([], { nav: 'market-an' });
   const r = await listarCompetidores().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
   const resumen = await resumenDePiezas().catch(() => ({}));
+  // Los competidores de la plataforma que este negocio todavía no mira (lib/spy-sugeridos.ts). Sin poder leerlos, ninguno.
+  const sugeridos = await sugeridosDelNegocio().catch(() => []);
   const pedido = Number((await searchParams).competidor);
   // Quién puede BORRAR. Cualquiera mira y agrega; borrar se lleva puestas todas las piezas
   // leídas por el equipo (`on delete cascade`, 0359) y no se deshace, así que es del admin.
@@ -40,6 +43,7 @@ export default async function CompetitorSpyPage({ searchParams }: { searchParams
       errorInicial={r.ok ? null : r.error}
       puedeBorrar={esAdmin}
       ws={await getWorkspaceActual()}
+      sugeridosIniciales={sugeridos}
     />
   );
 }

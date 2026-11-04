@@ -57,6 +57,9 @@ test('/api/mako-doer es SÓLO LECTURA y declara su plazo (300) sin depender del 
 test('las rutas donde una confirmación por chat corre replicar_landing aguantan ~420 s', () => {
   const RUTAS = [
     'app/api/webhooks/evolution/route.ts',
+    // El turno sobre un mensaje del grupo de la app, y la red si el autollamado falla (3/11/2026): con 300 cortaba lo pesado.
+    'app/api/cron/grupo-turno/route.ts',
+    'app/api/cron/doer-flush/route.ts',
     'app/api/m/mako/route.ts',
     'app/m/second-brain/page.tsx',
     'app/m/inbox/page.tsx',

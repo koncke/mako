@@ -29,8 +29,10 @@ const leer = (p: string) => readFileSync(join(RAIZ, p), 'utf8').replace(/\r\n/g,
 type Cron = { path: string; schedule: string };
 const CRONS = (JSON.parse(leer('vercel.json')) as { crons: Cron[] }).crons;
 
-/** Rutas de cron que a propósito no agenda Vercel, con su motivo. Hoy, ninguna. */
-const SIN_AGENDA: Readonly<Record<string, string>> = {};
+/** Rutas de cron que a propósito no agenda Vercel, con su motivo. */
+const SIN_AGENDA: Readonly<Record<string, string>> = {
+  '/api/cron/grupo-turno': 'no es un cron programado: la llama /api/grupos/[ws]/mensajes para que el turno de MaKo corra en otra invocación, sin la sesión de quien escribió. Vive acá por el secreto del cron. La red, si falla, es doer-flush',
+};
 
 /** Las rutas que existen: cada carpeta de app/api/cron con su route.ts. */
 const RUTAS = readdirSync(join(RAIZ, 'app/api/cron'), { withFileTypes: true })

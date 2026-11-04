@@ -53,7 +53,7 @@ export const dynamic = 'force-dynamic';
 
 const RUTA = '/m/operaciones';
 
-export default async function CentroOperacionesMovil({ searchParams }: { searchParams: Promise<{ ticketera?: string }> }) {
+export default async function CentroOperacionesMovil({ searchParams }: { searchParams: Promise<{ ticketera?: string; grupo?: string }> }) {
   const admin = await getSesionAdmin();
   if (!admin) redirect(await rutaConWs(HOME_MOVIL));
   const plataforma = await wsSuperAdmin();
@@ -71,7 +71,7 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
   }
   // `?ticketera=` abre LA Ticketera —los tickets de los usuarios—. `tarjetas` y `lista` eran las preguntas de los chats (se
   // sacaron el 17/10/2026: se contestan en el chat que las hizo): un link viejo abre los tickets.
-  const { ticketera } = await searchParams;
+  const { ticketera, grupo } = await searchParams;
   const ahora = Date.now();
   const areas = areasDeProgreso();
   // Cada lectura falla sola: los chats (de las bitácoras) se ven aunque la cola no se pueda leer.
@@ -118,7 +118,8 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
   return (
     <PantallaM>
       {cabecera}
-      <CentroAppMovil {...datos} />
+      {/* `?grupo=`: el push de un aviso abre ahí el grupo (lib/movil-rutas.ts). */}
+      <CentroAppMovil {...datos} grupoInicial={grupo && /^\d{1,15}$/.test(grupo) ? Number(grupo) : null} />
     </PantallaM>
   );
 }

@@ -41,17 +41,19 @@ Las pruebas (corren el motor, el webhook y los runners reales sobre una base en 
 
 ## Lo que falta aplicar en producción (desde la nube no se toca)
 
-1. **La migración `0380_email_rebotes.sql`** (sólo agrega `rebotado_at` y `queja_at` a `nutricion_envios` y
-   `email_broadcast_envios`). Sin ella el webhook no anota los rebotes y **el freno no tiene qué contar**: no frena (lo dice
-   `ver_limites_envio`: «falta la migración 0380»). El número lo elegí yo (main terminaba en 0373; 0368-0370 y 0372 no están en
-   ninguna rama ni etiqueta): **confirmarlo con el Cerebro antes de aplicarla**, por si estaba reservado.
-2. **La key de Resend de la plataforma** (fila del ws 1, `credenciales.RESEND_API_KEY`) tiene que ser de **acceso completo**:
-   con una key «sólo enviar» (#875), `conectar_dominio_email` contesta `KEY_SOLO_ENVIO_DE_MAKO` y no hay campaña. Mirarlo en
-   el panel de Resend. ⛔ Mauricio NO pega su propia key: la fila del ws 1 es el entorno de la plataforma
-   (`lib/credenciales.ts`, `lib/email-remitente.ts`) y desviaría los avisos de MaKo a su cuenta.
-3. **El webhook de Resend** (`/api/webhooks/resend`, `RESEND_WEBHOOK_SECRET`) tiene que estar suscrito a `email.opened`,
-   `email.clicked`, `email.bounced` y `email.complained`. El 09/10 se midió que estaba suscrito a `email.received`; los otros
-   cuatro no los vi. Sin ellos no se mueven las tarjetas ni frena.
+1. ~~La migración `0380_email_rebotes.sql`~~ **YA ESTÁ: la aplicó el Cerebro y la midió el 4/11** (`rebotado_at` y
+   `queja_at` existen en `nutricion_envios` y en `email_broadcast_envios`). El webhook ya puede anotar rebotes y quejas, y el
+   freno tiene qué contar. No se midió desde la nube.
+2. **La clave que administra dominios: `RESEND_ADMIN_API_KEY` en Vercel (Production y Preview), y el plan de Resend.** Lo
+   hace Martín. Desde `6b8aae96b` (**en main** desde la corrida 41823262356, 4/11 11:54 UTC) la key que MANDA (la fila del ws 1, de sólo envío según midió
+   el Cerebro el 4/11) se queda como está: dar de alta, leer y verificar dominios va con esa variable aparte, que sólo lee
+   `lib/resend-dominios.ts`. Tiene que ser una key con «Full access» de la MISMA cuenta de Resend. Sin ella,
+   `conectar_dominio_email` y `verificar_dominio_envio` contestan «MaKo todavía no puede dar de alta ni verificar dominios
+   de correo» (es nuestro: `falla: true`, abre ticket) y no se crea nada; `estado_email` lo dice en
+   `alta_de_dominios_lista: false`. **Y el plan**: el Cerebro midió un dominio, y es hola-mako.com. Sin subirlo, el alta de
+   elevate.com.mx contesta «La cuenta de correo de MaKo llegó al tope de dominios de su plan… No es por tu dominio».
+   ⛔ Mauricio sigue sin pegar su propia key: la fila del ws 1 es el entorno de la plataforma.
+3. **El webhook de Resend**: resuelto según el Cerebro (4/11); se deja como está.
 4. **El envío real del ws 1** está apagado y así se queda hasta que Mauricio confirme la propuesta de
    `activar_envio_real_email` (gasta: va a pantalla). No se prendió `EMAIL_SEND_ENABLED`.
 
@@ -79,6 +81,29 @@ Las pruebas (corren el motor, el webhook y los runners reales sobre una base en 
   cosa, el rebote no cuenta para el freno (sí sigue sin dar de baja, como antes).
 - **La rampa con días reales** en la zona del negocio (se probó con fechas armadas y un día de 60 personas).
 - **La verificación DNS** de un dominio de verdad.
+
+## La clave que administra dominios, aparte de la que manda (4/11/2026, encargo del Cerebro)
+
+Pedido del Cerebro, textual: «no le subas el permiso a la clave que envía. Separalo: 1. Lo que administra dominios
+(`lib/email-dominio.ts`) usa una variable de entorno aparte, `RESEND_ADMIN_API_KEY`. Lo que envía sigue con su clave de sólo
+envío. 2. Sin esa variable, `conectar_dominio_email` contesta un error claro y no prende nada. Mauricio sigue sin pegar su
+clave. 3. Test probado rompiéndolo: el envío nunca usa la clave de administración, y la de administración nunca sale de ese
+módulo. 4. Si Resend contesta por el tope del plan, que el error lo diga, sin culpar al dominio.»
+
+- **Commit `6b8aae96b`**, **en main** (corrida 41823262356 verde; la primera, 41820959073, la frenó la guarda nueva por el nombre
+  de la variable escrito en el texto de la bitácora: se dijo en palabras, sin aflojar el test). Lo de dominios se mudó de `lib/resend.ts` a
+  `lib/resend-dominios.ts` (re-exportado: los que importan de `lib/resend` no cambian).
+- **Decisión mía, para que la revise el Cerebro:** un negocio con SU PROPIA key de Resend (ws10 y ws11, medido el 17/10)
+  sigue administrando su dominio con la suya, porque su dominio vive en su cuenta y es con la que manda. La del ws 1 no es
+  propia (es la de la plataforma): Mauricio va por la de administración.
+- **NO MEDIDO:** la forma exacta del error del tope de dominios (resend.com no resuelve desde la nube y el SDK no tiene un
+  código para eso). Se reconoce por el texto: nombra el dominio y un tope o el plan (`esTopeDeDominios`). Cuando se vea el
+  cuerpo real, sumarlo a `tests/resend-clave-admin.test.ts`.
+- **NO MEDIDO, y queda afuera:** leer lo que LLEGA por email (`getDeResend`, la bandeja de Chats) sigue con la key que
+  manda. Si Resend no deja leer con una de sólo envío, eso también falla. Mudarlo es decidir que la de administración sale
+  de su módulo: no lo hice.
+- **Del entorno:** `node scripts/tsc-acotado.mjs` con su heap por defecto (2.560 MB) ya no alcanza para estos archivos y
+  sale «NO SE PUDO CHEQUEAR (código undefined)», que es el tsc muerto por memoria. Con `--heap=4096` da verde.
 
 ## Lo que queda abierto (con su archivo)
 

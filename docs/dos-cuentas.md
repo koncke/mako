@@ -166,7 +166,7 @@ aunque el clon se borre y se vuelva a clonar:
 
 | Archivo | Qué es |
 |---|---|
-| `~/.claude/cuenta-activa.txt` | Una línea: `claude1` o `claude2`. La declara Martín. **Es la fuente de verdad** |
+| `~/.claude/cuenta-activa.txt` | Una línea: `claude1` o `claude2`. **Es la fuente de verdad.** Desde el 4/11/2026 lo corrige cada chat que arranca, con `CLAUDE_CODE_ACCOUNT_UUID` (`scripts/operaciones/runner-salud.mjs`). Si Martín dice otra cosa, gana él |
 | `~/.claude/bitacora-sesion.sh` | El script que leen los hooks. Está comentado con el porqué de cada decisión |
 | `~/.claude/bitacora-sesiones.tsv` | Una línea por apertura y por cierre: fecha, acción, cuenta, id de sesión |
 
