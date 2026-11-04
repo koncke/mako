@@ -1269,3 +1269,26 @@ Lo que bajó: las piezas del competidor abierto llegan con la página (antes se 
 actions hacen fila), las cuatro lecturas del server van en paralelo, y la grilla dibuja una página y no 60 tarjetas. Lo que NO
 mide esta vista: la red real del CDN de Meta. Por eso el tope de espera de las miniaturas bajó de 8 a 3 s (las que no llegan entran
 con su texto, sin cajas vacías). ⚠️ En producción hay que medir lo mismo con un competidor real: es lo que pidió el Cerebro.
+
+## Tercera vuelta: sus anuncios por su nombre, y verificados (4/11/2026)
+
+**Vive en:** `lib/spy-funnel.ts` (`busquedaDeSusAnuncios`, `enlaceSusAnuncios`), `lib/spy-captura.ts` (`anunciosDeQuien`).
+
+Martín, con Den Borg: «En su biblioteca de anuncios la buscó como su página [su web], cuando debió buscarla por su Instagram, todo
+el mundo publicita con su cuenta personal, o de última con el nombre del negocio... Y darse cuenta si es o no es». La captura del
+Cerebro: la Biblioteca abierta con `q="beacons.page"`, 54 anuncios de cualquiera.
+
+- **La causa era doble.** El enlace buscaba el dominio de su web ANTES que su nombre, y su web era una página de enlaces (Beacons):
+  es de todos. Y la verificación (`anunciosDeQuien`) daba por suyo cualquier anuncio que mandara a ese dominio, así que una captura
+  de esa búsqueda guardaba anuncios ajenos. Además comparaba la Página con su nombre ENTERO («Den Borg - Estrategia de Marca
+  Personal»), que ninguna Página tiene.
+- **Ahora:** el enlace busca su nombre corto (el de su perfil, sin lo que va después de « - »: así se llama la Página con que pauta),
+  después su @, y su web sólo si es SUYA. Un anuncio es suyo por su Página (el nombre entero, el corto o su @), por su Página
+  guardada, o por mandar a SU web; mandar a una página de enlaces no dice nada (del anuncio sólo se guarda el dominio al que manda).
+- ⚠️ **No medido:** si la búsqueda por frase exacta de la Biblioteca encuentra a la Página por su nombre o sólo el texto de los
+  anuncios. Lo que sí está garantizado es que lo que se GUARDA pasa la verificación. Con su Página guardada (`pagina_anuncios`
+  con un id) el enlace va directo a ella.
+- **La regla que queda:** un dominio identifica a alguien sólo si es suyo. Una página de enlaces, un checkout (Hotmart) o una
+  plataforma (Skool) son de miles: antes de comparar por dominio, se pregunta `esAgregador`.
+
+Lo fijan `tests/spy-captura.test.ts` y `tests/spy-funnel.test.ts` (los dos, probados rompiéndolos).
