@@ -378,6 +378,8 @@ export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERA
 
 /** ¿Es el aviso que le llega a una agencia en lugar del de su cliente (`aLaAgencia`)? Un negocio común no lo recibe nunca. */
 export const esAvisoParaAgencia = (id: string): boolean => CATALOGO_AVISOS.some((c) => c.aLaAgencia === id);
+/** Los avisos a una agencia, por su id: lo que un invitado al grupo de la app no ve, y por eso tampoco le cuenta como no leído (lib/grupo-app.ts). */
+export const avisosParaAgencia = (): string[] => CATALOGO_AVISOS.flatMap((c) => (c.aLaAgencia ? [c.aLaAgencia] : []));
 
 /** ¿El texto de este aviso lo arma el código? (`textoDelCodigo`). Un aviso propio del negocio, nunca. */
 export const textoLoArmaElCodigo = (id: string): boolean =>

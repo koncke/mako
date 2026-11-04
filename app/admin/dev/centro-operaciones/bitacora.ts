@@ -2156,4 +2156,23 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-ops-center.md — lo que costó y lo que falta',
     ],
   },
+  {
+    fecha: '4 nov', hora: '07:15', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grupo de la app, listo para entrar a main con lo que dejó pendiente la revisión',
+    revisar: '/second-brain',
+    puntos: [
+      '**Rearmado sobre lo último de main:** los cuatro commits de la rama, con lo que main sumó al turno de MaKo en el grupo (la cita, Google Calendar, el chat de a dos y el freno anti-ban) y sin perder ninguna guarda del invitado.',
+      '**Un invitado tampoco sabe si el negocio tiene Google Calendar conectado**, ni lee el mensaje que citó otra persona como memoria del negocio.',
+      '**La respuesta al equipo ya no le llega a MaKo** aunque falle el autollamado o la mezcle otra persona escribiendo al mismo tiempo.',
+      '**Un invitado ya no ve no leídos que no puede abrir**, y al borrar un negocio se borran también los archivos de su grupo.',
+      '**Falta aplicar la migración 0372** y probarlo en producción: los pasos, en docs/relevo/nube-grupos.md.',
+    ],
+    archivos: [
+      'lib/mako-doer-in.ts — `ctxGoogle` y `ctxCita` con `hayInvitado`, `sinLasDelEquipo` en la cola y en el cron',
+      'lib/grupo-app.ts — `resumenParaLaLista` · lib/reset-workspace.ts — `CARPETAS_APARTE`',
+      'tests/grupos-ops-guarda.test.ts · tests/grupos-ops-turno.test.ts · tests/grupos-ops-puerta.test.ts · tests/baja-cuenta.test.ts — probados rompiéndolos',
+      'docs/relevo/nube-grupos.md · docs/hallazgos-ops-center.md',
+    ],
+  },
 ];

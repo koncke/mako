@@ -35,7 +35,10 @@ async function main() {
       if (m) {
         const prefijo = String(body?.prefix ?? '');
         const offset = Number(body?.offset ?? 0);
-        return json(200, offset === 0 && m[1] === 'archivero' && prefijo === String(A_BORRAR) ? [{ id: 'x', name: 'contrato.pdf' }] : []);
+        if (offset === 0 && m[1] === 'archivero' && prefijo === String(A_BORRAR)) return json(200, [{ id: 'x', name: 'contrato.pdf' }]);
+        // Lo que se subió al grupo de la app (lib/grupo-app.ts) va en `grupos/<ws>/`, no en `<ws>/` (4/11/2026).
+        if (offset === 0 && m[1] === 'archivero' && prefijo === `grupos/${A_BORRAR}`) return json(200, [{ id: 'y', name: 'foto-del-grupo.jpg' }]);
+        return json(200, []);
       }
       if (init.method === 'DELETE') { borradosStorage.push(...((body?.prefixes as string[]) ?? []).map((p) => `${u.pathname.split('/').pop()}:${p}`)); return json(200, []); }
       return json(200, []);

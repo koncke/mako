@@ -120,7 +120,8 @@ async function main() {
       { id: 884, workspace_id: WS, grupo_jid: JID, role: 'user', content: 'SEMILLA-CHARLA-VIEJA', wa_message_id: null, created_at: new Date(Date.now() - 3 * 24 * 3600_000).toISOString() },
     );
   };
-  const PIDE_NUMEROS = 'mako, pensá cómo vamos con el objetivo del trimestre y resumime lo que se habló esta semana';
+  // Y nombra Google Calendar (ticket #42, de main): si el negocio lo tiene conectado es un dato del negocio (`ctxGoogle`).
+  const PIDE_NUMEROS = 'mako, pensá cómo vamos con el objetivo del trimestre, resumime lo que se habló esta semana y decime si tenemos Google Calendar conectado';
   sembrar(); escenaNueva({ clase: clase('PREGUNTA', 'cómo vamos'), respuesta: 'Vamos bien.' });
   await escribir(ANA, PIDE_NUMEROS);
   const control = lo();
@@ -398,7 +399,26 @@ async function main() {
   limpiar(); escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'Te respondo.' });
   anilloDelEquipo('WAequipo2'); filaDelEquipo(7001, 'WAequipo2');
   await escribir(ANA, 'es el 12, y ¿me pasas el link del CRM?', WS, { respondeA: 7001 });
-  out.alEquipo = { ...alEquipo, conPedido: { deMaKo: deMaKo(), cola: db.mako_doer_buffer.map((f) => f.estado) } };
+  const conPedido = { deMaKo: deMaKo(), cola: db.mako_doer_buffer.map((f) => f.estado) };
+  // ⚠️ Y si el autollamado FALLA, la levanta el cron, que no pasaba por `contestaAlEquipo` (4/11/2026, al llevarlo a main: `sinLasDelEquipo`).
+  limpiar(); escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'No debería salir.' });
+  anilloDelEquipo('WAequipo3'); filaDelEquipo(7002, 'WAequipo3');
+  const cronDeVerdad = escena.cron;
+  escena.cron = async () => new Response('caído', { status: 500 });
+  await escribir(ANA, 'Sí, es el 14', WS, { respondeA: 7002 });
+  escena.cron = cronDeVerdad;
+  const colaSinAutollamado = db.mako_doer_buffer.map((f) => f.estado);
+  await alCron();
+  const sinAutollamado = { cola: colaSinAutollamado, colaDespues: db.mako_doer_buffer.map((f) => f.estado), deMaKo: deMaKo(), llamadas: lo().length, alEquipo: filas(PLATAFORMA).filter((f) => /Respuesta al equipo/.test(String(f.texto)) && /es el 14/.test(String(f.texto))).length };
+  // Y si en la misma ventana escribe otra persona, la respuesta cae en SU lote: tampoco a MaKo.
+  limpiar(); escenaNueva({ clase: clase('PREGUNTA'), respuesta: 'Hay 3.' });
+  anilloDelEquipo('WAequipo4'); filaDelEquipo(7003, 'WAequipo4');
+  escena.cron = async () => new Response('caído', { status: 500 });
+  await escribir(ANA, 'Sí, es el 15', WS, { respondeA: 7003 });
+  escena.cron = cronDeVerdad;
+  await escribir(BOB, 'mako, ¿cuántos leads hay?');
+  const enLoteAjeno = { deMaKo: deMaKo(), alModelo: lo().map((m) => m.mensajes + m.sys).join('\n').includes('es el 15'), cola: db.mako_doer_buffer.map((f) => f.estado), alEquipo: filas(PLATAFORMA).filter((f) => /Respuesta al equipo/.test(String(f.texto)) && /es el 15/.test(String(f.texto))).length };
+  out.alEquipo = { ...alEquipo, conPedido, sinAutollamado, enLoteAjeno };
 
   // ⛔ «Hola Martín, …» de un invitado: la marca [[no-pude]] la pone el código y abre un ticket AUTOMÁTICO, otro camino a la vía libre que el de `abrirTicketDelGrupo`.
   limpiar(); escenaNueva({ clase: clase('PREGUNTA', 'para Martín'), respuesta: 'Se lo paso.' });

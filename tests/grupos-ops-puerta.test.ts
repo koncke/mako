@@ -90,6 +90,8 @@ test('⛔ un invitado ve desde que entró, por los tres caminos, sin los avisos 
   assert.equal(fila.titulo, 'Grupo de Siete', 'sin el prefijo «MaKo <>»: el nombre del negocio lo controla el inquilino');
   assert.equal(fila.invitado, true);
   assert.equal(fila.administra, false);
+  // Lo segundo y lo primero después de entrar: el aviso a la agencia del medio no lo ve, y tampoco le cuenta (4/11/2026).
+  assert.equal(fila.noLeidos, 2, 'le cuenta como no leído un aviso a la agencia que no ve');
 });
 
 test('la vista previa de quien recién entra no trae lo de antes', () => {
@@ -259,3 +261,4 @@ test('lo de antes, de WhatsApp: sólo quien administra, sin el jid y sin copiar 
 //   · la nota pide IA → 1 en rojo: «escribir: tope por minuto, reintento sin duplicar, clave tap»
 
 // PROBADO ROMPIÉNDOLO (4/11/2026, la revisión): volver a invitar no le abre la puerta a la cuenta nueva → 1 en rojo; volver a invitar le corre `desde_id` a quien ya está → 1 en rojo.
+// PROBADO ROMPIÉNDOLO (4/11/2026, al llevarlo a main): sin restarle al invitado los avisos a la agencia, base 17/0 → 1 en rojo: «un invitado ve desde que entró»

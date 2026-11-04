@@ -7,6 +7,27 @@ Acá va lo que costó y no se deduce leyendo el código.
 
 ---
 
+## El grupo de la app, llevado a main (4/11/2026)
+
+La rama (`rescate/grupos-ops-0311`) estaba 387 commits detrás de main, y main había tocado justo el turno del grupo: la cita (#40), Google Calendar (#42), el bot 1 a 1, la regla de no escribirle primero a nadie y el freno anti-ban. Se rearmó con cherry-pick de sus cuatro commits en `punta/grupos`. Lo vivido en una sesión de la nube, sin la base ni la app: con tests y el `tsc` entero.
+
+**La guarda frenó lo que tenía que frenar, y fue lo único que lo vio.** `tests/grupos-ops-guarda.test.ts` fija la lista de bloques del system del turno: al mezclar dio rojo con `ctxGoogle` (si el negocio tiene su Google Calendar conectado) y con `vozDelCanal` (la voz del chat de a dos, dos constantes). `ctxGoogle` va vacío con `hayInvitado`, y `ctxCita` sólo en la rama de quien administra. **Una semilla nueva, porque la guarda de fuente no prueba que no llegue:** el pedido de las semillas del test del turno nombra Google Calendar, y «GOOGLE CALENDAR:» le llega a quien administra y no al invitado. Rompiéndolo, rojo en las dos.
+
+**Un archivo nuevo de main le pega a `/message/send`, y no es un grupo:** `lib/mako-salida-drivers.ts`, la cañería del bot 1 a 1. La guarda de las copias lo marcó. La excepción va escrita con su porqué, y un test fija lo que la sostiene: la puerta de `lib/mako-salida.ts` (`salidaPara`) corta todo jid de grupo antes de mirar nada, y nadie más importa la cañería. Sin ese test, la excepción sería una frase.
+
+**La regla 1 de main y lo de la app no chocan, por la forma de la clave.** `reaccionarMensaje` ganó en main «a una persona, sólo si escribió»: lo de la app va primero (no toca Evolution) y la regla después. `app<ws>@g.us` termina en `@g.us`, así que los envoltorios del doer (`enviarAGrupoJid`, `reaccionarMensaje`) la mandan a lib/mako-grupo.ts y nunca a lib/mako-salida.ts, y el freno de la línea vive en `ev()`, por donde pasa todo envío a Evolution.
+
+**Lo obvio era el equivocado en el cron de huérfanos.** El choque se veía como «la rama refactorizó el bucle en `atenderLaColaDelCron`, main no»: quedarse con el lado de la rama compilaba y perdía dos cosas que main sumó en esas mismas líneas, el chat 1 a 1 (`huerfanoDelChat`) y la cita del lote (`conLaCitaDelLote`). Se pasaron a mano. **Regla:** en un choque donde un lado mueve un bloque a una función, se compara lo que el otro lado le agregó al bloque de antes, línea por línea.
+
+**Los tres que habían quedado abiertos, hechos (con su escena o su prueba, rompiéndolos):**
+- La respuesta al equipo escrita en la app ya no le llega a MaKo cuando falla el autollamado o cuando otra persona escribe en la misma ventana: `sinLasDelEquipo` (lib/mako-doer-in.ts) la aparta en el lote y en el cron, con la regla de `bufferearYResponder` y sin avisar dos veces (lee `CLAVE_RESPUESTAS_AVISADAS`).
+- Un invitado ya no cuenta como no leídos los avisos a la agencia que no ve: `resumenParaLaLista` (lib/grupo-app.ts) los resta con los mismos filtros (`avisosParaAgencia`, lib/avisos-catalogo.ts).
+- Borrar un negocio se lleva `archivero/grupos/<ws>/` (`CARPETAS_APARTE`, lib/reset-workspace.ts).
+
+**Lo que sigue sin hacer:** todo lo de abajo que no está en esta lista, y sin mirar en producción. Cómo se prueba, en docs/relevo/nube-grupos.md.
+
+---
+
 ## El grupo de la app: lo que encontró la revisión, con todo en verde (4/11/2026)
 
 98 y 41 roturas probadas, 398 tests en verde, y una lectura del código encontró cuatro fallas, y una quinta en el eco (docs/hallazgos-comunicacion.md), con la app funcionando. Ninguna daba error. Todas salieron de preguntarse qué camino NO recorre ningún test, y todas se vieron en rojo antes de arreglarlas.
@@ -22,11 +43,11 @@ Acá va lo que costó y no se deduce leyendo el código.
 **Trampas de esta revisión:**
 - El tope por minuto vive en memoria y dura todo el proceso del hijo: en una escena larga, la misma persona da 429 y el test pasa sin probar nada. Una persona propia por escena, y se afirma el estado de cada POST.
 - Las filas de una escena anterior siguen en la cola, porque ahí el cron no corre: con «lo que esta persona tiene en la cola» cambiando una decisión, hay que vaciarla.
-- `ctxGoogle` y `ctxCita` ya están en `tren-0311` y no estaban cuando se escribió lo del invitado. Por eso `tests/grupos-ops-guarda.test.ts` fija la lista de bloques del system del turno: **al mezclar esa rama va a dar rojo a propósito**, hasta que `ctxGoogle` sea `hayInvitado ? '' : …`. Un bloque nuevo que le cuente algo del negocio a un invitado no lo atrapa ninguna semilla: nadie la sembró.
+- `ctxGoogle` y `ctxCita` ya están en `tren-0311` y no estaban cuando se escribió lo del invitado. Por eso `tests/grupos-ops-guarda.test.ts` fija la lista de bloques del system del turno: al mezclar dio rojo a propósito, y se resolvió así (arriba, «llevado a main»). Un bloque nuevo que le cuente algo del negocio a un invitado no lo atrapa ninguna semilla: nadie la sembró.
 
 **Lo que quedó sin hacer**, con el archivo donde vive:
-- La respuesta al equipo que entra a un lote ajeno, o cuyo autollamado falló, llega a MaKo: esos caminos no pasan por `contestaAlEquipo` (`atenderLaCola` y `atenderLaColaDelCron`, lib/mako-doer-in.ts). Hace falta que falle el autollamado o que otra persona escriba en la misma ventana.
-- Un invitado cuenta como no leídos los avisos a la agencia que no ve: el número queda hasta el próximo mensaje visible (`resumenParaLaLista`, lib/grupo-app.ts). Sólo en el grupo de una agencia.
+- ~~La respuesta al equipo que entra a un lote ajeno, o cuyo autollamado falló, llega a MaKo~~: hecho el 4/11 (`sinLasDelEquipo`, arriba).
+- ~~Un invitado cuenta como no leídos los avisos a la agencia que no ve~~: hecho el 4/11 (arriba).
 - Atar el id de WhatsApp a la copia va por posición: una parte vacía de una tarjeta corre los ids (`emitirAviso`, lib/avisos.ts, y lib/probar-grupo-envio.ts). El eco por texto lo cubre casi siempre.
 - El push del espejo corre adentro del webhook (`espejarUno`, lib/grupo-espejo.ts): con muchos miembros suscriptos demora la respuesta a Evolution. Hoy `push_suscripciones` estaba en 0.
 - El autollamado se aborta a los 5 s (`dispararTurno`, app/api/grupos/[ws]/mensajes/route.ts): sin comprobar en Vercel si, en un arranque en frío, la función llamada sigue corriendo. Si no sigue, lo levanta el cron a los 2 o 3 minutos.
@@ -73,7 +94,7 @@ Martín, tras el ban de la línea de MaKo: un grupo por negocio adentro del Ops 
 - La memoria no se muda: si un negocio sin grupo crea uno, la clave pasa de `app<ws>@g.us` al jid y la memoria y las pendientes quedan atrás (`claveDeConversacion`). El hilo visible no se pierde.
 - `misTickets` filtra por ws + email: el ticket de un invitado no aparece en SU /tickets (`lib/tickets-db.ts`).
 - «vino por WhatsApp» en Pendientes: `canalDeClave` da whatsapp para la clave de la app, y eso es lo que mantiene las confirmaciones.
-- Los archivos de `grupos/<ws>/` no se borran del bucket al borrar un negocio.
+- ~~Los archivos de `grupos/<ws>/` no se borran del bucket al borrar un negocio~~: hecho el 4/11 (arriba).
 - `esAcuse` usa `includes`: «el book» corta las insistencias de quien administra. Se usa igual que hoy, y en un chat de personas se va a notar más (`lib/flujos-tipos.ts`).
 
 ---

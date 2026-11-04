@@ -36,6 +36,7 @@ const TOCAN_EVOLUTION: Record<string, string> = {
   'lib/mako-grupo.ts': 'las puertas de los grupos: se miran abajo',
   'lib/mako-tarjeta.ts': '`enviarPartesPorEv`, sin base: lo llama sólo lib/mako-grupo.ts',
   'lib/evolution.ts': 'a LEADS y a personas, nunca a un grupo: `enviarTexto` deja sólo dígitos, y un jid de grupo deja de serlo',
+  'lib/mako-salida-drivers.ts': 'la cañería del bot 1 a 1 (4/11/2026): la usa sólo lib/mako-salida.ts, cuya puerta no deja salir a un jid de grupo (se mira abajo)',
   'app/admin/dev/chatbot/bitacora.ts': 'un texto de la bitácora, que nombra la ruta: no manda nada',
 };
 /** 2. Las funciones de lib/mako-grupo.ts que contienen un envío crudo. */
@@ -197,7 +198,8 @@ test('quien reintenta con el resultado del aviso cuenta `enApp` como que llegó'
  * LOS BLOQUES DEL SYSTEM DEL TURNO DEL GRUPO. Una semilla sólo atrapa lo que alguien sembró: un bloque nuevo que le cuente algo del negocio a un invitado (¿tiene Google Calendar conectado?, ¿qué citó?) da verde en
  * tests/grupos-ops-turno.test.ts. Así que la lista es fija, y sumar uno obliga a decidirlo: con `hayInvitado`, vacío, salvo que no diga nada del negocio.
  */
-const BLOQUES_DEL_SYSTEM = ['DEEP_LINKS', 'LARGO_WHATSAPP', 'aviso', 'baseDelSystem', 'bloqueTools', 'conMemoria', 'ctxAgenda', 'ctxFalla', 'ctxHoy', 'ctxPend', 'ctxPuntos', 'reglaDeLasMarcas', 'soloLeer'];
+// `vozDelCanal` (4/11/2026): la voz del grupo o del chat de a dos, dos constantes. `ctxGoogle`: si el negocio tiene su Google Calendar conectado, vacío con un invitado.
+const BLOQUES_DEL_SYSTEM = ['DEEP_LINKS', 'LARGO_WHATSAPP', 'aviso', 'baseDelSystem', 'bloqueTools', 'conMemoria', 'ctxAgenda', 'ctxFalla', 'ctxGoogle', 'ctxHoy', 'ctxPend', 'ctxPuntos', 'reglaDeLasMarcas', 'vozDelCanal'];
 
 test('⛔ un bloque nuevo en el system del turno del grupo se decide para un invitado', () => {
   const doer = sinComentarios(readFileSync(join(RAIZ, 'lib/mako-doer-in.ts'), 'utf8'));
@@ -211,6 +213,21 @@ test('⛔ un bloque nuevo en el system del turno del grupo se decide para un inv
   assert.match(doer, /const ctxPuntos = hayInvitado \? ''/);
   assert.match(doer, /const vigentes = hayInvitado \? \[\]/, 'las pendientes (`ctxPend`) le llegarían a un invitado');
   assert.match(doer, /const agendaAbierta = hayInvitado \? null/, 'la agenda abierta (`ctxAgenda`) le llegaría a un invitado');
+  assert.match(doer, /const ctxGoogle = hayInvitado \? ''/, 'si el negocio tiene su Google Calendar conectado le llegaría a un invitado');
+  // La cita (`ctxCita`, ticket #40) va sólo en la rama de la memoria que no es de invitado.
+  const ramaDelInvitado = /const conMemoria = hayInvitado \? [^\n]*/.exec(doer)?.[0] ?? '';
+  assert.ok(ramaDelInvitado, 'no encuentro la memoria del turno: esta guarda dejó de mirar');
+  assert.doesNotMatch(ramaDelInvitado, /ctxCita|ctxParaElEquipo|ctxPedidos|ctxYaSeHablo|ctxMostrado/, 'la memoria del negocio le llegaría a un invitado');
+});
+
+test('la cañería del bot 1 a 1 no escribe en un grupo: su puerta lo corta antes', () => {
+  const salida = sinComentarios(readFileSync(join(RAIZ, 'lib/mako-salida.ts'), 'utf8'));
+  const puerta = /async function salidaPara\(jid: string\)[^\n]*\n\s*if \(jid\.endsWith\('@g\.us'\)\) return \{ error:/.test(salida);
+  assert.ok(puerta, 'lib/mako-salida-drivers.ts tocaría un grupo sin copiar: `salidaPara` tiene que cortar un jid de grupo antes de todo');
+  // Y nadie más usa la cañería: si otro archivo la importa, su excepción de arriba deja de valer.
+  const usan = execFileSync('git', ['grep', '--untracked', '-l', '-E', `(from|import\\() *['"](\\./|@/lib/|\\.\\./lib/)mako-salida-drivers['"]`, '--', 'lib', 'app', 'scripts'], { cwd: RAIZ, encoding: 'utf8' })
+    .split('\n').map((x) => x.trim()).filter((x) => /\.(ts|tsx|mts|mjs|js)$/.test(x) && x !== 'lib/mako-salida-drivers.ts');
+  assert.deepEqual(usan, ['lib/mako-salida.ts']);
 });
 
 // PROBADO ROMPIÉNDOLO (3/11/2026): una rotura por vez sobre el código real, corriendo este archivo, y restaurada. Las 5 dieron rojo:
@@ -221,3 +238,7 @@ test('⛔ un bloque nuevo en el system del turno del grupo se decide para un inv
 //   · la prueba no copia → 1 en rojo: «⛔ TODO lo que sale a un grupo pasa por la copia»
 
 //   · (4/11/2026) un bloque nuevo en el system (`${ctxGoogle}`) → 1 en rojo: «un bloque nuevo en el system del turno del grupo»
+// PROBADO ROMPIÉNDOLO (4/11/2026, al llevarlo a main): una por vez, sobre el código real y restaurada, base 9/0:
+//   · `ctxGoogle` sin `hayInvitado` → 1 en rojo: «un bloque nuevo en el system del turno del grupo»
+//   · `ctxCita` en la memoria del invitado → 1 en rojo: «un bloque nuevo en el system del turno del grupo»
+//   · `salidaPara` (lib/mako-salida.ts) sin el corte de los grupos → 1 en rojo: «la cañería del bot 1 a 1 no escribe en un grupo»

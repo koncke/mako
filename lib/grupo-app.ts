@@ -26,6 +26,7 @@ import { linksConWs } from './links-con-ws';
 import { taparClaves } from './claves-en-el-chat';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { claveDeLaApp, filaDelId } from './grupo-salida';
+import { avisosParaAgencia } from './avisos-catalogo';
 import { letraVigente, miembrosDelGrupo, type PersonaDelGrupo } from './grupo-puerta';
 import {
   AVISO_DE_INVITACION_CADA_MS, POR_PAGINA, TOPE_INVITACIONES_POR_HORA, TOPE_INVITADOS, autorDePersona, esPathDelGrupo, filaAlHilo, laVeUnInvitado, sinLinksParaInvitado,
@@ -363,7 +364,16 @@ export async function resumenParaLaLista(ws: number, quien: PersonaDelGrupo): Pr
   // ⚠️ `usuario_id.neq.X` SOLO da 0 con los avisos: SQL descarta los NULL, y todo lo de MaKo y lo espejado va con `usuario_id` null.
   const { count } = await db().from(T).select('id', { count: 'exact', head: true }).eq('workspace_id', ws).gt('id', hastaId)
     .neq('autor_tipo', 'sistema').or(`usuario_id.is.null,usuario_id.neq.${quien.usuarioId}`);
-  return { titulo, ultimo: visibles[0] ? filaAlHilo(visibles[0], { usuarioId: quien.usuarioId, invitado: quien.invitado, hosts: hostsDeMaKo() }) : null, noLeidos: count ?? 0, hastaId };
+  let noLeidos = count ?? 0;
+  // ⚠️ Un invitado no ve los avisos a la agencia (`laVeUnInvitado`): tampoco le cuentan. Si no, el número quedaba hasta el próximo mensaje que sí ve. Se restan con
+  // los MISMOS filtros del conteo; sin poder leerlos, se restan cero (un número de más, nunca un aviso que no ve).
+  const deAgencia = avisosParaAgencia();
+  if (quien.invitado && noLeidos > 0 && deAgencia.length) {
+    const { count: noLosVe } = await db().from(T).select('id', { count: 'exact', head: true }).eq('workspace_id', ws).gt('id', hastaId)
+      .neq('autor_tipo', 'sistema').in('aviso_tipo', deAgencia);
+    noLeidos = Math.max(0, noLeidos - (noLosVe ?? 0));
+  }
+  return { titulo, ultimo: visibles[0] ? filaAlHilo(visibles[0], { usuarioId: quien.usuarioId, invitado: quien.invitado, hosts: hostsDeMaKo() }) : null, noLeidos, hastaId };
 }
 
 /** Hasta dónde leyó esta persona. SUBE Y NUNCA BAJA: un upsert desde una pestaña vieja le bajaría la marca al otro dispositivo. */

@@ -1112,6 +1112,39 @@ async function registrarRespuestaAlEquipo(wsData: number, data: MsgIn, texto: st
   if (!r.ok) throw new Error(r.error ?? 'no salió');
 }
 
+/**
+ * LA RESPUESTA AL EQUIPO QUE CAYÓ EN UN LOTE AJENO (4/11/2026, la revisión del grupo de la app). En WhatsApp se aparta antes de `encolar`; en la app la ruta ya
+ * encoló, así que si otra persona ganó el candado en la misma ventana, o falló el autollamado y la levantó el cron, llegaba a MaKo. Se mira acá con la MISMA regla
+ * de `bufferearYResponder` y se aparta: al ticket o al grupo de SuperAdmin, sin turno. Sólo lo de la app: lo de WhatsApp ya pasó por la regla antes de entrar.
+ * `yaMirado`: el mensaje de esta invocación, que ya la pasó. Si no se puede mirar, el mensaje queda (como hoy).
+ */
+async function sinLasDelEquipo(wsData: number, instance: string, jid: string, cola: readonly MsgBuffer[], yaMirado?: string): Promise<MsgBuffer[]> {
+  const quedan: MsgBuffer[] = [];
+  const apartadas: number[] = [];
+  let avisadas: string | null | undefined;
+  for (const m of cola) {
+    const id = m.wa_message_id ?? '';
+    if (!esIdDeLaApp(id) || id === yaMirado) { quedan.push(m); continue; }
+    const p = (m.payload as MsgIn) ?? {};
+    const texto = (m.texto ?? '').trim();
+    const ademasPideAMaKo = !!texto && pideAlgoAMaKo(texto);
+    if (avisadas === undefined) avisadas = await runWithWorkspace(wsData, () => getSetting(CLAVE_RESPUESTAS_AVISADAS)).catch(() => null);
+    // Ya se avisó (la invocación de ese mensaje llegó primero): no se repite, y sin pedido a MaKo no entra al turno.
+    if (conLaAvisada(avisadas, id).yaEstaba) { if (ademasPideAMaKo) quedan.push(m); else apartadas.push(m.id); continue; }
+    const alEquipo = await contestaAlEquipo(wsData, instance, jid, p, texto, !audioDe(p) && !adjuntoDe(p)).catch(() => null);
+    if (!alEquipo || (alEquipo.ventana && texto && esSoloUnPedidoAMaKo(texto))) { quedan.push(m); continue; }
+    await registrarRespuestaAlEquipo(wsData, p, texto || '(una nota de voz o un archivo)', alEquipo.delEquipo)
+      .catch((e) => console.error(`[mako-doer-in] ws=${wsData} la respuesta al equipo del lote no quedó registrada: ${e instanceof Error ? e.message : String(e)}`));
+    if (alEquipo.ventana && alEquipo.delEquipo.id) {
+      const { cerrarLaPreguntaDelEquipo } = await import('@/lib/mako-grupo');
+      await cerrarLaPreguntaDelEquipo(wsData, alEquipo.delEquipo.id).catch(() => {});
+    }
+    if (ademasPideAMaKo) quedan.push(m); else apartadas.push(m.id);
+  }
+  if (apartadas.length) await marcarProcesados(apartadas).catch(() => {});
+  return quedan;
+}
+
 /** Lo que dejó el acuse del que ganó el candado: si ya dijo la frase de espera (el 👍 falló y el pedido se sabía largo). */
 type Acuse = Promise<{ dijoEspera: boolean }>;
 
@@ -1364,9 +1397,11 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   };
   /** Los ids que ya se atendieron en esta corrida: una fila que no se pudo marcar no vuelve a correr. */
   const yaAtendidos = new Set<number>();
-  const atenderPorPermiso = async (cola: readonly MsgBuffer[]): Promise<ResultadoDoer> => {
-    for (const m of cola) yaAtendidos.add(m.id);
-    let ultimo: ResultadoDoer = { engaged: false, skip: 'la cola quedó vacía' };
+  const atenderPorPermiso = async (colaEntera: readonly MsgBuffer[]): Promise<ResultadoDoer> => {
+    for (const m of colaEntera) yaAtendidos.add(m.id);
+    const cola = await sinLasDelEquipo(wsData, instance, jid, colaEntera, msgId);
+    let ultimo: ResultadoDoer = { engaged: false, skip: cola.length ? 'la cola quedó vacía' : 'respuesta al equipo' };
+    if (!cola.length) return ultimo;
     for (const parte of partesPorPermiso(await conLasLetrasDeAhora(wsData, cola))) {
       ajustarLaSalida(jid, parte);
       ultimo = await atenderLaCola(parte);
@@ -3492,8 +3527,12 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
         // El candado se renueva: un turno de más de 150 s no se tiene que repetir con el mensaje siguiente.
         const apagarCandado = renovarCandado(jid, quien);
         try {
-          const colaEntera = await pendientes(jid);
-          if (!colaEntera.length) return false;
+          const colaCruda = await pendientes(jid);
+          if (!colaCruda.length) return false;
+          // La respuesta al equipo de la app cuyo autollamado falló: al equipo, no a MaKo (`sinLasDelEquipo`).
+          const instancia = colaCruda.map((m) => String(((m.payload as { instance?: unknown }) ?? {}).instance ?? '')).find(Boolean) ?? '';
+          const colaEntera = await sinLasDelEquipo(ws, instancia, jid, colaCruda);
+          if (!colaEntera.length) return true;
           // ⚠️ LAS LETRAS Y EL PERMISO SE VUELVEN A MIRAR ACÁ: el `payload` es de cuando se escribió (lib/grupo-puerta.ts), y un invitado sacado mientras la cola esperaba corre sin herramientas.
           for (const cola of partesPorPermiso(await conLasLetrasDeAhora(ws, colaEntera))) {
             ajustarLaSalida(jid, cola);

@@ -28,7 +28,8 @@ function correrElHijo(): Record<string, any> {
   corrida = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<string, any>;
   return corrida;
 }
-const SEMILLAS = ['SEMILLA-PERFIL', 'SEMILLA-OBJETIVO', 'SEMILLA-TICKET', 'SEMILLA-PENDIENTE', 'SEMILLA-CHARLA-RECIENTE', 'SEMILLA-RESPUESTA-RECIENTE', 'SEMILLA-CHARLA-VIEJA', 'SEMILLA-EQUIPO'];
+// 'GOOGLE CALENDAR:' es el bloque de `ctxGoogle` (lib/agenda-sin-ia.ts → hechoGoogleCalendar): el pedido lo nombra, y si el negocio lo tiene conectado no es cosa de un invitado.
+const SEMILLAS = ['SEMILLA-PERFIL', 'SEMILLA-OBJETIVO', 'SEMILLA-TICKET', 'SEMILLA-PENDIENTE', 'SEMILLA-CHARLA-RECIENTE', 'SEMILLA-RESPUESTA-RECIENTE', 'SEMILLA-CHARLA-VIEJA', 'SEMILLA-EQUIPO', 'GOOGLE CALENDAR:'];
 
 test('de punta a punta: el POST guarda y vuelve, el turno corre aparte, y a Evolution no le llega NADA', () => {
   const e = R().e2e;
@@ -247,6 +248,16 @@ test('⚠️ la respuesta al equipo, desde la app: queda para el equipo, y MaKo 
   assert.equal(a.alEquipo, 1, 'la respuesta le tiene que llegar al equipo');
   assert.deepEqual(a.conPedido.deMaKo, ['Te respondo.'], 'si además le pide algo a MaKo, va a los dos');
   assert.deepEqual(a.conPedido.cola, ['procesado']);
+  // Sin el autollamado, la fila queda y la levanta el cron: tampoco a MaKo (`sinLasDelEquipo`).
+  assert.deepEqual(a.sinAutollamado.cola, ['pendiente'], 'el control: sin el autollamado, la fila sigue en la cola');
+  assert.deepEqual(a.sinAutollamado.colaDespues, ['procesado']);
+  assert.deepEqual(a.sinAutollamado.deMaKo, [], 'el cron le hacía contestar a MaKo lo que era para el equipo');
+  assert.equal(a.sinAutollamado.llamadas, 0);
+  assert.equal(a.sinAutollamado.alEquipo, 1, 'la respuesta le tiene que llegar al equipo, una vez');
+  assert.deepEqual(a.enLoteAjeno.deMaKo, ['Hay 3.'], 'MaKo le contesta a Bob, una vez');
+  assert.equal(a.enLoteAjeno.alModelo, false, 'la respuesta al equipo de Ana entró al lote de Bob');
+  assert.deepEqual(a.enLoteAjeno.cola, ['procesado', 'procesado']);
+  assert.equal(a.enLoteAjeno.alEquipo, 1);
 });
 
 test('⛔ «Hola Martín» de un invitado: el ticket automático tampoco entra por la vía libre', () => {
@@ -338,3 +349,8 @@ test('la API de MaKo: escribir no toca Evolution; leer no sale por WhatsApp ni H
 //   · la foto no sigue el pedido → 1 en rojo: «varias fotos de un envío»
 //   · la foto sigue el pedido de cualquiera → 1 en rojo: «varias fotos de un envío»
 //   · el invitado con herramientas → 3 en rojo; con el system entero → 1 en rojo; lo de la app sale por WhatsApp → 5 en rojo
+// PROBADO ROMPIÉNDOLO (4/11/2026, al llevarlo a main): `ctxGoogle` sin `hayInvitado`, base 27/0 → 1 en rojo: «UN INVITADO NO LE SACA DATOS DEL NEGOCIO»
+// (el bloque «GOOGLE CALENDAR:» de main es una semilla más: el pedido lo nombra, y le llega a quien administra).
+// PROBADO ROMPIÉNDOLO (4/11/2026, al llevarlo a main), `sinLasDelEquipo`, base 27/0:
+//   · el cron sin apartarla → 1 en rojo: «la respuesta al equipo, desde la app» (el cron le hacía contestar a MaKo)
+//   · el lote sin apartarla → 1 en rojo: «la respuesta al equipo de Ana entró al lote de Bob»
