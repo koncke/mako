@@ -115,6 +115,9 @@ export function DashboardM({ hojas, hojaInicial, periodo, periodos, fichaLead }:
         </div>
       )}
 
+      {/* La oración de apertura de la hoja (lib/graficos-frase.ts), como en escritorio: la primera línea. */}
+      {hoja.frase && <p className="m-dash-frase">{hoja.frase}</p>}
+
       {/* Si no se pudo leer nada de la hoja, UN aviso (no uno por sección), con el período a mano. */}
       {hoja.graficoError && hoja.numerosError && (
         <SeccionM titulo={visto?.nombre ?? hoja.nombre} accion={botonPeriodo}>

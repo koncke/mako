@@ -348,6 +348,8 @@ export function IconoTipo({ tipo, size = 34 }: { tipo: string; size?: number }) 
     case 'tramos': return caja(<>{[[3, 9], [12, 7], [19, 12], [31, 6]].map(([x, w], i) => <rect key={x} x={x} y="13" width={w - 1} height="6" rx="1.5" fill={i === 2 ? R : A} opacity={i === 2 ? 1 : 0.7} />)}<path d="M3 24h34" stroke={L} /></>);
     case 'tarjetas': return caja(<>{[[3, 4], [21, 4], [3, 17], [21, 17]].map(([x, y]) => <g key={`${x}${y}`}><rect x={x} y={y} width="16" height="11" rx="2" stroke={L} /><rect x={x + 2} y={y + 2} width="5" height="7" rx="1" fill={G} opacity=".5" /><rect x={x + 9} y={y + 7} width="5" height="2" fill={A} /></g>)}</>);
     case 'mapa_calor': return caja(<><rect x="6" y="2" width="28" height="28" rx="2" stroke={L} /><rect x="9" y="5" width="22" height="3" rx="1" fill={L} /><circle cx="15" cy="16" r="5" fill={R} opacity=".45" /><circle cx="26" cy="22" r="3.5" fill={B} opacity=".55" /></>);
+    // 4/11/2026: la oración de apertura, dos renglones de texto con un número resaltado en cada uno.
+    case 'frase': return caja(<><rect x="4" y="9" width="9" height="4" rx="1" fill={A} /><rect x="15" y="10" width="21" height="2" rx="1" fill={L} /><rect x="4" y="18" width="14" height="2" rx="1" fill={L} /><rect x="20" y="17" width="8" height="4" rx="1" fill={A} /></>);
     default: return caja(<rect x="4" y="4" width="32" height="24" stroke={L} />);
   }
 }

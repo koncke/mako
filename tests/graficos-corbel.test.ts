@@ -15,7 +15,7 @@ import { TEMA_BASE, acentoDePortada, estiloEfectivo, paletaDe, paletaDeEscena, p
 import { PLANTILLAS_GENERAL, PORTADAS_GENERAL } from '../lib/general-plantillas';
 import { fuenteDe, sanearHoja } from '../lib/graficos-catalogo';
 import { componentesDe, instanciarPlantilla, PLANTILLAS_HOJA } from '../lib/graficos-plantillas';
-import { comoDenso, portadasDashboard, MOLDES, ALTO_MEDIANO, ALTO_NUMEROS, ALTO_PROTAGONISTA } from '../lib/graficos-portadas';
+import { comoDenso, portadasDashboard, MOLDES, ALTO_MEDIANO, ALTO_NUMEROS, ALTO_PROTAGONISTA, ALTO_FRASE } from '../lib/graficos-portadas';
 
 const MEDIDO = JSON.parse(readFileSync('docs/diseno/tokens-corbel.json', 'utf8'));
 const leer = (r: string) => readFileSync(r, 'utf8').replace(/\r\n/g, '\n');
@@ -244,7 +244,11 @@ test('LO MEDIDO A 1440: sin losa, sin títulos sueltos, densas, y cada fila llen
     const c = componentesDe(p) as unknown as Array<Record<string, any>>;
     assert.ok(!c.some((x) => x.portada), `${p.id}: volvió la losa`);
     assert.ok(!c.some((x) => x.tipo === 'seccion'), `${p.id}: en la referencia el título vive en la tarjeta`);
-    assert.ok(!c.some((x) => x.y === 0 && x.w === 12), `${p.id}: abre con algo a lo ancho`);
+    // La oración de apertura (tipo «frase», 4/11/2026) SÍ va a lo ancho y primera: es una línea de texto sin marco, no la losa que
+    // Martín rechazó. Nunca más alta que ALTO_FRASE, y nunca más de una.
+    assert.ok(!c.some((x) => x.y === 0 && x.w === 12 && x.tipo !== 'frase'), `${p.id}: abre con algo a lo ancho`);
+    const frases = c.filter((x) => x.tipo === 'frase');
+    assert.ok(frases.length <= 1 && frases.every((x) => x.y === 0 && x.h <= ALTO_FRASE), `${p.id}: la frase abre la hoja y es una línea`);
     assert.ok(c.length >= 8 && c.length <= 14, `${p.id}: ${c.length} paneles`);
     // Sin huecos: cada columna, de arriba abajo, está ocupada hasta donde termina la hoja de paneles.
     const hasta = Math.max(...c.filter((x) => x.tipo !== 'accion').map((x) => x.y + x.h));
