@@ -13,7 +13,7 @@ import type { Grafico } from '@/lib/graficos-catalogo';
 /** Los tipos de gráfico que en la pila miden lo que dibujan (HTML que se mide solo). */
 export const ALTO_LIBRE_EN_PILA: ReadonlySet<string> = new Set([
   'barra_proporcion', 'numero', 'numero_compacto', 'tabla', 'tabla_barras', 'tabla_calor', 'dinamica', 'dinamica_barras', 'dinamica_calor',
-  'tarjetas', 'tramos',
+  'tarjetas', 'tramos', 'frase',
 ]);
 
 /**

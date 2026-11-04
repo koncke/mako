@@ -88,7 +88,8 @@ import ReactGridLayout, { useContainerWidth, verticalCompactor, type Layout } fr
 import { absoluteStrategy } from 'react-grid-layout/core';
 import 'react-grid-layout/css/styles.css';
 import { Banner, Modal, Toast, useToast } from '@/app/_ui';
-import { useWs } from '@/app/_ui/Link';
+import Link, { useWs } from '@/app/_ui/Link';
+import { destinoDe } from '@/lib/graficos-destinos';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
@@ -1280,7 +1281,7 @@ export function EditorInforme({
     // lo ancho, no de a dos como los otros números.
     // La INVERTIDA no se da vuelta sobre una portada (que ya trae su propio fondo y su tinta): dos
     // inversiones encimadas no son más jerarquía, son un fondo que pelea con el otro.
-    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', enPila && solosPila.has(c.id) && 'lk-comp--solo', kpi && !portada && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && !portada && 'lk-comp--filete', c.invertida && !portada && 'lk-comp--invertida', portada?.clase, (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
+    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', enPila && solosPila.has(c.id) && 'lk-comp--solo', kpi && !portada && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && !portada && 'lk-comp--filete', c.invertida && !portada && 'lk-comp--invertida', c.tipo === 'frase' && !portada && 'lk-comp--frase', portada?.clase, (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
     // La barra de búsqueda de una tabla (interfaz I2): lo escrito va a la VISTA, en el control de su barra
     // (`idBusquedaDe`/`conBusqueda`, ./exportar.ts). Sin ese control (sobre el campo ya hay otro filtro), no hay barra.
     const conBarra = !!c.tabla?.buscar && !!idBusquedaDe(c);
@@ -1340,6 +1341,15 @@ export function EditorInforme({
           // pie. Vuelve a intentar cuando cambia el gráfico o le llegan datos nuevos (`datos[c.id]`, no `est`: sin datos,
           // `est` es un objeto nuevo en cada render).
           return <RedDeBloque nombre={tituloDe(c)} reiniciarCon={[c, datos[c.id]]}>{conAcciones}</RedDeBloque>;
+        })()}
+        {/* El «Ver … →» del pie (lib/graficos-destinos.ts): la tab donde se TRABAJA este número. Editando no navega (se está
+            acomodando la hoja), y en un link compartido no va: sin sesión, la tab no abre. */}
+        {(() => {
+          const d = destinoDe(c.ir);
+          if (!d || compartido) return null;
+          return editando
+            ? <span className="lk-comp-ir">{d.rotulo} →</span>
+            : <Link className="lk-comp-ir lk-no-arrastrar" href={d.ruta} onClick={(e) => e.stopPropagation()}>{d.rotulo} →</Link>;
         })()}
       </div>
     );
