@@ -149,6 +149,10 @@
       "schedule": "*/10 * * * *"
     },
     {
+      "path": "/api/cron/vigia-lineas-mako",
+      "schedule": "*/3 * * * *"
+    },
+    {
       "path": "/api/cron/tareas-verificar",
       "schedule": "40 13 * * *"
     },
