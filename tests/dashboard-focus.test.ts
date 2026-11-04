@@ -156,8 +156,9 @@ test('el desplegable trae también las hojas del otro informe', () => {
 
 test('una sola galería: quien tiene los dos informes ve las plantillas de los dos', () => {
   const g = leer('app/dashboard/NuevaHoja.tsx');
-  assert.match(g, /const CATALOGO_UNICO = \[\.\.\.PLANTILLAS_GENERAL, \.\.\.PLANTILLAS_HOJA\];/);
-  assert.match(g, /const catalogo = conTodas \? CATALOGO_UNICO :/);
+  // 4/11/2026: la galería de los dos informes, con SÓLO las que se ofrecen (las que traen su diseño copiado: lib/graficos-plantillas.ts).
+  assert.match(g, /const CATALOGO_UNICO = \[\.\.\.PLANTILLAS_GENERAL_OFRECIDAS, \.\.\.PLANTILLAS_OFRECIDAS\];/);
+  assert.match(g, /const catalogo = conTodas \? CATALOGO_UNICO : informe === 'general' \? PLANTILLAS_GENERAL_OFRECIDAS : PLANTILLAS_OFRECIDAS;/);
   // Una del otro informe la suma su editor al abrir.
   assert.match(g, /if \(conTodas && IDS_GENERAL\.has\(p\.id\) !== \(informe === 'general'\)\) \{ window\.location\.assign/);
   assert.equal(informeDePedida('foco', ['g1'], ['d1'], true, ['foco']), 'general');

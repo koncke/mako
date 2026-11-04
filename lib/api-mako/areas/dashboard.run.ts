@@ -43,7 +43,7 @@ import {
   type Componente, type Elemento, type Grafico, type Hoja,
 } from '@/lib/graficos-catalogo';
 import { AJUSTES_TEMA, PLANTILLAS_TEMA, type IdAjuste } from '@/lib/graficos-temas';
-import { PLANTILLAS_HOJA, instanciarPlantilla, plantillaHojaDe, tableroInicial } from '@/lib/graficos-plantillas';
+import { PLANTILLAS_OFRECIDAS, instanciarPlantilla, plantillaOfrecidaDe, tableroInicial } from '@/lib/graficos-plantillas';
 import { cortarEnHoyDe, datosDeGraficos, hastaDeFuente, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
 import { guardarTableroSi, leerTableroVisible, listarTablerosGuardados, type TableroVersionado } from '@/lib/graficos-tablero';
@@ -660,8 +660,9 @@ export const RUNNERS: Runners = {
       const inicio = Date.now();
       const hastaMs = inicio + (ctx.canal === 'http' ? PLAZO_IA_HTTP_MS + 15_000 : 110_000);
       if (plantilla) {
-        const p = plantillaHojaDe(plantilla);
-        if (!p) return { error: `La plantilla ${comillas(plantilla)} no existe.`, disponibles: PLANTILLAS_HOJA.map((x) => x.id) };
+        // Sólo las que se ofrecen (4/11/2026: las que traen su diseño copiado), como «Nueva hoja».
+        const p = plantillaOfrecidaDe(plantilla);
+        if (!p) return { error: `La plantilla ${comillas(plantilla)} no se ofrece.`, disponibles: PLANTILLAS_OFRECIDAS.map((x) => x.id) };
         const r = await hojaConDatos(instanciarPlantilla(p), { hoy: hoyEnTijuana(), hastaMs, sumar: { nombre: p.nombre, linea: p.linea } });
         hoja = r.hoja;
         como = `desde la plantilla ${p.nombre}`;

@@ -40,7 +40,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MAX_SUGERIDAS, PORQUE, ordenarConSugeridas, senalesDe, type SenalesNegocio } from '../lib/plantillas-sugeridas';
 import { ETIQUETAS_DASHBOARD, ETIQUETAS_GENERAL } from '../lib/graficos-plantillas-etiquetas';
-import { PLANTILLAS_HOJA } from '../lib/graficos-plantillas';
+import { PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS } from '../lib/graficos-plantillas';
 import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
 import { CANALES, FASES } from '../lib/fase-diagnostico';
 import { ENTRADAS } from '../lib/pipeline';
@@ -188,16 +188,18 @@ test('las señales se leen de lo guardado, sin IA, con la regla pura', () => {
 });
 
 test('la API de MaKo da el mismo orden, con la sugerida marcada', () => {
+  // 4/11/2026: la API ofrece las MISMAS que «Nueva hoja» (las que traen su diseño copiado: hoy Closing), en el mismo orden.
   const r = plantillasDelCatalogo({ ...NADA, canales: ['llamadas'] });
-  assert.equal(r[0].id, 'comercial');
+  assert.deepEqual(new Set(r.map((x) => x.id)), new Set(PLANTILLAS_OFRECIDAS.map((x) => x.id)));
+  assert.equal(r[0].id, 'closing');
   assert.equal(r[0].sugerida, 'Vendes por llamada');
   assert.ok(plantillasDelCatalogo(null).every((x) => !('sugerida' in x)));
   const j = catalogoJson({ seccion: 'plantillas', senales: { ...NADA, canales: ['llamadas'] } }) as { plantillas: Array<{ id: string; sugerida?: string }> };
   assert.equal(j.plantillas[0].sugerida, 'Vendes por llamada', 'el catálogo en JSON pasa las señales');
   const md = catalogoMarkdown({ seccion: 'plantillas', senales: { ...NADA, canales: ['llamadas'] } }) as string;
-  assert.match(md, /`comercial` .* · sugerida para este negocio \(Vendes por llamada\)/, 'y el de markdown también');
+  assert.match(md, /`closing` .* · sugerida para este negocio \(Vendes por llamada\)/, 'y el de markdown también');
   assert.match(leer('lib', 'api-mako', 'areas', 'dashboard.run.ts'), /await senalesDelNegocio\(\)\.catch\(\(\) => null\)/);
-  assert.match(leer('lib', 'api-mako', 'areas', 'general.run.ts'), /ordenarConSugeridas\(PLANTILLAS_GENERAL, ETIQUETAS_GENERAL, senales\)/);
+  assert.match(leer('lib', 'api-mako', 'areas', 'general.run.ts'), /ordenarConSugeridas\(PLANTILLAS_GENERAL_OFRECIDAS, ETIQUETAS_GENERAL, senales\)/);
 });
 
 test('el «Sugerido» no pisa un título largo: el título se corta con «…» y el chip no se achica', () => {
