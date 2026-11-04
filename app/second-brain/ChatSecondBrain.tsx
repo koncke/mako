@@ -72,7 +72,7 @@ import { ChatDelCoach } from './ChatDelCoach';
 import { ChatDelReferente } from './ChatDelReferente';
 import { ElegirReferente } from './ElegirReferente';
 import { GaleriaDeGurus } from './GaleriaDeGurus';
-import { BotonSuSecondBrain } from './SuSecondBrain';
+import { BotonSecondBrainDe, CerebroDelGuru } from './SuSecondBrain';
 import { useCoaches, useGurusConCharla } from './useCoaches';
 import { ChatDelCentro, FilaDeChat, GruposPorJefe, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
@@ -230,6 +230,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const delFunnel = asesorPorId(referentes.funnel);
   const k = useChatCliente({ elegido, setElegido, activo: !ops, entrarAlCerebro: !ops, chatInicial, opcionArmar, busca, caja, aspectoOffer: delOffer ? aspectoDeReferente(delOffer.id) : null });
   const { idOffer, idAntes } = k;
+  // El Second Brain del gurú de una conversación de Offer, en el lugar de la conversación (SuSecondBrain.tsx). Se guarda PARA QUÉ
+  // conversación se abrió: cambiar de chat vuelve a la conversación sin un efecto que lo apague.
+  const [cerebroDeOffer, setCerebroDeOffer] = useState<number | null>(null);
+  const viendoCerebroOffer = delOffer != null && idOffer != null && cerebroDeOffer === idOffer;
   const idElegido = elegido && 'id' in elegido ? elegido.id : null;
 
   const claveCentro = elegido && 'centro' in elegido ? elegido.centro : null;
@@ -589,8 +593,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             // En una conversación de Offer se ve quién aconseja y se puede cambiar, como la criatura de cualquier chat.
             ...(idOffer != null ? {
               onMuneco: puedeElegir ? () => setEligiendoOffer(true) : undefined,
-              acciones: delOffer ? <><span className="co-cab__inspirado">{inspiradoEn(delOffer)}</span><BotonSuSecondBrain referente={delOffer} /></> : undefined,
+              acciones: delOffer ? <><span className="co-cab__inspirado">{inspiradoEn(delOffer)}</span><BotonSecondBrainDe referente={delOffer} viendo={viendoCerebroOffer} onCambiar={(si) => setCerebroDeOffer(si ? idOffer : null)} /></> : undefined,
             } : {}) }}
+          reemplazo={viendoCerebroOffer && delOffer ? <CerebroDelGuru referente={delOffer} /> : undefined}
           // Los fijados, arriba de la conversación (WhatsApp): tocar va al mensaje.
           arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
           despues={<>

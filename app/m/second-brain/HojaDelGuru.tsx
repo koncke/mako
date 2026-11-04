@@ -5,7 +5,9 @@
 // =============================================================================
 // El de la computadora (app/second-brain/ChatDelReferente.tsx) en una hoja alta, con el motor de los dos (useChatDelReferente.ts): su
 // conversación, su cara y su nombre en el título y en cada burbuja. ⚠️ UNA SOLA HOJA (SheetM → «Una hoja sobre otra REEMPLAZA»): su
-// Second Brain, la Info de un mensaje y «Tus cuentas de IA» se abren ADENTRO, con su «‹» para volver, como en ChatClienteM.tsx.
+// Second Brain, la Info de un mensaje y «Tus cuentas de IA» se abren ADENTRO, como en ChatClienteM.tsx.
+// «Second Brain de <gurú>» (4/11/2026, como en la computadora): el botón va a la derecha, en la fila de «Inspirado en», el grafo ocupa
+// el lugar del hilo y el mismo botón dice «Volver al chat».
 
 import '@/app/admin/operaciones/centro.css';
 import '@/app/m/operaciones/operaciones.css';
@@ -16,7 +18,7 @@ import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operacione
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
-import { CerebroDelGuru } from '@/app/second-brain/SuSecondBrain';
+import { BotonSecondBrainDe, CerebroDelGuru, rotuloSecondBrain } from '@/app/second-brain/SuSecondBrain';
 import { useChatDelReferente } from '@/app/second-brain/useChatDelReferente';
 import { inspiradoEn, type Asesor } from '@/lib/asesores/catalogo';
 
@@ -39,7 +41,7 @@ export function HojaDelGuru({ referente: r, onCerrar }: { referente: Asesor; onC
   return (
     <>
       <SheetM abierto onCerrar={onCerrar} snap="alto" id={`guru-${r.id}`}
-        titulo={panel === 'conectar' ? 'Tus cuentas de IA' : panel === 'info' ? 'Info del mensaje' : panel === 'cerebro' ? 'Su Second Brain' : (
+        titulo={panel === 'conectar' ? 'Tus cuentas de IA' : panel === 'info' ? 'Info del mensaje' : panel === 'cerebro' ? rotuloSecondBrain(r, false) : (
           <span className="m-operaciones-titulo">
             <span className="m-operaciones-titulo__muneco"><Muneco titulo={r.nombre} aspecto={aspecto} animo={k.enCurso ? 'trabajando' : 'despierto'} size={34} /></span>
             <span className="m-operaciones-titulo__texto"><span className="m-operaciones-titulo__nombre">{r.nombre}</span></span>
@@ -51,20 +53,28 @@ export function HojaDelGuru({ referente: r, onCerrar }: { referente: Asesor; onC
             {estado && <div className="m-operaciones-caja__fila m-operaciones-caja__fila--meta"><span className="m-operaciones-caja__estado">{estado}</span></div>}
           </div>
         )}>
-        {panel && (
+        {panel && panel !== 'cerebro' && (
           <button type="button" className="m-operaciones-volver" onClick={volverDelPanel}>
             <span aria-hidden>‹</span> {r.nombre}
           </button>
         )}
         {panel === 'info' && k.infoWA && <InfoMensaje m={k.infoWA} />}
         {panel === 'conectar' && <TusCuentasIA sinCabecera conectar />}
-        {panel === 'cerebro' && <div className="m-operaciones-cerebro"><CerebroDelGuru referente={r} /></div>}
+        {panel === 'cerebro' && (
+          <>
+            <div className="m-operaciones-guru">
+              <span className="co-cab__inspirado">{inspiradoEn(r)}</span>
+              <BotonSecondBrainDe referente={r} viendo onCambiar={() => setViendoCerebro(false)} />
+            </div>
+            <div className="m-operaciones-cerebro"><CerebroDelGuru referente={r} movil /></div>
+          </>
+        )}
         {!panel && (
           <div className="m-operaciones-hilo" ref={hilo}>
             <div className="m-operaciones-cabeza">
               <div className="m-operaciones-guru">
                 <span className="co-cab__inspirado">{inspiradoEn(r)}</span>
-                <button type="button" className="co-chip" onClick={() => setViendoCerebro(true)}>Su Second Brain</button>
+                <BotonSecondBrainDe referente={r} viendo={false} onCambiar={setViendoCerebro} />
               </div>
               <div className="m-operaciones-fijados">
                 <BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={r.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />
