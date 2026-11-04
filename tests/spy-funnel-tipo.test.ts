@@ -198,7 +198,8 @@ test('11. la pestaña Funnel: su funnel y su oferta arriba, las notas, y AL FINA
   assert.equal((app.match(/activa === 'funnel'/g) ?? []).length, 1, 'una sola pestaña Funnel: lo de antes (la ficha del sitio abajo) se fue');
   // La vista previa es la que ya existe, con su aislamiento y su puerta.
   const sp = sinComentarios(leer('app/competitor-spy/SusPaginas.tsx'));
-  assert.match(sp, /src=\{conWs\(srcPaginaDiagnostico\(url\), ws\)\}/);
+  // El destino de la página (el de un acortador, si lo es: tests/spy-paginas-verificadas.test.ts).
+  assert.match(sp, /src=\{conWs\(srcPaginaDiagnostico\(destino\), ws\)\}/);
   assert.match(sp, /sandbox="allow-scripts"/);
   const page = sinComentarios(leer('app/competitor-spy/page.tsx'));
   assert.match(page, /conVistaPrevia=\{esAdmin && tabEnCapa\('landing-writer', capa\)\}/, 'la misma puerta que la ruta de la vista previa');

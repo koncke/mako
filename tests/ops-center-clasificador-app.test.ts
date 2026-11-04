@@ -399,6 +399,10 @@ const IMAGEN: Caso[] = [
   ["duplicá el diseño del flyer", ["duplicar_diseno_imagen"]],
   ["borrá el diseño del banner", ["borrar_diseno_imagen"]],
   ["mostrame mis diseños", ["listar_disenos_imagen"]],
+  // Los carruseles que funcionan (4/11/2026, lib/carruseles/): llegan sin una familia propia (medido: con una, igual 48/48).
+  ["¿qué carruseles funcionan esta semana?", ["buscar_carruseles"]],
+  ["buscame carruseles con outlier alto de @estudio.lumen", ["buscar_carruseles"]],
+  ["guardá ese carrusel en mis referencias", ["guardar_carrusel"]],
   ["publicá mi landing en la galería de la comunidad", ["publicar_creacion"]],
   ["dale una estrella a esa creación", ["dar_estrella"]],
 ];

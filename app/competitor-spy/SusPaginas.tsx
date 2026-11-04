@@ -18,10 +18,11 @@
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CargandoMako } from '@/app/_ui/CargandoMako';
+import { EsqueletoPagina } from './Esqueletos';
 import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { srcPaginaDiagnostico } from '@/lib/editor-landing/diagnostico';
+import { marcoVerificado, type AvisoDelMarco } from '@/lib/pagina-real';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../_components/icons';
 
@@ -41,8 +42,8 @@ const CSS = `
 .spy-navegador__acciones{display:flex;gap:6px;flex:none}
 .spy-navegador__cuerpo{position:relative;height:min(720px,72vh);background:#fff}
 .spy-navegador__cuerpo iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
-.spy-navegador__carga{position:absolute;inset:0;display:grid;place-items:center;background:var(--surface)}
-.spy-navegador__sin{display:grid;place-items:center;min-height:220px;padding:28px 24px}
+.spy-navegador__sin{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:220px;padding:28px 24px;text-align:center}
+.spy-navegador__titulo{max-width:52ch;font-size:var(--fs-md);font-weight:600;color:var(--ink)}
 .spy-navegador__abrir{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 22px;border-radius:99px;background:var(--ink);color:var(--bg);font-weight:600;text-decoration:none}
 .spy-navegador__abrir:hover{opacity:.9}
 @media (max-width:760px){
@@ -50,6 +51,15 @@ const CSS = `
   .spy-navegador__cuerpo{height:min(560px,70vh)}
 }
 `;
+
+/** Lo que contestó la ruta de esa página: si abre, y a dónde manda si es un acortador. */
+type Respuesta = { estado: 'abierta' | 'no-pudo'; final: string | null };
+
+/** Cuánto se espera el aviso del marco antes de darlo por no verificado. El script avisa al cargar y a los 1,2 s y 3 s, pero la
+ * página la baja antes la ruta del Diagnóstico, y una página lenta tarda: se espera con su esqueleto, no con un hueco. */
+export const PLAZO_MARCO_MS = 20_000;
+/** Cuánto se espera el aviso de la página nueva cuando el marco se va a otra (un clic adentro): sin él, se esconde. */
+export const PLAZO_OTRA_PAGINA_MS = 4_000;
 
 /** «beacons.page/denborg» o «passline.com/eventos/marca-personal», para el desplegable. */
 export function nombreDePagina(url: string): string {
@@ -76,14 +86,11 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
 }) {
   const ws = useWs();
   const url = elegida && enlaces.includes(elegida) ? elegida : enlaces[0] ?? null;
-  const [cargo, setCargo] = useState(false);
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- una página nueva vuelve a mostrar la carga
-  useEffect(() => { setCargo(false); }, [url]);
   // ⚠️ SI LA PÁGINA NO DEJA LEERLA, NO SE DIBUJA EL ERROR (4/11/2026: la captura de Martín decía «La página respondió 403: está
   // bloqueando la lectura automática»). La ruta del iframe dibuja su error ADENTRO del iframe y desde acá no se ve: se pregunta
   // antes (/api/competitor-spy/pagina, la misma lectura de siempre). Si abre, el iframe; si no, «Abrir» en el navegador de la
-  // persona. Mientras pregunta, la carga de la casa. Una vez por página en esta visita.
-  const [abre, setAbre] = useState<Record<string, 'abierta' | 'no-pudo'>>({});
+  // persona. Una vez por página en esta visita. Si la página es un acortador, la ruta dice a dónde manda (`final`) y se muestra ésa.
+  const [abre, setAbre] = useState<Record<string, Respuesta>>({});
   const preguntadas = useRef(new Set<string>());
   useEffect(() => {
     if (!conVistaPrevia || !url || preguntadas.current.has(url)) return;
@@ -93,14 +100,54 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
       signal: AbortSignal.timeout(35_000),
     })
       .then((r) => r.json())
-      .then((j: { estado?: string } | null) => (j?.estado === 'abierta' ? 'abierta' as const : 'no-pudo' as const))
-      .catch(() => 'no-pudo' as const)
+      .then((j: { estado?: string; final?: unknown } | null): Respuesta => (j?.estado === 'abierta'
+        ? { estado: 'abierta', final: typeof j.final === 'string' && /^https?:\/\//i.test(j.final) ? j.final : null }
+        : { estado: 'no-pudo', final: null }))
+      .catch((): Respuesta => ({ estado: 'no-pudo', final: null }))
       .then((e) => setAbre((m) => ({ ...m, [url]: e })));
   }, [conVistaPrevia, url, competidorId]);
-  const estado = url ? abre[url] : undefined;
-  const conAbrirGrande = !conVistaPrevia || estado === 'no-pudo';
+  const respuesta = url ? abre[url] : undefined;
+  const estado = respuesta?.estado;
+  /** La que se muestra y se abre: el destino de un acortador, o la misma. */
+  const destino = respuesta?.final ?? url;
+
+  // ⚠️ EL MARCO NO SE MUESTRA HASTA QUE ÉL MISMO DICE QUE PINTÓ LA PÁGINA (4/11/2026, el Cerebro: «Ese iframe roto se dibuja como si
+  // fuera la página… Dejá de mostrar iframes que no se puedan verificar»). Se carga escondido, con su esqueleto encima; el script del
+  // Diagnóstico avisa cuánto texto pintó, el principio y el título (lib/pagina-real.ts → `marcoVerificado`). Sin ese aviso a tiempo
+  // —la página se fue a otra que no se deja mostrar, o pintó su «500»— no se muestra: queda «Abrir». Y si después de verse se va a
+  // otra página (un clic adentro), tiene que volver a avisar, o se esconde.
+  const marco = useRef<HTMLIFrameElement>(null);
+  const [visto, setVisto] = useState<Record<string, 'si' | 'no'>>({});
+  const clave = estado === 'abierta' && destino ? destino : null;
+  const veredicto = clave ? visto[clave] : undefined;
+  useEffect(() => {
+    if (!clave) return;
+    const alAvisar = (e: MessageEvent) => {
+      if (e.source !== marco.current?.contentWindow || (e.data as { gmDg?: unknown } | null)?.gmDg !== 1) return;
+      const v = marcoVerificado(e.data as AvisoDelMarco);
+      if (v !== 'espera') setVisto((m) => (m[clave] === v ? m : { ...m, [clave]: v }));
+    };
+    window.addEventListener('message', alAvisar);
+    // Sin aviso a tiempo, no se verifica: no se muestra.
+    const plazo = window.setTimeout(() => setVisto((m) => (m[clave] ? m : { ...m, [clave]: 'no' })), PLAZO_MARCO_MS);
+    return () => { window.removeEventListener('message', alAvisar); window.clearTimeout(plazo); };
+  }, [clave]);
+  const cargas = useRef(0);
+  const otraPagina = useRef<number | undefined>(undefined);
+  // Una página nueva cuenta sus cargas desde cero.
+  useEffect(() => { cargas.current = 0; const t = otraPagina; return () => window.clearTimeout(t.current); }, [clave]);
+  const alCargar = () => {
+    cargas.current += 1;
+    if (cargas.current < 2 || !clave) return;
+    // Se fue a otra página: vuelve a esperar su aviso, y sin él se esconde.
+    setVisto((m) => { const n = { ...m }; delete n[clave]; return n; });
+    window.clearTimeout(otraPagina.current);
+    otraPagina.current = window.setTimeout(() => setVisto((m) => (m[clave] ? m : { ...m, [clave]: 'no' })), PLAZO_OTRA_PAGINA_MS);
+  };
+
+  const conAbrirGrande = !conVistaPrevia || estado === 'no-pudo' || veredicto === 'no';
   const opciones = useMemo(() => enlaces.map((u) => ({ value: u, label: titulos.get(u) ? `${titulos.get(u)} · ${nombreDePagina(u)}` : nombreDePagina(u) })), [enlaces, titulos]);
-  if (!url) return null;
+  if (!url || !destino) return null;
 
   return (
     <section id="spy-sus-paginas" className="spy-paginas-web" aria-label="Sus páginas">
@@ -122,32 +169,37 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
       <div className="spy-navegador">
         <div className="spy-navegador__barra">
           <span className="spy-navegador__puntos" aria-hidden><i /><i /><i /></span>
-          <span className="spy-navegador__url" title={url}><Icon name="web" size={14} /><span>{nombreDePagina(url)}</span></span>
+          <span className="spy-navegador__url" title={destino}><Icon name="web" size={14} /><span>{nombreDePagina(destino)}</span></span>
           <span className="spy-navegador__acciones">
             {/* ⚠️ El parámetro es `?analizar=`, el que el Web Generator entiende (`derechaDeQuery`, app/web-generator/panel-reglas.ts). */}
-            <a href={`/web-generator?analizar=${encodeURIComponent(url)}`} className="spy-boton">Copiar su sitio</a>
-            {!conAbrirGrande && <a href={url} target="_blank" rel="noreferrer noopener" className="spy-boton">Abrir</a>}
+            <a href={`/web-generator?analizar=${encodeURIComponent(destino)}`} className="spy-boton">Copiar su sitio</a>
+            {!conAbrirGrande && <a href={destino} target="_blank" rel="noreferrer noopener" className="spy-boton">Abrir</a>}
           </span>
         </div>
         {conAbrirGrande ? (
-          <div className="spy-navegador__sin">
-            <a href={url} target="_blank" rel="noreferrer noopener" className="spy-navegador__abrir"><Icon name="web" size={16} />Abrir</a>
+          <div className="spy-navegador__sin" data-pagina="sin-vista">
+            {titulos.get(url) && <b className="spy-navegador__titulo">{titulos.get(url)}</b>}
+            <a href={destino} target="_blank" rel="noreferrer noopener" className="spy-navegador__abrir"><Icon name="web" size={16} />Abrir</a>
           </div>
         ) : !estado ? (
-          <div className="spy-navegador__cuerpo"><div className="spy-navegador__carga"><CargandoMako que="su página" alto={240} size={56} /></div></div>
+          <div className="spy-navegador__cuerpo"><EsqueletoPagina /></div>
         ) : (
-          <div className="spy-navegador__cuerpo">
+          <div className="spy-navegador__cuerpo" data-pagina={veredicto === 'si' ? 'vista' : 'verificando'}>
             <iframe
-              key={url}
-              src={conWs(srcPaginaDiagnostico(url), ws)}
+              key={destino}
+              ref={marco}
+              src={conWs(srcPaginaDiagnostico(destino), ws)}
               // El mismo aislamiento que la vista del Diagnóstico (VistaAfuera): corre sus scripts, no ve nada de MaKo, no manda
               // formularios ni abre ventanas.
               sandbox="allow-scripts"
               referrerPolicy="no-referrer"
-              title={`Vista de ${nombreDePagina(url)}`}
-              onLoad={() => setCargo(true)}
+              title={`Vista de ${nombreDePagina(destino)}`}
+              // Escondido (no desmontado: tiene que cargar para poder avisar) hasta que avise que pintó la página.
+              style={veredicto === 'si' ? undefined : { visibility: 'hidden' }}
+              onLoad={alCargar}
             />
-            {!cargo && <div className="spy-navegador__carga"><CargandoMako que="su página" alto={240} size={56} /></div>}
+            {/* Mientras abre, la forma de una página y no la criatura (Martín, 4/11 tarde: «los placeholder típicos»). */}
+            {veredicto !== 'si' && <EsqueletoPagina />}
           </div>
         )}
       </div>
