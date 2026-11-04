@@ -18,7 +18,7 @@
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CargandoMako } from '@/app/_ui/CargandoMako';
+import { EsqueletoPagina } from './Esqueletos';
 import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { srcPaginaDiagnostico } from '@/lib/editor-landing/diagnostico';
@@ -134,7 +134,7 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
             <a href={url} target="_blank" rel="noreferrer noopener" className="spy-navegador__abrir"><Icon name="web" size={16} />Abrir</a>
           </div>
         ) : !estado ? (
-          <div className="spy-navegador__cuerpo"><div className="spy-navegador__carga"><CargandoMako que="su página" alto={240} size={56} /></div></div>
+          <div className="spy-navegador__cuerpo"><EsqueletoPagina /></div>
         ) : (
           <div className="spy-navegador__cuerpo">
             <iframe
@@ -147,7 +147,8 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
               title={`Vista de ${nombreDePagina(url)}`}
               onLoad={() => setCargo(true)}
             />
-            {!cargo && <div className="spy-navegador__carga"><CargandoMako que="su página" alto={240} size={56} /></div>}
+            {/* Mientras abre, la forma de una página y no la criatura (Martín, 4/11 tarde: «los placeholder típicos»). */}
+            {!cargo && <EsqueletoPagina />}
           </div>
         )}
       </div>

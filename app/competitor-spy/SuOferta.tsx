@@ -17,7 +17,7 @@
 // =============================================================================
 
 import type { ReactNode } from 'react';
-import { CargandoMako } from '@/app/_ui/CargandoMako';
+import { EsqueletoOferta, EsqueletoPuntaje } from './Esqueletos';
 import { TONO } from '@/app/_ui/tokens';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonIntegracion } from '../_components/ConectarIntegracion';
@@ -136,10 +136,21 @@ export function SuOferta({ vista, datos, nombre, onConectado, parte }: {
 
   const tono = conDiagnostico?.total != null ? TONO[tonoDeNota(conDiagnostico.total / 10)] : null;
   const tesis = conDiagnostico?.diagnostico?.tesis?.trim() || datos?.promete?.trim() || null;
+  // ⚠️ MIENTRAS LA LEE, SU FORMA Y NO LA CRIATURA (Martín, 4/11 tarde: «el placeholder típico, con los bloques cargando, no me
+  // refiero a mako»). Sin nada leído todavía, la tarjeta entera en gris (Esqueletos.tsx); con lo que ya se sabe de su contenido,
+  // eso se muestra y el puntaje que falta va en gris en su lugar.
+  const leyendo = !conDiagnostico && (!vista || vista.estado === 'leyendo');
+  if (leyendo && !tesis) {
+    return (
+      <section className="spy-oferta-cabeza" aria-label={`La oferta de ${nombre}`} aria-busy data-recorrido="spy-oferta">
+        <style>{CSS}</style>
+        <EsqueletoOferta nombre={nombre} />
+      </section>
+    );
+  }
   let estado: ReactNode = null;
   if (!conDiagnostico) {
-    if (!vista || vista.estado === 'leyendo') estado = <CargandoMako que={`la oferta de ${nombre}`} alto={160} size={56} />;
-    else if (vista.estado === 'sin-ia') {
+    if (vista?.estado === 'sin-ia') {
       estado = (
         <p className="spy-oferta-aviso">
           Conecta tu IA para leer su oferta.
@@ -147,14 +158,15 @@ export function SuOferta({ vista, datos, nombre, onConectado, parte }: {
           <BotonIntegracion servicio="anthropic" className="spy-boton" onConectado={onConectado}>Conectar mi IA</BotonIntegracion>
         </p>
       );
-    } else if (vista.estado === 'no-pudo' && vista.motivo) estado = <p className="spy-oferta-aviso">{vista.motivo}</p>;
+    } else if (vista?.estado === 'no-pudo' && vista.motivo) estado = <p className="spy-oferta-aviso">{vista.motivo}</p>;
   }
 
   return (
-    <section className="spy-oferta-cabeza" aria-label={`La oferta de ${nombre}`} data-recorrido="spy-oferta">
+    <section className="spy-oferta-cabeza" aria-label={`La oferta de ${nombre}`} aria-busy={leyendo} data-recorrido="spy-oferta">
       <style>{CSS}</style>
       <div className="spy-oferta-hero">
         {tono && conDiagnostico?.total != null && <Anillo total={conDiagnostico.total} color={tono.ink} fondo={tono.bg} />}
+        {leyendo && <EsqueletoPuntaje />}
         <div style={{ minWidth: 0 }}>
           <small>Su oferta</small>
           <p className="spy-oferta-tesis">{tesis ?? nombre}</p>
