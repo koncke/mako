@@ -129,6 +129,7 @@ compartir_borrador_landing
 compartir_documento_copywriter
 conectar_componentes_dashboard
 conectar_dominio_email
+conectar_seguimiento_email
 configuracion_automatizacion
 configurar_automatizacion
 configurar_aviso_whatsapp

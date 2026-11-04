@@ -11636,6 +11636,35 @@ teléfono sigue con su lectura que traga errores (`listNotificaciones` sin `estr
 `lib/email-dominio.ts` (`prepararConexion`, `prepararVerificacion`) · `lib/metodo-verificar.ts` (`email`) ·
 `lib/credenciales.ts` (`aplicarAEnv`) · tests: `tests/resend-key-solo-envio.test.ts`, `tests/resend-clave-admin.test.ts`
 
+## Cada negocio manda con SU cuenta de Resend, y la API guía el camino entero (4/11/2026, tarde, nube)
+
+Martín, por el Cerebro: *«Resend free permite hasta 3 dominios, pero eso lo trae cada user de mako»* y *«si detecta que no tiene
+[Resend] conectado, que le vaya guiando… para que cualquier usuario lo pueda manejar desde su [Claude]»*. Gana sobre la entrada de
+arriba: la clave de administración de MaKo quedó SÓLO para el dominio de MaKo. El relevo, con el paso de producción:
+`docs/relevo/nube-email.md`. Lo que no se ve en el código:
+
+- ⚠️ **Mudar la fuente de una clave del entorno sin cortar nada.** La `RESEND_API_KEY` de MaKo vivía en la fila del ws1 y el
+  arranque la copiaba al entorno. Pasarla a la plataforma de golpe (como la IA el 18/10, con su script ANTES del deploy) dejaba
+  los avisos de MaKo sin clave si la punta llegaba a main antes de la mudanza, y la punta se mezcla sola con el verde. Por eso la
+  hidratación tiene un PUENTE: si la plataforma se leyó bien y no tiene su fila, toma la del ws1 como hasta hoy, y lo grita.
+  Con la lectura de la plataforma caída NO la toma: la del ws1 puede ser ya la de Mauricio.
+- ⚠️ **El secreto del webhook de un negocio va con OTRO nombre** (`RESEND_WEBHOOK_SECRET_PROPIO`). `envCred` cae a la fila de
+  la fuente de la clave cuando Vercel no la tiene: con el mismo nombre, el de Mauricio en la fila del ws1 podía pasar a verificar
+  los eventos de la cuenta de MaKo.
+- **`?cuenta=<ws>` no autoriza nada: lo que autentica es la firma con el secreto de ESA cuenta.** Y aun firmado, lo que llega
+  así toca sólo las filas de ese negocio (`marcarEventoEmail`, `suprimirPorRebote` y `recibirEmailEntrante` con el negocio):
+  un negocio conoce su propio secreto y podría nombrar el `email_id` de otro.
+- **La API no recibe claves** (política del área de integraciones: ninguna operación pega un secreto). La guía da el link al
+  modal de MaKo y se vuelve a correr `estado_email`. Una clave de sólo envío se detecta con `GET /domains` en `preparar`, antes
+  de proponer el alta.
+- **Un test que toma todo `snake_case` entre backticks como una operación** (`tests/email-campana-receta.test.ts`): los campos
+  de la guía (`que_hacer`, `link_conectar`) escritos así en la skill lo pusieron rojo. Van entre «».
+
+**Vive en:** `lib/email-cuenta.ts` · `lib/email-cuenta-reglas.ts` (`guiaDelEmail`) · `lib/resend-dominios.ts` (`claveDeCuenta`,
+`asegurarWebhookDeCuenta`) · `lib/email-dominio.ts` (`conectarSeguimiento`) · `app/api/webhooks/resend/route.ts` ·
+`lib/credenciales.ts` (`esClaveDeCorreoDeLaPlataforma`, `hidratarCredenciales`) · `scripts/correo-del-ws1-a-la-plataforma.mts` ·
+tests: `tests/email-cuenta-propia.test.ts`, `tests/resend-clave-admin.test.ts`
+
 ## «Nada por detrás», lote 2: la reunión cancelada de Calendly, mudada y con freno (17/10/2026)
 
 - **No tenía NINGÚN freno** (docs/inventario-nada-por-detras.md): el webhook de Calendly llamaba a `emitirDelCatalogo`
