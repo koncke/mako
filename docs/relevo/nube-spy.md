@@ -133,8 +133,21 @@ curl -s https://linktw.in/pywydg | head -c 1500
 **«La foto guardada»: hoy no hay ninguna foto de una página.** La trae la captura con la extensión (lo que sigue, abajo). Mientras,
 sin certeza, «Abrir» con el título de la página.
 
-**Lo que sigue:** «Capturar» en «Sus páginas» con la extensión para las páginas con barrera (la persona la pasa en su navegador;
-no se evade nada). Cuando quede, digo acá qué versión de la extensión queda lista y si pide algún permiso nuevo.
+**«Capturar» en «Sus páginas», con la extensión (`punta/spy-captura-extension`).** Para las páginas que el servidor no puede mostrar
+(Beacons con su «comprobar que es una persona»): la extensión abre la página a la vista, la persona pasa la barrera si aparece y toca el
+ícono de MaKo; recién ahí se lee una foto de lo que se ve, el título, el texto y los enlaces; la pestaña se cierra y Spy la muestra
+sola. De una página de enlaces salen sus otras páginas al desplegable. Nada se evade.
+
+- **Cerebro: la extensión que queda lista es la 0.76.0** (`public/mako-puente-0.76.0.zip`). **No pide ningún permiso nuevo**: alcanza
+  `activeTab`, que Chrome da con el toque en el ícono; por eso el paso es ése y no una captura sola. La publicación es tuya.
+- **Lo que Martín necesita saber, en una frase:** «Cuando la veas, toca el ícono de MaKo.» (es lo que dice la pantalla).
+- **La API:** `paginas_capturadas` (lectura, app y WhatsApp). Capturar no va por la API: hace falta la persona y su navegador.
+- **La política de la extensión** (`/privacidad/extension`) lo dice, con fecha 4/11/2026.
+- **Pendiente, con una decisión:** el diseño (el HTML ya dibujado) para «Copiar su sitio» no se guarda: `spy-miniaturas` es público y
+  sólo de imágenes. Hace falta un bucket privado, o sea una migración: **pido el número**. Y lo capturado todavía no alimenta la
+  lectura de su oferta (que sigue bajando la web por el servidor): es el paso siguiente si se quiere su oferta de Beacons.
+- **Sin probar desde la nube:** la captura de verdad en Chrome (la vista de prueba usó una extensión de mentira). Primer recorrido: ws 3,
+  un competidor con Beacons, «Capturar», pasar la barrera, tocar el ícono.
 
 ### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
 
