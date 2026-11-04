@@ -36,6 +36,9 @@ el «atrás» del navegador o recargar. Y la copia todavía no existía, así qu
 ES2017, sin literales BigInt (la huella son dos FNV de 32 bits); un color guardado se pinta con `style.background`, así que
 sólo pasa hex, rgb o hsl, nunca `url(...)`. Dos guardas fijaban la LÍNEA de la llamada a `leer` y se pusieron rojas al sumar
 `eleccion`: se reescribieron para afirmar lo que cuidan (la lectura vuelve a leer, sin ángulos con la copia idéntica).
+La primera subida dio rojo en `tests/cuenta-revision-escrituras.test.ts`: la ruta nueva escribe (POST y DELETE) y no estaba en
+su lista. Quedó **cortada** para la cuenta de revisión, igual que `leer` y `replicar`. El filtro del pre-push no corre esa
+guarda, así que una ruta nueva que escribe se clasifica a mano antes de subir (`MAKO_REGENERAR_SNAPSHOT=1`).
 
 **Sin hacer:** el defecto visual «de cómo se interactúa con el chat» del mismo ticket no se pudo ver sin la captura
 (docs/relevo/nube-tickets.md dice qué mirar). Tampoco se miró en pantalla: la nube no levanta la app.
