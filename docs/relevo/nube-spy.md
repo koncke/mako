@@ -79,7 +79,7 @@ verde, llega sola a `main`.
 | Anuncios por su Instagram o el nombre del negocio, verificados | Hecho: el enlace busca su nombre corto o su @ (nunca una página de enlaces) y un anuncio es suyo sólo por su Página o por mandar a SU web | `punta/spy-anuncios` | Si la frase exacta de la Biblioteca encuentra a la Página por su nombre |
 | Funnel: la oferta y el funnel que usa arriba, con evidencia de un catálogo; sus webs con su vista previa y un desplegable de páginas | Hecho: el tipo de funnel con sus citas (Den Borg → evento presencial), la oferta rediseñada arriba, «Sus páginas» al final con la vista previa del Web Generator; por API en `que_esta_haciendo` | `punta/spy-funnel-tipo` | Lo que dice con competidores reales; los formatos nuevos del catálogo en el análisis de piezas (pendiente) |
 | Los formatos de «lo que le funciona» con una investigación de todos los tipos | Hecho: los 19 del catálogo, la IA recibe qué es cada uno, y sin IA se lee del texto con una frase clara | `punta/spy-formatos` | Volver a analizar con la IA lo ya analizado (no se manda solo) |
-| El recorrido que señala lo nuevo | Pendiente | — | — |
+| El recorrido que señala lo nuevo | Hecho: el Recorrido de la casa (se oscurece y señala) con seis pasos: volver, más acciones, lo que mejor le fue, la grilla, la pestaña Funnel y el «?» para volver a verlo | `punta/spy-recorrido` | Mirarlo en pantalla con un competidor real |
 
 ### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
 

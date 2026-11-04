@@ -55,7 +55,7 @@ export function MejoresPiezas({ piezas, onAbrir }: { piezas: readonly PiezaVista
   const filas = todas.slice(0, caben);
   return (
     <div ref={caja} className="spy-mejores">
-      <section className="spy-mejores__tarjeta" aria-label="Lo que mejor le fue">
+      <section className="spy-mejores__tarjeta" aria-label="Lo que mejor le fue" data-recorrido="spy-mejores">
         <h3>Lo que mejor le fue</h3>
         <ol>
           {filas.map((d) => <Fila key={d.id} d={d} p={porId.get(d.id)} onAbrir={onAbrir} />)}

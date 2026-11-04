@@ -69,7 +69,7 @@ export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarje
   };
 
   return (
-    <section className="spy-todas" aria-label="Todas sus piezas">
+    <section className="spy-todas" aria-label="Todas sus piezas" data-recorrido="spy-grilla">
       <div ref={arriba} className="spy-todas__cabecera">{cabecera}</div>
       <div ref={caja} className="spy-pgrid spy-pgrid--ancha" style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}>
         {estas.map((p) => <div key={p.id} className="spy-pgrid__celda">{tarjeta(p)}</div>)}
