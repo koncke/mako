@@ -41,6 +41,27 @@ export const CORRIDAS_LARGAS_POR_DIA = 6;
 /** Dónde se cuentan las corridas largas del día del negocio: en la base, para que el tope valga entre procesos. */
 export const CLAVE_DIA = 'spy.todo.dia';
 
+/**
+ * El guion de un reel (4/11/2026, lib/spy-transcripcion.ts): UNA publicación por Apify para tener su video fresco (el enlace
+ * del CDN de Instagram vence en días). Cuántas por día como mucho, con la clave de Spy del negocio, y dónde se cuentan.
+ */
+export const TRANSCRIPCIONES_POR_DIA = 40;
+export const CLAVE_DIA_TRANSCRIPCIONES = 'spy.transcripciones.dia';
+
+/** Lo que se le pide al actor para UNA publicación: su enlace, y nada más. */
+export function entradaDeUnaPublicacion(enlace: string): Record<string, unknown> {
+  return { directUrls: [enlace], resultsType: 'posts', resultsLimit: 1, addParentData: false };
+}
+
+/** El video de lo que devolvió el actor: el primer `videoUrl` https. null si no vino (no es un video, o Instagram no lo dio). */
+export function videoDelItem(items: unknown): string | null {
+  for (const it of Array.isArray(items) ? items : []) {
+    const v = it && typeof it === 'object' ? (it as { videoUrl?: unknown }).videoUrl : null;
+    if (typeof v === 'string' && /^https:\/\//.test(v)) return v;
+  }
+  return null;
+}
+
 /** Cuántas corridas largas ya empezó el negocio en `dia` (YYYY-MM-DD). Otro día, o algo ilegible, es 0. */
 export function usadasHoy(crudo: string | null, dia: string): number {
   try {

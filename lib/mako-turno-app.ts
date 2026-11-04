@@ -363,6 +363,12 @@ export type EntradaTurnoApp = {
    */
   referente?: string | null;
   /**
+   * Las herramientas PROPIAS de este chat (ids del registro): el coach del Ops Center (lib/asesores/contexto.ts →
+   * `HERRAMIENTAS_DEL_COACH`, 4/11/2026). Viajan en cada turno que lleva herramientas, primero y dentro del presupuesto
+   * (lib/doer-herramientas.ts → `propias`). Las pone el SERVIDOR según la conversación, nunca el navegador.
+   */
+  propias?: readonly string[];
+  /**
    * Lo que la PANTALLA ata a esta conversación: hoy, la ficha de un lead en «MaKo Analyst»
    * (lib/mako-analyst-lead.ts, 12/10/2026: «un chat con la IA que por defecto tenga atado los
    * datos de ese lead»). Lo arma el código leyendo la API de MaKo EN ESTE turno y va al FINAL
@@ -662,7 +668,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const turno = herramientasDelChat<ToolDef>({
       veredicto: intencion, texto: textoClasificar, contextoDelSi, agendaAbierta: !!agendaAbierta,
       deSiempre: [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS], vista,
-      hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
+      hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly, propias: entrada.propias,
     });
     // Lo que ESCRIBE (una acción o un control; no una lectura): el memo, la guardia de la pregunta y el modo «analizar».
     const escribe = (n: string) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); };

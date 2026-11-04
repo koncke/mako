@@ -107,6 +107,28 @@ async function cambiarSettingSiPorFecha(ws: number, key: string, esperado: strin
   return (data?.length ?? 0) > 0;
 }
 
+/** Borra una setting del negocio en curso: lo que se va con otra cosa (la oferta de un competidor que se dejó de mirar). */
+export async function borrarSetting(key: string): Promise<void> {
+  const { error } = await getSupabaseServer().from('app_settings').delete().eq('workspace_id', await wsObligatorio()).eq('key', key);
+  if (error) throw new Error(`Error borrando setting ${key}: ${error.message}`);
+}
+
+/** Las settings del negocio en curso que empiezan con `prefijo`, clave → valor. «No pude leer» tira. */
+export async function getSettingsConPrefijo(prefijo: string): Promise<Map<string, string>> {
+  if (!/^[\w.-]+\.$/.test(prefijo)) throw new Error(`Prefijo inválido: ${prefijo}`);
+  const { data, error } = await getSupabaseServer().from('app_settings').select('key, value')
+    .eq('workspace_id', await wsActual()).like('key', `${prefijo}%`).limit(1000);
+  if (error) throw new Error(`Error leyendo settings ${prefijo}*: ${error.message}`);
+  return new Map(((data ?? []) as Array<{ key: string; value: unknown }>).filter((f) => typeof f.value === 'string').map((f) => [f.key, f.value as string]));
+}
+
+/** Borra todas las settings del negocio en curso que empiezan con `prefijo` (los guiones de un competidor que se dejó de mirar). */
+export async function borrarSettingsConPrefijo(prefijo: string): Promise<void> {
+  if (!/^[\w.-]+\.$/.test(prefijo)) throw new Error(`Prefijo inválido: ${prefijo}`);
+  const { error } = await getSupabaseServer().from('app_settings').delete().eq('workspace_id', await wsObligatorio()).like('key', `${prefijo}%`);
+  if (error) throw new Error(`Error borrando settings ${prefijo}*: ${error.message}`);
+}
+
 /**
  * Borra una setting SOLO si todavía vale `esperado` (el compare-and-set de `cambiarSettingSi`, para borrar).
  * Devuelve si borró.

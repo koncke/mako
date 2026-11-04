@@ -127,4 +127,16 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'crea su ficha en este negocio con sus publicaciones ya leídas (tablas spy_competidores y spy_piezas)',
     canales: CANALES, costo: 'gratis', gating: PUERTA,
   },
+  // Su oferta con el analista de Offer (4/11/2026, lib/spy-oferta.ts): la pantalla la trae sola; esto LEE lo que quedó, sin
+  // IA y sin bajar nada. Al final del área, a propósito.
+  {
+    id: 'su_oferta_con_notas', area: 'spy', tipo: 'lectura',
+    datosDeClientes: false,
+    titulo: 'Cómo está armada su oferta',
+    descripcion: 'Las 9 notas de su oferta (el analista de Offer, sobre su web) y su puntaje. Lee lo ya hecho.',
+    parametros: [
+      { nombre: 'id', tipo: 'number', obligatorio: true, entero: true, minimo: 1, rotulo: 'Cuál', descripcion: 'El id que devuelve listar_vigilados.' },
+    ],
+    salida: 'json', canales: CANALES, costo: 'gratis', gating: PUERTA,
+  },
 ];

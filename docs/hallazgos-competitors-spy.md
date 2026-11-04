@@ -1125,8 +1125,81 @@ app/competitor-spy/BuscadorAlta.tsx · tests/spy-logos.test.ts
 «Revisar ahora» y «Revisar de nuevo»—; sacar uno lo ponía rojo. Lo que cuidaba no era el número sino que ninguno se
 pueda tocar mientras corre la animación: ahora afirma eso sobre el que queda.
 
-**Sin hacer todavía:** el detalle de una pieza rediseñado con su transcripción (#10), y «Funnel» con el analizador de
-ofertas (#11).
+**Sin hacer todavía:** el detalle de una pieza rediseñado con su transcripción (#10). «Funnel» con el analizador de
+ofertas quedó en la entrada de abajo.
 
 **Vive en:** app/competitor-spy/SpyApp.tsx (`Pestana`, el panel «Contenido») · app/competitor-spy/GraficoSpy.tsx ·
 app/competitor-spy/TarjetaPieza.tsx · lib/spy-detalle.ts (`proporcionDe`, `medidaEnElGrafico`) · tests/spy-contenido.test.ts
+
+## «Su oferta» con el analista de Offer: el mismo analista hablaba de «tú» y podía pagarlo MaKo (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11): «en "Su Funnel" debe "exponer" su OFERTA con el analizador de oferta que ya
+> tenemos construido, y debe traer automáticamente sus web para analizarlas». Y del encargo: «IA: cada negocio paga la suya,
+> y el crédito de Claude de la plataforma no se usa acá».
+
+**Lo que quedó:** la pestaña «Funnel» dibuja, debajo de su web, el diagnóstico de Offer (`VistaDiagnostico`, las 9 notas
+con su porqué, la tesis, lo que ya hace bien) y el puntaje que calcula el código. Lo trae sola la ruta
+/api/competitor-spy/oferta al abrir un competidor con web: contesta en el acto, el trabajo sigue en un `after()` y la
+pantalla pregunta cada 8 s mientras dice «leyendo», con la criatura. Sin botón. En la API, `su_oferta_con_notas` (lectura).
+
+**Tres cosas que no se ven en el código:**
+- **El analista de Offer escribe de «tú» al «dueño».** Su prompt es para diagnosticar la oferta PROPIA, y la regla de idioma
+  dice «lo lee el dueño». Con la web de un competidor, el texto salía «tu promesa no dice…»: leído por otro negocio, parece
+  hablar de la suya. No se armó otro analista: `bloqueOfertaDeOtro` (lib/offer-reglas.ts) se pega al system YA RENDERIZADO
+  (si fuera un slot del template, un prompt editado en /configuraciones no lo tendría) y pide tercera persona y citas de su
+  web. Los consejos para el dueño de esa oferta («Para subirla», «Lo primero que cambiaría», los avisos, lo que le falta
+  para estar lista) no se dibujan: `VistaDiagnostico` con `deOtro`.
+- **`pedir` de Offer prueba el crédito de Claude de la plataforma y la red de plataforma** cuando las claves del negocio no
+  contestan, y con el onboarding en curso el crédito está habilitado para la feature `offer`. Sin un corte, un negocio
+  recién llegado le pagaba a MaKo el diagnóstico de la oferta de un competidor. `soloDelNegocio` corta antes de los dos.
+- **La landing que guarda Spy no tiene su texto** (`spy_piezas` canal `landing` guarda sus piezas y su funnel, no el
+  copy). Su web se vuelve a bajar con la puerta de Offer: `extraerLanding(url, { talCual: true })` y, si un antibots frena
+  a los servidores o casi no hay texto, el lector de afuera. No hay otro `fetch` de URLs.
+
+**Se lee una vez y listo:** la huella del texto de sus webs (`huellaDe`) decide. A la semana se baja otra vez (no cuesta
+IA) y sólo si cambió se diagnostica de nuevo; una web nueva se lee sola. Un fallo deja el motivo y el diagnóstico de antes,
+y espera un día (una semana, a los 3 seguidos). Cada escritura es compare-and-set contra lo que escribió ESE trabajo:
+un diagnóstico pesa 5-8 KB, así que `cambiarSettingSi` compara por `updated_at` y no por el valor en la URL.
+
+**Sin probar contra el servicio:** que el modelo de un negocio real cumpla la tercera persona (es una instrucción en el
+prompt: no hay un chequeo en el código que la corrija), y lo que trae la web de un competidor de verdad (un
+constructor de páginas que arma todo con JavaScript cae al lector de afuera).
+
+**Vive en:** lib/spy-oferta.ts · lib/spy-oferta-servidor.ts · app/api/competitor-spy/oferta/route.ts ·
+app/competitor-spy/SuOferta.tsx · lib/offer-reglas.ts (`bloqueOfertaDeOtro`) · lib/offer-ia.ts (`deOtro`,
+`soloDelNegocio`) · app/offer/Conclusion.tsx (`VistaDiagnostico`, `deOtro`) · tests/spy-oferta.test.ts
+
+## «No estás trayendo la transcripción»: no había transcripción, y el video de cada reel se tiraba al leerlo (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11): «En cada uno de los videos cuando entro no estás trayendo la transcripción, y
+> tampoco me gusta el modal que hiciste, rediseñalo bien… Tampoco me gusta el botón de copiar estructura».
+
+**Medido en el código, por qué no llegaba:** no había un camino de transcripción. El detalle decía, en su cabecera, «el guion
+de un video ajeno no se lee (no hay forma legal de transcribirlo)», y el dato que hacía falta se tiraba: Apify trae
+`videoUrl` en cada reel y `piezaDeApify` (lib/instagram-perfil.ts) no lo copiaba. Guardarlo tampoco servía: el enlace del
+CDN de Instagram VENCE en días.
+
+**Lo que quedó:** al abrir el detalle de un reel, /api/competitor-spy/transcribir pide su video fresco a Apify (UNA
+publicación, `videoDeUnaPublicacion` en lib/spy-todo.ts —el único archivo que puede tener la clave de Spy junto con los de
+siempre—, con un tope de 40 por día contado en la base), lo baja por la puerta SSRF-segura y lo escucha la IA del negocio
+(`transcribirAudio` con `pii` y `sinGroq`, como el audio de un anuncio). Mientras, «Transcribiendo…»; el guion queda en
+`spy.transcripcion.<competidor>.<pieza>` y no se vuelve a pagar hasta que vence a los 30 días (el reloj del texto de una
+pieza). Un reel sin voz queda dicho («es sólo música o imagen») y tampoco se vuelve a pagar.
+
+**Tres trampas:**
+- **Un mp4 cortado no se puede escuchar.** `pedirClavado` corta en su techo y devuelve lo leído (está bien para una web).
+  Para un video, se pide un byte más que el tope y, si lo pasa, «pesa demasiado»: nunca se escucha medio archivo.
+- **`.mk-btn` sin tamaño queda chico.** El botón de antes era `mk-btn mk-btn--primary` sin `--md` ni `--lg`: con la hoja
+  real de la casa mide unos 20 px de alto, y eso era parte del «no me gusta». Ahora `mk-btn--lg`.
+- **Un pedido que no contestó no es «transcribiendo».** Si la ruta falla, el bloque no se dibuja: un punto latiendo para
+  siempre se lee como que algo está pasando.
+
+**Lo que NO se hizo, y por qué:** el guion de YouTube. `captions.download` pide ser el dueño del canal (OAuth) y bajar el video
+va contra sus términos; Martín decidió Apify «sólo para Spy» sobre Instagram. Queda como decisión suya (docs/relevo/nube-spy.md).
+
+**Sin probar contra el servicio:** que el actor devuelva `videoUrl` para un enlace de reel (`directUrls` con un solo
+enlace), cuánto pesa un reel de verdad y que la IA de un negocio escuche un mp4 de Instagram.
+
+**Vive en:** lib/spy-transcripcion.ts · lib/spy-transcripcion-servidor.ts · app/api/competitor-spy/transcribir/route.ts ·
+lib/spy-todo.ts (`videoDeUnaPublicacion`, `tieneClaveDeSpy`) · lib/spy-todo-reglas.ts · app/competitor-spy/DetallePieza.tsx ·
+lib/spy-detalle.ts (`vecesSuMediana`) · tests/spy-guion.test.ts

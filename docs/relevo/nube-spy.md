@@ -9,11 +9,19 @@ probar» hay que mirarlo en el negocio de prueba (ws 3) una vez desplegado.
 **Los 14 puntos están en `main`**, por etapas: `punta/spy-busqueda` (1, 2, 3, 4, 12), `punta/spy-ficha` (5, 6, 11, 13,
 14), `punta/spy-caricatura`, `punta/spy-todo` (8, 10) y `punta/spy-detalle` (7, 9). Cada una pasó `punta.yml` en verde.
 
+**Segunda vuelta, también en `main`:** `punta/spy-buscar-yt`, `punta/spy-cadena`, `punta/spy-caricatura-cola`,
+`punta/spy-sugeridos`, `punta/spy-contenido`, `punta/spy-oferta` (el Funnel con su oferta) y `punta/spy-detalle-guion` (el
+detalle de cada pieza con su guion). Los tres rojos que reportó el Cerebro sobre `punta/spy-oferta` (run 41826292011)
+quedaron arreglados antes de entrar: `cuenta-revision-escrituras` (las rutas nuevas, `oferta` y `transcribir`, van como
+**cortadas**), `red-primera-semana` (`soloDelNegocio` apaga el crédito y la red de la plataforma sin cortar la función) e
+`integracion-sin-salir` (los «Conectar» son el modal de la casa, `BotonIntegracion`).
+
 Lo que espera a Martín:
-1. Mirar en el ws 3, con un competidor real, el gráfico, el detalle de una pieza y la página que arma «Copiar estructura».
+1. Mirar en el ws 3, con un competidor real, el gráfico, la pestaña Funnel con su oferta y el detalle de una pieza con su
+   guion («Transcribiendo…» y después el texto).
 2. Prender los anuncios: correr una vez desde la PC `scripts/probar-anuncios-apify.mjs` y, si los trae bien y el costo cabe,
    cambiar `ANUNCIOS_POR_APIFY` a `true` (diseño §14).
-3. La caricatura necesita la extensión conectada y Google Flow abierto en ese navegador: mirarla con la extensión puesta.
+3. El guion de los videos de YouTube (abajo, «Decisiones que esperan a Martín»).
 
 ## Cómo se sube
 
@@ -52,6 +60,8 @@ verde, llega sola a `main`.
 | Logos de cada red en toda la tab, y «¿En qué publica?» por red y formato | Hecho: el mismo logo del buscador en las miniaturas del gráfico, sus filtros, el detalle y el reparto; el reparto por red (con logo) y por formato, sin «100% videos»; se fue «Cada miniatura es un video» | `punta/spy-contenido` | — (dibujado con datos de prueba en escritorio y teléfono) |
 | Dos pestañas («Contenido» y «Funnel»), selector adentro del gráfico, proporción real de cada miniatura, sin «Revisar ahora» ni textos que narran, la criatura sin tarjeta blanca | Hecho | `punta/spy-contenido` | La ficha con un competidor de verdad: que «Funnel» aparezca sólo con web u oferta |
 | La foto real de perfil en la ficha del competidor (Sofía Contreras) | Hecho: la ficha abierta muestra su foto de perfil al lado del nombre; la lista sigue con la caricatura (criterio: la caricatura es la cara de la tab, la foto es la persona) | `punta/spy-contenido` | — |
+| «Funnel»: sus webs solas y su OFERTA con el analizador de Offer | Hecho: debajo de su web, el diagnóstico de Offer (las 9 notas, la tesis, lo que hace bien y el puntaje que calcula el código), leído solo al abrir un competidor con web (/api/competitor-spy/oferta), sin botón y con la criatura mientras lee. Con la IA del negocio, sin crédito ni red de la plataforma (`soloDelNegocio`); habla de él en tercera persona (`bloqueOfertaDeOtro`). Una vez y listo: sólo vuelve a la IA si su web cambió. En la API, `su_oferta_con_notas` | `punta/spy-oferta` | Con un negocio real: que el modelo hable en tercera persona y lo que trae una web de verdad |
+| El detalle de cada pieza rehecho, con su transcripción y un botón «Copiar estructura» mejor | Hecho: quién lo publicó (su foto y sus seguidores), sus números con «frente a su mediana», su estructura, su GUION y su texto; «Hacer uno así» con la estrella de MaKo en el pie. El guion de un reel se pide solo al abrir (Apify trae su video fresco, UNA publicación con la clave de Spy y un tope de 40 por día; lo escucha la IA del negocio), con «Transcribiendo…». YouTube: no (abajo) | `punta/spy-detalle-guion` | Que el actor devuelva `videoUrl` con `directUrls` de UN reel, y que la IA de un negocio escuche ese mp4 |
 
 ### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
 
@@ -128,7 +138,15 @@ pantalla del teléfono, monta `GraficoSpy` tal cual.
   lecturas y con tres búsquedas el negocio se quedaba sin poder agregar a nadie.
 - Lo paga cada negocio con su clave. Si quieres otros números, son dos constantes en `lib/instagram-perfil.ts`.
 
+## Decisiones que esperan a Martín
+
+- **El guion de los videos de YouTube.** No hay una forma permitida: `captions.download` pide ser el dueño del canal y bajar
+  el video va contra los términos de YouTube. La única salida es un actor de Apify que lee los subtítulos (con la clave de
+  Spy del negocio), y eso extiende a YouTube lo que se decidió «sólo para Spy» sobre Instagram. Hasta que lo decida, el
+  detalle de un video de YouTube muestra su descripción.
+
 ## Migraciones que faltan aplicar
 
 Ninguna. Lo nuevo que se guarda vive en `app_settings` del negocio (`spy.todo`, las corridas largas; `spy.todo.dia`, cuántas
-empezó hoy; `spy.caricaturas`, las caricaturas) y en las columnas que ya existían (`spy_piezas.analisis` lleva ahora su `formato`, dentro del mismo jsonb).
+empezó hoy; `spy.caricaturas`, las caricaturas; `spy.oferta.<id>`, la oferta de cada competidor, que se borra con él; `spy.transcripcion.<competidor>.<pieza>`, el guion de
+cada reel, que se borra con él; `spy.transcripciones.dia`, cuántos videos se pidieron hoy) y en las columnas que ya existían (`spy_piezas.analisis` lleva ahora su `formato`, dentro del mismo jsonb).

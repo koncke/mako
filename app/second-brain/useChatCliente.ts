@@ -144,7 +144,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   /** La tab con chat propio de la persona (el Second Brain, 23/10/2026: lib/chat-mako-reglas.ts → TAB_SECOND_BRAIN): el primer
    *  mensaje crea ESA conversación (una por persona y negocio) y se sigue como las de las tabs (`antes`). */
   tab?: string | null;
-  /** La criatura de los chats de Offer: la del referente que tiene al frente el Offer Coach (1/11/2026). Sin esto, la de cada chat. */
+  /** La criatura de los chats de Offer: la del referente que tiene al frente el coach, del que cuelgan (1/11/2026; uno solo desde el 4/11). Sin esto, la de cada chat. */
   aspectoOffer?: Aspecto | null;
   /** Quién contesta en un chat que se abre sin la lista (`activo: false`): el gurú o el coach. Sin esto no hay fila de la que sacarlo, y el
    *  hilo dibujaba una criatura sorteada con «Sin título» de nombre (Martín, 3/11/2026: «el que responde es una criatura de mako»). */

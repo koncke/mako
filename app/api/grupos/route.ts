@@ -1,7 +1,8 @@
 // =============================================================================
 // /api/grupos — los grupos de la persona, para la lista de chats (3/11/2026)
 // =============================================================================
-// El propio si administra, los invitados, la cartera aprobada si administra una agencia; al super admin, el de la pestaña o la plataforma. Cada uno pasa por la
+// El propio si administra, los invitados, la cartera aprobada si administra una agencia; al super admin, el de la pestaña o la plataforma. Parada en la cuenta
+// de un cliente de su cartera, sólo el grupo de ese cliente (ticket #55). Cada uno pasa por la
 // misma puerta (lib/grupo-puerta.ts): una lista no es otro camino para entrar. El de la pestaña primero, y después por actividad.
 
 import { NextResponse } from 'next/server';

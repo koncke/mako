@@ -70,9 +70,11 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Corregir los datos de tu negocio en el mapa: en «La oferta» → «El brief», el precio, qué incluye y el horario de tu oferta principal (tocas el dato y lo corriges); en «La oferta» → «La oferta», tus ofertas; en «Productos», el catálogo con su precio',
       'Hablar primero: la primera vez te pregunta qué te falta (hoy, conectar tu IA), con botones que andan sin la app',
       'Enseñarte la pestaña señalando, con el resto un poco opaco y el chat a la vista (el «?» de arriba)',
+      // El coach ÚNICO desde el 4/11/2026 (Martín: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach"»).
+      '«Funnel Coach»: un chat que primero trabaja tu oferta y la guarda, y después elige cómo conseguir clientes, calcula el presupuesto de anuncios y guarda el plan. Aconseja inspirado en un referente (Hormozi, de fábrica; lo cambias tocando su cara), y tus conversaciones de oferta cuelgan de él',
     ],
     noHace: ['No es el chat con tus leads: eso es Chats', 'Todavía no: la guía señalando en las otras pestañas ni con tu IA (por ahora, sólo el Ops Center y sin IA)'],
-    alias: ['ops center', 'second brain', 'segundo cerebro', 'cerebro', 'mapa', 'grafo', 'chat con mako', 'mis datos', 'datos del negocio', 'el brief'],
+    alias: ['ops center', 'second brain', 'segundo cerebro', 'cerebro', 'mapa', 'grafo', 'chat con mako', 'mis datos', 'datos del negocio', 'el brief', 'funnel coach', 'coach'],
     conecta: [{ a: 'crm', motivo: 'Lo que sabe de tus clientes sale del CRM' }, { a: 'offer', motivo: 'Tu oferta vive en Offer y el mapa la muestra' }],
     estado: 'lista', slugDev: 'second-brain', fuentes: [AREAS, 'docs/diseno-second-brain-grafo.md'],
   },
@@ -209,8 +211,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   {
     keys: ['market-an'],
     que: 'Lo que hacen tus competidores, en un solo lugar: sumas a cada uno con sus canales y MaKo lee su sitio, su Instagram y su YouTube, con los números que pudo medir. Una lectura que falló se dice, nunca es un cero.',
-    hace: ['Sumar competidores con sus canales', 'Leer su sitio, su Instagram y su YouTube', 'Guardar los anuncios que pegues', 'Decir desde cuándo está a la vista cada pieza, desde que MaKo la vio', 'Sugerirte competidores que ya mira MaKo, y sumarlos sin gastar nada'],
-    noHace: ['Todavía no: revisar solo todos los días (lee al agregar y al abrir la ficha)', 'Todavía no: traer los anuncios de Meta sin pegarlos', 'Todavía no: analizar sus ángulos y ganchos contra tu oferta'],
+    hace: ['Sumar competidores con sus canales', 'Leer su sitio, su Instagram y su YouTube', 'Guardar los anuncios que pegues', 'Decir desde cuándo está a la vista cada pieza, desde que MaKo la vio', 'Sugerirte competidores que ya mira MaKo, y sumarlos sin gastar nada', 'Leer su oferta de su web, sola, con el analista de Offer: las 9 notas y su puntaje', 'Transcribir el guion de sus reels al abrir su detalle'],
+    noHace: ['Todavía no: revisar solo todos los días (lee al agregar y al abrir la ficha)', 'Todavía no: traer los anuncios de Meta sin pegarlos', 'Todavía no: analizar sus ángulos y ganchos contra tu oferta', 'Todavía no: el guion de sus videos de YouTube'],
     alias: ['competitor spy', 'competitors spy', 'competencia', 'competidores', 'espiar a la competencia', 'market analyst'],
     conecta: [{ a: 'ads-writer', motivo: 'Lo que le funciona a la competencia alimenta tus anuncios' }, { a: 'landing-writer', motivo: 'Replicar la landing de un competidor' }],
     estado: 'parcial', slugDev: 'competitor-spy', fuentes: [AREAS, 'docs/diseno-competitors-spy.md'],

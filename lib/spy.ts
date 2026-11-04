@@ -65,7 +65,9 @@ import { encolarAlLeer } from './spy-caricatura-servidor';
 import { seFueron } from './spy-todo-reglas';
 import { FORMATOS, formatoDe } from './spy-detalle';
 import { leerPorPaginas } from './supabase-paginado';
-import { getSetting } from './settings';
+import { borrarSetting, borrarSettingsConPrefijo, getSetting } from './settings';
+import { claveOfertaSpy } from './spy-oferta';
+import { prefijoTranscripciones } from './spy-transcripcion';
 import { ANALISIS_SIN_DATOS, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta } from './spy-analisis-reglas';
 import { queEs } from './spy-que-es';
 import { getTenantDb, getWorkspaceActual } from './workspace';
@@ -303,6 +305,11 @@ export async function quitarCompetidor(id: number): Promise<{ ok: true } | { ok:
   const db = await getTenantDb();
   const { error } = await db.from('spy_competidores').delete().eq('id', id);
   if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude quitarlo: ${error.message}` };
+  // Su oferta (lib/spy-oferta.ts) vive en una clave aparte y se va con él. Si no se puede, queda una clave huérfana que
+  // nadie lee: no frena el «Dejar de mirarlo».
+  await borrarSetting(claveOfertaSpy(id)).catch((e) => console.warn(`[spy] no pude borrar la oferta del competidor ${id}:`, e instanceof Error ? e.message : e));
+  // Y los guiones de sus reels (lib/spy-transcripcion.ts), por su prefijo.
+  await borrarSettingsConPrefijo(prefijoTranscripciones(id)).catch((e) => console.warn(`[spy] no pude borrar los guiones del competidor ${id}:`, e instanceof Error ? e.message : e));
   return { ok: true };
 }
 
@@ -318,6 +325,8 @@ export async function quitarCanal(id: number, red: 'instagram' | 'youtube' | 'ti
   if (red !== 'tiktok') {
     const { error: e2 } = await db.from('spy_piezas').delete().eq('competidor_id', id).eq('canal', red);
     if (e2) return { ok: false, error: `Saqué el canal, pero no sus piezas: ${e2.message}` };
+    // Los guiones son de sus reels de Instagram: se van con ellos.
+    if (red === 'instagram') await borrarSettingsConPrefijo(prefijoTranscripciones(id)).catch(() => {});
   }
   return { ok: true };
 }

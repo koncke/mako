@@ -1,9 +1,19 @@
 # Hallazgos — Ops Center (los coaches y sus referentes)
 
-La casa de varios chats: el central, el Funnel Coach y el Offer Coach. Quién aconseja de qué está en
+La casa de varios chats: el central y el Funnel Coach (desde el 4/11/2026, el único coach: la oferta y el funnel). Quién aconseja de qué está en
 `lib/asesores/catalogo.ts`, su ficha destilada en `lib/asesores/fichas.ts`, la caricatura en
 `public/asesores/<id>.png` y se elige tocando la criatura, en `app/second-brain/ElegirReferente.tsx`.
 Acá va lo que costó y no se deduce leyendo el código.
+
+---
+
+## La lista de grupos no miraba la pestaña (ticket #55, 4/11/2026)
+
+**Síntoma:** el administrador de una agencia, parado en la cuenta de un cliente, veía en la lista los grupos de todos sus otros clientes, y lo reportó como «no debería verse».
+**Causa:** `gruposDeLaPersona` (`lib/grupo-puerta.ts`) usaba la pestaña sólo para el super admin. A quien no lo es le sumaba su negocio, su cartera aprobada y sus invitaciones, estuviera en la pestaña que estuviera.
+**El diagnóstico obvio era el equivocado:** sonaba a fuga entre clientes, y no lo era. La clienta ve sólo el suyo y sus invitaciones, y quien veía los demás ya tenía acceso a cada uno: la puerta (`accesoAlGrupo`) estaba bien. Lo que fallaba era la LISTA, no el permiso.
+**La regla que queda:** una lista que la persona ve parada en la cuenta de otro negocio muestra lo de ESE negocio, aunque tenga acceso a más. Tener acceso y mostrarlo son dos preguntas. En su propio negocio se sigue viendo todo, porque Martín quiere que el equipo de la agencia pueda estar pendiente.
+**Vive en:** `lib/grupo-puerta.ts` → `gruposDeLaPersona`; lo fija `tests/grupos-ops-lista-cartera.test.ts`, con la ruta real y la pestaña puesta con `runWithWorkspace`.
 
 ---
 
@@ -441,3 +451,53 @@ y el gurú entra a la galería en cuanto llegue su cara (el test lo avisa).
   nueva se corre después de `git add -N`, o da verde sin haberla leído. Un título de clase citado tal cual también trae voseo
   («Vendele…»): se cita el módulo o se parafrasea.
 - **Nadie más leyó las fichas**: las escribí yo, contra las clases citadas. Martín las puede leer antes de que entren.
+
+---
+
+## Juntar dos coaches: lo guardado no distingue «eligió» de «no eligió», y las herramientas propias van DENTRO del presupuesto (4/11/2026)
+
+Martín: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach" y que tenga ambas funcionalidades dentro...
+Por defecto, que esté la cara de hormozi». Queda UN coach, el Funnel Coach: primero la oferta, después el funnel, en un chat.
+
+**Qué era el Offer Coach, de verdad (medido leyendo, no supuesto).** No tenía conversación propia: su fila abría el chat con su
+GURÚ (`referente-hormozi`, `queAbreElOfferCoach`) y debajo colgaban las conversaciones de la tab Offer (el motor de
+/api/offer). Por eso, al juntarlos: las conversaciones de oferta cuelgan del Funnel Coach (computadora y teléfono), y la charla
+con Hormozi que alguien tuvo tocando el Offer Coach sale en la lista de gurús, que ya no esconde a nadie (`gurusDeLaBarra`, sin
+`delOffer`). Nada se duplica ni se borra. **Nunca hubo una URL del Offer Coach:** la tab /offer es la pantalla de Offer, no el
+coach, y se queda (la abren el CRM, las aperturas y links guardados).
+
+**Lo guardado no distingue elegir de no elegir.** Cada elección en un coach guardaba los DOS (`{ ...leerReferentes(), ...pedido }`,
+con el otro en su fábrica). Así que `{ funnel: null, offer: 'hormozi' }` es a la vez «eligió MaKo en el Funnel Coach» y «eligió
+Hormozi en el Offer Coach». La regla de Martín (`referenteDelCoach`, lib/asesores/catalogo.ts): `funnel` con un referente gana;
+si no, `offer` (`null` ahí es una elección de MaKo, porque su fábrica era Hormozi); si no, Hormozi. El caso ambiguo sale Hormozi,
+y cuántos negocios quedaron así se mide en producción (docs/relevo/nube-funnel-coach.md). Lo nuevo se guarda como `{ coach }`
+AL LADO de lo de antes (`conReferenteElegido`), leyendo estricto: escribe la fila entera.
+
+**Una pista delante de cada mensaje le saca el lugar a las demás herramientas.** El Funnel Coach clasificaba cada mensaje con
+«plan del funnel, presupuesto de anuncios, calculadora» delante, para que la calculadora llegara con «1000 dólares». Medido con el
+turno real: con la pista, `guardar_oferta` no llegaba ni con «guarda esta oferta», y «crea una landing para mi oferta» perdía
+`crear_landing_desde_diseno` (`proponer_presupuesto_campana` se quedaba siempre el primer lugar). Sin la pista, las dos llegan.
+
+**La cura fue hacerlas FIJAS, no otra pista.** `propias` (lib/doer-herramientas.ts): las seis del coach (`HERRAMIENTAS_DEL_COACH`)
+entran primero y su peso se DESCUENTA del presupuesto de 12.000; el ranking llena lo que queda. En una pregunta, las que escriben no
+viajan y se ofrecen (`ofrecibles`). Juntas pesan 7.806 (3.858 en una pregunta): quedan 4.194 para lo demás en un pedido de hacer.
+⚠️ El precio a sabiendas: `proponer_crear_campana` (4.129) no entra después de `proponer_presupuesto_campana` en «crea la campaña con
+ese presupuesto»; el coach nombra el Ads Manager. `tests/coaches-ops-center.test.ts` (11 y 11b) frena una herramienta más que no
+entre, y una que desaparezca del registro.
+
+**«Hay oferta» también es una oferta ARMADA en una conversación de oferta** (`hayOfertaArmada`, lib/offer-sesiones.ts). Con sólo las
+guardadas, quien armó su oferta con el Offer Coach y no tocó «Guardar» leía «Empecemos por tu oferta».
+
+**Lo que no se ve leyendo:**
+- Las herramientas de la oferta tienen la puerta de la tab Offer (`gating.tab: 'offer'`); la capa `pm` (lib/capas.ts) no la tiene,
+  así que ahí el coach habla de la oferta sin poder guardarla (`propiasDelChat` la saca, no se cae en silencio). No se tocó el gating:
+  es una decisión de qué compra cada plan.
+- En la nube, el tsc acotado con `lib/doer-herramientas.ts` muere sin memoria con el tope de 2.560 MB (arrastra el registro entero):
+  va con `--heap=7000`.
+- `tests/funciones-mako.test.ts` (6) ya está rojo en main (`wsEnContexto is not a function` al cargar lib/api-mako/link.ts), y el
+  runner de `tests-afectados` en la nube marca tandas rojas «sin el pie del runner» por el `MAKO_ACCION_TOOLS` que node no ve como
+  ESM: medido igual en un árbol limpio de main.
+
+**Vive en:** lib/asesores/catalogo.ts · lib/asesores/contexto.ts · lib/funnel-plan-db.ts · lib/doer-herramientas.ts ·
+app/api/mako/chat/route.ts · app/second-brain/ChatSecondBrain.tsx · app/second-brain/useChatDelCoach.ts ·
+app/m/second-brain/HojaDelCoach.tsx · tests/coaches-ops-center.test.ts

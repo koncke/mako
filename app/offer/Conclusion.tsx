@@ -303,11 +303,11 @@ function BarraAcciones({ sesion, funnels, onSeguir, onGuardar }: {
 
 // ── El diagnóstico ───────────────────────────────────────────────────────────
 
-function FilaDimension({ label, nota, abierta, onAlternar }: { label: string; nota: NotaDimension | undefined; abierta: boolean; onAlternar: () => void }) {
+function FilaDimension({ label, nota, abierta, onAlternar, conMejora = true }: { label: string; nota: NotaDimension | undefined; abierta: boolean; onAlternar: () => void; conMejora?: boolean }) {
   const id = useId();
   const valor = nota && Number.isFinite(nota.nota) ? Math.round(nota.nota) : null;
   const t = valor != null ? TONO[tonoDeNota(valor)] : null;
-  const hayDetalle = !!nota && (tiene(txt(nota.porque)) || tiene(txt(nota.mejora)));
+  const hayDetalle = !!nota && (tiene(txt(nota.porque)) || (conMejora && tiene(txt(nota.mejora))));
   return (
     <div>
       <button type="button" className="of-fila" aria-expanded={hayDetalle ? abierta : undefined} aria-controls={hayDetalle ? id : undefined}
@@ -326,7 +326,7 @@ function FilaDimension({ label, nota, abierta, onAlternar }: { label: string; no
           {tiene(txt(nota.porque)) && (
             <p style={{ margin: 0, fontSize: 'var(--fs-md)', lineHeight: 1.55, color: 'var(--ink)' }}><T v={nota.porque} /></p>
           )}
-          {tiene(txt(nota.mejora)) && (
+          {conMejora && tiene(txt(nota.mejora)) && (
             <p style={{ margin: 0, fontSize: 'var(--fs-md)', lineHeight: 1.55, color: 'var(--dim)' }}>
               <span style={{ fontWeight: 700, color: 'var(--primary)' }}>Para subirla: </span><T v={nota.mejora} />
             </p>
@@ -337,12 +337,17 @@ function FilaDimension({ label, nota, abierta, onAlternar }: { label: string; no
   );
 }
 
-function VistaDiagnostico({ d, calculo, conProbar = true }: { d: DiagnosticoOferta; calculo: CalculoDiagnostico; conProbar?: boolean }) {
+/**
+ * El diagnóstico tal cual. Con `deOtro` (Competitors Spy, 4/11/2026: la oferta de un COMPETIDOR, leída con este mismo
+ * analista) no van «Para subirla», «Lo primero que cambiaría», lo que le falta para estar lista ni los avisos: son consejos
+ * para el dueño de ESA oferta, y quien la mira es otro negocio.
+ */
+export function VistaDiagnostico({ d, calculo, conProbar = true, deOtro = false }: { d: DiagnosticoOferta; calculo: CalculoDiagnostico; conProbar?: boolean; deOtro?: boolean }) {
   const [abierta, setAbierta] = useState<string | null>(null);
   const notas = lista(d?.dimensiones);
-  const cambios = lista(d?.cambios).filter((c) => c && tiene(txt(c.titulo)));
-  const alertas = avisosAfirmables(lista(calculo?.alertas).map(txt)).filter(tiene);
-  const faltan = calculo?.lista ? [] : controlFinalDe(calculo).filter((x) => !x.ok);
+  const cambios = deOtro ? [] : lista(d?.cambios).filter((c) => c && tiene(txt(c.titulo)));
+  const alertas = deOtro ? [] : avisosAfirmables(lista(calculo?.alertas).map(txt)).filter(tiene);
+  const faltan = deOtro || calculo?.lista ? [] : controlFinalDe(calculo).filter((x) => !x.ok);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {tiene(txt(d?.tesis)) && (
@@ -357,7 +362,7 @@ function VistaDiagnostico({ d, calculo, conProbar = true }: { d: DiagnosticoOfer
           devolvió el modelo: así dos diagnósticos se comparan renglón por renglón. */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 6 }}>
         {DIMENSIONES.map((dim) => (
-          <FilaDimension key={dim.id} label={dim.label} nota={notas.find((n) => n?.id === dim.id)}
+          <FilaDimension key={dim.id} label={dim.label} nota={notas.find((n) => n?.id === dim.id)} conMejora={!deOtro}
             abierta={abierta === dim.id} onAlternar={() => setAbierta((a) => (a === dim.id ? null : dim.id))} />
         ))}
       </div>

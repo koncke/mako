@@ -124,3 +124,8 @@
 [data-m] .m-operaciones-guru .co-cab__inspirado { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-m] .m-operaciones-guru .co-chip { flex-shrink: 0; }
 [data-m] .m-operaciones-cerebro { height: 68dvh; }
+/* El Funnel Coach (app/m/second-brain/HojaDelCoach.tsx, 4/11/2026): su criatura se toca para elegir quién aconseja, y la lista va
+   ADENTRO de la hoja con los mosaicos de la computadora (ElegirReferente.tsx). */
+[data-m] button.m-operaciones-titulo__muneco { border: 0; background: none; padding: 0; color: inherit; cursor: pointer; }
+[data-m] button.m-operaciones-titulo__muneco:disabled { cursor: default; }
+[data-m] .m-operaciones-elegir { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; padding: 4px 0 16px; }
