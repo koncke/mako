@@ -40,7 +40,8 @@ export function correrPaso(yml: string, nombre: string, o: { antes?: string; env
   const r = spawnSync('bash', ['-e', script], {
     cwd: o.cwd ?? tmp,
     encoding: 'utf8',
-    env: { PATH: process.env.PATH ?? '', HOME: tmp, RUNNER_TEMP: tmp, GITHUB_STEP_SUMMARY: resumen, GITHUB_OUTPUT: salidaGh, ...o.env },
+    // NODE_ENV: con los .d.ts de Next, ProcessEnv lo pide obligatorio (lo cazó el filtro de la punta: TS2769).
+    env: { NODE_ENV: 'test', PATH: process.env.PATH ?? '', HOME: tmp, RUNNER_TEMP: tmp, GITHUB_STEP_SUMMARY: resumen, GITHUB_OUTPUT: salidaGh, ...o.env },
   });
   if (r.error) throw r.error;
   return { codigo: r.status, salida: `${r.stdout}${r.stderr}`, resumen: readFileSync(resumen, 'utf8'), outputs: readFileSync(salidaGh, 'utf8') };
