@@ -24,8 +24,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { escribirRenglon, leerRenglon, sumaDe, aRepetir, muestraDe, revisarRenglon } from '../scripts/veredicto.mjs';
-import { scriptDelPaso, leerWorkflow } from './_workflow';
-import { condicionDe, evaluar } from './_expresion-actions';
+import { scriptDelPaso, leerWorkflow, correPaso, evaluar, verdadDeGithub } from './_workflow';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = join(RAIZ, 'scripts', 'veredicto.mjs');
@@ -285,7 +284,8 @@ test('node24.sh: con el 24 en el PATH lo usa; con otro, el que dejó una vez ant
 test('punta.yml: el veredicto se revisa antes de los tests, decide los tipos, y lo que pasó se guarda antes de llevar a main', () => {
   const yml = leerWorkflow(RAIZ, 'punta.yml');
   const i = (s: string) => yml.indexOf(s);
-  for (const [a, b] of [['node scripts/veredicto.mjs revisar', 'node scripts/tests-afectados.mjs'], ['node scripts/tests-afectados.mjs', 'node scripts/tipos-ci.mjs'], ['node scripts/tipos-ci.mjs', 'node scripts/veredicto.mjs guardar'], ['node scripts/veredicto.mjs guardar', 'git push origin "HEAD:refs/heads/main"']]) {
+  // Tipos va ANTES de los tests desde el 4/11/2026 (la máquina recién prendida: tests/tipos-ci-tiempo.test.ts).
+  for (const [a, b] of [['node scripts/veredicto.mjs revisar', 'node scripts/tipos-ci.mjs'], ['node scripts/tipos-ci.mjs', 'node scripts/tests-afectados.mjs'], ['node scripts/tests-afectados.mjs', 'node scripts/veredicto.mjs guardar'], ['node scripts/veredicto.mjs guardar', 'git push origin "HEAD:refs/heads/main"']]) {
     assert.ok(i(a) >= 0 && i(b) > i(a), `«${a}» va antes que «${b}»`);
   }
   assert.match(scriptDelPaso(yml, 'Tests afectados por lo que cambió (todos, sin cortar)'), /--solo \$REPETIR/);
@@ -311,19 +311,21 @@ const CUBRE = 'Los tests los cubre el veredicto';
 
 /** Qué pasos de tests corren con estas salidas del paso «Lo que ya se probó» (`null`: el paso no corrió). */
 function corren(yml: string, outputs: Record<string, string> | null) {
-  const ctx = { funciones: { cancelled: false, success: true, failure: false, always: true }, datos: { steps: { instalar: { outcome: 'success' }, veredicto: outputs == null ? { outputs: {} } : { outputs } } } };
-  const c = (n: string) => { const e = condicionDe(yml, n); assert.ok(e, `«${n}» tiene su if:`); return evaluar(e, ctx); };
-  return { tests: c(TESTS), cubre: c(CUBRE) };
+  const estado = { cancelled: false, success: true, failure: false, always: true };
+  const datos = { steps: { instalar: { outcome: 'success' }, veredicto: outputs == null ? { outputs: {} } : { outputs } } };
+  return { tests: correPaso(yml, TESTS, estado, datos), cubre: correPaso(yml, CUBRE, estado, datos) };
 }
 
 test('las reglas de GitHub: una salida que falta es null, y null contra un número es 0 (lo que salteó los tests)', () => {
-  const ctx = (outputs: Record<string, string>) => ({ funciones: {}, datos: { steps: { v: { outputs } } } });
-  assert.equal(evaluar("steps.v.outputs.cuantos != '0'", ctx({})), false, 'null != \'0\' es falso: así se salteó el paso en las corridas 188 y 189');
-  assert.equal(evaluar("steps.v.outputs.cuantos != '0'", ctx({ cuantos: '7' })), true);
-  assert.equal(evaluar("steps.v.outputs.marca != 'si'", ctx({})), true, 'contra una palabra no hay número: null != \'si\' es verdadero');
-  assert.equal(evaluar("steps.v.outputs.usar == 'TRUE'", ctx({ usar: 'true' })), true, 'los strings se comparan sin mayúsculas');
-  assert.equal(evaluar("!(steps.v.outputs.a == 'x' && steps.v.outputs.b == 'y') || false", ctx({ a: 'x', b: 'y' })), false);
-  assert.throws(() => evaluar("contains(steps.v.outputs.a, 'x')", ctx({})), /no sé (leer|evaluar)/, 'lo que no sabe evaluar tira: no se cree evaluado');
+  const ctx = (outputs: Record<string, string>) => ({ steps: { v: { outputs } } });
+  const ev = (e: string, c: Record<string, unknown>) => verdadDeGithub(evaluar(e, c));
+  assert.equal(ev("steps.v.outputs.cuantos != '0'", ctx({})), false, 'null != \'0\' es falso: así se salteó el paso en las corridas 188 y 189');
+  assert.equal(ev("steps.v.outputs.cuantos != '0'", ctx({ cuantos: '7' })), true);
+  assert.equal(ev("steps.v.outputs.marca != 'si'", ctx({})), true, 'contra una palabra no hay número: null != \'si\' es verdadero');
+  assert.equal(ev("steps.v.outputs.usar == 'TRUE'", ctx({ usar: 'true' })), true, 'los strings se comparan sin mayúsculas');
+  assert.equal(ev("!(steps.v.outputs.a == 'x' && steps.v.outputs.b == 'y') || false", ctx({ a: 'x', b: 'y' })), false);
+  assert.throws(() => evaluar("fromJSON(steps.v.outputs.a)", ctx({})), /no conoce/, 'lo que no sabe evaluar tira: no se cree evaluado');
+  assert.throws(() => evaluar('failure()', ctx({})), /estado del job/, 'una función de estado sin el estado tira');
 });
 
 test('punta.yml: sin veredicto, con uno que repite, con uno que cubre todo y con el paso que no corrió, corre exactamente UN paso de tests', { skip: !hayGit && 'sin git' }, () => {

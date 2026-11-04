@@ -70,8 +70,10 @@ test('se dispara sólo con un push a punta/**, una corrida por rama, con su tope
   assert.match(CODIGO, /node-version: 24/);
 });
 
-test('main sólo se empuja después de mezclar, guardas, afectados y tipos, en ese orden', () => {
-  const orden = ['git diff --name-only --no-renames "$base" HEAD', 'git merge --no-edit', 'npm ci', 'npx next typegen', 'sh scripts/guardas-push.sh origin', 'node scripts/tests-afectados.mjs', 'node scripts/tipos-ci.mjs', 'git push origin "HEAD:refs/heads/main"'];
+// Tipos va ANTES de los tests desde el 4/11/2026: con la máquina recién prendida el tsc terminó en 456 s (corrida 188) y después de
+// 639 s de tests no terminó en 18 min (corrida 180), sobre el mismo árbol. Lo demás del orden no cambia.
+test('main sólo se empuja después de mezclar, guardas, tipos y afectados, en ese orden', () => {
+  const orden = ['git diff --name-only --no-renames "$base" HEAD', 'git merge --no-edit', 'npm ci', 'npx next typegen', 'sh scripts/guardas-push.sh origin', 'node scripts/tipos-ci.mjs', 'node scripts/tests-afectados.mjs', 'git push origin "HEAD:refs/heads/main"'];
   const posiciones = orden.map((o) => CODIGO.indexOf(o));
   orden.forEach((o, k) => assert.ok(posiciones[k] >= 0, `falta «${o}»`));
   for (let k = 1; k < orden.length; k++) assert.ok(posiciones[k - 1] < posiciones[k], `«${orden[k - 1]}» tiene que ir antes que «${orden[k]}»`);

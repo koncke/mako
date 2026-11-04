@@ -26,6 +26,12 @@ name: chequeo sobre main
 
 on:
   workflow_dispatch:
+    inputs:
+      # «maquina»: la relanzó «Relanzar si la máquina no llegó a los tipos». Una corrida así no se vuelve a relanzar.
+      relanzo:
+        description: 'Quién la relanza (vacío: una punta o una persona)'
+        required: false
+        default: ''
   push:
     branches: [main]
 
@@ -66,20 +72,26 @@ jobs:
           sudo swapon /swapfile-tipos
 
       - name: Tipos
+        id: tipos
         timeout-minutes: 18
         env:
           TIPOS_TANDAS: '4'
           TIPOS_HEAP_MB: '12288'
+          # Como en punta.yml: a los 14 min corta el script y dice «SIN TIEMPO» (97), con la memoria de ese momento.
+          TIPOS_TOPE_S: '840'
         run: |
           set +e
+          echo "empezo=si" >> "$GITHUB_OUTPUT"
           SECONDS=0
           node scripts/tipos-ci.mjs
           c=$?
+          if [ "$c" = "97" ]; then echo "salida=sin-tiempo" >> "$GITHUB_OUTPUT"; else echo "salida=otra" >> "$GITHUB_OUTPUT"; fi
           echo "tipos sobre main $(git rev-parse --short HEAD): $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
           exit $c
 
       # ⚠️ El 0 solo no alcanza, igual que en punta.yml: se exige la línea del verde con tests adentro.
       - name: Barredoras, compartidas
+        id: barredoras
         if: "!cancelled()"
         timeout-minutes: 15
         env:
@@ -105,8 +117,25 @@ jobs:
 
       # Quién llegó a main en las últimas horas, y quién llegó con un veredicto de la nube (scripts/veredicto.mjs): un rojo acá es de
       # una mezcla, y sin esta lista no hay a quién preguntarle. El checkout es de un solo commit: se trae la historia que hace falta.
+      # Un tsc que no terminó a tiempo es la máquina, no main: se relanza una vez y no se marca main en rojo (punta.yml hace lo mismo).
+      - name: Relanzar si la máquina no llegó a los tipos
+        id: relanzar
+        if: >-
+          failure() && steps.tipos.outputs.empezo == 'si' && steps.tipos.outputs.salida != 'otra'
+          && steps.barredoras.outcome != 'failure' && github.event.inputs.relanzo != 'maquina'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh workflow run sobre-main.yml --ref main -f relanzo=maquina; then
+            echo "relanzada=si" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Tipos: la máquina no llegó (no es main)::El tsc no terminó a tiempo en este runner. La corrida se relanzó una vez; main no queda marcado en rojo por esto."
+          else
+            echo "::warning::No pude relanzar el chequeo sobre main: queda rojo, pero los tipos no dieron error (SIN TIEMPO)."
+          fi
+
       - name: Main está rojo
-        if: failure()
+        if: failure() && steps.relanzar.outputs.relanzada != 'si'
         run: |
           sha=$(git rev-parse HEAD)
           git fetch --quiet --deepen=400 origin main || true

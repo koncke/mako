@@ -181,3 +181,51 @@ llegan a GitHub. Eso no está restado arriba: son hasta ~US$15 por mes y por cue
    Conviene recién con varias cuentas, y le suma a Martín una máquina que mantener. Antes de decidir: medir una semana con el
    veredicto puesto.
 
+
+## 7. «Tipos» cortado a los 18 min sin un error, y las puntas que llegaron a main sin tests (4/11/2026, noche)
+
+El Cerebro, por la corrida 180 de dash-cobranza: «Mirá por qué: si es swap, alguna carga pesada de main, o
+`docs/diseno/mockups-dashboard/demos`… Que un tope de tiempo no se lea como rojo del chat: que se reintente una vez o avise como
+corrida fallida de la máquina. Dejalo medido en tu relevo.»
+
+**Lo medido:**
+
+| Qué | Resultado |
+|---|---|
+| ¿El tsc carga `docs/` (las 1.350 demos)? | **No**: de 10.093 archivos, 0 de `docs/`. Descartado. |
+| Corrida 180: tests de 639 s antes (705 archivos, RAM libre mínima 4,3 GB) | El tsc **no terminó en 18 min**, sin una línea; dos `node` huérfanos al limpiar |
+| Corrida 188: el MISMO árbol, sin tests antes (los salteó el bug de abajo) | **456 s** (chequeo de 365 s), 6.455 MB vivos |
+| Corrida 191: tests de 584 s antes | 574 s |
+| Local, con la memoria limitada a la del runner (7.931 MB) | 249 s, con un pico de 7.464 MB (al runner le quedan ~470 MB de margen) |
+| Lo mismo, con 1,2 GB ocupados por otro proceso quieto | 254 s: el kernel mandó al swap al proceso quieto, no al tsc |
+
+**Conclusión, con n=1:** no es el código ni `docs/`. El tsc pide casi toda la RAM del runner, y lo que dejan los tests pesados lo
+empuja. Que un proceso quieto ocupe memoria no alcanza para frenarlo (lo de arriba); no se midió qué dejaron los tests de la 180.
+
+**Lo que quedó** (`punta/tipos-sin-tiempo`):
+- En punta.yml, **Tipos va antes de los tests**, con la máquina recién prendida, y el swap se saca después del tsc.
+- `tipos-ci.mjs` corta el tsc a los 14 min (`TIPOS_TOPE_S=840`, por debajo de los 18 del paso). Sale **97, «SIN TIEMPO — NO son
+  errores de tipos»**, con la memoria y el swap de ese momento.
+- Una línea `TIPOS-RAM` por minuto, y una foto de la memoria y los procesos antes del tsc. Si vuelve a pasar, el log dice si fue el swap.
+- **Se relanza UNA vez sola** («Relanzar si la máquina no llegó a los tipos»):
+  - sólo si el tsc no terminó y las guardas y los tests no dieron rojo;
+  - no deja la marca `ci-rojo`;
+  - la corrida relanzada no repite los tests que ya pasaron.
+- sobre-main.yml hace lo mismo y no marca main en rojo por esto.
+
+**El bug que salió de mirar la 188: sin veredicto, las puntas no corrían los tests.** Lo puse yo con el veredicto (601a0ec2f):
+- **La causa:** `cuantos != '0'` sobre una salida que no se escribe. En GitHub, una salida que falta es null, y null contra '0' vale 0.
+- **Qué llegó a main sin tests:** dash-cobranza, spy-paginas-bloqueadas y dash-focus.
+- **Lo que encontraron sus tests, corridos sobre main:** un rojo real (una ruta nueva de Spy sin clasificar para la cuenta de revisión
+  de las tiendas) y un flaky conocido (`coaches-ops-center`).
+- **Arreglado en `punta/tests-sin-veredicto`, en main** (corrida 191, con sus tests corridos):
+  - la condición compara con una palabra;
+  - el test EVALÚA las condiciones con las reglas de GitHub, y el evaluador de `tests/_workflow.ts` usa ahora la igualdad floja (antes
+    `===`, que tapaba esto).
+
+**Y al subirlo, otro: desde un worktree, un test del pre-push le escribió al repo de verdad.** Pasó en esta nube, y no se subió nada.
+- **Qué hizo:** con el `GIT_DIR` absoluto que deja el hook, `tests/ci-workflow-nuevo.test.ts` movió `main` y la rama de la punta, y
+  dejó `core.bare=true`. Se restauró con los reflogs.
+- **El arreglo:** el filtro ya no les pasa a los tests las variables de git del hook (`sinElRepoDelHook`).
+- **Para los clones de la PC:** si alguno muestra «(bare)» en `git worktree list`, o un `main` que se movió solo, es esto. La cura es
+  `git config core.bare false` y `git update-ref` con el valor del reflog.

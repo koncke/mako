@@ -43,6 +43,12 @@ on:
   # Lo usa scripts/ci-main-verde.sh para RELANZAR una punta que dio rojo mientras main estaba rojo, cuando main vuelve a verde
   # (sobre-main.yml). Se lanza sobre la rama de la punta: todo lo de abajo lee GITHUB_REF_NAME y HEAD, igual que con un push.
   workflow_dispatch:
+    inputs:
+      # «maquina»: la relanzó «Relanzar si la máquina no llegó a los tipos». Una corrida así no se vuelve a relanzar.
+      relanzo:
+        description: 'Quién la relanza (vacío: una persona o ci-main-verde.sh)'
+        required: false
+        default: ''
 
 concurrency:
   group: punta-${{ github.ref_name }}
@@ -241,8 +247,61 @@ jobs:
       # ⚠️ Corren también en una punta de sólo docs, a diferencia de `integracion`: son ~10 s, y son lo único que ve una
       # clave pegada en un documento (claves-en-el-diff) o una referencia generada que quedó vieja (docs/api-mako.md).
       - name: Guardas del push
+        id: guardas
         if: steps.mezcla.outputs.nada != 'true'
         run: sh scripts/guardas-push.sh origin
+
+      # El tsc entero, con `scripts/tipos-ci.mjs`: 98 es «SIN MEMORIA / sin veredicto», y sale tal cual, rojo. TIPOS_TANDAS es
+      # el respaldo si el entero muere por memoria, y su OK sale «OK PARCIAL» con un aviso (historia en `git log -- .github/workflows/integracion.yml`, borrado el 4/11/2026).
+      # ⚠️ EL ENTERO NO MORÍA POR GRANDE: moría contra el tope de 6.144 MB, sin swap. Con 10 GB de swap y tope de 12.288 MB terminó en
+      # 248 s, con 6.187 MB vivos y sin parcial (run 41779840011, 4/11/2026, n=1). Antes eran ~360 s de intento que muere más ~270 de
+      # tandas, para un OK PARCIAL.
+      # ⚠️ ANTES DE LOS TESTS, con la máquina recién prendida (4/11/2026): el mismo árbol de dash-cobranza no terminó en 18 min después de
+      # 639 s de tests (corrida 180) y terminó en 456 s sin tests antes (corrida 188). El tsc pide ~7,4 GB de los 7,9 del runner: lo que
+      # dejan los tests lo empuja al swap. Por eso además corta solo a los 14 min (TIPOS_TOPE_S) con «SIN TIEMPO», y la corrida se
+      # relanza UNA vez («Relanzar si la máquina no llegó a los tipos», abajo): eso es la máquina, no el código del chat.
+      # ⚠️ 6 GB, NO 10: el disco del runner tiene 11 GB libres y el runner ya trae 3,3 GB de swap. Con 10, después de los tests no quedó
+      # lugar ni para el tsbuildinfo: `error TS5033 ... ENOSPC` se contó como un error de tipos, con el chequeo limpio (corrida 18). Y se
+      # saca después del tsc («Sacar el swap de los tipos»): los tests corren con el disco entero, como antes.
+      # ⚠️ Sin tipos acá: con sólo texto, y con un veredicto que ya los cubre sobre este contenido de la punta. Lo segundo llega a main
+      # «sin probar» y sobre-main.yml corre el tsc entero sobre lo que quedó (scripts/veredicto.mjs → `sin_probar`).
+      - name: Swap para los tipos
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.texto != 'true' && steps.veredicto.outputs.tipos_saltear != 'true'"
+        run: |
+          sudo fallocate -l 6G /swapfile-tipos
+          sudo chmod 600 /swapfile-tipos
+          sudo mkswap /swapfile-tipos
+          sudo swapon /swapfile-tipos
+
+      - name: Tipos
+        id: tipos
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.texto != 'true' && steps.veredicto.outputs.tipos_saltear != 'true'"
+        timeout-minutes: 18
+        env:
+          TIPOS_TANDAS: '4'
+          TIPOS_HEAP_MB: '12288'
+          # 14 min, por debajo de los 18 del paso: así corta el script, que dice «SIN TIEMPO» con la memoria de ese momento, y no
+          # Actions, que mata el paso sin una línea (corrida 180). Lo normal es 2 a 8 min.
+          TIPOS_TOPE_S: '840'
+        run: |
+          set +e
+          echo "empezo=si" >> "$GITHUB_OUTPUT"
+          echo "antes del tsc: $(free -m | awk '/Mem:/ {print $7}') MB disponibles, $(free -m | awk '/Swap:/ {print $3}') MB de swap usado"
+          ps -eo pid,etime,pcpu,rss,args --sort=-pcpu | head -6 | cut -c1-160
+          SECONDS=0
+          node scripts/tipos-ci.mjs
+          c=$?
+          if [ "$c" = "97" ]; then echo "salida=sin-tiempo" >> "$GITHUB_OUTPUT"; else echo "salida=otra" >> "$GITHUB_OUTPUT"; fi
+          echo "tipos: $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $c
+
+      # El swap era para el tsc: los tests corren con el disco entero (con 6 GB menos, un ENOSPC de un test se leería como su rojo).
+      - name: Sacar el swap de los tipos
+        if: "!cancelled() && steps.tipos.outputs.empezo == 'si'"
+        # Si Actions cortó el paso, el tsc puede seguir vivo (huérfano, como en la corrida 180) y ocupando el swap: primero se lo para.
+        run: |
+          pkill -f 'node_modules/typescript/bin/tsc' || true
+          sudo swapoff /swapfile-tipos && sudo rm -f /swapfile-tipos || echo "::warning::No pude sacar el swap de los tipos: los tests corren con 6 GB menos de disco."
 
       # ── LOS TESTS AFECTADOS, TODOS ───────────────────────────────────────────────────────────
       # ⚠️ SIN `--cortar`: un rojo muestra TODOS los rojos de la punta. El 3/11 cada error aparecía recién al arreglar el
@@ -255,8 +314,8 @@ jobs:
       # A esta altura el árbol difiere de main (si no, `nada` ya lo cortó), así que eso sería un cálculo roto dando un
       # verde. Se exige la línea final del verde, con tests adentro.
       #
-      # ⚠️ Corren aunque una guarda haya dado rojo, y Tipos aunque estos den rojo (`!cancelled()`): un rojo muestra todo lo
-      # que hay de una vez. «Llevar a main» no lleva esa condición: con cualquier paso rojo, se saltea.
+      # ⚠️ Corren aunque una guarda o los Tipos (que van antes, desde el 4/11/2026) hayan dado rojo (`!cancelled()`): un rojo muestra todo
+      # lo que hay de una vez. «Llevar a main» no lleva esa condición: con cualquier paso rojo, se saltea.
       #
       # No se usa PIPESTATUS para que este paso corra igual en `sh` (lo prueba tests/punta-ci.test.ts).
       #
@@ -265,6 +324,7 @@ jobs:
       # tiene un `exit 0` por un costado. Con sólo documentación corren igual los que la leen (barredoras incluidas): un relevo que rompe
       # una barredora dejaba roja la punta SIGUIENTE, de otro chat.
       - name: Tests afectados por lo que cambió (todos, sin cortar)
+        id: afectados
         # ⚠️ NUNCA una salida contra un número («cuantos != '0'»): una salida que falta es null, y GitHub compara null con un número
         # como 0. Sin veredicto este paso se salteaba entero (corridas 188 y 189, 4/11/2026). Lo fija tests/punta-condiciones.test.ts.
         if: "!cancelled() && steps.instalar.outcome == 'success' && steps.veredicto.outputs.nada_que_repetir != 'si'"
@@ -303,38 +363,6 @@ jobs:
         if: "!cancelled() && steps.instalar.outcome == 'success'"
         run: node scripts/tiempos-tests.mjs "$RUNNER_TEMP/tiempos-tests.tsv" --top 15 >> "$GITHUB_STEP_SUMMARY" || true
 
-      # El tsc entero, con `scripts/tipos-ci.mjs`: 98 es «SIN MEMORIA / sin veredicto», y sale tal cual, rojo. TIPOS_TANDAS es
-      # el respaldo si el entero muere por memoria, y su OK sale «OK PARCIAL» con un aviso (historia en `git log -- .github/workflows/integracion.yml`, borrado el 4/11/2026).
-      # ⚠️ EL ENTERO NO MORÍA POR GRANDE: moría contra el tope de 6.144 MB, sin swap. Con 10 GB de swap y tope de 12.288 MB terminó en
-      # 248 s, con 6.187 MB vivos y sin parcial (run 41779840011, 4/11/2026, n=1). Antes eran ~360 s de intento que muere más ~270 de
-      # tandas, para un OK PARCIAL. Después de los tests, para que el swap no les cambie los tiempos.
-      # ⚠️ 6 GB, NO 10: el disco del runner tiene 11 GB libres y el runner ya trae 3,3 GB de swap. Con 10, después de los tests no quedó
-      # lugar ni para el tsbuildinfo: `error TS5033 ... ENOSPC` se contó como un error de tipos, con el chequeo limpio (corrida 18).
-      # ⚠️ Sin tipos acá: con sólo texto, y con un veredicto que ya los cubre sobre este contenido de la punta. Lo segundo llega a main
-      # «sin probar» y sobre-main.yml corre el tsc entero sobre lo que quedó (scripts/veredicto.mjs → `sin_probar`).
-      - name: Swap para los tipos
-        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.texto != 'true' && steps.veredicto.outputs.tipos_saltear != 'true'"
-        run: |
-          sudo fallocate -l 6G /swapfile-tipos
-          sudo chmod 600 /swapfile-tipos
-          sudo mkswap /swapfile-tipos
-          sudo swapon /swapfile-tipos
-
-      - name: Tipos
-        id: tipos
-        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.texto != 'true' && steps.veredicto.outputs.tipos_saltear != 'true'"
-        timeout-minutes: 18
-        env:
-          TIPOS_TANDAS: '4'
-          TIPOS_HEAP_MB: '12288'
-        run: |
-          set +e
-          SECONDS=0
-          node scripts/tipos-ci.mjs
-          c=$?
-          echo "tipos: $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
-          exit $c
-
       # ── LO QUE PASÓ QUEDA PARA LA PRÓXIMA SUBIDA DE ESTA PUNTA (scripts/veredicto.mjs guardar) ─────────────────
       # Con rojo también: al arreglar un test, la próxima corrida no repite los cientos que ya pasaron y nada tocó. Va antes de llevar a
       # main porque mira ESTE árbol, y «Llevar» puede volver a mezclar. Nunca da rojo.
@@ -359,6 +387,30 @@ jobs:
         with:
           path: ${{ runner.temp }}/veredicto-previo.json
           key: veredicto-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      # ── SI LA MÁQUINA NO LLEGÓ A LOS TIPOS, SE RELANZA UNA VEZ (4/11/2026; el Cerebro: «que un tope de tiempo no se lea como rojo del
+      # chat: que se reintente una vez o avise como corrida fallida de la máquina») ─────────────────────────────────────────────────
+      # Sólo si el tsc no terminó a tiempo (97, «SIN TIEMPO», o el paso cortado por Actions sin salida) y lo demás no dio rojo: un rojo de
+      # las guardas o de los tests es del código y se dice como siempre. La corrida relanzada lleva `relanzo=maquina` y no se vuelve a
+      # relanzar. Usa el veredicto que esta corrida acaba de guardar: no repite los tests que ya pasaron. La marca ci-rojo no se deja.
+      # ⚠️ La corrida nueva cancela a ésta (concurrency): va al final, después de guardar, y queda «cancelled», no roja.
+      - name: Relanzar si la máquina no llegó a los tipos
+        id: relanzar
+        if: >-
+          failure() && steps.tipos.outputs.empezo == 'si' && steps.tipos.outputs.salida != 'otra'
+          && steps.guardas.outcome == 'success' && steps.afectados.outcome != 'failure'
+          && github.event.inputs.relanzo != 'maquina'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh workflow run punta.yml --ref "$GITHUB_REF_NAME" -f relanzo=maquina; then
+            echo "relanzada=si" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Tipos: la máquina no llegó (no es el código)::El tsc no terminó a tiempo en este runner. La corrida se relanzó una vez, en una máquina nueva y sin repetir los tests que ya pasaron. No hay nada que corregir en la punta."
+            echo "La máquina no llegó a los tipos: se relanzó una vez. No es un rojo de la punta." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::No pude relanzar la corrida: queda roja, pero los tipos no dieron error (SIN TIEMPO). Volvé a subir la punta tal cual."
+          fi
 
       # ── LLEVAR A MAIN ────────────────────────────────────────────────────────────────────────
       # Sin `--force`: un push rechazado no pisa nada. Si otra punta llegó mientras corrían los tests, se mezcla el main
@@ -452,7 +504,7 @@ jobs:
       # subió ($GITHUB_SHA) y no a HEAD: acá HEAD puede ser una mezcla que no existe en ningún otro lado.
       # `if: failure()` y no `always()`: si no, un verde también movería la marca.
       - name: Dejar la marca del rojo en ci-rojo/<punta>
-        if: failure()
+        if: failure() && steps.relanzar.outputs.relanzada != 'si'
         run: |
           punta="${GITHUB_REF_NAME#punta/}"
           git push origin --force "$GITHUB_SHA:refs/heads/ci-rojo/$punta"

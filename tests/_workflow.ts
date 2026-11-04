@@ -4,8 +4,12 @@
 // Un workflow no se prueba leyéndolo: «copiar una línea en un regex no prueba nada» (AGENTS.md, 4/11/2026). Lo que decide si
 // algo corre es la condición del job y el script del paso, así que el test corre el script en bash (como el runner, `bash -e`)
 // y evalúa la condición con el subconjunto de expresiones de GitHub que usan estos archivos: `==`, `!=`, `&&`, `||`, `!`,
-// paréntesis, `contains()` (sin distinguir mayúsculas, como GitHub), `startsWith()`, cadenas '…', y rutas `a.b.c` (lo que
+// paréntesis, `contains()` (sin distinguir mayúsculas, como GitHub), `startsWith()`, las funciones de estado del job
+// (`success()`, `failure()`, `cancelled()`, `always()`, que se pasan en `ctx.estado`), cadenas '…', y rutas `a.b.c` (lo que
 // falta es null). Una expresión con algo más TIRA: el evaluador no adivina.
+// ⚠️ LA IGUALDAD ES LA FLOJA DE GITHUB, no `===` (4/11/2026): con tipos distintos, los dos pasan a número (null → 0, '' → 0, un
+// string que no es un número → NaN, que no es igual a nada). Con `===`, `null != '0'` daba verdadero y este evaluador tapaba el
+// bug que salteó los tests de dos puntas (corridas 188 y 189): en GitHub es falso, porque null y '0' valen 0.
 // =============================================================================
 
 import { spawnSync } from 'node:child_process';
@@ -67,6 +71,28 @@ export function condicionDelJob(yml: string, job: string): string | null {
 
 type Valor = string | number | boolean | null | Record<string, unknown> | unknown[];
 
+const aNumero = (v: Valor): number => {
+  if (v === null) return 0;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') return v.trim() === '' ? 0 : /^\s*-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?\s*$/.test(v) ? Number(v) : NaN;
+  return NaN;
+};
+
+/** La igualdad de GitHub (docs: «Evaluate expressions» → Operators). Dos strings, sin mayúsculas; tipos distintos, como números. */
+export function igualFlojo(a: Valor, b: Valor): boolean {
+  if (typeof a === 'string' && typeof b === 'string') return a.toLowerCase() === b.toLowerCase();
+  if (a === null && b === null) return true;
+  if (a !== null && b !== null && typeof a === 'object' && typeof b === 'object') return a === b;
+  if (typeof a === typeof b && typeof a !== 'object') return a === b;
+  const x = aNumero(a);
+  const y = aNumero(b);
+  return !Number.isNaN(x) && !Number.isNaN(y) && x === y;
+}
+
+/** Falsos de GitHub: false, 0, -0, '', null y NaN. */
+export const verdadDeGithub = (v: Valor): boolean => !(v === null || v === undefined || v === false || v === '' || (typeof v === 'number' && (v === 0 || Number.isNaN(v))));
+
 /** Evalúa una expresión de GitHub Actions contra un contexto (`{ github: { event_name, event: {...} } }`). */
 export function evaluar(expr: string, ctx: Record<string, unknown>): Valor {
   const fuente = expr.replace(/^\$\{\{\s*|\s*\}\}$/g, '');
@@ -75,7 +101,7 @@ export function evaluar(expr: string, ctx: Record<string, unknown>): Valor {
   let p = 0;
   const ver = () => tokens[p];
   const tomar = (t?: string) => { const x = tokens[p++]; if (t && x !== t) throw new Error(`esperaba «${t}» y vino «${x}» en: ${expr}`); return x; };
-  const verdad = (v: Valor) => !(v === null || v === false || v === '' || v === 0 || v === undefined);
+  const verdad = verdadDeGithub;
   const ruta = (r: string): Valor => {
     let v: unknown = ctx;
     for (const k of r.split('.')) v = v != null && typeof v === 'object' ? (v as Record<string, unknown>)[k] : undefined;
@@ -90,6 +116,13 @@ export function evaluar(expr: string, ctx: Record<string, unknown>): Valor {
     if (t === 'true') return true;
     if (t === 'false') return false;
     if (t === 'null') return null;
+    if (ver() === '(' && ['success', 'failure', 'cancelled', 'always'].includes(t)) {
+      tomar('(');
+      tomar(')');
+      const estado = (ctx.estado ?? null) as Record<string, boolean> | null;
+      if (!estado || typeof estado[t] !== 'boolean') throw new Error(`${t}() necesita el estado del job en ctx.estado: ${expr}`);
+      return estado[t];
+    }
     if (ver() === '(') {
       tomar('(');
       const args: Valor[] = [o()];
@@ -107,7 +140,7 @@ export function evaluar(expr: string, ctx: Record<string, unknown>): Valor {
     if (ver() === '==' || ver() === '!=') {
       const op = tomar();
       const b = primario();
-      const igual = typeof a === 'string' && typeof b === 'string' ? a.toLowerCase() === b.toLowerCase() : a === b;
+      const igual = igualFlojo(a, b);
       return op === '==' ? igual : !igual;
     }
     return a;
@@ -125,6 +158,33 @@ export function corre(yml: string, job: string, github: Record<string, unknown>)
   if (c == null) return true;
   const v = evaluar(c, { github });
   return !(v === null || v === false || v === '' || v === 0);
+}
+
+/** La condición `if:` de un PASO (a 8 espacios), en una línea, entre comillas o como bloque `>-`. null si el paso no tiene. */
+export function condicionDelPaso(yml: string, nombre: string): string | null {
+  const lineas = sinComentarios(yml).split('\n');
+  const i = lineas.findIndex((l) => l.trim() === `- name: ${nombre}`);
+  if (i < 0) throw new Error(`no encuentro el paso «${nombre}»`);
+  let fin = lineas.findIndex((l, k) => k > i && /^ {6}- /.test(l));
+  if (fin < 0) fin = lineas.length;
+  for (let k = i + 1; k < fin; k++) {
+    const m = /^ {8}if: (.*)$/.exec(lineas[k]);
+    if (!m) continue;
+    const v = m[1].trim();
+    if (v !== '>-') return v.replace(/^"(.*)"$/, '$1');
+    const partes: string[] = [];
+    for (let j = k + 1; j < fin && /^ {10,}\S/.test(lineas[j]); j++) partes.push(lineas[j].trim());
+    return partes.join(' ');
+  }
+  return null;
+}
+
+/** ¿El PASO corre? `estado` son las funciones de estado del job; `datos`, el contexto (`steps`, `github`). Sin `if:`, es `success()`. */
+export function correPaso(yml: string, nombre: string, estado: Record<string, boolean>, datos: Record<string, unknown>): boolean {
+  // Como GitHub: una condición sin función de estado lleva un `success() &&` implícito.
+  const propia = condicionDelPaso(yml, nombre);
+  const c = propia == null ? 'success()' : /\b(success|failure|cancelled|always)\(\)/.test(propia) ? propia : `success() && (${propia})`;
+  return verdadDeGithub(evaluar(c, { ...datos, estado }));
 }
 
 export const leerWorkflow = (raiz: string, archivo: string) => readFileSync(join(raiz, '.github', 'workflows', archivo), 'utf8');
