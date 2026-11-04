@@ -544,7 +544,24 @@ function denegarRol(req: NextRequest, pathname: string) {
 // landing (revisión de la tanda 4; el test compila el matcher como Next y lo cruza con slugs).
 // ⛔ `(?!api/)` (01/11/2026, auditoría de seguridad): una ruta de API que termina en `.png` o `.js` (un
 // `/api/x/<id>.png`) quedaba FUERA del proxy, o sea sin el gate de sesión ni el chequeo de Origin. Hoy todas
-// las rutas dinámicas repiten su corte, así que no era explotable; lo era la primera que se olvidara.
+// las rutas dinámicas repiten su corte, así que no era explotable; lo era la primera que se olvidara. Desde el 4/11 lo
+// cubre la lista en positivo de abajo: `api/` no es una carpeta de `public/`.
+// ⛔ LA EXTENSIÓN SOLA NO DICE QUE ALGO ES UN ARCHIVO (4/11/2026, revisión de la cuenta de las tiendas). Hasta ese día
+// el matcher sacaba del proxy TODO camino terminado en `.png`, `.js`, `.css`… salvo `api/`, y una PÁGINA dinámica con un
+// valor así (`/crm/x.png`, `/m/crm/x.png`) caía en `/crm/[id]` sin pasar por acá: sin el corte de sesión, sin el chequeo
+// de Origin y sin `revisionPuedeEscribir`. Con `Next-Action`, cualquier server action se podía pedir por esa puerta
+// (Next la reenvía al worker que la tenga). Ahora, en POSITIVO:
+//   · lo que se saltea por extensión es un archivo de la RAÍZ (`/logo.png`, `/sw.js`, `/m.js`) o uno de las carpetas
+//     de `public/` nombradas acá. Una carpeta nueva de `public/` con imágenes o scripts se suma a esta lista;
+//   · y todo lo que Next trataría como server action (`next-action`, un formulario multipart o urlencoded) pasa por el
+//     proxy siempre, sea cual sea el camino: son las mismas tres condiciones de `getServerActionRequestMetadata`.
+// tests/proxy-matcher-completo.test.ts compila esto con `getMiddlewareMatchers` (lo que hace Next) y lo cruza con cada
+// ruta dinámica de app/ y con cada archivo de public/.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|cono-tx/|cono-doc/|ve/|\\.well-known/|(?!api/).*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon\\.ico|cono-tx/|cono-doc/|ve/|\\.well-known/|(?:[^/]+|(?:anuncios|asesores|cono-portadas|cono-ugc|cv|formatos|logos|replay|sin-conexion|tutoriales|vsl-assets)/.*)\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)',
+    { source: '/:path*', has: [{ type: 'header', key: 'next-action' }] },
+    { source: '/:path*', has: [{ type: 'header', key: 'content-type', value: 'multipart/form-data.*' }] },
+    { source: '/:path*', has: [{ type: 'header', key: 'content-type', value: 'application/x-www-form-urlencoded.*' }] },
+  ],
 };

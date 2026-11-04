@@ -10595,3 +10595,15 @@ adivinar nada con el reloj.
 - **Si una función mínima pesa más de 100 MB, el problema es compartido**, no de la ruta que nombra el error.
 - `VERCEL_SUPPORT_LARGE_FUNCTIONS` quedó **apagada**: tapaba el tope, pero llenaba el disco del contenedor.
 - **Para que salga rápido, push directo a `main`:** Vercel construye en el acto. `integracion` pasa primero por los ~40 min de Actions.
+
+## Un test con la fecha escrita a mano vence solo (4/11/2026)
+
+**Síntoma:** a las 11 UTC del 4/11, `tests/venta-externa.test.ts` dio rojo en `punta/grupos-app` y en `punta/spy-caricatura-cola` a la vez, con un
+`custom_data.hecho_en` de más. Parecía culpa de esas ramas, y ninguna tocó ese código. **También daba rojo sobre main.**
+
+**Causa:** el evento de `tests/_venta-externa-hijo.ts` tenía `creado: '2026-10-28T11:59:00Z'`, y la compra a Meta se recorta y declara `hecho_en` cuando el
+hecho tiene más de 7 días (`tiempoDelHecho`, `lib/meta-capi-payload.ts`, con su margen). El test envejeció hasta salir de la ventana, sin que nadie tocara nada.
+
+**Regla:** si el código mira la edad de una fecha, el test la arma relativa a ahora (o fija el reloj). Dos ramas sin relación con el mismo rojo: correr ese test sobre main antes de arreglar nada en la rama.
+
+**Sin hacer:** no se barrieron los demás tests con fecha escrita a mano. Vive en `tests/_*-hijo.ts`.

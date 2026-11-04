@@ -13,7 +13,7 @@
 //
 // Correr: node --import tsx --test tests/cuenta-revision.test.ts
 //
-// ⚠️ PROBADO ROMPIÉNDOLO (4/11/2026, base 9 / 0; una rotura por vez, restaurada de memoria):
+// ⚠️ PROBADO ROMPIÉNDOLO (4/11/2026, base 9 / 0, y 10 / 0 desde la segunda revisión; una rotura por vez, restaurada de memoria):
 //   · sendEmail sin la guarda                                       → 8 / 1 (A)
 //   · la guarda sin mirar la cookie (sólo `getUsuarioActual`)      → 8 / 1 (A, la base caída)
 //   · enviarTexto sin la guarda                                     → 8 / 1 (A)
@@ -23,6 +23,15 @@
 //   · el Runner sin `.neq(workspace_id)`                            → 8 / 1 (C)
 //   · el callback de Google sin el rechazo                          → 8 / 1 (F)
 //   · el script escribiendo el archivo sin `wx` y sin nombre nuevo  → 8 / 1 (el script)
+//   La segunda revisión (base 10 / 0):
+//   · las tareas de una reunión sin la guarda (caen a la línea de MaKo) → 9 / 1 (A, la línea de MaKo)
+//   · el bot de MaKo (lib/mako-salida.ts) sin la guarda                → 9 / 1 (A, la línea de MaKo)
+//   · `antesDeEscribir` (lib/linea-freno.ts) sin la guarda             → 9 / 1 (A, la línea de MaKo)
+//   · la entrada sin rechazar la fila tocada (`rol_ws` cambiado)        → 9 / 1 (B y G)
+//   · el script siguiendo después de una limpieza que falló            → 9 / 1 (el script)
+//   · revertir --total sin mirar el nombre del negocio                 → 9 / 1 (el script)
+//   · revertir --total sin mirar si hay alguien más adentro            → 9 / 1 (el script)
+//   · revertir --corte sin suspender la fila                           → 9 / 1 (el script: la relectura no da «suspendido»)
 // =============================================================================
 
 import { test } from 'node:test';
@@ -67,6 +76,14 @@ test('A. WhatsApp: nunca, y sin tocar Evolution; un closer común, sí', () => {
   assert.deepEqual(R().whatsappCloser, { ok: true, error: null, aEvolution: 1 });
 });
 
+test('A. la línea de MaKo tampoco: las tareas de una reunión no caen a ella, el bot no sale y ninguna escritura a Evolution pasa', () => {
+  assert.deepEqual(R().tareasRevision, { wa: { ok: false, error: MOTIVO_ENVIO_EN_REVISION }, aEvolution: 0 }, 'cayó a la línea de MaKo');
+  assert.deepEqual(R().botRevision, { ok: false, error: MOTIVO_ENVIO_EN_REVISION, aEvolution: 0 }, 'el bot de MaKo le escribió');
+  assert.equal(R().lineaRevision, MOTIVO_ENVIO_EN_REVISION, 'una escritura por el `ev` de mako-grupo pasaba');
+  assert.equal(R().lineaRevisionLeer, null, 'una lectura sigue andando');
+  assert.equal(R().lineaCloser, null, 'el corte es de la cuenta, no de todos');
+});
+
 test('B. la sesión: muere al rotar la contraseña, al mudarla de negocio y al subirla a admin', () => {
   assert.equal(R().sesionDespuesDeRotar, null, 'una cookie de antes de rotar');
   assert.equal(R().sesionMudada, null, 'la fila en otro negocio');
@@ -88,6 +105,7 @@ test('B y G. la entrada: con su negocio sucio, 503 sin sesión; limpio, la sesi�
   assert.deepEqual(R().avisoLimpia, [{ to: 'equipo@hola-mako.com', ip: true }]);
   assert.equal(R().rastro, 1, 'la entrada quedó anotada');
   assert.deepEqual(R().entradaSinRastro, { status: 503, conSesion: false }, 'sin rastro, no entra');
+  assert.deepEqual(R().entradaConLaFilaTocada, { status: 403, conSesion: false, avisos: 1 }, 'con el `rol_ws` cambiado entraba como un closer común, sin la marca y sin segundo factor');
   // El intento fallido avisa DESPUÉS de contestar: esperarlo haría tardar más a ese correo, y eso contaría que existe.
   assert.deepEqual(R().intentoFallido, { status: 401, conSesion: false, avisosAntesDeContestar: 0, avisos: [{ to: 'equipo@hola-mako.com', ip: true }] });
 });
@@ -138,5 +156,20 @@ test('el script: su negocio propio, el archivo nunca se pisa, --rotar limpia, y 
   assert.equal(s.conProducto, 1);
   assert.equal(s.conLeadDeVerdad, 1);
   assert.equal(s.archivosAlFinal, 2);
+  // Si no puede sacar lo que sobreviviría a rotarla, sale con error y no toca la contraseña (antes: «⚠️» y un ✓ al final).
+  assert.equal(s.limpiezaFallida, 1, JSON.stringify(s.consola));
+  assert.equal(s.limpiezaNoTocoLaContrasena, true);
+  assert.equal(s.limpiezaSinArchivoNuevo, true);
+  // Revertir (scripts/tiendas-cuenta-revision-revertir.mts): sin elegir no hace nada; --corte la suspende y no borra; --total frena si el
+  // negocio no es el de demostración y, si lo es, borra la persona y el negocio, y releyéndolo.
+  assert.equal(s.revertirSinElegir, 1);
+  assert.equal(s.corte, 0, JSON.stringify(s.consola));
+  assert.deepEqual(s.cortada, { estado: 'suspendido', negocio: true });
+  assert.equal(s.totalConOtraPersona, 1, 'borró un negocio con otra persona adentro');
+  assert.equal(s.totalConOtroNombre, 1, 'borró un 900001 que no se llama como el de demostración');
+  assert.deepEqual(s.nadaBorradoAntes, { negocio: true, persona: true });
+  assert.equal(s.total, 0, JSON.stringify(s.consola));
+  assert.deepEqual(s.despuesDelTotal, { negocio: false, persona: false, leads: 0 });
+  assert.equal(s.totalOtraVez, 0, 'otra vez no hay nada que borrar, y eso no es un error');
   assert.equal(s.contrasenaEnLaConsola, false, 'la contraseña salió por la consola');
 });

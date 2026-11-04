@@ -114,7 +114,6 @@ POST /api/compartido/graficos → pública (no usa la sesión)
 POST /api/compartido/guion → pública (no usa la sesión)
 POST /api/compartir → cortada
 POST /api/competitor-spy/analizar → cortada
-POST /api/competitor-spy/caricatura → cortada
 POST /api/competitor-spy/copiar → cortada
 POST /api/competitor-spy/extension → pública (no usa la sesión)
 POST /api/competitor-spy/redes → cortada
@@ -205,13 +204,13 @@ POST /api/mako/pedidos → cortada
 POST /api/mako/prompts → cortada
 POST /api/mako/propuesta → cortada
 POST /api/mako/recomendaciones → cortada
-POST /api/mako/voz → PERMITIDA
+POST /api/mako/voz → cortada
 POST /api/media-buyer → cortada
 POST /api/meta-write → cortada
 POST /api/metodo → sólo admin (el rol la corta antes, también a un closer)
 POST /api/metodo/verificar → sólo admin (el rol la corta antes, también a un closer)
 POST /api/montaje/worker → pública (no usa la sesión)
-POST /api/notificaciones → PERMITIDA
+POST /api/notificaciones → cortada
 POST /api/offer → cortada
 POST /api/onboarding → cortada
 POST /api/onboarding/archivero → cortada
