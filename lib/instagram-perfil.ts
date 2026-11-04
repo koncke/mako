@@ -27,6 +27,7 @@
 // Sin `server-only`: lo leen la pantalla de Offer (el @ de un mensaje es un link a leer) y el test.
 // =============================================================================
 
+import { laminasDe, medioDeInstagram } from './spy-medio';
 import { leerRespuestaMeta, urlDePerfil, usuarioDeTexto, usuarioDeUrlInstagram } from './instagram-buscar';
 
 /**
@@ -75,6 +76,8 @@ export type PiezaInstagram = {
   vistas: number | null;
   megusta: number | null;
   comentarios: number | null;
+  /** Cuántas láminas trae un carrusel (Apify: `childPosts`/`images`; Meta no las da). null = no se sabe (lib/spy-medio.ts). */
+  laminas?: number | null;
 };
 
 /** Lo que se lee de un perfil. */
@@ -301,6 +304,8 @@ function piezaDeApify(m: Record<string, unknown>): PiezaInstagram {
     vistas: contadorDeApify(m.videoViewCount ?? m.videoPlayCount),
     megusta: contadorDeApify(m.likesCount),
     comentarios: contadorDeApify(m.commentsCount),
+    // Las láminas de un carrusel (`Sidecar`): el actor las da en `childPosts` o en `images` (lib/spy-medio.ts).
+    laminas: medioDeInstagram(str(m.type)) === 'carrusel' ? laminasDe(m.childPosts, m.images) : null,
   };
 }
 

@@ -130,15 +130,17 @@ const COMERCIAL: PlantillaHoja = {
       controles: [{ id: id('co-periodo'), tipo: 'periodo', preset: 'ult30' }],
       componentes: [
         {
-          id: id('co-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'leads', fecha: 'agenda', metricas: ['agendas', 'cierres', 'tasa_cierre', 'vendido'],
-          titulo: 'De agenda a cierre', frase: 'De {agendas} agendas salieron {cierres} cierres · cerraste el {tasa_cierre} de las que vinieron · vendiste {vendido}',
+          // 4/11/2026 (tarde): una frase lleva hasta 4 métricas, y el diseño de Selvar necesita las cuatro de lo que pasó con las agendas
+          // (su barra). La tasa de cierre ya es el primer número y lo vendido, «Lo vendido y lo invertido».
+          id: id('co-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'leads', fecha: 'agenda', metricas: ['agendas', 'asistencias', 'no_show', 'cierres'],
+          titulo: 'De agenda a cierre', frase: 'De {agendas} agendas vinieron {asistencias} y salieron {cierres} cierres · {no_show} no se presentaron',
           ir: 'crm', x: 0, y: 0, w: 12, h: 3,
         },
         // LA INVERTIDA: la tasa de cierre, que es lo que la hoja pregunta.
         kpi(id('co-tasa'), 'leads', 'tasa_cierre', 'Tasa de cierre', '', 0, 3, { ...numero, fecha: 'agenda', comparar: true, invertida: true, ir: 'closing' }),
-        kpi(id('co-ticket'), 'leads', 'ticket', 'Ticket promedio', '', 3, 3, { ...numero, fecha: 'cierre', ir: 'crm' }),
+        kpi(id('co-ticket'), 'leads', 'ticket', 'Ticket promedio', '', 3, 3, { ...numero, fecha: 'cierre', comparar: true, ir: 'crm' }),
         kpi(id('co-costo-cierre'), 'negocio', 'cac', 'Costo por cierre', '', 6, 3, { ...numero, comparar: true, ir: 'marketing' }),
-        kpi(id('co-ciclo'), 'leads', 'ciclo_cierre', 'Días hasta el cierre', '', 9, 3, { ...numero, fecha: 'cierre', ir: 'crm' }),
+        kpi(id('co-ciclo'), 'leads', 'ciclo_cierre', 'Días hasta el cierre', '', 9, 3, { ...numero, fecha: 'cierre', comparar: true, ir: 'crm' }),
         {
           id: id('co-tendencia'), clase: 'grafico', tipo: 'serie', fuente: 'negocio', dimension: 'mes', metricas: ['vendido', 'cobrado'],
           titulo: 'Tendencia', subtitulo: 'Vendido y cobrado, mes a mes', x: 0, y: 7, w: 12, h: 8, controles: [periodoFijo(id('co-tendencia-fecha'), 'ult12m')],
@@ -157,7 +159,7 @@ const COMERCIAL: PlantillaHoja = {
           titulo: 'Lo vendido por oferta', subtitulo: 'Cada funnel, con su ticket', x: 4, y: 35, w: 4, h: 7,
         },
         {
-          id: id('co-origen'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'leads', fecha: 'agenda', dimension: 'origen', metricas: ['agendas', 'cierres', 'tasa_cierre'], barra: 'cierres',
+          id: id('co-origen'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'leads', fecha: 'agenda', dimension: 'origen', metricas: ['agendas', 'cierres', 'tasa_cierre', 'vendido'], barra: 'cierres',
           titulo: 'De dónde vienen los que cierran', subtitulo: 'Por origen del lead', ir: 'crm', x: 8, y: 35, w: 4, h: 7,
         },
         {
@@ -168,7 +170,29 @@ const COMERCIAL: PlantillaHoja = {
           controles: [periodoFijo(id('co-cohortes-mes-tabla-fecha'), 'todo')],
           x: 0, y: 42, w: 12, h: 12,
         },
+        // 4/11/2026 (tarde) — lo que lee el DISEÑO PROPIO (la copia de Selvar, app/dashboard/disenos/HojaComercial.tsx) y no estaba
+        // arriba: lo vendido contra el período anterior con lo invertido (el «Closed-won» de Selvar), y lo vendido por semana y por
+        // mes, apilado por funnel (su «Bookings»).
+        // ⚠️ Una hoja lleva hasta 14 paneles y UNA sola frase (tests/graficos-corbel.test.ts): por eso lo vendido y lo invertido
+        //    son columnas por semana (con sus totales y el período anterior), y «por mes» es la Tendencia de arriba.
+        {
+          id: id('co-plata'), clase: 'grafico', tipo: 'columnas', fuente: 'negocio', dimension: 'semana', metricas: ['vendido', 'gasto'], comparar: true,
+          titulo: 'Lo vendido y lo invertido', subtitulo: 'Cada semana del período', ir: 'marketing', x: 0, y: 54, w: 6, h: 8,
+        },
+        {
+          id: id('co-semanas'), clase: 'grafico', tipo: 'columnas', fuente: 'leads', fecha: 'cierre', dimension: 'semana', desglose: 'producto', metricas: ['vendido'],
+          titulo: 'Lo vendido por semana', subtitulo: 'Los últimos 90 días, por funnel', x: 6, y: 54, w: 6, h: 8, controles: [periodoFijo(id('co-semanas-fecha'), 'ult90')],
+        },
       ],
+      // El DISEÑO PROPIO (4/11/2026, Martín: «primero la copia… y después la adaptación»): mirando, la hoja se dibuja como la copia
+      // de Selvar (docs/diseno/mockups-dashboard/comercial-selvar/), leyendo los datos de estas piezas. Editando, la grilla.
+      diseno: {
+        id: 'comercial',
+        piezas: {
+          apertura: id('co-apertura'), plata: id('co-plata'), tasa: id('co-tasa'), ticket: id('co-ticket'), ciclo: id('co-ciclo'), costo: id('co-costo-cierre'),
+          semanas: id('co-semanas'), meses: id('co-tendencia'), embudo: id('co-funnel-embudo'), motivos: id('co-motivos'), origen: id('co-origen'), closers: id('co-closers'),
+        },
+      },
     };
   },
 };

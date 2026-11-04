@@ -22,6 +22,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Lo que a Doory le falta de Canva', detalle: 'Texto en formas, tablas, cuadrículas, dibujar, copiar estilo, efectos de texto, quitar fondo de objetos', estado: 'cola' },
   { titulo: 'Abrirlo a todos los negocios', detalle: 'Visible y abierto en todos los workspaces con la pregunta de toda tab; el crédito de Doory lo ve cada negocio', estado: 'hecha' },
   { titulo: 'API de MaKo', detalle: 'El área imagen: listar, ver textos, plantillas, crear, cambiar textos, copiar y eliminar, también por WhatsApp', estado: 'hecha' },
+  { titulo: 'Carruseles que funcionan', detalle: 'Las funciones de un explorador de carruseles con los de las cuentas que el negocio sigue en Spy: buscar, filtros, outlier, esta semana, guardados, plantillas propias por tipo y «Hacer el mío» con la estructura de uno', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -129,5 +130,35 @@ export const BITACORA: Hito[] = [
       'Por WhatsApp, «creame un flyer…» llega con las herramientas del editor (antes se anotaba como tarea).',
       'Lo que no hace: dibujar ni descargar. Devuelve el link para abrirlo en el editor.',
     ],
+  },
+  {
+    fecha: '4 nov', hora: '14:20', chat: 'Carruseles (nube)', sesion: 'cli_daed829d-dde6-5b48-8dd1-048974536370', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Copiar las funciones de un explorador de carruseles a la sección de imagen',
+    pedido: 'Te deje abierto esto: https://topcarousels.com/explore. Quiero que scrapees entero, mires y copies las funcionalidades y todos los carruseles de ejemplo para ponerlos en MaKo en la sección de imagen generator. — Y asegurate de que todo este siempre en ops center.',
+    puntos: [
+      'Llegó por el Cerebro, con lo medido: sus términos prohíben bajar, raspar y republicar la biblioteca, y cada carrusel es de su creador. Se copian las FUNCIONES con datos propios; la biblioteca no se toca.',
+      'De dónde salen los carruseles: las publicaciones públicas de las cuentas que cada negocio sigue en Competitors Spy, leídas con su clave y su tope; se muestran con su creador y el link al original.',
+      'Lo que tiene que quedar: explorar (buscar, filtros, orden, grilla de dos tamaños, guardados, búsquedas guardadas), el outlier de Spy, lo de esta semana, las cuentas, «Hacer el mío» con la estructura y no el contenido, plantillas propias por tipo y todo por la API.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '14:45', chat: 'Carruseles (nube)', sesion: 'cli_daed829d-dde6-5b48-8dd1-048974536370', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Carruseles que funcionan, adentro de Image',
+    puntos: [
+      'Image tiene «Carruseles que funcionan»: los carruseles de las cuentas que sigues en Competitors Spy, cada uno con su creador y el link a su publicación original.',
+      'Cada uno dice cuántas veces rindió lo que una publicación típica de su cuenta (el mismo número que Spy), y se ordena por eso, por fecha o por interacción.',
+      'Se busca por tema o por @cuenta, se filtra por fecha, láminas, formato y outlier, y se ve lo de esta semana, lo guardado y las cuentas, con su análisis en Spy a un clic.',
+      'Las búsquedas se guardan con un nombre, y en «Nuevo diseño» aparecen arriba los que mejor funcionan esta semana. Lo mismo en el teléfono.',
+      'Spy ahora sabe si una publicación es un carrusel y cuántas láminas trae (hace falta aplicar la migración 0391; sin ella todo sigue andando).',
+      'MaKo lo puede hacer por la app y WhatsApp: ver en qué paso está, buscar y guardar.',
+    ],
+    archivos: [
+      'lib/carruseles/explorar.ts — lo puro: de dónde salen, el outlier de Spy, buscar, filtrar, ordenar, la URL y los guardados',
+      'lib/carruseles/explorar-servidor.ts — lee lo que Spy trajo y escribe guardados y búsquedas con compare-and-set',
+      'app/image-editor/carruseles/ — la pantalla, la franja de «Nuevo diseño» y sus acciones',
+      'lib/spy-medio.ts y supabase/migrations/0391_spy_medio_carruseles.sql — carrusel, imagen o video, y sus láminas',
+      'lib/api-mako/areas/imagen.* — estado_carruseles, buscar_carruseles y guardar_carrusel',
+    ],
+    revisar: '/image-editor?ver=carruseles',
   },
 ];

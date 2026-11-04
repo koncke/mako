@@ -706,3 +706,35 @@ Notas/Duración y el deslizador), y los botones `flex: none`. Plegando la tarjet
 - **La lista es de Subidos:** las 40 más nuevas, con las adjuntas primero. Otra biblioteca (las fotos de stock del panel) no entra.
 - **Una foto borrada de Subidos después de proponer:** `deserializeObjects` cae a `fallbackObject`, no rompe; no se dice nada en la propuesta.
 - **El Video Editor no tiene esto.**
+
+## El explorador de carruseles: las funciones de otro, los datos de Spy (4/11/2026, nube)
+
+**El pedido:** «copies las funcionalidades y todos los carruseles de ejemplo» de un explorador de carruseles a la sección de
+imagen. **Vive en:** `lib/carruseles/explorar.ts` (lo puro), `lib/carruseles/explorar-servidor.ts`,
+`app/image-editor/carruseles/`, `lib/spy-medio.ts`, `supabase/migrations/0391_spy_medio_carruseles.sql`.
+
+- **La biblioteca no se copia, y por dos razones distintas:** sus términos prohíben raspar, bajar en lote y republicar, y su
+  `robots.txt` cierra `/explore`; además cada carrusel es de su creador. Son los dos permisos de AGENTS.md («Copiar código y
+  usar el dato son DOS permisos»): acá ni siquiera hay código que copiar, sólo funciones, y ésas son de quien las construye.
+- **De dónde salen los carruseles:** de lo que Competitors Spy YA trae de las cuentas que el negocio sigue, con su clave y su
+  tope. El explorador no lee nada nuevo ni gasta: si no hay cuentas, la pantalla dice cómo sumar una.
+- **Spy no sabía qué publicación era un carrusel.** Toda publicación que no es un reel se guardaba `tipo = 'publicacion'`, y
+  un carrusel de 7 láminas era igual que una foto. Las dos fuentes lo decían (Meta `media_type`, Apify `type` y `childPosts`) y
+  se tiraba en `vistaDeInstagram`. Va en la 0391 (`medio`, `laminas`) y se escribe APARTE del upsert (`guardarMedios`, el
+  molde del `funnel` de la 0373): con la columna en el upsert, una migración sin aplicar tiraba la lectura entera de Instagram.
+  Lo que ya estaba guardado no tiene el dato y no se adivina: se completa en la próxima lectura. Meta no da las láminas.
+- **El outlier es el de Spy, por cuenta:** `mejoresPiezas` (lib/spy-detalle.ts) con tope = todas devuelve las veces de cada
+  pieza contra la mediana de SU cuenta. Con la mediana de todas las cuentas juntas, una cuenta grande pisa a la chica (el
+  test lo rompe así). Sólo Instagram: YouTube no lleva métricas derivadas sin la enmienda III.L.
+- **`cambiarSettingSi` sirve para valores largos:** con un `esperado` de varios KB compara por `updated_at`, no por la URL. Los
+  guardados del negocio (hasta 500) se escriben con compare-and-set y reintento (`escribirConCas`).
+- **Una familia del clasificador que no hace falta no se suma:** con «buscame carruseles con outlier alto…» la operación ya
+  llegaba al turno de la app. Medido sacando la familia: 48/48 igual. Quedaron las frases en el test como red.
+- **Trampa de tipos:** un genérico que se infiere de un callback con una rama `{ error }` sale `T | undefined`; va explícito
+  (`escribirConCas<Guardado[]>`).
+- **Desde la nube no se llega a topcarousels.com** (el proxy rechaza el host). Lo público que su `robots.txt` deja leer
+  (`/carousel-ideas/*`, `/blog/*`, `/llms-full.txt`) sirve para los tipos y sus estructuras: queda para leer desde la PC
+  (docs/relevo/nube-carruseles.md).
+
+**Lo que quedó SIN hacer (en esta etapa):** «Hacer el mío» y las plantillas propias por tipo (etapa 2); mirar la pantalla con
+un negocio de verdad (el banco usa datos inventados); y la 0391 sin aplicar.

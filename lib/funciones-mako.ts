@@ -268,11 +268,16 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   {
     keys: ['image-editor'],
     que: 'Un editor de diseño copiado de Canva: diseños de varias páginas con texto, formas, imágenes, marcos y capas, y descargas en PNG, JPG, PDF o SVG.',
-    hace: ['Arrancar de un tamaño o de una plantilla: post, historia, carrusel de Instagram de varias páginas, presentación', 'Diseños de varias páginas', 'Texto, formas, imágenes, marcos, QR y capas', 'Recortar, filtros y animaciones', 'Presentar y descargar en PNG, JPG, PDF o SVG', 'Pedirle cambios a MaKo'],
-    noHace: ['Todavía no: guardar los diseños en la nube (quedan en tu navegador)'],
+    hace: [
+      'Arrancar de un tamaño o de una plantilla: post, historia, carrusel de Instagram de varias páginas, presentación', 'Diseños de varias páginas', 'Texto, formas, imágenes, marcos, QR y capas', 'Recortar, filtros y animaciones', 'Presentar y descargar en PNG, JPG, PDF o SVG', 'Pedirle cambios a MaKo',
+      // 4/11/2026: el explorador (app/image-editor/carruseles), con lo que Competitors Spy ya trajo.
+      'Carruseles que funcionan: los de las cuentas que sigues en Competitors Spy, con su outlier (cuántas veces la mediana de su cuenta), buscar por tema o @cuenta, filtrar, ordenar, lo de esta semana, guardar y guardar búsquedas',
+    ],
+    noHace: ['No baja ni muestra bibliotecas de carruseles de otras apps: sólo los de las cuentas que sigues', 'Todavía no: pedirle fotos a un banco de imágenes'],
     reemplaza: 'Canva',
     // Carousels se retiró el 29/10/2026: un carrusel es una plantilla de «Nuevo diseño» (app/_crear/PantallaCrear.tsx).
-    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels'],
+    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels', 'carruseles que funcionan', 'outlier', 'topcarousels'],
+    conecta: [{ a: 'market-an', motivo: 'Los carruseles que funcionan salen de las cuentas que sigues en Competitors Spy' }],
     estado: 'parcial', slugDev: 'image-editor', fuentes: [AREAS, 'AGENTS.md'],
   },
   {

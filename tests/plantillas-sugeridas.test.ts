@@ -188,16 +188,24 @@ test('las señales se leen de lo guardado, sin IA, con la regla pura', () => {
 });
 
 test('la API de MaKo da el mismo orden, con la sugerida marcada', () => {
-  // 4/11/2026: la API ofrece las MISMAS que «Nueva hoja» (las que traen su diseño copiado: hoy Closing), en el mismo orden.
-  const r = plantillasDelCatalogo({ ...NADA, canales: ['llamadas'] });
-  assert.deepEqual(new Set(r.map((x) => x.id)), new Set(PLANTILLAS_OFRECIDAS.map((x) => x.id)));
-  assert.equal(r[0].id, 'closing');
-  assert.equal(r[0].sugerida, 'Vendes por llamada');
+  // 4/11/2026: la API ofrece las MISMAS que «Nueva hoja» (las que traen su diseño copiado), en el MISMO orden: lo que se compara
+  // es contra lo que calcula la galería (`ordenarConSugeridas`), no contra un id fijo. Con Closing sola el primero era 'closing';
+  // con Comercial ofrecida (también para «llamadas», y antes en la galería) es 'comercial', y el test no tiene que saberlo.
+  // Probado rompiéndolo: con la API ordenando la galería al revés, 1 fallo y 16 pases.
+  const llamadas: SenalesNegocio = { ...NADA, canales: ['llamadas'] };
+  const galeria = ordenarConSugeridas(PLANTILLAS_OFRECIDAS, ETIQUETAS_DASHBOARD, llamadas);
+  const r = plantillasDelCatalogo(llamadas);
+  assert.deepEqual(r.map((x) => x.id), galeria.map((x) => x.plantilla.id), 'el mismo orden que la galería');
+  assert.deepEqual(r.map((x) => x.sugerida ?? null), galeria.map((x) => x.porque), 'y las mismas marcadas, con el mismo porqué');
+  const primera = galeria[0];
+  assert.equal(primera.porque, 'Vendes por llamada', 'quien vende por llamada tiene una sugerida arriba');
   assert.ok(plantillasDelCatalogo(null).every((x) => !('sugerida' in x)));
-  const j = catalogoJson({ seccion: 'plantillas', senales: { ...NADA, canales: ['llamadas'] } }) as { plantillas: Array<{ id: string; sugerida?: string }> };
-  assert.equal(j.plantillas[0].sugerida, 'Vendes por llamada', 'el catálogo en JSON pasa las señales');
-  const md = catalogoMarkdown({ seccion: 'plantillas', senales: { ...NADA, canales: ['llamadas'] } }) as string;
-  assert.match(md, /`closing` .* · sugerida para este negocio \(Vendes por llamada\)/, 'y el de markdown también');
+  const j = catalogoJson({ seccion: 'plantillas', senales: llamadas }) as { plantillas: Array<{ id: string; sugerida?: string }> };
+  assert.equal(j.plantillas[0].id, primera.plantilla.id, 'el catálogo en JSON pasa las señales');
+  assert.equal(j.plantillas[0].sugerida, 'Vendes por llamada');
+  const md = catalogoMarkdown({ seccion: 'plantillas', senales: llamadas }) as string;
+  assert.ok(md.includes(`\`${primera.plantilla.id}\``), 'y el de markdown nombra a la primera');
+  assert.match(md, / · sugerida para este negocio \(Vendes por llamada\)/, 'con su porqué');
   assert.match(leer('lib', 'api-mako', 'areas', 'dashboard.run.ts'), /await senalesDelNegocio\(\)\.catch\(\(\) => null\)/);
   assert.match(leer('lib', 'api-mako', 'areas', 'general.run.ts'), /ordenarConSugeridas\(PLANTILLAS_GENERAL_OFRECIDAS, ETIQUETAS_GENERAL, senales\)/);
 });

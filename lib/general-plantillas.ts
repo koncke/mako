@@ -149,6 +149,8 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     // 4/11/2026 — MOORLY · TORQUE (docs/templates-dashboard-propuesta.md §7.3): «¿qué está vencido y a quién llamo?». Moorly abre con
     // lo de hoy y lo que vence; Torque, el tablero de lo que está en curso. Es el caso de la reunión del 12/10 (el
     // Plan, la cobranza y el CRM en la pantalla de lo que se hace hoy).
+    // 4/11/2026 (tarde): su DISEÑO PROPIO es la copia de Moorly adaptada (`diseno` al final; app/dashboard/disenos/HojaOperacion.tsx,
+    // lib/operacion-diseno.ts). Las piezas siguen siendo la grilla de siempre, que se abre con «Ver en la grilla».
     id: 'operacion', nombre: 'Operación diaria', emoji: '⚡',
     linea: 'Lo de hoy: las llamadas, lo vencido, a quién llamar y lo primero del Plan.',
     subtitulo: '', tema: TEMA, periodo: 'ult30',
@@ -167,7 +169,20 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       bloque('llamadas', { titulo: 'A quién llamo hoy', opciones: { dias: '1' } }), bloque('agenda'),
       bloque('deadlines', { titulo: 'Lo que vence', opciones: { dias: '7', que: 'tareas' } }),
       bloque('funnel', { opciones: { estilo: 'barras' } }),
+      // 4/11/2026 (tarde) — para el DISEÑO PROPIO de la hoja (la copia de Moorly, app/dashboard/disenos/HojaOperacion.tsx): el
+      // «Premium on the water» de Moorly (lo cobrado, las agendas y los cierres de cada mes) y su «Book by program» (lo que te
+      // deben, por tramo de atraso, con las cuentas de la hoja Cobranza).
+      {
+        local: 'meses', tipo: 'columnas', fuente: 'negocio', dimension: 'mes', metricas: ['cobrado', 'agendas', 'cierres'], titulo: 'Mes a mes',
+        subtitulo: 'Lo cobrado, las agendas y los cierres de cada mes', controles: [{ tipo: 'periodo', preset: 'ult12m', fijo: true }], ir: 'cobranza',
+      },
+      {
+        local: 'deben', tipo: 'barras', fuente: 'pagos', fecha: 'vencimiento', dimension: 'atraso', metricas: ['pendiente', 'pagos'], titulo: 'Te deben',
+        subtitulo: 'Todo lo que falta cobrar, por días de atraso', ir: 'cobranza',
+        controles: [{ tipo: 'periodo', preset: 'todo', fijo: true }, { tipo: 'lista', campo: 'estado', valores: ['Vencido', 'Pendiente'], fijo: true }],
+      },
     ],
+    diseno: { id: 'operacion', piezas: { agendas: 'agendas', pendiente: 'pendiente', cierres: 'cierres', cobrado: 'cobrado', meses: 'meses', deben: 'deben' } },
   },
   {
     // 4/11/2026 — SUNROW · TORQUE (docs/templates-dashboard-propuesta.md §7.3): «¿cada cliente va en fecha?». Torque es el tablero de

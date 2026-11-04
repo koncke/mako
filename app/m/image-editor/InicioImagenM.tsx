@@ -84,6 +84,11 @@ export function InicioImagenM({ disenos: iniciales }: { disenos: ResumenDiseno[]
         </label>
       )}
 
+      {/* Los carruseles que funcionan de las cuentas que sigue (4/11/2026): la misma vista de la computadora. */}
+      <Link href="/m/image-editor?ver=carruseles" className="m-image-editor-carruseles">
+        <span>Carruseles que funcionan</span><span aria-hidden>›</span>
+      </Link>
+
       {disenos.length === 0 ? (
         // Sin botón propio: el «+» de abajo es el que crea (dos botones para lo mismo, no).
         <VacioM frase="Todavía no tienes diseños." />
