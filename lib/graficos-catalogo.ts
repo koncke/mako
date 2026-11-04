@@ -1327,7 +1327,8 @@ export type Hoja = {
 // · 'operacion' (4/11/2026, la copia de Moorly): de GENERAL, con los datos de sus bloques y seis piezas (los cuatro números, los
 //   meses y `deben`).
 // · 'comercial' (4/11/2026, la copia de Selvar): del Dashboard, con las piezas de su plantilla y las llamadas de venta de hoy.
-export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial'] as const;
+// · 'marketing' (4/11/2026, la copia de Kestrel): del Dashboard, con las doce piezas de su plantilla (nada aparte).
+export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing'] as const;
 export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;

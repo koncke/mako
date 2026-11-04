@@ -1,6 +1,14 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~18:00 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~18:45 UTC)
+
+- **Comercial está en producción.** Entró a main a las 18:11 (`21df3c66a`, la mezcla de `punta/dash-comercial` con `f2806d53e`); el deploy
+  promovido de las 18:25 (`5747639cb`) la contiene. La primera corrida del veredicto dio un rojo de verdad: `tests/plantillas-sugeridas.test.ts`
+  esperaba a Closing primera para quien vende por llamada, y con Comercial ofrecida (también para «llamadas», y antes en la galería) la
+  primera es Comercial. El test ahora compara contra el orden que calcula la galería (`ordenarConSugeridas`), probado rompiéndolo.
+- **Marketing (la copia de Kestrel) va en `punta/dash-marketing`**: la sección de abajo. Es la octava hoja copiada.
+
+### Lo de las ~18:00 UTC
 
 - **«Operación diaria» está en producción.** Entró a main a las 17:44 (`5330cfb37`, la mezcla de `punta/dash-operacion`); el deploy
   promovido de las 17:40 (`b73d4bc5b`) la contiene. El veredicto de la nube: 6.994 tests y el tsc entero en verde (`a70024a14`).
@@ -38,7 +46,65 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
 
-## Comercial: la séptima hoja copiada (la de Selvar), con «¿convierte, y a qué costo?» (punta `dash-comercial`, 4/11/2026)
+## Marketing: la octava hoja copiada (la de Kestrel), con «¿cuánto cuesta una agenda y de qué anuncio vino?» (punta `dash-marketing`, 4/11/2026)
+
+Las referencias de Marketing eran dos (Kestrel · Ondra, `docs/templates-dashboard-propuesta.md` §7.3); ésta es **Kestrel**, la de la página
+«Realtime overview»: seis números arriba, las tendencias, una tabla con pestañas y dos bloques por red. Ondra queda para otra hoja.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «Marketing»** con su miniatura de verdad (la plantilla vieja de Marketing no se ofrecía desde el
+  mediodía; ahora vuelve, copiada). **Y la hoja Marketing del tablero inicial de un negocio nuevo nace con este diseño.**
+- **Arriba:** el saludo, la fecha (donde Kestrel dice «Live»: los datos de Meta no son en vivo) y una frase de un renglón: «Gastaste
+  US$2,460 en anuncios, trajeron 27 agendas y cada una costó US$91.11», con «Últimos 30 días» y «Ver la grilla».
+- **Los seis números de Kestrel**, cada uno con su cambio contra el período anterior y en su unidad: costo por agenda (el resaltado, que es
+  la pregunta), ROAS cobrado, agendas, gasto, CTR y costo por lead. El verde y el rojo dicen si el cambio es bueno: el costo que baja es
+  verde, el CTR que baja es rojo, y gastar más o menos no se pinta (no es, solo, ni bueno ni malo).
+- **«Tendencias»:** cómo se movieron el gasto, los leads y las agendas contra la primera semana del período, de a 7 días, con el número del
+  final de cada línea, el cruce al pasar el mouse y «Tabla» (los días con sus números).
+- **La tabla con pestañas** (la «Lead quality» de Kestrel): **Por anuncio** (con su campaña), **Por campaña** (con cuántos anuncios) y
+  **Día por día**, con el gasto, los leads, las agendas y el **costo por agenda marcado contra el promedio**: verde si es 20% más barato,
+  ámbar cerca, rojo si es 25% más caro, y «Sin agendas» en rojo si gastó y no trajo ninguna. Tocar un anuncio abre su pop-up de siempre.
+- **«Lo que trae la pauta»** (el bloque de Instagram): impresiones y clics con su cambio, el anillo con cuántos de cada 100 clics llegan a
+  la página, las vistas de la landing y del VSL, los leads y las agendas, y **«Los que más agendas trajeron»**: los cuatro anuncios con su
+  miniatura de Meta (o sus iniciales) y cuántas agendas trajo cada uno.
+- **«Qué red trae agendas»** (el bloque de X.com): las agendas según Meta, una columna por red (Instagram, Facebook, Messenger…) y las
+  impresiones, el CTR y el costo por mil. Esto es EN VIVO de Meta, y lo dice.
+
+**Lo que se copió de Kestrel, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/marketing-kestrel/copia.html`) sale de lo medido del demo: `valores.json` (las variables, la
+  tipografía, las cajas de cada panel a 1440 y a 390), las capturas, los estados de cada control y el INFORME. **Nada del código de la
+  tienda, ni el cartel «BUY THIS TEMPLATE», ni sus fotos** (avatares con iniciales; las publicaciones, en un color liso).
+- **Las cajas de la copia caen a 1-2 px de las de Kestrel**, a 1440 y a 390 (kpis 268,169 836×110; trends 836×352; la tabla 836×656 contra
+  655; Instagram 300×612 contra 611; X.com 300×421). Lo que lo delató: las tarjetas de Kestrel llevan un borde de 1 px (los recuadros de
+  adentro miden 258 y no 260).
+- **La adaptación tiene EXACTAMENTE las mismas cajas que la copia a 1440**; el componente, los mismos altos (110, 352, 656, 612 y 421),
+  corrido sólo por la barra lateral y la de arriba, que en MaKo pone la app. Las capturas: `marketing-kestrel/captura/`.
+- **La letra es Geist, y en MaKo «Geist» es Urbanist** (`app/globals.css`): la hoja declara «Kestrel Geist» con los archivos de Google. Cargar
+  la hoja de Google de Geist le habría cambiado la letra a toda la app mientras el Dashboard está abierto.
+- **El movimiento, del INFORME (que esta vez trae la entrada de la página):** el encabezado y las tarjetas suben (y 22, escala .985 → 1,
+  .85 s, cada .07 s, curva (.22, 1, .36, 1)); los números cuentan desde cero (1,1 s, power3.out); las líneas se dibujan (1,4 s, desde .1 s +
+  .12 s por línea, power2.inOut) y su punto y su número aparecen (1 s, desde .6 s + .12 s); la tinta de las pestañas corre (.45 s) y al
+  cambiar, lo de adentro sale (.18 s) y las filas entran de a una (y 6, .4 s, cada .02 s); la tabla de Trends reemplaza al gráfico igual.
+  Los hover son los del CSS de Kestrel (las filas, las pastillas, las miniaturas que suben 3 px y se agrandan 6%).
+- **⚠️ Lo que el INFORME no dice y está SUPUESTO** (no inventado en otro lado, pero tampoco medido): la demora de cada número al contar (usa
+  la de su tarjeta) y la del anillo (usa la del medidor de Kestrel: 1,1 s desde .2 s). El «3M» de Trends y el filtro de la tabla no se
+  copiaron en la adaptación: un control que no hace nada se lee como roto.
+
+**Lo que Kestrel tiene y MaKo no hace, y no está:** el «Live» (Meta no es en vivo), la CALIDAD del lead (MaKo no la puntúa: se marca el COSTO,
+que sí se mide), las búsquedas y las palabras clave, los seguidores, y el menú «···» de cada tarjeta (en su lugar, un link al Ads Manager).
+**Salieron de la plantilla** el costo por cierre (vive en Comercial), la edad y el mapa (Kestrel no los tiene). Una hoja de antes no cambia.
+
+**Dónde vive:**
+- El modelo (qué dibuja cada parte, con los datos reales): `lib/marketing-diseno.ts`, puro. Los datos de ejemplo de la miniatura:
+  `lib/marketing-diseno-muestra.ts`, con la forma de las piezas, así la miniatura pasa por el MISMO `vistaMarketing`.
+- El dibujo: `app/dashboard/disenos/HojaMarketing.tsx`; lo vivo, `MarketingVivo.tsx`; la hoja de estilos, `marketing-css.ts` (la arma
+  `scratchpad/kestrel/armar-kt.py` desde `marketing-kestrel/kestrel.css`: todo con el prefijo `kt-`, con el medio de 761 a 1040 y el
+  teléfono por `@container`).
+- La plantilla: `lib/graficos-plantillas.ts` (MARKETING, doce piezas, `diseno.id = 'marketing'`); `DISENOS_HOJA` en `lib/graficos-catalogo.ts`.
+- Los tests: `tests/dashboard-diseno-marketing.test.ts` (9, probado rompiéndolo de seis maneras: cada rotura sola da rojo), y los de la
+  plantilla vieja actualizados (`tests/graficos.test.ts`, `tests/dashboard-plantillas-ofrecidas.test.ts`).
+
+## Comercial: la séptima hoja copiada (la de Selvar), con «¿convierte, y a qué costo?» (en producción desde el 4/11/2026, 18:25 UTC)
 
 El pedido es el mismo: primero la copia exacta y después la adaptación, *«de a una»*. Las referencias de Comercial eran seis (Coffer ·
 Corbel · Prism · Orvel · Pelago · Selvar, `docs/templates-dashboard-propuesta.md` §7.3); ésta es **Selvar**, la que es un tablero de

@@ -1031,4 +1031,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '18:45', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Marketing, la octava hoja copiada: el diseño de Kestrel con «¿cuánto cuesta una agenda y de qué anuncio vino?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» del Dashboard**, con su miniatura de verdad, y la hoja Marketing de un negocio nuevo nace con este diseño.',
+      '**La frase:** lo gastado en anuncios, las agendas que trajo y lo que costó cada una, en un renglón.',
+      '**Los seis números de Kestrel:** costo por agenda, ROAS cobrado, agendas, gasto, CTR y costo por lead, cada uno con su cambio.',
+      '**Tendencias:** el gasto, los leads y las agendas contra la primera semana, con el cruce al pasar el mouse y la tabla.',
+      '**La tabla por anuncio, por campaña y día por día**, con el costo por agenda marcado contra el promedio y «Sin agendas» si gastó y no trajo.',
+      '**Lo que trae la pauta** (del anuncio a la agenda, con los anuncios que más agendas trajeron) y **qué red trae agendas**, en vivo de Meta.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaMarketing.tsx · marketing-css.ts · MarketingVivo.tsx — el diseño',
+      'lib/marketing-diseno.ts — de dónde sale cada número',
+      'lib/marketing-diseno-muestra.ts — los datos de ejemplo de la miniatura',
+      'docs/diseno/mockups-dashboard/marketing-kestrel/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];

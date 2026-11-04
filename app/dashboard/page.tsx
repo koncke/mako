@@ -179,9 +179,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   // La de Comercial (la copia de Selvar, app/dashboard/disenos/HojaComercial.tsx) lee las llamadas de venta de HOY (su «Hoy», que
   // nombra leads: tampoco para el closer ni el setter) y saluda a quien mira.
   const hayDisenoComercial = hayDiseno('comercial');
+  // La de Marketing (la copia de Kestrel, app/dashboard/disenos/HojaMarketing.tsx) sólo saluda a quien mira: lo demás sale de sus piezas.
+  const hayDisenoMarketing = hayDiseno('marketing');
   const agendaComercial = hayDisenoComercial && !unica ? agendaParaComercial(hoy) : Promise.resolve(null);
   const agendaClosing = hayDisenoClosing && !unica ? agendaParaElClosing(hoy) : Promise.resolve(null);
-  const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial
+  const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing
     ? variablesDeQuienMira().then((q) => ({ saludo: q.saludo ?? 'Hola', nombre: q.nombre ?? '', fecha: q.fecha ?? '' })).catch(() => null)
     : Promise.resolve(null);
   const [datos, senalesNegocio, closing, caida, agenda, quien, agendaHoy] = await Promise.all([
@@ -215,10 +217,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         plantillasInicial={plantillas && !unica}
         avisoClosing={avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida))}
         accionClosing={accionDeLaHojaClosing(closing)}
-        disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial ? {
+        disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing ? {
           closing: hayDisenoClosing ? { agenda, quien } : null,
           cobranza: hayDisenoCobranza ? { quien } : null,
           comercial: hayDisenoComercial ? { agenda: agendaHoy, quien } : null,
+          marketing: hayDisenoMarketing ? { quien } : null,
         } : null}
       />
     </Pagina>

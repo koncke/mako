@@ -218,10 +218,12 @@ test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las pie
   assert.equal(titular?.metricas[0], 'cpa');
   assert.ok(titular?.invertida, 'el costo por agenda es la negra');
   const porTitulo = (t: string) => graf(mk).find((c) => c.titulo === t);
-  for (const t of ['Costo por agenda', 'Ad Spend', 'Costo por cierre', 'ROAS cash']) assert.equal(porTitulo(t)?.w, 3, t);
-  assert.ok(porTitulo('Ad Spend')?.comparar, 'el Ad Spend trae el chip contra el período anterior');
-  assert.deepEqual(graf(mk).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl']);
-  assert.ok(graf(mk).some((c) => c.tipo === 'mapa' && c.dimension === 'region'), 'el mapa de México de la Audiencia');
+  // 4/11/2026 (tarde): la hoja trae su DISEÑO PROPIO, la copia de Kestrel. Sus seis números, todos contra el período anterior; el
+  // embudo llega hasta la agenda; el costo por cierre vive en Comercial, y la edad y el mapa (que Kestrel no tiene) salieron.
+  for (const t of ['Costo por agenda', 'ROAS cobrado', 'Agendas', 'Ad Spend', 'CTR', 'Costo por lead']) assert.ok(porTitulo(t)?.comparar, `${t} trae el chip contra el período anterior`);
+  assert.deepEqual(graf(mk).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl', 'leads', 'agendas']);
+  assert.ok(!graf(mk).some((c) => c.tipo === 'mapa' || c.titulo === 'Costo por cierre'), 'lo que no está en la copia de Kestrel no viene');
+  assert.equal(mk.diseno?.id, 'marketing', 'la hoja inicial nace con el diseño de Kestrel');
   // Tendencias: debajo de la frase, y los anuncios como TARJETAS de 4 números, del que más agendas trajo, con el pop-up del anuncio.
   assert.deepEqual(['x', 'y', 'w', 'h'].map((k) => graf(mk).find((c) => c.id === 'mk-tendencias')?.[k as 'x']), [0, 3, 6, 8]);
   const anuncios = graf(mk).find((c) => c.id === 'mk-anuncios');

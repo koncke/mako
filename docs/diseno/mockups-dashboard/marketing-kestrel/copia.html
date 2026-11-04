@@ -1,0 +1,189 @@
+<!doctype html>
+<!-- MARKETING (KESTREL) · PASO 1: LA COPIA EXACTA de la página «Realtime overview» de Kestrel (4/11/2026), con los textos del demo.
+     Escrita desde lo MEDIDO (demos/kestrel/captura/valores.json, las capturas, los estados de los controles y el INFORME); nada del
+     código de la tienda. Sin el cartel «BUY THIS TEMPLATE» ni las fotos de la tienda (avatares con iniciales, publicaciones en un color
+     liso). La adaptación a MaKo (mako.html) usa la MISMA hoja. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kestrel · Realtime overview (copia)</title>
+<link rel="stylesheet" href="kestrel.css">
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M5 19L12 5l7 14M8.5 14.5c2.2-1.5 4.8-1.5 7 0"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M4 16l5-5 3.5 3.5L20 7M15 7h5v5"/></symbol>
+  <symbol id="i-seo" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2M11 8.5v5M8.5 11h5"/></symbol>
+  <symbol id="i-ads" viewBox="0 0 24 24"><path d="M4.5 10v4h3l7 4V6l-7 4zM18 9.5c1 1.4 1 3.6 0 5"/></symbol>
+  <symbol id="i-social" viewBox="0 0 24 24"><path d="M4.5 9V6.5a2 2 0 0 1 2-2H9M15 4.5h2.5a2 2 0 0 1 2 2V9M19.5 15v2.5a2 2 0 0 1-2 2H15M9 19.5H6.5a2 2 0 0 1-2-2V15"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 4.5l8 4-8 4-8-4zM4 12.5l8 4 8-4M4 16.5l8 4 8-4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20zM14 3.5V8h4M10 12.5h5M10 16h5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6L18 18M6 18l1.4-1.4M16.6 7.4L18 6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M7 14.5l5-5 5 5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 9.5l5 5 5-5"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 4v1.5M12 18.5V20M4 12h1.5M18.5 12H20M6.3 6.3l1.1 1.1M16.6 16.6l1.1 1.1M6.3 17.7l1.1-1.1M16.6 7.4l1.1-1.1"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19 14.5A7 7 0 0 1 9.5 5 7 7 0 1 0 19 14.5z"/></symbol>
+  <symbol id="i-rail" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M10 5v14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5zM10 20.5h4"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="2.5"/><path d="M4 10h16M8 3.5v4M16 3.5v4"/></symbol>
+  <symbol id="i-table" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="M4 10h16M4 14.5h16M10 10v9"/></symbol>
+  <symbol id="i-aup" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-adown" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4.5l8.5 15h-17zM12 10v4.5M12 17.2v.1"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M6 4.5h12v10.5l-4.5 4.5H6zM18 15h-4.5v4.5M9 9h6M9 12h3.5"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4.5 7h15M7.5 12h9M10.5 17h3"/></symbol>
+  <symbol id="i-ig" viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="15" height="15" rx="4.5"/><circle cx="12" cy="12" r="3.5"/><path d="M16.6 7.4v.1"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.3 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><path d="M6 12v.1M12 12v.1M18 12v.1"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M14 5h5v5M19 5l-8 8M18 14v4.5a.5.5 0 0 1-.5.5h-12a.5.5 0 0 1-.5-.5v-12a.5.5 0 0 1 .5-.5H10"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1.5"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.5"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.5"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.5"/></symbol>
+  <symbol id="i-funnel" viewBox="0 0 24 24"><path d="M4.5 5h15l-6 7.5V19l-3-1.5v-5z"/></symbol>
+  <symbol id="i-net" viewBox="0 0 24 24"><circle cx="7" cy="12" r="2.5"/><circle cx="17" cy="6.5" r="2.5"/><circle cx="17" cy="17.5" r="2.5"/><path d="M9.2 10.8l5.6-3.1M9.2 13.2l5.6 3.1"/></symbol>
+</svg>
+<aside class="side">
+  <a class="side__logo" href="#"><span class="side__mark"><svg class="i"><use href="#i-logo"/></svg></span>Kestrel</a>
+  <nav class="side__nav">
+    <a class="nav__item is-active" href="#"><svg class="i"><use href="#i-trend"/></svg>Realtime overview</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-seo"/></svg>SEO</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-ads"/></svg>Paid ads</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-social"/></svg>Social media</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-layers"/></svg>Data sources<svg class="i nav__chev"><use href="#i-up"/></svg></a>
+    <div class="nav__sub">
+      <a class="nav__item nav__item--sub" href="#">Google Analytics</a>
+      <a class="nav__item nav__item--sub" href="#">Google Ads</a>
+      <a class="nav__item nav__item--sub" href="#">Meta Ads</a>
+      <a class="nav__item nav__item--sub" href="#">Social platforms</a>
+    </div>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-doc"/></svg>Reports</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
+  </nav>
+  <div class="side__foot">
+    <div class="theme-seg"><button class="theme-seg__btn" aria-pressed="true" aria-label="Light"><svg class="i"><use href="#i-sun"/></svg></button><button class="theme-seg__btn" aria-pressed="false" aria-label="Dark"><svg class="i"><use href="#i-moon"/></svg></button></div>
+    <span class="side__ver">v2.4</span>
+  </div>
+</aside>
+<main class="main">
+  <header class="top">
+    <button class="iconbtn top__rail" aria-label="Collapse sidebar"><svg class="i"><use href="#i-rail"/></svg></button>
+    <button class="top__search"><svg class="i"><use href="#i-search"/></svg>Search or jump to…<kbd>⌘K</kbd></button>
+    <span class="top__end">
+      <button class="iconbtn bell" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg></button>
+      <button class="avatar-btn" aria-label="Account">PS</button>
+    </span>
+  </header>
+  <div class="page">
+    <div class="pagehead">
+      <div>
+        <div class="pagehead__row"><h1 class="pagehead__title" tabindex="-1">Realtime overview</h1><span class="live"><span class="live__dot"></span>Live</span></div>
+        <p class="pagehead__sub">Traffic, spend and leads across every connected source.</p>
+      </div>
+      <button class="pill pill--range pill--menu"><svg class="i"><use href="#i-cal"/></svg>Last 30 days<svg class="i" style="width:14px;height:14px"><use href="#i-down"/></svg></button>
+    </div>
+
+    <div class="col">
+      <section class="card kpis" aria-label="Key metrics">
+        <div class="kpi"><span class="kpi__label">Visitors</span><strong class="kpi__value" data-count="12495" data-fmt="int">12,495</strong><span class="kpi__delta up"><svg class="i"><use href="#i-aup"/></svg>+5.2%</span></div>
+        <div class="kpi"><span class="kpi__label">ROI</span><strong class="kpi__value" data-count="3.4" data-fmt="x">3.4×</strong><span class="kpi__delta up"><svg class="i"><use href="#i-aup"/></svg>+0.3×</span></div>
+        <div class="kpi"><span class="kpi__label">Conversions</span><strong class="kpi__value" data-count="612" data-fmt="int">612</strong><span class="kpi__delta up"><svg class="i"><use href="#i-aup"/></svg>+9.1%</span></div>
+        <div class="kpi"><span class="kpi__label">Spend</span><strong class="kpi__value" data-count="8840" data-fmt="usd">$8,840</strong><span class="kpi__delta up"><svg class="i"><use href="#i-adown"/></svg>−2%</span></div>
+        <div class="kpi"><span class="kpi__label">Click-through</span><strong class="kpi__value" data-count="2.8" data-fmt="pct">2.8%</strong><span class="kpi__delta down"><svg class="i"><use href="#i-adown"/></svg>−0.2pt</span></div>
+        <div class="kpi"><span class="kpi__label">Cost per lead</span><strong class="kpi__value" data-count="14.4" data-fmt="usd2">$14.40</strong><span class="kpi__delta up"><svg class="i"><use href="#i-adown"/></svg>−$1.10</span></div>
+      </section>
+
+      <section class="card trends">
+        <div class="card__h">
+          <h2 class="card__t">Trends</h2>
+          <button class="iconbtn iconbtn--dots" aria-label="More"><svg class="i"><use href="#i-dots"/></svg></button>
+          <span class="card__end">
+            <button class="pill" data-tabla aria-pressed="false"><svg class="i" style="width:14px;height:14px"><use href="#i-table"/></svg>Table</button>
+            <button class="pill pill--menu">3M<svg class="i" style="width:14px;height:14px"><use href="#i-down"/></svg></button>
+          </span>
+        </div>
+        <div class="legend"><span class="legend__item"><i style="--c:var(--s1)"></i>Visitors</span><span class="legend__item"><i style="--c:var(--s2)"></i>ROI</span><span class="legend__item"><i style="--c:var(--s3)"></i>Conversions</span></div>
+        <div class="chart" data-trends='{"series":[{"k":"Visitors","c":"var(--s1)","fin":-2.3,"seed":3},{"k":"ROI","c":"var(--s2)","fin":4.1,"seed":11},{"k":"Conversions","c":"var(--s3)","fin":11.8,"seed":7}],"dias":92,"desde":"2026-07-06","meses":[["AUG","2026-08-01"],["SEP","2026-09-01"],["OCT","2026-10-01"]]}'>
+          <div class="chart__plot"></div>
+          <div class="chart__table" hidden></div>
+          <div class="chart__tip" hidden></div>
+        </div>
+      </section>
+
+      <section class="card leads">
+        <div class="tabs">
+          <div class="tabs__list" role="tablist">
+            <button role="tab" aria-selected="true">Lead quality</button>
+            <button role="tab" aria-selected="false">Day on day</button>
+            <button role="tab" aria-selected="false">Week on week</button>
+            <button role="tab" aria-selected="false">Search queries</button>
+            <button role="tab" aria-selected="false">Keyword performance</button>
+          </div>
+          <span class="tabs__ink"></span>
+          <button class="iconbtn" aria-label="Filter"><svg class="i"><use href="#i-filter"/></svg></button>
+        </div>
+        <table class="tbl">
+          <colgroup><col style="width:133px"><col class="t-emp" style="width:103px"><col class="t-mail" style="width:183px"><col class="t-utm" style="width:52px"><col style="width:148px"><col class="t-pais" style="width:98px"><col></colgroup>
+          <thead><tr><th>Date</th><th class="t-emp">Company</th><th class="t-mail">Email</th><th class="t-utm">UTM</th><th>Lead quality</th><th class="t-pais">Country</th><th></th></tr></thead>
+          <tbody>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha lead__fecha--hoy">Today, 14:12</span></td><td class="t-emp lead__emp">–</td><td class="t-mail lead__mail">contact@helpdesk.com</td><td class="t-utm"><a class="link" href="#">link</a></td><td><span class="chip chip--bad"><svg class="i"><use href="#i-warn"/></svg>Needs review</span></td><td class="t-pais">USA</td><td class="lead__acc"><span><svg class="i"><use href="#i-note"/></svg><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead dia" tabindex="0"><td><span class="lead__fecha lead__fecha--hoy">Today, 08:34</span></td><td class="t-emp lead__emp">Innovate.co</td><td class="t-mail lead__mail">s.chen@innovate.co</td><td class="t-utm"><a class="link" href="#">link</a></td><td><span class="chip chip--bad"><svg class="i"><use href="#i-warn"/></svg>Needs review</span></td><td class="t-pais">Canada</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha">Oct 4, 17:57</span></td><td class="t-emp lead__emp">Webmail</td><td class="t-mail lead__mail">maria.g@webmail.net</td><td class="t-utm"><a class="link" href="#">link</a></td><td><span class="chip chip--good"><svg class="i"><use href="#i-check"/></svg>Good</span></td><td class="t-pais">Germany</td><td class="lead__acc"><span><span class="av">MG</span><svg class="i"><use href="#i-note"/></svg><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead dia" tabindex="0"><td><span class="lead__fecha">Oct 4, 13:40</span></td><td class="t-emp lead__emp">–</td><td class="t-mail lead__mail">john.doe@startup.org</td><td class="t-utm"><a class="link" href="#">link</a></td><td><span class="chip chip--good"><svg class="i"><use href="#i-check"/></svg>Good</span></td><td class="t-pais">Australia</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha">Oct 3, 10:22</span></td><td class="t-emp lead__emp">Designhub</td><td class="t-mail lead__mail">contact@designhub.io</td><td class="t-utm"><a class="link" href="#">link</a></td><td><span class="chip chip--bad"><svg class="i"><use href="#i-warn"/></svg>Needs review</span></td><td class="t-pais">UK</td><td class="lead__acc"><span><svg class="i"><use href="#i-note"/></svg><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead dia" tabindex="0"><td><span class="lead__fecha">Oct 3, 09:01</span></td><td class="t-emp lead__emp">Proton</td><td class="t-mail lead__mail">a.kowalski@proton.me</td><td class="t-utm"><a class="link" href="#">link</a></td><td><span class="chip chip--warn"><svg class="i"><use href="#i-dash"/></svg>Neutral</span></td><td class="t-pais">USA</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha">Oct 2, 20:32</span></td><td class="t-emp lead__emp">–</td><td class="t-mail lead__mail">assistance@service.net</td><td class="t-utm"><a class="link" href="#">link</a></td><td><span class="chip chip--bad"><svg class="i"><use href="#i-warn"/></svg>Needs review</span></td><td class="t-pais">Japan</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead dia" tabindex="0"><td><span class="lead__fecha">Oct 2, 11:54</span></td><td class="t-emp lead__emp">Braziltech</td><td class="t-mail lead__mail">info@braziltech.com.br</td><td class="t-utm"><a class="link" href="#">link</a></td><td><span class="chip chip--warn"><svg class="i"><use href="#i-dash"/></svg>Neutral</span></td><td class="t-pais">Brazil</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead dia" tabindex="0"><td><span class="lead__fecha">Oct 1, 16:05</span></td><td class="t-emp lead__emp">Nord &amp; Co</td><td class="t-mail lead__mail">hello@nordandco.se</td><td class="t-utm"><a class="link" href="#">link</a></td><td><span class="chip chip--good"><svg class="i"><use href="#i-check"/></svg>Good</span></td><td class="t-pais">Sweden</td><td class="lead__acc"><span><span class="avs"><span class="av">EL</span><span class="av" style="background:#d7c9b8">OK</span></span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha">Sep 30, 12:48</span></td><td class="t-emp lead__emp">Lumo</td><td class="t-mail lead__mail">team@lumo.fi</td><td class="t-utm"><a class="link" href="#">link</a></td><td><span class="chip chip--good"><svg class="i"><use href="#i-check"/></svg>Good</span></td><td class="t-pais">Finland</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card social">
+        <div class="card__h">
+          <h2 class="card__t"><svg class="i"><use href="#i-ig"/></svg>Instagram</h2>
+          <button class="iconbtn iconbtn--dots" aria-label="More"><svg class="i"><use href="#i-dots"/></svg></button>
+          <span class="card__end"><button class="pill social__pill pill--menu">7D</button></span>
+        </div>
+        <div class="tiles">
+          <div class="tile"><span class="tile__k">Followers</span><span class="tile__v"><b data-count="48210" data-fmt="int">48,210</b><small class="up">+124</small></span></div>
+          <div class="tile tile--ring"><span class="tile__k">Interactions</span><span class="tile__v"><b data-count="1356" data-fmt="int">1,356</b><small class="up">+7</small><svg class="ring" viewBox="0 0 48 48" data-ring="0.74"><circle class="ring__track" cx="24" cy="24" r="21.5"/><circle class="ring__arc" cx="24" cy="24" r="21.5"/></svg></span></div>
+        </div>
+        <div class="list">
+          <div class="list__row"><span>Likes</span><b>697</b></div>
+          <div class="list__row"><span>Comments</span><b>22</b></div>
+          <div class="list__row"><span>Saves</span><b>566</b></div>
+          <div class="list__row"><span>Shares</span><b>71</b></div>
+        </div>
+        <h3 class="posts__t">Top posts</h3>
+        <div class="posts">
+          <div class="post"><button class="post__btn"><span class="post__img" style="--g:linear-gradient(160deg,#cfc4b6,#8f8172)"></span><span class="post__n"><svg class="i"><use href="#i-heart"/></svg>1,240</span></button><small>Oct 4</small></div>
+          <div class="post"><button class="post__btn"><span class="post__img" style="--g:linear-gradient(160deg,#e3a35c,#3b2a1c)"></span><span class="post__n"><svg class="i"><use href="#i-heart"/></svg>980</span></button><small>Oct 2</small></div>
+          <div class="post"><button class="post__btn"><span class="post__img" style="--g:linear-gradient(160deg,#ddd5cb,#9c9183)"></span><span class="post__n"><svg class="i"><use href="#i-heart"/></svg>1,410</span></button><small>Sep 30</small></div>
+          <div class="post"><button class="post__btn"><span class="post__img" style="--g:linear-gradient(160deg,#e7dbe8,#7d9c80)"></span><span class="post__n"><svg class="i"><use href="#i-heart"/></svg>760</span></button><small>Sep 27</small></div>
+        </div>
+      </section>
+
+      <section class="card social">
+        <div class="card__h">
+          <h2 class="card__t"><svg class="i"><use href="#i-x"/></svg>X.com</h2>
+          <button class="iconbtn iconbtn--dots" aria-label="More"><svg class="i"><use href="#i-dots"/></svg></button>
+          <span class="card__end"><button class="pill social__pill pill--menu">7D</button></span>
+        </div>
+        <div class="tiles">
+          <div class="tile"><span class="tile__k">Followers</span><span class="tile__v"><b data-count="12015" data-fmt="int">12,015</b><small class="up">+7</small></span></div>
+        </div>
+        <div class="bars" data-bars='{"v":[45,21,41,31,67,19,26],"x":["27","28","29","30","1","2","3"],"tope":86}'></div>
+        <div class="list">
+          <div class="list__row"><span>Impressions</span><b>933<em class="down">−57%</em></b></div>
+          <div class="list__row"><span>Engagement rate</span><b>15.8%<em class="up">+82%</em></b></div>
+          <div class="list__row"><span>Engagement</span><b>148<em class="up">+22%</em></b></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+<script src="kestrel.js"></script>
+</body></html>

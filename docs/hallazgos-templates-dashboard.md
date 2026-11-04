@@ -391,6 +391,29 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
   selector ocupaba media tarjeta. Va `:first-child`. **Vive en:** app/dashboard/disenos/comercial-css.ts.
 - **La entrada de la página de Selvar no está en su INFORME** (sólo la del armazón), como en Orvel y Moorly. No se inventó.
 
+## 21. Marketing (Kestrel): la letra que en MaKo es otra, el borde que delataba un ancho, y un test que daba por fijo un orden (4/11/2026, chat en la nube)
+
+- **«Geist» en MaKo es Urbanist.** `app/globals.css` declara la familia «Geist» con los archivos de Urbanist (desde el 31/10). Una copia que
+  usa Geist de verdad (Kestrel) no puede pedir «Geist» ni cargar la hoja de Google de Geist: lo primero da Urbanist en silencio, y lo segundo
+  le cambia la letra a TODA la app mientras el Dashboard está abierto (la hoja con `precedence` se queda en el head). Va `@font-face` con un
+  nombre propio («Kestrel Geist») y los archivos de gstatic. **Vive en:** app/dashboard/disenos/marketing-css.ts.
+- **Un borde de 1 px se mide por lo de ADENTRO, no por la tarjeta.** Las cajas de las tarjetas daban bien y los recuadros de adentro medían
+  260 contra los 258 de Kestrel: la tarjeta tiene un borde. Mirar sólo los paneles de `valores.json` no lo muestra. **Vive en:**
+  docs/diseno/mockups-dashboard/marketing-kestrel/kestrel.css.
+- **Con la segunda plantilla sugerida para el mismo canal, «la primera» deja de ser fija.** `tests/plantillas-sugeridas.test.ts` esperaba
+  a Closing primera para quien vende por llamada; con Comercial ofrecida (también para «llamadas», y antes en la galería) la primera es
+  Comercial. Era un rojo de verdad del test, no del código: ahora compara contra lo que calcula la galería (`ordenarConSugeridas`). Una hoja
+  nueva que se ofrezca para un canal que ya tiene una sugerida puede volver a mover ese orden.
+- **El `align-items` del medio se hereda en el teléfono.** El medio (761-1040) pone la columna de la derecha en grilla con `align-items:
+  start`; el teléfono la vuelve `flex` en columna, y con `start` la tarjeta se achicaba a su contenido (289 de 366). Va `stretch`.
+- **Una frase de un renglón no repite lo que dice un número.** «…cada una costó US$91, US$4 menos que el período anterior» pasaba a dos
+  renglones y empujaba toda la hoja; el cambio del costo ya está en su número (el primero de los seis). **Vive en:** lib/marketing-diseno.ts.
+- **La entrada de la página SÍ está en el INFORME de Kestrel** (a diferencia de Selvar, Orvel y Moorly): la tarjeta, el número que cuenta,
+  la línea que se dibuja, la tinta de las pestañas. Dos demoras no están (la de cada número y la del anillo) y se tomaron de la tarjeta y
+  del medidor; lo dice el relevo.
+- **Los conteos chicos dan líneas en serrucho** en una tendencia de a 7 días (1 o 2 agendas por día). Con datos reales va a pasar; el
+  modelo no los suaviza (sería inventar), la muestra sí es pareja.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

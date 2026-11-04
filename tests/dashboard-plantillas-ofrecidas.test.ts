@@ -24,13 +24,15 @@ test('se ofrece exactamente la plantilla que trae su diseño propio, y ninguna o
   assert.ok(PLANTILLAS_GENERAL_OFRECIDAS.some((p) => p.id === 'foco'), 'Focus (la copia de Pane) se ofrece en General');
   // Comercial se ofrece desde el 4/11 (tarde): trae su diseño (la copia de Selvar).
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'comercial'), 'Comercial (la copia de Selvar) se ofrece');
-  for (const viejo of ['marketing', 'ads-analyst']) assert.ok(!PLANTILLAS_OFRECIDAS.some((p) => p.id === viejo), `${viejo} ya no se ofrece`);
+  // Marketing se ofrece desde el 4/11 (tarde): trae su diseño (la copia de Kestrel).
+  assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'marketing'), 'Marketing (la copia de Kestrel) se ofrece');
+  for (const viejo of ['ads-analyst']) assert.ok(!PLANTILLAS_OFRECIDAS.some((p) => p.id === viejo), `${viejo} ya no se ofrece`);
   assert.ok(PLANTILLAS_GENERAL_OFRECIDAS.every((p) => !!instanciarPlantilla(p).diseno));
 });
 
 test('una plantilla vieja sigue existiendo para quien la tiene, pero no se crea desde la API', () => {
-  assert.ok(plantillaHojaDe('marketing'), 'el código de la vieja sigue (las hojas que ya existen y los «Ver …» de antes)');
-  assert.equal(plantillaOfrecidaDe('marketing'), undefined);
+  assert.ok(plantillaHojaDe('ads-analyst'), 'el código de la vieja sigue (las hojas que ya existen y los «Ver …» de antes)');
+  assert.equal(plantillaOfrecidaDe('ads-analyst'), undefined);
   assert.equal(plantillaOfrecidaDe('closing')?.id, 'closing');
 });
 

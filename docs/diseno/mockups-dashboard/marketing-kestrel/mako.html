@@ -1,0 +1,188 @@
+<!doctype html>
+<!-- MARKETING (KESTREL) · PASO 2: LA ADAPTACIÓN A MaKo de la copia (copia.html), con la MISMA hoja de estilos y datos de EJEMPLO
+     (inventados: ningún cliente real). La pregunta de la hoja: «¿cuánto cuesta una agenda y de qué anuncio vino?».
+     Escrita desde lo MEDIDO (demos/kestrel/captura/valores.json, las capturas, los estados de los controles y el INFORME); nada del
+     código de la tienda. Sin el cartel «BUY THIS TEMPLATE» ni las fotos de la tienda (avatares con iniciales, publicaciones en un color
+     liso). La adaptación a MaKo (mako.html) usa la MISMA hoja. -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MaKo · Marketing (adaptación de Kestrel)</title>
+<link rel="stylesheet" href="kestrel.css">
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M5 19L12 5l7 14M8.5 14.5c2.2-1.5 4.8-1.5 7 0"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M4 16l5-5 3.5 3.5L20 7M15 7h5v5"/></symbol>
+  <symbol id="i-seo" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2M11 8.5v5M8.5 11h5"/></symbol>
+  <symbol id="i-ads" viewBox="0 0 24 24"><path d="M4.5 10v4h3l7 4V6l-7 4zM18 9.5c1 1.4 1 3.6 0 5"/></symbol>
+  <symbol id="i-social" viewBox="0 0 24 24"><path d="M4.5 9V6.5a2 2 0 0 1 2-2H9M15 4.5h2.5a2 2 0 0 1 2 2V9M19.5 15v2.5a2 2 0 0 1-2 2H15M9 19.5H6.5a2 2 0 0 1-2-2V15"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 4.5l8 4-8 4-8-4zM4 12.5l8 4 8-4M4 16.5l8 4 8-4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20zM14 3.5V8h4M10 12.5h5M10 16h5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6L18 18M6 18l1.4-1.4M16.6 7.4L18 6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M7 14.5l5-5 5 5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 9.5l5 5 5-5"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 4v1.5M12 18.5V20M4 12h1.5M18.5 12H20M6.3 6.3l1.1 1.1M16.6 16.6l1.1 1.1M6.3 17.7l1.1-1.1M16.6 7.4l1.1-1.1"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19 14.5A7 7 0 0 1 9.5 5 7 7 0 1 0 19 14.5z"/></symbol>
+  <symbol id="i-rail" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M10 5v14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5zM10 20.5h4"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="2.5"/><path d="M4 10h16M8 3.5v4M16 3.5v4"/></symbol>
+  <symbol id="i-table" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="M4 10h16M4 14.5h16M10 10v9"/></symbol>
+  <symbol id="i-aup" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-adown" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4.5l8.5 15h-17zM12 10v4.5M12 17.2v.1"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M6 4.5h12v10.5l-4.5 4.5H6zM18 15h-4.5v4.5M9 9h6M9 12h3.5"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4.5 7h15M7.5 12h9M10.5 17h3"/></symbol>
+  <symbol id="i-ig" viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="15" height="15" rx="4.5"/><circle cx="12" cy="12" r="3.5"/><path d="M16.6 7.4v.1"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.3 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><path d="M6 12v.1M12 12v.1M18 12v.1"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M14 5h5v5M19 5l-8 8M18 14v4.5a.5.5 0 0 1-.5.5h-12a.5.5 0 0 1-.5-.5v-12a.5.5 0 0 1 .5-.5H10"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1.5"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.5"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.5"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.5"/></symbol>
+  <symbol id="i-funnel" viewBox="0 0 24 24"><path d="M4.5 5h15l-6 7.5V19l-3-1.5v-5z"/></symbol>
+  <symbol id="i-net" viewBox="0 0 24 24"><circle cx="7" cy="12" r="2.5"/><circle cx="17" cy="6.5" r="2.5"/><circle cx="17" cy="17.5" r="2.5"/><path d="M9.2 10.8l5.6-3.1M9.2 13.2l5.6 3.1"/></symbol>
+</svg>
+<aside class="side">
+  <a class="side__logo" href="#"><span class="side__mark"><svg class="i"><use href="#i-logo"/></svg></span>Kestrel</a>
+  <nav class="side__nav">
+    <a class="nav__item is-active" href="#"><svg class="i"><use href="#i-trend"/></svg>Realtime overview</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-seo"/></svg>SEO</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-ads"/></svg>Paid ads</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-social"/></svg>Social media</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-layers"/></svg>Data sources<svg class="i nav__chev"><use href="#i-up"/></svg></a>
+    <div class="nav__sub">
+      <a class="nav__item nav__item--sub" href="#">Google Analytics</a>
+      <a class="nav__item nav__item--sub" href="#">Google Ads</a>
+      <a class="nav__item nav__item--sub" href="#">Meta Ads</a>
+      <a class="nav__item nav__item--sub" href="#">Social platforms</a>
+    </div>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-doc"/></svg>Reports</a>
+    <a class="nav__item" href="#"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
+  </nav>
+  <div class="side__foot">
+    <div class="theme-seg"><button class="theme-seg__btn" aria-pressed="true" aria-label="Light"><svg class="i"><use href="#i-sun"/></svg></button><button class="theme-seg__btn" aria-pressed="false" aria-label="Dark"><svg class="i"><use href="#i-moon"/></svg></button></div>
+    <span class="side__ver">v2.4</span>
+  </div>
+</aside>
+<main class="main">
+  <header class="top">
+    <button class="iconbtn top__rail" aria-label="Plegar la barra"><svg class="i"><use href="#i-rail"/></svg></button>
+    <button class="top__search"><svg class="i"><use href="#i-search"/></svg>Buscar o ir a…<kbd>⌘K</kbd></button>
+    <span class="top__end">
+      <button class="iconbtn bell" aria-label="Avisos"><svg class="i"><use href="#i-bell"/></svg></button>
+      <button class="avatar-btn" aria-label="Tu cuenta">AR</button>
+    </span>
+  </header>
+  <div class="page">
+    <div class="pagehead">
+      <div>
+        <div class="pagehead__row"><h1 class="pagehead__title" tabindex="-1">Buenos días, Ana</h1><span class="pagehead__fecha">Miércoles 4 de noviembre</span></div>
+        <p class="pagehead__sub">Gastaste <b>US$2,460</b> en anuncios, trajeron <b>27 agendas</b> y cada una costó <b>US$91.11</b>.</p>
+      </div>
+      <span class="pagehead__acts">
+        <span class="pill pill--range pill--quieta"><svg class="i"><use href="#i-cal"/></svg>Últimos 30 días</span>
+        <button class="pill pill--range"><svg class="i"><use href="#i-grid"/></svg>Ver la grilla</button>
+      </span>
+    </div>
+
+    <div class="col">
+      <section class="card kpis" aria-label="Los números de la pauta">
+        <a class="kpi" href="#"><span class="kpi__label">Costo por agenda</span><strong class="kpi__value" data-count="91.11" data-fmt="musd2">US$91.11</strong><span class="kpi__delta up"><svg class="i"><use href="#i-adown"/></svg>−US$4.20</span></a>
+        <a class="kpi" href="#"><span class="kpi__label">ROAS cobrado</span><strong class="kpi__value" data-count="3.4" data-fmt="x">3.4×</strong><span class="kpi__delta up"><svg class="i"><use href="#i-aup"/></svg>+0.3×</span></a>
+        <a class="kpi" href="#"><span class="kpi__label">Agendas</span><strong class="kpi__value" data-count="27" data-fmt="int">27</strong><span class="kpi__delta up"><svg class="i"><use href="#i-aup"/></svg>+9%</span></a>
+        <a class="kpi" href="#"><span class="kpi__label">Gasto</span><strong class="kpi__value" data-count="2460" data-fmt="usdm">US$2,460</strong><span class="kpi__delta"><svg class="i"><use href="#i-aup"/></svg>+7%</span></a>
+        <a class="kpi" href="#"><span class="kpi__label">CTR</span><strong class="kpi__value" data-count="2.8" data-fmt="pct">2.8%</strong><span class="kpi__delta down"><svg class="i"><use href="#i-adown"/></svg>−0.2 pt</span></a>
+        <a class="kpi" href="#"><span class="kpi__label">Costo por lead</span><strong class="kpi__value" data-count="14.73" data-fmt="musd2">US$14.73</strong><span class="kpi__delta up"><svg class="i"><use href="#i-adown"/></svg>−US$1.10</span></a>
+      </section>
+
+      <section class="card trends">
+        <div class="card__h">
+          <h2 class="card__t">Tendencias</h2>
+          <a class="iconbtn iconbtn--dots" href="#" aria-label="Abrir el Ads Manager"><svg class="i"><use href="#i-out"/></svg></a>
+          <span class="card__end">
+            <button class="pill" data-tabla aria-pressed="false"><svg class="i" style="width:14px;height:14px"><use href="#i-table"/></svg>Tabla</button>
+          </span>
+        </div>
+        <div class="legend"><span class="legend__item"><i style="--c:var(--s1)"></i>Gasto</span><span class="legend__item"><i style="--c:var(--s2)"></i>Leads</span><span class="legend__item"><i style="--c:var(--s3)"></i>Agendas</span><span class="legend__nota">contra la primera semana, de a 7 días</span></div>
+        <div class="chart" data-trends='{"series":[{"k":"Gasto","c":"var(--s1)","fin":6.2,"seed":5},{"k":"Leads","c":"var(--s2)","fin":14.5,"seed":9},{"k":"Agendas","c":"var(--s3)","fin":9.3,"seed":4}],"dias":24,"desde":"2026-10-12","meses":[["12 OCT","2026-10-12"],["19 OCT","2026-10-19"],["26 OCT","2026-10-26"],["2 NOV","2026-11-02"]]}'>
+          <div class="chart__plot"></div>
+          <div class="chart__table" hidden></div>
+          <div class="chart__tip" hidden></div>
+        </div>
+      </section>
+
+      <section class="card leads">
+        <div class="tabs">
+          <div class="tabs__list" role="tablist">
+            <button role="tab" aria-selected="true">Por anuncio</button>
+            <button role="tab" aria-selected="false">Por campaña</button>
+            <button role="tab" aria-selected="false">Día por día</button>
+          </div>
+          <span class="tabs__ink"></span>
+          <a class="iconbtn" href="#" aria-label="Abrir el Ads Manager"><svg class="i"><use href="#i-out"/></svg></a>
+        </div>
+        <table class="tbl">
+          <colgroup><col style="width:190px"><col class="t-emp" style="width:140px"><col class="t-mail" style="width:96px"><col class="t-utm" style="width:70px"><col style="width:148px"><col class="t-pais" style="width:80px"><col></colgroup>
+          <thead><tr><th>Anuncio</th><th class="t-emp">Campaña</th><th class="t-mail num">Gasto</th><th class="t-utm num">Leads</th><th>Costo por agenda</th><th class="t-pais num">Agendas</th><th></th></tr></thead>
+          <tbody>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha lead__anuncio">Video testimonio · Laura</span></td><td class="t-emp lead__emp">Captación otoño</td><td class="t-mail lead__mail num">US$612</td><td class="t-utm num">41</td><td><span class="chip chip--good"><svg class="i"><use href="#i-check"/></svg>US$68.00</span></td><td class="t-pais num">9</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha lead__anuncio">Carrusel 3 errores</span></td><td class="t-emp lead__emp">Captación otoño</td><td class="t-mail lead__mail num">US$488</td><td class="t-utm num">33</td><td><span class="chip chip--warn"><svg class="i"><use href="#i-dash"/></svg>US$81.33</span></td><td class="t-pais num">6</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha lead__anuncio">Reel clase gratis</span></td><td class="t-emp lead__emp">Clase gratis</td><td class="t-mail lead__mail num">US$402</td><td class="t-utm num">29</td><td><span class="chip chip--warn"><svg class="i"><use href="#i-dash"/></svg>US$100</span></td><td class="t-pais num">4</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha lead__anuncio">Imagen oferta 48 h</span></td><td class="t-emp lead__emp">Retargeting</td><td class="t-mail lead__mail num">US$255</td><td class="t-utm num">18</td><td><span class="chip chip--warn"><svg class="i"><use href="#i-dash"/></svg>US$85.00</span></td><td class="t-pais num">3</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha lead__anuncio">Video fundadora</span></td><td class="t-emp lead__emp">Captación otoño</td><td class="t-mail lead__mail num">US$318</td><td class="t-utm num">21</td><td><span class="chip chip--bad"><svg class="i"><use href="#i-warn"/></svg>US$159</span></td><td class="t-pais num">2</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha lead__anuncio">Historia preguntas</span></td><td class="t-emp lead__emp">Retargeting</td><td class="t-mail lead__mail num">US$96</td><td class="t-utm num">7</td><td><span class="chip chip--good"><svg class="i"><use href="#i-check"/></svg>US$48.00</span></td><td class="t-pais num">2</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha lead__anuncio">Carrusel antes y después</span></td><td class="t-emp lead__emp">Clase gratis</td><td class="t-mail lead__mail num">US$140</td><td class="t-utm num">9</td><td><span class="chip chip--bad"><svg class="i"><use href="#i-warn"/></svg>US$140</span></td><td class="t-pais num">1</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha lead__anuncio">Reel detrás de escena</span></td><td class="t-emp lead__emp">Clase gratis</td><td class="t-mail lead__mail num">US$83</td><td class="t-utm num">6</td><td><span class="chip chip--bad"><svg class="i"><use href="#i-warn"/></svg>Sin agendas</span></td><td class="t-pais num">0</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha lead__anuncio">Imagen precio</span></td><td class="t-emp lead__emp">Retargeting</td><td class="t-mail lead__mail num">US$41</td><td class="t-utm num">2</td><td><span class="chip chip--bad"><svg class="i"><use href="#i-warn"/></svg>Sin agendas</span></td><td class="t-pais num">0</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+            <tr class="lead" tabindex="0"><td><span class="lead__fecha lead__anuncio">Video pregunta frecuente</span></td><td class="t-emp lead__emp">Captación otoño</td><td class="t-mail lead__mail num">US$25</td><td class="t-utm num">1</td><td><span class="chip chip--bad"><svg class="i"><use href="#i-warn"/></svg>Sin agendas</span></td><td class="t-pais num">0</td><td class="lead__acc"><span><svg class="i lead__chev"><use href="#i-down"/></svg></span></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card social">
+        <div class="card__h">
+          <h2 class="card__t"><svg class="i"><use href="#i-ads"/></svg>Lo que trae la pauta</h2>
+          <span class="card__end"><a class="iconbtn iconbtn--dots" href="#" aria-label="Abrir el Ads Manager"><svg class="i"><use href="#i-out"/></svg></a></span>
+        </div>
+        <div class="tiles">
+          <div class="tile"><span class="tile__k">Impresiones</span><span class="tile__v"><b data-count="48210" data-fmt="int">48,210</b><small class="up">+3.1k</small></span></div>
+          <div class="tile tile--ring"><span class="tile__k">Clics</span><span class="tile__v"><b data-count="1356" data-fmt="int">1,356</b><small class="up">+92</small><svg class="ring" viewBox="0 0 48 48" data-ring="0.74"><circle class="ring__track" cx="24" cy="24" r="21.5"/><circle class="ring__arc" cx="24" cy="24" r="21.5"/></svg><span class="ring__txt"><b>74%</b> llega a la página</span></span></div>
+        </div>
+        <div class="list">
+          <div class="list__row"><span>Vistas de la landing</span><b>1,003</b></div>
+          <div class="list__row"><span>Vistas del VSL</span><b>412</b></div>
+          <div class="list__row"><span>Leads</span><b>167</b></div>
+          <div class="list__row"><span>Agendas</span><b>27</b></div>
+        </div>
+        <h3 class="posts__t">Los que más agendas trajeron</h3>
+        <div class="posts">
+          <div class="post"><button class="post__btn"><span class="post__img post__img--ini" style="--g:linear-gradient(160deg,#c9d8f6,#8eaae6)">VT</span><span class="post__n"><svg class="i"><use href="#i-cal"/></svg>9</span></button><small>Video testimonio · Laura</small></div>
+          <div class="post"><button class="post__btn"><span class="post__img post__img--ini" style="--g:linear-gradient(160deg,#f3dcb3,#d9a554)">C3</span><span class="post__n"><svg class="i"><use href="#i-cal"/></svg>6</span></button><small>Carrusel 3 errores</small></div>
+          <div class="post"><button class="post__btn"><span class="post__img post__img--ini" style="--g:linear-gradient(160deg,#f2cbd8,#d4789a)">RC</span><span class="post__n"><svg class="i"><use href="#i-cal"/></svg>4</span></button><small>Reel clase gratis</small></div>
+          <div class="post"><button class="post__btn"><span class="post__img post__img--ini" style="--g:linear-gradient(160deg,#d7e2ec,#97a8bb)">IO</span><span class="post__n"><svg class="i"><use href="#i-cal"/></svg>3</span></button><small>Imagen oferta 48 h</small></div>
+        </div>
+      </section>
+
+      <section class="card social">
+        <div class="card__h">
+          <h2 class="card__t"><svg class="i"><use href="#i-net"/></svg>Qué red trae agendas</h2>
+          <span class="card__end"><a class="iconbtn iconbtn--dots" href="#" aria-label="Abrir el Ads Manager"><svg class="i"><use href="#i-out"/></svg></a></span>
+        </div>
+        <div class="tiles">
+          <div class="tile"><span class="tile__k">Agendas, según Meta</span><span class="tile__v"><b data-count="27" data-fmt="int">27</b><small class="nota">en vivo de Meta</small></span></div>
+        </div>
+        <div class="bars" data-bars='{"v":[16,9,2],"x":["Instagram","Facebook","Messenger"],"tope":18}'></div>
+        <div class="list">
+          <div class="list__row"><span>Impresiones</span><b>48,210</b></div>
+          <div class="list__row"><span>CTR</span><b>2.8%</b></div>
+          <div class="list__row"><span>Costo por mil</span><b>US$51.03</b></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+<script src="kestrel.js"></script>
+</body></html>

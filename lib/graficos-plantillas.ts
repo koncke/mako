@@ -70,8 +70,11 @@ const MARKETING: PlantillaHoja = {
     id: id('marketing'), nombre: 'Marketing', emoji: '📣', subtitulo: 'La pauta, lo que trae y a quién le llega.',
     controles: [{ id: id('mk-periodo'), tipo: 'periodo', preset: 'ult30' }],
     // 4/11/2026 — KESTREL · ONDRA (docs/templates-dashboard-propuesta.md §7.3): «¿cuánto cuesta una agenda y de qué anuncio vino?».
-    // Kestrel abre con la frase y seis números con su delta, y sigue con el bloque POR RED y la tabla de lo que trae cada fuente;
-    // Ondra, el embudo del anuncio a la página. La invertida es el costo por agenda: es la pregunta de la hoja.
+    // 4/11/2026 (tarde): la hoja trae su DISEÑO PROPIO, la copia de Kestrel (app/dashboard/disenos/HojaMarketing.tsx; copia y
+    // adaptación en docs/diseno/mockups-dashboard/marketing-kestrel/). Kestrel abre con seis números con su cambio (acá: costo por
+    // agenda, ROAS cobrado, agendas, gasto, CTR y costo por lead), sigue con sus tendencias, una tabla con pestañas (por anuncio, por
+    // campaña y día por día) y dos bloques por red (lo que trae la pauta, del anuncio a la agenda, y qué red trae agendas).
+    // El costo por cierre vive en Comercial, y la edad y el mapa, que Kestrel no tiene, salieron (una hoja de antes no cambia).
     // ⚠️ Los ids de la FIRMA (mk-spend, mk-funnel, mk-tendencias, mk-anuncios) no cambian: reconocen la hoja guardada de antes.
     componentes: [
       {
@@ -79,28 +82,30 @@ const MARKETING: PlantillaHoja = {
         titulo: 'Tu pauta', frase: 'Gastaste {gasto} en anuncios · trajeron {agendas} agendas · cada una costó {cpa} · {cpa:cambio} que el período anterior',
         ir: 'ads-manager', x: 0, y: 0, w: 12, h: 3,
       },
-      kpi(id('mk-cpa'), 'negocio', 'cpa', 'Costo por agenda', '', 0, 3, { tipo: 'numero_tendencia', comparar: true, invertida: true, ir: 'ads-manager' }),
-      kpi(id('mk-spend'), 'negocio', 'gasto', 'Ad Spend', '', 3, 3, { tipo: 'numero_tendencia', comparar: true, ir: 'ads-manager' }),
-      kpi(id('mk-cac'), 'negocio', 'cac', 'Costo por cierre', '', 6, 3, { tipo: 'numero_tendencia', comparar: true, ir: 'comercial' }),
-      kpi(id('mk-roas-cash'), 'negocio', 'roas_cobrado', 'ROAS cash', '', 9, 3, { tipo: 'numero_tendencia', ir: 'cobranza' }),
-      // Tendencias: agrupa sola por día, semana o mes según el período.
+      // LA INVERTIDA: el costo por agenda, que es la pregunta de la hoja. Los seis, con su cambio contra el período anterior.
+      kpi(id('mk-cpa'), 'negocio', 'cpa', 'Costo por agenda', '', 0, 3, { tipo: 'numero_tendencia', w: 2, comparar: true, invertida: true, ir: 'ads-manager' }),
+      kpi(id('mk-roas-cash'), 'negocio', 'roas_cobrado', 'ROAS cobrado', '', 2, 3, { tipo: 'numero_tendencia', w: 2, comparar: true, ir: 'cobranza' }),
+      kpi(id('mk-agendas'), 'negocio', 'agendas', 'Agendas', '', 4, 3, { tipo: 'numero_tendencia', w: 2, comparar: true, ir: 'crm' }),
+      kpi(id('mk-spend'), 'negocio', 'gasto', 'Ad Spend', '', 6, 3, { tipo: 'numero_tendencia', w: 2, comparar: true, ir: 'ads-manager' }),
+      kpi(id('mk-ctr'), 'meta', 'ctr', 'CTR', '', 8, 3, { tipo: 'numero_tendencia', w: 2, comparar: true, ir: 'ads-manager' }),
+      kpi(id('mk-cpl'), 'negocio', 'cpl', 'Costo por lead', '', 10, 3, { tipo: 'numero_tendencia', w: 2, comparar: true, ir: 'ads-manager' }),
+      // Tendencias: agrupa sola por día, semana o mes según el período. El diseño las dibuja contra la primera semana.
       {
-        id: id('mk-tendencias'), clase: 'grafico', tipo: 'serie', fuente: 'negocio', dimension: 'dia', metricas: ['gasto', 'leads', 'agendas', 'cierres'],
+        id: id('mk-tendencias'), clase: 'grafico', tipo: 'serie', fuente: 'negocio', dimension: 'dia', metricas: ['gasto', 'leads', 'agendas'],
         titulo: 'Tendencias', subtitulo: 'Lo gastado y lo que trajo, en el tiempo', x: 0, y: 7, w: 12, h: 12,
         controles: [{ id: id('mk-tendencias-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
       {
-        id: id('mk-funnel'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'negocio', metricas: ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl'],
-        titulo: 'Del anuncio a la página', subtitulo: 'Cuántos pasan cada escalón', x: 0, y: 19, w: 6, h: 12,
+        id: id('mk-funnel'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'negocio', metricas: ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl', 'leads', 'agendas'],
+        comparar: true, titulo: 'Del anuncio a la agenda', subtitulo: 'Cuántos pasan cada escalón', x: 0, y: 19, w: 6, h: 12,
       },
       // Kestrel tiene su bloque por red: acá, cuántas agendas trae cada una (en vivo de Meta).
-      { id: id('mk-plataforma'), clase: 'grafico', tipo: 'barras', fuente: 'audiencia', dimension: 'plataforma', metricas: ['agendas'], titulo: 'Qué red trae agendas', subtitulo: 'Instagram, Facebook y el resto', x: 6, y: 19, w: 6, h: 12 },
+      { id: id('mk-plataforma'), clase: 'grafico', tipo: 'barras', fuente: 'audiencia', dimension: 'plataforma', metricas: ['agendas', 'impresiones', 'ctr', 'cpm'], titulo: 'Qué red trae agendas', subtitulo: 'Instagram, Facebook y el resto', x: 6, y: 19, w: 6, h: 12 },
       {
-        id: id('mk-campanas'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'meta', dimension: 'campana', metricas: ['agendas', 'gasto', 'cpa'],
+        id: id('mk-campanas'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'meta', dimension: 'campana', metricas: ['agendas', 'gasto', 'leads', 'cpa', 'anuncios'],
         ordenMetrica: 'agendas', barra: 'agendas', limite: 10, titulo: 'Qué campaña trae agendas', subtitulo: 'Ordenadas por agendas, con su costo',
-        ir: 'ads-manager', x: 0, y: 31, w: 6, h: 10,
+        ir: 'ads-manager', x: 0, y: 31, w: 12, h: 10,
       },
-      { id: id('mk-edad'), clase: 'grafico', tipo: 'columnas', fuente: 'audiencia', dimension: 'edad', desglose: 'genero', metricas: ['impresiones'], titulo: 'Quién te ve', subtitulo: 'Edad y género', x: 6, y: 31, w: 6, h: 10 },
       // Los anuncios del período, como TARJETAS (con su miniatura), ordenados por lo que trajeron. El clic abre el anuncio.
       {
         id: id('mk-anuncios'), clase: 'grafico', tipo: 'tarjetas', fuente: 'meta', dimension: 'anuncio', metricas: ['agendas', 'gasto', 'leads', 'cpa'],
@@ -108,8 +113,14 @@ const MARKETING: PlantillaHoja = {
         titulo: 'De qué anuncio vino', subtitulo: 'Los anuncios del período, del que más agendas trajo', x: 0, y: 41, w: 12, h: 12,
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'mk-anuncios'),
       },
-      { id: id('mk-mapa'), clase: 'grafico', tipo: 'mapa', fuente: 'audiencia', dimension: 'region', metricas: ['impresiones'], titulo: 'Dónde están', x: 0, y: 53, w: 12, h: 10 },
     ],
+    diseno: {
+      id: 'marketing',
+      piezas: {
+        apertura: id('mk-apertura'), cpa: id('mk-cpa'), roas: id('mk-roas-cash'), agendas: id('mk-agendas'), gasto: id('mk-spend'), ctr: id('mk-ctr'), cpl: id('mk-cpl'),
+        tendencias: id('mk-tendencias'), funnel: id('mk-funnel'), plataforma: id('mk-plataforma'), campanas: id('mk-campanas'), anuncios: id('mk-anuncios'),
+      },
+    },
   }),
 };
 
