@@ -25,6 +25,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { configParaGuardar, cerradasAhora, textoDeHorario, type ConfigAutomatizacion } from '../lib/config-automatizacion';
+import { FILAS_LINEA } from '../lib/limites-envio';
 import { duplicarSecuencia, type DbDuplicar, type FilaOriginal } from '../lib/secuencia-duplicar';
 import { SimuladorWhatsApp } from '../app/automations/SimuladorWhatsApp';
 import { SecuenciaPerfil } from '../app/automations/SecuenciaPerfil';
@@ -114,7 +115,10 @@ test('3. «Misma persona» no tiene fila: ni la de la línea ni la de la automat
   const auto = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
   assert.doesNotMatch(auto, /Misma persona|personaNegocio|PERSONA_SIN_ESPERA|personaHoras/, 'volvió «Misma persona» a la pantalla');
   const lim = sinComentarios(leer('lib/limites-envio.ts'));
-  assert.match(lim, /\.filter\(\(f\) => f\.campo !== 'personaHoras'\)/, 'la fila de la línea volvió a la pantalla');
+  // Lo que cuida: ninguna fila de la línea es «Misma persona». Se mira la lista que sale (`FILAS_LINEA`), no la línea del filtro:
+  // el 4/11/2026 el filtro sumó la rampa del email y la línea literal dejó de coincidir con el código correcto.
+  assert.ok(lim.includes("f.campo !== 'personaHoras'"), 'la fila de la línea volvió a la pantalla');
+  assert.ok(!FILAS_LINEA.some((f) => f.campo === 'personaHoras'), 'la fila de la línea volvió a la pantalla');
   assert.doesNotMatch(sinComentarios(leer('app/automations/LimitesEnvioPanel.tsx')), /ROTULO_PERSONA_DEFECTO|personaPorDefecto/);
   assert.doesNotMatch(sinComentarios(leer('app/automations/config-automatizacion-actions.ts')), /personaNegocio/);
 });

@@ -580,6 +580,30 @@ Reglas:
 - ⛔ No inventes datos para completar el formulario. Si no tienes el mail, manda solo el
   teléfono; si solo tienes el @, manda solo el @.
 
+## 5. Una campaña de email a los leads
+
+Cuando el usuario pida mandarle una campaña de email a sus leads, va en este orden, con
+las operaciones del índice (pide el detalle de cada una con \`?operacion=\` antes de usarla):
+
+1. **El dominio**: \`conectar_dominio_email\` con su dominio. Muéstrale los registros DNS que
+   devuelve y espera a que te diga que los cargó; después, \`verificar_dominio_envio\`. El
+   email del negocio sale SÓLO de su dominio, nunca del de MaKo.
+2. **El remitente**: \`fijar_remitente_email\` (nombre, lo de antes de la @ y \`responderA\`).
+3. **El CRM**: \`crear_crm\` («Email Marketing») y \`agregar_etapa\` para «Enviado», «Abrió» y
+   «Hizo clic». \`ver_funnel\` con su \`embudoId\` te da las keys.
+4. **Los leads**: \`agregar_en_bloque_a_crm\` con \`todos\`, \`soloConEmail\` y
+   \`excluirEstados\` (los que ya compraron o se cerraron). No los saca de su CRM.
+5. **La secuencia**: \`crear_secuencia_email\` con \`funnelId\` (nace pausada) y
+   \`editar_pasos_secuencia_email\`. Muéstrale los emails ANTES de proponerlos.
+6. **Las columnas**: \`configurar_automatizacion\` con \`columnasEmail\`
+   («enviado=key,abrio=key,clic=key»). Con columnas, a quien compra no le sale el siguiente.
+7. **La prueba y el ritmo**: \`probar_secuencia\` (le llega al usuario) y \`ver_limites_envio\`.
+8. **Activar**: \`proponer_toggle_nutricion\`. Antes, dile con números cuánto tarda: el
+   dominio arranca con 50 emails por día y sube hasta 100; con 1.000 personas, cada una
+   recibe el email siguiente unos 10 días después del anterior, no cuando dice la espera.
+
+⚠️ Prender el envío real (\`activar_envio_real_email\`) siempre lo confirma el usuario en MaKo.
+
 ## 3. Entrega el link ENTERO y detente
 
 La respuesta trae \`url\`. Pásasela **completa** (nunca un path suelto: no es

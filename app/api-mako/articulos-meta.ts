@@ -19,6 +19,8 @@ export const ARTICULOS = {
   'migrar-curso': { titulo: 'Migrar un curso a MaKo con Claude', corto: 'Migrar un curso con Claude', lead: 'Pasa un curso entero (módulos, clases, videos, descripciones y tareas) pidiéndoselo a Claude, sin cargarlo a mano.' },
   // Ticket #29 de Leandro (29/10/2026): «que /docs explique las palabras clave del disparador y el "Contiene / Es exactamente"».
   'instagram-palabras-botones': { titulo: 'Palabras clave y botones en las automatizaciones de Instagram', corto: 'Palabras clave y botones de Instagram', lead: 'Qué comentario arranca una automatización, y cómo andan los botones de un DM.' },
+  // La campaña de email de Mauricio (4/11/2026): todo por la API, desde su Claude.
+  'campana-email': { titulo: 'Una campaña de email con Claude', corto: 'Campaña de email con Claude', lead: 'Del dominio a la campaña activa, pidiéndoselo a Claude: el CRM que sigue a cada email, la secuencia, la prueba y el ritmo.' },
 } as const;
 
 export type SlugArticulo = keyof typeof ARTICULOS;
@@ -29,6 +31,6 @@ export const GRUPOS_ARTICULOS: { titulo: string; articulos: SlugArticulo[] }[] =
   { titulo: 'Acerca de la API', articulos: ['versiones', 'openapi'] },
   { titulo: 'Uso de la API', articulos: ['primeros-pasos', 'limites', 'buenas-practicas', 'problemas'] },
   { titulo: 'Autenticación', articulos: ['autenticacion', 'permisos'] },
-  { titulo: 'Guías', articulos: ['migrar-curso', 'instagram-palabras-botones'] },
+  { titulo: 'Guías', articulos: ['migrar-curso', 'campana-email', 'instagram-palabras-botones'] },
 ];
 

@@ -462,8 +462,11 @@ async function escenarioTopes(): Promise<Record<string, unknown>> {
   const id14 = Number(((await en(() => crear.ejecutar!(pc14.payload as Record<string, unknown>, ctx(NEGOCIO)))) as { datos?: { id?: number } }).datos?.id);
   Object.assign(db.nutricion_secuencias.find((f) => Number(f.id) === id14)!, { pasos: catorce });
   out.ritmo = await en(() => ritmoAlActivar(id14));
+  // Activarla como la activa un token detallado (en el acto, `ejecutarAccion`): la respuesta trae el ritmo.
+  const { ejecutarAccion } = await import('../lib/mako-doer-acciones');
+  out.activar = await ejecutarAccion(NEGOCIO, 'nutricion_toggle', { secuenciaId: id14, activa: true });
   // Fuera del motor desde acá: es la campaña que se prende en la vida real, no ésta.
-  db.nutricion_secuencias.find((f) => Number(f.id) === id14)!.archivada_at = ahora();
+  Object.assign(db.nutricion_secuencias.find((f) => Number(f.id) === id14)!, { activa: false, archivada_at: ahora() });
 
   // La campaña corriendo: 60 vencidas, un email cada una. El primer día salen 50 (la rampa).
   db.nutricion_secuencias.push({ id: 91, workspace_id: NEGOCIO, clave: 'c1', nombre: 'Uno', activa: true, archivada_at: null, trigger_tipo: 'etapa_actual', etapa: 'em_entrada', funnel_id: EMAIL, pasos: [{ id: 'u1', orden: 1, canal: 'email', delay_horas: 0, asunto: 'Uno', cuerpo: 'Hola.', siguiente: null }] });

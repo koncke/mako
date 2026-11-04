@@ -34,6 +34,7 @@ import { PARTES as THUMBS_PARTES, BITACORA as THUMBS_BITACORA } from './thumbnai
 import { PARTES as LEADMAG_PARTES, BITACORA as LEADMAG_BITACORA } from './lead-magnet-generator/bitacora';
 import { PARTES as SALESMAIL_PARTES, BITACORA as SALESMAIL_BITACORA } from './sales-email/bitacora';
 import { PARTES as NEWSLETTER_PARTES, BITACORA as NEWSLETTER_BITACORA } from './newsletters/bitacora';
+import { PARTES as EMAIL_PARTES, BITACORA as EMAIL_BITACORA } from './email/bitacora';
 import { PARTES as CLOSINGSC_PARTES, BITACORA as CLOSINGSC_BITACORA } from './closing-script/bitacora';
 import { PARTES as YTWRITER_PARTES, BITACORA as YTWRITER_BITACORA } from './youtube-writer/bitacora';
 import { PARTES as AIRUNTIMECASCA_PARTES, BITACORA as AIRUNTIMECASCA_BITACORA } from './ai-runtime-cascada/bitacora';
@@ -103,6 +104,7 @@ const REGISTROS: Record<string, Registro> = {
   'lead-magnet-generator': { partes: LEADMAG_PARTES, bitacora: LEADMAG_BITACORA },
   'sales-email': { partes: SALESMAIL_PARTES, bitacora: SALESMAIL_BITACORA },
   newsletters: { partes: NEWSLETTER_PARTES, bitacora: NEWSLETTER_BITACORA },
+  email: { partes: EMAIL_PARTES, bitacora: EMAIL_BITACORA },
   'ai-runtime-cascada': { partes: AIRUNTIMECASCA_PARTES, bitacora: AIRUNTIMECASCA_BITACORA },
   'carousels': { partes: CAROUSELS_PARTES, bitacora: CAROUSELS_BITACORA },
   'conocimientos': { partes: CONOCIMIENTOS_PARTES, bitacora: CONOCIMIENTOS_BITACORA },

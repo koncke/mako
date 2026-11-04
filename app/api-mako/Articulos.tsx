@@ -75,6 +75,7 @@ export function Articulo({ slug, d }: { slug: SlugArticulo; d: DatosArticulos })
       {slug === 'problemas' && <Problemas d={d} />}
       {slug === 'migrar-curso' && <MigrarCurso d={d} />}
       {slug === 'instagram-palabras-botones' && <InstagramPalabrasBotones />}
+      {slug === 'campana-email' && <CampanaEmail d={d} />}
     </article>
   );
 }
@@ -466,6 +467,64 @@ function MigrarCurso({ d }: { d: DatosArticulos }) {
 
       <h2 id="endpoints">Los endpoints</h2>
       <p>Todos están en <Link href="/api-mako?tab=docs&area=curso">Curso (módulos y clases)</Link>, con sus parámetros y ejemplos.</p>
+    </>
+  );
+}
+
+/**
+ * LA CAMPAÑA DE EMAIL, ARMADA POR CLAUDE (4/11/2026, la llamada de Martín con Mauricio: 14 emails, uno cada 24 h, a todos sus
+ * leads menos los ganados). El mensaje nombra las rutas REST de cada paso: si cambian, tests/email-campana-receta.test.ts lo
+ * nota. Lo que no se hace por la API sin una persona: prender el envío real (gasta: queda como propuesta) y cargar los DNS.
+ */
+function CampanaEmail({ d }: { d: DatosArticulos }) {
+  const mensaje = [
+    'Quiero mandar una campaña de email a mis leads usando la API de MaKo.',
+    '',
+    `- La API de MaKo: ${d.base}/api/v1 (la referencia completa, con mi token: GET ${d.base}/api/v1/docs).`,
+    '- Mi token: <PEGA-AQUÍ-TU-TOKEN>. Va en el encabezado «Authorization: Bearer <token>».',
+    '- Mi dominio: <tu-dominio.com>. Firma: <tu nombre>. Las respuestas me llegan a: <tu email>.',
+    '- La campaña: <cuántos emails, cada cuánto y a quiénes; por ejemplo, 14 emails, uno cada 24 h, a todos menos los que ya compraron>.',
+    '',
+    'Hazlo en este orden, y espera mi OK donde lo digo:',
+    '1. El dominio: POST /api/v1/email/dominio-envio con {"dominio": "..."}. Muéstrame los registros DNS que devuelve y espera a que te diga que los cargué. Después, POST /api/v1/email/dominio-envio/verificaciones hasta que diga verificado.',
+    '2. El remitente: PUT /api/v1/email/ajustes/remitente con nombre, local (lo de antes de la @, por ejemplo «hola») y responderA.',
+    '3. El CRM: GET /api/v1/crm/tipos y crea uno «Email Marketing» con POST /api/v1/crm/embudos. Súmale las columnas «Enviado», «Abrió» y «Hizo clic» con POST /api/v1/crm/etapas (con su embudoId). GET /api/v1/crm/etapas?embudoId=... te da sus keys.',
+    '4. Los leads: POST /api/v1/crm/en-bloque/otro-crm con {"haciaEmbudoId": ..., "todos": true, "excluirEstados": ["ganado", "perdido", "descalificado", "no_responde"], "soloConEmail": true}. Si vuelve con «pendientes», repítelo con esos leadIds. Dime cuántos entraron.',
+    '5. La secuencia: POST /api/v1/email/secuencias con {"nombre": "...", "funnelId": <embudoId>}: nace pausada y le escribe a la columna de entrada de ese CRM. Escribe los emails y muéstramelos ANTES de guardarlos; con mi OK, PUT /api/v1/email/secuencias/{id}/pasos. Ese id es el {secuenciaId} de los pasos que siguen.',
+    '6. Las columnas: PATCH /api/v1/chatbot/secuencias/{secuenciaId}/configuracion con {"columnasEmail": "enviado=<key>,abrio=<key>,clic=<key>"}.',
+    '7. El ritmo: GET /api/v1/chatbot/limites-envio. Dime cuántos emails salen hoy, a cuántos por día llega y la regla del freno.',
+    '8. La prueba: POST /api/v1/chatbot/secuencias/{secuenciaId}/pruebas. Me llega a mí. Espera a que te diga que se ve bien.',
+    '9. Activar: GET /api/v1/email/ajustes/envio-real. Si está apagado, PUT /api/v1/email/ajustes/envio-real con {"on": true} deja una propuesta: dame el link para que la confirme yo. Después, PUT /api/v1/chatbot/secuencias/{secuenciaId}/activacion con {"activa": true}, y léeme lo que dice del ritmo.',
+    '',
+    'Si un pedido falla, NO lo repitas a ciegas: mira primero el estado (GET /api/v1/email/estado y GET /api/v1/email/secuencias/{id}).',
+  ].join('\n');
+  return (
+    <>
+      <h2 id="necesitas">Lo que necesitas</h2>
+      <ul>
+        <li>Un <strong>token detallado</strong> con <strong>Lectura y escritura</strong> en «Email», «CRM» y «Chatbot y secuencias».</li>
+        <li><strong>Claude</strong> con la posibilidad de hacer pedidos a una API: Claude Code, o Claude con una herramienta que llame a URLs.</li>
+        <li>Un <strong>dominio tuyo</strong> donde puedas cargar registros DNS. El email de tu negocio sale sólo de tu dominio, nunca del de MaKo.</li>
+      </ul>
+
+      <h2 id="token">1. Crea el token</h2>
+      <p>En <Link href="/api-mako?tab=tokens&v=nuevo">Tokens → Generar nuevo token</Link>: ponle un nombre («Campaña de email»), un vencimiento corto y, en Permisos, <strong>Lectura y escritura</strong> en esas tres áreas. Copia el token: se ve una sola vez.</p>
+
+      <h2 id="mensaje">2. Pégale esto a Claude</h2>
+      <p>Cambia lo que está entre <C>&lt;…&gt;</C> y mándaselo:</p>
+      <Bloque clave="campana-email" texto={mensaje} ajustar />
+
+      <h2 id="saber">Lo que tienes que saber</h2>
+      <ul>
+        <li><strong>El ritmo manda, no la espera de cada email.</strong> Tu dominio arranca con 50 emails el primer día y sube 50 cada día que llega, hasta 100 por día. A ese ritmo, 14 emails a 1.128 personas son 15.792 envíos: la campaña tarda unos 5 meses, y cada persona recibe el siguiente unos 11 días después del anterior, no a las 24 h. Al activarla, la respuesta te lo dice con tus números.</li>
+        <li><strong>La tarjeta sigue al email.</strong> Cuando sale, cuando lo abre y cuando hace clic, pasa a la columna que elegiste. Nunca hacia atrás, y nunca desde Ganado.</li>
+        <li><strong>Quien compra deja de recibirla.</strong> Si gana como lead o su tarjeta llega a Ganado en ese CRM, no le sale el email siguiente.</li>
+        <li><strong>El freno:</strong> si en 24 h, con 50 enviados o más, rebota el 5 % o se marca como spam el 0,3 %, MaKo apaga el envío y te avisa. Lo vuelves a prender tú, después de revisar la lista.</li>
+        <li><strong>Prender el envío real</strong> no se hace solo por la API: queda como propuesta y la confirmas tú en MaKo.</li>
+      </ul>
+
+      <h2 id="endpoints">Los endpoints</h2>
+      <p>Están en <Link href="/api-mako?tab=docs&area=email">Email</Link>, <Link href="/api-mako?tab=docs&area=crm">CRM</Link> y <Link href="/api-mako?tab=docs&area=chatbot">Chatbot y secuencias</Link>, con sus parámetros y ejemplos.</p>
     </>
   );
 }

@@ -2878,6 +2878,45 @@ status de nutrición» (2026-08-02).
 
 ## Email (Resend)
 
+### La campaña de email por la API: lo que no se ve en el código (4/11/2026, nube, la campaña de Mauricio)
+
+El pedido: 14 emails a 1.128 personas desde el Claude del cliente, con un CRM que siga a cada email. El relevo (qué falta
+aplicar en producción y qué no se probó con un envío real) está en `docs/relevo/nube-email.md`.
+
+**1. «Uno cada 24 h» es falso a escala: el ritmo lo pone el tope, no la espera.** El motor manda primero lo que venció antes,
+así que el email 2 de cada persona espera a que salga el email 1 de TODAS. A 100 por día (arrancando en 50), 1.128 personas
+tardan 11 días en recibir el primero, y entre un email y el siguiente de cada una pasan unos 11 días; los 14 son 15.792 envíos
+y unos 158 días. Ninguna pantalla lo decía: el aviso al activar sólo contaba el primer mensaje. Ahora dice la campaña entera
+(`fraseDeCampana`, lib/ritmo-al-activar.ts).
+
+**2. Con un token detallado, lo que vuelve es el resumen de EJECUTAR, no el de la propuesta.** El ritmo vivía sólo en el
+resumen de `proponer_toggle_nutricion`; por HTTP con un token detallado la activación se aplica en el acto
+(`aplicarEnElActo`) y la respuesta era «Secuencia activada.», sin un número. Regla: lo que la persona tiene que saber al
+confirmar va también en lo que devuelve `ejecutar` (lib/mako-doer-acciones.ts, `nutricion_toggle`).
+
+**3. Una secuencia por etapa sin CRM mira sólo la CASA de cada lead.** Los sumados a «Email Marketing» con
+`agregar_en_bloque_a_crm` no entraban nunca: la secuencia activa, sin un error, sin escribirle a nadie. `funnelId` en
+`crear_secuencia_email` la ata al CRM y el barrido mira también los agregados.
+
+**4. Una apertura repetida no mueve nada, a propósito, y eso esconde un test.** `marcarEventoEmail` devuelve la fila sólo la
+primera vez que marca (`.is(col, null)`), así que «nunca hacia atrás» no lo prueba volver a abrir el MISMO email: lo prueba el
+email SIGUIENTE (sale y se abre con la tarjeta ya en «Hizo clic»). El primer test daba verde con la regla borrada.
+
+**5. Cuatro parámetros en una operación grande sacan a OTRA del turno.** Las columnas como cuatro parámetros de
+`configurar_automatizacion` dejaron a `cambiar_crons_secuencia` con −169 caracteres de margen (piso 300,
+tests/ops-center-bateria.test.ts): MaKo habría contestado «no puedo» a cambiar un CRON. Quedó UN parámetro
+(`columnasEmail: "enviado=key,abrio=key,clic=key"`) y margen 318.
+
+**6. Un rebote sin columna no frena, y lo dice.** El freno (rebotes 5 %, quejas 0,3 %, con 50 enviados o más en 24 h) cuenta
+`rebotado_at`/`queja_at` (mig 0380). Sin la migración, la cuenta tira y el freno no frena; `ver_limites_envio` lo dice en vez
+de mostrar un cero.
+
+**Vive en:** lib/email-dominio.ts · lib/email-eventos-crm.ts · lib/email-eventos-crm-reglas.ts · lib/email-freno.ts ·
+lib/email-reputacion.ts · lib/goteo.ts (`topeConRampa`) · lib/goteo-db.ts (`topeEmailDeHoy`) · lib/ritmo-al-activar.ts ·
+lib/nutricion.ts (el corte y la columna «Enviado» en la rama del email) · app/api/webhooks/resend/route.ts ·
+lib/api-mako/areas/{email,crm,chatbot}.{def,run}.ts · app/api-mako/Articulos.tsx (la guía) · lib/agente-skill.ts ·
+*2026-11-04 nube, la campaña de email de Mauricio*
+
 ### ⚠️ El generador de emails escribe para el negocio de Mauricio, no para el del cliente
 
 **Síntoma:** cualquier cliente que toque «generar email» en `/email` recibe copy de OTRO negocio,

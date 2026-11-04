@@ -11,7 +11,8 @@
 // Lo puro corre acá; el motor real, la ruta real del webhook de Resend y los runners, en tests/_email-campana-hijo.ts
 // (escenario «topes») sobre una base en memoria. Nada sale a la red.
 //
-// Probado ROMPIÉNDOLO (4/11/2026), sobre una base de 9 / 0: el motor sin la rampa (el tope de la línea) → 7 / 2; el webhook
+// Probado ROMPIÉNDOLO (4/11/2026), sobre una base de 9 / 0 (10 / 0 con la respuesta de activar; sin el ritmo en
+// `nutricion_toggle` → 9 / 1): el motor sin la rampa (el tope de la línea) → 7 / 2; el webhook
 // sin el freno al rebotar → 8 / 1; el freno con «>» en vez de «>=» en rebotes → 8 / 1; sin el mínimo de 50 enviados → 8 / 1;
 // el aviso sin la campaña entera → 7 / 2; un rebote temporal tomado como permanente → 8 / 1. Restaurado, 9 / 0.
 //
@@ -76,6 +77,12 @@ test('el aviso al activar del motor cuenta a los que entran y la campaña entera
   assert.match(R.ritmo.texto, /^Entran 60 personas/);
   assert.match(R.ritmo.texto, /hasta 50 por día/, 'hoy frena la rampa, no el tope de 100');
   assert.match(R.ritmo.texto, /Son hasta 840 emails \(60 personas × 14\)\. A ese ritmo, la campaña entera tarda al menos 8 días\./);
+});
+
+test('la respuesta de ACTIVAR (la del token detallado, que se aplica en el acto) dice el ritmo', () => {
+  assert.equal(R.activar.ok, true);
+  assert.match(R.activar.resumen, /activada\. Entran 60 personas/);
+  assert.match(R.activar.resumen, /Son hasta 840 emails/);
 });
 
 test('el motor respeta la rampa: el primer día salen 50 de 60', () => {
