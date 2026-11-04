@@ -52,6 +52,7 @@ verde, llega sola a `main`.
 | Logos de cada red en toda la tab, y «¿En qué publica?» por red y formato | Hecho: el mismo logo del buscador en las miniaturas del gráfico, sus filtros, el detalle y el reparto; el reparto por red (con logo) y por formato, sin «100% videos»; se fue «Cada miniatura es un video» | `punta/spy-contenido` | — (dibujado con datos de prueba en escritorio y teléfono) |
 | Dos pestañas («Contenido» y «Funnel»), selector adentro del gráfico, proporción real de cada miniatura, sin «Revisar ahora» ni textos que narran, la criatura sin tarjeta blanca | Hecho | `punta/spy-contenido` | La ficha con un competidor de verdad: que «Funnel» aparezca sólo con web u oferta |
 | La foto real de perfil en la ficha del competidor (Sofía Contreras) | Hecho: la ficha abierta muestra su foto de perfil al lado del nombre; la lista sigue con la caricatura (criterio: la caricatura es la cara de la tab, la foto es la persona) | `punta/spy-contenido` | — |
+| «Funnel»: sus webs solas y su OFERTA con el analizador de Offer | Hecho: debajo de su web, el diagnóstico de Offer (las 9 notas, la tesis, lo que hace bien y el puntaje que calcula el código), leído solo al abrir un competidor con web (/api/competitor-spy/oferta), sin botón y con la criatura mientras lee. Con la IA del negocio, sin crédito ni red de la plataforma (`soloDelNegocio`); habla de él en tercera persona (`bloqueOfertaDeOtro`). Una vez y listo: sólo vuelve a la IA si su web cambió. En la API, `su_oferta_con_notas` | `punta/spy-oferta` | Con un negocio real: que el modelo hable en tercera persona y lo que trae una web de verdad |
 
 ### La cola de caricaturas: el contrato de los dos scripts (para el Runner)
 
@@ -131,4 +132,4 @@ pantalla del teléfono, monta `GraficoSpy` tal cual.
 ## Migraciones que faltan aplicar
 
 Ninguna. Lo nuevo que se guarda vive en `app_settings` del negocio (`spy.todo`, las corridas largas; `spy.todo.dia`, cuántas
-empezó hoy; `spy.caricaturas`, las caricaturas) y en las columnas que ya existían (`spy_piezas.analisis` lleva ahora su `formato`, dentro del mismo jsonb).
+empezó hoy; `spy.caricaturas`, las caricaturas; `spy.oferta.<id>`, la oferta de cada competidor, que se borra con él) y en las columnas que ya existían (`spy_piezas.analisis` lleva ahora su `formato`, dentro del mismo jsonb).

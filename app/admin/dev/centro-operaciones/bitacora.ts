@@ -2229,6 +2229,30 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '4 nov', hora: '12:10', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los grupos de la app, en producción',
+    revisar: '/second-brain',
+    puntos: [
+      '**Ya está en producción:** el grupo del negocio en el Ops Center, con los avisos, MaKo contestando y los invitados.',
+      '**Falta probarlo con una sesión real** en el Cliente de Prueba: los pasos, en docs/relevo/nube-grupos.md.',
+    ],
+    commits: [{ sha: 'b6e290fe', msg: 'Merge origin/main en punta/grupos-app', lineas: 6114, archivos: 83 }],
+  },
+  {
+    fecha: '4 nov', hora: '12:40', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Adentro de la cuenta de un cliente, la agencia ve sólo el grupo de ese cliente',
+    revisar: '/second-brain',
+    puntos: [
+      '**El ticket #55:** el administrador de una agencia, parado en la cuenta de un cliente, veía en la lista los grupos de todos sus otros clientes. Ahora ve sólo el de ese cliente.',
+      '**En su propio negocio no cambia nada:** ve el suyo, sus invitaciones y los de su cartera, para que su equipo pueda estar pendiente.',
+      '**No era una fuga a la clienta:** ella ve sólo el suyo y sus invitaciones, y quien veía los otros ya tenía acceso a esos clientes.',
+    ],
+    archivos: ['lib/grupo-puerta.ts — `gruposDeLaPersona` corta por la pestaña', 'tests/grupos-ops-lista-cartera.test.ts — la ruta real, los tres casos, cuatro roturas en rojo'],
+    tickets: [55],
+  },
+  {
     fecha: '4 nov', hora: '11:20', chat: 'Funnel Coach único', sesion: 'cli_135a1a29-c4ee-5d70-b52c-72bc63a68c64', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
     titulo: 'Un solo coach: el Funnel Coach, con la oferta adentro y la cara de Hormozi',
     pedido: 'Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach" y que tenga ambas funcionalidades dentro... Por defecto, que esté la cara de hormozi.',
