@@ -181,6 +181,9 @@ jobs:
       - name: Tests afectados por lo que cambió (todos, sin cortar)
         if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
         timeout-minutes: 30
+        # El tiempo de cada archivo de test, al lado del reporte de siempre (scripts/reporter-tiempos.mjs). Lo lee el paso de abajo.
+        env:
+          MAKO_TIEMPOS_TESTS: ${{ runner.temp }}/tiempos-tests.tsv
         run: |
           set +e
           echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
@@ -194,6 +197,12 @@ jobs:
             echo "::error::tests-afectados salió con 0 sin correr ningún test, y la punta sí difiere de main: eso no es un verde."
             exit 1
           fi
+
+      # Cuánto tardó cada archivo de test, en el resumen del run (4/11/2026). Para sacar un test de la fase que frena se mide
+      # ACÁ, en el runner, no en la PC: ver LENTOS_FUERA_DE_LA_FASE_RAPIDA en tests-afectados.mjs. Nunca da rojo: es un dato.
+      - name: Tiempo por archivo de test
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true'"
+        run: node scripts/tiempos-tests.mjs "$RUNNER_TEMP/tiempos-tests.tsv" --top 15 >> "$GITHUB_STEP_SUMMARY" || true
 
       # El tsc entero, con `scripts/tipos-ci.mjs`: 98 es «SIN MEMORIA / sin veredicto», y sale tal cual, rojo. TIPOS_TANDAS es
       # el respaldo si el entero muere por memoria, y su OK sale «OK PARCIAL» con un aviso (historia en integracion.yml).

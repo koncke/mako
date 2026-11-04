@@ -196,4 +196,34 @@ export const BITACORA: Hito[] = [
       '⚠️ Falta que Martín suba los programas 0.3.2: hasta entonces, una instalación nueva dice «No pude preparar la descarga». La Mac sigue sin probarse en una Mac.',
     ],
   },
+  {
+    fecha: '2 nov', hora: '17:14', chat: 'Ticketera', cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que quien levanta un ticket vea cómo avanza, y le llegue por email',
+    pedido: 'que cuando él levante un ticket… le diga, mira el progreso de tu ticket aquí, y que él pueda ir viendo: tu ticket fue levantado, el equipo lo revisó, ya lo están desarrollando. Y también… que se le envíe por email los avances. Y solamente cuando ya esté 100 % finalizado, ahí sí el mensaje de WhatsApp que ya tenemos',
+    puntos: ['Joan lo había preguntado por WhatsApp: «¿cómo van esos tickets?». La hora es la del commit que anotó la regla (dbc64bdd7): el pedido llegó por otro chat.'],
+  },
+  {
+    fecha: '4 nov', hora: '04:05', chat: 'Tickets en la nube', sesion: 'cli_c395d4ca-9c38-5214-ae30-582fa23cf9c4', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Un chat que resuelva todos los tickets, y los emails de los tickets',
+    pedido: 'Manda a un chat a solucionar todos los tickets siempre. … los emails de los tickets',
+    puntos: ['Llegó por el Cerebro: este chat de la nube recibe cada ticket nuevo y lo arregla con su hito.'],
+  },
+  {
+    fecha: '4 nov', hora: '04:05', chat: 'Tickets en la nube', sesion: 'cli_c395d4ca-9c38-5214-ae30-582fa23cf9c4', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ya está: quien levanta un ticket recibe un correo en cada avance',
+    revisar: '/tickets',
+    puntos: [
+      'Un correo cuando lo recibimos, otro cuando el equipo lo está desarrollando, otro si necesitamos un dato suyo y otro cuando está resuelto. Cada uno con el link a su ticket.',
+      'Nunca dos por el mismo paso: si el ticket va y vuelve, no repite. El cierre sigue avisándose por WhatsApp y el chat, como antes.',
+      'Cada correo trae «darme de baja». Abrir el link no apaga nada: hay que tocar el botón, y desde ahí se vuelven a prender.',
+      'No les llega a los tickets que abre MaKo solo, a los de la plataforma, a una persona de otro negocio ni a una cuenta suspendida.',
+      '⚠️ No medido en producción: que Resend entregue (la nube no ve la base). La primera vuelta del cron lo dice en su registro: «correos de avance N».',
+    ],
+    archivos: [
+      'lib/tickets-avance.ts: a quién, cuándo y la vuelta (puro, con test)',
+      'lib/tickets-avance-email.ts: la base y Resend',
+      'app/api/email/unsubscribe/tickets/route.ts: la baja',
+      'app/api/cron/tickets/route.ts: el paso 4',
+    ],
+  },
 ];

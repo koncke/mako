@@ -679,3 +679,127 @@ Las dos, siempre (AGENTS.md → «La app se adapta al tamaño de la pantalla, SI
   Instagram soporta `business_discovery` (el overview no lo lista y la referencia sigue diciendo
   Facebook Login); si `paidProductPlacementDetails` es público para videos ajenos; y el precio de
   suscripción de plataforma de Apify aparte del pay-per-result.
+
+---
+
+## 11. La búsqueda por red (4/11/2026)
+
+> Martín, 4/11: «La barra principal de búsqueda debería funcionar igual que cuando le doy al "+", solo que ahí
+> debería estar diferenciado las redes, Instagram, YouTube, Sitio Web... Si busco solo nombre, y tarda en buscar,
+> debería ir diciéndome "Esto puede tardar 20 segundos"... Y si busco solo el nombre TAMBIÉN debería buscar en
+> YouTube... me buscó Instagram con muy poquitos seguidores... no me trajo ni 1 solo de las cuentas grandes de
+> victor heras.»
+
+**Qué hace hoy:** la barra de arriba y el «+» abren el MISMO buscador (`app/competitor-spy/BuscadorAlta.tsx`), con un
+grupo por red y su logo: Instagram, YouTube, TikTok, Sitio web. Qué se busca lo decide `planDeBusqueda`
+(`lib/spy-buscar-reglas.ts`), y los pedidos salen EN PARALELO a `/api/competitor-spy/buscar`: lo rápido no espera a lo
+lento, y cada grupo se llena cuando llega lo suyo, con una línea que dice cuánto puede tardar.
+
+**Por qué Google para el nombre, y no otro actor de Instagram.** El buscador de Instagram ordena por relevancia con la
+sesión de quien busca; un scraper sin sesión sólo empareja texto, y «Víctor Heras» empareja igual con una cuenta de 14
+seguidores que con una de 492 mil. Google ordena por popularidad sin sesión y escribe los seguidores en la descripción
+del resultado («492K Followers…»), así que con UNA corrida de dos páginas (`site:instagram.com` y `site:youtube.com`)
+salen los perfiles grandes y los canales, y se ordenan por seguidores. El buscador de Instagram corre igual, al lado,
+para las cuentas que Google todavía no conoce. Las primeras cinco filas se completan con su foto y sus seguidores en UNA
+corrida del lector de perfiles (antes eran cinco).
+
+**YouTube nunca usa `search.list`** (§4.3: 100 llamadas por día para toda la app). Por nombre sale de Google; un enlace
+o un @ se leen con `channels.list` (1 unidad), que ahora también trae la foto del canal. Esa foto es la cara del
+competidor cuando no tiene Instagram (`mirarCompetidor`).
+
+**Lo que cuesta, por negocio y con SU clave de Spy** (precios de la tienda de Apify; los de Google y el buscador de
+Instagram, medidos el 3/11/2026; el del lector de perfiles, de la tienda, sin medir desde la nube):
+
+| Qué | Cuánto | Cupo por día | Peor día |
+|---|---|---|---|
+| Una búsqueda por nombre: Google (2 páginas) + el buscador de Instagram | US$0,0215 | 60 corridas = 30 búsquedas (`TOPE_BUSQUEDAS_SPY_POR_DIA`) | US$0,65 |
+| Leer un perfil (el @ exacto, completar filas, la confirmación) | ~US$0,0026 | 150 lecturas (`TOPE_LECTURAS_SPY_POR_DIA`), 30 reservadas para agregar | ~US$0,39 |
+| Un canal de YouTube | 1 unidad de cuota (gratis) | — | — |
+
+El cupo de lecturas era 40 y lo compartían las búsquedas: alcanzaba para tres búsquedas por día. Se separó y se subió
+porque completar las filas es lo que permite ordenar «los mejores resultados». El techo por corrida sigue siendo
+`APIFY_TOPE_USD` (US$0,02 por perfil).
+
+**Lo que se decidió sin preguntar** (con criterio, para no frenar):
+- Con «@» se lee sólo ese @ (y su canal de YouTube con el mismo @, 1 unidad): quien escribe la arroba sabe a quién
+  busca. Sin «@», una palabra que puede ser un usuario («den.borgg») se lee como @ Y se busca como nombre.
+- «algo.xx» es un sitio sólo si «xx» es un dominio de verdad (`esDominio`); «den.borgg» era la página https://den.borgg.
+- El @ que sale de pegar un nombre («Víctor Heras» → @victorheras) se prueba, pero NO va primero: compite por seguidores.
+- «Si tienes el @ exacto es inmediato» no se escribió así: el @ se lee por Apify y tarda unos segundos. Dice «Con su @
+  exacto es más rápido».
+
+## 12. La ficha: automática y sin lo que no se entiende (4/11/2026)
+
+> Martín, 4/11 (puntos 5, 6, 11, 13 y 14): «elimina textos innecesarios… Lo de "Buscar sus otras redes" debe ser
+> automático, no un botón… "Con qué abre" no se entiende… la IA ya debería analizar por sí sola todo, sin pedirlo…
+> "Sigue a la vista" y "Probado" no se entiende qué hacen… Si encuentra la web, que la analice automáticamente… Donde
+> sale MaKo, previo a la animación, no debería haber absolutamente nada más en pantalla».
+
+**Sus otras redes, solas** (`/api/competitor-spy/redes`, `buscarOtrasRedes`). Se buscan al abrir la ficha de alguien a
+quien le falta una red, DESPUÉS de la primera lectura, y una vez por semana por competidor y por negocio
+(`redes-recordar.ts`): cada búsqueda es una corrida de Google (US$0,00455) más leer a los candidatos, y lo paga el
+negocio. El criterio (`veredictoDe`):
+
+| Evidencia | Qué pasa |
+|---|---|
+| Se enlazan entre ellos (su bio nombra el @ o el canal, o al revés, o el mismo sitio) | Se suma solo, con «Deshacer» |
+| Misma foto (dHash de 64 bits a ≤10 bits) **y** mismo nombre | Se suma solo, con «Deshacer» |
+| Sólo la foto, o sólo el nombre | Se pregunta: «¿Son suyas?», con su foto y el porqué |
+| Nada en común | No se muestra |
+
+Si con el nombre no aparece una segura, se busca otra vez por su @ («que vaya buscando hasta encontrar»). **No hay IA
+en este paso, a propósito:** comparar fotos y enlaces es medible y gratis; una IA que «razona» sobre dos perfiles
+públicos costaría en cada ficha y no puede verificar más que esto. Si hace falta más criterio, el siguiente paso es
+mandarle las dos fotos a la IA DEL NEGOCIO sólo para los casos «quizás».
+
+**La IA lee sola** (`/api/competitor-spy/analizar` → `analizarCompetidor(…, { soloPendientes })`). Después de cada
+lectura, la pantalla la llama y NO espera: el trabajo sigue en un `after()` del servidor, de a 30 piezas
+(`PIEZAS_POR_ANALISIS`, las de más vistas primero) y hasta 3 tandas por pedido. Las tarjetas sin análisis dicen
+«Analizando…» y la pantalla vuelve a pedir las piezas cada 5 s. **La IA es la del negocio** (`chatCheapCascade`: su
+Claude, después su GPT o su Gemini); antes caía a `chatClaude`, que es la de la plataforma (el veto la frenaba porque
+`spy` no está en `CLAUDE_PERMITIDO`). Sin IA conectada no se dibuja «Analizando»: se ve lo que hay. «Con qué abre» y el
+menú «Qué vende y qué ataca» se fueron: el gancho es el título de cada tarjeta y la oferta sale del mismo análisis.
+
+**Qué ver:** un desplegable de tipos —Todo · Reels · Carruseles e imágenes · Videos de YouTube · Shorts— con cuántas tiene
+cada uno, y al final «Agregar su Instagram» / «Agregar su YouTube» si le falta. Reemplaza a los chips de canal, «Sigue a
+la vista» y «Probado». El orden es «Más vistas» o «Más reciente». La tarjeta dice «Hace N d» (lo orgánico) o «N d al
+aire» (un anuncio): la etapa (Test nuevo · Ganando tracción · Probado) ya no se dibuja.
+
+**Miniaturas** (pedido del 4/11 por el Cerebro: «un apartado exclusivo para las miniaturas de YT junto a los
+titulares»): una pestaña con cada video de YouTube como en YouTube —miniatura 16:9, título y vistas—, de la más vista a
+la menos.
+
+**Su sitio, solo:** se toma de la descripción de su canal o de su bio de Instagram (`sitioDelTexto`: el primer enlace
+que no es una red, un acortador, un Linktree ni un correo) y se lee con su funnel en la misma lectura. El botón que
+quedaba es el de copiarlo: «Copiar su sitio» (abre el Web Generator con `?analizar=`).
+
+**La animación:** mientras se lee y mientras se bajan las miniaturas, en la pantalla está SÓLO `CargandoMako` (la pieza
+común). La animación arranca con todas las miniaturas ya bajadas (o a los 8 s: las que no llegaron entran con su
+texto), y la miga, las pestañas y sus redes aparecen recién al terminar. Las carpetas son los tipos de contenido, no
+«Videos · Probado».
+
+## 13. La caricatura, sola (4/11/2026)
+
+> Martín, 4/11 (por el Cerebro): «me traje a @den.borgg y no me hizo la caricatura como habíamos quedado... Eso debe
+> hacerse en segundo plano de manera automática».
+
+La pantalla le pide a `/api/competitor-spy/caricatura` un paso por vez para cada competidor sin caricatura, de a uno y
+cada 15 s mientras esté en marcha (`lib/spy-caricatura-auto.ts`, con los pasos en `lib/spy-caricatura-reglas.ts`):
+
+1. **Rasgos:** la IA DEL NEGOCIO mira su foto y dice en una línea, en inglés, qué distingue su cabeza (pelo, barba,
+   lentes…). Es lo único que cambia por persona en el prompt aprobado (`promptDeCaricatura`). Sin una cara, no se insiste.
+2. **Cara:** la foto sube a Flow (`caraDelCompetidor`).
+3. **Pedido:** `generar_imagen` por la cola de Flow, con una ruta que la cola le firma al puente (`rutaDeSubida`), así la
+   imagen vuelve a nuestro Storage y no como la url de Flow, que vence en una hora.
+4. **Lista:** se copia al bucket de Spy y se anota en `spy.caricaturas` (app_settings del negocio; sin migración). La
+   tarjeta la usa antes que la caricatura dibujada de un referente y que la foto.
+
+**No se hace** para un referente (sus 22 están dibujadas y aprobadas), sin foto, en la prueba gratis (gastaría una de sus
+imágenes sin pedirlo) ni sin el puente de Flow listo (el pedido quedaría en la cola para siempre). Un pedido que nadie
+toma en 15 minutos se cierra; dos fallos de Flow y se queda con su foto.
+
+**Lo que cuesta:** la imagen, 0 créditos de Flow (`TOPE_CREDITOS.imagen`); los rasgos, una lectura de una foto con la IA
+del negocio.
+
+**Lo que hace falta para que corra en un negocio:** la extensión de MaKo conectada y Google Flow abierto en ese
+navegador (el mismo requisito que el AI Avatar). Sin eso la tarjeta sigue con la foto, sin aviso.

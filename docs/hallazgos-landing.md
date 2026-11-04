@@ -42,6 +42,25 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
+
+**Vive en:** `scripts/landing-valores-tilvo.mjs` (con su test), `scripts/banco-editor-web/landing.tsx`, `app/vsl/CartelPromo.tsx`.
+
+- **El diagnóstico obvio era el equivocado.** Parecía que había que cambiar `app/vsl/*`, y eso no le hace nada a la portada: lo que se ve es un
+  DOCUMENTO de Web Generator publicado (`.gm-libre`), con los colores en el `style` de cada elemento. `landing-html.ts` es sólo el respaldo.
+  Por eso la propuesta es una transformación del documento, y aplicarla es publicar: no sale con el tren de código. **Sin aplicar:** lo decide Martín.
+- **Para no sumar visitas:** el HTML se baja sin navegador (`extraer-landing.mjs`) y se mira en el banco. **Se me escapó igual:** el filtro que
+  anula el reproductor quedó roto y unas 16 cargas del banco y de las capturas llegaron a Panda el 31/10/2026. El Pixel de MaKo no corrió. Pueden
+  verse como reproducciones en las estadísticas de Panda de ese día. Ahora lo frena el banco y, por las dudas, `capturar.mjs`.
+- **`--now` (#e2603a) no sirve como letra chica sobre claro:** no llega al contraste. Va sobre la tinta (el reloj del cartel, 5:1) o de marca (el
+  punto de los cupos). Los cupos eran rojo de error, el mismo de la columna «no es para ti».
+- **La tarjeta del Acelerador es oscura a propósito** (su letra es blanca): pintar `.mkpl-card` la borra entera. Quedó en un test.
+- **Las tarjetas de precios son de Planes** (`app/planes/`, 82 colores a mano, compartidas con /planes): la propuesta las pisa desde la hoja del
+  documento en vez de tocar esos archivos, y /planes sigue con los valores viejos hasta que Planes pase por ahí.
+- **Copiado y decisión nuestra, separados.** Copiado: paleta y sombras de Tilvo; tarjetas teñidas, radio 26, títulos y encabezado de Fitlo. Nuestro:
+  el azul de acento en lugar del verde de Fitlo (Martín, 29/10), y que el cuerpo baje a 15 y no a 14. La aparición al scrollear de `Landing.tsx` NO
+  está en ninguna plantilla (no animan al entrar) y sigue ahí: sacarla cambia la portada ya publicada, así que queda para cuando se aplique esto.
+
 ## Medir qué sección se ve: `display: contents` no tiene caja, y cuatro trampas para un evento nuevo (25/10/2026)
 
 **Vive en:** `lib/landing-token.ts` (el Pixel), `lib/editor-landing/render.ts`, `lib/leads.ts`, `lib/vsl-retencion.ts`.
