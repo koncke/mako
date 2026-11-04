@@ -886,3 +886,46 @@ de anuncios entero, que queda apagado hasta medirlo con `scripts/probar-anuncios
 **Vive en:** lib/spy-todo-reglas.ts · lib/spy-todo.ts · app/api/competitor-spy/todo/route.ts · lib/spy.ts
 (`marcarDejadas`, `listarPiezas`, `vistaDeInstagram`) · lib/spy-youtube.ts (`PAGINAS_COMPLETAS`) ·
 lib/instagram-perfil.ts (`piezasDeApify`) · scripts/probar-anuncios-apify.mjs · tests/spy-todo.test.ts
+
+## El detalle en un gráfico: los formatos no se iban a llenar nunca (4/11/2026)
+
+> Martín, 4/11 (puntos 7 y 9): «quiero que eso sea el Detail de cada competidor… como va poniendo todos sus contenidos en un
+> gráfico» y «debería fácilmente estar el botón de "Copiar estructura"». La especificación, en el diseño §15.
+
+⚠️ **«¿Qué formatos le funcionan?» habría quedado vacío para todo competidor que ya existía.** La IA del negocio le pone el
+formato a cada pieza al analizarla, y una pieza ya analizada no se vuelve a mandar (`faltaAnalisis` miraba sólo «¿hay un
+análisis?»). Sin nada que lo dijera: la sección no se dibuja cuando no hay formatos, que es lo correcto para un competidor
+nuevo y una mentira para uno viejo. Ahora un análisis sin formato cuenta como pendiente UNA vez (`guardarAnalisis` escribe
+siempre un formato, `otro` si la IA no lo vio, y `ANALISIS_SIN_DATOS` también lo trae), y va DESPUÉS de lo que nunca se leyó.
+
+**Una escala logarítmica con el tope en una potencia de 10 exacta sumaba una década vacía.** El techo se calculaba con
+`ceil(log10(max) + 1e-9)`: con 10.000 de máximo daba 10^5, y todo el gráfico quedaba aplastado en la parte de abajo. Lo cazó
+el test que pide que 100, 1.000 y 10.000 queden a la misma distancia; va `- 1e-9`.
+
+**«Corto» ya estaba definido:** la primera versión de `tipoParaCopiar` decidía un short con su propia expresión (hasta 60 s)
+y el resto de Spy usa `esShort` (hasta 180 s, la regla de YouTube desde 2024): un video de dos minutos era un short en la
+ficha y un video largo al copiarlo. Ahora los dos preguntan `tipoDeContenido`.
+
+⚠️ **Cruzar el ancho del teléfono reiniciaba el gráfico entero.** La primera versión volvía a la criatura (`bajadas = null`) cada vez
+que cambiaba lo que se dibuja, y la muestra depende del ancho (180 miniaturas en la computadora, 90 en el teléfono): rotar una
+tableta o achicar la ventana volvía a bajar todo y a correr la animación desde cero. No lo mostraba ningún test: lo mostró una
+captura de página entera en Chromium, que cambia el tamaño de la vista, con las 89 animaciones otra vez en su primer cuadro. Ahora
+cada miniatura se pide UNA vez y lo bajado se acumula, y la animación corre una vez por gráfico (su tipo y su red); un cambio a mitad
+de camino la corta y deja cada una en su lugar.
+
+**La precarga de las miniaturas era una copia por animación.** La película del orden ya la tenía escrita adentro; el gráfico
+la necesitaba igual. Se mudó a `app/competitor-spy/precarga.ts` y la usan las dos.
+
+**«Copiar estructura» no abre una tab que a quien mira no le corresponde:** la ruta de Spy pregunta la puerta del Copywriter
+(`esAdminDeTab('copywriter')` + `veCopywriter()`), y sin ella devuelve el texto para el portapapeles. Una tarjeta que abre el
+detalle es un `div` con rol de botón, no un `<button>`: adentro van bloques.
+
+**Lo que no va, a propósito:** la «Anatomía del guion» y la curva de «siguen mirando» del video. No hay guion de un video
+ajeno ni retención pública: un bloque sin datos no se dibuja.
+
+**Sin probar contra el servicio de verdad:** que la IA del negocio devuelva el formato con la forma pedida (se lee por valor o
+por nombre, con o sin tildes), el gráfico en pantalla con un competidor real, y la página nueva del Copywriter.
+
+**Vive en:** lib/spy-detalle.ts · app/competitor-spy/GraficoSpy.tsx · app/competitor-spy/DetallePieza.tsx ·
+app/competitor-spy/precarga.ts · app/api/competitor-spy/copiar/route.ts · lib/spy-analisis-reglas.ts (`faltaAnalisis`) ·
+lib/spy.ts (`leerAnalisis`, `guardarAnalisis`, `leerPieza`) · tests/spy-detalle.test.ts
