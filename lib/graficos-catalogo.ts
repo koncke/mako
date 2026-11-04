@@ -1340,7 +1340,7 @@ export type Hoja = {
 //   tasa de apertura quedan en la grilla: Noria no tiene dónde dibujarlos).
 // · 'cs' (4/11/2026, la copia de Mender): CS Analyst, con las piezas de su plantilla y el orden de las etapas de la entrega,
 //   que lee la página aparte (los carriles van en el orden del servicio, no del que más tiene al que menos).
-export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs', 'productividad'] as const;
+export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs', 'productividad', 'contenido'] as const;
 export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;

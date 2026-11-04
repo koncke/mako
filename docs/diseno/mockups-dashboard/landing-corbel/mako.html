@@ -11,22 +11,6 @@
 <style>
 @font-face { font-family: 'Geist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url(https://fonts.gstatic.com/s/urbanist/v18/L0x-DF02iFML4hGCyMqlbS0.woff2) format('woff2'); }
 body { margin: 0; background: #efefed; }
-.cb` y cada clase con
-// el prefijo `cb-`, para no tocar nada del resto del Dashboard. Sin el armazón de Corbel (la marca, las pestañas, el dock): en MaKo
-// lo pone la app. La arma scratchpad/corbel/armar-cb.py desde la hoja de la maqueta: se cambia la maqueta y se vuelve a armar.
-//
-// Lo que se suma a la copia, y es de la adaptación (landing-corbel/mako.html): el período en lugar del selector de canal, la frase
-// en lugar de la fecha, el «hoy» en lugar del «live now», los vacíos, los links que son botones y el medio de 761 a 1040, que
-// Corbel no tiene medido (sus capturas son 1440 y 390). El fondo que se mueve (las tres manchas) va acá, adentro de la hoja.
-//
-// ⚠️ LA LETRA ES URBANIST, que en MaKo se llama «Geist» (app/globals.css): por eso acá dice 'Geist' y no carga nada.
-// ⚠️ ESTA HOJA ES SÓLO DE LANDING: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
-// ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y DESPUÉS del medio: dos @container que se
-//    pisan los decide el orden (docs/hallazgos-templates-dashboard.md §18).
-// ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
-// =============================================================================
-
-export const CSS_LANDING = `
 .cb {
   container-type: inline-size; container-name: cb;
   --font: 'Geist', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;

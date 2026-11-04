@@ -1148,4 +1148,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '23:45', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Contenido e IA, la decimocuarta hoja copiada: el diseño de Orrery con «¿cuánta IA gastamos y en qué?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» del Dashboard**, con su miniatura de verdad.',
+      '**Cuatro tarjetas:** el costo de la IA y el costo por llamada con su línea, qué parte de lo pedido a Flow salió bien y los pedidos a Flow.',
+      '**Lo gastado por día:** el área del costo de cada día del período.',
+      '**Videos e imágenes:** cada tipo de pedido a Flow con la parte que falló, de cada 30.',
+      '**Qué modelo cuesta más, para qué se usa y quién le escribe a MaKo**, cada uno con su parte del total.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaContenido.tsx · contenido-css.ts · ContenidoVivo.tsx — el diseño',
+      'lib/contenido-diseno.ts — de dónde sale cada número',
+      'lib/contenido-diseno-muestra.ts — los datos de ejemplo de la miniatura',
+      'docs/diseno/mockups-dashboard/contenido-orrery/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];

@@ -1,6 +1,13 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~23:20 UTC)
+## 📬 Para el Cerebro (4/11/2026, ~23:45 UTC)
+
+- **Contenido e IA (la copia de Orrery) va en `punta/dash-contenido`**: la sección de abajo. Es la decimocuarta hoja copiada. No suma
+  piezas a la plantilla: el diseño dibuja las diez. De paso se arregló el `<style>` de cinco adaptaciones guardadas en `docs/` (Fernly,
+  Noria, Parley, Mender y Corbel): arrancaba con el texto de la cabecera del archivo de estilos y perdía su primera letra (§27 de los
+  hallazgos). No toca la app.
+
+### Lo de las ~23:20 UTC
 
 - **Productividad está en producción.** Entró a main (`54b2922fc`, la punta `dash-productividad` tal cual, con su veredicto:
   7.044 tests y el tsc entero); el deploy de ese commit se promovió a las 23:09. Es la decimotercera hoja copiada (Fernly).
@@ -111,6 +118,60 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## Contenido e IA: la decimocuarta hoja copiada (la de Orrery), con «¿cuánta IA gastamos y en qué?» (punta `dash-contenido`, 4/11/2026)
+
+La referencia de Contenido e IA es Orrery (`docs/templates-dashboard-propuesta.md` §7.3): la página «Overview» de Orrery (un panel de una
+API de IA): la barra lateral y la de arriba, cuatro tarjetas de números, «Requests per hour» (un área grande), «Model status» (el tiempo en
+línea de cada modelo en una franja de 30 celdas), «Spend by model», «Recent requests» y «Quickstart» (el código para empezar, en un recuadro
+gris).
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «Contenido e IA» con el diseño de Orrery**, con su miniatura de verdad.
+- **Arriba:** el período de la hoja, el saludo y la frase del uso («Usaste la IA 8,570 veces · 12% más que el período anterior.»), y «Ver la
+  grilla» y «Tus cuentas de IA».
+- **Las cuatro tarjetas:** el **costo de la IA** y el **costo por llamada** (con su línea de cada día y el cambio contra el período anterior:
+  gastar más va en rojo), **qué parte de lo pedido a Flow salió bien** (con su barra, «130 de 134 pedidos» y cuántos fallaron) y los
+  **pedidos a Flow** con los que fallaron.
+- **Lo gastado por día** («Requests per hour»): el área del costo de cada día del período, con el eje en dólares redondos; la pastilla dice
+  si va por día, por semana o por mes (en lugar del verde de «Live»).
+- **Videos e imágenes** («Model status»): cada tipo de pedido a Flow con una franja de 30 celdas donde las ámbar son la PARTE que falló (no
+  días: lo dice el subtítulo), «Bien» desde el 90 % y «Con fallas» debajo. Tocar un tipo abre su detalle.
+- **Qué modelo cuesta más** («Spend by model»): el costo de cada modelo, su barra y su parte del total.
+- **Para qué se usa** («Recent requests»): las llamadas de cada función de MaKo, con su parte en la pastilla verde.
+- **Quién le escribe a MaKo** («Quickstart»): los mensajes de cada persona, en el recuadro gris de la copia.
+
+**Lo que se copió de Orrery, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/contenido-orrery/copia.html` con `orrery.css` y `orrery.js`) sale de lo medido del demo:
+  `valores.json`, las capturas a 1440 y a 390 y el INFORME. **Nada del código de la tienda, ni el cartel «BUY THIS TEMPLATE».**
+- **A 1440 la página mide 1.364, igual que la captura:** las tarjetas de números en 284, 569, 854 y 1139 (269×208, desde 200); el área y
+  el estado en 744 y 364 (475 de alto); la fila de abajo en tres de 364 (393 de alto).
+- **A 390 la página mide 2.600 contra 2.601** de la captura: dos tarjetas de números por fila (174×157 y 174×160), y el resto en una
+  columna. El eje de abajo pasa de nueve rótulos a cuatro.
+- **La adaptación cae en las MISMAS cajas** a 1188 (el ancho del lienzo del Dashboard: Orrery tiene la misma barra de 252 px). Entre 701 y
+  1000 px hay un paso intermedio que Orrery no tiene: dos tarjetas de números por fila, el área a lo ancho y la fila de abajo de a dos.
+- **El movimiento, de la línea de tiempo del INFORME:** los títulos suben desde abajo (115 % → 0, .8 s, power4.out, 22 ms); a los .1 s las
+  tarjetas aparecen desde 32 px más abajo y .985 (.8 s, power3.out, 65 ms); a los .25 s los números cuentan desde cero (1,3 s; los del costo
+  de cada modelo, 1,2 s), con sus decimales; a los .45 s las líneas chicas se descubren de izquierda a derecha (1,1 s, power3.inOut); a los
+  .55 s las filas de las listas entran desde 10 px (.5 s, 40 ms). Al pasar, una fila que se abre toma el fondo gris de «Recent requests» y
+  un link se subraya, como en Orrery.
+- **⚠️ Lo SUPUESTO:** cómo entra el área grande (el INFORME sólo dice que entra a los .4 s: la línea se dibuja de izquierda a derecha en
+  1,1 s) y las barras del costo de cada modelo (crecen desde la izquierda con su número, 1,2 s). Qué tarjetas «suben» al pasar en Orrery no
+  está en lo medido: la adaptación no sube ninguna.
+
+**Lo que Orrery tiene y MaKo no mide, y no está:** el **estado de cada modelo y su tiempo en línea** (MaKo no mide la disponibilidad de un
+proveedor), la **latencia**, el **tope de gasto del mes y su pronóstico**, los **pedidos uno por uno en vivo** y el **código para empezar**.
+La barra lateral y la de arriba las pone la app.
+**La plantilla no perdió nada:** dibuja sus diez piezas.
+
+**Dónde vive:**
+- El modelo: `lib/contenido-diseno.ts`, puro. Los datos de ejemplo: `lib/contenido-diseno-muestra.ts` (cuadran entre bloques: el costo de
+  cada día suma el del período, los modelos suman lo gastado, las funciones suman las llamadas y los pedidos de cada día suman los de Flow).
+- El dibujo: `app/dashboard/disenos/HojaContenido.tsx`; lo vivo, `ContenidoVivo.tsx`; la hoja de estilos, `contenido-css.ts` (la arma
+  `scratchpad/orr/armar-orr.py` desde `contenido-orrery/orrery.css`: todo con el prefijo `orr-`).
+- La plantilla: `lib/graficos-plantillas-generales.ts` («ia-contenido», diez piezas, `diseno.id = 'contenido'`); `DISENOS_HOJA` en
+  `lib/graficos-catalogo.ts`.
+- Los tests: `tests/dashboard-diseno-contenido.test.ts` (9, probado rompiéndolo de trece maneras: cada rotura sola da rojo).
 
 ## Productividad: la decimotercera hoja copiada (la de Fernly), con «¿qué avanza y qué se estancó?» (en producción desde el 4/11/2026, 23:09)
 
@@ -1068,7 +1129,7 @@ Lo que comparten todas:
 | CS Analyst | `cs-analyst` | Mender · Vitrea | ¿quién necesita atención, y cuántos se van? | Se dieron de baja | en producción (`b42c446d9`) |
 | Productividad | `productividad` | Fernly · Sunrow | ¿qué avanza y qué se estancó? | Avance global | en producción (`54b2922fc`) |
 | Automatizaciones | `automatizaciones` | Noria | ¿qué salió, qué falló y en cuánto responden? | Fallaron | `punta/dash-automatizaciones` |
-| Contenido e IA | `ia-contenido` | Orrery | ¿cuánta IA gastamos y en qué? | Costo de la IA | `punta/dash-ia-contenido` |
+| Contenido e IA | `ia-contenido` | Orrery | ¿cuánta IA gastamos y en qué? | Costo de la IA | `punta/dash-contenido` (la copia de Orrery) |
 | Inmobiliaria (nueva, por rubro) | `inmobiliaria` | Lintel (sólo su Overview) | ¿cuántos visitan, cuántos compran y en qué proyecto? | Compran, de los que visitan | `punta/dash-inmobiliaria` |
 
 **Las que se fueron** (las absorbe otra; un link o un agente que las nombre llega a la nueva): **CRM y pipeline** y

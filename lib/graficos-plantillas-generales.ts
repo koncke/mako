@@ -224,6 +224,15 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
       { local: 'quien', tipo: 'barras', fuente: 'mako_chat', dimension: 'quien', metricas: ['mensajes'], titulo: 'Quién le escribe a MaKo' },
       { local: 'flow', tipo: 'tabla_barras', fuente: 'flow', dimension: 'tipo', metricas: ['trabajos', 'listos', 'fallidos', 'tasa_exito'], barra: 'trabajos', titulo: 'Videos e imágenes', ir: 'video-generator' },
     ],
+    // 4/11/2026 — EL DISEÑO DE ORRERY (docs/diseno/mockups-dashboard/contenido-orrery/): mirando, la hoja la dibuja
+    // app/dashboard/disenos/HojaContenido.tsx con estas piezas (lib/contenido-diseno.ts arma cada parte, con test). Dibuja las diez.
+    diseno: {
+      id: 'contenido',
+      piezas: {
+        apertura: 'resumen', costo: 'costo', prom: 'costo-prom', pedidos: 'pedidos', listos: 'listos', dias: 'por-dia',
+        funciones: 'funciones', modelos: 'modelos', quien: 'quien', flow: 'flow',
+      },
+    },
   },
   {
     // 4/11/2026 — INMOBILIARIA, la primera por RUBRO (docs/templates-dashboard-propuesta.md §6, regla 3, y §7.3, LINTEL): se copia

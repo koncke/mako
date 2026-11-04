@@ -13,23 +13,6 @@
 <title>Productividad · la adaptación de Fernly</title>
 <style>
 body { margin: 0; background: #e9ebe9; }
-.frn` y cada clase con el prefijo `frn-`,
-// para no tocar nada del resto del Dashboard. Sin el armazón de Fernly (la barra lateral y la de arriba): en MaKo lo pone la app.
-// La arma scratchpad/frn/armar-frn.py desde la hoja de la copia: se cambia la copia y se vuelve a armar.
-//
-// Lo que se suma a la copia, y es de la adaptación (productividad-fernly/mako.html): la página sin el armazón, las columnas de
-// lo que vence (tantas como semanas), los nombres largos que se cortan con «…», los vacíos, las filas que se abren, la prioridad
-// en la tarjeta oscura (en lugar del cronómetro) y un paso intermedio entre 700 y 1000 px de ancho, que Fernly no tiene.
-//
-// ⚠️ LA LETRA ES PLUS JAKARTA SANS, la de Fernly: acá se llama «Fernly Jakarta», con las URL de Google Fonts, así la hoja no
-//    depende de cómo se llame la letra de la app.
-// ⚠️ ESTA HOJA ES SÓLO DE PRODUCTIVIDAD: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
-// ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y lo de la adaptación va DESPUÉS de los
-//    @container de la copia: dos reglas iguales las decide el orden (docs/hallazgos-templates-dashboard.md §18).
-// ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
-// =============================================================================
-
-export const CSS_PRODUCTIVIDAD = `
 @font-face { font-family: 'Fernly Jakarta'; font-style: normal; font-weight: 200 800; font-display: swap; src: url(https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko40yyygA.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 @font-face { font-family: 'Fernly Jakarta'; font-style: normal; font-weight: 200 800; font-display: swap; src: url(https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yw.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 .frn {

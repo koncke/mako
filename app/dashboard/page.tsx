@@ -194,10 +194,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const hayDisenoCs = hayDiseno('cs');
   // La de Productividad (la copia de Fernly, app/dashboard/disenos/HojaProductividad.tsx) sólo saluda a quien mira: lo demás sale de sus piezas.
   const hayDisenoProductividad = hayDiseno('productividad');
+  // La de Contenido e IA (la copia de Orrery, app/dashboard/disenos/HojaContenido.tsx), igual: sólo saluda a quien mira.
+  const hayDisenoContenido = hayDiseno('contenido');
   const etapasCs = hayDisenoCs ? etapasDeLaEntregaEnOrden() : Promise.resolve(null);
   const agendaComercial = hayDisenoComercial && !unica ? agendaParaComercial(hoy) : Promise.resolve(null);
   const agendaClosing = hayDisenoClosing && !unica ? agendaParaElClosing(hoy) : Promise.resolve(null);
-  const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs || hayDisenoProductividad
+  const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs || hayDisenoProductividad || hayDisenoContenido
     ? variablesDeQuienMira().then((q) => ({ saludo: q.saludo ?? 'Hola', nombre: q.nombre ?? '', fecha: q.fecha ?? '' })).catch(() => null)
     : Promise.resolve(null);
   const [datos, senalesNegocio, closing, caida, agenda, quien, agendaHoy, etapas] = await Promise.all([
@@ -231,7 +233,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         plantillasInicial={plantillas && !unica}
         avisoClosing={avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida))}
         accionClosing={accionDeLaHojaClosing(closing)}
-        disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs || hayDisenoProductividad ? {
+        disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs || hayDisenoProductividad || hayDisenoContenido ? {
           closing: hayDisenoClosing ? { agenda, quien } : null,
           cobranza: hayDisenoCobranza ? { quien } : null,
           comercial: hayDisenoComercial ? { agenda: agendaHoy, quien } : null,
@@ -241,6 +243,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
           automatizaciones: hayDisenoAutomatizaciones ? { quien } : null,
           cs: hayDisenoCs ? { quien, etapas } : null,
           productividad: hayDisenoProductividad ? { quien } : null,
+          contenido: hayDisenoContenido ? { quien } : null,
         } : null}
       />
     </Pagina>

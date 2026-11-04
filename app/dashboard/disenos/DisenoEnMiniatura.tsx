@@ -48,6 +48,9 @@ import { datosCsMuestra, ETAPAS_MUESTRA } from '@/lib/cs-diseno-muestra';
 import { HojaProductividad } from './HojaProductividad';
 import { vistaProductividad } from '@/lib/productividad-diseno';
 import { datosProductividadMuestra } from '@/lib/productividad-diseno-muestra';
+import { HojaContenido } from './HojaContenido';
+import { vistaContenido } from '@/lib/contenido-diseno';
+import { datosContenidoMuestra } from '@/lib/contenido-diseno-muestra';
 
 const dia = (hoy: string, n: number) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const resultado = (columnas: string[], totales: Array<number | null>, filas: Resultado['filas'] = [], anterior?: Array<number | null>): DatosPieza => ({
@@ -474,10 +477,16 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   // La de CS Analyst, igual: el MISMO vistaCs que la hoja de verdad, con los datos de la adaptación (cs-mender/mako.html).
   cs: ({ hoja }) => (
     <HojaCs hoja={hoja} vista={vistaCs(hoja, datosCsMuestra(hoja), ETAPAS_MUESTRA)} titulo="Buenos días, Ana" onGrilla={() => {}} quieta />
-  ),  // La de Productividad, igual: el MISMO vistaProductividad que la hoja de verdad, con los datos de la adaptación
+  ),
+  // La de Productividad, igual: el MISMO vistaProductividad que la hoja de verdad, con los datos de la adaptación
   // (productividad-fernly/mako.html).
   productividad: ({ hoja, hoy }) => (
     <HojaProductividad hoja={hoja} vista={vistaProductividad(hoja, datosProductividadMuestra(hoja, hoy), hoy)} titulo="Buenos días, Ana" onGrilla={() => {}} quieta />
+  ),
+  // La de Contenido e IA, igual: el MISMO vistaContenido que la hoja de verdad, con los datos de la adaptación
+  // (contenido-orrery/mako.html).
+  contenido: ({ hoja, hoy }) => (
+    <HojaContenido hoja={hoja} vista={vistaContenido(hoja, datosContenidoMuestra(hoja, hoy))} titulo="Buenos días, Ana" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
   ),
 };
 

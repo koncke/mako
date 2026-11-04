@@ -168,6 +168,7 @@ import type { ExtrasChat } from './disenos/ChatVivo';
 import type { ExtrasAutomatizaciones } from './disenos/AutomatizacionesVivo';
 import type { ExtrasProductividad } from './disenos/ProductividadVivo';
 import type { ExtrasCs } from './disenos/CsVivo';
+import type { ExtrasContenido } from './disenos/ContenidoVivo';
 import dynamic from 'next/dynamic';
 import { idDeInformeAutomatizacion, type InformeAutomatizacion } from '@/lib/informe-automatizacion';
 import { BotonMako } from '@/app/_ui/BotonMako';
@@ -188,6 +189,7 @@ const ChatVivo = dynamic(() => import('./disenos/ChatVivo'));
 const AutomatizacionesVivo = dynamic(() => import('./disenos/AutomatizacionesVivo'));
 const ProductividadVivo = dynamic(() => import('./disenos/ProductividadVivo'));
 const CsVivo = dynamic(() => import('./disenos/CsVivo'));
+const ContenidoVivo = dynamic(() => import('./disenos/ContenidoVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -350,7 +352,7 @@ export function EditorInforme({
    * Lo que leen las hojas con DISEÑO PROPIO y ningún componente lee (`Hoja.diseno`, lib/graficos-catalogo.ts): la agenda y
    * quién mira, para la de Closing (./disenos/HojaClosing.tsx). Lo arma la página; null = sin eso (los bloques lo dicen).
    */
-  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null; comercial?: ExtrasComercial | null; marketing?: ExtrasMarketing | null; landing?: ExtrasLanding | null; chat?: ExtrasChat | null; automatizaciones?: ExtrasAutomatizaciones | null; cs?: ExtrasCs | null; productividad?: ExtrasProductividad | null } | null;
+  disenos?: { closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null; comercial?: ExtrasComercial | null; marketing?: ExtrasMarketing | null; landing?: ExtrasLanding | null; chat?: ExtrasChat | null; automatizaciones?: ExtrasAutomatizaciones | null; cs?: ExtrasCs | null; productividad?: ExtrasProductividad | null; contenido?: ExtrasContenido | null } | null;
   /**
    * UN AVISO FIJO arriba de la hoja, de quien monta el editor (la misma franja `lk-aviso-hoja` que el de Closing): la prueba
    * A/B de una automatización en sus Métricas (app/automations/MetricasAutomatizacion.tsx, tanda A3, 25/10/2026).
@@ -1651,6 +1653,14 @@ export function EditorInforme({
               // componentes; una semana, una tarea, un proyecto o una prioridad abre lo de siempre de su pieza.
               <ProductividadVivo
                 hoja={hoja} datos={datos} extras={disenos?.productividad ?? null} hoy={hoy} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'contenido' && !enGrilla && !editando && !dueno ? (
+              // La hoja Contenido e IA con su DISEÑO PROPIO (la copia de Orrery, ./disenos/HojaContenido.tsx): los datos de sus
+              // componentes; un tipo de pedido a Flow, un modelo, una función o una persona abre lo de siempre de su pieza.
+              <ContenidoVivo
+                hoja={hoja} datos={datos} extras={disenos?.contenido ?? null} periodo={periodoDiseno} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
               />

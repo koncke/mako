@@ -14,24 +14,6 @@
 <title>Automatizaciones · la adaptación de Noria</title>
 <style>
 body { margin: 0; background: #eceee9; }
-.nor` y cada clase con el
-// prefijo `nor-`, para no tocar nada del resto del Dashboard. Sin el armazón de Noria (la barra lateral, la de arriba y la del
-// teléfono): en MaKo lo pone la app. La arma scratchpad/noria/armar-nor.py desde la hoja de la copia: se cambia la copia y se vuelve
-// a armar.
-//
-// Lo que se suma a la copia, y es de la adaptación (automatizaciones-noria/mako.html): la página sin la barra lateral, el período en
-// las migas, el ancho del medio (dos columnas), los vacíos, la pastilla de los fallos, las columnas y las filas que se abren, la caja
-// de MaKo como un link y las casillas grises (ese día no mandó nada).
-//
-// ⚠️ LA LETRA ES URBANIST, como la de MaKo (app/globals.css la declara «Geist»): acá se llama «Noria Urbanist» con las MISMAS URL,
-//    así el navegador no la baja dos veces y la hoja no depende de cómo se llame la letra de la app.
-// ⚠️ ESTA HOJA ES SÓLO DE AUTOMATIZACIONES: otra hoja con diseño escribe la suya (la de su demo), no reusa ésta.
-// ⚠️ EL TELÉFONO VA POR @container (el ancho del lienzo), no por el de la ventana, y lo de la adaptación va DESPUÉS de los
-//    @container de la copia: dos reglas iguales las decide el orden (docs/hallazgos-templates-dashboard.md §18).
-// ⚠️ ES UN TEMPLATE LITERAL: adentro no va NINGUNA comilla invertida, ni el signo de pesos seguido de llave.
-// =============================================================================
-
-export const CSS_AUTOMATIZACIONES = `
 @font-face { font-family: 'Noria Urbanist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url(https://fonts.gstatic.com/s/urbanist/v18/L0x-DF02iFML4hGCyMqrbS10ig.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 @font-face { font-family: 'Noria Urbanist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url(https://fonts.gstatic.com/s/urbanist/v18/L0x-DF02iFML4hGCyMqlbS0.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 .nor {

@@ -511,6 +511,27 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **Las columnas de Fernly a 390 miden el 78 % de las de 1440** (las siete, medidas en la captura): las alturas son una fracción de un máximo
   (`--h` por columna y 175 o 136 px), no píxeles fijos.
 
+## 27. Contenido e IA (Orrery): un script que corta un template literal en su primera comilla invertida se lleva la cabecera, y dos juegos de rótulos van cada uno con su clase (4/11/2026, chat en la nube)
+
+- **Cinco adaptaciones guardadas tenían basura al principio de su `<style>`.** El script que guarda `mako.html` cortaba la hoja de
+  estilos del `.ts` en la PRIMERA comilla invertida, y la cabecera del archivo nombra las clases entre comillas invertidas: el `<style>` de
+  Fernly, Noria, Parley, Mender y Corbel arrancaba con 1.300 a 1.460 caracteres de comentario, que el navegador leía como un selector roto y
+  con eso descartaba la primera regla (una de las `@font-face`). No da error y la página se ve casi igual. Va cortado en la línea
+  `export const CSS_… = ` y no en un carácter que también puede estar en un comentario. Medido el 4/11/2026: las cinco arregladas.
+- **Dos juegos de rótulos de un eje (seis en la computadora, cuatro en el teléfono) no se eligen uno del otro.** Elegir los cuatro del
+  teléfono entre los seis que ya se dibujan los deja disparejos («6 oct, 18 oct, 23 oct, 4 nov»), y elegirlos sobre los 30 días deja sólo
+  dos (los que coinciden). Se dibuja la unión, y cada rótulo que es de un solo juego lleva su clase, que el otro esconde.
+- **Un número que cuenta desde cero conserva sus decimales.** El cuentanúmeros de Fernly toma la primera tira de dígitos y deja el
+  resto como sufijo: con «US$0.0061» contaría el «0» de adelante y no se movería nada. El de Orrery lee cuántos decimales trae el texto y
+  cuenta con ésos (`contar`, app/dashboard/disenos/HojaContenido.tsx).
+- **Antes de «corregir» una letra de la copia, se lee el estilo calculado.** En la captura de Orrery «$981» parece la letra normal, y es la
+  monoespaciada (`getComputedStyle` lo dice): con números cortos casi no se nota, y con «US$26.40» sí. Se dejó la de la copia.
+- **Un botón de una hoja que lleva a /integraciones lo frena `tests/integracion-sin-salir.test.ts`** (lo cazó el veredicto, no el test
+  de la hoja). Si conecta algo, va con el modal ahí mismo (`BotonIntegracion`); «Tus cuentas de IA» no se abre suelto (`ia` está en
+  `SIN_MODAL_SUELTO`), así que va en la lista de la guarda con su porqué.
+- **«No hay» y «no pude leer» no se escriben igual en una tarjeta.** «Sin pedidos a Flow» salía también con la lectura caída; ahora sale
+  sólo cuando lo pedido es cero.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

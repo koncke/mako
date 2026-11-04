@@ -94,6 +94,7 @@ const QUEDAN: Record<string, { porque: string; pendiente?: true }> = {
   'app/marketing/salud/page.tsx': { porque: 'un alias de ruta que redirige a /integraciones' },
   'app/metodo/page.tsx': { porque: 'un alias de ruta que redirige a /integraciones: la sección «Método» se fue el 26/10/2026' },
   'app/onboarding/OnboardingForm.tsx': { porque: 'el último paso del onboarding lleva a la grilla ENTERA (conectar varias, no una); hasta el 26/10/2026 iba a /metodo' },
+  'app/dashboard/disenos/HojaContenido.tsx': { porque: '«Tus cuentas de IA» de la hoja Contenido e IA (4/11/2026): ese modal no se abre suelto (`ia` está en SIN_MODAL_SUELTO, lib/integracion-en-tab.ts)' },
   'app/general/bloques/Norte.tsx': { porque: 'el «Conectar» del semáforo SIN FUENTES no nombra una integración: va a la grilla (abd91fdb, docs/hallazgos-objectives.md)' },
   'app/m/configuraciones/integraciones/page.tsx': { porque: 'el teléfono (Mobile 2, 17/10): todavía no tiene el modal de conectar, así que «Conectar» abre ESA integración en la computadora (?abrir=)' },
 };
