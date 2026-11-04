@@ -842,4 +842,16 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/doer-para-quien.ts — `preguntaAMaKo` · lib/mako-doer-in.ts — después del clasificador', 'tests/grupos-ops-turno.test.ts (el turno real, tres roturas) · tests/doer-para-quien.test.ts'],
   },
+  {
+    fecha: '4 nov', hora: '14:50', chat: 'Grupos de la app', sesion: 'cli_175d4c18-d810-550d-bdcd-c563f1add844', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo ya no se contesta a sí misma en un grupo con dos líneas suyas',
+    puntos: [
+      '**Lo que pasaba:** en el grupo de Código Inmobiliario hay dos líneas de MaKo. Lo que mandaba una le llegaba a la otra como si lo escribiera una persona, y MaKo se contestaba a sí misma.',
+      '**El caso de Joan:** su audio pedía agendar el pago de una cuota, y se juntó con un aviso de MaKo. MaKo armó la ficha de otra persona.',
+      '**Ahora:** lo que mandó MaKo se reconoce por su mensaje, llegue por la línea que llegue, y no entra a lo que MaKo contesta.',
+      '**Falta:** que Joan vuelva a pedir lo del audio (el pago de la segunda cuota para el 19 de diciembre). El ticket #58 sigue abierto hasta eso.',
+    ],
+    archivos: ['lib/doer-para-quien.ts — `esEcoDeMaKo` · lib/mako-doer-in.ts — `esEcoDeMaKoAhora` y `sinLosEcos`', 'tests/grupos-ops-turno.test.ts (el turno real, tres roturas) · tests/doer-para-quien.test.ts'],
+  },
 ];

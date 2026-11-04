@@ -932,9 +932,22 @@ async function paraQuienEsElMensaje(instance: string, p: MsgIn, texto: string, p
  * ⚠️ `idsEnviados` lee con getSetting: un error de lectura es «anillo vacío», y en la línea del dueño el eco no se reconoce.
  */
 async function esEcoDeMaKoAhora(instance: string, jid: string, key: MsgIn['key']): Promise<boolean> {
-  if (!key?.fromMe) return false;
-  const [voz, enviados] = await Promise.all([instanciaVoz({ estricto: true }).catch(() => null), idsEnviados(OWNER_WS, jid)]);
-  return esEcoDeMaKo({ fromMe: true, msgId: key.id ?? '', instancia: instance, voz: vozPropiaDeMaKo(voz), enviados });
+  // Sin `fromMe` también (4/11/2026): con dos líneas de MaKo en un grupo, lo suyo le llega a la otra como una persona. Ahí sólo decide
+  // el anillo, y la voz no hace falta leerla.
+  const fromMe = !!key?.fromMe;
+  const [voz, enviados] = await Promise.all([fromMe ? instanciaVoz({ estricto: true }).catch(() => null) : Promise.resolve(null), idsEnviados(OWNER_WS, jid)]);
+  return esEcoDeMaKo({ fromMe, msgId: key?.id ?? '', instancia: instance, voz: vozPropiaDeMaKo(voz), enviados });
+}
+
+/**
+ * La cola sin lo que mandó MaKo (4/11/2026, ws13). Con dos líneas de MaKo en un grupo, lo suyo entra a la cola de la otra como una persona, a veces
+ * ANTES de que su id llegue al anillo: al encolar no se ve, al armar el lote sí. Lo que se saca queda procesado, para que el cron no lo vuelva a tomar.
+ */
+async function sinLosEcos(jid: string, cola: readonly MsgBuffer[]): Promise<MsgBuffer[]> {
+  const enviados = new Set(await idsEnviados(OWNER_WS, jid).catch(() => [] as string[]));
+  const ecos = cola.filter((m) => !!m.wa_message_id && enviados.has(m.wa_message_id));
+  if (ecos.length) await marcarProcesados(ecos.map((m) => m.id)).catch(() => {});
+  return cola.filter((m) => !ecos.includes(m));
 }
 
 async function citaAMaKo(data: MsgIn): Promise<boolean> {
@@ -1229,7 +1242,8 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   if (await esEcoDeMaKoAhora(instance, jid, data.key)) {
     // Lo que el EQUIPO escribió por la línea de MaKo (el panel, el teléfono): a su anillo, aunque no haya salido por
     // `enviarAlGrupoMaKo`. Sin esto, la respuesta al equipo (abajo) no sabe que el equipo preguntó.
-    if (esFirmaDelEquipo(texto)) {
+    // Sólo el `fromMe` (lo que escribió el equipo por esa línea): la copia que le llega a la otra línea de MaKo ya está anotada.
+    if (data.key?.fromMe && esFirmaDelEquipo(texto)) {
       const { anotarLoDelEquipo } = await import('@/lib/mako-grupo');
       await anotarLoDelEquipo(wsData, texto, msgId, undefined, paraDelEquipo(texto, mencionesDelMensaje(data))).catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude anotar lo del equipo: ${e instanceof Error ? e.message : String(e)}`));
     }
@@ -1326,7 +1340,10 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   const acuse = acusarSiNoReacciono(jid, reaccion, texto, audio ? 'audio' : adjunto ? (adjunto.tipo === 'image' ? 'imagen' : 'archivo') : 'texto');
 
   /** Lo de la cola: uno solo, o el lote. En un turno que arrancó en la app, la línea sale de lo que vino por WhatsApp. */
-  const atenderLaCola = async (cola: readonly MsgBuffer[]): Promise<ResultadoDoer> => {
+  const atenderLaCola = async (colaConEcos: readonly MsgBuffer[]): Promise<ResultadoDoer> => {
+    // Lo de MaKo que entró antes de que su id llegara al anillo (la otra línea de MaKo en el grupo lo trajo como una persona) se saca acá.
+    const cola = await sinLosEcos(jid, colaConEcos);
+    if (!cola.length) return { engaged: false, skip: 'eco de mi propia respuesta' };
     const linea = instance || cola.map((m) => String(((m.payload as { instance?: unknown }) ?? {}).instance ?? '')).find(Boolean) || '';
     // UNO SOLO → el camino de siempre, sin tocar nada. Es el caso mayoritario y no
     // tiene sentido meterle un rodeo: se procesa su payload tal cual llegó.
@@ -1604,12 +1621,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     if (!(await doerActivo(OPS))) return { engaged: false, skip: 'doer desactivado' };
 
     const msgId = key?.id ?? '';
-    // fromMe: en la línea de voz (número del dueño) el dueño Y MaKo escriben fromMe.
-    // Si el id es de una respuesta nuestra, es un eco → saltar (anti-loop).
+    // Si el id es de una respuesta nuestra, es un eco → saltar (anti-loop). La MISMA decisión que al encolar (`esEcoDeMaKoAhora`), con o sin
+    // `fromMe`: con dos líneas de MaKo en el grupo, lo suyo llega a la otra como una persona (4/11/2026).
+    if (await esEcoDeMaKoAhora(instance, jid, key)) return { engaged: false, skip: 'eco de mi propia respuesta' };
     if (key?.fromMe) {
-      // La MISMA decisión que al encolar (`esEcoDeMaKoAhora`): en la línea de MaKo, un fromMe es ella.
-      if (await esEcoDeMaKoAhora(instance, jid, key)) return { engaged: false, skip: 'eco de mi propia respuesta' };
-      // No es un eco: lo escribió una persona desde la línea, que entonces es la del dueño (`esLineaDelDueno`).
       await anotarLineaDelDueno(instance);
     }
     // Dedup de re-entregas.
@@ -3565,7 +3580,10 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
 }
 
 /** Una parte de la cola huérfana, como el lote de la entrada. */
-async function atenderLaColaDelCron(ws: number, jid: string, cola: readonly MsgBuffer[]): Promise<void> {
+async function atenderLaColaDelCron(ws: number, jid: string, colaConEcos: readonly MsgBuffer[]): Promise<void> {
+  // Lo de MaKo que trajo su otra línea no entra al lote (`sinLosEcos`), tampoco por el cron.
+  const cola = await sinLosEcos(jid, colaConEcos);
+  if (!cola.length) return;
   // La instancia viene del webhook (`body.instance`): `bufferearYResponder` la guarda en el payload al encolar. Sin ella, la
   // línea de MaKo no se conocía y ninguna @mención contaba (la verificación de bb41ede4a; ya pasaba antes).
   const instancia = cola.map((m) => String(((m.payload as { instance?: unknown }) ?? {}).instance ?? '')).find(Boolean) ?? '';
