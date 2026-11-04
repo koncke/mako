@@ -8,8 +8,10 @@ la base ni `.env.local`, así que nada de esto se corrió contra producción.
 | Punta | Qué cambia | Estado al escribir esto |
 |---|---|---|
 | `punta/tiendas-privacidad` | `/privacidad` y `/terminos` siguen nombrando a Leandro como responsable y suman quién publica en cada tienda (App Store: él; Google Play: Martín Carballo Koncke). La ficha de Play tiene el título y la descripción corta nuevos, y suma el token de avisos en Data safety | **En main** |
-| `punta/tiendas-partners` | MaKo Partners y Agency Dashboard salen de More y de `/m` en todos los teléfonos. En la computadora siguen igual | La corrida 101 chocó en `app/admin/dev/mako-mobile/bitacora.ts`. Se mezcló main, quedaron los tres hitos y se volvió a subir (2994ca687). El aviso al Cerebro no salió: una sesión de la nube no le puede escribir a la PC |
-| `punta/tiendas-revisor` | La cuenta de revisión (abajo) | Subida con este relevo |
+| `punta/tiendas-partners` | MaKo Partners y Agency Dashboard salen de More y de `/m` en todos los teléfonos. En la computadora siguen igual | **En main** (2994ca687). La corrida 101 chocó en la bitácora de MaKo Mobile; se mezcló main y quedaron los tres hitos |
+| `punta/tiendas-revisor` | La cuenta de revisión (abajo) | La corrida 108 dio dos rojos. Uno era el snapshot, por una ruta nueva de main que nació cortada. El otro, `tests/sesiones-revocadas.test.ts` (3), un regex sobre el `catch` de `leerSesion`: la decisión del 3/11 sigue intacta y ahora se mide corriendo la sesión. Arreglados en 5522888db y subida otra vez |
+
+Desde la nube no se le puede escribir al Cerebro: su sesión corre en la PC, y el aviso volvió con 401. Lo que le iba a decir está en esta tabla.
 
 ## La cuenta de revisión: el comando
 
