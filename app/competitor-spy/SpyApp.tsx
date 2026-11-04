@@ -96,6 +96,7 @@ import { GraficoSpy } from './GraficoSpy';
 import { DetallePieza } from './DetallePieza';
 import { grupoDe, repartoDePublicaciones } from '@/lib/spy-detalle';
 import { PeliculaDeOrden } from './OrdenSpy';
+import { sumarPasos, type PasoLectura } from '@/lib/spy-lectura-pasos';
 import { BuscadorAlta } from './BuscadorAlta';
 import { Flecha, GrillaPiezas } from './GrillaPiezas';
 import { MejoresPiezas } from './MejoresPiezas';
@@ -888,6 +889,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [trayendo, setTrayendo] = useState(false);
   const [leyendo, setLeyendo] = useState<number | null>(null);
   const [ordenando, setOrdenando] = useState<{ id: number; piezas: PiezaVista[] | null } | null>(null);
+  /** Lo que la lectura animada ya hizo, en orden («Mirando su Instagram…»): lo dibuja la película mientras espera. */
+  const [pasosLectura, setPasosLectura] = useState<{ id: number; pasos: Array<PasoLectura | 'piezas'> } | null>(null);
   /** A quién le está leyendo las piezas la IA, sola y en segundo plano. Sus tarjetas sin análisis dicen «Analizando…». */
   const [autoAnalisis, setAutoAnalisis] = useState<number | null>(null);
   // Su oferta, con el analista de Offer (lib/spy-oferta.ts): la trae sola /api/competitor-spy/oferta.
@@ -955,8 +958,28 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     yaLeidos.current.add(id);
     setLeyendo(id);
     if (animada) setOrdenando({ id, piezas: null });
+    // Mientras lee, lo que está leyendo DE VERDAD (lib/spy-lectura-pasos.ts): la lectura anota cada canal y esto lo pregunta
+    // por una ruta, que no hace fila detrás de la acción. Sin la marca, la acción no anota nada.
+    const marca = animada ? `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}` : undefined;
+    let mirando = !!marca;
+    if (marca) {
+      setPasosLectura({ id, pasos: [] });
+      void (async () => {
+        while (mirando) {
+          type R = { ok: boolean; pasos?: PasoLectura[] };
+          const r: R | null = await fetch(`/api/competitor-spy/lectura?id=${id}&marca=${marca}`, { cache: 'no-store', signal: AbortSignal.timeout(8000) })
+            .then((x) => x.json() as Promise<R>).catch(() => null);
+          if (!mirando) break;
+          if (r?.ok && r.pasos?.length) setPasosLectura((v) => (v?.id === id ? { id, pasos: sumarPasos(v.pasos, r.pasos!) } : v));
+          await new Promise((ok) => setTimeout(ok, 600));
+        }
+      })();
+    }
     try {
-      const r = await revisarAction(id, motivo);
+      const r = await revisarAction(id, motivo, marca);
+      mirando = false;
+      // Leído: ahora se juntan sus piezas (y la película baja sus miniaturas). También es de verdad.
+      if (marca) setPasosLectura((v) => (v?.id === id ? { id, pasos: sumarPasos(v.pasos, ['piezas']) } : v));
       if (r.error) setError(r.error);
       // Siempre queda algo en `lecturas`, también si la acción falló: es lo que saca a la pantalla
       // del esqueleto, y una lista vacía se dibuja como «no pude», nunca como «no hay».
@@ -973,6 +996,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       setOrdenando(null);
       throw e;
     } finally {
+      mirando = false;
       setLeyendo((v) => (v === id ? null : v));
     }
   // `analizarSolo` se declara más abajo y sólo lo usa después de un await: no cambia entre renders.
@@ -1525,7 +1549,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
 
         {/* ── MIENTRAS LEE Y ORDENA, NADA MÁS EN PANTALLA (punto 14 del 4/11): ni la miga, ni las pestañas, ni sus redes.
              Primero la criatura sola, después la animación, y recién al terminar el resto. ── */}
-        {c && ordenando?.id === c.id && <PeliculaDeOrden nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)} />}
+        {c && ordenando?.id === c.id && (
+          <PeliculaDeOrden
+            nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)}
+            pasos={pasosLectura?.id === c.id ? pasosLectura.pasos : []}
+          />
+        )}
 
         {c && ordenando?.id !== c.id && (
           <>
