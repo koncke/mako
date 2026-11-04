@@ -61,7 +61,7 @@ test('2. cada vuelta de la traída larga baja las miniaturas que faltan, mientra
 
 test('3. el recorrido se abre con la ficha quieta, y abierto la página no se scrollea a mano', () => {
   const app = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
-  assert.match(app, /const recorridoListo = !!c && !trayendo && ordenando == null;/);
+  assert.match(app, /const recorridoListo = !!c && !trayendo && ordenando == null && !\(entrada && entrada\.id === c\.id\);/, 'ni durante la entrada (EntradaFicha.tsx)');
   assert.match(app, /const recorridoAbierto = recorrido\.abierto && recorridoListo;/);
   assert.match(app, /<Recorrido id=\{RECORRIDO_SPY\} pasos=\{PASOS_SPY\} abierto=\{recorridoAbierto\} /);
   assert.match(app, /if \(!recorridoAbierto\) return;\s*const raiz = document\.documentElement;\s*const antes = raiz\.style\.overflow;\s*raiz\.style\.overflow = 'hidden';\s*return \(\) => \{ raiz\.style\.overflow = antes; \};/);

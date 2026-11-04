@@ -964,7 +964,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   // pueda scrollear o que lo siga»). Mientras se traen sus piezas o corre la película, la pantalla cambia debajo de la tarjeta; se
   // espera a que termine. Y con la rueda, el recorte seguía al objetivo hasta afuera de la pantalla: ahora la mueve sólo el
   // recorrido (su `scrollIntoView` funciona igual con `overflow: hidden`).
-  const recorridoListo = !!c && !trayendo && ordenando == null;
+  // Y no durante la entrada (EntradaFicha.tsx): la ficha todavía está escondida y el velo taparía la caricatura.
+  const recorridoListo = !!c && !trayendo && ordenando == null && !(entrada && entrada.id === c.id);
   const recorridoAbierto = recorrido.abierto && recorridoListo;
   useEffect(() => {
     if (!recorridoAbierto) return;
