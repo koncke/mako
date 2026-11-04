@@ -41,12 +41,11 @@ Las pruebas (corren el motor, el webhook y los runners reales sobre una base en 
 
 ## Lo que falta aplicar en producción (desde la nube no se toca)
 
-1. **La migración `0380_email_rebotes.sql`** (sólo agrega `rebotado_at` y `queja_at` a `nutricion_envios` y
-   `email_broadcast_envios`). Sin ella el webhook no anota los rebotes y **el freno no tiene qué contar**: no frena (lo dice
-   `ver_limites_envio`: «falta la migración 0380»). El número lo elegí yo (main terminaba en 0373; 0368-0370 y 0372 no están en
-   ninguna rama ni etiqueta): **confirmarlo con el Cerebro antes de aplicarla**, por si estaba reservado.
+1. ~~La migración `0380_email_rebotes.sql`~~ **YA ESTÁ: la aplicó el Cerebro y la midió el 4/11** (`rebotado_at` y
+   `queja_at` existen en `nutricion_envios` y en `email_broadcast_envios`). El webhook ya puede anotar rebotes y quejas, y el
+   freno tiene qué contar. No se midió desde la nube.
 2. **La clave que administra dominios: `RESEND_ADMIN_API_KEY` en Vercel (Production y Preview), y el plan de Resend.** Lo
-   hace Martín. Desde `6b8aae96b` (`punta/email-clave-admin`) la key que MANDA (la fila del ws 1, de sólo envío según midió
+   hace Martín. Desde `6b8aae96b` (**en main** desde la corrida 41823262356, 4/11 11:54 UTC) la key que MANDA (la fila del ws 1, de sólo envío según midió
    el Cerebro el 4/11) se queda como está: dar de alta, leer y verificar dominios va con esa variable aparte, que sólo lee
    `lib/resend-dominios.ts`. Tiene que ser una key con «Full access» de la MISMA cuenta de Resend. Sin ella,
    `conectar_dominio_email` y `verificar_dominio_envio` contestan «MaKo todavía no puede dar de alta ni verificar dominios
@@ -91,7 +90,8 @@ envío. 2. Sin esa variable, `conectar_dominio_email` contesta un error claro y 
 clave. 3. Test probado rompiéndolo: el envío nunca usa la clave de administración, y la de administración nunca sale de ese
 módulo. 4. Si Resend contesta por el tope del plan, que el error lo diga, sin culpar al dominio.»
 
-- **Commit `6b8aae96b`**, en `punta/email-clave-admin`. Lo de dominios se mudó de `lib/resend.ts` a
+- **Commit `6b8aae96b`**, **en main** (corrida 41823262356 verde; la primera, 41820959073, la frenó la guarda nueva por el nombre
+  de la variable escrito en el texto de la bitácora: se dijo en palabras, sin aflojar el test). Lo de dominios se mudó de `lib/resend.ts` a
   `lib/resend-dominios.ts` (re-exportado: los que importan de `lib/resend` no cambian).
 - **Decisión mía, para que la revise el Cerebro:** un negocio con SU PROPIA key de Resend (ws10 y ws11, medido el 17/10)
   sigue administrando su dominio con la suya, porque su dominio vive en su cuenta y es con la que manda. La del ws 1 no es
