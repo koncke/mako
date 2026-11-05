@@ -68,7 +68,8 @@ test('CR4: el Plan tiene la estrella, con la tarea o el proyecto abierto, y no a
 
 test('CR4: Clientes tiene la estrella, con el cliente abierto como lead, encima de su ficha', () => {
   const cl = sinComentarios(leer('app/customer-success/ClientesApp.tsx'));
-  assert.match(cl, /<MakoEnLaTab tab="Clientes" entidad=\{abierto \? \{ tipo: 'lead', id: abierto\.leadId, titulo: abierto\.nombre \|\| `Cliente \$\{abierto\.leadId\}` \} : null\} encimaDeModales \/>/);
+  // La apertura de MaKo (5/11/2026, `apertura=`) va antes de la entidad sin cambiar lo que esto cuida.
+  assert.match(cl, /<MakoEnLaTab tab="Clientes" (?:apertura=\{aperturaTab\} )?entidad=\{abierto \? \{ tipo: 'lead', id: abierto\.leadId, titulo: abierto\.nombre \|\| `Cliente \$\{abierto\.leadId\}` \} : null\} encimaDeModales \/>/);
   assert.match(cl, /'--cartera-max': 'none', paddingLeft: 'var\(--ancho-panel-mako, 0px\)'/);
 });
 
