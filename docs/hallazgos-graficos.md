@@ -7,6 +7,19 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## MaKo toma la iniciativa en el Dashboard: la hoja en blanco, sin IA (5/11/2026, nube)
+
+- **Qué hace:** con el informe en blanco, la estrella pregunta «¿Qué número miras primero cada lunes?»; «Lo cobrado» crea
+  Comercial, «Los leads» Marketing y «Las llamadas» Closing, con `instanciarPlantilla` y la MISMA `crearHoja` de la galería
+  (no la ruta que ajusta la hoja con IA). Sólo a quien puede guardar, sin `corto` (el centro ya dibuja «¿Qué vas a crear hoy?»).
+- **Lo que no se ve en el plan:** el plan nombra cuatro respuestas, y una apertura lleva su «Ahora no» y como mucho cuatro
+  botones (`MAX_BOTONES`): «Lo invertido en anuncios» quedó afuera porque abre la misma hoja que «Los leads» (Marketing).
+- **Sólo en el Dashboard:** la hoja «Focus» (General) no tiene todavía su respuesta por plantilla; con `esGeneral` calla.
+- **Vive en:** lib/aperturas/dashboard.ts, app/dashboard/EditorInforme.tsx. **Lo fija:** tests/iniciativa-dashboard.test.ts
+  (2 roturas); tests/dashboard-estrella-grafico.test.ts acepta `apertura=` antes de la entidad.
+- **Falta:** sacar `BotonMako` («Editar con MaKo», que «Editar» abra el panel: lo miran ocho tests), la de General, y la guía
+  G3 que reemplaza `recorridos-dashboard.ts` y sus dos `Recorrido`.
+
 ## Cold Calling: un botón que ES la hoja, y un conjunto que cuenta lo que marcó la persona (4/11/2026, nube)
 
 **Vive en:** `lib/graficos-plantillas-generales.ts` (la plantilla `cold-calling` y su campo `acciones`), `lib/graficos-fuentes-extra.ts`

@@ -61,7 +61,8 @@ test('el editor monta la estrella con la hoja, en «analizar», fuera de un link
   // (23/10/2026: ni en las Métricas de una automatización, que viven en /automations, con su propio chat de MaKo.)
   // (24/10/2026: y con lo que hay en pantalla, `pantallaMako`: tests/estrella-ve-la-hoja.test.ts.)
   assert.match(ed, /const conEstrella = !compartido && !esAutomatizacion;/);
-  assert.match(ed, /\{conEstrella && <MakoEnLaTab tab=\{esGeneral \? 'General' : 'Dashboard'\} entidad=\{entidadDeHoja\(hoja\)\} modo="analizar" pedido=\{pedidoMako\} pantalla=\{pantallaMako\} \/>\}/);
+  // La apertura de MaKo (5/11/2026, `apertura=`) va antes de la entidad sin cambiar lo que esto cuida.
+  assert.match(ed, /\{conEstrella && <MakoEnLaTab tab=\{esGeneral \? 'General' : 'Dashboard'\} (?:apertura=\{aperturaTab\} )?entidad=\{entidadDeHoja\(hoja\)\} modo="analizar" pedido=\{pedidoMako\} pantalla=\{pantallaMako\} \/>\}/);
   assert.match(ed, /window\.addEventListener\(EVENTO_PREGUNTA_GRAFICO, oir\);/);
   assert.match(ed, /preguntarAMako\(\{ titulo: tituloDe\(c\), contexto: contextoDeGrafico\(c, r, efectivoDe\(c, lienzo, vista, hoy\)\) \}\);/, 'el clic derecho también');
   assert.doesNotMatch(ed, /ChatMakoAbierto|setChatMako/);

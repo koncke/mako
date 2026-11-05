@@ -1267,4 +1267,19 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: "5 nov", hora: "17:00", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo toma la iniciativa en el Dashboard: «¿Qué número miras primero cada lunes?» con la hoja en blanco",
+    puntos: [
+      "Con el informe en blanco, la estrella pregunta un hecho y cada respuesta crea su plantilla de la galería, sin IA: «Lo cobrado» Comercial, «Los leads» Marketing, «Las llamadas» Closing.",
+      "Sólo a quien puede guardar y sólo en el Dashboard (la hoja Focus de General queda para después).",
+    ],
+    revisar: "/dashboard",
+    archivos: [
+      "lib/aperturas/dashboard.ts — la apertura, pura",
+      "app/dashboard/EditorInforme.tsx — el montaje en la estrella",
+      "tests/iniciativa-dashboard.test.ts — probado rompiéndolo (2 roturas)",
+    ],
+  },
 ];
