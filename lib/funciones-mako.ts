@@ -84,6 +84,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     hace: [
       'Hojas de Marketing y Comercial con 40 tipos de gráfico, estilo editable y control de período',
       'Las hojas de análisis: Ads Analyst, Closing (las llamadas de venta de Fathom con método SPIN), VSL Analyst, Chat Analyst y CS Analyst',
+      // 5/11/2026: lo que Martín le prometió a Código Inmobiliario (lib/primer-contacto.ts).
+      'El primer contacto: cuánto tarda una persona en escribirle o llamar a cada lead nuevo, sin contar los mensajes automáticos (en la hoja Closing y como gráfico «Primer contacto»)',
       'Focus: el objetivo y la acción del día, los KPIs, el semáforo y el mes',
       '«Editar con MaKo»: pedir un gráfico o probar un experimento y medirlo contra el dato real',
     ],

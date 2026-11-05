@@ -14,6 +14,7 @@
 import type { Hoja } from './graficos-catalogo';
 import type { Resultado } from './graficos-agregar';
 import { estadoDeLlamada, type LlamadaDeVenta } from './calendario-llamadas';
+import type { Espero, ResumenPrimerContacto } from './primer-contacto';
 
 /** Lo que la pantalla tiene de cada gráfico: cargando, el resultado o el error. */
 export type DatosPieza = { cargando?: boolean; resultado?: Resultado | null; error?: string } | undefined;
@@ -22,6 +23,14 @@ export type DatosPieza = { cargando?: boolean; resultado?: Resultado | null; err
 export type ProximaLlamada = { nombre: string; cual: 'R1' | 'R2'; inicio: string; diaCompleto: boolean; closer: string | null; leadId: number };
 /** Lo que el diseño lee de la agenda: cuántas hay agendadas por día (hacia adelante) y la próxima. */
 export type AgendaClosing = { porDia: Record<string, number>; proxima: ProximaLlamada | null; /** La zona del negocio («En 2 h», «Mañana»). */ tz: string };
+/**
+ * La tarjeta «Primer contacto» (5/11/2026, lo que Martín le prometió a Código Inmobiliario): el resumen de los leads de los
+ * últimos `dias` días y los que más esperaron (con su nombre: sólo para quien ve el CRM, como la agenda). `{ fallo: true }` = no
+ * se pudo leer (la tarjeta lo dice, no muestra un cero). Viaja como EXTRA y no como pieza de la plantilla: así llega también a las
+ * hojas Closing ya guardadas, y la plantilla sigue en sus 14 paneles y con lo que puede leer el closer. Lo arma
+ * `primerContactoParaElClosing` (lib/closing-diseno-server.ts).
+ */
+export type ContactoClosing = { dias: number; resumen: ResumenPrimerContacto; esperaron: Espero[] } | { fallo: true };
 
 export type Segmento = { id: 'r1' | 'r2' | 'sin' | 'perdida'; nombre: string; n: number; pct: number };
 export type DiaSemana = { dia: string; etiqueta: string; valor: number | null; tipo: 'hecho' | 'hoy' | 'agenda' };

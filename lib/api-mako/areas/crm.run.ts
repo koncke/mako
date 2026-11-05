@@ -30,6 +30,8 @@ import { leerTodo } from '@/lib/supabase-paginado';
 import { aPasar, avisosDePasar, etapaSugerida, etapasElegibles } from '@/lib/pasar-funnel-reglas';
 import { mandarLeadsAPapelera, recuperarLeadsDePapelera, listarPapeleraDeLeads } from '@/lib/leads-papelera';
 import { leerBajasDeLeads } from '@/lib/leads-bajas';
+import { DIAS_PRIMER_CONTACTO, primerContactoDeLeads, primerContactoDelNegocio } from '@/lib/primer-contacto-server';
+import { ROTULO_CANAL_CONTACTO, cuentaParaPrimerContacto, duracionLegible, losQueMasEsperaron, tramoDePrimerContacto } from '@/lib/primer-contacto';
 import { DIAS_PAPELERA_LEADS, diasQuedan, textoQuedan } from '@/lib/leads-papelera-reglas';
 import { pideMotivo } from '@/app/crm/motivos-salida';
 import { porQueNoSeElimina, pipelineReordenado } from '@/lib/etapas-crm-reglas';
@@ -1657,6 +1659,38 @@ export const RUNNERS: Runners = {
       const mal = r.fallaron ? ` ${r.fallaron} siguen en la papelera (${r.motivos.slice(0, 2).join(' · ')}).` : '';
       return { ok: r.hechos.length > 0, resumen: `Listo: ${r.hechos.length} de vuelta en el CRM.${mal}${quedan(r.pendientes)}` };
     }),
+  },
+  // EL PRIMER CONTACTO (5/11/2026, lib/primer-contacto.ts): la MISMA lectura que la tarjeta de Closing y el conjunto del Dashboard.
+  tiempo_primer_contacto: {
+    leer: async (input) => {
+      const legible = (m: number | null) => duracionLegible(m);
+      const leadId = n(input.leadId);
+      if (leadId != null) {
+        const { data, error } = await (await getTenantDb()).from('leads').select('id, nombre, created_at, origen_lead, setter, funnel_id').eq('id', leadId).maybeSingle();
+        if (error) return fallo('No pude leer ese lead. Intenta de nuevo.');
+        if (!data) return fallo(noExiste(leadId));
+        const l = data as { id: number; nombre: string | null; created_at: string; origen_lead: string | null; setter: string | null; funnel_id: number | null };
+        if (!cuentaParaPrimerContacto(l.origen_lead)) {
+          return json({ leadId: l.id, nombre: l.nombre, entro: l.created_at, cuenta: false, porque: 'No llegó solo (se cargó a mano, se importó, es de prueba o se trajo de un grupo): cuánto tardaron en contactarlo no mide nada.' });
+        }
+        const [x] = await primerContactoDeLeads([{ id: Number(l.id), nombre: l.nombre, entro: l.created_at, origen: l.origen_lead, setter: l.setter, funnelId: l.funnel_id }]);
+        return json({
+          leadId: l.id, nombre: l.nombre, entro: l.created_at, estado: tramoDePrimerContacto(x.pc), canal: x.pc.canal ? ROTULO_CANAL_CONTACTO[x.pc.canal] : null,
+          tardo: legible(x.pc.minutos), esperando: legible(x.pc.esperandoMinutos), automaticoA: legible(x.pc.automaticoMinutos),
+        });
+      }
+      const dias = Math.max(1, Math.min(90, Math.trunc(n(input.dias) ?? DIAS_PRIMER_CONTACTO)));
+      const r = await primerContactoDelNegocio(dias);
+      const z = r.resumen;
+      return json({
+        dias, leads: z.leads, contactados: z.contactados, mediana: legible(z.medianaMinutos), losMasLentos: legible(z.p90Minutos),
+        enLaPrimeraHora: z.baseLaPrimeraHora ? `${z.enLaPrimeraHora} de ${z.baseLaPrimeraHora}` : null,
+        sinContactar: Math.max(0, z.sinContactar - z.aTiempo), aTiempoTodavia: z.aTiempo, noSeSabe: z.noSeSabe, yaHablabanAntes: z.antes,
+        lesEscribioPrimeroUnaAutomatizacion: z.conAutomatico,
+        esperaron: losQueMasEsperaron(r.leads, 10).map((e) => ({ leadId: e.id, nombre: e.nombre, estado: e.estado === 'sin_contactar' ? 'sin contactar' : 'contactado', espera: legible(e.minutos) })),
+        ...(z.noSeSabe ? { nota: 'A los de «No se sabe» les salió primero un WhatsApp de antes de que MaKo separara lo automático: no se sabe si lo escribió una persona.' } : {}),
+      });
+    },
   },
   armar_tab_ficha: {
     preparar: async (input, ctx) => {

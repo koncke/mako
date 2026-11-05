@@ -123,6 +123,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/papelera', 'ver_papelera_crm'],
   ['GET', '/crm/bajas', 'ver_bajas_de_leads'],
   ['GET', '/crm/nombres', 'ver_nombres_del_crm'],
+  ['GET', '/crm/primer-contacto', 'tiempo_primer_contacto'],
   ['POST', '/crm/nombres/palabra', 'marcar_palabra_no_nombre'],
   ['POST', '/crm/papelera', 'mandar_en_bloque_a_papelera'],
   ['POST', '/crm/papelera/recuperaciones', 'recuperar_de_papelera_crm'],
