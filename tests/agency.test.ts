@@ -238,7 +238,20 @@ test('las acciones las usa sólo el admin, y en un archivo use server sólo se e
   for (const m of acc.matchAll(/^export\s+(\S+\s+\S+)/gm)) assert.equal(m[1], 'async function', m[0]);
   // ⚠️ Cuatro desde el 27/10/2026: «Aplicar plantilla» (MAU-01) pregunta lo mismo, salvo el super admin. Seis desde el 29/10:
   // «Dar de baja» y «Cambiar el plan» de la cuenta de un cliente.
-  assert.equal((acc.match(/await adminDeWorkspaceActual\(\)/g) ?? []).length, 6, 'las seis acciones preguntan el admin');
+  // ⚠️ Desde el 5/11/2026 (la mensualidad, lib/agencia-mes.ts) no se cuentan: se mira CADA acción exportada. Contar dejaba
+  // pasar una acción nueva sin puerta si otra sumaba una llamada de más. Las de la agencia preguntan el admin; las de la
+  // mensualidad, `superAdminEnLaAgencia`, que exige el super admin Y que esté parado en una agencia. Probado rompiéndolo: sin la
+  // puerta en `corregirRelojAction` → 1 fallo; la puerta sin `getSesionAdmin` → 1 fallo.
+  const cuerpos = acc.split(/^export async function /m).slice(1);
+  assert.ok(cuerpos.length >= 10, `se leyeron ${cuerpos.length} acciones`);
+  for (const c of cuerpos) {
+    const nombre = c.slice(0, c.indexOf('('));
+    const cuerpo = c.slice(0, c.search(/^}\s*$/m) + 1);
+    assert.match(cuerpo, /await (adminDeWorkspaceActual|superAdminEnLaAgencia)\(\)/, `${nombre}: sin puerta`);
+  }
+  const puerta = acc.slice(acc.indexOf('async function superAdminEnLaAgencia'), acc.indexOf('export async function marcarMesPagadoAction'));
+  assert.ok(puerta.length > 0 && puerta.indexOf('await getSesionAdmin()') >= 0 && puerta.indexOf('await getSesionAdmin()') < puerta.indexOf('await adminDeWorkspaceActual()'),
+    'la mensualidad la anota sólo el super admin, y parado en una agencia');
 });
 
 test('el CRM y la tab abren el MISMO modal, por portal, y un lead con cuenta no pide nada', () => {

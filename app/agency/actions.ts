@@ -24,6 +24,7 @@ import { headers } from 'next/headers';
 import { paisDelVisitante } from '@/lib/compra-plan-reglas';
 import { planCuentaDe } from '@/lib/agencia-cobro-reglas';
 import { cambiarPlanDeCliente } from '@/lib/agencia-plan';
+import { apagarMensualidad, corregirRelojDeCliente, marcarMesPagado, prenderMensualidad, quitarMesPagado } from '@/lib/agencia-mes';
 
 const emailDeQuienMira = () => getUsuarioActual().then((u) => u?.email ?? null).catch(() => null);
 
@@ -131,5 +132,72 @@ export async function cambiarPlanClienteAction(clienteWs: number, plan: string):
     return r;
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo cambiar el plan.' };
+  }
+}
+
+// ── La MENSUALIDAD de la agencia (acuerdo del 30/10/2026, lib/agencia-mes.ts) ─────────────────────────────────────────
+// Todo lo que escribe es del SUPER ADMIN parado en la agencia: marcar un mes pagado, corregir el reloj de un cliente y
+// prender o apagar la mensualidad. La agencia la LEE (viene con el HTML de la página); no anota sus propios pagos.
+
+type ResultadoMensualidad = { ok: true; resumen: string; yaEstaba?: true } | { ok: false; error: string };
+
+/** La puerta: el super admin, parado en una agencia (su `?ws=`). Devuelve la agencia y quién firma, o el error. */
+async function superAdminEnLaAgencia(): Promise<{ agenciaWs: number; autor: string } | { error: string }> {
+  const sesion = await getSesionAdmin();
+  if (!sesion) return { error: 'Sólo el super admin anota la mensualidad.' };
+  const agenciaWs = await adminDeWorkspaceActual();
+  if (!agenciaWs) return { error: 'Entra a la agencia desde Agency Dashboard para anotar su mensualidad.' };
+  return { agenciaWs, autor: (await emailDeQuienMira()) ?? 'super admin' };
+}
+
+/** Marca un mes «Pagado», con el día en que entró. */
+export async function marcarMesPagadoAction(mes: string, pagadoEl: string): Promise<ResultadoMensualidad> {
+  try {
+    const p = await superAdminEnLaAgencia();
+    if ('error' in p) return { ok: false, error: p.error };
+    const r = await marcarMesPagado({ agenciaWs: p.agenciaWs, mes: String(mes), pagadoEl: String(pagadoEl), autor: p.autor });
+    if (r.ok) revalidatePath('/agency');
+    return r.ok ? { ok: true, resumen: r.resumen, ...(r.yaEstaba ? { yaEstaba: true as const } : {}) } : { ok: false, error: r.error };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude marcarlo pagado.' };
+  }
+}
+
+/** Saca la marca de «Pagado» (el «Deshacer»): sólo si sigue con la fecha que se marcó. */
+export async function quitarMesPagadoAction(mes: string, pagadoEl: string | null): Promise<ResultadoMensualidad> {
+  try {
+    const p = await superAdminEnLaAgencia();
+    if ('error' in p) return { ok: false, error: p.error };
+    const r = await quitarMesPagado({ agenciaWs: p.agenciaWs, mes: String(mes), pagadoEl: pagadoEl ? String(pagadoEl) : null });
+    if (r.ok) revalidatePath('/agency');
+    return r;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude sacar la marca.' };
+  }
+}
+
+/** Corrige desde qué día corren los 14 días de un cliente (`null`: desde la invitación). */
+export async function corregirRelojAction(clienteWs: number, dia: string | null): Promise<ResultadoMensualidad> {
+  try {
+    const p = await superAdminEnLaAgencia();
+    if ('error' in p) return { ok: false, error: p.error };
+    const r = await corregirRelojDeCliente({ agenciaWs: p.agenciaWs, clienteWs: Number(clienteWs), dia: dia ? String(dia) : null });
+    if (r.ok) revalidatePath('/agency');
+    return r;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude corregir la fecha.' };
+  }
+}
+
+/** Prende la mensualidad desde un mes (`AAAA-MM`), o la apaga con `desde: null`. */
+export async function mensualidadPrendidaAction(desde: string | null): Promise<ResultadoMensualidad> {
+  try {
+    const p = await superAdminEnLaAgencia();
+    if ('error' in p) return { ok: false, error: p.error };
+    const r = desde ? await prenderMensualidad({ agenciaWs: p.agenciaWs, desde: String(desde), autor: p.autor }) : await apagarMensualidad({ agenciaWs: p.agenciaWs });
+    if (r.ok) revalidatePath('/agency');
+    return r;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude cambiar la mensualidad.' };
   }
 }

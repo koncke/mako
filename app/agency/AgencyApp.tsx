@@ -36,6 +36,9 @@ import { PlantillaDeModelo } from './PlantillaDeModelo';
 import { DarDeBaja } from './DarDeBaja';
 import { ConfirmDialog } from '@/app/_components/ChatItemMenu';
 import { cambiarPlanClienteAction } from './actions';
+import { CorregirReloj, Mensualidad } from './Mensualidad';
+import type { Mensualidad as DatosMensualidad, FilaMensualidad } from '@/lib/agencia-mes';
+import { textoDeSituacion, usd as usdMes } from '@/lib/agencia-mes-reglas';
 
 type Segmento = 'todas' | 'activas' | 'por-pagar' | 'revocadas';
 type Tono = 'warn' | 'good' | 'neutral' | 'bad';
@@ -64,7 +67,7 @@ const fecha = (iso: string) => {
 };
 const usdTxt = (n: number) => `US$ ${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
 
-export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, superAdmin, perfil }: {
+export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, superAdmin, perfil, mensualidad = null, verMensualidad = false }: {
   cartera: CarteraPartner;
   cuentaInicial: number | null;
   /** `?nuevo=<leadId>`: lo propuso MaKo; se abre el alta con ese lead. */
@@ -75,6 +78,10 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
   superAdmin: boolean;
   /** Lo que la agencia contó al sumarse: propone primero quién paga. */
   perfil: PerfilAgency | null;
+  /** La mensualidad por fuera de MaKo (lib/agencia-mes.ts): null = no se muestra (apagada, y no es el super admin). */
+  mensualidad?: DatosMensualidad | null;
+  /** `?vista=mensualidad`: el link de los avisos baja hasta ella. */
+  verMensualidad?: boolean;
 }) {
   const router = useRouter();
   const { toast, show, clear } = useToast();
@@ -91,6 +98,11 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
     const n = (s: Segmento) => cuentas.filter((c) => enSegmento(c, s)).length;
     return { todas: cuentas.length, activas: n('activas'), 'por-pagar': n('por-pagar'), revocadas: n('revocadas') } as Record<Segmento, number>;
   }, [cuentas]);
+  const mesPrendido = mensualidad?.ok && mensualidad.config ? mensualidad.actual : null;
+  // Con la mensualidad prendida, cada cuenta dice desde cuándo cuenta (en vez de quién paga: lo paga todo la agencia). El super
+  // admin lo ve también con la mensualidad apagada: así corrige una fecha antes de prenderla.
+  const delMes = useMemo(() => new Map(mensualidad?.ok && (mensualidad.config || superAdmin) ? mensualidad.clientes.map((c) => [c.ws, c]) : []), [mensualidad, superAdmin]);
+  const enMes = (c: CuentaPartner) => delMes.get(c.ws) ?? null;
   const kpis = useMemo(() => {
     const activas = cuentas.filter((c) => c.estado === 'aprobado');
     const pagasTu = activas.filter((c) => c.paga === 'agencia').length;
@@ -200,10 +212,28 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
         <>
           <div className="ad-kpis">
             <Kpi valor={kpis.activas} rotulo={kpis.activas === 1 ? 'Cuenta activa' : 'Cuentas activas'} />
-            <Kpi valor={kpis.porPagar} rotulo="Esperando un pago" tono={kpis.porPagar ? 'warn' : undefined} />
-            <Kpi valor={usd != null ? usdTxt(kpis.pagasTu * usd) : kpis.pagasTu} rotulo={`Pagas tú al mes · ${kpis.pagasTu} ${kpis.pagasTu === 1 ? 'cuenta' : 'cuentas'}`} />
-            <Kpi valor={kpis.paganEllos} rotulo={kpis.paganEllos === 1 ? 'La paga tu cliente' : 'Las pagan tus clientes'} />
+            {mesPrendido ? (
+              <Kpi valor={new Set(mesPrendido.cuenta.lineas.flatMap((l) => (l.tipo === 'agencia' ? [] : [l.ws]))).size} rotulo="Clientes en tu mensualidad" />
+            ) : (
+              <Kpi valor={kpis.porPagar} rotulo="Esperando un pago" tono={kpis.porPagar ? 'warn' : undefined} />
+            )}
+            {/* Con la mensualidad prendida, lo que se paga este mes es su total (plan de la agencia y clientes que cuentan). */}
+            {mesPrendido ? (
+              <Kpi valor={usdMes(mesPrendido.cuenta.totalUsd)} rotulo={`Tu mensualidad · ${mesPrendido.pago ? 'pagada' : 'sin pagar'}`} tono={mesPrendido.pago ? undefined : 'warn'} />
+            ) : (
+              <Kpi valor={usd != null ? usdTxt(kpis.pagasTu * usd) : kpis.pagasTu} rotulo={`Pagas tú al mes · ${kpis.pagasTu} ${kpis.pagasTu === 1 ? 'cuenta' : 'cuentas'}`} />
+            )}
+            {mesPrendido ? (
+              <Kpi valor={[...delMes.values()].filter((f) => f.situacion.tipo === 'sin-costo').length} rotulo="Todavía sin costo" />
+            ) : (
+              <Kpi valor={kpis.paganEllos} rotulo={kpis.paganEllos === 1 ? 'La paga tu cliente' : 'Las pagan tus clientes'} />
+            )}
           </div>
+
+          {mensualidad && (
+            <Mensualidad m={mensualidad} superAdmin={superAdmin} ver={verMensualidad}
+              onAviso={(t, tono, deshacer) => show(t, deshacer, tono)} />
+          )}
 
           {cuentas.length === 0 ? (
             <EmptyState titulo="Todavía no tienes clientes en tu Agency Dashboard"
@@ -225,9 +255,9 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
                 <input className="ad-buscar" type="search" value={q} onChange={(e) => setQ(e.target.value)}
                   placeholder="Buscar un cliente" aria-label="Buscar un cliente" />
               </div>
-              <div className="ad-tabla" role="table" aria-label="Las cuentas de tus clientes">
+              <div className={delMes.size ? 'ad-tabla ad-tabla--mes' : 'ad-tabla'} role="table" aria-label="Las cuentas de tus clientes">
                 <div className="ad-th" role="row">
-                  <span role="columnheader">Cliente</span><span role="columnheader">Estado</span><span role="columnheader">Quién paga</span>
+                  <span role="columnheader">Cliente</span><span role="columnheader">Estado</span><span role="columnheader">{delMes.size ? 'Mensualidad' : 'Quién paga'}</span>
                   <span role="columnheader">Equipo</span><span role="columnheader">Desde</span><span role="columnheader" />
                 </div>
                 {visibles.map((c) => {
@@ -239,7 +269,11 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
                         <span className="ad-txt"><b>{c.nombre}</b><span>{c.plan ?? 'Cuenta de MaKo'}{c.lead ? ' · en tu CRM' : ''}</span></span>
                       </button>
                       <span className="ad-est" data-tono={e.tono} role="cell"><i />{e.texto}</span>
-                      <span role="cell"><span className="ad-chip" data-paga={c.paga}>{ROTULO_QUIEN_PAGA[c.paga]}</span></span>
+                      {delMes.size ? (
+                        <span role="cell"><SituacionMes fila={enMes(c)} /></span>
+                      ) : (
+                        <span role="cell"><span className="ad-chip" data-paga={c.paga}>{ROTULO_QUIEN_PAGA[c.paga]}</span></span>
+                      )}
                       <span className="ad-equipo" role="cell"><Caras equipo={c.equipo} /></span>
                       <span className="ad-desde" role="cell">{fecha(c.desde)}</span>
                       <span className="ad-fila-acc" role="cell">{accionDe(c)}</span>
@@ -274,7 +308,15 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
           pie={<span className="ad-fila-acc">{accionDe(abierta)}</span>}>
           <dl className="ad-datos">
             <div><dt>Estado</dt><dd>{estadoDe(abierta).texto}</dd></div>
-            <div><dt>Quién paga</dt><dd>{ROTULO_QUIEN_PAGA[abierta.paga]}</dd></div>
+            {enMes(abierta) ? (
+              <div><dt>Mensualidad</dt><dd><SituacionMes fila={enMes(abierta)} />
+                {superAdmin && abierta.estado !== 'revocado' && mensualidad?.ok && (
+                  <CorregirReloj key={abierta.ws} fila={enMes(abierta)!} puede={mensualidad.puedeCorregir} onAviso={(t, tono, deshacer) => show(t, deshacer, tono)} />
+                )}
+              </dd></div>
+            ) : (
+              <div><dt>Quién paga</dt><dd>{ROTULO_QUIEN_PAGA[abierta.paga]}</dd></div>
+            )}
             <div><dt>Desde</dt><dd>{fecha(abierta.desde)}</dd></div>
             {abierta.plan && (
               <div><dt>Plan</dt><dd>{abierta.plan}
@@ -345,6 +387,13 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
       <Toast state={toast} onClose={clear} />
     </Pagina>
   );
+}
+
+/** Desde cuándo cuenta una cuenta en la mensualidad (lib/agencia-mes-reglas.ts, `textoDeSituacion`). */
+function SituacionMes({ fila }: { fila: FilaMensualidad | null }) {
+  if (!fila) return <span className="ad-gris">—</span>;
+  const t = textoDeSituacion(fila.situacion);
+  return <span className="ad-est ad-est--mes" data-tono={t.tono ?? undefined} title={fila.corregido ? `Sus 14 días corren desde el ${fila.corregido.slice(8, 10)}/${fila.corregido.slice(5, 7)} (fecha corregida)` : undefined}><i />{t.texto}</span>;
 }
 
 function Kpi({ valor, rotulo, tono }: { valor: ReactNode; rotulo: string; tono?: 'warn' }) {
@@ -472,6 +521,9 @@ const CSS = `
 .ad-est[data-tono="good"] i{ background:var(--good); }
 .ad-est[data-tono="warn"] i{ background:var(--warn); }
 .ad-est[data-tono="bad"] i{ background:var(--bad); }
+.ad-est--mes{ font-weight:550; font-size:13px; white-space:nowrap; }
+/* Con la mensualidad, su columna necesita lugar para «Sin costo hasta el 11/11» en un renglón; cede el equipo. Cabe en 1024. */
+.ad-tabla--mes .ad-th, .ad-tabla--mes .ad-fila{ grid-template-columns:minmax(180px, 2fr) minmax(130px, 1fr) minmax(165px, 1.2fr) 80px 100px minmax(120px, auto); }
 .ad-chip{ display:inline-block; font-size:12px; font-weight:650; padding:3px 10px; border-radius:999px; white-space:nowrap;
   background:var(--surface-2); color:var(--dim); }
 .ad-chip[data-paga="agencia"]{ background:var(--primary-bg); color:var(--primary); }
@@ -497,7 +549,7 @@ const CSS = `
 @media (max-width: 980px){
   .ad-kpis{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .ad-th{ display:none; }
-  .ad-fila, .ad-fila--ag{ grid-template-columns:1fr auto; row-gap:4px; padding:8px 12px 12px 8px; }
+  .ad-fila, .ad-fila--ag, .ad-tabla--mes .ad-fila{ grid-template-columns:1fr auto; row-gap:4px; padding:8px 12px 12px 8px; }
   .ad-abrir{ grid-column:1 / -1; }
   .ad-est, .ad-num{ padding-left:6px; }
   .ad-equipo, .ad-desde{ display:none; }

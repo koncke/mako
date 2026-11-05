@@ -520,4 +520,36 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-generator',
   },
+  {
+    fecha: '5 nov', hora: '12:30', chat: 'Agencia › Mensualidad', sesion: 'cli_6296ebf3-1e24-5957-8413-d80fe6d457fb', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El cobro de una agencia: 14 días sin costo por cliente, un pago por mes por Binance, y el aviso automático',
+    pedido: 'Construí el cobro de una agencia en MaKo, según lo acordado con Código Inmobiliario el 30/10/2026. La agencia paga su plan (US$97) y cada cliente adentro paga el suyo (US$47). Desde que la agencia invita a un cliente corren 14 días sin cobro; después ese cliente cuenta. Si lo dan de baja antes de los 14 días, no se cobra. Se paga una sola vez por mes, entre el 1 y el 5, por fuera de MaKo (Binance). El día 1 de cada mes, aviso a los admins de la agencia con el total y el detalle, por la app y por correo; y un aviso 2 días antes de que venza el plazo de un cliente, para que lo den de baja si no pagó.',
+    puntos: [
+      'Lo trajo el Cerebro con el acuerdo de la llamada del 30/10 con Juanfran y Joan (negocio 13). Martín les prometió que el reloj y el aviso serían automáticos; las palabras textuales de la llamada no están en el repo.',
+      'MaKo no cobra: calcula, avisa y el super admin anota lo que entró. Por WhatsApp no: los grupos automáticos están apagados desde el ban del 3/11.',
+    ],
+    revisar: '/agency',
+  },
+  {
+    fecha: '5 nov', hora: '12:30', chat: 'Agencia › Mensualidad', sesion: 'cli_6296ebf3-1e24-5957-8413-d80fe6d457fb', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La mensualidad de una agencia: quién cuenta, desde cuándo, el total del mes, «Pagado» y los avisos',
+    puntos: [
+      'En el Agency Dashboard, la mensualidad del mes: el total, cada renglón (el plan de la agencia y cada cliente que cuenta), hasta qué día se paga y si está pagada. La columna «Mensualidad» de la lista dice desde cuándo cuenta cada cliente o hasta cuándo está sin costo.',
+      'El super admin, parado en la agencia: «Marcar pagado» con la fecha (con «Deshacer»), «Corregir fecha» en la ficha de un cliente y prender o apagar la mensualidad. Está APAGADA para todas: hay que prenderla en el negocio 13.',
+      'Se paga el mes por adelantado por los que cuentan el día 1; los días del mes en que un cliente empezó a contar se suman al mes siguiente. Al 5/11, noviembre da US$ 285.',
+      'Todos los días a las 14:07 UTC: del 1 al 5, el aviso del mes (una vez, y no si está pagado); y a quien le quedan 1 o 2 días sin costo, el aviso a la agencia. Por la app y por correo.',
+      'En la API de MaKo: ver_mensualidad_agencia (la agencia) y, para el super admin, ver_mensualidades_agencias, marcar_mensualidad_pagada, corregir_reloj_mensualidad y prender_mensualidad_agencia.',
+      'Falta aplicar la migración 0394 (agencia_clientes.cobra_desde) y corregir la fecha de Giselle al 28/10.',
+    ],
+    archivos: [
+      'lib/agencia-mes-reglas.ts — lo puro: quién cuenta, el mes, los textos (tests/agencia-mes.test.ts)',
+      'lib/agencia-mes.ts — leer, marcar pagado, corregir la fecha, prender, y los avisos',
+      'app/agency/Mensualidad.tsx — la tarjeta de la mensualidad y «Corregir fecha»',
+      'app/api/cron/agencia-mensualidad/route.ts — el aviso diario',
+      'supabase/migrations/0394_agencia_cobra_desde.sql — la fecha corregida, sin aplicar',
+    ],
+    revisar: '/agency?vista=mensualidad',
+  },
 ];

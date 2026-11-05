@@ -234,6 +234,10 @@
       "schedule": "3 14 * * *"
     },
     {
+      "path": "/api/cron/agencia-mensualidad",
+      "schedule": "7 14 * * *"
+    },
+    {
       "path": "/api/cron/dashboard-analisis",
       "schedule": "8,23,38,53 * * * *"
     },

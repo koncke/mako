@@ -281,4 +281,13 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: CS,
   },
+  {
+    // LA MENSUALIDAD POR FUERA DE MaKo (acuerdo con Código Inmobiliario, 30/10/2026; lib/agencia-mes.ts). Va AL FINAL del área
+    // (AGENTS.md: una nueva no le saca el lugar a otra). Sin HTTP, como las demás de Agency: son cuentas de terceros.
+    id: 'ver_mensualidad_agencia', area: 'cs', tipo: 'lectura',
+    titulo: 'Ver la mensualidad de la agencia',
+    descripcion: 'Sólo para una AGENCY con la mensualidad por fuera de MaKo prendida: el total que paga este mes (su plan más el de cada cliente que cuenta), cada renglón, hasta qué día se paga (del 1 al 5, por Binance u otro medio que se acordó) y si ya está pagado. De cada cliente: desde qué día cuenta, o hasta qué día está sin costo (14 días desde que se lo invitó), o si se dio de baja. Un cliente que empieza a contar a mitad de mes suma sus días de ese mes al mes siguiente; si se da de baja antes de sus 14 días, no se cobra. Los pagos los anota MaKo: la agencia no los marca. Con la mensualidad apagada, sus cuentas se pagan con su link (ver_pagos_clientes_agencia).',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
 ];

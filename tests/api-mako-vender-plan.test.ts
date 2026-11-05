@@ -44,7 +44,12 @@ const RUN = sinComentarios(leer('lib/api-mako/areas/cobros.run.ts'));
 const RUNNER = (() => {
   const ini = RUN.indexOf('  vender_plan_mako: {');
   assert.ok(ini >= 0, 'no encontré el runner');
-  const r = RUN.slice(ini, RUN.indexOf('\n};', ini));
+  // Hasta el runner SIGUIENTE (o el fin del objeto): desde el 5/11/2026 vender_plan_mako ya no es el último (la mensualidad
+  // de una agencia va después), y cortar en el fin del objeto se llevaba los runners de otros.
+  const sig = /\n  [a-z_]+: \{/g;
+  sig.lastIndex = ini + 1;
+  const proximo = sig.exec(RUN);
+  const r = RUN.slice(ini, proximo ? proximo.index : RUN.indexOf('\n};', ini));
   assert.ok(r.length > 1500 && r.length < 7000, `el recorte mide ${r.length}: está mirando otra cosa`);
   return r;
 })();

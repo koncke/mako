@@ -353,4 +353,57 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
+  // ── LA MENSUALIDAD DE UNA AGENCIA, por fuera de MaKo (acuerdo con Código Inmobiliario, 30/10/2026; lib/agencia-mes.ts) ──
+  // MaKo no cobra: calcula, avisa el día 1 y dos días antes de que un cliente empiece a contar, y el super admin anota lo
+  // que entró. Sólo la plataforma y, en la app, el super admin GLOBAL (lo preguntan el runner y `faltaParaConfirmar`); sin
+  // HTTP; y las tres que escriben van en NO_EN_FLUJOS (lib/api-mako/flujo.ts): un paso de una automatización se confirma solo.
+  // Al final del área (AGENTS.md: una operación nueva no le saca el lugar a otra).
+  {
+    id: 'ver_mensualidades_agencias', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver las mensualidades de las agencias',
+    descripcion: 'Sólo para la plataforma: las agencias con la mensualidad por fuera de MaKo prendida y, de cada una, el total de este mes, hasta qué día se paga, si ya está pagado (y qué día) y los meses anteriores sin pagar. Con agenciaWs, el detalle de una: cada renglón, desde qué día cuenta cada cliente, a quién le quedan días sin costo y hasta cuándo, y desde qué día corre el reloj de cada uno (la invitación o la fecha corregida). Una agencia con la mensualidad apagada sale con apagada: true y cómo quedaría este mes.',
+    parametros: [
+      { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, descripcion: 'el número de cuenta de la agencia. Sin esto, todas.' },
+    ],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'marcar_mensualidad_pagada', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Marcar pagada la mensualidad de una agencia',
+    descripcion: 'Sólo el super admin: anota que una agencia pagó su mensualidad de un mes (por fuera de MaKo, por Binance u otro medio), con el día en que entró. Guarda el total de ese momento: lo que cambie después en su cartera no lo modifica. Con quitar: true, saca la marca (si se anotó por error). Sólo meses desde que se prendió y hasta el actual.',
+    escribe: 'el pago del mes de esa agencia (app_settings de la plataforma, agencia.mensualidad.<agencia>.pago.<mes>)',
+    parametros: [
+      { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta de la agencia (de ver_mensualidades_agencias).' },
+      { nombre: 'mes', rotulo: 'Mes', tipo: 'string', obligatorio: true, max: 7, descripcion: 'AAAA-MM, el mes que pagó.' },
+      { nombre: 'pagadoEl', rotulo: 'Día del pago', tipo: 'string', max: 10, descripcion: 'AAAA-MM-DD en que entró el pago. Sin esto, hoy.' },
+      { nombre: 'quitar', rotulo: 'Quitar la marca', tipo: 'boolean', descripcion: 'true: saca la marca de pagado de ese mes.' },
+    ],
+    canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'corregir_reloj_mensualidad', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Corregir el reloj de un cliente',
+    descripcion: 'Sólo el super admin: corrige el día desde el que corren los 14 días sin costo de un cliente de una agencia (por ejemplo, una cuenta que nació antes como prueba). Empieza a contar 14 días después de esa fecha. Con dia vacío, vuelve a la fecha en que la agencia lo invitó.',
+    escribe: 'la fecha del reloj del cliente en la cartera de la agencia (agencia_clientes.cobra_desde)',
+    parametros: [
+      { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta de la agencia.' },
+      { nombre: 'clienteWs', rotulo: 'Cliente', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta del cliente (de ver_mensualidades_agencias con agenciaWs).' },
+      { nombre: 'dia', rotulo: 'Desde', tipo: 'string', max: 10, descripcion: 'AAAA-MM-DD desde el que corren sus 14 días. Sin esto, desde la invitación.' },
+    ],
+    canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    // aTerceros: prenderla hace que MaKo les escriba a los admins de la agencia (la app y el correo) cada mes.
+    id: 'prender_mensualidad_agencia', aTerceros: true, area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Prender o apagar la mensualidad de una agencia',
+    descripcion: 'Sólo el super admin: prende la mensualidad por fuera de MaKo de una agencia desde un mes (el primero que se factura así; los días de antes no se cobran) y por qué medio paga (sin esto, Binance). Desde ahí MaKo le avisa a sus admins el total el día 1 de cada mes, y dos días antes de que un cliente empiece a contar, por la app y por correo. Con apagar: true, deja de avisar; lo pagado queda anotado. Apagada, la agencia sigue con el cobro por su link.',
+    escribe: 'la mensualidad de la agencia (app_settings de la plataforma, agencia.mensualidad.<agencia>.config)',
+    parametros: [
+      { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta de la agencia.' },
+      { nombre: 'desde', rotulo: 'Desde', tipo: 'string', max: 7, descripcion: 'AAAA-MM, el primer mes que se factura así. Sin esto, el actual.' },
+      { nombre: 'medio', rotulo: 'Medio de pago', tipo: 'string', max: 40, descripcion: 'por dónde paga (sin esto, Binance).' },
+      { nombre: 'apagar', rotulo: 'Apagar', tipo: 'boolean', descripcion: 'true: la apaga.' },
+    ],
+    canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
 ];

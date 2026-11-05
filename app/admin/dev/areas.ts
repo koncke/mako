@@ -955,6 +955,8 @@ export const AREAS: AreaDev[] = [
       'lib/cobros.ts', 'lib/cobros-tipos.ts', 'lib/cobros-reglas.ts', 'lib/cobros-conexion.ts', 'lib/cobros-eventos.ts', 'lib/cobros-webhook.ts',
       'lib/pasarela-eventos.ts', 'lib/pasarela-firma.ts', 'lib/pasarela-moneda.ts', 'lib/stripe-api.ts', 'lib/stripe-form.ts', 'lib/mercadopago-api.ts',
       'lib/alta-cliente.ts',
+      // La mensualidad de una agencia por fuera de MaKo (acuerdo con Código Inmobiliario, 30/10/2026): calcula y avisa, no cobra.
+      'lib/agencia-mes.ts', 'lib/agencia-mes-reglas.ts', 'app/agency/Mensualidad.tsx', 'app/api/cron/agencia-mensualidad/route.ts', 'supabase/migrations/0394_agencia_cobra_desde.sql', 'tests/agencia-mes.test.ts',
       'app/api/webhooks/stripe/route.ts', 'app/api/webhooks/mercadopago/route.ts', 'app/api/cron/cobros-reconciliar/route.ts',
       'app/pagar/[token]/route.ts', 'app/pagar/[token]/listo/page.tsx', 'app/pagar/[token]/listo/AccesoMako.tsx', 'app/pagar/acceso.ts', 'app/pagar/cambio-email.ts',
       'app/api/pagar/email/route.ts', 'app/reembolsos/page.tsx',

@@ -42,8 +42,12 @@ import { vistaDeClientes } from '@/lib/clientes-plataforma';
 import { nombreDePlan } from '@/lib/clientes-plataforma-reglas';
 import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { PREFIJO_FLUJO } from '../canal';
+import { agenciasHabilitadas } from '@/lib/agencia';
+import { apagarMensualidad, corregirRelojDeCliente, FALTA_LA_0394, marcarMesPagado, mensualidadDeAgencia, mensualidadParaMako, prenderMensualidad, quitarMesPagado } from '@/lib/agencia-mes';
+import { esDia as esDiaMes, esMes, sumarDias as sumarDiasMes, usd as usdMes } from '@/lib/agencia-mes-reglas';
 
 const NO_SUPER_ADMIN = 'Sólo el super admin vende planes de MaKo.';
+const NO_SUPER_ADMIN_MES = 'Sólo el super admin anota la mensualidad de una agencia.';
 /** ¿Quien confirma es el super admin GLOBAL? Fuera de un request (un flujo, un cron) no hay cookies: eso es un «no». */
 async function esSuperAdmin(): Promise<boolean> {
   try { return (await getSesionAdmin()) != null; } catch { return false; }
@@ -897,6 +901,136 @@ export const RUNNERS: Runners = {
         paraLaPersona: `Link de pago: ${r.link}`,
         datos: { cobroId: r.cobroId, url: r.link, monto: r.monto, moneda: r.moneda },
       };
+    }),
+  },
+
+  // ── La mensualidad de una agencia, por fuera de MaKo (lib/agencia-mes.ts) ────────────────────────────────────────
+  // Sólo la plataforma, y en la app el super admin GLOBAL: lo pregunta cada runner (el gating `soloPlataforma` es el admin
+  // del workspace de la plataforma, no el super admin) y `faltaParaConfirmar`, antes de reclamar la pendiente.
+  ver_mensualidades_agencias: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Las mensualidades de las agencias son sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo(NO_SUPER_ADMIN_MES);
+      const una = n(input.agenciaWs);
+      if (una != null) {
+        const m = await mensualidadDeAgencia(una);
+        return m.ok ? json(mensualidadParaMako(m)) : fallo(`No pude armar su mensualidad: ${m.error}`);
+      }
+      const agencias = await agenciasHabilitadas();
+      const filas = await Promise.all(agencias.map(async ({ ws }) => {
+        const m = await mensualidadDeAgencia(ws);
+        if (!m.ok) return { agencia_ws: ws, error: m.error };
+        return {
+          agencia_ws: ws, agencia: m.agencia, apagada: m.config == null, medio: m.config?.medio ?? null,
+          mes: m.actual.mes, total_usd: m.actual.cuenta.totalUsd, se_paga_hasta: m.actual.cuenta.limite,
+          pagado: m.actual.pago != null, pagado_el: m.actual.pago?.pagadoEl ?? null,
+          clientes_que_cuentan: m.clientes.filter((c) => c.situacion.tipo === 'cuenta').length,
+          sin_costo: m.clientes.flatMap((c) => (c.situacion.tipo === 'sin-costo' ? [{ cliente_ws: c.ws, nombre: c.nombre, hasta: c.situacion.hasta }] : [])),
+          meses_sin_pagar: m.anteriores.filter((x) => !x.pago).map((x) => x.mes),
+        };
+      }));
+      return json({ agencias: filas, nota: 'apagada: true = esa agencia paga con su link (cobro por pasarela); lo de total_usd es cómo quedaría. Con agenciaWs, el detalle de una.' });
+    },
+  },
+
+  marcar_mensualidad_pagada: {
+    preparar: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Las mensualidades de las agencias son sólo de la plataforma.' };
+      const agenciaWs = n(input.agenciaWs);
+      const mes = s(input.mes);
+      if (agenciaWs == null || !mes || !esMes(mes)) return { error: 'Faltan la agencia y el mes (AAAA-MM).', faltan: ['agenciaWs', 'mes'] };
+      const m = await mensualidadDeAgencia(agenciaWs);
+      if (!m.ok) return { error: `No pude armar su mensualidad: ${m.error}`, falla: true };
+      if (!m.config) return { error: 'Esa agencia no tiene la mensualidad prendida.' };
+      const x = m.actual.mes === mes ? m.actual : m.anteriores.find((y) => y.mes === mes);
+      if (!x) return { error: `Ese mes no se factura: va de ${m.config.desde} a ${m.actual.mes}.` };
+      if (input.quitar === true) {
+        if (!x.pago) return { error: `${mes} no estaba marcado pagado.`, yaEstaba: true };
+        return { payload: { agenciaWs, mes, quitar: true, pagadoEl: x.pago.pagadoEl }, resumen: `Sacar la marca de pagado de ${m.agencia}, ${mes} (pagado el ${x.pago.pagadoEl}, ${usdMes(x.pago.totalUsd)}).` };
+      }
+      const pagadoEl = s(input.pagadoEl) ?? m.hoy;
+      if (!esDiaMes(pagadoEl)) return { error: 'El día del pago va como AAAA-MM-DD.', faltan: ['pagadoEl'] };
+      if (x.pago && x.pago.pagadoEl === pagadoEl) return { error: `${mes} ya estaba marcado pagado el ${pagadoEl}.`, yaEstaba: true };
+      return {
+        payload: { agenciaWs, mes, pagadoEl, totalUsd: x.cuenta.totalUsd },
+        resumen: `Marcar pagada la mensualidad de ${m.agencia} de ${mes}: ${usdMes(x.cuenta.totalUsd)}, entró el ${pagadoEl}.`,
+      };
+    },
+    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN_MES),
+    ejecutar: (payload, ctx) => seguro('marcar la mensualidad', async () => {
+      if (!(await esSuperAdmin())) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
+      const agenciaWs = Number(payload.agenciaWs);
+      const mes = String(payload.mes ?? '');
+      if (payload.quitar === true) {
+        const r = await quitarMesPagado({ agenciaWs, mes, pagadoEl: typeof payload.pagadoEl === 'string' ? payload.pagadoEl : null });
+        return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
+      }
+      const r = await marcarMesPagado({ agenciaWs, mes, pagadoEl: String(payload.pagadoEl ?? ''), autor: autorDe(ctx) });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      // Lo que se vio al proponer es lo que se marca: si la cuenta cambió en el medio, se dice (el total guardado es el de ahora).
+      const visto = typeof payload.totalUsd === 'number' ? payload.totalUsd : null;
+      const cambio = visto != null && r.totalUsd != null && Math.abs(visto - r.totalUsd) >= 0.01 ? ` Ojo: el total cambió a ${usdMes(r.totalUsd)} desde que se propuso.` : '';
+      return { ok: true, resumen: `${r.resumen}${cambio}` };
+    }),
+  },
+
+  corregir_reloj_mensualidad: {
+    preparar: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Las mensualidades de las agencias son sólo de la plataforma.' };
+      const agenciaWs = n(input.agenciaWs);
+      const clienteWs = n(input.clienteWs);
+      if (agenciaWs == null || clienteWs == null) return { error: 'Faltan la agencia y el cliente.', faltan: ['agenciaWs', 'clienteWs'] };
+      const dia = s(input.dia);
+      if (dia && !esDiaMes(dia)) return { error: 'La fecha va como AAAA-MM-DD.', faltan: ['dia'] };
+      const m = await mensualidadDeAgencia(agenciaWs);
+      if (!m.ok) return { error: `No pude armar su mensualidad: ${m.error}`, falla: true };
+      if (!m.puedeCorregir) return { error: FALTA_LA_0394 };
+      const c = m.clientes.find((x) => x.ws === clienteWs);
+      if (!c) return { error: 'Ese cliente no es de esa agencia. Pide ver_mensualidades_agencias con su agenciaWs.' };
+      if ((c.corregido ?? null) === (dia ?? null)) return { error: 'Su fecha ya es esa.', yaEstaba: true };
+      return {
+        payload: { agenciaWs, clienteWs, dia: dia ?? null },
+        resumen: dia
+          ? `Corregir el reloj de ${c.nombre} (${m.agencia}): sus 14 días corren desde el ${dia} y cuenta desde el ${sumarDiasMes(dia, 14)} (invitado el ${c.invitado}).`
+          : `Devolver el reloj de ${c.nombre} (${m.agencia}) a la invitación: corre desde el ${c.invitado}.`,
+      };
+    },
+    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN_MES),
+    ejecutar: (payload) => seguro('corregir la fecha', async () => {
+      if (!(await esSuperAdmin())) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
+      const r = await corregirRelojDeCliente({ agenciaWs: Number(payload.agenciaWs), clienteWs: Number(payload.clienteWs), dia: typeof payload.dia === 'string' ? payload.dia : null });
+      return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
+    }),
+  },
+
+  prender_mensualidad_agencia: {
+    preparar: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Las mensualidades de las agencias son sólo de la plataforma.' };
+      const agenciaWs = n(input.agenciaWs);
+      if (agenciaWs == null) return { error: 'Falta la agencia.', faltan: ['agenciaWs'] };
+      const m = await mensualidadDeAgencia(agenciaWs);
+      if (!m.ok) return { error: `No pude leer esa agencia: ${m.error}`, falla: true };
+      if (input.apagar === true) {
+        if (!m.config) return { error: 'La mensualidad de esa agencia ya está apagada.', yaEstaba: true };
+        return { payload: { agenciaWs, apagar: true }, resumen: `Apagar la mensualidad de ${m.agencia}: no se le avisa más. Lo pagado queda anotado.` };
+      }
+      const desde = s(input.desde) ?? m.actual.mes;
+      if (!esMes(desde)) return { error: 'El mes va como AAAA-MM.', faltan: ['desde'] };
+      const medio = s(input.medio) ?? m.config?.medio ?? 'Binance';
+      if (m.config && m.config.desde === desde && m.config.medio === medio) return { error: 'Ya está prendida así.', yaEstaba: true };
+      return {
+        payload: { agenciaWs, desde, medio },
+        resumen: `Prender la mensualidad de ${m.agencia} desde ${desde}, por ${medio}: se le avisa el total el día 1 y dos días antes de que un cliente empiece a contar. Este mes iría en ${usdMes(m.actual.cuenta.totalUsd)}.`,
+      };
+    },
+    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN_MES),
+    ejecutar: (payload, ctx) => seguro('cambiar la mensualidad', async () => {
+      if (!(await esSuperAdmin())) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
+      const agenciaWs = Number(payload.agenciaWs);
+      const r = payload.apagar === true
+        ? await apagarMensualidad({ agenciaWs })
+        : await prenderMensualidad({ agenciaWs, desde: String(payload.desde ?? ''), medio: typeof payload.medio === 'string' ? payload.medio : null, autor: autorDe(ctx) });
+      return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
     }),
   },
 };
