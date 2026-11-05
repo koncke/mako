@@ -148,7 +148,7 @@ const ADS: PlantillaHoja = {
   // (impresiones: alta desde 25.000, media desde 8.000, lib/ads-analyst-patrones.ts), no una prueba estadística entre dos creativos:
   // ésa no se mide todavía (§7.4).
   id: 'ads-analyst', nombre: 'Anuncio ganador', emoji: '🏆', buscar: 'Ads Analyst guiones creativos',
-  linea: 'Qué anuncio gana, con cuánta muestra, y qué ángulo y formato traen más agendas por cada mil dólares.',
+  linea: 'Qué anuncio gana, con cuánta muestra, y cuántas agendas trae cada uno por cada mil dólares.',
   armar: (id: Id) => ({
     id: id('ads-analyst'), nombre: 'Anuncio ganador', emoji: '🏆', subtitulo: 'Los guiones de tus anuncios: cuál gana y con cuánta muestra.',
     controles: [
@@ -162,14 +162,12 @@ const ADS: PlantillaHoja = {
         titulo: 'Tus anuncios', frase: 'Tus anuncios trajeron {agendas} agendas y {cierres} cierres · cada agenda costó {cpa}',
         ir: 'ads-writer', x: 0, y: 0, w: 12, h: 3,
       },
-      // El ancla: cuántos guiones están para escalar (gancho y retención arriba, con muestra suficiente).
-      kpi(id('ad-escalar'), 'guiones', 'guiones', 'Listos para escalar', '', 0, 3, {
-        invertida: true, ir: 'ads-manager', controles: [fijo(id('ad-escalar-c'), 'guiones.veredicto', ['Escalar'])],
-      }),
-      kpi(id('ad-cpa'), 'guiones', 'cpa', 'Costo por agenda', '', 3, 3, { tipo: 'numero_tendencia', comparar: true }),
-      kpi(id('ad-costo-cierre'), 'guiones', 'costo_cierre', 'Costo por cierre', '', 6, 3, { tipo: 'numero_tendencia', comparar: true }),
-      kpi(id('ad-sin-retorno'), 'guiones', 'gasto', 'Gasto sin retorno', '', 9, 3, {
-        tipo: 'numero_tendencia', comparar: true, controles: [fijo(id('ad-sin-retorno-c'), 'guiones.resultado', ['Sin agendas'])],
+      // 5/11/2026 — Cuántos guiones están para escalar ya no es un número aparte: lo dice la fila «Escalar» del veredicto (abajo), y
+      // el diseño lo calcula de ahí (lib/anuncio-diseno.ts, `escalarDe`). Una hoja lleva hasta 14 paneles (tests/graficos-corbel.test.ts).
+      kpi(id('ad-cpa'), 'guiones', 'cpa', 'Costo por agenda', '', 0, 3, { tipo: 'numero_tendencia', comparar: true, w: 4 }),
+      kpi(id('ad-costo-cierre'), 'guiones', 'costo_cierre', 'Costo por cierre', '', 4, 3, { tipo: 'numero_tendencia', comparar: true, w: 4 }),
+      kpi(id('ad-sin-retorno'), 'guiones', 'gasto', 'Gasto sin retorno', '', 8, 3, {
+        tipo: 'numero_tendencia', comparar: true, w: 4, controles: [fijo(id('ad-sin-retorno-c'), 'guiones.resultado', ['Sin agendas'])],
       }),
       // Cuál gana: el cuadrante dice CUÁLES, el veredicto cuántos hay de cada uno y la confianza con cuánta muestra.
       {
@@ -182,49 +180,47 @@ const ADS: PlantillaHoja = {
       },
       { id: id('ad-veredicto'), clase: 'grafico', tipo: 'anillo', fuente: 'guiones', dimension: 'veredicto', metricas: ['guiones'], titulo: 'Qué hacer con cada uno', x: 6, y: 7, w: 3, h: 12 },
       { id: id('ad-confianza'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'confianza', metricas: ['guiones'], titulo: 'Con cuánta muestra', x: 9, y: 7, w: 3, h: 12 },
-      // Qué patrón gana
-      { id: id('ad-eficiencia'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'angulo', metricas: ['agendas_1k'], titulo: 'Agendas por US$1.000', x: 0, y: 19, w: 6, h: 9 },
-      { id: id('ad-formato'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'formato', metricas: ['agendas_1k'], titulo: 'Por formato', x: 6, y: 19, w: 6, h: 9 },
+      // 5/11/2026 — Las agendas por US$1.000 por ángulo y por formato salieron de esta hoja (tope de 14 paneles): el ángulo sigue en el
+      // color del cuadrante y en su filtro, el formato vive en «Hooks y retención», y por guion lo dice «Qué guion rinde más» (abajo).
       // Los patrones de la tab (Sigue / Corta / Proceso) son una caja de MaKo (contrato v5, «patrones_guiones»).
-      caja(id('ad-patrones-ia'), 'Patrones de tus guiones', 'Qué patrones separan a los guiones que agendan de los que no', 0, 28, 12, 8),
+      caja(id('ad-patrones-ia'), 'Patrones de tus guiones', 'Qué patrones separan a los guiones que agendan de los que no', 0, 19, 12, 8),
       // Todos los guiones, como TARJETAS (la GuionCard de la tab): 4 números, la barra en el hook y los chips. La confianza va en
       // un chip: era la tabla «Muestra chica», que repetía guiones con un filtro.
       {
         id: id('ad-tabla'), clase: 'grafico', tipo: 'tarjetas', fuente: 'guiones', dimension: 'guion',
         metricas: ['agendas', 'hook_rate', 'retencion_final', 'cpa'], ordenMetrica: 'agendas', barra: 'hook_rate', limite: 50,
         tabla: { columnas: ['angulo', 'veredicto', 'confianza'] },
-        titulo: 'Guiones', x: 0, y: 36, w: 12, h: 16,
+        titulo: 'Guiones', x: 0, y: 27, w: 12, h: 16,
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'ad-tabla'),
       },
-      // 5/11/2026 — LO QUE LEE EL DISEÑO DE PRISM (abajo) y no estaba arriba: las agendas por día, qué guion rinde más entre los que
-      // tienen muestra, los seis meses cerrados (no obedecen al período, como el «Long view» de Prism), las agendas y los cierres por
-      // semana, y el gancho día por día.
-      { id: id('ad-dia'), clase: 'grafico', tipo: 'serie', fuente: 'guiones', dimension: 'dia', metricas: ['agendas'], comparar: true, titulo: 'Agendas por día', x: 0, y: 52, w: 12, h: 8 },
+      // 5/11/2026 — LO QUE LEE EL DISEÑO DE PRISM (abajo) y no estaba arriba: las agendas y los cierres por día (el diseño suma de ahí
+      // las semanas), qué guion rinde más entre los que tienen muestra, los seis meses cerrados (no obedecen al período, como el «Long
+      // view» de Prism) y el gancho día por día.
+      { id: id('ad-dia'), clase: 'grafico', tipo: 'serie', fuente: 'guiones', dimension: 'dia', metricas: ['agendas', 'cierres'], comparar: true, titulo: 'Agendas y cierres por día', x: 0, y: 43, w: 12, h: 8 },
       {
         id: id('ad-ganadores'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'guion', metricas: ['agendas_1k', 'agendas', 'gasto'],
         ordenMetrica: 'agendas_1k', limite: 6, titulo: 'Qué guion rinde más', subtitulo: 'Agendas por US$1.000, de los que tienen muestra',
-        x: 0, y: 60, w: 6, h: 9, controles: [fijo(id('ad-ganadores-c'), 'guiones.confianza', ['Alta', 'Media'])],
+        x: 0, y: 51, w: 6, h: 9, controles: [fijo(id('ad-ganadores-c'), 'guiones.confianza', ['Alta', 'Media'])],
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'ad-ganadores'),
       },
       {
         id: id('ad-meses'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'mes', metricas: ['agendas', 'gasto'],
-        titulo: 'Agendas y lo invertido por mes', subtitulo: 'Los últimos 12 meses, sin importar el período', x: 6, y: 60, w: 6, h: 9,
+        titulo: 'Agendas y lo invertido por mes', subtitulo: 'Los últimos 12 meses, sin importar el período', x: 6, y: 51, w: 6, h: 9,
         controles: [periodoFijo(id('ad-meses-fecha'), 'ult12m')],
       },
-      { id: id('ad-semanas'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'semana', metricas: ['agendas', 'cierres'], titulo: 'Agendas y cierres por semana', x: 0, y: 69, w: 6, h: 9 },
-      { id: id('ad-gancho'), clase: 'grafico', tipo: 'serie', fuente: 'guiones', dimension: 'dia', metricas: ['hook_rate', 'ret_cta', 'thruplay_rate'], titulo: 'El gancho día por día', x: 6, y: 69, w: 6, h: 9 },
+      { id: id('ad-gancho'), clase: 'grafico', tipo: 'serie', fuente: 'guiones', dimension: 'dia', metricas: ['hook_rate', 'ret_cta', 'thruplay_rate'], titulo: 'El gancho día por día', x: 0, y: 60, w: 6, h: 9 },
       // Lo invertido en cada veredicto (un anillo lleva una sola métrica): el diseño dice qué parte va a los que conviene escalar.
-      { id: id('ad-invertido'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'veredicto', metricas: ['gasto'], titulo: 'Lo invertido en cada veredicto', x: 0, y: 78, w: 6, h: 9 },
+      { id: id('ad-invertido'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'veredicto', metricas: ['gasto'], titulo: 'Lo invertido en cada veredicto', x: 6, y: 60, w: 6, h: 9 },
     ],
     // El DISEÑO DE PRISM (5/11/2026; docs/diseno/mockups-dashboard/anuncio-prism/): mirando, la hoja la dibuja
-    // app/dashboard/disenos/HojaAnuncio.tsx con estas piezas (lib/anuncio-diseno.ts arma cada parte, con test). El cuadrante, el
-    // ángulo, el formato y los patrones de MaKo quedan en la grilla («Ver la grilla»).
+    // app/dashboard/disenos/HojaAnuncio.tsx con estas piezas (lib/anuncio-diseno.ts arma cada parte, con test). Los listos para
+    // escalar salen del veredicto y las semanas de los días. El cuadrante y los patrones de MaKo quedan en la grilla («Ver la grilla»).
     diseno: {
       id: 'anuncio',
       piezas: {
         apertura: id('ad-apertura'), dia: id('ad-dia'), veredicto: id('ad-veredicto'), confianza: id('ad-confianza'), ganadores: id('ad-ganadores'),
-        cpa: id('ad-cpa'), cierre: id('ad-costo-cierre'), sinretorno: id('ad-sin-retorno'), escalar: id('ad-escalar'), meses: id('ad-meses'),
-        semanas: id('ad-semanas'), gancho: id('ad-gancho'), guiones: id('ad-tabla'), invertido: id('ad-invertido'),
+        cpa: id('ad-cpa'), cierre: id('ad-costo-cierre'), sinretorno: id('ad-sin-retorno'), meses: id('ad-meses'),
+        gancho: id('ad-gancho'), guiones: id('ad-tabla'), invertido: id('ad-invertido'),
       },
     },
   }),

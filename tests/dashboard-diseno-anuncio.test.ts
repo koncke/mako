@@ -18,7 +18,7 @@ import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';
 import { HOOK_MID, IMPR_ALTA, IMPR_MEDIA, VEREDICTO_ROTULO, confFromImpr } from '../lib/ads-analyst-patrones';
 import {
-  DIAS_AGENDAS, agendasDe, cambio, escalarDe, ganadorDe, ganadoresDe, ganchoDe, mesesDe, muestraDe, numerosDe, promedioPorMil, semanasDe, topePar,
+  DIAS_AGENDAS, agendasDe, cambio, escalarDe, ganadorDe, ganadoresDe, ganchoDe, lunesDe, mesesDe, muestraDe, numerosDe, promedioPorMil, semanasDe, topePar,
   veredictosDe, vistaAnuncio,
 } from '../lib/anuncio-diseno';
 import { datosAnuncioMuestra } from '../lib/anuncio-diseno-muestra';
@@ -99,12 +99,15 @@ test('los tres costos: su texto, su cambio (bajar es bueno) y su curva de los ú
   assert.deepEqual([sin.titulo, sin.texto, sin.cambio], ['Sin retorno', null, null], 'lo que no llegó es null, nunca US$0');
 });
 
-test('listos para escalar: la parte de lo invertido que va a los de «Escalar», y los números de la cuenta', () => {
-  const ver = filas(['guiones', 'gasto'], [[VEREDICTO_ROTULO.escalar, 4, 2100], [VEREDICTO_ROTULO.repensar, 3, 900]], { totales: [7, 6000] });
-  const e = escalarDe(res(['guiones'], [4]), ver, res(['agendas', 'cierres', 'cpa', 'gasto'], [96, 18, 62.5, 6000]));
-  assert.deepEqual(e, { n: 4, parte: 35, invertido: 6000, porMil: 16, cierres: 18 });
-  const sinEscalar = escalarDe(res(['guiones'], [0]), filas(['guiones', 'gasto'], [[VEREDICTO_ROTULO.repensar, 3, 900]], { totales: [3, 900] }), null);
+test('listos para escalar: cuántos dice la fila «Escalar» del veredicto, la parte de lo invertido que va a ellos, y la cuenta', () => {
+  // Los guiones por veredicto (el anillo) y lo invertido en cada uno (su pieza): los listos para escalar NO son otra pieza.
+  const ver = filas(['guiones'], [[VEREDICTO_ROTULO.repensar, 7], [VEREDICTO_ROTULO.escalar, 4]], { totales: [11] });
+  const inv = filas(['gasto'], [[VEREDICTO_ROTULO.escalar, 2100], [VEREDICTO_ROTULO.repensar, 900]], { totales: [6000] });
+  const e = escalarDe(ver, inv, res(['agendas', 'cierres', 'cpa', 'gasto'], [96, 18, 62.5, 6000]));
+  assert.deepEqual(e, { n: 4, parte: 35, invertido: 6000, porMil: 16, cierres: 18 }, 'los 4 de la fila «Escalar», no los 11 del total');
+  const sinEscalar = escalarDe(filas(['guiones'], [[VEREDICTO_ROTULO.repensar, 3]], { totales: [3] }), filas(['gasto'], [[VEREDICTO_ROTULO.repensar, 900]], { totales: [900] }), null);
   assert.deepEqual([sinEscalar.n, sinEscalar.parte, sinEscalar.invertido], [0, 0, null], 'sin guiones para escalar es 0%, y lo que no llegó es null');
+  assert.deepEqual([escalarDe(null, null, null).n, escalarDe(null, null, null).parte], [null, null], 'sin el veredicto no se sabe cuántos: null, nunca 0');
 });
 
 test('los seis meses cerrados: sin el de hoy, con el cambio de lo invertido y el de las agendas', () => {
@@ -118,13 +121,19 @@ test('los seis meses cerrados: sin el de hoy, con el cambio de lo invertido y el
   assert.equal(mesesDe(res(['agendas', 'gasto'], [0, 0], { clase: 'tiempo', filas: [{ clave: '2026-10-01', etiqueta: '', valores: [0, 0] }, { clave: '2026-11-01', etiqueta: '', valores: [5, 5] }] }), HOY)?.cambioAgendas, null, 'con un solo mes cerrado no hay cambio');
 });
 
-test('agendas y cierres por semana: las últimas siete, cuántas cerraron y un eje con la mitad entera', () => {
-  const fs = Array.from({ length: 9 }, (_, i) => ({ clave: dia((8 - i) * 7), etiqueta: '', valores: [10 + i, i % 3] }));
+test('agendas y cierres por semana: la suma de los días de cada semana (de lunes a domingo), las últimas siete, y un eje con la mitad entera', () => {
+  // 63 días (nueve semanas), dos agendas por día y un cierre los lunes: las semanas salen de la pieza de los DÍAS.
+  const fs = Array.from({ length: 63 }, (_, i) => { const k = dia(62 - i); return { clave: k, etiqueta: '', valores: [2, new Date(`${k}T12:00:00Z`).getUTCDay() === 1 ? 1 : 0] }; });
   const s = semanasDe(res(['agendas', 'cierres'], [120, 18], { clase: 'tiempo', filas: fs }))!;
-  assert.equal(s.semanas.length, 7);
-  assert.equal(s.semanas[6].agendas, 18);
+  assert.equal(s.semanas.length, 7, 'las últimas siete');
+  assert.ok(s.semanas.every((x) => new Date(`${x.clave}T12:00:00Z`).getUTCDay() === 1 && lunesDe(x.clave) === x.clave), 'cada una se nombra por su lunes');
+  assert.equal(s.semanas[6].clave, lunesDe(HOY), 'la última es la de hoy');
+  assert.deepEqual([s.semanas[3].agendas, s.semanas[3].cierres], [14, 1], 'una semana entera: siete días de dos agendas y el cierre del lunes');
+  assert.ok(s.semanas.every((x, i) => i === 0 || x.clave > s.semanas[i - 1].clave), 'de la más vieja a la más nueva');
   assert.equal(s.tasa, 15, 'sobre los totales del período');
   assert.equal(s.tope, 20);
+  const pocos = semanasDe(res(['agendas', 'cierres'], [0, 0], { clase: 'tiempo', filas: fs.slice(-20) }))!;
+  assert.equal(pocos.semanas.reduce((a, x) => a + x.agendas, 0), 40, 'las semanas suman los días: ninguno se pierde ni se cuenta dos veces');
   assert.deepEqual([topePar(1), topePar(16), topePar(25), topePar(45), topePar(130)], [2, 20, 30, 60, 200]);
 });
 
@@ -171,7 +180,11 @@ test('el cableado: la plantilla trae su diseño con sus catorce piezas, se ofrec
   const h = hoja();
   const porId = new Map(h.componentes.map((c) => [c.id, c as { fuente?: string; metricas?: string[]; dimension?: string | null; comparar?: boolean; controles?: Array<{ campo?: string; valores?: string[]; preset?: string }> }]));
   const pieza = (k: string) => porId.get(h.diseno!.piezas[k]);
-  assert.equal(Object.keys(h.diseno!.piezas).length, 14);
+  assert.equal(Object.keys(h.diseno!.piezas).length, 12);
+  // Una hoja lleva hasta 14 paneles (tests/graficos-corbel.test.ts): los listos para escalar y las semanas se calculan, no se piden.
+  assert.ok(h.componentes.length <= 14, `${h.componentes.length} paneles`);
+  assert.deepEqual(['escalar', 'semanas'].filter((k) => k in h.diseno!.piezas), [], 'no hay piezas aparte para lo que se calcula');
+  assert.deepEqual(pieza('dia')?.metricas, ['agendas', 'cierres'], 'las semanas suman los días: la pieza trae los cierres');
   for (const k of Object.keys(h.diseno!.piezas)) assert.equal(pieza(k)?.fuente, 'guiones', `la pieza ${k} existe y es de los guiones`);
   assert.deepEqual(pieza('ganadores')?.controles?.find((c) => c.campo)?.valores, ['Alta', 'Media'], 'qué guion rinde más, sólo entre los que tienen muestra');
   assert.equal(pieza('meses')?.controles?.find((c) => c.preset)?.preset, 'ult12m', 'la vista larga no obedece al período');
@@ -183,7 +196,7 @@ test('el cableado: la plantilla trae su diseño con sus catorce piezas, se ofrec
   assert.ok(leer('app/dashboard/disenos/DisenoEnMiniatura.tsx').includes('vistaAnuncio(hoja, datosAnuncioMuestra(hoja, hoy), hoy)'));
 });
 
-// Probado rompiéndolo (5/11/2026), cada rotura sola y la base en verde antes y después (17 de 17):
+// Probado rompiéndolo (5/11/2026), cada rotura sola y la base en verde antes y después (22 de 22):
 //   · un costo que sube pintado de bueno: 2 fallos, 11 pases;
 //   · el promedio de 7 días sin los días de antes del recorte: 1 fallo, 12 pases;
 //   · el número grande como la suma de lo dibujado: 2 fallos, 11 pases;
@@ -200,4 +213,10 @@ test('el cableado: la plantilla trae su diseño con sus catorce piezas, se ofrec
 //   · «(sin dato)» como el que más agendó: 1 fallo, 12 pases;
 //   · leyendo, la hoja «vacía»: 1 fallo, 12 pases;
 //   · los que rinden más sin el filtro de muestra: 1 fallo, 12 pases;
-//   · la vista larga obedeciendo al período: 1 fallo, 12 pases.
+//   · la vista larga obedeciendo al período: 1 fallo, 12 pases;
+// y después del tope de 14 paneles (los listos para escalar y las semanas se calculan):
+//   · los listos para escalar como el total del veredicto: 2 fallos, 11 pases;
+//   · sin el veredicto, 0 listos para escalar (en vez de null): 1 fallo, 12 pases;
+//   · cada día como su propia semana: 1 fallo, 12 pases;
+//   · las semanas leídas de una pieza que ya no existe: 1 fallo, 12 pases;
+//   · la pieza de los días sin los cierres: 1 fallo, 12 pases.

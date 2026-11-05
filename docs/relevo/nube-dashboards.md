@@ -5,9 +5,11 @@
 - **Instagram y redes está en producción.** Entró a main (`cfbb92ecc`, la punta `dash-instagram` tal cual, con su veredicto: 7.102 tests y
   el tsc entero); el humo de producción de ese deploy dio verde a las 02:53. Es la decimoséptima hoja copiada (Murmura).
 - **Anuncio ganador (la copia de Prism) está en `punta/dash-anuncio`**: la sección de abajo. Es la decimoctava hoja copiada, del
-  Dashboard (la plantilla `ads-analyst`). Suma seis piezas a la plantilla (las agendas por día, qué guion rinde más entre los que tienen
-  muestra, los doce meses, las semanas, el gancho día por día y lo invertido en cada veredicto) y pone a comparar con el período anterior
-  los tres costos. **La plantilla pasa a ofrecerse** (trae su diseño): `tests/dashboard-plantillas-ofrecidas.test.ts` usaba
+  Dashboard (la plantilla `ads-analyst`). Suma cinco piezas a la plantilla (las agendas y los cierres por día, qué guion rinde más entre
+  los que tienen muestra, los doce meses, el gancho día por día y lo invertido en cada veredicto) y pone a comparar con el período anterior
+  los tres costos. **⚠️ Para entrar en el tope de 14 paneles** (el primer veredicto dio rojo por eso: la hoja tenía 18), los listos para
+  escalar salen de la fila «Escalar» del veredicto y las semanas de los días, y **la grilla perdió las agendas por US$1.000 por ángulo y
+  por formato** (el ángulo sigue en el color del cuadrante y en su filtro; el formato vive en «Hooks y retención»). **La plantilla pasa a ofrecerse** (trae su diseño): `tests/dashboard-plantillas-ofrecidas.test.ts` usaba
   `ads-analyst` como la vieja que no se ofrece, y ahora usa `hooks-retencion`.
 - **⚠️ La «confianza» de la hoja es la de la MUESTRA** (impresiones: alta desde 25 mil, media desde 8 mil), no la de una prueba A/B entre
   dos creativos: ésa sigue sin medirse (§7.4 de la propuesta).
@@ -228,10 +230,11 @@ activations», «Active customers», «Checkout latency» (tres líneas contra e
 **Lo que Prism tiene y MaKo no mide, y no está:** el «Live» y los cubos de 15 s (los datos de Meta son por día), el pronóstico (la línea es
 un promedio de lo medido), las regiones, la salud de la plataforma, la latencia, el reloj y el rango (el período es el de la hoja), y una
 **prueba A/B entre dos creativos** (la confianza es la de la muestra).
-**La plantilla suma seis piezas** (las agendas por día, qué guion rinde más entre los que tienen muestra, los últimos doce meses, las
-agendas y los cierres por semana, el gancho día por día y lo invertido en cada veredicto) **y cambia dos cosas:** la frase de arriba trae lo
-invertido, y los tres costos se comparan con el período anterior. El cuadrante, el ángulo, el formato, los patrones de MaKo y las
-tarjetas de los guiones quedan en la grilla.
+**La plantilla suma cinco piezas** (las agendas y los cierres por día, qué guion rinde más entre los que tienen muestra, los últimos doce
+meses, el gancho día por día y lo invertido en cada veredicto) **y cambia dos cosas:** la frase de arriba trae lo invertido, y los tres
+costos se comparan con el período anterior. **Y queda en 14 paneles** (`tests/graficos-corbel.test.ts`): el número «Listos para escalar»
+se va (lo dice la fila «Escalar» del veredicto, y el diseño lo calcula de ahí), las semanas son la suma de los días, y la grilla pierde las
+agendas por US$1.000 por ángulo y por formato. El cuadrante, los patrones de MaKo y las tarjetas de los guiones quedan en la grilla.
 
 **Dónde vive:**
 - El modelo: `lib/anuncio-diseno.ts`, puro. Los datos de ejemplo: `lib/anuncio-diseno-muestra.ts` (cuadran entre tarjetas: las semanas

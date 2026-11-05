@@ -1237,6 +1237,7 @@ export const BITACORA: Hito[] = [
       '**Cuánto cuesta y listos para escalar:** el costo por agenda, por cierre y lo gastado sin agendas; qué parte de lo invertido va a los que conviene escalar.',
       '**Lo largo y lo de cada semana:** las agendas y lo invertido de los seis meses cerrados, las agendas y los cierres por semana, y el gancho día por día.',
       '**El que más agendó**, con atajos a Ads Manager, Ads Writer, Hooks y la grilla.',
+      '**Entra en 14 paneles:** los listos para escalar salen del veredicto y las semanas de los días; la grilla deja las agendas por US$1.000 por ángulo y por formato.',
     ],
     archivos: [
       'app/dashboard/disenos/HojaAnuncio.tsx · anuncio-css.ts · AnuncioVivo.tsx — el diseño',

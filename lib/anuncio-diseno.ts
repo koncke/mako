@@ -13,13 +13,16 @@
 //   · «Key metrics» → el costo por agenda, el costo por cierre y lo gastado sin una sola agenda, con su cambio y su curva;
 //   · «Platform health» → listos para escalar: qué parte de lo invertido va a los guiones que conviene escalar;
 //   · «Quarterly revenue» y «Active customers» → las agendas y lo invertido de los seis meses cerrados (no obedecen al período);
-//   · «Signups & activations» → las agendas y los cierres por semana, y cuántas agendas cerraron;
+//   · «Signups & activations» → las agendas y los cierres por semana (la suma de los días), y cuántas agendas cerraron;
 //   · «Checkout latency» → el gancho en el tiempo: hook rate, llegan al llamado y ThruPlay, contra el buen gancho (28%);
 //   · «Feed» → el guion que más agendó y los atajos (Ads Manager, Ads Writer, Hooks y retención, la grilla).
 //
 // LO QUE PRISM TIENE Y MaKo NO HACE NO SE INVENTA: el «Live» y los cubos de 15 s (los datos de Meta son por día), el pronóstico
 // (la línea es un promedio de lo medido), las regiones, la salud de la plataforma y la latencia. Y la «confianza» es la de la
 // MUESTRA (impresiones, lib/ads-analyst-patrones.ts), no una prueba estadística entre dos creativos: ésa no se mide todavía.
+//
+// UNA HOJA LLEVA HASTA 14 PANELES (tests/graficos-corbel.test.ts): cuántos guiones hay para escalar sale de la fila «Escalar» del
+// veredicto, y las semanas de los días, en vez de pedirse como otras piezas.
 //
 // Puro y sin `server-only`: lo usan la pantalla (app/dashboard/disenos/HojaAnuncio.tsx) y el test. Lo que no llegó es `null`,
 // nunca un cero.
@@ -182,14 +185,21 @@ export type EscalarAn = {
   porMil: number | null;
   cierres: number | null;
 };
-/** `porVeredicto`: lo invertido en cada veredicto (la pieza «Lo invertido en cada veredicto»: un anillo lleva una sola métrica). */
-export function escalarDe(escalar: Resultado | null, porVeredicto: Resultado | null, apertura: Resultado | null): EscalarAn {
+/** La fila «Escalar» de un resultado por veredicto, o undefined si no la hay. */
+const filaEscalar = (r: Resultado) => r.filas.find((f) => f.clave === VEREDICTO_ROTULO.escalar || f.etiqueta === VEREDICTO_ROTULO.escalar);
+/**
+ * `veredicto`: los guiones por veredicto (el anillo «Qué hacer con cada uno»): cuántos hay para escalar sale de su fila «Escalar», y no
+ * de otra pieza (5/11/2026: una hoja lleva hasta 14 paneles, y lo que se puede calcular se calcula acá). `porVeredicto`: lo invertido en
+ * cada veredicto (la pieza «Lo invertido en cada veredicto»: un anillo lleva una sola métrica).
+ */
+export function escalarDe(veredicto: Resultado | null, porVeredicto: Resultado | null, apertura: Resultado | null): EscalarAn {
   const gastoTotal = total(porVeredicto, 'gasto');
-  const fila = porVeredicto?.filas.find((f) => f.clave === VEREDICTO_ROTULO.escalar || f.etiqueta === VEREDICTO_ROTULO.escalar);
+  const fila = porVeredicto ? filaEscalar(porVeredicto) : undefined;
   const gastoEscalar = porVeredicto ? (fila ? enFila(porVeredicto, fila, 'gasto') ?? 0 : 0) : null;
+  const filaN = veredicto ? filaEscalar(veredicto) : undefined;
   const invertido = total(apertura, 'gasto'), agendas = total(apertura, 'agendas');
   return {
-    n: total(escalar, 'guiones'),
+    n: veredicto ? (filaN ? enFila(veredicto, filaN, 'guiones') ?? 0 : 0) : null,
     parte: gastoTotal && gastoEscalar != null ? Math.round((gastoEscalar / gastoTotal) * 100) : null,
     invertido,
     porMil: invertido && agendas != null ? (agendas / invertido) * 1000 : null,
@@ -232,9 +242,27 @@ export function topePar(max: number): number {
   return 20 * p;
 }
 export type SemanasAn = { semanas: Array<{ clave: string; rotulo: string; agendas: number; cierres: number }>; agendas: number | null; tasa: number | null; tope: number };
+/** El lunes de la semana de un día (`YYYY-MM-DD`): la clave con que el Dashboard agrupa por semana. */
+export function lunesDe(dia: string): string {
+  const d = new Date(`${dia.slice(0, 10)}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+/**
+ * `r`: las agendas y los cierres POR DÍA (la pieza de la tarjeta de arriba): las semanas son la suma de sus días (5/11/2026: una hoja
+ * lleva hasta 14 paneles, así que no se piden aparte). Los totales son los del período, como los de la pieza.
+ */
 export function semanasDe(r: Resultado | null): SemanasAn | null {
   if (!r) return null;
-  const semanas = r.filas.slice(-SEMANAS).map((f) => ({ clave: f.clave, rotulo: rotuloDia(f.clave), agendas: enFila(r, f, 'agendas') ?? 0, cierres: enFila(r, f, 'cierres') ?? 0 }));
+  const porSemana = new Map<string, { agendas: number; cierres: number }>();
+  for (const f of r.filas) {
+    const k = lunesDe(f.clave);
+    const x = porSemana.get(k) ?? { agendas: 0, cierres: 0 };
+    x.agendas += enFila(r, f, 'agendas') ?? 0;
+    x.cierres += enFila(r, f, 'cierres') ?? 0;
+    porSemana.set(k, x);
+  }
+  const semanas = [...porSemana].sort(([a], [b]) => a.localeCompare(b)).slice(-SEMANAS).map(([clave, x]) => ({ clave, rotulo: rotuloDia(clave), ...x }));
   const agendas = total(r, 'agendas'), cierres = total(r, 'cierres');
   return { semanas, agendas, tasa: agendas && cierres != null ? (cierres / agendas) * 100 : null, tope: topePar(Math.max(0, ...semanas.map((s) => Math.max(s.agendas, s.cierres)))) };
 }
@@ -288,9 +316,9 @@ export function vistaAnuncio(hoja: Pick<Hoja, 'diseno'>, datos: Record<string, D
     muestra: muestraDe(r('confianza')),
     ganadores: ganadoresDe(r('ganadores'), promedioPorMil(r('ganadores')) ?? promedioPorMil(apertura)),
     numeros: numerosDe(r('cpa'), r('cierre'), r('sinretorno')),
-    escalar: escalarDe(r('escalar'), r('invertido'), apertura),
+    escalar: escalarDe(veredicto, r('invertido'), apertura),
     meses: mesesDe(r('meses'), hoy),
-    semanas: semanasDe(r('semanas')),
+    semanas: semanasDe(r('dia')),
     gancho: ganchoDe(r('gancho')),
     ganador: ganadorDe(r('guiones')),
     cargando: Object.values(p).some((id) => datos[id]?.cargando),

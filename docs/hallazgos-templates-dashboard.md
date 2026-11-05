@@ -608,6 +608,12 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
   veredicto va en su pieza («Lo invertido en cada veredicto», barras).
 - **La regla que queda:** lo que lee un diseño se prueba sobre la hoja SANEADA (`instanciarPlantilla`), nunca sobre el objeto que arma la
   plantilla: el saneo tira en silencio un nombre de pieza que no cumple su forma y la métrica que un tipo de gráfico no lleva.
+- **Síntoma 3, el veredicto:** el primer veredicto dio rojo en `tests/graficos-corbel.test.ts` («ads-analyst: 18 paneles»), con los 13
+  tests del diseño en verde. Las piezas nuevas se sumaron a una plantilla que ya tenía 12, y el tope de 14 vive en OTRO test (la regla
+  del §20, escrita para Comercial). **Se arregló sin subir el tope:** lo que se puede calcular se calcula en el modelo (cuántos guiones
+  hay para escalar es la fila «Escalar» del veredicto; las semanas, la suma de los días por su lunes), y la grilla perdió las agendas por
+  US$1.000 por ángulo y por formato. **Antes de sumarle piezas a una plantilla, contá sus paneles contra 14**: el test de su diseño no lo
+  mira. **Vive en:** `lib/anuncio-diseno.ts` (`escalarDe`, `semanasDe`, `lunesDe`).
 - **Lo medido de la copia:** a 1440, las doce tarjetas caen EXACTAS en las cajas de la captura (la última fila, a 1 px). En el teléfono,
   a ≤3 px hasta los números de «Key metrics»; **de ahí para abajo la captura está en negro** (el medidor sacó la foto antes de que se
   dibujaran), así que el teléfono de abajo es un supuesto, escrito en la copia y en el relevo.

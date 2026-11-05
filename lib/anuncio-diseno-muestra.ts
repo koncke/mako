@@ -40,12 +40,16 @@ export function datosAnuncioMuestra(hoja: Pick<Hoja, 'diseno'>, hoy: string): Re
   const out: Record<string, DatosPieza> = {};
   const poner = (k: string | undefined, x: Resultado) => { if (k) out[k] = { resultado: x }; };
   const agendas = AGENDAS.reduce((a, b) => a + b, 0), gasto = 6480;
-  // Las semanas: la suma de los días de cada una, y los cierres repartidos (los de la cabecera son su suma).
-  const porSemana = new Map<string, number>();
-  AGENDAS.forEach((v, i) => { const k = lunes(dia(hoy, -(AGENDAS.length - 1 - i))); porSemana.set(k, (porSemana.get(k) ?? 0) + v); });
+  // Los cierres: los de cada semana caen en su primer día (el diseño suma las semanas desde los días; los de la cabecera son su suma).
   const CIERRES = [1, 2, 1, 2, 3, 2, 3, 2, 2];
-  const semanas = [...porSemana].map(([k, v], i) => ({ clave: k, etiqueta: k, valores: [v, CIERRES[i] ?? 1] }));
-  const cierres = semanas.reduce((a, x) => a + x.valores[1], 0);
+  const semanasVistas: string[] = [];
+  const cierresDia = AGENDAS.map((_, i) => {
+    const k = lunes(dia(hoy, -(AGENDAS.length - 1 - i)));
+    if (semanasVistas.includes(k)) return 0;
+    semanasVistas.push(k);
+    return CIERRES[semanasVistas.length - 1] ?? 1;
+  });
+  const cierres = cierresDia.reduce((a, b) => a + b, 0);
   const cat = (metricas: string[], filas: Array<[string, ...number[]]>, totales: Array<number | null>): Resultado => ({
     columnas: col(metricas), totales, fuera: 0, clase: 'categoria', filas: filas.map(([k, ...v]) => ({ clave: k, etiqueta: k, valores: v })),
   });
@@ -56,8 +60,8 @@ export function datosAnuncioMuestra(hoja: Pick<Hoja, 'diseno'>, hoy: string): Re
 
   poner(p.apertura, { columnas: col(['agendas', 'cierres', 'cpa', 'gasto']), filas: [], totales: [agendas, cierres, r(gasto / agendas), gasto], fuera: 0, clase: null });
   poner(p.dia, {
-    columnas: col(['agendas']), fuera: 0, clase: 'tiempo', totales: [agendas], anterior: [Math.round(agendas * 0.88)],
-    filas: AGENDAS.map((v, i) => { const c = dia(hoy, -(AGENDAS.length - 1 - i)); return { clave: c, etiqueta: c, valores: [v] }; }),
+    columnas: col(['agendas', 'cierres']), fuera: 0, clase: 'tiempo', totales: [agendas, cierres], anterior: [Math.round(agendas * 0.88), cierres - 2],
+    filas: AGENDAS.map((v, i) => { const c = dia(hoy, -(AGENDAS.length - 1 - i)); return { clave: c, etiqueta: c, valores: [v, cierresDia[i]] }; }),
   });
   poner(p.veredicto, cat(['guiones'], VEREDICTOS.map(([k, n]) => [k, n]), [VEREDICTOS.reduce((a, v) => a + v[1], 0)]));
   poner(p.invertido, cat(['gasto'], VEREDICTOS.map(([k, , g]) => [k, g]), [gasto]));
@@ -67,7 +71,6 @@ export function datosAnuncioMuestra(hoja: Pick<Hoja, 'diseno'>, hoy: string): Re
   poner(p.cpa, kpi('cpa', r(gasto / agendas), 72.4, [81, 78, 84, 76, 74, 79, 71, 73, 69, 70, 66, 67.5]));
   poner(p.cierre, kpi('costo_cierre', 360, 341, [330, 338, 352, 340, 347, 361, 349, 356, 372, 365, 358, 360]));
   poner(p.sinretorno, kpi('gasto', 980, 1210, [140, 120, 132, 110, 96, 104, 88, 92, 80, 84, 72, 70]));
-  poner(p.escalar, { columnas: col(['guiones']), filas: [], totales: [4], fuera: 0, clase: null });
   // Los últimos 12 meses (`ult12m`): los seis cerrados de MESES, los cinco de antes más chicos y el de hoy, a medias.
   const mes = (n: number) => { const [y, m] = hoy.split('-').map(Number); const t = (y * 12 + (m - 1)) - n; return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}-01`; };
   const doce: Array<[number, number]> = [[20, 2100], [24, 2300], [27, 2500], [31, 2700], [33, 2900], ...MESES, [14, 820]];
@@ -75,7 +78,6 @@ export function datosAnuncioMuestra(hoja: Pick<Hoja, 'diseno'>, hoy: string): Re
     columnas: col(['agendas', 'gasto']), fuera: 0, clase: 'tiempo', totales: [doce.reduce((a, m) => a + m[0], 0), doce.reduce((a, m) => a + m[1], 0)],
     filas: doce.map(([a, g], i) => { const c = mes(doce.length - 1 - i); return { clave: c, etiqueta: c, valores: [a, g] }; }),
   });
-  poner(p.semanas, { columnas: col(['agendas', 'cierres']), fuera: 0, clase: 'tiempo', totales: [agendas, cierres], filas: semanas });
   poner(p.gancho, {
     columnas: col(['hook_rate', 'ret_cta', 'thruplay_rate']), fuera: 0, clase: 'tiempo', totales: [31.4, 10.2, 17.1],
     filas: GANCHO.map((v, i) => { const c = dia(hoy, -(GANCHO.length - 1 - i)); return { clave: c, etiqueta: c, valores: v }; }),
