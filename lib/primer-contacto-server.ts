@@ -36,7 +36,22 @@ const faltaLaColumna = (e: unknown): boolean => esColumnaInexistente({ message: 
 
 type FilaWa = { id: number; lead_id: number | null; wa_timestamp: string | null; created_at: string; tipo: string | null; status: string | null; automatico?: boolean | null };
 
-/** Lo que le salió a cada lead, por todos los canales, en el orden que sea (la regla los ordena). */
+/**
+ * Cuántas tandas de leads se leen a la vez. La tarjeta de Closing la espera la página del Dashboard: en un negocio con 50 leads por
+ * día son ~10 tandas por canal, y de a una sumaban segundos a cada apertura. Pocas, para no ocupar el pool de la base.
+ */
+const A_LA_VEZ = 4;
+
+/** `fn` sobre cada tanda, de a `A_LA_VEZ`; los resultados en el orden de las tandas. Tira si alguna tira. */
+async function porTandas<T>(tandas: readonly number[][], fn: (tanda: number[]) => Promise<T>): Promise<T[]> {
+  const out: T[] = new Array(tandas.length);
+  let i = 0;
+  const trabajador = async () => { while (i < tandas.length) { const k = i++; out[k] = await fn(tandas[k]); } };
+  await Promise.all(Array.from({ length: Math.min(A_LA_VEZ, tandas.length) }, trabajador));
+  return out;
+}
+
+/** Lo que le salió a cada lead, por todos los canales, en el orden que sea (la regla los ordena). Los canales, a la vez. */
 export async function salientesDeLeads(leadIds: readonly number[]): Promise<Map<number, SalienteContacto[]>> {
   const ids = [...new Set(leadIds.filter((x) => Number.isSafeInteger(x) && x > 0))];
   const out = new Map<number, SalienteContacto[]>();
@@ -48,54 +63,48 @@ export async function salientesDeLeads(leadIds: readonly number[]): Promise<Map<
     out.set(Number(lead), l);
   };
   const db = await getTenantDb();
+  const tandas = enTandas(ids, TANDA);
 
   // WhatsApp. Sin la 0396, se relee sin la columna: todo `null` («No se sabe»).
-  for (const tanda of enTandas(ids, TANDA)) {
+  const whatsapp = porTandas(tandas, async (tanda) => {
     const leer = (cols: string) => leerTodo<FilaWa>(db, 'wa_mensajes', cols, { filtros: (q) => q.in('lead_id', tanda).eq('from_me', true) });
-    let filas: FilaWa[];
     try {
-      filas = await leer('id, lead_id, wa_timestamp, created_at, tipo, status, automatico');
+      return await leer('id, lead_id, wa_timestamp, created_at, tipo, status, automatico');
     } catch (e) {
       if (!faltaLaColumna(e)) throw e;
-      filas = await leer('id, lead_id, wa_timestamp, created_at, tipo, status');
+      return leer('id, lead_id, wa_timestamp, created_at, tipo, status');
     }
-    for (const f of filas) {
-      // Un evento (una reacción, un aviso del sistema) o un envío que falló no es un contacto.
-      if (f.tipo === 'evento' || f.status === 'failed') continue;
-      sumar(f.lead_id, { t: Date.parse(f.wa_timestamp ?? f.created_at), canal: 'whatsapp', automatico: typeof f.automatico === 'boolean' ? f.automatico : null });
-    }
-  }
-
-  // Email: con `autor`, una persona; sin `autor`, una automatización. Lo que no salió no cuenta.
-  for (const tanda of enTandas(ids, TANDA)) {
-    const filas = await leerTodo<{ lead_id: number | null; created_at: string; autor: string | null; estado: string | null }>(
-      db, 'email_mensajes', 'id, lead_id, created_at, autor, estado', { filtros: (q) => q.in('lead_id', tanda).eq('direccion', 'saliente') },
-    ).catch((e) => { if (faltaLaTabla(e)) return []; throw e; });
-    for (const f of filas) {
-      if (f.estado === 'fallido') continue;
-      sumar(f.lead_id, { t: Date.parse(f.created_at), canal: 'email', automatico: !f.autor?.trim() });
-    }
-  }
-
+  });
+  // Email: con `autor`, una persona; sin `autor`, una automatización.
+  const emails = porTandas(tandas, (tanda) => leerTodo<{ lead_id: number | null; created_at: string; autor: string | null; estado: string | null }>(
+    db, 'email_mensajes', 'id, lead_id, created_at, autor, estado', { filtros: (q) => q.in('lead_id', tanda).eq('direccion', 'saliente') },
+  ).catch((e) => { if (faltaLaTabla(e)) return []; throw e; }));
   // Instagram y Messenger: lo que manda una persona desde Chats.
-  for (const [lead, lista] of await salientesSocialesDeLeads(ids)) {
-    for (const x of lista) sumar(lead, { t: x.t, canal: x.canal, automatico: false });
-  }
-
+  const sociales = salientesSocialesDeLeads(ids);
   // Las llamadas: las grabadas con «Grabar» (sin la 0390 no hay tabla) y las reuniones del grabador (menos las de prueba).
-  for (const tanda of enTandas(ids, TANDA)) {
-    const grabadas = await leerTodo<{ lead_id: number | null; created_at: string }>(
-      db, 'llamadas_grabadas', 'id, lead_id, created_at', { filtros: (q) => q.in('lead_id', tanda) },
-    ).catch((e) => { if (faltaLaTabla(e)) return []; throw e; });
-    for (const f of grabadas) sumar(f.lead_id, { t: Date.parse(f.created_at), canal: 'llamada', automatico: false });
-    const reuniones = await leerTodo<{ lead_id: number | null; started_at: string | null; call_date: string | null; category: string | null }>(
-      db, 'closing_analyses', 'recording_id, lead_id, started_at, call_date, category', { orden: 'recording_id', filtros: (q) => q.in('lead_id', tanda) },
-    );
-    for (const f of reuniones) {
-      if (f.category === CATEGORIA_SIN_CONTACTO) continue;
-      const cuando = f.started_at ?? (f.call_date ? `${f.call_date}T12:00:00Z` : null);
-      if (cuando) sumar(f.lead_id, { t: Date.parse(cuando), canal: 'llamada', automatico: false });
-    }
+  const grabadas = porTandas(tandas, (tanda) => leerTodo<{ lead_id: number | null; created_at: string }>(
+    db, 'llamadas_grabadas', 'id, lead_id, created_at', { filtros: (q) => q.in('lead_id', tanda) },
+  ).catch((e) => { if (faltaLaTabla(e)) return []; throw e; }));
+  const reuniones = porTandas(tandas, (tanda) => leerTodo<{ lead_id: number | null; started_at: string | null; call_date: string | null; category: string | null }>(
+    db, 'closing_analyses', 'recording_id, lead_id, started_at, call_date, category', { orden: 'recording_id', filtros: (q) => q.in('lead_id', tanda) },
+  ));
+
+  const [wa, em, so, gr, re] = await Promise.all([whatsapp, emails, sociales, grabadas, reuniones]);
+  for (const f of wa.flat()) {
+    // Un evento (una reacción, un aviso del sistema) o un envío que falló no es un contacto.
+    if (f.tipo === 'evento' || f.status === 'failed') continue;
+    sumar(f.lead_id, { t: Date.parse(f.wa_timestamp ?? f.created_at), canal: 'whatsapp', automatico: typeof f.automatico === 'boolean' ? f.automatico : null });
+  }
+  for (const f of em.flat()) {
+    if (f.estado === 'fallido') continue;
+    sumar(f.lead_id, { t: Date.parse(f.created_at), canal: 'email', automatico: !f.autor?.trim() });
+  }
+  for (const [lead, lista] of so) for (const x of lista) sumar(lead, { t: x.t, canal: x.canal, automatico: false });
+  for (const f of gr.flat()) sumar(f.lead_id, { t: Date.parse(f.created_at), canal: 'llamada', automatico: false });
+  for (const f of re.flat()) {
+    if (f.category === CATEGORIA_SIN_CONTACTO) continue;
+    const cuando = f.started_at ?? (f.call_date ? `${f.call_date}T12:00:00Z` : null);
+    if (cuando) sumar(f.lead_id, { t: Date.parse(cuando), canal: 'llamada', automatico: false });
   }
   return out;
 }

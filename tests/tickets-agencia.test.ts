@@ -51,7 +51,7 @@ function fila(id: number, prioridad: FilaTicket['prioridad'], minutosAtras: numb
   const creado = new Date(Date.parse('2026-11-05T12:00:00Z') - minutosAtras * 60_000).toISOString();
   const f: FilaTicket = {
     id, created_at: creado, updated_at: creado, workspace_id: 3, usuario_id: 1, usuario_email: 'alguien@prueba.test', usuario_nombre: 'Alguien',
-    rol: 'admin', plan: 'Pro', tipo: 'pedido', tipo_manual: false, titulo: `Ticket ${id}`, descripcion: '', canal: 'app', contexto: {},
+    rol: 'admin', plan: 'Pro', tipo: 'pedido', tipo_manual: false, titulo: `Ticket ${id}`, descripcion: '', canal: 'formulario', contexto: {},
     estado: 'esperando_decision', prioridad, triage, decision: null, decision_nota: null, decidido_at: null, duplicado_de: null, respuesta: null,
     despacho: null, pedido_id: null, despachado_at: null, aviso_estado: null, aviso_intentos: 0, aviso_motivo: null, aviso_at: null,
     arreglado_at: null, arreglo_nota: null, resuelto_at: null, avisado_at: null,

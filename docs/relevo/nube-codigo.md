@@ -40,6 +40,11 @@ creerlo: `git merge-base --is-ancestor 1d12673f8 origin/main`.
   agencia) y abriendo su hoja Closing, o con el token de la API de ese cliente. **No hay una columna por cliente en `/agency`**
   (no existía nada de métricas ahí; si se quiere, es lo siguiente).
 
+**El costo de abrir el Dashboard:** la página ESPERA la tarjeta (como la agenda) cuando el informe tiene una hoja Closing. Lee los
+leads de 30 días y lo que le salió a cada uno por cada canal, todos los canales a la vez y de a 4 tandas de 150 leads. Sin medir en
+producción: con un negocio de 50 leads por día son ~10 tandas por canal. Si se nota lenta, lo siguiente es pedirla desde el navegador
+después de dibujar, o guardarla una vez por hora.
+
 **Sin ver en pantalla:** la nube no tiene sesión de MaKo ni la base. La tarjeta se probó con tests y el tsc acotado, no dibujada.
 **Sin medir en producción:** cuántos leads del ws13 caen en «No se sabe» hasta que la 0396 esté aplicada (todos los de WhatsApp de
 antes). **Lo que NO marca:** lo que manda `enviarTexto` directo sin el espejo (lib/reunion-destinatarios.ts, el resumen a los
@@ -86,7 +91,8 @@ vacía (lo supuse por el barrido, que usa el mismo pedido).
 ## Cómo se probó
 
 Tests nuevos, todos rompiendo el código (los números en la cabecera de cada uno): `tests/primer-contacto.test.ts`,
-`tests/primer-contacto-emisores.test.ts`, `tests/evolution-envio-automatico.test.ts` (la marca, ejecutada), `tests/tickets-agencia.test.ts`,
+`tests/primer-contacto-emisores.test.ts`, `tests/evolution-envio-automatico.test.ts` (la marca, ejecutada), `tests/primer-contacto-lector.test.ts`
+(el lector de cada canal, contra una base de mentira), `tests/tickets-agencia.test.ts`,
 `tests/zernio-leads-estado.test.ts` y tres casos nuevos en `tests/zernio-webhook-suscripcion.test.ts` (`avisoDeLeadsZernio` contra el
 webhook y la API de mentira). Verde también: graficos, dashboard-diseno-closing, api-mako-registro/rest, ops-center-bateria (el margen
 del CRON ya era 318 sin esta operación), ops-center-clasificador-app, tickets, ticketera-mazo, funciones-mako, cs-sin-contacto y los
