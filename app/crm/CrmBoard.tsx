@@ -490,6 +490,7 @@ export function CrmBoard({
   calendlyStages = [],
   funnels = [],
   abrirEmbudo = null,
+  abrirImportar = false,
   funnelActivo = null,
   ordenManual = {},
   cursoAlGanar = null,
@@ -535,6 +536,9 @@ export function CrmBoard({
    * entrada de leads», y eso es una casilla adentro de este pop-up.
    */
   abrirEmbudo?: 'etapas' | 'entradas' | null;
+  /** `?importar=1` (5/11/2026): abre «Importar leads» al entrar. Lo pide la apertura de la estrella («¿Dónde tienes hoy a tus
+   *  clientes?» → «En una planilla», lib/aperturas/crm.ts) y la escalera del Ops Center. */
+  abrirImportar?: boolean;
   /** null = el funnel del negocio (sin `?funnel=` en la URL). */
   funnelActivo?: number | null;
   /** El orden que se armó arrastrando tarjetas en este embudo: etapa → leads (mig 0200). */
@@ -2014,6 +2018,17 @@ export function CrmBoard({
   const abrirScraper = useCallback(() => setNuevoLead((n) => (n?.traer === 'grupo' ? n : { etapa: n?.etapa ?? null, traer: 'grupo' })), []);
   /** «Importar» abierto desde «Nuevo lead»: al cerrarlo, el alta sigue ahí (la pila de la casa la vuelve a mostrar). */
   const cerrarImportar = useCallback(() => setImportar(false), []);
+  // `?importar=1`: se abre y el parámetro se saca de la URL (un F5 no lo vuelve a abrir). Sobre el CAMBIO del prop, no al montar:
+  // el link de la estrella navega a la MISMA página, que sigue montada.
+  useEffect(() => {
+    if (!abrirImportar) return;
+    setImportar(true);
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('importar');
+      window.history.replaceState(window.history.state, '', u);
+    } catch { /* es una comodidad */ }
+  }, [abrirImportar]);
   // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
   // renglón del selector puede abrir uno que no es el del tablero.
   const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string; entradas?: boolean } | null>(null);

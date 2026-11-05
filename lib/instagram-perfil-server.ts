@@ -15,20 +15,25 @@
 //      escribe). El tope vive en memoria de la instancia: es un freno, no una cuenta exacta.
 //   4. `apify-spy` (1/11/2026): la clave del propio negocio para Competitors Spy (`APIFY_CLAVE_DE_SPY`). Sólo si quien llama la pide por
 //      nombre, y hoy la pide sólo lib/spy.ts: no es la fuente 3, y no despierta nada del Leads Scraper retirado.
+//      Con VARIAS claves de Spy (5/11/2026) Spy pide además `variasClaves`: si la 1 se queda sin crédito, pasa a la siguiente
+//      (`clavesApifyDeSpy`, abajo). El alta del CRM no lo pide: con ella, la 1 sola, como siempre.
 // Sin ninguna fuente que conteste, `ok: false` con el motivo: quien llama lo DICE (nunca inventa un perfil).
 // NUNCA TIRA.
 // =============================================================================
 
 import 'server-only';
-import { credDelCliente, credWs, credWsEstricta } from './credenciales';
+import { createHash } from 'node:crypto';
+import { clavesGuardadasConBase, credDelCliente, credWs, credWsEstricta } from './credenciales';
 import { wsSuperAdmin } from './workspace';
 import { motivoDeErrorGraph, usuarioDeTexto } from './instagram-buscar';
 import {
   APIFY_ACTOR_PERFIL, APIFY_CLAVE_DE_SPY, APIFY_MIN_LETRAS, APIFY_TOPE_POR_DIA, APIFY_TOPE_USD, campoDesconocido, CAMPOS_PERFIL, CAMPOS_PERFIL_PIEZAS,
+  CLAVES_APIFY_DE_SPY, nombreDeClaveApify, slotDeClaveApify,
   TOPE_BUSQUEDAS_SPY_POR_DIA, TOPE_LECTURAS_SPY_POR_DIA,
   leerPerfilDeApify, leerPerfilDeMeta,
   type LecturaInstagram, type MotivoInstagram,
 } from './instagram-perfil';
+import { conLaPrimeraConCredito, rotuloDeClave, type ClaveApify } from './spy-claves';
 
 const GRAPH = 'https://graph.facebook.com';
 const ver = () => process.env.META_API_VERSION || 'v24.0';
@@ -91,18 +96,69 @@ async function porMeta(usuario: string, token: string, pagina: string, campos: s
   return leerPerfilDeMeta(res.status, res.cuerpo);
 }
 
-/** Apify, con un token. 401/403 → sin permiso; 402/429 → límite (sin saldo o frenado). */
-async function porApify(usuario: string, token: string, conPiezas = false): Promise<LecturaInstagram> {
+// ── Las claves de Spy del negocio (5/11/2026, varias claves de Apify) ──────────────────────────────────────────────
+// Martín: «Dame la opción de tener varias claves de apify». LA función que las lee: Spy, su traída larga, su guion, su búsqueda
+// y la biblioteca de carruseles piden las claves acá, y el orden y el salto por crédito los hace lib/spy-claves.ts.
+// La 1 se lee SIEMPRE (la clave de siempre sigue andando sin que nadie haga nada); las extra, con UNA lectura de nombres y una
+// caché de un minuto, como `clavesZernio` (lib/zernio.ts). ⚠️ `clavesGuardadasConBase` se llama con los nombres EXACTOS de las
+// extra: corta en `__`, y con la base devolvía sólo la 1 (el bug de Zernio del 29/10).
+
+/** La huella de una clave (sha256 corto): con ella se sabe con qué clave se pidió algo sin guardar la clave. */
+export const huellaApify = (token: string): string => createHash('sha256').update(token).digest('hex').slice(0, 16);
+
+const TTL_EXTRAS_MS = 60_000;
+const ge = globalThis as unknown as { __apifyExtras?: Map<number, { vence: number; extras: ClaveApify[] }> };
+const extrasCache = (ge.__apifyExtras ??= new Map<number, { vence: number; extras: ClaveApify[] }>());
+
+/**
+ * Las claves de Spy del negocio, en orden (la 1 y las que se agregaron). Nunca tira: lo que no se pudo leer no está.
+ * `soloLaPrimera`: la clave de siempre y nada más (el alta del CRM, que no rota). `conNombres`: con el nombre que la persona le
+ * puso a cada una (la tarjeta de Integraciones y el script de la biblioteca; Spy no lo necesita para pedir).
+ */
+export async function clavesApifyDeSpy(ws: number, opc: { soloLaPrimera?: boolean; conNombres?: boolean; fresca?: boolean } = {}): Promise<ClaveApify[]> {
+  const nombreDe = async (env: string) => (opc.conNombres ? ((await credDelCliente(nombreDeClaveApify(env), ws).catch(() => null))?.trim() || null) : null);
+  const [token, nombre] = await Promise.all([credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null), nombreDe(APIFY_CLAVE_DE_SPY)]);
+  const claves: ClaveApify[] = token ? [{ token, slot: 1, nombre, huella: huellaApify(token) }] : [];
+  if (opc.soloLaPrimera) return claves;
+  const hit = opc.fresca || opc.conNombres ? undefined : extrasCache.get(ws);
+  let extras = hit && hit.vence > Date.now() ? hit.extras : null;
+  if (!extras) {
+    extras = [];
+    const guardadas = await clavesGuardadasConBase(ws, CLAVES_APIFY_DE_SPY.slice(1)).catch(() => null);
+    for (const env of CLAVES_APIFY_DE_SPY.slice(1).filter((n) => guardadas?.includes(n))) {
+      const [k, n] = await Promise.all([credDelCliente(env, ws).catch(() => null), nombreDe(env)]);
+      if (k) extras.push({ token: k, slot: slotDeClaveApify(env) ?? 0, nombre: n, huella: huellaApify(k) });
+    }
+    // Un «no pude leer los nombres» no se recuerda: la próxima vuelve a preguntar.
+    if (guardadas && !opc.conNombres) extrasCache.set(ws, { vence: Date.now() + TTL_EXTRAS_MS, extras });
+  }
+  // La misma clave pegada dos veces es UNA cuenta: probarla dos veces no suma crédito.
+  for (const k of extras) if (!claves.some((x) => x.huella === k.huella)) claves.push(k);
+  return claves;
+}
+
+/** Una clave sola como lista (la de la plataforma, dormida): el mismo camino de pedir, sin otra a la que pasar. */
+const comoClave = (token: string): ClaveApify[] => [{ token, slot: 1, nombre: null, huella: huellaApify(token) }];
+
+/**
+ * Apify, con las claves en orden: la primera con crédito (lib/spy-claves.ts). 401/403 → sin permiso; 402/429 → límite (sin
+ * saldo o frenado). Con varias claves, un «sin crédito» pasa a la siguiente; un 401 NO pasa: se dice cuál clave no entra.
+ */
+async function porApify(usuario: string, claves: readonly ClaveApify[], conPiezas = false): Promise<LecturaInstagram> {
   const q = new URLSearchParams({ maxItems: '1', maxTotalChargeUsd: String(APIFY_TOPE_USD) });
-  const r = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR_PERFIL}/run-sync-get-dataset-items?${q}`, {
-    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ usernames: [usuario] }), signal: AbortSignal.timeout(TOPE_APIFY_MS), cache: 'no-store',
+  const r = await conLaPrimeraConCredito(claves, async ({ token }) => {
+    const res = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR_PERFIL}/run-sync-get-dataset-items?${q}`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usernames: [usuario] }), signal: AbortSignal.timeout(TOPE_APIFY_MS), cache: 'no-store',
+    });
+    return { status: res.status, cuerpo: await res.json().catch(() => null) };
   });
-  const cuerpo = await r.json().catch(() => null);
-  if (r.status === 401 || r.status === 403) return { ok: false, motivo: 'sin-permiso', detalle: `Apify: HTTP ${r.status}` };
-  if (r.status === 402 || r.status === 429) return { ok: false, motivo: 'limite', detalle: `Apify: HTTP ${r.status}` };
-  if (r.status < 200 || r.status >= 300) return { ok: false, motivo: 'error', detalle: `Apify: HTTP ${r.status}` };
-  return leerPerfilDeApify(usuario, cuerpo, conPiezas);
+  if (!r) return { ok: false, motivo: 'sin-conexion', detalle: 'sin la clave de Apify' };
+  const cual = claves.length > 1 ? ` (${rotuloDeClave(r.clave)})` : '';
+  if (r.status === 401 || r.status === 403) return { ok: false, motivo: 'sin-permiso', detalle: `Apify: HTTP ${r.status}${cual}` };
+  if (r.status === 402 || r.status === 429) return { ok: false, motivo: 'limite', detalle: `Apify: HTTP ${r.status}${cual}` };
+  if (r.status < 200 || r.status >= 300) return { ok: false, motivo: 'error', detalle: `Apify: HTTP ${r.status}${cual}` };
+  return leerPerfilDeApify(usuario, r.cuerpo, conPiezas);
 }
 
 /**
@@ -136,6 +192,12 @@ export async function leerPerfilInstagram(
     ws?: number | null; fuentes?: readonly FuenteInstagram[]; conPiezas?: boolean;
     /** Cuántas lecturas del tope diario NO puede tocar esta llamada. Lo que nadie pidió con un clic deja margen. */
     reservaApify?: number;
+    /**
+     * Con la fuente `apify-spy`, ¿puede pasar a la 2.ª clave de Spy cuando la 1 se queda sin crédito? Sólo lo pide Spy
+     * (5/11/2026, varias claves de Apify: son de Spy y de la biblioteca). Sin esto, la clave 1 sola, como siempre: el alta del
+     * CRM no lo pide, así que las claves extra no le gastan nada.
+     */
+    variasClaves?: boolean;
   } = {},
 ): Promise<LecturaConFuente> {
   // El @ se valida ACÁ también (B3): entra a la expansión de campos de Graph, con el token de la plataforma.
@@ -148,7 +210,8 @@ export async function leerPerfilInstagram(
   const campos = opts.conPiezas ? CAMPOS_PERFIL_PIEZAS : CAMPOS_PERFIL;
   // ⚠️ SI TIENE LA CLAVE DE SPY TAMBIÉN ENTRA EN LA CLAVE DE LA CACHÉ: un fallo se recuerda 10 minutos, y sin esto, pegar la clave y tocar «Revisar
   // ahora» seguía contestando «no pude» aunque ya hubiera con qué.
-  const claveDeSpy = fuentes.includes('apify-spy') && ws != null ? await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null) : null;
+  const clavesDeSpy = fuentes.includes('apify-spy') && ws != null ? await clavesApifyDeSpy(ws, { soloLaPrimera: !opts.variasClaves }) : [];
+  const claveDeSpy = clavesDeSpy.length ? clavesDeSpy : null;
   // ⚠️ CON RESERVA ES OTRA CLAVE: un «tope» de quien tiene reserva no puede tapar 10 minutos a quien sí puede leer. Sin esto, la fila
   // que no se completó le contestaba «no pude» a la vista previa que la persona pidió con un clic.
   const reserva = opts.reservaApify ?? 0;
@@ -217,7 +280,7 @@ export async function leerPerfilInstagram(
       const usadas = apifyHoy.get(cuenta) ?? 0;
       if (usadas >= APIFY_TOPE_POR_DIA - reserva) { anotar({ ok: false, motivo: 'limite', detalle: `tope de ${APIFY_TOPE_POR_DIA} lecturas por día` }); continue; }
       apifyHoy.set(cuenta, usadas + 1);
-      const l = await porApify(usuario, token).catch((e): LecturaInstagram => ({ ok: false, motivo: 'error', detalle: msg(e) }));
+      const l = await porApify(usuario, comoClave(token)).catch((e): LecturaInstagram => ({ ok: false, motivo: 'error', detalle: msg(e) }));
       if (l.ok) return guardar({ ...l, fuente: 'apify' });
       anotar(l, true);
     }
@@ -254,9 +317,10 @@ export async function leerPerfilesEnLote(
     else pedir.push(u);
   }
   if (!pedir.length) return out;
-  const token = await credDelCliente(APIFY_CLAVE_DE_SPY, opts.ws).catch(() => null);
+  // Es de Spy (el buscador y sus otras redes): con todas sus claves, la primera con crédito.
+  const claves = await clavesApifyDeSpy(opts.ws);
   const sinLeer = (motivo: MotivoInstagram, detalle: string) => { for (const u of pedir) out.set(u, { ok: false, motivo, detalle }); return out; };
-  if (!token) return sinLeer('sin-conexion', 'sin la clave de Spy');
+  if (!claves.length) return sinLeer('sin-conexion', 'sin la clave de Spy');
   const cuenta = `s${opts.ws}|${hoy()}`;
   const usadas = apifyHoy.get(cuenta) ?? 0;
   const quedan = TOPE_LECTURAS_SPY_POR_DIA - (opts.reserva ?? 0) - usadas;
@@ -265,14 +329,19 @@ export async function leerPerfilesEnLote(
   apifyHoy.set(cuenta, usadas + lote.length);
   try {
     const q = new URLSearchParams({ maxItems: String(lote.length), maxTotalChargeUsd: String(Math.max(APIFY_TOPE_USD, APIFY_TOPE_USD * lote.length)) });
-    const r = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR_PERFIL}/run-sync-get-dataset-items?${q}`, {
-      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usernames: lote }), signal: AbortSignal.timeout(TOPE_APIFY_MS), cache: 'no-store',
+    const r = await conLaPrimeraConCredito(claves, async ({ token }) => {
+      const res = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR_PERFIL}/run-sync-get-dataset-items?${q}`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: lote }), signal: AbortSignal.timeout(TOPE_APIFY_MS), cache: 'no-store',
+      });
+      return { status: res.status, cuerpo: await res.json().catch(() => null) };
     });
-    const cuerpo = await r.json().catch(() => null);
-    if (r.status < 200 || r.status >= 300) {
-      const motivo: MotivoInstagram = r.status === 401 || r.status === 403 ? 'sin-permiso' : r.status === 402 || r.status === 429 ? 'limite' : 'error';
-      for (const u of lote) out.set(u, { ok: false, motivo, detalle: `Apify: HTTP ${r.status}` });
+    const cuerpo = r?.cuerpo ?? null;
+    if (!r || r.status < 200 || r.status >= 300) {
+      const status = r?.status ?? 0;
+      const motivo: MotivoInstagram = status === 401 || status === 403 ? 'sin-permiso' : status === 402 || status === 429 ? 'limite' : 'error';
+      const cual = r && claves.length > 1 ? ` (${rotuloDeClave(r.clave)})` : '';
+      for (const u of lote) out.set(u, { ok: false, motivo, detalle: `Apify: HTTP ${status}${cual}` });
     } else {
       for (const u of lote) {
         const l = leerPerfilDeApify(u, cuerpo);

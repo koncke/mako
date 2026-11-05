@@ -89,6 +89,12 @@ export type TareaLarga = {
   pagina?: string;
   /** Anuncios: el día que se probaron todas sus búsquedas y no pautaba. Es un dato, no un error. */
   sinAnuncios?: string;
+  /**
+   * La HUELLA de la clave de Spy con que se pidió la corrida en marcha (5/11/2026, varias claves de Apify). Lo que empezó una cuenta
+   * de Apify sólo lo puede leer esa cuenta: con otra clave, su corrida y su dataset no existen. Nunca la clave, sólo su huella.
+   * Sin esto (las corridas de antes), la clave 1.
+   */
+  clave?: string;
 };
 export type TareasDeCompetidor = { instagram?: TareaLarga; anuncios?: TareaLarga };
 export type RegistroTareas = Record<string, TareasDeCompetidor>;
@@ -110,6 +116,7 @@ function tarea(v: unknown): TareaLarga | undefined {
   if (Number.isInteger(v.busqueda) && (v.busqueda as number) >= 0 && (v.busqueda as number) < 10) t.busqueda = v.busqueda as number;
   if (/^\d{5,25}$/.test(str(v.pagina))) t.pagina = str(v.pagina);
   if (fecha(v.sinAnuncios)) t.sinAnuncios = v.sinAnuncios as string;
+  if (/^[a-f0-9]{16}$/.test(str(v.clave))) t.clave = str(v.clave);
   // Una corrida sin su dataset no se puede leer: es como si no estuviera.
   if (t.run && !t.dataset) delete t.run;
   return t;
@@ -171,25 +178,52 @@ export function creditoDeApify(cuerpo: unknown): CreditoApify | null {
 }
 
 /**
+ * El crédito de VARIAS claves de Spy sumado (5/11/2026, varias claves de Apify): lo que se sabe de cada una, junto. null si
+ * de ninguna se pudo saber. Una clave cuyo crédito no se pudo leer NO suma (no se inventa su saldo): cuenta aparte.
+ */
+export function creditoTotal(creditos: ReadonlyArray<CreditoApify | null>): CreditoApify | null {
+  const sabidos = creditos.filter((c): c is CreditoApify => !!c);
+  if (!sabidos.length) return null;
+  return { usado: sabidos.reduce((n, c) => n + c.usado, 0), tope: sabidos.reduce((n, c) => n + c.tope, 0) };
+}
+
+/**
  * El pedido de publicaciones achicado a lo que el crédito deja, o null si no alcanza (la traída espera; se dice sólo al admin).
  * Sin saber el crédito, el pedido de siempre: el tope de corridas del día ya lo cuida.
+ *
+ * Con VARIAS claves (5/11/2026) se le pasa también `total` (`creditoTotal` de todas): la reserva de Spy se cuenta sobre el TOTAL
+ * libre, no sobre cada clave. Una corrida corre en UNA clave, así que además no puede pedir más de lo que le queda a ésa. Con
+ * una sola clave, `total` es la misma y el resultado es el de siempre.
  */
-export function ajustarAlCredito(p: { cuantas: number; desde: string | null; techoUsd: number }, credito: CreditoApify | null): { cuantas: number; desde: string | null; techoUsd: number } | null {
+export function ajustarAlCredito(
+  p: { cuantas: number; desde: string | null; techoUsd: number }, credito: CreditoApify | null, total: CreditoApify | null = credito,
+): { cuantas: number; desde: string | null; techoUsd: number } | null {
   if (!credito) return p;
-  const libre = credito.tope - credito.usado - RESERVA_CREDITO_USD;
+  const deTodas = total ?? credito;
+  const libre = deTodas.tope - deTodas.usado - RESERVA_CREDITO_USD;
   if (libre <= 0) return null;
-  const techo = libre * PARTE_DEL_CREDITO;
+  const techo = Math.min(libre * PARTE_DEL_CREDITO, credito.tope - credito.usado);
+  if (techo <= 0) return null;
   if (p.techoUsd <= techo) return p;
   const cuantas = Math.floor(techo / USD_POR_PUBLICACION);
   if (cuantas < MINIMO_DE_UNA_TRAIDA) return null;
   return { cuantas, desde: p.desde, techoUsd: Math.max(0.05, Math.floor(cuantas * USD_POR_PUBLICACION * 100) / 100) };
 }
 
-/** ¿El «no pude empezar» de Apify es por crédito? (HTTP 402, o el tipo de error que lo dice.) */
+/**
+ * ¿El «no pude» de Apify es por crédito? (HTTP 402, o el tipo de error que lo dice.) Es lo ÚNICO que hace pasar a la siguiente
+ * clave de Spy (lib/spy-claves.ts): una clave rota o un Apify caído no se arreglan con otra cuenta.
+ *
+ * ⚠️ 5/11/2026: el `rate-limit-exceeded` de un 429 (demasiados pedidos por segundo) contestaba que sí, porque el patrón
+ * buscaba `limit-exceeded` suelto. No es plata: es una pausa. Con varias claves, saltar de clave por eso gastaba la de otra
+ * cuenta por un apuro de un segundo.
+ */
 export function esFaltaDeCredito(status: number, cuerpo: unknown): boolean {
   if (status === 402) return true;
   const e = (cuerpo as { error?: { type?: unknown; message?: unknown } } | null)?.error;
-  return /usage|credit|limit-exceeded|not-enough|insufficient/i.test(`${String(e?.type ?? '')} ${String(e?.message ?? '')}`);
+  const texto = `${String(e?.type ?? '')} ${String(e?.message ?? '')}`;
+  if (status === 429 || /rate-limit/i.test(texto)) return false;
+  return /usage|credit|limit-exceeded|not-enough|insufficient/i.test(texto);
 }
 
 /** Lo que se le manda al actor de publicaciones. */

@@ -34,12 +34,13 @@ export { USD_POR_BUSQUEDA, USD_POR_MIL } from './instagram-buscar-apify-reglas';
 const TOPE_MS = 45_000;
 
 /**
- * Los perfiles que se parecen a `texto`. Lista vacía si no hay con qué buscar o si no encontró:
- * **nunca tira**, porque esto corre mientras alguien escribe y un error acá no puede frenar el alta.
+ * El pedido de la búsqueda, CRUDO: su estado y su cuerpo (5/11/2026, varias claves de Spy). Quien tiene varias claves necesita
+ * saber si una contestó «sin crédito» para pasar a la siguiente (lib/spy-claves.ts); `buscarPerfilesApify` lo lee abajo.
+ * **Nunca tira**: un corte de red o un tiempo de espera vuelve con estado 0, que no es falta de crédito.
  */
-export async function buscarPerfilesApify(texto: string, token: string): Promise<PerfilIg[]> {
+export async function pedirBusquedaApify(texto: string, token: string): Promise<{ status: number; cuerpo: unknown }> {
   const q = str(texto);
-  if (q.length < 3 || !token) return [];
+  if (q.length < 3 || !token) return { status: 0, cuerpo: null };
   try {
     const params = new URLSearchParams({
       maxItems: String(RESULTADOS_POR_BUSQUEDA),
@@ -60,13 +61,26 @@ export async function buscarPerfilesApify(texto: string, token: string): Promise
       signal: AbortSignal.timeout(TOPE_MS),
       cache: 'no-store',
     });
-    if (r.status < 200 || r.status >= 300) {
-      console.error(`[instagram-buscar-apify] HTTP ${r.status} buscando «${q}»`);
-      return [];
-    }
-    return perfilesDeLaRespuesta(await r.json().catch(() => null));
+    return { status: r.status, cuerpo: await r.json().catch(() => null) };
   } catch (e) {
     console.error(`[instagram-buscar-apify] buscando «${q}»: ${e instanceof Error ? e.message : String(e)}`);
+    return { status: 0, cuerpo: null };
+  }
+}
+
+/** Lo que vino de la búsqueda, como perfiles. Un estado que no es 2xx es una lista vacía (y se anota). */
+export function perfilesDeBusqueda(texto: string, r: { status: number; cuerpo: unknown }): PerfilIg[] {
+  if (r.status < 200 || r.status >= 300) {
+    if (r.status) console.error(`[instagram-buscar-apify] HTTP ${r.status} buscando «${str(texto)}»`);
     return [];
   }
+  return perfilesDeLaRespuesta(r.cuerpo);
+}
+
+/**
+ * Los perfiles que se parecen a `texto`. Lista vacía si no hay con qué buscar o si no encontró:
+ * **nunca tira**, porque esto corre mientras alguien escribe y un error acá no puede frenar el alta.
+ */
+export async function buscarPerfilesApify(texto: string, token: string): Promise<PerfilIg[]> {
+  return perfilesDeBusqueda(texto, await pedirBusquedaApify(texto, token));
 }

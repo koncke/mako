@@ -48,7 +48,8 @@ test('2. cada vuelta de la traída larga baja las miniaturas que faltan, mientra
   const todo = sinComentarios(leer('lib/spy-todo.ts'));
   const av = todo.slice(todo.indexOf('export async function avanzarTodo'));
   const relleno = av.indexOf('await rellenarMiniaturas(id);');
-  const clave = av.indexOf('credDelCliente(APIFY_CLAVE_DE_SPY');
+  // 5/11/2026: las claves de Spy (varias) se leen con `clavesApifyDeSpy`.
+  const clave = av.indexOf('clavesApifyDeSpy(ws)');
   assert.ok(relleno > 0, 'avanzarTodo no rellena');
   assert.ok(clave > 0 && relleno < clave, 'el relleno no necesita la clave de Spy: va antes');
   const mini = sinComentarios(leer('lib/spy-miniaturas-relleno.ts'));

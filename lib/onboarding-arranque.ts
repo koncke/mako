@@ -37,10 +37,10 @@
 // =============================================================================
 
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, type CanalId } from './fase-diagnostico';
-import { TIPOS_CRM, type TipoCrm, type TipoCrmId } from './pipeline';
+import { ENTRADAS, TIPOS_CRM, type EntradaId, type TipoCrm, type TipoCrmId } from './pipeline';
+import { CUANTOS_FUNNELS, nombreDelFunnel, recomendarFunnel, type FunnelRecomendado } from './funnel-recomendado';
 import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
 import type { PropuestaCrm } from './onboarding-crm';
-import { RUTA_AUTOMATIONS } from './ruta-automations';
 import { NOTA_DE_VOZ } from './chat-mako-reglas';
 import { AVISOS_LISTOS, AVISOS_SIN_SOPORTE, PIDE_AVISOS, PREGUNTA_AVISOS } from './avisos-telefono-reglas';
 import {
@@ -89,6 +89,10 @@ export type EstadoArranque = {
   faseResp?: number[];
   /** Dónde cierra la venta, si lo preguntó el arranque (la pregunta de canal va antes de la de volumen). */
   canal?: CanalId;
+  /** «¿Cómo te llegan hoy los clientes?» (5/11/2026, plan.md §3.1 paso 9): lo que ya hace. Sólo se pregunta si cierra por
+   *  llamada o por chat (con webinar, carrito o presencial el canal ya decide). 'ninguna' = «Todavía no me llegan». Junto con el
+   *  diagnóstico alimenta `recomendarFunnel` (lib/funnel-recomendado.ts). */
+  entrada?: EntradaId | 'ninguna';
   /** El tipo de CRM que eligió (modo 'oferta'). */
   crmTipo?: TipoCrmId;
   /** Mostrar todos los tipos de CRM, no sólo los de su canal. */
@@ -121,6 +125,9 @@ export type EstadoArranque = {
   hiloCreando?: { at: string; por: string };
   /** Ya vio la animación del principio: no se repite al recargar. */
   introVista?: boolean;
+  /** El borrador del plan que MaKo armó al cerrar (5/11/2026; antes se perdía: sólo lo veía la tarjeta del «¡Listo!»). Lo lee la
+   *  escalera del Ops Center (paso 7: «¿Tu equipo ya sabe qué hacer esta semana?» → «Ver el borrador»). */
+  planBorrador?: { id: string; n: number };
   /** «Mi teléfono no puede» (3/11/2026): la única salida del paso de los avisos, y sólo la ofrece un navegador que no los recibe. Que los active se MIDE, no se guarda. */
   avisos?: 'sin-soporte';
 };
@@ -137,6 +144,8 @@ export type HechosArranque = {
   faseGuardada: boolean;
   /** El canal del diagnóstico guardado (dónde cierra la venta), o null. */
   canalNegocio: CanalId | null;
+  /** Las respuestas y la fase del diagnóstico guardado (índices de lib/fase-diagnostico.ts): con ellas se recomienda el funnel. */
+  faseNegocio?: { respuestas: number[]; fase: number } | null;
   /** La conversación ya sabe lo que vende (`PIEZAS_DEL_ARRANQUE`, lib/offer-marco.ts): está su PDF. */
   loQueVende: boolean;
   /** Cómo cobra, LEÍDO del precio que contó (`cobroDelPrecio`), para proponerlo y que lo confirme. null = no dijo precio. */
@@ -159,7 +168,7 @@ export type HechosArranque = {
 };
 
 export type EtapaArranque =
-  | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'pdf' | 'cobro' | 'crm'
+  | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'pdf' | 'cobro' | 'entrada' | 'crm'
   | 'telefono' | 'codigo' | 'avisos' | 'cierre' | 'listo';
 
 /** `pdf`: el PDF con lo que vende (la ruta lo arma con las piezas de la conversación). */
@@ -182,11 +191,36 @@ export const CODIGO_CARGADO = 'Listo, ya lo cargué.';
 /** Lo mismo, cuando la persona le escribió a MaKo (4/11/2026): no cargó nada en la app. */
 export const MENSAJE_MANDADO = 'Listo, ya te escribí.';
 export const CAMBIAR_NUMERO = 'Cambiar número';
-export const VER_OTROS_TIPOS = 'Ver otros tipos';
-/** La primera respuesta del CRM (18/10/2026, Martín, punto 10: «las respuestas rápidas tiene que ser ‹Sí, es correcto› u
- *  otras opciones»): acepta el que se le propone. */
-export const CRM_SI = 'Sí, es correcto';
-export const CRM_PREGUNTA = 'Ahora armemos tu CRM. Estas son las etapas por las que va a pasar cada cliente, de la primera charla a la venta. ¿Te sirven?';
+/** Abre la lista de los doce funnels (5/11/2026, plan.md §3.1 paso 10: «Ver los 12»). */
+export const VER_OTROS_TIPOS = `Ver los ${CUANTOS_FUNNELS}`;
+/** La primera respuesta del CRM: acepta el que MaKo le recomienda (`recomendarFunnel`). Hasta el 5/11 era «Sí, es correcto»
+ *  sobre «¿Te sirven?», que preguntaba una acción. */
+export const CRM_SI = 'Sí, ese';
+/**
+ * La recomendación del funnel (5/11/2026, plan.md §3.1 paso 10; Martín, 29/10: «"¿qué funnel te gustaría? ¿o quieres que te
+ * recomiende uno?", alimentado por su presupuesto… qué ya está haciendo o qué resultado le trajo»). El tipo y el porqué los
+ * escribe el código (`recomendarFunnel`), nunca la IA. Debajo va la tarjeta con sus etapas.
+ */
+export const crmPregunta = (r: FunnelRecomendado): string =>
+  `Hay ${CUANTOS_FUNNELS} funnels en MaKo. Para ti: «${nombreDelFunnel(r.tipo)}».${r.porque ? ` ${r.porque}` : ''}`;
+/** «¿Cómo te llegan hoy los clientes?» (plan.md §3.1 paso 9): reemplaza a «¿Te sirven?» del CRM, que preguntaba una acción. */
+export const PREGUNTA_ENTRADA = '¿Cómo te llegan hoy los clientes?';
+export const ENTRADA_NINGUNA = 'Todavía no me llegan';
+/**
+ * Las opciones de la entrada por canal, con los rótulos de `ENTRADAS` (lib/pipeline.ts). Sin «Dejan sus datos en el anuncio»: no
+ * se ofrece desde el 29/09 (`ENTRADAS_OFRECIDAS`, «más simple») y sería el quinto botón.
+ */
+export const ENTRADAS_DEL_CANAL: Readonly<Partial<Record<CanalId, readonly EntradaId[]>>> = {
+  llamadas: ['agenda_sola', 'landing', 'chat_saliente'],
+  conversaciones: ['chat_entrante', 'landing', 'chat_saliente'],
+};
+/** ¿Se pregunta cómo le llegan? Sólo si cierra por llamada o por chat: con webinar, carrito o presencial el canal ya decide. */
+export const preguntaLaEntrada = (canal: CanalId | null): canal is 'llamadas' | 'conversaciones' => !!canal && !!ENTRADAS_DEL_CANAL[canal];
+/** Las opciones de «¿Cómo te llegan hoy los clientes?» para su canal (los rótulos, y al final «Todavía no me llegan»). */
+export function opcionesDeEntrada(canal: CanalId | null): { ids: Array<EntradaId | 'ninguna'>; rotulos: string[] } {
+  const ids: Array<EntradaId | 'ninguna'> = [...(canal ? ENTRADAS_DEL_CANAL[canal] ?? [] : []), 'ninguna'];
+  return { ids, rotulos: ids.map((id) => (id === 'ninguna' ? ENTRADA_NINGUNA : ENTRADAS[id].label)) };
+}
 const PREGUNTA_CANAL = '¿Dónde cierras la venta?';
 
 const TOPE_RESPUESTA = 300;
@@ -258,11 +292,12 @@ export const notaDelPdf = (e: EstadoArranque): string | null =>
 export const ORIGENES = ['Instagram', 'YouTube', 'TikTok', 'Un anuncio', 'Me lo recomendaron', 'Google', 'Otro'] as const;
 
 export type InteresId = 'anuncios' | 'ventas' | 'whatsapp' | 'organizar';
-export const INTERESES: ReadonlyArray<{ id: InteresId; label: string; ruta: string }> = [
-  { id: 'anuncios', label: 'Conseguir clientes con anuncios', ruta: '/ads-writer' },
-  { id: 'ventas', label: 'Ordenar mis ventas y seguimientos', ruta: '/crm' },
-  { id: 'whatsapp', label: 'Que WhatsApp responda solo', ruta: RUTA_AUTOMATIONS },
-  { id: 'organizar', label: 'Organizar mi plan y mi equipo', ruta: '/plan' },
+/** Sin `ruta` desde el 5/11/2026: la entrada es siempre el Ops Center, y la de `/ads-writer` apuntaba a una tab que ya no está. */
+export const INTERESES: ReadonlyArray<{ id: InteresId; label: string }> = [
+  { id: 'anuncios', label: 'Conseguir clientes con anuncios' },
+  { id: 'ventas', label: 'Ordenar mis ventas y seguimientos' },
+  { id: 'whatsapp', label: 'Que WhatsApp responda solo' },
+  { id: 'organizar', label: 'Organizar mi plan y mi equipo' },
 ];
 
 /** El setting donde el cierre deja cómo llegó y qué quiere resolver primero. Lo lee `ver_estado_onboarding`. */
@@ -292,23 +327,21 @@ export function llegadaDe(raw: string | null | undefined): LlegadaCliente | null
   return origen || interes || pdfNota ? { origen, interes, at, pdfNota } : null;
 }
 
-/** A dónde entra al terminar: la pestaña de lo que quiere resolver primero, o /general. */
 /**
  * A dónde entra al terminar: el Ops Center (/second-brain), siempre (18/10/2026, Martín: «la primera tab que ve el cliente es
- * Ops Center»). Lo que dijo que quiere resolver primero queda en la encuesta y en `rutaDeEntrada`, pero ya no decide la entrada.
+ * Ops Center»). Lo que dijo que quiere resolver primero queda en la encuesta y ordena la escalera del Ops Center.
  */
 export const RUTA_AL_TERMINAR = '/second-brain';
 
-/** El tutorial del Ops Center que arranca al terminar el onboarding (20/10/2026). */
-export const RECORRIDO_INICIO = 'sb-inicio';
-
 /**
- * Al terminar entra AL CHAT «Onboarding», con la conversación tal cual, y arranca el tutorial (20/10/2026, Martín, punto 13
- * del 18/10: «debería estar posicionado en el chat de ‹Onboarding›... con toda la conversación tal cual... y luego debería
- * iniciar el tutorial de la app»). Sin chat (falló crearlo), al Ops Center igual: nunca se traba el final.
+ * Al terminar entra AL CHAT «Onboarding», con la conversación tal cual (20/10/2026, Martín, punto 13 del 18/10: «debería estar
+ * posicionado en el chat de ‹Onboarding›... con toda la conversación tal cual... y luego debería iniciar el tutorial de la
+ * app»). Sin `?recorrido=` desde el 5/11/2026 (G2 de docs/mako-iniciativa/guia.md): el tutorial `sb-inicio` lo reemplazó la guía
+ * del Ops Center, que pregunta sola la primera vez de cada persona, entre por donde entre. Sin chat (falló crearlo), al Ops
+ * Center igual: nunca se traba el final.
  */
 export function rutaDelHilo(chat: number | null): string {
-  return chat ? `${RUTA_AL_TERMINAR}?chat=${chat}&recorrido=${RECORRIDO_INICIO}` : `${RUTA_AL_TERMINAR}?recorrido=${RECORRIDO_INICIO}`;
+  return chat ? `${RUTA_AL_TERMINAR}?chat=${chat}` : RUTA_AL_TERMINAR;
 }
 
 /** El título del chat del Ops Center con la conversación del onboarding. */
@@ -338,14 +371,16 @@ export function decisionDelHilo(e: EstadoArranque, quien: string, o: { ahora: nu
 }
 
 /**
- * El último mensaje del chat «Onboarding» (20/10/2026, llamada con Florencia del 18/10: salió al Ops Center sin guía y sin
- * saber dónde pedir ayuda). Pregunta por dónde empezar con lo que dijo que quería resolver primero (`interes`, que se
- * guardaba y nadie leía), nombra lo que MaKo ya puede hacer y dónde avisar si algo no anda: ahí MaKo abre el ticket.
+ * El último mensaje del chat «Onboarding» (20/10/2026, llamada con Florencia del 18/10: salió al Ops Center sin saber dónde
+ * pedir ayuda). CORTO desde el 5/11/2026 (plan.md §3.2, paso 15): se fueron el «¿arrancamos por ahí?» sin botones (una pregunta
+ * que nadie podía contestar con un toque) y la lista de lo que MaKo «también puede». Lo que sigue lo pregunta la escalera del
+ * Ops Center, de a un paso por día, con sus botones (lib/aperturas/ops.ts). El grupo de WhatsApp se nombra SÓLO con el teléfono
+ * verificado: el grupo existe con él, y el paso del teléfono se puede saltar con «Ahora no».
  */
-export function salidaDelOnboarding(interes: InteresId | undefined): string {
-  const i = INTERESES.find((x) => x.id === interes);
-  const primero = i ? `Me dijiste que quieres empezar por «${i.label.toLowerCase()}»: ¿arrancamos por ahí?` : '¿Por dónde quieres empezar?';
-  return `Listo, ya conozco tu negocio. ${primero} También puedo armar tu landing, escribir tus anuncios o tus guiones, cargar tus clientes al CRM o crear tus primeras publicaciones.\n\nSi algo no funciona, escríbemelo aquí o en tu grupo de WhatsApp con MaKo y abro un ticket para que lo arreglen.`;
+export function salidaDelOnboarding(o: { nombre?: string | null; telefonoVerificado: boolean }): string {
+  const nombre = primerNombre(o.nombre ?? '');
+  const donde = o.telefonoVerificado ? 'aquí o en tu grupo de WhatsApp' : 'aquí';
+  return `Listo${nombre ? `, ${nombre}` : ''}: ya conozco tu negocio. Si algo no funciona, escríbeme ${donde} y abro un ticket.`;
 }
 
 /**
@@ -354,7 +389,7 @@ export function salidaDelOnboarding(interes: InteresId | undefined): string {
  */
 export function mensajesDelHilo(
   mensajes: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; adjuntos?: ReadonlyArray<{ nombre: string }>; id?: string; audio?: { secs: number } }>,
-  interes: InteresId | undefined,
+  salida: { nombre?: string | null; telefonoVerificado: boolean },
 ): Array<{ role: 'user' | 'assistant'; content: string; audio?: { mensaje: string; secs: number } }> {
   // Una respuesta por VOZ lleva cuál mensaje de Offer tiene el audio (21/10/2026, Florencia: se copiaba sólo la
   // transcripción): el audio no se copia, se reproduce desde la conversación (/api/offer/audio).
@@ -363,11 +398,7 @@ export function mensajesDelHilo(
     const content = (m.texto ?? '').trim() || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n') || ('audio' in audio ? NOTA_DE_VOZ : '');
     return { role: m.de === 'yo' ? 'user' as const : 'assistant' as const, content, ...audio };
   }).filter((m) => m.content);
-  return [...out, { role: 'assistant', content: salidaDelOnboarding(interes) }];
-}
-
-export function rutaDeEntrada(interes: InteresId | undefined): string {
-  return INTERESES.find((i) => i.id === interes)?.ruta ?? '/general';
+  return [...out, { role: 'assistant', content: salidaDelOnboarding(salida) }];
 }
 
 /** El interés de una respuesta: la opción tal cual, o lo escrito por sus palabras («los anuncios», «el WhatsApp»). */
@@ -904,11 +935,32 @@ export function tipoRecomendado(canal: CanalId | null): TipoCrm {
  * marco de Offer es de alto ticket vendido por llamada (lib/offer-autores.ts), así que sin canal manda
  * «Llamada de venta». Con el CRM a medida (`propuesta`, 20/10/2026), el recomendado es el que eligió MaKo.
  */
-export function tiposOfrecidos(canal: CanalId | null, verTodos: boolean, propuesta?: PropuestaCrm | null): { tipos: TipoCrm[]; hayMas: boolean } {
-  const rec = (propuesta && TIPOS_CRM.find((t) => t.id === propuesta.tipo)) || tipoRecomendado(canal);
+export function tiposOfrecidos(canal: CanalId | null, verTodos: boolean, propuesta?: PropuestaCrm | null, recomendado?: TipoCrmId | null): { tipos: TipoCrm[]; hayMas: boolean } {
+  const rec = (propuesta && TIPOS_CRM.find((t) => t.id === propuesta.tipo))
+    || (recomendado && TIPOS_CRM.find((t) => t.id === recomendado)) || tipoRecomendado(canal);
   const base = verTodos ? [...TIPOS_CRM] : TIPOS_CRM.filter((t) => t.canal === rec.canal);
   const tipos = [rec, ...base.filter((t) => t.id !== rec.id)];
   return { tipos, hayMas: !verTodos && tipos.length < TIPOS_CRM.length };
+}
+
+/** El índice de una pregunta del diagnóstico por su id ('inversion', 'creativos', 'funnel'). */
+const iFase = (id: string): number => PREGUNTAS.findIndex((q) => q.id === id);
+
+/**
+ * El funnel que le recomienda el arranque (5/11/2026, plan.md §3.3): su canal, cómo le llegan los clientes y lo que contestó del
+ * diagnóstico (lo guardado; si todavía no, lo de acá y lo de la conversación de la oferta). Lo decide `recomendarFunnel`.
+ */
+export function funnelDelArranque(e: EstadoArranque, h: HechosArranque): FunnelRecomendado {
+  const resp = h.faseNegocio?.respuestas ?? conFaseDeOffer(e, h).faseResp ?? [];
+  const tramo = (id: string): number | null => (contestada(resp[iFase(id)]) ? resp[iFase(id)] : null);
+  return recomendarFunnel({
+    canal: h.canalNegocio,
+    entrada: e.entrada && e.entrada !== 'ninguna' ? e.entrada : null,
+    inversion: tramo('inversion'),
+    creativos: tramo('creativos'),
+    funnelHoy: tramo('funnel'),
+    fase: h.faseNegocio?.fase ?? null,
+  });
 }
 
 // ── El diagnóstico en modo 'plan' ───────────────────────────────────────────
@@ -984,6 +1036,8 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
     // Cómo cobra, leído del precio y confirmado con un toque (cuarta revisión, 21/10). Sin precio dicho, no se pregunta.
     if (h.cobroLeido && !e.cobro && !h.faseGuardada) return 'cobro';
     if (!h.faseGuardada) return 'fase';
+    // Cómo le llegan hoy los clientes (5/11/2026), y con eso la recomendación del funnel.
+    if (h.conCrm && !e.crmTipo && preguntaLaEntrada(h.canalNegocio) && !e.entrada) return 'entrada';
     if (h.conCrm && !e.crmTipo) return 'crm';
   }
   if (!e.origen) return 'origen';
@@ -1061,7 +1115,8 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   }
 
   // 2b. Modo 'oferta': el pase a la conversación de lo que vende (sus mensajes los dibuja Offer).
-  antes.push({ id: 'arr-oferta', de: 'mako', texto: `Gracias, ${nombre}. Ahora cuéntame qué vendes en ${e.negocio}: lo dejo ordenado para trabajar con eso.` });
+  // La frase de Martín (29/10/2026): «lo primero que te recomiendo es que cargues tu oferta» (plan.md §3.1, paso 3).
+  antes.push({ id: 'arr-oferta', de: 'mako', texto: `Gracias, ${nombre}. Lo primero es tu oferta: con ella conozco ${e.negocio} y te ayudo en todo lo demás.` });
   if (etapa === 'oferta') return { antes, despues };
 
   // 2c. Lo que vende, ordenado en un PDF (la tarjeta lleva el link).
@@ -1086,7 +1141,7 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   if (h.cobroLeido && (etapa === 'cobro' || e.cobro)) {
     const opciones = (h.cobroOpciones ?? opcionesDeCobro(null, h.cobroLeido)).map(etiquetaCobro);
     const pregunta = h.cobroLeido.periodo ? cobroSinPropuesta(h.cobroLeido.periodo)
-      : h.cobroLeido.porDefecto ? COBRO_SIN_LECTURA : `Entendí que cobras así: «${etiquetaCobro(h.cobroLeido)}». ¿Lo cargo así?`;
+      : h.cobroLeido.porDefecto ? COBRO_SIN_LECTURA : `Entendí que cobras así: «${etiquetaCobro(h.cobroLeido)}». ¿Es así?`;
     preguntar(despues, 'cobro', pregunta, e.cobro ? etiquetaCobro(e.cobro) : undefined, opciones);
     if (etapa === 'cobro') return { antes, despues };
   }
@@ -1101,13 +1156,21 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     }
   }
 
-  // 3. El CRM.
+  // 3. El CRM: primero cómo le llegan hoy los clientes (sólo por llamada o por chat), después el funnel que le recomienda.
   if (h.conCrm) {
-    const { tipos, hayMas } = tiposOfrecidos(h.canalNegocio, !!e.crmVerTodos, e.crmPropuesta);
-    // Primero el que se le propone, con «Sí, es correcto»; «Ver otros tipos» abre la lista (18/10/2026, punto 10).
+    if (preguntaLaEntrada(h.canalNegocio) && (etapa === 'entrada' || e.entrada)) {
+      const { ids, rotulos } = opcionesDeEntrada(h.canalNegocio);
+      const elegida = e.entrada ? ids.indexOf(e.entrada) : -1;
+      if (preguntarConOpciones(despues, preguntar, e, { msg: 'entrada', pregunta: 'entrada' }, PREGUNTA_ENTRADA, rotulos, elegida >= 0 ? elegida : undefined)) {
+        return { antes, despues };
+      }
+    }
+    const rec = funnelDelArranque(e, h);
+    const { tipos } = tiposOfrecidos(h.canalNegocio, !!e.crmVerTodos, e.crmPropuesta, rec.tipo);
+    // Primero el que le recomienda, con «Sí, ese»; «Ver los 12» abre la lista (plan.md §3.1, paso 10).
     const elegido = e.crmTipo ? (e.crmTipo === tipos[0].id && !e.crmVerTodos ? CRM_SI : TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label) : undefined;
-    const opciones = e.crmVerTodos ? tipos.map((t) => t.label) : [CRM_SI, ...(hayMas ? [VER_OTROS_TIPOS] : [])];
-    preguntar(despues, 'crm', CRM_PREGUNTA, elegido, opciones, 'crm');
+    const opciones = e.crmVerTodos ? tipos.map((t) => t.label) : [CRM_SI, VER_OTROS_TIPOS];
+    preguntar(despues, 'crm', crmPregunta(rec), elegido, opciones, 'crm');
     if (etapa === 'crm') return { antes, despues };
   }
 
@@ -1415,9 +1478,19 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: false, error: PIDE_TELEFONO };
   }
   if (etapa === 'avisos') return { ok: false, error: PIDE_AVISOS };
+  if (etapa === 'entrada') {
+    const { ids, rotulos } = opcionesDeEntrada(h.canalNegocio);
+    const pend = e.opcionPorConfirmar?.id === 'entrada' ? e.opcionPorConfirmar : undefined;
+    // Lo escrito con otras palabras se propone por la opción más parecida y se confirma con un toque (como el interés).
+    const el = elegirOpcion(texto, opcion, rotulos, pend, (t) => opcionMasCercana(t, rotulos, 1));
+    if (el.tipo === 'error') return { ok: false, error: el.error };
+    if (el.tipo === 'otra-vez') return { ok: true, patch: { opcionPorConfirmar: undefined } };
+    if (el.tipo === 'confirmar') return { ok: true, patch: { opcionPorConfirmar: { id: 'entrada', opcion: el.idx, escrito: el.escrito } } };
+    return { ok: true, patch: { entrada: ids[el.idx], ...alGuardarOpcion(e, 'entrada', el.escrito) } };
+  }
   if (etapa === 'crm') {
     if (opcion === VER_OTROS_TIPOS) return { ok: true, patch: { crmVerTodos: true } };
-    if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false, e.crmPropuesta).tipos[0].id } };
+    if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false, e.crmPropuesta, funnelDelArranque(e, h).tipo).tipos[0].id } };
     const t = TIPOS_CRM.find((x) => x.label === opcion);
     if (!t) return { ok: false, error: 'Elige un tipo de CRM.' };
     return { ok: true, patch: { crmTipo: t.id } };

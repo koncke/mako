@@ -719,9 +719,11 @@ export function piezaParaLaApi(p: PiezaDelHilo, chat: string) {
     // Lo que contestó Martín: lo que guardó la pregunta, o el texto de su trabajo sin la marca si no se llegó a guardar.
     const q = p.pregunta;
     const respuesta = q.respuesta ? resumenDeRespuesta(q, q.respuesta) : p.trabajo ? (p.trabajo.texto ?? '').replace(/\[pregunta [0-9a-f-]{36}\]\s*/, '').trim() : null;
+    // `id` (5/11/2026): con él se ignora o se vuelve a mostrar (`ignorar_pregunta_operaciones`); `ignorada`, desde cuándo.
     return {
-      tipo: 'pregunta' as const, de: chat, at: q.at, pregunta: q.pregunta, opciones: q.opciones.map((o) => o.titulo),
-      respuesta, abierta: !q.respuesta && !p.trabajo && estaAbierta(q),
+      tipo: 'pregunta' as const, de: chat, id: q.id, at: q.at, pregunta: q.pregunta, opciones: q.opciones.map((o) => o.titulo),
+      respuesta, abierta: !q.respuesta && !(p.trabajo && p.trabajo.estado !== 'cancelado') && estaAbierta(q),
+      ...(q.ignorada && !q.respuesta ? { ignorada: q.ignorada } : {}),
     };
   }
   if (p.tipo === 'trabajo') {
@@ -740,10 +742,18 @@ export function primeraOracion(texto: string, tope = 140): string {
   return o.length > tope ? `${o.slice(0, tope - 1).trimEnd()}…` : o;
 }
 
+/** ¿La respuesta de esta línea está en camino? Un trabajo CANCELADO no lo está (lo canceló Martín en la cola, o salió de una pregunta
+ *  ignorada: `MOTIVO_IGNORADA`): la pregunta vuelve a poder contestarse si sigue abierta (5/11/2026). */
+const respuestaEnCamino = (l: Extract<LineaChat, { tipo: 'pregunta' }>): boolean => !!l.trabajo && l.trabajo.estado !== 'cancelado';
 /** Las abiertas de este chat cuya respuesta todavía no salió (la línea no tiene su trabajo), la más vieja primero. */
 const abiertasSinRespuesta = (lineas: readonly LineaChat[]): PreguntaChat[] =>
-  lineas.flatMap((l) => (l.tipo === 'pregunta' && !l.trabajo && estaAbierta(l.pregunta) ? [l] : []))
+  lineas.flatMap((l) => (l.tipo === 'pregunta' && !respuestaEnCamino(l) && estaAbierta(l.pregunta) ? [l] : []))
     .sort((a, b) => a.instante - b.instante).map((l) => l.pregunta);
+
+/** Las de este chat que Martín IGNORÓ (5/11/2026), la última ignorada primero: van a «Ignoradas», con «Volver a mostrar». */
+export const preguntasIgnoradas = (lineas: readonly LineaChat[]): PreguntaChat[] =>
+  lineas.flatMap((l) => (l.tipo === 'pregunta' && l.pregunta.ignorada && !l.pregunta.respuesta ? [l.pregunta] : []))
+    .sort((a, b) => Date.parse(b.ignorada ?? '') - Date.parse(a.ignorada ?? ''));
 
 /**
  * Las preguntas que van al BLOQUE de arriba de la caja (22/10/2026, Martín: «Las decisiones deben salir como en Claude, un bloque
@@ -1914,12 +1924,13 @@ export function gruposDelAvance(nodos: readonly NodoAvance[]): GrupoAvance[] {
 export type DecisionEspera = Decision;
 
 export function esperasPorChat(
-  decisiones: readonly Pick<Decision, 'chat' | 'destino' | 'respuesta'>[], carteros: readonly Pick<CarteroP, 'cuenta' | 'chats'>[],
+  decisiones: readonly Pick<Decision, 'chat' | 'destino' | 'respuesta' | 'ignoradaAt'>[], carteros: readonly Pick<CarteroP, 'cuenta' | 'chats'>[],
 ): Record<string, number> {
   const chats = carteros.flatMap((k) => k.chats.map((c) => ({ ...c, cuenta: c.cuenta ?? k.cuenta })));
   const out: Record<string, number> = {};
   for (const d of decisiones) {
-    if (d.respuesta != null) continue;
+    // Una ignorada desde el Ops Center (5/11/2026) no espera a Martín: no sube el globito.
+    if (d.respuesta != null || d.ignoradaAt) continue;
     // Con su sesión es exacto, aunque ningún cartero vea ese chat ahora: la clave de la lista ES la sesión.
     if (d.destino && DESTINO_RE.test(d.destino)) { out[d.destino] = (out[d.destino] ?? 0) + 1; continue; }
     const r = destinoDeDecision({ chat: d.chat, destino: d.destino ?? null }, chats);

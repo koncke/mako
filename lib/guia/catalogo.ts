@@ -7,9 +7,11 @@
 // =============================================================================
 
 import { GUIA_OPS_CENTER } from '@/app/second-brain/guia-ops-center';
+import { GUIA_CRM } from '@/app/crm/guia-crm';
+import { GUIA_CALENDARIO } from '@/app/calendario/guia-calendario';
 import type { Ancla, GuiaDeTab } from './tipos';
 
-export const CATALOGOS = [GUIA_OPS_CENTER] as const satisfies readonly GuiaDeTab[];
+export const CATALOGOS = [GUIA_OPS_CENTER, GUIA_CRM, GUIA_CALENDARIO] as const satisfies readonly GuiaDeTab[];
 
 /** El id de un ancla que existe en algún catálogo: `ancla('sb-nuevo')` compila; un id mal escrito, no. */
 export type IdAncla = (typeof CATALOGOS)[number]['anclas'][number]['id'];

@@ -256,6 +256,24 @@ export const APIFY_MIN_LETRAS = 5;
 export const APIFY_CLAVE_DE_SPY = 'APIFY_INSTAGRAM_TOKEN';
 
 /**
+ * VARIAS CLAVES DE SPY (5/11/2026, Martín: «Dame la opción de tener varias claves de apify»). La 1 es `APIFY_CLAVE_DE_SPY`, la de
+ * siempre; las extra, `APIFY_INSTAGRAM_TOKEN_2` … `_5`, cada una de OTRA cuenta de Apify del negocio. El patrón de Zernio
+ * (`CLAVES_ZERNIO`, lib/zernio-redes.ts). Las lee UNA función, `clavesApifyDeSpy` (lib/instagram-perfil-server.ts), y el orden y el
+ * salto por crédito están en lib/spy-claves.ts. Son de Spy y de la biblioteca de carruseles: el alta del CRM sigue con la 1 sola.
+ */
+export const MAX_CLAVES_APIFY = 5;
+export const CLAVES_APIFY_DE_SPY: readonly string[] = [
+  APIFY_CLAVE_DE_SPY, ...Array.from({ length: MAX_CLAVES_APIFY - 1 }, (_, i) => `${APIFY_CLAVE_DE_SPY}_${i + 2}`),
+];
+/** El número de una clave de Spy (1 para la de siempre); null si el nombre no es una de ellas. */
+export const slotDeClaveApify = (env: string): number | null => {
+  const i = CLAVES_APIFY_DE_SPY.indexOf(env);
+  return i < 0 ? null : i + 1;
+};
+/** El campo con el NOMBRE que la persona le pone a una clave para reconocerla. No es secreto; no se usa para nada más. */
+export const nombreDeClaveApify = (env: string): string => `${env}_ACCOUNT`;
+
+/**
  * Lo que devuelve el actor (`run-sync-get-dataset-items`: una lista, un ítem por perfil). Una lista vacía o un ítem sin
  * `username` es que la cuenta no existe; uno con `error` (el actor lo pone así) también. Una cuenta PRIVADA trae la bio pero
  * no las publicaciones.

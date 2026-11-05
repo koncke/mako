@@ -5,7 +5,8 @@
 // /admin/operaciones; el diseño, docs/diseno-centro-de-operaciones.md.
 //
 // ⚠️ LECTURAS, Y SÓLO LA PLATAFORMA. Lo único que se CAMBIA es el ✓ de un «Completado» (25/10/2026, «Todo, todo siempre tiene
-//    que ir a la API, todo MaKo se debe poder utilizar por API»): no manda nada a la PC, sólo dice que Martín ya lo vio.
+//    que ir a la API, todo MaKo se debe poder utilizar por API») y la marca de una pregunta ignorada (5/11/2026): ninguno le manda
+//    nada a la PC, sólo dicen qué ya vio o descartó Martín.
 // Un pedido del Centro es un prompt que corre en la PC de
 // Martín, así que:
 //   · todo va con `soloPlataforma` + `rolMinimo: 'admin'` (un admin de cliente no lo ve: para él
@@ -55,7 +56,7 @@ export const DEFS: readonly OperacionDef[] = [
     // La charla de Martín con los chats del Ops Center de la plataforma: no lee leads, conversaciones, llamadas ni cobros.
     datosDeClientes: false,
     titulo: 'Mensajes de un chat del Ops Center',
-    descripcion: 'La conversación de un chat del Ops Center como se ve en la pantalla, la más reciente al final: lo que le mandó Martín (desde el Ops Center o la app de Claude), lo que contestó el chat, y sus preguntas con sus opciones y lo que contestó Martín (`abierta` si espera). Una nota de voz de Martín sale como `audio`, con lo que dura y su transcripción aparte. Los «Avance» seguidos (lo que el chat le contestó a otro chat) van juntos en un grupo: el último entero y los anteriores con su hora y su primera oración, como la burbuja de la pantalla. NO trae las decisiones de la Ticketera ni los pedidos del Plan que también se ven en ese chat. En qué está cada envío: `ver_pedidos_operaciones`.',
+    descripcion: 'La conversación de un chat del Ops Center como se ve en la pantalla, la más reciente al final: lo que le mandó Martín (desde el Ops Center o la app de Claude), lo que contestó el chat, y sus preguntas con su `id`, sus opciones y lo que contestó Martín (`abierta` si espera; `ignorada`, desde cuándo, si la descartó). Una nota de voz de Martín sale como `audio`, con lo que dura y su transcripción aparte. Los «Avance» seguidos (lo que el chat le contestó a otro chat) van juntos en un grupo: el último entero y los anteriores con su hora y su primera oración, como la burbuja de la pantalla. NO trae las decisiones de la Ticketera ni los pedidos del Plan que también se ven en ese chat. En qué está cada envío: `ver_pedidos_operaciones`.',
     parametros: [
       { nombre: 'chat', rotulo: 'Chat', tipo: 'string', obligatorio: true, descripcion: 'el nombre del chat («Cerebro», «CRM»).' },
       { nombre: 'limite', rotulo: 'Cuántos', tipo: 'number', entero: true, minimo: 1, maximo: 100, descripcion: 'cuántos mensajes o grupos, los últimos (default 30).' },
@@ -97,5 +98,19 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Sólo para la plataforma: en qué está cada aprobación que MaKo espera de otra empresa. La app de iPhone (App Store), la de Android (Google Play: prueba cerrada, producción y la cuenta), la extensión de Chrome (Chrome Web Store), los permisos y verificaciones de Meta, la app de Google, los dominios de correo (Resend) y el certificado de Windows. Por cada una: aprobada, en revisión, rechazada, «piden algo», sin enviar, o «hay que mirarlo a mano», con su link, desde cuándo y qué credencial falta para leerla sola. Sale de la última revisión del vigía, que se repite sola y avisa sólo cuando algo cambia.',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
+  },
+  // ── «Ignorar» lo que un chat le pregunta a Martín (5/11/2026, Martín: «una sección que marque la fecha… y un botón de ignorar»;
+  // le llegó una del 30/10 que ya no importaba) ── Lo mismo que el botón del bloque: no le manda nada a la PC. Al final del área.
+  {
+    id: 'ignorar_pregunta_operaciones', area: 'operaciones', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Ignorar una pregunta de un chat',
+    descripcion: 'Saca del bloque de arriba de la caja una pregunta que un chat le hizo a Martín, SIN contestarla: al chat no le llega nada, deja de esperar y una respuesta suya que todavía no salió no se entrega. Queda en «Ignoradas»; con `volver: true` vuelve a esperar como antes. Los ids, con su fecha y si ya está `ignorada`, los da `ver_mensajes_operaciones`.',
+    parametros: [
+      { nombre: 'chat', rotulo: 'Chat', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre del chat que la hizo («Cerebro», «CRM»).' },
+      { nombre: 'pregunta', rotulo: 'Pregunta', tipo: 'string', obligatorio: true, max: 36, descripcion: 'su id, entero o sus primeros 8 caracteres.' },
+      { nombre: 'volver', rotulo: 'Volver a mostrar', tipo: 'boolean', descripcion: 'true = volver a mostrar una ignorada. Sin esto, se ignora.' },
+    ],
+    escribe: 'la marca `ignorada` de esa pregunta (operaciones.preguntas.<sesión>, en la plataforma) y cancela su respuesta que no salió; no le manda nada a la PC',
+    canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
   },
 ];

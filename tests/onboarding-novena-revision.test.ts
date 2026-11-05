@@ -77,7 +77,7 @@ test('3. la etapa cobro muestra todas, y el toque o un sí deciden', () => {
   // Con una lectura que el producto cobra, va primera y un sí la elige.
   const h2 = conPrecio('Programa de 6 meses: USD 1.800 de contado');
   const m2 = mensajesDeArranque(E, h2).despues.at(-1);
-  assert.equal(m2?.texto, 'Entendí que cobras así: «Pago único». ¿Lo cargo así?');
+  assert.equal(m2?.texto, 'Entendí que cobras así: «Pago único». ¿Es así?');
   assert.deepEqual(m2?.opciones, [COBRO_UNICO, COBRO_MENSUAL, 'Suscripción de 6 meses']);
   assert.deepEqual(responder(E, { texto: 'sí' }, h2), { ok: true, patch: { cobro: { tipo: 'unico', meses: null } } });
   assert.deepEqual(responder(E, { texto: 'Suscripción de 6 meses' }, h2), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 6 } } });

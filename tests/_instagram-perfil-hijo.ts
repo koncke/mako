@@ -20,7 +20,10 @@ Modulo._load = function (this: unknown, pedido: string, padre: unknown, esMain: 
   if (/[/\\]credenciales$|^@\/lib\/credenciales$|^\.\/credenciales$/.test(pedido)) {
     const leer = async (clave: string, ws?: number) => creds[`${ws}:${clave}`] ?? null;
     const estricta = async (clave: string, ws: number) => { if (estrictaTira) throw new Error('la base no contesta'); return leer(clave, ws); };
-    return { credWs: leer, credDelCliente: leer, credWsEstricta: estricta };
+    // `clavesGuardadasConBase` (5/11/2026): las claves extra de Spy (lib/instagram-perfil-server.ts → `clavesApifyDeSpy`). Sólo nombres.
+    const guardadas = async (ws: number, bases: readonly string[]) =>
+      Object.keys(creds).filter((k) => k.startsWith(`${ws}:`)).map((k) => k.slice(String(ws).length + 1)).filter((c) => bases.includes(c));
+    return { credWs: leer, credDelCliente: leer, credWsEstricta: estricta, clavesGuardadasConBase: guardadas };
   }
   if (/[/\\]workspace$|^@\/lib\/workspace$|^\.\/workspace$/.test(pedido)) return { wsSuperAdmin: async () => 9 };
   return cargarOriginal.call(this, pedido, padre, esMain);

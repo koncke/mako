@@ -3959,4 +3959,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm?ws=3',
   },
+  {
+    fecha: "5 nov", hora: "10:05", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo toma la iniciativa en el CRM: «¿Dónde tienes hoy a tus clientes?» y la guía del tablero",
+    puntos: [
+      "Con el CRM vacío (cero leads en todo el negocio), la estrella pregunta un hecho y cada respuesta lleva a donde se cargan: la planilla o el otro CRM al importador, su WhatsApp al QR. Sólo a quien administra; con leads hablan las sugerencias medidas.",
+      "`/crm?importar=1` abre «Importar leads» al entrar (lo usará también la escalera del Ops Center) y saca el parámetro.",
+      "La guía de la pestaña: «Cargar tus clientes», «Agregar un lead», «Buscar un lead» y «Cambiar de funnel», con sus anclas en la barra del tablero.",
+      "Lo que falta del CRM: la apertura del funnel sin declarar (necesita el canal y declarar con declararEntradasAction) y la guía de la ficha.",
+    ],
+    revisar: "/crm",
+    archivos: [
+      "lib/aperturas/crm.ts — la apertura, pura",
+      "app/crm/guia-crm.ts — el catálogo de la guía",
+      "app/crm/mako-crm/PanelMakoCrm.tsx, app/crm/page.tsx, app/crm/CrmBoard.tsx, app/crm/CrmToolbar.tsx — el montaje, el conteo, `?importar=1` y las anclas",
+      "tests/iniciativa-crm.test.ts — probado rompiéndolo (5 roturas)",
+    ],
+  },
 ];
