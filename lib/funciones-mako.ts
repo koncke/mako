@@ -199,8 +199,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     keys: ['admin-customers'],
     // Admin desde el 5/11/2026 (era Customers): Revenue adelante (lib/admin-ingresos.ts).
     que: 'El panel de la plataforma: lo que entra a MaKo (MRR, lo cobrado mes a mes y lo que pagó cada cliente), los negocios que la usan, su plan, su equipo y lo que piden las agencias.',
-    hace: ['Ver el MRR, lo cobrado mes a mes y sus movimientos (nuevos, subieron, bajaron, se cortaron)', 'Ver lo que pagó cada cliente en total y cuándo le toca', 'Ver las personas de todos los negocios con su estado de alta, entrar a su negocio, reenviarles el acceso y suspenderlas', 'Ver los errores de la app agrupados (nuevos, sin resolver, los que volvieron) y los reportes de las personas', 'Dar de alta un negocio con su usuario', 'Ver el estado y el plan de cada negocio', 'El equipo de cada negocio', 'Firmar lo que piden las agencias'],
-    alias: ['admin', 'customers', 'negocios', 'workspaces', 'clientes de mako', 'ingresos', 'revenue', 'mrr'],
+    hace: ['Ver el MRR, lo cobrado mes a mes y sus movimientos (nuevos, subieron, bajaron, se cortaron)', 'Ver lo que pagó cada cliente en total y cuándo le toca', 'Ver las personas de todos los negocios con su estado de alta, entrar a su negocio, reenviarles el acceso y suspenderlas', 'Ver los errores de la app agrupados (nuevos, sin resolver, los que volvieron) y los reportes de las personas', 'Ver quién usa la app: los activos del día, la semana y el mes, quién entra cada semana, qué tabs se usan y cuáles nadie abrió, quién dejó de entrar y lo último que hizo MaKo', 'Dar de alta un negocio con su usuario', 'Ver el estado y el plan de cada negocio', 'El equipo de cada negocio', 'Firmar lo que piden las agencias'],
+    alias: ['admin', 'customers', 'negocios', 'workspaces', 'clientes de mako', 'ingresos', 'revenue', 'mrr', 'actividad', 'uso de la app'],
     estado: 'lista', slugDev: 'admin', fuentes: [AREAS],
   },
   {

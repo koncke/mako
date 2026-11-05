@@ -76,8 +76,9 @@ test('el área `cobros` existe, va antes de `mako` y tiene exactamente sus opera
   // ⚠️ Y el 29/10/2026 guardar_documento_fiscal: la constancia que el usuario adjunta en el chat va a la ficha (Leila, lead
   // Fabi Pedraza; su forma en tests/documento-fiscal-desde-el-chat.test.ts), y el plan por tramos (ticket #26):
   // armar_plan_por_tramos (tests/api-mako-plan-tramos.test.ts).
-  // ⚠️ Y el 5/11/2026 ver_ingresos_de_mako, ver_personas_de_mako y ver_errores_de_mako: Admin por chat, sólo de la plataforma.
-  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar', 'guardar_documento_fiscal', 'armar_plan_por_tramos', 'ver_ingresos_de_mako', 'ver_personas_de_mako', 'ver_errores_de_mako'].sort());
+  // ⚠️ Y el 5/11/2026 ver_ingresos_de_mako, ver_personas_de_mako, ver_errores_de_mako y ver_actividad_de_mako: Admin por chat,
+  // sólo de la plataforma.
+  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar', 'guardar_documento_fiscal', 'armar_plan_por_tramos', 'ver_ingresos_de_mako', 'ver_personas_de_mako', 'ver_errores_de_mako', 'ver_actividad_de_mako'].sort());
   for (const id of [...IDS, ...IDS_PAGOS_CAMPO, 'guardar_documento_fiscal', 'armar_plan_por_tramos']) assert.ok(!/^proponer_/.test(id), `«${id}»: con proponer_ viaja la receta que pide un «sí»`);
 });
 

@@ -39,7 +39,7 @@ export const metadata = {
   description: 'Qué datos usa MaKo, con quién se comparten y qué puedes hacer con ellos.',
 };
 
-const ACTUALIZADO = '4 de noviembre de 2026';
+const ACTUALIZADO = '5 de noviembre de 2026';
 
 // ⚠️ LOS TRES DATOS QUE NO SALEN DEL CÓDIGO. Una política con el responsable
 // equivocado es peor que no tenerla: es el único dato que le dice a una persona A
@@ -124,6 +124,13 @@ export default function Page() {
         etapa y cuándo, quién tocó cada configuración, cuánto consumo de inteligencia
         artificial generó cada acción. En esos registros tu correo queda como autor.{' '}
         <strong>Si trabajas en equipo, quien administre el espacio puede ver ese rastro.</strong>
+      </p>
+      <p>
+        Para saber qué partes del producto se usan y cuáles no, MaKo también cuenta, por persona y
+        por día, <strong>qué secciones abres y cuántas acciones haces en cada una</strong>, y qué
+        hizo MaKo por ti y si salió bien. Son números: <strong>no se guarda lo que escribes ni lo
+        que ves</strong>, ni la dirección de cada pantalla. Lo mira sólo el equipo de MaKo, y se
+        borra a los 400 días (lo que hizo MaKo, a los 90).
       </p>
       <p>
         <strong>No hay analítica de terceros dentro de la aplicación</strong>: no usamos Google
