@@ -32,6 +32,7 @@ import { formatoDe } from '../spy-detalle';
 import { medioDeInstagram } from '../spy-medio';
 import { USD_POR_PUBLICACION } from '../spy-todo-reglas';
 import { carruselesDe, plano, type Carrusel, type CompetidorParaCarrusel, type PiezaParaCarrusel } from './explorar';
+import { sinCuenta } from '../multiplo-rendimiento';
 import { cierreDeTexto, esCierre, type Cierre } from './texto';
 import { pareceContenido, portadaDice, textoDePortada, tipoDeCarrusel } from './clasificar';
 
@@ -121,7 +122,8 @@ export function carruselesDeBiblioteca(piezas: readonly PiezaBiblioteca[], cuent
     const cierre = p && esCierre(p.cierre) ? p.cierre : c.cierre;
     // Lo guardado al leer (con la portada) gana; sin eso, lo que dice el texto que queda.
     const contenido = typeof p?.parece_contenido === 'boolean' ? p.parece_contenido : pareceContenido({ texto: c.texto, formato: c.formato || null, cierre });
-    return { ...c, outlier: deLaLista ? c.outlier : null, cierre, pareceContenido: contenido };
+    // De un tema no se leyó su cuenta: sin número, y el título del chip lo dice (`sinCuenta`).
+    return { ...c, outlier: deLaLista ? c.outlier : null, multiplo: deLaLista ? c.multiplo : sinCuenta(), cierre, pareceContenido: contenido };
   });
 }
 

@@ -20,7 +20,7 @@
 // no por cómo funciona por dentro, con la estrella de MaKo y, al lado, qué va a pasar. Vive en el pie del modal: el pie no
 // scrollea, así que se ve siempre aunque el guion sea largo.
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Icon } from '../_components/icons';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { MakoStar } from '../_components/MakoBrand';
@@ -29,7 +29,8 @@ import { LogoRed, redDePieza } from './LogoRed';
 import { Modal } from '@/app/_ui/Modal';
 import { useRouter } from '@/app/_ui/Link';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { FORMATOS, formatoPorTexto, proporcionDe, puestoDe, vecesSuMediana } from '@/lib/spy-detalle';
+import { FORMATOS, formatoPorTexto, proporcionDe, puestoDe } from '@/lib/spy-detalle';
+import { explicarMultiplo, multiplosDe, rotuloCortoDeMultiplo } from '@/lib/multiplo-rendimiento';
 import { dibujarContador } from '@/lib/spy-reglas';
 import { fechaCorta, miniaturaDePieza } from '@/lib/spy-vista';
 import { tieneGuion, type VistaGuion } from '@/lib/spy-transcripcion';
@@ -60,6 +61,7 @@ const CSS = `
 .spyd-num b{display:block;margin-top:2px;font-size:20px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--ink)}
 .spyd-num[data-tono=good] b{color:var(--good)}
 .spyd-num[data-tono=bad] b{color:var(--bad)}
+.spyd-num[data-tono=apagado] b{font-size:14px;font-weight:600;line-height:24px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spyd-props{display:flex;flex-direction:column;margin:0}
 .spyd-props>div{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;padding:9px 0;box-shadow:inset 0 -1px 0 var(--border)}
 .spyd-props>div:last-child{box-shadow:none}
@@ -94,7 +96,6 @@ const TIPO: Record<string, string> = { reel: 'Reel', publicacion: 'Publicación'
 /** Los hashtags de su texto, sin repetir, hasta 12. */
 const hashtagsDe = (t: string | null): string[] => [...new Set((t ?? '').match(/#[\p{L}\p{N}_]+/gu) ?? [])].slice(0, 12);
 /** «2,3×» con coma decimal, como se escribe en español. */
-const veces = (n: number): string => `${String(n).replace('.', ',')}×`;
 
 /** El guion: se pide solo al abrir y se vuelve a preguntar cada 5 s mientras se transcribe, hasta 5 minutos. */
 function useGuion(p: PiezaVista): { guion: VistaGuion | null; pedir: () => void } {
@@ -171,6 +172,9 @@ function BloqueGuion({ guion, onConectado }: { guion: VistaGuion | null; onConec
   return <section><div className="spyd-titulo"><h4>Guion</h4></div>{cuerpo}</section>;
 }
 
+/** Un número de la fila de arriba: su rótulo, su valor y, si hace falta, su tono y su explicación (el título al pasar). */
+type NumeroDetalle = { k: string; v: string; tono?: string; titulo?: string };
+
 export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas, analizando, onCerrar }: {
   p: PiezaVista;
   /** El nombre del competidor. */
@@ -192,7 +196,8 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
 
   const red = redDePieza(p.canal);
   const puesto = puestoDe(p.id, todas);
-  const x = vecesSuMediana(p.id, todas);
+  // Su «3,7×»: la única cuenta de MaKo (lib/multiplo-rendimiento.ts). Sin número, se dice por qué («Sin datos suficientes»).
+  const x = useMemo(() => multiplosDe(todas).get(p.id) ?? null, [todas, p.id]);
   const mini = miniaturaDePieza(p);
   const esVideoYt = p.canal === 'youtube' && /^[\w-]{11}$/.test(p.ref);
   const prop = proporcionDe(p);
@@ -203,12 +208,17 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
   const formatoId = (a?.formato && a.formato !== 'otro' ? a.formato : '') || formatoPorTexto(`${p.titulo ?? ''}\n${p.texto ?? ''}`);
   const formato = FORMATOS.find((f) => f.value === formatoId && f.value !== 'otro')?.label ?? null;
   const tags = hashtagsDe(p.texto);
-  const numeros = [
+  const posibles: Array<NumeroDetalle | null> = [
     p.vistas != null ? { k: 'Vistas', v: dibujarContador(p.vistas) } : null,
     p.megusta != null ? { k: 'Me gusta', v: dibujarContador(p.megusta) } : null,
     p.comentarios != null ? { k: 'Comentarios', v: dibujarContador(p.comentarios) } : null,
-    x != null ? { k: 'Frente a su mediana', v: veces(x), tono: x >= 1.5 ? 'good' : x < 0.5 ? 'bad' : undefined } : null,
-  ].filter((n): n is { k: string; v: string; tono?: string } => !!n);
+    x && !(x.veces == null && x.motivo === 'sin-formato') ? {
+      k: x.formato === 'anuncio' ? 'Tiempo activo frente a su cuenta' : 'Frente a lo que suele hacer',
+      v: rotuloCortoDeMultiplo(x), titulo: explicarMultiplo(x),
+      tono: x.veces == null ? 'apagado' : x.veces >= 1.5 ? 'good' : x.veces < 0.5 ? 'bad' : undefined,
+    } : null,
+  ];
+  const numeros = posibles.filter((n): n is NumeroDetalle => !!n);
   // Lo que dice su texto: la descripción de un video de YouTube o el texto de una publicación o un anuncio. El de un reel
   // va arriba, en su guion: su texto es el que acompaña al video y se ve en Instagram.
   const textoPropio = p.texto?.replace(/#[\p{L}\p{N}_]+/gu, '').trim() || null;
@@ -289,7 +299,7 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
 
           {numeros.length > 0 && (
             <div className="spyd-nums">
-              {numeros.map((n) => <div key={n.k} className="spyd-num" data-tono={n.tono}><span>{n.k}</span><b>{n.v}</b></div>)}
+              {numeros.map((n) => <div key={n.k} className="spyd-num" data-tono={n.tono} title={n.titulo}><span>{n.k}</span><b>{n.v}</b></div>)}
             </div>
           )}
 

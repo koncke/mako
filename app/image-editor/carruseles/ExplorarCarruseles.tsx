@@ -15,7 +15,7 @@
 // en Spy: con su creador, el link al original y sus números; su id va en negativo.
 //
 // Cada tarjeta muestra a su CREADOR y el link a la publicación original: es una referencia del negocio, no una plantilla
-// de MaKo. El outlier es el de Spy (cuántas veces la mediana de su cuenta). Lo puro (filtros, orden, la URL, guardados):
+// de MaKo. El outlier es el de toda la app (lib/multiplo-rendimiento.ts: cuántas veces lo que suele hacer su cuenta). Lo puro (filtros, orden, la URL, guardados):
 // lib/carruseles/explorar.ts, con tests/carruseles-explorar.test.ts. Lo mismo en la computadora y en el teléfono
 // (app/m/image-editor, `?ver=carruseles`).
 //
@@ -33,6 +33,7 @@ import {
   rotuloOutlier, sinFiltros,
   type BusquedaGuardada, type Carrusel, type FiltrosCarrusel, type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel,
 } from '@/lib/carruseles/explorar';
+import { explicarMultiplo, MULTIPLO_FUERTE } from '@/lib/multiplo-rendimiento';
 import { EditarBiblioteca } from './EditarBiblioteca';
 import type { Formato } from '@/lib/spy-detalle';
 import { borrarBusquedaAction, guardarBusquedaAction, guardarCarruselAction } from './actions';
@@ -319,7 +320,7 @@ function TarjetaCarrusel({ c, ahora, guardado, onGuardar, onUsar, compacta, tele
   c: Carrusel; ahora: number | null; guardado: boolean; onGuardar: () => void; onUsar?: (c: Carrusel) => void; compacta: boolean; telefono: boolean;
 }) {
   const titulo = c.gancho || c.texto || '';
-  const fuerte = c.outlier != null && c.outlier >= 2;
+  const fuerte = c.outlier != null && c.outlier >= MULTIPLO_FUERTE;
   return (
     <li className={s.tarjeta} data-compacta={compacta ? 'si' : undefined}>
       <div className={s.mini}>
@@ -329,7 +330,8 @@ function TarjetaCarrusel({ c, ahora, guardado, onGuardar, onUsar, compacta, tele
           : <span className={s.sinFoto}>{titulo.slice(0, 140) || 'Sin portada'}</span>}
         <span className={s.marcas}>
           {c.outlier != null && (
-            <span className={s.outlier} data-fuerte={fuerte ? 'si' : undefined} title={`Rindió ${rotuloOutlier(c.outlier)} lo que hace una publicación típica de su cuenta`}>
+            <span className={s.outlier} data-fuerte={fuerte ? 'si' : undefined}
+              title={c.multiplo ? explicarMultiplo(c.multiplo) : `${String(c.outlier).replace('.', ',')} veces lo que suele hacer esta cuenta`}>
               {rotuloOutlier(c.outlier)}
             </span>
           )}

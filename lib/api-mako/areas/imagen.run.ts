@@ -25,6 +25,7 @@ import type { CambioBiblioteca } from '@/lib/carruseles/biblioteca';
 import {
   FILTROS_INICIALES, OUTLIER_MINIMOS, filtrarCarruseles, filtrosDeQuery, queryDeFiltros, rotuloFormato, rotuloOutlier, type Carrusel,
 } from '@/lib/carruseles/explorar';
+import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 
 const str = (input: Record<string, unknown>, k: string): string | null => {
   const v = input[k];
@@ -93,6 +94,8 @@ const carruselParaApi = (c: Carrusel) => ({
   origen: c.origen,
   original: c.url,
   outlier: c.outlier == null ? null : rotuloOutlier(c.outlier),
+  // De qué mediana sale ese número, o por qué no hay («sin datos suficientes»): lib/multiplo-rendimiento.ts, como el chip.
+  outlierDice: c.multiplo ? explicarMultiplo(c.multiplo) : null,
   laminas: c.laminas,
   formato: rotuloFormato(c.formato) || null,
   gancho: c.gancho,
@@ -263,7 +266,7 @@ export const RUNNERS: Runners = {
         total: vistos.length,
         carruseles: vistos.slice(0, tope).map(carruselParaApi),
         link: linkExplorador(queryDeFiltros(f), ctx.ws),
-        nota: 'Son publicaciones públicas de otras cuentas (las que sigue el negocio, o la biblioteca de ejemplos): sirven de referencia de estructura, siempre con su creador. El outlier es cuántas veces la mediana de su cuenta; los que llegaron por un tema no lo llevan.',
+        nota: 'Son publicaciones públicas de otras cuentas (las que sigue el negocio, o la biblioteca de ejemplos): sirven de referencia de estructura, siempre con su creador. El outlier es cuántas veces lo que suele hacer su cuenta (frente a hasta 20 publicaciones suyas cercanas en el tiempo, con 7 como mínimo); sin datos suficientes es null y outlierDice dice por qué. Los que llegaron por un tema no lo llevan.',
       });
     },
   },
