@@ -2379,4 +2379,37 @@ export const BITACORA: Hito[] = [
     ],
     tickets: [57],
   },
+  {
+    fecha: '5 nov', hora: '11:52', chat: 'Ops Center', sesion: 'cli_ded761e9-beda-55f4-999d-47d4c746f016', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La fecha de cada pregunta y un botón «Ignorar»',
+    pedido: 'debería haber una sección que marque la fecha de los pedidos o decisiones y un botón de ignorar',
+    puntos: [
+      'Le llegó para contestar una pregunta vieja, del 30/10, sobre una revisión que ya no importaba, y no había cómo saber que era vieja ni cómo sacarla.',
+      'Llegó por el Cerebro, con el brief: la fecha a la vista (con la entera a mano y lo de más de 48 horas distinto), las más nuevas primero, «Ignorar» con «Ignoradas» y «Volver a mostrar», y que el Runner no entregue una respuesta de una ignorada.',
+    ],
+  },
+  {
+    fecha: '5 nov', hora: '12:28', chat: 'Ops Center', sesion: 'cli_ded761e9-beda-55f4-999d-47d4c746f016', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada pregunta dice cuándo se hizo, y se puede ignorar',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**La fecha a la vista:** «hace 6 días · 30 oct, 10:52», con la fecha entera al dejar el cursor. Con más de 48 horas lleva «Vieja», en otro color.',
+      '**La más nueva primero:** lo de hoy ya no queda detrás de lo viejo. Las respuestas le llegan al chat igual, en el orden en que preguntó.',
+      '**«Ignorar»:** la saca sin contestarla y sin mandarle nada al chat, con «Deshacer» un rato. Queda en «Ignoradas · N», con «Volver a mostrar».',
+      '**Una ignorada no se contesta por la espalda:** si se contestó en otro dispositivo, esa respuesta no le llega al chat.',
+      '**También las decisiones de la Ticketera** que salen en ese bloque, cuando se aplique un cambio en la base (mig 0394).',
+      '**En el teléfono, igual**, con botones del alto de un dedo. Y por la API de MaKo: `ignorar_pregunta_operaciones`.',
+    ],
+    commits: [{ sha: 'c90f7f5f0', msg: 'Ops Center: la fecha de cada pregunta y un botón «Ignorar»', lineas: 1065, archivos: 24 }],
+    archivos: [
+      'app/admin/operaciones/PreguntasDelChat.tsx — itemsDelBloque (la más nueva primero), ordenDeEntrega, EdadDePregunta, Ignoradas, armarIgnorar',
+      'lib/centro-preguntas-chat.ts — ignorada, ignorarEnLaLista, mostrarDeNuevoEnLaLista, ignoradaQueContesta · lib/centro-preguntas-chat-db.ts — ignorarPregunta, preguntasParaDecidir',
+      'lib/operaciones.ts — sinRespuestasIgnoradas (la vuelta del Runner) y cancelarRespuestasDe · lib/centro-fechas.ts — edadDe, VIEJA_MS',
+      'app/admin/runway/decisiones.ts — ignoradaAt, esperaAMartin · lib/admin-decisiones.ts — ignorarDecision · supabase/migrations/0394_decisiones_ignoradas.sql (SIN APLICAR)',
+      'lib/api-mako/areas/operaciones.def.ts y .run.ts — ignorar_pregunta_operaciones',
+      'tests/ops-center-ignorar.test.ts (9) y tests/_ops-ignorar-hijo.ts — 15 roturas en rojo',
+    ],
+  },
 ];

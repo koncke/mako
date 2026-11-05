@@ -36,9 +36,9 @@
 - **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `configuracion_automatizacion` · `configurar_automatizacion` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `cambiar_crons_secuencia` · `agregar_escenario_secuencia` · `archivar_secuencia` · `probar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje` · `quienes_de_automatizacion` · `ver_limites_envio` · `cambiar_limites_envio`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `metricas_automatizacion` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_con_ia_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `mover_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
-- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `listar_videos_alojados` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_iconos_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `dar_formato_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `cambiar_imagen_landing` · `cambiar_icono_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
+- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `listar_videos_alojados` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_iconos_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `dar_formato_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `cambiar_imagen_landing` · `cambiar_icono_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing` · `configurar_bloque_venta_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
-- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge` · `sumar_documento_second_brain`
+- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge` · `sumar_documento_second_brain` · `ver_kits_marca` · `guardar_kit_marca` · `elegir_kit_marca` · `borrar_kit_marca`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `ver_rendimiento_redes` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter` · `listar_plantillas_copywriter` · `editar_documento_copywriter`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
@@ -48,7 +48,7 @@
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
-- **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos`
+- **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos` · `ver_suscripcion_lead` · `cambiar_suscripcion`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion` · `cambiar_aprende_solo`
 
 ## General — `general`
@@ -2621,7 +2621,7 @@ PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (qued
 | `moneda` | string | no | La moneda en que se cobró de verdad, código de 3 letras (MXN, ARS, COP, EUR…). Pásala SIEMPRE que la persona hable de pesos, euros o cualquier moneda que no sea dólares. Sin moneda el pago es en dólares. |
 | `montoOriginal` | number | no | Cuánto se cobró, en la «moneda» (no en dólares). Va siempre con la moneda; sin ella se rechaza. |
 | `concepto` | string | no | Para qué fue el pago, en pocas palabras («adelanto», «segunda cuota», «extra de diseño»). |
-| `metodo` | string (transferencia \\| efectivo \\| tarjeta \\| deposito \\| cheque \\| otro) | no | Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque u otro. |
+| `metodo` | string (transferencia \\| efectivo \\| tarjeta \\| deposito \\| cheque \\| cripto \\| otro) | no | Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque, cripto (Binance, USDT) u otro. |
 
 ```bash
 curl -L \
@@ -2643,7 +2643,7 @@ PROPONE registrar un cobro que no es ninguna cuota del plan del lead (un adelant
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** insert en pagos (una cuota nueva ya cobrada, con su moneda, concepto y método si vinieron), recalcula total_cobrado_usd del lead y deja historial
+- **Escribe:** insert en pagos (una cuota nueva ya cobrada, con su moneda, concepto y método si vinieron; en una suscripción, el mes que paga o si es un ajuste), recalcula total_cobrado_usd del lead y deja historial
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** crm
@@ -2656,7 +2656,9 @@ PROPONE registrar un cobro que no es ninguna cuota del plan del lead (un adelant
 | `moneda` | string | no | La moneda en que se cobró de verdad, código de 3 letras (MXN, ARS, COP, EUR…). Pásala SIEMPRE que la persona hable de pesos, euros o cualquier moneda que no sea dólares. Sin moneda el pago es en dólares. |
 | `montoOriginal` | number | no | Cuánto se cobró, en la «moneda» (no en dólares). Va siempre con la moneda; sin ella se rechaza. |
 | `concepto` | string | no | Para qué fue el pago, en pocas palabras («adelanto», «segunda cuota», «extra de diseño»). |
-| `metodo` | string (transferencia \\| efectivo \\| tarjeta \\| deposito \\| cheque \\| otro) | no | Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque u otro. |
+| `metodo` | string (transferencia \\| efectivo \\| tarjeta \\| deposito \\| cheque \\| cripto \\| otro) | no | Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque, cripto (Binance, USDT) u otro. |
+| `mes` | string | no | En una suscripción: AAAA-MM que paga (sin valor, el más viejo que falta). |
+| `ajuste` | boolean | no | En una suscripción: true si no paga un mes (un diferencial). |
 
 ```bash
 curl -L \
@@ -8916,7 +8918,7 @@ curl -L \
 
 ### `GET /api/v1/chatbot/limites-envio` — Ver los topes de envío
 
-Los topes del negocio por día y por hora, la rampa del dominio de email (con el tope de hoy), lo que ya salió en 24 h y si el email está frenado por rebotes o quejas.
+Los topes del negocio por día y por hora, la rampa del número de WhatsApp y la del dominio de email (con el tope de hoy), lo que ya salió en 24 h y si el email está frenado por rebotes o quejas.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/ver_limites_envio`
 - **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
@@ -8938,7 +8940,7 @@ curl -L \
 
 ### `PUT /api/v1/chatbot/limites-envio` — Cambiar los topes de envío
 
-PROPONE cambiar los topes del negocio (valen para todas): por día y por hora de la línea de WhatsApp, por día de email y su rampa. Mira antes ver_limites_envio.
+PROPONE cambiar los topes del negocio (valen para todas): por día y por hora de la línea de WhatsApp, por día de email, y sus rampas. Mira antes ver_limites_envio.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/cambiar_limites_envio`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -8955,6 +8957,8 @@ PROPONE cambiar los topes del negocio (valen para todas): por día y por hora de
 | --- | --- | --- | --- |
 | `waDia` | number | no | opcional: WhatsApp por día (en 24 h). |
 | `waHora` | number | no | opcional: WhatsApp por hora de reloj. |
+| `waArranqueDia` | number | no | opcional: la rampa del número: WhatsApp el primer día. |
+| `waArranqueSube` | number | no | opcional: y cuánto sube cada día que llega a su tope. |
 | `emailDia` | number | no | opcional: emails por día (en 24 h). |
 | `emailArranqueDia` | number | no | opcional: la rampa del dominio: emails el primer día. |
 | `emailArranqueSube` | number | no | opcional: y cuánto sube cada día que llega a su tope. |
@@ -10926,7 +10930,7 @@ curl -L \
 
 ## Landing (Analyst, Generator y tracking) — `landing`
 
-Tab **Web Generator** (`/web-generator`). 37 lecturas · 45 acciones.
+Tab **Web Generator** (`/web-generator`). 37 lecturas · 46 acciones.
 
 ### `GET /api/v1/landing/landings` — Landings declaradas del negocio
 
@@ -13267,6 +13271,50 @@ curl -L \
   -d '{"url":"URL"}'
 ```
 
+### `PUT /api/v1/landing/documentos/{id}/bloques-de-venta` — Cuenta regresiva, prueba social o escasez
+
+Pone o cambia en una sección la cuenta regresiva (hasta una fecha; al terminar no vuelve a empezar), la prueba social (un aviso con compras reales que escribe el negocio) o la barra de escasez (cuántos quedan de cuántos). Sólo con datos reales del negocio: sin fecha, sin compras o sin números no se muestra. Si la sección ya tiene ese bloque, lo cambia. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
+
+- **Ruta por operación:** `POST /api/v1/landing/configurar_bloque_venta_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `seccion` | string | sí | El id de la sección (de ver_secciones_landing). |
+| `tipo` | string (cuenta_regresiva \\| prueba_social \\| escasez) | sí | Cuál de los tres. |
+| `hasta` | string | no | cuenta_regresiva: cuándo termina, «2026-11-30T23:59» en la hora del negocio (o con su zona: …-06:00). Futura. |
+| `titulo` | string | no | Opcional: arriba del reloj o de la barra. |
+| `alVencer` | string (mensaje \\| ocultar) | no | cuenta_regresiva: mensaje (dice que terminó) u ocultar. |
+| `mensaje` | string | no | cuenta_regresiva: lo que dice al terminar. |
+| `compras` | object[] | no | prueba_social: las compras reales, en orden (reemplazan a las de hoy; [] las saca). |
+| `compras.nombre` | string | sí | Quién («Ana»). |
+| `compras.detalle` | string | sí | Qué hizo («compró el Plan Black»). |
+| `compras.lugar` | string | no | De dónde (opcional). |
+| `compras.fecha` | string | no | Cuándo, AAAA-MM-DD (opcional; no futura). |
+| `quedan` | number | no | escasez: cuántos quedan. |
+| `total` | number | no | escasez: de cuántos. |
+| `unidad` | string | no | escasez: lugares, cupos, unidades (sin ella, lugares). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/bloques-de-venta" \
+  -d '{"seccion":"SECCION","tipo":"cuenta_regresiva"}'
+```
+
 ## Closing Analyst — `closing`
 
 Tab **Dashboard** (`/dashboard?hoja=closing`). 7 lecturas · 2 acciones.
@@ -13501,7 +13549,7 @@ curl -L \
 
 ## El negocio (onboarding, Second Brain, conocimiento) — `negocio`
 
-Tab **Second Brain** (`/second-brain`). 22 lecturas · 22 acciones.
+Tab **Second Brain** (`/second-brain`). 23 lecturas · 25 acciones.
 
 ### `GET /api/v1/negocio/contexto` — Contexto del negocio
 
@@ -14626,6 +14674,117 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/negocio/archivero/documentos" \
   -d '{"texto":"TEXTO"}'
+```
+
+### `GET /api/v1/negocio/marca/kits` — Kits de marca
+
+Los kits de marca del negocio: cada uno con su id, nombre, colores (#RRGGBB con su uso), fuentes de títulos y de texto, logo (su id de «Subidos») y cuál va por defecto. Lo usan Image, Video y Web Generator al diseñar. Sin kits, dile que suba su manual en Ops Center → Marca.
+
+- **Ruta por operación:** `GET /api/v1/negocio/ver_kits_marca`
+- **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/marca/kits"
+```
+
+### `POST /api/v1/negocio/marca/kits` — Guardar un kit de marca
+
+PROPONE crear un kit de marca o cambiar uno (con `id`, de ver_kits_marca): lo que no se pasa queda como está. Los colores reemplazan la paleta entera. El logo es una imagen de «Subidos» del Image Editor, por su id. Sin kits, el primero queda por defecto.
+
+- **Ruta por operación:** `POST /api/v1/negocio/guardar_kit_marca`
+- **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** los kits de marca del negocio (app_settings, marca.kits)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | no | El kit a cambiar (de ver_kits_marca). Sin id, se crea uno nuevo. |
+| `nombre` | string | no | Cómo se llama el kit (la marca o el cliente de la agencia). |
+| `colores` | object[] | no | La paleta entera, en orden: reemplaza la anterior. |
+| `colores.hex` | string | sí | El color, #RRGGBB. |
+| `colores.rol` | string (principal \\| secundario \\| acento \\| fondo \\| texto) | no | Para qué se usa, si se sabe. |
+| `fuente_titulos` | string | no | El nombre de la familia (Montserrat), sin el peso. |
+| `fuente_texto` | string | no | El nombre de la familia, sin el peso. |
+| `logo_subido_id` | string | no | El id de una imagen de «Subidos» del Image Editor. |
+| `sin_logo` | boolean | no | true = el kit queda sin logo. |
+| `por_defecto` | boolean | no | true = pasa a ser el kit por defecto. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/marca/kits"
+```
+
+### `PUT /api/v1/negocio/marca/kits/{id}/por-defecto` — Elegir el kit por defecto
+
+PROPONE que un kit de marca (por id, de ver_kits_marca) pase a ser el de por defecto: el que usan Image, Video y Web Generator cuando nadie elige otro.
+
+- **Ruta por operación:** `POST /api/v1/negocio/elegir_kit_marca`
+- **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cuál es el kit de marca por defecto (app_settings, marca.kits)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | sí | El kit (de ver_kits_marca). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/marca/kits/ID/por-defecto"
+```
+
+### `DELETE /api/v1/negocio/marca/kits/{id}` — Borrar un kit de marca
+
+PROPONE borrar un kit de marca (por id, de ver_kits_marca). Si era el de por defecto, pasa a serlo el primero que queda. El logo sigue en «Subidos». No se puede deshacer.
+
+- **Ruta por operación:** `POST /api/v1/negocio/borrar_kit_marca`
+- **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** quita el kit de los kits de marca (app_settings, marca.kits)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | sí | El kit (de ver_kits_marca). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/marca/kits/ID"
 ```
 
 ## Content Machine — `contenido`
@@ -20164,7 +20323,7 @@ curl -L \
 
 ## Cobros (Stripe, Mercado Pago y Creem) — `cobros`
 
-Tab **CRM** (`/crm`). 3 lecturas · 14 acciones.
+Tab **CRM** (`/crm`). 4 lecturas · 15 acciones.
 
 ### `GET /api/v1/cobros/cobros` — Cobros de Stripe, Mercado Pago y Creem
 
@@ -20670,6 +20829,63 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/plan" \
   -d '{"primeraCuota":"PRIMERA_CUOTA","tramos":[]}'
+```
+
+### `GET /api/v1/cobros/ventas/{leadId}/suscripcion/meses` — Ver una suscripción mes a mes
+
+La suscripción de un lead mes a mes, como la tab Pagos: cuánto paga hoy (o el estimado si nadie cargó la mensualidad), el día de cobro, el próximo vencimiento, lo pagado en total y los ajustes, y cada mes con lo que tocaba, lo que entró, sus pagos y lo que cambió (empezó, subió, bajó, se cortó, volvió). Trae también los cambios guardados con su id.
+
+- **Ruta por operación:** `GET /api/v1/cobros/ver_suscripcion_lead`
+- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe, Mercado Pago y Creem)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead de la suscripción. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/suscripcion/meses"
+```
+
+### `POST /api/v1/cobros/ventas/{leadId}/suscripcion/cambios` — Cambiar el monto, cortar o retomar
+
+PROPONE un cambio de la suscripción de un lead que se cobra a mano, desde un mes: tipo=monto (la mensualidad nueva, sube o baja; los meses de antes quedan como estaban), corte (deja de pagar desde ese mes) o vuelta (vuelve desde ese mes, con otro monto si cambió). También para cargar la mensualidad que falta: tipo=monto desde el primer mes. Sólo el administrador. La que cobra la pasarela se cambia en su cobro.
+
+- **Ruta por operación:** `POST /api/v1/cobros/cambiar_suscripcion`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega el cambio a suscripcion_movimientos (y el monto de antes la primera vez), deja suscripcion_monto_usd en la mensualidad de hoy, cancela o reactiva si el corte o la vuelta son de este mes, y deja historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead de la suscripción. |
+| `tipo` | string (monto \\| corte \\| vuelta) | sí | monto, corte o vuelta. |
+| `desde` | string | sí | AAAA-MM: el mes desde el que vale. |
+| `montoUsd` | number | no | en dólares. Obligatoria con tipo=monto. |
+| `dia` | number | no | desde ese mes; sin valor, el de siempre. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/suscripcion/cambios" \
+  -d '{"tipo":"monto","desde":"DESDE"}'
 ```
 
 ## MaKo (pendientes, propuestas, chats) — `mako`

@@ -45,6 +45,7 @@ import { AvisoClave } from '@/app/_chat/AvisoClave';
 import { Icon } from '@/app/_components/icons';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { edadDe, haceAR } from '@/lib/centro-fechas';
 
 type Elegido = { elegidas: number[]; otra: string };
 
@@ -71,16 +72,118 @@ export type ItemDelBloque =
   | { de: 'tab'; id: string; q: PreguntaDeLaTab }
   | { de: 'app'; id: string; p: PreguntaChat };
 
-/** Las fuentes en UNA lista, en el orden en que se contestan: la Ticketera (ya viene con la que frena primero), lo que pregunta
- *  el chat (la más vieja primero), lo que pregunta la tab, y lo de la app, que acá sólo se lee. */
+/** Cuándo se hizo lo que espera (la Ticketera: cuando se publicó; un chat o la app: cuando preguntó). null = lo de una tab, que
+ *  no tiene fecha (se calcula al mirar). */
+export const fechaDeItem = (x: ItemDelBloque): string | null => (x.de === 'ticketera' ? x.d.creadaAt : x.de === 'tab' ? null : x.p.at);
+const instanteDe = (x: ItemDelBloque): number => { const t = Date.parse(fechaDeItem(x) ?? ''); return Number.isFinite(t) ? t : 0; };
+
+/**
+ * Las fuentes en UNA lista, LA MÁS NUEVA PRIMERO (5/11/2026, Martín: le llegó para contestar una pregunta del 30/10 que ya no
+ * importaba; «Las más nuevas primero, y que lo viejo no tape a lo de hoy»): la Ticketera, lo que pregunta el chat y lo de la app, que
+ * acá sólo se lee, por su fecha; a igual fecha, en ese orden. Lo que pregunta la tab va al final (se ve aparte, en su tira).
+ * ⚠️ El ORDEN DE ENTREGA no es éste: las respuestas del chat salen de la más vieja a la más nueva (`enviar`).
+ */
 export function itemsDelBloque(ticketera: readonly Decision[], delChat: readonly PreguntaChat[], deLaApp: readonly PreguntaChat[],
   deLaTab: readonly PreguntaDeLaTab[] = []): ItemDelBloque[] {
-  return [
+  const esperan: ItemDelBloque[] = [
     ...ticketera.map((d) => ({ de: 'ticketera' as const, id: `t:${d.id}`, d })),
     ...delChat.map((p) => ({ de: 'chat' as const, id: `c:${p.id}`, p })),
-    ...deLaTab.map((q) => ({ de: 'tab' as const, id: `s:${q.id}`, q })),
     ...deLaApp.map((p) => ({ de: 'app' as const, id: `a:${p.id}`, p })),
   ];
+  // `sort` es estable: a igual fecha queda el orden de arriba (la Ticketera ya viene con la que frena primero).
+  esperan.sort((a, b) => instanteDe(b) - instanteDe(a));
+  return [...esperan, ...deLaTab.map((q) => ({ de: 'tab' as const, id: `s:${q.id}`, q }))];
+}
+
+/**
+ * Las preguntas del chat en el orden en que se HICIERON (la más vieja primero): es el orden en que sus respuestas salen firmadas y
+ * le llegan al chat (5/11/2026: el bloque las muestra de la más nueva a la más vieja, y eso no cambia el orden de entrega).
+ */
+export const ordenDeEntrega = (items: readonly ItemDelBloque[]): ItemDelBloque[] =>
+  items.filter((x) => x.de === 'chat').sort((a, b) => instanteDe(a) - instanteDe(b));
+
+/** «Ignorar» (5/11/2026): lo que pasa la pantalla. `ignorar` y `volver` devuelven el error, o null; `ignoradas`, las de este chat
+ *  (`itemsDelBloque` con las ignoradas, la última ignorada primero). Sin esto, el bloque no ofrece ignorar. */
+export type IgnorarDelBloque = {
+  ignorar: (it: ItemDelBloque) => Promise<string | null>;
+  volver: (it: ItemDelBloque) => Promise<string | null>;
+  ignoradas: readonly ItemDelBloque[];
+};
+/** Lo que cada pantalla le da al bloque para ignorar: las acciones de useCentro.ts y las decisiones de la Ticketera ignoradas de
+ *  este chat (lib/centro-preguntas.ts → ignoradasDelChat). Las preguntas ignoradas salen de su conversación (`preguntasIgnoradas`). */
+export type ParaIgnorar = {
+  pregunta: (p: PreguntaChat, ignorar: boolean) => Promise<string | null>;
+  decision: (d: Decision, ignorar: boolean) => Promise<string | null>;
+  decisiones: readonly Decision[];
+};
+/** El «Ignorar» del bloque, armado igual en la computadora y en el teléfono. Las ignoradas, la última ignorada primero. */
+export function armarIgnorar(base: ParaIgnorar | undefined, preguntas: readonly PreguntaChat[]): IgnorarDelBloque | undefined {
+  if (!base) return undefined;
+  const hacer = (x: ItemDelBloque, si: boolean) => (x.de === 'ticketera' ? base.decision(x.d, si) : x.de === 'tab' ? Promise.resolve(null) : base.pregunta(x.p, si));
+  const ignoradas: ItemDelBloque[] = [
+    ...base.decisiones.map((d) => ({ de: 'ticketera' as const, id: `t:${d.id}`, d })),
+    ...preguntas.map((p) => (p.origen === 'ask' ? { de: 'app' as const, id: `a:${p.id}`, p } : { de: 'chat' as const, id: `c:${p.id}`, p })),
+  ].sort((a, b) => (Date.parse(ignoradaEn(b) ?? '') || 0) - (Date.parse(ignoradaEn(a) ?? '') || 0));
+  return { ignorar: (x) => hacer(x, true), volver: (x) => hacer(x, false), ignoradas };
+}
+/** Cuándo quedó ignorada una del bloque (para «Ignoradas»). */
+const ignoradaEn = (x: ItemDelBloque): string | null => (x.de === 'ticketera' ? x.d.ignoradaAt ?? null : x.de === 'tab' ? null : x.p.ignorada ?? null);
+const tituloDeItem = (x: ItemDelBloque): string => (x.de === 'ticketera' ? x.d.pregunta : x.de === 'tab' ? x.q.pregunta : x.p.pregunta);
+
+/**
+ * Cuándo se hizo, a la vista (5/11/2026): «hace 6 días · 30 oct, 10:52», y la fecha entera en el `title`. Con más de 48 horas lleva
+ * «Vieja» y otro color: se distingue de lo de hoy sin leer el número.
+ */
+export function EdadDePregunta({ iso, ahora }: { iso: string | null; ahora: number }) {
+  const e = edadDe(iso, ahora);
+  if (!e) return null;
+  return (
+    <span className={`co-preg__edad${e.vieja ? ' co-preg__edad--vieja' : ''}`}>
+      {e.vieja && <span className="co-preg__vieja">Vieja</span>}
+      <time dateTime={e.iso} title={e.completa}>{e.hace}</time>
+      <span className="co-preg__cuando" aria-hidden> · {e.cuando}</span>
+    </span>
+  );
+}
+
+/** «Ignoradas · N»: chica, aparte, y abierta muestra cada una con «Volver a mostrar». */
+function Ignoradas({ lista, ahora, onVolver, onAbrir }: { lista: readonly ItemDelBloque[]; ahora: number; onVolver: (it: ItemDelBloque) => Promise<string | null>; onAbrir?: () => void }) {
+  const [abierta, setAbierta] = useState(false);
+  const [volviendo, setVolviendo] = useState<string | null>(null);
+  if (!lista.length) return null;
+  if (!abierta) {
+    return (
+      <div className="co-ignoradas">
+        <button type="button" className="co-ignoradas__link" onClick={() => { setAbierta(true); onAbrir?.(); }} aria-expanded={false}>Ignoradas · {lista.length}</button>
+      </div>
+    );
+  }
+  return (
+    <div className="co-preg co-preg--arriba co-preg--ignoradas" role="group" aria-label="Ignoradas">
+      <div className="co-preg__cab">
+        <span className="co-ignoradas__titulo">Ignoradas</span>
+        <Plegar onPlegar={() => setAbierta(false)} que="las ignoradas" />
+      </div>
+      <ul className="co-ignoradas__lista">
+        {lista.map((x) => {
+          const cuando = ignoradaEn(x);
+          return (
+            <li key={x.id} className="co-ignoradas__fila">
+              <p className="co-ignoradas__texto">{tituloDeItem(x)}</p>
+              <p className="co-ignoradas__pie">
+                <EdadDePregunta iso={fechaDeItem(x)} ahora={ahora} />
+                {cuando && <span className="co-ignoradas__cuando">Ignorada {haceAR(Date.parse(cuando), ahora)}</span>}
+                <button type="button" className="co-chip co-ignoradas__volver" disabled={volviendo != null}
+                  onClick={async () => { setVolviendo(x.id); await onVolver(x); setVolviendo(null); }}>
+                  {volviendo === x.id ? 'Volviendo…' : 'Volver a mostrar'}
+                </button>
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 /**
@@ -169,7 +272,7 @@ export function Pasos({ items, pos, ir, contestada, enviando, nombre = 'Pregunta
   );
 }
 
-export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, delChat = [], onResponder, deLaApp = [], deLaTab = [], avisoCerrado }: {
+export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, delChat = [], onResponder, deLaApp = [], deLaTab = [], avisoCerrado, ignorar, ahora: ahoraDeFuera }: {
   /** El chat (su clave en el Ops Center): el plegado se recuerda por chat y por lo que espera. */
   chat: string;
   /** Las decisiones de la Ticketera que espera este chat (`preguntasDelChat`); sin `responderTicketera`, no se ofrecen. */
@@ -184,7 +287,12 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
   deLaTab?: readonly PreguntaDeLaTab[];
   /** Si el chat de esa pregunta está cerrado, la línea que lo dice ANTES de firmar (`preguntaDeChatCerrado`, 30/10/2026). */
   avisoCerrado?: (p: PreguntaChat) => string | null;
+  /** «Ignorar» y «Ignoradas» (5/11/2026). Sin esto, no se ofrecen (las sugerencias de una tab no se ignoran: tienen «Ahora no»). */
+  ignorar?: IgnorarDelBloque;
+  /** El reloj de la pantalla (la fecha de cada pregunta). Sin esto, el de ahora. */
+  ahora?: number;
 }) {
+  const ahora = ahoraDeFuera ?? Date.now();
   const items = useMemo(() => itemsDelBloque(responderTicketera ? ticketera : [], onResponder ? delChat : [], deLaApp, deLaTab),
     [ticketera, responderTicketera, delChat, onResponder, deLaApp, deLaTab]);
   const [idActual, setIdActual] = useState<string | null>(null);
@@ -196,6 +304,14 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  /** La que se está ignorando (su botón dice «…»), y la que se acaba de ignorar: su «Deshacer» queda a mano un rato. */
+  const [ignorando, setIgnorando] = useState<string | null>(null);
+  const [recien, setRecien] = useState<ItemDelBloque | null>(null);
+  useEffect(() => {
+    if (!recien) return;
+    const t = window.setTimeout(() => setRecien(null), 10_000);
+    return () => window.clearTimeout(t);
+  }, [recien]);
   // LAS SUGERENCIAS DE MAKO VAN PLEGADAS, APARTE DE LAS PREGUNTAS (22/10/2026). Martín, mirando producción: «no se entiende que
   // son sugerencias y luego que son muy invasivas, se debería poder ver en un desplegable». Su tira dice qué son y cuántas hay;
   // se abren SÓLO tocándola (una nueva suma al número y no abre nada), y abiertas dicen «Sugerencia de MaKo». Una pregunta nueva
@@ -241,7 +357,19 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
     )}
     {tiraDeSugerencias && <TiraSugerencias n={sugerencias.length} onAbrir={() => setVerSugerencias(true)} />}
   </>);
-  if (!it) return items.length ? tiras : null;
+  // Lo de «Ignorar», arriba de todo: «Ignoradas · N» (chica) y el «Deshacer» de la que se acaba de ignorar.
+  const deshacer = async (x: ItemDelBloque) => { setRecien(null); await ignorar?.volver(x); };
+  const delIgnorar = ignorar && (<>
+    {/* Con la lista abierta, el «Deshacer» sobra: ahí está «Volver a mostrar». */}
+    <Ignoradas lista={ignorar.ignoradas} ahora={ahora} onAbrir={() => setRecien(null)} onVolver={async (x) => { if (recien?.id === x.id) setRecien(null); return ignorar.volver(x); }} />
+    {recien && (
+      <p className="co-preg co-preg--arriba co-preg--plegada co-preg--recien" role="status">
+        <span>Ignorada: no se le avisa al chat</span>
+        <button type="button" className="co-chip" onClick={() => void deshacer(recien)}>Deshacer</button>
+      </p>
+    )}
+  </>);
+  if (!it) return items.length || delIgnorar ? <>{delIgnorar}{tiras}</> : null;
 
   const ir = (i: number) => { setAviso(null); setIdActual(visibles[Math.min(visibles.length - 1, Math.max(0, i))]?.id ?? null); };
   const contestada = (id: string) => !!elegidos[id] || guardadas.includes(id) || items.some((x) => x.id === id && x.de === 'tab' && !!x.q.hecha);
@@ -253,7 +381,8 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
     if (j >= 0) ir(j);
   };
   const hechos = (mas: string) => new Set([...Object.keys(elegidos), ...guardadas, mas]);
-  const delChatAbiertas = items.filter((x) => x.de === 'chat');
+  // En el orden en que se HICIERON (`ordenDeEntrega`): el bloque las muestra de la más nueva a la más vieja.
+  const delChatAbiertas = ordenDeEntrega(items);
   const varias = delChatAbiertas.length > 1;
 
   async function enviar(todo: Record<string, Elegido>) {
@@ -292,6 +421,21 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
     if (escrito.current === id) escrito.current = null;
     aLaSiguiente(hechos(id));
   };
+  /** «Ignorar» la que está abierta: sale del bloque sin contestarla (no se le firma nada al chat), y se pasa a la siguiente. */
+  async function ignorarEsta() {
+    if (!it || !ignorar || it.de === 'tab' || ignorando || enviando) return;
+    const x = it;
+    setIgnorando(x.id);
+    setError(null);
+    if (escrito.current === x.id) escrito.current = null;
+    const mal = await ignorar.ignorar(x);
+    setIgnorando(null);
+    // El error a la vista de cualquier fuente (el del pie es sólo de las preguntas del chat).
+    if (mal) { setAviso(mal); return; }
+    setAviso(null);
+    setElegidos((e) => { const { [x.id]: _q, ...resto } = e; return resto; });
+    setRecien(x);
+  }
   const tocar = (i: number) => {
     if (enviando || !p) return;
     if (!p.varias) { guardar([i], ''); return; }
@@ -310,6 +454,7 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
   const ultimaDelChat = it.de === 'chat' && delChatAbiertas.every((q) => q.id === it.id || elegidos[q.id]);
   const titulo = it.de === 'ticketera' ? it.d.pregunta : it.de === 'tab' ? it.q.pregunta : it.p.pregunta;
   return (<>
+    {delIgnorar}
     {tiras}
     <div className={`co-preg co-preg--arriba${it.de === 'app' ? ' co-preg--app' : ''}`} role="group"
       aria-label={it.de === 'tab' ? `Sugerencia de MaKo: ${titulo}` : it.de === 'app' ? `Pregunta en la app de Claude: ${titulo}` : `Pregunta: ${titulo}`}
@@ -326,6 +471,18 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
           {visibles.length > 1 ? <Pasos items={visibles} pos={pos} ir={ir} contestada={contestada} enviando={enviando} />
             : <span className="co-preg__paso">{esperando(1)}</span>}
           <Plegar onPlegar={() => setPlegado(true)} />
+        </div>
+      )}
+      {/* Cuándo se hizo y «Ignorar» (5/11/2026): lo de una tab no tiene fecha ni se ignora (tiene «Ahora no»). */}
+      {it.de !== 'tab' && (
+        <div className="co-preg__meta">
+          <EdadDePregunta iso={fechaDeItem(it)} ahora={ahora} />
+          {ignorar && (
+            <button type="button" className="co-preg__ignorar" disabled={!!ignorando || enviando} onClick={() => void ignorarEsta()}
+              aria-label={`Ignorar: ${titulo}`} title="Sacarla de aquí sin contestarla: al chat no le llega nada">
+              {ignorando === it.id ? 'Ignorando…' : 'Ignorar'}
+            </button>
+          )}
         </div>
       )}
       {aviso && <p className="co-preg__error" role="alert">{aviso}<ReportarASoporte /></p>}

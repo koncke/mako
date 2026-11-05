@@ -544,6 +544,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/landing/documentos/{id}/dominio', 'ver_dominio_landing'],
   ['PUT', '/landing/documentos/{id}/enlaces', 'poner_enlace_landing'],
   ['PATCH', '/landing/documentos/{id}/formulario', 'configurar_formulario_landing'],
+  ['PUT', '/landing/documentos/{id}/bloques-de-venta', 'configurar_bloque_venta_landing'],
   ['PATCH', '/landing/documentos/{id}/navegacion', 'configurar_navegacion_landing'],
   ['GET', '/landing/documentos/{id}/pago', 'ver_cobro_landing'],
   ['DELETE', '/landing/documentos/{id}/pago', 'quitar_cobro_landing'],
@@ -617,6 +618,11 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/negocio/personalidad-voz', 'reiniciar_personalidad'],
   ['GET', '/negocio/knowledge/modulos', 'modulos_de_knowledge'],
   ['GET', '/negocio/knowledge/modulos/{modulo}', 'leer_modulo_knowledge'],
+  // La marca: los kits de colores, fuentes y logo (5/11/2026, lib/marca/kits.ts).
+  ['GET', '/negocio/marca/kits', 'ver_kits_marca'],
+  ['POST', '/negocio/marca/kits', 'guardar_kit_marca'],
+  ['PUT', '/negocio/marca/kits/{id}/por-defecto', 'elegir_kit_marca'],
+  ['DELETE', '/negocio/marca/kits/{id}', 'borrar_kit_marca'],
   ['GET', '/negocio/personalidad-voz', 'ver_personalidad_voz'],
   ['PUT', '/negocio/personalidad-voz/muletillas', 'guardar_muletillas_marca'],
   ['PUT', '/negocio/personalidad-voz/respuestas/{key}', 'responder_pregunta_personalidad'],
@@ -808,6 +814,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/cobros/deals/{leadId}/obligaciones', 'editar_obligacion_deal'],
   ['PATCH', '/cobros/ventas/{leadId}', 'editar_venta_lead'],
   ['PUT', '/cobros/ventas/{leadId}/suscripcion', 'estado_suscripcion_manual'],
+  // La suscripción mes a mes (5/11/2026): leerla y cambiarla desde un mes (monto, corte, vuelta).
+  ['GET', '/cobros/ventas/{leadId}/suscripcion/meses', 'ver_suscripcion_lead'],
+  ['POST', '/cobros/ventas/{leadId}/suscripcion/cambios', 'cambiar_suscripcion'],
   // La baja del cliente (#871) es un estado de la VENTA, como la suscripción: PUT la pone y `deshacer` la saca.
   ['PUT', '/cobros/ventas/{leadId}/baja', 'baja_del_cliente'],
   // El plan por tramos (29/10/2026) es el plan ENTERO de la venta: PUT lo fija.

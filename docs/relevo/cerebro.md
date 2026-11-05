@@ -1,5 +1,80 @@
 # Relevo del Cerebro
 
+## 5/11/2026, ~23:30 UTC (20:30 ART): Creem afuera, consulta a Whop, números de migración
+
+**Creem rechazó la tienda, definitivo** (5/11 19:30). Desconectada de la plataforma: queda sólo Mercado Pago. No se arma otra cuenta con Leandro; el porqué está en la memoria `creem-alta-leandro`. La limpieza del sitio y de la moderación va en `punta/creem-fuera`, todavía afuera.
+
+**Whop:** la consulta salió el 5/11 a las 23:06 UTC a `support@whop.com`, desde `equipo@hola-mako.com`, y Resend la da entregada (`01a1adf6-6ab6-7772-8491-edd8e71a5540`). Sin respuesta todavía. Si dicen que sí, Martín crea la cuenta y el formulario se completa con datos verdaderos. Respaldo: dLocal Go, con el sí del contador. Comparación en `docs/proveedores-de-cobro.md`. A terceros, MaKo se describe tal cual y en tono normal: nunca como si hiciera algo ilegal.
+
+**Reparto de números de migración, para que no vuelvan a chocar:**
+
+| Número | Quién | Estado |
+|---|---|---|
+| 0394_decisiones_ignoradas, 0397_recibos, 0398_actividad_uso | | aplicadas |
+| 0396_wa_mensajes_automatico | `punta/codigo-primer-contacto` | sin aplicar |
+| 0399_recibos_negocio, 0400_comprobantes_leidos | `punta/automations-pagos` | sin aplicar |
+| 0401_suscripcion_movimientos | `punta/suscripciones-ficha` | sin aplicar |
+| 0402 | `punta/agencia-cobro` | sin aplicar |
+
+Se lo mandé a los tres chats y los mensajes a la nube no confirman lectura: **antes de aplicar, mirar el nombre real del archivo en main.**
+
+**Admin está en producción.** `vistaDeIngresos` da lo esperado por `docs/relevo/nube-admin.md`: MRR US$340, cobrado US$340, 3 pagando, por cobrar Florencia 18/11, Código 21/11 y Leila 26/11. **Faltan los US$238 de noviembre de Código:** se cargan UNA vez, como dice `docs/relevo/nube-suscripciones.md` paso 2, cuando esa punta esté en producción. Hasta entonces Revenue subestima lo cobrado (340 contra 578 reales) y le pone a Código el próximo cobro el 21/11, cuando es el 5/12. Mirar las pantallas con sesión queda pendiente: en el navegador de la app pide el segundo paso de Martín.
+
+**Cobro de Código:** `punta/agencia-cobro` sigue afuera, sin subir desde las 12:33 ART, y el chat está quieto. El lunes 9/11 vence Pablo. Si no entró, los controles programados avisan y se suspende a mano como hasta ahora.
+
+**La pantalla de Admin se rehace.** Martín la rechazó el 5/11: «está horrible… copies tanto el diseño como la funcionalidad». Chat nuevo «Admin: copia literal de Studio Admin» (`punta/admin-copia`), que porta `arhamkhnz/next-shadcn-admin-dashboard` pantalla por pantalla; el mapa está en su encargo. El chat viejo quedó anulado, sin tocar `app/admin`. Un chat de la nube no avisa al terminar: mirar la rama. Si dejó dicho que no tiene navegador, las capturas lado a lado las saco yo desde la PC, en `docs/admin/copia/`.
+
+**Un chat de la nube quieto no lee los mensajes.** Admin viejo, Recibos y Agencias siguieron quietos minutos después de recibirlos; sólo avanzan los que están corriendo. Para algo urgente: chat nuevo, en un turno de Martín, o que Martín lo abra. Recibos y CRM todavía tienen su 0398 repetida, y `tests/migraciones-numero-unico.test.ts` los frena en rojo hasta renumerar.
+
+**Whop y la casilla:** nada prueba que `equipo@hola-mako.com` reciba. La prueba del 5/11 23:13 UTC (`Prueba de la casilla equipo 5-11-kq7`) no apareció en el Gmail de Martín y el reenvío vive en Porkbun, con su inicio de sesión. Si no recibe, la respuesta de Whop se pierde: `docs/hallazgos-comunicacion.md`.
+
+**Legales:** términos, privacidad y reembolsos nombran sólo a Mercado Pago como quien cobra el plan, porque `pasarelasConectadas(9)` da sólo eso. Las claves de Creem ya no están, medido. El próximo proveedor entra a las legales el día que empiece a cobrar.
+
+**Extensión y Meta, sin cambios:** la extensión espera que Martín entre en el Chrome aparte (`scripts/cdp-tienda.mjs`); los permisos de Meta esperan el video (`C:/dev/cerebro-herramientas/revisiones-meta-google.md`).
+
+---
+
+## 5/11/2026, ~20:15 UTC (17:15 ART): recibos y Creem
+
+**Salieron los recibos N.º 0001 (octubre) y N.º 0002 (noviembre)** a Código, por WhatsApp y por correo. Entregados. El próximo es el 0003. Comprobantes, PDF y `registro.json` en `C:/dev/cerebro-herramientas/cobros/codigo-inmobiliario/`, para cargarlos cuando exista el registro.
+
+**La plantilla y el registro en SuperAdmin:** encargo listo en `docs/relevo/recibos-encargo.md`, sin chat arrancado. Lo tiene que arrancar un turno de Martín: desde un turno automático la app no deja. También esperan los dos chats de Thiago (guía de migración y token; «Usar en un anuncio» y «Guardar en MaKo»).
+
+**Creem:** la 0358 quedó aplicada el 5/11. La tienda está en 0 de 3 pasos, y le toca a Martín: `docs/creem-retiros.md`.
+
+---
+
+## 5/11/2026, ~18:15 UTC (15:15 ART): el diferencial de Código
+
+Martín cambió la regla: por cada cliente nuevo se pagan sus días hasta el próximo 5, aparte y por adelantado (detalle en `docs/hallazgos-agencias.md`). Código pagó noviembre el 5/11.
+
+**Salió el PDF** por el grupo «MaKo <> Codigo Inmobiliario» a las 18:06 UTC: Pablo US$40,73 máximo el 9/11, Giselle US$37,60 máximo el 11/11, Marcela US$34,47 máximo el 13/11, Patricia US$1,5667 por día desde que entre.
+
+**A mano hasta que llegue `punta/agencia-cobro`:**
+- Al llegar el comprobante, Martín lo ve en el grupo. Con Pablo pago, devolverle el acceso (usuarios 15, que era `invitado`, y 19, que era `activo`). Patricia: usuario 22, que era `activo`.
+- Sin pago el 11/11, suspender a Giselle (usuarios 13, 25 y 26; confirmar antes quién es cada uno). Sin pago el 13/11, a Marcela (27 y 28).
+- Tareas programadas `codigo-diferencial-pablo-9-11`, `-giselle-12-11` y `-marcela-14-11`: miran y avisan, no escriben. Si el aviso no le llega al Cerebro, medirlo igual.
+
+**Le mandé al chat de cobro** la regla nueva, el grupo de WhatsApp en vez de la app y la migración a renumerar, sin confirmar que lo haya leído. Medir su punta.
+
+---
+
+## 5/11/2026, ~17:00 UTC (14:00 ART): lo vivo
+
+Cuenta claude3, 11 % semanal (reinicia el 11/11 09:00 UTC). Runner: `local_9d6e9e4d…`. Vigía armado. Medir antes de creerlo.
+
+**Lo más urgente: el cobro a Código.** Acuerdo en la memoria (`cobro-agencia-codigo`). `punta/agencia-cobro` trae sólo el cálculo y un aviso, y con dos errores (noviembre US$285 en vez de 238; días sueltos que el acuerdo no tiene). El 5/11 le mandé la lista completa, sin confirmar que la haya leído: si no aparece en su punta, volver a mandársela. **«Paga para entrar» tiene que estar antes del lunes 9/11, y la suspensión a los 14 días antes del 11/11 (vence Giselle).** Al llegar: aplicar su migración, correr su comando para pasar a los usuarios 19, 22 y 15 (hoy `suspendido` a mano), corregir la fecha de Giselle y prender desde 2026-12. Martín carga su usuario de Binance en /admin/cobros. Avisarle a Juanfran sobre Giselle es de Martín.
+
+**Carruseles:** 1.378 en la biblioteca, con 244 de los 245 de Top Carousels. Lo aprendido y lo que falta, en `docs/hallazgos-carruseles.md`. Top Carousels no se recorre.
+
+**Chats en la nube del 5/11:** cobro (`punta/agencia-cobro`), múltiplo de rendimiento (`punta/multiplo-rendimiento`), primer contacto de Código (`punta/codigo-primer-contacto`, con la 0396 sin aplicar), Black November (sin punta todavía), iniciativa por tab (`punta/iniciativa-*`). Ya en main: varias claves de Apify, «Ignorar» en el Ops Center (0394 aplicada) y la marca en Image.
+
+**Sin repartir:** la lista de la auditoría, con Thiago primero (guía de migrar el CRM con Claude, token de agencia, «Usar en un anuncio», «Guardar en MaKo»), Video (subtítulos, B-roll, clips), Lead Magnet Generator, arrastrar bloque en Copywriter, 4:5 en Web Generator, y los 22 hallazgos del recorrido. El registro fino está en `C:/dev/cerebro-herramientas/tickets/por-repartir.md`.
+
+**Espera a Martín:** cargar las claves de Apify en Integraciones (y rotarlas: las pegó en el chat), Stripe real y euros, clic de prueba de Zernio, look de AI Avatar, decisión de LinkedIn, instalar el servicio del Runner.
+
+---
+
 ## 4/11/2026, ~14:30 UTC (11:30 ART): lo vivo
 
 Cuenta claude5 al 94 % de la ventana de 5 horas (reinicia 14:50 UTC) y 72 % semanal. Medir antes de creerlo: `git log origin/main`, `git for-each-ref refs/remotes/origin/punta`.

@@ -37,6 +37,10 @@ const nextConfig: NextConfig = {
   // lleva): sin él, un error de tipos llega a producción en vez de frenar el build.
   // Reinstalarlo con las instrucciones de AGENTS.md.
   typescript: { ignoreBuildErrors: true },
+  // jsPDF arma los recibos de MaKo en el servidor (lib/recibo-pdf.ts, 5/11/2026): se carga de node_modules tal cual, sin
+  // empaquetarlo (su build de node usa `require` dinámicos que el bundler no resuelve). Medido sólo en Node pelado: se prueba
+  // en un preview con GET /api/admin/recibos/ejemplo antes de confiar en el correo (docs/relevo/nube-recibos.md).
+  serverExternalPackages: ['jspdf'],
   // Fija la raíz del workspace de Turbopack al directorio del proyecto.
   // Evita que Next infiera mal la raíz cuando hay otro lockfile en un ancestro
   // (p.ej. un package-lock.json suelto en el home). Hace la build determinística

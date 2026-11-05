@@ -77,7 +77,9 @@ const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction'
   // Lo terminado viejo de UN chat, al abrirlo (23/10/2026, `pedidosDelChatAction`): con la misma guarda que las demás.
   'pedidosDelChatAction',
   // Dar de baja un mensaje que espera un chat cerrado (30/10/2026): toca los mensajes de Martín.
-  'descartarDelLimboAction'];
+  'descartarDelLimboAction',
+  // «Ignorar» y «Volver a mostrar» lo que espera a Martín (5/11/2026): cancela la respuesta que todavía no salió.
+  'ignorarPreguntaAction', 'ignorarDecisionAction'];
 
 test('cada acción pregunta por Martín con su segundo factor ANTES de hacer cualquier otra cosa', () => {
   const as = acciones(sinComentarios(leer('app/admin/operaciones/acciones.ts')));

@@ -67,6 +67,12 @@ import { useConectarIntegracion, useVueltaDeGoogle } from '@/app/_components/Con
 import { CSS_GC } from './gc-css';
 import { USOS_CALENDARIO, entidadDelItem, entradaGoogle, entradaPropia, llaveDe, sinLlamadasRepetidas, usoDeCapa, visiblesPorDefecto, type UsoCalendario } from './comun';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
+import { ancla } from '@/app/_ui/guia/ancla';
+import { useGuiaDeLaTab } from '@/app/_ui/guia/useGuiaDeLaTab';
+import { useGuiaEnElChat } from '@/app/_ui/guia/store';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { SUPERFICIE_CALENDARIO } from '@/lib/aperturas/calendario';
 import { PestanasCalendario, VISTAS_DE_LA_BARRA } from './Pestanas';
 import { Flecha } from './Flecha';
 import { VistaTiempo, type NuevoRango } from './VistaTiempo';
@@ -88,7 +94,7 @@ type Movido = { inicio: string; fin: string | null };
 const hhmm = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 const llavePreferencia = (ws: number | null) => `calendario.visibles.${ws ?? 'propio'}`;
 
-export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, google, eventoInicial = null }: {
+export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, google, eventoInicial = null, inicio = null }: {
   vista: VistaCalendario;
   fecha: string;
   hoy: string;
@@ -99,6 +105,9 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
   google: GoogleDelCalendario | null;
   /** `?evento=<id>`: lo que se acaba de mandar desde un editor de Create (lib/calendario-desde-crear.ts). Se abre una vez. */
   eventoInicial?: string | null;
+  /** El onboarding de la tab (5/11/2026, lo que MaKo pregunta primero y la guía): si la primera semana sigue sin estrenar y si
+   *  el onboarding está pendiente. null = no se pudo leer: MaKo calla y la guía espera. */
+  inicio?: { semanaPendiente: boolean; onboardingPendiente: boolean } | null;
 }) {
   const router = useRouter();
   const ws = useWs();
@@ -370,6 +379,20 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
     }).catch(() => show('No se pudo mover', undefined, 'bad'));
   };
 
+  // MAKO TOMA LA INICIATIVA (5/11/2026, docs/mako-iniciativa/plan.md T9): con Google conectado y la semana sin estrenar,
+  // «¿Tienes alguna llamada esta semana?» (lib/aperturas/calendario.ts); «Sí, tengo una» abre el alta de una llamada. Y LA GUÍA de
+  // la pestaña (./guia-calendario.ts), que espera al onboarding de la tab (el modal de Google). Las dos callan con algo abierto.
+  useGuiaDeLaTab('calendario', { listo: true, onboardingPendiente: inicio == null || inicio.onboardingPendiente });
+  const guiaChat = useGuiaEnElChat();
+  const estadoApertura = useApertura({
+    superficie: SUPERFICIE_CALENDARIO,
+    hechos: inicio ? { google: google != null, semanaPendiente: inicio.semanaPendiente } : null,
+    libre: abierto == null && !integracion.abierto && !guiaChat.pregunta && !guiaChat.senalando && !guiaChat.esperando,
+  });
+  const aperturaTab = estadoApertura.apertura
+    ? <AperturaMako estado={estadoApertura} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} acciones={{ agendar: () => crear('llamada') }} />
+    : null;
+
   const avisos = lineasDeAviso(fallos, google);
   const titulo = rotuloDeRango(vista, fecha);
   const prendidoGoogle = llavesGoogle.some((k) => visibles.has(k));
@@ -378,23 +401,23 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
   return (
     <div className="gc" data-calendario="" style={{ paddingLeft: 'var(--ancho-panel-mako, 0px)' }}>
       <style>{CSS_GC}</style>
-      <MakoEnLaTab tab="Calendario" entidad={entidadDelItem(abierto?.t === 'tarjeta' ? abierto.item : null)} />
+      <MakoEnLaTab tab="Calendario" apertura={aperturaTab} entidad={entidadDelItem(abierto?.t === 'tarjeta' ? abierto.item : null)} />
       {toast && <Toast state={toast} onClose={clear} />}
       {confirmNode}
 
       {/* La barra de arriba */}
       <header className="gc-barra">
-        <button type="button" className="gc-hoy" onClick={() => ir(vista, hoy)}>Hoy</button>
+        <button type="button" className="gc-hoy" {...ancla('calendario-hoy')} onClick={() => ir(vista, hoy)}>Hoy</button>
         <button type="button" className="gc-ico" aria-label="Anterior" title="Anterior" onClick={() => ir(vista, moverFecha(vista, fecha, -1))}><Flecha dir="izq" /></button>
         <button type="button" className="gc-ico" aria-label="Siguiente" title="Siguiente" onClick={() => ir(vista, moverFecha(vista, fecha, 1))}><Flecha dir="der" /></button>
         <h1 className="gc-titulo" data-rango="">{titulo}</h1>
-        <div className="gc-derecha">
+        <div className="gc-derecha" {...ancla('calendario-vistas')}>
           <PestanasCalendario activa={vista} fecha={fecha} />
         </div>
       </header>
 
       {/* LOS CUATRO USOS: la leyenda es el filtro (el nombre) y el alta (el «+»). Google y «Otros», al final y sin «+». */}
-      <div className="gc-usos" role="group" aria-label="Qué ver">
+      <div className="gc-usos" role="group" aria-label="Qué ver" {...ancla('calendario-usos')}>
         {USOS_CALENDARIO.filter((u) => u.id !== 'otros' || hayOtros).map((u) => {
           const llaves = llavesDe(u.id);
           const prendido = llaves.some((k) => visibles.has(k));
@@ -404,7 +427,8 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
                 <span className="gc-uso-punto" aria-hidden style={{ borderColor: u.color, background: prendido ? u.color : 'transparent' }} />{u.nombre}
               </button>
               {u.crea && (
-                <button type="button" className="gc-uso-mas" aria-label={`Nueva ${ROTULO_TIPO[u.crea].toLowerCase()}`} title={`Nueva ${ROTULO_TIPO[u.crea].toLowerCase()}`} onClick={() => crear(u.crea!)}>+</button>
+                <button type="button" className="gc-uso-mas" aria-label={`Nueva ${ROTULO_TIPO[u.crea].toLowerCase()}`} title={`Nueva ${ROTULO_TIPO[u.crea].toLowerCase()}`} onClick={() => crear(u.crea!)}
+                  {...(u.crea === 'llamada' ? ancla('calendario-llamada') : {})}>+</button>
               )}
               {u.id === 'plan' && (
                 <Link href="/plan" className="gc-uso-mas" aria-label="Crear un deadline en el Plan" title="Un deadline es una tarea del Plan: se crea ahí">+</Link>

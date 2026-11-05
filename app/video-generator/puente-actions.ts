@@ -13,7 +13,7 @@
 // solo se podía leer mirando la pantalla de Flow.
 
 import { getRolWsEfectivo, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
-import { crearTokenPuente, encolar, estadoPuente, type Puente } from '@/lib/flow-cola';
+import { crearTokenPuente, encolar, esRechazoDeModeracion, estadoPuente, type Puente } from '@/lib/flow-cola';
 import { estaVivo } from '@/lib/flow-puente-frescura';
 import { randomUUID } from 'node:crypto';
 import { ENDPOINTS } from '@/lib/flow-protocolo';
@@ -243,12 +243,16 @@ export async function probarImagenAction(
     // entera— y el prompt va por PARCHES porque `fundir()` reemplaza arrays: un
     // `requests` a medias perdería el modelo y la cara.
     const id = await encolar('generar_imagen', {
+      // El mismo texto del parche, también al tope: es lo que lee la rama de BOQ de la cola y lo que se modera
+      // (lib/flow-cola.ts → `encolar`). Un trabajo que genera sin `prompt` al tope no se encola: no se puede moderar.
+      prompt: texto.slice(0, 500),
       path: ENDPOINTS.generarImagenes('x'),
       // La semilla FIJA y el `batchId` propio: es una prueba, no una generación
       // del anuncio, así que repetirla tiene que dar lo mismo y no puede pisar el
       // lote de nadie.
       parches: parchesImagenEscena({ prompt: texto.slice(0, 500), seed: 1, batchId: randomUUID() }),
     });
+    if (esRechazoDeModeracion(id)) return { ok: false, error: id.texto };
     if (id == null) return { ok: false, error: 'No se pudo encolar la prueba.' };
     return { ok: true, trabajoId: id };
   } catch (e) {

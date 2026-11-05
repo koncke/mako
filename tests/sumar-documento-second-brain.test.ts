@@ -119,7 +119,10 @@ test('la operación: en el registro, al FINAL de su área, se confirma en el cha
   assert.equal(d.gating?.rolMinimo, 'admin', 'El Archivero es del admin (resolverWsAdmin)');
   assert.equal(d.costo, 'ia');
   const delArea = REGISTRO.filter((x) => x.area === 'negocio');
-  assert.equal(delArea[delArea.length - 1].id, ID, 'una operación nueva va AL FINAL de su área (AGENTS.md)');
+  // AL FINAL de su área cuando nació (3/11); detrás sólo lo que nació después, que tampoco le gana un empate: los kits de
+  // marca (5/11/2026). Si entra algo más acá, va al final de esta lista.
+  const despues = ['ver_kits_marca', 'guardar_kit_marca', 'elegir_kit_marca', 'borrar_kit_marca'];
+  assert.deepEqual(delArea.slice(-1 - despues.length).map((x) => x.id), [ID, ...despues], 'una operación nueva va AL FINAL de su área (AGENTS.md)');
   assert.doesNotMatch(`${d.id} ${d.titulo}`, /perfil|archivero/i, 'el título repite las palabras del área y le saca lugar a otra');
   assert.ok(d.canales.includes('app') && d.canales.includes('whatsapp'));
   const texto = d.parametros.find((p) => p.nombre === 'texto');

@@ -855,4 +855,32 @@ export const BITACORA: Hito[] = [
       "docs/hallazgos-onboarding.md — «Ángulos: la recomendación de formatos se sacó»",
     ],
   },
+  {
+    fecha: "5 nov", hora: "09:20", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "martin", tipo: "prompt",
+    titulo: "MaKo toma la iniciativa: el primer ingreso (T2)",
+    pedido: "Es súper importante que cuando esté comenzando el usuario […] que MaKo tome la iniciativa […] \"lo primero que te recomiendo es que cargues tu oferta\" […] \"¿qué funnel te gustaría? […] ¿o quieres que te recomiende uno?\", alimentado por su presupuesto, qué funnel desea, qué ya está haciendo o qué resultado le trajo.",
+    puntos: [
+      "Pedido del 29/10 (docs/mako-iniciativa/plan.md §1); el 5/11 pidió continuar con todo lo pendiente.",
+    ],
+  },
+  {
+    fecha: "5 nov", hora: "09:20", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El primer ingreso: la oferta primero, «¿Cómo te llegan hoy los clientes?» y el funnel que recomienda MaKo",
+    puntos: [
+      "La recomendación del funnel la decide el código (`recomendarFunnel`, la tabla de plan.md §3.3), nunca la IA: respeta siempre el canal y escribe el porqué con los datos de la persona. La IA sólo nombra las etapas del tipo recomendado (un candidato).",
+      "Por llamada o por chat, antes del CRM: «¿Cómo te llegan hoy los clientes?» (un hecho). Reemplaza a «¿Te sirven?», que preguntaba una acción. Después: «Hay 12 funnels en MaKo. Para ti: «…». <porqué>» con [Sí, ese] [Ver los 12].",
+      "«Lo primero es tu oferta» (la frase de Martín), el cobro con «¿Es así?» en vez de «¿Lo cargo así?», y la salida corta: sin preguntas sueltas, y el grupo de WhatsApp sólo con el teléfono verificado.",
+      "El link del borrador del plan queda en el estado (lo leerá la escalera del Ops Center); fuera `rutaDeEntrada`, `INTERESES[].ruta` (apuntaba a /ads-writer) y el `?recorrido=sb-inicio` del final (la guía del Ops Center pregunta sola).",
+    ],
+    revisar: "/onboarding",
+    archivos: [
+      "lib/funnel-recomendado.ts — recomendarFunnel, la única traducción entre los catálogos de funnel",
+      "lib/onboarding-arranque.ts — la etapa 'entrada', la recomendación, los textos y la salida corta",
+      "lib/onboarding-arranque-server.ts y app/api/onboarding/arranque/route.ts — el diagnóstico guardado en los hechos y la IA con un candidato",
+      "app/api/onboarding/plan-arranque/route.ts — el link del borrador en el estado",
+      "tests/onboarding-funnel-recomendado.test.ts — la tabla, el paso nuevo y el ejemplo de Ana; probado rompiéndolo (5 roturas)",
+    ],
+  },
 ];

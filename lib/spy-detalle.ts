@@ -21,6 +21,7 @@ import { cortarSinPartir } from './unicode-seguro';
 import { tipoDeContenido } from './spy-vista';
 import { FORMATOS_DEL_CATALOGO } from './spy-catalogo-datos';
 import { regexDeFrase, textoComparable } from './spy-funnel-tipo';
+import { multiplosDe, type MetricaMultiplo, type Multiplo, type PiezaParaMultiplo } from './multiplo-rendimiento';
 
 /**
  * Los formatos que la IA del negocio le pone a cada pieza al analizarla (`analizarCompetidor`, lib/spy.ts). Son los del CATÁLOGO
@@ -288,53 +289,25 @@ export function puestoDe(id: number, piezas: readonly PiezaDelGrafico[], ahora: 
   return i < 0 ? null : `#${i + 1} de ${orden.length}`;
 }
 
-/**
- * Cuántas veces su mediana hizo ESTA pieza (4/11/2026, el detalle rediseñado; copiado del «multiplicador» de vidIQ): 2,3 =
- * 2,3 veces lo que hace una pieza suya típica. Con la misma métrica del gráfico y sobre las mismas piezas. null sin su número,
- * con menos de 3 piezas con número (la mediana de dos no dice nada) y en los anuncios (los días al aire no son un rendimiento).
- */
-export function vecesSuMediana(id: number, piezas: readonly PiezaDelGrafico[], ahora: number = Date.now()): number | null {
-  const m = metricaDe(piezas);
-  if (m === 'días al aire') return null;
-  const vs = piezas.map((p) => valorDe(p, m, ahora)).filter((v): v is number => v != null);
-  const med = vs.length >= 3 ? mediana(vs) : null;
-  const p = piezas.find((x) => x.id === id);
-  const v = p ? valorDe(p, m, ahora) : null;
-  if (v == null || !med) return null;
-  return Math.round((v / med) * 10) / 10;
-}
+// ⚠️ EL «3,7×» DE CADA PIEZA (cuántas veces lo que suele hacer su cuenta) NO SE CALCULA ACÁ: vive en UN lugar,
+// lib/multiplo-rendimiento.ts (5/11/2026), con la fórmula de Top Carousels (hasta 20 vecinas en el tiempo, mínimo 7, sin lo
+// pagado, los sorteos ni lo de menos de una semana). Acá estaban `vecesSuMediana` y la cuenta de `mejoresPiezas`, contra la
+// mediana de TODA la cuenta y con 3 piezas: se borraron para no tener dos números distintos para lo mismo.
 
-/** Una pieza de «Lo que mejor le fue»: su número, en qué métrica, y cuántas veces la mediana de SU grupo. */
-export type PiezaDestacada = { id: number; valor: number; metrica: Metrica; veces: number };
+/** Una pieza de «Lo que mejor le fue»: su número, en qué métrica, cuántas veces lo que suele hacer su cuenta, y de dónde sale. */
+export type PiezaDestacada = { id: number; valor: number; metrica: MetricaMultiplo; veces: number; multiplo: Multiplo };
 
 /**
  * Lo que mejor le fue (4/11/2026, el bloque al lado de «¿Qué formatos le funcionan?»: Martín, «debería ir otro bloque con algo
- * más... porque sino queda vacío»). Se ordena por cuántas veces la mediana de SU grupo hizo cada pieza (un short y un video
- * largo no se comparan en vistas crudas), y a igual veces, por su número. Sin los anuncios (días al aire no es rendimiento),
- * y sin grupos de menos de 3 piezas con número.
+ * más... porque sino queda vacío»). Se ordena por su múltiplo (`multiplosDe`: cada pieza contra las de SU formato, así un short y
+ * un video largo no se comparan en vistas crudas), y a igual múltiplo, por su número. Sin los anuncios: sus días activos son
+ * una señal, no un rendimiento, y no se ordenan junto a las vistas. Lo que no tiene múltiplo no entra.
  */
-export function mejoresPiezas(piezas: readonly (PiezaDelGrafico & Pick<Pieza, 'duracion'>)[], tope: number, ahora: number = Date.now()): PiezaDestacada[] {
-  const porGrupo = new Map<string, PiezaDelGrafico[]>();
-  for (const p of piezas) {
-    const g = grupoDe(p);
-    if (!g || g === 'anuncios') continue;
-    const del = porGrupo.get(g);
-    if (del) del.push(p);
-    else porGrupo.set(g, [p]);
-  }
+export function mejoresPiezas(piezas: readonly PiezaParaMultiplo[], tope: number, ahora: number = Date.now()): PiezaDestacada[] {
+  const m = multiplosDe(piezas.filter((p) => p.canal !== 'anuncios'), ahora);
   const out: PiezaDestacada[] = [];
-  for (const grupo of porGrupo.values()) {
-    const m = metricaDe(grupo);
-    if (m === 'días al aire') continue;
-    const vs = grupo.map((p) => valorDe(p, m, ahora)).filter((v): v is number => v != null);
-    const med = vs.length >= 3 ? mediana(vs) : null;
-    if (!med) continue;
-    for (const p of grupo) {
-      const v = valorDe(p, m, ahora);
-      if (v != null) out.push({ id: p.id, valor: v, metrica: m, veces: Math.round((v / med) * 10) / 10 });
-    }
-  }
-  return out.sort((a, b) => b.veces - a.veces || b.valor - a.valor).slice(0, Math.max(0, tope));
+  for (const [id, x] of m) if (x.veces != null) out.push({ id, valor: x.valor, metrica: x.metrica, veces: x.veces, multiplo: x });
+  return out.sort((a, b) => b.veces - a.veces || b.valor - a.valor || a.id - b.id).slice(0, Math.max(0, tope));
 }
 
 /** Una fila de «¿Qué formatos le funcionan?»: el formato, sus piezas ubicadas por su número, su mediana y su mejor gancho. */

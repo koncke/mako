@@ -55,6 +55,7 @@ import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, esProveedorE
 import { SANDBOX_PUBLICO } from './html-libre';
 import { ALTO_MINIATURA_EDITABLE, CLASE_EDITABLE, conEnlacesDePaginas, documentoEditable, envoltoriosValidos } from './html-editable';
 import { hrefPagoValido } from './pago-landing';
+import { attrsCuentaRegresiva, attrsEscasez, attrsPruebaSocial, specCuentaRegresiva, specEscasez, specPruebaSocial } from './bloques-venta';
 import {
   HtmlCrudo, arbolDeGrafico, htmlDeArbol, normalizarGrafico, type AttrsArbol, type HijoArbol, type NodoArbol,
 } from './grafico-svg';
@@ -645,6 +646,9 @@ export const NORMALIZAR_NODOS: Readonly<Record<string, (raw: unknown) => Record<
   [NODO.espaciador]: attrsEspaciador,
   [NODO.htmlLibre]: attrsHtmlLibre,
   [NODO.htmlEditable]: attrsHtmlEditable,
+  [NODO.cuentaRegresiva]: attrsCuentaRegresiva,
+  [NODO.pruebaSocial]: attrsPruebaSocial,
+  [NODO.escasez]: attrsEscasez,
   paragraph: attrsParrafo,
   heading: attrsEncabezado,
   bulletList: sinAtributos,
@@ -1198,6 +1202,9 @@ export const SPEC_NODOS: Readonly<Record<string, (attrs: unknown, ctx?: CtxSpec)
   [NODO.espaciador]: specEspaciador,
   [NODO.htmlLibre]: specHtmlLibre,
   [NODO.htmlEditable]: specHtmlEditable,
+  [NODO.cuentaRegresiva]: specCuentaRegresiva,
+  [NODO.pruebaSocial]: specPruebaSocial,
+  [NODO.escasez]: specEscasez,
   paragraph: specParrafo,
   heading: specEncabezado,
   bulletList: specListaVinetas,

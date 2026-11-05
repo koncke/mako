@@ -39,6 +39,7 @@ import {
   type CambioObligacion, type CambioVenta, type Obligaciones, type PlanUniforme,
 } from '@/lib/pagos-campo';
 import { cobradoDelLead, noEsDeuda, type Cobrado } from '@/lib/cobrado-lead';
+import { cambiosDeSuscripcion } from '@/lib/suscripcion-movimientos';
 import { listarCobros } from '@/lib/cobros';
 import { laCobraLaPasarela, mesesTranscurridos } from '@/lib/cobros-reglas';
 import { hoyEnWorkspace } from '@/lib/timezone';
@@ -405,7 +406,10 @@ export async function cobradoDelLeadAction(leadId: number): Promise<{ ok: true; 
     if (ws == null) return { ok: false, error: SIN_SESION };
     const lead = await getLead(leadId);
     if (!lead) return { ok: false, error: 'No encontré ese lead en este negocio.' };
-    const [pagos, cobros, hoy] = await Promise.all([getPagosByLead(leadId), listarCobros(ws, { leadId, limite: 50 }), hoyEnWorkspace()]);
+    const [pagos, cobros, hoy, cambios] = await Promise.all([
+      getPagosByLead(leadId), listarCobros(ws, { leadId, limite: 50 }), hoyEnWorkspace(),
+      lead.venta_tipo === 'suscripcion' ? cambiosDeSuscripcion(leadId) : Promise.resolve(null),
+    ]);
     const fila = lead as unknown as Record<string, unknown>;
     return {
       ok: true,
@@ -419,6 +423,7 @@ export async function cobradoDelLeadAction(leadId: number): Promise<{ ok: true; 
         pagos,
         cobros,
         hoy,
+        movimientos: cambios?.movimientos ?? [],
       }),
     };
   } catch (e) {

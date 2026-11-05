@@ -279,7 +279,7 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'cobros', label: 'Billing', href: '/m/cobros', icon: 'tag', navKey: 'admin-cobros', familia: null, oculta: true, superAdmin: true },
   { id: 'agente', label: 'Client Agents', href: '/m/agente', icon: 'mako', navKey: 'admin-agente', familia: null, oculta: true, superAdmin: true },
   // Customers (26/10/2026): su fila de More la arma la familia de la sidebar (Sales), como en la computadora.
-  { id: 'customers', label: 'Customers', href: '/m/customers', icon: 'cs', navKey: 'admin-customers', familia: null, oculta: true, superAdmin: true },
+  { id: 'customers', label: 'Admin', href: '/m/customers', icon: 'cs', navKey: 'admin-customers', familia: null, oculta: true, superAdmin: true },
   // Las pantallas de CREACIÓN (17/10/2026), todas ocultas: lib/movil-creacion.ts dice por qué.
   ...SECCIONES_CREACION,
 ];
@@ -292,8 +292,8 @@ const UNA_A_UNA: Readonly<Record<string, string>> = {
   '/api-mako': '/m/api-mako',
   '/admin/cobros': '/m/cobros',
   '/admin/agente': '/m/agente',
-  // Customers (26/10/2026): los clientes de MaKo del super admin.
-  '/customers': '/m/customers',
+  // Admin (5/11/2026; era Customers, /customers): la tab del super admin. Exacta: /admin/dev y las demás subrutas no.
+  '/admin': '/m/customers',
 };
 
 /**

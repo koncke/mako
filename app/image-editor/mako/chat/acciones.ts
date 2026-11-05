@@ -27,6 +27,8 @@ import { cambiarHilo, cambiarMensaje, conId, leerHilo, type MensajeMako, type Me
 import type { RespSubidos, Subido } from '@/lib/image-editor/tipos';
 import { cuerpoConArchivos, originalDe } from '@/app/_chat/useAdjuntosDelChat';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/mako-adjuntos';
+import type { KitMarca } from '@/lib/marca/kits';
+import type { IntencionChat } from '@/app/_chat/SelectorIntencion';
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -98,7 +100,7 @@ async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, arch
   }
 }
 
-type FotoOfrecida = FotoDelChat & { adjunta?: boolean };
+type FotoOfrecida = FotoDelChat & { adjunta?: boolean; logo?: boolean };
 
 /**
  * Las fotos que la IA puede poner (30/10/2026, Leila: «no me pone las imágenes en el carrusel»). Las que vienen adjuntas en
@@ -107,7 +109,7 @@ type FotoOfrecida = FotoDelChat & { adjunta?: boolean };
  * ⚠️ SE SUBE EL ORIGINAL (`originalDe`), no la copia achicada que lee la IA. Y si esa misma foto ya está en «Subidos» (mismo nombre y
  * peso), se usa ésa: un reintento vuelve a adjuntarla, y cada vez sería una copia más entre las 40 que se ofrecen.
  */
-async function fotosParaPedir(editor: EditorEngine, archivos: readonly File[], senal: AbortSignal): Promise<{ fotos: FotoOfrecida[]; fallas: string[] }> {
+async function fotosParaPedir(editor: EditorEngine, archivos: readonly File[], senal: AbortSignal, kit: KitMarca | null = null): Promise<{ fotos: FotoOfrecida[]; fallas: string[] }> {
   const delNegocio: Subido[] = [];
   const plazo = new AbortController();
   const t = setTimeout(() => plazo.abort(), PLAZO_LISTA_MS);
@@ -136,6 +138,11 @@ async function fotosParaPedir(editor: EditorEngine, archivos: readonly File[], s
       fallas.push(`la foto «${f.name}» no se pudo subir`);
     }
   }
+  // El logo del kit de marca (5/11/2026), justo después de las adjuntas: es lo que el kit le pide a la IA que ponga.
+  const logo = kit?.logo;
+  if (logo && !fotos.some((x) => x.id === logo.subidoId)) {
+    fotos.push({ id: logo.subidoId, url: logo.url, nombre: logo.nombre, ancho: logo.ancho || 512, alto: logo.alto || 512, logo: true });
+  }
   for (const s of delNegocio) {
     if (!fotos.some((x) => x.id === s.id)) fotos.push({ id: s.id, url: s.url, nombre: s.nombre, ancho: s.ancho, alto: s.alto });
   }
@@ -150,8 +157,13 @@ const refsDe = (p: Propuesta): RefsDeVista => ({
   paginas: new Map(p.paginas),
 });
 
-/** Manda una instrucción y deja en el hilo la respuesta: una PROPUESTA para revisar, o lo que no se pudo. */
-export async function pedirEdicion(editor: EditorEngine, instruccion: string, alcance: AlcanceChat, archivos: readonly File[] = []): Promise<void> {
+/**
+ * Manda una instrucción y deja en el hilo la respuesta: una PROPUESTA para revisar, o lo que no se pudo. Con `intencion`
+ * «discutir», MaKo contesta sin proponer nada. `kit`: la marca elegida (su logo va entre las fotos, sus fuentes primero).
+ */
+export async function pedirEdicion(editor: EditorEngine, instruccion: string, alcance: AlcanceChat, archivos: readonly File[] = [], op: { intencion?: IntencionChat; kit?: KitMarca | null } = {}): Promise<void> {
+  const kit = op.kit ?? null;
+  const discutir = op.intencion === 'discutir';
   const disenoId = editor.designId;
   const texto = instruccion.trim();
   if (!disenoId || (!texto && !archivos.length) || leerHilo(disenoId).corriendo) return;
@@ -175,16 +187,19 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   const doc = editor.getDocument();
   const docVersion = editor.state.docVersion;
   const activePageId = editor.state.activePageId;
+  // Las fuentes de la marca primero (si el editor las tiene), y después las del catálogo.
+  const deLaMarca = [kit?.fuentes.titulos, kit?.fuentes.texto].map((f) => (f ? fuenteDelEditor(doc)(f) : null)).filter((f): f is string => !!f);
+  const sugeridas = [...new Set([...deLaMarca, ...FUENTES.slice(0, SUGERIDAS).map((f) => f.family)])].slice(0, SUGERIDAS);
   const vistaCon = (ofrecidas: readonly FotoOfrecida[]) => vistaDeDiseno(doc, {
-    activePageId, elegidos: elegidosIds, fuentes: FUENTES.slice(0, SUGERIDAS).map((f) => f.family),
-    fotos: ofrecidas.map((f, i) => ({ ref: fotoRef(i), nombre: f.nombre, ancho: f.ancho, alto: f.alto, ...(f.adjunta ? { adjunta: true } : {}) })),
+    activePageId, elegidos: elegidosIds, fuentes: sugeridas,
+    fotos: ofrecidas.map((f, i) => ({ ref: fotoRef(i), nombre: f.nombre, ancho: f.ancho, alto: f.alto, ...(f.adjunta ? { adjunta: true } : {}), ...(f.logo ? { logo: true } : {}) })),
   });
   // Antes de subir nada: si el diseño solo no entra, no hay pedido.
   if (vistaCon([]).json.length > TOPES_CHAT_IMAGEN.vistaMax) {
     terminar({ de: 'mako', texto: 'El diseño es muy grande para el chat. Elige unos elementos y pídelo sobre la selección.', error: true });
     return;
   }
-  const { fotos: todas, fallas } = await fotosParaPedir(editor, archivos, corte.signal);
+  const { fotos: todas, fallas } = await fotosParaPedir(editor, archivos, corte.signal, kit);
   if (corte.signal.aborted) {
     terminar({ de: 'mako', texto: 'Detenido.' });
     return;
@@ -200,9 +215,17 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   const paraLeer = archivos.filter((f) => LEIBLES.has(f.type));
   // Sólo un SVG o un AVIF y nada escrito: a la ruta no le llega ningún archivo, y sin texto contestaría que falta.
   const instruccionIA = texto || (archivos.length && !paraLeer.length ? 'Pon en el diseño lo que adjunté.' : '');
-  const r = await pedirIA({ instruccion: instruccionIA, diseno: vista.json, alcance: alcanceReal, memoria }, corte.signal, paraLeer);
+  const r = await pedirIA({
+    instruccion: instruccionIA, diseno: vista.json, alcance: alcanceReal, memoria,
+    ...(kit ? { kit: kit.id } : {}), ...(discutir ? { intencion: 'discutir' } : {}),
+  }, corte.signal, paraLeer);
   if (!r.ok) {
     terminar({ de: 'mako', texto: r.error, error: !('cortado' in r) });
+    return;
+  }
+  // Discutir: la respuesta y nada más (el server ya tiró cualquier operación).
+  if (discutir) {
+    terminar({ de: 'mako', texto: r.resumen || 'No tengo nada que sugerir sobre eso.' });
     return;
   }
   const { operaciones, descartes: deForma } = validarOperaciones(r.operaciones);

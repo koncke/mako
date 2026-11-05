@@ -32,6 +32,7 @@ import { conexion } from '@/lib/conexiones-catalogo';
 import { sanearBloque } from '@/lib/chat-bloques';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { conHorasDelNegocio } from './horas-del-negocio';
+import { registrarAccionMako } from '@/lib/actividad-registro';
 
 export { vistaDe };
 
@@ -48,6 +49,26 @@ export async function ejecutarOperacion(
   ctx: Ctx,
   origen: 'query' | 'json',
   /** la vista ya calculada por el transporte, para no leer el workspace dos veces */
+  vistaPrevia?: Vista,
+): Promise<Resultado> {
+  const r = await correrOperacion(id, inputCrudo, ctx, origen, vistaPrevia);
+  // Admin › Activity (5/11/2026): QUÉ hizo MaKo, por qué canal y si salió (lib/actividad.ts). Sin los parámetros ni la
+  // respuesta: «qué se hizo, no qué decía». No se espera y no tira: anotar nunca cambia lo que contesta la operación.
+  const def = porId(id);
+  if (def) {
+    registrarAccionMako({
+      ws: ctx.ws, usuario: ctx.quien?.sub ?? null, operacion: def.id, area: def.area, canal: ctx.canal,
+      tipo: esLectura(def) ? 'lectura' : esControl(def) ? 'control' : 'accion', ok: r.ok,
+    });
+  }
+  return r;
+}
+
+async function correrOperacion(
+  id: string,
+  inputCrudo: Record<string, unknown> | null | undefined,
+  ctx: Ctx,
+  origen: 'query' | 'json',
   vistaPrevia?: Vista,
 ): Promise<Resultado> {
   const def = porId(id);

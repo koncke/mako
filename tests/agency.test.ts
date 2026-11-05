@@ -134,7 +134,7 @@ test('las puertas a la cuenta de un cliente de agencia llevan a /agency: el CRM,
   assert.match(leer('app/crm/CrmBoard.tsx'), /router\.push\(`\/agency\?cuenta=\$\{l\.cuentaPartners\}`\)/);
   assert.match(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'), /router\.push\(`\/agency\?cuenta=\$\{lead\.cliente_ws\}`\)/);
   assert.match(leer('app/customer-success/FichaCliente.tsx'), /<Link className="fc-partners" href=\{`\/agency\?cuenta=\$\{c\.clienteWs\}`\}/);
-  assert.match(leer('lib/agencia-cartera.ts'), /return esSuperAdmin \? '\/customers' : '\/agency';/);
+  assert.match(leer('lib/agencia-cartera.ts'), /return esSuperAdmin \? '\/admin' : '\/agency';/);
 });
 
 // ── 3. Abrir una cuenta ───────────────────────────────────────────────────────────

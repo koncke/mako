@@ -10768,3 +10768,34 @@ hecho tiene más de 7 días (`tiempoDelHecho`, `lib/meta-capi-payload.ts`, con s
 **Regla:** si el código mira la edad de una fecha, el test la arma relativa a ahora (o fija el reloj). Dos ramas sin relación con el mismo rojo: correr ese test sobre main antes de arreglar nada en la rama.
 
 **Sin hacer:** no se barrieron los demás tests con fecha escrita a mano. Vive en `tests/_*-hijo.ts`.
+
+## Dos chats en la nube eligieron la misma migración (5/11/2026)
+
+`punta/ops-ignorar` y `punta/agencia-cobro` eligieron la `0394` con pocas horas de diferencia. Los dos hicieron lo indicado: barrer main, todas las ramas y las etiquetas, y tomar el siguiente. Barrer no reserva: si la otra todavía no subió, no se ve. Y desde la nube tampoco se ven los worktrees de la PC.
+
+**La regla:** el número se confirma al aplicar, contra `origin/main`. Si chocó, se renumera el archivo que llegó segundo: nada lo nombra por número salvo su encabezado y su relevo.
+
+## La lista entera del repo pasó el megabyte de child_process (5/11/2026, nube, `punta/suscripciones-ficha`)
+
+**Síntoma:** dos barredoras (tests/resend-clave-admin y tests/puente-leads-retirado) dieron rojo con `spawnSync git ENOBUFS`
+en una punta que no las tocaba. **Causa:** `execFileSync` corta la salida en 1 MiB (1.048.576 bytes) si nadie le pide otro
+`maxBuffer`, y `git ls-files` del repo entero medía 1.048.494 bytes en main: once archivos nuevos lo pasaron. No es la
+punta: es la próxima que sume archivos, sea cual sea. **Regla:** toda llamada que lista el repo ENTERO (`ls-files` sin
+carpeta, `ls-tree -r` sobre un ref) lleva `maxBuffer: 64 * 1024 * 1024`; lo fija tests/git-lista-entera-buffer.test.ts. Lo
+que lista una carpeta (app y lib suman ~216 KB) todavía tiene aire, y el día que no, es la misma regla.
+
+El mismo día lo arregló en paralelo otra cuenta (docs/hallazgos-pruebas.md); lo que suma esta entrada es la guarda.
+
+**Vive en:** tests/git-lista-entera-buffer.test.ts (y el molde, `archivosVersionados` en tests/colision-de-nombres.test.ts).
+## La lista de archivos del repo entero pasó el megabyte (5/11/2026)
+
+**Vive en:** `tests/resend-clave-admin.test.ts` y `tests/puente-leads-retirado.test.ts`.
+
+- **Síntoma:** el veredicto de `punta/recibos` dio rojo en dos tests que no tocan nada de recibos, con `spawnSync git ENOBUFS`.
+- **Causa:** `git ls-files` sin carpetas mide 1.048.307 B en main, a 269 bytes del tope de 1 MB que `execFileSync` trae por default.
+  Cualquier rama que suma unos archivos lo pasa, en la nube y en GitHub igual (es el mismo checkout).
+- **Arreglo:** `maxBuffer: 64 * 1024 * 1024` en los dos. Los scripts ya lo tenían (`tests-afectados.mjs`, 256 MB; `claves-en-el-diff.mjs`,
+  512 MB) y `tests/colision-de-nombres.test.ts` también. Con una carpeta (`git ls-files app lib`) son ~216 KB: todavía lejos.
+- **Regla:** la de arriba (25/10): todo `git ls-files`, `git ls-tree -r` o `git show` que pueda crecer lleva `maxBuffer` explícito.
+- **Le pasó igual a `punta/admin`** (run 42119084126), que lo arregló por su lado el mismo día: la mezcla se quedó con este arreglo.
+  **Sin hacer:** no hay guarda que frene un `execFileSync('git', …)` nuevo sin `maxBuffer`.

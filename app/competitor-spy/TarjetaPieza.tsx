@@ -24,12 +24,16 @@
 //  · ⚠️ LA ETAPA YA NO SE DIBUJA (4/11/2026): «Probado» y «a la vista» eran criterio nuestro y Martín no los entendía. Lo
 //    orgánico dice hace cuánto se publicó; un anuncio, cuántos días lleva al aire.
 //  · «Analizando…» mientras la IA del negocio lee la pieza, sola y en segundo plano (`analizando`).
+//  · Su «3,7×» arriba a la derecha (5/11/2026, como Top Carousels y vidIQ): cuántas veces lo que suele hacer su cuenta, de la
+//    única cuenta de MaKo (lib/multiplo-rendimiento.ts). Lo fuerte (2× o más) resaltado; en el título, de qué mediana sale.
+//    Sin número (menos de 7 para comparar, menos de una semana, un sorteo…) no hay chip: nunca un número inventado.
 //
 // ⚠️ LA MINIATURA SE DIBUJA DESDE LA URL VIVA Y NO SE GUARDA. La de YouTube se arma con el id.
 // La de Instagram vence (es del CDN de Meta) y se reescribe en cada lectura (lib/spy.ts).
 
 import { contadorDeTarjeta, destinoDePieza, fechaCorta, miniaturaDePieza, rotuloDeTipo, tiempoDePieza } from '@/lib/spy-vista';
 import { proporcionDe } from '@/lib/spy-detalle';
+import { chipDeMultiplo, esFuerte, explicarMultiplo, type Multiplo } from '@/lib/multiplo-rendimiento';
 import type { PiezaVista } from './actions';
 
 /** El color del canal: el mismo en el punto, en el tinte y en el riel, para no leer leyendas. */
@@ -37,9 +41,11 @@ const PUNTO: Record<string, string> = {
   instagram: 'var(--ig)', youtube: 'var(--yt)', anuncios: 'var(--info, #23559f)', landing: 'var(--faint)',
 };
 
-export function TarjetaPieza({ p, analizando = false, onAbrir }: {
+export function TarjetaPieza({ p, analizando = false, multiplo = null, onAbrir }: {
   p: PiezaVista;
   analizando?: boolean;
+  /** Su múltiplo, calculado sobre TODAS las piezas del competidor (`multiplosDe`): una tarjeta sola no tiene con qué comparar. */
+  multiplo?: Multiplo | null;
   /** Abre su detalle (DetallePieza.tsx, con «Copiar estructura»). Sin esto, la tarjeta lleva a la pieza en su red. */
   onAbrir?: () => void;
 }) {
@@ -95,6 +101,11 @@ export function TarjetaPieza({ p, analizando = false, onAbrir }: {
             )
             : <span className="spy-pcard__tag" title={t.linea}>{t.dias === 0 ? 'Hoy' : `Hace ${t.dias} d`}</span>)}
         {analizando && <span className="spy-pcard__tag spy-pcard__tag--analizando" aria-live="polite"><i className="spy-punto spy-punto-vivo" />Analizando…</span>}
+        {chipDeMultiplo(multiplo) && (
+          <span className="spy-pcard__veces" data-fuerte={esFuerte(multiplo) ? 'si' : undefined} title={explicarMultiplo(multiplo)}>
+            {chipDeMultiplo(multiplo)}
+          </span>
+        )}
         {destino && <span className="spy-pcard__tag" title={`Manda a ${destino}`}>{destino}</span>}
       </div>
 

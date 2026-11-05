@@ -3,8 +3,13 @@
 // =============================================================================
 // Copia de lib/editor-video/ia.ts en cómo se llama a la IA:
 //   · `chatClaude(system, [{role:'user', content}], { feature, motivo, maxTokens, hastaMs })` con la feature
-//     `image-editor-ia`: default GEMINI (la key del cliente por la cascada gratis) y respeta /modelos-ia. Claude está
-//     VETADO: sin fila en CLAUDE_PERMITIDO, ni de respaldo (el mismo criterio que el chat del Video Editor);
+//     `image-editor-ia`: desde el 5/11/2026 con LA IA DEL NEGOCIO, sin Gemini (`deSuIA` en lib/model-catalogo.ts; Martín,
+//     22/10: «sin Gemini»): su Claude y su GPT, y respeta /modelos-ia. El Claude de MaKo está VETADO: sin fila en
+//     CLAUDE_PERMITIDO, ni de respaldo;
+//   · LA MARCA DEL NEGOCIO (5/11/2026, lib/marca/kits.ts): el kit pedido (`kit`) o el de por defecto va en el system, en
+//     pocas líneas (`bloqueDeMarca`): colores, las fuentes que el editor tiene y el logo (la foto que el panel ofrece con
+//     "logo": true). Sin kit, nada: MaKo no inventa una marca;
+//   · «DISCUTIR» (`intencion`, lib/chat-editor-discutir.ts): contesta sin cambiar nada; las operaciones que traiga igual se tiran;
 //   · el pedido va acotado con `hastaMs`: si el plazo no alcanza, falla — nunca paga para ganar tiempo;
 //   · el JSON pasa por `parseJsonObject` y, si no alcanza, UNA reparación por la cascada barata. Nunca más.
 //
@@ -26,13 +31,23 @@ import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../
 import { FORMATO_CHAT_IMAGEN, TOPES_CHAT_IMAGEN, catalogoParaPrompt, validarOperaciones, type OperacionImagen } from './catalogo';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE, PROMPTS_CHAT_IMAGEN } from './prompts';
 import { memoriaParaIA, sanearMemoria } from './hilo';
+import { bloqueDeMarca } from '../../marca/kits';
+import { kitParaUsar } from '../../marca/kits-server';
+import { esDiscutir, reglaDiscutir, respuestaDeDiscutir } from '../../chat-editor-discutir';
+import { fuenteDelEditorDeImagen as fuenteDelEditor } from '../fuente-del-editor';
 
 export const FEATURE_CHAT_IMAGEN = 'image-editor-ia';
 
 /** El chat espera hasta aquí a la IA; la ruta corta a 120 s. */
 const PLAZO_IA_MS = 90_000;
 
-export type PedidoChatImagen = { instruccion?: unknown; diseno?: unknown; alcance?: unknown; /** Lo que el sistema leyó de las fotos o los PDF del pedido (28/10/2026): va aparte, como dato. */ archivos?: string; /** Lo que ya se habló en este diseño (./hilo.ts): también como dato. */ memoria?: unknown };
+export type PedidoChatImagen = { instruccion?: unknown; diseno?: unknown; alcance?: unknown; /** Lo que el sistema leyó de las fotos o los PDF del pedido (28/10/2026): va aparte, como dato. */ archivos?: string; /** Lo que ya se habló en este diseño (./hilo.ts): también como dato. */ memoria?: unknown; /** El kit de marca elegido (su id); sin él, el de por defecto. */ kit?: unknown; /** «discutir» o «editar» (lo de siempre). */ intencion?: unknown };
+
+/** La marca para el system del chat de Image: el kit pedido o el de por defecto. Vacío sin kit o con la base caída. */
+export async function marcaParaImagen(kitId: unknown): Promise<string> {
+  const kit = await kitParaUsar(typeof kitId === 'string' && kitId ? kitId : null).catch(() => null);
+  return bloqueDeMarca(kit, { fuenteDelEditor, logo: 'la foto de "fotos" que tiene "logo": true; agrégala con "agregar_foto" donde va el logo (chica, en una esquina) cuando armes un diseño o un carrusel' });
+}
 
 export type ResultadoChatImagen =
   | { ok: true; resumen: string; operaciones: OperacionImagen[]; descartes: string[] }
@@ -91,10 +106,15 @@ export async function editarImagen(p: PedidoChatImagen): Promise<ResultadoChatIm
       diseno: contenidoNoConfiable(diseno, 'diseno'),
     });
     // Lo que no existe en MaKo se dice y se marca en `resumen` (lib/no-existe.ts): abajo se saca y se levanta el pedido.
-    const sys = `${await brandSystem(await renderPrompt(PROMPTS_CHAT_IMAGEN.system.key, CHAT_IMAGEN_SYSTEM_TEMPLATE, {
-      catalogo: catalogoParaPrompt(),
-      formato: FORMATO_CHAT_IMAGEN,
-    }))}\n\n${reglaNoExisteEn('resumen')}`;
+    const discutir = esDiscutir(p.intencion);
+    const [base, marca] = await Promise.all([
+      brandSystem(await renderPrompt(PROMPTS_CHAT_IMAGEN.system.key, CHAT_IMAGEN_SYSTEM_TEMPLATE, {
+        catalogo: catalogoParaPrompt(),
+        formato: FORMATO_CHAT_IMAGEN,
+      })),
+      marcaParaImagen(p.kit),
+    ]);
+    const sys = `${[base, marca, discutir ? reglaDiscutir('el diseño') : ''].filter(Boolean).join('\n\n')}\n\n${reglaNoExisteEn('resumen')}`;
     const hastaIA = t0 + PLAZO_IA_MS;
     const previo = memoriaParaIA(sanearMemoria(p.memoria));
     const user = previo
@@ -107,6 +127,12 @@ export async function editarImagen(p: PedidoChatImagen): Promise<ResultadoChatIm
       hastaMs: hastaIA,
     });
     const raw = await objetoConUnaReparacion(salida, reparador(hastaIA));
+    // Discutir no cambia nada: lo que el modelo trajo igual se tira, y la respuesta va entera (no la primera línea).
+    if (discutir) {
+      const ne = typeof raw.resumen === 'string' ? await conPedidoDeNoExisteDeLaSesion(raw.resumen, { chat: 'image-editor (Discutir)', ruta: '/image-editor', pedido: instruccion }) : null;
+      const respuesta = ne ? [respuestaDeDiscutir(ne.texto), ne.linea].filter(Boolean).join('\n\n') : '';
+      return { ok: true, resumen: respuesta || 'No tengo nada que sugerir sobre eso.', operaciones: [], descartes: [] };
+    }
     const { operaciones, descartes } = validarOperaciones(raw.operaciones);
     if (descartes.length) console.warn(`[image-editor:chat] descartes: ${descartes.slice(0, 20).join(' · ')}`);
     // La marca de lo que no existe sale ANTES de quedarse con la primera línea, y el pedido va solo a la Ticketera (lo único

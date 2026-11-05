@@ -35,6 +35,11 @@ import { entidadDelLead, useLeadAbierto } from '../lead-abierto';
 import { leerRespuesta } from '@/app/m/mako/chat-ui';
 import { pedidoParaElCerebro, type SugerenciaDePantalla } from '@/lib/sugerencias-crm';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
+import { useGuiaDeLaTab } from '@/app/_ui/guia/useGuiaDeLaTab';
+import { useGuiaEnElChat } from '@/app/_ui/guia/store';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { SUPERFICIE_CRM, type HechosCrm } from '@/lib/aperturas/crm';
 
 const RUTA = '/api/crm/mako';
 
@@ -55,11 +60,15 @@ const conDeVuelta = (xs: readonly SugerenciaDePantalla[], s: SugerenciaDePantall
 };
 
 /** Otro CRM es entrar de nuevo: otro panel, plegado y con sus sugerencias (ver la cabecera). */
-export function PanelMakoCrm({ funnelId }: { funnelId: number | null }) {
-  return <PanelDeUnCrm key={funnelId ?? 'principal'} funnelId={funnelId} />;
+/**
+ * `apertura`: lo que la página sabe para que MaKo hable primero (lib/aperturas/crm.ts, 5/11/2026): los leads del NEGOCIO y si quien
+ * mira lo administra. Sin esto (o con la lectura caída), MaKo calla.
+ */
+export function PanelMakoCrm({ funnelId, apertura }: { funnelId: number | null; apertura?: { leads: number | null; esAdmin: boolean } }) {
+  return <PanelDeUnCrm key={funnelId ?? 'principal'} funnelId={funnelId} apertura={apertura} />;
 }
 
-function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
+function PanelDeUnCrm({ funnelId, apertura: datos }: { funnelId: number | null; apertura?: { leads: number | null; esAdmin: boolean } }) {
   // Con la ficha de un lead abierta, la estrella va con ese lead (OC6): el turno lo toma por defecto y el mensaje dice «desde CRM › Ana».
   const abierto = useLeadAbierto();
   const [sugs, setSugs] = useState<SugerenciaDePantalla[] | null>(null);
@@ -173,5 +182,15 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
     </section>
   ) : null;
 
-  return <MakoEnLaTab tab="CRM" entidad={entidadDelLead(abierto)} arriba={sugerencias} preguntas={preguntas} aviso={n} pedido={pedido} />;
+  // MAKO TOMA LA INICIATIVA (5/11/2026, docs/mako-iniciativa/plan.md T7): con el CRM vacío pregunta dónde están sus clientes
+  // (lib/aperturas/crm.ts), y LA GUÍA de la pestaña pregunta la primera vez (app/crm/guia-crm.ts). Calla con algo en el bloque de
+  // preguntas (las sugerencias medidas van primero) y mientras la guía habla o señala.
+  const sinLeads = datos?.leads === 0;
+  useGuiaDeLaTab('crm', { listo: sugs != null, hechos: { sinLeads }, rol: datos?.esAdmin ? 'admin' : 'miembro' });
+  const guia = useGuiaEnElChat();
+  const hechos: HechosCrm | null = datos ? { leads: datos.leads, esAdmin: datos.esAdmin, funnelId } : null;
+  const estadoApertura = useApertura({ superficie: SUPERFICIE_CRM, hechos, libre: sugs != null && n === 0 && !guia.pregunta && !guia.senalando && !guia.esperando });
+  const aperturaTab = estadoApertura.apertura ? <AperturaMako estado={estadoApertura} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} acciones={{}} /> : null;
+
+  return <MakoEnLaTab tab="CRM" apertura={aperturaTab} entidad={entidadDelLead(abierto)} arriba={sugerencias} preguntas={preguntas} aviso={n} pedido={pedido} />;
 }

@@ -15,7 +15,7 @@
 
 import { DESTINO_RE, type ChatCartero } from './operaciones-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
-import { RESUELTA, URGENCIAS, type Decision } from '../app/admin/runway/decisiones';
+import { RESUELTA, URGENCIAS, esperaAMartin, type Decision } from '../app/admin/runway/decisiones';
 
 type Carteros = readonly { cuenta: string; chats: readonly ChatCartero[] }[];
 const chatsDe = (carteros: Carteros): ChatCartero[] => carteros.flatMap((k) => k.chats.map((c) => ({ ...c, cuenta: c.cuenta ?? k.cuenta })));
@@ -57,10 +57,17 @@ const delChat = (c: { miembros: readonly string[] }, d: Decision, sesiones: Read
   return s != null && c.miembros.includes(s);
 };
 
-/** Las que ESTE chat espera (sin contestar), en el orden de la Ticketera. */
+/** Las que ESTE chat espera (sin contestar y sin ignorar), en el orden de la Ticketera. */
 export function preguntasDelChat(c: { miembros: readonly string[] }, decisiones: readonly Decision[], carteros: Carteros): Decision[] {
   const sesiones = sesionesDe(decisiones, carteros);
-  return decisiones.filter((d) => !d.respuesta && delChat(c, d, sesiones)).sort(enOrden);
+  return decisiones.filter((d) => esperaAMartin(d) && delChat(c, d, sesiones)).sort(enOrden);
+}
+
+/** Las de ESTE chat que Martín ignoró desde el Ops Center (5/11/2026), la última ignorada primero: van a «Ignoradas». */
+export function ignoradasDelChat(c: { miembros: readonly string[] }, decisiones: readonly Decision[], carteros: Carteros): Decision[] {
+  const sesiones = sesionesDe(decisiones, carteros);
+  return decisiones.filter((d) => !d.respuesta && !!d.ignoradaAt && delChat(c, d, sesiones))
+    .sort((a, b) => (b.ignoradaAt ?? '').localeCompare(a.ignoradaAt ?? '') || b.id - a.id);
 }
 
 /** Las que este chat preguntó y Martín ya contestó: van en la conversación, como respuestas suyas. */

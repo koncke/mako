@@ -730,7 +730,13 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
    * QUIÉN ESCRIBIÓ LO QUE SE ACEPTÓ (27/10/2026, lib/quien-contesto.ts): si viene, se completa antes de devolver el texto (el
    * chat de Automations dice «Con tu Claude»). Sin él, nada cambia.
    */
-  quienOut?: Partial<QuienContesto> }): Promise<string> {
+  quienOut?: Partial<QuienContesto>;
+  /**
+   * SIN GEMINI (5/11/2026, `deSuIA` en lib/model-catalogo.ts): la feature corre sólo con la IA del negocio que no es Gemini
+   * (su Claude, que va primero, y su GPT). Ni con su Gemini: la decisión del 22/10 para Image es «sin Gemini». Lo pone
+   * `chatClaude` desde el catálogo; sin él, nada cambia.
+   */
+  sinGemini?: boolean }): Promise<string> {
   const anotarQuien = (q: QuienContesto) => { if (opts.quienOut) Object.assign(opts.quienOut, q); };
   // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
   await exigirPermisoIa();
@@ -755,7 +761,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   // cada caller se acuerde de pasar `provs`— ya se probó: ninguno de los doce se acordó.
   // Con su IA (D6b), la cascada es SU IA aunque el que llama pida otra lista (IA6): una función «que no se degrada»
   // atada a Gemini no corría con nada. Su Claude va primero (arriba); después, su OpenAI.
-  const pedidos = soloSuIA() ? (PROVS_SU_IA as ProvName[]) : deTexto(opts.provs ?? (pesa > (TECHO_ENTRADA.groq ?? 7_000) ? CASCADA_DOCS : CASCADA_GRATIS));
+  const pedidos = (soloSuIA() ? (PROVS_SU_IA as ProvName[]) : deTexto(opts.provs ?? (pesa > (TECHO_ENTRADA.groq ?? 7_000) ? CASCADA_DOCS : CASCADA_GRATIS)))
+    .filter((p) => !opts.sinGemini || p !== 'gemini');
   // Y sacamos de la lista a los que no lo pueden recibir. No es una optimización: cada uno
   // de esos es un viaje de ida y vuelta que termina en 413 y suma segundos a la espera.
   const caben = pedidos.filter((p) => pesa <= (TECHO_ENTRADA[p] ?? Number.MAX_SAFE_INTEGER));

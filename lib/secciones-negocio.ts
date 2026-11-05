@@ -21,7 +21,7 @@ import { AREAS, type AreaId } from './cerebro-modelo';
 
 export type SeccionNegocio =
   | 'diagnostico' | 'archivero' | 'oferta' | 'entregable' | 'persona'
-  | 'personalidad' | 'avatares' | 'razones' | 'matriz' | 'angulos';
+  | 'personalidad' | 'avatares' | 'razones' | 'matriz' | 'angulos' | 'marca';
 
 export type DondeSeEdita = {
   /** La pantalla, con el nombre que ve la persona. La ruta es la de siempre; para los negocios la tab se llama «Ops Center»
@@ -49,7 +49,7 @@ export type DondeSeEdita = {
 export const SUBVISTAS: Partial<Record<AreaId, readonly string[]>> = {
   oferta: ['entidad', 'brief'],
   razones: ['matriz', 'razones', 'angulos'],
-  voz: ['personalidad', 'persona'],
+  voz: ['personalidad', 'persona', 'marca'],
 };
 
 const SB = { ruta: '/second-brain', tab: 'Ops Center' } as const;
@@ -67,6 +67,9 @@ export const DONDE_SE_EDITA: Readonly<Record<SeccionNegocio, DondeSeEdita>> = {
   // Ángulos = la biblioteca de formatos con cuántos anuncios de la matriz usa cada uno, sin IA. La recomendación
   // a nivel negocio (que pagaba IA y no la leía ningún generador) se sacó el 23/10/2026: 0 negocios la tenían.
   angulos: { ...SB, area: 'razones', vista: 'angulos', nombre: 'Ángulos' },
+  // La marca del negocio (5/11/2026, lib/marca/kits.ts): sus colores, fuentes y logo, en uno o varios kits. La usan los
+  // chats de Image, Video y Web Generator y los carruseles de MaKo.
+  marca: { ...SB, area: 'voz', vista: 'marca', nombre: 'Marca' },
 };
 
 /** El link a la sección, donde se edite hoy. */

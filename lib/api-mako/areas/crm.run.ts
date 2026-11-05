@@ -70,6 +70,9 @@ import { avisoDeConservadas, avisoMonedaPorOmision, avisoPlanUniforme, cobroManu
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
+import { cambiosDeSuscripcion } from '@/lib/suscripcion-movimientos';
+import { resumenMesAMes } from '@/lib/suscripcion-api';
+import { registrarPagoDeSuscripcion } from '@/lib/suscripcion-cambios';
 import { bloqueEstadoDeCuenta, comprobanteDelPedido, notaEnPantalla } from '@/lib/pagos-bloque';
 import { listarCobros } from '@/lib/cobros';
 import { enElTope, estadoTopeCrm, frenarAltaPorTope } from '@/lib/topes-crm';
@@ -854,13 +857,17 @@ export const RUNNERS: Runners = {
       // ella MaKo decía «pagada por completo» de una mensualidad activa y no veía una renovación rechazada, que
       // vive en el cobro de la pasarela. Si los cobros no se pueden leer, se cuenta sin ellos (sólo las cuotas).
       let cobrosSinLeer = false;
-      const [cobros, { hoy }] = await Promise.all([listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => { cobrosSinLeer = true; return []; }), hoyDelWorkspace(ctx.ws)]);
+      const [cobros, { hoy }, movs] = await Promise.all([
+        listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => { cobrosSinLeer = true; return []; }), hoyDelWorkspace(ctx.ws),
+        // Los cambios de la suscripción (mig 0401): la misma cuenta mes a mes que la tab Pagos.
+        lead.venta_tipo === 'suscripcion' ? cambiosDeSuscripcion(lead.id) : Promise.resolve(null),
+      ]);
       const cob = cobradoDelLead({
         ventaTipo: lead.venta_tipo ?? null, montoCierreUsd: lead.monto_cierre_usd ?? null,
         suscripcionMontoUsd: lead.suscripcion_monto_usd ?? null, suscripcionMeses: lead.suscripcion_meses ?? null,
         fechaCierre: lead.fecha_cierre ?? null,
         suscripcionCanceladaAt: (lead as unknown as { suscripcion_cancelada_at?: string | null }).suscripcion_cancelada_at ?? null,
-        pagos: plan.pagos, cobros, hoy,
+        pagos: plan.pagos, cobros, hoy, movimientos: movs?.movimientos ?? [],
       });
       // ⚠️ EL ESTADO DE CUENTA Y LOS MOVIMIENTOS SON LOS DE LA TAB PAGOS (16/10/2026, lib/pagos-vistazo.ts): qué debe,
       // qué hacer ahora y lo que ya pasó con la plata. MaKo contesta con lo MISMO que ve la persona en la ficha.
@@ -888,7 +895,7 @@ export const RUNNERS: Runners = {
           texto: cob.texto, estado: cob.semaforo.texto, tono: cob.semaforo.tono,
           cobrado_usd: cob.cobradoUsd, total_usd: cob.totalUsd, pendiente_usd: cob.pendienteUsd, vencido_usd: cob.vencidoUsd, porcentaje: cob.pct,
           proxima: cob.proxima ? { pago_id: cob.proxima.pagoId, vence: cob.proxima.fecha, monto_usd: cob.proxima.montoUsd } : null,
-          ...(cob.suscripcion ? { suscripcion: { estado: cob.suscripcion.sinCierre ? 'sin_fecha_de_cierre' : cob.suscripcion.estado, mensualidad: cob.suscripcion.mensualidadTexto, fin_del_plazo: cob.suscripcion.finPlazo, proxima_renovacion: cob.suscripcion.proximaRenovacion, renovacion_fallida: cob.suscripcion.renovacionFallida, cobra: cob.suscripcion.fuente, meses_sin_registrar: cob.suscripcion.sinRegistrar } } : {}),
+          ...(cob.suscripcion ? { suscripcion: { estado: cob.suscripcion.sinCierre ? 'sin_fecha_de_cierre' : cob.suscripcion.estado, mensualidad: cob.suscripcion.mensualidadTexto, fin_del_plazo: cob.suscripcion.finPlazo, proxima_renovacion: cob.suscripcion.proximaRenovacion, renovacion_fallida: cob.suscripcion.renovacionFallida, cobra: cob.suscripcion.fuente, meses_sin_registrar: cob.suscripcion.sinRegistrar, ...resumenMesAMes(cob.suscripcion, movs, { hoy }) } } : {}),
           ...(cob.monedas.length ? { en_otras_monedas: cob.monedas } : {}),
           ...(cob.baja ? { baja_del_cliente: { quedo_sin_cobrar_usd: cob.baja.usd, desde: cob.baja.at, nota: 'Se dio de baja: lo que no pagó no es deuda ni se le recuerda. Se deshace con baja_del_cliente (deshacer: true).' } } : {}),
           ...(cob.cuadra && !cob.cuadra.cuadra && !cob.baja ? { no_cuadra: `El plan suma USD ${cob.cuadra.diferenciaUsd > 0 ? 'más' : 'menos'} que el cierre (diferencia ${cob.cuadra.diferenciaUsd}).` } : {}),
@@ -2664,13 +2671,20 @@ export const RUNNERS: Runners = {
       if (input.fechaPago !== undefined && !esFechaIso(input.fechaPago)) return { error: '«fechaPago» tiene que ser una fecha YYYY-MM-DD.' };
       const fechaPago = s(input.fechaPago) ?? (await hoyDelWorkspace(ctx.ws)).hoy;
       const aviso = avisoMonedaPorOmision(await monedaDelNegocio().catch(() => null), cobro.moneda != null);
+      // (5/11/2026) En una suscripción, el pago dice qué mes paga o que es un ajuste: el mismo camino que la tab Pagos.
+      const sus = lead.venta_tipo === 'suscripcion';
+      if (input.mes !== undefined && input.mes !== null && !/^\d{4}-\d{2}$/.test(String(input.mes))) return { error: '«mes» va AAAA-MM.', faltan: ['mes'] };
+      const ajuste = sus && input.ajuste === true;
+      const mes = sus && !ajuste && typeof input.mes === 'string' ? input.mes : null;
+      const queMes = !sus ? 'fuera del plan de cuotas (no cambia el monto de cierre)' : ajuste ? 'como un ajuste de la suscripción (no paga un mes)' : mes ? `por la mensualidad de ${mes}` : 'por la mensualidad más vieja que falta';
       return {
         payload: {
           leadId: lead.id, montoUsd, fechaPago,
           ...(cobro.moneda ? { moneda: cobro.moneda, montoOriginal: cobro.montoOriginal } : {}),
           ...(cobro.concepto ? { concepto: cobro.concepto } : {}), ...(cobro.metodo ? { metodo: cobro.metodo } : {}),
+          ...(sus ? { suscripcion: true, ...(mes ? { mes } : {}), ...(ajuste ? { ajuste: true } : {}) } : {}),
         },
-        resumen: `Registrar un pago de ${textoDelCobro(montoUsd, cobro)} de ${lead.nombre} el ${fechaPago}, fuera del plan de cuotas (no cambia el monto de cierre).${aviso}`,
+        resumen: `Registrar un pago de ${textoDelCobro(montoUsd, cobro)} de ${lead.nombre} el ${fechaPago}, ${queMes}.${aviso}`,
       };
     },
     ejecutar: (payload, ctx) => seguro('registrar el pago', async () => {
@@ -2679,6 +2693,13 @@ export const RUNNERS: Runners = {
         moneda: s(payload.moneda), montoOriginal: typeof payload.montoOriginal === 'number' ? payload.montoOriginal : null,
         concepto: s(payload.concepto), metodo: s(payload.metodo),
       };
+      if (payload.suscripcion === true) {
+        const r = await registrarPagoDeSuscripcion(Number(payload.leadId), {
+          monto: Number(payload.montoUsd), fecha, ...cobro, mes: s(payload.mes), ajuste: payload.ajuste === true,
+        }, autorDe(ctx));
+        invalidar('pagos', 'leads');
+        return { ok: true, resumen: `Listo: ${r.texto} registrado el ${fecha}.`, datos: { pagoId: r.pagoId } };
+      }
       const r = await registrarPagoSuelto(Number(payload.leadId), { monto: Number(payload.montoUsd), fecha, ...cobro });
       const plata = textoDelCobro(r.monto, { ...cobro, moneda: r.moneda, montoOriginal: r.montoOriginal });
       await logLeadEvent(Number(payload.leadId), 'Pago registrado', `Pago fuera del plan por ${plata} el ${fecha}`, autorDe(ctx));

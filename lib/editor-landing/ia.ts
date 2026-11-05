@@ -35,6 +35,8 @@ import { chatClaude } from '../anthropic';
 import { chatCheapCascade, errorDeCascada } from '../ai-cheap';
 import { renderPrompt, contenidoNoConfiable } from '../prompt-render';
 import { brandSystem, buildLandingBrief, diagnosticoDe } from '../landing-writer';
+import { bloqueDeMarca } from '../marca/kits';
+import { kitParaUsar } from '../marca/kits-server';
 import { extraerLanding } from '../landing-fetch';
 import { parseJsonObject } from '../json-del-modelo';
 import { buscarYCopiar } from '../imagenes-stock';
@@ -175,6 +177,15 @@ async function marcarGenerar(): Promise<void> {
 /** El system de cada operación: la voz de MaKo + la plantilla editable ya renderizada. */
 async function system(p: { key: string; tpl: string }, vars: Record<string, string>): Promise<string> {
   return brandSystem(await renderPrompt(p.key, p.tpl, vars));
+}
+
+/**
+ * La marca del negocio (5/11/2026, lib/marca/kits.ts) al final de un system, sólo en lo que elige colores o diseño (armar
+ * las secciones, editarlas y «Probar nuevo diseño»): cada token lo paga el cliente. El kit de por defecto; sin kit, nada.
+ */
+async function conMarca(sys: string): Promise<string> {
+  const marca = bloqueDeMarca(await kitParaUsar().catch(() => null));
+  return marca ? `${sys}\n\n${marca}\n(El "fondo" de una sección puede ser uno de estos colores, como #RRGGBB.)` : sys;
 }
 
 /**
@@ -382,13 +393,13 @@ export async function secciones(p: PedidoSecciones): Promise<ResultadoIA<{ tarje
   try {
     const material = [esq.titulo, ...indices.flatMap((i) => [esq.secciones[i].titulo, ...esq.secciones[i].puntos])].join('\n');
     const contexto = await buildLandingBrief(material.slice(0, 600));
-    const sys = await system(PROMPTS_EDITOR.seccionesSystem, {
+    const sys = await conMarca(await system(PROMPTS_EDITOR.seccionesSystem, {
       gramatica: GRAMATICA_IA,
       texto: lineaVerbosidad(params.textoPorSeccion),
       modoTexto: lineaModoTexto(params.modoTexto),
       idioma: bloqueIdioma(params.idioma),
       formato: FORMATO_SECCIONES,
-    });
+    }));
     const user = await renderPrompt(PROMPTS_EDITOR.seccionesUser.key, PROMPTS_EDITOR.seccionesUser.tpl, {
       ajustes: ajustesAutoritativos(params, esq.secciones.length) + `\n${diapos ? REGLAS_DIAPOSITIVAS_SECCIONES : REGLAS_PAGINA}`,
       esquema: contenidoNoConfiable(tanda.esquema, 'esquema'),
@@ -479,7 +490,7 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<EdicionIA>> {
     const adjuntos = adjuntosDelPedido(p.adjuntos);
     // La página va para saber qué función de MaKo vende cuando la instrucción no la nombra («cambia el hero»).
     const contexto = contextoConAdjuntos(await buildLandingBrief(instruccion, { pagina: originales.map((t) => textoDe(t)).join('\n') }), adjuntos);
-    const sys = await system(PROMPTS_EDITOR.editarSystem, { gramatica: GRAMATICA_IA, idioma: bloqueIdioma(params.idioma), formato: FORMATO_EDITAR });
+    const sys = await conMarca(await system(PROMPTS_EDITOR.editarSystem, { gramatica: GRAMATICA_IA, idioma: bloqueIdioma(params.idioma), formato: FORMATO_EDITAR }));
     const user = await renderPrompt(PROMPTS_EDITOR.editarUser.key, PROMPTS_EDITOR.editarUser.tpl, {
       instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
       alcance: (p.alcance === 'seccion' ? 'una sección: cambia solo esa' : 'toda la landing: cambia solo las secciones que la instrucción toca')
@@ -611,7 +622,7 @@ export async function disenos(p: { tarjeta: unknown; params?: Partial<ParamsGene
   const vista = tarjetaABloques(original, { formularioId });
   const formato = `${FORMATO_DISENOS}\n${esDiapositivas(p.params) ? REGLAS_DISENOS.diapositiva : REGLAS_DISENOS.pagina}`;
   try {
-    const sys = await system(PROMPTS_EDITOR.disenosSystem, { gramatica: GRAMATICA_IA, formato });
+    const sys = await conMarca(await system(PROMPTS_EDITOR.disenosSystem, { gramatica: GRAMATICA_IA, formato }));
     const user = await renderPrompt(PROMPTS_EDITOR.disenosUser.key, PROMPTS_EDITOR.disenosUser.tpl, {
       seccion: contenidoNoConfiable(JSON.stringify(vista, null, 1), 'seccion'),
     });

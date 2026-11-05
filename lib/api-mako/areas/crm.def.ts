@@ -69,7 +69,7 @@ const paramsDeCobro: Parametro[] = [
   { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', max: 3, descripcion: 'La moneda en que se cobró de verdad, código de 3 letras (MXN, ARS, COP, EUR…). Pásala SIEMPRE que la persona hable de pesos, euros o cualquier moneda que no sea dólares. Sin moneda el pago es en dólares.' },
   { nombre: 'montoOriginal', rotulo: 'Monto en esa moneda', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'Cuánto se cobró, en la «moneda» (no en dólares). Va siempre con la moneda; sin ella se rechaza.' },
   { nombre: 'concepto', rotulo: 'Concepto', tipo: 'string', max: 200, descripcion: 'Para qué fue el pago, en pocas palabras («adelanto», «segunda cuota», «extra de diseño»).' },
-  { nombre: 'metodo', rotulo: 'Método', tipo: 'string', enum: METODOS_PAGO, descripcion: 'Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque u otro.' },
+  { nombre: 'metodo', rotulo: 'Método', tipo: 'string', enum: METODOS_PAGO, descripcion: 'Cómo se pagó: transferencia, efectivo, tarjeta, deposito, cheque, cripto (Binance, USDT) u otro.' },
 ];
 const cualReunion: Parametro = { nombre: 'cual', tipo: 'string', enum: ['R1', 'R2'], obligatorio: true, descripcion: 'qué reunión: R1 (primera) o R2 (segunda).' };
 // ⚠️ EL PRODUCTO DEL CRM VA POR EL ID DE SU EMBUDO, que es lo que leen lib/lead-funnel.ts y la
@@ -741,9 +741,12 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'montoUsd', tipo: 'number', obligatorio: true, minimo: 0.01, maximo: 100000000, descripcion: 'Lo que se cobró, EN DÓLARES. Si se cobró en otra moneda, los dólares que son (el valor para los reportes); lo que se cobró de verdad va en montoOriginal.' },
       fechaIso('fechaPago', 'YYYY-MM-DD en que se cobró (default hoy en la zona del negocio).'),
       ...paramsDeCobro,
+      // (5/11/2026) En una suscripción: qué mes paga, o que es un ajuste (docs/investigacion-suscripciones.md).
+      { nombre: 'mes', tipo: 'string', max: 7, descripcion: 'En una suscripción: AAAA-MM que paga (sin valor, el más viejo que falta).' },
+      { nombre: 'ajuste', tipo: 'boolean', descripcion: 'En una suscripción: true si no paga un mes (un diferencial).' },
     ],
     canales: TODOS, costo: 'gratis', gating: TAB,
-    reversible: true, escribe: 'insert en pagos (una cuota nueva ya cobrada, con su moneda, concepto y método si vinieron), recalcula total_cobrado_usd del lead y deja historial',
+    reversible: true, escribe: 'insert en pagos (una cuota nueva ya cobrada, con su moneda, concepto y método si vinieron; en una suscripción, el mes que paga o si es un ajuste), recalcula total_cobrado_usd del lead y deja historial',
   },
   {
     id: 'ignorar_datos_sin_marcar', area: 'crm', tipo: 'accion', confirmacion: 'chat',

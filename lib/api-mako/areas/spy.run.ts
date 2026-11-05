@@ -31,6 +31,8 @@ import { FUENTE_PUNTAJE, dimensionLabel } from '@/lib/offer-marco';
 import { contenidoNoConfiable } from '@/lib/prompt-render';
 import { funnelDeFila, funnelEnPalabras } from '@/lib/spy-funnel';
 import { clasificarFunnel, fuentesDeEvidencia } from '@/lib/spy-funnel-tipo';
+import { mejoresPiezas } from '@/lib/spy-detalle';
+import { explicarMultiplo, multiplosDe, rotuloCortoDeMultiplo, type Multiplo } from '@/lib/multiplo-rendimiento';
 import { dibujarContador, NOMBRE_CANAL, NOMBRE_ETAPA, NOMBRE_FUENTE, SIN_ANUNCIOS_EN_ESTE_PAIS, adLibraryCubreComercial, type CanalSpy } from '@/lib/spy-reglas';
 
 const json = (o: unknown): string => JSON.stringify(o);
@@ -157,6 +159,33 @@ export const RUNNERS: Runners = {
           if (lectura.otros.length) out.push(`**También usa:** ${lectura.otros.map((o) => o.label).join(' · ')}`);
         }
       }
+      // QUÉ LE FUNCIONÓ MEJOR (5/11/2026): su «3,7×», la MISMA cuenta que dibuja la pantalla (lib/multiplo-rendimiento.ts): cada
+      // pieza frente a hasta 20 suyas del mismo formato publicadas más cerca en el tiempo, con 7 como mínimo. Sin datos
+      // suficientes se dice por qué, nunca un número inventado. Los anuncios no van acá: sus días activos son una señal.
+      const multiplos = multiplosDe(piezas);
+      const organicas = piezas.filter((p) => p.canal === 'instagram' || p.canal === 'youtube');
+      if (organicas.length) {
+        const mejores = mejoresPiezas(piezas, 5);
+        const porId = new Map(piezas.map((p) => [p.id, p]));
+        out.push('', '**Lo que mejor le fue** (cuántas veces lo que suele hacer su cuenta, frente a sus piezas del mismo formato):');
+        if (mejores.length) {
+          out.push(contenidoNoConfiable(mejores.map((d) => {
+            const p = porId.get(d.id);
+            return `- ${rotuloCortoDeMultiplo(d.multiplo)} · ${p?.titulo || p?.texto?.slice(0, 90) || p?.ref || d.id} · ${explicarMultiplo(d.multiplo)}`;
+          }).join('\n'), 'piezas_del_competidor'));
+        } else {
+          // El motivo que más se repite, dicho una vez: «hacen falta 7…», o el trámite con YouTube.
+          const motivos = new Map<string, { n: number; m: Multiplo }>();
+          for (const p of organicas) {
+            const m = multiplos.get(p.id);
+            if (!m || m.veces != null) continue;
+            const k = m.motivo === 'pocas' ? `pocas|${m.formato}` : m.motivo;
+            motivos.set(k, { n: (motivos.get(k)?.n ?? 0) + 1, m });
+          }
+          const top = [...motivos.values()].sort((a, b) => b.n - a.n)[0];
+          out.push(top ? explicarMultiplo(top.m) : 'Sin datos suficientes.');
+        }
+      }
       for (const canalUno of (canal ? [canal] : (['instagram', 'youtube', 'landing', 'anuncios'] as const))) {
         const delCanal = piezas.filter((p) => p.canal === canalUno);
         if (!delCanal.length) continue;
@@ -170,6 +199,8 @@ export const RUNNERS: Runners = {
             `- ${p.titulo || p.texto?.slice(0, 90) || p.ref}`,
             `vistas ${dibujarContador(p.vistas)}`,
             `me gusta ${dibujarContador(p.megusta)}`,
+            // Su «3,7×» frente a su cuenta (o «sin datos suficientes»); una web no tiene.
+            ...(p.canal === 'landing' ? [] : [`frente a su cuenta: ${rotuloCortoDeMultiplo(multiplos.get(p.id)).replace(/^\p{Lu}/u, (l) => l.toLowerCase())}`]),
             // La etapa es NUESTRO criterio y la respuesta lo dice; y «no se sabe desde cuándo» no es
             // «es nuevo», que es el error que esta tab existe para no cometer.
             etapa ? NOMBRE_ETAPA[etapa].rotulo.toLowerCase() : 'no se sabe desde cuándo',

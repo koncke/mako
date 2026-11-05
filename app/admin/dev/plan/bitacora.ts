@@ -376,4 +376,20 @@ export const BITACORA: Hito[] = [
     revisar: '/plan?ws=3',
     tickets: [52],
   },
+  {
+    fecha: "5 nov", hora: "16:10", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo toma la iniciativa en el Plan: «¿Tu equipo ya sabe qué hacer esta semana?» con el borrador del onboarding",
+    puntos: [
+      "Con el borrador del plan que deja el onboarding todavía sin revisar, la estrella pregunta un hecho; con «Todavía no», «Te dejé un borrador con N tareas.» y «Ver el borrador». Sólo a quien administra, y nunca escribe tareas: el borrador se confirma en Revisar.",
+      "La clave es la del negocio (`negocio:plan`), la misma del paso 7 de la escalera del Ops Center: lo contestado en un lado no se repregunta en el otro.",
+    ],
+    revisar: "/plan",
+    archivos: [
+      "lib/aperturas/plan.ts — la apertura, pura",
+      "lib/aperturas/reglas.ts, app/_chat/AperturaMako.tsx — `PREFIJO_NEGOCIO`: las respuestas del negocio, compartidas",
+      "app/plan/page.tsx, app/plan/TodoBoard.tsx, app/plan/board/BoardShell.tsx — el borrador pendiente y el montaje en la estrella",
+      "tests/iniciativa-plan.test.ts — probado rompiéndolo (3 roturas)",
+    ],
+  },
 ];

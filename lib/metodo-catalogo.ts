@@ -34,6 +34,7 @@ import 'server-only';
 import { APP_BASE_URL } from './app-url';
 import { claveBaseDe, claveCuentaDe, clavesDe, slotDe } from './ia-keys';
 import { CLAVES_ZERNIO, slotDeClaveZernio } from './zernio-redes';
+import { CLAVES_APIFY_DE_SPY, nombreDeClaveApify, slotDeClaveApify } from './instagram-perfil';
 
 export type CampoCredencial = {
   /** Nombre exacto de la env var (y clave en la tabla credenciales). */
@@ -831,6 +832,23 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'Lee el perfil y las publicaciones públicas de los competidores que miras en Competitors Spy, cuando Meta no puede. Corre con tu cuenta.',
     campos: [
       { env: 'APIFY_INSTAGRAM_TOKEN', label: 'API token', secreto: true, placeholder: 'apify_api_…', nota: 'Es TU cuenta: Apify cobra por perfil leído. MaKo la usa sólo para Competitors Spy, con un tope de 40 lecturas por día.' },
+      // VARIAS CLAVES (5/11/2026, Martín: «Dame la opción de tener varias claves de apify» y «dame la opción también en integraciones
+      // de cargar más api»). El patrón de Zernio y de las cuentas de IA: la 1 sigue siendo la que conecta la tarjeta; las extra son
+      // `opcional`, de OTRA cuenta de Apify del negocio, y MaKo pasa a la siguiente cuando una se queda sin crédito
+      // (lib/spy-claves.ts). Cada una lleva un nombre opcional para reconocerla (no es secreto; no se usa para nada más).
+      ...CLAVES_APIFY_DE_SPY.flatMap((env): CampoCredencial[] => {
+        const n = slotDeClaveApify(env) ?? 1;
+        const nombre: CampoCredencial = {
+          env: nombreDeClaveApify(env), label: `Nombre de la clave ${n}`, secreto: false, opcional: true, slot: n,
+          placeholder: n === 1 ? 'Mi cuenta' : 'Otra cuenta', nota: 'Para reconocerla de un vistazo. No se usa para nada más.',
+        };
+        if (n === 1) return [nombre];
+        return [
+          { env, label: `API token ${n}`, secreto: true, opcional: true, slot: n, placeholder: 'apify_api_…',
+            nota: 'De OTRA cuenta de Apify tuya: cuando una se queda sin crédito, MaKo sigue con la siguiente.' },
+          nombre,
+        ];
+      }),
     ],
     tutorial: {
       url: 'https://console.apify.com/settings/integrations',

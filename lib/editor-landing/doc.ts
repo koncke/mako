@@ -73,6 +73,10 @@ export const NODO = {
   espaciador: 'espaciador',
   htmlLibre: 'htmlLibre',            // HTML personalizado, en iframe sandbox
   htmlEditable: 'htmlEditable',      // «Diseño editable»: HTML a medida, sin JS, con texto a la vista (html-editable.ts)
+  // Los bloques de venta (5/11/2026, Black November): sólo con datos que pone el negocio (bloques-venta.ts).
+  cuentaRegresiva: 'cuentaRegresiva', // hasta una fecha real; al vencer no se reinicia
+  pruebaSocial: 'pruebaSocial',      // el pop de quién compró, con lo que escribió el negocio
+  escasez: 'escasez',                // «Quedan N de M», con los dos números del negocio
 } as const;
 
 /** Nodos de TipTap que se aceptan tal cual (StarterKit + listas de tareas + tablas). */

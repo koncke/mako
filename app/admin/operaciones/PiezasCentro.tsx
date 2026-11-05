@@ -28,7 +28,7 @@ import {
 } from '@/lib/centro-chats';
 export { buscarChats } from '@/lib/centro-chats';
 import { elegidoPara, esCriaturaDeMako } from '@/lib/centro-munecos';
-import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
+import { ignoradasDelChat, preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { edadCorta } from '@/lib/chat-mako-reglas';
 import {
   AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, type Esfuerzo, type Modelo,
@@ -255,6 +255,8 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       preguntas={preguntasDelChat(chat, k.decisiones, k.carteros)}
       respuestas={respuestasDelChat(chat, k.decisiones, k.carteros)}
       responder={k.responderAca}
+      // «Ignorar» lo que espera y «Ignoradas» (5/11/2026): no le manda nada al chat (useCentro.ts).
+      ignorar={{ pregunta: (p, si) => k.ignorarPregunta(chat, p, si), decision: (d, si) => k.ignorarDecision(d, si), decisiones: ignoradasDelChat(chat, k.decisiones, k.carteros) }}
       envio={k.envioDe(chat)} texto={k.borradorDe(chat.clave)} onTexto={(t) => k.ponerBorrador(chat.clave, t)}
       adjuntos={{
         items: k.adjuntosDe(chat.clave), puede: k.puedeAdjuntar(chat),

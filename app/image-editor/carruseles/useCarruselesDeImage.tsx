@@ -14,6 +14,9 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { documentoDeCarrusel, type Marca } from '@/lib/carruseles/documento';
 import { tipoCarrusel, type TipoCarrusel } from '@/lib/carruseles/tipos';
+import { estiloConKit, logoDeKit } from '@/lib/carruseles/marca-kit';
+import { fuenteDelEditorDeImagen } from '@/lib/image-editor/fuente-del-editor';
+import type { KitMarca } from '@/lib/marca/kits';
 import type { Carrusel } from '@/lib/carruseles/explorar';
 import { PLANTILLAS_NUEVO_DISENO } from '../plantillas-crear';
 import { rutaDiseno } from '../ruta';
@@ -27,18 +30,21 @@ let contador = 0;
 const idLocal = () => `m${++contador}`;
 
 /** El documento de cada carrusel por tipo, con la estructura del tipo y la marca del negocio. */
-function docsDeCarruseles(marca: Marca): Map<string, Record<string, unknown>> {
+function docsDeCarruseles(marca: Marca, kit: KitMarca | null): Map<string, Record<string, unknown>> {
   const out = new Map<string, Record<string, unknown>>();
   for (const p of PLANTILLAS_NUEVO_DISENO) {
     const t = p.carrusel ? tipoCarrusel(p.carrusel) : null;
-    if (t) out.set(p.id, documentoDeCarrusel({ laminas: t.estructura(t.laminas.def), estilo: t.estilo, marca, nuevoId: idLocal }));
+    // Con el kit de marca (5/11/2026), como lo arma el server al crearlo (app/image-editor/actions.ts).
+    if (t) out.set(p.id, documentoDeCarrusel({ laminas: t.estructura(t.laminas.def), estilo: estiloConKit(t.estilo, kit, fuenteDelEditorDeImagen), marca, nuevoId: idLocal }));
   }
   return out;
 }
 
-export function useCarruselesDeImage({ negocio, crearPlantilla }: {
+export function useCarruselesDeImage({ negocio, kit = null, crearPlantilla }: {
   /** El nombre del negocio (sin él, «Tu negocio»: la guía de dónde va). */
   negocio: string | null;
+  /** El kit de marca de por defecto: colores, fuentes y logo (lib/marca/kits.ts). */
+  kit?: KitMarca | null;
   /** Crear con una plantilla de «Nuevo diseño» (la misma de la tarjeta): un texto de vuelta es el error. */
   crearPlantilla: (id: string) => Promise<string | null>;
 }): {
@@ -48,8 +54,8 @@ export function useCarruselesDeImage({ negocio, crearPlantilla }: {
   dialogos: ReactNode;
 } {
   const router = useRouter();
-  const marca = useMemo<Marca>(() => ({ nombre: negocio?.trim() || 'Tu negocio', usuario: null }), [negocio]);
-  const docs = useMemo(() => docsDeCarruseles(marca), [marca]);
+  const marca = useMemo<Marca>(() => ({ nombre: negocio?.trim() || 'Tu negocio', usuario: null, logo: logoDeKit(kit) }), [negocio, kit]);
+  const docs = useMemo(() => docsDeCarruseles(marca, kit), [marca, kit]);
   const miniatura = useCallback((p: { id: string; nombre: string }) => {
     const doc = docs.get(p.id);
     return doc ? <MiniaturaCarrusel doc={doc} nombre={p.nombre} /> : null;

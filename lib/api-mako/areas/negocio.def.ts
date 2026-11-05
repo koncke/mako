@@ -38,6 +38,7 @@ import { AREAS as AREAS_MODELO_CEREBRO } from '@/lib/cerebro-modelo';
 import { PERSONALIDAD_PREGUNTAS } from '@/lib/personalidad';
 // Dónde se corrige cada sección hoy (el hub de /onboarding se retiró el 15/10/2026): datos puros.
 import { lugarSeccion, lugarDato } from '@/lib/secciones-negocio';
+import { ROLES_COLOR, TOPES_MARCA } from '@/lib/marca/kits';
 // El catálogo de módulos de Knowledge: datos puros, sin server-only (el enum de keys sale de ahí y no de una copia).
 import { MODULOS_KNOWLEDGE } from '@/lib/knowledge-modulos';
 // Los pasos del arranque y de las tabs que se cierran desde afuera, y las urgencias de una oferta: datos puros
@@ -721,5 +722,62 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'ia', gating: { rolMinimo: 'admin' },
     escribe: 'una fila en archivero_files (el texto queda como su archivo), el panorama del negocio y el perfil recalculado (lo editado a mano gana)',
+  },
+
+  // ── La marca: colores, fuentes y logo, en kits (5/11/2026, lib/marca/kits.ts) ──
+  //
+  // Leila (llamada del 30/10/2026): sus carruseles sólo tomaban el fondo de su marca. Los kits los usan los chats de Image,
+  // Video y Web Generator y los carruseles de MaKo. Al FINAL del área, y sin «perfil» ni «Archivero» en el id ni el título.
+  // El manual se lee en la pantalla (Second Brain → «Voz y cara» → «Marca»), donde la persona confirma lo que leyó MaKo.
+  {
+    id: 'ver_kits_marca', area: 'negocio', tipo: 'lectura',
+    titulo: 'Kits de marca',
+    descripcion: `Los kits de marca del negocio: cada uno con su id, nombre, colores (#RRGGBB con su uso), fuentes de títulos y de texto, logo (su id de «Subidos») y cuál va por defecto. Lo usan Image, Video y Web Generator al diseñar. Sin kits, dile que suba su manual en ${lugarSeccion('marca')}.`,
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'guardar_kit_marca', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Guardar un kit de marca',
+    descripcion: 'PROPONE crear un kit de marca o cambiar uno (con `id`, de ver_kits_marca): lo que no se pasa queda como está. Los colores reemplazan la paleta entera. El logo es una imagen de «Subidos» del Image Editor, por su id. Sin kits, el primero queda por defecto.',
+    parametros: [
+      { nombre: 'id', rotulo: 'Kit', tipo: 'string', max: 40, descripcion: 'El kit a cambiar (de ver_kits_marca). Sin id, se crea uno nuevo.' },
+      { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', max: TOPES_MARCA.nombre, descripcion: 'Cómo se llama el kit (la marca o el cliente de la agencia).' },
+      {
+        nombre: 'colores', rotulo: 'Colores', tipo: 'object[]', max: TOPES_MARCA.colores,
+        descripcion: 'La paleta entera, en orden: reemplaza la anterior.',
+        campos: [
+          { nombre: 'hex', tipo: 'string', obligatorio: true, max: 7, descripcion: 'El color, #RRGGBB.' },
+          { nombre: 'rol', tipo: 'string', enum: [...ROLES_COLOR], descripcion: 'Para qué se usa, si se sabe.' },
+        ],
+      },
+      { nombre: 'fuente_titulos', rotulo: 'Fuente de títulos', tipo: 'string', max: TOPES_MARCA.fuente, descripcion: 'El nombre de la familia (Montserrat), sin el peso.' },
+      { nombre: 'fuente_texto', rotulo: 'Fuente de texto', tipo: 'string', max: TOPES_MARCA.fuente, descripcion: 'El nombre de la familia, sin el peso.' },
+      { nombre: 'logo_subido_id', rotulo: 'Logo', tipo: 'string', max: 40, descripcion: 'El id de una imagen de «Subidos» del Image Editor.' },
+      { nombre: 'sin_logo', tipo: 'boolean', descripcion: 'true = el kit queda sin logo.' },
+      { nombre: 'por_defecto', tipo: 'boolean', descripcion: 'true = pasa a ser el kit por defecto.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+    escribe: 'los kits de marca del negocio (app_settings, marca.kits)',
+  },
+  {
+    id: 'elegir_kit_marca', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Elegir el kit por defecto',
+    descripcion: 'PROPONE que un kit de marca (por id, de ver_kits_marca) pase a ser el de por defecto: el que usan Image, Video y Web Generator cuando nadie elige otro.',
+    parametros: [
+      { nombre: 'id', rotulo: 'Kit', tipo: 'string', obligatorio: true, max: 40, descripcion: 'El kit (de ver_kits_marca).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+    escribe: 'cuál es el kit de marca por defecto (app_settings, marca.kits)',
+  },
+  {
+    id: 'borrar_kit_marca', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Borrar un kit de marca',
+    descripcion: 'PROPONE borrar un kit de marca (por id, de ver_kits_marca). Si era el de por defecto, pasa a serlo el primero que queda. El logo sigue en «Subidos». No se puede deshacer.',
+    parametros: [
+      { nombre: 'id', rotulo: 'Kit', tipo: 'string', obligatorio: true, max: 40, descripcion: 'El kit (de ver_kits_marca).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+    escribe: 'quita el kit de los kits de marca (app_settings, marca.kits)',
   },
 ];

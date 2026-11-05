@@ -119,8 +119,8 @@ export function rutaDeSalida(esSuperAdmin: boolean): string {
   // por rol. La funcion se queda porque el dia que se separen de nuevo, el que
   // busque «a donde vuelvo» tiene un solo lugar donde mirar.
   // ⚠️ 25/10/2026: SE SEPARARON. La agencia vuelve a su Agency Dashboard (/agency), que es desde donde entró a la cuenta
-  // de su cliente; el super admin, a Customers (/customers, su panel de workspaces desde ese día).
-  return esSuperAdmin ? '/customers' : '/agency';
+  // de su cliente; el super admin, a Admin (/admin desde el 5/11/2026; era /customers).
+  return esSuperAdmin ? '/admin' : '/agency';
 }
 
 /**

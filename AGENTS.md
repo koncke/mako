@@ -2776,6 +2776,16 @@ El procedimiento, y no es opcional:
      navegador (`getComputedStyle` sobre `:root`, los `@keyframes`, las transiciones) y se
      guardan en `docs/diseno/`, con fecha. Leerlos es un minuto; adivinarlos cuesta la tanda.
 
+   **Y UNA DOCENA DE FUENTES ES DISEÑAR, NO COPIAR (5/11/2026).** La tab Admin salió de una tabla que
+   tomaba «la estructura» de doce apps, la mayoría sin abrir porque la nube las tiene bloqueadas, y la
+   dibujó con los componentes de la casa. Cumplía el primer caso de arriba al pie de la letra. Martín:
+   *«está horrible… copies tanto el diseño como la funcionalidad… Tenés prohibido pensar por tu propia
+   cuenta»*. Por eso, cuando Martín pide copiar o rechaza una pantalla, vale el segundo caso aunque la
+   fuente la haya elegido el chat, y hay un repo con licencia que deja (MIT, Apache):
+   **una sola fuente por área, su código portado archivo por archivo, una pantalla suya por cada sección,
+   con sus valores y sus animaciones, y captura contra captura.** Lo que la fuente no tiene no se inventa:
+   se anota y decide Martín. Si la nube no puede abrir una app, se elige un repo que se pueda correr.
+
    **Y UN LÍMITE LEGAL O TÉCNICO SOBRE EL CÓDIGO O EL DATO NO ES PERMISO PARA DISEÑAR DE CERO.**
    Son preguntas separadas y hay que contestarlas por separado:
    «¿puedo usar SU código?» · «¿puedo usar ESE dato?» · «¿puedo hacer que se vea igual?».
@@ -11475,6 +11485,15 @@ Apple y Google prohíben vender algo digital sin su cobro, o mandar a pagar afue
 - **Una función nueva que le manda algo a una IA** llama a `exigirPermisoIa()` antes de salir (lib/ia-permiso.ts), o sale por una que ya lo hace. `tests/ia-permiso.test.ts` enumera las puertas.
 - **Lo que necesita el aparato** va por `lib/nativo.ts`, con `window.Capacitor.Plugins`: la web no importa los plugins. Un `<a download>` ya funciona ahí solo.
 - **Lo que publica un usuario para otros** (Community) pide denunciar y bloquear desde la app (Apple 1.2): por eso no va en iPhone.
+
+# Lo que genera imagen o video pasa por `encolar`, con el prompt FINAL en `pedido.prompt` (5/11/2026)
+
+Ahí corre la moderación (lib/creem-moderacion-reglas.ts) y el permiso de IA de la app de iPhone. Hoy no modera nadie: Creem
+cerró la tienda y `PROVEEDOR_DE_MODERACION` vale null. **Un camino nuevo que genere imagen o video desde un texto pasa por
+`encolar('generar_imagen' | 'generar_clip', …)` (lib/flow-cola.ts)** y muestra el `RechazoDeModeracion` tal cual (el compilador
+lo exige). Uno que llame a otro modelo por fuera de la cola lleva `moderarPrompt` (lib/creem-moderacion.ts) antes. Un proveedor
+nuevo se enchufa como `ProveedorModeracion`, nunca `CREEM`, y vuelve a nombrarse en /terminos, /aup y /privacidad. El porqué:
+lib/creem-moderacion-reglas.ts, docs/relevo/nube-creem-fuera.md y docs/creem-retiros.md.
 
 # Una edición del newsletter es un BROADCAST del CRM «Newsletter» (29/10/2026)
 

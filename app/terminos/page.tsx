@@ -24,7 +24,7 @@ export const metadata = {
   description: 'Las condiciones de uso de MaKo: qué hace, qué esperamos de ti y qué no prometemos.',
 };
 
-const ACTUALIZADO = '4 de noviembre de 2026';
+const ACTUALIZADO = '5 de noviembre de 2026';
 
 // ⚠️ Los mismos tres datos que en /privacidad, y por el mismo motivo: no salen
 // del código. Si cambian, cambian en los dos lugares. El responsable sale de la
@@ -70,7 +70,9 @@ export default function Page() {
         </li>
         <li>
           Podemos suspender una cuenta que se use para enviar spam, para acosar a alguien, para
-          algo ilegal, o de una forma que ponga en riesgo el servicio de los demás.
+          algo ilegal, o de una forma que ponga en riesgo el servicio de los demás. Lo que no se puede
+          generar, mandar ni hacer está en la <a href="/aup">política de uso aceptable</a>, que es parte de
+          estos términos.
         </li>
       </ul>
 
@@ -148,6 +150,23 @@ export default function Page() {
           tienes permiso de quien aparece. Nunca uses la voz ni la cara de otra persona sin su
           autorización.
         </li>
+        {/* Hasta el 5/11/2026 decía que el pedido pasaba por la moderación de Creem. Creem cerró la tienda de MaKo ese día y
+            la moderación quedó sin proveedor (lib/creem-moderacion-reglas.ts, `PROVEEDOR_DE_MODERACION`): no se afirma
+            una revisión que no corre. Si vuelve a haber un proveedor, se nombra acá y en /aup y /privacidad. */}
+        <li>
+          <strong>Lo que pidas generar tiene que cumplir la <a href="/aup">política de uso aceptable</a></strong>. El
+          servicio que genera la imagen o el video, con tu cuenta de Google Flow, tiene además sus propios filtros y puede
+          rechazar un pedido.
+        </li>
+        <li>
+          <strong>Está prohibido generar contenido sexual, explícito o sexualmente sugerente (NSFW)</strong>, y cualquier
+          contenido que sexualice a un menor. Una cuenta que lo intente se suspende.
+        </li>
+        <li>
+          <strong>MaKo es un producto independiente.</strong> Es una interfaz propia construida sobre modelos de
+          inteligencia artificial de terceros. No está afiliado a Google, OpenAI, Anthropic ni a otros creadores de esos
+          modelos, y ellos no lo avalan.
+        </li>
       </ul>
 
       <H id="nuestro">7. Lo que es nuestro</H>
@@ -164,10 +183,15 @@ export default function Page() {
           haga hoy. La política de devoluciones vive en /reembolsos (app/reembolsos/page.tsx). */}
       <H id="precio">8. Precio, pagos y cancelación</H>
       <p>
-        El precio de cada plan es el que ves al pagar, o el que acordamos contigo por escrito. Los
-        pagos se procesan con <strong>Stripe</strong> o con <strong>Mercado Pago</strong>: los datos
-        de tu tarjeta los recibe la pasarela, no MaKo.
+        El precio de cada plan es el que ves al pagar, o el que acordamos contigo por escrito. Los pagos en línea se procesan con <strong>Mercado Pago</strong>:
+        los datos de tu tarjeta los recibe la pasarela, no MaKo.
       </p>
+      {/* Hasta el 5/11/2026 también nombraba a Stripe, que la plataforma no tiene conectada (medido ese día con
+          `pasarelasConectadas`: sólo Mercado Pago). La próxima pasarela entra acá el día que empieza a cobrar. */}
+      {/* ⚠️ HASTA EL 5/11/2026 ACÁ IBA CREEM como «merchant of record» (el vendedor registrado de la compra). Creem rechazó
+          la tienda de MaKo ese día, de forma definitiva (docs/creem-retiros.md): con Creem no se cobra nada, y un término
+          que lo nombre como vendedor le dice a quien compra que le factura otra empresa. Si la próxima pasarela es también
+          vendedor registrado, el párrafo vuelve con SU nombre y sus condiciones de compra, no con las de Creem. */}
       <ul>
         <li>
           <strong>Los planes mensuales son una suscripción</strong>: se cobran por adelantado y se

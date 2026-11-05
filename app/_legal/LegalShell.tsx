@@ -13,6 +13,8 @@
 // igual en cualquier lado y no dependan de que el tema haya cargado.
 
 import type { ReactNode } from 'react';
+import { EMAIL_MAKO } from '@/lib/app-url';
+import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 
 /** Un apartado. El `id` deja linkear a una sección puntual desde un mail. */
 export function H({ children, id }: { children: ReactNode; id?: string }) {
@@ -70,6 +72,34 @@ body:has(.legal-root) { background: #fff; }
 }
 `;
 
+/**
+ * Las páginas legales, enlazadas entre sí al pie de cada una (5/11/2026). Un revisor de una pasarela (Creem, Stripe,
+ * Mercado Pago) o de una tienda llega a UNA y busca las demás: desde cualquiera llega a las otras, con el correo de soporte
+ * y la razón social, que tienen que coincidir en todas (lib/app-url.ts, lib/titular-mako.ts). Sin JavaScript: es HTML del
+ * server, como el resto de la página.
+ *
+ * ⚠️ SIN /planes NI /reembolsos, A PROPÓSITO: estas páginas también se abren ADENTRO de la app de iPhone (/privacidad,
+ * /terminos, /soporte), y Apple no deja mandar a pagar afuera (lib/tienda.ts, `RUTAS_DE_VENTA`: el proxy las redirige ahí).
+ * Los precios y los reembolsos se enlazan desde el pie de la landing (app/vsl/Landing.tsx), que la app no abre.
+ */
+export const PAGINAS_LEGALES: ReadonlyArray<{ href: string; texto: string }> = [
+  { href: '/terminos', texto: 'Términos' },
+  { href: '/privacidad', texto: 'Privacidad' },
+  { href: '/aup', texto: 'Uso aceptable' },
+  { href: '/soporte', texto: 'Soporte' },
+];
+
+function PieLegales() {
+  return (
+    <nav aria-label="Páginas legales" style={{ marginTop: 48, paddingTop: 18, borderTop: '1px solid #e5e7eb', fontSize: 14, color: '#666', display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
+      {PAGINAS_LEGALES.map((p) => <a key={p.href} href={p.href}>{p.texto}</a>)}
+      <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>
+      {/* Un solo nodo de texto, como en el pie de la landing: una búsqueda de la frase entera la encuentra. */}
+      <span>{`Razón social: ${RAZON_SOCIAL_MAKO}`}</span>
+    </nav>
+  );
+}
+
 export function LegalShell({ titulo, actualizado, intro, children }: {
   titulo: string;
   actualizado: string;
@@ -88,6 +118,7 @@ export function LegalShell({ titulo, actualizado, intro, children }: {
         <p style={{ color: '#666', fontSize: 14, margin: 0 }}>Actualizada el {actualizado}</p>
         <p style={{ marginTop: 28 }}>{intro}</p>
         {children}
+        <PieLegales />
       </main>
     </div>
   );

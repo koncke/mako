@@ -36,7 +36,6 @@ import {
   tieneGuion, transcribirGuion, vistaDeGuion, type DepsGuion, type ResultadoEscucha, type ResultadoVideo,
 } from '../lib/spy-transcripcion';
 import { entradaDeUnaPublicacion, videoDelItem } from '../lib/spy-todo-reglas';
-import { vecesSuMediana } from '../lib/spy-detalle';
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url));
 const leer = (r: string) => readFileSync(`${RAIZ}${r}`, 'utf8').replace(/\r\n/g, '\n');
@@ -200,21 +199,15 @@ test('7. la pantalla: sin IA o sin la clave lo dice, y lo vencido no se muestra'
   assert.equal(guionLegible('  Hola.\n\n  Chau.  '), 'Hola.\nChau.', 'si ya viene en renglones, se respeta');
 });
 
-test('8. lo que va a Apify y lo que vuelve; «frente a su mediana»', () => {
+test('8. lo que va a Apify y lo que vuelve', () => {
   assert.deepEqual(entradaDeUnaPublicacion(ENLACE), { directUrls: [ENLACE], resultsType: 'posts', resultsLimit: 1, addParentData: false });
   assert.equal(videoDelItem([{ shortCode: 'x', videoUrl: VIDEO }]), VIDEO);
   assert.equal(videoDelItem([{ shortCode: 'x', displayUrl: 'https://a/b.jpg' }]), null, 'una imagen no trae video');
   assert.equal(videoDelItem([{ videoUrl: 'http://inseguro/x.mp4' }]), null);
   assert.equal(videoDelItem({ error: 'no' }), null);
 
-  type PiezaDelGrafico = Parameters<typeof vecesSuMediana>[1][number];
-  const p = (id: number, vistas: number | null): PiezaDelGrafico => ({ id, canal: 'instagram', tipo: 'reel', vistas, megusta: null, publicada_en: '2026-10-01T00:00:00Z', visto_primera_vez: '2026-10-01T00:00:00Z', dejo_de_verse_en: null });
-  const todas = [p(1, 1000), p(2, 2000), p(3, 3000), p(4, 6900)];
-  // Mediana de 1000, 2000, 3000 y 6900 = 2500 → 6900 / 2500 = 2,76 → 2,8.
-  assert.equal(vecesSuMediana(4, todas), 2.8);
-  assert.equal(vecesSuMediana(1, todas), 0.4);
-  assert.equal(vecesSuMediana(9, todas), null);
-  assert.equal(vecesSuMediana(1, todas.slice(0, 2)), null, 'con dos piezas la mediana no dice nada');
+  // «Frente a lo que suele hacer» del detalle es el múltiplo de toda la app (lib/multiplo-rendimiento.ts, 5/11/2026): su
+  // cuenta se prueba en tests/multiplo-rendimiento.test.ts, con la regla de Top Carousels (7 como mínimo, hasta 20 vecinas).
 });
 
 test('9. la ruta, el servidor, el detalle y «Dejar de mirarlo» pasan por acá', () => {

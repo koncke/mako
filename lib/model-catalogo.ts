@@ -59,6 +59,13 @@ export type FeatureModelo = {
    * dos listas sigan siendo la misma.
    */
   fallback?: ProvCascada[];
+  /**
+   * LA IA DEL NEGOCIO, SIN GEMINI (5/11/2026; Martín, 22/10/2026, para Image: «sin Gemini», cada negocio paga su IA). La
+   * feature corre con su Claude (la cascada lo prueba primero, la «segunda puerta» de lib/veto-claude.ts) y su GPT; nunca con
+   * Gemini, ni el suyo, ni con la cuenta de MaKo. Va con `def: SU_IA` y `fallback: []`: si no tiene ninguna de las dos, falla
+   * con «conecta tu IA». Por eso no cuenta como «cobra por default»: lo paga el negocio con SU clave (tests/model-registry).
+   */
+  deSuIA?: true;
 };
 
 /** Los proveedores de la cascada barata. Espejo de `ProvName` en lib/ai-cheap.ts. */
@@ -98,6 +105,9 @@ const GROQ_WHISPER: ModeloRef = { provider: 'groq', model: 'whisper-large-v3-tur
 // Gemini Flash: 1M de contexto + function-calling. BYOK por cliente (su propia key).
 // El free entrena; para datos de clientes va key paga (ver metodo-catalogo).
 const GEMINI = (model = 'gemini-flash-latest'): ModeloRef => ({ provider: 'gemini', model });
+// La IA del negocio sin Gemini (`deSuIA`): su GPT por clave (su Claude va antes, por la segunda puerta del veto). El modelo
+// es el barato de OpenAI que ya usa la cascada (lib/ai-cheap.ts): lo paga el negocio.
+const SU_IA: ModeloRef = { provider: 'openai', model: 'gpt-4o-mini' };
 
 // Catálogo de TODOS los procesos de IA de la app (del audit). Cada `feature` es el
 // tag REAL que el call-site le pasa a chatClaude/chatCheap: si no coincide, el
@@ -240,9 +250,13 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // respaldo: lo que vuelve es una PROPUESTA que la persona mira antes de aplicar, así que un
   // proveedor más flojo se ve y se descarta.
   { feature: 'video-editor-ia', label: 'Editar con IA en el Video Editor', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'El chat al costado del editor: lee la línea de tiempo (nombres, tiempos y textos de los clips) y propone cortes, textos, borrados y volúmenes que la persona acepta o descarta. Sin PII.' },
-  // El chat «MaKo IA» del Image Editor (lib/image-editor/chat/ia.ts): el mismo trato que video-editor-ia (16/10/2026).
-  // GRATIS, Claude vetado sin fila en CLAUDE_PERMITIDO, ni de respaldo: vuelve una PROPUESTA que la persona mira.
-  { feature: 'image-editor-ia', label: 'Editar con IA en el Image Editor', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'El chat del editor de imágenes: lee el diseño (textos, formas, medidas y colores de cada elemento) y propone cambios de texto, estilo, posición, color, capas y páginas que la persona acepta o descarta. Sin PII.' },
+  // El chat «MaKo IA» del Image Editor (lib/image-editor/chat/ia.ts). Desde el 5/11/2026 con LA IA DEL NEGOCIO, sin Gemini
+  // (`deSuIA`; Martín, 22/10/2026: «sin Gemini»): su Claude y su GPT, y si no tiene ninguna, «conecta tu IA». Claude de MaKo
+  // vetado sin fila en CLAUDE_PERMITIDO: vuelve una PROPUESTA que la persona mira.
+  { feature: 'image-editor-ia', label: 'Editar con IA en el Image Editor', grupo: 'Copywriting', def: SU_IA, recomendado: SU_IA, fallback: [], deSuIA: true, nota: 'El chat del editor de imágenes: lee el diseño (textos, formas, medidas y colores de cada elemento) y la marca del negocio, y propone cambios de texto, estilo, posición, color, capas y páginas que la persona acepta o descarta. Corre con la IA del negocio (su Claude o su GPT), nunca con Gemini. Sin PII.' },
+  // Leer el manual de marca que sube el negocio (lib/marca/leer-manual.ts, 5/11/2026): los colores, las fuentes y dónde está el
+  // logo. Lo mismo que Image: la IA del negocio, sin Gemini. Lo que vuelve es un BORRADOR que la persona confirma.
+  { feature: 'marca-leer', label: 'Leer el manual de marca (Second Brain)', grupo: 'Copywriting', def: SU_IA, recomendado: SU_IA, fallback: [], deSuIA: true, nota: 'Del PDF o la imagen del manual de marca saca los colores, las fuentes y dónde está el logo. La persona lo revisa antes de guardarlo. Corre con la IA del negocio (su Claude o su GPT), nunca con Gemini. Sin PII.' },
   // Los tres writers de contenido de Instagram (lib/ig-writer.ts). Mismo perfil
   // que landing-writer: copy con voz de marca sobre el brief del negocio, sin PII
   // (el pedido del usuario + funnel + perfil público) → default GRATIS.

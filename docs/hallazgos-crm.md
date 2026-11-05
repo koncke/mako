@@ -11834,3 +11834,41 @@ buscadores (`app/crm/new/InstagramBuscador.tsx`, `app/competitor-spy/BuscadorAlt
 
 **Vive en:** lib/foto-instagram-reglas.ts · app/api/crm/instagram-foto/route.ts · app/crm/new/InstagramBuscador.tsx
 
+## MaKo toma la iniciativa en el CRM: la estrella vive afuera del tablero (5/11/2026)
+
+**Lo que se hizo (T7 de docs/mako-iniciativa/plan.md):** con el CRM vacío, la estrella pregunta «¿Dónde tienes hoy a tus
+clientes?» (lib/aperturas/crm.ts) y la guía de la pestaña enseña a cargar, agregar, buscar y cambiar de funnel (app/crm/guia-crm.ts).
+
+**Trampas:**
+- **La estrella (`PanelMakoCrm`) es HERMANA del tablero, no hija**: no puede abrir el importador con un `setState`. «En una
+  planilla» es un link, `/crm?importar=1`, y `CrmBoard` lo abre sobre el CAMBIO del prop (`abrirImportar`): la estrella navega a la
+  MISMA página, que sigue montada, así que un `useState(inicial)` no se enteraría. El parámetro se saca con `replaceState`.
+- **«Vacío» es el NEGOCIO, no el funnel**: un funnel nuevo arranca sin leads y no es un negocio sin clientes. La página cuenta
+  `leads` con `head: true` y su error se mira: con la lectura caída MaKo calla (una lectura caída no es «no tienes»).
+- **La apertura del funnel sin declarar no está**: pide el canal y el diagnóstico en la estrella y declarar con
+  `declararEntradasAction`. El onboarding ya declara el principal con `recomendarFunnel`.
+
+**Vive en:** lib/aperturas/crm.ts, app/crm/guia-crm.ts, app/crm/mako-crm/PanelMakoCrm.tsx, app/crm/page.tsx, app/crm/CrmBoard.tsx,
+app/crm/CrmToolbar.tsx. Lo fija tests/iniciativa-crm.test.ts.
+
+
+## La barra de un bloque de la ficha, decidida por lo que se usa (5/11/2026, nube, `punta/suscripciones-ficha`)
+
+**El pedido** (Martín, por el Cerebro): «poder editar o tener una vista de edición tal vez un poco complejo. No quiero
+perder que los usuarios puedan tener la personalización… tal vez quitar opciones dentro de la vista de editar».
+
+**El diagnóstico obvio era sacar opciones, y no hacía falta:** el historial de las fichas (`funnels.data.fichaHistorial`)
+dice qué se usa. Medido por el Cerebro (docs/relevo/suscripciones-medicion.md §3): de 58 acciones, 36 son quitar, 5 poner
+y 4 mover; ancho, diseño, título, ícono y «Obligatorio» suman 5, y de «Obligatorio» no quedó ninguna vigente. La barra de
+un bloque llegaba a 12 botones porque cada ancho era uno. Lo que se hizo es esconder, no quitar: nombre, mover, «Datos» u
+«Opciones», «⋯» y quitar a la vista; el resto en «⋯» (`masDelBloque`, app/crm/lead-view/ficha/armar.ts).
+
+- **«Datos» se queda afuera** aunque se use poco: es lo que va ADENTRO del bloque, y Martín ya reclamó una vez que no lo
+  encontraba (24/10/2026).
+- **Lo que no se mide no decide:** el historial existe desde el 17/10 y la muestra es de 6 negocios; el selector de
+  dispositivo y el estilo de la hoja no se tocaron porque Martín los pidió a la vista, no porque se usen.
+- ⚠️ **La primera versión del test dio verde con «Obligatorio» ofrecido en un bloque que elige sus datos**: probaba el
+  contacto con dos datos y la rotura sólo cambiaba el caso de uno. Un caso por rama de la condición, o la rotura no tiene
+  dónde caer.
+
+**Vive en:** app/crm/lead-view/ficha/Armador.tsx, app/crm/lead-view/ficha/armar.ts. Lo fija tests/ficha-barra-mas.test.ts.

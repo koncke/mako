@@ -197,7 +197,9 @@ test('m. un horario sin `activo` booleano se rechaza; apagado con días vacíos 
 // horario que vale (el suyo o el del negocio), guardando en la automatización.
 test('m. el horario de la automatización es «Horario de oficina», con el que vale para ella, y sin texto suelto', () => {
   const p = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
-  assert.match(p, /leer: async \(\) => \(\{ horario: d\.config\.horario \?\? d\.horarioNegocio \?\? \{ \.\.\.HORARIO_SUGERIDO, activo: false \}, zona: d\.zona, puedeEditar: d\.puedeEditar \}\),/);
+  // Desde el 5/11/2026 el que vale sale de `horarioParaMostrar` (con el de fábrica y un horario del negocio, el del negocio):
+  // tests/horario-de-fabrica.test.ts lo corre con datos.
+  assert.match(p, /leer: async \(\) => \(\{ horario: horarioParaMostrar\(d\.config, d\.horarioNegocio\) \?\? \{ \.\.\.HORARIO_SUGERIDO, activo: false \}, zona: d\.zona, puedeEditar: d\.puedeEditar \}\),/);
   assert.match(p, /return <HorarioEnvioPanel fuente=\{fuente\} onSucio=\{onSucio\} \/>;/);
   assert.doesNotMatch(p, /Horario propio|Como el negocio|Sólo para esta automatización|data-sin-horario/, 'volvió el texto suelto');
   assert.equal(textoDeHorario(null), 'sin horario: manda a cualquier hora');

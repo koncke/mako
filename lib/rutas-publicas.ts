@@ -81,6 +81,9 @@ export const PUBLICOS = [
   // una URL de soporte. Sus revisores las abren sin cuenta. Son páginas: sólo GET (`esPublicaSoloLeer`), y no leen la sesión.
   '/eliminar-cuenta',
   '/soporte',
+  // La política de uso aceptable (5/11/2026): la pide Creem para aprobar la tienda (generamos imagen y video con IA), y su
+  // revisor la abre sin cuenta. Hasta ese día /aup redirigía a /login. Es una página: sólo GET (`esPublicaSoloLeer`), no lee la sesión.
+  '/aup',
   // ── El comprador de un link de pago (11/10/2026) ──────────────────────────────
   // `/pagar/<token>` (route handler: redirige al checkout de Stripe o Mercado Pago) y
   // `/pagar/<token>/listo` (adonde vuelve desde la pasarela). Las abre un COMPRADOR, que no tiene

@@ -445,6 +445,9 @@ function LineaSinMemo({ l, pushes, ahora, quien, vivo, extras, wa }: { l: LineaC
     // citada arriba; si salió y la base todavía no la marcó, «Decisión enviada».
     const r = l.pregunta.respuesta;
     if (!r && !l.trabajo) return null;
+    // Sin respuesta guardada, ni una IGNORADA (5/11/2026: está en «Ignoradas», arriba de la caja) ni una cuya respuesta se canceló
+    // dicen «Decisión enviada»: al chat no le llegó nada.
+    if (!r && (l.pregunta.ignorada || l.trabajo?.estado === 'cancelado')) return null;
     return (
       <div className="co-yo co-yo--decision">
         <p className="co-burbuja">

@@ -58,16 +58,16 @@ import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
-  asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, facturasPagadasStripe, leerCheckoutStripe, leerPruebaStripe, leerSuscripcionStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
+  asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, facturasPagadasStripe, leerCheckoutStripe, leerFacturaStripe, leerPruebaStripe, leerSuscripcionStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
 } from './stripe-api';
 import { urlAvisoCreem, urlAvisoStripe } from './cobros-conexion';
 import { CUENTA_PRINCIPAL, claveDeCuenta, cuentaSinElegir, partirIdDeCuenta } from './cuentas-integracion';
 import { credCreemDe, credMpDe, credStripeDe, cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
 import { guardarOrigenDeAlta, guardarWhatsappDelPago } from './origen-cuenta-server';
-import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
+import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerPagoMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
 import {
   buscarTransaccionesCreem, cancelarSuscripcionCreem, crearCheckoutCreem as crearCheckoutCreemAPI, crearDescuentoDeEntradaCreem,
-  crearProductoCreem, leerCheckoutCreem, leerSuscripcionCreem, modoDeClaveCreem, repararAvisoCreem,
+  crearProductoCreem, leerCheckoutCreem, leerSuscripcionCreem, leerTransaccionCreem, modoDeClaveCreem, repararAvisoCreem,
 } from './creem-api';
 import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaCreem, huellaMp, huellaStripe, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa, transaccionQueCobra } from './prueba-plan-reglas';
 import { PRUEBA_DIAS } from './planes-mako';
@@ -775,6 +775,12 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
   autor?: string;
   /** Cuándo se PAGÓ, según la pasarela (15/10/2026): la cuota lleva esa fecha y no la de hoy. Sin ella, hoy. */
   pagadoAt?: string | null;
+  /**
+   * LO QUE COBRÓ la pasarela, para el RECIBO (5/11/2026, lib/recibos.ts): con impuesto en Creem (`amount_paid`), el monto real de
+   * Mercado Pago. NO cambia lo que se asienta (la cuota sigue con `monto`). Sin él, el recibo lo relee a la pasarela
+   * (`cobradoEnLaPasarela`): nunca imprime el precio de lista de un pago con cupón.
+   */
+  cobrado?: { monto: number | null; moneda?: string | null; impuesto?: number | null } | null;
 }): Promise<{ nuevo: boolean; renovacion: boolean }> {
   const ws = c.workspace_id;
   const autor = p.autor ?? NOMBRE_PASARELA[c.proveedor];
@@ -816,6 +822,11 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     if (renovacion && esRenovacionFallida(actual.motivo)) {
       actual = (await actualizar(ws, c.id, { motivo: null })) ?? actual;
     }
+
+    // 1c. ⚠️ EL RECIBO (5/11/2026, lib/recibos.ts): ANTES del CRM, que puede tirar (:856, :896) y cortaría acá. Sólo pagos reales
+    //     de la PLATAFORMA, y nunca frena el pago (`.catch`): si no se puede armar, lo emite la red del cron. Se manda al final.
+    const reciboId = await reciboDeEstePago(actual, p, renovacion)
+      .catch((e) => { console.error(`[cobros] no pude emitir el recibo del cobro ${c.id}:`, e instanceof Error ? e.message : String(e)); return null; });
 
     // 2a. ⚠️ EL PLAZO de un producto con fin (15/10/2026). En Stripe se programa ACÁ (Checkout no acepta un fin); en Mercado
     //     Pago nació con él. ⚠️ ANTES DEL TRATO (revisión de plata del 22/10/2026, media 1): no depende de él, y si el aviso que
@@ -960,8 +971,89 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       await alCron(actual, 'aprobado');
     }
 
+    // 7. EL RECIBO SALE (correo y WhatsApp) AL FINAL, después del aviso y del CRON: si Resend se cuelga, eso ya pasó (agujero 7).
+    //    Nunca tira; el correo corta a los 15 s. Si no sale ahora, lo despacha la red del cron.
+    if (reciboId) {
+      const { despacharRecibo } = await import('./recibos');
+      await despacharRecibo(reciboId);
+    }
+
     return { nuevo, renovacion };
   });
+}
+
+/**
+ * El recibo de ESTE pago (lib/recibos.ts). null si no corresponde (otro negocio, prueba) o si no se pudo armar todavía. Lo que
+ * cobró la pasarela viene en `p.cobrado`, o se relee (`cobradoEnLaPasarela`). El valor en dólares es DECLARADO (el del cobro, o
+ * el de la cuota de la renovación): nunca se calcula una tasa.
+ */
+async function reciboDeEstePago(c: Cobro, p: Parameters<typeof aplicarPagoAprobado>[1], renovacion: boolean): Promise<number | null> {
+  if (c.modo !== 'real') return null;
+  if (c.workspace_id !== (await wsSuperAdmin())) return null;
+  const { reciboDelPago } = await import('./recibos');
+  const montoUsd = renovacion
+    ? montoUsdDeLaCuota({ montoCuota: p.monto, monedaCuota: p.moneda ?? c.moneda, cobroMontoUsd: c.monto_usd, cobroMonto: c.monto, cobroMoneda: c.moneda })
+    : usdDelPrimerPago(c);
+  const cobrado = p.cobrado?.monto != null && Number.isFinite(Number(p.cobrado.monto))
+    ? { monto: Number(p.cobrado.monto), moneda: String(p.cobrado.moneda || p.moneda || c.moneda).toUpperCase(), impuesto: p.cobrado.impuesto ?? null, fecha: p.pagadoAt ?? null, montoUsd }
+    : null;
+  const r = await reciboDelPago(c, {
+    proveedorPagoId: p.proveedorPagoId, cobrado, renovacion,
+    releer: async () => { const x = await cobradoEnLaPasarela(c, p.proveedorPagoId); return x ? { ...x, fecha: x.fecha ?? p.pagadoAt ?? null, montoUsd } : null; },
+  });
+  return r?.id ?? null;
+}
+
+/**
+ * LO QUE COBRÓ la pasarela por UN pago, releído con la clave de la cuenta del cobro (5/11/2026, los recibos). null = ese pago no
+ * se encontró o todavía no trae el monto. TIRA si la pasarela no contesta: quien llama lo deja para la próxima vuelta.
+ *   · Mercado Pago: `transaction_amount` del pago.
+ *   · Creem: `amount_paid` de la transacción (CON impuesto, que va aparte en `impuesto`).
+ *   · Stripe: lo pagado de la factura (`in_…`), o el total de la sesión del cobro si el pago es su payment intent.
+ */
+export async function cobradoEnLaPasarela(c: Cobro, proveedorPagoId: string): Promise<{ monto: number; moneda: string; impuesto: number | null; fecha: string | null } | null> {
+  const { stripe, mp, creem } = await credsPorCuenta(c.workspace_id)(c);
+  switch (c.proveedor) {
+    case 'mercadopago': {
+      if (!mp) return null;
+      const x = await leerPagoMp(mp.token, proveedorPagoId);
+      if (!x.ok) throw new Error(`Mercado Pago no contestó por el pago ${proveedorPagoId}: ${x.error}`);
+      return x.monto != null && x.moneda ? { monto: x.monto, moneda: x.moneda, impuesto: null, fecha: x.fecha } : null;
+    }
+    case 'creem': {
+      if (!creem) return null;
+      const x = await leerTransaccionCreem(creem.key, proveedorPagoId);
+      if (!x.ok) throw new Error(`Creem no contestó por la transacción ${proveedorPagoId}: ${x.error}`);
+      const monto = x.montoPagado ?? x.monto;
+      return monto != null && x.moneda ? { monto, moneda: x.moneda, impuesto: x.impuesto, fecha: x.fecha } : null;
+    }
+    case 'stripe': {
+      if (!stripe) return null;
+      if (proveedorPagoId.startsWith('in_')) {
+        const f = await leerFacturaStripe(stripe.key, proveedorPagoId);
+        if (!f.ok) throw new Error(`Stripe no contestó por la factura ${proveedorPagoId}: ${f.error}`);
+        return f.montoPagado != null && f.moneda ? { monto: f.montoPagado, moneda: f.moneda, impuesto: null, fecha: null } : null;
+      }
+      if (!c.proveedor_ref) return null;
+      const s = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
+      if (!s.ok) throw new Error(`Stripe no contestó por la sesión del cobro ${c.id}: ${s.error}`);
+      return s.paymentIntent === proveedorPagoId && s.monto != null && s.moneda ? { monto: s.monto, moneda: s.moneda, impuesto: null, fecha: null } : null;
+    }
+    default: { const _x: never = c.proveedor; void _x; return null; }
+  }
+}
+
+/**
+ * Lo que un reembolso, una devolución fallida o un contracargo le hacen al RECIBO de ese pago (lib/recibos.ts). Sólo en la
+ * PLATAFORMA (barrera en positivo) y NUNCA tira: esto corre en la devolución de cualquier negocio, y un recibo no la puede romper.
+ */
+async function conElReciboDelPago(c: Cobro, fn: (r: typeof import('./recibos')) => Promise<void>): Promise<void> {
+  try {
+    if (c.modo !== 'real' || c.workspace_id !== (await wsSuperAdmin())) return;
+    await fn(await import('./recibos'));
+  } catch (e) {
+    console.error(`[cobros] el recibo del cobro ${c.id} no se pudo actualizar:`, e instanceof Error ? e.message : String(e));
+  }
 }
 
 /** ¿La cuota de un link ya estaba cobrada por OTRO pago (a mano, u otro link)? Si no se puede leer, se dice el aviso genérico. */
@@ -1353,6 +1445,9 @@ export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void
 export async function aplicarReembolso(c: Cobro, p: { proveedorPagoId: string | null; total: boolean }): Promise<void> {
   await runWithWorkspace(c.workspace_id, async () => {
     const pagoId = p.proveedorPagoId ?? c.proveedor_pago_id;
+    // EL RECIBO de ese pago queda devuelto (5/11/2026, lib/recibos.ts): ANTES del `return` del parcial. Sólo la plataforma, y
+    // nunca tira (esto corre en todos los negocios).
+    await conElReciboDelPago(c, async (r) => r.marcarDevolucionDeRecibo(c.proveedor, pagoId, { total: p.total }));
     if (!p.total) {
       if (c.lead_id) await logLeadEvent(c.lead_id, 'Pago reembolsado', `Devolución parcial de ${c.concepto} por ${NOMBRE_PASARELA[c.proveedor]}`, NOMBRE_PASARELA[c.proveedor]);
       return;
@@ -1415,6 +1510,8 @@ export async function aplicarReembolsoFallido(c: Cobro, p: { proveedorPagoId: st
   await runWithWorkspace(c.workspace_id, async () => {
     const texto = textoDevolucionFallida({ razon: p.razon, sigueDevuelto: p.sigueDevuelto });
     const pagoId = p.proveedorPagoId ?? c.proveedor_pago_id;
+    // El recibo vuelve a «emitido» si la plata volvió (sin correo). Sólo la plataforma; nunca tira.
+    await conElReciboDelPago(c, async (r) => r.marcarDevolucionFallidaDeRecibo(c.proveedor, pagoId, { sigueDevuelto: p.sigueDevuelto }));
     const esElPrimero = !pagoId || pagoId === c.proveedor_pago_id;
     if (!p.sigueDevuelto) {
       if (esElPrimero && c.estado === 'reembolsado') {
@@ -1465,6 +1562,8 @@ export async function aplicarReembolsoFallido(c: Cobro, p: { proveedorPagoId: st
 export async function aplicarContracargo(c: Cobro, p: { fase: FaseContracargo; texto: string; plataAfuera: boolean | null; proveedorPagoId: string | null; fechaCargo: string | null }): Promise<void> {
   await runWithWorkspace(c.workspace_id, async () => {
     const pagoId = p.proveedorPagoId ?? c.proveedor_pago_id;
+    // El recibo lo dice (lo ve sólo SuperAdmin): nunca sale un correo ni un WhatsApp por un contracargo. Nunca tira.
+    await conElReciboDelPago(c, async (r) => r.marcarDisputaDeRecibo(c.proveedor, pagoId, { texto: p.texto, plataAfuera: p.plataAfuera }));
     if (c.lead_id && pagoId && p.plataAfuera != null) {
       if (p.plataAfuera) await desmarcarCobroDeProveedor({ leadId: c.lead_id, proveedor: c.proveedor, proveedorPagoId: pagoId });
       else {

@@ -19,7 +19,11 @@ export const ANCHO_CARRUSEL = 1080;
 export const ALTO_CARRUSEL = 1350;
 const MARGEN = 96;
 
-export type Marca = { nombre: string; usuario: string | null };
+/**
+ * Quién firma el carrusel. `logo` (5/11/2026): el logo del kit de marca del negocio (lib/marca/kits.ts), un archivo de
+ * «Subidos». Con logo, la cabecera lo lleva en lugar del círculo con las iniciales.
+ */
+export type Marca = { nombre: string; usuario: string | null; logo?: { id: string; url: string; nombre: string; ancho: number; alto: number } | null };
 
 type Obj = Record<string, unknown>;
 
@@ -68,6 +72,19 @@ function circulo(id: string, nombre: string, o: { cx: number; cy: number; r: num
   };
 }
 
+/** El logo, entero adentro de un cuadrado de `lado` (sin recortarlo), con la forma de imagen que guarda el motor. */
+function logo(id: string, l: NonNullable<Marca['logo']>, o: { left: number; top: number; lado: number }): Obj {
+  const ancho = l.ancho > 0 ? l.ancho : o.lado;
+  const alto = l.alto > 0 ? l.alto : o.lado;
+  const escala = Math.min(o.lado / ancho, o.lado / alto);
+  return {
+    type: 'image', id, name: 'Cabecera: logo', src: l.url, assetId: l.id, crossOrigin: 'anonymous',
+    originX: 'left', originY: 'top', left: Math.round((o.left + (o.lado - ancho * escala) / 2) * 10) / 10,
+    top: Math.round((o.top + (o.lado - alto * escala) / 2) * 10) / 10, width: ancho, height: alto, cropX: 0, cropY: 0,
+    scaleX: escala, scaleY: escala, angle: 0, opacity: 1, visible: true, strokeUniform: true,
+  };
+}
+
 /** Las iniciales del negocio para el círculo de la cabecera («Cierre Consultivo» → «CC»), sin partir un emoji. */
 export function inicialesDe(nombre: string): string {
   const palabras = nombre.trim().split(/\s+/).filter(Boolean);
@@ -96,9 +113,13 @@ function pagina(l: Lamina, i: number, total: number, e: EstiloCarrusel, marca: M
   const ancho = ANCHO_CARRUSEL - MARGEN * 2;
   const objetos: Obj[] = [];
 
-  // La cabecera: las iniciales en un círculo con el acento, el nombre y el @ (Martín: «con los datos del negocio»).
-  objetos.push(circulo(nuevoId(), 'Cabecera: círculo', { cx: MARGEN + 36, cy: MARGEN + 36, r: 36, fill: e.acento }));
-  objetos.push(texto(nuevoId(), 'Cabecera: iniciales', inicialesDe(marca.nombre), { left: MARGEN, top: MARGEN + 20, width: 72, tam: 28, peso: 700, fam: famX, color: esOscuro(e.acento) ? '#FFFFFF' : '#111111', alin: 'center', interlineado: 1.1 }));
+  // La cabecera: las iniciales en un círculo con el acento (o el logo de la marca), el nombre y el @ (Martín: «con los datos
+  // del negocio»).
+  if (marca.logo) objetos.push(logo(nuevoId(), marca.logo, { left: MARGEN, top: MARGEN, lado: 72 }));
+  else {
+    objetos.push(circulo(nuevoId(), 'Cabecera: círculo', { cx: MARGEN + 36, cy: MARGEN + 36, r: 36, fill: e.acento }));
+    objetos.push(texto(nuevoId(), 'Cabecera: iniciales', inicialesDe(marca.nombre), { left: MARGEN, top: MARGEN + 20, width: 72, tam: 28, peso: 700, fam: famX, color: esOscuro(e.acento) ? '#FFFFFF' : '#111111', alin: 'center', interlineado: 1.1 }));
+  }
   objetos.push(texto(nuevoId(), 'Cabecera: nombre', marca.nombre, { left: MARGEN + 92, top: MARGEN + 4, width: ancho - 92, tam: 30, peso: 600, fam: famX, color: tinta, interlineado: 1.15 }));
   if (marca.usuario) objetos.push(texto(nuevoId(), 'Cabecera: usuario', `@${marca.usuario}`, { left: MARGEN + 92, top: MARGEN + 42, width: ancho - 92, tam: 26, peso: 400, fam: famX, color: suave, interlineado: 1.15 }));
 

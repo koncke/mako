@@ -408,6 +408,71 @@ export const BITACORA: Hito[] = [
       { sha: '1f02e6b4', msg: 'Eliminar un cliente: se borra de verdad, y lo frena el nombre escrito en el SERVER', lineas: 674, archivos: 7 },
     ],
   },
+  {
+    fecha: '5 nov', hora: '17:30', chat: 'Admin', sesion: 'cli_efae8d7b-8598-5f74-a2e3-3aef4e3f73e1', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'La tab Customers pasa a ser Admin, entera de nuevo y copiada de otras apps',
+    pedido: 'me gustaría que puedas rever completamente la tab que hoy en día se llama Customer dentro de Super Admin, que se llame Admin directamente, y que puedas revisar cómo lo hacen otras aplicaciones que lo copies completamente de otras aplicaciones. Si tienes que borrar absolutamente todo lo que hay en esa tab para hacerlo de vuelta, no tengo ningún problema. Pero sí quiero que esa tab sea fácil de utilizar y que realmente me dé las cosas que necesito. Por ejemplo, qué acciones hacen los usuarios dentro de MaKo, cuándo es que se conectan, qué no están utilizando, qué se están utilizando, cuándo la app se crashea o los bugs que tienen, el reporte, el tema obviamente de lo que sería suscripciones, lo que sería tema de cobros, gestión de usuarios, estado de alta, etcétera. O sea, todo eso, pero quiero de que sea muy completo y que lo copies como siempre de otro software o de un repo de GitHub o algo así.\n\nY antes: en SuperAdmin yo no estoy pudiendo ver por ejemplo, no se me refleja la cantidad de ingresos para suscripciones. ¿Cuánto es lo que me pagaron totalmente? ¿Cuánto me van pagando mes a mes? Etcétera.',
+    puntos: [
+      'Llegó por el Cerebro como encargo para la nube (docs/relevo/admin-encargo.md), con lo medido en producción: los ingresos no se veían porque el MRR salía de `cobros` (2 filas pendientes) y todo lo cobrado entró A MANO a `pagos` del CRM de la plataforma.',
+    ],
+  },
+  {
+    fecha: '5 nov', hora: '18:05', chat: 'Admin', sesion: 'cli_efae8d7b-8598-5f74-a2e3-3aef4e3f73e1', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tanda 1: la tab se llama Admin, vive en /admin, y abre en Revenue con lo cobrado de verdad',
+    puntos: [
+      'La investigación, en docs/investigacion-admin.md: Revenue copia el gráfico de movimientos de ChartMogul, la tabla de saldos de Lago (AGPL: sólo se miró) y las definiciones de Tidemill (MIT); Users, shadcn-admin (MIT) y Clerk; Activity, PostHog y Umami (MIT); Errors, Sentry (sólo mirar) y GlitchTip (MIT). Desde la nube los docs de Stripe, Baremetrics, ChartMogul, PostHog y Sentry están bloqueados: se leyó lo que vive en GitHub.',
+      'Revenue sale de los PAGOS del CRM de la plataforma (`wsSuperAdmin()`, nunca el 1) más los cobros pagados de la pasarela que ningún pago nombra (no se cuenta dos veces). Recurrente es la mensualidad registrada a mano, la cuota del plan de una venta de suscripción o la suscripción de la pasarela; lo demás es cash, nunca MRR.',
+      'Las tres reglas que no se ven: dos pagos a menos de 7 días son UN cobro (Código pagó noviembre en 94 + 144); cada cobro cubre un mes y el nuevo REEMPLAZA al anterior (así sube o baja); y 15 días de gracia (el `past_due` de Stripe) antes de dar por cortado, con el corte el día que venció.',
+      'Con los datos medidos: octubre US$340 (97 + 146 + 97). Con los dos pagos de Código de noviembre cargados, el MRR pasa a US$432 y sale «Subió +US$92». El test lo ejecuta y dibuja la pantalla; cada rotura da rojo.',
+      '/admin ES la tab (era un redirect a /customers); sus subrutas siguen siendo otras tabs y el `match` de la barra es /admin exacto. /customers?tab=… redirige con su query. La key `admin-customers` no cambió (es contrato).',
+      'Customers, el teléfono y la API usan el MISMO MRR (antes cada una decía otra cosa). Operación nueva `ver_ingresos_de_mako`, sólo plataforma y sin HTTP.',
+    ],
+    archivos: [
+      'lib/admin-ingresos-reglas.ts — las cuentas (puro): cobros, tramos, movimientos, meses, clientes, lo que viene',
+      'lib/admin-ingresos.ts — el lector: pagos + cobros de la plataforma, a quién se le atribuye cada uno',
+      'app/admin/page.tsx — la tab Admin; app/admin/pestanas-reglas.ts — las pestañas y la redirección de /customers',
+      'app/admin/ingresos/IngresosAdmin.tsx — la pantalla de Revenue',
+      'tests/admin-ingresos.test.ts',
+    ],
+    revisar: '/admin',
+  },
+  {
+    fecha: '5 nov', hora: '19:10', chat: 'Admin', sesion: 'cli_efae8d7b-8598-5f74-a2e3-3aef4e3f73e1', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tanda 2: Users (las personas y su estado de alta) y Errors (los errores agrupados y los reportes)',
+    puntos: [
+      'Users copia la tabla de usuarios de shadcn-admin (MIT): los cuatro estados con su color —activo (entró en 30 días), inactivo, invitado (nunca entró) y suspendido—, los chips con su número, la búsqueda sin tildes y el menú de la fila con ícono. «Nunca se le mandó el acceso» se dice aparte de «no entró».',
+      'Las acciones (entrar a su negocio, reenviar el acceso, suspender, reactivar) van por /api/admin/usuarios, la ruta de siempre: repregunta el super admin, no deja a un negocio sin su admin y al suspender apaga los tokens de la API.',
+      'Errors copia la lista de Sentry (sólo se miró: FSL) con la fila de GlitchTip (MIT): Sin resolver · Nuevos · Volvieron · Resueltos. «Volvió» es la MISMA regla que abre el ticket nuevo en lib/errores-app.ts (ticket resuelto + 15 min de margen). Sin mini-gráfico: `errores_app` no guarda las veces por día.',
+      'Accounts dejó de ser pestaña: es la otra VISTA de Customers (el selector de vista), y la barra queda en seis. `?tab=accounts` sigue andando.',
+      'La API lee las dos cosas (`ver_personas_de_mako`, `ver_errores_de_mako`); suspender queda en la pantalla.',
+    ],
+    archivos: [
+      'lib/admin-usuarios-reglas.ts y app/admin/usuarios/UsuariosAdmin.tsx — Users',
+      'lib/admin-errores-reglas.ts, lib/admin-errores.ts y app/admin/errores/ErroresAdmin.tsx — Errors',
+      'tests/admin-usuarios-errores.test.ts',
+    ],
+    revisar: '/admin?tab=users',
+  },
+  {
+    fecha: '5 nov', hora: '21:40', chat: 'Admin', sesion: 'cli_efae8d7b-8598-5f74-a2e3-3aef4e3f73e1', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tanda 3: Activity, con la medición de uso que faltaba (qué tabs se usan, cuáles no, quién dejó de entrar y lo que hace MaKo)',
+    puntos: [
+      'Hasta hoy MaKo sabía sólo el último ingreso de cada persona. Ahora cuenta, por persona, tab y día, cuántas pantallas abre y cuántas acciones hace (el «pageview» de PostHog): el navegador lo junta y lo manda una vez por minuto, sin frenar nada y sin el contenido ni la dirección de la pantalla.',
+      'Cada operación de la API de MaKo (el chat, WhatsApp, HTTP) deja QUÉ hizo, por qué canal y si salió, sin los parámetros. Ni el super admin ni el negocio de la plataforma se miden.',
+      'Activity copia a PostHog: los activos del día, la semana y el mes; quién entra cada semana (nuevos, siguen, volvieron, dejaron); qué tabs se usan y cuáles nadie abrió; cada negocio con lo que más usa; quién dejó de entrar (de 14 a 120 días, desde su último ingreso: anda ya, sin la medición), y lo último que hizo MaKo. Al pie, lo que era Agents.',
+      'El uso se guarda 400 días y lo de MaKo 90; un cron lo borra cada noche. La política de privacidad lo dice.',
+      'La lectura está en la API (`ver_actividad_de_mako`), sólo para la plataforma. El teléfono muestra los activos y quién dejó de entrar.',
+      'Necesita la migración 0398 (el número se confirma al aplicarla): sin ella, la pantalla lo dice y muestra lo que sale del último ingreso.',
+    ],
+    archivos: [
+      'supabase/migrations/0398_actividad_uso.sql — las dos tablas y la suma atómica',
+      'app/_components/MedidorDeUso.tsx, medidor-lote.ts, contador-acciones.ts y app/api/actividad/route.ts — la medición',
+      'lib/actividad-reglas.ts, lib/actividad.ts, lib/actividad-registro.ts y app/admin/actividad/ActividadAdmin.tsx — Activity',
+      'app/api/cron/actividad-purga/route.ts — la retención',
+      'tests/actividad.test.ts',
+    ],
+    revisar: '/admin?tab=activity',
+  },
 ];
 
 export const PARTES: Parte[] = [

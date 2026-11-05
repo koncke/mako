@@ -141,6 +141,17 @@ export const ITEMS: readonly ItemVigia[] = [
     link: 'https://resend.com/domains',
     queHacer: 'Revisa los registros DNS del dominio en Resend.',
   },
+  // ⚠️ RECHAZADA EL 5/11/2026, Y ES DEFINITIVO (docs/creem-retiros.md). Sigue «a mano» —su API no dice el estado, y un lector
+  // sin red no inventa uno (regla 3)—, pero el NOMBRE ya lo dice: el aviso «míralo a mano» y la lista lo muestran rechazado, y
+  // el «qué hacer» no manda a contestarle a Creem. Cuando haya otro proveedor, entra como un ítem nuevo, y éste se puede sacar.
+  {
+    id: 'creem-tienda',
+    nombre: 'Creem: la tienda de MaKo, rechazada el 5/11/2026 (definitivo)',
+    link: 'https://www.creem.io/dashboard',
+    aMano: true,
+    queHacer: 'Lee docs/creem-retiros.md: Creem no reabre la cuenta, y los cobros de fuera de Argentina pasan a otro proveedor.',
+    nota: 'Enviada el 5/11/2026 a nombre de Leandro y rechazada ese mismo día, a las pocas horas, por mail y sin el motivo. Es definitivo: sus términos (§20.6) no reabren la cuenta de una persona conectada a una que Creem cerró.',
+  },
   {
     id: 'firma-windows',
     nombre: 'Certificado para firmar el instalador de Windows (SSL.com)',

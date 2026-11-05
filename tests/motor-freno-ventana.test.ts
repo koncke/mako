@@ -102,10 +102,11 @@ test('los topes: el diario y el de la corrida son de WhatsApp; el email, con el 
   // canales, lo de antes) → 8 pasan / 1 falla (éste).
   // Desde la décima tanda (11/10/2026) los topes son del negocio (Configuraciones › Límites, `limites`):
   // lo cuida tests/automations-configuraciones.test.ts. Acá sigue lo de los canales.
-  assert.match(PROC, /const presupuesto = limites\.wa\.dia - \(await enviosUltimas24h\('whatsapp'\)\);/);
+  // Con la rampa del número desde el 5/11/2026 (`lineaWa`: los límites con el tope de hoy).
+  assert.match(PROC, /const presupuesto = lineaWa\.dia - \(await enviosUltimas24h\('whatsapp'\)\);/);
   // El email, con SU tope (desde el 4/11/2026, con la rampa del dominio: `topeEmailHoy` sale de `limites.email`).
   assert.match(PROC, /topeEmailHoy - \(await enviosUltimas24h\('email'\)\)/);
-  assert.match(PROC, /topeEmailDeHoy\(supabase, limites\.email,/);
+  assert.match(PROC, /topeDeLineaDeHoy\(supabase, 'email', limites\.email,/);
   assert.match(PROC, /const cupoLleno = \(\): boolean => waEnCorrida >= cupo;/);
   assert.match(PROC, /if \(paso\.canal === 'email'\) emailsEnCorrida \+= 1; else waEnCorrida \+= 1;/);
   assert.match(PROC, /paso\.canal === 'email' && emailLleno\(\)/, 'un email que se pasa de su tope diario sale igual');

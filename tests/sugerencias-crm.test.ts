@@ -384,7 +384,8 @@ test('el bloque del system: de qué CRM es, cada lectura con su título, lo que 
 
 test('la página MONTA el panel al lado del tablero y no calcula nada; el tablero no lo trae', () => {
   const page = sinComentarios(leer('app/crm/page.tsx'));
-  assert.match(page, /<PanelMakoCrm funnelId=\{funnelId\} \/>/);
+  // Con lo que la apertura necesita (5/11/2026, lib/aperturas/crm.ts): los leads del negocio y si administra. Nada más.
+  assert.match(page, /<PanelMakoCrm funnelId=\{funnelId\} apertura=\{\{ leads: leadsNegocio, esAdmin: puedeCrearCrm \}\} \/>/);
   assert.ok(!/sugerenciasDeUnCrm|sugerencias-crm/.test(page), 'la página calcula las sugerencias en su render');
   assert.ok(!/PanelMakoCrm|mako-crm/.test(leer('app/crm/CrmBoard.tsx')), 'el panel vive adentro de CrmBoard (es de otro frente)');
 });
@@ -445,7 +446,7 @@ test('el chat: permiso del CRM en el server; en la pantalla, la estrella del Ops
   const panel = sinComentarios(leer('app/crm/mako-crm/PanelMakoCrm.tsx'));
   // UN PANEL POR CRM: lo exportado sólo monta el de ESE CRM con su `key` (sus sugerencias, y la estrella plegada).
   const exportado = panel.slice(panel.indexOf('export function PanelMakoCrm'), panel.indexOf('function PanelDeUnCrm'));
-  assert.match(exportado, /return <PanelDeUnCrm key=\{funnelId \?\? 'principal'\} funnelId=\{funnelId\} \/>;/);
+  assert.match(exportado, /return <PanelDeUnCrm key=\{funnelId \?\? 'principal'\} funnelId=\{funnelId\} apertura=\{apertura\} \/>;/);
   assert.ok(!/use(State|Effect|Callback)\(/.test(exportado), 'el envoltorio guarda estado: sobrevive al cambio de CRM');
   // «Calladas (N)» y «Volver a mostrar»: del admin, como «Ahora no».
   assert.match(panel, /\{callar && calladas\.length > 0 && \(/);
@@ -460,7 +461,8 @@ test('el chat: permiso del CRM en el server; en la pantalla, la estrella del Ops
   assert.match(panel, /import \{ MakoEnLaTab \} from '@\/app\/_chat\/MakoEnLaTab';/);
   // Con el lead de la ficha abierta (CR3, 22/10/2026: app/crm/lead-abierto.ts), y las sugerencias en el bloque de preguntas de
   // la estrella (22/10/2026: tests/ops-center-bloque-y-estado.test.ts, 9).
-  assert.match(panel, /return <MakoEnLaTab tab="CRM" entidad=\{entidadDelLead\(abierto\)\} arriba=\{sugerencias\} preguntas=\{preguntas\} aviso=\{n\} pedido=\{pedido\} \/>;/);
+  // Y la apertura de la tab (5/11/2026, docs/mako-iniciativa/plan.md T7), ANTES de `arriba=` (tests/ops-center-bloque-y-estado.test.ts, 9).
+  assert.match(panel, /return <MakoEnLaTab tab="CRM" apertura=\{aperturaTab\} entidad=\{entidadDelLead\(abierto\)\} arriba=\{sugerencias\} preguntas=\{preguntas\} aviso=\{n\} pedido=\{pedido\} \/>;/);
   assert.doesNotMatch(panel, /ChatMakoCrm|hilo=1|<aside\b|<Muneco\b|data-sidebar|--ancho-panel-mako/, 'el CRM volvió a armar su chat, su barra o su estrella');
   assert.ok(!existsSync(join(RAIZ, 'app/crm/mako-crm/ChatMakoCrm.tsx')), 'volvió el chat propio del CRM');
   // «Hacerlo» de una que se revisa con MaKo: al Cerebro, con el CRM nombrado.

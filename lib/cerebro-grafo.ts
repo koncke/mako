@@ -43,6 +43,7 @@ import { getAvatares } from './avatares';
 import { getRazones } from './razones';
 import { getPersona } from './persona';
 import { getPersonalidad } from './personalidad-store';
+import { KEY_KITS, kitPorDefecto, resumenDeKit, sanearKits } from './marca/kits';
 import { FASES, CANALES } from './fase-diagnostico';
 import { PERSONALIDAD_PREGUNTAS } from './personalidad';
 import { BIBLIOTECA_ANGULOS, CELDA_GUIONES_PROPIOS, usosPorFormato } from './angulos-data';
@@ -328,7 +329,7 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[]; s
   // arma el ZIP— y un parámetro opcional que solo pasara uno dejaría el vault sin funnel
   // en silencio, que es la clase de bug que este repo ya pagó varias veces. Va en el
   // mismo Promise.all, así que no suma latencia, y `getFunnelDefault()` nunca lanza.
-  const [schema, diag, files, manual, panorama, productos, entregables, avatares, razones, persona, personalidad, funnel, secuencias, landings, audios, vozManual, vozEvidencia, glosario, objCierres, objCash, vivo] = await Promise.all([
+  const [schema, diag, files, manual, panorama, productos, entregables, avatares, razones, persona, personalidad, funnel, secuencias, landings, audios, vozManual, vozEvidencia, glosario, objCierres, objCash, vivo, kitsCrudo] = await Promise.all([
     getSchema(),
     getDiagnosticoFase(),
     listFiles(),
@@ -352,6 +353,8 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[]; s
     getSetting('objetivo_cierres').catch(vacioAvisando(opciones.alFallar, 'getSetting', null)),
     getSetting('objetivo_cash_usd').catch(vacioAvisando(opciones.alFallar, 'getSetting', null)),
     leerLoVivo(opciones.chatsMako, opciones.alFallar).catch(vacioAvisando(opciones.alFallar, 'leerLoVivo', ({ ...LECTURAS_VACIAS, chatsMako: opciones.chatsMako }))),
+    // La marca del negocio (5/11/2026, lib/marca/kits.ts): sus kits de colores, fuentes y logo.
+    getSetting(KEY_KITS).catch(vacioAvisando(opciones.alFallar, 'getSetting', null)),
   ]);
 
   const { answers, fuente } = computeEffective(files, manual);
@@ -653,6 +656,26 @@ export async function construirCerebro(opciones: { chatsMako?: ChatMakoVivo[]; s
       autoria: limpio(persona.descripcion) ? 'mako' : 'usuario',
     });
     unir(RAIZ, id, 'Quién aparece en los creativos');
+  }
+
+  // La marca (5/11/2026): un nodo con los kits, cuál va por defecto y qué trae. Sin kits, no se dibuja (un área sin datos no
+  // dibuja un «falta»: MaKo la pide en los chats que la usan).
+  const kitsMarca = sanearKits(kitsCrudo);
+  const kitMarca = kitPorDefecto(kitsMarca);
+  if (kitMarca) {
+    const id = push({
+      id: 'marca',
+      area: 'voz',
+      etiqueta: 'Tu marca',
+      detalle: [
+        `«${kitMarca.nombre}»${kitsMarca.kits.length > 1 ? ` (por defecto, de ${kitsMarca.kits.length} kits)` : ''}: ${resumenDeKit(kitMarca) || 'sin datos'}.`,
+        kitMarca.colores.length ? `Colores: ${kitMarca.colores.map((c) => c.hex).join(', ')}` : '',
+        kitMarca.fuentes.titulos || kitMarca.fuentes.texto ? `Fuentes: ${[kitMarca.fuentes.titulos, kitMarca.fuentes.texto].filter(Boolean).join(' y ')}` : '',
+      ].filter(Boolean).join('\n'),
+      fuente: kitMarca.origen ? `de «${kitMarca.origen}»` : 'cargada a mano',
+      autoria: 'usuario',
+    });
+    unir(RAIZ, id, 'Cómo se ven tus diseños, videos y páginas');
   }
 
   // ── Formatos: solo los que ESTE negocio usa ────────────────────────────────

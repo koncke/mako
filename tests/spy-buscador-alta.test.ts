@@ -211,7 +211,8 @@ test('cada búsqueda por nombre cuenta en el cupo ANTES de gastar, y sin cupo la
   const iGasta = r.indexOf('if (!gastarBusquedaDeSpy(ws)) return [];');
   assert.ok(iGasta > 0 && r.indexOf('await buscarPerfilesApify(texto, token)') > iGasta, 'el CRM se anota ANTES de gastar');
   const b = sinComentarios(leer('lib/spy-buscar.ts'));
-  for (const [quien, gasta] of [['buscarEnGoogle', 'fetch(`https://api.apify.com'], ['buscarEnInstagram', 'buscarPerfilesApify(nombre, token)']] as const) {
+  // 5/11/2026: la búsqueda de Instagram pide con la primera clave de Spy con crédito (`pedirBusquedaApify`, varias claves).
+  for (const [quien, gasta] of [['buscarEnGoogle', 'fetch(`https://api.apify.com'], ['buscarEnInstagram', 'pedirBusquedaApify(nombre, token)']] as const) {
     const cuerpo = b.slice(b.indexOf(`export async function ${quien}`));
     const iCupo = cuerpo.indexOf('if (!gastarBusquedaDeSpy(ws))');
     assert.ok(iCupo > 0 && cuerpo.indexOf(gasta) > iCupo, `${quien} se anota antes de gastar`);

@@ -80,7 +80,7 @@ test('3: el repartidor: teléfono primero, después quienOpera, el onboarding y 
   assert.doesNotMatch(p, /'\/crm'/, 'el closer/setter volvió a su CRM');
   // El admin SIN workspace (no hay Ops Center que abrir) sigue en su panel: la línea la fija también movil-desvio.
   // En la computadora, su grilla de negocios: Customers desde el 25/10/2026.
-  assert.ok(p.includes("if (ws == null) redirect(telefono ? ENTRADA_MOVIL : '/customers');"));
+  assert.ok(p.includes("if (ws == null) redirect(telefono ? ENTRADA_MOVIL : '/admin');"));
 });
 
 test('4: los otros caminos de entrada van al repartidor, no a /general ni a la landing', () => {

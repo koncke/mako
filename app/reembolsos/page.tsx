@@ -31,7 +31,7 @@ export const metadata = {
   description: 'Cómo cancelar un plan de MaKo, cuándo devolvemos un pago y cómo pedirlo.',
 };
 
-const ACTUALIZADO = '25 de octubre de 2026';
+const ACTUALIZADO = '5 de noviembre de 2026';
 
 // El mismo responsable que en /terminos y /privacidad, de la misma constante (lib/titular-mako.ts).
 const RESPONSABLE = `${RAZON_SOCIAL_MAKO} (MaKo)`;
@@ -155,10 +155,11 @@ export default function Page() {
       <ul>
         <li>Te respondemos dentro de los <strong>{PLAZO_RESPUESTA}</strong>.</li>
         <li>
-          Si corresponde la devolución, la hacemos por el <strong>mismo medio con el que pagaste</strong>{' '}
-          (Stripe o Mercado Pago). Cuándo se ve en tu tarjeta o en tu cuenta depende de tu banco o de
-          Mercado Pago.
+          Si corresponde la devolución, la hacemos por el <strong>mismo medio con el que pagaste</strong>.
+          Cuándo se ve en tu tarjeta o en tu cuenta depende de tu banco o de Mercado Pago.
         </li>
+        {/* Hasta el 5/11/2026 acá iba cómo devolvía Creem, el vendedor registrado de lo que se cobraba desde
+            Latinoamérica. Creem rechazó la tienda de MaKo ese día y no cobró nada (docs/creem-retiros.md). */}
         <li>
           Una cancelación cuenta desde el día en que la haces (o en que nos escribes): si después de
           esa fecha se te cobra, es un error de cobro y te lo devolvemos.

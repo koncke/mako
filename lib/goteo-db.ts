@@ -7,7 +7,7 @@
 // =============================================================================
 import type { getTenantDb } from './workspace';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
-import { diasQueMiraElArranque, rampaDeEmail, subidasDelArranque, topeConRampa, type ArranqueGoteo, type Goteo } from './goteo';
+import { diasQueMiraElArranque, rampaDeLinea, subidasDelArranque, topeConRampa, type ArranqueGoteo, type Goteo, type TopeConRampa } from './goteo';
 
 /** Por automatización, de las que tienen arranque. Sólo lee. TIRA si no puede leer: quien llama decide. */
 export async function subidasPorAutomatizacion(db: Awaited<ReturnType<typeof getTenantDb>>, goteos: ReadonlyMap<number, Goteo>, zona: string, ahoraMs = Date.now()): Promise<Map<number, number>> {
@@ -35,17 +35,18 @@ export async function subidasPorAutomatizacion(db: Awaited<ReturnType<typeof get
 }
 
 /**
- * EL TOPE DE EMAIL DE HOY DEL NEGOCIO, con la rampa del dominio (4/11/2026, `topeConRampa`, lib/goteo.ts). Cuenta los emails
- * de las automatizaciones que SALIERON por día, en la zona del negocio. Sin rampa no lee nada. TIRA si no puede leer: el motor
- * usa entonces el del primer día (manda menos, nunca más).
+ * EL TOPE DE HOY DE LA LÍNEA DEL NEGOCIO, por canal, con su rampa (`topeConRampa`, lib/goteo.ts): la del email (4/11/2026, el
+ * dominio) y la de WhatsApp (5/11/2026, el número). Cuenta lo que SALIÓ de las automatizaciones por ese canal, por día, en la zona
+ * del negocio: los mismos envíos que el tope de 24 h (`enviosUltimas24h`, lib/nutricion.ts). Sin rampa no lee nada. TIRA si no
+ * puede leer: quien llama usa entonces el del primer día (manda menos, nunca más).
  */
-export async function topeEmailDeHoy(db: Awaited<ReturnType<typeof getTenantDb>>, email: { dia: number; arranqueDia: number; arranqueSube: number }, zona: string, ahoraMs = Date.now()): Promise<number> {
-  const g = rampaDeEmail(email);
-  if (!g) return email.dia;
+export async function topeDeLineaDeHoy(db: Awaited<ReturnType<typeof getTenantDb>>, canal: 'whatsapp' | 'email', tope: TopeConRampa, zona: string, ahoraMs = Date.now()): Promise<number> {
+  const g = rampaDeLinea(tope);
+  if (!g) return tope.dia;
   const desde = new Date(ahoraMs - diasQueMiraElArranque(g) * 86_400_000).toISOString();
   const filas = await leerTodo<{ id: number; created_at: string }>(db, 'nutricion_envios', 'id, created_at', {
     orden: 'id',
-    filtros: (q) => q.eq('canal', 'email').eq('estado', 'enviado').gte('created_at', desde) as ConsultaPaginada,
+    filtros: (q) => q.eq('canal', canal).eq('estado', 'enviado').gte('created_at', desde) as ConsultaPaginada,
   });
   const dia = new Intl.DateTimeFormat('en-CA', { timeZone: zona });
   const dias = new Map<string, number>();
@@ -55,5 +56,8 @@ export async function topeEmailDeHoy(db: Awaited<ReturnType<typeof getTenantDb>>
     const d = dia.format(new Date(ms));
     dias.set(d, (dias.get(d) ?? 0) + 1);
   }
-  return topeConRampa(email, dias, dia.format(new Date(ahoraMs)));
+  return topeConRampa(tope, dias, dia.format(new Date(ahoraMs)));
 }
+
+/** El piso cuando no se pudo leer lo que ya mandó: el del primer día. */
+export const topeDelPrimerDia = (t: TopeConRampa): number => Math.min(t.dia, t.arranqueDia);

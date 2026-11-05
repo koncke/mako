@@ -395,15 +395,17 @@ test('20: en el código, pedir no aplica y aplicar se llama en UN lugar, despué
   assert.doesNotMatch(panel, /applyDocument/);
 });
 
-test('21: la ruta pide el workspace ANTES de la IA, y el modelo es GRATIS con Claude sin permiso', () => {
+test('21: la ruta pide el workspace ANTES de la IA, y el modelo es la IA DEL NEGOCIO, sin Gemini y con Claude sin permiso', () => {
   const ruta = leer('app/api/image-editor/ia/route.ts');
   const puerta = ruta.indexOf('await puerta()');
   assert.ok(puerta > 0 && ruta.indexOf('editarImagen(') > puerta);
   assert.match(ruta, /runWithWorkspace\(p\.ws/);
   const fila = crudo('lib/model-catalogo.ts').split('\n').find((l) => l.includes("feature: 'image-editor-ia'"));
   assert.ok(fila, 'falta la fila de image-editor-ia en lib/model-catalogo.ts');
-  assert.match(fila!, /def: GEMINI\(\)/);
-  assert.doesNotMatch(fila!, /pagoPorque|fallback:/);
+  // 5/11/2026 (Martín, 22/10: Image «sin Gemini»): su Claude y su GPT (`deSuIA`), sin caer a otro proveedor. Lo que corre de
+  // verdad lo prueba tests/solo-su-ia.test.ts; acá, que la fila no vuelva a Gemini ni pague MaKo.
+  assert.match(fila!, /def: SU_IA, recomendado: SU_IA, fallback: \[\], deSuIA: true/);
+  assert.doesNotMatch(fila!, /GEMINI\(|pagoPorque/);
   assert.doesNotMatch(leer('lib/veto-claude.ts'), /image-editor-ia/);
   assert.match(leer('lib/image-editor/chat/ia.ts'), /FEATURE_CHAT_IMAGEN = 'image-editor-ia'/);
 });

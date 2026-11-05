@@ -34,6 +34,7 @@ import {
   idValido, type NodoArbol,
 } from '@/lib/editor-landing/especificacion';
 import { normalizarGrafico } from '@/lib/editor-landing/grafico-svg';
+import { attrsCuentaRegresiva, attrsEscasez, attrsPruebaSocial } from '@/lib/editor-landing/bloques-venta';
 import { embedDeIframe } from '@/lib/embeds';
 import {
   attrsDelJson, attrsSinParseo, dato, especificar, focoDeFondo, hijo, urlDeFondo, vistaDom,
@@ -513,6 +514,24 @@ export const Espaciador = Node.create<OpcionesNodo>({
   renderHTML({ node }) { return especificar(forma(NODO.espaciador)(node.attrs)); },
   addNodeView() { return this.options.vista; },
 });
+
+/**
+ * LOS BLOQUES DE VENTA (5/11/2026, Black November: lib/editor-landing/bloques-venta.ts). Tres átomos con los datos que pone el
+ * negocio; sus datos NO se leen de vuelta del HTML (el pop público ni siquiera los dibuja): pegados desde afuera entran vacíos,
+ * copiados adentro del editor viajan enteros en el JSON del portapapeles.
+ */
+const ventaDe = (nombre: string, tag: string, attrs: (raw: unknown) => Record<string, unknown>) => Node.create<OpcionesNodo>({
+  name: nombre,
+  ...atomo,
+  addOptions: sinVista,
+  addAttributes() { return attrsSinParseo(attrs({})); },
+  parseHTML() { return [{ tag, getAttrs: (el) => attrsDelJson(el as HTMLElement, nombre) ?? attrs({}) }]; },
+  renderHTML({ node }) { return especificar(forma(nombre)(node.attrs)); },
+  addNodeView() { return this.options.vista; },
+});
+export const CuentaRegresiva = ventaDe(NODO.cuentaRegresiva, 'div.gm-cuenta', attrsCuentaRegresiva);
+export const PruebaSocial = ventaDe(NODO.pruebaSocial, 'div.gm-prueba', attrsPruebaSocial);
+export const Escasez = ventaDe(NODO.escasez, 'div.gm-escasez', attrsEscasez);
 
 export const HtmlLibre = Node.create<OpcionesNodo>({
   name: NODO.htmlLibre,

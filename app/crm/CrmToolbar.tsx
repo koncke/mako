@@ -43,6 +43,7 @@ import { BANDAS_KANBAN } from './filtros-guardados';
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { PasarAPro } from './PasarAPro';
+import { ancla } from '@/app/_ui/guia/ancla';
 
 const SANS = "'Geist', sans-serif";
 
@@ -236,7 +237,7 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
           perdían el filtro, la búsqueda y el scroll, y se releían los 1.142 leads —
           por un form de seis campos. Todo el resto del CRM ya son modales.
           La ruta sigue existiendo para un link directo; el form es el mismo. */}
-      <button type="button" onClick={onNuevo} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none', height: CTRL_H, padding: '0 18px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+      <button type="button" onClick={onNuevo} {...ancla('crm-nuevo')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none', height: CTRL_H, padding: '0 18px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: '#F3F5F8', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
         + Nuevo lead
       </button>
 
@@ -250,7 +251,7 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
       {/* El «⋯», el ÚLTIMO de la fila (punto 26). Su menú abre hacia la izquierda
           (`right: 0`), así que pegado al borde no se sale de la ventana. */}
       <span style={{ position: 'relative', flex: 'none', display: 'inline-flex' }}>
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Más acciones del CRM" aria-expanded={open}
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Más acciones del CRM" aria-expanded={open} {...ancla('crm-mas')}
           title="Importar, exportar y editar las etapas"
           // CTRL_H y no 38: ahora comparte la fila con los controles de 40 (era del header).
           style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: CTRL_H, height: CTRL_H, flex: 'none', borderRadius: 10, border: `1px solid ${open ? 'var(--primary)' : 'var(--border-strong)'}`, background: open ? 'var(--surface-2)' : 'var(--surface)', color: open ? 'var(--primary)' : 'var(--dim)', cursor: 'pointer', padding: 0 }}>
@@ -355,7 +356,7 @@ const BUSCAR_AYUDA = 'Buscar por nombre, empresa, email o teléfono. Para un lea
 
 export function Buscador({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div className="crm-tb-buscar" style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: '0 1 260px', minWidth: 110 }}>
+    <div className="crm-tb-buscar" {...ancla('crm-buscar')} style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: '0 1 260px', minWidth: 110 }}>
       <LupaIcon />
       <input
         value={value}
@@ -791,7 +792,7 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
   // el negocio, y un mismo dibujo repetido en cada renglón no distingue a ninguno (regla de
   // app/_ui/iconos-menu.tsx).
   return (
-    <span style={{ flex: 'none' }}>
+    <span {...ancla('crm-funnels')} style={{ flex: 'none' }}>
       <Dropdown
         value={String(actual.id)}
         options={opciones}

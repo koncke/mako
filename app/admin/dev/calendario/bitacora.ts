@@ -226,4 +226,20 @@ export const BITACORA: Hito[] = [
     revisar: '/calendario',
     tickets: [42],
   },
+  {
+    fecha: "5 nov", hora: "10:40", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo toma la iniciativa en el Calendario: «¿Tienes alguna llamada esta semana?» y la guía de la pestaña",
+    puntos: [
+      "Con Google conectado y la primera semana sin estrenar, la estrella pregunta un hecho; «Sí, tengo una» abre el alta de una llamada (la misma del «+» de Ventas). Sin Google no suma nada: ya salta el modal de conectar.",
+      "La guía de la pestaña: «Anotar una llamada», «Ver sólo lo tuyo» y «Moverte por las fechas», con sus anclas en la barra y en la leyenda. Espera al onboarding de la tab.",
+    ],
+    revisar: "/calendario",
+    archivos: [
+      "lib/aperturas/calendario.ts — la apertura, pura",
+      "app/calendario/guia-calendario.ts — el catálogo de la guía",
+      "app/calendario/CalendarioApp.tsx, app/calendario/page.tsx — el montaje, las anclas y el estado de la tab",
+      "tests/iniciativa-calendario.test.ts — probado rompiéndolo (3 roturas)",
+    ],
+  },
 ];

@@ -51,7 +51,7 @@ import {
   ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo,
 } from '@/lib/goteo';
 import { goteoDeHoy } from '@/lib/goteo';
-import { subidasPorAutomatizacion, topeEmailDeHoy } from '@/lib/goteo-db';
+import { subidasPorAutomatizacion, topeDeLineaDeHoy, topeDelPrimerDia } from '@/lib/goteo-db';
 import { responderADelNegocio } from '@/lib/email-dominio';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
@@ -779,7 +779,7 @@ export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqu
   }
   // EL HORARIO DE FÁBRICA, ANTES DE PRENDERLA (`naceConHorario`, lib/ritmo-al-activar.ts). No poder ponerlo no frena: queda el log.
   if (activa) {
-    const poner = async () => { if (await leTocaHorarioDeFabrica(id)) { const r = await guardarConfigAutomatizacion(id, { horario: HORARIO_SUGERIDO }); if (!r.ok) throw new Error(r.error); } };
+    const poner = async () => { if (await leTocaHorarioDeFabrica(id)) { const r = await guardarConfigAutomatizacion(id, { horario: HORARIO_SUGERIDO, horarioDeFabrica: true }); if (!r.ok) throw new Error(r.error); } };
     await (o.ws != null ? runWithWorkspace(o.ws, poner) : poner()).catch((e) => console.error(`[nutricion] activar la ${id}: no pude ponerle el horario de fábrica: ${e instanceof Error ? e.message : String(e)}`));
   }
   const { error } = await supabase
@@ -2010,8 +2010,9 @@ export async function ritmoAlActivar(secuenciaId: number, o: { incluirExistentes
   const liberados = new Set(borradores?.liberados);
   const parados = new Set([...(borradores?.liberados ?? []), ...(borradores?.siguenFrenados ?? [])]);
   const vencidasParadas = [...(borradores?.vencidas ?? [])].filter((id) => parados.has(id));
-  // La rampa del dominio desde HOY (4/11/2026): el tope de hoy y cuánto sube. Sin poder leerla, el del primer día (un piso).
-  const topes = limites === 'ilegible' ? null : await topesConRampa(limites, canal === 'email');
+  // La rampa de la línea desde HOY (la del dominio, 4/11/2026; la del número, 5/11/2026): el tope de hoy y cuánto sube. Sin
+  // poder leerla, el del primer día (un piso).
+  const topes = limites === 'ilegible' ? null : await topesConRampa(limites, canal);
   return avisoDeRitmo({
     personas: personas == null ? null : personas - entranFrenados, canal, goteo: config?.goteo, topes,
     // Cuántos emails tiene el flujo: con dos o más, el aviso dice la campaña entera (`fraseDeCampana`).
@@ -2031,20 +2032,27 @@ export async function ritmoAlActivar(secuenciaId: number, o: { incluirExistentes
 }
 
 /**
- * El tope de email de HOY del negocio del contexto, con la rampa del dominio (`topeEmailDeHoy`, lib/goteo-db.ts). Si no se puede
- * leer lo que ya mandó, el del primer día: es un piso, como en el motor. Lo usan el aviso al activar y `ver_limites_envio`.
+ * El tope de HOY de la línea del negocio del contexto, por canal y con su rampa (`topeDeLineaDeHoy`, lib/goteo-db.ts). Si no se
+ * puede leer lo que ya mandó, el del primer día: es un piso, como en el motor. Lo usan el aviso al activar, el «por qué no sale»
+ * (lib/por-que-no-sale-db.ts) y `ver_limites_envio`.
  */
-export async function topeEmailDeHoyDelNegocio(email: LimitesEnvio['email']): Promise<number> {
-  if (email.arranqueDia >= email.dia) return email.dia;
-  return topeEmailDeHoy(await getTenantDb(), email, await zonaParaArranque()).catch(() => Math.min(email.dia, email.arranqueDia));
+export async function topeDeHoyDelNegocio(canal: 'whatsapp' | 'email', tope: LimitesEnvio['wa'] | LimitesEnvio['email']): Promise<number> {
+  if (tope.arranqueDia >= tope.dia) return tope.dia;
+  return topeDeLineaDeHoy(await getTenantDb(), canal, tope, await zonaParaArranque()).catch(() => topeDelPrimerDia(tope));
 }
 
-/** Los topes de la línea para el aviso al activar, con la rampa del email desde hoy si la hay. */
-async function topesConRampa(limites: LimitesEnvio, conEmail: boolean): Promise<TopesDeLinea> {
-  const base: TopesDeLinea = { wa: limites.wa, email: { dia: limites.email.dia } };
-  if (!conEmail) return base;
-  const hoy = await topeEmailDeHoyDelNegocio(limites.email);
-  return hoy >= limites.email.dia ? base : { ...base, email: { dia: limites.email.dia, rampa: { dia: hoy, sube: limites.email.arranqueSube } } };
+/** Los topes de la línea para el aviso al activar, con la rampa de hoy del canal del primer mensaje, si la hay. */
+async function topesConRampa(limites: LimitesEnvio, canal: string | null | undefined): Promise<TopesDeLinea> {
+  const base: TopesDeLinea = { wa: { dia: limites.wa.dia, hora: limites.wa.hora }, email: { dia: limites.email.dia } };
+  if (canal === 'email') {
+    const hoy = await topeDeHoyDelNegocio('email', limites.email);
+    return hoy >= limites.email.dia ? base : { ...base, email: { dia: limites.email.dia, rampa: { dia: hoy, sube: limites.email.arranqueSube } } };
+  }
+  if (canal === 'whatsapp') {
+    const hoy = await topeDeHoyDelNegocio('whatsapp', limites.wa);
+    return hoy >= limites.wa.dia ? base : { ...base, wa: { ...base.wa, rampa: { dia: hoy, sube: limites.wa.arranqueSube } } };
+  }
+  return base;
 }
 
 /** Las inscripciones que el motor mueve al prenderla: los estados y el reloj de `procesarEnvios`. */
@@ -4370,21 +4378,33 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
   // propias, a las 30 h). Sin lo propio y sin el corte del horario, no se manda.
   if (limites === 'ilegible' || (configs === 'ilegible' && fueraDeHorario == null)) return { ...res, saltado: 'limites-ilegibles' };
   const configsCorrida: ReadonlyMap<number, ConfigAutomatizacion> = configs === 'ilegible' ? new Map() : configs;
-  const presupuesto = limites.wa.dia - (await enviosUltimas24h('whatsapp'));
+  const supabase = (await getTenantDb());
+  // ⚠️ CON LA RAMPA DE LA LÍNEA (5/11/2026, Black November de Leila; `topeDeLineaDeHoy`, lib/goteo-db.ts): el tope de WhatsApp de
+  // hoy arranca en 20 y sube cada día que llega, hasta el de la línea, por lo que SALIÓ (una línea que ya venía mandando sigue
+  // donde estaba). Se lee sólo si algo puede mandar un WhatsApp. Si no se puede leer lo que ya mandó, el del primer día: menos, nunca más.
+  const conWa = secuencias.some((s) => s.pasos.some((p) => claseDe(p) === 'mensaje' && !esPasoAccion(p) && canalDelGoteo(p.canal) === 'whatsapp'));
+  const topeWaHoy = conWa
+    ? await topeDeLineaDeHoy(supabase, 'whatsapp', limites.wa, await zonaParaArranque()).catch((e: unknown) => {
+      console.error(`[nutricion] la rampa de WhatsApp: ${e instanceof Error ? e.message : String(e)}`);
+      return topeDelPrimerDia(limites.wa);
+    })
+    : limites.wa.dia;
+  // La línea de WhatsApp de HOY: la de los límites, con el tope por día de la rampa.
+  const lineaWa = { ...limites.wa, dia: topeWaHoy };
+  const presupuesto = lineaWa.dia - (await enviosUltimas24h('whatsapp'));
   // Lo que ya salió en esta HORA, sólo para las corridas del cron (`cupoPorHora`).
   const enLaHora = opts?.cupoPorHora ? await enviosEnLaHora('whatsapp') : 0;
 
-  const supabase = (await getTenantDb());
   const porId = new Map(secuencias.map((s) => [s.id, s]));
   // EL EMAIL, CON SU PROPIO TOPE (decisión 5): las secuencias que mandan algún email siguen con el
   // cupo de WhatsApp cumplido, como las acciones, mientras quede tope de email.
   const conEmail = secuencias.filter((s) => s.pasos.some((p) => claseDe(p) === 'mensaje' && !esPasoAccion(p) && p.canal === 'email')).map((s) => s.id);
-  // ⚠️ CON LA RAMPA DEL DOMINIO (4/11/2026, `topeEmailDeHoy`, lib/goteo-db.ts): el tope de hoy arranca en 50 y sube cada
+  // ⚠️ CON LA RAMPA DEL DOMINIO (4/11/2026, `topeDeLineaDeHoy`, lib/goteo-db.ts): el tope de hoy arranca en 50 y sube cada
   // día que llega, hasta el de la línea. Si no se puede leer lo que ya mandó, el del primer día: manda menos, nunca más.
   const topeEmailHoy = conEmail.length
-    ? await topeEmailDeHoy(supabase, limites.email, await zonaParaArranque()).catch((e: unknown) => {
+    ? await topeDeLineaDeHoy(supabase, 'email', limites.email, await zonaParaArranque()).catch((e: unknown) => {
       console.error(`[nutricion] la rampa del email: ${e instanceof Error ? e.message : String(e)}`);
-      return Math.min(limites.email.dia, limites.email.arranqueDia);
+      return topeDelPrimerDia(limites.email);
     })
     : limites.email.dia;
   const presupuestoEmail = conEmail.length ? topeEmailHoy - (await enviosUltimas24h('email')) : 0;
@@ -4416,7 +4436,7 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
   // reserva queda sin usar: se manda MENOS, nunca más.
   const frescos = await entradasFrescas(supabase, opts?.soloLeadId ?? null);
   const cupoCampana = cupoDeCampana({
-    cupo, presupuesto, horaTope: limites.wa.hora, enLaHora, reserva: reservaParaEntradas(limites.wa), porHora: !!opts?.cupoPorHora,
+    cupo, presupuesto, horaTope: limites.wa.hora, enLaHora, reserva: reservaParaEntradas(lineaWa), porHora: !!opts?.cupoPorHora,
   });
   // ⚠️ Y EL GOTEO DE CADA AUTOMATIZACIÓN (22/10/2026, lib/goteo.ts): un SUB-tope adentro del de la línea, con sus
   // minutos entre envíos y su tope por día. UNO SOLO para todos los canales (24/10/2026, Martín, f21: «que valga para todos

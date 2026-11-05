@@ -19,10 +19,12 @@ import { CajaChat } from '@/app/_chat/CajaChat';
 import type { PropsCajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
-import type { ReactNode, RefObject } from 'react';
+import { useEffect, type ReactNode, type RefObject } from 'react';
 import { PanelDeChat, type CabeceraChat } from '@/app/admin/operaciones/PanelChat';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
+import { SUPERFICIE_WEB, type HechosWeb } from '@/lib/aperturas/web';
 import { CitaCaja } from '@/app/admin/operaciones/MensajeWA';
 import type { MensajeWA } from '@/lib/centro-mensajes';
 
@@ -63,4 +65,19 @@ export const CitaAgente = CitaCaja;
 /** La caja única, en su marco (`.co-caja`): lo que se escribe y se adjunta lo maneja el panel por props. */
 export function CajaAgente(p: PropsCajaChat) {
   return <div className="co-caja"><CajaChat {...p} /></div>;
+}
+
+/**
+ * MaKo toma la iniciativa en el editor (5/11/2026, lib/aperturas/web.ts): con la página sin publicar, «¿Ya está lista para que la
+ * vean?». Vive acá y no en el panel porque `AperturaMako` trae el hilo (y su CSS): el panel la carga con `next/dynamic` y sólo
+ * se entera, por `onHabla`, de si está hablando (para esconder el saludo y las sugerencias).
+ */
+export function AperturaAgente({ hechos, libre, onPublicar, onHabla }: {
+  hechos: HechosWeb; libre: boolean; onPublicar: () => void; onHabla: (habla: boolean) => void;
+}) {
+  const estado = useApertura({ superficie: SUPERFICIE_WEB, hechos, libre });
+  const habla = !!estado.apertura;
+  useEffect(() => { onHabla(habla); return () => onHabla(false); }, [habla, onHabla]);
+  if (!estado.apertura) return null;
+  return <AperturaMako estado={estado} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} acciones={{ publicar: onPublicar }} />;
 }

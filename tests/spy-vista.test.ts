@@ -102,7 +102,19 @@ test('«Más vistas» ordena por vistas y deja al final lo que no publica el nú
   const lista = [v('oculto', null, '2026-10-30T00:00:00Z', 900), v('chico', 50, '2026-10-01T00:00:00Z'), v('viral', 90_000, '2026-01-01T00:00:00Z')];
   assert.deepEqual(ordenarPiezas(lista, 'mas-vistas').map((x) => x.id), ['viral', 'chico', 'oculto'], '«no lo publica» no es «nadie lo vio»: va al final, no al principio');
   assert.deepEqual(ordenarPiezas(lista, 'mas-reciente').map((x) => x.id), ['oculto', 'chico', 'viral']);
-  assert.deepEqual(ORDENES.map((o) => o.label), ['Más vistas', 'Más reciente']);
+  assert.deepEqual(ORDENES.map((o) => o.label), ['Más vistas', 'Más reciente', 'Mejor rendimiento']);
+});
+
+test('«Mejor rendimiento» ordena por el múltiplo (lo que publica, después los anuncios, al final lo que no tiene número) y el mínimo filtra', () => {
+  const v = (id: number, vistas: number | null) => ({ id, vistas, megusta: null, publicada_en: '2026-10-01T00:00:00Z', visto_primera_vez: '2026-10-01T00:00:00Z' });
+  const lista = [v(1, 900), v(2, 50), v(3, 10), v(4, 10_000)];
+  const m = new Map<number, { veces: number | null; formato: string | null }>([
+    [1, { veces: 1.2, formato: 'corto' }], [2, { veces: 3.7, formato: 'corto' }], [3, { veces: 5, formato: 'anuncio' }], [4, { veces: null, formato: 'corto' }],
+  ]);
+  assert.deepEqual(ordenarPiezas(lista, 'mejor-rendimiento', m).map((x) => x.id), [2, 1, 3, 4], 'un anuncio de 5× activo no pasa delante de lo publicado');
+  const conTipo = lista.map((x) => ({ ...x, canal: 'instagram' as const, tipo: 'reel' as const, duracion: null, titulo: null, texto: null }));
+  assert.deepEqual(filtrarPiezas(conTipo, '', 'todo', 2, m).map((x) => x.id), [2, 3], 'lo que no tiene número no pasa un piso');
+  assert.equal(filtrarPiezas(conTipo, '', 'todo', 0, m).length, 4);
 });
 
 test('cada pieza cae en UN tipo de contenido: reels, carruseles, videos largos y Shorts', () => {
