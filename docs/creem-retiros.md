@@ -92,3 +92,22 @@ Sí, según su documentación, aunque no está visto en la práctica porque hay 
 - Evidencia sin claves: C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/4d1a09d4-c870-4075-94b3-7d1450a71bcc/scratchpad/recibos/medicion-base.json
 - Evidencia sin claves: C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/4d1a09d4-c870-4075-94b3-7d1450a71bcc/scratchpad/recibos/medicion-pasarelas.json
 - Evidencia sin claves: C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/4d1a09d4-c870-4075-94b3-7d1450a71bcc/scratchpad/recibos/medicion-mp-direccion.json
+
+## El alta, medida en el panel y en la documentación (5/11/2026, de noche)
+
+**El borrador está a nombre de Leandro, como persona,** con los datos que Meta ya verificó. Los pasos 1 a 3 están guardados. El 4 son cuatro declaraciones y «Submit for review». **Se envió el 5/11/2026 por pedido textual de Martín** («manda cuanto antes la revisión»), con AI Avatar declarado en la descripción: «si no, nos vamos a otro».
+
+**La moderación anda con la tienda sin aprobar:** una llamada real con la clave de producción contestó 200, `allow`, 1 unidad. Era lo que la nube no pudo probar.
+
+**Lo que puede frenar la revisión, leído en la documentación de Creem** (account-reviews y ai-wrapper-compliance):
+- **Prohibido:** «Face-swap, deepfake, and face-manipulation tools of any kind». AI Avatar genera videos nuevos de una persona real hablando. Nadie de MaKo puede contestar si entra ahí: lo contesta Creem, y su documentación dice que, ante la duda, se le pregunte antes de vender.
+- **Restringido:** servicios de cualquier tipo (el Acelerador), IA generativa y software B2B de generación de leads. Los tres piden datos de la pasarela anterior, tasa de contracargos y motivo del cambio, y «un historial probado». MaKo no tiene historial: 0 cobros por pasarela.
+- **También en la lista de prohibidos:** herramientas que bajan contenido de terceros violando sus términos («Instagram downloaders») y de abuso de plataformas. Mirar Spy y la línea no oficial de WhatsApp con esa lupa si Creem pregunta.
+- **Un rechazo es definitivo para esa tienda,** y la casilla del paso 4 dice que no se revisa otra vez por 3 meses. «Changes requested» es otra cosa y sí se puede volver a pedir.
+- **La regla de «no fake reviews, testimonials or inflated counts»** es del checklist. El reloj del 50 % no se nombra, pero un reinicio en otro navegador se parece a eso.
+
+**Lo que queda en el panel:** 2 de 3. Falta «Verify my identity» (documento y selfie), y eso lo hace sólo Leandro. Después, la cuenta de retiro a su nombre. El producto «MaKo Esencial» está creado para probar el link, y MaKo crea los suyos solos al cobrar.
+
+**Trampa del formulario:** «About» y «Product details» borran paréntesis y punto y coma sin avisar: hay que escribir sin ellos y releer el valor guardado.
+
+**Si Creem rechaza:** Martín no se queda peleando. Las alternativas ya medidas están en `docs/estrategia-financiera-mako.md`: Paddle (5 % + 50 ¢, la más grande) y Dodo, Polar o dLocal Go. Mercado Pago sigue para Argentina.
