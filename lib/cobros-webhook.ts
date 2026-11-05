@@ -444,7 +444,7 @@ export async function aplicarNotificacionMp(ws: number, l: LecturaMp, cuenta: st
   const { pago, plan } = que;
   if (plan.accion === 'aprobado') {
     // La renovación (otra cuota de la suscripción) entra con el id de ESE pago: es otra cuota del CRM.
-    const r = await aplicarPagoAprobado(c, { proveedorPagoId: pago.id, monto: pago.monto, moneda: pago.moneda, suscripcionId: pago.preapprovalId, pagadoAt: pago.fecha, cobrado: { monto: pago.monto, moneda: pago.moneda } });
+    const r = await aplicarPagoAprobado(c, { proveedorPagoId: pago.id, monto: pago.monto, moneda: pago.moneda, cobrado: { monto: pago.monto, moneda: pago.moneda }, suscripcionId: pago.preapprovalId, pagadoAt: pago.fecha });
     if (plan.reembolsoParcial) await aplicarReembolso(c, { proveedorPagoId: pago.id, total: false });
     invalidarLecturas();
     return procesado(c.id, plan.reembolsoParcial ? 'reembolso parcial' : r.renovacion ? 'renovación' : r.nuevo ? null : 'ya estaba pagado');
