@@ -96,7 +96,7 @@ const NOMBRES_DEL_PUENTE: ReadonlyArray<[RegExp, string]> = [
 // ── 1. Los archivos ───────────────────────────────────────────────────────────
 
 test('los archivos del puente no están: ni en git ni en el disco, y no hay otro `zapier-*` en lib', () => {
-  const indice = new Set(execFileSync('git', ['ls-files'], { cwd: RAIZ, encoding: 'utf8' }).split(/\r?\n/));
+  const indice = new Set(execFileSync('git', ['ls-files'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 50_000_000 }).split(/\r?\n/));
   for (const f of ARCHIVOS_DEL_PUENTE) {
     assert.equal(existsSync(join(RAIZ, f)), false, `volvió ${f} (está en el disco)`);
     assert.equal(indice.has(f), false, `volvió ${f} (está en git)`);
