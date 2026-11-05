@@ -91,7 +91,7 @@ test('3. cómo cobra se PROPONE desde el precio y se guarda recién con el toque
   assert.equal(etapaDeArranque(trasPdf, { ...H, cobroLeido: null }), 'fase', 'sin precio dicho, no se pregunta');
   const ultimo = mensajesDeArranque(trasPdf, conPrecio).despues.at(-1)!;
   // Las opciones son todas las lecturas, con la leída primera (novena revisión; tests/onboarding-novena-revision.test.ts).
-  assert.equal(ultimo.texto, 'Entendí que cobras así: «Suscripción de 6 meses». ¿Lo cargo así?');
+  assert.equal(ultimo.texto, 'Entendí que cobras así: «Suscripción de 6 meses». ¿Es así?');
   assert.deepEqual(ultimo.opciones, ['Suscripción de 6 meses', COBRO_UNICO, COBRO_MENSUAL]);
   assert.deepEqual(responder(trasPdf, { opcion: 0, opcionTexto: 'Suscripción de 6 meses' }, conPrecio), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 6 } } });
   assert.deepEqual(responder(trasPdf, { texto: 'sí' }, conPrecio), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 6 } } }, 'un sí elige la leída');
