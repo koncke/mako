@@ -857,18 +857,18 @@ export const RUNNERS: Runners = {
       const canal = input.canal == null || input.canal === '' ? 'whatsapp' : input.canal;
       if (!esPlantillaRecibo(plantilla)) return { error: 'Esa plantilla no existe: clasico, compacto o marca.' };
       if (!esCanalRecibo(canal)) return { error: 'El recibo sale por whatsapp, email o grupo.' };
-      const pagoId = input.pagoId == null ? null : Number(input.pagoId);
+      const cuotaId = input.cuotaId == null ? null : Number(input.cuotaId);
       const nombre = PLANTILLAS_RECIBO.find((x) => x.id === plantilla)?.nombre ?? plantilla;
       return {
-        payload: { leadId: lead.id, plantilla, canal, pagoId },
-        resumen: `Emitir el recibo de ${pagoId ? `la cuota #${pagoId}` : 'la última cuota cobrada'} de ${lead.nombre} con la plantilla «${nombre}» y mandarlo ${ROTULO_CANAL_RECIBO[canal].toLowerCase()}. No se deshace.`,
+        payload: { leadId: lead.id, plantilla, canal, cuotaId },
+        resumen: `Emitir el recibo de ${cuotaId ? `la cuota #${cuotaId}` : 'la última cuota cobrada'} de ${lead.nombre} con la plantilla «${nombre}» y mandarlo ${ROTULO_CANAL_RECIBO[canal].toLowerCase()}. No se deshace.`,
       };
     },
     ejecutar: (payload, ctx) => seguro('emitir el recibo', async () => {
       const { emitirReciboDelLead } = await import('@/lib/recibos-negocio');
       const leadId = Number(payload.leadId);
       const r = await emitirReciboDelLead(ctx.ws, leadId, {
-        pagoId: payload.pagoId == null ? null : Number(payload.pagoId), plantilla: payload.plantilla as never, canal: payload.canal as never, autor: autorDe(ctx),
+        pagoId: payload.cuotaId == null ? null : Number(payload.cuotaId), plantilla: payload.plantilla as never, canal: payload.canal as never, autor: autorDe(ctx),
       });
       if (!r.ok) return { ok: false, resumen: r.error };
       if (!r.yaEstaba) await logLeadEvent(leadId, 'Recibo de pago', r.resumen, autorDe(ctx));

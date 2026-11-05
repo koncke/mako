@@ -438,9 +438,10 @@ export const DEFS: readonly OperacionDef[] = [
       leadId('id del lead que pagó.'),
       { nombre: 'plantilla', rotulo: 'Plantilla', tipo: 'string', enum: ['clasico', 'compacto', 'marca'], descripcion: 'clasico (completo), compacto (una hoja corta) o marca (con una franja con el nombre del negocio). Sin valor, clasico.' },
       { nombre: 'canal', rotulo: 'Por dónde sale', tipo: 'string', enum: ['whatsapp', 'email', 'grupo'], descripcion: 'whatsapp o email: al lead; grupo: al grupo de MaKo del negocio. Sin valor, whatsapp.' },
-      { nombre: 'pagoId', rotulo: 'Cuota', tipo: 'number', entero: true, minimo: 1, descripcion: 'el id de la cuota cobrada (de cobranza_lead). Sin valor, la última cobrada.' },
+      { nombre: 'cuotaId', rotulo: 'Cuota', tipo: 'number', entero: true, minimo: 1, descripcion: 'el id de la cuota cobrada (el pagoId de cobranza_lead). Sin valor, la última cobrada.' },
     ],
     canales: ['whatsapp', 'app'], costo: 'gratis', gating: G_TAB,
+  },
   // Admin › Revenue por chat (5/11/2026; Martín: «¿Cuánto es lo que me pagaron totalmente? ¿Cuánto me van pagando mes a mes?»).
   // Lo MISMO que la pantalla (lib/admin-ingresos.ts). Sólo la plataforma y, en la app, el super admin global (el runner lo
   // pregunta); sin HTTP: son datos de todos los negocios. AL FINAL del área y sin las palabras de las demás (AGENTS.md).
