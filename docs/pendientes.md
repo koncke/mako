@@ -67,7 +67,7 @@ Del `pendientes-30-10.md`, sección 5. Todo esto es de **Leila para Black Novemb
 |---|---|---|
 | El segundo nombre y Black November | CRM | recién arrancado |
 | El WhatsApp en el checkout, junto al nombre y el email | Planes (con Ops Center) | Martín lo pidió el 31/10 y **revierte** mi decisión de pedirlo después de pagar |
-| La pasarela **Creem** (tercera pasarela, LatAm y USD) | nube | la clave de producción ya está y **funciona**; falta el secreto del webhook |
+| La pasarela **Creem** (tercera pasarela, LatAm y USD) | Martín | clave y aviso listos; la tienda sin aprobar (5/11: 0 de 3 pasos), ver [creem-retiros.md](creem-retiros.md) |
 | **Competitors Spy**: plan y qué repo copiar | nube | arrancado |
 | **El diseño de los dashboards aplicado** (las 8 piezas del Dashboard) | nube | arrancado |
 | El tope del chequeo y por qué 1.028 archivos no ejecutaban | nube | **cerrado**, en el tren |

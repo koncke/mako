@@ -1,5 +1,15 @@
 # Relevo del Cerebro
 
+## 5/11/2026, ~20:15 UTC (17:15 ART): recibos y Creem
+
+**Salieron los recibos N.º 0001 (octubre) y N.º 0002 (noviembre)** a Código, por WhatsApp y por correo. Entregados. El próximo es el 0003. Comprobantes, PDF y `registro.json` en `C:/dev/cerebro-herramientas/cobros/codigo-inmobiliario/`, para cargarlos cuando exista el registro.
+
+**La plantilla y el registro en SuperAdmin:** encargo listo en `docs/relevo/recibos-encargo.md`, sin chat arrancado. Lo tiene que arrancar un turno de Martín: desde un turno automático la app no deja. También esperan los dos chats de Thiago (guía de migración y token; «Usar en un anuncio» y «Guardar en MaKo»).
+
+**Creem:** la 0358 quedó aplicada el 5/11. La tienda está en 0 de 3 pasos, y le toca a Martín: `docs/creem-retiros.md`.
+
+---
+
 ## 5/11/2026, ~18:15 UTC (15:15 ART): el diferencial de Código
 
 Martín cambió la regla: por cada cliente nuevo se pagan sus días hasta el próximo 5, aparte y por adelantado (detalle en `docs/hallazgos-agencias.md`). Código pagó noviembre el 5/11.

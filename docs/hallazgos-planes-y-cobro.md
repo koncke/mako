@@ -2206,3 +2206,21 @@ La decisión y sus motivos: [estrategia-lanzamiento-low-to-high.md](estrategia-l
 **Lo que corta hoy:** `usuarios.estado='suspendido'` (`lib/auth.ts:55`). Pablo y Patricia quedaron así el 5/11 (usuarios 19 y 22, que eran `activo`, y 15, que era `invitado`). Corta a la persona, no al negocio: la agencia igual puede entrar a inspeccionar.
 
 **Sin hacer:** el motivo de corte «Paga para entrar», que tiene que cortar con el corte global apagado y frenar también al inspeccionar. Lo arma el chat en la nube de `punta/agencia-cobro`. Tiene que estar antes del 9/11, cuando Pablo arranca campañas.
+
+## «Creem está conectado» no quería decir que pudiera cobrar (5/11/2026)
+
+**Síntoma:** Martín: «con Mercado Pago ya recibo el dinero sin problemas, pero todavía no sé cómo recibir el dinero de Creem». Lo obvio era que faltaba configurar el retiro. Era cierto, pero faltaban tres cosas antes:
+
+1. **La migración que deja entrar a Creem en la base nunca se aplicó.** Hubo dos `0358`: se aplicó la de Competitors Spy y «falta la 0358» dejó de nombrar a la de cobros (`docs/hallazgos-infra.md`). Sin ella, `crearCobro` choca con el CHECK y quien le tocara Creem veía «No pudimos abrir el pago». `scripts/verificar-migraciones-aplicadas.mjs` no la detecta: mira nombres, y una restricción ensanchada conserva el nombre. Aplicada el 5/11, medida antes y después.
+2. **La tienda no está aprobada.** Panel de Creem el 5/11: 0 de 3 pasos, sin detalles del negocio, sin KYC y sin revisión. Sin eso no se cobra en vivo ni se retira. **La API no lo dice:** tener clave real y aviso habilitado no prueba nada. Sólo se ve en el panel.
+3. **No hay nada que retirar:** 0 ventas, 0 clientes y 0 productos en Creem.
+
+**Mercado Pago tampoco está probado de punta a punta.** La cuenta está lista, pero por MaKo hay 2 cobros pendientes y 0 pagados. Parecían cobros 22 pagos aprobados de su cuenta, y en todos el cobrador es otra cuenta.
+
+**La regla:** antes de decir que una pasarela cobra, se mira `cobros` con `pagado_at` y un evento real en `pasarela_eventos`. Lo de la plata de Creem (mínimo US$50, retiros a mano el 1 y el 15, comisiones) está en [creem-retiros.md](creem-retiros.md).
+
+**Sin hacer:**
+- Mientras Creem no se apruebe, a un comprador de LATAM fuera de Argentina `pasarelasDelPais` igual le ofrece Creem. Sin medir qué ve: no se hizo ningún POST de compra.
+- Creem pide Moderation API a quien genera imagen o video desde un prompt y una política de uso visible, y prohíbe la manipulación de rostros. MaKo no tiene ninguna de las dos cosas y tiene AI Avatar. Puede frenar la revisión: lo contesta soporte de Creem.
+- La plantilla de recibos: encargo completo en [relevo/recibos-encargo.md](relevo/recibos-encargo.md).
+- El comentario de `lib/credenciales.ts:808` dice que `CREEM_API_KEY` está en `.env.local`, y no está.
