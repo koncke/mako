@@ -25,9 +25,37 @@ export const PARTES: Parte[] = [
   { titulo: 'El primer cobro real, de punta a punta', detalle: 'Aplicar la migración 0255 y conectar la cuenta de MaKo en /integraciones del workspace de la plataforma', estado: 'cola' },
   { titulo: 'Revisar /terminos y /reembolsos', detalle: 'Quedaron en BORRADOR de mínima: plazo de respuesta, garantía del grupal y cancelar sin escribir los decide Martín', estado: 'cola' },
   { titulo: '«Pagos» en el CRON de Automations', detalle: 'Botón propio (grilla 4+3) con aprobado · rechazado · reembolsado · suscripción cancelada, y el aviso al dueño. Fase 2, después del commit de Automations', estado: 'cola' },
+  { titulo: 'El recibo de cada pago, por correo y WhatsApp', detalle: 'Libro con número (mig 0397) · PDF determinista · correo de MaKo con el PDF · al grupo del negocio · la red del cron · devolución y contracargo · «Cargar pago» para Binance · Customers › Billing › Recibos. Falta aplicar la 0397 y cargar 0001 y 0002', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
+  {
+    fecha: '5 nov', hora: '—', chat: 'Recibos y la tarjeta Pagos (nube)', sesion: 'cli_c5ed70d4-0cef-5e9e-8637-8606741b3ad5', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que cada compra tenga su recibo, por correo y por WhatsApp, y quede registrado',
+    pedido: 'es súper importante que hagas un template que eso se envíe siempre por email de los recibos de compra. En este caso también por WhatsApp, que se envíe básicamente los recibos de las compras que van haciendo. Ya tenemos con Mercado Pago o con la otra que tenemos Creem. Entonces es súper importante que los usuarios puedan comenzar a recibir sus facturas. [...] me gustaría que todo esto lo vayamos evidentemente guardando dentro de la aplicación, dentro de SuperAdmin tal vez, para que tengamos un registro.',
+    puntos: ['El encargo, con el diseño y sus agujeros: docs/relevo/recibos-encargo.md (lo escribió el Cerebro con tres revisores).'],
+  },
+  {
+    fecha: '5 nov', hora: '—', chat: 'Recibos y la tarjeta Pagos (nube)', sesion: 'cli_c5ed70d4-0cef-5e9e-8637-8606741b3ad5', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El libro de recibos: número sin huecos, el monto que cobró la pasarela y el PDF que de verdad salió',
+    puntos: [
+      '**El número lo da la base** (`emitir_recibo`, mig 0397): candado, «ya estaba» sólo si TODOS los pagos ya están en ese recibo, totales por moneda calculados ahí. Probada en un Postgres de verdad (scripts/probar-0397-pglite.mjs).',
+      '**El monto es lo que cobró la pasarela, releído** (`cobradoEnLaPasarela`): un cupón o el 50% del primer mes ya no imprimen el precio de lista.',
+      '**Sale al final del pago**, después del aviso «Entró un pago»: correo de MaKo con el PDF (uno por persona, con su clave de Resend) y al grupo del negocio, sin el monto en el pie.',
+      '**Lo que no es de la pasarela** (Binance) se carga en Customers › Billing › Recibos, con la foto del comprobante. Es un recibo de pago: dice que no es una factura fiscal.',
+    ],
+    archivos: [
+      'supabase/migrations/0397_recibos.sql — el libro, `emitir_recibo` y `recibos_que_faltan`',
+      'lib/recibos.ts — emitir, mandar, la red, devolución, anulación, «Cargar pago»',
+      'lib/recibos-reglas.ts — a quién le llega, los textos, la máquina de estados',
+      'lib/recibo-pdf.ts — la plantilla del 0001 y el 0002, determinista',
+      'app/admin/cobros/RecibosMako.tsx y CargarPago.tsx — el registro en SuperAdmin',
+      'scripts/recibos-cargar-codigo.mts — carga 0001 y 0002 sin mandar nada',
+    ],
+    revisar: '/customers?tab=billing',
+  },
   {
     fecha: '11 oct', hora: '—', chat: '—', cuenta: 'claude3',
     actor: 'martin', tipo: 'prompt',

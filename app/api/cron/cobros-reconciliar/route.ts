@@ -22,7 +22,8 @@
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { runWithWorkspace } from '@/lib/workspace';
-import { asegurarPlazosCreem, mantenerAvisosCreem, mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
+import { asegurarPlazosCreem, cobradoEnLaPasarela, getCobro, mantenerAvisosCreem, mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
+import { despacharPendientes, recibosQueFaltan } from '@/lib/recibos';
 import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
 import { aplicarSubidasPendientes } from '@/lib/agencia-plan';
@@ -104,6 +105,21 @@ export async function GET(req: NextRequest) {
     if (subidas.subidas || subidas.errores) console.log(`[cron:cobros-reconciliar] subidas a Pro de clientes de agencia: ${JSON.stringify(subidas)}`);
   }
 
+  // LOS RECIBOS (5/11/2026, lib/recibos.ts): la red. Emite los pagos de la plataforma que quedaron sin recibo (el monto se relee a la
+  // pasarela) y manda lo que quedó pendiente. Después de la agencia, con la misma reserva; nunca corta la respuesta. Sin la mig 0397,
+  // no hace nada.
+  let recibos: { emitidos: number; errores: number; despachados: number; devoluciones: number } | { error: string } | null = null;
+  if (Date.now() - t0 < maxDuration * 1000 - RESERVA_MS) {
+    const hasta = t0 + maxDuration * 1000 - RESERVA_MS;
+    recibos = await (async () => {
+      const faltan = await recibosQueFaltan({ hasta, leerCobro: getCobro, releer: cobradoEnLaPasarela });
+      const pendientes = await despacharPendientes({ hasta });
+      return { emitidos: faltan.emitidos, errores: faltan.errores, ...pendientes };
+    })().catch((e) => ({ error: msg(e) }));
+    if ('error' in recibos) console.warn('[cron:cobros-reconciliar] recibos:', recibos.error);
+    else if (recibos.emitidos || recibos.errores || recibos.despachados || recibos.devoluciones) console.log(`[cron:cobros-reconciliar] recibos: ${JSON.stringify(recibos)}`);
+  }
+
   // QUIEN DEJA DE PAGAR SU LUGAR DEJA DE ENTRAR (17/10/2026, lib/plan-acceso.ts): DESPUÉS de reconciliar, para decidir con
   // los pagos ya asentados. Sólo negocios con un cobro de la plataforma; con tope por corrida; nunca corta la respuesta.
   let accesos: Awaited<ReturnType<typeof revisarAccesosPorPago>> | { error: string } | null = null;
@@ -121,5 +137,5 @@ export async function GET(req: NextRequest) {
   const partners = Date.now() - t0 < maxDuration * 1000 - RESERVA_MS ? await acreditarReferidos().catch((e) => ({ error: msg(e) })) : null;
   if (partners && 'acreditados' in partners && (partners.atados || partners.acreditados)) console.log(`[cron:cobros-reconciliar] MaKo Partners: ${JSON.stringify(partners)}`);
 
-  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, accesos, retencion, partners, ms: Date.now() - t0 });
+  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, recibos, accesos, retencion, partners, ms: Date.now() - t0 });
 }

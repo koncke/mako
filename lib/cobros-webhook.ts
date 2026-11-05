@@ -444,7 +444,7 @@ export async function aplicarNotificacionMp(ws: number, l: LecturaMp, cuenta: st
   const { pago, plan } = que;
   if (plan.accion === 'aprobado') {
     // La renovación (otra cuota de la suscripción) entra con el id de ESE pago: es otra cuota del CRM.
-    const r = await aplicarPagoAprobado(c, { proveedorPagoId: pago.id, monto: pago.monto, moneda: pago.moneda, suscripcionId: pago.preapprovalId, pagadoAt: pago.fecha });
+    const r = await aplicarPagoAprobado(c, { proveedorPagoId: pago.id, monto: pago.monto, moneda: pago.moneda, suscripcionId: pago.preapprovalId, pagadoAt: pago.fecha, cobrado: { monto: pago.monto, moneda: pago.moneda } });
     if (plan.reembolsoParcial) await aplicarReembolso(c, { proveedorPagoId: pago.id, total: false });
     invalidarLecturas();
     return procesado(c.id, plan.reembolsoParcial ? 'reembolso parcial' : r.renovacion ? 'renovación' : r.nuevo ? null : 'ya estaba pagado');
@@ -537,6 +537,8 @@ export async function procesarEventoCreem(ws: number, ev: EventoCreem, cuenta: s
         await aplicarPagoAprobado(cobro, {
           proveedorPagoId: ultima.id, monto: ultima.monto ?? undefined, moneda: ultima.moneda ?? undefined,
           pagadoAt: ultima.fecha ?? undefined, suscripcionId: susId, autor: `Creem · ${ev.tipo}`,
+          // El RECIBO dice lo que pagó la persona (`amount_paid`, con el impuesto aparte): lib/recibos.ts. La cuota sigue con `monto`.
+          cobrado: { monto: ultima.montoPagado ?? ultima.monto, moneda: ultima.moneda, impuesto: ultima.impuesto },
         });
         invalidarLecturas();
         return procesado(cobro.id);

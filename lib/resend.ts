@@ -199,7 +199,11 @@ export function linkBajaTickets(usuarioId: number): string {
   return `${APP_BASE_URL}/api/email/unsubscribe/tickets?u=${usuarioId}&t=${tokenBajaTickets(usuarioId)}`;
 }
 
-export type SendEmailResult = { ok: true; id: string } | { ok: false; error: string };
+/**
+ * `status` y `nombre` (el `name` del error de Resend) viajan en un fallo para distinguir los dos 409 de la idempotencia
+ * (5/11/2026, los recibos): `concurrent_idempotent_requests` se reintenta; `invalid_idempotent_request` (otro cuerpo) no.
+ */
+export type SendEmailResult = { ok: true; id: string } | { ok: false; error: string; status?: number; nombre?: string };
 
 export type SendEmailParams = {
   to: string | string[];
@@ -213,6 +217,12 @@ export type SendEmailParams = {
   scheduledAt?: string; // ISO 8601 o lenguaje natural ("in 1 hour")
   /** Los adjuntos, en base64 (17/10/2026: el composer de Chats, lib/chats-email.ts). Resend acepta hasta 40 MB por email. */
   attachments?: Array<{ filename: string; content: string }>;
+  /**
+   * La cabecera HTTP `Idempotency-Key` de Resend (5/11/2026, los recibos: lib/recibos.ts). Dura 24 h: el mismo pedido con la misma
+   * clave devuelve lo de antes y NO manda otro correo; con OTRO cuerpo contesta 409. Con ella el pedido corta a los 15 s
+   * (`AbortSignal.timeout`): un correo que se cuelga no puede frenar lo que viene después de un pago.
+   */
+  idempotencyKey?: string;
 };
 
 // Envía un email por Resend. NO chequea el flag de envío del workspace — eso lo
@@ -263,9 +273,11 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       headers: {
         Authorization: `Bearer ${key}`,
         'Content-Type': 'application/json',
+        ...(params.idempotencyKey ? { 'Idempotency-Key': params.idempotencyKey.slice(0, 256) } : {}),
       },
       body: JSON.stringify(payload),
       cache: 'no-store',
+      ...(params.idempotencyKey ? { signal: AbortSignal.timeout(15_000) } : {}),
     });
     const text = await res.text();
     let body: unknown = text;
@@ -275,7 +287,8 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       const msg = typeof body === 'object' && body && 'message' in body
         ? String((body as { message?: unknown }).message)
         : (typeof body === 'string' ? body.slice(0, 200) : `Resend ${res.status}`);
-      return { ok: false, error: msg };
+      const nombre = typeof body === 'object' && body && 'name' in body ? String((body as { name?: unknown }).name) : undefined;
+      return { ok: false, error: msg, status: res.status, ...(nombre ? { nombre } : {}) };
     }
     const id = typeof body === 'object' && body && 'id' in body ? String((body as { id?: unknown }).id) : '';
     if (!id) return { ok: false, error: 'Resend no devolvió id' };
