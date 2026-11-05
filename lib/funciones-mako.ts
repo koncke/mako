@@ -70,6 +70,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Corregir los datos de tu negocio en el mapa: en «La oferta» → «El brief», el precio, qué incluye y el horario de tu oferta principal (tocas el dato y lo corriges); en «La oferta» → «La oferta», tus ofertas; en «Productos», el catálogo con su precio',
       'Hablar primero: la primera vez te pregunta qué te falta (hoy, conectar tu IA), con botones que andan sin la app',
       'Enseñarte la pestaña señalando, con el resto un poco opaco y el chat a la vista (el «?» de arriba)',
+      // 5/11/2026 (llamada con Leila del 30/10): el nombre, el de la pantalla («Voz y cara» → «Marca», lib/secciones-negocio.ts).
+      'Tu marca, en «Voz y cara» → «Marca»: subes tu manual de marca (PDF o imagen), MaKo saca tus colores, tus fuentes y tu logo y tú lo confirmas; varios kits (una agencia, uno por cliente) y uno por defecto, que usan Image, Video y Web Generator',
       // El coach ÚNICO desde el 4/11/2026 (Martín: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach"»).
       '«Funnel Coach»: un chat que primero trabaja tu oferta y la guarda, y después elige cómo conseguir clientes, calcula el presupuesto de anuncios y guarda el plan. Aconseja inspirado en un referente (Hormozi, de fábrica; lo cambias tocando su cara), y tus conversaciones de oferta cuelgan de él',
     ],
@@ -276,11 +278,13 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Una biblioteca de ejemplos, la misma para todos los negocios: carruseles públicos de Instagram de una lista de cuentas y de temas (hashtags), cada uno con su @creador y el link al original; se ve aunque no sigas a nadie',
       'Carruseles de MaKo por tipo (lista, paso a paso, historia, antes y después, mito vs. realidad, opinión, caso con números, preguntas): la estructura con una guía en cada lámina y el nombre del negocio, y «Ver ejemplo» con un negocio ficticio',
       'Hacer el mío: un carrusel nuevo con la ESTRUCTURA de uno de las cuentas que sigues (tipo, láminas, con qué abre y qué pide al final), nunca sus palabras',
+      // 5/11/2026: los kits de marca del Second Brain (lib/marca/kits.ts).
+      'Tu marca en cada diseño: los carruseles de MaKo salen con tus colores, tus fuentes y tu logo, y el chat los usa (con varios kits, eliges cuál); «Discutir» te contesta sin tocar el diseño',
     ],
     noHace: ['No baja ni muestra bibliotecas de carruseles de otras apps: sólo los de las cuentas que sigues y la biblioteca de ejemplos, leída de Instagram directo', 'Un negocio no edita la biblioteca de ejemplos: la edita la plataforma', 'Todavía no: escribir con IA el texto de cada lámina de un carrusel (trae guías)', 'Todavía no: pedirle fotos a un banco de imágenes'],
     reemplaza: 'Canva',
     // Carousels se retiró el 29/10/2026: un carrusel es una plantilla de «Nuevo diseño» (app/_crear/PantallaCrear.tsx).
-    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels', 'carruseles que funcionan', 'outlier', 'topcarousels', 'hacer el mío', 'biblioteca de ejemplos', 'ejemplos de carruseles'],
+    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels', 'carruseles que funcionan', 'outlier', 'topcarousels', 'hacer el mío', 'biblioteca de ejemplos', 'ejemplos de carruseles', 'brand kit', 'kit de marca'],
     conecta: [{ a: 'market-an', motivo: 'Los carruseles que funcionan salen de las cuentas que sigues en Competitors Spy' }],
     estado: 'parcial', slugDev: 'image-editor', fuentes: [AREAS, 'AGENTS.md'],
   },

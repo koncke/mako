@@ -378,4 +378,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: "5 nov", hora: "11:10", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo toma la iniciativa en el Video Editor: «¿Lo van a ver sin sonido?» antes que las píldoras",
+    puntos: [
+      "Con un video con voz, sin subtítulos y la charla vacía, el chat pregunta un hecho; «Sí, en el feed» corre el mismo motor que el botón de Subtítulos (Whisper en el navegador, sin la app de escritorio también) y dice el resultado; «No, con sonido» no vuelve para ese proyecto.",
+      "Mientras la apertura habla, las píldoras de siempre se esconden: un paso por pantalla.",
+      "Falta: «¿Ya grabaste tu video?» con la línea vacía (abrir la biblioteca desde el chat) y la guía de la pestaña (anclas en _opencut).",
+    ],
+    revisar: "/video-editor",
+    archivos: [
+      "lib/aperturas/video.ts — la apertura, pura (el chat cuenta voz y subtítulos)",
+      "app/video-editor/_opencut/chat/PanelChat.tsx — el montaje",
+      "tests/iniciativa-video.test.ts — probado rompiéndolo (3 roturas)",
+    ],
+  },
 ];

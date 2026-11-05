@@ -96,7 +96,8 @@ export function conCapa(base: Cerebro<string>, capa: Cerebro<string>, c: { id: s
  * hasta que alguien lo sume acá a propósito.
  */
 const VE_SIN_PLATA = new RegExp([
-  '^(?:raiz|leads|voz|vozcom|persona|glosario)$',
+  // `marca` (5/11/2026, lib/marca/kits.ts): los colores, las fuentes y el logo; sin un número del negocio adentro.
+  '^(?:raiz|leads|voz|vozcom|persona|glosario|marca)$',
   // `kn:` y la capa `knowledge` (31/10/2026, lib/cerebro-knowledge.ts): el método de los cursos no tiene un número del
   // negocio adentro, y es justo lo que un closer o un setter necesitan leer para escribir un mensaje o cerrar una
   // llamada. Se suma A PROPÓSITO, como pide la regla de esta lista en positivo.

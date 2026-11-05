@@ -16,6 +16,9 @@ import { podarVencido } from '../spy-reglas';
 import { documentoDeCarrusel } from './documento';
 import { carruselesDe, type Carrusel, type CompetidorParaCarrusel, type PiezaParaCarrusel } from './explorar';
 import { marcaDelNegocio } from './marca';
+import { estiloConKit } from './marca-kit';
+import { kitParaUsar } from '../marca/kits-server';
+import { fuenteDelEditorDeImagen } from '../image-editor/fuente-del-editor';
 import { esDeBiblioteca } from './biblioteca';
 import { carruselDeLaBiblioteca } from './biblioteca-servidor';
 import { estructuraDe, laminasDesde, notasDe, planDeReferencia } from './referencia';
@@ -50,8 +53,11 @@ export async function crearCarruselDesdeReferencia(ws: number, quien: string, id
   const e = estructuraDe(c);
   const plan = planDeReferencia(e, tipo, laminas);
   if ('error' in plan) return { ok: false, error: plan.error };
+  // La marca del negocio (5/11/2026, lib/marca/kits.ts): el kit de por defecto pone sus colores, sus fuentes y su logo.
+  const kit = await kitParaUsar().catch(() => null);
   const doc = documentoDeCarrusel({
-    laminas: laminasDesde(e, plan.tipo.id, plan.laminas), estilo: plan.tipo.estilo, marca: await marcaDelNegocio(ws), nuevoId: randomUUID, notas: notasDe(e),
+    laminas: laminasDesde(e, plan.tipo.id, plan.laminas), estilo: estiloConKit(plan.tipo.estilo, kit, fuenteDelEditorDeImagen),
+    marca: await marcaDelNegocio(ws, kit), nuevoId: randomUUID, notas: notasDe(e),
   });
   const titulo = `Carrusel · ${plan.tipo.nombre}`;
   const r = await crearDiseno(ws, quien, { titulo, doc });

@@ -25,7 +25,8 @@ import { fileURLToPath } from 'node:url';
 import { CATALOGO_MODELOS, PROVEEDORES_PAGOS } from '../lib/model-catalogo';
 import { evaluarPermiso, CLAUDE_PERMITIDO } from '../lib/veto-claude';
 
-const pagos = () => CATALOGO_MODELOS.filter((f) => PROVEEDORES_PAGOS.includes(f.def.provider));
+// Lo que paga el negocio con SU clave (`deSuIA`, 5/11/2026: Image «sin Gemini») no es un cobro de MaKo: va aparte, abajo.
+const pagos = () => CATALOGO_MODELOS.filter((f) => PROVEEDORES_PAGOS.includes(f.def.provider) && !f.deSuIA);
 
 test('EL PEDIDO: ninguna feature cobra por default sin decir por qué', () => {
   const mudas = pagos().filter((f) => !f.pagoPorque?.trim());
@@ -143,5 +144,20 @@ test('un `fallback` declarado solo nombra proveedores que existen', () => {
     for (const p of f.fallback ?? []) {
       assert.ok(validos.has(p), `${f.feature}: «${p}» no es un proveedor de la cascada`);
     }
+  }
+});
+
+test('LA IA DEL NEGOCIO (`deSuIA`): su GPT por clave, sin caer a Gemini ni a la cuenta de MaKo', () => {
+  // 5/11/2026 (Martín, 22/10: Image «sin Gemini», cada negocio paga su IA). Una fila `deSuIA` corre con su Claude (la segunda
+  // puerta del veto) y su GPT. Si cayera a otro proveedor (`fallback` sin vaciar) volvería Gemini; si el veto la autorizara,
+  // pagaría MaKo. Probado rompiéndolo (base 10/0): con `fallback` borrado de image-editor-ia, 9/1; con `deSuIA` sacado de
+  // marca-leer, 5/5 (cuenta como un cobro por default sin `pagoPorque`, sin fila en el veto, y éste).
+  const deSuIA = CATALOGO_MODELOS.filter((f) => f.deSuIA);
+  assert.ok(deSuIA.some((f) => f.feature === 'image-editor-ia'), 'image-editor-ia volvió a un default que no es la IA del negocio');
+  assert.ok(deSuIA.some((f) => f.feature === 'marca-leer'), 'marca-leer volvió a un default que no es la IA del negocio');
+  for (const f of deSuIA) {
+    assert.equal(f.def.provider, 'openai', `${f.feature}: \`deSuIA\` es su GPT por clave (su Claude va antes, por el veto)`);
+    assert.deepEqual(f.fallback, [], `${f.feature}: sin \`fallback: []\` la cascada la mandaría a Gemini`);
+    assert.ok(!CLAUDE_PERMITIDO.some((p) => p.feature === f.feature), `${f.feature}: con fila en CLAUDE_PERMITIDO la pagaría MaKo`);
   }
 });

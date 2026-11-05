@@ -236,4 +236,34 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/image-editor?ver=carruseles',
   },
+  {
+    fecha: '5 nov', hora: '12:00', chat: 'Image marca (nube)', sesion: 'cli_45e914c6-514d-5f5d-b151-4d8e5f267b67', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'La marca completa en Image, el manual en el Second Brain y sin Gemini',
+    pedido: 'Tres cosas en Image. Medí antes de tocar: lo de abajo viene de una auditoría que no corrió la app. 1. La marca completa en el chat de Imagen: colores, logo y fuentes en el prompt. Con el presupuesto de contexto chico: cada token lo paga el cliente. 2. Brand board en el Segundo Cerebro: el negocio sube el PDF o la imagen de su marca, MaKo extrae colores, fuentes y logo, y el usuario los confirma. Varios kits por negocio (una agencia tiene muchos), uno por defecto. Lo usan Image, Video y Web Generator. MaKo lo pide cuando falta, sin trabar nada. 3. Sin Gemini por defecto en Image: cambialo a la IA del cliente. Además, si te queda claro al leer: SelectorIntencion (Discutir / Editar) falta en el chat de Imagen y en el de Video. Sumalo a la API de MaKo.',
+    puntos: [
+      'Llegó por el Cerebro (5/11), con la llamada de Leila del 30/10: sus carruseles sólo tomaban el fondo de su marca. Lo cortado son las rutas de archivos y cómo se sube.',
+    ],
+  },
+  {
+    fecha: '5 nov', hora: '12:34', chat: 'Image marca (nube)', sesion: 'cli_45e914c6-514d-5f5d-b151-4d8e5f267b67', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tu marca en Image, Video y Web Generator, con kits en el Second Brain',
+    puntos: [
+      'En el Second Brain, «Voz y cara» → «Marca»: se sube el manual (PDF o imagen), MaKo saca colores, fuentes y logo, y la persona lo corrige y lo guarda. Varios kits y uno por defecto.',
+      'El chat de Image usa la marca: sus colores, las fuentes que el editor tiene y el logo como una foto para poner. Con varios kits, se elige cuál. Sin marca, el chat invita a subir el manual.',
+      'Los carruseles de MaKo salen con los colores, las fuentes y el logo del kit (antes, sólo el fondo del tipo).',
+      'Video y Web Generator también leen la marca (colores y fuentes).',
+      'El chat de Image corre con la IA del negocio (su Claude, su GPT), nunca con Gemini.',
+      '«Discutir | Editar» en los chats de Image y de Video: «Discutir» contesta sin tocar nada.',
+      'En la API de MaKo: ver_kits_marca, guardar_kit_marca, elegir_kit_marca y borrar_kit_marca.',
+    ],
+    archivos: [
+      'lib/marca/kits.ts — los kits: el saneo, los cambios, el bloque del prompt y lo que lee la IA',
+      'lib/marca/leer-manual.ts — MaKo lee el manual (un borrador, sin guardar)',
+      'app/second-brain/MarcaView.tsx — la pantalla de la marca',
+      'lib/carruseles/marca-kit.ts — el estilo de un carrusel con la marca',
+      'lib/chat-editor-discutir.ts — «Discutir» en los chats de Image y Video',
+      'lib/model-catalogo.ts — image-editor-ia y marca-leer con la IA del negocio (`deSuIA`)',
+    ],
+    revisar: '/second-brain?area=voz&vista=marca',
+  },
 ];

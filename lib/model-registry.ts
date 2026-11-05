@@ -55,6 +55,15 @@ export async function fallbackDeFeature(feature?: string): Promise<string[] | nu
   return CATALOGO_MODELOS.find((f) => f.feature === feature)?.fallback ?? null;
 }
 
+/**
+ * ¿La feature corre sólo con la IA del negocio que no es Gemini (`deSuIA` del catálogo)? Sale del CATÁLOGO, como el
+ * fallback: un override de /modelos-ia elige el modelo, no quién lo paga.
+ */
+export function deSuIADeFeature(feature?: string): boolean {
+  if (!feature) return false;
+  return CATALOGO_MODELOS.find((f) => f.feature === feature)?.deSuIA === true;
+}
+
 /** Solo el override MANUAL del dueño (null si está usando el default del catálogo).
  *  El router lo respeta como pin: si el dueño fijó un modelo, no lo pisa. */
 export async function overrideDeFeature(feature?: string): Promise<ModeloRef | null> {

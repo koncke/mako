@@ -55,6 +55,10 @@ async function main() {
     chatCheap: () => ai.chatCheap({ system: 's', user: 'Juan Pérez quiere otra landing', feature: 'El Archivero' }),
     chatCheapCascade: () => ai.chatCheapCascade({ system: 's', user: 'lista de 40 leads', feature: 'El Archivero', redDePlataforma: true }),
     chatCheapCascadeGratis: () => ai.chatCheapCascade({ system: 's', user: 'x', provs: ['gemini', 'groq', 'mistral', 'openrouter'], redDePlataforma: true }),
+    // Image «sin Gemini» (5/11/2026, `deSuIA` en lib/model-catalogo.ts): la cascada con la marca, y el chat de Image ENTERO
+    // (chatClaude con su feature: el catálogo pone la marca, no quien llama).
+    chatCheapCascadeSinGemini: () => ai.chatCheapCascade({ system: 's', user: 'x', provs: ['gemini', 'openai'], sinGemini: true }),
+    chatClaudeImagen: async () => (await import('../lib/anthropic')).chatClaude('s', [{ role: 'user', content: 'cambia el título' }], { feature: 'image-editor-ia', maxTokens: 50 }),
     chatCheapTools: () => ai.chatCheapTools('s', [{ role: 'user', content: 'hola' }], tool as never, async () => 'ok', { provider: 'gemini' }),
     chatCheapToolsCascade: () => ai.chatCheapToolsCascade('s', [{ role: 'user', content: 'hola' }], tool as never, async () => 'ok', { provs: [...ai.CASCADA_TOOLS] }),
     leerDocumentoIA: () => ai.leerDocumentoIA({ dataUrl: png, isPdf: false, nombreArchivo: 'captura.png', prompt: 'qué dice', redDePlataforma: true }),
