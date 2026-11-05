@@ -48,12 +48,16 @@ import { conFondoDeDiseno, fondoPuestoDe, fondoVisibleDe, valorDeFondo, type Fon
 import { esTarjetaEditable } from '@/lib/editor-landing/html-editable';
 import { videoDirecto } from '@/lib/embeds';
 import { tarjetaDesdeEsquema, MAX_PUNTOS, MAX_PUNTO, MAX_TITULO_SECCION } from '@/lib/editor-landing/ia-reglas';
-import { attrsInsertado, attrsOptimizado, attrsOptimizadoItem, hrefPermitido, srcImagen, ETIQUETA_CAMPO } from '@/lib/editor-landing/especificacion';
+import { NORMALIZAR_NODOS, attrsInsertado, attrsOptimizado, attrsOptimizadoItem, hrefPermitido, srcImagen, ETIQUETA_CAMPO } from '@/lib/editor-landing/especificacion';
 import { claseDeProveedor, nombreDeProveedor } from '@/lib/embeds';
 import { TEMAS, TEMA_DEFAULT_ID, FUENTES, REDONDECES, esOscuro, sanearTemaPropio } from '@/lib/editor-landing/temas';
 import { TOPE_TEMAS } from '@/lib/editor-landing/server-reglas';
 import { FORMATOS, PROPORCIONES, formatoDe, proporcionDe, diapositivaFija, type ConfigLanding, type TemaPropio, type Comentario, type ParamsGeneracion } from '@/lib/editor-landing/api-tipos';
 import { precioDe, type EstadoCobroLanding } from '@/lib/editor-landing/pago-landing';
+import {
+  AL_VENCER, TOPES_VENTA, attrsEscasez, esNodoVenta, fechaValida, instanteDeHoraLocal, instanteValido, resumenBloqueVenta, type ItemPrueba,
+} from '@/lib/editor-landing/bloques-venta';
+import { cortarSinPartir } from '@/lib/unicode-seguro';
 import { OBJETIVOS_LANDING as OBJETIVOS_IA, type ObjetivoLanding } from '@/lib/landing-spec';
 import { pendienteVencido, urlDeDominio, type EstadoDominio } from '@/lib/editor-landing/dominios-reglas';
 // Puro (sin React ni DOM; lo prueba tests/editor-landing-insertar.test.ts en node): el JSON de cada bloque del
@@ -270,6 +274,7 @@ export function nombreDeBloque(n: JsonNodo): string {
     const que = clase === 'agenda' ? 'agenda' : clase === 'video' ? 'video' : 'insertado';
     return e.src ? `${que} (${nombreDeProveedor(e.proveedor) ?? e.proveedor})` : `${que} sin enlace`;
   }
+  if (esNodoVenta(n.type)) return resumenBloqueVenta(n.type, a);
   return NOMBRE_NODO[n.type] ?? n.type;
 }
 
@@ -2357,4 +2362,92 @@ export function resumenGenerar(p: PedidoGenerarApi, nombreTema: string | null): 
     p.params.basadoEnUrl ? `sobre ${corto(p.params.basadoEnUrl, 80)}, resolviendo sus hallazgos` : '',
   ].filter(Boolean);
   return `Crear con IA ${que}${para} ${de}: ${partes.join(', ')}. Queda como borrador, sin publicar (se puede mandar a la papelera). Usa IA y tarda hasta unos minutos.`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los bloques de venta (5/11/2026, Black November: lib/editor-landing/bloques-venta.ts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Un texto del negocio para un bloque de venta: sin partir un emoji (la base rechazaría la landing entera). */
+const limpio = (v: unknown, max: number): string => (typeof v === 'string' ? cortarSinPartir(v.replace(/\s+/g, ' ').trim(), max).trim() : '');
+
+const NODO_DE_VENTA = { cuenta_regresiva: NODO.cuentaRegresiva, prueba_social: NODO.pruebaSocial, escasez: NODO.escasez } as const;
+
+/**
+ * `configurar_bloque_venta_landing`: pone o cambia la cuenta regresiva, la prueba social o la barra de escasez de una sección.
+ * SÓLO CON DATOS REALES: la cuenta necesita una fecha futura, la prueba social compras con nombre y qué hizo (la fecha, no
+ * futura), y la escasez sus dos números con «quedan» ≤ «de». Si la sección ya tiene ese bloque, lo cambia (lo que no se pasa
+ * queda como estaba); si no, lo agrega al final. `zona`: la del negocio, para una hora sin zona («2026-11-30T23:59»).
+ */
+export function planBloqueVenta(
+  c: LandingContenido,
+  e: Record<string, unknown>,
+  op: { zona: string; ahoraMs: number },
+): PlanContenido | FallaPlan {
+  const id = typeof e.seccion === 'string' ? e.seccion.trim() : '';
+  if (!id) return { error: 'Falta la sección.', faltan: ['seccion'] };
+  const tipo = typeof e.tipo === 'string' && e.tipo in NODO_DE_VENTA ? NODO_DE_VENTA[e.tipo as keyof typeof NODO_DE_VENTA] : null;
+  if (!tipo) return { error: 'Falta qué bloque: cuenta_regresiva, prueba_social o escasez.', faltan: ['tipo'] };
+  const u = ubicarSeccion(c, id);
+  if (!u) return noEstaSeccion(c, id);
+  const ya = buscarNodos(c, (n) => n.type === tipo, u)[0] ?? null;
+  const previo = ya ? attrsDe(ya.nodo) : {};
+  const patch: Record<string, unknown> = {};
+  if (typeof e.titulo === 'string') patch.titulo = limpio(e.titulo, TOPES_VENTA.titulo);
+  if (tipo === NODO.cuentaRegresiva) {
+    if (e.hasta !== undefined) {
+      const crudo = typeof e.hasta === 'string' ? e.hasta.trim() : '';
+      const conZona = /(Z|[+-]\d{2}:?\d{2})$/i.test(crudo);
+      const hasta = conZona ? instanteValido(crudo) : instanteDeHoraLocal(crudo, op.zona);
+      if (!hasta) return { error: 'La fecha de cierre va como «2026-11-30T23:59» (la hora del negocio).', faltan: ['hasta'] };
+      if (Date.parse(hasta) <= op.ahoraMs) return { error: 'Esa fecha ya pasó: la cuenta regresiva cuenta hasta una fecha que todavía no llegó.' };
+      patch.hasta = hasta;
+      if (!conZona) patch.zona = op.zona;
+    } else if (!ya) return { error: 'Falta hasta cuándo («hasta»): sin fecha no se muestra.', faltan: ['hasta'] };
+    if (e.alVencer !== undefined) {
+      if (!enLista(AL_VENCER, e.alVencer)) return { error: 'Al terminar va: mensaje u ocultar.' };
+      patch.alVencer = e.alVencer;
+    }
+    if (typeof e.mensaje === 'string') patch.mensaje = limpio(e.mensaje, TOPES_VENTA.mensaje);
+  }
+  if (tipo === NODO.pruebaSocial) {
+    if (e.compras !== undefined) {
+      if (!Array.isArray(e.compras)) return { error: 'Las compras van en una lista.', faltan: ['compras'] };
+      if (e.compras.length > TOPES_VENTA.items) return { error: `Van hasta ${TOPES_VENTA.items} compras.` };
+      const hoy = new Date(op.ahoraMs).toISOString().slice(0, 10);
+      const compras: ItemPrueba[] = [];
+      for (const x of e.compras as Array<Record<string, unknown>>) {
+        const nombre = limpio(x?.nombre, TOPES_VENTA.nombre);
+        const detalle = limpio(x?.detalle, TOPES_VENTA.detalle);
+        if (!nombre || !detalle) return { error: 'Cada compra lleva quién («nombre») y qué hizo («detalle»).' };
+        const fecha = x?.fecha == null || x.fecha === '' ? null : fechaValida(x.fecha);
+        if (x?.fecha != null && x.fecha !== '' && !fecha) return { error: `La fecha de «${nombre}» va como AAAA-MM-DD.` };
+        if (fecha && fecha > hoy) return { error: `La fecha de «${nombre}» es futura: van compras que ya pasaron.` };
+        compras.push({ nombre, detalle, lugar: limpio(x?.lugar, TOPES_VENTA.lugar), fecha });
+      }
+      patch.items = compras;
+    } else if (!ya) return { error: 'Faltan las compras («compras»): sin ninguna no se muestra.', faltan: ['compras'] };
+  }
+  if (tipo === NODO.escasez) {
+    for (const k of ['quedan', 'total'] as const) if (e[k] !== undefined) patch[k] = e[k];
+    if (typeof e.unidad === 'string') patch.unidad = limpio(e.unidad, TOPES_VENTA.unidad);
+    const total = (patch.total ?? previo.total) as unknown;
+    const quedan = (patch.quedan ?? previo.quedan) as unknown;
+    const a = attrsEscasez({ ...previo, ...patch });
+    if (total == null || quedan == null) return { error: 'Faltan los dos números: cuántos quedan («quedan») y de cuántos («total»).', faltan: [...(quedan == null ? ['quedan'] : []), ...(total == null ? ['total'] : [])] };
+    if (a.total == null || a.quedan == null) return { error: 'Quedan y de cuántos van en números enteros, y no pueden quedar más de los que hay.' };
+  }
+  const cambios = Object.keys(patch).filter((k) => JSON.stringify(previo[k] ?? null) !== JSON.stringify(patch[k] ?? null));
+  if (ya && !cambios.length) return { error: 'Ese bloque ya está así.', yaEstaba: true };
+  const nuevo: JsonNodo = { type: tipo, attrs: NORMALIZAR_NODOS[tipo]({ ...previo, ...patch }) };
+  let nueva: JsonNodo;
+  if (ya) nueva = conNodo(ya.tarjeta, ya.ruta, nuevo);
+  else nueva = { ...u.tarjeta, content: [...(u.tarjeta.content ?? []), nuevo] };
+  const frena = frenaElSaneo([u.tarjeta], [nueva]);
+  if (frena) return frena;
+  return {
+    contenido: conSeccion(c, u, nueva),
+    resumen: `${ya ? 'Cambiar' : 'Agregar'} en la sección «${corto(tituloSeccion(u.tarjeta))}»: ${resumenBloqueVenta(tipo, nuevo.attrs)}. ${NOTA_VERSION}`,
+    datos: { seccion: id },
+  };
 }

@@ -166,6 +166,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       // Ticket #47 (3/11/2026): MaKo decía que sólo podía activar o pausar. crear_automatizacion_con_ia la arma desde un pedido.
       'Crear una secuencia nueva pidiéndosela a MaKo en palabras, con su disparador (una etapa, una etiqueta que se le agrega al lead o un evento): nace pausada',
       'Ramas, condiciones, horarios, etiquetas y acciones',
+      // 5/11/2026: el número nuevo arranca con pocos WhatsApp por día y sube solo; el horario del negocio vale para todas.
+      'Cuidar el número: arranca con pocos WhatsApp por día y sube solo, dentro del horario del negocio',
       'Recordarle al lead la reunión agendada',
       'Secuencias de nutrición que MaKo escribe en la voz del negocio',
       'Simular la conversación como si fueras el lead, ver sus métricas y pasar a un humano',
@@ -227,6 +229,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Editar por secciones y bloques: menú «/», 52 diseños, temas, comentarios e historial',
       'Pedirle cambios a MaKo o discutir la página con él',
       'Diagnosticar una página con comentarios y «Solucionar con IA»',
+      // Black November (5/11/2026): sólo con lo que carga el negocio; sin el dato, el bloque no sale en la página.
+      'Bloques de venta con tus datos: cuenta regresiva a una fecha, compras recientes y cupos que quedan',
       'Replicar una página de afuera, por partes',
       'Exportar a PDF, PNG, PPTX y HTML',
     ],

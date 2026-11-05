@@ -57,6 +57,13 @@ export function secuenciaDeClave(clave: string): number | null {
 export type ConfigAutomatizacion = {
   horario?: HorarioEnvio | null;
   /**
+   * EL HORARIO LO PUSO MaKo, NO LA PERSONA (5/11/2026, Black November de Leila: «quiero de 10 a 20»). Lo marca el horario de fábrica
+   * (al prenderla, `naceConHorario`, y a las que ya estaban prendidas, scripts/horario-de-fabrica-prendidas.mts). Con la marca, si el
+   * negocio pone su horario (`configurar_horario_envio`), vale el del negocio (`horarioDeLaAutomatizacion`): sin esto, los 10 a 20
+   * de Leila no le llegaban a ninguna automatización nueva. La persona que cambia el horario en la tuerca la saca.
+   */
+  horarioDeFabrica?: true;
+  /**
    * El goteo de sus mensajes, en TODOS los canales (lib/goteo.ts; 24/10/2026, f21): minutos entre dos envíos y tope en 24 h,
    * cada canal con su cuenta. Ausente = sin goteo propio. (El `goteoEmail` de antes se lee como éste si no hay uno.)
    */
@@ -128,6 +135,7 @@ export function sanearConfigAutomatizacion(raw: unknown): ConfigAutomatizacion {
     const h = sanearHorario(o.horario);
     if (h) out.horario = h;
   }
+  if (o.horarioDeFabrica === true && out.horario) out.horarioDeFabrica = true;
   // UNO SOLO (24/10/2026, f21): el de WhatsApp de antes, y si no hay, el del email. Medido ese día en producción: dos
   // automatizaciones con goteo, las dos sólo de WhatsApp (scripts/medir-goteo-un-interruptor.mts); ninguna se movió.
   const goteo = goteoGuardado(o.goteo) ?? goteoGuardado(o.goteoEmail);
@@ -164,8 +172,23 @@ export const tieneRitmoPropio = (c: ConfigAutomatizacion): boolean => c.horario 
  * Un horario guardado APAGADO es «sin horario» (como el del negocio: `horarioVigente`).
  */
 export function horarioDeLaAutomatizacion(c: ConfigAutomatizacion, delNegocio: HorarioEnvio | null): HorarioEnvio | null {
-  if (c.horario === undefined) return delNegocio;
+  if (c.horario === undefined || (c.horarioDeFabrica && delNegocio)) return delNegocio;
   return c.horario && c.horario.activo ? c.horario : null;
+}
+
+/**
+ * EL HORARIO QUE SE MUESTRA en la tuerca y en la API: el mismo que vale (`horarioDeLaAutomatizacion`), pero un propio APAGADO se
+ * muestra apagado (con sus horas). undefined = no tiene ninguno, ni propio ni del negocio.
+ */
+export function horarioParaMostrar(c: ConfigAutomatizacion, delNegocio: HorarioEnvio | null): HorarioEnvio | null | undefined {
+  if (c.horario === undefined || (c.horarioDeFabrica && delNegocio)) return delNegocio ?? undefined;
+  return c.horario;
+}
+
+/** De dónde sale el horario que vale: «propio», «de fábrica» (lo puso MaKo) o «negocio». */
+export function origenDelHorario(c: ConfigAutomatizacion, delNegocio: HorarioEnvio | null): 'propio' | 'fabrica' | 'negocio' {
+  if (c.horario === undefined || (c.horarioDeFabrica && delNegocio)) return 'negocio';
+  return c.horarioDeFabrica ? 'fabrica' : 'propio';
 }
 
 /**
@@ -190,6 +213,10 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
       if (h.activo && h.hasta <= h.desde) return { ok: false, error: 'Cierra antes de abrir.' };
       out.horario = h;
     }
+    // La marca de fábrica sólo la pone quien pone el de fábrica (`horarioDeFabrica: true` junto con el horario); cualquier
+    // otro cambio del horario es de la persona, y la saca.
+    if (o.horarioDeFabrica === true && out.horario) out.horarioDeFabrica = true;
+    else delete out.horarioDeFabrica;
   }
   if ('personaHoras' in o) return { ok: false, error: '«Misma persona» ya no existe: el anti-ban de una automatización es su goteo y su tope por día.' };
   if ('goteo' in o) {

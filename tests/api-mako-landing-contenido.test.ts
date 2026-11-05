@@ -79,6 +79,8 @@ const EDICIONES = [
   'configurar_landing', 'configurar_sitio_landing', 'configurar_navegacion_landing',
   // Las animaciones (15/10/2026; su test es tests/api-mako-landing-animacion.test.ts).
   'cambiar_animacion_landing',
+  // Los bloques de venta (5/11/2026, Black November; su test es tests/bloques-venta-landing.test.ts).
+  'configurar_bloque_venta_landing',
 ];
 
 const accion = (id: string): AccionDef => {

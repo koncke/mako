@@ -952,6 +952,10 @@ const ACCION_AL_LADO = CON_VIDEO_AL_LADO + ' > .gm-columna:not(:has(> ' + VIDEO_
 
 function movil(p: string): string[] {
   return [
+    // Los bloques de venta (16b): el reloj, más chico; el pop, a lo ancho y arriba del sello «Hecho con MaKo» (abajo a la derecha).
+    r(p + ' .gm-cuenta-unidad', 'min-width: 3.4em; padding: 0.45em 0.3em;'),
+    r(p + ' .gm-cuenta-num', 'font-size: 1.6em;'),
+    r(p + ' .gm-prueba[data-pop]', 'left: 0.75em; right: 0.75em; bottom: calc(3.4em + env(safe-area-inset-bottom, 0px)); max-width: none;'),
     r(p + ' .gm-pagina', 'font-size: var(--gm-base-movil, 16px); padding-bottom: 2em;'),
     r(p + ' .gm-tarjeta', 'width: calc(100% - 1.5em); margin-top: 1.5em;'),
     r(p + ' .gm-tarjeta[data-ancho="completo"]', 'width: 100%; margin-top: 0;'),
@@ -1048,12 +1052,55 @@ const IMPRESION: string[] = [
   '}',
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 16b. Los bloques de venta (5/11/2026, Black November: bloques-venta.ts)
+// ─────────────────────────────────────────────────────────────────────────────
+// Con los tokens del tema (se ven bien en una sección clara, oscura o de acento) y en em (escalan con la página). El pop de la
+// prueba social va abajo a la izquierda; el script lo muda al final de `.gm-doc` (fuera de las secciones animadas, que tienen
+// `transform`). En el celular (`movil()`, bloque 17), el reloj se achica y el pop ocupa el ancho, sobre la zona segura.
+
+const VENTA: string[] = [
+  '/* ── 16b. Cuenta regresiva, prueba social y escasez ── */',
+  r(D + ' .gm-cuenta', 'display: grid; gap: 0.6em; justify-items: start; margin: 0.5em 0;'),
+  r(D + ' .gm-cuenta-titulo', 'margin: 0; font-weight: 600; color: var(--gm-texto, inherit);'),
+  r(D + ' .gm-cuenta-reloj', 'display: flex; gap: 0.6em; flex-wrap: wrap;'),
+  r(D + ' .gm-cuenta-unidad', 'display: grid; justify-items: center; min-width: 4.2em; padding: 0.55em 0.4em; border-radius: var(--gm-radio-caja, 0.35em); background: var(--gm-superficie, rgba(127,127,127,0.12)); border: 0.0625em solid var(--gm-borde-neutro, rgba(0,0,0,0.15));'),
+  r(D + ' .gm-cuenta-num', 'font-size: 2em; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--gm-acento-texto, currentColor);'),
+  r(D + ' .gm-cuenta-nombre', 'font-size: 0.75em; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gm-texto-tenue, inherit);'),
+  r(D + ' .gm-cuenta-fecha', 'margin: 0; font-size: 0.85em; color: var(--gm-texto-tenue, inherit);'),
+  r(D + ' .gm-cuenta-msg', 'margin: 0; font-weight: 600;'),
+  r(D + ' .gm-cuenta-msg[hidden]', 'display: none;'),
+  r(D + ' .gm-cuenta[data-vencida="si"] :is(.gm-cuenta-reloj, .gm-cuenta-titulo)', 'display: none;'),
+  r(D + ' .gm-escasez', 'display: grid; gap: 0.45em; width: 100%; max-width: 34em; margin: 0.5em 0;'),
+  r(D + ' .gm-escasez-titulo', 'margin: 0; font-size: 0.85em; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gm-acento-texto, currentColor);'),
+  r(D + ' .gm-escasez-texto', 'margin: 0; font-weight: 600; color: var(--gm-texto, inherit);'),
+  r(D + ' .gm-escasez-barra', 'height: 0.65em; border-radius: 999px; overflow: hidden; background: var(--gm-superficie, rgba(127,127,127,0.15)); border: 0.0625em solid var(--gm-borde-neutro, rgba(0,0,0,0.12));'),
+  r(D + ' .gm-escasez-lleno', 'display: block; height: 100%; border-radius: inherit; background: var(--gm-acento, currentColor);'),
+  r(D + ' .gm-escasez[data-agotado="si"] .gm-escasez-texto', 'color: var(--gm-texto-tenue, inherit);'),
+  r(D + ' .gm-prueba', 'display: grid; gap: 0.5em; padding: 0.9em 1.1em; border-radius: var(--gm-radio-caja, 0.35em); border: 0.0625em dashed var(--gm-borde-neutro, rgba(0,0,0,0.2)); background: var(--gm-superficie, rgba(127,127,127,0.08));'),
+  r(D + ' .gm-prueba-titulo', 'margin: 0; font-size: 0.8em; font-weight: 600; color: var(--gm-texto-tenue, inherit);'),
+  r(D + ' .gm-prueba-lista', 'margin: 0; padding: 0; list-style: none; display: grid; gap: 0.35em;'),
+  r(D + ' .gm-prueba-item', 'font-size: 0.95em; line-height: 1.35; color: var(--gm-texto, inherit);'),
+  r(D + ' .gm-prueba-fecha', 'margin-left: 0.4em; font-size: 0.85em; white-space: nowrap; color: var(--gm-texto-tenue, inherit);'),
+  r(D + ' .gm-prueba-fecha::before', 'content: "· ";'),
+  // El pop (la página publicada): una tarjeta chica, abajo a la izquierda, con un ítem a la vez.
+  r(D + ' .gm-prueba[data-pop]', 'position: fixed; z-index: 40; left: 1.25em; bottom: 1.25em; max-width: min(22em, calc(100vw - 2.5em)); padding: 0.85em 2.4em 0.85em 1em; border-style: solid; background: var(--gm-tarjeta-color, var(--gm-fondo-color, #ffffff)); color: var(--gm-texto, #161616); box-shadow: 0 0.5em 1.75em rgba(0,0,0,0.18); font-size: 15px; animation: gm-prueba-entra 0.35s ease-out;'),
+  r(D + ' .gm-prueba[data-pop][hidden]', 'display: none;'),
+  r(D + ' .gm-prueba[data-pop] .gm-prueba-item', 'display: none;'),
+  r(D + ' .gm-prueba[data-pop] .gm-prueba-item[data-visible="si"]', 'display: block;'),
+  r(D + ' .gm-prueba-cerrar', 'position: absolute; top: 0.3em; right: 0.35em; width: 1.9em; height: 1.9em; border: 0; border-radius: 999px; background: transparent; color: var(--gm-texto-tenue, inherit); font: inherit; font-size: 1.05em; line-height: 1; cursor: pointer;'),
+  r(D + ' .gm-prueba-cerrar:hover', 'background: var(--gm-superficie, rgba(127,127,127,0.12));'),
+  '@keyframes gm-prueba-entra { from { opacity: 0; transform: translateY(0.6em); } to { opacity: 1; transform: none; } }',
+  '@media (prefers-reduced-motion: reduce) { ' + r(D + ' .gm-prueba[data-pop]', 'animation: none;') + ' }',
+  // El celular, en `movil()` (el bloque 17): así lo ve igual la vista de teléfono del editor.
+];
+
 /**
  * La hoja del contenido: la misma en el editor y en la página publicada. Un string
  * sin backticks ni `${` (va adentro de un <style>), armado una vez al cargar.
  */
 export const CSS_CONTENIDO: string = [
-  ...RAIZ, ...TARJETA, ...ACENTO, ...TIPOGRAFIA, ...MARCAS_TEXTO, ...BLOQUES, ...OPTIMIZADO,
+  ...RAIZ, ...TARJETA, ...ACENTO, ...TIPOGRAFIA, ...MARCAS_TEXTO, ...BLOQUES, ...VENTA, ...OPTIMIZADO,
   ...SITIO, ...PRESENTACION, ...PAGINA, ...ANIMACION, ...VIDEO_FONDO_CSS, ...RESPONSIVE, ...IMPRESION,
 ].join('\n');
 

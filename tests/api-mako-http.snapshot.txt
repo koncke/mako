@@ -135,6 +135,7 @@ configuracion_automatizacion
 configurar_automatizacion
 configurar_aviso_whatsapp
 configurar_bloque_general
+configurar_bloque_venta_landing
 configurar_boton_landing
 configurar_formulario_landing
 configurar_horario_envio

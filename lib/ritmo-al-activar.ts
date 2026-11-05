@@ -61,9 +61,20 @@ const CONTESTAN_AL_MOMENTO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TR
 export function naceConHorario(o: { creadaAt: string | null | undefined; triggers: readonly string[]; horarioPropio: unknown; delNegocio: unknown }): boolean {
   const creada = o.creadaAt ? Date.parse(o.creadaAt) : NaN;
   if (!Number.isFinite(creada) || creada < DESDE_HORARIO_DE_FABRICA) return false;
-  if (o.horarioPropio !== undefined || o.delNegocio != null) return false;
-  if (!o.triggers.length) return false;
-  return !o.triggers.some((t) => CONTESTAN_AL_MOMENTO.has(t) || TRIGGERS_DEL_EMISOR.has(t) || t === TRIGGER_SOLO_GRUPO);
+  return leTocaPorSusDisparadores(o) === null;
+}
+
+/**
+ * LA MISMA REGLA SIN LA FECHA (5/11/2026): ¿le tocaría el horario de fábrica a ESTA automatización? null = sí; si no, por qué no.
+ * La usa el script que se lo pone a las que ya estaban prendidas (lib/horario-de-fabrica.ts): una regla, dos momentos.
+ */
+export function leTocaPorSusDisparadores(o: { triggers: readonly string[]; horarioPropio: unknown; delNegocio: unknown }): string | null {
+  if (o.horarioPropio !== undefined) return 'tiene su propio horario';
+  if (o.delNegocio != null) return 'sigue el horario del negocio';
+  if (!o.triggers.length) return 'no tiene disparador';
+  if (o.triggers.some((t) => CONTESTAN_AL_MOMENTO.has(t))) return 'contesta al momento (un DM, un comentario o un email)';
+  if (o.triggers.some((t) => TRIGGERS_DEL_EMISOR.has(t) || t === TRIGGER_SOLO_GRUPO)) return 'le escribe al equipo, no a los leads';
+  return null;
 }
 
 /** Lo que se muestra de una ya prendida. `poner`: el botón que lleva a Configuraciones. */
@@ -73,7 +84,11 @@ export type AvisoDeUnaPrendida = { texto: string; rotulo: string; poner: string 
  * Los topes de la línea que mira el motor (`LimitesEnvio`). null = no se pudieron leer. `email.rampa` (4/11/2026): la rampa del
  * dominio desde HOY (`dia` = el tope de hoy, `sube` = cuánto sube cada día que llega), si todavía no llegó al tope de la línea.
  */
-export type TopesDeLinea = { wa: { dia: number; hora: number }; email: { dia: number; rampa?: ArranqueGoteo } };
+/**
+ * Los topes de la línea, y su rampa de HOY si la hay (`rampa.dia` = el tope de hoy, `rampa.sube` = cuánto sube cada día que llega):
+ * la del dominio (4/11/2026) y la del número de WhatsApp (5/11/2026).
+ */
+export type TopesDeLinea = { wa: { dia: number; hora: number; rampa?: ArranqueGoteo }; email: { dia: number; rampa?: ArranqueGoteo } };
 
 const NOMBRE_CANAL: Readonly<Record<CanalDelGoteo, string>> = { whatsapp: 'WhatsApp', email: 'email', instagram: 'Instagram', messenger: 'Messenger' };
 
@@ -330,9 +345,11 @@ export function avisoDeRitmo(o: DatosDelRitmo): AvisoDeRitmo | null {
   // Los que suelta el botón de al lado: lo dice antes de apretarlo. Si ya se dijo de los otros, al descartar se vuelve a contar.
   const deSoltar = minutos == null && !deAdentro && salen + alDescartar >= 2 ? `Si descartas los borradores viejos, a ${salen + alDescartar} personas les sale su próximo mensaje al prenderla, sin goteo.` : '';
   const adentroSinGoteo = minutos == null && salen + alDescartar >= 2;
+  const rampaLinea = rampaDeLaLinea(o);
   const deArranque = o.canal === 'whatsapp' && o.goteo?.arranque && o.goteo.dia != null && (base || deAdentro) ? `Arranca con ${o.goteo.arranque.dia} por día y sube ${o.goteo.arranque.sube} por día.`
-    // La rampa del dominio (4/11/2026): sólo si la línea de email es la que frena (`rampaQueFrena`).
-    : o.canal === 'email' && rampaQueFrena(o) && (base || deAdentro) ? `Tu dominio arranca hoy con ${o.topes!.email.rampa!.dia} emails y sube ${o.topes!.email.rampa!.sube} cada día que llega, hasta ${o.topes!.email.dia}.` : '';
+    // La rampa de la línea: sólo si la línea es la que frena (`rampaDeLaLinea`). La del dominio (4/11/2026) y la del número (5/11/2026).
+    : o.canal === 'email' && rampaLinea && (base || deAdentro) ? `Tu dominio arranca hoy con ${rampaLinea.dia} emails y sube ${rampaLinea.sube} cada día que llega, hasta ${o.topes!.email.dia}.`
+    : o.canal === 'whatsapp' && rampaLinea && (base || deAdentro) ? `Tu número arranca hoy con ${rampaLinea.dia} mensajes y sube ${rampaLinea.sube} cada día que llega, hasta ${o.topes!.wa.dia}.` : '';
   // ⚠️ LO QUE QUEDA PARA APROBAR SE DICE SIEMPRE: una que dispara por evento, o sin nadie todavía, también deja al negocio creyendo que MaKo escribió.
   // Si el primero es uno de ellos, ya va adentro de `base` (cuando hay a quién contar).
   const deAprobar = o.porAprobar && !(aprobar && base) ? fraseDeAprobar(o.porAprobar, alcance(o)) : '';
@@ -397,11 +414,21 @@ function alcance(o: DatosDelRitmo): number | null {
   return o.personas == null && !o.adentro ? null : (o.personas ?? 0) + (o.adentro ?? 0);
 }
 
-/** ¿La rampa del dominio frena a esta? Por email, con la rampa por delante y sin un goteo propio más bajo que la línea. */
-function rampaQueFrena(o: DatosDelRitmo): boolean {
-  const r = o.topes?.email.rampa;
-  if (o.canal !== 'email' || !r || r.dia >= (o.topes?.email.dia ?? 0)) return false;
-  return o.goteo?.dia == null || o.goteo.dia >= (o.topes?.email.dia ?? Infinity);
+/** La línea del canal de esta: la de WhatsApp o la de email. Las de Meta no tienen tope de línea. */
+function lineaDelCanal(o: DatosDelRitmo): { dia: number; rampa?: ArranqueGoteo } | undefined {
+  return o.canal === 'whatsapp' ? o.topes?.wa : o.canal === 'email' ? o.topes?.email : undefined;
+}
+
+/**
+ * La rampa de la LÍNEA que frena a esta, o undefined: con la rampa por delante y sin un goteo propio más bajo que la línea. Por
+ * WhatsApp, además, sin un arranque propio del goteo (ése va primero, como antes).
+ */
+function rampaDeLaLinea(o: DatosDelRitmo): ArranqueGoteo | undefined {
+  const l = lineaDelCanal(o);
+  const r = l?.rampa;
+  if (!l || !r || r.dia >= l.dia) return undefined;
+  if (o.canal === 'whatsapp' && o.goteo?.arranque && o.goteo.dia != null) return undefined;
+  return o.goteo?.dia == null || o.goteo.dia >= l.dia ? r : undefined;
 }
 
 function textoDelRitmo(o: DatosDelRitmo): { texto: string; sinGoteo: boolean } | null {
@@ -430,11 +457,12 @@ function textoDelRitmo(o: DatosDelRitmo): { texto: string; sinGoteo: boolean } |
     const ritmo = sinGoteo ? 'No tiene goteo.' : `Queda uno cada ${minutos} min.`;
     return { texto: `Entran ${n} personas. ${fraseDeAprobar(o.porAprobar!, alcance(o))} ${ritmo}`, sinGoteo };
   }
-  // La rampa: la del goteo por WhatsApp; la del dominio por email, si la línea es la que frena.
-  const rampa = o.goteo?.dia != null && o.canal === 'whatsapp' ? o.goteo.arranque : rampaQueFrena(o) ? o.topes?.email.rampa : undefined;
+  // La rampa: la del goteo por WhatsApp; si no, la de la línea (el dominio o el número), si la línea es la que frena.
+  const rampaLinea = rampaDeLaLinea(o);
+  const rampa = o.goteo?.dia != null && o.canal === 'whatsapp' && o.goteo.arranque ? o.goteo.arranque : rampaLinea;
   const tarda = tardaAlMenos(n, minutos, lineaHora, porDia, rampa);
-  // El tope de HOY por email, con la rampa del dominio (por WhatsApp se sigue diciendo el del goteo, como antes).
-  const topeHoy = o.canal === 'email' && rampa ? Math.min(rampa.dia, porDia) : porDia;
+  // El tope de HOY, con la rampa de la línea (con el arranque del goteo se sigue diciendo el del goteo, como antes).
+  const topeHoy = rampaLinea ? Math.min(rampaLinea.dia, porDia) : porDia;
   const campana = o.canal === 'email' && !minutos ? fraseDeCampana(n, o.emailsDelFlujo ?? 0, porDia, rampa) : '';
   const fin = `${tarda ? ` Tarda al menos ${tarda}.` : ''}${campana ? ` ${campana}` : ''}`;
 

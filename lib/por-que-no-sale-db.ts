@@ -59,7 +59,12 @@ export async function frenosDelNegocio(filas: readonly ConId[], secs: readonly F
       import('./nutricion').then((m) => m.usoDelCupo()),
     ]);
     const limites = limitesVigentes(limitesCrudos, limitesDeFabrica(process.env));
-    const ctx: ContextoDelEnvio = { ahoraMs, tz, whatsappPrendido: waOn, linea: { dia: limites.wa.dia, usadoDia: uso.waDia, hora: limites.wa.hora, usadoHora: uso.waHora } };
+    // El tope de HOY, con la rampa de la línea (5/11/2026): el mismo que el motor, con el mismo piso si no se puede leer.
+    const diaHoy = await import('./nutricion').then((m) => m.topeDeHoyDelNegocio('whatsapp', limites.wa));
+    const ctx: ContextoDelEnvio = {
+      ahoraMs, tz, whatsappPrendido: waOn,
+      linea: { dia: diaHoy, usadoDia: uso.waDia, hora: limites.wa.hora, usadoHora: uso.waHora, ...(diaHoy < limites.wa.dia ? { diaLinea: limites.wa.dia } : {}) },
+    };
 
     // El último intento de cada inscripción en 24 h (un fallo NO avanza: lo que falló sigue siendo la tarjeta en la que está).
     // (Hasta el 23/10/2026 se leía además el último WhatsApp de cada lead y su reunión, para «Misma persona», que se fue.)

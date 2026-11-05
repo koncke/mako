@@ -186,19 +186,23 @@ export function textoDeGoteo(g: Goteo | null | undefined): string {
 }
 
 /**
- * LA RAMPA DEL EMAIL DE LA LÍNEA (4/11/2026, la campaña de email de Mauricio: 1.128 personas y un dominio recién
- * conectado). El tope de email del negocio (`LimitesEnvio.email`) arranca en `arranqueDia` y sube `arranqueSube` cada día
- * que llegó a su tope, hasta `dia`: la misma cuenta que el arranque de WhatsApp (`subidasDelArranque`), por lo que MANDÓ y
- * no por fecha. `dias`: los emails enviados por día del negocio, en su zona. Sin rampa (arranca en el tope o más), el tope.
+ * LA RAMPA DE LA LÍNEA, de email (4/11/2026, la campaña de email de Mauricio: 1.128 personas y un dominio recién conectado) y de
+ * WhatsApp (5/11/2026, Black November de Leila: el número de Mauricio quedó suspendido 24 h al pasar de unos 20 a 60 por día). El
+ * tope del canal del negocio (`LimitesEnvio.email`, `LimitesEnvio.wa`) arranca en `arranqueDia` y sube `arranqueSube` cada día que
+ * llegó a su tope, hasta `dia`: la misma cuenta que el arranque de una automatización (`subidasDelArranque`), por lo que MANDÓ y no
+ * por fecha. Así una línea que ya venía mandando no vuelve a empezar: sus días llenos ya cuentan. `dias`: lo enviado por día por
+ * ese canal, en la zona del negocio. Sin rampa (arranca en el tope o más), el tope.
  */
-export function rampaDeEmail(email: { dia: number; arranqueDia: number; arranqueSube: number }): { dia: number; arranque: ArranqueGoteo } | null {
-  if (email.arranqueDia >= email.dia) return null;
-  return { dia: email.dia, arranque: { dia: email.arranqueDia, sube: email.arranqueSube } };
+export type TopeConRampa = { dia: number; arranqueDia: number; arranqueSube: number };
+
+export function rampaDeLinea(t: TopeConRampa): { dia: number; arranque: ArranqueGoteo } | null {
+  if (t.arranqueDia >= t.dia) return null;
+  return { dia: t.dia, arranque: { dia: t.arranqueDia, sube: t.arranqueSube } };
 }
 
-/** El tope de email de HOY con la rampa (ver `rampaDeEmail`). */
-export function topeConRampa(email: { dia: number; arranqueDia: number; arranqueSube: number }, dias: ReadonlyMap<string, number>, hoy: string): number {
-  const g = rampaDeEmail(email);
-  if (!g) return email.dia;
-  return goteoDeHoy(g, subidasDelArranque(dias, hoy, g))?.dia ?? email.dia;
+/** El tope de HOY de la línea con la rampa (ver `rampaDeLinea`). */
+export function topeConRampa(t: TopeConRampa, dias: ReadonlyMap<string, number>, hoy: string): number {
+  const g = rampaDeLinea(t);
+  if (!g) return t.dia;
+  return goteoDeHoy(g, subidasDelArranque(dias, hoy, g))?.dia ?? t.dia;
 }
