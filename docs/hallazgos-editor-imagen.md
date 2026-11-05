@@ -5,6 +5,21 @@ El plano está en [diseno-editor-imagen.md](diseno-editor-imagen.md) y los relev
 
 ---
 
+## MaKo toma la iniciativa en el Image Editor: «¿Dónde lo vas a publicar?» con el diseño en blanco (5/11/2026)
+
+- **Qué hace:** con una página sin nada y la charla vacía, el chat del editor pregunta un hecho; «En una historia» (1080×1920),
+  «En un carrusel» (1080×1350) o «En un anuncio» (1080×1080) ponen el lienzo a esa medida con `editor.pages.resize`, el mismo del
+  panel de tamaño: sin IA y sin la app de escritorio. Lo contestado vale para ESE diseño. Mientras habla, el saludo y las
+  píldoras se esconden.
+- **Lo que no se ve en el plan:** la apertura lleva su botón de callar y como mucho cuatro botones (`MAX_BOTONES`), así que de
+  los cuatro lugares del plan quedó afuera la miniatura de YouTube (sigue en el panel de tamaño).
+- **«En blanco» se lee del documento** (`s.doc.pages.length === 1 && s.doc.pages[0].objects.length === 0`): un diseño de varias
+  páginas vacías no es «en blanco», es uno que alguien empezó a armar.
+- **Vive en:** lib/aperturas/image.ts, app/image-editor/mako/chat/PanelMakoIA.tsx. **Lo fija:** tests/iniciativa-image.test.ts
+  (2 roturas).
+- **Falta:** «la sugerida de esa familia» (llega con las plantillas de plantillas-reales, README §3.3), guardar el slug de la
+  plantilla, y la guía de la pestaña (anclas por `donde` sobre sus `data-testid`, guia.md §6).
+
 ## La licencia de Doory obliga a mostrar el crédito, y modificar el código no la saca
 
 **Vive en:** `app/image-editor/_doory/LICENSE-DOORY` (`editor/CreditoDoory.tsx` se borró el 29/10/2026)

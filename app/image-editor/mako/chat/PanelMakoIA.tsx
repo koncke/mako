@@ -26,6 +26,8 @@ import '@/app/admin/operaciones/centro.css';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Check, Sparkles } from 'lucide-react';
 import { CajaChat } from '@/app/_chat/CajaChat';
+import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
+import { MEDIDA_DE, SUPERFICIE_IMAGE, type AccionImage } from '@/lib/aperturas/image';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
@@ -136,7 +138,18 @@ export function PanelMakoIA() {
   const titulo = useEditorState((s) => s.title);
   const docVersion = useEditorState((s) => s.docVersion);
   const elegidos = useEditorState((s) => s.selection.ids.length);
+  /** En blanco: una sola página y sin nada adentro (lib/aperturas/image.ts). */
+  const enBlanco = useEditorState((s) => s.doc.pages.length === 1 && s.doc.pages[0].objects.length === 0);
   const hilo = useHilo(disenoId);
+  // MAKO TOMA LA INICIATIVA (5/11/2026, docs/mako-iniciativa/plan.md T12): con el diseño en blanco y la charla vacía pregunta
+  // «¿Dónde lo vas a publicar?» y la respuesta pone el lienzo a esa medida, sin IA (el mismo resize del panel de tamaño, y anda
+  // sin la app de escritorio). Mientras habla, el saludo y las píldoras se esconden: un paso por pantalla.
+  const estadoApertura = useApertura({
+    superficie: SUPERFICIE_IMAGE,
+    hechos: { diseno: disenoId ?? null, enBlanco, charlaVacia: hilo.mensajes.length === 0 },
+    libre: !hilo.corriendo,
+  });
+  const aLaMedida = (a: AccionImage) => () => { const m = MEDIDA_DE[a]; editor.pages.resize(m.ancho, m.alto, 'keep'); };
   const [texto, setTexto] = useState('');
   // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
   const appEscritorio = useAppDeEscritorio();
@@ -230,7 +243,11 @@ export function PanelMakoIA() {
       {/* Con su propio aire: el del Ops Center (24 px por lado) dejaba el hilo en 206 px en este panel. */}
       <div ref={hiloRef} className={`co-hilo ${styles.hilo}`} style={{ padding: '8px 4px' }} aria-live="polite">
         <div className="co-hilo__col">
-          {hilo.mensajes.length === 0 && (
+          {hilo.mensajes.length === 0 && estadoApertura.apertura && (
+            <AperturaMako estado={estadoApertura} quien={QUIEN}
+              acciones={{ historia: aLaMedida('historia'), carrusel: aLaMedida('carrusel'), anuncio: aLaMedida('anuncio') }} />
+          )}
+          {hilo.mensajes.length === 0 && !estadoApertura.apertura && (
             <div className={styles.saludo}>
               <span className={styles.chispa} aria-hidden="true"><Sparkles size={20} /></span>
               <p className={styles.saludoTitulo}>¿Qué cambiamos?</p>
@@ -242,7 +259,7 @@ export function PanelMakoIA() {
           {hilo.corriendo && (
             <button type="button" className={styles.secundario} onClick={() => detener(disenoId)}>Detener</button>
           )}
-          {!hilo.corriendo && (
+          {!hilo.corriendo && !estadoApertura.apertura && (
             <div className={styles.sugerencias}>
               {(hilo.mensajes.length ? visibles.slice(0, 4) : visibles).map((s) => (
                 <button key={s.rotulo} type="button" className={styles.pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>

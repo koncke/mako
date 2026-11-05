@@ -236,4 +236,19 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/image-editor?ver=carruseles',
   },
+  {
+    fecha: "5 nov", hora: "17:20", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo toma la iniciativa en el Image Editor: «¿Dónde lo vas a publicar?» con el diseño en blanco",
+    puntos: [
+      "Con una página sin nada y la charla vacía, el chat pregunta un hecho y la respuesta pone el lienzo a la medida de una historia, un carrusel o un anuncio, sin IA y sin la app de escritorio.",
+      "Lo contestado vale para ese diseño, y mientras habla el saludo y las sugerencias se esconden.",
+    ],
+    revisar: "/image-editor",
+    archivos: [
+      "lib/aperturas/image.ts — la apertura y las medidas, puras",
+      "app/image-editor/mako/chat/PanelMakoIA.tsx — el montaje en el chat del editor",
+      "tests/iniciativa-image.test.ts — probado rompiéndolo (2 roturas)",
+    ],
+  },
 ];
