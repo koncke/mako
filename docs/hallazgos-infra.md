@@ -10784,6 +10784,8 @@ punta: es la próxima que sume archivos, sea cual sea. **Regla:** toda llamada q
 carpeta, `ls-tree -r` sobre un ref) lleva `maxBuffer: 64 * 1024 * 1024`; lo fija tests/git-lista-entera-buffer.test.ts. Lo
 que lista una carpeta (app y lib suman ~216 KB) todavía tiene aire, y el día que no, es la misma regla.
 
+El mismo día lo arregló en paralelo otra cuenta (docs/hallazgos-pruebas.md); lo que suma esta entrada es la guarda.
+
 **Vive en:** tests/git-lista-entera-buffer.test.ts (y el molde, `archivosVersionados` en tests/colision-de-nombres.test.ts).
 ## La lista de archivos del repo entero pasó el megabyte (5/11/2026)
 
