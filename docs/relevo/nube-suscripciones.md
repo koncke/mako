@@ -25,10 +25,9 @@ docs/investigacion-suscripciones.md.
 
 `supabase/migrations/0401_suscripcion_movimientos.sql`: la tabla `suscripcion_movimientos` y dos columnas de `pagos`
 (`suscripcion_mes`, `suscripcion_ajuste`). **El número se confirma al aplicarla.** Nació 0398 y se renumeró a 0401 el 5/11,
-cuando la Actividad de Admin entró a main con su 0398. Lo que había en otras ramas ese día: la 0396 en
-`punta/codigo-primer-contacto` y, en `punta/automations-pagos`, una 0398 (`comprobantes_leidos`, que también choca con la de
-Admin) y una 0399. La 0400 quedó libre a propósito: es el número natural para esa 0398 cuando se renumere. Si alguien tomó
-la 0401, se renumera antes de subir.
+cuando la Actividad de Admin entró a main con su 0398. La 0401 es la que el reparto del Cerebro le dio a esta punta
+(docs/relevo/cerebro.md, 5/11 ~23:30 UTC: la 0396 es de `punta/codigo-primer-contacto`, la 0399 y la 0400 de
+`punta/automations-pagos` y la 0402 de `punta/agencia-cobro`).
 
 - Sin ella el código no se rompe: la tab se dibuja, pero «Cambiar el monto», «Cortar» y «Retomar» contestan que falta la
   migración, y el mes de un pago se calcula solo (no se guarda).
