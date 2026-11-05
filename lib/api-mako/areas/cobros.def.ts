@@ -363,4 +363,22 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
+  // Admin › Users y Admin › Errors por chat (5/11/2026). Sólo LEEN: suspender a alguien apaga sus tokens de la API, y eso queda
+  // en la pantalla (una persona, con su «¿seguro?»), no en un chat. Sin HTTP: son datos de todos los negocios.
+  {
+    id: 'ver_personas_de_mako', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver las personas de MaKo',
+    descripcion: 'Sólo para la plataforma: como Admin › Users, las personas de todos los negocios con su estado de alta (activo: entró en 30 días; inactivo; invitado: nunca entró, y si se le mandó el acceso; suspendido), su rol, su negocio y cuándo entró. Con estado, sólo ésas.',
+    parametros: [
+      { nombre: 'estado', rotulo: 'Estado', tipo: 'string', enum: ['activo', 'inactivo', 'invitado', 'suspendido'], descripcion: 'sólo las de ese estado. Sin esto, todas.' },
+    ],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'ver_errores_de_mako', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver los errores de la app',
+    descripcion: 'Sólo para la plataforma: como Admin › Errors, los errores de la app agrupados (sin resolver, nuevos de 7 días, los que volvieron después de resueltos), cuántas veces pasaron, dónde, a cuántos negocios y su ticket; y los últimos reportes de las personas.',
+    parametros: [],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
 ];
