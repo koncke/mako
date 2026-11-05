@@ -52,6 +52,9 @@ import { HojaContenido } from './HojaContenido';
 import { vistaContenido } from '@/lib/contenido-diseno';
 import { datosContenidoMuestra } from '@/lib/contenido-diseno-muestra';
 import { HojaCurso } from './HojaCurso';
+import { HojaServicio } from './HojaServicio';
+import { vistaServicio } from '@/lib/servicio-diseno';
+import { datosServicioMuestra, generalServicioMuestra } from '@/lib/servicio-diseno-muestra';
 import { vistaCurso } from '@/lib/curso-diseno';
 import { calendarioCursoMuestra, datosCursoMuestra } from '@/lib/curso-diseno-muestra';
 
@@ -495,6 +498,11 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   // (curso-vitrea/mako.html). El reloj del ejemplo marca las 11:10 de hoy (la primera cosa del día ya pasó).
   curso: ({ hoja, hoy }) => (
     <HojaCurso hoja={hoja} vista={vistaCurso(hoja, datosCursoMuestra(hoja, hoy), calendarioCursoMuestra(hoy), Date.parse(`${hoy}T11:10:00Z`))} titulo="Tus alumnos" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+  ),
+  // La de «Agencia o servicio», igual: el MISMO vistaServicio que la hoja de verdad, con los datos y lo de General de la adaptación
+  // (servicio-sunrow/mako.html). El reloj del ejemplo marca las 11:10 de hoy (la primera sesión del día ya pasó).
+  servicio: ({ hoja, hoy }) => (
+    <HojaServicio hoja={hoja} vista={vistaServicio(hoja, datosServicioMuestra(hoja, hoy), generalServicioMuestra(hoy), Date.parse(`${hoy}T11:10:00Z`))} titulo="Buenos días, Ana" fecha="miércoles 5 de noviembre" onGrilla={() => {}} quieta />
   ),
 };
 

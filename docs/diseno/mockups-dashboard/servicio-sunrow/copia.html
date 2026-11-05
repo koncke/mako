@@ -1,0 +1,290 @@
+<!doctype html>
+<!-- AGENCIA O SERVICIO (SUNROW) · PASO 1: LA COPIA EXACTA de la página «Overview» de Sunrow (5/11/2026), con los textos del demo.
+     Escrita desde lo MEDIDO (demos/sunrow/captura/valores.json, las capturas a 1440 y 390, los estados y el INFORME); nada del código
+     de la tienda. Sin el cartel de la tienda. Los íconos son trazos propios. La adaptación a MaKo (mako.html) usa la MISMA hoja. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sunrow · Overview (copia)</title>
+<link rel="stylesheet" href="sunrow.css">
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-hat" viewBox="0 0 24 24"><path d="M4 16h16M6 16a6 6 0 0 1 12 0M10 10V7h4v3M12 4v3M7 19h10"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5h-14z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="3"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 3.5v1.8M12 18.7v1.8M3.5 12h1.8M18.7 12h1.8M6 6l1.3 1.3M16.7 16.7L18 18M6 18l1.3-1.3M16.7 7.3L18 6"/></symbol>
+<symbol id="i-wind" viewBox="0 0 24 24"><path d="M4 9h10a2.5 2.5 0 1 0-2.5-2.5M4 13h14a2.5 2.5 0 1 1-2.5 2.5M4 17h6"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 4l1.8 4.6L18.5 10l-4.7 1.6L12 16l-1.8-4.4L5.5 10l4.7-1.4z"/><path d="M18 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3.5L6 13h5l-1 7.5L17 11h-5z"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 7l5 5-5 5"/></symbol>
+<symbol id="i-out" viewBox="0 0 24 24"><path d="M8 16L16 8M9.5 8H16v6.5"/></symbol>
+<symbol id="i-build" viewBox="0 0 24 24"><path d="M4 19h16M6 19V9l6-4 6 4v10M10 19v-5h4v5"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4.5l8.5 15h-17z"/><path d="M12 10v4M12 16.8v.01"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M5 5v14h14M9 9h6M9 12.5h8M9 16h4"/></symbol>
+<symbol id="i-box" viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="3"/><path d="M9 12l2 2 4-4"/></symbol>
+<symbol id="i-helmet" viewBox="0 0 24 24"><path d="M4.5 17h15M6 17a6 6 0 0 1 12 0M12 8.5V6"/></symbol>
+<symbol id="i-trend" viewBox="0 0 24 24"><path d="M4.5 16.5l5-5 3.5 3.5 6.5-6.5M15 8.5h4.5V13"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><path d="M12 8v4.5l3 1.8"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></symbol>
+<symbol id="i-left" viewBox="0 0 24 24"><path d="M14 7l-5 5 5 5"/></symbol>
+<symbol id="i-right" viewBox="0 0 24 24"><path d="M10 7l5 5-5 5"/></symbol>
+<symbol id="i-wallet" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="3"/><path d="M4 10h16M15.5 14h1.5"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 20s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z"/><circle cx="12" cy="10" r="2.2"/></symbol>
+<symbol id="i-panel" viewBox="0 0 24 24"><path d="M5 9l3-4h8l3 4zM5 9l2 6h10l2-6M8 15l-1 4M16 15l1 4M12 9v6"/></symbol>
+<symbol id="i-battery" viewBox="0 0 24 24"><rect x="4" y="7.5" width="14" height="9" rx="2.5"/><path d="M20 10.5v3M11.5 9.5l-2 3h3l-2 3"/></symbol>
+<symbol id="i-roof" viewBox="0 0 24 24"><path d="M4.5 12L12 5.5l7.5 6.5M7 10.5V19h10v-8.5M10.5 19v-4h3v4"/></symbol>
+<symbol id="i-carport" viewBox="0 0 24 24"><path d="M4 8h16l-1.5-3h-13zM6 8v11M18 8v11M8.5 13h7M8.5 16h7"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 4h7l4 4v12H7z"/><path d="M14 4v4h4M9.5 12h5M9.5 15.5h5"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 4l6.5 2.5V12c0 4-3 6.5-6.5 8-3.5-1.5-6.5-4-6.5-8V6.5z"/><path d="M9.5 12l2 2 3.5-4"/></symbol>
+<symbol id="i-flame" viewBox="0 0 24 24"><path d="M6 18h12M7.5 15h9M9 12.5c0-2.5 3-3.5 3-7 2 1.5 4 4 3 7"/></symbol>
+<symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 4l7 4v8l-7 4-7-4V8z"/><path d="M5 8l7 4 7-4M12 12v8"/></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24"><path d="M6.5 20V4.5M6.5 5h10l-2 3.5 2 3.5h-10"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-truck" viewBox="0 0 24 24"><path d="M3.5 7h10v8.5h-10zM13.5 10h4l3 3v2.5h-7"/><circle cx="7" cy="17" r="1.6"/><circle cx="17" cy="17" r="1.6"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></symbol>
+<symbol id="i-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="3"/><path d="M6.7 6.7l3.2 3.2M14.1 14.1l3.2 3.2M17.3 6.7l-3.2 3.2M9.9 14.1l-3.2 3.2"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M18 14.5A7 7 0 0 1 9.5 6a7 7 0 1 0 8.5 8.5z"/></symbol>
+<symbol id="i-cart" viewBox="0 0 24 24"><path d="M4 5h2l2 10h9.5l2-7H7"/><circle cx="9.5" cy="18.5" r="1.3"/><circle cx="16.5" cy="18.5" r="1.3"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 19h14M8 16v-4M12 16V8M16 16v-6"/></symbol>
+</defs></svg>
+
+<div class="fondo" aria-hidden="true"></div>
+
+<header class="top">
+  <a class="brand" href="#"><span class="brand__logo"><svg class="i"><use href="#i-hat"/></svg></span><span class="brand__t"><b>Sunrow</b><small>Field ERP</small></span></a>
+  <nav class="ptabs">
+    <a class="ptab" href="#" aria-current="page">Overview</a><a class="ptab" href="#">Projects</a><a class="ptab" href="#">Site<i class="badge">2</i></a><a class="ptab" href="#">Supply<i class="badge">16</i></a><a class="ptab" href="#">Money<i class="badge">13</i></a><a class="ptab" href="#">Insights</a><a class="ptab" href="#">Documents</a>
+  </nav>
+  <div class="top__r">
+    <span class="clock"><i class="live-dot"></i><b>9:40 AM</b>Live</span>
+    <button class="ibtn ibtn--glass" type="button"><svg class="i"><use href="#i-bell"/></svg><i class="badge badge--ibtn">4</i></button>
+    <button class="org" type="button"><span class="av av--org">TR</span></button>
+    <button class="top__me" type="button">NH</button>
+  </div>
+</header>
+
+<nav class="dock" aria-label="Tools">
+  <button class="dock__btn" type="button"><svg class="i"><use href="#i-search"/></svg></button>
+  <button class="dock__btn" type="button"><svg class="i"><use href="#i-plus"/></svg></button>
+  <i class="dock__sep"></i>
+  <a class="dock__btn" href="#"><svg class="i"><use href="#i-gear"/></svg></a>
+  <a class="dock__btn" href="#"><svg class="i"><use href="#i-ring"/></svg></a>
+  <i class="dock__sep"></i>
+  <button class="dock__btn" type="button"><svg class="i"><use href="#i-moon"/></svg></button>
+</nav>
+
+<main class="dash">
+  <div class="dash__main">
+    <section class="hero">
+      <div class="hero__l">
+        <div class="hero__txt">
+          <p class="hero__eyebrow"><svg class="i"><use href="#i-cal"/></svg>Wednesday, October 21, 2026</p>
+          <h1 class="hero__title">Good morning, Noor</h1>
+          <p class="hero__sub">7 builds are live across five states. 13 approvals and one delayed site need you today.</p>
+          <div class="hchips">
+            <span class="hchip"><svg class="i"><use href="#i-sun"/></svg><b>61°F</b>Clear · Tooele</span>
+            <span class="hchip"><svg class="i"><use href="#i-wind"/></svg><b>12 mph</b>NW, gusts 18</span>
+            <span class="hchip hchip--live"><i class="live-dot"></i>Live from 6 sites</span>
+          </div>
+        </div>
+        <div class="day">
+          <svg class="day__arc" viewBox="0 0 274 80" preserveAspectRatio="none" aria-hidden="true">
+            <path class="day__track" d="M2 78 C40 -4 234 -4 272 78"/>
+            <path class="day__done" d="M2 78 C10 60 24 40 44 28"/>
+          </svg>
+          <i class="day__sunp" style="left:16.7%;top:30px"></i>
+          <span class="day__a">7:46</span><span class="day__b">18:38</span>
+          <div class="day__mid"><span>Daylight left on site</span><b>8 h 58 min</b><span>Crews stand down at 18:00</span></div>
+        </div>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card__h"><span class="ai-card__ico"><svg class="i"><use href="#i-spark"/></svg></span><b>AI project insights</b></div>
+        <div class="ai-card__mid">
+          <div class="gauge">
+            <svg viewBox="0 0 112 100" aria-hidden="true">
+              <path class="gauge__track" d="M23.5 88.5 A46 46 0 1 1 88.5 88.5"/>
+              <path class="gauge__fill" d="M23.5 88.5 A46 46 0 1 1 98.5 38.4"/>
+              <path class="gauge__ticks" d="M29.8 82.2L27.7 84.3M24.0 74.5L21.4 76.0M20.3 65.6L17.4 66.4M19.0 56.0L16.0 56.0M20.3 46.4L17.4 45.6M24.0 37.5L21.4 36.0M29.8 29.8L27.7 27.7M37.5 24.0L36.0 21.4M46.4 20.3L45.6 17.4M56.0 19.0L56.0 16.0M65.6 20.3L66.4 17.4M74.5 24.0L76.0 21.4M82.2 29.8L84.3 27.7M88.0 37.5L90.6 36.0M91.7 46.4L94.6 45.6M93.0 56.0L96.0 56.0M91.7 65.6L94.6 66.4M88.0 74.5L90.6 76.0M82.2 82.2L84.3 84.3"/>
+              <path class="gauge__needle" d="M52.0 62.0 L82.0 35.7"/>
+            </svg>
+            <b class="gauge__n">75</b><span class="gauge__l">out of 100</span>
+          </div>
+          <div class="ai-card__t"><b>Delivery confidence</b><p>Good chance of on-time delivery across the portfolio.</p></div>
+        </div>
+        <a class="ai-card__tip" href="#"><svg class="i"><use href="#i-bolt"/></svg><span><b>Key insight</b>Pinecrest will miss its COD by ~3 weeks.</span></a>
+        <a class="btn btn--primary btn--sm" href="#">View full AI analysis<svg class="i"><use href="#i-arrow"/></svg></a>
+      </div>
+    </section>
+
+    <div class="kpis">
+      <div class="kpi tile--mint" data-lift><div class="kpi__h"><span class="kpi__ico"><svg class="i"><use href="#i-build"/></svg></span><span class="kpi__l">Active projects</span></div><b class="kpi__n">7</b><span class="kpi__d"><svg class="i"><use href="#i-trend"/></svg>+1 this quarter</span></div>
+      <div class="kpi" data-lift><div class="kpi__h"><span class="kpi__ico"><svg class="i"><use href="#i-check"/></svg></span><span class="kpi__l">Completed builds</span></div><b class="kpi__n">32</b><span class="kpi__d"><svg class="i"><use href="#i-trend"/></svg>+2 vs last year</span></div>
+      <div class="kpi tile--blush" data-lift><div class="kpi__h"><span class="kpi__ico"><svg class="i"><use href="#i-alert"/></svg></span><span class="kpi__l">Delayed projects</span></div><b class="kpi__n">2</b><span class="kpi__d kpi__d--flat">Same as last month</span></div>
+      <div class="kpi" data-lift><div class="kpi__h"><span class="kpi__ico"><svg class="i"><use href="#i-list"/></svg></span><span class="kpi__l">Work packages live</span></div><b class="kpi__n">17</b><span class="kpi__d"><svg class="i"><use href="#i-trend"/></svg>1 start this week</span></div>
+      <div class="kpi tile--lemon" data-lift><div class="kpi__h"><span class="kpi__ico"><svg class="i"><use href="#i-box"/></svg></span><span class="kpi__l">Pending approvals</span></div><b class="kpi__n">13</b><span class="kpi__d"><svg class="i"><use href="#i-clock"/></svg>3 due today</span></div>
+      <div class="kpi" data-lift><div class="kpi__h"><span class="kpi__ico"><svg class="i"><use href="#i-helmet"/></svg></span><span class="kpi__l">Crew attendance</span></div><b class="kpi__n">90%</b><span class="kpi__d"><svg class="i"><use href="#i-trend"/></svg>19 of 21 on site</span></div>
+    </div>
+
+    <section class="card dash-time">
+      <div class="card__h"><span class="card__ico"><svg class="i"><use href="#i-trend"/></svg></span><h2 class="card__t">Timeline progress</h2>
+        <div class="card__tools"><span class="select"><span>All projects</span><svg class="i"><use href="#i-chev"/></svg></span><button class="ibtn ibtn--sm card__expand" type="button"><svg class="i"><use href="#i-out"/></svg></button></div></div>
+      <p class="legend"><span><i class="lg lg--sun"></i>Planned</span><span><i class="lg lg--ink"></i>Actual</span><span><i class="lg lg--dash lg--cobalt"></i>Forecast</span><span><i class="lg lg--dash lg--slate"></i>Baseline</span></p>
+      <div class="chart">
+        <div class="chart__y"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div>
+        <svg class="chart__svg" viewBox="0 0 888 168" preserveAspectRatio="none" aria-hidden="true">
+          <defs><linearGradient id="g-time" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1993aa" stop-opacity=".26"/><stop offset="1" stop-color="#1993aa" stop-opacity=".02"/></linearGradient></defs>
+          <path class="chart__grid" d="M0 .5H888M0 42.5H888M0 84.5H888M0 126.5H888M0 167.5H888"/>
+          <path d="M0 166 C80 163 160 157 240 147 C320 137 380 125 460 110 C540 93 620 79 700 66 C780 56 840 52 888 49 L888 168 L0 168 Z" fill="url(#g-time)"/>
+          <path class="chart__base" d="M0 166 C80 163 160 157 240 147 C320 137 380 125 460 110 C540 93 620 79 700 64 C780 52 840 47 888 44"/>
+          <path class="chart__plan" d="M0 166 C80 163 160 157 240 147 C320 137 380 125 460 110 C540 93 620 79 700 66 C780 56 840 52 888 49"/>
+          <path class="chart__fc" d="M460 110 C540 92 620 77 700 63 C780 52 840 46 888 45"/>
+          <path class="chart__act" d="M0 166 C80 163 160 157 240 147 C320 137 380 125 460 109"/>
+        </svg>
+        <span class="chart__today" style="left:51.7%"><i>Today</i></span>
+        <div class="chart__x"><span>Apr '26</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan '27</span><span>Feb</span><span>Mar</span></div>
+      </div>
+      <div class="read" data-read><div><span>Planned today</span><b>35%</b></div><div><span>Actual</span><b>36%</b></div><div><span>Variance</span><b class="up">+0.5 pts</b></div></div>
+    </section>
+
+    <div class="dash__row3">
+      <section class="card dash-budget">
+        <div class="card__h"><span class="card__ico"><svg class="i"><use href="#i-wallet"/></svg></span><h2 class="card__t">Budget utilization</h2></div>
+        <div class="bud">
+          <div class="donut">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <circle class="donut__bg" cx="60" cy="60" r="50"/>
+              <circle class="donut__seg donut__seg--sun" cx="60" cy="60" r="50" pathLength="100" stroke-dasharray="37.6 62.4" stroke-dashoffset="0"/>
+              <circle class="donut__seg donut__seg--cobalt" cx="60" cy="60" r="50" pathLength="100" stroke-dasharray="10.4 89.6" stroke-dashoffset="-38.6"/>
+            </svg>
+            <span class="donut__c"><b>38%</b>utilized</span>
+          </div>
+          <ul class="bud__leg">
+            <li><i class="sq sq--ink"></i>Total budget<b>$234M</b></li>
+            <li><i class="sq sq--sun"></i>Spent<b>$88.1M</b></li>
+            <li><i class="sq sq--cobalt"></i>Committed<b>$26.7M</b></li>
+            <li><i class="sq sq--slate"></i>Remaining<b>$119M</b></li>
+          </ul>
+        </div>
+        <p class="bud__trend"><em class="pill pill--good"><svg class="i"><use href="#i-trend"/></svg>36% → 38%</em>spent this month</p>
+        <div class="bud__top">
+          <p class="eyebrow">Largest budgets</p>
+          <ul class="bars2">
+            <li><span>Red Mesa Solar + Storage</span><em>$7.65M of $96.5M</em><i class="bar2"><i class="bar2__a" style="width:8%"></i><i class="bar2__b" style="width:10%"></i></i></li>
+            <li><span>Marlow Ridge Battery Storage</span><em>$30.7M of $58.2M</em><i class="bar2"><i class="bar2__a" style="width:53%"></i><i class="bar2__b" style="width:14%"></i></i></li>
+            <li><span>Cedar Flats Solar Farm</span><em>$30.5M of $41.6M</em><i class="bar2"><i class="bar2__a" style="width:73%"></i><i class="bar2__b" style="width:14%"></i></i></li>
+            <li><span>Pinecrest Agrivoltaics</span><em>$6.42M of $19.4M</em><i class="bar2"><i class="bar2__a" style="width:33%"></i><i class="bar2__b" style="width:9%"></i></i></li>
+          </ul>
+        </div>
+        <a class="card__more card__more--block" href="#">View budget report<svg class="i"><use href="#i-arrow"/></svg></a>
+      </section>
+
+      <section class="card dash-sites">
+        <div class="card__h"><span class="card__ico"><svg class="i"><use href="#i-pin"/></svg></span><h2 class="card__t">Site-wise performance</h2><a class="card__more" href="#">View all<svg class="i"><use href="#i-arrow"/></svg></a></div>
+        <ul class="sites">
+          <li><a class="list__row site" href="#"><span class="tic tic--sun"><svg class="i"><use href="#i-panel"/></svg></span><span class="site__m"><b>Cedar Flats Solar Farm</b><span>Tooele, Utah · 48 MWp</span><i class="meter"><i class="meter__fill meter__fill--good" style="--v:.69"></i></i></span><span class="site__r"><strong>69%</strong><em class="pill pill--good">On track</em></span></a></li>
+          <li><a class="list__row site" href="#"><span class="tic tic--cobalt"><svg class="i"><use href="#i-battery"/></svg></span><span class="site__m"><b>Marlow Ridge Battery Storage</b><span>Kern County, California · 120 MWh</span><i class="meter"><i class="meter__fill meter__fill--good" style="--v:.5"></i></i></span><span class="site__r"><strong>50%</strong><em class="pill pill--good">On track</em></span></a></li>
+          <li><a class="list__row site" href="#"><span class="tic tic--cobalt"><svg class="i"><use href="#i-roof"/></svg></span><span class="site__m"><b>Ashgrove Rooftop Portfolio</b><span>Columbus, Ohio · 6.2 MW · 14 roofs</span><i class="meter"><i class="meter__fill meter__fill--good" style="--v:.89"></i></i></span><span class="site__r"><strong>89%</strong><em class="pill pill--good">On track</em></span></a></li>
+          <li><a class="list__row site" href="#"><span class="tic tic--jade"><svg class="i"><use href="#i-panel"/></svg></span><span class="site__m"><b>Pinecrest Agrivoltaics</b><span>Yakima, Washington · 22 MWp</span><i class="meter"><i class="meter__fill meter__fill--bad" style="--v:.31"></i></i></span><span class="site__r"><strong>31%</strong><em class="pill pill--bad">Delayed</em></span></a></li>
+          <li><a class="list__row site" href="#"><span class="tic tic--ember"><svg class="i"><use href="#i-carport"/></svg></span><span class="site__m"><b>Saltmarsh Carport Array</b><span>Savannah, Georgia · 3.8 MW</span><i class="meter"><i class="meter__fill meter__fill--good" style="--v:.98"></i></i></span><span class="site__r"><strong>98%</strong><em class="pill pill--good">On track</em></span></a></li>
+          <li><a class="list__row site" href="#"><span class="tic tic--rose"><svg class="i"><use href="#i-bolt"/></svg></span><span class="site__m"><b>Red Mesa Solar + Storage</b><span>Las Cruces, New Mexico · 75 MWp + 40 MWh</span><i class="meter"><i class="meter__fill meter__fill--bad" style="--v:.08"></i></i></span><span class="site__r"><strong>8%</strong><em class="pill pill--bad">Delayed</em></span></a></li>
+        </ul>
+      </section>
+    </div>
+
+    <section class="card quick">
+      <b class="quick__t">Quick links</b>
+      <div class="quick__l">
+        <a class="quick__a" href="#"><span class="quick__i"><svg class="i"><use href="#i-build"/></svg></span>Projects</a>
+        <a class="quick__a" href="#"><span class="quick__i"><svg class="i"><use href="#i-list"/></svg></span>Site progress</a>
+        <a class="quick__a" href="#"><span class="quick__i"><svg class="i"><use href="#i-helmet"/></svg></span>Contractors</a>
+        <a class="quick__a" href="#"><span class="quick__i"><svg class="i"><use href="#i-cube"/></svg></span>Materials</a>
+        <a class="quick__a" href="#"><span class="quick__i"><svg class="i"><use href="#i-cart"/></svg></span>Purchase orders</a>
+        <a class="quick__a" href="#"><span class="quick__i"><svg class="i"><use href="#i-wallet"/></svg></span>Budget</a>
+        <a class="quick__a" href="#"><span class="quick__i"><svg class="i"><use href="#i-chart"/></svg></span>Reports</a>
+        <a class="quick__a" href="#"><span class="quick__i quick__i--ai"><svg class="i"><use href="#i-spark"/></svg></span>AI insights</a>
+      </div>
+    </section>
+
+    <div class="dash__row3 dash__row3--lists">
+      <section class="card">
+        <div class="card__h"><span class="card__ico"><svg class="i"><use href="#i-trend"/></svg></span><h2 class="card__t">Recent project updates</h2><a class="card__more" href="#">View all<svg class="i"><use href="#i-arrow"/></svg></a></div>
+        <ul class="list">
+          <li><a class="list__row" href="#"><span class="tic tic--jade"><svg class="i"><use href="#i-trend"/></svg></span><span class="list__m"><b>Cedar Flats Solar Farm</b><span>Module install reached row 380 in block 6</span></span><span class="list__r">28 min ago</span></a></li>
+          <li><a class="list__row" href="#"><span class="tic tic--jade"><svg class="i"><use href="#i-trend"/></svg></span><span class="list__m"><b>Marlow Ridge Battery Storage</b><span>Containers 9–12 set on their foundations</span></span><span class="list__r">1 h ago</span></a></li>
+          <li><a class="list__row" href="#"><span class="tic tic--slate"><svg class="i"><use href="#i-doc"/></svg></span><span class="list__m"><b>Red Mesa Solar + Storage</b><span>Raised RFI-246 on caliche pre-drilling</span></span><span class="list__r">2 h ago</span></a></li>
+          <li><a class="list__row" href="#"><span class="tic tic--rose"><svg class="i"><use href="#i-shield"/></svg></span><span class="list__m"><b>Red Mesa Solar + Storage</b><span>Reported an oil drip under grader EQ-160</span></span><span class="list__r">2 h ago</span></a></li>
+          <li><a class="list__row" href="#"><span class="tic tic--jade"><svg class="i"><use href="#i-trend"/></svg></span><span class="list__m"><b>Ashgrove Rooftop Portfolio</b><span>Commissioned roofs 9 and 10</span></span><span class="list__r">17 h ago</span></a></li>
+        </ul>
+      </section>
+      <section class="card dash-alerts">
+        <div class="card__h"><span class="card__ico"><svg class="i"><use href="#i-alert"/></svg></span><h2 class="card__t">Critical issue alerts</h2><a class="card__more" href="#">View all<svg class="i"><use href="#i-arrow"/></svg></a></div>
+        <ul class="list">
+          <li class="list__row"><span class="tic tic--rose"><svg class="i"><use href="#i-clock"/></svg></span><a class="grow" href="#"><b>Pile driving 22% behind plan</b><span>Pinecrest Agrivoltaics</span></a><em class="pill pill--bad">High</em><button class="ibtn ibtn--sm ibtn--plain" type="button"><svg class="i"><use href="#i-check"/></svg></button></li>
+          <li class="list__row"><span class="tic tic--rose"><svg class="i"><use href="#i-flame"/></svg></span><a class="grow" href="#"><b>Hot-work permit pending for inverter pad</b><span>Pinecrest Agrivoltaics</span></a><em class="pill pill--bad">High</em><button class="ibtn ibtn--sm ibtn--plain" type="button"><svg class="i"><use href="#i-check"/></svg></button></li>
+          <li class="list__row"><span class="tic tic--ember"><svg class="i"><use href="#i-cube"/></svg></span><a class="grow" href="#"><b>MV cable below reserved quantity</b><span>Marlow Ridge Battery Storage</span></a><em class="pill pill--warn">Medium</em><button class="ibtn ibtn--sm ibtn--plain" type="button"><svg class="i"><use href="#i-check"/></svg></button></li>
+          <li class="list__row"><span class="tic tic--ember"><svg class="i"><use href="#i-shield"/></svg></span><a class="grow" href="#"><b>Near miss under investigation (INC-221)</b><span>Cedar Flats Solar Farm</span></a><em class="pill pill--warn">Medium</em><button class="ibtn ibtn--sm ibtn--plain" type="button"><svg class="i"><use href="#i-check"/></svg></button></li>
+          <li class="list__row"><span class="tic tic--ember"><svg class="i"><use href="#i-wallet"/></svg></span><a class="grow" href="#"><b>Piling &amp; racking 14% over budget</b><span>Pinecrest Agrivoltaics</span></a><em class="pill pill--warn">Medium</em><button class="ibtn ibtn--sm ibtn--plain" type="button"><svg class="i"><use href="#i-check"/></svg></button></li>
+        </ul>
+      </section>
+      <section class="card dash-dead">
+        <div class="card__h"><span class="card__ico"><svg class="i"><use href="#i-flag"/></svg></span><h2 class="card__t">Upcoming deadlines</h2><a class="card__more" href="#">View all<svg class="i"><use href="#i-arrow"/></svg></a></div>
+        <ul class="list">
+          <li><a class="list__row" href="#"><span class="date"><small>Nov</small><b>4</b></span><span class="list__m"><b>Electrical complete</b><span>Ashgrove Rooftop Portfolio</span></span><span class="list__r">Nov 4</span></a></li>
+          <li><a class="list__row" href="#"><span class="date"><small>Nov</small><b>7</b></span><span class="list__m"><b>Commissioning complete</b><span>Saltmarsh Carport Array</span></span><span class="list__r">Nov 7</span></a></li>
+          <li><a class="list__row" href="#"><span class="date"><small>Nov</small><b>13</b></span><span class="list__m"><b>Pre-construction complete</b><span>Red Mesa Solar + Storage</span></span><span class="list__r">Nov 13</span></a></li>
+          <li><a class="list__row" href="#"><span class="date"><small>Nov</small><b>17</b></span><span class="list__m"><b>Mechanical complete</b><span>Marlow Ridge Battery Storage</span></span><span class="list__r">Nov 17</span></a></li>
+          <li><a class="list__row" href="#"><span class="date"><small>Nov</small><b>25</b></span><span class="list__m"><b>Commissioning complete</b><span>Ashgrove Rooftop Portfolio</span></span><span class="list__r">Nov 25</span></a></li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <aside class="dash__aside" aria-label="Your day">
+    <section class="card cal">
+      <div class="card__h"><span class="card__ico"><svg class="i"><use href="#i-cal"/></svg></span><h2 class="card__t">Calendar</h2></div>
+      <div class="cal__m"><b>October 2026</b><span><button class="ibtn ibtn--sm" type="button"><svg class="i"><use href="#i-left"/></svg></button><button class="ibtn ibtn--sm" type="button"><svg class="i"><use href="#i-right"/></svg></button></span></div>
+      <div class="cal__grid">
+        <span class="cal__w">Mo</span><span class="cal__w">Tu</span><span class="cal__w">We</span><span class="cal__w">Th</span><span class="cal__w">Fr</span><span class="cal__w">Sa</span><span class="cal__w">Su</span>
+        <i class="cal__d is-pad"></i><i class="cal__d is-pad"></i><i class="cal__d is-pad"></i>
+        <button class="cal__d is-past" type="button">1</button><button class="cal__d is-past" type="button">2</button><button class="cal__d is-past" type="button">3</button><button class="cal__d is-past" type="button">4</button>
+        <button class="cal__d is-past" type="button">5</button><button class="cal__d is-past" type="button">6</button><button class="cal__d is-past" type="button">7</button><button class="cal__d is-past" type="button">8</button><button class="cal__d is-past" type="button">9<i class="dots"><i class="d--cobalt"></i></i></button><button class="cal__d is-past" type="button">10</button><button class="cal__d is-past" type="button">11</button>
+        <button class="cal__d is-past" type="button">12</button><button class="cal__d is-past" type="button">13</button><button class="cal__d is-past" type="button">14</button><button class="cal__d is-past" type="button">15</button><button class="cal__d is-past" type="button">16</button><button class="cal__d is-past" type="button">17</button><button class="cal__d is-past" type="button">18</button>
+        <button class="cal__d is-past" type="button">19</button><button class="cal__d is-past" type="button">20<i class="dots"><i class="d--ember"></i></i></button><button class="cal__d is-today is-sel" type="button">21<i class="dots"><i></i><i></i></i></button><button class="cal__d" type="button">22<i class="dots"><i class="d--jade"></i><i class="d--sun"></i></i></button><button class="cal__d" type="button">23<i class="dots"><i class="d--sun"></i><i class="d--jade"></i><i class="d--sun"></i></i></button><button class="cal__d" type="button">24</button><button class="cal__d" type="button">25<i class="dots"><i class="d--slate"></i><i class="d--ember"></i></i></button>
+        <button class="cal__d" type="button">26<i class="dots"><i class="d--sun"></i><i class="d--cobalt"></i></i></button><button class="cal__d" type="button">27<i class="dots"><i class="d--ember"></i></i></button><button class="cal__d" type="button">28</button><button class="cal__d" type="button">29</button><button class="cal__d" type="button">30<i class="dots"><i class="d--cobalt"></i><i class="d--ember"></i></i></button><button class="cal__d" type="button">31</button>
+      </div>
+      <div class="cal__day">
+        <p><b>Today</b><span>3 events</span></p>
+        <a class="cal__ev" href="#"><i class="d--jade"></i>Inspection · Weekly HSE walk — blocks 1–6</a>
+        <a class="cal__ev" href="#"><i class="d--sun"></i>Review RFI-245 (substation B relocation)</a>
+        <a class="cal__ev" href="#"><i class="d--sun"></i>Approve MV cable order PO-8841</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card__h"><span class="card__ico"><svg class="i"><use href="#i-check"/></svg></span><h2 class="card__t">My tasks</h2><button class="ibtn ibtn--sm" type="button"><svg class="i"><use href="#i-plus"/></svg></button><button class="card__more" type="button">View all<svg class="i"><use href="#i-arrow"/></svg></button></div>
+      <ul class="todos">
+        <li class="todo"><input class="check" type="checkbox" id="t1"><label for="t1"><b>Review RFI-245 (substation B relocation)</b><span>Cedar Flats Solar Farm · Today</span></label><em class="pill pill--bad">High</em></li>
+        <li class="todo"><input class="check" type="checkbox" id="t2"><label for="t2"><b>Approve MV cable order PO-8841</b><span>Marlow Ridge Battery Storage · Today</span></label><em class="pill pill--bad">High</em></li>
+        <li class="todo"><input class="check" type="checkbox" id="t3"><label for="t3"><b>Sign off Ashgrove roof 9–14 inspection</b><span>Ashgrove Rooftop Portfolio · Tomorrow</span></label><em class="pill pill--warn">Medium</em></li>
+        <li class="todo"><input class="check" type="checkbox" id="t4"><label for="t4"><b>Weekly progress update to Wasatch Power</b><span>Cedar Flats Solar Farm · In 2 days</span></label><em class="pill pill--good">Low</em></li>
+        <li class="todo"><input class="check" type="checkbox" id="t5"><label for="t5"><b>Decide on CO-014 tracker clearance</b><span>Pinecrest Agrivoltaics · In 2 days</span></label><em class="pill pill--warn">Medium</em></li>
+        <li class="todo"><input class="check" type="checkbox" id="t6"><label for="t6"><b>Kick-off agenda for Harbor Point</b><span>Harbor Point Microgrid · In 5 days</span></label><em class="pill pill--good">Low</em></li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <div class="card__h"><span class="card__ico"><svg class="i"><use href="#i-bell"/></svg></span><h2 class="card__t">Notifications</h2><a class="card__more" href="#">View all<svg class="i"><use href="#i-arrow"/></svg></a></div>
+      <ul class="notes">
+        <li><a class="list__row" href="#"><span class="tic tic--sun tic--sm"><svg class="i"><use href="#i-box"/></svg></span><span class="note__m"><b>Mei Lin raised PO-8842 for 4 pad-mount transformers<i class="unread"></i></b><span>1 h ago</span></span></a></li>
+        <li><a class="list__row" href="#"><span class="tic tic--rose tic--sm"><svg class="i"><use href="#i-shield"/></svg></span><span class="note__m"><b>New environmental incident at Red Mesa (INC-222)<i class="unread"></i></b><span>2 h ago</span></span></a></li>
+        <li><a class="list__row" href="#"><span class="tic tic--cobalt tic--sm"><svg class="i"><use href="#i-spark"/></svg></span><span class="note__m"><b>Sunrow AI: Pinecrest is forecast to miss COD by 3 weeks<i class="unread"></i></b><span>3 h ago</span></span></a></li>
+        <li><a class="list__row" href="#"><span class="tic tic--cobalt tic--sm"><svg class="i"><use href="#i-truck"/></svg></span><span class="note__m"><b>Bluecell containers are 9 days out — crane booked<i class="unread"></i></b><span>19 h ago</span></span></a></li>
+        <li><a class="list__row" href="#"><span class="tic tic--slate tic--sm"><svg class="i"><use href="#i-doc"/></svg></span><span class="note__m"><b>Kofi uploaded SLD rev F for your review</b><span>22 h ago</span></span></a></li>
+      </ul>
+    </section>
+  </aside>
+</main>
+<button class="assist__fab" type="button"><span class="assist__ico"><svg class="i"><use href="#i-spark"/></svg></span>Ask Sunrow AI<i class="badge badge--fab">5</i></button>
+<script src="sunrow.js"></script>
+</body></html>

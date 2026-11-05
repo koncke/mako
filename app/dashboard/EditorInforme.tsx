@@ -191,6 +191,7 @@ const ProductividadVivo = dynamic(() => import('./disenos/ProductividadVivo'));
 const CsVivo = dynamic(() => import('./disenos/CsVivo'));
 const ContenidoVivo = dynamic(() => import('./disenos/ContenidoVivo'));
 const CursoVivo = dynamic(() => import('./disenos/CursoVivo'));
+const ServicioVivo = dynamic(() => import('./disenos/ServicioVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -1687,6 +1688,15 @@ export function EditorInforme({
               // tramo o un cliente abre lo de siempre de su pieza.
               <CursoVivo
                 hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'servicio' && !enGrilla && !editando && !dueno ? (
+              // «Agencia o servicio» con su DISEÑO PROPIO (la copia de Sunrow, ./disenos/HojaServicio.tsx): los datos de sus componentes y el
+              // Calendario, el Plan y el Semáforo de los datos de General (sin ellos, esas tarjetas dicen que no pudieron leerlos); un
+              // cliente, una etapa o un deudor abre lo de siempre de su pieza.
+              <ServicioVivo
+                hoja={hoja} hoy={hoy} datos={datos} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
               />

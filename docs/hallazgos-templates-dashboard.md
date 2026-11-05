@@ -552,6 +552,23 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **Medido:** la copia mide 1.653 a 1440 (como la captura) y 3.603 contra 3.605 a 390; la adaptación cae en las mismas cajas a 1360 (871×396,
   427×396, 1314×266 y tres de 427×534).
 
+## 29. Agencia o servicio (Sunrow): un arco que dice lo que queda se corta por su largo, y una tarjeta con datos de General dice cuál no llegó (5/11/2026, chat en la nube)
+
+- **El punto de un arco va por su LARGO, no por el parámetro de la curva.** El arco de Sunrow es una curva de Bézier, y el parámetro `t`
+  no avanza parejo: en las puntas corre y arriba se frena. Para que «a las 11:10 de un día de 9 a 18» caiga donde tiene que caer, el
+  punto sale de una tabla de largos (`tDeFraccion`) y el tramo hecho es la misma curva cortada en ese `t` (de Casteljau): así el
+  final del tramo y el punto caen siempre en el mismo lugar.
+- **«No pude leerlo» sólo si algo falló.** La primera versión lo ponía en todo número sin valor, también cuando la pieza no trajo nada
+  (una hoja recién armada, un negocio sin cartera): ahí decía que falló algo que no falló. Va sólo con `problemas.numeros`.
+- **Una hoja de General con tres fuentes de General dice cuál no llegó, una por una.** Sin los datos de General (un link compartido no
+  los trae) el Calendario, el Plan y el Semáforo dicen «No pude leer…» cada uno en su tarjeta, nunca «nada agendado» ni «todo en
+  orden». Lo demás (las piezas) se dibuja igual.
+- **Un cambio de piezas de una plantilla vale también para la grilla.** «Avanzaron, por semana» pasó a mirar los últimos 90 días (las
+  semanas del mes eran dos o tres puntos, y la curva de Sunrow no se lee con dos) y «Quién te necesita hoy» trae seis: las hojas nuevas
+  los ven así también en «Ver la grilla». Una hoja ya guardada no cambia: la plantilla sólo arma hojas nuevas.
+- **Medido:** la copia mide 2.657 a 1440 (la captura, 2.656) y 5.789 a 390 (5.777); la adaptación cae en las mismas cajas (el saludo de 983
+  con la tarjeta de 337, las tarjetas de 484 y la columna de 315, a 1360) y no desborda a 1100, 900 ni 390.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

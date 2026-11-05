@@ -206,13 +206,37 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       {
         local: 'contacto', tipo: 'barras', fuente: 'cartera', fecha: 'actual', dimension: 'tramo_contacto', metricas: ['clientes'], titulo: 'Hace cuánto no hablan',
       },
-      { local: 'ritmo', tipo: 'columnas', fuente: 'entrega', fecha: 'desde', dimension: 'semana', metricas: ['clientes'], titulo: 'Avanzaron, por semana' },
+      // 5/11/2026 — para el DISEÑO PROPIO (la copia de Sunrow, app/dashboard/disenos/HojaServicio.tsx): la curva de «Timeline progress»
+      // son las semanas de los últimos 90 días (las del mes son dos o tres puntos), y «Site-wise performance» lleva seis clientes.
+      {
+        local: 'ritmo', tipo: 'columnas', fuente: 'entrega', fecha: 'desde', dimension: 'semana', metricas: ['clientes'], titulo: 'Avanzaron, por semana',
+        controles: [{ tipo: 'periodo', preset: 'ult90', fijo: true }], ir: 'clients',
+      },
       {
         local: 'quien', tipo: 'tarjetas', fuente: 'cartera', dimension: 'cliente', metricas: ['atencion', 'deuda_vencida_usd', 'sesiones'],
-        ordenMetrica: 'atencion', barra: 'deuda_vencida_usd', limite: 3, tabla: { columnas: ['senal', 'tramo_contacto'] }, titulo: 'Quién te necesita hoy',
+        ordenMetrica: 'atencion', barra: 'deuda_vencida_usd', limite: 6, tabla: { columnas: ['senal', 'tramo_contacto'] }, titulo: 'Quién te necesita hoy', ir: 'clients',
+      },
+      // «Budget utilization» de Sunrow es «Lo que te deben»: todo lo que falta cobrar, por días de atraso (la misma pieza que «Operación
+      // diaria»), y los que más deben, de la misma fuente y con los mismos filtros, así el anillo y la lista cierran.
+      {
+        local: 'deben', tipo: 'barras', fuente: 'pagos', fecha: 'vencimiento', dimension: 'atraso', metricas: ['pendiente', 'pagos'], titulo: 'Te deben',
+        subtitulo: 'Todo lo que falta cobrar, por días de atraso', ir: 'cobranza',
+        controles: [{ tipo: 'periodo', preset: 'todo', fijo: true }, { tipo: 'lista', campo: 'estado', valores: ['Vencido', 'Pendiente'], fijo: true }],
+      },
+      {
+        local: 'deudores', tipo: 'barras', fuente: 'pagos', fecha: 'vencimiento', dimension: 'cliente', metricas: ['pendiente'], titulo: 'Los que más te deben',
+        limite: 6, ir: 'cobranza',
+        controles: [{ tipo: 'periodo', preset: 'todo', fijo: true }, { tipo: 'lista', campo: 'estado', valores: ['Vencido', 'Pendiente'], fijo: true }],
       },
       bloque('cobranza', { titulo: 'Lo que te deben' }), bloque('agenda'),
     ],
+    diseno: {
+      id: 'servicio',
+      piezas: {
+        apertura: 'apertura', clientes: 'clientes', avanzaron: 'avanzaron', deuda: 'deuda', cobrado: 'cobrado', etapas: 'etapas', producto: 'por-producto',
+        ritmo: 'ritmo', quien: 'quien', deben: 'deben', deudores: 'deudores',
+      },
+    },
   },
   {
     // 4/11/2026 — LUMORA · VITREA (docs/templates-dashboard-propuesta.md §7.3): «¿cuántos siguen ahí al mes 3?». Lumora abre con la

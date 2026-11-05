@@ -1186,4 +1186,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '5 nov', hora: '01:55', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Agencia o servicio, la decimosexta hoja copiada: el diseño de Sunrow con «¿cada cliente va en fecha?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» de General**, con su miniatura de verdad.',
+      '**Arriba:** el saludo con tus clientes, quién te necesita y lo vencido, lo que le queda a tu agenda de hoy y la parte de tu cartera que no pide atención.',
+      '**Seis números:** clientes, avanzaron de etapa, piden atención, sesiones, deuda vencida y lo cobrado.',
+      '**Avanzaron de etapa:** los clientes que llegaron a una etapa, sumados semana a semana en los últimos 90 días.',
+      '**Lo que te deben y quién te necesita:** lo que falta cobrar por atraso, los que más deben y cada cliente con su señal.',
+      '**Clientes por etapa, salud del negocio, lo que vence, el Calendario, tus prioridades y lo que viene**, de los datos de General.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaServicio.tsx · servicio-css.ts · ServicioVivo.tsx — el diseño',
+      'lib/servicio-diseno.ts — de dónde sale cada número',
+      'lib/servicio-diseno-muestra.ts — los datos de ejemplo de la miniatura',
+      'docs/diseno/mockups-dashboard/servicio-sunrow/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];

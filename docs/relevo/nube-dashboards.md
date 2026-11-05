@@ -1,8 +1,18 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (5/11/2026, ~01:10 UTC)
+## 📬 Para el Cerebro (5/11/2026, ~01:55 UTC)
 
-- **Curso o comunidad (la copia de Vitrea) está en `punta/dash-curso`**: la sección de abajo. Es la decimoquinta hoja copiada y la
+- **Curso o comunidad está en producción.** Entró a main (`f6a6e8def`, la punta `dash-curso` tal cual, con su veredicto: 7.080 tests y
+  el tsc entero); el deploy de ese commit se promovió a las 01:20. Es la decimoquinta hoja copiada (Vitrea).
+- **Agencia o servicio (la copia de Sunrow) está en `punta/dash-servicio`**: la sección de abajo. Es la decimosexta hoja copiada y la
+  tercera de General que lee los datos de General (el Calendario, el Plan y el Semáforo). Suma dos piezas a la plantilla (lo que te deben
+  por atraso y los que más deben, de los pagos) y cambia dos: «Quién te necesita hoy» trae seis clientes y «Avanzaron, por semana» mira
+  los últimos 90 días.
+- **Sigo con la siguiente que tenga lo medido completo**, de a una. Lintel sigue frenada (abajo).
+
+### Lo de las ~01:10 UTC
+
+- **Curso o comunidad (la copia de Vitrea) estaba en `punta/dash-curso`** (hoy en producción): la sección de abajo. Es la decimoquinta hoja copiada y la
   primera de General desde Operación. Suma dos piezas a la plantilla («Hace cuánto no hablan» y «Quién te necesita hoy», las mismas de
   «Agencia o servicio») y lee el Calendario de los datos de General.
 - **De paso, en Contenido e IA (en producción):** el subtítulo de «Lo gastado por día» decía «US$52.00 en últimos 30 días»; ahora dice
@@ -141,7 +151,72 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
 
-## Curso o comunidad: la decimoquinta hoja copiada (la de Vitrea), con «¿cuántos siguen ahí?» (punta `dash-curso`, 5/11/2026)
+## Agencia o servicio: la decimosexta hoja copiada (la de Sunrow), con «¿cada cliente va en fecha?» (punta `dash-servicio`, 5/11/2026)
+
+La referencia de Agencia o servicio es Sunrow (`docs/templates-dashboard-propuesta.md` §7.3): la página «Overview» de Sunrow (un ERP de
+obras solares, claro y de vidrio): la barra de arriba y la de la izquierda, el saludo con el clima y el arco de la luz del día, la tarjeta
+oscura de la IA, seis números de colores, «Timeline progress» (la curva del plan contra lo real), «Budget utilization», «Site-wise
+performance», los atajos, «Recent project updates», «Critical issue alerts», «Upcoming deadlines», y a la derecha el Calendario, «My
+tasks» y «Notifications».
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» de General ofrece «Agencia o servicio» con el diseño de Sunrow**, con su miniatura de verdad.
+- **Arriba:** «Buenos días, Ana» con la fecha, y una frase con lo que hay: cuántos clientes, en cuántas etapas, cuántos te necesitan
+  hoy y cuántas cuotas están vencidas. Tres píldoras: las reuniones de hoy, las sesiones dadas y en cuántos funnels hay clientes.
+- **Lo que le queda a tu agenda** (el arco de «Daylight left on site»): de lo primero a lo último que tienes hoy con hora en el
+  Calendario, el punto donde está el reloj, cuánto falta y a qué hora termina lo último. Sin nada con hora hoy, lo dice.
+- **Tu cartera hoy** (la tarjeta oscura): qué parte de tus clientes no pide atención (el medidor «de cada 100»), el primero que te
+  necesita y hace cuánto no hablan, y «Ver tus clientes».
+- **Los seis números:** clientes (con en cuántas etapas), avanzaron de etapa y lo cobrado (contra el período anterior), piden atención,
+  sesiones dadas (con cuántas por cliente) y deuda vencida (con las cuotas vencidas).
+- **Avanzaron de etapa** («Timeline progress»): los clientes que llegaron a una etapa, sumados semana a semana en los últimos 90 días, con
+  la marca de hoy al final; abajo, los de esta semana, los de los 90 días y el promedio por semana.
+- **Lo que te deben** («Budget utilization»): el anillo con lo vencido sobre todo lo que falta cobrar, el total, lo vencido de 1 a 30
+  días, lo de más de 30 y lo que sigue al día, cuántas cuotas están vencidas y los cuatro que más te deben.
+- **Quién te necesita** («Site-wise performance»): seis clientes con su señal, hace cuánto no hablan, sus sesiones y lo que deben.
+- **Atajos** («Quick links»): «Ver la grilla» y las pantallas de MaKo donde se trabaja esto.
+- **Clientes por etapa** («Recent project updates»), **Salud del negocio** («Critical issue alerts»: el Semáforo de General, con Urgente o
+  Atención), **Lo que vence** («Upcoming deadlines»: las tareas del Plan con fecha), el **Calendario** del mes con lo de hoy,
+  **Prioridades** («My tasks»: las del Plan, para tildar con «Deshacer») y **Lo que viene** («Notifications»: lo de los próximos días).
+- Tocar un cliente, una etapa o uno de los que más deben abre el detalle de siempre de su pieza.
+
+**Lo que se copió de Sunrow, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/servicio-sunrow/copia.html` con `sunrow.css` y `sunrow.js`) sale de lo medido del demo:
+  `valores.json`, las capturas a 1440 y a 390 y el INFORME. **Nada del código de la tienda, ni el cartel «BUY THIS TEMPLATE».** Los íconos
+  son trazos propios.
+- **A 1440 la copia mide 2.657 contra 2.656 de la captura**; a 390, 5.789 contra 5.777.
+- **La adaptación cae en las MISMAS cajas que la copia**: el saludo de 983 de ancho con la tarjeta oscura de 337, los números de tres en
+  fila, las dos tarjetas de 484 lado a lado y la columna de 315 a la derecha (a 1360). Hay dos pasos intermedios que Sunrow no tiene: hasta
+  1280 px el arco baja debajo del saludo, y hasta 1000 la columna de la derecha pasa abajo, de a dos.
+- **El movimiento, de la línea de tiempo del INFORME:** la tarjeta de arriba sube desde 24 px (.9 s, power3.out); el saludo sube por
+  palabra con un giro de 6° (.85 s, power4.out, 22 ms, a los .05 s); la fecha, la frase y las píldoras entran desde 10 px (.55 s, 60 ms, a
+  los .15 s); la tarjeta oscura entra desde 30 px a la derecha y .97 (.8 s, a los .2 s); los números suben desde 22 px (.9 s, 60 ms, a los
+  .25 s); las tarjetas desde 30 px (.9 s, 70 ms, a los .4 s); las barras crecen (1 s, 80 ms, a los .7 s); las filas entran desde 10 px
+  (.55 s, 25 ms, a los .75 s); los días del mes crecen desde .4 de hoy hacia afuera (.6 s, back.out(3), 12 ms, a los .8 s); los números
+  cuentan 1,2 s. Al pasar, un número sube 4 px (.45 s; baja en .5 s). Medido en el arnés: 106 animaciones, ningún error.
+- **⚠️ Lo SUPUESTO:** cómo entran la curva y el anillo no está en lo medido: la curva se dibuja de izquierda a derecha y el anillo crece
+  desde cero, a los .7 s.
+
+**Lo que Sunrow tiene y MaKo no mide, y no está:** el **clima** y el **viento**, la **luz del día** (el arco es lo que queda de tu agenda),
+el **plan contra lo real** de cada obra (las líneas «Planned», «Forecast» y «Baseline»), el **presupuesto comprometido** y el **pronóstico
+de la IA** («Delivery confidence» y su «Key insight»: la tarjeta oscura dice lo que la cartera ya sabe). El botón «Ask Sunrow AI» no está:
+en MaKo está la estrella de cada tab. Las flechas del mes del Calendario tampoco: el Calendario de General trae dos semanas, y el botón de
+al lado abre el Calendario. **⚠️ «En fecha» sigue sin una fecha comprometida por etapa**: la entrega no la guarda, y lo que se mide es
+cuándo llegó cada cliente a su etapa.
+**La plantilla suma dos piezas** («Te deben», por días de atraso, y «Los que más te deben», de los pagos, con los mismos filtros) **y cambia
+dos**: «Quién te necesita hoy» trae seis clientes (eran tres) y «Avanzaron, por semana» mira los últimos 90 días (las semanas del mes eran
+dos o tres puntos). Los bloques de cobranza y de agenda quedan en la grilla.
+
+**Dónde vive:**
+- El modelo: `lib/servicio-diseno.ts`, puro. Los datos de ejemplo: `lib/servicio-diseno-muestra.ts` (cuadran entre bloques: las etapas
+  suman la cartera, lo que te deben por atraso suma el total y los que piden atención son los de la lista con la señal «Atención»).
+- El dibujo: `app/dashboard/disenos/HojaServicio.tsx`; lo vivo, `ServicioVivo.tsx` (con `useGeneral` y `useCompletar`); la hoja de
+  estilos, `servicio-css.ts` (la arma `scratchpad/srv/armar-srv.py` desde `servicio-sunrow/sunrow.css`: todo con el prefijo `srw-`).
+- La plantilla: `lib/general-plantillas.ts` («servicio», once piezas en el diseño, `diseno.id = 'servicio'`); `DISENOS_HOJA` en
+  `lib/graficos-catalogo.ts`.
+- Los tests: `tests/dashboard-diseno-servicio.test.ts` (12, probado rompiéndolo de veintiuna maneras: cada rotura sola da rojo).
+
+## Curso o comunidad: la decimoquinta hoja copiada (la de Vitrea), con «¿cuántos siguen ahí?» (en producción desde el 5/11/2026, 01:20)
 
 La referencia de Curso o comunidad es Vitrea (`docs/templates-dashboard-propuesta.md` §7.3): la página «Overview» de Vitrea (un panel de
 un estudio de apps, oscuro y de vidrio): la barra de arriba y la de la izquierda, el título con tres números, «Proceeds» (un área grande),
@@ -1187,7 +1262,7 @@ Lo que comparten todas:
 | Focus | `foco` | Pane · Lumora | ¿en qué estoy ahora y qué me queda hoy? | — (la frase de lo que te queda) | `punta/dash-focus` |
 | Operación diaria | `operacion` | Moorly · Torque | ¿qué está vencido y a quién llamo? | Por cobrar | `punta/dash-operacion` |
 | Agencia o servicio | `servicio` | Sunrow · Torque | ¿cada cliente va en fecha? | Avanzaron de etapa | `punta/dash-servicio` |
-| Curso o comunidad | `curso` | Lumora · Vitrea | ¿cuántos siguen ahí? | Alumnos activos | `punta/dash-curso` |
+| Curso o comunidad | `curso` | Lumora · Vitrea | ¿cuántos siguen ahí? | Alumnos activos | en producción (`f6a6e8def`) |
 | Instagram y redes | `instagram` | Murmura · Kestrel | ¿qué publicación trajo gente de verdad? | Tocan el anuncio | `punta/dash-instagram` |
 | Marketing | `marketing` | Kestrel · Ondra | ¿cuánto cuesta una agenda y de qué anuncio vino? | Costo por agenda | `punta/dash-marketing` |
 | Comercial | `comercial` | Coffer · Corbel · Prism · Orvel · Pelago · Selvar | ¿convierte, y a qué costo? | Tasa de cierre | `punta/dash-comercial` |
