@@ -6,6 +6,22 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## MaKo toma la iniciativa en el Web Generator: «¿Ya está lista para que la vean?» (5/11/2026, nube)
+
+- **Qué hace:** con la página abierta sin publicar y la charla vacía, el chat del editor pregunta un hecho; «Sí, ya está» abre el
+  diálogo de «Publicar» con la dirección que MaKo ya propone. Lo contestado vale para ESA página (alcance `entidad`). Mientras
+  habla, el saludo y las sugerencias se esconden.
+- **Lo obvio que no va:** el plan dice «publicar con la dirección de MaKo» como un `hacer`. Publicar desde el chat se saltea lo que
+  el diálogo mira antes (que la dirección esté libre, el tope del plan con «Pasar a Pro» y el aviso de cobro): la respuesta abre
+  el diálogo, que queda a un clic.
+- **La trampa del montaje:** `AperturaMako` trae el hilo, y el hilo trae `app/_chat/chat.css`. Importada directo en
+  `PanelAgente.tsx` tumbaba `tests/editor-landing-agente.test.ts` («SyntaxError: Unexpected token '.'» sobre el CSS), que carga el
+  panel en node. Va como `AperturaAgente` en ./ChatAgente.tsx (el módulo que ya entra con `next/dynamic`), y el panel sólo se
+  entera por `onHabla` de si está hablando. Y `docId` es un número: la entidad va como texto.
+- **Vive en:** lib/aperturas/web.ts, app/web-generator/editor/paneles/{PanelAgente,ChatAgente}.tsx. **Lo fija:**
+  tests/iniciativa-web.test.ts (2 roturas).
+- **Falta:** la segunda («¿Vas a pautar esta página en Meta?», el Pixel con un funnel de anuncios) y la guía de la pestaña.
+
 ## Lo leído para replicar se perdía al volver: ahora queda como borrador (ticket #54, 4/11/2026, nube)
 
 **Síntoma:** Leandro (ws 10), por el chat de soporte: «quise volver para atrás […] se me borró completamente la página analizada

@@ -1638,6 +1638,22 @@ export const BITACORA: Hito[] = [
     tickets: [54],
   },
   {
+    fecha: "5 nov", hora: "17:45", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo toma la iniciativa en el Web Generator: «¿Ya está lista para que la vean?» con la página sin publicar",
+    puntos: [
+      "Con la página sin publicar y la charla vacía, el chat del editor pregunta un hecho; «Sí, ya está» abre Publicar con la dirección que MaKo propone (ahí se mira la dirección, el tope del plan y el cobro).",
+      "Vale para esa página, y mientras habla el saludo y las sugerencias se esconden.",
+    ],
+    revisar: "/web-generator",
+    archivos: [
+      "lib/aperturas/web.ts — la apertura, pura",
+      "app/web-generator/editor/paneles/ChatAgente.tsx — `AperturaAgente`, con next/dynamic",
+      "app/web-generator/editor/paneles/PanelAgente.tsx — el montaje",
+      "tests/iniciativa-web.test.ts — probado rompiéndolo (2 roturas)",
+    ],
+  },
+  {
     fecha: '5 nov', hora: '09:30', chat: 'Black November (nube)', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
     titulo: 'Black November: bloques de venta en las landings, sólo con datos reales',
     pedido: 'Bloques de venta en landings: cuenta regresiva (a una fecha real; al vencer no reinicia sola), pop de prueba social y barra de escasez. Sólo con datos reales que pone el negocio: nada de números inventados ni compras falsas; si no hay dato, el bloque no se muestra. Agregalos sin romper el diseño, también en celular, y a la API de MaKo.',
