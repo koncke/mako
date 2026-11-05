@@ -34,8 +34,15 @@ import {
   type Aviso, type FilaLista, type Lectura, type LecturaPanel, type PanelesGuardados,
 } from './vigia-aprobaciones';
 import {
-  CLAVE_CWS_PUBLISHER, CLAVE_GOOGLE, CLAVES_ASC, leerTodo, type CredencialesVigia, type DominiosResend,
+  CLAVE_CWS_PUBLISHER, CLAVE_GOOGLE, CLAVES_ASC, leerTodo, tokenGoogle, type CredencialesVigia, type DominiosResend, type Entorno,
+  type TokenGoogle,
 } from './vigia-aprobaciones-fuentes';
+import {
+  CLAVE_PUBLICACION, conLaPublicacion, decidirPublicacion, guardarPaso, leerEstadoTienda, leerPublicacion, marcaDeSubida, publicar,
+  subir, versionDelZip, type Dependencias, type ResumenPublicacion,
+} from './extension-publicar';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
 /** El tipo del aviso en la bandeja y en el push. Sólo lo reciben los admin del workspace de la plataforma. */
 export const TIPO_AVISO_VIGIA = 'vigia-aprobaciones';
@@ -78,8 +85,13 @@ async function paneles(ws: number): Promise<PanelesGuardados | null> {
 
 /** Lee todas las fuentes AHORA, sin escribir ni avisar nada: la vuelta y la prueba de la consola (`--probar`). */
 export async function leerAhora(ws: number): Promise<Record<string, Lectura>> {
+  return leerTodo(await entornoDe(ws));
+}
+
+/** El entorno de verdad de los lectores: la red, las credenciales de la plataforma y lo guardado de los paneles. */
+async function entornoDe(ws: number): Promise<Entorno> {
   const [{ creds, sinLeer }, delPanel] = await Promise.all([credenciales(ws), paneles(ws)]);
-  return leerTodo({
+  return {
     fetch: globalThis.fetch.bind(globalThis),
     ahoraMs: () => Date.now(),
     creds,
@@ -89,6 +101,54 @@ export async function leerAhora(ws: number): Promise<Record<string, Lectura>> {
     metaApiVersion: process.env.META_API_VERSION,
     dominiosResend: () => dominios(ws),
     paneles: delPanel,
+  };
+}
+
+/** El zip de ESTE deploy (public/, sumado a la función en next.config.ts → outputFileTracingIncludes) y la versión que dice. */
+async function zipDelDeploy(): Promise<{ bytes: Uint8Array; version: string | null } | { error: string }> {
+  try {
+    const bytes = new Uint8Array(await readFile(path.join(process.cwd(), 'public', `mako-puente-${EXTENSION_VERSION}.zip`)));
+    return { bytes, version: await versionDelZip(bytes) };
+  } catch {
+    return { error: `no encontré el zip de la ${EXTENSION_VERSION} en este deploy` };
+  }
+}
+
+/**
+ * La extensión se publica sola (lib/extension-publicar.ts): si la versión de main es más nueva que la de la tienda, la sube y la
+ * manda a revisión. Marca ANTES de tocar la tienda, con compare-and-set (regla 3). Nunca tira: lo que pase vuelve como resumen
+ * para la fila de la extensión en Approvals. Sólo la corre la vuelta del cron (`--probar` no publica).
+ */
+async function publicarExtensionSiHaceFalta(ws: number, e: Entorno, token: () => Promise<TokenGoogle>): Promise<ResumenPublicacion> {
+  const faltan = [...(e.creds.TIENDAS_GOOGLE_CUENTA_SERVICIO ? [] : [CLAVE_GOOGLE]), ...(e.creds.CWS_PUBLISHER_ID ? [] : [CLAVE_CWS_PUBLISHER])];
+  if (e.credsSinLeer?.some((c) => c === CLAVE_GOOGLE || c === CLAVE_CWS_PUBLISHER)) return { tipo: 'no_pude', motivo: 'no pude leer las claves de la tienda' };
+  if (faltan.length) return { tipo: 'falta', faltan };
+  const t = await token();
+  if ('lectura' in t) return { tipo: 'no_pude', motivo: t.lectura.tipo === 'no_pude' ? t.lectura.motivo : 'Google no dio un token' };
+  const dep: Dependencias = {
+    fetch: e.fetch, token: t.token, publisherId: String(e.creds.CWS_PUBLISHER_ID), extensionId: e.extensionId,
+    versionMain: EXTENSION_VERSION, zip: zipDelDeploy,
+  };
+  const tienda = await leerEstadoTienda(dep);
+  if ('error' in tienda) return { tipo: 'no_pude', motivo: tienda.error };
+  return runWithWorkspace(ws, async (): Promise<ResumenPublicacion> => {
+    let crudo: string | null;
+    try { crudo = await getSettingEstricto(CLAVE_PUBLICACION); } catch { return { tipo: 'no_pude', motivo: 'no pude leer la última publicación' }; }
+    const previa = leerPublicacion(crudo);
+    const ahora = Date.now();
+    const decision = decidirPublicacion(EXTENSION_VERSION, tienda, previa, ahora);
+    if (decision.hacer !== 'subir' && decision.hacer !== 'publicar') return { tipo: 'decidido', decision, previa };
+    const marca = JSON.stringify(marcaDeSubida(previa, EXTENSION_VERSION, ahora));
+    if (!(await cambiarSettingSi(CLAVE_PUBLICACION, crudo, marca))) {
+      return { tipo: 'decidido', decision: { hacer: 'esperar', motivo: `Otra vuelta está mandando la ${EXTENSION_VERSION}` }, previa };
+    }
+    let resultado = decision.hacer === 'subir' ? await subir(dep) : await publicar(dep);
+    if (decision.hacer === 'subir' && resultado.paso === 'subida') resultado = await publicar(dep);
+    const guardado = guardarPaso(previa, EXTENSION_VERSION, resultado, Date.now());
+    // Si esto no se escribe, la marca de «subiendo» vence sola en `SUBIENDO_VENCE_MS` y la vuelta siguiente decide de nuevo.
+    await cambiarSettingSi(CLAVE_PUBLICACION, marca, JSON.stringify(guardado)).catch(() => false);
+    console.log(`[vigia-aprobaciones] extensión ${EXTENSION_VERSION}: ${resultado.paso}${resultado.error ? ` (${resultado.error})` : ''}`);
+    return { tipo: 'hecho', resultado, guardado };
   });
 }
 
@@ -104,7 +164,12 @@ export async function correrVigiaAprobaciones(): Promise<ResultadoVigia> {
   return runWithWorkspace(ws, async (): Promise<ResultadoVigia> => {
     const crudo = await getSettingEstricto(CLAVE_ESTADO);
     const previo = leerGuardado(crudo);
-    const lecturas = await leerAhora(ws);
+    const e = await entornoDe(ws);
+    const token = tokenGoogle(e);
+    const lecturas = await leerTodo(e, token);
+    let pub: ResumenPublicacion;
+    try { pub = await publicarExtensionSiHaceFalta(ws, e, token); } catch { pub = { tipo: 'no_pude', motivo: 'la publicación falló' }; }
+    lecturas['chrome-web-store'] = conLaPublicacion(lecturas['chrome-web-store'], pub, EXTENSION_VERSION);
     const resumen: Record<string, string> = {};
     for (const [id, l] of Object.entries(lecturas)) resumen[id] = resumenDeLectura(l);
     const { nuevo, avisos } = vuelta(previo, lecturas, Date.now());

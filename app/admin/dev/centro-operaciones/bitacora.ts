@@ -2454,4 +2454,20 @@ export const BITACORA: Hito[] = [
       'tests/vigia-aprobaciones.test.ts · tests/vigia-aprobaciones-fuentes.test.ts — 7 roturas, cada una en rojo',
     ],
   },
+  {
+    fecha: '5 nov', hora: '23:30', chat: 'Approvals', sesion: 'cli_e093f564-5479-56f0-961c-5966898ba5fe', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La extensión se publica sola en la Chrome Web Store',
+    revisar: '/admin/approvals',
+    puntos: [
+      '**Cuando main tiene una versión nueva de la extensión,** el vigía la sube y la manda a revisión solo, a lo sumo una hora después del deploy. Sin preguntarte.',
+      '**No corta una revisión en curso:** si Google está revisando otra, la nueva sale cuando termine.',
+      '**Sin las claves no falla nada:** la fila de la extensión en Approvals dice que sale sola apenas estén.',
+      '**Si falla tres veces,** la fila pasa a «piden algo» con el motivo y te avisa una vez.',
+    ],
+    archivos: [
+      'lib/extension-publicar.ts — las seis reglas, subir y publicar con la API V2 · lib/vigia-aprobaciones-server.ts — publicarExtensionSiHaceFalta',
+      'next.config.ts — el zip de la extensión entra en la función del cron · app/api/cron/vigia-aprobaciones/route.ts — 180 s',
+      'tests/extension-publicar.test.ts — 7 roturas, cada una en rojo',
+    ],
+  },
 ];

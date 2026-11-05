@@ -147,7 +147,7 @@ export const ITEMS: readonly ItemVigia[] = [
     id: 'chrome-web-store',
     nombre: 'Extensión de Chrome (Chrome Web Store)',
     link: 'https://chrome.google.com/webstore/devconsole',
-    queHacer: 'Lee el motivo en el panel de la tienda, corrige y vuelve a subir la versión.',
+    queHacer: 'Lee el motivo en el panel de la tienda: la versión corregida se manda sola.',
   },
   {
     id: 'meta-permisos',

@@ -197,7 +197,10 @@ async function leerAppStore(e: Entorno): Promise<Lectura> {
 
 // ── Google: la cuenta de servicio (Play y la Chrome Web Store) ──────────────
 
-const ALCANCES_GOOGLE = 'https://www.googleapis.com/auth/androidpublisher https://www.googleapis.com/auth/chromewebstore.readonly';
+// La tienda de Chrome con el alcance ENTERO (5/11/2026): además de leer, el vigía publica la extensión sola
+// (lib/extension-publicar.ts). Una cuenta de servicio no pide consentimiento: lo que puede hacer lo decide el panel de la tienda
+// donde se la suma. Play sigue en lo suyo (`androidpublisher`): el vigía sólo LEE de Play.
+const ALCANCES_GOOGLE = 'https://www.googleapis.com/auth/androidpublisher https://www.googleapis.com/auth/chromewebstore';
 
 /** El JWT que se canjea por un token de Google: RS256 con la clave de la cuenta de servicio, una hora. */
 export function jwtCuentaServicio(sa: { client_email: string; private_key: string; private_key_id?: string; token_uri?: string }, ahoraMs: number): string {
@@ -210,10 +213,10 @@ export function jwtCuentaServicio(sa: { client_email: string; private_key: strin
   return `${cabecera}.${cuerpo}.${b64u(firma)}`;
 }
 
-/** Un token de Google por vuelta, compartido por los lectores que lo usan. */
-type TokenGoogle = { token: string } | { lectura: Lectura };
+/** Un token de Google por vuelta, compartido por los lectores que lo usan (y por la publicación de la extensión). */
+export type TokenGoogle = { token: string } | { lectura: Lectura };
 
-function tokenGoogle(e: Entorno): () => Promise<TokenGoogle> {
+export function tokenGoogle(e: Entorno): () => Promise<TokenGoogle> {
   let promesa: Promise<TokenGoogle> | null = null;
   return () => {
     promesa ??= (async (): Promise<TokenGoogle> => {
@@ -509,8 +512,7 @@ export const LECTORES: Readonly<Record<string, Lector>> = {
 };
 
 /** Lee todo, en paralelo. Nunca tira: un lector que revienta es «no pude leer». */
-export async function leerTodo(e: Entorno): Promise<Record<string, Lectura>> {
-  const token = tokenGoogle(e);
+export async function leerTodo(e: Entorno, token: () => Promise<TokenGoogle> = tokenGoogle(e)): Promise<Record<string, Lectura>> {
   const pares = await Promise.all(Object.entries(LECTORES).map(async ([id, leer]) => {
     try { return [id, await leer(e, token)] as const; } catch { return [id, noPude('el lector falló')] as const; }
   }));

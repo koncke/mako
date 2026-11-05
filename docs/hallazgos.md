@@ -13,6 +13,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 
 | Área | Documento | Qué cubre |
 |---|---|---|
+| Operaciones | [hallazgos-operaciones.md](hallazgos-operaciones.md) | **Approvals sin «a mano» (5/11, nube)**: lo que no tiene API lo lee de su panel una tarea del Cerebro y lo guarda en su propia clave; el servidor mide su silencio (un día). La extensión se publica sola sin cancelar una revisión en curso, con el zip de `public/` (el proxy no deja bajarlo sin sesión). |
 | Planes, capas y cobro | [proveedores-de-cobro.md](proveedores-de-cobro.md) | **Qué proveedor, después del rechazo de Creem (5/11)**: términos leídos y verificados de cada uno, comisión real y cobro en cripto. Ninguno acepta AI Avatar por escrito: el silencio no es un sí. |
 | Pruebas | [hallazgos-pruebas.md](hallazgos-pruebas.md) | **El listado del repo pasó de 1 MiB (5/11)**: dos ramas sin relación en rojo en la guarda de Resend; no era su código, era `spawnSync git ENOBUFS`. Quien lista todo el repo lleva `maxBuffer`. |
 | Planes, capas y cobro | [hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) | **«Creem está conectado» no quería decir que pudiera cobrar (5/11)**: la migración nunca se aplicó porque hubo dos 0358; la tienda está en 0 de 3 pasos y la API no lo dice; Mercado Pago tampoco cobró nada por MaKo. Lo de retirar, en [creem-retiros.md](creem-retiros.md). Sin hacer: la plantilla de recibos, encargo en [relevo/recibos-encargo.md](relevo/recibos-encargo.md). |

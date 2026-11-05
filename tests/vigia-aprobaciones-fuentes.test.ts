@@ -129,7 +129,7 @@ test('el token de Google se pide UNA vez por vuelta aunque lo usen tres lectores
   const assertion = new URLSearchParams(String(pedido.init.body)).get('assertion')!;
   const claims = JSON.parse(Buffer.from(assertion.split('.')[1], 'base64url').toString());
   assert.match(claims.scope, /androidpublisher/);
-  assert.match(claims.scope, /chromewebstore\.readonly/, 'sólo lectura en la tienda de Chrome');
+  assert.match(claims.scope, /\/auth\/chromewebstore(\s|$)/, 'la tienda de Chrome con el alcance entero: el vigía también publica la extensión');
 });
 
 test('Google Play sin la cuenta de servicio: producción por la ficha pública; la prueba cerrada dice que falta la cuenta', async () => {
