@@ -8,6 +8,7 @@
 //   · lib/embeddings.ts (ahí vale como «sin con qué»: se busca por palabras);
 //   · lib/elevenlabs.ts, en lo que le manda voz o texto, y NO en la clave: quien retiró el permiso tiene que poder borrar su voz clonada;
 //   · lib/mako-turno-app.ts: el turno puede salir por la PC del cliente, que no pasa por ninguna de las de arriba.
+//   · lib/flow-cola.ts (`encolar` de lo que genera imagen o video, 5/11/2026): el prompt va a Google Flow y a la moderación de Creem.
 //
 // Sin pedido en curso (`headers()` tira: un cron, un webhook, un script) no hay persona que pueda dar permiso: sigue. Con pedido y sin
 // la marca de la app, también. Con la marca, y sin poder confirmar el permiso (sin sesión, la base caída), NO SIGUE: ahí un
