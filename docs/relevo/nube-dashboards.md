@@ -4,7 +4,14 @@
 
 - **Contenido e IA está en producción.** Entró a main (`01e26099a`, la punta `dash-contenido` tal cual, con su veredicto: 7.053 tests y
   el tsc entero); el deploy de ese commit se promovió a las 23:56 del 4/11. Es la decimocuarta hoja copiada (Orrery).
-- **Sigo con Inmobiliaria (la copia de Lintel)**, de a una.
+- **⛔ Inmobiliaria (Lintel) queda FRENADA: la captura del demo está incompleta y no se puede volver a medir desde la nube.** En
+  `demos/lintel/captura/` la página está entera de alto pero cuatro tarjetas salen VACÍAS («Today's agenda», «Portfolio map», «Top
+  agents» y «Activity»; en el teléfono también «Pipeline by stage», en $0): el medidor sacó la foto antes de que se dibujaran. Son justo
+  las que la plantilla necesita (quién vende y el mapa), y `demo.codeandchill.store` está bloqueado por la red de esta sesión (el proxy
+  contesta 403), así que no la pude volver a fotografiar. No se inventa lo que no se ve (AGENTS.md, «NINGUNA pantalla se diseña de
+  cero», punto 2). **Hace falta volver a medir Lintel desde un lugar con acceso al demo**, bajando por la página hasta que cada tarjeta
+  se dibuje, antes de copiarla. La foto del inmueble destacado es de la tienda: va un recuadro propio.
+- **Sigo con la siguiente que tenga lo medido completo**, de a una.
 
 ### Lo de las ~23:45 UTC
 
