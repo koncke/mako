@@ -156,13 +156,11 @@ export default function Page() {
         <li>Te respondemos dentro de los <strong>{PLAZO_RESPUESTA}</strong>.</li>
         <li>
           Si corresponde la devolución, la hacemos por el <strong>mismo medio con el que pagaste</strong>{' '}
-          (Creem, Stripe o Mercado Pago). Cuándo se ve en tu tarjeta o en tu cuenta depende de tu banco o de
+          (Stripe o Mercado Pago). Cuándo se ve en tu tarjeta o en tu cuenta depende de tu banco o de
           Mercado Pago.
         </li>
-        <li>
-          Si pagaste con <strong>Creem</strong>, Creem es el vendedor registrado de esa compra: la devolución la procesa
-          Creem cuando nosotros la aprobamos. Nos escribes a nosotros igual: no tienes que hablar con Creem.
-        </li>
+        {/* Hasta el 5/11/2026 acá iba cómo devolvía Creem, el vendedor registrado de lo que se cobraba desde
+            Latinoamérica. Creem rechazó la tienda de MaKo ese día y no cobró nada (docs/creem-retiros.md). */}
         <li>
           Una cancelación cuenta desde el día en que la haces (o en que nos escribes): si después de
           esa fecha se te cobra, es un error de cobro y te lo devolvemos.

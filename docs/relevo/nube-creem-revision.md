@@ -1,5 +1,9 @@
 # La revisión de Creem: el sitio, la política de uso y la moderación (nube, 5/11/2026)
 
+> ⚠️ **SUPERADO EL MISMO 5/11/2026: Creem rechazó la tienda de MaKo, de forma definitiva.** Lo que este relevo dejó (Creem en
+> las legales, la moderación de Creem en `encolar`, Creem en LatAm) se sacó ese día: [nube-creem-fuera.md](nube-creem-fuera.md).
+> /aup y el pie de las legales se quedan. Lo de abajo es historia: no se continúa desde acá.
+
 > Lo escribió la sesión de la nube que hizo el trabajo (cuenta `nube`, sesión `cli_a3ba5ed6-c0ff-5a7c-bc38-e7c9878ab62b`),
 > en la rama `claude/cool-davinci-7qfia2`, subida a `punta/creem-revision`. Es de primera mano: lo que digo que medí, lo medí acá.
 

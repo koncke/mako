@@ -5,7 +5,7 @@
 // ORIGEN que manda la landing y el código de MaKo Partners, qué pasarela se usa, y el diagnóstico del Acelerador.
 // =============================================================================
 
-import { esPasarela, type Pasarela } from './cobros-tipos';
+import { CAPACIDADES_PASARELA, esPasarela, type Pasarela } from './cobros-tipos';
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
 import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from './planes-mako';
 // De TIPO: se borra al compilar, así que no suma nada al bundle del cliente (esto lo importan componentes 'use client').
@@ -225,12 +225,16 @@ export function paisDelVisitante(encabezado: string | null | undefined): string 
 }
 
 /**
- * LATINOAMÉRICA, para elegir entre Creem y Stripe afuera del país de Mercado Pago (31/10/2026).
+ * LATINOAMÉRICA, para elegir entre un MERCHANT OF RECORD y Stripe afuera del país de Mercado Pago (31/10/2026).
  *
- * Creem es MERCHANT OF RECORD: cobra el impuesto del país de quien paga, lo remite él y le da una factura que cumple.
- * Stripe no: el impuesto queda del lado de MaKo. En LatAm eso es la diferencia entre un cobro limpio y un lío fiscal
- * por cada país, así que acá manda Creem. Afuera de LatAm sigue Stripe, que es lo que ya estaba andando: cambiarle la
- * pasarela a Estados Unidos y Europa no es parte de este trabajo y no se hace de prepo.
+ * Un merchant of record (era Creem) cobra el impuesto del país de quien paga, lo remite él y le da una factura que cumple.
+ * Stripe no: el impuesto queda del lado de MaKo. En LatAm eso es la diferencia entre un cobro limpio y un lío fiscal por
+ * cada país, así que acá manda el que lo sea. Afuera de LatAm sigue Stripe, que es lo que ya estaba andando.
+ *
+ * ⚠️ DESDE EL 5/11/2026 NO HAY NINGUNO: Creem rechazó la tienda de MaKo (docs/creem-retiros.md) y la plataforma ya no tiene
+ * sus claves. LatAm fuera del país de Mercado Pago queda con Stripe si está conectado, y si no, sin pasarela: la página del
+ * plan pide los datos (`TEXTO_SIN_PASARELA`) y la compra los toma como pedido (lib/compra-plan.ts), nunca un error. La
+ * preferencia se pregunta por CAPACIDAD (`merchantOfRecord`), no por el nombre: la próxima pasarela que lo sea entra sola.
  */
 const PAISES_LATAM: ReadonlySet<string> = new Set([
   'AR', 'BO', 'BR', 'CL', 'CO', 'CR', 'CU', 'DO', 'EC', 'GT', 'HN', 'MX', 'NI', 'PA', 'PE', 'PR', 'PY', 'SV', 'UY', 'VE',
@@ -242,7 +246,8 @@ const PAISES_LATAM: ReadonlySet<string> = new Set([
  * EL ORDEN DE LAS PREGUNTAS:
  *   1. ¿Mercado Pago cobra en SU país? Entonces es la única: en pesos, sin el recargo de la tarjeta internacional
  *      (a un argentino, US$47 con tarjeta de afuera le salen el equivalente a US$71 por IVA y percepciones).
- *   2. Si no: Creem en LatAm (merchant of record, se hace cargo del impuesto), Stripe en el resto del mundo.
+ *   2. Si no: en LatAm, la que sea merchant of record (se hace cargo del impuesto; era Creem, hoy ninguna); en el resto
+ *      del mundo, la que no lo es (Stripe).
  *   3. Y si la que le toca no está conectada, lo que quede. Nunca se deja a alguien sin forma de pagar por una
  *      preferencia nuestra: eso sería perder la venta para ahorrarnos un impuesto.
  *
@@ -259,11 +264,14 @@ export function pasarelasDelPais<T extends { pasarela: Pasarela; moneda: string 
   if (!pais) return [...opciones];
   const locales = opciones.filter((o) => o.pasarela === 'mercadopago' && PAIS_DE_MERCADO_PAGO[o.moneda.toUpperCase()] === pais);
   if (locales.length) return locales;
-  const preferida: Pasarela = PAISES_LATAM.has(pais) ? 'creem' : 'stripe';
-  const suyas = opciones.filter((o) => o.pasarela === preferida);
+  // Las que cobran en todo el mundo: nunca la que sólo cobra en el país de su cuenta (Mercado Pago), que afuera rechaza.
+  const internacionales = opciones.filter((o) => !CAPACIDADES_PASARELA[o.pasarela].soloEnSuPais);
+  const enLatam = PAISES_LATAM.has(pais);
+  const suyas = internacionales.filter((o) => CAPACIDADES_PASARELA[o.pasarela].merchantOfRecord === enLatam);
   if (suyas.length) return suyas;
-  // La que le tocaba no está conectada: las internacionales que queden (nunca Mercado Pago, que no cobra fuera de su país).
-  return opciones.filter((o) => o.pasarela !== 'mercadopago');
+  // La que le tocaba no está conectada (hoy, en LatAm, siempre: no hay merchant of record): las internacionales que queden.
+  // Y si no queda ninguna, ninguna: la página pide los datos.
+  return internacionales;
 }
 
 // =============================================================================
