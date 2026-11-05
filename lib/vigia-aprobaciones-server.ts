@@ -30,7 +30,8 @@ import { EXTENSION_VERSION } from './extension-version';
 import { EXTENSION_ID } from './extension-tienda';
 import { ENV_SECRETO_APP } from './meta-login';
 import {
-  CLAVE_ESTADO, leerGuardado, listaDeAprobaciones, mensajeDeAvisos, vuelta, type Aviso, type FilaLista, type Lectura,
+  CLAVE_ESTADO, CLAVE_PANELES, anotarPanel, leerGuardado, leerPaneles, listaDeAprobaciones, mensajeDeAvisos, vuelta,
+  type Aviso, type FilaLista, type Lectura, type LecturaPanel, type PanelesGuardados,
 } from './vigia-aprobaciones';
 import {
   CLAVE_CWS_PUBLISHER, CLAVE_GOOGLE, CLAVES_ASC, leerTodo, type CredencialesVigia, type DominiosResend,
@@ -70,9 +71,14 @@ async function dominios(ws: number): Promise<DominiosResend> {
   return { ok: false, error: r.error, sinClave: r.error === SIN_CLAVE_DE_DOMINIOS || r.error === KEY_SOLO_ENVIO_DE_MAKO };
 }
 
+/** Lo que guardó la tarea del Cerebro de los paneles, o null si la base no contestó (eso es «no pude leer», no «vacío»). */
+async function paneles(ws: number): Promise<PanelesGuardados | null> {
+  try { return leerPaneles(await runWithWorkspace(ws, () => getSettingEstricto(CLAVE_PANELES))); } catch { return null; }
+}
+
 /** Lee todas las fuentes AHORA, sin escribir ni avisar nada: la vuelta y la prueba de la consola (`--probar`). */
 export async function leerAhora(ws: number): Promise<Record<string, Lectura>> {
-  const { creds, sinLeer } = await credenciales(ws);
+  const [{ creds, sinLeer }, delPanel] = await Promise.all([credenciales(ws), paneles(ws)]);
   return leerTodo({
     fetch: globalThis.fetch.bind(globalThis),
     ahoraMs: () => Date.now(),
@@ -82,13 +88,14 @@ export async function leerAhora(ws: number): Promise<Record<string, Lectura>> {
     extensionId: EXTENSION_ID,
     metaApiVersion: process.env.META_API_VERSION,
     dominiosResend: () => dominios(ws),
+    paneles: delPanel,
   });
 }
 
 /** Una lectura en una línea, sin claves: para el log del cron y la consola. */
 export function resumenDeLectura(l: Lectura): string {
   return l.tipo === 'leido' ? `${l.estado}${l.version ? ` ${l.version}` : ''} (${l.fuente})${l.detalle ? ` — ${l.detalle}` : ''}`
-    : l.tipo === 'no_pude' ? `no pude: ${l.motivo}` : l.tipo === 'sin_credencial' ? `falta ${l.faltan.join(', ')}` : 'a mano';
+    : l.tipo === 'no_pude' ? `no pude: ${l.motivo}` : `falta ${l.faltan.join(', ')}`;
 }
 
 /** Una vuelta entera: lee todo, guarda el estado y, si algo cambió, le avisa a Martín. */
@@ -119,4 +126,25 @@ export async function listaGuardadaDeAprobaciones(ahoraMs: number = Date.now()):
   const ws = await wsSuperAdmin();
   const g = leerGuardado(await runWithWorkspace(ws, () => getSettingEstricto(CLAVE_ESTADO)));
   return { ultimaVuelta: g.ultimaVuelta ?? null, filas: listaDeAprobaciones(g, ahoraMs) };
+}
+
+/**
+ * Guarda lo que se leyó del panel de una aprobación sin API (scripts/vigia-paneles.mts y `anotar_lectura_de_panel`). Con
+ * compare-and-set: la tarea guarda varios paneles seguidos y una persona puede anotar uno a la vez. No avisa: el vigía lo toma
+ * en su próxima vuelta y avisa si cambió algo, como con cualquier lectura.
+ */
+export async function anotarLecturaDePanel(
+  id: string,
+  lectura: { estado: string; nota?: string | null } | { noPude: string },
+): Promise<{ ok: true; lectura: LecturaPanel } | { ok: false; error: string }> {
+  const ws = await wsSuperAdmin();
+  return runWithWorkspace(ws, async () => {
+    for (let intento = 0; intento < 3; intento++) {
+      const crudo = await getSettingEstricto(CLAVE_PANELES);
+      const r = anotarPanel(leerPaneles(crudo), id, lectura, Date.now());
+      if (!r.ok) return r;
+      if (await cambiarSettingSi(CLAVE_PANELES, crudo, JSON.stringify(r.nuevo))) return { ok: true as const, lectura: r.lectura };
+    }
+    return { ok: false as const, error: 'Otra lectura se guardó al mismo tiempo, tres veces seguidas. Vuelve a guardarla.' };
+  });
 }

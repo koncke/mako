@@ -2437,4 +2437,21 @@ export const BITACORA: Hito[] = [
       'tests/vigia-aprobaciones.test.ts — 3 nuevos, 4 roturas en rojo',
     ],
   },
+  {
+    fecha: '5 nov', hora: '22:40', chat: 'Approvals', sesion: 'cli_e093f564-5479-56f0-961c-5966898ba5fe', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Approvals: ninguna aprobación se mira «a mano»',
+    revisar: '/admin/approvals',
+    puntos: [
+      '**Lo que no tiene API se lee de su panel:** la cuenta de Play Console, las verificaciones de Meta, la app de Google, Creem y el certificado de Windows. Lo lee una tarea del Cerebro con tu sesión y lo guarda; el vigía lo muestra y avisa si cambia.',
+      '**Una lectura vale un día:** si nadie vuelve a leer un panel, la fila dice «no pude leerlo» desde cuándo y te avisa una vez.',
+      '**Lo que falta se dice exacto:** una clave (con «Cargarla») o que la tarea lea ese panel, nunca «míralo».',
+      '**También desde el chat:** «Creem ya aprobó» lo anota MaKo, con `anotar_lectura_de_panel`.',
+    ],
+    archivos: [
+      'lib/vigia-aprobaciones.ts — el panel de cada ítem (qué abrir, qué mirar, cómo traducirlo), lecturaDePanel, anotarPanel, regla 6',
+      'lib/vigia-aprobaciones-fuentes.ts — los lectores de panel · lib/vigia-aprobaciones-server.ts — anotarLecturaDePanel',
+      'scripts/vigia-paneles.mts — --lista, --guardar, --no-pude, --ver · lib/api-mako/areas/operaciones.def.ts — anotar_lectura_de_panel',
+      'tests/vigia-aprobaciones.test.ts · tests/vigia-aprobaciones-fuentes.test.ts — 7 roturas, cada una en rojo',
+    ],
+  },
 ];

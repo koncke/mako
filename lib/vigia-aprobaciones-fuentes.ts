@@ -3,7 +3,8 @@
 // =============================================================================
 // Cada ítem de `ITEMS` (lib/vigia-aprobaciones.ts) tiene acá su lector. El orden en que se busca el estado es el que pidió
 // Martín: (1) la API oficial, si existe y hay credencial; (2) si no, algo PÚBLICO que lo diga sin credencial (la ficha de la
-// tienda); (3) si nada sirve, «hay que mirarlo a mano», sin inventar un estado.
+// tienda); (3) lo que no tiene API, de su PANEL: lo que guardó la tarea del Cerebro (`lecturaDePanel`, lib/vigia-aprobaciones.ts).
+// Sin nada de eso, la lectura dice qué falta para leerlo solo, sin inventar un estado.
 //
 // ⚠️ SIN `server-only` y SIN RED PROPIA: el `fetch`, las credenciales y la lista de dominios llegan en `Entorno`. Así los tests
 // las reemplazan por fuentes de mentira (tests/vigia-aprobaciones-fuentes.test.ts) y el servidor pone las de verdad
@@ -25,8 +26,8 @@
 // =============================================================================
 
 import { createPrivateKey, createSign } from 'node:crypto';
-import type { Estado, Lectura } from './vigia-aprobaciones';
-import { APPLE_ID_APP, META_APP_ID_VIGIA, PAQUETE_APP } from './vigia-aprobaciones';
+import type { Estado, Lectura, PanelesGuardados } from './vigia-aprobaciones';
+import { APPLE_ID_APP, ITEMS, META_APP_ID_VIGIA, PAQUETE_APP, lecturaDePanel } from './vigia-aprobaciones';
 import { pemPkcs8 } from './push-apns-reglas';
 import { esDominioDeMako } from './email-remitente';
 
@@ -67,6 +68,8 @@ export type Entorno = {
   /** `META_API_VERSION` o la de siempre. */
   metaApiVersion?: string;
   dominiosResend: () => Promise<DominiosResend>;
+  /** Lo que guardó la tarea del Cerebro de cada panel sin API (`CLAVE_PANELES`). `null` = no se pudo leer de la base. */
+  paneles: PanelesGuardados | null;
   /** Tope de cada pedido, en ms (default 15 s). */
   topeMs?: number;
 };
@@ -479,19 +482,30 @@ async function leerResend(e: Entorno): Promise<Lectura> {
 
 type Lector = (e: Entorno, token: () => Promise<TokenGoogle>) => Promise<Lectura>;
 
-/** Un lector por ítem del inventario. Los que no tienen API devuelven `a_mano`. El test cruza estas claves con `ITEMS`. */
+// ── Los paneles (lo que no tiene API) ──────────────────────────────────────
+
+/** Lo que guardó la tarea del Cerebro de este panel. Si la base no contestó, «no pude leer» (nunca «falta leerlo»). */
+async function leerDelPanel(e: Entorno, id: string): Promise<Lectura> {
+  if (!e.paneles) return noPude('no pude leer de la base lo que se guardó de los paneles');
+  return lecturaDePanel(e.paneles, id, e.ahoraMs());
+}
+
+const DE_SU_PANEL: Readonly<Record<string, Lector>> = Object.fromEntries(
+  ITEMS.filter((i) => i.panel).map((i) => [i.id, (e: Entorno) => leerDelPanel(e, i.id)] as const),
+);
+
+/**
+ * Un lector por ítem del inventario: por API, por algo público o de su panel (los que tienen `panel` en ITEMS). El test cruza
+ * estas claves con `ITEMS`.
+ */
 export const LECTORES: Readonly<Record<string, Lector>> = {
   'app-store': (e) => leerAppStore(e),
   'play-prueba-cerrada': (e, t) => leerPlayPruebaCerrada(e, t),
   'play-produccion': (e, t) => leerPlayProduccion(e, t),
-  'play-cuenta': async () => ({ tipo: 'a_mano' }),
   'chrome-web-store': (e, t) => leerChromeWebStore(e, t),
   'meta-permisos': (e) => leerMetaPermisos(e),
-  'meta-verificaciones': async () => ({ tipo: 'a_mano' }),
-  'google-oauth': async () => ({ tipo: 'a_mano' }),
   'resend-dominios': (e) => leerResend(e),
-  'creem-tienda': async () => ({ tipo: 'a_mano' }),
-  'firma-windows': async () => ({ tipo: 'a_mano' }),
+  ...DE_SU_PANEL,
 };
 
 /** Lee todo, en paralelo. Nunca tira: un lector que revienta es «no pude leer». */
