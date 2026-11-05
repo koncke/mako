@@ -121,6 +121,18 @@ export const ETIQUETA_FLECHA_ESCUCHA = 'Si responde';
 /** Las dos operaciones que se dibujan como la tarjeta de ETIQUETA (decisión 8). */
 export const OP_PONER_ETIQUETA = 'poner_etiqueta_lead';
 export const OP_SACAR_ETIQUETA = 'sacar_etiqueta_lead';
+/**
+ * LA TARJETA «Pagos › Leer comprobante» (5/11/2026, docs/relevo/pagos-automations-encargo.md): la ⚡ Acción `leer_comprobante`
+ * (lib/api-mako/areas/cobros.def.ts) dibujada como lo que hace, como la etiqueta. El motor no cambia; lo que leyó lo pregunta
+ * la CONDITION «Su comprobante».
+ */
+export const OP_LEER_COMPROBANTE = 'leer_comprobante';
+
+/** ¿Este paso es la tarjeta «Leer comprobante»? */
+export function esLeerComprobante(p: PasoGrafo): boolean {
+  if (claseDe(p) !== 'accion') return false;
+  return (p.accion as { operacion?: unknown } | null | undefined)?.operacion === OP_LEER_COMPROBANTE;
+}
 
 /** Separación entre columnas del árbol. Sin etiquetas sobre las flechas, alcanza para el
  *  ＋ de una salida vacía y el ＋ del medio. */
@@ -560,6 +572,8 @@ export function altoConFilas(filas: number): number {
 export const TITULO = {
   cron: 'CRON', whatsapp: 'WHATSAPP', email: 'EMAIL', esperar: 'DELAY', condicion: 'CONDITION',
   etiqueta: 'TAG', accion: 'ACTION',
+  // La tarjeta «Pagos › Leer comprobante» (5/11/2026): en inglés como todas.
+  comprobante: 'PAYMENT PROOF',
   // Sexta tanda, MaKo en WhatsApp 1, literal: «El título debe ser ese, "MaKo en WhatsApp" no solo
   // MaKo... Sino se confunde con una ayuda de la IA».
   mako: 'MAKO EN WHATSAPP',
@@ -593,7 +607,8 @@ export function tituloDeTarjeta(p: PasoGrafo, enRespuesta?: boolean): string {
     case 'ab': return TITULO.ab;
     case 'ir_a': return TITULO.ir_a;
     case 'esperar': return TITULO.esperar;
-    case 'accion': return etiquetaDeAccion(p) ? TITULO.etiqueta : esMako(p) ? (esPorEmail(paramsDeMakoDe(p)) ? TITULO.mako_email : TITULO.mako) : TITULO.accion;
+    case 'accion': return etiquetaDeAccion(p) ? TITULO.etiqueta : esMako(p) ? (esPorEmail(paramsDeMakoDe(p)) ? TITULO.mako_email : TITULO.mako)
+      : esLeerComprobante(p) ? TITULO.comprobante : TITULO.accion;
     case 'inicio': return TITULO.cron;
     // Un WhatsApp con texto, audio, archivo o escrito por MaKo es WHATSAPP (decisión 5): «no pongas
     // "Nota de voz" es simplemente "WhatsApp" y un WhatsApp puede contener diversas cosas».
@@ -1369,7 +1384,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
  * salta a la 212, el que junta ramas) se siguen dibujando, corriendo y borrando: lo que se va es
  * crearlos. Con «MaKo» (decisión 11): la ⚡ Acción `avisar_al_equipo`, dibujada como su tarjeta.
  */
-export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'mako' | 'ai_step' | 'ab' | CanalSocial;
+export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'mako' | 'ai_step' | 'ab' | 'comprobante' | CanalSocial;
 /**
  * Una opción del menú del ＋ (estructural: `DropdownOption` vive en un componente). `grupo` separa
  * el menú con una línea; `icono` es un SVG (`data:`), nunca un emoji.
@@ -1404,6 +1419,8 @@ export const ICONOS_MAS = {
   ai_step: svg('<path fill="#F2B01E" d="M-2 -9 C-1.2 -3.4 1.4 -0.8 7 0 C1.4 0.8 -1.2 3.4 -2 9 C-2.8 3.4 -5.4 0.8 -11 0 C-5.4 -0.8 -2.8 -3.4 -2 -9 Z"/><path fill="#F2B01E" d="M7.5 -11 C7.9 -8.6 8.9 -7.6 11 -7.2 C8.9 -6.8 7.9 -5.8 7.5 -3.4 C7.1 -5.8 6.1 -6.8 4 -7.2 C6.1 -7.6 7.1 -8.6 7.5 -11 Z"/>', '-12 -12 24 24'),
   // La prueba A/B (tanda A3): un tubo de ensayo, con el mismo trazo que la lógica.
   ab: svg(`<g ${LINEA}><path d="M9 3h6M10 3v6.5L5.2 18.2A2 2 0 0 0 7 21h10a2 2 0 0 0 1.8-2.8L14 9.5V3"/><path d="M7.5 15h9"/></g>`),
+  // «Leer comprobante» (5/11/2026): un ticket con el borde cortado y una lupa, con el mismo trazo que el CRM.
+  comprobante: svg(`<g ${LINEA}><path d="M6 3h12v15l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3L6 18z"/><path d="M9 8h6M9 11.5h4"/><circle cx="17.5" cy="17.5" r="2.6"/><path d="M19.4 19.4 21.5 21.5"/></g>`),
   // Los logos oficiales sobre su degradé (lib/canal-social.ts, `logoSocialSvg`).
   instagram: logoSocialSvg('instagram'),
   messenger: logoSocialSvg('messenger'),
@@ -1473,6 +1490,9 @@ export const MENU_MAS: ReadonlyArray<OpcionMas & { fueraDeRespuesta?: boolean }>
   { value: 'ab', label: 'Prueba A/B', icono: ICONOS_MAS.ab, grupo: 1, fueraDeRespuesta: true },
   { value: 'etiqueta', label: 'Etiqueta', icono: ICONOS_MAS.etiqueta, grupo: 2 },
   { value: 'accion', label: 'Acción', icono: ICONOS_MAS.accion, grupo: 2 },
+  // «Pagos › Leer comprobante» (5/11/2026): lee la foto o el PDF que mandó el lead. No adentro de «Si responde»: una foto no
+  // la contesta esa rama (sólo el texto y el audio la abren), y su CRON es «Pagos › Te mandan un comprobante».
+  { value: 'comprobante', label: 'Leer comprobante', icono: ICONOS_MAS.comprobante, grupo: 2, fueraDeRespuesta: true },
   { value: 'mako', label: 'MaKo en WhatsApp', icono: ICONOS_MAS.mako, grupo: 3 },
 ];
 
@@ -1528,6 +1548,8 @@ export function nodoNuevo(que: QueAgregar, pasos: readonly PasoGrafo[], rnd: () 
     // lib/mako-tarjeta.ts): lo que se escribe en la tarjeta es lo que llega, sin «🟡 título», sin «— MaKo» y sin el
     // nombre · teléfono · link que agregaba el aviso. Los datos van a la vista, con el «{ }».
     case 'mako': return { ...b, accion: { operacion: OP_AVISAR, params: { leadId: LEAD_DEL_EVENTO, partes: [] } } };
+    // «Leer comprobante» (5/11/2026): la ⚡ Acción `leer_comprobante` sobre el lead del EVENTO. No tiene nada que elegir.
+    case 'comprobante': return { ...b, accion: { operacion: OP_LEER_COMPROBANTE, params: { leadId: LEAD_DEL_EVENTO } } };
     // EL AI STEP (novena tanda): «Si responde» con sus escenarios adentro, colgada del CRON.
     //
     // UNDÉCIMA TANDA: NACE SIN ESCENARIOS Y SIN OBJETIVO. Lo primero es el objetivo (el único texto libre, con

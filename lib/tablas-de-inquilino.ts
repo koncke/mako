@@ -64,7 +64,7 @@ export const TABLAS_DE_INQUILINO = [
   'chat_agent_handoffs', 'chat_estado', 'chat_eventos', 'chat_leidos', 'cliente_entrega', 'cliente_entrega_fuera', 'cliente_entrega_orden', 'closing_analyses', 'closing_jobs', 'cobro_etapa_vinculos', 'cobros',
   'comunidad_ajustes', 'comunidad_baneos', 'comunidad_categorias', 'comunidad_comentarios',
   'comunidad_evento_avisos', 'comunidad_eventos', 'comunidad_likes', 'comunidad_notificaciones',
-  'comunidad_perfiles', 'comunidad_posts', 'comunidad_seguimientos', 'comunidad_votos',
+  'comunidad_perfiles', 'comunidad_posts', 'comunidad_seguimientos', 'comunidad_votos', 'comprobantes_leidos',
   'contenido_posts', 'creative_transcripts', 'credenciales', 'credenciales_auditoria', 'crm_etiquetas', 'crm_lead_etiquetas',
   'cs_clientes', 'cs_respuestas', 'curso_accesos', 'curso_adjuntos', 'curso_clase_notas', 'curso_clases', 'curso_desbloqueos', 'curso_estilo', 'curso_modulos', 'curso_progreso', 'curso_sesiones',
   // El «AI Analyst» del Dashboard (mig 0247, 11/10/2026): el análisis y el horario de cada hoja, por

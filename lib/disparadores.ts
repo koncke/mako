@@ -198,6 +198,9 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
   { subtipo: 'rechazado', label: 'Se rechaza un pago' },
   { subtipo: 'reembolsado', label: 'Se devuelve un pago' },
   { subtipo: 'suscripcion_cancelada', label: 'Se cancela una suscripción' },
+  // 5/11/2026, la tarjeta «Pagos › Leer comprobante»: un lead manda una foto o un PDF por WhatsApp (lib/evolution-mensajes.ts).
+  // Sale con CUALQUIER foto o PDF: qué es lo dice la tarjeta que lo lee, y la CONDITION «Su comprobante», a la vista.
+  { subtipo: 'comprobante', label: 'Llega un comprobante' },
 ];
 
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */

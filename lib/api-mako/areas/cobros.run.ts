@@ -900,6 +900,27 @@ export const RUNNERS: Runners = {
     }),
   },
 
+  // ── La tarjeta «Pagos › Leer comprobante» (5/11/2026, lib/comprobantes.ts). Lee y guarda; nunca marca nada cobrado.
+  leer_comprobante: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      return { payload: { leadId: lead.id }, resumen: `Leer con tu IA el último comprobante que mandó ${lead.nombre} por WhatsApp y compararlo con la cuota que le toca. No marca nada cobrado.` };
+    },
+    ejecutar: (payload, ctx) => seguro('leer el comprobante', async () => {
+      const { leerComprobanteDelLead } = await import('@/lib/comprobantes');
+      const leadId = Number(payload.leadId);
+      const flujo = ctx.canalKey.startsWith(PREFIJO_FLUJO);
+      const r = await leerComprobanteDelLead(ctx.ws, leadId, { origen: flujo ? 'flujo' : ctx.canal === 'http' ? 'api' : 'chat' });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.ya) await logLeadEvent(leadId, 'Comprobante leído', r.comprobante.resumen, autorDe(ctx));
+      return {
+        ok: true, resumen: r.ya ? `Ese comprobante ya estaba leído. ${r.comprobante.resumen}` : r.comprobante.resumen,
+        datos: { comprobanteId: r.comprobante.id, resultado: r.comprobante.resultado, monto: r.comprobante.lectura.monto, moneda: r.comprobante.lectura.moneda, operacion: r.comprobante.lectura.operacion },
+      };
+    }),
+  },
+
   // ── Los recibos de MaKo (5/11/2026, lib/recibos.ts) ─────────────────────────────────────────────────────────────
   // Sólo la plataforma, y en la app el super admin GLOBAL (como ver_clientes_de_mako): son los pagos de todos los negocios.
   ver_recibos: {

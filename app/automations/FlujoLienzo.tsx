@@ -86,7 +86,7 @@ import {
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, opcionesSueltas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
-  revisarHeredado, saleSolaDelPaso, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, errorLegible,
+  revisarHeredado, saleSolaDelPaso, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, esLeerComprobante, errorLegible,
   ID_ENTRADA, tarjetasIncompletas, PARTES_EN_TARJETA, RENGLONES_CON_DOS, SEP_BURBUJAS_TARJETA, ALTO_MAS_PARTES, ALTO_PALOMITAS,
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES, altoDeMensaje,
   MARCO_DISPARO, RENGLON_DISPARO, SEP_DISPARO, ALTO_NUEVO_DISPARO, burbujasDeTarjeta,
@@ -115,6 +115,7 @@ import { condicionesDelEvento, datosDeLaPersona } from '@/lib/aviso-evento';
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { chipDeTarjeta, lineaDePaso, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
 import type { EnColaDelPaso } from '@/lib/en-cola-por-paso';
+import { RESULTADOS_COMPROBANTE } from '@/lib/comprobante-reglas';
 
 const SANS = "'Geist', sans-serif";
 
@@ -1107,6 +1108,8 @@ function EditorDeNodo(pr: PropsEditor) {
       if (etiquetaDeAccion(paso)) return <EditorEtiquetaLienzo paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
       // La tarjeta MAKO (tercera tanda, decisión 11): el aviso al grupo del negocio, con su editor.
       if (esMako(paso)) return <EditorMako key={`mako-${id}`} {...pr} paso={paso} id={id} chatMako={chatDe(id)} />;
+      // «Pagos › Leer comprobante» (5/11/2026): no tiene nada que elegir; dice qué hace y qué puede preguntar la CONDITION.
+      if (esLeerComprobante(paso)) return <EditorComprobante />;
       return <EditorAccion paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
     // La `key` va por tarjeta: el editor recuerda la unidad elegida (`useState` sembrado de props).
     case 'esperar': return <EditorEspera key={`espera-${id}`} espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;
@@ -1218,6 +1221,21 @@ function EditorEtiquetaLienzo(p: { paso: PasoSecuenciaDto; id: string; busy: boo
 }
 
 type Cambiar = (patch: Partial<PasoSecuenciaDto>, apilar: boolean) => void;
+
+/**
+ * «PAGOS › LEER COMPROBANTE» (5/11/2026): sin controles (la tarjeta no gana controles: AGENTS.md). Dice qué hace y qué
+ * contesta la CONDITION «Su comprobante», que es la que decide a la vista qué sigue. Nunca marca nada cobrado.
+ */
+function EditorComprobante() {
+  const txt: CSSProperties = { fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 };
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      <div style={txt}>Lee con tu IA la última foto o PDF que mandó el lead por WhatsApp y la compara con la cuota que le toca.</div>
+      <div style={{ ...txt, color: 'var(--dim)' }}>Después, una CONDITION «Su comprobante» decide: {RESULTADOS_COMPROBANTE.filter((r) => r.id !== 'no_llego').map((r) => r.rotulo.toLowerCase()).join(', ')}.</div>
+      <div style={{ ...txt, color: 'var(--dim)' }}>No marca nada cobrado.</div>
+    </div>
+  );
+}
 
 function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto | null }) {
   const txt: CSSProperties = { fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' };

@@ -111,6 +111,8 @@ const claveNueva = (p: PlantillaAutomatizacion) => `plantilla-${p.id}-${Date.now
  */
 export function filaDePlantilla(p: PlantillaAutomatizacion, clave: string, nombre: string): Record<string, unknown> {
   const fila: Record<string, unknown> = { clave, nombre, etapa: 'manual', trigger_tipo: p.cron.fijo ?? 'manual', activa: false, pasos: [], emoji: emojiDeSecuencia(p.emoji) };
+  // La «Reentrada» con que nace (mig 0279): sólo si la plantilla la declara. Ausente = la de siempre (columna en null).
+  if (p.reentrada) fila.reentrada = p.reentrada;
   // El evento de MaKo, o los eventos de un canal (uno por disparador): van en la lista de CRON (mig 0241), y nace con
   // ella (ver la cabecera). Como objeto, nunca como string: es jsonb.
   const fijos: Disparador[] = disparadoresDePlantilla(p);

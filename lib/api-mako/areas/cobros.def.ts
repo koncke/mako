@@ -416,4 +416,15 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
+  // ── LA TARJETA «Pagos › Leer comprobante» de Automations (5/11/2026, lib/comprobantes.ts; Martín: «un lector de comprobantes
+  // de pago o recibos de pago»). Es una ⚡ Acción dibujada como lo que hace, como la etiqueta. Lo que leyó lo pregunta la
+  // CONDITION «Su comprobante» (lib/condiciones-catalogo.ts). Nunca marca nada cobrado.
+  {
+    id: 'leer_comprobante', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Leer el comprobante de un lead',
+    descripcion: 'PROPONE leer con la IA del negocio la última foto o PDF que un lead mandó por WhatsApp en las últimas 48 horas: monto, moneda, fecha, medio, a quién se pagó y el N.º de operación. Lo compara con la cuota que le toca y dice si la cubre, si pagó menos, si el N.º de operación ya se había usado o si hay que revisarlo. NUNCA marca nada cobrado: eso lo hace una persona. Es la tarjeta «Pagos › Leer comprobante» de Automations.',
+    escribe: 'guarda la lectura del comprobante (comprobantes_leidos) y deja historial en el lead',
+    parametros: [leadId('id del lead que mandó el comprobante.')],
+    canales: ['whatsapp', 'app'], costo: 'ia', gating: G_TAB,
+  },
 ];
