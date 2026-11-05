@@ -490,6 +490,8 @@ export const LECTORES: Readonly<Record<string, Lector>> = {
   'meta-verificaciones': async () => ({ tipo: 'a_mano' }),
   'google-oauth': async () => ({ tipo: 'a_mano' }),
   'resend-dominios': (e) => leerResend(e),
+  // Rechazada el 5/11/2026, definitivo: lo dicen su nombre y su nota (lib/vigia-aprobaciones.ts). Sigue «a mano» porque un
+  // lector sin red no inventa un estado (regla 3; tests/vigia-aprobaciones-fuentes.test.ts).
   'creem-tienda': async () => ({ tipo: 'a_mano' }),
   'firma-windows': async () => ({ tipo: 'a_mano' }),
 };
