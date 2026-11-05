@@ -232,7 +232,9 @@ function Marco({ embebido, children }: { embebido: boolean; children: ReactNode 
   return embebido ? <div style={estilo}>{children}</div> : <main style={estilo}>{children}</main>;
 }
 
-export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, nombreCliente, accionEnLugarDelMenu }: {
+export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, nombreCliente, accionEnLugarDelMenu, aperturaMako = null }: {
+  /** Lo que MaKo dice primero en la estrella (5/11/2026, lib/aperturas/plan.ts): lo arma el tablero del cliente (TodoBoard). */
+  aperturaMako?: ReactNode;
   board: Board;
   /**
    * LO QUE VA EN EL LUGAR DE LOS BOTONES DE ACCIÓN (el «⋮» plegado), sólo con `soloVista`.
@@ -1874,7 +1876,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       <UndoToast state={board.undo} onClose={board.clearUndo} />
       {/* La estrella de MaKo, la de todas las tabs: en la pantalla /plan, no en el tablero de un cliente adentro de su ficha.
           Encima de la tarjeta abierta (un modal): si no, el fondo la tapa. */}
-      {!embebido && <MakoEnLaTab tab="Plan" entidad={entidadMako} encimaDeModales />}
+      {!embebido && <MakoEnLaTab tab="Plan" apertura={aperturaMako} entidad={entidadMako} encimaDeModales />}
     </Marco>
     </TarjetaPlanCtx.Provider>
   );

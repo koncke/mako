@@ -9,6 +9,10 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { BoardShell } from './board/BoardShell';
+import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
+import { useGuiaEnElChat } from '@/app/_ui/guia/store';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { SUPERFICIE_PLAN, type HechosPlan } from '@/lib/aperturas/plan';
 import { hacerLugar, type Corrimiento } from './board/lugar-al-soltar';
 import { esRecurrente } from '@/lib/plan-recurrentes';
 import { useBoard, type ColumnasDelBoard, type TarjetaDelBoard } from './board/useBoard';
@@ -76,7 +80,9 @@ const catsNum = (labels: string[], titulo: string): number[] => {
   return ok;
 };
 
-export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, accionEnLugarDelMenu, columnas = null, tarjeta = null }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, accionEnLugarDelMenu, columnas = null, tarjeta = null, apertura = null }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+  /** Lo que la página sabe para que MaKo hable primero en la estrella (lib/aperturas/plan.ts, 5/11/2026). Sólo la página del Plan. */
+  apertura?: HechosPlan | null;
   /** Los nombres de las columnas del negocio y si se pueden cambiar (./board/useBoard.ts). Sólo la página del Plan. */
   columnas?: ColumnasDelBoard;
   /** La tarjeta de quien mira («Personalizar tarjetas», ./board/useBoard.ts). Sólo la página del Plan. */
@@ -305,5 +311,10 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
   // El cliente entra en el scope por lo mismo que en `PlanBoard`: un filtro dejado en el
   // tablero general esconde el tablero de la ficha sin decir por qué.
   const scope = `${wsId != null ? `ws:${wsId}` : 'ws'}${clienteFijo ? `:cli${clienteFijo.leadId}` : ''}`;
-  return <BoardShell board={board} scope={scope} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} soloVista={soloVista} clienteInicial={clienteInicial} nombreCliente={clienteFijo?.nombre} accionEnLugarDelMenu={accionEnLugarDelMenu} />;
+  // MAKO TOMA LA INICIATIVA (5/11/2026, docs/mako-iniciativa/plan.md T17): con el borrador del plan sin revisar, la estrella
+  // pregunta «¿Tu equipo ya sabe qué hacer esta semana?» con «Ver el borrador». Calla embebido y mientras la guía habla.
+  const guiaChat = useGuiaEnElChat();
+  const estadoApertura = useApertura({ superficie: SUPERFICIE_PLAN, hechos: embebido ? null : apertura, libre: !guiaChat.pregunta && !guiaChat.senalando && !guiaChat.esperando });
+  const aperturaMako = estadoApertura.apertura ? <AperturaMako estado={estadoApertura} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} acciones={{}} /> : null;
+  return <BoardShell board={board} scope={scope} aperturaMako={aperturaMako} vistaInicial={vistaInicial} clientes={clientes} embebido={embebido} vistaExtra={vistaExtra} onRecargar={onRecargar} soloVista={soloVista} clienteInicial={clienteInicial} nombreCliente={clienteFijo?.nombre} accionEnLugarDelMenu={accionEnLugarDelMenu} />;
 }
