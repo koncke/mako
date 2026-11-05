@@ -210,8 +210,8 @@ function Plata({ vista }: { vista: VistaClientes }) {
       <div className="cu-plata-vacia">
         <h2>Lo que entra por mes</h2>
         <p className="cu-plata-linea">Todavía no entró plata por MaKo.</p>
-        <p className="cu-gris">Tus clientes tienen el plan dado a mano. Cuando alguien pague por la pasarela, aparece aquí con su tendencia.</p>
-        <Link className="cu-link" href="/customers?tab=billing">Vender un plan →</Link>
+        <p className="cu-gris">Cuando cargues un pago en el CRM o alguien pague por la pasarela, aparece aquí con su tendencia.</p>
+        <Link className="cu-link" href="/admin?tab=billing">Vender un plan →</Link>
         {vencidas}
       </div>
     );
@@ -225,7 +225,8 @@ function Plata({ vista }: { vista: VistaClientes }) {
           Cobrado en {MES[Number(cambio.mes.slice(5, 7)) - 1]}: {cambio.pct >= 0 ? '↑' : '↓'} {Math.abs(cambio.pct)}% contra {MES[Number(cambio.contra.slice(5, 7)) - 1]}
         </p>
       )}
-      {kpis.mrrUsd > 0 && <p className="cu-gris">{kpis.pagan} {kpis.pagan === 1 ? 'negocio paga' : 'negocios pagan'} por la pasarela{kpis.sinDolares ? ` · ${kpis.sinDolares} sin su valor en dólares` : ''}</p>}
+      {kpis.mrrUsd > 0 && <p className="cu-gris">{kpis.pagan} {kpis.pagan === 1 ? 'negocio paga' : 'negocios pagan'} su mensualidad{kpis.sinDolares ? ` · ${kpis.sinDolares} sin su valor en dólares` : ''}</p>}
+      <Link className="cu-link" href="/admin">Ver los ingresos →</Link>
       {cobrado && (
         <div className="cu-barras" aria-label="Lo que entró cada mes">
           {cobrado.map((m) => (
@@ -271,7 +272,7 @@ function Ficha({ f, actividadLeida, onCerrar }: { f: FilaCliente; actividadLeida
           {filas.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
         </dl>
         <a className="cu-entrar" href={`/inicio?ws=${f.ws}`}>Entrar a su cuenta</a>
-        <Link className="cu-link cu-admin" href={`/customers?tab=accounts&cuenta=${f.ws}`}>Administrar: plan, equipo y acceso</Link>
+        <Link className="cu-link cu-admin" href={`/admin?tab=accounts&cuenta=${f.ws}`}>Administrar: plan, equipo y acceso</Link>
       </aside>
     </>
   );

@@ -14,6 +14,9 @@ import { CabeceraM, FilaDatoM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, 
 import { RUTA_MAS } from '@/lib/movil-rutas';
 import type { FilaCliente, VistaClientes } from '@/lib/clientes-plataforma';
 import { ETIQUETA_PARA_MIRAR, estadoEnUnaPalabra, nombreDePlan, ultimaVezTxt, type Segmento } from '@/lib/clientes-plataforma-reglas';
+import type { VistaIngresos } from '@/lib/admin-ingresos';
+import { ROTULO_ESTADO_CLIENTE, diaTxt, mesTxt, usd } from '@/lib/admin-ingresos-reglas';
+import { mesesVisibles } from '@/app/admin/ingresos/ingresos-vista';
 
 type Grupo = 'todos' | Segmento;
 const GRUPOS: ReadonlyArray<{ id: Grupo; rotulo: string }> = [
@@ -26,7 +29,12 @@ const tono = (t: string): TonoPildora => (t === 'neutral' ? 'neutro' : (t as Ton
 const grupoTxt = (f: FilaCliente) =>
   f.segmentos.includes('de-agencia') ? `De ${f.agencia ?? 'una agencia'}` : f.segmentos.map((s) => ({ agency: 'Agency', partner: 'Partner', cliente: 'Cliente', 'de-agencia': '' }[s])).join(' · ');
 
-export function CustomersM({ vista, arriba }: { vista: VistaClientes; arriba?: ReactNode }) {
+export function CustomersM({ vista, arriba, ingresos = null }: {
+  vista: VistaClientes;
+  arriba?: ReactNode;
+  /** Admin › Revenue (lib/admin-ingresos.ts, 5/11/2026): lo que entró, de los pagos reales. `null` = no se pudo leer. */
+  ingresos?: VistaIngresos | null;
+}) {
   const { filas, kpis, cobrado } = vista;
   const [grupo, setGrupo] = useState<Grupo>('todos');
   const [ws, setWs] = useState<number | null>(null);
@@ -41,7 +49,7 @@ export function CustomersM({ vista, arriba }: { vista: VistaClientes; arriba?: R
 
   return (
     <>
-      <CabeceraM titulo="Customers" padre={{ href: RUTA_MAS, label: 'More' }} />
+      <CabeceraM titulo="Admin" padre={{ href: RUTA_MAS, label: 'More' }} />
       {arriba}
       <div className="m-customers-tres">
         <div><b>{deMaKo.length}</b><span>{deMaKo.length === 1 ? 'Cliente' : 'Clientes'}</span></div>
@@ -49,6 +57,7 @@ export function CustomersM({ vista, arriba }: { vista: VistaClientes; arriba?: R
         <div><b>{kpis.nuevos30}</b><span>Nuevos, 30 días</span></div>
       </div>
 
+      {ingresos && ingresos.cobradoTotal > 0 ? <IngresosM v={ingresos} /> : (
       <div className="m-customers-plata">
         {conPlata ? (
           <>
@@ -63,9 +72,10 @@ export function CustomersM({ vista, arriba }: { vista: VistaClientes; arriba?: R
             )}
           </>
         ) : (
-          <p className="m-customers-gris">Todavía no entró plata por MaKo: tus clientes tienen el plan a mano.</p>
+          <p className="m-customers-gris">Todavía no entró ningún pago: cárgalos en la ficha de cada cliente en el CRM.</p>
         )}
       </div>
+      )}
 
       {vista.paraMirar.length > 0 && (
         <SeccionM titulo="Para mirar">
@@ -124,6 +134,37 @@ export function CustomersM({ vista, arriba }: { vista: VistaClientes; arriba?: R
           </ListaM>
         )}
       </SheetM>
+    </>
+  );
+}
+
+/**
+ * Lo que entra, en el teléfono (5/11/2026): destila Admin › Revenue con la 15 de Stripe: el MRR grande, lo cobrado este mes y
+ * desde siempre, una barra por mes (la de escritorio, sin la tabla de saldos) y lo que pagó cada cliente.
+ */
+function IngresosM({ v }: { v: VistaIngresos }) {
+  const meses = mesesVisibles(v.meses);
+  const maximo = Math.max(1, ...meses.map((m) => m.cobrado));
+  return (
+    <>
+      <div className="m-customers-plata">
+        <span className="m-customers-rot">Ingreso mensual (MRR)</span>
+        <b>{usd(v.mrr)}</b>
+        <span className="m-customers-rot">Cobrado en {mesTxt(v.hoy.slice(0, 7), v.hoy)}: {usd(v.cobradoEsteMes)} · desde siempre: {usd(v.cobradoTotal)}</span>
+        <div className="m-customers-barras" role="img" aria-label="Lo que entró cada mes">
+          {meses.map((m) => (
+            <div key={m.mes}><i style={{ height: `${m.cobrado > 0 ? Math.max(4, Math.round((m.cobrado / maximo) * 100)) : 2}%` }} data-cero={m.cobrado === 0} data-curso={m.enCurso} /><span>{mesTxt(m.mes, v.hoy)}</span></div>
+          ))}
+        </div>
+      </div>
+      <SeccionM titulo="Lo que pagó cada cliente">
+        <ListaM>
+          {v.clientes.map((c) => (
+            <FilaDatoM key={c.clave} k={c.nombre}
+              v={`${c.mrr > 0 ? `${usd(c.mrr)}/mes · ` : ''}${usd(c.total)} en total · ${ROTULO_ESTADO_CLIENTE[c.estado].rotulo}${c.proximo ? ` · ${diaTxt(c.proximo, v.hoy)}` : ''}`} />
+          ))}
+        </ListaM>
+      </SeccionM>
     </>
   );
 }

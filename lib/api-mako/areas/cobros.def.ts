@@ -296,7 +296,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_clientes_de_mako', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver los clientes de MaKo',
-    descripcion: 'Sólo para la plataforma: los clientes de MaKo, como la vista Customers. Arriba, los números: el ingreso mensual (MRR, la suma de las suscripciones activas cobradas por la pasarela, en dólares; sin las pruebas gratis ni los planes dados a mano), cuántos pagan, lo que entró cada mes (6 meses) y las cuotas vencidas, los clientes activos, los nuevos en 30 días y los que están en riesgo (pausados, con un cobro que falló, o sin que nadie de su equipo entre hace 14 días). Después, cada negocio con su segmento: partner (tiene su link de MaKo Partners), agency (plan Pro y se sumó como Agency), cliente (el resto) o de-agencia (cliente de una agencia: lo factura su agencia), su plan, su estado, su MRR, por qué está en riesgo, cuántos días hace que no entra nadie, cuántos leads tiene y cuándo llegó el último, si terminó su onboarding, sus sesiones del agente en 30 días, si tiene un pago esperando y desde cuándo es cliente. Con segmento, sólo ese.',
+    descripcion: 'Sólo para la plataforma: los clientes de MaKo, como la vista Customers. Arriba, los números: el ingreso mensual (MRR: lo que cada negocio paga como su mensualidad, registrado a mano o por la pasarela, en dólares; sin las pruebas gratis ni los planes dados a mano), cuántos pagan, lo que entró cada mes (6 meses) y las cuotas vencidas, los clientes activos, los nuevos en 30 días y los que están en riesgo (pausados, con un cobro que falló, o sin que nadie de su equipo entre hace 14 días). Después, cada negocio con su segmento: partner (tiene su link de MaKo Partners), agency (plan Pro y se sumó como Agency), cliente (el resto) o de-agencia (cliente de una agencia: lo factura su agencia), su plan, su estado, su MRR, por qué está en riesgo, cuántos días hace que no entra nadie, cuántos leads tiene y cuándo llegó el último, si terminó su onboarding, sus sesiones del agente en 30 días, si tiene un pago esperando y desde cuándo es cliente. Con segmento, sólo ese.',
     parametros: [
       { nombre: 'segmento', rotulo: 'Segmento', tipo: 'string', enum: ['partner', 'agency', 'cliente', 'de-agencia'], descripcion: 'sólo los de ese segmento. Sin esto, todos.' },
     ],
@@ -352,5 +352,15 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'sinAnticipo', rotulo: 'Sin anticipo', tipo: 'boolean', descripcion: 'true: quita el anticipo sin cobrar.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_TAB,
+  },
+  // Admin › Revenue por chat (5/11/2026; Martín: «¿Cuánto es lo que me pagaron totalmente? ¿Cuánto me van pagando mes a mes?»).
+  // Lo MISMO que la pantalla (lib/admin-ingresos.ts). Sólo la plataforma y, en la app, el super admin global (el runner lo
+  // pregunta); sin HTTP: son datos de todos los negocios. AL FINAL del área y sin las palabras de las demás (AGENTS.md).
+  {
+    id: 'ver_ingresos_de_mako', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver los ingresos de MaKo',
+    descripcion: 'Sólo para la plataforma: lo que entró a MaKo, como Admin › Revenue. El MRR de hoy y al cierre del mes pasado, lo de este mes y desde siempre, y mes a mes (12) el MRR, la plata que entró y sus movimientos: nuevos, volvieron, subieron, bajaron, se cortaron. Cada cliente con lo que paga por mes, lo que pagó en total, su estado y su próximo vencimiento; y lo que vence en 31 días. Sale de lo registrado a mano en el CRM de la plataforma y de la pasarela.',
+    parametros: [],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
 ];
