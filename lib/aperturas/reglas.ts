@@ -230,6 +230,13 @@ export function puedeHablar(a: AnotacionApertura | undefined, alcance: Apertura[
   }
 }
 
+/**
+ * El prefijo de los HECHOS DEL NEGOCIO que comparten varias superficies (`negocio:plan`, `negocio:funnel`; lib/aperturas/comunes.ts):
+ * contestado en una, la otra no lo vuelve a preguntar. Una apertura puede llevar este prefijo en vez del de su superficie, y
+ * `useApertura` suma estas respuestas a las de la superficie.
+ */
+export const PREFIJO_NEGOCIO = 'negocio';
+
 /** Lo que la persona contestó en esta superficie, de la memoria: el `valor` de cada paso respondido. */
 export function respuestasDeMemoria(m: MemoriaAperturas, superficie: string): Record<string, string> {
   const out: Record<string, string> = {};

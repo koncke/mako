@@ -59,7 +59,9 @@ test('CR3: la estrella del CRM va con el lead de la ficha abierta', () => {
 
 test('CR4: el Plan tiene la estrella, con la tarea o el proyecto abierto, y no adentro de la ficha de un cliente', () => {
   const plan = sinComentarios(leer('app/plan/board/BoardShell.tsx'));
-  assert.match(plan, /\{!embebido && <MakoEnLaTab tab="Plan" entidad=\{entidadMako\} encimaDeModales \/>\}/);
+  // Lo que cuida: la estrella sale fuera de la ficha de un cliente, con lo abierto y encima de los modales. La apertura de MaKo
+  // (5/11/2026, `apertura=`) puede ir en el medio sin que esto se ponga rojo.
+  assert.match(plan, /\{!embebido && <MakoEnLaTab tab="Plan"[^>]*\sentidad=\{entidadMako\}[^>]*\sencimaDeModales \/>\}/);
   assert.match(plan, /const entidadMako: EntidadChat \| null = openTask \? \{ tipo: 'tarea', id: openTask\.id, titulo: openTask\.title \|\| 'Tarea sin título' \}\s*: openProjLabel \? \{ tipo: 'proyecto', id: openProjLabel\.id/);
   assert.match(plan, /minHeight: 'calc\(100vh - var\(--barra-agencia, 0px\)\)', paddingLeft: 'var\(--ancho-panel-mako, 0px\)'/, 'el tablero le deja el lugar al panel');
 });

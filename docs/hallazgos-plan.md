@@ -12,6 +12,24 @@ verificá contra el código.** Las marcadas ⚠️ estaban vivas la última vez 
 
 La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La cosecha».
 
+## MaKo toma la iniciativa en el Plan: el borrador del onboarding, con la clave del NEGOCIO (5/11/2026)
+
+- **Qué hace:** con el borrador del plan que deja el onboarding todavía sin revisar, la estrella del Plan pregunta «¿Tu equipo
+  ya sabe qué hacer esta semana?»; con «Todavía no», «Te dejé un borrador con N tareas.» y «Ver el borrador» (`/plan/revisar/<id>`,
+  donde se confirma y pasa por el Perro). Sólo a quien administra. Nunca escribe tareas.
+- **Lo que no se ve en el código:** plan.md §4 pide la MISMA clave que el paso 7 de la escalera del Ops Center (`negocio:plan`),
+  y hasta hoy una apertura sólo podía llevar el prefijo de SU superficie (`tests/aperturas.test.ts` lo exigía) y `useApertura`
+  sólo leía las respuestas de su superficie. Ahora existe `PREFIJO_NEGOCIO` (lib/aperturas/reglas.ts): una apertura puede ser
+  `negocio:<paso>` y `useApertura` suma esas respuestas. Así lo contestado en la escalera no se repregunta en el Plan, y al revés.
+- **La página mira que el borrador SIGA pendiente** (`getPropuesta(id).estado === 'pendiente'`): el link queda guardado en
+  `EstadoArranque.planBorrador` aunque ya se haya cargado o descartado. Cualquier falla de esas dos lecturas es null: MaKo calla.
+- **El montaje:** BoardShell es de los dos tableros (dueño y cliente), así que la apertura la arma `TodoBoard` (el del cliente) y
+  BoardShell sólo la reenvía a la estrella. Embebido (la ficha de un cliente) no habla.
+- **Vive en:** lib/aperturas/plan.ts, app/plan/page.tsx, app/plan/TodoBoard.tsx, app/plan/board/BoardShell.tsx,
+  app/_chat/AperturaMako.tsx. **Lo fija:** tests/iniciativa-plan.test.ts (3 roturas).
+- **Falta:** la guía de la pestaña (guia.md §6: `plan-nueva-tarea`, `plan-vistas`, `plan-filtrar`, y que la bienvenida del Plan
+  pida el turno antes), y el paso 7 en la escalera del Ops Center (T3), que ya puede usar `ID_PLAN`.
+
 ## El dueño de una tarea no puede salir sólo de la etiqueta del hablante (27/10/2026)
 
 - **Síntoma:** el Plan puso «Comprar el certificado SSL» a nombre de Leandro (era de Martín), y el resumen de la
