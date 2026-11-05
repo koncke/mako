@@ -10774,3 +10774,14 @@ hecho tiene más de 7 días (`tiempoDelHecho`, `lib/meta-capi-payload.ts`, con s
 `punta/ops-ignorar` y `punta/agencia-cobro` eligieron la `0394` con pocas horas de diferencia. Los dos hicieron lo indicado: barrer main, todas las ramas y las etiquetas, y tomar el siguiente. Barrer no reserva: si la otra todavía no subió, no se ve. Y desde la nube tampoco se ven los worktrees de la PC.
 
 **La regla:** el número se confirma al aplicar, contra `origin/main`. Si chocó, se renumera el archivo que llegó segundo: nada lo nombra por número salvo su encabezado y su relevo.
+
+## La lista de archivos del repo entero pasó el megabyte (5/11/2026)
+
+**Vive en:** `tests/resend-clave-admin.test.ts` y `tests/puente-leads-retirado.test.ts`.
+
+- **Síntoma:** el veredicto de `punta/recibos` dio rojo en dos tests que no tocan nada de recibos, con `spawnSync git ENOBUFS`.
+- **Causa:** `git ls-files` sin carpetas mide 1.048.307 B en main, a 269 bytes del tope de 1 MB que `execFileSync` trae por default.
+  Cualquier rama que suma unos archivos lo pasa, en la nube y en GitHub igual (es el mismo checkout).
+- **Arreglo:** `maxBuffer: 64 * 1024 * 1024` en los dos. Los scripts ya lo tenían (`tests-afectados.mjs`, 256 MB; `claves-en-el-diff.mjs`,
+  512 MB) y `tests/colision-de-nombres.test.ts` también. Con una carpeta (`git ls-files app lib`) son ~216 KB: todavía lejos.
+- **Regla:** la de arriba (25/10): todo `git ls-files`, `git ls-tree -r` o `git show` que pueda crecer lleva `maxBuffer` explícito.

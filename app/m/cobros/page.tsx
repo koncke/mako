@@ -17,6 +17,7 @@ import { requireMovil } from '@/lib/movil-guard';
 import { HOME_MOVIL } from '@/lib/movil-rutas';
 import { rutaConWs } from '@/lib/workspace';
 import { cobrosDeMakoAction } from '@/app/admin/cobros/actions';
+import { recibosAction } from '@/app/admin/cobros/recibos-actions';
 import { ErrorM, PantallaM } from '@/app/m/_ui';
 import { CobrosM } from './CobrosM';
 
@@ -25,11 +26,15 @@ export const dynamic = 'force-dynamic';
 export default async function CobrosMovil() {
   if (!(await getSesionAdmin())) redirect(await rutaConWs(HOME_MOVIL));
   await requireMovil();
-  const datos = await cobrosDeMakoAction();
+  const [datos, recibos] = await Promise.all([cobrosDeMakoAction(), recibosAction({ limite: 50 })]);
   if (!datos.ok) return <PantallaM><ErrorM frase={datos.error} /></PantallaM>;
+  // Los recibos (5/11/2026): la lista con «Bajar». Cargar un pago queda en la computadora, dicho en su fila.
+  const listaRecibos = recibos.ok && !recibos.faltaLaMigracion
+    ? recibos.recibos.map((r) => ({ id: r.id, numero: r.numero, aNombre: r.a_nombre, totales: r.totales_recibido, fecha: r.fecha_pago, estado: r.estado }))
+    : null;
   return (
     <PantallaM>
-      <CobrosM cobros={datos.cobros} truncado={datos.truncado} conPasarela={datos.pasarelas.length > 0} />
+      <CobrosM cobros={datos.cobros} truncado={datos.truncado} conPasarela={datos.pasarelas.length > 0} recibos={listaRecibos} />
     </PantallaM>
   );
 }
