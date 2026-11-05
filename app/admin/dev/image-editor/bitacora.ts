@@ -237,6 +237,21 @@ export const BITACORA: Hito[] = [
     revisar: '/image-editor?ver=carruseles',
   },
   {
+    fecha: "5 nov", hora: "17:20", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo toma la iniciativa en el Image Editor: «¿Dónde lo vas a publicar?» con el diseño en blanco",
+    puntos: [
+      "Con una página sin nada y la charla vacía, el chat pregunta un hecho y la respuesta pone el lienzo a la medida de una historia, un carrusel o un anuncio, sin IA y sin la app de escritorio.",
+      "Lo contestado vale para ese diseño, y mientras habla el saludo y las sugerencias se esconden.",
+    ],
+    revisar: "/image-editor",
+    archivos: [
+      "lib/aperturas/image.ts — la apertura y las medidas, puras",
+      "app/image-editor/mako/chat/PanelMakoIA.tsx — el montaje en el chat del editor",
+      "tests/iniciativa-image.test.ts — probado rompiéndolo (2 roturas)",
+    ],
+  },
+  {
     fecha: '5 nov', hora: '12:00', chat: 'Image marca (nube)', sesion: 'cli_45e914c6-514d-5f5d-b151-4d8e5f267b67', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
     titulo: 'La marca completa en Image, el manual en el Second Brain y sin Gemini',
     pedido: 'Tres cosas en Image. Medí antes de tocar: lo de abajo viene de una auditoría que no corrió la app. 1. La marca completa en el chat de Imagen: colores, logo y fuentes en el prompt. Con el presupuesto de contexto chico: cada token lo paga el cliente. 2. Brand board en el Segundo Cerebro: el negocio sube el PDF o la imagen de su marca, MaKo extrae colores, fuentes y logo, y el usuario los confirma. Varios kits por negocio (una agencia tiene muchos), uno por defecto. Lo usan Image, Video y Web Generator. MaKo lo pide cuando falta, sin trabar nada. 3. Sin Gemini por defecto en Image: cambialo a la IA del cliente. Además, si te queda claro al leer: SelectorIntencion (Discutir / Editar) falta en el chat de Imagen y en el de Video. Sumalo a la API de MaKo.',
