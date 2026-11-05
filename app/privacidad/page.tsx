@@ -126,6 +126,13 @@ export default function Page() {
         <strong>Si trabajas en equipo, quien administre el espacio puede ver ese rastro.</strong>
       </p>
       <p>
+        Para saber qué partes del producto se usan y cuáles no, MaKo también cuenta, por persona y
+        por día, <strong>qué secciones abres y cuántas acciones haces en cada una</strong>, y qué
+        hizo MaKo por ti y si salió bien. Son números: <strong>no se guarda lo que escribes ni lo
+        que ves</strong>, ni la dirección de cada pantalla. Lo mira sólo el equipo de MaKo, y se
+        borra a los 400 días (lo que hizo MaKo, a los 90).
+      </p>
+      <p>
         <strong>No hay analítica de terceros dentro de la aplicación</strong>: no usamos Google
         Analytics, ni Meta Pixel, ni grabadores de sesión, ni herramientas de seguimiento
         publicitario. (Sí existe un píxel que <em>tú</em> puedes instalar en <em>tu</em> propia

@@ -72,7 +72,13 @@ const QUE_VAS_A_HACER: Record<string, string> = {
 // workspace de la plataforma con su firma, el maquetado, y «se anota sólo si salió». Con dos
 // copias, la segunda nace sin el corte del sandbox — que es el que evita el éxito falso.
 
-type MailDePlataforma = { to: string; asunto: string; preheader: string; cuerpo: string; tag: string };
+type MailDePlataforma = {
+  to: string; asunto: string; preheader: string; cuerpo: string; tag: string;
+  /** Los adjuntos, en base64 (5/11/2026: el PDF del recibo, lib/recibos.ts). */
+  adjuntos?: Array<{ filename: string; content: string }>;
+  /** La `Idempotency-Key` de Resend (24 h): el mismo pedido no manda dos correos. */
+  idempotencyKey?: string;
+};
 
 /**
  * Manda un mail de la plataforma. NUNCA tira: devuelve si salió y, si no, por qué.
@@ -88,7 +94,7 @@ type MailDePlataforma = { to: string; asunto: string; preheader: string; cuerpo:
 async function enviarDePlataforma(
   m: MailDePlataforma,
   alSalir?: () => Promise<void>,
-): Promise<{ enviado: true } | { enviado: false; error: string }> {
+): Promise<{ enviado: true; id?: string } | { enviado: false; error: string; status?: number; nombre?: string }> {
   // ⚠️ EL PREFLIGHT DEL SANDBOX NO ES DECORACIÓN. Con el remitente sin configurar, Resend
   // acepta el envío contra `@resend.dev` y responde OK — o sea que el sistema informa
   // «mail enviado» y a la persona no le llega nada. Un éxito falso es peor que un error:
@@ -129,17 +135,19 @@ async function enviarDePlataforma(
       html,
       text: m.cuerpo,
       tags: [{ name: 'tipo', value: m.tag }],
+      ...(m.adjuntos?.length ? { attachments: m.adjuntos } : {}),
+      ...(m.idempotencyKey ? { idempotencyKey: m.idempotencyKey } : {}),
     });
   });
 
-  if (!r.ok) return { enviado: false, error: r.error || 'Resend rechazó el envío' };
+  if (!r.ok) return { enviado: false, error: r.error || 'Resend rechazó el envío', ...(r.status ? { status: r.status } : {}), ...(r.nombre ? { nombre: r.nombre } : {}) };
 
   if (alSalir) {
     try { await alSalir(); } catch (e) {
       console.error('[invitaciones] el mail salió pero no se pudo registrar:', e instanceof Error ? e.message : e);
     }
   }
-  return { enviado: true };
+  return { enviado: true, id: r.id };
 }
 
 /**
@@ -358,6 +366,23 @@ export async function avisarDePlataforma(m: { to: string; asunto: string; prehea
   if (!to) return { enviado: false, error: 'no hay a quién mandarlo' };
   const r = await enviarDePlataforma({ ...m, to });
   return r.enviado ? { enviado: true } : { enviado: false, error: r.error };
+}
+
+/**
+ * EL RECIBO DE UN PAGO (5/11/2026, lib/recibos.ts): un correo de MaKo con el PDF adjunto, a UNA persona (un POST por
+ * destinatario: nadie ve el correo del otro, y un rebote marca sólo a quien rebotó). Con la `Idempotency-Key` de Resend, el
+ * reintento del mismo lote no manda dos. NUNCA tira; devuelve el id de Resend, o el error con su `status` y su `nombre`.
+ */
+export async function mandarReciboPorEmail(m: {
+  to: string; asunto: string; preheader: string; cuerpo: string; pdfBase64: string; nombrePdf: string; idempotencyKey: string; tag?: string;
+}): Promise<{ enviado: true; id: string | null } | { enviado: false; error: string; status?: number; nombre?: string }> {
+  const to = (m.to ?? '').trim().toLowerCase();
+  if (!to) return { enviado: false, error: 'no hay a quién mandarlo' };
+  const r = await enviarDePlataforma({
+    to, asunto: m.asunto, preheader: m.preheader, cuerpo: m.cuerpo, tag: m.tag ?? 'recibo',
+    adjuntos: [{ filename: m.nombrePdf, content: m.pdfBase64 }], idempotencyKey: m.idempotencyKey,
+  });
+  return r.enviado ? { enviado: true, id: r.id ?? null } : r;
 }
 
 export async function invitarAlCursoPorEmail(p: {

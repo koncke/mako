@@ -28,6 +28,7 @@ PATCH /api/v1/1/1/a/b → pública (no usa la sesión)
 PATCH /api/video-editor/propuestas → cortada
 PATCH /api/whatsapp/secuencias → cortada
 PATCH /api/whatsapp/templates/drafts → cortada
+POST /api/actividad → cortada
 POST /api/admin/agencia → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/agencia/altas → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/avisos-demo → sólo admin (el rol la corta antes, también a un closer)
@@ -45,6 +46,7 @@ POST /api/admin/mako-grupo → sólo admin (el rol la corta antes, también a un
 POST /api/admin/modelos → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/pedidos-ingreso → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/plantillas → sólo admin (el rol la corta antes, también a un closer)
+POST /api/admin/recibos/comprobante → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/usuarios → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/workspaces → sólo admin (el rol la corta antes, también a un closer)
 POST /api/ads-analyst/analyze → cortada
@@ -306,6 +308,7 @@ acción app/_chat/bloques/cobranza-actions.ts → cortada (ninguna página acept
 acción app/_components/zona-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/_sin-conexion/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/admin/cobros/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/admin/cobros/recibos-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/admin/operaciones/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/admin/runway/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/ads-writer/onboarding-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)

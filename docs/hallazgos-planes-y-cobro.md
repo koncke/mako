@@ -10,6 +10,50 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Los recibos de MaKo (5/11/2026): el número lo da la base, el monto lo dice la pasarela, y el grupo no es privado
+
+**El pedido:** «es súper importante que hagas un template que eso se envíe siempre por email de los recibos de compra. En este
+caso también por WhatsApp [...] guardando dentro de SuperAdmin». El diseño y los 20 agujeros que le encontró el revisor están en
+[relevo/recibos-encargo.md](relevo/recibos-encargo.md); lo que se construyó y lo que le toca al Cerebro, en
+[relevo/nube-recibos.md](relevo/nube-recibos.md). Construido en la nube, **sin base ni producción**: nada está probado contra un pago
+real (no hubo ninguno: 0 cobros pagados en la plataforma al 5/11).
+
+**Vive en:** `supabase/migrations/0397_recibos.sql`, `lib/recibos.ts`, `lib/recibos-reglas.ts`, `lib/recibo-pdf.ts`, el gancho en
+`lib/cobros.ts` (`aplicarPagoAprobado`, `aplicarReembolso`, `aplicarReembolsoFallido`, `aplicarContracargo`), `app/admin/cobros/RecibosMako.tsx`.
+
+Lo que vuelve a morder:
+
+- **La «ya estaba» de una clave tiene que comparar los pagos.** El diseño devolvía el recibo viejo apenas encontraba la clave del
+  mes, y el segundo pago de noviembre (Código pagó en dos órdenes, dos días distintos) se perdía sin un error. `emitir_recibo` ahora
+  contesta «ya estaba» sólo si TODOS los pagos pedidos están en ese recibo; si no, tira `RECIBO_OCUPADO <n> <orden>`. Y el formulario
+  usa `form:<uuid>`, nunca la clave del mes.
+- **Se probó en un Postgres de verdad, no leyendo el SQL**: `scripts/probar-0397-pglite.mjs` (PGlite) corre 16 casos, y 6 roturas
+  de la función dan rojo cada una. Lo que PGlite no puede probar es la carrera: es una sola conexión. Esa prueba va en producción,
+  con dos conexiones y rollback (relevo).
+- **El monto del recibo es lo que COBRÓ la pasarela, releído**, nunca `cobros.monto`: el primer mes al 50% y un cupón del 100%
+  imprimían el precio de lista. Creem: `amount_paid` (con impuesto; el `amount` es sin él). Sin el dato, `cobradoEnLaPasarela`
+  (lib/cobros.ts) lo relee con la clave de la cuenta del cobro; si la pasarela no contesta, lo emite la red del cron.
+- **El PDF tiene que ser determinista**: `setCreationDate` y `setFileId`. Sin eso, cada render cambia bytes, y Resend contesta 409
+  `invalid_idempotent_request` al reintentar con la misma clave (otro cuerpo). Lo fija tests/recibos.test.ts. Y una vez mandado se
+  GUARDA (`plataforma/recibos/pdf/<id>.pdf`, con su sha256): un deploy que cambia la plantilla no cambia lo que recibió el cliente.
+- **El grupo y el hilo de la app NO son privados**: los ven los admins de la agencia de ese negocio y sus invitados. Por eso el pie de
+  WhatsApp no lleva el monto, la fila va con `aviso_tipo='recibo'` (que un invitado no ve: `AVISOS_QUE_NO_VE_UN_INVITADO`,
+  lib/grupo-reglas.ts), y el recibo del cliente de una agencia que paga él va **sólo por correo**.
+- **Quién paga se congela al emitir y se lee ESTRICTO.** `agenciaDelCobro` devuelve null con la cartera no aprobada (y ese null
+  mandaba el PDF al correo del cliente), y `adminsDeCuenta` se traga el error de lectura: no se reusan. Paga la agencia → nunca al
+  correo del cobro, que puede ser del cliente.
+- **Todo setting se lee en `runWithWorkspace(plataforma)`**: el cron no tiene contexto y `getSetting` cae al ws1 (Mauricio, un
+  cliente). Un recibo emitido así queda con SU emisor como foto, para siempre.
+- **`sendEmail` no tenía timeout.** Con `idempotencyKey` corta a los 15 s, y el recibo sale al FINAL de `aplicarPagoAprobado`,
+  después del aviso «Entró un pago» y del CRON del lead: si Resend se cuelga, lo que evita escribirle «no agendaste» a quien pagó ya pasó.
+- **Un POST por destinatario**: con todos en un `to`, se veían las direcciones entre ellos y un rebote marcaba a todos.
+
+**Lo que quedó SIN hacer** (con el archivo): el aviso cuando la rama de agencias (`punta/agencia-cobro`) marque un mes pagado
+(`lib/agencia-mes.ts` tiene que llamar a `emitirReciboManual` con `mensualidad:<ag>:<mes>`, y `quitarMesPagado` a `anularRecibo`); y la
+renovación cuyo aviso se perdió sigue sin entrar (lib/cobros.ts, `reconciliarCobros`): sin plata asentada no hay recibo.
+
+---
+
 ## El barrido del 31/10: la tercera pasarela dejó NUEVE lugares donde no se cobra, y ninguno da error
 
 **Lo que se midió:** el commit de Creem (`5faf71e0e`) dice en su propio mensaje que cazó 53 ternarios
