@@ -39,6 +39,7 @@ import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { marcarEventoEmail, moverPorEventoDeEmail, suprimirPorRebote } from '@/lib/email-marketing';
 import { recibirEmailEntrante } from '@/lib/email-entrante';
 import { revisarFrenoEmail } from '@/lib/email-reputacion';
+import { marcarReboteDeRecibo } from '@/lib/recibos';
 
 export const dynamic = 'force-dynamic';
 // `email.received` puede mandar el primer mensaje de una automatización en el acto (la vía rápida).
@@ -111,6 +112,8 @@ export async function POST(req: NextRequest) {
         // Solo suprimir en rebote PERMANENTE (dirección inválida). Los soft/transient
         // (buzón lleno, temporal) no deben dar de baja a un lead válido.
         const tipo = (evt.data?.bounce?.type ?? '').toLowerCase();
+        // Un RECIBO de MaKo (lib/recibos.ts, 5/11/2026): sale por la cuenta de MaKo, así que sólo se mira sin `?cuenta=`.
+        if (cuenta == null && (tipo === 'permanent' || tipo === 'hardbounce' || tipo === 'hard')) await marcarReboteDeRecibo(emailId, 'rebotó');
         if (tipo === 'permanent' || tipo === 'hardbounce' || tipo === 'hard') {
           // Se anota con su hora (mig 0380) y se mira el freno del email del negocio (lib/email-reputacion.ts, 4/11/2026).
           const fila = await marcarEventoEmail(emailId, 'rebote', when, soloWs);
@@ -119,8 +122,15 @@ export async function POST(req: NextRequest) {
         }
         break;
       }
+      // Un recibo que Resend no pudo mandar o que suprimió (la dirección está en su lista): también es un rebote (agujero 19).
+      case 'email.failed':
+      case 'email.suppressed': {
+        if (cuenta == null) await marcarReboteDeRecibo(emailId, evt.type === 'email.failed' ? 'Resend no lo pudo mandar' : 'la dirección está suprimida en Resend');
+        return Response.json({ ok: true, ignored: evt.type });
+      }
       case 'email.complained': {
         // Marcó spam → baja inmediata, y el freno (una queja castiga al dominio más que un rebote).
+        if (cuenta == null) await marcarReboteDeRecibo(emailId, 'lo marcó como spam');
         const fila = await marcarEventoEmail(emailId, 'queja', when, soloWs);
         await suprimirPorRebote(emailId, soloWs);
         if (fila?.workspace_id != null) await revisarFrenoEmail(fila.workspace_id);

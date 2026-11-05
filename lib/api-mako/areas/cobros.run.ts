@@ -70,6 +70,8 @@ import {
   type CuotaQueQueda, type FilaVenta, type PlanDeCuotas, type TramoPlan,
 } from '@/lib/pagos-campo';
 import { bajarAdjunto } from '@/lib/chat-mako-adjuntos';
+import { vistaDeActividad } from '@/lib/actividad';
+import { activos, cicloDeVida, dejaronDeEntrar, nombreDeTab, tabsSinUso, usoPorNegocio, usoPorTab, ventanaDeUso, canalTxt } from '@/lib/actividad-reglas';
 import { guardarDocumentoFiscal } from '@/lib/deal-fiscal-doc';
 import { aCompletarAhora, propuestaDocumentoFiscal } from '@/lib/deal-fiscal-doc-reglas';
 
@@ -748,7 +750,7 @@ export const RUNNERS: Runners = {
           titulo: s.acta?.titulo ?? null, resumen: s.acta?.resumen ?? null, mensajes: s.turnos?.length ?? 0,
         })),
         total: sesiones.length,
-        nota: 'Los mensajes textuales están en Admin › Agents.',
+        nota: 'Los mensajes textuales están al pie de Admin › Activity.',
       });
     },
   },
@@ -831,6 +833,109 @@ export const RUNNERS: Runners = {
     }),
   },
 
+  // ── Los recibos de MaKo (5/11/2026, lib/recibos.ts) ─────────────────────────────────────────────────────────────
+  // Sólo la plataforma, y en la app el super admin GLOBAL (como ver_clientes_de_mako): son los pagos de todos los negocios.
+  ver_recibos: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Los recibos de MaKo son sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Los recibos de MaKo son sólo del super admin.');
+      const { listarRecibos } = await import('@/lib/recibos');
+      const est = s(input.estado);
+      const r = await listarRecibos({
+        mes: s(input.mes), destinoWs: n(input.cuenta), medio: s(input.medio), soloFallas: input.soloFallas === true, limite: 100,
+        estado: est && ['emitido', 'devuelto', 'devuelto_parcial', 'contracargo', 'anulado'].includes(est) ? est as 'emitido' : null,
+      });
+      if (r.faltaLaMigracion) return fallo('Los recibos todavía no están listos en la base (falta la migración 0397).');
+      return json({
+        recibos: r.recibos.map((x) => ({
+          numero: x.numero, a_nombre: x.a_nombre, cuenta: x.destino_ws, origen: x.origen, estado: x.estado, recibido: x.totales_recibido,
+          detalle: x.lineas, pagos: x.pagos.filter((p) => !p.anulado).map((p) => ({ medio: p.medio, referencia: p.referencia, fecha: p.fecha, monto: p.monto, moneda: p.moneda })),
+          fecha_pago: x.fecha_pago, correo: x.correo_estado, whatsapp: x.wa_estado, error: x.correo_error ?? x.wa_error, nota_interna: x.nota_interna,
+        })),
+        al_tope: r.alTope,
+        nota: 'Es un recibo de pago, no una factura fiscal. Lo recibido va por moneda: nunca se suma entre monedas. Un recibo anulado deja su número gastado.',
+      });
+    },
+  },
+
+  cargar_pago_a_mano: {
+    preparar: async (input, ctx) => {
+      if (ctx.canalKey?.startsWith(PREFIJO_FLUJO)) return { error: 'Una automatización no carga pagos de MaKo: se hace en Billing o por el chat.' };
+      if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Los recibos de MaKo son sólo de la plataforma.' };
+      const cuenta = n(input.cuenta);
+      const lineas = Array.isArray(input.lineas) ? input.lineas as Array<Record<string, unknown>> : [];
+      const pagos = Array.isArray(input.pagos) ? input.pagos as Array<Record<string, unknown>> : [];
+      if (!cuenta || !lineas.length || !pagos.length) return { error: 'Faltan la cuenta, qué se pagó o cómo se pagó.' };
+      const { referenciaNormal, esMedio, totalesEnTexto } = await import('@/lib/recibos-reglas');
+      for (const p of pagos) {
+        const medio = s(p.medio);
+        if (!medio || !esMedio(medio) || !referenciaNormal(medio, p.referencia)) return { error: medio === 'binance' ? 'La orden de Binance son los 18 dígitos del «Order ID».' : 'Cada pago necesita su medio y su referencia.' };
+      }
+      const { reciboDePago } = await import('@/lib/recibos');
+      for (const p of pagos) {
+        const ya = await reciboDePago(String(p.medio), String(p.referencia)).catch(() => null);
+        if (ya) return { error: `Esa orden (${String(p.referencia).trim()}) ya está en el recibo N.º ${String(ya.numero).padStart(4, '0')}.`, yaEstaba: true };
+      }
+      const suma = (xs: Array<Record<string, unknown>>) => {
+        const t: Record<string, number> = {};
+        for (const x of xs) { const m = String(s(x.moneda) ?? '').toUpperCase(); t[m] = (t[m] ?? 0) + (n(x.monto) ?? 0); }
+        return Object.entries(t).map(([moneda, monto]) => ({ moneda, monto }));
+      };
+      const formId = crypto.randomUUID();
+      return {
+        payload: { formId, cuenta, aNombre: s(input.aNombre) ?? '', lineas, pagos, notaPdf: s(input.notaPdf), notaInterna: s(input.notaInterna), enviar: input.enviar !== false },
+        resumen: `Emitir el recibo de ${s(input.aNombre) ?? `la cuenta ${cuenta}`} (cuenta ${cuenta}): ${lineas.map((l) => s(l.concepto)).filter(Boolean).join(', ')}, por ${totalesEnTexto(suma(lineas))}; recibido ${totalesEnTexto(suma(pagos))} (${pagos.map((p) => `${s(p.medio)} ${s(p.referencia)}`).join(', ')}).${input.enviar === false ? ' Sin enviarlo.' : ' Sale por correo a los admins de la cuenta, y a su grupo de MaKo si va.'} Es un recibo de pago, no una factura fiscal.`,
+      };
+    },
+    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : 'Sólo el super admin carga pagos de MaKo.'),
+    ejecutar: (payload, ctx) => seguro('emitir el recibo', async () => {
+      if (!(await esSuperAdmin())) return { ok: false, resumen: 'Sólo el super admin carga pagos de MaKo.' };
+      if (ctx.ws !== (await wsSuperAdmin())) return { ok: false, resumen: 'Los recibos de MaKo son sólo de la plataforma.' };
+      const { emitirReciboManual } = await import('@/lib/recibos');
+      const p = payload as { formId: string; cuenta: number; aNombre: string; lineas: Array<Record<string, unknown>>; pagos: Array<Record<string, unknown>>; notaPdf: string | null; notaInterna: string | null; enviar: boolean };
+      const r = await emitirReciboManual({
+        formId: p.formId, destinoWs: Number(p.cuenta), aNombre: p.aNombre, notaPdf: p.notaPdf, notaInterna: p.notaInterna, enviar: p.enviar, autor: autorDe(ctx),
+        lineas: p.lineas.map((l) => ({ concepto: String(l.concepto ?? ''), mes: s(l.mes), monto: Number(l.monto), moneda: String(l.moneda ?? '') })),
+        pagos: p.pagos.map((x) => ({ medio: String(x.medio ?? ''), referencia: String(x.referencia ?? ''), fecha: String(x.fecha ?? ''), monto: Number(x.monto), moneda: String(x.moneda ?? ''), de: s(x.de) })),
+      });
+      if (!r.ok) return { ok: false, resumen: `No se emitió: ${r.error}` };
+      const nro = String(r.numero).padStart(4, '0');
+      return {
+        ok: true, ...(r.yaEstaba ? { yaEstaba: true } : {}),
+        resumen: r.yaEstaba ? `Ya estaba: recibo N.º ${nro}.` : `Listo: recibo N.º ${nro}${p.enviar ? ', enviado' : ', sin enviar'}. Está en Admin › Billing › Recibos.${r.aviso ? ` ${r.aviso}` : ''}`,
+        datos: { reciboId: r.id, numero: r.numero },
+      };
+    }),
+  },
+
+  reenviar_recibo: {
+    preparar: async (input, ctx) => {
+      if (ctx.canalKey?.startsWith(PREFIJO_FLUJO)) return { error: 'Una automatización no reenvía recibos de MaKo.' };
+      if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Los recibos de MaKo son sólo de la plataforma.' };
+      const numero = n(input.numero);
+      if (!numero) return { error: 'Falta el número del recibo.' };
+      const { getSupabaseServer } = await import('@/lib/supabase');
+      const { data, error } = await getSupabaseServer().from('recibos').select('id, numero, a_nombre, estado, correo_a').eq('numero', numero).maybeSingle();
+      if (error) return { error: 'No pude leer el recibo. Intenta de nuevo.', falla: true };
+      const f = data as { id: number; numero: number; a_nombre: string; estado: string; correo_a: string[] | null } | null;
+      if (!f) return { error: `No hay un recibo N.º ${String(numero).padStart(4, '0')}.` };
+      if (f.estado !== 'emitido') return { error: f.estado === 'anulado' ? 'Un recibo anulado no se reenvía.' : 'Ese recibo ya no está vigente: no se reenvía.' };
+      const correo = s(input.correo)?.toLowerCase() ?? null;
+      if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) return { error: 'Ese correo no es válido.' };
+      return {
+        payload: { id: Number(f.id), correo },
+        resumen: `Reenviar el recibo N.º ${String(f.numero).padStart(4, '0')} de ${f.a_nombre} ${correo ? `a ${correo}` : `a ${f.correo_a?.length ? f.correo_a.join(', ') : 'los admins de su cuenta'}`}, y a su grupo de MaKo si va.`,
+      };
+    },
+    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : 'Sólo el super admin reenvía recibos de MaKo.'),
+    ejecutar: (payload, ctx) => seguro('reenviar el recibo', async () => {
+      if (!(await esSuperAdmin())) return { ok: false, resumen: 'Sólo el super admin reenvía recibos de MaKo.' };
+      const { reenviarRecibo } = await import('@/lib/recibos');
+      const r = await reenviarRecibo(Number(payload.id), { autor: autorDe(ctx), correo: (payload.correo as string | null) ?? null });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: el correo quedó ${r.resultado?.correo ?? 'pendiente'} y WhatsApp ${r.resultado?.whatsapp ?? 'pendiente'}.` };
+    }),
+  },
   // «Vender un plan» (23/10/2026, P0-8): ver cobros.def.ts. El MISMO camino que /admin/cobros (`venderPlan`, lib/vender-plan.ts).
   // La revisión adversarial del mismo día (wf_fbeb8485-d3c) le sumó:
   //   · el super admin GLOBAL al confirmar y al ejecutar (`esSuperAdmin`). `rolMinimo: 'admin'` + `soloPlataforma` es el admin
@@ -960,6 +1065,28 @@ export const RUNNERS: Runners = {
         reportes: v.reportes.slice(0, 20).map((t) => ({ ticket: t.id, titulo: t.titulo, tipo: t.tipo, estado: ESTADO_TICKET_TXT[t.estado] ?? t.estado, quien: t.quien, negocio: t.negocio, cuando: t.creado })),
         hay_mas: v.hayMas, avisos: v.avisos,
         nota: 'estado: nuevo (empezó hace 7 días o menos), volvio (pasó otra vez después de resuelto: ya tiene un ticket nuevo) o sin-resolver. El mensaje y el stack están en Admin › Errors.',
+      });
+    },
+  },
+  ver_actividad_de_mako: {
+    leer: async (_input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('La actividad de la app es sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('La actividad de la app es sólo del super admin.');
+      const ahora = Date.now();
+      const v = await vistaDeActividad();
+      const dias = ventanaDeUso(v.desde, v.hoy);
+      const tabs = usoPorTab(v.filas, v.hoy, Math.max(1, dias));
+      const negocio = (ws: number | null) => (ws == null ? null : v.nombres[ws] ?? `Workspace ${ws}`);
+      return json({
+        se_mide: v.medido, se_mide_desde: v.desde, hoy: v.hoy,
+        activos: activos(v.filas, v.hoy),
+        por_semana: cicloDeVida(v.filas, v.personas, v.hoy).map((s) => ({ semana: s.semana, nuevos: s.nuevos, siguen: s.siguen, volvieron: s.volvieron, dejaron: s.dejaron, en_curso: s.enCurso })),
+        tabs: { dias, usadas: tabs.slice(0, 25).map((t) => ({ tab: t.nombre, personas: t.personas, negocios: t.negocios, pantallas: t.pantallas, acciones: t.acciones })), sin_uso: tabsSinUso(tabs).map((t) => t.label) },
+        negocios: usoPorNegocio(v.filas, v.hoy).slice(0, 30).map((n) => ({ negocio: negocio(n.ws), personas_7_dias: n.personas7, personas_30_dias: n.personas30, pantallas_30_dias: n.pantallas30, acciones_30_dias: n.acciones30, lo_mas_usado: n.tabs.map(nombreDeTab) })),
+        dejaron_de_entrar: dejaronDeEntrar(v.personas, ahora).slice(0, 30).map((p) => ({ nombre: p.nombre || p.email, negocio: p.negocio, dias_sin_entrar: p.dias })),
+        lo_ultimo_de_mako: v.acciones.slice(0, 20).map((a) => ({ que: a.titulo, negocio: negocio(a.ws), por: canalTxt(a.canal), salio: a.ok, cuando: a.creado })),
+        avisos: v.avisos,
+        nota: v.medido ? 'activos: personas distintas de los negocios (no el equipo de MaKo). tabs.dias: los días que mira (30, o los que lleva la medición). dejaron_de_entrar sale de su último ingreso.' : 'La medición de uso todavía no está (falta la migración 0398): sólo dejaron_de_entrar tiene datos.',
       });
     },
   },

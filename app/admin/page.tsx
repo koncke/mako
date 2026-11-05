@@ -15,8 +15,10 @@
 //   · accounts: la grilla de administración (AdminView: alta, plan, equipo, borrar). `?cuenta=<ws>` abre su ficha. No es
 //     otra pestaña de la barra: es la otra VISTA de Customers (el selector de vista, app/admin/Pestanas.tsx);
 //   · users: las personas de todos los negocios con su estado de alta (app/admin/usuarios, lib/admin-usuarios-reglas.ts);
+//   · activity: quién entra, qué tabs usa y cuáles no, quién dejó de venir y lo que hizo MaKo (app/admin/actividad, la
+//     medición de la mig 0398: app/_components/MedidorDeUso.tsx, lib/actividad*.ts). Al pie, lo que era /admin/agente;
 //   · errors: los errores de la app agrupados y los reportes (app/admin/errores, lib/admin-errores.ts);
-//   · agents: lo que era /admin/agente.
+//   · agents: abre Activity (su contenido vive al pie).
 //
 // ⚠️ LA RUTA. /admin redirigía a /customers desde el 25/10; desde hoy ES la tab, y sus subrutas (/admin/dev, /admin/ui,
 //    /admin/docs, /admin/operaciones…) siguen igual: son otras tabs del super admin. /customers?tab=… redirige acá con su
@@ -52,6 +54,8 @@ import type { FilaUsuario } from '@/lib/admin-usuarios-reglas';
 import { UsuariosAdmin } from './usuarios/UsuariosAdmin';
 import { vistaDeErrores } from '@/lib/admin-errores';
 import { ErroresAdmin } from './errores/ErroresAdmin';
+import { vistaDeActividad } from '@/lib/actividad';
+import { ActividadAdmin } from './actividad/ActividadAdmin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -78,7 +82,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         : tab === 'users' ? await PestanaUsuarios()
         : tab === 'errors' ? await PestanaErrores()
         : tab === 'billing' ? <ContenidoCobros />
-        : tab === 'agents' ? <ContenidoAgentes />
+        : tab === 'activity' || tab === 'agents' ? await PestanaActividad()
         : tab === 'accounts' ? await PestanaCuentas(sesionAdmin, cuenta)
         : await PestanaClientes(cliente)}
     </Pagina>
@@ -121,6 +125,13 @@ async function PestanaUsuarios() {
 }
 
 /** Errors: los errores de la app agrupados por huella y los reportes de las personas. */
+/** Activity: quién entra, qué usa y qué no (la medición de la mig 0398), y al pie lo que los agentes le contaron a MaKo. */
+async function PestanaActividad() {
+  const vista = await vistaDeActividad().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+  if ('error' in vista) return <ErrorState titulo="No pude leer la actividad" detalle={vista.error} accion={{ label: 'Volver a cargar', href: '/admin?tab=activity' }} />;
+  return <ActividadAdmin vista={vista} ahoraMs={Date.now()} agentes={<section aria-label="Agentes de los clientes"><ContenidoAgentes /></section>} />;
+}
+
 async function PestanaErrores() {
   const vista = await vistaDeErrores().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
   if ('error' in vista) return <ErrorState titulo="No pude leer los errores" detalle={vista.error} accion={{ label: 'Volver a cargar', href: '/admin?tab=errors' }} />;

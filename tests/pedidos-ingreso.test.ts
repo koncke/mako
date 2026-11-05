@@ -112,7 +112,7 @@ test('lo que espera a Martín se ve sin abrir Accounts: el cartel de Customers, 
   const pag = fuente('app/admin/page.tsx');
   assert.match(pag, /\{tab !== 'accounts' && <CartelQueEspera \/>\}\s*<PestanasAdmin/);
   assert.match(pag, /<Link href=\{RUTA_QUIEREN_ENTRAR\}/);
-  assert.match(fuente('app/m/customers/page.tsx'), /<CustomersM vista=\{vista\} arriba=\{bandeja\} ingresos=\{ingresos\} errores=\{errores\} \/>/);
+  assert.match(fuente('app/m/customers/page.tsx'), /<CustomersM vista=\{vista\} arriba=\{bandeja\} ingresos=\{ingresos\} errores=\{errores\} actividad=\{actividad\} \/>/);
   assert.match(fuente('app/m/customers/CustomersM.tsx'), /padre=\{\{ href: RUTA_MAS, label: 'More' \}\} \/>\s*\{arriba\}/);
   assert.equal(R.linkDelAviso, true, 'el aviso lleva a Accounts, no a /admin (que redirige a otra pestaña)');
   assert.deepEqual(R.espera, { quierenEntrar: 1, deAgencias: 2 });

@@ -29,7 +29,7 @@ import { claveDeLaApp, filaDelId } from './grupo-salida';
 import { avisosParaAgencia } from './avisos-catalogo';
 import { letraVigente, miembrosDelGrupo, type PersonaDelGrupo } from './grupo-puerta';
 import {
-  AVISO_DE_INVITACION_CADA_MS, POR_PAGINA, TOPE_INVITACIONES_POR_HORA, TOPE_INVITADOS, autorDePersona, esPathDelGrupo, filaAlHilo, laVeUnInvitado, sinLinksParaInvitado,
+  AVISO_DE_INVITACION_CADA_MS, AVISOS_QUE_NO_VE_UN_INVITADO, POR_PAGINA, TOPE_INVITACIONES_POR_HORA, TOPE_INVITADOS, autorDePersona, esPathDelGrupo, filaAlHilo, laVeUnInvitado, sinLinksParaInvitado,
   msgDeFila, textoInvitacionSinCuenta, textoParaComparar, tituloDelGrupo, tituloParaInvitado, type AdjuntoGrupo, type FilaGrupo, type MensajeDelHilo, type TipoAdjuntoGrupo,
 } from './grupo-reglas';
 import type { PartePreparada } from './mako-tarjeta';
@@ -367,7 +367,7 @@ export async function resumenParaLaLista(ws: number, quien: PersonaDelGrupo): Pr
   let noLeidos = count ?? 0;
   // ⚠️ Un invitado no ve los avisos a la agencia (`laVeUnInvitado`): tampoco le cuentan. Si no, el número quedaba hasta el próximo mensaje que sí ve. Se restan con
   // los MISMOS filtros del conteo; sin poder leerlos, se restan cero (un número de más, nunca un aviso que no ve).
-  const deAgencia = avisosParaAgencia();
+  const deAgencia = [...avisosParaAgencia(), ...AVISOS_QUE_NO_VE_UN_INVITADO];
   if (quien.invitado && noLeidos > 0 && deAgencia.length) {
     const { count: noLosVe } = await db().from(T).select('id', { count: 'exact', head: true }).eq('workspace_id', ws).gt('id', hastaId)
       .neq('autor_tipo', 'sistema').in('aviso_tipo', deAgencia);
