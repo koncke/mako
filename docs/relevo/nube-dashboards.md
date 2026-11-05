@@ -1,8 +1,14 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (4/11/2026, ~23:45 UTC)
+## 📬 Para el Cerebro (5/11/2026, ~00:10 UTC)
 
-- **Contenido e IA (la copia de Orrery) va en `punta/dash-contenido`**: la sección de abajo. Es la decimocuarta hoja copiada. No suma
+- **Contenido e IA está en producción.** Entró a main (`01e26099a`, la punta `dash-contenido` tal cual, con su veredicto: 7.053 tests y
+  el tsc entero); el deploy de ese commit se promovió a las 23:56 del 4/11. Es la decimocuarta hoja copiada (Orrery).
+- **Sigo con Inmobiliaria (la copia de Lintel)**, de a una.
+
+### Lo de las ~23:45 UTC
+
+- **Contenido e IA (la copia de Orrery) estaba en `punta/dash-contenido`** (hoy en producción): la sección de abajo. Es la decimocuarta hoja copiada. No suma
   piezas a la plantilla: el diseño dibuja las diez. De paso se arregló el `<style>` de cinco adaptaciones guardadas en `docs/` (Fernly,
   Noria, Parley, Mender y Corbel): arrancaba con el texto de la cabecera del archivo de estilos y perdía su primera letra (§27 de los
   hallazgos). No toca la app.
@@ -119,7 +125,7 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
 
-## Contenido e IA: la decimocuarta hoja copiada (la de Orrery), con «¿cuánta IA gastamos y en qué?» (punta `dash-contenido`, 4/11/2026)
+## Contenido e IA: la decimocuarta hoja copiada (la de Orrery), con «¿cuánta IA gastamos y en qué?» (en producción desde el 4/11/2026, 23:56)
 
 La referencia de Contenido e IA es Orrery (`docs/templates-dashboard-propuesta.md` §7.3): la página «Overview» de Orrery (un panel de una
 API de IA): la barra lateral y la de arriba, cuatro tarjetas de números, «Requests per hour» (un área grande), «Model status» (el tiempo en
@@ -1129,7 +1135,7 @@ Lo que comparten todas:
 | CS Analyst | `cs-analyst` | Mender · Vitrea | ¿quién necesita atención, y cuántos se van? | Se dieron de baja | en producción (`b42c446d9`) |
 | Productividad | `productividad` | Fernly · Sunrow | ¿qué avanza y qué se estancó? | Avance global | en producción (`54b2922fc`) |
 | Automatizaciones | `automatizaciones` | Noria | ¿qué salió, qué falló y en cuánto responden? | Fallaron | `punta/dash-automatizaciones` |
-| Contenido e IA | `ia-contenido` | Orrery | ¿cuánta IA gastamos y en qué? | Costo de la IA | `punta/dash-contenido` (la copia de Orrery) |
+| Contenido e IA | `ia-contenido` | Orrery | ¿cuánta IA gastamos y en qué? | Costo de la IA | en producción (`01e26099a`) |
 | Inmobiliaria (nueva, por rubro) | `inmobiliaria` | Lintel (sólo su Overview) | ¿cuántos visitan, cuántos compran y en qué proyecto? | Compran, de los que visitan | `punta/dash-inmobiliaria` |
 
 **Las que se fueron** (las absorbe otra; un link o un agente que las nombre llega a la nueva): **CRM y pipeline** y

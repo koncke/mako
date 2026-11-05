@@ -241,7 +241,7 @@ Todas las referencias están medidas (capturas a 1440 y 390, `valores.json`, los
 | **Agencia o servicio** | Sunrow · Torque | Por copiar |
 | **Curso o comunidad** | Lumora · Vitrea | Por copiar (pide las cohortes, §7.4) |
 | **Productividad** | Fernly · Sunrow | **Fernly: en producción** desde el 4/11 (main `54b2922fc`) (copia y adaptación: `docs/diseno/mockups-dashboard/productividad-fernly/`; el componente, `app/dashboard/disenos/HojaProductividad.tsx`). Sin el cronómetro ni quién trabaja en qué, que MaKo no mide; la tarjeta oscura dice cuántas activas hay por prioridad. Sunrow: por copiar |
-| **Contenido e IA** | Orrery | **Orrery: en `punta/dash-contenido`** desde el 4/11 (copia y adaptación: `docs/diseno/mockups-dashboard/contenido-orrery/`; el componente, `app/dashboard/disenos/HojaContenido.tsx`). Sin el estado de cada modelo, la latencia, el tope de gasto ni el código para empezar, que MaKo no mide; la franja de «Videos e imágenes» es la parte que falló de lo pedido a Flow |
+| **Contenido e IA** | Orrery | **Orrery: en producción** desde el 4/11 (main `01e26099a`) (copia y adaptación: `docs/diseno/mockups-dashboard/contenido-orrery/`; el componente, `app/dashboard/disenos/HojaContenido.tsx`). Sin el estado de cada modelo, la latencia, el tope de gasto ni el código para empezar, que MaKo no mide; la franja de «Videos e imágenes» es la parte que falló de lo pedido a Flow |
 | **Inmobiliaria** | Lintel | Por copiar |
 
 ## 7.4 Lo que hay que MEDIR y hoy MaKo no mide
