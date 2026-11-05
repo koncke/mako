@@ -21,12 +21,11 @@ import 'server-only';
 // de YouTube son unidades de cuota, gratis.
 // =============================================================================
 
-import { credDelCliente } from './credenciales';
 import { fetchSeguro } from './fetch-seguro';
 import { cadenaDeRedes, type CompetidorCadena, type LeidoRed, type ResultadoCadena } from './spy-cadena';
 import { lecturaCompartida } from './spy-compartido-db';
-import { APIFY_CLAVE_DE_SPY } from './instagram-perfil';
-import { leerPerfilesEnLote } from './instagram-perfil-server';
+import { clavesApifyDeSpy, leerPerfilesEnLote } from './instagram-perfil-server';
+import { claveDeHuella, conLaPrimeraConCredito, type ClaveApify } from './spy-claves';
 import { RESERVA_DEL_ALTA } from './spy-alta-reglas';
 import { hashDeImagen } from './spy-foto-hash';
 import { APIFY_ACTOR_REDES, TECHO_USD_POR_CORRIDA_REDES, TOPE_BUSQUEDAS_REDES_POR_DIA } from './spy-otras-redes-reglas';
@@ -98,25 +97,33 @@ const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * `SEGUIR_CORRIDA_MS`; si no terminó, queda anotada y el próximo pedido la retoma sin pagar otra. Devuelve el cuerpo,
  * `GOOGLE_PENDIENTE`, `GOOGLE_SIN_CUPO` (no quedan búsquedas hoy: sólo se gasta una al EMPEZAR) o null (no se pudo).
  */
-async function googlear(token: string, consulta: string, gastar: () => boolean): Promise<RespuestaGoogle | null> {
+async function googlear(claves: readonly ClaveApify[], consulta: string, gastar: () => boolean): Promise<RespuestaGoogle | null> {
   const clave = claveCorridaGoogle(consulta);
   const crudo = await getSettingEstricto(clave).catch(() => null);
   let corrida = leerCorrida(crudo);
-  if (queHacerConLaCorrida(corrida, Date.now()) === 'empezar') {
+  let token: string | null = null;
+  // Una corrida anotada se lee con la clave que la empezó: con otra cuenta de Apify no existe. Si esa clave ya no está, se olvida.
+  if (corrida && queHacerConLaCorrida(corrida, Date.now()) === 'retomar') {
+    token = claveDeHuella(claves, corrida.clave)?.token ?? null;
+    if (!token) corrida = null;
+  }
+  if (!corrida || queHacerConLaCorrida(corrida, Date.now()) === 'empezar') {
     if (!gastar()) return GOOGLE_SIN_CUPO;
     const q = new URLSearchParams({ maxTotalChargeUsd: String(TECHO_USD_POR_CORRIDA_REDES), timeout: String(TIMEOUT_CORRIDA_S) });
     // UNA página: es lo que se midió, y las redes de la persona salen arriba o no salen.
-    const r = await apify(token, `/acts/${APIFY_ACTOR_REDES}/runs?${q}`, { queries: consulta, resultsPerPage: 10, maxPagesPerQuery: 1, mobileResults: false, saveHtml: false });
+    // Varias claves de Spy (5/11/2026): la primera con crédito; un «sin crédito» pasa a la siguiente (lib/spy-claves.ts).
+    const r = await conLaPrimeraConCredito(claves, async (k) => (await apify(k.token, `/acts/${APIFY_ACTOR_REDES}/runs?${q}`, { queries: consulta, resultsPerPage: 10, maxPagesPerQuery: 1, mobileResults: false, saveHtml: false })) ?? { status: 0, cuerpo: null });
     const d = (r?.cuerpo as { data?: { id?: unknown; defaultDatasetId?: unknown } } | null)?.data;
     if (!r || r.status < 200 || r.status >= 300 || typeof d?.id !== 'string' || typeof d?.defaultDatasetId !== 'string') {
-      console.error(`[spy-otras-redes] no pude empezar la búsqueda: HTTP ${r?.status ?? '—'}`);
+      console.error(`[spy-otras-redes] no pude empezar la búsqueda: HTTP ${r?.status ?? '—'} (clave ${r?.clave.slot ?? '—'})`);
       return null;
     }
-    corrida = { run: d.id, dataset: d.defaultDatasetId, desde: new Date().toISOString() };
+    token = r.clave.token;
+    corrida = { run: d.id, dataset: d.defaultDatasetId, desde: new Date().toISOString(), clave: r.clave.huella };
     // Anotarla es lo que deja retomarla sin pagar: si no se pudo, se sigue igual (lo peor es una corrida más mañana).
     await cambiarSettingSi(clave, crudo, JSON.stringify(corrida)).catch(() => false);
   }
-  if (!corrida) return null;
+  if (!corrida || !token) return null;
   const hasta = Date.now() + SEGUIR_CORRIDA_MS;
   for (;;) {
     const r = await apify(token, `/actor-runs/${corrida.run}`);
@@ -201,13 +208,14 @@ async function textosDelCompetidor(ws: number, c: Competidor): Promise<string> {
  * verdad: lo que cuesta Apify (Google, los perfiles de Instagram) sale con la clave de Spy del negocio.
  */
 export async function buscarOtrasRedes(ws: number, c: Competidor): Promise<BusquedaRedes> {
-  const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
+  // Las claves de Spy del negocio (5/11/2026, varias): la primera con crédito, en `googlear`.
+  const claves = await clavesApifyDeSpy(ws);
   return cadenaDeRedes(c, {
     textoPropio: () => textosDelCompetidor(ws, c),
     abrirPagina,
     leerCanales,
     leerPerfiles: (us) => leerPerfiles(ws, us),
-    googlear: token ? (q, gastar) => googlear(token, q, gastar) : null,
+    googlear: claves.length ? (q, gastar) => googlear(claves, q, gastar) : null,
     gastarBusqueda: () => {
       const cuenta = `${ws}|${hoy()}`;
       const usadas = redesHoy.get(cuenta) ?? 0;

@@ -83,7 +83,8 @@ test('Meta de la plataforma se sigue intentando antes que cualquier Apify', () =
 test('la clave de Spy sigue colgando de la fuente apify-spy en el lector', () => {
   const src = sinComentarios(leer(LECTOR));
   assert.match(
-    src, /fuentes\.includes\(\s*'apify-spy'\s*\)[\s\S]{0,200}?APIFY_CLAVE_DE_SPY/,
+    // 5/11/2026: las claves de Spy las lee `clavesApifyDeSpy` (varias claves), que arranca por APIFY_CLAVE_DE_SPY.
+    src, /fuentes\.includes\(\s*'apify-spy'\s*\)[\s\S]{0,200}?clavesApifyDeSpy\(/,
     `en ${LECTOR}, APIFY_CLAVE_DE_SPY tiene que leerse sólo cuando las fuentes incluyen 'apify-spy'. Si eso cambió de `
     + 'nombre o de forma, la lista de la ruta dejó de significar lo que este test cuida y hay que actualizar los dos.',
   );

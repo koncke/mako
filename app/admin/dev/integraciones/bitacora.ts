@@ -1205,4 +1205,35 @@ export const BITACORA: Hito[] = [
     ],
     tickets: [34],
   },
+  {
+    fecha: '5 nov', hora: '12:00', chat: 'Apify: varias claves', sesion: 'cli_1683f70e-5b48-5c27-a14a-2356d87cc0fe', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Varias claves de Apify, y cargarlas en Integraciones',
+    pedido: '«Dame la opción de tener varias claves de apify» y «dame la opción también en integraciones de cargar más api»',
+    puntos: [
+      'Llegó por el Cerebro: la clave de Spy de la plataforma iba en US$8,01 de 10 el 5/11. Zernio ya resolvió lo mismo el 29/10: se copió ese patrón.',
+    ],
+  },
+  {
+    fecha: '5 nov', hora: '12:30', chat: 'Apify: varias claves', sesion: 'cli_1683f70e-5b48-5c27-a14a-2356d87cc0fe', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Apify acepta hasta cinco claves: MaKo usa la primera con crédito y pasa a la siguiente cuando una se agota',
+    revisar: '/integraciones?abrir=apify-instagram',
+    puntos: [
+      '**En la tarjeta de Apify:** «Agregar otra clave de Apify» abre la clave y su nombre (opcional) juntos. Cada una se prueba, se ve enmascarada y se quita con su tacho, y abajo sale el crédito del mes de cada una y el total libre. La clave nunca se vuelve a mostrar entera.',
+      '**Competitors Spy** (leer un perfil, buscar por nombre, sus otras redes, la traída larga y el guion de un reel) usa la primera clave con crédito. Si Apify contesta «sin crédito», sigue con la siguiente; un 401 o un apuro de Apify no saltan: se dicen con el número de la clave.',
+      '**La traída larga** cuenta la reserva de US$2 de Spy sobre el crédito libre de TODAS las claves, y anota con qué clave pidió cada corrida (su huella), porque sólo esa cuenta la puede leer.',
+      '**La biblioteca de carruseles** (`scripts/carruseles-biblioteca.mts`) dice el crédito de cada clave y el total, sin imprimir ninguna, y si una se agota a mitad sigue con la siguiente.',
+      '**El alta del CRM sigue con la clave 1 sola**, y Offer no usa ninguna: las extra son de Spy y de la biblioteca (lo fija el guard del scraper retirado).',
+      'La API de MaKo lo ve por lo que ya tenía: `ver_integracion` lista los campos nuevos y `probar_conexion_integracion` contesta el crédito de cada clave.',
+      'Sin migración: cada clave es una credencial más del negocio, cifrada como las demás.',
+    ],
+    archivos: [
+      'lib/spy-claves.ts — el orden de las claves, cuándo se pasa a la siguiente y el resumen del crédito (puro)',
+      'lib/instagram-perfil-server.ts — `clavesApifyDeSpy`, la única que lee las claves; la lectura y el lote con salto',
+      'lib/spy-todo.ts · lib/spy-todo-reglas.ts — la traída larga: reserva sobre el total, la huella de la corrida',
+      'lib/spy-buscar.ts · lib/spy-otras-redes.ts · lib/spy-google-corrida.ts · lib/instagram-buscar-apify.ts — búsquedas con salto',
+      'lib/metodo-catalogo.ts · lib/metodo-verificar.ts · app/integraciones/ServicioConfigForm.tsx · app/integraciones/CreditoApify.tsx — la tarjeta',
+      'scripts/carruseles-biblioteca.mts — la biblioteca',
+      'tests/spy-varias-claves.test.ts + tests/_spy-claves-hijo.ts — las funciones reales con un Apify de mentira (7 roturas)',
+    ],
+  },
 ];
