@@ -1,5 +1,20 @@
 # Relevo del Cerebro
 
+## 5/11/2026, ~18:15 UTC (15:15 ART): el diferencial de Código
+
+Martín cambió la regla: por cada cliente nuevo se pagan sus días hasta el próximo 5, aparte y por adelantado (detalle en `docs/hallazgos-agencias.md`). Código pagó noviembre el 5/11.
+
+**Salió el PDF** por el grupo «MaKo <> Codigo Inmobiliario» a las 18:06 UTC: Pablo US$40,73 máximo el 9/11, Giselle US$37,60 máximo el 11/11, Marcela US$34,47 máximo el 13/11, Patricia US$1,5667 por día desde que entre.
+
+**A mano hasta que llegue `punta/agencia-cobro`:**
+- Al llegar el comprobante, Martín lo ve en el grupo. Con Pablo pago, devolverle el acceso (usuarios 15, que era `invitado`, y 19, que era `activo`). Patricia: usuario 22, que era `activo`.
+- Sin pago el 11/11, suspender a Giselle (usuarios 13, 25 y 26; confirmar antes quién es cada uno). Sin pago el 13/11, a Marcela (27 y 28).
+- Tareas programadas `codigo-diferencial-pablo-9-11`, `-giselle-12-11` y `-marcela-14-11`: miran y avisan, no escriben. Si el aviso no le llega al Cerebro, medirlo igual.
+
+**Le mandé al chat de cobro** la regla nueva, el grupo de WhatsApp en vez de la app y la migración a renumerar, sin confirmar que lo haya leído. Medir su punta.
+
+---
+
 ## 5/11/2026, ~17:00 UTC (14:00 ART): lo vivo
 
 Cuenta claude3, 11 % semanal (reinicia el 11/11 09:00 UTC). Runner: `local_9d6e9e4d…`. Vigía armado. Medir antes de creerlo.

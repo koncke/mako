@@ -440,3 +440,23 @@ tests/verificacion-plata-agency-2910.test.ts.
   sigue entrando cuando la cuenta queda abierta (la que pagaba el cliente).
 - El teléfono abre la cuenta sin elegir plan (queda en Esencial) y no lo cambia. La API tampoco tiene «cambiar el plan».
 - El precio en EUR no tiene pantalla: /admin/cobros edita sólo la moneda de Mercado Pago, y sin él España paga en USD.
+
+## El diferencial: por cada cliente nuevo se pagan sus días hasta el próximo 5 (5/11/2026)
+
+**La regla, de Martín, «igual para todos»:** cuando un cliente de Código empieza (terminan sus 14 días, o entra si estaba suspendido), se pagan sus días desde ese día hasta el próximo 5, y la fecha límite es ese mismo día. «Tampoco le puedo cobrar el mes entero», y esperar al mes siguiente deja días sin cobrar. Va siempre en tabla, en PDF, por el grupo de WhatsApp de la agencia, «nunca a los clientes de ellos».
+
+**Lo obvio era sumar esos días a la mensualidad siguiente, y está mal.** Es lo que hace `COBRA_LOS_DIAS_DEL_PRIMER_MES = true` en `punta/agencia-cobro`: diciembre daba US$527,83, con días de un mes corrido y días en que el cliente estuvo suspendido. El diferencial es un cobro aparte y por adelantado; diciembre son US$426.
+
+**Trampas de la cuenta:**
+- **El ciclo va del 5 al 5, no por mes calendario.** Martín: «ellos ya me pagaron hoy, pagaron el 5, entonces el diferencial hasta el próximo 5, no hasta el próximo primero». Del 5/11 al 5/12 hay 30 días; del 5/12 al 5/1, 31.
+- **El 5 no se cuenta, aunque se diga «hasta el 5».** Ese día ya lo cubre la mensualidad: contarlo cobra un día dos veces (US$117,50 en vez de US$112,80 en noviembre). Por eso el PDF dice «Cubre hasta 4/12».
+- **La tarifa redondeada no cierra.** 24 × US$1,57 da 37,68, y lo correcto es 37,60. Se multiplica y se redondea al final, y en pantalla la tarifa va con cuatro decimales para que Código pueda comprobar la cuenta.
+- **Quien estaba suspendido paga desde el día que entra,** no desde que venció: Pablo venció el 28/10 y paga desde el 9/11.
+- **Paga Código, no el cliente.** «Cada cliente paga» se lee como que MaKo les cobra a sus clientes: el texto dice «por cada cliente se pagan».
+
+**`mako.numero_dueno` no identifica al cliente.** En el negocio 17 (Giselle) es el número de Joan, de Código, porque ese negocio nació como una prueba suya. Cruzar los participantes de un grupo contra ese dato da una coincidencia falsa con el grupo de la agencia. Tampoco sirve para mandarle algo a la clienta. Su fecha tampoco sale de `agencia_clientes` (dice 28/09): vale el 28/10, cuando se creó su usuario.
+
+**Sin hacer:**
+- Todo lo automático sigue en `punta/agencia-cobro`, con la regla encargada el 5/11 y sin confirmar que el chat la haya leído. Hasta que llegue, el PDF y la suspensión son a mano. Tres tareas programadas (`codigo-diferencial-*`, 9/11, 12/11 y 14/11) miran si llegó el comprobante y sólo avisan.
+- El pago del 5/11 no deja rastro en la base: se apoya en lo que dijo Martín. Marcarlo «Pagado» cuando exista la pantalla.
+- Para armar el PDF con `jspdf`: `maxWidth` parte la línea, pero la altura no se ajusta y se pisa con la de abajo. Medir con `splitTextToSize`, y mirar el PDF dibujado antes de mandarlo.
