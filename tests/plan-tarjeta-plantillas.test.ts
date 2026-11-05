@@ -177,7 +177,8 @@ test('se guarda en el perfil de la persona y llega con el HTML, por el camino de
   assert.match(u, /\n\s+tarjeta, setTarjeta,\n/, 'si no está en el `return`, no existe para ninguna pantalla');
   assert.match(leer('app/plan/TodoBoard.tsx'), /useBoard\(tareas\.map\(toBoard\), categorias\.map\(toLabel\), user, repo, \[\], columnas, tarjeta\)/);
   assert.match(leer('app/plan/PlanBoard.tsx'), /useBoard\(tareas, proyectos, user, repo, deps, columnas, tarjeta\)/);
-  assert.match(leer('app/plan/page.tsx'), /getRolWsEfectivo\(\)\.catch\(\(\) => null\), getTarjetaPlan\(\)\]\);[\s\S]*tarjeta=\{demo \? null : tarjeta\}/);
+  // La tarjeta viaja en el mismo Promise.all que las columnas; lo que la página lea además (el borrador del plan, 5/11/2026) va después.
+  assert.match(leer('app/plan/page.tsx'), /getRolWsEfectivo\(\)\.catch\(\(\) => null\), getTarjetaPlan\(\)(?:, [^\]\n]+)?\]\);[\s\S]*tarjeta=\{demo \? null : tarjeta\}/);
   assert.match(leer('app/plan/agencia/page.tsx'), /getRolWsEfectivo\(\)\.catch\(\(\) => null\), getTarjetaPlan\(\)\]\);[\s\S]*tarjeta=\{tarjeta\}/);
 });
 

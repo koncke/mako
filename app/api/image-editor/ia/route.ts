@@ -1,7 +1,8 @@
 // =============================================================================
 // POST /api/image-editor/ia — el chat «MaKo IA» del Image Editor
 // =============================================================================
-// POST json {instruccion, diseno, alcance} → { ok, resumen, operaciones, descartes } | { ok:false, error }
+// POST json {instruccion, diseno, alcance, kit?, intencion?} → { ok, resumen, operaciones, descartes } | { ok:false, error }
+// (`kit`: el kit de marca elegido, lib/marca/kits.ts; `intencion`: «discutir» contesta sin cambiar nada.)
 //
 // El panel (app/image-editor/mako/chat/PanelMakoIA.tsx) manda lo que pidió la persona y la vista del diseño abierto
 // (lib/image-editor/chat/vista.ts); vuelve una PROPUESTA (operaciones de lib/image-editor/chat/catalogo.ts) que la
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     if (c.adjuntos.length && !lecturas.length && !escrita) return fallo(`No pude leer ${noLeidos.map((n) => `«${n}»`).join(', ')}: escribe qué quieres cambiar.`, 422);
     const instruccion = c.adjuntos.length && !escrita ? 'Usa lo que traen estos archivos en el diseño.' : body.instruccion;
     const archivos = lecturas.length ? lecturaDeArchivos(lecturas, TOPE_LECTURA_EDITOR) : undefined;
-    const r = await editarImagen({ instruccion, diseno: body.diseno, alcance: body.alcance, memoria: body.memoria, archivos });
+    const r = await editarImagen({ instruccion, diseno: body.diseno, alcance: body.alcance, memoria: body.memoria, kit: body.kit, intencion: body.intencion, archivos });
     if (!r.ok) return fallo(r.error, r.status);
     return Response.json(r, { headers: { 'cache-control': 'no-store' } });
   });

@@ -59,6 +59,7 @@ borrar_elementos_video
 borrar_evento_comunidad
 borrar_guion_anuncio
 borrar_hoja_dashboard
+borrar_kit_marca
 borrar_landing
 borrar_landing_creada
 borrar_plantilla_meta
@@ -244,6 +245,7 @@ editar_texto_guion_anuncio
 editar_venta_lead
 elegir_cuenta_meta
 elegir_formato_creativo_anuncio
+elegir_kit_marca
 elegir_pagina_meta
 elegir_pixel_meta
 eliminar_broadcast
@@ -303,6 +305,7 @@ guardar_cuotas
 guardar_deal_details
 guardar_diagnostico_fase
 guardar_estrategia_secuencia
+guardar_kit_marca
 guardar_kpi
 guardar_landing
 guardar_link_video
@@ -677,6 +680,7 @@ ver_ia_del_negocio
 ver_iconos_landing
 ver_integracion
 ver_integraciones
+ver_kits_marca
 ver_landing_creada
 ver_limites_envio
 ver_media_buyer

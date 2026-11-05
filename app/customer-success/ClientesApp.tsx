@@ -32,6 +32,10 @@ import type { ClienteCruce } from './cruce';
 import { usePrograma, useProgramaEnUrl } from '@/app/classroom/programa-url';
 import type { ResumenTrabajo, TableroCartera } from './trabajo';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
+import { useGuiaEnElChat } from '@/app/_ui/guia/store';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { SUPERFICIE_CLIENTS } from '@/lib/aperturas/clients';
 import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
 import type { BoardUser } from '@/app/plan/board/types';
@@ -523,6 +527,17 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
     ? { ...onboarding, cs_ficha: onboarding.cs_ficha || fichaVista }
     : null;
   const conLista = listaVisible(pasosOnb);
+  // MAKO TOMA LA INICIATIVA (5/11/2026, docs/mako-iniciativa/plan.md T14): con el servicio armado y la cartera vacía, la estrella
+  // pregunta «¿Ya tienes clientes en tu programa?»; «Sí, los cargo» abre la MISMA alta que el checklist. Sin el estado, calla.
+  const guiaChat = useGuiaEnElChat();
+  const estadoApertura = useApertura({
+    superficie: SUPERFICIE_CLIENTS,
+    hechos: pasosOnb ? { servicio: pasosOnb.cs_servicio, clientes: pasosOnb.cs_clientes } : null,
+    libre: abiertoId == null && creando == null && !guiaChat.pregunta && !guiaChat.senalando && !guiaChat.esperando,
+  });
+  const aperturaTab = estadoApertura.apertura
+    ? <AperturaMako estado={estadoApertura} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} acciones={{ cargar: () => setCreando('') }} />
+    : null;
 
   /** Guarda la foto o la portada. Lo que se pinta es lo que el server dijo que quedó
    *  guardado, no lo que se pidió: si el saneo descartó la URL, se tiene que ver. */
@@ -1183,7 +1198,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
 
       {/* MaKo en Clientes (22/10/2026, CR4): la estrella de todas las tabs, con el cliente abierto (un cliente es un lead:
           las herramientas lo toman por su leadId). Encima de su ficha, que es un modal. */}
-      <MakoEnLaTab tab="Clientes" entidad={abierto ? { tipo: 'lead', id: abierto.leadId, titulo: abierto.nombre || `Cliente ${abierto.leadId}` } : null} encimaDeModales />
+      <MakoEnLaTab tab="Clientes" apertura={aperturaTab} entidad={abierto ? { tipo: 'lead', id: abierto.leadId, titulo: abierto.nombre || `Cliente ${abierto.leadId}` } : null} encimaDeModales />
       {abierto && (
         <FichaCliente
           key={abierto.leadId}

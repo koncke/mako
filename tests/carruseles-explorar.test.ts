@@ -2,7 +2,7 @@
 // filtros, el orden, los guardados y el paso en que está. Corre el código; nada de leer el fuente.
 //
 // Probado rompiéndolo (4/11/2026), base 11/0:
-//   · el outlier calculado con la mediana de TODAS las publicaciones juntas (no por cuenta) → 1 rojo (el de «es el de Spy»);
+//   · el outlier calculado con la mediana de TODAS las publicaciones juntas (no por cuenta) → 1 rojo (el de «es el de toda la app»);
 //   · `coincide` con `some` en vez de `every` → 1 rojo (todas las palabras);
 //   · `conImagenes` por defecto en true → 2 rojos (lo que se sabe que es una foto suelta no es un carrusel, y la URL inicial);
 //   · `ordenarCarruseles` sin mandar al final lo que no tiene número → 1 rojo (no se afirma un cero);
@@ -18,7 +18,7 @@ import {
   ordenarCarruseles, pasoDelExplorador, queryDeFiltros, sanearBusquedas, sanearGuardados, tendenciasDeLaSemana,
   type Carrusel, type PiezaParaCarrusel,
 } from '../lib/carruseles/explorar';
-import { vecesSuMediana } from '../lib/spy-detalle';
+import { multiplosDe } from '../lib/multiplo-rendimiento';
 
 const AHORA = Date.parse('2026-11-04T12:00:00Z');
 const dia = (d: number) => new Date(AHORA - d * 86_400_000).toISOString().slice(0, 10);
@@ -48,16 +48,17 @@ test('salen sólo las publicaciones de Instagram vivas que no son video, con su 
   assert.equal(cs[2].formato, 'lista', 'el formato sale del texto cuando la IA no lo dijo («5 errores»)');
 });
 
-test('el outlier es el de Spy: por CUENTA y contra su mediana, no contra todas juntas', () => {
-  const a = [pieza({ competidor_id: 1, megusta: 100 }), pieza({ competidor_id: 1, megusta: 100 }), pieza({ competidor_id: 1, megusta: 500 })];
-  const b = [pieza({ competidor_id: 2, megusta: 10_000 }), pieza({ competidor_id: 2, megusta: 10_000 }), pieza({ competidor_id: 2, megusta: 20_000 })];
+test('el outlier es el de toda la app (lib/multiplo-rendimiento.ts): por CUENTA y contra sus vecinas, no contra todas juntas', () => {
+  const a = [...Array.from({ length: 8 }, () => pieza({ competidor_id: 1, megusta: 100 })), pieza({ competidor_id: 1, megusta: 520 })];
+  const b = [...Array.from({ length: 8 }, () => pieza({ competidor_id: 2, megusta: 10_000 })), pieza({ competidor_id: 2, megusta: 20_000 })];
   const cs = carruselesDe([...a, ...b], COMP, AHORA);
-  const de = (id: number) => cs.find((c) => c.id === id)!.outlier;
-  assert.equal(de(a[2].id), 5, '500 contra una mediana de 100');
-  assert.equal(de(b[2].id), 2, '20.000 contra una mediana de 10.000: la cuenta grande no pisa a la chica');
-  assert.equal(de(a[2].id), vecesSuMediana(a[2].id, a.map((p) => ({ ...p, tipo: 'publicacion' as const, canal: 'instagram' as const, duracion: null })), AHORA));
-  const dos = carruselesDe([pieza({ competidor_id: 1 }), pieza({ competidor_id: 1 })], COMP, AHORA);
-  assert.ok(dos.every((c) => c.outlier === null), 'con menos de 3 piezas con número no hay mediana que diga algo');
+  const de = (id: number) => cs.find((c) => c.id === id)!;
+  assert.equal(de(a[8].id).outlier, 5, '525 (me gusta + comentarios) contra una mediana de 105');
+  assert.equal(de(b[8].id).outlier, 2, '20.005 contra una mediana de 10.005: la cuenta grande no pisa a la chica');
+  assert.equal(de(a[8].id).outlier, multiplosDe(a, AHORA).get(a[8].id)?.veces, 'el mismo número que Spy');
+  assert.equal(de(a[8].id).multiplo?.veces, 5, 'y lleva de dónde sale (lo dice el título del chip)');
+  const tres = carruselesDe([pieza({ competidor_id: 1 }), pieza({ competidor_id: 1 }), pieza({ competidor_id: 1 })], COMP, AHORA);
+  assert.ok(tres.every((c) => c.outlier === null && c.multiplo?.veces == null), 'con menos de 7 para comparar no hay número');
 });
 
 const c = (p: Partial<Carrusel>): Carrusel => ({

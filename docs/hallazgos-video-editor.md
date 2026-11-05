@@ -2121,3 +2121,19 @@ está trabado (un `setTimeout` cada 1 s corre); con la GPU real (`--ignore-gpu-b
 de `initializeGpuRenderer()` o de `project.loadProject` (migraciones, medios, fuentes): falta poner marcas ahí para saber
 cuál. Hasta entonces el editor de Video se mira en producción, o por partes (la barra se probó suelta).
 Vive en: components/providers/editor-provider.tsx (`loadProject`), core/managers/project-manager.ts.
+
+## MaKo toma la iniciativa en el chat del Video: los subtítulos primero (5/11/2026)
+
+**Lo que se hizo (T11 de docs/mako-iniciativa/plan.md):** con voz, sin subtítulos y la charla vacía, el chat pregunta «¿Lo van a
+ver sin sonido?» (lib/aperturas/video.ts) en lugar de las ocho píldoras; «Sí, en el feed» corre `generarSubtitulos` (el motor del
+botón) y dice el resultado con `textoDeSubtitulos`.
+
+**Trampas:**
+- **La apertura es pura y no conoce el editor**: lo que cuenta (`subtitulosDe`, las pistas) importa el WASM y no carga en node. El
+  chat cuenta y le pasa números. Y el detector es `subtitulosDe`, nunca `sinSubtitulos` (ése BORRA).
+- **«No, con sonido» es por proyecto**: alcance `entidad` con el id del proyecto en la clave (`video:sin-sonido|<id>`, saneado a
+  `[A-Za-z0-9_-]` para que la ruta la acepte).
+- El `tsc` acotado de PanelChat da rojos de `soundtouchjs` y `EyeDropper`: son tipos globales que el acotado no ve, no del cambio.
+
+**Vive en:** lib/aperturas/video.ts, app/video-editor/_opencut/chat/PanelChat.tsx. Lo fija tests/iniciativa-video.test.ts.
+

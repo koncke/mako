@@ -5,6 +5,21 @@ El plano está en [diseno-editor-imagen.md](diseno-editor-imagen.md) y los relev
 
 ---
 
+## MaKo toma la iniciativa en el Image Editor: «¿Dónde lo vas a publicar?» con el diseño en blanco (5/11/2026)
+
+- **Qué hace:** con una página sin nada y la charla vacía, el chat del editor pregunta un hecho; «En una historia» (1080×1920),
+  «En un carrusel» (1080×1350) o «En un anuncio» (1080×1080) ponen el lienzo a esa medida con `editor.pages.resize`, el mismo del
+  panel de tamaño: sin IA y sin la app de escritorio. Lo contestado vale para ESE diseño. Mientras habla, el saludo y las
+  píldoras se esconden.
+- **Lo que no se ve en el plan:** la apertura lleva su botón de callar y como mucho cuatro botones (`MAX_BOTONES`), así que de
+  los cuatro lugares del plan quedó afuera la miniatura de YouTube (sigue en el panel de tamaño).
+- **«En blanco» se lee del documento** (`s.doc.pages.length === 1 && s.doc.pages[0].objects.length === 0`): un diseño de varias
+  páginas vacías no es «en blanco», es uno que alguien empezó a armar.
+- **Vive en:** lib/aperturas/image.ts, app/image-editor/mako/chat/PanelMakoIA.tsx. **Lo fija:** tests/iniciativa-image.test.ts
+  (2 roturas).
+- **Falta:** «la sugerida de esa familia» (llega con las plantillas de plantillas-reales, README §3.3), guardar el slug de la
+  plantilla, y la guía de la pestaña (anclas por `donde` sobre sus `data-testid`, guia.md §6).
+
 ## La licencia de Doory obliga a mostrar el crédito, y modificar el código no la saca
 
 **Vive en:** `app/image-editor/_doory/LICENSE-DOORY` (`editor/CreditoDoory.tsx` se borró el 29/10/2026)
@@ -595,7 +610,24 @@ tests/image-editor-plantillas-crear.test.ts
 
 **Vive en:** lib/image-editor/chat/prompts.ts (`image_editor.experto`)
 
-## El chat de imagen corre con Gemini por defecto (29/10/2026)
+## La marca del negocio en Image, y el chat sin Gemini (5/11/2026)
+
+- **Síntoma (Leila, 30/10):** los carruseles sólo tomaban el fondo de su marca. **Causa medida el 5/11:** no había dónde
+  guardar la marca de un negocio. El chat de Image recibía sólo la persona y el núcleo de MaKo (`brandSystem`), y los
+  carruseles de MaKo salían con el estilo fijo de su tipo y las iniciales del negocio.
+- **Lo que quedó:** kits de marca en `app_settings` (`marca.kits`, sin migración: 30 kits como mucho, sin bytes; el logo es un
+  archivo de «Subidos»). Los kits se guardan con compare-and-set y lo que lee la IA del manual es un BORRADOR que la persona
+  confirma. El bloque del prompt tiene menos de 400 caracteres y sólo nombra las fuentes que el editor tiene: una que no
+  tiene se cae en silencio. El logo va como una foto más de «fotos», con `"logo": true`.
+- **La contradicción de abajo (Gemini por defecto) se cerró:** `image-editor-ia` y `marca-leer` corren con `deSuIA` (su
+  Claude por la segunda puerta del veto, su GPT por clave, `fallback: []`), y la cascada saca Gemini aun con «sólo su IA»
+  (`sinGemini`, lib/ai-cheap.ts). Lo fija tests/solo-su-ia.test.ts corriendo la cascada de verdad.
+- **Lo que NO se pudo desde la nube:** mirar las pantallas en un navegador con datos, ni medir cómo lee la visión un brand
+  board real (la caja del logo es lo más frágil: si se sale de la imagen, no se recorta y se sube a mano).
+
+**Vive en:** lib/marca/kits.ts · lib/marca/leer-manual.ts · app/second-brain/MarcaView.tsx · lib/carruseles/marca-kit.ts
+
+## El chat de imagen corre con Gemini por defecto (29/10/2026) — cerrado el 5/11 (arriba)
 
 - **Causa:** `lib/model-catalogo.ts:241` tiene GEMINI por defecto para `image-editor-ia`, y la decisión del 22/10 es
   «sin Gemini».

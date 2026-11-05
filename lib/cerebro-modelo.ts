@@ -89,7 +89,7 @@ export const AREAS = [
   { id: 'cliente', n: 1, padre: 'mercado', nombre: 'Cliente ideal', color: 'var(--grafo-cliente)', que: 'Tu cliente ideal: qué le duele, qué quiere y qué objeta.' },
   { id: 'avatares', n: 2, padre: 'mercado', nombre: 'Avatares', color: 'var(--grafo-avatares)', que: 'Los públicos distintos a los que le vendes, separados para segmentarlos en Meta.' },
   { id: 'razones', n: 1, padre: 'mensaje', nombre: 'Razones', color: 'var(--grafo-razones)', que: 'Por qué te compra cada avatar. Cada razón es un anuncio distinto.' },
-  { id: 'voz', n: 2, padre: 'mensaje', nombre: 'Voz y cara', color: 'var(--grafo-voz)', que: 'Cómo suena tu marca y qué cara le pones a tus anuncios.' },
+  { id: 'voz', n: 2, padre: 'mensaje', nombre: 'Voz y cara', color: 'var(--grafo-voz)', que: 'Cómo suena tu marca, cómo se ve y qué cara le pones a tus anuncios.' },
   // El funnel deja de vivir adentro de «Norte» y se hace área propia. No es cosmético:
   // medido, con las 11-13 etapas ahí adentro el color del Norte era el DOMINANTE del mapa
   // (19% en un workspace, 26% en dos, 58% en el más chico), y en el ZIP la carpeta «01

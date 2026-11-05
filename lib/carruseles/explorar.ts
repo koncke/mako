@@ -12,15 +12,16 @@
 // nuevo ni gasta nada: muestra lo que Spy ya trajo, con su creador y el link a la publicación original, como referencia del
 // negocio. Nunca como una plantilla de MaKo.
 //
-// EL OUTLIER ES EL DE SPY, no otro: cuántas veces la mediana de las publicaciones de SU cuenta hizo esta pieza
-// (`mejoresPiezas`, lib/spy-detalle.ts, la misma que dibuja «Lo que mejor le fue» y el «frente a su mediana» del detalle).
-// Con la misma métrica (las vistas si hay en la mayoría; si no, los «me gusta») y null con menos de 3 piezas con número.
-// Sólo Instagram: YouTube no cuenta métricas derivadas sin la enmienda III.L (lib/spy.ts, cabecera).
+// EL OUTLIER ES EL DE TODA LA APP, no otro: el «3,7×» de lib/multiplo-rendimiento.ts (5/11/2026), el mismo de Spy («Lo que mejor
+// le fue», sus tarjetas, el detalle). Me gusta + comentarios frente a la mediana de hasta 20 publicaciones de SU cuenta, las más
+// cercanas en el tiempo; con menos de 7 para comparar, sin número (y `multiplo` dice por qué). Ni lo pagado, ni los sorteos, ni
+// lo de menos de una semana. Sólo Instagram: YouTube no cuenta métricas derivadas sin la enmienda III.L (lib/spy.ts, cabecera).
 //
 // Puro (sin `server-only`): lo usan el lector (./explorar-servidor.ts), la pantalla, la API de MaKo y los tests.
 // =============================================================================
 
-import { formatoDe, mejoresPiezas, FORMATOS, type Formato } from '../spy-detalle';
+import { formatoDe, FORMATOS, type Formato } from '../spy-detalle';
+import { multiplosDe, rotuloMultiplo, type Multiplo } from '../multiplo-rendimiento';
 import type { Medio } from '../spy-medio';
 import { cierreDeTexto, plano, type Cierre } from './texto';
 import { pareceContenido, tipoDeCarrusel } from './clasificar';
@@ -58,8 +59,10 @@ export type Carrusel = {
   /** Cuándo se publicó (ISO) y cuándo lo trajo Spy por primera vez. */
   publicada: string | null;
   traida: string | null;
-  /** Cuántas veces la mediana de su cuenta (el de Spy). null = no se puede decir. */
+  /** Cuántas veces lo que suele hacer su cuenta (lib/multiplo-rendimiento.ts). null = no se puede decir. */
   outlier: number | null;
+  /** De dónde sale ese número (la mediana y cuántas entraron), o por qué no hay: lo dice el título del chip. Ausente = no se sabe. */
+  multiplo?: Multiplo;
   /**
    * ¿Parece contenido o una publicación personal? (./clasificar.ts). Sólo ORDENA: lo que es `false` va después en «Mayor
    * outlier» y «Más interacción», con su número a la vista. Ausente o null: no se puede decir, y no se mueve.
@@ -96,8 +99,8 @@ export function carruselesDe(piezas: readonly PiezaParaCarrusel[], competidores:
   const out: Carrusel[] = [];
   for (const [cid, suyas] of porCompetidor) {
     const c = porId.get(cid)!;
-    // `mejoresPiezas` con tope = todas: devuelve las veces de cada pieza de cada grupo con mediana (lib/spy-detalle.ts).
-    const veces = new Map(mejoresPiezas(suyas.map((p) => ({ ...p, tipo: p.tipo as never, canal: p.canal as never, duracion: p.duracion ?? null })), suyas.length, ahora).map((d) => [d.id, d.veces]));
+    // El múltiplo de cada una, sobre TODAS sus publicaciones (también las que no se muestran): el mismo número que dice Spy.
+    const multiplos = multiplosDe(suyas, ahora);
     for (const p of suyas) {
       const medio = MEDIO_VALIDO(p.medio);
       if (p.tipo !== 'publicacion' || medio === 'video' || p.dejo_de_verse_en) continue;
@@ -120,7 +123,8 @@ export function carruselesDe(piezas: readonly PiezaParaCarrusel[], competidores:
         comentarios: p.comentarios,
         publicada: p.publicada_en,
         traida: p.visto_primera_vez,
-        outlier: veces.get(p.id) ?? null,
+        outlier: multiplos.get(p.id)?.veces ?? null,
+        multiplo: multiplos.get(p.id),
         pareceContenido: pareceContenido({ texto: p.texto, formato: formatoDe(p.analisis?.formato) || tipoDeCarrusel({ texto: p.texto }) || null, cierre: cierreDeTexto(p.texto) }),
       });
     }
@@ -260,8 +264,8 @@ export function formatosDe(todos: readonly Carrusel[]): Array<{ value: Formato; 
 
 export const rotuloFormato = (v: Formato | ''): string => (v ? FORMATOS.find((f) => f.value === v)?.label ?? '' : '');
 
-/** «4,2×»: el outlier como se lee. */
-export const rotuloOutlier = (v: number): string => `${String(Math.round(v * 10) / 10).replace('.', ',')}×`;
+/** «4,2×»: el outlier como se lee. Es el de toda la app (lib/multiplo-rendimiento.ts). */
+export const rotuloOutlier = rotuloMultiplo;
 
 /** «1,2k»: un contador corto. */
 export function contadorCorto(v: number | null): string {

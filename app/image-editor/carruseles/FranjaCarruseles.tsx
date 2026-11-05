@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link, { useWs } from '@/app/_ui/Link';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { contadorCorto, rotuloOutlier, type Carrusel } from '@/lib/carruseles/explorar';
+import { explicarMultiplo, MULTIPLO_FUERTE } from '@/lib/multiplo-rendimiento';
 import { resumenCarruselesAction } from './actions';
 import s from './franja.module.css';
 
@@ -81,7 +82,7 @@ function Mini({ c }: { c: Carrusel }) {
       <Link href={`/image-editor?ver=carruseles&de=${c.competidorId}`} className={s.foto} title={c.gancho || c.texto || c.creador.nombre}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {c.miniatura ? <img src={c.miniatura} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span className={s.sinFoto}>{(c.gancho || c.texto || '').slice(0, 90)}</span>}
-        {c.outlier != null ? <span className={s.outlier} data-fuerte={c.outlier >= 2 ? 'si' : undefined}>{rotuloOutlier(c.outlier)}</span> : null}
+        {c.outlier != null ? <span className={s.outlier} data-fuerte={c.outlier >= MULTIPLO_FUERTE ? 'si' : undefined} title={c.multiplo ? explicarMultiplo(c.multiplo) : undefined}>{rotuloOutlier(c.outlier)}</span> : null}
       </Link>
       <span className={s.quien}>{c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre}</span>
       <span className={s.numeros}>♥ {contadorCorto(c.megusta)}</span>

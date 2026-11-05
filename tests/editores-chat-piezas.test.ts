@@ -53,6 +53,7 @@ test('los dos cargan la hoja del Centro (sin ella, el hilo y la caja no tienen f
 });
 
 test('los dos siguen recortando lo que se pide a su tope (la caja única no tiene `maxLength`)', () => {
-  assert.match(imagen, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT_IMAGEN\.instruccion\), alc, archivos\)/);
-  assert.match(video, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT\.instruccion\), alc, op\)/);
+  // Con «Discutir | Editar» y la marca (5/11/2026) el pedido lleva sus opciones al final: lo que se cuida es el recorte.
+  assert.match(imagen, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT_IMAGEN\.instruccion\), alc, archivos(\)|, \{ intencion, kit \}\))/);
+  assert.match(video, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT\.instruccion\), alc, (op|\{ \.\.\.op, intencion \})\)/);
 });
