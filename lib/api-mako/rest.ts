@@ -543,6 +543,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/landing/documentos/{id}/dominio', 'ver_dominio_landing'],
   ['PUT', '/landing/documentos/{id}/enlaces', 'poner_enlace_landing'],
   ['PATCH', '/landing/documentos/{id}/formulario', 'configurar_formulario_landing'],
+  ['PUT', '/landing/documentos/{id}/bloques-de-venta', 'configurar_bloque_venta_landing'],
   ['PATCH', '/landing/documentos/{id}/navegacion', 'configurar_navegacion_landing'],
   ['GET', '/landing/documentos/{id}/pago', 'ver_cobro_landing'],
   ['DELETE', '/landing/documentos/{id}/pago', 'quitar_cobro_landing'],

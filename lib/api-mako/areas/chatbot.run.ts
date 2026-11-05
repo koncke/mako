@@ -63,7 +63,7 @@ import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte } from '@
 import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, conLimite, limitesDeFabrica, limitesParaGuardar, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
-import { horarioDeLaAutomatizacion, textoDeHorario, configParaGuardar, EVENTOS_COLUMNA, type EventoColumna } from '@/lib/config-automatizacion';
+import { horarioDeLaAutomatizacion, origenDelHorario, textoDeHorario, configParaGuardar, EVENTOS_COLUMNA, type EventoColumna } from '@/lib/config-automatizacion';
 import { crmDeLaAutomatizacion } from '@/lib/email-eventos-crm';
 import { etapasDeProducto } from '@/lib/lead-funnel';
 import { terminalEstadoFor } from '@/lib/pipeline';
@@ -516,21 +516,25 @@ export const RUNNERS: Runners = {
     },
   },
 
-  // LOS TOPES DE ENVÍO (4/11/2026, la campaña de email de Mauricio): lib/limites-envio.ts, la rampa del email y el freno.
+  // LOS TOPES DE ENVÍO (4/11/2026, la campaña de email de Mauricio): lib/limites-envio.ts, las rampas (la del email y, desde el
+  // 5/11/2026, la del número de WhatsApp) y el freno.
   ver_limites_envio: {
     leer: async () => {
       const fabrica = limitesDeFabrica(process.env);
       const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica);
-      const [{ usoDelCupo, topeEmailDeHoyDelNegocio }, { envioEmailHabilitado }, { conteoEmailUltimas24h }, { FRENO_EMAIL }] = await Promise.all([
+      const [{ usoDelCupo, topeDeHoyDelNegocio }, { envioEmailHabilitado }, { conteoEmailUltimas24h }, { FRENO_EMAIL }] = await Promise.all([
         import('@/lib/nutricion'), import('@/lib/envio-flags'), import('@/lib/email-reputacion'), import('@/lib/email-freno'),
       ]);
-      const [uso, emailHoy, envioEmail, conteo] = await Promise.all([
-        usoDelCupo().catch(() => null), topeEmailDeHoyDelNegocio(vigentes.email), envioEmailHabilitado(),
+      const [uso, waHoy, emailHoy, envioEmail, conteo] = await Promise.all([
+        usoDelCupo().catch(() => null), topeDeHoyDelNegocio('whatsapp', vigentes.wa), topeDeHoyDelNegocio('email', vigentes.email), envioEmailHabilitado(),
         // Sin la migración 0380 no hay rebotes que contar: se dice, no se inventa un cero.
         conteoEmailUltimas24h().catch(() => null),
       ]);
       return json({
-        whatsapp: { por_dia: vigentes.wa.dia, por_hora: vigentes.wa.hora, en_24h: uso?.waDia ?? null, en_la_hora: uso?.waHora ?? null },
+        whatsapp: {
+          por_dia: vigentes.wa.dia, tope_de_hoy: waHoy, por_hora: vigentes.wa.hora, en_24h: uso?.waDia ?? null, en_la_hora: uso?.waHora ?? null,
+          rampa: { primer_dia: vigentes.wa.arranqueDia, sube_por_dia: vigentes.wa.arranqueSube, nota: 'Arranca en primer_dia y sube cada día que llega a su tope, hasta por_dia. Cuenta lo que ya salió: un número que venía mandando sigue donde estaba.' },
+        },
         email: {
           por_dia: vigentes.email.dia, tope_de_hoy: emailHoy, en_24h: uso?.emailDia ?? null, envio_prendido: envioEmail,
           rampa: { primer_dia: vigentes.email.arranqueDia, sube_por_dia: vigentes.email.arranqueSube, nota: 'Arranca en primer_dia y sube cada día que llega a su tope, hasta por_dia.' },
@@ -540,7 +544,10 @@ export const RUNNERS: Runners = {
           },
         },
         mako_contesta_sola: { por_persona_en_24h: vigentes.mako.solasPor24h },
-        de_fabrica: { whatsapp_por_dia: fabrica.wa.dia, whatsapp_por_hora: fabrica.wa.hora, email_por_dia: fabrica.email.dia, rampa_primer_dia: fabrica.email.arranqueDia, rampa_sube: fabrica.email.arranqueSube },
+        de_fabrica: {
+          whatsapp_por_dia: fabrica.wa.dia, whatsapp_por_hora: fabrica.wa.hora, whatsapp_rampa_primer_dia: fabrica.wa.arranqueDia, whatsapp_rampa_sube: fabrica.wa.arranqueSube,
+          email_por_dia: fabrica.email.dia, rampa_primer_dia: fabrica.email.arranqueDia, rampa_sube: fabrica.email.arranqueSube,
+        },
       });
     },
   },
@@ -551,7 +558,9 @@ export const RUNNERS: Runners = {
       const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica);
       if (input.restaurar === true) return { payload: { limites: fabrica }, resumen: 'Volver los topes de envío a los de fábrica' };
       const CAMBIOS: Array<[string, keyof LimitesEnvio, string, string]> = [
-        ['waDia', 'wa', 'dia', 'WhatsApp por día'], ['waHora', 'wa', 'hora', 'WhatsApp por hora'], ['emailDia', 'email', 'dia', 'emails por día'],
+        ['waDia', 'wa', 'dia', 'WhatsApp por día'], ['waHora', 'wa', 'hora', 'WhatsApp por hora'],
+        ['waArranqueDia', 'wa', 'arranqueDia', 'la rampa del número arranca con'], ['waArranqueSube', 'wa', 'arranqueSube', 'y sube por día'],
+        ['emailDia', 'email', 'dia', 'emails por día'],
         ['emailArranqueDia', 'email', 'arranqueDia', 'la rampa del email arranca con'], ['emailArranqueSube', 'email', 'arranqueSube', 'y sube por día'],
         ['makoSolasPor24h', 'mako', 'solasPor24h', 'respuestas solas por persona en 24 h'],
       ];
@@ -562,7 +571,7 @@ export const RUNNERS: Runners = {
         nuevo = conLimite(nuevo, grupo, campo, num(input, param));
         partes.push(`${dice}: ${num(input, param)}`);
       }
-      if (!partes.length) return { error: 'No dice qué cambiar: waDia, waHora, emailDia, emailArranqueDia, emailArranqueSube, makoSolasPor24h, o restaurar.' };
+      if (!partes.length) return { error: 'No dice qué cambiar: waDia, waHora, waArranqueDia, waArranqueSube, emailDia, emailArranqueDia, emailArranqueSube, makoSolasPor24h, o restaurar.' };
       const prueba = limitesParaGuardar(nuevo, fabrica);
       if (!prueba.ok) return { error: prueba.error };
       return { payload: { limites: nuevo }, resumen: `Topes de envío: ${partes.join(' · ')}` };
@@ -1066,7 +1075,8 @@ export const RUNNERS: Runners = {
       const vale = horarioDeLaAutomatizacion(config, delNegocio);
       return json({
         secuencia: { id, nombre: s.nombre },
-        horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: config.horario === undefined ? 'negocio' : 'propio' },
+        // `de`: «fabrica» = el 9 a 21 que le puso MaKo; cede si el negocio pone el suyo (`configurar_horario_envio`).
+        horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: origenDelHorario(config, delNegocio) },
         goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, arranque: config.goteo?.arranque ?? null, canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
         linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
         // Las columnas del email (4/11/2026): a cuál pasa la tarjeta en su CRM cuando el email sale, se abre o se cliquea.

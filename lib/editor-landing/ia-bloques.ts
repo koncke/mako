@@ -532,7 +532,8 @@ export function normalizarBusqueda(v: unknown): string {
 // (`tarjetaABloques`) y la vuelta (`bloquesATarjeta` con `base`) recorren el MISMO
 // original con la MISMA función, así el número siempre apunta al mismo nodo.
 
-const CON_REF = new Set<string>([NODO.imagen, NODO.video, NODO.insertado, NODO.htmlLibre, NODO.htmlEditable, NODO.formulario]);
+// Los bloques de venta (5/11/2026) también: su dato es exacto (la fecha, quién compró, los números) y no pasa por el modelo.
+const CON_REF = new Set<string>([NODO.imagen, NODO.video, NODO.insertado, NODO.htmlLibre, NODO.htmlEditable, NODO.formulario, NODO.cuentaRegresiva, NODO.pruebaSocial, NODO.escasez]);
 
 export function refsDe(base: JsonNodo | null | undefined): Map<string, JsonNodo> {
   const m = new Map<string, JsonNodo>();
@@ -1475,6 +1476,13 @@ function bloqueDeNodo(n: JsonNodo, base: JsonNodo, d: string[] | undefined, form
     case NODO.video: case NODO.insertado: case NODO.htmlLibre: {
       const r = refDeNodo(base, n);
       const que = n.type === NODO.video ? 'video' : n.type === NODO.insertado ? 'insertado' : 'html';
+      return r ? [{ t: 'conservar', ref: r, que }] : [];
+    }
+    // Los bloques de venta (5/11/2026): viajan cerrados, como un video. Con su texto adentro, la IA los volvía un párrafo o los
+    // borraba: la cuenta regresiva de Black November desaparecía con un «mejorá el título».
+    case NODO.cuentaRegresiva: case NODO.pruebaSocial: case NODO.escasez: {
+      const r = refDeNodo(base, n);
+      const que = n.type === NODO.cuentaRegresiva ? 'cuenta regresiva' : n.type === NODO.pruebaSocial ? 'prueba social' : 'escasez';
       return r ? [{ t: 'conservar', ref: r, que }] : [];
     }
     default: {

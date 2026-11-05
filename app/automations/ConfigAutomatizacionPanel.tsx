@@ -42,7 +42,7 @@ import { Numero } from './LimitesEnvioPanel';
 import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpciones';
 import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
 import { textoPrioridad } from '@/lib/nutricion-prioridad';
-import { RANGOS_GOTEO, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { RANGOS_GOTEO, horarioParaMostrar, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
@@ -90,7 +90,8 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   const fuente: FuenteHorario = {
     // El huso se ve y se cambia acá, y es el del NEGOCIO (23/10/2026): lo dice la línea de debajo.
     zonaDelNegocio: true,
-    leer: async () => ({ horario: d.config.horario ?? d.horarioNegocio ?? { ...HORARIO_SUGERIDO, activo: false }, zona: d.zona, puedeEditar: d.puedeEditar }),
+    // El que VALE (`horarioParaMostrar`): con el de fábrica y un horario del negocio, el del negocio (5/11/2026).
+    leer: async () => ({ horario: horarioParaMostrar(d.config, d.horarioNegocio) ?? { ...HORARIO_SUGERIDO, activo: false }, zona: d.zona, puedeEditar: d.puedeEditar }),
     guardar: async (h) => {
       const r = await saveConfigAutomatizacionAction(secuenciaId, { horario: h });
       if (r.ok && r.config) poner(r.config);

@@ -3269,4 +3269,33 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "5 nov", hora: "09:30", chat: "Black November (nube)", cuenta: "nube", actor: "martin", tipo: "prompt",
+    titulo: "Black November: la rampa del número y el horario de las automatizaciones prendidas",
+    pedido: "Rampa de WhatsApp en las secuencias: que limites.wa también arranque bajo y suba de a poco (arranqueDia, arranqueSube). Una línea que ya viene mandando no vuelve a empezar de cero: mirá cómo lo resuelve la difusión. Horario de fábrica: las automatizaciones nuevas nacen con 9 a 21, las ya prendidas no tienen horario. Decidí con criterio cómo cubrirlas sin frenar a nadie de golpe y sin mandar lo acumulado todo junto. Si hace falta tocar datos, un script en seco por defecto que corre el Cerebro: dejá el comando en el relevo. Leila quiere de 10 a 20 h: que se pueda poner por negocio.",
+    puntos: ["Llegó por el brief de la campaña de Leila (negocio 11)."],
+  },
+  {
+    fecha: "5 nov", hora: "13:10", chat: "Black November (nube)", sesion: "cli_36e19fd1-66a6-5448-b8ce-1087dd99d13b", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El número arranca con pocos WhatsApp y sube solo; el 9 a 21 de fábrica cede ante el horario del negocio",
+    puntos: [
+      "Las automatizaciones mandan como mucho 20 WhatsApp el primer día, y 20 más cada día que llegan al tope, hasta los 40 de siempre.",
+      "Un número que ya venía mandando sigue en su nivel: se cuenta lo que salió de verdad, como en la difusión. Dos días sin mandar, vuelve a arrancar.",
+      "Lo acumulado sale de a 6 por hora al abrir el horario, no todo junto.",
+      "El aviso al prender y el «¿por qué no sale?» dicen la rampa con su número de hoy.",
+      "El 9 a 21 que MaKo pone al prender una automatización queda marcado: si el negocio pone su horario (los 10 a 20 de Leila), vale el del negocio.",
+      "Un script en seco pone el 9 a 21 a las prendidas sin horario, de día y sin frenar a nadie de golpe. Lo corre el Cerebro: el comando está en el relevo.",
+      "La API: ver y cambiar la rampa (waArranqueDia, waArranqueSube) y de dónde sale el horario de cada automatización.",
+    ],
+    archivos: [
+      "lib/limites-envio.ts — wa.arranqueDia y wa.arranqueSube",
+      "lib/goteo.ts y lib/goteo-db.ts — topeConRampa y el tope de hoy de cada canal",
+      "lib/nutricion.ts — el motor usa el tope de hoy",
+      "lib/config-automatizacion.ts — horarioDeFabrica y el horario que vale",
+      "lib/horario-de-fabrica.ts y scripts/horario-de-fabrica-prendidas.mts — el plan y el script en seco",
+      "tests/rampa-whatsapp.test.ts y tests/horario-de-fabrica.test.ts — probados rompiéndolos",
+    ],
+    revisar: "/automations",
+  },
 ];

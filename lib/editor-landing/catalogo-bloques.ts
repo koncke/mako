@@ -40,7 +40,7 @@ export type IdBloque =
   | 'opt-estadisticas' | 'opt-comparacion' | 'opt-piramide' | 'opt-embudo' | 'opt-ciclo'
   | 'opt-citas' | 'opt-equipo' | 'opt-logos' | 'opt-galeria'
   // Herramientas de MaKo
-  | 'agenda' | 'vsl' | 'pago'
+  | 'agenda' | 'vsl' | 'pago' | 'cuenta-regresiva' | 'prueba-social' | 'escasez'
   // Formularios y botones
   | 'boton' | 'botones-2' | 'formulario' | 'etiqueta'
   // Imágenes
@@ -121,6 +121,10 @@ export const BLOQUES: readonly DefBloque[] = [
   { id: 'agenda', nombre: 'Agenda', categoria: 'Herramientas de MaKo', ayuda: 'Calendly o Cal.com, para que agenden aquí', buscar: ['calendly', 'calcom', 'cal', 'agendar', 'reservar', 'llamada', 'cita'], icono: 'calendario-check' },
   { id: 'vsl', nombre: 'VSL', categoria: 'Herramientas de MaKo', ayuda: 'Tu video de venta: YouTube, Panda, Vimeo, Wistia', buscar: ['video', 'youtube', 'panda', 'vimeo', 'wistia', 'venta'], icono: 'video-enlace' },
   { id: 'pago', nombre: 'Botón de pago', categoria: 'Herramientas de MaKo', ayuda: 'Cobra un producto de tu catálogo', buscar: ['stripe', 'mercado pago', 'mercadopago', 'pagar', 'checkout', 'cobrar', 'comprar'], icono: 'tarjeta-credito' },
+  // Los bloques de venta (5/11/2026, Black November): sólo con los datos que pone el negocio (bloques-venta.ts).
+  { id: 'cuenta-regresiva', nombre: 'Cuenta regresiva', categoria: 'Herramientas de MaKo', ayuda: 'Hasta una fecha real; al terminar no vuelve a empezar', buscar: ['countdown', 'temporizador', 'reloj', 'cierre', 'oferta', 'urgencia', 'black'], icono: 'cronometro' },
+  { id: 'prueba-social', nombre: 'Prueba social', categoria: 'Herramientas de MaKo', ayuda: 'Un aviso con quién compró, con lo que escribas tú', buscar: ['social proof', 'compras', 'notificacion', 'popup', 'pop', 'clientes'], icono: 'usuarios' },
+  { id: 'escasez', nombre: 'Barra de escasez', categoria: 'Herramientas de MaKo', ayuda: 'Cuántos lugares quedan, con tus números', buscar: ['cupos', 'lugares', 'stock', 'quedan', 'escasez', 'limitado'], icono: 'fuego' },
 
   // ── Formularios y botones ───────────────────────────────────────────────────
   { id: 'boton', nombre: 'Botón', categoria: 'Formularios y botones', ayuda: 'Lleva a un link, a una sección o a tu agenda', buscar: ['button', 'cta', 'boton'], icono: 'boton' },

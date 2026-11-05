@@ -100,7 +100,10 @@ test('procesarEnvios: los mensajes chequean `sinLugar` (no el cupo a secas) y lo
   assert.doesNotMatch(proc, /if \(cupoLleno\(\) && !/, 'quedó un mensaje que mira el cupo sin la reserva');
   assert.match(proc, /if \(primeroEntradas\) q = q\.in\('lead_id', \[\.\.\.frescos\]\);/);
   assert.match(proc, /const frescos = await entradasFrescas\(supabase, opts\?\.soloLeadId \?\? null\);/);
-  assert.match(proc, /reserva: reservaParaEntradas\(limites\.wa\), porHora: !!opts\?\.cupoPorHora/);
+  // La reserva sale del tope de HOY de la línea, con la rampa (5/11/2026, Black November): con el de fábrica, un número que
+  // arranca en 20 reservaría lo de un día de 40. La rampa la prueba tests/rampa-whatsapp.test.ts.
+  assert.match(proc, /const lineaWa = \{ \.\.\.limites\.wa, dia: topeWaHoy \};/);
+  assert.match(proc, /reserva: reservaParaEntradas\(lineaWa\), porHora: !!opts\?\.cupoPorHora/);
   // UNA vuelta para lo que entró, devolviéndola: la cola general no se queda sin turno. Son DOS salidas de la fase (no
   // quedó nada fresco / ya se miró la vuelta) y las dos la devuelven.
   assert.equal((proc.match(/primeroEntradas\) \{ primeroEntradas = false; rondas -= 1; continue; \}/g) ?? []).length, 2);

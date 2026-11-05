@@ -15,6 +15,8 @@
 // `nutricion_toggle` → 9 / 1): el motor sin la rampa (el tope de la línea) → 7 / 2; el webhook
 // sin el freno al rebotar → 8 / 1; el freno con «>» en vez de «>=» en rebotes → 8 / 1; sin el mínimo de 50 enviados → 8 / 1;
 // el aviso sin la campaña entera → 7 / 2; un rebote temporal tomado como permanente → 8 / 1. Restaurado, 9 / 0.
+// La rampa del número (5/11/2026), sobre 11 / 0: `cambiar_limites_envio` sin los parámetros de la rampa → 10 / 1; `ver_limites_envio`
+// con el tope de la línea en vez del de hoy → 10 / 1.
 //
 // Correr: node --import tsx --test tests/email-campana-topes.test.ts
 // =============================================================================
@@ -117,6 +119,16 @@ test('ver los topes dice la regla del freno y la rampa', () => {
   assert.deepEqual(R.verAntes.email.rampa.primer_dia, 50);
   assert.match(R.verAntes.email.freno.regla, /50 enviados/);
   assert.equal(R.verAntes.whatsapp.por_dia, 40);
+  // La rampa del número (5/11/2026): un negocio que no mandó ningún WhatsApp arranca hoy en 20.
+  assert.equal(R.verAntes.whatsapp.tope_de_hoy, 20);
+  assert.deepEqual([R.verAntes.whatsapp.rampa.primer_dia, R.verAntes.whatsapp.rampa.sube_por_dia], [20, 20]);
+  assert.deepEqual([R.verAntes.de_fabrica.whatsapp_rampa_primer_dia, R.verAntes.de_fabrica.whatsapp_rampa_sube], [20, 20]);
+});
+
+test('cambiar la rampa del número por la API: se propone con sus dos parámetros, y fuera de rango no', () => {
+  assert.match(R.cambiarWa.resumen, /la rampa del número arranca con: 10 · y sube por día: 15/);
+  assert.deepEqual([R.cambiarWa.payload.limites.wa.arranqueDia, R.cambiarWa.payload.limites.wa.arranqueSube], [10, 15]);
+  assert.match(R.cambiarWaMal.error, /WhatsApp, cuánto sube por día: entre 1 y 150/);
 });
 
 test('nada salió a la red', () => {

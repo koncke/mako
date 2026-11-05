@@ -595,6 +595,9 @@ async function escenarioTopes(): Promise<Record<string, unknown>> {
   // Cambiar los topes por la API: fuera de rango no; adentro, se guarda sólo lo que difiere.
   out.cambiarMal = await en(() => cambiar.preparar!({ emailDia: 900 }, ctx(NEGOCIO)));
   out.cambiarNada = await en(() => cambiar.preparar!({}, ctx(NEGOCIO)));
+  // La rampa del número (5/11/2026, tests/rampa-whatsapp.test.ts): se propone con sus dos parámetros, y fuera de rango no.
+  out.cambiarWa = await en(() => cambiar.preparar!({ waArranqueDia: 10, waArranqueSube: 15 }, ctx(NEGOCIO)));
+  out.cambiarWaMal = await en(() => cambiar.preparar!({ waArranqueSube: 0 }, ctx(NEGOCIO)));
   const pc = await en(() => cambiar.preparar!({ emailDia: 200, emailArranqueDia: 40 }, ctx(NEGOCIO)));
   out.prepCambiar = pc;
   out.ejecCambiar = await en(() => cambiar.ejecutar!(pc.payload as Record<string, unknown>, ctx(NEGOCIO)));

@@ -1150,10 +1150,17 @@ export const RUNNERS: Runners = {
       if (JSON.stringify(s) === JSON.stringify(sanearHorario(raw))) return { error: 'El horario ya es ése.', yaEstaba: true };
       const zona = (await zonaDelNegocioDetalle(ctx.ws)).tz;
       const dias = DIAS_PANTALLA.filter((d) => s.dias.includes(d.dia)).map((d) => d.nombre).join(', ');
+      // ⚠️ LAS QUE TIENEN SU PROPIO HORARIO SIGUEN CON EL SUYO (5/11/2026): decirlo en el «sí». Las del horario de fábrica (el 9 a 21
+      // que puso MaKo) sí pasan a éste (`horarioDeLaAutomatizacion`). Sin poder leerlas, no se afirma nada.
+      const propias = await (async () => {
+        const { configsDelNegocio } = await import('@/lib/config-automatizacion-db');
+        return [...(await configsDelNegocio()).values()].filter((c) => c.horario !== undefined && !c.horarioDeFabrica).length;
+      })().catch(() => null);
+      const conSuyo = propias ? ` ${propias === 1 ? 'Una automatización tiene su propio horario y sigue con el suyo' : `${propias} automatizaciones tienen su propio horario y siguen con el suyo`} (se cambia en su tuerca).` : '';
       return {
         payload: { horario: s },
         resumen: s.activo
-          ? `Horario de oficina: de ${horaTexto(s.desde)} a ${horaTexto(s.hasta)}, ${dias} (hora de ${zona}). Las automatizaciones le escriben a los contactos sólo ahí.`
+          ? `Horario de oficina: de ${horaTexto(s.desde)} a ${horaTexto(s.hasta)}, ${dias} (hora de ${zona}). Las automatizaciones le escriben a los contactos sólo ahí.${conSuyo}`
           : 'Apagar el horario de oficina: las automatizaciones escriben a cualquier hora.',
       };
     },
