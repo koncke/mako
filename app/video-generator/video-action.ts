@@ -25,7 +25,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
-import { encolar, estadoPuente } from '@/lib/flow-cola';
+import { encolar, esRechazoDeModeracion, estadoPuente } from '@/lib/flow-cola';
 import {
   usaInterfaz, pedidoClipInterfaz, pedidoImagenInterfaz,
   clipDeInterfaz, rutaDeSubida, PREFIJO_OPERACION_INTERFAZ,
@@ -640,6 +640,8 @@ export async function generarTomaAction(
   // un error que nombra la maquinaria en vez del efecto lo deja sin saber si el
   // problema es suyo, si perdió algo, o si tiene que hacer algo. Se dice qué NO
   // pasó y de quién es.
+  // Creem frenó el prompt (lib/creem-moderacion.ts): no se encoló nada ni cuenta para la prueba. Su texto dice qué hacer.
+  if (esRechazoDeModeracion(trabajoId)) return { ok: false, error: trabajoId.texto };
   if (trabajoId == null) {
     return { ok: false, error: `No se pudo mandar la toma ${n} a filmar. Es un problema nuestro, no tuyo: vuelve a intentarlo en un momento.` };
   }
@@ -1549,6 +1551,8 @@ export async function generarImagenAction(
       ...(cara ? { cara } : {}),
     }),
   });
+  // Creem frenó el prompt (lib/creem-moderacion.ts): no se encoló nada ni cuenta para la prueba.
+  if (esRechazoDeModeracion(trabajoId)) return { ok: false, error: trabajoId.texto };
   if (trabajoId == null) return { ok: false, error: 'No se pudo encolar la imagen.' };
   await sumarUsoDePrueba(ctx.ws, 'prueba.imagenes');
 
