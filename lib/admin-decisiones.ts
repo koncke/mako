@@ -37,6 +37,8 @@ export async function guardarRespuesta(id: number, clave: string, texto: string)
   const { data, error } = await db.from('admin_decisiones').select('*').eq('id', id).maybeSingle();
   if (error) return { ok: false, error: 'No se pudo leer. Prueba de nuevo.' };
   if (!data || data.archivada_at) return { ok: false, error: 'Ya no está en el tablero' };
+  // Ignorada desde el Ops Center (mig 0394): no se contesta hasta que se vuelva a mostrar, así no le llega un aviso al chat.
+  if (data.ignorada_at) return { ok: false, error: 'La ignoraste: vuelve a mostrarla para contestarla.' };
   const d = filaADecision(data as Record<string, unknown>);
   // Sin opciones, la única respuesta es la de texto (o «Resuelta», que no elige nada).
   const claveFinal = clave === RESUELTA ? RESUELTA : d.opciones.length === 0 ? OTRA : clave;
@@ -53,6 +55,28 @@ export async function guardarRespuesta(id: number, clave: string, texto: string)
     .eq('id', id);
   if (e2) return { ok: false, error: 'No se pudo guardar. Prueba de nuevo.' };
   return { ok: true };
+}
+
+/** La base sin la mig 0394 (`ignorada_at`): PostgREST al escribir, Postgres al leer. */
+const FALTA_COLUMNA = new Set(['PGRST204', '42703']);
+
+/**
+ * «Ignorar» / «Volver a mostrar» una decisión desde el Ops Center (5/11/2026, Martín: «un botón de ignorar»). Sólo una SIN
+ * contestar (compare-and-set sobre `respuesta is null`): ignorar no es responder, así que al chat no le llega ningún aviso
+ * (`avisosParaElCartero` mira sólo las contestadas). Sin la migración lo dice, y nada cambia.
+ */
+export async function ignorarDecision(id: number, ignorar: boolean): Promise<{ ok: true; ignoradaAt: string | null } | { ok: false; error: string }> {
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'Decisión inválida' };
+  const ignoradaAt = ignorar ? new Date().toISOString() : null;
+  let q = getSupabaseServer().from('admin_decisiones').update({ ignorada_at: ignoradaAt })
+    .eq('id', id).is('respuesta', null).is('archivada_at', null);
+  q = ignorar ? q.is('ignorada_at', null) : q.not('ignorada_at', 'is', null);
+  const { data, error } = await q.select('id');
+  if (error) {
+    return { ok: false, error: FALTA_COLUMNA.has(String(error.code)) ? 'Todavía no se puede: falta un cambio en la base.' : 'No se pudo guardar. Prueba de nuevo.' };
+  }
+  if (!data?.length) return { ok: false, error: ignorar ? 'Ya no espera tu respuesta.' : 'No estaba ignorada.' };
+  return { ok: true, ignoradaAt };
 }
 
 /**

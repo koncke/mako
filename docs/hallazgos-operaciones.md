@@ -3809,3 +3809,41 @@ tests afectados en Node 24; arreglarlo antes de subir ahorró una punta roja):
 - La revisión externa de TestFlight: pide el id de cada build, y el plan de las tiendas usa TestFlight interno, que no se revisa.
 - En la PC hay un `vigia-revisiones/` fuera de git (docs/hallazgos-ads.md, 24/10) que nadie describió. Mirar qué hace, y si es lo
   mismo, retirarlo para que no avise dos veces.
+
+## La fecha de cada pregunta y el «Ignorar» del bloque (5/11/2026, nube)
+
+Martín, desde el teléfono: «debería haber una sección que marque la fecha de los pedidos o decisiones y un botón de ignorar». Le llegó
+para contestar una pregunta del 30/10 sobre una revisión que ya no importaba, y no había cómo saber que era vieja ni cómo sacarla.
+
+**Lo obvio era borrar la pregunta, y dejaba una puerta abierta.** Sacarla de la base no le dice nada a la PC, que entrega lo FIRMADO: si
+Martín la había contestado en otro dispositivo (o antes, con el chat cerrado), esa respuesta seguía en la cola y salía igual. Por eso la
+ignorada queda marcada (`ignorada`, en app_settings como el resto de la pregunta) y la vuelta del Runner pregunta antes de reclamar:
+`sinRespuestasIgnoradas` (lib/operaciones.ts) cancela con su motivo («Ignoraste esa pregunta») el trabajo cuya marca `[pregunta <id>]`
+es de una ignorada de ESE destino. El texto de la cola no está firmado para el servidor, y por eso sólo puede hacer lo más restrictivo:
+no entregar. Si no puede leer las preguntas, no entrega ninguna respuesta en esa vuelta (quedan escritas para la siguiente). Al ignorar,
+`cancelarRespuestasDe` cancela ya la que esperaba, así no queda en el cartel de lo que espera un chat cerrado.
+
+**La firma y el orden de entrega no se tocan.** El bloque muestra la más nueva primero (`itemsDelBloque`), pero las respuestas del chat
+salen en el orden en que se hicieron las preguntas (`ordenDeEntrega`): mostrar y entregar son dos órdenes.
+
+**Una respuesta cancelada ya no era «en camino».** `abiertasSinRespuesta` tomaba cualquier trabajo con la marca como respuesta en camino,
+también uno cancelado: una pregunta cuya respuesta se canceló en la cola no volvía nunca al bloque, y el hilo decía «Decisión enviada»
+sobre algo que no salió. Ahora un trabajo cancelado no cuenta (`respuestaEnCamino`, lib/centro-chats.ts) y el hilo no dibuja ni la
+ignorada ni la cancelada.
+
+**Las decisiones de la Ticketera que salen en el mismo bloque** se ignoran con su columna (`ignorada_at`, mig 0394, sin aplicar). No es
+`archivada_at`: ésa la pone el chat que la publicó y republicar la limpia. Ignorada no espera (`esperaAMartin`), no cuenta en el globito
+y no se contesta hasta volver a mostrarla; ignorar no es responder, así que al chat no le llega ningún aviso.
+
+**Trampa de CSS:** la fecha y el botón no van en `.co-preg__pie`, que en una pantalla táctil se esconde (centro.css, la ayuda del
+teclado). Van en `.co-preg__meta`, con 44 px en el teléfono.
+
+**Vive en:** app/admin/operaciones/PreguntasDelChat.tsx (`itemsDelBloque`, `ordenDeEntrega`, `EdadDePregunta`, `Ignoradas`,
+`armarIgnorar`) · lib/centro-preguntas-chat.ts (`ignorarEnLaLista`, `mostrarDeNuevoEnLaLista`, `ignoradaQueContesta`) ·
+lib/centro-preguntas-chat-db.ts (`ignorarPregunta`, `preguntasParaDecidir`) · lib/operaciones.ts (`sinRespuestasIgnoradas`,
+`cancelarRespuestasDe`) · lib/centro-fechas.ts (`edadDe`) · lib/admin-decisiones.ts (`ignorarDecision`) ·
+lib/api-mako/areas/operaciones.* (`ignorar_pregunta_operaciones`) · tests/ops-center-ignorar.test.ts y tests/_ops-ignorar-hijo.ts.
+
+**SIN hacer:** aplicar la 0394 (sin ella, «Ignorar» en una decisión de la Ticketera dice «Todavía no se puede» y no cambia nada; las
+preguntas de los chats se ignoran igual). Mirarlo en el Ops Center de verdad: se vio con el bloque real y sus estilos reales en una
+página suelta (computadora y 390 px), no con la sesión de Martín.

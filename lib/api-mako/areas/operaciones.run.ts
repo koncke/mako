@@ -5,10 +5,11 @@ import 'server-only';
 // =============================================================================
 
 import type { Runners, SalidaLectura } from '../tipos';
-import { leerCarteros, listarPedidos } from '@/lib/operaciones';
+import { cancelarRespuestasDe, leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { leerTurnos, leerUltimosTurnos } from '@/lib/centro-turnos-db';
 import { leerYaVistosDe, marcarYaVistoDe } from '@/lib/centro-ya-vistos-db';
-import { leerPreguntas } from '@/lib/centro-preguntas-chat-db';
+import { ignorarPregunta, leerPreguntas } from '@/lib/centro-preguntas-chat-db';
+import { estaAbierta } from '@/lib/centro-preguntas-chat';
 import {
   agruparAvances, chatsPorNombre, completadoSinVer, completadosDeLasCuentas, completadosSinVer, lineasDeConversacion, lineasParaLaApi, pedidoDelCompletado,
   pedidosDelCompletado, piezaParaLaApi, sinMarkdown, nodoDeCompletado, type CompletadoDeChat, type LineaChat, type YaVistos,
@@ -230,6 +231,41 @@ export const RUNNERS: Runners = {
           ? 'Es lo que leyó el vigía en su última revisión (la hora está en ultima_revision). «Hay que mirarlo a mano» es que no hay API o falta la credencial: no sé su estado, no lo inventes. Da los links tal cual.'
           : 'El vigía todavía no corrió: no hay nada leído. Dilo así, sin inventar estados.',
       });
+    },
+  },
+
+  // «Ignorar» una pregunta (5/11/2026): lo mismo que el botón del bloque (app/admin/operaciones/acciones.ts → ignorarPreguntaAction).
+  ignorar_pregunta_operaciones: {
+    preparar: async (input) => {
+      const chat = typeof input.chat === 'string' ? input.chat.trim() : '';
+      const id = typeof input.pregunta === 'string' ? input.pregunta.trim().toLowerCase() : '';
+      const volver = input.volver === true;
+      if (!chat || !id) return { error: 'Falta el chat o el id de la pregunta (lo da `ver_mensajes_operaciones`).', faltan: [!chat ? 'chat' : 'pregunta'] };
+      if (!/^[0-9a-f]{8}[0-9a-f-]{0,28}$/.test(id)) return { error: 'El id es el de la pregunta: sus primeros 8 caracteres o el entero.' };
+      const { carteros } = await leerCarteros();
+      const chats = chatsPorNombre(carteros);
+      const c = chats.find((x) => normal(x.titulo) === normal(chat) || x.clave === `nombre:${normal(chat)}`);
+      if (!c) return { error: `No encontré el chat «${chat}».`, disponibles: chats.map((x) => x.titulo).slice(0, 40) };
+      const todas = (await leerPreguntas(c.locales)).filter((p) => p.id.startsWith(id));
+      if (todas.length > 1) return { error: 'Hay más de una pregunta que empieza así: pasa el id entero.' };
+      const p = todas[0];
+      if (!p) return { error: `No encontré esa pregunta en «${c.titulo}».` };
+      if (volver ? !p.ignorada : !!p.ignorada) return { error: volver ? 'Esa pregunta no está ignorada.' : 'Ya está ignorada.', yaEstaba: true };
+      if (!volver && !estaAbierta(p)) return { error: p.respuesta ? 'Ya la contestaste.' : 'Ya no espera tu respuesta: el chat siguió.' };
+      return {
+        payload: { local: p.local, id: p.id, volver, chat: c.titulo },
+        resumen: `${volver ? 'Volver a mostrar' : 'Ignorar'} la pregunta de ${c.titulo}: «${p.pregunta.slice(0, 120)}». Al chat no le llega nada.`,
+      };
+    },
+    ejecutar: async (payload) => {
+      const local = typeof payload.local === 'string' ? payload.local : '';
+      const id = typeof payload.id === 'string' ? payload.id : '';
+      const volver = payload.volver === true;
+      const r = await ignorarPregunta(local, id, !volver);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!volver) await cancelarRespuestasDe(local, id).catch(() => 0);
+      const chat = typeof payload.chat === 'string' ? payload.chat : 'ese chat';
+      return { ok: true, resumen: volver ? `Listo: la pregunta de ${chat} vuelve a esperar tu respuesta.` : `Listo: la pregunta de ${chat} está en «Ignoradas». Al chat no le llegó nada.` };
     },
   },
 };
