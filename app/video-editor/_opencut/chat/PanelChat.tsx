@@ -46,6 +46,11 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Tick02Icon } from "@hugeicons/core-free-icons";
 import { CabeceraDeChat } from "@/app/admin/operaciones/PanelChat";
 import { ASPECTO_MAKO } from "@/lib/centro-munecos";
+import { AperturaMako, useApertura } from "@/app/_chat/AperturaMako";
+import { SUPERFICIE_VIDEO } from "@/lib/aperturas/video";
+import { subtitulosDe } from "@/app/video-editor/_opencut/subtitles/insert";
+import { generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar";
+import { textoDeSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
@@ -536,6 +541,19 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 
 	const detener = () => cortes.get(proyectoId)?.abort();
 	const visibles = SUGERENCIAS.filter((s) => !s.necesitaSeleccion || seleccion.length > 0);
+
+	// MAKO TOMA LA INICIATIVA (5/11/2026, docs/mako-iniciativa/plan.md T11): con voz y sin subtítulos, «¿Lo van a ver sin sonido?»
+	// (lib/aperturas/video.ts). «Sí, en el feed» corre el mismo motor que el botón de Subtítulos (Whisper en el navegador: sin la
+	// app de escritorio también). Mientras habla, las píldoras de siempre se esconden: un paso por pantalla.
+	const conAudio = !!tracksVivos && (tracksVivos.main.elements.some((e) => e.type === "video") || tracksVivos.audio.some((t) => t.elements.length > 0));
+	const estadoApertura = useApertura({
+		superficie: SUPERFICIE_VIDEO,
+		hechos: { proyecto: proyectoId || null, conAudio, subtitulos: subtitulosDe(tracksVivos).length, charlaVacia: hilo.mensajes.length === 0 },
+		libre: !hilo.corriendo,
+	});
+	const ponerSubtitulos = () => {
+		void generarSubtitulos(editorRef.current).then((r) => (r.ok ? toast("Subtítulos listos") : toast(textoDeSubtitulos(r.motivo))));
+	};
 	const pildora = "cursor-pointer rounded-full border border-(--border) bg-(--surface) px-3 py-1.5 text-left text-[12px] text-(--ink) hover:bg-(--velo-hover) disabled:cursor-default disabled:opacity-50";
 	const chip = "flex h-[26px] min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-full border px-2.5 text-[11.5px] font-medium";
 
@@ -601,7 +619,10 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 
 			<div ref={hiloRef} className="co-hilo" style={{ padding: "12px" }} aria-live="polite">
 				<div className="co-hilo__col">
-					{hilo.mensajes.length === 0 && (
+					{hilo.mensajes.length === 0 && estadoApertura.apertura && (
+						<AperturaMako estado={estadoApertura} quien={QUIEN} acciones={{ subtitulos: ponerSubtitulos }} />
+					)}
+					{hilo.mensajes.length === 0 && !estadoApertura.apertura && (
 						<>
 							<div className="self-start rounded-[12px] bg-(--surface-2) px-3 py-2 text-[12.5px] leading-[1.5] text-(--ink)">
 								Pídeme que edite lo que quieras del video.
