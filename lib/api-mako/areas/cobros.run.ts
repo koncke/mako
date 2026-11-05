@@ -40,6 +40,11 @@ import { venderPlan, ventaValida, previaDeLaVenta, compradorEnLaPlataforma, cobr
 import { getSesionAdmin } from '@/lib/auth';
 import { vistaDeClientes } from '@/lib/clientes-plataforma';
 import { vistaDeIngresos } from '@/lib/admin-ingresos';
+import { vistaDeErrores } from '@/lib/admin-errores';
+import { listarUsuarios } from '@/lib/usuarios';
+import { listarWorkspaces } from '@/lib/workspace';
+import { detalleDeAlta, estadoDeAlta, rolTxt } from '@/lib/admin-usuarios-reglas';
+import { ESTADO_TICKET_TXT, estadoDeError, erroresVisibles, origenTxt } from '@/lib/admin-errores-reglas';
 import { nombreDePlan } from '@/lib/clientes-plataforma-reglas';
 import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { PREFIJO_FLUJO } from '../canal';
@@ -1070,6 +1075,44 @@ export const RUNNERS: Runners = {
         movimientos: v.movimientos.slice(0, 30).map((m) => ({ fecha: m.fecha, cliente: v.clientes.find((c) => c.clave === m.cliente)?.nombre ?? m.cliente, tipo: m.tipo, cambio_usd: m.delta, paga_ahora_usd: m.despues })),
         avisos: v.avisos,
         nota: 'Todo en dólares. mrr_usd sale de lo que cada cliente PAGÓ como su mensualidad (un pago registrado como la mensualidad, una cuota de una venta de suscripción o la suscripción de la pasarela), no del precio del plan. Dos pagos a menos de 7 días son una sola mensualidad; cada una cubre un mes y la nueva reemplaza a la anterior (así sube o baja). Un atrasado sigue contando 15 días; pasado eso, se cortó el día que venció. cobrado_* es toda la plata que entró, también los pagos sueltos y las ventas de pago único. estado: atrasado, por-vencer (vence en 5 días o menos), al-dia, cortado o pago-unico.',
+      });
+    },
+  },
+
+  ver_personas_de_mako: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Las personas de MaKo son sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Las personas de MaKo son sólo del super admin.');
+      const ahora = Date.now();
+      const [usuarios, wss] = await Promise.all([listarUsuarios(), listarWorkspaces()]);
+      const nombre = new Map(wss.map((w) => [w.id, w.nombre]));
+      const filtro = typeof input.estado === 'string' ? input.estado : null;
+      const filas = usuarios.map((u) => {
+        const fila = { estado: u.estado, ultimoLogin: u.ultimo_login, invitacionEnviada: u.invitacion_enviada_at, rol: u.rol, rolWs: u.rol_ws, workspaceId: u.workspace_id };
+        return {
+          nombre: u.nombre, email: u.email, negocio: u.workspace_id != null ? (nombre.get(u.workspace_id) ?? `Workspace ${u.workspace_id}`) : null,
+          rol: rolTxt(fila), estado: estadoDeAlta(fila, ahora), detalle: detalleDeAlta(fila, ahora), ultima_vez: u.ultimo_login, alta: u.created_at.slice(0, 10),
+        };
+      }).filter((f) => !filtro || f.estado === filtro);
+      return json({ personas: filas, nota: 'estado: activo (entró en 30 días), inactivo, invitado (nunca entró) o suspendido. Para suspender o reenviar el acceso: Admin › Users.' });
+    },
+  },
+
+  ver_errores_de_mako: {
+    leer: async (_input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Los errores de la app son sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Los errores de la app son sólo del super admin.');
+      const ahora = Date.now();
+      const v = await vistaDeErrores();
+      return json({
+        sin_resolver: erroresVisibles(v.errores, 'abiertos', ahora).slice(0, 30).map((e) => ({
+          titulo: e.titulo, estado: estadoDeError(e, ahora), donde: origenTxt(e.origen), pantalla: e.ruta, veces: e.veces,
+          primera_vez: e.primeraVez, ultima_vez: e.ultimaVez, negocios: e.negocios.map((w) => v.nombres[w] ?? `Workspace ${w}`),
+          ticket: e.ticketId, estado_del_ticket: e.ticketEstado ? ESTADO_TICKET_TXT[e.ticketEstado] ?? e.ticketEstado : null,
+        })),
+        reportes: v.reportes.slice(0, 20).map((t) => ({ ticket: t.id, titulo: t.titulo, tipo: t.tipo, estado: ESTADO_TICKET_TXT[t.estado] ?? t.estado, quien: t.quien, negocio: t.negocio, cuando: t.creado })),
+        hay_mas: v.hayMas, avisos: v.avisos,
+        nota: 'estado: nuevo (empezó hace 7 días o menos), volvio (pasó otra vez después de resuelto: ya tiene un ticket nuevo) o sin-resolver. El mensaje y el stack están en Admin › Errors.',
       });
     },
   },

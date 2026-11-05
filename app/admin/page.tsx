@@ -12,7 +12,10 @@
 //   · revenue: lo que entra (lib/admin-ingresos.ts): MRR, cobrado mes a mes, movimientos y lo que pagó cada cliente;
 //   · billing: lo que era /admin/cobros (app/admin/cobros/Contenido.tsx);
 //   · customers: los negocios, con «Para mirar» y su ficha (app/customers/CustomersApp.tsx);
-//   · accounts: la grilla de administración (AdminView: alta, plan, equipo, borrar). `?cuenta=<ws>` abre su ficha;
+//   · accounts: la grilla de administración (AdminView: alta, plan, equipo, borrar). `?cuenta=<ws>` abre su ficha. No es
+//     otra pestaña de la barra: es la otra VISTA de Customers (el selector de vista, app/admin/Pestanas.tsx);
+//   · users: las personas de todos los negocios con su estado de alta (app/admin/usuarios, lib/admin-usuarios-reglas.ts);
+//   · errors: los errores de la app agrupados y los reportes (app/admin/errores, lib/admin-errores.ts);
 //   · agents: lo que era /admin/agente.
 //
 // ⚠️ LA RUTA. /admin redirigía a /customers desde el 25/10; desde hoy ES la tab, y sus subrutas (/admin/dev, /admin/ui,
@@ -43,6 +46,12 @@ import { CustomersApp } from '@/app/customers/CustomersApp';
 import { PestanasAdmin } from './Pestanas';
 import { esPestanaAdmin, type PestanaAdmin } from './pestanas-reglas';
 import { IngresosAdmin } from './ingresos/IngresosAdmin';
+import { listarUsuarios } from '@/lib/usuarios';
+import { listarWorkspaces } from '@/lib/workspace';
+import type { FilaUsuario } from '@/lib/admin-usuarios-reglas';
+import { UsuariosAdmin } from './usuarios/UsuariosAdmin';
+import { vistaDeErrores } from '@/lib/admin-errores';
+import { ErroresAdmin } from './errores/ErroresAdmin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -66,6 +75,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       {tab !== 'accounts' && <CartelQueEspera />}
       <PestanasAdmin activa={tab} />
       {tab === 'revenue' ? await PestanaIngresos()
+        : tab === 'users' ? await PestanaUsuarios()
+        : tab === 'errors' ? await PestanaErrores()
         : tab === 'billing' ? <ContenidoCobros />
         : tab === 'agents' ? <ContenidoAgentes />
         : tab === 'accounts' ? await PestanaCuentas(sesionAdmin, cuenta)
@@ -91,6 +102,29 @@ async function PestanaIngresos() {
   const vista = await vistaDeIngresos().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
   if ('error' in vista) return <ErrorState titulo="No pude leer tus ingresos" detalle={vista.error} accion={{ label: 'Volver a cargar', href: '/admin' }} />;
   return <IngresosAdmin vista={vista} />;
+}
+
+/** Users: las personas de todos los negocios. Las acciones van por /api/admin/usuarios, que vuelve a preguntar. */
+async function PestanaUsuarios() {
+  const datos = await Promise.all([listarUsuarios(), listarWorkspaces()]).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+  if ('error' in datos) return <ErrorState titulo="No pude leer las personas" detalle={datos.error} accion={{ label: 'Volver a cargar', href: '/admin?tab=users' }} />;
+  const [usuarios, wss] = datos;
+  const nombre = new Map(wss.map((w) => [w.id, w.nombre]));
+  // Sólo lo que la tabla dibuja: el perfil (teléfono, bio, preferencias) no viaja al navegador.
+  const filas: FilaUsuario[] = usuarios.map((u) => ({
+    id: u.id, email: u.email, nombre: u.nombre, rol: u.rol, rolWs: u.rol_ws, estado: u.estado, ultimoLogin: u.ultimo_login,
+    creado: u.created_at, invitacionEnviada: u.invitacion_enviada_at, workspaceId: u.workspace_id,
+    negocio: u.workspace_id != null ? (nombre.get(u.workspace_id) ?? `Workspace ${u.workspace_id}`) : null,
+    mfa: u.mfa_activo === true, foto: u.foto_url,
+  }));
+  return <UsuariosAdmin filas={filas} ahoraMs={Date.now()} />;
+}
+
+/** Errors: los errores de la app agrupados por huella y los reportes de las personas. */
+async function PestanaErrores() {
+  const vista = await vistaDeErrores().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+  if ('error' in vista) return <ErrorState titulo="No pude leer los errores" detalle={vista.error} accion={{ label: 'Volver a cargar', href: '/admin?tab=errors' }} />;
+  return <ErroresAdmin vista={vista} ahoraMs={Date.now()} />;
 }
 
 /** Customers: la vista de los negocios, entera del server (la ficha es un panel sin estado de carga). */

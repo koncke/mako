@@ -9,6 +9,7 @@
 | Tanda | Qué | Punta |
 |---|---|---|
 | 1 | La investigación (docs/investigacion-admin.md). La tab se llama **Admin** y vive en `/admin`; abre en **Revenue** con lo cobrado de verdad. | `punta/admin` |
+| 2 | **Users** (las personas de todos los negocios con su estado de alta, entrar, reenviar el acceso, suspender) y **Errors** (los errores agrupados como Sentry y los reportes). Accounts pasa a ser la otra vista de Customers. | `punta/admin` |
 
 ## Lo que le toca al Cerebro (en producción, que la nube no ve)
 
@@ -34,9 +35,16 @@
 - **`punta/recibos`**: todavía no existe en origin. Cuando esté `app/admin/cobros/RecibosMako.tsx`, se monta en Billing.
   Esta sesión no movió `app/admin/cobros/` (sólo cambió dos links a `/admin?tab=billing`).
 
+4. **Mirar Users y Errors en producción:** `/admin?tab=users` y `/admin?tab=errors`. En Users, los «invitados» con «Nunca se le
+   mandó el acceso» son personas con cuenta que nunca supieron que la tenían: se les reenvía desde el menú de la fila.
+
+## Decisiones que tomé (Martín puede cambiarlas)
+
+- **Suspender a una persona no va por la API de MaKo**, sólo por la pantalla: apaga sus tokens, y un token filtrado no puede
+  dejar sin acceso a nadie. La API lee (`ver_personas_de_mako`, `ver_errores_de_mako`).
+- **Accounts no es una pestaña**: es la vista de tarjetas de Customers (el selector de vista). La barra queda en seis.
+
 ## Lo que falta (las tandas siguientes)
 
-- **Users:** las personas de todos los negocios con su estado de alta, último ingreso, inspeccionar y suspender.
-- **Errors:** `errores_app` agrupado como Sentry, con los tickets al lado.
 - **Activity y Usage:** necesitan medir qué pantallas se abren y qué acciones se hacen (hoy sólo hay `ultimo_login`). Va con una
   migración nueva: el número se confirma al aplicar.
