@@ -1,4 +1,4 @@
-# Relevo: «MaKo toma la iniciativa» en la nube (5/11/2026)
+# Relevo: «MaKo toma la iniciativa» en la nube (5/11/2026, actualizado al cierre)
 
 Lo escribe la sesión de la nube que lo hizo (cuenta `nube`, sesión `cli_d5a9b850-5f45-5173-b8c4-5c551ce46310`). Esta sesión no le
 puede escribir al Cerebro: todo lo que tiene que saber está acá.
@@ -22,21 +22,22 @@ primera vez en cada tab pregunte «¿Quieres que te ayude a aprender a usar esta
 | `punta/iniciativa-dashboard` | **Dashboard** (T10): con el informe en blanco, «¿Qué número miras primero cada lunes?» → Comercial, Marketing o Closing con `instanciarPlantilla`, sin IA | tests/iniciativa-dashboard.test.ts (2 roturas) |
 | `punta/iniciativa-image` | **Image** (T12): con el diseño en blanco, «¿Dónde lo vas a publicar?» → el lienzo a la medida de una historia, un carrusel o un anuncio (el resize del panel de tamaño) | tests/iniciativa-image.test.ts (2 roturas) |
 | `punta/iniciativa-web` | **Web Generator** (T13): con la página sin publicar, «¿Ya está lista para que la vean?» → abre el diálogo de Publicar (no publica por fuera) | tests/iniciativa-web.test.ts (2 roturas) |
+| `punta/iniciativa-create` | **Create** (T4): el primer mensaje del ejemplo pregunta «¿Para cuál de tus ofertas es?» (la de `pasoOferta`), no «¿Lo adapto a tu negocio?»; `PantallaCrear` reenvía `apertura` a la tarjeta del Cerebro | tests/iniciativa-create.test.ts (2 roturas) |
 
 Cada punta salió con su veredicto de la nube (tests afectados + tsc entero en verde). «En producción» es recién con la corrida de
 `punta.yml` verde y el deploy de Vercel en «Ready»: mirar Actions antes de decirlo.
 
 ## Lo que falta, en el orden del plan (plan.md §5 y guia.md §6)
 
-Al cierre de esta ventana, en `main`: onboarding, CRM y Calendario. Las demás puntas, subidas: mirar Actions (o
-`ci-rojo/iniciativa-*`) antes de decir «en producción».
+Medido al cierre (5/11, ~18:30 UTC): en `main` onboarding, CRM, Calendario, Video, Plan, Clients y Dashboard; Image, Web y Create
+subidas a su punta. Mirar Actions (o `ci-rojo/iniciativa-*`) antes de decir «en producción»: es recién con el deploy en «Ready».
 
 | Tab | Apertura (plan.md §4) | Guía (guia.md §6) | Nota |
 |---|---|---|---|
-| **Escalera del Ops Center (T3)** | pasos 1, 2 y 4 a 8 (`lib/aperturas/ops.ts` sólo tiene el 3, «tu IA») | — | ya tiene `recomendarFunnel`, `/crm?importar=1`, `EstadoArranque.planBorrador` y el paso 7 hecho como `negocio:plan` (`ID_PLAN` de lib/aperturas/plan.ts: importarlo, no copiarlo) |
+| **Escalera del Ops Center (T3)** | pasos 1, 2 y 4 a 8 (`lib/aperturas/ops.ts` sólo tiene el 3, «tu IA», con hechos del navegador; no existe `ops-server.ts`: la escalera necesita su lector de servidor y «un paso por día») | — | ya tiene `recomendarFunnel`, `/crm?importar=1`, `EstadoArranque.planBorrador` y el paso 7 hecho como `negocio:plan` (`ID_PLAN` de lib/aperturas/plan.ts: importarlo, no copiarlo) |
 | **CRM, funnel sin declarar** | falta (necesita el canal y el diagnóstico en la estrella, y `declararEntradasAction`) | la ficha del lead (`recorrido-ficha.ts`, `Senalar`) | `/crm?nuevo=1` («Ver los 12») tampoco está |
-| **Offer (T6)** | tarjeta vacía y «sin funnels» (crear el funnel ahí, fuera «Ir al CRM») | falta | `sanearMensajes` es lista blanca |
-| **Create (T4)** | `primerMensajeDeEjemplo` pregunta la oferta (hoy es código muerto); `PantallaCrear` reenvía `apertura` a `ConversacionCerebro`, que ya la acepta | G5 (`data-mako-chat` en la tarjeta) | prerequisito de AI Avatar (T15) |
+| **Offer (T6)** | tarjeta vacía y «sin funnels» (crear el funnel ahí con `recomendarFunnel` y `crearCrmAction`, fuera «Ir al CRM»: hoy en OfferApp.tsx en dos lugares, la tarjeta y la vista ancha) | falta | `sanearMensajes` es lista blanca |
+| **Create (T4)** | hecha; `primerMensajeDeEjemplo` todavía no la llama nadie en app/ (la usarán Copywriter y AI Avatar) | G5 (`data-mako-chat` en la tarjeta) | |
 | **Copywriter (T5)** | ya guía con su propio patrón (`lib/copywriter/iniciativa.ts`): mudarlo a `lib/aperturas/copywriter.ts`, la franja sin «Adaptar con MaKo» | falta | |
 | **Dashboard (T10)** | hecha la hoja en blanco; falta la de **General** (la hoja Focus: sus plantillas no calzan con las respuestas) y sacar `BotonMako` («Editar con MaKo»: lo miran ocho tests) | G3: reemplaza `recorridos-dashboard.ts` y sus dos `Recorrido` | |
 | **Automations (T8)** | la estrella nueva en la lista y las tres aperturas | falta (`au-qr`) | |
@@ -45,9 +46,9 @@ Al cierre de esta ventana, en `main`: onboarding, CRM y Calendario. Las demás p
 | **Image (T12)** | hecha la del diseño en blanco (sin la miniatura: cuatro botones con el de callar); falta la sugerida de cada familia y guardar el slug | falta (anclas por `donde` sobre `data-testid`) | otro chat toca la marca |
 | **Classroom / Clients (T14)** | hecha | falta (curso, comunidad y clientes juntos; `recorridos-curso.ts` se va) | |
 | **Plan (T17)** | hecha | falta (`plan-nueva-tarea`, `plan-vistas`, `plan-filtrar`; la bienvenida pide el turno antes) | |
-| **AI Avatar (T15)** | va último (no se vende) | falta | necesita T4 |
+| **AI Avatar (T15)** | va último (no se vende) | falta | ya tiene el reenvío de T4 |
 | **Mobile (T16)** | la escalera en `/m/second-brain` | G7 | necesita T3 |
-| **Plantillas con «Ver ejemplo»** | — | — | hoy en Copywriter, `app/_crear` e Image; faltan las demás tabs de Create |
+| **Plantillas con «Ver ejemplo»** | — | — | medido con grep: «Ver ejemplo» está en Copywriter, Image y `app/_crear`; Video, AI Avatar y Offer montan `PantallaCrear` y no lo tienen. Sin hacer en esta ventana |
 
 ## Trampas que costaron en esta tanda
 
