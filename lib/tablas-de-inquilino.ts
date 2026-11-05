@@ -141,7 +141,7 @@ export const TABLAS_DE_INQUILINO = [
   // negocio o borrarlo se los lleva; `spy_piezas` también se va con su competidor (on delete cascade).
   'spy_competidores', 'spy_piezas',
   // Los cambios de una suscripción (mig 0398, 5/11/2026): montos desde un mes, cortes y vueltas (lib/suscripcion-meses.ts).
-  // ⚠️ La 0398 se aplica ANTES del deploy: el reset del cliente de prueba borra de acá y una tabla que no existe da error.
+  // ⚠️ La 0398 se aplica ANTES del deploy: sin la tabla, el reset del cliente de prueba vacía igual y avisa «no existe».
   'suscripcion_movimientos',
   'tarea_categorias',
   // Los tickets que levantan las personas del negocio al equipo de MaKo (mig 0311, 17/10/2026). `ticket_eventos` no

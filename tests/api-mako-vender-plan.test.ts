@@ -44,7 +44,9 @@ const RUN = sinComentarios(leer('lib/api-mako/areas/cobros.run.ts'));
 const RUNNER = (() => {
   const ini = RUN.indexOf('  vender_plan_mako: {');
   assert.ok(ini >= 0, 'no encontré el runner');
-  const r = RUN.slice(ini, RUN.indexOf('\n};', ini));
+  // Hasta el runner que sigue, o el cierre: desde el 5/11/2026 ya no es el último del área (ver_suscripcion_lead va después).
+  const sig = RUN.slice(ini + 1).search(/\n  [a-z_]+: \{/);
+  const r = RUN.slice(ini, sig >= 0 ? ini + 1 + sig : RUN.indexOf('\n};', ini));
   assert.ok(r.length > 1500 && r.length < 7000, `el recorte mide ${r.length}: está mirando otra cosa`);
   return r;
 })();

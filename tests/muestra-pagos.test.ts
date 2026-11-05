@@ -74,7 +74,8 @@ test('las DOS puertas de la ficha usan la misma regla, con las mismas señales',
 test('los bloques: sin deal se dibujan SÓLO los links; los del deal se callan', () => {
   const reglas = codigo('app/crm/lead-view/ficha/reglas-pagos.ts');
   assert.match(reglas, /'links-de-pago': \{ disenos: \['lista', 'pendiente'\] \},/, 'los links dejaron de dibujarse siempre');
-  assert.match(reglas, /venta: \{ estaVacio: sinDealSalvo\('monto'\)/);
+  // Lo que cuida: la venta se calla sin deal (5/11/2026: también al lado del bloque de suscripción).
+  assert.match(reglas, /venta: \{ estaVacio: [^\n]*sinDealSalvo\('monto'\)/);
   const bloques = codigo('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
   assert.match(bloques, /<CobrarConLink lead=\{/);
   assert.match(bloques, /<CobrosDelLead cobros=\{lista\}/);
