@@ -58,6 +58,9 @@ import { vistaServicio } from '@/lib/servicio-diseno';
 import { datosServicioMuestra, generalServicioMuestra } from '@/lib/servicio-diseno-muestra';
 import { vistaInstagram } from '@/lib/instagram-diseno';
 import { datosInstagramMuestra, generalInstagramMuestra } from '@/lib/instagram-diseno-muestra';
+import { HojaAnuncio } from './HojaAnuncio';
+import { vistaAnuncio } from '@/lib/anuncio-diseno';
+import { datosAnuncioMuestra } from '@/lib/anuncio-diseno-muestra';
 import { vistaCurso } from '@/lib/curso-diseno';
 import { calendarioCursoMuestra, datosCursoMuestra } from '@/lib/curso-diseno-muestra';
 
@@ -511,6 +514,10 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   // (instagram-murmura/mako.html). El reloj del ejemplo marca las 15:00 de hoy (la primera publicación sale a las 16:30).
   instagram: ({ hoja, hoy }) => (
     <HojaInstagram hoja={hoja} vista={vistaInstagram(hoja, datosInstagramMuestra(hoja, hoy), generalInstagramMuestra(hoy), Date.parse(`${hoy}T15:00:00Z`))} titulo="Buenos días, Ana" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+  ),
+  // La de «Anuncio ganador», igual: el MISMO vistaAnuncio que la hoja de verdad, con los datos de la adaptación (anuncio-prism/mako.html).
+  anuncio: ({ hoja, hoy }) => (
+    <HojaAnuncio hoja={hoja} vista={vistaAnuncio(hoja, datosAnuncioMuestra(hoja, hoy), hoy)} titulo="Anuncio ganador" periodo="Todo" onGrilla={() => {}} quieta />
   ),
 };
 

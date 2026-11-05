@@ -1226,4 +1226,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '5 nov', hora: '03:25', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Anuncio ganador, la decimoctava hoja copiada: el diseño de Prism con «¿cuál creativo gana, y con cuánta confianza?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» del Dashboard**, con su miniatura de verdad.',
+      '**Arriba:** las agendas de tus anuncios por día, con su promedio de 7 días; qué hacer con cada guion; y con cuánta muestra.',
+      '**Qué guion rinde más:** las agendas por cada US$1.000 de los que tienen muestra, contra su promedio.',
+      '**Cuánto cuesta y listos para escalar:** el costo por agenda, por cierre y lo gastado sin agendas; qué parte de lo invertido va a los que conviene escalar.',
+      '**Lo largo y lo de cada semana:** las agendas y lo invertido de los seis meses cerrados, las agendas y los cierres por semana, y el gancho día por día.',
+      '**El que más agendó**, con atajos a Ads Manager, Ads Writer, Hooks y la grilla.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaAnuncio.tsx · anuncio-css.ts · AnuncioVivo.tsx — el diseño',
+      'lib/anuncio-diseno.ts — de dónde sale cada número',
+      'lib/anuncio-diseno-muestra.ts — los datos de ejemplo de la miniatura',
+      'docs/diseno/mockups-dashboard/anuncio-prism/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];

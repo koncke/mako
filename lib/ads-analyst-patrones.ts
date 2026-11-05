@@ -29,8 +29,10 @@ export function fmtUSD(n: number): string { return `$${Math.round(n).toLocaleStr
 export function fmtK(n: number): string { return n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${Math.round(n)}`; }
 
 export type Confianza = 'alta' | 'media' | 'baja';
+/** Desde cuántas impresiones la muestra de un anuncio es alta, y desde cuántas es media (la hoja «Anuncio ganador» los escribe). */
+export const IMPR_ALTA = 25000, IMPR_MEDIA = 8000;
 /** La confianza de un anuncio sale de cuántas impresiones juntó: ≥25k alta, ≥8k media. */
-export function confFromImpr(impressions: number): Confianza { return impressions >= 25000 ? 'alta' : impressions >= 8000 ? 'media' : 'baja'; }
+export function confFromImpr(impressions: number): Confianza { return impressions >= IMPR_ALTA ? 'alta' : impressions >= IMPR_MEDIA ? 'media' : 'baja'; }
 export function confidence(a: ScriptView): Confianza { return confFromImpr(a.impressions); }
 export function fatigue(a: ScriptView): 'alta' | 'media' | 'ok' { return a.freq >= 2.4 ? 'alta' : a.freq >= 1.8 ? 'media' : 'ok'; }
 /** La retención al CTA: la del último bloque del guion, o la del final si no hay bloques. */

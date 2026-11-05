@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prism · copia</title>
+<link rel="stylesheet" href="prism.css">
+</head>
+<body>
+<!-- COPIA DE LA PÁGINA DE PRISM (5/11/2026), escrita desde lo medido (demos/prism/captura). Código nuestro: nada de la tienda. -->
+<div class="fondo" aria-hidden="true"></div>
+<header class="top">
+  <a class="brand" href="#">
+    <svg class="brand__logo" viewBox="0 0 30 22" aria-hidden="true">
+      <path d="M3 19 L12 3 L21 19 Z" fill="none" stroke="#eef4ff" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M1 12 L9 11" stroke="#eef4ff" stroke-width="1.6" stroke-linecap="round"/>
+      <path class="brand__ray" d="M13 11 L29 6" stroke="var(--s1)" stroke-width="1.6" stroke-linecap="round"/>
+      <path class="brand__ray" d="M13 11.5 L29 11.5" stroke="var(--s5)" stroke-width="1.6" stroke-linecap="round"/>
+      <path class="brand__ray" d="M13 12 L29 17" stroke="var(--s2)" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+    PRISM
+  </a>
+  <span class="org">Orbit Supply Co. <span class="env">Production</span></span>
+  <div class="range" role="radiogroup" aria-label="Time range">
+    <i class="range__pill"></i>
+    <label><input type="radio" name="r" value="live" checked>Live</label>
+    <label><input type="radio" name="r" value="24h">24H</label>
+    <label><input type="radio" name="r" value="7d">7D</label>
+    <label><input type="radio" name="r" value="30d">30D</label>
+  </div>
+  <span class="clock"><i class="clock__dot"></i><time id="reloj">08:13:54</time></span>
+  <div class="top__r">
+    <button class="btn" type="button"><svg class="i" viewBox="0 0 16 16"><path d="M5.5 3.5v9M10.5 3.5v9"/></svg><span>Live</span></button>
+    <button class="icon-btn" type="button" aria-label="Theme"><svg class="i" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></svg></button>
+    <span class="av">MK</span>
+  </div>
+</header>
+<div class="scan" aria-hidden="true"></div>
+
+<main class="view">
+  <div class="row row--1">
+    <section class="card c-rev"><div class="hud"><i></i><i></i><i></i><i></i></div>
+      <div class="card__h"><div><h2 class="card__t">Revenue</h2><p class="card__s">Last 15 min · 15 s buckets</p></div>
+        <div class="card__r"><span class="leg"><i class="s1"></i>Revenue</span><span class="leg"><i class="ln s2"></i>Forecast pace</span></div></div>
+      <div class="rev__big"><b data-cuenta="14693" data-fmt="usd0">$14,693</b>
+        <span class="delta up"><svg class="i" viewBox="0 0 12 12"><path d="M6 10V2M2.5 5.5 6 2l3.5 3.5"/></svg>+8.5%</span><span class="vs">vs prior 15 min</span></div>
+      <div class="plot" id="rev"></div>
+    </section>
+    <section class="card c-traffic"><div class="hud"><i></i><i></i><i></i><i></i></div>
+      <div class="card__h"><div><h2 class="card__t">Traffic sources</h2><p class="card__s">Sessions by channel</p></div></div>
+      <div class="donut" id="traffic"></div>
+    </section>
+    <section class="card c-region"><div class="hud"><i></i><i></i><i></i><i></i></div>
+      <div class="card__h"><div><h2 class="card__t">Revenue by region</h2><p class="card__s">Share · change vs prior</p></div></div>
+      <div class="donut" id="region"></div>
+    </section>
+  </div>
+
+  <div class="row row--2">
+    <section class="card c-camp"><div class="hud"><i></i><i></i><i></i><i></i></div>
+      <div class="card__h"><div><h2 class="card__t">Campaign ROAS</h2><p class="card__s">Return on ad spend</p></div>
+        <div class="card__r"><span class="hb__tgt">Target 3.0×</span></div></div>
+      <ul class="hb" id="camp"></ul>
+    </section>
+    <section class="card c-kpi"><div class="hud"><i></i><i></i><i></i><i></i></div>
+      <div class="card__h"><div><h2 class="card__t">Key metrics</h2><p class="card__s">Last 15 min · 12-step trend</p></div></div>
+      <div class="kpis" id="kpis"></div>
+    </section>
+    <section class="card c-health"><div class="hud"><i></i><i></i><i></i><i></i></div>
+      <div class="card__h"><div><h2 class="card__t">Platform health</h2><p class="card__s">Checkout cluster · now</p></div>
+        <div class="card__r"><span class="badge"><svg class="i" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5"/><path d="m4.6 7.2 1.6 1.6 3.2-3.4"/></svg>Nominal</span></div></div>
+      <div class="health">
+        <div class="gauge" id="gauge"></div>
+        <div class="hstats">
+          <div><span>p95 latency</span><b>150 ms</b></div>
+          <div><span>Error rate</span><b>0.14%</b></div>
+          <div><span>Uptime · 30 d</span><b>99.98%</b></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="row row--3">
+    <section class="card c-growth"><div class="hud"><i></i><i></i><i></i><i></i></div>
+      <div class="card__h"><div><h2 class="card__t">Quarterly revenue</h2><p class="card__s">Long view · not range-filtered</p></div></div>
+      <div class="vb" id="growth"></div>
+    </section>
+    <section class="card c-signup"><div class="hud"><i></i><i></i><i></i><i></i></div>
+      <div class="card__h"><div><h2 class="card__t">Signups &amp; activations</h2><p class="card__s">Last 15 min</p></div>
+        <div class="card__r"><span class="leg"><i class="s1"></i>Signups</span><span class="leg"><i class="s2"></i>Activated</span></div></div>
+      <div class="sg__big"><span><b>70.4%</b><em>activation rate</em></span><span><b>113</b><em>signups</em></span></div>
+      <div class="vb" id="signup"></div>
+    </section>
+    <section class="card c-cust"><div class="hud"><i></i><i></i><i></i><i></i></div>
+      <div class="card__h"><div><h2 class="card__t">Active customers</h2><p class="card__s">Long view · month end, last 6 months</p></div></div>
+      <ul class="cust" id="cust"></ul>
+    </section>
+  </div>
+
+  <div class="row row--4">
+    <section class="card c-lat"><div class="hud"><i></i><i></i><i></i><i></i></div>
+      <div class="card__h"><div><h2 class="card__t">Checkout latency</h2><p class="card__s">p50 by pod · last 60 s, always live</p></div>
+        <div class="card__r lat__leg"><span class="leg"><i class="ln s1"></i>us-east <b>65 ms</b></span><span class="leg"><i class="ln s2"></i>eu-west <b>115 ms</b></span><span class="leg"><i class="ln s3"></i>ap-south <b>183 ms</b></span></div></div>
+      <div class="vb" id="lat"></div>
+    </section>
+    <section class="card c-dock"><div class="hud"><i></i><i></i><i></i><i></i></div>
+      <div class="card__h"><div><h2 class="card__t">Feed</h2></div><div class="card__r"><span class="card__s">Streaming · about 1 order / s</span></div></div>
+      <div class="ticker"><svg class="i" viewBox="0 0 16 16"><path d="M3.5 5.5h9l-.8 7.5H4.3zM6 5.5V4a2 2 0 0 1 4 0v1.5"/></svg><span class="ticker__k">Latest order</span>
+        <span class="ticker__v" id="ticker"><span><b>$57.69</b>Europe · Email</span></span></div>
+      <div class="dock">
+        <button class="dock__btn is-on" type="button"><span class="dock__ring"><svg class="i" viewBox="0 0 16 16"><path d="M6 4.5v7M10 4.5v7"/></svg></span>Pause</button>
+        <button class="dock__btn" type="button" id="d-refresh"><span class="dock__ring"><svg class="i ico" viewBox="0 0 16 16"><path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 3v2.5H10"/></svg></span>Refresh</button>
+        <button class="dock__btn" type="button"><span class="dock__ring"><svg class="i" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.6"/><path d="M8 2v1.4M8 12.6V14M2 8h1.4M12.6 8H14M3.8 3.8l1 1M11.2 11.2l1 1M3.8 12.2l1-1M11.2 4.8l1-1"/></svg></span>Light</button>
+        <button class="dock__btn" type="button"><span class="dock__ring"><svg class="i" viewBox="0 0 16 16"><path d="M3 6V3h3M10 3h3v3M13 10v3h-3M6 13H3v-3"/></svg></span>Full screen</button>
+        <button class="dock__btn" type="button"><span class="dock__ring"><svg class="i" viewBox="0 0 16 16"><path d="M8 3v7M5 7.5 8 10.5l3-3M3.5 13h9"/></svg></span><!-- el rótulo lo tapa el cartel de la tienda en la captura: no se ve, no se inventa --></button>
+        <button class="dock__btn" type="button"><span class="dock__ring"><svg class="i" viewBox="0 0 16 16"><rect x="2.5" y="4" width="11" height="8" rx="1.5"/><path d="M5 7h1M7.5 7h1M10 7h1M5.5 9.5h5"/></svg></span><!-- ídem --></button>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="prism.js"></script>
+</body>
+</html>

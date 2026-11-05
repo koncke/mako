@@ -594,6 +594,27 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
   renglón. ⚠️ Y una regla de la copia que fija una columna (`grid-column: 5` del botón) rompe el paso que cambia las columnas: hay que
   soltarla en el paso y volver a fijarla en el teléfono, porque lo de la adaptación va después de los @container de la copia y los pisa.
 
+## 31. Anuncio ganador (Prism): el saneo de la hoja tira lo que no entra, y una muestra armada a mano no pasa por él (5/11/2026, chat en la nube)
+
+**Vive en:** `lib/graficos-plantillas-analysts.ts` (ADS), `lib/graficos-catalogo.ts` (`PIEZA_DISENO`, el `anillo`), `lib/anuncio-diseno.ts`.
+
+- **Síntoma 1:** en el arnés, «Sin retorno» salía con «—» y la muestra lo traía. **Causa:** la pieza del diseño se llamaba `sinRetorno`, y
+  `PIEZA_DISENO` (`/^[a-z][a-z0-9-]{0,29}$/`) sólo acepta minúsculas: el saneo la sacó del diseño sin un error, y `vistaAnuncio` buscaba
+  una pieza que ya no estaba. Va `sinretorno`.
+- **Síntoma 2, la misma familia:** «qué parte de lo invertido va a los que conviene escalar» leía lo invertido de la pieza del veredicto
+  (un anillo), con `metricas: ['guiones', 'gasto']`. El anillo lleva UNA métrica (`t('anillo', …, 1, 1, …)`), y el saneo se quedó con la
+  primera. **La muestra de la miniatura daba bien** porque ponía el gasto en ese resultado a mano: sin pasar por el saneo, la muestra
+  contesta lo que uno le escribe. Lo cazó el test del cableado, que arma la hoja con `instanciarPlantilla` (que sanea). Lo invertido por
+  veredicto va en su pieza («Lo invertido en cada veredicto», barras).
+- **La regla que queda:** lo que lee un diseño se prueba sobre la hoja SANEADA (`instanciarPlantilla`), nunca sobre el objeto que arma la
+  plantilla: el saneo tira en silencio un nombre de pieza que no cumple su forma y la métrica que un tipo de gráfico no lleva.
+- **Lo medido de la copia:** a 1440, las doce tarjetas caen EXACTAS en las cajas de la captura (la última fila, a 1 px). En el teléfono,
+  a ≤3 px hasta los números de «Key metrics»; **de ahí para abajo la captura está en negro** (el medidor sacó la foto antes de que se
+  dibujaran), así que el teléfono de abajo es un supuesto, escrito en la copia y en el relevo.
+- **El INFORME de Prism trae las recetas de la cabecera, las tarjetas, las barras de Revenue, la latencia, los números, el rango, el reloj,
+  el ticker y el «Refresh»**, no el tiempo de cada tarjeta ni cómo crecen los anillos, las campañas, el medidor y las columnas: eso es
+  supuesto. Tampoco se ve qué dicen los dos últimos botones del «Feed» (los tapa el cartel de la tienda): la copia los deja sin rótulo.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

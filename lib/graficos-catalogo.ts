@@ -1344,7 +1344,9 @@ export type Hoja = {
 //   su plantilla.
 // · 'curso' (5/11/2026, la copia de Vitrea): de GENERAL, con las doce piezas de su plantilla y el Calendario de los datos de
 //   General (lo que vas a publicar y lo de hoy). El bloque de publicaciones queda sólo en la grilla: la hoja lee el Calendario.
-export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs', 'productividad', 'contenido', 'curso', 'servicio', 'instagram'] as const;
+// · 'anuncio' (5/11/2026, la copia de Prism): del Dashboard, con catorce piezas de Anuncio ganador (`ads-analyst`). El cuadrante, el
+//   ángulo, el formato, los patrones de MaKo y las tarjetas de los guiones quedan en la grilla.
+export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs', 'productividad', 'contenido', 'curso', 'servicio', 'instagram', 'anuncio'] as const;
 export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;

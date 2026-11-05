@@ -1,6 +1,19 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (5/11/2026, ~02:35 UTC)
+## 📬 Para el Cerebro (5/11/2026, ~03:30 UTC)
+
+- **Instagram y redes está en producción.** Entró a main (`cfbb92ecc`, la punta `dash-instagram` tal cual, con su veredicto: 7.102 tests y
+  el tsc entero); el humo de producción de ese deploy dio verde a las 02:53. Es la decimoséptima hoja copiada (Murmura).
+- **Anuncio ganador (la copia de Prism) está en `punta/dash-anuncio`**: la sección de abajo. Es la decimoctava hoja copiada, del
+  Dashboard (la plantilla `ads-analyst`). Suma seis piezas a la plantilla (las agendas por día, qué guion rinde más entre los que tienen
+  muestra, los doce meses, las semanas, el gancho día por día y lo invertido en cada veredicto) y pone a comparar con el período anterior
+  los tres costos. **La plantilla pasa a ofrecerse** (trae su diseño): `tests/dashboard-plantillas-ofrecidas.test.ts` usaba
+  `ads-analyst` como la vieja que no se ofrece, y ahora usa `hooks-retencion`.
+- **⚠️ La «confianza» de la hoja es la de la MUESTRA** (impresiones: alta desde 25 mil, media desde 8 mil), no la de una prueba A/B entre
+  dos creativos: ésa sigue sin medirse (§7.4 de la propuesta).
+- **Sigo con la siguiente que tenga lo medido completo**, de a una. Lintel sigue frenada (abajo).
+
+### Lo de las ~02:35 UTC
 
 - **Agencia o servicio está en producción.** Entró a main (`98403e8e5`, la punta `dash-servicio` tal cual, con su veredicto: 7.092 tests
   y el tsc entero); el deploy de ese commit se promovió a las 01:59. Es la decimosexta hoja copiada (Sunrow).
@@ -167,7 +180,70 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
 
-## Instagram y redes: la decimoséptima hoja copiada (la de Murmura), con «¿qué publicación trajo gente de verdad?» (punta `dash-instagram`, 5/11/2026)
+## Anuncio ganador: la decimoctava hoja copiada (la de Prism), con «¿cuál creativo gana, y con cuánta confianza?» (punta `dash-anuncio`, 5/11/2026)
+
+La referencia de Anuncio ganador es Prism (`docs/templates-dashboard-propuesta.md` §7.3): un panel oscuro de comercio en vivo con la barra
+de arriba (el logo, el rango Live/24H/7D/30D, el reloj y «Live»), y cuatro filas de tarjetas con esquinas de mira: «Revenue» (el número
+grande, barras cada 15 s y el pronóstico), «Traffic sources» y «Revenue by region» (dos anillos), «Campaign ROAS» (barras contra la meta),
+«Key metrics» (tres números con su curva), «Platform health» (un medidor), «Quarterly revenue» (columnas con su flecha), «Signups &
+activations», «Active customers», «Checkout latency» (tres líneas contra el SLO) y «Feed» (el último pedido y seis botones).
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «Anuncio ganador» con el diseño de Prism**, con su miniatura de verdad (la plantilla no se ofrecía).
+- **Arriba:** «Agendas de tus anuncios» («Revenue»): las agendas del período con su cambio, y las de cada día (los últimos 42) con el
+  promedio de 7 días en la línea y el último día marcado. **Qué hacer con cada uno** («Traffic sources»): cuántos guiones hay en cada
+  veredicto (escalar, mejorar el gancho, reescribir el cuerpo, repensar, validar, imagen). **Con cuánta muestra** («Revenue by region»):
+  qué parte de los guiones juntó impresiones para juzgarlos, con la regla de cada confianza.
+- **Qué guion rinde más** («Campaign ROAS»): los seis de más agendas por cada US$1.000 entre los que tienen muestra, contra su promedio
+  (en color los que están arriba). **Cuánto cuesta** («Key metrics»): el costo por agenda, el costo por cierre y lo gastado sin agendas,
+  con su cambio (bajar es verde) y su curva. **Listos para escalar** («Platform health»): cuántos guiones conviene escalar y qué parte de
+  lo invertido va a ellos, con lo invertido, las agendas por US$1.000 y los cierres.
+- **Agendas por mes** y **Lo invertido por mes** («Quarterly revenue» y «Active customers»): los seis meses cerrados, que no obedecen al
+  período, con la flecha del cambio de las agendas y el cambio de lo invertido mes a mes. **Agendas y cierres** («Signups & activations»):
+  por semana, con cuántas agendas cerraron.
+- **El gancho en el tiempo** («Checkout latency»): el hook rate, los que llegan al llamado y el ThruPlay, día por día, contra el buen
+  gancho (28%, el mismo del veredicto). **El que más agendó** («Feed»): el guion con más agendas y lo que costó cada una, y los atajos
+  (Ads Manager, Ads Writer, Hooks y la grilla).
+- Tocar un guion abre su pop-up; un veredicto o una confianza, lo de siempre de su pieza. «Ver la grilla» va arriba.
+
+**Lo que se copió de Prism, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/anuncio-prism/copia.html` con `prism.css` y `prism.js`) sale de lo medido del demo:
+  `valores.json`, las capturas a 1440 y a 390, los estados y el INFORME. **Nada del código de la tienda, ni el cartel «BUY THIS
+  TEMPLATE», ni el logo de Prism** (es su dibujo: la adaptación lleva un trofeo propio). Los íconos son trazos propios.
+- **A 1440 las doce tarjetas de la copia caen EXACTAS en las de la captura** (la última fila, a 1 px), y la adaptación cae en las mismas
+  cajas. **En el teléfono, a ≤3 px hasta los números de «Key metrics»**: de ahí para abajo la captura de Prism está en negro (se sacó antes
+  de que se dibujaran), así que el teléfono de abajo es un supuesto (las campañas con el nombre arriba y la barra debajo; los números con su
+  curva a lo ancho; el medidor con los tres datos debajo).
+- **Dos pasos que Prism no tiene:** hasta 1320 px (el ancho del Dashboard con la barra lateral es ~1200) «Revenue» va a lo ancho y los dos
+  anillos debajo, «Key metrics» a lo ancho arriba de las campañas y el medidor, y la última fila de a una; hasta 1000, la fila de los meses
+  de a dos con las semanas a lo ancho.
+- **El movimiento, de las RECETAS del INFORME:** la cabecera baja desde −10 px (.6 s, power3.out); cada tarjeta sube desde 16 px (.75 s) y
+  sus esquinas aparecen desde escala 1.08 (.7 s, power2.out, +.05 s); las barras de las agendas crecen de izquierda a derecha (1,5 s) y su
+  línea se dibuja .35 s después (1,3 s, power2.inOut); el gancho se revela de izquierda a derecha (1,3 s); los números cuentan .9 s; el
+  guion que más agendó entra desde abajo (.45 s). Al pasar, los botones y el guion ganador toman el borde del acento (.2 s).
+- **⚠️ Lo SUPUESTO:** el tiempo de cada tarjeta (desde .35 s, cada .06 s), cómo crecen los anillos, las campañas, el medidor y las columnas
+  (.9 s, power3.out, cada .06 s), cómo se ve la línea que barre la página al entrar, y los rótulos de los dos últimos botones del «Feed»
+  (los tapa el cartel de la tienda: la copia los deja sin rótulo).
+
+**Lo que Prism tiene y MaKo no mide, y no está:** el «Live» y los cubos de 15 s (los datos de Meta son por día), el pronóstico (la línea es
+un promedio de lo medido), las regiones, la salud de la plataforma, la latencia, el reloj y el rango (el período es el de la hoja), y una
+**prueba A/B entre dos creativos** (la confianza es la de la muestra).
+**La plantilla suma seis piezas** (las agendas por día, qué guion rinde más entre los que tienen muestra, los últimos doce meses, las
+agendas y los cierres por semana, el gancho día por día y lo invertido en cada veredicto) **y cambia dos cosas:** la frase de arriba trae lo
+invertido, y los tres costos se comparan con el período anterior. El cuadrante, el ángulo, el formato, los patrones de MaKo y las
+tarjetas de los guiones quedan en la grilla.
+
+**Dónde vive:**
+- El modelo: `lib/anuncio-diseno.ts`, puro. Los datos de ejemplo: `lib/anuncio-diseno-muestra.ts` (cuadran entre tarjetas: las semanas
+  suman los días, y los guiones de los dos anillos son los mismos). Los umbrales de la muestra (`IMPR_ALTA`, `IMPR_MEDIA`) y el buen gancho
+  (`HOOK_MID`) salen de `lib/ads-analyst-patrones.ts`, los mismos del veredicto.
+- El dibujo: `app/dashboard/disenos/HojaAnuncio.tsx`; lo vivo, `AnuncioVivo.tsx`; la hoja de estilos, `anuncio-css.ts` (la arma
+  `scratchpad/prs/armar-prs.py` desde `anuncio-prism/prism.css`: todo con el prefijo `prs-`).
+- La plantilla: `lib/graficos-plantillas-analysts.ts` (ADS, catorce piezas en el diseño, `diseno.id = 'anuncio'`); `DISENOS_HOJA` en
+  `lib/graficos-catalogo.ts`.
+- Los tests: `tests/dashboard-diseno-anuncio.test.ts` (13, probado rompiéndolo de diecisiete maneras: cada rotura sola da rojo).
+
+## Instagram y redes: la decimoséptima hoja copiada (la de Murmura), con «¿qué publicación trajo gente de verdad?» (en producción desde el 5/11/2026, 02:53)
 
 La referencia de Instagram y redes es Murmura (`docs/templates-dashboard-propuesta.md` §7.3): la página «Overview» de Murmura (un panel
 para manejar redes, claro y de vidrio): la barra de arriba y la de la izquierda, el saludo con tres números, «Up next» (la próxima

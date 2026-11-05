@@ -193,6 +193,7 @@ const ContenidoVivo = dynamic(() => import('./disenos/ContenidoVivo'));
 const CursoVivo = dynamic(() => import('./disenos/CursoVivo'));
 const ServicioVivo = dynamic(() => import('./disenos/ServicioVivo'));
 const InstagramVivo = dynamic(() => import('./disenos/InstagramVivo'));
+const AnuncioVivo = dynamic(() => import('./disenos/AnuncioVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -1706,6 +1707,14 @@ export function EditorInforme({
               // las publicaciones del Calendario de General (sin ellas, esas tarjetas dicen que no pudieron leerlo); un anuncio, una red,
               // una edad, una región o un origen abre lo de siempre de su pieza.
               <InstagramVivo
+                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'anuncio' && !enGrilla && !editando && !dueno ? (
+              // «Anuncio ganador» con su DISEÑO PROPIO (la copia de Prism, ./disenos/HojaAnuncio.tsx): los datos de sus componentes; un
+              // guion abre su pop-up, y un veredicto o una confianza, lo de siempre de su pieza.
+              <AnuncioVivo
                 hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
