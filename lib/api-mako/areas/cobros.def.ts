@@ -305,14 +305,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_quieren_entrar', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver quién quiere entrar a MaKo',
-    descripcion: 'Sólo para la plataforma: la bandeja «Quieren entrar» de Customers › Accounts: quien intentó entrar con Google sin tener cuenta y quien pidió un plan desde la página de planes, y todavía no tiene usuario. De cada uno, su correo, su nombre, si Google confirmó el correo, qué pidió y cuántas veces. Para darle de alta se usa esa pantalla: esto sólo lee.',
+    descripcion: 'Sólo para la plataforma: la bandeja «Quieren entrar» de Admin › Accounts: quien intentó entrar con Google sin tener cuenta y quien pidió un plan desde la página de planes, y todavía no tiene usuario. De cada uno, su correo, su nombre, si Google confirmó el correo, qué pidió y cuántas veces. Para darle de alta se usa esa pantalla: esto sólo lee.',
     parametros: [],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
   {
     id: 'ver_agentes_de_clientes', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver en qué trabajan los clientes',
-    descripcion: 'Sólo para la plataforma: las últimas sesiones que los clientes cerraron en SU Claude Code con el plugin de MaKo (la pestaña Agents de Customers): de cada una, el negocio, cuándo, el título y el resumen del acta, y cuántos mensajes escribió. Sirve para ver qué piden más y si usan bien Claude. Los mensajes textuales no vienen: están en Customers › Agents.',
+    descripcion: 'Sólo para la plataforma: las últimas sesiones que los clientes cerraron en SU Claude Code con el plugin de MaKo (la pestaña Agents de Admin): de cada una, el negocio, cuándo, el título y el resumen del acta, y cuántos mensajes escribió. Sirve para ver qué piden más y si usan bien Claude. Los mensajes textuales no vienen: están en Admin › Agents.',
     parametros: [
       { nombre: 'limite', rotulo: 'Cuántas', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'cuántas sesiones, las más nuevas primero. Sin esto, 20.' },
     ],

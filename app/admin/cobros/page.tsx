@@ -1,5 +1,5 @@
 // =============================================================================
-// /admin/cobros — se fue a Customers › Billing (25/10/2026)
+// /admin/cobros — se fue a Admin › Billing (25/10/2026; era Customers)
 // =============================================================================
 // Martín (docs/feedback-25-10-tarde.md punto 12): «Elimina la tab de "https://hola-mako.com/admin/cobros"... para eso ya
 // vamos a tener la nueva vista». Lo que mostraba (vender un plan, los precios en la moneda de la Mercado Pago de MaKo, el
