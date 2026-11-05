@@ -29,7 +29,7 @@ import { estaImpersonando } from '@/lib/workspace';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
 import { AVISOS_SIN_SOPORTE } from '@/lib/avisos-telefono-reglas';
-import { CODIGO_CARGADO, MENSAJE_MANDADO, etapaDeArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { CODIGO_CARGADO, MENSAJE_MANDADO, etapaDeArranque, funnelDelArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
 import { loQueContesto } from '@/lib/onboarding-historial';
 import {
   FaltaParaCerrar, anotarRespuesta, asegurarFunnelPrincipal, hechosConfirmados, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
@@ -171,9 +171,12 @@ export async function POST(req: NextRequest) {
         if (h.modo === 'oferta' && etapaDeArranque(nuevo, h) === 'oferta') await asegurarFunnelPrincipal().catch(() => {});
         // El CRM a medida (20/10/2026, pedido del 18/10, punto 10): al pasar del PDF o de la fase a la pregunta del CRM, MaKo lo
         // arma UNA vez con lo que vende. Los hechos se releen: la última respuesta de la fase recién guardó el diagnóstico.
-        if (h.conCrm && (etapa === 'pdf' || etapa === 'cobro' || etapa === 'fase') && nuevo.crmPropuesta === undefined && !nuevo.crmTipo) {
+        // Desde el 5/11/2026 el tipo lo decide `recomendarFunnel` (con la entrada que contestó): la IA sólo nombra SUS etapas.
+        if (h.conCrm && (etapa === 'pdf' || etapa === 'cobro' || etapa === 'fase' || etapa === 'entrada') && nuevo.crmPropuesta === undefined && !nuevo.crmTipo) {
           const h2 = await hechosDelArranque(nuevo);
-          if (etapaDeArranque(nuevo, h2) === 'crm') await guardarEstadoArranque({ crmPropuesta: await propuestaDeCrm(nuevo, h2.canalNegocio).catch(() => null) });
+          if (etapaDeArranque(nuevo, h2) === 'crm') {
+            await guardarEstadoArranque({ crmPropuesta: await propuestaDeCrm(nuevo, h2.canalNegocio, funnelDelArranque(nuevo, h2).tipo).catch(() => null) });
+          }
         }
         return listo(aviso ? { aviso } : {});
       }

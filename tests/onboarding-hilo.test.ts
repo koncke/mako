@@ -13,13 +13,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { rutaDelHilo, RUTA_AL_TERMINAR, RECORRIDO_INICIO } from '../lib/onboarding-arranque';
+import { rutaDelHilo, RUTA_AL_TERMINAR } from '../lib/onboarding-arranque';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 
-test('la ruta del final abre el chat y el tutorial; sin chat, el Ops Center igual', () => {
-  assert.equal(rutaDelHilo(42), `${RUTA_AL_TERMINAR}?chat=42&recorrido=${RECORRIDO_INICIO}`);
-  assert.equal(rutaDelHilo(null), `${RUTA_AL_TERMINAR}?recorrido=${RECORRIDO_INICIO}`, 'si no se pudo crear el chat, el final no se traba');
+test('la ruta del final abre el chat; sin chat, el Ops Center igual; sin `?recorrido=` (la guía pregunta sola)', () => {
+  // 5/11/2026 (G2 de docs/mako-iniciativa/guia.md): `sb-inicio` lo reemplazó la guía del Ops Center, que pregunta la primera vez
+  // de cada persona entre por donde entre. El parámetro ya no abría nada.
+  assert.equal(rutaDelHilo(42), `${RUTA_AL_TERMINAR}?chat=42`);
+  assert.equal(rutaDelHilo(null), RUTA_AL_TERMINAR, 'si no se pudo crear el chat, el final no se traba');
 });
 
 test('el chat «Onboarding» se crea una vez, con la conversación entera y en orden, y no como el principal', () => {
@@ -32,7 +34,7 @@ test('el chat «Onboarding» se crea una vez, con la conversación entera y en o
   assert.match(f, /if \(decision === 'listo'\) return/, 'una segunda llamada duplicaría el chat');
   // Desde el 21/10 sale del HISTORIAL guardado, junto por hora con Offer (tests/onboarding-historial.test.ts): armado del
   // estado de hoy, un dato arreglado después cambiaba lo que la persona «contestó».
-  assert.match(s, /mensajesDelHilo\(unirConOffer\(historial, h\.sesion\?\.mensajes \?\? \[\]\), e\.interes\)/, 'la conversación no va tal cual (lo que se le preguntó y contestó)');
+  assert.match(s, /mensajesDelHilo\(unirConOffer\(historial, h\.sesion\?\.mensajes \?\? \[\]\), \{ nombre: e\.nombre, telefonoVerificado: e\.telefono === 'verificado' \}\)/, 'la conversación no va tal cual (lo que se le preguntó y contestó)');
   assert.match(f, /if \(!sesiones\.some\(\(s\) => !s\.archived && s\.contexto !== marca\)\) await createSession\(chartKey, null, null\);/,
     'sin un chat principal antes, el más viejo es el jefe y «Onboarding» se mostraría como «Second Brain»');
   assert.match(f, /const hilo = await createSession\(chartKey, TITULO_HILO, marca\);/);

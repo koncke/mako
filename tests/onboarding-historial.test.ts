@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  AHORA_NO, CAMBIAR_NUMERO, CODIGO_CARGADO, CRM_PREGUNTA, CRM_SI, NEGOCIO_CONFIRMAR, NOMBRE_CONFIRMAR, PDF_OPCIONES, VER_OTROS_TIPOS,
+  AHORA_NO, CAMBIAR_NUMERO, CODIGO_CARGADO, CRM_SI, NEGOCIO_CONFIRMAR, NOMBRE_CONFIRMAR, PDF_OPCIONES, VER_OTROS_TIPOS,
   etapaDeArranque, leerRespuesta, mensajesDeArranque, mensajesDelHilo,
   type EstadoArranque, type HechosArranque, type MensajeArranque,
 } from '../lib/onboarding-arranque';
@@ -163,7 +163,10 @@ test('4. EN VIVO, el onboarding entero como lo corre la ruta: cada pregunta con 
     assert.ok(textos.includes(NEGOCIO_CONFIRMAR[0]));
     assert.ok(!textos.includes('Otro nombre') && !textos.some((x) => /Otro nombre/.test(x)), 'el negocio arreglado después no reescribe lo que pasó');
     const iVer = textos.indexOf(VER_OTROS_TIPOS);
-    assert.ok(iVer > 0 && textos[iVer - 1] === CRM_PREGUNTA && textos[iVer + 1] === CRM_PREGUNTA, 'la pregunta que vuelve, otra vez');
+    // La recomendación del funnel (5/11/2026): «Hay 12 funnels en MaKo. Para ti: «…».», con el porqué que escribe el código.
+    const esCrm = (x: string | undefined) => /^Hay 12 funnels en MaKo\. Para ti: «/.test(x ?? '');
+    assert.ok(iVer > 0 && esCrm(textos[iVer - 1]) && esCrm(textos[iVer + 1]), 'la pregunta que vuelve, otra vez');
+    assert.ok(textos.includes('¿Cómo te llegan hoy los clientes?'), 'por llamada, la entrada antes del CRM');
     if (variante === 'cambiar') {
       assert.deepEqual(hist.filter((x) => x.de === 'yo' && x.texto.startsWith('+54')).map((x) => x.texto), ['+549110000000', '+549110000001']);
       assert.equal(textos.filter((x) => x === CAMBIAR_NUMERO).length, 1);
@@ -176,7 +179,7 @@ test('4. EN VIVO, el onboarding entero como lo corre la ruta: cada pregunta con 
     }
     const unido = unirConOffer(hist, offer).map((x) => x.texto);
     assert.match(unido[0], /^¡Hola! Soy MaKo/, 'empieza por el saludo, no por la oferta');
-    assert.ok(unido.indexOf('¿Tienes un documento de tu oferta?') > unido.findIndex((x) => /cuéntame qué vendes en Acme/.test(x)));
+    assert.ok(unido.indexOf('¿Tienes un documento de tu oferta?') > unido.findIndex((x) => /Lo primero es tu oferta: con ella conozco Acme/.test(x)));
     assert.ok(unido.indexOf(PDF_OPCIONES[0]) === unido.findIndex((x) => /PDF con tu oferta/.test(x)) + 1, 'el PDF y su respuesta, después de Offer');
     assert.ok(unido.findIndex((x) => /PDF con tu oferta/.test(x)) > unido.indexOf('Ya tengo todas las piezas.'));
   }
@@ -200,7 +203,8 @@ test('4b. EN VIVO: el mismo toque dos veces (dos POST a la vez) no duplica pregu
   assert.deepEqual(h4.map((x) => x.texto), ['¿Te llamo «Que Tal»?', NOMBRE_CONFIRMAR[1], '¿Te llamo «Que Tal»?', NOMBRE_CONFIRMAR[1]]);
 });
 
-test('5. EN VIVO: la pregunta que vuelve después de una respuesta se anota otra vez («Ver otros tipos»)', () => {
+test('5. EN VIVO: la pregunta que vuelve después de una respuesta se anota otra vez («Ver los 12»)', () => {
+  const CRM_PREGUNTA = 'Hay 12 funnels en MaKo. Para ti: «Llamada de venta».';
   const crm = (opciones: string[]) => vistaDe([], [m('arr-crm', 'mako', CRM_PREGUNTA, opciones)]);
   let h = conLoNuevo([], crm([CRM_SI, VER_OTROS_TIPOS]), { ahora: 10, vivo: true })!;
   h = conLoNuevo(h, crm([CRM_SI, VER_OTROS_TIPOS]), { ahora: 20, vivo: true, respuesta: loQueContesto(crm([CRM_SI, VER_OTROS_TIPOS]), { opcion: 1 }) })!;
@@ -324,7 +328,7 @@ test('12. el chat «Onboarding» guarda qué mensaje de Offer tiene el audio, y 
     { de: 'mako', texto: '¿Cuánto cobras?' },
     { de: 'yo', texto: 'Seis cuotas', id: '4ac9f6df-0000-4000-8000-000000000000', audio: { secs: 110.4 } },
     { de: 'yo', texto: '', id: 'b6caad71-0000-4000-8000-000000000000', audio: { secs: 2 } },
-  ], 'anuncios');
+  ], { nombre: 'Ana', telefonoVerificado: false });
   assert.deepEqual(hilo[1], { role: 'user', content: 'Seis cuotas', audio: { mensaje: '4ac9f6df-0000-4000-8000-000000000000', secs: 110 } });
   assert.equal(hilo[2].content, NOTA_DE_VOZ);
   assert.equal(hilo[0].audio, undefined);
@@ -382,7 +386,7 @@ test('15. el chat «Onboarding» sale del historial (con sus audios), no del est
   const f = srv.slice(srv.indexOf('async function mensajesParaElHilo'), srv.indexOf('const primeroDeOffer'));
   assert.match(f, /if \(!\(await hechosConfirmados\(h\)\)\) throw new Error/);
   assert.match(f, /await anotarHistorial\(mensajesDeArranque\(e, h\), \{ primeroDeOffer: primeroDeOffer\(h\) \}\);/);
-  assert.match(f, /return mensajesDelHilo\(unirConOffer\(historial, h\.sesion\?\.mensajes \?\? \[\]\), e\.interes\);/);
+  assert.match(f, /return mensajesDelHilo\(unirConOffer\(historial, h\.sesion\?\.mensajes \?\? \[\]\), \{ nombre: e\.nombre, telefonoVerificado: e\.telefono === 'verificado' \}\);/);
   assert.doesNotMatch(f, /\.\.\.antes|\.\.\.despues/, 'sin armarlo otra vez del estado');
   assert.match(srv, /bloques: m\.audio && previo\.sesionId \? \[bloqueDeAudio\(previo\.sesionId, m\.audio\.mensaje, m\.audio\.secs\)\] : null,/);
   assert.match(srv, /if \(error && conAudio\) \{/, 'sin la columna, el texto se copia igual');
