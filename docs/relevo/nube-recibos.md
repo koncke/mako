@@ -125,6 +125,18 @@
 4. **La IA del negocio:** la lectura usa la IA que el negocio conectó (Gemini, su Claude o su GPT), nunca la red de MaKo. Un
    negocio sin IA ve «No pude leer el comprobante con tu IA» en el historial del lead y el aviso de revisar.
 
+## Qué quedó declarado en la API de MaKo
+
+Área `cobros` (lib/api-mako/areas/cobros.def.ts y .run.ts), las dos con `canales: ['whatsapp', 'app']` (sin HTTP: un comprobante
+y un recibo son datos de un cliente del negocio) y entran a los flujos como «⚡ Acción», que es como las dibuja la tarjeta:
+
+- **`leer_comprobante`** (acción, `costo: 'ia'`, `leadId`): lee el último archivo que mandó el lead en 48 h con la IA del negocio
+  y deja la lectura en `comprobantes_leidos`. Es lo que corre la tarjeta «Leer comprobante»; la condición «El comprobante…» lee
+  su resultado (`cubre`, `parcial`, `repetido`, `dudoso`, `no_es`, `no_llego`).
+- **`emitir_recibo`** (acción, `aTerceros: true`, `confirmacion: 'chat'`, `leadId`, `plantilla`, `canal`, `cuotaId`): emite el
+  recibo con su número del negocio (`emitir_recibo_negocio`, mig 0399) y lo manda. `cuotaId` es el `pagoId` de `cobranza_lead`;
+  sin valor, la última cuota cobrada. Por WhatsApp, con «sí» pelado (`aTerceros`).
+
 ## Con `punta/agencia-cobro`
 
 Esa rama todavía no lee comprobantes. Cuando lo haga, usa `leerComprobanteDelLead` (lib/comprobantes.ts) o las reglas puras
