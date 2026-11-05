@@ -3847,3 +3847,9 @@ lib/api-mako/areas/operaciones.* (`ignorar_pregunta_operaciones`) · tests/ops-c
 **SIN hacer:** aplicar la 0394 (sin ella, «Ignorar» en una decisión de la Ticketera dice «Todavía no se puede» y no cambia nada; las
 preguntas de los chats se ignoran igual). Mirarlo en el Ops Center de verdad: se vio con el bloque real y sus estilos reales en una
 página suelta (computadora y 390 px), no con la sesión de Martín.
+
+## Un doc de promesas queda viejo en 5 días (5/11/2026)
+
+`docs/promesas/2910-llamada-thiago.md` daba por inexistentes «dar de baja», «Lánzame una campaña» y las publicaciones recurrentes, y ya estaban en main. Con 8 chats en la nube, lo que dice «falta» envejece más rápido que el doc.
+
+**La regla:** antes de prometerle algo a un cliente o de repartirlo a un chat, se mide contra main. La auditoría del 5/11 de 142 pedidos dio 40 hechos, 39 a medias, 25 sin hacer y 38 sin poder verificar.

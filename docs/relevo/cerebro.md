@@ -1,5 +1,21 @@
 # Relevo del Cerebro
 
+## 5/11/2026, ~17:00 UTC (14:00 ART): lo vivo
+
+Cuenta claude3, 11 % semanal (reinicia el 11/11 09:00 UTC). Runner: `local_9d6e9e4d…`. Vigía armado. Medir antes de creerlo.
+
+**Lo más urgente: el cobro a Código.** Acuerdo en la memoria (`cobro-agencia-codigo`). `punta/agencia-cobro` trae sólo el cálculo y un aviso, y con dos errores (noviembre US$285 en vez de 238; días sueltos que el acuerdo no tiene). El 5/11 le mandé la lista completa, sin confirmar que la haya leído: si no aparece en su punta, volver a mandársela. **«Paga para entrar» tiene que estar antes del lunes 9/11, y la suspensión a los 14 días antes del 11/11 (vence Giselle).** Al llegar: aplicar su migración, correr su comando para pasar a los usuarios 19, 22 y 15 (hoy `suspendido` a mano), corregir la fecha de Giselle y prender desde 2026-12. Martín carga su usuario de Binance en /admin/cobros. Avisarle a Juanfran sobre Giselle es de Martín.
+
+**Carruseles:** 1.378 en la biblioteca, con 244 de los 245 de Top Carousels. Lo aprendido y lo que falta, en `docs/hallazgos-carruseles.md`. Top Carousels no se recorre.
+
+**Chats en la nube del 5/11:** cobro (`punta/agencia-cobro`), múltiplo de rendimiento (`punta/multiplo-rendimiento`), primer contacto de Código (`punta/codigo-primer-contacto`, con la 0396 sin aplicar), Black November (sin punta todavía), iniciativa por tab (`punta/iniciativa-*`). Ya en main: varias claves de Apify, «Ignorar» en el Ops Center (0394 aplicada) y la marca en Image.
+
+**Sin repartir:** la lista de la auditoría, con Thiago primero (guía de migrar el CRM con Claude, token de agencia, «Usar en un anuncio», «Guardar en MaKo»), Video (subtítulos, B-roll, clips), Lead Magnet Generator, arrastrar bloque en Copywriter, 4:5 en Web Generator, y los 22 hallazgos del recorrido. El registro fino está en `C:/dev/cerebro-herramientas/tickets/por-repartir.md`.
+
+**Espera a Martín:** cargar las claves de Apify en Integraciones (y rotarlas: las pegó en el chat), Stripe real y euros, clic de prueba de Zernio, look de AI Avatar, decisión de LinkedIn, instalar el servicio del Runner.
+
+---
+
 ## 4/11/2026, ~14:30 UTC (11:30 ART): lo vivo
 
 Cuenta claude5 al 94 % de la ventana de 5 horas (reinicia 14:50 UTC) y 72 % semanal. Medir antes de creerlo: `git log origin/main`, `git for-each-ref refs/remotes/origin/punta`.

@@ -2196,3 +2196,13 @@ La decisión y sus motivos: [estrategia-lanzamiento-low-to-high.md](estrategia-l
 **Medido: `/planes` ya cobra (31/10, GET anónimo).** La plataforma pasó de no tener pasarela (30/10) a ofrecer Mercado Pago real en pesos: «$ 73.555 ARS por mes». Lo que se escribió el 30/10 sobre «no tiene ninguna pasarela» ya no vale, y ningún POST de prueba se hace sin el sí de Martín.
 
 **Sin hacer:** el número del checkout no se muestra en el aviso de «Entró un pago», sólo el link a la ficha (lib/cobros.ts, `avisarPagoRecibido`). El 15 del celular argentino («11 15 2233 4455») queda adentro: sacarlo pide saber cuánto mide cada código de área, y no se midió contra WhatsApp si llega igual; la verificación del onboarding lo corrige. Una lada elegida mal por el país de la IP con un número local no se detecta. Un número de una ficha sin email ata la compra a esa ficha (`leadDeLaCompra`, decisión del 30/10), y `asentarAlta` le escribe `cliente_ws` sin mirar si ya tenía. La pantalla se vio sólo en el banco (app/planes/[plan]/CompraPlan.tsx); en producción, después del deploy.
+
+## Pausar un negocio no le corta el acceso (5/11/2026)
+
+**Síntoma:** había que dejar afuera a dos clientes de Código Inmobiliario que pasaron las 2 semanas sin pagar. Lo obvio era marcar el negocio como pausado, o usar `plan.corte_por_pago`, y ninguna de las dos corta.
+
+**Causa:** `negocioPausado` (`lib/workspace.ts:350`) sólo corta con el motivo `sin-agencia` vigente o con `CORTE_DE_ACCESO_PRENDIDO`, que está apagado para todos. Y `sin-agencia` no sirve para esto: le dice al cliente «Tu agencia dejó de administrar tu cuenta», que es falso.
+
+**Lo que corta hoy:** `usuarios.estado='suspendido'` (`lib/auth.ts:55`). Pablo y Patricia quedaron así el 5/11 (usuarios 19 y 22, que eran `activo`, y 15, que era `invitado`). Corta a la persona, no al negocio: la agencia igual puede entrar a inspeccionar.
+
+**Sin hacer:** el motivo de corte «Paga para entrar», que tiene que cortar con el corte global apagado y frenar también al inspeccionar. Lo arma el chat en la nube de `punta/agencia-cobro`. Tiene que estar antes del 9/11, cuando Pablo arranca campañas.
