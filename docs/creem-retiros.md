@@ -126,5 +126,5 @@ Sí, según su documentación, aunque no está visto en la práctica porque hay 
   cerró una cuenta no le abre otra a las **personas conectadas** con ella. Lo leyó la sesión que encargó la salida de Creem;
   desde la nube no se abren docs.creem.io ni creem.io, así que no se releyó acá.
 - **Lo que queda:** Mercado Pago para Argentina, Stripe si está conectado, y para el resto de LatAm, hasta que haya otro
-  proveedor, el pedido de datos de /planes. Las alternativas ya medidas (Paddle, Dodo, Polar, dLocal Go) están en
-  docs/estrategia-financiera-mako.md. Elegir es de Martín.
+  proveedor, el pedido de datos de /planes. La comparación del próximo está en [proveedores-de-cobro.md](proveedores-de-cobro.md).
+  Elegir es de Martín.

@@ -68,8 +68,8 @@ Creem y el §20.6 sale del encargo, que los leyó: no lo releí. Está dicho as�
    (lib/vender-plan.ts, /admin/cobros) y la API: un cobro contra una tienda cerrada falla. No lo filtré por nombre en el código a
    propósito: `pasarelasConectadas` es la de todos los negocios, y un negocio puede tener su propia cuenta de Creem. El aviso
    registrado a hola-mako.com/api/webhooks/creem queda sin uso.
-4. **El próximo proveedor lo elige Martín** (las alternativas medidas: docs/estrategia-financiera-mako.md, Paddle, Dodo, Polar,
-   dLocal Go). Si pide moderación, se enchufa con el molde de `CREEM` y las legales lo vuelven a nombrar. Si es merchant of record,
+4. **El próximo proveedor lo elige Martín.** La comparación después del rechazo ya está en main: [docs/proveedores-de-cobro.md](../proveedores-de-cobro.md)
+   (5/11, cuenta claude3: Whop, dLocal Go en paralelo para LatAm, FastSpring; Paddle y Dodo sólo con cambios en MaKo). Si pide moderación, se enchufa con el molde de `CREEM` y las legales lo vuelven a nombrar. Si es merchant of record,
    entra en LatAm solo, por su capacidad.
 5. **Lo que quedó de Creem para los NEGOCIOS** (un negocio que cobra a sus clientes con su propia cuenta de Creem): la tarjeta de
    /integraciones, el webhook, `lib/creem-api.ts` y los cobros. No lo toqué: el rechazo es de la tienda de MaKo, no de la

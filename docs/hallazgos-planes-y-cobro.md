@@ -2338,7 +2338,7 @@ lib/vigia-aprobaciones.ts
 - **Un lector del vigía sin red no puede inventar un estado** (regla 3 de lib/vigia-aprobaciones.ts): se probó devolver
   «rechazado» fijo y dio dos rojos en `tests/vigia-aprobaciones-fuentes.test.ts`. El rechazo va en el nombre y en la nota.
 
-**Sin hacer** (en [relevo/nube-creem-fuera.md](relevo/nube-creem-fuera.md)): elegir el próximo proveedor (Martín; las
-alternativas medidas, en docs/estrategia-financiera-mako.md); qué hacer con las claves de Creem que queden guardadas en la
+**Sin hacer** (en [relevo/nube-creem-fuera.md](relevo/nube-creem-fuera.md)): elegir el próximo proveedor (Martín; la
+comparación, en [proveedores-de-cobro.md](proveedores-de-cobro.md)); qué hacer con las claves de Creem que queden guardadas en la
 plataforma; si la próxima pasarela pide moderación, enchufarla y volver a nombrarla en las legales; la sección de AGENTS.md
 «Lo que genera imagen o video pasa por `encolar`, que lo modera con Creem», que quedó vieja.
