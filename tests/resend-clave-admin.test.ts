@@ -142,7 +142,7 @@ test('RESEND_ADMIN_API_KEY la nombra sólo lib/resend-dominios.ts, y ese módulo
   assert.ok(total > 1000, `git ls-files trajo ${total}: no miró el repo`);
   let candidatos: string[] = [];
   try {
-    candidatos = execFileSync('git', ['grep', '-l', '--untracked', 'RESEND_ADMIN_API_KEY'], { cwd: RAIZ, encoding: 'utf8' }).split('\n').filter(Boolean);
+    candidatos = execFileSync('git', ['grep', '-l', '--untracked', 'RESEND_ADMIN_API_KEY'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).split('\n').filter(Boolean);
   } catch (e) { if ((e as { status?: number }).status !== 1) throw e; }
   const sinComentarios = (t: string) => t.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const nombran = candidatos
