@@ -724,6 +724,7 @@ const HiloAgente = dynamic(() => import('./ChatAgente').then((m) => m.HiloAgente
 const CajaAgente = dynamic(() => import('./ChatAgente').then((m) => m.CajaAgente));
 const PanelAgenteChat = dynamic(() => import('./ChatAgente').then((m) => m.PanelAgenteChat));
 const CitaAgente = dynamic(() => import('./ChatAgente').then((m) => m.CitaAgente));
+const AperturaAgente = dynamic(() => import('./ChatAgente').then((m) => m.AperturaAgente));
 
 /** Un archivo del pedido, en el hilo (no se abre desde ahí: viajó su texto, no se guardó). */
 const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|avif)$/i.test(nombre) ? 'image' as const : 'document' as const, sinAbrir: true });
@@ -754,6 +755,11 @@ export function PanelAgente() {
   const router = useRouter();
   const ws = useWs();
   const hilo = useHilo(docId);
+  // MAKO TOMA LA INICIATIVA (5/11/2026, docs/mako-iniciativa/plan.md T13): con la página sin publicar y la charla vacía pregunta
+  // «¿Ya está lista para que la vean?»; «Sí, ya está» abre «Publicar» (el diálogo mira la dirección, el tope del plan y el cobro).
+  // La pieza vive en ./ChatAgente.tsx (`AperturaAgente`, con `next/dynamic`: trae el CSS del hilo); acá sólo se sabe si habla,
+  // para esconder el saludo y las sugerencias mientras tanto: un paso por pantalla.
+  const [aperturaHabla, setAperturaHabla] = useState(false);
   // Recién recargada (u otra computadora): la charla guardada de esta landing.
   useEffect(() => { traerHilo(docId); }, [docId]);
   const [texto, setTexto] = useState('');
@@ -1049,6 +1055,10 @@ export function PanelAgente() {
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}<ReportarASoporte /></p>}
         </div>}>
           {hilo.mensajes.length === 0 && (
+            <AperturaAgente hechos={{ pagina: docId != null ? String(docId) : null, publicada: ctx.urlPublica != null, charlaVacia: true }} libre={!hilo.corriendo}
+              onPublicar={() => ctx.setDialogo('publicar')} onHabla={setAperturaHabla} />
+          )}
+          {hilo.mensajes.length === 0 && !aperturaHabla && (
             <>
               <div className="gma-ag-burbuja" data-de="mako">
                 {intencion === 'discutir'
