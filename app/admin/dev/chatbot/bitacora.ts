@@ -3298,4 +3298,33 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "5 nov", hora: "21:30", chat: "Recibos y la tarjeta Pagos (nube)", cuenta: "nube", actor: "martin", tipo: "prompt",
+    titulo: "Una tarjeta Pagos en Automations: leer comprobantes y emitir recibos con plantillas",
+    pedido: "sería bueno de que puedas implementar dentro de una tarjeta nueva de automations que sea un lector de comprobantes de pago o recibos de pago y por otro lado también tal vez una tarjeta que se llame pagos, ¿no? Y que dentro de esa tarjeta haya tanto para leer comprobantes que vienen como para emitir factura y tal vez que hayan varios templates de factura que nosotros podemos crear y que el usuario pueda elegir qué template de factura quiere enviar. Eso sería bueno que lo implementes. Por favor, si también nosotros lo utilizamos con nuestros propios clientes.",
+    puntos: ["Llegó por el encargo del Cerebro (docs/relevo/pagos-automations-encargo.md)."],
+  },
+  {
+    fecha: "5 nov", hora: "23:50", chat: "Recibos y la tarjeta Pagos (nube)", sesion: "cli_c5ed70d4-0cef-5e9e-8637-8606741b3ad5", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La tarjeta Pagos: lee el comprobante que manda un lead y emite su recibo con la plantilla que elijas",
+    puntos: [
+      "Un CRON nuevo en «Pagos»: «Llega un comprobante», cuando un lead manda una foto o un PDF por WhatsApp.",
+      "PAYMENT PROOF lee el comprobante con la IA del negocio y lo compara con la cuota que le toca. Nunca marca nada cobrado.",
+      "La CONDITION «Su comprobante» decide a la vista: cubre, pagó menos, el N.º ya se usó, hay que revisarlo, no es un comprobante.",
+      "RECEIPT emite el recibo de la cuota cobrada, con número propio del negocio, y lo manda al lead por WhatsApp o correo, o al grupo.",
+      "Tres plantillas para elegir, con su miniatura y «Ver ejemplo en PDF»: Clásico, Compacto y Con tu marca.",
+      "Dos plantillas en la galería: «Le Llegó un Comprobante» y «Emitir Recibo al Cobrar», las dos con «Cada vez».",
+      "La API: leer_comprobante y emitir_recibo.",
+    ],
+    archivos: [
+      "lib/comprobante-reglas.ts y lib/comprobantes.ts — la lectura y lo que decide el código",
+      "lib/recibo-negocio-reglas.ts y lib/recibos-negocio.ts — el recibo del negocio",
+      "lib/recibo-pdf.ts — las tres plantillas",
+      "lib/flujo-conversacion.ts, app/automations/FlujoLienzo.tsx y app/automations/EditorRecibo.tsx — las dos tarjetas",
+      "supabase/migrations/0398_comprobantes_leidos.sql y 0399_recibos_negocio.sql — sin aplicar",
+      "tests/comprobantes.test.ts, tests/recibos-negocio.test.ts y scripts/probar-0398-0399-pglite.mjs — probados rompiéndolos",
+    ],
+    revisar: "/automations",
+  },
 ];

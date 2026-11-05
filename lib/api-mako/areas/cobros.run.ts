@@ -846,6 +846,35 @@ export const RUNNERS: Runners = {
     }),
   },
 
+  // ── La tarjeta «Pagos › Emitir recibo» (5/11/2026, lib/recibos-negocio.ts). Un recibo por pago; sale como el negocio.
+  emitir_recibo: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const { esPlantillaRecibo, esCanalRecibo, PLANTILLAS_RECIBO, ROTULO_CANAL_RECIBO } = await import('@/lib/recibo-negocio-reglas');
+      const plantilla = input.plantilla == null || input.plantilla === '' ? 'clasico' : input.plantilla;
+      const canal = input.canal == null || input.canal === '' ? 'whatsapp' : input.canal;
+      if (!esPlantillaRecibo(plantilla)) return { error: 'Esa plantilla no existe: clasico, compacto o marca.' };
+      if (!esCanalRecibo(canal)) return { error: 'El recibo sale por whatsapp, email o grupo.' };
+      const pagoId = input.pagoId == null ? null : Number(input.pagoId);
+      const nombre = PLANTILLAS_RECIBO.find((x) => x.id === plantilla)?.nombre ?? plantilla;
+      return {
+        payload: { leadId: lead.id, plantilla, canal, pagoId },
+        resumen: `Emitir el recibo de ${pagoId ? `la cuota #${pagoId}` : 'la última cuota cobrada'} de ${lead.nombre} con la plantilla «${nombre}» y mandarlo ${ROTULO_CANAL_RECIBO[canal].toLowerCase()}. No se deshace.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('emitir el recibo', async () => {
+      const { emitirReciboDelLead } = await import('@/lib/recibos-negocio');
+      const leadId = Number(payload.leadId);
+      const r = await emitirReciboDelLead(ctx.ws, leadId, {
+        pagoId: payload.pagoId == null ? null : Number(payload.pagoId), plantilla: payload.plantilla as never, canal: payload.canal as never, autor: autorDe(ctx),
+      });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.yaEstaba) await logLeadEvent(leadId, 'Recibo de pago', r.resumen, autorDe(ctx));
+      return { ok: true, resumen: r.resumen, datos: { numero: r.numero, yaEstaba: r.yaEstaba } };
+    }),
+  },
+
   // ── Los recibos de MaKo (5/11/2026, lib/recibos.ts) ─────────────────────────────────────────────────────────────
   // Sólo la plataforma, y en la app el super admin GLOBAL (como ver_clientes_de_mako): son los pagos de todos los negocios.
   ver_recibos: {

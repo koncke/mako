@@ -119,6 +119,9 @@ export const TABLAS_DE_INQUILINO = [
   // Los avisos de Stripe y Mercado Pago (mig 0255): `workspace_id` admite null, como email_entrantes.
   // No va en TENANT_TABLES: nadie la lee con getTenantDb. `cobros` sí está en las dos.
   'pasarela_eventos',
+  // Los recibos que un negocio emite a sus clientes y su numeración (mig 0399, 5/11/2026): vaciar el negocio los borra y el
+  // próximo vuelve a ser el 0001.
+  'recibos_negocio', 'recibos_negocio_numeracion',
   // El libro del recolector del Second Brain (mig 0333): vaciar o borrar el negocio se lleva lo que ya leyó.
   'second_brain_recolectado',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_proyectos',

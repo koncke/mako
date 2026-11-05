@@ -427,4 +427,19 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [leadId('id del lead que mandó el comprobante.')],
     canales: ['whatsapp', 'app'], costo: 'ia', gating: G_TAB,
   },
+  // ── LA TARJETA «Pagos › Emitir recibo» de Automations (5/11/2026, lib/recibos-negocio.ts; Martín: «varios templates [...] que
+  // el usuario pueda elegir»). La ⚡ Acción dibujada como lo que hace. Un recibo por pago, numerado por negocio (mig 0399).
+  {
+    id: 'emitir_recibo', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: false, aTerceros: true,
+    titulo: 'Emitir el recibo de un pago',
+    descripcion: 'PROPONE emitir el recibo de pago (un PDF con número propio del negocio) de una cuota YA cobrada de un lead, con la plantilla elegida, y mandarlo al lead por WhatsApp o por correo, o al grupo de MaKo. Sin pagoId, la última cuota cobrada. Un pago tiene un solo recibo: pedirlo otra vez no crea otro número. Es un recibo de pago, no una factura fiscal. El correo sale con el dominio del negocio. Es la tarjeta «Pagos › Emitir recibo» de Automations.',
+    escribe: 'emite el recibo con su número (recibos_negocio), guarda el PDF y lo manda por el canal elegido',
+    parametros: [
+      leadId('id del lead que pagó.'),
+      { nombre: 'plantilla', rotulo: 'Plantilla', tipo: 'string', enum: ['clasico', 'compacto', 'marca'], descripcion: 'clasico (completo), compacto (una hoja corta) o marca (con una franja con el nombre del negocio). Sin valor, clasico.' },
+      { nombre: 'canal', rotulo: 'Por dónde sale', tipo: 'string', enum: ['whatsapp', 'email', 'grupo'], descripcion: 'whatsapp o email: al lead; grupo: al grupo de MaKo del negocio. Sin valor, whatsapp.' },
+      { nombre: 'pagoId', rotulo: 'Cuota', tipo: 'number', entero: true, minimo: 1, descripcion: 'el id de la cuota cobrada (de cobranza_lead). Sin valor, la última cobrada.' },
+    ],
+    canales: ['whatsapp', 'app'], costo: 'gratis', gating: G_TAB,
+  },
 ];

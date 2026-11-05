@@ -157,7 +157,11 @@ test('la migración: una lectura por mensaje y un N.º de operación por negocio
   assert.match(sql, /create unique index if not exists comprobantes_leidos_mensaje_uk on comprobantes_leidos \(workspace_id, wa_mensaje_id\);/);
   assert.match(sql, /create unique index if not exists comprobantes_leidos_operacion_uk on comprobantes_leidos \(workspace_id, operacion_unica\) where operacion_unica is not null;/);
   assert.match(sql, /revoke all on comprobantes_leidos from anon, authenticated;/);
-  assert.match(leer('lib/tablas-de-inquilino.ts'), /'comprobantes_leidos'/, 'getTenantDb la scopea');
+  // getTenantDb la scopea (TENANT_TABLES, lib/workspace.ts: sin ella el insert sale sin workspace_id), y vaciar el negocio la borra.
+  const tenant = leer('lib/workspace.ts');
+  const set = tenant.slice(tenant.indexOf('const TENANT_TABLES = new Set<string>(['), tenant.indexOf(']);', tenant.indexOf('const TENANT_TABLES = new Set<string>([')));
+  assert.match(set, /'comprobantes_leidos'/, 'getTenantDb la scopea');
+  assert.match(leer('lib/tablas-de-inquilino.ts'), /'comprobantes_leidos'/, 'el reset del negocio la vacía');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

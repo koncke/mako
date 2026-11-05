@@ -86,7 +86,7 @@ import {
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, opcionesSueltas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
-  revisarHeredado, saleSolaDelPaso, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, esLeerComprobante, errorLegible,
+  revisarHeredado, saleSolaDelPaso, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, esLeerComprobante, esEmitirRecibo, OP_EMITIR_RECIBO, errorLegible,
   ID_ENTRADA, tarjetasIncompletas, PARTES_EN_TARJETA, RENGLONES_CON_DOS, SEP_BURBUJAS_TARJETA, ALTO_MAS_PARTES, ALTO_PALOMITAS,
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES, altoDeMensaje,
   MARCO_DISPARO, RENGLON_DISPARO, SEP_DISPARO, ALTO_NUEVO_DISPARO, burbujasDeTarjeta,
@@ -116,6 +116,7 @@ import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { chipDeTarjeta, lineaDePaso, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
 import type { EnColaDelPaso } from '@/lib/en-cola-por-paso';
 import { RESULTADOS_COMPROBANTE } from '@/lib/comprobante-reglas';
+import { EditorRecibo } from './EditorRecibo';
 
 const SANS = "'Geist', sans-serif";
 
@@ -1110,6 +1111,11 @@ function EditorDeNodo(pr: PropsEditor) {
       if (esMako(paso)) return <EditorMako key={`mako-${id}`} {...pr} paso={paso} id={id} chatMako={chatDe(id)} />;
       // «Pagos › Leer comprobante» (5/11/2026): no tiene nada que elegir; dice qué hace y qué puede preguntar la CONDITION.
       if (esLeerComprobante(paso)) return <EditorComprobante />;
+      // «Pagos › Emitir recibo» (5/11/2026): la plantilla y por dónde sale son los parámetros de la acción.
+      if (esEmitirRecibo(paso)) {
+        const params = (paso.accion?.params ?? {}) as Record<string, unknown>;
+        return <EditorRecibo params={params} busy={pr.busy} cambiar={(nuevos) => cambiar({ accion: { operacion: OP_EMITIR_RECIBO, params: { ...nuevos, leadId: LEAD_DEL_EVENTO } } }, true)} />;
+      }
       return <EditorAccion paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
     // La `key` va por tarjeta: el editor recuerda la unidad elegida (`useState` sembrado de props).
     case 'esperar': return <EditorEspera key={`espera-${id}`} espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;

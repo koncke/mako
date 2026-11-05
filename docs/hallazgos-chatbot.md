@@ -8059,3 +8059,48 @@ a sus 40 por día (si no, el día del lanzamiento arranca en 20). Lo mide el scr
 
 **Regla:** un valor de fábrica que se GUARDA en la fila tiene que poder ceder. Sin una marca, se lee igual que una decisión de
 la persona y tapa la configuración de más arriba.
+
+## La tarjeta Pagos: leer un comprobante y emitir un recibo, sin una clase nueva (5/11/2026, nube)
+
+**El pedido:** Martín: «una tarjeta nueva de automations que sea un lector de comprobantes de pago [...] una tarjeta que se llame
+pagos [...] para leer comprobantes que vienen como para emitir factura y [...] varios templates de factura». El encargo, en
+docs/relevo/pagos-automations-encargo.md; lo que le toca al Cerebro, en docs/relevo/nube-recibos.md.
+
+**Dos tarjetas, no una, y no una clase nueva.** Una tarjeta es algo que OCURRE: leer y emitir son dos cosas, y cada una es su
+tarjeta en el grupo del CRM del ＋ (PAYMENT PROOF y RECEIPT). Las dos son la ⚡ Acción de una operación de la API
+(`leer_comprobante`, `emitir_recibo`) dibujada como lo que hace, como la etiqueta y «MaKo en WhatsApp»
+(`esLeerComprobante`, `esEmitirRecibo`, lib/flujo-conversacion.ts). **⚠️ El diseño obvio era el caro:** una clase nueva
+(`nodo: 'pagos'`) son ~25 archivos (la de A/B, arriba); una acción dibujada son cuatro lugares (`MENU_MAS`, `nodoNuevo`, `TITULO`
+y el panel) y hereda el motor, «Probar», la copia, el registro de la API y Crear con IA.
+
+**Nada por detrás.** La tarjeta que lee NUNCA marca nada cobrado: guarda la lectura y lo que sigue lo decide la CONDITION «Su
+comprobante» (lib/condiciones-catalogo.ts, fuente `comprobante`). Lo que decide «cubre» es el CÓDIGO
+(lib/comprobante-reglas.ts): sólo una lectura con monto, moneda, fecha y N.º de operación, sin dudas del modelo, en la MISMA
+moneda que la cuota y por lo que tocaba. «De más», «otra moneda» y «sin cuota» van a una persona como «hay que revisarlo». Un
+monto que llega como texto con coma («1.234,56») no se adivina. Un N.º de operación cuenta una vez: lo frena un índice único
+de la base (mig 0398, `operacion_unica`), no una lectura previa.
+
+**⚠️ Una foto no abre la rama de «Si responde».** Al motor sólo le llegan el texto y el audio de un lead
+(lib/evolution-mensajes.ts). Por eso el disparador es un CRON nuevo de «Pagos» («Llega un comprobante»), que sale con
+cualquier foto o PDF de un lead (nunca de un grupo ni nuestro), y las dos tarjetas no se ofrecen debajo de «Si responde».
+Instagram y Messenger no guardan la URL de un adjunto (`ig_mensajes.adjuntos` trae sólo el tipo): el lector es de WhatsApp.
+
+**⚠️ La plantilla nace con «Cada vez».** Un lead entra una vez a cada automatización; el que paga todos los meses manda un
+comprobante cada mes. Las plantillas de la galería pueden declarar su `reentrada` (`filaDePlantilla`, lib/plantilla-crear.ts).
+
+**⚠️ El techo de Groq ya no tenía aire.** El evento y la condición nuevos sumaron ~10 tokens y «Crear con IA» con todo en el
+tope pasó de 3.996 a 4.004 (techo: 4.000); editar con el CRON estaba a UN token del borde. Se pagó con el encabezado
+«DISPARADORES:» a secas (el «(clave y qué lo dispara)» repetía la regla 10 del system) y dos rótulos más cortos del bloque de
+condiciones. Quedó en 3.998: lo próximo que se sume al CRON o al catálogo de condiciones paga otra cosa.
+
+**⚠️ Dos listas de tablas con nombres parecidos.** `TABLAS_DE_INQUILINO` (lib/tablas-de-inquilino.ts) es lo que se VACÍA al
+resetear un negocio; `TENANT_TABLES` (lib/workspace.ts) es lo que `getTenantDb` SCOPEA. La primera tanda sumó la tabla sólo a la
+primera: el insert salía sin `workspace_id`, sin un error de tipos. Una tabla nueva de un negocio va en las dos.
+
+**Probado rompiéndolo:** 15 roturas en tests/comprobantes.test.ts, 13 en tests/recibos-negocio.test.ts y 4 en
+scripts/probar-0398-0399-pglite.mjs. Una dio VERDE en la primera versión: «copia al grupo antes de mandar» se comparaba con
+`indexOf`, que da -1 si la copia no está (la trampa ya escrita en AGENTS.md).
+
+**Sin hacer:** marcar la cuota cobrada desde el flujo cuando el comprobante «cubre» (hoy le avisa al equipo y lo marca una
+persona); el recibo de un pago marcado A MANO no tiene un CRON propio (se emite con la tarjeta en otro flujo o por el chat);
+la línea de WhatsApp por la que sale el recibo es la de por defecto, no la de la automatización.

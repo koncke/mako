@@ -90,6 +90,9 @@ const TENANT_TABLES = new Set<string>([
   // el cliente de servicio y sin scope, a propósito: es el único lugar del sistema
   // donde el aislamiento se cruza, y está declarado en la migración 0124.
   'agente_sesiones',
+  // La tarjeta «Pagos» de Automations (5/11/2026): las lecturas de comprobantes (mig 0398) y los recibos que emite cada negocio
+  // a sus clientes (mig 0399). Son de UN negocio: getTenantDb les pone el workspace al leer y al escribir.
+  'comprobantes_leidos', 'recibos_negocio',
   // La cola del resumen diario de avisos (mig 0161): una fila por aviso pospuesto. Va acá
   // porque las filas son de un workspace y el cron las manda por el grupo de ESE workspace.
   'avisos_cola',

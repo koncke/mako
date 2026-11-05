@@ -52,7 +52,7 @@
 import { claseDe, ID_INICIO, type PasoGrafo, type FilaCondicion, type Espera } from './flujo-grafo';
 import { LEAD_DEL_EVENTO } from './api-mako/flujo-params';
 import { OP_AVISAR } from './flujo-legado';
-import { OP_LEER_COMPROBANTE } from './flujo-conversacion';
+import { OP_EMITIR_RECIBO, OP_LEER_COMPROBANTE } from './flujo-conversacion';
 import type { ResultadoComprobante } from './comprobante-reglas';
 import type { Reentrada } from './reentrada';
 import {
@@ -234,6 +234,11 @@ function mako(id: string, texto: string, siguiente: string | null): PasoDePlanti
 /** «Pagos › Leer comprobante» (5/11/2026): la ⚡ Acción `leer_comprobante` sobre el lead del evento, como la arma el ＋. */
 function leerComprobante(id: string, siguiente: string | null): PasoDePlantilla {
   return { ...RELLENO, id, siguiente, accion: { operacion: OP_LEER_COMPROBANTE, params: { leadId: LEAD_DEL_EVENTO } } };
+}
+
+/** «Pagos › Emitir recibo» (5/11/2026): el recibo de la última cuota cobrada, con la plantilla y por dónde sale. */
+function emitirRecibo(id: string, siguiente: string | null, plantilla: 'clasico' | 'compacto' | 'marca', canal: 'whatsapp' | 'email' | 'grupo'): PasoDePlantilla {
+  return { ...RELLENO, id, siguiente, accion: { operacion: OP_EMITIR_RECIBO, params: { leadId: LEAD_DEL_EVENTO, plantilla, canal } } };
 }
 
 /** «Su comprobante: …» (la condición de la tarjeta, lib/condiciones-catalogo.ts). */
@@ -676,6 +681,21 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       mako('cl_ok', '🧾 {{nombre_completo}} mandó un comprobante que cubre su cuota. Revísalo y márcala cobrada en su ficha.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
       mako('cl_revisar', '⚠️ {{nombre_completo}} mandó un comprobante que hay que revisar: pagó menos, ese N.º de operación ya se usó o no se lee bien.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
     ],
+  },
+  {
+    // (5/11/2026) La tarjeta «Pagos › Emitir recibo» (docs/relevo/pagos-automations-encargo.md): «otra "Emitir recibo al
+    // cobrar"». Cuando la pasarela aprueba un pago, el recibo de esa cuota le llega al cliente por WhatsApp. Nace con «Cada
+    // vez»: cada pago (cada mes de una suscripción) tiene su recibo. Un pago marcado a mano se emite con la tarjeta en otro
+    // flujo o por el chat (`emitir_recibo`).
+    id: 'recibo-al-cobrar',
+    nombre: 'Emitir Recibo al Cobrar',
+    emoji: '🧾',
+    linea: 'Cuando se aprueba un pago, le manda al cliente su recibo en PDF por WhatsApp.',
+    origen: 'la tarjeta Pagos de Automations (5/11/2026)',
+    objetivo: 'cobrar',
+    cron: { fijo: TRIGGER_PAGO, eventos: ['aprobado'] },
+    reentrada: 'siempre',
+    pasos: [emitirRecibo('rc_recibo', null, 'clasico', 'whatsapp')],
   },
 ];
 
