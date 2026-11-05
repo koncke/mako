@@ -63,11 +63,11 @@ export const suscripcionAlLado = (ctx: CtxFicha, hermanos?: readonly string[]): 
 export const REGLAS_PAGOS = {
   oferta: {},
   'links-de-pago': { disenos: ['lista', 'pendiente'] },
-  venta: { estaVacio: (ctx, _p, h) => sinDealSalvo('monto')(ctx) || suscripcionAlLado(ctx, h), disenos: ['cajas', 'renglon', 'numero'] },
-  cobrado: { estaVacio: (ctx, _p, h) => sinEstadoDeCuenta(ctx) || suscripcionAlLado(ctx, h), disenos: ['numero', 'chip'] },
-  cuotas: { estaVacio: (ctx, _p, h) => (sinDealSalvo('plan', 'comprobante')(ctx) && cuotasDe(ctx).length === 0) || suscripcionAlLado(ctx, h), disenos: ['tabla', 'proxima'] },
+  venta: { estaVacio: (ctx, _p?, h?) => sinDealSalvo('monto')(ctx) || suscripcionAlLado(ctx, h), disenos: ['cajas', 'renglon', 'numero'] },
+  cobrado: { estaVacio: (ctx, _p?, h?) => sinEstadoDeCuenta(ctx) || suscripcionAlLado(ctx, h), disenos: ['numero', 'chip'] },
+  cuotas: { estaVacio: (ctx, _p?, h?) => (sinDealSalvo('plan', 'comprobante')(ctx) && cuotasDe(ctx).length === 0) || suscripcionAlLado(ctx, h), disenos: ['tabla', 'proxima'] },
   movimientos: {
-    estaVacio: (ctx, _p, h) => (!cuotasDe(ctx).some((q) => q.pagado || esCuotaDevuelta(q)) && !ctx.data?.cobro?.hayCobros)
+    estaVacio: (ctx, _p?, h?) => (!cuotasDe(ctx).some((q) => q.pagado || esCuotaDevuelta(q)) && !ctx.data?.cobro?.hayCobros)
       || (suscripcionAlLado(ctx, h) && !ctx.data?.cobro?.hayCobros),
     disenos: ['lista', 'ultimos'],
   },

@@ -1789,6 +1789,10 @@ mentían: 146, 238 y 426 no caben en un número, y noviembre pagado en DOS pagos
   RAM: `--heap=7000`.
 - **Un guard que citaba la lista de columnas del MRR** (`tests/cuota-fecha-y-cancelacion.test.ts`) dio rojo al sumarle el
   id: se reescribió para afirmar lo que cuida (que la lectura traiga la cancelación).
+- **Sumarle un parámetro a una regla rompe a quien la CONVIERTE, no a quien la llama.** `estaVacio` pasó a recibir los
+  bloques de la hoja, y dos tests que hacen `REGLAS_PAGOS as Record<string, …>` con una función de un parámetro dieron
+  TS2352 en el tsc entero; el acotado de los archivos tocados no los incluía. Los parámetros nuevos van opcionales
+  (`(ctx, _p?, h?)`), y al acotado se le suman los tests que importan el módulo.
 - **Dos funciones con el mismo nombre:** `movimientosDelLead` ya existía en lib/pagos-vistazo.ts (lo que movió plata) y
   crm.run.ts la importa. La de la base se llama `cambiosDeSuscripcion`.
 
