@@ -22,8 +22,11 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Martín Koncke', nombreWorkspace: 'Consultorio Sonrisa', faseGuardada: true,
   canalNegocio: 'llamadas', loQueVende: true, conCrm: true, conTelefono: false, terminado: false,
+  // Invierte de $600 a $3.000 al mes (la segunda opción de 'inversion'): con eso, por llamada, MaKo recomienda «Llamada de venta».
+  faseNegocio: { respuestas: [0, 1, 0, 0, 0, 0], fase: 0 },
 };
-const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Consultorio Sonrisa', origen: 'Instagram', interes: 'ventas', pdfOk: 'si' };
+// Con «Agendan llamada» contestado (5/11/2026, la pregunta de la entrada va antes del CRM por llamada o por chat).
+const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Consultorio Sonrisa', origen: 'Instagram', interes: 'ventas', pdfOk: 'si', entrada: 'agenda_sola' };
 
 test('MaKo elige entre los tipos de SU canal, y la lista del prompt lleva clave y nombre de cada etapa', () => {
   const llamadas = candidatosCrm('llamadas');
@@ -59,7 +62,7 @@ test('las etapas con sus nombres: mismas claves y en el mismo orden', () => {
   assert.deepEqual(etapasConNombres(llamada.pipeline, null), llamada.pipeline);
 });
 
-test('la propuesta manda: va primero, y «Sí, es correcto» elige ESE tipo', () => {
+test('la propuesta manda: va primero, y «Sí, ese» elige ESE tipo', () => {
   const e: EstadoArranque = { ...QUIEN, crmPropuesta: { tipo: 'dos_reuniones', etapas: { agenda: 'Primera consulta' } } };
   assert.equal(tiposOfrecidos('llamadas', false, e.crmPropuesta).tipos[0].id, 'dos_reuniones');
   assert.equal(tiposOfrecidos('llamadas', false, null).tipos[0].id, 'llamada', 'sin propuesta, la plantilla de su canal');
@@ -70,8 +73,9 @@ test('la propuesta manda: va primero, y «Sí, es correcto» elige ESE tipo', ()
 
 test('la ruta la arma UNA vez al llegar al CRM, y siembra con sus nombres', () => {
   const ruta = sinComentarios(leer('app/api/onboarding/arranque/route.ts'));
-  assert.match(ruta, /if \(h\.conCrm && \(etapa === 'pdf' \|\| etapa === 'cobro' \|\| etapa === 'fase'\) && nuevo\.crmPropuesta === undefined && !nuevo\.crmTipo\) \{/);
-  assert.match(ruta, /if \(etapaDeArranque\(nuevo, h2\) === 'crm'\) await guardarEstadoArranque\(\{ crmPropuesta: await propuestaDeCrm\(nuevo, h2\.canalNegocio\)\.catch\(\(\) => null\) \}\);/);
+  assert.match(ruta, /if \(h\.conCrm && \(etapa === 'pdf' \|\| etapa === 'cobro' \|\| etapa === 'fase' \|\| etapa === 'entrada'\) && nuevo\.crmPropuesta === undefined && !nuevo\.crmTipo\) \{/);
+  // Desde el 5/11/2026 la IA recibe UN candidato, el que decidió `recomendarFunnel`: sólo nombra sus etapas.
+  assert.match(ruta, /if \(etapaDeArranque\(nuevo, h2\) === 'crm'\) \{\n\s*await guardarEstadoArranque\(\{ crmPropuesta: await propuestaDeCrm\(nuevo, h2\.canalNegocio, funnelDelArranque\(nuevo, h2\)\.tipo\)\.catch\(\(\) => null\) \}\);/);
   assert.match(ruta, /sembrarCrmPrincipal\(patch\.crmTipo, e\.negocio \?\? '', e\.crmPropuesta\?\.tipo === patch\.crmTipo \? e\.crmPropuesta\.etapas : undefined\)/);
   const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
   assert.match(server, /const s = \{ \.\.\.siembra, pipeline: etapasConNombres\(siembra\.pipeline, nombres\) \};/);

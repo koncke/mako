@@ -47,7 +47,7 @@ import { join } from 'node:path';
 import {
   etapaDeArranque, mensajesDeArranque, leerRespuesta, tiposOfrecidos, tipoRecomendado,
   primerNombre, sinMarca, briefDesdeArranque, fundirBrief, siguientePreguntaFase,
-  AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, ORIGENES, SALUDO_ARRANQUE, CRM_SI, CRM_PREGUNTA,
+  AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, ORIGENES, SALUDO_ARRANQUE, CRM_SI, PREGUNTA_ENTRADA,
   type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
 import { mandaElArranque, ladoDeLaPregunta, SESION_VACIA, aMensajeOffer, linkPdfLoQueVende } from '../app/onboarding/arranque-ui';
@@ -157,19 +157,23 @@ test('el nombre del workspace no se ofrece como «tu negocio», sea lo que sea (
   assert.equal(primerNombre('  Martín  Koncke '), 'Martín');
 });
 
-test('el CRM: la tarjeta va con la pregunta, y propone el tipo de su canal primero', () => {
+test('el CRM: primero cómo le llegan (por chat), después el funnel que le recomienda, con la tarjeta', () => {
   const h = { ...H, loQueVende: true, faseGuardada: true, canalNegocio: 'conversaciones' as const };
-  const { despues } = mensajesDeArranque(QUIEN, h);
-  const crm = despues.find((m) => m.id === 'arr-crm');
+  // Desde el 5/11/2026 (plan.md §3.1, pasos 9 y 10): «¿Cómo te llegan hoy los clientes?» reemplaza a «¿Te sirven?», que
+  // preguntaba una acción, y la recomendación la escribe `recomendarFunnel` (tests/onboarding-funnel-recomendado.test.ts).
+  const pide = mensajesDeArranque(QUIEN, h).despues.at(-1)!;
+  assert.equal(pide.texto, PREGUNTA_ENTRADA);
+  assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: 0, opcionTexto: 'Te escriben' }), { ok: true, patch: { entrada: 'chat_entrante' } });
+  const e = { ...QUIEN, entrada: 'chat_entrante' as const };
+  const crm = mensajesDeArranque(e, h).despues.find((m) => m.id === 'arr-crm');
   assert.ok(crm && crm.tarjeta === 'crm');
-  // Desde el 18/10/2026 (Martín, punto 10): «Sí, es correcto» acepta el que se propone (el de su canal, en la tarjeta), y
-  // «Ver otros tipos» abre la lista. Roturas (romper-crm.js; base 26/0): sin «Sí, es correcto» → 25/1 · el «sí» elige otro → 25/1.
+  // «Sí, ese» acepta el recomendado (en la tarjeta), y «Ver los 12» abre la lista.
   assert.equal(crm.opciones?.[0], CRM_SI);
   assert.ok(crm.opciones?.includes(VER_OTROS_TIPOS));
-  assert.equal(crm.texto, CRM_PREGUNTA);
-  assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: 0, opcionTexto: CRM_SI }), { ok: true, patch: { crmTipo: 'conversaciones' } });
-  const todos = mensajesDeArranque({ ...QUIEN, crmVerTodos: true }, h).despues.find((m) => m.id === 'arr-crm');
-  assert.equal(todos?.opciones?.[0], 'Conversaciones por chat', 'con la lista abierta, primero el de su canal');
+  assert.match(crm.texto, /^Hay 12 funnels en MaKo\. Para ti: «Instagram orgánico»\./);
+  assert.deepEqual(leerRespuesta(e, h, { opcion: 0, opcionTexto: CRM_SI }), { ok: true, patch: { crmTipo: 'instagram' } });
+  const todos = mensajesDeArranque({ ...e, crmVerTodos: true }, h).despues.find((m) => m.id === 'arr-crm');
+  assert.equal(todos?.opciones?.[0], 'Instagram orgánico', 'con la lista abierta, primero el recomendado');
   assert.equal(tipoRecomendado(null).id, 'llamada', 'sin canal manda la llamada de venta (el marco es de alto ticket)');
   assert.equal(tiposOfrecidos('carrito', false).tipos[0].id, 'carrito');
   assert.equal(tiposOfrecidos('llamadas', true).tipos.length, TIPOS_CRM.length);
