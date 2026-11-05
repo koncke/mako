@@ -39,6 +39,7 @@ import { getTenantDb, runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { venderPlan, ventaValida, previaDeLaVenta, compradorEnLaPlataforma, cobroAbiertoDelPlan, cuentaDelComprador } from '@/lib/vender-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { vistaDeClientes } from '@/lib/clientes-plataforma';
+import { vistaDeIngresos } from '@/lib/admin-ingresos';
 import { nombreDePlan } from '@/lib/clientes-plataforma-reglas';
 import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { PREFIJO_FLUJO } from '../canal';
@@ -709,7 +710,7 @@ export const RUNNERS: Runners = {
         // Lo que pide atención, el más grave primero (lo mismo que «Para mirar» en la pantalla).
         para_mirar: v.paraMirar.map((a) => ({ ws: a.ws, nombre: a.nombre, motivo: a.motivo, que_pasa: a.texto })),
         avisos: v.avisos,
-        nota: 'mrr_usd sale de los cobros reales (las suscripciones activas de la plataforma), no del precio del plan: un plan dado a mano da 0. cobrado_por_mes null = no entró nada por la plataforma en 6 meses. por_que_en_riesgo: pausado, cobro (un cobro falló) o sin-uso (nadie de su equipo entra hace 14 días o más). dias_sin_entrar null = nunca entró nadie de su equipo (o no se pudo leer: ver avisos); a un cliente de-agencia lo opera su agencia con su propia sesión, que no cuenta, y por eso nunca está en riesgo por sin-uso. onboarding_hecho null = no se pudo leer (ver avisos), no es «no lo terminó».',
+        nota: 'mrr_usd sale de lo que cada negocio PAGÓ como su mensualidad (lo mismo que ver_ingresos_de_mako), no del precio del plan: un plan dado a mano da 0. cobrado_por_mes null = no entró nada por la plataforma en 6 meses. por_que_en_riesgo: pausado, cobro (un cobro falló) o sin-uso (nadie de su equipo entra hace 14 días o más). dias_sin_entrar null = nunca entró nadie de su equipo (o no se pudo leer: ver avisos); a un cliente de-agencia lo opera su agencia con su propia sesión, que no cuenta, y por eso nunca está en riesgo por sin-uso. onboarding_hecho null = no se pudo leer (ver avisos), no es «no lo terminó».',
       });
     },
   },
@@ -725,7 +726,7 @@ export const RUNNERS: Runners = {
           lead_id: p.lead_id, intentos: p.intentos, primer_intento: p.primer_at, ultimo_intento: p.ultimo_at,
         })),
         hay_mas: hayMas,
-        nota: 'Para darle de alta: Customers › Accounts › Quieren entrar › Dar de alta. Un correo sin verificar lo escribió la persona: nadie confirmó que sea suyo.',
+        nota: 'Para darle de alta: Admin › Accounts › Quieren entrar › Dar de alta. Un correo sin verificar lo escribió la persona: nadie confirmó que sea suyo.',
       });
     },
   },
@@ -742,7 +743,7 @@ export const RUNNERS: Runners = {
           titulo: s.acta?.titulo ?? null, resumen: s.acta?.resumen ?? null, mensajes: s.turnos?.length ?? 0,
         })),
         total: sesiones.length,
-        nota: 'Los mensajes textuales están en Customers › Agents.',
+        nota: 'Los mensajes textuales están en Admin › Agents.',
       });
     },
   },
@@ -1003,6 +1004,25 @@ export const RUNNERS: Runners = {
     }),
   },
 
+  ver_ingresos_de_mako: {
+    leer: async (_input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Los ingresos de MaKo son sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Los ingresos de MaKo son sólo del super admin.');
+      const v = await vistaDeIngresos();
+      return json({
+        hoy: v.hoy,
+        mrr_usd: v.mrr, mrr_cierre_mes_pasado_usd: v.mrrMesPasado, clientes_que_pagan: v.pagando, promedio_por_cliente_usd: v.arpu,
+        cobrado_este_mes_usd: v.cobradoEsteMes, cobrado_mes_pasado_usd: v.cobradoMesPasado, cobrado_desde_siempre_usd: v.cobradoTotal,
+        pagos_sin_dolares: v.sinDolares,
+        meses: v.meses.map((m) => ({ mes: m.mes, en_curso: m.enCurso, mrr_al_cerrar_usd: m.mrr, cobrado_usd: m.cobrado, nuevos_usd: m.nuevo, volvieron_usd: m.vuelve, subieron_usd: m.sube, bajaron_usd: m.baja, se_cortaron_usd: m.corte })),
+        clientes: v.clientes.map((c) => ({ nombre: c.nombre, ws: c.ws, lead_id: c.leadId, paga_por_mes_usd: c.mrr, pago_en_total_usd: c.total, pagos: c.pagos, estado: c.estado, primer_pago: c.primerPago, ultimo_pago: c.ultimoPago, proximo_vencimiento: c.proximo, dias_de_atraso: c.diasAtraso })),
+        vence_en_31_dias: v.porCobrar.map((p) => ({ cliente: v.clientes.find((c) => c.clave === p.cliente)?.nombre ?? p.cliente, fecha: p.fecha, usd: p.usd, atrasado: p.atrasado })),
+        movimientos: v.movimientos.slice(0, 30).map((m) => ({ fecha: m.fecha, cliente: v.clientes.find((c) => c.clave === m.cliente)?.nombre ?? m.cliente, tipo: m.tipo, cambio_usd: m.delta, paga_ahora_usd: m.despues })),
+        avisos: v.avisos,
+        nota: 'Todo en dólares. mrr_usd sale de lo que cada cliente PAGÓ como su mensualidad (un pago registrado como la mensualidad, una cuota de una venta de suscripción o la suscripción de la pasarela), no del precio del plan. Dos pagos a menos de 7 días son una sola mensualidad; cada una cubre un mes y la nueva reemplaza a la anterior (así sube o baja). Un atrasado sigue contando 15 días; pasado eso, se cortó el día que venció. cobrado_* es toda la plata que entró, también los pagos sueltos y las ventas de pago único. estado: atrasado, por-vencer (vence en 5 días o menos), al-dia, cortado o pago-unico.',
+      });
+    },
+  },
 };
 
 // ── el plan por tramos ────────────────────────────────────────────────────────

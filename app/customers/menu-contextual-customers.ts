@@ -21,5 +21,5 @@ export function itemsCliente(): EntradaMenuContextual[] {
 
 /** A dónde va cada link (los mismos de la ficha). «Entrar» es una navegación dura: cambia de cuenta. */
 export function destinoCliente(id: 'entrar' | 'administrar', ws: number): string {
-  return id === 'entrar' ? `/inicio?ws=${ws}` : `/customers?tab=accounts&cuenta=${ws}`;
+  return id === 'entrar' ? `/inicio?ws=${ws}` : `/admin?tab=accounts&cuenta=${ws}`;
 }

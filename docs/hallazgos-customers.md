@@ -1,9 +1,55 @@
-# Hallazgos — Customers (/customers, el super admin)
+# Hallazgos — Admin (/admin, el super admin; era Customers, /customers)
 
 Lo que no se ve leyendo el código de Customers: la vista de los clientes de MaKo para el super admin, con Accounts (la
 grilla de administración), Billing (era /admin/cobros) y Agents (era /admin/agente) adentro. Los pedidos textuales, en
 [feedback-25-10-tarde.md](feedback-25-10-tarde.md) puntos 10 y 12, y el rediseño del 26/10 abajo. Las 16 referencias de
 diseño, con qué se copia de cada una, en [customers/referencias/otras-apps/LEEME.md](customers/referencias/otras-apps/LEEME.md).
+
+
+## Revenue: los ingresos no se veían porque todo lo cobrado entró a mano (5/11/2026)
+
+- **Síntoma (Martín):** «en SuperAdmin… no se me refleja la cantidad de ingresos para suscripciones. ¿Cuánto es lo que me
+  pagaron totalmente? ¿Cuánto me van pagando mes a mes?».
+- **Lo medido en producción (por el Cerebro, docs/relevo/admin-encargo.md):**
+  - el MRR de Customers salía de `cobros` (la pasarela), con 2 filas pendientes en toda la base;
+  - lo que Martín cobró entró A MANO, en `pagos` del CRM de la plataforma: Leila 97, Código 146 y Florencia 97 en octubre;
+  - `suscripcion_monto_usd` de esos tres leads está vacío, así que `getMrrActivo` tampoco sumaba.
+- **El diagnóstico obvio era el equivocado:** «falta cargar el monto mensual en el lead». Eso deja el número dependiendo de un
+  campo que nadie llena. Las apps de referencia (ChartMogul, Baremetrics, Lago) sacan el MRR de lo FACTURADO; acá lo facturado
+  es lo cobrado a mano. Con los pagos alcanza, y el lead puede seguir vacío.
+- **Las reglas que quedan** (lib/admin-ingresos-reglas.ts, con test):
+  - es recurrente un pago registrado como la mensualidad (`es_mensualidad`), la cuota del plan de una venta de suscripción, o
+    la suscripción de la pasarela. El resto (suelto, diferencial, pago único) es cash y nunca MRR;
+  - dos pagos de la misma suscripción a menos de 7 días son UN cobro;
+  - cada cobro cubre un mes y el siguiente lo REEMPLAZA desde su fecha (sube o baja), nunca se suman;
+  - 15 días de gracia (como el `past_due` de Stripe): renovar adentro de la gracia no es cortar y volver. Pasada la gracia, el
+    corte se anota el día que venció. ⚠️ Por eso el MRR de un mes ya cerrado puede cambiar cuando se confirma un corte (igual
+    que ChartMogul, que recalcula desde las facturas);
+  - los movimientos son por CLIENTE, no por suscripción: un segundo lugar de una agencia es «subió», no «nuevo»;
+  - un pago sin `monto_usd` no se convierte: no suma y se cuenta aparte.
+- **No se cuenta dos veces lo de la pasarela:** el cobro de un lead lo asienta `registrarCobroDeProveedor` como un pago con su
+  `cobro_id`. El lector suma los `cobros` pagados SÓLO si ningún pago los nombra (un lugar de agencia, un alta sin lead).
+- **Customers, el teléfono y la API usan el MISMO MRR** (`vistaDeClientes` lo toma de Revenue). Con dos fuentes, una pestaña
+  decía US$432 y la otra «todavía no entró plata».
+- **Lo de noviembre de Código (US$238, 94 el 4/11 y 144 el 5/11) no está cargado** en el CRM: la pantalla lo va a mostrar cuando
+  se carguen como dos pagos «Mensualidad». Lo dice docs/relevo/nube-admin.md.
+
+**Vive en:** `lib/admin-ingresos-reglas.ts` · `lib/admin-ingresos.ts` · `app/admin/ingresos/IngresosAdmin.tsx` ·
+`app/admin/ingresos/ingresos-vista.ts` · `app/admin/page.tsx` · `tests/admin-ingresos.test.ts`.
+
+## La tab se llama Admin y vive en /admin (5/11/2026)
+
+- `/admin` era un redirect a `/customers` desde el 25/10. Desde hoy ES la tab. Sus subrutas (`/admin/dev`, `/admin/ui`,
+  `/admin/docs`, `/admin/operaciones`…) siguen siendo otras tabs, así que el `match` de la barra es `/admin` EXACTO.
+- `/customers?tab=…` redirige con su `?tab=`, `?cuenta=` y `?cliente=` (`destinoDeCustomers`). Sin `?tab=` va a Customers (lo
+  que abría antes) y no a Revenue: un marcador viejo tiene que abrir lo mismo.
+- **La key `admin-customers` no cambió:** la nombran las capas, el teléfono y la API.
+- Un test que fijaba «la salida nunca es /admin» (tests/agencia-cartera.test.ts) cuidaba otra cosa: que una AGENCIA no caiga en
+  una ruta que el gate le niega. Se reescribió para que lea `SOLO_ADMIN` del proxy y lo pregunte por la agencia. El super admin
+  sí puede caer en /admin.
+- `scripts/tsc-acotado.mjs` sale «código undefined» en la nube con varios archivos (lo mismo que dice
+  docs/relevo/nube-metodologia.md con Node 22, pero acá con Node 24). Corriendo `tsc -p` con su mismo tsconfig da el resultado
+  real: así se encontró un `ingresos` declarado dos veces en `vistaDeClientes`.
 
 
 ## «Quieren entrar»: quien pedía entrar desaparecía en silencio (30/10/2026)

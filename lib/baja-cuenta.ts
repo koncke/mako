@@ -165,7 +165,7 @@ export async function pedirBajaDe(usuarioId: number | null, impersonando: boolea
   const noSalioEquipo = await mandar({
     to: EMAIL_MAKO, asunto: `Eliminar cuenta: ${negocio ?? u.email}${prueba ? ' (prueba)' : ''}`, preheader: `Antes del ${dia}.`, tag: 'baja-cuenta-equipo',
     cuerpo: [`${u.email} pidió eliminar ${alcance === 'negocio' ? `el negocio entero (${negocio ?? `#${ws}`})` : 'su cuenta'}.`, '',
-      `Hay plazo hasta el ${dia} (${PLAZO_BAJA_DIAS} días). Se ejecuta en Customers › Accounts.`,
+      `Hay plazo hasta el ${dia} (${PLAZO_BAJA_DIAS} días). Se ejecuta en Admin › Accounts.`,
       ...(avisos.length ? ['', 'Lo que no salió:', ...avisos.map((a) => `· ${a}`)] : [])].join('\n'),
   });
   if (noSalioEquipo) avisos.push(`El aviso a equipo@: ${noSalioEquipo}`);

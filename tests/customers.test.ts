@@ -121,7 +121,7 @@ test('los números: activos y nuevos sin los clientes de agencias; el MRR, de to
 // ── 3. La puerta ─────────────────────────────────────────────────────────────────
 
 test('sólo el super admin, antes de leer nada; y el proxy también la cierra', () => {
-  const page = leer('app/customers/page.tsx');
+  const page = leer('app/admin/page.tsx');
   const puerta = page.search(/const sesionAdmin = await getSesionAdmin\(\);\s*if \(!sesionAdmin\) redirect\('\/inicio'\);/);
   assert.ok(puerta > 0, 'sin la puerta del super admin');
   for (const lectura of ['<ContenidoCobros />', '<ContenidoAgentes />', 'await PestanaClientes(cliente)', 'await PestanaCuentas(sesionAdmin, cuenta)']) {
@@ -130,20 +130,24 @@ test('sólo el super admin, antes de leer nada; y el proxy también la cierra', 
   assert.ok(page.indexOf('vistaDeClientes(') > puerta, 'los clientes se leen antes de la puerta');
   assert.doesNotMatch(page, /requireRolWs/, 'requireRolWs([]) la abriría al dueño de cada negocio');
   assert.match(leer('proxy.ts'), /const SOLO_ADMIN = \[[^\]]*'\/customers'[^\]]*\];/);
+  assert.match(leer('proxy.ts'), /const SOLO_ADMIN = \['\/admin',/, 'Admin (/admin) también en el proxy');
 });
 
 // ── 4. Billing y Agents, adentro ─────────────────────────────────────────────────
 
 test('Billing y Client Agents viven en Customers: las rutas viejas redirigen después de su guard y salen del menú', () => {
-  for (const [rel, destino] of [['app/admin/cobros/page.tsx', '/customers?tab=billing'], ['app/admin/agente/page.tsx', '/customers?tab=agents']]) {
+  for (const [rel, destino] of [['app/admin/cobros/page.tsx', '/admin?tab=billing'], ['app/admin/agente/page.tsx', '/admin?tab=agents'], ['app/customers/page.tsx', 'destinoDeCustomers(await searchParams)']]) {
     const p = leer(rel);
     const guard = p.indexOf("redirect('/inicio')");
-    assert.ok(guard > 0 && guard < p.indexOf(`redirect('${destino}')`), `${rel}: el guard, y después a ${destino}`);
+    assert.ok(guard > 0 && guard < Math.max(p.indexOf(`redirect('${destino}')`), p.indexOf(`redirect(${destino})`)), `${rel}: el guard, y después a ${destino}`);
   }
   assert.ok(!SUPERADMIN_MENU.some((i) => i.href === '/admin/cobros' || i.href === '/admin/agente'), 'volvieron al menú de la foto');
   const item = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'admin-customers');
-  assert.ok(item, 'Customers no está en la barra');
-  assert.equal(item.href, '/customers');
+  assert.ok(item, 'Admin no está en la barra');
+  assert.equal(item.href, '/admin');
+  assert.equal(item.label, 'Admin');
+  assert.equal(item.match('/admin/dev'), false, 'las subrutas de /admin son otras tabs');
+  assert.equal(item.match('/customers'), true, 'el link viejo sigue marcando Admin');
   assert.equal(item.adminOnly, true);
   assert.equal(puedeVerItem(item, { adminShell: true, rolWs: 'admin', capa: 'superadmin' }), true, 'el super admin no la ve');
   assert.equal(puedeVerItem(item, { adminShell: false, rolWs: 'admin', capa: 'completo' }), false, 'el admin de un cliente la ve');
@@ -158,11 +162,11 @@ test('Customers dibuja lo suyo: plata sólo si entró algo, «Para mirar», chip
   // Sin plata, una línea que lo dice y el link a vender: nunca un «US$ 0».
   assert.match(app, /if \(numero <= 0 && !cobrado\) \{\s*return \(\s*<div className="cu-plata-vacia">/);
   assert.match(app, /Todavía no entró plata por MaKo\./);
-  assert.match(app, /href="\/customers\?tab=billing">Vender un plan/);
+  assert.match(app, /href="\/admin\?tab=billing">Vender un plan/);
   // La ficha: UNA acción principal, y «Administrar» lleva a Accounts con su ficha abierta.
   assert.equal((app.match(/className="cu-entrar"/g) ?? []).length, 1);
-  assert.match(app, /href=\{`\/customers\?tab=accounts&cuenta=\$\{f\.ws\}`\}/);
-  const page = leer('app/customers/page.tsx');
+  assert.match(app, /href=\{`\/admin\?tab=accounts&cuenta=\$\{f\.ws\}`\}/);
+  const page = leer('app/admin/page.tsx');
   assert.match(page, /<AdminView incrustado trabajo=\{trabajo\}[\s\S]*?abrirInicial=\{cuenta\} \/>/);
   assert.match(page, /tab === 'accounts' \? await PestanaCuentas\(sesionAdmin, cuenta\)/);
   assert.doesNotMatch(page, /searchParams[^\n]*\bws\?/, '?ws= hace mirar a un cliente: la ficha va en ?cuenta=');
@@ -223,18 +227,21 @@ test('la barra del super admin: Customers sí; MaKo Partners y Agency Dashboard 
     assert.equal(puedeVerItem(it, NEGOCIO), true, `${key}: el negocio dejó de verla`);
   }
   const masSa = masCompleto('admin', 'superadmin', true).flatMap((g) => g.filas);
-  assert.ok(masSa.some((f) => f.label === 'Customers' && f.tipo === 'pantalla' && f.href === '/m/customers'), 'el teléfono del super admin sin Customers');
+  assert.ok(masSa.some((f) => f.label === 'Admin' && f.tipo === 'pantalla' && f.href === '/m/customers'), 'el teléfono del super admin sin Admin');
   assert.ok(!masSa.some((f) => f.label === 'MaKo Partners' || f.label === 'Agency Dashboard'), 'el teléfono del super admin muestra Partners o Agency');
 });
 
 test('el teléfono: /m/customers con la puerta de escritorio y los MISMOS datos; la ida y la vuelta de la ruta', () => {
-  assert.equal(rutaMovil('/customers'), '/m/customers');
-  assert.equal(rutaEscritorio('/m/customers'), '/customers');
+  assert.equal(rutaMovil('/admin'), '/m/customers');
+  assert.equal(rutaEscritorio('/m/customers'), '/admin');
+  assert.equal(rutaMovil('/admin/dev'), null, 'una subruta de /admin no es Admin');
   const page = leer('app/m/customers/page.tsx');
   const puerta = page.indexOf('if (!(await getSesionAdmin())) redirect(');
   assert.ok(puerta > 0 && puerta < page.indexOf('vistaDeClientes()'), 'la puerta del super admin, antes de leer');
   const app = leer('app/m/customers/CustomersM.tsx');
-  assert.match(app, /Todavía no entró plata por MaKo/);
+  // Sin plata, una línea que dice qué hacer (nunca «US$ 0»). Desde el 5/11/2026, con los pagos a mano: «cárgalos en el CRM».
+  assert.match(app, /Todavía no entró ningún pago/);
+  assert.doesNotMatch(app, /^import (?!type )[^;]*from ['"]@\/lib\/admin-ingresos['"]/m, 'lib/admin-ingresos.ts es server-only: el teléfono importa sólo su tipo');
   assert.doesNotMatch(app, /^import (?!type )[^;]*from ['"]@\/lib\/clientes-plataforma['"]/m, 'lib/clientes-plataforma.ts es server-only: el teléfono importa sólo su tipo');
 });
 

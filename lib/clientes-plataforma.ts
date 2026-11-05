@@ -23,6 +23,7 @@ import { regaloParaMirar, textoDePlanAMano, type PlanAMano } from './plan-a-mano
 import { usdPrimerMesVigente } from './primer-mes-reglas';
 import { estadoDeLoGuardado } from './onboarding-contrato';
 import { ONBOARDING_KEY } from './onboarding-state';
+import { vistaDeIngresos } from './admin-ingresos';
 import {
   cobradoPorMes, diasDesde, enPrueba, enRiesgo, kpisDeClientes, mrrDe, pagoPendiente, paraMirar, segmentosDe, sinUso,
   type CobroMrr, type ItemParaMirar, type PagoEntrado, type Segmento,
@@ -174,6 +175,12 @@ export async function vistaDeClientes(ahoraMs: number = Date.now()): Promise<Vis
     cuotasDeLaPlataforma(plataforma, ahoraMs).catch(conAviso('las cuotas de la plataforma', null)),
     planesAManoPorNegocio().catch(conAviso('los planes a mano', new Map<number, PlanAMano>())),
   ]);
+  // ⚠️ EL MRR ES EL DE REVENUE (5/11/2026, lib/admin-ingresos.ts): lo que cada negocio PAGÓ como su mensualidad, a mano o por
+  // la pasarela. Medido ese día: todo lo cobrado entró a mano, así que `mrrDe(cobros)` daba 0 para todos y Customers decía lo
+  // contrario que Revenue. Si Revenue no se pudo leer, queda el de los cobros (y se dice).
+  const revenue = await vistaDeIngresos(new Date(ahoraMs)).catch(conAviso('los ingresos (el MRR de lo cobrado a mano)', null));
+  const mrrPagado = new Map<number, number>();
+  for (const c of revenue?.clientes ?? []) if (c.ws != null && c.mrr > 0) mrrPagado.set(c.ws, (mrrPagado.get(c.ws) ?? 0) + c.mrr);
   const nombre = new Map(wss.map((w) => [w.id, w.nombre]));
   // De qué agencia es cada cliente: las vigentes (un revocado ya no es suyo, AdminView 28/09/2026).
   const deAgencia = new Map<number, number>();
@@ -190,7 +197,7 @@ export async function vistaDeClientes(ahoraMs: number = Date.now()): Promise<Vis
   const sets = { partners, agencias: new Set(agencias.map((a) => a.ws)), deAgencia };
   const filas: FilaCliente[] = wss.map((w) => {
     const cs = cobrosDe.get(w.id) ?? [];
-    const mrr = mrrDe(cs);
+    const mrr = revenue ? { usd: mrrPagado.get(w.id) ?? 0, sinDolares: 0 } : mrrDe(cs);
     const ag = deAgencia.get(w.id);
     const l = leads?.get(w.id) ?? null;
     const actividad = {
