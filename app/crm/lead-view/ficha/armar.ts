@@ -294,6 +294,26 @@ export function anchosDeLaBarra(def: BloqueDef): Array<{ id: Ancho; nombre: stri
   return ([3, 4, 6, 12] as const).map((id) => ({ id, nombre: { 3: '¼', 4: '⅓', 6: '½', 12: 'Completo' }[id], puede: def.anchos.includes(id) }));
 }
 
+/** Lo que guarda el «⋯» de la barra de un bloque. */
+export type HerramientaDelMas = 'ancho' | 'diseno' | 'obligatorio' | 'obligatorio-varios' | 'titulo' | 'icono';
+
+/**
+ * LO QUE CASI NADIE TOCA VA EN «⋯» (5/11/2026). Medido en producción (docs/relevo/suscripciones-medicion.md §3): de las 58
+ * acciones del historial de las fichas, ancho, diseño, título, ícono y «Obligatorio» suman 5. A la vista quedan mover,
+ * Datos u Opciones (lo que va ADENTRO del bloque) y quitar. Sólo se ofrece lo que hace algo: el ancho, si el bloque tiene
+ * más de uno; el diseño, si sabe dibujar dos; «Obligatorio», si el bloque cubre algún dato y no lo pide en «Datos ▾».
+ * `cubre` es cuántos datos que se pueden pedir dibuja el bloque puesto (`cubreDe` sin los que avisan siempre).
+ */
+export function masDelBloque(def: BloqueDef, reglas: ReglasBloque, o: { cubre: number }): HerramientaDelMas[] {
+  const out: HerramientaDelMas[] = [];
+  if (anchosDeLaBarra(def).filter((a) => a.puede).length > 1) out.push('ancho');
+  if (disenosOfrecidos(def, reglas).length) out.push('diseno');
+  if (!def.datos && o.cubre === 1) out.push('obligatorio');
+  if (!def.datos && o.cubre > 1) out.push('obligatorio-varios');
+  out.push('titulo', 'icono');
+  return out;
+}
+
 /**
  * El estilo de TODA la ficha (§1): el tema del Dashboard (lib/graficos-temas.ts) y la densidad. Con el tema
  * de siempre y la densidad normal no se pisa nada: la ficha se ve como antes. El acento pinta lo que ya es

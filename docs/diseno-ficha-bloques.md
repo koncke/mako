@@ -404,6 +404,14 @@ al detail de un lead, que le salten los templates y el ¿Qué vas a crear hoy?»
 - **«Volver a la plantilla»** de una tab devuelve su lista, su nombre y su épica (su plantilla elegida queda); el de
   toda la ficha, todo menos el estilo. Elegir otra plantilla para toda la ficha deja los nombres.
 
+- **La barra de un bloque, más simple (5/11/2026).** Elegido, un bloque muestra su nombre, mover, «Datos ▾» u
+  «Opciones ▾» (lo que va adentro), «⋯» y quitar. En «⋯» van el ancho, el diseño, «Obligatorio», el título y el ícono
+  (`masDelBloque`, app/crm/lead-view/ficha/armar.ts). Por qué: de las 58 acciones del historial de las fichas, 36 son
+  quitar, 5 poner y 4 mover, y lo que pasó a «⋯» suma 5 (docs/relevo/suscripciones-medicion.md §3). Copiado del «⋮⋮» de
+  un bloque de Notion y de «Customize» de Attio y HubSpot, donde a la vista están agregar, quitar y mover. La barra de la
+  hoja (Deshacer, Agregar bloque, Templates, dispositivo y Estilo de la hoja) no cambió: el dispositivo y el estilo los
+  pidió Martín a la vista.
+
 ## 7. El Resumen nativo (16/10/2026)
 
 Cada bloque del Resumen con datos de hoy es una pieza propia (app/crm/lead-view/ficha/resumen/), con su diseño normal y

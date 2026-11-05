@@ -4007,4 +4007,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm?ws=3',
   },
+  {
+    fecha: '5 nov', hora: '20:30', chat: 'Suscripciones en la ficha (nube)', sesion: 'cli_00a9e9ad-cab5-53d1-8fd1-2fb6ffbb6b40', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La barra de cada bloque de la ficha, más simple: lo que casi nadie toca va en «⋯»',
+    puntos: [
+      'Elegido, un bloque muestra su nombre, mover, «Datos» u «Opciones», «⋯» y quitar. Llegaba a 12 botones.',
+      'En «⋯» van el ancho, el diseño, «Obligatorio», el título y el ícono. Nada se sacó: dejó de estar a la vista.',
+      'Por qué: en producción, de las 58 acciones del historial de las fichas, 36 son quitar, 5 poner y 4 mover; lo que pasó a «⋯» suma 5 (docs/relevo/suscripciones-medicion.md).',
+      'Copiado del menú de un bloque de Notion y de «Customize» de Attio y HubSpot. La barra de la hoja no cambió.',
+    ],
+    archivos: [
+      'app/crm/lead-view/ficha/Armador.tsx — la barra y el «⋯»',
+      'app/crm/lead-view/ficha/armar.ts — `masDelBloque`, puro, con tests/ficha-barra-mas.test.ts',
+    ],
+    revisar: '/crm?ws=3',
+  },
 ];
