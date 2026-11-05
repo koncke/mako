@@ -56,9 +56,13 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 const IDS = ['listar_cobros', 'ver_cobro', 'crear_link_pago', 'anular_link_pago', 'reembolsar_cobro', 'cancelar_suscripcion'];
 // ⚠️ Cambiado A PROPÓSITO el 14/10/2026: el área suma las nueve de Pagos campo por campo (docs/diseno-ficha-bloques.md
 // §3), con su forma fijada en tests/api-mako-pagos-campo.test.ts.
+// ⚠️ Y el 5/11/2026 la suscripción mes a mes (tests/suscripcion-meses.test.ts). Van en su propia lista, sumada a la de Pagos:
+// así la lista larga de abajo no se toca, y lo que otra rama sume al área no choca con esta línea al mezclar.
+const IDS_SUSCRIPCION = ['ver_suscripcion_lead', 'cambiar_suscripcion'];
 const IDS_PAGOS_CAMPO = [
   'ver_moneda_negocio', 'cambiar_moneda_negocio', 'editar_dato_deal', 'editar_obligacion_deal', 'editar_venta_lead',
   'editar_cuota', 'crear_link_cuota', 'cortar_recordatorio_cuota', 'estado_suscripcion_manual', 'baja_del_cliente',
+  ...IDS_SUSCRIPCION,
 ];
 const accion = (id: string): AccionDef => {
   const d = porId(id);
@@ -78,10 +82,10 @@ test('el área `cobros` existe, va antes de `mako` y tiene exactamente sus opera
   // armar_plan_por_tramos (tests/api-mako-plan-tramos.test.ts).
   // ⚠️ Y el 5/11/2026 los recibos de la plataforma (lib/recibos.ts): ver_recibos, cargar_pago_a_mano y reenviar_recibo, sólo
   // del super admin y sin HTTP (su forma, en tests/recibos.test.ts).
-  // ⚠️ Y el 5/11/2026 ver_ingresos_de_mako, ver_personas_de_mako y ver_errores_de_mako: Admin por chat, sólo de la plataforma.
-  // ⚠️ Y el 5/11/2026 la suscripción mes a mes: ver_suscripcion_lead y cambiar_suscripcion (tests/suscripcion-meses.test.ts).
-  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar', 'guardar_documento_fiscal', 'armar_plan_por_tramos', 'ver_recibos', 'cargar_pago_a_mano', 'reenviar_recibo', 'ver_ingresos_de_mako', 'ver_personas_de_mako', 'ver_errores_de_mako', 'ver_suscripcion_lead', 'cambiar_suscripcion'].sort());
-  for (const id of [...IDS, ...IDS_PAGOS_CAMPO, 'guardar_documento_fiscal', 'armar_plan_por_tramos', 'ver_suscripcion_lead', 'cambiar_suscripcion']) assert.ok(!/^proponer_/.test(id), `«${id}»: con proponer_ viaja la receta que pide un «sí»`);
+  // ⚠️ Y el 5/11/2026 ver_ingresos_de_mako, ver_personas_de_mako, ver_errores_de_mako y ver_actividad_de_mako: Admin por chat,
+  // sólo de la plataforma.
+  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar', 'guardar_documento_fiscal', 'armar_plan_por_tramos', 'ver_recibos', 'cargar_pago_a_mano', 'reenviar_recibo', 'ver_ingresos_de_mako', 'ver_personas_de_mako', 'ver_errores_de_mako', 'ver_actividad_de_mako'].sort());
+  for (const id of [...IDS, ...IDS_PAGOS_CAMPO, 'guardar_documento_fiscal', 'armar_plan_por_tramos']) assert.ok(!/^proponer_/.test(id), `«${id}»: con proponer_ viaja la receta que pide un «sí»`);
 });
 
 test('las lecturas: gratis, por TODOS los canales (http incluido) y con la tab del CRM', () => {

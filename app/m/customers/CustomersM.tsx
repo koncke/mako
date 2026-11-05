@@ -30,13 +30,15 @@ const tono = (t: string): TonoPildora => (t === 'neutral' ? 'neutro' : (t as Ton
 const grupoTxt = (f: FilaCliente) =>
   f.segmentos.includes('de-agencia') ? `De ${f.agencia ?? 'una agencia'}` : f.segmentos.map((s) => ({ agency: 'Agency', partner: 'Partner', cliente: 'Cliente', 'de-agencia': '' }[s])).join(' · ');
 
-export function CustomersM({ vista, arriba, ingresos = null, errores = null }: {
+export function CustomersM({ vista, arriba, ingresos = null, errores = null, actividad = null }: {
   vista: VistaClientes;
   arriba?: ReactNode;
   /** Admin › Revenue (lib/admin-ingresos.ts, 5/11/2026): lo que entró, de los pagos reales. `null` = no se pudo leer. */
   ingresos?: VistaIngresos | null;
   /** Admin › Errors (lib/admin-errores.ts): los errores de la app. `null` = no se pudo leer (no se dibuja). */
   errores?: { lista: FilaError[]; ahoraMs: number } | null;
+  /** Admin › Activity (lib/actividad.ts), destilado en el server. `null` = no se pudo leer (no se dibuja). */
+  actividad?: ActividadMovil | null;
 }) {
   const { filas, kpis, cobrado } = vista;
   const [grupo, setGrupo] = useState<Grupo>('todos');
@@ -113,6 +115,7 @@ export function CustomersM({ vista, arriba, ingresos = null, errores = null }: {
         </SeccionM>
       )}
 
+      {actividad && <ActividadM {...actividad} />}
       {errores && <ErroresM {...errores} />}
 
       <SeccionM titulo="Más">
@@ -170,6 +173,33 @@ function IngresosM({ v }: { v: VistaIngresos }) {
           ))}
         </ListaM>
       </SeccionM>
+    </>
+  );
+}
+
+export type ActividadMovil = { medido: boolean; activos: { hoy: number; semana: number; mes: number }; dejaron: Array<{ id: number; nombre: string; negocio: string | null; ultimo: string }>; ahoraMs: number };
+
+/** Quién usa la app, en el teléfono (Admin › Activity, destilado): los activos y quién dejó de entrar. */
+function ActividadM({ medido, activos, dejaron, ahoraMs }: ActividadMovil) {
+  if (!medido && dejaron.length === 0) return null;
+  return (
+    <>
+      {medido && (
+        <SeccionM titulo="Quién usa la app">
+          <ListaM>
+            <FilaDatoM k="Hoy" v={String(activos.hoy)} />
+            <FilaDatoM k="En 7 días" v={String(activos.semana)} />
+            <FilaDatoM k="En 30 días" v={String(activos.mes)} />
+          </ListaM>
+        </SeccionM>
+      )}
+      {dejaron.length > 0 && (
+        <SeccionM titulo="Dejaron de entrar">
+          <ListaM>
+            {dejaron.map((p) => <FilaM key={p.id} avatar={p.nombre} titulo={p.nombre} segunda={`${p.negocio ?? 'Sin negocio'} · entró ${haceTxtCorto(p.ultimo, ahoraMs)}`} />)}
+          </ListaM>
+        </SeccionM>
+      )}
     </>
   );
 }

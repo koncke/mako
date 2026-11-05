@@ -22,6 +22,7 @@
 // la Graph API de Meta, un CDN) pasa sin que lo miremos.
 
 import { WS_PARAM, wsDeBusqueda } from '@/lib/ws-tab';
+import { esAccion, sumarAccion } from './contador-acciones';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -54,6 +55,14 @@ if (typeof window !== 'undefined' && !globalThis.__makoWsFetch) {
 
   window.fetch = function (entrada: RequestInfo | URL, init?: RequestInit) {
     try {
+      // Admin › Activity (5/11/2026): una acción de la persona (un pedido que escribe, a nuestro origen) suma 1 al
+      // contador que cosecha ./MedidorDeUso.tsx. Sólo el número: ni la url ni el cuerpo. Va antes del `if (!ws)`,
+      // porque cuenta también fuera de una pestaña de cliente.
+      try {
+        const url = entrada instanceof Request ? entrada.url : String(entrada);
+        const metodo = init?.method ?? (entrada instanceof Request ? entrada.method : undefined);
+        if (esAccion(url, metodo, window.location.origin)) sumarAccion();
+      } catch { /* contar nunca rompe la llamada */ }
       // Se lee en CADA llamada, no al parchear: la pestaña puede navegar y cambiar de
       // cliente sin recargar, y un valor capturado quedaría viejo.
       const ws = wsDeBusqueda(window.location.search);

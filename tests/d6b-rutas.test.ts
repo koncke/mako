@@ -94,6 +94,8 @@ const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: str
  * se vuelve a mirar: si ahora le pide algo a una IA, va adentro de `conSuIADelNegocio`.
  */
 const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> = [
+  // La medición de uso de Admin › Activity (mig 0398, 5/11/2026): la monta la barra de TODA pantalla, el Ops Center incluido. Suma contadores.
+  { unidad: 'app/api/actividad/route.ts#POST', usa: ['getUsuarioActual', 'sanearLote', 'getWorkspaceActual', 'registrarActividad'], porque: 'suma cuántas pantallas y acciones hizo la persona por tab (actividad_uso): no le pide nada a una IA' },
   // Los grupos de la persona, para la lista de chats (3/11/2026): filas de `grupo_mensajes`. El turno de MaKo corre en otra invocación (app/api/cron/grupo-turno).
   { unidad: 'app/api/grupos/route.ts#GET', usa: ['getWorkspaceActual', 'gruposDeLaPersona', 'resumenParaLaLista'], porque: 'lista los grupos de la persona con lo último y lo no leído: no le pide nada a una IA' },
   // Cuántos teléfonos de la persona reciben avisos (Settings › Notificaciones › Celular, 25/10/2026): lee push_suscripciones.

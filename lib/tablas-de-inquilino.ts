@@ -52,6 +52,9 @@
  * vez de confiar en un orden: un orden a mano es una lista más que se queda vieja.
  */
 export const TABLAS_DE_INQUILINO = [
+  // La medición de uso de Admin › Activity (mig 0398, 5/11/2026): vaciar o borrar el negocio se la lleva. No va en
+  // TENANT_TABLES: la escribe y la lee lib/actividad*.ts con el cliente de servicio y el workspace explícito.
+  'actividad_acciones', 'actividad_uso',
   'ad_transcripts', 'adset_budget_daily',
   // Los eventos de Calendly o Cal.com vinculados a una etapa de reunión (mig 0293, 16/10/2026).
   'agenda_evento_etapa',
