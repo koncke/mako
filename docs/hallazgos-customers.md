@@ -6,6 +6,38 @@ grilla de administración), Billing (era /admin/cobros) y Agents (era /admin/age
 diseño, con qué se copia de cada una, en [customers/referencias/otras-apps/LEEME.md](customers/referencias/otras-apps/LEEME.md).
 
 
+## Activity: MaKo no sabía qué se usaba, sólo el último ingreso (5/11/2026)
+
+**Síntoma:** Martín pidió ver «qué acciones hacen los usuarios dentro de MaKo, cuándo se conectan, qué no están utilizando», y lo
+único que había era `usuarios.ultimo_login`. Con eso se contesta «quién dejó de venir» y nada más.
+
+**Lo que se hizo:** contadores por persona, tab y día (`actividad_uso`, mig 0398) que suma el navegador una vez por minuto
+(app/_components/MedidorDeUso.tsx), y un renglón por cada operación de la API de MaKo (`actividad_acciones`, desde
+`ejecutarOperacion`). Sin contenido: la ruta se vuelve tab en el server y se tira; de MaKo, el id, el canal y si salió.
+
+**Vive en:** lib/actividad-reglas.ts (las cuentas, con test), lib/actividad-registro.ts (los escritores), lib/actividad.ts (el
+lector), app/admin/actividad/ActividadAdmin.tsx, app/api/actividad/route.ts, app/api/cron/actividad-purga/route.ts.
+
+**Lo que no se ve en el código:**
+- **Una server action también pasa por el parche de `fetch`** (app/_components/WsFetch.tsx), con la URL vacía y `POST`: por
+  eso el contador de acciones vive ahí y cuenta las dos cosas sin tocar ningún botón. Y cuenta ANTES del `if (!ws)`, o una
+  persona sin `?ws=` en la pestaña (casi todas) no sumaría nada.
+- **Dos keys del nav se dibujan con el mismo nombre** («Ops Center» es `mako` para el super admin y `second-brain` para un
+  negocio). «Nadie la abrió» por key la mostraba dos veces, y como «sin uso» aunque se usara por la otra. Va junta por nombre
+  (`tabsDeNegocios`).
+- **«Nuevo» es por el alta de la persona**, como PostHog con su `created_at`: con el primer día medido, la semana en que se
+  aplique la migración mostraría a todos como nuevos.
+- **«En 30 días» sobre una medición de 3 miente**: la pantalla mira `ventanaDeUso` (30, o los días que lleva).
+- **`ejecutarOperacion` se envolvió sin cambiarle la forma**: la mitad de los tests de la API leen su fuente
+  (`return await runWithWorkspace(ctx.ws,`, los recortes hasta `runnerDelRegistro`). El cuerpo pasó a `correrOperacion` y el
+  envoltorio sólo anota y devuelve lo mismo.
+- **Un test que recorta un runner hasta el cierre del objeto crece con cada runner que se declara después**:
+  tests/api-mako-vender-plan.test.ts se cayó al cargar (el recorte medía 9.503) cuando se sumaron los de Users y Errors. Ahora
+  corta en el runner que sigue.
+
+**La regla que queda:** lo que se mide de una persona se guarda como número, nunca como lo que hizo o vio, y con su retención en
+un cron que cuenta lo que borra.
+
 ## Revenue: los ingresos no se veían porque todo lo cobrado entró a mano (5/11/2026)
 
 - **Síntoma (Martín):** «en SuperAdmin… no se me refleja la cantidad de ingresos para suscripciones. ¿Cuánto es lo que me
@@ -178,5 +210,6 @@ tests/customers.test.ts (el último test: 11 roturas, cada una da 1 fallo).
 - **Sin paginar, porque crecen con los negocios y no con el uso:** `onboardingsHechos` (un `.in(ids)` de app_settings) y
   `leadsDe` (una consulta por negocio). Con más de 1000 negocios, la primera corta en silencio: ahí van por
   `leerPorPaginas` (lib/clientes-plataforma.ts).
+- **Activity no dibuja todavía el uso de cada negocio en su ficha de Customers**: `vistaDeActividad` ya lo tiene por negocio.
 - **Lo que hace una agencia dentro de su cliente no se anota en ningún lado.** Por eso un cliente de agencia nunca entra en
   «Sin uso»: para saber si la agencia lo dejó, hay que marcar su entrada (/api/agencia/entrar) en la fila del cliente.

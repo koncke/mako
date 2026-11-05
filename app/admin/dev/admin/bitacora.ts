@@ -453,6 +453,26 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin?tab=users',
   },
+  {
+    fecha: '5 nov', hora: '21:40', chat: 'Admin', sesion: 'cli_efae8d7b-8598-5f74-a2e3-3aef4e3f73e1', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tanda 3: Activity, con la medición de uso que faltaba (qué tabs se usan, cuáles no, quién dejó de entrar y lo que hace MaKo)',
+    puntos: [
+      'Hasta hoy MaKo sabía sólo el último ingreso de cada persona. Ahora cuenta, por persona, tab y día, cuántas pantallas abre y cuántas acciones hace (el «pageview» de PostHog): el navegador lo junta y lo manda una vez por minuto, sin frenar nada y sin el contenido ni la dirección de la pantalla.',
+      'Cada operación de la API de MaKo (el chat, WhatsApp, HTTP) deja QUÉ hizo, por qué canal y si salió, sin los parámetros. Ni el super admin ni el negocio de la plataforma se miden.',
+      'Activity copia a PostHog: los activos del día, la semana y el mes; quién entra cada semana (nuevos, siguen, volvieron, dejaron); qué tabs se usan y cuáles nadie abrió; cada negocio con lo que más usa; quién dejó de entrar (de 14 a 120 días, desde su último ingreso: anda ya, sin la medición), y lo último que hizo MaKo. Al pie, lo que era Agents.',
+      'El uso se guarda 400 días y lo de MaKo 90; un cron lo borra cada noche. La política de privacidad lo dice.',
+      'La lectura está en la API (`ver_actividad_de_mako`), sólo para la plataforma. El teléfono muestra los activos y quién dejó de entrar.',
+      'Necesita la migración 0398 (el número se confirma al aplicarla): sin ella, la pantalla lo dice y muestra lo que sale del último ingreso.',
+    ],
+    archivos: [
+      'supabase/migrations/0398_actividad_uso.sql — las dos tablas y la suma atómica',
+      'app/_components/MedidorDeUso.tsx, medidor-lote.ts, contador-acciones.ts y app/api/actividad/route.ts — la medición',
+      'lib/actividad-reglas.ts, lib/actividad.ts, lib/actividad-registro.ts y app/admin/actividad/ActividadAdmin.tsx — Activity',
+      'app/api/cron/actividad-purga/route.ts — la retención',
+      'tests/actividad.test.ts',
+    ],
+    revisar: '/admin?tab=activity',
+  },
 ];
 
 export const PARTES: Parte[] = [
