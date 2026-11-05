@@ -73,6 +73,8 @@ test('el MRR no cuenta ninguna cancelada, quede o no plazo por cumplir', () => {
   const q = fuente('lib/queries.ts');
   const ini = q.indexOf('async function _getMrrActivo(');
   const f = q.slice(ini, q.indexOf('\nexport const ', ini));
-  assert.match(f, /\.select\('suscripcion_monto_usd, suscripcion_meses, fecha_cierre, suscripcion_cancelada_at'\)/);
+  // Lo que cuida: que la lectura TRAIGA la cancelación (5/11/2026: la lista de columnas creció con el id del lead, para
+  // leer los cambios de cada suscripción; citar la línea literal daba rojo con el código bien).
+  assert.match(f, /\.select\('[^']*\bsuscripcion_cancelada_at\b[^']*'\)/, 'la lectura del MRR trae la cancelación');
   assert.match(f, /if \(r\.suscripcion_cancelada_at\) continue;/);
 });

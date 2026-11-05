@@ -56,9 +56,13 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 const IDS = ['listar_cobros', 'ver_cobro', 'crear_link_pago', 'anular_link_pago', 'reembolsar_cobro', 'cancelar_suscripcion'];
 // ⚠️ Cambiado A PROPÓSITO el 14/10/2026: el área suma las nueve de Pagos campo por campo (docs/diseno-ficha-bloques.md
 // §3), con su forma fijada en tests/api-mako-pagos-campo.test.ts.
+// ⚠️ Y el 5/11/2026 la suscripción mes a mes (tests/suscripcion-meses.test.ts). Van en su propia lista, sumada a la de Pagos:
+// así la lista larga de abajo no se toca, y lo que otra rama sume al área no choca con esta línea al mezclar.
+const IDS_SUSCRIPCION = ['ver_suscripcion_lead', 'cambiar_suscripcion'];
 const IDS_PAGOS_CAMPO = [
   'ver_moneda_negocio', 'cambiar_moneda_negocio', 'editar_dato_deal', 'editar_obligacion_deal', 'editar_venta_lead',
   'editar_cuota', 'crear_link_cuota', 'cortar_recordatorio_cuota', 'estado_suscripcion_manual', 'baja_del_cliente',
+  ...IDS_SUSCRIPCION,
 ];
 const accion = (id: string): AccionDef => {
   const d = porId(id);

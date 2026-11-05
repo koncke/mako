@@ -97,6 +97,7 @@ cambiar_like_comentario_comunidad
 cambiar_like_post_comunidad
 cambiar_limites_envio
 cambiar_moneda_negocio
+cambiar_suscripcion
 cambiar_tema_landing
 cambiar_texto_landing
 cambiar_texto_mensaje
@@ -724,6 +725,7 @@ ver_secciones_landing
 ver_senales_negocio
 ver_serie_funnel_semanal
 ver_serie_vsl
+ver_suscripcion_lead
 ver_tablero_kpis
 ver_tarea_plan
 ver_tendencias

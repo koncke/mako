@@ -66,17 +66,17 @@ export function Semaforo({ tono, children }: { tono: Tono; children: ReactNode }
 }
 
 /** La hora del NEGOCIO (20/10/2026): con la del navegador, alguien en otra zona anotaba el día del negocio con su hora. */
-const useHoraDelNegocio = (): string => { const tz = useTzWorkspace(); return horaEnTz(tz); };
-const numero = (s: string): number | null => {
+export const useHoraDelNegocio = (): string => { const tz = useTzWorkspace(); return horaEnTz(tz); };
+export const numero = (s: string): number | null => {
   const n = Number(String(s).replace(',', '.'));
   // Lo que redondea a 0 (0,004) es «falta el monto», no un cobro de 0 (21/10/2026).
   const r = Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
   return r > 0 ? r : null;
 };
-const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+export const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 /** El modal de la casa, sin que el clic suba a la ficha en modal (que se cerraría). */
-function Caja({ titulo, onCerrar, pie, children, ancho = 460 }: { titulo: string; onCerrar: () => void; pie?: ReactNode; children: ReactNode; ancho?: number }) {
+export function Caja({ titulo, onCerrar, pie, children, ancho = 460 }: { titulo: string; onCerrar: () => void; pie?: ReactNode; children: ReactNode; ancho?: number }) {
   return (
     <div onClick={(e) => e.stopPropagation()}>
       <Modal titulo={titulo} onCerrar={onCerrar} pie={pie} ancho={ancho} anidada>{children}</Modal>
@@ -88,9 +88,9 @@ function Caja({ titulo, onCerrar, pie, children, ancho = 460 }: { titulo: string
  * La moneda y el monto de un pago a mano. `monto` es lo que se cobró EN ESA moneda; `usd`, cuánto es en dólares
  * (sólo si la moneda no es USD). `usdPorDefecto`: para una cuota, su valor; vacío, se cobra eso.
  */
-type Plata = { moneda: string; monto: string; usd: string };
+export type Plata = { moneda: string; monto: string; usd: string };
 
-function CamposDePlata({ plata, set, monedaNegocio, usdPorDefecto, monedaCuota = null, aLaTasa = false }: {
+export function CamposDePlata({ plata, set, monedaNegocio, usdPorDefecto, monedaCuota = null, aLaTasa = false }: {
   plata: Plata; set: (p: Plata) => void; monedaNegocio: string; usdPorDefecto: number | null; monedaCuota?: string | null;
   /** `usdPorDefecto` sale de la tasa de la cuota (cobrada en su moneda), no es el valor entero de la cuota. */
   aLaTasa?: boolean;
@@ -120,7 +120,7 @@ function CamposDePlata({ plata, set, monedaNegocio, usdPorDefecto, monedaCuota =
 }
 
 /** Lo que va al server desde los campos de plata: `monto` SIEMPRE en dólares (lib/pagos.ts, `cobrarCuota`). */
-function plataParaServer(p: Plata, usdPorDefecto: number | null): { ok: true; monto: number | null; moneda: string | null; montoOriginal: number | null } | { ok: false; error: string } {
+export function plataParaServer(p: Plata, usdPorDefecto: number | null): { ok: true; monto: number | null; moneda: string | null; montoOriginal: number | null } | { ok: false; error: string } {
   const monto = numero(p.monto);
   if (p.moneda === 'USD') return monto == null ? { ok: false, error: 'Falta el monto.' } : { ok: true, monto, moneda: null, montoOriginal: null };
   if (monto == null) return { ok: false, error: `Falta cuánto se cobró en ${p.moneda}.` };
@@ -129,7 +129,7 @@ function plataParaServer(p: Plata, usdPorDefecto: number | null): { ok: true; mo
   return { ok: true, monto: dolares, moneda: p.moneda, montoOriginal: monto };
 }
 
-function CamposDeCuando({ fecha, hora, metodo, setFecha, setHora, setMetodo }: {
+export function CamposDeCuando({ fecha, hora, metodo, setFecha, setHora, setMetodo }: {
   fecha: string; hora: string; metodo: MetodoPago | ''; setFecha: (v: string) => void; setHora: (v: string) => void; setMetodo: (v: MetodoPago | '') => void;
 }) {
   return (
