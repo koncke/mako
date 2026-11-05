@@ -995,6 +995,39 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-preg__op--leer { margin: 0; cursor: default; }
 .co-preg--app .co-preg__pie { color: var(--dim); }
 @media (hover: none) and (pointer: coarse) { .co-preg--arriba .co-preg__op { min-height: 48px; } .co-preg--arriba .co-chip { min-height: 44px; } }
+/* Cuándo se hizo y «Ignorar» (5/11/2026, Martín: «una sección que marque la fecha… y un botón de ignorar»): un renglón chico arriba
+   de la pregunta. La fecha en gris; con más de 48 horas, «Vieja» y el color de aviso. «Ignorar» es secundario (texto, sin caja), a
+   la derecha, y en el teléfono del alto de un dedo. ⚠️ No es `.co-preg__pie`: ése se esconde en las pantallas táctiles. */
+.co-preg__meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -2px 4px 6px; min-height: 24px; }
+.co-preg__edad { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-meta); color: var(--faint); font-variant-numeric: tabular-nums; }
+.co-preg__edad time { white-space: nowrap; }
+.co-preg__cuando { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.co-preg__edad--vieja { color: var(--warn, var(--dim)); }
+.co-preg__vieja { flex: none; padding: 1px 6px; border-radius: 999px; background: var(--warn-bg, var(--velo-hover)); color: var(--warn, var(--ink)); font-weight: 600; }
+.co-preg__ignorar { flex: none; height: 28px; padding: 0 8px; margin-right: -4px; border: 0; border-radius: 8px; background: none; color: var(--dim); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.co-preg__ignorar:hover { background: var(--velo-hover); color: var(--ink); }
+.co-preg__ignorar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-preg__ignorar:disabled { opacity: .5; cursor: default; }
+/* «Ignoradas · N»: un link chico, aparte y a la derecha. Abierta, la lista con «Volver a mostrar». Y el «Deshacer» de la que se
+   acaba de ignorar, en una tira. */
+.co-ignoradas { display: flex; justify-content: flex-end; max-width: 760px; margin: 0 auto 6px; }
+.co-ignoradas__link { height: 24px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--faint); font: inherit; font-size: var(--fs-meta); cursor: pointer; }
+.co-ignoradas__link:hover { background: var(--velo-hover); color: var(--dim); }
+.co-ignoradas__link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-ignoradas__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: min(40dvh, 320px); overflow-y: auto; }
+.co-ignoradas__fila { padding: 8px 4px; border-top: 1px solid var(--border); }
+.co-ignoradas__fila:first-child { border-top: 0; }
+.co-ignoradas__texto { margin: 0 0 4px; font-size: var(--fs-sm); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.co-ignoradas__pie { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-size: var(--fs-meta); color: var(--faint); }
+.co-ignoradas__volver { margin-left: auto; }
+.co-ignoradas__titulo { font-size: var(--fs-sm); font-weight: 600; color: var(--dim); }
+.co-ignoradas__cuando { white-space: nowrap; }
+.co-preg--recien { cursor: default; font-weight: 400; color: var(--dim); }
+.co-preg--recien:hover { background: var(--surface); }
+@media (hover: none) and (pointer: coarse) {
+  .co-preg__ignorar { height: 44px; padding: 0 12px; }
+  .co-ignoradas__link { height: 44px; padding: 0 12px; }
+}
 .co-chip--primario { border-color: var(--primary); background: var(--primary); color: var(--surface); font-weight: 600; }
 .co-chip--primario:hover { background: var(--primary-strong); }
 .co-chip--primario:disabled { opacity: .5; cursor: default; }

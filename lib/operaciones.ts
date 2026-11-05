@@ -42,9 +42,9 @@ import { guardarTitular } from './centro-titulares-db';
 import { guardarPasos } from './centro-pasos-db';
 import { after } from 'next/server';
 import { anotarTurnosDelPlan, aplicarPlanDeLosChats } from './centro-plan-auto';
-import { guardarPreguntas } from './centro-preguntas-chat-db';
+import { guardarPreguntas, preguntasParaDecidir } from './centro-preguntas-chat-db';
 import { cadenasDeSesiones } from './centro-chats';
-import { sanearPreguntas } from './centro-preguntas-chat';
+import { MOTIVO_IGNORADA, ignoradaQueContesta, preguntaDeTrabajo, sanearPreguntas, type PreguntaChat } from './centro-preguntas-chat';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 import { borrarAdjuntosDe } from './operaciones-adjuntos';
 import { acusarTicket, acusarTicketNuevo, ticketsNuevosParaElCartero, ticketsNuevosSinEntregar, ticketsParaElCartero, ticketsSinEntregar, type TicketNuevoParaEntregar, type TicketParaEntregar } from './tickets-runner';
@@ -208,6 +208,55 @@ export async function encolarPedido(entrada: {
     return { ok: false, error: `No pude guardarlo, vuelve a mandarlo: ${error.message}` };
   }
   return { ok: true, id: l.p.id };
+}
+
+/**
+ * Al IGNORAR una pregunta (5/11/2026), la respuesta suya que todavía no salió (contestada en otro dispositivo, o esperando a un chat
+ * cerrado) se cancela: no la entrega ningún Runner, y no queda en el cartel de lo que espera. Con compare-and-set: lo que la PC ya
+ * tomó salió. Lo que se le escape a esto lo frena igual la vuelta del Runner (`sinRespuestasIgnoradas`). Devuelve cuántas cancela.
+ */
+export async function cancelarRespuestasDe(local: string, idPregunta: string): Promise<number> {
+  const db = getSupabaseServer();
+  const { data, error } = await db.from(T_PEDIDOS).select('id, texto').eq('destino', local).eq('estado', 'escrito').limit(200);
+  if (error) throw new Error(error.message);
+  let n = 0;
+  for (const f of data ?? []) {
+    if (preguntaDeTrabajo(f.texto as string | null) !== idPregunta) continue;
+    const { data: hecho, error: e2 } = await db.from(T_PEDIDOS)
+      .update({ estado: 'cancelado', motivo: MOTIVO_IGNORADA, updated_at: new Date().toISOString() })
+      .eq('id', f.id as string).eq('estado', 'escrito').select('id');
+    if (e2) throw new Error(e2.message);
+    n += (hecho ?? []).length;
+  }
+  return n;
+}
+
+/**
+ * Lo que una vuelta va a reclamar, sin las respuestas de una pregunta IGNORADA (5/11/2026, Martín: «un botón de ignorar»): ésas se
+ * cancelan con su motivo y no llegan al chat. Si no se pueden leer las preguntas de su destino, ese trabajo NO se reclama en esta
+ * vuelta (queda escrito y se vuelve a mirar en la siguiente): no entregar es lo único que puede hacer MaKo sin saber. Un trabajo
+ * que no contesta una pregunta pasa tal cual, y el orden de entrega es el de siempre (el de la cola).
+ */
+async function sinRespuestasIgnoradas(cand: ReadonlyArray<{ id: string; destino: string; texto: string | null }>, ahoraIso: string): Promise<string[]> {
+  const respuestas = cand.filter((c) => preguntaDeTrabajo(c.texto));
+  if (!respuestas.length) return cand.map((c) => c.id);
+  let porDestino: Map<string, PreguntaChat[]> | null = null;
+  try {
+    porDestino = await preguntasParaDecidir(respuestas.map((c) => c.destino));
+  } catch (err) {
+    console.error('[operaciones] no pude leer las preguntas para entregar sus respuestas:', err instanceof Error ? err.message : err);
+  }
+  const db = getSupabaseServer();
+  const out: string[] = [];
+  for (const c of cand) {
+    if (!preguntaDeTrabajo(c.texto)) { out.push(c.id); continue; }
+    if (!porDestino) continue;
+    if (!ignoradaQueContesta(c.texto, porDestino.get(c.destino) ?? [])) { out.push(c.id); continue; }
+    const { error } = await db.from(T_PEDIDOS).update({ estado: 'cancelado', motivo: MOTIVO_IGNORADA, updated_at: ahoraIso })
+      .eq('id', c.id).eq('estado', 'escrito');
+    if (error) console.error('[operaciones] no pude cancelar la respuesta de una ignorada:', error.message);
+  }
+  return out;
 }
 
 /** Sólo un pedido que todavía no tomó un cartero se puede cancelar. Sus adjuntos se borran (no van a bajar). */
@@ -544,10 +593,12 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   const vivos = servicio ? [] : sanearEntregables(e.entregables, chats);
   const pedidos: PedidoParaEntregar[] = [];
   if (vivos.length) {
-    const { data: cand, error: eCand } = await db.from(T_PEDIDOS).select('id')
+    const { data: cand, error: eCand } = await db.from(T_PEDIDOS).select('id, destino, texto')
       .eq('estado', 'escrito').in('destino', vivos).order('created_at', { ascending: true }).limit(POR_VUELTA);
     if (eCand) throw new Error(eCand.message);
-    for (const { id } of cand ?? []) {
+    // Una respuesta de una pregunta que Martín ignoró no sale (5/11/2026): se cancela acá, antes de reclamarla.
+    const aReclamar = await sinRespuestasIgnoradas((cand ?? []).map((f) => ({ id: f.id as string, destino: f.destino as string, texto: (f.texto as string | null) ?? null })), ahoraIso);
+    for (const id of aReclamar) {
       const { data } = await db.from(T_PEDIDOS)
         .update({ estado: 'tomado', tomado_at: ahoraIso, updated_at: ahoraIso })
         .eq('id', id).eq('estado', 'escrito').select('id, firmado, firma');

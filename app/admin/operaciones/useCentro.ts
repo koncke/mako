@@ -36,9 +36,9 @@ import type { LecturaPushes } from '@/lib/progreso';
 import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 import { respuestasDelChat } from '@/lib/centro-preguntas';
-import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
+import { esperaAMartin, type AccionDeshacer, type AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, type pedidosDelChatAction, type turnosCentroAction, type FotoCentro } from './acciones';
+import { desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, ignorarDecisionAction, ignorarPreguntaAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, type pedidosDelChatAction, type turnosCentroAction, type FotoCentro } from './acciones';
 // Las LECTURAS van por GET y no por acción (23/10/2026): ver ./lectura-centro.ts.
 import { leerCentro } from './lectura-centro';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
@@ -415,7 +415,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (r.ok) anotarRespuesta(Number(fd.get('id')), null, '');
     return r;
   };
-  const pendientesTicketera = decisiones.filter((x) => !x.respuesta && x.urgencia !== 'aviso').length;
+  const pendientesTicketera = decisiones.filter((x) => esperaAMartin(x) && x.urgencia !== 'aviso').length;
 
   // ── La caja ────────────────────────────────────────────────────────────────────────────────────
   const claveFirma = firma.clave === undefined ? undefined : firma.clave?.id ?? null;
@@ -762,6 +762,34 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     return null;
   }
 
+  // ── Ignorar una pregunta o una decisión (5/11/2026, Martín: «un botón de ignorar») ────────────────────────────────────────
+  // Se ve en el acto (sale del bloque y del globito) y se guarda en MaKo; si no se pudo, vuelve atrás y lo dice. No se le firma
+  // nada al chat: es una marca de Martín. Devuelve el error, o null.
+  async function ignorarPregunta(c: ChatCentro, p: PreguntaChat, ignorar: boolean): Promise<string | null> {
+    const poner = (x: PreguntaChat) => setPreguntas((q) => ({ ...q, [c.clave]: (q[c.clave] ?? []).map((y) => (y.id === p.id ? x : y)) }));
+    const contar = (d: number) => setAbiertas((a) => { const n = (a[p.local] ?? 0) + d; const out = { ...a }; if (n > 0) out[p.local] = n; else delete out[p.local]; return out; });
+    const { ignorada: _i, ...sinMarca } = p;
+    poner(ignorar ? { ...p, ignorada: new Date().toISOString() } : sinMarca);
+    contar(ignorar ? -1 : 1);
+    const r = await ignorarPreguntaAction({ local: p.local, id: p.id, ignorar }).catch(() => null);
+    if (r?.ok) { poner(r.pregunta); return null; }
+    poner(p);
+    contar(ignorar ? 1 : -1);
+    const error = r?.error ?? 'No pude guardarlo';
+    avisar(error, 'bad');
+    return error;
+  }
+  async function ignorarDecision(d: DecisionEspera, ignorar: boolean): Promise<string | null> {
+    const poner = (ignoradaAt: string | null) => setDecisiones((ds) => ds.map((x) => (x.id === d.id ? { ...x, ignoradaAt } : x)));
+    poner(ignorar ? new Date().toISOString() : null);
+    const r = await ignorarDecisionAction({ id: d.id, ignorar }).catch(() => null);
+    if (r?.ok) { poner(r.ignoradaAt); return null; }
+    poner(d.ignoradaAt ?? null);
+    const error = r?.error ?? 'No pude guardarlo';
+    avisar(error, 'bad');
+    return error;
+  }
+
   // Los avisos dicen qué hacer, cortos (Martín, 15/10/2026: «Jamás pongas mensajes no claros»). Después de crear el
   // Token, el paso siguiente (pegárselo al Runner) ya lo dice la caja.
   const copiarConAviso = async (t: string, aviso: string) => {
@@ -829,7 +857,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   return {
     chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
-    turnosDe, preguntasDe, tareasDe, contestarPregunta, avisoDePregunta, estadoPc, mirar,
+    turnosDe, preguntasDe, tareasDe, contestarPregunta, ignorarPregunta, ignorarDecision, avisoDePregunta, estadoPc, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, cambiarCreditoDelNegocio, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, mandarNota, anotarEnviado, copiarConAviso, crearClave, copiarClave,
