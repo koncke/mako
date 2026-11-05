@@ -173,7 +173,7 @@ export async function crearLookAction(input: { plantillaId: string; fotoId: stri
     cara,
     ruta: rutaDeSubida('ai-avatar', 'escena', 1, randomUUID()),
   }));
-  // Creem frenó el prompt (lib/creem-moderacion.ts): no se encoló nada ni cuenta para la prueba.
+  // La moderación (lib/creem-moderacion.ts) o el permiso de IA frenó el prompt: no se encoló nada ni cuenta para la prueba.
   if (esRechazoDeModeracion(trabajoId)) return { ok: false, error: trabajoId.texto };
   if (trabajoId == null) return { ok: false, error: 'No se pudo pedir el look. Es un problema nuestro: vuelve a intentar.' };
   await sumarUsoDePrueba(ws, 'prueba.imagenes');

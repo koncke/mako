@@ -22,29 +22,12 @@ llamada de Leila), lo de abajo, y lo que entró o se repartió el 30 y 31/10.</s
 - **El texto de la fila viva #261:** dos estados siguen diciendo «Tu cuenta» sin «publicitaria» (`gracia` y `liquidacion`). La plantilla ya está corregida, pero no se copia a una fila que existe. Se edita en Automations de SuperAdmin.
 - **El correo del rechazo avisa una pausa que hoy no pasa:** el corte de acceso está apagado (`CORTE_DE_ACCESO_PRENDIDO`, `lib/plan-acceso-reglas.ts`).
 
-## LO QUE FALTA EL DÍA QUE SE CONECTE CREEM (31/10)
+## ~~LO QUE FALTA EL DÍA QUE SE CONECTE CREEM (31/10)~~ — CERRADO: Creem rechazó la tienda (5/11/2026)
 
-Los nueve del barrido y los peores que aparecieron después quedaron arreglados en el código: el mapa, en
-[hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «El barrido del 31/10». ⚠️ **Ya no está inerte: Martín conectó Creem en
-la cuenta de la plataforma el 31/10 a las 19:22 UTC** (medido en la base a las 19:53: 0 cobros y 0 avisos de Creem todavía; la clave
-real o de prueba no se miró). Vuelve a medirlo antes de creer esta línea. Lo que queda abierto se mide con esa clave:
-
-- **Nada de esto se probó contra Creem de verdad**, sólo contra un doble armado de su OpenAPI. Al conectar: una prueba gratis,
-  un cobro, una renovación, pasar a Pro, una pausa con su reanudación. Lo más dudoso, cómo queda el próximo cobro al reanudar.
-- **El cobro de la diferencia de «Pasar a Pro» se puede asentar como una renovación**, y borrar una mora (`confirmarImpago`, y
-  una reentrega de `subscription.paid`). Hoy no muerde: el corte está apagado. Hay que medir qué deja `/upgrade` (`type`,
-  `description`, `period_start`) y filtrar por eso, como `FACTURAS_DE_PAGO` en Stripe.
-- **`/upgrade` «can reject subscriptions that have a discount applied»**, dice su doc. Si cuenta un `once` ya consumido, quien
-  entró con el 50% no puede subir ni aceptar una oferta. Se dice el error y la oferta se libera; falta medirlo.
-- **La identidad de una cuenta de Creem en sus cobros es el `wh_…` de su aviso.** Ya no se pide borrarlo al desconectar, pero
-  si alguien lo borra a mano, al reconectar nace otro id y sus cobros quedan huérfanos. Lo sano es `store_id` (viene en
-  `WebhookEntity`): conviene antes de que haya cobros, porque después hay que migrarlos.
-- **«Pasar a Pro» sin confirmar no tiene cron**: si Creem se cae justo ahí, se le pide tocar de nuevo. Quien no toca paga Pro con
-  capa Esencial hasta que lo haga.
-- **La misma tarjeta con otro email saca otra prueba**: Creem no expone la tarjeta (`huellaDeTarjeta: false`). Es decisión de
-  producto si con ese riesgo la prueba se ofrece por Creem; hoy se ofrece.
-- **Un cliente de Creem en mora no tiene dónde cambiar la tarjeta**: `pagarDeuda` le dice que se reintenta solo. Creem tiene un
-  portal de cliente (docs.creem.io/features/customer-portal) que no se usa todavía.
+Creem rechazó la tienda de MaKo el 5/11/2026 y es definitivo (sus términos, §20.6, no reabren a personas conectadas):
+lo que esta sección pedía medir con una clave de Creem ya no se va a medir. Las siete trampas siguen en git
+(`git show e5036fc58:docs/pendientes.md`) y el mapa del barrido en [hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) →
+«El barrido del 31/10», por si la próxima pasarela tiene las mismas. Lo que se sacó de MaKo: [relevo/nube-creem-fuera.md](relevo/nube-creem-fuera.md).
 
 ## 🔴 Lo que bloquea una campaña de un cliente — EN MARCHA (CRM, 31/10)
 
@@ -67,7 +50,7 @@ Del `pendientes-30-10.md`, sección 5. Todo esto es de **Leila para Black Novemb
 |---|---|---|
 | El segundo nombre y Black November | CRM | recién arrancado |
 | El WhatsApp en el checkout, junto al nombre y el email | Planes (con Ops Center) | Martín lo pidió el 31/10 y **revierte** mi decisión de pedirlo después de pagar |
-| La pasarela **Creem** (tercera pasarela, LatAm y USD) | Martín | clave y aviso listos; la tienda sin aprobar (5/11: 0 de 3 pasos), ver [creem-retiros.md](creem-retiros.md) |
+| ~~La pasarela **Creem** (tercera pasarela, LatAm y USD)~~ | Martín | **rechazada el 5/11/2026, definitivo**; se pasa a otro proveedor, todavía sin elegir ([creem-retiros.md](creem-retiros.md), [relevo/nube-creem-fuera.md](relevo/nube-creem-fuera.md)) |
 | **Competitors Spy**: plan y qué repo copiar | nube | arrancado |
 | **El diseño de los dashboards aplicado** (las 8 piezas del Dashboard) | nube | arrancado |
 | El tope del chequeo y por qué 1.028 archivos no ejecutaban | nube | **cerrado**, en el tren |
@@ -145,7 +128,7 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 
 | # | Qué | Por qué traba |
 |---|---|---|
-| M3 | **URGENTE: aplicar a Paddle y a Creem** el mismo día | Sin pasarela no hay cobro en línea: medido el 30/10 en producción, /planes/esencial dice «Todavía no cobramos en línea» y sólo deja dejar los datos. **Stripe no es opción: Argentina no es país habilitado** |
+| M3 | **URGENTE: aplicar a Paddle** (Creem rechazó la tienda el 5/11/2026, definitivo: [creem-retiros.md](creem-retiros.md)) | Sin pasarela no hay cobro en línea: medido el 30/10 en producción, /planes/esencial dice «Todavía no cobramos en línea» y sólo deja dejar los datos. **Stripe no es opción: Argentina no es país habilitado** |
 | M5 | **Mauricio:** el redirect del Payment Link con `{CHECKOUT_SESSION_ID}` | Su página de venta ya está restaurada; falta eso |
 | M6 | **La foto del buscador de Instagram** (Mauricio y la plataforma): vincular el Instagram de MaKo a su página y sumar `instagram_basic` al token. Y para cuentas personales, decidir si se usa la extensión con la sesión de la persona | Gratis, sólo cuentas de empresa o creador, y anda con la rama `crm-instagram-3010` subida. Lo de las personales es un endpoint no oficial, con MaKo en App Review. Detalle: docs/hallazgos-crm.md, en esa rama |
 

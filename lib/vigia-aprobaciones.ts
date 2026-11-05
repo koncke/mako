@@ -209,11 +209,14 @@ export const ITEMS: readonly ItemVigia[] = [
     link: 'https://resend.com/domains',
     queHacer: 'Revisa los registros DNS del dominio en Resend.',
   },
+  // ⚠️ RECHAZADA EL 5/11/2026, Y ES DEFINITIVO (docs/creem-retiros.md). Su API no dice el estado: se lee de su panel, como las
+// demás sin API. El NOMBRE ya lo dice, y el «qué hacer» no manda a contestarle a Creem. Cuando haya otro proveedor, entra como
+// un ítem nuevo, y éste se puede sacar.
   {
     id: 'creem-tienda',
-    nombre: 'Creem: la tienda de MaKo (cobros fuera de Argentina)',
-    link: 'https://www.creem.io/dashboard/balances/accounts',
-    queHacer: 'Mira el cartel de «Payout Account», en «Balance», y contesta lo que pida Creem.',
+    nombre: 'Creem: la tienda de MaKo, rechazada el 5/11/2026 (definitivo)',
+    link: 'https://www.creem.io/dashboard',
+    queHacer: 'Lee docs/creem-retiros.md: Creem no reabre la cuenta, y los cobros de fuera de Argentina pasan a otro proveedor.',
     panel: {
       url: 'https://www.creem.io/dashboard/balances/accounts',
       mirar: 'El cartel de la tienda y el de la cuenta de retiro («Payout Account»).',
@@ -230,7 +233,7 @@ export const ITEMS: readonly ItemVigia[] = [
         { dice: 'verified', estado: 'aprobado' },
       ],
     },
-    nota: 'Enviada el 5/11/2026 a nombre de Leandro; su identidad ya está verificada. Falta la cuenta de retiro. Su API no dice el estado: Creem avisa por mail a equipo@hola-mako.com. Si rechaza, se pasa a otro proveedor.',
+    nota: 'Enviada el 5/11/2026 a nombre de Leandro y rechazada ese mismo día, a las pocas horas, por mail y sin el motivo. Es definitivo: sus términos (§20.6) no reabren la cuenta de una persona conectada a una que Creem cerró.',
   },
   {
     id: 'firma-windows',

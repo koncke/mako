@@ -388,15 +388,13 @@ export default function Page() {
         <li><strong>Calendly y Cal.com</strong> — las agendas de reserva.</li>
         <li><strong>Fathom</strong> — la grabación y transcripción de tus llamadas.</li>
         <li><strong>ElevenLabs, Panda Video y Google Flow</strong> — si usas la generación de video: tu voz se clona en ElevenLabs y tu foto se envía a Google Flow.</li>
+        {/* Hasta el 5/11/2026 acá iba Creem, que moderaba los pedidos de imagen y video y cobraba los planes desde
+            Latinoamérica. Creem rechazó la tienda de MaKo ese día (docs/creem-retiros.md) y no recibe nada: ni un prompt
+            (la moderación quedó sin proveedor, lib/creem-moderacion-reglas.ts) ni un pago. Un proveedor nuevo entra a
+            esta lista el día que empieza a recibir datos, no antes. */}
         <li>
-          <strong>Creem, para revisar lo que se genera</strong> — antes de generar una imagen o un video, el texto que va a
-          usar el modelo (no tu foto) se manda al servicio de moderación de Creem, que contesta si se puede generar. Va con
-          el número de tu espacio de trabajo, sin tu nombre ni tu correo.
-        </li>
-        <li>
-          <strong>Creem, Stripe y Mercado Pago, para cobrar tu plan</strong> — según el país desde el que pagas. Reciben los
-          datos de tu tarjeta o de tu cuenta, tu correo y lo que compras; MaKo no ve el número de tu tarjeta. Si pagas con
-          Creem, Creem es el vendedor registrado de esa compra y trata esos datos como responsable, según su propia política.
+          <strong>Stripe y Mercado Pago, para cobrar tu plan</strong> — según el país desde el que pagas. Reciben los
+          datos de tu tarjeta o de tu cuenta, tu correo y lo que compras; MaKo no ve el número de tu tarjeta.
         </li>
       </ul>
 

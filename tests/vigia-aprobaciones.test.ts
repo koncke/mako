@@ -346,3 +346,19 @@ test('lo que lee Martín está en español neutro (sin voseo) y cada «qué hace
   for (const t of textos) assert.deepEqual(marcasDeVoseo(t), [], t);
   for (const it of ITEMS) assert.match(it.queHacer, /^(Lee|Revisa|Mira|Contesta)\b/, it.id);
 });
+
+// Creem rechazó la tienda de MaKo el 5/11/2026, de forma definitiva (docs/creem-retiros.md). Probado rompiéndolo el 5/11/2026
+// (este archivo en verde, 14 / 0): el nombre sin «rechazada» → 13 / 1; el «qué hacer» de antes (contestarle a Creem) → 13 / 1.
+test('Creem: rechazada el 5/11/2026 y definitiva — lo dicen el nombre, la nota y el aviso, y no manda a contestarle a Creem', async () => {
+  const it = ITEMS.find((i) => i.id === 'creem-tienda');
+  assert.ok(it, 'el ítem sigue en la lista');
+  assert.match(it.nombre, /rechazada el 5\/11\/2026 \(definitivo\)/);
+  assert.match(it.nota ?? '', /rechazada[\s\S]*Es definitivo/);
+  assert.doesNotMatch(it.queHacer, /contesta lo que pida Creem|Payout Account/i, 'no hay nada que contestarle a una tienda cerrada');
+  assert.match(it.queHacer, /docs\/creem-retiros\.md/);
+  const r1 = vuelta(null, lecturas({}), T0);
+  assert.match(mensajeDeAvisos(r1.avisos)!.texto, /Creem: la tienda de MaKo, rechazada el 5\/11\/2026 \(definitivo\)/, 'el único aviso que sale ya dice que está rechazada');
+  const fila = listaDeAprobaciones(r1.nuevo).find((f) => f.id === 'creem-tienda');
+  assert.match(fila?.nombre ?? '', /rechazada/);
+  assert.equal(vuelta(r1.nuevo, lecturas({}), T0 + HORA).avisos.filter((a) => a.item === 'creem-tienda').length, 0, 'y no vuelve a avisar');
+});

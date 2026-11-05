@@ -1,9 +1,11 @@
 // =============================================================================
 // /aup — la política de uso aceptable de MaKo (5/11/2026)
 // =============================================================================
-// La pide Creem (la pasarela, merchant of record) para aprobar la tienda: a quien genera imagen o video con IA le exige,
-// además del Moderation API, una política de uso aceptable PÚBLICA (docs/relevo/nube-creem-revision.md, con las fuentes).
-// Hasta hoy /aup redirigía a /login, que para un revisor es lo mismo que no tenerla.
+// Nació para la revisión de Creem (la pedía publicada a quien genera imagen o video con IA: docs/relevo/nube-creem-revision.md).
+// Creem rechazó la tienda de MaKo el mismo 5/11/2026, de forma definitiva (docs/creem-retiros.md), y la política se QUEDA:
+// lo que no se puede generar ni mandar con MaKo no depende de la pasarela, y la piden también las tiendas y la próxima.
+// ⚠️ Desde ese día ya no dice que el pedido pasa por la moderación de Creem: la moderación quedó sin proveedor
+// (lib/creem-moderacion-reglas.ts, `PROVEEDOR_DE_MODERACION`), y una política no afirma una revisión que no corre.
 //
 // ⚠️ BORRADOR PARA QUE LO MIRE UN ABOGADO antes de darlo por definitivo. Está escrito CONTRA LO QUE MaKo HACE hoy (el
 // mismo estándar que /privacidad y /terminos): genera imagen y video por el puente a Google Flow (Video Generator, AI
@@ -122,9 +124,8 @@ export default function Page() {
       <H id="como-cuidamos">6. Cómo lo cuidamos</H>
       <ul>
         <li>
-          <strong>Antes de generar una imagen o un video, el pedido se revisa solo.</strong> El texto que va a usar el
-          modelo pasa por el servicio de moderación de Creem, la empresa que procesa nuestros pagos. Si lo rechaza, no se
-          genera y no gastas nada: MaKo te lo dice y puedes cambiar el texto.
+          <strong>El servicio que genera la imagen o el video tiene sus propios filtros.</strong> Google Flow, con tu
+          cuenta, puede rechazar un pedido que va contra sus reglas. Si pasa, cambia el texto y vuelve a intentarlo.
         </li>
         <li>
           <strong>Revisamos lo que se nos denuncia.</strong> Si algo va contra esta política, podemos sacarlo, frenar un
@@ -135,8 +136,8 @@ export default function Page() {
         </li>
       </ul>
       <Ojo>
-        <strong>Lo que generas y mandas es tuyo, y también la responsabilidad.</strong> La revisión automática ayuda, pero
-        no reemplaza tu criterio: revisa cada pieza antes de publicarla o de aprobar un envío.
+        <strong>Lo que generas y mandas es tuyo, y también la responsabilidad.</strong> Ningún filtro reemplaza tu
+        criterio: revisa cada pieza antes de publicarla o de aprobar un envío.
       </Ojo>
 
       <H id="denunciar">7. Cómo denunciar un abuso</H>
