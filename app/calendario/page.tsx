@@ -74,7 +74,8 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <CalendarioApp vista={vista} fecha={fecha} hoy={hoy} tz={tz} dias={rango.dias} items={lectura.items} fallos={lectura.fallos}
-        google={lectura.google} eventoInicial={eventoDeLaUrl(sp?.evento)} />
+        google={lectura.google} eventoInicial={eventoDeLaUrl(sp?.evento)}
+        inicio={estado ? { semanaPendiente: !estado.steps.cal_semana?.done, onboardingPendiente: estado.status !== 'done' } : null} />
     </Pagina>
   );
 }
