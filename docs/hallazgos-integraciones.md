@@ -2591,3 +2591,51 @@ tests/zernio-pausa-429.test.ts.
 - **Una ruta no mira un `ZernioError`:** el cliente de Zernio se habla sólo desde el canal, y `tests/sin-instagram.test.ts` frenó el tren por importarlo en la ruta. La pregunta «¿es una pausa?» vive en el canal (`pausaDeZernio`).
 - **Sin tocar, a propósito:** `estadoMedios` (lib/disparadores-canales.ts) ante un 429 dice «Sin comprobar»: no es falso. **Sin tocar,
   de otra área:** lib/media-buyer/datos.ts:111 sigue avisando «Zernio no contestó: …» ante cualquier error, también un 429.
+
+## Varias claves de Apify: la primera con crédito, y a la siguiente SÓLO por falta de crédito (5/11/2026)
+
+Martín (por el Cerebro): «Dame la opción de tener varias claves de apify» y «dame la opción también en integraciones de cargar
+más api». La clave de Spy de la plataforma iba en US$8,01 de 10 el 5/11. Se copió el patrón de Zernio del 29/10 (entrada «Varias
+claves de Zernio por negocio», arriba): la 1 sigue siendo `APIFY_INSTAGRAM_TOKEN`, las extra son `APIFY_INSTAGRAM_TOKEN_2…_5`,
+cada una de otra cuenta de Apify del negocio y con un nombre opcional (`…_ACCOUNT`, no secreto). Sin migración: son credenciales
+del negocio, cifradas como las demás.
+
+**Vive en:** `lib/spy-claves.ts` (puro: `conLaPrimeraConCredito`, `ordenDeClaves`, `claveDeHuella`, `resumenDeCredito`) ·
+`lib/instagram-perfil-server.ts` (`clavesApifyDeSpy`, la ÚNICA que lee las claves; `porApify` y `leerPerfilesEnLote` con salto) ·
+`lib/spy-todo.ts` + `lib/spy-todo-reglas.ts` (`creditoTotal`, `ajustarAlCredito` con el total, `TareaLarga.clave`) ·
+`lib/spy-buscar.ts`, `lib/spy-otras-redes.ts`, `lib/spy-google-corrida.ts` (`CorridaGoogle.clave`), `lib/instagram-buscar-apify.ts`
+(`pedirBusquedaApify`) · `lib/metodo-catalogo.ts`, `lib/metodo-verificar.ts`, `app/integraciones/ServicioConfigForm.tsx`,
+`app/integraciones/CreditoApify.tsx` · `scripts/carruseles-biblioteca.mts` · tests/spy-varias-claves.test.ts (+ `_spy-claves-hijo.ts`).
+
+- **Sólo la falta de crédito pasa a la siguiente clave** (`esFaltaDeCredito`). Un 401 (la clave no entra), un 500 o un corte de
+  red se contestan como siempre, con el número de la clave: otra cuenta no arregla una clave rota, y saltar gastaría la plata de
+  otra cuenta sin que nadie se entere de que la primera está rota.
+- ⚠️ **`esFaltaDeCredito` contestaba que sí a un 429 de «demasiados pedidos».** Su patrón buscaba `limit-exceeded` suelto, y el
+  tipo del 429 de Apify es `rate-limit-exceeded`. Con una sola clave daba igual (la traída igual no empezaba); con varias, un
+  apuro de un segundo gastaba la cuenta de al lado. Ahora un 429 o un `rate-limit` no es crédito.
+- ⚠️ **Lo que empezó una cuenta de Apify sólo lo lee esa cuenta.** La traída larga y la búsqueda de sus otras redes EMPIEZAN una
+  corrida y la leen en otro pedido: con otra clave, su corrida y su dataset no existen. Se anota la HUELLA de la clave (sha256
+  corto, nunca la clave) en `TareaLarga.clave` y `CorridaGoogle.clave`, y se lee con esa (`claveDeHuella`); lo anotado antes, con
+  la 1. Si quitaron esa clave, se olvida y se vuelve a pedir mañana. **Un campo nuevo de `TareaLarga` va también al parser
+  `tarea()`**, que reconstruye campo por campo: sin eso se pierde en la primera relectura (lo fija el test 6).
+- **La reserva de Spy (US$2) se cuenta sobre el total libre de TODAS las claves**, y cada corrida corre en UNA: no puede pedir más
+  de lo que le queda a la suya (`ajustarAlCredito(p, credito, total)`; con una sola clave, el resultado de siempre).
+- **Las claves extra son de Spy y de la biblioteca, no del alta del CRM.** `leerPerfilInstagram` sólo rota con `variasClaves`, que
+  piden lib/spy.ts y lib/spy-buscar.ts; la ruta del CRM no lo pide y su búsqueda por nombre sigue leyendo la 1. El guard del scraper
+  retirado (tests/leads-scraper-retirado.test.ts) enumera ahora también `clavesApifyDeSpy` y `CLAVES_APIFY_DE_SPY`: un lector nuevo
+  no puede esquivarlo llamando a las claves por otro nombre. Si Martín quiere que el CRM también rote, es sacar `soloLaPrimera` del
+  lector y el assert de `variasClaves`.
+- ⚠️ **Ningún archivo de `lib/` puede empezar con «apify»**: el guard del scraper retirado lo prohíbe (era el nombre del módulo que
+  se sacó). Por eso el módulo puro se llama `lib/spy-claves.ts`.
+- ⚠️ **El stub de credenciales de tests/_instagram-perfil-hijo.ts no traía `clavesGuardadasConBase`** y el test de las fuentes de
+  Instagram dio `is not a function` (la regla de AGENTS.md: un stub lleva CADA función que el módulo importa).
+- **La memoria de «esta clave se quedó sin crédito» es de la instancia y dura 30 minutos** (`AGOTADA_MS`): ordena, no descarta. La
+  agotada se prueba al final, por si cargaron crédito.
+- **La tarjeta** lee el crédito con el mismo «Probar conexión» (`verificar` sin valores: las claves guardadas, en el servidor), que
+  no gasta (`/users/me` y `/users/me/limits` no corren actores). La API de MaKo contesta lo mismo en `probar_conexion_integracion`.
+- **Sin hacer:** el estado de la tarjeta sale de la clave 1 (`integracionConectada` mira los campos obligatorios): con la 1 quitada
+  y la 2 puesta, Spy anda y la tarjeta dice «Sin conectar». Los topes por día (150 lecturas, 60 búsquedas, 6 traídas) siguen siendo
+  POR NEGOCIO: más claves no los suben. Una clave recién agregada puede tardar hasta un minuto en usarse en una instancia que ya
+  había leído (la caché de las extra, como en Zernio). **No medido:** el cuerpo real que manda Apify cuando una cuenta se queda sin
+  crédito del mes (se probó con el `not-enough-usage-to-run-paid-actor` que ya tenía el test de la traída), ni la tarjeta en un
+  navegador (la nube no tiene `.env.local` para levantar la app).

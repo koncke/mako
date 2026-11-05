@@ -16,19 +16,19 @@ import { getSesionAdmin } from '@/lib/auth';
 import { wsSuperAdmin } from '@/lib/workspace';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import {
-  cancelarPedido, crearTokenCartero, descartarDelLimbo, encolarPedido, leerCarteros, listarPedidos, trabajoDeLaCola,
+  cancelarPedido, cancelarRespuestasDe, crearTokenCartero, descartarDelLimbo, encolarPedido, leerCarteros, listarPedidos, trabajoDeLaCola,
   type EstadoCarteros, type Pedido,
 } from '@/lib/operaciones';
 import { areasDeProgreso, leerPushes, type LecturaPushes } from '@/lib/progreso';
 import { TOPE_PEDIDOS_POR_LECTURA, pedidosDelCentro, type PedidoP } from '@/lib/progreso-reglas';
-import { leerDecisiones } from '@/lib/admin-decisiones';
+import { ignorarDecision, leerDecisiones } from '@/lib/admin-decisiones';
 import type { DecisionEspera, YaVistos } from '@/lib/centro-chats';
 import { leerYaVistosDe, marcarYaVistoDe } from '@/lib/centro-ya-vistos-db';
 import { sanearAspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 import { guardarMuneco } from '@/lib/centro-munecos-db';
 import { leerTurnos, leerUltimosTurnos } from '@/lib/centro-turnos-db';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
-import { leerAbiertas, leerPreguntas, marcarContestada } from '@/lib/centro-preguntas-chat-db';
+import { ignorarPregunta, leerAbiertas, leerPreguntas, marcarContestada } from '@/lib/centro-preguntas-chat-db';
 import { eleccionValida, textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import { guardarBorradorDe, leerBorradorDe } from '@/lib/centro-borradores-db';
 import { conUrlsDeTurnos } from '@/lib/operaciones-adjuntos';
@@ -238,7 +238,7 @@ export async function guardarBorradorAction(direccion: string, texto: string, at
  */
 export async function contestarPreguntaAction(entrada: {
   local: string; id: string; elegidas: number[]; otra: string; trabajo: string;
-}): Promise<{ ok: true; pregunta: PreguntaChat } | { ok: false; error: string }> {
+}): Promise<{ ok: true; pregunta: PreguntaChat } | { ok: false; error: string; ignorada?: true }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   try {
@@ -253,7 +253,43 @@ export async function contestarPreguntaAction(entrada: {
       return { ok: false, error: 'Tu respuesta no salió: vuelve a elegir.' };
     }
     const r = await marcarContestada(local, id, { elegidas: v.elegidas, otra: v.otra, at: new Date().toISOString(), trabajo });
+    // Ignorada en otro dispositivo (5/11/2026): la respuesta que acaba de salir firmada no se entrega. Se cancela ya (la vuelta del
+    // Runner la frena igual si esto falla).
+    if (!r.ok && r.ignorada) {
+      await cancelarRespuestasDe(local, id).catch(() => 0);
+      return { ok: false, error: r.error, ignorada: true };
+    }
     return r.ok ? r : { ok: false, error: r.error };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/**
+ * «Ignorar» y «Volver a mostrar» una pregunta de un chat (5/11/2026, Martín: «una sección que marque la fecha de los pedidos o
+ * decisiones y un botón de ignorar»). Sale del bloque sin contestarla y sin mandarle nada al chat; la respuesta suya que todavía no
+ * salió se cancela (`cancelarRespuestasDe`), y la vuelta del Runner no entrega ninguna (lib/operaciones.ts).
+ */
+export async function ignorarPreguntaAction(entrada: { local: string; id: string; ignorar: boolean }): Promise<{ ok: true; pregunta: PreguntaChat } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  try {
+    const { local, id } = entrada ?? {};
+    if (typeof local !== 'string' || typeof id !== 'string') return { ok: false, error: 'Falta la pregunta.' };
+    const r = await ignorarPregunta(local, id, entrada.ignorar !== false);
+    if (r.ok && entrada.ignorar !== false) await cancelarRespuestasDe(local, id).catch((e) => console.error('[operaciones] cancelar la respuesta de una ignorada:', msg(e)));
+    return r;
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** «Ignorar» y «Volver a mostrar» una decisión de la Ticketera desde el bloque de su chat (lib/admin-decisiones.ts → ignorarDecision). */
+export async function ignorarDecisionAction(entrada: { id: number; ignorar: boolean }): Promise<{ ok: true; ignoradaAt: string | null } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  try {
+    return await ignorarDecision(Number(entrada?.id), entrada?.ignorar !== false);
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

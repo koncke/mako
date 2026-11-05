@@ -184,8 +184,10 @@ test('8. UN solo bloque: la Ticketera, lo que pregunta el chat y lo de la app, e
   }) as unknown as PreguntaChat;
   const chat = q('aaaaaaaa-1111-4222-8333-444444444444');
   const app = q('bbbbbbbb-1111-4222-8333-444444444444', 'ask');
-  // Una lista, en el orden en que se contesta, y cada id dice de qué fuente es (no se pisan).
-  assert.deepEqual(itemsDelBloque([t], [chat], [app]).map((x) => x.id), ['t:42', `c:${chat.id}`, `a:${app.id}`]);
+  // Una lista, LA MÁS NUEVA PRIMERO (5/11/2026, Martín: «Las más nuevas primero, y que lo viejo no tape a lo de hoy»; hasta ese día
+  // iba la Ticketera primero), a igual fecha en el orden de siempre, y cada id dice de qué fuente es (no se pisan). El orden por
+  // fecha, con su caso viejo de días, en tests/ops-center-ignorar.test.ts.
+  assert.deepEqual(itemsDelBloque([t], [chat], [app]).map((x) => x.id), [`c:${chat.id}`, `a:${app.id}`, 't:42']);
   const html = renderToStaticMarkup(createElement(BloqueDePreguntas, {
     chat: 'local_infra', ticketera: [t], responderTicketera: async () => ({ error: null, ok: true }),
     delChat: [chat], onResponder: async () => null, deLaApp: [app],
@@ -197,7 +199,7 @@ test('8. UN solo bloque: la Ticketera, lo que pregunta el chat y lo de la app, e
   assert.match(html, /class="co-preg__puntos" role="group" aria-label="1 de 3"/, 'una navegación para las tres, con su rótulo');
   assert.doesNotMatch(html, />\s*1 de 3\s*</, '«1 de 3» volvió a la vista');
   assert.equal((html.match(/class="co-preg__punto"/g) ?? []).length, 3);
-  assert.match(html, /Cuesta dinero/, 'abre en la primera: la de la Ticketera');
+  assert.match(html, /¿Pregunta aaaa\?/, 'abre en la primera: la más nueva (la del chat, un minuto después de la Ticketera)');
   // Montado UNA vez, en las dos pantallas, con las tres fuentes.
   for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
     const src = sinComentarios(leer(f));

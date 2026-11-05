@@ -156,7 +156,8 @@ test('5. la API trae las preguntas del chat y lo que contestó Martín, y cortan
   const piezas = agruparAvances(lineasDeConversacion(lineas)).map((x) => piezaParaLaApi(x, 'Cerebro'));
   assert.deepEqual(piezas.map((x) => x.tipo), ['avances', 'pregunta', 'avances', 'mensaje'], 'la pregunta no corta la tanda, o se perdió');
   assert.deepEqual(piezas[1], {
-    tipo: 'pregunta', de: 'Cerebro', at: '2026-10-25T12:03:00Z', pregunta: '¿Hago el commit?', opciones: ['Commit', 'Ahora no'], respuesta: 'Commit', abierta: false,
+    // Con su `id` desde el 5/11/2026: es lo que pide `ignorar_pregunta_operaciones`.
+    tipo: 'pregunta', de: 'Cerebro', id: P, at: '2026-10-25T12:03:00Z', pregunta: '¿Hago el commit?', opciones: ['Commit', 'Ahora no'], respuesta: 'Commit', abierta: false,
   });
   // El trabajo que contesta va adentro de su pregunta; uno con la marca de una pregunta que no se conoce, no se pierde.
   assert.equal(piezas.filter((x) => x.tipo === 'mensaje').length, 1);

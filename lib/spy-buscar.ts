@@ -10,15 +10,14 @@ import 'server-only';
 // agregar» de la pantalla guarda (Martín, 2/11: «súper importante que lo valides»).
 //
 // ⚠️ LO PAGA EL NEGOCIO, con SU clave de Spy (`APIFY_CLAVE_DE_SPY`). Sin clave no se busca por nombre: la plataforma no
-// le paga búsquedas a nadie. Lo de YouTube sale con `claveDeYoutube` (la del negocio y, si no tiene, la de la
+// le paga búsquedas a nadie. Con varias (5/11/2026), la primera con crédito (`clavesApifyDeSpy` + lib/spy-claves.ts). Lo de YouTube sale con `claveDeYoutube` (la del negocio y, si no tiene, la de la
 // plataforma), que son unidades de cuota gratis: nunca `search.list` (lib/spy-youtube.ts explica por qué).
 // =============================================================================
 
-import { credDelCliente } from './credenciales';
-import { APIFY_CLAVE_DE_SPY } from './instagram-perfil';
-import { gastarBusquedaDeSpy, leerPerfilesEnLote, leerPerfilInstagram } from './instagram-perfil-server';
+import { conLaPrimeraConCredito } from './spy-claves';
+import { clavesApifyDeSpy, gastarBusquedaDeSpy, leerPerfilesEnLote, leerPerfilInstagram } from './instagram-perfil-server';
 import { normalizarBusqueda } from './instagram-buscar';
-import { buscarPerfilesApify } from './instagram-buscar-apify';
+import { pedirBusquedaApify, perfilesDeBusqueda } from './instagram-buscar-apify';
 import { APIFY_ACTOR_REDES, TECHO_USD_POR_CORRIDA_REDES } from './spy-otras-redes-reglas';
 import {
   canalesDeGoogle, consultasDeNombre, perfilesDeGoogle, videosDeGoogle, POR_RED, type CanalHallado, type PerfilHallado,
@@ -52,9 +51,9 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /** Por qué una búsqueda volvió vacía, si no es «no había nadie»: la pantalla lo dice en vez de «no encontré». */
 export type PorQueVacio = 'sin-clave' | 'limite' | 'fallo' | null;
 
-/** ¿El negocio tiene la clave de Spy? Sin ella no se busca por nombre (y la pantalla ofrece conectarla). */
+/** ¿El negocio tiene alguna clave de Spy? Sin ninguna no se busca por nombre (y la pantalla ofrece conectarla). */
 export async function tieneClaveDeSpy(ws: number): Promise<boolean> {
-  return !!(await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null));
+  return (await clavesApifyDeSpy(ws)).length > 0;
 }
 
 /** Un canal de YouTube como fila. */
@@ -125,23 +124,27 @@ export async function buscarEnGoogle(ws: number, nombre: string): Promise<{ inst
   const k = `g:${ws}:${normalizarBusqueda(nombre)}`;
   const ya = leerCache<{ instagram: PerfilHallado[]; youtube: CanalHallado[] }>(k);
   if (ya) return { ...ya, vacio: null };
-  const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
-  if (!token) return { instagram: [], youtube: [], vacio: 'sin-clave' };
+  // Varias claves de Spy (5/11/2026): la primera con crédito; si una se agotó, la siguiente (lib/spy-claves.ts).
+  const claves = await clavesApifyDeSpy(ws);
+  if (!claves.length) return { instagram: [], youtube: [], vacio: 'sin-clave' };
   if (!gastarBusquedaDeSpy(ws)) return { instagram: [], youtube: [], vacio: 'limite' };
   try {
     const params = new URLSearchParams({ maxTotalChargeUsd: String(TECHO_USD_POR_CORRIDA_REDES) });
-    const r = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR_REDES}/run-sync-get-dataset-items?${params}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ queries: consulta, resultsPerPage: 10, maxPagesPerQuery: 1, mobileResults: false, saveHtml: false }),
-      signal: AbortSignal.timeout(TOPE_GOOGLE_MS),
-      cache: 'no-store',
+    const r = await conLaPrimeraConCredito(claves, async ({ token }) => {
+      const res = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR_REDES}/run-sync-get-dataset-items?${params}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queries: consulta, resultsPerPage: 10, maxPagesPerQuery: 1, mobileResults: false, saveHtml: false }),
+        signal: AbortSignal.timeout(TOPE_GOOGLE_MS),
+        cache: 'no-store',
+      });
+      return { status: res.status, cuerpo: await res.json().catch(() => null) };
     });
-    if (r.status < 200 || r.status >= 300) {
-      console.error(`[spy-buscar] Google HTTP ${r.status} buscando «${nombre}»`);
+    if (!r || r.status < 200 || r.status >= 300) {
+      console.error(`[spy-buscar] Google HTTP ${r?.status ?? '—'} buscando «${nombre}» (clave ${r?.clave.slot ?? '—'})`);
       return { instagram: [], youtube: [], vacio: 'fallo' };
     }
-    const cuerpo = await r.json().catch(() => null);
+    const cuerpo = r.cuerpo;
     const instagram = perfilesDeGoogle(cuerpo);
     // La foto de cada canal: en paralelo, y un canal que no se pudo leer queda con lo que dijo Google.
     const directos = await Promise.all(canalesDeGoogle(cuerpo).map(async (c) => {
@@ -167,11 +170,13 @@ export async function buscarEnInstagram(ws: number, nombre: string): Promise<{ p
   const k = `ig:${ws}:${normalizarBusqueda(nombre)}`;
   const ya = leerCache<PerfilHallado[]>(k);
   if (ya) return { perfiles: ya, vacio: null };
-  const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
-  if (!token) return { perfiles: [], vacio: 'sin-clave' };
+  const claves = await clavesApifyDeSpy(ws);
+  if (!claves.length) return { perfiles: [], vacio: 'sin-clave' };
   // Cada corrida cuenta una del cupo de búsquedas: una búsqueda por nombre gasta dos (ésta y la de Google).
   if (!gastarBusquedaDeSpy(ws)) return { perfiles: [], vacio: 'limite' };
-  const hallados = await buscarPerfilesApify(nombre, token);
+  // Varias claves de Spy (5/11/2026): la primera con crédito, y un «sin crédito» pasa a la siguiente.
+  const r = await conLaPrimeraConCredito(claves, ({ token }) => pedirBusquedaApify(nombre, token));
+  const hallados = r ? perfilesDeBusqueda(nombre, r) : [];
   const perfiles = hallados.map((p) => ({ ...p, seguidores: null }));
   if (perfiles.length) guardarCache(k, perfiles);
   return { perfiles, vacio: null };
@@ -193,7 +198,7 @@ const perfilHallado = (p: { usuario: string; nombre: string | null; foto: string
 export async function leerExacto(ws: number, usuario: string, opts: { reserva?: number } = {}): Promise<{ perfil: PerfilHallado | null; vacio: PorQueVacio }> {
   const conClave = await tieneClaveDeSpy(ws);
   const l = await leerPerfilInstagram(usuario, {
-    ws, conPiezas: false, reservaApify: opts.reserva,
+    ws, conPiezas: false, reservaApify: opts.reserva, variasClaves: true,
     fuentes: conClave ? ['apify-spy', 'meta-negocio'] : ['meta-negocio', 'meta-plataforma'],
   });
   if (l.ok) return { perfil: perfilHallado(l.perfil), vacio: null };
