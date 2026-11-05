@@ -51,7 +51,7 @@ import {
 
 const INLINE = ['text', 'hardBreak'] as const;
 const TEXTO = ['paragraph', 'heading', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'horizontalRule', 'table'] as const;
-const ATOMOS = [NODO.imagen, NODO.video, NODO.insertado, NODO.formulario, NODO.grafico, NODO.espaciador, NODO.htmlLibre, NODO.htmlEditable] as const;
+const ATOMOS = [NODO.imagen, NODO.video, NODO.insertado, NODO.formulario, NODO.grafico, NODO.espaciador, NODO.htmlLibre, NODO.htmlEditable, NODO.cuentaRegresiva, NODO.pruebaSocial, NODO.escasez] as const;
 /** Lo que puede ir suelto en una sección. */
 export const BLOQUES_TARJETA: readonly string[] = [...TEXTO, NODO.columnas, NODO.optimizado, NODO.botones, NODO.recuadro, NODO.desplegable, ...ATOMOS];
 /** En una columna: todo menos otras columnas. */

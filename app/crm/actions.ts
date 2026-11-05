@@ -189,6 +189,8 @@ import { esMimeNota, TOPE_NOTA_BYTES, nombreDeAdjunto } from '@/app/customer-suc
 import type { InformeMovimiento } from '@/lib/reentrada';
 import { getNombreContacto } from '@/lib/evolution-contactos';
 import { nombreParaAlta } from '@/lib/contacto-lead';
+import { cambiosDeSuscripcion } from '@/lib/suscripcion-movimientos';
+import type { MovimientoSuscripcion } from '@/lib/suscripcion-meses';
 
 /** Análisis de llamadas (Closing Analyst) matcheados a este lead. */
 export type LeadInsightRow = {
@@ -310,6 +312,12 @@ export type LeadFullData = {
   puedeEditarFicha: boolean;
   /** El «⋯» ofrece «Llevar a MaKo Partners» (o «Ver en…» con `lead.cliente_ws`): agencia y su admin (app/crm/partners-crm.ts). */
   partners: boolean;
+  /**
+   * (5/11/2026, mig 0401) Los cambios de su suscripción (montos desde un mes, cortes y vueltas): sólo si la venta es una
+   * suscripción, y sin tirar. Los leen el estado de cuenta y la tab Pagos (lib/suscripcion-meses.ts). `leido: false` = no
+   * se pudo leer (la tab lo dice: no es «sin cambios»); sin la migración, `leido: true` y vacío (todo cuenta como antes).
+   */
+  suscripcion?: { movimientos: MovimientoSuscripcion[]; leido: boolean; faltaMigracion: boolean };
 };
 
 /**
@@ -344,6 +352,8 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const cobroP = temprano(senalesDeCobroAction(id));
   // Los tratos de sus CRMs agregados (mig 0324): si no se pueden leer, la tab Pagos de un CRM agregado sale vacía, no la ficha.
   const tratosP = tratosDelLead(id).catch((e: unknown) => { console.error(`[crm] tratos del lead ${id}:`, e instanceof Error ? e.message : e); return undefined; });
+  // Los cambios de su suscripción (mig 0401): sólo si es una, y en paralelo con lo demás. `cambiosDeSuscripcion` no tira.
+  const suscripcionP = lead.venta_tipo === 'suscripcion' ? cambiosDeSuscripcion(id) : Promise.resolve(undefined);
   const resumenP = temprano(resumenDelNegocio());
   // ⚠️ LOS INSUMOS DE «N SIN MARCAR» (el plan, las etapas DEL LEAD, las respuestas de la R2 y si el encuentro
   // se graba) salen de `leerInsumosDatosLead` (lib/datos-del-lead.ts), la MISMA lectura que la ficha del
@@ -397,7 +407,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const [ficha, rolWs, partners] = await Promise.all([fichaP, rolP, ofrecePartners()]);
   const rol = rolDeFicha(rolWs);
   return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
-    ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners, tratos: await tratosP };
+    ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners, tratos: await tratosP, suscripcion: await suscripcionP };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

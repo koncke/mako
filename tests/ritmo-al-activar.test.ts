@@ -233,7 +233,8 @@ test('el horario de fábrica: sólo las que nacen de ahora en más, y nunca lo q
   const n = leer('lib/nutricion.ts');
   const i = n.indexOf('export async function setSecuenciaActiva');
   const puerta = n.slice(i, n.indexOf("if (error) throw new Error(`setSecuenciaActiva:", i));
-  assert.match(puerta, /if \(await leTocaHorarioDeFabrica\(id\)\) \{ const r = await guardarConfigAutomatizacion\(id, \{ horario: HORARIO_SUGERIDO \}\);/);
+  // Con la marca de fábrica (5/11/2026): así cede ante el horario del negocio (tests/horario-de-fabrica.test.ts).
+  assert.match(puerta, /if \(await leTocaHorarioDeFabrica\(id\)\) \{ const r = await guardarConfigAutomatizacion\(id, \{ horario: HORARIO_SUGERIDO, horarioDeFabrica: true \}\);/);
   assert.ok(puerta.indexOf('leTocaHorarioDeFabrica') < puerta.indexOf(".update({ activa,"), 'antes de prenderla: si no, puede salir algo sin horario');
   assert.match(puerta, /no pude ponerle el horario de fábrica/);
   // La difusión la manda la persona a propósito; se reconoce por su clave.

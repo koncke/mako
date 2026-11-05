@@ -38,6 +38,8 @@ import { undoDepth } from '@tiptap/pm/history';
 import type { IdBloque } from '@/lib/editor-landing/catalogo-bloques';
 import { bloquePorId } from '@/lib/editor-landing/catalogo-bloques';
 import { HTML_EDITABLE_NUEVO } from '@/lib/editor-landing/html-editable';
+// Sin fecha la cuenta regresiva no sale; la zona del negocio la pone el panel al elegirla (BloqueVentaVista).
+import { ZONA_POR_DEFECTO } from '@/lib/zona-negocio-reglas';
 import {
   NODO, nuevoId, parrafo, titulo, tarjetaVacia, tituloDeTarjeta,
   type CampoFormulario, type JsonNodo, type TipoGrafico, type TonoRecuadro, type VarianteOptimizado,
@@ -209,6 +211,11 @@ export function bloqueJson(id: IdBloque, extra: { url?: string | null } = {}): J
     case 'vsl': return { type: NODO.insertado, attrs: { src: '', proveedor: 'youtube', alto: null } };
     // El link de pago se pega en el botón (BotonesVista abre en otra pestaña lo que empieza con http).
     case 'pago': return { type: NODO.botones, attrs: { alinea: 'izquierda' }, content: [boton('Pagar ahora', 'primario')] };
+    // Los bloques de venta entran SIN su dato (la fecha, quién compró, los números): el panel los pide, y sin ellos no salen
+    // en la página (bloques-venta.ts). La zona de la cuenta es la de la computadora de quien edita, y el panel la dice.
+    case 'cuenta-regresiva': return { type: NODO.cuentaRegresiva, attrs: { hasta: null, zona: ZONA_POR_DEFECTO, titulo: '', alVencer: 'mensaje', mensaje: '' } };
+    case 'prueba-social': return { type: NODO.pruebaSocial, attrs: { items: [] } };
+    case 'escasez': return { type: NODO.escasez, attrs: { total: null, quedan: null, unidad: '', titulo: '' } };
 
     // ── Formularios y botones ──
     case 'boton': return { type: NODO.botones, attrs: { alinea: 'izquierda' }, content: [boton('Comenzar ahora', 'primario')] };

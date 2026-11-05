@@ -114,10 +114,10 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'buscar_carruseles', area: 'imagen', tipo: 'lectura',
     titulo: 'Buscar carruseles que funcionan',
-    descripcion: 'Los carruseles públicos de las cuentas que el negocio sigue en Competitors Spy y de la biblioteca de ejemplos, con su creador, el link al original y su outlier (cuántas veces la mediana de su cuenta). Busca por tema o por @cuenta. Son referencias: no se copian.',
+    descripcion: 'Los carruseles públicos de las cuentas que el negocio sigue en Competitors Spy y de la biblioteca de ejemplos, con su creador, el link al original y su outlier (cuántas veces lo que suele hacer su cuenta). Busca por tema o por @cuenta. Son referencias: no se copian.',
     parametros: [
       { nombre: 'buscar', tipo: 'string', max: 120, descripcion: 'Palabras del tema, o un @cuenta.' },
-      { nombre: 'outlierMinimo', tipo: 'number', minimo: 0, maximo: 10, descripcion: `El piso del outlier (2 = el doble de lo típico de su cuenta). Se redondea a uno de: ${OUTLIER_MINIMOS.join(', ')}.` },
+      { nombre: 'outlierMinimo', tipo: 'number', minimo: 0, maximo: 10, descripcion: `El piso del outlier (2 = el doble de lo que suele hacer su cuenta). Se redondea a uno de: ${OUTLIER_MINIMOS.join(', ')}.` },
       { nombre: 'periodo', tipo: 'string', enum: PERIODOS_CARRUSEL.map((x) => x.value), descripcion: 'Publicados en los últimos N días, o cuando sea.' },
       { nombre: 'orden', tipo: 'string', enum: ORDENES_CARRUSEL.map((x) => x.value), descripcion: 'outlier (por defecto), nuevos, viejos, interaccion o traidos.' },
       { nombre: 'vista', tipo: 'string', enum: VISTAS_CARRUSEL.map((x) => x.value), descripcion: 'todos, semana (lo de esta semana) o guardados.' },

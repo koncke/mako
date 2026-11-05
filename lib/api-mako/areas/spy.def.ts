@@ -64,7 +64,7 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'que_esta_haciendo', area: 'spy', tipo: 'lectura',
     datosDeClientes: false,
     titulo: 'Qué está haciendo',
-    descripcion: 'La ficha de uno de ellos: qué publicó, con cuántas vistas, desde cuándo está a la vista cada pieza y qué funnel usa.',
+    descripcion: 'La ficha de uno de ellos: qué publicó, con cuántas vistas, desde cuándo está a la vista cada pieza, qué le funcionó mejor (cuántas veces lo que suele hacer su cuenta) y qué funnel usa.',
     parametros: [
       { nombre: 'id', tipo: 'number', obligatorio: true, entero: true, minimo: 1, rotulo: 'Cuál', descripcion: 'El id que devuelve listar_vigilados.' },
       { nombre: 'canal', tipo: 'string', enum: ['instagram', 'youtube', 'landing', 'anuncios'], rotulo: 'Canal', descripcion: 'Para ver sólo uno.' },

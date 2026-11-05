@@ -52,6 +52,9 @@
  * vez de confiar en un orden: un orden a mano es una lista más que se queda vieja.
  */
 export const TABLAS_DE_INQUILINO = [
+  // La medición de uso de Admin › Activity (mig 0398, 5/11/2026): vaciar o borrar el negocio se la lleva. No va en
+  // TENANT_TABLES: la escribe y la lee lib/actividad*.ts con el cliente de servicio y el workspace explícito.
+  'actividad_acciones', 'actividad_uso',
   'ad_transcripts', 'adset_budget_daily',
   // Los eventos de Calendly o Cal.com vinculados a una etapa de reunión (mig 0293, 16/10/2026).
   'agenda_evento_etapa',
@@ -140,6 +143,9 @@ export const TABLAS_DE_INQUILINO = [
   // Competitors Spy (mig 0359): los competidores que vigila el negocio y sus piezas. Vaciar el
   // negocio o borrarlo se los lleva; `spy_piezas` también se va con su competidor (on delete cascade).
   'spy_competidores', 'spy_piezas',
+  // Los cambios de una suscripción (mig 0401, 5/11/2026): montos desde un mes, cortes y vueltas (lib/suscripcion-meses.ts).
+  // ⚠️ La 0401 se aplica ANTES del deploy: sin la tabla, el reset del cliente de prueba vacía igual y avisa «no existe».
+  'suscripcion_movimientos',
   'tarea_categorias',
   // Los tickets que levantan las personas del negocio al equipo de MaKo (mig 0311, 17/10/2026). `ticket_eventos` no
   // tiene `workspace_id`: se va con su ticket (on delete cascade). No va en TENANT_TABLES: la lee lib/tickets-db.ts.

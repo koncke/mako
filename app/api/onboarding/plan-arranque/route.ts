@@ -16,6 +16,7 @@ import { runWithWorkspace, getCapaActual } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { crearBorradorPlanArranque } from '@/lib/todo-seed-ia';
+import { guardarEstadoArranque } from '@/lib/onboarding-arranque-server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -40,6 +41,9 @@ export async function POST() {
         return Response.json({ ok: false, error: r.error }, { status: 200 });
       }
       console.log(`[api:plan-arranque] ws ${ws}: ${r.n} tareas → ${r.id}`);
+      // El link del borrador queda en el estado del onboarding (5/11/2026; antes se perdía con la tarjeta del «¡Listo!»): lo lee la
+      // escalera del Ops Center (paso 7, «Ver el borrador»). Best-effort: el plan ya salió.
+      await guardarEstadoArranque({ planBorrador: { id: r.id, n: r.n } }).catch((e) => console.warn(`[api:plan-arranque] ws ${ws}: no guardé el link: ${msg(e)}`));
       return Response.json({ ok: true, id: r.id, url: `/plan/revisar/${r.id}`, n: r.n });
     } catch (e) {
       console.error(`[api:plan-arranque] ws ${ws}: ${msg(e)}`);

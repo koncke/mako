@@ -32,6 +32,7 @@ import { conWs } from '@/lib/ws-tab';
 // Puro y sin `server-only` (lib/cobros-tipos.ts): se puede importar desde aquí sin arrastrar nada.
 import { esPasarela } from '@/lib/cobros-tipos';
 import CuentasDePago from './CuentasDePago';
+import CreditoApify from './CreditoApify';
 import { esProveedorAgendaConCuentas } from '@/lib/cuentas-integracion';
 // ⚠️ `next/dynamic` con ssr:false, NO un import normal: es lo que saca su código
 // del bundle de los demás servicios. Un import estático lo volvería a meter.
@@ -991,10 +992,13 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
           // la duda de si falta cargar algo más.
           const tieneSlots = servicio.campos.some((c) => (c.slot ?? 1) > 1);
           if (!tieneSlots) return null;
-          // En Zernio la clave y su email se abren juntos (un clic, no dos): el email no cuenta como «la próxima».
+          // En Zernio la clave y su email se abren juntos (un clic, no dos): el email no cuenta como «la próxima». En Apify, igual:
+          // la clave y su nombre (varias claves, 5/11/2026).
           const esZernio = servicio.key === 'zernio';
+          const esApify = servicio.key === 'apify-instagram';
+          const dePares = esZernio || esApify;
           const proxima = servicio.campos.find((c) => (c.slot ?? 1) > 1 && !c.configurado && !extrasAbiertas.includes(c.env)
-            && !(esZernio && c.env.endsWith('_ACCOUNT')));
+            && !(dePares && c.env.endsWith('_ACCOUNT')));
           // El email de cada cuenta (`_ACCOUNT`) no es otra cuenta: contarlo decía «3» con dos claves.
           const cargadas = servicio.campos.filter((c) => (c.slot ?? 1) > 1 && c.configurado && !c.env.endsWith('_ACCOUNT')).length + 1;
           if (!proxima) {
@@ -1002,23 +1006,32 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
               <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.45 }}>
                 {esZernio
                   ? `${cargadas} claves de Zernio: cada red usa la clave con la que la conectaste.`
-                  : `${cargadas} cuentas conectadas — MaKo rota entre ellas cuando una se queda sin cuota.`}
+                  : esApify
+                    ? `${cargadas} claves de Apify: cuando una se queda sin crédito, MaKo sigue con la siguiente.`
+                    : `${cargadas} cuentas conectadas — MaKo rota entre ellas cuando una se queda sin cuota.`}
               </div>
             );
           }
           return (
-            <button type="button" data-agregar-clave={esZernio ? 'zernio' : undefined}
-              onClick={() => setExtrasAbiertas((a) => [...a, proxima.env, ...(esZernio ? [`${proxima.env}_ACCOUNT`] : [])])}
+            <button type="button" data-agregar-clave={esZernio ? 'zernio' : esApify ? 'apify' : undefined}
+              onClick={() => setExtrasAbiertas((a) => [...a, proxima.env, ...(dePares ? [`${proxima.env}_ACCOUNT`] : [])])}
               style={{
                 alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7,
                 padding: '8px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)',
                 background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
               }}>
               <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>+</span>
-              {esZernio ? 'Agregar otra clave de Zernio (de otra cuenta tuya)' : `Agregar otra cuenta de ${servicio.nombre}`}
+              {esZernio ? 'Agregar otra clave de Zernio (de otra cuenta tuya)'
+                : esApify ? 'Agregar otra clave de Apify (de otra cuenta tuya)' : `Agregar otra cuenta de ${servicio.nombre}`}
             </button>
           );
         })()}
+
+        {/* El crédito del mes de cada clave de Apify (varias claves, 5/11/2026): cuál se está quedando sin crédito, sin ir a Apify.
+            Sólo con la 1 guardada; se vuelve a leer cuando cambian las claves guardadas. Nunca muestra una clave. */}
+        {servicio.key === 'apify-instagram' && servicio.campos.find((c) => (c.slot ?? 1) === 1)?.configurado && (
+          <CreditoApify firma={servicio.campos.filter((c) => c.configurado).map((c) => c.env).join(',')} />
+        )}
       </div>
 
       {/* ── El paso que va al revés ──────────────────────────────────────────

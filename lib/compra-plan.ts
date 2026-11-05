@@ -301,6 +301,12 @@ export type ResultadoCompra =
   | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }>; sinPrueba?: true; sinPromo?: true };
 
 /**
+ * La compra PÚBLICA también puede terminar en un PEDIDO (5/11/2026): sin pasarela que cobre desde el país de quien compra, lo
+ * que escribió queda como «Quiero» (`pedirPlanSinPasarela`), igual que el formulario de la página sin pasarela.
+ */
+export type ResultadoCompraPublica = ResultadoCompra | { ok: true; pedido: true };
+
+/**
  * ¿Este email puede usar el 50% del primer mes? El reloj es por navegador, y otro navegador arranca el suyo (lib/promo-entrada-reglas.ts).
  * Lo que eso deja abierto lo cierra el email, para que no reaparezca infinitas veces (el Cerebro, 30/10; Martín lo dejó abierto y puede
  * cambiarlo): UN descuento por email. No, si ya tiene una cuenta (es para negocios nuevos), si ya lo pagó, o si lo abrió hace más de 24 h y
@@ -345,7 +351,7 @@ async function puedeEmpezarPrueba(email: string, plataforma: number): Promise<{ 
  * El checkout de un plan. Ver el orden arriba. `conPrueba`: quien compra es el super admin (ver `ofertaDelPlan`). `pais`: de
  * dónde compra (el encabezado de Vercel): Mercado Pago sólo en su país (`pasarelasDelPais`).
  */
-export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean; pais?: string | null; promoVigente?: boolean } = {}): Promise<ResultadoCompra> {
+export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean; pais?: string | null; promoVigente?: boolean } = {}): Promise<ResultadoCompraPublica> {
   const oferta = await ofertaDelPlan(p.plan, opts);
   if (!oferta) return { ok: false, status: 404, error: 'Ese plan no existe.' };
   const { plan, pasarelas } = oferta;
@@ -353,7 +359,11 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
   if (!eleccion.ok) {
     // Pidió una que desde su país no cobra (Mercado Pago desde México) y hay otra: se le ofrece la que sirve, no «no cobramos».
     if (eleccion.motivo === 'elegir' || (eleccion.motivo === 'no-sirve' && pasarelas.length)) return { ok: false, status: 409, error: '¿Con qué quieres pagar?', elegir: pasarelas };
-    return { ok: false, status: 503, error: TEXTO_SIN_PASARELA };
+    // SIN NINGUNA PASARELA PARA SU PAÍS (5/11/2026): la página ya habría mostrado el pedido de datos, así que esto es una
+    // pestaña abierta de antes —con Creem para LatAm, que cerró ese día— o una pasarela que se desconectó en el medio. Lo que
+    // escribió (nombre, email, WhatsApp) es lo mismo que pide el «Quiero»: queda como pedido, nunca como un error.
+    const q = await pedirPlanSinPasarela(p);
+    return q.ok ? { ok: true, pedido: true } : q;
   }
   const via = pasarelas.find((x) => x.pasarela === eleccion.pasarela)!;
   const ws = await wsSuperAdmin();

@@ -33,6 +33,7 @@ import { listarAnalizadas } from '@/lib/landing-analyst';
 import { aplicarComentarios, pasarACopia } from '@/lib/editor-landing/diagnostico-aplicar';
 import { gruposParaAplicar, objetivoDe } from '@/lib/editor-landing/diagnostico';
 import { srcImagen } from '@/lib/editor-landing/especificacion';
+import { zonaDelNegocioEstricta } from '@/lib/timezone';
 import { BUCKET_LANDING } from '@/lib/editor-landing/server-reglas';
 import { tarjetasDe, tituloDeTarjeta } from '@/lib/editor-landing/doc';
 import { buscarStock, copiarUrlABucket, type Orientacion } from '@/lib/imagenes-stock';
@@ -47,7 +48,7 @@ import {
   estructuraParaApi, configuracionParaApi, temasParaApi, temaElegido, versionParaApi, dominioParaApi,
   registrosParaApi, registrosEnTexto, cobroParaApi, comentariosEquipoParaApi,
   planAgregarSeccion, planCambiarTexto, planFormatoTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
-  planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planCambiarImagen, planCambiarIcono, planQuitarCobro, iconosDeBibliotecaParaApi,
+  planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planBloqueVenta, planConfigurarBoton, planCambiarImagen, planCambiarIcono, planQuitarCobro, iconosDeBibliotecaParaApi,
   planAcomodarPagina, planTema, planConfigurarLanding, planAnimacion, planConfigurarSitio, planNavegacion, planTemaPropio, restaurarDeTema,
   pedidoGenerar, resumenGenerar, pedidoEnBlanco,
   type FallaPlan, type PlanContenido, type PlanConfig,
@@ -124,7 +125,7 @@ async function copiarImagenes(input: Entrada, nombres: readonly string[], ws: nu
 
 // ── La fábrica de las ediciones ──────────────────────────────────────────────
 
-type Extra = { pendientes: readonly string[]; propios: readonly TemaPropio[] };
+type Extra = { pendientes: readonly string[]; propios: readonly TemaPropio[]; zona: string | null };
 type Edicion = {
   /** «cambiar la landing», para los mensajes. */
   que: string;
@@ -133,12 +134,21 @@ type Edicion = {
   imagenes?: readonly string[];
   /** Necesita los temas propios del negocio (cambiar el tema). */
   conTemas?: boolean;
+  /** Necesita la zona del negocio (la fecha de cierre de una cuenta regresiva): sin poder leerla, no se cambia nada. */
+  conZona?: boolean;
 };
+
+const SIN_ZONA = 'No pude leer la zona del negocio: vuelve a intentarlo en un momento.';
+const zonaDe = async (ctx: Ctx): Promise<string | null> => (ctx.ws != null ? await zonaDelNegocioEstricta(ctx.ws).catch(() => null) : null);
 
 /**
  * Una edición de UNA landing: el plan en preparar() (sin escribir nada) y, al confirmar, la versión de antes y
  * el guardado con la versión que se abrió. Lo que vuelve en `datos`: el id, la versión nueva, `version_antes`
  * (lo que restaura restaurar_version_landing) y lo propio de cada plan (el id de la sección nueva…).
+ */
+/**
+ * LOS BLOQUES DE VENTA (5/11/2026): la cuenta regresiva necesita la zona del NEGOCIO para leer «2026-11-30T23:59». Se lee
+ * estricta antes de planear (la zona decide el instante del cierre: con «no pude leer» no se adivina una).
  */
 function edicion(op: Edicion): AccionRun {
   const nombres = op.imagenes ?? [];
@@ -150,9 +160,11 @@ function edicion(op: Edicion): AccionRun {
       for (const k of imagenesDeAfuera(input, nombres)) {
         if (!enlaceDeImagenValido(input[k])) return { error: `«${k}» tiene que ser el enlace (https) de una imagen, o "" para quitarla.` };
       }
+      const zona = op.conZona ? await zonaDe(ctx) : null;
+      if (op.conZona && !zona) return { error: SIN_ZONA, falla: true };
       const a = await abrirParaEditar(id, ctx);
       if ('error' in a) return { error: a.error };
-      const plan = op.planear(input, a.doc, { pendientes: imagenesDeAfuera(input, nombres), propios: op.conTemas ? await temasPropios() : [] });
+      const plan = op.planear(input, a.doc, { pendientes: imagenesDeAfuera(input, nombres), propios: op.conTemas ? await temasPropios() : [], zona });
       if (esFallaPlan(plan)) return aPreparado(plan);
       return { payload: input, resumen: `«${a.doc.titulo}»: ${plan.resumen}` };
     },
@@ -162,10 +174,12 @@ function edicion(op: Edicion): AccionRun {
         const entrada = await copiarImagenes(payload, nombres, ctx.ws);
         if ('error' in entrada) return { ok: false, resumen: String(entrada.error) };
         const propios = op.conTemas ? await temasPropios() : [];
+        const zona = op.conZona ? await zonaDe(ctx) : null;
+        if (op.conZona && !zona) return { ok: false, resumen: SIN_ZONA };
         for (let intento = 0; intento < 2; intento++) {
           const a = await abrirParaEditar(id, ctx);
           if ('error' in a) return { ok: false, resumen: a.error };
-          const plan = op.planear(entrada, a.doc, { pendientes: [], propios });
+          const plan = op.planear(entrada, a.doc, { pendientes: [], propios, zona });
           if (esFallaPlan(plan)) return { ok: false, resumen: plan.error };
           // La versión de antes ANTES de tocar nada: sin ella no hay vuelta atrás, y no se cambia.
           const v = await docsEditor.guardarVersion(id, MOTIVO_ANTES_DE_MAKO);
@@ -462,6 +476,10 @@ export const RUNNERS_EDITOR: Runners = {
   acomodar_bloque_landing: { ...edicion({ que: 'acomodar el bloque', planear: (i, d) => planAcomodarBloque(d.contenido, i) }) },
   poner_enlace_landing: { ...edicion({ que: 'poner el enlace', planear: (i, d) => planPonerEnlace(d.contenido, i) }) },
   configurar_formulario_landing: { ...edicion({ que: 'cambiar el formulario', planear: (i, d) => planConfigurarFormulario(d.contenido, i) }) },
+  configurar_bloque_venta_landing: { ...edicion({
+    que: 'poner el bloque de venta', conZona: true,
+    planear: (i, d, x) => planBloqueVenta(d.contenido, i, { zona: x.zona ?? 'UTC', ahoraMs: Date.now() }),
+  }) },
   configurar_boton_landing: { ...edicion({ que: 'cambiar el botón', planear: (i, d) => planConfigurarBoton(d.contenido, i) }) },
   cambiar_imagen_landing: { ...edicion({
     que: 'cambiar la imagen', imagenes: ['imagen'],

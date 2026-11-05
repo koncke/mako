@@ -9,7 +9,7 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 ## La mensualidad de una agencia: 14 días sin costo y un pago por mes, por fuera de MaKo (5/11/2026)
 
 **Vive en:** `lib/agencia-mes-reglas.ts` (lo puro, con `tests/agencia-mes.test.ts`), `lib/agencia-mes.ts` (leer, escribir, avisar),
-`app/agency/Mensualidad.tsx`, `app/api/cron/agencia-mensualidad/route.ts`, `supabase/migrations/0394_agencia_cobra_desde.sql`.
+`app/agency/Mensualidad.tsx`, `app/api/cron/agencia-mensualidad/route.ts`, `supabase/migrations/0402_agencia_cobra_desde.sql`.
 El acuerdo con Código Inmobiliario (30/10/2026): su plan + el de cada cliente, 14 días sin costo desde la invitación, baja antes de
 los 14 días no se cobra, un pago por mes del 1 al 5 por Binance. MaKo calcula y avisa; no cobra.
 
@@ -38,7 +38,7 @@ los 14 días no se cobra, un pago por mes del 1 al 5 por Binance. MaKo calcula y
   un plazo lleva la fecha en la clave: si se corrige la fecha de un cliente, se avisa la nueva.
 - **Sin push al teléfono, a propósito:** el Agency Dashboard no va en ningún teléfono (`TABS_QUE_VENDEN`), y un push que abre `/agency`
   terminaba en More.
-- **La lectura tolera la 0394 sin aplicar** (PostgREST contesta 42703 por la columna): sin ella no hay corrección, y «Corregir fecha»
+- **La lectura tolera la 0402 sin aplicar** (PostgREST contesta 42703 por la columna): sin ella no hay corrección, y «Corregir fecha»
   dice que falta la migración. Cualquier otro error de lectura tira: «no pude leer» no es «no hay clientes».
 - **El conteo literal de `tests/agency.test.ts` («seis acciones preguntan el admin») se volvió una guarda por acción:** contar dejaba
   pasar una acción nueva sin puerta si otra sumaba una llamada de más. Cada `export async function` de `app/agency/actions.ts` pasa
@@ -46,7 +46,7 @@ los 14 días no se cobra, un pago por mes del 1 al 5 por Binance. MaKo calcula y
 
 ### Sin hacer
 
-- Aplicar la 0394 y corregir la fecha de Giselle (17) al 2026-10-28; prender la mensualidad del 13 desde 2026-11. Detalle en
+- Aplicar la 0402 y corregir la fecha de Giselle (17) al 2026-10-28; prender la mensualidad del 13 desde 2026-11. Detalle en
   `docs/relevo/nube-agencia-cobro.md`.
 - La pantalla se miró con datos de ejemplo (sin base en la nube), no con la cartera real.
 - Un aviso al super admin cuando pasa el día 5 sin el «Pagado»: hoy sólo se ve en la pantalla y en `ver_mensualidades_agencias`.
@@ -485,3 +485,23 @@ tests/verificacion-plata-agency-2910.test.ts.
   sigue entrando cuando la cuenta queda abierta (la que pagaba el cliente).
 - El teléfono abre la cuenta sin elegir plan (queda en Esencial) y no lo cambia. La API tampoco tiene «cambiar el plan».
 - El precio en EUR no tiene pantalla: /admin/cobros edita sólo la moneda de Mercado Pago, y sin él España paga en USD.
+
+## El diferencial: por cada cliente nuevo se pagan sus días hasta el próximo 5 (5/11/2026)
+
+**La regla, de Martín, «igual para todos»:** cuando un cliente de Código empieza (terminan sus 14 días, o entra si estaba suspendido), se pagan sus días desde ese día hasta el próximo 5, y la fecha límite es ese mismo día. «Tampoco le puedo cobrar el mes entero», y esperar al mes siguiente deja días sin cobrar. Va siempre en tabla, en PDF, por el grupo de WhatsApp de la agencia, «nunca a los clientes de ellos».
+
+**Lo obvio era sumar esos días a la mensualidad siguiente, y está mal.** Es lo que hace `COBRA_LOS_DIAS_DEL_PRIMER_MES = true` en `punta/agencia-cobro`: diciembre daba US$527,83, con días de un mes corrido y días en que el cliente estuvo suspendido. El diferencial es un cobro aparte y por adelantado; diciembre son US$426.
+
+**Trampas de la cuenta:**
+- **El ciclo va del 5 al 5, no por mes calendario.** Martín: «ellos ya me pagaron hoy, pagaron el 5, entonces el diferencial hasta el próximo 5, no hasta el próximo primero». Del 5/11 al 5/12 hay 30 días; del 5/12 al 5/1, 31.
+- **El 5 no se cuenta, aunque se diga «hasta el 5».** Ese día ya lo cubre la mensualidad: contarlo cobra un día dos veces (US$117,50 en vez de US$112,80 en noviembre). Por eso el PDF dice «Cubre hasta 4/12».
+- **La tarifa redondeada no cierra.** 24 × US$1,57 da 37,68, y lo correcto es 37,60. Se multiplica y se redondea al final, y en pantalla la tarifa va con cuatro decimales para que Código pueda comprobar la cuenta.
+- **Quien estaba suspendido paga desde el día que entra,** no desde que venció: Pablo venció el 28/10 y paga desde el 9/11.
+- **Paga Código, no el cliente.** «Cada cliente paga» se lee como que MaKo les cobra a sus clientes: el texto dice «por cada cliente se pagan».
+
+**`mako.numero_dueno` no identifica al cliente.** En el negocio 17 (Giselle) es el número de Joan, de Código, porque ese negocio nació como una prueba suya. Cruzar los participantes de un grupo contra ese dato da una coincidencia falsa con el grupo de la agencia. Tampoco sirve para mandarle algo a la clienta. Su fecha tampoco sale de `agencia_clientes` (dice 28/09): vale el 28/10, cuando se creó su usuario.
+
+**Sin hacer:**
+- Todo lo automático sigue en `punta/agencia-cobro`, con la regla encargada el 5/11 y sin confirmar que el chat la haya leído. Hasta que llegue, el PDF y la suspensión son a mano. Tres tareas programadas (`codigo-diferencial-*`, 9/11, 12/11 y 14/11) miran si llegó el comprobante y sólo avisan.
+- El pago del 5/11 no deja rastro en la base: se apoya en lo que dijo Martín. Marcarlo «Pagado» cuando exista la pantalla.
+- Para armar el PDF con `jspdf`: `maxWidth` parte la línea, pero la altura no se ajusta y se pisa con la de abajo. Medir con `splitTextToSize`, y mirar el PDF dibujado antes de mandarlo.

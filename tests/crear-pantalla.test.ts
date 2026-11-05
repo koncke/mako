@@ -22,7 +22,8 @@ import {
   cajaDeMiniatura, centroDe, chipsVisibles, haceCuanto, hojaDe, marcoDe, normalizar, proporcion, proyectosVisibles, seccionesDeCrear,
   type PlantillaCrear,
 } from '@/app/_crear/reglas';
-import { ADAPTAR_A_MI_NEGOCIO, NO_TENGO_PREGUNTAME, primerMensajeDeEjemplo, rotuloDeEjemplo, type TabConEjemplo } from '@/app/_crear/ejemplo';
+import { NO_TENGO_PREGUNTAME, primerMensajeDeEjemplo, rotuloDeEjemplo, type TabConEjemplo } from '@/app/_crear/ejemplo';
+import { PREGUNTA_DE_ACCION } from '@/lib/aperturas/reglas';
 import { TarjetaPlantilla } from '@/app/_crear/TarjetaPlantilla';
 import { FAMILIAS } from '@/app/_components/nav';
 import { problemasDelEjemplo } from './_reales';
@@ -115,13 +116,18 @@ test('el ejemplo se dice igual en las cinco tabs: el rótulo y el primer mensaje
       assert.match(m.texto, /¿tienes un documento, tu guion de ventas o el link de tu web\? Súbelo o pégalo aquí\.$/);
       assert.deepEqual(m.botones, [NO_TENGO_PREGUNTAME]);
     } else {
-      assert.match(m.texto, /¿Lo adapto a tu negocio\?$/);
-      assert.equal(m.botones[0], ADAPTAR_A_MI_NEGOCIO, `${tab}: el primer botón es siempre «Adaptar a mi negocio»`);
-      assert.equal(m.botones.length, 2);
+      // Desde el 5/11/2026 pregunta la OFERTA (un hecho), no «¿Lo adapto a tu negocio?» (una acción: plan.md T4).
+      assert.match(m.texto, /¿Qué vas a vender con esto\?$/, `${tab}: sin ofertas, qué va a vender`);
+      assert.doesNotMatch(m.texto, PREGUNTA_DE_ACCION, `${tab}: pregunta un hecho`);
+      assert.equal(m.botones.at(-1), tab === 'copywriter' ? 'Solo la estructura' : tab === 'avatar' ? 'Ver el ejemplo completo' : 'Lo edito yo');
     }
   }
-  assert.deepEqual(primerMensajeDeEjemplo('copywriter', 'x').botones[1], 'Solo la estructura');
-  assert.deepEqual(primerMensajeDeEjemplo('avatar', 'x').botones[1], 'Ver el ejemplo completo');
+  const dos = [{ id: 12, nombre: 'Mentoría 1 a 1' }, { id: 7, nombre: 'Taller grupal' }];
+  const conDos = primerMensajeDeEjemplo('copywriter', 'Pulso Dental', dos);
+  assert.equal(conDos.texto, 'Es un ejemplo de Pulso Dental, un negocio ficticio. ¿Para cuál de tus ofertas es?');
+  assert.deepEqual(conDos.botones, ['Mentoría 1 a 1', 'Taller grupal', 'Solo la estructura'], 'las ofertas primero, el de la tab al final');
+  assert.match(primerMensajeDeEjemplo('video', 'x', [dos[0]]).texto, /¿Es para «Mentoría 1 a 1»\?$/);
+  assert.deepEqual(primerMensajeDeEjemplo('avatar', 'x', dos).botones.at(-1), 'Ver el ejemplo completo');
 });
 
 const tarjeta = (pl: PlantillaCrear, extra: { miniatura?: (p: PlantillaCrear, activa: boolean) => unknown } = {}) =>

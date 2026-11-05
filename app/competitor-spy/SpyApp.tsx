@@ -73,7 +73,7 @@ import { BotonRecorrido, Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
 import { PASOS_SPY, RECORRIDO_SPY } from './recorrido-spy';
 import type { Sugerido } from '@/lib/spy-sugeridos';
 import {
-  ORDENES, canalesDe, debeLeerAlAbrir, youtubeSinLeer, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
+  MINIMOS_DE_MULTIPLO, ORDENES, canalesDe, debeLeerAlAbrir, youtubeSinLeer, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
   fraseDeLectura, haceCuanto, opcionesDeContenido, ordenarPiezas, pideConectarMeta,
   type OrdenSpy, type TipoContenido, type ValorDeContenido,
 } from '@/lib/spy-vista';
@@ -103,6 +103,7 @@ import { canalesALeer, sumarPasos, type PasoLectura } from '@/lib/spy-lectura-pa
 import { BuscadorAlta } from './BuscadorAlta';
 import { Flecha, GrillaPiezas } from './GrillaPiezas';
 import { MejoresPiezas } from './MejoresPiezas';
+import { multiplosDe } from '@/lib/multiplo-rendimiento';
 
 const CSS = `
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -316,6 +317,13 @@ button.spy-campo:hover{color:var(--dim)}
   font-size:var(--fs-meta);font-weight:700;box-shadow:var(--sombra-tarjeta)}
 .spy-pcard__tag--viva{padding-left:8px;background:rgba(22,26,25,.82);color:#fff}
 .spy-pcard .spy-pcard__tag.spy-pcard__tag--analizando{top:12px;right:14px;left:auto;bottom:auto;padding-left:8px;background:rgba(22,26,25,.82);color:#fff;max-width:none;display:inline-flex;line-height:normal}
+/* Su «3,7×» (TarjetaPieza.tsx, lib/multiplo-rendimiento.ts): arriba a la derecha, como en el explorador de carruseles; lo fuerte
+   (2× o más) en el amarillo de MaKo. Con «Analizando…» puesto, baja una fila. */
+.spy-pcard__veces{position:absolute;z-index:2;top:12px;right:12px;display:inline-flex;align-items:center;height:26px;padding:0 9px;
+  border-radius:99px;background:rgba(18,21,27,.72);color:#fff;font-size:var(--fs-meta);font-weight:700;font-variant-numeric:tabular-nums;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);white-space:nowrap}
+.spy-pcard__veces[data-fuerte=si]{background:var(--mako);color:#12151b}
+.spy-pcard__tag--analizando ~ .spy-pcard__veces{top:44px}
 /* Dos píldoras apiladas, como .pcard__tag + .pcard__fit de la referencia: la segunda sube. */
 .spy-pcard__tag + .spy-pcard__tag{bottom:44px;max-width:calc(100% - 28px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;line-height:26px}
 .spy-pcard__pie{display:flex;align-items:flex-end;gap:10px;padding:12px 14px 14px 16px}
@@ -938,6 +946,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [buscar, setBuscar] = useState('');
   const [tipo, setTipo] = useState<TipoContenido>('todo');
   const [orden, setOrden] = useState<OrdenSpy>('mas-vistas');
+  /** El piso del «3,7×» (0 = cualquiera): los mismos que el explorador de carruseles. */
+  const [minimo, setMinimo] = useState(0);
   const [modal, setModal] = useState<'alta' | 'canal' | 'anuncio' | 'quitar' | null>(null);
   /** «Agregar su YouTube» busca sólo en YouTube; el «Agregar un canal» del menú, en todas sus redes. */
   const [redCanal, setRedCanal] = useState<'instagram' | 'youtube' | null>(null);
@@ -1094,7 +1104,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     if (!ini) setPiezas([]);
     // El loader del alta ya está puesto (`abrirRecienAgregado`): no se saca, o se ve un cuadro del detalle antes de él.
     const esAlta = altaEnCurso.current === id;
-    setError(null); setBuscar(''); setTipo('todo'); setPestana('contenido'); setTrayendo(!ini);
+    setError(null); setBuscar(''); setTipo('todo'); setMinimo(0); setPestana('contenido'); setTrayendo(!ini);
     setOrdenando((v) => (esAlta && v?.id === id ? v : null));
     void (async () => {
       const p = ini ? ini.piezas : await traerPiezas(id);
@@ -1486,7 +1496,10 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   // La grilla de abajo: lo que publica Y sus anuncios, como un formato más (Martín, 4/11: «los anuncios deberían estar en
   // "Contenido", igual que el resto»). Antes los anuncios eran una sección aparte, al final de todo.
   const contenido = useMemo(() => [...flujo, ...anuncios], [flujo, anuncios]);
-  const visibles = useMemo(() => ordenarPiezas(filtrarPiezas(contenido, buscar, tipo), orden), [contenido, buscar, tipo, orden]);
+  // El «3,7×» de cada pieza, sobre TODAS las del competidor (lib/multiplo-rendimiento.ts, la única cuenta): cada una contra las
+  // de su formato. Lo leen las tarjetas, el orden «Mejor rendimiento» y el filtro por mínimo.
+  const multiplos = useMemo(() => multiplosDe(piezas), [piezas]);
+  const visibles = useMemo(() => ordenarPiezas(filtrarPiezas(contenido, buscar, tipo, minimo, multiplos), orden, multiplos), [contenido, buscar, tipo, minimo, multiplos, orden]);
   // Otra búsqueda, otro tipo u otro orden vuelven a las primeras 60.
   const opcionesTipo = useMemo(() => (c ? opcionesDeContenido(contenido, c) : []), [contenido, c]);
   const ofertaDe = c ? ofertas[c.id] : undefined;
@@ -1841,13 +1854,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                 {contenido.length > 0 && (
                   <GrillaPiezas
                     piezas={visibles}
-                    reinicio={`${c.id}|${buscar}|${tipo}|${orden}`}
+                    reinicio={`${c.id}|${buscar}|${tipo}|${minimo}|${orden}`}
                     tarjeta={(p) => (
-                      <TarjetaPieza p={p} analizando={autoAnalisis === c.id && !p.analisis && p.canal !== 'anuncios'}
+                      <TarjetaPieza p={p} analizando={autoAnalisis === c.id && !p.analisis && p.canal !== 'anuncios'} multiplo={multiplos.get(p.id)}
                         onAbrir={() => setAbierta({ p, todas: p.canal === 'anuncios' ? anuncios : piezas.filter((x) => grupoDe(x) === grupoDe(p)) })} />
                     )}
                     vacio={(
-                      <Vacio titulo="Nada coincide" botones={<button type="button" className="spy-boton" onClick={() => { setBuscar(''); setTipo('todo'); }}>Ver todo</button>}>
+                      <Vacio titulo="Nada coincide" botones={<button type="button" className="spy-boton" onClick={() => { setBuscar(''); setTipo('todo'); setMinimo(0); }}>Ver todo</button>}>
                         <p>Ninguna de sus {contenido.length} piezas pasa esta búsqueda.</p>
                       </Vacio>
                     )}
@@ -1884,6 +1897,17 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                               if (v === 'agregar-instagram' || v === 'agregar-youtube') { abrirCanal(v === 'agregar-youtube' ? 'youtube' : 'instagram'); return; }
                               setTipo(v as TipoContenido);
                             }}
+                          />
+                          {/* El piso del «3,7×» (5/11/2026), como el filtro del explorador de carruseles: «2×+» deja lo que hizo el doble
+                              de lo que suele hacer su cuenta, o más. Lo que no tiene número no pasa un piso. */}
+                          <Dropdown
+                            ariaLabel="Rendimiento mínimo"
+                            value={String(minimo)}
+                            search={false}
+                            width={250}
+                            buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
+                            options={MINIMOS_DE_MULTIPLO.map((m) => ({ value: String(m), label: m ? `${m}×+` : 'Cualquier rendimiento', sub: m ? `${m} veces lo que suele hacer su cuenta, o más` : undefined }))}
+                            onChange={(v) => setMinimo(Number(v))}
                           />
                           <div className="spy-orden">
                             <Dropdown

@@ -38,6 +38,7 @@ import { sanearConfig } from './validar';
 import { urlBloqueHtmlLibre } from './html-libre';
 import { productoDeHref, urlPasoPago } from './pago-landing';
 import { animacionDeSeccion } from './animaciones';
+import { bloqueVentaListo, esNodoVenta } from './bloques-venta';
 import { CLASE_LIBRE, CLASE_SECCION_LIBRE, cierreDe, conEnlacesDePaginas, esTarjetaEditable } from './html-editable';
 
 export { ORIGEN_IMAGENES, origenImagenes, srcPermitido, hrefPermitido } from './especificacion';
@@ -332,6 +333,8 @@ function htmlDeNodo(n: Record<string, unknown>, ctx: Ctx, prof: number): string 
   // Una agenda vacía, nunca.
   if (tipo === NODO.insertado && !attrsInsertado(attrs).src && !(ctx.spec.marcadores && claseDeProveedor(attrsInsertado(attrs).proveedor) === 'video')) return '';
   if (tipo === NODO.htmlLibre && !attrsHtmlLibre(attrs).html) return '';
+  // Un bloque de venta sin su dato real (la fecha, quién compró, los números) no sale (bloques-venta.ts, 5/11/2026).
+  if (esNodoVenta(tipo) && !bloqueVentaListo(tipo, attrs)) return '';
   const conSvg = conIconos(spec(attrs, ctx.spec));
   const arbol = ctx.modo === 'miniatura' ? sinInteractivos(conSvg) : conSvg;
   if (tipo === NODO.columnas) {

@@ -112,5 +112,5 @@ test('el admin global SIN cliente SÍ se desvía, a SU negocio (Martín, 12/10: 
   assert.ok(guard.includes("if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(RUTA_CENTRO_M, await wsSuperAdmin()));"), 'el guard no manda al admin sin cliente a su negocio');
   assert.ok(!guard.includes("redirect('/inicio')"), 'volvió el rebote a /inicio: con el desvío prendido, un bucle');
   // Y /inicio, en un teléfono, lo manda a /m (no a /customers, ex /customer-success, que el desvío taparía).
-  assert.ok(leer('app/inicio/page.tsx').includes("if (ws == null) redirect(telefono ? ENTRADA_MOVIL : '/customers');"), '/inicio no reparte al teléfono');
+  assert.ok(leer('app/inicio/page.tsx').includes("if (ws == null) redirect(telefono ? ENTRADA_MOVIL : '/admin');"), '/inicio no reparte al teléfono');
 });

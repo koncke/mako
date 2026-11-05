@@ -123,9 +123,16 @@ export function sinLinksParaInvitado(texto: string, hosts: readonly string[]): s
   return texto.replace(new RegExp(`(?:https?:\\/\\/)?(?:www\\.)?(?:${unidos})(?:\\/[^\\s<>]*)?`, 'gi'), '(en MaKo)');
 }
 
-/** ¿Esta fila la puede ver un invitado? Los avisos «a la agencia» (cuenta frenada de un cliente) no: es lo que Martín prohibió el 31/10. */
+/**
+ * Los avisos que un INVITADO no ve, además de los «a la agencia»: el recibo de un pago (5/11/2026, lib/recibos.ts). El grupo de un
+ * negocio lo ven los admins de su agencia y sus invitados, y el recibo trae lo que se pagó y el comprobante de quien pagó
+ * (docs/relevo/recibos-encargo.md, agujero 1). Un aviso nuevo con plata adentro se suma acá.
+ */
+export const AVISOS_QUE_NO_VE_UN_INVITADO: readonly string[] = ['recibo'];
+
+/** ¿Esta fila la puede ver un invitado? Los avisos «a la agencia» (cuenta frenada de un cliente) no: es lo que Martín prohibió el 31/10. Ni un recibo. */
 export const laVeUnInvitado = (f: Pick<FilaGrupo, 'id' | 'aviso_tipo'>, desdeId: number): boolean =>
-  f.id > desdeId && !(f.aviso_tipo && esAvisoParaAgencia(f.aviso_tipo));
+  f.id > desdeId && !(f.aviso_tipo && (esAvisoParaAgencia(f.aviso_tipo) || AVISOS_QUE_NO_VE_UN_INVITADO.includes(f.aviso_tipo)));
 
 export type MensajeDelHilo = {
   id: number;

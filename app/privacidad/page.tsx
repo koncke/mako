@@ -39,7 +39,7 @@ export const metadata = {
   description: 'Qué datos usa MaKo, con quién se comparten y qué puedes hacer con ellos.',
 };
 
-const ACTUALIZADO = '4 de noviembre de 2026';
+const ACTUALIZADO = '5 de noviembre de 2026';
 
 // ⚠️ LOS TRES DATOS QUE NO SALEN DEL CÓDIGO. Una política con el responsable
 // equivocado es peor que no tenerla: es el único dato que le dice a una persona A
@@ -126,6 +126,13 @@ export default function Page() {
         <strong>Si trabajas en equipo, quien administre el espacio puede ver ese rastro.</strong>
       </p>
       <p>
+        Para saber qué partes del producto se usan y cuáles no, MaKo también cuenta, por persona y
+        por día, <strong>qué secciones abres y cuántas acciones haces en cada una</strong>, y qué
+        hizo MaKo por ti y si salió bien. Son números: <strong>no se guarda lo que escribes ni lo
+        que ves</strong>, ni la dirección de cada pantalla. Lo mira sólo el equipo de MaKo, y se
+        borra a los 400 días (lo que hizo MaKo, a los 90).
+      </p>
+      <p>
         <strong>No hay analítica de terceros dentro de la aplicación</strong>: no usamos Google
         Analytics, ni Meta Pixel, ni grabadores de sesión, ni herramientas de seguimiento
         publicitario. (Sí existe un píxel que <em>tú</em> puedes instalar en <em>tu</em> propia
@@ -138,6 +145,12 @@ export default function Page() {
         medir los anuncios con los que vendemos MaKo: registra que la página se visitó y, si
         agendas una reunión desde ahí, que la agendaste. Con eso Meta sabe a quién mostrarle
         nuestros anuncios. Corre solo en esa página, no dentro de la aplicación.
+      </p>
+      <p>
+        <strong>Esa página pública también graba las visitas</strong>, con una herramienta propia de MaKo: lo que se
+        ve, los clics y el desplazamiento, para entender qué no se comprende y mejorarla. Lo que se escribe en un campo
+        no se graba: se tapa antes de salir del navegador. Las grabaciones se borran a los 30 días, o a los 180 si esa
+        visita terminó dejando sus datos. Tampoco corre dentro de la aplicación.
       </p>
 
       <H3>Si conectas Claude Code</H3>
@@ -326,7 +339,9 @@ export default function Page() {
         <li>
           <strong>Tu página web</strong>, si instalas nuestro píxel: qué visitó cada persona y
           cuánto vio de tus videos, y <strong>desde qué país, región y ciudad</strong> llegó cada visita
-          (lo deduce nuestro proveedor de la conexión; la dirección IP no se guarda). Además,{' '}
+          (lo deduce nuestro proveedor de la conexión; la dirección IP no se guarda).{' '}
+          <strong>El píxel también graba las visitas</strong>, para que veas qué hace la gente en tu página, con lo
+          escrito en los campos tapado y por el mismo plazo de 30 o 180 días. Además,{' '}
           <strong>el píxel captura los formularios</strong> que
           se envían en esa página cuando traen un correo o un teléfono, y esos datos entran a tu
           CRM. Si lo instalas, avísale a tu público en tu propia política de privacidad: es tu
@@ -373,6 +388,14 @@ export default function Page() {
         <li><strong>Calendly y Cal.com</strong> — las agendas de reserva.</li>
         <li><strong>Fathom</strong> — la grabación y transcripción de tus llamadas.</li>
         <li><strong>ElevenLabs, Panda Video y Google Flow</strong> — si usas la generación de video: tu voz se clona en ElevenLabs y tu foto se envía a Google Flow.</li>
+        {/* Hasta el 5/11/2026 acá iba Creem, que moderaba los pedidos de imagen y video y cobraba los planes desde
+            Latinoamérica. Creem rechazó la tienda de MaKo ese día (docs/creem-retiros.md) y no recibe nada: ni un prompt
+            (la moderación quedó sin proveedor, lib/creem-moderacion-reglas.ts) ni un pago. Un proveedor nuevo entra a
+            esta lista el día que empieza a recibir datos, no antes. */}
+        <li>
+          <strong>Stripe y Mercado Pago, para cobrar tu plan</strong> — según el país desde el que pagas. Reciben los
+          datos de tu tarjeta o de tu cuenta, tu correo y lo que compras; MaKo no ve el número de tu tarjeta.
+        </li>
       </ul>
 
       <H3>Muchos de estos son <em>tu</em> cuenta, no la nuestra</H3>

@@ -55,7 +55,8 @@ test('el server decide con la regla de /partners: agencia y su admin, para las d
   assert.match(pagina, /partners=\{partners\}/);
   const acciones = leer('app/crm/actions.ts');
   assert.match(acciones, /const \[ficha, rolWs, partners\] = await Promise\.all\(\[fichaP, rolP, ofrecePartners\(\)\]\);/);
-  assert.match(acciones, /puedeEditarFicha: rol === 'admin', partners, tratos: await tratosP \};/);
+  // Lo que cuida es que el pop-up reciba `partners` junto al permiso de editar; la cola del return crece (5/11/2026: suscripcion).
+  assert.match(acciones, /puedeEditarFicha: rol === 'admin', partners,/);
 });
 
 test('las dos puertas abren la MISMA ventana, «Ver en…» lleva a su cuenta, y el tablero trae la cuenta', () => {

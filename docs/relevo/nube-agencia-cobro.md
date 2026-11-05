@@ -4,6 +4,17 @@
 > sesión no le puede escribir al Cerebro: todo lo que hace falta está acá. Lo que no se ve en el código, en
 > [docs/hallazgos-agencias.md](../hallazgos-agencias.md) → «La mensualidad de una agencia».
 
+## ⚠️ Lo que Martín pidió DESPUÉS de esta tanda, y no está (5/11/2026, por la tarde)
+
+Esta punta se construyó con el acuerdo del 30/10. Martín lo cambió el 5/11, y sus reglas ganan sobre lo que dice abajo:
+
+- **Avisos del 1 al 5 al grupo de WhatsApp de MaKo con la agencia, con PDF ítem por ítem**, y MaKo pide el comprobante ahí. Nunca a los clientes de la agencia. Acá: por la app y por correo, sin PDF.
+- **Diferencial por día, igual para todos:** cada cliente paga sus días desde que empieza hasta el próximo 5, sin contar ese 5 (US$47 ÷ días del ciclo). Acá: `COBRA_LOS_DIAS_DEL_PRIMER_MES` suma días a la mensualidad siguiente. Da otros números: noviembre fueron US$238, no US$285, y diciembre son US$426, no US$527,83.
+- **Suspensión sola:** el día 6 sin el total se suspenden la agencia y todos sus clientes; una cuenta que pasa las 2 semanas sin pagar se suspende sola. Un error de la base nunca suspende. Acá: no hay nada que suspenda.
+- **El estado «Paga para entrar»** de Pablo y Patricia: no está. Hoy siguen suspendidos a mano.
+
+No prender la mensualidad del negocio 13 hasta que esto esté: el aviso le diría otro total. El detalle está en la memoria del Cerebro (`cobro-agencia-codigo`).
+
 ## Lo pedido
 
 El cobro de una agencia según lo acordado con Código Inmobiliario (Juanfran y Joan, negocio 13) el 30/10/2026: la agencia paga su
@@ -40,12 +51,12 @@ siete, y los días de noviembre de Patricia, Giselle y Marcela). Si Martín pref
 
 ## Lo que falta, en orden (es del Cerebro, desde la PC)
 
-1. **Aplicar la migración** `supabase/migrations/0394_agencia_cobra_desde.sql` (sólo agrega `agencia_clientes.cobra_desde date`, sin
+1. **Aplicar la migración** `supabase/migrations/0402_agencia_cobra_desde.sql` (sólo agrega `agencia_clientes.cobra_desde date`, sin
    aplicar). Número elegido barriendo main, las 377 ramas y etiquetas de origin: el más alto era 0393. Orden: da igual, el código
    tolera que falte (sin ella, «Corregir fecha» dice que falta).
 
    ```bash
-   node scripts/apply-migration.mjs supabase/migrations/0394_agencia_cobra_desde.sql
+   node scripts/apply-migration.mjs supabase/migrations/0402_agencia_cobra_desde.sql
    ```
 
 2. **Corregir la fecha de Giselle (negocio 17) al 2026-10-28**: en `/agency?ws=13` (super admin) → su cuenta → «Corregir fecha», o

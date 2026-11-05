@@ -16,7 +16,7 @@ export const PASOS_FICHA_EDICION: PasoRecorrido[] = [
   { objetivo: 'fb-hojas', titulo: 'Tus hojas', texto: 'Cambia de hoja o crea una nueva desde aquí.' },
   { objetivo: 'fb-agregar', titulo: 'Agregar bloque', texto: 'Suma lo que quieras ver en esta hoja.' },
   { objetivo: 'fb-templates', titulo: 'Templates', texto: 'Arma la hoja de una vez, o toda la ficha.' },
-  { objetivo: 'fb-bloque', titulo: 'Cada bloque', texto: 'Con un clic eliges su ancho, su diseño y si es obligatorio. Arrástralo para moverlo.' },
+  { objetivo: 'fb-bloque', titulo: 'Cada bloque', texto: 'Tócalo para elegirlo y arrástralo para moverlo. Su ancho, su diseño y si es obligatorio están en «⋯».' },
   { objetivo: 'fb-estilo', titulo: 'Estilo de la hoja', texto: 'Vista épica, tamaño de las tarjetas y colores.' },
   { objetivo: 'fb-mako', titulo: 'MaKo', texto: 'Pídele en palabras lo que quieras cambiar.' },
   { objetivo: 'fb-editar', titulo: 'Ver', texto: 'Sal de la edición. Los cambios se guardan solos.' },

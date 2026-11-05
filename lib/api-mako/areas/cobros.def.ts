@@ -38,6 +38,8 @@ import type { Gating, OperacionDef, Parametro } from '../tipos';
 // misma lista que la base, no de una copia escrita a mano.
 import { ESTADOS_COBRO, PASARELAS } from '../../cobros-tipos';
 import { CAPAS_VENDIBLES } from '../../capas';
+// Los medios de un recibo (lib/recibos-reglas.ts: puro, sin server-only).
+import { MEDIOS } from '../../recibos-reglas';
 // Puro (lib/pagos-campo.ts no tiene server-only): los datos del deal salen del mismo catálogo que la escritura.
 import { CAMPOS_DEAL, CAMPOS_LEAD_DEAL, SECCIONES_DEAL } from '../../pagos-campo';
 
@@ -296,7 +298,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_clientes_de_mako', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver los clientes de MaKo',
-    descripcion: 'Sólo para la plataforma: los clientes de MaKo, como la vista Customers. Arriba, los números: el ingreso mensual (MRR, la suma de las suscripciones activas cobradas por la pasarela, en dólares; sin las pruebas gratis ni los planes dados a mano), cuántos pagan, lo que entró cada mes (6 meses) y las cuotas vencidas, los clientes activos, los nuevos en 30 días y los que están en riesgo (pausados, con un cobro que falló, o sin que nadie de su equipo entre hace 14 días). Después, cada negocio con su segmento: partner (tiene su link de MaKo Partners), agency (plan Pro y se sumó como Agency), cliente (el resto) o de-agencia (cliente de una agencia: lo factura su agencia), su plan, su estado, su MRR, por qué está en riesgo, cuántos días hace que no entra nadie, cuántos leads tiene y cuándo llegó el último, si terminó su onboarding, sus sesiones del agente en 30 días, si tiene un pago esperando y desde cuándo es cliente. Con segmento, sólo ese.',
+    descripcion: 'Sólo para la plataforma: los clientes de MaKo, como la vista Customers. Arriba, los números: el ingreso mensual (MRR: lo que cada negocio paga como su mensualidad, registrado a mano o por la pasarela, en dólares; sin las pruebas gratis ni los planes dados a mano), cuántos pagan, lo que entró cada mes (6 meses) y las cuotas vencidas, los clientes activos, los nuevos en 30 días y los que están en riesgo (pausados, con un cobro que falló, o sin que nadie de su equipo entre hace 14 días). Después, cada negocio con su segmento: partner (tiene su link de MaKo Partners), agency (plan Pro y se sumó como Agency), cliente (el resto) o de-agencia (cliente de una agencia: lo factura su agencia), su plan, su estado, su MRR, por qué está en riesgo, cuántos días hace que no entra nadie, cuántos leads tiene y cuándo llegó el último, si terminó su onboarding, sus sesiones del agente en 30 días, si tiene un pago esperando y desde cuándo es cliente. Con segmento, sólo ese.',
     parametros: [
       { nombre: 'segmento', rotulo: 'Segmento', tipo: 'string', enum: ['partner', 'agency', 'cliente', 'de-agencia'], descripcion: 'sólo los de ese segmento. Sin esto, todos.' },
     ],
@@ -305,14 +307,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_quieren_entrar', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver quién quiere entrar a MaKo',
-    descripcion: 'Sólo para la plataforma: la bandeja «Quieren entrar» de Customers › Accounts: quien intentó entrar con Google sin tener cuenta y quien pidió un plan desde la página de planes, y todavía no tiene usuario. De cada uno, su correo, su nombre, si Google confirmó el correo, qué pidió y cuántas veces. Para darle de alta se usa esa pantalla: esto sólo lee.',
+    descripcion: 'Sólo para la plataforma: la bandeja «Quieren entrar» de Admin › Accounts: quien intentó entrar con Google sin tener cuenta y quien pidió un plan desde la página de planes, y todavía no tiene usuario. De cada uno, su correo, su nombre, si Google confirmó el correo, qué pidió y cuántas veces. Para darle de alta se usa esa pantalla: esto sólo lee.',
     parametros: [],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
   {
     id: 'ver_agentes_de_clientes', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver en qué trabajan los clientes',
-    descripcion: 'Sólo para la plataforma: las últimas sesiones que los clientes cerraron en SU Claude Code con el plugin de MaKo (la pestaña Agents de Customers): de cada una, el negocio, cuándo, el título y el resumen del acta, y cuántos mensajes escribió. Sirve para ver qué piden más y si usan bien Claude. Los mensajes textuales no vienen: están en Customers › Agents.',
+    descripcion: 'Sólo para la plataforma: las últimas sesiones que los clientes cerraron en SU Claude Code con el plugin de MaKo (al pie de Admin › Activity): de cada una, el negocio, cuándo, el título y el resumen del acta, y cuántos mensajes escribió. Sirve para ver qué piden más y si usan bien Claude. Los mensajes textuales no vienen: están al pie de Admin › Activity.',
     parametros: [
       { nombre: 'limite', rotulo: 'Cuántas', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'cuántas sesiones, las más nuevas primero. Sin esto, 20.' },
     ],
@@ -352,6 +354,127 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'sinAnticipo', rotulo: 'Sin anticipo', tipo: 'boolean', descripcion: 'true: quita el anticipo sin cobrar.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_TAB,
+  },
+  // ── La suscripción mes a mes (5/11/2026, docs/investigacion-suscripciones.md) ─────────────────────────────────────────
+  // Lo mismo que la tab Pagos de una suscripción: leerla mes a mes, y cambiar el monto desde un mes, cortarla y retomarla
+  // (lib/suscripcion-cambios.ts, la MISMA implementación). Van después del plan por tramos y antes de las de la plataforma
+  // (recibos y Admin), para que lo que se sume al final del área no choque con ellas; con palabras que no repiten las del área.
+  {
+    id: 'ver_suscripcion_lead', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver una suscripción mes a mes',
+    descripcion: 'La suscripción de un lead mes a mes, como la tab Pagos: cuánto paga hoy (o el estimado si nadie cargó la mensualidad), el día de cobro, el próximo vencimiento, lo pagado en total y los ajustes, y cada mes con lo que tocaba, lo que entró, sus pagos y lo que cambió (empezó, subió, bajó, se cortó, volvió). Trae también los cambios guardados con su id.',
+    parametros: [leadId('id del lead de la suscripción.')],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_TAB,
+  },
+  {
+    id: 'cambiar_suscripcion', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiar el monto, cortar o retomar',
+    descripcion: 'PROPONE un cambio de la suscripción de un lead que se cobra a mano, desde un mes: tipo=monto (la mensualidad nueva, sube o baja; los meses de antes quedan como estaban), corte (deja de pagar desde ese mes) o vuelta (vuelve desde ese mes, con otro monto si cambió). También para cargar la mensualidad que falta: tipo=monto desde el primer mes. Sólo el administrador. La que cobra la pasarela se cambia en su cobro.',
+    escribe: 'agrega el cambio a suscripcion_movimientos (y el monto de antes la primera vez), deja suscripcion_monto_usd en la mensualidad de hoy, cancela o reactiva si el corte o la vuelta son de este mes, y deja historial',
+    parametros: [
+      leadId('id del lead de la suscripción.'),
+      { nombre: 'tipo', rotulo: 'Cambio', tipo: 'string', obligatorio: true, enum: ['monto', 'corte', 'vuelta'], descripcion: 'monto, corte o vuelta.' },
+      { nombre: 'desde', rotulo: 'Desde', tipo: 'string', obligatorio: true, max: 10, descripcion: 'AAAA-MM: el mes desde el que vale.' },
+      { nombre: 'montoUsd', rotulo: 'Mensualidad', tipo: 'number', minimo: 0.01, maximo: 10000000, descripcion: 'en dólares. Obligatoria con tipo=monto.' },
+      { nombre: 'dia', rotulo: 'Día de cobro', tipo: 'number', entero: true, minimo: 1, maximo: 31, descripcion: 'desde ese mes; sin valor, el de siempre.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_ADMIN,
+  },
+  // ── Los RECIBOS de MaKo (5/11/2026, lib/recibos.ts; Martín: «que se envíe siempre por email [...] y también por WhatsApp
+  // [...] guardando dentro de SuperAdmin»). El libro de la plataforma: sólo el super admin, y sin HTTP (son los pagos de todos
+  // los negocios). Las dos que escriben proponen y se confirman en pantalla, como vender_plan_mako, y no van en un flujo.
+  {
+    id: 'ver_recibos', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver los recibos de MaKo',
+    descripcion: 'Sólo para la plataforma: el libro de recibos (Admin › Billing › Recibos). De cada uno, el N.º, a nombre de quién, lo recibido por moneda, el medio y la orden, la fecha, el estado (emitido, devuelto, contracargo, anulado) y cómo salió por correo y por WhatsApp. Con filtros de mes, cuenta, medio, estado o sólo los que no salieron.',
+    parametros: [
+      { nombre: 'mes', rotulo: 'Mes', tipo: 'string', max: 7, descripcion: 'AAAA-MM: sólo los pagados ese mes.' },
+      { nombre: 'cuenta', rotulo: 'Cuenta', tipo: 'number', entero: true, minimo: 1, descripcion: 'el número de la cuenta (ws) a la que le llega.' },
+      { nombre: 'medio', rotulo: 'Medio', tipo: 'string', enum: [...MEDIOS], descripcion: 'sólo los de ese medio.' },
+      { nombre: 'estado', rotulo: 'Estado', tipo: 'string', enum: ['emitido', 'devuelto', 'devuelto_parcial', 'contracargo', 'anulado'], descripcion: 'sólo los de ese estado.' },
+      { nombre: 'soloFallas', rotulo: 'Sólo los que no salieron', tipo: 'boolean', descripcion: 'true: sólo los que fallaron, rebotaron o no tienen destino.' },
+    ],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'cargar_pago_a_mano', area: 'cobros', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
+    titulo: 'Cargar un pago a mano',
+    descripcion: 'Sólo para la plataforma: PROPONE el recibo de plata que entró por fuera de la pasarela (Binance, transferencia, efectivo), como «Cargar pago» de Billing. Se confirma en una pantalla. Lleva la cuenta, a nombre de quién, qué se pagó (renglones en una sola moneda) y cómo (cada pago con su orden, fecha, monto y moneda). Una orden que ya está en otro recibo no entra. Si la cuenta la paga su agencia, se rechaza: va a la de la agencia. No marca meses pagados. La foto del comprobante se sube en la pantalla.',
+    escribe: 'emite el recibo con su número en el libro de recibos de la plataforma y, si se pide, lo manda por correo y al grupo de MaKo de la cuenta',
+    parametros: [
+      { nombre: 'cuenta', rotulo: 'Cuenta', tipo: 'number', entero: true, minimo: 1, obligatorio: true, fijoAlRevisar: true, descripcion: 'el número de la cuenta (ws) que pagó.' },
+      { nombre: 'aNombre', rotulo: 'A nombre de', tipo: 'string', obligatorio: true, max: 200, descripcion: 'cómo sale en el recibo, con tildes y apellidos bien escritos.' },
+      {
+        nombre: 'lineas', rotulo: 'Qué se pagó', tipo: 'object[]', obligatorio: true, max: 30, descripcion: 'un renglón por concepto, todos en la misma moneda.',
+        campos: [
+          { nombre: 'concepto', rotulo: 'Concepto', tipo: 'string', obligatorio: true, max: 200, descripcion: 'qué se pagó.' },
+          { nombre: 'mes', rotulo: 'Mes', tipo: 'string', max: 40, descripcion: 'el mes que cubre, en palabras (noviembre).' },
+          { nombre: 'monto', rotulo: 'Importe', tipo: 'number', obligatorio: true, minimo: 0.01, maximo: 100000000, descripcion: 'en la moneda del renglón.' },
+          { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', obligatorio: true, max: 5, descripcion: 'USD, USDT, ARS…' },
+        ],
+      },
+      {
+        nombre: 'pagos', rotulo: 'Cómo se pagó', tipo: 'object[]', obligatorio: true, max: 10, descripcion: 'cada entrada de plata.',
+        campos: [
+          { nombre: 'medio', rotulo: 'Medio', tipo: 'string', obligatorio: true, enum: [...MEDIOS], descripcion: 'binance, transferencia, efectivo…' },
+          { nombre: 'referencia', rotulo: 'Referencia', tipo: 'string', obligatorio: true, max: 200, descripcion: 'en Binance, los 18 dígitos del «Order ID».' },
+          { nombre: 'fecha', rotulo: 'Fecha y hora', tipo: 'string', obligatorio: true, max: 40, descripcion: 'AAAA-MM-DDTHH:MM, en la hora de la plataforma.' },
+          { nombre: 'monto', rotulo: 'Monto', tipo: 'number', obligatorio: true, minimo: 0.01, maximo: 100000000, descripcion: 'lo que entró.' },
+          { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', obligatorio: true, max: 5, descripcion: 'USDT, USD, ARS…' },
+          { nombre: 'de', rotulo: 'De', tipo: 'string', max: 120, descripcion: 'quién lo mandó, si se ve en el comprobante.' },
+        ],
+      },
+      { nombre: 'notaPdf', rotulo: 'Nota del PDF', tipo: 'string', max: 500, descripcion: 'sale en el recibo (ej.: «Cubre hasta el 4/12»).' },
+      { nombre: 'notaInterna', rotulo: 'Nota interna', tipo: 'string', max: 500, descripcion: 'sólo se ve en Billing.' },
+      { nombre: 'enviar', rotulo: 'Enviar', tipo: 'boolean', descripcion: 'false: lo emite sin mandarlo. Sin valor, lo manda.' },
+    ],
+    canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'reenviar_recibo', area: 'cobros', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    titulo: 'Reenviar un recibo de MaKo',
+    descripcion: 'Sólo para la plataforma: PROPONE volver a mandar un recibo (por su N.º) por correo y al grupo de su cuenta, o a otro correo. Se confirma en una pantalla. Un recibo anulado o devuelto no se reenvía.',
+    escribe: 'vuelve a mandar el recibo por correo (y al grupo de MaKo de la cuenta, si va) y lo anota en su historial',
+    parametros: [
+      { nombre: 'numero', rotulo: 'N.º', tipo: 'number', entero: true, minimo: 1, obligatorio: true, fijoAlRevisar: true, descripcion: 'el número del recibo (de ver_recibos).' },
+      { nombre: 'correo', rotulo: 'Otro correo', tipo: 'string', max: 200, descripcion: 'si va a otra dirección. Sin valor, a los de siempre.' },
+    ],
+    canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  // Admin › Revenue por chat (5/11/2026; Martín: «¿Cuánto es lo que me pagaron totalmente? ¿Cuánto me van pagando mes a mes?»).
+  // Lo MISMO que la pantalla (lib/admin-ingresos.ts). Sólo la plataforma y, en la app, el super admin global (el runner lo
+  // pregunta); sin HTTP: son datos de todos los negocios. AL FINAL del área y sin las palabras de las demás (AGENTS.md).
+  {
+    id: 'ver_ingresos_de_mako', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver los ingresos de MaKo',
+    descripcion: 'Sólo para la plataforma: lo que entró a MaKo, como Admin › Revenue. El MRR de hoy y al cierre del mes pasado, lo de este mes y desde siempre, y mes a mes (12) el MRR, la plata que entró y sus movimientos: nuevos, volvieron, subieron, bajaron, se cortaron. Cada cliente con lo que paga por mes, lo que pagó en total, su estado y su próximo vencimiento; y lo que vence en 31 días. Sale de lo registrado a mano en el CRM de la plataforma y de la pasarela.',
+    parametros: [],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  // Admin › Users y Admin › Errors por chat (5/11/2026). Sólo LEEN: suspender a alguien apaga sus tokens de la API, y eso queda
+  // en la pantalla (una persona, con su «¿seguro?»), no en un chat. Sin HTTP: son datos de todos los negocios.
+  {
+    id: 'ver_personas_de_mako', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver las personas de MaKo',
+    descripcion: 'Sólo para la plataforma: como Admin › Users, las personas de todos los negocios con su estado de alta (activo: entró en 30 días; inactivo; invitado: nunca entró, y si se le mandó el acceso; suspendido), su rol, su negocio y cuándo entró. Con estado, sólo ésas.',
+    parametros: [
+      { nombre: 'estado', rotulo: 'Estado', tipo: 'string', enum: ['activo', 'inactivo', 'invitado', 'suspendido'], descripcion: 'sólo las de ese estado. Sin esto, todas.' },
+    ],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'ver_errores_de_mako', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver los errores de la app',
+    descripcion: 'Sólo para la plataforma: como Admin › Errors, los errores de la app agrupados (sin resolver, nuevos de 7 días, los que volvieron después de resueltos), cuántas veces pasaron, dónde, a cuántos negocios y su ticket; y los últimos reportes de las personas.',
+    parametros: [],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'ver_actividad_de_mako', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver quién usa la app',
+    descripcion: 'Sólo para la plataforma: como Admin › Activity, cuántas personas de los negocios usaron la app hoy, en 7 y en 30 días; quién entra cada semana (nuevos, siguen, volvieron, dejaron); qué tabs se usan y cuáles nadie abrió; cada negocio con su uso; quién dejó de entrar, y lo último que hizo MaKo.',
+    parametros: [],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
   // ── LA MENSUALIDAD DE UNA AGENCIA, por fuera de MaKo (acuerdo con Código Inmobiliario, 30/10/2026; lib/agencia-mes.ts) ──
   // MaKo no cobra: calcula, avisa el día 1 y dos días antes de que un cliente empiece a contar, y el super admin anota lo

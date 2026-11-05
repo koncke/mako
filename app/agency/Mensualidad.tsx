@@ -212,7 +212,7 @@ export function CorregirReloj({ fila, puede, onAviso }: { fila: FilaMensualidad;
               <button type="button" className="ad-acc ad-acc--fuerte" disabled={ocupado || !puede || !dia} onClick={() => guardar(dia)}>Guardar la fecha</button>
             </>
           }>
-          {!puede && <p className="ad-nota" role="status">Aplica la migración 0394 para poder corregir fechas.</p>}
+          {!puede && <p className="ad-nota" role="status">Aplica la migración 0402 para poder corregir fechas.</p>}
           <label className="am-campo">
             <span>Sus {DIAS_SIN_COSTO} días corren desde</span>
             <input className="ad-buscar" type="date" value={dia} data-autofocus onChange={(e) => setDia(e.target.value)} />

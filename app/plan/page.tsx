@@ -14,6 +14,8 @@ import { getWorkspaceActual, estaImpersonando, rutaConWs, getRolWsEfectivo } fro
 import { leerColumnasPlan } from '@/lib/plan-columnas-server';
 import { getPerfil, getTarjetaPlan } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
+import { leerEstadoArranque } from '@/lib/onboarding-arranque-server';
+import { getPropuesta } from '@/lib/plan-propuesta';
 import { clientesGanadosOVacio } from '@/lib/clientes-ganados';
 import { leerClienteDeUrl } from './board/filtro-cliente';
 
@@ -104,8 +106,24 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   // como el funnel del CRM. Leídos acá para que el primer HTML ya diga el nombre del negocio, sin parpadeo.
   // La tarjeta de quien mira («Personalizar tarjetas», 21/10/2026): de SU fila, con el HTML, por el mismo camino que las
   // columnas. `getTarjetaPlan` nunca tira (sin fila propia, la de siempre y sin guardar).
-  const [configColumnas, rol, tarjeta] = await Promise.all([leerColumnasPlan(), getRolWsEfectivo().catch(() => null), getTarjetaPlan()]);
+  const [configColumnas, rol, tarjeta, borrador] = await Promise.all([leerColumnasPlan(), getRolWsEfectivo().catch(() => null), getTarjetaPlan(), borradorPendiente()]);
 
   return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} vistaInicial={typeof vista === 'string' ? vista : undefined} clientes={clientes} clienteInicial={leerClienteDeUrl(cliente)}
-    columnas={demo ? null : { config: configColumnas, editables: rol === 'admin' }} tarjeta={demo ? null : tarjeta} />;
+    columnas={demo ? null : { config: configColumnas, editables: rol === 'admin' }} tarjeta={demo ? null : tarjeta}
+    apertura={demo ? null : { borrador, esAdmin: rol === 'admin' }} />;
+}
+
+/**
+ * El borrador del plan del onboarding, SÓLO si sigue pendiente (5/11/2026, lib/aperturas/plan.ts): su link quedó en el estado del
+ * onboarding y se mira cómo está ahora. Cualquier lectura que falla es null: MaKo calla (nunca ofrece un borrador que no existe).
+ */
+async function borradorPendiente(): Promise<{ id: string; n: number } | null> {
+  try {
+    const b = (await leerEstadoArranque()).planBorrador;
+    if (!b?.id) return null;
+    const p = await getPropuesta(b.id);
+    return p?.estado === 'pendiente' ? { id: b.id, n: b.n } : null;
+  } catch {
+    return null;
+  }
 }

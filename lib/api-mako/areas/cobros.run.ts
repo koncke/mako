@@ -39,11 +39,17 @@ import { getTenantDb, runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { venderPlan, ventaValida, previaDeLaVenta, compradorEnLaPlataforma, cobroAbiertoDelPlan, cuentaDelComprador } from '@/lib/vender-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { vistaDeClientes } from '@/lib/clientes-plataforma';
+import { vistaDeIngresos } from '@/lib/admin-ingresos';
+import { vistaDeErrores } from '@/lib/admin-errores';
+import { listarUsuarios } from '@/lib/usuarios';
+import { listarWorkspaces } from '@/lib/workspace';
+import { detalleDeAlta, estadoDeAlta, rolTxt } from '@/lib/admin-usuarios-reglas';
+import { ESTADO_TICKET_TXT, estadoDeError, erroresVisibles, origenTxt } from '@/lib/admin-errores-reglas';
 import { nombreDePlan } from '@/lib/clientes-plataforma-reglas';
 import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { PREFIJO_FLUJO } from '../canal';
 import { agenciasHabilitadas } from '@/lib/agencia';
-import { apagarMensualidad, corregirRelojDeCliente, FALTA_LA_0394, marcarMesPagado, mensualidadDeAgencia, mensualidadParaMako, prenderMensualidad, quitarMesPagado } from '@/lib/agencia-mes';
+import { apagarMensualidad, corregirRelojDeCliente, FALTA_LA_0402, marcarMesPagado, mensualidadDeAgencia, mensualidadParaMako, prenderMensualidad, quitarMesPagado } from '@/lib/agencia-mes';
 import { esDia as esDiaMes, esMes, sumarDias as sumarDiasMes, usd as usdMes } from '@/lib/agencia-mes-reglas';
 
 const NO_SUPER_ADMIN = 'Sólo el super admin vende planes de MaKo.';
@@ -55,7 +61,11 @@ async function esSuperAdmin(): Promise<boolean> {
 import { capaDef } from '@/lib/capas';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
-import { esCuotaDeBaja, noEsDeuda } from '@/lib/cobrado-lead';
+import { cobradoDelLead, esCuotaDeBaja, noEsDeuda } from '@/lib/cobrado-lead';
+import { cambiosDeSuscripcion } from '@/lib/suscripcion-movimientos';
+import { cambiarSuscripcion, problemaDelCambio } from '@/lib/suscripcion-cambios';
+import { suscripcionParaModelo } from '@/lib/suscripcion-api';
+import { nombreDelMes } from '@/lib/suscripcion-meses';
 import { cuotasParaBaja, darDeBajaCliente, deshacerBajaCliente } from '@/lib/pagos-baja';
 import {
   anotarEnHistorial, cambiarEstadoSuscripcionManual, cortarRecordatoriosDeCuota, editarCuota, escribirCampoDeal, escribirObligacion,
@@ -68,6 +78,8 @@ import {
   type CuotaQueQueda, type FilaVenta, type PlanDeCuotas, type TramoPlan,
 } from '@/lib/pagos-campo';
 import { bajarAdjunto } from '@/lib/chat-mako-adjuntos';
+import { vistaDeActividad } from '@/lib/actividad';
+import { activos, cicloDeVida, dejaronDeEntrar, nombreDeTab, tabsSinUso, usoPorNegocio, usoPorTab, ventanaDeUso, canalTxt } from '@/lib/actividad-reglas';
 import { guardarDocumentoFiscal } from '@/lib/deal-fiscal-doc';
 import { aCompletarAhora, propuestaDocumentoFiscal } from '@/lib/deal-fiscal-doc-reglas';
 
@@ -713,7 +725,7 @@ export const RUNNERS: Runners = {
         // Lo que pide atención, el más grave primero (lo mismo que «Para mirar» en la pantalla).
         para_mirar: v.paraMirar.map((a) => ({ ws: a.ws, nombre: a.nombre, motivo: a.motivo, que_pasa: a.texto })),
         avisos: v.avisos,
-        nota: 'mrr_usd sale de los cobros reales (las suscripciones activas de la plataforma), no del precio del plan: un plan dado a mano da 0. cobrado_por_mes null = no entró nada por la plataforma en 6 meses. por_que_en_riesgo: pausado, cobro (un cobro falló) o sin-uso (nadie de su equipo entra hace 14 días o más). dias_sin_entrar null = nunca entró nadie de su equipo (o no se pudo leer: ver avisos); a un cliente de-agencia lo opera su agencia con su propia sesión, que no cuenta, y por eso nunca está en riesgo por sin-uso. onboarding_hecho null = no se pudo leer (ver avisos), no es «no lo terminó».',
+        nota: 'mrr_usd sale de lo que cada negocio PAGÓ como su mensualidad (lo mismo que ver_ingresos_de_mako), no del precio del plan: un plan dado a mano da 0. cobrado_por_mes null = no entró nada por la plataforma en 6 meses. por_que_en_riesgo: pausado, cobro (un cobro falló) o sin-uso (nadie de su equipo entra hace 14 días o más). dias_sin_entrar null = nunca entró nadie de su equipo (o no se pudo leer: ver avisos); a un cliente de-agencia lo opera su agencia con su propia sesión, que no cuenta, y por eso nunca está en riesgo por sin-uso. onboarding_hecho null = no se pudo leer (ver avisos), no es «no lo terminó».',
       });
     },
   },
@@ -729,7 +741,7 @@ export const RUNNERS: Runners = {
           lead_id: p.lead_id, intentos: p.intentos, primer_intento: p.primer_at, ultimo_intento: p.ultimo_at,
         })),
         hay_mas: hayMas,
-        nota: 'Para darle de alta: Customers › Accounts › Quieren entrar › Dar de alta. Un correo sin verificar lo escribió la persona: nadie confirmó que sea suyo.',
+        nota: 'Para darle de alta: Admin › Accounts › Quieren entrar › Dar de alta. Un correo sin verificar lo escribió la persona: nadie confirmó que sea suyo.',
       });
     },
   },
@@ -746,7 +758,7 @@ export const RUNNERS: Runners = {
           titulo: s.acta?.titulo ?? null, resumen: s.acta?.resumen ?? null, mensajes: s.turnos?.length ?? 0,
         })),
         total: sesiones.length,
-        nota: 'Los mensajes textuales están en Customers › Agents.',
+        nota: 'Los mensajes textuales están al pie de Admin › Activity.',
       });
     },
   },
@@ -829,6 +841,168 @@ export const RUNNERS: Runners = {
     }),
   },
 
+  // ── La suscripción mes a mes (5/11/2026): la misma cuenta y la misma escritura que la tab Pagos ───────────────────────
+  ver_suscripcion_lead: {
+    leer: async (input, ctx) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return fallo(noExisteLead(input.leadId));
+      if (lead.venta_tipo !== 'suscripcion') return fallo(`${lead.nombre} no es una suscripción: su cobranza está en cobranza_lead.`);
+      const [pagos, cobros, cambios, hoy] = await Promise.all([
+        getPagosByLead(lead.id), listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => []), cambiosDeSuscripcion(lead.id), hoyEnWorkspace(),
+      ]);
+      const c = cobradoDelLead({
+        ventaTipo: lead.venta_tipo, montoCierreUsd: lead.monto_cierre_usd ?? null, suscripcionMontoUsd: lead.suscripcion_monto_usd ?? null,
+        suscripcionMeses: lead.suscripcion_meses ?? null, fechaCierre: lead.fecha_cierre ?? null,
+        suscripcionCanceladaAt: (lead as unknown as { suscripcion_cancelada_at?: string | null }).suscripcion_cancelada_at ?? null,
+        pagos, cobros, hoy, movimientos: cambios.movimientos,
+      });
+      if (!c.suscripcion) return fallo(`${lead.nombre} no tiene una suscripción para leer.`);
+      return {
+        content: json(suscripcionParaModelo({
+          leadId: lead.id, nombre: lead.nombre, historia: c.suscripcion.historia, estado: c.semaforo.texto, fuente: c.suscripcion.fuente,
+          mensualidadInferida: c.suscripcion.mensualidadInferida, cambios: cambios.movimientos, cambiosLeidos: cambios.leido,
+          faltaMigracion: cambios.faltaMigracion, hoy,
+        })),
+      };
+    },
+  },
+
+  cambiar_suscripcion: {
+    preparar: async (input, ctx) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      if (lead.venta_tipo !== 'suscripcion') return { error: `${lead.nombre} no es una suscripción.` };
+      const tipo = (['monto', 'corte', 'vuelta'] as const).find((t) => t === input.tipo);
+      const cambio = { tipo: tipo ?? 'monto', desde: String(input.desde ?? ''), montoUsd: typeof input.montoUsd === 'number' ? input.montoUsd : null, dia: typeof input.dia === 'number' ? input.dia : null };
+      const problema = tipo ? problemaDelCambio(cambio) : 'El cambio va: monto, corte o vuelta.';
+      if (problema) return { error: problema, faltan: !tipo ? ['tipo'] : !/^\d{4}-\d{2}/.test(cambio.desde) ? ['desde'] : cambio.tipo === 'monto' && !cambio.montoUsd ? ['montoUsd'] : [] };
+      const cobros = await listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => null);
+      if (!cobros) return { error: 'No pude leer los cobros del lead. Prueba de nuevo en un rato.', falla: true };
+      if (laCobraLaPasarela(cobros)) return { error: `La suscripción de ${lead.nombre} la cobra la pasarela: se cambia en su cobro (cancelar_suscripcion para cortarla).` };
+      const cambios = await cambiosDeSuscripcion(lead.id);
+      if (cambios.faltaMigracion) return { error: 'Todavía no se puede guardar un cambio de la suscripción: falta la migración 0401.', falla: true };
+      const hoy = await hoyEnWorkspace();
+      const mes = nombreDelMes(cambio.desde.slice(0, 7), hoy);
+      const resumen = cambio.tipo === 'monto'
+        ? `${lead.nombre}: desde ${mes}, USD ${cambio.montoUsd} por mes${cambio.dia ? `, cobra el día ${cambio.dia}` : ''}. Los meses de antes quedan como estaban.`
+        : cambio.tipo === 'corte' ? `Cortar la suscripción de ${lead.nombre} desde ${mes}: no se le cobra desde ese mes. Lo de antes sigue como está.`
+        : `Retomar la suscripción de ${lead.nombre} desde ${mes}${cambio.montoUsd ? ` con USD ${cambio.montoUsd} por mes` : ''}.`;
+      return { payload: { leadId: lead.id, ...cambio }, resumen };
+    },
+    ejecutar: (payload, ctx) => seguro('cambiar la suscripción', async () => {
+      const t = payload.tipo === 'corte' ? 'corte' : payload.tipo === 'vuelta' ? 'vuelta' : 'monto';
+      const r = await cambiarSuscripcion(Number(payload.leadId), {
+        tipo: t, desde: String(payload.desde), montoUsd: typeof payload.montoUsd === 'number' ? payload.montoUsd : null, dia: typeof payload.dia === 'number' ? payload.dia : null,
+      }, autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidarPagos();
+      return { ok: true, resumen: r.yaEstaba ? r.resumen : `Listo: ${r.resumen}`, datos: { ids: r.ids } };
+    }),
+  },
+
+  // ── Los recibos de MaKo (5/11/2026, lib/recibos.ts) ─────────────────────────────────────────────────────────────
+  // Sólo la plataforma, y en la app el super admin GLOBAL (como ver_clientes_de_mako): son los pagos de todos los negocios.
+  ver_recibos: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Los recibos de MaKo son sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Los recibos de MaKo son sólo del super admin.');
+      const { listarRecibos } = await import('@/lib/recibos');
+      const est = s(input.estado);
+      const r = await listarRecibos({
+        mes: s(input.mes), destinoWs: n(input.cuenta), medio: s(input.medio), soloFallas: input.soloFallas === true, limite: 100,
+        estado: est && ['emitido', 'devuelto', 'devuelto_parcial', 'contracargo', 'anulado'].includes(est) ? est as 'emitido' : null,
+      });
+      if (r.faltaLaMigracion) return fallo('Los recibos todavía no están listos en la base (falta la migración 0397).');
+      return json({
+        recibos: r.recibos.map((x) => ({
+          numero: x.numero, a_nombre: x.a_nombre, cuenta: x.destino_ws, origen: x.origen, estado: x.estado, recibido: x.totales_recibido,
+          detalle: x.lineas, pagos: x.pagos.filter((p) => !p.anulado).map((p) => ({ medio: p.medio, referencia: p.referencia, fecha: p.fecha, monto: p.monto, moneda: p.moneda })),
+          fecha_pago: x.fecha_pago, correo: x.correo_estado, whatsapp: x.wa_estado, error: x.correo_error ?? x.wa_error, nota_interna: x.nota_interna,
+        })),
+        al_tope: r.alTope,
+        nota: 'Es un recibo de pago, no una factura fiscal. Lo recibido va por moneda: nunca se suma entre monedas. Un recibo anulado deja su número gastado.',
+      });
+    },
+  },
+
+  cargar_pago_a_mano: {
+    preparar: async (input, ctx) => {
+      if (ctx.canalKey?.startsWith(PREFIJO_FLUJO)) return { error: 'Una automatización no carga pagos de MaKo: se hace en Billing o por el chat.' };
+      if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Los recibos de MaKo son sólo de la plataforma.' };
+      const cuenta = n(input.cuenta);
+      const lineas = Array.isArray(input.lineas) ? input.lineas as Array<Record<string, unknown>> : [];
+      const pagos = Array.isArray(input.pagos) ? input.pagos as Array<Record<string, unknown>> : [];
+      if (!cuenta || !lineas.length || !pagos.length) return { error: 'Faltan la cuenta, qué se pagó o cómo se pagó.' };
+      const { referenciaNormal, esMedio, totalesEnTexto } = await import('@/lib/recibos-reglas');
+      for (const p of pagos) {
+        const medio = s(p.medio);
+        if (!medio || !esMedio(medio) || !referenciaNormal(medio, p.referencia)) return { error: medio === 'binance' ? 'La orden de Binance son los 18 dígitos del «Order ID».' : 'Cada pago necesita su medio y su referencia.' };
+      }
+      const { reciboDePago } = await import('@/lib/recibos');
+      for (const p of pagos) {
+        const ya = await reciboDePago(String(p.medio), String(p.referencia)).catch(() => null);
+        if (ya) return { error: `Esa orden (${String(p.referencia).trim()}) ya está en el recibo N.º ${String(ya.numero).padStart(4, '0')}.`, yaEstaba: true };
+      }
+      const suma = (xs: Array<Record<string, unknown>>) => {
+        const t: Record<string, number> = {};
+        for (const x of xs) { const m = String(s(x.moneda) ?? '').toUpperCase(); t[m] = (t[m] ?? 0) + (n(x.monto) ?? 0); }
+        return Object.entries(t).map(([moneda, monto]) => ({ moneda, monto }));
+      };
+      const formId = crypto.randomUUID();
+      return {
+        payload: { formId, cuenta, aNombre: s(input.aNombre) ?? '', lineas, pagos, notaPdf: s(input.notaPdf), notaInterna: s(input.notaInterna), enviar: input.enviar !== false },
+        resumen: `Emitir el recibo de ${s(input.aNombre) ?? `la cuenta ${cuenta}`} (cuenta ${cuenta}): ${lineas.map((l) => s(l.concepto)).filter(Boolean).join(', ')}, por ${totalesEnTexto(suma(lineas))}; recibido ${totalesEnTexto(suma(pagos))} (${pagos.map((p) => `${s(p.medio)} ${s(p.referencia)}`).join(', ')}).${input.enviar === false ? ' Sin enviarlo.' : ' Sale por correo a los admins de la cuenta, y a su grupo de MaKo si va.'} Es un recibo de pago, no una factura fiscal.`,
+      };
+    },
+    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : 'Sólo el super admin carga pagos de MaKo.'),
+    ejecutar: (payload, ctx) => seguro('emitir el recibo', async () => {
+      if (!(await esSuperAdmin())) return { ok: false, resumen: 'Sólo el super admin carga pagos de MaKo.' };
+      if (ctx.ws !== (await wsSuperAdmin())) return { ok: false, resumen: 'Los recibos de MaKo son sólo de la plataforma.' };
+      const { emitirReciboManual } = await import('@/lib/recibos');
+      const p = payload as { formId: string; cuenta: number; aNombre: string; lineas: Array<Record<string, unknown>>; pagos: Array<Record<string, unknown>>; notaPdf: string | null; notaInterna: string | null; enviar: boolean };
+      const r = await emitirReciboManual({
+        formId: p.formId, destinoWs: Number(p.cuenta), aNombre: p.aNombre, notaPdf: p.notaPdf, notaInterna: p.notaInterna, enviar: p.enviar, autor: autorDe(ctx),
+        lineas: p.lineas.map((l) => ({ concepto: String(l.concepto ?? ''), mes: s(l.mes), monto: Number(l.monto), moneda: String(l.moneda ?? '') })),
+        pagos: p.pagos.map((x) => ({ medio: String(x.medio ?? ''), referencia: String(x.referencia ?? ''), fecha: String(x.fecha ?? ''), monto: Number(x.monto), moneda: String(x.moneda ?? ''), de: s(x.de) })),
+      });
+      if (!r.ok) return { ok: false, resumen: `No se emitió: ${r.error}` };
+      const nro = String(r.numero).padStart(4, '0');
+      return {
+        ok: true, ...(r.yaEstaba ? { yaEstaba: true } : {}),
+        resumen: r.yaEstaba ? `Ya estaba: recibo N.º ${nro}.` : `Listo: recibo N.º ${nro}${p.enviar ? ', enviado' : ', sin enviar'}. Está en Admin › Billing › Recibos.${r.aviso ? ` ${r.aviso}` : ''}`,
+        datos: { reciboId: r.id, numero: r.numero },
+      };
+    }),
+  },
+
+  reenviar_recibo: {
+    preparar: async (input, ctx) => {
+      if (ctx.canalKey?.startsWith(PREFIJO_FLUJO)) return { error: 'Una automatización no reenvía recibos de MaKo.' };
+      if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Los recibos de MaKo son sólo de la plataforma.' };
+      const numero = n(input.numero);
+      if (!numero) return { error: 'Falta el número del recibo.' };
+      const { getSupabaseServer } = await import('@/lib/supabase');
+      const { data, error } = await getSupabaseServer().from('recibos').select('id, numero, a_nombre, estado, correo_a').eq('numero', numero).maybeSingle();
+      if (error) return { error: 'No pude leer el recibo. Intenta de nuevo.', falla: true };
+      const f = data as { id: number; numero: number; a_nombre: string; estado: string; correo_a: string[] | null } | null;
+      if (!f) return { error: `No hay un recibo N.º ${String(numero).padStart(4, '0')}.` };
+      if (f.estado !== 'emitido') return { error: f.estado === 'anulado' ? 'Un recibo anulado no se reenvía.' : 'Ese recibo ya no está vigente: no se reenvía.' };
+      const correo = s(input.correo)?.toLowerCase() ?? null;
+      if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) return { error: 'Ese correo no es válido.' };
+      return {
+        payload: { id: Number(f.id), correo },
+        resumen: `Reenviar el recibo N.º ${String(f.numero).padStart(4, '0')} de ${f.a_nombre} ${correo ? `a ${correo}` : `a ${f.correo_a?.length ? f.correo_a.join(', ') : 'los admins de su cuenta'}`}, y a su grupo de MaKo si va.`,
+      };
+    },
+    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : 'Sólo el super admin reenvía recibos de MaKo.'),
+    ejecutar: (payload, ctx) => seguro('reenviar el recibo', async () => {
+      if (!(await esSuperAdmin())) return { ok: false, resumen: 'Sólo el super admin reenvía recibos de MaKo.' };
+      const { reenviarRecibo } = await import('@/lib/recibos');
+      const r = await reenviarRecibo(Number(payload.id), { autor: autorDe(ctx), correo: (payload.correo as string | null) ?? null });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: el correo quedó ${r.resultado?.correo ?? 'pendiente'} y WhatsApp ${r.resultado?.whatsapp ?? 'pendiente'}.` };
+    }),
+  },
   // «Vender un plan» (23/10/2026, P0-8): ver cobros.def.ts. El MISMO camino que /admin/cobros (`venderPlan`, lib/vender-plan.ts).
   // La revisión adversarial del mismo día (wf_fbeb8485-d3c) le sumó:
   //   · el super admin GLOBAL al confirmar y al ejecutar (`esSuperAdmin`). `rolMinimo: 'admin'` + `soloPlataforma` es el admin
@@ -984,7 +1158,7 @@ export const RUNNERS: Runners = {
       if (dia && !esDiaMes(dia)) return { error: 'La fecha va como AAAA-MM-DD.', faltan: ['dia'] };
       const m = await mensualidadDeAgencia(agenciaWs);
       if (!m.ok) return { error: `No pude armar su mensualidad: ${m.error}`, falla: true };
-      if (!m.puedeCorregir) return { error: FALTA_LA_0394 };
+      if (!m.puedeCorregir) return { error: FALTA_LA_0402 };
       const c = m.clientes.find((x) => x.ws === clienteWs);
       if (!c) return { error: 'Ese cliente no es de esa agencia. Pide ver_mensualidades_agencias con su agenciaWs.' };
       if ((c.corregido ?? null) === (dia ?? null)) return { error: 'Su fecha ya es esa.', yaEstaba: true };
@@ -1032,6 +1206,85 @@ export const RUNNERS: Runners = {
         : await prenderMensualidad({ agenciaWs, desde: String(payload.desde ?? ''), medio: typeof payload.medio === 'string' ? payload.medio : null, autor: autorDe(ctx) });
       return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
     }),
+
+  ver_ingresos_de_mako: {
+    leer: async (_input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Los ingresos de MaKo son sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Los ingresos de MaKo son sólo del super admin.');
+      const v = await vistaDeIngresos();
+      return json({
+        hoy: v.hoy,
+        mrr_usd: v.mrr, mrr_cierre_mes_pasado_usd: v.mrrMesPasado, clientes_que_pagan: v.pagando, promedio_por_cliente_usd: v.arpu,
+        cobrado_este_mes_usd: v.cobradoEsteMes, cobrado_mes_pasado_usd: v.cobradoMesPasado, cobrado_desde_siempre_usd: v.cobradoTotal,
+        pagos_sin_dolares: v.sinDolares,
+        meses: v.meses.map((m) => ({ mes: m.mes, en_curso: m.enCurso, mrr_al_cerrar_usd: m.mrr, cobrado_usd: m.cobrado, nuevos_usd: m.nuevo, volvieron_usd: m.vuelve, subieron_usd: m.sube, bajaron_usd: m.baja, se_cortaron_usd: m.corte })),
+        clientes: v.clientes.map((c) => ({ nombre: c.nombre, ws: c.ws, lead_id: c.leadId, paga_por_mes_usd: c.mrr, pago_en_total_usd: c.total, pagos: c.pagos, estado: c.estado, primer_pago: c.primerPago, ultimo_pago: c.ultimoPago, proximo_vencimiento: c.proximo, dias_de_atraso: c.diasAtraso })),
+        vence_en_31_dias: v.porCobrar.map((p) => ({ cliente: v.clientes.find((c) => c.clave === p.cliente)?.nombre ?? p.cliente, fecha: p.fecha, usd: p.usd, atrasado: p.atrasado })),
+        movimientos: v.movimientos.slice(0, 30).map((m) => ({ fecha: m.fecha, cliente: v.clientes.find((c) => c.clave === m.cliente)?.nombre ?? m.cliente, tipo: m.tipo, cambio_usd: m.delta, paga_ahora_usd: m.despues })),
+        avisos: v.avisos,
+        nota: 'Todo en dólares. mrr_usd sale de lo que cada cliente PAGÓ como su mensualidad (un pago registrado como la mensualidad, una cuota de una venta de suscripción o la suscripción de la pasarela), no del precio del plan. Dos pagos a menos de 7 días son una sola mensualidad; cada una cubre un mes y la nueva reemplaza a la anterior (así sube o baja). Un atrasado sigue contando 15 días; pasado eso, se cortó el día que venció. cobrado_* es toda la plata que entró, también los pagos sueltos y las ventas de pago único. estado: atrasado, por-vencer (vence en 5 días o menos), al-dia, cortado o pago-unico.',
+      });
+    },
+  },
+
+  ver_personas_de_mako: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Las personas de MaKo son sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Las personas de MaKo son sólo del super admin.');
+      const ahora = Date.now();
+      const [usuarios, wss] = await Promise.all([listarUsuarios(), listarWorkspaces()]);
+      const nombre = new Map(wss.map((w) => [w.id, w.nombre]));
+      const filtro = typeof input.estado === 'string' ? input.estado : null;
+      const filas = usuarios.map((u) => {
+        const fila = { estado: u.estado, ultimoLogin: u.ultimo_login, invitacionEnviada: u.invitacion_enviada_at, rol: u.rol, rolWs: u.rol_ws, workspaceId: u.workspace_id };
+        return {
+          nombre: u.nombre, email: u.email, negocio: u.workspace_id != null ? (nombre.get(u.workspace_id) ?? `Workspace ${u.workspace_id}`) : null,
+          rol: rolTxt(fila), estado: estadoDeAlta(fila, ahora), detalle: detalleDeAlta(fila, ahora), ultima_vez: u.ultimo_login, alta: u.created_at.slice(0, 10),
+        };
+      }).filter((f) => !filtro || f.estado === filtro);
+      return json({ personas: filas, nota: 'estado: activo (entró en 30 días), inactivo, invitado (nunca entró) o suspendido. Para suspender o reenviar el acceso: Admin › Users.' });
+    },
+  },
+
+  ver_errores_de_mako: {
+    leer: async (_input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Los errores de la app son sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Los errores de la app son sólo del super admin.');
+      const ahora = Date.now();
+      const v = await vistaDeErrores();
+      return json({
+        sin_resolver: erroresVisibles(v.errores, 'abiertos', ahora).slice(0, 30).map((e) => ({
+          titulo: e.titulo, estado: estadoDeError(e, ahora), donde: origenTxt(e.origen), pantalla: e.ruta, veces: e.veces,
+          primera_vez: e.primeraVez, ultima_vez: e.ultimaVez, negocios: e.negocios.map((w) => v.nombres[w] ?? `Workspace ${w}`),
+          ticket: e.ticketId, estado_del_ticket: e.ticketEstado ? ESTADO_TICKET_TXT[e.ticketEstado] ?? e.ticketEstado : null,
+        })),
+        reportes: v.reportes.slice(0, 20).map((t) => ({ ticket: t.id, titulo: t.titulo, tipo: t.tipo, estado: ESTADO_TICKET_TXT[t.estado] ?? t.estado, quien: t.quien, negocio: t.negocio, cuando: t.creado })),
+        hay_mas: v.hayMas, avisos: v.avisos,
+        nota: 'estado: nuevo (empezó hace 7 días o menos), volvio (pasó otra vez después de resuelto: ya tiene un ticket nuevo) o sin-resolver. El mensaje y el stack están en Admin › Errors.',
+      });
+    },
+  },
+  ver_actividad_de_mako: {
+    leer: async (_input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('La actividad de la app es sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('La actividad de la app es sólo del super admin.');
+      const ahora = Date.now();
+      const v = await vistaDeActividad();
+      const dias = ventanaDeUso(v.desde, v.hoy);
+      const tabs = usoPorTab(v.filas, v.hoy, Math.max(1, dias));
+      const negocio = (ws: number | null) => (ws == null ? null : v.nombres[ws] ?? `Workspace ${ws}`);
+      return json({
+        se_mide: v.medido, se_mide_desde: v.desde, hoy: v.hoy,
+        activos: activos(v.filas, v.hoy),
+        por_semana: cicloDeVida(v.filas, v.personas, v.hoy).map((s) => ({ semana: s.semana, nuevos: s.nuevos, siguen: s.siguen, volvieron: s.volvieron, dejaron: s.dejaron, en_curso: s.enCurso })),
+        tabs: { dias, usadas: tabs.slice(0, 25).map((t) => ({ tab: t.nombre, personas: t.personas, negocios: t.negocios, pantallas: t.pantallas, acciones: t.acciones })), sin_uso: tabsSinUso(tabs).map((t) => t.label) },
+        negocios: usoPorNegocio(v.filas, v.hoy).slice(0, 30).map((n) => ({ negocio: negocio(n.ws), personas_7_dias: n.personas7, personas_30_dias: n.personas30, pantallas_30_dias: n.pantallas30, acciones_30_dias: n.acciones30, lo_mas_usado: n.tabs.map(nombreDeTab) })),
+        dejaron_de_entrar: dejaronDeEntrar(v.personas, ahora).slice(0, 30).map((p) => ({ nombre: p.nombre || p.email, negocio: p.negocio, dias_sin_entrar: p.dias })),
+        lo_ultimo_de_mako: v.acciones.slice(0, 20).map((a) => ({ que: a.titulo, negocio: negocio(a.ws), por: canalTxt(a.canal), salio: a.ok, cuando: a.creado })),
+        avisos: v.avisos,
+        nota: v.medido ? 'activos: personas distintas de los negocios (no el equipo de MaKo). tabs.dias: los días que mira (30, o los que lleva la medición). dejaron_de_entrar sale de su último ingreso.' : 'La medición de uso todavía no está (falta la migración 0398): sólo dejaron_de_entrar tiene datos.',
+      });
+    },
   },
 };
 

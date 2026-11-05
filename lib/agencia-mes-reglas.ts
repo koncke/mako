@@ -100,7 +100,7 @@ export type ClienteDeAgencia = {
   estado: EstadoCartera;
   /** El día en que la agencia lo invitó (`agencia_clientes.created_at`). */
   invitado: Dia;
-  /** La corrección del super admin (`agencia_clientes.cobra_desde`, mig 0394): el día desde el que corren sus 14 días. */
+  /** La corrección del super admin (`agencia_clientes.cobra_desde`, mig 0402): el día desde el que corren sus 14 días. */
   corregido: Dia | null;
   /** El día en que se dio de baja (`decidido_at` de una fila revocada). */
   baja: Dia | null;

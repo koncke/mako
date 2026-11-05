@@ -86,7 +86,7 @@ test('al vencer: el aviso previo no consume el del fin, y un vencido no recibe e
   assert.ok(R.mails.some((m: { asunto: string }) => m.asunto === 'Terminaron los 6 meses gratis de Terminó'));
   assert.equal(R.marcas[34].previo, false);
   assert.equal(R.marcas[34].vencido, true);
-  assert.ok(R.mails.every((m: { cuerpo: string; to: string }) => m.to !== R.EMAIL_MAKO || /\/customers\?tab=accounts/.test(m.cuerpo)), 'el link lleva a donde se resuelve, no a /admin');
+  assert.ok(R.mails.every((m: { cuerpo: string; to: string }) => m.to !== R.EMAIL_MAKO || /\/admin\?tab=accounts/.test(m.cuerpo)), 'el link lleva a donde se resuelve: Admin › Accounts');
 });
 
 test('las reglas del aviso: la ventana, y una sola vez', () => {

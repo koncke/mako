@@ -219,8 +219,52 @@ export async function marcarVisto(ws: number, projectId: string, estado: EstadoP
 
 // ── La cola ──────────────────────────────────────────────────────────────────
 
-/** Encola un trabajo y devuelve su id, para poder seguirlo. */
-export async function encolar(tipo: TipoTrabajo, pedido: Record<string, unknown>): Promise<number | null> {
+/**
+ * Los trabajos que GENERAN imagen o video desde un prompt. Son los que pasan por la moderación (lib/creem-moderacion.ts):
+ * `subir_imagen` sube la foto de la persona y no lleva prompt, y los demás leen o bajan lo ya generado.
+ */
+export const GENERAN_DESDE_PROMPT = ['generar_imagen', 'generar_clip'] as const;
+export type TipoQueGenera = (typeof GENERAN_DESDE_PROMPT)[number];
+export const generaDesdePrompt = (tipo: string): tipo is TipoQueGenera => (GENERAN_DESDE_PROMPT as readonly string[]).includes(tipo);
+
+/** Lo que devuelve `encolar` cuando la moderación (o el permiso de IA) frena el prompt: el texto va tal cual a la persona. Nada se encoló ni se gastó. */
+export type RechazoDeModeracion = { rechazado: true; texto: string };
+export const esRechazoDeModeracion = (x: unknown): x is RechazoDeModeracion =>
+  !!x && typeof x === 'object' && (x as { rechazado?: unknown }).rechazado === true;
+
+/**
+ * Encola un trabajo y devuelve su id, para poder seguirlo.
+ *
+ * ⚠️ LO QUE GENERA PASA POR LA MODERACIÓN ACÁ, que es por donde pasa todo (5/11/2026): el Video Generator, AI Avatar, el
+ * avatar del Video Editor, la prueba del puente y lo que venga. Por eso la firma de los que generan devuelve también un
+ * `RechazoDeModeracion`: el compilador obliga a cada llamador a decir qué ve la persona cuando la moderación frena.
+ * Se modera `pedido.prompt`, el prompt FINAL (el contrato de tests/cola-prompt-al-tope.test.ts lo pone ahí): un trabajo
+ * que genera sin `prompt` al tope no se encola (no se puede moderar lo que no se ve).
+ * ⚠️ HOY NO MODERA NADIE: Creem rechazó la tienda de MaKo el 5/11/2026 y la moderación quedó sin proveedor
+ * (`PROVEEDOR_DE_MODERACION` en lib/creem-moderacion-reglas.ts). Sin proveedor o sin su clave, se genera en silencio:
+ * nunca se frena ni se abre un ticket por una clave que falta (tests/creem-moderacion.test.ts, la cola real).
+ */
+export async function encolar(tipo: TipoQueGenera, pedido: Record<string, unknown>): Promise<number | null | RechazoDeModeracion>;
+export async function encolar(tipo: Exclude<TipoTrabajo, TipoQueGenera>, pedido: Record<string, unknown>): Promise<number | null>;
+export async function encolar(tipo: TipoTrabajo, pedido: Record<string, unknown>): Promise<number | null | RechazoDeModeracion> {
+  if (generaDesdePrompt(tipo)) {
+    const prompt = typeof pedido.prompt === 'string' ? pedido.prompt : '';
+    if (!prompt.trim()) {
+      console.error(`[flow] ${tipo} sin \`prompt\` al tope del pedido: no se encola (no se puede moderar)`);
+      return null;
+    }
+    // En la app de iPhone, sin el permiso de IA de la persona (Apple 5.1.2(i), lib/ia-permiso.ts), el prompt no sale: ni al
+    // moderador ni a Google Flow. Afuera de la app, y sin pedido en curso, no hace nada.
+    const { exigirPermisoIa } = await import('./ia-permiso');
+    const { esSinPermisoIa, TEXTO_SIN_PERMISO_IA } = await import('./ia-permiso-reglas');
+    try { await exigirPermisoIa(); } catch (e) {
+      if (esSinPermisoIa(e)) return { rechazado: true, texto: TEXTO_SIN_PERMISO_IA };
+      throw e;
+    }
+    const { moderarPrompt } = await import('./creem-moderacion');
+    const v = await moderarPrompt(prompt, tipo);
+    if (!v.paso) return { rechazado: true, texto: 'texto' in v && v.texto ? v.texto : 'No puedo generar esto ahora. Vuelve a intentarlo.' };
+  }
   const db = await getTenantDb();
   // El PERFIL viaja adentro del pedido para que la extensión no tenga que
   // conocerlo. Cada cosa que la extensión sabe de memoria es una versión nueva —y

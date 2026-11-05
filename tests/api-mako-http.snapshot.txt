@@ -59,6 +59,7 @@ borrar_elementos_video
 borrar_evento_comunidad
 borrar_guion_anuncio
 borrar_hoja_dashboard
+borrar_kit_marca
 borrar_landing
 borrar_landing_creada
 borrar_plantilla_meta
@@ -96,6 +97,7 @@ cambiar_like_comentario_comunidad
 cambiar_like_post_comunidad
 cambiar_limites_envio
 cambiar_moneda_negocio
+cambiar_suscripcion
 cambiar_tema_landing
 cambiar_texto_landing
 cambiar_texto_mensaje
@@ -134,6 +136,7 @@ configuracion_automatizacion
 configurar_automatizacion
 configurar_aviso_whatsapp
 configurar_bloque_general
+configurar_bloque_venta_landing
 configurar_boton_landing
 configurar_formulario_landing
 configurar_horario_envio
@@ -243,6 +246,7 @@ editar_texto_guion_anuncio
 editar_venta_lead
 elegir_cuenta_meta
 elegir_formato_creativo_anuncio
+elegir_kit_marca
 elegir_pagina_meta
 elegir_pixel_meta
 eliminar_broadcast
@@ -302,6 +306,7 @@ guardar_cuotas
 guardar_deal_details
 guardar_diagnostico_fase
 guardar_estrategia_secuencia
+guardar_kit_marca
 guardar_kpi
 guardar_landing
 guardar_link_video
@@ -676,6 +681,7 @@ ver_ia_del_negocio
 ver_iconos_landing
 ver_integracion
 ver_integraciones
+ver_kits_marca
 ver_landing_creada
 ver_limites_envio
 ver_media_buyer
@@ -719,6 +725,7 @@ ver_secciones_landing
 ver_senales_negocio
 ver_serie_funnel_semanal
 ver_serie_vsl
+ver_suscripcion_lead
 ver_tablero_kpis
 ver_tarea_plan
 ver_tendencias

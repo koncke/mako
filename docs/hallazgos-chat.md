@@ -5,6 +5,17 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+## Create: el ejemplo pregunta la oferta, y la tarjeta reenvía la apertura de su tab (5/11/2026, nube)
+
+- **Qué cambió:** `primerMensajeDeEjemplo` (app/_crear/ejemplo.ts) ya no pregunta «¿Lo adapto a tu negocio?» (una ACCIÓN, lo
+  atrapa `PREGUNTA_DE_ACCION`): arma la MISMA pregunta que `pasoOferta` (lib/aperturas/comunes.ts) con la frase del ejemplo
+  delante, «Es un ejemplo de Pulso Dental, un negocio ficticio. ¿Para cuál de tus ofertas es?», y recibe las ofertas. Una sola
+  regla para todas las tabs de Create. `PantallaCrear` acepta `apertura` y se la pasa a `ConversacionCerebro`, que ya la dibuja.
+- **Lo que no se ve:** `primerMensajeDeEjemplo` sigue sin quien la llame en app/ (lo dice tests/aperturas.test.ts): la usan el
+  Copywriter (T5, que hoy guía con su propio `lib/copywriter/iniciativa.ts`) y AI Avatar (T15) cuando monten su apertura.
+- **Vive en:** app/_crear/ejemplo.ts, app/_crear/PantallaCrear.tsx, docs/plantillas-reales/README.md §2.3. **Lo fija:**
+  tests/iniciativa-create.test.ts (2 roturas) y tests/crear-pantalla.test.ts.
+
 ## Las cajas de chat, unificadas: la nota que «salía» se transcribía adentro de la caja (28/10/2026)
 
 **El síntoma.** Martín (28/10): «que se pueda utilizar el chat de la misma manera en todos lados». En ocho chats (MakoChat de

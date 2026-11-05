@@ -66,7 +66,13 @@ export type Decision = {
   avisoAt?: string | null;
   avisoIntentos?: number;
   avisoMotivo?: string | null;
+  /** Cuándo Martín la IGNORÓ desde el Ops Center (mig 0394, 5/11/2026): sale de lo que espera sin contestarla y sin aviso al chat.
+   *  Sin la migración no viene (y nada está ignorado). */
+  ignoradaAt?: string | null;
 };
+
+/** ¿La espera Martín? Sin contestar y sin ignorar. Lo preguntan el bloque del Ops Center, su globito y la Ticketera. */
+export const esperaAMartin = (d: Pick<Decision, 'respuesta' | 'ignoradaAt'>): boolean => !d.respuesta && !d.ignoradaAt;
 
 /** Lo que publica un chat. `ref` es la clave: republicar con la misma no duplica. */
 export type Publicada = {
@@ -235,6 +241,8 @@ export function filaADecision(f: Record<string, unknown>): Decision {
     avisoAt: (f.aviso_at as string | null) ?? null,
     avisoIntentos: Number.isInteger(Number(f.aviso_intentos)) ? Number(f.aviso_intentos) : 0,
     avisoMotivo: txt(f.aviso_motivo) || null,
+    // Una contestada no queda ignorada: la respuesta gana.
+    ignoradaAt: !txt(f.respuesta) && typeof f.ignorada_at === 'string' && Number.isFinite(Date.parse(f.ignorada_at)) ? f.ignorada_at : null,
   };
 }
 
@@ -250,19 +258,23 @@ export function motivoRespuestaInvalida(d: Pick<Decision, 'opciones'>, clave: st
   return d.opciones.some((o) => o.clave === clave) ? null : 'Esa opción no existe';
 }
 
-/** Las pendientes por grupo (en el orden de URGENCIAS) y las contestadas, la última primero. */
+/** Las pendientes por grupo (en el orden de URGENCIAS) y las contestadas, la última primero. Las ignoradas (desde el Ops Center)
+ *  no esperan: van aparte, la última primero. */
 export function repartir(ds: readonly Decision[]): {
   pendientes: Record<Urgencia, Decision[]>;
   contestadas: Decision[];
+  ignoradas: Decision[];
 } {
   const pendientes: Record<Urgencia, Decision[]> = { bloquea: [], cuesta: [], criterio: [], aviso: [] };
   const contestadas: Decision[] = [];
-  for (const d of ds) (d.respuesta ? contestadas : pendientes[d.urgencia]).push(d);
+  const ignoradas: Decision[] = [];
+  for (const d of ds) (d.respuesta ? contestadas : esperaAMartin(d) ? pendientes[d.urgencia] : ignoradas).push(d);
+  ignoradas.sort((a, b) => (b.ignoradaAt ?? '').localeCompare(a.ignoradaAt ?? '') || b.id - a.id);
   for (const u of URGENCIAS) {
     pendientes[u.clave].sort((a, b) => a.orden - b.orden || a.creadaAt.localeCompare(b.creadaAt) || a.id - b.id);
   }
   contestadas.sort((a, b) => (b.respondidaAt ?? '').localeCompare(a.respondidaAt ?? '') || b.id - a.id);
-  return { pendientes, contestadas };
+  return { pendientes, contestadas, ignoradas };
 }
 
 /** Lo que se contestó, en una línea: «A · Sí» u «Otra: …». */

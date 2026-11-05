@@ -12,7 +12,7 @@
 //        agencia.mensualidad.<agencia>.pago.<YYYY-MM>    {mes, pagadoEl, totalUsd, marcadoPor, marcadoAt}
 //        agencia.mensualidad.<agencia>.aviso.<YYYY-MM>   {at, totalUsd}           (el cron: no se repite en el mes)
 //        agencia.mensualidad.<agencia>.plazo.<cliente>.<YYYY-MM-DD>  {at}       (el aviso de 2 días antes)
-//   · La corrección del reloj de un cliente: `agencia_clientes.cobra_desde` (mig 0394), en la fila de la cartera.
+//   · La corrección del reloj de un cliente: `agencia_clientes.cobra_desde` (mig 0402), en la fila de la cartera.
 //
 // ⚠️ APAGADA POR DEFECTO. Lo prende el super admin por agencia (Agency Dashboard, parado en la agencia, o la API): el cobro
 //    por pasarela de lib/agencia-cobro.ts sigue para las demás, y mandarle a una agencia que paga con tarjeta un «paga por
@@ -50,14 +50,14 @@ const KEY_PAGO = (ag: number, mes: Mes) => `${PREFIJO(ag)}pago.${mes}`;
 const KEY_AVISO = (ag: number, mes: Mes) => `${PREFIJO(ag)}aviso.${mes}`;
 const KEY_PLAZO = (ag: number, cliente: number, dia: Dia) => `${PREFIJO(ag)}plazo.${cliente}.${dia}`;
 /** Lo que contesta todo lo que corrige una fecha mientras la migración no esté aplicada. */
-export const FALTA_LA_0394 = 'Aplica la migración 0394 (agencia_clientes.cobra_desde) para poder corregir una fecha.';
+export const FALTA_LA_0402 = 'Aplica la migración 0402 (agencia_clientes.cobra_desde) para poder corregir una fecha.';
 
 const enLaPlataforma = async <T>(fn: () => Promise<T>): Promise<T> => runWithWorkspace(await wsSuperAdmin(), fn);
 const esWs = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0;
 
 // ── Lecturas ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** La columna que falta (la 0394 sin aplicar): PostgREST la rechaza con 42703 o PGRST204. */
+/** La columna que falta (la 0402 sin aplicar): PostgREST la rechaza con 42703 o PGRST204. */
 const faltaLaColumna = (e: { code?: string; message?: string } | null | undefined): boolean =>
   !!e && (e.code === '42703' || e.code === 'PGRST204' || (/cobra_desde/.test(e.message ?? '') && /column|columna/i.test(e.message ?? '')));
 
@@ -123,7 +123,7 @@ export type Mensualidad =
     actual: MesDeMensualidad;
     /** Los meses desde que se prendió, del más nuevo al más viejo (sin el de hoy). */
     anteriores: MesDeMensualidad[];
-    /** ¿Se puede corregir una fecha? (la migración 0394 aplicada) */
+    /** ¿Se puede corregir una fecha? (la migración 0402 aplicada) */
     puedeCorregir: boolean;
   }
   | { ok: false; error: string };
@@ -300,7 +300,7 @@ export async function corregirRelojDeCliente(p: { agenciaWs: number; clienteWs: 
   if (!fila) return { ok: false, error: 'Ese cliente no es de esta agencia.' };
   const { data, error: e2 } = await db.from('agencia_clientes').update({ cobra_desde: p.dia })
     .eq('agencia_ws', p.agenciaWs).eq('cliente_ws', p.clienteWs).select('cliente_ws');
-  if (e2) return { ok: false, error: faltaLaColumna(e2) ? FALTA_LA_0394 : `No pude guardar la fecha: ${e2.message}` };
+  if (e2) return { ok: false, error: faltaLaColumna(e2) ? FALTA_LA_0402 : `No pude guardar la fecha: ${e2.message}` };
   if (!data?.length) return { ok: false, error: 'Ese cliente ya no está en la cartera.' };
   return {
     ok: true,

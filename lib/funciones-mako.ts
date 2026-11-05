@@ -70,6 +70,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Corregir los datos de tu negocio en el mapa: en «La oferta» → «El brief», el precio, qué incluye y el horario de tu oferta principal (tocas el dato y lo corriges); en «La oferta» → «La oferta», tus ofertas; en «Productos», el catálogo con su precio',
       'Hablar primero: la primera vez te pregunta qué te falta (hoy, conectar tu IA), con botones que andan sin la app',
       'Enseñarte la pestaña señalando, con el resto un poco opaco y el chat a la vista (el «?» de arriba)',
+      // 5/11/2026 (llamada con Leila del 30/10): el nombre, el de la pantalla («Voz y cara» → «Marca», lib/secciones-negocio.ts).
+      'Tu marca, en «Voz y cara» → «Marca»: subes tu manual de marca (PDF o imagen), MaKo saca tus colores, tus fuentes y tu logo y tú lo confirmas; varios kits (una agencia, uno por cliente) y uno por defecto, que usan Image, Video y Web Generator',
       // El coach ÚNICO desde el 4/11/2026 (Martín: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach"»).
       '«Funnel Coach»: un chat que primero trabaja tu oferta y la guarda, y después elige cómo conseguir clientes, calcula el presupuesto de anuncios y guarda el plan. Aconseja inspirado en un referente (Hormozi, de fábrica; lo cambias tocando su cara), y tus conversaciones de oferta cuelgan de él',
     ],
@@ -164,6 +166,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       // Ticket #47 (3/11/2026): MaKo decía que sólo podía activar o pausar. crear_automatizacion_con_ia la arma desde un pedido.
       'Crear una secuencia nueva pidiéndosela a MaKo en palabras, con su disparador (una etapa, una etiqueta que se le agrega al lead o un evento): nace pausada',
       'Ramas, condiciones, horarios, etiquetas y acciones',
+      // 5/11/2026: el número nuevo arranca con pocos WhatsApp por día y sube solo; el horario del negocio vale para todas.
+      'Cuidar el número: arranca con pocos WhatsApp por día y sube solo, dentro del horario del negocio',
       'Recordarle al lead la reunión agendada',
       'Secuencias de nutrición que MaKo escribe en la voz del negocio',
       'Simular la conversación como si fueras el lead, ver sus métricas y pasar a un humano',
@@ -193,9 +197,10 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   },
   {
     keys: ['admin-customers'],
-    que: 'El panel de la plataforma: los negocios que usan MaKo, su plan, su equipo y lo que piden las agencias.',
-    hace: ['Dar de alta un negocio con su usuario', 'Ver el estado y el plan de cada negocio', 'El equipo de cada negocio', 'Firmar lo que piden las agencias'],
-    alias: ['customers', 'negocios', 'workspaces', 'clientes de mako'],
+    // Admin desde el 5/11/2026 (era Customers): Revenue adelante (lib/admin-ingresos.ts).
+    que: 'El panel de la plataforma: lo que entra a MaKo (MRR, lo cobrado mes a mes y lo que pagó cada cliente), los negocios que la usan, su plan, su equipo y lo que piden las agencias.',
+    hace: ['Ver el MRR, lo cobrado mes a mes y sus movimientos (nuevos, subieron, bajaron, se cortaron)', 'Ver lo que pagó cada cliente en total y cuándo le toca', 'Ver las personas de todos los negocios con su estado de alta, entrar a su negocio, reenviarles el acceso y suspenderlas', 'Ver los errores de la app agrupados (nuevos, sin resolver, los que volvieron) y los reportes de las personas', 'Ver quién usa la app: los activos del día, la semana y el mes, quién entra cada semana, qué tabs se usan y cuáles nadie abrió, quién dejó de entrar y lo último que hizo MaKo', 'Dar de alta un negocio con su usuario', 'Ver el estado y el plan de cada negocio', 'El equipo de cada negocio', 'Firmar lo que piden las agencias'],
+    alias: ['admin', 'customers', 'negocios', 'workspaces', 'clientes de mako', 'ingresos', 'revenue', 'mrr', 'actividad', 'uso de la app'],
     estado: 'lista', slugDev: 'admin', fuentes: [AREAS],
   },
   {
@@ -225,6 +230,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Editar por secciones y bloques: menú «/», 52 diseños, temas, comentarios e historial',
       'Pedirle cambios a MaKo o discutir la página con él',
       'Diagnosticar una página con comentarios y «Solucionar con IA»',
+      // Black November (5/11/2026): sólo con lo que carga el negocio; sin el dato, el bloque no sale en la página.
+      'Bloques de venta con tus datos: cuenta regresiva a una fecha, compras recientes y cupos que quedan',
       'Replicar una página de afuera, por partes',
       'Exportar a PDF, PNG, PPTX y HTML',
     ],
@@ -276,11 +283,13 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Una biblioteca de ejemplos, la misma para todos los negocios: carruseles públicos de Instagram de una lista de cuentas y de temas (hashtags), cada uno con su @creador y el link al original; se ve aunque no sigas a nadie',
       'Carruseles de MaKo por tipo (lista, paso a paso, historia, antes y después, mito vs. realidad, opinión, caso con números, preguntas): la estructura con una guía en cada lámina y el nombre del negocio, y «Ver ejemplo» con un negocio ficticio',
       'Hacer el mío: un carrusel nuevo con la ESTRUCTURA de uno de las cuentas que sigues (tipo, láminas, con qué abre y qué pide al final), nunca sus palabras',
+      // 5/11/2026: los kits de marca del Second Brain (lib/marca/kits.ts).
+      'Tu marca en cada diseño: los carruseles de MaKo salen con tus colores, tus fuentes y tu logo, y el chat los usa (con varios kits, eliges cuál); «Discutir» te contesta sin tocar el diseño',
     ],
     noHace: ['No baja ni muestra bibliotecas de carruseles de otras apps: sólo los de las cuentas que sigues y la biblioteca de ejemplos, leída de Instagram directo', 'Un negocio no edita la biblioteca de ejemplos: la edita la plataforma', 'Todavía no: escribir con IA el texto de cada lámina de un carrusel (trae guías)', 'Todavía no: pedirle fotos a un banco de imágenes'],
     reemplaza: 'Canva',
     // Carousels se retiró el 29/10/2026: un carrusel es una plantilla de «Nuevo diseño» (app/_crear/PantallaCrear.tsx).
-    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels', 'carruseles que funcionan', 'outlier', 'topcarousels', 'hacer el mío', 'biblioteca de ejemplos', 'ejemplos de carruseles'],
+    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels', 'carruseles que funcionan', 'outlier', 'topcarousels', 'hacer el mío', 'biblioteca de ejemplos', 'ejemplos de carruseles', 'brand kit', 'kit de marca'],
     conecta: [{ a: 'market-an', motivo: 'Los carruseles que funcionan salen de las cuentas que sigues en Competitors Spy' }],
     estado: 'parcial', slugDev: 'image-editor', fuentes: [AREAS, 'AGENTS.md'],
   },

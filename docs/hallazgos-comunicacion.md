@@ -12739,3 +12739,16 @@ Lo que sale solo a un grupo pasa por `copiarAlGrupo` (`lib/grupo-app.ts`), y `te
 **`bufferearYResponder` tiene una segunda puerta (4/11).** Sus `return` tempranos (la respuesta al equipo, el emoji suelto) suponían que el mensaje no había entrado a la cola, y por WhatsApp es cierto. Desde la app la ruta ya encoló: sin `sacarDeLaCola`, el cron corría un turno a los 2 minutos sobre lo que era para el equipo. El detalle, en docs/hallazgos-ops-center.md.
 
 **Lo que no tiene arreglo sin otra decisión:** en los grupos donde la línea no está, Evolution no entrega nada: se ve lo que MaKo manda y lo escrito en la app, no lo que esas personas escriban en WhatsApp. Y un turno de WhatsApp puede citar lo escrito en la app, porque la memoria va por jid: es el costo de que el «sí» de un lado vea lo del otro.
+
+## Mandar un archivo al grupo de un negocio desde un script (5/11/2026)
+
+El PDF de cobro a Código fue el primer documento con pie que salió por la voz de MaKo. Lo que no se ve leyendo el camino:
+
+- **`enviarPartesAlGrupoMaKo` no copia al hilo de la app,** a diferencia de `enviarAlGrupoMaKo`. La fila la escribe el eco: quedó como «Mako (persona)», con el texto y sin el adjunto (medido). Es cosmético si el hilo sólo lo ve quien recibió el archivo.
+- **`anotarEnviadosConTope` deja de esperar a los 3 s,** y un `process.exit` mata la escritura. En un script va `anotarEnviadosAlGrupo`. Sin el anillo, el eco que llega por la otra línea (`mako_ws9`, con `fromMe:false`) entra como si lo hubiera escrito una persona y MaKo le contesta.
+- **`bloqueDelEquipo` corta a 300 caracteres** (`lib/doer-equipo.ts`): lo que el turno de MaKo tiene que saber va en el primer renglón.
+- **Un adjunto sin citar dispara un turno libre de MaKo,** sin ventana de silencio. Citando el id del anillo, `respuestaAlEquipo` lo aparta y avisa al grupo de SuperAdmin: por eso se pide «respondiendo a este mensaje».
+- **Un error de Evolution no prueba que no haya salido:** `ev` corta a los 30 s, y un 201 sin `key.id` cuenta como fallo. La marca de «ya se intentó» va ANTES del POST; con un fallo se mira el grupo antes de repetir.
+- **`scripts/mensaje-equipo-al-grupo.mts` no existe en main,** aunque lo nombre `docs/relevo/pedidos-perdidos-2810.md`.
+
+**Sin hacer:** MaKo no sabe qué es un comprobante de pago. Una foto sin citar cae en un turno libre, sin precedente en 45 días. Lo arma el chat de `punta/agencia-cobro`.

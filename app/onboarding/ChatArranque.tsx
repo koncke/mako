@@ -354,7 +354,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
 /** El CRM que propone (o eligió): su tipo y sus etapas, como lo va a ver en el tablero. */
 function TarjetaCrm({ vista }: { vista: VistaArranque }) {
   const p = vista.crmPropuesta;
-  const tipo = (vista.crmTipo && tipoCrmPorId(vista.crmTipo)) || (p && tipoCrmPorId(p.tipo)) || tipoRecomendado(vista.canal);
+  const tipo = (vista.crmTipo && tipoCrmPorId(vista.crmTipo)) || (p && tipoCrmPorId(p.tipo)) || tipoCrmPorId(vista.crmRecomendado) || tipoRecomendado(vista.canal);
   // Con los nombres de SU negocio si MaKo los armó para este tipo (20/10/2026, el CRM a medida: lib/onboarding-crm.ts).
   const etapas = etapasConNombres(tipo.pipeline, p?.tipo === tipo.id ? p.etapas : null);
   return (

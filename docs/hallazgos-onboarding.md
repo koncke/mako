@@ -3060,3 +3060,27 @@ plataforma» (ni `soloSuperAdmin` ni `capas`, que sí existen en el nav). Si alg
 pantalla de super admin necesita onboarding de verdad, el campo hay que agregarlo **y**
 filtrarlo en `resumenOnboardingTabs`: hoy el único control es no estar en el catálogo. Vive
 en `lib/tab-onboarding-catalogo.ts` y `lib/tab-onboarding-state.ts`.
+
+## El primer ingreso: «¿Te sirven?» preguntaba una acción y la IA elegía el funnel (5/11/2026)
+
+**Síntoma:** el CRM del onboarding decía «Estas son las etapas… ¿Te sirven?» sobre un tipo que elegía la IA entre los de su
+canal, sin mirar cuánto invierte ni qué ya hace. La salida terminaba en «¿arrancamos por ahí?» sin botones (una pregunta que
+nadie podía contestar con un toque) y prometía el grupo de WhatsApp a quien había salteado el teléfono.
+
+**Causa:** el arranque no preguntaba cómo le llegan hoy los clientes, y la propuesta de CRM (`crmOffer`) no veía el presupuesto
+ni el resultado de su funnel (están en el diagnóstico, que ya estaba guardado al llegar al CRM). El link del borrador del plan
+vivía sólo en la tarjeta del «¡Listo!» y se perdía.
+
+**Lo que quedó (T2 de docs/mako-iniciativa/plan.md):**
+- `recomendarFunnel` (lib/funnel-recomendado.ts) decide el tipo con el canal, la entrada y el diagnóstico (`faseNegocio` en los
+  hechos); la IA recibe UN candidato y sólo nombra sus etapas. Es la única traducción entre los catálogos de funnel: la escalera,
+  Offer y el CRM la usan cuando les toque.
+- La etapa `entrada` va sólo por llamada o por chat (con webinar, carrito o presencial el canal decide). Lo escrito se propone y
+  se confirma con un toque, como el interés (`elegirOpcion`).
+- ⚠️ **`opcionMasCercana` empata con palabras cortas**: «me escriben por Instagram» no elige nada porque «me» está en «Todavía no me
+  llegan» y «escriben» en «Te escriben». No es un bug: con empate pregunta otra vez, que es lo correcto.
+- La salida no pregunta nada y nombra el grupo sólo con `telefono === 'verificado'`. `planBorrador` queda en el estado.
+
+**Vive en:** lib/funnel-recomendado.ts, lib/onboarding-arranque.ts, lib/onboarding-arranque-server.ts,
+app/api/onboarding/arranque/route.ts, app/api/onboarding/plan-arranque/route.ts. Lo fija tests/onboarding-funnel-recomendado.test.ts.
+

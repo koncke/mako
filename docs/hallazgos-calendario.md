@@ -494,3 +494,21 @@ eso **la 0349 no se aplica, aunque Martín diga que sí, hasta que estén arregl
   - **N2 (sospecha):** un 409 de Zernio por contenido publica DE MENOS en una serie diaria. Nunca publica dos veces.
 
 | El desplegable de seis vistas y las vistas **Año** (no dibujaba eventos) y **4 días** | un selector: Día · Semana · Mes · Agenda · Llamadas (con «Calendario \ | Llamadas», que era otro control). `?vista=anio` abre el Mes y `4dias`, la Semana |
+
+## MaKo toma la iniciativa en el Calendario: sin Google, una guía más al entrar son dos (5/11/2026)
+
+**Lo que se hizo (T9 de docs/mako-iniciativa/plan.md):** con Google conectado y `cal_semana` pendiente, la estrella pregunta
+«¿Tienes alguna llamada esta semana?» (lib/aperturas/calendario.ts); «Sí, tengo una» abre `AgendarLlamada`, la misma alta del «+»
+de Ventas, que anotada ahí cierra `cal_semana`. La guía (app/calendario/guia-calendario.ts) señala el «+» de una llamada, la
+leyenda de los usos, las vistas y «Hoy».
+
+**Trampas:**
+- **Sin Google ya salta el modal de conectar** (pedido de Martín): la apertura no suma nada ahí, y la guía espera al onboarding de
+  la tab (`onboardingPendiente`). Dos guías al entrar son la pantalla que se rechaza.
+- **El estado de la tab se pasa como DATO o null**: con `getEstadoTab` caído, MaKo calla y la guía espera; nunca se lee como
+  «primera semana sin estrenar».
+- Las anclas del «+» se ponen sólo al uso que crea una llamada (`u.crea === 'llamada'`): los cuatro «+» son el mismo botón mapeado.
+
+**Vive en:** lib/aperturas/calendario.ts, app/calendario/guia-calendario.ts, app/calendario/CalendarioApp.tsx,
+app/calendario/page.tsx. Lo fija tests/iniciativa-calendario.test.ts.
+

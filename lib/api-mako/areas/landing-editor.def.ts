@@ -27,6 +27,7 @@
 import type { OperacionDef, Gating, Parametro } from '../tipos';
 import { TOPES, DEGRADADOS, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA, FONDOS_TARJETA, VARIANTES_BOTON, TIPOS_CAMPO, TAMANOS_TEXTO } from '@/lib/editor-landing/doc';
 import { PROPORCIONES } from '@/lib/editor-landing/api-tipos';
+import { AL_VENCER, TOPES_VENTA } from '@/lib/editor-landing/bloques-venta';
 import { REDONDECES } from '@/lib/editor-landing/temas';
 // Las listas que aceptan las operaciones: las MISMAS que validan los planes (landing-contenido.helpers.ts).
 import {
@@ -666,5 +667,34 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'los comentarios copiados a la landing (landing_sugerencias) y, si se pide, los de afuera como resueltos',
+  },
+  // ── Los bloques de venta (5/11/2026, Black November de Leila: lib/editor-landing/bloques-venta.ts) ──
+  // AL FINAL del área, con palabras propias (cuenta, compras, quedan): no le saca el lugar a las de siempre.
+  {
+    id: 'configurar_bloque_venta_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cuenta regresiva, prueba social o escasez',
+    descripcion: `Pone o cambia en una sección la cuenta regresiva (hasta una fecha; al terminar no vuelve a empezar), la prueba social (un aviso con compras reales que escribe el negocio) o la barra de escasez (cuántos quedan de cuántos). Sólo con datos reales del negocio: sin fecha, sin compras o sin números no se muestra. Si la sección ya tiene ese bloque, lo cambia. ${VERSION}`,
+    parametros: [
+      P_ID, P_SECCION,
+      { nombre: 'tipo', rotulo: 'Qué bloque', tipo: 'string', obligatorio: true, enum: ['cuenta_regresiva', 'prueba_social', 'escasez'], descripcion: 'Cuál de los tres.' },
+      { nombre: 'hasta', rotulo: 'Termina', tipo: 'string', max: 40, descripcion: 'cuenta_regresiva: cuándo termina, «2026-11-30T23:59» en la hora del negocio (o con su zona: …-06:00). Futura.' },
+      { nombre: 'titulo', rotulo: 'Título', tipo: 'string', max: TOPES_VENTA.titulo, descripcion: 'Opcional: arriba del reloj o de la barra.' },
+      { nombre: 'alVencer', rotulo: 'Al terminar', tipo: 'string', enum: AL_VENCER, descripcion: 'cuenta_regresiva: mensaje (dice que terminó) u ocultar.' },
+      { nombre: 'mensaje', rotulo: 'Mensaje', tipo: 'string', max: TOPES_VENTA.mensaje, descripcion: 'cuenta_regresiva: lo que dice al terminar.' },
+      {
+        nombre: 'compras', rotulo: 'Compras', tipo: 'object[]', max: TOPES_VENTA.items, vaciaEsValor: true, descripcion: 'prueba_social: las compras reales, en orden (reemplazan a las de hoy; [] las saca).',
+        campos: [
+          { nombre: 'nombre', tipo: 'string', obligatorio: true, max: TOPES_VENTA.nombre, descripcion: 'Quién («Ana»).' },
+          { nombre: 'detalle', tipo: 'string', obligatorio: true, max: TOPES_VENTA.detalle, descripcion: 'Qué hizo («compró el Plan Black»).' },
+          { nombre: 'lugar', tipo: 'string', max: TOPES_VENTA.lugar, descripcion: 'De dónde (opcional).' },
+          { nombre: 'fecha', tipo: 'string', max: 10, descripcion: 'Cuándo, AAAA-MM-DD (opcional; no futura).' },
+        ],
+      },
+      { nombre: 'quedan', rotulo: 'Quedan', tipo: 'number', entero: true, minimo: 0, maximo: TOPES_VENTA.total, descripcion: 'escasez: cuántos quedan.' },
+      { nombre: 'total', rotulo: 'De', tipo: 'number', entero: true, minimo: 1, maximo: TOPES_VENTA.total, descripcion: 'escasez: de cuántos.' },
+      { nombre: 'unidad', rotulo: 'Qué', tipo: 'string', max: TOPES_VENTA.unidad, descripcion: 'escasez: lugares, cupos, unidades (sin ella, lugares).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_WRITER,
+    escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
   },
 ];

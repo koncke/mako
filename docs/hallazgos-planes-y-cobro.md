@@ -10,6 +10,50 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Los recibos de MaKo (5/11/2026): el número lo da la base, el monto lo dice la pasarela, y el grupo no es privado
+
+**El pedido:** «es súper importante que hagas un template que eso se envíe siempre por email de los recibos de compra. En este
+caso también por WhatsApp [...] guardando dentro de SuperAdmin». El diseño y los 20 agujeros que le encontró el revisor están en
+[relevo/recibos-encargo.md](relevo/recibos-encargo.md); lo que se construyó y lo que le toca al Cerebro, en
+[relevo/nube-recibos.md](relevo/nube-recibos.md). Construido en la nube, **sin base ni producción**: nada está probado contra un pago
+real (no hubo ninguno: 0 cobros pagados en la plataforma al 5/11).
+
+**Vive en:** `supabase/migrations/0397_recibos.sql`, `lib/recibos.ts`, `lib/recibos-reglas.ts`, `lib/recibo-pdf.ts`, el gancho en
+`lib/cobros.ts` (`aplicarPagoAprobado`, `aplicarReembolso`, `aplicarReembolsoFallido`, `aplicarContracargo`), `app/admin/cobros/RecibosMako.tsx`.
+
+Lo que vuelve a morder:
+
+- **La «ya estaba» de una clave tiene que comparar los pagos.** El diseño devolvía el recibo viejo apenas encontraba la clave del
+  mes, y el segundo pago de noviembre (Código pagó en dos órdenes, dos días distintos) se perdía sin un error. `emitir_recibo` ahora
+  contesta «ya estaba» sólo si TODOS los pagos pedidos están en ese recibo; si no, tira `RECIBO_OCUPADO <n> <orden>`. Y el formulario
+  usa `form:<uuid>`, nunca la clave del mes.
+- **Se probó en un Postgres de verdad, no leyendo el SQL**: `scripts/probar-0397-pglite.mjs` (PGlite) corre 16 casos, y 6 roturas
+  de la función dan rojo cada una. Lo que PGlite no puede probar es la carrera: es una sola conexión. Esa prueba va en producción,
+  con dos conexiones y rollback (relevo).
+- **El monto del recibo es lo que COBRÓ la pasarela, releído**, nunca `cobros.monto`: el primer mes al 50% y un cupón del 100%
+  imprimían el precio de lista. Creem: `amount_paid` (con impuesto; el `amount` es sin él). Sin el dato, `cobradoEnLaPasarela`
+  (lib/cobros.ts) lo relee con la clave de la cuenta del cobro; si la pasarela no contesta, lo emite la red del cron.
+- **El PDF tiene que ser determinista**: `setCreationDate` y `setFileId`. Sin eso, cada render cambia bytes, y Resend contesta 409
+  `invalid_idempotent_request` al reintentar con la misma clave (otro cuerpo). Lo fija tests/recibos.test.ts. Y una vez mandado se
+  GUARDA (`plataforma/recibos/pdf/<id>.pdf`, con su sha256): un deploy que cambia la plantilla no cambia lo que recibió el cliente.
+- **El grupo y el hilo de la app NO son privados**: los ven los admins de la agencia de ese negocio y sus invitados. Por eso el pie de
+  WhatsApp no lleva el monto, la fila va con `aviso_tipo='recibo'` (que un invitado no ve: `AVISOS_QUE_NO_VE_UN_INVITADO`,
+  lib/grupo-reglas.ts), y el recibo del cliente de una agencia que paga él va **sólo por correo**.
+- **Quién paga se congela al emitir y se lee ESTRICTO.** `agenciaDelCobro` devuelve null con la cartera no aprobada (y ese null
+  mandaba el PDF al correo del cliente), y `adminsDeCuenta` se traga el error de lectura: no se reusan. Paga la agencia → nunca al
+  correo del cobro, que puede ser del cliente.
+- **Todo setting se lee en `runWithWorkspace(plataforma)`**: el cron no tiene contexto y `getSetting` cae al ws1 (Mauricio, un
+  cliente). Un recibo emitido así queda con SU emisor como foto, para siempre.
+- **`sendEmail` no tenía timeout.** Con `idempotencyKey` corta a los 15 s, y el recibo sale al FINAL de `aplicarPagoAprobado`,
+  después del aviso «Entró un pago» y del CRON del lead: si Resend se cuelga, lo que evita escribirle «no agendaste» a quien pagó ya pasó.
+- **Un POST por destinatario**: con todos en un `to`, se veían las direcciones entre ellos y un rebote marcaba a todos.
+
+**Lo que quedó SIN hacer** (con el archivo): el aviso cuando la rama de agencias (`punta/agencia-cobro`) marque un mes pagado
+(`lib/agencia-mes.ts` tiene que llamar a `emitirReciboManual` con `mensualidad:<ag>:<mes>`, y `quitarMesPagado` a `anularRecibo`); y la
+renovación cuyo aviso se perdió sigue sin entrar (lib/cobros.ts, `reconciliarCobros`): sin plata asentada no hay recibo.
+
+---
+
 ## El barrido del 31/10: la tercera pasarela dejó NUEVE lugares donde no se cobra, y ninguno da error
 
 **Lo que se midió:** el commit de Creem (`5faf71e0e`) dice en su propio mensaje que cazó 53 ternarios
@@ -2196,3 +2240,105 @@ La decisión y sus motivos: [estrategia-lanzamiento-low-to-high.md](estrategia-l
 **Medido: `/planes` ya cobra (31/10, GET anónimo).** La plataforma pasó de no tener pasarela (30/10) a ofrecer Mercado Pago real en pesos: «$ 73.555 ARS por mes». Lo que se escribió el 30/10 sobre «no tiene ninguna pasarela» ya no vale, y ningún POST de prueba se hace sin el sí de Martín.
 
 **Sin hacer:** el número del checkout no se muestra en el aviso de «Entró un pago», sólo el link a la ficha (lib/cobros.ts, `avisarPagoRecibido`). El 15 del celular argentino («11 15 2233 4455») queda adentro: sacarlo pide saber cuánto mide cada código de área, y no se midió contra WhatsApp si llega igual; la verificación del onboarding lo corrige. Una lada elegida mal por el país de la IP con un número local no se detecta. Un número de una ficha sin email ata la compra a esa ficha (`leadDeLaCompra`, decisión del 30/10), y `asentarAlta` le escribe `cliente_ws` sin mirar si ya tenía. La pantalla se vio sólo en el banco (app/planes/[plan]/CompraPlan.tsx); en producción, después del deploy.
+
+## Pausar un negocio no le corta el acceso (5/11/2026)
+
+**Síntoma:** había que dejar afuera a dos clientes de Código Inmobiliario que pasaron las 2 semanas sin pagar. Lo obvio era marcar el negocio como pausado, o usar `plan.corte_por_pago`, y ninguna de las dos corta.
+
+**Causa:** `negocioPausado` (`lib/workspace.ts:350`) sólo corta con el motivo `sin-agencia` vigente o con `CORTE_DE_ACCESO_PRENDIDO`, que está apagado para todos. Y `sin-agencia` no sirve para esto: le dice al cliente «Tu agencia dejó de administrar tu cuenta», que es falso.
+
+**Lo que corta hoy:** `usuarios.estado='suspendido'` (`lib/auth.ts:55`). Pablo y Patricia quedaron así el 5/11 (usuarios 19 y 22, que eran `activo`, y 15, que era `invitado`). Corta a la persona, no al negocio: la agencia igual puede entrar a inspeccionar.
+
+**Sin hacer:** el motivo de corte «Paga para entrar», que tiene que cortar con el corte global apagado y frenar también al inspeccionar. Lo arma el chat en la nube de `punta/agencia-cobro`. Tiene que estar antes del 9/11, cuando Pablo arranca campañas.
+
+## «Creem está conectado» no quería decir que pudiera cobrar (5/11/2026)
+
+**Síntoma:** Martín: «con Mercado Pago ya recibo el dinero sin problemas, pero todavía no sé cómo recibir el dinero de Creem». Lo obvio era que faltaba configurar el retiro. Era cierto, pero faltaban tres cosas antes:
+
+1. **La migración que deja entrar a Creem en la base nunca se aplicó.** Hubo dos `0358`: se aplicó la de Competitors Spy y «falta la 0358» dejó de nombrar a la de cobros (`docs/hallazgos-infra.md`). Sin ella, `crearCobro` choca con el CHECK y quien le tocara Creem veía «No pudimos abrir el pago». `scripts/verificar-migraciones-aplicadas.mjs` no la detecta: mira nombres, y una restricción ensanchada conserva el nombre. Aplicada el 5/11, medida antes y después.
+2. **La tienda no está aprobada.** Panel de Creem el 5/11: 0 de 3 pasos, sin detalles del negocio, sin KYC y sin revisión. Sin eso no se cobra en vivo ni se retira. **La API no lo dice:** tener clave real y aviso habilitado no prueba nada. Sólo se ve en el panel.
+3. **No hay nada que retirar:** 0 ventas, 0 clientes y 0 productos en Creem.
+
+**Mercado Pago tampoco está probado de punta a punta.** La cuenta está lista, pero por MaKo hay 2 cobros pendientes y 0 pagados. Parecían cobros 22 pagos aprobados de su cuenta, y en todos el cobrador es otra cuenta.
+
+**La regla:** antes de decir que una pasarela cobra, se mira `cobros` con `pagado_at` y un evento real en `pasarela_eventos`. Lo de la plata de Creem (mínimo US$50, retiros a mano el 1 y el 15, comisiones) está en [creem-retiros.md](creem-retiros.md).
+
+**Sin hacer:**
+- ~~Mientras Creem no se apruebe, a un comprador de LATAM fuera de Argentina `pasarelasDelPais` igual le ofrece Creem~~: Creem rechazó la tienda y la plataforma ya no tiene sus claves (la entrada «Creem rechazó la tienda», abajo). Medido con el checkout real el 5/11: `tests/planes-latam-sin-creem.test.ts`.
+- ~~Creem pide Moderation API a quien genera imagen o video desde un prompt y una política de uso visible~~: hechas el 5/11 en `punta/creem-revision` (la entrada de abajo). La manipulación de rostros frente a AI Avatar la contesta soporte de Creem: borrador en [relevo/nube-creem-revision.md](relevo/nube-creem-revision.md).
+- La plantilla de recibos: encargo completo en [relevo/recibos-encargo.md](relevo/recibos-encargo.md).
+- ~~El comentario de `lib/credenciales.ts:808` dice que `CREEM_API_KEY` está en `.env.local`~~: corregido el 5/11.
+
+## La revisión de Creem: /aup, las legales y la moderación antes de generar (5/11/2026)
+
+**Síntoma:** para aprobar la tienda, Creem mira el sitio y, a quien genera imagen o video con IA, le exige el Moderation API
+en producción y una política de uso aceptable pública. /aup mandaba a /login, ningún prompt pasaba por Creem, y ni los
+términos, ni la privacidad, ni los reembolsos nombraban a Creem (que cobra desde LATAM desde el 31/10).
+
+**Lo que cambió:** /aup pública; el pie de cada legal enlaza las demás con el correo y la razón social (sin /planes ni
+/reembolsos: esas páginas se abren en la app de iPhone); Creem en términos, privacidad, reembolsos y soporte; y `encolar`
+modera todo `generar_imagen` y `generar_clip`. El detalle, las decisiones y lo que le toca a Martín:
+[relevo/nube-creem-revision.md](relevo/nube-creem-revision.md).
+
+**Vive en:** lib/creem-moderacion-reglas.ts, lib/creem-moderacion.ts, lib/flow-cola.ts, app/aup/page.tsx, app/_legal/LegalShell.tsx
+
+**Lo que no se ve en el código:**
+- **El contrato del Moderation API salió del SDK oficial de npm** (`creem` 1.13.0, generado de su OpenAPI), porque
+  docs.creem.io no se abre desde la nube. Es un endpoint «experimental»: una respuesta que no se entiende es un error, nunca
+  un «allow».
+- **La moderación va en la cola, no en cada pantalla:** con una sobrecarga de `encolar`, el compilador obliga a cada llamador
+  de imagen o video a manejar el rechazo. Al mirar los llamadores apareció que la prueba del puente (`probarImagenAction`)
+  encolaba sin `prompt` al tope: con el Flow nuevo moría con «El trabajo no trae texto para filmar». Ahora lo lleva.
+- **El prompt de Flow no pasaba por el permiso de IA de la app de iPhone** (`exigirPermisoIa`). Ahora sí, en la misma puerta.
+- **Lo que pidió el encargo y lo que recomienda Creem chocan** si la moderación no contesta: quedó «se genera igual» (lo
+  pedido), con una constante para cambiarlo. Es decisión de Martín.
+- **El tsc acotado se quedó sin memoria en la nube con el heap por defecto** (2.560 MB) sobre `app/video-generator/video-action.ts`
+  y salió 99; con `--heap=8000` dio verde. No es un error de tipos.
+
+**Sin hacer:** la casilla de permiso de la foto de AI Avatar (la voz ya la tiene); el aviso en la app por el destinatario
+nuevo que promete /privacidad; el precio por unidad de la moderación; probar contra Creem de verdad (desde la nube no hay
+clave). Todo en el relevo.
+
+## Creem rechazó la tienda de MaKo, y es definitivo (5/11/2026)
+
+**Qué pasó:** la tienda se envió a revisión el 5/11/2026, a nombre de Leandro, y Creem la **rechazó a las pocas horas**, por
+mail. El mail **no da el motivo**. La plataforma ya no tiene sus claves, y Martín pasa a otro proveedor, todavía sin elegir.
+
+**Por qué no se insiste**, según la documentación y los términos de Creem (los leyó la sesión que encargó este trabajo, el
+5/11; desde la nube no se abren docs.creem.io ni creem.io, así que acá no se releyeron):
+- **Se decide por la categoría del negocio o por señales de riesgo**, y **otra tienda del mismo negocio llega a lo mismo**.
+  Abrir otra tienda no es una salida.
+- **Sus términos, §20.6:** si Creem cerró una cuenta, no le abre otra a las personas conectadas con ella. Leandro y Martín no
+  pueden volver a pedirla.
+- El checklist de la revisión ya decía que un rechazo no se revisa otra vez en 3 meses ([creem-retiros.md](creem-retiros.md),
+  «El alta»). Lo de arriba lo vuelve definitivo.
+
+**Lo que se sacó el mismo día** (`punta/creem-fuera`), sin borrar el código de la pasarela, que sirve para otro proveedor:
+- **Las legales** (/terminos, /privacidad, /reembolsos, /soporte, /aup) ya no nombran a Creem como quien cobra, vende o modera,
+  ni afirman una revisión automática de los pedidos. /aup se queda entera: no depende de la pasarela.
+  `tests/creem-revision-sitio.test.ts` lo fija sobre el texto que se lee.
+- **La moderación quedó sin proveedor** (`PROVEEDOR_DE_MODERACION = null`, lib/creem-moderacion-reglas.ts): `encolar` genera
+  sin leer una clave, sin llamar a nadie, sin fila de uso y sin ticket. Antes, sin la clave de Creem, cada imagen o video abría
+  un error de la app («ModeracionCreem»). El motor quedó para cualquier proveedor, con el adaptador de Creem de molde.
+- **El checkout de LatAm fuera de Argentina:** la preferencia por un merchant of record es por capacidad
+  (`CAPACIDADES_PASARELA.merchantOfRecord`), no por el nombre `'creem'`. Sin él, Stripe si está conectado; sin Stripe, la
+  página pide los datos. Y una compra de una pestaña de antes (con `pasarela: 'creem'`) ya no contesta 503: queda como pedido.
+- **El vigía** muestra la tienda rechazada y definitiva, y no manda a contestarle a Creem.
+
+**Vive en:** app/terminos/page.tsx, app/privacidad/page.tsx, app/reembolsos/page.tsx, app/soporte/page.tsx, app/aup/page.tsx,
+lib/creem-moderacion-reglas.ts, lib/creem-moderacion.ts, lib/flow-cola.ts, lib/compra-plan-reglas.ts, lib/compra-plan.ts,
+lib/vigia-aprobaciones.ts
+
+**Lo que no se ve en el código:**
+- **Sin proveedor, la moderación no puede afirmar nada en las legales.** Una política que dice «el pedido se revisa solo» cuando
+  no corre ninguna revisión es lo que esta casa prohíbe («si no se midió, no se afirma»). Lo único que sí pasa es que Google Flow
+  tiene sus propios filtros, y eso es lo que dicen ahora.
+- **Un «sin clave» que abre un ticket cada vez que alguien genera es un ruido, no un control:** la moderación nació obligatoria
+  para Creem, y sin Creem la clave que falta no es un bug. El ticket queda sólo para una clave RECHAZADA de un proveedor elegido.
+- **Un lector del vigía sin red no puede inventar un estado** (regla 3 de lib/vigia-aprobaciones.ts): se probó devolver
+  «rechazado» fijo y dio dos rojos en `tests/vigia-aprobaciones-fuentes.test.ts`. El rechazo va en el nombre y en la nota.
+
+**Sin hacer** (en [relevo/nube-creem-fuera.md](relevo/nube-creem-fuera.md)): elegir el próximo proveedor (Martín; la
+comparación, en [proveedores-de-cobro.md](proveedores-de-cobro.md)); qué hacer con las claves de Creem que queden guardadas en la
+plataforma; si la próxima pasarela pide moderación, enchufarla y volver a nombrarla en las legales; la sección de AGENTS.md
+«Lo que genera imagen o video pasa por `encolar`, que lo modera con Creem», que quedó vieja.
