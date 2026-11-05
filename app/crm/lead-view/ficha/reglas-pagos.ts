@@ -36,6 +36,7 @@ export function sinEstadoDeCuenta(ctx: CtxFicha): boolean {
   const cobrado = cobradoDelLead({
     ventaTipo: l.venta_tipo ?? null, montoCierreUsd: l.monto_cierre_usd ?? null, suscripcionMontoUsd: l.suscripcion_monto_usd ?? null,
     suscripcionMeses: l.suscripcion_meses ?? null, fechaCierre: l.fecha_cierre ?? null, pagos: cuotasDe(ctx) as CuotaParaCobrado[], cobros: [], hoy: ctx.hoy,
+    movimientos: ctx.data?.suscripcion?.movimientos ?? [],
   });
   return estadoDeCuenta({ cobrado, pagos: cuotasDe(ctx), ganado: l.estado_lead === 'ganado', hoy: ctx.hoy }) === null;
 }
@@ -49,17 +50,29 @@ const pide = (ctx: CtxFicha, pasos: readonly StepId[]): boolean => (ctx.data?.fa
 /** Se calla sin deal, salvo que se esté pidiendo uno de sus datos. */
 const sinDealSalvo = (...pasos: StepId[]) => (ctx: CtxFicha) => !conDeal(ctx) && !pide(ctx, pasos);
 
+/**
+ * ⚠️ UNA SUSCRIPCIÓN SE VE EN SU BLOQUE (5/11/2026, docs/investigacion-suscripciones.md). Con el bloque `suscripcion` en la
+ * misma hoja, en una venta de suscripción se callan el estado de cuenta, las cuotas y la venta: el bloque dibuja adentro
+ * el estado, lo pagado, los meses y el monto, y repetirlos al lado es la pestaña «muy compleja» que Martín pidió cambiar.
+ * Los movimientos se quedan sólo si la pasarela movió plata (un rechazo o una devolución no están en los meses). Sin el
+ * bloque en la hoja (una ficha armada a mano), todo se ve como antes.
+ */
+export const suscripcionAlLado = (ctx: CtxFicha, hermanos?: readonly string[]): boolean =>
+  ctx.lead.venta_tipo === 'suscripcion' && !ctx.crm && !!hermanos?.includes('suscripcion');
+
 export const REGLAS_PAGOS = {
   oferta: {},
   'links-de-pago': { disenos: ['lista', 'pendiente'] },
-  venta: { estaVacio: sinDealSalvo('monto'), disenos: ['cajas', 'renglon', 'numero'] },
-  cobrado: { estaVacio: sinEstadoDeCuenta, disenos: ['numero', 'chip'] },
-  cuotas: { estaVacio: (ctx) => sinDealSalvo('plan', 'comprobante')(ctx) && cuotasDe(ctx).length === 0, disenos: ['tabla', 'proxima'] },
+  venta: { estaVacio: (ctx, _p, h) => sinDealSalvo('monto')(ctx) || suscripcionAlLado(ctx, h), disenos: ['cajas', 'renglon', 'numero'] },
+  cobrado: { estaVacio: (ctx, _p, h) => sinEstadoDeCuenta(ctx) || suscripcionAlLado(ctx, h), disenos: ['numero', 'chip'] },
+  cuotas: { estaVacio: (ctx, _p, h) => (sinDealSalvo('plan', 'comprobante')(ctx) && cuotasDe(ctx).length === 0) || suscripcionAlLado(ctx, h), disenos: ['tabla', 'proxima'] },
   movimientos: {
-    estaVacio: (ctx) => !cuotasDe(ctx).some((q) => q.pagado || esCuotaDevuelta(q)) && !ctx.data?.cobro?.hayCobros,
+    estaVacio: (ctx, _p, h) => (!cuotasDe(ctx).some((q) => q.pagado || esCuotaDevuelta(q)) && !ctx.data?.cobro?.hayCobros)
+      || (suscripcionAlLado(ctx, h) && !ctx.data?.cobro?.hayCobros),
     disenos: ['lista', 'ultimos'],
   },
-  suscripcion: { estaVacio: (ctx) => ctx.lead.venta_tipo !== 'suscripcion', disenos: ['numero'] },
+  // Dibuja adentro el comprobante de cada pago (se adjunta desde su mes): «Solucionar» un comprobante que falta viene acá.
+  suscripcion: { estaVacio: (ctx) => ctx.lead.venta_tipo !== 'suscripcion', disenos: ['completa'], cubreTambien: ['comprobante'] },
   contrato: { estaVacio: sinDealSalvo(), disenos: ['franja', 'vista'] },
   'datos-fiscales': { estaVacio: sinDealSalvo('dealFiscal', 'dealFiscalDoc'), disenos: ['grilla', 'compacta'] },
   'servicio-vendido': { estaVacio: sinDealSalvo('dealServicio'), disenos: ['grilla', 'renglon'] },

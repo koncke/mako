@@ -353,4 +353,29 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
+  // ── La suscripción mes a mes (5/11/2026, docs/investigacion-suscripciones.md) ─────────────────────────────────────────
+  // Lo mismo que la tab Pagos de una suscripción: leerla mes a mes, y cambiar el monto desde un mes, cortarla y retomarla
+  // (lib/suscripcion-cambios.ts, la MISMA implementación). Van al final del área (AGENTS.md: una operación nueva no le saca
+  // el lugar a las de antes), con palabras que no repiten las de todo el área.
+  {
+    id: 'ver_suscripcion_lead', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver una suscripción mes a mes',
+    descripcion: 'La suscripción de un lead mes a mes, como la tab Pagos: cuánto paga hoy (o el estimado si nadie cargó la mensualidad), el día de cobro, el próximo vencimiento, lo pagado en total y los ajustes, y cada mes con lo que tocaba, lo que entró, sus pagos y lo que cambió (empezó, subió, bajó, se cortó, volvió). Trae también los cambios guardados con su id.',
+    parametros: [leadId('id del lead de la suscripción.')],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_TAB,
+  },
+  {
+    id: 'cambiar_suscripcion', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiar el monto, cortar o retomar',
+    descripcion: 'PROPONE un cambio de la suscripción de un lead que se cobra a mano, desde un mes: tipo=monto (la mensualidad nueva, sube o baja; los meses de antes quedan como estaban), corte (deja de pagar desde ese mes) o vuelta (vuelve desde ese mes, con otro monto si cambió). También para cargar la mensualidad que falta: tipo=monto desde el primer mes. Sólo el administrador. La que cobra la pasarela se cambia en su cobro.',
+    escribe: 'agrega el cambio a suscripcion_movimientos (y el monto de antes la primera vez), deja suscripcion_monto_usd en la mensualidad de hoy, cancela o reactiva si el corte o la vuelta son de este mes, y deja historial',
+    parametros: [
+      leadId('id del lead de la suscripción.'),
+      { nombre: 'tipo', rotulo: 'Cambio', tipo: 'string', obligatorio: true, enum: ['monto', 'corte', 'vuelta'], descripcion: 'monto, corte o vuelta.' },
+      { nombre: 'desde', rotulo: 'Desde', tipo: 'string', obligatorio: true, max: 10, descripcion: 'AAAA-MM: el mes desde el que vale.' },
+      { nombre: 'montoUsd', rotulo: 'Mensualidad', tipo: 'number', minimo: 0.01, maximo: 10000000, descripcion: 'en dólares. Obligatoria con tipo=monto.' },
+      { nombre: 'dia', rotulo: 'Día de cobro', tipo: 'number', entero: true, minimo: 1, maximo: 31, descripcion: 'desde ese mes; sin valor, el de siempre.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_ADMIN,
+  },
 ];

@@ -1746,3 +1746,56 @@ la app no lo avisa, y Leila ya lo hizo con cinco.
 
 **Vive en:** `cobradoDelLead`, `sinCierre` (lib/cobrado-lead.ts) · `estadoDeCuenta` (lib/pagos-vistazo.ts) ·
 tests/pagos-vistazo.test.ts · tests/cobrado-lead.test.ts.
+
+## La suscripción mes a mes: el problema no era la pantalla, era el modelo (5/11/2026, nube, `punta/suscripciones-ficha`)
+
+**El pedido** (Martín, por el Cerebro: docs/relevo/suscripciones-ficha-encargo.md): «la suscripción es suben, bajan… otros
+casos hay cortes… la pestaña de pagos dentro de lo que sería una venta de suscripción es algo que quisiera cambiarlo
+completamente». La investigación de diez apps y lo que se copió (Chargebee, con las palabras de ChartMogul):
+docs/investigacion-suscripciones.md.
+
+**El diagnóstico obvio era el equivocado:** «la pestaña es muy compleja» se leía como un problema de diseño (cinco bloques
+para una mensualidad). Lo que de verdad no se podía decir era el DATO. Una suscripción era UN monto
+(`suscripcion_monto_usd`) y cada pago registrado contaba un mes (`mesesDeUnaCobrada`). Con Código Inmobiliario las dos
+mentían: 146, 238 y 426 no caben en un número, y noviembre pagado en DOS pagos (94 y 144) contaba como dos meses, o sea
+«adelantado». Rediseñar la pantalla sobre ese modelo habría dibujado más lindo lo mismo.
+
+**Lo que quedó:**
+- **Cada mes es un período** (lib/suscripcion-meses.ts, puro, con tests): lo que tocaba (el último cambio de monto hasta
+  ese mes), lo que entró y sus pagos. Un pago va al mes que se eligió, o al más viejo que falta (como se aplica un pago
+  a la factura más vieja); una mensualidad registrada va entera a un mes y un pago suelto cubre MESES ENTEROS por su
+  plata (la regla de la quinta revisión: 10 × 550 son 10 meses, no 11). Un ajuste (el diferencial) suma al cash y no paga
+  un mes.
+- **Los cambios se AGREGAN con su fecha** (`suscripcion_movimientos`, mig 0398): monto desde un mes, corte, vuelta. La
+  primera vez que cambia el monto se guarda el de antes desde el inicio (`conElMontoDeAntes`); sin eso, los meses de antes
+  quedan «sin monto» (`montoDelMes` no inventa con el de hoy).
+- **⚠️ COMPATIBILIDAD, y no es opcional:** sin cambios guardados (todos los datos de antes), una mensualidad sin mes vale
+  UN mes aunque el monto de hoy sea otro. Contarla por plata, con el monto de hoy escrito encima del de antes, juntaba dos
+  meses en uno e inventaba deuda (el caso de la quinta revisión, al revés). Lo fijan tests/pagos-plan-sueltos.test.ts y
+  tests/suscripcion-meses.test.ts, y se probó rompiéndolo.
+- **Una cuenta para todos:** `cobradoDelLead` usa la historia para «Falta registrar» y la próxima renovación, así que el
+  estado de cuenta, «A quién cobrar», el teléfono, la API (`cobranza_lead`, `ver_suscripcion_lead`) y la tab dicen lo
+  mismo. `getMrrActivo` cuenta la mensualidad de ESTE mes (un cambio para diciembre no cuenta en noviembre) y, sin monto
+  cargado, lo pagado el último mes (`estimadas`): los tres clientes de la plataforma daban MRR 0 con pagos hechos.
+- **La tab:** con el bloque `suscripcion` en la hoja, en una venta de suscripción se callan el estado de cuenta, las cuotas,
+  la venta y (sin movimientos de la pasarela) los movimientos (`suscripcionAlLado`, app/crm/lead-view/ficha/reglas-pagos.ts).
+  Para eso el armador le pasa a `estaVacio` los bloques de la hoja (`hermanos`). El bloque va primero en todas las
+  plantillas de Pagos: en cualquier otra venta se calla.
+
+**Trampas que aparecieron:**
+- **Un hook después de un `return null`:** el bloque nuevo agrupaba los meses con `useMemo` debajo de `if (!s) return null`.
+  El typecheck lo deja pasar y `scripts/hooks-en-orden.sh` lo frena: va como cálculo plano.
+- **El tsc acotado muere con 2,5 GB** cuando un archivo importa `app/crm/actions.ts` (arrastra media app). En la nube hay
+  RAM: `--heap=7000`.
+- **Un guard que citaba la lista de columnas del MRR** (`tests/cuota-fecha-y-cancelacion.test.ts`) dio rojo al sumarle el
+  id: se reescribió para afirmar lo que cuida (que la lectura traiga la cancelación).
+- **Dos funciones con el mismo nombre:** `movimientosDelLead` ya existía en lib/pagos-vistazo.ts (lo que movió plata) y
+  crm.run.ts la importa. La de la base se llama `cambiosDeSuscripcion`.
+
+**Lo que quedó sin hacer:** aplicar la 0398; cargar los datos de los tres clientes de la plataforma (el relevo dice qué);
+la vista mes a mes en el teléfono (/m muestra el estado de cuenta, ya con la cuenta nueva, no los meses); el prorrateo
+automático del diferencial (hoy lo calcula Martín y se registra como ajuste).
+
+**Vive en:** lib/suscripcion-meses.ts · lib/suscripcion-movimientos.ts · lib/suscripcion-cambios.ts · lib/suscripcion-api.ts ·
+lib/cobrado-lead.ts · lib/queries.ts · app/crm/lead-view/ficha/pagos/suscripcion.tsx · app/crm/lead-view/ficha/reglas-pagos.ts ·
+app/crm/[id]/suscripcion-actions.ts · app/api/crm/comprobante-pago/route.ts · supabase/migrations/0398_suscripcion_movimientos.sql

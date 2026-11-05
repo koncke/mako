@@ -21,6 +21,7 @@
 
 import { cobradoDelLead, sumarMeses, type CobroParaCobrado, type CuotaParaCobrado } from './cobrado-lead';
 import type { OutstandingLead } from './pagos';
+import type { MovimientoSuscripcion } from './suscripcion-meses';
 
 export type MotivoSuscripcion = 'sin-registrar' | 'renovacion-fallida' | 'proxima';
 
@@ -60,6 +61,8 @@ export function itemDeSuscripcion(e: {
   lead: LeadSuscripcion;
   pagos: readonly CuotaParaCobrado[];
   cobros: readonly CobroParaCobrado[];
+  /** Los cambios de la suscripción (mig 0398, lib/suscripcion-meses.ts). Sin ellos, el monto del lead para todos los meses. */
+  movimientos?: readonly MovimientoSuscripcion[];
   hoy: string;
   ventana: { desde: string | null; hasta: string | null };
 }): ItemPorCobrar | null {
@@ -69,7 +72,7 @@ export function itemDeSuscripcion(e: {
   const c = cobradoDelLead({
     ventaTipo: 'suscripcion', montoCierreUsd: null, suscripcionMontoUsd: lead.suscripcion_monto_usd,
     suscripcionMeses: lead.suscripcion_meses, fechaCierre: cierre, suscripcionCanceladaAt: lead.suscripcion_cancelada_at,
-    pagos: e.pagos, cobros: e.cobros, hoy,
+    pagos: e.pagos, cobros: e.cobros, hoy, movimientos: e.movimientos ?? [],
   });
   const s = c.suscripcion;
   if (!s || s.estado !== 'activa' || !s.mensualidadUsd || s.mensualidadUsd <= 0) return null;
@@ -80,9 +83,9 @@ export function itemDeSuscripcion(e: {
   if (s.renovacionFallida) {
     motivo = 'renovacion-fallida'; meses = 1; vence = ultimoAniversario(cierre, hoy);
   } else if (s.fuente === 'manual' && s.sinRegistrar > 0) {
-    // El primer mes sin registrar: los meses cuentan desde el cierre, y los cubiertos son los que cuenta `cobradoDelLead`
-    // (por plata la suelta: un adelanto de 3 meses en un pago son 3, no 1, o el cliente desaparecía de la lista del mes).
-    motivo = 'sin-registrar'; meses = s.sinRegistrar; vence = sumarMeses(cierre, s.mesesCubiertos);
+    // El primer mes sin completar, el de la suscripción mes a mes (lib/suscripcion-meses.ts): un adelanto de 3 meses en un
+    // pago son 3, y dos pagos en un mes completan ese mes (no adelantan el siguiente).
+    motivo = 'sin-registrar'; meses = s.sinRegistrar; vence = s.proximoMes?.vence ?? sumarMeses(cierre, s.mesesCubiertos);
   } else if (s.fuente === 'manual' && s.proximaRenovacion) {
     motivo = 'proxima'; meses = 1; vence = s.proximaRenovacion;
   } else {
@@ -96,7 +99,8 @@ export function itemDeSuscripcion(e: {
     // Una suscripción no tiene monto de cierre: su plata es la mensualidad (lib/venta-tipo.ts).
     vendido_usd: null,
     cobrado_usd: c.cobradoUsd,
-    pendiente_usd: redondo(s.mensualidadUsd * meses),
+    // Lo que falta de verdad (con lo pagado a medias y el monto de cada mes); sin él, la mensualidad por los meses.
+    pendiente_usd: motivo === 'sin-registrar' && s.historia.deudaUsd > 0 ? s.historia.deudaUsd : redondo(s.mensualidadUsd * meses),
     proxima_cuota: null,
     dias_desde_cierre: diasEntre(cierre, hoy),
     fecha_cierre: cierre,

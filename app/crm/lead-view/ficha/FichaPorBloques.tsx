@@ -222,7 +222,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     // Primero las tabs de siempre del lead; después las hojas propias (lib/ficha/config.ts: son el último lugar).
     const lugares: LugarFicha[] = [...delLead, ...efectiva.hojas.map((h) => h.id)];
     const t = tabDelDato(paso, lugares, {
-      listaDe: (l) => lugarDe(efectiva, l).bloques, reglasDe: entradaDe, vacio: (p, r) => !!r.estaVacio?.(ctx, p), verPrivado: ctx.verPrivado,
+      listaDe: (l) => lugarDe(efectiva, l).bloques, reglasDe: entradaDe, vacio: (p, r, h) => !!r.estaVacio?.(ctx, p, h), verPrivado: ctx.verPrivado,
     });
     if (!t) { onNoEsta(paso); return; }
     const d = [...(data.datos?.avisar ?? []), ...(data.datos?.ocultos ?? [])].find((x) => x.id === paso);

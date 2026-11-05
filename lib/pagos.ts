@@ -38,6 +38,7 @@ import { laCobraLaPasarela } from './cobros-reglas';
 import type { Pasarela } from './cobros-tipos';
 import type { CobroParaCobrado } from './cobrado-lead';
 import { itemDeSuscripcion, type ItemPorCobrar, type LeadSuscripcion } from './suscripciones-por-cobrar';
+import { leerCambiosDeSuscripcion } from './suscripcion-movimientos';
 import { mismoCentavo } from './cobro-etapa';
 import { FALTA_0324, camposDeFila, esDelTrato, faltaIndicePorCrm, type CamposTrato, type Crm } from './pagos-crm';
 
@@ -1815,11 +1816,13 @@ export async function getSuscripcionesPorCobrar(hoy: string, desde: string | nul
     const filas = (leads ?? []) as Array<LeadSuscripcion & { funnel_id?: number | null }>;
     if (!filas.length) return [];
     const ids = filas.map((l) => Number(l.id));
-    const [pg, cb, fd, lf] = await Promise.all([
+    const [pg, cb, fd, lf, mv] = await Promise.all([
       db.from('pagos').select('*').in('lead_id', ids),
       db.from('cobros').select('lead_id, tipo, estado, suscripcion_estado, motivo').in('lead_id', ids).eq('tipo', 'suscripcion'),
       db.from('funnels').select('id').eq('es_default', true).limit(1).maybeSingle(),
       db.from('lead_funnel').select('lead_id, funnel_id').in('lead_id', ids),
+      // Los cambios de cada suscripción (mig 0398): sin leerlos, el monto del lead vale para todos los meses (lo de antes).
+      leerCambiosDeSuscripcion(ids),
     ]);
     if (lf.error) throw new Error(lf.error.message);
     // La suscripción es de la CASA (0324): su CRM es el del lead, o el del negocio.
@@ -1837,7 +1840,7 @@ export async function getSuscripcionesPorCobrar(hoy: string, desde: string | nul
       // mes cobrado en una casa anterior (la que se quitó) sigue siendo de la casa.
       const casa = l.funnel_id != null ? Number(l.funnel_id) : casaDelNegocio;
       const agregados = (agregadosDe.get(Number(l.id)) ?? []).filter((f) => f !== casa);
-      const it = itemDeSuscripcion({ lead: l, pagos: (pagosDe.get(Number(l.id)) ?? []).filter((p) => esDelTrato(p.funnel_id, null, agregados)), cobros: cobrosDe.get(Number(l.id)) ?? [], hoy, ventana: { desde, hasta } });
+      const it = itemDeSuscripcion({ lead: l, pagos: (pagosDe.get(Number(l.id)) ?? []).filter((p) => esDelTrato(p.funnel_id, null, agregados)), cobros: cobrosDe.get(Number(l.id)) ?? [], movimientos: mv.porLead.get(Number(l.id)) ?? [], hoy, ventana: { desde, hasta } });
       return it ? [{ ...it, crm: null, funnel_id: l.funnel_id != null ? Number(l.funnel_id) : casaDelNegocio }] : [];
     });
   } catch (e) {

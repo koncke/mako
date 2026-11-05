@@ -48,6 +48,8 @@ import {
 import { leerTodo, leerPorPaginas, type OrdenPaginado, type ConsultaPaginada } from './supabase-paginado';
 import { faltaComprobante } from './pago-comprobante';
 import { mrrDeLaPasarela } from './cobros-reglas';
+import { leerCambiosDeSuscripcion } from './suscripcion-movimientos';
+import { mrrDeSuscripcion, type PagoDeSuscripcion } from './suscripcion-meses';
 import { PLATAFORMAS_VIDEO } from './types';
 
 /**
@@ -793,7 +795,8 @@ export type RevenuePeriod = {
 // Se muestra APARTE del high-ticket único (los deals de suscripción NO tocan
 // monto_cierre_usd, así que NO están en el "sold"/"cash" de arriba). Activa =
 // ganado + venta_tipo='suscripcion' + (indefinida O aún dentro del plazo fijo).
-export type MrrResumen = { mrr: number; activas: number };
+/** `estimadas`: cuántas suscripciones suman lo pagado el último mes porque no tienen la mensualidad cargada (5/11/2026). */
+export type MrrResumen = { mrr: number; activas: number; estimadas?: number };
 
 /** yyyy-mm-dd + n meses (conserva el día lo mejor posible). Para el fin de plazo. */
 function isoMasMeses(iso: string, n: number): string {
@@ -807,15 +810,29 @@ async function _getMrrActivo(hoy: string = new Date().toISOString().slice(0, 10)
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
-    .select('suscripcion_monto_usd, suscripcion_meses, fecha_cierre, suscripcion_cancelada_at')
+    .select('id, suscripcion_monto_usd, suscripcion_meses, fecha_cierre, suscripcion_cancelada_at')
     .eq('venta_tipo', 'suscripcion')
     .eq('estado_lead', 'ganado');
   if (error) throw new Error(`getMrrActivo falló: ${error.message}`);
+  type FilaMrr = { id: number; suscripcion_monto_usd: number | null; suscripcion_meses: number | null; fecha_cierre: string | null; suscripcion_cancelada_at: string | null };
+  const filas = (data ?? []) as FilaMrr[];
+  // ⚠️ LA MENSUALIDAD DE HOY, CON SUS CAMBIOS (5/11/2026, lib/suscripcion-meses.ts): un cambio guardado para diciembre no
+  // cuenta en noviembre, y un corte de este mes la saca. Y SIN MONTO CARGADO, NO ES 0: los tres clientes de suscripción de
+  // la plataforma tenían el monto vacío y el MRR daba nada con pagos hechos. Se suma lo pagado el último mes (`estimadas`).
+  // Sin la 0398, sin cambios: lo de antes. Con la lectura caída, también (no es un cero: el monto del lead sigue valiendo).
+  const ids = filas.map((r) => Number(r.id)).filter((n) => Number.isFinite(n));
+  const sinMonto = filas.filter((r) => !(Number(r.suscripcion_monto_usd) > 0)).map((r) => Number(r.id));
+  const [cambios, pagosSinMonto] = await Promise.all([
+    leerCambiosDeSuscripcion(ids),
+    sinMonto.length ? supabase.from('pagos').select('*').in('lead_id', sinMonto) : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (pagosSinMonto.error) throw new Error(`getMrrActivo (pagos sin mensualidad) falló: ${pagosSinMonto.error.message}`);
+  const pagosDe = new Map<number, PagoDeSuscripcion[]>();
+  for (const p of (pagosSinMonto.data ?? []) as Array<PagoDeSuscripcion & { lead_id: number }>) pagosDe.set(Number(p.lead_id), [...(pagosDe.get(Number(p.lead_id)) ?? []), p]);
   let mrr = 0;
   let activas = 0;
-  for (const r of (data ?? []) as Array<{ suscripcion_monto_usd: number | null; suscripcion_meses: number | null; fecha_cierre: string | null; suscripcion_cancelada_at: string | null }>) {
-    const monto = r.suscripcion_monto_usd ?? 0;
-    if (monto <= 0) continue;
+  let estimadas = 0;
+  for (const r of filas) {
     // Una CANCELADA (a mano o por la pasarela) no es MRR desde el día que se canceló, quede o no plazo por cumplir.
     if (r.suscripcion_cancelada_at) continue;
     // Plazo fijo con fecha de cierre → activa mientras el fin del plazo sea >= hoy.
@@ -823,7 +840,11 @@ async function _getMrrActivo(hoy: string = new Date().toISOString().slice(0, 10)
     const activa = r.suscripcion_meses && r.suscripcion_meses > 0 && r.fecha_cierre
       ? isoMasMeses(r.fecha_cierre, r.suscripcion_meses) >= hoy
       : true;
-    if (activa) { mrr += monto; activas++; }
+    if (!activa) continue;
+    const m = mrrDeSuscripcion({ montoUsd: r.suscripcion_monto_usd, movimientos: cambios.porLead.get(Number(r.id)) ?? [], pagos: pagosDe.get(Number(r.id)) ?? [], hoy });
+    if (m.usd == null || m.usd <= 0) continue;
+    mrr += m.usd; activas++;
+    if (m.estimado) estimadas++;
   }
 
   // ⚠️ Y LAS SUSCRIPCIONES DE LA PASARELA DE UN LEAD QUE NO ES «DE SUSCRIPCIÓN» (decidido el 15/10/2026, copia de Stripe:
@@ -849,7 +870,7 @@ async function _getMrrActivo(hoy: string = new Date().toISOString().slice(0, 10)
     mrr += p.mrr;
     activas += p.activas;
   }
-  return { mrr, activas };
+  return { mrr, activas, ...(estimadas ? { estimadas } : {}) };
 }
 
 // Cacheado por-request: se invoca 2x con el mismo rango en /comercial y /marketing.

@@ -108,19 +108,21 @@ export function spansDeFilas(anchos: readonly number[], cols = COLS_FICHA): numb
  */
 export function bloquesDeLaGrilla(lista: readonly BloquePuesto[], o: {
   reglasDe: (id: BloqueId) => ReglasBloque | undefined;
-  vacio: (puesto: BloquePuesto, reglas: ReglasBloque) => boolean;
+  /** `hermanos`: los bloques puestos en la misma hoja (5/11/2026: una suscripción calla lo que su bloque ya dibuja). */
+  vacio: (puesto: BloquePuesto, reglas: ReglasBloque, hermanos: readonly BloqueId[]) => boolean;
   editando: boolean;
   verPrivado: boolean;
   /** La tab va épica: menos por fila (`anchoEnDispositivo`). */
   epico?: boolean;
 }): BloqueEnGrilla[] {
   const quedan: Omit<BloqueEnGrilla, 'span' | 'spanTableta'>[] = [];
+  const hermanos = lista.map((p) => p.id);
   lista.forEach((puesto, indice) => {
     const def = bloqueDef(puesto.id);
     const reglas = def ? o.reglasDe(def.id) : undefined;
     if (!def || !reglas) return;
     if (def.privado && !o.verPrivado) return;
-    const vacio = o.vacio(puesto, reglas);
+    const vacio = o.vacio(puesto, reglas, hermanos);
     if (vacio && !o.editando) return;
     quedan.push({ puesto, def, reglas, indice, n: ocurrencia(lista, indice), vacio });
   });
@@ -194,7 +196,7 @@ export function cubreDe(def: BloqueDef, reglas: ReglasBloque, o: { puesto?: Bloq
 export function tabDelDato<T extends string>(paso: StepId, tabs: readonly T[], o: {
   listaDe: (tab: T) => readonly BloquePuesto[];
   reglasDe: (id: BloqueId) => ReglasBloque | undefined;
-  vacio: (puesto: BloquePuesto, reglas: ReglasBloque) => boolean;
+  vacio: (puesto: BloquePuesto, reglas: ReglasBloque, hermanos: readonly BloqueId[]) => boolean;
   verPrivado: boolean;
 }): T | null {
   for (const tab of tabs) {

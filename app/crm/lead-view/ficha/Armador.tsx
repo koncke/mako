@@ -98,7 +98,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
 }) {
   const bloques = bloquesDeLaGrilla(lista, {
     reglasDe: (id) => entradaDe(id),
-    vacio: (p, r) => !!r.estaVacio?.(ctx, p),
+    vacio: (p, r, h) => !!r.estaVacio?.(ctx, p, h),
     editando,
     verPrivado: ctx.verPrivado,
     epico,
