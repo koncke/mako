@@ -10768,3 +10768,9 @@ hecho tiene más de 7 días (`tiempoDelHecho`, `lib/meta-capi-payload.ts`, con s
 **Regla:** si el código mira la edad de una fecha, el test la arma relativa a ahora (o fija el reloj). Dos ramas sin relación con el mismo rojo: correr ese test sobre main antes de arreglar nada en la rama.
 
 **Sin hacer:** no se barrieron los demás tests con fecha escrita a mano. Vive en `tests/_*-hijo.ts`.
+
+## Dos chats en la nube eligieron la misma migración (5/11/2026)
+
+`punta/ops-ignorar` y `punta/agencia-cobro` eligieron la `0394` con pocas horas de diferencia. Los dos hicieron lo indicado: barrer main, todas las ramas y las etiquetas, y tomar el siguiente. Barrer no reserva: si la otra todavía no subió, no se ve. Y desde la nube tampoco se ven los worktrees de la PC.
+
+**La regla:** el número se confirma al aplicar, contra `origin/main`. Si chocó, se renumera el archivo que llegó segundo: nada lo nombra por número salvo su encabezado y su relevo.
