@@ -2281,7 +2281,7 @@ La decisión y sus motivos: [estrategia-lanzamiento-low-to-high.md](estrategia-l
 **La regla:** antes de decir que una pasarela cobra, se mira `cobros` con `pagado_at` y un evento real en `pasarela_eventos`. Lo de la plata de Creem (mínimo US$50, retiros a mano el 1 y el 15, comisiones) está en [creem-retiros.md](creem-retiros.md).
 
 **Sin hacer:**
-- Mientras Creem no se apruebe, a un comprador de LATAM fuera de Argentina `pasarelasDelPais` igual le ofrece Creem. Sin medir qué ve: no se hizo ningún POST de compra.
+- ~~Mientras Creem no se apruebe, a un comprador de LATAM fuera de Argentina `pasarelasDelPais` igual le ofrece Creem~~: Creem rechazó la tienda y la plataforma ya no tiene sus claves (la entrada «Creem rechazó la tienda», abajo). Medido con el checkout real el 5/11: `tests/planes-latam-sin-creem.test.ts`.
 - ~~Creem pide Moderation API a quien genera imagen o video desde un prompt y una política de uso visible~~: hechas el 5/11 en `punta/creem-revision` (la entrada de abajo). La manipulación de rostros frente a AI Avatar la contesta soporte de Creem: borrador en [relevo/nube-creem-revision.md](relevo/nube-creem-revision.md).
 - La plantilla de recibos: encargo completo en [relevo/recibos-encargo.md](relevo/recibos-encargo.md).
 - ~~El comentario de `lib/credenciales.ts:808` dice que `CREEM_API_KEY` está en `.env.local`~~: corregido el 5/11.
@@ -2315,3 +2315,47 @@ modera todo `generar_imagen` y `generar_clip`. El detalle, las decisiones y lo q
 **Sin hacer:** la casilla de permiso de la foto de AI Avatar (la voz ya la tiene); el aviso en la app por el destinatario
 nuevo que promete /privacidad; el precio por unidad de la moderación; probar contra Creem de verdad (desde la nube no hay
 clave). Todo en el relevo.
+
+## Creem rechazó la tienda de MaKo, y es definitivo (5/11/2026)
+
+**Qué pasó:** la tienda se envió a revisión el 5/11/2026, a nombre de Leandro, y Creem la **rechazó a las pocas horas**, por
+mail. El mail **no da el motivo**. La plataforma ya no tiene sus claves, y Martín pasa a otro proveedor, todavía sin elegir.
+
+**Por qué no se insiste**, según la documentación y los términos de Creem (los leyó la sesión que encargó este trabajo, el
+5/11; desde la nube no se abren docs.creem.io ni creem.io, así que acá no se releyeron):
+- **Se decide por la categoría del negocio o por señales de riesgo**, y **otra tienda del mismo negocio llega a lo mismo**.
+  Abrir otra tienda no es una salida.
+- **Sus términos, §20.6:** si Creem cerró una cuenta, no le abre otra a las personas conectadas con ella. Leandro y Martín no
+  pueden volver a pedirla.
+- El checklist de la revisión ya decía que un rechazo no se revisa otra vez en 3 meses ([creem-retiros.md](creem-retiros.md),
+  «El alta»). Lo de arriba lo vuelve definitivo.
+
+**Lo que se sacó el mismo día** (`punta/creem-fuera`), sin borrar el código de la pasarela, que sirve para otro proveedor:
+- **Las legales** (/terminos, /privacidad, /reembolsos, /soporte, /aup) ya no nombran a Creem como quien cobra, vende o modera,
+  ni afirman una revisión automática de los pedidos. /aup se queda entera: no depende de la pasarela.
+  `tests/creem-revision-sitio.test.ts` lo fija sobre el texto que se lee.
+- **La moderación quedó sin proveedor** (`PROVEEDOR_DE_MODERACION = null`, lib/creem-moderacion-reglas.ts): `encolar` genera
+  sin leer una clave, sin llamar a nadie, sin fila de uso y sin ticket. Antes, sin la clave de Creem, cada imagen o video abría
+  un error de la app («ModeracionCreem»). El motor quedó para cualquier proveedor, con el adaptador de Creem de molde.
+- **El checkout de LatAm fuera de Argentina:** la preferencia por un merchant of record es por capacidad
+  (`CAPACIDADES_PASARELA.merchantOfRecord`), no por el nombre `'creem'`. Sin él, Stripe si está conectado; sin Stripe, la
+  página pide los datos. Y una compra de una pestaña de antes (con `pasarela: 'creem'`) ya no contesta 503: queda como pedido.
+- **El vigía** muestra la tienda rechazada y definitiva, y no manda a contestarle a Creem.
+
+**Vive en:** app/terminos/page.tsx, app/privacidad/page.tsx, app/reembolsos/page.tsx, app/soporte/page.tsx, app/aup/page.tsx,
+lib/creem-moderacion-reglas.ts, lib/creem-moderacion.ts, lib/flow-cola.ts, lib/compra-plan-reglas.ts, lib/compra-plan.ts,
+lib/vigia-aprobaciones.ts
+
+**Lo que no se ve en el código:**
+- **Sin proveedor, la moderación no puede afirmar nada en las legales.** Una política que dice «el pedido se revisa solo» cuando
+  no corre ninguna revisión es lo que esta casa prohíbe («si no se midió, no se afirma»). Lo único que sí pasa es que Google Flow
+  tiene sus propios filtros, y eso es lo que dicen ahora.
+- **Un «sin clave» que abre un ticket cada vez que alguien genera es un ruido, no un control:** la moderación nació obligatoria
+  para Creem, y sin Creem la clave que falta no es un bug. El ticket queda sólo para una clave RECHAZADA de un proveedor elegido.
+- **Un lector del vigía sin red no puede inventar un estado** (regla 3 de lib/vigia-aprobaciones.ts): se probó devolver
+  «rechazado» fijo y dio dos rojos en `tests/vigia-aprobaciones-fuentes.test.ts`. El rechazo va en el nombre y en la nota.
+
+**Sin hacer** (en [relevo/nube-creem-fuera.md](relevo/nube-creem-fuera.md)): elegir el próximo proveedor (Martín; la
+comparación, en [proveedores-de-cobro.md](proveedores-de-cobro.md)); qué hacer con las claves de Creem que queden guardadas en la
+plataforma; si la próxima pasarela pide moderación, enchufarla y volver a nombrarla en las legales; la sección de AGENTS.md
+«Lo que genera imagen o video pasa por `encolar`, que lo modera con Creem», que quedó vieja.

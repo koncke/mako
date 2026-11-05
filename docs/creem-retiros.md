@@ -1,5 +1,10 @@
 # Creem: cómo sale la plata (leído el 5/11/2026)
 
+> ⚠️ **RECHAZADA EL 5/11/2026, Y ES DEFINITIVO.** Creem rechazó la tienda de MaKo a las pocas horas de enviarla (sección
+> «El rechazo», al final). Lo de abajo queda como registro de lo que se midió y de cómo funciona Creem: no hay nada que retirar
+> ni nada que pedirle. Lo que se sacó de MaKo ese día, en [hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) →
+> «Creem rechazó la tienda de MaKo».
+
 Son condiciones de Creem, con su fuente: volver a mirarlas antes de confiar en un monto. Lo fiscal y cambiario es para el contador de Martín.
 
 ## El estado de la cuenta, medido el 5/11/2026
@@ -111,3 +116,15 @@ Sí, según su documentación, aunque no está visto en la práctica porque hay 
 **Trampa del formulario:** «About» y «Product details» borran paréntesis y punto y coma sin avisar: hay que escribir sin ellos y releer el valor guardado.
 
 **Si Creem rechaza:** Martín no se queda peleando. Las alternativas ya medidas están en `docs/estrategia-financiera-mako.md`: Paddle (5 % + 50 ¢, la más grande) y Dodo, Polar o dLocal Go. Mercado Pago sigue para Argentina.
+
+## El rechazo (5/11/2026)
+
+- **Cuándo:** la tienda se envió a revisión el 5/11/2026, a nombre de Leandro, y Creem la rechazó **a las pocas horas**.
+- **Cómo:** por mail. **El mail no dice el motivo.**
+- **Por qué no se vuelve a pedir:** la documentación de Creem dice que la decisión se toma **por la categoría del negocio o por
+  señales de riesgo**, y que **otra tienda del mismo negocio llega a lo mismo**. Y sus términos, **§20.6**, dicen que si Creem
+  cerró una cuenta no le abre otra a las **personas conectadas** con ella. Lo leyó la sesión que encargó la salida de Creem;
+  desde la nube no se abren docs.creem.io ni creem.io, así que no se releyó acá.
+- **Lo que queda:** Mercado Pago para Argentina, Stripe si está conectado, y para el resto de LatAm, hasta que haya otro
+  proveedor, el pedido de datos de /planes. La comparación del próximo está en [proveedores-de-cobro.md](proveedores-de-cobro.md).
+  Elegir es de Martín.

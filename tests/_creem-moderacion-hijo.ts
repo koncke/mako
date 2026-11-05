@@ -1,16 +1,15 @@
 // =============================================================================
 // Hijo de tests/creem-moderacion.test.ts — NO es un test (no termina en .test.ts)
 // =============================================================================
-// Corre `encolar` REAL (lib/flow-cola.ts, con `server-only`, en un node aparte con `--conditions=react-server`) contra un
-// PostgREST de mentira y un Creem de mentira, y le contesta al test con un JSON. Mide lo que le importa a Creem y a quien
-// genera, en el camino de verdad:
-//   · deny / flag → no se encola NADA y vuelve el rechazo con su texto;
-//   · allow → se encola, y la llamada queda MEDIDA (una fila de anthropic_usage, a nombre de la plataforma, sin el prompt);
-//   · Creem caído (500) → se encola igual (lo pedido) y la llamada también queda medida;
-//   · el mismo prompt otra vez → no se vuelve a llamar a Creem;
-//   · lo que no genera (`creditos`) no pasa por Creem;
-//   · un trabajo que genera sin `prompt` al tope no se encola;
-//   · la clave que viaja es la de la PLATAFORMA (ws 9), nunca la del negocio que genera.
+// Corre `encolar` y `moderarPrompt` REALES (lib/flow-cola.ts y lib/creem-moderacion.ts, con `server-only`, en un node aparte
+// con `--conditions=react-server`) contra un PostgREST de mentira y un Creem de mentira, y le contesta al test con un JSON:
+//   · HOY (5/11/2026, sin proveedor): un pedido de imagen o de video se encola aunque la plataforma tenga una clave de Creem
+//     vieja guardada, y no sale ningún pedido a Creem, ni una fila de uso, ni un error de la app, ni un ticket;
+//   · lo que no genera (`creditos`) no pasa por la moderación, y un trabajo que genera sin `prompt` al tope no se encola;
+//   · con un moderador enchufado (el molde de Creem, pasado a mano) y SIN su clave: se genera en silencio;
+//   · con su clave: deny frena, allow pasa, el mismo prompt no se vuelve a pagar, el proveedor caído deja generar, la clave
+//     que viaja es la de la PLATAFORMA (ws 9) y cada llamada queda medida a su nombre, sin el prompt;
+//   · con la clave rechazada (401): se genera, y queda como error de la app (es nuestro).
 // =============================================================================
 
 import { crearPostgrest } from './_postgrest-de-mentira';
@@ -24,7 +23,7 @@ delete process.env.CREEM_API_KEY;
 
 let n = 0;
 const pg = crearPostgrest({
-  tablas: ['credenciales', 'workspaces', 'flow_trabajos', 'anthropic_usage', 'errores_app', 'tickets'],
+  tablas: ['credenciales', 'workspaces', 'flow_trabajos', 'anthropic_usage', 'errores_app', 'tickets', 'ticket_eventos', 'app_settings'],
   defaults: (_t, f) => ({ id: ++n, created_at: new Date().toISOString(), ...f }),
 });
 
@@ -55,49 +54,64 @@ async function main() {
   const { cifrarSecreto } = await import('../lib/credenciales');
   const { runWithWorkspace } = await import('../lib/workspace');
   const { encolar } = await import('../lib/flow-cola');
+  const { moderarPrompt } = await import('../lib/creem-moderacion');
+  const { CREEM } = await import('../lib/creem-moderacion-reglas');
   pg.db.workspaces.push({ id: 9, capa: 'superadmin', nombre: 'MaKo' }, { id: 13, capa: 'completo', nombre: 'Un negocio' });
+  const filaPlataforma = { workspace_id: 9, clave: 'CREEM_API_KEY', valor_enc: cifrarSecreto(CLAVE_PLATAFORMA, 9, 'CREEM_API_KEY'), servicio: 'creem' };
   pg.db.credenciales.push(
-    { workspace_id: 9, clave: 'CREEM_API_KEY', valor_enc: cifrarSecreto(CLAVE_PLATAFORMA, 9, 'CREEM_API_KEY'), servicio: 'creem' },
-    // El negocio que genera también tiene SU Creem (para cobrarles a sus clientes): no es la que modera.
+    // Una clave de Creem VIEJA de la plataforma, por si quedó guardada: hoy no se lee.
+    filaPlataforma,
+    // El negocio que genera también tiene SU Creem (para cobrarles a sus clientes): nunca es la que modera.
     { workspace_id: 13, clave: 'CREEM_API_KEY', valor_enc: cifrarSecreto(CLAVE_DEL_NEGOCIO, 13, 'CREEM_API_KEY'), servicio: 'creem' },
   );
   const en13 = <T,>(fn: () => Promise<T>) => runWithWorkspace(13, fn);
   const trabajos = () => pg.db.flow_trabajos.length;
-  const usos = () => pg.db.anthropic_usage.map((f) => ({ ws: f.workspace_id, provider: f.provider, feature: f.feature, motivo: String(f.motivo ?? '') }));
+  const cuenta = () => ({ llamadas: pedidosACreem.length, usos: pg.db.anthropic_usage.length, errores: pg.db.errores_app.length, tickets: pg.db.tickets.length });
   const out: Record<string, unknown> = {};
 
+  // ── HOY: sin proveedor. Creem contestaría deny, y no importa: no se le pregunta. ──
   respuesta = okCreem('deny');
-  const deny = await en13(() => encolar('generar_imagen', { motor: 'interfaz', prompt: 'un prompt que Creem niega', referencias: [] }));
-  out.deny = { r: deny, trabajos: trabajos(), creem: pedidosACreem.length };
-
-  respuesta = okCreem('flag');
-  const flag = await en13(() => encolar('generar_clip', { motor: 'interfaz', prompt: 'un prompt que Creem marca', referencias: ['m1'] }));
-  out.flag = { r: flag, trabajos: trabajos() };
-
-  respuesta = okCreem('allow');
-  const allow = await en13(() => encolar('generar_clip', { motor: 'interfaz', prompt: 'una toma de un auto rojo al atardecer', referencias: ['m1'] }));
-  out.allow = { r: allow, trabajos: trabajos(), workspace: pg.db.flow_trabajos.at(-1)?.workspace_id };
-
-  const antes = pedidosACreem.length;
-  const otraVez = await en13(() => encolar('generar_clip', { motor: 'interfaz', prompt: 'una toma de un auto rojo al atardecer', referencias: ['m1'] }));
-  out.recordado = { r: typeof otraVez, llamadas: pedidosACreem.length - antes, trabajos: trabajos() };
-
-  respuesta = { status: 500, body: { error: 'caído', eco: 'una casa en la playa' } };
-  const caido = await en13(() => encolar('generar_imagen', { motor: 'interfaz', prompt: 'una casa en la playa', referencias: [] }));
-  out.caido = { r: typeof caido, trabajos: trabajos() };
+  const imagen = await en13(() => encolar('generar_imagen', { motor: 'interfaz', prompt: 'un prompt que un moderador negaría', referencias: [] }));
+  const clip = await en13(() => encolar('generar_clip', { motor: 'interfaz', prompt: 'una toma de un auto rojo al atardecer', referencias: ['m1'] }));
+  out.hoy = { imagen: typeof imagen === 'number' ? 'number' : imagen, clip: typeof clip === 'number' ? 'number' : clip, trabajos: trabajos(), ...cuenta() };
 
   const antesCreditos = pedidosACreem.length;
   await en13(() => encolar('creditos', { path: '/v1/credits', body: {} }));
-  out.creditos = { llamadas: pedidosACreem.length - antesCreditos, trabajos: trabajos() };
+  out.creditos = { llamadas: pedidosACreem.length - antesCreditos };
 
   const antesSinPrompt = trabajos();
   const sinPrompt = await en13(() => encolar('generar_imagen', { path: '/v1/x', parches: [] }));
   out.sinPrompt = { r: sinPrompt, nuevos: trabajos() - antesSinPrompt };
 
+  // ── Con un moderador enchufado (el molde de Creem) y SIN la clave de la plataforma. ──
+  pg.db.credenciales.splice(pg.db.credenciales.indexOf(filaPlataforma), 1);
+  const a0 = cuenta();
+  const vSin = await en13(() => moderarPrompt('lo que se niega, sin clave', 'generar_imagen', { proveedor: CREEM }));
+  const a1 = cuenta();
+  out.sinClave = { v: vSin, llamadas: a1.llamadas - a0.llamadas, usos: a1.usos - a0.usos, errores: a1.errores - a0.errores, tickets: a1.tickets - a0.tickets };
+
+  // ── Con la clave de la plataforma de vuelta. ──
+  pg.db.credenciales.push(filaPlataforma);
+  const conClave: Record<string, unknown> = {};
+  respuesta = okCreem('deny');
+  conClave.deny = await en13(() => moderarPrompt('lo que se niega', 'generar_imagen', { proveedor: CREEM }));
+  respuesta = okCreem('allow');
+  conClave.allow = await en13(() => moderarPrompt('una toma de un auto rojo al atardecer', 'generar_imagen', { proveedor: CREEM }));
+  const antes = pedidosACreem.length;
+  await en13(() => moderarPrompt('una toma de un auto rojo al atardecer', 'generar_imagen', { proveedor: CREEM }));
+  conClave.recordado = { llamadas: pedidosACreem.length - antes };
+  respuesta = { status: 500, body: { error: 'caído', eco: 'una casa en la playa' } };
+  conClave.caido = await en13(() => moderarPrompt('una casa en la playa', 'generar_imagen', { proveedor: CREEM }));
+  out.conClave = conClave;
   out.claves = [...new Set(pedidosACreem.map((p) => p.clave === CLAVE_PLATAFORMA ? 'plataforma' : p.clave === CLAVE_DEL_NEGOCIO ? 'negocio' : 'otra'))];
-  out.hosts = [...new Set(pedidosACreem.map((p) => new URL(p.url).host + new URL(p.url).pathname))];
-  out.cuerpo = pedidosACreem[0]?.cuerpo ?? null;
-  out.usos = usos();
+  out.usos = pg.db.anthropic_usage.map((f) => ({ ws: f.workspace_id, provider: f.provider, feature: f.feature, motivo: String(f.motivo ?? '') }));
+
+  // ── La clave rechazada: es nuestra. ──
+  respuesta = { status: 401, body: { message: 'bad key' } };
+  const e0 = pg.db.errores_app.length;
+  const vRech = await en13(() => moderarPrompt('otro pedido', 'generar_imagen', { proveedor: CREEM }));
+  out.rechazada = { v: vRech, errores: pg.db.errores_app.length - e0 };
+
   out.sinMock = [...pg.sinMock];
   process.stdout.write(JSON.stringify(out));
 }

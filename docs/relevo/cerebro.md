@@ -1,5 +1,31 @@
 # Relevo del Cerebro
 
+## 5/11/2026, ~23:30 UTC (20:30 ART): Creem afuera, consulta a Whop, números de migración
+
+**Creem rechazó la tienda, definitivo** (5/11 19:30). Desconectada de la plataforma: queda sólo Mercado Pago. No se arma otra cuenta con Leandro; el porqué está en la memoria `creem-alta-leandro`. La limpieza del sitio y de la moderación va en `punta/creem-fuera`, todavía afuera.
+
+**Whop:** la consulta salió el 5/11 a las 23:06 UTC a `support@whop.com`, desde `equipo@hola-mako.com`, y Resend la da entregada (`01a1adf6-6ab6-7772-8491-edd8e71a5540`). Sin respuesta todavía. Si dicen que sí, Martín crea la cuenta y el formulario se completa con datos verdaderos. Respaldo: dLocal Go, con el sí del contador. Comparación en `docs/proveedores-de-cobro.md`. A terceros, MaKo se describe tal cual y en tono normal: nunca como si hiciera algo ilegal.
+
+**Reparto de números de migración, para que no vuelvan a chocar:**
+
+| Número | Quién | Estado |
+|---|---|---|
+| 0394_decisiones_ignoradas, 0397_recibos, 0398_actividad_uso | | aplicadas |
+| 0396_wa_mensajes_automatico | `punta/codigo-primer-contacto` | sin aplicar |
+| 0399_recibos_negocio, 0400_comprobantes_leidos | `punta/automations-pagos` | sin aplicar |
+| 0401_suscripcion_movimientos | `punta/suscripciones-ficha` | sin aplicar |
+| 0402 | `punta/agencia-cobro` | sin aplicar |
+
+Se lo mandé a los tres chats y los mensajes a la nube no confirman lectura: **antes de aplicar, mirar el nombre real del archivo en main.**
+
+**Admin está en producción.** `vistaDeIngresos` da lo esperado por `docs/relevo/nube-admin.md`: MRR US$340, cobrado US$340, 3 pagando, por cobrar Florencia 18/11, Código 21/11 y Leila 26/11. **Faltan los US$238 de noviembre de Código:** se cargan UNA vez, como dice `docs/relevo/nube-suscripciones.md` paso 2, cuando esa punta esté en producción. Hasta entonces Revenue subestima lo cobrado (340 contra 578 reales) y le pone a Código el próximo cobro el 21/11, cuando es el 5/12. Mirar las pantallas con sesión queda pendiente: en el navegador de la app pide el segundo paso de Martín.
+
+**Cobro de Código:** `punta/agencia-cobro` sigue afuera, sin subir desde las 12:33 ART, y el chat está quieto. El lunes 9/11 vence Pablo. Si no entró, los controles programados avisan y se suspende a mano como hasta ahora.
+
+**Extensión y Meta, sin cambios:** la extensión espera que Martín entre en el Chrome aparte (`scripts/cdp-tienda.mjs`); los permisos de Meta esperan el video (`C:/dev/cerebro-herramientas/revisiones-meta-google.md`).
+
+---
+
 ## 5/11/2026, ~20:15 UTC (17:15 ART): recibos y Creem
 
 **Salieron los recibos N.º 0001 (octubre) y N.º 0002 (noviembre)** a Código, por WhatsApp y por correo. Entregados. El próximo es el 0003. Comprobantes, PDF y `registro.json` en `C:/dev/cerebro-herramientas/cobros/codigo-inmobiliario/`, para cargarlos cuando exista el registro.
