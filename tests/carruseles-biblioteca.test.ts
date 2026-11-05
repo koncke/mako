@@ -51,19 +51,22 @@ test('los ids de la biblioteca van en negativo y vuelven a su fila; el cero y lo
 test('entran como carruseles del explorador: de la biblioteca, con su creador, y el outlier sólo de la LISTA', () => {
   const lista = cuenta({ id: 1 });
   const deTema = cuenta({ id: 2, instagram: 'cafebrasa', nombre: 'Café Brasa', fuente: 'tema' });
+  // Hacen falta 7 publicaciones suyas para comparar (lib/multiplo-rendimiento.ts): 7 de 105 (me gusta + comentarios) y una de 525.
   const ps = [
-    pieza({ cuenta_id: 1, megusta: 100 }), pieza({ cuenta_id: 1, megusta: 100 }), pieza({ cuenta_id: 1, megusta: 500, formato: 'tutorial', cierre: 'guardar' }),
-    pieza({ cuenta_id: 2, megusta: 100 }), pieza({ cuenta_id: 2, megusta: 100 }), pieza({ cuenta_id: 2, megusta: 900 }),
+    ...Array.from({ length: 7 }, () => pieza({ cuenta_id: 1, megusta: 100 })), pieza({ cuenta_id: 1, megusta: 520, formato: 'tutorial', cierre: 'guardar' }),
+    ...Array.from({ length: 7 }, () => pieza({ cuenta_id: 2, megusta: 100 })), pieza({ cuenta_id: 2, megusta: 900 }),
   ];
   const cs = carruselesDeBiblioteca(ps, [lista, deTema], AHORA);
-  assert.equal(cs.length, 6);
+  assert.equal(cs.length, 16);
   assert.ok(cs.every((c) => c.origen === 'biblioteca' && c.id < 0 && c.competidorId < 0), 'todo de la biblioteca, en negativo');
   const de = (fila: number) => cs.find((c) => c.id === idDeBiblioteca(fila))!;
-  assert.equal(de(ps[2].id).outlier, 5, 'de la lista: el outlier de Spy contra la mediana de SU cuenta');
-  assert.equal(de(ps[2].id).creador.usuario, 'estudio.lumen');
-  assert.equal(de(ps[2].id).formato, 'tutorial', 'el tipo guardado al leerla (el texto vence a los 30 días)');
-  assert.equal(de(ps[2].id).cierre, 'guardar');
-  assert.equal(de(ps[5].id).outlier, null, 'de un tema no se leyó su cuenta: lo que no se midió no se dice');
+  assert.equal(de(ps[7].id).outlier, 5, 'de la lista: el de toda la app, contra las publicaciones de SU cuenta');
+  assert.equal(de(ps[7].id).creador.usuario, 'estudio.lumen');
+  assert.equal(de(ps[7].id).formato, 'tutorial', 'el tipo guardado al leerla (el texto vence a los 30 días)');
+  assert.equal(de(ps[7].id).cierre, 'guardar');
+  assert.equal(de(ps[15].id).outlier, null, 'de un tema no se leyó su cuenta: lo que no se midió no se dice');
+  const m15 = de(ps[15].id).multiplo;
+  assert.equal(m15 && m15.veces == null ? m15.motivo : null, 'sin-cuenta', 'y el chip dice por qué');
 });
 
 test('un creador que salió no aparece en ningún lado, haya llegado por la lista o por un tema', () => {

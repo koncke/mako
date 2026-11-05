@@ -281,4 +281,35 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain?area=voz&vista=marca',
   },
+  {
+    fecha: '5 nov', hora: '12:30', chat: 'Múltiplo (nube)', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'El «3,7×» de Top Carousels en Spy y en Carruseles, igual en toda la app',
+    pedido: 'Martín, dueño de MaKo, pidió el 5/11: en Top Carousels cada carrusel tiene un botón «3.7×» o «1.4×», igual que en vidIQ, y quiere lo mismo en Competitors Spy y en la sección de carruseles de Image, con reels, carruseles, videos de YouTube y anuncios. — Por el Cerebro: que cada pieza muestre su múltiplo calculado de la misma forma en toda la app, en UNA función pura con test, con la fórmula de su llms.txt: lo que hizo la pieza ÷ la mediana de hasta 20 piezas del mismo creador y formato, las más cercanas en el tiempo; al menos 7 para comparar; sin publicidad pagada, sorteos, comentarios apagados ni lo de menos de una semana. Carruseles e imágenes: me gusta + comentarios; reels y YouTube: vistas, cortos y largos aparte; anuncios: los días activos frente a la mediana del anunciante, con su propio rótulo. El chip en la esquina, lo fuerte resaltado, el tooltip con de qué mediana sale; filtrar por mínimo y ordenar en Spy; en la API y en el chat.',
+    puntos: [
+      'Llegó por el Cerebro; no se tocó topcarousels.com: la fórmula está en su texto público para agentes.',
+      'Reemplaza a las dos cuentas que había (contra la mediana de toda la cuenta, con 3 piezas).',
+    ],
+  },
+  {
+    fecha: '5 nov', hora: '13:20', chat: 'Múltiplo (nube)', sesion: 'cli_cea1ca1d-9db2-5b0e-bc67-a60994a6e527', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El «3,7×» en cada pieza de Spy y de Carruseles',
+    puntos: [
+      'Cada pieza de Competitors Spy lleva su «3,7×» en la esquina: cuántas veces lo que suele hacer esa cuenta, frente a sus publicaciones del mismo formato más cercanas en el tiempo. Lo fuerte (2× o más) va resaltado y el título dice de qué mediana sale.',
+      'En Spy se filtra por mínimo (1×+, 2×+, 3×+…) y se ordena por «Mejor rendimiento»; el detalle de una pieza lo dice, o dice por qué no hay número («Sin datos suficientes», «Menos de una semana», «Sorteo»…).',
+      'Carruseles de Image y la biblioteca de ejemplos usan el mismo número; los que llegaron por un tema siguen sin número, y el chip dice por qué.',
+      'Los anuncios dicen «3× activo»: los días que lleva al aire frente a sus otros anuncios. Es una señal, no un resultado, y lo dice.',
+      'YouTube queda listo y apagado hasta el trámite con YouTube (la enmienda III.L): antes «Lo que mejor le fue» lo calculaba sin mirarlo.',
+      'MaKo lo dice en el chat: «Lo que mejor le fue» y el número de cada pieza en la ficha de un competidor, y cada carrusel trae de dónde sale su número.',
+    ],
+    archivos: [
+      'lib/multiplo-rendimiento.ts — la única cuenta: formato, métrica, vecinas en el tiempo, exclusiones y cómo se dice',
+      'lib/spy-detalle.ts — «Lo que mejor le fue» sobre esa cuenta (se borró `vecesSuMediana`)',
+      'lib/spy-vista.ts — el orden «Mejor rendimiento» y el filtro por mínimo',
+      'app/competitor-spy/TarjetaPieza.tsx, DetallePieza.tsx, MejoresPiezas.tsx, SpyApp.tsx — el chip, el detalle y la barra',
+      'lib/carruseles/explorar.ts y biblioteca.ts — el outlier del explorador, el mismo número',
+      'lib/api-mako/areas/spy.run.ts e imagen.run.ts — lo que dice MaKo',
+      'tests/multiplo-rendimiento.test.ts — 12 tests, probado rompiéndolo',
+    ],
+    revisar: '/competitor-spy',
+  },
 ];
