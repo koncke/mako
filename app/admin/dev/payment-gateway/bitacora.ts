@@ -25,7 +25,7 @@ export const PARTES: Parte[] = [
   { titulo: 'El primer cobro real, de punta a punta', detalle: 'Aplicar la migración 0255 y conectar la cuenta de MaKo en /integraciones del workspace de la plataforma', estado: 'cola' },
   { titulo: 'Revisar /terminos y /reembolsos', detalle: 'Quedaron en BORRADOR de mínima: plazo de respuesta, garantía del grupal y cancelar sin escribir los decide Martín', estado: 'cola' },
   { titulo: '«Pagos» en el CRON de Automations', detalle: 'Botón propio (grilla 4+3) con aprobado · rechazado · reembolsado · suscripción cancelada, y el aviso al dueño. Fase 2, después del commit de Automations', estado: 'cola' },
-  { titulo: 'El recibo de cada pago, por correo y WhatsApp', detalle: 'Libro con número (mig 0397) · PDF determinista · correo de MaKo con el PDF · al grupo del negocio · la red del cron · devolución y contracargo · «Cargar pago» para Binance · Customers › Billing › Recibos. Falta aplicar la 0397 y cargar 0001 y 0002', estado: 'sigue' },
+  { titulo: 'El recibo de cada pago, por correo y WhatsApp', detalle: 'Libro con número (mig 0397) · PDF determinista · correo de MaKo con el PDF · al grupo del negocio · la red del cron · devolución y contracargo · «Cargar pago» para Binance · Admin › Billing › Recibos. Falta aplicar la 0397 y cargar 0001 y 0002', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -44,7 +44,7 @@ export const BITACORA: Hito[] = [
       '**El número lo da la base** (`emitir_recibo`, mig 0397): candado, «ya estaba» sólo si TODOS los pagos ya están en ese recibo, totales por moneda calculados ahí. Probada en un Postgres de verdad (scripts/probar-0397-pglite.mjs).',
       '**El monto es lo que cobró la pasarela, releído** (`cobradoEnLaPasarela`): un cupón o el 50% del primer mes ya no imprimen el precio de lista.',
       '**Sale al final del pago**, después del aviso «Entró un pago»: correo de MaKo con el PDF (uno por persona, con su clave de Resend) y al grupo del negocio, sin el monto en el pie.',
-      '**Lo que no es de la pasarela** (Binance) se carga en Customers › Billing › Recibos, con la foto del comprobante. Es un recibo de pago: dice que no es una factura fiscal.',
+      '**Lo que no es de la pasarela** (Binance) se carga en Admin › Billing › Recibos, con la foto del comprobante. Es un recibo de pago: dice que no es una factura fiscal.',
     ],
     archivos: [
       'supabase/migrations/0397_recibos.sql — el libro, `emitir_recibo` y `recibos_que_faltan`',
@@ -54,7 +54,7 @@ export const BITACORA: Hito[] = [
       'app/admin/cobros/RecibosMako.tsx y CargarPago.tsx — el registro en SuperAdmin',
       'scripts/recibos-cargar-codigo.mts — carga 0001 y 0002 sin mandar nada',
     ],
-    revisar: '/customers?tab=billing',
+    revisar: '/admin?tab=billing',
   },
   {
     fecha: '11 oct', hora: '—', chat: '—', cuenta: 'claude3',

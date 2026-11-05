@@ -259,7 +259,7 @@ export async function reciboDelPago(c: Cobro, p: {
     historial: [{ at: new Date().toISOString(), que: `Emitido por el pago ${p.proveedorPagoId}${p.devuelto ? ', ya devuelto: no se manda' : ''}` }],
   }, plataforma);
   if (!r.ok) { if (!r.faltaLaMigracion) console.error(`[recibos] cobro ${c.id}: ${r.error}`); return null; }
-  if (sinDestino && !r.yaEstaba && !p.devuelto) await avisarAlEquipo(`El recibo N.º ${String(r.numero).padStart(4, '0')} no tiene a quién llegar`, `Cobro ${c.id}: ${d.motivo}. Está en Customers › Billing › Recibos.`);
+  if (sinDestino && !r.yaEstaba && !p.devuelto) await avisarAlEquipo(`El recibo N.º ${String(r.numero).padStart(4, '0')} no tiene a quién llegar`, `Cobro ${c.id}: ${d.motivo}. Está en Admin › Billing › Recibos.`);
   return { id: r.id, numero: r.numero, yaEstaba: r.yaEstaba };
 }
 
@@ -411,7 +411,7 @@ async function despacharCorreo(r: ReciboFila, pagos: readonly ReciboPagoFila[], 
   }
   if (!destinatarios.length) {
     if (await casRecibo(r, { correo_estado: 'sin_destino', historial: historial(r, 'Correo: no hay a quién mandarlo') })) {
-      await avisarAlEquipo(`El recibo N.º ${String(r.numero).padStart(4, '0')} no tiene a quién llegar`, `Lo que pagó ${r.a_nombre} no tiene un correo de destino. Está en Customers › Billing › Recibos: usa «Reenviar» con otro correo.`);
+      await avisarAlEquipo(`El recibo N.º ${String(r.numero).padStart(4, '0')} no tiene a quién llegar`, `Lo que pagó ${r.a_nombre} no tiene un correo de destino. Está en Admin › Billing › Recibos: usa «Reenviar» con otro correo.`);
     }
     return 'sin_destino';
   }
@@ -445,7 +445,7 @@ async function despacharCorreo(r: ReciboFila, pagos: readonly ReciboPagoFila[], 
   const error = errores.join(' · ').slice(0, 300);
   await casRecibo(ahora, { correo_estado: 'fallo', correo_ids: ids, correo_error: error, historial: historial(ahora, `Correo falló (intento ${ahora.correo_intentos})`) });
   if (ahora.correo_intentos >= INTENTOS_CORREO) {
-    await avisarAlEquipo(`El recibo N.º ${String(r.numero).padStart(4, '0')} no salió por correo`, `Falló ${INTENTOS_CORREO} veces. Último error: ${error}. Está en Customers › Billing › Recibos.`);
+    await avisarAlEquipo(`El recibo N.º ${String(r.numero).padStart(4, '0')} no salió por correo`, `Falló ${INTENTOS_CORREO} veces. Último error: ${error}. Está en Admin › Billing › Recibos.`);
   }
   return 'fallo';
 }
@@ -894,7 +894,7 @@ export async function marcarReboteDeRecibo(emailId: string, que: string): Promis
     if (!f) return false;
     if (f.correo_estado !== 'reboto') {
       await db().from('recibos').update({ correo_estado: 'reboto', correo_error: `Resend: ${que}`.slice(0, 300), historial: [...(f.historial ?? []), { at: new Date().toISOString(), que: `Correo: ${que}` }].slice(-50), updated_at: new Date().toISOString() }).eq('id', f.id);
-      await avisarAlEquipo(`El recibo N.º ${String(f.numero).padStart(4, '0')} rebotó`, `El correo del recibo de ${f.a_nombre} rebotó (${que}). Está en Customers › Billing › Recibos: usa «Reenviar» con otro correo.`);
+      await avisarAlEquipo(`El recibo N.º ${String(f.numero).padStart(4, '0')} rebotó`, `El correo del recibo de ${f.a_nombre} rebotó (${que}). Está en Admin › Billing › Recibos: usa «Reenviar» con otro correo.`);
     }
     return true;
   } catch (e) {

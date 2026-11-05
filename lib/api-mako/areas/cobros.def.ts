@@ -361,7 +361,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_recibos', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver los recibos de MaKo',
-    descripcion: 'Sólo para la plataforma: el libro de recibos (Customers › Billing › Recibos). De cada uno, el N.º, a nombre de quién, lo recibido por moneda, el medio y la orden, la fecha, el estado (emitido, devuelto, contracargo, anulado) y cómo salió por correo y por WhatsApp. Con filtros de mes, cuenta, medio, estado o sólo los que no salieron.',
+    descripcion: 'Sólo para la plataforma: el libro de recibos (Admin › Billing › Recibos). De cada uno, el N.º, a nombre de quién, lo recibido por moneda, el medio y la orden, la fecha, el estado (emitido, devuelto, contracargo, anulado) y cómo salió por correo y por WhatsApp. Con filtros de mes, cuenta, medio, estado o sólo los que no salieron.',
     parametros: [
       { nombre: 'mes', rotulo: 'Mes', tipo: 'string', max: 7, descripcion: 'AAAA-MM: sólo los pagados ese mes.' },
       { nombre: 'cuenta', rotulo: 'Cuenta', tipo: 'number', entero: true, minimo: 1, descripcion: 'el número de la cuenta (ws) a la que le llega.' },

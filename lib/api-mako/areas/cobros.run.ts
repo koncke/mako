@@ -895,7 +895,7 @@ export const RUNNERS: Runners = {
       const nro = String(r.numero).padStart(4, '0');
       return {
         ok: true, ...(r.yaEstaba ? { yaEstaba: true } : {}),
-        resumen: r.yaEstaba ? `Ya estaba: recibo N.º ${nro}.` : `Listo: recibo N.º ${nro}${p.enviar ? ', enviado' : ', sin enviar'}. Está en Customers › Billing › Recibos.${r.aviso ? ` ${r.aviso}` : ''}`,
+        resumen: r.yaEstaba ? `Ya estaba: recibo N.º ${nro}.` : `Listo: recibo N.º ${nro}${p.enviar ? ', enviado' : ', sin enviar'}. Está en Admin › Billing › Recibos.${r.aviso ? ` ${r.aviso}` : ''}`,
         datos: { reciboId: r.id, numero: r.numero },
       };
     }),
