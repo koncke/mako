@@ -91,6 +91,11 @@ export type PropsPantallaCrear = {
   chat?: (volver: ReactNode) => ReactNode;
   /** Lo que la pantalla tiene abierto, para el Cerebro (el chip «desde Video › Mi reel»). */
   entidad?: EntidadChat | null;
+  /**
+   * Lo que MaKo dice PRIMERO en la tarjeta del Cerebro (5/11/2026, docs/mako-iniciativa/plan.md T4): la apertura de la tab
+   * (`<AperturaMako>` de app/_chat/AperturaMako.tsx), que `ConversacionCerebro` ya sabe dibujar. Sin esto, la del Ops Center.
+   */
+  apertura?: ReactNode;
   /** «Nuevo …» desde afuera (un `?nuevo=` en la URL): la pantalla arranca mostrando las plantillas. */
   creandoInicial?: boolean;
   /** Un EDITOR (Video, Image): con una pieza abierta, la tarjeta se puede plegar a una barra fina para darle el ancho. */
@@ -212,7 +217,7 @@ export function PantallaCrear(p: PropsPantallaCrear) {
             onElegido={() => { setCreando(false); setCara('chat'); setMovil('pieza'); }} />
         ) : !conCerebro && p.chat ? p.chat(volver) : (
           // «MaKo» en la cabecera, como el chat propio de cada tab (el Image Editor, Offer): adentro es el Cerebro, que reparte.
-          <ConversacionCerebro tab={tab} titulo="MaKo" antes={volver} entidad={p.entidad ?? null} pedido={pedido} onMandado={() => setPedido(null)} />
+          <ConversacionCerebro tab={tab} titulo="MaKo" antes={volver} apertura={p.apertura ?? null} entidad={p.entidad ?? null} pedido={pedido} onMandado={() => setPedido(null)} />
         )}
         </PlegarChatCtx.Provider>
       </section>
