@@ -81,7 +81,7 @@ let corrida: { r: ReturnType<typeof spawnSync>; escenas: Record<string, any> } |
 function hijo() {
   if (!corrida) {
     const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', join(RAIZ, 'tests/_ops-ignorar-hijo.ts')], {
-      cwd: RAIZ, encoding: 'utf8', timeout: 240_000, env: { ...process.env, NODE_ENV: 'test' },
+      cwd: RAIZ, encoding: 'utf8', timeout: 240_000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, NODE_ENV: 'test' },
     });
     assert.equal(r.status, 0, `el hijo falló: ${String(r.stderr).slice(-2000)}`);
     const escenas = Object.fromEntries(String(r.stdout).split('\n').filter((l) => l.startsWith('@@IGNORAR@@'))
