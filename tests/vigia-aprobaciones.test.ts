@@ -13,14 +13,21 @@
 //   · la bajada creída a la primera (`vistas < 1`)                                → 1 rojo.
 //   · la primera lectura avisando también un aprobado viejo                       → 3 rojos.
 // La rotura se corrió con scripts de un solo uso que restauran el archivo de memoria, nunca con git.
+//
+// La lista de la pestaña Approvals (5/11/2026; base 16 pases, 0 fallos):
+//   · sin ordenar por prioridad (sólo el orden del inventario)                    → 2 rojos.
+//   · `viejo` siempre falso                                                      → 1 rojo.
+//   · lo que falta sin juntar (las tres claves de Apple, tres veces)              → 1 rojo.
+//   · «qué hacer» en toda fila, no sólo en lo que pide algo                       → 1 rojo.
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ITEMS, leerGuardado, listaDeAprobaciones, mensajeDeAvisos, textoDeLaLista, vuelta, SIN_LEER_AVISA_MS,
-  type Guardado, type Lectura,
+  ITEMS, leerGuardado, listaDeAprobaciones, mensajeDeAvisos, textoDeLaLista, vuelta, SIN_LEER_AVISA_MS, VIEJO_MS, itemPorId,
+  faltaEnPalabras, FALTA_EN_PALABRAS, type Guardado, type Lectura,
 } from '../lib/vigia-aprobaciones';
+import { DEFS as INTEGRACIONES } from '../lib/integraciones-catalogo';
 import { LECTORES } from '../lib/vigia-aprobaciones-fuentes';
 import { marcasDeVoseo } from '../lib/voseo';
 
@@ -169,6 +176,46 @@ test('la lista: lo que espera primero, y lo que se mira a mano nunca figura apro
   assert.match(filas.find((f) => f.id === 'app-store')!.situacion, /^En revisión \(lo último que leí; ahora no puedo/);
   assert.match(textoDeLaLista(filas, g.ultimaVuelta), /Esperando \(\d+\):/);
   assert.match(listaDeAprobaciones(null)[0].situacion, /Todavía no lo revisé|Hay que mirarlo a mano/);
+});
+
+test('Approvals: lo que pide algo va primero, lo aprobado al final, y dentro de cada uno el orden del inventario', () => {
+  const g = arrancado({
+    'resend-dominios': { tipo: 'leido', fuente: 'x', estado: 'aprobado' },
+    'chrome-web-store': { tipo: 'leido', fuente: 'x', estado: 'piden_algo', detalle: 'Google mandó una advertencia' },
+    'play-produccion': { tipo: 'leido', fuente: 'x', estado: 'rechazado', version: '3' },
+    'app-store': { tipo: 'leido', fuente: 'x', estado: 'sin_enviar' },
+  });
+  const filas = listaDeAprobaciones(g, T0);
+  assert.deepEqual(filas.slice(0, 2).map((f) => f.id), ['play-produccion', 'chrome-web-store'], 'los dos que piden algo, en el orden del inventario');
+  assert.deepEqual(filas.slice(0, 2).map((f) => [f.estadoCorto, f.tono]), [['Rechazado', 'bad'], ['Piden algo', 'warn']]);
+  assert.equal(filas[0].queHacer, itemPorId('play-produccion')!.queHacer, 'lo que pide algo dice qué hacer');
+  assert.equal(filas.find((f) => f.id === 'app-store')!.queHacer, null, 'lo demás no');
+  assert.equal(filas[filas.length - 1].id, 'resend-dominios', 'lo aprobado va al final');
+  const prioridades = filas.map((f) => f.prioridad);
+  assert.deepEqual(prioridades, [...prioridades].sort((a, b) => a - b), 'ordenada por prioridad');
+});
+
+test('Approvals: una fila sin lectura buena hace más de un día se marca vieja; la de hoy no', () => {
+  const g = arrancado({ 'app-store': { tipo: 'leido', fuente: 'asc-api', estado: 'en_revision' } });
+  assert.equal(listaDeAprobaciones(g, T0 + 23 * HORA).find((f) => f.id === 'app-store')!.viejo, false);
+  const tarde = listaDeAprobaciones(g, T0 + VIEJO_MS + HORA).find((f) => f.id === 'app-store')!;
+  assert.equal(tarde.viejo, true);
+  assert.equal(tarde.estadoCorto, 'En revisión', 'viejo no cambia el estado: lo dice al lado');
+  assert.equal(listaDeAprobaciones(null, T0).every((f) => f.viejo === false), true, 'lo que nunca se leyó no está viejo: está sin leer');
+});
+
+test('Approvals: lo que falta se dice en palabras, sin repetir, con la tarjeta donde se carga', () => {
+  assert.deepEqual(faltaEnPalabras(['ASC_ISSUER_ID', 'ASC_KEY_ID', 'ASC_P8']), [{ texto: 'La clave de App Store Connect', integracion: 'app-store-connect' }]);
+  assert.deepEqual(faltaEnPalabras(['TIENDAS_GOOGLE_CUENTA_SERVICIO', 'CWS_PUBLISHER_ID']).map((f) => f.integracion), ['tiendas-google', 'tiendas-google']);
+  assert.deepEqual(faltaEnPalabras(['la clave de Resend que administra dominios (variable de Vercel)']),
+    [{ texto: 'La clave de Resend que administra dominios (variable de Vercel)', integracion: null }], 'lo que ya viene en palabras pasa tal cual');
+  const g = vuelta(null, lecturas({ 'play-prueba-cerrada': { tipo: 'sin_credencial', faltan: ['TIENDAS_GOOGLE_CUENTA_SERVICIO'] } }), T0).nuevo;
+  const fila = listaDeAprobaciones(g, T0).find((f) => f.id === 'play-prueba-cerrada')!;
+  assert.deepEqual(fila.falta, [{ texto: 'La cuenta de servicio de Google', integracion: 'tiendas-google' }]);
+  assert.equal(fila.prioridad, 1, 'lo que no se puede leer va antes que lo que está en revisión');
+  // Cada tarjeta nombrada existe en el catálogo de Integraciones: un botón «Cargarla» que abre una tarjeta que no existe no hace nada.
+  const tarjetas = new Set(INTEGRACIONES.map((i) => i.key));
+  for (const f of Object.values(FALTA_EN_PALABRAS)) if (f.integracion) assert.ok(tarjetas.has(f.integracion), f.integracion);
 });
 
 test('el inventario y los lectores son los mismos: ninguno sin el otro', () => {

@@ -145,7 +145,7 @@ export const ITEMS: readonly ItemVigia[] = [
     id: 'creem-tienda',
     nombre: 'Creem: la tienda de MaKo (cobros fuera de Argentina)',
     link: 'https://www.creem.io/dashboard/balances/accounts',
-    queHacer: 'Mira el cartel de Balance › Payout Account y contesta lo que pida Creem.',
+    queHacer: 'Mira el cartel de «Payout Account», en «Balance», y contesta lo que pida Creem.',
     aMano: true,
     nota: 'Enviada el 5/11/2026 a nombre de Leandro; su identidad ya está verificada. Falta la cuenta de retiro. Su API no dice el estado: Creem avisa por mail a equipo@hola-mako.com. Si rechaza, se pasa a otro proveedor.',
   },
@@ -379,11 +379,71 @@ export const ROTULO_ESTADO: Record<Estado, string> = {
   sin_publicar: 'Todavía no publicado',
 };
 
+/** El color del punto de la pastilla (los tonos de app/_ui/tokens.ts). El color nunca va solo: lo acompaña `estadoCorto`. */
+export type TonoFila = 'bad' | 'warn' | 'info' | 'neutral' | 'good';
+
+/** Qué falta para leer algo solo, en palabras, y la tarjeta de Integraciones donde se carga (si se carga ahí). */
+export type FaltaFila = { texto: string; integracion: string | null };
+
+/**
+ * Las credenciales que el vigía puede pedir, en las palabras de Martín y con la tarjeta donde se cargan. La pantalla no
+ * muestra el nombre de una variable: muestra esto y un botón que abre esa tarjeta ahí mismo (AGENTS.md, «para conectar una
+ * integración jamás se sale de la tab»). Lo que no está acá se muestra tal cual: ya viene en palabras (el de Resend).
+ */
+export const FALTA_EN_PALABRAS: Readonly<Record<string, FaltaFila>> = {
+  ASC_ISSUER_ID: { texto: 'La clave de App Store Connect', integracion: 'app-store-connect' },
+  ASC_KEY_ID: { texto: 'La clave de App Store Connect', integracion: 'app-store-connect' },
+  ASC_P8: { texto: 'La clave de App Store Connect', integracion: 'app-store-connect' },
+  TIENDAS_GOOGLE_CUENTA_SERVICIO: { texto: 'La cuenta de servicio de Google', integracion: 'tiendas-google' },
+  CWS_PUBLISHER_ID: { texto: 'El id de editor de la Chrome Web Store', integracion: 'tiendas-google' },
+  MAKO_META_APP_SECRET: { texto: 'El secreto de la app de Meta (variable de Vercel)', integracion: null },
+};
+
+/** Lo que falta, en palabras y sin repetir (las tres claves de Apple son UNA cosa para Martín). */
+export function faltaEnPalabras(faltan: readonly string[]): FaltaFila[] {
+  const out: FaltaFila[] = [];
+  for (const f of faltan) {
+    const p = FALTA_EN_PALABRAS[f] ?? { texto: f.charAt(0).toUpperCase() + f.slice(1), integracion: null };
+    if (!out.some((x) => x.texto === p.texto)) out.push(p);
+  }
+  return out;
+}
+
+/** Después de esto sin una lectura buena, la fila se marca vieja: lo que dice puede haber cambiado. */
+export const VIEJO_MS = SIN_LEER_AVISA_MS;
+
+/** La palabra de la pastilla, por estado. Corta: el detalle va en su propio renglón. */
+export const ESTADO_CORTO: Record<Estado, string> = {
+  aprobado: 'Aprobado',
+  en_revision: 'En revisión',
+  rechazado: 'Rechazado',
+  piden_algo: 'Piden algo',
+  sin_enviar: 'Sin enviar',
+  sin_publicar: 'No publicado',
+};
+
+const TONO_ESTADO: Record<Estado, TonoFila> = {
+  aprobado: 'good', en_revision: 'info', rechazado: 'bad', piden_algo: 'warn', sin_enviar: 'neutral', sin_publicar: 'neutral',
+};
+
+/**
+ * El orden de la lista: primero lo que pide algo (un rechazo, un pedido), después lo que no se puede leer o le falta algo
+ * para leerse, lo que está en revisión, lo que no se envió, y al final lo aprobado. Menor = más arriba.
+ */
+const PRIORIDAD_ESTADO: Record<Estado, number> = {
+  rechazado: 0, piden_algo: 0, en_revision: 2, sin_enviar: 3, sin_publicar: 3, aprobado: 4,
+};
+
 export type FilaLista = {
   id: string;
   nombre: string;
   /** En palabras: el estado, «hay que mirarlo a mano» o «no pude leerlo». */
   situacion: string;
+  /** Una o dos palabras para la pastilla («En revisión», «No pude leerlo»). */
+  estadoCorto: string;
+  tono: TonoFila;
+  /** El orden (0 = pide algo). Ver `PRIORIDAD_ESTADO`. */
+  prioridad: number;
   estado: Estado | null;
   version: string | null;
   detalle: string | null;
@@ -391,41 +451,72 @@ export type FilaLista = {
   desde: string | null;
   /** La última vez que se leyó bien (ISO). */
   leido: string | null;
+  /** Pasó más de un día desde la última lectura buena (`VIEJO_MS`): lo que dice puede haber cambiado. */
+  viejo: boolean;
+  /** Por qué no se pudo leer en la última vuelta, si no se pudo. */
+  motivo: string | null;
   link: string;
-  /** Las credenciales que faltan para leerlo (o para leer más). */
+  /** Las credenciales que faltan para leerlo (o para leer más). Los nombres crudos: para la API. */
   faltan: string[];
+  /** Lo mismo, en palabras y con la tarjeta donde se carga: para la pantalla. */
+  falta: FaltaFila[];
   nota: string | null;
+  /** Qué hace Martín, sólo cuando pide algo (rechazado o «piden algo»). */
+  queHacer: string | null;
   /** Sigue esperando algo: todo lo que no está aprobado, o que no se sabe. */
   esperando: boolean;
 };
 
-/** La lista entera, lo que espera primero. Un ítem sin lectura todavía dice «Todavía no lo revisé». */
-export function listaDeAprobaciones(g: Guardado | null): FilaLista[] {
+/**
+ * La lista entera, lo que pide algo primero (`prioridad`, y dentro de cada una el orden del inventario). Un ítem sin lectura
+ * todavía dice «Todavía no lo revisé». `ahoraMs` decide qué fila está vieja.
+ */
+export function listaDeAprobaciones(g: Guardado | null, ahoraMs: number = Date.now()): FilaLista[] {
   const filas = ITEMS.map((it): FilaLista => {
     const s = g?.items?.[it.id] ?? {};
     const estado = s.estado ?? null;
+    const faltan = s.faltan ?? [];
     let situacion: string;
-    if (it.aMano) situacion = 'Hay que mirarlo a mano';
-    else if (s.sinLeerDesde && !estado) situacion = `No pude leerlo (${s.motivo ?? 'sin respuesta'})`;
-    else if (!estado && s.faltan?.length) situacion = 'Hay que mirarlo a mano';
-    else if (!estado) situacion = 'Todavía no lo revisé';
-    else situacion = ROTULO_ESTADO[estado] + (s.sinLeerDesde ? ` (lo último que leí; ahora no puedo: ${s.motivo ?? 'sin respuesta'})` : '');
+    let estadoCorto: string;
+    let tono: TonoFila;
+    let prioridad: number;
+    if (it.aMano) {
+      situacion = 'Hay que mirarlo a mano'; estadoCorto = 'Sin leer'; tono = 'neutral'; prioridad = 1;
+    } else if (s.sinLeerDesde && !estado) {
+      situacion = `No pude leerlo (${s.motivo ?? 'sin respuesta'})`; estadoCorto = 'No pude leerlo'; tono = 'warn'; prioridad = 1;
+    } else if (!estado && faltan.length) {
+      situacion = 'Hay que mirarlo a mano'; estadoCorto = 'Falta una clave'; tono = 'neutral'; prioridad = 1;
+    } else if (!estado) {
+      situacion = 'Todavía no lo revisé'; estadoCorto = 'Sin revisar'; tono = 'neutral'; prioridad = 3;
+    } else {
+      situacion = ROTULO_ESTADO[estado] + (s.sinLeerDesde ? ` (lo último que leí; ahora no puedo: ${s.motivo ?? 'sin respuesta'})` : '');
+      estadoCorto = ESTADO_CORTO[estado]; tono = TONO_ESTADO[estado]; prioridad = PRIORIDAD_ESTADO[estado];
+    }
+    const leidoMs = s.leidoAt ? Date.parse(s.leidoAt) : NaN;
     return {
       id: it.id,
       nombre: it.nombre,
       situacion,
+      estadoCorto,
+      tono,
+      prioridad,
       estado,
       version: s.version ?? null,
       detalle: s.detalle ?? null,
       desde: s.desde ?? null,
       leido: s.leidoAt ?? null,
+      viejo: Number.isFinite(leidoMs) && ahoraMs - leidoMs > VIEJO_MS,
+      motivo: s.sinLeerDesde ? (s.motivo ?? 'sin respuesta') : null,
       link: it.link,
-      faltan: s.faltan ?? [],
+      faltan,
+      falta: faltaEnPalabras(faltan),
       nota: it.nota ?? null,
+      queHacer: estado === 'rechazado' || estado === 'piden_algo' ? it.queHacer : null,
       esperando: estado !== 'aprobado',
     };
   });
-  return [...filas.filter((f) => f.esperando), ...filas.filter((f) => !f.esperando)];
+  // `sort` es estable: dentro de cada prioridad queda el orden del inventario.
+  return filas.map((f, i) => ({ f, i })).sort((a, b) => a.f.prioridad - b.f.prioridad || a.i - b.i).map((x) => x.f);
 }
 
 /** La lista en texto, para la consola. */

@@ -2412,4 +2412,29 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-ignorar.test.ts (9) y tests/_ops-ignorar-hijo.ts — 15 roturas en rojo',
     ],
   },
+  {
+    fecha: '5 nov', hora: '19:20', chat: 'Approvals', sesion: 'cli_e093f564-5479-56f0-961c-5966898ba5fe', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Una pestaña de aprobaciones, que nada se mire a mano y que la extensión se publique sola',
+    pedido: 'todo deberías poder revisarlo tú, no hay nada que debería hacerlo yo a mano / si hay cosas que publicar... automáticamente',
+    puntos: [
+      'Llegó por el Cerebro, con el brief: una pestaña «Approvals» del super admin desde el menú de la foto (también en el teléfono), ninguna fila que diga «a mano» (por API lo que se pueda y un script de la PC para leer los paneles) y la extensión publicada sola en la Chrome Web Store cuando cambia su versión.',
+    ],
+  },
+  {
+    fecha: '5 nov', hora: '19:45', chat: 'Approvals', sesion: 'cli_e093f564-5479-56f0-961c-5966898ba5fe', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Approvals: la lista de cada aprobación, con lo que pide algo arriba',
+    revisar: '/admin/approvals',
+    puntos: [
+      '**Una pestaña nueva, Approvals,** en el menú de tu foto: cada aprobación con su estado, desde cuándo, cuándo se leyó y el link al panel.',
+      '**Lo que pide algo va primero:** un rechazo o un pedido, con qué hacer. Lo aprobado, al final.',
+      '**Vieja si pasó un día** sin leerse: lo dice al lado, sin cambiar el estado.',
+      '**Lo que falta para leerla sola** se dice en palabras, con «Cargarla» para abrir esa tarjeta de Integraciones ahí mismo.',
+      '**En el teléfono, igual,** con el detalle en una hoja.',
+    ],
+    archivos: [
+      'app/admin/approvals/page.tsx · app/admin/approvals/ListaApprovals.tsx · app/m/approvals/page.tsx · app/m/approvals/ApprovalsM.tsx',
+      'lib/vigia-aprobaciones.ts — listaDeAprobaciones (prioridad, tono, viejo, falta en palabras) · app/_components/nav.ts — SUPERADMIN_MENU · lib/movil-rutas.ts',
+      'tests/vigia-aprobaciones.test.ts — 3 nuevos, 4 roturas en rojo',
+    ],
+  },
 ];

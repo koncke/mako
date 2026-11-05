@@ -95,7 +95,7 @@ export const DEFS: readonly OperacionDef[] = [
     // El estado de las tiendas y de Meta para las apps de MaKo: no lee leads, conversaciones, llamadas ni cobros.
     datosDeClientes: false,
     titulo: 'Aprobaciones de App Store, Google Play y Meta',
-    descripcion: 'Sólo para la plataforma: en qué está cada aprobación que MaKo espera de otra empresa. La app de iPhone (App Store), la de Android (Google Play: prueba cerrada, producción y la cuenta), la extensión de Chrome (Chrome Web Store), los permisos y verificaciones de Meta, la app de Google, los dominios de correo (Resend) y el certificado de Windows. Por cada una: aprobada, en revisión, rechazada, «piden algo», sin enviar, o «hay que mirarlo a mano», con su link, desde cuándo y qué credencial falta para leerla sola. Sale de la última revisión del vigía, que se repite sola y avisa sólo cuando algo cambia.',
+    descripcion: 'Sólo para la plataforma: en qué está cada aprobación que MaKo espera de otra empresa, lo mismo que la pestaña Approvals. La app de iPhone (App Store), la de Android (Google Play: prueba cerrada, producción y la cuenta), la extensión de Chrome (Chrome Web Store), los permisos y verificaciones de Meta, la app de Google, los dominios de correo (Resend), Creem y el certificado de Windows. Por cada una: aprobada, en revisión, rechazada, «piden algo» o sin enviar, con su link, desde cuándo, cuándo se leyó (vieja si pasó un día) y qué falta para leerla sola. Lo que pide algo va primero. Sale de la última revisión del vigía, que se repite sola y avisa sólo cuando algo cambia.',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
   },

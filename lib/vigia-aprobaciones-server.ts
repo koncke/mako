@@ -111,9 +111,12 @@ export async function correrVigiaAprobaciones(): Promise<ResultadoVigia> {
   });
 }
 
-/** La lista de lo que espera, de lo GUARDADO (no lee nada afuera): la operación de la API y la consola. */
-export async function listaGuardadaDeAprobaciones(): Promise<{ ultimaVuelta: string | null; filas: FilaLista[] }> {
+/**
+ * La lista de lo que espera, de lo GUARDADO (no lee nada afuera): la pestaña Approvals (computadora y teléfono), la operación
+ * de la API y la consola. Tira si la base no contesta: «no pude leer» no es una lista vacía.
+ */
+export async function listaGuardadaDeAprobaciones(ahoraMs: number = Date.now()): Promise<{ ultimaVuelta: string | null; filas: FilaLista[] }> {
   const ws = await wsSuperAdmin();
   const g = leerGuardado(await runWithWorkspace(ws, () => getSettingEstricto(CLAVE_ESTADO)));
-  return { ultimaVuelta: g.ultimaVuelta ?? null, filas: listaDeAprobaciones(g) };
+  return { ultimaVuelta: g.ultimaVuelta ?? null, filas: listaDeAprobaciones(g, ahoraMs) };
 }
