@@ -436,6 +436,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin',
   },
+  {
+    fecha: '5 nov', hora: '19:10', chat: 'Admin', sesion: 'cli_efae8d7b-8598-5f74-a2e3-3aef4e3f73e1', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tanda 2: Users (las personas y su estado de alta) y Errors (los errores agrupados y los reportes)',
+    puntos: [
+      'Users copia la tabla de usuarios de shadcn-admin (MIT): los cuatro estados con su color —activo (entró en 30 días), inactivo, invitado (nunca entró) y suspendido—, los chips con su número, la búsqueda sin tildes y el menú de la fila con ícono. «Nunca se le mandó el acceso» se dice aparte de «no entró».',
+      'Las acciones (entrar a su negocio, reenviar el acceso, suspender, reactivar) van por /api/admin/usuarios, la ruta de siempre: repregunta el super admin, no deja a un negocio sin su admin y al suspender apaga los tokens de la API.',
+      'Errors copia la lista de Sentry (sólo se miró: FSL) con la fila de GlitchTip (MIT): Sin resolver · Nuevos · Volvieron · Resueltos. «Volvió» es la MISMA regla que abre el ticket nuevo en lib/errores-app.ts (ticket resuelto + 15 min de margen). Sin mini-gráfico: `errores_app` no guarda las veces por día.',
+      'Accounts dejó de ser pestaña: es la otra VISTA de Customers (el selector de vista), y la barra queda en seis. `?tab=accounts` sigue andando.',
+      'La API lee las dos cosas (`ver_personas_de_mako`, `ver_errores_de_mako`); suspender queda en la pantalla.',
+    ],
+    archivos: [
+      'lib/admin-usuarios-reglas.ts y app/admin/usuarios/UsuariosAdmin.tsx — Users',
+      'lib/admin-errores-reglas.ts, lib/admin-errores.ts y app/admin/errores/ErroresAdmin.tsx — Errors',
+      'tests/admin-usuarios-errores.test.ts',
+    ],
+    revisar: '/admin?tab=users',
+  },
 ];
 
 export const PARTES: Parte[] = [
