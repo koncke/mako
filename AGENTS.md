@@ -2776,6 +2776,16 @@ El procedimiento, y no es opcional:
      navegador (`getComputedStyle` sobre `:root`, los `@keyframes`, las transiciones) y se
      guardan en `docs/diseno/`, con fecha. Leerlos es un minuto; adivinarlos cuesta la tanda.
 
+   **Y UNA DOCENA DE FUENTES ES DISEÑAR, NO COPIAR (5/11/2026).** La tab Admin salió de una tabla que
+   tomaba «la estructura» de doce apps, la mayoría sin abrir porque la nube las tiene bloqueadas, y la
+   dibujó con los componentes de la casa. Cumplía el primer caso de arriba al pie de la letra. Martín:
+   *«está horrible… copies tanto el diseño como la funcionalidad… Tenés prohibido pensar por tu propia
+   cuenta»*. Por eso, cuando Martín pide copiar o rechaza una pantalla, vale el segundo caso aunque la
+   fuente la haya elegido el chat, y hay un repo con licencia que deja (MIT, Apache):
+   **una sola fuente por área, su código portado archivo por archivo, una pantalla suya por cada sección,
+   con sus valores y sus animaciones, y captura contra captura.** Lo que la fuente no tiene no se inventa:
+   se anota y decide Martín. Si la nube no puede abrir una app, se elige un repo que se pueda correr.
+
    **Y UN LÍMITE LEGAL O TÉCNICO SOBRE EL CÓDIGO O EL DATO NO ES PERMISO PARA DISEÑAR DE CERO.**
    Son preguntas separadas y hay que contestarlas por separado:
    «¿puedo usar SU código?» · «¿puedo usar ESE dato?» · «¿puedo hacer que se vea igual?».
