@@ -179,7 +179,8 @@ export async function subir(d: Dependencias): Promise<Resultado> {
   const r = await pedirJson(d, url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${d.token}`, 'Content-Type': 'application/zip' },
-    body: z.bytes,
+    // Una copia: `fetch` pide un buffer propio (el `Uint8Array` que llega puede apuntar a uno compartido).
+    body: new Uint8Array(z.bytes),
   });
   if ('error' in r) return { paso: 'fallo', en: 'subir', error: r.error };
   if (r.status !== 200) return { paso: 'fallo', en: 'subir', error: motivoDe(r.status, r.json) };
