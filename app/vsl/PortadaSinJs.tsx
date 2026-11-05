@@ -55,6 +55,9 @@ export function PortadaSinJs() {
         <a href="/privacidad" style={link}>Privacidad</a>
         <a href="/terminos" style={link}>Términos</a>
         <a href="/reembolsos" style={link}>Reembolsos</a>
+        <a href="/aup" style={link}>Uso aceptable</a>
+        <a href="/planes" style={link}>Planes y precios</a>
+        <a href="/soporte" style={link}>Soporte</a>
         <a href={`mailto:${EMAIL_MAKO}`} style={link}>{EMAIL_MAKO}</a>
         <span>{`Razón social: ${RAZON_SOCIAL_MAKO}`}</span>
       </div>

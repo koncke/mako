@@ -11476,6 +11476,15 @@ Apple y Google prohíben vender algo digital sin su cobro, o mandar a pagar afue
 - **Lo que necesita el aparato** va por `lib/nativo.ts`, con `window.Capacitor.Plugins`: la web no importa los plugins. Un `<a download>` ya funciona ahí solo.
 - **Lo que publica un usuario para otros** (Community) pide denunciar y bloquear desde la app (Apple 1.2): por eso no va en iPhone.
 
+# Lo que genera imagen o video pasa por `encolar`, que lo modera con Creem (5/11/2026)
+
+Creem (la pasarela de MaKo, merchant of record) exige que cada prompt de imagen o video pase por su Moderation API antes de
+llegar al modelo. Lo hace `encolar('generar_imagen' | 'generar_clip', …)` (lib/flow-cola.ts), con la clave de la PLATAFORMA y
+cada llamada medida en `anthropic_usage` (proveedor `creem`). **Un camino nuevo que genere imagen o video desde un texto pasa
+por ahí, con el prompt FINAL en `pedido.prompt`**, y muestra el `RechazoDeModeracion` tal cual (el compilador lo exige). Uno
+que llame a otro modelo de imagen o video por fuera de la cola lleva `moderarPrompt` (lib/creem-moderacion.ts) antes. El
+porqué de cada decisión: lib/creem-moderacion-reglas.ts y docs/relevo/nube-creem-revision.md.
+
 # Una edición del newsletter es un BROADCAST del CRM «Newsletter» (29/10/2026)
 
 Martín aprobó el modelo el 29/10/2026 («Sí, armalo así»): los suscriptos son un CRM «Newsletter» (Suscripto → Lee →
