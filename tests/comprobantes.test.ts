@@ -1,5 +1,5 @@
 // =============================================================================
-// La tarjeta «Pagos › Leer comprobante» de Automations (5/11/2026): las reglas que deciden qué es un comprobante, la
+// La tarjeta «Leer comprobante» de Automations (5/11/2026): las reglas que deciden qué es un comprobante, la
 // condición «Su comprobante», la tarjeta del lienzo, el disparador y la plantilla
 // =============================================================================
 // Pedido de Martín: «un lector de comprobantes de pago [...] para leer comprobantes que vienen». El diseño:
@@ -132,7 +132,7 @@ test('la operación: lee con la IA del negocio, se ofrece en los flujos, y no sa
   assert.match(lib, /operacion_unica: repetido \? null : operacion/, 'el N.º cuenta una vez: lo decide el índice único');
 });
 
-test('el disparador: «Pagos › Llega un comprobante» sale con una foto o un PDF de un lead, nunca de un grupo ni nuestro', () => {
+test('el disparador: «Llega un comprobante» sale con una foto o un PDF de un lead, nunca de un grupo ni nuestro', () => {
   assert.ok(EVENTOS_PAGO.some((e) => e.subtipo === 'comprobante'));
   assert.equal(disparaPorEvento({ trigger_tipo: TRIGGER_PAGO, subtipo: 'comprobante' }, 'pago', { subtipo: 'comprobante' }), true);
   assert.equal(disparaPorEvento({ trigger_tipo: TRIGGER_PAGO, subtipo: 'aprobado' }, 'pago', { subtipo: 'comprobante' }), false);

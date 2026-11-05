@@ -66,7 +66,7 @@ const LLAMADORES: Record<string, Record<string, string>> = {
     'lib/avisos.ts': '`emitirAviso`, que copia antes',
     'lib/probar-grupo-envio.ts': '«Probar en el grupo», que copia antes',
     'lib/recibos.ts': 'el recibo de un pago de MaKo (`despacharWhatsApp`), que copia antes: al hilo siempre, escondido a los invitados',
-    'lib/recibos-negocio.ts': 'el recibo que un negocio emite con la tarjeta «Pagos › Emitir recibo» al grupo (`emitirReciboDelLead`), que copia antes',
+    'lib/recibos-negocio.ts': 'el recibo que un negocio emite con la tarjeta «Emitir recibo» al grupo (`emitirReciboDelLead`), que copia antes',
   },
   enviarAGrupoJid: {
     'lib/mako-doer-in.ts': 'el turno de MaKo: `manejarEntranteDoer`, `manejarEntranteDeLaApp` y `flushHuerfanos` abren el contexto que copia. Los 14 sitios no cambian',

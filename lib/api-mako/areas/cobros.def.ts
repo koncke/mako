@@ -416,23 +416,23 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
-  // ── LA TARJETA «Pagos › Leer comprobante» de Automations (5/11/2026, lib/comprobantes.ts; Martín: «un lector de comprobantes
+  // ── LA TARJETA «Leer comprobante» de Automations (5/11/2026, lib/comprobantes.ts; Martín: «un lector de comprobantes
   // de pago o recibos de pago»). Es una ⚡ Acción dibujada como lo que hace, como la etiqueta. Lo que leyó lo pregunta la
   // CONDITION «Su comprobante» (lib/condiciones-catalogo.ts). Nunca marca nada cobrado.
   {
     id: 'leer_comprobante', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Leer el comprobante de un lead',
-    descripcion: 'PROPONE leer con la IA del negocio la última foto o PDF que un lead mandó por WhatsApp en las últimas 48 horas: monto, moneda, fecha, medio, a quién se pagó y el N.º de operación. Lo compara con la cuota que le toca y dice si la cubre, si pagó menos, si el N.º de operación ya se había usado o si hay que revisarlo. NUNCA marca nada cobrado: eso lo hace una persona. Es la tarjeta «Pagos › Leer comprobante» de Automations.',
+    descripcion: 'PROPONE leer con la IA del negocio la última foto o PDF que un lead mandó por WhatsApp en las últimas 48 horas: monto, moneda, fecha, medio, a quién se pagó y el N.º de operación. Lo compara con la cuota que le toca y dice si la cubre, si pagó menos, si el N.º de operación ya se había usado o si hay que revisarlo. NUNCA marca nada cobrado: eso lo hace una persona. Es la tarjeta «Leer comprobante» de Automations.',
     escribe: 'guarda la lectura del comprobante (comprobantes_leidos) y deja historial en el lead',
     parametros: [leadId('id del lead que mandó el comprobante.')],
     canales: ['whatsapp', 'app'], costo: 'ia', gating: G_TAB,
   },
-  // ── LA TARJETA «Pagos › Emitir recibo» de Automations (5/11/2026, lib/recibos-negocio.ts; Martín: «varios templates [...] que
+  // ── LA TARJETA «Emitir recibo» de Automations (5/11/2026, lib/recibos-negocio.ts; Martín: «varios templates [...] que
   // el usuario pueda elegir»). La ⚡ Acción dibujada como lo que hace. Un recibo por pago, numerado por negocio (mig 0399).
   {
     id: 'emitir_recibo', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: false, aTerceros: true,
     titulo: 'Emitir el recibo de un pago',
-    descripcion: 'PROPONE emitir el recibo de pago (un PDF con número propio del negocio) de una cuota YA cobrada de un lead, con la plantilla elegida, y mandarlo al lead por WhatsApp o por correo, o al grupo de MaKo. Sin pagoId, la última cuota cobrada. Un pago tiene un solo recibo: pedirlo otra vez no crea otro número. Es un recibo de pago, no una factura fiscal. El correo sale con el dominio del negocio. Es la tarjeta «Pagos › Emitir recibo» de Automations.',
+    descripcion: 'PROPONE emitir el recibo de pago (un PDF con número propio del negocio) de una cuota YA cobrada de un lead, con la plantilla elegida, y mandarlo al lead por WhatsApp o por correo, o al grupo de MaKo. Sin pagoId, la última cuota cobrada. Un pago tiene un solo recibo: pedirlo otra vez no crea otro número. Es un recibo de pago, no una factura fiscal. El correo sale con el dominio del negocio. Es la tarjeta «Emitir recibo» de Automations.',
     escribe: 'emite el recibo con su número (recibos_negocio), guarda el PDF y lo manda por el canal elegido',
     parametros: [
       leadId('id del lead que pagó.'),

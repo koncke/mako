@@ -1,7 +1,7 @@
 // =============================================================================
 // recibos-negocio — un negocio le emite y le manda el recibo de pago a su cliente (5/11/2026)
 // =============================================================================
-// La tarjeta «Pagos › Emitir recibo» de Automations (lib/api-mako: `emitir_recibo`). Las reglas puras (la foto, el texto):
+// La tarjeta «Emitir recibo» de Automations (lib/api-mako: `emitir_recibo`). Las reglas puras (la foto, el texto):
 // lib/recibo-negocio-reglas.ts. El PDF: lib/recibo-pdf.ts, con la plantilla que eligió el negocio. La numeración, POR
 // NEGOCIO y en la base (mig 0399, `emitir_recibo_negocio`): el único que da números es este archivo.
 //

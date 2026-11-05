@@ -1,7 +1,7 @@
 // =============================================================================
 // comprobante-reglas — leer un comprobante de pago que manda un lead, y decidir qué es (5/11/2026)
 // =============================================================================
-// La tarjeta «Pagos › Leer comprobante» de Automations (docs/relevo/pagos-automations-encargo.md). Martín: «un lector de
+// La tarjeta «Leer comprobante» de Automations (docs/relevo/pagos-automations-encargo.md). Martín: «un lector de
 // comprobantes de pago [...] para leer comprobantes que vienen». Puro y SIN `server-only`: lo usan lib/comprobantes.ts (que
 // baja el archivo y llama a la IA del negocio), la condición del flujo, «Probar» y los tests.
 //

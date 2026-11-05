@@ -122,14 +122,14 @@ export const ETIQUETA_FLECHA_ESCUCHA = 'Si responde';
 export const OP_PONER_ETIQUETA = 'poner_etiqueta_lead';
 export const OP_SACAR_ETIQUETA = 'sacar_etiqueta_lead';
 /**
- * LA TARJETA «Pagos › Leer comprobante» (5/11/2026, docs/relevo/pagos-automations-encargo.md): la ⚡ Acción `leer_comprobante`
+ * LA TARJETA «Leer comprobante» (5/11/2026, docs/relevo/pagos-automations-encargo.md): la ⚡ Acción `leer_comprobante`
  * (lib/api-mako/areas/cobros.def.ts) dibujada como lo que hace, como la etiqueta. El motor no cambia; lo que leyó lo pregunta
  * la CONDITION «Su comprobante».
  */
 export const OP_LEER_COMPROBANTE = 'leer_comprobante';
 
 /**
- * LA TARJETA «Pagos › Emitir recibo» (5/11/2026): la ⚡ Acción `emitir_recibo` (lib/recibos-negocio.ts) dibujada como lo que hace.
+ * LA TARJETA «Emitir recibo» (5/11/2026): la ⚡ Acción `emitir_recibo` (lib/recibos-negocio.ts) dibujada como lo que hace.
  * Sus dos elecciones —la plantilla y por dónde sale— son los parámetros de la acción, que el panel edita.
  */
 export const OP_EMITIR_RECIBO = 'emitir_recibo';
@@ -584,7 +584,7 @@ export function altoConFilas(filas: number): number {
 export const TITULO = {
   cron: 'CRON', whatsapp: 'WHATSAPP', email: 'EMAIL', esperar: 'DELAY', condicion: 'CONDITION',
   etiqueta: 'TAG', accion: 'ACTION',
-  // La tarjeta «Pagos › Leer comprobante» (5/11/2026): en inglés como todas.
+  // La tarjeta «Leer comprobante» (5/11/2026): en inglés como todas.
   comprobante: 'PAYMENT PROOF', recibo: 'RECEIPT',
   // Sexta tanda, MaKo en WhatsApp 1, literal: «El título debe ser ese, "MaKo en WhatsApp" no solo
   // MaKo... Sino se confunde con una ayuda de la IA».
@@ -1504,10 +1504,10 @@ export const MENU_MAS: ReadonlyArray<OpcionMas & { fueraDeRespuesta?: boolean }>
   { value: 'ab', label: 'Prueba A/B', icono: ICONOS_MAS.ab, grupo: 1, fueraDeRespuesta: true },
   { value: 'etiqueta', label: 'Etiqueta', icono: ICONOS_MAS.etiqueta, grupo: 2 },
   { value: 'accion', label: 'Acción', icono: ICONOS_MAS.accion, grupo: 2 },
-  // «Pagos › Leer comprobante» (5/11/2026): lee la foto o el PDF que mandó el lead. No adentro de «Si responde»: una foto no
-  // la contesta esa rama (sólo el texto y el audio la abren), y su CRON es «Pagos › Te mandan un comprobante».
+  // «Leer comprobante» (5/11/2026): lee la foto o el PDF que mandó el lead. No adentro de «Si responde»: una foto no
+  // la contesta esa rama (sólo el texto y el audio la abren), y su CRON es «Te mandan un comprobante».
   { value: 'comprobante', label: 'Leer comprobante', icono: ICONOS_MAS.comprobante, grupo: 2, fueraDeRespuesta: true },
-  // «Pagos › Emitir recibo» (5/11/2026): el recibo de la cuota cobrada, con la plantilla elegida. Tampoco en «Si responde».
+  // «Emitir recibo» (5/11/2026): el recibo de la cuota cobrada, con la plantilla elegida. Tampoco en «Si responde».
   { value: 'recibo', label: 'Emitir recibo', icono: ICONOS_MAS.recibo, grupo: 2, fueraDeRespuesta: true },
   { value: 'mako', label: 'MaKo en WhatsApp', icono: ICONOS_MAS.mako, grupo: 3 },
 ];

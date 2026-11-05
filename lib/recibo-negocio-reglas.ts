@@ -1,7 +1,7 @@
 // =============================================================================
 // recibo-negocio-reglas — el recibo que un NEGOCIO le manda a su cliente al cobrar (5/11/2026)
 // =============================================================================
-// La tarjeta «Pagos › Emitir recibo» de Automations (docs/relevo/pagos-automations-encargo.md): «varios templates de factura
+// La tarjeta «Emitir recibo» de Automations (docs/relevo/pagos-automations-encargo.md): «varios templates de factura
 // que nosotros podemos crear y que el usuario pueda elegir». Puro y SIN `server-only`: arma la FOTO del recibo desde la cuota
 // cobrada, el emisor («Facturado por») y, si lo hubo, el comprobante que leyó la tarjeta «Leer comprobante». El PDF es el de
 // los recibos de MaKo (lib/recibo-pdf.ts), con la plantilla que eligió el negocio.

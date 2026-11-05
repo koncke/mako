@@ -231,12 +231,12 @@ function mako(id: string, texto: string, siguiente: string | null): PasoDePlanti
   return { ...RELLENO, id, siguiente, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO }, [{ tipo: 'texto', cuerpo: texto }]) } };
 }
 
-/** «Pagos › Leer comprobante» (5/11/2026): la ⚡ Acción `leer_comprobante` sobre el lead del evento, como la arma el ＋. */
+/** «Leer comprobante» (5/11/2026): la ⚡ Acción `leer_comprobante` sobre el lead del evento, como la arma el ＋. */
 function leerComprobante(id: string, siguiente: string | null): PasoDePlantilla {
   return { ...RELLENO, id, siguiente, accion: { operacion: OP_LEER_COMPROBANTE, params: { leadId: LEAD_DEL_EVENTO } } };
 }
 
-/** «Pagos › Emitir recibo» (5/11/2026): el recibo de la última cuota cobrada, con la plantilla y por dónde sale. */
+/** «Emitir recibo» (5/11/2026): el recibo de la última cuota cobrada, con la plantilla y por dónde sale. */
 function emitirRecibo(id: string, siguiente: string | null, plantilla: 'clasico' | 'compacto' | 'marca', canal: 'whatsapp' | 'email' | 'grupo'): PasoDePlantilla {
   return { ...RELLENO, id, siguiente, accion: { operacion: OP_EMITIR_RECIBO, params: { leadId: LEAD_DEL_EVENTO, plantilla, canal } } };
 }
@@ -572,6 +572,41 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // (5/11/2026) La tarjeta «Leer comprobante» de Automations (docs/relevo/pagos-automations-encargo.md): «por lo
+    // menos una en la galería de Automations, "Le llegó un comprobante"». NUNCA marca nada cobrado: le avisa al equipo, y lo
+    // que no cuadra (pagó menos, el N.º ya se usó, no se lee bien) va aparte para que lo revise una persona. Una foto que no
+    // es un comprobante no hace nada. Nace con «Cada vez»: el mismo lead manda un comprobante todos los meses.
+    id: 'comprobante-llego',
+    nombre: 'Le Llegó un Comprobante',
+    emoji: '🧾',
+    linea: 'Lee la foto o el PDF del pago que mandó un lead y te avisa si cubre su cuota o si hay que revisarlo.',
+    origen: 'la tarjeta Pagos de Automations (5/11/2026)',
+    objetivo: 'cobrar',
+    cron: { fijo: TRIGGER_PAGO, eventos: ['comprobante'] },
+    reentrada: 'siempre',
+    pasos: [
+      leerComprobante('cl_leer', 'cl_que'),
+      condicion('cl_que', [[[COMPROBANTE('cubre')], 'cl_ok'], [[COMPROBANTE('no_es')], null]], 'cl_revisar'),
+      mako('cl_ok', '🧾 {{nombre_completo}} mandó un comprobante que cubre su cuota. Revísalo y márcala cobrada en su ficha.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
+      mako('cl_revisar', '⚠️ {{nombre_completo}} mandó un comprobante que hay que revisar: pagó menos, ese N.º de operación ya se usó o no se lee bien.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
+    ],
+  },
+  {
+    // (5/11/2026) La tarjeta «Emitir recibo» (docs/relevo/pagos-automations-encargo.md): «otra "Emitir recibo al
+    // cobrar"». Cuando la pasarela aprueba un pago, el recibo de esa cuota le llega al cliente por WhatsApp. Nace con «Cada
+    // vez»: cada pago (cada mes de una suscripción) tiene su recibo. Un pago marcado a mano se emite con la tarjeta en otro
+    // flujo o por el chat (`emitir_recibo`).
+    id: 'recibo-al-cobrar',
+    nombre: 'Emitir Recibo al Cobrar',
+    emoji: '🧾',
+    linea: 'Cuando se aprueba un pago, le manda al cliente su recibo en PDF por WhatsApp.',
+    origen: 'la tarjeta Pagos de Automations (5/11/2026)',
+    objetivo: 'cobrar',
+    cron: { fijo: TRIGGER_PAGO, eventos: ['aprobado'] },
+    reentrada: 'siempre',
+    pasos: [emitirRecibo('rc_recibo', null, 'clasico', 'whatsapp')],
+  },
+  {
     // (8b) «El AI Analyst terminó» (13/10/2026, la tarea del Dashboard en Automations): el análisis de una hoja del
     // Dashboard, con sus datos citables (la hoja, el resumen, los hallazgos y el link), que pasa el Dashboard armados con
     // `valoresDelAnalisis`. No es de un lead: el análisis es del negocio. Cada dato en su renglón (sin valor, se va).
@@ -661,41 +696,6 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       email('nl_3', '¿Hablamos?', 'Si quieres, lo vemos juntos.',
         'Hola {{nombre}}:\n\nSi quieres que veamos tu caso, responde este correo y coordinamos una llamada corta.', null, { revisar: false }),
     ],
-  },
-  {
-    // (5/11/2026) La tarjeta «Pagos › Leer comprobante» de Automations (docs/relevo/pagos-automations-encargo.md): «por lo
-    // menos una en la galería de Automations, "Le llegó un comprobante"». NUNCA marca nada cobrado: le avisa al equipo, y lo
-    // que no cuadra (pagó menos, el N.º ya se usó, no se lee bien) va aparte para que lo revise una persona. Una foto que no
-    // es un comprobante no hace nada. Nace con «Cada vez»: el mismo lead manda un comprobante todos los meses.
-    id: 'comprobante-llego',
-    nombre: 'Le Llegó un Comprobante',
-    emoji: '🧾',
-    linea: 'Lee la foto o el PDF del pago que mandó un lead y te avisa si cubre su cuota o si hay que revisarlo.',
-    origen: 'la tarjeta Pagos de Automations (5/11/2026)',
-    objetivo: 'cobrar',
-    cron: { fijo: TRIGGER_PAGO, eventos: ['comprobante'] },
-    reentrada: 'siempre',
-    pasos: [
-      leerComprobante('cl_leer', 'cl_que'),
-      condicion('cl_que', [[[COMPROBANTE('cubre')], 'cl_ok'], [[COMPROBANTE('no_es')], null]], 'cl_revisar'),
-      mako('cl_ok', '🧾 {{nombre_completo}} mandó un comprobante que cubre su cuota. Revísalo y márcala cobrada en su ficha.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
-      mako('cl_revisar', '⚠️ {{nombre_completo}} mandó un comprobante que hay que revisar: pagó menos, ese N.º de operación ya se usó o no se lee bien.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
-    ],
-  },
-  {
-    // (5/11/2026) La tarjeta «Pagos › Emitir recibo» (docs/relevo/pagos-automations-encargo.md): «otra "Emitir recibo al
-    // cobrar"». Cuando la pasarela aprueba un pago, el recibo de esa cuota le llega al cliente por WhatsApp. Nace con «Cada
-    // vez»: cada pago (cada mes de una suscripción) tiene su recibo. Un pago marcado a mano se emite con la tarjeta en otro
-    // flujo o por el chat (`emitir_recibo`).
-    id: 'recibo-al-cobrar',
-    nombre: 'Emitir Recibo al Cobrar',
-    emoji: '🧾',
-    linea: 'Cuando se aprueba un pago, le manda al cliente su recibo en PDF por WhatsApp.',
-    origen: 'la tarjeta Pagos de Automations (5/11/2026)',
-    objetivo: 'cobrar',
-    cron: { fijo: TRIGGER_PAGO, eventos: ['aprobado'] },
-    reentrada: 'siempre',
-    pasos: [emitirRecibo('rc_recibo', null, 'clasico', 'whatsapp')],
   },
 ];
 
@@ -1268,6 +1268,10 @@ export const CANALES_PLANTILLA: ReadonlyArray<{ id: CanalPlantilla; label: strin
  *
  * Sólo los MENSAJES y la tarjeta MaKo: el relleno de una tarjeta de control (una espera, una condición) dice
  * `canal: 'whatsapp'` y no sale por ningún lado. En el orden de `CANALES_PLANTILLA`.
+ *
+ * Y «Emitir recibo» (5/11/2026), que MANDA algo: sale por el canal que eligió (al lead por WhatsApp o por correo, o al
+ * grupo de MaKo). Sin esto, «Emitir Recibo al Cobrar» no salía al filtrar la galería por WhatsApp. «Leer comprobante» no
+ * manda nada: no suma canal.
  */
 export function canalesDe(p: Pick<PlantillaAutomatizacion, 'cron' | 'pasos'>): CanalPlantilla[] {
   const hay = new Set<CanalPlantilla>();
@@ -1278,6 +1282,11 @@ export function canalesDe(p: Pick<PlantillaAutomatizacion, 'cron' | 'pasos'>): C
   for (const x of p.pasos) {
     const c = claseDe(x);
     if (c === 'accion' && x.accion?.operacion === OP_AVISAR) { hay.add('mako'); continue; }
+    if (c === 'accion' && x.accion?.operacion === OP_EMITIR_RECIBO) {
+      const k = x.accion.params?.canal;
+      hay.add(k === 'email' ? 'email' : k === 'grupo' ? 'mako' : 'whatsapp');
+      continue;
+    }
     if (c !== 'mensaje') continue;
     const k = x.canal;
     hay.add(k === 'email' || k === 'instagram' || k === 'messenger' ? k : 'whatsapp');

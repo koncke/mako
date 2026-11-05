@@ -3743,7 +3743,7 @@ async function hechosDelCatalogo(
     }
     return m;
   };
-  // «Su comprobante» (5/11/2026): la última lectura de la tarjeta «Pagos › Leer comprobante». Si la base no contesta, TIRA.
+  // «Su comprobante» (5/11/2026): la última lectura de la tarjeta «Leer comprobante». Si la base no contesta, TIRA.
   const leerComprobante = async (): Promise<Map<number, string> | null> => {
     if (!pide('comprobante')) return null;
     const { resultadosDeComprobante } = await import('./comprobantes');

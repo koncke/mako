@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// EditorRecibo — el panel de la tarjeta «Pagos › Emitir recibo» de Automations (5/11/2026)
+// EditorRecibo — el panel de la tarjeta «Emitir recibo» de Automations (5/11/2026)
 // =============================================================================
 // Martín: «varios templates de factura que nosotros podemos crear y que el usuario pueda elegir qué template quiere enviar».
 // Dos elecciones, que son los parámetros de la ⚡ Acción `emitir_recibo` (lib/recibos-negocio.ts): la PLANTILLA, en una

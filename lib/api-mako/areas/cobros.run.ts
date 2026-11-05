@@ -831,7 +831,7 @@ export const RUNNERS: Runners = {
     }),
   },
 
-  // ── La tarjeta «Pagos › Leer comprobante» (5/11/2026, lib/comprobantes.ts). Lee y guarda; nunca marca nada cobrado.
+  // ── La tarjeta «Leer comprobante» (5/11/2026, lib/comprobantes.ts). Lee y guarda; nunca marca nada cobrado.
   leer_comprobante: {
     preparar: async (input) => {
       const lead = await getLead(Number(input.leadId)).catch(() => null);
@@ -852,7 +852,7 @@ export const RUNNERS: Runners = {
     }),
   },
 
-  // ── La tarjeta «Pagos › Emitir recibo» (5/11/2026, lib/recibos-negocio.ts). Un recibo por pago; sale como el negocio.
+  // ── La tarjeta «Emitir recibo» (5/11/2026, lib/recibos-negocio.ts). Un recibo por pago; sale como el negocio.
   emitir_recibo: {
     preparar: async (input) => {
       const lead = await getLead(Number(input.leadId)).catch(() => null);

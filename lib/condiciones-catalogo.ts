@@ -257,7 +257,7 @@ export type HechosCatalogo = {
   /** Sin fila en cs_clientes = 'activo'. */
   estadoCliente?: string;
   /**
-   * «Su comprobante» (5/11/2026, la tarjeta «Pagos › Leer comprobante»): el resultado de su ÚLTIMA lectura de las últimas 48 h
+   * «Su comprobante» (5/11/2026, la tarjeta «Leer comprobante»): el resultado de su ÚLTIMA lectura de las últimas 48 h
    * (lib/comprobante-reglas.ts), `no_llego` sin ninguna. Ausente = no se leyó (la condición dice «no sé»).
    */
   comprobante?: string;
@@ -675,7 +675,7 @@ export const CONDICIONES: readonly DefCondicion[] = [
     evaluar: (f, h) => compara(f, h.catalogo?.pagos?.vencidas),
   },
   {
-    // LA CONDICIÓN DE LA TARJETA «Pagos › Leer comprobante» (5/11/2026, docs/relevo/pagos-automations-encargo.md): «si coincide
+    // LA CONDICIÓN DE LA TARJETA «Leer comprobante» (5/11/2026, docs/relevo/pagos-automations-encargo.md): «si coincide
     // con lo que debía pagar, si el número de operación ya se usó, si no se pudo leer». Lo decide el CÓDIGO al leer
     // (`resultadoDe`, lib/comprobante-reglas.ts); acá sólo se compara. «Cubre» es SÓLO una lectura sin dudas, en la moneda de
     // la cuota y por lo que tocaba: lo demás va a una persona, a la vista en el lienzo.

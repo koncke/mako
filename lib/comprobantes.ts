@@ -1,7 +1,7 @@
 // =============================================================================
 // comprobantes — leer la foto o el PDF de un pago que mandó un lead (5/11/2026)
 // =============================================================================
-// La tarjeta «Pagos › Leer comprobante» de Automations (lib/api-mako: `leer_comprobante`) y la condición «Su comprobante».
+// La tarjeta «Leer comprobante» de Automations (lib/api-mako: `leer_comprobante`) y la condición «Su comprobante».
 // Las reglas puras (qué se leyó, si cubre, si es dudoso): lib/comprobante-reglas.ts. El diseño: docs/relevo/pagos-automations-encargo.md.
 //
 // ⚠️ NUNCA MARCA NADA PAGADO. Lee, guarda la lectura y contesta qué es. Lo que sigue lo decide el flujo con una CONDITION

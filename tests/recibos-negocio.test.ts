@@ -1,5 +1,5 @@
 // =============================================================================
-// La tarjeta «Pagos › Emitir recibo» de Automations (5/11/2026): el recibo que un negocio le manda a su cliente
+// La tarjeta «Emitir recibo» de Automations (5/11/2026): el recibo que un negocio le manda a su cliente
 // =============================================================================
 // Martín: «varios templates de factura que nosotros podemos crear y que el usuario pueda elegir qué template quiere enviar».
 // Las reglas puras (lib/recibo-negocio-reglas.ts), las plantillas del PDF (lib/recibo-pdf.ts), la tarjeta, la operación de la

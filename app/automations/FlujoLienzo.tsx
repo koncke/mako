@@ -1109,9 +1109,9 @@ function EditorDeNodo(pr: PropsEditor) {
       if (etiquetaDeAccion(paso)) return <EditorEtiquetaLienzo paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
       // La tarjeta MAKO (tercera tanda, decisión 11): el aviso al grupo del negocio, con su editor.
       if (esMako(paso)) return <EditorMako key={`mako-${id}`} {...pr} paso={paso} id={id} chatMako={chatDe(id)} />;
-      // «Pagos › Leer comprobante» (5/11/2026): no tiene nada que elegir; dice qué hace y qué puede preguntar la CONDITION.
+      // «Leer comprobante» (5/11/2026): no tiene nada que elegir; dice qué hace y qué puede preguntar la CONDITION.
       if (esLeerComprobante(paso)) return <EditorComprobante />;
-      // «Pagos › Emitir recibo» (5/11/2026): la plantilla y por dónde sale son los parámetros de la acción.
+      // «Emitir recibo» (5/11/2026): la plantilla y por dónde sale son los parámetros de la acción.
       if (esEmitirRecibo(paso)) {
         const params = (paso.accion?.params ?? {}) as Record<string, unknown>;
         return <EditorRecibo params={params} busy={pr.busy} cambiar={(nuevos) => cambiar({ accion: { operacion: OP_EMITIR_RECIBO, params: { ...nuevos, leadId: LEAD_DEL_EVENTO } } }, true)} />;

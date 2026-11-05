@@ -1,5 +1,5 @@
 // =============================================================================
-// GET /api/recibos-negocio/ejemplo?plantilla=clasico|compacto|marca — «Ver ejemplo en PDF» de la tarjeta «Pagos › Emitir recibo»
+// GET /api/recibos-negocio/ejemplo?plantilla=clasico|compacto|marca — «Ver ejemplo en PDF» de la tarjeta «Emitir recibo»
 // =============================================================================
 // El PDF de la plantilla con los datos de ESTE negocio («Facturado por» o su nombre) y un pago de muestra, sin número y con la
 // marca EJEMPLO (lib/recibos-negocio.ts, `ejemploDeRecibo`). Quien ve Automations (la tab de la tarjeta): el admin y el setter
