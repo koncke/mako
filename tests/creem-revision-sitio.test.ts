@@ -72,6 +72,19 @@ test('2. el correo de contacto y el responsable son los mismos en todas', () => 
   }
 });
 
+test('2b. Creem pide esto EN LOS TÉRMINOS, no sólo en /aup, y /privacidad dice que la página pública graba', () => {
+  // ai-wrapper-compliance: «Terms of Service that explicitly prohibit NSFW, explicit, or sexually suggestive content generation»
+  // y «independent wrapper or interface built on top of third-party AI models». Leído el 5/11/2026.
+  const terminos = texto(html(createElement(Terminos)));
+  assert.match(terminos, /prohibido generar contenido sexual, explícito o sexualmente sugerente \(NSFW\)/);
+  assert.match(terminos, /MaKo es un producto independiente/);
+  assert.match(texto(html(createElement(Aup))), /producto independiente/);
+  // «Ni grabadores de sesión» es verdad DENTRO de la app; replay_sesiones graba las landings, también hola-mako.com.
+  const privacidad = texto(html(createElement(Privacidad)));
+  assert.match(privacidad, /página pública también graba las visitas/);
+  assert.match(privacidad, /El píxel también graba las visitas/);
+});
+
 test('3. /aup dice lo que MaKo hace: imagen y video, caras ajenas, mensajes, la moderación y cómo denunciar', () => {
   const t = texto(html(createElement(Aup)));
   for (const [que, re] of [

@@ -47,7 +47,8 @@ export default function Page() {
         MaKo genera <strong>imágenes y videos</strong> (Video Generator y AI Avatar, con tu cuenta de Google Flow),{' '}
         <strong>textos</strong> (guiones, anuncios, copy, respuestas) y <strong>manda mensajes</strong> a tus contactos por
         WhatsApp, email e Instagram. Esta política cubre todo eso: lo que pides, lo que MaKo produce para ti y lo que sale
-        con tu nombre.
+        con tu nombre. MaKo es un producto independiente: no está afiliado a Google ni a otros creadores de los modelos que
+        usa, y ellos no lo avalan.
       </p>
 
       <H id="generar">2. Lo que no se puede generar</H>

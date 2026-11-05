@@ -95,7 +95,7 @@ Sí, según su documentación, aunque no está visto en la práctica porque hay 
 
 ## El alta, medida en el panel y en la documentación (5/11/2026, de noche)
 
-**El borrador está a nombre de Leandro, como persona,** con los datos que Meta ya verificó. Los pasos 1 a 3 están guardados. El 4 son cuatro declaraciones y «Submit for review»: no se envió.
+**El borrador está a nombre de Leandro, como persona,** con los datos que Meta ya verificó. Los pasos 1 a 3 están guardados. El 4 son cuatro declaraciones y «Submit for review». **Se envió el 5/11/2026 por pedido textual de Martín** («manda cuanto antes la revisión»), con AI Avatar declarado en la descripción: «si no, nos vamos a otro».
 
 **La moderación anda con la tienda sin aprobar:** una llamada real con la clave de producción contestó 200, `allow`, 1 unidad. Era lo que la nube no pudo probar.
 
@@ -106,4 +106,8 @@ Sí, según su documentación, aunque no está visto en la práctica porque hay 
 - **Un rechazo es definitivo para esa tienda,** y la casilla del paso 4 dice que no se revisa otra vez por 3 meses. «Changes requested» es otra cosa y sí se puede volver a pedir.
 - **La regla de «no fake reviews, testimonials or inflated counts»** es del checklist. El reloj del 50 % no se nombra, pero un reinicio en otro navegador se parece a eso.
 
-**Antes de enviar, entonces:** preguntar a soporte por AI Avatar. El borrador está en `docs/relevo/nube-creem-revision.md`.
+**Lo que queda en el panel:** 2 de 3. Falta «Verify my identity» (documento y selfie), y eso lo hace sólo Leandro. Después, la cuenta de retiro a su nombre. El producto «MaKo Esencial» está creado para probar el link, y MaKo crea los suyos solos al cobrar.
+
+**Trampa del formulario:** «About» y «Product details» borran paréntesis y punto y coma sin avisar: hay que escribir sin ellos y releer el valor guardado.
+
+**Si Creem rechaza:** Martín no se queda peleando. Las alternativas ya medidas están en `docs/estrategia-financiera-mako.md`: Paddle (5 % + 50 ¢, la más grande) y Dodo, Polar o dLocal Go. Mercado Pago sigue para Argentina.
