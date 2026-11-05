@@ -825,81 +825,6 @@ export const RUNNERS: Runners = {
     }),
   },
 
-  // «Vender un plan» (23/10/2026, P0-8): ver cobros.def.ts. El MISMO camino que /admin/cobros (`venderPlan`, lib/vender-plan.ts).
-  // La revisión adversarial del mismo día (wf_fbeb8485-d3c) le sumó:
-  //   · el super admin GLOBAL al confirmar y al ejecutar (`esSuperAdmin`). `rolMinimo: 'admin'` + `soloPlataforma` es el admin
-  //     DEL WORKSPACE de la plataforma, no el super admin, y la pantalla de Cobros exige el super admin (`getSesionAdmin`). Al
-  //     proponer no se exige: por WhatsApp no hay sesión, y proponer no es vender;
-  //   · nunca desde un flujo: un paso «⚡ Acción» se confirma solo (`aplicarEnElActo`). Va en preparar porque al confirmar se
-  //     vuelve a llamar con el mismo ctx, y además está en NO_EN_FLUJOS (lib/api-mako/flujo.ts);
-  //   · lo que va a cobrar (la pasarela, la moneda y el valor en dólares) se decide ANTES del «sí» (`previaDeLaVenta`), y el
-  //     resumen lo dice: antes una venta en otra moneda sin dólares se caía después del «sí», con el lead ya creado;
-  //   · el comprador sin mayúsculas, un link pendiente del mismo plan que no se duplica, y la cuenta que ya existe;
-  //   · el resumen de lo hecho dice dónde quedó el link (Cobros, con su número): en /mako/revisar `paraLaPersona` no se muestra.
-  vender_plan_mako: {
-    preparar: async (input, ctx) => {
-      if (ctx.canalKey?.startsWith(PREFIJO_FLUJO)) return { error: 'Una automatización no vende planes de MaKo: se pide en Cobros o por el chat.' };
-      // El gating `soloPlataforma` ya lo dice; el runner lo vuelve a preguntar (AGENTS.md: «el runner lo vuelve a
-      // preguntar»). Y el workspace del cobro es SIEMPRE el de la plataforma, nunca el que traiga el pedido.
-      const plataforma = await wsSuperAdmin();
-      if (ctx.ws !== plataforma) return { error: 'Vender un plan de MaKo es sólo de la plataforma.' };
-      const val = ventaValida({ capa: s(input.capa) ?? '', email: s(input.email) ?? '', nombre: s(input.nombre) ?? '', monto: n(input.monto) ?? NaN, moneda: s(input.moneda), montoUsd: n(input.montoUsd), tipo: input.tipo === 'suscripcion' ? 'suscripcion' : 'unico', pasarela: esPasarela(input.pasarela) ? input.pasarela : null, refCodigo: s(input.codigoPartner) });
-      if (!val.ok) return { error: val.error };
-      const v = val.venta;
-      let comprador: Awaited<ReturnType<typeof compradorEnLaPlataforma>>;
-      try { comprador = await compradorEnLaPlataforma(v.email); } catch { return { error: 'No pude buscar a la persona en el CRM de la plataforma. Intenta de nuevo.', falla: true }; }
-      if (comprador && 'ambiguo' in comprador) return { error: 'Hay más de un lead con ese email en el CRM de la plataforma: no elijo uno a ciegas. Unifícalos en el CRM y vuelve a pedirlo.' };
-      // Lo que va a cobrar el link, con las reglas de crearCobro: la pasarela, la moneda (la de su cuenta, con Mercado Pago)
-      // y el valor en dólares.
-      const p = await previaDeLaVenta(v, plataforma);
-      if (!p.ok) return { error: p.error, faltan: p.faltan };
-      if (comprador) {
-        let abierto: Awaited<ReturnType<typeof cobroAbiertoDelPlan>>;
-        try { abierto = await cobroAbiertoDelPlan(plataforma, comprador.id, v.capa); } catch { return { error: 'No pude revisar los cobros de esa persona. Intenta de nuevo.', falla: true }; }
-        if (abierto && 'pendiente' in abierto) {
-          const c = abierto.pendiente;
-          return {
-            error: `Ya tiene un link pendiente de ese plan (cobro #${c.id}, ${formatoMonto(c.monto, c.moneda)}): no creé otro. Para otro precio, anula ése con anular_link_pago.`,
-            yaEstaba: true,
-            paraLaPersona: `Link de pago: ${linkDelCobro(c.token)}`,
-          };
-        }
-        if (abierto) return { error: `Ya pagó ese plan (cobro #${abierto.pagado.id}) y su cuenta todavía no quedó dada de alta: se revisa en Cobros.` };
-      }
-      let cuenta: Awaited<ReturnType<typeof cuentaDelComprador>>;
-      try { cuenta = await cuentaDelComprador(v.email); } catch { return { error: 'No pude revisar si ese email ya tiene cuenta de MaKo. Intenta de nuevo.', falla: true }; }
-      if (cuenta === 'plataforma') return { error: 'Ese email es del equipo de MaKo: no se le vende un plan.' };
-      if (cuenta === 'equipo') return { error: 'Ese email es del equipo de otro negocio, no su dueño: a esa cuenta no se le vende un plan.' };
-      const plan = capaDef(v.capa).nombre;
-      const alPagar = cuenta === 'duena'
-        ? ' Ese email ya tiene cuenta de MaKo: al pagarlo el plan NO cambia solo, se le da desde Cobros con «Darle el plan a su cuenta».'
-        : ' Al pagarlo se le crea la cuenta y le llega el acceso.';
-      return {
-        payload: { ...v },
-        resumen: `Crear el link de pago de ${NOMBRE_PASARELA[p.previa.pasarela]} del plan «${plan}» para ${v.nombre} (${v.email}): ${formatoMonto(p.previa.monto, p.previa.moneda)}${v.tipo === 'suscripcion' ? ' por mes' : ', pago único'}.${alPagar}${v.refCodigo ? ` Lo trajo el partner «${v.refCodigo}».` : ''} El link queda en Cobros.`,
-      };
-    },
-    // Corre antes de marcar la propuesta aplicada (lib/api-mako/acciones.ts): un «no» acá no la quema.
-    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN),
-    ejecutar: (payload, ctx) => seguro('crear el link del plan', async () => {
-      if (!(await esSuperAdmin())) return { ok: false, resumen: NO_SUPER_ADMIN };
-      if (ctx.ws !== (await wsSuperAdmin())) return { ok: false, resumen: 'Vender un plan de MaKo es sólo de la plataforma.' };
-      // `venderPlan` vuelve a validar todo (la capa, el email, lo que cobra, el lead del comprador) y resuelve el workspace él mismo.
-      const r = await venderPlan(payload as Parameters<typeof venderPlan>[0], autorDe(ctx));
-      if (!r.ok) return { ok: false, resumen: `No se pudo crear el link: ${r.error}` };
-      // El link lo escribe el código y va a la persona (`paraLaPersona`) y en `datos`, nunca al resumen que lee el modelo:
-      // un dato exacto que pasa por un modelo deja de ser exacto (AGENTS.md). El resumen dice dónde quedó.
-      return {
-        ok: true,
-        resumen: r.yaEstaba
-          ? `Ya tenía un link pendiente de ese plan (cobro #${r.cobroId}, ${formatoMonto(r.monto, r.moneda)}): no creé otro. Queda en Cobros, con «Copiar link».`
-          : `Listo: link de pago del plan por ${formatoMonto(r.monto, r.moneda)} (cobro #${r.cobroId}). Queda en Cobros, con «Copiar link», para pasárselo a la persona.`,
-        paraLaPersona: `Link de pago: ${r.link}`,
-        datos: { cobroId: r.cobroId, url: r.link, monto: r.monto, moneda: r.moneda },
-      };
-    }),
-  },
-
   // ── La tarjeta «Pagos › Leer comprobante» (5/11/2026, lib/comprobantes.ts). Lee y guarda; nunca marca nada cobrado.
   leer_comprobante: {
     preparar: async (input) => {
@@ -1024,6 +949,81 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Listo: el correo quedó ${r.resultado?.correo ?? 'pendiente'} y WhatsApp ${r.resultado?.whatsapp ?? 'pendiente'}.` };
     }),
   },
+  // «Vender un plan» (23/10/2026, P0-8): ver cobros.def.ts. El MISMO camino que /admin/cobros (`venderPlan`, lib/vender-plan.ts).
+  // La revisión adversarial del mismo día (wf_fbeb8485-d3c) le sumó:
+  //   · el super admin GLOBAL al confirmar y al ejecutar (`esSuperAdmin`). `rolMinimo: 'admin'` + `soloPlataforma` es el admin
+  //     DEL WORKSPACE de la plataforma, no el super admin, y la pantalla de Cobros exige el super admin (`getSesionAdmin`). Al
+  //     proponer no se exige: por WhatsApp no hay sesión, y proponer no es vender;
+  //   · nunca desde un flujo: un paso «⚡ Acción» se confirma solo (`aplicarEnElActo`). Va en preparar porque al confirmar se
+  //     vuelve a llamar con el mismo ctx, y además está en NO_EN_FLUJOS (lib/api-mako/flujo.ts);
+  //   · lo que va a cobrar (la pasarela, la moneda y el valor en dólares) se decide ANTES del «sí» (`previaDeLaVenta`), y el
+  //     resumen lo dice: antes una venta en otra moneda sin dólares se caía después del «sí», con el lead ya creado;
+  //   · el comprador sin mayúsculas, un link pendiente del mismo plan que no se duplica, y la cuenta que ya existe;
+  //   · el resumen de lo hecho dice dónde quedó el link (Cobros, con su número): en /mako/revisar `paraLaPersona` no se muestra.
+  vender_plan_mako: {
+    preparar: async (input, ctx) => {
+      if (ctx.canalKey?.startsWith(PREFIJO_FLUJO)) return { error: 'Una automatización no vende planes de MaKo: se pide en Cobros o por el chat.' };
+      // El gating `soloPlataforma` ya lo dice; el runner lo vuelve a preguntar (AGENTS.md: «el runner lo vuelve a
+      // preguntar»). Y el workspace del cobro es SIEMPRE el de la plataforma, nunca el que traiga el pedido.
+      const plataforma = await wsSuperAdmin();
+      if (ctx.ws !== plataforma) return { error: 'Vender un plan de MaKo es sólo de la plataforma.' };
+      const val = ventaValida({ capa: s(input.capa) ?? '', email: s(input.email) ?? '', nombre: s(input.nombre) ?? '', monto: n(input.monto) ?? NaN, moneda: s(input.moneda), montoUsd: n(input.montoUsd), tipo: input.tipo === 'suscripcion' ? 'suscripcion' : 'unico', pasarela: esPasarela(input.pasarela) ? input.pasarela : null, refCodigo: s(input.codigoPartner) });
+      if (!val.ok) return { error: val.error };
+      const v = val.venta;
+      let comprador: Awaited<ReturnType<typeof compradorEnLaPlataforma>>;
+      try { comprador = await compradorEnLaPlataforma(v.email); } catch { return { error: 'No pude buscar a la persona en el CRM de la plataforma. Intenta de nuevo.', falla: true }; }
+      if (comprador && 'ambiguo' in comprador) return { error: 'Hay más de un lead con ese email en el CRM de la plataforma: no elijo uno a ciegas. Unifícalos en el CRM y vuelve a pedirlo.' };
+      // Lo que va a cobrar el link, con las reglas de crearCobro: la pasarela, la moneda (la de su cuenta, con Mercado Pago)
+      // y el valor en dólares.
+      const p = await previaDeLaVenta(v, plataforma);
+      if (!p.ok) return { error: p.error, faltan: p.faltan };
+      if (comprador) {
+        let abierto: Awaited<ReturnType<typeof cobroAbiertoDelPlan>>;
+        try { abierto = await cobroAbiertoDelPlan(plataforma, comprador.id, v.capa); } catch { return { error: 'No pude revisar los cobros de esa persona. Intenta de nuevo.', falla: true }; }
+        if (abierto && 'pendiente' in abierto) {
+          const c = abierto.pendiente;
+          return {
+            error: `Ya tiene un link pendiente de ese plan (cobro #${c.id}, ${formatoMonto(c.monto, c.moneda)}): no creé otro. Para otro precio, anula ése con anular_link_pago.`,
+            yaEstaba: true,
+            paraLaPersona: `Link de pago: ${linkDelCobro(c.token)}`,
+          };
+        }
+        if (abierto) return { error: `Ya pagó ese plan (cobro #${abierto.pagado.id}) y su cuenta todavía no quedó dada de alta: se revisa en Cobros.` };
+      }
+      let cuenta: Awaited<ReturnType<typeof cuentaDelComprador>>;
+      try { cuenta = await cuentaDelComprador(v.email); } catch { return { error: 'No pude revisar si ese email ya tiene cuenta de MaKo. Intenta de nuevo.', falla: true }; }
+      if (cuenta === 'plataforma') return { error: 'Ese email es del equipo de MaKo: no se le vende un plan.' };
+      if (cuenta === 'equipo') return { error: 'Ese email es del equipo de otro negocio, no su dueño: a esa cuenta no se le vende un plan.' };
+      const plan = capaDef(v.capa).nombre;
+      const alPagar = cuenta === 'duena'
+        ? ' Ese email ya tiene cuenta de MaKo: al pagarlo el plan NO cambia solo, se le da desde Cobros con «Darle el plan a su cuenta».'
+        : ' Al pagarlo se le crea la cuenta y le llega el acceso.';
+      return {
+        payload: { ...v },
+        resumen: `Crear el link de pago de ${NOMBRE_PASARELA[p.previa.pasarela]} del plan «${plan}» para ${v.nombre} (${v.email}): ${formatoMonto(p.previa.monto, p.previa.moneda)}${v.tipo === 'suscripcion' ? ' por mes' : ', pago único'}.${alPagar}${v.refCodigo ? ` Lo trajo el partner «${v.refCodigo}».` : ''} El link queda en Cobros.`,
+      };
+    },
+    // Corre antes de marcar la propuesta aplicada (lib/api-mako/acciones.ts): un «no» acá no la quema.
+    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN),
+    ejecutar: (payload, ctx) => seguro('crear el link del plan', async () => {
+      if (!(await esSuperAdmin())) return { ok: false, resumen: NO_SUPER_ADMIN };
+      if (ctx.ws !== (await wsSuperAdmin())) return { ok: false, resumen: 'Vender un plan de MaKo es sólo de la plataforma.' };
+      // `venderPlan` vuelve a validar todo (la capa, el email, lo que cobra, el lead del comprador) y resuelve el workspace él mismo.
+      const r = await venderPlan(payload as Parameters<typeof venderPlan>[0], autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: `No se pudo crear el link: ${r.error}` };
+      // El link lo escribe el código y va a la persona (`paraLaPersona`) y en `datos`, nunca al resumen que lee el modelo:
+      // un dato exacto que pasa por un modelo deja de ser exacto (AGENTS.md). El resumen dice dónde quedó.
+      return {
+        ok: true,
+        resumen: r.yaEstaba
+          ? `Ya tenía un link pendiente de ese plan (cobro #${r.cobroId}, ${formatoMonto(r.monto, r.moneda)}): no creé otro. Queda en Cobros, con «Copiar link».`
+          : `Listo: link de pago del plan por ${formatoMonto(r.monto, r.moneda)} (cobro #${r.cobroId}). Queda en Cobros, con «Copiar link», para pasárselo a la persona.`,
+        paraLaPersona: `Link de pago: ${r.link}`,
+        datos: { cobroId: r.cobroId, url: r.link, monto: r.monto, moneda: r.moneda },
+      };
+    }),
+  },
+
 };
 
 // ── el plan por tramos ────────────────────────────────────────────────────────
