@@ -151,8 +151,8 @@ test('4. el super admin: las de UN negocio, en su ficha, sin secretos, con «Des
   // La revisión del 23/10: la ficha las dibuja sólo para quien pasa la guarda del Centro, y el Ops Center de la plataforma
   // no se dibuja mirando a un cliente (su «Tus cuentas de IA» lee el negocio de la pestaña).
   assert.match(sinComentarios(leer('app/admin/AdminView.tsx')), /\{verComputadoras && \(\s*<ComputadorasDelNegocio/, 'la ficha muestra la sección a quien no puede leerla');
-  // La grilla del super admin vive en Customers desde el 25/10/2026 (app/customers/page.tsx).
-  assert.match(sinComentarios(leer('app/customers/page.tsx')), /verComputadoras=\{puedeOperar\(sesionAdmin, plataforma\)\}/);
+  // La grilla del super admin vive en Admin › Accounts desde el 5/11/2026 (app/admin/page.tsx; era /customers).
+  assert.match(sinComentarios(leer('app/admin/page.tsx')), /verComputadoras=\{puedeOperar\(sesionAdmin, plataforma\)\}/);
   const puerta = sinComentarios(leer('app/admin/operaciones/page.tsx'));
   const iGuarda = puerta.indexOf('puedeOperar(admin'), iMirando = puerta.indexOf('if (ws != null && ws !== (await wsSuperAdmin())) redirect(await rutaConWs(RUTA_OPS_CENTER_NEGOCIO));');
   const iLee = puerta.indexOf('datosDelCentroSiOpera()');

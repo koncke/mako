@@ -39,7 +39,7 @@ export const metadata = {
   description: 'Qué datos usa MaKo, con quién se comparten y qué puedes hacer con ellos.',
 };
 
-const ACTUALIZADO = '4 de noviembre de 2026';
+const ACTUALIZADO = '5 de noviembre de 2026';
 
 // ⚠️ LOS TRES DATOS QUE NO SALEN DEL CÓDIGO. Una política con el responsable
 // equivocado es peor que no tenerla: es el único dato que le dice a una persona A
@@ -373,6 +373,16 @@ export default function Page() {
         <li><strong>Calendly y Cal.com</strong> — las agendas de reserva.</li>
         <li><strong>Fathom</strong> — la grabación y transcripción de tus llamadas.</li>
         <li><strong>ElevenLabs, Panda Video y Google Flow</strong> — si usas la generación de video: tu voz se clona en ElevenLabs y tu foto se envía a Google Flow.</li>
+        <li>
+          <strong>Creem, para revisar lo que se genera</strong> — antes de generar una imagen o un video, el texto que va a
+          usar el modelo (no tu foto) se manda al servicio de moderación de Creem, que contesta si se puede generar. Va con
+          el número de tu espacio de trabajo, sin tu nombre ni tu correo.
+        </li>
+        <li>
+          <strong>Creem, Stripe y Mercado Pago, para cobrar tu plan</strong> — según el país desde el que pagas. Reciben los
+          datos de tu tarjeta o de tu cuenta, tu correo y lo que compras; MaKo no ve el número de tu tarjeta. Si pagas con
+          Creem, Creem es el vendedor registrado de esa compra y trata esos datos como responsable, según su propia política.
+        </li>
       </ul>
 
       <H3>Muchos de estos son <em>tu</em> cuenta, no la nuestra</H3>

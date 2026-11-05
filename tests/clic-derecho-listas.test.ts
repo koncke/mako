@@ -240,10 +240,10 @@ test('Partners (el programa): «Marcar pagado», con la MISMA condición que el 
 test('Customers: lo de la ficha sin abrirla (verla, entrar, administrar), con los MISMOS destinos que sus links', () => {
   assert.deepEqual(rotulos(itemsCliente()), ['Ver ficha', 'Entrar a su cuenta', 'Administrar']);
   assert.equal(destinoCliente('entrar', 12), '/inicio?ws=12');
-  assert.equal(destinoCliente('administrar', 12), '/customers?tab=accounts&cuenta=12');
+  assert.equal(destinoCliente('administrar', 12), '/admin?tab=accounts&cuenta=12');
   const src = sinComentarios(leer('app/customers/CustomersApp.tsx'));
   const ficha = entre(src, 'function Ficha(', '\n}\n');
-  assert.ok(ficha.includes('href={`/inicio?ws=${f.ws}`}') && ficha.includes('href={`/customers?tab=accounts&cuenta=${f.ws}`}'), 'los links de la ficha');
+  assert.ok(ficha.includes('href={`/inicio?ws=${f.ws}`}') && ficha.includes('href={`/admin?tab=accounts&cuenta=${f.ws}`}'), 'los links de la ficha');
   assert.equal((src.match(/\{\.\.\.menu\.propsDe\(\{ ws: [af]\.ws, nombre: [af]\.nombre \}\)\}/g) ?? []).length, 2, 'en «Para mirar» y en la lista');
 });
 

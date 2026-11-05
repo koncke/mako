@@ -68,7 +68,7 @@ export function detalleDelPedido(f: Pick<FilaPedido, 'origen' | 'correo_verifica
 }
 
 /** Donde se aceptan: la pestaña Accounts de Customers. `/admin` redirige a la pestaña Customers, donde NO están. */
-export const RUTA_QUIEREN_ENTRAR = '/customers?tab=accounts';
+export const RUTA_QUIEREN_ENTRAR = '/admin?tab=accounts';
 
 /**
  * El cartel arriba de las pestañas de Customers: lo que espera a Martín se ve sin abrir Accounts (30/10/2026). También lo de las

@@ -27,6 +27,7 @@ import Terminos from '../app/terminos/page';
 import Reembolsos from '../app/reembolsos/page';
 import EliminarCuenta from '../app/eliminar-cuenta/page';
 import Soporte from '../app/soporte/page';
+import Aup from '../app/aup/page';
 
 const LAYOUT = resolve(__dirname, '..', 'app/layout.tsx');
 
@@ -206,6 +207,8 @@ const PAGINAS: Array<[string, () => ReactElement, string, number?]> = [
   // Las que piden las tiendas (3/11/2026): cortas de verdad, y las abre un revisor sin cuenta.
   ['/eliminar-cuenta', () => createElement(EliminarCuenta), 'Qué se borra', 500],
   ['/soporte', () => createElement(Soporte), 'Si no puedes entrar', 400],
+  // La política de uso aceptable (5/11/2026): la pide Creem, y su revisor la abre sin cuenta.
+  ['/aup', () => createElement(Aup), 'Lo que no se puede generar', 2500],
 ];
 
 for (const [ruta, pagina, frase, minimo = 5000] of PAGINAS) {

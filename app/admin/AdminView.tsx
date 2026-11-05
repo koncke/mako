@@ -196,7 +196,7 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
   incrustado?: boolean;
   segmento?: SegmentoAdmin | null;
   extra?: Record<number, ExtraDeCliente> | null;
-  /** La ficha que abre al cargar (Customers › Accounts, `?cuenta=<ws>`: el «Administrar» de la ficha de Customers). */
+  /** La ficha que abre al cargar (Admin › Accounts, `?cuenta=<ws>`: el «Administrar» de la ficha de Customers). */
   abrirInicial?: number | null;
 } = {}) {
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);

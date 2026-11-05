@@ -3,7 +3,7 @@
 // =============================================================================
 // BajasDeCuenta — «Pidieron eliminar su cuenta»: la marca que ve el super admin (3/11/2026)
 // =============================================================================
-// Va arriba de Customers › Accounts, con las dos reglas de «Quieren entrar» (PedidosDeIngreso.tsx):
+// Va arriba de Admin › Accounts, con las dos reglas de «Quieren entrar» (PedidosDeIngreso.tsx):
 //   · NO SE DIBUJA SI NO HAY NADIE;
 //   · UN ERROR DE LECTURA NO ES «NO HAY NADIE»: lo dice. Desaparecer dejaría vencer un plazo que le prometimos a alguien.
 // Apple y Play piden que se borre de verdad, y le dijimos a la persona una fecha: la que venció se ve en rojo.

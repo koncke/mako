@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// RecibosMako — el libro de recibos de MaKo, en Customers › Billing (5/11/2026)
+// RecibosMako — el libro de recibos de MaKo, en Admin › Billing (5/11/2026)
 // =============================================================================
 // Martín: «me gustaría que todo esto lo vayamos evidentemente guardando dentro de la aplicación, dentro de SuperAdmin tal vez,
 // para que tengamos un registro». Una fila por recibo (el N.º, a nombre de quién, lo recibido, el medio, la fecha, el estado y

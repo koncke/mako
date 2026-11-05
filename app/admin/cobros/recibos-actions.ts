@@ -1,7 +1,7 @@
 'use server';
 
 // =============================================================================
-// Customers › Billing › Recibos — las acciones del SUPER ADMIN sobre el libro de recibos (5/11/2026)
+// Admin › Billing › Recibos — las acciones del SUPER ADMIN sobre el libro de recibos (5/11/2026)
 // =============================================================================
 // Martín: «me gustaría que todo esto lo vayamos evidentemente guardando dentro de la aplicación, dentro de SuperAdmin tal vez,
 // para que tengamos un registro». Todo pasa por lib/recibos.ts; acá sólo el cerrojo y el `revalidatePath`.

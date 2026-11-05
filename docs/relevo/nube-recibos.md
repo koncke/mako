@@ -8,7 +8,7 @@
 ## Para decirle a Martín, con estas palabras
 
 - **Cada pago que entra a MaKo tiene su recibo**, con número (el próximo es el 0003), en PDF, por correo y al grupo de WhatsApp del
-  negocio. Queda todo en **Customers › Billing › Recibos**, con «Bajar», «Reenviar» y «Cargar pago» (para lo que entra por Binance).
+  negocio. Queda todo en **Admin › Billing › Recibos**, con «Bajar», «Reenviar» y «Cargar pago» (para lo que entra por Binance).
 - **El recibo por WhatsApp sólo llega a un negocio que ya tiene grupo.** A un comprador nuevo le llega por correo y por la app.
 - **Es un recibo de pago, no una factura fiscal**, y lo dice. Si hay que facturar en ARCA (Mercado Pago, Binance), eso sigue aparte:
   lo confirma su contador. Con Creem, el documento se llama «Confirmación de pago»: el vendedor legal es Creem y la factura la da Creem.

@@ -2282,6 +2282,36 @@ La decisión y sus motivos: [estrategia-lanzamiento-low-to-high.md](estrategia-l
 
 **Sin hacer:**
 - Mientras Creem no se apruebe, a un comprador de LATAM fuera de Argentina `pasarelasDelPais` igual le ofrece Creem. Sin medir qué ve: no se hizo ningún POST de compra.
-- Creem pide Moderation API a quien genera imagen o video desde un prompt y una política de uso visible, y prohíbe la manipulación de rostros. MaKo no tiene ninguna de las dos cosas y tiene AI Avatar. Puede frenar la revisión: lo contesta soporte de Creem.
+- ~~Creem pide Moderation API a quien genera imagen o video desde un prompt y una política de uso visible~~: hechas el 5/11 en `punta/creem-revision` (la entrada de abajo). La manipulación de rostros frente a AI Avatar la contesta soporte de Creem: borrador en [relevo/nube-creem-revision.md](relevo/nube-creem-revision.md).
 - La plantilla de recibos: encargo completo en [relevo/recibos-encargo.md](relevo/recibos-encargo.md).
-- El comentario de `lib/credenciales.ts:808` dice que `CREEM_API_KEY` está en `.env.local`, y no está.
+- ~~El comentario de `lib/credenciales.ts:808` dice que `CREEM_API_KEY` está en `.env.local`~~: corregido el 5/11.
+
+## La revisión de Creem: /aup, las legales y la moderación antes de generar (5/11/2026)
+
+**Síntoma:** para aprobar la tienda, Creem mira el sitio y, a quien genera imagen o video con IA, le exige el Moderation API
+en producción y una política de uso aceptable pública. /aup mandaba a /login, ningún prompt pasaba por Creem, y ni los
+términos, ni la privacidad, ni los reembolsos nombraban a Creem (que cobra desde LATAM desde el 31/10).
+
+**Lo que cambió:** /aup pública; el pie de cada legal enlaza las demás con el correo y la razón social (sin /planes ni
+/reembolsos: esas páginas se abren en la app de iPhone); Creem en términos, privacidad, reembolsos y soporte; y `encolar`
+modera todo `generar_imagen` y `generar_clip`. El detalle, las decisiones y lo que le toca a Martín:
+[relevo/nube-creem-revision.md](relevo/nube-creem-revision.md).
+
+**Vive en:** lib/creem-moderacion-reglas.ts, lib/creem-moderacion.ts, lib/flow-cola.ts, app/aup/page.tsx, app/_legal/LegalShell.tsx
+
+**Lo que no se ve en el código:**
+- **El contrato del Moderation API salió del SDK oficial de npm** (`creem` 1.13.0, generado de su OpenAPI), porque
+  docs.creem.io no se abre desde la nube. Es un endpoint «experimental»: una respuesta que no se entiende es un error, nunca
+  un «allow».
+- **La moderación va en la cola, no en cada pantalla:** con una sobrecarga de `encolar`, el compilador obliga a cada llamador
+  de imagen o video a manejar el rechazo. Al mirar los llamadores apareció que la prueba del puente (`probarImagenAction`)
+  encolaba sin `prompt` al tope: con el Flow nuevo moría con «El trabajo no trae texto para filmar». Ahora lo lleva.
+- **El prompt de Flow no pasaba por el permiso de IA de la app de iPhone** (`exigirPermisoIa`). Ahora sí, en la misma puerta.
+- **Lo que pidió el encargo y lo que recomienda Creem chocan** si la moderación no contesta: quedó «se genera igual» (lo
+  pedido), con una constante para cambiarlo. Es decisión de Martín.
+- **El tsc acotado se quedó sin memoria en la nube con el heap por defecto** (2.560 MB) sobre `app/video-generator/video-action.ts`
+  y salió 99; con `--heap=8000` dio verde. No es un error de tipos.
+
+**Sin hacer:** la casilla de permiso de la foto de AI Avatar (la voz ya la tiene); el aviso en la app por el destinatario
+nuevo que promete /privacidad; el precio por unidad de la moderación; probar contra Creem de verdad (desde la nube no hay
+clave). Todo en el relevo.

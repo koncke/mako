@@ -153,8 +153,8 @@ test('la página es sólo del super admin, y el guard va antes de leer nada', ()
   const page = sinComentarios(leer('app/admin/cobros/page.tsx'));
   const guard = page.search(/const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);/);
   assert.ok(guard > 0, 'falta el guard de /admin/estrategia: getSesionAdmin y si no, redirect');
-  assert.ok(guard < page.indexOf("redirect('/customers?tab=billing')"), 'el guard va ANTES de mandarlo a Billing');
-  const customers = sinComentarios(leer('app/customers/page.tsx'));
+  assert.ok(guard < page.indexOf("redirect('/admin?tab=billing')"), 'el guard va ANTES de mandarlo a Billing');
+  const customers = sinComentarios(leer('app/admin/page.tsx'));
   const puerta = customers.search(/const sesionAdmin = await getSesionAdmin\(\);\s*if \(!sesionAdmin\) redirect\('\/inicio'\);/);
   assert.ok(puerta > 0, 'Customers sin la puerta del super admin');
   assert.ok(puerta < customers.indexOf('<ContenidoCobros />'), 'el guard va ANTES de leer los cobros');
