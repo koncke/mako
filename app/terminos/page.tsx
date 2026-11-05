@@ -155,6 +155,15 @@ export default function Page() {
           modelo pasa por el servicio de moderación de Creem, la empresa que procesa nuestros pagos. Si lo rechaza, no se
           genera. Lo que no se puede pedir está en la <a href="/aup">política de uso aceptable</a>.
         </li>
+        <li>
+          <strong>Está prohibido generar contenido sexual, explícito o sexualmente sugerente (NSFW)</strong>, y cualquier
+          contenido que sexualice a un menor. Una cuenta que lo intente se suspende.
+        </li>
+        <li>
+          <strong>MaKo es un producto independiente.</strong> Es una interfaz propia construida sobre modelos de
+          inteligencia artificial de terceros. No está afiliado a Google, OpenAI, Anthropic ni a otros creadores de esos
+          modelos, y ellos no lo avalan.
+        </li>
       </ul>
 
       <H id="nuestro">7. Lo que es nuestro</H>

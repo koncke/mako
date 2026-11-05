@@ -139,6 +139,12 @@ export default function Page() {
         agendas una reunión desde ahí, que la agendaste. Con eso Meta sabe a quién mostrarle
         nuestros anuncios. Corre solo en esa página, no dentro de la aplicación.
       </p>
+      <p>
+        <strong>Esa página pública también graba las visitas</strong>, con una herramienta propia de MaKo: lo que se
+        ve, los clics y el desplazamiento, para entender qué no se comprende y mejorarla. Lo que se escribe en un campo
+        no se graba: se tapa antes de salir del navegador. Las grabaciones se borran a los 30 días, o a los 180 si esa
+        visita terminó dejando sus datos. Tampoco corre dentro de la aplicación.
+      </p>
 
       <H3>Si conectas Claude Code</H3>
       <p>
@@ -326,7 +332,9 @@ export default function Page() {
         <li>
           <strong>Tu página web</strong>, si instalas nuestro píxel: qué visitó cada persona y
           cuánto vio de tus videos, y <strong>desde qué país, región y ciudad</strong> llegó cada visita
-          (lo deduce nuestro proveedor de la conexión; la dirección IP no se guarda). Además,{' '}
+          (lo deduce nuestro proveedor de la conexión; la dirección IP no se guarda).{' '}
+          <strong>El píxel también graba las visitas</strong>, para que veas qué hace la gente en tu página, con lo
+          escrito en los campos tapado y por el mismo plazo de 30 o 180 días. Además,{' '}
           <strong>el píxel captura los formularios</strong> que
           se envían en esa página cuando traen un correo o un teléfono, y esos datos entran a tu
           CRM. Si lo instalas, avísale a tu público en tu propia política de privacidad: es tu
