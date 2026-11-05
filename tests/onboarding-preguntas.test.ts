@@ -37,7 +37,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  extraerNombre, extraerNegocio, etapaDeArranque, mensajesDeArranque, leerRespuesta, interesDe, rutaDeEntrada, RUTA_AL_TERMINAR,
+  extraerNombre, extraerNegocio, etapaDeArranque, mensajesDeArranque, leerRespuesta, interesDe, RUTA_AL_TERMINAR,
   ORIGENES, INTERESES, CLAVE_ENCUESTA, NOMBRE_CONFIRMAR, type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
 import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
@@ -151,7 +151,7 @@ test('el nombre y el negocio se escriben: nunca un botón con restos de otra pru
   assert.equal(sinNegocio[sinNegocio.length - 1].opciones, undefined);
 });
 
-test('el interés: la opción o lo que escriba, y a qué pestaña entra al terminar', () => {
+test('el interés: la opción o lo que escriba, y siempre entra al Ops Center', () => {
   for (const i of INTERESES) assert.equal(interesDe(i.label), i.id);
   assert.equal(interesDe('los anuncios'), 'anuncios');
   assert.equal(interesDe('conseguir clientes'), 'anuncios');
@@ -159,8 +159,8 @@ test('el interés: la opción o lo que escriba, y a qué pestaña entra al termi
   assert.equal(interesDe('el seguimiento de mis ventas'), 'ventas');
   assert.equal(interesDe('organizar a mi equipo'), 'organizar');
   assert.equal(interesDe('no sé'), null);
-  assert.equal(rutaDeEntrada('ventas'), '/crm');
-  assert.equal(rutaDeEntrada(undefined), '/general');
+  // `rutaDeEntrada` se borró el 5/11/2026: ya no decidía nada y apuntaba a /ads-writer, que no existe. El interés ordena la
+  // escalera del Ops Center (docs/mako-iniciativa/plan.md §3.2).
   const chat = leer('app/onboarding/ChatArranque.tsx');
   // Desde el 18/10/2026 entra SIEMPRE al Ops Center: el interés queda en la encuesta, no decide la entrada.
   assert.equal(RUTA_AL_TERMINAR, '/second-brain');

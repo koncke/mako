@@ -49,7 +49,7 @@ import { CLAVE_HISTORIAL, anotarCon, conLoNuevo, leerHistorial, unirConOffer } f
 import { getSupabaseServer } from './supabase';
 import { bloqueDeAudio } from './chat-mako-bloques';
 import {
-  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, opcionesDeCobro, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
+  CLAVE_ENCUESTA, funnelDelArranque, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, opcionesDeCobro, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -101,7 +101,7 @@ async function mensajesParaElHilo(e: EstadoArranque): Promise<ReturnType<typeof 
   await anotarHistorial(mensajesDeArranque(e, h), { primeroDeOffer: primeroDeOffer(h) });
   const historial = leerHistorial(await getSettingEstricto(CLAVE_HISTORIAL));
   if (!historial) throw new Error('No pude leer el historial del onboarding: no armo el chat a medias.');
-  return mensajesDelHilo(unirConOffer(historial, h.sesion?.mensajes ?? []), e.interes);
+  return mensajesDelHilo(unirConOffer(historial, h.sesion?.mensajes ?? []), { nombre: e.nombre, telefonoVerificado: e.telefono === 'verificado' });
 }
 
 /** La hora del primer mensaje de la conversación de Offer del onboarding (lo de antes se anota antes de él). */
@@ -292,6 +292,7 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     nombreWorkspace: w?.nombre && w.nombre !== NOMBRE_WS_PRUEBA ? w.nombre : '',
     faseGuardada: diag != null,
     canalNegocio: diag?.canal && esCanal(diag.canal) ? diag.canal : null,
+    faseNegocio: diag ? { respuestas: diag.respuestas, fase: diag.fase } : null,
     // Con las piezas, sí. Ya no espera a que el modelo deje de preguntar (`preguntaAbierta`, 18/10): con las piezas el turno
     // que cierra lo escribe el código (app/api/offer/route.ts → mensajeDeCierreDelArranque), y esperar al modelo hizo que
     // Florencia contestara 6 preguntas de más (20/10/2026).
@@ -350,6 +351,8 @@ export type VistaArranque = {
   crmPropuesta: PropuestaCrm | null;
   /** El canal con el que se propone el CRM. */
   canal: HechosArranque['canalNegocio'];
+  /** El funnel que le recomienda MaKo (`funnelDelArranque`): la tarjeta lo muestra mientras no eligió. */
+  crmRecomendado: TipoCrmId;
   /** Lo que quiere resolver primero: decide a qué pestaña entra al terminar (`rutaDeEntrada`). */
   interes: EstadoArranque['interes'] | null;
   /** La guardia lo bloqueó (lib/onboarding-guardia.ts): la pantalla muestra el aviso en vez del chat. */
@@ -407,6 +410,7 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
     crmTipo: e.crmTipo ?? null,
     crmPropuesta: e.crmPropuesta ?? null,
     canal: h.canalNegocio,
+    crmRecomendado: funnelDelArranque(e, h).tipo,
     interes: e.interes ?? null,
     bloqueo: guardia.bloqueo ? { at: guardia.bloqueo.at, motivo: guardia.bloqueo.motivo } : null,
     equipo: superAdmin && guardia.bloqueo ? { ultimasFaltas: guardia.ultimasFaltas ?? [] } : null,
@@ -457,15 +461,18 @@ export async function sembrarCrmPrincipal(tipo: TipoCrmId, nombreNegocio: string
 
 /**
  * El CRM a medida (20/10/2026, pedido del 18/10, punto 10: «el armado del CRM también debe ser personalizado»): con lo que
- * vende (las piezas de la conversación del onboarding), MaKo elige el tipo entre los de su canal y nombra sus etapas. null =
- * no se pudo (sin la conversación, o la IA no contestó algo que sirva): queda la plantilla de su canal, como antes.
+ * vende (las piezas de la conversación del onboarding), MaKo nombra las etapas con las palabras del negocio. null = no se pudo
+ * (sin la conversación, o la IA no contestó algo que sirva): queda la plantilla tal cual.
+ * ⚠️ EL TIPO NO LO ELIGE LA IA desde el 5/11/2026 (plan.md §3.1, paso 10): lo decide `recomendarFunnel` y la IA recibe UN solo
+ * candidato, el recomendado (`tipo`). Sin `tipo`, los de su canal, como antes.
  */
-export async function propuestaDeCrm(e: EstadoArranque, canal: CanalId | null): Promise<PropuestaCrm | null> {
+export async function propuestaDeCrm(e: EstadoArranque, canal: CanalId | null, tipo?: TipoCrmId): Promise<PropuestaCrm | null> {
   if (!e.sesionId) return null;
   const sesion = await leerSesion(e.sesionId).catch(() => null);
   if (!sesion) return null;
   const { crmOffer } = await import('./offer-ia');
-  const r = await crmOffer({ piezas: sesion.piezas, canal, candidatos: candidatosCrm(canal), inicio: Date.now() });
+  const uno = tipo ? candidatosCrm(null).filter((t) => t.id === tipo) : [];
+  const r = await crmOffer({ piezas: sesion.piezas, canal, candidatos: uno.length ? uno : candidatosCrm(canal), inicio: Date.now() });
   return r.ok ? r.valor : null;
 }
 
