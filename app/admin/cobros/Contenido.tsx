@@ -8,7 +8,7 @@
 //
 // ⚠️ NO ES UNA MÁQUINA DE COBRO APARTE. Los cobros son los del workspace de la plataforma (`wsSuperAdmin()`), creados
 // con la MISMA pasarela que conecta cualquier cliente en /integraciones (BYOK, lib/cobros.ts).
-// ⚠️ EL GUARD LO PONE QUIEN LA MONTA (app/customers/page.tsx: `getSesionAdmin`, el super admin), y cada action vuelve a
+// ⚠️ EL GUARD LO PONE QUIEN LA MONTA (app/admin/page.tsx: `getSesionAdmin`, el super admin), y cada action vuelve a
 // preguntar: el `rol_ws` vale 'admin' para el dueño de CADA workspace y abriría esto a todos los clientes.
 
 import { EmptyState, ErrorState } from '@/app/_ui';
@@ -23,7 +23,7 @@ import PreciosPlanesMp from './PreciosPlanesMp';
 export async function ContenidoCobros() {
   const datos = await cobrosDeMakoAction();
   if (!datos.ok) {
-    return <ErrorState titulo="No pude leer los cobros" detalle={datos.error} accion={{ label: 'Volver a cargar los cobros', href: '/customers?tab=billing' }} />;
+    return <ErrorState titulo="No pude leer los cobros" detalle={datos.error} accion={{ label: 'Volver a cargar los cobros', href: '/admin?tab=billing' }} />;
   }
   const conPasarela = datos.pasarelas.length > 0;
   const [precio, locales] = await Promise.all([precioClienteAgenciaAction(), preciosLocalesAction()]);

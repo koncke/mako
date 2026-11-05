@@ -26,6 +26,9 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   puedeEntrar, clientesAprobados, esWsValido, rutaDeSalida,
   ROTULO_CARTERA, ESTADOS_CARTERA, type FilaCartera,
@@ -140,9 +143,18 @@ test('la salida NUNCA manda a una ruta que el gate le niega', () => {
   // el día que se separen otra vez, el que busque «a dónde vuelvo» tiene un solo
   // lugar donde mirar — y porque esta aserción sigue siendo la que lo impide.
   // ⚠️ 25/10/2026: se separaron. La agencia vuelve a su Agency Dashboard; el super admin, a Customers.
-  assert.equal(rutaDeSalida(true), '/customers');
+  // ⚠️ 5/11/2026: el super admin vuelve a Admin, que ES /admin (era /customers). Está en SOLO_ADMIN y para él está bien: el
+  //    gate deja pasar al rol global 'admin'. Lo que este test cuida es lo que dice su título, ahora leído del proxy y no de
+  //    un string: la salida de quien NO es super admin (una agencia) no puede caer en una ruta que el gate le niega.
+  assert.equal(rutaDeSalida(true), '/admin');
   assert.equal(rutaDeSalida(false), '/agency');
-  for (const esSuper of [true, false]) assert.notEqual(rutaDeSalida(esSuper), '/admin');
+  const proxy = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'proxy.ts'), 'utf8');
+  const lista = proxy.match(/const SOLO_ADMIN = \[([^\]]*)\];/);
+  assert.ok(lista, 'no encuentro SOLO_ADMIN en proxy.ts');
+  const soloAdmin = [...lista[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  assert.ok(soloAdmin.includes('/admin'), 'la lista que se leyó es la del gate');
+  const niega = (ruta: string) => soloAdmin.some((p) => ruta === p || ruta.startsWith(p + '/'));
+  assert.equal(niega(rutaDeSalida(false)), false, 'la agencia sale a una ruta que el gate le niega');
 });
 
 test('cada estado de la base tiene su rótulo, y ninguno sobra', () => {
