@@ -84,23 +84,29 @@ test('5. todas sus piezas a todo el ancho, debajo de las dos columnas, y sin «V
   assert.match(g, /piezas\.slice\(desde, desde \+ porPagina\)/, 'dibuja una página, no todo');
 });
 
-test('6. «Lo que mejor le fue»: por veces la mediana de SU grupo, sin anuncios, y estirado hasta el final de los formatos', () => {
-  const ahora = Date.UTC(2026, 10, 4);
-  const p = (id: number, tipo: 'reel' | 'video', vistas: number, canal: 'instagram' | 'youtube' | 'anuncios' = tipo === 'reel' ? 'instagram' : 'youtube') => ({
-    id, competidor_id: 1, canal, tipo, ref: `r${id}`, fuente: 'pagina', url: null, titulo: null, texto: null, etiquetas: null, analisis: null,
-    vistas, megusta: null, comentarios: null, duracion: tipo === 'video' ? 'PT12M' : null, gasto_tramo: null, impresiones_tramo: null, plataformas: null,
-    dominio_destino: null, publicada_en: '2026-10-01T00:00:00Z', miniatura: null, visto_primera_vez: '2026-10-01T00:00:00Z', visto_ultima_vez: '2026-10-01T00:00:00Z',
-    dejo_de_verse_en: null, texto_leido_en: null, metricas_leidas_en: null, etapa: null,
+test('6. «Lo que mejor le fue»: por su múltiplo (la única cuenta, lib/multiplo-rendimiento.ts), sin anuncios, y estirado hasta el final de los formatos', () => {
+  const ahora = Date.UTC(2026, 10, 5);
+  const hace = (d: number) => new Date(ahora - d * 86_400_000).toISOString();
+  let n = 0;
+  const p = (tipo: 'reel' | 'publicacion' | 'video', valor: number, dias: number, canal: 'instagram' | 'youtube' | 'anuncios' = tipo === 'video' ? 'youtube' : 'instagram') => ({
+    id: ++n, competidor_id: 1, canal, tipo, ref: `r${n}`, fuente: 'pagina', url: null, titulo: null, texto: null, etiquetas: null, analisis: null,
+    vistas: tipo === 'publicacion' ? null : valor, megusta: tipo === 'publicacion' ? valor : 10, comentarios: 0, duracion: tipo === 'video' ? 'PT12M' : null,
+    gasto_tramo: null, impresiones_tramo: null, plataformas: null, dominio_destino: null, publicada_en: hace(dias), miniatura: null,
+    visto_primera_vez: hace(dias), visto_ultima_vez: hace(dias), dejo_de_verse_en: null, texto_leido_en: null, metricas_leidas_en: null, etapa: null,
+    medio: tipo === 'reel' ? 'video' : tipo === 'publicacion' ? 'carrusel' : null,
   }) as unknown as Parameters<typeof mejoresPiezas>[0][number];
-  // Reels: mediana 1.000; el de 5.000 es 5x. Videos: mediana 100.000; el de 300.000 es 3x aunque tenga más vistas crudas.
-  const piezas = [p(1, 'reel', 1000), p(2, 'reel', 1000), p(3, 'reel', 5000), p(4, 'video', 100_000), p(5, 'video', 100_000), p(6, 'video', 300_000)];
-  const m = mejoresPiezas(piezas, 3, ahora);
-  // A igual veces (1x), gana el de más vistas: el video de 100 mil antes que el reel de mil.
-  assert.deepEqual(m.map((x) => [x.id, x.veces]), [[3, 5], [6, 3], [4, 1]]);
-  assert.equal(mejoresPiezas([p(1, 'reel', 10), p(2, 'reel', 20)], 5, ahora).length, 0, 'con menos de 3, la mediana no dice nada');
-  // Los anuncios no entran (sus días al aire no son un rendimiento), aunque traigan un número.
-  const conAnuncios = [...piezas, ...[7, 8, 9].map((id) => ({ ...p(id, 'reel', 9_000_000), canal: 'anuncios', tipo: 'anuncio' }) as typeof piezas[number])];
-  assert.ok(!mejoresPiezas(conAnuncios, 10, ahora).some((x) => x.id >= 7));
+  // Reels: 8 de 1.000 y uno de 5.000 (5x). Carruseles: 8 de 100 y uno de 300 (3x). Videos de YouTube: esperan el trámite.
+  const reels = [...Array.from({ length: 8 }, (_, i) => p('reel', 1000, 10 + i)), p('reel', 5000, 9)];
+  const carr = [...Array.from({ length: 8 }, (_, i) => p('publicacion', 100, 10 + i)), p('publicacion', 300, 9)];
+  const yt = Array.from({ length: 9 }, (_, i) => p('video', i === 0 ? 900_000 : 100_000, 10 + i));
+  const piezas = [...reels, ...carr, ...yt];
+  const m = mejoresPiezas(piezas, 2, ahora);
+  assert.deepEqual(m.map((x) => [x.id, x.veces, x.metrica]), [[reels[8].id, 5, 'vistas'], [carr[8].id, 3, 'interaccion']]);
+  assert.ok(!mejoresPiezas(piezas, 30, ahora).some((x) => yt.some((v) => v.id === x.id)), 'YouTube espera la enmienda III.L');
+  assert.equal(mejoresPiezas(reels.slice(2), 5, ahora).length, 0, 'con menos de 7 para comparar no hay número');
+  // Los anuncios no entran (sus días activos son una señal, no un rendimiento), aunque traigan un número.
+  const conAnuncios = [...piezas, ...Array.from({ length: 9 }, (_, i) => ({ ...p('reel', 9_000_000, 30 + i), canal: 'anuncios', tipo: 'anuncio' }) as typeof piezas[number])];
+  assert.ok(!mejoresPiezas(conAnuncios, 50, ahora).some((x) => (x.id as number) > yt[yt.length - 1].id));
   const css = leer('app/competitor-spy/SpyApp.tsx');
   assert.match(css, /\.spy-mejores\{position:relative;flex:1 1 auto;/, 'la caja estira la columna');
   assert.match(css, /\.spy-mejores__tarjeta\{position:absolute;inset:0;/, 'y la tarjeta no le suma alto: si no, nunca «llega» al final');

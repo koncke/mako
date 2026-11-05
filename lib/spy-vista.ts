@@ -210,21 +210,43 @@ export function fraseDeLectura(
  * el contador (lib/instagram-perfil.ts) y «no lo publica» no es «nadie lo vio». Entre dos sin vistas desempatan los «me
  * gusta» y después la fecha.
  */
-export type OrdenSpy = 'mas-vistas' | 'mas-reciente';
+export type OrdenSpy = 'mas-vistas' | 'mas-reciente' | 'mejor-rendimiento';
 export const ORDENES: ReadonlyArray<{ value: OrdenSpy; label: string }> = [
   { value: 'mas-vistas', label: 'Más vistas' },
   { value: 'mas-reciente', label: 'Más reciente' },
+  // Por su «3,7×» (5/11/2026, lib/multiplo-rendimiento.ts): cuántas veces lo que suele hacer su cuenta.
+  { value: 'mejor-rendimiento', label: 'Mejor rendimiento' },
 ];
 
+/** Lo que el orden y el filtro necesitan del múltiplo de cada pieza (`multiplosDe`, lib/multiplo-rendimiento.ts). */
+export type MultiplosDePiezas = ReadonlyMap<number, { veces: number | null; formato: string | null }>;
+const multiploDe = (m: MultiplosDePiezas | undefined, p: object) => {
+  const id = (p as { id?: unknown }).id;
+  return typeof id === 'number' ? m?.get(id) : undefined;
+};
+
+/**
+ * El orden de la grilla. «Mejor rendimiento» va por el múltiplo: primero lo que publica (vistas o me gusta y comentarios
+ * frente a su cuenta), después los anuncios (sus días activos son una señal, no un resultado: no se mezclan con las
+ * vistas), y al final lo que no tiene número, en el orden de «Más vistas». Nunca como si valiera cero.
+ */
 export function ordenarPiezas<T extends Pick<Pieza, 'publicada_en' | 'visto_primera_vez' | 'vistas' | 'megusta'>>(
   piezas: readonly T[],
   orden: OrdenSpy,
+  multiplos?: MultiplosDePiezas,
 ): T[] {
   const fecha = (p: T) => Date.parse(p.publicada_en ?? p.visto_primera_vez) || 0;
   if (orden === 'mas-reciente') return [...piezas].sort((a, b) => fecha(b) - fecha(a));
   const desc = (x: number | null, y: number | null) => (x != null && y != null ? y - x : x != null ? -1 : y != null ? 1 : 0);
-  return [...piezas].sort((a, b) => desc(a.vistas, b.vistas) || desc(a.megusta, b.megusta) || fecha(b) - fecha(a));
+  const porVistas = (a: T, b: T) => desc(a.vistas, b.vistas) || desc(a.megusta, b.megusta) || fecha(b) - fecha(a);
+  if (orden !== 'mejor-rendimiento') return [...piezas].sort(porVistas);
+  const grupo = (p: T) => { const m = multiploDe(multiplos, p); return m?.veces == null ? 2 : m.formato === 'anuncio' ? 1 : 0; };
+  const veces = (p: T) => multiploDe(multiplos, p)?.veces ?? null;
+  return [...piezas].sort((a, b) => grupo(a) - grupo(b) || desc(veces(a), veces(b)) || porVistas(a, b));
 }
+
+/** El piso del múltiplo para filtrar: los mismos que el explorador de carruseles (`OUTLIER_MINIMOS`). */
+export { OUTLIER_MINIMOS as MINIMOS_DE_MULTIPLO } from './carruseles/opciones';
 
 /**
  * QUÉ SE VE: un tipo de contenido por vez (Martín, 4/11: «uno para contenido corto, otro para contenido largo, de sus
@@ -285,11 +307,15 @@ export function opcionesDeContenido(
 
 type PiezaFiltrable = Pick<Pieza, 'canal' | 'tipo' | 'duracion' | 'titulo' | 'texto'>;
 
-export function filtrarPiezas<T extends PiezaFiltrable>(piezas: readonly T[], texto: string, tipo: TipoContenido): T[] {
+/** La grilla filtrada: el tipo, el texto y, con `minimo`, sólo lo que llega a ese múltiplo (sin número, no entra). */
+export function filtrarPiezas<T extends PiezaFiltrable>(
+  piezas: readonly T[], texto: string, tipo: TipoContenido, minimo = 0, multiplos?: MultiplosDePiezas,
+): T[] {
   const q = texto.trim().toLowerCase();
   return piezas.filter((p) =>
     (tipo === 'todo' || tipoEnLaGrilla(p) === tipo)
-    && (!q || `${p.titulo ?? ''} ${p.texto ?? ''}`.toLowerCase().includes(q)));
+    && (!q || `${p.titulo ?? ''} ${p.texto ?? ''}`.toLowerCase().includes(q))
+    && (!(minimo > 0) || (multiploDe(multiplos, p)?.veces ?? -1) >= minimo));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

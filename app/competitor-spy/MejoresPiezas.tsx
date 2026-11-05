@@ -11,13 +11,14 @@
 // mide el alto que quedó y se dibujan las filas ENTERAS que entran (con un piso de 3). En el teléfono (columna sola) la caja vuelve
 // a fluir y se ven 5.
 //
-// El orden es por cuántas veces la mediana de SU grupo hizo cada pieza (`mejoresPiezas`, lib/spy-detalle.ts): un short y un video
-// largo no se comparan en vistas crudas. Tocar una fila abre su detalle, como una miniatura del gráfico.
+// El orden es por su múltiplo (`mejoresPiezas`, lib/spy-detalle.ts, que usa la única cuenta: lib/multiplo-rendimiento.ts): cada
+// pieza contra las de su formato, así un short y un video largo no se comparan en vistas crudas. Tocar una fila abre su detalle.
 // =============================================================================
 
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { dibujarContador } from '@/lib/spy-reglas';
 import { mejoresPiezas, type PiezaDestacada } from '@/lib/spy-detalle';
+import { chipDeMultiplo, esFuerte, explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { miniaturaDePieza } from '@/lib/spy-vista';
 import type { PiezaVista } from './actions';
 import { LogoRed } from './LogoRed';
@@ -29,7 +30,7 @@ const MINIMO = 3;
 const EN_TELEFONO = 5;
 
 const redDe = (canal: string): 'instagram' | 'youtube' | null => (canal === 'instagram' || canal === 'youtube' ? canal : null);
-const veces = (v: number) => `${String(v).replace('.', ',')}x`;
+const QUE_SE_MIDE = { vistas: 'vistas', interaccion: 'me gusta y comentarios', dias: 'días activo' } as const;
 
 export function MejoresPiezas({ piezas, onAbrir }: { piezas: readonly PiezaVista[]; onAbrir: (p: PiezaVista) => void }) {
   const caja = useRef<HTMLDivElement>(null);
@@ -80,9 +81,9 @@ function Fila({ d, p, onAbrir }: { d: PiezaDestacada; p: PiezaVista | undefined;
         </span>
         <span className="spy-mejores__texto">
           <b>{titulo}</b>
-          <small>{dibujarContador(d.valor)} {d.metrica}</small>
+          <small>{dibujarContador(d.valor)} {QUE_SE_MIDE[d.metrica]}</small>
         </span>
-        <span className="spy-mejores__veces" data-alto={d.veces >= 2}>{veces(d.veces)}</span>
+        <span className="spy-mejores__veces" data-alto={esFuerte(d.multiplo)} title={explicarMultiplo(d.multiplo)}>{chipDeMultiplo(d.multiplo)}</span>
       </button>
     </li>
   );

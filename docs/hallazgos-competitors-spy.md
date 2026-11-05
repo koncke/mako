@@ -1461,3 +1461,38 @@ probado rompiéndolo: 7 roturas, las 7 caen.
 Lo fijan `tests/spy-tarjetas-sin-relleno.test.ts`, `tests/spy-esqueletos.test.ts`, `tests/spy-paginas-verificadas.test.ts` y
 `tests/spy-captura-pagina.test.ts` (con la extensión de mentira: sin extensión, con desafío, página que no carga y captura vacía),
 todos probados rompiéndolos.
+
+## El «3,7×» de cada pieza: una sola cuenta para Spy y Carruseles (5/11/2026)
+
+**Pedido:** Martín, por el Cerebro: el botón «3.7×» de Top Carousels (y de vidIQ) en Competitors Spy y en Carruseles de Image,
+con reels, carruseles, videos de YouTube y anuncios, calculado igual en toda la app. La fórmula salió de su texto público para
+agentes (`llms.txt`): no se tocó su sitio.
+
+**Vive en:** `lib/multiplo-rendimiento.ts` (`multiplosDe`, `explicarMultiplo`, `chipDeMultiplo`), usado por `lib/spy-detalle.ts`
+(`mejoresPiezas`), `lib/spy-vista.ts` (orden «Mejor rendimiento» y el filtro por mínimo), `lib/carruseles/explorar.ts` y
+`biblioteca.ts`, `app/competitor-spy/` (`TarjetaPieza`, `DetallePieza`, `MejoresPiezas`, `SpyApp`), `app/image-editor/carruseles/`
+y la API (`que_esta_haciendo`, `buscar_carruseles`).
+
+- **Había DOS cuentas y las dos medían otra cosa.** `vecesSuMediana` y `mejoresPiezas` comparaban contra la mediana de TODA la
+  cuenta, con 3 piezas como mínimo y la métrica del gráfico (vistas si la mayoría las tenía, si no me gusta). La nueva: hasta 20
+  piezas del mismo creador, la misma red y el mismo formato, las publicadas más cerca en el tiempo, 7 como mínimo, y una métrica
+  fija por formato (carruseles e imágenes: me gusta + comentarios; reels, shorts y videos: vistas; anuncios: días activos). Se
+  borraron las dos viejas; `tests/multiplo-rendimiento.test.ts` (12) falla si vuelve a aparecer una.
+- **⚠️ «Lo que mejor le fue» calculaba un múltiplo de YouTube sin mirar `ENMIENDA_III_L`**, que prohíbe «a score that factors in
+  likes, total views» hasta el trámite (lib/spy-reglas.ts). La cuenta nueva lo mira: YouTube contesta `falta-enmienda` con
+  `FALTA_LA_ENMIENDA`, y el día que se prenda sale solo con `LEYENDA_DERIVADA`. La lógica de YouTube (cortos y largos aparte)
+  está probada con una opción sólo para los tests (`conYouTube`); el test 12 frena a quien la pase desde la app.
+- **Lo que no se sabe y cómo se decidió.** Ninguna fuente guarda «publicidad pagada», «sorteo» ni «comentarios apagados»:
+  pagada y sorteo salen del TEXTO (`#ad`, «colaboración pagada», «sorteo», «giveaway»; `#publicidad` NO, que en marketing es un
+  tema), y una pieza sin comentarios a la vista (`comentarios` null: YouTube omite el contador si están apagados, Apify manda -1
+  si se ocultan) no se compara. Spy borra el texto a los 30 días: una pieza vieja sin texto no se puede revisar, y entra.
+- **Lo de menos de una semana no tiene número**, ni sirve de referencia. Consecuencia: «Esta semana» del explorador y la franja de
+  «Nuevo diseño» se quedan sin outlier y se ordenan por interacción (el orden ya lo hacía con lo que no tiene número).
+- **Un anuncio no tiene resultado de otro**: sus días activos frente a la mediana del anunciante, con su rótulo («3× activo») y el
+  título que dice que es una señal. En el orden «Mejor rendimiento» van después de lo publicado: no se mezclan con las vistas.
+- **La biblioteca leyó 13 publicaciones por cuenta el 5/11**: alcanza para 7, no para 20, y sin los reels (que no se guardan)
+  puede quedar justo. Una cuenta con menos dice «Sin datos suficientes» en el título del chip.
+- **No se guarda**: cada pieza mira sus 20 vecinas en una lista ya ordenada (dos punteros), así que se calcula al mostrar. Sin
+  migración.
+
+Probado rompiéndolo: 8 roturas, cada una 1 rojo en su test; un renombre sin efecto lo deja en 12/0.
