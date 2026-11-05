@@ -1,9 +1,11 @@
 // =============================================================================
-// Lo que el revisor de Creem mira en hola-mako.com, sin cuenta (5/11/2026)
+// Lo que el revisor de una pasarela mira en hola-mako.com, sin cuenta (5/11/2026)
 // =============================================================================
-// Creem aprueba la tienda mirando el sitio: términos, privacidad, precios, reembolsos, soporte y el correo de contacto
-// visibles y coincidentes, y —a quien genera imagen o video con IA— una política de uso aceptable PÚBLICA
-// (docs/relevo/nube-creem-revision.md). Hasta el 5/11 /aup redirigía a /login. Acá se fija, RENDERIZANDO las páginas:
+// Nació para la revisión de Creem: una pasarela aprueba la tienda mirando el sitio (términos, privacidad, precios,
+// reembolsos, soporte y el correo de contacto visibles y coincidentes, y —a quien genera imagen o video con IA— una
+// política de uso aceptable PÚBLICA: docs/relevo/nube-creem-revision.md). Creem RECHAZÓ la tienda de MaKo el mismo 5/11,
+// de forma definitiva (docs/creem-retiros.md): lo que pide el revisor de la próxima pasarela y de las tiendas es lo mismo,
+// así que el archivo se queda, y desde ese día fija además que ninguna legal nombre a Creem. Se fija, RENDERIZANDO:
 //   1. /aup y las demás son públicas, sólo se leen y el desvío del teléfono no las tapa;
 //   2. el correo y el responsable son LOS MISMOS en todas (lib/app-url.ts, lib/titular-mako.ts): que no coincidan es uno
 //      de los motivos de rechazo más comunes, según Creem;
@@ -11,14 +13,19 @@
 //      moderación antes de generar y cómo denunciar;
 //   4. el pie de la landing (con y sin JavaScript) enlaza todo, y el pie compartido de las legales NO enlaza a comprar
 //      (también se abren en la app de iPhone: lib/tienda.ts);
-//   5. los términos, la privacidad y los reembolsos nombran a Creem, que cobra desde Latinoamérica.
+//   5. ninguna legal nombra a Creem (ni como quien cobra, ni como vendedor, ni como quien modera), y ninguna afirma una
+//      revisión automática de los pedidos: la moderación quedó sin proveedor (lib/creem-moderacion-reglas.ts).
 //
 // PROBADO ROMPIÉNDOLO (5/11/2026), con el archivo en verde (6 / 0), una rotura por vez y restaurada (pasan / fallan):
 //   · '/aup' fuera de PUBLICOS                                   → 4 / 2
 //   · '/planes' en el pie compartido de las legales              → 5 / 1
 //   · el correo de /soporte escrito a mano con otra dirección    → 5 / 1
 //   · sin el link a /aup en el pie de la landing                 → 5 / 1
-//   · /privacidad sin Creem                                      → 5 / 1
+// Y el 5/11/2026, con el rechazo de Creem (pasan / fallan):
+//   · /reembolsos vuelve a decir «(Creem, Stripe o Mercado Pago)»                → 6 / 1
+//   · /aup vuelve a decir «El texto … pasa por el servicio de moderación de Creem» → 5 / 2
+//   · /terminos vuelve a decir «el pedido se revisa solo»                        → 6 / 1
+//   · /privacidad vuelve a decir «Creem, Stripe y Mercado Pago, para cobrar tu plan» → 6 / 1
 // Correr: node --import tsx --test tests/creem-revision-sitio.test.ts
 // =============================================================================
 
@@ -72,7 +79,7 @@ test('2. el correo de contacto y el responsable son los mismos en todas', () => 
   }
 });
 
-test('2b. Creem pide esto EN LOS TÉRMINOS, no sólo en /aup, y /privacidad dice que la página pública graba', () => {
+test('2b. lo que pide una pasarela EN LOS TÉRMINOS (lo pidió Creem), no sólo en /aup, y /privacidad dice que la página pública graba', () => {
   // ai-wrapper-compliance: «Terms of Service that explicitly prohibit NSFW, explicit, or sexually suggestive content generation»
   // y «independent wrapper or interface built on top of third-party AI models». Leído el 5/11/2026.
   const terminos = texto(html(createElement(Terminos)));
@@ -94,7 +101,7 @@ test('3. /aup dice lo que MaKo hace: imagen y video, caras ajenas, mensajes, la 
     ['AI Avatar sólo con la foto propia o con permiso por escrito', /tiene que ser tuya[\s\S]*permiso por escrito/],
     ['mayores de 18', /mayor de 18 años/],
     ['spam a los contactos', /Spam\./],
-    ['la moderación antes de generar', /pasa por el servicio de moderación de Creem/],
+    ['que el servicio que genera tiene sus propios filtros', /Google Flow, con tu cuenta, puede rechazar un pedido/],
     ['cómo denunciar', /Cómo denunciar un abuso/],
   ] as const) assert.match(t, re, `/aup no dice ${que}`);
 });
@@ -113,11 +120,16 @@ test('4. el pie de la landing enlaza todo, con y sin JavaScript; el pie de las l
   assert.ok(terminos.includes('href="/aup"'), 'los términos enlazan la política de uso aceptable');
 });
 
-test('5. términos, privacidad y reembolsos nombran a Creem, que cobra desde Latinoamérica', () => {
-  const t = texto(html(createElement(Terminos)));
-  assert.match(t, /Creem es el vendedor registrado de esa compra/);
-  assert.match(texto(html(createElement(Privacidad))), /Creem, para revisar lo que se genera[\s\S]*Creem, Stripe y Mercado Pago, para cobrar tu plan/);
-  assert.match(texto(html(createElement(Reembolsos))), /Creem, Stripe o Mercado Pago/);
+test('5. ninguna legal nombra a Creem, y ninguna afirma una revisión automática que no corre (Creem cerró la tienda el 5/11/2026)', () => {
+  for (const [ruta, pagina] of LEGALES) {
+    const t = texto(html(pagina()));
+    // Lo que se LEE: los comentarios de JSX que cuentan la historia no se dibujan.
+    assert.doesNotMatch(t, /creem/i, `${ruta}: Creem rechazó la tienda de MaKo y no cobra, no vende ni modera nada`);
+    assert.doesNotMatch(t, /se revisa solo|revisión automática|merchant of record|vendedor registrado/i, `${ruta}: afirma algo que ya no pasa`);
+  }
+  assert.match(texto(html(createElement(Terminos))), /Los pagos se procesan con Stripe o Mercado Pago/);
+  assert.match(texto(html(createElement(Privacidad))), /Stripe y Mercado Pago, para cobrar tu plan/);
+  assert.match(texto(html(createElement(Reembolsos))), /\(Stripe o Mercado Pago\)/);
 });
 
 test('6. el rechazo de la moderación nombra la misma dirección que sirve /aup', async () => {

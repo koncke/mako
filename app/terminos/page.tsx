@@ -150,10 +150,13 @@ export default function Page() {
           tienes permiso de quien aparece. Nunca uses la voz ni la cara de otra persona sin su
           autorización.
         </li>
+        {/* Hasta el 5/11/2026 decía que el pedido pasaba por la moderación de Creem. Creem cerró la tienda de MaKo ese día y
+            la moderación quedó sin proveedor (lib/creem-moderacion-reglas.ts, `PROVEEDOR_DE_MODERACION`): no se afirma
+            una revisión que no corre. Si vuelve a haber un proveedor, se nombra acá y en /aup y /privacidad. */}
         <li>
-          <strong>Antes de generar una imagen o un video, el pedido se revisa solo</strong>: el texto que va a usar el
-          modelo pasa por el servicio de moderación de Creem, la empresa que procesa nuestros pagos. Si lo rechaza, no se
-          genera. Lo que no se puede pedir está en la <a href="/aup">política de uso aceptable</a>.
+          <strong>Lo que pidas generar tiene que cumplir la <a href="/aup">política de uso aceptable</a></strong>. El
+          servicio que genera la imagen o el video, con tu cuenta de Google Flow, tiene además sus propios filtros y puede
+          rechazar un pedido.
         </li>
         <li>
           <strong>Está prohibido generar contenido sexual, explícito o sexualmente sugerente (NSFW)</strong>, y cualquier
@@ -180,18 +183,13 @@ export default function Page() {
           haga hoy. La política de devoluciones vive en /reembolsos (app/reembolsos/page.tsx). */}
       <H id="precio">8. Precio, pagos y cancelación</H>
       <p>
-        El precio de cada plan es el que ves al pagar, o el que acordamos contigo por escrito. Los pagos se procesan con <strong>Creem</strong>, <strong>Stripe</strong> o <strong>Mercado Pago</strong>,
+        El precio de cada plan es el que ves al pagar, o el que acordamos contigo por escrito. Los pagos se procesan con <strong>Stripe</strong> o <strong>Mercado Pago</strong>,
         según el país desde el que pagas: los datos de tu tarjeta los recibe la pasarela, no MaKo.
       </p>
-      {/* ⚠️ BORRADOR (5/11/2026) para que lo mire un abogado: Creem es «merchant of record» y su contrato con el comprador
-          son sus Buyer Terms (creem.io/buyer-terms, v2.0). Esta cláusula dice lo que eso significa para quien compra sin
-          nombrar la razón social de Creem, que no se pudo confirmar desde acá (docs/relevo/nube-creem-revision.md). */}
-      <p>
-        <strong>Si pagas con Creem</strong>, Creem es el vendedor registrado de esa compra (<em>merchant of record</em>):
-        te cobra, se hace cargo de los impuestos de tu país, te manda la factura y es el nombre que ves en el resumen de tu
-        tarjeta. Sus condiciones de compra se suman a estos términos, y el servicio que compras sigue siendo MaKo: lo damos
-        nosotros, y a nosotros nos escribes por cualquier problema con él.
-      </p>
+      {/* ⚠️ HASTA EL 5/11/2026 ACÁ IBA CREEM como «merchant of record» (el vendedor registrado de la compra). Creem rechazó
+          la tienda de MaKo ese día, de forma definitiva (docs/creem-retiros.md): con Creem no se cobra nada, y un término
+          que lo nombre como vendedor le dice a quien compra que le factura otra empresa. Si la próxima pasarela es también
+          vendedor registrado, el párrafo vuelve con SU nombre y sus condiciones de compra, no con las de Creem. */}
       <ul>
         <li>
           <strong>Los planes mensuales son una suscripción</strong>: se cobran por adelantado y se

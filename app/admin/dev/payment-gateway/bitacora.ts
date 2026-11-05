@@ -579,4 +579,37 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/aup',
   },
+  {
+    fecha: '5 nov', hora: '19:10', chat: 'Creem › Fuera', sesion: 'cli_ddaacca1-208e-53dc-99ff-46bc4a848a7e', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Sacar a Creem de lo que MaKo dice y hace',
+    pedido: 'Creem rechazó de forma definitiva, el 5/11/2026, la tienda de MaKo. La plataforma ya no tiene sus claves, y se va a pasar a otro proveedor todavía sin elegir. Sacá a Creem de lo que MaKo dice y hace hoy, sin borrar el código de la pasarela, que puede servir para otro proveedor. 1. Legales: /terminos, /privacidad, /reembolsos, /soporte y /aup no pueden nombrar a Creem como quien procesa pagos, vende o modera. 2. Moderación: encolar no puede frenar ni abrir tickets porque falte la clave de Creem: sin clave, la moderación no corre, en silencio, y se genera. Dejá el módulo listo para otro proveedor, sin llamar a Creem. 3. Checkout: que pasarelasDelPais y /planes queden bien para LATAM fuera de Argentina sin Creem: si no hay pasarela para ese país, sale el pedido de datos que ya existe (TEXTO_SIN_PASARELA), nunca un error. 4. Vigía: el ítem creem-tienda pasa a decir rechazada el 5/11/2026 y definitivo. 5. Cosecha en docs/hallazgos-planes-y-cobro.md y docs/creem-retiros.md.',
+    puntos: ['Llegó como encargo a una sesión de la nube (resumido acá: el texto entero está en el relevo), que entrega por punta/creem-fuera.'],
+    revisar: '/terminos',
+  },
+  {
+    fecha: '5 nov', hora: '19:58', chat: 'Creem › Fuera', sesion: 'cli_ddaacca1-208e-53dc-99ff-46bc4a848a7e', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Creem fuera de las legales, de la moderación y del checkout de Latinoamérica',
+    puntos: [
+      'Términos, privacidad, reembolsos y soporte ya no nombran a Creem: los pagos son de Stripe o Mercado Pago. La política de uso aceptable se queda, sin prometer una revisión automática que ya no corre.',
+      'Generar una imagen o un video ya no pasa por Creem: sin proveedor de moderación se genera, sin frenar a nadie ni abrir tickets. La pieza quedó lista para otro proveedor.',
+      'Desde México, Colombia o Chile: si no hay con qué cobrar en línea, se piden los datos, y una compra de una pestaña de antes queda como pedido en vez de dar un error.',
+      'El vigía de aprobaciones muestra la tienda de Creem rechazada y definitiva.',
+    ],
+    commits: [
+      { sha: 'b667753e2', msg: 'Legales sin Creem: nadie más dice que Creem cobra, vende o modera', lineas: 111, archivos: 6 },
+      { sha: '43a936e50', msg: 'Moderación sin proveedor: sin Creem se genera, sin frenar ni abrir tickets', lineas: 581, archivos: 10 },
+      { sha: '3f8f17c53', msg: 'Planes desde LatAm sin Creem: sin pasarela para el país, se toma el pedido', lineas: 270, archivos: 6 },
+      { sha: 'dfe23614a', msg: 'Vigía de aprobaciones: la tienda de Creem, rechazada y definitiva', lineas: 29, archivos: 3 },
+    ],
+    archivos: [
+      'lib/creem-moderacion-reglas.ts — el motor de la moderación, sin proveedor (`PROVEEDOR_DE_MODERACION = null`)',
+      'lib/compra-plan-reglas.ts — la pasarela de LatAm por capacidad (merchant of record), no por nombre',
+      'lib/compra-plan.ts — sin pasarela para el país, la compra queda como pedido',
+      'tests/creem-moderacion.test.ts, tests/planes-latam-sin-creem.test.ts, tests/creem-revision-sitio.test.ts — 17 roturas, cada una cae',
+      'docs/relevo/nube-creem-fuera.md — lo que le toca al Cerebro',
+    ],
+    revisar: '/planes',
+  },
 ];

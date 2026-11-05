@@ -72,5 +72,7 @@ export async function POST(req: NextRequest) {
     pais: paisDelVisitante(req.headers.get('x-vercel-ip-country')),
   });
   if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}), ...(r.sinPrueba ? { sinPrueba: true } : {}), ...(r.sinPromo ? { sinPromo: true } : {}) }, { status: r.status });
+  // Sin pasarela para su país (5/11/2026): lo que escribió quedó como pedido, como el «Quiero» de arriba.
+  if ('pedido' in r) return Response.json({ ok: true, pedido: true });
   return Response.json({ ok: true, link: r.link });
 }

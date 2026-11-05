@@ -61,6 +61,9 @@ export function CompraPlan(p: {
   const [pasarela, setPasarela] = useState<Pasarela | null>(p.pasarelas.length === 1 ? p.pasarelas[0].pasarela : null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Sin pasarela para su país al momento de pagar (5/11/2026, una pestaña de antes del cierre de Creem): la ruta lo tomó como
+  // pedido (lib/compra-plan.ts, `iniciarCompraDePlan`). Nunca un error: lo que escribió ya quedó.
+  const [pedido, setPedido] = useState(false);
 
   async function enviar(e: React.FormEvent, sin = sinPrueba, sinDescuento = sinPromo) {
     e.preventDefault();
@@ -76,8 +79,9 @@ export function CompraPlan(p: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: p.plan, nombre, email, whatsapp: telefonoDeFormulario(lada, numero), pasarela, origen: p.origen, ref: p.refCodigo, codigo: codigoParaMandar(codigo, p.refCodigo), web, sinPrueba: sin, promo: !!p.promo, sinPromo: sinDescuento }),
       });
-      const j = (await r.json().catch(() => ({}))) as { link?: string; error?: string; sinPrueba?: boolean; sinPromo?: boolean; campo?: string };
+      const j = (await r.json().catch(() => ({}))) as { link?: string; pedido?: boolean; error?: string; sinPrueba?: boolean; sinPromo?: boolean; campo?: string };
       if (r.ok && j.link) { window.location.href = j.link; return; }
+      if (r.ok && j.pedido) { setPedido(true); setEnviando(false); return; }
       if (j.campo === 'codigo') { setErrorCodigo(j.error ?? 'Revisa el código.'); setEnviando(false); return; }
       if (j.campo === 'whatsapp') { setErrorWhatsapp(j.error ?? 'Revisa tu WhatsApp.'); setEnviando(false); return; }
       setError(j.error ?? 'No pudimos abrir el pago. Prueba otra vez.');
@@ -87,6 +91,15 @@ export function CompraPlan(p: {
       setError('No pudimos conectarnos. Revisa tu internet y prueba otra vez.');
     }
     setEnviando(false);
+  }
+
+  if (pedido) {
+    return (
+      <div role="status" aria-live="polite">
+        <p className="planes-sub" style={{ marginBottom: 6, color: '#12151B', fontWeight: 600 }}>¡Listo! Recibimos tu pedido.</p>
+        <p className="planes-sub">Todavía no cobramos en línea desde tu país: te escribimos para darte de alta. Con tu email entras a MaKo.</p>
+      </div>
+    );
   }
 
   return (
