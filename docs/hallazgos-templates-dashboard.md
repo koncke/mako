@@ -569,6 +569,31 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **Medido:** la copia mide 2.657 a 1440 (la captura, 2.656) y 5.789 a 390 (5.777); la adaptación cae en las mismas cajas (el saludo de 983
   con la tarjeta de 337, las tarjetas de 484 y la columna de 315, a 1360) y no desborda a 1100, 900 ni 390.
 
+## 30. Instagram y redes (Murmura): una pieza que nunca pudo tener datos se ve recién al dibujarla con datos (5/11/2026, chat en la nube)
+
+**Vive en:** `lib/general-plantillas.ts` (la plantilla «instagram»), `lib/instagram-diseno.ts`, `lib/graficos-audiencia.ts`.
+
+- **Síntoma:** al pasar la muestra por la hoja, «Alcance en Instagram» salía vacío aunque la muestra lo traía. **Causa:** el alcance es
+  `sinTotal` (Meta lo da por fila y no se suma: la misma persona está en dos edades), y un número sin desglose sólo tiene el total, así que
+  `agregar` devuelve null SIEMPRE (medido con una fila de 60 de alcance: `totales: [null]`). La pieza llevaba desde el 15/10 en la
+  plantilla dibujando un guion. **El diagnóstico obvio era el equivocado:** se pensó en la muestra, y la pieza estaba bien escrita y
+  no podía funcionar. El alcance de Instagram sale ahora de la fila de Instagram de «Instagram contra Facebook» (`dimension:
+  'plataforma'`), que lo trae tal cual, y el número se fue de la plantilla.
+- **La misma familia, otra pieza:** «Agendan por región» pedía las agendas por región, y con `breakdowns=region` Meta no manda ninguna
+  conversión de afuera de Meta (está escrito en la cabecera de `lib/graficos-audiencia.ts` desde octubre: la fila no trae la clave). Esa
+  barra no tuvo nunca un valor. Pasó a vistas («Dónde te ven»).
+- **La regla que queda:** una pieza nueva de una plantilla se pasa por `agregar` con una fila de ejemplo ANTES de ofrecerla. Un
+  catálogo dice qué métricas EXISTEN, no qué combinación de métrica y dimensión da un número: `sinTotal` sin desglose y una conversión
+  con el desglose que no la trae se escriben y compilan igual.
+- **Lo medido de la copia:** 2.342 a 1440 (la captura, 2.334) y 5.393 en el teléfono (5.383). La captura del teléfono de Murmura se tomó con
+  la barra de desplazamiento puesta (15 px): el contenido mide 375, no 390, y la copia se compara a 375 (con 390 todo daba 15 px más ancho).
+- **El INFORME de Murmura no trae la línea de tiempo de la página**, sólo la librería de recetas y el armazón: qué pieza entra con cuál
+  receta y a qué demora es un supuesto, y está anotado en el relevo y en la cabecera del componente.
+- **Un paso intermedio en el ancho del Dashboard de verdad:** con la barra lateral, el lienzo mide ~1200, y la cabecera de Murmura (el
+  saludo, tres números y el botón en una fila) no entra ahí: el tercer número se montaba con el botón. Va hasta 1320 px con el saludo en su
+  renglón. ⚠️ Y una regla de la copia que fija una columna (`grid-column: 5` del botón) rompe el paso que cambia las columnas: hay que
+  soltarla en el paso y volver a fijarla en el teléfono, porque lo de la adaptación va después de los @container de la copia y los pisa.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

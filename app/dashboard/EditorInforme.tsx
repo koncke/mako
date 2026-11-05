@@ -192,6 +192,7 @@ const CsVivo = dynamic(() => import('./disenos/CsVivo'));
 const ContenidoVivo = dynamic(() => import('./disenos/ContenidoVivo'));
 const CursoVivo = dynamic(() => import('./disenos/CursoVivo'));
 const ServicioVivo = dynamic(() => import('./disenos/ServicioVivo'));
+const InstagramVivo = dynamic(() => import('./disenos/InstagramVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -1697,6 +1698,15 @@ export function EditorInforme({
               // cliente, una etapa o un deudor abre lo de siempre de su pieza.
               <ServicioVivo
                 hoja={hoja} hoy={hoy} datos={datos} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'instagram' && !enGrilla && !editando && !dueno ? (
+              // «Instagram y redes» con su DISEÑO PROPIO (la copia de Murmura, ./disenos/HojaInstagram.tsx): los datos de sus componentes y
+              // las publicaciones del Calendario de General (sin ellas, esas tarjetas dicen que no pudieron leerlo); un anuncio, una red,
+              // una edad, una región o un origen abre lo de siempre de su pieza.
+              <InstagramVivo
+                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
               />

@@ -1,0 +1,373 @@
+<!doctype html>
+<!-- INSTAGRAM Y REDES (MURMURA) · PASO 2: LA ADAPTACIÓN a MaKo. Es lo que dibuja app/dashboard/disenos/HojaInstagram.tsx con los
+     datos de ejemplo (lib/instagram-diseno-muestra.ts, inventados), guardado ya quieto, con su hoja de estilos
+     (app/dashboard/disenos/instagram-css.ts, que sale de murmura.css). Lo que cambió contra la copia (copia.html): el saludo con lo que
+     Instagram te mostró, cuántos tocaron y cuántos agendaron, y el alcance en Instagram, cuántos tocan el anuncio y lo invertido en
+     lugar de la audiencia, la interacción y lo que sale esta semana; «Próxima publicación» (del Calendario, con lo que falta para que
+     salga) en lugar de la cola de Murmura; «Más anuncios que trajeron clientes» (por los cierres de sus leads) en lugar de las
+     aprobaciones; «Leads de tus anuncios» día por día en lugar de los seguidores nuevos; «El que más clientes trajo» en lugar de la
+     publicación con más alcance; «Esta semana» con las publicaciones del Calendario; «Cada red» con lo que te vieron en cada red de
+     Meta, sus agendas y cuántos tocan, en lugar del pulso de las redes; «Quién te ve en Instagram» (las edades, el género y las
+     regiones) en lugar de la bandeja; y «De dónde llegan tus leads» en lugar de la actividad del equipo. Sin la barra de arriba, la de
+     la izquierda, la de abajo del teléfono ni el fondo: en MaKo los pone la app. Sin las fotos de Murmura: los anuncios van con su
+     miniatura de Meta si la tienen, y lo demás con un color propio. -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Instagram y redes · la adaptación de Murmura</title>
+<style>
+body { margin: 0; background: #f1f2ef; }
+@font-face { font-family: 'Murmura Urbanist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url(https://fonts.gstatic.com/s/urbanist/v18/L0x-DF02iFML4hGCyMqlbS0.woff2) format('woff2'); }
+.mur {
+  container-type: inline-size; container-name: mur;
+  --font: 'Murmura Urbanist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bg: #f1f2ef; --mesh-a: #cde9e4; --mesh-b: #f3e3c8; --mesh-c: #d3e6f3;
+  --glass: #ffffff85; --glass-2: #ffffffb3; --glass-3: #ffffffdb; --solid: #f6f7f4; --float: #fdfdfb;
+  --well: #161a1e0f; --line: #161a1e17; --line-2: #161a1e29; --rim: #ffffffd1;
+  --shadow: 0 1px 0 #ffffffbf inset, 0 24px 48px -30px #1e282d47; --shadow-pop: 0 24px 60px -18px #14181c4d, 0 2px 6px #14181c14;
+  --text: #16191d; --muted: #5b6064; --faint: #696e72; --cream: #f6f7f5;
+  --butter: #f2b740; --on-butter: #16191d; --pine: #11745a; --on-pine: #f6f7f5; --coral: #c43c30; --on-coral: #f6f7f5;
+  --sea: #1f68a8; --on-sea: #f6f7f5; --lilac: #0b7a87; --ink: #16191d; --on-ink: #f6f7f5;
+  --good: #11745a; --bad: #b8382c; --warn: #855c00;
+  --n-instagram: #c13584; --n-facebook: #1665d8; --n-x: #16191d; --n-linkedin: #0a66c2; --n-tiktok: #16191d; --n-youtube: #d61f1f; --n-pinterest: #d0021b; --n-threads: #16191d;
+  --dock: #16191d; --on-dock: #f6f7f5;
+  --r-card: 26px; --r-tile: 22px; --gap: 16px; --ease: cubic-bezier(.2, .8, .2, 1);
+  position: relative; isolation: isolate; overflow: clip; color: var(--text); font: 500 14px/1.45 var(--font); -webkit-font-smoothing: antialiased;
+  background: var(--bg);
+}
+.mur *, .mur *::before, .mur *::after { box-sizing: border-box; }
+.mur button { font: inherit; color: inherit; cursor: pointer; }
+.mur a { color: inherit; text-decoration: none; }
+.mur h1, .mur h2, .mur h3, .mur p, .mur ul { margin: 0; }
+.mur ul { padding: 0; list-style: none; }
+.mur svg.mur-i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.mur :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ── la copia ──────────────────────────────────────────────────────────────────────────────── */
+.mur * { box-sizing: border-box; }
+.mur .mur-ibtn { position: relative; width: 42px; height: 42px; display: grid; place-items: center; flex: none; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--text); transition: background-color .15s; }
+.mur .mur-ibtn svg { width: 17px; height: 17px; }
+.mur .mur-ibtn:hover { background: var(--glass-2); }
+.mur .mur-ibtn--ring { box-shadow: inset 0 0 0 1px var(--line-2); }
+.mur .mur-ibtn--on-dark { color: var(--cream); box-shadow: inset 0 0 0 1px #ffffff40; }
+.mur .mur-ibtn--on-dark:hover { background: #ffffff24; }
+.mur .mur-av { width: 36px; height: 36px; display: grid; place-items: center; flex: none; border-radius: 50%; background: #dfe7e4; font-size: 12px; font-weight: 700; color: var(--text); }
+.mur .mur-av--sm { width: 28px; height: 28px; font-size: 11px; }
+.mur .mur-av--a { background: #e9dccb; }
+.mur .mur-av--b { background: #d6e4ea; }
+.mur .mur-av--c { background: #e6d4d6; }
+.mur .mur-av--d { background: #d9e2d4; }
+.mur .mur-av--e { background: #e2dccf; }
+.mur .mur-head { height: 93px; margin-bottom: 16px; display: grid; grid-template-columns: 206px 300px 277px minmax(0, 1fr) auto; align-items: center; }
+.mur .mur-head__title { max-width: 170px; font-size: 38.88px; font-weight: 600; line-height: 40.4352px; letter-spacing: -.972px; }
+.mur .mur-head__title .mur-w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .08em; margin-bottom: -.08em; }
+.mur .mur-head__title .mur-w__i { display: inline-block; transform-origin: 0 100%; }
+.mur .mur-stat { display: flex; align-items: center; gap: 12px; }
+.mur .mur-stat__ico { width: 48px; height: 48px; display: grid; place-items: center; flex: none; border-radius: 50%; background: var(--glass-2); box-shadow: var(--shadow); }
+.mur .mur-stat__ico svg { width: 18px; height: 18px; }
+.mur .mur-stat__t { display: grid; }
+.mur .mur-stat__n { display: flex; align-items: center; gap: 10px; }
+.mur .mur-stat__n b { font-size: 23px; font-weight: 900; line-height: 33.35px; letter-spacing: -.23px; }
+.mur .mur-stat__l { max-width: 150px; font-size: 13px; font-weight: 500; line-height: 16.9px; color: var(--muted); }
+.mur .mur-head__actions { grid-column: 5; display: flex; }
+.mur .mur-pill { height: 24px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border-radius: 999px; font-style: normal; font-size: 12.5px; font-weight: 700; line-height: 18.125px; letter-spacing: .125px; white-space: nowrap; }
+.mur .mur-pill--pine { background: var(--pine); color: var(--on-pine); }
+.mur .mur-pill--butter { background: var(--butter); color: var(--on-butter); }
+.mur .mur-btn { height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 20px; border: 0; border-radius: 999px; font-size: 15px; font-weight: 600; line-height: 21.75px; white-space: nowrap; transition: filter .15s, background-color .15s; }
+.mur .mur-btn svg { width: 16px; height: 16px; }
+.mur .mur-btn--ink { background: var(--ink); color: var(--on-ink); }
+.mur .mur-btn--ink:hover { filter: brightness(1.15); }
+.mur .mur-btn--sm { height: 36px; padding: 0 14px; font-size: 13px; line-height: 18.85px; }
+.mur .mur-btn--sm svg { width: 15px; height: 15px; }
+.mur .mur-btn--pine { background: #117a5d; color: var(--on-pine); }
+.mur .mur-btn--ghost { background: var(--glass); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--text); }
+.mur .mur-btn--ghost:hover { background: var(--glass-2); }
+.mur .mur-ov { display: grid; gap: 16px; }
+.mur .mur-ov-r { display: grid; gap: 16px; align-items: stretch; }
+.mur .mur-ov-r--a, .mur .mur-ov-r--b { grid-template-columns: minmax(0, 748fr) minmax(0, 529fr); }
+.mur .mur-ov-r--c { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mur .mur-card { position: relative; min-width: 0; padding: 20px; border: 1px solid #ffffffd1; border-radius: var(--r-card); background: #ffffff85; box-shadow: var(--shadow); backdrop-filter: blur(18px) saturate(140%); }
+.mur .mur-card__h { height: 42px; display: flex; align-items: center; gap: 10px; }
+.mur .mur-card__t { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; line-height: 24.65px; letter-spacing: -.085px; }
+.mur .mur-live { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; line-height: 18.85px; color: var(--muted); }
+.mur .mur-live__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pine); }
+.mur .mur-eyebrow { margin-top: 18px; font-size: 13px; font-weight: 700; line-height: 18.85px; letter-spacing: .91px; text-transform: uppercase; color: var(--muted); }
+.mur .mur-ph { display: block; background: linear-gradient(150deg, #3a2a1e, #1a1410); }
+.mur .mur-ph--cafe { background: radial-gradient(circle at 55% 70%, #c9822e 0 18%, transparent 42%), linear-gradient(160deg, #3b3027 0%, #1b1612 70%); }
+.mur .mur-ph--latte { background: radial-gradient(circle at 50% 55%, #f2dcc0 0 22%, #b77a43 23% 36%, transparent 37%), linear-gradient(150deg, #5a3b26, #2a1b12); }
+.mur .mur-ph--rose { background: radial-gradient(circle at 50% 55%, #e98aa8 0 24%, transparent 46%), linear-gradient(150deg, #2f3b3a, #151c1d); }
+.mur .mur-ph--linen { background: linear-gradient(160deg, #e8e1d6, #b9ad9c); }
+.mur .mur-ph--ember { background: radial-gradient(circle at 45% 50%, #e2733a 0 20%, transparent 44%), linear-gradient(150deg, #262321, #0f0e0e); }
+.mur .mur-ph--night { background: radial-gradient(circle at 40% 45%, #d8b9a4 0 16%, transparent 38%), linear-gradient(150deg, #2e2523, #141011); }
+.mur .mur-ph--oak { background: linear-gradient(160deg, #efe9e1, #c7b9a5); }
+.mur .mur-ph--garage { background: radial-gradient(ellipse at 55% 62%, #2c5b5a 0 18%, transparent 40%), radial-gradient(ellipse at 50% 20%, #8fb7c0 0 4%, transparent 22%), linear-gradient(180deg, #1d2629 0%, #0b0f11 100%); }
+.mur .mur-thumb { width: 50px; height: 50px; flex: none; border-radius: 12px; }
+.mur .mur-thumb--44 { width: 44px; height: 44px; border-radius: 10px; }
+.mur .mur-net { width: 26px; height: 26px; display: grid; place-items: center; flex: none; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 1px var(--line); color: var(--text); }
+.mur .mur-net:has(use[href='#n-instagram']) { color: var(--n-instagram); }
+.mur .mur-net svg { width: 13px; height: 13px; }
+.mur .mur-net--fb { color: var(--n-facebook); }
+.mur .mur-net--yt { color: var(--n-youtube); }
+.mur .mur-net--pin { color: var(--n-pinterest); }
+.mur .mur-net--li { color: var(--n-linkedin); }
+.mur .mur-net--ig { color: var(--n-instagram); }
+.mur .mur-nets { display: flex; }
+.mur .mur-nets .mur-net + .mur-net { margin-left: -6px; }
+.mur .mur-nets--sm .mur-net { width: 22px; height: 22px; }
+.mur .mur-nets--sm .mur-net svg { width: 11px; height: 11px; }
+.mur .mur-nets--leg { gap: 8px; }
+.mur .mur-nets--leg .mur-net + .mur-net { margin-left: 0; }
+.mur .mur-bdg { width: 26px; height: 26px; display: grid; place-items: center; flex: none; border-radius: 8px; font-style: normal; font-size: 12.5px; font-weight: 700; line-height: 18.125px; letter-spacing: -.25px; color: var(--cream); }
+.mur .mur-bdg--coral { background: var(--coral); }
+.mur .mur-bdg--ink { background: var(--ink); }
+.mur .mur-bdg--pine { background: var(--pine); }
+.mur .mur-bdg--sea { background: var(--sea); }
+.mur .mur-bdg--butter { background: var(--butter); color: var(--on-butter); }
+.mur .mur-brandchip { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; line-height: 20.3px; color: var(--cream); }
+.mur .mur-ov-hero { margin-top: 15px; height: 288px; display: grid; grid-template-columns: 203.25px minmax(0, 1fr); gap: 20px; padding: 14px; border-radius: 22px; background: var(--ink); color: var(--cream); }
+.mur .mur-ov-hero__media { width: 100%; height: 260px; padding: 0; border: 0; border-radius: 16px; overflow: hidden; background: #ffffff0f; }
+.mur .mur-ov-hero__media .mur-ph { width: 100%; height: 100%; }
+.mur .mur-ov-hero__b { min-width: 0; display: flex; flex-direction: column; padding: 4px 6px 0 0; }
+.mur .mur-ov-hero__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mur .mur-ov-hero__k { margin-top: 18px; font-size: 13px; font-weight: 600; line-height: 18.85px; }
+.mur .mur-ov-hero__n { margin-top: 4px; font-size: 40.32px; font-weight: 600; line-height: 40.32px; letter-spacing: -1.4112px; }
+.mur .mur-ov-hero__w { margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; line-height: 20.3px; }
+.mur .mur-ov-hero__w svg { width: 15px; height: 15px; }
+.mur .mur-ov-hero__p { margin-top: 12px; font-size: 15px; font-weight: 500; line-height: 21.75px; }
+.mur .mur-ov-hero__f { margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; }
+.mur .mur-ov-hero__f .mur-net { box-shadow: none; }
+.mur .mur-ov-after { margin-top: 9px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mur .mur-ov-after__item { min-width: 0; height: 68px; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 8px; border: 1px solid #161a1e17; border-radius: 18px; background: #ffffffb3; text-align: left; transition: background-color .15s; }
+.mur .mur-ov-after__item:hover { background: #fff; }
+.mur .mur-ov-after__m { flex: 1; min-width: 0; display: grid; }
+.mur .mur-ov-after__m b, .mur .mur-ov-todo__m b { font-size: 14px; font-weight: 600; line-height: 20.3px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mur .mur-ov-after__m span, .mur .mur-ov-todo__m > span { font-size: 13px; font-weight: 500; line-height: 18.85px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mur .mur-ov-after__r { align-self: stretch; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; }
+.mur .mur-st { height: 22px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border-radius: 999px; background: var(--well); font-style: normal; font-size: 12.5px; font-weight: 600; line-height: 18.125px; white-space: nowrap; }
+.mur .mur-st::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--sea); }
+.mur .mur-st--butter::before { background: var(--butter); }
+.mur .mur-count { min-width: 26px; height: 26px; display: grid; place-items: center; padding: 0 7px; border-radius: 999px; background: var(--coral); color: var(--on-coral); font-style: normal; font-size: 12.5px; font-weight: 700; }
+.mur .mur-ov-todos { margin-top: 15px; display: grid; gap: 8px; }
+.mur .mur-ov-todo { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px 12px; padding: 12px; border: 1px solid #161a1e17; border-radius: 18px; background: #ffffffb3; }
+.mur .mur-ov-todo--fail { grid-template-columns: 40px minmax(0, 1fr); }
+.mur .mur-ov-todo__m { min-width: 0; display: grid; }
+.mur .mur-ov-todo__m > span.mur-wrap { white-space: normal; }
+.mur .mur-ov-todo__a { margin-top: 6px; display: flex; gap: 6px; }
+.mur .mur-ov-todo__ico { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: var(--coral); color: var(--on-coral); }
+.mur .mur-ov-more { margin-top: 12px; display: flex; justify-content: center; }
+.mur .mur-seg { height: 42px; display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: var(--well); }
+.mur .mur-seg__btn { height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: none; font-size: 13px; font-weight: 600; line-height: 18.85px; color: var(--muted); }
+.mur .mur-seg__btn[aria-pressed=true] { background: #fff; color: var(--text); box-shadow: 0 1px 2px #14181c1f; }
+.mur .mur-ov-growth__big { margin-top: 10px; display: flex; align-items: baseline; gap: 10px; }
+.mur .mur-ov-growth__big b { font-size: 43.2px; font-weight: 600; line-height: 62.64px; letter-spacing: -1.296px; }
+.mur .mur-ov-growth__big span { font-size: 13px; font-weight: 500; line-height: 18.85px; color: var(--muted); }
+.mur .mur-ov-growth__leg { margin-top: 2px; display: flex; align-items: center; gap: 14px; font-size: 13px; font-weight: 500; line-height: 18.85px; color: var(--muted); }
+.mur .mur-ov-growth__leg > span:first-child { display: inline-flex; align-items: center; gap: 7px; }
+.mur .mur-lg { width: 8px; height: 8px; border-radius: 50%; background: var(--sea); }
+.mur .mur-chart { position: relative; margin: 26px 12px 0 43px; height: 191px; }
+.mur .mur-chart__svg { display: block; width: 100%; height: 191px; overflow: visible; }
+.mur .mur-chart__grid { fill: none; stroke: #161a1e1f; stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
+.mur .mur-chart__line { fill: none; stroke: var(--sea); stroke-width: 2.2; vector-effect: non-scaling-stroke; }
+.mur .mur-chart__y { position: absolute; left: -43px; top: 0; bottom: 0; width: 34px; }
+.mur .mur-chart__y span { position: absolute; right: 0; transform: translateY(-50%); font-size: 12px; font-weight: 500; line-height: 17.4px; color: var(--muted); }
+.mur .mur-chart__y span:nth-child(1) { top: 0; }
+.mur .mur-chart__y span:nth-child(2) { top: 50%; }
+.mur .mur-chart__y span:nth-child(3) { top: 100%; }
+.mur .mur-chart__x { position: absolute; left: 0; right: 0; top: calc(100% + 7px); height: 18px; }
+.mur .mur-chart__x span { position: absolute; transform: translateX(-50%); font-size: 12px; font-weight: 500; line-height: 17.4px; color: var(--muted); white-space: nowrap; }
+.mur .mur-chart__x span:first-child { transform: none; }
+.mur .mur-chart__x span:last-child { transform: translateX(-100%); }
+.mur .mur-ov-topcard { position: relative; width: 100%; height: 333px; margin-top: 15px; display: block; padding: 0; border: 0; border-radius: 22px; overflow: hidden; color: var(--cream); text-align: left; }
+.mur .mur-thumb--top { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 22px; }
+.mur .mur-ov-topcard::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, #0b0d0fd9); }
+.mur .mur-ov-topcard__tag { position: absolute; z-index: 1; left: 14px; top: 14px; }
+.mur .mur-ov-topcard__b { position: absolute; z-index: 1; left: 16px; right: 16px; bottom: 16px; display: grid; gap: 8px; }
+.mur .mur-ov-topcard__brand { display: flex; align-items: center; justify-content: space-between; }
+.mur .mur-brandchip--sm { font-size: 13px; gap: 6px; }
+.mur .mur-brandchip--sm .mur-bdg { width: 22px; height: 22px; border-radius: 6px; font-size: 11.5px; }
+.mur .mur-nets--stack .mur-net { width: 24px; height: 24px; box-shadow: 0 0 0 2px #0b0d0f; }
+.mur .mur-ov-topcard__t { font-size: 16px; font-weight: 600; line-height: 21.6px; }
+.mur .mur-ov-topcard__s { display: flex; gap: 22px; margin-top: 2px; }
+.mur .mur-ov-topcard__s span { display: grid; font-size: 13px; font-weight: 500; line-height: 18.85px; color: #f6f7f5cc; }
+.mur .mur-ov-topcard__s b { font-size: 22px; font-weight: 700; line-height: 31.9px; letter-spacing: -.44px; color: var(--cream); }
+.mur .mur-ov-days { margin-top: 15px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.mur .mur-ov-day { min-width: 0; height: 231px; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #161a1e17; border-radius: 20px; background: #ffffffb3; transition: background-color .15s; }
+.mur .mur-ov-day:hover { background: #fff; }
+.mur .mur-ov-day.mur-is-today { background: var(--ink); color: var(--cream); border-color: transparent; }
+.mur .mur-ov-day__h { display: flex; align-items: baseline; justify-content: space-between; font-size: 14px; font-weight: 600; line-height: 20.3px; }
+.mur .mur-ov-day__h b { font-size: 24px; font-weight: 600; line-height: 34.8px; letter-spacing: -.48px; }
+.mur .mur-slot { height: 30px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; line-height: 18.125px; color: var(--cream); }
+.mur .mur-slot .mur-bdg { width: 22px; height: 22px; border-radius: 7px; font-size: 11.5px; line-height: 16.675px; letter-spacing: -.23px; box-shadow: 0 0 0 1.5px #ffffffd9; }
+.mur .mur-slot--coral { background: var(--coral); }
+.mur .mur-slot--sea { background: var(--sea); }
+.mur .mur-slot--butter { background: var(--butter); color: var(--on-butter); }
+.mur .mur-slot--more { justify-content: center; height: 24px; padding: 0; background: var(--well); color: var(--text); }
+.mur .mur-ov-day__f { margin-top: auto; font-size: 13px; font-weight: 500; line-height: 18.85px; color: var(--muted); }
+.mur .mur-is-today .mur-ov-day__f { color: #f6f7f5b3; }
+.mur .mur-ov-netlist { margin-top: 12px; }
+.mur .mur-ov-netlist li { display: flex; align-items: center; gap: 12px; padding: 13.5px 0; }
+.mur .mur-ov-netlist li + li { border-top: 1px solid var(--line); }
+.mur .mur-net--lg { width: 36px; height: 36px; color: var(--text); }
+.mur .mur-net--lg svg { width: 16px; height: 16px; }
+.mur .mur-ov-net__m { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.mur .mur-ov-net__m > span { display: flex; justify-content: space-between; font-size: 14px; font-weight: 500; line-height: 20.3px; }
+.mur .mur-ov-net__m b { font-weight: 500; }
+.mur .mur-ov-net__m em { font-style: normal; }
+.mur .mur-bar { display: block; height: 6px; border-radius: 3px; background: var(--well); overflow: hidden; }
+.mur .mur-bar > i { display: block; height: 100%; border-radius: 3px; background: var(--sea); transform-origin: 0 50%; transform: scaleX(var(--v)); }
+.mur .mur-ov-net__r { width: 62px; display: grid; justify-items: end; }
+.mur .mur-ov-net__r b { font-size: 14px; font-weight: 700; line-height: 20.3px; color: var(--good); }
+.mur .mur-ov-net__r span { font-size: 12.5px; font-weight: 500; line-height: 18.125px; color: var(--muted); }
+.mur .mur-ov-ib__tiles { margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.mur .mur-ov-ib__tiles span { height: 80px; display: grid; align-content: center; padding: 0 13px; border: 1px solid #161a1e17; border-radius: 16px; background: #ffffffb3; font-size: 13px; font-weight: 500; line-height: 18.85px; color: var(--muted); }
+.mur .mur-ov-ib__tiles b { font-size: 24px; font-weight: 700; line-height: 34.8px; letter-spacing: -.48px; color: var(--text); }
+.mur .mur-ov-ib__sent { margin-top: 14px; display: flex; gap: 4px; }
+.mur .mur-ov-ib__sent .mur-s { height: 10px; flex: var(--f); border-radius: 5px; transform-origin: 0 50%; }
+.mur .mur-s--pos, .mur .mur-d--pos { background: var(--pine); }
+.mur .mur-s--neu, .mur .mur-d--neu { background: #6b7176; }
+.mur .mur-s--neg, .mur .mur-d--neg { background: var(--coral); }
+.mur .mur-ov-ib__leg { margin-top: 8px; display: flex; gap: 14px; font-size: 13px; font-weight: 500; line-height: 18.85px; color: var(--muted); }
+.mur .mur-ov-ib__leg span { display: inline-flex; align-items: center; gap: 6px; }
+.mur .mur-ov-ib__leg .mur-d { width: 8px; height: 8px; border-radius: 50%; }
+.mur .mur-ov-ib__list { margin-top: 16px; display: grid; gap: 4px; }
+.mur .mur-ov-ib__row { display: flex; align-items: center; gap: 12px; margin: 0 -8px; padding: 8px; border-radius: 14px; transition: background-color .15s; }
+.mur .mur-ov-ib__row:hover { background: var(--well); }
+.mur .mur-ov-ib__m { flex: 1; min-width: 0; display: grid; }
+.mur .mur-ov-ib__m b { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; line-height: 20.3px; }
+.mur .mur-ov-ib__m > span { font-size: 13px; font-weight: 500; line-height: 18.85px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mur .mur-unread { width: 6px; height: 6px; border-radius: 50%; background: var(--coral); }
+.mur .mur-ov-ib__r { display: grid; justify-items: end; gap: 4px; }
+.mur .mur-net--sm { width: 22px; height: 22px; }
+.mur .mur-net--sm svg { width: 11px; height: 11px; }
+.mur .mur-mood { height: 22px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border-radius: 999px; background: var(--well); font-style: normal; font-size: 12px; font-weight: 600; line-height: 17.4px; }
+.mur .mur-mood::before { content: ''; width: 7px; height: 7px; border-radius: 50%; }
+.mur .mur-mood--pos::before { background: var(--pine); }
+.mur .mur-mood--neu::before { background: #6b7176; }
+.mur .mur-mood--neg { background: #c43c301f; color: var(--bad); }
+.mur .mur-mood--neg::before { background: var(--coral); }
+.mur .mur-ov-feed { margin-top: 12px; }
+.mur .mur-ov-feed li { display: flex; align-items: flex-start; gap: 12px; padding: 9px 0 10px; }
+.mur .mur-ov-feed li + li { border-top: 1px solid var(--line); }
+.mur .mur-ov-feed__m { flex: 1; min-width: 0; display: grid; gap: 4px; font-size: 14px; font-weight: 500; line-height: 19.6px; }
+.mur .mur-ov-feed__m b { font-weight: 700; }
+.mur .mur-ov-feed__m small { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; line-height: 17.5px; color: var(--muted); }
+.mur .mur-ov-feed__m small svg { width: 13px; height: 13px; }
+
+@container mur (max-width: 760px) {
+  .mur .mur-head { height: auto; margin-bottom: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+  .mur .mur-head__title { grid-column: 1 / -1; max-width: none; font-size: 28px; line-height: 29.12px; letter-spacing: -.7px; }
+  .mur .mur-stat__ico { display: none; }
+  .mur .mur-stat__n { flex-wrap: wrap; gap: 4px 8px; }
+  .mur .mur-stat__n b { font-size: 18px; line-height: 26.1px; letter-spacing: -.18px; }
+  .mur .mur-stat__l { font-size: 12.5px; line-height: 16.25px; }
+  .mur .mur-head__actions { grid-column: 1 / -1; margin-top: 4px; }
+  .mur .mur-head__actions .mur-btn { width: 100%; }
+  .mur .mur-ov-r--a, .mur .mur-ov-r--b, .mur .mur-ov-r--c { grid-template-columns: minmax(0, 1fr); }
+  .mur .mur-card { padding: 16px; }
+  .mur .mur-ov-hero { height: auto; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 12px; }
+  .mur .mur-ov-hero__media { height: 163px; }
+  .mur .mur-ov-hero__n { font-size: 34px; line-height: 34px; letter-spacing: -1.19px; }
+  .mur .mur-ov-hero__f { margin-top: 10px; }
+  .mur .mur-ov-hero__top { margin-top: -3px; }
+  .mur .mur-ov-hero__k { margin-top: 14px; }
+  .mur .mur-ov-hero__n { margin-top: 1px; }
+  .mur .mur-ov-hero__p { margin-top: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .mur .mur-ov-after { grid-template-columns: minmax(0, 1fr); }
+  .mur .mur-ov-after__item { height: 108px; display: grid; grid-template-columns: 50px minmax(0, 1fr); gap: 6px 12px; padding: 10px; align-items: start; }
+  .mur .mur-ov-after__m b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 15px; line-height: 19.5px; }
+  .mur .mur-ov-after__r { grid-column: 2; flex-direction: row; align-items: center; }
+  .mur .mur-ov-todo__m b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 15px; line-height: 21.75px; }
+  .mur .mur-ov-todo__m > span { white-space: normal; }
+  .mur .mur-ov-todo__a .mur-btn { flex: 1; }
+  .mur .mur-ov-growth__big { flex-wrap: wrap; }
+  .mur .mur-ov-growth__big b { font-size: 32px; line-height: 46.4px; letter-spacing: -.96px; }
+  .mur .mur-ov-growth__big { margin-top: 15px; }
+  .mur .mur-ov-growth__leg { flex-wrap: wrap; gap: 8px 10px; margin-top: 8px; }
+  .mur .mur-nets--leg { display: contents; }
+  .mur .mur-chart { margin-top: 16px; margin-bottom: 26px; }
+  .mur .mur-ov-topcard { height: 320px; }
+  .mur .mur-ov-days { display: flex; margin-top: 18px; overflow-x: auto; scrollbar-width: none; margin-right: -16px; padding-right: 16px; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); }
+  .mur .mur-ov-day { flex: none; width: 126px; height: 237px; }
+  .mur .mur-slot { height: 32px; }
+  .mur .mur-slot .mur-bdg { width: 26px; height: 26px; }
+  .mur .mur-ov-feed__m { font-size: 15px; line-height: 21px; gap: 3px; }
+  .mur .mur-ov-feed li { padding: 8px 0 9px; }
+  .mur .mur-ov-ib__list { margin-top: 13px; gap: 2px; }
+  .mur .mur-ov-net__m > span { font-size: 15px; line-height: 21.75px; }
+}
+
+/* ── lo de la adaptación (DESPUÉS de los @container de la copia: los pisa en el mismo ancho) ──────────── */
+.mur .mur-dash { padding: 0 24px 40px; }
+.mur .mur-quieta { opacity: .72; pointer-events: none; }
+.mur .mur-vacio { flex: 1; min-height: 110px; display: grid; place-content: center; gap: 4px; margin-top: 14px; padding: 16px 12px; text-align: center; font-size: 13px; line-height: 19px; color: var(--muted); }
+.mur .mur-vacio b { display: block; color: var(--text); font-weight: 600; }
+.mur [role='button'] { cursor: pointer; }
+.mur a.mur-btn, .mur a.mur-ibtn, .mur a.mur-ov-after__item, .mur a.mur-ov-day, .mur a.mur-ov-hero__media { text-decoration: none; }
+.mur .mur-head { height: auto; min-height: 93px; row-gap: 2px; grid-template-columns: max-content 240px 240px minmax(0, 1fr) auto; column-gap: 24px; }
+.mur .mur-head__frase { grid-column: 1 / -1; order: 1; padding-bottom: 8px; font-size: 15px; font-weight: 500; line-height: 21px; color: var(--muted); }
+.mur .mur-head__title { max-width: none; white-space: nowrap; }
+.mur .mur-head__frase b { font-weight: 700; color: var(--text); }
+.mur .mur-stat__l small { display: block; color: var(--faint); }
+.mur .mur-sin { color: var(--faint); }
+.mur .mur-head .mur-stat { min-width: 0; }
+.mur .mur-stat__l { white-space: normal; }
+.mur .mur-head__actions { display: flex; gap: 10px; justify-content: flex-end; }
+.mur .mur-ov-hero__f { justify-content: flex-end; }
+.mur .mur-thumb--img { display: block; object-fit: cover; background: var(--well); }
+.mur .mur-ov-topcard .mur-thumb--img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mur .mur-ov-topcard { cursor: default; }
+.mur .mur-ov-topcard[role='button'] { cursor: pointer; }
+.mur .mur-net--ms { color: #6b46e5; } .mur .mur-net--wa { color: #128c4b; }
+.mur .mur-s--g0, .mur .mur-d--g0 { background: var(--sea); }
+.mur .mur-s--g1, .mur .mur-d--g1 { background: var(--butter); }
+.mur .mur-s--g2, .mur .mur-d--g2, .mur .mur-s--g3, .mur .mur-d--g3 { background: #9aa0a4; }
+.mur .mur-ov-net__r b.mur-cero { color: var(--muted); }
+.mur .mur-ov-net__r { white-space: nowrap; }
+.mur .mur-pie { display: flex; justify-content: flex-end; margin-top: 16px; }
+.mur .mur-ov-netlist li[role='button'], .mur .mur-ov-feed li[role='button'] { margin: 0 -8px; padding-left: 8px; padding-right: 8px; border-radius: 14px; transition: background-color .15s; }
+.mur .mur-ov-netlist li[role='button']:hover, .mur .mur-ov-feed li[role='button']:hover { background: var(--well); }
+.mur .mur-ov-ib__tiles span[role='button'] { transition: background-color .15s; }
+.mur .mur-ov-ib__tiles span[role='button']:hover { background: #fff; }
+.mur .mur-ov-feed__mas { justify-content: center; }
+.mur .mur-ov-week__nada { margin-top: 10px; font-size: 13px; line-height: 19px; color: var(--muted); }
+.mur .mur-chart__x span { transform: translateX(-50%); }
+.mur .mur-chart__x span:first-child { transform: none; }
+.mur .mur-chart__x span:last-child { transform: translateX(-100%); }
+.mur .mur-chart__x--tel { display: none; }
+.mur .mur-ov-after__m b, .mur .mur-ov-todo__m b, .mur .mur-ov-ib__m b { overflow: hidden; text-overflow: ellipsis; }
+.mur [data-lift] { transition: transform .5s cubic-bezier(.215, .61, .355, 1); }
+.mur [data-lift]:hover { transform: translateY(-4px); transition-duration: .45s; }
+@container mur (max-width: 1320px) {
+  .mur .mur-head { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
+  .mur .mur-head__title { grid-column: 1 / -1; }
+  .mur .mur-head__frase { order: 0; padding-bottom: 6px; }
+  .mur .mur-head__actions { grid-column: auto; }
+}
+@container mur (max-width: 1000px) {
+  .mur .mur-ov-r--c { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mur .mur-ov-team { grid-column: 1 / -1; }
+  .mur .mur-ov-after { grid-template-columns: minmax(0, 1fr); }
+  .mur .mur-chart__x--pc { display: none; }
+  .mur .mur-chart__x--tel { display: block; }
+}
+@container mur (max-width: 760px) {
+  .mur .mur-dash { padding: 0 14px 32px; }
+  .mur .mur-head { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; }
+  .mur .mur-ov-r--c { grid-template-columns: minmax(0, 1fr); }
+  .mur .mur-ov-team { grid-column: auto; }
+  .mur .mur-head__actions { grid-column: 1 / -1; }
+  .mur .mur-head__frase { order: 0; padding-bottom: 0; }
+  .mur .mur-head__actions > * { flex: 1; }
+  .mur .mur-pie { justify-content: stretch; }
+  .mur .mur-head__title { white-space: normal; }
+  .mur .mur-ov-todo__a .mur-btn { min-width: 0; padding-left: 8px; padding-right: 8px; }
+  .mur .mur-pie > * { flex: 1; }
+  .mur .mur-chart__x--pc { display: none; }
+  .mur .mur-chart__x--tel { display: block; }
+  .mur .mur-chart__x--tel span, .mur .mur-chart__x--tel span:first-child, .mur .mur-chart__x--tel span:last-child { transform: translateX(-50%); }
+  .mur .mur-ov-days { scrollbar-width: thin; }
+}
+@media (prefers-reduced-motion: reduce) { .mur *, .mur *::before, .mur *::after { transition: none !important; animation: none !important; } }
+</style>
+</head><body>
+<div class="mur"><main class="mur-dash"><section class="mur-head"><h1 class="mur-head__title"><span class="mur-w"><span class="mur-w__i">Buenos</span></span> <span class="mur-w"><span class="mur-w__i">días,</span></span> <span class="mur-w"><span class="mur-w__i">Ana</span></span></h1><p class="mur-head__frase">Instagram te mostró <b>48.2k veces</b>, <b>1,230</b> tocaron tu anuncio y <b>31</b> agendaron.</p><div class="mur-stat"><span class="mur-stat__ico"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg></span><span class="mur-stat__t"><span class="mur-stat__n"><b data-cuenta="true">21.4k</b></span><span class="mur-stat__l">Alcance en Instagram</span></span></div><div class="mur-stat"><span class="mur-stat__ico"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 4.5L4.5 11l6 2.5 2.5 6zM10.5 13.5l9-9"></path></svg></span><span class="mur-stat__t"><span class="mur-stat__n"><b data-cuenta="true">2.6%</b></span><span class="mur-stat__l">Tocan el anuncio</span></span></div><div class="mur-stat"><span class="mur-stat__ico"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15M14.5 9.5c-.5-1-1.5-1.5-2.5-1.5-1.6 0-2.8.9-2.8 2.1 0 2.8 5.6 1.4 5.6 4 0 1.2-1.2 2.1-2.8 2.1-1.1 0-2.1-.6-2.6-1.5M12 6.5v11"></path></svg></span><span class="mur-stat__t"><span class="mur-stat__n"><b data-cuenta="true">US$412</b></span><span class="mur-stat__l">Inversión en Instagram<small>US$8.55 por cada mil vistas</small></span></span></div><div class="mur-head__actions"><a href="/calendario" class="mur-btn mur-btn--ink"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l1-4L15.5 5.5a2 2 0 0 1 3 3L9 18zM13.5 7.5l3 3"></path></svg>Agendar una publicación</a></div></section><div class="mur-ov"><div class="mur-ov-r mur-ov-r--a"><section class="mur-card mur-ov-next"><div class="mur-card__h"><h2 class="mur-card__t">Próxima publicación</h2><span class="mur-live"><i class="mur-live__dot"></i>14 agendadas</span><a href="/calendario" class="mur-ibtn mur-ibtn--ring" aria-label="Abrir el Calendario"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9.5 8H16v6.5"></path></svg></a></div><article class="mur-ov-hero"><a href="/calendario" class="mur-ov-hero__media" aria-label="Encuesta: ¿qué te frena para vender?"><span class="mur-ph mur-ph--rose"></span></a><div class="mur-ov-hero__b"><div class="mur-ov-hero__top"><span class="mur-brandchip"><i class="mur-bdg mur-bdg--coral">ST</i>Story</span><em class="mur-pill mur-pill--butter">Por publicar</em></div><span class="mur-ov-hero__k">sale en</span><b class="mur-ov-hero__n">1 h 30 min</b><span class="mur-ov-hero__w"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15M12 8v4.5l3 1.8"></path></svg>Hoy, 16:30</span><p class="mur-ov-hero__p">Encuesta: ¿qué te frena para vender?</p><div class="mur-ov-hero__f"><a href="/calendario" class="mur-ibtn mur-ibtn--ring mur-ibtn--on-dark" aria-label="Abrir en el Calendario"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9.5 8H16v6.5"></path></svg></a></div></div></article><p class="mur-eyebrow">Después</p><div class="mur-ov-after"><a href="/calendario" class="mur-ov-after__item"><span class="mur-ph mur-ph--ember mur-thumb"></span><span class="mur-ov-after__m"><b>Tres errores al vender por WhatsApp</b><span>Mañana, 09:00</span></span><span class="mur-ov-after__r"><em class="mur-st mur-st--sea">Reel</em></span></a><a href="/calendario" class="mur-ov-after__item"><span class="mur-ph mur-ph--linen mur-thumb"></span><span class="mur-ov-after__m"><b>Carrusel: el método en cinco pasos</b><span>Mañana, 13:00</span></span><span class="mur-ov-after__r"><em class="mur-st mur-st--sea">Post</em></span></a><a href="/calendario" class="mur-ov-after__item"><span class="mur-ph mur-ph--rose mur-thumb"></span><span class="mur-ov-after__m"><b>Detrás de cámaras de la clase</b><span>Mañana, 18:30</span></span><span class="mur-ov-after__r"><em class="mur-st mur-st--sea">Story</em></span></a><a href="/calendario" class="mur-ov-after__item"><span class="mur-ph mur-ph--rose mur-thumb"></span><span class="mur-ov-after__m"><b>Recordatorio de la clase gratis</b><span>Mañana, 20:00</span></span><span class="mur-ov-after__r"><em class="mur-st mur-st--sea">Story</em></span></a><a href="/calendario" class="mur-ov-after__item"><span class="mur-ph mur-ph--ember mur-thumb"></span><span class="mur-ov-after__m"><b>Un día con una clienta del programa</b><span>sáb 7 nov, 10:00</span></span><span class="mur-ov-after__r"><em class="mur-st mur-st--sea">Reel</em></span></a><a href="/calendario" class="mur-ov-after__item"><span class="mur-ph mur-ph--cafe mur-thumb"></span><span class="mur-ov-after__m"><b>Anuncio: la clase gratis del jueves</b><span>sáb 7 nov, 19:00</span></span><span class="mur-ov-after__r"><em class="mur-st mur-st--sea">Anuncio</em></span></a></div></section><section class="mur-card mur-ov-needs"><div class="mur-card__h"><h2 class="mur-card__t">Más anuncios que trajeron clientes</h2><i class="mur-count">4</i></div><ul class="mur-ov-todos"><li class="mur-ov-todo"><span class="mur-ph mur-ph--cafe mur-thumb mur-thumb--44"></span><div class="mur-ov-todo__m"><b>Carrusel: el método en cinco pasos</b><span>38 leads · 9 agendas · 4 clientes</span><div class="mur-ov-todo__a"><button class="mur-btn mur-btn--sm mur-btn--pine" type="button"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg>Ver sus leads</button><a href="/ads-manager" class="mur-btn mur-btn--sm mur-btn--ghost">Ads Manager</a></div></div></li><li class="mur-ov-todo"><span class="mur-ph mur-ph--night mur-thumb mur-thumb--44"></span><div class="mur-ov-todo__m"><b>Video: un día con una clienta</b><span>31 leads · 8 agendas · 3 clientes</span><div class="mur-ov-todo__a"><button class="mur-btn mur-btn--sm mur-btn--pine" type="button"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg>Ver sus leads</button><a href="/ads-manager" class="mur-btn mur-btn--sm mur-btn--ghost">Ads Manager</a></div></div></li><li class="mur-ov-todo"><span class="mur-ph mur-ph--rose mur-thumb mur-thumb--44"></span><div class="mur-ov-todo__m"><b>Historia: la clase gratis del jueves</b><span>24 leads · 6 agendas · 2 clientes</span><div class="mur-ov-todo__a"><button class="mur-btn mur-btn--sm mur-btn--pine" type="button"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg>Ver sus leads</button><a href="/ads-manager" class="mur-btn mur-btn--sm mur-btn--ghost">Ads Manager</a></div></div></li><li class="mur-ov-todo"><span class="mur-ph mur-ph--oak mur-thumb mur-thumb--44"></span><div class="mur-ov-todo__m"><b>Imagen: antes y después del programa</b><span>19 leads · 4 agendas · 1 cliente</span><div class="mur-ov-todo__a"><button class="mur-btn mur-btn--sm mur-btn--pine" type="button"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg>Ver sus leads</button><a href="/ads-manager" class="mur-btn mur-btn--sm mur-btn--ghost">Ads Manager</a></div></div></li></ul></section></div><div class="mur-ov-r mur-ov-r--b"><section class="mur-card mur-ov-growth"><div class="mur-card__h"><h2 class="mur-card__t">Leads de tus anuncios</h2><a href="/ads-manager" class="mur-ibtn mur-ibtn--ring" aria-label="Abrir Ads Manager"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9.5 8H16v6.5"></path></svg></a></div><p class="mur-ov-growth__big"><b data-cuenta="true">233</b><span>leads en los últimos 30 días · 48 agendaron</span></p><div class="mur-ov-growth__leg"><span><i class="mur-lg"></i>Leads por día · el mejor, 29 oct</span></div><div class="mur-chart"><div class="mur-chart__y"><span>20</span><span>10</span><span>0</span></div><svg class="mur-chart__svg" viewBox="0 0 650 190" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="mur-g-_r_0_" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f68a8" stop-opacity=".16"></stop><stop offset="1" stop-color="#1f68a8" stop-opacity="0"></stop></linearGradient></defs><path class="mur-chart__grid" d="M0 .5H650M0 95.5H650M0 189.5H650"></path><path d="M0.0 143.5 C3.7 138.8 14.9 117.1 22.4 115.6 C29.9 114.0 37.4 128.0 44.8 134.2 C52.3 140.4 59.8 154.4 67.2 152.8 C74.7 151.3 82.2 132.7 89.7 124.9 C97.1 117.2 104.6 104.8 112.1 106.3 C119.5 107.8 127.0 128.0 134.5 134.2 C142.0 140.4 149.4 149.7 156.9 143.5 C164.4 137.3 171.8 100.1 179.3 97.0 C186.8 93.9 194.3 118.7 201.7 124.9 C209.2 131.1 216.7 135.8 224.1 134.2 C231.6 132.6 239.1 124.9 246.6 115.6 C254.0 106.3 261.5 80.0 269.0 78.4 C276.4 76.9 283.9 98.5 291.4 106.3 C298.9 114.0 306.3 120.3 313.8 124.9 C321.3 129.6 328.7 135.8 336.2 134.2 C343.7 132.6 351.1 123.3 358.6 115.6 C366.1 107.8 373.6 86.1 381.0 87.7 C388.5 89.2 396.0 117.2 403.4 124.9 C410.9 132.7 418.4 137.3 425.9 134.2 C433.3 131.1 440.8 109.4 448.3 106.3 C455.7 103.2 463.2 121.8 470.7 115.6 C478.2 109.4 485.6 70.6 493.1 69.1 C500.6 67.5 508.0 97.0 515.5 106.3 C523.0 115.6 530.5 126.5 537.9 124.9 C545.4 123.4 552.9 98.5 560.3 97.0 C567.8 95.5 575.3 109.4 582.8 115.6 C590.2 121.8 597.7 135.8 605.2 134.2 C612.6 132.6 620.1 107.8 627.6 106.3 C635.1 104.8 646.3 121.8 650.0 124.9 L650 190 L0 190 Z" fill="url(#mur-g-_r_0_)"></path><path class="mur-chart__line" d="M0.0 143.5 C3.7 138.8 14.9 117.1 22.4 115.6 C29.9 114.0 37.4 128.0 44.8 134.2 C52.3 140.4 59.8 154.4 67.2 152.8 C74.7 151.3 82.2 132.7 89.7 124.9 C97.1 117.2 104.6 104.8 112.1 106.3 C119.5 107.8 127.0 128.0 134.5 134.2 C142.0 140.4 149.4 149.7 156.9 143.5 C164.4 137.3 171.8 100.1 179.3 97.0 C186.8 93.9 194.3 118.7 201.7 124.9 C209.2 131.1 216.7 135.8 224.1 134.2 C231.6 132.6 239.1 124.9 246.6 115.6 C254.0 106.3 261.5 80.0 269.0 78.4 C276.4 76.9 283.9 98.5 291.4 106.3 C298.9 114.0 306.3 120.3 313.8 124.9 C321.3 129.6 328.7 135.8 336.2 134.2 C343.7 132.6 351.1 123.3 358.6 115.6 C366.1 107.8 373.6 86.1 381.0 87.7 C388.5 89.2 396.0 117.2 403.4 124.9 C410.9 132.7 418.4 137.3 425.9 134.2 C433.3 131.1 440.8 109.4 448.3 106.3 C455.7 103.2 463.2 121.8 470.7 115.6 C478.2 109.4 485.6 70.6 493.1 69.1 C500.6 67.5 508.0 97.0 515.5 106.3 C523.0 115.6 530.5 126.5 537.9 124.9 C545.4 123.4 552.9 98.5 560.3 97.0 C567.8 95.5 575.3 109.4 582.8 115.6 C590.2 121.8 597.7 135.8 605.2 134.2 C612.6 132.6 620.1 107.8 627.6 106.3 C635.1 104.8 646.3 121.8 650.0 124.9"></path></svg><div class="mur-chart__x mur-chart__x--pc"><span style="left: 0%;">7 oct</span><span style="left: 10.34%;">10 oct</span><span style="left: 20.69%;">13 oct</span><span style="left: 31.03%;">16 oct</span><span style="left: 41.38%;">19 oct</span><span style="left: 51.72%;">22 oct</span><span style="left: 62.07%;">25 oct</span><span style="left: 72.41%;">28 oct</span><span style="left: 82.76%;">31 oct</span><span style="left: 93.1%;">3 nov</span><span style="left: 100%;">5 nov</span></div><div class="mur-chart__x mur-chart__x--tel"><span style="left: 0%;">7 oct</span><span style="left: 27.59%;">15 oct</span><span style="left: 55.17%;">23 oct</span><span style="left: 82.76%;">31 oct</span><span style="left: 100%;">5 nov</span></div></div></section><section class="mur-card mur-ov-top"><div class="mur-card__h"><h2 class="mur-card__t">El que más clientes trajo</h2></div><div class="mur-ov-topcard" data-lift="" role="button" tabindex="0"><span class="mur-ph mur-ph--garage mur-thumb mur-thumb--top"></span><em class="mur-pill mur-pill--butter mur-ov-topcard__tag">Trajo 6 clientes</em><span class="mur-ov-topcard__b"><span class="mur-ov-topcard__brand"><span class="mur-brandchip mur-brandchip--sm"><i class="mur-bdg mur-bdg--ink">AN</i>Anuncio de Meta</span></span><b class="mur-ov-topcard__t">Reel: tres errores al vender por WhatsApp</b><span class="mur-ov-topcard__s"><span><b data-cuenta="true">52</b>leads</span><span><b data-cuenta="true">14</b>agendas</span><span><b data-cuenta="true">6</b>clientes</span></span></span></div></section></div><section class="mur-card mur-ov-week"><div class="mur-card__h"><h2 class="mur-card__t">Esta semana</h2><a href="/calendario" class="mur-btn mur-btn--sm mur-btn--ghost"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5h10a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3zM4 10h16M8.5 3.5v4M15.5 3.5v4"></path></svg>Calendario</a></div><div class="mur-ov-days"><a href="/calendario" class="mur-ov-day mur-is-today" data-lift=""><span class="mur-ov-day__h"><span>Hoy</span><b>5</b></span><span class="mur-slot mur-slot--butter" title="Encuesta: ¿qué te frena para vender?">16:30<i class="mur-bdg mur-bdg--ink">ST</i></span><span class="mur-ov-day__f">1 publicación</span></a><a href="/calendario" class="mur-ov-day" data-lift=""><span class="mur-ov-day__h"><span>Vie</span><b>6</b></span><span class="mur-slot mur-slot--coral" title="Tres errores al vender por WhatsApp">09:00<i class="mur-bdg mur-bdg--ink">RE</i></span><span class="mur-slot mur-slot--sea" title="Carrusel: el método en cinco pasos">13:00<i class="mur-bdg mur-bdg--coral">PO</i></span><span class="mur-slot mur-slot--butter" title="Detrás de cámaras de la clase">18:30<i class="mur-bdg mur-bdg--pine">ST</i></span><span class="mur-slot mur-slot--more">+1</span><span class="mur-ov-day__f">4 publicaciones</span></a><a href="/calendario" class="mur-ov-day" data-lift=""><span class="mur-ov-day__h"><span>Sáb</span><b>7</b></span><span class="mur-slot mur-slot--coral" title="Un día con una clienta del programa">10:00<i class="mur-bdg mur-bdg--ink">RE</i></span><span class="mur-slot mur-slot--coral" title="Anuncio: la clase gratis del jueves">19:00<i class="mur-bdg mur-bdg--coral">AN</i></span><span class="mur-ov-day__f">2 publicaciones</span></a><a href="/calendario" class="mur-ov-day" data-lift=""><span class="mur-ov-day__h"><span>Dom</span><b>8</b></span><span class="mur-slot mur-slot--sea" title="Preguntas frecuentes del programa">09:30<i class="mur-bdg mur-bdg--ink">PO</i></span><span class="mur-slot mur-slot--butter" title="Cuenta regresiva de la clase">12:00<i class="mur-bdg mur-bdg--coral">ST</i></span><span class="mur-slot mur-slot--coral" title="Lo que aprendí con cien clientas">17:00<i class="mur-bdg mur-bdg--pine">RE</i></span><span class="mur-ov-day__f">3 publicaciones</span></a><a href="/calendario" class="mur-ov-day" data-lift=""><span class="mur-ov-day__h"><span>Lun</span><b>9</b></span><span class="mur-slot mur-slot--sea" title="La clase gratis, completa">11:00<i class="mur-bdg mur-bdg--ink">VI</i></span><span class="mur-ov-day__f">1 publicación</span></a><a href="/calendario" class="mur-ov-day" data-lift=""><span class="mur-ov-day__h"><span>Mar</span><b>10</b></span><span class="mur-slot mur-slot--sea" title="Antes y después del programa">10:00<i class="mur-bdg mur-bdg--ink">PO</i></span><span class="mur-ov-day__f">1 publicación</span></a><a href="/calendario" class="mur-ov-day" data-lift=""><span class="mur-ov-day__h"><span>Mié</span><b>11</b></span><span class="mur-slot mur-slot--coral" title="Tu primera venta en siete días">09:00<i class="mur-bdg mur-bdg--ink">RE</i></span><span class="mur-slot mur-slot--butter" title="Pregúntame lo que quieras">18:00<i class="mur-bdg mur-bdg--coral">ST</i></span><span class="mur-ov-day__f">2 publicaciones</span></a></div></section><div class="mur-ov-r mur-ov-r--c"><section class="mur-card mur-ov-nets"><div class="mur-card__h"><h2 class="mur-card__t">Cada red</h2><a href="/ads-manager" class="mur-ibtn mur-ibtn--ring" aria-label="Abrir Ads Manager"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1 1M14 10a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1-1"></path></svg></a></div><ul class="mur-ov-netlist"><li role="button" tabindex="0"><i class="mur-net mur-net--lg mur-net--ig"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 5h5.6A4.2 4.2 0 0 1 19 9.2v5.6a4.2 4.2 0 0 1-4.2 4.2H9.2A4.2 4.2 0 0 1 5 14.8V9.2A4.2 4.2 0 0 1 9.2 5zM12 8.8a3.2 3.2 0 1 0 0 6.4a3.2 3.2 0 1 0 0-6.4M16.2 7.9v.01"></path></svg></i><span class="mur-ov-net__m"><span><b>Instagram</b><em>48.2k</em></span><i class="mur-bar"><i style="--v: 1.000;"></i></i></span><span class="mur-ov-net__r"><b class="">31 agendas</b><span>2.6% tocan</span></span></li><li role="button" tabindex="0"><i class="mur-net mur-net--lg mur-net--fb"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 20v-7h2.5l.4-3h-2.9V8.4c0-.9.3-1.4 1.5-1.4h1.5V4.3c-.3 0-1.2-.1-2.2-.1-2.2 0-3.7 1.3-3.7 3.8V10H8v3h2.6v7"></path></svg></i><span class="mur-ov-net__m"><span><b>Facebook</b><em>36.9k</em></span><i class="mur-bar"><i style="--v: 0.766;"></i></i></span><span class="mur-ov-net__r"><b class="">18 agendas</b><span>1.7% tocan</span></span></li><li role="button" tabindex="0"><i class="mur-net mur-net--lg mur-net--ms"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5c-4.4 0-7.5 3-7.5 7 0 2.2 1 4 2.6 5.3v2.7l2.6-1.4c.7.2 1.5.3 2.3.3 4.4 0 7.5-3 7.5-7s-3.1-6.9-7.5-6.9zM7.5 13.5l3-3.2 2 1.8 4-2.3-3 3.2-2-1.8z"></path></svg></i><span class="mur-ov-net__m"><span><b>Messenger</b><em>5,400</em></span><i class="mur-bar"><i style="--v: 0.112;"></i></i></span><span class="mur-ov-net__r"><b class="">2 agendas</b><span>1.7% tocan</span></span></li><li role="button" tabindex="0"><i class="mur-net mur-net--lg"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15M4.5 12h15M12 4.5c2 2 3 4.5 3 7.5s-1 5.5-3 7.5M12 4.5c-2 2-3 4.5-3 7.5s1 5.5 3 7.5"></path></svg></i><span class="mur-ov-net__m"><span><b>Audience Network</b><em>3,800</em></span><i class="mur-bar"><i style="--v: 0.079;"></i></i></span><span class="mur-ov-net__r"><b class="mur-cero">0 agendas</b><span>1.1% tocan</span></span></li></ul></section><section class="mur-card mur-ov-inbox"><div class="mur-card__h"><h2 class="mur-card__t">Quién te ve en Instagram</h2><a href="/ads-manager" class="mur-ibtn mur-ibtn--ring" aria-label="Abrir Ads Manager"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg></a></div><div class="mur-ov-ib__tiles"><span role="button" tabindex="0"><b data-cuenta="true">37%</b>25-34 años</span><span role="button" tabindex="0"><b data-cuenta="true">28%</b>35-44 años</span><span role="button" tabindex="0"><b data-cuenta="true">16%</b>18-24 años</span></div><div class="mur-ov-ib__sent"><i class="mur-s mur-s--g0" style="--f: 27300;"></i><i class="mur-s mur-s--g1" style="--f: 19100;"></i></div><p class="mur-ov-ib__leg"><span><i class="mur-d mur-d--g0"></i>Mujeres 59%</span><span><i class="mur-d mur-d--g1"></i>Hombres 41%</span></p><ul class="mur-ov-ib__list"><li><div class="mur-ov-ib__row" role="button" tabindex="0"><span class="mur-av mur-av--a">J</span><span class="mur-ov-ib__m"><b>Jalisco</b><span>12.1k vistas en Instagram</span></span><span class="mur-ov-ib__r"><i class="mur-net mur-net--sm"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 5h5.6A4.2 4.2 0 0 1 19 9.2v5.6a4.2 4.2 0 0 1-4.2 4.2H9.2A4.2 4.2 0 0 1 5 14.8V9.2A4.2 4.2 0 0 1 9.2 5zM12 8.8a3.2 3.2 0 1 0 0 6.4a3.2 3.2 0 1 0 0-6.4M16.2 7.9v.01"></path></svg></i><em class="mur-mood mur-mood--neu">35%</em></span></div></li><li><div class="mur-ov-ib__row" role="button" tabindex="0"><span class="mur-av mur-av--b">NL</span><span class="mur-ov-ib__m"><b>Nuevo León</b><span>9,300 vistas en Instagram</span></span><span class="mur-ov-ib__r"><i class="mur-net mur-net--sm"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 5h5.6A4.2 4.2 0 0 1 19 9.2v5.6a4.2 4.2 0 0 1-4.2 4.2H9.2A4.2 4.2 0 0 1 5 14.8V9.2A4.2 4.2 0 0 1 9.2 5zM12 8.8a3.2 3.2 0 1 0 0 6.4a3.2 3.2 0 1 0 0-6.4M16.2 7.9v.01"></path></svg></i><em class="mur-mood mur-mood--neu">27%</em></span></div></li><li><div class="mur-ov-ib__row" role="button" tabindex="0"><span class="mur-av mur-av--c">CD</span><span class="mur-ov-ib__m"><b>Ciudad de México</b><span>8,800 vistas en Instagram</span></span><span class="mur-ov-ib__r"><i class="mur-net mur-net--sm"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 5h5.6A4.2 4.2 0 0 1 19 9.2v5.6a4.2 4.2 0 0 1-4.2 4.2H9.2A4.2 4.2 0 0 1 5 14.8V9.2A4.2 4.2 0 0 1 9.2 5zM12 8.8a3.2 3.2 0 1 0 0 6.4a3.2 3.2 0 1 0 0-6.4M16.2 7.9v.01"></path></svg></i><em class="mur-mood mur-mood--neu">26%</em></span></div></li></ul></section><section class="mur-card mur-ov-team"><div class="mur-card__h"><h2 class="mur-card__t">De dónde llegan tus leads</h2><a href="/crm" class="mur-ibtn mur-ibtn--ring" aria-label="Abrir el CRM"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9.5 8H16v6.5"></path></svg></a></div><ul class="mur-ov-feed"><li role="button" tabindex="0"><span class="mur-av mur-av--sm mur-av--a">F</span><span class="mur-ov-feed__m"><span><b>Formulario de Meta</b> trajo 96 leads</span><small><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg>42% de tus leads</small></span></li><li role="button" tabindex="0"><span class="mur-av mur-av--sm mur-av--b">L</span><span class="mur-ov-feed__m"><span><b>Landing</b> trajo 58 leads</span><small><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg>25% de tus leads</small></span></li><li role="button" tabindex="0"><span class="mur-av mur-av--sm mur-av--c">W</span><span class="mur-ov-feed__m"><span><b>WhatsApp</b> trajo 34 leads</span><small><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg>15% de tus leads</small></span></li><li role="button" tabindex="0"><span class="mur-av mur-av--sm mur-av--d">I</span><span class="mur-ov-feed__m"><span><b>Instagram (DM)</b> trajo 21 leads</span><small><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg>9% de tus leads</small></span></li><li role="button" tabindex="0"><span class="mur-av mur-av--sm mur-av--e">R</span><span class="mur-ov-feed__m"><span><b>Referido</b> trajo 12 leads</span><small><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg>5% de tus leads</small></span></li><li role="button" tabindex="0"><span class="mur-av mur-av--sm mur-av--a">M</span><span class="mur-ov-feed__m"><span><b>Manual</b> trajo 7 leads</span><small><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg>3% de tus leads</small></span></li></ul></section></div></div><div class="mur-pie"><button type="button" class="mur-btn mur-btn--sm mur-btn--ghost"><svg class="mur-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 4.5h6v6h-6zM13.5 4.5h6v6h-6zM4.5 13.5h6v6h-6zM13.5 13.5h6v6h-6z"></path></svg>Ver la grilla</button></div></main></div>
+</body></html>

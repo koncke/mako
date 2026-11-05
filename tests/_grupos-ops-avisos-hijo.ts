@@ -221,7 +221,12 @@ async function main() {
   const conPerfil = (id: number, perfil: Record<string, unknown>) => { const u = db.usuarios.find((f) => f.id === id)!; u.perfil = perfil; };
   escenaNueva();
   conPerfil(101, { notifPush: { activo: false } }); conPerfil(103, { notifPush: { activo: true, items: { 'mako-grupo': false } } });
-  conPerfil(102, { timezone: 'America/Argentina/Buenos_Aires', notifPush: { silencio: { desde: 0, hasta: 23.5 } } });
+  // El «No molestar» se arma ALREDEDOR de la hora de ahora en su zona (una hora antes y una después). Era «de 0 a 23,5» y entre las
+  // 23:30 y las 24:00 de Buenos Aires (02:30 a 03:00 UTC) el aviso salía y el test daba rojo todos los días (5/11/2026): una ventana
+  // no puede durar 24 horas (`normalizarSilencio` no acepta desde = hasta).
+  const horaBA = (() => { const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()); const n = (t: string) => Number(p.find((x) => x.type === t)?.value ?? 0); return n('hour') + n('minute') / 60; })();
+  const media = Math.floor(horaBA * 2) / 2;
+  conPerfil(102, { timezone: 'America/Argentina/Buenos_Aires', notifPush: { silencio: { desde: (media + 23) % 24, hasta: (media + 1) % 24 } } });
   await copiarAlGrupo(WS, { texto: 'Con preferencias', de: 'mako' });
   await correrDespues();
   const conPreferencias = pushes.map((p) => p.endpoint.split('/').pop());

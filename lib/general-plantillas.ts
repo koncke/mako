@@ -296,23 +296,40 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
         local: 'apertura', tipo: 'frase', fuente: 'audiencia', metricas: ['impresiones', 'clics', 'agendas'], dimension: null, titulo: 'Instagram',
         frase: 'Instagram te mostró {impresiones} veces · {clics} tocaron tu anuncio · {agendas} agendaron', controles: [SOLO_INSTAGRAM], ir: 'ads-manager',
       },
-      { ...numero('alcance', 'audiencia', 'alcance', 'Alcance en Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
+      // 5/11/2026: el «Alcance en Instagram» que iba aquí NUNCA tuvo número. Meta da el alcance por fila y no se suma (la métrica es
+      // `sinTotal`, lib/graficos-catalogo.ts), y un número sin desglose no tiene filas: su total es null siempre (medido con `agregar`).
+      // El alcance de Instagram va en «Instagram contra Facebook», en la fila de Instagram, que lo trae tal cual.
       { ...numero('ctr', 'audiencia', 'ctr', 'Tocan el anuncio', { comparar: false, invertida: true, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
       { ...numero('cpm', 'audiencia', 'cpm', 'Costo por mil', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
       { ...numero('gasto', 'audiencia', 'gasto', 'Inversión en Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }), tipo: 'numero' },
       {
-        local: 'plataformas', tipo: 'tabla_barras', fuente: 'audiencia', dimension: 'plataforma', metricas: ['impresiones', 'clics', 'agendas'],
+        local: 'plataformas', tipo: 'tabla_barras', fuente: 'audiencia', dimension: 'plataforma', metricas: ['impresiones', 'clics', 'agendas', 'alcance'],
         titulo: 'Instagram contra Facebook',
       },
       { local: 'por-genero', tipo: 'anillo', fuente: 'audiencia', dimension: 'genero', metricas: ['impresiones'], titulo: 'Por género', controles: [SOLO_INSTAGRAM] },
       { local: 'por-edad', tipo: 'barras', fuente: 'audiencia', dimension: 'edad', metricas: ['impresiones'], titulo: 'Por edad', controles: [SOLO_INSTAGRAM] },
-      { local: 'por-region', tipo: 'barras', fuente: 'audiencia', dimension: 'region', metricas: ['agendas'], titulo: 'Agendan por región', controles: [SOLO_INSTAGRAM] },
+      // 5/11/2026: era «Agendan por región», con las agendas, y no podía tener ninguna: con el desglose por región Meta no manda las
+      // conversiones de afuera de Meta (lib/graficos-audiencia.ts), así que la agenda de una región no es un cero, es algo que no da.
+      { local: 'por-region', tipo: 'barras', fuente: 'audiencia', dimension: 'region', metricas: ['impresiones'], titulo: 'Dónde te ven', controles: [SOLO_INSTAGRAM] },
       { local: 'origen', tipo: 'barras', fuente: 'leads', fecha: 'alta', dimension: 'origen', metricas: ['leads'], titulo: 'De dónde llegan tus leads', ir: 'crm' },
       {
         local: 'anuncios', tipo: 'tarjetas', fuente: 'leads', fecha: 'alta', dimension: 'anuncio', metricas: ['cierres', 'agendas', 'leads'],
-        ordenMetrica: 'cierres', barra: 'agendas', limite: 4, titulo: 'Qué anuncio trajo clientes', ir: 'ads-manager',
+        ordenMetrica: 'cierres', barra: 'agendas', limite: 5, titulo: 'Qué anuncio trajo clientes', ir: 'ads-manager',
       },
+      // 5/11/2026 — para el DISEÑO PROPIO (la copia de Murmura, app/dashboard/disenos/HojaInstagram.tsx): la curva de «Audience
+      // growth». Murmura cuenta los seguidores nuevos de cada día; MaKo no los lee, y lo que sí trae cada día es lo que llegó de tus
+      // anuncios de Meta (todas sus redes: un lead no dice de cuál vino).
+      { local: 'por-dia', tipo: 'serie', fuente: 'meta', fecha: 'fecha', dimension: 'dia', metricas: ['leads', 'agendas'], titulo: 'Leads de tus anuncios, día por día', ir: 'ads-manager' },
     ],
+    // 5/11/2026 — su DISEÑO PROPIO es la copia de Murmura adaptada (app/dashboard/disenos/HojaInstagram.tsx, lib/instagram-diseno.ts;
+    // las maquetas en docs/diseno/mockups-dashboard/instagram-murmura/). Las publicaciones salen del Calendario de General.
+    diseno: {
+      id: 'instagram',
+      piezas: {
+        apertura: 'apertura', ctr: 'ctr', cpm: 'cpm', gasto: 'gasto', plataformas: 'plataformas', genero: 'por-genero', edad: 'por-edad',
+        region: 'por-region', origen: 'origen', anuncios: 'anuncios', leads: 'por-dia',
+      },
+    },
   },
 ];
 

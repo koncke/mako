@@ -1,6 +1,22 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (5/11/2026, ~01:55 UTC)
+## 📬 Para el Cerebro (5/11/2026, ~02:35 UTC)
+
+- **Agencia o servicio está en producción.** Entró a main (`98403e8e5`, la punta `dash-servicio` tal cual, con su veredicto: 7.092 tests
+  y el tsc entero); el deploy de ese commit se promovió a las 01:59. Es la decimosexta hoja copiada (Sunrow).
+- **Instagram y redes (la copia de Murmura) está en `punta/dash-instagram`**: la sección de abajo. Es la decimoséptima hoja copiada y
+  la cuarta de General que lee los datos de General (las publicaciones del Calendario).
+- **⚠️ Dos piezas de la plantilla nunca pudieron tener datos, y las cambié para las hojas nuevas:** «Alcance en Instagram» (Meta da el
+  alcance por fila y no se suma: el número sin desglose da null siempre, medido con `agregar`) y «Agendan por región» (con el desglose por
+  región Meta no manda ninguna conversión). El alcance pasa a viajar en «Instagram contra Facebook» y la región pasa a vistas, «Dónde te
+  ven». Las hojas de Instagram que ya existen no cambian solas (regla 6): ésas siguen mostrando esos dos vacíos.
+- **De paso, un test que daba rojo media hora cada noche (en `main` también):** `tests/grupos-ops-avisos.test.ts` le ponía a un invitado
+  un «No molestar» de 0 a 23,5 h en Buenos Aires, y entre las 02:30 y las 03:00 UTC el aviso salía y el test fallaba. Ahora la ventana se
+  arma alrededor de la hora de ahora (probado rompiéndolo: corrida una hora, rojo). Es del chat de los grupos de la app: sólo cambié el
+  test, no el código.
+- **Sigo con la siguiente que tenga lo medido completo**, de a una. Lintel sigue frenada (abajo).
+
+### Lo de las ~01:55 UTC
 
 - **Curso o comunidad está en producción.** Entró a main (`f6a6e8def`, la punta `dash-curso` tal cual, con su veredicto: 7.080 tests y
   el tsc entero); el deploy de ese commit se promovió a las 01:20. Es la decimoquinta hoja copiada (Vitrea).
@@ -151,7 +167,70 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
 
-## Agencia o servicio: la decimosexta hoja copiada (la de Sunrow), con «¿cada cliente va en fecha?» (punta `dash-servicio`, 5/11/2026)
+## Instagram y redes: la decimoséptima hoja copiada (la de Murmura), con «¿qué publicación trajo gente de verdad?» (punta `dash-instagram`, 5/11/2026)
+
+La referencia de Instagram y redes es Murmura (`docs/templates-dashboard-propuesta.md` §7.3): la página «Overview» de Murmura (un panel
+para manejar redes, claro y de vidrio): la barra de arriba y la de la izquierda, el saludo con tres números, «Up next» (la próxima
+publicación con su cuenta regresiva y la cola), «Needs you» (las aprobaciones), «Audience growth» (un área de seguidores por día), «Top
+post this month», «The week ahead» (siete días con sus turnos), «Network pulse», «Inbox pulse» y «Team activity». En el teléfono, una
+barra de abajo con cinco pestañas.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» de General ofrece «Instagram y redes» con el diseño de Murmura**, con su miniatura de verdad.
+- **Arriba:** «Buenos días, Ana» y una frase con lo que Instagram te mostró, cuántos tocaron tu anuncio y cuántos agendaron. Tres
+  números: el alcance en Instagram, cuántos tocan el anuncio y lo invertido en Instagram con lo que cuesta cada mil vistas. El botón
+  «Agendar una publicación» abre el Calendario.
+- **Próxima publicación** («Up next»): la que sigue en tu Calendario, con su formato, lo que falta para que salga («1 h 30 min») y
+  cuándo; abajo, las seis que vienen después.
+- **Más anuncios que trajeron clientes** («Needs you») y **El que más clientes trajo** («Top post this month»): los anuncios ordenados
+  por los clientes que salieron de sus leads; el primero va en la tarjeta grande (con su miniatura de Meta si la tiene) y los demás en la
+  lista, con «Ver sus leads» y «Ads Manager». Ningún anuncio sale dos veces.
+- **Leads de tus anuncios** («Audience growth»): los leads de tus anuncios de Meta cada día, con cuántos agendaron y el mejor día.
+- **Esta semana** («The week ahead»): los siete días desde hoy con las publicaciones del Calendario (la hora y el formato), las que
+  sobran y cuántas hay cada día.
+- **Cada red** («Network pulse»): Instagram, Facebook, Messenger y el resto, con lo que te vieron, la barra contra la que más, cuántos
+  agendaron y cuántos tocan.
+- **Quién te ve en Instagram** («Inbox pulse»): las tres edades que más te ven, el reparto por género y las tres regiones donde más te ven.
+- **De dónde llegan tus leads** («Team activity»): cada origen con sus leads y su parte.
+- Tocar un anuncio, una red, una edad, una región o un origen abre el detalle de siempre de su pieza. «Ver la grilla» va al pie.
+
+**Lo que se copió de Murmura, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/instagram-murmura/copia.html` con `murmura.css` y `murmura.js`) sale de lo medido del demo:
+  `valores.json`, las capturas a 1440 y a 390, los estados y el INFORME. **Nada del código de la tienda, ni el cartel «BUY THIS
+  TEMPLATE», ni sus fotos** (las miniaturas son colores propios). Los íconos son trazos propios.
+- **A 1440 la copia mide 2.342 contra 2.334 de la captura**, con cada tarjeta a menos de 5 px; **en el teléfono, 5.393 contra 5.383**
+  (la captura a 390 tiene la barra de desplazamiento de 15 px: se compara a 375). La copia trae también la barra de abajo del teléfono.
+- **La adaptación cae en las MISMAS cajas que la copia** (a 1360 sin la barra de la izquierda de Murmura, que en MaKo pone la app). Hay
+  dos pasos intermedios que Murmura no tiene: hasta 1320 px el saludo va en su renglón y los tres números se reparten el ancho (el ancho
+  del Dashboard con la barra lateral es ~1200); hasta 1000, la fila de abajo pasa a dos columnas, «Después» a una y el eje del gráfico usa
+  las fechas del teléfono.
+- **El movimiento, de las RECETAS del INFORME:** el saludo sube por palabra con un giro de 6° (.85 s, power4.out, 22 ms); la frase, los
+  números y el botón entran desde 14 px (.55 s, 80 ms, a los .12 s); las tarjetas suben desde 34 px y .985 (.9 s, 70 ms, a los .2 s); las
+  filas entran desde 12 px (.55 s, 45 ms, a los .45 s); los días se levantan desde 40 px girados ±3° y .94 (.8 s, back.out(1.4), 60 ms, a
+  los .5 s); las barras crecen (1 s, 60 ms, a los .6 s); los números cuentan 1,2 s. Al pasar, los días y la tarjeta grande suben 4 px (.45 s;
+  bajan en .5 s).
+- **⚠️ Lo SUPUESTO:** el INFORME de Murmura trae la librería de recetas y el armazón, no la línea de tiempo de la página: qué pieza usa
+  cuál receta, a qué demora, y qué lleva `data-lift`, es mío (lo anotado arriba).
+
+**Lo que Murmura tiene y MaKo no mide, y no está:** los **seguidores** y su crecimiento (la curva es de leads de anuncios), la
+**interacción** y los **guardados** de cada publicación, las **aprobaciones** del equipo, la **bandeja** de mensajes con su sentimiento,
+la **actividad del equipo**, las cuentas de cada cliente (la insignia de un turno es su formato), y las redes que no son de Meta (TikTok,
+YouTube, Pinterest, X, Threads, LinkedIn). El 30D/90D del gráfico tampoco: el período es el de la hoja. Meta no da las **agendas por región**
+ni el **alcance sumado** entre filas.
+**La plantilla suma una pieza** («Leads de tus anuncios, día por día», de los anuncios de Meta) **y cambia tres**: «Instagram contra
+Facebook» trae el alcance, «Agendan por región» pasa a «Dónde te ven» (vistas) y «Qué anuncio trajo clientes» trae cinco (eran cuatro);
+el número «Alcance en Instagram» se va (nunca tuvo valor). «Costo por mil» y lo demás quedan en la grilla.
+
+**Dónde vive:**
+- El modelo: `lib/instagram-diseno.ts`, puro. Los datos de ejemplo: `lib/instagram-diseno-muestra.ts` (cuadran entre bloques: la frase es
+  la fila de Instagram de cada red, y el CTR y el costo por mil salen de sus clics, sus vistas y lo invertido).
+- El dibujo: `app/dashboard/disenos/HojaInstagram.tsx`; lo vivo, `InstagramVivo.tsx` (con `useGeneral`); la hoja de estilos,
+  `instagram-css.ts` (la arma `scratchpad/ig/armar-ig.py` desde `instagram-murmura/murmura.css`: todo con el prefijo `mur-`).
+- La plantilla: `lib/general-plantillas.ts` («instagram», once piezas en el diseño, `diseno.id = 'instagram'`); `DISENOS_HOJA` en
+  `lib/graficos-catalogo.ts`.
+- Los tests: `tests/dashboard-diseno-instagram.test.ts` (10, probado rompiéndolo de veintidós maneras: cada rotura sola da rojo).
+
+## Agencia o servicio: la decimosexta hoja copiada (la de Sunrow), con «¿cada cliente va en fecha?» (en producción desde el 5/11/2026, 01:59)
 
 La referencia de Agencia o servicio es Sunrow (`docs/templates-dashboard-propuesta.md` §7.3): la página «Overview» de Sunrow (un ERP de
 obras solares, claro y de vidrio): la barra de arriba y la de la izquierda, el saludo con el clima y el arco de la luz del día, la tarjeta
@@ -1261,7 +1340,7 @@ Lo que comparten todas:
 | General | `general` | Orvel · Corbel | ¿cómo viene el negocio y qué me está esperando? | Cobrado | `punta/dash-general` |
 | Focus | `foco` | Pane · Lumora | ¿en qué estoy ahora y qué me queda hoy? | — (la frase de lo que te queda) | `punta/dash-focus` |
 | Operación diaria | `operacion` | Moorly · Torque | ¿qué está vencido y a quién llamo? | Por cobrar | `punta/dash-operacion` |
-| Agencia o servicio | `servicio` | Sunrow · Torque | ¿cada cliente va en fecha? | Avanzaron de etapa | `punta/dash-servicio` |
+| Agencia o servicio | `servicio` | Sunrow · Torque | ¿cada cliente va en fecha? | Avanzaron de etapa | en producción (`98403e8e5`) |
 | Curso o comunidad | `curso` | Lumora · Vitrea | ¿cuántos siguen ahí? | Alumnos activos | en producción (`f6a6e8def`) |
 | Instagram y redes | `instagram` | Murmura · Kestrel | ¿qué publicación trajo gente de verdad? | Tocan el anuncio | `punta/dash-instagram` |
 | Marketing | `marketing` | Kestrel · Ondra | ¿cuánto cuesta una agenda y de qué anuncio vino? | Costo por agenda | `punta/dash-marketing` |

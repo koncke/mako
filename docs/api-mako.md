@@ -595,7 +595,7 @@ Propone agregar una hoja nueva a la pantalla General de una persona: desde una p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `persona` | string | no | Email (o nombre) de la persona admin. Si se omite: en el chat de la app, la de quien chatea; si no, la única persona admin de la cuenta. |
-| `plantilla` | string (general \\| foco \\| mi-dia \\| operacion \\| servicio \\| curso) | no | id de una plantilla de General que se ofrece (listar_hojas_general). Usa esto O pedido. |
+| `plantilla` | string (general \\| foco \\| mi-dia \\| operacion \\| servicio \\| curso \\| instagram) | no | id de una plantilla de General que se ofrece (listar_hojas_general). Usa esto O pedido. |
 | `pedido` | string | no | Qué quiere ver al entrar, en palabras, para que MaKo arme la hoja. Usa esto O plantilla. |
 | `nombre` | string | no | Cómo se llama la hoja (default: el de la plantilla o el que elija MaKo). |
 

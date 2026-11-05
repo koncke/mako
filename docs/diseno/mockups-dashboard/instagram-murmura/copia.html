@@ -1,0 +1,216 @@
+<!doctype html>
+<!-- INSTAGRAM Y REDES (MURMURA) · PASO 1: LA COPIA EXACTA de la página «Overview» de Murmura (5/11/2026), con los textos del demo.
+     Escrita desde lo MEDIDO (demos/murmura/captura/valores.json, las capturas a 1440 y 390, los estados y el INFORME); nada del código
+     de la tienda. Sin el cartel de la tienda. Los íconos son trazos propios y las fotos de las publicaciones y de las personas son
+     recuadros propios (las fotos son de la tienda). La adaptación a MaKo (mako.html) usa la MISMA hoja. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Murmura · Overview (copia)</title>
+<link rel="stylesheet" href="murmura.css">
+</head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-wave" viewBox="0 0 24 24"><path d="M4 15l4-5 4 4 4-6 4 4"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><path d="M12 8v4.5l3 1.8"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><circle cx="9.5" cy="10" r="1.6"/><path d="M5 17l4.5-4 3 2.5 3-3L20 16"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1 1M14 10a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1-1"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 4l6.5 2.5V12c0 4-3 6.5-6.5 8-3.5-1.5-6.5-4-6.5-8V6.5z"/><path d="M9.5 12l2 2 3.5-4"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M18 14.5A7 7 0 0 1 9.5 6a7 7 0 1 0 8.5 8.5z"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 4.5l8 4-8 4-8-4zM4 12.5l8 4 8-4M4 16.5l8 4 8-4"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5h-14z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+<symbol id="i-people" viewBox="0 0 24 24"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"/></symbol>
+<symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 19s-7-4.4-7-9.2A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 1.8C19 14.6 12 19 12 19z"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="3"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></symbol>
+<symbol id="i-pen" viewBox="0 0 24 24"><path d="M5 19l1-4 9.5-9.5a2.1 2.1 0 0 1 3 3L9 18z"/><path d="M14 7l3 3"/></symbol>
+<symbol id="i-out" viewBox="0 0 24 24"><path d="M8 16L16 8M9.5 8H16v6.5"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4.5l8.5 15h-17z"/><path d="M12 10v4M12 16.8v.01"/></symbol>
+<symbol id="i-retry" viewBox="0 0 24 24"><path d="M5.5 12a6.5 6.5 0 1 0 2-4.7M5.5 4.5v3.5H9"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4.5 10.5L12 4.5l7.5 6V19a1 1 0 0 1-1 1h-4v-5.5h-5V20h-4a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.6"/></symbol>
+<symbol id="i-inbox" viewBox="0 0 24 24"><path d="M4.5 13.5l2-7.5h11l2 7.5V18H4.5z"/><path d="M4.5 13.5h4l1 2h5l1-2h4"/></symbol>
+<symbol id="i-history" viewBox="0 0 24 24"><path d="M5.5 12a6.5 6.5 0 1 0 2-4.7M5.5 4.5v3.5H9"/><path d="M12 8.5V12l2.5 1.5"/></symbol>
+<symbol id="i-key" viewBox="0 0 24 24"><circle cx="8.5" cy="15.5" r="3"/><path d="M10.6 13.4L18 6M15.5 8.5l2 2"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M19.5 4.5L4.5 11l6 2.5 2.5 6z"/><path d="M10.5 13.5l9-9"/></symbol>
+<symbol id="n-instagram" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="4.2"/><circle cx="12" cy="12" r="3.2"/><path d="M16.2 7.9v.01"/></symbol>
+<symbol id="n-facebook" viewBox="0 0 24 24"><path d="M13.5 20v-7h2.5l.4-3h-2.9V8.4c0-.9.3-1.4 1.5-1.4h1.5V4.3c-.3 0-1.2-.1-2.2-.1-2.2 0-3.7 1.3-3.7 3.8V10H8v3h2.6v7"/></symbol>
+<symbol id="n-tiktok" viewBox="0 0 24 24"><path d="M13 4.5v10.2a2.8 2.8 0 1 1-2.8-2.8M13 4.5c.3 2.2 1.8 3.6 4 3.8"/></symbol>
+<symbol id="n-threads" viewBox="0 0 24 24"><path d="M16 9.5c-.6-2.6-2.4-4-4.8-4-3.2 0-5.2 2.6-5.2 6.5s2 6.5 5.4 6.5c2.6 0 4.6-1.6 4.6-3.8 0-2.4-2.1-3.4-4.3-3.4-1.6 0-2.9.8-2.9 2.1 0 1.1 1 1.9 2.3 1.9 2 0 3-1.6 3-4.2"/></symbol>
+<symbol id="n-pinterest" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><path d="M11.5 9.5c2.5-.6 4 .8 3.6 2.8-.4 1.8-2.3 2.4-3.5 1.4M11.8 12l-1.6 6.5"/></symbol>
+<symbol id="n-youtube" viewBox="0 0 24 24"><rect x="4" y="6.5" width="16" height="11" rx="3.5"/><path d="M10.5 9.8v4.4l3.8-2.2z"/></symbol>
+<symbol id="n-x" viewBox="0 0 24 24"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13"/></symbol>
+<symbol id="n-linkedin" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2.5"/><path d="M8.6 10.5v5M8.6 8.2v.01M11.6 15.5v-5M11.6 12.6c0-1.4.9-2.2 2-2.2s1.9.7 1.9 2.2v2.9"/></symbol>
+</defs></svg>
+
+<div class="mesh" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="top">
+  <a class="brand" href="#"><span class="brand__logo"><svg class="i"><use href="#i-wave"/></svg></span><span>murmura</span></a>
+  <nav class="tabs">
+    <a class="tab" href="#" aria-current="page">Overview</a><a class="tab" href="#">Compose</a><a class="tab" href="#">Calendar</a><a class="tab" href="#">Inbox<i class="badge">14</i></a><a class="tab" href="#">Approvals<i class="badge">5</i></a><a class="tab" href="#">Analytics</a><a class="tab" href="#">Listening</a>
+  </nav>
+  <div class="top__tools">
+    <button class="bswitch" type="button"><span class="bswitch__ico"><svg class="i"><use href="#i-layers"/></svg></span>All brands<svg class="i"><use href="#i-chev"/></svg></button>
+    <button class="ibtn ibtn--glass" type="button"><svg class="i"><use href="#i-bell"/></svg><i class="dot"></i></button>
+    <button class="me" type="button"><span class="av av--me">CO</span></button>
+  </div>
+</header>
+
+<nav class="dock" aria-label="Tools">
+  <button class="dock__btn" type="button"><svg class="i"><use href="#i-search"/></svg></button>
+  <button class="dock__btn dock__btn--new" type="button"><svg class="i"><use href="#i-plus"/></svg></button>
+  <a class="dock__btn" href="#"><svg class="i"><use href="#i-clock"/></svg></a>
+  <a class="dock__btn" href="#"><svg class="i"><use href="#i-image"/></svg></a>
+  <i class="dock__sep"></i>
+  <a class="dock__btn" href="#"><svg class="i"><use href="#i-link"/></svg><i class="dot dot--dock"></i></a>
+  <a class="dock__btn" href="#"><svg class="i"><use href="#i-shield"/></svg></a>
+  <a class="dock__btn" href="#"><svg class="i"><use href="#i-gear"/></svg></a>
+  <button class="dock__btn" type="button"><svg class="i"><use href="#i-moon"/></svg></button>
+</nav>
+<nav class="tabbar" aria-label="Sections">
+  <a class="tabbar__it is-on" href="#"><svg class="i"><use href="#i-home"/></svg><span>Home</span></a>
+  <a class="tabbar__it" href="#"><svg class="i"><use href="#i-cal"/></svg><span>Calendar</span></a>
+  <a class="tabbar__it tabbar__it--new" href="#"><i class="tabbar__plus"><svg class="i"><use href="#i-plus"/></svg></i><span>Create</span></a>
+  <a class="tabbar__it" href="#"><svg class="i"><use href="#i-inbox"/></svg><span>Inbox</span><b class="tabbar__n">14</b></a>
+  <a class="tabbar__it" href="#"><svg class="i"><use href="#i-grid"/></svg><span>More</span></a>
+</nav>
+
+<main class="view">
+  <section class="head">
+    <h1 class="head__title">Morning, Camila</h1>
+    <div class="stat"><span class="stat__ico"><svg class="i"><use href="#i-people"/></svg></span><span class="stat__t"><span class="stat__n"><b>976.3K</b><em class="pill pill--pine">+10.1% in 30 days</em></span><span class="stat__l">Audience across your channels</span></span></div>
+    <div class="stat"><span class="stat__ico"><svg class="i"><use href="#i-heart"/></svg></span><span class="stat__t"><span class="stat__n"><b>10.3%</b></span><span class="stat__l">Engagement rate, last 30 days</span></span></div>
+    <div class="stat"><span class="stat__ico"><svg class="i"><use href="#i-cal"/></svg></span><span class="stat__t"><span class="stat__n"><b>18</b></span><span class="stat__l">Posts going out this week</span></span></div>
+    <div class="head__actions"><button class="btn btn--ink" type="button"><svg class="i"><use href="#i-pen"/></svg>New post</button></div>
+  </section>
+
+  <div class="ov">
+   <div class="ov-r ov-r--a">
+    <section class="card ov-next">
+      <div class="card__h"><h2 class="card__t">Up next</h2><span class="live"><i class="live__dot"></i>Live queue</span><a class="ibtn ibtn--ring" href="#"><svg class="i"><use href="#i-out"/></svg></a></div>
+      <article class="ov-hero">
+        <button class="ov-hero__media" type="button"><span class="ph ph--cafe"></span></button>
+        <div class="ov-hero__b">
+          <div class="ov-hero__top"><span class="brandchip"><i class="bdg bdg--coral">EO</i>Ember &amp; Oak</span><em class="pill pill--butter">Awaiting approval</em></div>
+          <span class="ov-hero__k">goes out in</span>
+          <b class="ov-hero__n">1 day 0 h</b>
+          <span class="ov-hero__w"><svg class="i"><use href="#i-clock"/></svg>Tomorrow · 9:00 AM</span>
+          <p class="ov-hero__p">Pumpkin spice? Never heard of her. Our autumn menu is maple, cardamom and a very good cortado. Starts Monday.</p>
+          <div class="ov-hero__f"><span class="nets"><i class="net"><svg class="i"><use href="#n-instagram"/></svg></i><i class="net net--fb"><svg class="i"><use href="#n-facebook"/></svg></i></span><button class="ibtn ibtn--ring ibtn--on-dark" type="button"><svg class="i"><use href="#i-out"/></svg></button></div>
+        </div>
+      </article>
+      <p class="eyebrow">Coming up</p>
+      <div class="ov-after">
+        <button class="ov-after__item" type="button"><span class="ph ph--latte thumb"></span><span class="ov-after__m"><b>Latte art Friday. Tag us in your best tulip…</b><span>Tomorrow · 9:30 AM</span></span><span class="ov-after__r"><span class="nets nets--sm"><i class="net"><svg class="i"><use href="#n-instagram"/></svg></i><i class="net"><svg class="i"><use href="#n-tiktok"/></svg></i></span><em class="st st--sea">Scheduled</em></span></button>
+        <button class="ov-after__item" type="button"><span class="ph ph--rose thumb"></span><span class="ov-after__m"><b>Rose petals, sun-dried on the roof of our s…</b><span>Tomorrow · 12:00 PM</span></span><span class="ov-after__r"><span class="nets nets--sm"><i class="net"><svg class="i"><use href="#n-instagram"/></svg></i><i class="net"><svg class="i"><use href="#n-tiktok"/></svg></i><i class="net net--pin"><svg class="i"><use href="#n-pinterest"/></svg></i></span><em class="st st--sea">Scheduled</em></span></button>
+        <button class="ov-after__item" type="button"><span class="ph ph--linen thumb"></span><span class="ov-after__m"><b>Autumn collection drops Thursday at 10:00 C…</b><span>Tomorrow · 6:00 PM</span></span><span class="ov-after__r"><span class="nets nets--sm"><i class="net"><svg class="i"><use href="#n-instagram"/></svg></i><i class="net net--fb"><svg class="i"><use href="#n-facebook"/></svg></i><i class="net net--yt"><svg class="i"><use href="#n-youtube"/></svg></i></span><em class="st st--sea">Scheduled</em></span></button>
+        <button class="ov-after__item" type="button"><span class="ph ph--ember thumb"></span><span class="ov-after__m"><b>Engine bay detail: steam, soft brushes, no …</b><span>Tomorrow · 7:00 PM</span></span><span class="ov-after__r"><span class="nets nets--sm"><i class="net"><svg class="i"><use href="#n-instagram"/></svg></i><i class="net"><svg class="i"><use href="#n-x"/></svg></i></span><em class="st st--sea">Scheduled</em></span></button>
+        <button class="ov-after__item" type="button"><span class="ph ph--night thumb"></span><span class="ov-after__m"><b>A three-step night routine for tired skin: …</b><span>Tomorrow · 8:00 PM</span></span><span class="ov-after__r"><span class="nets nets--sm"><i class="net"><svg class="i"><use href="#n-instagram"/></svg></i><i class="net"><svg class="i"><use href="#n-tiktok"/></svg></i><i class="net net--pin"><svg class="i"><use href="#n-pinterest"/></svg></i></span><em class="st st--butter">Awaiting approval</em></span></button>
+        <button class="ov-after__item" type="button"><span class="ph ph--oak thumb"></span><span class="ov-after__m"><b>New in: the Ro side table in smoked oak. Sa…</b><span>Fri, Nov 6 · 10:00 AM</span></span><span class="ov-after__r"><span class="nets nets--sm"><i class="net"><svg class="i"><use href="#n-instagram"/></svg></i><i class="net net--pin"><svg class="i"><use href="#n-pinterest"/></svg></i></span><em class="st st--butter">Awaiting approval</em></span></button>
+      </div>
+    </section>
+
+    <section class="card ov-needs">
+      <div class="card__h"><h2 class="card__t">Needs you</h2><i class="count">6</i></div>
+      <ul class="ov-todos">
+        <li class="ov-todo"><span class="ph ph--cafe thumb thumb--44"></span><div class="ov-todo__m"><b>Pumpkin spice? Never heard of her. Our autumn menu …</b><span>Nia wants approval · Ember &amp; Oak · Tomorrow 9:00 AM</span><div class="ov-todo__a"><button class="btn btn--sm btn--pine" type="button"><svg class="i"><use href="#i-check"/></svg>Approve</button><button class="btn btn--sm btn--ghost" type="button">Review</button></div></div></li>
+        <li class="ov-todo"><span class="ph ph--night thumb thumb--44"></span><div class="ov-todo__m"><b>A three-step night routine for tired skin: cleanse,…</b><span>Nia wants approval · Wildroot Botanics · Tomorrow 8:00 PM</span><div class="ov-todo__a"><button class="btn btn--sm btn--pine" type="button"><svg class="i"><use href="#i-check"/></svg>Approve</button><button class="btn btn--sm btn--ghost" type="button">Review</button></div></div></li>
+        <li class="ov-todo"><span class="ph ph--oak thumb thumb--44"></span><div class="ov-todo__m"><b>New in: the Ro side table in smoked oak. Same joine…</b><span>Freya wants approval · Hollow Home · Fri, Nov 6 10:00 AM</span><div class="ov-todo__a"><button class="btn btn--sm btn--pine" type="button"><svg class="i"><use href="#i-check"/></svg>Approve</button><button class="btn btn--sm btn--ghost" type="button">Review</button></div></div></li>
+        <li class="ov-todo ov-todo--fail"><span class="ov-todo__ico"><svg class="i"><use href="#i-alert"/></svg></span><div class="ov-todo__m"><b>A Vantage Garage post failed</b><span class="wrap">Facebook disconnected the page — reconnect Vantage Garage to retry.</span><div class="ov-todo__a"><button class="btn btn--sm btn--ink" type="button"><svg class="i"><use href="#i-retry"/></svg>Retry</button></div></div></li>
+      </ul>
+      <div class="ov-more"><button class="btn btn--sm btn--ghost" type="button"><svg class="i"><use href="#i-chev"/></svg>Show 2 more</button></div>
+    </section>
+
+   </div>
+   <div class="ov-r ov-r--b">
+    <section class="card ov-growth">
+      <div class="card__h"><h2 class="card__t">Audience growth</h2><span class="seg"><button class="seg__btn" type="button" aria-pressed="true">30D</button><button class="seg__btn" type="button">90D</button></span><button class="ibtn ibtn--ring" type="button"><svg class="i"><use href="#i-out"/></svg></button></div>
+      <p class="ov-growth__big"><b>+89.6K</b><span>new followers in 30 days · 10.1% growth</span></p>
+      <div class="ov-growth__leg"><span><i class="lg"></i>New followers per day</span><span class="nets nets--leg"><i class="net"><svg class="i"><use href="#n-instagram"/></svg></i><i class="net net--fb"><svg class="i"><use href="#n-facebook"/></svg></i><i class="net"><svg class="i"><use href="#n-tiktok"/></svg></i><i class="net"><svg class="i"><use href="#n-threads"/></svg></i><i class="net net--pin"><svg class="i"><use href="#n-pinterest"/></svg></i><i class="net net--yt"><svg class="i"><use href="#n-youtube"/></svg></i><i class="net"><svg class="i"><use href="#n-x"/></svg></i><i class="net net--li"><svg class="i"><use href="#n-linkedin"/></svg></i></span></div>
+      <div class="chart">
+        <div class="chart__y"><span>10K</span><span>5K</span><span>0</span></div>
+        <svg class="chart__svg" viewBox="0 0 650 190" preserveAspectRatio="none" aria-hidden="true">
+          <defs><linearGradient id="g-grow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f68a8" stop-opacity=".16"/><stop offset="1" stop-color="#1f68a8" stop-opacity="0"/></linearGradient></defs>
+          <path class="chart__grid" d="M0 .5H650M0 95.5H650M0 189.5H650"/>
+          <path id="p-grow" class="chart__line" d="M0 148 C8 120 16 70 23 80 C31 92 36 150 45 148 C56 145 62 110 69 117 C78 124 84 136 92 145 C100 152 108 150 115 144 C124 136 130 112 137 113 C146 115 152 135 160 135 C168 135 174 120 182 123 C190 126 194 152 205 156 C212 157 218 132 227 131 C236 131 242 144 250 143 C258 142 264 136 272 138 C280 141 286 150 295 150 C302 150 308 145 317 145 C326 145 332 150 340 149 C348 148 354 140 362 143 C370 146 376 158 385 156 C392 153 398 132 407 129 C416 127 422 128 430 132 C438 135 444 148 452 147 C460 146 466 140 475 120 C482 104 488 68 497 72 C506 77 510 128 520 129 C528 130 534 117 542 118 C550 121 556 158 565 154 C572 151 578 124 587 124 C596 125 602 141 610 141 C618 142 624 144 650 145"/>
+          <path d="M0 148 C8 120 16 70 23 80 C31 92 36 150 45 148 C56 145 62 110 69 117 C78 124 84 136 92 145 C100 152 108 150 115 144 C124 136 130 112 137 113 C146 115 152 135 160 135 C168 135 174 120 182 123 C190 126 194 152 205 156 C212 157 218 132 227 131 C236 131 242 144 250 143 C258 142 264 136 272 138 C280 141 286 150 295 150 C302 150 308 145 317 145 C326 145 332 150 340 149 C348 148 354 140 362 143 C370 146 376 158 385 156 C392 153 398 132 407 129 C416 127 422 128 430 132 C438 135 444 148 452 147 C460 146 466 140 475 120 C482 104 488 68 497 72 C506 77 510 128 520 129 C528 130 534 117 542 118 C550 121 556 158 565 154 C572 151 578 124 587 124 C596 125 602 141 610 141 C618 142 624 144 650 145 L650 190 L0 190 Z" fill="url(#g-grow)"/>
+        </svg>
+        <div class="chart__x chart__x--pc"><span>Oct 6</span><span>Oct 9</span><span>Oct 12</span><span>Oct 15</span><span>Oct 18</span><span>Oct 21</span><span>Oct 24</span><span>Oct 27</span><span>Oct 30</span><span>Nov 2</span><span>Nov 4</span></div>
+        <div class="chart__x chart__x--tel"><span>Oct 6</span><span>Oct 14</span><span>Oct 22</span><span>Oct 30</span><span>Nov 4</span></div>
+      </div>
+    </section>
+
+    <section class="card ov-top">
+      <div class="card__h"><h2 class="card__t">Top post this month</h2></div>
+      <button class="ov-topcard" type="button">
+        <span class="ph ph--garage thumb thumb--top"></span>
+        <em class="pill pill--butter ov-topcard__tag">8.9× usual reach</em>
+        <span class="ov-topcard__b">
+          <span class="ov-topcard__brand"><span class="brandchip brandchip--sm"><i class="bdg bdg--ink">VG</i>Vantage Garage</span><span class="nets nets--stack"><i class="net"><svg class="i"><use href="#n-instagram"/></svg></i><i class="net net--yt"><svg class="i"><use href="#n-youtube"/></svg></i><i class="net"><svg class="i"><use href="#n-tiktok"/></svg></i><i class="net"><svg class="i"><use href="#n-x"/></svg></i></span></span>
+          <b class="ov-topcard__t">Wheels off, barrels done, balanced to the gram. Nobody sees it. We do.</b>
+          <span class="ov-topcard__s"><span><b>346.9K</b>reach</span><span><b>23.2%</b>eng. rate</span><span><b>2.8K</b>saves</span></span>
+        </span>
+      </button>
+    </section>
+
+   </div>
+    <section class="card ov-week">
+      <div class="card__h"><h2 class="card__t">The week ahead</h2><a class="btn btn--sm btn--ghost" href="#"><svg class="i"><use href="#i-cal"/></svg>Calendar</a></div>
+      <div class="ov-days">
+        <a class="ov-day is-today" href="#"><span class="ov-day__h"><span>Wed</span><b>4</b></span><span class="slot slot--coral">8:30 AM<i class="bdg bdg--ink">VG</i></span><span class="ov-day__f">1 post</span></a>
+        <a class="ov-day" href="#"><span class="ov-day__h"><span>Thu</span><b>5</b></span><span class="slot slot--butter">9 AM<i class="bdg bdg--coral">EO</i></span><span class="slot slot--sea">9:30 AM<i class="bdg bdg--coral">EO</i></span><span class="slot slot--sea">12 PM<i class="bdg bdg--pine">WB</i></span><span class="slot slot--more">+3</span><span class="ov-day__f">6 posts</span></a>
+        <a class="ov-day" href="#"><span class="ov-day__h"><span>Fri</span><b>6</b></span><span class="slot slot--butter">10 AM<i class="bdg bdg--butter">HH</i></span><span class="slot slot--sea">12 PM<i class="bdg bdg--sea">NS</i></span><span class="slot slot--butter">7 PM<i class="bdg bdg--ink">VG</i></span><span class="ov-day__f">3 posts</span></a>
+        <a class="ov-day" href="#"><span class="ov-day__h"><span>Sat</span><b>7</b></span><span class="slot slot--sea">11 AM<i class="bdg bdg--coral">EO</i></span><span class="slot slot--sea">5 PM<i class="bdg bdg--ink">VG</i></span><span class="slot slot--sea">6 PM<i class="bdg bdg--pine">WB</i></span><span class="slot slot--more">+2</span><span class="ov-day__f">5 posts</span></a>
+        <a class="ov-day" href="#"><span class="ov-day__h"><span>Sun</span><b>8</b></span><span class="slot slot--coral">12 PM<i class="bdg bdg--ink">VG</i></span><span class="ov-day__f">1 post</span></a>
+        <a class="ov-day" href="#"><span class="ov-day__h"><span>Mon</span><b>9</b></span><span class="slot slot--coral">9 AM<i class="bdg bdg--pine">WB</i></span><span class="ov-day__f">1 post</span></a>
+        <a class="ov-day" href="#"><span class="ov-day__h"><span>Tue</span><b>10</b></span><span class="slot slot--sea">9:30 AM<i class="bdg bdg--coral">EO</i></span><span class="slot slot--sea">9:30 AM<i class="bdg bdg--butter">HH</i></span><span class="slot slot--sea">5 PM<i class="bdg bdg--ink">VG</i></span><span class="slot slot--more">+1</span><span class="ov-day__f">4 posts</span></a>
+      </div>
+    </section>
+
+   <div class="ov-r ov-r--c">
+    <section class="card ov-nets">
+      <div class="card__h"><h2 class="card__t">Network pulse</h2><a class="ibtn ibtn--ring" href="#"><svg class="i"><use href="#i-link"/></svg></a></div>
+      <ul class="ov-netlist">
+        <li><i class="net net--lg"><svg class="i"><use href="#n-tiktok"/></svg></i><span class="ov-net__m"><span><b>TikTok</b><em>306.6K</em></span><i class="bar"><i style="--v:1"></i></i></span><span class="ov-net__r"><b>+7.0%</b><span>8.8% eng.</span></span></li>
+        <li><i class="net net--lg net--ig"><svg class="i"><use href="#n-instagram"/></svg></i><span class="ov-net__m"><span><b>Instagram</b><em>291.7K</em></span><i class="bar"><i style="--v:.951"></i></i></span><span class="ov-net__r"><b>+8.8%</b><span>7.8% eng.</span></span></li>
+        <li><i class="net net--lg net--yt"><svg class="i"><use href="#n-youtube"/></svg></i><span class="ov-net__m"><span><b>YouTube</b><em>148.5K</em></span><i class="bar"><i style="--v:.484"></i></i></span><span class="ov-net__r"><b>+19.3%</b><span>8.2% eng.</span></span></li>
+        <li><i class="net net--lg net--pin"><svg class="i"><use href="#n-pinterest"/></svg></i><span class="ov-net__m"><span><b>Pinterest</b><em>110.2K</em></span><i class="bar"><i style="--v:.359"></i></i></span><span class="ov-net__r"><b>+11.7%</b><span>6.8% eng.</span></span></li>
+        <li><i class="net net--lg net--fb"><svg class="i"><use href="#n-facebook"/></svg></i><span class="ov-net__m"><span><b>Facebook</b><em>74.5K</em></span><i class="bar"><i style="--v:.243"></i></i></span><span class="ov-net__r"><b>+8.7%</b><span>7.8% eng.</span></span></li>
+        <li><i class="net net--lg"><svg class="i"><use href="#n-x"/></svg></i><span class="ov-net__m"><span><b>X</b><em>19.6K</em></span><i class="bar"><i style="--v:.064"></i></i></span><span class="ov-net__r"><b>+9.5%</b><span>8.1% eng.</span></span></li>
+        <li><i class="net net--lg"><svg class="i"><use href="#n-threads"/></svg></i><span class="ov-net__m"><span><b>Threads</b><em>16.5K</em></span><i class="bar"><i style="--v:.054"></i></i></span><span class="ov-net__r"><b>+8.0%</b><span>6.8% eng.</span></span></li>
+        <li><i class="net net--lg net--li"><svg class="i"><use href="#n-linkedin"/></svg></i><span class="ov-net__m"><span><b>LinkedIn</b><em>8.7K</em></span><i class="bar"><i style="--v:.028"></i></i></span><span class="ov-net__r"><b>+21.5%</b><span>8.0% eng.</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card ov-inbox">
+      <div class="card__h"><h2 class="card__t">Inbox pulse</h2><a class="ibtn ibtn--ring" href="#"><svg class="i"><use href="#i-inbox"/></svg></a></div>
+      <div class="ov-ib__tiles"><span><b>20</b>open</span><span><b>14</b>unread</span><span><b>4</b>priority</span></div>
+      <div class="ov-ib__sent"><i class="s s--pos" style="--f:10"></i><i class="s s--neu" style="--f:6"></i><i class="s s--neg" style="--f:4"></i></div>
+      <p class="ov-ib__leg"><span><i class="d d--pos"></i>Positive 10</span><span><i class="d d--neu"></i>Neutral 6</span><span><i class="d d--neg"></i>Negative 4</span></p>
+      <ul class="ov-ib__list">
+        <li><a class="ov-ib__row" href="#"><span class="av av--a">AS</span><span class="ov-ib__m"><b>Abigail Shaw<i class="unread"></i></b><span>This is the best flat white in Portland and I mean it</span></span><span class="ov-ib__r"><i class="net net--sm"><svg class="i"><use href="#n-instagram"/></svg></i><em class="mood mood--pos">Positive</em></span></a></li>
+        <li><a class="ov-ib__row" href="#"><span class="av av--b">AR</span><span class="ov-ib__m"><b>Ananya Rao<i class="unread"></i></b><span>Hi! Do you ship the Huila beans to Canada?</span></span><span class="ov-ib__r"><i class="net net--sm"><svg class="i"><use href="#n-instagram"/></svg></i><em class="mood mood--neu">Neutral</em></span></a></li>
+        <li><a class="ov-ib__row" href="#"><span class="av av--c">EM</span><span class="ov-ib__m"><b>Elena Márquez<i class="unread"></i></b><span>Ordered on the 2nd, still no tracking number</span></span><span class="ov-ib__r"><i class="net net--sm net--fb"><svg class="i"><use href="#n-facebook"/></svg></i><em class="mood mood--neg">Negative</em></span></a></li>
+      </ul>
+    </section>
+
+    <section class="card ov-team">
+      <div class="card__h"><h2 class="card__t">Team activity</h2><button class="ibtn ibtn--ring" type="button"><svg class="i"><use href="#i-history"/></svg></button></div>
+      <ul class="ov-feed">
+        <li><span class="av av--sm av--a">E</span><span class="ov-feed__m"><span><b>Elise</b> approved “New harvest from Huila…” for Ember &amp; Oak</span><small><svg class="i"><use href="#i-shield"/></svg>14 min ago</small></span></li>
+        <li><span class="av av--sm av--d">M</span><span class="ov-feed__m"><span><b>Malik</b> reconnected Hollow Home on Pinterest</span><small><svg class="i"><use href="#i-link"/></svg>2 h ago</small></span></li>
+        <li><span class="av av--sm av--b">H</span><span class="ov-feed__m"><span><b>Haruto</b> requested changes on a Vantage Garage post</span><small><svg class="i"><use href="#i-shield"/></svg>5 h ago</small></span></li>
+        <li><span class="av av--sm av--c">C</span><span class="ov-feed__m"><span><b>Camila</b> invited Sara Whitfield as Editor</span><small><svg class="i"><use href="#i-people"/></svg>7 h ago</small></span></li>
+        <li><span class="av av--sm av--d">M</span><span class="ov-feed__m"><span><b>Malik</b> gave Community the “Assign conversations” permission</span><small><svg class="i"><use href="#i-key"/></svg>9 h ago</small></span></li>
+        <li><span class="av av--sm av--e">O</span><span class="ov-feed__m"><span><b>Omar</b> scheduled 3 posts for Vantage Garage</span><small><svg class="i"><use href="#i-send"/></svg>11 h ago</small></span></li>
+        <li><span class="av av--sm av--a">I</span><span class="ov-feed__m"><span><b>Ines</b> closed 14 conversations</span><small><svg class="i"><use href="#i-inbox"/></svg>13 h ago</small></span></li>
+      </ul>
+    </section>
+   </div>
+  </div>
+</main>
+<script src="murmura.js"></script>
+</body></html>

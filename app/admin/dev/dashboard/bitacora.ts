@@ -1206,4 +1206,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '5 nov', hora: '02:40', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Instagram y redes, la decimoséptima hoja copiada: el diseño de Murmura con «¿qué publicación trajo gente de verdad?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» de General**, con su miniatura de verdad.',
+      '**Arriba:** lo que Instagram te mostró, cuántos tocaron y cuántos agendaron, con el alcance, cuántos tocan el anuncio y lo invertido.',
+      '**Próxima publicación y esta semana:** las publicaciones del Calendario, con lo que falta para que salga la próxima.',
+      '**Qué anuncio trajo clientes:** el que más en la tarjeta grande y los demás en la lista, con «Ver sus leads».',
+      '**Leads de tus anuncios, cada red, quién te ve y de dónde llegan tus leads.**',
+      '**Dos piezas que nunca tuvieron datos se arreglaron** para las hojas nuevas: el alcance en Instagram y las agendas por región.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaInstagram.tsx · instagram-css.ts · InstagramVivo.tsx — el diseño',
+      'lib/instagram-diseno.ts — de dónde sale cada número',
+      'lib/instagram-diseno-muestra.ts — los datos de ejemplo de la miniatura',
+      'docs/diseno/mockups-dashboard/instagram-murmura/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];
