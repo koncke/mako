@@ -22,6 +22,14 @@ Se lo mandé a los tres chats y los mensajes a la nube no confirman lectura: **a
 
 **Cobro de Código:** `punta/agencia-cobro` sigue afuera, sin subir desde las 12:33 ART, y el chat está quieto. El lunes 9/11 vence Pablo. Si no entró, los controles programados avisan y se suspende a mano como hasta ahora.
 
+**La pantalla de Admin se rehace.** Martín la rechazó el 5/11: «está horrible… copies tanto el diseño como la funcionalidad». Chat nuevo «Admin: copia literal de Studio Admin» (`punta/admin-copia`), que porta `arhamkhnz/next-shadcn-admin-dashboard` pantalla por pantalla; el mapa está en su encargo. El chat viejo quedó anulado, sin tocar `app/admin`. Un chat de la nube no avisa al terminar: mirar la rama. Si dejó dicho que no tiene navegador, las capturas lado a lado las saco yo desde la PC, en `docs/admin/copia/`.
+
+**Un chat de la nube quieto no lee los mensajes.** Admin viejo, Recibos y Agencias siguieron quietos minutos después de recibirlos; sólo avanzan los que están corriendo. Para algo urgente: chat nuevo, en un turno de Martín, o que Martín lo abra. Recibos y CRM todavía tienen su 0398 repetida, y `tests/migraciones-numero-unico.test.ts` los frena en rojo hasta renumerar.
+
+**Whop y la casilla:** nada prueba que `equipo@hola-mako.com` reciba. La prueba del 5/11 23:13 UTC (`Prueba de la casilla equipo 5-11-kq7`) no apareció en el Gmail de Martín y el reenvío vive en Porkbun, con su inicio de sesión. Si no recibe, la respuesta de Whop se pierde: `docs/hallazgos-comunicacion.md`.
+
+**Legales:** términos, privacidad y reembolsos nombran sólo a Mercado Pago como quien cobra el plan, porque `pasarelasConectadas(9)` da sólo eso. Las claves de Creem ya no están, medido. El próximo proveedor entra a las legales el día que empiece a cobrar.
+
 **Extensión y Meta, sin cambios:** la extensión espera que Martín entre en el Chrome aparte (`scripts/cdp-tienda.mjs`); los permisos de Meta esperan el video (`C:/dev/cerebro-herramientas/revisiones-meta-google.md`).
 
 ---
