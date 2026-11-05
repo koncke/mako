@@ -108,7 +108,7 @@ import {
 import { acentoDePortada, colorDeTono, estiloEfectivo, letrasDe, paletaDe, paletaDeEscena, pintaPortada, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
 import { CSS_CORBEL } from '@/lib/graficos-corbel';
 import { FILAS_PORTADA_EN_PILA, acentoDeBloque, marcoDePortada } from '@/lib/graficos-identidad';
-import { conHojaAgregada } from '@/lib/graficos-plantillas';
+import { PLANTILLAS_OFRECIDAS, conHojaAgregada, instanciarPlantilla } from '@/lib/graficos-plantillas';
 import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
 import { useGeneral } from './ElementoGeneral';
 import { RedDeBloque } from './RedDeBloque';
@@ -175,6 +175,10 @@ import { BotonMako } from '@/app/_ui/BotonMako';
 import { EditorMako } from './EditorMako';
 import { MenuContextual, opcionesContextuales, type IdOpcion } from './MenuContextual';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
+import { useGuiaEnElChat } from '@/app/_ui/guia/store';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { PLANTILLA_DE, SUPERFICIE_DASHBOARD, type AccionDashboard } from '@/lib/aperturas/dashboard';
 import { EVENTO_PREGUNTA_GRAFICO, entidadDeHoja, preguntaDelEvento, textoDePregunta, type PreguntaGrafico } from './pregunta-grafico';
 
 // La hoja Focus con su diseño (la copia de Pane) lee los datos de General: se carga sólo si hay un Focus que dibujar.
@@ -1040,6 +1044,23 @@ export function EditorInforme({
   // la estrella. Sólo donde está la estrella (ni en un link compartido ni en las Métricas de una automatización).
   const conEstrella = !compartido && !esAutomatizacion;
   const pantallaMako = useMemo(() => (conEstrella ? pantallaDeHoja(hoja, resultados, efectivosHoja) : null), [conEstrella, hoja, resultados, efectivosHoja]);
+  // MAKO TOMA LA INICIATIVA (5/11/2026, docs/mako-iniciativa/plan.md T10): con el informe en blanco, la estrella pregunta «¿Qué
+  // número miras primero cada lunes?» y cada respuesta crea SU plantilla de la galería, sin IA (`instanciarPlantilla`, la misma
+  // hoja que el botón). Sólo en el Dashboard: la hoja «Focus» (General) todavía no tiene su respuesta por plantilla.
+  const guiaChat = useGuiaEnElChat();
+  const estadoApertura = useApertura({
+    superficie: SUPERFICIE_DASHBOARD,
+    hechos: conEstrella && !esGeneral ? { enBlanco, puedeGuardar: guardable } : null,
+    libre: !guiaChat.pregunta && !guiaChat.senalando && !guiaChat.esperando,
+  });
+  const crearPlantillaDe = (a: AccionDashboard) => () => {
+    const p = PLANTILLAS_OFRECIDAS.find((x) => x.id === PLANTILLA_DE[a]);
+    if (p) crearHoja(instanciarPlantilla(p));
+  };
+  const aperturaTab = estadoApertura.apertura
+    ? <AperturaMako estado={estadoApertura} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }}
+        acciones={{ cobrado: crearPlantillaDe('cobrado'), leads: crearPlantillaDe('leads'), llamadas: crearPlantillaDe('llamadas') }} />
+    : null;
 
   // ── Exportar ─────────────────────────────────────────────────────────────────────────────────
   const exportarCsv = () => {
@@ -1941,7 +1962,7 @@ export function EditorInforme({
       {/* En las Métricas de una automatización NO va la estrella de MaKo de la tab (Rendimiento, 23/10/2026): /automations ya
           tiene su chat de MaKo, y una segunda puerta adentro de la misma pantalla es otra conversación. */}
       {/* Y VE LA HOJA (24/10/2026, «que la criatura vea la hoja»): `pantallaMako`, los gráficos con la vista puesta. */}
-      {conEstrella && <MakoEnLaTab tab={esGeneral ? 'General' : 'Dashboard'} entidad={entidadDeHoja(hoja)} modo="analizar" pedido={pedidoMako} pantalla={pantallaMako} />}
+      {conEstrella && <MakoEnLaTab tab={esGeneral ? 'General' : 'Dashboard'} apertura={aperturaTab} entidad={entidadDeHoja(hoja)} modo="analizar" pedido={pedidoMako} pantalla={pantallaMako} />}
 
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
