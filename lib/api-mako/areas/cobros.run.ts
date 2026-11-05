@@ -70,6 +70,8 @@ import {
   type CuotaQueQueda, type FilaVenta, type PlanDeCuotas, type TramoPlan,
 } from '@/lib/pagos-campo';
 import { bajarAdjunto } from '@/lib/chat-mako-adjuntos';
+import { vistaDeActividad } from '@/lib/actividad';
+import { activos, cicloDeVida, dejaronDeEntrar, nombreDeTab, tabsSinUso, usoPorNegocio, usoPorTab, ventanaDeUso, canalTxt } from '@/lib/actividad-reglas';
 import { guardarDocumentoFiscal } from '@/lib/deal-fiscal-doc';
 import { aCompletarAhora, propuestaDocumentoFiscal } from '@/lib/deal-fiscal-doc-reglas';
 
@@ -748,7 +750,7 @@ export const RUNNERS: Runners = {
           titulo: s.acta?.titulo ?? null, resumen: s.acta?.resumen ?? null, mensajes: s.turnos?.length ?? 0,
         })),
         total: sesiones.length,
-        nota: 'Los mensajes textuales están en Admin › Agents.',
+        nota: 'Los mensajes textuales están al pie de Admin › Activity.',
       });
     },
   },
@@ -1113,6 +1115,28 @@ export const RUNNERS: Runners = {
         reportes: v.reportes.slice(0, 20).map((t) => ({ ticket: t.id, titulo: t.titulo, tipo: t.tipo, estado: ESTADO_TICKET_TXT[t.estado] ?? t.estado, quien: t.quien, negocio: t.negocio, cuando: t.creado })),
         hay_mas: v.hayMas, avisos: v.avisos,
         nota: 'estado: nuevo (empezó hace 7 días o menos), volvio (pasó otra vez después de resuelto: ya tiene un ticket nuevo) o sin-resolver. El mensaje y el stack están en Admin › Errors.',
+      });
+    },
+  },
+  ver_actividad_de_mako: {
+    leer: async (_input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('La actividad de la app es sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('La actividad de la app es sólo del super admin.');
+      const ahora = Date.now();
+      const v = await vistaDeActividad();
+      const dias = ventanaDeUso(v.desde, v.hoy);
+      const tabs = usoPorTab(v.filas, v.hoy, Math.max(1, dias));
+      const negocio = (ws: number | null) => (ws == null ? null : v.nombres[ws] ?? `Workspace ${ws}`);
+      return json({
+        se_mide: v.medido, se_mide_desde: v.desde, hoy: v.hoy,
+        activos: activos(v.filas, v.hoy),
+        por_semana: cicloDeVida(v.filas, v.personas, v.hoy).map((s) => ({ semana: s.semana, nuevos: s.nuevos, siguen: s.siguen, volvieron: s.volvieron, dejaron: s.dejaron, en_curso: s.enCurso })),
+        tabs: { dias, usadas: tabs.slice(0, 25).map((t) => ({ tab: t.nombre, personas: t.personas, negocios: t.negocios, pantallas: t.pantallas, acciones: t.acciones })), sin_uso: tabsSinUso(tabs).map((t) => t.label) },
+        negocios: usoPorNegocio(v.filas, v.hoy).slice(0, 30).map((n) => ({ negocio: negocio(n.ws), personas_7_dias: n.personas7, personas_30_dias: n.personas30, pantallas_30_dias: n.pantallas30, acciones_30_dias: n.acciones30, lo_mas_usado: n.tabs.map(nombreDeTab) })),
+        dejaron_de_entrar: dejaronDeEntrar(v.personas, ahora).slice(0, 30).map((p) => ({ nombre: p.nombre || p.email, negocio: p.negocio, dias_sin_entrar: p.dias })),
+        lo_ultimo_de_mako: v.acciones.slice(0, 20).map((a) => ({ que: a.titulo, negocio: negocio(a.ws), por: canalTxt(a.canal), salio: a.ok, cuando: a.creado })),
+        avisos: v.avisos,
+        nota: v.medido ? 'activos: personas distintas de los negocios (no el equipo de MaKo). tabs.dias: los días que mira (30, o los que lleva la medición). dejaron_de_entrar sale de su último ingreso.' : 'La medición de uso todavía no está (falta la migración 0398): sólo dejaron_de_entrar tiene datos.',
       });
     },
   },

@@ -45,6 +45,7 @@ import { PermisoIaM } from './PermisoIaM';
 import { horaCorta } from './formato';
 import { MARCA_TEMA_M } from './tema';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MedidorDeUso } from '@/app/_components/MedidorDeUso';
 import { esperarPausa, useDeslizarParaCerrar } from '@/app/_ui/descartar';
 import { esTextoDeError } from '@/lib/soporte-reporte';
 
@@ -367,6 +368,8 @@ export function ShellM({
             </div>
           </div>
         </header>
+        {/* Admin › Activity (5/11/2026): las pantallas y acciones del teléfono cuentan igual que las de la computadora. */}
+        <MedidorDeUso />
 
         {!conexion.enLinea && (
           <div className="m-cinta" role="status">

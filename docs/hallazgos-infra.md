@@ -10785,3 +10785,5 @@ hecho tiene más de 7 días (`tiempoDelHecho`, `lib/meta-capi-payload.ts`, con s
 - **Arreglo:** `maxBuffer: 64 * 1024 * 1024` en los dos. Los scripts ya lo tenían (`tests-afectados.mjs`, 256 MB; `claves-en-el-diff.mjs`,
   512 MB) y `tests/colision-de-nombres.test.ts` también. Con una carpeta (`git ls-files app lib`) son ~216 KB: todavía lejos.
 - **Regla:** la de arriba (25/10): todo `git ls-files`, `git ls-tree -r` o `git show` que pueda crecer lleva `maxBuffer` explícito.
+- **Le pasó igual a `punta/admin`** (run 42119084126), que lo arregló por su lado el mismo día: la mezcla se quedó con este arreglo.
+  **Sin hacer:** no hay guarda que frene un `execFileSync('git', …)` nuevo sin `maxBuffer`.

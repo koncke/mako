@@ -110,6 +110,8 @@ test('CONTRATO inverse — toda tabla del loop bulk 0054 con workspace_id está 
 
 /** Tienen `workspace_id` y NO pasan por `getTenantDb()`, a propósito. Quien las lee filtra a mano. */
 const FUERA_DEL_PROXY: Record<string, string> = {
+  actividad_acciones: 'la medición de Admin › Activity: la escribe lib/actividad-registro.ts con el workspace explícito y la lee sólo el super admin (lib/actividad.ts), que cruza negocios',
+  actividad_uso: 'la medición de Admin › Activity: la suma la función sumar_actividad con el workspace de la sesión y la lee sólo el super admin (lib/actividad.ts)',
   grupo_mensajes: 'el hilo del grupo (mig 0372): lo lee un invitado de OTRO negocio, así que getTenantDb le daría el grupo de SU negocio y estamparía su ws. lib/grupo-app.ts, con el ws de la URL ya autorizada',
   grupo_invitados: 'quién está invitado al grupo (mig 0372): lib/grupo-puerta.ts y lib/grupo-app.ts, con el ws explícito; se lee también por usuario, cruzando negocios',
   grupo_leidos: 'hasta dónde leyó cada persona el grupo (mig 0372): lib/grupo-app.ts, con el ws explícito',
