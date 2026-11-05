@@ -51,6 +51,9 @@ import { datosProductividadMuestra } from '@/lib/productividad-diseno-muestra';
 import { HojaContenido } from './HojaContenido';
 import { vistaContenido } from '@/lib/contenido-diseno';
 import { datosContenidoMuestra } from '@/lib/contenido-diseno-muestra';
+import { HojaCurso } from './HojaCurso';
+import { vistaCurso } from '@/lib/curso-diseno';
+import { calendarioCursoMuestra, datosCursoMuestra } from '@/lib/curso-diseno-muestra';
 
 const dia = (hoy: string, n: number) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const resultado = (columnas: string[], totales: Array<number | null>, filas: Resultado['filas'] = [], anterior?: Array<number | null>): DatosPieza => ({
@@ -487,6 +490,11 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   // (contenido-orrery/mako.html).
   contenido: ({ hoja, hoy }) => (
     <HojaContenido hoja={hoja} vista={vistaContenido(hoja, datosContenidoMuestra(hoja, hoy))} titulo="Buenos días, Ana" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
+  ),
+  // La de «Curso o comunidad», igual: el MISMO vistaCurso que la hoja de verdad, con los datos y el Calendario de la adaptación
+  // (curso-vitrea/mako.html). El reloj del ejemplo marca las 11:10 de hoy (la primera cosa del día ya pasó).
+  curso: ({ hoja, hoy }) => (
+    <HojaCurso hoja={hoja} vista={vistaCurso(hoja, datosCursoMuestra(hoja, hoy), calendarioCursoMuestra(hoy), Date.parse(`${hoy}T11:10:00Z`))} titulo="Tus alumnos" periodo="Últimos 30 días" onGrilla={() => {}} quieta />
   ),
 };
 

@@ -236,7 +236,24 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       { local: 'por-area', tipo: 'barras', fuente: 'avance_cursos', dimension: 'area', metricas: ['alumnos'], titulo: 'Alumnos por área' },
       { local: 'por-semana', tipo: 'columnas', fuente: 'avance_cursos', dimension: 'semana', metricas: ['clases'], titulo: 'Clases por semana' },
       bloque('publicaciones'),
+      // 5/11/2026 — para el DISEÑO PROPIO de la hoja (la copia de Vitrea, app/dashboard/disenos/HojaCurso.tsx): el «Release train» de
+      // Vitrea es «Quién te necesita»: hace cuánto no hablan, por tramo, y los clientes que piden atención (las mismas de «Agencia o
+      // servicio», con cuatro filas en lugar de tres).
+      {
+        local: 'contacto', tipo: 'barras', fuente: 'cartera', fecha: 'actual', dimension: 'tramo_contacto', metricas: ['clientes'], titulo: 'Hace cuánto no hablan', ir: 'clients',
+      },
+      {
+        local: 'quien', tipo: 'tarjetas', fuente: 'cartera', dimension: 'cliente', metricas: ['atencion', 'deuda_vencida_usd', 'sesiones'],
+        ordenMetrica: 'atencion', barra: 'deuda_vencida_usd', limite: 4, tabla: { columnas: ['senal', 'tramo_contacto'] }, titulo: 'Quién te necesita hoy', ir: 'clients',
+      },
     ],
+    diseno: {
+      id: 'curso',
+      piezas: {
+        apertura: 'apertura', alumnos: 'alumnos', ventas: 'ventas', cobrado: 'cobrado', atencion: 'atencion', tendencia: 'tendencia', avance: 'avance',
+        estado: 'por-estado', area: 'por-area', semana: 'por-semana', quien: 'quien', contacto: 'contacto',
+      },
+    },
   },
   {
     // 15/10/2026 (Martín: «faltaría uno para Instagram»). Medido en la base ANTES de armarla: ningún lead dice «Instagram»

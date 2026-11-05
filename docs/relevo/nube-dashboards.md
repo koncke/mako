@@ -1,6 +1,15 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (5/11/2026, ~00:10 UTC)
+## 📬 Para el Cerebro (5/11/2026, ~01:10 UTC)
+
+- **Curso o comunidad (la copia de Vitrea) está en `punta/dash-curso`**: la sección de abajo. Es la decimoquinta hoja copiada y la
+  primera de General desde Operación. Suma dos piezas a la plantilla («Hace cuánto no hablan» y «Quién te necesita hoy», las mismas de
+  «Agencia o servicio») y lee el Calendario de los datos de General.
+- **De paso, en Contenido e IA (en producción):** el subtítulo de «Lo gastado por día» decía «US$52.00 en últimos 30 días»; ahora dice
+  «en los últimos 30 días» (§28 de los hallazgos).
+- **Sigo con la siguiente que tenga lo medido completo**, de a una. Lintel sigue frenada (abajo).
+
+### Lo de las ~00:10 UTC
 
 - **Contenido e IA está en producción.** Entró a main (`01e26099a`, la punta `dash-contenido` tal cual, con su veredicto: 7.053 tests y
   el tsc entero); el deploy de ese commit se promovió a las 23:56 del 4/11. Es la decimocuarta hoja copiada (Orrery).
@@ -131,6 +140,56 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## Curso o comunidad: la decimoquinta hoja copiada (la de Vitrea), con «¿cuántos siguen ahí?» (punta `dash-curso`, 5/11/2026)
+
+La referencia de Curso o comunidad es Vitrea (`docs/templates-dashboard-propuesta.md` §7.3): la página «Overview» de Vitrea (un panel de
+un estudio de apps, oscuro y de vidrio): la barra de arriba y la de la izquierda, el título con tres números, «Proceeds» (un área grande),
+«Ratings», «Your apps» (seis tarjetas de color), «Release train», «Waiting for a reply», «Today» y «Recent activity».
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» de General ofrece «Curso o comunidad» con el diseño de Vitrea**, con su miniatura de verdad.
+- **Arriba:** «Tus alumnos» (el título de la frase de apertura de la hoja) y tres números: los **alumnos activos**, las **ventas** y lo
+  **cobrado**, cada uno con su cambio contra el período anterior, y «Ver la grilla» a la derecha.
+- **Alumnos que vieron clases** («Proceeds»): el área de los alumnos de cada día, el total y el mejor día; con «Clases», las clases de
+  cada semana y la mejor semana. El eje lleva los rótulos a la misma distancia, desde hoy.
+- **Cuánto avanzan** («Ratings»): el avance promedio con su barra (en lugar de las estrellas), cuántos alumnos van en cada estado y, al pie,
+  cuántos clientes piden atención hoy.
+- **Por área** («Your apps»): una tarjeta de color por área, con sus alumnos y su parte.
+- **Quién te necesita** («Release train»): cuántos clientes hay en cada tramo de hace cuánto no hablan (en lugar de las etapas del tren) y
+  los cuatro que piden atención primero, cada uno con «Abrir».
+- **Lo que vas a publicar** («Waiting for a reply») y **Hoy** («Today»): el Calendario de General, con lo de hoy tildado y tachado cuando
+  ya pasó. «Agendar» lleva al Calendario.
+- Tocar un área, un estado, un tramo o un cliente abre el detalle de siempre de su pieza.
+
+**Lo que se copió de Vitrea, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/curso-vitrea/copia.html` con `vitrea.css` y `vitrea.js`) sale de lo medido del demo:
+  `valores.json`, las capturas a 1440 y a 390 y el INFORME. **Nada del código de la tienda, ni el cartel «BUY THIS TEMPLATE».** Los
+  planetas y los arcos del fondo son una ilustración del demo: va un fondo propio con la misma luz.
+- **A 1440 la página mide 1.653, igual que la captura**; a 390, 3.603 contra 3.605.
+- **La adaptación cae en las MISMAS cajas** a 1360 (la grilla de 1.314 de la copia): 871×396 y 427×396 arriba, 1314×266 las áreas, y
+  tres de 427×534 abajo. Entre 701 y 1000 px hay un paso intermedio que Vitrea no tiene (de a dos columnas).
+- **El movimiento, de la línea de tiempo del INFORME:** el título sube por palabra con un giro de 6° (.85 s, power4.out, 22 ms); los
+  números de arriba entran desde 14 px (.55 s, 80 ms, a los .12 s); cada tarjeta se descubre desde 22 px, .975 y un recorte de abajo
+  (.75 s, expo.out, 60 ms, desde los .2 s) y su contenido entra desde 8 px (.4 s, 30 ms); los números cuentan desde cero (1,2 s, a los
+  .25 s). Los hover son los del CSS de la copia (los botones redondos, el selector y las pestañas).
+- **⚠️ Lo SUPUESTO:** el recorte con que entra cada tarjeta lo arma una función del INFORME que no se ve entera; acá sale de abajo hacia
+  arriba desde el 30 %. Al pasar sobre un área, la tarjeta se aclara un poco (Vitrea no dice nada de eso: es lo único que se suma).
+
+**Lo que Vitrea tiene y MaKo no mide, y no está:** la **línea del año anterior**, las **estrellas** y las **reseñas**, el **tren de
+versiones con sus pasos** y la **actividad del equipo** («Recent activity», que no se dibuja). La **permanencia por cohorte** (cuántos
+siguen al mes 3) tampoco se mide todavía (§7.4 de la propuesta). La barra de arriba y la de la izquierda las pone la app.
+**La plantilla suma dos piezas** («Hace cuánto no hablan» y «Quién te necesita hoy», de la cartera); el bloque de publicaciones queda en la
+grilla, y el diseño lee el Calendario directo.
+
+**Dónde vive:**
+- El modelo: `lib/curso-diseno.ts`, puro. Los datos de ejemplo: `lib/curso-diseno-muestra.ts` (cuadran entre bloques: los estados y las
+  áreas suman los alumnos activos, las clases de cada semana suman las del período y los tramos suman la cartera).
+- El dibujo: `app/dashboard/disenos/HojaCurso.tsx`; lo vivo, `CursoVivo.tsx` (con `useGeneral`); la hoja de estilos, `curso-css.ts` (la
+  arma `scratchpad/vcu/armar-vcu.py` desde `curso-vitrea/vitrea.css`: todo con el prefijo `vit-`).
+- La plantilla: `lib/general-plantillas.ts` («curso», doce piezas en el diseño, `diseno.id = 'curso'`); `DISENOS_HOJA` en
+  `lib/graficos-catalogo.ts`.
+- Los tests: `tests/dashboard-diseno-curso.test.ts` (9, probado rompiéndolo de quince maneras: cada rotura sola da rojo).
 
 ## Contenido e IA: la decimocuarta hoja copiada (la de Orrery), con «¿cuánta IA gastamos y en qué?» (en producción desde el 4/11/2026, 23:56)
 

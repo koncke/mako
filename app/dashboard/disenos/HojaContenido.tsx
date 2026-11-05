@@ -25,7 +25,7 @@ import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, t
 import Link from '@/app/_ui/Link';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { CELDAS, dolares, rotulosDe, type Delta, type VistaContenido } from '@/lib/contenido-diseno';
-import { entero } from '@/lib/marketing-diseno';
+import { enElPeriodo, entero } from '@/lib/marketing-diseno';
 import { CSS_CONTENIDO } from './contenido-css';
 
 const Compartido = createContext(false);
@@ -214,7 +214,7 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
           {/* LO GASTADO POR DÍA («Requests per hour»): el área del costo de cada día del período. */}
           <article className="orr-card orr-chart">
             <div className="orr-card__h">
-              <div><h2 className="orr-card__t">Lo gastado por día</h2><p className="orr-card__s">{gasto ? `${dolares(gasto.total)} en ${periodo.toLowerCase()}` : ' '}</p></div>
+              <div><h2 className="orr-card__t">Lo gastado por día</h2><p className="orr-card__s">{gasto ? `${dolares(gasto.total)} ${enElPeriodo(periodo)}` : ' '}</p></div>
               <span className="orr-live"><i />{gasto?.paso === 'mes' ? 'Por mes' : gasto?.paso === 'semana' ? 'Por semana' : 'Por día'}</span>
             </div>
             {problemas.gasto ? <Vacio titulo={problemas.gasto} /> : !gasto || !n || !gasto.total ? (

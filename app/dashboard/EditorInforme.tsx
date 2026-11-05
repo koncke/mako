@@ -190,6 +190,7 @@ const AutomatizacionesVivo = dynamic(() => import('./disenos/AutomatizacionesViv
 const ProductividadVivo = dynamic(() => import('./disenos/ProductividadVivo'));
 const CsVivo = dynamic(() => import('./disenos/CsVivo'));
 const ContenidoVivo = dynamic(() => import('./disenos/ContenidoVivo'));
+const CursoVivo = dynamic(() => import('./disenos/CursoVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -1680,6 +1681,15 @@ export function EditorInforme({
               // «Operación diaria» con su DISEÑO PROPIO (la copia de Moorly, ./disenos/HojaOperacion.tsx): los datos de los bloques de
               // General y los de seis de sus componentes (los cuatro números, los meses y lo que te deben).
               <OperacionVivo hoja={hoja} hoy={hoy} datos={datos} compartido={!!compartido} onGrilla={() => setEnGrilla(true)} />
+            ) : hoja.diseno?.id === 'curso' && !enGrilla && !editando && !dueno ? (
+              // «Curso o comunidad» con su DISEÑO PROPIO (la copia de Vitrea, ./disenos/HojaCurso.tsx): los datos de sus componentes y el
+              // Calendario de los datos de General (sin ellos, esas dos tarjetas dicen que no pudieron leerlo); un área, un estado, un
+              // tramo o un cliente abre lo de siempre de su pieza.
+              <CursoVivo
+                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
                 <p>{dueno ? 'Este pop-up está vacío.' : 'Esta hoja no tiene gráficos.'}</p>

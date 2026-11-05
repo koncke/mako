@@ -1167,4 +1167,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '5 nov', hora: '01:05', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Curso o comunidad, la decimoquinta hoja copiada: el diseño de Vitrea con «¿cuántos siguen ahí?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» de General**, con su miniatura de verdad.',
+      '**Arriba:** los alumnos activos, las ventas y lo cobrado, cada uno contra el período anterior.',
+      '**Alumnos que vieron clases:** el área de cada día, y con «Clases», las clases de cada semana.',
+      '**Cuánto avanzan, por área y quién te necesita:** el avance con su barra, los alumnos de cada estado y de cada área, y hace cuánto no hablas con cada cliente.',
+      '**Lo que vas a publicar y hoy:** el Calendario de General.',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaCurso.tsx · curso-css.ts · CursoVivo.tsx — el diseño',
+      'lib/curso-diseno.ts — de dónde sale cada número',
+      'lib/curso-diseno-muestra.ts — los datos de ejemplo de la miniatura',
+      'docs/diseno/mockups-dashboard/curso-vitrea/ — la copia, la adaptación y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];

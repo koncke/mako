@@ -532,6 +532,26 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
 - **«No hay» y «no pude leer» no se escriben igual en una tarjeta.** «Sin pedidos a Flow» salía también con la lectura caída; ahora sale
   sólo cuando lo pedido es cero.
 
+## 28. Curso o comunidad (Vitrea): un envoltorio que agrega el JavaScript toma las reglas de su etiqueta, y un eje se reparte con un paso fijo (5/11/2026, chat en la nube)
+
+- **El número grande de la copia salía chico, y nadie lo había tocado.** El cuentanúmeros de la copia (`vitrea.js`) envolvía el texto
+  en un `<span>` para contarlo, y la regla `.big span` (la del texto gris de al lado: 13,5 px) lo agarró: «$888,310» salía en 13,5 px y
+  gris en lugar de 34 px. No da error, y la captura de la copia lo muestra. Un elemento que agrega el JavaScript entra en las reglas
+  por etiqueta que ya había: antes de envolver, se mira qué regla le cae. En la copia ya se cuenta el elemento mismo cuando sólo tiene
+  el número; en MaKo el `<b>` lleva el número sin envoltorio.
+- **Los rótulos de un eje repartidos con redondeo quedan disparejos.** Elegir doce de treinta días con `Math.round` deja huecos de dos y
+  de tres días, y el eje se lee torcido («17 oct, 19 oct, 22 oct»). Vitrea pone un rótulo por mes, a la misma distancia. Van con un paso
+  fijo contado desde el último día (hoy): `marcasDelEje`, lib/curso-diseno.ts.
+- **El período de la hoja es un título, no un pedazo de frase.** «en {período}» daba «en últimos 30 días», y estaba igual en Contenido e
+  IA (ya en producción). Va por `enElPeriodo` (lib/marketing-diseno.ts), en las dos.
+- **Una hoja de General no siempre tiene los datos de General.** El diseño de Curso dibuja sus piezas con o sin ellos; las dos
+  tarjetas del Calendario dicen «No pude leer tu Calendario» cuando no llegan (un link compartido no los trae), nunca «nada agendado».
+- **Una plantilla que pasa a ofrecerse cambia la referencia de la API.** `docs/api-mako.md` lista los ids de las plantillas de
+  General que se ofrecen (el parámetro `plantilla` de la hoja nueva): al darle su diseño a «curso», `tests/api-mako-registro.test.ts`
+  dio rojo en el veredicto. Se regenera en el mismo commit (`node --import tsx scripts/generar-api-doc.mjs`).
+- **Medido:** la copia mide 1.653 a 1440 (como la captura) y 3.603 contra 3.605 a 390; la adaptación cae en las mismas cajas a 1360 (871×396,
+  427×396, 1314×266 y tres de 427×534).
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

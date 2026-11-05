@@ -48,6 +48,14 @@ export function plata(n: number): string {
 export const plataEntera = (n: number) => `${n < 0 ? '−' : ''}US$${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
 /** «12,495», y lo grande en corto para un cambio («+12.3k»). */
 export const entero = (n: number) => Math.round(n).toLocaleString('en-US');
+/**
+ * «en los últimos 30 días», «en este mes»: el período de una hoja («Últimos 30 días», un título) metido en una frase. Pegarlo con «en»
+ * a secas dejaba «en últimos 30 días» (las hojas Contenido e IA y Curso o comunidad, 5/11/2026).
+ */
+export const enElPeriodo = (periodo: string) => {
+  const p = periodo.trim().toLowerCase();
+  return /^últim/.test(p) ? `en los ${p}` : `en ${p}`;
+};
 export const corto = (n: number) => (Math.abs(n) >= 10_000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : entero(n));
 
 // ── los seis números ─────────────────────────────────────────────────────────────────────────────────────────────

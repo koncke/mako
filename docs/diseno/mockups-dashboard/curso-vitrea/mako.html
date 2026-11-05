@@ -1,0 +1,310 @@
+<!doctype html>
+<!-- CURSO O COMUNIDAD (VITREA) · PASO 2: LA ADAPTACIÓN a MaKo. Es lo que dibuja app/dashboard/disenos/HojaCurso.tsx con los datos
+     de ejemplo (lib/curso-diseno-muestra.ts, inventados), guardado ya quieto, con su hoja de estilos
+     (app/dashboard/disenos/curso-css.ts, que sale de vitrea.css). Lo que cambió contra la copia (copia.html): «Tus alumnos» (el
+     título de la frase de apertura) en lugar de «Studio Overview»; los alumnos activos, las ventas y lo cobrado, cada uno contra el
+     período anterior, en lugar de lo cobrado en la tienda, las descargas y la nota; «Ver la grilla» a la derecha; «Alumnos que
+     vieron clases», con «Alumnos | Clases» (por día o por semana), en lugar de «Proceeds», sin la línea punteada del año anterior;
+     «Cuánto avanzan» (el avance con su barra y cuántos van en cada estado, y los que piden atención) en lugar de «Ratings»; «Por
+     área» en lugar de «Your apps», sin la nota ni la línea chica de cada tarjeta; «Quién te necesita» (hace cuánto no hablan y los
+     clientes que piden atención) en lugar de «Release train»; «Lo que vas a publicar» (el Calendario) en lugar de «Waiting for a
+     reply»; «Hoy» con lo de hoy en el Calendario. Sin «Recent activity» (MaKo no mide la actividad del equipo), y sin la barra de
+     arriba ni la de la izquierda: en MaKo las pone la app. -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Curso o comunidad · la adaptación de Vitrea</title>
+<style>
+body { margin: 0; background: #111113; }
+@font-face { font-family: 'Vitrea Urbanist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url(https://fonts.gstatic.com/s/urbanist/v18/L0x-DF02iFML4hGCyMqlbS0.woff2) format('woff2'); }
+.vit {
+  container-type: inline-size; container-name: vit;
+  --font: 'Vitrea Urbanist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bg: #111113; --glass: #1e1e226b; --glass-chrome: #2020245c; --glass-thick: #1c1c20db; --glass-solid: #1d1d21;
+  --surface-2: #ffffff14; --well: #c8c8d71a; --line: #ffffff1a; --line-2: #ffffff2e;
+  --lens: linear-gradient(180deg, #ffffff52, #ffffff1f);
+  --lens-shadow: inset 0 1px 1px #ffffff8c, inset 0 -2px 5px #ffffff1f, inset 0 0 0 .5px #ffffff4d, 0 8px 18px -8px #0009;
+  --card-shadow: inset 0 1px 1px #ffffff4d, inset 0 -1px 1px #ffffff1a, inset 3px 4px 12px -6px #ffffff38, inset -4px -6px 14px -8px #ffffff1f, inset 0 -16px 28px -18px #00000073, 0 1px 2px #0000004d, 0 24px 48px -22px #000000bf;
+  --text: #f6f8fc; --muted: #c9d1de; --faint: #7d8696;
+  --accent: #7aaef0; --on-accent: #071a33; --accent-text: #a9cdfc; --accent-line: #8dbcf6; --ink-mark: #9aa1ad;
+  --good: #8fdca8; --good-fill: #5fc483; --warn: #f3cd7e; --warn-fill: #e4b759; --bad: #f6a59c; --bad-fill: #e98278;
+  --blue: linear-gradient(160deg, #354a6a, #283953); --on-blue: #eef4fd;
+  --teal: linear-gradient(160deg, #31574f, #24433d); --on-teal: #ecf8f5;
+  --orange: linear-gradient(160deg, #66503a, #4e3d2b); --on-orange: #fdf3e6;
+  --coral: linear-gradient(160deg, #6a423d, #52322e); --on-coral: #fdeeeb;
+  --green: linear-gradient(160deg, #375741, #29432f); --on-green: #eef9f1;
+  --ink: linear-gradient(160deg, #3b3e46, #2c2e34); --on-ink: #f1f2f5;
+  --ico-blue: linear-gradient(160deg, #d2e4ff, #9fc6f8); --ico-teal: linear-gradient(160deg, #c8efe8, #8fd8cc);
+  --ico-orange: linear-gradient(160deg, #ffe3bf, #ffc286); --ico-coral: linear-gradient(160deg, #ffd5cd, #ffa99b);
+  --ico-green: linear-gradient(160deg, #d0efd9, #98daad); --ico-ink: linear-gradient(160deg, #e6e8ec, #bcc0c8);
+  --r-card: 26px; --r-tile: 22px; --gap: 16px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  position: relative; isolation: isolate; overflow: clip; color: var(--text); font: 500 14px/1.45 var(--font); -webkit-font-smoothing: antialiased;
+  background: var(--bg);
+}
+.vit *, .vit *::before, .vit *::after { box-sizing: border-box; }
+.vit button { font: inherit; color: inherit; cursor: pointer; }
+.vit a { color: inherit; text-decoration: none; }
+.vit h1, .vit h2, .vit h3, .vit p, .vit ul { margin: 0; }
+.vit ul { padding: 0; list-style: none; }
+.vit svg.vit-i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.vit :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+/* ── la copia ──────────────────────────────────────────────────────────────────────────────── */
+.vit * { box-sizing: border-box; }
+.vit .vit-num { font-variant-numeric: tabular-nums; }
+.vit .vit-fondo { position: absolute; inset: 0 0 auto 0; height: 900px; overflow: hidden; pointer-events: none; background: radial-gradient(120% 90% at 30% 10%, #2c2c31 0%, #232327 45%, #161618 100%); }
+.vit .vit-fondo::after { content: ''; position: absolute; inset: auto 0 0 0; height: 160px; background: linear-gradient(180deg, transparent, var(--bg)); }
+.vit .vit-fondo__a { position: absolute; left: 1088px; top: -40px; width: 900px; height: 900px; border-radius: 50%; background: radial-gradient(closest-side, #2a2a2f 70%, #303036 100%); box-shadow: inset 2px 2px 0 #ffffff14; }
+.vit .vit-fondo__b { position: absolute; left: -200px; top: 60px; width: 1500px; height: 1500px; border-radius: 50%; border: 1px solid #ffffff10; }
+.vit .vit-fondo__c { position: absolute; left: 760px; top: -760px; width: 1200px; height: 1200px; border-radius: 50%; background: #0c0c0e; box-shadow: 0 0 0 1px #ffffff18; }
+.vit .vit-fondo__bola { position: absolute; left: 45px; top: 782px; width: 55px; height: 55px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5a5a60, #1d1d21 70%); box-shadow: inset 0 1px 1px #ffffff40, 0 10px 20px -8px #000; }
+.vit .vit-ibtn { position: relative; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--text); transition: background-color .15s; }
+.vit .vit-ibtn:hover { background: var(--well); }
+.vit .vit-main { position: relative; z-index: 1; padding: 10px 23px 56px 103px; }
+.vit .vit-head { display: flex; align-items: center; gap: 46px; }
+.vit .vit-head__title .vit-w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .06em; margin-bottom: -.06em; }
+.vit .vit-head__title .vit-w__i { display: inline-block; transform-origin: 0 100%; }
+.vit .vit-head__title { width: 170px; font-size: 37.44px; font-weight: 600; line-height: 38.94px; letter-spacing: -.936px; }
+.vit .vit-stat { display: flex; align-items: center; gap: 12px; }
+.vit .vit-stat__ico { width: 46px; height: 46px; display: grid; place-items: center; flex: none; border-radius: 50%; background: var(--glass-chrome); box-shadow: var(--card-shadow); }
+.vit .vit-stat__ico svg { width: 16px; height: 16px; }
+.vit .vit-stat__n { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 900; line-height: 31.9px; letter-spacing: -.22px; }
+.vit .vit-stat__l { max-width: 150px; font-size: 12.5px; line-height: 16.25px; color: var(--muted); }
+.vit .vit-chip { height: 20px; display: inline-flex; align-items: center; padding: 0 7px; border-radius: 6px; font-style: normal; font-size: 11px; font-weight: 700; line-height: 15.95px; letter-spacing: .11px; }
+.vit .vit-chip--good { color: var(--good); background: #5fc4832b; }
+.vit .vit-chip--bad { color: var(--bad); background: #e982782b; }
+.vit .vit-grid { margin-top: 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); grid-template-areas: 'chart chart rate' 'apps apps apps' 'train rev today' 'act act act'; }
+.vit .vit-ov-chart { grid-area: chart; }
+.vit .vit-ov-rate { grid-area: rate; }
+.vit .vit-ov-apps { grid-area: apps; }
+.vit .vit-ov-train { grid-area: train; }
+.vit .vit-ov-rev { grid-area: rev; }
+.vit .vit-ov-today { grid-area: today; }
+.vit .vit-ov-act { grid-area: act; }
+.vit .vit-card { position: relative; min-width: 0; padding: 18px; border-radius: var(--r-card); background: var(--glass); box-shadow: var(--card-shadow); backdrop-filter: blur(14px) saturate(175%) brightness(.95); }
+.vit .vit-ov-chart, .vit .vit-ov-rate { height: 396px; }
+.vit .vit-ov-apps { height: 266px; }
+.vit .vit-ov-train, .vit .vit-ov-rev, .vit .vit-ov-today { height: 534px; }
+.vit .vit-ov-act { height: 157px; }
+.vit .vit-card__h { min-height: 38px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.vit .vit-card__t { font-size: 15px; font-weight: 600; line-height: 21.75px; letter-spacing: -.075px; }
+.vit .vit-card__acts { display: flex; align-items: center; gap: 10px; }
+.vit .vit-card__s { font-size: 12.5px; line-height: 18.125px; color: var(--muted); white-space: nowrap; }
+.vit .vit-ibtn--ring { width: 38px; height: 38px; box-shadow: inset 0 0 0 1px var(--line-2); }
+.vit .vit-ibtn--ring svg { width: 16px; height: 16px; }
+.vit .vit-seg { height: 38px; display: inline-flex; align-items: center; gap: 0; padding: 4px; border-radius: 999px; background: var(--well); }
+.vit .vit-seg button { height: 30px; padding: 0 14px; border: 0; border-radius: 999px; background: none; font-size: 12.5px; font-weight: 600; line-height: 18.125px; color: var(--muted); }
+.vit .vit-seg button[aria-pressed='true'] { color: var(--text); background: var(--lens); box-shadow: var(--lens-shadow); }
+.vit .vit-btn { height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 14px; border: 0; border-radius: 999px; font-size: 12.5px; font-weight: 600; line-height: 18.125px; white-space: nowrap; transition: background-color .15s, filter .15s; }
+.vit .vit-btn svg { width: 15px; height: 15px; }
+.vit .vit-btn--ghost { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+.vit .vit-btn--ghost:hover { background: var(--well); }
+.vit .vit-btn--accent { height: 33px; padding: 0 16px 0 14px; background: var(--accent); color: var(--on-accent); box-shadow: inset 0 1px 1px #ffffff80, 0 8px 18px -8px #7aaef0cc; }
+.vit .vit-btn--accent:hover { filter: brightness(1.08); }
+.vit .vit-big { margin-top: 16px; display: flex; align-items: baseline; gap: 13px; }
+.vit .vit-big b { font-size: 34px; font-weight: 600; line-height: 34px; letter-spacing: -.85px; }
+.vit .vit-big span { font-size: 13.5px; line-height: 19.575px; color: var(--muted); }
+.vit .vit-big strong { font-weight: 700; color: var(--text); }
+.vit .vit-legend { margin-top: 11px; display: flex; gap: 18px; font-size: 12.5px; line-height: 18.125px; color: var(--muted); }
+.vit .vit-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.vit .vit-legend__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-line); }
+.vit .vit-legend__dash { width: 14px; height: 0; border-top: 1.5px dashed var(--ink-mark); }
+.vit .vit-plot { position: relative; margin: 19px 12px 0 43px; height: 198px; }
+.vit .vit-plot__svg { display: block; width: 100%; height: 198px; overflow: visible; }
+.vit .vit-plot__grid { fill: none; stroke: #ffffff1f; stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
+.vit .vit-plot__line { fill: none; stroke: var(--accent-line); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+.vit .vit-plot__last { fill: none; stroke: var(--ink-mark); stroke-width: 1.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.vit .vit-plot__y { position: absolute; left: -43px; top: 0; bottom: 0; width: 36px; }
+.vit .vit-plot__y span { position: absolute; right: 0; transform: translateY(-50%); font-size: 11px; line-height: 15.95px; color: var(--muted); }
+.vit .vit-plot__y span:nth-child(1) { top: 0; }
+.vit .vit-plot__y span:nth-child(2) { top: 50%; }
+.vit .vit-plot__y span:nth-child(3) { top: 100%; }
+.vit .vit-plot__x { position: absolute; left: 0; right: 0; top: calc(100% + 8px); height: 16px; }
+.vit .vit-plot__x span { position: absolute; transform: translateX(-50%); font-size: 11px; line-height: 15.95px; color: var(--text); white-space: nowrap; }
+.vit .vit-ov-rate { display: flex; flex-direction: column; }
+.vit .vit-rate__top { margin-top: 21px; display: flex; align-items: center; gap: 14px; }
+.vit .vit-rate__n { font-size: 34px; font-weight: 600; line-height: 34px; letter-spacing: -1.19px; }
+.vit .vit-stars { display: flex; gap: 1px; color: var(--warn); }
+.vit .vit-stars svg { width: 17px; height: 17px; fill: currentColor; stroke: none; }
+.vit .vit-rate__s { margin-top: 5px; font-size: 12px; line-height: 17.4px; color: var(--muted); }
+.vit .vit-bars { margin-top: 18px; display: grid; gap: 9.8px; }
+.vit .vit-bars li { display: grid; grid-template-columns: 23px minmax(0, 1fr) 44px; align-items: center; font-size: 12px; line-height: 17.4px; }
+.vit .vit-bars b { font-weight: 600; }
+.vit .vit-bar { height: 6px; border-radius: 3px; background: var(--well); overflow: hidden; }
+.vit .vit-bar i { display: block; width: var(--p); height: 100%; border-radius: 3px; }
+.vit .vit-bar--acc { background: var(--accent); }
+.vit .vit-bar--warn { background: var(--warn-fill); }
+.vit .vit-bar--bad { background: var(--bad-fill); }
+.vit .vit-bar__p { text-align: right; font-weight: 600; color: var(--muted); }
+.vit .vit-rate__f { margin-top: auto; padding-top: 13px; border-top: 1px solid var(--line); font-size: 12.5px; line-height: 18.125px; color: var(--muted); }
+.vit .vit-rate__f b { font-weight: 700; color: var(--text); }
+.vit .vit-down { font-style: normal; font-weight: 700; color: var(--bad); }
+.vit .vit-tiles { margin-top: 16px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.vit .vit-ov-tile { position: relative; height: 176px; display: flex; flex-direction: column; padding: 14px 14px 14px 16px; border-radius: var(--r-tile); overflow: hidden; box-shadow: inset 0 1px 0 #ffffffb3, 0 0 0 .5px #141e320f, 0 16px 28px -22px #141e3259; }
+.vit .vit-ov-tile::before { content: ''; position: absolute; inset: 0; background: linear-gradient(160deg, #ffffff1f, transparent 55%); pointer-events: none; }
+.vit .vit-tone--blue { background: var(--blue); color: var(--on-blue); }
+.vit .vit-tone--teal { background: var(--teal); color: var(--on-teal); }
+.vit .vit-tone--orange { background: var(--orange); color: var(--on-orange); }
+.vit .vit-tone--coral { background: var(--coral); color: var(--on-coral); }
+.vit .vit-tone--green { background: var(--green); color: var(--on-green); }
+.vit .vit-tone--ink { background: var(--ink); color: var(--on-ink); }
+.vit .vit-tile__h { position: relative; display: flex; align-items: center; gap: 8px; }
+.vit .vit-tile__ico, .vit .vit-sq { width: 38px; height: 38px; display: grid; place-items: center; flex: none; border-radius: 12px; color: #2a2f38; box-shadow: inset 0 1px 1px #ffffffb3; }
+.vit .vit-tile__ico svg { width: 17px; height: 17px; }
+.vit .vit-ico--blue { background: var(--ico-blue); color: #2d5a99; }
+.vit .vit-ico--teal { background: var(--ico-teal); color: #26685e; }
+.vit .vit-ico--orange { background: var(--ico-orange); color: #8a5212; }
+.vit .vit-ico--coral { background: var(--ico-coral); color: #9a3a2c; }
+.vit .vit-ico--green { background: var(--ico-green); color: #2c6b40; }
+.vit .vit-ico--ink { background: var(--ico-ink); color: #3b3f47; }
+.vit .vit-rate { height: 26px; display: inline-flex; align-items: center; gap: 4px; padding: 0 9px 0 8px; border-radius: 999px; background: #ffffff21; box-shadow: inset 0 0 0 1px #ffffff2e; font-style: normal; font-size: 12px; font-weight: 700; line-height: 17.4px; }
+.vit .vit-rate svg { width: 11px; height: 11px; fill: currentColor; stroke: none; }
+.vit .vit-tile__more { margin-left: auto; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; box-shadow: inset 0 0 0 1px #ffffff4d; }
+.vit .vit-tile__more svg { width: 15px; height: 15px; }
+.vit .vit-tile__n { position: relative; margin-top: 12px; font-size: 20px; font-weight: 600; line-height: 22px; letter-spacing: -.3px; }
+.vit .vit-tile__m { position: relative; margin-top: 2px; font-size: 12.5px; line-height: 18.125px; opacity: .85; }
+.vit .vit-tile__v { position: relative; margin-top: auto; font-size: 22px; font-weight: 700; line-height: 24.2px; letter-spacing: -.44px; }
+.vit .vit-tile__d { position: relative; font-size: 12px; font-weight: 600; line-height: 17.4px; }
+.vit .vit-tile__sp { position: absolute; right: 13px; bottom: 15px; width: 54px; height: 24px; overflow: visible; }
+.vit .vit-tile__sp path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.vit .vit-stages { margin-top: 17px; height: 64px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 4px; border-radius: 18px; background: var(--well); }
+.vit .vit-stages button { display: grid; place-content: center; justify-items: center; gap: 0; border: 0; border-radius: 14px; background: none; }
+.vit .vit-stages button[aria-pressed='true'] { background: var(--lens); box-shadow: var(--lens-shadow); }
+.vit .vit-stages b { font-size: 17px; font-weight: 700; line-height: 24.65px; }
+.vit .vit-stages span { font-size: 11px; font-weight: 500; line-height: 15.95px; color: var(--muted); }
+.vit .vit-rel { margin-top: 10px; }
+.vit .vit-rel li { display: flex; align-items: center; gap: 12px; padding: 10.5px 0 9.9px; }
+.vit .vit-rel li + li { border-top: 1px solid var(--line); }
+.vit .vit-sq { width: 28px; height: 28px; border-radius: 9px; }
+.vit .vit-sq svg { width: 14px; height: 14px; }
+.vit .vit-rel li > div { flex: 1; min-width: 0; display: grid; }
+.vit .vit-rel b, .vit .vit-rev__h b, .vit .vit-agenda b { font-size: 14px; font-weight: 600; line-height: 20.3px; }
+.vit .vit-rel li > div > span { font-size: 12.5px; line-height: 18.125px; color: var(--muted); }
+.vit .vit-steps { margin-top: 6px; display: grid; grid-template-columns: repeat(5, 33px); gap: 5px; }
+.vit .vit-steps i { height: 3px; border-radius: 2px; background: #ffffff1f; }
+.vit .vit-steps[data-n='4'] i:nth-child(-n+3), .vit .vit-steps[data-n='3'] i:nth-child(-n+2), .vit .vit-steps[data-n='2'] i:nth-child(-n+1) { background: #6f86a8; }
+.vit .vit-steps[data-n='4'] i:nth-child(4), .vit .vit-steps[data-n='3'] i:nth-child(3), .vit .vit-steps[data-n='2'] i:nth-child(2) { background: var(--accent); }
+.vit .vit-count { height: 22px; min-width: 26px; display: inline-grid; place-items: center; padding: 0 7px; border-radius: 7px; background: #7aaef02e; font-style: normal; font-size: 11px; font-weight: 700; line-height: 15.95px; letter-spacing: .11px; color: var(--accent-text); }
+.vit .vit-revs { margin-top: 16px; display: grid; gap: 10px; }
+.vit .vit-ov-review { padding: 12px 14px; border-radius: 18px; background: var(--well); }
+.vit .vit-rev__h { display: flex; align-items: center; gap: 8px; }
+.vit .vit-mini-stars { margin-left: auto; display: flex; gap: 2px; }
+.vit .vit-mini-stars i { width: 11px; height: 11px; background: #ffffff2e; clip-path: polygon(50% 0, 62% 35%, 100% 38%, 70% 61%, 80% 100%, 50% 78%, 20% 100%, 30% 61%, 0 38%, 38% 35%); }
+.vit .vit-mini-stars[data-n='1'] i:nth-child(-n+1), .vit .vit-mini-stars[data-n='2'] i:nth-child(-n+2) { background: var(--warn); }
+.vit .vit-rev__t { margin-top: 5px; font-size: 13.5px; line-height: 20px; color: var(--muted); }
+.vit .vit-rev__f { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; line-height: 18.125px; color: var(--muted); }
+.vit .vit-btn--sm svg { width: 14px; height: 14px; }
+.vit .vit-rev__all { margin-top: 11px; }
+.vit .vit-done { margin-top: 15px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 13px; font-size: 12.5px; line-height: 18.125px; color: var(--muted); }
+.vit .vit-done__bar { height: 6px; border-radius: 3px; background: var(--well); overflow: hidden; }
+.vit .vit-done__bar i { display: block; width: var(--p); height: 100%; border-radius: 3px; background: var(--accent); }
+.vit .vit-agenda { margin-top: 8px; }
+.vit .vit-agenda li { display: grid; grid-template-columns: 22px 64px minmax(0, 1fr); align-items: center; column-gap: 10px; padding: 10px 0 10px; }
+.vit .vit-agenda li + li { border-top: 1px solid var(--line); }
+.vit .vit-tick { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: #ffffff0f; box-shadow: inset 0 0 0 1.5px #ffffff38; }
+.vit .vit-tick svg { width: 13px; height: 13px; stroke-width: 2.4; }
+.vit .vit-is-done .vit-tick { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+.vit .vit-agenda__h { font-size: 12.5px; font-weight: 600; line-height: 18.125px; color: var(--muted); white-space: nowrap; }
+.vit .vit-agenda li > div { min-width: 0; display: grid; }
+.vit .vit-agenda li > div > b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vit .vit-is-done b { color: var(--muted); text-decoration: line-through; }
+.vit .vit-agenda li > div > span { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; line-height: 17.4px; color: var(--muted); }
+.vit .vit-agenda li > div > span svg { width: 12px; height: 12px; }
+.vit .vit-act { margin-top: 17px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); column-gap: 18px; }
+.vit .vit-act li { display: flex; gap: 10px; min-width: 0; padding-right: 28px; }
+.vit .vit-act li:not(:last-child) { border-right: 1px solid var(--line); }
+.vit .vit-ini { width: 28px; height: 28px; display: grid; place-items: center; flex: none; margin-top: 3px; border-radius: 50%; font-size: 11px; font-weight: 700; letter-spacing: .11px; color: #15181d; }
+.vit .vit-ini--b { background: #d2e4ff; }
+.vit .vit-ini--t { background: #c8efe8; }
+.vit .vit-ini--c { background: #ffd5cd; }
+.vit .vit-ini--o { background: #ffe3bf; }
+.vit .vit-act p { font-size: 13.5px; line-height: 20.5px; }
+.vit .vit-act b { font-weight: 700; }
+.vit .vit-act li > div > span { font-size: 12px; line-height: 17.4px; color: var(--muted); }
+
+@container vit (max-width: 700px) {
+  .vit .vit-fondo__a, .vit .vit-fondo__c { display: none; }
+  .vit .vit-fondo__bola { left: 287px; top: 272px; width: 50px; height: 50px; }
+  .vit .vit-rate, .vit .vit-tile__sp { display: none; }
+  .vit .vit-ov-apps .vit-card__s { display: none; }
+  .vit .vit-main { padding: 14px 12px 110px; }
+  .vit .vit-head { flex-wrap: wrap; gap: 14px 20px; }
+  .vit .vit-head__title { width: 100%; padding-right: calc(100% - 170px); font-size: 28px; line-height: 29.12px; letter-spacing: -.7px; }
+  .vit .vit-big b { font-size: 26px; line-height: 26px; }
+  .vit .vit-tile__n { font-size: 17px; line-height: 18.7px; }
+  .vit .vit-tile__v { font-size: 18px; line-height: 19.8px; }
+  .vit .vit-stat { width: calc(50% - 10px); }
+  .vit .vit-stat__ico { display: none; }
+  .vit .vit-stat__n { font-size: 18px; line-height: 26.1px; }
+  .vit .vit-grid { margin-top: 24px; grid-template-columns: minmax(0, 1fr); grid-template-areas: 'chart' 'apps' 'rate' 'train' 'rev' 'today' 'act'; }
+  .vit .vit-ov-chart, .vit .vit-ov-rate, .vit .vit-ov-apps, .vit .vit-ov-train, .vit .vit-ov-rev, .vit .vit-ov-today, .vit .vit-ov-act { height: auto; }
+  .vit .vit-ov-chart .vit-card__h { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .vit .vit-big { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .vit .vit-tile__m { margin-top: 4px; }
+  .vit .vit-plot { height: 160px; margin-bottom: 28px; }
+  .vit .vit-plot__svg { height: 160px; }
+  .vit .vit-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .vit .vit-ov-tile { height: 163px; padding: 12px; }
+  .vit .vit-act { grid-template-columns: minmax(0, 1fr); }
+  .vit .vit-act li { padding-right: 0; }
+  .vit .vit-act { margin-top: 22px; }
+  .vit .vit-act li:not(:last-child) { border-right: 0; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 8.5px; }
+}
+
+/* ── lo de la adaptación (DESPUÉS de los @container de la copia: los pisa en el mismo ancho) ──────────── */
+.vit .vit-main { padding: 28px 23px 40px; }
+.vit .vit-head { flex-wrap: wrap; row-gap: 14px; }
+.vit .vit-head__acts { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.vit .vit-grid { grid-template-areas: 'chart chart rate' 'apps apps apps' 'train rev today'; }
+.vit .vit-quieta { opacity: .72; pointer-events: none; }
+.vit .vit-vacio { flex: 1; min-height: 120px; display: grid; place-content: center; gap: 4px; margin-top: 12px; padding: 18px 12px; text-align: center; font-size: 13px; line-height: 19px; color: var(--muted); }
+.vit .vit-vacio b { display: block; color: var(--text); font-weight: 600; }
+.vit .vit-ov-chart, .vit .vit-ov-apps, .vit .vit-ov-train, .vit .vit-ov-rev, .vit .vit-ov-today { display: flex; flex-direction: column; }
+.vit .vit-ov-chart .vit-vacio { min-height: 220px; }
+.vit [role='button'] { cursor: pointer; }
+.vit .vit-btn, .vit .vit-ibtn { text-decoration: none; }
+.vit .vit-ibtn--ring:hover { background: var(--well); }
+.vit .vit-stat__l { max-width: 170px; }
+.vit .vit-stat__n .vit-chip { font-weight: 700; }
+.vit .vit-big b { white-space: nowrap; }
+.vit .vit-big span { min-width: 0; }
+.vit .vit-rate__bar { display: block; width: 132px; margin: 6px 0 2px; }
+.vit .vit-bars li { grid-template-columns: minmax(0, 104px) minmax(0, 1fr) 44px; column-gap: 10px; }
+.vit .vit-bars b { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.vit .vit-bars li[role='button'] { margin: -3px -8px; padding: 3px 8px; border-radius: 8px; transition: background-color .15s; }
+.vit .vit-bars li[role='button']:hover { background: var(--surface-2); }
+.vit .vit-rate__f a { color: var(--accent-text); font-weight: 700; }
+.vit .vit-ov-tile[role='button'] { transition: filter .15s; }
+.vit .vit-ov-tile[role='button']:hover { filter: brightness(1.08); }
+.vit .vit-tile__n { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.vit .vit-stages { grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); }
+.vit .vit-stages span { white-space: nowrap; }
+.vit .vit-stages button[data-destacado] { background: var(--lens); box-shadow: var(--lens-shadow); }
+.vit .vit-stages button:not([data-destacado]):not(:disabled):hover { background: var(--surface-2); }
+.vit .vit-stages button:disabled { cursor: default; }
+.vit .vit-rel b, .vit .vit-rel li > div > span, .vit .vit-rev__h b, .vit .vit-rev__f span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.vit .vit-rel .vit-btn { flex: none; }
+.vit .vit-rev__t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.vit .vit-rev__f .vit-btn { flex: none; }
+.vit .vit-rev__all { align-self: flex-start; }
+.vit .vit-fondo__bola { display: none; }
+.vit .vit-plot__x .vit-x--tel { display: none; }
+@container vit (min-width: 701px) and (max-width: 1000px) {
+  .vit .vit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: 'chart chart' 'apps apps' 'rate today' 'train rev'; }
+  .vit .vit-ov-apps { height: auto; }
+  .vit .vit-ov-rate, .vit .vit-ov-today { height: auto; min-height: 396px; }
+  .vit .vit-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container vit (max-width: 700px) {
+  .vit .vit-main { padding: 18px 12px 32px; }
+  .vit .vit-head__acts { margin-left: 0; width: 100%; }
+  .vit .vit-grid { grid-template-areas: 'chart' 'apps' 'rate' 'train' 'rev' 'today'; }
+  .vit .vit-ov-rate { min-height: 0; }
+  .vit .vit-plot__x .vit-x--tel { display: block; }
+  .vit .vit-plot__x .vit-x--fuera { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .vit *, .vit *::before, .vit *::after { transition: none !important; animation: none !important; } }
+</style>
+</head><body>
+<div class="vit"><div class="vit-fondo" aria-hidden="true"><i class="vit-fondo__a"></i><i class="vit-fondo__b"></i><i class="vit-fondo__c"></i><i class="vit-fondo__bola"></i></div><main class="vit-main"><div class="vit-head"><h1 class="vit-head__title"><span class="vit-w"><span class="vit-w__i">Tus</span></span> <span class="vit-w"><span class="vit-w__i">alumnos</span></span></h1><div class="vit-stat"><span class="vit-stat__ico"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg></span><div><p class="vit-stat__n"><span data-cuenta="">148</span> <em class="vit-chip vit-chip--good">+9%</em></p><p class="vit-stat__l">Alumnos activos en los últimos 30 días</p></div></div><div class="vit-stat"><span class="vit-stat__ico"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15M14.5 9.5c-.5-1-1.5-1.5-2.5-1.5-1.6 0-2.8.9-2.8 2.1 0 2.8 5.6 1.4 5.6 4 0 1.2-1.2 2.1-2.8 2.1-1.1 0-2.1-.6-2.6-1.5M12 6.5v11"></path></svg></span><div><p class="vit-stat__n"><span data-cuenta="">9</span> <em class="vit-chip vit-chip--good">+29%</em></p><p class="vit-stat__l">Ventas en los últimos 30 días</p></div></div><div class="vit-stat"><span class="vit-stat__ico"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h10a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3zM4 10h16"></path></svg></span><div><p class="vit-stat__n"><span data-cuenta="">US$14,250</span> <em class="vit-chip vit-chip--good">+10%</em></p><p class="vit-stat__l">Cobrado en los últimos 30 días</p></div></div><div class="vit-head__acts"><button type="button" class="vit-btn vit-btn--ghost"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6.5v6.5H4zM13.5 4H20v6.5h-6.5zM4 13.5h6.5V20H4zM13.5 13.5H20V20h-6.5z"></path></svg>Ver la grilla</button></div></div><div class="vit-grid"><section class="vit-card vit-ov-chart"><div class="vit-card__h"><h2 class="vit-card__t">Alumnos que vieron clases</h2><div class="vit-card__acts"><span class="vit-seg"><button type="button" aria-pressed="true">Alumnos</button><button type="button" aria-pressed="false">Clases</button></span><a href="/classroom" class="vit-ibtn vit-ibtn--ring" aria-label="Abrir Classroom"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9.5 8H16v6.5"></path></svg></a></div></div><p class="vit-big"><b class="vit-num" data-cuenta="">148</b><span>alumnos en los últimos 30 días · el mejor día <strong>30 oct</strong></span></p><p class="vit-legend"><span><i class="vit-legend__dot"></i>Alumnos de cada día</span></p><div class="vit-plot"><div class="vit-plot__y"><span>50</span><span>25</span><span>0</span></div><svg class="vit-plot__svg" viewBox="0 0 780 198" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="vit-g-_r_0_" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7aaef0" stop-opacity=".26"></stop><stop offset="1" stop-color="#7aaef0" stop-opacity=".04"></stop></linearGradient></defs><path class="vit-plot__grid" d="M0 .5H780M0 99.5H780M0 197.5H780"></path><path d="M0.0,114.8 C4.5,112.9 17.9,101.6 26.9,103.0 C35.9,104.3 44.8,118.1 53.8,122.8 C62.8,127.4 71.7,135.3 80.7,130.7 C89.7,126.1 98.6,104.3 107.6,95.0 C116.6,85.8 125.5,76.6 134.5,75.2 C143.4,73.9 152.4,81.2 161.4,87.1 C170.3,93.1 179.3,105.6 188.3,110.9 C197.2,116.2 206.2,120.8 215.2,118.8 C224.1,116.8 233.1,107.6 242.1,99.0 C251.0,90.4 260.0,70.6 269.0,67.3 C277.9,64.0 286.9,75.2 295.9,79.2 C304.8,83.2 313.8,86.5 322.8,91.1 C331.7,95.7 340.7,101.6 349.7,106.9 C358.6,112.2 367.6,122.1 376.6,122.8 C385.5,123.4 394.5,117.5 403.4,110.9 C412.4,104.3 421.4,91.7 430.3,83.2 C439.3,74.6 448.3,61.4 457.2,59.4 C466.2,57.4 475.2,65.3 484.1,71.3 C493.1,77.2 502.1,89.8 511.0,95.0 C520.0,100.3 529.0,100.3 537.9,103.0 C546.9,105.6 555.9,112.9 564.8,110.9 C573.8,108.9 582.8,96.4 591.7,91.1 C600.7,85.8 609.7,85.1 618.6,79.2 C627.6,73.3 636.6,57.4 645.5,55.4 C654.5,53.5 663.4,62.0 672.4,67.3 C681.4,72.6 690.3,81.8 699.3,87.1 C708.3,92.4 717.2,98.3 726.2,99.0 C735.2,99.7 744.1,95.0 753.1,91.1 C762.1,87.1 775.5,77.9 780.0,75.2 L780 198 L0 198 Z" fill="url(#vit-g-_r_0_)"></path><path class="vit-plot__line" d="M0.0,114.8 C4.5,112.9 17.9,101.6 26.9,103.0 C35.9,104.3 44.8,118.1 53.8,122.8 C62.8,127.4 71.7,135.3 80.7,130.7 C89.7,126.1 98.6,104.3 107.6,95.0 C116.6,85.8 125.5,76.6 134.5,75.2 C143.4,73.9 152.4,81.2 161.4,87.1 C170.3,93.1 179.3,105.6 188.3,110.9 C197.2,116.2 206.2,120.8 215.2,118.8 C224.1,116.8 233.1,107.6 242.1,99.0 C251.0,90.4 260.0,70.6 269.0,67.3 C277.9,64.0 286.9,75.2 295.9,79.2 C304.8,83.2 313.8,86.5 322.8,91.1 C331.7,95.7 340.7,101.6 349.7,106.9 C358.6,112.2 367.6,122.1 376.6,122.8 C385.5,123.4 394.5,117.5 403.4,110.9 C412.4,104.3 421.4,91.7 430.3,83.2 C439.3,74.6 448.3,61.4 457.2,59.4 C466.2,57.4 475.2,65.3 484.1,71.3 C493.1,77.2 502.1,89.8 511.0,95.0 C520.0,100.3 529.0,100.3 537.9,103.0 C546.9,105.6 555.9,112.9 564.8,110.9 C573.8,108.9 582.8,96.4 591.7,91.1 C600.7,85.8 609.7,85.1 618.6,79.2 C627.6,73.3 636.6,57.4 645.5,55.4 C654.5,53.5 663.4,62.0 672.4,67.3 C681.4,72.6 690.3,81.8 699.3,87.1 C708.3,92.4 717.2,98.3 726.2,99.0 C735.2,99.7 744.1,95.0 753.1,91.1 C762.1,87.1 775.5,77.9 780.0,75.2"></path></svg><div class="vit-plot__x"><span class="vit-x--fuera" style="left: 6.89655%;">8 oct</span><span style="left: 17.2414%;">11 oct</span><span class="vit-x--fuera" style="left: 27.5862%;">14 oct</span><span class="vit-x--fuera" style="left: 37.931%;">17 oct</span><span class="vit-x--tel" style="left: 44.8276%;">19 oct</span><span class="vit-x--fuera" style="left: 48.2759%;">20 oct</span><span class="vit-x--fuera" style="left: 58.6207%;">23 oct</span><span class="vit-x--fuera" style="left: 68.9655%;">26 oct</span><span class="vit-x--tel" style="left: 72.4138%;">27 oct</span><span class="vit-x--fuera" style="left: 79.3103%;">29 oct</span><span class="vit-x--fuera" style="left: 89.6552%;">1 nov</span><span style="left: 100%;">4 nov</span></div></div></section><section class="vit-card vit-ov-apps"><div class="vit-card__h"><h2 class="vit-card__t">Por área</h2><div class="vit-card__acts"><span class="vit-card__s">Últimos 30 días</span><a href="/classroom" class="vit-ibtn vit-ibtn--ring" aria-label="Abrir Classroom"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9.5 8H16v6.5"></path></svg></a></div></div><div class="vit-tiles"><article class="vit-ov-tile vit-tone--blue" role="button" tabindex="0"><div class="vit-tile__h"><span class="vit-tile__ico vit-ico--blue"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM8.5 9.5h7M8.5 12.5h7M8.5 15.5h4"></path></svg></span></div><h3 class="vit-tile__n">Ventas</h3><p class="vit-tile__m">28% de tus alumnos</p><p class="vit-tile__v vit-num" data-cuenta="">42</p><p class="vit-tile__d">alumnos</p></article><article class="vit-ov-tile vit-tone--teal" role="button" tabindex="0"><div class="vit-tile__h"><span class="vit-tile__ico vit-ico--teal"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"></path></svg></span></div><h3 class="vit-tile__n">Marketing</h3><p class="vit-tile__m">23% de tus alumnos</p><p class="vit-tile__v vit-num" data-cuenta="">34</p><p class="vit-tile__d">alumnos</p></article><article class="vit-ov-tile vit-tone--orange" role="button" tabindex="0"><div class="vit-tile__h"><span class="vit-tile__ico vit-ico--orange"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18C6 10 11 6 19 5c0 8-4 13-12 13zM6 18l7-7"></path></svg></span></div><h3 class="vit-tile__n">Contenido</h3><p class="vit-tile__m">18% de tus alumnos</p><p class="vit-tile__v vit-num" data-cuenta="">27</p><p class="vit-tile__d">alumnos</p></article><article class="vit-ov-tile vit-tone--coral" role="button" tabindex="0"><div class="vit-tile__h"><span class="vit-tile__ico vit-ico--coral"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15M14.5 9.5c-.5-1-1.5-1.5-2.5-1.5-1.6 0-2.8.9-2.8 2.1 0 2.8 5.6 1.4 5.6 4 0 1.2-1.2 2.1-2.8 2.1-1.1 0-2.1-.6-2.6-1.5M12 6.5v11"></path></svg></span></div><h3 class="vit-tile__n">Finanzas</h3><p class="vit-tile__m">13% de tus alumnos</p><p class="vit-tile__v vit-num" data-cuenta="">19</p><p class="vit-tile__d">alumnos</p></article><article class="vit-ov-tile vit-tone--green" role="button" tabindex="0"><div class="vit-tile__h"><span class="vit-tile__ico vit-ico--green"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 14.5A7 7 0 0 1 9.5 6a7 7 0 1 0 8.5 8.5z"></path></svg></span></div><h3 class="vit-tile__n">Mentalidad</h3><p class="vit-tile__m">11% de tus alumnos</p><p class="vit-tile__v vit-num" data-cuenta="">16</p><p class="vit-tile__d">alumnos</p></article><article class="vit-ov-tile vit-tone--ink" role="button" tabindex="0"><div class="vit-tile__h"><span class="vit-tile__ico vit-ico--ink"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l2.4 5 5.4.6-4 3.7 1.1 5.4L12 16l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"></path></svg></span></div><h3 class="vit-tile__n">Operaciones</h3><p class="vit-tile__m">7% de tus alumnos</p><p class="vit-tile__v vit-num" data-cuenta="">10</p><p class="vit-tile__d">alumnos</p></article></div></section><section class="vit-card vit-ov-rate"><div class="vit-card__h"><h2 class="vit-card__t">Cuánto avanzan</h2></div><div class="vit-rate__top"><b class="vit-rate__n vit-num" data-cuenta="">62%</b><div><span class="vit-bar vit-rate__bar"><i class="vit-bar--acc" style="--p: 62.0%;"></i></span><p class="vit-rate__s">Avance promedio · 148 alumnos</p></div></div><ul class="vit-bars"><li role="button" tabindex="0"><b>Al día</b><span class="vit-bar"><i class="vit-bar--acc" style="--p: 48.0%;"></i></span><span class="vit-bar__p">48%</span></li><li role="button" tabindex="0"><b>Empezando</b><span class="vit-bar"><i class="vit-bar--acc" style="--p: 25.7%;"></i></span><span class="vit-bar__p">26%</span></li><li role="button" tabindex="0"><b>Atrasado</b><span class="vit-bar"><i class="vit-bar--warn" style="--p: 14.9%;"></i></span><span class="vit-bar__p">15%</span></li><li role="button" tabindex="0"><b>Sin empezar</b><span class="vit-bar"><i class="vit-bar--bad" style="--p: 7.4%;"></i></span><span class="vit-bar__p">7%</span></li><li role="button" tabindex="0"><b>Terminó</b><span class="vit-bar"><i class="vit-bar--bad" style="--p: 4.1%;"></i></span><span class="vit-bar__p">4%</span></li></ul><p class="vit-rate__f">Hoy <b>3</b> clientes piden atención · <a href="/clients">Verlos</a></p></section><section class="vit-card vit-ov-train"><div class="vit-card__h"><h2 class="vit-card__t">Quién te necesita</h2><div class="vit-card__acts"><span class="vit-card__s">3 piden atención</span><a href="/clients" class="vit-ibtn vit-ibtn--ring" aria-label="Abrir Clients"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9.5 8H16v6.5"></path></svg></a></div></div><div class="vit-stages" style="--n: 5;"><button type="button" data-destacado="" title="Hablaron hace 0-7 días"><b>29</b><span>0-7 días</span></button><button type="button" title="Hablaron hace 8-14 días"><b>14</b><span>8-14 días</span></button><button type="button" title="Hablaron hace 15-30 días"><b>11</b><span>15-30 días</span></button><button type="button" title="Hablaron hace Más de 30 días"><b>7</b><span>+30 días</span></button><button type="button" title="Nunca hablaron"><b>3</b><span>Nunca</span></button></div><ul class="vit-rel"><li><span class="vit-sq vit-ico--orange"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg></span><div><b>Ana Ruiz</b><span>Pide atención · hablaron hace más de 30 días</span></div><button class="vit-btn vit-btn--ghost" type="button">Abrir</button></li><li><span class="vit-sq vit-ico--blue"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg></span><div><b>Diego Paz</b><span>Pide atención · hablaron hace 15-30 días</span></div><button class="vit-btn vit-btn--ghost" type="button">Abrir</button></li><li><span class="vit-sq vit-ico--green"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg></span><div><b>Laura Méndez</b><span>Pide atención · hablaron hace 15-30 días</span></div><button class="vit-btn vit-btn--ghost" type="button">Abrir</button></li><li><span class="vit-sq vit-ico--teal"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0 0 6a3 3 0 1 0 0-6M4 18a5 5 0 0 1 10 0M15.5 6.5a3 3 0 0 1 0 5.5M17 18a5 5 0 0 0-2-4"></path></svg></span><div><b>Carlos Ibarra</b><span>Va bien · hablaron hace 8-14 días</span></div><button class="vit-btn vit-btn--ghost" type="button">Abrir</button></li></ul><p class="vit-card__s">Y 1 más en tu cartera</p></section><section class="vit-card vit-ov-rev"><div class="vit-card__h"><h2 class="vit-card__t">Lo que vas a publicar</h2><div class="vit-card__acts"><em class="vit-count">3</em><a href="/calendario" class="vit-ibtn vit-ibtn--ring" aria-label="Abrir el Calendario"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16L16 8M9.5 8H16v6.5"></path></svg></a></div></div><ul class="vit-revs"><li class="vit-ov-review"><div class="vit-rev__h"><span class="vit-sq vit-sq--sm vit-ico--orange"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM8.5 9.5h7M8.5 12.5h7M8.5 15.5h4"></path></svg></span><b>Reel: tres errores al cobrar</b></div><p class="vit-rev__t">Reel</p><div class="vit-rev__f"><span>Hoy, 12:00</span></div></li><li class="vit-ov-review"><div class="vit-rev__h"><span class="vit-sq vit-sq--sm vit-ico--blue"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM8.5 9.5h7M8.5 12.5h7M8.5 15.5h4"></path></svg></span><b>Carrusel: cómo armar tu primera oferta</b></div><p class="vit-rev__t">Carrusel</p><div class="vit-rev__f"><span>Mañana, 10:00</span></div></li><li class="vit-ov-review"><div class="vit-rev__h"><span class="vit-sq vit-sq--sm vit-ico--green"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM8.5 9.5h7M8.5 12.5h7M8.5 15.5h4"></path></svg></span><b>Correo a los alumnos atrasados</b></div><p class="vit-rev__t">Correo</p><div class="vit-rev__f"><span>vie 6 nov, 09:00</span></div></li></ul><a href="/calendario" class="vit-btn vit-btn--ghost vit-btn--sm vit-rev__all">Abrir el Calendario</a></section><section class="vit-card vit-ov-today"><div class="vit-card__h"><h2 class="vit-card__t">Hoy</h2><a href="/calendario?vista=dia" class="vit-btn vit-btn--accent"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Agendar</a></div><div class="vit-done"><span>1 de 4 ya pasó</span><span class="vit-done__bar"><i style="--p: 25.0%;"></i></span></div><ul class="vit-agenda"><li class="vit-is-done"><span class="vit-tick"><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"></path></svg></span><span class="vit-agenda__h">09:30</span><div><b>Sesión de preguntas en vivo</b><span><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15M12 8v4.5l3 1.8"></path></svg>45 min · Ventas</span></div></li><li><span class="vit-tick"></span><span class="vit-agenda__h">12:00</span><div><b>Reel: tres errores al cobrar</b><span><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15M12 8v4.5l3 1.8"></path></svg>Reel</span></div></li><li><span class="vit-tick"></span><span class="vit-agenda__h">16:00</span><div><b>Mentoría con el grupo de Marketing</b><span><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15M12 8v4.5l3 1.8"></path></svg>60 min · Marketing</span></div></li><li><span class="vit-tick"></span><span class="vit-agenda__h">18:30</span><div><b>Subir el módulo 4</b><span><svg class="vit-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15M12 8v4.5l3 1.8"></path></svg>Contenido</span></div></li></ul></section></div></main></div>
+</body></html>
