@@ -137,7 +137,7 @@ test('qué cuenta como el tope del plan: nombra el dominio Y un tope; una key o 
 test('RESEND_ADMIN_API_KEY la nombra sólo lib/resend-dominios.ts, y ese módulo no exporta la clave', () => {
   // Los candidatos con `git grep` (en C; `--untracked` para que un archivo nuevo sin `git add` también cuente), y el piso de
   // archivos para que «no encontré nada» no sea «no miré». Lo que cuenta es el CÓDIGO: un comentario que la nombra no la lee.
-  const total = execFileSync('git', ['ls-files'], { cwd: RAIZ, encoding: 'utf8' }).split('\n').filter(Boolean).length;
+  const total = execFileSync('git', ['ls-files'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 64 << 20 }).split('\n').filter(Boolean).length;
   assert.ok(total > 1000, `git ls-files trajo ${total}: no miró el repo`);
   let candidatos: string[] = [];
   try {

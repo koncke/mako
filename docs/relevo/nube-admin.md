@@ -6,11 +6,16 @@
 
 ## Lo que ya está subido
 
-| Tanda | Qué | Punta |
+| Tanda | Qué | Dónde está (5/11, 22:40 UTC) |
 |---|---|---|
-| 1 | La investigación (docs/investigacion-admin.md). La tab se llama **Admin** y vive en `/admin`; abre en **Revenue** con lo cobrado de verdad. | `punta/admin` |
-| 2 | **Users** (las personas de todos los negocios con su estado de alta, entrar, reenviar el acceso, suspender) y **Errors** (los errores agrupados como Sentry y los reportes). Accounts pasa a ser la otra vista de Customers. | `punta/admin` |
-| 3 | **Activity**, con la medición que faltaba: quién entra cada día, semana y mes, quién entra cada semana (nuevos, siguen, volvieron, dejaron), qué tabs se usan y cuáles nadie abrió, cada negocio con lo que más usa, quién dejó de entrar y lo último que hizo MaKo. Al pie, lo que era Agents. | `punta/admin` |
+| 1 | La investigación (docs/investigacion-admin.md). La tab se llama **Admin** y vive en `/admin`; abre en **Revenue** con lo cobrado de verdad. | en main |
+| 2 | **Users** (las personas de todos los negocios con su estado de alta, entrar, reenviar el acceso, suspender) y **Errors** (los errores agrupados como Sentry y los reportes). Accounts pasa a ser la otra vista de Customers. | en main |
+| 3 | **Activity**, con la medición que faltaba: quién entra cada día, semana y mes, quién entra cada semana (nuevos, siguen, volvieron, dejaron), qué tabs se usan y cuáles nadie abrió, cada negocio con lo que más usa, quién dejó de entrar y lo último que hizo MaKo. Al pie, lo que era Agents. | `punta/admin`, esperando la corrida de GitHub |
+
+La primera corrida de la tanda 3 dio rojo (`ci-rojo/admin`, run 42119084126) por un test ajeno: `tests/resend-clave-admin.test.ts` lista el
+repo entero con git sin tope de salida, y la lista pasó 1 MiB con los archivos nuevos. Se arregló ahí y en `tests/puente-leads-retirado.test.ts`,
+que tenía lo mismo (docs/hallazgos-infra.md, 5/11). **A main le quedan 82 bytes antes de que le pase a cualquiera**: si una punta ajena da
+ENOBUFS en un test que lista todo, es esto, y la cura es la misma (`maxBuffer`).
 
 La barra de Admin queda en seis: Revenue · Billing · Customers · Users · Activity · Errors. `?tab=accounts` abre la vista de
 tarjetas de Customers y `?tab=agents` abre Activity (los links viejos siguen andando).

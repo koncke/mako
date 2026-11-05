@@ -10774,3 +10774,18 @@ hecho tiene más de 7 días (`tiempoDelHecho`, `lib/meta-capi-payload.ts`, con s
 `punta/ops-ignorar` y `punta/agencia-cobro` eligieron la `0394` con pocas horas de diferencia. Los dos hicieron lo indicado: barrer main, todas las ramas y las etiquetas, y tomar el siguiente. Barrer no reserva: si la otra todavía no subió, no se ve. Y desde la nube tampoco se ven los worktrees de la PC.
 
 **La regla:** el número se confirma al aplicar, contra `origin/main`. Si chocó, se renumera el archivo que llegó segundo: nada lo nombra por número salvo su encabezado y su relevo.
+
+## `git ls-files` del repo entero pasó 1 MiB y un test murió con ENOBUFS (5/11/2026)
+
+**Síntoma:** la corrida de `punta/admin` (run 42119084126) dio rojo en `tests/resend-clave-admin.test.ts` con `spawnSync git ENOBUFS`, en un test
+que no tiene nada que ver con lo que trajo la punta. Sobre main pasaba.
+
+**Causa:** `execFileSync('git', ['ls-files'])` sin `maxBuffer` corta en 1 MiB (1.048.576 bytes) el default de Node. La lista del repo entero ocupaba
+1.048.494 bytes en main el 5/11: 82 bytes de margen. Los archivos de Activity la pasaron (1.048.834), y el primero que lista todo se cayó. Casi todo es
+`public/` (10.650 de los ~21.000 archivos). Lo que lista sólo `app` y `lib` ocupa ~216 KB y no corre peligro todavía.
+
+**Regla:** una llamada a git cuya salida crece con el repo lleva `maxBuffer` (el molde: `maxBuffer: 64 << 20`, o el `git()` de
+`scripts/tests-afectados.mjs`, con 256 MB). Se arreglaron las dos que listaban todo sin tope: `tests/resend-clave-admin.test.ts` y
+`tests/puente-leads-retirado.test.ts`. Reproducido: con el test viejo sobre el árbol mezclado, ENOBUFS; con el arreglo, 12 de 12.
+
+**Sin hacer:** no hay guarda que frene una llamada nueva sin `maxBuffer`. Vive en `tests/*.test.ts` (`execFileSync('git', [...])`).
