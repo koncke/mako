@@ -47,7 +47,11 @@ Los tres clientes de la plataforma (negocio 9) tienen la mensualidad vacía y la
    cobrado. Es un `update pagos set metodo = 'cripto'` sobre ese id, o desmarcarlo y volver a marcarlo desde la ficha.
 5. Los diferenciales (los días hasta el próximo 5), cuando se cobren: `registrar_pago_suelto` con `ajuste: true`.
 
-Lo que tiene que verse después: Paga hoy US$238 (día 5); Le toca el 5 de diciembre US$426; Pagó en total US$384; octubre
+Esto es lo mismo que pide el paso 1 de `docs/relevo/nube-admin.md` (cargar lo de noviembre de Código): se hace UNA vez, de
+esta forma. Un pago de un mes queda como mensualidad (`es_mensualidad`) y un ajuste no, que es lo que Admin › Revenue cuenta
+como recurrente (`esRecurrente`, lib/admin-ingresos.ts): Revenue tiene que dar MRR US$432 y «Subió +US$92».
+
+Lo que tiene que verse después en la ficha: Paga hoy US$238 (día 5); Le toca el 5 de diciembre US$426; Pagó en total US$384; octubre
 «US$146 de US$146 · Empezó»; noviembre «US$238 de US$238 · Subió de 146 · 2 pagos · Cripto».
 
 **Leila (2473) y Florencia (2659):** `cambiar_suscripcion` con monto US$97 desde 2026-10. Florencia: `editar_venta_lead`
@@ -59,9 +63,12 @@ con fecha de cierre 2026-10-18 (pagó ese día). Leila ya tiene el 26/10.
   `editar_venta_lead` con `tipo: 'unico'`.
 - 4 suscripciones pagaron y no están en Ganado (1852, 1871, 1923, 1940): no suman al MRR. Si alguna sigue activa, se gana.
 
-### 3. Lo que tiene que decidir la tab Admin (no se tocó: es del chat «Admin»)
+### 3. Lo que hay que decidir sobre el MRR (no se tocó)
 
-- **Qué cuenta como MRR.** Hoy: Ganado, sin cortar, con la mensualidad de este mes. 4 de las 5 Ganadas del negocio 11 no
+Hay dos MRR y miden cosas distintas: Admin › Revenue (lo que le pagan a MaKo, sale de lo PAGADO como mensualidad) y el
+`getMrrActivo` del Dashboard de cada negocio (sale de la mensualidad declarada).
+
+- **Qué cuenta en el del negocio.** Hoy: Ganado, sin cortar, con la mensualidad de este mes. 4 de las 5 Ganadas del negocio 11 no
   pagaron nunca y suman igual (US$4.759 de US$4.799). Contarlas sólo con algún pago, o sólo al día, es una decisión de
   producto. Lo que hay para leerlo: `historiaDeSuscripcion` (lib/suscripcion-meses.ts: `mesesSinPagar`, `deudaUsd`,
   `proximo.vencido`) y `mrrDeSuscripcion`.
