@@ -621,6 +621,26 @@ copiaba a Pane con su letra, sus colores, su grilla y su movimiento) **y recién
   el ticker y el «Refresh»**, no el tiempo de cada tarjeta ni cómo crecen los anillos, las campañas, el medidor y las columnas: eso es
   supuesto. Tampoco se ve qué dicen los dos últimos botones del «Feed» (los tapa el cartel de la tienda): la copia los deja sin rótulo.
 
+## 32. Hooks y retención (Ondra): la referencia de la propuesta ya estaba usada, y el filtro tapado se lee en el teléfono (5/11/2026, chat en la nube)
+
+**Vive en:** `lib/hooks-diseno.ts`, `app/dashboard/disenos/HojaHooks.tsx`, `docs/diseno/mockups-dashboard/hooks-ondra/`.
+
+- **La propuesta le daba a Hooks «Vitrea · Murmura», y las dos ya eran copias** (Curso o comunidad e Instagram y redes). Copiar una de esas
+  otra vez dejaba dos hojas del mismo producto con la misma cara. Se copió Ondra, que estaba sin usar, y cada parte se adaptó a la pregunta
+  de Hooks. **Antes de copiar la referencia de una fila de la propuesta, mirá si otra hoja ya la usa** (la columna «Estado» lo dice).
+- **Lo que tapa el cartel de la tienda a un ancho puede leerse en el otro.** A 1440, el quinto filtro del embudo de Ondra está debajo del
+  cartel «BUY THIS TEMPLATE»; a 390 se lee «Orga…» con el punto verde del canal Organic. Antes de escribir «no se ve, no se inventa», se
+  mira la otra captura.
+- **Una curva se lee de la captura día por día** (la altura de la línea en la x de cada día, con los colores de la línea): así la forma de
+  la copia es la del demo y no una ola inventada. Funcionó con la línea sólida; la punteada se cruza con los lanzamientos y hay que cuidar
+  esos tres días.
+- **El demo tiene un defecto a 390: los rótulos de la curva pisan la leyenda** (la caja de la curva mide 224 y los rótulos salen de ella).
+  La copia lo reproduce porque es lo que se ve; la adaptación mide la caja y no lo repite.
+- **La curva del período anterior día por día no existe en MaKo**: el `anterior` de una pieza es un TOTAL. La línea punteada de la
+  adaptación es el promedio del período anterior, y la leyenda lo dice («Promedio del período anterior»), no «Period before».
+- **El tope de 14 paneles (§31) se miró antes de tocar la plantilla:** Hooks no suma piezas; las que el diseño pide de más (lo que llega al
+  llamado y el ThruPlay por gancho, los guiones por avatar) van como métricas de las piezas que ya estaban.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

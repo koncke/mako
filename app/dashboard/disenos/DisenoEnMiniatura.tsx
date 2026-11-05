@@ -61,6 +61,9 @@ import { datosInstagramMuestra, generalInstagramMuestra } from '@/lib/instagram-
 import { HojaAnuncio } from './HojaAnuncio';
 import { vistaAnuncio } from '@/lib/anuncio-diseno';
 import { datosAnuncioMuestra } from '@/lib/anuncio-diseno-muestra';
+import { HojaHooks } from './HojaHooks';
+import { vistaHooks } from '@/lib/hooks-diseno';
+import { datosHooksMuestra } from '@/lib/hooks-diseno-muestra';
 import { vistaCurso } from '@/lib/curso-diseno';
 import { calendarioCursoMuestra, datosCursoMuestra } from '@/lib/curso-diseno-muestra';
 
@@ -518,6 +521,10 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   // La de «Anuncio ganador», igual: el MISMO vistaAnuncio que la hoja de verdad, con los datos de la adaptación (anuncio-prism/mako.html).
   anuncio: ({ hoja, hoy }) => (
     <HojaAnuncio hoja={hoja} vista={vistaAnuncio(hoja, datosAnuncioMuestra(hoja, hoy), hoy)} titulo="Anuncio ganador" periodo="Todo" onGrilla={() => {}} quieta />
+  ),
+  // La de «Hooks y retención», igual: el MISMO vistaHooks que la hoja de verdad, con los datos de la adaptación (hooks-ondra/captura/mako-1200.png).
+  hooks: ({ hoja, hoy }) => (
+    <HojaHooks hoja={hoja} vista={vistaHooks(hoja, datosHooksMuestra(hoja, hoy))} titulo="Hooks y retención" hoy={hoy} periodo="Últimos 30 días" onGrilla={() => {}} quieta />
   ),
 };
 

@@ -33,15 +33,17 @@ test('se ofrece exactamente la plantilla que trae su diseño propio, y ninguna o
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'automatizaciones'), 'Automatizaciones (la copia de Noria) se ofrece');
   // CS Analyst se ofrece desde el 4/11 (noche): trae su diseño (la copia de Mender).
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'cs-analyst'), 'CS Analyst (la copia de Mender) se ofrece');
-  // Anuncio ganador se ofrece desde el 5/11: trae su diseño (la copia de Prism). «Hooks y retención» todavía no está copiada.
+  // Anuncio ganador se ofrece desde el 5/11: trae su diseño (la copia de Prism). Hooks y retención también (la copia de Ondra).
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'ads-analyst'), 'Anuncio ganador (la copia de Prism) se ofrece');
-  for (const viejo of ['hooks-retencion']) assert.ok(!PLANTILLAS_OFRECIDAS.some((p) => p.id === viejo), `${viejo} ya no se ofrece`);
+  assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'hooks-retencion'), 'Hooks y retención (la copia de Ondra) se ofrece');
+  // «VSL y YouTube» todavía no está copiada: no se ofrece.
+  for (const viejo of ['vsl-analyst']) assert.ok(!PLANTILLAS_OFRECIDAS.some((p) => p.id === viejo), `${viejo} ya no se ofrece`);
   assert.ok(PLANTILLAS_GENERAL_OFRECIDAS.every((p) => !!instanciarPlantilla(p).diseno));
 });
 
 test('una plantilla vieja sigue existiendo para quien la tiene, pero no se crea desde la API', () => {
-  assert.ok(plantillaHojaDe('hooks-retencion'), 'el código de la vieja sigue (las hojas que ya existen y los «Ver …» de antes)');
-  assert.equal(plantillaOfrecidaDe('hooks-retencion'), undefined);
+  assert.ok(plantillaHojaDe('vsl-analyst'), 'el código de la vieja sigue (las hojas que ya existen y los «Ver …» de antes)');
+  assert.equal(plantillaOfrecidaDe('vsl-analyst'), undefined);
   assert.equal(plantillaOfrecidaDe('closing')?.id, 'closing');
 });
 

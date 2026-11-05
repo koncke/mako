@@ -174,7 +174,7 @@ test('sin guiones, la hoja lo dice; leyendo o caída, cada tarjeta espera sin in
   assert.deepEqual([caida.vacia, caida.numeros.map((x) => x.texto)], [false, [null, null, null]]);
 });
 
-test('el cableado: la plantilla trae su diseño con sus catorce piezas, se ofrece y el editor la dibuja mirando', () => {
+test('el cableado: la plantilla trae su diseño con sus doce piezas, se ofrece y el editor la dibuja mirando', () => {
   assert.ok((DISENOS_HOJA as readonly string[]).includes('anuncio'));
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'ads-analyst'));
   const h = hoja();

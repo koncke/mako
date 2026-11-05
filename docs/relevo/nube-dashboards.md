@@ -1,6 +1,19 @@
 # Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
 
-## 📬 Para el Cerebro (5/11/2026, ~03:30 UTC)
+## 📬 Para el Cerebro (5/11/2026, ~04:20 UTC)
+
+- **Anuncio ganador está en producción.** Entró a main (`30430f5e4`, la punta `dash-anuncio` tal cual, con su veredicto: 7.111 tests y
+  el tsc entero); el humo de producción de ese deploy dio verde a las 03:51. Es la decimoctava hoja copiada (Prism).
+- **Hooks y retención (la copia de Ondra) está en `punta/dash-hooks`**: la sección de abajo. Es la decimonovena hoja copiada, del
+  Dashboard (la plantilla `hooks-retencion`, que pasa a ofrecerse: el test de las ofrecidas usa ahora `vsl-analyst` como la vieja).
+  **⚠️ La referencia es ONDRA, no las de la propuesta** (Vitrea · Murmura): esas dos ya son las copias de Curso o comunidad y de
+  Instagram y redes, y repetirlas dejaba dos hojas iguales. Ondra es un panel de marketing (sus cuatro números con su curva, el embudo de
+  checkout, los canales, el medidor del presupuesto) y cada parte tiene su par en la pregunta de Hooks. La plantilla no suma paneles
+  (sigue en 12): los cuatro números pasan a compararse con el período anterior, el gancho trae también lo que llega al llamado, el
+  ThruPlay y los guiones, y el avatar lo que llega al llamado y los guiones.
+- **⚠️ La retención es por CUARTILES** (lo que manda Meta), no segundo a segundo (§7.4 de la propuesta).
+
+### Lo de las ~03:30 UTC
 
 - **Instagram y redes está en producción.** Entró a main (`cfbb92ecc`, la punta `dash-instagram` tal cual, con su veredicto: 7.102 tests y
   el tsc entero); el humo de producción de ese deploy dio verde a las 02:53. Es la decimoséptima hoja copiada (Murmura).
@@ -181,6 +194,63 @@ otras sesiones de Martín, y no pido ese permiso por mi cuenta. Lo dejo acá:
   sobre `dash-focus`, que contiene Cobranza y Focus (resultado abajo, en «Focus»).
 - **Focus (`punta/dash-focus`)**: la sección de abajo. **Esta punta lleva también los commits de Cobranza**: una sola corrida chequea las dos y,
   con verde, las dos llegan a main. La marca `ci-rojo/dash-cobranza` queda vieja ese día (es de `5936606b`, que ya iría adentro de main).
+
+## Hooks y retención: la decimonovena hoja copiada (la de Ondra), con «¿en qué parte del video se van, y qué gancho los retiene?» (punta `dash-hooks`, 5/11/2026)
+
+La referencia es Ondra (`docs/diseno/mockups-dashboard/demos/ondra/`): la página «Overview» de un panel de marketing claro, con la barra de
+la izquierda oscura, la cabecera con el saludo, «Performance» (cuatro números con su pastilla que corre y la curva del período contra el
+de antes, con los lanzamientos de campaña marcados), «Where it came from» (los canales con su barra apilada y un selector Revenue · Orders
+· Spend), «Running now» (las campañas con su presupuesto y su interruptor), «Checkout funnel» (las barras centradas con la caída más
+grande), «Hottest leads» (con su anillo de puntaje), «October budget» (un medidor con su aguja) y «Team activity».
+
+**Por qué Ondra y no las de la propuesta:** la propuesta (§7.3) le da a Hooks «Vitrea · Murmura», y las dos ya son copias de otras hojas
+(Curso o comunidad e Instagram y redes). Ondra estaba sin usar y cada parte tiene su par en la pregunta de Hooks.
+
+**Qué cambia para Martín:**
+- **«Nueva hoja» del Dashboard ofrece «Hooks y retención» con el diseño de Ondra**, con su miniatura de verdad (la plantilla no se ofrecía).
+- **La cabecera** dice cuántos vieron los 3 primeros segundos, cuántos llegaron a la mitad y cuántos lo vieron entero, con «Ver la grilla»
+  y «Escribir un guion». **Cuánto ven tus anuncios** («Performance»): el hook rate, los que llegan al llamado, el ThruPlay y los guiones
+  analizados, cada uno con su cambio contra el período anterior; tocar uno cambia la curva de abajo (día por día, con el promedio del
+  período anterior punteado).
+- **Qué gancho retiene** («Where it came from»): cada tipo de gancho con sus guiones, su parte y su hook rate (o lo que llega al llamado, o
+  el ThruPlay: el selector), y cuántos pasan el buen gancho (28%). **Cada guion** («Running now»): los seis que más retienen, con su gancho
+  y su formato, el hook rate en la barra, lo que llega al llamado y el ThruPlay; tocar uno abre su pop-up.
+- **En qué parte se van** («Checkout funnel»): 3 segundos, un cuarto, la mitad, tres cuartos y el video entero, con lo que retiene cada paso
+  y la caída más grande. **Hook rate por avatar** («Hottest leads»): los cinco de mejor gancho, con lo que llega al llamado y su anillo.
+- **Tu gancho** («October budget»): el medidor con la aguja en tu hook rate y la marca en el bueno (28%, arriba en el medio), y el gancho,
+  el llamado (contra el 10% del veredicto) y el ThruPlay. **Qué gancho funciona** («Team activity»): lo que escribió MaKo en la caja de IA
+  de la hoja (nunca corre al abrir; compartida o en la miniatura no se lee).
+
+**Lo que se copió de Ondra, y cómo se midió:**
+- La copia (`docs/diseno/mockups-dashboard/hooks-ondra/copia.html` con `ondra.css` y `ondra.js`) sale de lo medido del demo: `valores.json`,
+  las capturas a 1440 y a 390, los estados y el INFORME. **Nada del código de la tienda, ni el cartel «BUY THIS TEMPLATE», ni el logo de
+  Ondra** (la marca de la copia es un trazo propio). Los íconos son trazos propios.
+- **A 1440 las siete tarjetas de la copia caen en las de la captura a 2 px o menos** (las cajas: 213/508 contra 213/506, 754/476 contra
+  754/475, 1247/570 contra 1246/570), y las curvas de «Performance» se leyeron de la captura día por día (la altura de cada línea).
+  **En el teléfono, las siete a 3 px o menos** (246/614 contra 246/615 … 3052/562 contra 3050/562).
+- **El quinto filtro del embudo** lo tapa el cartel de la tienda a 1440; a 390 se lee «Orga…» con el punto verde: es Organic.
+- **En el teléfono, los rótulos de abajo de la curva pisan la leyenda** (la caja de la curva mide 224 y los rótulos salen de ella): es así
+  en el demo, y la copia lo deja. La adaptación no lo repite.
+- **El movimiento, de las RECETAS del INFORME:** la barra de la izquierda entra desde x −40 con escala .97 (.9 s, power3.out) y sus
+  renglones desde −12 px cada .035 s; la barra de la meta crece desde 0 (1,2 s); el embudo mide cada barra como max(.035, (el paso / el
+  primero) ^ .42) y marca la caída más grande; el medidor es un arco de radio 86 con 21 marcas; la pastilla del selector y la de los
+  números corren .35 s con la curva (.2, .8, .2, 1).
+- **⚠️ Lo SUPUESTO** (el INFORME corta la receta de la página): la barra de arriba baja desde −8 px; las tarjetas suben desde 18 px (.7 s,
+  desde .3 s, cada .06 s); la curva se dibuja en 1,2 s; las barras crecen en .9 s; los anillos en 1 s; la aguja gira en 1,1 s; los números
+  cuentan .9 s. Y en el teléfono, el cuarto rótulo de la curva (los otros tres se leen cada 8 días; el cuarto lo tapa el cartel).
+
+**Lo que Ondra tiene y MaKo no mide, y no está:** el rango de 7, 30 y 90 días (el período es el de la hoja), los lanzamientos de campaña
+sobre la curva, la curva día por día del período anterior (va su promedio, punteado), el filtro por canal del embudo, el interruptor que
+pausa una campaña, el presupuesto del mes y la actividad del equipo (va lo que escribió MaKo). La barra de la izquierda, la de arriba y la
+de abajo del teléfono son el armazón de Ondra: en MaKo las pone la app. **Y la retención es por cuartiles**, no segundo a segundo.
+
+**Dónde vive:**
+- El modelo: `lib/hooks-diseno.ts`, puro. Los datos de ejemplo: `lib/hooks-diseno-muestra.ts` (cuadran entre tarjetas: los guiones de cada
+  gancho y de cada avatar suman los analizados, y la cabecera dice lo mismo que el embudo). El buen gancho (`HOOK_MID`) y el buen llamado
+  (`HOLD_MID`) salen de `lib/ads-analyst-patrones.ts`, los mismos del veredicto.
+- El dibujo: `app/dashboard/disenos/HojaHooks.tsx`; lo vivo, `HooksVivo.tsx`; la hoja de estilos, `hooks-css.ts` (la arma
+  `scratchpad/ond/armar-ond.py` desde `ondra.css`, con la cola de la adaptación). El test: `tests/dashboard-diseno-hooks.test.ts` (10, con
+  13 roturas).
 
 ## Anuncio ganador: la decimoctava hoja copiada (la de Prism), con «¿cuál creativo gana, y con cuánta confianza?» (punta `dash-anuncio`, 5/11/2026)
 

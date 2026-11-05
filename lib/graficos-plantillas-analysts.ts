@@ -247,14 +247,16 @@ const HOOKS: PlantillaHoja = {
         titulo: 'Tus videos', frase: '{plays_3s} vieron los primeros 3 segundos · {p50} llegaron a la mitad · {p100} lo vieron entero',
         ir: 'ads-writer', x: 0, y: 0, w: 12, h: 3,
       },
-      kpi(id('hk-hook'), 'guiones', 'hook_rate', 'Hook rate', '', 0, 3, { tipo: 'numero_tendencia', invertida: true }),
-      kpi(id('hk-cta'), 'guiones', 'ret_cta', 'Llegan al llamado', '', 3, 3, { tipo: 'numero_tendencia' }),
-      kpi(id('hk-thruplay'), 'guiones', 'thruplay_rate', 'ThruPlay', '', 6, 3, { tipo: 'numero_tendencia' }),
-      kpi(id('hk-guiones'), 'guiones', 'guiones', 'Guiones analizados', '', 9, 3, { tipo: 'numero_tendencia', ir: 'ads-writer' }),
+      // 5/11/2026 — Los cuatro se comparan con el período anterior: el diseño de Ondra pone el cambio y el «vs» debajo de cada número.
+      kpi(id('hk-hook'), 'guiones', 'hook_rate', 'Hook rate', '', 0, 3, { tipo: 'numero_tendencia', invertida: true, comparar: true }),
+      kpi(id('hk-cta'), 'guiones', 'ret_cta', 'Llegan al llamado', '', 3, 3, { tipo: 'numero_tendencia', comparar: true }),
+      kpi(id('hk-thruplay'), 'guiones', 'thruplay_rate', 'ThruPlay', '', 6, 3, { tipo: 'numero_tendencia', comparar: true }),
+      kpi(id('hk-guiones'), 'guiones', 'guiones', 'Guiones analizados', '', 9, 3, { tipo: 'numero_tendencia', ir: 'ads-writer', comparar: true }),
       { id: id('hk-video'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'guiones', metricas: ['plays_3s', 'p25', 'p50', 'p75', 'p100'], titulo: 'En qué parte se van', x: 0, y: 7, w: 8, h: 10 },
-      { id: id('hk-gancho'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'gancho', metricas: ['hook_rate'], ordenMetrica: 'hook_rate', titulo: 'Qué gancho retiene', x: 8, y: 7, w: 4, h: 10 },
+      // El diseño cambia entre el hook rate, los que llegan al llamado y el ThruPlay de cada gancho, y cuenta sus guiones.
+      { id: id('hk-gancho'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'gancho', metricas: ['hook_rate', 'ret_cta', 'thruplay_rate', 'guiones'], ordenMetrica: 'hook_rate', titulo: 'Qué gancho retiene', x: 8, y: 7, w: 4, h: 10 },
       { id: id('hk-formato-cta'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'formato', metricas: ['ret_cta'], titulo: 'Llegan al llamado, por formato', x: 0, y: 17, w: 6, h: 8 },
-      { id: id('hk-avatar'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'avatar', metricas: ['hook_rate'], titulo: 'Hook rate por avatar', x: 6, y: 17, w: 6, h: 8 },
+      { id: id('hk-avatar'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'avatar', metricas: ['hook_rate', 'ret_cta', 'guiones'], ordenMetrica: 'hook_rate', titulo: 'Hook rate por avatar', x: 6, y: 17, w: 6, h: 8 },
       { id: id('hk-semana'), clase: 'grafico', tipo: 'serie', fuente: 'guiones', dimension: 'semana', metricas: ['hook_rate', 'ret_cta'], titulo: 'El gancho en el tiempo', x: 0, y: 25, w: 6, h: 8 },
       caja(id('hk-ia'), 'Qué gancho funciona', 'Qué ganchos retienen y en qué parte del video se va la gente', 6, 25, 6, 8),
       {
@@ -263,6 +265,16 @@ const HOOKS: PlantillaHoja = {
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'hk-tabla'),
       },
     ],
+    // El DISEÑO DE ONDRA (5/11/2026; docs/diseno/mockups-dashboard/hooks-ondra/): mirando, la hoja la dibuja
+    // app/dashboard/disenos/HojaHooks.tsx con estas piezas (lib/hooks-diseno.ts arma cada parte, con test). La curva de cada número
+    // sale de su propia serie diaria. Lo que llega al llamado por formato y el gancho por semana quedan en la grilla («Ver la grilla»).
+    diseno: {
+      id: 'hooks',
+      piezas: {
+        apertura: id('hk-apertura'), hook: id('hk-hook'), cta: id('hk-cta'), thruplay: id('hk-thruplay'), guiones: id('hk-guiones'),
+        gancho: id('hk-gancho'), tabla: id('hk-tabla'), video: id('hk-video'), avatar: id('hk-avatar'), ia: id('hk-ia'),
+      },
+    },
   }),
 };
 

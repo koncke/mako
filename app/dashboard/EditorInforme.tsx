@@ -194,6 +194,7 @@ const CursoVivo = dynamic(() => import('./disenos/CursoVivo'));
 const ServicioVivo = dynamic(() => import('./disenos/ServicioVivo'));
 const InstagramVivo = dynamic(() => import('./disenos/InstagramVivo'));
 const AnuncioVivo = dynamic(() => import('./disenos/AnuncioVivo'));
+const HooksVivo = dynamic(() => import('./disenos/HooksVivo'));
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -1715,6 +1716,14 @@ export function EditorInforme({
               // «Anuncio ganador» con su DISEÑO PROPIO (la copia de Prism, ./disenos/HojaAnuncio.tsx): los datos de sus componentes; un
               // guion abre su pop-up, y un veredicto o una confianza, lo de siempre de su pieza.
               <AnuncioVivo
+                hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
+                onGrilla={() => setEnGrilla(true)}
+                onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}
+              />
+            ) : hoja.diseno?.id === 'hooks' && !enGrilla && !editando && !dueno ? (
+              // «Hooks y retención» con su DISEÑO PROPIO (la copia de Ondra, ./disenos/HojaHooks.tsx): los datos de sus componentes y lo
+              // que escribió MaKo en su caja de IA; un guion abre su pop-up, y un avatar, lo de siempre de su pieza.
+              <HooksVivo
                 hoja={hoja} hoy={hoy} datos={datos} periodo={periodoDiseno} compartido={!!compartido}
                 onGrilla={() => setEnGrilla(true)}
                 onFila={(g, clave) => alClicDe(g)?.({ dimension: g.dimension ?? null, valor: clave })}

@@ -1247,4 +1247,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '5 nov', hora: '04:20', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hooks y retención, la decimonovena hoja copiada: el diseño de Ondra con «¿en qué parte del video se van, y qué gancho los retiene?»',
+    puntos: [
+      '**Se ofrece en «Nueva hoja» del Dashboard**, con su miniatura de verdad.',
+      '**Arriba:** cuántos vieron los 3 primeros segundos, la mitad y el video entero; el hook rate, los que llegan al llamado, el ThruPlay y los guiones, cada uno con su curva y su cambio.',
+      '**Qué gancho retiene y cada guion:** cada tipo de gancho con su hook rate, lo que llega al llamado o el ThruPlay, y los seis guiones que más retienen.',
+      '**En qué parte se van:** 3 segundos, un cuarto, la mitad, tres cuartos y el video entero, con la caída más grande.',
+      '**Por avatar, tu gancho y lo que dice MaKo:** el hook rate de cada avatar, el medidor contra el buen gancho (28%) y las conclusiones de la caja de IA.',
+      '**Anuncio ganador ya está en producción.**',
+    ],
+    archivos: [
+      'app/dashboard/disenos/HojaHooks.tsx · hooks-css.ts · HooksVivo.tsx — el diseño',
+      'lib/hooks-diseno.ts — de dónde sale cada número',
+      'lib/hooks-diseno-muestra.ts — los datos de ejemplo de la miniatura',
+      'docs/diseno/mockups-dashboard/hooks-ondra/ — la copia, el código de la copia y las capturas',
+    ],
+    revisar: '/dashboard',
+  },
 ];
