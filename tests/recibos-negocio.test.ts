@@ -3,7 +3,7 @@
 // =============================================================================
 // Martín: «varios templates de factura que nosotros podemos crear y que el usuario pueda elegir qué template quiere enviar».
 // Las reglas puras (lib/recibo-negocio-reglas.ts), las plantillas del PDF (lib/recibo-pdf.ts), la tarjeta, la operación de la
-// API y las guardas del cableado. La numeración en SQL se prueba con scripts/probar-0398-0399-pglite.mjs.
+// API y las guardas del cableado. La numeración en SQL se prueba con scripts/probar-0399-0400-pglite.mjs.
 //
 // ⚠️ PROBADO ROMPIÉNDOLO (5/11/2026): ver el final del archivo.
 // =============================================================================

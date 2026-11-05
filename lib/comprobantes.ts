@@ -103,7 +103,7 @@ export async function leerComprobanteDelLead(ws: number, leadId: number, o: { se
   if (!archivo) return { ok: false, error: 'No mandó una foto ni un PDF por WhatsApp en las últimas 48 horas.' };
 
   const { data: previa, error: errPrevia } = await db.from('comprobantes_leidos').select(COLS).eq('wa_mensaje_id', archivo.id).maybeSingle();
-  if (errPrevia) return { ok: false, error: faltaLaTabla(errPrevia) ? 'No pude guardar la lectura: falta la migración 0398.' : `No pude leer los comprobantes: ${errPrevia.message}`, falla: true };
+  if (errPrevia) return { ok: false, error: faltaLaTabla(errPrevia) ? 'No pude guardar la lectura: falta la migración 0400.' : `No pude leer los comprobantes: ${errPrevia.message}`, falla: true };
   if (previa) return { ok: true, ya: true, comprobante: deFila(previa as never) };
 
   const { data: blob, error: errBaja } = await db.storage.from(MEDIA_BUCKET).download(archivo.path);
@@ -152,7 +152,7 @@ export async function leerComprobanteDelLead(ws: number, leadId: number, o: { se
     const { data: otra } = await db.from('comprobantes_leidos').select(COLS).eq('wa_mensaje_id', archivo.id).maybeSingle();
     if (otra) return { ok: true, ya: true, comprobante: deFila(otra as never) };
   }
-  if (ins.error || !ins.data) return { ok: false, error: faltaLaTabla(ins.error) ? 'No pude guardar la lectura: falta la migración 0398.' : `No pude guardar la lectura: ${ins.error?.message ?? 'sin fila'}`, falla: true };
+  if (ins.error || !ins.data) return { ok: false, error: faltaLaTabla(ins.error) ? 'No pude guardar la lectura: falta la migración 0400.' : `No pude guardar la lectura: ${ins.error?.message ?? 'sin fila'}`, falla: true };
   return { ok: true, ya: false, comprobante: deFila(ins.data as never) };
 }
 

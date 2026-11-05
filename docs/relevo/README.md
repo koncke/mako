@@ -60,7 +60,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
 | La suscripción en la ficha del lead y la vista de edición (5/11) | `Lee docs/relevo/suscripciones-ficha-encargo.md y construilo.` |
 | La tab Customers de SuperAdmin pasa a ser Admin, entera de nuevo (5/11) | `Lee docs/relevo/admin-encargo.md y construilo.` |
-| La tarjeta Pagos de Automations (construida en `punta/automations-pagos`, 5/11: falta aplicar la 0398 y la 0399 y probarla en el ws 3) | `Lee docs/relevo/nube-recibos.md, desde «La tarjeta Pagos de Automations», y seguimos desde ahí.` |
+| La tarjeta Pagos de Automations (construida en `punta/automations-pagos`, 5/11: falta aplicar la 0400 y la 0399 y probarla en el ws 3) | `Lee docs/relevo/nube-recibos.md, desde «La tarjeta Pagos de Automations», y seguimos desde ahí.` |
 | Recibos de pago por correo y WhatsApp, con registro en SuperAdmin (construido en `punta/recibos`, 5/11: falta aplicar la 0397 y cargar el 0001 y el 0002) | `Lee docs/relevo/nube-recibos.md y seguimos desde ahí.` |
 | Varias claves de Apify (Spy y la biblioteca de carruseles, 5/11) | `Lee docs/relevo/nube-apify.md y seguimos desde ahí.` |
 | Vigía de aprobaciones (App Store, Google Play, la extensión, Meta, Google y Resend) | `Lee docs/relevo/nube-aprobaciones.md y seguimos desde ahí.` |

@@ -10,7 +10,7 @@
 // sin N.º de operación, o con dudas, es `dudoso`: va a una persona (la regla «nunca marca algo como pagado con dudas»).
 // ⚠️ UN PAGO PARCIAL NO SALDA EL TOTAL: `cubre` compara contra lo que tocaba pagar, en la MISMA moneda; otra moneda no se
 // convierte (no hay tasa que valga) y es `otra_moneda`, que también va a una persona.
-// ⚠️ UN N.º DE OPERACIÓN REPETIDO NO CUENTA DOS VECES: la base lo frena con un índice único por negocio (mig 0398); acá se
+// ⚠️ UN N.º DE OPERACIÓN REPETIDO NO CUENTA DOS VECES: la base lo frena con un índice único por negocio (mig 0400); acá se
 // normaliza igual que allá (`operacionNormal`), o dos grafías de la misma orden pasarían como dos pagos.
 // =============================================================================
 

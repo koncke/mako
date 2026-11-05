@@ -8078,7 +8078,7 @@ comprobante» (lib/condiciones-catalogo.ts, fuente `comprobante`). Lo que decide
 (lib/comprobante-reglas.ts): sólo una lectura con monto, moneda, fecha y N.º de operación, sin dudas del modelo, en la MISMA
 moneda que la cuota y por lo que tocaba. «De más», «otra moneda» y «sin cuota» van a una persona como «hay que revisarlo». Un
 monto que llega como texto con coma («1.234,56») no se adivina. Un N.º de operación cuenta una vez: lo frena un índice único
-de la base (mig 0398, `operacion_unica`), no una lectura previa.
+de la base (mig 0400, `operacion_unica`), no una lectura previa.
 
 **⚠️ Una foto no abre la rama de «Si responde».** Al motor sólo le llegan el texto y el audio de un lead
 (lib/evolution-mensajes.ts). Por eso el disparador es un CRON nuevo de «Pagos» («Llega un comprobante»), que sale con
@@ -8103,7 +8103,7 @@ resetear un negocio; `TENANT_TABLES` (lib/workspace.ts) es lo que `getTenantDb` 
 primera: el insert salía sin `workspace_id`, sin un error de tipos. Una tabla nueva de un negocio va en las dos.
 
 **Probado rompiéndolo:** 15 roturas en tests/comprobantes.test.ts, 13 en tests/recibos-negocio.test.ts y 4 en
-scripts/probar-0398-0399-pglite.mjs. Una dio VERDE en la primera versión: «copia al grupo antes de mandar» se comparaba con
+scripts/probar-0399-0400-pglite.mjs. Una dio VERDE en la primera versión: «copia al grupo antes de mandar» se comparaba con
 `indexOf`, que da -1 si la copia no está (la trampa ya escrita en AGENTS.md).
 
 **Sin hacer:** marcar la cuota cobrada desde el flujo cuando el comprobante «cubre» (hoy le avisa al equipo y lo marca una

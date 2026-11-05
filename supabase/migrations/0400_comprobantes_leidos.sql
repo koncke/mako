@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0398 — Los COMPROBANTES que lee la tarjeta «Pagos › Leer comprobante» de Automations (5/11/2026)
+-- 0400 — Los COMPROBANTES que lee la tarjeta «Pagos › Leer comprobante» de Automations (5/11/2026)
 -- =============================================================================
 -- Martín: «una tarjeta nueva de automations que sea un lector de comprobantes de pago [...] para leer comprobantes que
 -- vienen». El diseño: docs/relevo/pagos-automations-encargo.md; lo que se construyó: docs/relevo/nube-recibos.md y

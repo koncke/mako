@@ -16,7 +16,7 @@
 --     el recibo en su foto y lo devuelve con el lead.
 --
 -- ORDEN DE DESPLIEGUE: ANTES del código, o junto. Sin ella, la tarjeta contesta «falta la migración 0399» y no manda nada.
--- Número elegido en la nube el 5/11/2026 (0397 los recibos de MaKo, 0398 los comprobantes leídos): confirmarlo al aplicar.
+-- Número elegido en la nube el 5/11/2026 (0397 los recibos de MaKo, 0400 los comprobantes leídos): confirmarlo al aplicar.
 -- =============================================================================
 
 begin;

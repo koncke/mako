@@ -153,7 +153,7 @@ test('la plantilla «Le Llegó un Comprobante»: lee, pregunta, y nunca marca na
 });
 
 test('la migración: una lectura por mensaje y un N.º de operación por negocio', () => {
-  const sql = leer('supabase/migrations/0398_comprobantes_leidos.sql');
+  const sql = leer('supabase/migrations/0400_comprobantes_leidos.sql');
   assert.match(sql, /create unique index if not exists comprobantes_leidos_mensaje_uk on comprobantes_leidos \(workspace_id, wa_mensaje_id\);/);
   assert.match(sql, /create unique index if not exists comprobantes_leidos_operacion_uk on comprobantes_leidos \(workspace_id, operacion_unica\) where operacion_unica is not null;/);
   assert.match(sql, /revoke all on comprobantes_leidos from anon, authenticated;/);

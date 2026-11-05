@@ -1,15 +1,15 @@
 // =============================================================================
-// probar-0398-0399-pglite — las migraciones de la tarjeta «Pagos» de Automations contra un Postgres de verdad (5/11/2026)
+// probar-0399-0400-pglite — las migraciones de la tarjeta «Pagos» de Automations contra un Postgres de verdad (5/11/2026)
 // =============================================================================
-// Corre la 0398 (comprobantes leídos) y la 0399 (recibos de cada negocio) sobre PGlite con un esquema mínimo y prueba lo que
+// Corre la 0400 (comprobantes leídos) y la 0399 (recibos de cada negocio) sobre PGlite con un esquema mínimo y prueba lo que
 // sólo la base puede garantizar:
-//   · 0398: una lectura por mensaje, y un N.º de operación por negocio (la segunda fila con el mismo número rebota 23505; la
+//   · 0400: una lectura por mensaje, y un N.º de operación por negocio (la segunda fila con el mismo número rebota 23505; la
 //     de OTRO negocio entra);
 //   · 0399: la numeración es POR NEGOCIO y empieza en 1, la misma clave devuelve el mismo número (`ya_estaba`), y la función
 //     no la puede llamar la clave anon.
 // Uso (PGlite no es dependencia del repo):
 //   npm i --prefix <carpeta> @electric-sql/pglite
-//   PGLITE=<esa carpeta> node scripts/probar-0398-0399-pglite.mjs
+//   PGLITE=<esa carpeta> node scripts/probar-0399-0400-pglite.mjs
 // Sale con 1 si algún caso falla. Probado rompiéndolo: ver el final del archivo.
 // =============================================================================
 
@@ -22,7 +22,7 @@ import { pathToFileURL } from 'node:url';
 if (!process.env.PGLITE) { console.error('Falta PGLITE=<carpeta donde instalaste @electric-sql/pglite> (ver la cabecera).'); process.exit(2); }
 const { PGlite } = await import(pathToFileURL(createRequire(join(process.env.PGLITE, 'x.js')).resolve('@electric-sql/pglite')).href);
 
-const m0398 = fs.readFileSync(process.argv[2] ?? 'supabase/migrations/0398_comprobantes_leidos.sql', 'utf8');
+const m0400 = fs.readFileSync(process.argv[2] ?? 'supabase/migrations/0400_comprobantes_leidos.sql', 'utf8');
 const m0399 = fs.readFileSync(process.argv[3] ?? 'supabase/migrations/0399_recibos_negocio.sql', 'utf8');
 
 const ESQUEMA = `
@@ -42,7 +42,7 @@ async function caso(nombre, fn) {
 
 const db = new PGlite();
 await db.exec(ESQUEMA);
-await db.exec(m0398);
+await db.exec(m0400);
 await db.exec(m0399);
 
 const lectura = (ws, lead, msg, op) => db.query(
@@ -50,16 +50,16 @@ const lectura = (ws, lead, msg, op) => db.query(
    values ($1, $2, $3, 'x/y.jpg', 'image/jpeg', 'leido', 'cubre', '{}'::jsonb, $4, $4)`, [ws, lead, msg, op]);
 const codigo = async (fn) => { try { await fn(); return null; } catch (e) { return e?.code ?? String(e); } };
 
-await caso('0398: una lectura por mensaje', async () => {
+await caso('0400: una lectura por mensaje', async () => {
   await lectura(3, 100, 'msg-1', null);
   assert.equal(await codigo(() => lectura(3, 100, 'msg-1', null)), '23505');
 });
-await caso('0398: un N.º de operación cuenta una vez por negocio', async () => {
+await caso('0400: un N.º de operación cuenta una vez por negocio', async () => {
   await lectura(3, 100, 'msg-2', '461213098188603392');
   assert.equal(await codigo(() => lectura(3, 100, 'msg-3', '461213098188603392')), '23505', 'el mismo N.º en el mismo negocio rebota');
   assert.equal(await codigo(() => lectura(13, 200, 'msg-4', '461213098188603392')), null, 'en otro negocio, entra');
 });
-await caso('0398: la fila repetida entra sin `operacion_unica`', async () => {
+await caso('0400: la fila repetida entra sin `operacion_unica`', async () => {
   await db.query(`insert into comprobantes_leidos (workspace_id, lead_id, wa_mensaje_id, media_path, media_mime, estado, resultado, lectura, operacion, operacion_unica, repetido)
     values (3, 100, 'msg-5', 'x/y.jpg', 'image/jpeg', 'leido', 'repetido', '{}'::jsonb, '461213098188603392', null, true)`);
 });

@@ -115,9 +115,9 @@
 
 ## Lo que hay que hacer, en este orden
 
-1. **Aplicar la 0398 y la 0399** (`supabase/migrations/0398_comprobantes_leidos.sql`, `0399_recibos_negocio.sql`), ANTES del
+1. **Aplicar la 0400 y la 0399** (`supabase/migrations/0400_comprobantes_leidos.sql`, `0399_recibos_negocio.sql`), ANTES del
    deploy o junto. Sólo agregan. Números elegidos en la nube: confirmarlos al aplicar (0397 son los recibos de MaKo).
-   Lo que garantizan, probado contra Postgres: `PGLITE=<carpeta con @electric-sql/pglite> node scripts/probar-0398-0399-pglite.mjs`.
+   Lo que garantizan, probado contra Postgres: `PGLITE=<carpeta con @electric-sql/pglite> node scripts/probar-0399-0400-pglite.mjs`.
 2. **El deploy de `punta/automations-pagos`** (trae `punta/recibos` adentro: sale después de ésa).
 3. **Probar en el ws 3, no en el 1:** armar «Le Llegó un Comprobante», prenderla, mandar una foto de un comprobante desde un
    teléfono de prueba a la línea del ws 3, y mirar que llegue el aviso al grupo. Después «Emitir recibo» sobre una cuota cobrada
