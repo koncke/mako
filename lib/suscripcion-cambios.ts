@@ -89,7 +89,7 @@ export async function cambiarSuscripcion(leadId: number, c: CambioSuscripcion, a
   if (!lead) return { ok: false, error: 'No encontré ese lead en este negocio.' };
   if (lead.venta_tipo !== 'suscripcion') return { ok: false, error: `${lead.nombre} no es una suscripción.` };
   const [hoy, cambios] = await Promise.all([hoyEnWorkspace(), cambiosDeSuscripcion(leadId)]);
-  if (cambios.faltaMigracion) return { ok: false, error: 'Todavía no se puede guardar: falta la migración 0398 (los cambios de una suscripción). No se escribió nada.', faltaMigracion: true };
+  if (cambios.faltaMigracion) return { ok: false, error: 'Todavía no se puede guardar: falta la migración 0401 (los cambios de una suscripción). No se escribió nada.', faltaMigracion: true };
   if (!cambios.leido) return { ok: false, error: 'No pude leer los cambios de esta suscripción. Prueba de nuevo en un rato.' };
   const mes = mesDe(c.desde.length === 7 ? `${c.desde}-01` : c.desde);
   const existentes = ordenarMovimientos(cambios.movimientos);
@@ -154,7 +154,7 @@ export type PagoDeSuscripcionNuevo = {
 /**
  * REGISTRAR UN PAGO de una suscripción: entra como un pago cobrado (`registrarPagoSuelto`, el mismo camino que cualquier
  * cobro: suma al cash y corta los recordatorios) y después se le dice su mes o que es un ajuste (UPDATE aparte que no
- * tira: sin la 0398 el pago queda igual y su mes sale por orden). `mesGuardado: false` = se registró sin su mes.
+ * tira: sin la 0401 el pago queda igual y su mes sale por orden). `mesGuardado: false` = se registró sin su mes.
  */
 export async function registrarPagoDeSuscripcion(leadId: number, d: PagoDeSuscripcionNuevo, autor: string): Promise<{ pagoId: number; monto: number; mesGuardado: boolean; texto: string }> {
   const hoy = await hoyEnWorkspace();

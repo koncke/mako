@@ -363,7 +363,7 @@ function RegistrarPagoDelMes({ leadId, historia, hoy, monedaNegocio, sugerido, s
         });
         if (!r.ok) { setError(r.error); return; }
         const avisos: string[] = [];
-        if (!r.mesGuardado) avisos.push('el mes se calcula solo hasta que se aplique la migración 0398');
+        if (!r.mesGuardado) avisos.push('el mes se calcula solo hasta que se aplique la migración 0401');
         if (archivo) { const e = await subirComprobante(r.pagoId, archivo); if (e) avisos.push(`el comprobante no subió (${e})`); }
         onHecho(r.texto, r.pagoId, avisos.length ? `${r.texto} registrado · ${avisos.join(' · ')}` : undefined);
       } catch (e) { setError(msg(e)); }

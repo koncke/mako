@@ -179,7 +179,7 @@ async function saldoDelLead(lead: Lead, pagos: Awaited<ReturnType<typeof leerIns
     const [cobros, hoy, cambios] = await Promise.all([
       ws != null ? listarCobros(ws, { leadId: lead.id, limite: 50 }).catch(() => []) : Promise.resolve([]),
       hoyEnWorkspace(),
-      // Los cambios de la suscripción (mig 0398): la misma cuenta mes a mes que la tab Pagos del escritorio.
+      // Los cambios de la suscripción (mig 0401): la misma cuenta mes a mes que la tab Pagos del escritorio.
       lead.venta_tipo === 'suscripcion' ? cambiosDeSuscripcion(lead.id) : Promise.resolve(null),
     ]);
     const fila = lead as unknown as Record<string, unknown>;

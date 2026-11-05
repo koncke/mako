@@ -65,7 +65,7 @@ export function suscripcionParaModelo(e: {
     ...(h.terminada ? { termino_el_plazo: true } : {}),
     meses: h.meses.map((m) => mesParaModelo(m, e.hoy)),
     cambios: e.cambios.map((c) => ({ id: c.id, tipo: c.tipo, desde: c.desde, ...(c.montoUsd != null ? { monto_usd: c.montoUsd } : {}), ...(c.dia != null ? { dia: c.dia } : {}), ...(c.nota ? { nota: c.nota } : {}) })),
-    ...(e.faltaMigracion ? { nota: 'Los cambios de monto, los cortes y el mes de cada pago se guardan desde la migración 0398, que todavía no está aplicada: los meses usan la mensualidad de hoy.' } : {}),
+    ...(e.faltaMigracion ? { nota: 'Los cambios de monto, los cortes y el mes de cada pago se guardan desde la migración 0401, que todavía no está aplicada: los meses usan la mensualidad de hoy.' } : {}),
     ...(!e.cambiosLeidos ? { cambios_sin_leer: 'No pude leer los cambios de monto: los meses usan la mensualidad de hoy.' } : {}),
   };
 }

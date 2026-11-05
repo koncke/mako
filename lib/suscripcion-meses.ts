@@ -37,7 +37,7 @@
 
 import { esCuotaDelPlan, mesesDePlata, noEsDeuda, type CuotaParaCobrado } from './cobrado-lead';
 
-/** Los cambios de una suscripción (tabla `suscripcion_movimientos`, mig 0398). */
+/** Los cambios de una suscripción (tabla `suscripcion_movimientos`, mig 0401). */
 export const TIPOS_MOVIMIENTO = ['monto', 'corte', 'vuelta'] as const;
 export type TipoMovimiento = (typeof TIPOS_MOVIMIENTO)[number];
 export const esTipoMovimiento = (v: unknown): v is TipoMovimiento => typeof v === 'string' && (TIPOS_MOVIMIENTO as readonly string[]).includes(v);
@@ -57,9 +57,9 @@ export type MovimientoSuscripcion = {
 
 /** Lo que el modelo necesita de un pago: lo de `cobradoDelLead` más a qué mes va y si es un ajuste. */
 export type PagoDeSuscripcion = CuotaParaCobrado & {
-  /** El mes que paga (YYYY-MM-01), si se dijo al registrarlo (mig 0398). null: el más viejo que falte. */
+  /** El mes que paga (YYYY-MM-01), si se dijo al registrarlo (mig 0401). null: el más viejo que falte. */
   suscripcion_mes?: string | null;
-  /** No paga ningún mes: un diferencial o un prorrateo (mig 0398). Suma a lo cobrado. */
+  /** No paga ningún mes: un diferencial o un prorrateo (mig 0401). Suma a lo cobrado. */
   suscripcion_ajuste?: boolean | null;
   metodo?: string | null;
   concepto?: string | null;

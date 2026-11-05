@@ -1,11 +1,11 @@
 // =============================================================================
-// suscripcion-movimientos — la BASE de los cambios de una suscripción (mig 0398) y a qué mes va cada pago
+// suscripcion-movimientos — la BASE de los cambios de una suscripción (mig 0401) y a qué mes va cada pago
 // =============================================================================
 // Las reglas son de lib/suscripcion-meses.ts (puras); esto lee y escribe. Lo usan la ficha (app/crm/[id]/suscripcion-
 // actions.ts), el MRR (`getMrrActivo`), «A quién cobrar» (`getSuscripcionesPorCobrar`) y la API de MaKo.
 //
-// ⚠️ SIN LA 0398 NADA SE ROMPE: leer devuelve «sin cambios» (`faltaMigracion: true`) y todo cuenta como antes, con el monto
-//    del lead. Escribir un cambio dice que falta la migración (`FALTA_0398`), y el mes de un pago va en un UPDATE APARTE que
+// ⚠️ SIN LA 0401 NADA SE ROMPE: leer devuelve «sin cambios» (`faltaMigracion: true`) y todo cuenta como antes, con el monto
+//    del lead. Escribir un cambio dice que falta la migración (`FALTA_0401`), y el mes de un pago va en un UPDATE APARTE que
 //    no tira (el pago se registra igual: su mes sale por orden). Molde: `etiquetarPago` (lib/pagos.ts, mig 0292).
 // ⚠️ SE AGREGA, NUNCA SE EDITA: un cambio nuevo no toca los de antes (no se reescribe el pasado). Lo único que se borra es
 //    lo que se acaba de agregar, con el «Deshacer» de la pantalla (`quitarMovimientos`, por id y del lead).
@@ -18,11 +18,11 @@ import { getTenantDb } from './workspace';
 import { esTipoMovimiento, mesDe, ordenarMovimientos, type MovimientoSuscripcion, type TipoMovimiento } from './suscripcion-meses';
 
 export const TABLA_MOVIMIENTOS = 'suscripcion_movimientos';
-export const FALTA_0398 = 'Todavía no se puede guardar: falta la migración 0398 (los cambios de una suscripción). No se escribió nada.';
+export const FALTA_0401 = 'Todavía no se puede guardar: falta la migración 0401 (los cambios de una suscripción). No se escribió nada.';
 
-/** ¿Falta la tabla (la 0398 sin aplicar)? */
+/** ¿Falta la tabla (la 0401 sin aplicar)? */
 export const faltaLaTabla = (e: { code?: string | null } | null | undefined): boolean => !!e && (e.code === '42P01' || e.code === 'PGRST205');
-/** ¿Falta una columna (la 0398 sin aplicar, en `pagos`)? */
+/** ¿Falta una columna (la 0401 sin aplicar, en `pagos`)? */
 const faltaColumna = (e: { code?: string | null } | null | undefined): boolean => !!e && (e.code === '42703' || e.code === 'PGRST204');
 
 type Fila = {
@@ -118,7 +118,7 @@ export async function agregarMovimientos(leadId: number, movs: readonly Movimien
     dia: m.dia ?? null, nota: m.nota?.slice(0, 300) ?? null, por: por.slice(0, 120),
   }));
   const { data, error } = await db.from(TABLA_MOVIMIENTOS).insert(filas).select('id');
-  if (error) return faltaLaTabla(error) ? { ok: false, error: FALTA_0398, faltaMigracion: true } : { ok: false, error: `No pude guardar el cambio: ${error.message}` };
+  if (error) return faltaLaTabla(error) ? { ok: false, error: FALTA_0401, faltaMigracion: true } : { ok: false, error: `No pude guardar el cambio: ${error.message}` };
   return { ok: true, ids: ((data ?? []) as Array<{ id: number }>).map((r) => Number(r.id)) };
 }
 
@@ -132,7 +132,7 @@ export async function quitarMovimientos(leadId: number, ids: readonly number[]):
 }
 
 /**
- * A qué mes va un pago de una suscripción, o si es un ajuste (mig 0398). UPDATE APARTE QUE NO TIRA: sin la migración,
+ * A qué mes va un pago de una suscripción, o si es un ajuste (mig 0401). UPDATE APARTE QUE NO TIRA: sin la migración,
  * el pago ya quedó registrado y su mes sale por orden. Devuelve si se guardó.
  */
 export async function marcarMesDelPago(pagoId: number, leadId: number, d: { mes: string | null; ajuste: boolean }): Promise<boolean> {
@@ -142,7 +142,7 @@ export async function marcarMesDelPago(pagoId: number, leadId: number, d: { mes:
       .update({ suscripcion_mes: d.mes ? desdeDe(d.mes) : null, suscripcion_ajuste: d.ajuste })
       .eq('id', pagoId).eq('lead_id', leadId);
     if (error) {
-      console.error(`[suscripcion] el mes del pago ${pagoId} no se guardó${faltaColumna(error) ? ' (falta la migración 0398)' : ''}: ${error.message}`);
+      console.error(`[suscripcion] el mes del pago ${pagoId} no se guardó${faltaColumna(error) ? ' (falta la migración 0401)' : ''}: ${error.message}`);
       return false;
     }
     return true;

@@ -61,7 +61,7 @@ export function itemDeSuscripcion(e: {
   lead: LeadSuscripcion;
   pagos: readonly CuotaParaCobrado[];
   cobros: readonly CobroParaCobrado[];
-  /** Los cambios de la suscripción (mig 0398, lib/suscripcion-meses.ts). Sin ellos, el monto del lead para todos los meses. */
+  /** Los cambios de la suscripción (mig 0401, lib/suscripcion-meses.ts). Sin ellos, el monto del lead para todos los meses. */
   movimientos?: readonly MovimientoSuscripcion[];
   hoy: string;
   ventana: { desde: string | null; hasta: string | null };

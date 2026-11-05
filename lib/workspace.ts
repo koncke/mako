@@ -159,7 +159,7 @@ const TENANT_TABLES = new Set<string>([
   // línea, el webhook leería los vínculos de TODOS los negocios y una reserva podría caer en el embudo
   // de otro (el ruteo puro igual los filtra por workspace: lib/agenda-evento-etapa.ts).
   'agenda_evento_etapa',
-  // Los cambios de una suscripción (mig 0398, 5/11/2026): sin esta línea `getTenantDb()` es PASSTHROUGH: no le pone el
+  // Los cambios de una suscripción (mig 0401, 5/11/2026): sin esta línea `getTenantDb()` es PASSTHROUGH: no le pone el
   // negocio a lo que se escribe ni filtra por él lo que se lee (lib/suscripcion-movimientos.ts).
   'suscripcion_movimientos',
   // Las ETIQUETAS del CRM (mig 0224): el catálogo de cada negocio y qué lead tiene cuál. Sin estas

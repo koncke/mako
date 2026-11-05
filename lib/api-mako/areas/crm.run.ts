@@ -857,7 +857,7 @@ export const RUNNERS: Runners = {
       let cobrosSinLeer = false;
       const [cobros, { hoy }, movs] = await Promise.all([
         listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => { cobrosSinLeer = true; return []; }), hoyDelWorkspace(ctx.ws),
-        // Los cambios de la suscripción (mig 0398): la misma cuenta mes a mes que la tab Pagos.
+        // Los cambios de la suscripción (mig 0401): la misma cuenta mes a mes que la tab Pagos.
         lead.venta_tipo === 'suscripcion' ? cambiosDeSuscripcion(lead.id) : Promise.resolve(null),
       ]);
       const cob = cobradoDelLead({

@@ -313,7 +313,7 @@ export type LeadFullData = {
   /** El «⋯» ofrece «Llevar a MaKo Partners» (o «Ver en…» con `lead.cliente_ws`): agencia y su admin (app/crm/partners-crm.ts). */
   partners: boolean;
   /**
-   * (5/11/2026, mig 0398) Los cambios de su suscripción (montos desde un mes, cortes y vueltas): sólo si la venta es una
+   * (5/11/2026, mig 0401) Los cambios de su suscripción (montos desde un mes, cortes y vueltas): sólo si la venta es una
    * suscripción, y sin tirar. Los leen el estado de cuenta y la tab Pagos (lib/suscripcion-meses.ts). `leido: false` = no
    * se pudo leer (la tab lo dice: no es «sin cambios»); sin la migración, `leido: true` y vacío (todo cuenta como antes).
    */
@@ -352,7 +352,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const cobroP = temprano(senalesDeCobroAction(id));
   // Los tratos de sus CRMs agregados (mig 0324): si no se pueden leer, la tab Pagos de un CRM agregado sale vacía, no la ficha.
   const tratosP = tratosDelLead(id).catch((e: unknown) => { console.error(`[crm] tratos del lead ${id}:`, e instanceof Error ? e.message : e); return undefined; });
-  // Los cambios de su suscripción (mig 0398): sólo si es una, y en paralelo con lo demás. `cambiosDeSuscripcion` no tira.
+  // Los cambios de su suscripción (mig 0401): sólo si es una, y en paralelo con lo demás. `cambiosDeSuscripcion` no tira.
   const suscripcionP = lead.venta_tipo === 'suscripcion' ? cambiosDeSuscripcion(id) : Promise.resolve(undefined);
   const resumenP = temprano(resumenDelNegocio());
   // ⚠️ LOS INSUMOS DE «N SIN MARCAR» (el plan, las etapas DEL LEAD, las respuestas de la R2 y si el encuentro

@@ -876,7 +876,7 @@ export const RUNNERS: Runners = {
       if (!cobros) return { error: 'No pude leer los cobros del lead. Prueba de nuevo en un rato.', falla: true };
       if (laCobraLaPasarela(cobros)) return { error: `La suscripción de ${lead.nombre} la cobra la pasarela: se cambia en su cobro (cancelar_suscripcion para cortarla).` };
       const cambios = await cambiosDeSuscripcion(lead.id);
-      if (cambios.faltaMigracion) return { error: 'Todavía no se puede guardar un cambio de la suscripción: falta la migración 0398.', falla: true };
+      if (cambios.faltaMigracion) return { error: 'Todavía no se puede guardar un cambio de la suscripción: falta la migración 0401.', falla: true };
       const hoy = await hoyEnWorkspace();
       const mes = nombreDelMes(cambio.desde.slice(0, 7), hoy);
       const resumen = cambio.tipo === 'monto'

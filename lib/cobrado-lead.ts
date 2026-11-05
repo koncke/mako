@@ -73,7 +73,7 @@ export type EntradaCobrado = {
   pagos: readonly (CuotaParaCobrado & Partial<Pick<PagoDeSuscripcion, 'suscripcion_mes' | 'suscripcion_ajuste' | 'metodo' | 'concepto' | 'comprobante_path'>>)[];
   cobros?: readonly CobroParaCobrado[];
   /**
-   * Los cambios de una suscripción (mig 0398, lib/suscripcion-meses.ts): los montos desde una fecha, los cortes y las
+   * Los cambios de una suscripción (mig 0401, lib/suscripcion-meses.ts): los montos desde una fecha, los cortes y las
    * vueltas. Sin ellos (o sin la migración), el monto del lead vale para todos los meses, como siempre.
    */
   movimientos?: readonly MovimientoSuscripcion[];

@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0398_suscripcion_movimientos — los cambios de una suscripción y a qué mes va cada pago
+-- 0401_suscripcion_movimientos — los cambios de una suscripción y a qué mes va cada pago
 -- =============================================================================
 -- Pedido de Martín (5/11/2026): «la suscripción es suben, bajan… otros casos hay cortes… la pestaña de pagos dentro de
 -- lo que sería una venta de suscripción es algo que quisiera cambiarlo completamente». La investigación y lo que se

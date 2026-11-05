@@ -1766,7 +1766,7 @@ mentían: 146, 238 y 426 no caben en un número, y noviembre pagado en DOS pagos
   a la factura más vieja); una mensualidad registrada va entera a un mes y un pago suelto cubre MESES ENTEROS por su
   plata (la regla de la quinta revisión: 10 × 550 son 10 meses, no 11). Un ajuste (el diferencial) suma al cash y no paga
   un mes.
-- **Los cambios se AGREGAN con su fecha** (`suscripcion_movimientos`, mig 0398): monto desde un mes, corte, vuelta. La
+- **Los cambios se AGREGAN con su fecha** (`suscripcion_movimientos`, mig 0401): monto desde un mes, corte, vuelta. La
   primera vez que cambia el monto se guarda el de antes desde el inicio (`conElMontoDeAntes`); sin eso, los meses de antes
   quedan «sin monto» (`montoDelMes` no inventa con el de hoy).
 - **⚠️ COMPATIBILIDAD, y no es opcional:** sin cambios guardados (todos los datos de antes), una mensualidad sin mes vale
@@ -1796,10 +1796,10 @@ mentían: 146, 238 y 426 no caben en un número, y noviembre pagado en DOS pagos
 - **Dos funciones con el mismo nombre:** `movimientosDelLead` ya existía en lib/pagos-vistazo.ts (lo que movió plata) y
   crm.run.ts la importa. La de la base se llama `cambiosDeSuscripcion`.
 
-**Lo que quedó sin hacer:** aplicar la 0398; cargar los datos de los tres clientes de la plataforma (el relevo dice qué);
+**Lo que quedó sin hacer:** aplicar la 0401; cargar los datos de los tres clientes de la plataforma (el relevo dice qué);
 la vista mes a mes en el teléfono (/m muestra el estado de cuenta, ya con la cuenta nueva, no los meses); el prorrateo
 automático del diferencial (hoy lo calcula Martín y se registra como ajuste).
 
 **Vive en:** lib/suscripcion-meses.ts · lib/suscripcion-movimientos.ts · lib/suscripcion-cambios.ts · lib/suscripcion-api.ts ·
 lib/cobrado-lead.ts · lib/queries.ts · app/crm/lead-view/ficha/pagos/suscripcion.tsx · app/crm/lead-view/ficha/reglas-pagos.ts ·
-app/crm/[id]/suscripcion-actions.ts · app/api/crm/comprobante-pago/route.ts · supabase/migrations/0398_suscripcion_movimientos.sql
+app/crm/[id]/suscripcion-actions.ts · app/api/crm/comprobante-pago/route.ts · supabase/migrations/0401_suscripcion_movimientos.sql

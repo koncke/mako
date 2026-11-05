@@ -3995,11 +3995,11 @@ export const BITACORA: Hito[] = [
       '**Cambiar el monto desde un mes**, **cortar** y **retomar**, sólo el admin y con Deshacer. Los meses de antes no se reescriben.',
       '**Sin la mensualidad cargada**, el MRR y la ficha usan lo pagado el último mes y lo dicen («Estimado»), con «Cargarla».',
       'La misma cuenta en el estado de cuenta, «A quién cobrar», el MRR, el teléfono y la API de MaKo (ver_suscripcion_lead, cambiar_suscripcion, y registrar_pago_suelto con su mes).',
-      '**Falta:** aplicar la migración 0398 y cargar los datos de Código, Leila y Florencia (docs/relevo/nube-suscripciones.md).',
+      '**Falta:** aplicar la migración 0401 y cargar los datos de Código, Leila y Florencia (docs/relevo/nube-suscripciones.md).',
     ],
     archivos: [
       'lib/suscripcion-meses.ts — la cuenta mes a mes (pura), con tests/suscripcion-meses.test.ts',
-      'supabase/migrations/0398_suscripcion_movimientos.sql — los cambios y el mes de cada pago (SIN APLICAR)',
+      'supabase/migrations/0401_suscripcion_movimientos.sql — los cambios y el mes de cada pago (SIN APLICAR)',
       'lib/suscripcion-movimientos.ts · lib/suscripcion-cambios.ts — la base y la escritura, una para la pantalla y la API',
       'app/crm/lead-view/ficha/pagos/suscripcion.tsx · app/crm/[id]/suscripcion-actions.ts · app/api/crm/comprobante-pago/route.ts — la pantalla',
       'lib/cobrado-lead.ts · lib/queries.ts (getMrrActivo) · lib/suscripciones-por-cobrar.ts — los que leen la suscripción',

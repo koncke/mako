@@ -1821,7 +1821,7 @@ export async function getSuscripcionesPorCobrar(hoy: string, desde: string | nul
       db.from('cobros').select('lead_id, tipo, estado, suscripcion_estado, motivo').in('lead_id', ids).eq('tipo', 'suscripcion'),
       db.from('funnels').select('id').eq('es_default', true).limit(1).maybeSingle(),
       db.from('lead_funnel').select('lead_id, funnel_id').in('lead_id', ids),
-      // Los cambios de cada suscripción (mig 0398): sin leerlos, el monto del lead vale para todos los meses (lo de antes).
+      // Los cambios de cada suscripción (mig 0401): sin leerlos, el monto del lead vale para todos los meses (lo de antes).
       leerCambiosDeSuscripcion(ids),
     ]);
     if (lf.error) throw new Error(lf.error.message);

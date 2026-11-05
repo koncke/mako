@@ -21,11 +21,14 @@ docs/investigacion-suscripciones.md.
 
 ## Lo que tiene que hacer el Cerebro, en este orden
 
-### 1. Aplicar la migración 0398 ANTES del deploy (o junto)
+### 1. Aplicar la migración 0401 ANTES del deploy (o junto)
 
-`supabase/migrations/0398_suscripcion_movimientos.sql`: la tabla `suscripcion_movimientos` y dos columnas de `pagos`
-(`suscripcion_mes`, `suscripcion_ajuste`). **El número se confirma al aplicarla**: main terminaba en 0394 el 5/11 y la 0396
-y la 0397 estaban en camino en otras ramas. Si alguien tomó la 0398, se renumera antes de subir.
+`supabase/migrations/0401_suscripcion_movimientos.sql`: la tabla `suscripcion_movimientos` y dos columnas de `pagos`
+(`suscripcion_mes`, `suscripcion_ajuste`). **El número se confirma al aplicarla.** Nació 0398 y se renumeró a 0401 el 5/11,
+cuando la Actividad de Admin entró a main con su 0398. Lo que había en otras ramas ese día: la 0396 en
+`punta/codigo-primer-contacto` y, en `punta/automations-pagos`, una 0398 (`comprobantes_leidos`, que también choca con la de
+Admin) y una 0399. La 0400 quedó libre a propósito: es el número natural para esa 0398 cuando se renumere. Si alguien tomó
+la 0401, se renumera antes de subir.
 
 - Sin ella el código no se rompe: la tab se dibuja, pero «Cambiar el monto», «Cortar» y «Retomar» contestan que falta la
   migración, y el mes de un pago se calcula solo (no se guarda).
@@ -36,7 +39,7 @@ y la 0397 estaban en camino en otras ramas. Si alguien tomó la 0398, se renumer
 ### 2. Cargar los datos (con el OK de Martín, desde la app o la API, no a mano en SQL)
 
 Los tres clientes de la plataforma (negocio 9) tienen la mensualidad vacía y la fecha de cierre del día que se cargaron
-(26/10), no la de la venta. Con la 0398 aplicada y la punta en producción:
+(26/10), no la de la venta. Con la 0401 aplicada y la punta en producción:
 
 **Juanfran / Código Inmobiliario (lead 2474):**
 1. `editar_venta_lead`: fecha de cierre 2026-10-21 (el día del primer pago).
@@ -89,7 +92,7 @@ Hay dos MRR y miden cosas distintas: Admin › Revenue (lo que le pagan a MaKo, 
 
 La sesión de la nube no tiene base de datos: la tab nueva y la barra del bloque se probaron con tests (la cuenta mes a mes
 ejecutándose, la barra leyendo el fuente) y con el `tsc`, no abriéndolas. Lo primero que hay que hacer en el ws 3, con la
-0398 aplicada: abrir un lead de suscripción, registrar dos pagos en un mes, cambiar el monto desde el mes que viene,
+0401 aplicada: abrir un lead de suscripción, registrar dos pagos en un mes, cambiar el monto desde el mes que viene,
 cortar y retomar; y en «Editar» de la ficha, elegir un bloque y abrir cada cosa del «⋯» (ancho, diseño, obligatorio,
 título, ícono), en computadora y en el teléfono.
 

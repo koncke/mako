@@ -819,7 +819,7 @@ async function _getMrrActivo(hoy: string = new Date().toISOString().slice(0, 10)
   // ⚠️ LA MENSUALIDAD DE HOY, CON SUS CAMBIOS (5/11/2026, lib/suscripcion-meses.ts): un cambio guardado para diciembre no
   // cuenta en noviembre, y un corte de este mes la saca. Y SIN MONTO CARGADO, NO ES 0: los tres clientes de suscripción de
   // la plataforma tenían el monto vacío y el MRR daba nada con pagos hechos. Se suma lo pagado el último mes (`estimadas`).
-  // Sin la 0398, sin cambios: lo de antes. Con la lectura caída, también (no es un cero: el monto del lead sigue valiendo).
+  // Sin la 0401, sin cambios: lo de antes. Con la lectura caída, también (no es un cero: el monto del lead sigue valiendo).
   const ids = filas.map((r) => Number(r.id)).filter((n) => Number.isFinite(n));
   const sinMonto = filas.filter((r) => !(Number(r.suscripcion_monto_usd) > 0)).map((r) => Number(r.id));
   const [cambios, pagosSinMonto] = await Promise.all([
