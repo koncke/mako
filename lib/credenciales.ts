@@ -808,7 +808,7 @@ const CLAVES_DE_PASARELA: ReadonlySet<string> = new Set([
   // Las tres de Creem (31/10/2026). Se probaron a mano con la clave en un `.env.local` (el 5/11/2026 ya no estaba en el del
   // clon de la PC), y por eso tienen que estar en esta lista: si la hidratación del ws1 copiara una al entorno, cualquier
   // lectura con `credWs` de otro camino cobraría con la cuenta de Creem de Mauricio. La de la plataforma vive en la fila del
-  // ws de la plataforma; la moderación (lib/creem-moderacion.ts) la lee de ahí con `credDelCliente`.
+  // ws de la plataforma (desde el 5/11/2026 no hay: Creem cerró la tienda de MaKo, docs/creem-retiros.md).
   'CREEM_API_KEY', 'CREEM_WEBHOOK_ID', 'CREEM_WEBHOOK_SECRET',
 ]);
 // Por el nombre base: `STRIPE_SECRET_KEY__C2` y el nombre de la cuenta (`STRIPE_ALIAS`, `…__C2`) también son de la pasarela.

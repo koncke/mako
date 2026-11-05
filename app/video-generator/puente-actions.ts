@@ -243,7 +243,7 @@ export async function probarImagenAction(
     // entera— y el prompt va por PARCHES porque `fundir()` reemplaza arrays: un
     // `requests` a medias perdería el modelo y la cara.
     const id = await encolar('generar_imagen', {
-      // El mismo texto del parche, también al tope: es lo que lee la rama de BOQ de la cola y lo que modera Creem
+      // El mismo texto del parche, también al tope: es lo que lee la rama de BOQ de la cola y lo que se modera
       // (lib/flow-cola.ts → `encolar`). Un trabajo que genera sin `prompt` al tope no se encola: no se puede moderar.
       prompt: texto.slice(0, 500),
       path: ENDPOINTS.generarImagenes('x'),
