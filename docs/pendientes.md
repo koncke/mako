@@ -106,15 +106,14 @@ la herramienta del push que decía «rojo» cuando no podía chequear.
    automática con B-roll tipo Submagic** (2.15 · 4.9) y **clips mágicos tipo Opus Clip** (2.8).
 7. **El recorrido visual**: 8 de 22 pantallas miradas, 22 problemas sin repartir, 14 pantallas sin mirar.
 8. **Lo de la llamada con Thiago que no existe** (`docs/promesas/2910-llamada-thiago.md`).
-9. **Image Editor sin Gemini** (decidido el 22/10, sigue por defecto).
-10. **Brand board en el Second Brain** (2.9): que MaKo lo pida y lo use en los editores. **De esto depende que los
-    carruseles apliquen la marca completa (1.3).**
-11. **Elementos de marketing en las landings** (2.10, «súper importante»): cuenta regresiva, prueba social, escasez.
-12. **Botones Discutir / Editar siempre** en el chat de edición (2.12 · 4.12).
-13. **Carruseles también en Web Generator** (2.14 · 3.9 · 4.10).
-14. **Strategy / el Estratega** (3.3): hoy sólo Meta Ads.
-15. **Guía de IA por pestaña** (3.6 · 4.17) · **QA automático con Claude** (3.8 · 4.11).
-16. **Conectar GPT desde la computadora** (1.12 · 4.13).
+9. **Elementos de marketing en las landings** (2.10, «súper importante»): cuenta regresiva, prueba social, escasez.
+10. **Carruseles también en Web Generator** (2.14 · 3.9 · 4.10).
+11. **Strategy / el Estratega** (3.3): hoy sólo Meta Ads.
+12. **Guía de IA por pestaña** (3.6 · 4.17) · **QA automático con Claude** (3.8 · 4.11).
+13. **Conectar GPT desde la computadora** (1.12 · 4.13).
+
+(Image sin Gemini, el brand board en el Second Brain (2.9, con los carruseles con la marca completa, 1.3) y «Discutir |
+Editar» en los chats de Image y Video (2.12 · 4.12) salieron en `punta/image-marca` el 5/11: docs/relevo/nube-image-marca.md.)
 
 ## 🔵 Volvió con fallas — lo retoma quien lo tenga
 

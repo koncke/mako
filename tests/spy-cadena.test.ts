@@ -174,8 +174,10 @@ test('8. el tope de corridas largas del día vive en la base, no en la memoria d
   const paso = codigo.slice(codigo.indexOf('async function pasoDeCanal'), codigo.indexOf('export async function avanzarTodo'));
   assert.ok(paso.length > 200);
   assert.match(paso, /if \(!\(await reservarCorrida\(\)\)\) return \{[^}]*porque: 'limite' \}/, 'antes de empezar una corrida se reserva en la base');
-  assert.ok(paso.indexOf('reservarCorrida()') < paso.indexOf('await empezar('), 'se reserva ANTES de gastar');
-  const reservar = codigo.slice(codigo.indexOf('async function reservarCorrida'), codigo.indexOf('async function empezar'));
+  // 5/11/2026 (varias claves de Apify): la corrida se empieza con `conLaPrimeraConCredito` (la primera clave con crédito).
+  const gasta = paso.indexOf('await conLaPrimeraConCredito(');
+  assert.ok(gasta > 0 && paso.indexOf('reservarCorrida()') < gasta, 'se reserva ANTES de gastar');
+  const reservar = codigo.slice(codigo.indexOf('async function reservarCorrida'), codigo.indexOf('async function creditoDelMes'));
   // Desde el 4/11 la misma reserva cuenta también los guiones de los reels (otra clave, otro tope): lo que cuida es que el
   // tope de las corridas largas siga siendo `CLAVE_DIA` por defecto y que la cuenta sea compare-and-set en la base.
   assert.match(reservar, /async function reservarCorrida\(clave = CLAVE_DIA, tope = CORRIDAS_LARGAS_POR_DIA\)/, 'por defecto, las corridas largas');

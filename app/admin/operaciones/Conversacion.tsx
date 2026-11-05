@@ -19,7 +19,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { Icon } from '@/app/_components/icons';
 import { PanelDeChat } from './PanelChat';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
-import { preguntasDeLaApp, preguntasParaElBloque } from '@/lib/centro-chats';
+import { preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque } from '@/lib/centro-chats';
 import { historialDelChat, tandaHasta, yaEstaSinVer, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, idDeLinea, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
@@ -34,7 +34,7 @@ import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { Hilo, TANDA_HILO } from './Hilo';
 import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
-import { BloqueDePreguntas } from './PreguntasDelChat';
+import { BloqueDePreguntas, armarIgnorar, type ParaIgnorar } from './PreguntasDelChat';
 import { BloqueCompletado } from './BloqueCompletado';
 import { AvisoClave } from '@/app/_chat/AvisoClave';
 import { hayClave } from '@/lib/claves-en-el-chat';
@@ -60,8 +60,10 @@ export type WaDeConversacion = {
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onGrabada, onCrearClave, onCopiarClave, onVolver,
   aspecto, onMuneco, onRenombrar, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
-  preguntasChat = [], onResponder, avisoCerrado, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos, yaVisto = null, onYaVisto,
+  preguntasChat = [], onResponder, avisoCerrado, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos, yaVisto = null, onYaVisto, ignorar,
 }: {
+  /** «Ignorar» lo que espera a Martín y «Ignoradas» (5/11/2026, useCentro.ts → ignorarPregunta / ignorarDecision). */
+  ignorar?: ParaIgnorar;
   /** Los pasos en vivo de su turno abierto (la E): van en el «Trabajando…» del hilo. */
   pasos?: readonly PasoDelTurno[];
   /** La conversación ya calculada (useCentro.ts → lineasDe, memorizada): sin esto se calcula acá en cada render. */
@@ -124,6 +126,7 @@ export function Conversacion({
   const lineas = lineasDeFuera ?? historialDelChat(chat, pedidos, trabajos, respuestas, turnos, preguntasChat);
   const bloque = preguntasParaElBloque(lineas);
   const deLaApp = preguntasDeLaApp(lineas);
+  const paraIgnorar = armarIgnorar(ignorar, preguntasIgnoradas(lineas));
   // Lo que dijo el micrófono si no pudo (permiso, transcripción): va en la línea de estado de la caja.
   const [faltaMic, setFaltaMic] = useState<string | null>(null);
   useEffect(() => { setFaltaMic(null); }, [chat.clave]);
@@ -236,7 +239,7 @@ export function Conversacion({
         <BloqueCompletado key={`ya-${chat.clave}`} chat={chat} lineas={lineas} yaVisto={yaVisto} onYaVisto={onYaVisto ? yaVistoCb : undefined}
           hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} onResponderSobre={wa ? feedback : undefined} />
         <BloqueDePreguntas key={`b-${chat.clave}`} chat={chat.clave} ticketera={preguntas} responderTicketera={responder}
-          delChat={bloque} onResponder={onResponder ? responderPregunta : undefined} avisoCerrado={avisoCerrado} deLaApp={deLaApp} />
+          delChat={bloque} onResponder={onResponder ? responderPregunta : undefined} avisoCerrado={avisoCerrado} ignorar={paraIgnorar} ahora={ahora} deLaApp={deLaApp} />
         {/* Una clave pegada no sale (mandar.ts): se dice apenas aparece, con el botón a /integraciones. */}
         {envio.puede && hayClave(texto) && <AvisoClave />}
         {envio.puede ? (

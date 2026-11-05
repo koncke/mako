@@ -47,10 +47,12 @@ test('1. las publicaciones del actor salen con la misma forma que las de Meta', 
 
 test('2. Spy lee con su negocio y pide la fuente por nombre; pegar la clave no choca con un fallo recordado', () => {
   const spy = leer('lib/spy.ts');
-  assert.match(spy, /leerPerfilInstagram\(c\.instagram, \{ ws: await getWorkspaceActual\(\), conPiezas: true, fuentes: \['meta-negocio', 'meta-plataforma', 'apify-spy'\] \}\)/);
+  assert.match(spy, /leerPerfilInstagram\(c\.instagram, \{ ws: await getWorkspaceActual\(\), conPiezas: true, fuentes: \['meta-negocio', 'meta-plataforma', 'apify-spy'\], variasClaves: true \}\)/);
   const server = leer('lib/instagram-perfil-server.ts');
   assert.match(server, /\$\{claveDeSpy \? 'spy' : ''\}`;/);
-  assert.match(server, /fuentes\.includes\('apify-spy'\) && ws != null \? await credDelCliente\(APIFY_CLAVE_DE_SPY, ws\)/, 'la paga el negocio que la pegó, nunca la plataforma');
+  // 5/11/2026: las claves de Spy (varias) las lee UNA función, con el negocio; la 1 sale de `credDelCliente`, nunca de la plataforma.
+  assert.match(server, /fuentes\.includes\('apify-spy'\) && ws != null \? await clavesApifyDeSpy\(ws, \{ soloLaPrimera: !opts\.variasClaves \}\)/, 'la paga el negocio que la pegó, nunca la plataforma');
+  assert.match(server, /credDelCliente\(APIFY_CLAVE_DE_SPY, ws\)/, 'la 1 se lee del negocio');
   assert.match(server, /opts\.fuentes \?\? \['meta-negocio', 'meta-plataforma', 'apify'\]/, 'sin pedirla, nadie la gasta');
   assert.equal(APIFY_CLAVE_DE_SPY, 'APIFY_INSTAGRAM_TOKEN');
 });

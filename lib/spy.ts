@@ -699,7 +699,7 @@ export async function mirarCompetidor(
       });
     } else {
     // ⚠️ CON EL NEGOCIO (1/11/2026): sin `ws`, la función no podía usar la Meta del cliente ni su clave, y leía siempre con la de la plataforma.
-    const l = await leerPerfilInstagram(c.instagram, { ws: await getWorkspaceActual(), conPiezas: true, fuentes: ['meta-negocio', 'meta-plataforma', 'apify-spy'] });
+    const l = await leerPerfilInstagram(c.instagram, { ws: await getWorkspaceActual(), conPiezas: true, fuentes: ['meta-negocio', 'meta-plataforma', 'apify-spy'], variasClaves: true });
     if (!l.ok) {
       canales.push({ canal: 'instagram', ok: false, piezas: 0, nuevas: 0, detalle: `No pude leer @${c.instagram}: ${detalleDeInstagram(l.motivo, l.detalle)}` });
     } else {

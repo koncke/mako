@@ -181,12 +181,19 @@ test('la clave de Competitors Spy sólo lee Instagram: no es la vuelta del scrap
   //
   // Si esto no era lo que Martín quiso decir, lo que se saca es `'apify-spy'` de las fuentes en
   // app/api/crm/instagram-buscar/route.ts y se vuelve a poner este guard como estaba.
-  assert.deepEqual(quienes('APIFY_INSTAGRAM_TOKEN|APIFY_CLAVE_DE_SPY').sort(), [
+  // ⚠️ 5/11/2026 — VARIAS CLAVES DE SPY (Martín: «Dame la opción de tener varias claves de apify»). Las extra
+  // (`APIFY_INSTAGRAM_TOKEN_2…_5`) se nombran por su lista (`CLAVES_APIFY_DE_SPY`) y se leen por UNA función
+  // (`clavesApifyDeSpy`): las dos van en el patrón, para que un lector nuevo no pueda esquivar esta lista llamándolas por otro
+  // nombre. Los archivos son los mismos de antes más lib/spy-claves.ts, que es PURO: no lee ninguna clave, ordena las que le
+  // pasa Spy y decide cuándo pasar a la siguiente (sólo por falta de crédito).
+  assert.deepEqual(quienes('APIFY_INSTAGRAM_TOKEN|APIFY_CLAVE_DE_SPY|CLAVES_APIFY_DE_SPY|clavesApifyDeSpy').sort(), [
     'app/api/crm/instagram-buscar/route.ts',
     'lib/instagram-perfil-server.ts', 'lib/instagram-perfil.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-catalogo.ts', 'lib/metodo-verificar.ts',
     // 4/11/2026: el buscador de Spy por red (Google y el buscador de Instagram por nombre). Es Spy, con la misma clave, sin
     // escribir nada: candidatos que la persona confirma. Su cupo es aparte (`TOPE_BUSQUEDAS_SPY_POR_DIA`).
     'lib/spy-buscar.ts',
+    // 5/11/2026: puro, sin leer ninguna clave (ver arriba).
+    'lib/spy-claves.ts',
     // 3/11/2026: buscar sus otras redes (ítems 10/11 de Spy). Es Spy, con la misma clave y sin escribir nada: candidatos que la persona confirma.
     'lib/spy-otras-redes.ts',
     // 4/11/2026: las corridas largas de Spy (puntos 8 y 10: todas sus publicaciones y sus anuncios). Es Spy, con la misma
@@ -198,6 +205,11 @@ test('la clave de Competitors Spy sólo lee Instagram: no es la vuelta del scrap
     'app/api/crm/instagram-buscar/route.ts', 'lib/instagram-perfil-server.ts', 'lib/spy-buscar.ts', 'lib/spy.ts',
   ]);
   assert.doesNotMatch(leer('app/api/offer/route.ts'), /apify-spy/, 'Offer no gasta la clave de Spy');
+  // Las claves EXTRA son de Spy y de la biblioteca de carruseles (5/11/2026): el alta del CRM sigue con la 1 sola. La pide Spy
+  // por nombre (`variasClaves`), y el CRM no.
+  assert.deepEqual(quienes('variasClaves').sort(), ['lib/instagram-perfil-server.ts', 'lib/spy-buscar.ts', 'lib/spy.ts'], 'sólo Spy pide las claves extra');
+  assert.doesNotMatch(sinComentarios(leer('app/api/crm/instagram-buscar/route.ts')), /clavesApifyDeSpy|variasClaves|CLAVES_APIFY_DE_SPY/, 'el alta del CRM no usa las claves extra');
+  assert.doesNotMatch(leer('app/api/offer/route.ts'), /clavesApifyDeSpy|variasClaves/, 'Offer tampoco');
   // ⚠️ 3/11/2026 — SE SUMÓ UN SEGUNDO ACTOR DE APIFY Y NO ES LA VUELTA DEL SCRAPER.
   // `apify~instagram-scraper` (lib/instagram-buscar-apify.ts) busca perfiles por NOMBRE para que la
   // lista ofrezca candidatos sin que haya que escribir el @ —pedido de Martín del 2/11—. Lo que

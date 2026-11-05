@@ -153,7 +153,7 @@ function fondoDe(bg: unknown): string {
  * La vista del diseño para la IA. `activePageId` es la página abierta; `elegidos`, los ids de lo seleccionado en el
  * editor (el alcance «lo elegido»). `fuentes`: unas pocas sugeridas (el catálogo entero no entra).
  */
-export function vistaDeDiseno(doc: unknown, op: { activePageId?: string | null; elegidos?: readonly string[]; fuentes?: readonly string[]; /** Las fotos de «Subidos» que puede poner, sin la dirección: la IA elige por ref. */ fotos?: ReadonlyArray<{ ref: string; nombre: string; ancho: number; alto: number; adjunta?: boolean }> } = {}): VistaDiseno {
+export function vistaDeDiseno(doc: unknown, op: { activePageId?: string | null; elegidos?: readonly string[]; fuentes?: readonly string[]; /** Las fotos de «Subidos» que puede poner, sin la dirección: la IA elige por ref. */ fotos?: ReadonlyArray<{ ref: string; nombre: string; ancho: number; alto: number; adjunta?: boolean; /** El logo del kit de marca (lib/marca/kits.ts). */ logo?: boolean }> } = {}): VistaDiseno {
   const d = (doc ?? {}) as { width?: unknown; height?: unknown; pages?: unknown };
   const pages = (Array.isArray(d.pages) ? d.pages : []) as Obj[];
   const items: Array<{ id: string; prefijo: string }> = [];

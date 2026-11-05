@@ -24,7 +24,7 @@ import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoar
 import { vinculadosDelCrm } from '@/lib/vinculos-de-columnas';
 import { enElTope, estadoTopeCrm } from '@/lib/topes-crm';
 import { ofrecePartners } from './partners-crm';
-import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
+import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { mapToCrmLead, etapasDelTablero } from './crm-map';
 import { getEquipoAction, type MiembroEquipo } from './actions';
 import { leerOrdenManual } from '@/lib/crm-orden';
@@ -44,7 +44,7 @@ export const revalidate = 0;
 // dos veces.
 export const maxDuration = 60;
 
-export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ funnel?: string; embudo?: string }> }) {
+export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ funnel?: string; embudo?: string; importar?: string }> }) {
   // Qué funnel dibuja el tablero. Va por la URL y no por estado del cliente: las
   // etapas se leen en el server, así que cambiar de funnel es cambiar de página.
   const sp = await searchParams;
@@ -55,6 +55,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   // entran») y el cerebro. Sin esto, el link deja a la persona en el tablero buscando
   // un menú que no sabe que existe.
   const abrirEmbudo = sp?.embudo === 'entradas' ? 'entradas' : sp?.embudo ? 'etapas' : null;
+  // `?importar=1` ABRE «Importar leads» AL ENTRAR (5/11/2026, docs/mako-iniciativa/plan.md T7): lo usa la apertura de la estrella
+  // («¿Dónde tienes hoy a tus clientes?» → «En una planilla») y la escalera del Ops Center. Un link que lleva a donde se carga.
+  const abrirImportar = sp?.importar === '1';
   const funnelPideId = Number.isInteger(funnelPedido) && funnelPedido > 0 ? funnelPedido : null;
   await requireCapa('crm');
 
@@ -147,6 +150,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   // closer, que completaba los dos pasos y recién al final leía «Solo el administrador puede crear un CRM». La MISMA
   // pregunta que la acción, para que las dos no digan cosas distintas. Sin poder leerlo, no se ofrece.
   const pPuedeCrear = getRolWsEfectivo().then((r) => r === 'admin', () => false);
+  // Los leads del NEGOCIO (todos los funnels), contados sin traerlos: la apertura de la estrella pregunta dónde están sus clientes
+  // sólo con el CRM vacío. Una lectura caída es null («no se sabe»): MaKo calla, nunca dice «no tienes».
+  const pLeadsNegocio = getTenantDb()
+    .then((db) => db.from('leads').select('id', { count: 'exact', head: true }))
+    .then(({ count, error }) => (error ? null : count ?? 0), () => null);
   // Qué muestra la tarjeta de un lead para quien mira (20/10/2026). Nunca tira: sin fila propia, lo de siempre.
   const pCampos = getCamposTarjetaCrm();
 
@@ -212,7 +220,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   // Con la etapa de ENTRADA pegada: a ella caen los agregados cuya etapa ya no existe acá.
   const validStageKeys = etapasDelTablero(stages);
-  const [[anunciosObj, adMap], ordenManual, cursoAlGanar, partners, puedeCrearCrm, camposTarjeta, vinculados, tope] = await Promise.all([pAtrib, pOrden, pCurso, pPartners, pPuedeCrear, pCampos, pVinculados, pTope]);
+  const [[anunciosObj, adMap], ordenManual, cursoAlGanar, partners, puedeCrearCrm, camposTarjeta, vinculados, tope, leadsNegocio] = await Promise.all([pAtrib, pOrden, pCurso, pPartners, pPuedeCrear, pCampos, pVinculados, pTope, pLeadsNegocio]);
   const atrib = { anuncios: new Map(Object.entries(anunciosObj)), adMap };
   const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys, atrib));
 
@@ -260,6 +268,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       funnels={funnels}
       funnelActivo={funnelId}
       abrirEmbudo={abrirEmbudo}
+      abrirImportar={abrirImportar}
       juntas={juntas}
       marcar={marcar}
       marcarAviso={pendientesAviso}
@@ -278,7 +287,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       vinculados={vinculados}
       topeLeads={tope && enElTope(tope, 'crm.leads') ? tope.tope : null}
     />
-    <PanelMakoCrm funnelId={funnelId} />
+    <PanelMakoCrm funnelId={funnelId} apertura={{ leads: leadsNegocio, esAdmin: puedeCrearCrm }} />
     </>
   );
 }

@@ -34,13 +34,24 @@ import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE, PROMPTS_CHAT_VIDE
 import { senalesDelNegocio } from '../plantillas-sugeridas-server';
 import { reglaNoExisteEn } from '../no-existe';
 import { conPedidoDeNoExisteDeLaSesion } from '../no-existe-server';
+import { bloqueDeMarca } from '../marca/kits';
+import { kitParaUsar } from '../marca/kits-server';
+import { esDiscutir, reglaDiscutir, respuestaDeDiscutir } from '../chat-editor-discutir';
 
 export const FEATURE_CHAT_VIDEO = 'video-editor-ia';
 
 /** El chat espera hasta acá a la IA; la ruta corta a 120 s. */
 const PLAZO_IA_MS = 90_000;
 
-export type PedidoChatVideo = { instruccion?: unknown; linea?: unknown; alcance?: unknown; /** Lo que el sistema leyó de las fotos o los PDF del pedido (28/10/2026): va aparte, como dato. */ archivos?: string };
+export type PedidoChatVideo = { instruccion?: unknown; linea?: unknown; alcance?: unknown; /** Lo que el sistema leyó de las fotos o los PDF del pedido (28/10/2026): va aparte, como dato. */ archivos?: string; /** «discutir» contesta sin cambiar nada (lib/chat-editor-discutir.ts); lo demás, Editar. */ intencion?: unknown };
+
+/**
+ * La marca del negocio para el chat del video (5/11/2026, lib/marca/kits.ts): el kit de por defecto, sus colores y sus
+ * fuentes (los textos del video toman cualquier Google Font por nombre). Sin logo: el chat no pone imágenes. Vacío sin kit.
+ */
+export async function marcaParaVideo(): Promise<string> {
+  return bloqueDeMarca(await kitParaUsar().catch(() => null));
+}
 
 export type ResultadoChatVideo =
   | { ok: true; resumen: string; operaciones: OperacionChat[]; descartes: string[] }
@@ -105,10 +116,15 @@ export async function editarVideo(p: PedidoChatVideo): Promise<ResultadoChatVide
       }),
     ]);
     // Lo que no existe en MaKo se dice y se marca en `resumen` (lib/no-existe.ts): abajo se saca y se levanta el pedido.
-    const sys = `${await brandSystem(await renderPrompt(PROMPTS_CHAT_VIDEO.system.key, CHAT_VIDEO_SYSTEM_TEMPLATE, {
-      catalogo: catalogoParaPrompt(senales),
-      formato: FORMATO_CHAT,
-    }))}\n\n${reglaNoExisteEn('resumen')}`;
+    const discutir = esDiscutir(p.intencion);
+    const [base, marca] = await Promise.all([
+      brandSystem(await renderPrompt(PROMPTS_CHAT_VIDEO.system.key, CHAT_VIDEO_SYSTEM_TEMPLATE, {
+        catalogo: catalogoParaPrompt(senales),
+        formato: FORMATO_CHAT,
+      })),
+      marcaParaVideo(),
+    ]);
+    const sys = `${[base, marca, discutir ? reglaDiscutir('el video') : ''].filter(Boolean).join('\n\n')}\n\n${reglaNoExisteEn('resumen')}`;
     const hastaIA = t0 + PLAZO_IA_MS;
     const salida = await chatClaude(sys, [{ role: 'user', content: conLaLecturaAparte(user, p.archivos) }], {
       feature: FEATURE_CHAT_VIDEO,
@@ -117,6 +133,12 @@ export async function editarVideo(p: PedidoChatVideo): Promise<ResultadoChatVide
       hastaMs: hastaIA,
     });
     const raw = await objetoConUnaReparacion(salida, reparador(hastaIA));
+    // Discutir no cambia nada: lo que el modelo trajo igual se tira, y la respuesta va entera.
+    if (discutir) {
+      const ne = typeof raw.resumen === 'string' ? await conPedidoDeNoExisteDeLaSesion(raw.resumen, { chat: 'video-editor (Discutir)', ruta: '/video-editor', pedido: instruccion }) : null;
+      const respuesta = ne ? [respuestaDeDiscutir(ne.texto), ne.linea].filter(Boolean).join('\n\n') : '';
+      return { ok: true, resumen: respuesta || 'No tengo nada que sugerir sobre eso.', operaciones: [], descartes: [] };
+    }
     const { operaciones, descartes } = validarOperaciones(raw.operaciones);
     if (descartes.length) console.warn(`[video-editor:chat] descartes: ${descartes.slice(0, 20).join(' · ')}`);
     // La marca de lo que no existe sale ANTES de quedarse con la primera línea, y el pedido va solo a la Ticketera.

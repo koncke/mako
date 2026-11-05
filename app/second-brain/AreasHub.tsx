@@ -50,6 +50,7 @@ import { FormatosView } from '../onboarding/FormatosView';
 import { ProductosView } from '../onboarding/ProductosView';
 import { OfertasView } from '../onboarding/OfertasView';
 import { ResumenView } from '../onboarding/ResumenView';
+import { MarcaView } from './MarcaView';
 
 /** Qué se abre al tocar cada área. Es el ÚNICO dato nuevo de este archivo: la lista de
  *  áreas, sus nombres y sus descripciones salen de `AREAS`.
@@ -87,6 +88,8 @@ const vistasDe = (funnelPanel: ReactNode): Record<AreaId, Array<{ id?: string; n
   voz: [
     { id: 'personalidad', nombre: 'Personalidad', vista: <PersonalidadView /> },
     { id: 'persona', nombre: 'Persona', vista: <PersonaView /> },
+    // La marca del negocio (5/11/2026): colores, fuentes y logo, en kits. La usan Image, Video y Web Generator.
+    { id: 'marca', nombre: 'Marca', vista: <MarcaView /> },
   ],
   // El funnel dejó de ser una sección suelta al final de la página y pasó a ser UNA
   // TARJETA MÁS: es un área del cerebro como cualquier otra, con sus nodos en el mapa y

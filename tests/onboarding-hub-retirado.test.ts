@@ -55,7 +55,8 @@ const AL_WIZARD: ReadonlyArray<{ archivo: string; por: string }> = [
 
 test('cada sección tiene un lugar que existe: el área está en AREAS y la sub-pestaña en SUBVISTAS', () => {
   const secciones = Object.keys(DONDE_SE_EDITA) as SeccionNegocio[];
-  assert.equal(secciones.length, 10, 'eran las diez del hub');
+  // Las diez del hub, y la Marca (5/11/2026: los kits de marca, lib/marca/kits.ts).
+  assert.equal(secciones.length, 11, 'eran las diez del hub y la Marca');
   for (const s of secciones) {
     const d = DONDE_SE_EDITA[s];
     assert.ok(AREAS.some((a) => a.id === d.area), `${s}: el área «${d.area}» no existe en Second Brain`);

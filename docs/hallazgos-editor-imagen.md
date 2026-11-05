@@ -595,7 +595,24 @@ tests/image-editor-plantillas-crear.test.ts
 
 **Vive en:** lib/image-editor/chat/prompts.ts (`image_editor.experto`)
 
-## El chat de imagen corre con Gemini por defecto (29/10/2026)
+## La marca del negocio en Image, y el chat sin Gemini (5/11/2026)
+
+- **Síntoma (Leila, 30/10):** los carruseles sólo tomaban el fondo de su marca. **Causa medida el 5/11:** no había dónde
+  guardar la marca de un negocio. El chat de Image recibía sólo la persona y el núcleo de MaKo (`brandSystem`), y los
+  carruseles de MaKo salían con el estilo fijo de su tipo y las iniciales del negocio.
+- **Lo que quedó:** kits de marca en `app_settings` (`marca.kits`, sin migración: 30 kits como mucho, sin bytes; el logo es un
+  archivo de «Subidos»). Los kits se guardan con compare-and-set y lo que lee la IA del manual es un BORRADOR que la persona
+  confirma. El bloque del prompt tiene menos de 400 caracteres y sólo nombra las fuentes que el editor tiene: una que no
+  tiene se cae en silencio. El logo va como una foto más de «fotos», con `"logo": true`.
+- **La contradicción de abajo (Gemini por defecto) se cerró:** `image-editor-ia` y `marca-leer` corren con `deSuIA` (su
+  Claude por la segunda puerta del veto, su GPT por clave, `fallback: []`), y la cascada saca Gemini aun con «sólo su IA»
+  (`sinGemini`, lib/ai-cheap.ts). Lo fija tests/solo-su-ia.test.ts corriendo la cascada de verdad.
+- **Lo que NO se pudo desde la nube:** mirar las pantallas en un navegador con datos, ni medir cómo lee la visión un brand
+  board real (la caja del logo es lo más frágil: si se sale de la imagen, no se recorta y se sube a mano).
+
+**Vive en:** lib/marca/kits.ts · lib/marca/leer-manual.ts · app/second-brain/MarcaView.tsx · lib/carruseles/marca-kit.ts
+
+## El chat de imagen corre con Gemini por defecto (29/10/2026) — cerrado el 5/11 (arriba)
 
 - **Causa:** `lib/model-catalogo.ts:241` tiene GEMINI por defecto para `image-editor-ia`, y la decisión del 22/10 es
   «sin Gemini».
