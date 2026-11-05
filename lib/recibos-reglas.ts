@@ -1,7 +1,7 @@
 // =============================================================================
 // recibos-reglas — lo que decide un RECIBO de MaKo sin tocar la base (5/11/2026)
 // =============================================================================
-// Puro y SIN `server-only` a propósito: lo importan los tests, la pantalla de SuperAdmin (Customers › Billing) y el PDF.
+// Puro y SIN `server-only` a propósito: lo importan los tests, la pantalla de SuperAdmin (Admin › Billing) y el PDF.
 // El envío y la base viven en lib/recibos.ts; el documento, en lib/recibo-pdf.ts; el número, en la función SQL
 // `emitir_recibo` (mig 0397). El diseño y sus agujeros: docs/relevo/recibos-encargo.md.
 //

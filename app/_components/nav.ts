@@ -363,9 +363,11 @@ export const FAMILIAS: NavFamilia[] = [
         // «Classroom» desde el 25/10/2026 (Martín: «La tab de "clients" pasa a llamarse "Classroom". También su ruta.»): abre
         // en el curso; el kanban de la entrega es su sub-tab Clients. /clients redirige (next.config.ts) y sigue marcando acá.
         { key: 'customer-success', label: 'Classroom', bajada: 'Curso, comunidad y clientes', adentro: ['cs-curso', 'cs-comunidad'], href: '/classroom', icon: 'users', match: (p) => starts('/classroom')(p) || starts('/clients')(p) || starts('/customer-success')(p) },
-        // Customers (25/10/2026, docs/feedback-25-10-tarde.md puntos 10 y 12): los clientes de MaKo para el super admin
-        // (Partners, Agencies y el resto), con Billing (era /admin/cobros) y Agents (era /admin/agente) adentro.
-        { key: 'admin-customers', label: 'Customers', href: '/customers', icon: 'cs', adminOnly: true, match: (p) => starts('/customers')(p) || starts('/admin/cobros')(p) || starts('/admin/agente')(p) },
+        // Admin (5/11/2026; era Customers, 25/10/2026): la tab del super admin, con Revenue, Billing, los negocios, las cuentas
+        // y Agents adentro (app/admin/page.tsx). Martín: «la tab que hoy en día se llama Customer dentro de Super Admin, que se
+        // llame Admin directamente». La KEY no cambia (es contrato: capas, teléfono, API). El `match` es /admin EXACTO: sus
+        // subrutas (/admin/dev, /admin/ui…) son otras tabs. /customers redirige acá y sigue marcándola.
+        { key: 'admin-customers', label: 'Admin', href: '/admin', icon: 'cs', adminOnly: true, match: (p) => p === '/admin' || starts('/customers')(p) || starts('/admin/cobros')(p) || starts('/admin/agente')(p) },
       ],
     ],
   },

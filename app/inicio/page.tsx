@@ -42,7 +42,7 @@ export default async function Inicio() {
     // Con LAS MISMAS RUTAS (13/10/2026) el teléfono va a /general: el proxy le sirve ahí Today.
     // Desde el 20/10/2026 el teléfono entra al Ops Center, la tab principal (`ENTRADA_MOVIL`); hasta ese día, a /general.
     // En la computadora, su grilla de negocios: Customers desde el 25/10/2026 (antes era /clients, que la dibujaba).
-    if (ws == null) redirect(telefono ? ENTRADA_MOVIL : '/customers');
+    if (ws == null) redirect(telefono ? ENTRADA_MOVIL : '/admin');
   }
   if (telefono) redirect(await rutaConWs(ENTRADA_MOVIL));
   // ⚠️ TODOS los destinos de acá van con `rutaConWs`. Este archivo es EL repartidor:

@@ -12,6 +12,7 @@
 .m-customers-barras > div { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
 .m-customers-barras i { display: block; width: 100%; background: var(--primary); border-radius: 5px 5px 2px 2px; }
 .m-customers-barras i[data-cero="true"] { background: var(--border); }
+.m-customers-barras i[data-curso="true"] { background: repeating-linear-gradient(135deg, var(--primary) 0 5px, color-mix(in srgb, var(--primary) 45%, transparent) 5px 10px); }
 .m-customers-barras span { font-size: 11px; color: var(--faint); }
 .m-customers-chips { display: flex; gap: 8px; overflow-x: auto; margin: 18px 0 12px; padding-bottom: 2px; scrollbar-width: none; }
 .m-customers-chips button { flex: none; min-height: 40px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px;

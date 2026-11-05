@@ -460,6 +460,10 @@ function PieLegal() {
       <a href="/terminos" style={link}>Términos</a>
       {/* La política que piden Stripe y Mercado Pago para aprobar la cuenta (11/10/2026). */}
       <a href="/reembolsos" style={link}>Reembolsos</a>
+      {/* La política de uso aceptable y el soporte (5/11/2026): Creem pide las dos visibles para aprobar la tienda. */}
+      <a href="/aup" style={link}>Uso aceptable</a>
+      <a href="/planes" style={link}>Planes y precios</a>
+      <a href="/soporte" style={link}>Soporte</a>
       <a href={`mailto:${EMAIL_MAKO}`} style={link}>{EMAIL_MAKO}</a>
       {/* Meta rechazó la verificación del negocio porque la razón social no estaba en el
           sitio (08/10/2026): ver lib/titular-mako.ts. */}

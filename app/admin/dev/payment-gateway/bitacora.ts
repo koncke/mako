@@ -25,7 +25,7 @@ export const PARTES: Parte[] = [
   { titulo: 'El primer cobro real, de punta a punta', detalle: 'Aplicar la migración 0255 y conectar la cuenta de MaKo en /integraciones del workspace de la plataforma', estado: 'cola' },
   { titulo: 'Revisar /terminos y /reembolsos', detalle: 'Quedaron en BORRADOR de mínima: plazo de respuesta, garantía del grupal y cancelar sin escribir los decide Martín', estado: 'cola' },
   { titulo: '«Pagos» en el CRON de Automations', detalle: 'Botón propio (grilla 4+3) con aprobado · rechazado · reembolsado · suscripción cancelada, y el aviso al dueño. Fase 2, después del commit de Automations', estado: 'cola' },
-  { titulo: 'El recibo de cada pago, por correo y WhatsApp', detalle: 'Libro con número (mig 0397) · PDF determinista · correo de MaKo con el PDF · al grupo del negocio · la red del cron · devolución y contracargo · «Cargar pago» para Binance · Customers › Billing › Recibos. Falta aplicar la 0397 y cargar 0001 y 0002', estado: 'sigue' },
+  { titulo: 'El recibo de cada pago, por correo y WhatsApp', detalle: 'Libro con número (mig 0397) · PDF determinista · correo de MaKo con el PDF · al grupo del negocio · la red del cron · devolución y contracargo · «Cargar pago» para Binance · Admin › Billing › Recibos. Falta aplicar la 0397 y cargar 0001 y 0002', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -44,7 +44,7 @@ export const BITACORA: Hito[] = [
       '**El número lo da la base** (`emitir_recibo`, mig 0397): candado, «ya estaba» sólo si TODOS los pagos ya están en ese recibo, totales por moneda calculados ahí. Probada en un Postgres de verdad (scripts/probar-0397-pglite.mjs).',
       '**El monto es lo que cobró la pasarela, releído** (`cobradoEnLaPasarela`): un cupón o el 50% del primer mes ya no imprimen el precio de lista.',
       '**Sale al final del pago**, después del aviso «Entró un pago»: correo de MaKo con el PDF (uno por persona, con su clave de Resend) y al grupo del negocio, sin el monto en el pie.',
-      '**Lo que no es de la pasarela** (Binance) se carga en Customers › Billing › Recibos, con la foto del comprobante. Es un recibo de pago: dice que no es una factura fiscal.',
+      '**Lo que no es de la pasarela** (Binance) se carga en Admin › Billing › Recibos, con la foto del comprobante. Es un recibo de pago: dice que no es una factura fiscal.',
     ],
     archivos: [
       'supabase/migrations/0397_recibos.sql — el libro, `emitir_recibo` y `recibos_que_faltan`',
@@ -547,5 +547,36 @@ export const BITACORA: Hito[] = [
       'tests/prueba-cartel.test.ts — 17 roturas, cada una cae',
     ],
     revisar: '/video-generator',
+  },
+  {
+    fecha: '5 nov', hora: '17:00', chat: 'Creem › Revisión', sesion: 'cli_a3ba5ed6-c0ff-5a7c-bc38-e7c9878ab62b', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Dejar el sitio listo para la revisión de Creem',
+    pedido: 'Dejá el sitio listo para la revisión de Creem. Leé docs/creem-retiros.md y estas páginas oficiales: docs.creem.io/merchant-of-record/account-reviews/account-reviews, .../re-review-guide, .../rejected-accounts y .../ai-wrapper-compliance. 1. Revisá contra esos requisitos, uno por uno, lo que sirve hola-mako.com: dominio, producto, /terminos, /privacidad, /planes, /reembolsos, /soporte, el correo de contacto. El nombre del responsable tiene que coincidir en todas (lib/titular-mako.ts). 2. /aup redirige a /login: hace falta una política de uso aceptable pública, enlazada desde el pie del sitio y de los términos, sin sesión, escrita para lo que MaKo hace de verdad (imagen, video, AI Avatar, copy, mensajes a leads). 3. Integrá el Moderation API de Creem donde se genera imagen o video desde un prompt, si su documentación lo exige para este caso: Image Editor, Video, AI Avatar, carruseles. Mirá lib/model-catalogo.ts. Un prompt rechazado muestra un mensaje claro. Si la moderación falla por un error de Creem, no se cae la generación. Hay que proteger la clave y no gastar de más: cada llamada, medida. 4. Medí si AI Avatar puede leerse como «manipulación de rostros», que Creem prohíbe, y qué haría falta. No lo apagues: es una decisión de Martín. Dejá el análisis y un borrador de la consulta a soporte de Creem en tu relevo.',
+    puntos: ['Llegó como encargo a una sesión de la nube, que entrega por punta/creem-revision.'],
+    revisar: '/aup',
+  },
+  {
+    fecha: '5 nov', hora: '18:00', chat: 'Creem › Revisión', sesion: 'cli_a3ba5ed6-c0ff-5a7c-bc38-e7c9878ab62b', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La política de uso aceptable pública, Creem en las legales y la moderación antes de generar imagen o video',
+    puntos: [
+      '/aup: la política de uso aceptable, pública y sin cuenta, escrita para lo que MaKo hace (imagen, video, AI Avatar, mensajes a contactos). Enlazada desde el pie de la landing, el de cada página legal, los términos y el soporte.',
+      'Cada página legal termina con las demás, el correo y la razón social: el mismo responsable en todas.',
+      'Términos, privacidad, reembolsos y soporte nombran a Creem, que cobra desde Latinoamérica.',
+      'Antes de generar una imagen o un video, el texto pasa por la moderación de Creem. Si lo rechaza, no se genera, no se gasta nada y la persona ve por qué. Si Creem no contesta, se genera igual y queda anotado.',
+      'Cada llamada a Creem queda medida en el uso de la plataforma; el mismo pedido no se paga dos veces.',
+      'AI Avatar no se tocó: el análisis y la consulta a soporte de Creem están en el relevo.',
+    ],
+    archivos: [
+      'lib/creem-moderacion-reglas.ts — lo que decide la moderación (puro, con test)',
+      'lib/creem-moderacion.ts — la clave de la plataforma, el recuerdo y la medición',
+      'lib/flow-cola.ts — `encolar` modera todo lo que genera imagen o video',
+      'app/aup/page.tsx — la política de uso aceptable',
+      'app/_legal/LegalShell.tsx — el pie compartido de las legales',
+      'docs/relevo/nube-creem-revision.md — los requisitos con su estado, lo que le toca a Martín y el análisis de AI Avatar',
+      'tests/creem-moderacion.test.ts y tests/creem-revision-sitio.test.ts — 11 roturas, cada una cae',
+    ],
+    revisar: '/aup',
   },
 ];

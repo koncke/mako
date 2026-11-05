@@ -63,7 +63,8 @@ test('3. lo que se editaba SÓLO ahí tiene casa: Methodology, Prompts y las bib
   // Desde el 29/10/2026 esa sub-tab es también Members: la plataforma la ve con ese nombre y sólo con los miembros.
   assert.ok(!seccionesDe(true).some((s) => s.label === 'Clients'), 'la plataforma ve «Clients» en Classroom: dos grillas');
   assert.ok(seccionesDe(false).some((s) => s.id === 'clients'), 'un negocio perdió su kanban');
-  assert.match(sinComentarios(leer('app/admin/page.tsx')), /redirect\('\/customers'\);/, 'el super admin entra por su grilla');
+  // Desde el 5/11/2026 /admin ES la tab Admin (era un redirect a /customers): la grilla de los negocios se dibuja ahí mismo.
+  assert.match(sinComentarios(leer('app/admin/page.tsx')), /<CustomersApp vista=\{vista\}/, 'el super admin entra por su grilla');
   const metodologia = sinComentarios(leer('app/classroom/methodology/page.tsx'));
   assert.match(metodologia, /if \(!\(await getSesionAdmin\(\)\)\) notFound\(\);\s*return <ConocimientoView\b/, 'Methodology dibuja algo antes de la puerta de la plataforma');
   // Los prompts: salieron del índice de Settings el 26/10/2026 (Martín: «sobra la de prompts en super admin»), pero su
