@@ -28,7 +28,7 @@ import * as modulo from 'node:module';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  PREGUNTA_DE_ACCION, TOPE_TEXTO, anotar, claveApertura, claveValida, memoriaDelNegocio, perfilConApertura, primeraVezDe,
+  PREFIJO_NEGOCIO, PREGUNTA_DE_ACCION, TOPE_TEXTO, anotar, claveApertura, claveValida, memoriaDelNegocio, perfilConApertura, primeraVezDe,
   problemasDeApertura, puedeHablar, respuestasDeMemoria, saludoDe, type Apertura,
 } from '../lib/aperturas/reglas';
 import { OTRA_COSA, pasoObjetivo, pasoOferta, pasoSinIA, valorDeOferta } from '../lib/aperturas/comunes';
@@ -75,7 +75,8 @@ test('1. cada superficie: sus ejemplos dan el paso esperado, y cada apertura cum
       assert.equal(a?.id ?? null, e.espera, `${f} · ${e.nombre}`);
       if (!a) continue;
       vistos.add(a.id);
-      assert.ok(a.id.startsWith(`${superficie.id}:`), `${a.id}: con el prefijo de su superficie`);
+      // O el de los hechos del negocio, que comparten superficies a propósito (`negocio:plan`: el Plan y la escalera del Ops Center).
+      assert.ok(a.id.startsWith(`${superficie.id}:`) || a.id.startsWith(`${PREFIJO_NEGOCIO}:`), `${a.id}: con el prefijo de su superficie (o el del negocio)`);
       assert.deepEqual(problemasDeApertura(a, { primerPaso: !!e.primerPaso }), [], `${a.id}`);
       assert.deepEqual(marcasDeVoseo(textos(a)), [], `${a.id}: voseo`);
       // Con el saludo de la primera vez, también entra.

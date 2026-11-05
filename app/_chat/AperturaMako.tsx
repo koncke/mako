@@ -28,7 +28,7 @@ import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { anotarApertura, useMemoriaAperturas } from './aperturas-memoria';
 import { pasoSinIA } from '@/lib/aperturas/comunes';
 import {
-  claveApertura, decisionDeCallar, esAccionComun, puedeHablar, respuestasDeMemoria, saludoDe,
+  PREFIJO_NEGOCIO, claveApertura, decisionDeCallar, esAccionComun, puedeHablar, respuestasDeMemoria, saludoDe,
   type AccionComun, type Apertura, type Boton, type Superficie,
 } from '@/lib/aperturas/reglas';
 
@@ -78,7 +78,8 @@ export function useApertura<H, A extends string>(p: {
 
   const { superficie, hechos, libre } = p;
   const memoria = mem.memoria;
-  const r = useMemo(() => ({ ...(memoria ? respuestasDeMemoria(memoria, superficie.id) : {}), ...locales }), [memoria, superficie.id, locales]);
+  // Lo de la superficie y lo del negocio (`negocio:plan` se contesta en el Ops Center o en el Plan: PREFIJO_NEGOCIO).
+  const r = useMemo(() => ({ ...(memoria ? { ...respuestasDeMemoria(memoria, PREFIJO_NEGOCIO), ...respuestasDeMemoria(memoria, superficie.id) } : {}), ...locales }), [memoria, superficie.id, locales]);
 
   // El pendiente de esta visita, o el que quedó en la memoria de una visita de antes.
   const pendienteGuardado = useMemo(() => {
