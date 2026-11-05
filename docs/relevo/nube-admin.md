@@ -6,13 +6,13 @@
 
 ## Lo que ya está subido
 
-| Tanda | Qué | Dónde está (5/11, 22:40 UTC) |
+| Tanda | Qué | Dónde está (5/11, 23:00 UTC) |
 |---|---|---|
 | 1 | La investigación (docs/investigacion-admin.md). La tab se llama **Admin** y vive en `/admin`; abre en **Revenue** con lo cobrado de verdad. | en main |
 | 2 | **Users** (las personas de todos los negocios con su estado de alta, entrar, reenviar el acceso, suspender) y **Errors** (los errores agrupados como Sentry y los reportes). Accounts pasa a ser la otra vista de Customers. | en main |
-| 3 | **Activity**, con la medición que faltaba: quién entra cada día, semana y mes, quién entra cada semana (nuevos, siguen, volvieron, dejaron), qué tabs se usan y cuáles nadie abrió, cada negocio con lo que más usa, quién dejó de entrar y lo último que hizo MaKo. Al pie, lo que era Agents. | `punta/admin`, esperando la corrida de GitHub |
+| 3 | **Activity**, con la medición que faltaba: quién entra cada día, semana y mes, quién entra cada semana (nuevos, siguen, volvieron, dejaron), qué tabs se usan y cuáles nadie abrió, cada negocio con lo que más usa, quién dejó de entrar y lo último que hizo MaKo. Al pie, lo que era Agents. | en main |
 
-La primera corrida de la tanda 3 dio rojo (`ci-rojo/admin`, run 42119084126) por un test ajeno: `tests/resend-clave-admin.test.ts` lista el
+Las tres tandas están en main; que estén en producción lo dice el deploy de Vercel en «Ready», que esta sesión no ve. La primera corrida de la tanda 3 dio rojo (`ci-rojo/admin`, run 42119084126) por un test ajeno: `tests/resend-clave-admin.test.ts` lista el
 repo entero con git sin tope de salida, y la lista pasó 1 MiB con los archivos nuevos. Se arregló ahí y en `tests/puente-leads-retirado.test.ts`,
 que tenía lo mismo. El chat de los recibos lo arregló igual el mismo día y ya está en main (docs/hallazgos-infra.md, «La lista de archivos
 del repo entero pasó el megabyte»). Si otra punta da ENOBUFS en un test que lista todo, es esto: la cura es `maxBuffer`.
