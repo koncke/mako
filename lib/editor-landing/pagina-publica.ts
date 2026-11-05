@@ -86,6 +86,7 @@ export { TOPE_ORIGENES_MEDIOS, origenesDeMedios, type OrigenesDeMedios } from '.
 import { PREFIJO_PUBLICO, rutaInternaL, rutaValida, slugValido } from './doc';
 import { origenImagenes } from './especificacion';
 import { CORTE_CELULAR, ESTILOS_PAGINA, efectoPorId, sanearEstilo, type DefEstilo } from './animaciones';
+import { SCRIPT_VENTA } from './bloques-venta';
 
 /**
  * WCAG 2.2.2 (la regla de los hallazgos: lo que se mueve solo más de 5 s lleva pausa): un título partido termina de
@@ -462,6 +463,9 @@ export const SCRIPT_PAGINA = [
   '    }',
   "    if (d.readyState === 'complete') arrancar(); else if (w.addEventListener) w.addEventListener('load', arrancar);",
   '  }',
+  // (g) Los bloques de venta (5/11/2026, bloques-venta.ts): el reloj de la cuenta regresiva y el pop de la prueba social.
+  //     Antes del corte de las animaciones: no dependen de él.
+  ...SCRIPT_VENTA,
   '  try { fondosEnVideo(); } catch (e) {}',
   "  if (!d.body || d.body.getAttribute('data-gm-animar') !== '1') return;",
   '  var IO = w.IntersectionObserver;',

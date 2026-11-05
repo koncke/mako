@@ -4039,3 +4039,36 @@ el análisis de llamadas tenía tarjeta y ni lo nombró.
 
 **Regla:** la grilla de la landing sale de cómo Martín presenta MaKo en vivo (el orden y el tiempo de su última demo),
 cruzado con lo que está en producción. El ranking del rubro sirve para desempatar, no para ordenar.
+
+## Black November: los bloques de venta, sólo con datos del negocio (5/11/2026, nube)
+
+**Pedido.** Cuenta regresiva (a una fecha real; al vencer no reinicia sola), prueba social y escasez, con datos que pone el
+negocio. Sin el dato, el bloque no sale. También en el celular y en la API.
+
+**Lo que no se ve en el código, y costó una vuelta cada uno:**
+- **El pedido nombraba `app/web-generator/BloqueWeb.tsx`, que es el bloque del CHAT.** Las landings se editan en el editor
+  (TipTap): los tres son nodos nuevos con UNA forma HTML (lib/editor-landing/especificacion.ts) que usan el editor y la página
+  publicada.
+- **`<time>` no sobrevive al guardado:** `htmlDeArbol` lo saca. La fecha de cada compra va en un `span[data-fecha]`.
+- **Un `position: fixed` adentro de una sección animada se ancla a la sección**, porque la animación le pone `transform`. El
+  aviso de compras se muda al final de `.gm-doc` (`SCRIPT_VENTA`).
+- **Editar la landing con IA los convertía en párrafos:** el modelo no los conoce. Van con `conservar` por su ref
+  (lib/editor-landing/ia-bloques.ts), como los demás bloques que el modelo no reescribe.
+- **El celular va en `movil()`** (lib/editor-landing/css.ts), no en un `@media` propio: así lo ve también la vista de teléfono
+  del editor, y el test de diseños lee el primer bloque del celular.
+- **La hora de cierre es la del NEGOCIO, no la de la computadora:** el editor la lee con `tzWorkspaceAction` y no deja
+  poner la fecha hasta tenerla. La primera versión usaba la zona del navegador (un super admin mirando a un cliente estaría en
+  otra) y un «Ciudad de México» de respaldo: tests/zona-negocio.test.ts lo frenó, porque el default es UNO (`ZONA_POR_DEFECTO`).
+- **El test del reloj daba verde por casualidad:** la fecha relativa usaba `new Date()` y el test fijaba `Date.now()`. Toda
+  hora del script sale de `Date.now()`.
+- **La operación de la API pasa por la fábrica de ediciones** (`edicion` con `conZona`, lib/api-mako/areas/landing-editor.run.ts):
+  primero el freno de las automatizaciones, después la zona del negocio (sin poder leerla, no cambia nada).
+
+**Dónde vive.** lib/editor-landing/bloques-venta.ts (la forma, cuándo están listos, el script),
+app/web-generator/editor/nodos/BloqueVentaVista.tsx (el panel), `planBloqueVenta` en
+lib/api-mako/areas/landing-contenido.helpers.ts. Test: tests/bloques-venta-landing.test.ts.
+
+**Sin medir:** una página publicada en producción con los tres (desde la nube no hay base), y cómo los usa Leila.
+
+**Regla:** un bloque que afirma algo de afuera (una fecha, una compra, un número) sale sólo con el dato que cargó el negocio.
+La cuenta regresiva tiene UNA fecha para todos: nunca un reloj por visitante que vuelve a empezar.

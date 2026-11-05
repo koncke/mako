@@ -1637,4 +1637,33 @@ export const BITACORA: Hito[] = [
     revisar: '/web-generator',
     tickets: [54],
   },
+  {
+    fecha: '5 nov', hora: '09:30', chat: 'Black November (nube)', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Black November: bloques de venta en las landings, sólo con datos reales',
+    pedido: 'Bloques de venta en landings: cuenta regresiva (a una fecha real; al vencer no reinicia sola), pop de prueba social y barra de escasez. Sólo con datos reales que pone el negocio: nada de números inventados ni compras falsas; si no hay dato, el bloque no se muestra. Agregalos sin romper el diseño, también en celular, y a la API de MaKo.',
+    puntos: ['Llegó por el brief de la campaña de Leila (negocio 11), que lanza Black November por WhatsApp a su base.'],
+  },
+  {
+    fecha: '5 nov', hora: '13:10', chat: 'Black November (nube)', sesion: 'cli_36e19fd1-66a6-5448-b8ce-1087dd99d13b', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tres bloques de venta en el editor: cuenta regresiva, compras recientes y cupos',
+    puntos: [
+      'Menú «/» → «Cuenta regresiva», «Compras recientes» y «Cupos que quedan». Se editan en su panel, como el botón.',
+      'La cuenta regresiva va a la fecha y hora que pones, en la zona del negocio. Al terminar, muestra tu mensaje o se oculta. No vuelve a empezar.',
+      'Las compras recientes salen de a una, abajo a la izquierda, con lo que cargas tú: nombre, qué compró y cuándo. Nada inventado.',
+      'Los cupos dicen «Quedan N de M» con su barra, con los dos números que pones.',
+      'Sin el dato, el bloque no sale en la página publicada: en el editor dice qué falta.',
+      'En el celular el reloj se achica y el aviso de compras va a lo ancho, arriba del sello de MaKo.',
+      'MaKo los pone por la API: configurar_bloque_venta_landing (una fecha pasada, cupos de más o una compra sin nombre se rechazan).',
+      'Pedirle a MaKo que edite la landing con IA no los convierte en texto: vuelven tal cual.',
+    ],
+    archivos: [
+      'lib/editor-landing/bloques-venta.ts — la forma de los tres, cuándo están listos y el script de la página',
+      'app/web-generator/editor/nodos/BloqueVentaVista.tsx — el bloque y su panel en el editor',
+      'lib/editor-landing/css.ts — VENTA y el celular en movil()',
+      'lib/api-mako/areas/landing-contenido.helpers.ts — planBloqueVenta; landing-editor.def.ts/.run.ts — la operación',
+      'tests/bloques-venta-landing.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/web-generator',
+  },
 ];

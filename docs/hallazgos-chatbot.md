@@ -8021,3 +8021,41 @@ en el acto, como siempre. Si la función muere antes de mandar, la fila ya está
 - Elegir por qué número o cuenta sale una difusión: hoy el motor usa la línea que le toca. Vive en `lib/difusion.ts` y `MensajesDifusion`.
 - Sin mirar en el CRM de verdad, con datos reales: punto 11 de `docs/relevo/automations.md`.
 
+
+## Black November: la rampa del número y el 9 a 21 que tapaba el horario del negocio (5/11/2026, nube)
+
+**Síntoma.** La auditoría del 5/11 (sin correr la app) marcó dos riesgos para la campaña de Leila (negocio 11). Uno: las
+secuencias mandaban hasta 40 WhatsApp por día desde el primer día; la rampa existía sólo para el email. Dos: las
+automatizaciones prendidas antes del 31/10 no tienen horario y le escriben a los leads a cualquier hora.
+
+**El diagnóstico obvio del horario era el equivocado.** «Las nuevas nacen con 9 a 21, falta ponérselo a las viejas» era la
+mitad. La otra: el 9 a 21 que MaKo guarda en CADA automatización nueva le gana al horario del negocio
+(`horarioDeLaAutomatizacion`: el propio manda). O sea que los 10 a 20 que pide Leila no le llegaban a ninguna de las nuevas, y
+ponerles el 9 a 21 a las viejas habría hecho lo mismo con todas.
+
+**Dónde vive y la regla.**
+- **El 9 a 21 que pone MaKo lleva una marca, `horarioDeFabrica`** (lib/config-automatizacion.ts), y cede ante el horario del
+  negocio. Uno que eligió la persona no la lleva: cambiarlo en la tuerca la saca (`configParaGuardar`), aunque elija el mismo
+  9 a 21. Una marca sin horario no vive.
+- **La rampa del WhatsApp es la del email**: `topeConRampa` (lib/goteo.ts) con `wa.arranqueDia` y `wa.arranqueSube`
+  (lib/limites-envio.ts; 20 y 20, hasta los 40). Cuenta lo que SALIÓ (`topeDeLineaDeHoy`, lib/goteo-db.ts): un día sube sólo si
+  llegó a su tope, y dos días sin mandar la reinician. Así una línea que ya venía mandando sigue en su nivel, como la difusión.
+  Si la lectura falla, el tope de hoy es el del primer día (`topeDelPrimerDia`), nunca el de fábrica.
+- **Lo acumulado no sale todo junto** porque el tope por hora (6) y la reserva para las entradas ya existían: la rampa achica el
+  presupuesto del día, no el ritmo.
+- **Las prendidas sin horario se arreglan con un script en seco** (scripts/horario-de-fabrica-prendidas.mts; el plan, puro, en
+  lib/horario-de-fabrica.ts). De noche no pone nada en ese negocio: puesto fuera de 9 a 21, lo que vence ahora se quedaría
+  quieto hasta la mañana. No toca las difusiones (las manda la persona a propósito) ni las que contestan al momento (un DM, un
+  email), y marca el 9 a 21 de las nuevas para que siga el horario del negocio. Probado contra un Postgres 16 local: en seco
+  rechaza toda escritura (transacción `read only`), `--aplicar` escribe con compare-and-set y deja el respaldo, y la segunda
+  corrida no hace nada.
+- **Con un horario del negocio, las que contestan al momento también lo siguen**, y un DM fuera de hora espera a que abra. Era
+  así antes; el script lo dice en cada una para que quien pone el horario lo sepa.
+- **Tres guardas leían la línea literal** (`presupuesto`, `topeEmailDeHoy`, el `leer` del panel). Se pasaron a la forma nueva;
+  lo que cuidaban lo prueban ahora tests/rampa-whatsapp.test.ts y tests/horario-de-fabrica.test.ts, ejecutando el código.
+
+**Sin medir desde la nube:** cuántas automatizaciones prendidas tiene cada negocio sin horario, y si la línea de Leila ya llega
+a sus 40 por día (si no, el día del lanzamiento arranca en 20). Lo mide el script en seco, desde la PC.
+
+**Regla:** un valor de fábrica que se GUARDA en la fila tiene que poder ceder. Sin una marca, se lee igual que una decisión de
+la persona y tapa la configuración de más arriba.

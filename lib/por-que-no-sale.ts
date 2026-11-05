@@ -27,8 +27,11 @@ export type ContextoDelEnvio = {
   tz: string | null;
   /** El envío de WhatsApp del negocio (lib/envio-flags.ts). */
   whatsappPrendido: boolean;
-  /** Lo que salió por WhatsApp en 24 h y en esta hora, con sus topes (lib/limites-envio.ts). */
-  linea: { dia: number; usadoDia: number; hora: number; usadoHora: number };
+  /**
+   * Lo que salió por WhatsApp en 24 h y en esta hora, con sus topes (lib/limites-envio.ts). `dia` es el de HOY, con la rampa de la
+   * línea (5/11/2026, `topeDeHoyDelNegocio`): el mismo que usa el motor. `diaLinea`, el de la línea, si la rampa todavía no llegó.
+   */
+  linea: { dia: number; usadoDia: number; hora: number; usadoHora: number; diaLinea?: number };
 };
 
 /** Una inscripción viva, con lo de SU automatización. */
@@ -115,7 +118,13 @@ export function porQueNoSale(f: FilaQueEspera, c: ContextoDelEnvio): FrenoDelEnv
   }
   if (!vencida) return null;
   // LOS TOPES DE LA LÍNEA (los de Configuraciones: por día en 24 h corridas, y por hora). El carril no pasa por ellos.
-  if (wa && !f.sinAntiBan && c.linea.usadoDia >= c.linea.dia) return freno(`No salió: la línea llegó a su tope del día (${c.linea.dia}). Sale cuando se libere lugar.`, 'Tope del día');
+  if (wa && !f.sinAntiBan && c.linea.usadoDia >= c.linea.dia) {
+    // Con la rampa por delante (5/11/2026): lo que frena hoy es el tope de hoy, que sube cada día que llega.
+    const rampa = c.linea.diaLinea != null && c.linea.diaLinea > c.linea.dia;
+    return freno(rampa
+      ? `No salió: tu número arranca de a poco y hoy llegó a su tope (${c.linea.dia}). Sube cada día que llega, hasta ${c.linea.diaLinea}. Sale cuando se libere lugar.`
+      : `No salió: la línea llegó a su tope del día (${c.linea.dia}). Sale cuando se libere lugar.`, 'Tope del día');
+  }
   if (wa && !f.sinAntiBan && c.linea.usadoHora >= c.linea.hora) return freno(`En fila: la línea llegó a su tope de la hora (${c.linea.hora}). Sale en la próxima hora.`, 'Tope de la hora');
   return null;
 }

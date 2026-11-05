@@ -861,17 +861,19 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_limites_envio', area: 'chatbot', tipo: 'lectura',
     titulo: 'Ver los topes de envío',
-    descripcion: 'Los topes del negocio por día y por hora, la rampa del dominio de email (con el tope de hoy), lo que ya salió en 24 h y si el email está frenado por rebotes o quejas.',
+    descripcion: 'Los topes del negocio por día y por hora, la rampa del número de WhatsApp y la del dominio de email (con el tope de hoy), lo que ya salió en 24 h y si el email está frenado por rebotes o quejas.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'cambiar_limites_envio', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cambiar los topes de envío',
-    descripcion: 'PROPONE cambiar los topes del negocio (valen para todas): por día y por hora de la línea de WhatsApp, por día de email y su rampa. Mira antes ver_limites_envio.',
+    descripcion: 'PROPONE cambiar los topes del negocio (valen para todas): por día y por hora de la línea de WhatsApp, por día de email, y sus rampas. Mira antes ver_limites_envio.',
     parametros: [
       { nombre: 'waDia', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: WhatsApp por día (en 24 h).' },
       { nombre: 'waHora', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'opcional: WhatsApp por hora de reloj.' },
+      { nombre: 'waArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: la rampa del número: WhatsApp el primer día.' },
+      { nombre: 'waArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: y cuánto sube cada día que llega a su tope.' },
       { nombre: 'emailDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: emails por día (en 24 h).' },
       { nombre: 'emailArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: la rampa del dominio: emails el primer día.' },
       { nombre: 'emailArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: y cuánto sube cada día que llega a su tope.' },

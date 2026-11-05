@@ -41,6 +41,15 @@ export type LimitesEnvio = {
     hora: number;
     /** Horas mínimas entre dos mensajes a la misma persona (el freno de la prospección en frío). */
     personaHoras: number;
+    /**
+     * LA RAMPA DE LA LÍNEA (5/11/2026, Black November de Leila: a Mauricio le suspendieron el número 24 h al pasar de unos 20
+     * a 60 por día). El tope por día arranca en `arranqueDia` y sube `arranqueSube` cada día que llegó a su tope, hasta `dia`
+     * (`topeConRampa`, lib/goteo.ts), contando lo que SALIÓ por WhatsApp de las automatizaciones del negocio: una línea que
+     * ya viene mandando no vuelve a empezar (los días que llegaron ya cuentan), y una que pasó más de 2 días seguidos callada, sí.
+     * ⚠️ Cuenta el NEGOCIO, como el tope: un número nuevo de un negocio que ya venía mandando no arranca de a poco.
+     */
+    arranqueDia: number;
+    arranqueSube: number;
   };
   /** Email (la reputación del dominio del negocio). */
   email: {
@@ -65,7 +74,8 @@ export type LimitesEnvio = {
 
 /** Lo que el motor tenía cableado el 11/10/2026 (lib/nutricion.ts y lib/setter-conversacion.ts). */
 export const LIMITES_CONSTANTES: LimitesEnvio = {
-  wa: { dia: 40, hora: 6, personaHoras: 20 },
+  // La rampa de la línea, desde el 5/11/2026: 20 el primer día y 20 más cada día que llega a su tope (la de la difusión).
+  wa: { dia: 40, hora: 6, personaHoras: 20, arranqueDia: 20, arranqueSube: 20 },
   // La rampa, desde el 4/11/2026: 50 el primer día y 50 más cada día que llega a su tope.
   email: { dia: 100, personaHoras: 20, arranqueDia: 50, arranqueSube: 50 },
   mako: { solasPor24h: 3, diasCharla: 7 },
@@ -73,7 +83,7 @@ export const LIMITES_CONSTANTES: LimitesEnvio = {
 
 /** Los rangos que se pueden elegir, ambos extremos incluidos. Enteros. */
 export const RANGOS_LIMITES = {
-  wa: { dia: [1, 150], hora: [1, 30], personaHoras: [3, 72] },
+  wa: { dia: [1, 150], hora: [1, 30], personaHoras: [3, 72], arranqueDia: [1, 150], arranqueSube: [1, 150] },
   email: { dia: [1, 500], personaHoras: [1, 168], arranqueDia: [1, 500], arranqueSube: [1, 500] },
   mako: { solasPor24h: [0, 10], diasCharla: [1, 30] },
 } as const satisfies { [G in keyof LimitesEnvio]: { [K in keyof LimitesEnvio[G]]: readonly [number, number] } };
@@ -84,6 +94,7 @@ type Campo<G extends Grupo> = keyof LimitesEnvio[G] & string;
 /** Los campos, en el orden en que se dibujan y se validan. Una sola lista: la recorren todos. */
 export const CAMPOS_LIMITES: ReadonlyArray<{ grupo: Grupo; campo: string }> = [
   { grupo: 'wa', campo: 'dia' }, { grupo: 'wa', campo: 'hora' }, { grupo: 'wa', campo: 'personaHoras' },
+  { grupo: 'wa', campo: 'arranqueDia' }, { grupo: 'wa', campo: 'arranqueSube' },
   { grupo: 'email', campo: 'dia' }, { grupo: 'email', campo: 'personaHoras' },
   { grupo: 'email', campo: 'arranqueDia' }, { grupo: 'email', campo: 'arranqueSube' },
   { grupo: 'mako', campo: 'solasPor24h' }, { grupo: 'mako', campo: 'diasCharla' },
@@ -92,6 +103,7 @@ export const CAMPOS_LIMITES: ReadonlyArray<{ grupo: Grupo; campo: string }> = [
 /** El nombre de cada campo en un mensaje de error (no en la pantalla: ahí va el rótulo corto). */
 const NOMBRE: Record<string, string> = {
   'wa.dia': 'WhatsApp por día', 'wa.hora': 'WhatsApp por hora', 'wa.personaHoras': 'WhatsApp a la misma persona',
+  'wa.arranqueDia': 'WhatsApp el primer día', 'wa.arranqueSube': 'WhatsApp, cuánto sube por día',
   'email.dia': 'Email por día', 'email.personaHoras': 'Email a la misma persona',
   'email.arranqueDia': 'Email el primer día', 'email.arranqueSube': 'Email, cuánto sube por día',
   'mako.solasPor24h': 'Respuestas solas por persona', 'mako.diasCharla': 'Días de charla abierta',
@@ -120,7 +132,7 @@ export function limitesDeFabrica(env: Record<string, string | undefined> = {}): 
   };
   const c = LIMITES_CONSTANTES;
   return {
-    wa: { dia: deEnv('NUTRICION_MAX_POR_DIA', c.wa.dia), hora: deEnv('NUTRICION_MAX_POR_CORRIDA', c.wa.hora), personaHoras: c.wa.personaHoras },
+    wa: { dia: deEnv('NUTRICION_MAX_POR_DIA', c.wa.dia), hora: deEnv('NUTRICION_MAX_POR_CORRIDA', c.wa.hora), personaHoras: c.wa.personaHoras, arranqueDia: c.wa.arranqueDia, arranqueSube: c.wa.arranqueSube },
     email: { dia: deEnv('NUTRICION_MAX_EMAIL_POR_DIA', c.email.dia), personaHoras: c.email.personaHoras, arranqueDia: c.email.arranqueDia, arranqueSube: c.email.arranqueSube },
     mako: { ...c.mako },
   };
@@ -235,6 +247,8 @@ export const BLOQUES_LIMITES: ReadonlyArray<{ titulo: string; filas: FilaLimite[
       { grupo: 'wa', campo: 'dia', rotulo: 'Por día', unidad: 'mensajes', ayuda: 'Mensajes por día, en 24 h' },
       { grupo: 'wa', campo: 'hora', rotulo: 'Por hora', unidad: 'mensajes', ayuda: 'Mensajes por hora de reloj' },
       { grupo: 'wa', campo: 'personaHoras', rotulo: 'Misma persona', unidad: 'h', ayuda: 'Horas entre dos mensajes a la misma persona' },
+      { grupo: 'wa', campo: 'arranqueDia', rotulo: 'Primer día', unidad: 'mensajes', ayuda: 'Mensajes el primer día de la rampa' },
+      { grupo: 'wa', campo: 'arranqueSube', rotulo: 'Sube por día', unidad: 'mensajes', ayuda: 'Cuánto sube cada día que llega a su tope' },
     ],
   },
   {
@@ -263,7 +277,7 @@ export const BLOQUES_LIMITES: ReadonlyArray<{ titulo: string; filas: FilaLimite[
  */
 export const INFO_LINEA = 'Para todas tus automatizaciones juntas: es lo que cuida a tu número de un bloqueo. No se apaga.';
 export const FILAS_LINEA: ReadonlyArray<FilaLimite> = BLOQUES_LIMITES.flatMap((b) => b.filas)
-  // La rampa del email (4/11/2026) se cambia por la API de MaKo (`cambiar_limites_envio`), no en esta pantalla.
+  // Las rampas (la del email, 4/11/2026, y la de WhatsApp, 5/11/2026) se cambian por la API de MaKo (`cambiar_limites_envio`), no en esta pantalla.
   .filter((f) => f.campo !== 'personaHoras' && f.campo !== 'arranqueDia' && f.campo !== 'arranqueSube')
   .map((f) => (f.grupo === 'mako' ? f : { ...f, rotulo: f.campo === 'hora' ? 'Línea por hora' : 'Línea por día', info: f.campo === 'dia' ? INFO_LINEA : f.info }));
 
