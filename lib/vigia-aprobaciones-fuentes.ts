@@ -490,6 +490,7 @@ export const LECTORES: Readonly<Record<string, Lector>> = {
   'meta-verificaciones': async () => ({ tipo: 'a_mano' }),
   'google-oauth': async () => ({ tipo: 'a_mano' }),
   'resend-dominios': (e) => leerResend(e),
+  'creem-tienda': async () => ({ tipo: 'a_mano' }),
   'firma-windows': async () => ({ tipo: 'a_mano' }),
 };
 
