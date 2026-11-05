@@ -59,6 +59,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Strategy / Pricing MaKo (tab Strategy, runway y referidos) | `Leé docs/relevo/vender-mako-estrategia.md y docs/relevo/super-admin.md y seguimos desde ahí.` |
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
 | Vigía de aprobaciones (App Store, Google Play, la extensión, Meta, Google y Resend) | `Lee docs/relevo/nube-aprobaciones.md y seguimos desde ahí.` |
+| Código Inmobiliario: el primer contacto, los tickets de una agencia y el aviso de Meta (5/11) | `Lee docs/relevo/nube-codigo.md y seguimos desde ahí.` |
 | API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |
 | Media Buyer (la tab /ads-manager desde el 25/10) | `Leé docs/relevo/media-buyer.md y seguimos desde ahí.` |
 | Zernio y CAPI (Meta por la Zernio del negocio, el token de Meta deprecado, desde el 25/10) | `Leé docs/relevo/zernio-capi.md y seguimos desde ahí.` |
