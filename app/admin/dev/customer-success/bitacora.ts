@@ -1315,4 +1315,19 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/classroom/clients?vista=miembros',
   },
+  {
+    fecha: "5 nov", hora: "16:40", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo toma la iniciativa en Clients: «¿Ya tienes clientes en tu programa?»",
+    puntos: [
+      "Con el servicio armado y la cartera vacía, la estrella pregunta un hecho; «Sí, los cargo» abre la misma alta del checklist y «Todavía no» dice que el primero entra solo.",
+      "Respeta el orden del checklist: sin servicio, calla. Y calla con un cliente o el alta abiertos.",
+    ],
+    revisar: "/clients",
+    archivos: [
+      "lib/aperturas/clients.ts — la apertura, pura",
+      "app/customer-success/ClientesApp.tsx — el montaje en la estrella",
+      "tests/iniciativa-clients.test.ts — probado rompiéndolo (2 roturas)",
+    ],
+  },
 ];

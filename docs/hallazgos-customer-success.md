@@ -34,6 +34,18 @@ que quedaron en `lib/api-mako/areas/cs.def.ts`.
 
 ---
 
+## MaKo toma la iniciativa en Clients: «¿Ya tienes clientes en tu programa?» (5/11/2026)
+
+- **Qué hace:** con el servicio armado (`cs_servicio`) y la cartera vacía (`cs_clientes` pendiente), la estrella pregunta un
+  hecho; «Sí, los cargo» abre la MISMA alta que el checklist (`setCreando('')`), y «Todavía no» dice que el primero entra solo
+  (un lead que pasa a Ganado aparece en la cartera).
+- **Lo que no se ve en el código:** el checklist de arriba de la cartera YA es el onboarding de la tab, así que la apertura vive
+  sólo adentro de la estrella (ni `corto` ni nada a la vista) y respeta su orden: sin servicio calla, porque el checklist pide el
+  servicio primero y `marcarPasoTab` rechaza saltarse un paso. Calla con un cliente abierto o con el alta abierta.
+- **Vive en:** lib/aperturas/clients.ts, app/customer-success/ClientesApp.tsx. **Lo fija:** tests/iniciativa-clients.test.ts
+  (2 roturas). tests/crm-estrella-cr3-cr4.test.ts acepta `apertura=` antes de la entidad.
+- **Falta:** la guía de Classroom (curso, comunidad y clientes juntos: guia.md §6, con `recorridos-curso.ts` que se va).
+
 ## «Clients» pasa a llamarse «Classroom», y su ruta /classroom (25/10/2026)
 
 Martín (punto 11 del feedback de la tarde): «La tab de "clients" pasa a llamarse "Classroom". También su ruta.»
