@@ -393,8 +393,8 @@ export default function Page() {
             (la moderación quedó sin proveedor, lib/creem-moderacion-reglas.ts) ni un pago. Un proveedor nuevo entra a
             esta lista el día que empieza a recibir datos, no antes. */}
         <li>
-          <strong>Stripe y Mercado Pago, para cobrar tu plan</strong> — según el país desde el que pagas. Reciben los
-          datos de tu tarjeta o de tu cuenta, tu correo y lo que compras; MaKo no ve el número de tu tarjeta.
+          <strong>Mercado Pago, para cobrar tu plan</strong> — recibe los datos de tu tarjeta o de tu cuenta, tu
+          correo y lo que compras; MaKo no ve el número de tu tarjeta.
         </li>
       </ul>
 

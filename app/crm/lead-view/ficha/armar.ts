@@ -108,19 +108,21 @@ export function spansDeFilas(anchos: readonly number[], cols = COLS_FICHA): numb
  */
 export function bloquesDeLaGrilla(lista: readonly BloquePuesto[], o: {
   reglasDe: (id: BloqueId) => ReglasBloque | undefined;
-  vacio: (puesto: BloquePuesto, reglas: ReglasBloque) => boolean;
+  /** `hermanos`: los bloques puestos en la misma hoja (5/11/2026: una suscripción calla lo que su bloque ya dibuja). */
+  vacio: (puesto: BloquePuesto, reglas: ReglasBloque, hermanos: readonly BloqueId[]) => boolean;
   editando: boolean;
   verPrivado: boolean;
   /** La tab va épica: menos por fila (`anchoEnDispositivo`). */
   epico?: boolean;
 }): BloqueEnGrilla[] {
   const quedan: Omit<BloqueEnGrilla, 'span' | 'spanTableta'>[] = [];
+  const hermanos = lista.map((p) => p.id);
   lista.forEach((puesto, indice) => {
     const def = bloqueDef(puesto.id);
     const reglas = def ? o.reglasDe(def.id) : undefined;
     if (!def || !reglas) return;
     if (def.privado && !o.verPrivado) return;
-    const vacio = o.vacio(puesto, reglas);
+    const vacio = o.vacio(puesto, reglas, hermanos);
     if (vacio && !o.editando) return;
     quedan.push({ puesto, def, reglas, indice, n: ocurrencia(lista, indice), vacio });
   });
@@ -194,7 +196,7 @@ export function cubreDe(def: BloqueDef, reglas: ReglasBloque, o: { puesto?: Bloq
 export function tabDelDato<T extends string>(paso: StepId, tabs: readonly T[], o: {
   listaDe: (tab: T) => readonly BloquePuesto[];
   reglasDe: (id: BloqueId) => ReglasBloque | undefined;
-  vacio: (puesto: BloquePuesto, reglas: ReglasBloque) => boolean;
+  vacio: (puesto: BloquePuesto, reglas: ReglasBloque, hermanos: readonly BloqueId[]) => boolean;
   verPrivado: boolean;
 }): T | null {
   for (const tab of tabs) {
@@ -290,6 +292,26 @@ export function dispositivoVisto(editando: boolean, elegido: DispositivoFicha): 
 /** Los anchos de la barra del bloque: los cuatro, con los que el bloque no acepta apagados. */
 export function anchosDeLaBarra(def: BloqueDef): Array<{ id: Ancho; nombre: string; puede: boolean }> {
   return ([3, 4, 6, 12] as const).map((id) => ({ id, nombre: { 3: '¼', 4: '⅓', 6: '½', 12: 'Completo' }[id], puede: def.anchos.includes(id) }));
+}
+
+/** Lo que guarda el «⋯» de la barra de un bloque. */
+export type HerramientaDelMas = 'ancho' | 'diseno' | 'obligatorio' | 'obligatorio-varios' | 'titulo' | 'icono';
+
+/**
+ * LO QUE CASI NADIE TOCA VA EN «⋯» (5/11/2026). Medido en producción (docs/relevo/suscripciones-medicion.md §3): de las 58
+ * acciones del historial de las fichas, ancho, diseño, título, ícono y «Obligatorio» suman 5. A la vista quedan mover,
+ * Datos u Opciones (lo que va ADENTRO del bloque) y quitar. Sólo se ofrece lo que hace algo: el ancho, si el bloque tiene
+ * más de uno; el diseño, si sabe dibujar dos; «Obligatorio», si el bloque cubre algún dato y no lo pide en «Datos ▾».
+ * `cubre` es cuántos datos que se pueden pedir dibuja el bloque puesto (`cubreDe` sin los que avisan siempre).
+ */
+export function masDelBloque(def: BloqueDef, reglas: ReglasBloque, o: { cubre: number }): HerramientaDelMas[] {
+  const out: HerramientaDelMas[] = [];
+  if (anchosDeLaBarra(def).filter((a) => a.puede).length > 1) out.push('ancho');
+  if (disenosOfrecidos(def, reglas).length) out.push('diseno');
+  if (!def.datos && o.cubre === 1) out.push('obligatorio');
+  if (!def.datos && o.cubre > 1) out.push('obligatorio-varios');
+  out.push('titulo', 'icono');
+  return out;
 }
 
 /**

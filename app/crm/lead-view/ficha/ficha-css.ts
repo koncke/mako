@@ -115,6 +115,9 @@ export const CSS_FICHA = `
 .fb-aviso { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; border-top: 1px solid var(--border); font-size: 13.5px; }
 .fb-segmentos { display: flex; gap: 2px; padding: 2px; border-radius: 10px; background: var(--surface-2); }
 .fb-segmentos .fb-herr { flex: 1; }
+/* El ancho, arriba del «⋯» de un bloque (5/11/2026). */
+.fb-mas-ancho { padding: 6px 12px 10px; border-bottom: 1px solid var(--border); }
+.fb-mas-tit { font-size: 12px; font-weight: 600; color: var(--dim); margin-bottom: 6px; }
 .fb-boton-texto { border: none; background: none; padding: 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--primary); cursor: pointer; }
 .fb-boton-texto:disabled { color: var(--faint); cursor: default; }
 .fb-error { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--bad); }

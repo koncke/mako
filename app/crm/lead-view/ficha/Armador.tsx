@@ -30,7 +30,7 @@ import { tituloDeBloque } from '@/lib/ficha/registro';
 import { ICONOS_BLOQUE } from '@/lib/ficha/api';
 import { DATOS_AVISABLES, NO_IGNORABLES } from '@/lib/datos-aviso';
 import type { StepId } from '@/lib/stage-requirements';
-import { anchosDeLaBarra, bloquesDeLaGrilla, datosSinUno, compartiendoFila, cubreDe, disenoADibujar, disenosOfrecidos, lugarAlSoltar, ocurrencia, type BloqueEnGrilla, type DispositivoFicha } from './armar';
+import { anchosDeLaBarra, bloquesDeLaGrilla, datosSinUno, compartiendoFila, cubreDe, disenoADibujar, disenosOfrecidos, lugarAlSoltar, masDelBloque, ocurrencia, type BloqueEnGrilla, type DispositivoFicha } from './armar';
 import { entradaDe } from './registro';
 import { Flotante } from './Flotante';
 import type { CtxFicha } from './tipos';
@@ -98,7 +98,7 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
 }) {
   const bloques = bloquesDeLaGrilla(lista, {
     reglasDe: (id) => entradaDe(id),
-    vacio: (p, r) => !!r.estaVacio?.(ctx, p),
+    vacio: (p, r, h) => !!r.estaVacio?.(ctx, p, h),
     editando,
     verPrivado: ctx.verPrivado,
     epico,
@@ -254,7 +254,7 @@ function padreQueScrollea(el: HTMLElement): HTMLElement | null {
   return null;
 }
 
-type TipoMenu = 'diseno' | 'icono' | 'opciones' | 'datos' | 'obligatorio' | 'titulo';
+type TipoMenu = 'mas' | 'diseno' | 'icono' | 'opciones' | 'datos' | 'obligatorio' | 'titulo';
 type Menu = { tipo: TipoMenu; ancla: HTMLElement } | null;
 
 /** El nombre de un «dato sin marcar» en el menú «Obligatorio» (el de la lista de avisos). */
@@ -264,7 +264,13 @@ const nombreDelDato = (p: StepId): string => DATOS_AVISABLES.find((x) => x.id ==
 const NOMBRE_RED: Readonly<Record<Red, string>> = { web: 'Web', instagram: 'Instagram', youtube: 'YouTube', linkedin: 'LinkedIn' };
 
 /**
- * La barra del bloque elegido: su nombre (en el lugar del rótulo), arrastrar, ancho, diseño, opciones, ícono y quitar.
+ * La barra del bloque elegido: su nombre (en el lugar del rótulo), arrastrar, lo que va adentro (Datos u Opciones), «⋯» y
+ * quitar. MÁS SIMPLE DESDE EL 5/11/2026 (encargo del Cerebro, medido en docs/relevo/suscripciones-medicion.md §3): de las 58
+ * acciones guardadas en el historial de las fichas, 36 son quitar, 5 poner y 4 mover; ancho, diseño, título, ícono y
+ * «Obligatorio» suman 5, y de «Obligatorio» no quedó ninguna vigente. La barra llegaba a 12 botones (los cuatro anchos
+ * contaban de a uno). Lo que casi nadie toca va en «⋯» (`masDelBloque`, ./armar.ts), como el «⋮⋮» de un bloque de
+ * Notion: nada se sacó, sólo dejó de estar a la vista. Los datos se quedan afuera porque son lo que va ADENTRO del bloque
+ * (el «elegir propiedades» de una tarjeta de HubSpot) y Martín ya reclamó una vez que no los encontraba (24/10/2026).
  * OPCIONES (16/10/2026): lo que el bloque declara configurar adentro (`def.opciones`): qué redes van en «Redes y web»,
  * qué fuentes en «Lo que contestó» y qué pregunta en «Respuesta destacada» (de las que contestó ESTE lead).
  */
@@ -320,6 +326,10 @@ function BarraBloque({ tab, b, icono, titulo, tituloDeSiempre, incluidos, onCamb
     const ancla = e.currentTarget;
     setMenu((m) => (m?.tipo === tipo ? null : { tipo, ancla }));
   };
+  const mas = masDelBloque(b.def, b.reglas, { cubre: cubre.length });
+  /** Un menú que se abre DESDE el «⋯»: queda anclado al mismo botón (el «⋯» se cierra al abrirlo). */
+  const desdeMas = (tipo: TipoMenu) => () => setMenu((m) => (m ? { tipo, ancla: m.ancla } : null));
+  const nombreDiseno = disenos.find((d) => d.id === diseno)?.nombre;
   const sep: ReactNode = <span className="fb-sep" aria-hidden />;
   return (
     <div className="fb-barra-bloque" role="toolbar" aria-label={`Bloque ${b.def.titulo}`} onClick={(e) => e.stopPropagation()}>
@@ -334,22 +344,6 @@ function BarraBloque({ tab, b, icono, titulo, tituloDeSiempre, incluidos, onCamb
         }}>
         <IconoMenu nombre="mover" size={15} />
       </button>
-      {sep}
-      {anchosDeLaBarra(b.def).map((a) => (
-        <button key={a.id} type="button" className="fb-herr" aria-pressed={b.puesto.ancho === a.id} disabled={!a.puede}
-          title={a.puede ? `Ancho ${a.nombre.toLowerCase()}` : 'Este bloque no va de ese ancho'}
-          onClick={() => { if (b.puesto.ancho !== a.id) onCambio({ op: 'ancho', tab, bloque: id, n: b.n, ancho: a.id }); }}>
-          {a.id === 12 ? 'Todo' : a.nombre}
-        </button>
-      ))}
-      {disenos.length > 0 && (
-        <>
-          {sep}
-          <button type="button" className="fb-herr" aria-haspopup="menu" aria-expanded={menu?.tipo === 'diseno'} onClick={abrir('diseno')}>
-            Diseño <span aria-hidden>▾</span>
-          </button>
-        </>
-      )}
       {conOpciones && (
         <>
           {sep}
@@ -366,36 +360,57 @@ function BarraBloque({ tab, b, icono, titulo, tituloDeSiempre, incluidos, onCamb
           </button>
         </>
       )}
-      {unSolo && (
-        <>
-          {sep}
-          <button type="button" className="fb-herr" aria-pressed={avisaDe!(unSolo)}
-            title={avisaDe!(unSolo) ? 'Si falta, entra en «datos sin marcar». Toca para que no avise.' : 'Toca para que, si falta, entre en «datos sin marcar».'}
-            onClick={() => pedir(unSolo, !avisaDe!(unSolo))}>
-            {avisaDe!(unSolo) ? '✓ ' : ''}Obligatorio
-          </button>
-        </>
-      )}
-      {!datos && cubre.length > 1 && (
-        <>
-          {sep}
-          <button type="button" className="fb-herr" aria-haspopup="menu" aria-expanded={menu?.tipo === 'obligatorio'} onClick={abrir('obligatorio')}>
-            Obligatorio <span aria-hidden>▾</span>
-          </button>
-        </>
-      )}
       {sep}
-      <button type="button" className="fb-herr" aria-haspopup="dialog" aria-expanded={menu?.tipo === 'titulo'} onClick={abrir('titulo')}>
-        Título
-      </button>
-      {sep}
-      <button type="button" className="fb-herr" title="Ícono" aria-label="Ícono" aria-haspopup="menu" aria-expanded={menu?.tipo === 'icono'} onClick={abrir('icono')}>
-        <IconoMenu nombre={icono} size={15} />
+      <button type="button" className="fb-herr fb-herr--icono" title="Más: ancho, diseño, título e ícono" aria-label="Más del bloque"
+        aria-haspopup="menu" aria-expanded={menu?.tipo === 'mas'} onClick={abrir('mas')}>
+        <IconoMenu nombre="mas" size={16} />
       </button>
       {sep}
       <BotonBorrar talla="sm" title={quitable ? `Quitar ${b.def.titulo}` : `${b.def.titulo} no se puede quitar`} disabled={!quitable}
         onClick={() => { onQuitar(); onCambio({ op: 'quitar', tab, bloque: id, n: b.n }); }} />
 
+      {menu?.tipo === 'mas' && (
+        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={260} etiqueta="Más del bloque">
+          {mas.includes('ancho') && (
+            <div className="fb-mas-ancho">
+              <div className="fb-mas-tit">Ancho</div>
+              <div className="fb-segmentos" role="group" aria-label="Ancho del bloque">
+                {anchosDeLaBarra(b.def).filter((a) => a.puede).map((a) => (
+                  <button key={a.id} type="button" className="fb-herr" aria-pressed={b.puesto.ancho === a.id} title={`Ancho ${a.nombre.toLowerCase()}`}
+                    onClick={() => { if (b.puesto.ancho !== a.id) onCambio({ op: 'ancho', tab, bloque: id, n: b.n, ancho: a.id }); }}>
+                    {a.id === 12 ? 'Todo' : a.nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div role="menu">
+            {mas.includes('diseno') && (
+              <button type="button" role="menuitem" className="fb-opcion" aria-haspopup="menu" onClick={desdeMas('diseno')}>
+                <IconoMenu nombre="grafico" size={16} /> Diseño {nombreDiseno && <span className="fb-opcion-linea">{nombreDiseno}</span>}
+              </button>
+            )}
+            {unSolo && mas.includes('obligatorio') && (
+              <button type="button" role="menuitemcheckbox" aria-checked={avisaDe!(unSolo)} className="fb-opcion"
+                title={avisaDe!(unSolo) ? 'Si falta, entra en «datos sin marcar». Toca para que no avise.' : 'Toca para que, si falta, entre en «datos sin marcar».'}
+                onClick={() => pedir(unSolo, !avisaDe!(unSolo))}>
+                <IconoMenu nombre="check" size={16} /> Obligatorio
+              </button>
+            )}
+            {mas.includes('obligatorio-varios') && (
+              <button type="button" role="menuitem" className="fb-opcion" aria-haspopup="menu" onClick={desdeMas('obligatorio')}>
+                <IconoMenu nombre="check" size={16} /> Obligatorio <span className="fb-opcion-linea">{cubre.filter((p) => avisaDe!(p)).length} de {cubre.length}</span>
+              </button>
+            )}
+            <button type="button" role="menuitem" className="fb-opcion" aria-haspopup="dialog" onClick={desdeMas('titulo')}>
+              <IconoMenu nombre="renombrar" size={16} /> Título
+            </button>
+            <button type="button" role="menuitem" className="fb-opcion" aria-haspopup="menu" onClick={desdeMas('icono')}>
+              <IconoMenu nombre={icono} size={16} /> Ícono
+            </button>
+          </div>
+        </Flotante>
+      )}
       {menu?.tipo === 'diseno' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={240} etiqueta="Diseño del bloque">
           <div role="menu">

@@ -57,7 +57,11 @@ async function esSuperAdmin(): Promise<boolean> {
 import { capaDef } from '@/lib/capas';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
-import { esCuotaDeBaja, noEsDeuda } from '@/lib/cobrado-lead';
+import { cobradoDelLead, esCuotaDeBaja, noEsDeuda } from '@/lib/cobrado-lead';
+import { cambiosDeSuscripcion } from '@/lib/suscripcion-movimientos';
+import { cambiarSuscripcion, problemaDelCambio } from '@/lib/suscripcion-cambios';
+import { suscripcionParaModelo } from '@/lib/suscripcion-api';
+import { nombreDelMes } from '@/lib/suscripcion-meses';
 import { cuotasParaBaja, darDeBajaCliente, deshacerBajaCliente } from '@/lib/pagos-baja';
 import {
   anotarEnHistorial, cambiarEstadoSuscripcionManual, cortarRecordatoriosDeCuota, editarCuota, escribirCampoDeal, escribirObligacion,
@@ -880,6 +884,65 @@ export const RUNNERS: Runners = {
       if (!r.ok) return { ok: false, resumen: r.error };
       if (!r.yaEstaba) await logLeadEvent(leadId, 'Recibo de pago', r.resumen, autorDe(ctx));
       return { ok: true, resumen: r.resumen, datos: { numero: r.numero, yaEstaba: r.yaEstaba } };
+    }),
+  },
+
+  // ── La suscripción mes a mes (5/11/2026): la misma cuenta y la misma escritura que la tab Pagos ───────────────────────
+  ver_suscripcion_lead: {
+    leer: async (input, ctx) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return fallo(noExisteLead(input.leadId));
+      if (lead.venta_tipo !== 'suscripcion') return fallo(`${lead.nombre} no es una suscripción: su cobranza está en cobranza_lead.`);
+      const [pagos, cobros, cambios, hoy] = await Promise.all([
+        getPagosByLead(lead.id), listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => []), cambiosDeSuscripcion(lead.id), hoyEnWorkspace(),
+      ]);
+      const c = cobradoDelLead({
+        ventaTipo: lead.venta_tipo, montoCierreUsd: lead.monto_cierre_usd ?? null, suscripcionMontoUsd: lead.suscripcion_monto_usd ?? null,
+        suscripcionMeses: lead.suscripcion_meses ?? null, fechaCierre: lead.fecha_cierre ?? null,
+        suscripcionCanceladaAt: (lead as unknown as { suscripcion_cancelada_at?: string | null }).suscripcion_cancelada_at ?? null,
+        pagos, cobros, hoy, movimientos: cambios.movimientos,
+      });
+      if (!c.suscripcion) return fallo(`${lead.nombre} no tiene una suscripción para leer.`);
+      return {
+        content: json(suscripcionParaModelo({
+          leadId: lead.id, nombre: lead.nombre, historia: c.suscripcion.historia, estado: c.semaforo.texto, fuente: c.suscripcion.fuente,
+          mensualidadInferida: c.suscripcion.mensualidadInferida, cambios: cambios.movimientos, cambiosLeidos: cambios.leido,
+          faltaMigracion: cambios.faltaMigracion, hoy,
+        })),
+      };
+    },
+  },
+
+  cambiar_suscripcion: {
+    preparar: async (input, ctx) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      if (lead.venta_tipo !== 'suscripcion') return { error: `${lead.nombre} no es una suscripción.` };
+      const tipo = (['monto', 'corte', 'vuelta'] as const).find((t) => t === input.tipo);
+      const cambio = { tipo: tipo ?? 'monto', desde: String(input.desde ?? ''), montoUsd: typeof input.montoUsd === 'number' ? input.montoUsd : null, dia: typeof input.dia === 'number' ? input.dia : null };
+      const problema = tipo ? problemaDelCambio(cambio) : 'El cambio va: monto, corte o vuelta.';
+      if (problema) return { error: problema, faltan: !tipo ? ['tipo'] : !/^\d{4}-\d{2}/.test(cambio.desde) ? ['desde'] : cambio.tipo === 'monto' && !cambio.montoUsd ? ['montoUsd'] : [] };
+      const cobros = await listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => null);
+      if (!cobros) return { error: 'No pude leer los cobros del lead. Prueba de nuevo en un rato.', falla: true };
+      if (laCobraLaPasarela(cobros)) return { error: `La suscripción de ${lead.nombre} la cobra la pasarela: se cambia en su cobro (cancelar_suscripcion para cortarla).` };
+      const cambios = await cambiosDeSuscripcion(lead.id);
+      if (cambios.faltaMigracion) return { error: 'Todavía no se puede guardar un cambio de la suscripción: falta la migración 0401.', falla: true };
+      const hoy = await hoyEnWorkspace();
+      const mes = nombreDelMes(cambio.desde.slice(0, 7), hoy);
+      const resumen = cambio.tipo === 'monto'
+        ? `${lead.nombre}: desde ${mes}, USD ${cambio.montoUsd} por mes${cambio.dia ? `, cobra el día ${cambio.dia}` : ''}. Los meses de antes quedan como estaban.`
+        : cambio.tipo === 'corte' ? `Cortar la suscripción de ${lead.nombre} desde ${mes}: no se le cobra desde ese mes. Lo de antes sigue como está.`
+        : `Retomar la suscripción de ${lead.nombre} desde ${mes}${cambio.montoUsd ? ` con USD ${cambio.montoUsd} por mes` : ''}.`;
+      return { payload: { leadId: lead.id, ...cambio }, resumen };
+    },
+    ejecutar: (payload, ctx) => seguro('cambiar la suscripción', async () => {
+      const t = payload.tipo === 'corte' ? 'corte' : payload.tipo === 'vuelta' ? 'vuelta' : 'monto';
+      const r = await cambiarSuscripcion(Number(payload.leadId), {
+        tipo: t, desde: String(payload.desde), montoUsd: typeof payload.montoUsd === 'number' ? payload.montoUsd : null, dia: typeof payload.dia === 'number' ? payload.dia : null,
+      }, autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidarPagos();
+      return { ok: true, resumen: r.yaEstaba ? r.resumen : `Listo: ${r.resumen}`, datos: { ids: r.ids } };
     }),
   },
 
