@@ -85,7 +85,7 @@ export function ActividadAdmin({ vista, ahoraMs, agentes }: { vista: VistaActivi
                 <div key={t.tab} className="act-fila act-fila--tab" role="row">
                   <span className="act-fuerte">{t.nombre}</span>
                   <span className="act-riel" title={`${t.personas} ${t.personas === 1 ? 'persona' : 'personas'}`}>
-                    <i style={{ width: `${Math.max(3, Math.round((t.personas / maxTab) * 100))}%` }} /><em>{num(t.personas)}</em>
+                    <span className="act-pista"><i style={{ width: `${Math.max(3, Math.round((t.personas / maxTab) * 100))}%` }} /></span><em>{num(t.personas)}</em>
                   </span>
                   <span className="act-num">{num(t.negocios)}</span>
                   <span className="act-num">{num(t.pantallas)}</span>
@@ -188,11 +188,11 @@ function Ciclo({ semanas }: { semanas: readonly SemanaCiclo[] }) {
             title={`Semana del ${semanaTxt(s.semana)}${s.enCurso ? ' (en curso)' : ''}: ${s.siguen} siguen · ${s.nuevos} nuevos · ${s.volvieron} volvieron · ${s.dejaron} dejaron de entrar`}>
             <div className="act-col-arriba" style={{ height: alto(arriba) }}>
               {(['volvieron', 'nuevos', 'siguen'] as const).map((k) => s[k] > 0 && (
-                <i key={k} style={{ height: `${(s[k] / arriba) * 100}%`, background: SERIES.find((x) => x.id === k)!.color }} />
+                <i key={k} style={{ height: `${(s[k] / arriba) * 100}%`, backgroundColor: SERIES.find((x) => x.id === k)!.color }} />
               ))}
             </div>
             <div className="act-col-abajo" style={{ height: alto(abajo) }}>
-              {s.dejaron > 0 && <i style={{ height: `${(s.dejaron / abajo) * 100}%`, background: SERIES[3].color }} />}
+              {s.dejaron > 0 && <i style={{ height: `${(s.dejaron / abajo) * 100}%`, backgroundColor: SERIES[3].color }} />}
             </div>
             <span>{semanaTxt(s.semana)}{s.enCurso ? '*' : ''}</span>
           </div>
@@ -232,7 +232,8 @@ const CSS = `
 .act-col-arriba i{ display:block; width:100%; min-height:3px; }
 .act-col-arriba i:first-child{ border-radius:4px 4px 0 0; }
 .act-col-abajo i{ display:block; width:100%; min-height:3px; border-radius:0 0 4px 4px; }
-.act-col[data-curso="true"] i{ opacity:.6; }
+/* La semana en curso, rayada como el mes en curso de Revenue: todavía no cerró. */
+.act-col[data-curso="true"] i{ background-image:repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--surface) 55%, transparent) 5px 10px); }
 .act-col > span{ position:absolute; bottom:-18px; font-size:11.5px; color:var(--faint); white-space:nowrap; }
 .act-ciclo-tabla{ display:flex; flex-direction:column; border-top:1px solid var(--border); padding-top:6px; }
 .act-ciclo-fila{ display:grid; gap:6px; padding:3px 0; font-size:12.5px; font-variant-numeric:tabular-nums; }
@@ -252,8 +253,9 @@ const CSS = `
 .act-num{ text-align:right; font-variant-numeric:tabular-nums; }
 .act-gris{ margin:0; color:var(--dim); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .act-riel{ display:flex; align-items:center; gap:8px; }
-.act-riel i{ display:block; height:8px; border-radius:0 4px 4px 0; background:#3B6FB0; flex:none; }
-.act-riel em{ font-style:normal; font-size:13px; font-variant-numeric:tabular-nums; color:var(--ink); }
+.act-pista{ flex:1; min-width:0; }
+.act-riel i{ display:block; height:8px; border-radius:0 4px 4px 0; background:#3B6FB0; }
+.act-riel em{ flex:none; min-width:2.5ch; font-style:normal; font-size:13px; font-variant-numeric:tabular-nums; color:var(--ink); }
 .act-sin{ display:flex; flex-direction:column; gap:8px; font-size:13px; color:var(--dim); }
 .act-sin b{ font-weight:650; color:var(--ink); }
 .act-sin > span{ display:flex; flex-wrap:wrap; gap:6px; }
@@ -265,9 +267,12 @@ const CSS = `
 .act-estado[data-ok="false"]{ background:var(--bad-bg); color:var(--bad); }
 @media (max-width: 760px){
   .act-cab{ display:none; }
-  .act-fila--tab, .act-fila--neg{ grid-template-columns:1fr auto; }
+  .act-fila--tab{ grid-template-columns:minmax(0, 1fr) minmax(110px, 45%); }
+  .act-fila--neg{ grid-template-columns:minmax(0, 1fr) auto; }
   .act-fila--tab > span:nth-child(n+3), .act-fila--neg > span:nth-child(n+3){ display:none; }
-  .act-fila--deja, .act-fila--mako{ grid-template-columns:1fr auto; }
+  .act-fila--deja{ grid-template-columns:minmax(0, 1fr) auto; }
   .act-fila--deja > span:nth-child(2){ display:none; }
+  .act-fila--mako{ grid-template-columns:minmax(0, 1fr) auto auto; gap:10px; }
+  .act-col > span{ font-size:10px; }
 }
 `;

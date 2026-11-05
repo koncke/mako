@@ -840,10 +840,11 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
 
   return (
     <>
+    {/* Admin › Activity (5/11/2026): cuenta pantallas y acciones por tab, por lotes. Sólo con sesión. Va ARRIBA de la
+        estrella: tests/estrella-en-toda-tab.test.ts la quiere pegada al <aside>. */}
+    {!!rol && <MedidorDeUso />}
     {/* La estrella flotante, en toda tab que no tenga la suya (1/11/2026). Afuera del <aside>: su z-index la encerraría. */}
     {!!rol && arriba.length > 0 && <EstrellaDeLaApp />}
-    {/* Admin › Activity (5/11/2026): cuenta pantallas y acciones por tab, por lotes. Sólo con sesión. */}
-    {!!rol && <MedidorDeUso />}
     <aside data-sidebar data-fija={fija ? 'si' : 'no'} style={{ width: fija ? FULL : RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
       <div
         ref={panelRef}
