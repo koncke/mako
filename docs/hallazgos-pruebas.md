@@ -129,3 +129,9 @@ La tarjeta «A/B TEST» y sus puertas están en docs/hallazgos-chatbot.md («La 
   reusa al volver a entrar): se congelan en la asignación.
 
 *25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
+## El listado del repo pasó de 1 MiB y las guardas cayeron con ENOBUFS (5/11/2026)
+
+**Síntoma:** dos ramas sin relación (recibos y Admin) quedaron en rojo en la misma guarda, `tests/resend-clave-admin.test.ts`, sin tocar nada de Resend. **Lo obvio era que el código de la rama nombraba la clave, y no era eso.** El error real es `spawnSync git ENOBUFS`: `git ls-files` da 1.048.981 bytes, y `execFileSync` corta en 1 MiB si no se le da otro tope. Falla cualquier test que liste el repo entero, y sólo cuando entra en los afectados, por eso parecía de esas ramas.
+
+**La regla:** un `execFileSync('git', …)` que lista todo el repo lleva `maxBuffer`. Con ruta (`ls-files app lib`) todavía entra, pero el repo crece y un día deja de entrar.

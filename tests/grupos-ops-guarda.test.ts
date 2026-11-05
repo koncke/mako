@@ -65,6 +65,7 @@ const LLAMADORES: Record<string, Record<string, string>> = {
     'lib/mako-grupo.ts': 'su definición',
     'lib/avisos.ts': '`emitirAviso`, que copia antes',
     'lib/probar-grupo-envio.ts': '«Probar en el grupo», que copia antes',
+    'lib/recibos.ts': 'el recibo de un pago de MaKo (`despacharWhatsApp`), que copia antes: al hilo siempre, escondido a los invitados',
   },
   enviarAGrupoJid: {
     'lib/mako-doer-in.ts': 'el turno de MaKo: `manejarEntranteDoer`, `manejarEntranteDeLaApp` y `flushHuerfanos` abren el contexto que copia. Los 14 sitios no cambian',
@@ -80,6 +81,7 @@ const COPIAN: Array<{ archivo: string; funcion: string; despues: RegExp }> = [
   { archivo: 'lib/mako-grupo.ts', funcion: 'enviarAGrupoJid', despues: /enviarTextoVozMaKo\(/ },
   { archivo: 'lib/avisos.ts', funcion: 'emitirAviso', despues: /enviarPartesAlGrupoMaKo\(/ },
   { archivo: 'lib/probar-grupo-envio.ts', funcion: 'enviarPruebaAlGrupo', despues: /enviarPartesAlGrupoMaKo\(/ },
+  { archivo: 'lib/recibos.ts', funcion: 'despacharWhatsApp', despues: /enviarPartesAlGrupoMaKo\(/ },
 ];
 
 /** El cuerpo de una función por su nombre: hasta el próximo `}` en la columna 0. */

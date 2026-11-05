@@ -19,6 +19,7 @@ import VenderPlan from './VenderPlan';
 import ListaCobrosMako from './ListaCobrosMako';
 import PrecioClienteAgencia from './PrecioClienteAgencia';
 import PreciosPlanesMp from './PreciosPlanesMp';
+import RecibosMako from './RecibosMako';
 
 export async function ContenidoCobros() {
   const datos = await cobrosDeMakoAction();
@@ -48,6 +49,8 @@ export async function ContenidoCobros() {
       {/* El precio de un cliente de agencia (#866): con él, «Abrir cuenta» de una agencia muestra el link del primer mes. */}
       {precio.ok && <PrecioClienteAgencia inicial={precio.precio} conMercadoPago={datos.pasarelas.includes('mercadopago')} />}
       {(conPasarela || datos.cobros.length > 0) && <ListaCobrosMako cobros={datos.cobros} truncado={datos.truncado} />}
+      {/* El libro de recibos (5/11/2026): también de lo que entra por fuera de la pasarela (Binance), así que no depende de ella. */}
+      <RecibosMako />
     </>
   );
 }

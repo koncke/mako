@@ -961,6 +961,9 @@ export const AREAS: AreaDev[] = [
       'app/admin/cobros/page.tsx', 'app/admin/cobros/actions.ts', 'app/admin/cobros/VenderPlan.tsx', 'app/admin/cobros/ListaCobrosMako.tsx',
       'app/crm/[id]/cobros-actions.ts', 'lib/api-mako/areas/cobros.def.ts', 'lib/api-mako/areas/cobros.run.ts',
       'supabase/migrations/0255_cobros_pasarela.sql', 'docs/diseno-pasarela-pagos.md',
+      // Los recibos de MaKo (5/11/2026).
+      'lib/recibos.ts', 'lib/recibos-reglas.ts', 'lib/recibo-pdf.ts', 'supabase/migrations/0397_recibos.sql', 'app/admin/cobros/RecibosMako.tsx',
+      'app/admin/cobros/CargarPago.tsx', 'app/admin/cobros/recibos-actions.ts', 'app/api/admin/recibos', 'scripts/recibos-cargar-codigo.mts', 'scripts/probar-0397-pglite.mjs',
     ],
     proyectos: ['Feature: Cobros y planes'],
     hallazgos: 'hallazgos-planes-y-cobro',

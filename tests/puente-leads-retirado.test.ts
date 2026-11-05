@@ -96,7 +96,7 @@ const NOMBRES_DEL_PUENTE: ReadonlyArray<[RegExp, string]> = [
 // ── 1. Los archivos ───────────────────────────────────────────────────────────
 
 test('los archivos del puente no están: ni en git ni en el disco, y no hay otro `zapier-*` en lib', () => {
-  // maxBuffer: la lista entera del repo pasó el megabyte que child_process trae por default (5/11/2026, ENOBUFS).
+  // maxBuffer: la lista del repo entero pasó el megabyte que child_process trae por default (5/11/2026: main a 269 bytes).
   const indice = new Set(execFileSync('git', ['ls-files'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).split(/\r?\n/));
   for (const f of ARCHIVOS_DEL_PUENTE) {
     assert.equal(existsSync(join(RAIZ, f)), false, `volvió ${f} (está en el disco)`);
