@@ -142,6 +142,14 @@ export const ITEMS: readonly ItemVigia[] = [
     queHacer: 'Revisa los registros DNS del dominio en Resend.',
   },
   {
+    id: 'creem-tienda',
+    nombre: 'Creem: la tienda de MaKo (cobros fuera de Argentina)',
+    link: 'https://www.creem.io/dashboard/balances/accounts',
+    queHacer: 'Mira el cartel de Balance › Payout Account y contesta lo que pida Creem.',
+    aMano: true,
+    nota: 'Enviada el 5/11/2026 a nombre de Leandro; su identidad ya está verificada. Falta la cuenta de retiro. Su API no dice el estado: Creem avisa por mail a equipo@hola-mako.com. Si rechaza, se pasa a otro proveedor.',
+  },
+  {
     id: 'firma-windows',
     nombre: 'Certificado para firmar el instalador de Windows (SSL.com)',
     link: 'https://www.ssl.com/',
