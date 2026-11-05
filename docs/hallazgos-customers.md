@@ -37,6 +37,24 @@ diseño, con qué se copia de cada una, en [customers/referencias/otras-apps/LEE
 **Vive en:** `lib/admin-ingresos-reglas.ts` · `lib/admin-ingresos.ts` · `app/admin/ingresos/IngresosAdmin.tsx` ·
 `app/admin/ingresos/ingresos-vista.ts` · `app/admin/page.tsx` · `tests/admin-ingresos.test.ts`.
 
+## Users y Errors: lo que ya estaba en la base, a la vista (5/11/2026)
+
+- **Users** son las filas de `usuarios` de todos los negocios. El estado de alta se DERIVA (`estadoDeAlta`), no es la columna:
+  `estado` sólo distingue suspendido; «invitado» y «activo» salen de `ultimo_login`, que marca cada pantalla
+  (lib/ultimo-uso.ts). Reactivar a quien nunca entró lo devuelve a `invitado`, no a `activo`.
+- **El perfil de la persona no viaja al navegador:** la página arma una fila con lo que la tabla dibuja. `listarUsuarios` trae
+  `perfil` (teléfono, bio, preferencias) y con un spread se iba entero.
+- **Errors no inventa una tendencia:** `errores_app` guarda el total, la primera y la última vez. La mini-curva de Sentry y
+  GlitchTip necesita las veces por día, y no están.
+- **«Volvió» tiene que ser la regla del registrador**, o la pantalla diría «resuelto» de algo que ya tiene un ticket nuevo.
+- **Seis pestañas como tope:** con Users y Errors eran siete. Customers y Accounts son dos vistas de los negocios: el selector
+  de vista, y `?tab=accounts` se queda (lo nombran los mails de «Quieren entrar»).
+- **Suspender no va por la API**, a propósito: apaga los tokens de la persona, y un token filtrado no puede dejar sin acceso a
+  nadie. Se lee por chat; se suspende en la pantalla.
+
+**Vive en:** `lib/admin-usuarios-reglas.ts` · `app/admin/usuarios/UsuariosAdmin.tsx` · `lib/admin-errores-reglas.ts` ·
+`lib/admin-errores.ts` · `app/admin/errores/ErroresAdmin.tsx` · `tests/admin-usuarios-errores.test.ts`.
+
 ## La tab se llama Admin y vive en /admin (5/11/2026)
 
 - `/admin` era un redirect a `/customers` desde el 25/10. Desde hoy ES la tab. Sus subrutas (`/admin/dev`, `/admin/ui`,

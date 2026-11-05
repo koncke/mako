@@ -2,14 +2,26 @@
 // (navegador), la redirección de /customers y los tests. El orden es el de la barra: Revenue primero, porque es lo que Martín
 // pide hoy (docs/relevo/admin-encargo.md). Los nombres, en inglés (las tabs de MaKo).
 
-export const PESTANAS_ADMIN = ['revenue', 'billing', 'customers', 'accounts', 'agents'] as const;
+export const PESTANAS_ADMIN = ['revenue', 'billing', 'customers', 'accounts', 'users', 'errors', 'agents'] as const;
 export type PestanaAdmin = (typeof PESTANAS_ADMIN)[number];
+
+/**
+ * Las que se ven en la barra: SEIS, el tope de la casa (app/_ui/Tabs.tsx). `accounts` no es una pestaña aparte: es la otra
+ * VISTA de los negocios (la grilla de administración), con el selector de vista (AGENTS.md: «las vistas de una misma cosa
+ * son UN selector»). Su `?tab=accounts` se queda: lo nombran los mails de «Quieren entrar» y el «Administrar» de la ficha.
+ */
+export const PESTANAS_BARRA = ['revenue', 'billing', 'customers', 'users', 'errors', 'agents'] as const satisfies readonly PestanaAdmin[];
+export type PestanaBarra = (typeof PESTANAS_BARRA)[number];
+/** La pestaña de la barra que se marca para un `?tab=`. */
+export const pestanaDeBarra = (t: PestanaAdmin): PestanaBarra => (t === 'accounts' ? 'customers' : t);
 
 export const ROTULO_PESTANA_ADMIN: Record<PestanaAdmin, string> = {
   revenue: 'Revenue',
   billing: 'Billing',
   customers: 'Customers',
   accounts: 'Accounts',
+  users: 'Users',
+  errors: 'Errors',
   agents: 'Agents',
 };
 

@@ -17,6 +17,7 @@ import { ETIQUETA_PARA_MIRAR, estadoEnUnaPalabra, nombreDePlan, ultimaVezTxt, ty
 import type { VistaIngresos } from '@/lib/admin-ingresos';
 import { ROTULO_ESTADO_CLIENTE, diaTxt, mesTxt, usd } from '@/lib/admin-ingresos-reglas';
 import { mesesVisibles } from '@/app/admin/ingresos/ingresos-vista';
+import { ROTULO_ESTADO_ERROR, estadoDeError, erroresVisibles, haceTxtCorto, type FilaError } from '@/lib/admin-errores-reglas';
 
 type Grupo = 'todos' | Segmento;
 const GRUPOS: ReadonlyArray<{ id: Grupo; rotulo: string }> = [
@@ -29,11 +30,13 @@ const tono = (t: string): TonoPildora => (t === 'neutral' ? 'neutro' : (t as Ton
 const grupoTxt = (f: FilaCliente) =>
   f.segmentos.includes('de-agencia') ? `De ${f.agencia ?? 'una agencia'}` : f.segmentos.map((s) => ({ agency: 'Agency', partner: 'Partner', cliente: 'Cliente', 'de-agencia': '' }[s])).join(' · ');
 
-export function CustomersM({ vista, arriba, ingresos = null }: {
+export function CustomersM({ vista, arriba, ingresos = null, errores = null }: {
   vista: VistaClientes;
   arriba?: ReactNode;
   /** Admin › Revenue (lib/admin-ingresos.ts, 5/11/2026): lo que entró, de los pagos reales. `null` = no se pudo leer. */
   ingresos?: VistaIngresos | null;
+  /** Admin › Errors (lib/admin-errores.ts): los errores de la app. `null` = no se pudo leer (no se dibuja). */
+  errores?: { lista: FilaError[]; ahoraMs: number } | null;
 }) {
   const { filas, kpis, cobrado } = vista;
   const [grupo, setGrupo] = useState<Grupo>('todos');
@@ -110,6 +113,8 @@ export function CustomersM({ vista, arriba, ingresos = null }: {
         </SeccionM>
       )}
 
+      {errores && <ErroresM {...errores} />}
+
       <SeccionM titulo="Más">
         <ListaM>
           <FilaM icono="tag" titulo="Billing" segunda="Lo que vendiste de MaKo" href="/m/cobros" navegacion />
@@ -168,3 +173,20 @@ function IngresosM({ v }: { v: VistaIngresos }) {
     </>
   );
 }
+
+/** Lo que se rompió, en el teléfono: los errores sin resolver, el visto más reciente primero (Admin › Errors, destilado). */
+function ErroresM({ lista, ahoraMs }: { lista: FilaError[]; ahoraMs: number }) {
+  const abiertos = erroresVisibles(lista, 'abiertos', ahoraMs);
+  if (abiertos.length === 0) return null;
+  return (
+    <SeccionM titulo={`Errores sin resolver · ${abiertos.length}`}>
+      <ListaM>
+        {abiertos.slice(0, 5).map((e) => {
+          const est = ROTULO_ESTADO_ERROR[estadoDeError(e, ahoraMs)];
+          return <FilaM key={e.id} titulo={e.titulo} segunda={`${e.veces} ${e.veces === 1 ? 'vez' : 'veces'} · visto ${haceTxtCorto(e.ultimaVez, ahoraMs)}`} pill={<PildoraM tono={tono(est.tono)}>{est.rotulo}</PildoraM>} />;
+        })}
+      </ListaM>
+    </SeccionM>
+  );
+}
+

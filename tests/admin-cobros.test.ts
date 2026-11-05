@@ -149,7 +149,7 @@ test('la capa de la plataforma no se ofrece como plan, ni en la pantalla ni en l
 });
 
 test('la página es sólo del super admin, y el guard va antes de leer nada', () => {
-  // Desde el 25/10/2026 /admin/cobros redirige a Customers › Billing, que monta app/admin/cobros/Contenido.tsx.
+  // Desde el 25/10/2026 /admin/cobros redirige a Admin › Billing, que monta app/admin/cobros/Contenido.tsx.
   const page = sinComentarios(leer('app/admin/cobros/page.tsx'));
   const guard = page.search(/const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);/);
   assert.ok(guard > 0, 'falta el guard de /admin/estrategia: getSesionAdmin y si no, redirect');
