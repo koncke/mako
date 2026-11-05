@@ -95,7 +95,8 @@ test('el «⋯» de la columna: punto ámbar y el aviso en su nombre; el tablero
   const page = sinComentarios(leer('app/crm/page.tsx'));
   assert.match(page, /const pVinculados = vinculadosDelCrm\(/);
   // Desde el 23/10/2026 la ola trae también el tope del plan (`pTope`, tests/crm-topes-plan-23-10.test.ts).
-  assert.match(page, /camposTarjeta, vinculados(, tope)?\] = await Promise\.all\(\[[^\]]*pVinculados(, pTope)?\]\)/, 'en la ola, no después');
+  // Y desde el 5/11/2026 los leads del negocio para la apertura de la estrella (`pLeadsNegocio`, lib/aperturas/crm.ts).
+  assert.match(page, /camposTarjeta, vinculados(, tope)?(, leadsNegocio)?\] = await Promise\.all\(\[[^\]]*pVinculados(, pTope)?(, pLeadsNegocio)?\]\)/, 'en la ola, no después');
   assert.match(page, /vinculados=\{vinculados\}/);
   // Lecturas de la base (los vínculos y qué pasarelas tienen claves), nunca la API de las agendas ni de las pasarelas, y
   // nunca tira.
