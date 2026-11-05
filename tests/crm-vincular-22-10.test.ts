@@ -161,13 +161,13 @@ test('la API de MaKo: ver, vincular, fijar las cuentas y quitar el cobro de Gana
     if (id !== 'ver_cobro_etapa') assert.equal(esAccion(d) && d.confirmacion, 'chat', `${id} sin el «sí»`);
   }
   // Al final, antes de armar_tab_ficha: una op nueva no deja afuera a las de antes en el presupuesto del turno. Juntas y en
-  // este orden; las que se declararon DESPUÉS (las de en bloque del 28/10/2026, y lo que se borró, del 30/10) van entre éstas y armar_tab_ficha.
+  // este orden; las que se declararon DESPUÉS (las de en bloque del 28/10/2026, lo que se borró, del 30/10, y el primer contacto, del 5/11) van entre éstas y armar_tab_ficha.
   const orden = porArea('crm').map((d) => d.id);
   const fin = orden.indexOf('armar_tab_ficha');
   const desde = orden.indexOf(ids[0]);
   assert.deepEqual(orden.slice(desde, desde + ids.length), ids);
   assert.ok(desde + ids.length <= fin, 'quedaron después de armar_tab_ficha');
-  assert.ok(orden.slice(desde + ids.length, fin).every((id) => /_en_bloque_|_papelera_crm$|^ver_bajas_de_leads$|^ver_nombres_del_crm$|^marcar_palabra_no_nombre$/.test(id)), 'entre éstas y armar_tab_ficha se metió una que no es de las de en bloque');
+  assert.ok(orden.slice(desde + ids.length, fin).every((id) => /_en_bloque_|_papelera_crm$|^ver_bajas_de_leads$|^ver_nombres_del_crm$|^marcar_palabra_no_nombre$|^tiempo_primer_contacto$/.test(id)), 'entre éstas y armar_tab_ficha se metió una que no es de las de en bloque');
   for (const id of ids) {
     const d = porId(id)!;
     assert.doesNotMatch(`${d.titulo} ${d.descripcion}`, /\bcambi(a|ar)\b|\blead\b/i, `${id}: palabras que el clasificador suma a todo un tipo de pedido`);
