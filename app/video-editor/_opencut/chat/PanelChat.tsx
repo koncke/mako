@@ -66,6 +66,7 @@ import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
 import { useAppDeEscritorio } from "@/app/_chat/useAppDeEscritorio";
 import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 import { separarCita } from '@/lib/centro-mensajes';
+import { SelectorIntencion, useIntencion, type IntencionChat } from '@/app/_chat/SelectorIntencion';
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -139,7 +140,10 @@ async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, arch
  * de la respuesta, con su link (chat/pedidos.ts). Sin nada del proyecto abierto, no se llama a la IA. `interpretar:
  * false` = un pedido NUESTRO (una sugerencia), que es de edición por definición y no gasta la vuelta.
  */
-async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "video" | "seleccion", op: { interpretar?: boolean; archivos?: readonly File[] } = {}): Promise<void> {
+async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "video" | "seleccion", op: { interpretar?: boolean; archivos?: readonly File[]; intencion?: IntencionChat } = {}): Promise<void> {
+	// «Discutir» (app/_chat/SelectorIntencion.tsx, 5/11/2026): MaKo contesta sin proponer nada, y el mensaje va entero (no
+	// se parte en pedidos: no hay nada que hacer en otra tab).
+	const discutir = op.intencion === "discutir";
 	const proyecto = editor.project.getActiveOrNull();
 	const escena = editor.scenes.getActiveSceneOrNull();
 	const texto = instruccion.trim();
@@ -166,7 +170,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	};
 
 	let paraEditar: string | null = texto;
-	if (op.interpretar !== false && texto) {
+	if (op.interpretar !== false && texto && !discutir) {
 		const { pedido: lemos, conCita } = separarCita(texto);
 		const ri = await pedirPedidos(lemos, { id: proyectoId, nombre: proyecto.metadata.name }, corte.signal);
 		if (corte.signal.aborted) {
@@ -210,9 +214,14 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		return;
 	}
 
-	const r = await pedirIA({ instruccion: paraEditar, linea: vista.json, alcance: alcanceReal }, corte.signal, archivos);
+	const r = await pedirIA({ instruccion: paraEditar, linea: vista.json, alcance: alcanceReal, ...(discutir ? { intencion: "discutir" } : {}) }, corte.signal, archivos);
 	if (!r.ok) {
 		terminar({ de: "mako", texto: r.error, error: !("cortado" in r) });
+		return;
+	}
+	// Discutir: la respuesta y nada más (el server ya tiró cualquier operación).
+	if (discutir) {
+		terminar({ de: "mako", texto: r.resumen || "No tengo nada que sugerir sobre eso." });
 		return;
 	}
 	// La forma ya la validó la ruta; acá se vuelve a validar (el editor no le cree a nadie) y se
@@ -420,6 +429,8 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	// Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
 	const appEscritorio = useAppDeEscritorio();
 	const [alcance, setAlcance] = useState<"video" | "seleccion">("video");
+	// «Discutir | Editar», con la misma preferencia que los otros chats de MaKo (app/_chat/SelectorIntencion.tsx).
+	const [intencion, elegirIntencion] = useIntencion();
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const hiloRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef(editor);
@@ -463,7 +474,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		if (hilo.corriendo || (!instruccion.trim() && !op.archivos?.length) || !proyectoId || appEscritorio.bloqueada) return;
 		// Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
 		if (!op.dejarCaja) instruccion = cita.con(instruccion.slice(0, TOPES_CHAT.instruccion - cita.reserva), !!op.archivos?.length);
-		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, op);
+		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, { ...op, intencion });
 		if (!op.dejarCaja) { setTexto(""); cita.soltar(); }
 	};
 
@@ -640,6 +651,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 						</button>
 					)}
 				</div>
+				<SelectorIntencion valor={intencion} onCambio={elegirIntencion} deshabilitado={hilo.corriendo} />
 				{/* La caja única (app/_chat/CajaChat.tsx), con los tokens de MaKo tal cual. */}
 				<div className="co-caja">
 					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}

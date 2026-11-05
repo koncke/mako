@@ -616,6 +616,11 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/negocio/personalidad-voz', 'reiniciar_personalidad'],
   ['GET', '/negocio/knowledge/modulos', 'modulos_de_knowledge'],
   ['GET', '/negocio/knowledge/modulos/{modulo}', 'leer_modulo_knowledge'],
+  // La marca: los kits de colores, fuentes y logo (5/11/2026, lib/marca/kits.ts).
+  ['GET', '/negocio/marca/kits', 'ver_kits_marca'],
+  ['POST', '/negocio/marca/kits', 'guardar_kit_marca'],
+  ['PUT', '/negocio/marca/kits/{id}/por-defecto', 'elegir_kit_marca'],
+  ['DELETE', '/negocio/marca/kits/{id}', 'borrar_kit_marca'],
   ['GET', '/negocio/personalidad-voz', 'ver_personalidad_voz'],
   ['PUT', '/negocio/personalidad-voz/muletillas', 'guardar_muletillas_marca'],
   ['PUT', '/negocio/personalidad-voz/respuestas/{key}', 'responder_pregunta_personalidad'],

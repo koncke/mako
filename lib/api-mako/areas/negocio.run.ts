@@ -44,7 +44,8 @@ import { getWorkspace } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { CAPACIDADES_PASARELA, NOMBRE_PASARELA } from '@/lib/cobros-tipos';
-import { lugarSeccion, lugarDato, rutaDato, datoDeCampo, type DatoDelNegocio } from '@/lib/secciones-negocio';
+import { lugarSeccion, lugarDato, rutaDato, rutaSeccion, datoDeCampo, type DatoDelNegocio } from '@/lib/secciones-negocio';
+import { conKit, conPorDefecto, kitTieneAlgo, resumenDeKit, sanearFuente, sanearKit, sinKit } from '@/lib/marca/kits';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { getSetting } from '@/lib/settings';
@@ -1203,6 +1204,104 @@ export const RUNNERS: Runners = {
       if (r.yaEstaba) return { ok: true, resumen: `«${r.nombre}» ya estaba en el Second Brain: no se guardó dos veces.`, datos: { id: r.id } };
       const corte = payload.cortado ? ' Llegó cortado: falta el resto, que se suma como otro documento.' : '';
       return { ok: true, resumen: `«${r.nombre}» quedó en el Second Brain (El Archivero) y aportó ${r.aportadas} dato${r.aportadas === 1 ? '' : 's'} a tu perfil.${corte}`, datos: { id: r.id, aportadas: r.aportadas } };
+    }),
+  },
+
+  // ── La marca (5/11/2026, lib/marca/kits.ts) ──
+  ver_kits_marca: {
+    leer: async (_input, ctx) => {
+      const { leerKitsEstricto } = await import('@/lib/marca/kits-server');
+      const k = await leerKitsEstricto().catch(() => null);
+      if (!k) return errorLectura('No pude leer la marca del negocio. Vuelve a intentar.');
+      const donde = { lugar: lugarSeccion('marca'), link: linkApp(rutaSeccion('marca'), ctx.ws) };
+      if (!k.kits.length) return json({ kits: [], donde, nota: 'Todavía no hay kits: se sube el manual de marca ahí, o se arma uno con guardar_kit_marca.' });
+      return json({
+        kits: k.kits.map((x) => ({
+          id: x.id, nombre: x.nombre, porDefecto: x.id === k.porDefecto, colores: x.colores, fuentes: x.fuentes,
+          logo: x.logo ? { subidoId: x.logo.subidoId, nombre: x.logo.nombre } : null, origen: x.origen, resumen: resumenDeKit(x),
+        })),
+        donde,
+      });
+    },
+  },
+
+  guardar_kit_marca: {
+    preparar: seguro(async (input) => {
+      const { leerKitsEstricto, logoDeSubido, nuevoIdKit } = await import('@/lib/marca/kits-server');
+      const k = await leerKitsEstricto();
+      const id = str(input, 'id');
+      const antes = id ? k.kits.find((x) => x.id === id) ?? null : null;
+      if (id && !antes) return { error: 'Ese kit no existe: los que hay están en `disponibles`.', disponibles: k.kits.map((x) => ({ id: x.id, nombre: x.nombre })) };
+      let logo = antes?.logo ?? null;
+      const logoId = str(input, 'logo_subido_id');
+      if (input.sin_logo === true) logo = null;
+      else if (logoId) {
+        logo = await logoDeSubido(logoId);
+        if (!logo) return { error: 'Ese logo no es una imagen de «Subidos» de este negocio.' };
+      }
+      const fuente = (clave: string, actual: string | null) => (input[clave] === undefined ? actual : sanearFuente(input[clave]));
+      const kit = sanearKit({
+        id: antes?.id ?? nuevoIdKit(),
+        nombre: str(input, 'nombre') || antes?.nombre || 'Mi marca',
+        colores: Array.isArray(input.colores) ? input.colores : antes?.colores ?? [],
+        fuentes: { titulos: fuente('fuente_titulos', antes?.fuentes.titulos ?? null), texto: fuente('fuente_texto', antes?.fuentes.texto ?? null) },
+        logo,
+        origen: antes?.origen ?? null,
+      });
+      if (!kit || !kitTieneAlgo(kit)) return { error: 'Un kit necesita al menos un color, una fuente o un logo.', faltan: ['colores'] };
+      const porDefecto = input.por_defecto === true || !k.kits.length;
+      const igual = antes && JSON.stringify({ ...antes, actualizado: '' }) === JSON.stringify({ ...kit, actualizado: '' });
+      if (igual && (!porDefecto || k.porDefecto === antes.id)) return { error: `El kit «${antes.nombre}» ya está así.`, yaEstaba: true };
+      return {
+        payload: { kit, porDefecto, antes: antes?.actualizado ?? null },
+        resumen: `${antes ? 'Cambiar' : 'Crear'} el kit de marca «${kit.nombre}»: ${resumenDeKit(kit)}${kit.colores.length ? ` (${kit.colores.map((c) => c.hex).join(', ')})` : ''}${porDefecto ? '. Queda por defecto' : ''}.`,
+      };
+    }),
+    ejecutar: sinLanzar(async (payload) => {
+      const { cambiarKits } = await import('@/lib/marca/kits-server');
+      const kit = sanearKit(payload.kit);
+      if (!kit) return { ok: false, resumen: 'El kit no es válido.' };
+      const antes = typeof payload.antes === 'string' ? payload.antes : null;
+      const r = await cambiarKits((k) => {
+        // Lo que se confirmó es el kit COMO ESTABA al proponer: si alguien lo cambió en el medio, no se pisa.
+        const ahora = k.kits.find((x) => x.id === kit.id);
+        if (antes && ahora && ahora.actualizado !== antes) return { ok: false, error: `El kit «${kit.nombre}» cambió desde que lo propuse: vuelve a pedirlo.` };
+        if (antes && !ahora) return { ok: false, error: `El kit «${kit.nombre}» ya no existe.` };
+        return conKit(k, { ...kit, actualizado: new Date().toISOString() }, { porDefecto: payload.porDefecto === true });
+      });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Kit de marca «${kit.nombre}» guardado.`, datos: { id: kit.id } };
+    }),
+  },
+
+  elegir_kit_marca: {
+    preparar: seguro(async (input) => {
+      const { leerKitsEstricto } = await import('@/lib/marca/kits-server');
+      const k = await leerKitsEstricto();
+      const kit = k.kits.find((x) => x.id === str(input, 'id'));
+      if (!kit) return { error: 'Ese kit no existe: los que hay están en `disponibles`.', disponibles: k.kits.map((x) => ({ id: x.id, nombre: x.nombre })) };
+      if (k.porDefecto === kit.id) return { error: `«${kit.nombre}» ya es el kit por defecto.`, yaEstaba: true };
+      return { payload: { id: kit.id }, resumen: `Usar el kit «${kit.nombre}» por defecto en Image, Video y Web Generator.` };
+    }),
+    ejecutar: sinLanzar(async (payload) => {
+      const { cambiarKits } = await import('@/lib/marca/kits-server');
+      const r = await cambiarKits((k) => conPorDefecto(k, String(payload.id ?? '')));
+      return r.ok ? { ok: true, resumen: 'Kit por defecto cambiado.' } : { ok: false, resumen: r.error };
+    }),
+  },
+
+  borrar_kit_marca: {
+    preparar: seguro(async (input) => {
+      const { leerKitsEstricto } = await import('@/lib/marca/kits-server');
+      const k = await leerKitsEstricto();
+      const kit = k.kits.find((x) => x.id === str(input, 'id'));
+      if (!kit) return { error: 'Ese kit no existe: los que hay están en `disponibles`.', disponibles: k.kits.map((x) => ({ id: x.id, nombre: x.nombre })) };
+      return { payload: { id: kit.id }, resumen: `Borrar el kit de marca «${kit.nombre}» (${resumenDeKit(kit) || 'vacío'}). No se puede deshacer.` };
+    }),
+    ejecutar: sinLanzar(async (payload) => {
+      const { cambiarKits } = await import('@/lib/marca/kits-server');
+      const r = await cambiarKits((k) => sinKit(k, String(payload.id ?? '')));
+      return r.ok ? { ok: true, resumen: 'Kit de marca borrado.' } : { ok: false, resumen: r.error };
     }),
   },
 };

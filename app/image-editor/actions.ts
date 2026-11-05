@@ -19,6 +19,9 @@ import { documentoEnBlanco } from '@/lib/image-editor/reglas';
 import { documentoDeCarrusel } from '@/lib/carruseles/documento';
 import { marcaDelNegocio } from '@/lib/carruseles/marca';
 import { tipoCarrusel } from '@/lib/carruseles/tipos';
+import { estiloConKit } from '@/lib/carruseles/marca-kit';
+import { kitParaUsar } from '@/lib/marca/kits-server';
+import { fuenteDelEditorDeImagen } from '@/lib/image-editor/fuente-del-editor';
 import { documentoDePlantilla } from './mako/plantillas';
 import { plantillaNueva } from './plantillas-crear';
 
@@ -31,8 +34,10 @@ export async function crearDisenoNuevoAction(id: string): Promise<Resultado> {
   const pl = plantillaNueva(id);
   if (!pl) return { ok: false, error: 'Esa plantilla no existe.' };
   const tipo = pl.carrusel ? tipoCarrusel(pl.carrusel) : null;
+  // Con la marca del negocio (5/11/2026): el kit de por defecto pone colores, fuentes y logo (lib/carruseles/marca-kit.ts).
+  const kit = tipo ? await kitParaUsar().catch(() => null) : null;
   const doc = tipo
-    ? documentoDeCarrusel({ laminas: tipo.estructura(tipo.laminas.def), estilo: tipo.estilo, marca: await marcaDelNegocio(p.ws), nuevoId: randomUUID })
+    ? documentoDeCarrusel({ laminas: tipo.estructura(tipo.laminas.def), estilo: estiloConKit(tipo.estilo, kit, fuenteDelEditorDeImagen), marca: await marcaDelNegocio(p.ws, kit), nuevoId: randomUUID })
     : pl.plantilla
       ? await documentoDePlantilla(pl.plantilla)
       : documentoEnBlanco(pl.ancho, pl.alto, Array.from({ length: Math.max(1, pl.paginas) }, () => randomUUID()));

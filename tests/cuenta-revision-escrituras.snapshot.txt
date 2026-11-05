@@ -208,6 +208,7 @@ POST /api/mako/prompts → cortada
 POST /api/mako/propuesta → cortada
 POST /api/mako/recomendaciones → cortada
 POST /api/mako/voz → cortada
+POST /api/marca → cortada
 POST /api/media-buyer → cortada
 POST /api/meta-write → cortada
 POST /api/metodo → sólo admin (el rol la corta antes, también a un closer)

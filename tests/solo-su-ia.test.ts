@@ -153,3 +153,17 @@ test('lo prenden los caminos del Ops Center: el turno (con El Archivero y los ar
   // IA16: en el orden de su IA (su GPT antes que su Gemini), no en el de la lista.
   assert.match(sinComentarios(leer('lib/ia-cuotas.ts')), /export async function ordenarPorCuota\(orden: string\[\]\): Promise<string\[\]> \{\s*if \(soloSuIA\(\)\) return PROVS_SU_IA\.filter\(\(p\) => orden\.includes\(p\)\);/);
 });
+
+test('Image «sin Gemini» (`deSuIA`): ni con «sólo su IA» ni sin ella sale a Gemini; su GPT sí', () => {
+  // 5/11/2026 (Martín, 22/10: Image «sin Gemini»). Corre la cascada con `sinGemini` y el chat de Image ENTERO (chatClaude con
+  // `image-editor-ia`: la marca la pone el catálogo). Probado rompiéndolo (base 6/0): sin el filtro de `sinGemini` en
+  // lib/ai-cheap.ts, 5/1; con image-editor-ia otra vez en GEMINI() sin `deSuIA`, 5/1 («chatClaudeImagen (control) salió a Gemini»).
+  for (const modo of ['control', 'conSuIA'] as const) {
+    for (const entrada of ['chatCheapCascadeSinGemini', 'chatClaudeImagen']) {
+      const c = R[modo][entrada];
+      assert.ok(c, `${entrada} no corrió (${modo})`);
+      assert.ok(!c.red.includes('generativelanguage.googleapis.com'), `${entrada} (${modo}) salió a Gemini: ${c.red.join(', ')}`);
+      assert.ok(c.red.includes('api.openai.com'), `${entrada} (${modo}) no probó su GPT: ${c.red.join(', ') || 'ningún pedido'}`);
+    }
+  }
+});

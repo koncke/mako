@@ -438,7 +438,7 @@ export async function chatClaude(
   let noSePuedeSeguir = '';
   if (!opts.model && opts.feature) {
     try {
-      const { modeloDeFeature, fallbackDeFeature } = await import('@/lib/model-registry');
+      const { modeloDeFeature, fallbackDeFeature, deSuIADeFeature } = await import('@/lib/model-registry');
       const ref = await modeloDeFeature(opts.feature);
       if (ref && ref.provider !== 'anthropic') {
         // ⚠️ CLAUDE ES EL ÚLTIMO RECURSO, NO EL SEGUNDO.
@@ -485,6 +485,8 @@ export async function chatClaude(
           hastaMs: opts.hastaMs, sinRespaldoDeModelo: opts.sinRespaldoDeModelo,
           redDePlataforma: opts.redDePlataforma, erroresPlataformaOut: opts.erroresPlataformaOut,
           validar: opts.validar,
+          // `deSuIA` (lib/model-catalogo.ts): su Claude y su GPT, nunca Gemini (ni el suyo).
+          sinGemini: deSuIADeFeature(opts.feature),
         });
         if (salida.trim()) return salida;
         // Lo que contestó cada key del negocio, para que el caller diga la causa (errorDeCascada).

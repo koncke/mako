@@ -19,6 +19,7 @@
 // desde el 29/10/2026 son los de MaKo: siguen el tema claro u oscuro de la app) y sus estilos base (_doory/styles/global.css).
 // =============================================================================
 
+import type { KitMarca } from '@/lib/marca/kits';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { PantallaCrear, type AccionProyecto, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
@@ -64,7 +65,9 @@ function ChatDelEditor({ disenoId, volver, carga, onRanura }: {
 
 const rutaDe = (id: string) => `${RUTA_INICIO}/${encodeURIComponent(id)}`;
 
-export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir = null, explorador = null, negocio = null }: {
+export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir = null, explorador = null, negocio = null, kit = null }: {
+  /** El kit de marca de por defecto (lib/marca/kits.ts): las miniaturas de los carruseles lo muestran como se va a crear. */
+  kit?: KitMarca | null;
   /** El nombre del negocio: va en la cabecera de los carruseles que se crean, y en sus miniaturas. */
   negocio?: string | null;
   /** `carruseles`: en el centro, «Carruseles que funcionan» (./carruseles/ExplorarCarruseles.tsx, `?ver=carruseles`). */
@@ -157,7 +160,7 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
     const r = await onPlantilla({ id });
     return typeof r === 'string' ? r : null;
   }, [onPlantilla]);
-  const carruseles = useCarruselesDeImage({ negocio, crearPlantilla });
+  const carruseles = useCarruselesDeImage({ negocio, kit, crearPlantilla });
 
   const onTitulo = useCallback((t: string) => { if (abierto) conTitulo(abierto, t); }, [abierto, conTitulo]);
   const alAbrir = useCallback((a: EditorAbierto | null) => { editor.current = a; }, []);
