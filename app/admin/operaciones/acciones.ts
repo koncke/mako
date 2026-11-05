@@ -238,7 +238,7 @@ export async function guardarBorradorAction(direccion: string, texto: string, at
  */
 export async function contestarPreguntaAction(entrada: {
   local: string; id: string; elegidas: number[]; otra: string; trabajo: string;
-}): Promise<{ ok: true; pregunta: PreguntaChat } | { ok: false; error: string }> {
+}): Promise<{ ok: true; pregunta: PreguntaChat } | { ok: false; error: string; ignorada?: true }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
   try {
@@ -255,7 +255,10 @@ export async function contestarPreguntaAction(entrada: {
     const r = await marcarContestada(local, id, { elegidas: v.elegidas, otra: v.otra, at: new Date().toISOString(), trabajo });
     // Ignorada en otro dispositivo (5/11/2026): la respuesta que acaba de salir firmada no se entrega. Se cancela ya (la vuelta del
     // Runner la frena igual si esto falla).
-    if (!r.ok && r.ignorada) await cancelarRespuestasDe(local, id).catch(() => 0);
+    if (!r.ok && r.ignorada) {
+      await cancelarRespuestasDe(local, id).catch(() => 0);
+      return { ok: false, error: r.error, ignorada: true };
+    }
     return r.ok ? r : { ok: false, error: r.error };
   } catch (e) {
     return { ok: false, error: msg(e) };

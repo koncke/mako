@@ -755,6 +755,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (!r.ok) return r.error;
     anotarEnviado({ id: r.id, destino: p.local, destino_titulo: c.titulo, destino_cuenta: cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
     const m = await contestarPreguntaAction({ local: p.local, id: p.id, elegidas, otra, trabajo: r.id }).catch(() => null);
+    // Ignorada en otro dispositivo (5/11/2026): su respuesta se canceló y no llega. Se dice, y no se la da por contestada.
+    if (m && !m.ok && m.ignorada) return m.error;
     // Salió firmada aunque no se haya podido marcar: el chat la recibe igual. Se ve contestada acá, y el refresco trae la verdad.
     const contestada: PreguntaChat = m?.ok ? m.pregunta : { ...p, respuesta: { elegidas, otra: otra.trim() || null, at: new Date().toISOString(), trabajo: r.id } };
     setPreguntas((q) => ({ ...q, [c.clave]: (q[c.clave] ?? []).map((x) => (x.id === p.id ? contestada : x)) }));
