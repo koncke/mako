@@ -21,6 +21,9 @@ import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { esKeySoloEnvio, KEY_SOLO_ENVIO_TUYA } from './resend-errores';
 import { problemaDelRemitente } from './resend-remitente';
 import { CLAVES_ZERNIO, slotDeClaveZernio } from './zernio-redes';
+import { CLAVES_APIFY_DE_SPY, nombreDeClaveApify, slotDeClaveApify } from './instagram-perfil';
+import { creditoDeApify, type CreditoApify } from './spy-todo-reglas';
+import { resumenDeCredito } from './spy-claves';
 
 type Valores = Record<string, string>;
 
@@ -341,12 +344,37 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
    * **422 «Field required»**. O sea que se comprueba la operación que se va a
    * usar —la regla de la casa— sin crear una voz ni consumir cuota.
    */
-  // Quién es esa cuenta: no corre ningún actor, así que comprobar la clave no gasta nada.
+  // Quién es esa cuenta y cuánto crédito le queda: no corre ningún actor, así que comprobar las claves no gasta nada.
+  // VARIAS CLAVES (5/11/2026): se prueba CADA una que vino (el servidor completa con las guardadas), como Zernio, y se dice cuál
+  // falla. Con el crédito del mes de cada una (`/users/me/limits`): es lo que la tarjeta muestra y lo que contesta la API de MaKo
+  // (`probar_conexion_integracion`). Nunca la clave: su número y el nombre que le puso la persona.
   async 'apify-instagram'(v) {
-    const r = await fetchJson('https://api.apify.com/v2/users/me', { headers: { Authorization: `Bearer ${v.APIFY_INSTAGRAM_TOKEN}` } });
-    if (r.status === 401 || r.status === 403) return { ok: false, error: 'Ese token no entra a Apify.' };
-    if (r.status !== 200) return { ok: false, error: `Apify respondió ${r.status}.` };
-    return { ok: true };
+    const claves = CLAVES_APIFY_DE_SPY
+      .map((env) => ({ env, token: (v[env] ?? '').trim(), slot: slotDeClaveApify(env) ?? 1, nombre: (v[nombreDeClaveApify(env)] ?? '').trim() || null }))
+      .filter((k) => k.token);
+    if (!claves.length) return { ok: false, error: 'Falta el API token de Apify.' };
+    const leidas = await Promise.all(claves.map(async (k) => {
+      const h = { headers: { Authorization: `Bearer ${k.token}` } };
+      const [yo, limites] = await Promise.all([
+        fetchJson('https://api.apify.com/v2/users/me', h),
+        fetchJson('https://api.apify.com/v2/users/me/limits', h).catch(() => null),
+      ]);
+      return { k, yo, credito: limites && limites.status === 200 ? creditoDeApify(limites.body) : (null as CreditoApify | null) };
+    }));
+    const varias = claves.length > 1;
+    for (const { k, yo } of leidas) {
+      const cual = varias ? `La clave ${k.slot}${k.nombre ? ` (${k.nombre})` : ''}` : 'Ese token';
+      if (yo.status === 401 || yo.status === 403) return { ok: false, error: `${cual} no entra a Apify. Cópiala de nuevo o quítala.` };
+      if (yo.status !== 200) return { ok: false, error: `Apify respondió ${yo.status}${varias ? ` con la clave ${k.slot}` : ''}.` };
+    }
+    const r = resumenDeCredito(leidas.map((x) => x.k), leidas.map((x) => x.credito));
+    const mayus = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+    const facts: Fact[] = r.porClave.map((x) => ({ k: mayus(x.rotulo), v: x.texto, ...(x.sinCredito ? { c: 'var(--warn)' } : {}) }));
+    if (varias && r.total) facts.push({ k: 'Libre en total', v: r.total });
+    const detalle = varias
+      ? `Las ${claves.length} claves entran. ${r.porClave.map((x) => `${mayus(x.rotulo)}: ${x.texto}.`).join(' ')}`
+      : `Token válido. ${mayus(r.porClave[0].texto)}.`;
+    return { ok: true, detalle, facts };
   },
   async elevenlabs(v) {
     const h = { 'xi-api-key': v.ELEVENLABS_API_KEY };

@@ -12,20 +12,24 @@ import 'server-only';
 // se pide, cuánto y cada cuánto: lib/spy-todo-reglas.ts.
 //
 // ⚠️ LA CLAVE ES LA DE SPY DEL NEGOCIO (`APIFY_CLAVE_DE_SPY`), como el resto de Spy, y va en la cabecera, nunca en la url.
+// ⚠️ CON VARIAS CLAVES (5/11/2026, `clavesApifyDeSpy`): una corrida se EMPIEZA con la primera que tenga crédito (lib/spy-claves.ts)
+// y se anota con qué clave (`TareaLarga.clave`, su huella): lo que empezó una cuenta de Apify sólo lo lee esa cuenta. La reserva
+// de Spy se cuenta sobre el crédito libre de TODAS (`ajustarAlCredito` con el total).
 // ⚠️ LOS ANUNCIOS VAN POR APIFY Y NO POR LA EXTENSIÓN, a propósito (docs/diseno-competitors-spy.md §14): el actor lee la
 // Biblioteca pública desde sus servidores, sin la sesión de Facebook de nadie. Recorrerla «toda» con la extensión sería
 // automatizar la cuenta de Facebook DEL CLIENTE, y eso es lo que pone en riesgo su cuenta.
 // =============================================================================
 
-import { credDelCliente } from './credenciales';
-import { APIFY_CLAVE_DE_SPY, piezasDeApify } from './instagram-perfil';
+import { piezasDeApify } from './instagram-perfil';
+import { clavesApifyDeSpy } from './instagram-perfil-server';
+import { claveDeHuella, conLaPrimeraConCredito, type ClaveApify } from './spy-claves';
 import { cambiarSettingSi, getSettingEstricto } from './settings';
 import { guardarVistas, leerCompetidor, vistaDeInstagram } from './spy';
 import { rellenarMiniaturas } from './spy-miniaturas-relleno';
 import { anunciosDeQuien, piezaDeAnuncio } from './spy-captura';
 import { busquedasDeSusAnuncios, enlaceSusAnuncios } from './spy-funnel';
 import {
-  ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, ajustarAlCredito, creditoDeApify, esFaltaDeCredito, APIFY_ACTOR_PUBLICACIONES, CLAVE_DIA, CLAVE_DIA_TRANSCRIPCIONES,
+  ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, ajustarAlCredito, creditoDeApify, creditoTotal, esFaltaDeCredito, APIFY_ACTOR_PUBLICACIONES, CLAVE_DIA, CLAVE_DIA_TRANSCRIPCIONES,
   CLAVE_TAREAS, CORRIDAS_LARGAS_POR_DIA, TRANSCRIPCIONES_POR_DIA, USD_POR_ANUNCIO, USD_POR_PUBLICACION, anuncioDeApify,
   entradaDeAnuncios, entradaDePublicaciones, entradaDeUnaPublicacion, estadoDeCorrida, leerTareas, paginaDeSusAnuncios, pedidoDePublicaciones,
   siguienteDeAnuncios, tocaPedir, usadasHoy, videoDelItem, type CreditoApify, type TareaLarga, type TareasDeCompetidor,
@@ -88,26 +92,47 @@ async function reservarCorrida(clave = CLAVE_DIA, tope = CORRIDAS_LARGAS_POR_DIA
 /** Una del tope del día de `clave` (el guion de un video de YouTube: `CLAVE_DIA_GUIONES_YT`). Compare-and-set en la base. */
 export const reservarDelDia = (clave: string, tope: number): Promise<boolean> => reservarCorrida(clave, tope);
 
-/** El crédito del mes de la cuenta de Apify del negocio. null = no se pudo saber (no es «sin crédito»). */
+/** El crédito del mes de UNA cuenta de Apify del negocio. null = no se pudo saber (no es «sin crédito»). */
 async function creditoDelMes(token: string): Promise<CreditoApify | null> {
   const r = await apify(token, '/users/me/limits').catch(() => null);
   return r && r.status === 200 ? creditoDeApify(r.cuerpo) : null;
 }
 
-/**
- * Empieza una corrida. null = no se pudo (sin permiso, Apify caído): se vuelve a intentar otro día. 'sin-credito' = Apify dijo
- * que la cuenta no tiene crédito: tampoco se insiste, y la pantalla se lo dice sólo al admin.
- */
-async function empezar(token: string, actor: string, entrada: unknown, maxItems: number, techoUsd: number): Promise<{ run: string; dataset: string } | 'sin-credito' | null> {
+/** El crédito de cada clave, en el mismo orden (`/users/me/limits` no corre ningún actor: no gasta). */
+const creditosDelMes = (claves: readonly ClaveApify[]): Promise<Array<CreditoApify | null>> => Promise.all(claves.map((k) => creditoDelMes(k.token)));
+
+type Pedido = { cuantas: number; desde: string | null; techoUsd: number };
+type Corrida = { run: string; dataset: string; clave: string };
+
+/** El pedido de EMPEZAR una corrida, crudo (estado y cuerpo): lo mira la rotación de claves. Un corte de red vuelve con estado 0. */
+async function pedirCorrida(token: string, actor: string, entrada: unknown, maxItems: number, techoUsd: number): Promise<{ status: number; cuerpo: unknown }> {
   const q = new URLSearchParams({ maxItems: String(maxItems), maxTotalChargeUsd: String(techoUsd) });
-  const r = await apify(token, `/acts/${actor}/runs?${q}`, { method: 'POST', cuerpo: entrada }).catch(() => null);
+  return apify(token, `/acts/${actor}/runs?${q}`, { method: 'POST', cuerpo: entrada }).catch(() => ({ status: 0, cuerpo: null }));
+}
+
+/**
+ * Lo que dejó el intento de empezar, con la primera clave que tenía crédito (lib/spy-claves.ts). null = no se pudo (sin
+ * permiso, Apify caído): se vuelve a intentar otro día. 'sin-credito' = TODAS las claves dijeron que no tienen crédito: tampoco
+ * se insiste, y la pantalla se lo dice sólo al admin. La corrida lleva la HUELLA de la clave que la empezó: sólo ésa la lee.
+ */
+function corridaDe(actor: string, r: { status: number; cuerpo: unknown; clave: ClaveApify } | null): Corrida | 'sin-credito' | null {
   const d = (r?.cuerpo as { data?: { id?: unknown; defaultDatasetId?: unknown } } | null)?.data;
   if (!r || r.status < 200 || r.status >= 300 || typeof d?.id !== 'string' || typeof d?.defaultDatasetId !== 'string') {
-    console.error(`[spy-todo] no pude empezar ${actor}: HTTP ${r?.status ?? '—'}`);
+    console.error(`[spy-todo] no pude empezar ${actor}: HTTP ${r?.status ?? '—'} (clave ${r?.clave.slot ?? '—'})`);
     return r && esFaltaDeCredito(r.status, r.cuerpo) ? 'sin-credito' : null;
   }
-  return { run: d.id, dataset: d.defaultDatasetId };
+  return { run: d.id, dataset: d.defaultDatasetId, clave: r.clave.huella };
 }
+
+/** Lo que cada clave puede pedir: la reserva de Spy va sobre el crédito de TODAS; las que no alcanzan, afuera. */
+function pedidosConCredito(claves: readonly ClaveApify[], pedidos: ReadonlyArray<Pedido | null>): { conCredito: ClaveApify[]; pedidoDe: (k: ClaveApify) => Pedido } {
+  const por = new Map<string, Pedido>();
+  claves.forEach((k, i) => { const p = pedidos[i]; if (p) por.set(k.huella, p); });
+  return { conCredito: claves.filter((k) => por.has(k.huella)), pedidoDe: (k) => por.get(k.huella) as Pedido };
+}
+
+/** Una corrida en marcha cuya clave ya no está (la quitaron): no se puede leer. Se olvida y se vuelve a pedir mañana. */
+const SIN_SU_CLAVE = 'La clave de Apify con que lo pedí ya no está: vuelvo a intentar mañana';
 
 /** Lo que una corrida dejó en su dataset. null si no se pudo leer. */
 async function leerDataset(token: string, dataset: string): Promise<unknown[] | null> {
@@ -134,12 +159,18 @@ type CompetidorLeido = NonNullable<Awaited<ReturnType<typeof leerCompetidor>>>;
  * Si no hay ninguno suyo, se prueba su otra búsqueda (su @, su web: `busquedasDeSusAnuncios`); probadas todas, no pauta, y eso
  * se dice en su lugar. Una corrida vacía cuesta US$0.
  */
-async function pasoDeAnuncios(token: string, c: CompetidorLeido, t: TareaLarga | undefined): Promise<EstadoTodo> {
+async function pasoDeAnuncios(claves: readonly ClaveApify[], c: CompetidorLeido, t: TareaLarga | undefined): Promise<EstadoTodo> {
   const busquedas = busquedasDeSusAnuncios(c);
   const suPagina = /^\d{5,25}$/.test(c.pagina_anuncios ?? '') ? (c.pagina_anuncios as string) : null;
   const ahora = () => new Date().toISOString();
   const noPauta = (cuando?: string) => (cuando ? { anuncios: 'no-pauta' as const, anunciosMirados: cuando } : {});
   if (t?.run && t.dataset) {
+    // La lee la clave que la empezó (varias claves, 5/11/2026). Si la quitaron, se olvida y se vuelve a pedir mañana.
+    const token = claveDeHuella(claves, t.clave)?.token;
+    if (!token) {
+      await anotar(c.id, 'anuncios', { ...(t.sinAnuncios ? { sinAnuncios: t.sinAnuncios } : {}), ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
+      return { enMarcha: false, nuevas: 0, porque: SIN_SU_CLAVE, ...noPauta(t.sinAnuncios) };
+    }
     const r = await apify(token, `/actor-runs/${t.run}`).catch(() => null);
     const status = String((r?.cuerpo as { data?: { status?: unknown } } | null)?.data?.status ?? '');
     if (!r || r.status !== 200 || !status) return { enMarcha: true, nuevas: 0 };
@@ -171,15 +202,21 @@ async function pasoDeAnuncios(token: string, c: CompetidorLeido, t: TareaLarga |
   }
   if (!tocaPedir(t, Date.now())) return { enMarcha: false, nuevas: 0, ...noPauta(t?.sinAnuncios) };
   if (!suPagina && !busquedas.length) return { enMarcha: false, nuevas: 0 };
-  // ⚠️ EL CRÉDITO DEL MES MANDA (plan FREE: US$5): la corrida se achica a lo que deja libre, o espera.
-  const credito = await creditoDelMes(token);
-  const pedido = ajustarAlCredito({ cuantas: ANUNCIOS_POR_CORRIDA, desde: null, techoUsd: Math.max(0.1, Math.round(ANUNCIOS_POR_CORRIDA * USD_POR_ANUNCIO * 100) / 100) }, credito);
-  if (!pedido) return { enMarcha: false, nuevas: 0, porque: 'sin-credito', ...noPauta(t?.sinAnuncios) };
+  // ⚠️ EL CRÉDITO DEL MES MANDA (plan FREE: US$5): la corrida se achica a lo que deja libre, o espera. Con varias claves, la reserva
+  // va sobre el crédito de TODAS y la corrida corre en UNA: la primera que alcanza.
+  const creditos = await creditosDelMes(claves);
+  const total = creditoTotal(creditos);
+  const base: Pedido = { cuantas: ANUNCIOS_POR_CORRIDA, desde: null, techoUsd: Math.max(0.1, Math.round(ANUNCIOS_POR_CORRIDA * USD_POR_ANUNCIO * 100) / 100) };
+  const { conCredito, pedidoDe } = pedidosConCredito(claves, claves.map((_, k) => ajustarAlCredito(base, creditos[k], total)));
+  if (!conCredito.length) return { enMarcha: false, nuevas: 0, porque: 'sin-credito', ...noPauta(t?.sinAnuncios) };
   if (!(await reservarCorrida())) return { enMarcha: false, nuevas: 0, porque: 'limite', ...noPauta(t?.sinAnuncios) };
   const i = Math.min(t?.busqueda ?? 0, Math.max(0, busquedas.length - 1));
   const enlace = enlaceSusAnuncios(c, suPagina ? undefined : busquedas[i]);
   // ⚠️ LO QUE DEJA EL CRÉDITO, no `ANUNCIOS_POR_CORRIDA`: `ajustarAlCredito` achica `cuantas` y el techo juntos.
-  const corrida = await empezar(token, APIFY_ACTOR_ANUNCIOS, entradaDeAnuncios(enlace, pedido.cuantas), pedido.cuantas, pedido.techoUsd);
+  const corrida = corridaDe(APIFY_ACTOR_ANUNCIOS, await conLaPrimeraConCredito(conCredito, (k) => {
+    const pedido = pedidoDe(k);
+    return pedirCorrida(k.token, APIFY_ACTOR_ANUNCIOS, entradaDeAnuncios(enlace, pedido.cuantas), pedido.cuantas, pedido.techoUsd);
+  }));
   if (corrida === 'sin-credito') return { enMarcha: false, nuevas: 0, porque: 'sin-credito', ...noPauta(t?.sinAnuncios) };
   if (!corrida) {
     await anotar(c.id, 'anuncios', { ...(t ?? {}), ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
@@ -195,9 +232,15 @@ async function pasoDeAnuncios(token: string, c: CompetidorLeido, t: TareaLarga |
 }
 
 /** Un paso de un canal: mirar la corrida en marcha, o empezar una si toca. */
-async function pasoDeCanal(token: string, c: CompetidorLeido, canal: Canal, t: TareaLarga | undefined): Promise<EstadoTodo> {
-  if (canal === 'anuncios') return pasoDeAnuncios(token, c, t);
+async function pasoDeCanal(claves: readonly ClaveApify[], c: CompetidorLeido, canal: Canal, t: TareaLarga | undefined): Promise<EstadoTodo> {
+  if (canal === 'anuncios') return pasoDeAnuncios(claves, c, t);
   if (t?.run && t.dataset) {
+    // La lee la clave que la empezó (varias claves, 5/11/2026). Si la quitaron, se olvida y se vuelve a pedir mañana.
+    const token = claveDeHuella(claves, t.clave)?.token;
+    if (!token) {
+      await anotar(c.id, canal, { ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
+      return { enMarcha: false, nuevas: 0, porque: SIN_SU_CLAVE };
+    }
     const r = await apify(token, `/actor-runs/${t.run}`).catch(() => null);
     const status = String((r?.cuerpo as { data?: { status?: unknown } } | null)?.data?.status ?? '');
     // No poder preguntar no es «terminó»: se vuelve a preguntar.
@@ -223,13 +266,17 @@ async function pasoDeCanal(token: string, c: CompetidorLeido, canal: Canal, t: T
   }
   if (!tocaPedir(t, Date.now())) return { enMarcha: false, nuevas: 0 };
   // ⚠️ EL CRÉDITO DEL MES MANDA (4/11/2026): la traída larga se achica a lo que deja libre, o espera. Antes de gastar la
-  // corrida del día: sin crédito no se reserva nada.
-  const credito = await creditoDelMes(token);
-  const pedido = ajustarAlCredito(pedidoDePublicaciones(t), credito);
-  if (!pedido) return { enMarcha: false, nuevas: 0, porque: 'sin-credito' };
+  // corrida del día: sin crédito no se reserva nada. Con varias claves (5/11/2026), la reserva sobre el crédito de TODAS.
+  const creditos = await creditosDelMes(claves);
+  const total = creditoTotal(creditos);
+  const { conCredito, pedidoDe } = pedidosConCredito(claves, claves.map((_, k) => ajustarAlCredito(pedidoDePublicaciones(t), creditos[k], total)));
+  if (!conCredito.length) return { enMarcha: false, nuevas: 0, porque: 'sin-credito' };
   if (!(await reservarCorrida())) return { enMarcha: false, nuevas: 0, porque: 'limite' };
 
-  const corrida = await empezar(token, APIFY_ACTOR_PUBLICACIONES, entradaDePublicaciones(c.instagram as string, pedido), pedido.cuantas, pedido.techoUsd);
+  const corrida = corridaDe(APIFY_ACTOR_PUBLICACIONES, await conLaPrimeraConCredito(conCredito, (k) => {
+    const pedido = pedidoDe(k);
+    return pedirCorrida(k.token, APIFY_ACTOR_PUBLICACIONES, entradaDePublicaciones(c.instagram as string, pedido), pedido.cuantas, pedido.techoUsd);
+  }));
   if (corrida === 'sin-credito') return { enMarcha: false, nuevas: 0, porque: 'sin-credito' };
   if (!corrida) {
     // Sin poder empezar (sin saldo, sin permiso): no se insiste hasta mañana.
@@ -240,9 +287,10 @@ async function pasoDeCanal(token: string, c: CompetidorLeido, canal: Canal, t: T
   return { enMarcha: true, nuevas: 0 };
 }
 
-/** ¿El negocio tiene su clave de Spy? Sin ella no se pide nada a Apify, y la pantalla lo dice. «No pude leer» es que sí. */
+/** ¿El negocio tiene alguna clave de Spy? Sin ninguna no se pide nada a Apify, y la pantalla lo dice. «No pude leer» es que sí. */
 export async function tieneClaveDeSpy(ws: number): Promise<boolean> {
-  return !!(await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => 'no-se'));
+  const claves = await clavesApifyDeSpy(ws).catch(() => null);
+  return claves == null || claves.length > 0;
 }
 
 /**
@@ -252,20 +300,24 @@ export async function tieneClaveDeSpy(ws: number): Promise<boolean> {
  */
 export async function videoDeUnaPublicacion(ws: number, enlace: string): Promise<{ ok: true; url: string } | { ok: false; motivo: 'sin-clave' | 'limite' | 'no-esta' | 'fallo' }> {
   try {
-    const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
-    if (!token) return { ok: false, motivo: 'sin-clave' };
+    const claves = await clavesApifyDeSpy(ws);
+    if (!claves.length) return { ok: false, motivo: 'sin-clave' };
     if (!(await reservarCorrida(CLAVE_DIA_TRANSCRIPCIONES, TRANSCRIPCIONES_POR_DIA))) return { ok: false, motivo: 'limite' };
     const techo = Math.max(0.01, Math.ceil(USD_POR_PUBLICACION * 3 * 100) / 100);
     const q = new URLSearchParams({ maxItems: '1', maxTotalChargeUsd: String(techo), timeout: '90' });
-    const r = await fetch(`${API}/acts/${APIFY_ACTOR_PUBLICACIONES}/run-sync-get-dataset-items?${q}`, {
-      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(entradaDeUnaPublicacion(enlace)), signal: AbortSignal.timeout(100_000), cache: 'no-store',
+    // Varias claves (5/11/2026): la primera con crédito; un «sin crédito» pasa a la siguiente (lib/spy-claves.ts).
+    const r = await conLaPrimeraConCredito(claves, async ({ token }) => {
+      const res = await fetch(`${API}/acts/${APIFY_ACTOR_PUBLICACIONES}/run-sync-get-dataset-items?${q}`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(entradaDeUnaPublicacion(enlace)), signal: AbortSignal.timeout(100_000), cache: 'no-store',
+      });
+      return { status: res.status, cuerpo: await res.json().catch(() => null) };
     });
-    if (r.status < 200 || r.status >= 300) {
-      console.error(`[spy-todo] no pude traer el video de ${enlace}: HTTP ${r.status}`);
+    if (!r || r.status < 200 || r.status >= 300) {
+      console.error(`[spy-todo] no pude traer el video de ${enlace}: HTTP ${r?.status ?? '—'} (clave ${r?.clave.slot ?? '—'})`);
       return { ok: false, motivo: 'fallo' };
     }
-    const url = videoDelItem(await r.json().catch(() => null));
+    const url = videoDelItem(r.cuerpo);
     return url ? { ok: true, url } : { ok: false, motivo: 'no-esta' };
   } catch (e) {
     console.error(`[spy-todo] no pude traer el video de ${enlace}: ${msg(e)}`);
@@ -292,8 +344,10 @@ export async function avanzarTodo(ws: number, id: number): Promise<EstadoTodo> {
     if (!c) return { enMarcha: false, nuevas: 0 };
     // Las miniaturas que la traída anterior no alcanzó a bajar, mientras su URL sirve (no gasta la clave de Spy: es el CDN de la red).
     await rellenarMiniaturas(id);
-    const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
-    if (!token) return { enMarcha: false, nuevas: 0, porque: 'sin-clave' };
+    // Las claves de Spy del negocio, en orden (5/11/2026): la corrida nueva, con la primera con crédito; la que está en marcha,
+    // con la que la empezó.
+    const claves = await clavesApifyDeSpy(ws);
+    if (!claves.length) return { enMarcha: false, nuevas: 0, porque: 'sin-clave' };
     const tareas = leerTareas(await getSettingEstricto(CLAVE_TAREAS))[String(id)] ?? {};
     const canales: Canal[] = [...(c.instagram ? ['instagram' as const] : []), ...(ANUNCIOS_POR_APIFY ? ['anuncios' as const] : [])];
     let enMarcha = false;
@@ -301,7 +355,7 @@ export async function avanzarTodo(ws: number, id: number): Promise<EstadoTodo> {
     let porque: string | undefined;
     let anuncios: Pick<EstadoTodo, 'anuncios' | 'anunciosMirados'> = {};
     for (const canal of canales) {
-      const r = await pasoDeCanal(token, c, canal, tareas[canal]);
+      const r = await pasoDeCanal(claves, c, canal, tareas[canal]);
       enMarcha ||= r.enMarcha;
       nuevas += r.nuevas;
       porque ??= r.porque;

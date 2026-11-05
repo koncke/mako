@@ -58,6 +58,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | **Planes** (los planes de MaKo, MaKo Partners y la suscripción) | `Leé docs/relevo/suscripcion.md, docs/hallazgos-partners.md y docs/hallazgos-planes-y-cobro.md y seguimos desde ahí.` |
 | Strategy / Pricing MaKo (tab Strategy, runway y referidos) | `Leé docs/relevo/vender-mako-estrategia.md y docs/relevo/super-admin.md y seguimos desde ahí.` |
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
+| Varias claves de Apify (Spy y la biblioteca de carruseles, 5/11) | `Lee docs/relevo/nube-apify.md y seguimos desde ahí.` |
 | Vigía de aprobaciones (App Store, Google Play, la extensión, Meta, Google y Resend) | `Lee docs/relevo/nube-aprobaciones.md y seguimos desde ahí.` |
 | Ops Center: la fecha y el «Ignorar» de lo que espera a Martín (migración 0394 sin aplicar) | `Lee docs/relevo/nube-ops-ignorar.md y seguimos desde ahí.` |
 | API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |

@@ -54,7 +54,7 @@ test('CR3: la estrella del CRM va con el lead de la ficha abierta', () => {
   assert.match(board, /useEffect\(\(\) => \(\) => publicarLeadAbierto\(null\), \[\]\);/, 'al irse del tablero, ninguno');
   const panel = sinComentarios(leer('app/crm/mako-crm/PanelMakoCrm.tsx'));
   assert.match(panel, /const abierto = useLeadAbierto\(\);/);
-  assert.match(panel, /<MakoEnLaTab tab="CRM" entidad=\{entidadDelLead\(abierto\)\}/);
+  assert.match(panel, /<MakoEnLaTab tab="CRM" apertura=\{aperturaTab\} entidad=\{entidadDelLead\(abierto\)\}/);
 });
 
 test('CR4: el Plan tiene la estrella, con la tarea o el proyecto abierto, y no adentro de la ficha de un cliente', () => {

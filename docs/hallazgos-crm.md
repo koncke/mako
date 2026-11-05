@@ -11834,3 +11834,20 @@ buscadores (`app/crm/new/InstagramBuscador.tsx`, `app/competitor-spy/BuscadorAlt
 
 **Vive en:** lib/foto-instagram-reglas.ts · app/api/crm/instagram-foto/route.ts · app/crm/new/InstagramBuscador.tsx
 
+## MaKo toma la iniciativa en el CRM: la estrella vive afuera del tablero (5/11/2026)
+
+**Lo que se hizo (T7 de docs/mako-iniciativa/plan.md):** con el CRM vacío, la estrella pregunta «¿Dónde tienes hoy a tus
+clientes?» (lib/aperturas/crm.ts) y la guía de la pestaña enseña a cargar, agregar, buscar y cambiar de funnel (app/crm/guia-crm.ts).
+
+**Trampas:**
+- **La estrella (`PanelMakoCrm`) es HERMANA del tablero, no hija**: no puede abrir el importador con un `setState`. «En una
+  planilla» es un link, `/crm?importar=1`, y `CrmBoard` lo abre sobre el CAMBIO del prop (`abrirImportar`): la estrella navega a la
+  MISMA página, que sigue montada, así que un `useState(inicial)` no se enteraría. El parámetro se saca con `replaceState`.
+- **«Vacío» es el NEGOCIO, no el funnel**: un funnel nuevo arranca sin leads y no es un negocio sin clientes. La página cuenta
+  `leads` con `head: true` y su error se mira: con la lectura caída MaKo calla (una lectura caída no es «no tienes»).
+- **La apertura del funnel sin declarar no está**: pide el canal y el diagnóstico en la estrella y declarar con
+  `declararEntradasAction`. El onboarding ya declara el principal con `recomendarFunnel`.
+
+**Vive en:** lib/aperturas/crm.ts, app/crm/guia-crm.ts, app/crm/mako-crm/PanelMakoCrm.tsx, app/crm/page.tsx, app/crm/CrmBoard.tsx,
+app/crm/CrmToolbar.tsx. Lo fija tests/iniciativa-crm.test.ts.
+
