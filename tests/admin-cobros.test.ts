@@ -85,6 +85,22 @@ test('cada action pregunta por el super admin ANTES de hacer cualquier otra cosa
   }
 });
 
+test('los recibos (5/11/2026): cada action pregunta por el super admin ANTES de hacer cualquier otra cosa', () => {
+  const as = acciones(sinComentarios(leer('app/admin/cobros/recibos-actions.ts')));
+  for (const n of ['recibosAction', 'cargarPagoAction', 'reenviarReciboAction', 'anularReciboAction', 'marcarDevueltoReciboAction', 'guardarEmisorAction', 'guardarWaSoloAction']) {
+    assert.ok(as.some((a) => a.nombre === n), `no encontré ${n} en recibos-actions.ts`);
+  }
+  for (const a of as) {
+    assert.match(a.cuerpo.trimStart(), /^const (\w+) = await getSesionAdmin\(\);\s*if \(!\1\) return /, `${a.nombre}: la PRIMERA línea tiene que ser el super admin`);
+  }
+  // Las rutas que sirven los PDF y los comprobantes de TODOS los clientes: el super admin primero, además del proxy.
+  for (const r of ['app/api/admin/recibos/[id]/pdf/route.ts', 'app/api/admin/recibos/[id]/comprobante/[pagoId]/route.ts', 'app/api/admin/recibos/comprobante/route.ts', 'app/api/admin/recibos/ejemplo/route.ts']) {
+    const src = sinComentarios(leer(r));
+    const cuerpo = src.slice(src.search(/export async function (GET|POST)/));
+    assert.match(cuerpo, /^export async function (GET|POST)\([^)]*\) \{\s*if \(!\(await getSesionAdmin\(\)\)\) return /, `${r}: la primera línea tiene que ser getSesionAdmin`);
+  }
+});
+
 test('el workspace es el de la plataforma, se resuelve adentro y nunca viaja desde la pantalla', () => {
   let total = 0;
   for (const src of [ACTIONS, LIB]) {
@@ -133,7 +149,7 @@ test('la capa de la plataforma no se ofrece como plan, ni en la pantalla ni en l
 });
 
 test('la página es sólo del super admin, y el guard va antes de leer nada', () => {
-  // Desde el 25/10/2026 /admin/cobros redirige a Customers › Billing, que monta app/admin/cobros/Contenido.tsx.
+  // Desde el 25/10/2026 /admin/cobros redirige a Admin › Billing, que monta app/admin/cobros/Contenido.tsx.
   const page = sinComentarios(leer('app/admin/cobros/page.tsx'));
   const guard = page.search(/const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);/);
   assert.ok(guard > 0, 'falta el guard de /admin/estrategia: getSesionAdmin y si no, redirect');

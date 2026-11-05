@@ -10775,17 +10775,15 @@ hecho tiene más de 7 días (`tiempoDelHecho`, `lib/meta-capi-payload.ts`, con s
 
 **La regla:** el número se confirma al aplicar, contra `origin/main`. Si chocó, se renumera el archivo que llegó segundo: nada lo nombra por número salvo su encabezado y su relevo.
 
-## `git ls-files` del repo entero pasó 1 MiB y un test murió con ENOBUFS (5/11/2026)
+## La lista de archivos del repo entero pasó el megabyte (5/11/2026)
 
-**Síntoma:** la corrida de `punta/admin` (run 42119084126) dio rojo en `tests/resend-clave-admin.test.ts` con `spawnSync git ENOBUFS`, en un test
-que no tiene nada que ver con lo que trajo la punta. Sobre main pasaba.
+**Vive en:** `tests/resend-clave-admin.test.ts` y `tests/puente-leads-retirado.test.ts`.
 
-**Causa:** `execFileSync('git', ['ls-files'])` sin `maxBuffer` corta en 1 MiB (1.048.576 bytes) el default de Node. La lista del repo entero ocupaba
-1.048.494 bytes en main el 5/11: 82 bytes de margen. Los archivos de Activity la pasaron (1.048.834), y el primero que lista todo se cayó. Casi todo es
-`public/` (10.650 de los ~21.000 archivos). Lo que lista sólo `app` y `lib` ocupa ~216 KB y no corre peligro todavía.
-
-**Regla:** una llamada a git cuya salida crece con el repo lleva `maxBuffer` (el molde: `maxBuffer: 64 << 20`, o el `git()` de
-`scripts/tests-afectados.mjs`, con 256 MB). Se arreglaron las dos que listaban todo sin tope: `tests/resend-clave-admin.test.ts` y
-`tests/puente-leads-retirado.test.ts`. Reproducido: con el test viejo sobre el árbol mezclado, ENOBUFS; con el arreglo, 12 de 12.
-
-**Sin hacer:** no hay guarda que frene una llamada nueva sin `maxBuffer`. Vive en `tests/*.test.ts` (`execFileSync('git', [...])`).
+- **Síntoma:** el veredicto de `punta/recibos` dio rojo en dos tests que no tocan nada de recibos, con `spawnSync git ENOBUFS`.
+- **Causa:** `git ls-files` sin carpetas mide 1.048.307 B en main, a 269 bytes del tope de 1 MB que `execFileSync` trae por default.
+  Cualquier rama que suma unos archivos lo pasa, en la nube y en GitHub igual (es el mismo checkout).
+- **Arreglo:** `maxBuffer: 64 * 1024 * 1024` en los dos. Los scripts ya lo tenían (`tests-afectados.mjs`, 256 MB; `claves-en-el-diff.mjs`,
+  512 MB) y `tests/colision-de-nombres.test.ts` también. Con una carpeta (`git ls-files app lib`) son ~216 KB: todavía lejos.
+- **Regla:** la de arriba (25/10): todo `git ls-files`, `git ls-tree -r` o `git show` que pueda crecer lleva `maxBuffer` explícito.
+- **Le pasó igual a `punta/admin`** (run 42119084126), que lo arregló por su lado el mismo día: la mezcla se quedó con este arreglo.
+  **Sin hacer:** no hay guarda que frene un `execFileSync('git', …)` nuevo sin `maxBuffer`.

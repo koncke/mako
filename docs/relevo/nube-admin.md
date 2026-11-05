@@ -14,8 +14,8 @@
 
 La primera corrida de la tanda 3 dio rojo (`ci-rojo/admin`, run 42119084126) por un test ajeno: `tests/resend-clave-admin.test.ts` lista el
 repo entero con git sin tope de salida, y la lista pasó 1 MiB con los archivos nuevos. Se arregló ahí y en `tests/puente-leads-retirado.test.ts`,
-que tenía lo mismo (docs/hallazgos-infra.md, 5/11). **A main le quedan 82 bytes antes de que le pase a cualquiera**: si una punta ajena da
-ENOBUFS en un test que lista todo, es esto, y la cura es la misma (`maxBuffer`).
+que tenía lo mismo. El chat de los recibos lo arregló igual el mismo día y ya está en main (docs/hallazgos-infra.md, «La lista de archivos
+del repo entero pasó el megabyte»). Si otra punta da ENOBUFS en un test que lista todo, es esto: la cura es `maxBuffer`.
 
 La barra de Admin queda en seis: Revenue · Billing · Customers · Users · Activity · Errors. `?tab=accounts` abre la vista de
 tarjetas de Customers y `?tab=agents` abre Activity (los links viejos siguen andando).
@@ -57,8 +57,8 @@ tarjetas de Customers y `?tab=agents` abre Activity (los links viejos siguen and
 
 - **`punta/suscripciones-ficha`**: si cambia cómo se guarda una suscripción, en Revenue cambia una sola función,
   `esRecurrente` (lib/admin-ingresos.ts). Las cuentas no saben de dónde sale cada pago.
-- **`punta/recibos`**: todavía no existe en origin. Cuando esté `app/admin/cobros/RecibosMako.tsx`, se monta en Billing.
-  Esta sesión no movió `app/admin/cobros/` (sólo cambió dos links a `/admin?tab=billing`).
+- **`punta/recibos`**: llegó a main el 5/11 y monta `RecibosMako` en Billing (`app/admin/cobros/Contenido.tsx`), con sus tres
+  operaciones de la API. Esta sesión no movió `app/admin/cobros/` (sólo cambió dos links a `/admin?tab=billing`).
 - **Quien toque `app/_components/WsFetch.tsx`, `Sidebar.tsx` o `app/m/_ui/ShellM.tsx`**: ahí viven el contador de acciones y el
   medidor. Y `lib/api-mako/ejecutar.ts` ahora envuelve a `correrOperacion` para anotar lo que hace MaKo.
 
