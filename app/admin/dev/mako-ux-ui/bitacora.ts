@@ -337,4 +337,19 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard?ws=3',
   },
+  {
+    fecha: "5 nov", hora: "18:05", chat: "Iniciativa (nube)", sesion: "cli_d5a9b850-5f45-5173-b8c4-5c551ce46310", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo toma la iniciativa en Create: el ejemplo pregunta para cuál de tus ofertas es",
+    puntos: [
+      "Al abrir una plantilla, el primer mensaje de MaKo pregunta un hecho, «¿Para cuál de tus ofertas es?», con tus ofertas como botones, en vez de «¿Lo adapto a tu negocio?».",
+      "La tarjeta de MaKo de cada tab de Create ya puede mostrar lo que esa tab pregunta primero.",
+    ],
+    revisar: "/copywriter",
+    archivos: [
+      "app/_crear/ejemplo.ts — la pregunta de pasoOferta con la frase del ejemplo",
+      "app/_crear/PantallaCrear.tsx — reenvía `apertura` a la tarjeta del Cerebro",
+      "tests/iniciativa-create.test.ts — probado rompiéndolo (2 roturas)",
+    ],
+  },
 ];

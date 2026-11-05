@@ -115,7 +115,7 @@ Se corrigió en las cinco partes, también en los guiones que repetían esos dat
 ### 2.3 Qué pasa al abrir una plantilla
 
 1. **La pieza nace con el ejemplo completo y el rótulo** «Ejemplo: <negocio> (negocio ficticio)».
-2. **MaKo, en el chat de la izquierda, manda un mensaje local, sin llamar a la IA** (no gasta la IA del cliente sin que lo pida): «Es un ejemplo de <negocio>, un negocio ficticio. ¿Lo adapto a tu negocio?». El primer botón es siempre **«Adaptar a mi negocio»**; el segundo depende de la tab.
+2. **MaKo, en el chat de la izquierda, manda un mensaje local, sin llamar a la IA** (no gasta la IA del cliente sin que lo pida): «Es un ejemplo de <negocio>, un negocio ficticio. ¿Para cuál de tus ofertas es?», con las ofertas como botones (con una, «¿Es para «X»?»; sin ninguna, «¿Qué vas a vender con esto?»). El último botón depende de la tab. ⚠️ Hasta el 5/11/2026 decía «¿Lo adapto a tu negocio?» con «Adaptar a mi negocio» primero: preguntaba una ACCIÓN, y la primera pregunta de MaKo es de HECHO (docs/mako-iniciativa/plan.md T4; `pasoOferta`, lib/aperturas/comunes.ts).
    - **La excepción es Offer.** Su chat ya existe, y adaptar empieza por el documento de la oferta. Abre con la misma primera frase y sigue con el pedido de siempre: «Es un ejemplo de <negocio>, un negocio ficticio. Para adaptarlo a tu oferta, ¿tienes un documento, tu guion de ventas o el link de tu web? Súbelo o pégalo aquí.». Su único botón es «No tengo, pregúntame» (offer.md, 3.5).
 3. **«Adaptar a mi negocio»:**
    - lee el negocio;
