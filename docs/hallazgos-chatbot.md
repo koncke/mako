@@ -8093,6 +8093,11 @@ tope pasó de 3.996 a 4.004 (techo: 4.000); editar con el CRON estaba a UN token
 «DISPARADORES:» a secas (el «(clave y qué lo dispara)» repetía la regla 10 del system) y dos rótulos más cortos del bloque de
 condiciones. Quedó en 3.998: lo próximo que se sume al CRON o al catálogo de condiciones paga otra cosa.
 
+**⚠️ Y una plantilla nueva también cobra en el turno de WhatsApp.** Su id entra al `enum` de
+`crear_automatizacion_desde_plantilla` (`IDS_PLANTILLAS`), que va antes del CRON en «salga todos los martes a las 15»: las dos
+de esta tarjeta (+39 caracteres) bajaron el margen de `cambiar_crons_secuencia` de 318 a 279, debajo del piso de 300
+(tests/ops-center-bateria.test.ts, el 4). Se pagó con la última frase de esa descripción, que repetía su parámetro: margen 336.
+
 **⚠️ Dos listas de tablas con nombres parecidos.** `TABLAS_DE_INQUILINO` (lib/tablas-de-inquilino.ts) es lo que se VACÍA al
 resetear un negocio; `TENANT_TABLES` (lib/workspace.ts) es lo que `getTenantDb` SCOPEA. La primera tanda sumó la tabla sólo a la
 primera: el insert salía sin `workspace_id`, sin un error de tipos. Una tabla nueva de un negocio va en las dos.
