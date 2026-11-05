@@ -27,15 +27,15 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { FilaM, ListaM, PieM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
-import { preguntasDeLaApp, preguntasParaElBloque } from '@/lib/centro-chats';
+import { preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque } from '@/lib/centro-chats';
 import {
   TEXTO_SEGUNDO_RENGLON, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
   textoDeEnvio, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
-import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
-import { BloqueDePreguntas } from '@/app/admin/operaciones/PreguntasDelChat';
+import { ignoradasDelChat, preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
+import { BloqueDePreguntas, armarIgnorar } from '@/app/admin/operaciones/PreguntasDelChat';
 import { BloqueCompletado } from '@/app/admin/operaciones/BloqueCompletado';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { useChatNuevo } from '@/app/admin/operaciones/ChatNuevo';
@@ -260,6 +260,11 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const preguntas = elegido ? preguntasDelChat(elegido, decisiones, carteros) : [];
   const bloque = preguntasParaElBloque(lineas);
   const deLaApp = preguntasDeLaApp(lineas);
+  // «Ignorar» lo que espera y «Ignoradas» (5/11/2026), lo mismo que en la computadora (PreguntasDelChat.tsx → armarIgnorar).
+  const paraIgnorar = elegido && centro ? armarIgnorar({
+    pregunta: (p, si) => centro.ignorarPregunta(elegido, p, si), decision: (d, si) => centro.ignorarDecision(d, si),
+    decisiones: ignoradasDelChat(elegido, decisiones, carteros),
+  }, preguntasIgnoradas(lineas)) : undefined;
   const hilo = useRef<HTMLDivElement>(null);
   // La caja: el campo, para enfocarlo desde afuera. Lo que crece y el scroll que acompaña son de la caja única
   // (app/_chat/CajaChat.tsx): acá crece el CSS (`field-sizing`) y la que sigue abajo es la hoja.
@@ -542,7 +547,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             <BloqueCompletado key={`ya-${elegido.clave}`} chat={elegido} lineas={lineas} yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
               hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} onResponderSobre={feedback} />
             <BloqueDePreguntas key={`b-${elegido.clave}`} chat={elegido.clave} ticketera={preguntas} responderTicketera={responder}
-              delChat={bloque} onResponder={responderPregunta} avisoCerrado={(p) => centro.avisoDePregunta(elegido, p)} deLaApp={deLaApp} />
+              delChat={bloque} onResponder={responderPregunta} avisoCerrado={(p) => centro.avisoDePregunta(elegido, p)} ignorar={paraIgnorar} ahora={ahora} deLaApp={deLaApp} />
           </div>
         )}
       </SheetM>}

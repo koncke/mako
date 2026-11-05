@@ -13,7 +13,14 @@
 // =============================================================================
 
 /** Lo anotado de una corrida en marcha o recién terminada. */
-export type CorridaGoogle = { run: string; dataset: string; desde: string };
+export type CorridaGoogle = {
+  run: string; dataset: string; desde: string;
+  /**
+   * La huella de la clave de Spy con que se empezó (5/11/2026, varias claves de Apify): lo que empezó una cuenta de Apify sólo lo
+   * lee esa cuenta. Sin esto (las anotadas antes), la clave 1. Nunca la clave.
+   */
+  clave?: string;
+};
 
 /** Pasado esto, lo anotado se olvida y se busca de nuevo (una búsqueda de otro día no es ésta). */
 export const CORRIDA_GOOGLE_VENCE_MS = 30 * 60_000;
@@ -44,7 +51,8 @@ export function leerCorrida(crudo: string | null | undefined): CorridaGoogle | n
   if (!crudo) return null;
   try {
     const o = JSON.parse(crudo) as Record<string, unknown>;
-    return typeof o?.run === 'string' && typeof o.dataset === 'string' && typeof o.desde === 'string' ? { run: o.run, dataset: o.dataset, desde: o.desde } : null;
+    if (!(typeof o?.run === 'string' && typeof o.dataset === 'string' && typeof o.desde === 'string')) return null;
+    return { run: o.run, dataset: o.dataset, desde: o.desde, ...(typeof o.clave === 'string' && /^[a-f0-9]{16}$/.test(o.clave) ? { clave: o.clave } : {}) };
   } catch { return null; }
 }
 

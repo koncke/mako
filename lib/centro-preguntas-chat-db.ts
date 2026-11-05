@@ -16,7 +16,7 @@ import 'server-only';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { DESTINO_RE, sanearTurnos } from './operaciones-reglas';
-import { estaAbierta, retirarDeLaLista, sanearPregunta, superarPreguntas, unirPreguntas, type PreguntaChat, type RespuestaPregunta, type TurnoQueSupera } from './centro-preguntas-chat';
+import { estaAbierta, ignorarEnLaLista, mostrarDeNuevoEnLaLista, retirarDeLaLista, sanearPregunta, superarPreguntas, unirPreguntas, type PreguntaChat, type RespuestaPregunta, type TurnoQueSupera } from './centro-preguntas-chat';
 
 const PREFIJO = 'operaciones.preguntas.';
 /** Los turnos de cada chat (lib/centro-turnos-db.ts): una pregunta de wrap_up se supera con un turno posterior. */
@@ -146,7 +146,40 @@ export async function retirarPregunta(local: string, id: string): Promise<{ ok: 
   });
 }
 
-export type Contestada = { ok: true; pregunta: PreguntaChat } | { ok: false; error: string; yaContestada?: true };
+export type Contestada = { ok: true; pregunta: PreguntaChat } | { ok: false; error: string; yaContestada?: true; ignorada?: true };
+
+/**
+ * «Ignorar» o «Volver a mostrar» una pregunta (5/11/2026). Las reglas: `ignorarEnLaLista` y `mostrarDeNuevoEnLaLista`. No le manda
+ * nada a la PC: es una marca de Martín, como el ✓ de un «Completado». Lee estricto: si no puede leer lo que había, no escribe.
+ * Quien llama ya miró `puedeOperar`.
+ */
+export async function ignorarPregunta(local: string, id: string, ignorar: boolean): Promise<{ ok: true; pregunta: PreguntaChat } | { ok: false; error: string }> {
+  if (!DESTINO_RE.test(local)) return { ok: false, error: 'Falta el chat.' };
+  const ws = await wsSuperAdmin();
+  return runWithWorkspace(ws, async () => {
+    const actuales = lista(parsear(await getSettingEstricto(PREFIJO + local)));
+    const r = ignorar ? ignorarEnLaLista(actuales, id) : mostrarDeNuevoEnLaLista(actuales, id);
+    if (!r.ok) return r;
+    await setSetting(PREFIJO + local, JSON.stringify(r.preguntas));
+    await anotarAbiertas(new Map([[local, r.preguntas]]));
+    return { ok: true, pregunta: r.pregunta };
+  });
+}
+
+/**
+ * Las preguntas de cada destino, para DECIDIR si un trabajo se entrega (la vuelta del Runner, lib/operaciones.ts). ESTRICTO: si no
+ * puede leer, tira, y quien llama no entrega ese trabajo en esta vuelta (queda escrito y vuelve a intentar en la siguiente).
+ */
+export async function preguntasParaDecidir(destinos: readonly string[]): Promise<Map<string, PreguntaChat[]>> {
+  const validos = [...new Set(destinos.filter((l) => DESTINO_RE.test(l)))].slice(0, 20);
+  const out = new Map<string, PreguntaChat[]>();
+  if (!validos.length) return out;
+  const ws = await wsSuperAdmin();
+  await runWithWorkspace(ws, async () => {
+    for (const l of validos) out.set(l, lista(parsear(await getSettingEstricto(PREFIJO + l))));
+  });
+  return out;
+}
 
 /** Marca contestada una pregunta, sólo si no lo estaba. Quien llama ya verificó el trabajo firmado de la respuesta. */
 export async function marcarContestada(local: string, id: string, respuesta: RespuestaPregunta): Promise<Contestada> {
@@ -157,6 +190,8 @@ export async function marcarContestada(local: string, id: string, respuesta: Res
     const p = actuales.find((x) => x.id === id);
     if (!p) return { ok: false, error: 'Esa pregunta ya no está.' };
     if (p.respuesta) return { ok: false, error: 'Ya la contestaste.', yaContestada: true };
+    // Ignorada en otro dispositivo (5/11/2026): su respuesta no se entrega (la vuelta del Runner la cancela), así que no se marca.
+    if (p.ignorada) return { ok: false, error: 'La ignoraste: vuelve a mostrarla para contestarla.', ignorada: true };
     if (p.superada) return { ok: false, error: 'Ya no espera tu respuesta: el chat siguió.', yaContestada: true };
     const nueva: PreguntaChat = { ...p, respuesta };
     const juntas = actuales.map((x) => (x.id === id ? nueva : x));

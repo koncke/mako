@@ -406,7 +406,8 @@ test('la tab lee Google con UN token y escribe sólo con permiso', () => {
 // CRM y del Calendario de la API de MaKo. Lo de Google NO lleva entidad: la agenda no pasa por la IA.
 test('el Calendario tiene la estrella de MaKo, le deja su lugar, y una llamada o una tarea abierta es «de qué se habla»', async () => {
   const app = sinComentarios(leer('../app/calendario/CalendarioApp.tsx'));
-  assert.match(app, /<MakoEnLaTab tab="Calendario" entidad=\{entidadDelItem\(abierto\?\.t === 'tarjeta' \? abierto\.item : null\)\} \/>/);
+  // Con la apertura de la tab (5/11/2026, lib/aperturas/calendario.ts: tests/iniciativa-calendario.test.ts).
+  assert.match(app, /<MakoEnLaTab tab="Calendario" apertura=\{aperturaTab\} entidad=\{entidadDelItem\(abierto\?\.t === 'tarjeta' \? abierto\.item : null\)\} \/>/);
   assert.match(app, /<div className="gc" data-calendario="" style=\{\{ paddingLeft: 'var\(--ancho-panel-mako, 0px\)' \}\}>/, 'abierta, el calendario se corre');
   const { entidadDelItem } = await import('../app/calendario/comun');
   const base = { inicio: '2026-10-24T13:00:00.000Z', fin: null, diaCompleto: false } as const;
@@ -459,7 +460,7 @@ test('«Llamadas» lee el CRM y el Plan, con las canceladas y la asistencia, y n
   assert.match(f, /cancelada: !!iso && !\(cual === 'R1' \? l\.fecha_junta_1 : l\.fecha_junta_2\)/, 'cancelada = con hora y sin fecha, como la grilla');
   assert.doesNotMatch(f.slice(0, f.indexOf('const out')), /not\('fecha_junta/, 'las canceladas se leen (la grilla las saltea; la lista las muestra)');
   // La entrada, arriba a la derecha de las dos pantallas, y la estrella de MaKo también en la lista.
-  assert.match(sinComentarios(leer('../app/calendario/CalendarioApp.tsx')), /<div className="gc-derecha">\s*<PestanasCalendario activa=\{vista\} fecha=\{fecha\} \/>/);
+  assert.match(sinComentarios(leer('../app/calendario/CalendarioApp.tsx')), /<div className="gc-derecha"(?: \{\.\.\.ancla\('calendario-vistas'\)\})?>\s*<PestanasCalendario activa=\{vista\} fecha=\{fecha\} \/>/);
   const lista = sinComentarios(leer('../app/calendario/ListaLlamadas.tsx'));
   assert.match(lista, /<div className="gc-derecha"><PestanasCalendario activa="llamadas" \/><\/div>/);
   assert.match(lista, /<MakoEnLaTab tab="Calendario" \/>/);

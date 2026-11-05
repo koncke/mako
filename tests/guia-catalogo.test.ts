@@ -36,7 +36,7 @@ const PREFIJO: Record<string, string> = { mako: 'sb-' };
  * catálogo falla, y una que ya lo tiene tiene que salir de acá.
  */
 const SIN_GUIA_TODAVIA: Readonly<Record<string, string>> = {
-  todo: 'G6, Plan', chats: 'G6, Chats (monta la estrella)', graphics: 'G3, Dashboard', calendario: 'G6, Calendario',
+  todo: 'G6, Plan', chats: 'G6, Chats (monta la estrella)', graphics: 'G3, Dashboard',
   setting: 'G6, Automations', 'customer-success': 'G6, Classroom', 'admin-customers': 'G6, Classroom (Clientes)', offer: 'G6, Offer',
   'landing-writer': 'G6, Web Generator', 'ads-manager': 'G6, Media Buyer', 'video-editor': 'G6, Video Editor (después de G5)',
   'image-editor': 'G6, Image Editor (después de G5)', copywriter: 'G6, Copywriter (después de G5)', 'ai-avatar': 'G6, AI Avatar',

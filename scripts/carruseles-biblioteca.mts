@@ -13,7 +13,10 @@
 //    dónde guardar) y cuánto crédito del mes le queda a la clave de Apify. Esa clave es la de Spy (un plan gratis de US$5 al
 //    mes): se deja libre la reserva de Spy (`RESERVA_CREDITO_USD`) y el techo de la corrida es el menor entre lo pedido y lo
 //    que queda. Cada corrida de Apify lleva además su propio techo (`maxTotalChargeUsd`).
-// ⚠️ NUNCA IMPRIME UNA CLAVE: dice «clave de Spy: sí/no», nada más.
+// ⚠️ NUNCA IMPRIME UNA CLAVE: dice cuántas claves de Spy hay, su número, el nombre que les puso la persona y su crédito.
+// ⚠️ VARIAS CLAVES (5/11/2026, Martín: «Dame la opción de tener varias claves de apify»): se cuenta el crédito libre de TODAS
+//    (la reserva de Spy sale del total), cada corrida va con la primera que tenga crédito y, si una se agota a mitad, sigue con
+//    la siguiente (lib/spy-claves.ts). Un error que no es de crédito no salta de clave: se dice.
 //
 // Uso (desde la raíz del clon):
 //   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-biblioteca.mts <comando> [opciones]
@@ -72,17 +75,21 @@ const B = await imp('lib/carruseles/biblioteca.ts');
 const C = await imp('lib/carruseles/clasificar.ts');
 const S = await imp('lib/carruseles/biblioteca-servidor.ts');
 const { wsSuperAdmin } = await imp('lib/workspace.ts');
-const { credDelCliente } = await imp('lib/credenciales.ts');
-const { APIFY_CLAVE_DE_SPY, piezasDeApify } = await imp('lib/instagram-perfil.ts');
-const { APIFY_ACTOR_PUBLICACIONES, creditoDeApify, entradaDePublicaciones, esFaltaDeCredito } = await imp('lib/spy-todo-reglas.ts');
+const { piezasDeApify } = await imp('lib/instagram-perfil.ts');
+const { clavesApifyDeSpy } = await imp('lib/instagram-perfil-server.ts');
+const { conLaPrimeraConCredito, resumenDeCredito, rotuloDeClave } = await imp('lib/spy-claves.ts');
+const { APIFY_ACTOR_PUBLICACIONES, creditoDeApify, creditoTotal, entradaDePublicaciones, esFaltaDeCredito } = await imp('lib/spy-todo-reglas.ts');
 const { getSupabaseServer } = await imp('lib/supabase.ts');
 
 const API = 'https://api.apify.com/v2';
 const usd = (n: number) => `US$${n.toFixed(2)}`;
 
-/** La clave de Spy de la plataforma. Nunca se imprime. */
-async function clave(): Promise<string | null> {
-  try { return await credDelCliente(APIFY_CLAVE_DE_SPY, await wsSuperAdmin()); } catch { return null; }
+type Clave = { token: string; slot: number; nombre: string | null; huella: string };
+type Credito = { usado: number; tope: number };
+
+/** Las claves de Spy de la plataforma, en orden, con su nombre. Nunca se imprimen: sólo su número y su nombre. */
+async function claves(): Promise<Clave[]> {
+  try { return await clavesApifyDeSpy(await wsSuperAdmin(), { conNombres: true }); } catch { return []; }
 }
 
 async function apify(token: string, ruta: string, cuerpo?: unknown): Promise<{ status: number; cuerpo: unknown }> {
@@ -96,9 +103,34 @@ async function apify(token: string, ruta: string, cuerpo?: unknown): Promise<{ s
   return { status: r.status, cuerpo: j };
 }
 
-async function credito(token: string): Promise<{ usado: number; tope: number } | null> {
+async function credito(token: string): Promise<Credito | null> {
   const r = await apify(token, '/users/me/limits').catch(() => null);
   return r && r.status === 200 ? creditoDeApify(r.cuerpo) : null;
+}
+
+/** El crédito de cada clave y el total (la reserva de Spy sale del total). `total` null = de ninguna se pudo leer. */
+async function creditos(ks: Clave[]): Promise<{ por: Array<Credito | null>; total: Credito | null }> {
+  const por = await Promise.all(ks.map((k) => credito(k.token)));
+  return { por, total: creditoTotal(por) };
+}
+
+/** Las que pueden pagar una corrida: con crédito libre, o sin saber (se prueban; si contestan «sin crédito», se pasa a la otra). */
+const conCredito = (ks: Clave[], por: Array<Credito | null>): Clave[] => ks.filter((_, i) => !por[i] || (por[i] as Credito).tope - (por[i] as Credito).usado > 0);
+
+/** Un renglón por clave y el total, sin ninguna clave. */
+function imprimirCredito(ks: Clave[], por: Array<Credito | null>): void {
+  const r = resumenDeCredito(ks, por);
+  for (const x of r.porClave) console.log(`    · ${x.rotulo}: ${x.texto}${x.sinCredito ? '  ⚠ sin crédito' : ''}`);
+  if (r.total) console.log(`  Libre en total: ${r.total}`);
+}
+
+/** Sin claves, o sin poder leer el crédito de ninguna: no se gasta a ciegas. */
+async function clavesParaGastar(): Promise<{ ks: Clave[]; por: Array<Credito | null>; total: Credito }> {
+  const ks = await claves();
+  if (!ks.length) { console.log('✖ El negocio de la plataforma no tiene la clave de Spy (Apify). No se gastó nada.'); process.exit(2); }
+  const { por, total } = await creditos(ks);
+  if (!total) { console.log('✖ No pude leer el crédito del mes de Apify de ninguna clave: no se gasta a ciegas. No se gastó nada.'); process.exit(2); }
+  return { ks, por, total };
 }
 
 /** ¿Están las tablas de la 0392? Sin ellas no se gasta: no habría dónde guardar. */
@@ -142,11 +174,12 @@ async function estado() {
     const dudosas = b.cuentas.filter((c: { estado: string; fuente: string; leida_en: string | null; piezas: number }) => c.estado === 'activa' && c.fuente === 'lista' && c.leida_en && B.cuentaDudosa(c.piezas));
     for (const c of dudosas) console.log(`  ⚠ @${c.instagram} trajo ${c.piezas} publicación(es): puede no ser su cuenta. \`verificar @${c.instagram} --nombre "${c.nombre}"\``);
   }
-  const token = await clave();
-  console.log(`  Clave de Spy de la plataforma: ${token ? 'sí' : 'no (conéctala en Integraciones → Apify del negocio de la plataforma)'}`);
-  if (token) {
-    const c = await credito(token);
-    console.log(c ? `  Crédito de Apify este mes: usado ${usd(c.usado)} de ${usd(c.tope)} · libre para la biblioteca ${usd(Math.max(0, c.tope - c.usado - B.RESERVA_CREDITO_USD))} (se deja ${usd(B.RESERVA_CREDITO_USD)} para Spy)` : '  ✖ No pude leer el crédito de Apify.');
+  const ks = await claves();
+  console.log(`  Claves de Spy de la plataforma: ${ks.length ? ks.length : 'ninguna (conéctala en Integraciones → Apify del negocio de la plataforma)'}`);
+  if (ks.length) {
+    const { por, total } = await creditos(ks);
+    imprimirCredito(ks, por);
+    console.log(total ? `  Libre para la biblioteca: ${usd(Math.max(0, total.tope - total.usado - B.RESERVA_CREDITO_USD))} (se deja ${usd(B.RESERVA_CREDITO_USD)} para Spy)` : '  ✖ No pude leer el crédito de Apify de ninguna clave.');
   }
 }
 
@@ -173,12 +206,12 @@ async function leer() {
   }
   await sembrarTemas(deVerdad);
 
-  const token = await clave();
-  if (!token) { console.log('✖ El negocio de la plataforma no tiene la clave de Spy (Apify). No se gastó nada.'); process.exit(2); }
-  const c0 = await credito(token);
-  if (!c0) { console.log('✖ No pude leer el crédito del mes de Apify: no se gasta a ciegas. No se gastó nada.'); process.exit(2); }
+  const { ks, por: por0, total: c0 } = await clavesParaGastar();
   const techo = B.techoConCredito(techoPedido, c0, B.RESERVA_CREDITO_USD) as number;
-  console.log(`  Crédito de Apify: usado ${usd(c0.usado)} de ${usd(c0.tope)}; se deja ${usd(B.RESERVA_CREDITO_USD)} para Spy → esta corrida puede gastar hasta ${usd(techo)} (pediste ${usd(techoPedido)}).`);
+  console.log(`  ${ks.length > 1 ? `${ks.length} claves de Spy` : 'Clave de Spy'}:`);
+  imprimirCredito(ks, por0);
+  console.log(`  Usado en total ${usd(c0.usado)} de ${usd(c0.tope)}; se deja ${usd(B.RESERVA_CREDITO_USD)} para Spy → esta corrida puede gastar hasta ${usd(techo)} (pediste ${usd(techoPedido)}).`);
+  const pagan = conCredito(ks, por0);
 
   const cuentas = (await S.cuentasDeBiblioteca()) ?? [];
   const temas = (await S.temasDeBiblioteca()) ?? (deVerdad ? [] : B.TEMAS_INICIALES.map((t: { hashtag: string; nombre: string }, i: number) => ({ id: -(i + 1), ...t, activo: true, leido_en: null })));
@@ -215,10 +248,13 @@ async function leer() {
       ? entradaDePublicaciones(l.fuente.instagram, { cuantas: l.cuantas, desde: null })
       : B.entradaDeTema(l.fuente.hashtag, l.cuantas);
     const q = new URLSearchParams({ maxItems: String(l.cuantas), maxTotalChargeUsd: String(l.techoUsd), timeout: '280' });
-    const r = await apify(token, `/acts/${APIFY_ACTOR_PUBLICACIONES}/run-sync-get-dataset-items?${q}`, entrada).catch((e) => ({ status: 0, cuerpo: String(e) }));
+    // La primera clave con crédito; si una se agota a mitad, sigue con la siguiente (lib/spy-claves.ts). Otro error no salta.
+    const r = await conLaPrimeraConCredito(pagan, (k: Clave) => apify(k.token, `/acts/${APIFY_ACTOR_PUBLICACIONES}/run-sync-get-dataset-items?${q}`, entrada).catch((e) => ({ status: 0, cuerpo: String(e) })));
+    if (!r) { console.log(`  ✖ ${rotulo}: ninguna clave tiene crédito. Corta acá; lo guardado queda.`); break; }
+    if (r.saltadas) console.log(`  (${r.saltadas} clave(s) sin crédito: sigue con la ${rotuloDeClave(r.clave)})`);
     if (r.status < 200 || r.status >= 300 || !Array.isArray(r.cuerpo)) {
-      if (esFaltaDeCredito(r.status, r.cuerpo)) { console.log(`  ✖ ${rotulo}: Apify dice que no queda crédito. Corta acá; lo guardado queda.`); break; }
-      console.log(`  ✖ ${rotulo}: Apify contestó HTTP ${r.status}. Sigue con la próxima.`);
+      if (esFaltaDeCredito(r.status, r.cuerpo)) { console.log(`  ✖ ${rotulo}: Apify dice que no queda crédito en ninguna clave. Corta acá; lo guardado queda.`); break; }
+      console.log(`  ✖ ${rotulo}: Apify contestó HTTP ${r.status} con la ${rotuloDeClave(r.clave)}. Sigue con la próxima.`);
       continue;
     }
     const items = r.cuerpo as Array<Record<string, unknown>>;
@@ -269,10 +305,13 @@ async function leer() {
     console.log(`  ✔ ${rotulo}: ${items.length} publicaciones → ${carruseles.length} carruseles guardados${aGuardar.length > carruseles.length ? ` (y ${aGuardar.length - carruseles.length} imágenes, para el outlier de la cuenta)` : ''}.`);
     await marcarLeida(l);
   }
-  const c1 = await credito(token);
+  const { por: por1, total: c1 } = await creditos(ks);
   console.log(`  ${conPortada} de ${llegaronTodas} publicaciones traían el texto de la portada${llegaronTodas && !conPortada ? ' (el actor no lo mandó: el tipo sale sólo del pie)' : ''}.`);
   console.log(`▶ Listo: ${guardados} carruseles guardados. Por tipo: ${[...porFormato].map(([k, v]) => `${k} ${v}`).join(' · ') || '—'}.`);
-  if (c1) console.log(`  Crédito de Apify: usado ${usd(c1.usado)} de ${usd(c1.tope)} (esta corrida, unos ${usd(Math.max(0, c1.usado - c0.usado))}).`);
+  if (c1) {
+    console.log(`  Crédito de Apify: usado en total ${usd(c1.usado)} de ${usd(c1.tope)} (esta corrida, unos ${usd(Math.max(0, c1.usado - c0.usado))}).`);
+    imprimirCredito(ks, por1);
+  }
 }
 
 async function marcarLeida(l: { fuente: { tipo: string; id: number } }) {
@@ -286,19 +325,19 @@ async function marcarLeida(l: { fuente: { tipo: string; id: number } }) {
 
 async function buscar() {
   if (!(await hayTablas())) { console.log('✖ Falta aplicar la migración 0392. No se gastó nada.'); process.exit(2); }
-  const token = await clave();
-  if (!token) { console.log('✖ El negocio de la plataforma no tiene la clave de Spy (Apify). No se gastó nada.'); process.exit(2); }
-  const c0 = await credito(token);
-  if (!c0) { console.log('✖ No pude leer el crédito del mes de Apify: no se gasta a ciegas.'); process.exit(2); }
+  const { ks, por: por0, total: c0 } = await clavesParaGastar();
   const techo = B.techoConCredito(num('techo-usd', 0.5), c0, B.RESERVA_CREDITO_USD) as number;
+  const pagan = conCredito(ks, por0);
   const { ASESORES } = await imp('lib/asesores/catalogo.ts');
-  const { buscarPerfilesApify } = await imp('lib/instagram-buscar-apify.ts');
+  const { pedirBusquedaApify, perfilesDeBusqueda } = await imp('lib/instagram-buscar-apify.ts');
   const { APIFY_TOPE_USD } = await imp('lib/instagram-perfil.ts');
   const faltan = B.referentesSinCuenta(ASESORES, (await S.cuentasDeBiblioteca()) ?? []);
   const alcanza = Math.floor(techo / APIFY_TOPE_USD);
   console.log(`  ${faltan.length} referentes sin cuenta en la lista; alcanza para buscar ${Math.min(alcanza, faltan.length)} (techo ${usd(techo)}).`);
   for (const r of faltan.slice(0, alcanza)) {
-    const xs = await buscarPerfilesApify(r.completo, token);
+    // La primera clave con crédito (varias claves, 5/11/2026); un «sin crédito» pasa a la siguiente.
+    const pedida = await conLaPrimeraConCredito(pagan, (k: Clave) => pedirBusquedaApify(r.completo, k.token));
+    const xs = pedida ? perfilesDeBusqueda(r.completo, pedida) : [];
     // La búsqueda de Instagram trae cuentas que se parecen (medido el 4/11: para «Alex Hormozi», @damaristradesww y
     // @hormoziw). Se ordenan por cuánto se parecen al nombre y se dice; ninguna se da por buena sin `verificar`.
     const orden = [...xs].map((p: { usuario: string; nombre?: string | null }) => ({ p, n: B.parecidoConNombre(p, r.completo) }))
@@ -314,10 +353,8 @@ async function buscar() {
 async function verificar() {
   const usuarios = [...new Set(args.posicionales.map((x) => B.cuentaDeInstagram(x)).filter(Boolean) as string[])].slice(0, 20);
   if (!usuarios.length) { console.log('Uso: verificar @usuario [@otro …] [--referente id | --nombre "Nombre"]'); process.exit(1); }
-  const token = await clave();
-  if (!token) { console.log('✖ El negocio de la plataforma no tiene la clave de Spy (Apify). No se gastó nada.'); process.exit(2); }
-  const c0 = await credito(token);
-  if (!c0) { console.log('✖ No pude leer el crédito del mes de Apify: no se gasta a ciegas.'); process.exit(2); }
+  const { ks, por: por0, total: c0 } = await clavesParaGastar();
+  const pagan = conCredito(ks, por0);
   const { APIFY_ACTOR_PERFIL, APIFY_TOPE_USD, leerPerfilDeApify } = await imp('lib/instagram-perfil.ts');
   const techo = Math.min(APIFY_TOPE_USD * usuarios.length, B.techoConCredito(1, c0, B.RESERVA_CREDITO_USD) as number);
   if (techo <= 0) { console.log('✖ No alcanza el crédito libre del mes (se deja la reserva de Spy). No se gastó nada.'); process.exit(2); }
@@ -329,8 +366,9 @@ async function verificar() {
     if (!a) { console.log(`✖ No conozco el referente «${ref}».`); process.exit(1); }
     completo = a.completo;
   }
-  const r = await apify(token, `/acts/${APIFY_ACTOR_PERFIL}/run-sync-get-dataset-items?maxItems=${usuarios.length}&maxTotalChargeUsd=${techo}&timeout=120`, { usernames: usuarios });
-  if (r.status < 200 || r.status >= 300) { console.log(`✖ Apify contestó HTTP ${r.status}.`); process.exit(1); }
+  const r = await conLaPrimeraConCredito(pagan, (k: Clave) => apify(k.token, `/acts/${APIFY_ACTOR_PERFIL}/run-sync-get-dataset-items?maxItems=${usuarios.length}&maxTotalChargeUsd=${techo}&timeout=120`, { usernames: usuarios }));
+  if (!r) { console.log('✖ Ninguna clave tiene crédito. No se gastó nada.'); process.exit(2); }
+  if (r.status < 200 || r.status >= 300) { console.log(`✖ Apify contestó HTTP ${r.status} con la ${rotuloDeClave(r.clave)}.`); process.exit(1); }
   const items = Array.isArray(r.cuerpo) ? (r.cuerpo as Array<Record<string, unknown>>) : [];
   for (const u of usuarios) {
     const l = leerPerfilDeApify(u, items);

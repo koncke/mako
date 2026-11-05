@@ -69,6 +69,9 @@ export type PreguntaChat = {
   /** Una de wrap_up que el chat TAMBIÉN hizo con `preguntar` (`unirPreguntas`): sigue siendo de wrap_up (su respuesta lleva el
    *  `message` del botón), pero como una de `preguntar` la cierra sólo una respuesta, no el chat que sigue. La pone MaKo. */
   tambienPreguntar?: true;
+  /** Cuándo Martín la IGNORÓ (5/11/2026, «un botón de ignorar»): sale del bloque sin contestarla y sin mandarle nada al chat. No
+   *  cuenta como abierta, ninguna respuesta suya se entrega (`ignoradaQueContesta`), y «Volver a mostrar» la saca. La pone MaKo. */
+  ignorada?: string;
 };
 
 const ISO = (v: unknown): string | null => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString() : null);
@@ -108,10 +111,13 @@ export function sanearPregunta(x: unknown): PreguntaChat | null {
   if (respuesta === undefined) return null;
   // De cualquier origen desde la 1.17.4: una de `preguntar` queda superada cuando su chat la retira.
   const superada = ISO(o.superada);
+  // Una contestada no puede quedar ignorada: la respuesta gana (es lo que el chat ya recibió).
+  const ignorada = respuesta ? null : ISO(o.ignorada);
   return {
     id: o.id, local: o.local, pregunta, contexto, opciones, recomendada, varias: o.varias === true, at, respuesta,
     ...(o.origen === 'wrap_up' || o.origen === 'ask' ? { origen: o.origen } : {}), ...(superada ? { superada } : {}),
     ...(o.origen === 'wrap_up' && o.tambienPreguntar === true ? { tambienPreguntar: true as const } : {}),
+    ...(ignorada ? { ignorada } : {}),
   };
 }
 
@@ -136,8 +142,49 @@ export function retirarDeLaLista(preguntas: readonly PreguntaChat[], id: string,
   return { ok: true, pregunta, preguntas: preguntas.map((p) => (p.id === pregunta.id ? pregunta : p)) };
 }
 
-/** ¿Espera a Martín? Ni contestada ni superada. */
-export const estaAbierta = (p: Pick<PreguntaChat, 'respuesta' | 'superada'>): boolean => !p.respuesta && !p.superada;
+/** ¿Espera a Martín? Ni contestada, ni superada, ni ignorada. */
+export const estaAbierta = (p: Pick<PreguntaChat, 'respuesta' | 'superada' | 'ignorada'>): boolean => !p.respuesta && !p.superada && !p.ignorada;
+
+/**
+ * «Ignorar» (5/11/2026, Martín: «debería haber una sección que marque la fecha de los pedidos o decisiones y un botón de
+ * ignorar»; le llegó una pregunta del 30/10 sobre una revisión que ya no importaba). La pregunta ABIERTA queda `ignorada` con la
+ * hora: sale del bloque, no cuenta en el globito, no se le manda nada al chat, y ninguna respuesta suya se entrega. Por el id
+ * ENTERO (lo manda la pantalla, que lo tiene): un comienzo no alcanza para algo que Martín toca de a una.
+ */
+export function ignorarEnLaLista(preguntas: readonly PreguntaChat[], id: string, ahora = new Date()):
+  { ok: true; preguntas: PreguntaChat[]; pregunta: PreguntaChat } | { ok: false; error: string } {
+  const p = preguntas.find((x) => x.id === id);
+  if (!p) return { ok: false, error: 'Esa pregunta ya no está.' };
+  if (p.ignorada) return { ok: false, error: 'Ya la ignoraste.' };
+  if (!estaAbierta(p)) return { ok: false, error: p.respuesta ? 'Ya la contestaste.' : 'Ya no espera tu respuesta: el chat siguió.' };
+  const pregunta: PreguntaChat = { ...p, ignorada: ahora.toISOString() };
+  return { ok: true, pregunta, preguntas: preguntas.map((x) => (x.id === id ? pregunta : x)) };
+}
+
+/** «Volver a mostrar» una ignorada: vuelve al bloque como estaba (con su fecha de siempre). Una que no está ignorada no se toca. */
+export function mostrarDeNuevoEnLaLista(preguntas: readonly PreguntaChat[], id: string):
+  { ok: true; preguntas: PreguntaChat[]; pregunta: PreguntaChat } | { ok: false; error: string } {
+  const p = preguntas.find((x) => x.id === id);
+  if (!p) return { ok: false, error: 'Esa pregunta ya no está.' };
+  if (!p.ignorada) return { ok: false, error: 'No estaba ignorada.' };
+  const { ignorada: _i, ...pregunta } = p;
+  return { ok: true, pregunta, preguntas: preguntas.map((x) => (x.id === id ? pregunta : x)) };
+}
+
+/**
+ * La pregunta IGNORADA que contesta este texto (un trabajo de la cola), o null. Lo pregunta la vuelta del Runner antes de reclamar
+ * un trabajo (lib/operaciones.ts): una respuesta firmada de una pregunta ignorada no se entrega (se contestó en otro dispositivo con
+ * la pantalla vieja, o antes de ignorarla y con el chat cerrado). Por el id exacto de la marca, y sólo de las preguntas de ESE
+ * destino: el texto no está firmado para el servidor, así que sólo puede hacer lo más restrictivo, que es no entregar.
+ */
+export function ignoradaQueContesta(texto: string | null | undefined, preguntas: readonly PreguntaChat[]): PreguntaChat | null {
+  const id = preguntaDeTrabajo(texto);
+  if (!id) return null;
+  return preguntas.find((p) => p.id === id && !!p.ignorada && !p.respuesta) ?? null;
+}
+
+/** El motivo de un trabajo que no salió porque contestaba una pregunta ignorada (se lee en la cola y en el hilo). */
+export const MOTIVO_IGNORADA = 'Ignoraste esa pregunta';
 
 function sanearRespuesta(x: unknown, n: number, varias: boolean): RespuestaPregunta | undefined {
   if (!x || typeof x !== 'object') return undefined;
@@ -162,8 +209,8 @@ export function sanearPreguntas(x: unknown): PreguntaChat[] {
     const p = sanearPregunta(v);
     if (!p || vistas.has(p.id)) continue;
     vistas.add(p.id);
-    // Lo que sube la PC nunca viene contestado ni superado (ni `tambienPreguntar`): eso lo pone MaKo.
-    const { superada: _s, tambienPreguntar: _t, ...limpia } = p;
+    // Lo que sube la PC nunca viene contestado, superado ni ignorado (ni `tambienPreguntar`): eso lo pone MaKo.
+    const { superada: _s, tambienPreguntar: _t, ignorada: _i, ...limpia } = p;
     out.push({ ...limpia, respuesta: null });
   }
   return out;
