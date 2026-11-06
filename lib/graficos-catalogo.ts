@@ -1350,7 +1350,9 @@ export type Hoja = {
 //   llamado por formato y el gancho por semana quedan en la grilla.
 // · 'vsl' (6/11/2026, la copia de Pelago): del Dashboard, con diez piezas de VSL y YouTube (`vsl-analyst`). Las vistas por semana
 //   quedan en la grilla.
-export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs', 'productividad', 'contenido', 'curso', 'servicio', 'instagram', 'anuncio', 'hooks', 'vsl'] as const;
+// · 'inmobiliaria' (6/11/2026, la copia de Torque): del Dashboard, con trece piezas de Inmobiliaria (`inmobiliaria`); el tablero de
+//   interesados por etapa es la pieza nueva. Lintel (la de la propuesta) quedó sin medir completa.
+export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs', 'productividad', 'contenido', 'curso', 'servicio', 'instagram', 'anuncio', 'hooks', 'vsl', 'inmobiliaria'] as const;
 export type DisenoHoja = { id: (typeof DISENOS_HOJA)[number]; piezas: Record<string, string> };
 /** Las piezas de un diseño: nombres cortos, en minúscula. */
 const PIEZA_DISENO = /^[a-z][a-z0-9-]{0,29}$/;
