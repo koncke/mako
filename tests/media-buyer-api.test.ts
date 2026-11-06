@@ -39,6 +39,8 @@ const DE_LA_PANTALLA: Record<string, string[]> = {
   lienzo: ['ver_campanas_media_buyer'],
   // La primera entrada del Marketing CoPilot (6/11/2026): lo respondido, por negocio.
   copiloto: ['ver_copiloto_media_buyer', 'copiloto_media_buyer'],
+  // La charla relee lo guardado después de un turno de MaKo (6/11/2026): es la misma lectura.
+  copiloto_leer: ['ver_copiloto_media_buyer'],
   agente: ['agente_media_buyer'],
   agente_borrar: ['borrar_agente_media_buyer'],
   // DÓNDE, HASTA y «Nueva campaña» (29/10/2026).

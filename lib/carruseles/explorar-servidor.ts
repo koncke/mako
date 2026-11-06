@@ -1,5 +1,5 @@
 // =============================================================================
-// carruseles/explorar-servidor — lo que lee y escribe el explorador de carruseles (Image Editor, `?ver=carruseles`)
+// carruseles/explorar-servidor — lo que lee y escribe el explorador de carruseles (la portada de Image, `/image-editor`)
 // =============================================================================
 // Lee lo que Spy YA trajo de las cuentas que el negocio sigue (`spy_competidores` + `spy_piezas`, por el proxy del
 // inquilino): no llama a Apify ni a Meta ni gasta nada. Las cuentas se suman y se leen en Competitors Spy, con la clave y

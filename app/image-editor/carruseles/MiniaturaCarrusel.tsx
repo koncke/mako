@@ -17,10 +17,9 @@ import { ALTO_CARRUSEL, ANCHO_CARRUSEL } from '@/lib/carruseles/documento';
 type Obj = Record<string, unknown>;
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const str = (v: unknown, d = '') => (typeof v === 'string' ? v : d);
-const pctX = (v: number) => `${(v / ANCHO_CARRUSEL) * 100}%`;
-const cq = (v: number) => `${(v / ANCHO_CARRUSEL) * 100}cqw`;
-
-function Objeto({ o, alto }: { o: Obj; alto: number }) {
+function Objeto({ o, alto, ancho = ANCHO_CARRUSEL }: { o: Obj; alto: number; ancho?: number }) {
+  const pctX = (v: number) => `${(v / ancho) * 100}%`;
+  const cq = (v: number) => `${(v / ancho) * 100}cqw`;
   const pctY = (v: number) => `${(v / alto) * 100}%`;
   const tipo = str(o.type);
   if (tipo === 'textbox') {
@@ -52,13 +51,13 @@ function Objeto({ o, alto }: { o: Obj; alto: number }) {
  * Una página: su fondo y sus objetos, a la proporción del carrusel (4:5, o la que diga `alto`: una réplica de un anuncio
  * cuadrado es 1080 × 1080). El ancho lo pone quien la monta.
  */
-export function PaginaCarrusel({ pagina, style, etiqueta, alto = ALTO_CARRUSEL }: { pagina: Obj; style?: CSSProperties; etiqueta?: string; alto?: number }) {
+export function PaginaCarrusel({ pagina, style, etiqueta, alto = ALTO_CARRUSEL, ancho = ANCHO_CARRUSEL }: { pagina: Obj; style?: CSSProperties; etiqueta?: string; alto?: number; ancho?: number }) {
   const fondo = str((pagina.background as Obj | undefined)?.color, '#fff');
   const objetos = Array.isArray(pagina.objects) ? (pagina.objects as Obj[]) : [];
   return (
     <div role="img" aria-label={etiqueta ?? str(pagina.name, 'Lámina')}
-      style={{ position: 'relative', aspectRatio: `${ANCHO_CARRUSEL} / ${alto}`, containerType: 'inline-size', background: fondo, overflow: 'hidden', borderRadius: 6, ...style }}>
-      {objetos.map((o, i) => <Objeto key={str(o.id, String(i))} o={o} alto={alto} />)}
+      style={{ position: 'relative', aspectRatio: `${ancho} / ${alto}`, containerType: 'inline-size', background: fondo, overflow: 'hidden', borderRadius: 6, ...style }}>
+      {objetos.map((o, i) => <Objeto key={str(o.id, String(i))} o={o} alto={alto} ancho={ancho} />)}
     </div>
   );
 }

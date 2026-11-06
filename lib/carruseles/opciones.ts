@@ -60,12 +60,15 @@ export const ORIGENES_CARRUSEL = [
 export type OrigenFiltro = (typeof ORIGENES_CARRUSEL)[number]['value'];
 
 /**
- * Qué se mira (6/11/2026): los carruseles (de las cuentas que sigue el negocio y de la biblioteca) o los anuncios que Competitors
- * Spy trajo de ESAS cuentas con la clave del negocio (lib/carruseles/anuncios.ts). Es un filtro, no una pestaña.
+ * Qué se mira (6/11/2026): los carruseles (de las cuentas que sigue el negocio y de la biblioteca), los anuncios que Competitors
+ * Spy trajo de ESAS cuentas con la clave del negocio (lib/carruseles/anuncios.ts), o las miniaturas de YouTube que mejor rinden
+ * en los rubros de dueños de negocio (lib/thumbnails/explorar.ts; Martín, 6/11/2026: «una tab que sea "Thumbnails"»). Es un
+ * filtro, no una pestaña.
  */
 export const QUE_VER_CARRUSEL = [
   { value: 'carruseles', label: 'Carruseles' },
   { value: 'anuncios', label: 'Anuncios' },
+  { value: 'thumbnails', label: 'Thumbnails' },
 ] as const;
 export type QueVer = (typeof QUE_VER_CARRUSEL)[number]['value'];
 
@@ -73,3 +76,40 @@ export type QueVer = (typeof QUE_VER_CARRUSEL)[number]['value'];
 export const IDS_TIPO_CARRUSEL = ['lista', 'tutorial', 'historia', 'antes-despues', 'mito', 'opinion', 'caso', 'preguntas'] as const;
 export type IdTipoCarrusel = (typeof IDS_TIPO_CARRUSEL)[number];
 export const esTipoCarrusel = (v: unknown): v is IdTipoCarrusel => typeof v === 'string' && (IDS_TIPO_CARRUSEL as readonly string[]).includes(v);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Las miniaturas de YouTube (Thumbnails, 6/11/2026: lib/thumbnails/explorar.ts). Acá, sin dependencias, para la API de MaKo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Los rubros de dueños de negocio (el pedido): cada canal de la biblioteca es de uno. */
+export const NICHOS_THUMBNAIL = [
+  { value: 'ventas', label: 'Ventas' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'emprendimiento', label: 'Emprendimiento' },
+  { value: 'servicios', label: 'Servicios' },
+] as const;
+export type NichoThumbnail = (typeof NICHOS_THUMBNAIL)[number]['value'];
+
+export const IDIOMAS_THUMBNAIL = [
+  { value: 'es', label: 'Español' },
+  { value: 'en', label: 'Inglés' },
+  { value: 'pt', label: 'Portugués' },
+] as const;
+export type IdiomaThumbnail = (typeof IDIOMAS_THUMBNAIL)[number]['value'];
+
+export const PERIODOS_THUMBNAIL = [
+  { value: 'todo', label: 'Cuando sea' },
+  { value: '30', label: 'Últimos 30 días' },
+  { value: '90', label: 'Últimos 90 días' },
+  { value: '365', label: 'Último año' },
+] as const;
+export type PeriodoThumbnail = (typeof PERIODOS_THUMBNAIL)[number]['value'];
+
+/** El orden: el múltiplo SÓLO con la enmienda III.L de YouTube (lib/thumbnails/explorar.ts); sin ella no se ofrece. */
+export const ORDENES_THUMBNAIL = [
+  { value: 'outlier', label: 'Mayor múltiplo' },
+  { value: 'vistas', label: 'Más vistas' },
+  { value: 'nuevos', label: 'Más nuevos' },
+  { value: 'viejos', label: 'Más viejos' },
+] as const;
+export type OrdenThumbnail = (typeof ORDENES_THUMBNAIL)[number]['value'];

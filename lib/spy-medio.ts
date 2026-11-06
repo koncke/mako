@@ -42,21 +42,38 @@ export function laminasDe(...listas: unknown[]): number | null {
 export type ConMedio = { canal: string; ref: string; medio?: Medio | null; laminas?: number | null };
 
 /**
- * Las piezas agrupadas por lo que hay que escribir: un update por grupo (`medio` + `laminas`) y no uno por pieza. Sólo
- * Instagram, y sólo lo que trae un medio (lo que no se sabe no se escribe: no pisa un medio que una lectura anterior sí supo).
- * Una imagen o un video no llevan láminas.
+ * Las piezas agrupadas por lo que hay que escribir: un update por grupo (`medio` + `laminas`) y no uno por pieza. Instagram y,
+ * desde el 6/11/2026, los ANUNCIOS (su formato: imagen, video o carrusel, que el explorador de Image usa para mostrar sólo los
+ * de imagen: lib/carruseles/anuncios.ts). Sólo lo que trae un medio (lo que no se sabe no se escribe: no pisa un medio que una
+ * lectura anterior sí supo). Una imagen o un video no llevan láminas; un anuncio tampoco (la Biblioteca no las cuenta).
  */
-export function gruposDeMedio(piezas: readonly ConMedio[]): Array<{ medio: Medio; laminas: number | null; refs: string[] }> {
-  const grupos = new Map<string, { medio: Medio; laminas: number | null; refs: string[] }>();
+export function gruposDeMedio(piezas: readonly ConMedio[]): Array<{ canal: 'instagram' | 'anuncios'; medio: Medio; laminas: number | null; refs: string[] }> {
+  const grupos = new Map<string, { canal: 'instagram' | 'anuncios'; medio: Medio; laminas: number | null; refs: string[] }>();
   for (const p of piezas) {
-    if (p.canal !== 'instagram' || !p.medio || !(MEDIOS as readonly string[]).includes(p.medio) || !p.ref) continue;
-    const laminas = p.medio === 'carrusel' && p.laminas != null && p.laminas >= 2 && p.laminas <= LAMINAS_MAX ? Math.round(p.laminas) : null;
-    const k = `${p.medio}|${laminas ?? ''}`;
-    const g = grupos.get(k) ?? { medio: p.medio, laminas, refs: [] };
+    if ((p.canal !== 'instagram' && p.canal !== 'anuncios') || !p.medio || !(MEDIOS as readonly string[]).includes(p.medio) || !p.ref) continue;
+    const canal = p.canal;
+    const laminas = canal === 'instagram' && p.medio === 'carrusel' && p.laminas != null && p.laminas >= 2 && p.laminas <= LAMINAS_MAX ? Math.round(p.laminas) : null;
+    const k = `${canal}|${p.medio}|${laminas ?? ''}`;
+    const g = grupos.get(k) ?? { canal, medio: p.medio, laminas, refs: [] };
     g.refs.push(p.ref);
     grupos.set(k, g);
   }
   return [...grupos.values()];
+}
+
+/**
+ * El medio de un anuncio por lo que dijo el actor de Apify (`snapshot.displayFormat`: IMAGE, VIDEO, CAROUSEL, DCO, DPA…) y,
+ * si no vino, por lo que trae (`videos` o `images`). null si no se sabe: un DCO (creatividad dinámica) puede ser cualquiera.
+ */
+export function medioDeAnuncio(formato: unknown, o: { videos?: number; imagenes?: number } = {}): Medio | null {
+  const t = String(formato ?? '').trim().toUpperCase();
+  if (t === 'VIDEO') return 'video';
+  if (t === 'IMAGE') return 'imagen';
+  if (t === 'CAROUSEL' || t === 'MULTI_IMAGES') return 'carrusel';
+  if (t) return null;
+  if ((o.videos ?? 0) > 0) return 'video';
+  if ((o.imagenes ?? 0) > 0) return 'imagen';
+  return null;
 }
 
 /**

@@ -7,7 +7,7 @@
 
 import 'server-only';
 import { runWithWorkspace } from '@/lib/workspace';
-import { getSetting, setSetting } from '@/lib/settings';
+import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { CLAVE_COPILOTO, sanearPerfil, type PerfilCopiloto } from './copiloto';
 
 export async function leerPerfilCopiloto(ws: number): Promise<PerfilCopiloto> {
@@ -15,6 +15,15 @@ export async function leerPerfilCopiloto(ws: number): Promise<PerfilCopiloto> {
     const crudo = await runWithWorkspace(ws, () => getSetting(CLAVE_COPILOTO));
     return crudo ? sanearPerfil(JSON.parse(crudo)) : {};
   } catch { return {}; }
+}
+
+/**
+ * La lectura ESTRICTA: tira si no pudo leer. La usa la charla para ver si MaKo guardó un cambio después de un turno: con la tolerante,
+ * una lectura caída devolvía `{}` y la pantalla lo tomaba por «empezó de nuevo» (una lectura que decide no cae al default).
+ */
+export async function leerPerfilCopilotoEstricto(ws: number): Promise<PerfilCopiloto> {
+  const crudo = await runWithWorkspace(ws, () => getSettingEstricto(CLAVE_COPILOTO));
+  return crudo ? sanearPerfil(JSON.parse(crudo)) : {};
 }
 
 export async function guardarPerfilCopiloto(ws: number, p: PerfilCopiloto): Promise<void> {

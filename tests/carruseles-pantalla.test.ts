@@ -8,6 +8,11 @@
 //   · una tarjeta sin «Editar» → 2 rojos;
 //   · la tarjeta con sólo la portada aunque tenga sus láminas → 1 rojo;
 //   · el anuncio sin sus días al aire → 1 rojo.
+// Y del 6/11/2026 (Martín: sin CTA, sin Biblioteca, sin «Tamaño de la tarjeta», con Thumbnails), base 8/0:
+//   · volver a dibujar el chip «CTA» → 1 rojo;
+//   · sacar «Crear desde cero» → 1 rojo;
+//   · dibujar la tarjeta de miniatura sin «Ver en YouTube» → 1 rojo;
+//   · el múltiplo de una miniatura a la vista sin la enmienda III.L → 1 rojo.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -58,7 +63,13 @@ test('el encabezado de Top Carousels, sin la bajada ni las pestañas que se fuer
   assert.doesNotMatch(html, /role="tab"/, 'las pestañas («Esta semana», «Cuentas») se fueron: son filtros');
   assert.doesNotMatch(html, /Esta semana/);
   assert.match(html, /role="radio"[^>]*>Carruseles</, 'carruseles o anuncios es un filtro');
-  assert.match(html, />CTA</, 'el filtro CTA');
+  // 6/11/2026, Martín: «elimina el filtro de "CTA"…», «elimina lo de "biblioteca"» y «Thumbnails» como tercera pestaña.
+  assert.doesNotMatch(html, />CTA</, 'el filtro CTA se fue');
+  assert.doesNotMatch(html, /Biblioteca/, 'la pastilla «Biblioteca» y su modal se fueron');
+  assert.match(html, /role="radio"[^>]*>Thumbnails</, 'Carruseles · Anuncios · Thumbnails');
+  assert.match(html, /href="\/image-editor\?ver=crear"[^>]*>.*Crear desde cero</, 'las plantillas, a un toque');
+  assert.match(html, / Guardados</);
+  assert.match(html, />\+ Seguir cuentas</);
 });
 
 test('cada tarjeta trae «Editar», sus láminas para pasar adentro y el CTA que pide', async () => {
@@ -135,8 +146,57 @@ test('el carrusel abierto (modal en dos partes) y el modal de filtros: lo que pi
     filtros: FILTROS_INICIALES, carruseles: [c, carrusel({ id: -6, formato: 'tutorial' })], formatos: [{ value: 'lista', label: 'Lista o tips', n: 1 }, { value: 'tutorial', label: 'Tutorial', n: 1 }],
     dosOrigenes: true, onAplicar: () => {}, onCerrar: () => {},
   }));
-  for (const t of ['Múltiplo', 'Interacciones', 'Láminas', 'Publicado', 'Tipo', 'Ocultar tipos', 'Ordenar por', 'Tamaño de la tarjeta', 'Colores del múltiplo', 'Quitar filtros', 'Cancelar']) assert.ok(filtros.includes(t), `falta «${t}»`);
+  for (const t of ['Múltiplo', 'Interacciones', 'Láminas', 'Publicado', 'Tipo', 'Ocultar tipos', 'Ordenar por', 'Colores del múltiplo', 'Quitar filtros', 'Cancelar']) assert.ok(filtros.includes(t), `falta «${t}»`);
+  assert.doesNotMatch(filtros, /Tamaño de la tarjeta|Compacta/, 'la tarjeta es siempre grande (6/11/2026)');
   assert.equal(cuantas(filtros, 'type="range"'), 6, 'tres deslizadores de dos puntas');
   assert.equal(cuantas(filtros, 'data-nivel='), 5, 'la leyenda de colores: cinco niveles');
   assert.match(filtros, /Ver 2 carruseles/, 'el botón dice cuántos quedan');
+});
+
+const miniatura = (o: Record<string, unknown> = {}) => ({
+  id: 41, video: 'dQw4w9WgXcQ', canalId: 5, canal: { nombre: 'Ventas Claras', handle: '@ventasclaras', foto: null },
+  titulo: 'Cómo cerrar una venta por WhatsApp', publicado: dia(20), duracion: 'PT12M3S', vistas: 184_000, megusta: 5200, comentarios: 300,
+  nicho: 'ventas', idioma: 'es', outlier: null, ...o,
+});
+
+test('Thumbnails: la tarjeta 16:9 de YouTube, con «Editar», «Ver en YouTube» y sin un múltiplo sin la enmienda', async () => {
+  const { ExplorarCarruseles } = await import('@/app/image-editor/carruseles/ExplorarCarruseles');
+  const { FILTROS_INICIALES } = await import('@/lib/carruseles/explorar');
+  const { FILTROS_THUMBNAIL } = await import('@/lib/thumbnails/explorar');
+  const html = renderToStaticMarkup(createElement(ExplorarCarruseles, {
+    datos: { ...datos([carrusel({})]), thumbnails: { ok: true, lista: [miniatura(), miniatura({ id: 42, video: 'abcdefghijk', canalId: 6 })], guardados: [], sinTablas: false } as never },
+    filtrosIniciales: { ...FILTROS_INICIALES, que: 'thumbnails' as never }, thumbnailsIniciales: { ...FILTROS_THUMBNAIL, orden: 'vistas' },
+  }));
+  assert.match(html, /role="radio" aria-checked="true"[^>]*>Thumbnails</);
+  assert.match(html, /aria-label="Miniaturas de YouTube"/);
+  assert.equal(cuantas(html, 'src="https://i.ytimg.com/vi/'), 2, 'la miniatura sale del CDN de YouTube, sin copiarla');
+  assert.equal(cuantas(html, '>Ver en YouTube</a>'), 2, 'cada una abre en YouTube');
+  assert.equal(cuantas(html, '>Editar</button>'), 4);
+  assert.match(html, /12:03/, 'la duración del video');
+  assert.doesNotMatch(html, /\d+(,\d)?×/, 'sin la enmienda III.L no se dibuja un múltiplo');
+  assert.doesNotMatch(html, /aria-label="Carruseles"/, 'la grilla de carruseles no se mezcla');
+});
+
+test('Thumbnails sin la biblioteca cargada: lo dice, no dibuja una grilla vacía', async () => {
+  const { ExplorarCarruseles } = await import('@/app/image-editor/carruseles/ExplorarCarruseles');
+  const { FILTROS_INICIALES } = await import('@/lib/carruseles/explorar');
+  const html = renderToStaticMarkup(createElement(ExplorarCarruseles, {
+    datos: { ...datos([carrusel({})]), thumbnails: { ok: true, lista: [], guardados: [], sinTablas: true } as never },
+    filtrosIniciales: { ...FILTROS_INICIALES, que: 'thumbnails' as never },
+  }));
+  assert.doesNotMatch(html, /aria-label="Miniaturas de YouTube"/);
+  assert.doesNotMatch(html, />Editar<\/button>/);
+});
+
+test('el teléfono también ve las flechas para pasar las láminas (sin pasar el mouse)', async () => {
+  const { ExplorarCarruseles } = await import('@/app/image-editor/carruseles/ExplorarCarruseles');
+  const html = renderToStaticMarkup(createElement(ExplorarCarruseles, { telefono: true, rutaCrear: '/m/image-editor?ver=crear', datos: datos([
+    carrusel({ id: -1, laminasImagenes: ['https://a/1.jpg', 'https://a/2.jpg'] }),
+    carrusel({ id: -2, laminasImagenes: [] }),
+  ]) }));
+  assert.match(html, /data-telefono="si"/, 'la regla de CSS que muestra las flechas en el teléfono cuelga de esto');
+  assert.equal(cuantas(html, 'aria-label="Lámina siguiente"'), 1, 'flechas sólo en la que tiene sus láminas; sin láminas, ninguna');
+  // En el teléfono el link se escribe con la ruta de /m y `Link` lo saca con la de la computadora (LAS MISMAS RUTAS): el proxy
+  // sirve ahí la página del teléfono.
+  assert.match(html, /href="\/image-editor\?ver=crear"[^>]*>.*Crear desde cero</, 'en el teléfono también, a un toque');
 });

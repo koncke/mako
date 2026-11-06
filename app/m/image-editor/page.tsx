@@ -1,6 +1,10 @@
 // =============================================================================
-// /m/image-editor — «Image» en el teléfono: tus diseños y «Nuevo diseño»
+// /m/image-editor — «Image» en el teléfono: los EJEMPLOS (la portada, como en la computadora) y, en «Crear desde cero», tus
+// diseños y «Nuevo diseño»
 // =============================================================================
+// Martín, 6/11/2026: «La tab de "Encuentra tu siguiente OUTLIER" tiene que ser la principal… también en celular». Sin `?ver=`,
+// los ejemplos (carruseles, anuncios y miniaturas de YouTube: app/image-editor/carruseles/ExplorarCarruseles.tsx); con
+// `?ver=crear`, lo de abajo; `?ver=carruseles` (el link de antes) abre la portada con sus filtros (app/image-editor/vista.ts).
 // La tab de escritorio (app/image-editor, la copia de Canva sobre Doory) destilada: el buscador, «Diseños recientes» en
 // una grilla de dos columnas con su miniatura y el «+» flotante abajo a la derecha, «Nuevo diseño», que abre
 // «¿Qué vas a crear hoy?» con las MISMAS plantillas de la computadora (app/image-editor/plantillas-crear.ts) y crea por la
@@ -15,6 +19,9 @@
 
 import './image-editor.css';
 import { requireMovil } from '@/lib/movil-guard';
+import { filtrosThumbnailDeQuery } from '@/lib/thumbnails/explorar';
+import { leerThumbnails } from '@/lib/thumbnails/servidor';
+import { vistaDeImage } from '@/app/image-editor/vista';
 import { listarDisenos } from '@/lib/image-editor/server';
 import { ErrorM, PantallaM } from '@/app/m/_ui';
 import { InicioImagenM } from './InicioImagenM';
@@ -27,17 +34,21 @@ export const dynamic = 'force-dynamic';
 
 export default async function ImageEditorPagina({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const ctx = await requireMovil({ navKey: 'image-editor' });
-  // Los ejemplos de carruseles (4/11/2026; rehechos el 6/11/2026): la MISMA vista de la computadora (app/image-editor/carruseles),
-  // con sus filtros y «Editar», que arma la versión del negocio y abre el MISMO editor (./[diseno]).
+  // Los ejemplos (la portada desde el 6/11/2026): la MISMA vista de la computadora (app/image-editor/carruseles), con sus filtros
+  // y «Editar», que arma la versión del negocio y abre el MISMO editor (./[diseno]).
   const q = await searchParams;
-  if ((Array.isArray(q.ver) ? q.ver[0] : q.ver) === 'carruseles') {
-    const e = ctx.ws == null ? null : await leerExplorador();
+  const vista = vistaDeImage(q);
+  if (vista === 'ejemplos') {
+    const [e, t] = ctx.ws == null ? [null, null] : await Promise.all([leerExplorador(), leerThumbnails()]);
     return (
       <PantallaM>
         {e && e.ok
-          ? <ExplorarCarruseles telefono filtrosIniciales={filtrosDeQuery(q)}
-            datos={{ carruseles: e.carruseles, guardados: e.guardados.map((g) => g.id), busquedas: e.busquedas, paso: e.paso, frase: e.frase, accion: e.accion, ejemplos: e.ejemplos, avisoBiblioteca: e.avisoBiblioteca, anuncios: e.anuncios }} />
-          : <ErrorM frase="No pude leer los carruseles de las cuentas que sigues. Es un problema nuestro: vuelve a intentar." />}
+          ? <ExplorarCarruseles telefono filtrosIniciales={filtrosDeQuery(q)} thumbnailsIniciales={filtrosThumbnailDeQuery(q)} rutaCrear="/m/image-editor?ver=crear"
+            datos={{
+              carruseles: e.carruseles, guardados: e.guardados.map((g) => g.id), busquedas: e.busquedas, paso: e.paso, frase: e.frase, accion: e.accion, ejemplos: e.ejemplos, avisoBiblioteca: e.avisoBiblioteca, anuncios: e.anuncios,
+              thumbnails: t && t.ok ? { ok: true, lista: t.thumbnails, guardados: t.guardados, sinTablas: t.sinTablas } : { ok: false },
+            }} />
+          : <ErrorM frase="No pude leer los ejemplos. Es un problema nuestro: vuelve a intentar." />}
       </PantallaM>
     );
   }

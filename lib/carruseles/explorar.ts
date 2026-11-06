@@ -1,5 +1,5 @@
 // =============================================================================
-// carruseles/explorar — el explorador de carruseles que funcionan (Image Editor, `?ver=carruseles`): lo puro
+// carruseles/explorar — el explorador de carruseles que funcionan (la portada de Image, `/image-editor`): lo puro
 // =============================================================================
 // Martín, 4/11/2026: «Quiero que scrapees entero, mires y copies las funcionalidades y todos los carruseles de ejemplo para
 // ponerlos en MaKo en la sección de imagen generator». Se copian las FUNCIONES de un explorador de carruseles (buscar por
@@ -26,6 +26,7 @@ import type { Medio } from '../spy-medio';
 import { cierreDeTexto, plano, type Cierre } from './texto';
 import { pareceContenido, tipoDeCarrusel } from './clasificar';
 import { ctaDeTexto, rotuloCta, type CtaCarrusel } from './cta';
+import { conVariedad } from './variedad';
 import { LARGOS_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL, type LargoCarrusel, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type QueVer, type VistaCarrusel } from './opciones';
 
 /** Un carrusel del explorador: una publicación de Instagram de una cuenta que el negocio sigue en Spy. */
@@ -192,9 +193,10 @@ export type FiltrosCarrusel = {
   conImagenes: boolean;
   orden: OrdenCarrusel;
   vista: VistaCarrusel;
-  /** Sólo los que piden comentar una palabra (./cta.ts): los que publican los dueños de negocio, no los virales. */
-  cta: boolean;
-  /** Carruseles o anuncios (6/11/2026). */
+  // ⛔ Sin filtro «CTA» (6/11/2026; Martín: «elimina el filtro de "CTA" porque todos le van a servir a dueños… hay algunos que
+  // sí sirven, reflexiones, o cosas así»). Lo que pide comentar una palabra se sigue viendo en la tarjeta (`Carrusel.cta`); un
+  // link viejo con `cta=1` abre sin filtrar.
+  /** Carruseles, anuncios o miniaturas de YouTube (6/11/2026). Las miniaturas tienen sus filtros: lib/thumbnails/explorar.ts. */
   que: QueVer;
   // El modal «Filtros» (6/11/2026, copiado de «Filters & views» de Top Carousels). Todos opcionales: 0 = sin tope.
   /** El múltiplo máximo (el mínimo es `outlierMin`). */
@@ -207,13 +209,12 @@ export type FiltrosCarrusel = {
   lamMax?: number;
   /** Los tipos que no se quieren ver (los chips de «Ocultar tipos»). */
   ocultar?: Formato[];
-  /** El tamaño de la tarjeta: grande (4 columnas en una pantalla de 1440) o chica. */
-  tamano?: 'grande' | 'chico';
+  // ⛔ Sin «Tamaño de la tarjeta» (6/11/2026; Martín: «eso no lo quiero, solo grande»): un link viejo con `tam=chico` abre grande.
 };
 
 export const FILTROS_INICIALES: FiltrosCarrusel = {
   q: '', creadores: [], origen: 'todos', outlierMin: 0, periodo: 'todo', largo: 'todos', formato: '', conImagenes: false, orden: 'outlier', vista: 'todos',
-  cta: false, que: 'carruseles', outlierMax: 0, interMin: 0, interMax: 0, lamMin: 0, lamMax: 0, ocultar: [], tamano: 'grande',
+  que: 'carruseles', outlierMax: 0, interMin: 0, interMax: 0, lamMin: 0, lamMax: 0, ocultar: [],
 };
 
 // `plano` vive en ./texto.ts (lo usa también «Hacer el mío»): se re-exporta acá, donde lo buscaban.
@@ -319,7 +320,6 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
   const anuncios = f.que === 'anuncios';
   const xs = todos.filter((c) => {
     if ((c.clase === 'anuncio') !== anuncios) return false;
-    if (f.cta && !c.cta) return false;
     if (f.vista === 'guardados' && !guardados.has(c.id)) return false;
     if (f.vista === 'semana' && !enRango(c.publicada, 7, ahora)) return false;
     if (!anuncios && !f.conImagenes && c.medio === 'imagen') return false;
@@ -342,8 +342,13 @@ export function filtrarCarruseles(todos: readonly Carrusel[], f: FiltrosCarrusel
     return coincide(c, f.q);
   });
   // Un anuncio no tiene outlier: «Mayor outlier» es, para ellos, el que más días lleva al aire.
-  return ordenarCarruseles(xs, anuncios && f.orden === 'outlier' ? 'aire' : f.orden);
+  const ordenados = ordenarCarruseles(xs, anuncios && f.orden === 'outlier' ? 'aire' : f.orden);
+  // Que un creador no llene la pantalla (./variedad.ts), salvo que se haya pedido ver a uno: por cuenta o por @.
+  return porCuenta(f) ? ordenados : conVariedad(ordenados, (c) => c.competidorId);
 }
+
+/** ¿Se está mirando a una cuenta en particular? (ahí no se reparte: se pidió ver a ésa). */
+export const porCuenta = (f: Pick<FiltrosCarrusel, 'creadores' | 'q'>): boolean => f.creadores.length > 0 || plano(f.q).startsWith('@');
 
 /**
  * El orden. Lo que no tiene el número del orden va al final (no se afirma un cero). Entre los que no lo tienen (los de un
@@ -443,7 +448,6 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
     conImagenes: get('imagenes') === '1',
     orden: unoDe(get('orden'), ORDENES_CARRUSEL, 'outlier'),
     vista: semana ? 'todos' : unoDe(get('vista'), VISTAS_CARRUSEL, 'todos'),
-    cta: get('cta') === '1',
     que: unoDe(get('que'), QUE_VER_CARRUSEL, 'carruseles'),
     outlierMax: (PASOS_MULTIPLO as readonly number[]).includes(Number(get('omax'))) ? Number(get('omax')) : 0,
     interMin: numero('imin', 1e9),
@@ -451,13 +455,15 @@ export function filtrosDeQuery(q: URLSearchParams | Record<string, string | stri
     lamMin: Math.round(numero('lmin', 20)),
     lamMax: Math.round(numero('lmax', 20)),
     ocultar,
-    tamano: get('tam') === 'chico' ? 'chico' : 'grande',
   };
 }
 
-/** La query de unos filtros, sólo con lo que no es el valor inicial (más `ver=carruseles`). */
+/**
+ * La query de unos filtros, sólo con lo que no es el valor inicial. Sin `ver=carruseles` desde el 6/11/2026: el explorador ES
+ * la portada de Image (`/image-editor`), y `?ver=carruseles` abre lo mismo (app/image-editor/vista.ts).
+ */
 export function queryDeFiltros(f: FiltrosCarrusel): string {
-  const q = new URLSearchParams({ ver: 'carruseles' });
+  const q = new URLSearchParams();
   if (f.q.trim()) q.set('q', f.q.trim());
   if (f.creadores.length) q.set('de', f.creadores.join(','));
   if (f.origen !== 'todos') q.set('origen', f.origen);
@@ -468,7 +474,6 @@ export function queryDeFiltros(f: FiltrosCarrusel): string {
   if (f.conImagenes) q.set('imagenes', '1');
   if (f.orden !== 'outlier') q.set('orden', f.orden);
   if (f.vista !== 'todos') q.set('vista', f.vista);
-  if (f.cta) q.set('cta', '1');
   if (f.que !== 'carruseles') q.set('que', f.que);
   if (f.outlierMax) q.set('omax', String(f.outlierMax));
   if (f.interMin) q.set('imin', String(f.interMin));
@@ -476,12 +481,11 @@ export function queryDeFiltros(f: FiltrosCarrusel): string {
   if (f.lamMin) q.set('lmin', String(f.lamMin));
   if (f.lamMax) q.set('lmax', String(f.lamMax));
   if (f.ocultar?.length) q.set('ocultar', f.ocultar.join(','));
-  if (f.tamano === 'chico') q.set('tam', 'chico');
   return q.toString();
 }
 
 /** ¿Los filtros son los de entrada? (sin nada que guardar como búsqueda). */
-export const sinFiltros = (f: FiltrosCarrusel): boolean => queryDeFiltros(f) === 'ver=carruseles';
+export const sinFiltros = (f: FiltrosCarrusel): boolean => queryDeFiltros(f) === '';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Guardados y búsquedas guardadas (app_settings del negocio: `carruseles.guardados`, `carruseles.busquedas`)
@@ -552,7 +556,6 @@ export function nombreDeBusqueda(f: FiltrosCarrusel, creadores: ReadonlyArray<{ 
   if (f.creadores.length) partes.push(f.creadores.map((id) => creadores.find((c) => c.id === id)?.nombre ?? '').filter(Boolean).join(', '));
   if (f.origen !== 'todos') partes.push(ORIGENES_CARRUSEL.find((o) => o.value === f.origen)?.label ?? '');
   if (f.que === 'anuncios') partes.push('Anuncios');
-  if (f.cta) partes.push('CTA');
   if (f.vista === 'guardados') partes.push('Guardados');
   if (f.outlierMin) partes.push(`${f.outlierMin}×+`);
   if (f.formato) partes.push(rotuloFormato(f.formato));

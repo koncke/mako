@@ -1,5 +1,5 @@
 // Los anuncios de la competencia en el explorador de carruseles (lib/carruseles/anuncios.ts, 6/11/2026), las láminas que
-// la tarjeta pasa de a una y el filtro CTA: corre el código con piezas con la forma de las de Spy y de la biblioteca.
+// la tarjeta pasa de a una y que sólo entren imágenes: corre el código con piezas con la forma de las de Spy y de la biblioteca.
 //
 // Probado rompiéndolo (6/11/2026), base 6/0:
 //   · `anunciosDe` sin mirar el canal (entraba una publicación de Instagram como anuncio) → 1 rojo;
@@ -7,12 +7,12 @@
 //   · `filtrarCarruseles` mezclando anuncios con carruseles → 1 rojo;
 //   · el orden de los anuncios por outlier (todos null) en vez de los días al aire → 1 rojo;
 //   · `imagenesValidas` dejando pasar un http o un repetido → 1 rojo;
-//   · el filtro CTA sin mirar `cta` → 1 rojo;
+//   · `anunciosDe` dejando pasar un video (sin `esAnuncioEnVideo`) → 1 rojo;
 //   · `carruselesDeBiblioteca` sin las láminas ni el CTA guardados → 1 rojo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { anunciosDe, diasAlAire, rotuloAire, type PiezaAnuncio } from '../lib/carruseles/anuncios';
+import { anunciosDe, diasAlAire, esAnuncioEnVideo, rotuloAire, type PiezaAnuncio } from '../lib/carruseles/anuncios';
 import { FILTROS_INICIALES, carruselesDe, filtrarCarruseles, imagenesDe, imagenesValidas, type PiezaParaCarrusel } from '../lib/carruseles/explorar';
 import { carruselesDeBiblioteca, filasDeLectura, reclasificacion, type CuentaBiblioteca, type PiezaBiblioteca } from '../lib/carruseles/biblioteca';
 import { imagenesDeLaminas } from '../lib/instagram-perfil';
@@ -52,6 +52,23 @@ test('un anuncio de Spy es una tarjeta «anuncio» de su competidor; lo que no e
   assert.equal(xs[1].cta?.palabra, 'CITA');
 });
 
+test('en Anuncios sólo entran imágenes: un video no se ve, ni cuenta (6/11/2026)', () => {
+  // Martín: «en anuncios trajiste un montón de videos, cuando estamos viendo solo imágenes».
+  const T15 = 'https://scontent.xx.fbcdn.net/v/t15.5256-10/123_n.jpg';
+  const xs = anunciosDe([
+    anuncio({ id: 1, medio: 'imagen' }),
+    anuncio({ id: 2, medio: 'video' }),
+    anuncio({ id: 3, medio: 'carrusel' }),
+    anuncio({ id: 4, medio: null, miniatura: T15 }),
+    anuncio({ id: 5, medio: null, miniatura: 'https://scontent.xx.fbcdn.net/v/t39.35426-6/9_n.jpg' }),
+    anuncio({ id: 6, medio: 'imagen', miniatura: T15 }),
+  ], competidores, AHORA);
+  assert.deepEqual(xs.map((x) => x.id), [1, 3, 5, 6], 'el video declarado y la miniatura de cuadro de video (t15) no entran');
+  assert.equal(esAnuncioEnVideo({ medio: null, miniatura: null }), false, 'sin señal no se esconde: no se sabe');
+  assert.equal(esAnuncioEnVideo({ medio: null, miniatura: 'https://x.supabase.co/storage/v1/object/public/spy-miniaturas/t15.jpg' }), false, 'nuestro bucket no es el CDN de Meta');
+  assert.equal(esAnuncioEnVideo({ medio: null, miniatura: 'https://evil.tld/fbcdn.net/v/t15.x.jpg' }), false);
+});
+
 test('los filtros: carruseles y anuncios no se mezclan; los anuncios se ordenan por días al aire', () => {
   const carr = carruselesDe([{ id: 1, competidor_id: 7, canal: 'instagram', tipo: 'publicacion', url: null, texto: 'x', vistas: null, megusta: 9, comentarios: 1, publicada_en: dia(3), visto_primera_vez: dia(3), dejo_de_verse_en: null, miniatura: null, medio: 'carrusel', laminas: 5 } as PiezaParaCarrusel], competidores, AHORA);
   const ans = anunciosDe([anuncio({ id: 200, publicada_en: dia(5) }), anuncio({ id: 201, publicada_en: dia(80) }), anuncio({ id: 202, publicada_en: null })], competidores, AHORA);
@@ -61,14 +78,16 @@ test('los filtros: carruseles y anuncios no se mezclan; los anuncios se ordenan 
     'el que más lleva al aire primero; el que no se sabe, al final');
 });
 
-test('el filtro CTA: sólo los que piden comentar una palabra', () => {
+test('el CTA queda en la tarjeta, y ya no hay filtro que deje afuera al que no lo pide (6/11/2026)', () => {
   const xs = carruselesDe([
     { id: 1, competidor_id: 7, canal: 'instagram', tipo: 'publicacion', url: null, texto: '5 tips. Comenta GUÍA y te la mando', vistas: null, megusta: 1, comentarios: 1, publicada_en: dia(3), visto_primera_vez: dia(3), dejo_de_verse_en: null, miniatura: null, medio: 'carrusel', laminas: 5 },
     { id: 2, competidor_id: 7, canal: 'instagram', tipo: 'publicacion', url: null, texto: 'Comenta tu opinión', vistas: null, megusta: 1, comentarios: 1, publicada_en: dia(3), visto_primera_vez: dia(3), dejo_de_verse_en: null, miniatura: null, medio: 'carrusel', laminas: 5 },
   ] as PiezaParaCarrusel[], competidores, AHORA);
   assert.equal(xs[0].cta?.palabra, 'GUÍA');
   assert.equal(xs[1].cta, null);
-  assert.deepEqual(filtrarCarruseles(xs, { ...FILTROS_INICIALES, cta: true }, new Set(), AHORA).map((x) => x.id), [1]);
+  // Martín: «elimina el filtro de "CTA" porque todos le van a servir a dueños… hay algunos que sí sirven, reflexiones».
+  assert.deepEqual(filtrarCarruseles(xs, FILTROS_INICIALES, new Set(), AHORA).map((x) => x.id).sort(), [1, 2]);
+  assert.equal('cta' in FILTROS_INICIALES, false, 'el filtro CTA se fue');
 });
 
 test('las láminas de la tarjeta: sólo https, sin repetidas, y sin ellas la portada sola', () => {

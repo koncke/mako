@@ -16,6 +16,7 @@
 // =============================================================================
 
 import type { AnuncioLeido } from './spy-captura';
+import { medioDeAnuncio } from './spy-medio';
 
 /** El actor de publicaciones de Instagram: el mismo `apify~instagram-scraper` que ya busca por nombre, con `resultsType: posts`. */
 export const APIFY_ACTOR_PUBLICACIONES = 'apify~instagram-scraper';
@@ -312,6 +313,8 @@ export function anuncioDeApify(crudo: unknown): AnuncioLeido | null {
     titulo: titulo ? titulo.slice(0, 300) : null,
     destino,
     miniatura,
+    // Imagen, video o carrusel (6/11/2026): el explorador de Image muestra sólo los de imagen (lib/carruseles/anuncios.ts).
+    medio: medioDeAnuncio(primero(snap, 'displayFormat', 'display_format') ?? primero(crudo, 'displayFormat', 'display_format'), { videos: videos.length, imagenes: imagenes.length }),
   };
 }
 

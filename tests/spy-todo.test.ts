@@ -79,6 +79,8 @@ test('4. un anuncio del actor, en sus dos dialectos, y sin inventar el fin de un
   assert.deepEqual(camel, {
     id: '1234567890', paginaId: null, desde: '2025-11-01T00:00:00.000Z', hasta: null, pagina: { nombre: 'Víctor Heras', handle: null },
     texto: 'Aprende a vender con reels', titulo: 'Curso', destino: 'https://viralidad.com/curso', miniatura: 'https://scontent/x.jpg',
+    // Sin `displayFormat`, una imagen y ningún video: es una imagen (6/11/2026, «Anuncios» muestra sólo imágenes).
+    medio: 'imagen',
   });
   const snake = anuncioDeApify({
     ad_archive_id: 987654321, page_id: '101112131415', page_name: 'Otra', is_active: false, start_date: '2026-09-01', end_date: '2026-09-30',
@@ -93,6 +95,7 @@ test('4. un anuncio del actor, en sus dos dialectos, y sin inventar el fin de un
   assert.equal(snake?.texto, 'Hola mundo');
   assert.equal(snake?.destino, 'https://otra.com');
   assert.equal(snake?.miniatura, 'https://v/p.jpg');
+  assert.equal(anuncioDeApify({ adArchiveID: '1234567', snapshot: { displayFormat: 'VIDEO', images: [{ originalImageUrl: 'https://scontent/x.jpg' }] } })?.medio, 'video', 'lo que dice el actor gana');
   assert.equal(snake?.pagina?.handle, 'otra.pagina');
   assert.equal(snake?.paginaId, '101112131415', 'el id de su Página: lo que la identifica');
   assert.equal(anuncioDeApify({ adArchiveID: 'no-es-un-numero' }), null);

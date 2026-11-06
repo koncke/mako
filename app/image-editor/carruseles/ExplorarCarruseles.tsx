@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// ExplorarCarruseles — los carruseles de ejemplo, para elegir uno y editarlo (`/image-editor?ver=carruseles`, 6/11/2026)
+// ExplorarCarruseles — los carruseles de ejemplo, para elegir uno y editarlo (la portada de `/image-editor`, 6/11/2026)
 // =============================================================================
 // Martín, 6/11/2026: «no se entiende bien la funcionalidad». Lo que pidió, y cómo quedó:
 //   · «Lo principal al entrar son los ejemplos de carruseles. Ahí mismo se elige uno para editar, y recién entonces aparece la
@@ -20,28 +20,41 @@
 //   · «Espía de anuncios en imagen… sumalo a esta misma tab con filtros» → «Carruseles | Anuncios»: los anuncios que Competitors
 //     Spy trajo de las cuentas que sigue el negocio (lib/carruseles/anuncios.ts), con sus días al aire.
 //
+// Y lo que pidió Martín el 6/11/2026 (en producción), y cómo quedó:
+//   · «La tab de "Encuentra tu siguiente OUTLIER" tiene que ser la principal, no "¿Qué vas a crear hoy?"» → esto es la portada de
+//     Image (`/image-editor`, sin `?ver=`); las plantillas están detrás de «Crear desde cero» (`?ver=crear`), también en el celular.
+//   · «elimina el filtro de "CTA"… hay algunos que sí sirven, reflexiones» → sin chip ni contador; la tarjeta sigue diciendo qué
+//     pide comentar. «en el filtro de CTA pusiste puros de DenBorg» → ningún creador llena la pantalla (lib/carruseles/variedad.ts).
+//   · «elimina lo de "biblioteca"… está horrible» → sin la pastilla ni su modal; la biblioteca se carga desde la PC
+//     (scripts/carruseles-biblioteca.mts) y por la API de MaKo.
+//   · «"Tamaño de la tarjeta" eso no lo quiero, solo grande» → una sola tarjeta. «No quiero que esté activado el filtro semanal por
+//     defecto» → se entra con todo el período.
+//   · «Muchos no tengo el botón para desplazar a la derecha» → las flechas salen con las láminas guardadas, también en el celular.
+//   · «en anuncios trajiste un montón de videos» → sólo los anuncios de imagen (lib/carruseles/anuncios.ts).
+//   · «una tab que sea "Thumbnails"» → la tercera opción, con su tarjeta 16:9 (./Thumbnails.tsx, lib/thumbnails/).
+//
 // Lo puro (filtros, orden, la URL, guardados): lib/carruseles/explorar.ts, con tests/carruseles-explorar.test.ts. La misma
-// pieza en la computadora y en el teléfono (app/m/image-editor, `?ver=carruseles`).
+// pieza en la computadora y en el teléfono (app/m/image-editor).
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from '@/app/_ui/Link';
-import { Modal } from '@/app/_ui/Modal';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { Dropdown } from '@/app/components/Dropdown';
 import {
   FILTROS_INICIALES, ORDENES_CARRUSEL, QUE_VER_CARRUSEL,
   contadorCorto, creadoresDe, creadoresParecidos, filtrarCarruseles, filtrosDeQuery, formatosDe, imagenesDe, nivelDeMultiplo, nombreDeBusqueda,
   parecidosA, queryDeFiltros, rotuloCta, rotuloFormato, rotuloOutlier, sinFiltros,
-  type BusquedaGuardada, type Carrusel, type FiltrosCarrusel, type OrdenCarrusel,
+  type BusquedaGuardada, type Carrusel, type FiltrosCarrusel, type OrdenCarrusel, type QueVer,
 } from '@/lib/carruseles/explorar';
+import { FILTROS_THUMBNAIL, queryDeThumbnails, type FiltrosThumbnail, type Thumbnail } from '@/lib/thumbnails/explorar';
 import { rotuloAire } from '@/lib/carruseles/anuncios';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
-import { EditarBiblioteca } from './EditarBiblioteca';
 import { EditarCarrusel } from './EditarCarrusel';
 import { CarruselAbierto } from './CarruselAbierto';
 import { FiltrosCarruselModal } from './FiltrosCarruselModal';
-import { borrarBusquedaAction, guardarBusquedaAction, guardarCarruselAction } from './actions';
+import { PanelThumbnails, type DatosThumbnails } from './Thumbnails';
+import { borrarBusquedaAction, guardarBusquedaAction, guardarCarruselAction, guardarThumbnailAction } from './actions';
 import s from './explorar.module.css';
 
 /** Lo que llega del servidor (`leerExplorador`, lib/carruseles/explorar-servidor.ts). */
@@ -56,10 +69,10 @@ export type DatosExplorador = {
   ejemplos: number;
   /** La biblioteca no se pudo leer (se ve lo del negocio). */
   avisoBiblioteca: string | null;
-  /** El admin del negocio de la plataforma: edita la biblioteca (el botón de arriba). */
-  puedeEditarBiblioteca?: boolean;
-  /** Cuántos anuncios de la competencia trajo Spy (el filtro «Anuncios»). Ausente = 0. */
+  /** Cuántos anuncios de la competencia trajo Spy (el filtro «Anuncios»), sólo los de imagen. Ausente = 0. */
   anuncios?: number;
+  /** Las miniaturas de YouTube de la biblioteca (Thumbnails, 6/11/2026). Ausente = no se leyeron (se dice al elegirlas). */
+  thumbnails?: DatosThumbnails | null;
 };
 
 /** El perfil público de un creador en Instagram (los de la biblioteca no tienen ficha en Spy del negocio). */
@@ -68,14 +81,15 @@ const perfilDeInstagram = (usuario: string) => `https://www.instagram.com/${enco
 /** Cuántas tarjetas se dibujan de una vez: más no se miran y la página se pone pesada. «Ver más» suma otras tantas. */
 const DE_A = 40;
 
-const CLAVES_FILTRO = ['q', 'de', 'origen', 'min', 'periodo', 'largo', 'formato', 'imagenes', 'orden', 'vista', 'cta', 'que'] as const;
+/** TODAS las claves que escriben los filtros (de carruseles y de miniaturas), y las viejas: así no queda ninguna colgada. */
+const CLAVES_FILTRO = ['q', 'de', 'origen', 'min', 'omax', 'imin', 'imax', 'lmin', 'lmax', 'ocultar', 'periodo', 'largo', 'formato', 'imagenes', 'orden', 'vista', 'cta', 'tam', 'que', 'nicho', 'idioma', 'ver'] as const;
 
-/** Los filtros en la URL de la pestaña, sin tocar lo demás (el `?ws=`, `ver`): un link copiado abre lo mismo. */
-function escribirEnLaUrl(f: FiltrosCarrusel) {
+/** Los filtros en la URL de la pestaña, sin tocar lo demás (el `?ws=`): un link copiado abre lo mismo. */
+function escribirEnLaUrl(query: string) {
   try {
     const u = new URL(window.location.href);
     for (const k of CLAVES_FILTRO) u.searchParams.delete(k);
-    for (const [k, v] of new URLSearchParams(queryDeFiltros(f))) u.searchParams.set(k, v);
+    for (const [k, v] of new URLSearchParams(query)) u.searchParams.set(k, v);
     window.history.replaceState(window.history.state, '', u.pathname + u.search);
   } catch { /* sin URL que tocar (un test): el estado alcanza */ }
 }
@@ -107,14 +121,21 @@ const Lupa = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
 );
 
-export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }: {
+export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciales, telefono = false, rutaCrear = '/image-editor?ver=crear' }: {
   datos: DatosExplorador;
   filtrosIniciales?: FiltrosCarrusel;
+  /** Los filtros de las miniaturas que dice la URL (lib/thumbnails/explorar.ts, `filtrosThumbnailDeQuery`). */
+  thumbnailsIniciales?: FiltrosThumbnail;
   /** En el teléfono: una columna y sin abrir otra pestaña para la publicación. */
   telefono?: boolean;
+  /** «Crear desde cero»: las plantillas de Image (en el teléfono, su ruta de /m). */
+  rutaCrear?: string;
 }) {
   const [f, setF] = useState<FiltrosCarrusel>(filtrosIniciales ?? FILTROS_INICIALES);
+  const [ft, setFt] = useState<FiltrosThumbnail>(thumbnailsIniciales ?? FILTROS_THUMBNAIL);
   const [guardados, setGuardados] = useState<Set<number>>(() => new Set(datos.guardados));
+  const [guardadosT, setGuardadosT] = useState<Set<number>>(() => new Set(datos.thumbnails && datos.thumbnails.ok ? datos.thumbnails.guardados : []));
+  const enThumbs = f.que === 'thumbnails';
   const [busquedas, setBusquedas] = useState<BusquedaGuardada[]>(datos.busquedas);
   const [cuantas, setCuantas] = useState(DE_A);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -123,17 +144,35 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
   const [abierto, setAbierto] = useState<Carrusel | null>(null);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [parecidosDe, setParecidosDe] = useState<Carrusel | null>(null);
-  const [biblioteca, setBiblioteca] = useState(false);
   const [, start] = useTransition();
   // El «hace cuánto» se calcula una vez montada la pantalla (el server no dibuja fechas relativas).
   const [ahora, setAhora] = useState<number | null>(null);
   useEffect(() => { setAhora(Date.now()); }, []);
+  // El link de antes (`?ver=carruseles`) abre esta misma pantalla sin redirigir (app/image-editor/vista.ts): acá se saca el `ver`
+  // de la barra de direcciones, sin navegar, para que un link copiado sea el de la portada.
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.get('ver') !== 'carruseles') return;
+      u.searchParams.delete('ver');
+      window.history.replaceState(window.history.state, '', u.pathname + u.search);
+    } catch { /* sin URL que tocar (un test) */ }
+  }, []);
 
   const cambiar = useCallback((cambio: Partial<FiltrosCarrusel>) => {
-    setF((prev) => { const nuevo = { ...prev, ...cambio }; escribirEnLaUrl(nuevo); return nuevo; });
+    setF((prev) => { const nuevo = { ...prev, ...cambio }; escribirEnLaUrl(queryDeFiltros(nuevo)); return nuevo; });
     setCuantas(DE_A);
   }, []);
-  const reiniciar = () => { const nuevo = { ...FILTROS_INICIALES, que: f.que }; setF(nuevo); escribirEnLaUrl(nuevo); setCuantas(DE_A); };
+  const cambiarT = useCallback((cambio: Partial<FiltrosThumbnail>) => {
+    setFt((prev) => { const nuevo = { ...prev, ...cambio }; escribirEnLaUrl(queryDeThumbnails(nuevo)); return nuevo; });
+  }, []);
+  const reiniciar = () => { const nuevo = { ...FILTROS_INICIALES, que: f.que }; setF(nuevo); escribirEnLaUrl(queryDeFiltros(nuevo)); setCuantas(DE_A); };
+  /** Carruseles · Anuncios · Thumbnails: cada lado con sus filtros (las cuentas y los tipos de uno no son los del otro). */
+  const irA = (que: QueVer) => {
+    setParecidosDe(null);
+    if (que === 'thumbnails') { setF((prev) => ({ ...prev, que })); escribirEnLaUrl(queryDeThumbnails(ft)); return; }
+    cambiar({ que, creadores: [], formato: '', ocultar: [], orden: que === 'anuncios' ? 'aire' : 'outlier' });
+  };
 
   // Lo de cada lado (carruseles o anuncios): las cuentas y los tipos del filtro salen de lo que se está mirando.
   const delLado = useMemo(() => datos.carruseles.filter((c) => (c.clase === 'anuncio') === (f.que === 'anuncios')), [datos.carruseles, f.que]);
@@ -142,7 +181,6 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
   const dosOrigenes = f.que === 'carruseles' && propios > 0 && datos.ejemplos > 0;
   const formatos = useMemo(() => formatosDe(delLado), [delLado]);
   const vistos = useMemo(() => filtrarCarruseles(datos.carruseles, f, guardados, ahora ?? Date.now()), [datos.carruseles, f, guardados, ahora]);
-  const conCta = useMemo(() => delLado.filter((c) => c.cta).length, [delLado]);
   const anuncios = datos.anuncios ?? datos.carruseles.filter((c) => c.clase === 'anuncio').length;
 
   const alternarGuardado = (c: Carrusel) => {
@@ -153,6 +191,19 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
       const r = await guardarCarruselAction(c.id, guardar);
       if (!r.ok) {
         setGuardados((g) => { const n = new Set(g); if (guardar) n.delete(c.id); else n.add(c.id); return n; });
+        setAviso(r.error);
+      }
+    });
+  };
+
+  const alternarThumbnail = (t: Thumbnail) => {
+    const guardar = !guardadosT.has(t.id);
+    setGuardadosT((g) => { const n = new Set(g); if (guardar) n.add(t.id); else n.delete(t.id); return n; });
+    setAviso(null);
+    start(async () => {
+      const r = await guardarThumbnailAction(t.id, guardar);
+      if (!r.ok) {
+        setGuardadosT((g) => { const n = new Set(g); if (guardar) n.delete(t.id); else n.add(t.id); return n; });
         setAviso(r.error);
       }
     });
@@ -171,7 +222,7 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
     const b = busquedas.find((x) => x.id === id);
     if (!b) return;
     const nuevo = filtrosDeQuery(new URLSearchParams(b.query));
-    setF(nuevo); escribirEnLaUrl(nuevo); setCuantas(DE_A);
+    setF(nuevo); escribirEnLaUrl(queryDeFiltros(nuevo)); setCuantas(DE_A);
   };
   const borrarBusqueda = (b: BusquedaGuardada) => {
     setAviso(null);
@@ -190,67 +241,84 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
   const hayAlgo = datos.carruseles.length > 0;
   const listas = parecidosDe ? parecidosA(parecidosDe, delLado) : vistos;
   const listos = listas.slice(0, cuantas);
-  const guardadosVista = f.vista === 'guardados';
+  const guardadosVista = enThumbs ? ft.vista === 'guardados' : f.vista === 'guardados';
+  const nGuardados = enThumbs ? guardadosT.size : guardados.size;
   const abrirParecidos = (c: Carrusel) => { setAbierto(null); setParecidosDe(c); setCuantas(DE_A); };
+  const hayThumbs = !!datos.thumbnails && datos.thumbnails.ok && datos.thumbnails.lista.length > 0;
 
-  // Las pastillas (Guardados, Búsquedas, Seguir cuentas): en la computadora van bajo el título; en el teléfono, en la MISMA fila
-  // que los filtros, que se desliza (así el primer ejemplo no arranca a la mitad de la pantalla).
+  // Las pastillas (Guardados, Búsquedas, Seguir cuentas, Crear desde cero): en la computadora van bajo el título; en el teléfono,
+  // en la MISMA fila que los filtros, que se desliza (así el primer ejemplo no arranca a la mitad de la pantalla).
   const botones = (
     <div className={s.botones}>
-      <button type="button" className={s.pastilla} aria-pressed={guardadosVista} onClick={() => cambiar({ vista: guardadosVista ? 'todos' : 'guardados' })}>
-        <Marcador lleno={guardadosVista} /> Guardados{guardados.size ? <span className={s.n}>{guardados.size}</span> : null}
+      <button type="button" className={s.pastilla} aria-pressed={guardadosVista}
+        onClick={() => (enThumbs ? cambiarT({ vista: guardadosVista ? 'todos' : 'guardados' }) : cambiar({ vista: guardadosVista ? 'todos' : 'guardados' }))}>
+        <Marcador lleno={guardadosVista} /> Guardados{nGuardados ? <span className={s.n}>{nGuardados}</span> : null}
       </button>
-      {busquedas.length > 0 && (
+      {busquedas.length > 0 && !enThumbs && (
         <Dropdown value="" search={busquedas.length > 7} alContenido ariaLabel="Búsquedas guardadas"
           options={busquedas.map((b) => ({ value: b.id, label: b.nombre }))}
           botonLabel={<span>{telefono ? 'Búsquedas' : 'Búsquedas guardadas'} <span className={s.n}>{busquedas.length}</span></span>}
           onChange={usarBusqueda} buttonStyle={pastilla(false, telefono)} />
       )}
       <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
-      {datos.puedeEditarBiblioteca ? <button type="button" className={s.pastilla} onClick={() => setBiblioteca(true)}>Biblioteca</button> : null}
+      {/* Las plantillas de «¿Qué vas a crear hoy?» (6/11/2026: lo principal son los ejemplos; crear de cero queda a un toque). */}
+      <Link href={rutaCrear} className={s.crear}><span aria-hidden>＋</span> Crear desde cero</Link>
+    </div>
+  );
+
+  const segmento = (
+    <div className={s.segmento} role="radiogroup" aria-label="Qué ver">
+      {QUE_VER_CARRUSEL.map((q) => (
+        <button key={q.value} type="button" role="radio" aria-checked={f.que === q.value} onClick={() => irA(q.value)}>
+          {q.label}{q.value === 'anuncios' && anuncios ? <span className={s.n}>{anuncios}</span> : null}
+        </button>
+      ))}
     </div>
   );
 
   return (
-    <div className={s.raiz} data-telefono={telefono ? 'si' : undefined} data-tamano={f.tamano ?? 'grande'}>
+    <div className={s.raiz} data-telefono={telefono ? 'si' : undefined}>
       <div className={s.col}>
         <header className={s.cabeza}>
           <h1>Encuentra tu siguiente <mark>OUTLIER</mark></h1>
           {telefono ? null : botones}
-          {hayAlgo && (
+          {(hayAlgo || hayThumbs) && (
             <label className={s.busca}>
               <Lupa />
-              <input type="search" value={f.q} onChange={(e) => { setParecidosDe(null); cambiar({ q: e.target.value }); }} placeholder={telefono ? 'Busca carruseles o @creadores' : 'Busca carruseles, temas o @creadores'}
-                aria-label="Buscar carruseles por tema o por @creador" enterKeyHint="search" />
+              {enThumbs ? (
+                <input type="search" value={ft.q} onChange={(e) => cambiarT({ q: e.target.value })} placeholder={telefono ? 'Busca miniaturas o @canales' : 'Busca miniaturas, temas o @canales'}
+                  aria-label="Buscar miniaturas por tema o por @canal" enterKeyHint="search" />
+              ) : (
+                <input type="search" value={f.q} onChange={(e) => { setParecidosDe(null); cambiar({ q: e.target.value }); }} placeholder={telefono ? 'Busca carruseles o @creadores' : 'Busca carruseles, temas o @creadores'}
+                  aria-label="Buscar carruseles por tema o por @creador" enterKeyHint="search" />
+              )}
             </label>
           )}
         </header>
 
         {datos.avisoBiblioteca ? <p role="alert" className={s.aviso}>{datos.avisoBiblioteca}<ReportarASoporte /></p> : null}
 
-        {!hayAlgo ? (
+        {enThumbs ? (
+          <>
+            {aviso && <p role="alert" className={s.aviso}>{aviso}<ReportarASoporte /></p>}
+            <PanelThumbnails datos={datos.thumbnails} f={ft} cambiar={cambiarT} guardados={guardadosT} alternarGuardado={alternarThumbnail}
+              ahora={ahora} telefono={telefono} segmento={segmento} botones={botones} />
+          </>
+        ) : !hayAlgo ? (
           <div className={s.vacio}>
             <p>{datos.frase}</p>
             {datos.accion ? <Link href={datos.accion.ruta} className={s.boton}>{datos.accion.texto}</Link> : null}
+            {hayThumbs ? <button type="button" className={s.texto} onClick={() => irA('thumbnails')}>Ver miniaturas de YouTube</button> : null}
           </div>
         ) : (
           <>
             <div className={s.filtros}>
+              {/* En el teléfono, qué ver (Carruseles · Anuncios · Thumbnails) va PRIMERO en la fila que se desliza: es lo que cambia la
+                  pantalla, y al final quedaba fuera de la vista (6/11/2026, autocrítica). Las pastillas, después. */}
+              {segmento}
               {telefono ? botones : null}
-              <div className={s.segmento} role="radiogroup" aria-label="Qué ver">
-                {QUE_VER_CARRUSEL.map((q) => (
-                  <button key={q.value} type="button" role="radio" aria-checked={f.que === q.value}
-                    onClick={() => { setParecidosDe(null); cambiar({ que: q.value, creadores: [], formato: '', ocultar: [], orden: q.value === 'anuncios' ? 'aire' : 'outlier' }); }}>
-                    {q.label}{q.value === 'anuncios' && anuncios ? <span className={s.n}>{anuncios}</span> : null}
-                  </button>
-                ))}
-              </div>
               <button type="button" className={s.chip} aria-pressed={filtrosActivos > 0} onClick={() => setFiltrosAbiertos(true)}>
                 <Ajustes /> Filtros{filtrosActivos ? <span className={s.n}>{filtrosActivos}</span> : null}
-              </button>
-              <button type="button" className={s.chip} aria-pressed={f.cta} onClick={() => cambiar({ cta: !f.cta })}
-                title="Los que piden comentar una palabra: los que publican los dueños de negocio">
-                CTA{conCta ? <span className={s.n}>{conCta}</span> : null}
               </button>
               {creadores.length > 1 && (
                 <Dropdown value="" varios={f.creadores.map(String)} search={creadores.length > 7} alContenido ariaLabel="Cuentas"
@@ -329,11 +397,6 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, telefono = false }
           onAplicar={(c) => { setFiltrosAbiertos(false); setParecidosDe(null); cambiar(c); }} onCerrar={() => setFiltrosAbiertos(false)} />
       ) : null}
       {editando ? <EditarCarrusel key={editando.id} carrusel={editando} onCerrar={() => setEditando(null)} /> : null}
-      {biblioteca ? (
-        <Modal titulo="Biblioteca de ejemplos" onCerrar={() => setBiblioteca(false)} ancho={720}>
-          <EditarBiblioteca />
-        </Modal>
-      ) : null}
     </div>
   );
 }
