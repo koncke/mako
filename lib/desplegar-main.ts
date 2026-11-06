@@ -5,7 +5,7 @@
 // =============================================================================
 
 import 'server-only';
-import { compararConMain } from './github-commits';
+import { compararConMain, mainEstaRojo } from './github-commits';
 import { decidirDespliegue, type Decision } from './desplegar-main-reglas';
 
 /** El repo en GitHub, como lo tiene conectado el proyecto de Vercel (`link.repoId`). */
@@ -52,14 +52,15 @@ export async function desplegarMainSiHaceFalta(o: { dry?: boolean } = {}, ahora 
   if (!v) return { ok: false, error: 'Falta el token de Vercel en el servidor.' };
   const produccion = await leerProduccion(v, ahora);
   // Sin lo de GitHub se compila igual, con «main» a secas: que una credencial vencida no deje producción sin actualizar.
-  const cmp = produccion.sha ? await compararConMain(produccion.sha) : null;
+  const [cmp, mainRojo] = await Promise.all([produccion.sha ? compararConMain(produccion.sha) : null, mainEstaRojo()]);
   const leido = cmp?.ok ? cmp : null;
   const decision = decidirDespliegue({
     enCurso: produccion.enCurso, enProduccion: produccion.sha, main: leido?.main ?? '',
-    adelante: leido?.adelante ?? 0, archivos: leido?.archivos ?? null,
+    adelante: leido?.adelante ?? 0, archivos: leido?.archivos ?? null, mainRojo,
   });
   const base = { decision, enProduccion: produccion.sha, main: leido?.main ?? null };
-  if (decision.hacer === 'nada' || o.dry) return { ok: true, dry: !!o.dry, ...base };
+  // Sólo `compilar` sigue: «nada» y «frenar» (main rojo) vuelven acá, antes de pedirle nada a Vercel.
+  if (decision.hacer !== 'compilar' || o.dry) return { ok: true, dry: !!o.dry, ...base };
 
   const q = new URLSearchParams({ forceNew: '1' });
   if (v.equipo) q.set('slug', v.equipo);

@@ -86,7 +86,7 @@ jobs:
       - name: Main está rojo
         run: |
           if git ls-remote --exit-code origin refs/heads/ci-rojo/main >/dev/null 2>&1; then
-            echo "::warning title=main está rojo::El chequeo sobre main dio rojo y sigue sin arreglarse. Si esta punta da rojo puede ser por main: queda en espera-main y se relanza sola. Lo de main: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/sobre-main.yml"
+            echo "::warning title=main está rojo::El chequeo sobre main dio rojo y sigue sin arreglarse: el despliegue diario está frenado hasta que vuelva a verde. Si esta punta da rojo puede ser por main: queda en espera-main y se relanza sola. Lo de main: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/sobre-main.yml"
           fi
 
       # ── QUÉ CAMBIÓ LA PUNTA, ANTES DE MEZCLAR ────────────────────────────────────────────────
@@ -321,13 +321,17 @@ jobs:
       #
       # ⚠️ CON UN VEREDICTO (`USAR=true`) corren sólo los de `--solo`: lo que la mezcla pudo cambiar, lo que el veredicto no tenía en verde y
       # la muestra. Si no queda ninguno (`nada_que_repetir` = si), este paso no corre: corre el de abajo, que lo dice en el resumen. Así este paso no
-      # tiene un `exit 0` por un costado. Con sólo documentación corren igual los que la leen (barredoras incluidas): un relevo que rompe
-      # una barredora dejaba roja la punta SIGUIENTE, de otro chat.
+      # tiene un `exit 0` por un costado.
+      # ⚠️ CON SÓLO DOCUMENTACIÓN NO CORRE (6/11/2026, por los minutos: docs/hallazgos-infra.md → «Los minutos de GitHub Actions»): sólo
+      # las guardas y la guarda de los mails reales (abajo), que es lo único que no se deshace. Las barredoras que leen docs/ las corre
+      # el chequeo diario sobre main, antes del despliegue (y los docs no se despliegan). El costo, medido antes: un relevo que rompe una
+      # barredora puede dejar roja la punta SIGUIENTE, de otro chat, hasta ese chequeo. Si una punta da rojo en algo que no tocó, se
+      # lanza sobre-main.yml a mano.
       - name: Tests afectados por lo que cambió (todos, sin cortar)
         id: afectados
         # ⚠️ NUNCA una salida contra un número («cuantos != '0'»): una salida que falta es null, y GitHub compara null con un número
         # como 0. Sin veredicto este paso se salteaba entero (corridas 188 y 189, 4/11/2026). Lo fija tests/punta-condiciones.test.ts.
-        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.veredicto.outputs.nada_que_repetir != 'si'"
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs != 'true' && steps.veredicto.outputs.nada_que_repetir != 'si'"
         timeout-minutes: 30
         # El tiempo de cada archivo de test, al lado del reporte de siempre (scripts/reporter-tiempos.mjs). Lo lee el paso de abajo.
         env:
@@ -350,6 +354,14 @@ jobs:
             echo "::error::tests-afectados salió con 0 sin correr ningún test, y la punta sí difiere de main: eso no es un verde."
             exit 1
           fi
+
+      # Un mail real de un dueño en docs/ llega a la historia de git y no se saca más: es la única barredora que no espera al chequeo
+      # diario. ~15 s.
+      - name: Sólo documentación, sin mails reales
+        if: "!cancelled() && steps.instalar.outcome == 'success' && steps.mezcla.outputs.solo_docs == 'true'"
+        run: |
+          echo "Sólo documentación: corren las guardas y la de los mails reales; las barredoras, en el chequeo diario sobre main." | tee -a "$GITHUB_STEP_SUMMARY"
+          node --import tsx --test tests/sin-mails-reales.test.ts
 
       - name: Los tests los cubre el veredicto
         if: "!cancelled() && steps.instalar.outcome == 'success' && steps.veredicto.outputs.usar == 'true' && steps.veredicto.outputs.nada_que_repetir == 'si'"
@@ -434,6 +446,8 @@ jobs:
           GIT_COMMITTER_EMAIL: ${{ steps.punta.outputs.autor_correo }}
           # Los tipos no corrieron acá porque los cubría un veredicto: lo que llega a main lo mira sobre-main.yml.
           SIN_PROBAR_VEREDICTO: ${{ steps.veredicto.outputs.sin_probar }}
+          # Con sólo texto no corrió el tsc entero (y con sólo docs, ni los tests): lo que llega no puede devolver main a verde.
+          TEXTO: ${{ steps.mezcla.outputs.texto }}
         run: |
           for intento in 1 2 3 4 5; do
             if ! git fetch --quiet origin +refs/heads/main:refs/remotes/origin/main; then
@@ -458,6 +472,7 @@ jobs:
               echo "main avanzó a $(git rev-parse --short HEAD)." | tee -a "$GITHUB_STEP_SUMMARY"
               sp=${mezclo:-0}
               if [ "$SIN_PROBAR_VEREDICTO" = "1" ]; then sp=1; fi
+              if [ "$TEXTO" = "true" ]; then sp=1; fi
               echo "sin_probar=$sp" >> "$GITHUB_OUTPUT"
               exit 0
             fi
@@ -468,8 +483,9 @@ jobs:
           exit 1
 
       # ── MAIN DESPUÉS DE ESTA PUNTA (4/11/2026, sobre-main.yml) ─────────────────────────────────────────────────────
-      # · Si lo que llegó a main es una mezcla que NO se probó (main se movió durante los tests): se lanza sobre-main.yml, que corre
-      #   tipos y barredoras sobre esa mezcla. Es lo único que la ve: 8 de 10 verdes llegaban así.
+      # · Si lo que llegó a main es una mezcla que NO se probó (main se movió durante los tests): la mira el chequeo DIARIO sobre main
+      #   (sobre-main.yml, 09:47 UTC), antes del despliegue de las 11:05. ⚠️ Hasta el 6/11/2026 se lanzaba acá, una corrida por mezcla:
+      #   126 corridas y 1.437 min en seis días. Producción compila una vez por día, así que alcanza con mirar ese main.
       # · Si llegó lo mismo que se probó y main estaba marcado rojo (`ci-rojo/main`): este árbol acaba de pasar tipos y barredoras,
       #   o sea que main volvió a verde. ci-main-verde.sh borra la marca y relanza las puntas que dieron rojo mientras tanto.
       # Ninguno de los dos pone rojo este verde: lanzar y relanzar son favores.
@@ -481,11 +497,7 @@ jobs:
           SIN_PROBAR: ${{ steps.llevar.outputs.sin_probar }}
         run: |
           if [ "$SIN_PROBAR" = "1" ]; then
-            if gh workflow run sobre-main.yml --ref main; then
-              echo "La mezcla que llegó a main no pasó por los tests: la chequea sobre-main.yml." | tee -a "$GITHUB_STEP_SUMMARY"
-            else
-              echo "::warning::No pude lanzar sobre-main.yml: la mezcla de main queda sin chequear hasta la próxima punta."
-            fi
+            echo "La mezcla que llegó a main no pasó por los tests: la mira el chequeo diario sobre main, antes del despliegue." | tee -a "$GITHUB_STEP_SUMMARY"
           elif git ls-remote --exit-code origin refs/heads/ci-rojo/main >/dev/null 2>&1; then
             sh scripts/ci-main-verde.sh origin
           fi

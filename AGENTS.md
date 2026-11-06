@@ -133,7 +133,7 @@ de todo junto... Esto como regla». Y el 4/11: «que todas las cuentas sigan esa
    `export PATH="$(sh scripts/node24.sh):$PATH"` y `node scripts/veredicto.mjs sacar`. Corre los tests afectados y el tsc entero con
    Node 24 (el de Actions; con el 22 hay rojos de mentira) y deja un renglón `Veredicto:` en el último commit. GitHub no repite lo
    que ya pasó sobre ese árbol: corre lo que la mezcla con main pudo cambiar más una muestra, y `sobre-main.yml` vuelve a mirar
-   main. Se sube tal cual: un commit más encima y corre todo. En la PC no se saca: la RAM es de los chats.
+   main una vez por día, antes del despliegue. Se sube tal cual: un commit más encima y corre todo. En la PC no se saca: la RAM es de los chats.
 4. **Si da rojo,** queda la marca `ci-rojo/<nombre>`. Se abre la corrida en Actions, se lee el paso rojo, se arregla en la
    misma rama y se vuelve a subir. Un choque de mezcla se arregla con `git merge origin/main`, resolviendo y subiendo (las
    bitácoras de /admin/dev y `docs/hallazgos*.md` se unen solos en GitHub). Después de 2 rojos seguidos, la tercera no sale
@@ -142,7 +142,8 @@ de todo junto... Esto como regla». Y el 4/11: «que todas las cuentas sigan esa
    main en la máquina antes de subir:** el token de Actions no puede subir una versión nueva de un workflow, y la corrida lo
    frena a los ~20 s (`scripts/ci-workflow-nuevo.sh`; antes rebotaba al final, con todo en verde).
 5. **Lo que la punta no corre lo ve otra red:** los demás tests y el tsc sin tandas, cada noche si entró algo a main
-   (`semanal-tests.yml`, `tipos-respaldo.yml`); la mezcla que llegó a main sin probar, `sobre-main.yml`; un deploy que falla
+   (`semanal-tests.yml`, `tipos-respaldo.yml`); la mezcla que llegó a main sin probar, `sobre-main.yml` (una vez por día, a las
+   09:47 UTC: con rojo, ese día no se despliega); un deploy que falla
    o un sitio caído, `despues-del-deploy.yml`. Las cinco dan una corrida ROJA, nunca un silencio.
 6. **Cada clon y cada cuenta de la PC instala el hook una vez** (no se versiona): los comandos exactos, en
    [docs/relevo/nube-metodologia.md](docs/relevo/nube-metodologia.md). Una punta cortada de otra se mira con
@@ -180,6 +181,19 @@ comparten 8-20 chats. Hasta el 4/11/2026 esto era la rama `integracion` y su wor
   US$292 (docs/hallazgos-infra.md, «El gasto de Vercel»). **Desde el 6/11/2026, a producción lo lleva un cron UNA VEZ POR DÍA (08:05 de Argentina), sólo si
   hay algo nuevo que salga en la app** (`/api/cron/desplegar-main`). «En main» NO es «en producción»: puede tardar hasta un día. Lo que
   no puede esperar, como un cliente roto, lo saca el Cerebro: `node --env-file=C:/dev/mako-api/.env.local scripts/desplegar-ya.mjs`.
+- **Y Actions también se paga, y tiene tope: US$30 por mes** (6/11/2026; Martín: «No quiero que pase lo de Vercel»). Con el tope
+  agotado, NINGUNA punta llega a main. Del 1 al 6/11 se fueron 4.495 min (unos US$27), todos entre el 4 y el 6. Lo que gobierna un workflow nuevo
+  o un cambio a uno:
+  - **Lo que mira main corre UNA vez por día, antes del despliegue**: `sobre-main.yml` a las 09:47 UTC (tipos enteros y barredoras),
+    y no con cada mezcla. Si da rojo deja `ci-rojo/main` y **el despliegue diario no compila** mientras exista
+    (`lib/desplegar-main-reglas.ts`); `desplegar-ya.mjs` avisa y compila igual.
+  - **Ningún disparador por evento que no se pueda filtrar antes de arrancar**: `deployment_status` no se filtra por ambiente, y cada
+    evento es una corrida (623 en tres días, casi todas de previews). Lo de producción se lee por horario y por la API
+    (`despues-del-deploy.yml`, 11:37 UTC y cada 8 h, en UN job: cada job factura su minuto redondeado).
+  - **Una punta de sólo documentación corre las guardas y la de mails reales**, no los tests: las barredoras las ve el chequeo diario.
+  - **El gasto se mira con `node scripts/minutos-actions.mjs`** (por workflow y por día; es una estimación, el dato real es el panel de
+    facturación), y el vigía de `despues-del-deploy.yml` da rojo al 80 % del tope. Lo que domina ahora es la punta (~10 min cada una):
+    con el tope de US$30 alcanzan ~13 puntas por día. Juntá los cambios: una punta por tema, no una por commit.
 - **El pre-push local** (`scripts/claude-hooks/pre-push`): a cualquier rama corre las guardas baratas (`scripts/guardas-push.sh`,
   la MISMA lista que corre la punta); a **`punta/*`** además el filtro chico (`scripts/filtro-punta.mjs`: tests y tipos de lo
   tocado, 90 s como mucho); a **`integracion`** lo rechaza; a **`main`** (la emergencia) corre el `tsc` local completo por el lock.

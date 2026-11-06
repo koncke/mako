@@ -69,6 +69,27 @@ async function gh(ruta: string, tk: string): Promise<unknown> {
 }
 
 /**
+ * ¿Existe la marca `ci-rojo/main`? La deja el chequeo diario sobre main (.github/workflows/sobre-main.yml) cuando da rojo, y la
+ * borra el verde. La lee el cron que compila producción (lib/desplegar-main.ts): con main rojo no compila.
+ * true: existe · false: GitHub contestó que no existe (404) · null: no se pudo saber (sin token, red, otro código). Nunca lanza.
+ */
+export async function mainEstaRojo(): Promise<boolean | null> {
+  try {
+    const tk = await token();
+    if (!tk) return null;
+    const repo = await repoActual();
+    const r = await fetch(`${API}/repos/${repo}/git/ref/heads/ci-rojo/main`, {
+      headers: { Authorization: `Bearer ${tk}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (r.status === 404) return false;
+    return r.ok ? true : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Qué tiene `main` que no tenga `base`: su último commit, cuántos le lleva y qué archivos cambiaron. Lo usa el cron que
  * compila producción (lib/desplegar-main.ts). Nunca lanza: sin esto, ese cron compila igual.
  */

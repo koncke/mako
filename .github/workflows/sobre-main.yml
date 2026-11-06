@@ -6,25 +6,33 @@
 # OTRA VEZ y empuja sólo con las guardas (su `::warning::`). Dos puntas que no chocan como texto se pueden romper entre sí, y
 # lo veía recién la punta siguiente.
 #
-# CUÁNDO CORRE, y es lo que cuida los minutos:
-#   · punta.yml lo lanza (`workflow_dispatch`) SÓLO cuando empujó una mezcla que no probó. Si empujó lo mismo que probó, ese
-#     árbol ya pasó tipos y barredoras: no hay nada que repetir.
-#   · un push a main a mano (el camino de emergencia). Un push hecho con el GITHUB_TOKEN de punta.yml NO dispara `push`: por
-#     eso el lanzamiento es explícito.
+# CUÁNDO CORRE (6/11/2026; Martín: «Cuanto vamos a gastar en github? No quiero que pase lo de Vercel»):
+#   · UNA VEZ POR DÍA, a las 09:47 UTC: antes del despliegue diario de las 11:05 UTC (lib/desplegar-main.ts), que lee la marca
+#     `ci-rojo/main` y NO compila mientras main esté rojo. Hasta el 6/11 lo lanzaba punta.yml con cada mezcla que no probó (126
+#     corridas y 1.437 min del 1 al 6/11): ahora producción compila una vez por día, y lo que importa es el main que se va a
+#     desplegar, no cada mezcla. Lo que eso cuesta: docs/hallazgos-infra.md → «Los minutos de GitHub Actions».
+#   · a mano (`workflow_dispatch`): `gh workflow run sobre-main.yml --ref main`, o el botón en Actions. Sirve para ver YA si main
+#     está rojo cuando una punta da rojo en algo que no tocó.
+#   · ⚠️ Ya NO corre con un push a main (el camino de emergencia): esa mezcla la mira la corrida del día, antes de desplegarse.
 #   · `concurrency` sin cancelar: corre uno y espera UNO; el que espera chequea el main que haya cuando arranca (checkout de
-#     `main`, no del commit que lo lanzó), así que tres mezclas seguidas son dos corridas, no tres.
+#     `main`, no del commit que lo lanzó).
+#   · ⚠️ GitHub puede atrasar un `schedule` (en horas pico, 10-30 min): 09:47 deja ~78 min, que alcanzan para la corrida (~12 min)
+#     y para el relanzamiento por máquina. Si un día no terminó a las 11:05, el despliegue no ve la marca y compila (ante la duda).
 #
 # QUÉ CORRE: los tipos enteros (como la punta: swap, 12 GB de tope, tandas de respaldo) y todas las barredoras compartidas
 # (`tests-afectados.mjs --barredoras`): son las que una mezcla rompe sin que ninguna de las dos puntas lo vea. Los demás tests
 # los ve la suite de cada noche.
 #
 # QUÉ DEJA: rojo → la marca `ci-rojo/main` (la lee punta.yml: una punta que da rojo mientras existe deja `espera-main/<punta>`
-# y se relanza sola). Verde → `scripts/ci-main-verde.sh`: borra la marca y relanza las que esperaban. Sin minutos de deploy:
+# y se relanza sola; y la lee el despliegue diario, que NO compila mientras exista). Verde → `scripts/ci-main-verde.sh`: borra la marca y relanza las que esperaban. Sin minutos de deploy:
 # `ci-rojo/**` y `espera-main/**` no construyen en Vercel (vercel.json).
 # =============================================================================
 name: chequeo sobre main
 
 on:
+  schedule:
+    # 09:47 UTC (06:47 de Argentina), antes del despliegue de las 11:05 UTC. Un minuto «raro»: a las en punto GitHub se atrasa.
+    - cron: '47 9 * * *'
   workflow_dispatch:
     inputs:
       # «maquina»: la relanzó «Relanzar si la máquina no llegó a los tipos». Una corrida así no se vuelve a relanzar.
@@ -32,8 +40,6 @@ on:
         description: 'Quién la relanza (vacío: una punta o una persona)'
         required: false
         default: ''
-  push:
-    branches: [main]
 
 concurrency:
   group: sobre-main
@@ -146,4 +152,5 @@ jobs:
             git log --since=3.hours --format='%h %(trailers:key=Veredicto,valueonly,separator=%x20)' HEAD | awk 'NF > 1 { q = "?"; for (i = 2; i <= NF; i++) if ($i ~ /^quien=/) q = substr($i, 7); print "- " $1 " · sesión " q }' | head -30
           } >> "$GITHUB_STEP_SUMMARY" || true
           git push --force origin "$sha:refs/heads/ci-rojo/main"
-          echo "::error::La mezcla de main $(git rev-parse --short HEAD) dio rojo (tipos o barredoras). Las puntas que den rojo mientras tanto se relanzan solas cuando main vuelva a verde."
+          echo "**El despliegue diario (11:05 UTC) no compila mientras main esté rojo:** producción queda en la versión anterior. Lo urgente sale con scripts/desplegar-ya.mjs." >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::La mezcla de main $(git rev-parse --short HEAD) dio rojo (tipos o barredoras). El despliegue diario queda frenado hasta que main vuelva a verde. Las puntas que den rojo mientras tanto se relanzan solas cuando main vuelva a verde."
