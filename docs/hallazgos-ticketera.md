@@ -1037,11 +1037,19 @@ agregarla sería volver al bug.
   se arregló acá** (es de `lib/perfil.ts`, no de la Ticketera): por eso la casilla nueva se resuelve por la DIRECCIÓN de
   la sesión y no por `filaPropia`.
 
-**Lo que quedó SIN hacer:** la **casilla en Notificaciones** para prender y apagar estos correos sin pasar por el link del
-mail. El motor está listo y es lo único que falta: `cambiarBajaPorEmail` y `apagadosPorEmail` ya hacen las dos capas, falta
-la ruta (`app/api/perfil/`, modelo: `notif-inapp/route.ts`) y la fila con el `Switch` en
-`app/perfil/NotificacionesPanel.tsx`. ⚠️ Esa ruta tiene que resolver a la persona por el **email de la sesión**, no con
-`filaPropia`, por lo de arriba.
+**La casilla en Notificaciones, HECHA el mismo día:** «Correos de MaKo → Avances de mis tickets», en
+/perfil/notificaciones. Apaga lo MISMO que el link del pie del correo, porque los dos caminos pasan por
+`lib/tickets-baja-correo.ts`.
+
+⚠️ **Y resuelve a la persona por el EMAIL DE LA SESIÓN, no con `filaPropia`** — por lo de arriba: `filaPropia` tira con dos
+cuentas de la misma dirección, o sea justo con la gente para la que la casilla existe. Es el error fácil de cometer acá, así
+que lo fija un caso propio (el 5e), y está escrito como la FALLA (`doesNotMatch` de `filaPropia`) y no como la forma, que es
+la otra lección del día.
+
+⚠️ **Lo que ese test NO ejecuta, y por qué se dice:** la ruta resuelve la sesión con `getUsuarioActual`, que lee la cookie
+con `cookies()` de next/headers y necesita un pedido de Next de verdad; y el namespace de un módulo ESM está congelado, así
+que tampoco se puede sustituir desde el arnés (`Cannot redefine property`). Lo que el arnés sí corre es todo lo que la ruta
+hace después, que es donde está la lógica. El único renglón sin ejecutar es el que saca el email, y de ése se encarga el 5e.
 
 **Vive en:** `supabase/migrations/0410_correo_bajas.sql` · `lib/tickets-baja-correo.ts` · `lib/tickets-avance.ts`
 (`TIPO_BAJA_TICKETS`, `pidioLaBaja`, `decidirAvance`, `DepsAvance.bajas`) · `lib/tickets-avance-email.ts` (`bajasDe`) ·
