@@ -3,6 +3,41 @@
 Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026). El diseño y sus decisiones están en
 [diseno-copywriter.md](diseno-copywriter.md); acá va lo que no se deduce del código.
 
+## Un rollback se dispara con «no dejó rastro», nunca con «falló»: `crear` borraba el guion que SÍ se había guardado (6/11/2026, B7)
+
+El síntoma, de la verificación de la mudanza: la persona crea un guion, el texto se guarda bien, y la
+pantalla dice «No existe» sobre una página que **sí** está en la lista.
+
+La causa está en `lib/copywriter/server.ts` → `crear()`, y es el `catch` que venía a proteger:
+
+1. Se escribe el documento (`mako.copywriter.doc.<id>`), después la fila del índice. El orden es a
+   propósito y el encabezado del archivo lo explica: un documento sin fila no lo ve nadie y no rompe
+   nada; **al revés quedaría una página que abre «no existe»**.
+2. Si la fila falla, `crear` borra el documento para no dejar un huérfano.
+3. Pero `cambiarIndice()` devuelve `!ok` por tres motivos que no se parecen: el árbol rechazó el cambio
+   (422) y nadie ganó el compare-and-set en 4 intentos (409) — ahí la fila NO está —, **y también
+   `falla(500, …)` cuando `cambiarSettingSi` TIRA**. Un timeout de red cuya escritura sí llegó al
+   servidor cae en el tercero: la fila queda puesta y el documento se borra.
+
+O sea que el rollback producía exactamente el estado que el diseño declaraba imposible.
+
+**Why:** «la llamada falló» y «la llamada no tuvo efecto» no son lo mismo, y en una red son casi lo
+contrario: el caso más común de un error de cliente es un efecto que sí ocurrió y una respuesta que no
+volvió. Un `if (!ok) deshacer()` convierte cada timeout en una pérdida de datos. Y es peor que no tener
+rollback: el huérfano era invisible y recuperable, el borrado no vuelve.
+
+**How to apply:**
+
+- **Antes de deshacer, volvé a leer.** `crear` ahora relee el índice: si la fila está, la creación salió
+  y devuelve `ok` con el índice real; si no está, borra el huérfano como antes; y **si no se pudo releer,
+  no borra nada**. Lo asimétrico se resuelve del lado que se puede arreglar después.
+- La regla sirve para cualquier «escribo A, después B, y si B falla deshago A» de este repo. El tiro al
+  pie no es el rollback: es la condición que lo dispara.
+- Fijado en `tests/copywriter-guardar.test.ts` → «B7: si la escritura del índice LLEGA y el cliente ve un
+  corte». El arnés (`tests/_copywriter-guardar-hijo.ts`) simula el caso real: deja pasar el PATCH del
+  índice al PostgREST de mentira y **después** tira. Probado rompiéndolo: con el `borrar` incondicional
+  da `404 No existe` y 1 de 5 rojo; el resto queda verde, así que mide esto y nada más.
+
 ## `adminOnly` esconde la fila; la puerta es otra cosa (28/10/2026)
 
 - **Síntoma posible:** una tab nueva «sólo para el super admin» con `adminOnly: true` en nav.ts y

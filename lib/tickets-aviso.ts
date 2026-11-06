@@ -189,29 +189,61 @@ export function avisoAlCliente(
   return { tono: 'warn', texto: 'Avisando al cliente…', desde: null };
 }
 
-/**
- * ¿Le llegó el ticket al Cerebro? Sólo para los bugs que entrega el Runner (`despacho = 'runner'`): los que Martín aprueba los
- * firma su navegador y el historial ya dice «despachado». null = no aplica.
- */
-export function entregaAlCerebro(
-  t: { despacho: string | null; estado: string; aviso_estado: string | null; aviso_intentos: number; aviso_at?: string | null; aviso_motivo: string | null },
+/** El estado de UNA entrega al Cerebro. Las dos marcas tienen la misma máquina y los mismos textos: lo que cambia es de qué
+ *  columnas sale (`aviso_*` los del triage, `cerebro_*` los que esperan a Martín). null = todavía no se intentó. */
+function vistaDeEntrega(
+  e: { estado: string | null; intentos: number; at: string | null; motivo: string | null },
   ahora: number,
 ): VistaAviso | null {
-  if (t.despacho !== 'runner') return null;
-  const desde = t.aviso_at ?? null;
-  if (t.aviso_estado === 'entregado') return { tono: 'good', texto: 'Entregado al Cerebro', desde };
-  if (t.aviso_intentos >= ENTREGA_MAX_INTENTOS) {
-    return { tono: 'bad', texto: `No llegó al Cerebro (${t.aviso_intentos} intentos): mándaselo a mano${t.aviso_motivo ? ` — ${t.aviso_motivo}` : ''}`, desde };
+  const desde = e.at;
+  if (e.estado === 'entregado') return { tono: 'good', texto: 'Entregado al Cerebro', desde };
+  if (e.intentos >= ENTREGA_MAX_INTENTOS) {
+    return { tono: 'bad', texto: `No llegó al Cerebro (${e.intentos} intentos): mándaselo a mano${e.motivo ? ` — ${e.motivo}` : ''}`, desde };
   }
-  if (t.aviso_estado === 'tomado') {
+  if (e.estado === 'tomado') {
     const quedo = Date.parse(desde ?? '');
     return Number.isFinite(quedo) && ahora - quedo <= ENTREGA_TOMADO_VENCE_MS
       ? { tono: 'neutral', texto: 'Un Runner lo está entregando…', desde }
       : { tono: 'warn', texto: 'Sin acuse del Runner: se reintenta', desde };
   }
-  if (t.aviso_estado === 'no_entregado' || t.aviso_estado === 'incierto') {
-    return { tono: 'warn', texto: `No llegó al Cerebro, se reintenta (${t.aviso_intentos} de ${ENTREGA_MAX_INTENTOS})${t.aviso_motivo ? ` — ${t.aviso_motivo}` : ''}`, desde };
+  if (e.estado === 'no_entregado' || e.estado === 'incierto') {
+    return { tono: 'warn', texto: `No llegó al Cerebro, se reintenta (${e.intentos} de ${ENTREGA_MAX_INTENTOS})${e.motivo ? ` — ${e.motivo}` : ''}`, desde };
   }
-  // Sin intento todavía: lo espera un Runner que tenga el Cerebro abierto (necesitaEntrega).
-  return t.estado === 'en_curso' ? { tono: 'warn', texto: 'Espera a un Runner con el Cerebro abierto', desde: null } : null;
+  return null;
+}
+
+const ESPERA_RUNNER: VistaAviso = { tono: 'warn', texto: 'Espera a un Runner con el Cerebro abierto', desde: null };
+
+/**
+ * ¿Le llegó el ticket al Cerebro? null = no aplica.
+ *
+ * Son DOS entregas con dos marcas, y la bandeja dibuja las dos desde el 6/11/2026:
+ *   · los bugs del triage (`despacho = 'runner'`) → `aviso_*` (mig 0311);
+ *   · los que esperan la decisión de Martín (`despacho = null` y `estado` nuevo) → `cerebro_*` (mig 0343).
+ * Lo que Martín ya aprobó (`despacho = 'firmado'`) lo firma su navegador y el historial dice «despachado»: no pasa por acá.
+ *
+ * ⚠️ Hasta hoy esta función devolvía null para los que esperan a Martín, y de esa entrega quedaba SÓLO el renglón «llegó al
+ * Cerebro» del historial: la bandeja no decía si había salido. La 0343 está en producción desde el 29/10.
+ */
+export function entregaAlCerebro(
+  t: {
+    despacho: string | null; estado: string;
+    aviso_estado: string | null; aviso_intentos: number; aviso_at?: string | null; aviso_motivo: string | null;
+    cerebro_estado?: string | null; cerebro_intentos?: number; cerebro_at?: string | null; cerebro_motivo?: string | null;
+  },
+  ahora: number,
+): VistaAviso | null {
+  if (t.despacho === 'runner') {
+    return vistaDeEntrega({ estado: t.aviso_estado, intentos: t.aviso_intentos, at: t.aviso_at ?? null, motivo: t.aviso_motivo }, ahora)
+      // Sin intento todavía: lo espera un Runner que tenga el Cerebro abierto (necesitaEntrega).
+      ?? (t.estado === 'en_curso' ? ESPERA_RUNNER : null);
+  }
+  if (t.despacho !== null || !ESTADOS_NUEVOS.includes(t.estado)) return null;
+  // ⚠️ Sin la 0343 la fila no trae estas columnas (un entorno viejo): `cerebro_estado` llega undefined y no se inventa un
+  // estado. En la base de producción nunca es null (default 'pendiente'), así que esto sólo calla donde no hay nada que decir.
+  if (t.cerebro_estado == null) return null;
+  return vistaDeEntrega(
+    { estado: t.cerebro_estado, intentos: t.cerebro_intentos ?? 0, at: t.cerebro_at ?? null, motivo: t.cerebro_motivo ?? null },
+    ahora,
+  ) ?? ESPERA_RUNNER;
 }

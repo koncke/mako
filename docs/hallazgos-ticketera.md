@@ -643,7 +643,7 @@ Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
 
 | Qué | Dónde | Por qué |
 |---|---|---|
-| Que la bandeja diga «Entregado al Cerebro» de un ticket que espera a Martín | lib/tickets-aviso.ts (`entregaAlCerebro`, sólo `runner`) · lib/tickets-db.ts (`COLS`) | Hoy queda sólo el renglón «llegó al Cerebro» del historial. La 0343 ya está en producción (29/10, el Cerebro con el sí de Martín: los 22 tickets quedaron en 'pendiente'), así que sumar `cerebro_*` a `COLS` ya no tumba la bandeja; en una base SIN la 0343 (un entorno viejo) sí: el select pediría una columna que no existe |
+| ~~Que la bandeja diga «Entregado al Cerebro» de un ticket que espera a Martín~~ **HECHO el 6/11/2026** | lib/tickets-aviso.ts (`entregaAlCerebro`, `vistaDeEntrega`) · lib/tickets-db.ts (`COLS`) · tests/ticketera-entrega-cerebro.test.ts | Eran DOS piezas y arreglar una sola no se ve: la función sólo miraba `aviso_*` (los bugs del triage) **y** `COLS` no pedía las columnas `cerebro_*`, así que la fila llegaba sin ellas. Ahora las dos marcas usan la misma máquina y los mismos textos. ⚠️ Al meter `cerebro_*` en el select se puso rojo `tests/ticketera-movil-y-avisos.test.ts` B5, que pedía que `aviso_at` y `arreglado_at` fueran VECINAS en `COLS`: una guarda sobre el ORDEN de un select, no sobre lo que pide. Se cambió a mirar columna por columna |
 | Actualizar el Runner de la PC a 1.23.0 | scripts/operaciones/cartero.mjs | El servidor sólo le da los tickets nuevos a un cartero ≥ 1.23.0; con el de antes no se pierde nada (no los reclama) pero tampoco llegan (29/10) |
 | Ver el chat de Soporte y el botón en producción en el teléfono de Martín (Android) | app/m/tickets/SoporteM.tsx | Medido en el ws3 desde la computadora; el teléfono no se recorrió |
 | El cerco «es DATO» de lo que lee el Cerebro deja AFUERA el título, la ruta, la herramienta, el error y el navegador | scripts/tickets.ts (las líneas de «lo juntó el sistema») · lib/tickets-reglas.ts (`sanearContexto`: el navegador sin filtro de caracteres) | Viene de antes y vale para el formulario: el título y el navegador los escribe el cliente. El botón ya no pone texto suyo en `error`/`herramienta` y filtra su navegador; el resto es del área de la Ticketera (Ops Center la está tocando por el «DÓNDE») |
@@ -995,3 +995,25 @@ La revisión de privacidad de `wa-fallas-2710` (`85a0d9ead`) frenó la punta en 
   - La puerta del DEBUG desde un cliente está cerrada.
   - Los textos fijos del ticket y del pedido los arma el código.
   - Cada cosa vuelve a su grupo.
+
+## Un pendiente FANTASMA: «falta la prioridad por agencia» ya estaba hecho el mismo día que se anotó (6/11/2026)
+
+`docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md` (A8) decía **FALTA**: «la prioridad sale sólo del texto
+(`lib/tickets-reglas.ts:401`); no hay regla por agencia». El 6/11 se fue a implementarla y **ya estaba entera**, con fecha
+5/11 — el mismo día de la auditoría. Se perdió una pasada de lectura completa (el triage, el cableado, la identidad y el
+orden del mazo) para no escribir una línea.
+
+La cadena, por si hay que volver a verificarla de punta a punta:
+- `subirPorAgencia` (lib/tickets-reglas.ts): baja→media, media→alta, **nunca** urgente (urgente sale sólo del texto, «no
+  puedo trabajar»).
+- `clasificar` la aplica con `opts.deAgencia && !deTercero && !automatico`, y deja la marca `agencia: true` en el triage.
+- El cableado real está en `lib/tickets-db.ts` (`crearTicket`): `deAgencia: n.identidad.agencia === true`.
+- Y eso sale de `administraUnaAgencia(u)` en `identidadDe` (lib/tickets-db.ts), leído de la BASE con el email de la sesión.
+- `ordenDelMazo` (app/tickets/bandeja/mazo-reglas.ts) pone a los que SUBIERON detrás de los de su misma prioridad que
+  llegaron ahí solos: una agencia no le gana el lugar a un cliente con algo roto.
+- Lo fija `tests/tickets-agencia.test.ts` (5 casos, probados rompiéndolo).
+
+**La regla que queda:** un renglón «FALTA» de una auditoría es una medición CON FECHA, no un estado. Cuando la fecha del
+renglón y la del trabajo son el mismo día, lo primero es `git log` del archivo que nombra, no leerlo y creerle. Y cuando se
+confirma que estaba hecho, **se corrige el renglón en el mismo commit**: el fantasma no cuesta una línea de código, cuesta
+la pasada de lectura entera, y la paga cada chat que lo vuelve a tomar.
