@@ -86,7 +86,7 @@ export function EnlazarEmail({ id, sinGuardar, onEnlazado, onCambio }: {
       {enlazado ? (
         <>
           <span style={{ fontSize: 14 }}>«{enlazado.asunto || 'Sin asunto'}» · {estadoDelEmail(enlazado).texto}</span>
-          {datos.horaDistinta && <span role="alert" style={{ fontSize: 13, color: 'var(--warn, var(--ink))' }}>El email sale a otra hora que el evento: guarda el evento para moverlo.</span>}
+          {datos.horaDistinta && <span style={{ fontSize: 13, color: 'var(--warn, var(--ink))' }}>El email sale a otra hora que el evento: guarda el evento para moverlo.</span>}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link href="/email" style={{ fontSize: 13.5 }}>Abrir Email Marketing</Link>
             {enlazado.estado !== 'enviado' && enlazado.estado !== 'enviando' && (
