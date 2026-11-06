@@ -14,6 +14,33 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## El token de agencia: uno para la cartera, y el cliente se decide en CADA pedido (6/11/2026, nube)
+
+La promesa a la agencia de Thiago: migrar 27 clientes sin acuñar 27 tokens. En /api-mako → Tokens, una agencia elige como
+propietario «Todos los clientes de <agencia>» (el selector de propietario de GitHub, que estaba fijo) y sale un `mako_agt_…`.
+Cada pedido dice a qué cliente va con `X-MaKo-Cliente` (o `?cliente=`). La regla, en `lib/api-mako/tokens-cartera.ts`; la
+lectura, en `tokens-cartera-server.ts`; el corte, en `autenticar` (lib/api-mako/http.ts). Relevo: [relevo/nube-thiago-migrar.md](relevo/nube-thiago-migrar.md).
+
+- **El corte cabe en UN lugar porque todo /api/v1 toma el negocio de `ctx.ws`, nunca del token.** Medido antes de escribir
+  nada: las rutas, el registro de llamadas, el gating y `aplicarEnElActo` leen `auth.ctx.ws`. Así `autenticar` arma el contexto
+  con el cliente y lo de abajo no se entera. Un camino nuevo de /api/v1 que lea `auth.token.ws` vuelve a abrir la agencia: ése es
+  la AGENCIA. **Vive en:** `lib/api-mako/http.ts`.
+- **«No pude leer la cartera» es un 503.** `puedeEntrarAhora` y `esAgencia` (lib/agencia.ts) devuelven false ante un error, que
+  para una pantalla está bien y para la API manda a pensar que el cliente se dio de baja. Por eso hay lecturas estrictas aparte.
+- **Un token de cartera nunca cae a la agencia misma:** sin cliente, o con el número de la agencia, no corre en ninguna cuenta.
+  Un cliente ajeno, revocado o pendiente contesta 404 (un 403 confirmaría que existe). Y un token de CUENTA ignora el header.
+- **El prefijo y la marca de la lista tienen que coincidir** (`mako_agt_` ⟺ `cartera: true`): sin eso, una lista tocada a mano
+  convierte un token de cuenta en uno de cartera. Y su creador tiene que administrar la agencia MISMA: con la regla de un token de
+  cuenta (`creadorConAcceso`), el admin de una agencia que entra a un cliente que también es agencia podía acuñar para una cartera
+  que no es la suya.
+- **Se probó con DOS agencias** (tests/api-mako-token-agencia.test.ts, sobre `crearToken` y `autenticar` reales): con una sola,
+  sacar el filtro por agencia de la lectura y del juicio daba verde.
+- **La guía «Migrar tu CRM con Claude»** (la primera de «Guías») se prueba pasando cada pedido por el resolvedor REST real y el
+  lote de ejemplo por el validador real (tests/api-mako-migrar-crm-guia.test.ts). El ejemplo vive en `articulos-meta.ts`: un
+  valor exportado desde `Articulos.tsx` (`'use client'`) no se puede leer desde un test ni desde el server.
+- **Sin hacer:** el tope de 120 pedidos por minuto es por CLIENTE, así que un token de agencia puede hacer 27 veces eso en
+  total. No se sumó un tope por agencia: 27 tokens sueltos tenían el mismo techo.
+
 ## «No tengo una herramienta» era la mitad: el documento ya se archivaba solo, y D6b lo frenaba (3/11/2026, ticket #44)
 
 **El síntoma.** Una clienta (ws 23) pegó su documento maestro en el chat del Second Brain con «analizalo e incorporalo al

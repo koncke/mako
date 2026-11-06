@@ -120,6 +120,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/crm/en-bloque/columna', 'pasar_en_bloque_otra_columna'],
   ['POST', '/crm/en-bloque/funnel', 'pasar_en_bloque_otro_funnel'],
   ['POST', '/crm/en-bloque/otro-crm', 'agregar_en_bloque_a_crm'],
+  // La migración de la agencia de Thiago (6/11/2026): un lote del CRM anterior, quieto y sin repetir por su id de allá.
+  ['POST', '/crm/migraciones', 'migrar_contactos'],
   ['GET', '/crm/papelera', 'ver_papelera_crm'],
   ['GET', '/crm/bajas', 'ver_bajas_de_leads'],
   ['GET', '/crm/nombres', 'ver_nombres_del_crm'],
