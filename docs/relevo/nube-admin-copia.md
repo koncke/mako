@@ -109,6 +109,20 @@ Lo que MaKo necesita y Studio no tiene. No se inventó nada; se dice dónde qued
 ## Lo que falta
 
 - **Tanda 3: Customers** = `crm`, y la ficha de un cliente = `profile`. Accounts (la grilla de administración) se decide ahí.
+  El mapeo, decidido el 6/11 (en marcha; datos de `vistaDeClientes`, lib/clientes-plataforma.ts):
+  · `kpi-cards` («Pipeline Overview») → MRR, Pagan, Activos, En riesgo (sin «last month» inventado: la segunda línea dice
+    lo que sí se sabe, como los nuevos en 30 días);
+  · `pipeline-activity` (barras rayadas por mes + el recuadro de la derecha) → lo que entró por mes (`cobrado`, 6 meses), y
+    el recuadro con lo vencido (`vencido`) y cuántos de los activos pagan;
+  · `task-reminders` → «Upcoming Meetings» = los clientes nuevos de los últimos 30 días sobre su línea de tiempo;
+    «Monthly Proposal Goal» = cuántos terminaron la configuración (las barritas);
+  · `opportunities-section` (la tabla) → un negocio por fila: ID (ws), nombre, grupo (Stage → Clientes, Partners,
+    Agencies, Clientes de agencias), estado en una palabra (Health, con el motivo de «Para mirar» en su tooltip), MRR
+    (Value); la fila abre la ficha;
+  · `profile` → la ficha de un negocio (`?cliente=<ws>`): cabecera con «Entrar», sus números, sus datos, su plan y su cobro,
+    su actividad y su estado.
+  La pantalla de antes (app/customers/CustomersApp.tsx) la usan tests/customers.test.ts, plan-a-mano-recorrido y
+  primer-mes: se mudan con ella.
 - **Tanda 4: Activity** = `analytics`, con sus pestañas, sobre `vistaDeActividad`.
 - **Tanda 5: Errors** = `infrastructure`: un grupo por negocio, salud, filtros por faceta, sobre `vistaDeErrores`.
 - Cada una: capturas lado a lado en `docs/admin/copia/` y borrar su pantalla vieja.
