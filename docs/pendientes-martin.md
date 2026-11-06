@@ -17,6 +17,63 @@ corrida roja a propósito). Tampoco hace falta esperar: **una punta roja no fren
 
 ---
 
+## 🛟 RESCATADO DEL LIMBO: tres decisiones de Martín que vencían el 8/11 (6/11/2026)
+
+**Qué era esto.** En la cola del Ops Center había cinco «pedidos» por vencer. No eran avisos
+pendientes: eran **respuestas que Martín ya había dado**, el 25/10, a preguntas de chats que hoy
+están cerrados. A los 15 días se borran. Si vencían, nadie iba a poder reconstruir qué contestó ni
+por qué, y las preguntas se habrían vuelto a hacer. El texto entero lo sacó el Runner de la base.
+
+⚠️ **La regla que queda: una decisión que sólo vive en una cola que vence, ya está perdida.** Cuando
+Martín contesta una pregunta, la respuesta se copia al repo en el momento, no cuando alguien se
+acuerda.
+
+### 1. El worker de montaje de video: **SÍ, desplegarlo** — decidido, sin hacer
+
+Pregunta D7b del 21/10: «¿Se despliega el worker de montaje de video? Sin él, montar un video no
+anda en ningún lado, ni en el chat ni en la tab». **Martín eligió la opción 0: «Sí, desplegarlo».**
+
+El contexto que traía la pregunta: hay **un trabajo del 01/09 esperando turno hace 68.646 minutos**,
+y por eso las tomas tampoco llegan al editor. Necesita un contenedor con su cuenta.
+
+**Cómo se hace, según lo que él aceptó:** Infra lo provisiona con su cuenta y Video conecta la cola,
+y **primero se mide el costo del contenedor y se le pasa el número antes de prenderlo**. Eso último
+es parte de la decisión, no un agregado.
+
+### 2. Editar un video pedido por chat: **la app de escritorio Y el servidor** — decidido, sin hacer
+
+Pregunta D7a del 21/10: ¿el render se hace en un servidor de MaKo (lo paga MaKo) o en el editor
+dentro del chat (lo paga la computadora del cliente)? **Martín no eligió ninguna de las dos: agregó
+una tercera.** Textual: «Ahora que tenemos la app de MaKo desktop podríamos aprovechar para estas
+cosas… Pero sí, también con servidor de MaKo».
+
+O sea: **las dos, con la app de escritorio como el lugar natural para el render del cliente.** La
+pregunta estaba mal planteada —ofrecía elegir— y la app de escritorio no existía cuando se escribió.
+
+### 3. ⚠️ UN PEDIDO NUEVO que no tiene nadie: avisar al activar una automatización
+
+Pregunta D3b del 21/10: ¿los borradores de la regla anti-baneo se mandan todos de un toque o de a
+uno? **Martín contestó que eso ya está resuelto, y en su lugar planteó otra cosa**, textual:
+
+> «lo que me preocupa es que alguien esté creando una automatización y como está muy escondido el
+> "goteo" se manden muchos mensajes de una… Tal vez al activar la automatización podríamos darle una
+> advertencia.»
+
+**Esto no estaba en ninguna lista.** Y no es cosmético: la línea de WhatsApp **ya se baneó una vez**.
+El goteo existe pero está escondido, así que alguien puede prender una automatización sin verlo y
+disparar un lote. Lo que pide es una **advertencia en el momento de activar**, que diga cómo va a
+salir el goteo.
+
+### 4. La captura del ws3 (Offer): ya resuelto, sin acción
+
+«¿Volvés a abrir Chrome con la extensión?» → «Creo que esto ya se solucionó? De igual manera ya está
+abierto claude in chrome». No queda nada que hacer.
+
+**Falta el quinto**, de Landings (`c250f453`), que vence el **12/11**: «¿Hago ahora el borrador de la
+frase…». El Runner lo tiene y lo pasa cuando se le pida.
+
+---
+
 ## 🔍 LAS CINCO PUNTAS QUE ENTRARON A MAIN SIN QUE NADIE LAS MIRE — 1 de 5 revisada
 
 El relevo del 6/11 las dejó pedidas: `punta/copilot-feedback` (eaec41da6), `punta/carruseles-thumbnails`
