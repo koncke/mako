@@ -892,3 +892,22 @@ el plan prometía «hasta 300» (entraron 97 de temas); @sofiacontreras trajo **
 **Lo que quedó SIN hacer:** confirmar que el actor manda `alt` (lo dice la próxima carga); y si no lo manda, el tipo de la mayoría
 de los carruseles de los temas va a seguir sin saberse por el pie: la salida sería leer la portada con la IA del negocio, que
 no es parte de este pedido («sin inventar», sin gasto de IA).
+
+## Con la barra fijada y el chat abiertos, el panel se comía el lienzo (6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- **Síntoma** (Leila 5/11 y recorrido 1.4): con la barra lateral fijada (240 px) y la tarjeta de MaKo (348), a 1280 px el
+  lienzo tenía **257 px**: la página y su encabezado (pide 372) se cortaban, y «Animar» y la barra de abajo se pisaban.
+- **El diagnóstico obvio era el equivocado:** `122071b5c` arregló el encabezado de la página (PageSlot) en una RÉPLICA, y en la
+  réplica entraba. En el editor de verdad lo que no deja lugar es el panel de herramientas (350 + márgenes), que EMPUJA el
+  lienzo. Una réplica que no monta el panel no puede ver esto.
+- **El arreglo:** el cuerpo del editor (`.body`) es un contenedor (`container-type: inline-size`) y, por debajo de 820 px de
+  editor, el panel va `position: absolute` encima del lienzo, al lado del riel, como Canva con la ventana chica. A 1280 el lienzo
+  pasa a 619 px; a 1440 (852 de editor) no cambia nada.
+- **Tres trampas medidas en el banco:**
+  - una media query mide la VENTANA, que no sabe cuánto se comen la barra y el chat: va `@container`;
+  - el contenedor va SIN nombre: con `container-name` la consulta del otro módulo CSS no aplicaba;
+  - sin `z-index: calc(var(--cv-z-sticky) + 1)`, la barra flotante del objeto le tapa al panel el «‹» que lo cierra.
+- **El banco:** `EditorApp` de verdad con `memoryAdapter`, un carrusel 1080×1350 de tres páginas, una barra falsa de 240 y una
+  tarjeta falsa de 348 (docs/relevo/nube-recorrido-visual.md). Antes y después en docs/recorrido-visual/imagen-barra-chat-*.png.
+
+**Vive en:** app/image-editor/_doory/editor/EditorApp.module.css, app/image-editor/_doory/editor/chrome/ToolHost.module.css, tests/recorrido-imagen-panel.test.ts

@@ -8128,3 +8128,13 @@ scripts/probar-0399-0400-pglite.mjs. Una dio VERDE en la primera versión: «cop
 **Sin hacer:** marcar la cuota cobrada desde el flujo cuando el comprobante «cubre» (hoy le avisa al equipo y lo marca una
 persona); el recibo de un pago marcado A MANO no tiene un CRON propio (se emite con la tarjeta en otro flujo o por el chat);
 la línea de WhatsApp por la que sale el recibo es la de por defecto, no la de la automatización.
+
+## «Activar» con el interruptor prendido, y tres preguntas para Martín (A1 a A4, 6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- **A3:** el rótulo al lado del interruptor decía la ACCIÓN («Activar») aunque ya estuviera prendido: dice el estado («Activa»).
+- **A1** (el segundo nodo cortado entre 1024 y 1280): lo corta el piso de zoom legible (`ZOOM_LEGIBLE`), que es a propósito.
+  Bajarlo o abrir el panel encima del lienzo debajo de 1280 es de Martín.
+- **A2** («CRON» en eventos que no son programados): es el rótulo que Martín pidió textual para el disparador.
+- **A4** (Mayúscula Inicial en los nombres): sale de las plantillas y de la base; cambiar la regla es suya.
+
+**Vive en:** app/automations/SecuenciaPerfil.tsx; las preguntas, en docs/relevo/nube-recorrido-visual.md

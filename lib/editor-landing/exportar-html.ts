@@ -166,14 +166,15 @@ export type OpDocumento = {
  * el diálogo de impresión propone la hoja de la diapositiva, horizontal:
  *   · 16:9 y «Fluido» (como el PPTX: exportar-pptx.ts, `tamanoDiapo`): 13,333 × 7,5 in, que son
  *     1280 × 720 px CSS, el mismo ancho que el iframe que imprime (exportar-pdf.ts);
- *   · 4:3: 10 × 7,5 in.
+ *   · 4:3: 10 × 7,5 in;
+ *   · 4:5 (un carrusel, 6/11/2026): 8 × 10 in, vertical (1080 × 1350 px es la misma forma).
  * Sin margen: la diapositiva va a sangre, como la exporta Gamma. Va DESPUÉS de CSS_CONTENIDO porque en
  * `@page` gana la última regla y la de la hoja única trae los 10 mm de una página web.
  */
 export function hojaDeImpresion(c: { formato?: unknown; proporcion?: unknown }): string | null {
   if (!esPresentacion(c)) return null;
   const r = relacionDe(c);
-  const tam = r !== null && Math.abs(r - 4 / 3) < 0.01 ? '10in 7.5in' : '13.333in 7.5in';
+  const tam = r !== null && Math.abs(r - 4 / 3) < 0.01 ? '10in 7.5in' : r !== null && Math.abs(r - 4 / 5) < 0.01 ? '8in 10in' : '13.333in 7.5in';
   return '@media print{@page{size:' + tam + ';margin:0}}';
 }
 

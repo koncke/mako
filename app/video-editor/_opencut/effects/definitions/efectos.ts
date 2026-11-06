@@ -125,6 +125,24 @@ void main() {
 }`,
 	},
 	{
+		// «Acercar» (06/11/2026): el cambio de plano del B-roll de MaKo (app/video-editor/_opencut/broll). Un zoom
+		// QUIETO al centro, como el «punch-in» de Submagic: puesto como capa sobre un tramo, el cuadro se cierra de
+		// golpe y al terminar la capa vuelve a abrirse. «Intensidad» 0–100 = del 100 % al 150 % del cuadro.
+		id: "acercar",
+		desplaza: true,
+		nombre: "Acercar",
+		categoria: "Básico",
+		palabras: ["zoom", "acercamiento", "plano", "punch"],
+		params: [INTENSIDAD(24)],
+		glsl: `
+uniform float u_intensidad;
+void main() {
+  vec2 p = ceAEspacio(v_uv);
+  float s = 1.0 + u_intensidad * 0.5;
+  colorSalida = ceMuestra(0.5 + (p - 0.5) / s);
+}`,
+	},
+	{
 		id: "sacudida",
 		desplaza: true,
 		nombre: "Sacudida",

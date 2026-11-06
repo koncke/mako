@@ -7462,3 +7462,13 @@ y sin causa: no es éste.
 
 **Vive en:** `useEnElNavegador`, `LineaDeadline`, `hoyISO` (app/plan/board/piezas.tsx) · `pistasDeHidratacion` (lib/errores-app-reglas.ts) ·
 tests/plan-plazo-hidratacion.test.ts.
+
+## Los 200 px vacíos de la tarjeta del objetivo (P2, 6/11/2026, Recorrido visual, nube, `punta/recorrido-visual`)
+
+- La tarjeta del objetivo estiraba al alto de la fila y el porqué quedaba arriba con el hueco abajo. El porqué va recortado a
+  cinco renglones con `title` (`RazonObjetivo`), sólo en la tarjeta del objetivo (`conRazon`).
+- **Trampa:** BoardShell no se puede importar en un test (trae `server-only` de rebote): la pieza nueva vive en su propio
+  archivo, y así el test la dibuja.
+- Sin captura: BoardShell no se monta fuera de la app sin sesión.
+
+**Vive en:** app/plan/board/RazonObjetivo.tsx, app/plan/board/BoardShell.tsx, tests/recorrido-plan-api.test.ts

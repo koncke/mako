@@ -39,6 +39,8 @@ import { recursoDe } from './recursos';
 import { VERSION_API, VERSIONES_API, CABECERA_VERSION, TOPE_POR_MINUTO_WS, TOPE_POR_MINUTO_IP, TOPE_CUERPO_BYTES } from './version';
 import { resolverTokenApi, type TokenResuelto } from './tokens';
 import { mensajeSinCreador } from './tokens-creador';
+import { clienteDelPedido, decidirCliente, type DecisionCliente } from './tokens-cartera';
+import { carteraParaCliente, clientesParaElToken, esAgenciaEstricta } from './tokens-cartera-server';
 import type { Ctx, Formato, OperacionDef, Resultado } from './tipos';
 
 /** Los topes (lib/api-mako/version.ts, donde también los lee la documentación). */
@@ -140,12 +142,34 @@ export async function autenticar(req: Request, opts: { sinConsumir?: boolean } =
   }
   // Como GitHub: el token deja de valer cuando quien lo creó deja de administrar el negocio.
   if (r.clase === 'detallado' && r.sinCreador) return errorJson(401, mensajeSinCreador(r.nombre));
+  // ⚠️ EL TOKEN DE AGENCIA (6/11/2026, lib/api-mako/tokens-cartera.ts): `r.ws` es la AGENCIA, y el pedido corre en el
+  // CLIENTE que nombra `X-MaKo-Cliente`, si es de su cartera y aprobado HOY (se lee en cada pedido). Desde acá para abajo
+  // todo usa `ws`, nunca `r.ws`: el negocio pausado, el tope por minuto y el contexto son los del cliente.
+  let ws = r.ws;
+  if (r.clase === 'detallado' && r.cartera) {
+    const pedido = clienteDelPedido(req.headers, req.url);
+    let decision: DecisionCliente;
+    try {
+      decision = decidirCliente({
+        agenciaWs: r.ws, pedido,
+        esAgencia: await esAgenciaEstricta(r.ws),
+        cartera: typeof pedido === 'number' ? await carteraParaCliente(r.ws, pedido) : [],
+      });
+    } catch (e) {
+      console.error(`[api-v1] no pude leer la cartera de la agencia ${r.ws}: ${e instanceof Error ? e.message : String(e)}`);
+      return NextResponse.json({ ...cuerpoError(503, 'No pude verificar a qué clientes llega tu token: la base de datos no contestó. Reintenta en un momento.'), reintentar: true }, { status: 503 });
+    }
+    if (!decision.ok) {
+      return errorJson(decision.status, decision.mensaje, decision.listar ? { disponibles: await clientesParaElToken(r.ws) } : {});
+    }
+    ws = decision.ws;
+  }
   // Un negocio PAUSADO (por el super admin o porque se terminó lo pagado, lib/plan-acceso.ts) no se usa por la API
   // tampoco (17/10/2026): el token sigue valiendo y vuelve a andar cuando se reactiva, por eso 403 y no 401.
-  if (await negocioPausado(r.ws)) return errorJson(403, 'La cuenta de este negocio está pausada: la API vuelve a andar cuando se reactive.');
+  if (await negocioPausado(ws)) return errorJson(403, 'La cuenta de este negocio está pausada: la API vuelve a andar cuando se reactive.');
   // Por workspace, nunca por el token: un secreto no es una clave de un Map.
   // `sinConsumir`: GET /api/v1/rate_limit mira la ventana sin gastarla, como en GitHub.
-  const porWs = opts.sinConsumir ? rateLimitVer(`api-v1:ws:${r.ws}`, TOPE_POR_MINUTO_WS, 60_000) : rateLimitEstado(`api-v1:ws:${r.ws}`, TOPE_POR_MINUTO_WS, 60_000);
+  const porWs = opts.sinConsumir ? rateLimitVer(`api-v1:ws:${ws}`, TOPE_POR_MINUTO_WS, 60_000) : rateLimitEstado(`api-v1:ws:${ws}`, TOPE_POR_MINUTO_WS, 60_000);
   const cabeceras: Record<string, string> = {
     ...cabecerasLimite(porWs),
     'X-MaKo-Api-Version-Selected': version || VERSION_API,
@@ -158,12 +182,12 @@ export async function autenticar(req: Request, opts: { sinConsumir?: boolean } =
   if (!porWs.permitido) {
     return errorJson(429, `Más de ${TOPE_POR_MINUTO_WS} pedidos por minuto: espera un poco.`, {}, { ...cabeceras, 'retry-after': String(Math.max(1, Math.ceil((porWs.reset - Date.now()) / 1000))) });
   }
-  const base = { ws: r.ws, canal: 'http' as const, canalKey: canalKeyDe('http', r.ws), rol: 'admin' as const };
+  const base = { ws, canal: 'http' as const, canalKey: canalKeyDe('http', ws), rol: 'admin' as const };
   // Solo el admin del workspace acuña tokens: el principal en app/api/agente/token/route.ts
   // y los detallados en app/api-mako/actions.ts.
   const ctx: Ctx = r.clase === 'detallado'
     // Un detallado tiene el alcance máximo y lo acotan sus permisos por área (gatingOk).
-    ? { ...base, alcance: 'ejecutar', permisos: r.permisos, token: { id: r.id, nombre: r.nombre }, actor: `API · token «${r.nombre}»`, ...(r.creadoPor.includes('@') ? { persona: r.creadoPor } : {}) }
+    ? { ...base, alcance: 'ejecutar', permisos: r.permisos, token: { id: r.id, nombre: r.nombre }, actor: r.cartera ? `API · token de agencia «${r.nombre}»` : `API · token «${r.nombre}»`, ...(r.creadoPor.includes('@') ? { persona: r.creadoPor } : {}) }
     : { ...base, alcance: alcanceDeToken(auth.token) };
   return { ctx, token: r, cabeceras };
 }

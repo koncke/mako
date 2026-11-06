@@ -250,6 +250,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // respaldo: lo que vuelve es una PROPUESTA que la persona mira antes de aplicar, así que un
   // proveedor más flojo se ve y se descarta.
   { feature: 'video-editor-ia', label: 'Editar con IA en el Video Editor', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'El chat al costado del editor: lee la línea de tiempo (nombres, tiempos y textos de los clips) y propone cortes, textos, borrados y volúmenes que la persona acepta o descarta. Sin PII.' },
+  { feature: 'video-editor-broll', label: 'B-roll del Video Editor', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Elige entre los huecos que arma el código (lib/editor-video/broll.ts) dónde va una foto encima del video y escribe qué buscar en Pexels. Lee lo que se dice en el video del propio negocio: sin PII. Sin la IA, sale igual con las palabras de cada frase.' },
   // El chat «MaKo IA» del Image Editor (lib/image-editor/chat/ia.ts). Desde el 5/11/2026 con LA IA DEL NEGOCIO, sin Gemini
   // (`deSuIA`; Martín, 22/10/2026: «sin Gemini»): su Claude y su GPT, y si no tiene ninguna, «conecta tu IA». Claude de MaKo
   // vetado sin fila en CLAUDE_PERMITIDO: vuelve una PROPUESTA que la persona mira.
