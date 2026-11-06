@@ -1,5 +1,108 @@
 # Relevo del Cerebro
 
+## 6/11/2026, ~21:15 UTC (18:15 ART): claude1, el barrido de los 634 y OCHO CHATS TRABAJANDO AHORA
+
+**Cuenta `claude1` al 24 %**, reinicia el 11/11 10:00 UTC. Lo que corta acá no es la cuota: es el
+contexto de este chat, que va por el 80 %.
+
+### ⚠️ LO PRIMERO: hay ocho chats de la nube trabajando, y nadie los está mirando
+
+Los abrí a las ~19:10 UTC, uno por área, con los 342 pendientes que puede hacer el equipo. **Siguen
+vivos.** Cada uno empuja en su propia `punta/` y llega a `main` solo si da verde.
+
+| Chat | Áreas | Cuántos |
+|---|---|---:|
+| Tickets | arrancó por un agujero de seguridad | 8 |
+| Competitors Spy | | 33 |
+| Carruseles | | 35 |
+| Imágenes + Miniaturas | | 51 |
+| Cobros + CRM | | 45 |
+| Infra + Panel admin | | 58 |
+| Chat de MaKo + Video | | 39 |
+| «Varios» | con orden de **triar antes de trabajar** | 73 |
+
+**Qué hay que hacer con ellos:** leer sus rojos y pasarles el diagnóstico **sin pisarles la rama**
+(están trabajando). Hoy dieron **once rojos** y casi todos son de tres clases, así que la causa se
+reconoce de lejos:
+1. **Voseo en una pantalla** (`tests/puente-panel-copy.test.ts`). Pasa porque los documentos del repo
+   están en voseo y copiar de ahí a una pantalla rompe la regla sin que se note. Va «tú».
+2. **El scraper de leads retirado** (`tests/leads-scraper-retirado.test.ts`): tocar Apify despierta la
+   guarda que vigila que esa clave sea sólo para que Spy lea Instagram.
+3. **Errores de tipos**, con su mensaje en el log.
+
+⚠️ **Y un error MÍO que conviene no repetir:** le puse al chat de Infra la alarma de minutos como
+contexto **y además la trabajé yo**. Los dos hicimos lo mismo. Retiré mi rama porque la suya es
+mejor. **Si a un chat le das un hallazgo como contexto, no lo trabajes vos también.**
+
+### Lo que se hizo hoy, y lo que dejó dicho
+
+- **Los 634 pendientes, barridos de todo el repo** → `docs/pendientes-todo-6-11.md`, el reparto en
+  `docs/encargos-6-11/`, y una página para Martín en
+  https://claude.ai/artifact/2MnMGyV8oyXjbYz2W8NQXs
+  ⚠️ **Está escrita en castellano, no en jerga, y eso NO es cosmético:** la primera versión la
+  rechazó («No se entiende absolutamente nada, lo hiciste en lenguaje técnico»). Cada pendiente dice
+  **qué es** y **qué pasa si no se hace**; lo técnico va escondido detrás de «Para quien lo programe».
+- **Los 103 dudosos, comprobados uno por uno** → `docs/verificacion-dudosos-6-11.md`.
+  **45 a medias · 32 siguen · 25 ya estaban hechos · 1 sin poder comprobar.** Lo valioso no son los
+  25 fantasmas: son **los 45 a medias**, que se habrían rehecho desde cero tirando lo que ya estaba.
+- **La biblioteca de Thumbnails, cargada**: 79 canales, 1.520 miniaturas, 14 excluidos con su motivo.
+- **Un emoji en el nombre tiraba la pantalla de Spy**, y la guarda no lo veía porque medía la forma
+  del código viejo.
+
+### ⏰ LO QUE ESPERA A MARTÍN, CON FECHA — nadie más lo destraba
+
+| Cuándo | Qué |
+|---|---|
+| **8/11** | **Cuatro respuestas suyas se vencen en el limbo.** NO son avisos: son decisiones que YA tomó, contestando a chats que hoy están cerrados. Si vencen, nadie va a poder reconstruir qué contestó. Le pedí al Runner el texto entero para cosecharlo en el repo; **si no llegó a hacerse, es lo más urgente de esta lista.** |
+| **9/11 14:07 UTC** | **El primer cobro real a Código Inmobiliario** (Giselle, US$37,60). Nunca se envió de verdad. Hay que mirar que salga. |
+| **12/11** | El quinto pedido del limbo (Landings). |
+| **13/11** | El cron del Runner (`d3f6946e`); recordatorio `675b4f0d` el 12/11. |
+| hoy | **¿Sigue vivo el Runner de claude5 (`local_184238c7…`)?** Si lo está, **los dos `vigilar` se pisan.** Desde claude1 no se puede ver: Martín entra a las cinco cuentas. |
+| sin fecha | **Los minutos que incluye el plan de GitHub** (Settings → Billing) → `ACTIONS_INCLUIDOS`. Sin eso la alarma avisa pero no puede dar rojo. |
+| 6/12 vence | **Paso 2 de dLocal Go** (banco y CBU, DNI, domicilio, monotributo) + el sí del contador. |
+
+### La pasarela, decidida con números (no volver a discutirla sin leer esto)
+
+De una venta de US$97: **dLocal en pesos al oficial deja 90,98**; pasados a cripto, 86,41; **Whop
+cobrando y retirando en cripto, 86,79**. O sea: **el cripto no gana, empata**, y Whop encima puede
+retener hasta el 100 % del saldo y hasta 180 días. **Y ninguno cobra impuestos en LatAm**: eso estaba
+mal escrito en el informe y se corrigió.
+
+⚠️ **Comprobado en vivo en la cuenta de dLocal:** entran bancos, incluidos los digitales (Citibank sí,
+Brubank sí); **no entra ninguna billetera** — Mercado Pago no, Ualá no. El campo dice «CBU/CVU» pero
+la lista no las ofrece. Así que **no hay atajo desde dLocal hacia un tipo de cambio mejor**.
+
+⚠️ **Whop NUNCA contestó.** Martín recordaba una respuesta diciendo que probablemente lo rechazarían:
+**eso es nuestra propia conclusión, escrita antes de mandar la consulta** (Whop prohíbe herramientas
+de scraping, que alcanzan a Spy y a Extraer). No hay respuesta de ellos en ningún lado. Y hay una
+razón concreta por la que podría no llegar nunca: **nadie comprobó que `equipo@hola-mako.com`
+reciba**. Lo que falta sin empezar es **la consulta a FastSpring**.
+
+### Trampas medidas hoy, para no volver a pagarlas
+
+- **`/actions/runs/{id}/timing` contesta 200 y devuelve `billable` en CERO** para todas las corridas
+  de este repo. Es el camino obvio para los minutos reales y no sirve. El que SÍ sirve es
+  **`/actions/workflows/{id}/timing`**, que lo encontró el chat de Infra: siete pedidos, no uno por
+  corrida.
+- **`cartero.mjs medir` no necesita la ventana de 5 horas**: en el plan Ultra `get_usage` sólo
+  devuelve la semanal. Se pasan guiones (`medir - - 24 <reset>`). Esto venía trabando la medición de
+  varios chats.
+- **El panel de uso de Vercel**: los **builds son el 97 % de la factura** (US$254 de US$279). El
+  recorte del 6/11 funcionó —el gasto diario cae a casi cero después del 5/11— pero **el total del
+  ciclo no baja**, porque ya estaba gastado: hay que mirar **el ciclo que empieza el 16/11**.
+- **El navegador del panel no abre `file:///`**, y una página que dibuja todo con JavaScript se ve
+  VACÍA en una vista estática. Si hay que mostrarle algo a Martín: el contenido va en el HTML y se
+  sirve por HTTP (hay una entrada `pendientes` en `.claude/launch.json`).
+- ⚠️ **Al crear esa entrada SOBRESCRIBÍ el `launch.json` que ya existía** y tuve que reconstruirlo.
+  Ese archivo lo comparten varias sesiones: **se le agrega una entrada, nunca se escribe entero.**
+
+### Dónde está cada cosa
+
+`C:/dev/wt-puntas` lo está usando otro chat y tiene cambios sin commitear: **no le cambies la rama.**
+Este relevo se escribió desde `C:/dev/wt-push-q`. El vigía de CI se rearma con
+`node "$HOME/.claude/guardia/vigia-ci.mjs" esperar` y **se agota solo**: hay que volver a armarlo cada
+vez que avisa.
+
 ## 6/11/2026, ~16:30 UTC (13:30 ART): la cuenta claude3 llegó al 98 % y Martín pasa a otra
 
 **Esperando a Martín (no se avanza sin él):**
