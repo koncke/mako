@@ -300,6 +300,18 @@ export async function integracionConectada(servicioKey: string, ws?: number): Pr
     const tiene = new Map(await Promise.all(['META_AD_ACCOUNT_ID', 'META_ACCESS_TOKEN', 'META_ZERNIO_CUENTA'].map(async (e) => [e, esValorReal(await credWs(e, w))] as const)));
     return metaConectadaConCampos((e) => tiene.get(e) === true);
   }
+  // UNA INTEGRACIÓN QUE ACEPTA VARIAS CLAVES SE MIDE POR CUALQUIERA (6/11/2026, `conUnaAlcanza` del catálogo).
+  // De las N claves, sólo la 1 es requerida (las demás nacen `opcional`, porque pedirlas rompería el alta), así que lo de
+  // arriba medía la 1 y nada más: el cliente que borraba la 1 y dejaba la 2 veía «Sin conectar» con la integración andando.
+  // ⚠️ La pregunta la decide el CATÁLOGO, no una lista de nombres acá: este archivo no tiene que saber de qué servicio se
+  // trata ni cómo se llaman sus claves. Es el mismo patrón que las pasarelas con sufijo de acá abajo.
+  // ⚠️ Y se cuenta sobre los campos SECRETOS: el campo con el nombre de cada clave es una etiqueta, y guardado solo no sirve
+  // para leer nada.
+  if (!principal && s.conUnaAlcanza) {
+    const secretos = s.campos.filter((c) => c.secreto);
+    const vals2 = await Promise.all(secretos.map((c) => credWs(c.env, w)));
+    return vals2.some(esValorReal);
+  }
   // Igual que arriba: por la constante. Con los dos nombres a mano, una pasarela nueva que viviera sólo en una cuenta
   // con sufijo (`__C2`, la principal desconectada) se reportaba DESCONECTADA aunque estuviera cobrando.
   if (principal || !PASARELAS.includes(servicioKey as Pasarela)) return principal;
