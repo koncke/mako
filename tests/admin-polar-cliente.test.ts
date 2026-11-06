@@ -1,25 +1,36 @@
 // =============================================================================
-// Admin › Customers › <negocio> (la ficha de Polar: Overview, Usage, Events, Members): las funciones puras que arman sus props
-// (app/admin/_polar/datos/cliente.ts) y que cada página pase por la puerta del super admin antes de leer.
+// Admin › Customers › <negocio> (la ficha de Polar: Overview, Usage, Members; Events es Analytics › Events filtrado por el negocio):
+// las funciones puras que arman sus props (app/admin/_polar/datos/cliente.ts, y el Timeline de app/admin/_polar/datos/eventos.ts)
+// y que cada página pase por la puerta del super admin antes de leer.
 // =============================================================================
 // Correr: node --import tsx --test tests/admin-polar-cliente.test.ts
 //
 // ⚠️ PROBADO ROMPIÉNDOLO (6/11/2026). Base: 16 pass / 0 fail. Cada rotura, restaurada después (y la base otra vez 16/0):
 //   · `cifrasDelRango` sin el `p.fecha >= desde` (lo pagado antes del rango sumaba)                       → 15/1 (Metrics)
 //   · `pedidosDelNegocio` sin el `cliente?.ws === ws` (los pedidos de otro negocio)                       → 15/1 (Orders)
-//   · `eventosDelNegocio`: todo pedido como «Pago recibido» (lo devuelto no se marcaba)                  → 15/1 (Events)
 //   · `usoDelNegocio`: la IA también en las series del gráfico (pantallas + llamadas apiladas)          → 15/1 (Usage)
 //   · `miembrosDe` sin el `u.rol === 'usuario'` (el equipo de MaKo salía como persona del negocio)      → 14/2 (Members, contacto)
 //   · `cambiosDelNegocio` aceptando cualquier capa (`superadmin` pasaba como plan)                       → 15/1 (Editar)
 //   · usage/page.tsx: una lectura (`void leerUso(0)`) antes de `exigirSuperAdmin()`                       → 15/1 (puerta)
 //   · un `import MetricChartBox` en CustomerMetricsOverview (un gráfico de ingresos en Customers)        → 15/1 (sin gráfico)
 //   · un cambio sin efecto (renombrar la variable local `llamadas` de `usoDelNegocio`)                   → 16/0 (sigue verde)
+// Desde que Events dejó de ser una página de la ficha (6/11/2026, como Polar). Base: 17 / 0; cada rotura, sola y restaurada:
+//   · `rutaDeEventosDelNegocio` con `range: 'last3Months'` en vez de 'allTime'                           → 16/1 (Events)
+//   · la subnav vuelve a llevar «Events» a `/admin/customers/<ws>/events`                                → 16/1 (Events)
+//   · el «Ver todos» del Timeline (CustomerOverview) vuelve a la ruta vieja                              → 16/1 (Events)
+//   · `timelineDelNegocio` sin el filtro del negocio (`negocios: null`: eventos de todos)                → 16/1 (Timeline)
+//   · `timelineDelNegocio` sólo con los 20 de «Todos» (se pierden los de «Sistema» más viejos)          → 16/1 (Timeline)
+//   · events/page.tsx valida el negocio (lee) antes de `exigirSuperAdmin()`                             → 16/1 (redirige)
+//   · un cambio sin efecto (renombrar la local `delNegocio` de `timelineDelNegocio`)                     → 17/0 (sigue verde)
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { execSync } from 'node:child_process'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import {
   cambioDeEstado,
   cambioDeEstadoNegocio,
@@ -28,24 +39,28 @@ import {
   cifrasDelRango,
   contactoDe,
   cubetaDe,
-  eventosDelNegocio,
-  filtrarEventos,
   inicioDeActividad,
   miembrosDe,
-  nombresDeEventos,
   opcionesDePlanAMano,
   pedidosDelNegocio,
   PLANES_ASIGNABLES,
   resumenDeBorrado,
+  rutaDeEventosDelNegocio,
   rutaDePedido,
   rutaDeSuscripcion,
-  segmentosDeTimeline,
   SIN_CAMBIO,
   suscripcionesDelNegocio,
   usoDelNegocio,
   wsDeId,
-  type EventoNegocio,
 } from '../app/admin/_polar/datos/cliente'
+import {
+  LIMITE_TIMELINE,
+  segmentosDeTimeline,
+  timelineDelNegocio,
+  type EventoAdmin,
+} from '../app/admin/_polar/datos/eventos'
+import { CustomerTimeline } from '../app/admin/_polar/web/Customer/CustomerTimeline'
+import { TooltipProvider } from '../app/admin/_polar/orbit/components/Tooltip'
 import type { ClienteVenta, Pedido, SuscripcionVenta } from '../app/admin/_polar/datos/ventas'
 import {
   CABECERA_EJEMPLO,
@@ -102,41 +117,57 @@ test('Overview › Orders y Subscriptions: sólo los de ESTE negocio (los de Sal
   assert.equal(rutaDeSuscripcion(subs[0]), '/admin/sales/subscriptions/l-4')
 })
 
-test('Events: un evento por hecho, el más nuevo primero, con lo malo marcado y el link del pago', () => {
-  const ev = eventosDelNegocio({
-    ws: 7, creado: '2026-07-01T12:00:00Z',
-    pedidos: [pedido('p-1', 7, '2026-10-01', 100), pedido('p-2', 7, '2026-10-02', 50, 'refunded')],
-    movimientos: [{ fecha: '2026-10-03', tipo: 'corte', delta: -200, antes: 200, despues: 0 }],
-    acciones: [{ creado: '2026-10-04T10:00:00Z', titulo: 'Crear un lead', operacion: 'crear_lead', canal: 'whatsapp', ok: false }],
-    errores: [{ id: 3, titulo: 'Se rompió', origen: 'navegador', veces: 2, ultimaVez: '2026-10-05T10:00:00Z', ruta: null, estado: 'Nuevo' }],
-    reportes: [{ id: 9, titulo: '', tipo: 'bug', estado: 'nuevo', creado: '2026-10-06T10:00:00Z' }],
-  })
-  assert.deepEqual(ev.map((e) => e.name), ['ticket.created', 'error.app', 'mako.action', 'subscription.canceled', 'order.refunded', 'order.paid', 'customer.created'])
-  const porNombre = (n: string) => ev.find((e) => e.name === n) as EventoNegocio
-  assert.equal(porNombre('order.paid').href, '/admin/sales/p-1', 'el pago lleva a su detalle en Sales')
-  assert.equal(porNombre('order.paid').negativo, false)
-  assert.equal(porNombre('order.refunded').negativo, true, 'un pago devuelto es malo')
-  assert.equal(porNombre('mako.action').negativo, true, 'lo que MaKo no pudo hacer es malo')
-  assert.equal(porNombre('mako.action').source, 'user')
-  assert.equal(porNombre('subscription.canceled').resumen, 'Pagaba US$ 200 por mes')
-  assert.equal(porNombre('ticket.created').label, 'Reporte a soporte', 'un reporte sin título dice qué es')
+test('Events: no es una página de la ficha, es Analytics › Events filtrado por el negocio, desde siempre (como Polar)', () => {
+  assert.equal(rutaDeEventosDelNegocio(42), '/admin/analytics/events?customerIds=42&range=allTime', 'el `buildCustomerEventsPath` de Polar')
+  const q = new URL(rutaDeEventosDelNegocio(7), 'https://x').searchParams
+  assert.deepEqual([...q.entries()], [['customerIds', '7'], ['range', 'allTime']])
+  // La subnav: «Events» es el link externo de Polar (sin la query del rango de las métricas).
+  const subnav = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/CustomerSubnav.tsx'))
+  assert.match(subnav, /\{\s*label: 'Events',\s*href: rutaDeEventosDelNegocio\(ws\),\s*external: true,\s*\}/, 'Events lleva a Analytics › Events')
+  assert.match(subnav, /<Link href=\{external \? href : `\$\{href\}\$\{query\}`\}>/, 'sin la query de las métricas')
+  // El «Ver todos» del Timeline, a la misma pantalla (dibujado, no leído).
+  const html = renderToStaticMarkup(createElement(TooltipProvider, null, createElement(CustomerTimeline, { eventos: EVENTOS_EJEMPLO, viewAllHref: rutaDeEventosDelNegocio(WS_EJEMPLO) })))
+  assert.ok(html.includes(`href="${rutaDeEventosDelNegocio(WS_EJEMPLO).replace(/&/g, '&amp;')}"`), '«Ver todos los eventos» lleva a Analytics › Events del negocio')
+  assert.match(sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/CustomerOverview.tsx')), /viewAllHref=\{rutaDeEventosDelNegocio\(negocio\.ws\)\}/)
+  // Ninguna lista de eventos propia de la ficha: ni la vista, ni su lector, ni un link a la ruta vieja.
+  const archivos = execSync("git ls-files -co --exclude-standard 'app/admin/_polar/**' 'app/admin/(polar)/**'", { cwd: RAIZ, encoding: 'utf8' }).split('\n').filter((f) => /\.(ts|tsx)$/.test(f))
+  for (const f of ['CustomerEventsView.tsx', 'EventSelect.tsx', 'CustomerPage/EventRow.tsx']) assert.ok(!archivos.some((a) => a.endsWith(f)), `${f} volvió`)
+  for (const f of archivos) {
+    const src = sinComentarios(leer(f))
+    assert.doesNotMatch(src, /rutaDeFicha\([^)]*'events'\)|customers\/\$\{[^}]+\}\/events/, `${f}: un link a la lista vieja de eventos de la ficha`)
+  }
+  assert.doesNotMatch(sinComentarios(leer('app/admin/_polar/datos/cliente-server.ts')), /export const leerEventos|from\('actividad_acciones'\)|from\('tickets'\)/, 'la ficha no lee sus eventos aparte')
 })
 
-test('Events: el filtro por nombre y por rango, y los nombres que se ofrecen son sólo los que hay', () => {
-  const nombres = nombresDeEventos(EVENTOS_EJEMPLO).map((n) => n.name)
-  assert.ok(!nombres.includes('order.refunded'), 'no se ofrece un nombre sin eventos')
-  assert.ok(nombres.includes('order.paid') && nombres.includes('mako.action'))
-  const pagos = filtrarEventos(EVENTOS_EJEMPLO, { nombres: ['order.paid'] })
-  assert.ok(pagos.length > 0 && pagos.every((e) => e.name === 'order.paid'))
-  const nov = filtrarEventos(EVENTOS_EJEMPLO, { desde: '2026-11-01', hasta: '2026-11-30' })
-  assert.ok(nov.length > 0 && nov.every((e) => e.timestamp.slice(0, 10) >= '2026-11-01'), 'el rango mira el día (también de un ISO con hora)')
-  assert.equal(filtrarEventos(EVENTOS_EJEMPLO, {}).length, EVENTOS_EJEMPLO.length, 'sin filtro, todos')
+test('Timeline: los últimos eventos del negocio, de la misma lista que Analytics › Events', () => {
+  assert.ok(EVENTOS_EJEMPLO.length > 0)
+  const otro = EVENTOS_EJEMPLO.filter((e) => e.label === 'Se creó la cuenta')
+  assert.equal(otro.length, 1, 'el alta de ESTE negocio, no la del de al lado')
+  assert.ok(!EVENTOS_EJEMPLO.some((e) => e.id === 'pago:p-40'), 'un pago de otro negocio no entra')
+  assert.ok(EVENTOS_EJEMPLO.every((e, i) => i === 0 || EVENTOS_EJEMPLO[i - 1].timestamp >= e.timestamp), 'el más nuevo primero')
+  const pago = EVENTOS_EJEMPLO.find((e) => e.id === 'pago:p-31')!
+  assert.deepEqual([pago.label, pago.resumen, pago.href, pago.source, pago.importancia], ['Pago recibido', 'US$ 238 · Transferencia', '/admin/sales/p-31', 'system', 'high'])
+  const subio = EVENTOS_EJEMPLO.find((e) => e.nombre === 'suscripcion' && e.label === 'Subió lo que paga por mes')!
+  assert.deepEqual([subio.resumen, subio.importancia], ['US$ 238 por mes', 'medium'])
+  const fallo = EVENTOS_EJEMPLO.find((e) => e.nombre === 'mako' && e.negativo)!
+  assert.deepEqual([fallo.label, fallo.resumen, fallo.source], ['Mandar un email (falló)', 'En la app · No salió', 'user'])
+  assert.ok(!('campos' in pago) && !('texto' in pago), 'al navegador va sólo lo que dibuja el Timeline')
+
+  // Viajan los 20 más recientes de cada vista («Sistema» y «Todos»), no la lista entera.
+  const muchos: EventoAdmin[] = Array.from({ length: 30 }, (_, i) => ({
+    id: `mako:${i}`, nombre: i % 3 === 0 ? 'error' : 'mako', label: String(i), timestamp: new Date(Date.UTC(2026, 9, 30 - i)).toISOString(),
+    negocios: [{ ws: 5, nombre: 'X' }], persona: null, monto: null, veces: null, falla: false, negativo: false, importancia: 'medium',
+    resumen: null, href: null, campos: [], secciones: [], texto: '',
+  }))
+  const t = timelineDelNegocio(muchos, 5)
+  assert.equal(t.filter((e) => e.source === 'system').length, 10, 'todos los de sistema (son 10, entre los 30)')
+  assert.equal(t.slice(0, LIMITE_TIMELINE).length, LIMITE_TIMELINE, 'y los 20 más recientes de todos')
+  assert.equal(t.length, 20 + 3, 'los 20 más nuevos y los de sistema que quedaban afuera')
+  assert.deepEqual(timelineDelNegocio(muchos, 6), [], 'nada de otro negocio')
 })
 
 test('Timeline: lo de importancia baja seguido va plegado, como Polar', () => {
-  const e = (id: string, importancia: EventoNegocio['importancia']): EventoNegocio => ({
-    id, timestamp: '2026-10-01', name: 'mako.action', label: id, source: 'user', importancia, resumen: null, negativo: false, href: null, detalle: [],
-  })
+  const e = (id: string, importancia: 'high' | 'medium' | 'low') => ({ id, importancia })
   const s = segmentosDeTimeline([e('a', 'high'), e('b', 'low'), e('c', 'low'), e('d', 'medium'), e('f', 'low')])
   assert.deepEqual(s.map((x) => (x.type === 'event' ? x.evento.id : `fold:${x.eventos.map((y) => y.id).join('')}`)), ['a', 'fold:bc', 'd', 'fold:f'])
 })
@@ -236,9 +267,9 @@ test('Los datos de ejemplo arman las vistas (y son ficticios)', () => {
 const PAGINAS = [
   'app/admin/(polar)/customers/[id]/page.tsx',
   'app/admin/(polar)/customers/[id]/usage/page.tsx',
-  'app/admin/(polar)/customers/[id]/events/page.tsx',
   'app/admin/(polar)/customers/[id]/members/page.tsx',
 ]
+const EVENTOS_VIEJA = 'app/admin/(polar)/customers/[id]/events/page.tsx'
 
 test('cada página de la ficha: dinámica y con la puerta del super admin como PRIMERA sentencia (también el título)', () => {
   for (const p of PAGINAS) {
@@ -250,15 +281,27 @@ test('cada página de la ficha: dinámica y con la puerta del super admin como P
   }
 })
 
+test('la ruta vieja de Events de la ficha redirige a Analytics › Events del negocio, después de la puerta y de validar el id', () => {
+  const src = sinComentarios(leer(EVENTOS_VIEJA))
+  assert.match(src, /export const dynamic = 'force-dynamic'/)
+  const cuerpo = src.slice(src.indexOf('export default async function'))
+  const puerta = cuerpo.indexOf('await exigirSuperAdmin()')
+  const valida = cuerpo.indexOf('await negocioONotFound(params.id)')
+  const va = cuerpo.indexOf('redirect(rutaDeEventosDelNegocio(ws), RedirectType.replace)')
+  assert.match(cuerpo, /^export default async function \w*\([^)]*\)[^{]*\{\s*await exigirSuperAdmin\(\)/, 'la puerta es la primera sentencia')
+  assert.ok(puerta > 0 && valida > puerta && va > valida, 'puerta → el negocio existe (404 si no) → redirige')
+  assert.doesNotMatch(src, /CustomerPageShell|leerEventos|searchParams|[?&]ws=/, 'ya no dibuja nada ni lee eventos')
+})
+
 const AREA = [
   ...PAGINAS,
+  EVENTOS_VIEJA,
   'app/admin/_polar/web/Customer/CustomerPage/CustomerPageShell.tsx',
   'app/admin/_polar/web/Customer/CustomerPage/CustomerHeader.tsx',
   'app/admin/_polar/web/Customer/CustomerPage/CustomerOverview.tsx',
   'app/admin/_polar/web/Customer/CustomerPage/CustomerMetricsOverview.tsx',
   'app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx',
   'app/admin/_polar/web/Customer/CustomerPage/CustomerUsageView.tsx',
-  'app/admin/_polar/web/Customer/CustomerPage/CustomerEventsView.tsx',
   'app/admin/_polar/web/Customer/CustomerPage/MembersSection.tsx',
   'app/admin/_polar/web/Customer/CustomerTimeline.tsx',
   'app/admin/_polar/web/Customer/EditCustomerModal.tsx',

@@ -6,7 +6,8 @@
 // tipo de evento de MaKo trae (`campos`, `secciones`). Polar pide el evento, su padre, sus hijos y una muestra de costos a su
 // API; acá el evento llega entero con la lista. Se sacaron «Source» y «External ID» (MaKo no los tiene), «Cost», «LLM»,
 // «Parent» y «Children» (ningún evento de MaKo tiene costo propio ni jerarquía), y el «Metadata» en JSON: lo que un evento de
-// MaKo sabe va en «Detalles», con su nombre. El negocio lleva a su ficha (`/admin/customers/<ws>`).
+// MaKo sabe va en «Detalles», con su nombre. El negocio lleva a su ficha (`/admin/customers/<ws>`), y un campo con `href` a su
+// página (el «Order» de Polar, `ResourceLink`: el pedido de un pago, en Sales).
 
 import type { CampoEvento, EventoAdmin, SeccionEvento } from '@/app/admin/_polar/datos/eventos'
 import { TIPOS_EVENTO } from '@/app/admin/_polar/datos/eventos'
@@ -71,7 +72,11 @@ const Section = ({
 )
 
 const ValorCampo = ({ campo }: { campo: CampoEvento }) =>
-  campo.fecha ? (
+  campo.href ? (
+    <Link href={campo.href} className="min-w-0 truncate text-sm hover:opacity-60">
+      {campo.valor}
+    </Link>
+  ) : campo.fecha ? (
     <EventTimestamp timestamp={campo.valor}>
       <Text tabularNums>
         <time suppressHydrationWarning dateTime={campo.valor}>

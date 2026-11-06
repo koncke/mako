@@ -4,18 +4,19 @@
 //
 // MaKo: el mismo orden (Metrics, Details, Subscriptions, Orders), con el Timeline de Polar (components/Customer/CustomerTimeline,
 // que Polar monta en el panel de un pedido o una suscripción) entre Metrics y Details: es lo que pasó en el negocio, y la
-// decisión de Martín para la ficha. Se sacaron CustomerPaymentsTable (en MaKo un pago ES un pedido: serían dos tablas iguales)
+// decisión de Martín para la ficha. Sus eventos son los de Analytics › Events filtrados por el negocio, y «Ver todos» abre esa
+// pantalla (`rutaDeEventosDelNegocio`, como Polar). Se sacaron CustomerPaymentsTable (en MaKo un pago ES un pedido: serían dos tablas iguales)
 // y CustomerBenefitGrantsTable (MaKo no tiene beneficios).
 
 import type {
   AltaNegocio,
   ComputadorasDeLaFicha,
   ConexionNegocio,
-  EventoNegocio,
   NegocioCabecera,
 } from '@/app/admin/_polar/datos/cliente'
+import type { EventoDeTimeline } from '@/app/admin/_polar/datos/eventos'
 import type { Pedido, SuscripcionVenta } from '@/app/admin/_polar/datos/ventas'
-import { rutaDeFicha } from '@/app/admin/_polar/datos/cliente'
+import { rutaDeEventosDelNegocio } from '@/app/admin/_polar/datos/cliente'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { CustomerTimeline } from '../CustomerTimeline'
 import { CustomerDetailsSection } from './CustomerDetailsSection'
@@ -32,7 +33,7 @@ export interface CustomerOverviewProps {
   suscripciones: SuscripcionVenta[]
   conexiones: ConexionNegocio[] | null
   computadoras: ComputadorasDeLaFicha
-  eventos: EventoNegocio[]
+  eventos: EventoDeTimeline[]
 }
 
 export const CustomerOverview = ({
@@ -49,7 +50,7 @@ export const CustomerOverview = ({
   return (
     <Box flexDirection="column" rowGap="5xl">
       <CustomerMetricsOverview pedidos={pedidos} mrrUsd={mrrUsd} inicio={inicio} />
-      <CustomerTimeline eventos={eventos} viewAllHref={rutaDeFicha(negocio.ws, 'events')} />
+      <CustomerTimeline eventos={eventos} viewAllHref={rutaDeEventosDelNegocio(negocio.ws)} />
       <CustomerDetailsSection
         negocio={negocio}
         alta={alta}

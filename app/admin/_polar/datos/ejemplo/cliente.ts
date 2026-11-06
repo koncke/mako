@@ -3,22 +3,22 @@
 // y pruebas de las vistas de app/admin/_polar/web/Customer/CustomerPage y app/admin/(polar)/customers/[id].
 // =============================================================================
 // FICTICIOS: ningún negocio, persona, email ni monto es de un cliente real. Lo que se arma (los eventos, el contacto, las
-// personas) sale de las mismas funciones puras que usa el server (app/admin/_polar/datos/cliente.ts).
+// personas) sale de las mismas funciones puras que usa el server (app/admin/_polar/datos/cliente.ts, y para el Timeline las de
+// Analytics › Events, app/admin/_polar/datos/eventos.ts: los eventos del negocio son ésos).
 
 import type { ClienteVenta, Pedido, SuscripcionVenta } from '../ventas'
 import {
   contactoDe,
-  eventosDelNegocio,
   miembrosDe,
   type AltaNegocio,
   type ComputadoraNegocio,
   type ConexionNegocio,
-  type EventoNegocio,
   type IaDelDia,
   type MiembroNegocio,
   type NegocioCabecera,
   type UsuarioParaMiembro,
 } from '../cliente'
+import { armarEventos, timelineDelNegocio, type EventoDeTimeline } from '../eventos'
 import type { CustomerOverviewProps } from '@/app/admin/_polar/web/Customer/CustomerPage/CustomerOverview'
 import type { CustomerUsageViewProps } from '@/app/admin/_polar/web/Customer/CustomerPage/CustomerUsageView'
 
@@ -94,23 +94,40 @@ export const COMPUTADORAS_EJEMPLO: ComputadoraNegocio[] = [
   { id: 1, nombre: 'Laptop de Ana', persona: 'Ana Gómez', sistema: 'Mac', enLinea: true, conectadaAt: '2026-10-01T12:00:00Z' },
 ]
 
-export const EVENTOS_EJEMPLO: EventoNegocio[] = eventosDelNegocio({
-  ws: WS_EJEMPLO,
-  creado: ALTA_EJEMPLO.creado,
-  pedidos: PEDIDOS_EJEMPLO,
-  movimientos: [
-    { fecha: '2026-10-04', tipo: 'sube', delta: 38, antes: 200, despues: 238 },
-    { fecha: '2026-09-04', tipo: 'nuevo', delta: 200, antes: 0, despues: 200 },
-  ],
-  acciones: [
-    { creado: '2026-11-05T15:00:00Z', titulo: 'Crear un lead', operacion: 'crear_lead', canal: 'whatsapp', ok: true },
-    { creado: '2026-11-03T11:00:00Z', titulo: 'Mandar un email', operacion: 'mandar_email', canal: 'app', ok: false },
-  ],
-  errores: [
-    { id: 9, titulo: 'No cargó el tablero', origen: 'navegador', veces: 3, ultimaVez: '2026-11-02T10:00:00Z', ruta: '/plan', estado: 'Sin resolver' },
-  ],
-  reportes: [{ id: 55, titulo: 'No me llega el aviso de pago', tipo: 'bug', estado: 'en_curso', creado: '2026-10-28T16:00:00Z' }],
-})
+/** Lo que pasó en el negocio, armado como lo arma Analytics › Events (con un negocio de otro al lado, que no entra). */
+export const EVENTOS_EJEMPLO: EventoDeTimeline[] = timelineDelNegocio(armarEventos({
+  pedidos: [...PEDIDOS_EJEMPLO, { ...pedido('p-40', '2026-10-10', 90, 'Mensualidad', true), cliente: { ...cliente, clave: 'ws:43', nombre: 'Taller Sur', ws: 43 } }],
+  ingresos: {
+    movimientos: [
+      { fecha: '2026-10-04', cliente: `ws:${WS_EJEMPLO}`, tipo: 'sube', antes: 200, despues: 238 },
+      { fecha: '2026-09-04', cliente: `ws:${WS_EJEMPLO}`, tipo: 'nuevo', antes: 0, despues: 200 },
+    ],
+    clientes: [{ clave: `ws:${WS_EJEMPLO}`, ws: WS_EJEMPLO, nombre: 'Estudio Norte' }, { clave: 'ws:43', ws: 43, nombre: 'Taller Sur' }],
+  },
+  altas: [{ ws: WS_EJEMPLO, nombre: 'Estudio Norte', creado: ALTA_EJEMPLO.creado }, { ws: 43, nombre: 'Taller Sur', creado: '2026-09-01T12:00:00Z' }],
+  actividad: {
+    acciones: [
+      { creado: '2026-11-05T15:00:00Z', usuario: 101, ws: WS_EJEMPLO, operacion: 'crear_lead', titulo: 'Crear un lead', area: 'crm', canal: 'whatsapp', tipo: 'accion', ok: true },
+      { creado: '2026-11-03T11:00:00Z', usuario: 101, ws: WS_EJEMPLO, operacion: 'mandar_email', titulo: 'Mandar un email', area: 'email', canal: 'app', tipo: 'accion', ok: false },
+    ],
+    nombres: { [WS_EJEMPLO]: 'Estudio Norte', 43: 'Taller Sur' },
+    personas: [{ id: 101, nombre: 'Ana Gómez', email: 'ana@ejemplo.com' }],
+    medido: true,
+  },
+  errores: {
+    errores: [{
+      id: 9, titulo: 'No cargó el tablero', origen: 'navegador', veces: 3, primeraVez: '2026-11-01T10:00:00Z', ultimaVez: '2026-11-02T10:00:00Z',
+      ruta: '/plan', mensaje: null, stack: null, navegador: null, negocios: [WS_EJEMPLO], personas: 1, ticketId: null, ticketEstado: null, ticketResueltoAt: null,
+    }],
+    hayMas: false,
+    reportes: [{ id: 55, titulo: 'No me llega el aviso de pago', tipo: 'bug', estado: 'en_curso', prioridad: 'media', canal: 'app', creado: '2026-10-28T16:00:00Z', quien: 'Ana Gómez', negocio: 'Estudio Norte', ws: WS_EJEMPLO }],
+    nombres: { [WS_EJEMPLO]: 'Estudio Norte' },
+  },
+  agente: null,
+  avisos: [],
+  ahora: new Date(`${HOY_EJEMPLO}T15:00:00Z`),
+  topes: { acciones: 100, reportes: 40, sesiones: 200, accionesDeUnNegocio: 300, reportesDeUnNegocio: 100 },
+}).eventos, WS_EJEMPLO)
 
 export const OVERVIEW_EJEMPLO: CustomerOverviewProps = {
   negocio: CABECERA_EJEMPLO,

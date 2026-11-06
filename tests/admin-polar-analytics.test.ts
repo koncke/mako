@@ -10,11 +10,14 @@
 //   4. los rangos mensuales no ofrecen un rango que arranca antes del primer mes leído;
 //   5. Events: `?tipo=error` abre crashes y reportes, `?tipo=agente` las sesiones del agente; cada pago lleva a su negocio
 //      por la clave (no por el nombre); lo que un lector deja afuera por su tope se dice; los filtros, el conteo por tipo y
-//      las barras del histograma;
+//      las barras del histograma; (5b) lo que mostraba la subpágina vieja de la ficha (el alta, los cambios de suscripción,
+//      lo devuelto y lo anulado) sale con su negocio y el filtro por negocio lo encuentra; (5c) el negocio del filtro
+//      (`?customerIds=`, lo que abre la ficha) se lee a fondo y el corte de todos no vale para él;
 //   6. Costs: la parte de cada feature y su cambio contra el mes anterior, «Changes» vacío sin mes anterior, el gasto por día
 //      con su acumulado, y SIN el corte por negocio (vive en Customers › Cost Drivers: un dato, un lugar; 6/11/2026);
 //   7. el CSV de las métricas va en dólares y por el armador de la app;
-//   8. cada page.tsx de Analytics pregunta `exigirSuperAdmin()` ANTES de leer, y Events traduce `?tipo=`.
+//   8. cada page.tsx de Analytics pregunta `exigirSuperAdmin()` ANTES de leer, y Events traduce `?tipo=` y lee a fondo los
+//      negocios de `?customerIds=`.
 //
 // Probado rompiéndolo el 6/11/2026 (base: 8 pasan / 0 fallan; el arnés restaura de memoria). Cada rotura, sola:
 //   · `clientesConSuscripcionAl` cuenta a todo cliente con un movimiento (sin `despues > 0`)        → 6/2 (1, 7)
@@ -30,6 +33,15 @@
 //   · `cambiosDe` compara contra cero sin mes anterior                                              → 7/1 (6)
 //   · `filasCsvDeMetricas` deja la plata en centavos                                                → 7/1 (7)
 //   · events/page.tsx lee (`void leerEventos()`) antes de `exigirSuperAdmin()`                      → 7/1 (8)
+// Desde que la ficha no tiene su lista de eventos (6/11/2026). Base: 10 / 0; cada rotura, sola y restaurada:
+//   · `eventosDeAltas` sin el negocio (`negocios: []`: el filtro por negocio no encuentra su alta)   → 9/1 (5b)
+//   · `eventosDeSuscripciones` sin el negocio de la clave del cliente                                → 9/1 (5b)
+//   · `eventosDePedidos` también da «Pago recibido» de un pedido anulado                             → 9/1 (5b)
+//   · `eventosDePedidos` pone la devolución el día del pago, no cuando se devolvió                     → 9/1 (5b)
+//   · `armarEventos` suma las acciones a fondo sin sacar las de la lectura de todos (repetidas)       → 9/1 (5c)
+//   · `cortesVisibles` sin el `salvo` (el corte de todos sobre un negocio leído a fondo)              → 9/1 (5c)
+//   · events/page.tsx llama a `leerEventos()` sin los negocios de `?customerIds=`                     → 9/1 (8)
+//   · un cambio sin efecto (renombrar las locales de `masViejoDe`)                                   → 10/0 (sigue verde)
 // =============================================================================
 
 import { test } from 'node:test'
@@ -43,8 +55,12 @@ import {
 } from '../lib/admin-ingresos-reglas'
 import { metricasDeIngresos, propsDeMetricas, rangosMensuales, recortarMetricas } from '../app/admin/_polar/datos/metricas'
 import {
-  armarEventos, conteoPorTipo, cortesVisibles, cubetas, filtrarEventos, MAX_BARRAS, tiposDeUrl, type EntradasEventos,
+  armarEventos, conteoPorTipo, cortesVisibles, cubetas, filtrarEventos, MAX_BARRAS, negociosDeUrl, textoDeCorte, tiposDeUrl,
+  TOPE_NEGOCIOS_A_FONDO, type EntradasEventos,
 } from '../app/admin/_polar/datos/eventos'
+import { pedidosDe, type ReciboVenta } from '../app/admin/_polar/datos/ventas'
+import type { AccionMako } from '../lib/actividad'
+import type { Reporte } from '../lib/admin-errores'
 import { armarCostos, cambiosDe, diasDelMes, filasDe, mesAnterior, metricasDeCostos } from '../app/admin/_polar/datos/costos'
 import { filasCsvDeMetricas, gruposConDatos } from '../app/admin/_polar/web/utils/metrics'
 import type { ResumenPeriodo } from '../lib/costos-ia'
@@ -135,15 +151,39 @@ test('4. los rangos mensuales: el primero son todos los meses leídos, y no se o
 
 // ── Events ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 const AHORA = new Date('2026-11-06T15:00:00.000Z')
+// Dos recibos cargados a mano, para lo que Sales marca devuelto y anulado (sus pedidos son `r-<id>`).
+const recibo = (r: Pick<ReciboVenta, 'id' | 'estado' | 'destinoWs' | 'aNombre' | 'fechaPago' | 'devueltoAt' | 'anuladoAt' | 'devueltoMonto'>): ReciboVenta => ({
+  numero: r.id, origen: 'manual', cobroId: null, emitidoAt: r.fechaPago,
+  lineas: [{ concepto: 'Puesta en marcha', mes: null, monto: 400, moneda: 'USD' }],
+  totalDetalle: 400, monedaDetalle: 'USD', totales: [{ moneda: 'USD', monto: 400 }], impuesto: null,
+  correoEstado: 'enviado', correoA: [], correoError: null, waEstado: 'en_app', waError: null, soloCorreo: false, disputa: null,
+  pagos: [{ id: r.id, medio: 'transferencia', referencia: `TRF-${r.id}`, fecha: r.fechaPago, monto: 400, moneda: 'USD', montoUsd: 400, de: null, comprobante: false, anulado: false }],
+  historial: [], ...r,
+})
+const PEDIDOS = pedidosDe({
+  entradas: ING.entradas,
+  recibos: [
+    recibo({ id: 61, estado: 'devuelto', destinoWs: 3, aNombre: 'Estudio Norte', fechaPago: '2026-10-25T14:00:00.000Z', devueltoAt: '2026-11-02T09:30:00.000Z', anuladoAt: null, devueltoMonto: 400 }),
+    recibo({ id: 62, estado: 'anulado', destinoWs: 2, aNombre: 'Panadería Sol', fechaPago: '2026-10-26T14:00:00.000Z', devueltoAt: null, anuladoAt: '2026-10-27T10:00:00.000Z', devueltoMonto: null }),
+  ],
+  clientes: new Map(ING.clientes.map((c) => [c.clave, { clave: c.clave, nombre: c.nombre, ws: c.ws, leadId: c.leadId }])),
+  nombreDeWs: new Map([[1, 'Estudio Norte'], [2, 'Panadería Sol'], [3, 'Estudio Norte']]),
+})
 const entradasEventos = (tope = 100): EntradasEventos => ({
-  ingresos: { entradas: ING.entradas, clientes: ING.clientes },
+  pedidos: PEDIDOS,
+  ingresos: { movimientos: ING.movimientos, clientes: ING.clientes },
+  altas: [
+    { ws: 1, nombre: 'Estudio Norte', creado: '2026-02-20T12:00:00.000Z' },
+    { ws: 2, nombre: 'Panadería Sol', creado: '2026-05-01T12:00:00.000Z' },
+    { ws: 3, nombre: 'Estudio Norte', creado: '2026-09-15T12:00:00.000Z' },
+  ],
   actividad: {
     acciones: [
       { creado: '2026-11-06T10:00:00.000Z', usuario: 7, ws: 1, operacion: 'crear_lead', titulo: 'Crear lead', area: 'crm', canal: 'app', tipo: 'accion', ok: true },
       { creado: '2026-11-05T10:00:00.000Z', usuario: null, ws: 2, operacion: 'enviar_email', titulo: 'Mandar un email', area: 'email', canal: 'app', tipo: 'accion', ok: false },
     ],
     nombres: { 1: 'Estudio Norte', 2: 'Panadería Sol', 3: 'Estudio Norte' },
-    personas: [{ id: 7, nombre: 'Laura Pérez', email: 'laura@ejemplo.com', ws: 1, negocio: 'Estudio Norte', creado: '2026-01-01', ultimoLogin: null, rol: 'admin', estado: 'activo' }],
+    personas: [{ id: 7, nombre: 'Laura Pérez', email: 'laura@ejemplo.com' }],
     medido: true,
   },
   errores: {
@@ -164,7 +204,7 @@ const entradasEventos = (tope = 100): EntradasEventos => ({
   },
   avisos: [],
   ahora: AHORA,
-  topes: { acciones: tope, reportes: 40, sesiones: 200 },
+  topes: { acciones: tope, reportes: 40, sesiones: 200, accionesDeUnNegocio: 300, reportesDeUnNegocio: 100 },
 })
 
 test('5. Events: el link viejo, el negocio de cada evento, lo que quedó afuera y los filtros', () => {
@@ -175,7 +215,7 @@ test('5. Events: el link viejo, el negocio de cada evento, lo que quedó afuera 
 
   const v = armarEventos(entradasEventos())
   const pagosWs3 = v.eventos.filter((e) => e.nombre === 'pago' && e.negocios.some((x) => x.ws === 3))
-  assert.equal(pagosWs3.length, 2, 'los pagos de ws:3 van a ws:3, aunque se llame igual que ws:1')
+  assert.equal(pagosWs3.length, 3, 'los pagos de ws:3 (los dos cobrados y el del recibo que después se devolvió) van a ws:3, aunque se llame igual que ws:1')
   const unico = v.eventos.find((e) => e.nombre === 'pago' && e.monto === 30_000)!
   assert.deepEqual(unico.negocios, [], 'un pago de alguien sin cuenta no lleva a ningún negocio')
   assert.equal(unico.persona, 'Ana Gómez')
@@ -209,6 +249,86 @@ test('5. Events: el link viejo, el negocio de cada evento, lo que quedó afuera 
   const barras = cubetas(v.eventos, new Date('2026-08-01T00:00:00Z'), AHORA)
   assert.ok(barras.length > 0 && barras.length <= MAX_BARRAS)
   assert.equal(barras.reduce((s, b) => s + b.count, 0), filtrarEventos(v.eventos, { desde: new Date('2026-08-01T00:00:00Z'), hasta: AHORA }).length)
+})
+
+test('5b. Events: lo que mostraba la ficha vieja (el alta, los cambios de suscripción, lo devuelto) sale con su negocio', () => {
+  const v = armarEventos(entradasEventos())
+  const delWs = (ws: number) => filtrarEventos(v.eventos, { desde: new Date(0), hasta: AHORA, negocios: [ws] })
+
+  // El alta de cada negocio (el `customer.created` de Polar), con su negocio.
+  const altas = v.eventos.filter((e) => e.nombre === 'alta')
+  assert.deepEqual(altas.map((e) => [e.id, e.negocios.map((n) => n.ws)]), [['alta:1', [1]], ['alta:2', [2]], ['alta:3', [3]]])
+  assert.ok(delWs(3).some((e) => e.id === 'alta:3'), 'el filtro por negocio encuentra su alta')
+  assert.ok(!delWs(1).some((e) => e.id === 'alta:3'), 'y no la de otro que se llama igual')
+
+  // Los cambios de suscripción: el negocio por la clave del cliente, y lo que dice cada uno.
+  const subs3 = delWs(3).filter((e) => e.nombre === 'suscripcion')
+  assert.deepEqual(subs3.map((e) => e.label), ['Empezó a pagar por mes'], 'ws:3 empezó en septiembre')
+  assert.equal(subs3[0].resumen, 'US$ 200 por mes')
+  const corte = delWs(2).find((e) => e.nombre === 'suscripcion' && e.label === 'Dejó de pagar por mes')
+  assert.ok(corte, 'el corte de ws:2 está, con su negocio')
+  assert.equal(corte.negativo, true)
+  assert.equal(corte.resumen, 'Pagaba US$ 50 por mes')
+  assert.equal(corte.importancia, 'high')
+  assert.ok(v.eventos.filter((e) => e.nombre === 'suscripcion').every((e) => e.negocios.length === 1 && e.soloDia), 'un movimiento es de un día')
+
+  // Lo devuelto: el pago entró (y se ve) y la devolución es otro evento, cuando se devolvió; lo anulado no entró.
+  const pedido61 = delWs(3).filter((e) => e.id.endsWith(':r-61'))
+  assert.deepEqual(pedido61.map((e) => [e.nombre, e.label, e.timestamp]), [
+    ['devolucion', 'Pago devuelto', '2026-11-02T09:30:00.000Z'],
+    ['pago', 'Pago recibido', '2026-10-25T12:00:00.000Z'],
+  ])
+  const devuelto = pedido61[0]
+  assert.equal(devuelto.monto, -40_000, 'lo devuelto entero, en negativo')
+  assert.equal(devuelto.negativo, true)
+  assert.equal(devuelto.href, '/admin/sales/r-61', 'lleva a su pedido en Sales')
+  assert.equal(devuelto.campos.find((c) => c.label === 'Pedido')?.href, '/admin/sales/r-61')
+  const pedido62 = delWs(2).filter((e) => e.id.endsWith(':r-62'))
+  assert.deepEqual(pedido62.map((e) => [e.nombre, e.label]), [['devolucion', 'Pago anulado']], 'un pago anulado no es un pago recibido')
+  assert.ok(v.eventos.filter((e) => e.nombre === 'pago' && e.id.startsWith('pago:p-')).every((e) => e.href === `/admin/sales/${e.id.slice(5)}`), 'cada pago lleva a su pedido')
+  assert.deepEqual(tiposDeUrl('devoluciones'), ['devolucion'])
+
+  // Lo que no tiene cuenta no lleva negocio: no aparece en ningún filtro de negocio.
+  for (const ws of [1, 2, 3]) assert.ok(!delWs(ws).some((e) => e.persona === 'Ana Gómez' && e.nombre === 'pago'), `el pago sin cuenta no es de ws:${ws}`)
+})
+
+test('5c. Events: el negocio del filtro se lee a fondo (lo que leía su ficha), y el corte de todos no vale para él', () => {
+  const accion = (creado: string, ws: number, ok = true): AccionMako => ({ creado, usuario: 7, ws, operacion: 'crear_lead', titulo: 'Crear lead', area: 'crm', canal: 'app', tipo: 'accion', ok })
+  const reporte = (id: number, creado: string, ws: number): Reporte => ({ id, titulo: `Reporte ${id}`, tipo: 'bug', estado: 'abierto', prioridad: 'media', canal: 'app', creado, quien: 'Ana Gómez', negocio: null, ws })
+  const base = entradasEventos(2) // la lectura de todos llega a su tope de acciones (2)
+  const aFondo = [{
+    ws: 1,
+    acciones: [accion('2026-11-06T10:00:00.000Z', 1), accion('2026-10-01T10:00:00.000Z', 1), accion('2026-09-01T10:00:00.000Z', 1, false)],
+    reportes: [reporte(70, '2026-10-02T10:00:00.000Z', 1)],
+  }]
+  const v = armarEventos({ ...base, aFondo, topes: { ...base.topes, accionesDeUnNegocio: 3 } })
+  const mako1 = filtrarEventos(v.eventos, { desde: new Date(0), hasta: AHORA, negocios: [1], nombres: ['mako'] })
+  assert.equal(mako1.length, 3, 'las de ws:1 son las de su lectura a fondo, sin repetir la que también vino en la de todos')
+  assert.equal(mako1.filter((e) => e.negativo).length, 1, 'la que falló es mala')
+  assert.equal(new Set(v.eventos.map((e) => e.id)).size, v.eventos.length, 'un id por evento')
+  assert.ok(filtrarEventos(v.eventos, { desde: new Date(0), hasta: AHORA, negocios: [2], nombres: ['mako'] }).length === 1, 'las de los otros siguen siendo las de todos')
+  assert.ok(filtrarEventos(v.eventos, { desde: new Date(0), hasta: AHORA, negocios: [1], nombres: ['reporte'] }).some((e) => e.id === 'reporte:70'), 'sus reportes, a fondo')
+
+  const todos = v.cortes.find((c) => c.nombre === 'mako' && !c.negocio)!
+  assert.deepEqual(todos.salvo, [1], 'el corte de todos dice qué negocio se leyó a fondo')
+  const deUno = v.cortes.find((c) => c.nombre === 'mako' && c.negocio)!
+  assert.deepEqual([deUno.negocio, deUno.desde, deUno.tope], [{ ws: 1, nombre: 'Estudio Norte' }, '2026-09-01T10:00:00.000Z', 3], 'ws:1 llegó a su tope: antes del 01/09 faltan las suyas')
+  const desde = new Date('2026-01-01T00:00:00Z')
+  assert.deepEqual(cortesVisibles(v.cortes, desde, [1]).map((c) => c.negocio?.ws ?? 'todos'), [1], 'filtrando por ws:1: su corte, no el de todos')
+  assert.deepEqual(cortesVisibles(v.cortes, desde, [1, 2]).map((c) => c.negocio?.ws ?? 'todos').sort(), [1, 'todos'], 'con otro al lado, vuelve el de todos')
+  assert.deepEqual(cortesVisibles(v.cortes, desde, null).map((c) => c.negocio?.ws ?? 'todos'), ['todos'], 'sin filtro, el de todos')
+  assert.equal(textoDeCorte(deUno, () => '01/09'), 'Antes del 01/09 faltan acciones de MaKo de Estudio Norte: se leen los 3 más recientes de ese negocio.')
+
+  // Si la lectura a fondo falló, quedan las de la lectura de todos.
+  const fallo = armarEventos({ ...base, aFondo: [{ ws: 1, acciones: null, reportes: null }] })
+  assert.equal(filtrarEventos(fallo.eventos, { desde: new Date(0), hasta: AHORA, negocios: [1], nombres: ['mako'] }).length, 1)
+  assert.deepEqual(fallo.cortes.find((c) => c.nombre === 'mako')?.salvo, [], 'y el corte de todos vale para él')
+
+  // `?customerIds=` de la URL: ids de verdad, sin repetir y con tope.
+  assert.deepEqual(negociosDeUrl('42'), [42])
+  assert.deepEqual(negociosDeUrl(['3,3', ' 7 ', '0', 'x', '-1', '4.5']), [3, 7])
+  assert.deepEqual(negociosDeUrl(undefined), [])
+  assert.equal(negociosDeUrl(Array.from({ length: 30 }, (_, i) => String(i + 1)).join(',')).length, TOPE_NEGOCIOS_A_FONDO)
 })
 
 // ── Costs ───────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -276,4 +396,6 @@ test('8. cada page.tsx de Analytics pregunta exigirSuperAdmin() antes de leer, y
   const ev = sinComentarios(leer('app/admin/(polar)/analytics/events/page.tsx'))
   assert.match(ev, /tiposDeUrl\(searchParams\.tipo\)/, 'el ?tipo= de los links viejos se traduce')
   assert.ok(ev.indexOf('tiposDeUrl(') > -1 && ev.indexOf('tiposDeUrl(') < ev.indexOf('leerEventos('), 'y se traduce antes de leer')
+  assert.match(ev, /leerEventos\(new Date\(\), \{ negocios: negociosDeUrl\(searchParams\.customerIds\) \}\)/, 'los negocios del filtro (lo que abre la ficha) se leen a fondo')
+  assert.match(sinComentarios(leer('app/admin/(polar)/analytics/events/EventsPage.tsx')), /cortesVisibles\(vista\.cortes, listStartDate, numerosDe\(negociosClave\)\)/, 'los cortes miran el filtro de negocios')
 })

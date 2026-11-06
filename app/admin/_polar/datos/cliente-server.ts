@@ -173,7 +173,7 @@ export const leerResumen = cache(async (ws: number): Promise<ResumenNegocio> => 
     ingresosDe(ws),
     conexionesDe(ws).catch((e) => { avisos.push(`sus conexiones: ${motivo(e)}`); return null }),
     opera ? listarPcDelNegocio(ws).catch((e) => { avisos.push(`sus computadoras: ${motivo(e)}`); return null }) : Promise.resolve(null),
-    leerTimelineDelNegocio(ws),
+    leerTimelineDelNegocio(ws).catch((e) => ({ eventos: [] as EventoDeTimeline[], avisos: [`sus eventos: ${motivo(e)}`] })),
   ])
   avisos.push(...ingresos.avisos)
   const subs = await suscripciones().catch((e) => ({ suscripciones: [] as SuscripcionVenta[], avisos: [`sus suscripciones: ${motivo(e)}`] }))

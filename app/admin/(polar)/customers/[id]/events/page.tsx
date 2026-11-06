@@ -1,34 +1,23 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/app/(main)/dashboard/[organization]/(header)/customers/[customerId]/events/page.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
-// MaKo: Customers › <negocio> › Events: lo que pasó en el negocio (sus pagos, lo que hizo MaKo, sus errores y sus reportes).
+// MaKo: Customers › <negocio> › Events YA NO ES UNA PÁGINA (6/11/2026). En Polar, quien tiene `analytics:read` (el super admin
+// siempre) va de la ficha a Analytics › Events filtrado por el cliente (`buildCustomerEventsPath`), y ésa es la única lista de
+// eventos: acá también (app/admin/_polar/datos/eventos.ts). Esta ruta queda para que un link viejo o guardado siga andando:
+// valida el negocio como las otras páginas de la ficha (404 si no es un id, no existe o es la plataforma) y redirige.
 
 import { exigirSuperAdmin } from '@/app/admin/_polar/datos/guarda'
-import { leerEventos, leerInicio, metadataDeNegocio, negocioONotFound } from '@/app/admin/_polar/datos/cliente-server'
-import { CustomerEventsView } from '@/app/admin/_polar/web/Customer/CustomerPage/CustomerEventsView'
-import { CustomerPageShell } from '@/app/admin/_polar/web/Customer/CustomerPage/CustomerPageShell'
-import { Metadata } from 'next'
+import { negocioONotFound } from '@/app/admin/_polar/datos/cliente-server'
+import { rutaDeEventosDelNegocio } from '@/app/admin/_polar/datos/cliente'
+import { redirect, RedirectType } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
 type CustomerPageParams = { id: string }
-
-export async function generateMetadata(props: {
-  params: Promise<CustomerPageParams>
-}): Promise<Metadata> {
-  await exigirSuperAdmin()
-  return metadataDeNegocio((await props.params).id, 'Events')
-}
 
 export default async function Page(props: {
   params: Promise<CustomerPageParams>
 }) {
   await exigirSuperAdmin()
   const params = await props.params
-  const { ws, cabecera, alta, avisos } = await negocioONotFound(params.id)
-  const [eventos, inicio] = await Promise.all([leerEventos(ws), leerInicio(ws, alta.creado)])
-
-  return (
-    <CustomerPageShell key={ws} negocio={cabecera} avisos={[...avisos, ...eventos.avisos]}>
-      <CustomerEventsView eventos={eventos.eventos} inicio={inicio} />
-    </CustomerPageShell>
-  )
+  const { ws } = await negocioONotFound(params.id)
+  redirect(rutaDeEventosDelNegocio(ws), RedirectType.replace)
 }

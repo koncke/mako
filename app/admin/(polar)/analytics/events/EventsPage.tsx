@@ -11,8 +11,9 @@
 //     entrada del historial (nuqs las juntaba igual);
 //   · se dibuja recién montada en el navegador (hasta ahí, el esqueleto de Polar): «los últimos 3 meses» se cuenta con la
 //     hora de quien mira, y en el server la lista y las horas saldrían en otra zona;
-//   · lo que un lector dejó afuera por su tope se dice arriba de la lista cuando el rango llega hasta ahí (`cortes`), y lo
-//     que no se pudo leer, arriba de todo (`avisos`).
+//   · lo que un lector dejó afuera por su tope se dice arriba de la lista cuando el rango llega hasta ahí (`cortes`, con el
+//     filtro de negocios: un negocio leído a fondo tiene su propio corte), y lo que no se pudo leer, arriba de todo (`avisos`);
+//   · es también el «Events» de la ficha de un negocio (`?customerIds=<ws>&range=allTime`, como Polar).
 // Se sacaron los filtros de origen, costo, IA y metadatos (EventsSidebar.tsx dice por qué).
 
 import { EventDetailPanel } from '@/app/admin/_polar/web/Events/EventDetailPanel'
@@ -215,7 +216,7 @@ const ClientPage = ({ vista }: { vista: VistaEventos }) => {
     () => conteoPorTipo(vista.eventos, { desde: new Date(0), hasta: new Date(8.64e15) }),
     [vista.eventos],
   )
-  const cortes = cortesVisibles(vista.cortes, listStartDate)
+  const cortes = cortesVisibles(vista.cortes, listStartDate, numerosDe(negociosClave))
 
   const [limite, setLimite] = useState(PAGE_SIZE)
   const filtrosClave = searchParams.toString().replace(/(^|&)event=[^&]*/, '')

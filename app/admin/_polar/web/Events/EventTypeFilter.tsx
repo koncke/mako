@@ -2,8 +2,8 @@
 
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Events/EventTypeFilter.tsx. Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
-// MaKo: los tipos son los cinco de MaKo (`TIPOS_EVENTO`) y llegan ya ordenados por cantidad (`conteoPorTipo`): sin el orden
-// por `source` de Polar (user/system), que acá no existe.
+// MaKo: los tipos son los de MaKo (`TIPOS_EVENTO`) y llegan ya ordenados por cantidad (`conteoPorTipo`): sin el orden
+// por `source` de Polar (user/system).
 
 import { TIPOS_EVENTO, esNombreEvento, type TipoConConteo } from '@/app/admin/_polar/datos/eventos'
 import { Checkbox, Text } from '@/app/admin/_polar/orbit'

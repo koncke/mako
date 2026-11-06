@@ -13,6 +13,7 @@ import type { FilaError } from '@/lib/admin-errores-reglas'
 import type { ResumenPeriodo } from '@/lib/costos-ia'
 import { propsDeMetricas, type PropsDeMetricas } from '../metricas'
 import { armarEventos, type VistaEventos } from '../eventos'
+import { pedidosDe, type Pedido, type ReciboVenta } from '../ventas'
 import { armarCostos, type VistaCostos } from '../costos'
 
 export const HOY_EJEMPLO = new Date('2026-11-06T15:00:00.000Z')
@@ -73,20 +74,44 @@ const SESIONES: SesionAgente[] = [
 
 const NOMBRES: Record<number, string> = { 101: 'Estudio Norte', 102: 'Panadería Sol', 103: 'Clínica Arce' }
 
+// Los pedidos de Sales salen de lo cobrado (como `vistaOrders`), más uno que se devolvió (su recibo dice cuándo).
+const reciboDevuelto: ReciboVenta = {
+  id: 91, numero: 40, estado: 'devuelto', origen: 'manual', aNombre: 'Panadería Sol', destinoWs: 102, cobroId: null,
+  emitidoAt: '2026-10-12T15:00:00.000Z', fechaPago: '2026-10-12T14:00:00.000Z',
+  lineas: [{ concepto: 'Puesta en marcha', mes: null, monto: 300, moneda: 'USD' }],
+  totalDetalle: 300, monedaDetalle: 'USD', totales: [{ moneda: 'USD', monto: 300 }], impuesto: null,
+  correoEstado: 'enviado', correoA: ['mateo@ejemplo.com'], correoError: null, waEstado: 'en_app', waError: null, soloCorreo: false,
+  devueltoAt: '2026-10-20T13:30:00.000Z', devueltoMonto: 300, disputa: null, anuladoAt: null,
+  pagos: [{ id: 92, medio: 'transferencia', referencia: 'TRF-EJEMPLO-92', fecha: '2026-10-12T14:00:00.000Z', monto: 300, moneda: 'USD', montoUsd: 300, de: null, comprobante: false, anulado: false }],
+  historial: [{ at: '2026-10-20T13:30:00.000Z', que: 'Marcado devuelto', quien: 'Super admin' }],
+}
+const PEDIDOS: Pedido[] = pedidosDe({
+  entradas: INGRESOS_EJEMPLO.entradas,
+  recibos: [reciboDevuelto],
+  clientes: new Map(INGRESOS_EJEMPLO.clientes.map((c) => [c.clave, { clave: c.clave, nombre: c.nombre, ws: c.ws, leadId: c.leadId }])),
+  nombreDeWs: new Map(Object.entries(NOMBRES).map(([ws, nombre]) => [Number(ws), nombre])),
+})
+
 export const EVENTOS_EJEMPLO: VistaEventos = armarEventos({
-  ingresos: { entradas: INGRESOS_EJEMPLO.entradas, clientes: INGRESOS_EJEMPLO.clientes },
+  pedidos: PEDIDOS,
+  ingresos: { movimientos: INGRESOS_EJEMPLO.movimientos, clientes: INGRESOS_EJEMPLO.clientes },
+  altas: [
+    { ws: 101, nombre: 'Estudio Norte', creado: '2026-01-02T12:00:00.000Z' },
+    { ws: 102, nombre: 'Panadería Sol', creado: '2026-05-02T12:00:00.000Z' },
+    { ws: 103, nombre: 'Clínica Arce', creado: '2026-08-30T12:00:00.000Z' },
+  ],
   actividad: {
     acciones: ACCIONES, nombres: NOMBRES, medido: true,
     personas: [
-      { id: 501, nombre: 'Laura Pérez', email: 'laura@ejemplo.com', ws: 101, negocio: 'Estudio Norte', creado: '2026-01-02', ultimoLogin: null, rol: 'admin', estado: 'activo' },
-      { id: 502, nombre: 'Mateo Ruiz', email: 'mateo@ejemplo.com', ws: 102, negocio: 'Panadería Sol', creado: '2026-05-02', ultimoLogin: null, rol: 'admin', estado: 'activo' },
+      { id: 501, nombre: 'Laura Pérez', email: 'laura@ejemplo.com' },
+      { id: 502, nombre: 'Mateo Ruiz', email: 'mateo@ejemplo.com' },
     ],
   },
   errores: { errores: ERRORES, hayMas: false, reportes: REPORTES, nombres: NOMBRES },
   agente: { sesiones: SESIONES, nombres: NOMBRES },
   avisos: [],
   ahora: HOY_EJEMPLO,
-  topes: { acciones: 100, reportes: 40, sesiones: 200 },
+  topes: { acciones: 100, reportes: 40, sesiones: 200, accionesDeUnNegocio: 300, reportesDeUnNegocio: 100 },
 })
 
 const corte = (clave: string, llamadas: number, costUsd: number) => ({ clave, llamadas, tokens: llamadas * 1200, costUsd })

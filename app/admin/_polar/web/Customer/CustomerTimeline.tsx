@@ -4,15 +4,18 @@
 // de components/Timeline/Timeline.tsx, Timeline/TimelineItem.tsx y Shared/ContextCard.tsx. Aviso: lib/avisos/LICENSE-POLAR y
 // lib/avisos/NOTICE-POLAR.
 //
-// MaKo: los eventos los arma el server (app/admin/_polar/datos/cliente.ts `eventosDelNegocio`, los mismos de la subpágina
-// Events) y llegan por props; Polar los pide a /v1/events. El pliegue de lo de importancia baja es el de Polar
-// (`segmentosDeTimeline`). Un evento sin página propia en Admin no es un link (Polar cae al detalle del evento, que MaKo no
-// tiene). Las fechas, en español.
+// MaKo: los eventos son los de Admin › Analytics › Events filtrados por el negocio (app/admin/_polar/datos/eventos.ts
+// `timelineDelNegocio`, como Polar, que los pide a /v1/events con `customer_id`), los arma el server y llegan por props. La
+// importancia, el resumen y lo malo de cada uno son los de los renderers de Polar (components/Timeline/renderers.tsx), y el
+// pliegue de lo de importancia baja es el suyo (`segmentosDeTimeline`). Un evento sin página propia en Admin no es un link
+// (Polar cae al detalle del evento: el «Ver todos» lleva ahí). Las fechas, en español.
 
 import {
+  LIMITE_TIMELINE,
   segmentosDeTimeline,
-  type EventoNegocio,
-} from '@/app/admin/_polar/datos/cliente'
+  type EventoDeTimeline,
+  type NombreEvento,
+} from '@/app/admin/_polar/datos/eventos'
 import {
   AllInclusiveOutlined,
   BoltOutlined,
@@ -37,20 +40,32 @@ const ContextCard = ({ children }: PropsWithChildren) => (
   </ShadowBox>
 )
 
-const ICONOS: Record<string, ReactNode> = {
-  customer: <PersonOutlineOutlined fontSize="inherit" />,
-  order: <ShoppingBagOutlined fontSize="inherit" />,
-  subscription: <AllInclusiveOutlined fontSize="inherit" />,
+// Los íconos de categoría de Polar (`CATEGORY_ICONS`: order, subscription, customer) y el de un user event (el rayo).
+const ICONOS: Record<NombreEvento, ReactNode> = {
+  pago: <ShoppingBagOutlined fontSize="inherit" />,
+  devolucion: <ShoppingBagOutlined fontSize="inherit" />,
+  suscripcion: <AllInclusiveOutlined fontSize="inherit" />,
+  alta: <PersonOutlineOutlined fontSize="inherit" />,
   error: <ErrorOutlined fontSize="inherit" />,
-  ticket: <Support fontSize="inherit" />,
+  reporte: <Support fontSize="inherit" />,
   mako: <BoltOutlined fontSize="inherit" />,
+  agente: <BoltOutlined fontSize="inherit" />,
 }
 
-export const iconoDeEvento = (e: Pick<EventoNegocio, 'name'>): ReactNode =>
-  ICONOS[e.name.split('.')[0]] ?? <BoltOutlined fontSize="inherit" />
+export const iconoDeEvento = (e: Pick<EventoDeTimeline, 'nombre'>): ReactNode => ICONOS[e.nombre]
 
-export const formatRelativeTime = (timestamp: string): string => {
-  const date = new Date(timestamp.length === 10 ? `${timestamp}T12:00:00` : timestamp)
+/** «hace 3 h», «ayer». Un evento que sólo tiene su DÍA (un pago) se cuenta en días: no se le inventa una hora. */
+export const formatRelativeTime = (timestamp: string, soloDia = false): string => {
+  const date = new Date(timestamp)
+  if (soloDia) {
+    const hoy = new Date()
+    const dia = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+    const dias = Math.round((dia(hoy) - Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())) / 86_400_000)
+    if (dias <= 0) return 'hoy'
+    if (dias === 1) return 'ayer'
+    if (dias < 7) return `hace ${dias} d`
+    return date.toLocaleDateString('es-AR', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+  }
   const minutes = Math.floor((Date.now() - date.getTime()) / 60_000)
   if (minutes < 1) return 'ahora'
   if (minutes < 60) return `hace ${minutes} min`
@@ -61,12 +76,12 @@ export const formatRelativeTime = (timestamp: string): string => {
   return date.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' })
 }
 
-const fechaLarga = (timestamp: string) =>
-  timestamp.length === 10
-    ? new Date(`${timestamp}T12:00:00`).toLocaleDateString('es-AR', { dateStyle: 'medium' })
+const fechaLarga = (timestamp: string, soloDia = false) =>
+  soloDia
+    ? new Date(timestamp).toLocaleDateString('es-AR', { dateStyle: 'medium', timeZone: 'UTC' })
     : new Date(timestamp).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'medium' })
 
-const TimelineItem = ({ evento }: { evento: EventoNegocio }) => {
+const TimelineItem = ({ evento }: { evento: EventoDeTimeline }) => {
   const contenido = (
     <Box
       alignItems="center"
@@ -105,11 +120,11 @@ const TimelineItem = ({ evento }: { evento: EventoNegocio }) => {
           <Tooltip>
             <TooltipTrigger>
               <Text variant="caption" color="muted" wrap="nowrap">
-                {formatRelativeTime(evento.timestamp)}
+                {formatRelativeTime(evento.timestamp, evento.soloDia)}
               </Text>
             </TooltipTrigger>
             <TooltipContent side="top" align="end">
-              {fechaLarga(evento.timestamp)}
+              {fechaLarga(evento.timestamp, evento.soloDia)}
             </TooltipContent>
           </Tooltip>
         </Box>
@@ -174,7 +189,7 @@ const Timeline = ({
   viewAllHref,
   emptyMessage,
 }: {
-  eventos: EventoNegocio[]
+  eventos: EventoDeTimeline[]
   viewAllHref?: string
   emptyMessage: string
 }) => {
@@ -266,13 +281,11 @@ const Timeline = ({
 }
 
 interface CustomerTimelineProps {
-  eventos: EventoNegocio[]
-  /** La subpágina Events del negocio. */
+  /** Los últimos eventos del negocio, el más nuevo primero (`timelineDelNegocio`). */
+  eventos: EventoDeTimeline[]
+  /** Analytics › Events filtrado por el negocio (`rutaDeEventosDelNegocio`, el `buildCustomerEventsPath` de Polar). */
   viewAllHref: string
 }
-
-/** Cuántos muestra el Timeline (el `limit={20}` de Polar). */
-export const LIMITE_TIMELINE = 20
 
 export const CustomerTimeline = ({ eventos, viewAllHref }: CustomerTimelineProps) => {
   const [source, setSource] = useState<SourceFilter>('system')
