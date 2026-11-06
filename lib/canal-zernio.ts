@@ -753,6 +753,41 @@ export async function conversacionesSocialesNuevas(desdeIso: string): Promise<{ 
 }
 
 /**
+ * LO QUE UNA PERSONA LE MANDÓ A CADA LEAD POR INSTAGRAM O MESSENGER, con su hora (5/11/2026, el «tiempo hasta el primer contacto»,
+ * lib/primer-contacto.ts). Como `salientesSocialesDesde`: lo único que escribe un saliente en `ig_mensajes` es el envío a mano de
+ * Chats, así que esto es lo de una persona (lo de una automatización va a `nutricion_envios` y no se lee acá). Sólo lo que SALIÓ
+ * (`estado = 'enviado'`). Tira si no pudo leer: «no pude» no es «no le escribió nadie».
+ */
+export async function salientesSocialesDeLeads(leadIds: readonly number[]): Promise<Map<number, Array<{ t: number; canal: 'instagram' | 'messenger' }>>> {
+  const out = new Map<number, Array<{ t: number; canal: 'instagram' | 'messenger' }>>();
+  const ids = [...new Set(leadIds.filter((x) => Number.isSafeInteger(x) && x > 0))];
+  if (!ids.length) return out;
+  const db = await getTenantDb();
+  const conv = new Map<number, { lead: number; canal: 'instagram' | 'messenger' }>();
+  for (const tanda of enTandas(ids, 200)) {
+    const r = await db.from('ig_conversaciones').select('id, lead_id, plataforma').in('lead_id', tanda);
+    if (r.error) throw new Error(`conversaciones de Instagram y Messenger: ${r.error.message}`);
+    for (const c of (r.data ?? []) as Array<{ id: number; lead_id: number | null; plataforma: string | null }>) {
+      if (c.lead_id != null) conv.set(Number(c.id), { lead: Number(c.lead_id), canal: c.plataforma === 'instagram' ? 'instagram' : 'messenger' });
+    }
+  }
+  for (const tanda of enTandas([...conv.keys()], 200)) {
+    const filas = await leerTodo<{ conversacion_id: number; created_at: string }>(db, 'ig_mensajes', 'id, conversacion_id, created_at', {
+      filtros: (q) => q.in('conversacion_id', tanda).eq('direccion', 'saliente').eq('estado', 'enviado'),
+    });
+    for (const f of filas) {
+      const c = conv.get(Number(f.conversacion_id));
+      const t = Date.parse(f.created_at);
+      if (!c || !Number.isFinite(t)) continue;
+      const lista = out.get(c.lead) ?? [];
+      lista.push({ t, canal: c.canal });
+      out.set(c.lead, lista);
+    }
+  }
+  return out;
+}
+
+/**
  * Los mensajes SALIENTES de Instagram y Messenger desde `desdeIso`, con el lead de su conversación (clase 2, «el mismo
  * mensaje a 3 leads»). Lo único que escribe un saliente en `ig_mensajes` es el envío a mano de Chats
  * (`enviarManualSocial`): los de una automatización van a `nutricion_envios`. Así que esto son gestos de una persona.

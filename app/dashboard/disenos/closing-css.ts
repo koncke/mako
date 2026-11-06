@@ -290,4 +290,14 @@ export const CSS_CLOSING = `
 .hc-ic--chica{width:9px;height:9px;stroke-width:3.4}
 .hc-ditem--clic{cursor:pointer;border-radius:10px;transition:background-color .2s}
 .hc-ditem--clic:hover{background:var(--panel)}
+
+/* ── El primer contacto (5/11/2026): una fila entera abajo, con el número a la izquierda y los que más esperaron ──── */
+.hc-c12{grid-column:1/-1}
+.hc-contacto{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:start;margin-top:4px}
+.hc-contacto__stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
+.hc-contacto__stats dt{font-size:12px;font-weight:600;color:var(--muted);line-height:17.4px}
+.hc-contacto__stats dd{font-size:20px;font-weight:800;letter-spacing:-.6px;line-height:24px;margin-top:3px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.hc-contacto__fila{display:flex;align-items:center;gap:12px;width:100%;color:inherit;text-decoration:none}
+.hc-contacto__nota{grid-column:1/-1;font-size:12px;color:var(--muted);line-height:17.4px}
+@container hc (max-width:1040px){ .hc-o-9{order:9} .hc-contacto{grid-template-columns:minmax(0,1fr);gap:16px} }
 `;

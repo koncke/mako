@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
   if (!telefono) return Response.json({ ok: false, error: 'destino inválido' }, { status: 400 });
   try {
     // Se contesta por la línea de la bandeja abierta: el contacto le escribió a ESE número.
-    const r = await enviarYEspejar({ telefono, texto, chatJid: body.chat ?? null, leadId: body.leadId ?? null, linea: typeof body.linea === 'string' && body.linea ? body.linea : null });
+    const r = await enviarYEspejar({ quien: 'persona', telefono, texto, chatJid: body.chat ?? null, leadId: body.leadId ?? null, linea: typeof body.linea === 'string' && body.linea ? body.linea : null });
     if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
     return Response.json({ ok: true, chatJid: r.chatJid ?? null });
   } catch (e) {
@@ -166,13 +166,13 @@ async function postMedia(req: NextRequest): Promise<Response> {
   const mimetype = file.type || 'application/octet-stream';
   try {
     if (tipo === 'audio' || mimetype.startsWith('audio/')) {
-      const r = await enviarAudioYEspejar({ telefono, base64, mimetype, leadId, linea });
+      const r = await enviarAudioYEspejar({ quien: 'persona', telefono, base64, mimetype, leadId, linea });
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
       return Response.json({ ok: true, chatJid: r.chatJid ?? null });
     }
     const mediaTipo: 'image' | 'video' | 'document' =
       mimetype.startsWith('image/') ? 'image' : mimetype.startsWith('video/') ? 'video' : 'document';
-    const r = await enviarMediaYEspejar({ telefono, media: { base64, mimetype, fileName: file.name || 'archivo', tipo: mediaTipo }, caption, leadId, linea });
+    const r = await enviarMediaYEspejar({ quien: 'persona', telefono, media: { base64, mimetype, fileName: file.name || 'archivo', tipo: mediaTipo }, caption, leadId, linea });
     if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
     return Response.json({ ok: true, chatJid: r.chatJid ?? null });
   } catch (e) {

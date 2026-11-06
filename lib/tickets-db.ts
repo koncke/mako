@@ -123,7 +123,21 @@ async function anotar(ticketId: number, actor: string, tipo: string, texto: stri
 }
 
 // ── Quién lo levanta ──────────────────────────────────────────────────────────────────────────────────────────────
-export type Identidad = { ws: number; email: string; nombre: string; usuarioId: number | null; rol: string | null; plan: string | null };
+/** `agencia` (5/11/2026): administra una agencia (`administraUnaAgencia`). Sube un escalón la prioridad de su ticket. */
+export type Identidad = { ws: number; email: string; nombre: string; usuarioId: number | null; rol: string | null; plan: string | null; agencia?: boolean };
+
+/**
+ * ¿Quien levanta el ticket ADMINISTRA UNA AGENCIA? (5/11/2026; Martín a Código Inmobiliario, 30/10: sus tickets tienen prioridad.)
+ * Su negocio (el de SU usuario, no el que está mirando: una agencia levanta tickets también desde la cuenta de un cliente) es una
+ * agencia (`esAgencia`, lib/agencia.ts: el plan y la fila) y él es su admin. Un admin global de MaKo no: es Martín. «No pude
+ * leer» es «no»: lo peor que pasa es que el ticket quede con la prioridad que le da el texto.
+ */
+async function administraUnaAgencia(u: { rol: string; rol_ws: string | null; workspace_id: number | null } | null): Promise<boolean> {
+  if (!u || u.rol === 'admin' || u.workspace_id == null) return false;
+  if ((u.rol_ws ?? 'admin') !== 'admin') return false;
+  const { esAgencia } = await import('./agencia');
+  return esAgencia(Number(u.workspace_id)).catch(() => false);
+}
 
 /**
  * La foto de quién lo levanta, leída de la BASE con el email de la sesión (nunca de lo que diga el navegador): su
@@ -136,9 +150,10 @@ export async function identidadDe(ws: number, email: string, nombreSesion = ''):
     getWorkspace(ws).catch(() => null),
   ]);
   const rol = !u ? null : u.rol === 'admin' ? 'admin de MaKo' : (u.rol_ws ?? 'admin');
+  const agencia = await administraUnaAgencia(u);
   return {
     ws, email: limpio, nombre: (u?.nombre || nombreSesion || '').slice(0, 120), usuarioId: u ? Number(u.id) : null,
-    rol, plan: w ? capaDef((w as { capa?: string | null }).capa ?? null).nombre : null,
+    rol, plan: w ? capaDef((w as { capa?: string | null }).capa ?? null).nombre : null, ...(agencia ? { agencia: true } : {}),
   };
 }
 
@@ -287,7 +302,7 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   // la revisión de privacidad): por lo que pidió (el título y lo que escribió), no por la descripción, que trae lo de antes.
   const decideMartin = contexto.delegado ? delegadoQueDecideMartin(`${titulo}\n${contexto.pedido ?? ''}`, n.identidad) : null;
   // Un negocio con la regla de Martín (Leandro, 26/10/2026: lib/tickets-reglas.ts → APROBADOS_POR_REGLA) no espera su aprobación.
-  let triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto, adjuntos: n.adjuntos?.length ?? 0 }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia, decideMartin }); // Leila (27/10)
+  let triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto, adjuntos: n.adjuntos?.length ?? 0 }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia, decideMartin, deAgencia: n.identidad.agencia === true }); // Leila (27/10)
   // ⛔ LA CUENTA DE REVISIÓN DE LAS TIENDAS (4/11/2026): su contraseña la tienen terceros, y lo que escribe en un ticket lo leen chats que
   // suben a main (la regla de Martín del 27/10: «siempre lee todos los tickets e implementalos»). Se guarda SIN DESPACHO: ni al arreglo
   // automático, ni al Cerebro (queda «no entregado» con los intentos agotados, y el Runner además la saltea por su negocio:
