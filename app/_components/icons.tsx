@@ -11,6 +11,8 @@ import { TUERCA } from '../_ui/icono-tuerca';
 
 const PATHS: Record<string, ReactNode> = {
   general: (<><path d="M4 15a8 8 0 0 1 16 0" /><path d="M12 15l4.2-3.4" /><circle cx="12" cy="15" r="1.1" /><path d="M4.2 15H5.6M18.4 15h1.4M12 7.2V5.6" /></>),
+  // Marketing CoPilot (6/11/2026): una brújula con una chispa; no se parece a ninguna otra tab de la barra.
+  copiloto: (<><circle cx="12" cy="12" r="8.5" /><path d="M15.2 8.8l-1.7 4.7-4.7 1.7 1.7-4.7z" /><path d="M12 3.5V5" /><path d="M12 19v1.5" /></>),
   grid: (<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 9h17" /><path d="M3.5 14h17" /><path d="M9 9v10.5" /><path d="M15 9v10.5" /></>),
   tvad: (<><rect x="4" y="8" width="16" height="12" rx="2.5" /><path d="M8.5 8 12 4.2 15.5 8" /><path d="M8.5 20v1.6M15.5 20v1.6" /><path d="M10.5 11.3l4.2 2.7-4.2 2.7Z" /></>),
   crm: (<><circle cx="9" cy="8" r="3.2" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 5.2a3 3 0 0 1 0 5.6" /><path d="M17.5 14.2A5.5 5.5 0 0 1 21.5 20" /></>),

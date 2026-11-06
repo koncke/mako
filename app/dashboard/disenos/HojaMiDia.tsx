@@ -147,7 +147,7 @@ const ACCESOS: ReadonlyArray<{ rotulo: string; href: string; icono: keyof typeof
   { rotulo: 'Calendario', href: '/calendario', icono: 'grid', tono: 'var(--moss)' },
   { rotulo: 'Classroom', href: '/classroom', icono: 'wallet', tono: 'var(--marigold)' },
   { rotulo: 'Offer', href: '/offer', icono: 'book', tono: 'var(--coral)' },
-  { rotulo: 'Ads Manager', href: '/ads-manager', icono: 'chart', tono: 'var(--clay)' },
+  { rotulo: 'Marketing CoPilot', href: '/ads-manager', icono: 'chart', tono: 'var(--clay)' },
   { rotulo: 'Automations', href: '/automations', icono: 'sparkle', tono: 'var(--pine)' },
 ];
 const KPI: Record<VistaMiDia['numeros'][number]['id'], { tono: string; icono: keyof typeof P; href: string | null }> = {

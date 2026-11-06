@@ -43,7 +43,7 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   general: { titulo: 'General', tab: 'General', ruta: '/general' },
   plan: { titulo: 'Plan', tab: 'Plan', ruta: '/plan' },
   crm: { titulo: 'CRM', tab: 'CRM', ruta: '/crm' },
-  ads: { titulo: 'Ads (Manager y Analyst)', tab: 'Ads Manager', ruta: '/ads-manager' },
+  ads: { titulo: 'Ads (Manager y Analyst)', tab: 'Marketing CoPilot', ruta: '/ads-manager' },
   // La bandeja unificada (14/10/2026, docs/diseno-chats.md): WhatsApp, Instagram y Messenger por contacto. Lee y
   // cambia el ESTADO de una conversación (cerrar, reabrir, posponer); no manda nada (eso es crear_borrador_whatsapp_empresa).
   chats: { titulo: 'Chats (WhatsApp, Instagram y Messenger)', tab: 'Chats', ruta: '/chats' },

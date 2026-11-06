@@ -41,7 +41,7 @@ const BASE: Array<Omit<Capacidad, 'tab' | 'funcion'>> = [
   {
     id: 'ads-publicar', ruta: '/ads-manager',
     que: 'Crear una campaña de Meta, subirle creativos, prenderla o pausarla, cambiarle el presupuesto y renombrarla — sin salir a Meta.',
-    como: ['Entra a Ads Manager', 'Toca "Nueva campaña" y cuéntale a MaKo qué quieres promocionar', 'Elige los creativos y revisa la estructura que arma', 'Se publica en PAUSA: la prendes tú cuando la miraste'],
+    como: ['Entra a Marketing CoPilot', 'Toca "Nueva campaña" y cuéntale a MaKo qué quieres promocionar', 'Elige los creativos y revisa la estructura que arma', 'Se publica en PAUSA: la prendes tú cuando la miraste'],
   },
   {
     // Empieza por Avatares, que es el primer paso del «como»; el resto son áreas vecinas de la misma pantalla.

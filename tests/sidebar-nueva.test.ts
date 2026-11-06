@@ -105,7 +105,8 @@ test('las familias del prototipo: lo diario, y Sales · Marketing · Create; Hom
   const de = (k: string) => itemsDe(FAMILIAS.find((f) => f.key === k)!).map((i) => i.key);
   assert.deepEqual(FAMILIAS[0].bloques.flat().map((i) => i.key), ['todo', 'bandeja', 'graphics'], 'lo diario: Plan, Chats y Dashboard');
   for (const k of ['crm', 'calendario', 'setting', 'customer-success']) assert.ok(de('sales').includes(k), `«${k}» no está en Sales`);
-  for (const k of ['offer', 'landing-writer', 'ads-manager']) assert.ok(de('marketing').includes(k), `«${k}» no está en Marketing`);
+  for (const k of ['offer', 'ads-manager']) assert.ok(de('marketing').includes(k), `«${k}» no está en Marketing`);
+  assert.ok(de('create').includes('landing-writer'), 'Web Generator vive en Create desde el 6/11/2026');
   // Copywriting ES el Copywriter desde el 29/10/2026 (key `copywriter`); el Ads Writer sigue por su ruta, en SIN_FILA.
   for (const k of ['video-editor', 'image-editor', 'copywriter']) assert.ok(de('create').includes(k), `«${k}» no está en Create`);
   assert.ok(!de('create').includes('ads-writer') && SIN_FILA.some((i) => i.key === 'ads-writer'), 'Ads Writer');
@@ -276,7 +277,7 @@ test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Dashboard �
   assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label) && f.label !== 'Agency Dashboard').length, 0, 'More repite el Dashboard de la barra');
   const create = mas.find((g) => g.id === 'create')!;
   // AI Avatar, de Pro desde el 29/10/2026: una fila más de Create, como en la sidebar.
-  assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting', 'AI Avatar']);
+  assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting', 'AI Avatar', 'Web Generator']);
 });
 
 test('arriba de todo: Ops Center (sólo el super admin) y Second Brain (los demás), cada uno con su criatura', () => {
@@ -414,8 +415,9 @@ test('todos los workspaces: la misma barra para el super admin, un cliente y un 
     // ⚠️ 2/11/2026 — OFFER YA NO SE DIBUJA. Martín: «la de offer no la quiero». El ítem SIGUE
     // EXISTIENDO con su key —es contrato con la base— y se oculta con `fueraDeLaBarra`
     // (lib/nav-visibilidad.ts). Ads Manager NO se tocó, por pedido suyo.
-    ['Marketing', ['Web Generator', 'Ads Manager', 'Competitor Spy']],
-    ['Create', ['Video', 'Image', 'Copywriting', 'AI Avatar']],
+    ['Marketing', ['Marketing CoPilot', 'Competitor Spy']],
+    // 6/11/2026: Web Generator pasó a Create y Ads Manager se llama Marketing CoPilot (Martín).
+    ['Create', ['Video', 'Image', 'Copywriting', 'AI Avatar', 'Web Generator']],
   ]);
   // El setter: lo que su rol tiene anotado, en las mismas familias. Calendar desde el 6/11/2026 (sólo sus «Llamadas»).
   assert.deepEqual(visibles({ adminShell: false, rolWs: 'setter', capa: 'completo' }), [

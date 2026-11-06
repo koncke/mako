@@ -105,11 +105,11 @@ test('CRM · Chats · Ops Center · Dashboard · More; More por las familias de 
     ['plan', 'todo', 'diario', false], ['dashboard', 'graphics', 'diario', false],
     ['calendario', 'calendario', 'sales', false], ['automations', 'setting', 'sales', false],
     ['cs', 'customer-success', 'sales', false], ['partners', 'partners', null, true], ['agency', 'agency', null, true],
-    ['offer', 'offer', 'marketing', false], ['landing', 'landing-writer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
+    ['offer', 'offer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
     // 29/10/2026 (Create sin pestañas): la fila Video abre el editor, como la sidebar.
     ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'copywriter', 'create', false],
     // AI Avatar, para todos desde el 29/10/2026: fila de Create, como Video.
-    ['ai-avatar', 'ai-avatar', 'create', false],
+    ['ai-avatar', 'ai-avatar', 'create', false], ['landing', 'landing-writer', 'create', false],
     // Lead Magnet (5/11/2026): sólo de la plataforma por ahora, oculta como Admin (More le arma la fila desde la sidebar).
     ['lead-magnet', 'lead-magnet-generator', null, true],
     ['mako', 'mako', null, false],
@@ -136,9 +136,9 @@ test('admin de un cliente completo: la barra de cinco y More con todo, una caja 
   // Desde el 20/10/2026 el Ops Center (`mako`) está en la barra, así que la caja de arriba (sin título) quedó vacía y no
   // se dibuja; lo diario (Plan desde el 04/11/2026: el Dashboard volvió a la barra), Sales, Marketing y Create.
   assert.deepEqual(mas('admin', 'completo'), [
-    ['plan'], ['calendario', 'automations', 'cs'], ['offer', 'landing', 'ads'],
+    ['plan'], ['calendario', 'automations', 'cs'], ['offer', 'ads'],
     // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video; AI Avatar (de Pro) desde el 29/10/2026.
-    ['video', 'image', 'copywriting', 'ai-avatar'],
+    ['video', 'image', 'copywriting', 'ai-avatar', 'landing'],
   ]);
   // Lo diario con título desde el 20/10/2026 (en escritorio lleva rótulo y el Ops Center adentro).
   assert.deepEqual(familias('admin', 'completo'), ['Today', 'Sales', 'Marketing', 'Create']);

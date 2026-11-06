@@ -417,8 +417,10 @@ export const FAMILIAS: NavFamilia[] = [
         // las rutas viejas. Al reescribir esta línea perdí `/admin/offer-playbook` y el run salió
         // rojo con razón — `tests/offer-en-create.test.ts` lo exige.
         { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', fueraDeLaBarra: true, match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p) },
-        { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
-        { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
+        // 6/11/2026, Martín: «quiero que la tab se llame "Marketing CoPilot", porque la idea no es que sólo haga anuncios… y debería tener
+        // otro icono». LA KEY Y LA RUTA NO CAMBIAN: `ads-manager` es contrato con la base (capas, permisos, onboarding, API, móvil) y
+        // `/ads-manager` lo abren links guardados; lo que cambia es el rótulo y el ícono. Ver docs/relevo/nube-marketing-copilot.md.
+        { key: 'ads-manager', label: 'Marketing CoPilot', href: '/ads-manager', icon: 'copiloto', match: starts('/ads-manager') },
         // Competitor Spy: vino de Analyze el 17/10/2026 y estuvo en PRONTO hasta el 31/10/2026, cuando dejó de ser
         // ComingSoon (la Etapa 1 de docs/diseno-competitors-spy.md: lista, ficha por bloques y onboarding). Marketing es
         // la casa que el comentario de PRONTO ya le había asignado. Sigue `adminOnly` desde el 12/10/2026 (Martín:
@@ -467,6 +469,8 @@ export const FAMILIAS: NavFamilia[] = [
           key: 'ai-avatar', label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil',
           match: starts('/ai-avatar'),
         },
+        // 6/11/2026, Martín: «Web Generator debería estar en la sección de "Create"». Es una pieza que se produce (la web), no algo que se ejecuta.
+        { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
         {
           // 5/11/2026: sale de «Coming soon» a su casa futura (Create), con el diseño único de Create (app/_crear/PantallaCrear.tsx):
           // plantillas de guía, checklist, prompts, planilla y clase grabada que crean la pieza en su herramienta (lib/lead-magnets/).

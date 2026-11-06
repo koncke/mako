@@ -64,7 +64,7 @@ export const VOCABULARIO_MAKO = [
   'Stripe', 'Mercado Pago', 'Calendly', 'Zoom', 'Meet', 'Gemini', 'Claude', 'Anthropic', 'OpenAI', 'ChatGPT',
   'Evolution', 'Resend', 'Excel', 'Sheets', 'Looker', 'Canva', 'CapCut', 'Notion', 'Trello',
   'General', 'Foco', 'Plan', 'CRM', 'Chats', 'Automations', 'Dashboard', 'Offer', 'Second Brain', 'Ops Center',
-  'Web Generator', 'Landing', 'Video Editor', 'Image Editor', 'Ads Manager', 'Ads Analyst', 'Ads Writer',
+  'Web Generator', 'Landing', 'Video Editor', 'Image Editor', 'Ads Manager', 'Marketing CoPilot', 'Ads Analyst', 'Ads Writer',
   'Closing Analyst', 'Customer Success', 'Integraciones', 'Configuraciones', 'Pagos', 'Cobros', 'Review', 'Perro',
 ];
 

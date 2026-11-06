@@ -4223,7 +4223,7 @@ curl -L \
 
 ## Ads (Manager y Analyst) — `ads`
 
-Tab **Ads Manager** (`/ads-manager`). 41 lecturas · 43 acciones.
+Tab **Marketing CoPilot** (`/ads-manager`). 41 lecturas · 43 acciones.
 
 ### `GET /api/v1/ads/campanas` — Campañas con gasto en 30 días
 

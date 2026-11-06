@@ -232,8 +232,7 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'agency', label: 'Agency Dashboard', href: '/m/agency', icon: 'users', navKey: 'agency', familia: null, oculta: true },
   // Marketing.
   { id: 'offer', label: 'Offer', href: '/m/offer', icon: 'tag', navKey: 'offer', familia: 'marketing' },
-  { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'marketing' },
-  { id: 'ads', label: 'Ads Manager', href: '/m/ads', icon: 'grid', navKey: 'ads-manager', familia: 'marketing' },
+  { id: 'ads', label: 'Marketing CoPilot', href: '/m/ads', icon: 'copiloto', navKey: 'ads-manager', familia: 'marketing' },
   // Create (las piezas).
   // Video y Copywriting son tabs UNIFICADAS de escritorio: la key que gatea es la de la
   // sección que el teléfono muestra (Video Generator; Ads Writer, la única de Copywriting que ve un
@@ -252,6 +251,8 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // AI Avatar (29/10/2026): para todos los planes, como Video. Hasta ese día era sólo del super admin y no tenía fila (More se
   // la armaba desde la sidebar). Una pantalla, el estudio de Higgsfield (app/m/ai-avatar).
   { id: 'ai-avatar', label: 'AI Avatar', titulo: 'AI Avatar', href: '/m/ai-avatar', icon: 'perfil', navKey: 'ai-avatar', familia: 'create' },
+  // Web Generator pasó a Create el 6/11/2026 (Martín), como en escritorio.
+  { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'create' },
   // Lead Magnet (5/11/2026): la lista de lead magnets y las plantillas (app/m/lead-magnet-generator). Por ahora sólo la plataforma
   // (app/lead-magnet-generator/puerta.ts, `adminOnly` en nav.ts): fila OCULTA y de super admin, como Admin (Customers): More le
   // arma su fila desde la sidebar a quien la ve (`filaDeItem`); ésta le da a la pantalla su cabecera y su título.
