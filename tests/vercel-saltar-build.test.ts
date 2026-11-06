@@ -85,10 +85,10 @@ test('ante la duda construye: sin el deploy anterior, con un commit que no lleg�
   assert.equal(construye([]), true, 'un redeploy sin cambios es a propósito');
 });
 
-test('vercel.json: las ramas de trabajo no construyen, main sí, y el paso de saltear está puesto', () => {
+test('vercel.json: ninguna rama construye con un push, ni main (la compila el cron: tests/desplegar-main.test.ts), y el paso de saltear está puesto', () => {
   const v = JSON.parse(readFileSync(join(RAIZ, 'vercel.json'), 'utf8')) as { ignoreCommand?: string; git?: { deploymentEnabled?: Record<string, boolean> } };
   const ramas = v.git?.deploymentEnabled ?? {};
   for (const r of ['claude/**', 'punta/**', 'integracion', 'ci-rojo/**', 'espera-main/**']) assert.equal(ramas[r], false, `${r} construiría un preview en cada push`);
-  assert.notEqual(ramas.main, false, 'main es producción');
+  assert.equal(ramas.main, false, 'cada push a main compilaría en una máquina de 30 núcleos');
   assert.equal(v.ignoreCommand, 'bash scripts/vercel-saltar-build.sh');
 });

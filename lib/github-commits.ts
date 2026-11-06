@@ -69,6 +69,25 @@ async function gh(ruta: string, tk: string): Promise<unknown> {
 }
 
 /**
+ * Qué tiene `main` que no tenga `base`: su último commit, cuántos le lleva y qué archivos cambiaron. Lo usa el cron que
+ * compila producción (lib/desplegar-main.ts). Nunca lanza: sin esto, ese cron compila igual.
+ */
+export async function compararConMain(base: string): Promise<{ ok: true; main: string; adelante: number; archivos: string[] } | { ok: false; motivo: string }> {
+  try {
+    const tk = await token();
+    if (!tk) return { ok: false, motivo: 'No hay GITHUB_TOKEN cargado.' };
+    const repo = await repoActual();
+    // Se lee aparte: la comparación corta en 250 commits, y su último no sería el de main.
+    const main = ((await gh(`/repos/${repo}/commits/main`, tk)) as { sha?: string }).sha;
+    if (!main) return { ok: false, motivo: 'GitHub no dijo cuál es el último commit de main.' };
+    const c = (await gh(`/repos/${repo}/compare/${encodeURIComponent(base)}...${main}`, tk)) as { ahead_by?: number; files?: Array<{ filename?: string }> };
+    return { ok: true, main, adelante: c.ahead_by ?? 0, archivos: (c.files ?? []).map((f) => f.filename ?? '').filter(Boolean) };
+  } catch (e) {
+    return { ok: false, motivo: msg(e) };
+  }
+}
+
+/**
  * Los commits de `main` desde una fecha. `desdeISO` vacío = las últimas 24 horas, que es
  * la cadencia del cron: pedir todo el historial la primera vez traería mil commits y
  * ninguno sirve para saber qué se terminó ESTA semana.
