@@ -9,17 +9,34 @@
 import { DashboardBody } from '@/app/admin/_polar/web/Layout/DashboardLayout'
 import OrganizationCustomerEmailSettings from '@/app/admin/_polar/web/Settings/OrganizationCustomerEmailSettings'
 import OrganizationPaymentSettings from '@/app/admin/_polar/web/Settings/OrganizationPaymentSettings'
+import { MembersSection } from '@/app/admin/_polar/web/Customer/CustomerPage/MembersSection'
+import type { LecturaMiembros } from '@/app/admin/_polar/datos/cliente-server'
 import { SETTINGS_SECTIONS, type SettingsSectionSlug } from '@/app/admin/_polar/web/Settings/settingsSections'
 import { Alert } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import type { DatosNotificaciones, DatosPagos } from '@/app/admin/_polar/datos/ajustes'
 
 type Props =
+  | { section: 'members'; miembros: LecturaMiembros; negocios: Array<{ ws: number; nombre: string }> | null }
   | { section: 'payments'; pagos: DatosPagos }
   | { section: 'customer-notifications'; notificaciones: DatosNotificaciones }
 
 const SectionContent = (props: Props) => {
   switch (props.section) {
+    // Las personas de la plataforma (punto 25): las mismas piezas que Members de la ficha, con lo suyo (`destino="plataforma"`:
+    // «Agregar persona» suma un admin de MaKo, y la columna «Tipo» dice de qué lado está cada una).
+    case 'members':
+      return props.miembros.ok ? (
+        <MembersSection
+          miembros={props.miembros.miembros}
+          destino="plataforma"
+          negocios={props.negocios}
+          sinTitulo
+          vacio={{ titulo: 'Sin personas', texto: 'Nadie de MaKo tiene cuenta.' }}
+        />
+      ) : (
+        <Alert variant="danger" title="No pude leer las personas de MaKo" description={props.miembros.error} />
+      )
     case 'payments':
       return <OrganizationPaymentSettings datos={props.pagos} />
     case 'customer-notifications':

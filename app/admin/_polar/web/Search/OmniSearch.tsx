@@ -134,7 +134,7 @@ export const OmniSearch = ({
         path = hrefDeNegocio(result.ws)
         break
       case 'member':
-        path = result.ws != null ? hrefDePersona(result.ws) : ''
+        path = hrefDePersona(result.ws)
         break
     }
 

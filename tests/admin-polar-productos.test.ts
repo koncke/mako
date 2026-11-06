@@ -241,7 +241,7 @@ test('Settings: los precios como los escribe una persona, y lo que no se entiend
   assert.equal(numeroSimple('0'), undefined)
 })
 
-test('Settings: el emisor se manda ENTERO, con los cambios encima', () => {
+test('Settings: el server mezcla los cambios sobre el emisor guardado (lo que pide cada pantalla, punto 15)', () => {
   const base: Emisor = { nombre: 'MaKo · hola-mako.com', documento: 'CUIT 30-00000000-0', direccion: null, correo: 'hola@ejemplo.com', asunto: null, intro: null }
   const conAsunto = emisorConCambios(base, { asunto: '  Tu recibo {{numero}} ' })
   assert.equal(conAsunto.asunto, 'Tu recibo {{numero}}')
@@ -259,7 +259,8 @@ test('Settings: el emisor se manda ENTERO, con los cambios encima', () => {
 test('Settings: sólo las secciones que MaKo llena (lo demás de Polar es un 404)', () => {
   assert.equal(getSettingsSection('payments')?.title, 'Payments')
   assert.equal(getSettingsSection('customer-notifications')?.title, 'Customer Notifications')
-  assert.equal(getSettingsSection('members'), undefined)
+  assert.equal(getSettingsSection('members')?.title, 'Members', 'las personas de la plataforma (punto 25)')
+  assert.equal(getSettingsSection('billing'), undefined)
   assert.equal(getSettingsSection('__proto__'), undefined)
   assert.equal(getSettingsSection('toString'), undefined)
 })
@@ -270,7 +271,7 @@ test('Settings › General: «Ver ejemplo» abre el PDF de ejemplo del recibo, j
   const ruta = `app${RUTA_EJEMPLO_RECIBO}/route.ts`
   assert.ok(statSync(join(RAIZ, ruta)).isFile(), `${ruta} no existe`)
   const src = sinComentarios(leer('app/admin/_polar/web/Settings/OrganizationProfileSettings.tsx'))
-  const grupo = src.slice(src.indexOf('<SettingsGroup title="Perfil"'), src.indexOf('</SettingsGroup>'))
+  const grupo = src.slice(src.indexOf('<SettingsGroup title="Profile"'), src.indexOf('</SettingsGroup>'))
   assert.ok(grupo.includes('<OrganizationDetailsForm />'), 'el renglón va en el mismo grupo que los datos del emisor')
   assert.match(grupo, /<SettingsGroupItem title="Ver ejemplo"[\s\S]*onClick=\{\(\) => window\.open\(RUTA_EJEMPLO_RECIBO, '_blank', 'noopener,noreferrer'\)\}/)
 })

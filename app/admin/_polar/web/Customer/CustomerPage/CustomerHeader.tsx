@@ -14,6 +14,9 @@
 // Se sacó «Add Credits»: MaKo no tiene créditos por cliente. ⚠️ Lo que falla se dice debajo del menú (Admin no tiene el toast).
 // «Administrar», en el clic derecho de la lista (../menu-contextual-negocios.ts), llega con `?editar=1`: abre «Editar negocio» y
 // saca el parámetro de la URL (un F5 no lo vuelve a abrir).
+// ⚠️ ELIMINADO, SIN MENÚ (punto 20 de la revisión del 6/11/2026): la ficha borrada queda a la vista con lo que se llevó y sólo
+//    «Ir a Customers» (`NegocioEliminado`), que hace `push` Y `refresh` (`irALaLista`): sin el refresh, la lista de la izquierda
+//    y ⌘K seguían mostrando el negocio, con un 404 al tocarlo.
 
 import { EditCustomerModal } from '@/app/admin/_polar/web/Customer/EditCustomerModal'
 import { ConfirmModal } from '@/app/admin/_polar/web/Modal/ConfirmModal'
@@ -34,11 +37,18 @@ import { useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cambiarQuery } from '@/app/admin/_polar/web/Customer/useClientSidePagination'
 import { PARAM_EDITAR } from '../menu-contextual-negocios'
-import { accionDelNegocio } from './acciones'
+import { accionDelNegocio, irALaLista } from './acciones'
 
 interface CustomerHeaderProps {
   negocio: NegocioCabecera
 }
+
+/** La cabecera de un negocio que se acaba de eliminar: lo que se llevó y la salida a la lista. Sin menú: ya no hay negocio. */
+export const NegocioEliminado = ({ resumen, onIr }: { resumen: string; onIr: () => void }) => (
+  <Box flexDirection="column" alignItems="end" rowGap="s">
+    <Alert variant="success" title="Negocio eliminado" description={resumen} actions={[{ text: 'Ir a Customers', onClick: onIr }]} />
+  </Box>
+)
 
 export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
   const router = useRouter()
@@ -90,6 +100,8 @@ export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
     //    nada. Sin refrescar: esta ficha ya no existe, y la salida es el botón a la lista.
     setEliminado(resumenDeBorrado(negocio.nombre, r.datos))
   }, [negocio])
+
+  if (eliminado) return <NegocioEliminado resumen={eliminado} onIr={() => irALaLista(router)} />
 
   return (
     <Box flexDirection="column" alignItems="end" rowGap="s">
@@ -166,14 +178,6 @@ export const CustomerHeader = ({ negocio }: CustomerHeaderProps) => {
         />
       </Box>
       {error && <Alert variant="danger" title="No se pudo" description={error} onDismiss={() => setError(null)} />}
-      {eliminado && (
-        <Alert
-          variant="success"
-          title="Negocio eliminado"
-          description={eliminado}
-          actions={[{ text: 'Ir a Customers', onClick: () => router.push('/admin/customers') }]}
-        />
-      )}
     </Box>
   )
 }

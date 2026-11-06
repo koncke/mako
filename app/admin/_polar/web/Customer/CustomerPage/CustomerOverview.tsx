@@ -12,6 +12,7 @@ import type {
   AltaNegocio,
   ComputadorasDeLaFicha,
   ConexionNegocio,
+  DesconectarComputadora,
   NegocioCabecera,
 } from '@/app/admin/_polar/datos/cliente'
 import type { EventoDeTimeline } from '@/app/admin/_polar/datos/eventos'
@@ -28,24 +29,30 @@ export interface CustomerOverviewProps {
   negocio: NegocioCabecera
   alta: AltaNegocio
   inicio: string
+  /** El día de hoy (YYYY-MM-DD), el de Sales. */
+  hoy: string
   pedidos: Pedido[]
   mrrUsd: number | null
   suscripciones: SuscripcionVenta[]
   conexiones: ConexionNegocio[] | null
   computadoras: ComputadorasDeLaFicha
   eventos: EventoDeTimeline[]
+  /** «Desconectar» una computadora: la server action que pasa la página (la ficha no la importa). */
+  desconectar?: DesconectarComputadora
 }
 
 export const CustomerOverview = ({
   negocio,
   alta,
   inicio,
+  hoy,
   pedidos,
   mrrUsd,
   suscripciones,
   conexiones,
   computadoras,
   eventos,
+  desconectar,
 }: CustomerOverviewProps) => {
   return (
     <Box flexDirection="column" rowGap="5xl">
@@ -56,8 +63,9 @@ export const CustomerOverview = ({
         alta={alta}
         conexiones={conexiones}
         computadoras={computadoras}
+        desconectar={desconectar}
       />
-      <CustomerSubscriptionsTable suscripciones={suscripciones} />
+      <CustomerSubscriptionsTable suscripciones={suscripciones} hoy={hoy} />
       <CustomerOrdersTable pedidos={pedidos} />
     </Box>
   )

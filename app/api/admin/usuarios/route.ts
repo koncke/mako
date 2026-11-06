@@ -102,6 +102,12 @@ type Body = {
   foto_url?: string;
 };
 
+// ⚠️ EL NEGOCIO TIENE QUE EXISTIR (6/11/2026, al volver «Agregar persona» y mudarla de negocio a Admin › Members): sin esto,
+// un `workspace_id` cualquiera dejaba a la persona colgada de un negocio que no existe, sin ficha donde verla.
+async function negocioExiste(id: number): Promise<boolean> {
+  return (await listarWorkspaces()).some((w) => w.id === id);
+}
+
 // true si tocar (bajar de rol / suspender / borrar) a este usuario dejaría a la
 // AGENCIA sin ningún admin activo.
 async function dejariaSinAdmins(u: Usuario): Promise<boolean> {
@@ -143,6 +149,9 @@ export async function POST(req: NextRequest) {
         const invitadoPor = admin.legacy ? 'admin' : (admin.email || 'admin');
         // Un usuario (no admin) tiene que pertenecer a un workspace.
         const wsId = typeof body.workspace_id === 'number' ? body.workspace_id : null;
+        if (rol !== 'admin' && wsId != null && !(await negocioExiste(wsId))) {
+          return NextResponse.json({ ok: false, error: 'Ese negocio no existe.' }, { status: 400 });
+        }
         // rol dentro del negocio: admin de agencia → null; usuario-cliente → el
         // rol pedido (default 'admin', el dueño del negocio).
         const rolWs: RolWorkspace | null = rol === 'admin'
@@ -161,6 +170,9 @@ export async function POST(req: NextRequest) {
       case 'workspace': {
         if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
         const wsId = typeof body.workspace_id === 'number' ? body.workspace_id : null;
+        if (wsId != null && !(await negocioExiste(wsId))) {
+          return NextResponse.json({ ok: false, error: 'Ese negocio no existe.' }, { status: 400 });
+        }
         // Mover/desasignar al único admin-cliente lo sacaría de su workspace y lo
         // dejaría sin ningún admin de cliente.
         if (wsId !== objetivo.workspace_id && (await dejariaClienteSinAdmin(objetivo))) {

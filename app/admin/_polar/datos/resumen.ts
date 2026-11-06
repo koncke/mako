@@ -33,6 +33,7 @@ import type { MetricaSlug } from './metricas'
 import type { PlanAlta } from './alta'
 import { leadDeClave, rutaDeQuienPaga, type ClienteEnRiesgo, type PropsAtRisk } from './clientes'
 import type { DisputaVenta } from './ventas'
+import { RUTA_MIEMBROS_PLATAFORMA } from './personas'
 
 /** Lo que leyó el server: los datos, o por qué no se pudo. */
 export type Lectura<T> = { ok: true; datos: T } | { ok: false; error: string }
@@ -66,7 +67,8 @@ export function destinoDeTabViejo(sp: { tab?: Param; cliente?: Param; cuenta?: P
     case 'revenue':
       return '/admin/analytics/metrics'
     case 'users':
-      return '/admin/customers'
+      // Las personas de la plataforma viven en Settings › Members (punto 25); las de cada negocio, en su ficha.
+      return RUTA_MIEMBROS_PLATAFORMA
     case 'customers': {
       const n = ws(sp.cliente)
       return n ? `/admin/customers/${n}` : '/admin/customers'

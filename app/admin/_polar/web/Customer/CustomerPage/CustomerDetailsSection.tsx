@@ -3,23 +3,27 @@
 // Copiado de polarsource/polar (Apache-2.0) y modificado para MaKo, clients/apps/web/src/components/Customer/CustomerPage/CustomerDetailsSection.tsx
 // (y `ClickToCopy`/`copyable` de components/Shared/ClickToCopy.tsx). Aviso: lib/avisos/LICENSE-POLAR y lib/avisos/NOTICE-POLAR.
 //
-// MaKo: las mismas secciones de renglones con su filete, dos por fila desde md. Lo que Polar pone en cada una lo reemplaza lo
-// que un negocio de MaKo tiene:
+// MaKo: las mismas secciones de renglones con su filete, dos por fila desde md. Los títulos van en inglés, como los de Polar y
+// el resto de la ficha (Metrics, Timeline, Subscriptions: punto 39 de la revisión del 6/11/2026); lo que dice cada renglón, en
+// español. Lo que Polar pone en cada una lo reemplaza lo que un negocio de MaKo tiene:
 //   · Details: su id, su nombre, su plan, su estado y su alta (Polar: id, external id, email, name, type, created);
-//   · Alta (en el lugar de Billing): el onboarding, la prueba, el plan a mano y si es de una agencia. Polar pone ahí el saldo,
+//   · Activity (punto 27): si lo usan — el último ingreso de su equipo, sus leads (cuántos y el último) y las sesiones del agente
+//     en 30 días. Es lo que mostraba la ficha anterior y ya se calcula para la lista; no es la pantalla de actividad descartada;
+//   · Onboarding (en el lugar de Billing): el estado del alta, la prueba, el plan a mano y si es de una agencia. Polar pone ahí el saldo,
 //     el nombre fiscal, el Tax ID, la dirección y el país: MaKo no los guarda de un negocio-cliente (se sacaron). Y lo que
 //     mostraba la grilla vieja de Admin (decisión del Cerebro, 6/11/2026): el primer mes con el 50%, cómo llegó, qué quería
 //     resolver y lo que dijo que había que corregir en su oferta;
-//   · Conexiones (en el lugar de Metadata): las integraciones que tiene conectadas y sus computadoras, cada una con
+//   · Integrations (en el lugar de Metadata): las integraciones que tiene conectadas y sus computadoras, cada una con
 //     «Desconectar» (decisión del Cerebro, 6/11/2026; la acción del Centro, `desconectarComputadoraAction`, que vuelve a pedir
-//     `puedeOperar`: el segundo factor). Sin la guarda, las computadoras no llegan a la pantalla (`'oculto'`).
+//     `puedeOperar`: el segundo factor). Sin la guarda, las computadoras no llegan a la pantalla (`'oculto'`). La acción llega
+//     por prop desde la página del server (`desconectar`): esta vista no importa la server action (ver `DesconectarComputadora`),
+//     y sin la prop no hay botón.
 // ⚠️ `ClickToCopy` copia sin el toast de Polar (Admin no tiene un Toaster): el renglón dice «Copiado» un momento.
 
-import type { AltaNegocio, ComputadorasDeLaFicha, ConexionNegocio, NegocioCabecera } from '@/app/admin/_polar/datos/cliente'
-import { computadorasDeLaFicha, conexionesConectadas } from '@/app/admin/_polar/datos/cliente'
+import type { AltaNegocio, ComputadorasDeLaFicha, ConexionNegocio, DesconectarComputadora, NegocioCabecera } from '@/app/admin/_polar/datos/cliente'
+import { computadorasDeLaFicha, conexionesConectadas, textoDeLeads, textoDeSesiones } from '@/app/admin/_polar/datos/cliente'
 import { Alert, Button, Grid, Status, Text } from '@/app/admin/_polar/orbit'
 import { ConfirmModal } from '@/app/admin/_polar/web/Modal/ConfirmModal'
-import { desconectarComputadoraAction } from '@/app/admin/operaciones/acciones'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import FormattedDateTime from '@/app/admin/_polar/atoms/FormattedDateTime'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
@@ -32,6 +36,8 @@ interface CustomerDetailsSectionProps {
   conexiones: ConexionNegocio[] | null
   /** `'oculto'` = quien mira no pasa la guarda del Centro (`puedeOperar`): no se dibujan; `null` = no se pudieron leer. */
   computadoras: ComputadorasDeLaFicha
+  /** «Desconectar» (la server action del Centro, que pasa la página). Sin ella, el botón no se dibuja. */
+  desconectar?: DesconectarComputadora
 }
 
 const ClickToCopy = ({ children, value }: { children: ReactNode; value?: string }) => {
@@ -116,6 +122,7 @@ export const CustomerDetailsSection = ({
   alta,
   conexiones,
   computadoras,
+  desconectar: desconectarAccion,
 }: CustomerDetailsSectionProps) => {
   const conectadas = conexiones ? conexionesConectadas(conexiones) : null
   // La lista de computadoras se actualiza con lo que devuelve «Desconectar» (la lectura nueva de ESE negocio).
@@ -123,8 +130,9 @@ export const CustomerDetailsSection = ({
   const [aDesconectar, setADesconectar] = useState<{ id: number; nombre: string } | null>(null)
   const [errorPc, setErrorPc] = useState<string | null>(null)
   const desconectar = async (id: number) => {
+    if (!desconectarAccion) return
     setErrorPc(null)
-    const r = await desconectarComputadoraAction(negocio.ws, id)
+    const r = await desconectarAccion(negocio.ws, id)
     if (!r.ok) {
       setErrorPc(r.error)
       return
@@ -142,7 +150,7 @@ export const CustomerDetailsSection = ({
       rowGap="2xl"
       alignItems="start"
     >
-      <Section title="Datos">
+      <Section title="Details">
         <Row label="ID" value={copyable(String(negocio.ws))} />
         <Row label="Nombre" value={copyable(negocio.nombre)} />
         <Row label="Plan" value={negocio.plan} />
@@ -161,9 +169,28 @@ export const CustomerDetailsSection = ({
           value={<FormattedDateTime datetime={alta.creado} />}
         />
       </Section>
-      <Section title="Alta">
+      <Section title="Activity">
         <Row
-          label="Onboarding"
+          label="Último ingreso"
+          value={
+            alta.actividad.ultimoIngreso === 'no-leida' ? (
+              <Text as="span" color="muted">No se pudo leer</Text>
+            ) : alta.actividad.ultimoIngreso ? (
+              <FormattedDateTime datetime={alta.actividad.ultimoIngreso} />
+            ) : (
+              'Nunca'
+            )
+          }
+        />
+        <Row label="Leads" value={textoDeLeads(alta.actividad.leads) ?? <Text as="span" color="muted">No se pudieron leer</Text>} />
+        <Row
+          label="Sesiones del agente"
+          value={textoDeSesiones(alta.actividad.sesionesAgente) ?? <Text as="span" color="muted">No se pudieron leer</Text>}
+        />
+      </Section>
+      <Section title="Onboarding">
+        <Row
+          label="Estado del alta"
           value={siNo(alta.onboardingHecho, 'Terminado', 'Sin terminar')}
         />
         <Row label="Prueba" value={siNo(alta.prueba, 'En su prueba', 'No')} />
@@ -192,7 +219,7 @@ export const CustomerDetailsSection = ({
           </>
         )}
       </Section>
-      <Section title="Conexiones">
+      <Section title="Integrations">
         {conectadas == null ? (
           <Row label="Integraciones" value={<Text as="span" color="muted">No se pudieron leer</Text>} />
         ) : conectadas.length === 0 ? (
@@ -230,14 +257,16 @@ export const CustomerDetailsSection = ({
                       status={pc.enLinea ? 'En línea' : 'Sin conexión'}
                     />
                   </Box>
-                  <Button
-                    className="shrink-0"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setADesconectar({ id: pc.id, nombre: pc.nombre })}
-                  >
-                    Desconectar
-                  </Button>
+                  {desconectarAccion && (
+                    <Button
+                      className="shrink-0"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setADesconectar({ id: pc.id, nombre: pc.nombre })}
+                    >
+                      Desconectar
+                    </Button>
+                  )}
                 </Box>
               }
             />

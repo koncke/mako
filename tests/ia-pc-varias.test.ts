@@ -10,7 +10,7 @@
 //      última conectada, y si una se apaga, a la que queda;
 //   3. cada una dice su sistema (desde la 0.4.0) y cuándo se conectó; la tarjeta ofrece «Conectar otra computadora»;
 //   4. el super admin ve las de UN negocio por vez, en la ficha de ese cliente (desde el 6/11/2026, la de la copia de Polar:
-//      Admin › Customers › <negocio>, sólo con la guarda del Centro; «Desconectar» no está ahí, ver el 4b) (desde el 23/10/2026: Martín, al ver las de
+//      Admin › Customers › <negocio>, sólo con la guarda del Centro, y con «Desconectar»: ver el 4b) (desde el 23/10/2026: Martín, al ver las de
 //      todos en «Tus cuentas de IA»: «estas cruzando workspace»), sin secretos, con «Desconectar»; desconectar revoca al
 //      instante (su token ya no sirve, y sale del turno y de las listas), y con el negocio equivocado no toca nada. Y ninguna
 //      pantalla del super admin vuelve a listar las de todos.
@@ -137,8 +137,9 @@ test('4. el super admin: las de UN negocio, en su ficha, sin secretos, con «Des
   const conTodo = { id: 7, ws: 1, negocio: 'X', persona: 'Ana Gómez', nombre: 'PC de Ana', sistema: 'Windows' as const, enLinea: true, conClaude: true,
     conectadaAt: '2026-11-01T10:00:00Z', ultimoLatido: null, cuentas: [], ubicacion: 'Rosario, Santa Fe, Argentina', version: '0.4.0', token: 'mkopc_secreto' };
   assert.deepEqual(computadorasDeLaFicha(true, [conTodo]), [{ id: 7, nombre: 'PC de Ana', persona: 'Ana Gómez', sistema: 'Windows', enLinea: true, conectadaAt: '2026-11-01T10:00:00Z' }], 'a la pantalla viaja más que lo que se dibuja (un token, sus cuentas)');
-  const seccion = sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx'));
-  assert.match(seccion, /computadoras == null \? \(\s*<Row label="Computadoras" value=\{<Text as="span" color="muted">No se pudieron leer<\/Text>\} \/>/, '«no pude leer» no es «no tiene»');
+  // «No pude leer» no es «no tiene»: dibujado (el 4b lo mira con la guarda y sin ella).
+  const sinLeer = renderToStaticMarkup(createElement(CustomerDetailsSection, { negocio: CABECERA_EJEMPLO, alta: ALTA_EJEMPLO, conexiones: CONEXIONES_EJEMPLO, computadoras: null }));
+  assert.ok(sinLeer.includes('Computadoras') && sinLeer.includes('No se pudieron leer'), '«no pude leer» no es «no tiene»');
   const pagina = sinComentarios(leer('app/admin/(polar)/customers/[id]/page.tsx'));
   const cuerpo = pagina.slice(pagina.indexOf('export default async function'));
   assert.ok(cuerpo.indexOf('await exigirSuperAdmin()') > 0 && cuerpo.indexOf('await exigirSuperAdmin()') < cuerpo.indexOf('leerResumen('), 'la ficha pregunta por el super admin antes de leer');
@@ -162,10 +163,15 @@ test('4. el super admin: las de UN negocio, en su ficha, sin secretos, con «Des
 // La ficha de un negocio de la grilla vieja (app/admin/ComputadorasDelNegocio.tsx) mostraba las computadoras sólo a quien pasaba la
 // guarda del Centro (`puedeOperar`: el super admin con su segundo factor). La copia de Polar (6/11/2026) las había dejado para todo
 // super admin; desde el arreglo del mismo día, sin la guarda ni se leen ni se dibujan (`computadorasDeLaFicha` → 'oculto').
-// «Desconectar» NO volvió: Polar no tiene esa acción en su ficha y se anotó para que decida Martín (`desconectarComputadoraAction`
-// sigue en app/admin/operaciones/acciones.ts).
+// «Desconectar» VOLVIÓ por decisión del Cerebro (6/11/2026): cada computadora de la ficha lo tiene, y la acción
+// (`desconectarComputadoraAction`, app/admin/operaciones/acciones.ts) sigue pidiendo `puedeOperar` en su primera línea. La ficha
+// NO importa la acción: la página del server (app/admin/(polar)/customers/[id]/page.tsx) se la pasa por prop (`desconectar`), y
+// sin la prop el botón no se dibuja. Así este test dibuja la sección en node: con la acción importada, este archivo no cargaba
+// («server-only … cannot be imported»).
 // Probado rompiéndolo el 6/11/2026 (base 5/0; cada rotura, sola, 4/1): `computadorasDeLaFicha` sin el `if (!opera)`; la ficha que
 // lee `listarPcDelNegocio` sin el `opera ?`; CustomerDetailsSection que dibuja el renglón «Computadoras» con 'oculto'.
+// Y desde que la acción viaja por prop (6/11/2026, base 5/0; cada rotura, sola): el botón dibujado aunque no llegue la prop
+// → 4/1 (4b); la página que no la pasa → 4/1 (4b).
 test('4b. la ficha nueva de un negocio: las computadoras sólo para quien pasa la guarda del Centro', () => {
   assert.equal(computadorasDeLaFicha(false, COMPUTADORAS_EJEMPLO), 'oculto', 'sin la guarda, nada viaja');
   assert.equal(computadorasDeLaFicha(true, null), null, 'con la guarda y sin poder leerlas: «no pude leer», no «no tiene»');
@@ -173,6 +179,18 @@ test('4b. la ficha nueva de un negocio: las computadoras sólo para quien pasa l
     renderToStaticMarkup(createElement(CustomerDetailsSection, { negocio: CABECERA_EJEMPLO, alta: ALTA_EJEMPLO, conexiones: CONEXIONES_EJEMPLO, computadoras }));
   const conGuarda = html(computadorasDeLaFicha(true, COMPUTADORAS_EJEMPLO));
   assert.ok(conGuarda.includes(COMPUTADORAS_EJEMPLO[0].nombre), 'con la guarda, se dibujan');
+  assert.ok(!conGuarda.includes('Desconectar'), 'sin la acción (la prop), no hay botón que no haga nada');
+  const conAccion = renderToStaticMarkup(createElement(CustomerDetailsSection, {
+    negocio: CABECERA_EJEMPLO, alta: ALTA_EJEMPLO, conexiones: CONEXIONES_EJEMPLO,
+    computadoras: computadorasDeLaFicha(true, COMPUTADORAS_EJEMPLO), desconectar: async () => ({ ok: true as const, pcs: [] }),
+  }));
+  assert.ok(conAccion.includes('Desconectar'), 'con la guarda y la acción, cada computadora tiene «Desconectar»');
+  // La página le pasa la acción del Centro (la que pide `puedeOperar`), y la ficha no la importa.
+  const pagina = sinComentarios(leer('app/admin/(polar)/customers/[id]/page.tsx'));
+  assert.match(pagina, /import \{ desconectarComputadoraAction \} from '@\/app\/admin\/operaciones\/acciones'/);
+  assert.match(pagina, /desconectar=\{desconectarComputadoraAction\}/, 'la página no le pasa la acción a la ficha');
+  assert.doesNotMatch(sinComentarios(leer('app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx')), /from '@\/app\/admin\/operaciones\/acciones'/,
+    'la ficha volvió a importar la server action (y este test no carga)');
   const sinGuarda = html(computadorasDeLaFicha(false, COMPUTADORAS_EJEMPLO));
   assert.ok(!sinGuarda.includes(COMPUTADORAS_EJEMPLO[0].nombre) && !sinGuarda.includes('Computadoras'), 'sin la guarda, la sección no las dibuja (ni su renglón)');
   assert.ok(html(computadorasDeLaFicha(true, null)).includes('No se pudieron leer'));

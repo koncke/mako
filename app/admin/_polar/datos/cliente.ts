@@ -18,7 +18,11 @@
 //   · Events NO es de la ficha: es Admin › Analytics › Events filtrado por el negocio (`rutaDeEventosDelNegocio`, como Polar), y
 //     el Timeline del Overview son sus últimos eventos de ahí (app/admin/_polar/datos/eventos.ts `timelineDelNegocio`): una sola
 //     definición de «un evento del negocio» (6/11/2026);
-//   · Members: sus personas (`usuarios` con ese `workspace_id`). Es el ÚNICO lugar de Admin donde se ven y se gestionan.
+//   · Members: sus personas (`usuarios` con ese `workspace_id`). Las de un negocio se ven y se gestionan SÓLO ahí; las de la
+//     plataforma (los admins de MaKo, su equipo y quien no tiene negocio), sólo en Settings › Members (`miembrosDePlataforma`,
+//     con la misma regla: ./personas.ts);
+//   · la cabecera (el plan y cómo está) y «Activity» de Details: la fila de la lista y At Risk (`clientesEnRiesgo`), las
+//     mismas cuentas que Customers (punto 27 de la revisión del 6/11/2026).
 //
 // ⚠️ PURO: sin `server-only`. Lo usan el navegador (el rango, el uso, el formulario) y
 //    tests/admin-polar-cliente.test.ts. De los módulos del server, sólo `import type`.
@@ -30,7 +34,9 @@ import { nombreDePlan } from '@/lib/clientes-plataforma-reglas'
 import { DIAS_PLAN_A_MANO, rotuloDeDias } from '@/lib/plan-a-mano-reglas'
 import type { FilaUso } from '@/lib/actividad-reglas'
 import type { RolWorkspace } from '@/lib/auth-session'
+import { avisoCambioPlan, type ResultadoAvisoPlan } from '@/lib/plan-aviso'
 import { aCentavos } from './metricas'
+import { tipoDePersona, type TipoPersonaPlataforma } from './personas'
 import type { TimeInterval } from './polar-tipos'
 import { totalesDePedidos, type Pedido, type SuscripcionVenta } from './ventas'
 
@@ -76,6 +82,30 @@ export type NegocioCabecera = {
   contacto: string | null
   /** Su plan a mano, ya dicho («Gratis hasta el 1 de mayo de 2027»). `null` = no tiene (o no se pudo leer). */
   planAMano: string | null
+  /**
+   * Debajo del nombre (punto 27 de la revisión del 6/11/2026): el plan y cómo está, en palabras («MaKo Pro · Atrasado 4 días»,
+   * «MaKo Pro · Activo»), con el texto de At Risk si está ahí. Reemplaza al «Negocio #n» (Martín pidió nombres, no códigos: el
+   * número queda sólo en la fila ID de Details). Lo arma `estadoDeLaCabecera`.
+   */
+  estadoTxt: string
+  /** Está atrasado o le falló un cobro (el rojo de At Risk): se dice en rojo. */
+  grave: boolean
+}
+
+/**
+ * El plan y cómo está, en palabras (la cabecera de la ficha). `riesgo`: lo que dice At Risk de ESTE negocio (`clientesEnRiesgo`,
+ * ./clientes.ts), `undefined` si no está en riesgo, `null` si no se pudo saber (no se leyeron sus pagos o su estado).
+ * ⚠️ Sin saberlo NO dice «Activo»: eso se leería como «al día» sobre alguien que puede estar atrasado. Dice sólo el plan (o
+ *    «Pausado», que sí se sabe), y la ficha avisa arriba qué no se pudo leer.
+ */
+export function estadoDeLaCabecera(
+  plan: string,
+  estado: 'activo' | 'pausado',
+  riesgo: { texto: string; grave: boolean } | null | undefined,
+): { estadoTxt: string; grave: boolean } {
+  if (riesgo) return { estadoTxt: `${plan} · ${riesgo.texto}`, grave: riesgo.grave }
+  if (estado === 'pausado') return { estadoTxt: `${plan} · Pausado`, grave: false }
+  return { estadoTxt: riesgo === null ? plan : `${plan} · Activo`, grave: false }
 }
 
 // ── Overview › Metrics, Subscriptions y Orders (CustomerMetricsOverview, sin los gráficos, y sus dos tablas) ────────
@@ -138,6 +168,43 @@ export type AltaNegocio = {
    * `'no'` = no aplica; `null` = no se pudo leer.
    */
   primerMesUsd: number | 'no' | null
+  /** La sección «Activity» de Details (punto 27): si lo usan. */
+  actividad: ActividadNegocio
+}
+
+/**
+ * Si el negocio usa MaKo (la sección «Activity» de Details, punto 27 de la revisión del 6/11/2026): lo que la ficha anterior
+ * mostraba y que ya se calcula (lib/clientes-plataforma.ts, la misma fila de la lista). Es un resumen de tres renglones, no la
+ * pantalla de actividad descartada. Cada campo distingue «no hay» de «no se pudo leer».
+ */
+export type ActividadNegocio = {
+  /** ISO del último ingreso de alguien de su equipo. `null` = nadie entró nunca; `'no-leida'` = no se pudo leer. */
+  ultimoIngreso: string | null | 'no-leida'
+  /** Cuántos leads tiene y hace cuántos días llegó el último (`null` si no tiene). `null` = no se pudieron leer. */
+  leads: { total: number; diasDelUltimo: number | null } | null
+  /** Sesiones del agente (su Claude Code) en los últimos 30 días. `null` = no se pudieron leer. */
+  sesionesAgente: number | null
+}
+
+const haceDias = (n: number) => (n <= 0 ? 'hoy' : n === 1 ? 'ayer' : `hace ${n} días`)
+
+/** Lo que dice el renglón «Leads»: cuántos y cuándo llegó el último. `null` = no se pudieron leer. */
+export function textoDeLeads(l: ActividadNegocio['leads']): string | null {
+  if (l == null) return null
+  if (l.total === 0) return 'Sin leads'
+  const cuantos = l.total === 1 ? '1 lead' : `${l.total.toLocaleString('es-AR')} leads`
+  return l.diasDelUltimo == null ? cuantos : `${cuantos} · el último ${haceDias(l.diasDelUltimo)}`
+}
+
+/** Lo que dice el renglón «Sesiones del agente». `null` = no se pudieron leer. */
+export function textoDeSesiones(n: number | null): string | null {
+  if (n == null) return null
+  return n === 0 ? 'Ninguna en 30 días' : n === 1 ? '1 en 30 días' : `${n} en 30 días`
+}
+
+/** El último ingreso de su equipo, de sus personas (las de Members). */
+export function ultimoIngresoDe(miembros: ReadonlyArray<Pick<MiembroNegocio, 'ultimoIngreso'>>): string | null {
+  return miembros.reduce<string | null>((m, p) => (p.ultimoIngreso && (!m || p.ultimoIngreso > m) ? p.ultimoIngreso : m), null)
 }
 
 /** Lo de la encuesta que se dibuja (sin la fecha). */
@@ -174,6 +241,17 @@ export function computadorasDeLaFicha(
   if (!opera) return 'oculto'
   return pcs?.map((pc) => ({ id: pc.id, nombre: pc.nombre, persona: pc.persona, sistema: pc.sistema, enLinea: pc.enLinea, conectadaAt: pc.conectadaAt })) ?? null
 }
+
+/**
+ * «Desconectar» una computadora de la ficha: la server action del Centro (`desconectarComputadoraAction`,
+ * app/admin/operaciones/acciones.ts, que vuelve a pedir `puedeOperar`), que la página del server le PASA a la ficha. La ficha no
+ * la importa: un componente del navegador que importa una server action se trae `lib/auth` a cada test que lo dibuje en node, y
+ * tests/ia-pc-varias.test.ts dejaba de cargar. Sin la prop, el botón no se dibuja.
+ */
+export type DesconectarComputadora = (
+  ws: number,
+  id: number,
+) => Promise<{ ok: true; pcs: ReadonlyArray<Pick<ComputadoraNegocio, 'id' | 'nombre' | 'persona' | 'sistema' | 'enLinea' | 'conectadaAt'>> } | { ok: false; error: string }>
 
 /** Las conexiones que muestra la sección: las conectadas primero, y sin las que no están (Polar no lista lo vacío). */
 export function conexionesConectadas(conexiones: readonly ConexionNegocio[]): ConexionNegocio[] {
@@ -299,6 +377,10 @@ export type MiembroNegocio = {
   mfa: boolean | null
   /** La cara que se dibuja (su foto, o la de su Gravatar). */
   cara: string | null
+  /** Su negocio (`workspace_id`): a dónde se la puede mudar desde «Editar persona». `null` = ninguno. */
+  ws: number | null
+  /** Sólo en Settings › Members: de qué lado de la plataforma está (./personas.ts). */
+  tipo?: TipoPersonaPlataforma
 }
 
 export const ROLES_MIEMBRO: readonly RolWorkspace[] = ['admin', 'closer', 'setter']
@@ -319,17 +401,40 @@ export type UsuarioParaMiembro = {
   workspace_id: number | null; rol_ws: RolWorkspace | null; invitacion_enviada_at: string | null; mfa_activo?: boolean
 }
 
+const miembroDe = (u: UsuarioParaMiembro, caraDe?: (u: UsuarioParaMiembro) => string | null): MiembroNegocio => ({
+  id: u.id, nombre: u.nombre ?? '', email: u.email, rol: u.rol_ws,
+  estado: u.estado === 'activo' ? 'activo' : u.estado === 'suspendido' ? 'suspendido' : 'invitado',
+  accesoEnviado: u.invitacion_enviada_at, ultimoIngreso: u.ultimo_login, creado: u.created_at,
+  mfa: typeof u.mfa_activo === 'boolean' ? u.mfa_activo : null, cara: caraDe?.(u) ?? null, ws: u.workspace_id,
+})
+
 /** Las personas del negocio: sus usuarios-cliente (nunca los admins de MaKo, que cruzan negocios), en el orden de alta. */
 export function miembrosDe(usuarios: readonly UsuarioParaMiembro[], ws: number, caraDe?: (u: UsuarioParaMiembro) => string | null): MiembroNegocio[] {
   return usuarios
     .filter((u) => u.rol === 'usuario' && u.workspace_id === ws)
-    .map((u): MiembroNegocio => ({
-      id: u.id, nombre: u.nombre ?? '', email: u.email, rol: u.rol_ws,
-      estado: u.estado === 'activo' ? 'activo' : u.estado === 'suspendido' ? 'suspendido' : 'invitado',
-      accesoEnviado: u.invitacion_enviada_at, ultimoIngreso: u.ultimo_login, creado: u.created_at,
-      mfa: typeof u.mfa_activo === 'boolean' ? u.mfa_activo : null, cara: caraDe?.(u) ?? null,
-    }))
+    .map((u) => miembroDe(u, caraDe))
     .sort((a, b) => (a.creado < b.creado ? -1 : a.creado > b.creado ? 1 : a.id - b.id))
+}
+
+/**
+ * Settings › Members (punto 25): las personas de la PLATAFORMA — los admins de MaKo, el equipo de su workspace y quien no tiene
+ * un negocio que exista —, nunca las de un negocio-cliente (ésas, sólo en su ficha). `clientes`: los negocios que existen, sin
+ * la plataforma. Es el complemento exacto de `miembrosDe` (`tipoDePersona`, ./personas.ts): nadie sale dos veces ni en ninguna.
+ * El orden: los admins de MaKo, el equipo y los sin negocio, y adentro por alta.
+ */
+export function miembrosDePlataforma(
+  usuarios: readonly UsuarioParaMiembro[],
+  plataforma: number | null,
+  clientes: ReadonlySet<number>,
+  caraDe?: (u: UsuarioParaMiembro) => string | null,
+): MiembroNegocio[] {
+  const peso: Record<TipoPersonaPlataforma, number> = { admin: 0, equipo: 1, 'sin-negocio': 2 }
+  const out: MiembroNegocio[] = []
+  for (const u of usuarios) {
+    const tipo = tipoDePersona(u, plataforma, clientes)
+    if (tipo) out.push({ ...miembroDe(u, caraDe), tipo })
+  }
+  return out.sort((a, b) => peso[a.tipo!] - peso[b.tipo!] || (a.creado < b.creado ? -1 : a.creado > b.creado ? 1 : a.id - b.id))
 }
 
 /** El contacto del negocio (el «Contact Customer» de Polar): el email de su primer admin activo. */
@@ -337,22 +442,73 @@ export function contactoDe(miembros: readonly MiembroNegocio[]): string | null {
   return miembros.find((m) => m.rol === 'admin' && m.estado === 'activo')?.email ?? miembros.find((m) => m.rol === 'admin')?.email ?? null
 }
 
-/** Lo que se le pide a /api/admin/usuarios por cada acción del menú de un miembro (las mismas que tenía Admin). */
+/**
+ * Lo que se le pide a /api/admin/usuarios por cada acción de Members (las mismas que tenía Admin: app/admin/AdminView.tsx, la
+ * grilla vieja). `crear`, `eliminar` y `workspace` volvieron el 6/11/2026: la copia de Polar los había perdido y la ruta los
+ * seguía teniendo.
+ */
 export type AccionMiembro =
   | { action: 'reinvitar'; id: number }
   | { action: 'estado'; id: number; estado: 'activo' | 'suspendido' }
   | { action: 'rolws'; id: number; rol_ws: RolWorkspace }
   | { action: 'nombre'; id: number; nombre: string }
+  | { action: 'crear'; email: string; nombre: string; rol: 'admin' | 'usuario'; workspace_id?: number; rol_ws?: RolWorkspace }
+  | { action: 'eliminar'; id: number }
+  | { action: 'workspace'; id: number; workspace_id: number }
+
+/** A quién se suma una persona nueva: a un negocio (su ficha) o a la plataforma (Settings › Members). */
+export type DestinoDeAlta = { ws: number } | 'plataforma'
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
+/**
+ * «Agregar persona»: el MISMO cuerpo que mandaba la grilla vieja (`sumar` de AdminView). En un negocio, un usuario de ese
+ * negocio con el rol elegido (Admin por defecto, como antes); en la plataforma, un admin de MaKo (el rol global sale de
+ * DÓNDE se suma, no de un campo: así lo hacía la grilla). `null` = el email no es un email.
+ */
+export function cuerpoDeAlta(destino: DestinoDeAlta, form: { nombre: string; email: string; rol?: RolWorkspace | null }): AccionMiembro | null {
+  const email = form.email.trim()
+  if (!EMAIL_RE.test(email)) return null
+  const nombre = form.nombre.trim()
+  if (destino === 'plataforma') return { action: 'crear', email, nombre, rol: 'admin' }
+  return { action: 'crear', email, nombre, rol: 'usuario', workspace_id: destino.ws, rol_ws: form.rol ?? 'admin' }
+}
+
+/** Lo que dice el modal de «Agregar persona»: la consecuencia, que en la plataforma es dar acceso a todos los negocios. */
+export const consecuenciaDeAlta = (destino: DestinoDeAlta): string =>
+  destino === 'plataforma'
+    ? 'Va a ser admin de MaKo: entra a Admin y ve todos los negocios. Le llega un mail con el acceso.'
+    : 'Le llega un mail con el acceso a esta cuenta.'
 
 /** «Suspender» o «Reactivar» (el estado contrario al de hoy; un invitado se suspende). */
 export const cambioDeEstado = (m: Pick<MiembroNegocio, 'id' | 'estado'>): AccionMiembro =>
   ({ action: 'estado', id: m.id, estado: m.estado === 'suspendido' ? 'activo' : 'suspendido' })
 
-/** Los pedidos del formulario «Editar persona»: sólo lo que cambió, el nombre primero. */
-export function cambiosDelMiembro(m: Pick<MiembroNegocio, 'id' | 'nombre' | 'rol'>, form: { nombre: string; rol: RolWorkspace | null }): AccionMiembro[] {
+/**
+ * Lo que confirma «Suspender» y «Eliminar» (punto 22): los dos apagan los tokens de API que la persona creó
+ * (/api/admin/usuarios → `revocarAgenteTokensDe`), y reactivarla le devuelve la entrada, no los tokens. «Reactivar» no pregunta:
+ * no quita nada. `null` = va directo.
+ */
+export function confirmacionDeEstado(m: Pick<MiembroNegocio, 'estado'>): { titulo: string; texto: string; boton: string } | null {
+  if (m.estado === 'suspendido') return null
+  return { titulo: 'Suspender', texto: 'Deja de entrar y se apagan los tokens de API que creó. Reactivarla no los devuelve.', boton: 'Suspender' }
+}
+
+/** «Eliminar» siempre pregunta, y dice la consecuencia (la grilla vieja: «Pierde el acceso… no se puede deshacer»). */
+export const TEXTO_ELIMINAR_PERSONA = 'Pierde el acceso y se apagan los tokens de API que creó. No se puede deshacer.'
+
+/**
+ * Los pedidos del formulario «Editar persona»: sólo lo que cambió, en el orden en que la ruta los entiende — el nombre, la
+ * mudanza de negocio (`workspace`, que valida contra el negocio de HOY que no lo deje sin admin) y el rol en el negocio nuevo.
+ */
+export function cambiosDelMiembro(
+  m: Pick<MiembroNegocio, 'id' | 'nombre' | 'rol'> & { ws?: number | null },
+  form: { nombre: string; rol: RolWorkspace | null; ws?: number | null },
+): AccionMiembro[] {
   const out: AccionMiembro[] = []
   const nombre = form.nombre.trim()
   if (nombre && nombre !== m.nombre) out.push({ action: 'nombre', id: m.id, nombre })
+  if (form.ws != null && form.ws !== (m.ws ?? null)) out.push({ action: 'workspace', id: m.id, workspace_id: form.ws })
   if (form.rol && form.rol !== m.rol) out.push({ action: 'rolws', id: m.id, rol_ws: form.rol })
   return out
 }
@@ -393,6 +549,32 @@ export function cambiosDelNegocio(n: Pick<NegocioCabecera, 'ws' | 'nombre' | 'ca
     if (dias === 0 || (DIAS_PLAN_A_MANO as readonly number[]).includes(dias)) out.push({ action: 'plan_a_mano', id: n.ws, dias })
   }
   return out
+}
+
+/**
+ * Lo que dice «Editar negocio» del mail del cambio de plan (punto 18). /api/admin/workspaces `capa` devuelve en `aviso` si el
+ * mail salió (lib/aviso-plan.ts); `avisoCambioPlan` (lib/plan-aviso.ts) lo clasifica. Sólo una FALLA queda a la vista:
+ * «no hay nadie adentro» (`a` vacío y sin error) no es una falla, y por eso no se mira `enviado === false` a secas.
+ * ⚠️ Y un envío que REVENTÓ antes de saber a quién (la ruta lo atrapa y devuelve `{ enviado: false, error }`, sin `a`) SÍ es una
+ *    falla: `avisoCambioPlan` lo leería como «no hay nadie adentro».
+ * `null` = no hay nada que avisar (se cierra el modal).
+ */
+export function avisoDelCambioDePlan(
+  pasos: ReadonlyArray<{ accion: AccionNegocio; resultado: { ok: boolean; datos?: Record<string, unknown> } }>,
+): { titulo: string; texto: string } | null {
+  const paso = pasos.find((p) => p.accion.action === 'capa' && p.resultado.ok)
+  if (!paso || paso.accion.action !== 'capa') return null
+  const crudo = paso.resultado.datos?.aviso
+  if (!crudo || typeof crudo !== 'object') return null
+  const r = crudo as ResultadoAvisoPlan
+  const plan = PLANES_ASIGNABLES.find((p) => p.capa === (paso.accion as { capa: CapaId }).capa)?.nombre ?? 'el plan nuevo'
+  const a = (r.a ?? '').trim()
+  const fallo = !r.enviado && (a ? avisoCambioPlan(r, plan).tono === 'warn' : !!r.error)
+  if (!fallo) return null
+  return {
+    titulo: `El plan cambió, pero el mail no salió: ${r.error ?? 'sin motivo'}`,
+    texto: a ? `Avísale tú a ${a}.` : 'Avísale tú a quien administra su cuenta.',
+  }
 }
 
 const plural = (n: number, s: string) => `${n} ${n === 1 ? s : `${s}s`}`

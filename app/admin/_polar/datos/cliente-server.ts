@@ -8,13 +8,15 @@
 //    y la página leen lo mismo; se lee una vez por render.
 // ⚠️ NINGUNA TIRA salvo la del negocio mismo: lo que no se pudo leer va a `avisos` y la vista lo dice («no pude leer» no es un
 //    vacío, ni un cero).
-// ⚠️ La plataforma (`wsSuperAdmin()`) NO es un Customer: la ficha contesta 404 (sus personas viven en Settings › Members).
+// ⚠️ La plataforma (`wsSuperAdmin()`) NO es un Customer: la ficha contesta 404. Sus personas (los admins de MaKo, su equipo y
+//    quien no tiene negocio) se ven en Admin › Settings › Members (`leerMiembrosDePlataforma`, abajo): esa sección existe desde
+//    el 6/11/2026 (punto 25); antes este comentario la nombraba y no estaba.
 
 import 'server-only'
 import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { getWorkspace, wsSuperAdmin } from '@/lib/workspace'
+import { getWorkspace, listarWorkspaces, wsSuperAdmin } from '@/lib/workspace'
 import { getSesionAdmin } from '@/lib/auth'
 import { puedeOperar } from '@/lib/operaciones-reglas'
 import { caraDeUsuario } from '@/lib/gravatar'
@@ -27,6 +29,7 @@ import { getSupabaseServer } from '@/lib/supabase'
 import { leerTodo } from '@/lib/supabase-paginado'
 import { CLAVE_ENCUESTA, llegadaDe } from '@/lib/onboarding-arranque'
 import { leerClientes, leerIngresos } from './clientes-server'
+import { clientesEnRiesgo } from './clientes'
 import { vistaSuscripciones } from './ventas-server'
 import { leerActividad, leerOrdenes, leerTimelineDelNegocio, leerUsuarios } from './eventos-server'
 import type { EventoDeTimeline } from './eventos'
@@ -34,11 +37,15 @@ import type { Pedido, SuscripcionVenta } from './ventas'
 import {
   computadorasDeLaFicha,
   contactoDe,
+  estadoDeLaCabecera,
   inicioDeActividad,
   wsDeId,
   miembrosDe,
+  miembrosDePlataforma,
+  ultimoIngresoDe,
   pedidosDelNegocio,
   suscripcionesDelNegocio,
+  type ActividadNegocio,
   type AltaNegocio,
   type ComputadorasDeLaFicha,
   type ConexionNegocio,
@@ -73,6 +80,28 @@ export const leerMiembros = cache(async (ws: number): Promise<LecturaMiembros> =
   }
 })
 
+/**
+ * Settings › Members (punto 25): las personas de la plataforma, nunca las de un negocio (ésas, sólo en su ficha). La regla es la
+ * de ./personas.ts, contra los negocios que EXISTEN (sin la plataforma). ⚠️ Cruza negocios: la página llama a
+ * `exigirSuperAdmin()` antes.
+ */
+export const leerMiembrosDePlataforma = cache(async (): Promise<LecturaMiembros> => {
+  try {
+    const [todos, workspaces, plataforma] = await Promise.all([usuarios(), listarWorkspaces(), wsSuperAdmin()])
+    const clientes = new Set(workspaces.map((w) => w.id).filter((id) => id !== plataforma))
+    return { ok: true, miembros: miembrosDePlataforma(todos, plataforma, clientes, caraDeUsuario) }
+  } catch (e) {
+    return { ok: false, error: motivo(e) }
+  }
+})
+
+/** Los negocios a los que se puede mudar una persona («Editar persona»): los de la lista de Customers, sin la plataforma. */
+export async function leerNegociosParaMudar(): Promise<Array<{ ws: number; nombre: string }> | null> {
+  const clientes = await leerClientes()
+  if (!clientes.ok) return null
+  return clientes.datos.filas.map((f) => ({ ws: f.ws, nombre: f.nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+}
+
 // ── El negocio (la cabecera y el «Alta») ───────────────────────────────────────────────────────────────────────────
 
 /**
@@ -94,19 +123,37 @@ export const leerNegocio = cache(async (ws: number): Promise<FichaNegocio | null
   const [w, plataforma] = await Promise.all([getWorkspace(ws), wsSuperAdmin()])
   if (!w || ws === plataforma) return null
   const avisos: string[] = []
-  const [clientes, miembros, llegada] = await Promise.all([
+  const [clientes, miembros, llegada, ingresos] = await Promise.all([
     leerClientes(),
     leerMiembros(ws),
     llegadaDelNegocio(ws).catch((e) => { avisos.push(`cómo llegó: ${motivo(e)}`); return 'no-leida' as const }),
+    // Lo mismo que lee At Risk (cache: el Overview y la lista ya lo leen en el mismo pedido).
+    leerIngresos(),
   ])
   if (!clientes.ok) avisos.push(`el estado de su cuenta: ${clientes.error}`)
   else avisos.push(...clientes.avisos)
   if (!miembros.ok) avisos.push(`sus personas: ${miembros.error}`)
+  if (!ingresos.ok) avisos.push(`si está al día con sus pagos: ${ingresos.error}`)
   const fila = clientes.ok ? (clientes.datos.filas.find((f) => f.ws === ws) ?? null) : null
+  // Cómo está (punto 27): el motivo de At Risk de ESTE negocio, con la misma cuenta que esa pantalla. Sin las dos lecturas, lo
+  // que se encuentre es cierto (un pausado, un atrasado) pero «no está en riesgo» no se puede afirmar: `null`.
+  const plan = nombreDePlan(w.capa)
+  const enRiesgo = clientesEnRiesgo(fila ? [fila] : [], ingresos.ok ? ingresos.datos.clientes.filter((c) => c.ws === ws) : [])[0]
+  const estado = estadoDeLaCabecera(plan, w.estado, enRiesgo ?? (clientes.ok && ingresos.ok ? undefined : null))
   const cabecera: NegocioCabecera = {
-    ws, nombre: w.nombre, plan: nombreDePlan(w.capa), capa: w.capa, estado: w.estado,
+    ws, nombre: w.nombre, plan, capa: w.capa, estado: w.estado,
     contacto: miembros.ok ? contactoDe(miembros.miembros) : null,
     planAMano: fila?.planAManoTxt ?? null,
+    estadoTxt: estado.estadoTxt,
+    grave: estado.grave,
+  }
+  // «Activity» (punto 27): los datos de la fila de la lista (lib/clientes-plataforma.ts), y el último ingreso de sus personas.
+  // ⚠️ `sesionesAgente` vale 0 cuando su lectura falló (la fila no tiene un «no se pudo»): lo dice el aviso de esa lectura.
+  const sinSesiones = clientes.ok && clientes.avisos.some((a) => a.startsWith('las sesiones del agente'))
+  const actividad: ActividadNegocio = {
+    ultimoIngreso: miembros.ok ? ultimoIngresoDe(miembros.miembros) : 'no-leida',
+    leads: fila && fila.leads != null ? { total: fila.leads, diasDelUltimo: fila.leads > 0 ? fila.sinLeads : null } : null,
+    sesionesAgente: fila && !sinSesiones ? fila.sesionesAgente : null,
   }
   const alta: AltaNegocio = {
     creado: w.created_at, plan: cabecera.plan, estado: w.estado,
@@ -117,6 +164,7 @@ export const leerNegocio = cache(async (ws: number): Promise<FichaNegocio | null
     agencia: fila?.agencia ?? null,
     llegada,
     primerMesUsd: fila ? (fila.primerMesUsd ?? 'no') : null,
+    actividad,
   }
   return { cabecera, alta, avisos: [...new Set(avisos)] }
 })

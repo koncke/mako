@@ -9,7 +9,9 @@
 import type { ClienteVenta, Pedido, SuscripcionVenta } from '../ventas'
 import {
   contactoDe,
+  estadoDeLaCabecera,
   miembrosDe,
+  ultimoIngresoDe,
   type AltaNegocio,
   type ComputadoraNegocio,
   type ConexionNegocio,
@@ -56,12 +58,14 @@ export const MIEMBROS_EJEMPLO: MiembroNegocio[] = miembrosDe(USUARIOS_EJEMPLO, W
 export const CABECERA_EJEMPLO: NegocioCabecera = {
   ws: WS_EJEMPLO, nombre: 'Estudio Norte', plan: 'MaKo Pro', capa: 'agencia', estado: 'activo',
   contacto: contactoDe(MIEMBROS_EJEMPLO), planAMano: null,
+  ...estadoDeLaCabecera('MaKo Pro', 'activo', undefined),
 }
 
 export const ALTA_EJEMPLO: AltaNegocio = {
   creado: '2026-07-01T12:00:00Z', plan: 'MaKo Pro', estado: 'activo', onboardingHecho: true, prueba: false, planAMano: null,
   segmentos: ['Cliente'], agencia: null,
   llegada: { origen: 'Instagram', interes: 'Conseguir más clientes', pdfNota: null }, primerMesUsd: 'no',
+  actividad: { ultimoIngreso: ultimoIngresoDe(MIEMBROS_EJEMPLO), leads: { total: 48, diasDelUltimo: 2 }, sesionesAgente: 6 },
 }
 
 const pedido = (id: string, fecha: string, usd: number | null, concepto: string, recurrente: boolean, estado: Pedido['estado'] = 'paid'): Pedido => ({
@@ -134,6 +138,7 @@ export const OVERVIEW_EJEMPLO: CustomerOverviewProps = {
   negocio: CABECERA_EJEMPLO,
   alta: ALTA_EJEMPLO,
   inicio: '2026-07-01',
+  hoy: HOY_EJEMPLO,
   pedidos: PEDIDOS_EJEMPLO,
   mrrUsd: 238,
   suscripciones: SUSCRIPCIONES_EJEMPLO,

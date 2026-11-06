@@ -7,8 +7,12 @@
 // Email, el External ID y la Metadata de Polar: un negocio de MaKo no tiene email propio (el de sus personas está en Members),
 // ni id externo, ni metadata. Sin `useHasPermission`: Admin es sólo del super admin (la página y cada ruta lo preguntan).
 // ⚠️ Lo que el server dice que falló se muestra tal cual (Admin no tiene el toast de Polar): ahí está el motivo.
+// ⚠️ EL MAIL DEL CAMBIO DE PLAN (punto 18 de la revisión del 6/11/2026): el formulario promete «se le avisa por mail». Si no
+//    salió, el modal NO se cierra: queda un aviso con el motivo y «Cerrar» (`avisoDelCambioDePlan`, que mira la respuesta de
+//    `capa` aunque después haya corrido `plan_a_mano`). «No hay nadie adentro a quien avisarle» no es una falla y no se dice.
 
 import {
+  avisoDelCambioDePlan,
   cambiosDelNegocio,
   opcionesDePlanAMano,
   PLANES_ASIGNABLES,
@@ -51,6 +55,7 @@ export const EditCustomerModal = ({
 }) => {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
+  const [avisoMail, setAvisoMail] = useState<{ titulo: string; texto: string } | null>(null)
   const [guardando, setGuardando] = useState(false)
 
   const form = useForm<CustomerUpdateForm>({
@@ -68,15 +73,19 @@ export const EditCustomerModal = ({
       return
     }
     setError(null)
+    setAvisoMail(null)
     setGuardando(true)
     const r = await enOrden(cambios, accionDelNegocio)
     setGuardando(false)
+    // El plan pudo cambiar aunque lo de después falle: el aviso del mail sale en los dos casos.
+    const aviso = avisoDelCambioDePlan(r.pasos)
+    setAvisoMail(aviso)
+    router.refresh()
     if (!r.ok) {
       setError(r.error)
-      router.refresh()
       return
     }
-    router.refresh()
+    if (aviso) return
     onClose()
   }
 
@@ -165,6 +174,15 @@ export const EditCustomerModal = ({
                 )}
               />
             </div>
+            {avisoMail && (
+              <Alert
+                variant="warning"
+                soporte
+                title={avisoMail.titulo}
+                description={avisoMail.texto}
+                actions={[{ text: 'Cerrar', onClick: onClose }]}
+              />
+            )}
             {error && <Alert variant="danger" title="No se guardó" description={error} />}
             <Button
               type="submit"
