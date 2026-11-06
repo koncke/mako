@@ -16,6 +16,15 @@ Martín, 4/11/2026: «Manda a un chat a solucionar todos los tickets siempre.» 
 
 ## Para medir en producción (lo hace una sesión local)
 
+0. **La 0410 (`correo_bajas`) YA ESTÁ APLICADA y verificada: 6/11/2026, desde la PC** (`leads` = 3.134, o sea el proyecto
+   correcto; `NOTIFY pgrst` hecho). Verificado en la base: las cinco columnas, el `unique (email, tipo)` —que es lo que hace
+   idempotente el upsert—, el `check` de minúsculas y el de `tipo`, los tres **probados insertando y revertido** (la tabla
+   quedó en 0 filas); RLS prendida y `anon`/`authenticated` sin ningún grant. Y por el camino que usa la app, no por SQL:
+   `GET /rest/v1/correo_bajas?tipo=eq.ticket-avance` da **200 y `[]`**, así que PostgREST ya la ve y el cron no se frena.
+   ⚠️ Esto **tenía que ir primero**: sin la tabla, la vuelta del cron no manda NINGÚN correo de avance y lo dice en su
+   renglón («falta la migración 0410»). Es a propósito —escribirle a quien pidió la baja es peor que un correo de menos—,
+   pero significa que desplegar el código sin la migración apaga los correos de todos.
+
 1. **Que la 0364 esté aplicada.** El commit dbc64bdd7 dice que sí. Si faltara, el cron lo escribe una vez: «falta la migración 0364».
    ```sql
    select column_name from information_schema.columns where table_name = 'tickets' and column_name in ('avance_email', 'avance_email_at');
@@ -34,8 +43,10 @@ Martín, 4/11/2026: «Manda a un chat a solucionar todos los tickets siempre.» 
 
 - **Tickets sin cuenta** (por WhatsApp sin perfil, el alumno de un curso): **RESUELTO el 6/11** con la mig 0410
   (`correo_bajas`, la baja por DIRECCIÓN). ⚠️ Y de paso se vio que la mitad de este renglón era falsa: a quien no tiene cuenta
-  nunca le salió un correo de avance (`decidirAvance` pide `usuario_id` y un email de verdad). El que SÍ pedía la baja y la
-  seguía recibiendo era otro: quien tiene cuenta en DOS negocios con la misma dirección. El detalle, en
+  nunca le salió un correo de avance (`decidirAvance` pide `usuario_id` y un email de verdad). Y el otro camino —quien tiene cuenta en DOS
+  negocios con la misma dirección— está MEDIDO y no le pasaba a nadie: el 6/11 había 0 direcciones duplicadas en `usuarios`.
+  O sea que la 0410 cerró el agujero ANTES de que pase, que para una baja de correo es el momento correcto, pero no hubo
+  ninguna persona recibiendo correos que había pedido no recibir. El detalle, en
   docs/hallazgos-ticketera.md → «La baja de los correos estaba atada a una CUENTA».
 - **Los automáticos** (lo que MaKo abre solo): no mandan correo. MaKo ya se lo dijo en el chat.
 - **Una casilla en Notificaciones** para prenderlos y apagarlos: hoy se hace desde el link del correo, que también los vuelve a
