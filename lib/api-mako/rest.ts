@@ -834,6 +834,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/creaciones/creaciones/{creacionId}/retiro', 'retirar_creacion'],
   ['POST', '/creaciones/creaciones/{creacionId}/usos', 'usar_creacion'],
   ['GET', '/creaciones/mias', 'mis_creaciones'],
+  ['POST', '/creaciones/plantillas', 'guardar_como_plantilla'],
+  ['POST', '/creaciones/creaciones/{creacionId}/compartida', 'compartir_plantilla'],
+  ['GET', '/creaciones/ranking', 'ranking_creaciones'],
   // ── mako ──────────────────────────────────────────────────────────────────
   ['GET', '/mako/bandejas', 'resumen_bandejas_confirmacion'],
   ['GET', '/mako/capacidades', 'listar_capacidades_mako'],

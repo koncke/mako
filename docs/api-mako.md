@@ -47,7 +47,7 @@
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `duplicar_curso` · `renombrar_curso` · `eliminar_curso` · `restaurar_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso` · `crear_alumno_curso`
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion`
-- **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
+- **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion` · `guardar_como_plantilla` · `compartir_plantilla` · `ranking_creaciones`
 - **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos` · `ver_suscripcion_lead` · `cambiar_suscripcion`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion` · `cambiar_aprende_solo`
 
@@ -20108,7 +20108,7 @@ curl -L \
 
 ## Creaciones de la comunidad (estrellas) — `creaciones`
 
-Tab **Creaciones** (`/creaciones`). 3 lecturas · 5 acciones.
+Tab **Creaciones** (`/creaciones`). 4 lecturas · 7 acciones.
 
 ### `GET /api/v1/creaciones/creaciones` — Creaciones de la comunidad
 
@@ -20123,7 +20123,7 @@ La galería de lo que los negocios de MaKo publicaron para los demás (automatiz
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen) | no | filtra por tipo. |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | no | filtra por tipo. |
 | `orden` | string (estrellas \\| usos \\| recientes) | no | estrellas (default), usos o recientes. |
 | `q` | string | no | busca en el título y la descripción. |
 | `pagina` | number | no | la página (de a 24; default 1). |
@@ -20161,7 +20161,7 @@ curl -L \
 
 ### `GET /api/v1/creaciones/mias` — Lo que publicó tu negocio
 
-Las creaciones que publicó este negocio, publicadas y retiradas, con sus estrellas y sus usos.
+Las plantillas de este negocio: las que guardó sólo para sí (estado «privada»), las que publicó y las retiradas, con sus estrellas y sus usos.
 
 - **Ruta por operación:** `GET /api/v1/creaciones/mis_creaciones`
 - **Token detallado:** permiso `creaciones=read` (Solo lectura en «Creaciones de la comunidad (estrellas)»)
@@ -20236,7 +20236,7 @@ curl -L \
 
 ### `POST /api/v1/creaciones/creaciones` — Publicar una creación
 
-PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Hoy se publican: automatizacion (una automatización de Automations, por su id de listar_secuencias_nutricion). Se publica la DEFINICIÓN, sin los datos del negocio: las tarjetas y sus textos (tal cual: que no lleven datos de una persona), sin audios propios (pasan a texto con su guion), archivos, etiquetas, líneas de WhatsApp, emails ni teléfonos. Volver a publicar la misma automatización la ACTUALIZA y conserva sus estrellas. Se retira con retirar_creacion.
+PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Hoy se publican: automatizacion, guion, formato_imagen (una automatización por su id de listar_secuencias_nutricion; un guion del Copywriter por su id de página; un diseño del Image Editor por su id). Se publica la DEFINICIÓN, sin los datos del negocio: en los textos, el nombre del negocio, su gente, emails, teléfonos, links, @ y precios pasan a [DATO: …]; las fotos pasan a marcos vacíos; sin audios propios, archivos, etiquetas ni líneas de WhatsApp. Si igual queda un dato, no se publica y lo dice. Volver a publicar la misma cosa la ACTUALIZA y conserva sus estrellas. Para guardarla sólo para el negocio, guardar_como_plantilla. Se retira con retirar_creacion.
 
 - **Ruta por operación:** `POST /api/v1/creaciones/publicar_creacion`
 - **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
@@ -20250,8 +20250,8 @@ PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Ho
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen) | sí | qué se publica. Hoy sólo «automatizacion» se puede publicar. |
-| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12"). |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se publica. Hoy se pueden: automatizacion, guion, formato_imagen. |
+| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12"; un guion: su id de página «g…»; un diseño: su uuid). |
 | `titulo` | string | no | cómo se llama en la galería. Sin valor, el nombre de la automatización. |
 | `descripcion` | string | no | para qué sirve, en una o dos frases. |
 | `autorNombre` | string | no | el nombre con que firma (el del negocio, o el de una persona). Sin valor, «Un negocio de MaKo». |
@@ -20296,14 +20296,14 @@ curl -L \
 
 ### `POST /api/v1/creaciones/creaciones/{creacionId}/usos` — Usar una creación en este negocio
 
-PROPONE crear en este negocio una copia de una creación publicada (hoy, una automatización), APAGADA: nace en Automations para revisarla y prenderla. Si su disparador apunta a una etapa que este negocio no tiene, nace sin disparador y lo dice. Cuenta un uso de la creación (uno por negocio).
+PROPONE crear en este negocio una copia de una creación publicada o de una plantilla propia del negocio: una automatización nace APAGADA en Automations (si su disparador apunta a una etapa que este negocio no tiene, nace sin disparador y lo dice); un guion nace como página del Copywriter; un diseño, en el Image Editor. Cuenta un uso de la creación (uno por negocio; las propias no cuentan).
 
 - **Ruta por operación:** `POST /api/v1/creaciones/usar_creacion`
 - **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** crea la automatización en `nutricion_secuencias` (apagada) y anota el uso en `creacion_usos`
+- **Escribe:** crea la copia en su tab (`nutricion_secuencias` apagada, una página del Copywriter o un diseño de `image_disenos`) y anota el uso en `creacion_usos`
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -20319,6 +20319,92 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/creaciones/creaciones/CREACION_ID/usos"
+```
+
+### `POST /api/v1/creaciones/plantillas` — Guardar como plantilla
+
+PROPONE guardar como plantilla algo de este negocio, para usarlo de nuevo: «privada» la ve y la usa sólo este negocio, tal cual (con sus precios y sus links); «publica» la ven todos, sin los datos del negocio (como publicar_creacion). Hoy se guardan: automatizacion, guion, formato_imagen. Aparece en «Nuevo …» de su tab, en «Tus plantillas». Volver a guardar la misma cosa con la misma visibilidad la actualiza. Una privada se comparte después con compartir_plantilla.
+
+- **Ruta por operación:** `POST /api/v1/creaciones/guardar_como_plantilla`
+- **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea (o actualiza) la fila de la plantilla en `creaciones`, privada o publicada
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se guarda. Hoy se pueden: automatizacion, guion, formato_imagen. |
+| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número; un guion: su id de página «g…»; un diseño: su uuid). |
+| `visibilidad` | string (privada \\| publica) | sí | privada (sólo este negocio, tal cual) o publica (toda la comunidad, sin los datos del negocio). |
+| `titulo` | string | no | cómo se llama la plantilla. Sin valor, el nombre de la cosa. |
+| `descripcion` | string | no | para qué sirve, en una o dos frases. |
+| `autorNombre` | string | no | con qué nombre firma, si es pública. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/creaciones/plantillas" \
+  -d '{"tipo":"automatizacion","origenId":"ORIGEN_ID","visibilidad":"privada"}'
+```
+
+### `POST /api/v1/creaciones/creaciones/{creacionId}/compartida` — Compartir una plantilla con la comunidad
+
+PROPONE compartir con todos los negocios de MaKo una plantilla que este negocio guardó sólo para sí (estado «privada» en mis_creaciones). Crea su copia pública SIN los datos del negocio (pasan a [DATO: …]; las fotos, a marcos vacíos) y deja la privada como está. Si ya estaba compartida, la actualiza y conserva sus estrellas. Se retira con retirar_creacion.
+
+- **Ruta por operación:** `POST /api/v1/creaciones/compartir_plantilla`
+- **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea (o actualiza) la copia pública de la plantilla en `creaciones`
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `creacionId` | number | sí | id de la plantilla privada (de mis_creaciones). |
+| `autorNombre` | string | no | con qué nombre firma. Sin valor, «Un negocio de MaKo». |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/creaciones/creaciones/CREACION_ID/compartida"
+```
+
+### `GET /api/v1/creaciones/ranking` — Ranking de la comunidad
+
+Las plantillas publicadas que más gustan: en la semana o el mes, por las estrellas que recibieron en ese período; de siempre, por todas sus estrellas. Cada una con su puesto (los empates lo comparten), las estrellas del período, las de siempre y los usos. Hasta 20.
+
+- **Ruta por operación:** `GET /api/v1/creaciones/ranking_creaciones`
+- **Token detallado:** permiso `creaciones=read` (Solo lectura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `periodo` | string (semana \\| mes \\| siempre) | no | semana (default), mes o siempre. |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | no | filtra por tipo. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/creaciones/ranking"
 ```
 
 ## Cobros (Stripe, Mercado Pago y Creem) — `cobros`

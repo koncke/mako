@@ -22,7 +22,9 @@
 import type { KitMarca } from '@/lib/marca/kits';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { PantallaCrear, type AccionProyecto, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
+import { PantallaCrear, type AccionProyecto, type PlantillaCrear, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
+import { ModalGuardarPlantilla } from '@/app/creaciones/PublicarCreacion';
+import { usePlantillasPropias } from '@/app/creaciones/usePlantillasPropias';
 import { CabeceraDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { useRouter } from '@/app/_ui/Link';
@@ -141,19 +143,27 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
     const menu: AccionProyecto[] = [
       { rotulo: 'Cambiar nombre', hacer: () => renombrar(d) },
       { rotulo: 'Duplicar', hacer: () => duplicar(d) },
+      { rotulo: 'Guardar como plantilla', hacer: () => setComoPlantilla({ id: d.id, nombre: d.titulo }) },
       { rotulo: 'Eliminar', hacer: () => eliminar(d), peligro: true, confirmar: `¿Eliminar «${d.titulo}»? No se puede deshacer.` },
     ];
     return { id: d.id, nombre: d.titulo, href: rutaDe(d.id), cuando: Date.parse(d.actualizado) || null, menu };
   }) ?? null, [disenos, renombrar, duplicar, eliminar]);
 
+  // Plantillas propias (6/11/2026, Leila): las que guardó el negocio y las mejores de la comunidad, primero en «Nuevo diseño».
+  const [comoPlantilla, setComoPlantilla] = useState<{ id: string; nombre: string } | null>(null);
+  const propias = usePlantillasPropias('formato_imagen');
+  const plantillasNuevo = useMemo(() => [...propias.plantillas, ...PLANTILLAS_NUEVO_DISENO], [propias.plantillas]);
+
   // «Usar plantilla»: la misma acción que el teléfono. Abierto el diseño nuevo, la pantalla se va: la tarjeta queda en
   // «Creando» hasta entonces (un segundo clic no crea otro).
   const onPlantilla = useCallback(async (p: { id: string }) => {
+    const propia = await propias.usar(p as PlantillaCrear);
+    if (propia !== false) return propia ?? new Promise<null>(() => {});
     const r = await crearDisenoNuevoAction(p.id);
     if (!r.ok) return r.error;
     router.push(rutaDiseno(r.id));
     return new Promise<null>(() => {});
-  }, [router]);
+  }, [router, propias]);
 
   // Los carruseles por tipo (su miniatura, «Ver ejemplo») y «Hacer el mío» desde el explorador: ./carruseles/useCarruselesDeImage.tsx.
   const crearPlantilla = useCallback(async (id: string) => {
@@ -177,7 +187,7 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       onReintentar={cargar}
       actual={abierto}
       pieLista={aviso ? <p role="alert" style={{ margin: 0, color: 'var(--bad)' }}>{aviso}<ReportarASoporte /></p> : null}
-      plantillas={PLANTILLAS_NUEVO_DISENO}
+      plantillas={plantillasNuevo}
       onPlantilla={onPlantilla}
       miniatura={carruseles.miniatura}
       onVerEjemplo={carruseles.onVerEjemplo}
@@ -203,6 +213,7 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       ) : null}
     </PantallaCrear>
     {carruseles.dialogos}
+    <ModalGuardarPlantilla tipo="formato_imagen" de={comoPlantilla} alSalir={() => setComoPlantilla(null)} alGuardar={propias.recargar} />
     </>
   );
 }

@@ -111,7 +111,10 @@ test('4: la acción busca el id en la lista, arma el documento sin el motor y lo
 
 test('5: la computadora y el teléfono, con la MISMA lista y la MISMA acción', () => {
   const escritorio = sinComentarios(leer('app/image-editor/ImageEditorCliente.tsx'));
-  assert.match(escritorio, /plantillas=\{PLANTILLAS_NUEVO_DISENO\}/);
+  // Delante, las plantillas PROPIAS del negocio y las de la comunidad (6/11/2026, app/creaciones/usePlantillasPropias.ts):
+  // son de escritorio por ahora (docs/relevo/nube-plantillas.md); la lista de MaKo sigue siendo la misma de los dos.
+  assert.match(escritorio, /plantillasNuevo = useMemo\(\(\) => \[\.\.\.propias\.plantillas, \.\.\.PLANTILLAS_NUEVO_DISENO\]/);
+  assert.match(escritorio, /plantillas=\{plantillasNuevo\}/);
   assert.match(escritorio, /ejemplos=\{EJEMPLOS_NUEVO_DISENO\}/);
   assert.match(escritorio, /await crearDisenoNuevoAction\(p\.id\)/);
   const telefono = sinComentarios(leer('app/m/image-editor/InicioImagenM.tsx'));

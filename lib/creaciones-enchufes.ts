@@ -16,7 +16,12 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb } from './workspace';
+import { getTenantDb, getWorkspaceActual } from './workspace';
+import { getUsuarioActual } from './auth';
+import { abrir as abrirGuion, crear as crearGuion, listar as listarGuiones } from './copywriter/server';
+import { definicionDeGuion, guionParaPublico, leerDefinicionGuion, resumenGuion } from './creaciones-guion';
+import { crearDiseno, leerDiseno, listarDisenos } from './image-editor/server';
+import { disenoParaPublico, leerDefinicionDiseno, resumenDiseno } from './creaciones-diseno';
 import { crearDesdeCopia } from './flujo-copia-negocio';
 import { disparadoresDeSecuencia } from './disparadores-canales';
 import { audiosDe, copiaDeFlujo, type CronCopiado, type PasoCopiado } from './flujo-copia';
@@ -31,6 +36,12 @@ export type Enchufe = {
   exportar: (origenId: string) => Promise<{ definicion: unknown; nombre: string }>;
   resumir: (def: unknown) => { nombre: string; detalle: string } | null;
   usar: (def: unknown) => Promise<Usada>;
+  /**
+   * Plantillas propias (6/11/2026): lo que NO es texto y es del negocio (las fotos que subió, los links de un documento),
+   * fuera, ANTES de compartir con todos. Los textos los limpia el server después (`limpiarTextos`), en todos los tipos.
+   * Sin esto, la definición pasa tal cual a esa limpieza.
+   */
+  paraPublico?: (def: unknown) => unknown;
 };
 
 // ── automatizacion (Automations) ─────────────────────────────────────────────
@@ -80,9 +91,79 @@ const automatizacion: Enchufe = {
   },
 };
 
+// ── guion (Copywriter) ───────────────────────────────────────────────────────
+
+const guion: Enchufe = {
+  async opciones() {
+    const r = await listarGuiones();
+    if (!r.ok) throw new Error(`opciones de guiones: ${r.error}`);
+    return r.paginas.filter((p) => !p.papelera).map((p) => ({ id: p.id, nombre: p.titulo || 'Sin título' }));
+  },
+
+  async exportar(origenId) {
+    const r = await abrirGuion(origenId);
+    if (!r.ok) {
+      if (r.status === 404) throw new NoExisteError('No existe ese guion en tu negocio.');
+      throw new Error(`exportar el guion: ${r.error}`);
+    }
+    return { definicion: definicionDeGuion(r.pagina, r.doc), nombre: r.pagina.titulo || 'Sin título' };
+  },
+
+  resumir: resumenGuion,
+  paraPublico: guionParaPublico,
+
+  async usar(def) {
+    const d = leerDefinicionGuion(def);
+    if (!d) throw new Error('El guion de la plantilla no se pudo leer.');
+    const r = await crearGuion({ titulo: d.titulo, tipo: d.tipo, props: d.props, contenido: d.contenido, emoji: d.emoji });
+    if (!r.ok) throw new Error(r.error);
+    return { id: r.pagina.id, nombre: r.pagina.titulo, aviso: null, ruta: `/copywriter/${r.pagina.id}` };
+  },
+};
+
+// ── formato_imagen (los diseños del Image Editor) ────────────────────────────
+
+async function negocioYQuien(): Promise<{ ws: number; quien: string }> {
+  const [ws, yo] = await Promise.all([getWorkspaceActual(), getUsuarioActual()]);
+  if (ws == null) throw new Error('Entra a un negocio primero.');
+  return { ws, quien: yo?.email || yo?.sub || '' };
+}
+
+const formatoImagen: Enchufe = {
+  async opciones() {
+    const { ws } = await negocioYQuien();
+    const r = await listarDisenos(ws);
+    if (!r.ok) throw new Error(`opciones de diseños: ${r.error}`);
+    return r.disenos.map((d) => ({ id: d.id, nombre: d.titulo || 'Diseño' }));
+  },
+
+  async exportar(origenId) {
+    const { ws } = await negocioYQuien();
+    const r = await leerDiseno(ws, origenId);
+    if (!r.ok) {
+      if (r.status === 404) throw new NoExisteError('No existe ese diseño en tu negocio.');
+      throw new Error(`exportar el diseño: ${r.error}`);
+    }
+    const nombre = r.diseno.titulo || 'Diseño';
+    return { definicion: { v: 1, titulo: nombre, doc: r.diseno.doc }, nombre };
+  },
+
+  resumir: resumenDiseno,
+  paraPublico: disenoParaPublico,
+
+  async usar(def) {
+    const d = leerDefinicionDiseno(def);
+    if (!d) throw new Error('El diseño de la plantilla no se pudo leer.');
+    const { ws, quien } = await negocioYQuien();
+    const r = await crearDiseno(ws, quien, { titulo: d.titulo, doc: d.doc });
+    if (!r.ok) throw new Error(r.error);
+    return { id: r.id, nombre: d.titulo, aviso: null, ruta: `/image-editor/${r.id}` };
+  },
+};
+
 /** Lo que se pidió no existe (o no sirve) en el negocio: un 404 legible, no un 500. */
 export class NoExisteError extends Error {
   constructor(m: string) { super(m); this.name = 'NoExisteError'; }
 }
 
-export const ENCHUFES: Record<TipoEnchufado, Enchufe> = { automatizacion };
+export const ENCHUFES: Record<TipoEnchufado, Enchufe> = { automatizacion, guion, formato_imagen: formatoImagen };

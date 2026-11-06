@@ -13,8 +13,8 @@
 
 import { requireRolWs } from '@/lib/tab-access';
 import { getWorkspaceActual } from '@/lib/workspace';
-import { FaltaTablaCreacionesError, listarCreaciones, misCreaciones, type Creacion } from '@/lib/creaciones';
-import { esOrdenCreaciones, esTipoCreacion, type OrdenCreaciones, type TipoCreacion } from '@/lib/creaciones-reglas';
+import { FaltaTablaCreacionesError, listarCreaciones, misCreaciones, rankingCreaciones, type Creacion, type CreacionRankeada } from '@/lib/creaciones';
+import { esOrdenCreaciones, esPeriodoRanking, esTipoCreacion, type OrdenCreaciones, type PeriodoRanking, type TipoCreacion } from '@/lib/creaciones-reglas';
 import { EmptyState, PageHeader, Pagina } from '@/app/_ui';
 import { GaleriaCreaciones } from './GaleriaCreaciones';
 
@@ -25,7 +25,9 @@ export default async function CreacionesPage({ searchParams }: { searchParams: P
   const ws = await getWorkspaceActual();
   const sp = await searchParams;
   const uno = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
-  const tab = uno('tab') === 'mias' ? 'mias' : 'explorar';
+  const tab = uno('tab') === 'mias' ? 'mias' : uno('tab') === 'ranking' ? 'ranking' : 'explorar';
+  const per = uno('periodo');
+  const periodo: PeriodoRanking = esPeriodoRanking(per) ? per : 'semana';
   const t = uno('tipo');
   const tipo: TipoCreacion | null = esTipoCreacion(t) ? t : null;
   const o = uno('orden');
@@ -38,9 +40,13 @@ export default async function CreacionesPage({ searchParams }: { searchParams: P
 
   let inicial: { creaciones: Creacion[]; hayMas: boolean } = { creaciones: [], hayMas: false };
   let mias: Creacion[] = [];
+  let ranking: CreacionRankeada[] | null = null;
   let error: string | null = null;
   try {
-    [inicial, mias] = await Promise.all([listarCreaciones(ws, { tipo, orden, q }), misCreaciones(ws)]);
+    [inicial, mias, ranking] = await Promise.all([
+      listarCreaciones(ws, { tipo, orden, q }), misCreaciones(ws),
+      tab === 'ranking' ? rankingCreaciones(ws, { periodo, tipo }) : Promise.resolve(null),
+    ]);
   } catch (e) {
     error = e instanceof FaltaTablaCreacionesError ? e.message : 'No se pudo cargar la galería.';
     if (!(e instanceof FaltaTablaCreacionesError)) console.error(`[creaciones] página (ws ${ws}):`, e instanceof Error ? e.message : e);
@@ -48,13 +54,15 @@ export default async function CreacionesPage({ searchParams }: { searchParams: P
 
   return (
     <Pagina>
-      <PageHeader titulo="Creaciones" proposito="Lo que crean los negocios de MaKo, con sus estrellas." />
+      <PageHeader titulo="Creaciones" proposito="Las plantillas de los negocios de MaKo, con sus estrellas." />
       <GaleriaCreaciones
         tabInicial={tab}
         filtroInicial={{ tipo, orden, q }}
         inicial={inicial}
         mias={mias}
         error={error}
+        periodoInicial={periodo}
+        rankingInicial={ranking}
       />
     </Pagina>
   );
