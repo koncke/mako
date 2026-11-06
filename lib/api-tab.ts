@@ -45,6 +45,8 @@ export const TAB_DE_API: ReadonlyArray<readonly [string, string]> = [
   ['/api/crm-auto', 'crm'],
   ['/api/landing-generator', 'landing-writer'],
   ['/api/copywriter', 'copywriter'],
+  // El Lead Magnet Generator (5/11/2026): sólo su pantalla y la del teléfono la llaman.
+  ['/api/lead-magnet-generator', 'lead-magnet-generator'],
   ['/api/automations', 'setting'],
   ['/api/chat-agent', 'setting'],
   ['/api/chats', 'chats'],

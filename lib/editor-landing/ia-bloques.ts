@@ -533,7 +533,7 @@ export function normalizarBusqueda(v: unknown): string {
 // original con la MISMA función, así el número siempre apunta al mismo nodo.
 
 // Los bloques de venta (5/11/2026) también: su dato es exacto (la fecha, quién compró, los números) y no pasa por el modelo.
-const CON_REF = new Set<string>([NODO.imagen, NODO.video, NODO.insertado, NODO.htmlLibre, NODO.htmlEditable, NODO.formulario, NODO.cuentaRegresiva, NODO.pruebaSocial, NODO.escasez]);
+const CON_REF = new Set<string>([NODO.imagen, NODO.video, NODO.insertado, NODO.htmlLibre, NODO.htmlEditable, NODO.formulario, NODO.cuentaRegresiva, NODO.pruebaSocial, NODO.escasez, NODO.quiz]);
 
 export function refsDe(base: JsonNodo | null | undefined): Map<string, JsonNodo> {
   const m = new Map<string, JsonNodo>();
@@ -1484,6 +1484,11 @@ function bloqueDeNodo(n: JsonNodo, base: JsonNodo, d: string[] | undefined, form
       const r = refDeNodo(base, n);
       const que = n.type === NODO.cuentaRegresiva ? 'cuenta regresiva' : n.type === NODO.pruebaSocial ? 'prueba social' : 'escasez';
       return r ? [{ t: 'conservar', ref: r, que }] : [];
+    }
+    // El quiz (6/11/2026): viaja cerrado. Sus preguntas, puntos y rangos los decide el negocio; un «mejorá el texto» no los toca.
+    case NODO.quiz: {
+      const r = refDeNodo(base, n);
+      return r ? [{ t: 'conservar', ref: r, que: 'quiz' }] : [];
     }
     default: {
       const t = textoDe(n).trim();

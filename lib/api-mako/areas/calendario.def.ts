@@ -116,4 +116,30 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true,
     escribe: 'programa los posts en Zernio y anota su estado en calendario_eventos',
   },
+  {
+    // 6/11/2026 (la promesa a la agencia de Thiago: «gestionar las reuniones de tu equipo»): lo mismo que la vista «Llamadas»
+    // de la pantalla, con el filtro por persona. Las R1 y R2 del CRM, NO la agenda de Google.
+    id: 'llamadas_del_equipo', area: 'calendario', tipo: 'lectura',
+    titulo: 'Reuniones por persona del equipo',
+    descripcion: 'Las R1 y R2 de los leads (de dos meses atrás a cuatro adelante) de una persona del equipo: las que lleva como closer o como setter. Dice cuándo, si asistió, no vino, está sin marcar o se canceló, y cuántas tiene cada persona. Sin «persona», las de todo el equipo. Úsala para «¿qué llamadas tiene Ana esta semana?» o «¿cuántas sin marcar tiene cada closer?».',
+    parametros: [
+      { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'El nombre como figura en el equipo (closer o setter). «sin_asignar» = las que no tienen ninguno. Si se omite, todas.', ejemplo: 'Ana Pérez' },
+      { nombre: 'cuales', tipo: 'string', enum: ['proximas', 'pasadas', 'canceladas'], descripcion: 'Qué llamadas: las próximas (default), las pasadas o las canceladas.' },
+    ],
+    // Lee leads (nombre y reuniones): datos de los clientes del negocio.
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING, datosDeClientes: true,
+  },
+  {
+    // 6/11/2026 (la promesa a Thiago: «programar en el Calendar un email»): el Email del Calendario deja de ser un recordatorio.
+    // Programa el broadcast con la MISMA regla que programar_broadcast (lib/calendario-email.ts): es un envío masivo diferido.
+    id: 'enlazar_email_calendario', area: 'calendario', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
+    titulo: 'Enlazar un Email del Calendario con Email Marketing',
+    descripcion: 'Propone enlazar una publicación de formato Email del Calendario con un broadcast de Email Marketing (borrador o programado): queda programado para la hora del evento, a todo su segmento, con las mismas reglas que programar_broadcast. Si después se mueve el evento, el email se mueve con él. El evento necesita una hora y estar en el futuro. Deja un link para revisar y confirmar.',
+    parametros: [
+      { nombre: 'eventoId', tipo: 'string', obligatorio: true, max: 80, descripcion: 'El id del evento (de listar_eventos_calendario).', fijoAlRevisar: true },
+      { nombre: 'broadcastId', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'El id del broadcast de Email Marketing (de listar_broadcasts).', fijoAlRevisar: true },
+    ],
+    canales: TODOS, costo: 'dinero', gating: GATING,
+    reversible: true, escribe: 'programa el broadcast en email_broadcasts y anota el enlace en calendario_eventos',
+  },
 ];

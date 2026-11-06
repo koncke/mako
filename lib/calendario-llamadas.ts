@@ -38,6 +38,8 @@ export type LlamadaDeVenta = {
   /** Sólo el día (la reunión no tiene hora cargada). */
   diaCompleto: boolean;
   closer: string | null;
+  /** El setter del lead (6/11/2026, las reuniones del equipo): una llamada es de su closer Y de su setter. */
+  setter?: string | null;
   /** true asistió, false no vino, null sin marcar. */
   asistio: boolean | null;
   /** Conserva la hora y perdió la fecha. */
@@ -127,4 +129,76 @@ export function cuentaPorPestana(lista: readonly LlamadaDeVenta[], ahoraIso: str
     pasadas: llamadasDeLaPestana(lista, 'pasadas', ahoraIso).length,
     canceladas: llamadasDeLaPestana(lista, 'canceladas', ahoraIso).length,
   };
+}
+
+// ── Las reuniones del EQUIPO (6/11/2026, la promesa a la agencia de Thiago: «gestionar las reuniones de tu equipo») ──────
+// Al Calendario entraba sólo el admin. Desde ahora un closer o un setter entra a «Llamadas» y arranca en LAS SUYAS, y el
+// admin filtra por persona. Una llamada es de una persona si es su closer o su setter (`leads.closer` / `leads.setter`
+// guardan el NOMBRE, el del desplegable del equipo): se compara sin mayúsculas ni espacios de más, como el filtro
+// `persona` de `listar_leads` (lib/api-mako/areas/crm.helpers.ts). Lo que un closer o un setter NO ve del Calendario —la
+// agenda de Google del dueño, los cobros, los objetivos, el Plan— lo decide `quienMiraElCalendario`
+// (lib/calendario-equipo-server.ts), no esta lista.
+
+/** «Todas las personas»: el filtro apagado. */
+export const PERSONA_TODAS = 'todas';
+/** Las llamadas que no tienen closer ni setter. */
+export const PERSONA_SIN_ASIGNAR = 'sin_asignar';
+
+const persona = (s: string | null | undefined): string => (s ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+/** ¿Esta llamada es de esa persona (su closer o su setter)? `PERSONA_SIN_ASIGNAR` = la que no tiene ninguno. */
+export function esDeLaPersona(l: Pick<LlamadaDeVenta, 'closer' | 'setter'>, quien: string): boolean {
+  if (quien === PERSONA_SIN_ASIGNAR) return !persona(l.closer) && !persona(l.setter);
+  const q = persona(quien);
+  return !!q && (persona(l.closer) === q || persona(l.setter) === q);
+}
+
+/** Las llamadas del filtro: todas con `PERSONA_TODAS` (o vacío), si no las de esa persona. */
+export function llamadasDeLaPersona<T extends Pick<LlamadaDeVenta, 'closer' | 'setter'>>(lista: readonly T[], quien: string | null | undefined): T[] {
+  if (!quien || quien === PERSONA_TODAS) return [...lista];
+  return lista.filter((l) => esDeLaPersona(l, quien));
+}
+
+/**
+ * Las personas del filtro, con cuántas llamadas tiene cada una: las del equipo (aunque no tengan ninguna en la ventana) y las
+ * que aparecen en las llamadas, sin repetir y en orden alfabético. Con el nombre como está escrito la primera vez.
+ */
+export function personasDeLlamadas(lista: readonly Pick<LlamadaDeVenta, 'closer' | 'setter'>[], equipo: readonly string[] = []): Array<{ nombre: string; llamadas: number }> {
+  const por = new Map<string, { nombre: string; llamadas: number }>();
+  const sumar = (n: string | null | undefined, cuenta: number) => {
+    const k = persona(n);
+    if (!k) return;
+    const ya = por.get(k);
+    if (ya) ya.llamadas += cuenta; else por.set(k, { nombre: (n ?? '').trim().replace(/\s+/g, ' '), llamadas: cuenta });
+  };
+  for (const n of equipo) sumar(n, 0);
+  for (const l of lista) {
+    sumar(l.closer, 1);
+    if (persona(l.setter) !== persona(l.closer)) sumar(l.setter, 1);
+  }
+  return [...por.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+/** Lo que una persona ve del Calendario, según su rol en el negocio. */
+export type MiradaCalendario = {
+  /**
+   * Un closer o un setter: sólo «Llamadas». Ni la grilla (la agenda de Google del dueño), ni los cobros, ni los objetivos,
+   * ni las tareas del Plan: eso es del admin, como la pantalla de cada una.
+   */
+  soloLlamadas: boolean;
+  /** Su nombre, para arrancar en SUS llamadas. null = el admin (arranca en todas). */
+  personaPropia: string | null;
+};
+
+/** De su rol a lo que ve (puro: lo usan la computadora, el teléfono y el test). Un rol que no se pudo leer ve lo mínimo. */
+export function miradaDeRol(rol: string | null | undefined, nombre: string | null | undefined): MiradaCalendario {
+  if (rol === 'admin') return { soloLlamadas: false, personaPropia: null };
+  return { soloLlamadas: true, personaPropia: (nombre ?? '').trim() || null };
+}
+
+/** A quién filtra la lista al abrir: lo que pide la URL (`?persona=`), y si no pide nada, la persona misma (o todas). */
+export function personaDelFiltro(pedida: string | null | undefined, m: MiradaCalendario): string {
+  const p = (pedida ?? '').trim();
+  if (p) return p.slice(0, 120);
+  return m.personaPropia ?? PERSONA_TODAS;
 }

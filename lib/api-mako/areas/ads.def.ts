@@ -773,7 +773,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'hooks_al_video_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Hooks del Media Buyer al video',
-    descripcion: 'PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». No publica nada en Meta.',
+    descripcion: 'PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». AI Avatar los ofrece también («Hooks ganadores»), para filmarlos con el avatar del negocio. No publica nada en Meta.',
     escribe: 'agrega guiones en la celda «Hooks del Media Buyer» del Video Generator',
     parametros: [
       P_DECISION,
@@ -975,11 +975,14 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'pixelId', tipo: 'string', max: 30, fijoAlRevisar: true, descripcion: 'objetivo web o compras: el id del píxel (de listar_pixeles_meta).' },
       { nombre: 'evento', tipo: 'string', enum: ['LEAD', 'SCHEDULE', 'SUBMIT_APPLICATION', 'CONTACT', 'COMPLETE_REGISTRATION'], descripcion: 'objetivo web: el evento del píxel que optimiza (por defecto LEAD).' },
       { nombre: 'url', tipo: 'string', max: 1000, descripcion: 'la página a la que lleva el anuncio, exacta con https (obligatoria salvo en formulario).' },
-      { nombre: 'creativoTipo', tipo: 'string', obligatorio: true, enum: ['imagen', 'video', 'video_cuenta', 'anuncio'], descripcion: 'imagen o video (con imagenUrl o videoUrl), video_cuenta (con videoId) o anuncio (reusar el de anuncioId).' },
+      { nombre: 'creativoTipo', tipo: 'string', obligatorio: true, enum: ['imagen', 'video', 'video_cuenta', 'anuncio', 'archivo', 'generado'], descripcion: 'imagen o video (con imagenUrl o videoUrl), video_cuenta (con videoId), anuncio (reusar el de anuncioId), archivo (uno subido con preparar_subida_media_buyer, con archivoPath) o generado (un video que MaKo ya hizo, con creativoRef).' },
       { nombre: 'imagenUrl', tipo: 'string', max: 1000, descripcion: 'creativoTipo imagen: la dirección https de la imagen.' },
       { nombre: 'videoUrl', tipo: 'string', max: 1000, descripcion: 'creativoTipo video: la dirección https del video (MP4).' },
       { nombre: 'videoId', tipo: 'string', max: 30, fijoAlRevisar: true, descripcion: 'creativoTipo video_cuenta: el id de un video ya subido a la cuenta.' },
       { nombre: 'anuncioId', tipo: 'string', max: 30, fijoAlRevisar: true, descripcion: 'creativoTipo anuncio: el id del anuncio de la cuenta cuyo creativo se reusa (de listar_anuncios_meta).' },
+      { nombre: 'archivoPath', tipo: 'string', max: 300, fijoAlRevisar: true, descripcion: 'creativoTipo archivo: el path del staging (nueva/…) de preparar_subida_media_buyer. Se borra a las 6 horas si no se publica.' },
+      { nombre: 'archivoMedia', tipo: 'string', enum: ['imagen', 'video'], descripcion: 'creativoTipo archivo: imagen o video.' },
+      { nombre: 'creativoRef', tipo: 'string', max: 256, fijoAlRevisar: true, descripcion: 'creativoTipo generado: la ref de un video de MaKo (de `generados` en preparar_subida_media_buyer: AI Avatar, Video Generator).' },
       { nombre: 'texto', tipo: 'string', max: 2000, descripcion: 'el texto principal del anuncio (obligatorio salvo al reusar un anuncio).' },
       { nombre: 'titulo', tipo: 'string', max: 255, descripcion: 'el título del anuncio.' },
       { nombre: 'boton', tipo: 'string', enum: ['LEARN_MORE', 'SIGN_UP', 'APPLY_NOW', 'BOOK_NOW', 'CONTACT_US', 'GET_QUOTE', 'SUBSCRIBE', 'SHOP_NOW', 'WHATSAPP_MESSAGE'], descripcion: 'el botón del anuncio.' },
@@ -993,7 +996,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'preparar_subida_media_buyer', area: 'ads', tipo: 'lectura',
     titulo: 'Preparar la subida de creativos nuevos',
-    descripcion: 'El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. Después: subir_creativos_media_buyer con los path que devuelve.',
+    descripcion: 'El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. También los videos que MaKo ya generó (`generados`: AI Avatar y Video Generator), que se suben por su `ref`, sin PUT. Después: subir_creativos_media_buyer con los path (o las ref) que devuelve.',
     parametros: [
       { nombre: 'nombres', tipo: 'string[]', max: 10, descripcion: 'los nombres de los archivos, con su extensión (video.mp4, foto.jpg) y sin comas: una URL firmada por cada uno, hasta 10.' },
       { nombre: 'adsetId', tipo: 'string', max: 30, descripcion: 'id del conjunto (de esta misma lectura o de ver_campanas_media_buyer): trae sus textos de partida.' },
@@ -1003,18 +1006,20 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'subir_creativos_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
     titulo: 'Subir creativos nuevos a un conjunto',
-    descripcion: 'PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer como anuncios nuevos de UN conjunto (uno por archivo, con los mismos textos), por la Zernio del negocio: heredan el presupuesto y el público del conjunto. Se confirma en una pantalla antes de 6 horas (después el archivo se borra). Cada video puede tardar minutos: de a pocos. Queda como una decisión del Media Buyer y se deshace con deshacer_decision_media_buyer, que borra los anuncios creados.',
+    descripcion: 'PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer, o videos que MaKo ya generó (su `ref`, de `generados`), como anuncios nuevos de UN conjunto (uno por archivo, con los mismos textos), por la Zernio del negocio: heredan el presupuesto y el público del conjunto. Con `original` (un anuncio del conjunto), se prueban contra él: si uno le gana, el Media Buyer propone pausar el original. Se confirma en una pantalla antes de 6 horas si hay archivos del disco (después se borran). Cada video puede tardar minutos: de a pocos. Queda como una decisión del Media Buyer y se deshace con deshacer_decision_media_buyer, que borra los anuncios creados.',
     escribe: 'crea anuncios en la cuenta de Meta del negocio (por Zernio) y deja la decisión aplicada en media_buyer_decisiones',
     parametros: [
       { nombre: 'adsetId', tipo: 'string', obligatorio: true, max: 30, fijoAlRevisar: true, descripcion: 'id del conjunto (de preparar_subida_media_buyer o ver_campanas_media_buyer).' },
       {
-        nombre: 'archivos', tipo: 'object[]', obligatorio: true, max: 10, fijoAlRevisar: true, descripcion: 'los archivos ya subidos, hasta 10.',
+        nombre: 'archivos', tipo: 'object[]', obligatorio: true, max: 10, fijoAlRevisar: true, descripcion: 'los archivos, hasta 10: cada uno con su path (subido) o su ref (un video de MaKo).',
         campos: [
-          { nombre: 'path', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el path que devolvió preparar_subida_media_buyer (nueva/…).' },
-          { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: ['image', 'video'], descripcion: 'image o video.' },
+          { nombre: 'path', tipo: 'string', max: 300, descripcion: 'el path que devolvió preparar_subida_media_buyer (nueva/…), para un archivo del disco.' },
+          { nombre: 'ref', tipo: 'string', max: 256, descripcion: 'la ref de un video que MaKo ya generó (de `generados` en preparar_subida_media_buyer), en vez del path.' },
+          { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: ['image', 'video'], descripcion: 'image o video (un video de MaKo es video).' },
           { nombre: 'nombre', tipo: 'string', max: 120, descripcion: 'cómo se llama: sale en el nombre del anuncio.' },
         ],
       },
+      { nombre: 'original', tipo: 'string', max: 30, fijoAlRevisar: true, descripcion: 'el id de un anuncio del mismo conjunto contra el que se prueban (un hook nuevo contra el video ganador): si uno le gana, el Media Buyer propone pausarlo.' },
       { nombre: 'textoPrincipal', tipo: 'string', obligatorio: true, max: 2200, descripcion: 'el texto principal del anuncio.' },
       { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 255, descripcion: 'el título.' },
       { nombre: 'cta', tipo: 'string', enum: CTAS_SUBIDA, descripcion: 'el botón. Por defecto, LEARN_MORE.' },

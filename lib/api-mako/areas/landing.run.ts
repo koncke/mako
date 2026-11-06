@@ -1281,8 +1281,19 @@ export const RUNNERS: Runners = {
         conversion = c === 'mako' ? 'mako' : c as Conversion;
         partes.push(conversion === 'mako' ? '— lo que hace la gente ahí lo decide MaKo' : `— la gente ahí: «${NOMBRE_CONVERSION[conversion]}»`);
       }
+      // La página de GRACIAS (6/11/2026): quien llega pasa a Ganado. Ausente, no se toca. El resumen dice lo que eso hace, y si la
+      // página todavía no tiene productos (no gana a nadie hasta tener uno), porque se aprueba mirándolo.
+      let gracias: boolean | undefined;
+      if (input.gracias !== undefined) {
+        if (typeof input.gracias !== 'boolean') return { error: 'gracias va como true o false.' };
+        gracias = input.gracias;
+        const sinProductos = (productos ?? existente?.funnelIds ?? []).length === 0;
+        partes.push(gracias
+          ? `— es la página de GRACIAS: quien llegue ahí pasa a Ganado en sus productos (y recibe el curso si su funnel lo invita); su dirección no se publica${sinProductos ? '. Todavía no tiene productos: no gana a nadie hasta que se le asigne uno' : ''}`
+          : '— deja de ser la página de gracias');
+      }
       return {
-        payload: { url, ...(anterior ? { anterior } : {}), ...(productos ? { productos } : {}), ...(conversion ? { conversion } : {}) },
+        payload: { url, ...(anterior ? { anterior } : {}), ...(productos ? { productos } : {}), ...(conversion ? { conversion } : {}), ...(gracias !== undefined ? { gracias } : {}) },
         resumen: partes.join(' ') + '.',
       };
     },
@@ -1295,7 +1306,9 @@ export const RUNNERS: Runners = {
         const productos = Array.isArray(payload.productos) ? payload.productos.map(Number).filter((n) => Number.isSafeInteger(n) && n > 0) : undefined;
         // `conversion`: «mako» la borra (null), ausente no la toca (undefined).
         const conversion = payload.conversion === 'mako' ? null : esConversion(payload.conversion) ? payload.conversion : undefined;
-        const nuevas = conLanding(landings, url, { ...(productos ? { funnelIds: productos } : {}), ...(conversion !== undefined ? { conversion } : {}) }, anterior);
+        // `gracias`: ausente no la toca (lib/landing-config.ts, la misma regla que los productos).
+        const gracias = typeof payload.gracias === 'boolean' ? payload.gracias : undefined;
+        const nuevas = conLanding(landings, url, { ...(productos ? { funnelIds: productos } : {}), ...(conversion !== undefined ? { conversion } : {}), ...(gracias !== undefined ? { gracias } : {}) }, anterior);
         if (!nuevas) return { ok: false, resumen: 'Esa dirección no parece una página web.' };
         if (!landingDe(nuevas, url)) return { ok: false, resumen: `No se pudo: ya hay ${MAX_LANDINGS} landings declaradas.` };
         await escribirLandings(nuevas);

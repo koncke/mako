@@ -1,0 +1,54 @@
+/* =============================================================================
+   El lead magnet que recibe un lead (LeadMagnetCompartido.tsx): la página pública de Notion
+   =============================================================================
+   Las MEDIDAS son las de la hoja del Copywriter (app/copywriter/notion.css), que copia Notion: 708 px de texto con aire a los
+   costados, el emoji de 78 px, el título de 40 px en 700, el cuerpo de 16 px con 1,5, los encabezados de 1,875 / 1,5 / 1,25 em,
+   el destacado gris con radio de 4 px. Los colores son los tokens de la casa, así que el oscuro sale solo.
+   Todo limitado a `.lmc`.
+   ============================================================================= */
+
+.lmc {
+  min-height: 100dvh;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: 'Geist', ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.lmc-hoja { max-width: calc(708px + 192px); margin: 0 auto; padding: 72px clamp(16px, 8%, 96px) 96px; box-sizing: border-box; font-size: 16px; line-height: 1.5; }
+.lmc-emoji { font-size: 78px; line-height: 1.1; margin-bottom: 8px; }
+.lmc-titulo { margin: 0 0 12px; font-size: 40px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.lmc-p { margin: 0; padding: 3px 0; min-height: 1.5em; overflow-wrap: anywhere; }
+.lmc-h1, .lmc-h2, .lmc-h3 { margin: 0; font-weight: 600; line-height: 1.3; }
+.lmc-h1 { font-size: 1.875em; padding: 1em 0 4px; }
+.lmc-h2 { font-size: 1.5em; padding: 1.4em 0 1px; }
+.lmc-h3 { font-size: 1.25em; padding: 1em 0 1px; }
+.lmc-ul, .lmc-ol { margin: 0; padding: 3px 0 3px 1.7em; }
+.lmc-ul li, .lmc-ol li { padding: 1px 0; }
+.lmc-tareas { list-style: none; margin: 0; padding: 3px 0; }
+.lmc-tarea { display: flex; gap: 8px; align-items: flex-start; padding: 2px 0; }
+.lmc-casilla { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-top: 4px; border: 1.5px solid var(--ink); border-radius: 2px; font-size: 12px; line-height: 1; }
+.lmc-tarea[data-hecho] .lmc-casilla { background: var(--primary); border-color: var(--primary); color: #fff; }
+.lmc-tarea[data-hecho] .lmc-tarea-texto { color: var(--dim); text-decoration: line-through; }
+.lmc-tarea-texto { min-width: 0; flex: 1; }
+.lmc-cita { margin: 4px 0; padding: 0 14px; border-left: 3px solid currentColor; }
+.lmc-hr { margin: 14px 0; border: 0; border-top: 1px solid var(--border); }
+.lmc-destacado { display: flex; gap: 10px; margin: 4px 0; padding: 16px 16px 16px 12px; border-radius: 4px; background: var(--surface-2); }
+.lmc-destacado-emoji { flex: none; font-size: 1.25em; line-height: 1.2; }
+.lmc-desplegable { margin: 2px 0; }
+.lmc-desplegable > summary { padding: 3px 0; cursor: pointer; list-style: none; display: flex; gap: 6px; align-items: baseline; }
+.lmc-desplegable > summary::-webkit-details-marker { display: none; }
+.lmc-desplegable > summary::before { content: '▸'; flex: none; width: 1em; color: var(--dim); transition: transform 150ms ease; }
+.lmc-desplegable[open] > summary::before { transform: rotate(90deg); }
+.lmc-desplegable-dentro { padding-left: 1.6em; }
+.lmc-tabla-caja { margin: 8px 0; overflow-x: auto; }
+.lmc-tabla { border-collapse: collapse; min-width: 100%; font-size: 14px; }
+.lmc-tabla th, .lmc-tabla td { border: 1px solid var(--border); padding: 7px 9px; vertical-align: top; text-align: left; }
+.lmc-tabla th { background: var(--surface-2); font-weight: 600; }
+.lmc-tabla p { padding: 0; min-height: 0; }
+.lmc a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.lmc code { padding: 0.2em 0.4em; border-radius: 4px; background: var(--surface-2); font-size: 85%; }
+@media (max-width: 600px) {
+  .lmc-hoja { padding-top: 40px; }
+  .lmc-titulo { font-size: 32px; }
+  .lmc-emoji { font-size: 56px; }
+}

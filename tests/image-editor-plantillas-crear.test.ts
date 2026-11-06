@@ -4,7 +4,9 @@
 // Martín, 29/10/2026: «En "nueva" dependiendo de qué tab, deberías ponerme TEMPLATES con la sección de ¿Qué vas a crear
 // hoy?» y «prefiero deprecar antes que conservar» (Carousels se fue: su DISEÑO vive acá). Lo que fija, sin pantalla:
 //   1. la lista (app/image-editor/plantillas-crear.ts): los tamaños con nombre en blanco, con su marco y su medida; el
-//      carrusel de Instagram de varias páginas; las plantillas con diseño, con su miniatura que existe; ids únicos;
+//      carrusel de Instagram de varias páginas; ids únicos. Desde el 6/11/2026 las plantillas con diseño de «Nuevo diseño»
+//      son las REALES (lib/image-editor/plantillas-reales.ts, las cuida tests/image-plantillas-reales-crear.test.ts): las
+//      10 de Doory (bodas, conciertos, currículums) siguen en el panel «Diseño» del editor y en la API, no aquí;
 //   2. los tamaños son los de la lista ÚNICA del editor (Redimensionar, _doory/editor/dialogs/resizeSizes.ts): uno
 //      inventado acá abriría un diseño de una medida que el editor no conoce por nombre;
 //   3. el documento en blanco trae una página por id (el carrusel, cinco) y lo acepta la regla del server;
@@ -25,15 +27,14 @@ import {
 } from '../app/image-editor/plantillas-crear';
 import { TAMANOS_API } from '../lib/image-editor/tamanos';
 import { documentoEnBlanco, resumirDoc } from '../lib/image-editor/reglas';
-import { catalogoPlantillas } from '../app/image-editor/mako/plantillas';
 import { RESIZE_SIZES } from '../app/image-editor/_doory/editor/dialogs/resizeSizes';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-const enBlanco = PLANTILLAS_NUEVO_DISENO.filter((p) => !p.plantilla);
-const conDiseno = PLANTILLAS_NUEVO_DISENO.filter((p) => p.plantilla);
+// En blanco: ni carrusel por tipo ni plantilla real (esas traen su estructura).
+const enBlanco = PLANTILLAS_NUEVO_DISENO.filter((p) => !p.plantilla && !p.carrusel && !p.real);
 
 test('1: los tamaños en blanco, con su marco «ancho / alto» y su medida «ancho × alto», y una página', () => {
   for (const [id, t] of Object.entries(TAMANOS_API)) {
@@ -58,20 +59,11 @@ test('1: el carrusel de Instagram: 1080 × 1350, varias páginas, en blanco y al
   assert.equal(PLANTILLAS_NUEVO_DISENO[i - 1]?.id, 'publicacion_vertical', 'va después de la publicación 4:5, que es su tamaño');
 });
 
-test('1: las plantillas con diseño, todas, con la miniatura que existe en public/', () => {
-  const cat = catalogoPlantillas();
-  assert.equal(conDiseno.length, cat.length, 'cada plantilla del editor está en «Nuevo diseño»');
-  for (const p of cat) {
-    const n = conDiseno.find((x) => x.plantilla === p.slug);
-    assert.ok(n, `falta «${p.titulo}»`);
-    assert.equal(n.nombre, p.titulo);
-    assert.deepEqual([n.ancho, n.alto, n.paginas], [p.ancho, p.alto, p.paginas]);
-    assert.equal(n.imagen, `/cv/plantillas/${p.slug}.webp`);
-    assert.ok(existsSync(join(RAIZ, 'public', n.imagen)), `${n.imagen} no existe: la tarjeta saldría rota`);
-  }
-  // Primero lo en blanco, después lo que trae diseño (las tarjetas con miniatura no se mezclan con los marcos).
-  const primeraConDiseno = PLANTILLAS_NUEVO_DISENO.findIndex((p) => p.plantilla);
-  assert.equal(primeraConDiseno, enBlanco.length);
+test('1: en «Nuevo diseño» no quedan las de Doory (bodas, conciertos, currículums): las reales van antes que los tamaños', () => {
+  assert.equal(PLANTILLAS_NUEVO_DISENO.filter((p) => p.plantilla).length, 0, 'una plantilla de Doory volvió a «Nuevo diseño»');
+  const ultimaReal = PLANTILLAS_NUEVO_DISENO.map((p) => !!p.real).lastIndexOf(true);
+  const primeraEnBlanco = PLANTILLAS_NUEVO_DISENO.findIndex((p) => enBlanco.includes(p));
+  assert.ok(ultimaReal >= 0 && ultimaReal < primeraEnBlanco, 'las reales, antes de los marcos en blanco');
 });
 
 test('1: ids únicos, y uno que no está no es ninguna', () => {
@@ -111,7 +103,10 @@ test('4: la acción busca el id en la lista, arma el documento sin el motor y lo
 
 test('5: la computadora y el teléfono, con la MISMA lista y la MISMA acción', () => {
   const escritorio = sinComentarios(leer('app/image-editor/ImageEditorCliente.tsx'));
-  assert.match(escritorio, /plantillas=\{PLANTILLAS_NUEVO_DISENO\}/);
+  // Delante, las plantillas PROPIAS del negocio y las de la comunidad (6/11/2026, app/creaciones/usePlantillasPropias.ts):
+  // son de escritorio por ahora (docs/relevo/nube-plantillas.md); la lista de MaKo sigue siendo la misma de los dos.
+  assert.match(escritorio, /plantillasNuevo = useMemo\(\(\) => \[\.\.\.propias\.plantillas, \.\.\.PLANTILLAS_NUEVO_DISENO\]/);
+  assert.match(escritorio, /plantillas=\{plantillasNuevo\}/);
   assert.match(escritorio, /ejemplos=\{EJEMPLOS_NUEVO_DISENO\}/);
   assert.match(escritorio, /await crearDisenoNuevoAction\(p\.id\)/);
   const telefono = sinComentarios(leer('app/m/image-editor/InicioImagenM.tsx'));

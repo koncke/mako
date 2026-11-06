@@ -156,7 +156,7 @@ async function leerCrm(desde: string, hasta: string, desdeIso: string, hastaIso:
   return out;
 }
 
-type FilaLlamada = FilaReunion & { asistio_j1: boolean | null; asistio_j2: boolean | null; calificado: boolean | null };
+type FilaLlamada = FilaReunion & { setter: string | null; asistio_j1: boolean | null; asistio_j2: boolean | null; calificado: boolean | null };
 
 /**
  * «Llamadas» del Calendario (24/10/2026, la lista de citas de venta, lib/calendario-llamadas.ts): las R1 y R2 del CRM en
@@ -167,7 +167,7 @@ export async function leerLlamadasDeVenta(desde: string, hasta: string, tz: stri
   const db = await getTenantDb();
   const desdeIso = inicioDelDia(desde, tz);
   const hastaIso = inicioDelDia(hasta, tz);
-  const cols = 'id, nombre, closer, junta_1_at, junta_2_at, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, calificado';
+  const cols = 'id, nombre, closer, setter, junta_1_at, junta_2_at, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, calificado';
   const [a1, a2, f1, f2] = await Promise.all([
     leerTodo<FilaLlamada>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.gte('junta_1_at', desdeIso).lt('junta_1_at', hastaIso) }),
     leerTodo<FilaLlamada>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.gte('junta_2_at', desdeIso).lt('junta_2_at', hastaIso) }),
@@ -180,7 +180,7 @@ export async function leerLlamadasDeVenta(desde: string, hasta: string, tz: stri
     if (!inicio) return;
     out.push({
       id: `crm:${l.id}:${cual}`, leadId: Number(l.id), nombre: (l.nombre ?? '').trim() || `Lead #${l.id}`, cual, inicio, diaCompleto: !iso,
-      closer: l.closer, asistio: cual === 'R1' ? l.asistio_j1 : l.asistio_j2, calificado: l.calificado,
+      closer: l.closer, setter: l.setter, asistio: cual === 'R1' ? l.asistio_j1 : l.asistio_j2, calificado: l.calificado,
       // Con hora y sin fecha: cancelada (la regla de `leerCrm`).
       cancelada: !!iso && !(cual === 'R1' ? l.fecha_junta_1 : l.fecha_junta_2),
     });

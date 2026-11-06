@@ -302,7 +302,7 @@ test('las cinco tabs de una sola página repiten su puerta a la vista, igual que
   const casos: Array<[string, string[]]> = [
     ['ads-writer', ["requireRolWs([], { nav: 'ads-writer' })"]],
     ['automations', ["requireRolWs(['setter'], { nav: 'setting' })"]],
-    ['calendario', ["requireRolWs([], { nav: 'calendario' })"]],
+    ['calendario', ["requireRolWs(['closer', 'setter'], { nav: 'calendario' })"]],
     ['chats', ["requireCapa('chats')", 'guardOnboarding()']],
     ['offer', ["requireRolWs([], { nav: 'offer' })"]],
   ];

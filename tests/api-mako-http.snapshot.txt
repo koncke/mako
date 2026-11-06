@@ -35,6 +35,7 @@ anular_link_pago
 apagar_kpi
 archivar_etiqueta
 archivar_secuencia
+armar_magnet
 armar_plan_por_tramos
 armar_tab_ficha
 asegurar_plantilla_reporte
@@ -69,6 +70,7 @@ borrar_producto
 borrar_retro
 borrar_silencios_video
 borrar_tema_landing
+buscar_clips_video
 buscar_conocimiento
 buscar_en_comunidad
 buscar_en_segundo_cerebro
@@ -130,6 +132,7 @@ como_conectar
 comparar_agendas_meta_crm
 compartir_borrador_landing
 compartir_documento_copywriter
+compartir_plantilla
 conectar_componentes_dashboard
 conectar_dominio_email
 conectar_seguimiento_email
@@ -144,6 +147,7 @@ configurar_horario_envio
 configurar_landing
 configurar_navegacion_landing
 configurar_newsletter
+configurar_quiz_landing
 configurar_reporte
 configurar_seccion_landing
 configurar_seccion_reporte
@@ -197,6 +201,7 @@ dar_estrella
 dar_formato_texto_landing
 decidir_recomendacion
 declarar_entradas_funnel
+dejar_compartir_magnet
 desarchivar_secuencia
 descartar_borrador_plan
 descartar_decision_media_buyer
@@ -258,6 +263,7 @@ embudo_closing
 empezar_mi_plan_ya
 empezar_prueba_ab
 enlaces_documento_copywriter
+enlazar_email_calendario
 enviar_broadcast
 enviar_plantilla_a_meta
 enviar_prueba_broadcast
@@ -303,6 +309,7 @@ generar_subtitulos_video
 guardar_borrador_plantilla
 guardar_campo_perfil
 guardar_capacidad
+guardar_como_plantilla
 guardar_cuotas
 guardar_deal_details
 guardar_diagnostico_fase
@@ -348,6 +355,7 @@ limites_formato_instagram
 link_agenda_calendly
 link_agenda_llamada
 link_configurar_integracion
+link_publico_magnet
 link_resumen_lead
 listar_analisis_landing
 listar_angulos_guion
@@ -446,6 +454,7 @@ listar_videos_alojados
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda
+llamadas_del_equipo
 mandar_en_bloque_a_papelera
 mandar_landing_a_papelera
 marcar_asistencia_reunion
@@ -485,6 +494,7 @@ opciones_siguiente_paso_guion
 ordenar_categorias_comunidad
 ordenar_etapas
 ordenar_modulos_curso
+pagina_captura_magnet
 panorama_closing
 papelera_documento_copywriter
 pasar_comentarios_a_copia_landing
@@ -503,6 +513,7 @@ poner_fundido_video
 poner_transicion_video
 posponer_item_plan_retro
 preparar_subida_media_buyer
+primero_magnet
 probar_capi_meta
 probar_conexion_integracion
 probar_secuencia
@@ -517,6 +528,7 @@ proponer_ampliar_tareas
 proponer_borrar_angulo
 proponer_borrar_avatar
 proponer_borrar_guion_valorado
+proponer_broll_video
 proponer_cambio_etapa
 proponer_cierre_tareas
 proponer_corregir_angulo_guion
@@ -534,6 +546,7 @@ proponer_estado_campana
 proponer_estado_conjunto
 proponer_lead
 proponer_leads
+proponer_magnet
 proponer_presupuesto_campana
 proponer_presupuesto_conjunto
 proponer_reanalizar_guion
@@ -556,6 +569,7 @@ quitar_dependencia_plan
 quitar_estrella
 quitar_filtro_dashboard
 r2_sin_lead
+ranking_creaciones
 reabrir_decision_media_buyer
 reabrir_onboarding_chatbot
 reactivar_datos_sin_marcar
@@ -710,6 +724,9 @@ ver_perfil_guiones
 ver_perfil_negocio
 ver_personalidad_voz
 ver_plan
+ver_plantillas_avatar
+ver_plantillas_magnet
+ver_plantillas_oferta
 ver_post_comunidad
 ver_preferencias_notificaciones
 ver_prioridades_plan

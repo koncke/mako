@@ -154,6 +154,9 @@ export const DEFS: Def[] = [
   // Los otros alojadores de video (25/10/2026, Martín: «Implementa otros alojadores de video, no solo panda»): su lista
   // de videos (para nombrarlos y elegirlos en el editor y en los cursos) y, Wistia y Bunny, sus números por día. Cuánto
   // vio cada persona lo mide el Pixel en todos por igual (lib/alojadores-video.ts). Las claves, en CLAVES_ALOJADOR.
+  // Las fotos con licencia del B-roll del Video Editor (06/11/2026, lib/pexels.ts): con la clave de CADA negocio,
+  // sin respaldo de la plataforma. Los otros dos registros: lib/metodo-catalogo.ts y lib/metodo-verificar.ts.
+  { key: 'pexels', nombre: 'Pexels', categoria: 'Datos', descripcion: 'Fotos con licencia para el B-roll de tus videos en el Video Editor.', envs: ['PEXELS_API_KEY'] },
   { key: 'vimeo', nombre: 'Vimeo', categoria: 'Datos', descripcion: 'Tus videos de Vimeo, para elegirlos en tus páginas y tus cursos.', envs: ['VIMEO_TOKEN'] },
   { key: 'wistia', nombre: 'Wistia', categoria: 'Datos', descripcion: 'Tus videos de Wistia y cuántas veces los reproducen por día.', envs: ['WISTIA_TOKEN'] },
   { key: 'bunny', nombre: 'Bunny Stream', categoria: 'Datos', descripcion: 'Tus videos de Bunny Stream y cuántas veces los reproducen por día.', envs: ['BUNNY_STREAM_KEY', 'BUNNY_STREAM_LIBRARY'] },

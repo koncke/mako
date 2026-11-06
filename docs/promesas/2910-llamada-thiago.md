@@ -17,11 +17,15 @@ Lo de abajo es la foto del 29/10 y ya quedó atrás en varios puntos. **Esto se 
 
 **Se puede sumar si Martín hace el clic de la prueba de anuncios por Zernio:** «súbeme este anuncio» desde el grupo con un video o un Drive (en main). Sin ese clic, un creativo nuevo puede rebotar con el error 1885183.
 
+**Hecho el 6/11/2026 en `punta/thiago-anuncios`** (en main cuando la punta da verde; en producción con el deploy diario de las 08:05. Relevo: docs/relevo/nube-thiago-anuncios.md):
+- «Guardar en MaKo» desde un perfil de Instagram o LinkedIn: la extensión 0.77.0, que publica el Cerebro.
+- «Usar en un anuncio» desde los editores (Video, Image, Copywriter) y el AI Avatar: arma la campaña y la PROPONE; lanzarla se confirma en /mako/revisar.
+- Variar el CTA, hooks de video con el avatar (el AI Avatar ofrece los «Hooks ganadores») y pausar el original cuando una variación le gana.
+- «Subir creativos» acepta un video que MaKo ya generó: por la API. La pantalla del Media Buyer todavía no lo lista (la rehace el chat Marketing CoPilot).
+
 **Decirlo antes de que lo pregunte (no existe):**
-- «Guardar en MaKo» desde un perfil de Instagram o LinkedIn.
 - La guía «Migrar tu CRM con Claude» y el token de agencia: la migración de sus 27 clientes hoy es de a una cuenta.
-- «Usar en un anuncio» desde los editores y el AI Avatar.
-- Variar el CTA y pausar el original cuando una variación le gana.
+- Para LinkedIn, el tutorial de importar el Connections.csv.
 - En Calendario: el anuncio y el email enlazados, las reuniones del equipo por persona y las reservas de Google Calendar como etapa del CRM.
 - LinkedIn en Chats y Automations: lo decide Martín (no oficial, partner sólo para Páginas, o no hacerlo y aclararlo).
 
@@ -63,7 +67,8 @@ Ordenado según el riesgo que tiene para el jueves.
 - Chat: **CRM y Chats** · Tamaño: **grande** (con la opción c, no hay código)
 
 **6. Scraper de Instagram y LinkedIn en la extensión: «ya lo estoy implementando»** [17:52-18:04]
-- No hay nada empezado en ninguna rama.
+- ✅ 6/11/2026: el botón «Guardar en MaKo» está hecho (extensión 0.77.0, `punta/thiago-anuncios`). Falta el tutorial del Connections.csv.
+- (29/10) No hay nada empezado en ninguna rama.
 - Falta un botón «Guardar en MaKo» sobre el perfil que se está mirando, de a uno, en Instagram y en LinkedIn. Para LinkedIn, además, un tutorial para importar el Connections.csv. Nada masivo en LinkedIn, porque le banean la cuenta al cliente.
 - Chat: **Extensión** · Tamaño: **grande** (**mediano** si es solo el botón de Instagram)
 
@@ -101,14 +106,14 @@ Para cada una, lo que falta para que sea cierto lo que dijiste.
 
   *(API de MaKo / CRM)*
 - **[30:17] «Crea, publica y optimiza solo».** Publicar a mano desde el Calendario anda. El botón «Publicar» en Video, Image y Copywriter está en zernio-token-2910, con VERDE. Falta subir esa rama, sumar «Usar en un anuncio» en los editores y en AI Avatar, y poder crear campañas desde la app. *(Ads Manager / Editores)*
-- **[31:25] Anuncios hechos con el avatar del cliente.** Falta un «Usar en un anuncio» desde AI Avatar y el Video Generator, y que «Subir creativos» del Media Buyer deje elegir un video ya generado. Hoy solo acepta archivos del disco. *(AI Avatar)*
+- ✅ 6/11/2026 (`punta/thiago-anuncios`): «Usar en un anuncio» en el AI Avatar, y «Subir creativos» acepta un video generado por la API. **[31:25] Anuncios hechos con el avatar del cliente.** Falta un «Usar en un anuncio» desde AI Avatar y el Video Generator, y que «Subir creativos» del Media Buyer deje elegir un video ya generado. Hoy solo acepta archivos del disco. *(AI Avatar)*
 - **[10:00] «Yo no me meto con ese cliente».** Hoy el cliente de la agencia ve «Pasar a Pro · US$97», el grupo «Recomienda MaKo» y la entrada «MaKo Partners» en la barra. Falta un `esClienteDeAgencia` que apague todo eso. Es un cambio chico. *(Agency)*
 
 ### Riesgo medio
 
 - **[25:15] Offer: «se me rompió justo el diseño».** El arreglo está hecho y tiene VERDE en create-qa-2910, pero vive solo en tu PC: no hay rama remota. Falta subirla y desplegar. *(Offer)*
 - **[29:15] «Optimiza la campaña solito, vos no hacés nada».** En Pro, con el piloto automático prendido, se cumple. Falta un Stop Loss durante el día, porque hoy corre una sola vez, a las 14:30 UTC. También tenés que decidir si Esencial tiene piloto: hoy recibe 2 recomendaciones por día que se aprueban a mano. *(Ads Manager)*
-- **[33:00] Variaciones de hooks y de CTA, publicadas solas.** Hoy son 4 variaciones de texto sobre el mismo video. Falta variar el botón (el CTA), filmar hooks de video con el avatar y pausar el original cuando una variación le gana. *(Ads Manager)*
+- ✅ 6/11/2026 (`punta/thiago-anuncios`): la variación de botón, los hooks en el AI Avatar y el relevo del original. **[33:00] Variaciones de hooks y de CTA, publicadas solas.** Hoy son 4 variaciones de texto sobre el mismo video. Falta variar el botón (el CTA), filmar hooks de video con el avatar y pausar el original cuando una variación le gana. *(Ads Manager)*
 - **[13:13] «Centraliza todas las plataformas».** Las cuatro que nombraste están. TikTok sería solo para contestar DMs por Zernio, y no funciona con cuentas registradas en el Espacio Económico Europeo, España incluida. Falta la cuenta TikTok Business de prueba, que depende de vos. *(CRM y Chats)*
 - **[09:11] Partners: «una persona refiere a MaKo».** Hoy hace falta MaKo Pro, pero dos landings dicen «gratis» y «cualquier plan». Falta decidir y corregir esos textos, y sumar un campo de partner al alta a mano. *(Planes y Partners)*
 - **[15:30] El calendario «con Calendly, con Cal, con lo que vos quieras».** Calendly y Cal.com andan. Falta que las reservas de Google Calendar caigan en una etapa, y sumar otras agendas si algún cliente usa otra. *(CRM y Chats)*

@@ -400,3 +400,17 @@ La llamada con Thiago (docs/promesas/2910-llamada-thiago.md, *(Planes y Partners
   pactado. El arreglo vive en la acreditación (`conPlanDeLista`): sin plan anotado, la lista del plan más barato de la capa
   vendida (`alta_capa`); una capa sin plan en el catálogo (p. ej. `pm`), el más barato de todos. Un partner nunca gana más
   que la lista. Si el link que ya existía tiene el código de otro partner, se dice en vez de contestar «ok».
+
+## Una cookie de un código muerto tapaba el link vigente, y la compra quedaba sin partner (6/11/2026, nube, barrido)
+
+«El primero vale» (docs/referidos.md): `/r/<código>` no pisaba la cookie `mako_ref` si ya había una. Pero también ponía ESE código en
+el `?ref=` de /planes, así que con una cookie de un código que ya no es de nadie, al comprar `codigoQueCuenta` descartaba los dos
+(la cookie y la URL) y la venta salía sin el partner que la acababa de traer. Ahora la cookie de antes vale sólo si sigue siendo de
+un partner (`refQueVale`, lib/partners-reglas.ts, con `esCodigoDePartner`); si no, el link de hoy la reemplaza y cuenta la visita.
+- ⚠️ **«No pude leer» vale como el primero, y eso exigía arreglar una lectura más abajo** (la revisión adversarial): la de los
+  códigos ANTERIORES (`wsDeCodigoAnterior`, lib/partners-programa.ts) se tragaba el error y daba null, así que con la base caída un
+  código viejo de un partner que cambió el suyo contaba como muerto, y el link de otro le pisaba la cookie por 60 días. Ahora sólo
+  la tabla que falta es «ninguno»; otro error tira. Ejecutado con una base de mentira en tests/partners-referidos.test.ts.
+**Sin hacer:** una cookie de alguien que nunca terminó el alta de partner sigue tapando el link de uno real (`esCodigoDePartner`
+no mira el alta): no le quita a nadie, sólo deja sin arreglar ese caso. **Vive en:** app/r/[codigo]/route.ts ·
+lib/partners-reglas.ts · lib/partners-programa.ts

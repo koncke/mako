@@ -59,7 +59,7 @@ Guard: `tests/clic-derecho-listas.test.ts` (12 tests, 30 roturas cazadas).
   importar IntegracionesBoard o SimuladorWhatsApp: con 6000 corre (1 min 38 s). Los 16 errores que da son de arrastre
   (`opencut-wasm` sin compilar por `npm ci --ignore-scripts`, el `<style jsx>` de Compartir.tsx), ninguno de lo tocado.
 
-**«Responder» del clic derecho (30/10/2026):** `app/_chat/useCita.ts` (el estado, sin dibujar: lo usa Soporte, cuyo hook no puede traer `MensajeWA`) y `useCitaDelChat.tsx`, con la cita por conversación (no viaja a otro diseño ni a otro lead). Sumado al Image Editor, Video Editor, Dashboard, WhatsApp Advisor y la ficha del lead. ⚠️ Una nota de voz sale por detrás: no se lleva la cita, que queda para lo que se está escribiendo.
+**«Responder» del clic derecho (30/10/2026):** `app/_chat/useCita.ts` (el estado, sin dibujar: lo usa Soporte, cuyo hook no puede traer `MensajeWA`) y `useCitaDelChat.tsx`, con la cita por conversación (no viaja a otro diseño ni a otro lead). Sumado al Image Editor, Video Editor, Dashboard, WhatsApp Advisor y la ficha del lead, y el 6/11/2026 al chat de Automations (el barrido de pendientes: el hilo vive en `ChatMakoVista` y la cita en `ChatMako`; los pedidos sueltos se interpretan con `separarCita`, como el Dashboard). ⚠️ Una nota de voz sale por detrás: no se lleva la cita, que queda para lo que se está escribiendo.
 
 Lo que parecía simple y encontró la revisión (ya arreglado):
 - **La clave no era opcional:** el Advisor y el Dashboard cambian de contacto y de hoja sin remontarse, y la cita de un lead salía en el historial de otro.

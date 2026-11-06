@@ -52,8 +52,9 @@ import {
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
 import { esCuotaDeBaja, esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
-import { motivoSinDatos, primerCobroDeLaPrueba, sesionDelCobro, suscripcionMpCancelada, type FaseContracargo } from './cobros-eventos';
-import { avisarSesionQueNoCuadra } from './cobro-sesion-ajena';
+import { motivoSinDatos, primerCobroDeLaPrueba, renovacionesQueFaltan, sesionDelCobro, suscripcionMpCancelada, type FaseContracargo } from './cobros-eventos';
+import { leerTodo } from './supabase-paginado';
+import { avisarRenovacionVieja, avisarSesionQueNoCuadra } from './cobro-sesion-ajena';
 import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
@@ -2275,6 +2276,96 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number; hasta
   }
   if (cortado) console.warn(`[cobros] reconciliar ws ${ws}: se acabó el tiempo de la vuelta; lo que faltó sigue en la próxima`);
   return { revisados: pendientes.length + pagados.length, cambiados, errores };
+}
+
+/** Una suscripción con una cuota de hace menos que esto no se le pregunta a Stripe: su próxima renovación todavía no tocó. */
+const DIAS_SIN_RENOVAR = 25;
+/** De a cuántos cobros se leen sus cuotas (los ids van en la URL del pedido). */
+const TANDA_CUOTAS = 150;
+
+/**
+ * LA RED DE LAS RENOVACIONES DE STRIPE (6/11/2026, docs/hallazgos-pagos.md). El mes 2 en adelante de una suscripción entra
+ * SÓLO por su `invoice.paid`; `reconciliarCobros` mira la sesión del checkout, que ya está pagada. Si ese aviso se perdía, la
+ * plata entraba en Stripe y MaKo no asentaba la cuota: ni la ganancia del partner (el 2º mes), ni la cuota que mira el corte
+ * por falta de pago. Una vez por día (el cron), las suscripciones activas de Stripe CON LEAD cuya última cuota tiene más de
+ * `DIAS_SIN_RENOVAR` días: se listan sus facturas pagadas y se asientan las que faltan, de entre 4 y 14 días
+ * (`renovacionesQueFaltan`), con el MISMO camino y el mismo id que el aviso (`aplicarPagoAprobado` con la factura): si el aviso
+ * llega después, es la misma. Las más viejas quedan en un ticket (`avisarRenovacionVieja`), una por factura.
+ * ⚠️ SÓLO CON LEAD: lo que dice «esta renovación ya está» es su cuota en `pagos`; sin lead no hay cuota, y volver a aplicar
+ * una renovación ya aplicada repite el aviso al equipo (su dedup dura 3 días). Nunca tira por un cobro: lo cuenta.
+ * ⚠️ TODAS, Y EMPEZANDO POR OTRA CADA DÍA (la revisión del 6/11/2026): con un tope antes del filtro, las de id más alto (las más
+ * nuevas, justo las del 2º mes) no se miraban nunca; y con el mismo orden cada día, las que el tiempo dejaba afuera, tampoco.
+ */
+export async function renovacionesPerdidasStripe(ws: number, opts: { hasta?: number; ahoraMs?: number } = {}): Promise<{ revisadas: number; asentadas: number; errores: number }> {
+  const sinTiempo = () => opts.hasta != null && Date.now() > opts.hasta;
+  const ahoraMs = opts.ahoraMs ?? Date.now();
+  const db = getSupabaseServer();
+  // `reembolsado` también: la RENOVACIÓN de una suscripción cuyo primer pago se devolvió sigue siendo plata que entra
+  // (`aplicarPagoAprobado`, el corte de la reentrega de lo devuelto).
+  const filas = await leerTodo<Record<string, unknown>>(db, 'cobros', COLS_COBRO, {
+    eq: { workspace_id: ws, proveedor: 'stripe', tipo: 'suscripcion', suscripcion_estado: 'activa' },
+    filtros: (q) => q.in('estado', ['pagado', 'reembolsado']).not('lead_id', 'is', null).not('proveedor_suscripcion_id', 'is', null),
+    orden: 'id',
+  });
+  const cobros = filas.map((x) => cobroDeFila(x));
+  if (!cobros.length) return { revisadas: 0, asentadas: 0, errores: 0 };
+
+  // Las cuotas de cada una, enteras (una suscripción de un año son 12): sus ids son lo que «ya está», y su fecha la última.
+  const deCadaUno = new Map<number, { ids: Set<string>; ultima: number }>();
+  for (let i = 0; i < cobros.length; i += TANDA_CUOTAS) {
+    const ids = cobros.slice(i, i + TANDA_CUOTAS).map((c) => c.id);
+    const cuotas = await leerTodo<{ cobro_id: number; proveedor_pago_id: string | null; fecha_pago: string | null }>(
+      db, 'pagos', 'id, cobro_id, proveedor_pago_id, fecha_pago',
+      { eq: { workspace_id: ws }, filtros: (q) => q.in('cobro_id', ids), orden: 'id' },
+    );
+    for (const q of cuotas) {
+      const k = Number(q.cobro_id);
+      const e = deCadaUno.get(k) ?? { ids: new Set<string>(), ultima: 0 };
+      if (q.proveedor_pago_id) e.ids.add(q.proveedor_pago_id);
+      const f = q.fecha_pago ? Date.parse(q.fecha_pago) : NaN;
+      if (Number.isFinite(f)) e.ultima = Math.max(e.ultima, f);
+      deCadaUno.set(k, e);
+    }
+  }
+  // Las que tocan (su última cuota tiene más de 25 días), y cada día se arranca por otra.
+  const tocan = cobros.filter((c) => {
+    const propias = deCadaUno.get(c.id);
+    const pagadoEn = c.pagado_at ? Date.parse(c.pagado_at) : NaN;
+    const ultima = Math.max(propias?.ultima ?? 0, Number.isFinite(pagadoEn) ? pagadoEn : 0);
+    return ahoraMs - ultima >= DIAS_SIN_RENOVAR * 86_400_000;
+  });
+  const giro = tocan.length ? Math.floor(ahoraMs / 86_400_000) % tocan.length : 0;
+  const orden = [...tocan.slice(giro), ...tocan.slice(0, giro)];
+
+  const credsDe = credsPorCuenta(ws);
+  let revisadas = 0;
+  let asentadas = 0;
+  let errores = 0;
+  for (const c of orden) {
+    if (sinTiempo()) { console.warn(`[cobros] renovaciones ws ${ws}: se acabó el tiempo; mañana se arranca por otra`); break; }
+    try {
+      const { stripe } = await credsDe(c);
+      if (!stripe || !c.proveedor_suscripcion_id) continue;
+      revisadas++;
+      const fs = await facturasPagadasStripe(stripe.key, c.proveedor_suscripcion_id);
+      if (!fs.ok) throw new Error(`Stripe no contestó por las facturas de la suscripción: ${fs.error}`);
+      const { asentar, viejas } = renovacionesQueFaltan(fs.facturas, {
+        token: c.token, suscripcion: c.proveedor_suscripcion_id, primera: c.proveedor_pago_id,
+        conocidas: deCadaUno.get(c.id)?.ids ?? new Set<string>(), ahoraMs, cobro: c,
+      });
+      // Una perdida de hace más de 14 días no se asienta sola (le escribiría hoy al lead por un pago viejo): queda un ticket.
+      for (const f of viejas) await avisarRenovacionVieja(ws, c, f);
+      for (const r of asentar) {
+        const x = await aplicarPagoAprobado(c, r);
+        if (x.renovacion) asentadas++;
+      }
+    } catch (e) {
+      errores++;
+      console.error(`[cobros] renovaciones del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+    }
+  }
+  if (asentadas) console.log(`[cobros] renovaciones ws ${ws}: ${asentadas} renovación(es) de Stripe que no habían entrado por su aviso`);
+  return { revisadas, asentadas, errores };
 }
 
 /** La venta externa que el aviso puede estar asentando ahora mismo: su cobro cambió hace menos de 10 minutos. */

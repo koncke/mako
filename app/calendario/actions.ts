@@ -27,8 +27,19 @@ import type { DatosPublicacion } from '@/lib/calendario-publicar-reglas';
 import { publicacionDesdeCrear } from '@/lib/calendario-desde-crear';
 import { guardarRepeticion, repeticionDelEvento } from '@/lib/calendario-recurrentes';
 import { hoyEnWorkspace } from '@/lib/timezone';
+import { wsObligatorio } from '@/lib/workspace';
+import { canalKeyDe } from '@/lib/api-mako/canal';
+import type { Ctx } from '@/lib/api-mako/tipos';
+import { emailDelEvento, ejecutarEnlace, prepararEnlace, reprogramarSiEnlazado, soltarEnlace, type EmailDelEvento } from '@/lib/calendario-email';
 
 const guard = () => requireRolWs([], { nav: 'calendario' });
+
+/** Quien programa un email desde el modal: el admin de esta pantalla (las reglas de `programar_broadcast` corren con él). */
+async function ctxDeLaPantalla(): Promise<Ctx> {
+  const ws = await wsObligatorio();
+  const quien = await autor();
+  return { ws, canal: 'app', canalKey: canalKeyDe('app', `calendario:${quien ?? 'admin'}`), alcance: 'ejecutar', rol: 'admin', actor: `${quien ?? 'Admin'} · Calendario` };
+}
 
 async function autor(): Promise<string | null> {
   try { const s = await getUsuarioActual(); return s?.email ?? s?.sub ?? null; } catch { return null; }
@@ -52,12 +63,16 @@ export async function crearEventosAction(entradas: EntradaEvento[], origen: 'use
   }
 }
 
-export async function cambiarEventoAction(id: string, entrada: EntradaEvento): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function cambiarEventoAction(id: string, entrada: EntradaEvento): Promise<{ ok: true; aviso?: string } | { ok: false; error: string }> {
   await guard();
   try {
     const r = await cambiarEvento(String(id), entrada, await zonaDelCalendario());
-    if (r.ok) revalidatePath('/calendario');
-    return r;
+    if (!r.ok) return r;
+    // Un Email enlazado se mueve con su evento (6/11/2026, lib/calendario-email.ts). Que falle no deshace el cambio del evento:
+    // se dice qué pasó con el email.
+    const aviso = await reprogramarSiEnlazado(String(id), await ctxDeLaPantalla()).catch((e) => `No pude mover el email enlazado: ${e instanceof Error ? e.message : String(e)}`);
+    revalidatePath('/calendario');
+    return aviso ? { ok: true, aviso } : { ok: true };
   } catch (e) {
     console.error('[calendario] cambiar:', e instanceof Error ? e.message : e);
     return { ok: false, error: 'No se pudo guardar.' };
@@ -318,4 +333,43 @@ export async function releerPublicacionesAction(): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+// ── El Email del Calendario, enlazado a Email Marketing (6/11/2026, lib/calendario-email.ts) ─────────────────────────────
+
+export async function emailDelEventoAction(id: string): Promise<EmailDelEvento> {
+  await guard();
+  try { return await emailDelEvento(String(id)); }
+  catch (e) { console.error('[calendario] email del evento:', e instanceof Error ? e.message : e); return { ok: false, error: 'No pude leer el email de este evento.' }; }
+}
+
+/** Lo que va a pasar al enlazarlo (el segmento, cuántos, a qué hora sale), sin tocar nada. */
+export async function revisarEmailAction(id: string, broadcastId: number): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
+  await guard();
+  try {
+    const p = await prepararEnlace(String(id), Number(broadcastId), await ctxDeLaPantalla());
+    return 'error' in p ? { ok: false, error: p.error } : { ok: true, resumen: p.resumen };
+  } catch (e) { console.error('[calendario] revisar email:', e instanceof Error ? e.message : e); return { ok: false, error: 'No pude revisar el email.' }; }
+}
+
+/** Enlaza y programa. Vuelve a revisar todo antes de escribir. */
+export async function enlazarEmailAction(id: string, broadcastId: number): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
+  await guard();
+  try {
+    const ctx = await ctxDeLaPantalla();
+    const p = await prepararEnlace(String(id), Number(broadcastId), ctx);
+    if ('error' in p) return { ok: false, error: p.error };
+    const r = await ejecutarEnlace(p.payload, ctx);
+    revalidatePath('/calendario');
+    return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, error: r.resumen };
+  } catch (e) { console.error('[calendario] enlazar email:', e instanceof Error ? e.message : e); return { ok: false, error: 'No se pudo programar el email.' }; }
+}
+
+export async function soltarEmailAction(id: string): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
+  await guard();
+  try {
+    const r = await soltarEnlace(String(id), await ctxDeLaPantalla());
+    revalidatePath('/calendario');
+    return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, error: r.resumen };
+  } catch (e) { console.error('[calendario] soltar email:', e instanceof Error ? e.message : e); return { ok: false, error: 'No se pudo soltar el email.' }; }
 }

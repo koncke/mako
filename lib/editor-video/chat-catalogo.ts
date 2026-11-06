@@ -166,7 +166,11 @@ export type OperacionChat =
   /** «Resaltar palabras clave» de TODOS los subtítulos (subtitles/claves.ts): solas, las nombradas, o ninguna. */
   | { op: 'palabras_clave'; modo: 'auto' | 'estas' | 'ninguna'; palabras?: string[]; color?: string }
   /** Un preset de subtítulos de la marca (DISPONIBLES.presets_subtitulos), a TODOS los subtítulos. */
-  | { op: 'usar_preset_subtitulos'; preset: string };
+  | { op: 'usar_preset_subtitulos'; preset: string }
+  /** «B-roll de MaKo» (app/video-editor/_opencut/broll): propone fotos y cambios de plano que la persona deja o saca. */
+  | { op: 'broll'; ritmo?: 'poco' | 'normal' | 'mucho'; planos?: boolean }
+  /** «Clips mágicos» (app/video-editor/_opencut/clips): busca los mejores momentos para abrir cada uno en un proyecto nuevo. */
+  | { op: 'clips_magicos'; cuantos?: number };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -399,6 +403,16 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     forma: '{"op":"usar_preset_subtitulos","preset":"p1abc"}',
     para: 'Aplica a TODOS los subtítulos un preset de la marca ("preset": su id de DISPONIBLES.presets_subtitulos): su fuente, colores, tamaño, fondo, contorno, karaoke y palabras clave. Se aplica al final. Sin presets en DISPONIBLES, el negocio todavía no guardó ninguno: dilo.',
   },
+  {
+    op: 'broll',
+    forma: '{"op":"broll","ritmo":"normal","planos":true}',
+    para: 'B-roll automático, como Submagic: según lo que se dice, propone fotos con licencia (de Pexels) encima del video y, con "planos": true, cambios de plano (acercamientos al ritmo de las frases). "ritmo" (opcional): "poco", "normal" o "mucho". No elige ni inventa fotos ni tiempos: lo hace al aceptar, y la persona deja o saca cada una en la línea de tiempo. Úsala cuando pidan B-roll, imágenes de apoyo, tomas de recurso, cambios de plano o zooms automáticos. Se aplica al final.',
+  },
+  {
+    op: 'clips_magicos',
+    forma: '{"op":"clips_magicos","cuantos":5}',
+    para: 'Clips mágicos, como OpusClip: busca en un video LARGO los mejores momentos (de 15 a 60 s, que se entiendan solos) para hacer Reels o Shorts. "cuantos" (opcional, de 1 a 10; sin él, 5). No elige ni inventa los momentos: los busca al aceptar, y la persona abre cada uno en un proyecto nuevo, vertical y con subtítulos. No cambia este proyecto. Se aplica al final.',
+  },
 ];
 
 /**
@@ -406,7 +420,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
  * para que la IA lo DIGA en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT =
-  'agregar a la línea de tiempo videos, imágenes, música, sonidos, stickers o formas de la biblioteca (sustituir el archivo de un clip que ya está, sí: reemplazar_clip); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo o chroma key; recortar el encuadre del cuadro; el fondo del lienzo; las plantillas de estilo de texto; guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); duplicar o copiar elementos; pegar atributos; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
+  'agregar a la línea de tiempo videos, imágenes, música, sonidos, stickers o formas de la biblioteca (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos de apoyo según lo que se dice, sí: broll); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo o chroma key; recortar el encuadre del cuadro; el fondo del lienzo; las plantillas de estilo de texto; guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); duplicar o copiar elementos; pegar atributos; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
 
 const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 
@@ -902,6 +916,23 @@ export function validarOperacion(crudo: unknown): Validada {
       const preset = typeof raw.preset === 'string' ? raw.preset.trim() : '';
       if (!preset || preset.length > 80) return { ok: false, motivo: 'un preset de subtítulos sin preset' };
       return { ok: true, op: { op: 'usar_preset_subtitulos', preset } };
+    }
+    case 'broll': {
+      const extra = sobrantes(raw, ['ritmo', 'planos']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo del B-roll` };
+      const ritmo = raw.ritmo === undefined ? undefined : raw.ritmo;
+      if (ritmo !== undefined && ritmo !== 'poco' && ritmo !== 'normal' && ritmo !== 'mucho') return { ok: false, motivo: 'un B-roll con un ritmo que no es «poco», «normal» ni «mucho»' };
+      if (raw.planos !== undefined && typeof raw.planos !== 'boolean') return { ok: false, motivo: 'un B-roll con «planos» que no es sí o no' };
+      return { ok: true, op: { op: 'broll', ...(ritmo ? { ritmo } : {}), ...(typeof raw.planos === 'boolean' ? { planos: raw.planos } : {}) } };
+    }
+    case 'clips_magicos': {
+      const extra = sobrantes(raw, ['cuantos']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de los clips mágicos` };
+      if (raw.cuantos === undefined) return { ok: true, op: { op: 'clips_magicos' } };
+      if (typeof raw.cuantos !== 'number' || !Number.isInteger(raw.cuantos) || raw.cuantos < 1 || raw.cuantos > 10) {
+        return { ok: false, motivo: 'unos clips mágicos con «cuantos» fuera de 1 a 10' };
+      }
+      return { ok: true, op: { op: 'clips_magicos', cuantos: raw.cuantos } };
     }
   }
 }

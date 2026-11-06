@@ -612,4 +612,38 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/ads-manager',
   },
+  {
+    fecha: '6 nov', hora: '02:00', chat: 'Thiago anuncios', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Lo prometido a la agencia de Thiago: «Usar en un anuncio», «Guardar en MaKo» y variar el CTA, los hooks y el relevo',
+    pedido: "Llegó por el Cerebro, a una sesión en la nube: «Cumplí estas promesas a la agencia de Thiago (`docs/promesas/2910-llamada-thiago.md`), medidas el 6/11/2026 como faltantes en main: 1. **«Usar en un anuncio»:** botón en los editores (Video, Imagen, Copywriter) y en AI Avatar, junto a «Publicar en redes» (`EditorGuion.tsx:339`, `DownloadDialog.tsx:382`), que lleve la pieza a `proponer_crear_campana` (`lib/api-mako/areas/ads.def.ts:953`). Lanzar sigue pidiendo confirmación. Que «Subir creativos» del Media Buyer acepte un video ya generado. 2. **«Guardar en MaKo» en la extensión:** botón sobre el perfil abierto de Instagram y de LinkedIn, de a uno, a la vista y con un toque de la persona, nunca en segundo plano. Crea el lead en el CRM. `extension/` y su ruta. Subí la versión del `manifest.json`: la publicación la hace el Cerebro. 3. **Anuncios:** variar el CTA; hooks de video con el avatar; pausar el original cuando una variación le gana, con la regla en `lib/media-buyer/` y tests rompiéndola. Antes de cada punto, medí contra main y el código: el doc de promesas es del 29/10 y puede estar viejo. Respetá `ZERNIO_ANUNCIOS_PROBADO` (`lib/zernio-ads-cuerpo.ts:28`): sigue en false hasta una prueba real de Martín, así que no lo cambies y que la pantalla diga la verdad mientras tanto. **No toques `app/ads-manager`** (la rehace el chat de Marketing CoPilot): si hace falta tocar algo ahí, dejalo escrito en tu relevo. Lo de `lib/media-buyer/` sí, sin tocar pantallas. Entregá por `punta/thiago-anuncios`, con cosecha en el `docs/hallazgos-<área>.md` de cada área (y su fila en `docs/hallazgos.md`) y relevo en `docs/relevo/nube-thiago-anuncios.md`. Migraciones: la siguiente libre, barriendo main y ramas (desde la 0404).»",
+    puntos: [],
+  },
+  {
+    fecha: '6 nov', hora: '02:35', chat: 'Thiago anuncios', cuenta: 'nube',
+    sesion: 'cli_bf66b858-af9b-52bd-97de-5d68c180abe6',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Pausar el original cuando una variación le gana, variar el botón, los hooks en el AI Avatar y «Usar en un anuncio»',
+    puntos: [
+      '**El relevo del original** vive en la táctica Ganador: pasados 7 días, con 3 resultados y 20 % menos de costo por resultado que el original, propone pausarlo (una vez por original; Revive no lo vuelve a prender). Mira las variaciones LANZADAS: la corrida y el vigía armaban su «previa» sin `creados` ni `anuncioBase`, y ahora sale de UNA función (`previaDeDecision`).',
+      '⚠️ **No es una táctica nueva**: `Record<Tactica, …>` de `app/ads-manager/mb-modelo.ts` no compilaba, y esa pantalla no se tocaba (la rehace Marketing CoPilot). Hasta que le dé su rótulo, la tarjeta lo pinta como «Anuncio ganador».',
+      '**Variar el botón** es una tabla (con formulario, «Registrarte» ↔ «Postularte»; a una página, «Más información» ↔ «Registrarte»), nunca WhatsApp ni «sin botón». Sale por Zernio con `cta_type`, detrás de `ZERNIO_ANUNCIOS_PROBADO` (sigue en false).',
+      '**Los hooks con el avatar**: el AI Avatar ofrece «Hooks ganadores», los ganchos que el Media Buyer dejó en el Video Generator, como guion.',
+      '**«Usar en un anuncio»** en el Copywriter, el Image Editor, el Video Editor y el AI Avatar: la pieza va a /anuncio/nuevo, que arma la campaña y la PROPONE (`proponer_crear_campana`, que ahora acepta un archivo o un video de MaKo); lanzarla se confirma en /mako/revisar. La página dice que Zernio todavía no se probó.',
+      '**«Subir creativos» acepta un video de MaKo** por su `ref` (y el anuncio que viene a relevar), por la API y por /api/media-buyer. La pantalla todavía no lo lista: queda escrito para Marketing CoPilot en el relevo.',
+    ],
+    commits: [
+      { sha: '97495f3b', msg: 'Anuncios para Thiago: «Usar en un anuncio», videos de MaKo en «Subir creativos», botón y relevo', lineas: 1760, archivos: 34 },
+    ],
+    archivos: [
+      'lib/media-buyer/motor.ts · tacticas.ts · corrida.ts · vigia.ts — el relevo y la previa',
+      'lib/media-buyer/variacion-boton.ts · variaciones.ts · ejecutar.ts — el botón',
+      'lib/media-buyer/hooks-guion.ts · app/ai-avatar/Estudio.tsx — los hooks en el AI Avatar',
+      'lib/anuncio-desde-pieza.ts · app/anuncio/nuevo/ · app/api/anuncio-desde-pieza/route.ts · app/_crear/usar-en-anuncio.ts — «Usar en un anuncio»',
+      'lib/media-buyer/subir.ts · creativos.ts · campana.ts · lib/api-mako/areas/ads.def.ts · ads.run.ts — subir y proponer con un video de MaKo',
+      'tests/media-buyer-relevo · media-buyer-variacion-boton · media-buyer-subir-generado · usar-en-anuncio — con sus roturas en la cabecera',
+      'docs/hallazgos-ads.md · docs/relevo/nube-thiago-anuncios.md',
+    ],
+    revisar: '/anuncio/nuevo?origen=copywriter',
+  },
 ];

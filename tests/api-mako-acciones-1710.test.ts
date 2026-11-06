@@ -100,6 +100,10 @@ type Hijo = {
   listarDespues: { landings: Array<{ url: string; productos: number[] }> };
   landingVaciaProductos: { prep: { payload: Record<string, unknown>; resumen: string }; config: Array<{ url: string; funnelIds?: number[] }> };
   landingProductosMalos: { ajeno: { error: string }; archivado: { error: string }; basura: { error: string }; config: unknown };
+  landingGracias: {
+    resumen: string; conGracias: unknown; otraCosa: boolean; sigue: unknown; desmarcadoResumen: string; final: unknown;
+    sinProductos: string; basura: { error?: string };
+  };
   ia: string[];
 };
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_api-acciones-hijo.ts')], {
@@ -308,4 +312,19 @@ test('MaKo sabe lo que ahora traen la ficha y la cobranza', () => {
   assert.match(porId('buscar_leads')!.descripcion, /etapa_nombre/);
   const cobranza = porId('cobranza_lead')!.descripcion;
   for (const k of ['cobrado', 'semáforo', 'renovación rechazada', 'editar_cuota', 'crear_link_cuota', 'cortar_recordatorio_cuota']) assert.match(cobranza, new RegExp(k), `cobranza_lead no dice «${k}»`);
+});
+
+// ── 4 · La página de gracias por la API (6/11/2026, docs/relevo/api-mako.md «Sin hacer») ──────────────────────────────────
+// La pantalla la marca en el paso 2 del Pixel y la API no podía. Probado rompiéndolo: el runner sin pasar `gracias` a
+// `conLanding` → 1 fallo; el resumen sin la advertencia de lo que hace → 1 fallo.
+test('guardar_landing marca y desmarca la página de gracias, y guardar otra cosa no la desmarca', () => {
+  const g = H.landingGracias;
+  assert.deepEqual(g.conGracias, [{ url: 'https://mi-sitio.com/oferta', funnelIds: [2], gracias: true }]);
+  assert.match(g.resumen, /página de GRACIAS: quien llegue ahí pasa a Ganado/, 'el «sí» se da leyendo lo que hace');
+  assert.ok(g.otraCosa);
+  assert.deepEqual(g.sigue, [{ url: 'https://mi-sitio.com/oferta', funnelIds: [2], gracias: true, conversion: 'agenda' }], 'sin `gracias`, queda como está');
+  assert.match(g.desmarcadoResumen, /deja de ser la página de gracias/);
+  assert.deepEqual(g.final, [{ url: 'https://mi-sitio.com/oferta', funnelIds: [2], conversion: 'agenda' }]);
+  assert.match(g.sinProductos, /Todavía no tiene productos: no gana a nadie/);
+  assert.match(g.basura.error ?? '', /gracias va como true o false/);
 });

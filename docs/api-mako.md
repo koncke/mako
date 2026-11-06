@@ -36,18 +36,19 @@
 - **Automations** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `configuracion_automatizacion` · `configurar_automatizacion` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `cambiar_crons_secuencia` · `agregar_escenario_secuencia` · `archivar_secuencia` · `probar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje` · `quienes_de_automatizacion` · `ver_limites_envio` · `cambiar_limites_envio`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `metricas_automatizacion` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_con_ia_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `mover_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
-- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `listar_videos_alojados` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_iconos_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `dar_formato_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `cambiar_imagen_landing` · `cambiar_icono_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing` · `configurar_bloque_venta_landing`
+- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `listar_videos_alojados` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_iconos_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `dar_formato_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `cambiar_imagen_landing` · `cambiar_icono_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing` · `configurar_bloque_venta_landing` · `configurar_quiz_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
-- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge` · `sumar_documento_second_brain` · `ver_kits_marca` · `guardar_kit_marca` · `elegir_kit_marca` · `borrar_kit_marca`
+- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge` · `sumar_documento_second_brain` · `ver_kits_marca` · `guardar_kit_marca` · `elegir_kit_marca` · `borrar_kit_marca` · `ver_plantillas_oferta`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `ver_rendimiento_redes` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter` · `listar_plantillas_copywriter` · `editar_documento_copywriter`
-- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `resaltar_claves_subtitulos` · `usar_preset_subtitulos` · `listar_presets_subtitulos` · `guardar_preset_subtitulos` · `borrar_preset_subtitulos`
+- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `resaltar_claves_subtitulos` · `usar_preset_subtitulos` · `proponer_broll_video` · `buscar_clips_video` · `listar_presets_subtitulos` · `guardar_preset_subtitulos` · `borrar_preset_subtitulos` · `ver_plantillas_avatar`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `escribir_en_grupo` · `configurar_horario_envio`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `duplicar_curso` · `renombrar_curso` · `eliminar_curso` · `restaurar_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso` · `crear_alumno_curso`
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
-- **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion`
-- **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
+- **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion` · `llamadas_del_equipo` · `enlazar_email_calendario`
+- **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion` · `guardar_como_plantilla` · `compartir_plantilla` · `ranking_creaciones`
+- **Lead magnets** (`leadmagnet`): `ver_plantillas_magnet` · `armar_magnet` · `pagina_captura_magnet` · `link_publico_magnet` · `primero_magnet` · `dejar_compartir_magnet` · `proponer_magnet`
 - **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos` · `ver_suscripcion_lead` · `cambiar_suscripcion`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion` · `cambiar_aprende_solo`
 
@@ -6034,7 +6035,7 @@ curl -L \
 
 ### `POST /api/v1/ads/media-buyer/decisiones/{decisionId}/hooks-video` — Hooks del Media Buyer al video
 
-PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». No publica nada en Meta.
+PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». AI Avatar los ofrece también («Hooks ganadores»), para filmarlos con el avatar del negocio. No publica nada en Meta.
 
 - **Ruta por operación:** `POST /api/v1/ads/hooks_al_video_media_buyer`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
@@ -6506,11 +6507,14 @@ PROPONE lanzar una campaña ENTERA (campaña, conjunto y anuncio) por la conexi�
 | `pixelId` | string | no | objetivo web o compras: el id del píxel (de listar_pixeles_meta). |
 | `evento` | string (LEAD \\| SCHEDULE \\| SUBMIT_APPLICATION \\| CONTACT \\| COMPLETE_REGISTRATION) | no | objetivo web: el evento del píxel que optimiza (por defecto LEAD). |
 | `url` | string | no | la página a la que lleva el anuncio, exacta con https (obligatoria salvo en formulario). |
-| `creativoTipo` | string (imagen \\| video \\| video_cuenta \\| anuncio) | sí | imagen o video (con imagenUrl o videoUrl), video_cuenta (con videoId) o anuncio (reusar el de anuncioId). |
+| `creativoTipo` | string (imagen \\| video \\| video_cuenta \\| anuncio \\| archivo \\| generado) | sí | imagen o video (con imagenUrl o videoUrl), video_cuenta (con videoId), anuncio (reusar el de anuncioId), archivo (uno subido con preparar_subida_media_buyer, con archivoPath) o generado (un video que MaKo ya hizo, con creativoRef). |
 | `imagenUrl` | string | no | creativoTipo imagen: la dirección https de la imagen. |
 | `videoUrl` | string | no | creativoTipo video: la dirección https del video (MP4). |
 | `videoId` | string | no | creativoTipo video_cuenta: el id de un video ya subido a la cuenta. |
 | `anuncioId` | string | no | creativoTipo anuncio: el id del anuncio de la cuenta cuyo creativo se reusa (de listar_anuncios_meta). |
+| `archivoPath` | string | no | creativoTipo archivo: el path del staging (nueva/…) de preparar_subida_media_buyer. Se borra a las 6 horas si no se publica. |
+| `archivoMedia` | string (imagen \\| video) | no | creativoTipo archivo: imagen o video. |
+| `creativoRef` | string | no | creativoTipo generado: la ref de un video de MaKo (de `generados` en preparar_subida_media_buyer: AI Avatar, Video Generator). |
 | `texto` | string | no | el texto principal del anuncio (obligatorio salvo al reusar un anuncio). |
 | `titulo` | string | no | el título del anuncio. |
 | `boton` | string (LEARN_MORE \\| SIGN_UP \\| APPLY_NOW \\| BOOK_NOW \\| CONTACT_US \\| GET_QUOTE \\| SUBSCRIBE \\| SHOP_NOW \\| WHATSAPP_MESSAGE) | no | el botón del anuncio. |
@@ -6529,7 +6533,7 @@ curl -L \
 
 ### `GET /api/v1/ads/media-buyer/subidas` — Preparar la subida de creativos nuevos
 
-El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. Después: subir_creativos_media_buyer con los path que devuelve.
+El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. También los videos que MaKo ya generó (`generados`: AI Avatar y Video Generator), que se suben por su `ref`, sin PUT. Después: subir_creativos_media_buyer con los path (o las ref) que devuelve.
 
 - **Ruta por operación:** `GET /api/v1/ads/preparar_subida_media_buyer`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
@@ -6554,7 +6558,7 @@ curl -L \
 
 ### `POST /api/v1/ads/media-buyer/conjuntos/{adsetId}/creativos` — Subir creativos nuevos a un conjunto
 
-PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer como anuncios nuevos de UN conjunto (uno por archivo, con los mismos textos), por la Zernio del negocio: heredan el presupuesto y el público del conjunto. Se confirma en una pantalla antes de 6 horas (después el archivo se borra). Cada video puede tardar minutos: de a pocos. Queda como una decisión del Media Buyer y se deshace con deshacer_decision_media_buyer, que borra los anuncios creados.
+PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer, o videos que MaKo ya generó (su `ref`, de `generados`), como anuncios nuevos de UN conjunto (uno por archivo, con los mismos textos), por la Zernio del negocio: heredan el presupuesto y el público del conjunto. Con `original` (un anuncio del conjunto), se prueban contra él: si uno le gana, el Media Buyer propone pausar el original. Se confirma en una pantalla antes de 6 horas si hay archivos del disco (después se borran). Cada video puede tardar minutos: de a pocos. Queda como una decisión del Media Buyer y se deshace con deshacer_decision_media_buyer, que borra los anuncios creados.
 
 - **Ruta por operación:** `POST /api/v1/ads/subir_creativos_media_buyer`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
@@ -6570,10 +6574,12 @@ PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer c
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `adsetId` | string | sí | id del conjunto (de preparar_subida_media_buyer o ver_campanas_media_buyer). |
-| `archivos` | object[] | sí | los archivos ya subidos, hasta 10. |
-| `archivos.path` | string | sí | el path que devolvió preparar_subida_media_buyer (nueva/…). |
-| `archivos.tipo` | string (image \\| video) | sí | image o video. |
+| `archivos` | object[] | sí | los archivos, hasta 10: cada uno con su path (subido) o su ref (un video de MaKo). |
+| `archivos.path` | string | no | el path que devolvió preparar_subida_media_buyer (nueva/…), para un archivo del disco. |
+| `archivos.ref` | string | no | la ref de un video que MaKo ya generó (de `generados` en preparar_subida_media_buyer), en vez del path. |
+| `archivos.tipo` | string (image \\| video) | sí | image o video (un video de MaKo es video). |
 | `archivos.nombre` | string | no | cómo se llama: sale en el nombre del anuncio. |
+| `original` | string | no | el id de un anuncio del mismo conjunto contra el que se prueban (un hook nuevo contra el video ganador): si uno le gana, el Media Buyer propone pausarlo. |
 | `textoPrincipal` | string | sí | el texto principal del anuncio. |
 | `titulo` | string | sí | el título. |
 | `cta` | string (LEARN_MORE \\| SIGN_UP \\| APPLY_NOW \\| BOOK_NOW \\| CONTACT_US \\| GET_QUOTE \\| SHOP_NOW \\| SUBSCRIBE \\| DOWNLOAD) | no | el botón. Por defecto, LEARN_MORE. |
@@ -10974,7 +10980,7 @@ curl -L \
 
 ## Landing (Analyst, Generator y tracking) — `landing`
 
-Tab **Web Generator** (`/web-generator`). 37 lecturas · 46 acciones.
+Tab **Web Generator** (`/web-generator`). 37 lecturas · 47 acciones.
 
 ### `GET /api/v1/landing/landings` — Landings declaradas del negocio
 
@@ -11728,7 +11734,7 @@ Crea una landing nueva en el editor del Web Generator: el texto de ejemplo del o
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `diseno` | string (mako \\| claro-clasico \\| oscuro-moderno \\| minimal \\| audaz \\| calido \\| tecnologico \\| fresco \\| editorial) | sí | Cómo se ve (de listar_disenos_landing). |
-| `objetivo` | string (agenda-llamada \\| webinar \\| lead-magnet \\| venta-directa \\| servicio-local \\| lista-espera \\| curso-programa \\| gracias \\| consultoria \\| app-software) | sí | Qué dice: el texto de ejemplo con que nace (de listar_disenos_landing). |
+| `objetivo` | string (agenda-llamada \\| webinar \\| lead-magnet \\| clase-grabada \\| quiz \\| venta-directa \\| servicio-local \\| lista-espera \\| curso-programa \\| gracias \\| consultoria \\| app-software) | sí | Qué dice: el texto de ejemplo con que nace (de listar_disenos_landing). |
 | `titulo` | string | no | El nombre de la landing en el Panel. Sin él, el nombre del objetivo. |
 
 ```bash
@@ -11981,14 +11987,14 @@ curl -L \
 
 ### `POST /api/v1/landing/landings` — Agregar o corregir una landing
 
-Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. La URL es un dato exacto: deja un link para que la persona la revise y confirme. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Con `conversion` se dice qué hace la gente en esa página (de eso sale el último paso de ver_diagnostico_pixel); mako vuelve a dejarlo a MaKo. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.
+Declara una página como del negocio o corrige su URL (con `anterior`). Solo acepta dominios públicos (no IPs ni redes internas). Úsala cuando el dueño diga «mi página es X» o «cambié el dominio». Revisa antes listar_landings para no duplicar. Al confirmarse, una página nueva se diagnostica sola, por detrás (queda en Web Generator → Diagnóstico). Con `productos` se eligen a qué productos del CRM entran los leads que llegan por esa página (el primero es la casa del lead y en los demás se suma): reemplaza lo que tenía, [] se los saca todos y, si no lo pasas, quedan como están. Con `conversion` se dice qué hace la gente en esa página (de eso sale el último paso de ver_diagnostico_pixel); mako vuelve a dejarlo a MaKo. Los embudoId salen de listar_landings (productosDisponibles). Tope: 12 landings.
 
 - **Ruta por operación:** `POST /api/v1/landing/guardar_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** la lista de landings declaradas (app_settings landing.config, con los productos y la conversión de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio
+- **Escribe:** la lista de landings declaradas (app_settings landing.config, con los productos, la conversión y si es la página de gracias de cada una) y, si la página es nueva, su diagnóstico (landing_analyses), con la cascada gratis del negocio
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -12000,6 +12006,7 @@ Declara una página como del negocio o corrige su URL (con `anterior`). Solo ace
 | `anterior` | string | no | La URL vieja cuando es una corrección: la reemplaza en su lugar y conserva sus productos. |
 | `productos` | string[] | no | Los productos del CRM a los que entran los leads de esta página, por su embudoId (de listar_landings → productosDisponibles). Reemplaza los que tenía; [] se los saca todos; sin este parámetro quedan como están. |
 | `conversion` | string (agenda \\| compra \\| datos \\| registro \\| whatsapp \\| ninguna \\| mako) | no | Qué hace la gente en esta página para convertir: agenda (agenda una llamada), compra (va a pagar a un checkout), datos (deja sus datos en un formulario), registro (se registra), whatsapp (te escribe por WhatsApp), ninguna (solo mira). mako = lo decide MaKo por el funnel y la página. Sin este parámetro queda como está. |
+| `gracias` | boolean | no | true = página de gracias (quien llega pasa a Ganado). |
 
 ```bash
 curl -L \
@@ -13359,6 +13366,53 @@ curl -L \
   -d '{"seccion":"SECCION","tipo":"cuenta_regresiva"}'
 ```
 
+### `PUT /api/v1/landing/documentos/{id}/quiz` — Quiz con diagnóstico
+
+Pone o cambia en una sección el quiz con diagnóstico: preguntas de opción única, cada opción suma puntos y el puntaje elige un resultado («desde» N puntos: gana el de «desde» más alto que alcanza). Antes del resultado pide nombre y correo, que entran al CRM con su resultado y sus respuestas. Lo que no se pasa queda; preguntas y resultados reemplazan la lista entera. Sin una pregunta completa y un resultado con título no se muestra. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
+
+- **Ruta por operación:** `POST /api/v1/landing/configurar_quiz_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `seccion` | string | sí | El id de la sección (de ver_secciones_landing). |
+| `titulo` | string | no | El título de la portada. |
+| `intro` | string | no | Una frase en la portada. |
+| `empezar` | string | no | Opcional (Empezar). |
+| `enviar` | string | no | Opcional (Ver mi resultado). |
+| `pideTelefono` | boolean | no | Suma el WhatsApp (opcional para quien contesta). |
+| `preguntas` | object[] | no | En orden. Reemplazan a las de hoy. |
+| `preguntas.texto` | string | sí | La pregunta. |
+| `preguntas.opciones` | object[] | sí | De 2 a 6. |
+| `preguntas.opciones.texto` | string | sí | La opción. |
+| `preguntas.opciones.puntos` | number | no | Cuánto suma (0 si se omite). |
+| `resultados` | object[] | no | De 1 a 6. Reemplazan a los de hoy. |
+| `resultados.desde` | number | no | Desde cuántos puntos sale. |
+| `resultados.titulo` | string | sí | El diagnóstico, en pocas palabras. |
+| `resultados.texto` | string | no | Qué significa y qué hacer ahora. |
+| `resultados.boton` | string | no | Opcional: el botón del resultado. |
+| `resultados.href` | string | no | A dónde lleva el botón: https://…, #t-<sección> o pagina:<id>. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/quiz" \
+  -d '{"seccion":"SECCION"}'
+```
+
 ## Closing Analyst — `closing`
 
 Tab **Dashboard** (`/dashboard?hoja=closing`). 7 lecturas · 2 acciones.
@@ -13593,7 +13647,7 @@ curl -L \
 
 ## El negocio (onboarding, Second Brain, conocimiento) — `negocio`
 
-Tab **Second Brain** (`/second-brain`). 23 lecturas · 25 acciones.
+Tab **Second Brain** (`/second-brain`). 24 lecturas · 25 acciones.
 
 ### `GET /api/v1/negocio/contexto` — Contexto del negocio
 
@@ -14831,6 +14885,30 @@ curl -L \
   "https://hola-mako.com/api/v1/negocio/marca/kits/ID"
 ```
 
+### `GET /api/v1/negocio/plantillas-oferta` — Plantillas de Offer
+
+Las 9 formas de oferta de «Nueva oferta» (programa con garantía, cohorte, servicio hecho por ti, entrada que se acredita, tramos, preventa, primera camada, revisar y continuidad): id, nombre, cuándo usarla, su forma (quién hace el trabajo, garantía, urgencia, pago) y las preguntas que hace, en orden. Con id, también su ejemplo completo, de un negocio FICTICIO: es la forma, nunca un dato del negocio. Usar una es abrir «Nueva oferta» en Offer y elegirla.
+
+- **Ruta por operación:** `GET /api/v1/negocio/ver_plantillas_oferta`
+- **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** offer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | no | el id de una plantilla, para traer su ejemplo completo. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/plantillas-oferta"
+```
+
 ## Content Machine — `contenido`
 
 Tab **Ads Writer** (`/ads-writer`). 17 lecturas · 14 acciones.
@@ -15675,7 +15753,7 @@ curl -L \
 
 ## Video Generator — `video`
 
-Tab **Video Generator** (`/video-generator`). 17 lecturas · 39 acciones.
+Tab **Video Generator** (`/video-generator`). 18 lecturas · 41 acciones.
 
 ### `GET /api/v1/video/flow/conexion` — Conexión con Google Flow
 
@@ -17234,6 +17312,63 @@ curl -L \
   -d '{"preset":"PRESET"}'
 ```
 
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/broll` — Proponer B-roll y cambios de plano
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. B-roll automático, como Submagic: según lo que se dice, propone fotos con licencia (de Pexels) encima del video y, con "planos": true, cambios de plano (acercamientos al ritmo de las frases). "ritmo" (opcional): "poco", "normal" o "mucho". No elige ni inventa fotos ni tiempos: lo hace al aceptar, y la persona deja o saca cada una en la línea de tiempo. Úsala cuando pidan B-roll, imágenes de apoyo, tomas de recurso, cambios de plano o zooms automáticos. Se aplica al final.
+
+- **Ruta por operación:** `POST /api/v1/video/proponer_broll_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ritmo` | string (poco \\| normal \\| mucho) | no | Opcional: cuántas imágenes («normal», una cada 9 s). |
+| `planos` | boolean | no | Opcional: proponer también los acercamientos (sin esto, sí). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/broll"
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/clips-magicos` — Buscar los mejores momentos (clips mágicos)
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Clips mágicos, como OpusClip: busca en un video LARGO los mejores momentos (de 15 a 60 s, que se entiendan solos) para hacer Reels o Shorts. "cuantos" (opcional, de 1 a 10; sin él, 5). No elige ni inventa los momentos: los busca al aceptar, y la persona abre cada uno en un proyecto nuevo, vertical y con subtítulos. No cambia este proyecto. Se aplica al final.
+
+- **Ruta por operación:** `POST /api/v1/video/buscar_clips_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `cuantos` | number | no | Opcional: cuántos clips (sin esto, 5). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/clips-magicos"
+```
+
 ### `GET /api/v1/video/presets-subtitulos` — Presets de subtítulos de la marca
 
 Los estilos de subtítulos que este negocio guardó, cada uno con su marca o cliente (si la tiene) y lo que hace en palabras: fuente, colores, contorno, karaoke, palabras clave automáticas y las palabras que resalta siempre. Se aplican a un proyecto con usar_preset_subtitulos; se crean o cambian con guardar_preset_subtitulos.
@@ -17329,6 +17464,30 @@ curl -L \
   "https://hola-mako.com/api/v1/video/presets-subtitulos/PRESET"
 ```
 
+### `GET /api/v1/video/plantillas-avatar` — Plantillas de AI Avatar
+
+Las 10 plantillas de venta de AI Avatar: id, nombre, cuándo usarla, el preset (la escena), la estructura del guion y su duración. Con id, también su ejemplo completo de un negocio FICTICIO (el guion por secciones, lo que se ve, el texto en pantalla y tres ganchos) y los datos del negocio que pide. Usar una es elegirla en «Nuevo avatar».
+
+- **Ruta por operación:** `GET /api/v1/video/ver_plantillas_avatar`
+- **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ai-avatar
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | no | el id de una plantilla, para traer su ejemplo completo. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/plantillas-avatar"
+```
+
 ## Image Editor (diseños) — `imagen`
 
 Tab **Image** (`/image-editor`). 3 lecturas · 4 acciones.
@@ -17383,7 +17542,7 @@ curl -L \
 
 ### `GET /api/v1/imagen/plantillas` — Ver las plantillas del Image Editor
 
-Las plantillas del Image Editor: slug, título, categoría, tamaño y páginas, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`).
+Las plantillas del Image Editor. En "reales", las de MaKo con su ejemplo lleno (los textos de un negocio ficticio); en "plantillas", las de diseño libre, primero las sugeridas para este negocio. Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`: el id o el slug).
 
 - **Ruta por operación:** `GET /api/v1/imagen/listar_plantillas_imagen`
 - **Token detallado:** permiso `imagen=read` (Solo lectura en «Image Editor (diseños)»)
@@ -17421,7 +17580,7 @@ Propone crear un diseño en el Image Editor: en blanco, de un tamaño con nombre
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `titulo` | string | no | El título del diseño. Si se omite, «Diseño sin título». |
-| `plantilla` | string | no | El slug de una plantilla (listar_plantillas_imagen). Si viene, manda sobre el tamaño. |
+| `plantilla` | string | no | El id de una plantilla real o el slug de una de diseño libre (listar_plantillas_imagen). Si viene, manda sobre el tamaño. |
 | `tamano` | string (publicacion_instagram \\| publicacion_vertical \\| historia \\| anuncio_facebook \\| miniatura_youtube \\| presentacion) | no | Un tamaño con nombre. Si no viene ni plantilla ni ancho y alto, publicacion_instagram. |
 | `ancho` | number | no | Ancho a medida, en px (con alto). |
 | `alto` | number | no | Alto a medida, en px (con ancho). |
@@ -20141,7 +20300,7 @@ curl -L \
 
 ## Calendario — `calendario`
 
-Tab **Calendario** (`/calendario`). 4 lecturas · 2 acciones.
+Tab **Calendario** (`/calendario`). 5 lecturas · 3 acciones.
 
 ### `GET /api/v1/calendario/eventos` — Ver los eventos del Calendario
 
@@ -20307,9 +20466,65 @@ curl -L \
   -d '{"desde":"2026-11-03","hasta":"2026-11-09"}'
 ```
 
+### `GET /api/v1/calendario/llamadas` — Reuniones por persona del equipo
+
+Las R1 y R2 de los leads (de dos meses atrás a cuatro adelante) de una persona del equipo: las que lleva como closer o como setter. Dice cuándo, si asistió, no vino, está sin marcar o se canceló, y cuántas tiene cada persona. Sin «persona», las de todo el equipo. Úsala para «¿qué llamadas tiene Ana esta semana?» o «¿cuántas sin marcar tiene cada closer?».
+
+- **Ruta por operación:** `GET /api/v1/calendario/llamadas_del_equipo`
+- **Token detallado:** permiso `calendario=read` (Solo lectura en «Calendario»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** calendario
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | El nombre como figura en el equipo (closer o setter). «sin_asignar» = las que no tienen ninguno. Si se omite, todas. |
+| `cuales` | string (proximas \\| pasadas \\| canceladas) | no | Qué llamadas: las próximas (default), las pasadas o las canceladas. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/calendario/llamadas?persona=Ana%20P%C3%A9rez"
+```
+
+### `POST /api/v1/calendario/eventos/{eventoId}/email` — Enlazar un Email del Calendario con Email Marketing
+
+Propone enlazar una publicación de formato Email del Calendario con un broadcast de Email Marketing (borrador o programado): queda programado para la hora del evento, a todo su segmento, con las mismas reglas que programar_broadcast. Si después se mueve el evento, el email se mueve con él. El evento necesita una hora y estar en el futuro. Deja un link para revisar y confirmar.
+
+- **Ruta por operación:** `POST /api/v1/calendario/enlazar_email_calendario`
+- **Token detallado:** permiso `calendario=write` (Lectura y escritura en «Calendario»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** programa el broadcast en email_broadcasts y anota el enlace en calendario_eventos
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** calendario
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `eventoId` | string | sí | El id del evento (de listar_eventos_calendario). |
+| `broadcastId` | number | sí | El id del broadcast de Email Marketing (de listar_broadcasts). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/calendario/eventos/EVENTO_ID/email" \
+  -d '{"broadcastId":1}'
+```
+
 ## Creaciones de la comunidad (estrellas) — `creaciones`
 
-Tab **Creaciones** (`/creaciones`). 3 lecturas · 5 acciones.
+Tab **Creaciones** (`/creaciones`). 4 lecturas · 7 acciones.
 
 ### `GET /api/v1/creaciones/creaciones` — Creaciones de la comunidad
 
@@ -20324,7 +20539,7 @@ La galería de lo que los negocios de MaKo publicaron para los demás (automatiz
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen) | no | filtra por tipo. |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | no | filtra por tipo. |
 | `orden` | string (estrellas \\| usos \\| recientes) | no | estrellas (default), usos o recientes. |
 | `q` | string | no | busca en el título y la descripción. |
 | `pagina` | number | no | la página (de a 24; default 1). |
@@ -20362,7 +20577,7 @@ curl -L \
 
 ### `GET /api/v1/creaciones/mias` — Lo que publicó tu negocio
 
-Las creaciones que publicó este negocio, publicadas y retiradas, con sus estrellas y sus usos.
+Las plantillas de este negocio: las que guardó sólo para sí (estado «privada»), las que publicó y las retiradas, con sus estrellas y sus usos.
 
 - **Ruta por operación:** `GET /api/v1/creaciones/mis_creaciones`
 - **Token detallado:** permiso `creaciones=read` (Solo lectura en «Creaciones de la comunidad (estrellas)»)
@@ -20437,7 +20652,7 @@ curl -L \
 
 ### `POST /api/v1/creaciones/creaciones` — Publicar una creación
 
-PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Hoy se publican: automatizacion (una automatización de Automations, por su id de listar_secuencias_nutricion). Se publica la DEFINICIÓN, sin los datos del negocio: las tarjetas y sus textos (tal cual: que no lleven datos de una persona), sin audios propios (pasan a texto con su guion), archivos, etiquetas, líneas de WhatsApp, emails ni teléfonos. Volver a publicar la misma automatización la ACTUALIZA y conserva sus estrellas. Se retira con retirar_creacion.
+PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Hoy se publican: automatizacion, guion, formato_imagen (una automatización por su id de listar_secuencias_nutricion; un guion del Copywriter por su id de página; un diseño del Image Editor por su id). Se publica la DEFINICIÓN, sin los datos del negocio: en los textos, el nombre del negocio, su gente, emails, teléfonos, links, @ y precios pasan a [DATO: …]; las fotos pasan a marcos vacíos; sin audios propios, archivos, etiquetas ni líneas de WhatsApp. Si igual queda un dato, no se publica y lo dice. Volver a publicar la misma cosa la ACTUALIZA y conserva sus estrellas. Para guardarla sólo para el negocio, guardar_como_plantilla. Se retira con retirar_creacion.
 
 - **Ruta por operación:** `POST /api/v1/creaciones/publicar_creacion`
 - **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
@@ -20451,8 +20666,8 @@ PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Ho
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen) | sí | qué se publica. Hoy sólo «automatizacion» se puede publicar. |
-| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12"). |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se publica. Hoy se pueden: automatizacion, guion, formato_imagen. |
+| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12"; un guion: su id de página «g…»; un diseño: su uuid). |
 | `titulo` | string | no | cómo se llama en la galería. Sin valor, el nombre de la automatización. |
 | `descripcion` | string | no | para qué sirve, en una o dos frases. |
 | `autorNombre` | string | no | el nombre con que firma (el del negocio, o el de una persona). Sin valor, «Un negocio de MaKo». |
@@ -20497,14 +20712,14 @@ curl -L \
 
 ### `POST /api/v1/creaciones/creaciones/{creacionId}/usos` — Usar una creación en este negocio
 
-PROPONE crear en este negocio una copia de una creación publicada (hoy, una automatización), APAGADA: nace en Automations para revisarla y prenderla. Si su disparador apunta a una etapa que este negocio no tiene, nace sin disparador y lo dice. Cuenta un uso de la creación (uno por negocio).
+PROPONE crear en este negocio una copia de una creación publicada o de una plantilla propia del negocio: una automatización nace APAGADA en Automations (si su disparador apunta a una etapa que este negocio no tiene, nace sin disparador y lo dice); un guion nace como página del Copywriter; un diseño, en el Image Editor. Cuenta un uso de la creación (uno por negocio; las propias no cuentan).
 
 - **Ruta por operación:** `POST /api/v1/creaciones/usar_creacion`
 - **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** crea la automatización en `nutricion_secuencias` (apagada) y anota el uso en `creacion_usos`
+- **Escribe:** crea la copia en su tab (`nutricion_secuencias` apagada, una página del Copywriter o un diseño de `image_disenos`) y anota el uso en `creacion_usos`
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -20520,6 +20735,290 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/creaciones/creaciones/CREACION_ID/usos"
+```
+
+### `POST /api/v1/creaciones/plantillas` — Guardar como plantilla
+
+PROPONE guardar como plantilla algo de este negocio, para usarlo de nuevo: «privada» la ve y la usa sólo este negocio, tal cual (con sus precios y sus links); «publica» la ven todos, sin los datos del negocio (como publicar_creacion). Hoy se guardan: automatizacion, guion, formato_imagen. Aparece en «Nuevo …» de su tab, en «Tus plantillas». Volver a guardar la misma cosa con la misma visibilidad la actualiza. Una privada se comparte después con compartir_plantilla.
+
+- **Ruta por operación:** `POST /api/v1/creaciones/guardar_como_plantilla`
+- **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea (o actualiza) la fila de la plantilla en `creaciones`, privada o publicada
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se guarda. Hoy se pueden: automatizacion, guion, formato_imagen. |
+| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número; un guion: su id de página «g…»; un diseño: su uuid). |
+| `visibilidad` | string (privada \\| publica) | sí | privada (sólo este negocio, tal cual) o publica (toda la comunidad, sin los datos del negocio). |
+| `titulo` | string | no | cómo se llama la plantilla. Sin valor, el nombre de la cosa. |
+| `descripcion` | string | no | para qué sirve, en una o dos frases. |
+| `autorNombre` | string | no | con qué nombre firma, si es pública. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/creaciones/plantillas" \
+  -d '{"tipo":"automatizacion","origenId":"ORIGEN_ID","visibilidad":"privada"}'
+```
+
+### `POST /api/v1/creaciones/creaciones/{creacionId}/compartida` — Compartir una plantilla con la comunidad
+
+PROPONE compartir con todos los negocios de MaKo una plantilla que este negocio guardó sólo para sí (estado «privada» en mis_creaciones). Crea su copia pública SIN los datos del negocio (pasan a [DATO: …]; las fotos, a marcos vacíos) y deja la privada como está. Si ya estaba compartida, la actualiza y conserva sus estrellas. Se retira con retirar_creacion.
+
+- **Ruta por operación:** `POST /api/v1/creaciones/compartir_plantilla`
+- **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea (o actualiza) la copia pública de la plantilla en `creaciones`
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `creacionId` | number | sí | id de la plantilla privada (de mis_creaciones). |
+| `autorNombre` | string | no | con qué nombre firma. Sin valor, «Un negocio de MaKo». |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/creaciones/creaciones/CREACION_ID/compartida"
+```
+
+### `GET /api/v1/creaciones/ranking` — Ranking de la comunidad
+
+Las plantillas publicadas que más gustan: en la semana o el mes, por las estrellas que recibieron en ese período; de siempre, por todas sus estrellas. Cada una con su puesto (los empates lo comparten), las estrellas del período, las de siempre y los usos. Hasta 20.
+
+- **Ruta por operación:** `GET /api/v1/creaciones/ranking_creaciones`
+- **Token detallado:** permiso `creaciones=read` (Solo lectura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `periodo` | string (semana \\| mes \\| siempre) | no | semana (default), mes o siempre. |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | no | filtra por tipo. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/creaciones/ranking"
+```
+
+## Lead magnets — `leadmagnet`
+
+Tab **Lead Magnet** (`/lead-magnet-generator`). 2 lecturas · 5 acciones.
+
+### `GET /api/v1/leadmagnet/plantillas` — Ver las plantillas de lead magnet
+
+Las plantillas del Lead Magnet Generator: guía, checklist, prompts para copiar, planilla, clase grabada y quiz con diagnóstico. Cada una dice en qué herramienta nace la pieza (Copywriting o el Web Generator), sus secciones con la guía de cada una, y un ejemplo de un negocio FICTICIO que sirve de muestra y nunca entra en la pieza.
+
+- **Ruta por operación:** `GET /api/v1/leadmagnet/ver_plantillas_magnet`
+- **Token detallado:** permiso `leadmagnet=read` (Solo lectura en «Lead magnets»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/leadmagnet/plantillas"
+```
+
+### `POST /api/v1/leadmagnet/lead-magnets` — Armar un lead magnet con una plantilla
+
+Crea la pieza de un lead magnet con una plantilla, en su herramienta: una página de Copywriting con su estructura (guía, checklist, prompts, planilla) o una landing del Web Generator (clase grabada, quiz con diagnóstico). Nace con las secciones y su guía, nunca con el ejemplo, y queda en la lista de lead magnets del negocio. Devuelve el id y el link para editarla.
+
+- **Ruta por operación:** `POST /api/v1/leadmagnet/armar_magnet`
+- **Token detallado:** permiso `leadmagnet=write` (Lectura y escritura en «Lead magnets»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una página de Copywriting o una landing del Web Generator, y su fila en la lista de lead magnets (mako.entregable)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `plantilla` | string (guia \\| checklist \\| prompts \\| planilla \\| clase-grabada \\| quiz) | sí | El id de la plantilla (de ver_plantillas_magnet). |
+| `nombre` | string | no | Cómo se llama el lead magnet. Si se omite, el nombre de la plantilla. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/leadmagnet/lead-magnets" \
+  -d '{"plantilla":"guia","nombre":"Guía: tu agenda llena en 30 días"}'
+```
+
+### `POST /api/v1/leadmagnet/lead-magnets/{id}/paginas` — Crear la página que pide el lead magnet
+
+Crea la landing que capta un lead magnet: el formulario pide nombre y correo, lo que dejan entra al CRM y la página de gracias lleva a su link. Exige que tenga su link (link_publico_magnet). Nace como borrador sin publicar. Si ya tiene su página, devuelve ésa. Una clase grabada ya es una página con su formulario.
+
+- **Ruta por operación:** `POST /api/v1/leadmagnet/pagina_captura_magnet`
+- **Token detallado:** permiso `leadmagnet=write` (Lectura y escritura en «Lead magnets»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una landing del Web Generator (borrador) y su id en el lead magnet
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | sí | El id del lead magnet (de listar_lead_magnets). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/leadmagnet/lead-magnets/ID/paginas"
+```
+
+### `POST /api/v1/leadmagnet/lead-magnets/{id}/links` — Crear el link público de un lead magnet
+
+Le da a un lead magnet el link que reciben los leads. Para una página de Copywriting, un link público de SOLO LECTURA que abre cualquiera sin cuenta (no sale si está vacía o todavía tiene la guía de alguna sección: dice cuáles cambiar; si ya tenía uno vigente, ése). Para la clase grabada, el de su landing publicada. Si ya tiene su página de captura, su botón de gracias pasa al link nuevo.
+
+- **Ruta por operación:** `POST /api/v1/leadmagnet/link_publico_magnet`
+- **Token detallado:** permiso `leadmagnet=write` (Lectura y escritura en «Lead magnets»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** un link de solo lectura (shares, recurso lead-magnet) y el enlace del lead magnet
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | sí | El id del lead magnet (de listar_lead_magnets). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/leadmagnet/lead-magnets/ID/links"
+```
+
+### `PUT /api/v1/leadmagnet/lead-magnets/{id}/primero` — Poner primero un lead magnet
+
+Lo pone primero de la lista del negocio. Las automatizaciones mandan el link del primero (el dato «Link del lead magnet»), así que esto decide cuál reciben los leads. Exige que tenga su link.
+
+- **Ruta por operación:** `POST /api/v1/leadmagnet/primero_magnet`
+- **Token detallado:** permiso `leadmagnet=write` (Lectura y escritura en «Lead magnets»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el orden de la lista de lead magnets (mako.entregable)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | sí | El id del lead magnet (de listar_lead_magnets). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/leadmagnet/lead-magnets/ID/primero"
+```
+
+### `DELETE /api/v1/leadmagnet/lead-magnets/{id}/links` — Dejar de compartir un lead magnet
+
+Apaga el link público de solo lectura de la página de Copywriting de un lead magnet: deja de abrirse, también para quien ya lo recibió, y se le saca como su link. La página sigue en Copywriting.
+
+- **Ruta por operación:** `POST /api/v1/leadmagnet/dejar_compartir_magnet`
+- **Token detallado:** permiso `leadmagnet=write` (Lectura y escritura en «Lead magnets»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** revoca el link (shares, recurso lead-magnet) y saca el enlace del lead magnet
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | string | sí | El id del lead magnet (de listar_lead_magnets). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/leadmagnet/lead-magnets/ID/links"
+```
+
+### `GET /api/v1/leadmagnet/propuestas` — Proponer lead magnets desde la oferta
+
+MaKo propone hasta 3 lead magnets para el negocio, con la IA del negocio: desde su oferta (lo que promete, a quién, lo que frena a su cliente) y lo que hace su competencia en Competitors Spy. Cada propuesta trae su plantilla, su nombre, por qué y de dónde sale; se arma con armar_magnet (plantilla y nombre). Nunca nombra a un competidor. Sin la IA del negocio, o sin oferta ni competidores leídos, dice qué falta.
+
+- **Ruta por operación:** `GET /api/v1/leadmagnet/proponer_magnet`
+- **Token detallado:** permiso `leadmagnet=read` (Solo lectura en «Lead magnets»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** ia · puede tardar
+- **Solo la plataforma (MaKo).**
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** lead-magnet-generator
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/leadmagnet/propuestas"
 ```
 
 ## Cobros (Stripe, Mercado Pago y Creem) — `cobros`

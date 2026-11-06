@@ -71,6 +71,7 @@ import { frameRateToFloat } from "@/app/video-editor/_opencut/fps/utils";
 import { quedanMuestras } from "@/app/video-editor/_opencut/plantillas/huecos";
 import { useRouter } from "@/app/_ui/Link";
 import { llevarAlCalendario } from "@/app/calendario/publicar-desde-crear";
+import { prepararUsarEnAnuncio } from "@/app/_crear/usar-en-anuncio";
 import { tipoDeArchivo } from "@/lib/calendario-publicar-reglas";
 
 const CLAVE_RECUERDO = "ce-exportar-v1";
@@ -315,6 +316,25 @@ function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar
 		} else setFase({ tipo: "error", mensaje: r.error, calendario: r.url });
 	};
 
+	/**
+	 * «Usar en un anuncio» (6/11/2026, lo prometido a la agencia de Thiago): el MISMO video, subido al staging de anuncios y abierto
+	 * en /anuncio/nuevo, donde se arma la campaña y se PROPONE (la confirma una persona en /mako/revisar). Sin volver a exportar.
+	 */
+	const usarEnAnuncio = async (video: { blob: Blob; nombre: string }) => {
+		setFase({ tipo: "subiendo", progreso: 0 });
+		const r = await prepararUsarEnAnuncio({
+			origen: "video",
+			titulo: datos.proyecto.metadata.name,
+			archivo: video.blob,
+			nombre: video.nombre,
+			onProgreso: (pct) => setFase((f) => (f.tipo === "subiendo" ? { tipo: "subiendo", progreso: pct / 100 } : f)),
+		});
+		if (r.ok) {
+			onCerrar();
+			router.push(r.url);
+		} else setFase({ tipo: "error", mensaje: r.error });
+	};
+
 	const exportar = async () => {
 		if (!puedeExportar) return;
 		if (!publicar) guardarRecuerdo(opciones);
@@ -405,6 +425,16 @@ function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar
 								className="h-8 min-w-[86px] cursor-pointer rounded-[4px] bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:brightness-110"
 							>
 								Publicar en redes
+							</button>
+						)}
+						{fase.tipo === "listo" && videoListo && (
+							<button
+								type="button"
+								data-usar-en-anuncio=""
+								onClick={() => void usarEnAnuncio(videoListo)}
+								className="h-8 min-w-[86px] cursor-pointer rounded-[4px] border border-(--cc-line-2) px-3 text-[13px] font-medium text-(--cc-text) hover:bg-(--cc-raised)"
+							>
+								Usar en un anuncio
 							</button>
 						)}
 						{fase.tipo === "error" && fase.calendario && (

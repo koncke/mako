@@ -20,7 +20,7 @@ export const metadata = {
   description: 'Qué datos usa la extensión de MaKo, y cuáles no.',
 };
 
-const ACTUALIZADO = '4 de noviembre de 2026';
+const ACTUALIZADO = '6 de noviembre de 2026';
 
 export default function Page() {
   return (
@@ -31,8 +31,9 @@ export default function Page() {
         Esta extensión permite que quien usa MaKo genere sus anuncios en video con{' '}
         <strong>su propia cuenta de Google Flow</strong>, desde su propio navegador, que
         complete los datos de sus contactos con lo que ya ve en <strong>su propio WhatsApp
-        Web</strong>, y que guarde en Competitors Spy la página o los anuncios de un competidor que
-        está mirando. Esta política describe exactamente qué datos toca y qué hace con ellos.
+        Web</strong>, que guarde en Competitors Spy la página o los anuncios de un competidor que
+        está mirando, y que guarde como lead de su CRM el perfil de Instagram o de LinkedIn que tiene
+        abierto. Esta política describe exactamente qué datos toca y qué hace con ellos.
       </>}
     >
 
@@ -156,6 +157,29 @@ export default function Page() {
         guarda en tu navegador, y no lee ninguna otra pestaña.
       </p>
 
+      {/* ⚠️ DESDE LA 0.77.0 (6/11/2026) «GUARDAR EN MAKO» SOBRE UN PERFIL. Tiene que coincidir con extension/perfil-leer.js (qué lee),
+          extension/perfil-reglas.js y extension/popup.js (cuándo) y lib/perfil-captura-db.ts (qué se guarda). */}
+      <H>Al guardar un perfil en tu CRM</H>
+      <p>
+        Si tienes abierto el perfil de una persona en <strong>Instagram</strong> o en{' '}
+        <strong>LinkedIn</strong> y tocas el ícono de MaKo, el desplegable ofrece «Guardar en MaKo».
+        Saber que es un perfil sale de la dirección de la pestaña, que no sale de tu navegador.
+      </p>
+      <p>
+        <strong>Recién cuando tocas «Guardar en MaKo»</strong>, la extensión lee ese perfil una vez:
+        la dirección de la pestaña (sin lo que trae en la consulta), su título, las etiquetas con que
+        la página se describe a sí misma (título, descripción e imagen) y los encabezados del perfil.
+        Con eso MaKo te muestra el nombre que entendió y si esa persona ya está en tu CRM. Nada se
+        guarda todavía.
+      </p>
+      <p>
+        <strong>Se guarda cuando tocas «Guardar en mi CRM»</strong>, con el nombre que ves y puedes
+        corregir: un lead en tu espacio de trabajo, con su usuario de Instagram o el link de su
+        perfil de LinkedIn, y en Instagram su foto de perfil. No lee sus publicaciones, sus mensajes
+        ni a quién sigue, no se mueve por la página, no toca nada y no le escribe a nadie. No envía
+        valores de formularios, cookies ni lo que el sitio guarda en tu navegador.
+      </p>
+
       {/* ⚠️ ESTA LISTA ES EL CONTRATO PÚBLICO, Y SE MIDIÓ CONTRA EL CÓDIGO.
 
           Decía «Solo dos cosas, y ninguna es un dato personal» y era falso desde
@@ -262,7 +286,8 @@ export default function Page() {
           <strong>scripting</strong> — insertar en la página de Google Flow el script que
           hace los pedidos con tu sesión. Es el mismo trabajo que harías tú a mano en esa
           pestaña; sin este permiso no hay forma de hacerlo. Con el permiso de abajo, también
-          leer la pestaña en la que tocaste «Guardar en la ficha de…» o «Agregar como competidor».
+          leer la pestaña en la que tocaste «Guardar en la ficha de…», «Agregar como competidor» o
+          «Guardar en MaKo».
         </li>
         <li>
           <strong>activeTab</strong> — acceder a la pestaña que estás mirando sólo cuando tocas

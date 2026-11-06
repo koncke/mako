@@ -110,6 +110,8 @@ test('CRM · Chats · Ops Center · Dashboard · More; More por las familias de 
     ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'copywriter', 'create', false],
     // AI Avatar, para todos desde el 29/10/2026: fila de Create, como Video.
     ['ai-avatar', 'ai-avatar', 'create', false],
+    // Lead Magnet (5/11/2026): sólo de la plataforma por ahora, oculta como Admin (More le arma la fila desde la sidebar).
+    ['lead-magnet', 'lead-magnet-generator', null, true],
     ['mako', 'mako', null, false],
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
@@ -149,10 +151,11 @@ test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () =
   assert.deepEqual(barra('closer', 'completo'), ['crm', 'chats', 'mako', 'dashboard', 'mas']);
   assert.equal(barraMovil('closer', 'completo').find((b) => b.id === 'dashboard')?.href, '/m/dashboard', 'su hoja, no /m/hoy');
   assert.equal(barraMovil('admin', 'completo').find((b) => b.id === 'dashboard')?.href, HOME_MOVIL, 'el unido');
-  assert.deepEqual(mas('closer', 'completo'), [['plan']]);
-  assert.deepEqual(mas('setter', 'completo'), [['plan'], ['automations']]);
+  // Calendar desde el 6/11/2026: sólo sus «Llamadas» (app/calendario/page.tsx).
+  assert.deepEqual(mas('closer', 'completo'), [['plan'], ['calendario']]);
+  assert.deepEqual(mas('setter', 'completo'), [['plan'], ['calendario', 'automations']]);
   // Una familia sin nada que el rol vea no deja una caja vacía.
-  assert.deepEqual(familias('closer', 'completo'), ['Today']);
+  assert.deepEqual(familias('closer', 'completo'), ['Today', 'Sales'], 'Sales por Calendar (sus «Llamadas», 6/11/2026)');
   // El closer entra al Dashboard SÓLO por la hoja Closing (app/dashboard/page.tsx): en una capa
   // sin Closing (pm tiene graphics, no closing), More no le ofrece una fila que lo rebota a Today.
   assert.equal(puedeVerKey('graphics', 'closer', 'pm'), true, 'el nav solo se la daría');
@@ -160,8 +163,10 @@ test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () =
   assert.ok(seccionesMasVisibles('admin', 'pm').some((s) => s.id === 'dashboard'), 'el admin sí');
   // Ads Manager, Customer Success, Video y Landing son de admin; las siete del 15/10/2026, también.
   for (const rol of ['closer', 'setter'] as const) {
+    // Calendario salió de esta lista el 6/11/2026: el closer y el setter ven sus «Llamadas».
+    assert.equal(puedeVerKey('calendario', rol, 'completo'), true, `${rol} no ve sus llamadas`);
     for (const k of ['ads-manager', 'customer-success', 'video-generator', 'landing-writer',
-      'calendario', 'second-brain', 'experimentos', 'offer', 'ads-writer', 'cs-curso', 'cs-comunidad']) {
+      'second-brain', 'experimentos', 'offer', 'ads-writer', 'cs-curso', 'cs-comunidad']) {
       assert.equal(puedeVerKey(k, rol, 'completo'), false, `${rol} ve ${k}`);
     }
   }
@@ -182,8 +187,9 @@ test('el hueco: si el rol no ve uno de los cuatro, lo ocupa la primera sección 
   assert.deepEqual(barra('admin', 'pm'), ['plan', 'calendario', 'mako', 'dashboard', 'mas']);
   assert.equal(barraMovil('admin', 'pm').find((b) => b.id === 'dashboard')?.href, '/m/dashboard');
   assert.deepEqual(mas('admin', 'pm'), []);
-  // Un setter en pm: sube Plan; su hoja (Chat Analyst) no está en pm, así que no tiene Dashboard en la barra.
-  assert.deepEqual(barra('setter', 'pm'), ['plan', 'mako', 'mas']);
+  // Un setter en pm: suben Plan y Calendar (sus «Llamadas», desde el 6/11/2026); su hoja (Chat Analyst) no está en pm, así
+  // que no tiene Dashboard en la barra.
+  assert.deepEqual(barra('setter', 'pm'), ['plan', 'calendario', 'mako', 'mas']);
   assert.deepEqual(mas('setter', 'pm'), []);
   // destinosVisibles sigue siendo la lista de los FIJOS que el rol ve.
   assert.deepEqual(destinosVisibles('admin', 'pm').map((d) => d.id), ['mako', 'dashboard', 'mas']);

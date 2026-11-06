@@ -37,6 +37,7 @@ import OptimizadoVista, { vistaItemOptimizado } from '../nodos/OptimizadoVista';
 import BotonesVista from '../nodos/BotonesVista';
 import FormularioVista from '../nodos/FormularioVista';
 import BloqueVentaVista from '../nodos/BloqueVentaVista';
+import QuizVista from '../nodos/QuizVista';
 import GraficoVista from '../nodos/GraficoVista';
 import InsertadoVista from '../nodos/InsertadoVista';
 import HtmlLibreVista from '../nodos/HtmlLibreVista';
@@ -146,6 +147,7 @@ export function extensionesLanding(op: OpcionesExtensiones): Extensions {
     [NODO.cuentaRegresiva]: ReactNodeViewRenderer(BloqueVentaVista),
     [NODO.pruebaSocial]: ReactNodeViewRenderer(BloqueVentaVista),
     [NODO.escasez]: ReactNodeViewRenderer(BloqueVentaVista),
+    [NODO.quiz]: ReactNodeViewRenderer(QuizVista),
   };
   return [...extensionesBase({ ...op, vistas }), ExtensionBarra, AnimacionSecciones];
 }

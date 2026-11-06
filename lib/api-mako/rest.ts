@@ -28,6 +28,14 @@ export type RutaRest = readonly [MetodoRest, string, string];
 
 /** [método, ruta (sin /api/v1), id de la operación] */
 export const RUTAS_REST: readonly RutaRest[] = [
+  // ── leadmagnet (5/11/2026): el Lead Magnet Generator ───────────────────────────
+  ['GET', '/leadmagnet/plantillas', 'ver_plantillas_magnet'],
+  ['POST', '/leadmagnet/lead-magnets', 'armar_magnet'],
+  ['POST', '/leadmagnet/lead-magnets/{id}/paginas', 'pagina_captura_magnet'],
+  ['POST', '/leadmagnet/lead-magnets/{id}/links', 'link_publico_magnet'],
+  ['PUT', '/leadmagnet/lead-magnets/{id}/primero', 'primero_magnet'],
+  ['DELETE', '/leadmagnet/lead-magnets/{id}/links', 'dejar_compartir_magnet'],
+  ['GET', '/leadmagnet/propuestas', 'proponer_magnet'],
   // ── imagen (15/10/2026): el Image Editor ────────────────────────────────────
   ['GET', '/imagen/disenos', 'listar_disenos_imagen'],
   ['POST', '/imagen/disenos', 'crear_diseno_imagen'],
@@ -43,6 +51,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/calendario/recurrentes', 'ver_proximas_recurrentes'],
   ['GET', '/calendario/anticipacion', 'anticipacion_agenda'],
   ['POST', '/calendario/publicaciones/programaciones', 'programar_publicacion'],
+  ['GET', '/calendario/llamadas', 'llamadas_del_equipo'],
+  ['POST', '/calendario/eventos/{eventoId}/email', 'enlazar_email_calendario'],
   // ── general ───────────────────────────────────────────────────────────────
   ['GET', '/general/arranque/pendientes', 'listar_pendientes_arranque'],
   ['GET', '/general/capacidad', 'ver_capacidad_instalada'],
@@ -547,6 +557,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/landing/documentos/{id}/enlaces', 'poner_enlace_landing'],
   ['PATCH', '/landing/documentos/{id}/formulario', 'configurar_formulario_landing'],
   ['PUT', '/landing/documentos/{id}/bloques-de-venta', 'configurar_bloque_venta_landing'],
+  ['PUT', '/landing/documentos/{id}/quiz', 'configurar_quiz_landing'],
   ['PATCH', '/landing/documentos/{id}/navegacion', 'configurar_navegacion_landing'],
   ['GET', '/landing/documentos/{id}/pago', 'ver_cobro_landing'],
   ['DELETE', '/landing/documentos/{id}/pago', 'quitar_cobro_landing'],
@@ -582,6 +593,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/negocio/archivero/documentos', 'ver_archivero'],
   ['POST', '/negocio/archivero/documentos', 'sumar_documento_second_brain'],
   ['DELETE', '/negocio/archivero/documentos/{id}', 'borrar_documento_archivero'],
+  ['GET', '/negocio/plantillas-oferta', 'ver_plantillas_oferta'],
   ['GET', '/negocio/avatares', 'listar_avatares_negocio'],
   ['PATCH', '/negocio/avatares', 'editar_avatar_negocio'],
   ['POST', '/negocio/avatares/generaciones', 'generar_avatares'],
@@ -681,6 +693,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/video/lugares', 'listar_lugares_grabacion'],
   ['GET', '/video/onboarding', 'estado_onboarding_video'],
   ['GET', '/video/plantillas', 'listar_plantillas_video'],
+  ['GET', '/video/plantillas-avatar', 'ver_plantillas_avatar'],
   ['GET', '/video/proyectos', 'listar_proyectos_video'],
   ['GET', '/video/proyectos/{proyecto}', 'ver_proyecto_video'],
   // Las operaciones del chat «Editar con IA»: cada una deja una PROPUESTA en el proyecto (lib/editor-video/chat-api.ts).
@@ -840,6 +853,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/creaciones/creaciones/{creacionId}/retiro', 'retirar_creacion'],
   ['POST', '/creaciones/creaciones/{creacionId}/usos', 'usar_creacion'],
   ['GET', '/creaciones/mias', 'mis_creaciones'],
+  ['POST', '/creaciones/plantillas', 'guardar_como_plantilla'],
+  ['POST', '/creaciones/creaciones/{creacionId}/compartida', 'compartir_plantilla'],
+  ['GET', '/creaciones/ranking', 'ranking_creaciones'],
   // ── mako ──────────────────────────────────────────────────────────────────
   ['GET', '/mako/bandejas', 'resumen_bandejas_confirmacion'],
   ['GET', '/mako/capacidades', 'listar_capacidades_mako'],

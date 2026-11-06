@@ -68,6 +68,7 @@ POST /api/agente/token → cortada
 POST /api/alumno/entrar → pública (no usa la sesión)
 POST /api/alumno/link → pública (no usa la sesión)
 POST /api/anthropic-usage → cortada
+POST /api/anuncio-desde-pieza → cortada
 POST /api/aperturas → PERMITIDA
 POST /api/auth/2fa → pública (no usa la sesión)
 POST /api/auth/contrasena → pública (no usa la sesión)
@@ -130,6 +131,7 @@ POST /api/crm-auto → cortada
 POST /api/crm/analyst → cortada
 POST /api/crm/comprobante-pago → cortada
 POST /api/crm/etiquetas → cortada
+POST /api/crm/extension → pública (no usa la sesión)
 POST /api/crm/ficha/armar → cortada
 POST /api/crm/importar-leads → cortada
 POST /api/crm/llamadas-grabadas → cortada
@@ -196,6 +198,7 @@ POST /api/landing-generator/pagar → pública (no usa la sesión)
 POST /api/landing-generator/replicar → cortada
 POST /api/landing-generator/replicar/borrador → cortada
 POST /api/landing-generator/replicar/leer → cortada
+POST /api/lead-magnet-generator → cortada
 POST /api/m/mako → PERMITIDA
 POST /api/mako-doer → cortada
 POST /api/mako-guardian → cortada
@@ -274,6 +277,8 @@ POST /api/track/replay → pública (no usa la sesión)
 POST /api/track/vsl → pública (no usa la sesión)
 POST /api/v1/1/1 → pública (no usa la sesión)
 POST /api/v1/1/1/a/b → pública (no usa la sesión)
+POST /api/video-editor/broll → cortada
+POST /api/video-editor/clips → cortada
 POST /api/video-editor/ia → cortada
 POST /api/video-editor/presets → cortada
 POST /api/video-editor/tts → cortada

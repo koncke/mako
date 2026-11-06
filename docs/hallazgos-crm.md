@@ -20,6 +20,22 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Un lead guardado desde un perfil de Instagram o LinkedIn (6/11/2026, nube)
+
+**Vive en:** `lib/perfil-captura-db.ts`, `app/crm/origen-lead.ts` (`perfil_instagram`, `perfil_linkedin`), `lib/leads.ts`
+(`createLead` acepta `linkedin`). Lo que lo dispara es la extensión (docs/hallazgos-extension.md, «Guardar en MaKo»).
+
+- **Origen propio, no `instagram`**: `instagram` es «escribió por Instagram» (llegó solo). Éste lo eligió una persona: tiene su
+  origen, tono tenue en la ficha («Lo guardaste desde su perfil de…»), como `carga_manual`.
+- **LinkedIn NO es un canal de contacto** (`tieneContacto`, lib/contacto-minimo.ts): MaKo no escribe por LinkedIn. El lead nace
+  con `leads.linkedin` (mig 0274) y sin email ni teléfono. Sumarlo a los canales son los seis lugares de AGENTS.md, y es otra
+  decisión. `createLead` escribe la columna SÓLO si vino.
+- **Repetidos**: el mismo @ se busca con `duplicadosDeLead` (motivo instagram); el mismo LinkedIn, con un `ilike` escapado sobre
+  `leads.linkedin` y la igualdad de `linkedinComparable` (lo guardado puede ser el link con o sin `www.`, con la consulta pegada).
+  Un parecido de NOMBRE no frena solo: «Ya tienes un lead que se llama X» y la persona elige «Guardar igual».
+- ⚠️ **`duplicadosDeLead` se traga la falla de la consulta del @** (la deja en el log y sigue): con esa consulta caída, «ya
+  está» se lee como «no está» y se puede crear uno repetido. Es lo mismo que pasa en el alta a mano; la de LinkedIn sí tira.
+- Pasa por `frenarAltaPorTope(ws, 'crm.leads')`: es un alta a mano.
 ## Migrar desde otro CRM: quietos, sin repetir y en su etapa (6/11/2026, nube)
 
 La promesa a la agencia de Thiago (docs/promesas/2910-llamada-thiago.md): pasar los contactos de su CRM anterior por la API, con

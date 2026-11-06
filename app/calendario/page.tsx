@@ -23,7 +23,8 @@ import { Pagina } from '@/app/_ui';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { eventoDeLaUrl } from '@/lib/calendario-desde-crear';
 import { leerCalendario, leerLlamadasDeVenta, leerTareasConFecha, zonaDelCalendario } from '@/lib/calendario';
-import { DIAS_ADELANTE_LLAMADAS, DIAS_ATRAS_LLAMADAS, type LlamadaDeVenta } from '@/lib/calendario-llamadas';
+import { DIAS_ADELANTE_LLAMADAS, DIAS_ATRAS_LLAMADAS, personaDelFiltro, personasDeLlamadas, type LlamadaDeVenta } from '@/lib/calendario-llamadas';
+import { equipoDelCalendario, quienMiraElCalendario } from '@/lib/calendario-equipo-server';
 import { esVistaCalendario, rangoDeVista, sumarDias, type ItemCalendario } from '@/lib/calendario-modelo';
 import { getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { CalendarioApp } from './CalendarioApp';
@@ -32,24 +33,31 @@ import { ListaLlamadas } from './ListaLlamadas';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function CalendarioPage({ searchParams }: { searchParams: Promise<{ vista?: string; fecha?: string; evento?: string }> }) {
-  await requireRolWs([], { nav: 'calendario' });
+export default async function CalendarioPage({ searchParams }: { searchParams: Promise<{ vista?: string; fecha?: string; evento?: string; persona?: string }> }) {
+  // ⚠️ CLOSERS Y SETTERS ENTRAN (6/11/2026, la promesa a la agencia de Thiago: «las reuniones de tu equipo»), pero SÓLO a
+  // «Llamadas», arrancando en las suyas (`quienMiraElCalendario`, lib/calendario-equipo-server.ts). La grilla trae la agenda de
+  // Google del dueño, los cobros y los objetivos: eso sigue siendo del admin, y las acciones de la pantalla también
+  // (`guard`, app/calendario/actions.ts).
+  await requireRolWs(['closer', 'setter'], { nav: 'calendario' });
   const sp = await searchParams;
-  const [hoy, tz] = await Promise.all([hoyEnWorkspace(), zonaDelCalendario()]);
+  const [hoy, tz, mirada] = await Promise.all([hoyEnWorkspace(), zonaDelCalendario(), quienMiraElCalendario()]);
   // «Llamadas» (24/10/2026, la llamada con Leandro, f07): la lista de citas de venta del CRM y las tareas del Plan con fecha
   // (./ListaLlamadas.tsx, copiada del «Appointment List View» de HighLevel). Lee una ventana fija, no la de una vista, y
   // nada de Google: lo que muestra es de MaKo.
-  if (sp?.vista === 'llamadas') {
+  if (sp?.vista === 'llamadas' || mirada.soloLlamadas) {
     const fallos: { llamadas?: boolean; tareas?: boolean } = {};
-    const [llamadas, tareas] = await Promise.all([
+    const [llamadas, tareas, equipo] = await Promise.all([
       leerLlamadasDeVenta(sumarDias(hoy, -DIAS_ATRAS_LLAMADAS), sumarDias(hoy, DIAS_ADELANTE_LLAMADAS), tz)
         .catch((e): LlamadaDeVenta[] => { console.error('[calendario] llamadas:', e instanceof Error ? e.message : e); fallos.llamadas = true; return []; }),
-      leerTareasConFecha(sumarDias(hoy, -14), sumarDias(hoy, 31), tz)
+      // Las tareas del Plan, sólo para el admin: el Plan es de su pantalla.
+      mirada.soloLlamadas ? Promise.resolve([] as ItemCalendario[]) : leerTareasConFecha(sumarDias(hoy, -14), sumarDias(hoy, 31), tz)
         .catch((e): ItemCalendario[] => { console.error('[calendario] tareas:', e instanceof Error ? e.message : e); fallos.tareas = true; return []; }),
+      equipoDelCalendario(),
     ]);
     return (
       <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <ListaLlamadas llamadas={llamadas} tareas={tareas} hoy={hoy} tz={tz} ahora={new Date().toISOString()} fallos={fallos} />
+        <ListaLlamadas llamadas={llamadas} tareas={tareas} hoy={hoy} tz={tz} ahora={new Date().toISOString()} fallos={fallos}
+          persona={personaDelFiltro(sp?.persona, mirada)} personas={personasDeLlamadas(llamadas, equipo)} soloLlamadas={mirada.soloLlamadas} />
       </Pagina>
     );
   }

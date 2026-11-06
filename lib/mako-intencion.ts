@@ -1598,6 +1598,10 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // palabras que NO significan otra cosa en MaKo — «competidor», «competencia», «espiar», «vigilar
   // a» — y ni una del vocabulario de pauta.
   spy: /\b(competidor(es)?|competencia\b|competitor|espi(?:a|ar|ame|alo)\b|vigil(?:a|ar|ame|alo) a\b|qu[eé] (?:est[aá]n? haciendo|public[oó]) (?:mi |la |el |los )?(?:competencia|competidor))/i,
+  // El Lead Magnet Generator (5/11/2026). ANGOSTA como la del spy y por lo mismo: sólo lo que en MaKo no significa otra cosa
+  // («lead magnet», «imán de leads», «freebie»). «Guía», «checklist» o «regalo» solas son palabras del Copywriter y de los
+  // anuncios, y meterían las cinco operaciones del área en esos turnos.
+  leadmagnet: /\b(lead ?magnets?|im[aá]n(?:es)? de (?:leads|clientes|contactos)|freebies?)\b/i,
 };
 
 /** Las áreas que nombra un mensaje, en el orden de la tabla. Vacío = ninguna. */

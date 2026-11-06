@@ -77,6 +77,8 @@ export const NODO = {
   cuentaRegresiva: 'cuentaRegresiva', // hasta una fecha real; al vencer no se reinicia
   pruebaSocial: 'pruebaSocial',      // el pop de quién compró, con lo que escribió el negocio
   escasez: 'escasez',                // «Quedan N de M», con los dos números del negocio
+  // El quiz con diagnóstico (6/11/2026, Lead Magnet Generator: quiz.ts): preguntas con puntos, un resultado por rango.
+  quiz: 'quiz',
 } as const;
 
 /** Nodos de TipTap que se aceptan tal cual (StarterKit + listas de tareas + tablas). */

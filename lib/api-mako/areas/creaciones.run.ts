@@ -12,12 +12,14 @@
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import {
-  CreacionError, FaltaTablaCreacionesError, darEstrella, listarCreaciones, misCreaciones, opcionesParaPublicar,
-  porQueNoSePublica, publicarCreacion, quitarEstrella, retirarCreacion, usarCreacion, verCreacion, type Creacion,
+  CreacionError, FaltaTablaCreacionesError, compartirCreacion, darEstrella, guardarCreacion, listarCreaciones,
+  misCreaciones, opcionesParaPublicar, porQueNoSePublica, publicarCreacion, quitarEstrella, rankingCreaciones,
+  retirarCreacion, usarCreacion, verCreacion, type Creacion,
 } from '@/lib/creaciones';
 import {
-  INFO_TIPO, esOrdenCreaciones, esTipoCreacion, porQueNoEstrella, sanearOrigenId, sanearPublicacion,
+  INFO_TIPO, esOrdenCreaciones, esPeriodoRanking, esTipoCreacion, porQueNoEstrella, sanearOrigenId, sanearPublicacion,
 } from '@/lib/creaciones-reglas';
+import { esVisibilidad } from '@/lib/plantillas-propias-reglas';
 import { linkApp } from '@/lib/app-url';
 
 const json = (o: unknown): string => JSON.stringify(o);
@@ -146,7 +148,7 @@ export const RUNNERS: Runners = {
       if ('error' in datos) return { error: datos.error };
       return {
         payload: { tipo, origenId, titulo: datos.titulo, descripcion: datos.descripcion, autorNombre: datos.autorNombre },
-        resumen: `Publicar para todos los negocios de MaKo la ${INFO_TIPO[tipo].singular} «${cosa.nombre}» como «${datos.titulo}». Sus textos se publican tal cual.`,
+        resumen: `Publicar para todos los negocios de MaKo «${cosa.nombre}» (${INFO_TIPO[tipo].singular}) como «${datos.titulo}». Los datos de tu negocio (nombre, equipo, emails, teléfonos, links, precios y fotos) se publican como [DATO].`,
       };
     },
     ejecutar: (payload, ctx) => seguro('publicar', async () => {
@@ -178,7 +180,7 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const c = await creacionDe(ctx.ws, input.creacionId);
       if ('error' in c) return { error: c.error };
-      if (c.estado !== 'publicada') return { error: `«${c.titulo}» ya no está publicada.` };
+      if (c.estado === 'retirada' || (c.estado === 'privada' && !c.mia)) return { error: `«${c.titulo}» ya no está publicada.` };
       if (!c.sePuedeUsar) return { error: `Todavía no se pueden usar ${INFO_TIPO[c.tipo as keyof typeof INFO_TIPO]?.titulo.toLowerCase() ?? 'creaciones de ese tipo'} en MaKo.` };
       return { payload: { creacionId: c.id }, resumen: `Crear en tu negocio una copia de «${c.titulo}» (${c.tipoTitulo}), apagada.` };
     },
@@ -192,5 +194,80 @@ export const RUNNERS: Runners = {
         paraLaPersona: `Ábrela aquí: ${link}`,
       };
     }),
+  },
+
+  guardar_como_plantilla: {
+    preparar: async (input) => {
+      if (!esTipoCreacion(input.tipo)) return { error: 'Falta qué se guarda (tipo).' };
+      const tipo = input.tipo;
+      const no = porQueNoSePublica(tipo);
+      if (no) return { error: no };
+      if (!esVisibilidad(input.visibilidad)) return { error: 'Falta quién la ve: «privada» (sólo este negocio) o «publica» (toda la comunidad).' };
+      const origenId = sanearOrigenId(input.origenId);
+      if (!origenId) return { error: `Falta el id de la ${INFO_TIPO[tipo].singular} que se guarda.` };
+      let opciones: Array<{ id: string; nombre: string }>;
+      try {
+        opciones = await opcionesParaPublicar(tipo);
+      } catch (e) {
+        return { error: `No pude leer tus ${INFO_TIPO[tipo].titulo.toLowerCase()} (${motivo(e)}).`, falla: true };
+      }
+      const cosa = opciones.find((o) => o.id === origenId);
+      if (!cosa) return { error: `No existe la ${INFO_TIPO[tipo].singular} ${origenId} en este negocio.`, disponibles: opciones.slice(0, 30) };
+      const datos = sanearPublicacion({ titulo: input.titulo || cosa.nombre, descripcion: input.descripcion, autorNombre: input.autorNombre });
+      if ('error' in datos) return { error: datos.error };
+      const publica = input.visibilidad === 'publica';
+      return {
+        payload: { tipo, origenId, visibilidad: input.visibilidad, titulo: datos.titulo, descripcion: datos.descripcion, autorNombre: datos.autorNombre },
+        resumen: publica
+          ? `Guardar «${cosa.nombre}» como plantilla para toda la comunidad, sin los datos de tu negocio (quedan como [DATO]).`
+          : `Guardar «${cosa.nombre}» como plantilla sólo para tu negocio, tal cual.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('guardar la plantilla', async () => {
+      if (!esTipoCreacion(payload.tipo) || !esVisibilidad(payload.visibilidad)) return { ok: false, resumen: 'No se pudo guardar la plantilla (pedido incompleto).' };
+      const r = await guardarCreacion(ctx.ws, {
+        tipo: payload.tipo, origenId: String(payload.origenId), visibilidad: payload.visibilidad,
+        titulo: payload.titulo, descripcion: payload.descripcion, autorNombre: payload.autorNombre,
+      }, autorDe(ctx));
+      const donde = r.estado === 'privada' ? 'sólo para tu negocio' : 'para la comunidad';
+      return {
+        ok: true,
+        resumen: r.actualizada ? `Listo: actualicé la plantilla «${r.titulo}» (${donde}).` : `Listo: «${r.titulo}» quedó como plantilla ${donde}. La ves en «Nuevo» de su tab.`,
+        datos: { creacionId: r.id, actualizada: r.actualizada, estado: r.estado },
+      };
+    }),
+  },
+  compartir_plantilla: {
+    preparar: async (input, ctx) => {
+      const c = await creacionDe(ctx.ws, input.creacionId);
+      if ('error' in c) return { error: c.error };
+      if (!c.mia || c.estado !== 'privada') return { error: `«${c.titulo}» no es una plantilla privada de este negocio (las publicadas ya se ven en la galería).` };
+      const autor = sanearPublicacion({ titulo: c.titulo, autorNombre: input.autorNombre });
+      if ('error' in autor) return { error: autor.error };
+      return { payload: { creacionId: c.id, autorNombre: autor.autorNombre }, resumen: `Compartir «${c.titulo}» con toda la comunidad, sin los datos de tu negocio (quedan como [DATO]). La tuya queda como está.` };
+    },
+    ejecutar: (payload, ctx) => seguro('compartir la plantilla', async () => {
+      const r = await compartirCreacion(ctx.ws, Number(payload.creacionId), autorDe(ctx), payload.autorNombre);
+      return {
+        ok: true,
+        resumen: r.actualizada ? `Listo: actualicé «${r.titulo}» en la galería (conserva sus estrellas).` : `Listo: «${r.titulo}» quedó compartida con la comunidad.`,
+        datos: { creacionId: r.id, actualizada: r.actualizada },
+      };
+    }),
+  },
+  ranking_creaciones: {
+    leer: async (input, ctx): Promise<SalidaLectura> => {
+      try {
+        const periodo = esPeriodoRanking(input.periodo) ? input.periodo : 'semana';
+        const r = await rankingCreaciones(ctx.ws, { periodo, tipo: esTipoCreacion(input.tipo) ? input.tipo : null });
+        return json({
+          periodo,
+          ranking: r.map((c) => ({ puesto: c.puesto, estrellas_del_periodo: periodo === 'siempre' ? undefined : c.delPeriodo, ...vistaDe(c) })),
+          nota: r.length ? undefined : (periodo === 'siempre' ? 'Todavía nadie dio una estrella.' : 'Nadie dio una estrella en ese período.'),
+        });
+      } catch (e) {
+        return fallo(motivo(e));
+      }
+    },
   },
 };

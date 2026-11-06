@@ -2182,3 +2182,85 @@ se miró en un navegador (la nube no corre el editor).
 `app/api/video-editor/presets/route.ts` · `chat/{linea,aplicar,comandos,contexto}.ts` · test `tests/video-editor-subtitulos-claves.test.ts`.
 
 *6/11/2026, sesión en la nube (`cli_e9e561bd-9357-538e-a412-924b21532f41`).*
+
+## B-roll y cambios de plano automáticos, al estilo de Submagic (6/11/2026, nube)
+
+**Lo que se hizo:** Biblioteca › Multimedia › «B-roll de MaKo» (y su botón en la barra de la línea de tiempo): «Proponer» lee lo
+que se dice, pone fotos de Pexels encima del video donde se dice algo que se puede mostrar y, si se pide, cambios de plano
+(acercamientos al ritmo de las frases). Cada propuesta queda en la línea de tiempo con borde punteado y se deja o se saca una por
+una (o todas). Por el chat del editor (`broll`) y por la API de MaKo (`proponer_broll_video`). Sumó el efecto «Acercar».
+
+- **DÓNDE lo decide el código; QUÉ, la IA del negocio** (`lib/editor-video/broll.ts`). Los huecos arrancan donde arranca una frase,
+  duran de 1,5 a 4 s, dejan libre el gancho (2 s) y el cierre, no pisan nada de lo que la persona ya puso encima y están
+  separados por el aire del ritmo, así que cualquier subconjunto que elija la IA también lo está. La IA elige por NÚMERO y escribe
+  la búsqueda; un número que no está, una búsqueda con una URL o repetida se descartan (`eleccionDeIA`). Sin IA, el respaldo
+  busca la palabra más fuerte de la frase: el B-roll sale igual.
+- **Las palabras de un subtítulo y las de una foto no son las mismas.** Las palabras clave premian números, «gratis», «importante»:
+  se resaltan pero no se fotografían. El B-roll saca números (también los dichos con letras: «tres semanas»), lo abstracto y las
+  formas verbales evidentes (`-aba`, `-ando`, `-aron`): «llegaba» pesaba por largo y no tiene foto.
+- **La fuente es Pexels con la clave de CADA negocio** (`lib/pexels.ts`, la integración «Pexels» con sus tres registros y su
+  logo de simple-icons). Su licencia deja el uso comercial sin atribución obligatoria; Openverse (el de las portadas) está
+  «licencia no verificada» para anuncios. Su API pide nombrar a quien sacó la foto: va en cada fila y en el elemento. El
+  navegador pide la foto por su ID; la URL la dice Pexels y sólo se baja de `images.pexels.com`, por `fetchSeguro` y con magic
+  bytes. Sin la clave, el modal de Pexels se abre en el mismo panel.
+- **El cambio de plano es una CAPA del efecto «Acercar», no un cambio en el clip.** Una capa de efecto cambia todo lo que tiene
+  debajo, así que la pista «Planos» va ÚLTIMA (pegada a la principal): acerca sólo a quien habla, no las fotos ni los textos de
+  arriba. Cortar o escalar el clip de la persona habría sido pisar lo que editó. Cortan en el borde de una frase, el primero va
+  abierto, y el cerrado fuerte va donde se dice algo con peso.
+- **Lo pendiente se CALCULA de la línea de tiempo, no se recuerda.** La marca `mako.propuesta` («broll» o «plano») va en los
+  params del elemento (como las marcas de las plantillas): sobrevive a recargar y a un Ctrl+Z, y el panel la lee de ahí.
+  «Dejar» la vacía y «Sacar» borra; ninguna de las dos toca un elemento sin la marca, y una pista de MaKo que queda vacía se va.
+  Volver a proponer reemplaza sólo lo pendiente del tipo que se volvió a calcular: si Pexels falló, lo propuesto antes se queda.
+- **Sin subtítulos, se transcribe acá mismo y no se ponen** (Whisper en el navegador, como «Subtítulos automáticos»): el B-roll
+  no obliga a subtitular.
+- **Probado con respuestas de un modelo escritas a mano** (tests/video-editor-broll.test.ts: 20 casos, 19 roturas). La IA real se
+  prueba desde la PC con `scripts/probar-broll-ia.mts` (tres guiones ficticios, en el Cliente de Prueba): la nube no tiene claves.
+
+**Sin hacer:** videos de Pexels como B-roll (sólo fotos); «Cambiar por otra foto» de una propuesta (las alternativas ya llegan de
+la búsqueda y no se guardan); el acercamiento va al centro del cuadro (no sigue la cara); nada se miró en un navegador ni se
+corrió con la IA real.
+
+**Vive en:** `lib/editor-video/{broll,broll-pexels,broll-ia,broll-prompts,claves}.ts` · `lib/pexels.ts` ·
+`app/api/video-editor/broll/route.ts` · `app/video-editor/_opencut/broll/` · `effects/definitions/efectos.ts` («acercar») ·
+`timeline/components/timeline-element.tsx` (el borde punteado) · `chat/{linea,aplicar,comandos}.ts` · test
+`tests/video-editor-broll.test.ts` · arnés `scripts/probar-broll-ia.mts`.
+
+*6/11/2026, sesión en la nube (`cli_e9e561bd-9357-538e-a412-924b21532f41`).*
+
+## Clips mágicos: de un video largo a varios cortos, cada uno en su proyecto (6/11/2026, nube)
+
+**Lo que se hizo:** Biblioteca › Multimedia › «Clips mágicos»: «Buscar los mejores momentos» lista los clips (título, puntaje
+de 0 a 99, lo primero que se dice y su tramo) y «Abrir» arma cada uno en un proyecto NUEVO, vertical y con subtítulos; el
+original no se toca. Por el chat del editor (`clips_magicos`) y por la API de MaKo (`buscar_clips_video`). Cómo lo hacen
+OpusClip y SamurAIGPT/AI-Youtube-Shorts-Generator (MIT), y qué se tomó: [investigacion-video-clips.md](investigacion-video-clips.md).
+
+- **Un clip es un tramo de FRASES ENTERAS, y la IA nombra frases, no tiempos** (`lib/editor-video/clips.ts`). Arranca después
+  de un punto o de una pausa de 0,8 s y termina igual; dura de 15 a 60 s. La IA del negocio devuelve `desde`/`hasta` por
+  número; un número fuera de su pedazo, al revés, un tramo de menos de 15 s o más de 60, o sin título se descartan, y los
+  tiempos los pone el código. El repo abierto le pide tiempos al modelo: acá no (un dato exacto no lo transporta un modelo).
+- **El puntaje es de 0 a 99 en cuatro partes, como el de OpusClip**: GANCHO (una pregunta o un «el error…» arrancando),
+  VALOR (palabras que pesan por minuto), RITMO (de 2,3 a 3,6 palabras por segundo, sin pausas largas) y CIERRE (termina en una
+  idea y dura de 20 a 45 s). Sin IA decide él (`clipsDeRespaldo`); con IA, la IA pone el suyo y el código valida lo demás. El
+  «Trend» de OpusClip no: sin datos de afuera no se mide.
+- **Dos clips no se pisan más de la mitad** (del más corto: la regla de SamurAIGPT) y un video largo va a la IA en pedazos de
+  20 minutos con un minuto de solape (la misma), hasta seis (dos horas). Si un pedazo falla y otro no, quedan los que llegaron.
+- **Abrir COPIA el proyecto** («Duplicar proyecto», que copia también sus archivos) y trabaja sobre la copia: corta todo lo de
+  afuera con el mismo corte de «Edición basada en la transcripción» (corre y recorta los subtítulos), con 0,15 s de aire;
+  pasa el lienzo a 9:16 y agranda el principal recortándolo al centro (`principalCubriendo`, la geometría de las plantillas);
+  saca los subtítulos (estaban ubicados para el horizontal) y los genera de nuevo con la plantilla y las palabras clave de
+  Subtítulos automáticos; deja el historial de deshacer vacío y le pone el título del clip. Si algo falla en el medio, la copia
+  se borra y vuelve el original. ⚠️ Copiar un video de una hora pesa lo mismo que el original en el navegador de la persona:
+  por eso se abre de a uno, cuando se pide, y no se arman todos de una.
+- **Lo que se dice sale de un solo lugar para el B-roll y los clips** (`broll/frases-del-video.ts`): los subtítulos si hay; si
+  no, Whisper en el navegador, sin ponerlos.
+
+**Sin hacer:** seguir la cara al pasar a vertical (va al centro); las pistas de arriba del horizontal (fotos, textos) quedan
+como estaban; nada se miró en un navegador ni se corrió con la IA real (la nube no tiene claves): para eso está
+`scripts/probar-clips-ia.mts --ws 3`, que corre lo mismo que la ruta sobre dos videos largos de ejemplo y marca un clip
+fuera de 15-60 s, dos que se pisan o más de los pedidos.
+
+**Vive en:** `lib/editor-video/{clips,clips-ia,clips-prompts}.ts` · `app/api/video-editor/clips/route.ts` ·
+`app/video-editor/_opencut/clips/` · `broll/frases-del-video.ts` · `chat/{linea,aplicar,comandos}.ts` · test
+`tests/video-editor-clips.test.ts` · `scripts/probar-clips-ia.mts` · [investigacion-video-clips.md](investigacion-video-clips.md).
+
+*6/11/2026, sesión en la nube (`cli_e9e561bd-9357-538e-a412-924b21532f41`).*

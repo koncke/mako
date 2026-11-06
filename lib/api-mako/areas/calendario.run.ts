@@ -12,7 +12,12 @@ import 'server-only';
 import { revalidatePath } from 'next/cache';
 import type { Runners, Preparado, Ejecutado } from '../tipos';
 import { hoyEnWorkspace } from '@/lib/timezone';
-import { crearEventos, listarPropios, recurrentesDelRango, zonaDelCalendario } from '@/lib/calendario';
+import { ejecutarEnlace, prepararEnlace } from '@/lib/calendario-email';
+import { crearEventos, leerLlamadasDeVenta, listarPropios, recurrentesDelRango, zonaDelCalendario } from '@/lib/calendario';
+import {
+  DIAS_ADELANTE_LLAMADAS, DIAS_ATRAS_LLAMADAS, TEXTO_ESTADO_LLAMADA, esPestanaLlamadas, estadoDeLlamada, llamadasDeLaPersona, llamadasDeLaPestana,
+  personasDeLlamadas,
+} from '@/lib/calendario-llamadas';
 import { linkDeAgenda } from '@/lib/agenda-link';
 import { anticipacionDeLaAgenda } from '@/lib/agenda-anticipacion';
 import { getWorkspace } from '@/lib/workspace';
@@ -217,5 +222,39 @@ export const RUNNERS: Runners = {
         datos: { programadas: r.programadas, fallidas: r.fallidas },
       };
     },
+  },
+
+  // 6/11/2026: «Llamadas» con el filtro por persona, la misma regla que la pantalla (`llamadasDeLaPersona`).
+  llamadas_del_equipo: {
+    leer: async (input) => {
+      const [hoy, tz] = await Promise.all([hoyEnWorkspace(), zonaDelCalendario()]);
+      const cuales = esPestanaLlamadas(input.cuales) ? input.cuales : 'proximas';
+      const persona = str(input, 'persona');
+      const todas = await leerLlamadasDeVenta(sumarDias(hoy, -DIAS_ATRAS_LLAMADAS), sumarDias(hoy, DIAS_ADELANTE_LLAMADAS), tz);
+      const ahora = new Date().toISOString();
+      const filas = llamadasDeLaPestana(llamadasDeLaPersona(todas, persona), cuales, ahora);
+      return JSON.stringify({
+        zona: tz, cuales, persona: persona ?? 'todo el equipo', total: filas.length,
+        nota: 'Las R1 y R2 del CRM, de dos meses atrás a cuatro adelante. No incluye la agenda de Google.',
+        por_persona: personasDeLlamadas(llamadasDeLaPestana(todas, cuales, ahora)).map((p) => ({ persona: p.nombre, llamadas: p.llamadas })),
+        llamadas: filas.slice(0, 200).map((l) => ({
+          lead_id: l.leadId, nombre: l.nombre, reunion: l.cual, fecha: diaDe(l.inicio, tz), hora: l.diaCompleto ? null : horaDe(l.inicio, tz),
+          closer: l.closer, setter: l.setter ?? null, estado: TEXTO_ESTADO_LLAMADA[estadoDeLlamada(l, ahora)],
+        })),
+        ...(filas.length > 200 ? { recortado: `Son ${filas.length}: van las primeras 200.` } : {}),
+      });
+    },
+  },
+
+  // 6/11/2026: el Email del Calendario, enlazado a Email Marketing (lib/calendario-email.ts: la regla de programar_broadcast).
+  enlazar_email_calendario: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const eventoId = str(input, 'eventoId');
+      const broadcastId = typeof input.broadcastId === 'number' ? input.broadcastId : Number(input.broadcastId);
+      if (!eventoId) return { error: 'Falta el id del evento.', faltan: ['eventoId'] };
+      if (!Number.isInteger(broadcastId) || broadcastId <= 0) return { error: 'Falta el id del broadcast.', faltan: ['broadcastId'] };
+      return prepararEnlace(eventoId, broadcastId, ctx);
+    },
+    ejecutar: (payload, ctx): Promise<Ejecutado> => ejecutarEnlace(payload, ctx),
   },
 };

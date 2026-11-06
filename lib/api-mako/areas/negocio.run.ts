@@ -862,15 +862,15 @@ export const RUNNERS: Runners = {
       const falta = await faltaBrief();
       if (falta) return { error: falta, faltan: ['perfil'] };
       const actuales = await getEntregables();
-      const conEnlace = actuales.filter((e) => e.enlace).length;
+      const conEnlace = actuales.filter((e) => e.enlace || e.pieza).length;
       return {
         payload: { respuestas },
-        resumen: `Generar lead magnets con MaKo${respuestas.length ? ` usando ${respuestas.length} respuesta${respuestas.length === 1 ? '' : 's'}` : ''}: reemplaza ${actuales.length - conEnlace} y conserva ${conEnlace} con enlace.`,
+        resumen: `Generar lead magnets con MaKo${respuestas.length ? ` usando ${respuestas.length} respuesta${respuestas.length === 1 ? '' : 's'}` : ''}: reemplaza ${actuales.length - conEnlace} y conserva ${conEnlace} con link o con su pieza armada.`,
       };
     }),
     ejecutar: sinLanzar(async (payload) => {
       const r = await regenerarLeadMagnets(respuestasDe(payload.respuestas));
-      return r.ok ? { ok: true, resumen: `Lead magnets generados: ${r.nuevos} nuevos, ${r.conservados} con enlace conservados.` } : { ok: false, resumen: r.error };
+      return r.ok ? { ok: true, resumen: `Lead magnets generados: ${r.nuevos} nuevos, ${r.conservados} conservados (con link o con su pieza).` } : { ok: false, resumen: r.error };
     }),
   },
 
@@ -891,7 +891,7 @@ export const RUNNERS: Runners = {
       for (const k of ['nombre', 'tipo', 'queEs', 'fomo', 'enlace'] as const) if (typeof payload[k] === 'string' && payload[k]) patch[k] = payload[k] as string;
       if (patch.enlace && !/^https?:\/\//i.test(patch.enlace)) return { ok: false, resumen: 'El enlace tiene que empezar con http:// o https://.' };
       const r = await editarLeadMagnet(String(payload.id ?? ''), patch);
-      return r.ok ? { ok: true, resumen: 'Lead magnet actualizado.' } : { ok: false, resumen: `No se guardó: ${r.motivo}.` };
+      return r.ok ? { ok: true, resumen: r.aviso ? `Lead magnet actualizado. ${r.aviso}` : 'Lead magnet actualizado.' } : { ok: false, resumen: `No se guardó: ${r.motivo}` };
     }),
   },
 
@@ -1303,6 +1303,24 @@ export const RUNNERS: Runners = {
       const r = await cambiarKits((k) => sinKit(k, String(payload.id ?? '')));
       return r.ok ? { ok: true, resumen: 'Kit de marca borrado.' } : { ok: false, resumen: r.error };
     }),
+  },
+  ver_plantillas_oferta: {
+    leer: async (input): Promise<SalidaLectura> => {
+      const { PLANTILLAS_OFERTA, plantillaOferta, formaParaPrompt } = await import('@/lib/offer-plantillas');
+      const linea = (p: (typeof PLANTILLAS_OFERTA)[number]) => ({
+        id: p.id, nombre: p.nombre, cuando: p.cuando, grupo: p.grupo, forma: p.forma, preguntas: p.preguntas, chips: p.ficha.chips,
+      });
+      if (typeof input.id === 'string' && input.id.trim()) {
+        const p = plantillaOferta(input.id.trim());
+        if (!p) return JSON.stringify({ error: 'No existe esa plantilla.', disponibles: PLANTILLAS_OFERTA.map((x) => x.id) });
+        return JSON.stringify({
+          ...linea(p), forma_en_texto: formaParaPrompt(p),
+          ejemplo: { negocio: `${p.negocio.nombre} (ficticio)`, oferta: p.ejemplo, ...(p.diagnostico ? { diagnostico: p.diagnostico.d } : {}) },
+          nota: 'El ejemplo es de un negocio ficticio: sirve para ver la forma, nunca como dato de este negocio.',
+        });
+      }
+      return JSON.stringify({ plantillas: PLANTILLAS_OFERTA.map(linea), nota: 'Con id, trae el ejemplo completo de una.' });
+    },
   },
 };
 

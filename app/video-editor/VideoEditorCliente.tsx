@@ -37,6 +37,8 @@ import type { DesdeEditor } from './desde/desde';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { SenalesNegocioProvider } from './sugeridas';
 import { EJEMPLOS_NUEVO_VIDEO, GENERAR_CON_IA, destinoDe, plantillasNuevoVideo, rutaDePlantilla } from './plantillas-crear';
+import { ejemploDeVideo, type EjemploVideo } from '@/lib/editor-video/plantillas-ejemplos';
+import { EjemploPlantillaVideo } from './EjemploPlantillaVideo';
 import { cargarMotor, useProyectosVideo } from './proyectos';
 
 const EditorPage = dynamic(() => import('./_opencut/editor-page').then((m) => m.EditorPage), { ssr: false });
@@ -131,6 +133,13 @@ function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, sen
   }, [proyectos, actual, router]);
 
   const plantillas = useMemo(() => plantillasNuevoVideo(senales), [senales]);
+  // «Ver ejemplo» de una plantilla de anuncio (6/11/2026): el ejemplo ficticio como guion de rodaje, aparte.
+  const [ejemplo, setEjemplo] = useState<{ id: string; nombre: string; e: EjemploVideo } | null>(null);
+  const verEjemplo = (pl: PlantillaCrear) => {
+    const d = destinoDe(pl.id);
+    const e = d?.tipo === 'plantilla' ? ejemploDeVideo(d.id) : null;
+    if (d?.tipo === 'plantilla' && e) setEjemplo({ id: d.id, nombre: pl.nombre, e });
+  };
 
   const usarPlantilla = async (pl: PlantillaCrear): Promise<string | null> => {
     const d = destinoDe(pl.id);
@@ -164,6 +173,7 @@ function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, sen
         actual={actual}
         plantillas={plantillas}
         onPlantilla={usarPlantilla}
+        onVerEjemplo={verEjemplo}
         ejemplos={EJEMPLOS_NUEVO_VIDEO}
         chat={editor ? (volver) => <PanelChat volver={volver} /> : undefined}
         // El editor necesita el ancho (29/10/2026: la barra cortaba «Transicio…» y el reproductor quedaba chico): el chat se pliega.
@@ -171,6 +181,10 @@ function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, sen
       >
         {pieza}
       </PantallaCrear>
+      {ejemplo && (
+        <EjemploPlantillaVideo nombre={ejemplo.nombre} e={ejemplo.e} alSalir={() => setEjemplo(null)}
+          alUsar={() => { const id = ejemplo.id; setEjemplo(null); router.push(rutaDePlantilla(id)); }} />
+      )}
       {renombrando && (
         <RenameProjectDialog
           isOpen

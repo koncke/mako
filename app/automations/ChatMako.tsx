@@ -95,6 +95,8 @@ import {
 import { pedirPedidos, pedirALaLista } from './pedidos-cliente';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
+import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
+import { separarCita } from '@/lib/centro-mensajes';
 
 /**
  * LA VISTA (el hilo y la caja únicos, 23/10/2026, AU4) entra con `next/dynamic`: trae el CSS de las piezas únicas, y este
@@ -546,14 +548,17 @@ export function ChatMako(p: ChatMakoProps) {
     const sinEnviado = (xs: ExtraChat[]) => xs.filter((x) => x.id !== enviado.id);
     // LOS PEDIDOS SUELTOS: qué es de ESTA automatización y qué no. Sin respuesta útil, todo es de ésta (cero regresión).
     setInterpretando(true);
-    const crudo = await pedirPedidos(cuerpoPedidos(t, p.secuenciaId, p.nombre ?? ''));
+    // Lo que se interpreta es lo ESCRITO, sin la cita de «Responder» (lib/centro-mensajes.ts, `separarCita`): con el renglón
+    // citado adentro, citar «Archiva la automatización» y escribir «mejor no» la archivaba. La parte de ésta vuelve con su cita.
+    const { pedido: lemos, conCita } = separarCita(t);
+    const crudo = await pedirPedidos(cuerpoPedidos(lemos, p.secuenciaId, p.nombre ?? ''));
     if (!vivo.current) return true;
     setInterpretando(false);
     // Con el lienzo VACÍO, «crea una automatización…» es el pedido para ÉSTA, no una burbuja (`paraLienzoVacio`).
-    const leida = interpretacionDe(crudo, t);
-    const i = crea ? paraLienzoVacio(leida, t) : leida;
+    const leida = interpretacionDe(crudo, lemos);
+    const i = crea ? paraLienzoVacio(leida, lemos) : leida;
     const nuevas = burbujasDe(i, p.secuenciaId).filter((b) => b.tipo !== 'crear' || !!p.onCrearOtra);
-    const actual = textoActual(i);
+    const actual = conCita(textoActual(i));
     if (!nuevas.length) { ponerExtras(sinEnviado); return turno(t, null, origen, actual ?? undefined, [], voz); }
     // Lo escrito queda en el hilo; las burbujas, debajo.
     const base = Date.now();
@@ -688,6 +693,8 @@ export function ChatMako(p: ChatMakoProps) {
     onSinImagen: (puedeLeer) => setError({ texto: puedeLeer ? 'No hay una imagen copiada.' : 'Este navegador no deja pegar.' }),
   };
   /** ➤ de la caja: lo escrito y lo adjuntado (ya leído). Si no salió, vuelve todo a la caja. */
+  // La cita es de ESTA automatización: al abrir otra no viaja (la clave del hook).
+  const cita = useCitaDelChat(p.secuenciaId ?? null);
   const mandar = async () => {
     if (trabajando || interpretando || p.deshabilitado) return;
     if (adjuntosRef.current.some((a) => a.estado === 'leyendo')) { setError({ texto: 'Espera a que termine de leer el archivo.' }); return; }
@@ -696,8 +703,9 @@ export function ChatMako(p: ChatMakoProps) {
     const adj = antes.filter((a) => leidos.current.has(a.id)).map((a) => ({ nombre: a.file.name || 'archivo', texto: leidos.current.get(a.id)! }));
     if (!escrito.trim() && !adj.length) return;
     setTexto(''); ponerAdjuntos([]);
-    const r = await enviarTexto(escrito, 'barra', adj);
-    if (r === true || !vivo.current) { for (const a of antes) URL.revokeObjectURL(a.url); return; }
+    // «Responder» del clic derecho (6/11/2026, useCitaDelChat): la cita sale adelante de lo escrito, y se suelta sólo si salió.
+    const r = await enviarTexto(cita.con(escrito, adj.length > 0), 'barra', adj);
+    if (r === true || !vivo.current) { for (const a of antes) URL.revokeObjectURL(a.url); if (r === true) cita.soltar(); return; }
     setTexto(escrito); ponerAdjuntos(antes);
     if (r.error) setError({ texto: r.error });
   };
@@ -766,10 +774,11 @@ export function ChatMako(p: ChatMakoProps) {
         caja={{
           texto, onTexto: (v) => { setError(null); setTexto(v); }, onMandar: () => void mandar(),
           ocupado: trabajando || interpretando, apagado: !!p.deshabilitado, placeholder, enterManda: true, tituloMandar: 'Enviar',
-          adjuntos: adjuntosCaja,
+          adjuntos: adjuntosCaja, arriba: cita.arriba,
           voz: { onAudio: (b, segs) => { void enviarAudio(b, segs); }, onError: (m) => setError({ texto: m }), rotuloEnviar: 'Enviar audio' },
           bloqueo: appEscritorio.bloqueo,
         }}
+        onCitar={cita.citar}
       />
     </div>
   );

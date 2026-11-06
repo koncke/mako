@@ -81,9 +81,10 @@ test('SIN la migración, cambiar no se hace (perdería lo que ya mandó), y las 
   assert.match(f, /if \(error\) \{[\s\S]*?return \{ ok: false, error: 'Todavía no se puede cambiar el código\. Prueba más tarde\.' \};/);
   assert.doesNotMatch(f, /from\('partner_codigos'\)\.update/, 'nunca un update suelto: el viejo se guardaría a medias');
   assert.match(f, /if \(!\(await altaDePartner\(ws\)\.catch\(\(\) => null\)\)\) return/, 'sólo un partner');
-  for (const n of ['wsDeCodigoAnterior', 'codigosAnterioresDe']) {
-    assert.match(cuerpo('lib/partners-programa.ts', n), /error \? \[\]|!error && data/, `${n}: sin la tabla, ninguno`);
-  }
+  assert.match(cuerpo('lib/partners-programa.ts', 'codigosAnterioresDe'), /error \? \[\]/, 'codigosAnterioresDe: sin la tabla, ninguno');
+  // `wsDeCodigoAnterior` (6/11/2026): sin la tabla, ninguno; con OTRO error tira («no pude leer» no es «no es de nadie»). Ejecutado
+  // con la base de mentira en tests/partners-referidos.test.ts (el hijo tests/_partners-codigo-viejo-hijo.ts).
+  assert.match(cuerpo('lib/partners-programa.ts', 'wsDeCodigoAnterior'), /if \(error\.code === '42P01' \|\| error\.code === 'PGRST205'\) return null;/, 'wsDeCodigoAnterior: sin la tabla, ninguno');
 });
 
 test('se CAMBIA desde el panel («Cambiar», con lo de antes que sigue contando) y por la API', () => {
