@@ -101,6 +101,28 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un test que lee fuente SIN normalizar el CRLF es rojo en toda PC con Windows y verde en Actions (6/11/2026)
+
+- **Sintoma:** `tests/newsletter.test.ts` da 1 rojo en la PC, en la prueba de la tab de newsletters. El
+  mensaje no ayuda: dice «recargarAction no abre con la puerta de la tab» y el valor que muestra es un
+  trozo de la FIRMA de la funcion, no una linea del cuerpo.
+- **Causa:** su helper es `const leer = (p) => readFileSync(..., 'utf8')` — **sin** el
+  `.replace(/\r\n/g, '\n')` que usan los demas tests que leen fuente. Despues busca el inicio del cuerpo
+  con `t.search(/[>)] \{\n/)`, que no empata contra `> {\r\n`: `search` devuelve **-1**, el `+3` corta a
+  mitad de la firma y la primera «linea del cuerpo» es basura.
+- **Medido:** con el archivo como esta en disco (CRLF) fallan **16 de 16** funciones; con el mismo
+  contenido en LF, **0 de 16**. O sea: el test es rojo en cualquier Windows (git lo checkoutea con
+  `core.autocrlf=true`) y verde en Actions, que corre en Linux con LF.
+- **Lo obvio que era equivocado:** aparecio corriendo los tests afectados de otra punta —
+  `tests/newsletter.test.ts` lee `lib/prompt-registry.ts`, asi que lo elige cualquier cambio en el
+  registro de prompts— y lo primero que se piensa es «lo rompi yo». No: `app/newsletters/actions.ts` no
+  estaba tocado. **Un rojo local que Actions no ve cuesta el mismo rato que uno de verdad**, y hace dudar
+  de un veredicto que estaba bien.
+- **Regla:** todo test que compare TEXTO de un archivo fuente normaliza los `\r\n` al leer, como ya manda
+  AGENTS.md para las guardas de sincronia. Un patron de test con `\n` se escribe `\r?\n`. Y al reves
+  tambien vale: **un rojo que solo pasa en la PC se confirma en LF antes de perseguirlo.**
+- **Sin hacer:** el `leer` de `tests/newsletter.test.ts:20` (una linea). Va aparte: es de newsletters.
+
 ## Apilar puntas propaga el rojo: un «mandás» puso en rojo CUATRO, y la regla dice que cada una se chequea sola (6/11/2026)
 
 Cuatro trabajos distintos, cuatro commits, cuatro puntas — pero commiteados uno encima del otro en el

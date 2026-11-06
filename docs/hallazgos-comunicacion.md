@@ -4319,9 +4319,20 @@ que le faltaba a `saveFunnelAction`; y el gate de Fathom por conexión viva.
   `app/whatsapp/WhatsAppApp.tsx:227`), ciego a `funnel_config`. Todos los leads de un cliente
   así quedan en «Abierto» para siempre, y ese label es lo único que recibe
   `lib/whatsapp-advisor.ts:175`. Es la pantalla donde vive un cliente que vende por chat.
-- **Cinco prompts con la identidad de Mauricio hardcodeada para todos los workspaces**, ninguno
-  en el registry. El peor: `app/api/email/generar/route.ts:18-24` mete el Calendly de Mauricio
-  como CTA de cualquier cliente.
+- ~~**Cinco prompts con la identidad de Mauricio hardcodeada para todos los workspaces**, ninguno
+  en el registry.~~ **CERRADO el 6/11/2026, y el renglón decía dos cosas falsas.** (a) **La lista de los
+  cinco nunca existió**: este renglón fue siempre el único, sin enumerarlos, así que nadie pudo cerrar
+  cuatro de ellos ni comprobar que estuvieran. Barrido el repo (prompts de IA en `lib/` y `app/api/`),
+  los que cableaban identidad de un negocio eran **dos**: `app/api/email/generar/route.ts`
+  (el Calendly de Mauricio como CTA de cualquier cliente), arreglado en `97f98ba81`; y
+  `SYSTEM_ANALISIS` de `lib/closing.ts`, arreglado el 6/11. Queda sólo la clase leve del NOMBRE PROPIO
+  como ejemplo (`REGLA_NOMBRE_PROYECTO` en `lib/plan-proyectos-catalogo.ts:282`, y los few-shot de
+  `lib/plan-fathom.ts`, que están fijados por `tests/plan-fathom-prompt.test.ts` a propósito).
+  (b) **«ninguno en el registry» era falso**: `closing.analyze.system` estaba en el registry desde antes
+  y el bug seguía entero. Estar en el registry hace que el texto se pueda EDITAR; no hace que el dato
+  salga del workspace. El porqué y las tres guardas que estaban en verde, en
+  `docs/hallazgos-closing.md`. **Lo que sí sigue abierto es otra cosa**: `RE_SERVICIO_EXPLICITO`
+  (`lib/closing.ts:141`) es el mismo bug en una regex de pre-clasificación, no en un prompt.
 - `saveFunnelAction` (`app/crm/actions.ts:1771`) **no valida rol**.
 - `/comercial` y las vistas `v_cohortes_*` filtran `fecha_junta_1 IS NOT NULL` **en SQL**
   (`supabase/migrations/0001_initial_schema.sql:159-168,197-207`): para un cliente sin llamadas
