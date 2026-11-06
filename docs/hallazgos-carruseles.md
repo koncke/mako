@@ -27,8 +27,8 @@ salida no se podía saber si faltaba crédito o si era un límite nuestro, y por
 **La regla:**
 - **Cuando una corrida para, dice por qué, con el número, y qué lo destraba.** «No hay crédito libre (quedan US$X, la reserva
   es US$Y)» se arregla cargando crédito; «llegué al tope que me pediste (US$Z)» se arregla con `--techo-usd`; «se terminaron
-  las tandas» no se arregla. Son tres cosas distintas y «al techo» las dice todas iguales. El porqué se imprime también **en
-  seco**, antes de gastar: ahí es donde se revisa.
+  las tandas» no se arregla, y «Apify dijo que no queda crédito» se arregla cargando crédito. Son cuatro cosas distintas y
+  «al techo» las dice todas iguales. El porqué se imprime también **en seco**, antes de gastar: ahí es donde se revisa.
 - **El margen de un techo por tanda no es gasto.** Contra el techo de la corrida va el precio MEDIDO (`USD_POR_LINK_MEDIDO`,
   US$0,0027), no el de lista (US$0,0023, que subestima la factura) ni el de lista con margen. El margen vive sólo en el
   `maxTotalChargeUsd` de la tanda, y ese techo se recorta a lo que queda para que no pueda gastar de más.

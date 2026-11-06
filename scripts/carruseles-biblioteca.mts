@@ -258,7 +258,6 @@ async function leer() {
   if (plan.alDia.length) console.log(`  Al día (leídas hace menos de una semana): ${plan.alDia.join(' ')}`);
   if (!deVerdad) return;
 
-  const db = getSupabaseServer();
   const conContenido = await hayColumnaContenido();
   if (!conContenido) console.log('  (Falta la 0393: se guarda sin la señal «parece contenido»; la pantalla la calcula del texto.)');
   const con0404 = await hayColumnas0404();
