@@ -1206,6 +1206,7 @@ export const RUNNERS: Runners = {
         : await prenderMensualidad({ agenciaWs, desde: String(payload.desde ?? ''), medio: typeof payload.medio === 'string' ? payload.medio : null, autor: autorDe(ctx) });
       return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
     }),
+  },
 
   ver_ingresos_de_mako: {
     leer: async (_input, ctx) => {
