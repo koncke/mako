@@ -1359,8 +1359,8 @@ Medido el 6/11 corriendo `scripts/plan-cortes-anuncio.mjs` sobre tres voces sint
 
 | lo que recibe el script | tramos de la toma 2 | total del plan |
 |---|---|---|
-| `3,4.5,3` (la lista) | 1, hasta 4,49 s | 3,97 s |
-| `3` (lo que mandaba el worker) | **ninguno** | 2,65 s |
+| `3,4.5,3` (la lista) | 1, de 3,00 a 4,27 s | 3,81 s |
+| `3` (lo que mandaba el worker) | **ninguno** | 2,54 s |
 
 El tope no recorta el tramo: lo **descarta**. `tramos()` corta en
 `TOPE = min(DURVID, duración del audio)`, así que si el habla de una toma empieza después del

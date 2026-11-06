@@ -7958,6 +7958,14 @@ El diagnóstico obvio («alguien borró la etapa en el editor») era el equivoca
   versión estricta (`getSettingEstricto`, `getDiagnosticoFaseEstricto`). Lo que decide qué se dibuja y se va a
   GUARDAR se relee estricto y tiene que dar lo mismo (`hechosConfirmados` en lib/onboarding-arranque-server.ts).
 
+- **Y el primo del default: el valor que se pone PARA QUE NO QUEDE CRUDO.** `{{link_pago}}`, sin cobro pendiente, no
+  sale como `{{link_pago}}`: sale «sin link de pago pendiente», a propósito, porque un token crudo en el WhatsApp de un
+  cliente parece un mensaje roto (`valoresDelCobro`, lib/variables-del-lead.ts). Está bien **donde la ausencia es un
+  hecho** y es una trampa donde no lo es: un pago rechazado deja el cobro en `fallido`, así que una plantilla que le
+  dijera «pagá acá: {{link_pago}}» le manda esa frase justo a quien tiene que pagar, sin un solo error (6/11/2026,
+  el pendiente 288; docs/hallazgos-chatbot.md). **Antes de usar un dato así en un texto que SALE, preguntá en qué
+  estado está la entidad de la que se lee**, no sólo si el token existe.
+
 # Dos escritores con dos ritmos son dos claves
 
 `landing.config` la escribe la persona desde un modal con read-modify-write del JSON

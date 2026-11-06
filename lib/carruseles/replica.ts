@@ -107,7 +107,8 @@ export function promptDeReplica(p: PedidoReplica): string {
     '',
     'Reglas:',
     '- Copia el patrón (cómo abre, cuántas ideas por lámina, cómo cierra), NUNCA sus frases: cada texto lo escribes tú para este negocio, con un largo parecido al original para que entre en el mismo lugar.',
-    '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su firma, va el nombre del negocio.',
+    '- Y tampoco sus HECHOS. Si el original cuenta algo que le pasó a su autor (una anécdota, un premio, un familiar, una fecha, un lugar, una cifra), eso no le pasó a este negocio: usa la misma estructura con lo que sabes del negocio de abajo, y si no sabes nada que contar ahí, escribe la idea sin la anécdota. Nunca cuentes como propio del negocio algo que le pasó a otra persona.',
+    '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su firma va el NOMBRE del negocio, tal como está escrito abajo, y nada más: nunca un @, un usuario ni un sitio web, porque no los sabes.',
     '- Español neutro, de «tú», como se habla en México.',
     p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra que tenga sentido para este negocio (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
     p.conAvatar ? '- Donde el original tiene la foto de una persona, marca `persona: true`: ahí va la foto del dueño del negocio.' : '- No pongas fotos ni personas: la lámina es sólo tipografía y color. Deja `foto: null` en todas.',
@@ -143,7 +144,7 @@ function promptDeMiniatura(p: PedidoReplica): string {
     'Reglas:',
     '- Es UNA sola lámina, apaisada (16:9, 1280 × 720). Exactamente 1 elemento en "laminas".',
     '- El texto grande tiene de 2 a 6 palabras, en mayúsculas si el original las usa. Es un gancho que da curiosidad, nunca el título entero del video. Como mucho un texto chico más.',
-    '- Copia el patrón (qué promete, cómo lo dice), NUNCA sus palabras. No pongas el nombre, el @ ni la marca del canal original.',
+    '- Copia el patrón (qué promete, cómo lo dice), NUNCA sus palabras ni los hechos que cuenta de su autor. No pongas el nombre, el @ ni la marca del canal original, y nunca un @ ni un usuario del negocio: no los sabes.',
     '- Español neutro, de «tú», como se habla en México.',
     p.conAvatar ? '- Donde el original tiene la cara de una persona, marca `persona: true` y su lugar: ahí va la foto del dueño del negocio. Deja el texto del lado contrario.' : '- No pongas fotos ni personas: la miniatura es tipografía y color. Deja `foto: null`.',
     '- El texto ENORME: tamano entre 0.08 y 0.15 (fracción del ancho). Contraste fuerte con el fondo.',
@@ -180,12 +181,35 @@ const color = (v: unknown, def: string): string => {
 };
 const limpio = (v: unknown, max: number): string => (typeof v === 'string' ? v.replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max) : '');
 
+/** Un `@usuario` suelto (no el de un mail: ahí el `@` viene pegado a una letra). El `.` y el `_` son válidos en un handle. */
+const ARROBA = /(^|[^\w@.])@([A-Za-z0-9](?:[A-Za-z0-9._]{1,29}))/g;
+const comoHandle = (s: string): string => s.toLowerCase().replace(/^@/, '').replace(/[._]+$/, '');
+
+/**
+ * El `@usuario` de un texto que devolvió la IA: el del negocio si es el suyo, y si no, FUERA.
+ *
+ * ⚠️ Esto es la segunda capa de AGENTS.md → «Una regla en un prompt no es una regla» (y su corolario: un DATO EXACTO que pasa
+ * por las manos de un LLM deja de ser exacto). El prompt dice desde el principio «no pongas el nombre, el @ ni la marca del
+ * creador original», y el modelo lo cumple: no pone el del creador — **inventa el del negocio**. Medido el 6/11/2026 con la IA
+ * real (ws9, carrusel -136): las 10 láminas salieron firmadas «Martin Koncke» y «@martinkoncke», un usuario que nadie cargó
+ * nunca. El cliente publica un @ que no existe y nadie lo encuentra. Un handle no tiene redundancia: o lo pone el código (el
+ * de la marca, cuando esté cargado) o no va.
+ */
+export function conElArrobaDelNegocio(texto: string, usuario: string | null | undefined): string {
+  const mio = usuario?.trim() ? comoHandle(usuario) : null;
+  return texto
+    .replace(ARROBA, (todo, antes: string, handle: string) => (mio && comoHandle(handle) === mio ? todo : antes))
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ ([,.;:!?])/g, '$1')
+    .trim();
+}
+
 /**
  * La réplica que devolvió la IA, acotada: posiciones entre 0 y 1, colores en #RRGGBB, textos cortos, hasta `LAMINAS_MAX`
  * láminas. Si faltan láminas, se completan con lo que hay (nunca con más de las que pidió). Un JSON roto se repara una vez
  * (lib/json-del-modelo.ts); sin ninguna lámina con texto, `{ error }`.
  */
-export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean }): Replica | { error: string } {
+export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; usuario?: string | null }): Replica | { error: string } {
   let j: Record<string, unknown>;
   try { j = parseJsonObject(crudo); } catch { return { error: 'La IA no devolvió el diseño en un formato que pueda leer.' }; }
   const lista = Array.isArray(j.laminas) ? j.laminas : [];
@@ -198,7 +222,7 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
     const textos: TextoReplica[] = [];
     for (const crudoT of Array.isArray(l.textos) ? l.textos.slice(0, TEXTOS_POR_LAMINA) : []) {
       const t = crudoT && typeof crudoT === 'object' ? (crudoT as Record<string, unknown>) : {};
-      const contenido = limpio(t.texto, LARGO_TEXTO);
+      const contenido = conElArrobaDelNegocio(limpio(t.texto, LARGO_TEXTO), o.usuario);
       if (!contenido) continue;
       const x = num(t.x, 0, 0.95, 0.08);
       textos.push({
